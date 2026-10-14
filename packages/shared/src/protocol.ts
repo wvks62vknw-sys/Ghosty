@@ -52,6 +52,9 @@ export interface KeyStatus {
   set: boolean;
   hint: string;
   link: string;
+  need: 'needed' | 'recommended' | 'optional';
+  why: string;
+  steps: string[];
 }
 
 export interface ModelHealth {

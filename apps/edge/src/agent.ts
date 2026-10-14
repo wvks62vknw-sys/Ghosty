@@ -9,7 +9,7 @@
 import type { BrainStatus, ChatEvent, ChatTurn, KeyStatus } from '../../../packages/shared/src/protocol';
 import type { Env } from './env';
 import { GitHub } from './github';
-import { KEYS } from './keys';
+import { KEYS, keyDefs, testKey } from './keys';
 import { needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
 import { Router, type Msg, type ToolCall } from './llm/router';
@@ -127,10 +127,12 @@ export class GhostyAgent {
       if (path === '/keys' && method === 'POST') {
         const { name, value } = (await req.json()) as { name: string; value: string };
         if (!KEYS.some((k) => k.name === name)) return json({ error: 'unknown key' }, 400);
-        await this.vault.set(name, String(value ?? '').trim());
+        const v = String(value ?? '').trim().replace(/\s+/g, '');
+        await this.vault.set(name, v);
         await this.router.resetHealth();
-        if (name !== 'github' && value) this.state.waitUntil(this.router.discover(true));
-        return json({ ok: true });
+        if (name !== 'github' && v) this.state.waitUntil(this.router.discover(true));
+        const check = v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
+        return json({ ok: true, works: check.ok, info: check.info });
       }
       if (path === '/models/reset' && method === 'POST') {
         await this.router.resetHealth();
@@ -184,7 +186,7 @@ export class GhostyAgent {
 
   private async status(owner: string): Promise<BrainStatus> {
     const keys: KeyStatus[] = [];
-    for (const k of KEYS) keys.push({ name: k.name, label: k.label, set: await this.vault.has(k.name), hint: k.hint, link: k.link });
+    for (const k of keyDefs(this.env.GITHUB_REPO)) keys.push({ name: k.name, label: k.label, set: await this.vault.has(k.name), hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
     if (this.env.GITHUB_TOKEN) keys.find((k) => k.name === 'github')!.set = true;
     this.state.waitUntil(this.router.discover(false));
     return {

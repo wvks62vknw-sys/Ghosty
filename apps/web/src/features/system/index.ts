@@ -1,5 +1,5 @@
 /** SYSTEM tab: keys, AI models, appearance, voice, home location and connection status. */
-import type { BrainStatus } from '../../../../../packages/shared/src/protocol';
+import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey } from '../../api/brain';
 import { listVoices } from '../../assistant/voice';
 import { clear, h } from '../../core/dom';
@@ -18,32 +18,44 @@ export const systemTab: TabDef = {
   scene: 'backdrop',
   mount(root) {
     const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'LOOK & STATUS', leftLabel: 'KEYS & MODELS' });
-    const kp = panel('KEYS · STORED ENCRYPTED IN YOUR BRAIN');
-    const mp = panel('AI MODELS', { footer: true });
+    const kp = panel('KEYS', { cls: 'scroll' });
+    const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
     const lp = panel('LOOK & VOICE', { grow: false });
     const sp = panel('STATUS');
     P.right.append(lp.el, sp.el);
     let status: BrainStatus | null = null;
 
+    let showOptional = false;
+    const openHelp = new Set<string>();
     const paintKeys = () => {
       clear(kp.body);
       if (!status) {
         kp.body.append(h('div.note', 'Brain not reachable. Check the connection on the right.'));
         return;
       }
-      kp.body.append(h('div.note', 'Keys are sent once to your brain, encrypted there, and never shown again. Free keys take about a minute each.'));
-      for (const k of status.keys) {
-        const input = h('input', { type: 'password', placeholder: k.set ? '•••••••• saved — paste to replace' : k.hint, autocomplete: 'off', 'aria-label': k.label });
-        const st = h('small.note', k.set ? 'saved' : '');
+      const missing = status.keys.filter((k) => k.need === 'needed' && !k.set);
+      kp.setStatus(missing.length ? `${missing.length} NEEDED` : 'READY', missing.length ? 'mid' : 'ok');
+      kp.body.append(
+        h('div.note', missing.length
+          ? 'You only need the two keys under NEEDED. Each takes about a minute: press HOW TO GET IT and follow the steps. Keys are encrypted in your brain and never shown again.'
+          : 'All set. The others are optional extras. Keys are encrypted in your brain and never shown again.'),
+      );
+      const block = (k: KeyStatus) => {
+        const input = h('input', { type: 'password', placeholder: k.set ? 'saved — paste a new one to replace' : `paste here (${k.hint})`, autocomplete: 'off', 'aria-label': `${k.label} key` });
+        const st = h('small.note', '');
         const save = button(k.set ? 'REPLACE' : 'SAVE', async (b) => {
+          const v = input.value.trim();
+          if (!v) return void (st.textContent = 'Paste the key into the box first.');
           b.disabled = true;
+          st.textContent = 'checking…';
           try {
-            await brain.setKey(k.name, input.value.trim());
+            const r = await brain.setKey(k.name, v);
             input.value = '';
-            st.textContent = 'saved ✓';
-            toast(`${k.label.split(' (')[0]} key saved`, 'ok');
-            setTimeout(() => void load(), 1500);
+            st.textContent = r.works === false ? `saved, but ${r.info}` : `saved · ${r.info ?? 'ok'}`;
+            st.className = `note ${r.works === false ? 'bad' : 'good'}`;
+            toast(r.works === false ? `${k.label}: ${r.info}` : `${k.label} key works`, r.works === false ? 'warn' : 'ok');
+            setTimeout(() => void load(), 1200);
           } catch (e) {
             st.textContent = String((e as Error).message);
           } finally {
@@ -54,8 +66,35 @@ export const systemTab: TabDef = {
           await brain.setKey(k.name, '');
           void load();
         }, 'warn') : null;
-        const link = h('a.lnk', { href: k.link, target: '_blank', rel: 'noopener' }, 'GET KEY ↗');
-        kp.body.append(h('div.keyblock', h('div.row', h('span.lab', k.label), h('span.sp'), link), h('div.keyrow', input, save, remove), st));
+        const steps = h('ol.steps', ...k.steps.map((x) => h('li', x)));
+        steps.hidden = !openHelp.has(k.name);
+        const help = button(steps.hidden ? 'HOW TO GET IT' : 'HIDE STEPS', (b) => {
+          steps.hidden = !steps.hidden;
+          if (steps.hidden) openHelp.delete(k.name);
+          else openHelp.add(k.name);
+          b.textContent = steps.hidden ? 'HOW TO GET IT' : 'HIDE STEPS';
+        });
+        const link = h('a.lnk', { href: k.link, target: '_blank', rel: 'noopener' }, 'OPEN SITE ↗');
+        return h(
+          'div.keyblock',
+          h('div.row', h('span.lab', k.label), h('span.sp'), h(`small.chip${k.set ? '.good' : ''}` as 'small', k.set ? '✓ SAVED' : 'NOT SET')),
+          h('div.note', k.why),
+          h('div.keyrow', help, link),
+          steps,
+          h('div.keyrow', input, save, remove),
+          st,
+        );
+      };
+      const groups: [string, KeyStatus['need']][] = [['NEEDED', 'needed'], ['RECOMMENDED', 'recommended'], ['OPTIONAL', 'optional']];
+      for (const [title, need] of groups) {
+        const ks = status.keys.filter((k) => k.need === need);
+        if (!ks.length) continue;
+        kp.body.append(h('div.lab.keygroup', title));
+        if (need === 'optional' && !showOptional && !ks.some((k) => k.set)) {
+          kp.body.append(button(`SHOW ${ks.length} OPTIONAL KEYS (NOT NEEDED)`, () => { showOptional = true; paintKeys(); }));
+          continue;
+        }
+        for (const k of ks) kp.body.append(block(k));
       }
     };
     const paintModels = () => {
