@@ -1,0 +1,16 @@
+# Cloudflare Pages response headers. The main app gets a strict Content Security Policy:
+# scripts only from this site, network only to this site (/api), no framing by others.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; frame-src 'self'; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: microphone=(self), geolocation=(self), camera=()
+
+# Widgets run here, inside a sandboxed iframe with an opaque origin, so they may use
+# inline scripts and call public APIs without weakening the main app's policy.
+/widget-host.html
+  ! Content-Security-Policy
+  Content-Security-Policy: sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'
+
+/data/*
+  Cache-Control: public, max-age=86400

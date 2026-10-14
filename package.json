@@ -1,0 +1,9 @@
+{
+  "name": "ghosty",
+  "private": true,
+  "description": "Ghosty 2.0 — a personal AI that can rebuild itself. Interface (apps/web) + brain (apps/edge).",
+  "scripts": {
+    "check": "npm --prefix apps/edge run check && npm --prefix apps/web run check",
+    "preview": "npm --prefix apps/edge test && npm --prefix apps/web run build && node tests/preview-server.mjs"
+  }
+}

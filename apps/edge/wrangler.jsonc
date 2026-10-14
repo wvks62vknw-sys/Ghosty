@@ -1,0 +1,17 @@
+// Ghosty brain Worker. PROTECTED: Ghosty cannot edit this file without a kernel unlock.
+// Variables and secrets are set in the Cloudflare dashboard (see SETUP.md);
+// "keep_vars" stops deploys from wiping them.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ghosty-brain",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "keep_vars": true,
+  "durable_objects": {
+    "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GhostyAgent"] }],
+  "observability": { "enabled": true }
+}

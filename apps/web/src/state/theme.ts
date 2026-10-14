@@ -1,0 +1,36 @@
+/** Colour themes. Each sets CSS variables for the interface and colours for the 3D engine. */
+import { gfx } from '../engine/gfx';
+import { hex2rgb } from '../engine/math';
+import { settings } from './app';
+import { Emitter } from '../core/store';
+
+export const THEMES: Record<string, { c: string; a: string; r: string; label: string }> = {
+  stark: { c: '#62e4ff', a: '#ffb23e', r: '#ff3b3b', label: 'STARK' },
+  cyan: { c: '#5ce1ff', a: '#ffb000', r: '#ff4d6a', label: 'ARC CYAN' },
+  crimson: { c: '#ff4d6a', a: '#ffc857', r: '#ff2b4d', label: 'WAR MACHINE' },
+  gold: { c: '#ffc233', a: '#ff6a3a', r: '#ff4d6a', label: 'MARK III' },
+  emerald: { c: '#52f2b5', a: '#d6ff5c', r: '#ff4d6a', label: 'FRIDAY' },
+  violet: { c: '#a58bff', a: '#5ce1ff', r: '#ff5c9d', label: 'ULTRON' },
+  ice: { c: '#d6f3ff', a: '#7fd6ff', r: '#ff6b7f', label: 'FROST' },
+};
+
+export const themeEvents = new Emitter<{ change: string }>();
+
+const rgbTriplet = (hex: string) =>
+  hex2rgb(hex)
+    .map((v) => Math.round(v * 255))
+    .join(',');
+
+export function applyTheme(name: string): void {
+  const key = THEMES[name] ? name : 'stark';
+  const t = THEMES[key]!;
+  const s = document.documentElement.style;
+  s.setProperty('--c', t.c);
+  s.setProperty('--a', t.a);
+  s.setProperty('--r', t.r);
+  s.setProperty('--cr', rgbTriplet(t.c));
+  s.setProperty('--ar', rgbTriplet(t.a));
+  gfx.theme = { c: hex2rgb(t.c), a: hex2rgb(t.a), r: hex2rgb(t.r) };
+  if (settings.get().theme !== key) settings.set({ theme: key });
+  themeEvents.emit('change', key);
+}

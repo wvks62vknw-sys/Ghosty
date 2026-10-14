@@ -1,0 +1,15 @@
+/**
+ * Every tab in the interface, in dock order. To add a tab, create
+ * features/<name>/index.ts exporting a TabDef and add it here.
+ */
+import type { TabDef } from '../shell/tabs';
+import { briefTab } from './brief';
+import { coreTab } from './core';
+import { eyeTab } from './eye';
+import { marketsTab } from './markets';
+import { memoryTab } from './memory';
+import { systemTab } from './system';
+import { threatsTab } from './threats';
+import { workshopTab } from './workshop';
+
+export const TABS: TabDef[] = [coreTab, eyeTab, briefTab, threatsTab, marketsTab, memoryTab, workshopTab, systemTab];

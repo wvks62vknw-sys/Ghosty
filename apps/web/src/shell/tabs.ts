@@ -1,0 +1,81 @@
+/**
+ * Tab registry and navigation. Each feature registers a tab; tabs are built the first time
+ * they are opened (not at boot), and get enter()/leave() calls.
+ *
+ * Add a tab: create apps/web/src/features/<name>/index.ts exporting a TabDef, then add it
+ * to the list in apps/web/src/features/index.ts.
+ */
+import { h } from '../core/dom';
+import { backdrop } from '../engine/backdrop';
+import { globe } from '../engine/globe';
+import { setScene } from '../engine/scheduler';
+import { ui } from '../state/app';
+
+export interface TabInstance {
+  enter?(): void;
+  leave?(): void;
+  /** One line describing what is on screen, sent to Ghosty as context. */
+  describe?(): string;
+}
+
+export interface TabDef {
+  id: string;
+  title: string;
+  /** SVG path markup for the dock icon (24×24 viewBox). */
+  icon: string;
+  /** Which 3D scene renders behind the tab. */
+  scene: 'globe' | 'backdrop';
+  /** Shown in the dock on phones (others go in MORE). */
+  primary?: boolean;
+  mount(root: HTMLElement): TabInstance;
+}
+
+const defs: TabDef[] = [];
+const mounted = new Map<string, { root: HTMLElement; inst: TabInstance }>();
+let stage: HTMLElement;
+
+export function registerTabs(list: TabDef[], stageEl: HTMLElement): void {
+  defs.push(...list);
+  stage = stageEl;
+}
+
+export const tabs = () => defs;
+
+export function currentTab(): { def: TabDef; inst: TabInstance } | null {
+  const id = ui.get().tab;
+  const def = defs.find((d) => d.id === id);
+  const m = mounted.get(id);
+  return def && m ? { def, inst: m.inst } : null;
+}
+
+export function go(id: string): boolean {
+  const def = defs.find((d) => d.id === id || d.title.toLowerCase() === id.toLowerCase());
+  if (!def) return false;
+  const prev = ui.get().tab;
+  if (prev === def.id && mounted.has(def.id)) return true;
+  mounted.get(prev)?.inst.leave?.();
+  let m = mounted.get(def.id);
+  if (!m) {
+    const root = h('div.pg', { id: `pg-${def.id}` });
+    stage.append(root);
+    let inst: TabInstance = {};
+    try {
+      inst = def.mount(root);
+    } catch (e) {
+      console.error('tab mount', def.id, e);
+      root.append(h('div.note', `This tab failed to load: ${String((e as Error)?.message ?? e)}`));
+    }
+    m = { root, inst };
+    mounted.set(def.id, m);
+  }
+  for (const [k, v] of mounted) v.root.classList.toggle('on', k === def.id);
+  setScene(def.scene === 'globe' ? globe : backdrop);
+  ui.set({ tab: def.id });
+  try {
+    history.replaceState(null, '', `#${def.id}`);
+  } catch {
+    /* ignore */
+  }
+  m.inst.enter?.();
+  return true;
+}
