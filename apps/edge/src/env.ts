@@ -1,10 +1,13 @@
 /**
  * Everything the brain receives from Cloudflare: bindings, variables and secrets.
- * Set variables in the dashboard (Worker > Settings > Variables and Secrets).
+ * Plain settings live in wrangler.jsonc "vars"; secrets can be added in the dashboard
+ * (Worker > Settings > Variables and Secrets) but none are required.
  */
 export interface Env {
   /** Durable Object namespace holding Ghosty's single agent instance. */
   AGENT: DurableObjectNamespace;
+  /** The built interface (apps/web/dist), served for every path outside /api. */
+  ASSETS?: { fetch(req: Request): Promise<Response> };
 
   /** Your email address. Only this identity may talk to Ghosty. */
   OWNER_EMAIL?: string;
@@ -14,16 +17,20 @@ export interface Env {
   ACCESS_AUD?: string;
   /** Optional fallback password, used before Access is set up. Long and random. */
   OWNER_KEY?: string;
+  /** SHA-256 (hex) of the owner password. Lets the password live nowhere but with you. */
+  OWNER_KEY_HASH?: string;
 
-  /** Secret: 32 random bytes as base64. Encrypts API keys stored in the vault. */
+  /** Optional secret: 32 random bytes as base64. Without it the brain makes its own key. */
   VAULT_KEY?: string;
 
   /** "owner/name" of Ghosty's own GitHub repository. */
   GITHUB_REPO?: string;
   /** Optional: GitHub token as a secret (otherwise set it from the System tab). */
   GITHUB_TOKEN?: string;
-  /** Cloudflare Pages project name, used to work out preview links. */
+  /** Legacy: Cloudflare Pages project name, if the interface is hosted on Pages. */
   PAGES_PROJECT?: string;
+  /** "1" inside a Worker Preview (a proposed change being tried out). */
+  IS_PREVIEW?: string;
 
   /** Testing only: "1" makes the brain use a scripted fake model. Never set in production. */
   MOCK_LLM?: string;

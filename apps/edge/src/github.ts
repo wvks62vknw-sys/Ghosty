@@ -56,6 +56,8 @@ export class GitHub {
     private token: string,
     readonly repo: string,
     private pagesProject?: string,
+    /** Hostname Ghosty is being served from, e.g. ghosty.yourname.workers.dev. */
+    private selfHost?: string,
   ) {}
 
   private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -157,7 +159,14 @@ export class GitHub {
   }
 
   previewFor(branch: string): string | null {
-    return this.pagesProject ? `https://${pagesAlias(branch)}.${this.pagesProject}.pages.dev` : null;
+    if (this.pagesProject) return `https://${pagesAlias(branch)}.${this.pagesProject}.pages.dev`;
+    // Worker Previews: <branch>-<worker>.<subdomain>.workers.dev (a best guess; the link
+    // Cloudflare reports on the change's checks is preferred when there is one).
+    const m = this.selfHost?.match(/^([a-z0-9-]+)\.([a-z0-9-]+)\.workers\.dev$/i);
+    if (!m) return null;
+    const worker = m[1]!.toLowerCase();
+    const alias = branch.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, Math.max(1, 62 - worker.length)).replace(/-+$/g, '');
+    return `https://${alias}-${worker}.${m[2]!.toLowerCase()}.workers.dev`;
   }
 
   async pr(n: number): Promise<PullRequest> {
@@ -200,7 +209,7 @@ export class GitHub {
       ...runs.check_runs.map((r) => ({ name: r.name, done: r.status === 'completed', ok: r.conclusion === 'success' || r.conclusion === 'neutral' || r.conclusion === 'skipped', url: r.details_url ?? '', text: `${r.output?.summary ?? ''}\n${r.output?.text ?? ''}` })),
       ...statuses.statuses.map((s) => ({ name: s.context, done: s.state !== 'pending', ok: s.state === 'success', url: s.target_url ?? '', text: s.description ?? '' })),
     ];
-    const preview = items.map((i) => `${i.url}\n${i.text}`.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev/i)?.[0]).find(Boolean) ?? null;
+    const preview = items.map((i) => `${i.url}\n${i.text}`.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.(?:pages|workers)\.dev/i)?.[0]).find(Boolean) ?? null;
     const state: ChangeSummary['checks'] = !items.length ? 'none' : items.some((i) => i.done && !i.ok) ? 'failed' : items.every((i) => i.done) ? 'passed' : 'pending';
     const details = items.map((i) => `${i.name}: ${!i.done ? 'running' : i.ok ? 'passed' : 'FAILED'}${i.done && !i.ok && i.text.trim() ? `\n${i.text.trim().slice(0, 1500)}` : ''}`).join('\n');
     return { state, previewUrl: preview, details };

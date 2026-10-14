@@ -1,10 +1,10 @@
 /**
- * Ghosty brain — Worker entry point.
- * Only reachable through the interface's /api gateway (service binding); it has no
- * public URL. Every request is checked by the kernel's auth before anything runs.
+ * Ghosty — Worker entry point.
+ * Cloudflare serves the interface's static files directly; only /api/* reaches this
+ * code. Every /api request except /api/health is checked by the kernel's auth first.
  */
 import type { Env } from './env';
-import { authenticate } from './kernel/auth';
+import { authenticate, ownerSecured } from './kernel/auth';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -69,9 +69,9 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
-    if (!url.pathname.startsWith('/api/')) return json({ error: 'not found' }, 404);
+    if (!url.pathname.startsWith('/api/')) return env.ASSETS ? env.ASSETS.fetch(req) : json({ error: 'not found' }, 404);
     if (url.pathname === '/api/health') {
-      return json({ ok: true, secured: !!(env.OWNER_KEY || (env.OWNER_EMAIL && env.ACCESS_TEAM && env.ACCESS_AUD)), access: !!env.ACCESS_TEAM, vault: !!env.VAULT_KEY });
+      return json({ ok: true, secured: ownerSecured(env), access: !!env.ACCESS_TEAM, preview: env.IS_PREVIEW === '1' });
     }
     // Only Ghosty's own interface may call the brain: refuse requests made by other sites
     // or by sandboxed widgets (cross-site request forgery), even if a login cookie rides along.

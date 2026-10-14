@@ -1,17 +1,42 @@
-// Ghosty brain Worker. PROTECTED: Ghosty cannot edit this file without a kernel unlock.
-// Variables and secrets are set in the Cloudflare dashboard (see SETUP.md);
-// "keep_vars" stops deploys from wiping them.
+// Ghosty: one Worker serves the interface (static files from apps/web/dist) and the
+// brain (/api/*). PROTECTED: Ghosty cannot edit this file without a kernel unlock.
+// The interface is built automatically when dependencies install (see package.json
+// "postinstall"), so Cloudflare's default build settings work with no changes.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "ghosty-brain",
+  "name": "ghosty",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-01",
-  "workers_dev": false,
-  "preview_urls": false,
+  "workers_dev": true,
+  "preview_urls": true,
   "keep_vars": true,
+  "build": { "command": "npm run build:web" },
+  "assets": {
+    "directory": "../web/dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    // SHA-256 of your owner password. The password itself is never stored anywhere.
+    "OWNER_KEY_HASH": "a944f0946252df9f96bb93bedff208daebd404294a40fa18cc772a759ed08ab0",
+    "OWNER_EMAIL": "aqishussain1@gmail.com",
+    "GITHUB_REPO": "wvks62vknw-sys/Ghosty"
+  },
   "durable_objects": {
     "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GhostyAgent"] }],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Previews (one per proposed change) get their own empty brain storage.
+  "previews": {
+    "vars": {
+      "OWNER_KEY_HASH": "a944f0946252df9f96bb93bedff208daebd404294a40fa18cc772a759ed08ab0",
+      "OWNER_EMAIL": "aqishussain1@gmail.com",
+      "GITHUB_REPO": "wvks62vknw-sys/Ghosty",
+      "IS_PREVIEW": "1"
+    },
+    "durable_objects": {
+      "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
+    }
+  }
 }

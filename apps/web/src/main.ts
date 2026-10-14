@@ -37,7 +37,7 @@ function pair(reason: string): Promise<void> {
       }
     };
     input.addEventListener('keydown', (e) => e.key === 'Enter' && void submit());
-    const box = h('div#pair', h('div.bx', h('h2', 'PAIR THIS DEVICE'), h('p', 'Ghosty only answers to its owner. Enter your owner key (the OWNER_KEY secret you set on the brain). It is stored on this device only.'), input, button('UNLOCK', () => void submit(), 'on'), msg, button('CONTINUE OFFLINE', () => { box.remove(); resolve(); })));
+    const box = h('div#pair', h('div.bx', h('h2', 'PAIR THIS DEVICE'), h('p', 'Ghosty only answers to its owner. Enter your owner password. It is stored on this device only.'), input, button('UNLOCK', () => void submit(), 'on'), msg, button('CONTINUE OFFLINE', () => { box.remove(); resolve(); })));
     document.body.append(box);
     setTimeout(() => input.focus(), 50);
   });
@@ -52,7 +52,7 @@ async function connect(): Promise<void> {
   }
   if (!health.secured) {
     bootLog('BRAIN', 'NOT SECURED');
-    await pair('The brain is running but not secured yet: set OWNER_KEY or Cloudflare Access (SETUP.md step 4). Until then it refuses every request.');
+    await pair('The brain is running but not secured yet: set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md). Until then it refuses every request.');
     return;
   }
   try {

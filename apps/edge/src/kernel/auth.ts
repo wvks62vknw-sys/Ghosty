@@ -6,7 +6,8 @@
  *  1. Cloudflare Access (recommended): Access puts a signed JWT in the
  *     `Cf-Access-Jwt-Assertion` header. We verify its signature, audience,
  *     issuer, expiry and that the email is OWNER_EMAIL.
- *  2. Owner key (fallback): the `x-ghosty-key` header equals the OWNER_KEY secret.
+ *  2. Owner key (fallback): the `x-ghosty-key` header equals the OWNER_KEY secret, or its
+ *     SHA-256 equals OWNER_KEY_HASH (so the password itself is stored nowhere).
  * If neither is configured, every request is refused (fail closed).
  */
 import type { Env } from '../env';
@@ -84,11 +85,24 @@ function sameSecret(a: string, b: string): boolean {
   return diff === 0;
 }
 
+async function sha256Hex(s: string): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const validHash = (h?: string) => !!h && /^[0-9a-f]{64}$/i.test(h);
+
+export function ownerSecured(env: Env): boolean {
+  return !!((env.OWNER_KEY && env.OWNER_KEY.length >= 24) || validHash(env.OWNER_KEY_HASH) || (env.OWNER_EMAIL && env.ACCESS_TEAM && env.ACCESS_AUD));
+}
+
 export async function authenticate(req: Request, env: Env): Promise<AuthResult> {
   const accessReady = !!(env.OWNER_EMAIL && env.ACCESS_TEAM && env.ACCESS_AUD);
-  const keyReady = !!(env.OWNER_KEY && env.OWNER_KEY.length >= 24);
+  const plainReady = !!(env.OWNER_KEY && env.OWNER_KEY.length >= 24);
+  const hashReady = validHash(env.OWNER_KEY_HASH);
+  const keyReady = plainReady || hashReady;
   if (!accessReady && !keyReady) {
-    return { ok: false, status: 503, reason: 'Ghosty is not secured yet. Set OWNER_KEY or Cloudflare Access (see SETUP.md).' };
+    return { ok: false, status: 503, reason: 'Ghosty is not secured yet. Set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md).' };
   }
   const jwt = req.headers.get('cf-access-jwt-assertion');
   if (accessReady && jwt) {
@@ -100,6 +114,9 @@ export async function authenticate(req: Request, env: Env): Promise<AuthResult> 
     }
   }
   const given = req.headers.get('x-ghosty-key');
-  if (keyReady && given && sameSecret(given, env.OWNER_KEY!)) return { ok: true, who: env.OWNER_EMAIL || 'owner' };
+  if (given && given.length >= 24 && given.length <= 256) {
+    if (plainReady && sameSecret(given, env.OWNER_KEY!)) return { ok: true, who: env.OWNER_EMAIL || 'owner' };
+    if (hashReady && sameSecret(await sha256Hex(given), env.OWNER_KEY_HASH!.toLowerCase())) return { ok: true, who: env.OWNER_EMAIL || 'owner' };
+  }
   return { ok: false, status: 401, reason: keyReady ? 'owner key required' : 'not signed in as the owner' };
 }

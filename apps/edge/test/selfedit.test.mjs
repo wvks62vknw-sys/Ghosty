@@ -102,7 +102,7 @@ globalThis.fetch = async (input, init = {}) => {
     pr.merged = true;
     return ok({ sha: s });
   }
-  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ name: 'Cloudflare Pages', status: 'completed', conclusion: 'success', details_url: 'https://ghosty-rename-the-gree-abcd.ghosty.pages.dev' }] });
+  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ name: 'Workers Builds: ghosty', status: 'completed', conclusion: 'success', details_url: 'https://dash.cloudflare.com/x/workers/services/view/ghosty', output: { summary: 'Preview URL: https://ghosty-rename-the-greeting-ghosty.me.workers.dev' } }] });
   if ((m = p.match(/^\/commits\/([^/]+)\/status$/))) return ok({ statuses: [] });
   if (p === '/commits') {
     const out = [];
@@ -135,12 +135,11 @@ const env = {
   MOCK_LLM: '1',
   GITHUB_REPO: 'me/ghosty',
   GITHUB_TOKEN: 'ghp_test',
-  PAGES_PROJECT: 'ghosty',
 };
 let agent;
 env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new mod.GhostyAgent(state, env)).fetch(r) }) };
 const ctx = { waitUntil: (p) => pending.push(p) };
-const call = (path, init = {}) => worker.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, ctx);
+const call = (path, init = {}) => worker.fetch(new Request(`https://ghosty.me.workers.dev${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, ctx);
 async function chat(message, path = '/api/chat', body = { message }) {
   const r = await call(path, { method: 'POST', body: JSON.stringify(body) });
   const t = await r.text();
@@ -153,7 +152,7 @@ test('propose_change opens a PR with the edit applied on a ghosty/ branch', asyn
   const r = result(await chat('propose edit'));
   assert.ok(r.ok, r.summary);
   assert.match(r.summary, /Opened change #1 on branch ghosty\//);
-  assert.match(r.summary, /pages\.dev/);
+  assert.match(r.summary, /workers\.dev/);
   const pr = G.pulls[0];
   const file = G.blobs.get(filesAt(pr.head).get('apps/web/src/hello.ts'));
   assert.equal(file, "export const greeting = 'Good evening';\n");
@@ -163,7 +162,7 @@ test('propose_change opens a PR with the edit applied on a ghosty/ branch', asyn
 test('change_status reports checks and the preview link', async () => {
   const r = result(await chat('status 1'));
   assert.match(r.summary, /Checks: passed/);
-  assert.match(r.summary, /pages\.dev/);
+  assert.match(r.summary, /workers\.dev/);
 });
 
 test('kernel edits are refused', async () => {

@@ -119,7 +119,7 @@ export const systemTab: TabDef = {
         row('BRAIN', status ? 'CONNECTED' : 'UNREACHABLE', null, { tone: status ? 'up' : 'dn' }),
         row('OWNER', status?.owner ?? '—'),
         row('SELF-EDIT', status?.repoReady ? `ON · ${status.repo}` : 'OFF — needs GitHub token', null, { tone: status?.repoReady ? 'up' : undefined }),
-        row('PREVIEWS', status?.pagesProject ? `${status.pagesProject}.pages.dev` : 'set PAGES_PROJECT'),
+        row('PREVIEWS', status?.previews ?? 'unknown'),
         row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
         row('THIS DEVICE', ownerKey.get() ? 'paired with owner key' : 'signed in via Cloudflare Access'),
       );

@@ -5,7 +5,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
-import { webcrypto } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -24,9 +24,10 @@ class MemStorage {
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
 const state = { storage: new MemStorage(), waitUntil: () => undefined };
 const env = {
-  OWNER_KEY: 'preview-owner-key-0123456789',
+  // Same shape as production: only the password's hash is configured, and no VAULT_KEY
+  // (the brain makes its own). OWNER_KEY stays here for the log line below only.
+  OWNER_KEY_HASH: createHash('sha256').update('preview-owner-key-0123456789').digest('hex'),
   OWNER_EMAIL: 'owner@example.com',
-  VAULT_KEY: Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64'),
   MOCK_LLM: '1',
 };
 let agent;
@@ -78,4 +79,4 @@ createServer(async (req, res) => {
     res.writeHead(500);
     res.end(String(e));
   }
-}).listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: ${env.OWNER_KEY})`));
+}).listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));

@@ -17,8 +17,20 @@ export const PROTECTED_PATHS: string[] = [
   'apps/edge/src/tools/types.ts',
   'apps/edge/src/github.ts', // GitHub client used for self-edits and rollback
   'apps/edge/wrangler', // any wrangler.json / wrangler.jsonc / wrangler.toml
-  'apps/edge/package.json', // deploy scripts
-  'apps/web/functions/', // the gateway between interface and brain
+  'apps/edge/package.json', // deploy scripts (its postinstall builds the interface)
+  // Anything that runs during a build. Builds (including previews of unshipped changes)
+  // run with Cloudflare's deploy access, so build scripts and installer settings are kernel.
+  'apps/edge/package-lock',
+  'apps/edge/bun',
+  'apps/edge/.',
+  'apps/web/package.json',
+  'apps/web/package-lock',
+  'apps/web/bun',
+  'apps/web/build.mjs',
+  'apps/web/.',
+  '.npmrc',
+  'bunfig.toml',
+  'apps/web/functions/', // legacy Pages gateway (unused now; kept locked)
   'apps/web/public/_headers', // Content Security Policy + widget sandbox
   '.github/', // CI checks that gate every change
 ];

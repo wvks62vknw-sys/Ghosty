@@ -65,7 +65,8 @@ export interface BrainStatus {
   owner: string;
   repo: string | null;
   repoReady: boolean;
-  pagesProject: string | null;
+  /** Where previews of proposed changes appear, e.g. <change>-ghosty.you.workers.dev. */
+  previews: string | null;
   kernelUnlockedUntil: number;
   keys: KeyStatus[];
   models: ModelHealth[];

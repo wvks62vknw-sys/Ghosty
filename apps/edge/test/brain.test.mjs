@@ -65,6 +65,31 @@ test('fails closed when nothing is configured', async () => {
   assert.equal(r.status, 503);
 });
 
+test('hashed owner password and a self-made vault key (production setup)', async () => {
+  const { createHash } = await import('node:crypto');
+  const pw = 'hxg3u-test-password-0123456789';
+  const st = { storage: new MemStorage(), waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const e2 = { OWNER_KEY_HASH: createHash('sha256').update(pw).digest('hex'), MOCK_LLM: '1' };
+  let a2;
+  e2.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (a2 ??= new GhostyAgent(st, e2)).fetch(r) }) };
+  e2.ASSETS = { fetch: async () => new Response('<html>interface</html>', { headers: { 'content-type': 'text/html' } }) };
+  const go = (path, key, init = {}) => worker.fetch(new Request(`https://ghosty.me.workers.dev${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', ...(key ? { 'x-ghosty-key': key } : {}) } }), e2, ctx);
+  assert.equal((await (await go('/api/health')).json()).secured, true);
+  assert.equal((await go('/api/status')).status, 401);
+  assert.equal((await go('/api/status', 'wrong-password-wrong-password')).status, 401);
+  assert.equal((await go('/api/status', e2.OWNER_KEY_HASH)).status, 401, 'the hash itself is not a password');
+  assert.equal((await go('/api/status', pw)).status, 200);
+  assert.match(await (await go('/', null)).text(), /interface/, 'non-API paths serve the interface');
+  assert.equal((await go('/api/keys', pw, { method: 'POST', body: JSON.stringify({ name: 'groq', value: 'gsk-secret-value' }) })).status, 200);
+  await Promise.allSettled(pending.splice(0));
+  const raw = st.storage.m.get('vault:groq');
+  assert.ok(raw && !raw.includes('secret'), 'encrypted with the self-made key');
+  assert.ok(st.storage.m.get('vaultkey'), 'vault key created once');
+  const status = await (await go('/api/status', pw)).json();
+  assert.equal(status.keys.find((k) => k.name === 'groq').set, true);
+  assert.equal(status.previews, '<change>-ghosty.me.workers.dev');
+});
+
 test('keys are stored encrypted and never returned', async () => {
   const r = await call('/api/keys', { method: 'POST', body: JSON.stringify({ name: 'gemini', value: 'AIza-secret-value' }) });
   assert.equal(r.status, 200);
@@ -139,7 +164,8 @@ test('kernel files are protected unless unlocked', async () => {
   assert.equal(pathProblem('apps/web/src/features/brief/index.ts', false), null);
   assert.equal(pathProblem('apps/edge/src/kernel/auth.ts', true), null);
   for (const p of ['apps/edge/src/index.ts', 'apps/edge/src/agent.ts', 'apps/edge/wrangler.json', 'apps/edge/wrangler.toml', 'apps/edge/package.json', 'apps/web/public/_headers', '.github/workflows/check.yml',
-    'APPS/EDGE/SRC/KERNEL/auth.ts', 'apps/edge/src/kernel', 'apps/edge', 'apps', '.github', 'apps/web/functions', 'apps/edge/./src/kernel/auth.ts', 'apps//edge/src/kernel/auth.ts', 'apps/edge/src/tools/index.ts']) {
+    'APPS/EDGE/SRC/KERNEL/auth.ts', 'apps/edge/src/kernel', 'apps/edge', 'apps', '.github', 'apps/web/functions', 'apps/edge/./src/kernel/auth.ts', 'apps//edge/src/kernel/auth.ts', 'apps/edge/src/tools/index.ts',
+    'apps/web/build.mjs', 'apps/web/package.json', 'apps/web/.npmrc', 'apps/edge/.npmrc', 'apps/edge/bunfig.toml', 'apps/edge/bun.lock', 'apps/web/package-lock.json', '.npmrc']) {
     assert.ok(pathProblem(p, false), `${p} should be protected`);
   }
   assert.equal(pathProblem('apps/edge/src/tools/weather_extra.ts', false), null);

@@ -175,7 +175,7 @@ export const repoTools: Tool[] = [
       const c = await g.checks(pr.head.sha);
       const preview = c.previewUrl ?? g.previewFor(pr.head.ref);
       return clip(
-        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nChecks: ${c.state}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}\nPreview: ${preview ?? 'unknown (set PAGES_PROJECT)'}`,
+        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nChecks: ${c.state}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}\nPreview: ${preview ?? 'not reported yet (Cloudflare posts it on the change once the preview build finishes)'}`,
         5000,
       );
     },

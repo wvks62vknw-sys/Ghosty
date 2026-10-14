@@ -8,18 +8,19 @@ not add npm packages (the build has only TypeScript and esbuild).
 
 | Part | Folder | Runs on | Deploys when |
 |---|---|---|---|
-| **Interface** | `apps/web/` | your browser (Cloudflare Pages) | every branch gets a preview; `main` goes live |
+| **Interface** | `apps/web/` | your browser (static files served by the Ghosty Worker) | every branch gets a preview; `main` goes live |
 | **Brain** | `apps/edge/` | Cloudflare Worker + Durable Object | when a change reaches `main` |
 | Shared types | `packages/shared/src/protocol.ts` | both | — |
 
-The interface talks to the brain only through `/api/*` (`apps/web/functions/api/[[path]].ts`
-forwards to the brain). Public data feeds go through `/api/proxy?url=…` (brain caches them).
+One Worker (`apps/edge`, config `apps/edge/wrangler.jsonc`) serves both: files from
+`apps/web/dist` for every path, and the brain for `/api/*`. The interface talks to the brain
+only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain caches them).
 
 ## Protected kernel (you cannot edit these without the owner unlocking the kernel)
 
 `apps/edge/src/kernel/*` (auth, permissions, vault, protected list) · `apps/edge/src/index.ts`
 · `apps/edge/src/agent.ts` · `apps/edge/src/env.ts` · `apps/edge/src/tools/{index,types,repo}.ts`
-· `apps/edge/src/github.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · `apps/web/functions/*`
+· `apps/edge/src/github.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · build scripts and installer settings (`apps/web/build.mjs`, `apps/*/package.json`, lockfiles, `.npmrc`, `bunfig.toml`)
 · `apps/web/public/_headers` · `.github/*`. The exact list is `PROTECTED_PATHS` in
 `apps/edge/src/kernel/protected.ts`. New brain tools go in **`apps/edge/src/tools/extra.ts`**
 (unprotected), which is registered automatically.

@@ -14,5 +14,5 @@ packages/shared   types shared by both
 tests/       local preview server + browser test
 ```
 
-Runs on free tiers: Cloudflare Pages + Workers + Durable Objects, GitHub, and free AI keys
+Runs on free tiers: one Cloudflare Worker + Durable Object, GitHub, and free AI keys
 (Gemini, Groq, Cerebras, OpenRouter, Mistral).

@@ -78,7 +78,7 @@ export class GhostyAgent {
   private async github(): Promise<GitHub | null> {
     const token = (await this.vault.get('github')) || this.env.GITHUB_TOKEN;
     if (!token || !this.env.GITHUB_REPO) return null;
-    return new GitHub(token, this.env.GITHUB_REPO, this.env.PAGES_PROJECT);
+    return new GitHub(token, this.env.GITHUB_REPO, this.env.PAGES_PROJECT, this.host);
   }
 
   private toolContext(emit: (ev: ChatEvent) => void): ToolContext {
@@ -92,8 +92,12 @@ export class GhostyAgent {
     };
   }
 
+  /** Hostname the owner reached Ghosty on (used to work out preview links). */
+  private host?: string;
+
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
+    this.host = url.hostname;
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
     try {
@@ -187,7 +191,7 @@ export class GhostyAgent {
       owner,
       repo: this.env.GITHUB_REPO ?? null,
       repoReady: !!(await this.github()),
-      pagesProject: this.env.PAGES_PROJECT ?? null,
+      previews: this.env.PAGES_PROJECT ? `${this.env.PAGES_PROJECT}.pages.dev` : this.host?.endsWith('.workers.dev') ? `<change>-${this.host}` : null,
       kernelUnlockedUntil: (await this.storage.get<number>('kernelUnlockedUntil')) ?? 0,
       keys,
       models: await this.router.summary(),
