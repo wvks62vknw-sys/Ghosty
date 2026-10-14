@@ -5,6 +5,7 @@
  *  3. build the shell, open the first tab, start the single frame loop
  */
 import { AuthError, brain, ownerKey } from './api/brain';
+import { startNotices } from './assistant/notices';
 import { loadHistory } from './assistant/session';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
@@ -83,7 +84,10 @@ async function boot(): Promise<void> {
   registerTabs(TABS, layout.stage);
   registerBuiltins();
   layout.buildDock();
-  if (ui.get().connected) await loadHistory();
+  if (ui.get().connected) {
+    await loadHistory();
+    startNotices();
+  }
   const first = location.hash.slice(1);
   if (!go(first)) go('core');
   addEventListener('hashchange', () => go(location.hash.slice(1)));

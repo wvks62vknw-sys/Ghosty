@@ -7,7 +7,7 @@
     "build:web": "cd ../web && npm install --no-audit --no-fund && npm run build",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "esbuild src/index.ts --bundle --format=esm --platform=neutral --outfile=test/.build/brain.mjs --log-level=warning && esbuild src/kernel/protected.ts --bundle --format=esm --platform=neutral --outfile=test/.build/protected.mjs --log-level=warning && node --test test/brain.test.mjs test/selfedit.test.mjs",
+    "test": "esbuild src/index.ts --bundle --format=esm --platform=neutral --outfile=test/.build/brain.mjs --log-level=warning && esbuild src/kernel/protected.ts --bundle --format=esm --platform=neutral --outfile=test/.build/protected.mjs --log-level=warning && esbuild src/schedule.ts src/time.ts --bundle --format=esm --platform=neutral --outdir=test/.build --out-extension:.js=.mjs --log-level=warning && node --test test/brain.test.mjs test/selfedit.test.mjs test/agenda.test.mjs",
     "check": "npm run typecheck && npm test",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev"

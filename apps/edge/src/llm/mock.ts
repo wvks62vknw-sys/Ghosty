@@ -17,13 +17,18 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (last.role === 'tool') {
     return { message: { role: 'assistant', content: `Done. ${String(last.content).slice(0, 160)}` }, model };
   }
-  const text = String(last.content ?? '').toLowerCase();
+  const text = String(last.content ?? '').toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
+  if ((m = text.match(/^remind me in (\d+) minutes? to (.+)$/)) && has('set_reminder')) return { message: call('set_reminder', { text: m[2], in_minutes: Number(m[1]) }), model };
+  if ((m = text.match(/^every day at (\d\d:\d\d) (.+)$/)) && has('schedule_task')) return { message: call('schedule_task', { title: 'Daily job', prompt: m[2], at: m[1], repeat: 'daily' }), model };
+  if ((m = text.match(/^add event (.+) on (\S+)$/)) && has('add_event')) return { message: call('add_event', { title: m[1], start: m[2], remind_minutes_before: 30 }), model };
+  if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
   if ((m = text.match(/^ship (\d+)$/)) && has('ship_change')) return { message: call('ship_change', { pr: Number(m[1]) }), model };
   if (text === 'show versions' && has('list_versions')) return { message: call('list_versions', {}), model };
+  if (text === 'force forget everything') return { message: call('forget_everything', {}), model }; // ignores the offered tool list
   if (text === 'forget everything' && has('forget_everything')) return { message: call('forget_everything', {}), model };
   if (text === 'propose edit' && has('propose_change')) {
     return {

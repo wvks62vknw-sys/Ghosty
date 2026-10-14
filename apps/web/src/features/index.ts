@@ -3,6 +3,7 @@
  * features/<name>/index.ts exporting a TabDef and add it here.
  */
 import type { TabDef } from '../shell/tabs';
+import { agendaTab } from './agenda';
 import { briefTab } from './brief';
 import { coreTab } from './core';
 import { eyeTab } from './eye';
@@ -12,4 +13,4 @@ import { systemTab } from './system';
 import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, briefTab, threatsTab, marketsTab, memoryTab, workshopTab, systemTab];
+export const TABS: TabDef[] = [coreTab, eyeTab, briefTab, agendaTab, threatsTab, marketsTab, memoryTab, workshopTab, systemTab];

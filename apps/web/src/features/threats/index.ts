@@ -15,7 +15,6 @@ export const threatsTab: TabDef = {
   title: 'THREATS',
   icon: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
   scene: 'backdrop',
-  primary: true,
   mount(root) {
     const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS' });
     const sp = panel('ACTIVE SIGNALS', { footer: true });

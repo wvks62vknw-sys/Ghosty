@@ -20,6 +20,15 @@ class MemStorage {
   async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
   async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
   async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])); }
+  // Durable Object alarm, emulated with a timer.
+  alarmAt = null;
+  timer = null;
+  async setAlarm(t) {
+    this.alarmAt = typeof t === 'number' ? t : t.getTime();
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { this.alarmAt = null; agent?.alarm().catch((e) => console.error('alarm', e)); }, Math.max(0, this.alarmAt - Date.now()));
+  }
+  async getAlarm() { return this.alarmAt; }
 }
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
 const state = { storage: new MemStorage(), waitUntil: () => undefined };

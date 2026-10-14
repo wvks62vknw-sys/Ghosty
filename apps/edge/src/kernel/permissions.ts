@@ -12,6 +12,27 @@ export const ALWAYS_CONFIRM = new Set<string>([
   'ship_change', // publish a change to Ghosty's live version
   'restore_version', // roll Ghosty back to an earlier version
   'forget_everything',
+  'schedule_task', // a standing instruction Ghosty will act on while the owner is away
+]);
+
+/**
+ * Tools a scheduled task may NOT use while running unattended. Anything needing
+ * approval is also refused (nobody is there to approve it).
+ */
+export const BACKGROUND_BLOCKED = new Set<string>([
+  'schedule_task',
+  'cancel_scheduled',
+  'add_calendar_feed',
+  'remove_calendar_feed',
+  'propose_change',
+  'update_change',
+  'discard_change',
+  'ship_change',
+  'restore_version',
+  'forget',
+  'forget_everything',
+  'create_widget',
+  'delete_widget',
 ]);
 
 /** Word patterns in tool names that imply acting as the owner or spending money. */

@@ -136,6 +136,8 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
   await stream((cb) => brain.chat(t, context(), cb));
+  // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
+  setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }
 
 export async function answerApproval(id: string, allow: boolean): Promise<void> {

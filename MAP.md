@@ -31,7 +31,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `main.ts` | boot: theme, engine, Earth data, connect to brain, open first tab |
 | `features/index.ts` | **list of tabs** (dock order) |
-| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `threats`, `markets`, `memory`, `workshop`, `system` |
+| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `memory`, `workshop`, `system` |
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
 | `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns |
@@ -43,6 +43,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `api/feed.ts` | `Feed` class (polling + LIVE/STALE/NO FEED status), `fetchJson`, `fetchText` (via proxy) |
 | `api/brain.ts` | client for the brain's `/api` endpoints |
 | `assistant/session.ts` | the conversation: sends messages, handles streamed events, approvals |
+| `assistant/notices.ts` | inbox polling: toasts, spoken reminders, system notifications, Agenda badge |
 | `assistant/voice.ts` | speaking (speech synthesis) and listening (Whisper via brain, or browser) |
 | `commands/registry.ts` | command registry, hotkeys, command palette |
 | `commands/builtin.ts` | built-in commands incl. the ones the brain triggers (`open_tab`, `fly_to`, …) |
@@ -57,14 +58,17 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | Path | What it is |
 |---|---|
 | `index.ts` | Worker entry: auth gate, `/api/proxy` feed proxy (**`FEED_HOSTS` allowlist**), forwards to agent |
-| `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints |
+| `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure) |
 | `tools/index.ts` | registry of tools (protected) |
 | `tools/extra.ts` | **where new tools go** |
 | `tools/types.ts` | `Tool` interface, `arg` helpers |
 | `tools/{memory,web,data,ui,widgets}.ts` | tools by area |
 | `llm/router.ts`, `llm/providers.ts` | model router across free providers |
-| `keys.ts` | which API keys exist (shown in System tab) |
+| `keys.ts` | which API keys exist, with the owner-facing steps (shown in System tab) and `testKey` |
+| `schedule.ts` | agenda events, calendar feeds (.ics parsing), reminders/tasks (`Job`), inbox |
+| `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |
+| `tools/agenda.ts` | `set_reminder`, `schedule_task` (always needs approval), `add_event`, `list_agenda`, calendar feeds |
 
 ## Recipes
 

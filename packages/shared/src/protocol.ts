@@ -93,3 +93,43 @@ export interface VersionSummary {
   message: string;
   date: string;
 }
+
+/** Agenda tab (see apps/edge/src/schedule.ts). Times are UTC milliseconds. */
+export interface AgendaEventInfo {
+  id: string;
+  title: string;
+  start: number;
+  end?: number;
+  allDay?: boolean;
+  location?: string;
+  notes?: string;
+  source: string;
+}
+
+export interface JobInfo {
+  id: string;
+  kind: 'reminder' | 'task';
+  title: string;
+  text: string;
+  next: number;
+  repeat: 'none' | 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'monthly';
+  tz: string;
+  lastRun?: number;
+  lastResult?: string;
+  eventId?: string;
+}
+
+export interface InboxEntry {
+  id: string;
+  at: number;
+  kind: 'reminder' | 'task' | 'error';
+  title: string;
+  text: string;
+  read?: boolean;
+}
+
+export interface FeedInfo {
+  id: string;
+  name: string;
+  at: number;
+}

@@ -3,7 +3,16 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { BrainStatus, ChangeSummary, ChatEvent, ChatTurn, MemoryFact, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, MemoryFact, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+
+/** This device's time zone; the brain uses it for reminders and the agenda. */
+export const TZ = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+})();
 
 const KEY_STORE = 'ghosty.ownerKey';
 
@@ -105,6 +114,16 @@ export const brain = {
   ship: (n: number, sha: string) => req<{ result: string }>('POST', `/changes/${n}/ship`, { sha }),
   discard: (n: number) => req<{ result: string }>('POST', `/changes/${n}/discard`),
   restore: (sha: string) => req<{ result: string }>('POST', `/versions/${sha}/restore`),
+  agenda: (days = 14) => req<{ tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] }>('GET', `/agenda?days=${days}&tz=${encodeURIComponent(TZ)}`),
+  addEvent: (e: { title: string; start: number; end?: number; allDay?: boolean; location?: string; remindMin?: number | null }) => req<{ event: AgendaEventInfo }>('POST', '/agenda/events', { ...e, tz: TZ }),
+  deleteEvent: (id: string) => req('DELETE', `/agenda/events/${encodeURIComponent(id)}`),
+  addJob: (j: { kind: 'reminder' | 'task'; title?: string; text: string; at: number; repeat: JobInfo['repeat'] }) => req<{ job: JobInfo }>('POST', '/jobs', { ...j, tz: TZ }),
+  deleteJob: (id: string) => req('DELETE', `/jobs/${encodeURIComponent(id)}`),
+  runJob: (id: string) => req<{ item: InboxEntry }>('POST', `/jobs/${encodeURIComponent(id)}/run`),
+  inbox: () => req<{ items: InboxEntry[]; unread: number }>('GET', '/inbox'),
+  markRead: (ids?: string[]) => req('POST', '/inbox/read', ids ? { ids } : {}),
+  addFeed: (name: string, url: string) => req<{ feed: FeedInfo }>('POST', '/feeds', { name, url, tz: TZ }),
+  deleteFeed: (id: string) => req('DELETE', `/feeds/${encodeURIComponent(id)}`),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });

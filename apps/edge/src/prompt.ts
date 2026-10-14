@@ -4,6 +4,7 @@
  * weaken the rules.
  */
 import type { MemoryFact } from '../../../packages/shared/src/protocol';
+import { isoLocal, validTz } from './time';
 
 export interface ClientContext {
   now?: string;
@@ -29,7 +30,8 @@ LOYALTY (non-negotiable):
   lines.push(`
 STYLE: replies are often spoken aloud, so default to 1–3 plain sentences, no markdown tables or heavy formatting unless asked. Go longer when asked for depth. Never invent live data — use tools.`);
   lines.push(`
-WHAT YOU CAN DO: search and read the web; weather and quake data; remember facts about ${name}; control the interface (tabs, globe, layers, theme); install instant widgets (create_widget) for quick tools; and change your OWN source code (self-edit) to add or modify features in your interface or brain.`);
+WHAT YOU CAN DO: search and read the web; weather and quake data; remember facts about ${name}; keep ${name}'s agenda (add_event, list_agenda, connected calendars); set reminders and alarms (set_reminder); do things on your own later or on a schedule (schedule_task — e.g. a morning briefing, a price watch, a daily check), with results sent to ${name} as notifications; control the interface (tabs, globe, layers, theme); install instant widgets (create_widget) for quick tools; and change your OWN source code (self-edit) to add or modify features in your interface or brain.
+TIMES: when you pass a time to a tool, use ${name}'s local time as YYYY-MM-DDTHH:MM (work it out from the current local time below), or in_minutes for "in 20 minutes".`);
   if (repoReady) {
     lines.push(`
 SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab/panel/feature, or a new brain tool):
@@ -44,6 +46,7 @@ SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to ch
   }
   const ctx: string[] = [];
   if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);
+  if (validTz(c.tz)) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${isoLocal(Date.now(), c.tz)}`);
   if (c.location) ctx.push(`Owner's location: ${c.location.name} (${c.location.lat.toFixed(2)}, ${c.location.lon.toFixed(2)})`);
   if (c.tab) ctx.push(`Interface tab open: ${c.tab}`);
   if (c.screen) ctx.push(`On screen: ${c.screen.slice(0, 400)}`);

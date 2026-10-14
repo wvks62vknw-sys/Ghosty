@@ -317,3 +317,17 @@ ol.steps li { margin: 2px 0; }
 .note.good { color: var(--ok); } .note.bad { color: #ff9a3c; }
 .pn.scroll > .bd { overflow-y: auto; }
 .pn.models > .bd { max-height: 30vh; overflow-y: auto; }
+
+/* agenda */
+.keyrow.wrapit { flex-wrap: wrap; }
+.keyrow.wrapit > input { flex: 1 1 140px; min-width: 0; }
+.keyrow.wrapit > select { flex: 0 1 auto; }
+.keyrow.sub { margin: -2px 0 6px 0; gap: 8px; }
+.keyrow.sub .note { font-size: 11px; }
+.daylab { margin-top: 8px; color: var(--a); }
+.rw.unread .v b { color: var(--ok); }
+.suggest { margin-top: 6px; }
+#dock button { position: relative; }
+#dock button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); position: absolute; top: 2px; right: 6px; min-width: 15px; height: 15px; border-radius: 8px; background: var(--r, #ff4d6a); color: #fff; font: 600 9px/15px var(--m); text-align: center; padding: 0 3px; }
+input[type="datetime-local"] { color-scheme: dark; }
+.pn.feeds > .bd { max-height: 34vh; }
