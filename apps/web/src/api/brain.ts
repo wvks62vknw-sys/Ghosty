@@ -3,7 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, MemoryFact, Roadmap, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
@@ -134,6 +134,9 @@ export const brain = {
   pushDevices: () => req<{ devices: { id: string; label: string; at: number; endpoint: string }[] }>('GET', '/push/devices'),
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
+  spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
+  spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
+  spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });
