@@ -5,7 +5,7 @@
  * No tool here identifies people or vehicles: no number-plate reading, face recognition or tracking.
  */
 import { asData } from '../kernel/permissions';
-import { cameraCoverage, flowAt, incidentsNear } from '../integrations/traffic';
+import { cameraCoverage, flowAt, incidentsNear, knownPlace } from '../integrations/traffic';
 import { geocode, ownerPlace } from './travel';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
@@ -21,7 +21,9 @@ async function where(a: Record<string, unknown>, ctx: ToolContext): Promise<{ na
     if (home) return home;
     throw new Error('say which place');
   }
-  const g = await geocode(place, await ownerPlace(ctx)).catch(() => null);
+  const known = knownPlace(place);
+  if (known) return { ...known, name: /[A-Z]/.test(place) && place.length <= 40 ? place : known.name };
+  const g = await geocode(place, await ownerPlace(ctx).catch(() => null)).catch(() => null);
   if (!g) throw new Error(`I couldn't find "${place}" on the map`);
   return g;
 }

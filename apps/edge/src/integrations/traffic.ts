@@ -135,3 +135,38 @@ export async function trafficRoute(path: string, method: string, vault: Vault): 
   }
   return Response.json({ error: 'not found' }, { status: 404 });
 }
+
+/**
+ * Major places by name, so "London" or "Birmingham city centre" resolve instantly and exactly,
+ * without the free OpenStreetMap search (rate-limited, and it can rank odd matches first —
+ * e.g. a museum store for "Birmingham City Centre"). Anything else still goes to the search.
+ */
+const PLACES: [string, number, number][] = [
+  ['London', 51.5074, -0.1278], ['Birmingham', 52.4797, -1.9026], ['Manchester', 53.4808, -2.2426], ['Liverpool', 53.4084, -2.9916],
+  ['Leeds', 53.8008, -1.5491], ['Sheffield', 53.3811, -1.4701], ['Bristol', 51.4545, -2.5879], ['Newcastle', 54.9783, -1.6178],
+  ['Nottingham', 52.9548, -1.1581], ['Leicester', 52.6369, -1.1398], ['Coventry', 52.4068, -1.5197], ['Wolverhampton', 52.5862, -2.1288],
+  ['Bradford', 53.7960, -1.7594], ['Cardiff', 51.4816, -3.1791], ['Swansea', 51.6214, -3.9436], ['Edinburgh', 55.9533, -3.1883],
+  ['Glasgow', 55.8642, -4.2518], ['Aberdeen', 57.1497, -2.0943], ['Belfast', 54.5973, -5.9301], ['Southampton', 50.9097, -1.4044],
+  ['Portsmouth', 50.8198, -1.0880], ['Brighton', 50.8225, -0.1372], ['Oxford', 51.7520, -1.2577], ['Cambridge', 52.2053, 0.1218],
+  ['Durham', 54.7753, -1.5849], ['Sunderland', 54.9069, -1.3838], ['York', 53.9600, -1.0873], ['Hull', 53.7676, -0.3274],
+  ['Stoke-on-Trent', 53.0027, -2.1794], ['Derby', 52.9225, -1.4746], ['Plymouth', 50.3755, -4.1427], ['Reading', 51.4543, -0.9781],
+  ['Milton Keynes', 52.0406, -0.7594], ['Norwich', 52.6309, 1.2974], ['Dublin', 53.3498, -6.2603], ['Paris', 48.8566, 2.3522],
+  ['New York', 40.7128, -74.0060], ['Los Angeles', 34.0522, -118.2437], ['San Francisco', 37.7749, -122.4194], ['San Diego', 32.7157, -117.1611],
+  ['Sacramento', 38.5816, -121.4944], ['Toronto', 43.6532, -79.3832], ['Vancouver', 49.2827, -123.1207], ['Calgary', 51.0447, -114.0719],
+  ['Sydney', -33.8688, 151.2093], ['Helsinki', 60.1699, 24.9384], ['Dubai', 25.2048, 55.2708], ['Tokyo', 35.6762, 139.6503],
+  ['Berlin', 52.5200, 13.4050], ['Madrid', 40.4168, -3.7038], ['Rome', 41.9028, 12.4964], ['Amsterdam', 52.3676, 4.9041],
+  ['Chicago', 41.8781, -87.6298], ['Washington', 38.9072, -77.0369], ['Karachi', 24.8607, 67.0011], ['Lahore', 31.5204, 74.3587],
+  ['Islamabad', 33.6844, 73.0479], ['Mumbai', 19.0760, 72.8777], ['Delhi', 28.7041, 77.1025], ['Singapore', 1.3521, 103.8198],
+];
+
+/** A major place named in `q` (ignoring "city centre", "downtown", "the", ", UK"…), or null. */
+export function knownPlace(q: string): { name: string; lat: number; lon: number } | null {
+  const n = q
+    .toLowerCase()
+    .replace(/[.,!?]/g, ' ')
+    .replace(/\b(the|city|town|centre|center|downtown|central|of|in|uk|england|united kingdom|gb|great britain|scotland|wales|nyc)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const hit = PLACES.find(([name]) => name.toLowerCase() === n) ?? (q.toLowerCase().includes('new york') ? PLACES.find(([name]) => name === 'New York') : undefined);
+  return hit ? { name: hit[0], lat: hit[1], lon: hit[2] } : null;
+}

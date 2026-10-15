@@ -203,7 +203,8 @@ export class Router {
   }
 
   async resetHealth(): Promise<void> {
-    await this.storage.delete(H_KEY);
+    this.mem.delete(H_KEY); // else a paused database would keep serving the old health
+    await this.storage.delete(H_KEY).catch(() => undefined);
   }
 
   /**

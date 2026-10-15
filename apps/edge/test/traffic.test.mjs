@@ -86,3 +86,14 @@ test('Durham County Council cameras parse to stills on their own host', () => {
   assert.equal(cams[0].img, 'https://dcc.ussgroup.co.uk/images/dutmc_24.jpg');
   assert.match(cams[0].name, /Framwellgate Peth · View towards/);
 });
+
+test('major places resolve from the built-in list, without the rate-limited map search', async () => {
+  const before = calls.filter((u) => u.hostname === 'nominatim.openstreetmap.org').length;
+  const { events, ctx } = ctxFor();
+  assert.match(await T.toolByName.get('show_cameras').run({ place: 'london' }, ctx), /camera to London/);
+  assert.ok(Math.abs(events[0].args.lat - 51.507) < 0.01);
+  const b = ctxFor();
+  assert.match(await T.toolByName.get('show_cameras').run({ place: 'Birmingham City Centre' }, b.ctx), /no public live cameras in Birmingham City Centre/);
+  assert.ok(Math.abs(b.events[0].args.lat - 52.48) < 0.01);
+  assert.equal(calls.filter((u) => u.hostname === 'nominatim.openstreetmap.org').length, before, 'no map search for major places');
+});

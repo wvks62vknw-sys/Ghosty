@@ -340,7 +340,8 @@ export class GhostyAgent {
         } catch (e) {
           const paused = storageError(e);
           if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused);
-          else if (paused) s.emit({ t: 'status', text: 'answered, but not saved: my database is paused until midnight UTC' });
+          // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
+          else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
           else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
