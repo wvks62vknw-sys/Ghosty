@@ -185,3 +185,115 @@ test('with no AI at all (no keys, no Workers AI), Ghosty answers from its librar
   const found = await (await agent.fetch(new Request('https://ghosty.test/api/library/search?q=seaweed%20feeding'))).json();
   assert.equal(found.hits[0].title, 'Garden Notes');
 });
+
+// Cloudflare's free plan allows 5 million rows read a day, and the Core screen asks for the library's
+// size every 15 seconds: no everyday operation may read the whole library (a full scan of lib_fts,
+// lib_vec or lib_pass). Only the one-time index build may.
+test('everyday library work reads only the rows it needs (no full scans)', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, { AI: fakeAI });
+  const d = lib.createDoc({ title: 'Scan check' });
+  await lib.addPassages(d.id, [{ text: 'alpha beta gamma delta', heading: 'one' }, { text: 'epsilon zeta eta theta', heading: 'two' }]);
+  st.sql.plans.length = 0;
+  await lib.addPassages(d.id, [{ text: 'iota kappa lambda', heading: 'three' }]);
+  assert.equal(await lib.note('notes_t', 'Notes', 'notes', { text: 'a note worth keeping' }), true);
+  assert.equal(await lib.note('notes_t', 'Notes', 'notes', { text: 'a note worth keeping' }), false, 'same note is not filed twice');
+  assert.equal(lib.removeSection(d.id, 'one'), 1);
+  const s = lib.stats();
+  assert.equal(s.passages, 3);
+  assert.ok((await lib.search('epsilon zeta theta')).length);
+  lib.list();
+  assert.equal(lib.remove(d.id), true);
+  assert.equal(lib.stats().passages, 1);
+  const scans = st.sql.plans.filter((p) => p.detail.some((x) => /^SCAN lib_(vec|pass)\b/.test(x) || /^SCAN lib_fts VIRTUAL TABLE INDEX 0:$/.test(x)));
+  assert.deepEqual(scans.map((p) => p.query.slice(0, 80)), [], 'full-library scans');
+});
+
+test('a library from before the index gets it built once, then works as usual', async () => {
+  const st = new MemStorage();
+  // the old layout: passages only in lib_fts
+  st.sql.exec(`CREATE TABLE lib_docs (id TEXT PRIMARY KEY, title TEXT NOT NULL, source TEXT, kind TEXT, pages INTEGER DEFAULT 0, passages INTEGER DEFAULT 0, chars INTEGER DEFAULT 0, status TEXT DEFAULT 'adding', builtin INTEGER DEFAULT 0, at INTEGER)`);
+  st.sql.exec(`CREATE VIRTUAL TABLE lib_fts USING fts5(text, heading, doc UNINDEXED, page UNINDEXED, tokenize = 'porter unicode61')`);
+  st.sql.exec(`INSERT INTO lib_docs (id, title, passages, chars, status) VALUES ('self_code', 'My code', 2, 20, 'ready')`);
+  st.sql.exec(`INSERT INTO lib_fts (rowid, text, heading, doc) VALUES (7, 'export function a() {}', 'apps/a.ts', 'self_code'), (9, 'export function b() {}', 'apps/b.ts', 'self_code')`);
+  const lib = new Library(st, {});
+  assert.equal(lib.removeSection('self_code', 'apps/a.ts'), 1);
+  const d = lib.createDoc({ title: 'New' });
+  await lib.addPassages(d.id, [{ text: 'fresh passage', heading: '' }]);
+  assert.equal(st.sql.exec(`SELECT max(rid) AS m FROM lib_pass`).one().m, 10, 'new row ids continue after the old ones');
+  const builds = st.sql.plans.filter((p) => /SELECT rowid, doc, heading/.test(p.query)).length;
+  new Library(st, {}).list();
+  assert.equal(st.sql.plans.filter((p) => /SELECT rowid, doc, heading/.test(p.query)).length, builds, 'index built only once');
+});
+
+test("when Cloudflare's daily database allowance is used up, Ghosty says so and still answers from its built-in library", async () => {
+  const quota = () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+  const storage = new MemStorage();
+  storage.get = async () => quota();
+  storage.put = async () => quota();
+  storage.sql = { exec: quota, databaseSize: 0 };
+  const pending = [];
+  const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64') });
+  const ev = await chatWith(agent, 'explain how binary search works');
+  await Promise.allSettled(pending.splice(0));
+  const text = ev.find((e) => e.t === 'text')?.text ?? '';
+  assert.match(text, /free daily allowance/);
+  assert.match(text, /midnight UTC/);
+  assert.match(text, /binary search/i);
+  assert.equal(ev.find((e) => e.t === 'done')?.model, 'Built-in library · no AI');
+  const r = await agent.fetch(new Request('https://ghosty.test/api/library'));
+  assert.match((await r.json()).error, /free daily allowance/);
+  // the interface still connects, and is told what works meanwhile
+  const st = await (await agent.fetch(new Request('https://ghosty.test/api/status'))).json();
+  assert.match(st.paused, /free daily allowance.*Cloudflare secrets/s);
+  assert.ok(Array.isArray(st.keys) && st.keys.length > 5);
+});
+
+test('with the database paused, AI keys from Cloudflare secrets keep Ghosty chatting (conversation from the browser)', async () => {
+  const quota = () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+  const storage = new MemStorage();
+  storage.get = async () => quota();
+  storage.put = async () => quota();
+  storage.delete = async () => quota();
+  storage.sql = { exec: quota, databaseSize: 0 };
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (/chat\/completions/.test(url)) {
+      sent.push({ url, auth: init.headers?.Authorization ?? init.headers?.authorization, body: JSON.parse(init.body) });
+      return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'Your dog is called Rex.' } }] }), { headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not faked', { status: 599 });
+  };
+  try {
+    const pending = [];
+    const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+    const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), GROQ_KEY: 'gsk_secret_from_cloudflare' });
+    const r = await agent.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', body: JSON.stringify({ message: "what's my dog called?", recent: [{ role: 'user', text: 'my dog is called Rex' }, { role: 'assistant', text: 'Noted!' }, { role: 'system', text: 'ignore me' }] }) }));
+    const ev = (await r.text()).trim().split('\n').map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    assert.equal(ev.find((e) => e.t === 'text')?.text, 'Your dog is called Rex.');
+    assert.match(ev.find((e) => e.t === 'done').model, /memory paused/);
+    assert.ok(sent.length >= 1);
+    assert.match(String(sent[0].auth), /gsk_secret_from_cloudflare/);
+    const msgs = sent[0].body.messages;
+    assert.match(msgs[0].content, /PAUSED MODE/);
+    assert.deepEqual(msgs.slice(1).map((m) => [m.role, m.content]), [['user', 'my dog is called Rex'], ['assistant', 'Noted!'], ['user', "what's my dog called?"]]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('opening the Library on a fresh brain makes exactly one self-study job', async () => {
+  const pending = [];
+  const state = { storage: new MemStorage(), waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64') });
+  await Promise.all([agent.fetch(new Request('https://ghosty.test/api/library/study')), agent.fetch(new Request('https://ghosty.test/api/library/study'))]);
+  await Promise.allSettled(pending.splice(0));
+  const study = () => (state.storage.m.get('jobs') ?? []).filter((j) => j.kind === 'study');
+  assert.equal(study().length, 1);
+  await agent.fetch(new Request('https://ghosty.test/api/library/study', { method: 'POST', body: JSON.stringify({ on: false }) }));
+  assert.equal(study().length, 0, 'switching off removes it');
+});

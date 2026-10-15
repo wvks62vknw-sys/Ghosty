@@ -46,7 +46,8 @@ export function htmlToText(html: string): { title: string; text: string } {
 }
 
 async function search(query: string, ctx: ToolContext): Promise<string> {
-  const brave = await ctx.vault.get('brave');
+  // .catch: with the database paused, fall through to the keyless search.
+  const brave = await ctx.vault.get('brave').catch(() => null);
   if (brave) {
     const r = await fetch(`https://api.search.brave.com/res/v1/web/search?count=6&q=${encodeURIComponent(query)}`, {
       headers: { 'X-Subscription-Token': brave, Accept: 'application/json' },
@@ -56,7 +57,7 @@ async function search(query: string, ctx: ToolContext): Promise<string> {
       return (j.web?.results ?? []).map((x, i) => `${i + 1}. ${x.title}\n${x.url}\n${htmlToText(x.description ?? '').text}`).join('\n\n');
     }
   }
-  const tavily = await ctx.vault.get('tavily');
+  const tavily = await ctx.vault.get('tavily').catch(() => null);
   if (tavily) {
     const r = await fetch('https://api.tavily.com/search', {
       method: 'POST',

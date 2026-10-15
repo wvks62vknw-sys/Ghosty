@@ -133,9 +133,14 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
     return;
   }
   speakReplies = opts.speak ?? true;
+  const recent = chat
+    .get()
+    .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
+    .slice(-12)
+    .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
-  await stream((cb) => brain.chat(t, context(), cb));
+  await stream((cb) => brain.chat(t, context(), cb, undefined, recent));
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

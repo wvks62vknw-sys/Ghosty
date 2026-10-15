@@ -100,7 +100,9 @@ createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream', ...headersFor(asked === '/index.html' ? '/' : asked) });
     res.end(file);
   } catch (e) {
-    res.writeHead(500);
+    // A response that fails halfway (e.g. an upstream image stream breaking) has already sent its
+    // headers: just end it. Writing headers again throws and would take the whole server down.
+    if (!res.headersSent) res.writeHead(500);
     res.end(String(e));
   }
 }).listen(port, () => console.log(`Ghosty preview on http://localhost:${port}  (owner key: preview-owner-key-0123456789)`));

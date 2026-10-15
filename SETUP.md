@@ -93,6 +93,20 @@ No client secret is needed (PKCE), and the sign-in is kept encrypted in your bra
 account; play, pause, skip and volume need **Spotify Premium**, and Spotify must be open on some device.
 A new Spotify app is in "development mode": add your own Spotify email under the app's **User Management** if it asks.
 
+
+## 3e. Live traffic (optional, free)
+
+God's Eye shows live public CCTV where operators publish it (London, County Durham, New York, California,
+Finland, Ontario, British Columbia, Sydney, Calgary). Many places — Birmingham included, and National
+Highways' motorway cameras — don't publish theirs, so for everywhere else Ghosty uses live traffic:
+1. Create a free account at [developer.tomtom.com](https://developer.tomtom.com/user/register) (no card).
+2. Dashboard → **Keys** → copy **My first API key**.
+3. In Ghosty: **Links → Live traffic** (or **System → Keys → TomTom traffic**), paste it and press **SAVE**.
+
+Then ask *"show me the cameras in Birmingham city centre"* or *"how's the traffic on the M6?"*: God's Eye
+flies there with every road coloured by speed, and Ghosty lists crashes, closures and queues with delays.
+The free plan allows 50,000 map tiles and 2,500 lookups a day.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
@@ -133,13 +147,28 @@ rolling back. It treats web pages and feeds as information, never as orders.
 | Service | Free limit | What it means for Ghosty |
 |---|---|---|
 | Workers | 100,000 requests/day, 10 ms CPU per request | Plenty for one person; the interface's files don't count |
-| Durable Objects | 100,000 requests/day, 5 GB | Memory, chat and keys |
+| Durable Objects | 100,000 requests/day, 5 GB, **5 million rows read and 100,000 rows written a day** | Memory, chat, keys and the library. Ghosty reads only the rows it needs; if the daily allowance still runs out, the database pauses until midnight UTC (see below) |
 | Workers Builds | 3,000 build minutes/month | Each change is about 1–2 minutes |
 | Worker Previews | 100 per Worker | Old previews can be deleted from the dashboard |
 | GitHub Actions | 2,000 minutes/month for private repos | About 1 minute per check |
 
 If the Worker's logs show **"Exceeded CPU"** errors often, the Workers Paid plan ($5/month)
 raises the limit. Nothing else needs to change.
+
+### Keep Ghosty working when the database is paused
+
+If Cloudflare's free daily database allowance runs out, the database pauses until midnight UTC
+(1am UK summer time). Nothing is lost. Ghosty shows **MEMORY PAUSED** and keeps chatting if its AI keys
+are also saved as **Cloudflare secrets** (they live outside the database). Free, one time, two minutes:
+
+1. Cloudflare dashboard → **Workers & Pages** → **ghosty** → **Settings** → **Variables and Secrets** → **Add**.
+2. Type **Secret**, name **`GEMINI_KEY`**, value: your Gemini key (the same one as in System → Keys). Save.
+3. Add any others the same way: `GROQ_KEY`, `CEREBRAS_KEY`, `OPENROUTER_KEY`, `MISTRAL_KEY`, `TAVILY_KEY`
+   (web search), `TOMTOM_KEY` (traffic). The name is always the key's name in capitals + `_KEY`.
+
+While paused Ghosty answers with those keys, follows the conversation on your screen, can search the web
+and check the weather, and answers from its built-in library — but can't save memories, read your own
+library uploads or use the agenda until the reset. Workers Paid ($5/month) removes the limit altogether.
 
 ## Troubleshooting
 

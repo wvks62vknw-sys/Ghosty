@@ -66,9 +66,15 @@ async function connect(): Promise<void> {
     return;
   }
   try {
-    await brain.status();
+    const st = await brain.status();
     ui.set({ connected: true });
-    bootLog('BRAIN', 'LINKED');
+    bootLog('BRAIN', st.paused ? 'MEMORY PAUSED' : 'LINKED');
+    if (st.paused) {
+      // The database's free daily allowance is used up: say what still works, until the reset.
+      const bar = h('div#pausebar', { role: 'status', title: 'Tap to hide' }, `MEMORY PAUSED · ${st.paused}`);
+      bar.addEventListener('click', () => bar.remove());
+      document.body.append(bar);
+    }
   } catch (e) {
     if (e instanceof AuthError) {
       await pair(ownerKey.get() ? 'The saved key was not accepted.' : 'Sign-in needed.');

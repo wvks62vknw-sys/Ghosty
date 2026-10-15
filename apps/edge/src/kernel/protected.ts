@@ -46,7 +46,7 @@ const PROTECTED_NAMES =
   /^(package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|bun\.lockb?|bunfig\.toml|wrangler\.(json|jsonc|toml)|deno\.jsonc?|\..*)$/i;
 
 /** Files Ghosty may not even read (deploy settings, including the owner password hash). */
-export const UNREADABLE = /^apps\/edge\/wrangler\.(json|jsonc|toml)$/i;
+export const UNREADABLE = /^(apps\/edge\/)?wrangler\.(json|jsonc|toml)$/i;
 
 /** Returns a reason string if the path is not allowed, otherwise null. */
 export function pathProblem(path: string, kernelUnlocked: boolean): string | null {

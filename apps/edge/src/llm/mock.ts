@@ -47,7 +47,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
-  if ((m = text.match(/^show (?:me )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };
+  if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };
+  if ((m = text.match(/^(?:how'?s|what'?s) the traffic (?:like )?in (.+?)\??$/)) && has('traffic_now')) return { message: call('traffic_now', { place: m[1] }), model };
   if ((m = text.match(/^ship (\d+)$/)) && has('ship_change')) return { message: call('ship_change', { pr: Number(m[1]) }), model };
   if (text === 'show versions' && has('list_versions')) return { message: call('list_versions', {}), model };
   if (text === 'force forget everything') return { message: call('forget_everything', {}), model }; // ignores the offered tool list

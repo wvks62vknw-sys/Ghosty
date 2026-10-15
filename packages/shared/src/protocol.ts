@@ -25,6 +25,7 @@ export const CLIENT_COMMANDS = [
   'reload_interface',
   'show_route',
   'show_cameras',
+  'show_traffic',
   'play_radio',
   'stop_audio',
 ] as const;
@@ -134,6 +135,8 @@ export interface BrainStatus {
   keys: KeyStatus[];
   models: ModelHealth[];
   lastModel: string | null;
+  /** Set while the database is unavailable (free daily allowance used up): what still works. */
+  paused?: string;
 }
 
 /** The owner's linked Spotify account (LINKS → SPOTIFY). Tokens never leave the brain. */
@@ -192,7 +195,7 @@ export interface AgendaEventInfo {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify';
+  kind: 'reminder' | 'task' | 'verify' | 'study';
   title: string;
   text: string;
   next: number;

@@ -5,6 +5,17 @@
  */
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
+/** Ghosty's self-study (library/study.ts in the brain). */
+export interface StudyInfo {
+  on: boolean;
+  i: number;
+  gaps: string[];
+  sessions: number;
+  last?: { at: number; topic: string; title?: string; passages?: number; error?: string };
+  next?: number | null;
+  topics?: number;
+}
+
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
   try {
@@ -97,7 +108,8 @@ async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent)
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () => req<BrainStatus>('GET', '/status'),
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal) => streamEvents('/chat', { message, context }, onEvent, signal),
+  /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) => streamEvents('/chat', { message, context, recent }, onEvent, signal),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   stop: () => req<{ ok: boolean }>('POST', '/stop'),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
@@ -116,6 +128,8 @@ export const brain = {
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
+  studyStatus: () => req<StudyInfo>('GET', '/library/study'),
+  study: (p: { on?: boolean; now?: boolean }) => req<StudyInfo>('POST', '/library/study', p),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
   libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),
   /** Ask the brain to turn a document the browser can't read into text (Workers AI, no key). */
@@ -152,6 +166,7 @@ export const brain = {
   pushDevices: () => req<{ devices: { id: string; label: string; at: number; endpoint: string }[] }>('GET', '/push/devices'),
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
+  trafficStatus: () => req<{ ready: boolean }>('GET', '/traffic/status'),
   emailStatus: () => req<EmailStatus>('GET', '/email/status'),
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),

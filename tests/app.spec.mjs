@@ -79,6 +79,24 @@ const reach = await page.evaluate(() => {
 if (!reach) problems.push('Links: the last panel cannot be scrolled into view on a phone');
 await page.evaluate(() => (document.querySelector('#pg-links .hud').scrollTop = 0));
 await page.screenshot({ path: `${out}/phone-links.png` });
+
+// God's Eye layers on a phone: a sheet of tiles where every layer can be reached and switched.
+await page.evaluate(() => (location.hash = 'eye'));
+await page.waitForTimeout(1500);
+await page.click('.eyelay h3');
+await page.waitForTimeout(300);
+const sheet = await page.evaluate(() => {
+  const tiles = [...document.querySelectorAll('.eyelay .ltile')];
+  const last = tiles[tiles.length - 1];
+  last?.scrollIntoView({ block: 'nearest' });
+  const r = last?.getBoundingClientRect();
+  return { n: tiles.length, visible: !!r && r.bottom <= innerHeight && r.top >= 0 && r.right <= innerWidth, groups: document.querySelectorAll('.eyelay .lgroup').length };
+});
+if (sheet.n < 20 || !sheet.visible || sheet.groups < 4) problems.push(`God's Eye layers on a phone: ${JSON.stringify(sheet)}`);
+const before = await page.evaluate(() => window.__ghosty.globe.vis.traffic);
+await page.click('.eyelay .ltile:has-text("LIVE TRAFFIC")');
+if ((await page.evaluate(() => window.__ghosty.globe.vis.traffic)) === before) problems.push('tapping a layer tile did not switch it');
+await page.screenshot({ path: `${out}/phone-layers.png` });
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `App run clean (manifest ${manifest.n} icons, service worker active, push → notification).`);
 process.exit(problems.length ? 1 : 0);

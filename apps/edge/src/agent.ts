@@ -15,13 +15,17 @@ import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions'
 import { Vault } from './kernel/vault';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
+import { trafficRoute } from './integrations/traffic';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
 import { trainingRoute } from './training/coach';
-import { formatHits, Library, type LibraryHit } from './library/store';
+import { CURRICULUM, loadStudy, noteGap, STUDY_KEY, studySession } from './library/study';
+import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
 import { ALL_TOOL_NAMES, selectTools, TOOLS, toolByName, toolSpecs } from './tools';
+import { dataTools } from './tools/data';
+import { webTools } from './tools/web';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
@@ -67,6 +71,13 @@ function trimContext(msgs: Msg[]): Msg[] {
   let out = msgs.slice(-36);
   while (out.length && out[0]!.role !== 'user') out = out.slice(1);
   return out.map((m, i) => (m.role === 'tool' && i < out.length - 8 && (m.content?.length ?? 0) > 600 ? { ...m, content: `${m.content!.slice(0, 600)}…[older tool output trimmed]` } : m));
+}
+
+/** Cloudflare's free-plan database allowance (rows read/written per day) in plain words, or null for other errors. */
+export function storageError(e: unknown): string | null {
+  const m = String((e as Error)?.message ?? e);
+  if (!/rows (read|written)|exceeded allowed|free tier|storage (operation|quota)/i.test(m)) return null;
+  return "Ghosty's database has used up Cloudflare's free daily allowance, so it is paused until it resets at midnight UTC (1am UK summer time). Nothing is lost. The heavy readers that caused this have been fixed; Workers Paid ($5/month) removes the limit.";
 }
 
 export class GhostyAgent {
@@ -136,6 +147,7 @@ export class GhostyAgent {
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
     try {
+      if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       if (path === "/chat" && method === "POST") return await this.chat(req);
       if (path === '/approve' && method === 'POST') return await this.approve(req);
       if (path === '/stop' && method === 'POST') {
@@ -229,11 +241,12 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
+      if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);
     } catch (e) {
-      return json({ error: String((e as Error)?.message ?? e) }, 500);
+      return json({ error: storageError(e) ?? String((e as Error)?.message ?? e) }, 500);
     }
   }
 
@@ -248,16 +261,30 @@ export class GhostyAgent {
     const keys: KeyStatus[] = [];
     for (const k of keyDefs(this.env.GITHUB_REPO)) keys.push({ name: k.name, label: k.label, set: await this.vault.has(k.name), hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
     if (this.env.GITHUB_TOKEN) keys.find((k) => k.name === 'github')!.set = true;
-    this.state.waitUntil(this.router.discover(false));
+    this.state.waitUntil(this.router.discover(false).catch(() => undefined));
+    let paused: string | undefined;
+    const soft = async <T>(k: string): Promise<T | undefined> => {
+      try {
+        return await this.storage.get<T>(k);
+      } catch (e) {
+        const p = storageError(e);
+        if (!p) throw e;
+        paused = p;
+        return undefined;
+      }
+    };
+    const kernelUnlockedUntil = (await soft<number>('kernelUnlockedUntil')) ?? 0;
+    const lastModel = (await soft<string>('llm:last')) ?? null;
     return {
       owner,
       repo: this.env.GITHUB_REPO ?? null,
       repoReady: !!(await this.github()),
       previews: this.env.PAGES_PROJECT ? `${this.env.PAGES_PROJECT}.pages.dev` : this.host?.endsWith('.workers.dev') ? `<change>-${this.host}` : null,
-      kernelUnlockedUntil: (await this.storage.get<number>('kernelUnlockedUntil')) ?? 0,
+      kernelUnlockedUntil,
       keys,
       models: await this.router.summary(),
-      lastModel: (await this.storage.get<string>('llm:last')) ?? null,
+      lastModel,
+      ...(paused ? { paused: `${paused} Meanwhile chat keeps working with AI keys saved as Cloudflare secrets (and the built-in library); memory, library uploads and agenda come back after the reset.` } : {}),
     };
   }
 
@@ -282,14 +309,21 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; context?: ClientContext };
+    const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     const started = this.begin();
     if (started instanceof Response) return started;
     const { s, signal } = started;
     const client = body.context ?? {};
-    await this.rememberClient(client);
+    await this.rememberClient(client).catch(() => undefined);
+    // Did any reply text go out before a failure? (Then paused mode must not answer again.)
+    let said = false;
+    const emit = s.emit;
+    s.emit = (ev: ChatEvent) => {
+      if (ev.t === 'text') said = true;
+      emit(ev);
+    };
     this.state.waitUntil(
       (async () => {
         try {
@@ -304,7 +338,11 @@ export class GhostyAgent {
           const ctx = trimContext([...prev, { role: 'user', content: text }]);
           await this.loop(ctx, client, s.emit, signal);
         } catch (e) {
-          s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
+          const paused = storageError(e);
+          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused);
+          // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
+          else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
+          else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
           await s.close();
@@ -312,6 +350,64 @@ export class GhostyAgent {
       })(),
     );
     return s.response;
+  }
+
+  /**
+   * Paused mode: the database is unavailable (Cloudflare's free daily allowance is used up),
+   * so there is no memory, library, agenda or saved conversation until it resets. Ghosty still
+   * answers: AI keys come from Cloudflare secrets (or the copies still in memory), the
+   * conversation comes from the browser, and only tools that need no database are offered.
+   * With no AI reachable either, it answers from the built-in library in the code.
+   */
+  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string): Promise<void> {
+    const recent: Msg[] = (Array.isArray(recentRaw) ? recentRaw : [])
+      .filter((m): m is { role: 'user' | 'assistant'; text: string } => !!m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.text.slice(0, 1500) }));
+    const hits = searchStarterInMemory(text);
+    const tools = [...webTools, ...dataTools].filter((t) => t.side !== 'client' && !needsApproval(t));
+    const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+    const sys =
+      systemPrompt(client, [], false) +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Until then you have no saved memory, library uploads, agenda, reminders or email/Spotify links, and nothing you say is saved. Answer normally with what you know and the tools you have (web search, weather). If asked to remember, schedule or use something that needs the database, say it can be done after the reset. Mention the pause only when it matters.` +
+      (hits.length ? `\n\nFROM YOUR BUILT-IN LIBRARY:\n${asData('your library', formatHits(hits, 3000))}` : '');
+    const ctx: Msg[] = [...recent, { role: 'user', content: text }];
+    const tctx = this.toolContext(emit);
+    try {
+      for (let step = 0; step < 6; step++) {
+        const { message, model } = await this.router.complete([{ role: 'system', content: sys }, ...ctx], specs, signal);
+        ctx.push(message);
+        const calls = message.tool_calls ?? [];
+        if (!calls.length) {
+          emit({ t: 'text', text: message.content?.trim() || '…' });
+          emit({ t: 'done', model: `${model} · memory paused` });
+          return;
+        }
+        for (const call of calls) {
+          const tool = tools.find((t) => t.name === call.function.name);
+          emit({ t: 'tool', id: call.id, name: call.function.name, args: safeArgs(call.function.arguments) });
+          let result: string;
+          let ok = true;
+          try {
+            if (!tool) throw new Error(`${call.function.name} needs my database, which is paused until midnight UTC`);
+            result = await tool.run(safeArgs(call.function.arguments), tctx);
+          } catch (e) {
+            ok = false;
+            result = `Error: ${String((e as Error)?.message ?? e)}`;
+          }
+          emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
+          ctx.push({ role: 'tool', tool_call_id: call.id, content: result.slice(0, 8000) });
+        }
+      }
+      emit({ t: 'error', message: 'I ran out of steps.' });
+    } catch (e) {
+      if (signal.aborted) return;
+      // No AI either: the built-in library, or an honest explanation of what to do.
+      if (hits.length) {
+        emit({ t: 'text', text: `${why}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
+        emit({ t: 'done', model: 'Built-in library · no AI' });
+      } else emit({ t: 'error', message: `${why} To keep chatting while it's paused, add your AI keys as Cloudflare secrets (GEMINI_KEY, GROQ_KEY…): see SETUP.md "Keep Ghosty working when the database is paused". (${String((e as Error)?.message ?? e).slice(0, 200)})` });
+    }
   }
 
   private async approve(req: Request): Promise<Response> {
@@ -329,7 +425,7 @@ export class GhostyAgent {
           const paused = await this.runCalls(ctx, pending.calls, pending.client, s.emit, body.allow ? 'approved' : 'declined');
           if (!paused) await this.loop(ctx, pending.client, s.emit, signal);
         } catch (e) {
-          s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
+          s.emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
           await s.close();
@@ -465,6 +561,7 @@ export class GhostyAgent {
       try {
         await this.library.seedStarter(20);
         hits = (await this.library.search(text, 4)).filter((h) => h.relevant);
+        if (!hits.length && !code) this.state.waitUntil(noteGap(this.storage, text).catch(() => undefined));
         if (hits.length) prompt += `\n\nFROM YOUR LIBRARY (looked up automatically for this message — use it, cite the source, and call library_search for more):\n${asData('your library', formatHits(hits, 4500))}`;
       } catch {
         /* the library is a bonus; never block a reply on it */
@@ -504,6 +601,22 @@ export class GhostyAgent {
   private async libraryRoute(req: Request, path: string, method: string, url: URL): Promise<Response> {
     const lib = this.library;
     if (!lib.available) return json({ error: 'the library needs SQLite storage' }, 501);
+    if (path === '/library/study' && method === 'GET') {
+      await this.ensureStudyJob();
+      const job = (await loadJobs(this.storage)).find((j) => j.kind === 'study');
+      return json({ ...(await loadStudy(this.storage)), next: job?.next ?? null, topics: CURRICULUM.length });
+    }
+    if (path === '/library/study' && method === 'POST') {
+      const b = (await req.json().catch(() => ({}))) as { on?: boolean; now?: boolean };
+      const st = await loadStudy(this.storage);
+      if (typeof b.on === 'boolean') {
+        st.on = b.on;
+        await this.storage.put(STUDY_KEY, st);
+        await this.ensureStudyJob();
+      }
+      if (b.now) return json(await studySession(this.storage, this.library));
+      return json(st);
+    }
     if (path === '/library' && method === 'GET') {
       const seeded = await lib.seedStarter(40);
       return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI });
@@ -613,6 +726,7 @@ export class GhostyAgent {
         await this.verifyShip(job);
         return json({ ok: true });
       }
+      if (job.kind === 'study') return json({ study: await studySession(this.storage, this.library) });
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -685,6 +799,10 @@ export class GhostyAgent {
           await finishJob(this.storage, job.id);
         } else if (job.kind === 'verify') {
           await this.verifyShip(job);
+        } else if (job.kind === 'study') {
+          // Quiet: no notification each hour; what it read is in the library and its study log.
+          await studySession(this.storage, this.library);
+          await finishJob(this.storage, job.id, 'studied');
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -701,6 +819,27 @@ export class GhostyAgent {
   }
 
   private bgBusy = false;
+
+  /** Self-study runs as an hourly background job; make sure there is exactly one while it's on. */
+  private studyChecked = false;
+  private studyCheck: Promise<void> = Promise.resolve();
+  /** One check at a time (two at once could both add a job), each after the previous one. */
+  private ensureStudyJob(): Promise<void> {
+    this.studyChecked = true;
+    const run = this.studyCheck.then(() => this.reconcileStudyJob());
+    this.studyCheck = run.catch(() => undefined);
+    return run;
+  }
+  private async reconcileStudyJob(): Promise<void> {
+    const st = await loadStudy(this.storage);
+    const jobs = (await loadJobs(this.storage)).filter((j) => j.kind === 'study');
+    // Keep one while it's on (none while off); remove any extras.
+    for (const j of jobs.slice(st.on ? 1 : 0)) await removeJob(this.storage, j.id);
+    if (st.on && !jobs.length) {
+      await addJob(this.storage, { kind: 'study', title: 'Self-study (no AI, no keys)', text: 'Read one topic from the study list into the library.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
+      await rearm(this.storage);
+    }
+  }
 
   /**
    * After a change ships: look at the checks on the shipped commit (CI + Cloudflare's
