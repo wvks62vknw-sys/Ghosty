@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { sqlStorage } from './sqlite-storage.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -31,7 +32,7 @@ class MemStorage {
   async getAlarm() { return this.alarmAt; }
 }
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
-const state = { storage: new MemStorage(), waitUntil: () => undefined };
+const state = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined };
 const env = {
   // Same shape as production: only the password's hash is configured, and no VAULT_KEY
   // (the brain makes its own). OWNER_KEY stays here for the log line below only.

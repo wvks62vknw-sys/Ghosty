@@ -7,7 +7,11 @@ export interface Env {
   /** Durable Object namespace holding Ghosty's single agent instance. */
   AGENT: DurableObjectNamespace;
   /** Cloudflare Workers AI (free daily allowance, no key): Ghosty's always-available fallback brain. */
-  AI?: { run(model: string, inputs: Record<string, unknown>): Promise<unknown> };
+  AI?: {
+    run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+    /** Converts documents (PDF, Office, HTML…) to Markdown text. Used for library uploads the browser can't read itself. */
+    toMarkdown?(files: { name: string; blob: Blob }[]): Promise<{ name: string; format?: string; data?: string; error?: string }[]>;
+  };
   /** The built interface (apps/web/dist), served for every path outside /api. */
   ASSETS?: { fetch(req: Request): Promise<Response> };
 

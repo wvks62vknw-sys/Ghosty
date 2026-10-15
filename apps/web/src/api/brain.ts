@@ -3,7 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, MemoryFact, Roadmap, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
@@ -107,6 +107,20 @@ export const brain = {
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
   lessons: () => req<{ lessons: Lesson[] }>('GET', '/lessons'),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
+  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean }>('GET', '/library'),
+  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
+  libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
+  libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
+  libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
+  libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
+  libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string }>('POST', '/library/import', { source, offset }),
+  /** Ask the brain to turn a document the browser can't read into text (Workers AI, no key). */
+  libraryConvert: async (file: File): Promise<string> => {
+    const r = await fetch(`/api/library/convert?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: headers({ 'content-type': file.type || 'application/octet-stream' }), body: file, credentials: 'same-origin' });
+    const j = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
+    if (!r.ok || !j.text) throw new Error(j.error ?? `HTTP ${r.status}`);
+    return j.text;
+  },
   clearRoadmap: () => req('DELETE', '/roadmap'),
   forgetLesson: (id: string) => req('DELETE', `/lessons/${encodeURIComponent(id)}`),
   setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string }>,

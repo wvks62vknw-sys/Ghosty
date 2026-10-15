@@ -47,6 +47,11 @@ them, so it runs out far less often. Two more free sources need no extra key:
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
 - **GitHub Models**: give your GitHub token (step 4) the **Models: Read-only** account permission.
 
+**Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
+(or import a web page, an arXiv paper id, a CVE id or a GitHub repo). Reading happens in your browser and
+searching uses no AI, so a big library costs nothing. Scanned PDFs (photos of pages) are converted by
+Workers AI. Storage: the free plan's Durable Object storage holds several GB — thousands of books' worth of text.
+
 To check which version you're running, open **System → Status → VERSION**. If it says **NEWER SHIPPED**,
 press **RELOAD TO GET THE NEW VERSION**.
 

@@ -38,6 +38,7 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'remember',
   'learn_lesson', // lessons go into every prompt, so only the owner's own sessions may write them
   'forget_lesson',
+  'library_import', // the library flows into every prompt; only the owner's sessions add to it
   'plan_upgrade', // a roadmap is a standing plan for self-edits; only the owner's sessions set it
   'update_step',
   'set_reminder',

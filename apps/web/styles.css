@@ -343,3 +343,15 @@ input[type="range"] { flex: 1; accent-color: var(--c, #2ff); }
 /* Pinch-zoom the page anywhere except on the globe, which uses pinch for its own zoom. */
 body:not([data-scene="globe"]) #gl { touch-action: pan-x pan-y pinch-zoom; }
 .rw .v { overflow-wrap: anywhere; }
+
+/* Library tab */
+.drop { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; text-align: center; padding: 18px 12px; border: 1px dashed rgba(var(--cr), .5); background: rgba(var(--cr), .04); cursor: pointer; margin-bottom: 8px; }
+.drop b { letter-spacing: .18em; font-size: 12px; color: var(--c); }
+.drop span { font-size: 11px; color: var(--mute); }
+.drop.on, .drop:hover, .drop:focus-visible { background: rgba(var(--cr), .14); border-style: solid; }
+.liblog { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.liblog .note.ok { color: var(--good, #52f2b5); }
+.liblog .note.bad { color: var(--r); }
+.rw.hit { flex-direction: column; align-items: flex-start; gap: 4px; }
+.rw.hit .k { color: var(--a); white-space: normal; }
+.rw.hit .v { white-space: normal; font-size: 12px; line-height: 1.45; }

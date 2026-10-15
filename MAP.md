@@ -31,7 +31,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `main.ts` | boot: theme, engine, Earth data, connect to brain, open first tab |
 | `features/index.ts` | **list of tabs** (dock order) |
-| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `workshop`, `system` |
+| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `library`, `workshop`, `system` |
+| `library/extract.ts` | reads documents in the browser, no libraries or AI: PDF (incl. ToUnicode fonts, object streams), Word .docx, .epub, HTML, text, code |
+| `library/upload.ts` | file/text → passages (`packages/shared/src/chunk.ts`) → brain in batches of 30; scanned/unreadable files go to `/api/library/convert` (Workers AI) |
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
 | `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns |
@@ -64,6 +66,10 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `index.ts` | Worker entry: auth gate, `/api/proxy` feed proxy (**`FEED_HOSTS` allowlist**), forwards to agent |
 | `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
+| `library/store.ts` | **the library** (Ghosty's offline brain): documents + passages in the Durable Object's SQLite, FTS5 full-text search (BM25, stemming), optional meaning vectors (Workers AI `bge-small`, no key) for re-ranking. Max 40 passages per call (free-plan CPU) |
+| `library/importers.ts` | `library_import`: web pages, arXiv papers (full HTML text), CVE records (cve.org API), public GitHub repos (30 files per call) |
+| `library/starter/*.ts` | built-in starter library (algorithms, system design, compilers, maths, AI research, DL frameworks, RL/evaluation, production code, debugging, security/CVEs); seeded into the library a little at a time, re-seeded when the text changes |
+| `tools/library.ts` | `library_search` (always offered), `library_import`, `library_list`. `agent.ts` also looks up every owner message in the library and puts relevant passages in the prompt; with no AI reachable it answers from the library |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
 | `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (engineering method), `coding.ts` (algorithms, JavaScript, CSS, browser APIs, Python, SQL, web APIs, regex, git, architecture, charts), `games.ts` (games + mini-apps on the widget kit, incl. the example game `NEON_DODGE` that the browser test runs), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
 | `tools/evolve.ts` | self-evolution: `self_audit` (what Ghosty has), `plan_upgrade` / `roadmap` / `update_step` (an upgrade done as several shippable changes; shown in Workshop → Upgrade roadmap, `/api/roadmap`) |

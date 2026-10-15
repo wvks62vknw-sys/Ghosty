@@ -168,6 +168,7 @@ test('self-check: every file already in Ghosty passes, even as if newly written 
   };
   walk(join(ROOT, 'apps'));
   walk(join(ROOT, 'packages'));
+  walk(join(ROOT, 'tests'));
   files.push('MAP.md', 'README.md', 'SETUP.md');
   const all = new Map(files.map((f) => [f, readFileSync(join(ROOT, f), 'utf8')]));
   const staged = [...all].map(([path, content]) => ({ path, content, before: null }));

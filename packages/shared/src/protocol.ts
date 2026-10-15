@@ -29,6 +29,35 @@ export const CLIENT_COMMANDS = [
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
+/** A document in Ghosty's library (a book, PDF, page, paper, repository…). */
+export interface LibraryDoc {
+  id: string;
+  title: string;
+  /** Where it came from: file name, URL, "arXiv 1706.03762"… */
+  source: string;
+  kind: string;
+  pages: number;
+  /** How many searchable passages it was cut into. */
+  passages: number;
+  chars: number;
+  status: 'adding' | 'ready';
+  /** Part of the built-in starter library. */
+  builtin: boolean;
+  at: number;
+}
+
+/** A passage found in the library. */
+export interface LibraryHit {
+  doc: string;
+  title: string;
+  heading: string;
+  page: number | null;
+  text: string;
+  score: number;
+  /** True when it really matches the question (not just one shared word). */
+  relevant: boolean;
+}
+
 /** One step of an upgrade roadmap: one change that ships on its own. */
 export interface RoadmapStep {
   id: number;
