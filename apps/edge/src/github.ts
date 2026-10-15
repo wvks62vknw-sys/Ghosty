@@ -210,6 +210,14 @@ export class GitHub {
     const runs = await this.req<{ check_runs: { id: number; name: string; conclusion: string | null; app?: { slug?: string } }[] }>('GET', `/commits/${sha}/check-runs?per_page=30`).catch(() => ({ check_runs: [] }));
     let out = '';
     for (const r of runs.check_runs.filter((x) => x.conclusion === 'failure' && x.app?.slug === 'github-actions')) {
+      // Annotations carry the exact error lines (the checks write them on purpose).
+      const notes = await this.req<{ title?: string; message: string; annotation_level: string }[]>('GET', `/check-runs/${r.id}/annotations`).catch(() => []);
+      const errs = notes.filter((a) => a.annotation_level === 'failure' && !/Process completed with exit code/.test(a.message));
+      if (errs.length) {
+        out += `=== ${r.name} ===\n${errs.map((a) => `${a.title ? `${a.title}: ` : ''}${a.message.split('|').join('\n')}`).join('\n')}\n`;
+        if (out.length > max) break;
+        continue;
+      }
       try {
         const head = await fetch(`${API}/repos/${this.repo}/actions/jobs/${r.id}/logs`, { headers: { Authorization: `Bearer ${this.token}`, 'User-Agent': 'ghosty-brain', Accept: 'application/vnd.github+json' }, redirect: 'manual' });
         const loc = head.headers.get('location');

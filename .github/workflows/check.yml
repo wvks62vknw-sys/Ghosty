@@ -17,8 +17,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: npm run typecheck
-      - run: npm test
+      - name: Typecheck and tests
+        run: |
+          npm run typecheck > tc.txt 2>&1 || { echo "::error title=brain typecheck::$(grep -E 'error TS' tc.txt | head -n 8 | cut -c1-220 | tr '\n' '|')"; cat tc.txt; exit 1; }
+          npm test > t.txt 2>&1 || { echo "::error title=brain tests::$(grep -E 'not ok|Error|expected|actual' t.txt | head -n 12 | cut -c1-200 | tr '\n' '|')"; cat t.txt; exit 1; }
   interface:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: apps/web } }
@@ -27,8 +29,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: npm run typecheck
-      - run: npm run build
+      - name: Typecheck and build
+        run: |
+          npm run typecheck > tc.txt 2>&1 || { echo "::error title=interface typecheck::$(grep -E 'error TS' tc.txt | head -n 8 | cut -c1-220 | tr '\n' '|')"; cat tc.txt; exit 1; }
+          npm run build > b.txt 2>&1 || { echo "::error title=interface build::$(tail -n 10 b.txt | cut -c1-200 | tr '\n' '|')"; cat b.txt; exit 1; }
   # The same build Cloudflare runs (interface + Worker bundle + config), without deploying.
   deploy-build:
     runs-on: ubuntu-latest
@@ -38,13 +42,13 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm install --no-audit --no-fund
-      - run: npx wrangler deploy --dry-run --outdir .wrangler-dry
+      - name: Cloudflare build (dry run)
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry > w.txt 2>&1 || { echo "::error title=cloudflare build::$(grep -v '^\s*$' w.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"; cat w.txt; exit 1; }
       - name: Preview build diagnostics (does not block)
         continue-on-error: true
         run: |
-          npx wrangler --version
-          npx wrangler preview --help || true
-          npx wrangler preview --dry-run 2>&1 || true
+          npx wrangler preview --dry-run > p.txt 2>&1; echo "::warning title=preview dry run::$(grep -v '^\s*$' p.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"
+          cat p.txt
   # Opens the built interface in a real browser (phone and desktop sizes) and clicks
   # through chat, approvals, tabs, agenda, radio and the app/notifications setup.
   smoke:
@@ -62,9 +66,15 @@ jobs:
         run: |
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
-          node tests/ui.spec.mjs tests/.shots
-          node tests/agenda.spec.mjs tests/.shots
-          node tests/media.spec.mjs tests/.shots
-          node tests/app.spec.mjs tests/.shots
+          fail=0
+          for s in ui agenda media app; do
+            if ! node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
+              fail=1
+              # Annotations are readable through the API (Ghosty reads them to fix its changes).
+              echo "::error title=browser check: $s::$(grep -v '^\s*$' out-$s.txt | tail -n 12 | cut -c1-200 | tr '\n' '|')"
+            fi
+            cat out-$s.txt
+          done
+          exit $fail
       - if: failure()
         run: cat preview.log || true
