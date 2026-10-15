@@ -49,10 +49,18 @@ export const ownerKey = {
 
 export class AuthError extends Error {}
 
+/**
+ * This device's encrypted copy of the owner's keys (sealed by the brain with the owner key).
+ * It goes with every request, and the brain uses it whenever its database can't be read, so a
+ * key given once keeps working, paused or not. Refreshed at start-up and after keys change.
+ */
+export const keyCopy = createStore({ sealed: '' }, { persist: 'ghosty.vault.copy' });
+
 /** Every brain request carries `x-ghosty: 1`; the brain refuses state changes without it (blocks cross-site forgery). */
 export function headers(extra: Record<string, string> = {}): Record<string, string> {
   const k = ownerKey.get();
-  return { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}), ...extra };
+  const sealed = k ? keyCopy.get().sealed : '';
+  return { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}), ...(sealed ? { 'x-ghosty-vault': sealed } : {}), ...extra };
 }
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -285,11 +293,44 @@ brain.addJob = (j) =>
   });
 brain.deleteJob = (id: string) => orQueue(isLocal(id), () => raw.deleteJob(id), () => (enqueue({ kind: 'deleteJob', jobId: id }), { queued: true }));
 
+/** Fetch a fresh copy of the keys (also writes keys saved while paused to the brain's database). */
+export async function refreshKeyCopy(): Promise<void> {
+  if (!ownerKey.get()) return; // signed in with Cloudflare Access: no owner key to seal with
+  try {
+    const r = await req<{ backup: string; complete: boolean }>('GET', '/vault/backup');
+    // Partial (database paused, keys not in memory): keep the fuller copy we have.
+    if (r.backup && (r.complete || !keyCopy.get().sealed)) keyCopy.set({ sealed: r.backup });
+  } catch {
+    /* try again next time */
+  }
+}
+const rawSetKey = brain.setKey;
+brain.setKey = async (name, value) => {
+  const r = await rawSetKey(name, value);
+  await refreshKeyCopy();
+  return r;
+};
+const rawLink = brain.spotifyLink;
+const rawUnlink = brain.spotifyUnlink;
+brain.spotifyLink = async (p) => {
+  const r = await rawLink(p);
+  await refreshKeyCopy();
+  return r;
+};
+brain.spotifyUnlink = async () => {
+  const r = await rawUnlink();
+  await refreshKeyCopy();
+  return r;
+};
+
 /** Send changes queued while the brain was unreachable. Runs when memory is back and every 2 min while anything waits. */
 export async function sendQueued(): Promise<number> {
   if (!offline.get().outbox.length) return 0;
   return flushOutbox(raw, keepForLater);
 }
 memoryPaused.subscribe((m, prev) => {
-  if (prev.on && !m.on) void sendQueued();
+  if (prev.on && !m.on) {
+    void sendQueued();
+    void refreshKeyCopy();
+  }
 });

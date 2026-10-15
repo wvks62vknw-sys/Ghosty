@@ -4,10 +4,14 @@
  * add_event hand the change to the owner's device (client command offline_save), which shows
  * it at once, fires reminders itself, and sends everything to the brain when it's back.
  */
+import type { LibraryHit } from '../../../../packages/shared/src/protocol';
+import { asData } from '../kernel/permissions';
+import { formatHits, queryTerms, searchStarterInMemory } from '../library/store';
 import { fmtLocal, parseWhen, safeTz } from '../time';
 import { agendaTools, repeatArg, whenArg } from './agenda';
+import { libraryTools } from './library';
 import { memoryTools } from './memory';
-import { arg, type Tool } from './types';
+import { arg, clip, type Tool } from './types';
 
 const schema = (list: Tool[], name: string) => list.find((t) => t.name === name)!;
 
@@ -48,4 +52,43 @@ export function deviceTools(tzRaw: string | undefined): Tool[] {
       },
     },
   ];
+}
+
+/** A passage of the owner's own library, sent by their device while the database is paused. */
+export interface DevicePassage {
+  title: string;
+  heading?: string;
+  page?: number | null;
+  text: string;
+}
+
+/** Keyword match without the database (the same rule as the built-in library's fallback). */
+export function searchPassages(query: string, list: DevicePassage[], k: number): LibraryHit[] {
+  const terms = queryTerms(query);
+  if (!terms.length) return [];
+  const stems = terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
+  return list
+    .map((p) => {
+      const low = `${p.title} ${p.heading ?? ''} ${p.text}`.toLowerCase();
+      return { p, score: stems.filter((s) => low.includes(s)).length / stems.length };
+    })
+    .filter((x) => x.score >= (terms.length >= 3 ? 0.5 : 0.99))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k)
+    .map(({ p, score }) => ({ doc: 'device', title: p.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score, relevant: true }));
+}
+
+/** library_search while paused: the owner's documents their device sent, plus the built-in library. */
+export function deviceLibrarySearch(passages: DevicePassage[]): Tool {
+  const real = libraryTools.find((t) => t.name === 'library_search')!;
+  return {
+    ...real,
+    async run(a) {
+      const q = arg.str(a, 'query');
+      const k = Math.max(1, Math.min(10, arg.num(a, 'k', 5)));
+      const hits = [...searchPassages(q, passages, k), ...searchStarterInMemory(q, k)].sort((x, y) => y.score - x.score).slice(0, k);
+      if (!hits.length) return "Nothing matches that in the passages available while the database is paused (the owner's documents most related to their message, and the built-in library).";
+      return clip(asData('your library', formatHits(hits, 7000)), 8000);
+    },
+  };
 }

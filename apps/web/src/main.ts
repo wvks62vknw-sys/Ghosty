@@ -4,7 +4,7 @@
  *  2. connect to the brain (Cloudflare Access, or pair this device with the owner key)
  *  3. build the shell, open the first tab, start the single frame loop
  */
-import { AuthError, brain, ownerKey, sendQueued } from './api/brain';
+import { AuthError, brain, ownerKey, refreshKeyCopy, sendQueued } from './api/brain';
 import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
@@ -111,6 +111,7 @@ async function boot(): Promise<void> {
     void initApp();
     // Changes made while the brain was unreachable (memory, agenda) go to it now.
     void sendQueued();
+    void refreshKeyCopy();
     window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
