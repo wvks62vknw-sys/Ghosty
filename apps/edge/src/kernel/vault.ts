@@ -33,16 +33,12 @@ const toB64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 export class Vault {
-  /** Decrypted values kept in memory while the brain is awake: each AI call reads keys, and every storage read counts against the free plan's daily limit. */
-  private mem = new Map<string, string | null>();
-
   constructor(
     private storage: DurableObjectStorage,
     private env: Env,
   ) {}
 
   async set(name: string, value: string): Promise<void> {
-    this.mem.delete(name);
     if (!value) {
       await this.storage.delete(PREFIX + name);
       return;
@@ -50,28 +46,21 @@ export class Vault {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await vaultKey(this.env, this.storage), new TextEncoder().encode(value));
     await this.storage.put(PREFIX + name, `${toB64(iv)}.${toB64(new Uint8Array(data))}`);
-    this.mem.set(name, value);
   }
 
   async get(name: string): Promise<string | null> {
-    if (this.mem.has(name)) return this.mem.get(name)!;
     const stored = await this.storage.get<string>(PREFIX + name);
-    if (!stored) {
-      this.mem.set(name, null);
-      return null;
-    }
+    if (!stored) return null;
     const [iv, data] = stored.split('.') as [string, string];
     try {
-      const plain = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(iv) }, await vaultKey(this.env, this.storage), fromB64(data)));
-      this.mem.set(name, plain);
-      return plain;
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(iv) }, await vaultKey(this.env, this.storage), fromB64(data));
+      return new TextDecoder().decode(plain);
     } catch {
       return null;
     }
   }
 
   async has(name: string): Promise<boolean> {
-    if (this.mem.has(name)) return this.mem.get(name) !== null;
     return (await this.storage.get(PREFIX + name)) !== undefined;
   }
 }

@@ -141,19 +141,6 @@ export function keyDefs(repo?: string): KeyDef[] {
       steps: ['Open the link and sign up.', 'Subscribe to the free plan, then open "API Keys" and copy your key.', 'Paste it below and press SAVE.'],
     },
     {
-      name: 'tomtom',
-      label: 'TomTom traffic',
-      hint: 'a 32-character key',
-      link: 'https://developer.tomtom.com/user/register',
-      need: 'optional',
-      why: "Live road traffic anywhere (e.g. Birmingham city centre): speeds on every road drawn on God's Eye, and crashes, closures and queues when you ask. Free: 50,000 map tiles and 2,500 lookups a day, no card.",
-      steps: [
-        'Open the link and create a free TomTom Developer account (confirm the email they send).',
-        'Open the Dashboard → "Keys". A key called "My first API key" is already there — press copy.',
-        'Paste it below and press SAVE. Then ask Ghosty "how\'s the traffic in Birmingham city centre?"',
-      ],
-    },
-    {
       name: 'email',
       label: 'Email (app password)',
       hint: 'you@gmail.com then a space, then the app password',
@@ -227,9 +214,6 @@ export async function testKey(name: string, value: string, repo?: string): Promi
         const models = m?.ok || m?.status === 429 ? ' · free GPT-4.1 for coding: on' : ' · free GPT-4.1 for coding: off (edit the token on GitHub and set Account permissions → Models → Read to switch it on)';
         return { ok: true, info: `works · can edit ${repo}${models}` };
       }
-      case 'tomtom':
-        status = await check(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?point=51.5074,-0.1278&key=${encodeURIComponent(value)}`, {});
-        break;
       case 'email': {
         // The value holds a password: only owner-friendly messages come back, never the value itself.
         try {

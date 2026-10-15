@@ -1,11 +1,9 @@
 /**
- * Translucent map tiles laid over the globe: live precipitation radar (RainViewer) and live
- * road traffic (TomTom flow, through the brain so the key stays secret).
+ * Live precipitation radar (RainViewer) laid over the globe as translucent tiles.
  * Works like the imagery layer — curved Web-Mercator patches around where you look,
  * a coarse ring for context plus a sharper level near the centre — but the tiles are
  * transparent PNGs fetched through the brain's proxy and drawn with alpha blending.
- * RainViewer tiles go up to zoom 7; the newest frame is refreshed every 10 minutes. Traffic
- * tiles go to zoom 16 and are re-fetched every 3 minutes.
+ * RainViewer tiles go up to zoom 7; the newest frame is refreshed every 10 minutes.
  */
 import { headers } from '../../api/brain';
 import { radarFrames } from '../../data/intel';
@@ -17,6 +15,7 @@ import { RAD, type Vec3 } from '../math';
 const N = 12;
 const MAX_TILES = 160;
 const MAX_LOADING = 6;
+const MAX_Z = 7;
 
 interface Tile {
   key: string;
@@ -48,15 +47,7 @@ void main(){
  vec4 c=texture(uTex,vUV);if(c.a<.02)discard;
  o=vec4(c.rgb*1.15,c.a*uOpacity);}`;
 
-/** What to draw now: a key per frame (new key = new tiles), the tile URL and the frame time. */
-export interface OverlayFrame {
-  key: string;
-  url: (z: number, x: number, y: number) => string;
-  time: number;
-}
-
-export class TileOverlay {
-  constructor(private opts: { prog: string; maxZ: number; minZ?: number; opacity: number; frame: () => OverlayFrame | null }) {}
+export class RadarLayer {
   private tiles = new Map<string, Tile>();
   private ibo: WebGLBuffer | null = null;
   private count = 0;
@@ -68,7 +59,7 @@ export class TileOverlay {
   private init(): void {
     if (this.ready) return;
     const gl = gfx.gl;
-    gfx.mk(this.opts.prog, VS, FS, { aP: 0, aUV: 1 });
+    gfx.mk('radar', VS, FS, { aP: 0, aUV: 1 });
     const idx: number[] = [];
     for (let j = 0; j < N; j++)
       for (let i = 0; i < N; i++) {
@@ -130,7 +121,7 @@ export class TileOverlay {
     this.loading++;
     void (async () => {
       try {
-        const r = await fetch(url, { headers: headers() });
+        const r = await fetch(`/api/proxy?ttl=900&url=${encodeURIComponent(url)}`, { headers: headers() });
         if (!r.ok) throw new Error(String(r.status));
         const bmp = await createImageBitmap(await r.blob());
         const gl = gfx.gl;
@@ -189,28 +180,27 @@ export class TileOverlay {
 
   draw(cs: CamState, camLat: number, camLon: number, range: number, fov: number, on: boolean): void {
     this.shownAt = 0;
-    const f = on ? this.opts.frame() : null;
-    if (!f) return;
+    const f = radarFrames.data;
+    if (!on || !f) return;
     this.init();
     const g = gfx;
     const gl = g.gl;
     const viewKm = 2 * range * Math.tan((fov * RAD) / 2);
     const screen = g.h / Math.max(1, g.dpr);
     const want = Math.log2((40075 * Math.max(0.05, Math.cos(camLat * RAD)) * screen) / (256 * Math.max(0.05, viewKm)));
-    const z = Math.max(1, Math.min(this.opts.maxZ, Math.round(want)));
-    if (z < (this.opts.minZ ?? 0)) return;
+    const z = Math.max(1, Math.min(MAX_Z, Math.round(want)));
     const horizonKm = Math.sqrt(2 * R_EARTH * cs.alt + cs.alt * cs.alt) * 1.15 + viewKm;
-    const url = (t: Tile) => f.url(t.z, t.x, t.y);
-    const coarse = this.select(f.key, camLat, camLon, Math.max(1, z - 2), 3, horizonKm);
-    const sharp = z > 2 ? this.select(f.key, camLat, camLon, z, 2, horizonKm) : [];
+    const url = (t: Tile) => `${f.host}${f.path}/256/${t.z}/${t.x}/${t.y}/2/1_1.png`;
+    const coarse = this.select(f.path, camLat, camLon, Math.max(1, z - 2), 3, horizonKm);
+    const sharp = z > 2 ? this.select(f.path, camLat, camLon, z, 2, horizonKm) : [];
     for (const t of sharp) this.load(t, url(t));
     for (const t of coarse) this.load(t, url(t));
-    g.use(g.prog[this.opts.prog]!);
+    g.use(g.prog.radar!);
     g.um('uV', cs.V);
     g.um('uP', cs.P);
     g.u3('uCam', cs.pos);
     g.u1('uR', R_EARTH);
-    g.u1('uOpacity', this.opts.opacity);
+    g.u1('uOpacity', 0.8);
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.enable(gl.BLEND);
@@ -235,26 +225,4 @@ export class TileOverlay {
   }
 }
 
-export const radar = new TileOverlay({
-  prog: 'radar',
-  maxZ: 7,
-  opacity: 0.8,
-  frame: () => {
-    const f = radarFrames.data;
-    return f ? { key: f.path, time: f.time, url: (z, x, y) => `/api/proxy?ttl=900&url=${encodeURIComponent(`${f.host}${f.path}/256/${z}/${x}/${y}/2/1_1.png`)}` } : null;
-  },
-});
-
-/** Live traffic: set `traffic.ready` once the brain says the TomTom key is saved. */
-export const trafficState = { ready: false };
-export const traffic = new TileOverlay({
-  prog: 'traffic',
-  maxZ: 16,
-  minZ: 7,
-  opacity: 0.95,
-  frame: () => {
-    if (!trafficState.ready) return null;
-    const slot = Math.floor(Date.now() / 180_000);
-    return { key: `t${slot}`, time: slot * 180_000, url: (z, x, y) => `/api/traffic/tile/${z}/${x}/${y}` };
-  },
-});
+export const radar = new RadarLayer();

@@ -6,19 +6,8 @@ const { DatabaseSync } = await import('node:sqlite');
 
 export function sqlStorage() {
   const db = new DatabaseSync(':memory:');
-  /** Query plans of everything run (see Library tests: nothing may scan the whole library). */
-  const plans = [];
   return {
-    plans,
     exec(query, ...bindings) {
-      if (/^\s*(SELECT|UPDATE|DELETE|INSERT)/i.test(query)) {
-        try {
-          const detail = db.prepare(`EXPLAIN QUERY PLAN ${query}`).all(...bindings.map((b) => (b === undefined ? null : b))).map((r) => r.detail);
-          plans.push({ query, detail });
-        } catch {
-          /* plan unavailable */
-        }
-      }
       const st = db.prepare(query);
       const rows = st.all(...bindings.map((b) => (b === undefined ? null : b)));
       return {

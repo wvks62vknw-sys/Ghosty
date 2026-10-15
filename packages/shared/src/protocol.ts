@@ -25,7 +25,6 @@ export const CLIENT_COMMANDS = [
   'reload_interface',
   'show_route',
   'show_cameras',
-  'show_traffic',
   'play_radio',
   'stop_audio',
 ] as const;
@@ -193,7 +192,7 @@ export interface AgendaEventInfo {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  kind: 'reminder' | 'task' | 'verify';
   title: string;
   text: string;
   next: number;

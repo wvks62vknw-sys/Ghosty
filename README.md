@@ -38,8 +38,8 @@ tests/       local preview server + browser test
   its own changed source files are re-read, and the **Workshop → Training Ground** has it solve 40 verified
   coding exercises — it isn't done with one until every hidden test passes; mistakes become lessons.
 - **Linked to your life**: email (app password; sending always asks you), Spotify, push notifications on
-  demand — all set up in the **Links** tab — live public CCTV (London, Durham, New York, California, Finland, Canada, Sydney) and live
-  road traffic anywhere (free TomTom key) on the God's Eye globe.
+  demand — all set up in the **Links** tab — and live public CCTV (London, New York, California, Finland)
+  on the God's Eye globe.
 - **Every screen one tap away**: tap the **GHOSTY** logo (or **SYSTEMS** in the phone dock, or press **M**)
   for the systems deck — every screen with what it does, plus quick actions.
 - **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),

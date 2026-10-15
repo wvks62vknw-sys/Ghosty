@@ -15,13 +15,11 @@ import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions'
 import { Vault } from './kernel/vault';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
-import { trafficRoute } from './integrations/traffic';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
 import { trainingRoute } from './training/coach';
-import { CURRICULUM, loadStudy, noteGap, STUDY_KEY, studySession } from './library/study';
-import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
+import { formatHits, Library, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
 import { ALL_TOOL_NAMES, selectTools, TOOLS, toolByName, toolSpecs } from './tools';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
@@ -69,13 +67,6 @@ function trimContext(msgs: Msg[]): Msg[] {
   let out = msgs.slice(-36);
   while (out.length && out[0]!.role !== 'user') out = out.slice(1);
   return out.map((m, i) => (m.role === 'tool' && i < out.length - 8 && (m.content?.length ?? 0) > 600 ? { ...m, content: `${m.content!.slice(0, 600)}…[older tool output trimmed]` } : m));
-}
-
-/** Cloudflare's free-plan database allowance (rows read/written per day) in plain words, or null for other errors. */
-export function storageError(e: unknown): string | null {
-  const m = String((e as Error)?.message ?? e);
-  if (!/rows (read|written)|exceeded allowed|free tier|storage (operation|quota)/i.test(m)) return null;
-  return "Ghosty's database has used up Cloudflare's free daily allowance, so it is paused until it resets at midnight UTC (1am UK summer time). Nothing is lost. The heavy readers that caused this have been fixed; Workers Paid ($5/month) removes the limit.";
 }
 
 export class GhostyAgent {
@@ -145,7 +136,6 @@ export class GhostyAgent {
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
     try {
-      if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       if (path === "/chat" && method === "POST") return await this.chat(req);
       if (path === '/approve' && method === 'POST') return await this.approve(req);
       if (path === '/stop' && method === 'POST') {
@@ -239,12 +229,11 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
-      if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);
     } catch (e) {
-      return json({ error: storageError(e) ?? String((e as Error)?.message ?? e) }, 500);
+      return json({ error: String((e as Error)?.message ?? e) }, 500);
     }
   }
 
@@ -300,7 +289,7 @@ export class GhostyAgent {
     if (started instanceof Response) return started;
     const { s, signal } = started;
     const client = body.context ?? {};
-    await this.rememberClient(client).catch(() => undefined);
+    await this.rememberClient(client);
     this.state.waitUntil(
       (async () => {
         try {
@@ -315,13 +304,7 @@ export class GhostyAgent {
           const ctx = trimContext([...prev, { role: 'user', content: text }]);
           await this.loop(ctx, client, s.emit, signal);
         } catch (e) {
-          const paused = storageError(e);
-          const hits = paused ? searchStarterInMemory(text) : [];
-          // Database paused: still answer from the built-in library (it lives in the code).
-          if (hits.length) {
-            s.emit({ t: 'text', text: `${paused}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
-            s.emit({ t: 'done', model: 'Built-in library · no AI' });
-          } else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
+          s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
           await s.close();
@@ -346,7 +329,7 @@ export class GhostyAgent {
           const paused = await this.runCalls(ctx, pending.calls, pending.client, s.emit, body.allow ? 'approved' : 'declined');
           if (!paused) await this.loop(ctx, pending.client, s.emit, signal);
         } catch (e) {
-          s.emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
+          s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
           await s.close();
@@ -482,7 +465,6 @@ export class GhostyAgent {
       try {
         await this.library.seedStarter(20);
         hits = (await this.library.search(text, 4)).filter((h) => h.relevant);
-        if (!hits.length && !code) this.state.waitUntil(noteGap(this.storage, text).catch(() => undefined));
         if (hits.length) prompt += `\n\nFROM YOUR LIBRARY (looked up automatically for this message — use it, cite the source, and call library_search for more):\n${asData('your library', formatHits(hits, 4500))}`;
       } catch {
         /* the library is a bonus; never block a reply on it */
@@ -522,22 +504,6 @@ export class GhostyAgent {
   private async libraryRoute(req: Request, path: string, method: string, url: URL): Promise<Response> {
     const lib = this.library;
     if (!lib.available) return json({ error: 'the library needs SQLite storage' }, 501);
-    if (path === '/library/study' && method === 'GET') {
-      await this.ensureStudyJob();
-      const job = (await loadJobs(this.storage)).find((j) => j.kind === 'study');
-      return json({ ...(await loadStudy(this.storage)), next: job?.next ?? null, topics: CURRICULUM.length });
-    }
-    if (path === '/library/study' && method === 'POST') {
-      const b = (await req.json().catch(() => ({}))) as { on?: boolean; now?: boolean };
-      const st = await loadStudy(this.storage);
-      if (typeof b.on === 'boolean') {
-        st.on = b.on;
-        await this.storage.put(STUDY_KEY, st);
-        await this.ensureStudyJob();
-      }
-      if (b.now) return json(await studySession(this.storage, this.library));
-      return json(st);
-    }
     if (path === '/library' && method === 'GET') {
       const seeded = await lib.seedStarter(40);
       return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI });
@@ -647,7 +613,6 @@ export class GhostyAgent {
         await this.verifyShip(job);
         return json({ ok: true });
       }
-      if (job.kind === 'study') return json({ study: await studySession(this.storage, this.library) });
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -720,10 +685,6 @@ export class GhostyAgent {
           await finishJob(this.storage, job.id);
         } else if (job.kind === 'verify') {
           await this.verifyShip(job);
-        } else if (job.kind === 'study') {
-          // Quiet: no notification each hour; what it read is in the library and its study log.
-          await studySession(this.storage, this.library);
-          await finishJob(this.storage, job.id, 'studied');
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -740,18 +701,6 @@ export class GhostyAgent {
   }
 
   private bgBusy = false;
-
-  /** Self-study runs as an hourly background job; make sure there is exactly one while it's on. */
-  private studyChecked = false;
-  private async ensureStudyJob(): Promise<void> {
-    this.studyChecked = true;
-    const st = await loadStudy(this.storage);
-    const job = (await loadJobs(this.storage)).find((j) => j.kind === 'study');
-    if (st.on && !job) {
-      await addJob(this.storage, { kind: 'study', title: 'Self-study (no AI, no keys)', text: 'Read one topic from the study list into the library.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
-      await rearm(this.storage);
-    } else if (!st.on && job) await removeJob(this.storage, job.id);
-  }
 
   /**
    * After a change ships: look at the checks on the shipped commit (CI + Cloudflare's

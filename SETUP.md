@@ -93,20 +93,6 @@ No client secret is needed (PKCE), and the sign-in is kept encrypted in your bra
 account; play, pause, skip and volume need **Spotify Premium**, and Spotify must be open on some device.
 A new Spotify app is in "development mode": add your own Spotify email under the app's **User Management** if it asks.
 
-
-## 3e. Live traffic (optional, free)
-
-God's Eye shows live public CCTV where operators publish it (London, County Durham, New York, California,
-Finland, Ontario, British Columbia, Sydney, Calgary). Many places — Birmingham included, and National
-Highways' motorway cameras — don't publish theirs, so for everywhere else Ghosty uses live traffic:
-1. Create a free account at [developer.tomtom.com](https://developer.tomtom.com/user/register) (no card).
-2. Dashboard → **Keys** → copy **My first API key**.
-3. In Ghosty: **Links → Live traffic** (or **System → Keys → TomTom traffic**), paste it and press **SAVE**.
-
-Then ask *"show me the cameras in Birmingham city centre"* or *"how's the traffic on the M6?"*: God's Eye
-flies there with every road coloured by speed, and Ghosty lists crashes, closures and queues with delays.
-The free plan allows 50,000 map tiles and 2,500 lookups a day.
-
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

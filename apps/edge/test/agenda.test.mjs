@@ -47,8 +47,7 @@ async function chat(message, path = '/api/chat', body = { message, context: { tz
   await Promise.allSettled(pending.splice(0));
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
-// The owner's jobs (Ghosty's own hourly self-study job is left out).
-const jobs = () => (state.storage.m.get('jobs') ?? []).filter((j) => j.kind !== 'study');
+const jobs = () => state.storage.m.get('jobs') ?? [];
 const inbox = async () => (await (await call('/api/inbox')).json()).items;
 
 test('time zones: wall-clock times survive daylight-saving changes', () => {
@@ -159,7 +158,7 @@ test('scheduled tasks need approval, then run on their own and report back', asy
   // pretend Ghosty was asleep through the last run, then fire the alarm
   const y = T.zoned(Date.now() - 86400_000, TZ);
   job.next = T.fromZoned(y.y, y.m, y.d, 8, 0, TZ);
-  state.storage.m.set('jobs', [job, ...(state.storage.m.get('jobs') ?? []).filter((j) => j.kind === 'study')]);
+  state.storage.m.set('jobs', [job]);
   await agent.alarm();
   const items = await inbox();
   assert.equal(items[0].kind, 'task');
@@ -178,7 +177,7 @@ test('unattended tasks cannot use tools that need approval or are risky', async 
   assert.equal(r.status, 200);
   const job = jobs()[0];
   job.next = Date.now() - 1;
-  state.storage.m.set('jobs', [job, ...(state.storage.m.get('jobs') ?? []).filter((j) => j.kind === 'study')]);
+  state.storage.m.set('jobs', [job]);
   await agent.alarm();
   assert.ok((await (await call('/api/memory')).json()).facts.some((f) => f.text === 'keep me'), 'memory untouched');
   const items = await inbox();
