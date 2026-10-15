@@ -58,6 +58,24 @@ press **RELOAD TO GET THE NEW VERSION**.
 Then in **System → Phone app & notifications** press **TURN ON NOTIFICATIONS**. Reminders and the results of
 scheduled tasks now reach the phone even when Ghosty is closed. **SEND TEST** checks it works.
 
+## 3c. Link your email (optional)
+
+Ghosty can check, search and read your email and send email as you. Every email it sends waits
+for your OK, and reading never marks anything as read unless you ask.
+
+**Gmail** (needs 2-Step Verification, myaccount.google.com/security):
+1. Open **myaccount.google.com/apppasswords**, type a name (e.g. *Ghosty*) and press **Create**.
+2. Copy the 16-letter app password Google shows (not your normal password).
+3. In Ghosty → **System → Keys → Email (app password)** type your address, a space, then the app
+   password — `you@gmail.com abcd efgh ijkl mnop` — and press **SAVE**. Ghosty signs in once to check it.
+
+**iCloud, Yahoo, AOL, Fastmail:** the same, with an app password from your account's security
+settings. **Any other provider** (or Google Workspace on your own domain): add the servers after the
+password — `you@domain.com password imap.domain.com smtp.domain.com` (add `:port` if not 993 / 465;
+`:587` means STARTTLS). **Outlook.com / Hotmail / Live** can't be linked: Microsoft no longer allows
+app passwords for mail. To cut Ghosty off, delete the app password at your provider (or press
+REMOVE in System). Try: *"Any new email?"* or *"Reply to Ann's email and say Friday works."*
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

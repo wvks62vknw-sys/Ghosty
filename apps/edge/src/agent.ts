@@ -139,10 +139,11 @@ export class GhostyAgent {
       if (path === '/keys' && method === 'POST') {
         const { name, value } = (await req.json()) as { name: string; value: string };
         if (!KEYS.some((k) => k.name === name)) return json({ error: 'unknown key' }, 400);
-        const v = String(value ?? '').trim().replace(/\s+/g, '');
+        // Keys never contain spaces; the email entry is "address password [imap smtp]", so it keeps single spaces.
+        const v = name === 'email' ? String(value ?? '').trim().replace(/\s+/g, ' ') : String(value ?? '').trim().replace(/\s+/g, '');
         await this.vault.set(name, v);
         await this.router.resetHealth();
-        if (name !== 'github' && v) this.state.waitUntil(this.router.discover(true));
+        if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));
         const check = v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
         return json({ ok: true, works: check.ok, info: check.info });
       }
