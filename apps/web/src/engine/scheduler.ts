@@ -8,6 +8,7 @@
  * keep working on slow devices.
  */
 import { gfx } from './gfx';
+import { stepView } from './space';
 
 export interface FrameTask {
   /** Called every frame, or every `every` seconds of real time if set. dt in seconds. */
@@ -72,6 +73,7 @@ function frame(now: number): void {
   last = now;
   gfx.time += dt;
   gfx.post.flash *= Math.pow(0.015, dt);
+  stepView(dt);
   try {
     if (scene && gfx.ready) {
       scene.update(dt);
