@@ -12,14 +12,14 @@ export async function ownerTz(ctx: Pick<ToolContext, 'storage'>): Promise<string
   return safeTz(c?.tz);
 }
 
-const repeatArg = (a: Record<string, unknown>): Repeat => {
+export const repeatArg = (a: Record<string, unknown>): Repeat => {
   const r = String(a.repeat ?? 'none').toLowerCase() as Repeat;
   if (!REPEATS.includes(r)) throw new Error(`repeat must be one of: ${REPEATS.join(', ')}`);
   return r;
 };
 
 /** `at` (local time) or `in_minutes` → UTC ms. */
-function whenArg(a: Record<string, unknown>, tz: string): number {
+export function whenArg(a: Record<string, unknown>, tz: string): number {
   if (a.in_minutes !== undefined && a.in_minutes !== null && a.in_minutes !== '') {
     const m = arg.num(a, 'in_minutes');
     if (m < 0 || m > 60 * 24 * 400) throw new Error('in_minutes is out of range');

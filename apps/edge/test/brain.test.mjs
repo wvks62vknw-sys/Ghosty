@@ -228,3 +228,14 @@ test('a new message takes over from one still running (never "still working on t
   const ev = await chat('hello again');
   assert.ok(ev.some((e) => e.t === 'done'));
 });
+
+test('widgets kept on the device while the database was paused are saved to the brain afterwards', async () => {
+  const r = await call('/api/widgets', { method: 'POST', body: JSON.stringify({ name: 'Block Merge!', title: 'Block Merge', html: '<canvas></canvas><script>1</script>', at: 1700000000000 }) });
+  assert.equal(r.status, 200);
+  const w = await (await call('/api/widgets')).json();
+  const saved = w.widgets.find((x) => x.name === 'block_merge');
+  assert.ok(saved, 'saved under its slug');
+  assert.equal(saved.title, 'Block Merge');
+  assert.equal(saved.at, 1700000000000);
+  assert.equal((await call('/api/widgets', { method: 'POST', body: JSON.stringify({ name: 'x', title: 'x', html: 'not html' }) })).status, 500);
+});

@@ -9,12 +9,13 @@
  *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
  */
 import type { ChangeSummary, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
-import { brain } from '../../api/brain';
+import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
@@ -257,8 +258,16 @@ export const workshopTab: TabDef = {
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.addEventListener('click', async () => {
-          await brain.deleteWidget(w.name);
-          void load();
+          try {
+            await brain.deleteWidget(w.name);
+            forgetWidget(w.name, false);
+          } catch (e) {
+            // Paused: delete here now and in the brain when it's back. Anything else: say so.
+            forgetWidget(w.name, isPaused(e));
+            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${String((e as Error).message)}`, 'warn');
+          }
+          widgets = widgets.filter((x) => x.name !== w.name);
+          paint();
         });
         wp.body.append(r);
       }
@@ -281,15 +290,28 @@ export const workshopTab: TabDef = {
     };
     const load = async () => {
       try {
-        const [c, w, s] = await Promise.all([brain.changes(), brain.widgets(), brain.status()]);
-        ready = c.ready;
-        changes = c.changes;
-        versions = c.versions;
-        widgets = w.widgets;
-        kernelUntil = s.kernelUnlockedUntil;
+        // Each part on its own: one failing (e.g. the database paused) doesn't blank the others.
+        const [c, w, s] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status()]);
+        if (c.status === 'fulfilled') {
+          ready = c.value.ready;
+          changes = c.value.changes;
+          versions = c.value.versions;
+        }
+        if (w.status === 'fulfilled') {
+          const { saved, removed } = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
+          // The list fetched above is out of date if anything was saved or deleted just now.
+          widgets = saved || removed ? (await brain.widgets()).widgets : w.value.widgets;
+          if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
+        }
+        if (s.status === 'fulfilled') kernelUntil = s.value.kernelUnlockedUntil;
+        const failed = [c, w, s].find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
       } catch (e) {
-        toast(`Workshop: ${String((e as Error).message)}`, 'warn');
+        if (!isPaused(e)) toast(`Workshop: ${String((e as Error).message)}`, 'warn');
       }
+      // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
+      // too; deletions not yet carried out in the brain are hidden.
+      widgets = mergeWidgets(widgets);
       paint();
     };
     paint();
