@@ -10,7 +10,7 @@ import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
 import { ui } from '../state/app';
 import { applyTheme, THEMES } from '../state/theme';
-import { toast } from '../ui/components';
+import { modal, sandboxFrame, toast } from '../ui/components';
 import { addPaletteProvider, register, type Command } from './registry';
 
 const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
@@ -95,6 +95,17 @@ export function registerBuiltins(): void {
         ui.set({});
         const n = enforce.near(where.lat, where.lon, 40).filter((c) => c.kind !== 'cctv').length;
         toast(`No public live cameras in ${where.name || 'that area'}${near ? ` — the nearest is ${Math.round(near.km)} km away (${near.src})` : ''}. Showing live traffic${n ? ` and ${n} mapped ANPR, speed and red-light cameras` : ''} instead.`, 'warn');
+      },
+    },
+    {
+      id: 'open_widget',
+      title: 'Open widget',
+      hidden: true,
+      run: (a) => {
+        const html = String(a?.html ?? '');
+        if (!html) return;
+        const f = sandboxFrame(html);
+        modal(String(a?.title ?? 'Widget'), f);
       },
     },
     {

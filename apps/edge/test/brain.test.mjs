@@ -149,8 +149,10 @@ test('client tools reach the interface', async () => {
   assert.equal(c.args.place, 'tokyo');
 });
 
-test('instant widgets install', async () => {
-  await chat('make a widget');
+test('instant widgets install, and open on screen straight away', async () => {
+  const ev = await chat('make a widget');
+  const open = ev.find((e) => e.t === 'client' && e.name === 'open_widget');
+  assert.ok(open && /<h1/.test(open.args.html), 'opened on screen');
   const w = await (await call('/api/widgets')).json();
   assert.equal(w.widgets[0].name, 'clock');
 });
@@ -212,4 +214,17 @@ test('history and clear', async () => {
   assert.ok(h.turns.length >= 4);
   await call('/api/history', { method: 'DELETE' });
   assert.equal((await (await call('/api/history')).json()).turns.length, 0);
+});
+
+test('a new message takes over from one still running (never "still working on the previous request")', async () => {
+  const first = call('/api/chat', { method: 'POST', body: JSON.stringify({ message: 'remember the first thing' }) });
+  const second = call('/api/chat', { method: 'POST', body: JSON.stringify({ message: 'remember the second thing' }) });
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  await Promise.all([a.text(), b.text()]);
+  await Promise.allSettled(pending.splice(0));
+  // and the brain is free afterwards
+  const ev = await chat('hello again');
+  assert.ok(ev.some((e) => e.t === 'done'));
 });

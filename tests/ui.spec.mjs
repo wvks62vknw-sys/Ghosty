@@ -43,7 +43,15 @@ async function run(name, viewport) {
   // a widget, opened in its sandbox
   await page.fill('#cin', 'make a widget');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(1200);
+  // it opens on screen straight away, running in its sandbox
+  const opened = await page.waitForSelector('.modal iframe.sandbox', { timeout: 10000 }).then(() => true, () => false);
+  if (!opened) problems.push(`[${name}] the new widget did not open on screen`);
+  else {
+    await page.waitForTimeout(1200);
+    const t = await page.frameLocator('.modal iframe.sandbox').locator('h1').textContent({ timeout: 5000 }).catch(() => '');
+    if (!/\d/.test(t ?? '')) problems.push(`[${name}] the opened widget is not running (got "${t}")`);
+    await page.click('.modal .mhead button');
+  }
   for (const tab of ['eye', 'brief', 'threats', 'markets', 'memory', 'workshop', 'system']) {
     await page.evaluate((t) => (location.hash = t), tab);
     await page.waitForTimeout(tab === 'eye' ? 4000 : 900);
