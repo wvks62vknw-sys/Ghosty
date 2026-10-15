@@ -188,8 +188,22 @@ export class Router {
    * provider, keeping the owner's provider order within each group), with a lower
    * temperature and room for longer replies.
    */
-  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean } = {}): Promise<{ message: Msg; model: string }> {
+  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean; maxWaitMs?: number } = {}): Promise<{ message: Msg; model: string }> {
     if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
+    // When every model is only briefly rate-limited, wait (up to ~45 s at a time, twice) and try
+    // again, instead of giving up halfway through a long task.
+    const maxWait = opts.maxWaitMs ?? 45_000;
+    for (let round = 0; ; round++) {
+      const r = await this.attempt(messages, tools, signal, !!opts.code);
+      if ('message' in r) return r;
+      if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new Error(r.error);
+      await new Promise((ok) => setTimeout(ok, r.waitMs + 500));
+    }
+  }
+
+  /** One pass over every usable model: the answer, or why none answered and how long until one frees up. */
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
+    const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
     let soonest = Infinity;
@@ -208,6 +222,7 @@ export class Router {
     if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
     else candidates.sort((a, b) => Number(a.p.transport === 'workers-ai') - Number(b.p.transport === 'workers-ai'));
     const skipProvider = new Set<string>();
+    const tooBig = new Set<string>();
     for (const { p, key, model } of candidates) {
       if (skipProvider.has(p.id)) continue;
       const s = h[`${p.id}|${model}`] ?? {};
@@ -225,7 +240,10 @@ export class Router {
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') throw err;
         const e = err as LlmError;
-        if (e.code === 'too-big') continue; // this model's free tier can't take a request this size; not its fault
+        if (e.code === 'too-big') {
+          tooBig.add(`${p.id}|${model}`);
+          continue; // this model's free tier can't take a request this size; not its fault
+        }
         lastErr = e;
         const c = classify(e);
         if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
@@ -235,12 +253,20 @@ export class Router {
         if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
       }
     }
-    if (!anyKey) throw new Error('No AI model is available. Add a free Gemini or Groq key in the System tab.');
+    if (!anyKey) return { error: 'No AI model is available. Add a free Gemini or Groq key in the System tab.', waitMs: Infinity };
+    // How long until the first model is usable again (including ones that just failed).
+    const after = await this.health();
+    const t = Date.now();
+    for (const { p, model } of candidates) {
+      const s = after[`${p.id}|${model}`] ?? {};
+      if ((s.dead ?? 0) > t || (after[`key|${p.id}`]?.dead ?? 0) > t || tooBig.has(`${p.id}|${model}`)) continue;
+      soonest = Math.min(soonest, Math.max(0, (s.cool ?? 0) - t, (after[`net|${p.id}`]?.cool ?? 0) - t));
+    }
     if (!lastErr) {
       const wait = Number.isFinite(soonest) ? ` The first one frees up in about ${Math.ceil(soonest / 1000)} seconds.` : '';
-      throw new Error(`Every model I can reach is cooling down after rate limits.${wait}`);
+      return { error: `Every model I can reach is cooling down after rate limits.${wait} Another free key in the System tab gives me more room.`, waitMs: soonest };
     }
-    throw new Error(`Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).`);
+    return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).`, waitMs: soonest };
   }
 
   private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
@@ -322,10 +348,11 @@ export class Router {
       });
     } catch (e) {
       const msg = String((e as Error)?.message ?? e);
-      const daily = /(neuron|daily|quota|limit)/i.test(msg);
-      throw { code: daily ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
+      const daily = /(neuron|daily|quota)/i.test(msg);
+      const rate = daily || /(429|too many|rate.?limit|limit)/i.test(msg); // a short limit: cool down briefly, not for an hour
+      throw { code: rate ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
     }
-    const msg = normaliseWorkersAi(res);
+    const msg = normaliseWorkersAi(res, new Set(tools.map((t) => t.function.name)));
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
     return msg;
   }
@@ -361,7 +388,7 @@ export function slimToFit(messages: Msg[], tools: ToolSpec[], budget: number): {
 }
 
 /** Workers AI replies: OpenAI-style `choices`, the classic `{response, tool_calls}`, or Responses-style `output`. */
-export function normaliseWorkersAi(res: unknown): Msg | null {
+export function normaliseWorkersAi(res: unknown, toolNames: Set<string> = new Set()): Msg | null {
   const r = (res ?? {}) as Record<string, unknown>;
   const toCalls = (list: { id?: string; call_id?: string; name?: string; arguments?: unknown; function?: { name?: string; arguments?: unknown } }[]) =>
     list
@@ -387,6 +414,20 @@ export function normaliseWorkersAi(res: unknown): Msg | null {
   } else {
     content = clean(r.response);
     calls = toCalls((r.tool_calls as []) ?? []);
+  }
+  // Some models write the call as JSON text instead: {"name": "weather", "parameters": {...}}
+  if (!calls.length && toolNames.size && /^\s*(```(json)?\s*)?[[{]/.test(content)) {
+    try {
+      const v = JSON.parse(content.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, '')) as unknown;
+      const list = (Array.isArray(v) ? v : [v]) as { name?: string; parameters?: unknown; arguments?: unknown }[];
+      const found = list.filter((x) => x && typeof x.name === 'string' && toolNames.has(x.name));
+      if (found.length) {
+        calls = toCalls(found.map((x) => ({ name: x.name, arguments: x.parameters ?? x.arguments ?? {} })));
+        content = '';
+      }
+    } catch {
+      /* ordinary text that happens to start with a bracket */
+    }
   }
   if (!content && !calls.length) return null;
   return { role: 'assistant', content: content || null, ...(calls.length ? { tool_calls: calls } : {}) };

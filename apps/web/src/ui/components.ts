@@ -188,11 +188,12 @@ export function modal(title: string, content: Node, onClose?: () => void): { clo
 /**
  * Run a widget's HTML in a fully sandboxed iframe: scripts only, no same-origin access
  * (so no cookies, storage or access to Ghosty's page), no forms, no popups.
- * The frame loads /widget-host.html, which has its own relaxed security policy, and we
+ * The frame loads /widget-host (Cloudflare's address for widget-host.html, which has its own
+ * relaxed security policy — see public/_headers), and we
  * hand it the widget HTML by message. The main app keeps its strict policy.
  */
 export function sandboxFrame(html: string): HTMLIFrameElement {
-  const f = h('iframe.sandbox', { title: 'widget', src: '/widget-host.html' });
+  const f = h('iframe.sandbox', { title: 'widget', src: '/widget-host' });
   f.setAttribute('sandbox', 'allow-scripts');
   f.setAttribute('referrerpolicy', 'no-referrer');
   f.addEventListener('load', () => f.contentWindow?.postMessage({ ghostyWidget: html }, '*'), { once: true });

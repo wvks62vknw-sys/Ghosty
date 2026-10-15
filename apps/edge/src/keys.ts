@@ -56,6 +56,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       steps: [
         'Open the link (sign in to GitHub if asked). The name, permissions and a 1-year expiry are already filled in.',
         `Under "Repository access" choose "Only select repositories" and pick ${repo ?? 'your Ghosty repository'}.`,
+        'Under "Account permissions", check "Models" is "Read-only" (free GPT-4.1 for coding). Already have a token? Edit it on GitHub and add this permission.',
         'Scroll to the bottom and press "Generate token", then confirm.',
         'Copy the token (it starts with github_pat_). GitHub only shows it once.',
         'Paste it below and press SAVE.',

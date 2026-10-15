@@ -84,10 +84,19 @@ createServer(async (req, res) => {
       return;
     }
     let p = normalize(url.pathname).replace(/^\/+/, '');
+    // Like Cloudflare's asset handling: /page.html redirects to /page, and /page serves page.html.
+    // Headers follow the URL actually requested, as they do on Cloudflare.
+    if (/[^/]\.html$/.test(p) && p !== 'index.html') {
+      res.writeHead(307, { location: `/${p.slice(0, -5)}${url.search}`, ...headersFor(`/${p}`) });
+      res.end();
+      return;
+    }
+    const asked = `/${p}`;
     if (!p || p.endsWith('/')) p += 'index.html';
+    else if (!extname(p)) p += '.html';
     const file = await readFile(join(dist, p)).catch(() => null);
     if (!file) { res.writeHead(404); res.end('not found'); return; }
-    res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream', ...headersFor(`/${p === 'index.html' ? '' : p}`) });
+    res.writeHead(200, { 'content-type': TYPES[extname(p)] ?? 'application/octet-stream', ...headersFor(asked === '/index.html' ? '/' : asked) });
     res.end(file);
   } catch (e) {
     res.writeHead(500);

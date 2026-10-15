@@ -27,6 +27,13 @@ tests/       local preview server + browser test
   YOURSELF**). It audits what it has, plans the upgrade as small shippable steps, builds them one by one
   (you ship each), and adds what it learned to its handbook so every later version knows it too.
   **CARRY ON** continues with the next step.
+- **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),
+  so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
+  tests on every change.
+- **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
+  long tasks, short rate limits are waited out, and when the keys run dry Ghosty falls back to
+  **Cloudflare Workers AI** (no key — runs on your Cloudflare account) and **GitHub Models** (your GitHub
+  token with the "Models" permission).
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

@@ -41,6 +41,14 @@ Your address is shown on the Worker's overview page (**Domains & Routes**). Open
 owner password on the pairing screen, then go to **System** and add a free AI key:
 **Gemini** (aistudio.google.com/apikey) is the best free model for building things;
 **Groq** (console.groq.com/keys) is the fastest for chat and gives Ghosty speech recognition.
+Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral): Ghosty spreads its work across all of
+them, so it runs out far less often. Two more free sources need no extra key:
+- **Cloudflare Workers AI** is connected automatically (the `ai` binding in `apps/edge/wrangler.jsonc`) and
+  used when the keys are busy — a free daily allowance on your own Cloudflare account.
+- **GitHub Models**: give your GitHub token (step 4) the **Models: Read-only** account permission.
+
+To check which version you're running, open **System → Status → VERSION**. If it says **NEWER SHIPPED**,
+press **RELOAD TO GET THE NEW VERSION**.
 
 ## 3b. Put Ghosty on your phone (optional)
 

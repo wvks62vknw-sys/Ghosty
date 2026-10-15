@@ -54,6 +54,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `engine/` | WebGL2 engine: `gfx.ts` (renderer, LineSet, PointSet), `scheduler.ts` (the one frame loop: use `onFrame`), `globe.ts` (God's Eye), `camera.ts`, `geo.ts`, `world.ts`, `backdrop.ts`, `layers/{air,sats,hazards,route,imagery,buildings}.ts` (imagery = satellite tiles below ~3,000 km; buildings = OSM 3D below ~4.5 km) |
 | `../styles.css` | all styles. Colours: `var(--c)` primary, `var(--a)` accent, `var(--r)` alert; `rgba(var(--cr), .2)` for tints |
 | `../public/` | static files (`data/world.json`, `_headers` security policy, widget host, `sw.js` service worker, `manifest.webmanifest`, app icons) |
+| `../public/widget-host.js` | runs a widget inside its sandbox (Cloudflare serves the page at `/widget-host` — its `_headers` rule must name that path); adds safe storage/alert stand-ins, on-screen error banners, and the kit when a widget uses `GK` |
+| `../public/widget-kit.js` | **GK, the widget kit** for games and mini-apps: canvas fitting, loop, scenes, keyboard/touch/pointer input, on-screen controls, collisions, particles, sound, grid, saving, app UI. Documented in the `game-kit` playbook |
+| `state/build.ts` | which version this interface is (commit + build time, set by `build.mjs`); System tab shows it and offers RELOAD when a newer version shipped |
 
 ## Brain map (`apps/edge/src/`)
 
@@ -62,15 +65,16 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `index.ts` | Worker entry: auth gate, `/api/proxy` feed proxy (**`FEED_HOSTS` allowlist**), forwards to agent |
 | `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
-| `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (general engineering), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
+| `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (engineering method), `coding.ts` (algorithms, JavaScript, CSS, browser APIs, Python, SQL, web APIs, regex, git, architecture, charts), `games.ts` (games + mini-apps on the widget kit, incl. the example game `NEON_DODGE` that the browser test runs), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
 | `tools/evolve.ts` | self-evolution: `self_audit` (what Ghosty has), `plan_upgrade` / `roadmap` / `update_step` (an upgrade done as several shippable changes; shown in Workshop → Upgrade roadmap, `/api/roadmap`) |
 | `tools/knowledge.ts` | `study` (look up playbooks + matching lessons), `learn_lesson` / `list_lessons` / `forget_lesson` (lessons from experience, shown in every prompt and in the Memory tab) |
-| `tools/index.ts` | registry of tools (protected) |
+| `tools/index.ts` | registry of tools (protected). `TOOL_GROUPS` / `selectTools`: only the tools a message needs are described to the model (saves ~3–4k tokens per request); every tool name is still listed in the prompt |
 | `tools/repo.ts` | self-edit tools (protected): `repo_tree`, `repo_read`, `repo_read_many` (up to 8 files at once), `repo_search`, `propose_change`, `wait_for_checks`, … |
 | `tools/extra.ts` | **where new tools go** |
 | `tools/types.ts` | `Tool` interface, `arg` helpers |
 | `tools/{memory,web,data,ui,widgets}.ts` | tools by area |
-| `llm/router.ts`, `llm/providers.ts` | model router across free providers. Coding turns try strong models first, with lower temperature and longer replies (`maxOut`) |
+| `llm/router.ts`, `llm/providers.ts` | model router across free providers. Coding turns try strong models first, with lower temperature and longer replies (`maxOut`). Short rate limits are waited out (≤ 45 s, twice) instead of failing |
+| `llm/providers.ts` extras | `workersai`: Cloudflare Workers AI through the `AI` binding (wrangler.jsonc) — free models on the owner's Cloudflare account, **no key**. `ghmodels`: GitHub Models (GPT-4.1) through the GitHub token ("Models: read"), coding turns only. `codeScore` orders models for coding |
 | `keys.ts` | which API keys exist, with the owner-facing steps (shown in System tab) and `testKey` |
 | `schedule.ts` | agenda events, calendar feeds (.ics parsing), reminders/tasks (`Job`), inbox |
 | `push.ts` | Web Push: VAPID keys, RFC 8291 encryption, device list (protected: push-service allowlist) |

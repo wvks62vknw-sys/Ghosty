@@ -11,7 +11,10 @@ cpSync('public', 'dist', { recursive: true });
 copyFileSync('index.html', 'dist/index.html');
 copyFileSync('styles.css', 'dist/styles.css');
 
-const common = { bundle: true, format: 'esm', target: 'es2022', minify: !watch, sourcemap: true, logLevel: 'info' };
+// Which version this is (shown in the System tab). Cloudflare's build sets WORKERS_CI_COMMIT_SHA.
+const sha = process.env.WORKERS_CI_COMMIT_SHA || process.env.GITHUB_SHA || 'local';
+const define = { __GHOSTY_BUILD__: JSON.stringify({ sha, at: new Date().toISOString() }) };
+const common = { bundle: true, format: 'esm', target: 'es2022', minify: !watch, sourcemap: true, logLevel: 'info', define };
 const jobs = [
   { ...common, entryPoints: ['src/main.ts'], outfile: 'dist/app.js' },
   { ...common, entryPoints: ['src/workers/textures.worker.ts'], outfile: 'dist/textures.worker.js', format: 'iife' },
