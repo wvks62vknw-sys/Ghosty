@@ -1,0 +1,43 @@
+// Ghosty's Cloudflare config for builds that start at the repository root (Cloudflare's
+// "Root directory" left empty). It is apps/edge/wrangler.jsonc with paths from the root;
+// apps/edge/test/config.test.mjs fails if the two ever differ. Change both together.
+// PROTECTED: Ghosty cannot read or edit this file without a kernel unlock.
+{
+  "name": "ghosty",
+  "main": "apps/edge/src/index.ts",
+  "compatibility_date": "2026-06-01",
+  "workers_dev": true,
+  "preview_urls": true,
+  "keep_vars": true,
+  "build": { "command": "cd apps/web && npm install --no-audit --no-fund && npm run build" },
+  "assets": {
+    "directory": "apps/web/dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    // SHA-256 of your owner password. The password itself is never stored anywhere.
+    "OWNER_KEY_HASH": "a944f0946252df9f96bb93bedff208daebd404294a40fa18cc772a759ed08ab0",
+    "OWNER_EMAIL": "aqishussain1@gmail.com",
+    "GITHUB_REPO": "wvks62vknw-sys/Ghosty"
+  },
+  // Workers AI: free daily allowance, no key — Ghosty's always-available fallback brain.
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GhostyAgent"] }],
+  "observability": { "enabled": true },
+  // Previews (one per proposed change) run code you have not approved yet, so they get
+  // their own empty storage and NO owner credential: they show the interface only, and
+  // never accept your password.
+  "previews": {
+    "vars": {
+      "IS_PREVIEW": "1"
+    },
+    "ai": { "binding": "AI" },
+    "durable_objects": {
+      "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
+    }
+  }
+}
