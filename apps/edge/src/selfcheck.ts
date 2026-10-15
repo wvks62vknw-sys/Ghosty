@@ -407,7 +407,9 @@ export async function selfCheck(staged: Staged[], tree: string[], read: Reader):
   const webFetches = staged.filter((s) => s.content && s.path.startsWith('apps/web/src/') && CODE.test(s.path));
   if (webFetches.length) {
     const index = await contentOf('apps/edge/src/index.ts');
-    const allowed = new Set([...(index?.match(/FEED_HOSTS\s*=\s*new Set\(\[([\s\S]*?)\]\)/)?.[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]!));
+    // every host listed in FEED_HOSTS or in a *_HOSTS / FEED_PREFIXES list it is built from
+    const lists = [...(index ?? '').matchAll(/(?:FEED_HOSTS\s*=\s*new Set\(\[|[A-Z_]*HOSTS\s*=\s*\[|FEED_PREFIXES\s*=\s*\[)([\s\S]*?)\]/g)].map((m) => m[1]!).join(' ');
+    const allowed = new Set([...lists.matchAll(/['"]([^'"/]+)[^'"]*['"]/g)].map((m) => m[1]!));
     if (allowed.size) {
       for (const s of webFetches) {
         const hosts = (t: string | null) => new Set([...(t ?? '').matchAll(/fetch(?:Json|Text)\s*(?:<[^>]*>)?\s*\(\s*['"`]https:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]!.toLowerCase()));

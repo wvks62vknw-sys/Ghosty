@@ -18,7 +18,7 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   sats: 'sats', satellites: 'sats',
   quakes: 'quakes', earthquakes: 'quakes',
   events: 'events', hazards: 'events',
-  borders: 'borders', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
+  borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
 async function locate(place: string): Promise<{ lat: number; lon: number; name: string } | null> {
@@ -34,6 +34,8 @@ async function locate(place: string): Promise<{ lat: number; lon: number; name: 
   }
   return null;
 }
+
+const locateAny = (place: string) => locate(place);
 
 export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number }): Promise<boolean> {
   go('eye');
@@ -57,6 +59,24 @@ export function registerBuiltins(): void {
     { id: 'open_tab', title: 'Open tab', hidden: true, run: (a) => void (go(String(a?.tab ?? 'core')) || toast(`No tab called ${a?.tab}`, 'warn')) },
     { id: 'fly_to', title: 'Fly to', hidden: true, run: (a) => void flyTo(a ?? {}) },
     {
+      id: 'show_cameras',
+      title: 'Show live cameras',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const where = a?.place ? await locateAny(String(a.place)) : { lat: Number(a?.lat), lon: Number(a?.lon) };
+        if (!where || !Number.isFinite(where.lat) || !Number.isFinite(where.lon)) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
+        const { openNearestCamera } = await import('../features/eye');
+        globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: 40, tilt: 0 });
+        // camera lists load in the background; try a few times
+        for (let i = 0; i < 12; i++) {
+          if (openNearestCamera?.(where.lat, where.lon)) return;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        toast('No public cameras near there yet — London, New York, California and Finland have them', 'warn');
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,
@@ -66,7 +86,17 @@ export function registerBuiltins(): void {
         ui.set({});
       },
     },
-    { id: 'set_theme', title: 'Set theme', hidden: true, run: (a) => applyTheme(String(a?.theme ?? 'stark')) },
+    {
+      id: 'set_theme',
+      title: 'Set theme',
+      hidden: true,
+      run: (a) => {
+        // accept a key ("mark3") or a label ("Mark III", "war machine")
+        const want = String(a?.theme ?? 'stark').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const hit = Object.entries(THEMES).find(([k, t]) => k === want || t.label.toLowerCase().replace(/[^a-z0-9]/g, '') === want);
+        applyTheme(hit ? hit[0] : want);
+      },
+    },
     {
       id: 'set_sensor_mode',
       title: 'Set sensor mode',
