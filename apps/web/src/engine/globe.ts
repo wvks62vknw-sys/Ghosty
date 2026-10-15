@@ -97,6 +97,7 @@ export interface LayerVisibility {
   aurora: boolean;
   cables: boolean;
   dispatch: boolean;
+  enforce: boolean;
 }
 
 export interface Pickable {
@@ -118,7 +119,7 @@ export class GlobeScene {
   cam = new GeoCam();
   mode = 0;
   sunLock = false;
-  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true, imagery: true, buildings: true, cams: true, ships: true, radar: true, alerts: true, disasters: true, buoys: false, aurora: true, cables: false, dispatch: true };
+  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true, imagery: true, buildings: true, cams: true, ships: true, radar: true, alerts: true, disasters: true, buoys: false, aurora: true, cables: false, dispatch: true, enforce: true };
   layers: GlobeLayer[] = [];
   sunDir: Vec3 = [1, 0, 0];
   private ready = false;

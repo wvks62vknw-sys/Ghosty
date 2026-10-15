@@ -388,3 +388,4 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 /* Training ground */
 .trainnow { font: 500 10px var(--m); letter-spacing: .06em; color: var(--a); min-height: 14px; margin: 6px 0; }
+.eyeinfo small.dim { display: block; opacity: .6; font-size: 10px; margin: 6px 0 2px; }

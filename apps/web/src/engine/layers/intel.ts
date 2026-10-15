@@ -5,6 +5,7 @@
  * feed changes; moving things (ships) are dead-reckoned every frame.
  */
 import { ALERT_COLORS, alerts, aurora, buoys, cables, disasters, dispatch, shipKind, ships, SHIP_COLORS, type Ship } from '../../data/intel';
+import { enforce, ENFORCE_COLORS, type EnforceCam } from '../../data/enforce';
 import type { CamState } from '../camera';
 import { GEO } from '../geo';
 import { LineSet, PointSet, type DrawOpts } from '../gfx';
@@ -214,11 +215,46 @@ export class DispatchLayer implements GlobeLayer {
   }
 }
 
+/** ANPR, speed, average-speed, red-light, bus-lane cameras and mapped CCTV (OpenStreetMap). */
+export class EnforceLayer implements GlobeLayer {
+  id = 'enforce' as const;
+  selected: EnforceCam | null = null;
+  private pts = new PointSet(4000);
+  private n = -1;
+  private dirty = true;
+  constructor() {
+    enforce.events.on('change', () => (this.dirty = true));
+  }
+  draw(_cs: CamState, rel: Mat4, oc: DrawOpts, sizeMul: number): void {
+    if (!enforce.list.size && !this.selected) return;
+    if (this.dirty || this.n !== enforce.list.size || this.selected) {
+      const P = this.pts.clear();
+      for (const c of enforce.list.values()) {
+        const col = ENFORCE_COLORS[c.kind];
+        const cctv = c.kind === 'cctv';
+        P.add(GEO.ecef(c.lat, c.lon, 0.03), [col[0], col[1], col[2], cctv ? 0.6 : 1], cctv ? 6 : 11, cctv ? 0 : c.kind === 'anpr' ? 2 : 1);
+        if (c.kind === 'anpr') P.add(GEO.ecef(c.lat, c.lon, 0.03), [col[0], col[1], col[2], 0.35], 22, 0);
+      }
+      if (this.selected) {
+        const ph = (performance.now() / 1000) % 1;
+        P.add(GEO.ecef(this.selected.lat, this.selected.lon, 0.03), [1, 1, 1, (1 - ph) * 0.9], 14 + ph * 34, 1);
+      }
+      this.n = enforce.list.size;
+      this.dirty = false;
+    }
+    this.pts.draw(rel, { ...oc, px: 1, size: sizeMul });
+  }
+  *pickables(): Iterable<Pickable> {
+    for (const c of enforce.list.values()) yield { kind: 'enforce', ref: c, w: GEO.ecef(c.lat, c.lon, 0.03) };
+  }
+}
+
 export const shipLayer = new ShipLayer();
+export const enforceLayer = new EnforceLayer();
 export const alertLayer = new AlertLayer();
 export const disasterLayer = new DisasterLayer();
 export const buoyLayer = new BuoyLayer();
 export const auroraLayer = new AuroraLayer();
 export const cableLayer = new CableLayer();
 export const dispatchLayer = new DispatchLayer();
-export const INTEL_LAYERS: GlobeLayer[] = [cableLayer, auroraLayer, alertLayer, buoyLayer, dispatchLayer, disasterLayer, shipLayer];
+export const INTEL_LAYERS: GlobeLayer[] = [cableLayer, auroraLayer, alertLayer, buoyLayer, enforceLayer, dispatchLayer, disasterLayer, shipLayer];

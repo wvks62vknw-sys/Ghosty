@@ -99,6 +99,21 @@ await ctx.route('**/api/proxy?**', (route) => {
 await ctx.route('**/api/ships?**', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ships: [{ mmsi: 235000001, name: 'THAMES CLIPPER', lat: 51.505, lon: -0.09, sog: 20, cog: 90, hdg: 90, type: 40, dest: 'WOOLWICH', nav: 0, t: now, src: 'AISstream' }] }) }));
 await ctx.route('https://s3-eu-west-1.amazonaws.com/**', (route) => route.fulfill({ status: 404, body: '' }));
 
+// OpenStreetMap (Overpass): enforcement cameras around London and Birmingham; nothing for 3D buildings.
+const OSM = { elements: [
+  { type: 'node', id: 11, lat: 51.502, lon: -0.11, tags: { man_made: 'surveillance', 'surveillance:type': 'ALPR', operator: 'Transport for London' } },
+  { type: 'node', id: 12, lat: 51.51, lon: -0.09, tags: { highway: 'speed_camera', maxspeed: '20 mph' } },
+  { type: 'node', id: 21, lat: 52.4797, lon: -1.9026, tags: { man_made: 'surveillance', 'surveillance:type': 'ALPR', operator: 'Birmingham City Council', description: 'Clean Air Zone ANPR' } },
+  { type: 'node', id: 22, lat: 52.47, lon: -1.88, tags: { highway: 'speed_camera', maxspeed: '30 mph' } },
+  { type: 'relation', id: 23, center: { lat: 52.49, lon: -1.92 }, tags: { type: 'enforcement', enforcement: 'traffic_signals' } },
+] };
+for (const mirror of ['https://overpass-api.de/**', 'https://overpass.kumi.systems/**']) {
+  await ctx.route(mirror, (route) => {
+    const q = decodeURIComponent(route.request().postData() ?? '');
+    asked.add(q.includes('surveillance') ? 'osm-cams' : 'osm-other');
+    route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify(q.includes('surveillance') ? OSM : { elements: [] }) });
+  });
+}
 const page = await ctx.newPage();
 page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && /shader|WebGL|GL_|intel|TypeError/.test(m.text()) && problems.push(`console: ${m.text()}`));
@@ -135,7 +150,20 @@ await settle(9000);
 lt = await layerText();
 if (!/SHIPS \(AIS\)\s*[1-9]/.test(lt)) problems.push(`no ships near London: ${lt.slice(0, 300)}`);
 if (!asked.has('radar-tile')) problems.push('no radar tiles requested');
+await page.waitForFunction(() => /ANPR \/ SPEED\s*\d+ ANPR/.test(document.querySelector('.eyelay')?.textContent ?? ''), null, { timeout: 25000 }).catch(() => problems.push(`ANPR layer not loaded near London: ${asked.has('osm-cams')}`));
 await page.screenshot({ path: `${out}/intel-london.png` });
+
+// Birmingham: no open live feed, so Ghosty shows the mapped ANPR / speed / red-light cameras.
+await page.evaluate(() => window.__ghosty.run('show_cameras', { place: 'Birmingham' }));
+await page.waitForFunction(() => /mapped ANPR, speed and red-light cameras/.test(document.body.textContent ?? ''), null, { timeout: 45000 }).catch(() => problems.push('Birmingham fallback toast never appeared'));
+await page.waitForTimeout(3000);
+const bhm = await page.evaluate(() => document.querySelector('.eyelay')?.textContent?.replace(/\s+/g, ' ') ?? '');
+if (!/ANPR \/ SPEED\s*2 ANPR · 3/.test(bhm)) problems.push(`Birmingham cameras not counted: ${bhm.slice(0, 300)}`);
+await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'radar', on: false }));
+await page.evaluate(() => window.__ghosty.globe.cam.flyTo({ lat: 52.48, lon: -1.9, range: 14, tilt: 0 }));
+await settle(2500);
+await page.screenshot({ path: `${out}/intel-birmingham.png` });
+await page.evaluate(() => window.__ghosty.run('set_layer', { layer: 'radar', on: true }));
 
 // Baltic: keyless Digitraffic ships, searchable by name.
 await page.evaluate(() => window.__ghosty.run('fly_to', { lat: 60.15, lon: 24.95, range_km: 60 }));
