@@ -47,7 +47,7 @@ jobs:
       - name: Preview build diagnostics (does not block)
         continue-on-error: true
         run: |
-          npx wrangler preview --dry-run > p.txt 2>&1; echo "::warning title=preview dry run::$(grep -v '^\s*$' p.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"
+          npx wrangler preview --dry-run > p.txt 2>&1 || true; echo "::warning title=preview dry run::$(grep -v '^\s*$' p.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"
           cat p.txt
   # Opens the built interface in a real browser (phone and desktop sizes) and clicks
   # through chat, approvals, tabs, agenda, radio and the app/notifications setup.

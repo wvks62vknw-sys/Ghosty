@@ -44,8 +44,11 @@ const regId = await new Promise((resolve) => {
 if (!regId) problems.push('no service worker registration seen over CDP');
 else {
   await cdp.send('ServiceWorker.deliverPushMessage', { origin: base, registrationId: regId, data: JSON.stringify({ title: '⏰ Reminder', body: 'stretch', tag: 't1', url: '/#agenda' }) });
-  await page.waitForTimeout(1500);
-  const notes = await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${n.body}`));
+  let notes = [];
+  for (let i = 0; i < 20 && !notes.length; i++) {
+    await page.waitForTimeout(500);
+    notes = await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${n.body}`));
+  }
   if (!notes.includes('⏰ Reminder|stretch')) problems.push(`push did not become a notification: ${JSON.stringify(notes)}`);
 }
 

@@ -1,7 +1,7 @@
 /**
  * Public data feeds. Requests go through the brain's caching proxy (/api/proxy) so one
- * upstream fetch serves every device; if the proxy is unavailable (e.g. local preview)
- * we fall back to fetching directly.
+ * upstream fetch serves every device. (Fetching other sites directly is blocked by the
+ * security policy, so there is no direct fallback.)
  *
  * `Feed` wraps a loader with polling and an honest status: IDLE / SYNC / LIVE / STALE / NO FEED.
  */
@@ -13,11 +13,8 @@ export async function fetchText(url: string, ttl = 60, timeout = 15000): Promise
   const to = setTimeout(() => ctl.abort(), timeout);
   try {
     const r = await fetch(`/api/proxy?ttl=${ttl}&url=${encodeURIComponent(url)}`, { signal: ctl.signal, headers: headers() });
-    if (r.ok) return await r.text();
-    if (r.status !== 404 && r.status !== 401 && r.status !== 503 && r.status !== 405) throw new Error(`HTTP ${r.status}`);
-    const d = await fetch(url, { signal: ctl.signal });
-    if (!d.ok) throw new Error(`HTTP ${d.status}`);
-    return await d.text();
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
   } finally {
     clearTimeout(to);
   }
