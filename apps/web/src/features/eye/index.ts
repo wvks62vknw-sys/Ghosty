@@ -3,6 +3,7 @@
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
  * to watch it, and a grid shows the four cameras nearest the view.
  */
+import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { flyTo } from '../../commands/builtin';
 import { clear, fmt, h } from '../../core/dom';
@@ -24,7 +25,7 @@ import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
 import { enforceLayer, INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
 import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
-import { radar } from '../../engine/layers/radar';
+import { radar, trafficState } from '../../engine/layers/radar';
 import {
   alerts, aurora, buoys, cables, disasters, dispatch, NAV_STATUS, radarFrames, shipKind, ships,
   type Alert, type Buoy, type Cable, type Disaster, type Dispatch, type Ship,
@@ -34,7 +35,8 @@ import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCame
 import { fetchImage } from '../../api/feed';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
-export let openNearestCamera: ((lat: number, lon: number) => boolean) | null = null;
+/** Open the nearest public camera within `maxKm`; returns its distance (km), or null if none is that close. */
+export let openNearestCamera: ((lat: number, lon: number, maxKm?: number) => number | null) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -146,6 +148,7 @@ export const eyeTab: TabDef = {
         return enforce.status === 'SYNC' && !enforce.list.size ? 'SYNC' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
       }],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'ADD KEY')],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
       ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
       ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
@@ -162,19 +165,40 @@ export const eyeTab: TabDef = {
       ['grid', 'GRID', () => ''],
       ['orbits', 'ORBITS', () => ''],
     ];
+    // Grouped tiles (two columns) instead of one long list: on a phone the panel is a sheet
+    // along the bottom that scrolls, so every layer is reachable.
+    const GROUPS: [string, (keyof LayerVisibility)[]][] = [
+      ['ROADS & CAMERAS', ['cams', 'traffic', 'enforce', 'dispatch']],
+      ['AIR, SEA & SPACE', ['air', 'ships', 'sats', 'orbits']],
+      ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
+      ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
+    ];
     const counts: HTMLElement[] = [];
-    const boxes: HTMLInputElement[] = [];
-    for (const [k, n, f] of LAYERS) {
-      const cb = h('input', { type: 'checkbox', checked: globe.vis[k] });
-      cb.addEventListener('change', () => {
-        globe.vis = { ...globe.vis, [k]: cb.checked };
-        sats.showOrbit = globe.vis.orbits;
-      });
+    const boxes: HTMLButtonElement[] = [];
+    const tileFor = new Map<keyof LayerVisibility, number>();
+    LAYERS.forEach(([k], i) => tileFor.set(k, i));
+    const tiles: HTMLButtonElement[] = LAYERS.map(([k, n, f]) => {
       const em = h('em', f());
-      boxes.push(cb);
+      const b = h('button.ltile', { type: 'button', 'aria-pressed': String(globe.vis[k]) }, h('span', n), em);
+      b.classList.toggle('on', globe.vis[k]);
+      b.addEventListener('click', () => {
+        globe.vis = { ...globe.vis, [k]: !globe.vis[k] };
+        sats.showOrbit = globe.vis.orbits;
+        b.classList.toggle('on', globe.vis[k]);
+        b.setAttribute('aria-pressed', String(globe.vis[k]));
+      });
       counts.push(em);
-      lay.body.append(h('label', cb, h('span', n), em));
+      boxes.push(b);
+      return b;
+    });
+    const placed = new Set<number>();
+    for (const [title, keys] of GROUPS) {
+      const idx = keys.map((k) => tileFor.get(k)).filter((i): i is number => i !== undefined);
+      idx.forEach((i) => placed.add(i));
+      lay.body.append(h('div.lgroup', title), h('div.lgrid', ...idx.map((i) => tiles[i]!)));
     }
+    const rest = tiles.filter((_, i) => !placed.has(i));
+    if (rest.length) lay.body.append(h('div.lgroup', 'MORE'), h('div.lgrid', ...rest));
     if (innerWidth < 700) lay.el.classList.add('min');
 
     // ---------- target card ----------
@@ -457,14 +481,14 @@ export const eyeTab: TabDef = {
     camEvents.on('change', () => {
       gridKey = '';
     });
-    openNearestCamera = (lat, lon) => {
+    openNearestCamera = (lat, lon, maxKm = 40) => {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
       globe.vis = { ...globe.vis, cams: true };
-      const c = nearestCameras(lat, lon, 1, 80)[0];
-      if (!c) return false;
+      const c = nearestCameras(lat, lon, 1, maxKm)[0];
+      if (!c) return null;
       select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
-      return true;
+      return c.km;
     };
 
     // ---------- bottom: readout + buttons ----------
@@ -703,7 +727,10 @@ export const eyeTab: TabDef = {
       zLabel.textContent = mk(c.range);
       LAYERS.forEach(([k, , f], i) => {
         counts[i]!.textContent = f();
-        boxes[i]!.checked = globe.vis[k];
+        if (boxes[i]!.classList.contains('on') !== globe.vis[k]) {
+          boxes[i]!.classList.toggle('on', globe.vis[k]);
+          boxes[i]!.setAttribute('aria-pressed', String(globe.vis[k]));
+        }
       });
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
@@ -717,6 +744,8 @@ export const eyeTab: TabDef = {
 
     return {
       enter() {
+        // Live traffic tiles need the TomTom key in the brain (it may have been added since).
+        void brain.trafficStatus().then((r) => (trafficState.ready = r.ready)).catch(() => undefined);
         quakes.start();
         events.start();
         launches.start();

@@ -6,19 +6,22 @@
  *   California — Caltrans CCTV (stills; many also stream live video)
  *   Finland — Fintraffic road weather cameras (stills)
  *   Ontario — Ontario 511 highway cameras; British Columbia — DriveBC; Sydney/NSW — Live
- *   Traffic NSW; Calgary — City of Calgary traffic cameras (stills; parsers in data/intel.ts)
+ *   Traffic NSW; Calgary — City of Calgary traffic cameras; County Durham — Durham County
+ *   Council traffic cameras (stills; parsers in data/intel.ts)
+ * Not available: Birmingham / West Midlands and National Highways motorway cameras — their
+ * operators don't publish them (God's Eye shows live TomTom traffic there instead).
  * Only public, official feeds are used — never private or unsecured cameras.
  */
 import { fetchJson, fetchText } from '../api/feed';
 import { Emitter } from '../core/store';
-import { parseCalgary, parseDriveBc, parseNsw, parseOntario, type Cam } from './intel';
+import { parseCalgary, parseDriveBc, parseDurham, parseNsw, parseOntario, type Cam } from './intel';
 
 export interface Camera {
   id: string;
   name: string;
   lat: number;
   lon: number;
-  src: 'London' | 'New York' | 'California' | 'Finland' | 'Ontario' | 'British Columbia' | 'New South Wales' | 'Calgary';
+  src: 'London' | 'New York' | 'California' | 'Finland' | 'Ontario' | 'British Columbia' | 'New South Wales' | 'Calgary' | 'Durham';
   image: string;
   /** Short clip (mp4) the browser can play directly. */
   video?: string;
@@ -105,6 +108,7 @@ export function loadCameras(): void {
     ['British Columbia', extra('British Columbia', 'https://www.drivebc.ca/api/webcams/', parseDriveBc)],
     ['New South Wales', extra('New South Wales', 'https://data.livetraffic.com/cameras/traffic-cam.json', parseNsw)],
     ['Calgary', extra('Calgary', 'https://data.calgary.ca/resource/k7p9-kppz.json?$limit=500', parseCalgary)],
+    ['Durham', extra('Durham', 'https://spatial.durham.gov.uk/arcgis/rest/services/External/VectorPoint/MapServer/30/query?where=1%3D1&outFields=*&outSR=4326&f=json', parseDurham)],
   ];
   let ok = 0;
   let done = 0;
@@ -167,4 +171,5 @@ export const CAM_COLORS: Record<Camera['src'], [number, number, number]> = {
   'British Columbia': [0.35, 1, 0.85],
   'New South Wales': [1, 0.55, 0.85],
   Calgary: [1, 0.95, 0.45],
+  Durham: [0.6, 0.75, 1],
 };

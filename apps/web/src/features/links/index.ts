@@ -1,6 +1,6 @@
 /**
  * LINKS tab: everything Ghosty is connected to, in one place — email, Spotify, this phone
- * (app + notifications), GitHub (self-editing) and the AI brain (keys and models).
+ * (app + notifications), live traffic (TomTom), GitHub (self-editing) and the AI brain.
  * Every secret goes straight into the brain's encrypted vault and is never shown again.
  */
 import type { BrainStatus, EmailStatus, KeyStatus, SpotifyStatus } from '../../../../../packages/shared/src/protocol';
@@ -73,7 +73,7 @@ export const linksTab: TabDef = {
   title: 'LINKS',
   icon: '<path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>',
   scene: 'backdrop',
-  blurb: 'email · spotify · phone · github · AI keys',
+  blurb: 'email · spotify · phone · traffic · github · AI',
   mount(root) {
     const P = page(root, { tag: 'LINKS // CONNECTED SYSTEMS', sub: 'everything Ghosty is plugged into', leftLabel: 'EMAIL & MUSIC', rightLabel: 'PHONE & BRAIN', stack: true });
     const ep = panel('EMAIL', { grow: false });
@@ -81,14 +81,15 @@ export const linksTab: TabDef = {
     const ap = panel('PHONE · APP & NOTIFICATIONS', { grow: false });
     const bp = panel('AI BRAIN', { grow: false });
     const gp = panel('GITHUB · SELF-EDIT', { grow: false });
+    const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
     P.left.append(ep.el, spot.el);
-    P.right.append(ap.el, bp.el, gp.el);
+    P.right.append(ap.el, tp.el, bp.el, gp.el);
 
-    const online = { email: false, spotify: false, phone: false, brain: false, github: false };
+    const online = { email: false, spotify: false, phone: false, traffic: false, brain: false, github: false };
     const paintHero = () => {
       const n = Object.values(online).filter(Boolean).length;
-      P.big.textContent = `${n} / 5 ONLINE`;
-      P.dials(([['EMAIL', online.email], ['MUSIC', online.spotify], ['PHONE', online.phone], ['AI', online.brain], ['GITHUB', online.github]] as [string, boolean][]).map(([l, on]) => [l, on ? 1 : 0.04, on ? 'ON' : 'OFF', on ? '#52f2b5' : '#ff9a3c']));
+      P.big.textContent = `${n} / 6 ONLINE`;
+      P.dials(([['EMAIL', online.email], ['MUSIC', online.spotify], ['PHONE', online.phone], ['TRAFFIC', online.traffic], ['AI', online.brain], ['GITHUB', online.github]] as [string, boolean][]).map(([l, on]) => [l, on ? 1 : 0.04, on ? 'ON' : 'OFF', on ? '#52f2b5' : '#ff9a3c']));
     };
 
     // ---- email
@@ -342,8 +343,9 @@ export const linksTab: TabDef = {
       }
       clear(bp.body);
       clear(gp.body);
+      clear(tp.body);
       if (!st) {
-        online.brain = online.github = false;
+        online.brain = online.github = online.traffic = false;
         paintHero();
         bp.setStatus('OFFLINE', 'off');
         bp.body.append(h('div.note', 'The brain is not reachable right now.'));
@@ -353,6 +355,8 @@ export const linksTab: TabDef = {
       const missing = st.keys.filter((k) => k.need === 'needed' && !k.set);
       online.brain = ready.length > 0;
       online.github = st.repoReady;
+      const tt = st.keys.find((k) => k.name === 'tomtom');
+      online.traffic = !!tt?.set;
       paintHero();
       bp.setStatus(ready.length ? `${ready.length} MODELS READY` : 'NO MODELS', ready.length ? 'ok' : 'off');
       bp.body.append(
@@ -366,6 +370,9 @@ export const linksTab: TabDef = {
       const gh = st.keys.find((k) => k.name === 'github');
       if (st.repoReady) gp.body.append(row('REPO', st.repo ?? '—', null, { tone: 'up' }), h('div.note', 'Ghosty can read its own code and propose, preview and ship changes to itself (Workshop).'), h('div.keyrow', button('OPEN WORKSHOP', () => go('workshop'))));
       else if (gh) gp.body.append(keyForm(gh, () => void paintBrain()));
+      tp.setStatus(tt?.set ? 'LIVE' : 'OFF', tt?.set ? 'ok' : 'mid');
+      if (tt?.set) tp.body.append(h('div.note', 'Live speeds on every road in God\'s Eye (green flowing → red jammed), plus crashes, closures and queues when you ask — e.g. "how\'s the traffic in Birmingham city centre?"'), h('div.keyrow', button('SHOW ON GOD\'S EYE', () => go('eye')), button('REPLACE KEY', () => clear(tp.body, keyForm(tt, () => void paintBrain())))));
+      else if (tt) tp.body.append(keyForm(tt, () => void paintBrain()));
     };
 
     return {

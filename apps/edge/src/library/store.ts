@@ -8,7 +8,10 @@
  *     vectors, bge-small) when they are added, and candidates are re-ranked by meaning.
  *
  * Only the few best passages ever reach the model, so a huge library costs almost nothing
- * per question. Heavy work (reading files, cutting text into passages) happens in the
+ * per question. Cloudflare's free plan counts every database row read (5 million a day), so
+ * nothing here may scan the whole library: `lib_pass` is a plain indexed table that mirrors
+ * each passage's row id, document and section, and is what lookups and deletes go through
+ * (FTS5's `doc` column is unindexed — `WHERE doc = ?` on lib_fts reads every row). Heavy work (reading files, cutting text into passages) happens in the
  * owner's browser; the brain only stores and searches (Cloudflare's free plan allows
  * ~10 ms of CPU per request).
  */
@@ -75,6 +78,16 @@ export class Library {
       s.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS lib_fts USING fts5(text, heading, doc UNINDEXED, page UNINDEXED, tokenize = 'porter unicode61')`);
       s.exec(`CREATE TABLE IF NOT EXISTS lib_vec (rid INTEGER PRIMARY KEY, doc TEXT, v BLOB)`);
       s.exec(`CREATE INDEX IF NOT EXISTS lib_vec_doc ON lib_vec (doc)`);
+      s.exec(`CREATE TABLE IF NOT EXISTS lib_pass (rid INTEGER PRIMARY KEY, doc TEXT NOT NULL, heading TEXT, chars INTEGER DEFAULT 0, h TEXT)`);
+      s.exec(`CREATE INDEX IF NOT EXISTS lib_pass_doc ON lib_pass (doc, heading)`);
+      s.exec(`CREATE INDEX IF NOT EXISTS lib_pass_h ON lib_pass (h)`);
+      s.exec(`CREATE TABLE IF NOT EXISTS lib_meta (k TEXT PRIMARY KEY, v TEXT)`);
+      // One-time: libraries from before lib_pass existed get it filled from lib_fts (a single scan).
+      const done = s.exec<{ v: string }>(`SELECT v FROM lib_meta WHERE k = 'pass_index'`).toArray()[0];
+      if (!done) {
+        s.exec(`INSERT OR IGNORE INTO lib_pass (rid, doc, heading, chars, h) SELECT rowid, doc, heading, length(text), length(text) || ':' || substr(text, 1, 160) FROM lib_fts`);
+        s.exec(`INSERT OR REPLACE INTO lib_meta (k, v) VALUES ('pass_index', '1')`);
+      }
       this.ready = true;
     }
     return s;
@@ -105,11 +118,12 @@ export class Library {
       .map((p) => ({ text: p.text.trim().slice(0, MAX_PASSAGE_CHARS), heading: String(p.heading ?? '').slice(0, 200), page: Number.isFinite(p.page) ? Math.floor(p.page!) : null }));
     if (!list.length) return 0;
     const db = this.db;
-    let next = Number(db.exec<{ m: number | null }>(`SELECT max(rowid) AS m FROM lib_fts`).one().m ?? 0) + 1;
+    let next = Number(db.exec<{ m: number | null }>(`SELECT max(rid) AS m FROM lib_pass`).one().m ?? 0) + 1;
     const rids: number[] = [];
     let chars = 0;
     for (const p of list) {
       db.exec(`INSERT INTO lib_fts (rowid, text, heading, doc, page) VALUES (?, ?, ?, ?, ?)`, next, p.text, p.heading, id, p.page);
+      db.exec(`INSERT OR REPLACE INTO lib_pass (rid, doc, heading, chars, h) VALUES (?, ?, ?, ?, ?)`, next, id, p.heading, p.text.length, dedupeKey(p.text));
       rids.push(next++);
       chars += p.text.length;
     }
@@ -127,8 +141,8 @@ export class Library {
     if (!this.doc(docId)) this.createDoc({ id: docId, title, source: 'written by Ghosty', kind });
     const text = passage.text.trim();
     if (!text) return false;
-    const dup = this.db.exec<{ n: number }>(`SELECT count(*) AS n FROM lib_fts WHERE doc = ? AND text = ?`, docId, text.slice(0, MAX_PASSAGE_CHARS)).one();
-    if (Number(dup.n)) return false;
+    const dup = this.db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE h = ? AND doc = ? LIMIT 1`, dedupeKey(text.slice(0, MAX_PASSAGE_CHARS)), docId).toArray();
+    if (dup.length) return false;
     await this.addPassages(docId, [passage]);
     this.finish(docId);
     return true;
@@ -137,11 +151,10 @@ export class Library {
   /** Remove the passages of one section of a document (e.g. one source file, before re-reading it). */
   removeSection(docId: string, heading: string): number {
     const db = this.db;
-    const rows = db.exec<{ rowid: number; chars: number }>(`SELECT rowid, length(text) AS chars FROM lib_fts WHERE doc = ? AND heading = ?`, docId, heading).toArray();
+    const rows = db.exec<{ rid: number; chars: number }>(`SELECT rid, chars FROM lib_pass WHERE doc = ? AND heading = ?`, docId, heading).toArray();
     if (!rows.length) return 0;
-    const ids = rows.map((r) => Number(r.rowid));
-    db.exec(`DELETE FROM lib_fts WHERE rowid IN (${ids.map(() => '?').join(',')})`, ...ids);
-    db.exec(`DELETE FROM lib_vec WHERE rid IN (${ids.map(() => '?').join(',')})`, ...ids);
+    const ids = rows.map((r) => Number(r.rid));
+    this.dropRows(ids);
     db.exec(`UPDATE lib_docs SET passages = max(0, passages - ?), chars = max(0, chars - ?) WHERE id = ?`, rows.length, rows.reduce((n, r) => n + Number(r.chars), 0), docId);
     return rows.length;
   }
@@ -158,17 +171,28 @@ export class Library {
   remove(id: string): boolean {
     const db = this.db;
     const had = !!this.doc(id);
-    db.exec(`DELETE FROM lib_fts WHERE doc = ?`, id);
-    db.exec(`DELETE FROM lib_vec WHERE doc = ?`, id);
+    this.dropRows(db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE doc = ?`, id).toArray().map((r) => Number(r.rid)));
     db.exec(`DELETE FROM lib_docs WHERE id = ?`, id);
     return had;
   }
 
+  /** Delete passages by row id (FTS rowid lookups and lib_vec/lib_pass are by primary key: no scans). */
+  private dropRows(ids: number[]): void {
+    const db = this.db;
+    for (let i = 0; i < ids.length; i += 200) {
+      const part = ids.slice(i, i + 200);
+      const q = part.map(() => '?').join(',');
+      db.exec(`DELETE FROM lib_fts WHERE rowid IN (${q})`, ...part);
+      db.exec(`DELETE FROM lib_vec WHERE rid IN (${q})`, ...part);
+      db.exec(`DELETE FROM lib_pass WHERE rid IN (${q})`, ...part);
+    }
+  }
+
   stats(): { docs: number; passages: number; chars: number; bytes: number; vectors: number } {
     const db = this.db;
+    // lib_docs only (a few dozen rows): counting lib_vec here read every vector on every call.
     const r = db.exec<{ d: number; p: number | null; c: number | null }>(`SELECT count(*) AS d, sum(passages) AS p, sum(chars) AS c FROM lib_docs`).one();
-    const v = db.exec<{ n: number }>(`SELECT count(*) AS n FROM lib_vec`).one();
-    return { docs: Number(r.d), passages: Number(r.p ?? 0), chars: Number(r.c ?? 0), bytes: db.databaseSize, vectors: Number(v.n) };
+    return { docs: Number(r.d), passages: Number(r.p ?? 0), chars: Number(r.c ?? 0), bytes: db.databaseSize, vectors: this.env.AI ? Number(r.p ?? 0) : 0 };
   }
 
   /**
@@ -278,6 +302,9 @@ export class Library {
   }
 }
 
+/** Key for spotting a note that is already filed (length + start of the text; indexed). */
+const dedupeKey = (text: string) => `${text.length}:${text.slice(0, 160)}`;
+
 function toDoc(r: Record<string, SqlStorageValue>): LibraryDoc {
   return {
     id: String(r.id),
@@ -303,4 +330,23 @@ export function formatHits(hits: LibraryHit[], max = 6000): string {
     out += block;
   }
   return out.trim();
+}
+
+let starterChunks: { title: string; heading: string; text: string; low: string }[] | null = null;
+/**
+ * Search the built-in starter library straight from the code, without the database: the
+ * last resort when storage is unavailable (e.g. the free plan's daily allowance is used up),
+ * so Ghosty can still answer from what it knows.
+ */
+export function searchStarterInMemory(query: string, k = 3): LibraryHit[] {
+  const terms = queryTerms(query);
+  if (!terms.length) return [];
+  starterChunks ??= STARTER.flatMap((d) => chunkText(d.text).map((p) => ({ title: d.title, heading: p.heading ?? '', text: p.text, low: `${p.heading ?? ''} ${p.text}`.toLowerCase() })));
+  const stems = terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
+  const scored = starterChunks
+    .map((c) => ({ c, score: stems.filter((s) => c.low.includes(s)).length / stems.length }))
+    .filter((x) => x.score >= (terms.length >= 3 ? 0.5 : 0.99))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+  return scored.map(({ c, score }) => ({ doc: 'starter', title: c.title, heading: c.heading, page: null, text: c.text, score, relevant: true }));
 }
