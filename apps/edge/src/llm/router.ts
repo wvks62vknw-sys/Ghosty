@@ -90,12 +90,36 @@ export class Router {
     private env: Env,
   ) {}
 
+  /**
+   * Storage that never stops the AI: values are mirrored in memory, and if the database is
+   * unavailable (e.g. the free plan's daily allowance is used up) reads fall back to the
+   * mirror and writes are skipped, so models keep answering.
+   */
+  private mem = new Map<string, unknown>();
+  private async sget<T>(k: string): Promise<T | undefined> {
+    try {
+      const v = await this.storage.get<T>(k);
+      this.mem.set(k, v);
+      return v;
+    } catch {
+      return this.mem.get(k) as T | undefined;
+    }
+  }
+  private async sput(k: string, v: unknown): Promise<void> {
+    this.mem.set(k, v);
+    try {
+      await this.storage.put(k, v);
+    } catch {
+      /* database paused: keep going from memory */
+    }
+  }
+
   private async health(): Promise<Record<string, Health>> {
-    return (await this.storage.get<Record<string, Health>>(H_KEY)) ?? {};
+    return (await this.sget<Record<string, Health>>(H_KEY)) ?? {};
   }
 
   private async order(): Promise<Provider[]> {
-    const pref = (await this.storage.get<string[]>(ORDER_KEY)) ?? [];
+    const pref = (await this.sget<string[]>(ORDER_KEY)) ?? [];
     return [...PROVIDERS].sort((a, b) => {
       const ia = pref.indexOf(a.id);
       const ib = pref.indexOf(b.id);
@@ -110,11 +134,11 @@ export class Router {
   }
 
   async setOrder(ids: string[]): Promise<void> {
-    await this.storage.put(ORDER_KEY, ids);
+    await this.sput(ORDER_KEY, ids);
   }
 
   private async models(p: Provider): Promise<string[]> {
-    const all = (await this.storage.get<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
+    const all = (await this.sget<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
     const found = all[p.id]?.ids ?? [];
     const extra = found
       .filter((id) => !p.seed.includes(id) && !NOT_CHAT.test(id) && (!p.accept || p.accept(id)))
@@ -126,7 +150,7 @@ export class Router {
 
   /** Refresh the list of models each key can reach (small providers only). */
   async discover(force = false): Promise<void> {
-    const all = (await this.storage.get<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
+    const all = (await this.sget<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
     for (const p of PROVIDERS) {
       if (p.id === 'openrouter' || p.noDiscovery) continue; // huge or fixed catalogues: the seeds are enough
       const key = await this.vault.get(p.key);
@@ -142,7 +166,7 @@ export class Router {
         /* keep previous list */
       }
     }
-    await this.storage.put(M_KEY, all);
+    await this.sput(M_KEY, all);
   }
 
   async summary(): Promise<ModelHealth[]> {
@@ -175,7 +199,7 @@ export class Router {
   private async mark(key: string, patch: Health): Promise<void> {
     const h = await this.health();
     h[key] = { ...(h[key] ?? {}), ...patch };
-    await this.storage.put(H_KEY, h);
+    await this.sput(H_KEY, h);
   }
 
   async resetHealth(): Promise<void> {
@@ -235,7 +259,7 @@ export class Router {
       try {
         const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
         await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
-        await this.storage.put('llm:last', `${p.name} · ${model}`);
+        await this.sput('llm:last', `${p.name} · ${model}`);
         return { message, model: `${p.name} · ${model}` };
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') throw err;

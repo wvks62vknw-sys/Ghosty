@@ -24,6 +24,8 @@ import { CURRICULUM, loadStudy, noteGap, STUDY_KEY, studySession } from './libra
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
 import { ALL_TOOL_NAMES, selectTools, TOOLS, toolByName, toolSpecs } from './tools';
+import { dataTools } from './tools/data';
+import { webTools } from './tools/web';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
@@ -259,16 +261,30 @@ export class GhostyAgent {
     const keys: KeyStatus[] = [];
     for (const k of keyDefs(this.env.GITHUB_REPO)) keys.push({ name: k.name, label: k.label, set: await this.vault.has(k.name), hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
     if (this.env.GITHUB_TOKEN) keys.find((k) => k.name === 'github')!.set = true;
-    this.state.waitUntil(this.router.discover(false));
+    this.state.waitUntil(this.router.discover(false).catch(() => undefined));
+    let paused: string | undefined;
+    const soft = async <T>(k: string): Promise<T | undefined> => {
+      try {
+        return await this.storage.get<T>(k);
+      } catch (e) {
+        const p = storageError(e);
+        if (!p) throw e;
+        paused = p;
+        return undefined;
+      }
+    };
+    const kernelUnlockedUntil = (await soft<number>('kernelUnlockedUntil')) ?? 0;
+    const lastModel = (await soft<string>('llm:last')) ?? null;
     return {
       owner,
       repo: this.env.GITHUB_REPO ?? null,
       repoReady: !!(await this.github()),
       previews: this.env.PAGES_PROJECT ? `${this.env.PAGES_PROJECT}.pages.dev` : this.host?.endsWith('.workers.dev') ? `<change>-${this.host}` : null,
-      kernelUnlockedUntil: (await this.storage.get<number>('kernelUnlockedUntil')) ?? 0,
+      kernelUnlockedUntil,
       keys,
       models: await this.router.summary(),
-      lastModel: (await this.storage.get<string>('llm:last')) ?? null,
+      lastModel,
+      ...(paused ? { paused: `${paused} Meanwhile chat keeps working with AI keys saved as Cloudflare secrets (and the built-in library); memory, library uploads and agenda come back after the reset.` } : {}),
     };
   }
 
@@ -293,7 +309,7 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; context?: ClientContext };
+    const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     const started = this.begin();
@@ -301,6 +317,13 @@ export class GhostyAgent {
     const { s, signal } = started;
     const client = body.context ?? {};
     await this.rememberClient(client).catch(() => undefined);
+    // Did any reply text go out before a failure? (Then paused mode must not answer again.)
+    let said = false;
+    const emit = s.emit;
+    s.emit = (ev: ChatEvent) => {
+      if (ev.t === 'text') said = true;
+      emit(ev);
+    };
     this.state.waitUntil(
       (async () => {
         try {
@@ -316,12 +339,9 @@ export class GhostyAgent {
           await this.loop(ctx, client, s.emit, signal);
         } catch (e) {
           const paused = storageError(e);
-          const hits = paused ? searchStarterInMemory(text) : [];
-          // Database paused: still answer from the built-in library (it lives in the code).
-          if (hits.length) {
-            s.emit({ t: 'text', text: `${paused}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
-            s.emit({ t: 'done', model: 'Built-in library · no AI' });
-          } else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
+          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused);
+          else if (paused) s.emit({ t: 'status', text: 'answered, but not saved: my database is paused until midnight UTC' });
+          else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
         } finally {
           this.busy = null;
           await s.close();
@@ -329,6 +349,64 @@ export class GhostyAgent {
       })(),
     );
     return s.response;
+  }
+
+  /**
+   * Paused mode: the database is unavailable (Cloudflare's free daily allowance is used up),
+   * so there is no memory, library, agenda or saved conversation until it resets. Ghosty still
+   * answers: AI keys come from Cloudflare secrets (or the copies still in memory), the
+   * conversation comes from the browser, and only tools that need no database are offered.
+   * With no AI reachable either, it answers from the built-in library in the code.
+   */
+  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string): Promise<void> {
+    const recent: Msg[] = (Array.isArray(recentRaw) ? recentRaw : [])
+      .filter((m): m is { role: 'user' | 'assistant'; text: string } => !!m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
+      .slice(-12)
+      .map((m) => ({ role: m.role, content: m.text.slice(0, 1500) }));
+    const hits = searchStarterInMemory(text);
+    const tools = [...webTools, ...dataTools].filter((t) => t.side !== 'client' && !needsApproval(t));
+    const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+    const sys =
+      systemPrompt(client, [], false) +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Until then you have no saved memory, library uploads, agenda, reminders or email/Spotify links, and nothing you say is saved. Answer normally with what you know and the tools you have (web search, weather). If asked to remember, schedule or use something that needs the database, say it can be done after the reset. Mention the pause only when it matters.` +
+      (hits.length ? `\n\nFROM YOUR BUILT-IN LIBRARY:\n${asData('your library', formatHits(hits, 3000))}` : '');
+    const ctx: Msg[] = [...recent, { role: 'user', content: text }];
+    const tctx = this.toolContext(emit);
+    try {
+      for (let step = 0; step < 6; step++) {
+        const { message, model } = await this.router.complete([{ role: 'system', content: sys }, ...ctx], specs, signal);
+        ctx.push(message);
+        const calls = message.tool_calls ?? [];
+        if (!calls.length) {
+          emit({ t: 'text', text: message.content?.trim() || '…' });
+          emit({ t: 'done', model: `${model} · memory paused` });
+          return;
+        }
+        for (const call of calls) {
+          const tool = tools.find((t) => t.name === call.function.name);
+          emit({ t: 'tool', id: call.id, name: call.function.name, args: safeArgs(call.function.arguments) });
+          let result: string;
+          let ok = true;
+          try {
+            if (!tool) throw new Error(`${call.function.name} needs my database, which is paused until midnight UTC`);
+            result = await tool.run(safeArgs(call.function.arguments), tctx);
+          } catch (e) {
+            ok = false;
+            result = `Error: ${String((e as Error)?.message ?? e)}`;
+          }
+          emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
+          ctx.push({ role: 'tool', tool_call_id: call.id, content: result.slice(0, 8000) });
+        }
+      }
+      emit({ t: 'error', message: 'I ran out of steps.' });
+    } catch (e) {
+      if (signal.aborted) return;
+      // No AI either: the built-in library, or an honest explanation of what to do.
+      if (hits.length) {
+        emit({ t: 'text', text: `${why}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
+        emit({ t: 'done', model: 'Built-in library · no AI' });
+      } else emit({ t: 'error', message: `${why} To keep chatting while it's paused, add your AI keys as Cloudflare secrets (GEMINI_KEY, GROQ_KEY…): see SETUP.md "Keep Ghosty working when the database is paused". (${String((e as Error)?.message ?? e).slice(0, 200)})` });
+    }
   }
 
   private async approve(req: Request): Promise<Response> {

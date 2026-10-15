@@ -108,7 +108,8 @@ async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent)
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () => req<BrainStatus>('GET', '/status'),
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal) => streamEvents('/chat', { message, context }, onEvent, signal),
+  /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) => streamEvents('/chat', { message, context, recent }, onEvent, signal),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   stop: () => req<{ ok: boolean }>('POST', '/stop'),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),

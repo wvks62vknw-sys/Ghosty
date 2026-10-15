@@ -5,6 +5,10 @@
  * they are written to Durable Object storage, and they are never sent back to the
  * interface (only "set / not set"). The key is the VAULT_KEY secret if one is set;
  * otherwise the brain makes a random key once and keeps it in its own storage.
+ *
+ * Backup: any key can also be a Cloudflare secret named <NAME>_KEY (GEMINI_KEY, GROQ_KEY, …;
+ * GITHUB_TOKEN for github). Secrets don't live in the database, so they keep working when the
+ * database is unavailable (e.g. the free plan's daily allowance is used up).
  */
 import type { Env } from '../env';
 
@@ -32,6 +36,13 @@ async function vaultKey(env: Env, storage: DurableObjectStorage): Promise<Crypto
 const toB64 = (b: Uint8Array) => btoa(String.fromCharCode(...b));
 const fromB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
+/** The Cloudflare secret that can stand in for a vault entry. */
+export const secretName = (name: string) => (name === 'github' ? 'GITHUB_TOKEN' : `${name.toUpperCase()}_KEY`);
+const fromEnv = (env: Env, name: string): string | null => {
+  const v = (env as unknown as Record<string, unknown>)[secretName(name)];
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
+};
+
 export class Vault {
   /** Decrypted values kept in memory while the brain is awake: each AI call reads keys, and every storage read counts against the free plan's daily limit. */
   private mem = new Map<string, string | null>();
@@ -54,11 +65,17 @@ export class Vault {
   }
 
   async get(name: string): Promise<string | null> {
-    if (this.mem.has(name)) return this.mem.get(name)!;
-    const stored = await this.storage.get<string>(PREFIX + name);
+    if (this.mem.has(name)) return this.mem.get(name) ?? fromEnv(this.env, name);
+    let stored: string | undefined;
+    try {
+      stored = await this.storage.get<string>(PREFIX + name);
+    } catch {
+      // Database unavailable: a Cloudflare secret can stand in (no secret = not available now).
+      return fromEnv(this.env, name);
+    }
     if (!stored) {
       this.mem.set(name, null);
-      return null;
+      return fromEnv(this.env, name);
     }
     const [iv, data] = stored.split('.') as [string, string];
     try {
@@ -71,7 +88,8 @@ export class Vault {
   }
 
   async has(name: string): Promise<boolean> {
+    if (fromEnv(this.env, name)) return true;
     if (this.mem.has(name)) return this.mem.get(name) !== null;
-    return (await this.storage.get(PREFIX + name)) !== undefined;
+    return (await this.storage.get(PREFIX + name).catch(() => undefined)) !== undefined;
   }
 }

@@ -364,6 +364,7 @@ export const linksTab: TabDef = {
         row('KEYS', `${st.keys.filter((k) => k.set).length} saved${missing.length ? ` · ${missing.length} needed` : ''}`, null, { tone: missing.length ? 'bad' : 'up' }),
         st.lastModel ? row('LAST', st.lastModel) : '',
         h('div.note', ready.length ? 'Free AI keys power Ghosty’s thinking; when one runs out, the next takes over. The library answers even with none.' : 'Add a free AI key (Gemini or Groq) so Ghosty can think. It takes about a minute.'),
+        h('div.note', 'Backup: save your AI keys as Cloudflare secrets too (GEMINI_KEY, GROQ_KEY… — SETUP.md "Keep Ghosty working when the database is paused") and Ghosty keeps chatting even if the free daily database allowance runs out.'),
         h('div.keyrow', button('MANAGE AI KEYS', () => go('system'), missing.length ? 'on' : '')),
       );
       gp.setStatus(st.repoReady ? 'ON' : 'OFF', st.repoReady ? 'ok' : 'mid');

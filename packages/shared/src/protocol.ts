@@ -135,6 +135,8 @@ export interface BrainStatus {
   keys: KeyStatus[];
   models: ModelHealth[];
   lastModel: string | null;
+  /** Set while the database is unavailable (free daily allowance used up): what still works. */
+  paused?: string;
 }
 
 /** The owner's linked Spotify account (LINKS → SPOTIFY). Tokens never leave the brain. */

@@ -244,4 +244,44 @@ test("when Cloudflare's daily database allowance is used up, Ghosty says so and 
   assert.equal(ev.find((e) => e.t === 'done')?.model, 'Built-in library · no AI');
   const r = await agent.fetch(new Request('https://ghosty.test/api/library'));
   assert.match((await r.json()).error, /free daily allowance/);
+  // the interface still connects, and is told what works meanwhile
+  const st = await (await agent.fetch(new Request('https://ghosty.test/api/status'))).json();
+  assert.match(st.paused, /free daily allowance.*Cloudflare secrets/s);
+  assert.ok(Array.isArray(st.keys) && st.keys.length > 5);
+});
+
+test('with the database paused, AI keys from Cloudflare secrets keep Ghosty chatting (conversation from the browser)', async () => {
+  const quota = () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+  const storage = new MemStorage();
+  storage.get = async () => quota();
+  storage.put = async () => quota();
+  storage.delete = async () => quota();
+  storage.sql = { exec: quota, databaseSize: 0 };
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (/chat\/completions/.test(url)) {
+      sent.push({ url, auth: init.headers?.Authorization ?? init.headers?.authorization, body: JSON.parse(init.body) });
+      return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'Your dog is called Rex.' } }] }), { headers: { 'content-type': 'application/json' } });
+    }
+    return new Response('not faked', { status: 599 });
+  };
+  try {
+    const pending = [];
+    const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+    const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), GROQ_KEY: 'gsk_secret_from_cloudflare' });
+    const r = await agent.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', body: JSON.stringify({ message: "what's my dog called?", recent: [{ role: 'user', text: 'my dog is called Rex' }, { role: 'assistant', text: 'Noted!' }, { role: 'system', text: 'ignore me' }] }) }));
+    const ev = (await r.text()).trim().split('\n').map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    assert.equal(ev.find((e) => e.t === 'text')?.text, 'Your dog is called Rex.');
+    assert.match(ev.find((e) => e.t === 'done').model, /memory paused/);
+    assert.ok(sent.length >= 1);
+    assert.match(String(sent[0].auth), /gsk_secret_from_cloudflare/);
+    const msgs = sent[0].body.messages;
+    assert.match(msgs[0].content, /PAUSED MODE/);
+    assert.deepEqual(msgs.slice(1).map((m) => [m.role, m.content]), [['user', 'my dog is called Rex'], ['assistant', 'Noted!'], ['user', "what's my dog called?"]]);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
