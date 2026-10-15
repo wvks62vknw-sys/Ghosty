@@ -30,7 +30,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { ToolContext } from './tools/types';
-import { loadWidgets, deleteWidget } from './tools/widgets';
+import { deleteWidget, loadWidgets, widgetTools } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -54,6 +54,12 @@ function stream(): { response: Response; emit: (ev: ChatEvent) => void; close: (
   const writer = ts.writable.getWriter();
   const enc = new TextEncoder();
   let open = true;
+  // Keep-alive: while Ghosty waits (a model thinking, a rate limit wearing off), send an empty
+  // line every 10 s so phones and proxies don't drop a quiet connection ("Load failed").
+  // The interface skips empty lines.
+  const beat = setInterval(() => {
+    if (open) writer.write(enc.encode('\n')).catch(() => (open = false));
+  }, 10_000);
   return {
     response: new Response(ts.readable, { headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' } }),
     emit: (ev) => {
@@ -61,6 +67,7 @@ function stream(): { response: Response; emit: (ev: ChatEvent) => void; close: (
     },
     close: async () => {
       open = false;
+      clearInterval(beat);
       await writer.close().catch(() => undefined);
     },
   };
@@ -301,20 +308,20 @@ export class GhostyAgent {
     await this.storage.put(TURNS_KEY, turns.slice(-120));
   }
 
-  private begin(): { s: ReturnType<typeof stream>; signal: AbortSignal } | Response {
-    if (this.busy) return json({ error: 'I am still working on the previous request. Say "stop" to cancel it.' }, 409);
+  /** A new message takes over: whatever was still running (or stuck) is stopped first. */
+  private begin(): { s: ReturnType<typeof stream>; signal: AbortSignal; done: () => void } {
+    this.busy?.abort();
     const ctl = new AbortController();
     this.busy = ctl;
-    return { s: stream(), signal: ctl.signal };
+    // Only clear the slot if it's still ours (a newer message may have taken it).
+    return { s: stream(), signal: ctl.signal, done: () => void (this.busy === ctl && (this.busy = null)) };
   }
 
   private async chat(req: Request): Promise<Response> {
     const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
-    const started = this.begin();
-    if (started instanceof Response) return started;
-    const { s, signal } = started;
+    const { s, signal, done } = this.begin();
     const client = body.context ?? {};
     await this.rememberClient(client).catch(() => undefined);
     // Did any reply text go out before a failure? (Then paused mode must not answer again.)
@@ -344,7 +351,7 @@ export class GhostyAgent {
           else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
           else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
         } finally {
-          this.busy = null;
+          done();
           await s.close();
         }
       })(),
@@ -365,11 +372,12 @@ export class GhostyAgent {
       .slice(-12)
       .map((m) => ({ role: m.role, content: m.text.slice(0, 1500) }));
     const hits = searchStarterInMemory(text);
-    const tools = [...webTools, ...dataTools].filter((t) => t.side !== 'client' && !needsApproval(t));
+    // Database-free tools; create_widget still works (it opens the widget on screen, unsaved).
+    const tools = [...webTools, ...dataTools, ...widgetTools.filter((t) => t.name === 'create_widget')].filter((t) => t.side !== 'client' && !needsApproval(t));
     const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
     const sys =
       systemPrompt(client, [], false) +
-      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Until then you have no saved memory, library uploads, agenda, reminders or email/Spotify links, and nothing you say is saved. Answer normally with what you know and the tools you have (web search, weather). If asked to remember, schedule or use something that needs the database, say it can be done after the reset. Mention the pause only when it matters.` +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Until then you have no saved memory, library uploads, agenda, reminders or email/Spotify links, and nothing you say is saved. Answer normally with what you know and the tools you have (web search, weather, and create_widget — widgets and games open on screen but aren't saved; build them directly with the widget kit, no web search needed). If asked to remember, schedule or use something that needs the database, say it can be done after the reset. Mention the pause only when it matters.` +
       (hits.length ? `\n\nFROM YOUR BUILT-IN LIBRARY:\n${asData('your library', formatHits(hits, 3000))}` : '');
     const ctx: Msg[] = [...recent, { role: 'user', content: text }];
     const tctx = this.toolContext(emit);
@@ -414,9 +422,7 @@ export class GhostyAgent {
     const body = (await req.json()) as { id: string; allow: boolean };
     const pending = await this.storage.get<Pending>(PENDING_KEY);
     if (!pending || pending.id !== body.id) return json({ error: 'nothing is waiting for approval' }, 404);
-    const started = this.begin();
-    if (started instanceof Response) return started;
-    const { s, signal } = started;
+    const { s, signal, done } = this.begin();
     this.state.waitUntil(
       (async () => {
         try {
@@ -427,7 +433,7 @@ export class GhostyAgent {
         } catch (e) {
           s.emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
         } finally {
-          this.busy = null;
+          done();
           await s.close();
         }
       })(),

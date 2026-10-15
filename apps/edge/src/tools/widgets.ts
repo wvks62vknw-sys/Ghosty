@@ -42,9 +42,18 @@ export const widgetTools: Tool[] = [
       const html = arg.str(a, 'html');
       if (html.length > 100_000) throw new Error('widget is too large (100 KB max) — simplify it');
       if (!/<[a-z]/i.test(html)) throw new Error('html must be an HTML document');
-      await ctx.storage.put(PREFIX + name, { name, title: arg.str(a, 'title'), html, at: Date.now() } satisfies Widget);
-      ctx.emit({ t: 'client', name: 'notify', args: { text: `Widget installed: ${name}` } });
-      return `Installed widget "${name}". The owner can open it from Workshop → Widgets.`;
+      const title = arg.str(a, 'title');
+      let saved = true;
+      try {
+        await ctx.storage.put(PREFIX + name, { name, title, html, at: Date.now() } satisfies Widget);
+      } catch {
+        saved = false; // database paused (free daily allowance): still show it now
+      }
+      // Open it on screen straight away — the owner asked for it to play/use it.
+      ctx.emit({ t: 'client', name: 'open_widget', args: { name, title, html } });
+      return saved
+        ? `Installed widget "${name}" and opened it on screen. It stays in Workshop → Widgets.`
+        : `Opened "${title}" on screen. It couldn't be saved because my database is paused until midnight UTC — ask me to make it again after that to keep it.`;
     },
   },
   {

@@ -26,6 +26,7 @@ export const CLIENT_COMMANDS = [
   'show_route',
   'show_cameras',
   'show_traffic',
+  'open_widget',
   'play_radio',
   'stop_audio',
 ] as const;
