@@ -4,7 +4,7 @@
  * are added by the owner in the Library tab.
  */
 import { asData } from '../kernel/permissions';
-import { importSource } from '../library/importers';
+import { importSelf, importSource } from '../library/importers';
 import { formatHits, Library } from '../library/store';
 import { arg, clip, type Tool } from './types';
 
@@ -32,12 +32,19 @@ export const libraryTools: Tool[] = [
   {
     name: 'library_import',
     description:
-      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228") or a public GitHub repository ("owner/repo", imported 30 files at a time — pass offset to continue). PDFs, Word files and e-books are added by the owner in the Library tab.',
+      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time — pass offset to continue), or "self" = YOUR OWN source code and architecture (25 files at a time; pass offset to continue) so you understand exactly how you work. PDFs, Word files and e-books are added by the owner in the Library tab.',
     parameters: { type: 'object', properties: { source: { type: 'string' }, offset: { type: 'number', description: 'GitHub only: continue from this file number' } }, required: ['source'] },
     risk: 'auto',
     async run(a, ctx) {
       const l = lib(ctx);
-      const r = await importSource(l, arg.str(a, 'source'), { offset: arg.num(a, 'offset', 0) });
+      const source = arg.str(a, 'source').trim();
+      if (/^(self|me|myself|yourself|your (own )?(code|source)|my (own )?(code|source)|ghosty)$/i.test(source)) {
+        const g = await ctx.github();
+        if (!g) throw new Error('reading your own code needs the GitHub token (System tab)');
+        const r = await importSelf(l, g, await g.defaultBranch(), { offset: arg.num(a, 'offset', 0) });
+        return `Read ${r.files} of my own files into the library ("${r.doc.title}", ${r.doc.passages} passages so far). ${r.next !== null ? `${r.total - r.next} files left — call library_import again with source "self" and offset ${r.next}.` : 'That was the last of them: my whole codebase is in the library.'}`;
+      }
+      const r = await importSource(l, source, { offset: arg.num(a, 'offset', 0) });
       return `Saved "${r.doc.title}" to the library: ${r.passages} passages (${Math.round(r.doc.chars / 1000)}k characters). ${r.note}`.trim();
     },
   },

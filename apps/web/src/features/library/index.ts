@@ -88,6 +88,26 @@ export const libraryTab: TabDef = {
     };
     src.addEventListener('keydown', (e) => e.key === 'Enter' && void doImport());
 
+    // Ghosty's own code and architecture, so it understands exactly how it works
+    const readSelf = async () => {
+      const line = note('reading my own source code…');
+      let offset = 0;
+      try {
+        for (let round = 0; round < 40; round++) {
+          const r = await brain.libraryImport('self', offset);
+          line.textContent = `reading my own source code… ${r.note}`;
+          if (r.next === null || r.next === undefined) break;
+          offset = r.next;
+        }
+        line.textContent = '✓ my own source code is in the library — it is re-read after every shipped change';
+        line.className = 'note ok';
+      } catch (e) {
+        line.textContent = `✕ ${(e as Error).message}`;
+        line.className = 'note bad';
+      }
+      void refresh();
+    };
+
     const tTitle = h('input', { placeholder: 'Title (optional)', 'aria-label': 'Title of the text' });
     const tBody = h('textarea', { rows: 3, placeholder: 'Paste notes, an article, instructions, code…', 'aria-label': 'Text to save' });
     const saveText = async () => {
@@ -111,6 +131,7 @@ export const libraryTab: TabDef = {
       drop,
       h('div.lab', 'IMPORT FROM THE WEB'),
       h('div.keyrow', src, button('IMPORT', () => void doImport())),
+      h('div.keyrow', button('READ MY OWN CODE', () => void readSelf()), h('span.note', 'Ghosty reads its own source and architecture.')),
       h('div.lab', 'OR PASTE TEXT'),
       tTitle,
       tBody,

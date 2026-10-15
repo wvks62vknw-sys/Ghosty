@@ -32,6 +32,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `main.ts` | boot: theme, engine, Earth data, connect to brain, open first tab |
 | `features/index.ts` | **list of tabs** (dock order) |
 | `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `library`, `workshop`, `system` |
+| `features/core/hud.ts` | the Stark HUD around the reactor: rings, degree scale, text ring, radar sweep, state-reactive waves, power-up, live call-outs |
+| `data/cameras.ts`, `engine/layers/cams.ts` | God's Eye CCTV: ~5,000 official public cameras (TfL London, NYC DOT, Caltrans, Fintraffic); camera hosts are in `CAMERA_HOSTS`/`FEED_PREFIXES` in `apps/edge/src/index.ts`; live pictures via `fetchImage` (proxy → blob URL) |
+| `training/runner.ts` + `../public/runner.html` | training-ground test runner: sandboxed frame (no network), a fresh Web Worker per run, killed after a time limit |
 | `library/extract.ts` | reads documents in the browser, no libraries or AI: PDF (incl. ToUnicode fonts, object streams), Word .docx, .epub, HTML, text, code |
 | `library/upload.ts` | file/text → passages (`packages/shared/src/chunk.ts`) → brain in batches of 30; scanned/unreadable files go to `/api/library/convert` (Workers AI) |
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
@@ -71,6 +74,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `library/importers.ts` | `library_import`: web pages, arXiv papers (full HTML text), CVE records (cve.org API), public GitHub repos (30 files per call) |
 | `library/starter/*.ts` | built-in starter library (algorithms, system design, compilers, maths, AI research, DL frameworks, RL/evaluation, production code, debugging, security/CVEs); seeded into the library a little at a time, re-seeded when the text changes |
 | `tools/library.ts` | `library_search` (always offered), `library_import`, `library_list`. `agent.ts` also looks up every owner message in the library and puts relevant passages in the prompt; with no AI reachable it answers from the library |
+| `training/exercises.ts`, `training/coach.ts` | the training ground: 40 exercises with hidden tests (validated against reference solutions in `test/exercises.test.mjs`); `/api/train/*` hands them out, asks the model (showing earlier failures), records results; a solve becomes a library note, a multi-attempt solve a lesson |
+| `tools/notify.ts` | `push_to_phone`: a push notification to the owner's devices now |
+| `library/starter/self.ts` | self-knowledge: how Ghosty works and the models it runs on (and why weights aren't in the library). `library_import "self"` reads its whole codebase (doc `self_code`); changed files are re-read after every ship. Research answers are filed in `notes_research`, ships in `notes_builds`, training solutions in `notes_training` |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
 | `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (engineering method), `coding.ts` (algorithms, JavaScript, CSS, browser APIs, Python, SQL, web APIs, regex, git, architecture, charts), `games.ts` (games + mini-apps on the widget kit, incl. the example game `NEON_DODGE` that the browser test runs), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
 | `tools/evolve.ts` | self-evolution: `self_audit` (what Ghosty has), `plan_upgrade` / `roadmap` / `update_step` (an upgrade done as several shippable changes; shown in Workshop → Upgrade roadmap, `/api/roadmap`) |

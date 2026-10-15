@@ -12,6 +12,7 @@ import { extraTools } from './extra';
 import { knowledgeTools } from './knowledge';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
+import { notifyTools } from './notify';
 import { travelTools } from './travel';
 import { memoryTools } from './memory';
 import { repoTools } from './repo';
@@ -21,7 +22,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...mediaTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -52,6 +53,8 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'media', tools: mediaTools, when: /\b(radio|music|song|songs|play|station|listen|stop audio|stop the music|volume)\b/i },
   { name: 'library', tools: libraryTools.filter((t) => t.name === 'library_search'), when: 'always' },
   { name: 'library-admin', tools: libraryTools.filter((t) => t.name !== 'library_search'), when: /\b(library|import|arxiv|cve-?\d*|github|paper|papers|repo|repository|save (this|that)|read (this|that)|add (this|that))\b/i },
+  { name: 'notify', tools: notifyTools, when: /\b(push|notify|notification|notifications|ping|alert me|phone|text me|let me know)\b/i },
+  { name: 'spotify', tools: spotifyTools, when: /\b(spotify|song|songs|music|track|album|artist|playlist|playing|pause|skip|next song|previous song|shuffle|volume|queue)\b/i },
   { name: 'knowledge', tools: knowledgeTools, when: /\b(study|learn|lessons?|handbook|playbooks?)\b/i },
   { name: 'evolve', tools: evolveTools, when: /\b(upgrade|improve yourself|better version|roadmap|carry on|continue|audit)\b/i },
   { name: 'repo', tools: repoTools, when: /\b(ship|propose|proposed|changes?|versions?|roll ?back|restore|discard|preview|workshop|repo|source code)\b/i },

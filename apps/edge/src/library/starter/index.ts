@@ -7,8 +7,9 @@ import { AI } from './ai';
 import { CS } from './cs';
 import { MATH } from './math';
 import { PRACTICE } from './practice';
+import { SELF } from './self';
 import type { StarterDoc } from './types';
 
 export type { StarterDoc };
 
-export const STARTER: StarterDoc[] = [...CS, ...MATH, ...AI, ...PRACTICE];
+export const STARTER: StarterDoc[] = [...SELF, ...CS, ...MATH, ...AI, ...PRACTICE];

@@ -9,6 +9,7 @@
  */
 import { chunkText, type Passage } from '../../../../packages/shared/src/chunk';
 import { htmlToText } from '../tools/web';
+import type { GitHub } from '../github';
 import type { Library, LibraryDoc } from './store';
 
 const UA = 'Mozilla/5.0 (compatible; GhostyAssistant/2.0; personal library)';
@@ -181,4 +182,34 @@ async function importGithub(lib: Library, owner: string, repo: string, sub: stri
     passages: total,
     note: next < files.length ? `Imported files ${offset + 1}–${next} of ${files.length} (README and docs first). To continue, import again with offset ${next}.` : `Imported all ${files.length} readable files.`,
   };
+}
+
+/** Ghosty's own source code, as a library document (kept up to date after every shipped change). */
+export const SELF_DOC = 'self_code';
+const SELF_FILES = /^(MAP\.md|README\.md|SETUP\.md|apps\/(edge|web)\/src\/.+\.ts|packages\/shared\/src\/.+\.ts|apps\/web\/styles\.css|apps\/web\/public\/widget-(kit|host)\.js|\.github\/workflows\/.+\.yml|tests\/.+\.mjs)$/;
+const UNREADABLE_SELF = /^apps\/edge\/wrangler\./i;
+
+/**
+ * Read Ghosty's own repository into the library: MAP.md and README first, then the brain,
+ * the interface and the tests. 25 files per call (the free plan allows ~50 outbound requests
+ * per request); call again with the offset it returns. `only` re-reads just those files.
+ */
+export async function importSelf(lib: Library, g: GitHub, ref: string, opts: { offset?: number; only?: string[] } = {}): Promise<{ doc: LibraryDoc; files: number; next: number | null; total: number }> {
+  const all = (await g.tree(ref)).filter((p) => SELF_FILES.test(p) && !UNREADABLE_SELF.test(p) && !p.includes('/library/starter/'));
+  const rank = (p: string) => (p === 'MAP.md' ? 0 : /\.md$/.test(p) ? 1 : p.startsWith('apps/edge') ? 2 : p.startsWith('packages') ? 3 : p.startsWith('apps/web') ? 4 : 5);
+  const files = (opts.only ? all.filter((p) => opts.only!.includes(p)) : all).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  const offset = opts.offset ?? 0;
+  const batch = files.slice(offset, offset + 25);
+  if (!lib.doc(SELF_DOC)) lib.createDoc({ id: SELF_DOC, title: "Ghosty's own source code", source: `GitHub: ${ref}`, kind: 'code' });
+  for (const path of batch) {
+    const text = await g.read(path, ref).catch(() => null);
+    lib.removeSection(SELF_DOC, path);
+    if (!text) continue;
+    // every passage of a file is filed under its path, so the file can be replaced as a whole later
+    const passages = chunkText(text, { code: !/\.md$/.test(path), heading: path }).map((p) => ({ ...p, heading: path }));
+    for (let i = 0; i < passages.length; i += 40) await lib.addPassages(SELF_DOC, passages.slice(i, i + 40));
+  }
+  lib.finish(SELF_DOC);
+  const next = offset + batch.length < files.length ? offset + batch.length : null;
+  return { doc: lib.doc(SELF_DOC)!, files: batch.length, next, total: files.length };
 }

@@ -385,3 +385,6 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 .camgrid[hidden] { display: none; }
 .eyeinfo .camview.big { margin-bottom: 6px; }
 @media (max-width: 700px) { .camgrid { width: 62vw; } }
+
+/* Training ground */
+.trainnow { font: 500 10px var(--m); letter-spacing: .06em; color: var(--a); min-height: 14px; margin: 6px 0; }

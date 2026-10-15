@@ -3,6 +3,7 @@
  * It turns simple phrases into tool calls so the agent loop can be tested offline.
  */
 import type { Msg, ToolSpec } from './router';
+import { EXERCISES } from '../training/exercises';
 
 let n = 0;
 const call = (name: string, args: Record<string, unknown>): Msg => ({
@@ -14,6 +15,14 @@ const call = (name: string, args: Record<string, unknown>): Msg => ({
 export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<{ message: Msg; model: string }> {
   const last = messages[messages.length - 1]!;
   const model = 'Mock · scripted';
+  // training ground: a wrong first try, then the right answer once shown the failures
+  if (/training ground/.test(String(messages[0]?.content ?? ''))) {
+    const ex = EXERCISES.find((e) => e.prompt === messages[1]?.content);
+    if (ex) return { message: { role: 'assistant', content: messages.length > 2 ? `\`\`\`js\n${ex.reference}\n\`\`\`` : `\`\`\`js\nfunction ${ex.entry}() { return null; }\n\`\`\`` }, model };
+  }
+  if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
+    return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
+  }
   if (last.role === 'tool') {
     return { message: { role: 'assistant', content: `Done. ${String(last.content).slice(0, 160)}` }, model };
   }

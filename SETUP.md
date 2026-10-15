@@ -81,6 +81,19 @@ password — `you@domain.com password imap.domain.com smtp.domain.com` (add `:po
 app passwords for mail. To cut Ghosty off, delete the app password at your provider (or press
 REMOVE in System). Try: *"Any new email?"* or *"Reply to Ann's email and say Friday works."*
 
+
+## 3d. Link Spotify (optional)
+
+Ghosty can show what's playing on your Spotify and control it ("play some Queen", "skip", "turn it down").
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app** (any name).
+2. Under **Redirect URIs** add exactly your Ghosty address with a trailing slash, e.g. `https://ghosty.you.workers.dev/`
+   (**System → Spotify** shows it with a **COPY** button). Tick **Web API** and save.
+3. Copy the app's **Client ID** into **System → Spotify** and press **LINK SPOTIFY**, then allow access.
+
+No client secret is needed (PKCE), and the sign-in is kept encrypted in your brain. Reading what's playing works on any
+account; play, pause, skip and volume need **Spotify Premium**, and Spotify must be open on some device.
+A new Spotify app is in "development mode": add your own Spotify email under the app's **User Management** if it asks.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

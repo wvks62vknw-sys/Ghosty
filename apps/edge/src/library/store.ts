@@ -119,6 +119,33 @@ export class Library {
     return list.length;
   }
 
+  /**
+   * Add one of Ghosty's own notes to a running notebook document (created on first use).
+   * Skips a note whose text is already there.
+   */
+  async note(docId: string, title: string, kind: string, passage: Passage): Promise<boolean> {
+    if (!this.doc(docId)) this.createDoc({ id: docId, title, source: 'written by Ghosty', kind });
+    const text = passage.text.trim();
+    if (!text) return false;
+    const dup = this.db.exec<{ n: number }>(`SELECT count(*) AS n FROM lib_fts WHERE doc = ? AND text = ?`, docId, text.slice(0, MAX_PASSAGE_CHARS)).one();
+    if (Number(dup.n)) return false;
+    await this.addPassages(docId, [passage]);
+    this.finish(docId);
+    return true;
+  }
+
+  /** Remove the passages of one section of a document (e.g. one source file, before re-reading it). */
+  removeSection(docId: string, heading: string): number {
+    const db = this.db;
+    const rows = db.exec<{ rowid: number; chars: number }>(`SELECT rowid, length(text) AS chars FROM lib_fts WHERE doc = ? AND heading = ?`, docId, heading).toArray();
+    if (!rows.length) return 0;
+    const ids = rows.map((r) => Number(r.rowid));
+    db.exec(`DELETE FROM lib_fts WHERE rowid IN (${ids.map(() => '?').join(',')})`, ...ids);
+    db.exec(`DELETE FROM lib_vec WHERE rid IN (${ids.map(() => '?').join(',')})`, ...ids);
+    db.exec(`UPDATE lib_docs SET passages = max(0, passages - ?), chars = max(0, chars - ?) WHERE id = ?`, rows.length, rows.reduce((n, r) => n + Number(r.chars), 0), docId);
+    return rows.length;
+  }
+
   finish(id: string): LibraryDoc | null {
     this.db.exec(`UPDATE lib_docs SET status = 'ready' WHERE id = ?`, id);
     return this.doc(id);

@@ -3,7 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
@@ -107,13 +107,17 @@ export const brain = {
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
   lessons: () => req<{ lessons: Lesson[] }>('GET', '/lessons'),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
+  training: () => req<{ exercises: { id: string; title: string; level: number; topic: string }[]; records: Record<string, { solved: boolean; attempts: number; at: number; model?: string; firstSolve?: number }> }>('GET', '/train'),
+  trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
+  trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
+  trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
   library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean }>('GET', '/library'),
   librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
-  libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string }>('POST', '/library/import', { source, offset }),
+  libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),
   /** Ask the brain to turn a document the browser can't read into text (Workers AI, no key). */
   libraryConvert: async (file: File): Promise<string> => {
     const r = await fetch(`/api/library/convert?name=${encodeURIComponent(file.name)}`, { method: 'POST', headers: headers({ 'content-type': file.type || 'application/octet-stream' }), body: file, credentials: 'same-origin' });

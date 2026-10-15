@@ -15,7 +15,8 @@ import { Vault } from './kernel/vault';
 import { spotifyRoute } from './integrations/spotify';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
-import { importSource } from './library/importers';
+import { importSelf, importSource, SELF_DOC } from './library/importers';
+import { trainingRoute } from './training/coach';
 import { formatHits, Library, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
 import { ALL_TOOL_NAMES, selectTools, TOOLS, toolByName, toolSpecs } from './tools';
@@ -142,6 +143,7 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
+      if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
       if (path === '/keys' && method === 'POST') {
         const { name, value } = (await req.json()) as { name: string; value: string };
@@ -402,6 +404,7 @@ export class GhostyAgent {
         emit({ t: 'text', text });
         emit({ t: 'done', model });
         await this.addTurn({ role: 'assistant', text, at: Date.now(), model });
+        this.state.waitUntil(this.takeNotes(ctx, text).catch(() => undefined));
         await this.storage.put(CTX_KEY, trimContext(ctx));
         return;
       }
@@ -439,6 +442,29 @@ export class GhostyAgent {
     return { prompt, hits };
   }
 
+  /**
+   * Ghosty's notebook: whatever it found out this turn by researching (web searches, pages
+   * read, imports) is filed in its library, with sources, so it never has to look it up again.
+   * Costs no AI: the answer already written is the note.
+   */
+  private async takeNotes(ctx: Msg[], answer: string): Promise<void> {
+    if (!this.library.available || answer.length < 120) return;
+    let i = ctx.length - 1;
+    while (i > 0 && ctx[i]!.role !== 'user') i--;
+    const question = ctx[i]?.content ?? '';
+    const calls = ctx.slice(i).flatMap((m) => m.tool_calls ?? []);
+    const research = calls.filter((c) => /^(web_search|web_fetch|library_import|weather|earthquakes|find_nearby|get_directions)$/.test(c.function.name));
+    if (!research.length || !question.trim()) return;
+    const sources = [...new Set(research.flatMap((c) => {
+      const a = safeArgs(c.function.arguments);
+      return [a.url, a.source, a.query].filter((x): x is string => typeof x === 'string');
+    }))].slice(0, 6);
+    await this.library.note('notes_research', "Ghosty's research notes", 'notes', {
+      heading: question.slice(0, 120),
+      text: `Question (${new Date().toISOString().slice(0, 10)}): ${question.slice(0, 400)}\nWhat I found: ${answer.slice(0, 3000)}${sources.length ? `\nSources: ${sources.join(' · ')}` : ''}`,
+    });
+  }
+
   /** The Library tab: add, list, search and remove documents. None of this uses an AI model. */
   private async libraryRoute(req: Request, path: string, method: string, url: URL): Promise<Response> {
     const lib = this.library;
@@ -465,6 +491,12 @@ export class GhostyAgent {
     if (path === '/library/import' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { source?: string; offset?: number };
       try {
+        if (b.source === 'self') {
+          const g = await this.github();
+          if (!g) return json({ error: 'reading my own code needs the GitHub token (System tab)' }, 400);
+          const r = await importSelf(lib, g, await g.defaultBranch(), { offset: Number(b.offset) || 0 });
+          return json({ doc: r.doc, passages: r.doc.passages, note: r.next !== null ? `${r.next} of ${r.total} files read` : `all ${r.total} files read`, next: r.next });
+        }
         const r = await importSource(lib, String(b.source ?? ''), { offset: Number(b.offset) || 0 });
         return json({ doc: r.doc, passages: r.passages, note: r.note });
       } catch (e) {
@@ -660,6 +692,16 @@ export class GhostyAgent {
     await removeJob(this.storage, job.id);
     if (!failed) {
       await this.notify({ kind: 'task', title: `Change #${info.pr} is live`, text: `"${info.title}" shipped and passed every check. Reload Ghosty to see it.` });
+      // Keep self-knowledge current: re-read the changed files and log what was built.
+      if (this.library.available) {
+        try {
+          const changed = (await g.files(info.pr)).slice(0, 25);
+          if (this.library.doc(SELF_DOC)) await importSelf(this.library, g, info.main, { only: changed });
+          await this.library.note('notes_builds', "Ghosty's build log", 'notes', { heading: `Change #${info.pr}: ${info.title}`, text: `Shipped change #${info.pr} "${info.title}" on ${new Date().toISOString().slice(0, 10)}. Files: ${changed.join(', ')}.` });
+        } catch {
+          /* knowledge upkeep never blocks a ship */
+        }
+      }
       return;
     }
     // Only undo it if nothing else has been shipped on top since.
