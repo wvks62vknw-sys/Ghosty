@@ -154,7 +154,14 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
   if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
   if (name === 'phone') {
-    await ui.click('#pg-library .swap');
+    // One scrolling page on phones: scroll down to the shelf.
+    const shelf = await ui.evaluate(() => {
+      const pn = [...document.querySelectorAll('#pg-library .pn')].find((x) => x.querySelector('h3')?.textContent?.trim().startsWith('SHELF'));
+      pn?.scrollIntoView({ block: 'end' });
+      const r = pn?.getBoundingClientRect();
+      return r ? { h: Math.round(r.height), bottom: Math.round(r.bottom), dock: Math.round(document.querySelector('nav')?.getBoundingClientRect().top ?? innerHeight) } : null;
+    });
+    if (!shelf || shelf.h < 220 || shelf.bottom > shelf.dock + 2) problems.push(`[${name}] shelf not reachable on the phone: ${JSON.stringify(shelf)}`);
     await ui.waitForTimeout(400);
     await ui.screenshot({ path: `${out}/${name}-library-shelf.png` });
   }
