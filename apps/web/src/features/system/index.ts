@@ -1,8 +1,9 @@
 /** SYSTEM tab: keys, AI models, appearance, voice, home location and connection status. */
 import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey } from '../../api/brain';
+import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, pushState } from '../../assistant/push';
 import { listVoices } from '../../assistant/voice';
-import { clear, h } from '../../core/dom';
+import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
@@ -22,8 +23,55 @@ export const systemTab: TabDef = {
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
     const lp = panel('LOOK & VOICE', { grow: false });
+    const ap = panel('PHONE APP & NOTIFICATIONS', { grow: false, cls: 'scroll' });
     const sp = panel('STATUS');
-    P.right.append(lp.el, sp.el);
+    P.right.append(lp.el, ap.el, sp.el);
+    const paintApp = async () => {
+      const st = pushState.get();
+      clear(ap.body);
+      ap.setStatus(st.status === 'on' ? 'NOTIFYING' : st.installed ? 'APP' : '', st.status === 'on' ? 'ok' : 'mid');
+      ap.body.append(
+        h('div.note', st.installed ? 'Ghosty is installed as an app on this device.' : `Install Ghosty like an app: ${installHelp()}`),
+        h(
+          'div.keyrow.wrapit',
+          canPromptInstall() && !st.installed ? button('INSTALL APP', async () => void (await promptInstall())) : '',
+          st.status === 'on'
+            ? button('TURN OFF HERE', async () => {
+                await disablePush();
+                void paintApp();
+              }, 'warn')
+            : button('TURN ON NOTIFICATIONS', async () => {
+                toast(await enablePush(), pushState.get().status === 'on' ? 'ok' : 'warn');
+                void paintApp();
+              }, 'on'),
+          button('SEND TEST', async () => {
+            const r = await brain.pushTest().catch(() => ({ sent: 0 }));
+            toast(r.sent ? `Sent to ${r.sent} device(s)` : 'No device has notifications on yet', r.sent ? 'ok' : 'warn');
+          }),
+        ),
+        st.status === 'blocked' ? h('div.note.bad', "Notifications are blocked for this site. Allow them in the browser's site settings (padlock icon), then press TURN ON.") : '',
+        st.status === 'needs-install' ? h('div.note.bad', 'On iPhone, notifications only work after "Add to Home Screen". Open Ghosty from the home-screen icon and turn them on there.') : '',
+      );
+      try {
+        const { devices } = await brain.pushDevices();
+        if (devices.length) ap.body.append(h('div.lab', 'DEVICES THAT GET NOTIFICATIONS'));
+        for (const d of devices) {
+          const r = row(fmt.ago(d.at), d.label, '✕');
+          const x = r.lastChild as HTMLElement;
+          x.classList.add('del');
+          x.title = 'Stop notifying this device';
+          x.addEventListener('click', async () => {
+            await brain.pushRemove(d.id);
+            void paintApp();
+          });
+          ap.body.append(r);
+        }
+      } catch {
+        /* offline */
+      }
+    };
+    pushState.subscribe(() => void paintApp());
+    void paintApp();
     let status: BrainStatus | null = null;
 
     let showOptional = false;

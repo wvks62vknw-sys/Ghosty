@@ -45,6 +45,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `assistant/session.ts` | the conversation: sends messages, handles streamed events, approvals |
 | `assistant/notices.ts` | inbox polling: toasts, spoken reminders, system notifications, Agenda badge |
 | `assistant/media.ts` | the audio player (radio): `playStation`, `stopAudio`, favourites; ducks while Ghosty speaks |
+| `assistant/push.ts` | installable app: registers `public/sw.js`, Web Push subscribe/unsubscribe, install help |
 | `assistant/voice.ts` | speaking (speech synthesis) and listening (Whisper via brain, or browser) |
 | `commands/registry.ts` | command registry, hotkeys, command palette |
 | `commands/builtin.ts` | built-in commands incl. the ones the brain triggers (`open_tab`, `fly_to`, …) |
@@ -52,7 +53,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `shell/layout.ts` | top bar, dock, MORE launcher |
 | `engine/` | WebGL2 engine: `gfx.ts` (renderer, LineSet, PointSet), `scheduler.ts` (the one frame loop: use `onFrame`), `globe.ts` (God's Eye), `camera.ts`, `geo.ts`, `world.ts`, `backdrop.ts`, `layers/{air,sats,hazards,route}.ts` |
 | `../styles.css` | all styles. Colours: `var(--c)` primary, `var(--a)` accent, `var(--r)` alert; `rgba(var(--cr), .2)` for tints |
-| `../public/` | static files (`data/world.json`, `_headers` security policy, widget host) |
+| `../public/` | static files (`data/world.json`, `_headers` security policy, widget host, `sw.js` service worker, `manifest.webmanifest`, app icons) |
 
 ## Brain map (`apps/edge/src/`)
 
@@ -68,6 +69,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `llm/router.ts`, `llm/providers.ts` | model router across free providers |
 | `keys.ts` | which API keys exist, with the owner-facing steps (shown in System tab) and `testKey` |
 | `schedule.ts` | agenda events, calendar feeds (.ics parsing), reminders/tasks (`Job`), inbox |
+| `push.ts` | Web Push: VAPID keys, RFC 8291 encryption, device list (protected: push-service allowlist) |
 | `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |
 | `tools/travel.ts` | `get_directions` (OSRM; draws the route via `show_route`), `find_nearby` (Nominatim) |
 | `tools/media.ts` | `play_radio` (radio-browser; https streams only), `stop_audio` |

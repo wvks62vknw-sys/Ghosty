@@ -124,6 +124,12 @@ export const brain = {
   markRead: (ids?: string[]) => req('POST', '/inbox/read', ids ? { ids } : {}),
   addFeed: (name: string, url: string) => req<{ feed: FeedInfo }>('POST', '/feeds', { name, url, tz: TZ }),
   deleteFeed: (id: string) => req('DELETE', `/feeds/${encodeURIComponent(id)}`),
+  pushKey: () => req<{ key: string }>('GET', '/push/key'),
+  pushSubscribe: (sub: PushSubscriptionJSON, label: string) => req<{ id: string }>('POST', '/push/subscribe', { ...sub, label }),
+  pushUnsubscribe: (endpoint: string) => req('POST', '/push/unsubscribe', { endpoint }),
+  pushDevices: () => req<{ devices: { id: string; label: string; at: number; endpoint: string }[] }>('GET', '/push/devices'),
+  pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
+  pushTest: () => req<{ sent: number }>('POST', '/push/test'),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });

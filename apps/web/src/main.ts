@@ -6,6 +6,7 @@
  */
 import { AuthError, brain, ownerKey } from './api/brain';
 import { startNotices } from './assistant/notices';
+import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
@@ -87,6 +88,7 @@ async function boot(): Promise<void> {
   if (ui.get().connected) {
     await loadHistory();
     startNotices();
+    void initApp();
   }
   const first = location.hash.slice(1);
   if (!go(first)) go('core');

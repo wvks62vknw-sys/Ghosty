@@ -1,7 +1,8 @@
 /** AGENDA tab: your diary, connected calendars, reminders, Ghosty's scheduled tasks and its notifications. */
 import type { AgendaEventInfo, FeedInfo, InboxEntry, JobInfo } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
-import { askNotificationPermission, inbox, pollInbox } from '../../assistant/notices';
+import { inbox, pollInbox } from '../../assistant/notices';
+import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
@@ -186,10 +187,14 @@ export const agendaTab: TabDef = {
         await brain.markRead();
         await pollInbox();
       }),
-      button('ALLOW POP-UPS', async () => {
-        const p = await askNotificationPermission();
-        toast(p === 'granted' ? 'System notifications on for this device' : p === 'unsupported' ? 'This browser has no system notifications' : 'Notifications are blocked in this browser\'s settings', p === 'granted' ? 'ok' : 'warn');
-      }),
+      (() => {
+        const b = button('NOTIFY THIS DEVICE', async () => toast(await enablePush(), pushState.get().status === 'on' ? 'ok' : 'warn'));
+        pushState.subscribe((s) => {
+          b.textContent = s.status === 'on' ? '✓ NOTIFYING THIS DEVICE' : 'NOTIFY THIS DEVICE';
+          b.classList.toggle('on', s.status === 'on');
+        });
+        return b;
+      })(),
     );
     inbox.subscribe(paintInbox);
 

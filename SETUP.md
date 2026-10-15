@@ -39,6 +39,14 @@ owner password on the pairing screen, then go to **System** and add a free AI ke
 **Gemini** (aistudio.google.com/apikey) is the best free model for building things;
 **Groq** (console.groq.com/keys) is the fastest for chat and gives Ghosty speech recognition.
 
+## 3b. Put Ghosty on your phone (optional)
+
+- **iPhone:** open your Ghosty address in Safari → Share → **Add to Home Screen**. Open Ghosty from the new icon.
+- **Android:** open it in Chrome → ⋮ → **Install app**.
+
+Then in **System → Phone app & notifications** press **TURN ON NOTIFICATIONS**. Reminders and the results of
+scheduled tasks now reach the phone even when Ghosty is closed. **SEND TEST** checks it works.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

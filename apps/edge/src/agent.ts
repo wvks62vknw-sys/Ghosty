@@ -20,6 +20,7 @@ import { repoTools } from './tools/repo';
 import type { ToolContext } from './tools/types';
 import { loadWidgets, deleteWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
+import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
 const MAX_STEPS = 14;
@@ -173,6 +174,7 @@ export class GhostyAgent {
         return json({ kernelUnlockedUntil: mins ? Date.now() + mins * 60_000 : 0 });
       }
       if (path === '/stt' && method === 'POST') return await this.stt(req);
+      if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);
     } catch (e) {
@@ -447,9 +449,42 @@ export class GhostyAgent {
     return json({ error: 'not found' }, 404);
   }
 
-  /** Something for the owner's attention: kept in the inbox (and pushed to devices, phase 3). */
+  /** Something for the owner's attention: kept in the inbox and pushed to their devices. */
   private async notify(item: Omit<InboxItem, 'id' | 'at'>): Promise<InboxItem> {
-    return addInbox(this.storage, item);
+    const it = await addInbox(this.storage, item);
+    const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
+    this.state.waitUntil(pushAll(this.storage, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    return it;
+  }
+
+  private contact(): string {
+    return this.env.OWNER_EMAIL ? `mailto:${this.env.OWNER_EMAIL}` : 'mailto:owner@ghosty.invalid';
+  }
+
+  /** Phone/desktop notifications (Web Push) — the System and Agenda tabs turn these on. */
+  private async pushRoute(req: Request, path: string, method: string): Promise<Response> {
+    if (path === '/push/key' && method === 'GET') return json({ key: (await vapidKeys(this.storage)).publicRaw });
+    if (path === '/push/devices' && method === 'GET') return json({ devices: (await loadSubs(this.storage)).map((d) => ({ id: d.id, label: d.label, at: d.at, endpoint: d.endpoint })) });
+    if (path === '/push/subscribe' && method === 'POST') {
+      const b = (await req.json().catch(() => ({}))) as { endpoint?: string; keys?: { p256dh?: string; auth?: string }; label?: string };
+      try {
+        const d = await addSub(this.storage, { endpoint: String(b.endpoint ?? ''), p256dh: String(b.keys?.p256dh ?? ''), auth: String(b.keys?.auth ?? ''), label: String(b.label ?? 'Device') });
+        return json({ id: d.id });
+      } catch (e) {
+        return json({ error: String((e as Error).message) }, 400);
+      }
+    }
+    const d = path.match(/^\/push\/devices\/([\w-]+)$/);
+    if (d && method === 'DELETE') return json({ ok: await removeSub(this.storage, d[1]!) });
+    if (path === '/push/unsubscribe' && method === 'POST') {
+      const b = (await req.json().catch(() => ({}))) as { endpoint?: string };
+      return json({ ok: await removeSub(this.storage, String(b.endpoint ?? '')) });
+    }
+    if (path === '/push/test' && method === 'POST') {
+      const n = await pushAll(this.storage, { title: 'Ghosty', body: 'Notifications are working. I can reach you here now.', tag: 'test' }, this.contact());
+      return json({ sent: n });
+    }
+    return json({ error: 'not found' }, 404);
   }
 
   /** Durable Object alarm: run every reminder and task that is due, then re-arm. */

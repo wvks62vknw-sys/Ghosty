@@ -16,6 +16,7 @@ export const PROTECTED_PATHS: string[] = [
   'apps/edge/src/tools/repo.ts', // the self-edit tools themselves
   'apps/edge/src/tools/types.ts',
   'apps/edge/src/github.ts', // GitHub client used for self-edits and rollback
+  'apps/edge/src/push.ts', // where notifications may be sent (push service allowlist)
   'apps/edge/wrangler', // any wrangler.json / wrangler.jsonc / wrangler.toml
   'apps/edge/package.json', // deploy scripts (its postinstall builds the interface)
   // Anything that runs during a build. Builds (including previews of unshipped changes)

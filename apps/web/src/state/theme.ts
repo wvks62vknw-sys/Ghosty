@@ -13,7 +13,7 @@ export const THEMES: Record<string, { c: string; a: string; r: string; label: st
   violet: { c: '#a58bff', a: '#5ce1ff', r: '#ff5c9d', label: 'ULTRON' },
   ice: { c: '#d6f3ff', a: '#7fd6ff', r: '#ff6b7f', label: 'FROST' },
   sunrise: { c: '#ff9a56', a: '#ffd27f', r: '#ff4d4d', label: 'SUNRISE' },
-  midnight: { c: '#34495e', a: '#9b59b6', r: '#e74c3c', label: 'MIDNIGHT' },
+  midnight: { c: '#7f9dff', a: '#9b59b6', r: '#e74c3c', label: 'MIDNIGHT' },
   forest: { c: '#2ecc71', a: '#f1c40f', r: '#e67e22', label: 'FOREST' },
   ocean: { c: '#3498db', a: '#1abc9c', r: '#e74c3c', label: 'OCEAN' },
 };

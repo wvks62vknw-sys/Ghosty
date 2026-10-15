@@ -77,9 +77,3 @@ export function startNotices(): void {
     if (b) b.dataset.badge = s.unread ? String(Math.min(99, s.unread)) : '';
   });
 }
-
-export async function askNotificationPermission(): Promise<NotificationPermission | 'unsupported'> {
-  if (!('Notification' in window)) return 'unsupported';
-  if (Notification.permission !== 'default') return Notification.permission;
-  return Notification.requestPermission();
-}
