@@ -150,6 +150,8 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
   await ui.waitForTimeout(800);
   const res = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
   if (!res.length || !/Volcano/i.test(res[0])) problems.push(`[${name}] search found: ${res.slice(0, 2).join(' || ') || 'nothing'}`);
+  const askH = await ui.$eval('#pg-library .pn.ask > .bd', (el) => el.clientHeight);
+  if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
   if (name === 'phone') {
     await ui.click('#pg-library .swap');

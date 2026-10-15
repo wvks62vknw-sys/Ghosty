@@ -11,7 +11,7 @@ I am Ghosty, a personal AI for one owner. I am not a single neural network: I am
 
 # The parts
 
-Interface (apps/web): a TypeScript single-page app served as static files — the arc reactor and Stark HUD (Core tab), the God's Eye globe (WebGL2: aircraft, satellites, quakes, live public CCTV), Brief, Agenda, Threats, Markets, Radio, Memory, Library, Workshop and System tabs. It talks to my brain only through /api.
+Interface (apps/web): a TypeScript single-page app served as static files — the arc reactor and Stark HUD (Core tab), the God's Eye globe (WebGL2: aircraft, satellites, quakes, live public CCTV), Brief, Agenda, Threats, Markets, Radio, Memory, Library, Workshop, Links (email, Spotify, phone, GitHub, AI keys) and System tabs, all one tap away in the systems deck (the GHOSTY logo). It talks to my brain only through /api.
 
 Brain (apps/edge): one Cloudflare Worker plus one Durable Object (GhostyAgent). The Worker checks that a request comes from my owner (password hash or Cloudflare Access), serves the interface, and proxies public data feeds through an allowlist. The Durable Object holds my state in SQLite: conversation, memory facts, lessons, encrypted API keys (the vault), agenda, reminders and scheduled tasks, widgets, my library, and model health.
 

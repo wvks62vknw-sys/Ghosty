@@ -25,7 +25,7 @@ interface Saved {
 
 type Keys = Pick<Vault, 'get' | 'set'>;
 
-export const NOT_LINKED = "Spotify isn't linked yet. The owner can link it in the System tab → SPOTIFY (it takes about a minute).";
+export const NOT_LINKED = "Spotify isn't linked yet. The owner can link it in the LINKS tab → SPOTIFY (it takes about a minute).";
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 
@@ -84,9 +84,9 @@ async function refresh(vault: Keys, s: Saved): Promise<Saved> {
     t = await token({ grant_type: 'refresh_token', refresh_token: s.refresh, client_id: s.clientId });
   } catch (e) {
     if ((e as { grant?: boolean }).grant) {
-      // Revoked or expired for good: forget it so the System tab shows "not linked".
+      // Revoked or expired for good: forget it so the LINKS tab shows "not linked".
       await vault.set(VAULT_NAME, '');
-      throw new Error('Spotify access was withdrawn or has expired. The owner can link it again in the System tab → SPOTIFY.');
+      throw new Error('Spotify access was withdrawn or has expired. The owner can link it again in the LINKS tab → SPOTIFY.');
     }
     throw e;
   }
@@ -155,7 +155,7 @@ export async function api<T>(ctx: { vault: Keys }, method: string, path: string,
       const wait = Number(r.headers.get('retry-after')) || 30;
       throw new SpotifyError(`Spotify is rate-limiting requests right now. Try again in ${wait} seconds.`, 429);
     }
-    if (r.status === 401) throw new SpotifyError(`Spotify did not accept the saved sign-in${msg ? ` (${msg})` : ''}. Unlink and link Spotify again in the System tab.`, 401);
+    if (r.status === 401) throw new SpotifyError(`Spotify did not accept the saved sign-in${msg ? ` (${msg})` : ''}. Unlink and link Spotify again in the LINKS tab.`, 401);
     throw new SpotifyError(`Spotify answered ${r.status}${msg ? `: ${msg}` : ''}`, r.status, reason);
   }
 }
@@ -165,7 +165,7 @@ export async function spotifyStatus(vault: Keys): Promise<SpotifyStatus> {
   return { linked: !!s, name: s?.name ?? null, product: s?.product ?? null, clientId: s?.clientId ?? null };
 }
 
-/** The System tab's routes: /spotify/link, /spotify/status, /spotify/unlink. */
+/** The LINKS tab's routes: /spotify/link, /spotify/status, /spotify/unlink. */
 export async function spotifyRoute(req: Request, path: string, method: string, vault: Keys): Promise<Response> {
   if (path === '/spotify/status' && method === 'GET') return json(await spotifyStatus(vault));
   if (path === '/spotify/unlink' && method === 'POST') {

@@ -68,6 +68,7 @@ export const coreTab: TabDef = {
   title: 'CORE',
   icon: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   scene: 'backdrop',
+  blurb: 'talk to Ghosty · arc reactor HUD',
   primary: true,
   mount(root) {
     const reactor = new Reactor();

@@ -19,12 +19,13 @@ export const libraryTab: TabDef = {
   title: 'LIBRARY',
   icon: '<path d="M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z"/>',
   scene: 'backdrop',
+  blurb: 'ask the offline brain · add books & PDFs',
   mount(root) {
-    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ADD', rightLabel: 'SHELF' });
+    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF' });
     let docs: LibraryDoc[] = [];
 
     // ---- add knowledge
-    const ap = panel('ADD KNOWLEDGE', { grow: false });
+    const ap = panel('ADD KNOWLEDGE', { grow: false, cls: 'libadd' });
     const fileInput = h('input', { type: 'file', multiple: true, accept: ACCEPT, style: { display: 'none' }, 'aria-label': 'Choose files for the library' });
     const drop = h('div.drop', { tabIndex: 0, role: 'button', 'aria-label': 'Add files to the library' }, h('b', 'DROP BOOKS, PDFS & FILES HERE'), h('span', 'or tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV/JSON, code'));
     const log = h('div.liblog');
@@ -139,20 +140,26 @@ export const libraryTab: TabDef = {
       log,
     );
 
-    // ---- search (no AI)
-    const sp = panel('ASK THE LIBRARY', { footer: true, status: 'no AI used' });
-    const q = h('input', { placeholder: 'Search everything Ghosty has read…', 'aria-label': 'Search the library' });
-    const results = pager(sp, 120, (x: LibraryHit) => {
+    // ---- ask (no AI): the whole first column, results scroll
+    const sp = panel('ASK THE LIBRARY', { status: 'no AI used', cls: 'ask' });
+    const q = h('input.askq', { type: 'search', placeholder: 'Ask anything Ghosty has read…', enterKeyHint: 'search', 'aria-label': 'Search the library' });
+    const hitRow = (x: LibraryHit) => {
       const where = [x.title, x.heading && x.heading !== x.title ? x.heading : '', x.page ? `p. ${x.page}` : ''].filter(Boolean).join(' · ');
-      return h('div.rw.wrap.hit', h('span.k', where), h('span.v', x.text.length > 420 ? `${x.text.slice(0, 420)}…` : x.text));
-    }, () => 'IDLE');
+      return h('div.rw.wrap.hit', h('span.k', where), h('span.v', x.text.length > 700 ? `${x.text.slice(0, 700)}…` : x.text));
+    };
+    const TRY = ['how attention works in transformers', 'binary search edge cases', 'how Ghosty works', 'SQL injection', 'big-O of sorting'];
+    const idle = () => clear(sp.body, h('div.note', 'Search every book, PDF, paper, note and line of code in the library — instantly, offline, no AI or API key used.'), h('div.lab', 'TRY'), h('div.tabs.trychips', ...TRY.map((t) => button(t, () => {
+      q.value = t;
+      void search();
+    }))));
     const search = async () => {
       const t = q.value.trim();
-      if (!t) return;
+      if (!t) return idle();
       sp.setStatus('searching…', 'mid');
       try {
-        const r = await brain.librarySearch(t, 12);
-        results.set(r.hits);
+        const r = await brain.librarySearch(t, 20);
+        clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
+        sp.body.scrollTop = 0;
         sp.setStatus(`${r.hits.length} passages · no AI used`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
@@ -160,8 +167,10 @@ export const libraryTab: TabDef = {
       }
     };
     q.addEventListener('keydown', (e) => e.key === 'Enter' && void search());
-    sp.el.insertBefore(h('div.keyrow', q, button('SEARCH', () => void search())), sp.body);
-    P.left.append(ap.el, sp.el);
+    q.addEventListener('search', () => !q.value && idle());
+    sp.el.insertBefore(h('div.keyrow.askrow', q, button('ASK', () => void search(), 'on')), sp.body);
+    idle();
+    P.left.append(sp.el);
 
     // ---- shelf
     const shelf = panel('SHELF', { footer: true });
@@ -179,7 +188,7 @@ export const libraryTab: TabDef = {
       }
       return r;
     }, () => 'SYNC');
-    P.right.append(shelf.el);
+    P.right.append(ap.el, shelf.el);
 
     let vectors = false;
     let starterReady = true;

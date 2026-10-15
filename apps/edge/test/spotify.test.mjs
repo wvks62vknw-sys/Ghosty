@@ -91,7 +91,7 @@ test('link: code exchanged with PKCE, tokens kept encrypted, status shows the na
 });
 
 test('tools say how to link when Spotify is not linked', async () => {
-  await assert.rejects(run('spotify_now_playing', {}, toolCtx()), /System tab/);
+  await assert.rejects(run('spotify_now_playing', {}, toolCtx()), /LINKS tab/);
 });
 
 test('an expired token is refreshed and a rotated refresh token is kept', async () => {

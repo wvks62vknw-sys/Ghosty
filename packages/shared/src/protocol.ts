@@ -136,14 +136,24 @@ export interface BrainStatus {
   lastModel: string | null;
 }
 
-/** The owner's linked Spotify account (System → SPOTIFY). Tokens never leave the brain. */
+/** The owner's linked Spotify account (LINKS → SPOTIFY). Tokens never leave the brain. */
+export interface EmailStatus {
+  linked: boolean;
+  /** The linked address (the password is never sent back). */
+  address?: string;
+  /** The IMAP server it reads from. */
+  server?: string;
+  /** Set when the saved settings can't be used. */
+  problem?: string;
+}
+
 export interface SpotifyStatus {
   linked: boolean;
   /** Spotify display name, when linked. */
   name: string | null;
   /** 'premium' or 'free' (playback control needs Premium). */
   product: string | null;
-  /** The Client ID of the owner's Spotify app (not a secret), to prefill the System tab. */
+  /** The Client ID of the owner's Spotify app (not a secret), to prefill the LINKS tab. */
   clientId: string | null;
 }
 

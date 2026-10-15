@@ -31,7 +31,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `main.ts` | boot: theme, engine, Earth data, connect to brain, open first tab |
 | `features/index.ts` | **list of tabs** (dock order) |
-| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `library`, `workshop`, `system` |
+| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `library`, `workshop`, `links` (email form, Spotify, phone notifications, GitHub, AI brain), `system` |
 | `features/core/hud.ts` | the Stark HUD around the reactor: rings, degree scale, text ring, radar sweep, state-reactive waves, power-up, live call-outs |
 | `data/cameras.ts`, `engine/layers/cams.ts` | God's Eye CCTV: ~5,000 official public cameras (TfL London, NYC DOT, Caltrans, Fintraffic); camera hosts are in `CAMERA_HOSTS`/`FEED_PREFIXES` in `apps/edge/src/index.ts`; live pictures via `fetchImage` (proxy → blob URL) |
 | `training/runner.ts` + `../public/runner.html` | training-ground test runner: sandboxed frame (no network), a fresh Web Worker per run, killed after a time limit |
@@ -39,7 +39,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `library/upload.ts` | file/text → passages (`packages/shared/src/chunk.ts`) → brain in batches of 30; scanned/unreadable files go to `/api/library/convert` (Workers AI) |
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
-| `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns |
+| `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns; phones swap the columns, or with `stack: true` show both in one scrolling page |
 | `core/dom.ts` | `h('div.class', props, ...children)` element builder, `clear`, `fmt`, `icon` |
 | `core/store.ts` | `createStore` (get/set/subscribe) and `Emitter` |
 | `state/app.ts` | `settings` (saved on device) and `ui` (tab, busy, voice) stores; `home()` location |
@@ -49,14 +49,16 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `api/brain.ts` | client for the brain's `/api` endpoints |
 | `assistant/session.ts` | the conversation: sends messages, handles streamed events, approvals |
 | `assistant/notices.ts` | inbox polling: toasts, spoken reminders, system notifications, Agenda badge |
+| `assistant/sfx.ts` | interface sounds (synthesized, no files): `sfx('tab' \| 'open' \| 'close' \| 'tap' \| 'ok')`; off via `settings.sounds` |
 | `assistant/media.ts` | the audio player (radio): `playStation`, `stopAudio`, favourites; ducks while Ghosty speaks |
-| `assistant/spotify.ts` | linking Spotify (PKCE): `startSpotifyLink` (verifier + state in sessionStorage → Spotify sign-in), `finishSpotifyLink` (at boot: `?code&state` → brain `/api/spotify/link`, cleans the URL), `redirectUri()`. System tab → SPOTIFY panel |
+| `assistant/spotify.ts` | linking Spotify (PKCE): `startSpotifyLink` (verifier + state in sessionStorage → Spotify sign-in), `finishSpotifyLink` (at boot: `?code&state` → brain `/api/spotify/link`, cleans the URL), `redirectUri()`. LINKS tab → SPOTIFY panel |
 | `assistant/push.ts` | installable app: registers `public/sw.js`, Web Push subscribe/unsubscribe, install help |
 | `assistant/voice.ts` | speaking (speech synthesis) and listening (Whisper via brain, or browser) |
 | `commands/registry.ts` | command registry, hotkeys, command palette |
 | `commands/builtin.ts` | built-in commands incl. the ones the brain triggers (`open_tab`, `fly_to`, …) |
 | `shell/tabs.ts` | tab registry + `go(id)` navigation |
-| `shell/layout.ts` | top bar, dock, MORE launcher |
+| `shell/layout.ts` | top bar, dock (phones: 5 tabs + SYSTEMS), HUD frame |
+| `shell/launcher.ts` | the systems deck: every tab as a tile (icon, name, `blurb`) + quick actions; opens from the GHOSTY logo, the phone dock or the M key |
 | `engine/` | WebGL2 engine: `gfx.ts` (renderer, LineSet, PointSet), `scheduler.ts` (the one frame loop: use `onFrame`), `globe.ts` (God's Eye), `camera.ts`, `geo.ts`, `world.ts`, `backdrop.ts`, `layers/{air,sats,hazards,route,imagery,buildings,radar,intel}.ts` (imagery = satellite tiles below ~3,000 km; buildings = OSM 3D below ~4.5 km; radar = RainViewer rain tiles; intel = CCTV, ships, NWS alerts, GDACS disasters, buoys, aurora, cables, Seattle 911 — their feeds and pure parsers live in `data/intel.ts`, tested by `apps/edge/test/intel.test.mjs` and `tests/intel.spec.mjs`; AISstream ships come from the brain's `/api/ships` in `apps/edge/src/ais.ts`; ANPR/speed/red-light cameras from OpenStreetMap live in `data/enforce.ts`) |
 | `../styles.css` | all styles. Colours: `var(--c)` primary, `var(--a)` accent, `var(--r)` alert; `rgba(var(--cr), .2)` for tints |
 | `../public/` | static files (`data/world.json`, `_headers` security policy, widget host, `sw.js` service worker, `manifest.webmanifest`, app icons) |
@@ -94,7 +96,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |
 | `tools/travel.ts` | `get_directions` (OSRM; draws the route via `show_route`), `find_nearby` (Nominatim) |
 | `tools/media.ts` | `play_radio` (radio-browser; https streams only), `stop_audio` |
-| `integrations/spotify.ts` | the owner's Spotify account: code exchange + token refresh (vault entry `spotify`, JSON; keeps rotated refresh tokens), `api(ctx, method, path, body?)` for api.spotify.com (refresh once on 401; plain errors for 403 Premium, 404 no active device, 429), `spotifyRoute` for `/api/spotify/{link,status,unlink}`. All Spotify calls go through the brain (the interface's CSP only allows its own site) |
+| `integrations/spotify.ts` | the owner's Spotify account: code exchange + token refresh (vault entry `spotify`, JSON; keeps rotated refresh tokens), `api(ctx, method, path, body?)` for api.spotify.com (refresh once on 401; plain errors for 403 Premium, 404 no active device, 429), `spotifyRoute` for `/api/spotify/{link,status,unlink}` (and `/api/email/status` in `agent.ts`: the linked address, never the password). All Spotify calls go through the brain (the interface's CSP only allows its own site) |
 | `tools/spotify.ts` | `spotify_now_playing`, `spotify_control`, `spotify_play` (search → `uris` for tracks, `context_uri` for album/artist/playlist), `spotify_queue`, `spotify_playlists`, `spotify_devices` |
 | `tools/agenda.ts` | `set_reminder`, `schedule_task` (always needs approval), `add_event`, `list_agenda`, calendar feeds |
 | `integrations/mail.ts` | email over IMAP (read) and SMTP (send) on Cloudflare TCP sockets (`cloudflare:sockets`, loaded lazily; the connector is injectable for tests): `parseEmailKey` (the `email` key: `address app-password [imap smtp]`, provider presets, Outlook refused), `listMessages`, `readMessage` (EXAMINE + BODY.PEEK: nothing marked read), `sendMessage`, `testLogin`, MIME/RFC 2047 decoding (protected) |

@@ -25,6 +25,7 @@ export const workshopTab: TabDef = {
   title: 'WORKSHOP',
   icon: '<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
   scene: 'backdrop',
+  blurb: 'self-edits · training ground · widgets',
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: 'Ghosty changes its own code. You decide what goes live.', rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });

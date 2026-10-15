@@ -13,6 +13,7 @@ import { collectAis, type AisShip } from './ais';
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
+import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
@@ -217,6 +218,17 @@ export class GhostyAgent {
       if (path === '/stt' && method === 'POST') return await this.stt(req);
       if (path === '/ships' && method === 'GET') return json(await this.ships(url));
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
+      if (path === '/email/status' && method === 'GET') {
+        // Which account is linked (never the password), for the LINKS tab.
+        const v = await this.vault.get('email');
+        if (!v) return json({ linked: false });
+        try {
+          const c = parseEmailKey(v);
+          return json({ linked: true, address: c.address, server: c.imapHost });
+        } catch (e) {
+          return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
+        }
+      }
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);

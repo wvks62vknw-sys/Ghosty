@@ -1,6 +1,7 @@
 /**
  * Standard tab layout: a hero readout in the middle (big value + subtitle + dials) with a
- * column of panels on each side. On phones the two columns swap with a toggle button.
+ * column of panels on each side. On phones the two columns swap with a toggle button, or —
+ * with `stack` — follow each other in one scrolling page.
  */
 import { clear, h } from '../core/dom';
 import { button, dial } from './components';
@@ -15,12 +16,12 @@ export interface Page {
   dials(list: [label: string, frac: number, text: string, color?: string][]): void;
 }
 
-export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftLabel?: string; rightLabel?: string }): Page {
+export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftLabel?: string; rightLabel?: string; stack?: boolean }): Page {
   const tag = h('div.tag', opts.tag);
   const big = h('div.bigv', '');
   const sub = h('div.sub', opts.sub ?? '');
   const dialBox = h('div.dials');
-  const hud = h('div.hud.two');
+  const hud = h(`div.hud.two${opts.stack ? '.stack' : ''}` as 'div');
   const swap = button(opts.rightLabel ?? 'MORE', (b) => {
     const on = hud.classList.toggle('alt');
     b.textContent = on ? (opts.leftLabel ?? 'BACK') : (opts.rightLabel ?? 'MORE');

@@ -3,7 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
@@ -152,6 +152,7 @@ export const brain = {
   pushDevices: () => req<{ devices: { id: string; label: string; at: number; endpoint: string }[] }>('GET', '/push/devices'),
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
+  emailStatus: () => req<EmailStatus>('GET', '/email/status'),
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),

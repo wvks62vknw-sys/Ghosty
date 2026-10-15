@@ -1,6 +1,6 @@
 /**
  * App-wide state.
- *  settings — saved on this device (name, theme, units, voice, home location)
+ *  settings — saved on this device (name, theme, units, voice, sounds, home location)
  *  ui       — what is on screen right now (tab, brain activity, voice state)
  */
 import { createStore } from '../core/store';
@@ -19,6 +19,8 @@ export interface Settings {
   voice: string;
   home: Place | null;
   currency: 'gbp' | 'usd' | 'eur';
+  /** Soft interface sounds (tab changes, the systems deck). */
+  sounds: boolean;
 }
 
 const tz = (() => {
@@ -37,6 +39,7 @@ export const settings = createStore<Settings>(
     speak: true,
     voice: 'auto',
     home: null,
+    sounds: true,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

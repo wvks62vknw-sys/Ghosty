@@ -99,6 +99,7 @@ export const eyeTab: TabDef = {
   title: "GOD'S EYE",
   icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
   scene: 'globe',
+  blurb: 'live globe · aircraft · satellites · CCTV',
   primary: true,
   mount(root) {
     globe.init();
