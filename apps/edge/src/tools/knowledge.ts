@@ -9,7 +9,7 @@ export const knowledgeTools: Tool[] = [
   {
     name: 'study',
     description:
-      'Look up your engineering handbook before doing a task: step-by-step playbooks with exact, correct code for this codebase (e.g. "tab", "panel", "brain tool", "screen action", "widget", "typescript", "ci errors", "fix failures", "self-review", "debugging", "large features", "coding for owner", "security"). Call it with no topic for the index. Also returns lessons you learned that match the topic.',
+      'Look up your engineering handbook before doing a task: step-by-step playbooks with exact, correct code for this codebase (e.g. "tab", "panel", "brain tool", "screen action", "widget", "typescript", "ci errors", "fix failures", "self-review", "debugging", "large features", "coding for owner", "security", "self-improvement"). Call it with no topic for the index. Also returns lessons you learned that match the topic.',
     parameters: { type: 'object', properties: { topic: { type: 'string', description: 'what you are about to do, or a playbook id' } } },
     risk: 'auto',
     async run(a, ctx) {

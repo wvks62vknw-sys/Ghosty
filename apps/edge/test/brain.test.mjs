@@ -125,6 +125,23 @@ test('Ghosty learns lessons from experience and studies its handbook', async () 
   assert.equal(lessons.length, 0);
 });
 
+test('Ghosty plans an upgrade of itself and tracks it step by step', async () => {
+  let ev = await chat('audit yourself');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /ABILITIES \(\d+ tools\): remember/);
+  ev = await chat('plan upgrade');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /Roadmap saved/);
+  ev = await chat('step 1 done #12');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /1\/3 steps done/);
+  ev = await chat('step 9 done');
+  assert.equal(ev.find((e) => e.t === 'tool_result').ok, false);
+  const { roadmap } = await (await call('/api/roadmap')).json();
+  assert.equal(roadmap.goal, 'Become a sharper finance assistant');
+  assert.deepEqual(roadmap.steps.map((s) => s.status), ['done', 'todo', 'todo']);
+  assert.equal(roadmap.steps[0].pr, 12);
+  await call('/api/roadmap', { method: 'DELETE' });
+  assert.equal((await (await call('/api/roadmap')).json()).roadmap, null);
+});
+
 test('client tools reach the interface', async () => {
   const ev = await chat('fly to tokyo');
   const c = ev.find((e) => e.t === 'client');

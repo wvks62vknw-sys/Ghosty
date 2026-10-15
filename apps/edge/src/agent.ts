@@ -17,6 +17,7 @@ import { loadLessons, removeLesson } from './knowledge';
 import { systemPrompt, type ClientContext } from './prompt';
 import { TOOLS, toolByName, toolSpecs } from './tools';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
+import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { ToolContext } from './tools/types';
 import { loadWidgets, deleteWidget } from './tools/widgets';
@@ -129,6 +130,11 @@ export class GhostyAgent {
       }
       if (path === '/lessons' && method === 'GET') return json({ lessons: await loadLessons(this.storage) });
       if (path.startsWith('/lessons/') && method === 'DELETE') return json({ removed: await removeLesson(this.storage, decodeURIComponent(path.slice(9))) });
+      if (path === '/roadmap' && method === 'GET') return json({ roadmap: await loadRoadmap(this.storage) });
+      if (path === '/roadmap' && method === 'DELETE') {
+        await this.storage.delete(ROADMAP_KEY);
+        return json({ ok: true });
+      }
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
       if (path === '/keys' && method === 'POST') {
         const { name, value } = (await req.json()) as { name: string; value: string };
@@ -651,8 +657,8 @@ function argsProblem(raw: string): string | null {
   }
 }
 
-const CODE_TOOLS = /^(study|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson)/;
-const CODE_WORDS = /\b(code|coding|build|program|script|function|bug|fix|feature|tab|panel|widget|refactor|typescript|javascript|python|html|css|api|compile|deploy|self-?edit|change yourself|add (a|an) )/i;
+const CODE_TOOLS = /^(study|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson|self_audit|plan_upgrade|roadmap|update_step)/;
+const CODE_WORDS = /\b(code|coding|build|program|script|function|bug|fix|feature|tab|panel|widget|refactor|typescript|javascript|python|html|css|api|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|add (a|an) )/i;
 
 /** Is this turn about writing code? (Then the router prefers strong models and longer replies.) */
 function codingTurn(ctx: Msg[]): boolean {

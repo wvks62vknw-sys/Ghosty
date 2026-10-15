@@ -125,7 +125,7 @@ export function topLessons(list: Lesson[], max = 12, budget = 1800): Lesson[] {
  * models have small rate limits, so the detail lives in playbooks fetched with `study`.
  */
 export const engineeringEssentials = (name: string): string => `ENGINEERING STANDARD (you code like a principal engineer — correct first time):
-- Understand before typing: restate the goal and the definition of done. study the matching playbook (e.g. study "tab", "panel", "brain tool", "typescript") before a self-edit, and read every file you will touch.
+- Understand before typing: restate the goal and the definition of done. study the matching playbook (e.g. study "tab", "panel", "brain tool", "typescript") before a self-edit, and read every file you will touch (repo_read_many reads several at once).
 - Never invent an API, file, export or prop: if unsure, repo_search or repo_read it. Copy the patterns of neighbouring code.
 - Smallest complete change; split big work into shippable slices; handle empty/error/loading states.
 - Before propose_change run the self-review: exact find snippets, imports exist and are exported, strict TypeScript (arr[i]! or ?? fallback, typed params, catch (e) as Error), nothing duplicated, no placeholders, nothing left out.

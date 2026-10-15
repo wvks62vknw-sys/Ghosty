@@ -3,7 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, MemoryFact, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, FeedInfo, InboxEntry, JobInfo, Lesson, MemoryFact, Roadmap, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
@@ -106,6 +106,8 @@ export const brain = {
   addMemory: (text: string) => req('POST', '/memory', { text }),
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
   lessons: () => req<{ lessons: Lesson[] }>('GET', '/lessons'),
+  roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
+  clearRoadmap: () => req('DELETE', '/roadmap'),
   forgetLesson: (id: string) => req('DELETE', `/lessons/${encodeURIComponent(id)}`),
   setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string }>,
   resetModels: () => req('POST', '/models/reset'),

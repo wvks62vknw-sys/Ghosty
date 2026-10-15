@@ -1,12 +1,13 @@
 /**
  * WORKSHOP tab: where Ghosty changes itself.
  *  - Tell Ghosty what to build or change
+ *  - Follow (and continue) Ghosty's upgrade roadmap for bigger self-upgrades
  *  - Review its proposed changes (preview link, build checks) and ship or discard them
  *  - Roll back to any earlier version
  *  - Open, or remove, instant widgets
  *  - Unlock the protected kernel for a limited time (only you can do this)
  */
-import type { ChangeSummary, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
+import type { ChangeSummary, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
@@ -38,6 +39,49 @@ export const workshopTab: TabDef = {
     };
     ask.body.append(input, h('div.row', button('BUILD IT', go2, 'on'), h('span.note', 'Bigger changes become a reviewable change; quick tools install instantly as widgets.')));
 
+    // upgrade roadmap
+    const STEP_TONE: Record<RoadmapStep['status'], 'up' | 'dn' | 'bad' | undefined> = { done: 'up', doing: undefined, todo: undefined, blocked: 'bad' };
+    const rp = panel('UPGRADE ROADMAP', { footer: true, status: '' });
+    let roadmap: Roadmap | null = null;
+    const paintRoadmap = () => {
+      clear(rp.body);
+      clear(rp.foot!);
+      if (!roadmap) {
+        rp.setStatus('NONE', 'off');
+        rp.body.append(h('div.note', 'Ask Ghosty to upgrade itself: it audits what it has, plans the upgrade as small shippable steps, and builds them one by one.'));
+        rp.foot!.append(button('UPGRADE YOURSELF', () => {
+          go('core');
+          void send('Audit yourself and plan an upgrade that makes you a better version of yourself: the improvements worth most to me, as small shippable steps. Then start building step 1.');
+        }, 'on'));
+        return;
+      }
+      const r = roadmap;
+      const done = r.steps.filter((s) => s.status === 'done').length;
+      rp.setStatus(`${done}/${r.steps.length}`, done === r.steps.length ? 'ok' : 'mid');
+      rp.body.append(h('div.note', r.goal));
+      for (const s of r.steps) rp.body.append(row(`${s.id}`, s.note ? `${s.title} — ${s.note}` : s.title, s.pr ? `#${s.pr} ${s.status.toUpperCase()}` : s.status.toUpperCase(), { wrap: true, tone: STEP_TONE[s.status] }));
+      if (done < r.steps.length) {
+        rp.foot!.append(button('CARRY ON', () => {
+          go('core');
+          void send('Carry on with the upgrade roadmap: build the next step.');
+        }, 'on'));
+      }
+      rp.foot!.append(button('CLEAR', async () => {
+        await brain.clearRoadmap().catch(() => toast('Could not clear the roadmap', 'bad'));
+        roadmap = null;
+        paintRoadmap();
+      }));
+    };
+    const loadRoadmap = async () => {
+      try {
+        roadmap = (await brain.roadmap()).roadmap;
+      } catch {
+        /* the rest of the Workshop reports connection problems */
+      }
+      paintRoadmap();
+    };
+    paintRoadmap();
+
     // changes
     const cp = panel('PROPOSED CHANGES', { status: '' });
     // versions
@@ -46,7 +90,7 @@ export const workshopTab: TabDef = {
     const wp = panel('WIDGETS', { status: '' });
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
-    P.left.append(ask.el, cp.el);
+    P.left.append(ask.el, rp.el, cp.el);
     P.right.append(wp.el, vp.el, kp.el);
 
     let changes: ChangeSummary[] = [];
@@ -163,12 +207,16 @@ export const workshopTab: TabDef = {
     return {
       enter() {
         void load();
-        timer = window.setInterval(() => void load(), 20000);
+        void loadRoadmap();
+        timer = window.setInterval(() => {
+          void load();
+          void loadRoadmap();
+        }, 20000);
       },
       leave() {
         clearInterval(timer);
       },
-      describe: () => `Workshop: ${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets.`,
+      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets.`,
     };
   },
 };

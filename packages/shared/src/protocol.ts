@@ -29,6 +29,23 @@ export const CLIENT_COMMANDS = [
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
+/** One step of an upgrade roadmap: one change that ships on its own. */
+export interface RoadmapStep {
+  id: number;
+  title: string;
+  status: 'todo' | 'doing' | 'done' | 'blocked';
+  /** The change (pull request) that delivers this step. */
+  pr?: number;
+  note?: string;
+}
+
+/** Ghosty's plan for upgrading itself over several changes (Workshop tab). */
+export interface Roadmap {
+  goal: string;
+  at: number;
+  steps: RoadmapStep[];
+}
+
 /** A lesson Ghosty learned from its own experience (shown in the Memory tab). */
 export interface Lesson {
   id: string;
