@@ -14,4 +14,4 @@ import { systemTab } from './system';
 import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, workshopTab, systemTab];
+export const TABS: TabDef[] = [coreTab, eyeTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, workshopTab, systemTab, reactorTab];
