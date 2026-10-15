@@ -22,8 +22,7 @@ import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
-import { enforceLayer, INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
-import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
+import { INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
 import { radar } from '../../engine/layers/radar';
 import {
   alerts, aurora, buoys, cables, disasters, dispatch, NAV_STATUS, radarFrames, shipKind, ships,
@@ -83,10 +82,6 @@ function describe(sel: Pickable): string {
       return `NOAA buoy ${(r as unknown as Buoy).id}${(r as unknown as Buoy).wvht !== undefined ? ` with ${(r as unknown as Buoy).wvht} m waves` : ''}`;
     case 'cable':
       return `the ${(r as unknown as Cable).name} undersea cable`;
-    case 'enforce': {
-      const e = r as unknown as EnforceCam;
-      return `${ENFORCE_LABEL[e.kind].toLowerCase()}${e.name ? ` "${e.name}"` : ''}${e.operator ? ` run by ${e.operator}` : ''}${e.maxspeed ? `, limit ${e.maxspeed}` : ''} (mapped on OpenStreetMap)`;
-    }
     case 'dispatch':
       return `Seattle 911 call: ${(r as unknown as Dispatch).type} at ${(r as unknown as Dispatch).addr}`;
     default:
@@ -139,11 +134,6 @@ export const eyeTab: TabDef = {
       ['sats', 'SATELLITES', () => String(sats.list.length)],
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
       ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
-      ['enforce', 'ANPR / SPEED', () => {
-        if (globe.cam.range > 250 && !enforce.list.size) return 'ZOOM IN';
-        const c = enforce.counts();
-        return enforce.status === 'SYNC' && !enforce.list.size ? 'SYNC' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
-      }],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
       ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
@@ -314,20 +304,6 @@ export const eyeTab: TabDef = {
         info.setStatus('TELEGEOGRAPHY', 'ok');
         R('NAME', c.name);
         R('SEGMENTS', String(c.lines.length));
-      } else if (s.kind === 'enforce') {
-        const e = s.ref as EnforceCam;
-        info.title.textContent = ENFORCE_LABEL[e.kind];
-        info.setStatus('OPENSTREETMAP', e.kind === 'anpr' ? 'off' : 'mid');
-        if (e.name) R('NAME', e.name);
-        if (e.operator) R('OPERATOR', e.operator);
-        if (e.maxspeed) R('LIMIT', e.maxspeed);
-        if (e.direction) R('FACING', /^\d+$/.test(e.direction) ? `${e.direction}° ${GEO.card(Number(e.direction))}` : e.direction);
-        if (e.ref) R('REF', e.ref);
-        if (e.tags['surveillance:zone']) R('WATCHES', e.tags['surveillance:zone']);
-        R('WHERE', `${e.lat.toFixed(5)}, ${e.lon.toFixed(5)}`);
-        info.body.append(h('small.dim', 'Location mapped by OpenStreetMap volunteers. No images.'));
-        actions.append(button('OSM ↗', () => window.open(`https://www.openstreetmap.org/${e.id}`, '_blank', 'noopener')));
-        actions.append(button('ZOOM', () => globe.cam.flyTo({ lat: e.lat, lon: e.lon, range: 0.8, tilt: 50 })));
       } else if (s.kind === 'dispatch') {
         const d = s.ref as Dispatch;
         info.title.textContent = '911 CALL';
@@ -352,7 +328,6 @@ export const eyeTab: TabDef = {
     function select(p: Pickable | null, fly = false): void {
       selected = p;
       shipLayer.selected = p?.kind === 'ship' ? (p.ref as Ship) : null;
-      enforceLayer.selected = p?.kind === 'enforce' ? (p.ref as EnforceCam) : null;
       air.selected = p?.kind === 'air' ? (p.ref as Aircraft) : null;
       sats.selected = p?.kind === 'sat' ? (p.ref as Satellite) : null;
       camLayer.selected = p?.kind === 'cam' ? (p.ref as Camera) : null;
@@ -460,7 +435,7 @@ export const eyeTab: TabDef = {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
       globe.vis = { ...globe.vis, cams: true };
-      const c = nearestCameras(lat, lon, 1, 80)[0];
+      const c = nearestCameras(lat, lon, 1, 300)[0];
       if (!c) return false;
       select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
       return true;
@@ -642,14 +617,6 @@ export const eyeTab: TabDef = {
         for (const o of near) add(o.w, `${o.a.call || o.a.hex}${o.a.gnd ? '' : ` ${Math.round(o.a.altft / 100)}`}`, o.a.mil ? '#ff8a8a' : '#bff');
       }
       if (globe.vis.sats && alt > 1500) for (const s of sats.list.filter((x) => x.group === 'stations').slice(0, 12)) add(s.w, s.name.replace(/ \(.*/, ''), '#ffe08a');
-      if (globe.vis.enforce && alt < 25) {
-        let n = 0;
-        for (const e of enforce.list.values()) {
-          if (e.kind === 'cctv') continue;
-          add(GEO.ecef(e.lat, e.lon, 0.03), e.kind === 'anpr' ? 'ANPR' : e.maxspeed ? `${e.maxspeed.replace(/ mph/, '')}` : e.kind === 'redlight' ? 'RED LIGHT' : 'SPEED', e.kind === 'anpr' ? '#ff7ad9' : '#ffd84a');
-          if (++n > 30) break;
-        }
-      }
       if (globe.vis.ships && alt < 250) {
         const now = Date.now();
         let n = 0;
@@ -722,12 +689,9 @@ export const eyeTab: TabDef = {
         const tick = () => void air.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
         tick();
         airTimer = window.setInterval(tick, 8000);
-        const shipTick = () => {
-          if (globe.vis.ships) void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
-          if (globe.vis.enforce) void enforce.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
-        };
+        const shipTick = () => globe.vis.ships && void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
         shipTick();
-        shipTimer = window.setInterval(shipTick, 8000);
+        shipTimer = window.setInterval(shipTick, 20000);
         paintModes();
       },
       leave() {

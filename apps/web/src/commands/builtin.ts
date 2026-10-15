@@ -19,7 +19,6 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   quakes: 'quakes', earthquakes: 'quakes',
   events: 'events', hazards: 'events',
   'traffic cameras': 'cams',
-  enforce: 'enforce', anpr: 'enforce', alpr: 'enforce', 'number plate': 'enforce', 'number plates': 'enforce', 'number plate cameras': 'enforce', 'speed cameras': 'enforce', 'speed camera': 'enforce', 'red light cameras': 'enforce', enforcement: 'enforce', 'enforcement cameras': 'enforce', surveillance: 'enforce',
   ships: 'ships', ais: 'ships', vessels: 'ships', boats: 'ships', maritime: 'ships',
   radar: 'radar', rain: 'radar', precipitation: 'radar', 'weather radar': 'radar',
   alerts: 'alerts', warnings: 'alerts', 'weather alerts': 'alerts',
@@ -83,14 +82,7 @@ export function registerBuiltins(): void {
           if (openNearestCamera?.(where.lat, where.lon)) return;
           await new Promise((r) => setTimeout(r, 1500));
         }
-        // No live picture feed there (e.g. Birmingham: council and National Highways cameras aren't published openly) —
-        // show the mapped ANPR / speed / red-light cameras for the area instead.
-        const { enforce } = await import('../data/enforce');
-        await enforce.refresh(where.lat, where.lon, 40);
-        globe.vis = { ...globe.vis, enforce: true };
-        ui.set({});
-        const n = enforce.near(where.lat, where.lon, 40).filter((c) => c.kind !== 'cctv').length;
-        toast(n ? `No open live camera feed there — showing ${n} mapped ANPR, speed and red-light cameras instead` : 'No public cameras near there yet — London, New York, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary have live ones', 'warn');
+        toast('No public cameras near there yet — London, New York, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary have them', 'warn');
       },
     },
     {

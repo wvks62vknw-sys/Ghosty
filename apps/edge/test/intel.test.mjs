@@ -4,7 +4,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 const I = await import('./.build/intel.mjs');
 const { collectAis, foldAis } = await import('./.build/ais.mjs');
-const E = await import('./.build/enforce.mjs');
 
 test('Extra camera networks: Ontario, DriveBC, NSW and Calgary', () => {
   const on = I.parseOntario([{ Id: 7, Latitude: 43.6, Longitude: -79.4, Roadway: 'QEW', Location: 'at Hwy 427', Views: [{ Url: 'https://511on.ca/map/Cctv/123', Status: 'Enabled' }] }, { Id: 8, Latitude: 43, Longitude: -79, Views: [{ Url: 'https://511on.ca/map/Cctv/9', Status: 'Disabled' }] }]);
@@ -108,24 +107,4 @@ test('AISstream: positions + static data folded; bad rows ignored; socket closed
   assert.equal(closed, true);
   assert.equal(ships.length, 1);
   assert.equal(ships[0].name, 'YACHT');
-});
-
-test('ANPR / speed / red-light cameras from OpenStreetMap are classified', () => {
-  const k = (tags) => E.classify(tags);
-  assert.equal(k({ man_made: 'surveillance', 'surveillance:type': 'ALPR' }), 'anpr');
-  assert.equal(k({ man_made: 'surveillance', 'surveillance:type': 'camera', description: 'ANPR camera, Clean Air Zone' }), 'anpr');
-  assert.equal(k({ highway: 'speed_camera', maxspeed: '30 mph' }), 'speed');
-  assert.equal(k({ type: 'enforcement', enforcement: 'average_speed' }), 'average');
-  assert.equal(k({ type: 'enforcement', enforcement: 'traffic_signals' }), 'redlight');
-  assert.equal(k({ man_made: 'surveillance', name: 'Bus lane camera' }), 'buslane');
-  assert.equal(k({ man_made: 'surveillance', surveillance: 'public' }), 'cctv');
-  assert.equal(k({ amenity: 'cafe' }), null);
-  const list = E.parseOverpass({ elements: [
-    { type: 'node', id: 1, lat: 52.48, lon: -1.89, tags: { man_made: 'surveillance', 'surveillance:type': 'ALPR', operator: 'Birmingham City Council' } },
-    { type: 'relation', id: 2, center: { lat: 52.5, lon: -1.9 }, tags: { type: 'enforcement', enforcement: 'average_speed', maxspeed: '50 mph' } },
-    { type: 'node', id: 3, lat: 52.4, lon: -1.8, tags: { amenity: 'bench' } },
-  ] });
-  assert.deepEqual(list.map((c) => [c.id, c.kind]), [['node/1', 'anpr'], ['relation/2', 'average']]);
-  assert.equal(list[0].operator, 'Birmingham City Council');
-  assert.match(E.overpassQuery([52.4, -2, 52.6, -1.7]), /speed_camera.*surveillance.*enforcement/);
 });
