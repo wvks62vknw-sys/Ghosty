@@ -136,6 +136,17 @@ export interface BrainStatus {
   lastModel: string | null;
 }
 
+/** The owner's linked Spotify account (System → SPOTIFY). Tokens never leave the brain. */
+export interface SpotifyStatus {
+  linked: boolean;
+  /** Spotify display name, when linked. */
+  name: string | null;
+  /** 'premium' or 'free' (playback control needs Premium). */
+  product: string | null;
+  /** The Client ID of the owner's Spotify app (not a secret), to prefill the System tab. */
+  clientId: string | null;
+}
+
 export interface ChangeSummary {
   number: number;
   title: string;

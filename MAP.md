@@ -47,6 +47,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `assistant/session.ts` | the conversation: sends messages, handles streamed events, approvals |
 | `assistant/notices.ts` | inbox polling: toasts, spoken reminders, system notifications, Agenda badge |
 | `assistant/media.ts` | the audio player (radio): `playStation`, `stopAudio`, favourites; ducks while Ghosty speaks |
+| `assistant/spotify.ts` | linking Spotify (PKCE): `startSpotifyLink` (verifier + state in sessionStorage → Spotify sign-in), `finishSpotifyLink` (at boot: `?code&state` → brain `/api/spotify/link`, cleans the URL), `redirectUri()`. System tab → SPOTIFY panel |
 | `assistant/push.ts` | installable app: registers `public/sw.js`, Web Push subscribe/unsubscribe, install help |
 | `assistant/voice.ts` | speaking (speech synthesis) and listening (Whisper via brain, or browser) |
 | `commands/registry.ts` | command registry, hotkeys, command palette |
@@ -87,6 +88,8 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |
 | `tools/travel.ts` | `get_directions` (OSRM; draws the route via `show_route`), `find_nearby` (Nominatim) |
 | `tools/media.ts` | `play_radio` (radio-browser; https streams only), `stop_audio` |
+| `integrations/spotify.ts` | the owner's Spotify account: code exchange + token refresh (vault entry `spotify`, JSON; keeps rotated refresh tokens), `api(ctx, method, path, body?)` for api.spotify.com (refresh once on 401; plain errors for 403 Premium, 404 no active device, 429), `spotifyRoute` for `/api/spotify/{link,status,unlink}`. All Spotify calls go through the brain (the interface's CSP only allows its own site) |
+| `tools/spotify.ts` | `spotify_now_playing`, `spotify_control`, `spotify_play` (search → `uris` for tracks, `context_uri` for album/artist/playlist), `spotify_queue`, `spotify_playlists`, `spotify_devices` |
 | `tools/agenda.ts` | `set_reminder`, `schedule_task` (always needs approval), `add_event`, `list_agenda`, calendar feeds |
 | `integrations/mail.ts` | email over IMAP (read) and SMTP (send) on Cloudflare TCP sockets (`cloudflare:sockets`, loaded lazily; the connector is injectable for tests): `parseEmailKey` (the `email` key: `address app-password [imap smtp]`, provider presets, Outlook refused), `listMessages`, `readMessage` (EXAMINE + BODY.PEEK: nothing marked read), `sendMessage`, `testLogin`, MIME/RFC 2047 decoding (protected) |
 | `tools/email.ts` | `check_email`, `search_email`, `read_email` (mail text wrapped with `asData`; allowed in background tasks), `send_email` (always needs approval; blocked in background) (protected) |

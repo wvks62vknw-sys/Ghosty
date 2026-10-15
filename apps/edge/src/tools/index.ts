@@ -15,6 +15,7 @@ import { mediaTools } from './media';
 import { travelTools } from './travel';
 import { memoryTools } from './memory';
 import { repoTools } from './repo';
+import { spotifyTools } from './spotify';
 import type { Tool } from './types';
 import { uiTools } from './ui';
 import { webTools } from './web';

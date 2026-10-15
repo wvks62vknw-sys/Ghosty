@@ -8,6 +8,7 @@ import { AuthError, brain, ownerKey } from './api/brain';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
+import { finishSpotifyLink } from './assistant/spotify';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
 import { gfx } from './engine/gfx';
@@ -18,7 +19,7 @@ import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
 import { applyTheme } from './state/theme';
-import { button } from './ui/components';
+import { button, toast } from './ui/components';
 
 const bootEl = document.getElementById('boot')!;
 const bootLog = (text: string, ok = 'OK') => bootEl.querySelector('.log')!.append(h('div', h('span', text), h('b', ok)));
@@ -97,8 +98,11 @@ async function boot(): Promise<void> {
     startNotices();
     void initApp();
   }
-  const first = location.hash.slice(1);
+  // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show System.
+  const spotify = await finishSpotifyLink().catch(() => null);
+  const first = spotify ? 'system' : location.hash.slice(1);
   if (!go(first)) go('core');
+  if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …

@@ -12,6 +12,7 @@ import { GitHub } from './github';
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
+import { spotifyRoute } from './integrations/spotify';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSource } from './library/importers';
@@ -191,6 +192,7 @@ export class GhostyAgent {
       }
       if (path === '/stt' && method === 'POST') return await this.stt(req);
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
+      if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);
     } catch (e) {
