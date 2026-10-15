@@ -83,7 +83,10 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   const label = h('span.pg-label');
   if (p.foot) p.foot.append(prev, label, next);
   const draw = () => {
-    const per = Math.max(1, Math.floor((p.body.clientHeight - 12) / rowHeight) || 6);
+    // In a one-scrolling-page layout (phones, page({ stack: true })) the panel grows with its
+    // rows, so measuring its height would feed back on itself: show a fixed page instead.
+    const stacked = !!p.el.closest('.two.stack') && matchMedia('(max-width: 899px)').matches;
+    const per = stacked ? 8 : Math.max(1, Math.floor((p.body.clientHeight - 12) / rowHeight) || 6);
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.max(0, Math.min(page, pages - 1));
     clear(p.body);
