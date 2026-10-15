@@ -42,7 +42,8 @@ export const libraryTab: TabDef = {
         busy.n++;
         try {
           const { doc, warning } = await addFile(f, (t) => (line.textContent = `${f.name}: ${t}`));
-          line.textContent = `✓ ${doc.title} — ${doc.passages} passage${doc.passages === 1 ? '' : 's'} saved${warning ? ` (${warning})` : ''}`;
+          const here = doc.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back; searchable now)' : '';
+          line.textContent = `✓ ${doc.title} — ${doc.passages} passage${doc.passages === 1 ? '' : 's'} saved${here}${warning ? ` (${warning})` : ''}`;
           line.className = 'note ok';
         } catch (e) {
           line.textContent = `✕ ${f.name}: ${(e as Error).message}`;
@@ -119,7 +120,7 @@ export const libraryTab: TabDef = {
         const d = await addText(tTitle.value, t, () => undefined);
         tBody.value = '';
         tTitle.value = '';
-        line.textContent = `✓ ${d.title} — ${d.passages} passage${d.passages === 1 ? '' : 's'} saved`;
+        line.textContent = `✓ ${d.title} — ${d.passages} passage${d.passages === 1 ? '' : 's'} saved${d.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back)' : ''}`;
         line.className = 'note ok';
       } catch (e) {
         line.textContent = `✕ ${(e as Error).message}`;

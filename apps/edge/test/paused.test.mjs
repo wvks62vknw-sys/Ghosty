@@ -181,3 +181,22 @@ test("while paused, library_search finds the owner's documents sent by their dev
   assert.match(await t.run({ query: 'when is the rent due' }, {}), /£950/);
   assert.match(await t.run({ query: 'binary search algorithm' }, {}), /binary search/i);
 });
+
+test('turns said while paused are added to the history and to what Ghosty remembers of the conversation', async () => {
+  const storage = new MemStorage();
+  const a = newAgent(storage);
+  const r = await a.call('/history', { method: 'POST', body: JSON.stringify({ turns: [{ role: 'user', text: 'my dog is Rex', at: 5 }, { role: 'assistant', text: 'Noted', at: 6, model: 'groq · memory paused' }, { role: 'system', text: 'nope', at: 7 }] }) });
+  assert.equal((await r.json()).added, 2);
+  const h = await (await a.call('/history')).json();
+  assert.deepEqual(h.turns.map((t) => t.text), ['my dog is Rex', 'Noted']);
+  assert.deepEqual(storage.m.get('ctx').map((m) => m.content), ['my dog is Rex', 'Noted']);
+});
+
+test('while paused, the Library search still answers from the built-in library', async () => {
+  const storage = new MemStorage();
+  storage.down = true;
+  const a = newAgent(storage);
+  const j = await (await a.call('/library/search?q=binary%20search%20algorithm&k=3')).json();
+  assert.equal(j.paused, true);
+  assert.ok(j.hits.length > 0);
+});

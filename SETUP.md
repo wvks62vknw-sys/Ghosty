@@ -158,17 +158,28 @@ raises the limit. Nothing else needs to change.
 ### Keep Ghosty working when the database is paused
 
 If Cloudflare's free daily database allowance runs out, the database pauses until midnight UTC
-(1am UK summer time). Nothing is lost. Ghosty shows **MEMORY PAUSED** and keeps chatting if its AI keys
-are also saved as **Cloudflare secrets** (they live outside the database). Free, one time, two minutes:
+(1am UK summer time). Nothing is lost, and there is nothing to set up: Ghosty shows a small
+**MEMORY PAUSED** tag and keeps working.
 
-1. Cloudflare dashboard → **Workers & Pages** → **ghosty** → **Settings** → **Variables and Secrets** → **Add**.
-2. Type **Secret**, name **`GEMINI_KEY`**, value: your Gemini key (the same one as in System → Keys). Save.
-3. Add any others the same way: `GROQ_KEY`, `CEREBRAS_KEY`, `OPENROUTER_KEY`, `MISTRAL_KEY`, `TAVILY_KEY`
-   (web search), `TOMTOM_KEY` (traffic). The name is always the key's name in capitals + `_KEY`.
+- **Your keys**: every key you give Ghosty once (System → Keys, the email login, the Spotify link) is
+  also kept on your device in encrypted form (sealed with your owner key, which the brain never
+  stores). Your device sends it with each request, and the brain uses it whenever its database can't
+  be read, so all your AIs and tools keep working. A key saved while paused works at once and is
+  written to the database after the reset.
+- **Your memory, agenda, reminders, widgets and documents** come from the copy on your device.
+  Anything you add or change meanwhile shows at once and is saved to Ghosty automatically after the
+  reset. Reminders ring from your device while Ghosty is open.
+- **Chat and tools**: web search, weather, directions, traffic and cameras, email (with your
+  approval, as always), radio, Spotify, the screen and widgets all work. Every tab shows what it last
+  knew.
+- **Waits for the reset**: importing web pages into the library, push notifications to your phone,
+  self-study and code changes.
 
-While paused Ghosty answers with those keys, follows the conversation on your screen, can search the web
-and check the weather, and answers from its built-in library — but can't save memories, read your own
-library uploads or use the agenda until the reset. Workers Paid ($5/month) removes the limit altogether.
+Optional extra backup: you can also save keys as Cloudflare **secrets** (Workers & Pages → ghosty →
+Settings → Variables and Secrets → Add → Secret). Ghosty recognises the usual names: `GEMINI_KEY`,
+`GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GROQ_KEY`, `GROQ_API_KEY`, `TOMTOM_KEY`, `GITHUB_TOKEN` and so on
+(the key's name in capitals, then `_KEY`, `_API_KEY` or `_TOKEN`). Workers Paid ($5/month) removes the
+daily limit altogether.
 
 ## Troubleshooting
 

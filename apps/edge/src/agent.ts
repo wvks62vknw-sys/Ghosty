@@ -173,6 +173,21 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       if (path === '/history' && method === 'GET') return json({ turns: (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [], pending: await this.pendingInfo() });
+      if (path === '/history' && method === 'POST') {
+        // Turns from while the database was paused, sent by the device afterwards: kept in the
+        // history and in Ghosty's working context, so it remembers that conversation too.
+        const body = (await req.json().catch(() => ({}))) as { turns?: unknown };
+        const add = (Array.isArray(body.turns) ? body.turns : [])
+          .filter((t): t is ChatTurn => !!t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string')
+          .slice(0, 40)
+          .map((t) => ({ role: t.role, text: t.text.slice(0, 8000), at: Number(t.at) || Date.now(), ...(typeof t.model === 'string' ? { model: t.model.slice(0, 80) } : {}) }));
+        if (!add.length) return json({ added: 0 });
+        const turns = (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
+        await this.storage.put(TURNS_KEY, [...turns, ...add].sort((x, y) => x.at - y.at).slice(-120));
+        const ctx = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
+        await this.storage.put(CTX_KEY, trimContext([...ctx, ...add.map((t) => ({ role: t.role, content: t.text }) as Msg)]));
+        return json({ added: add.length });
+      }
       if (path === '/history' && method === 'DELETE') {
         await this.storage.delete([TURNS_KEY, CTX_KEY, PENDING_KEY]);
         return json({ ok: true });
@@ -734,8 +749,16 @@ export class GhostyAgent {
       return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI });
     }
     if (path === '/library/search' && method === 'GET') {
-      await lib.seedStarter(40);
-      return json({ hits: await lib.search(url.searchParams.get('q') ?? '', Math.min(20, Number(url.searchParams.get('k')) || 8)) });
+      const q = url.searchParams.get('q') ?? '';
+      const k = Math.min(20, Number(url.searchParams.get('k')) || 8);
+      try {
+        await lib.seedStarter(40);
+        return json({ hits: await lib.search(q, k) });
+      } catch (e) {
+        // Database paused: the built-in library still answers (the device adds the owner's documents).
+        if (!storageError(e)) throw e;
+        return json({ hits: searchStarterInMemory(q, k), paused: true });
+      }
     }
     if (path === '/library/docs' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { title?: string; source?: string; kind?: string; pages?: number };

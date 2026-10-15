@@ -12,7 +12,7 @@ const fakeBrain = () => {
   const calls = [];
   let isPaused = false;
   const api = {};
-  for (const k of ['addMemory', 'forget', 'addEvent', 'deleteEvent', 'addJob', 'deleteJob']) {
+  for (const k of ['addMemory', 'forget', 'addEvent', 'deleteEvent', 'addJob', 'deleteJob', 'addTurns']) {
     api[k] = async (x) => {
       if (isPaused) throw new Error('memory paused');
       if (x === 'gone') throw Object.assign(new Error('not found'), { status: 404 });
@@ -94,4 +94,29 @@ test('reminders set while paused go off from the device, missed ones once on loa
   const b = fakeBrain();
   await O.flushOutbox(b.api, paused);
   assert.deepEqual(b.calls.map((c) => c[1].text), ['later'], 'the ones that rang here are not set again');
+});
+
+test('the conversation had while paused is sent to the brain afterwards', async () => {
+  O.offline.set({ outbox: [] });
+  O.enqueue({ kind: 'addTurns', turns: [{ role: 'user', text: 'hi', at: 1 }, { role: 'assistant', text: 'hello', at: 2 }] });
+  const b = fakeBrain();
+  await O.flushOutbox(b.api, paused);
+  assert.deepEqual(b.calls, [['addTurns', [{ role: 'user', text: 'hi', at: 1 }, { role: 'assistant', text: 'hello', at: 2 }]]]);
+});
+
+test("while paused, the brain's own reminders ring from the device, and one-offs are then cleared from it", async () => {
+  const rang = [];
+  O.onLocalReminder((title, text) => rang.push(text));
+  O.offline.set({ outbox: [], agenda: { tz: 'UTC', events: [], errors: [], feeds: [], jobs: [
+    { id: 'j1', kind: 'reminder', title: 'Bins', text: 'take the bins out', next: Date.now() + 30, repeat: 'none', tz: 'UTC' },
+    { id: 'j2', kind: 'reminder', title: 'Pills', text: 'take your pills', next: Date.now() + 40, repeat: 'daily', tz: 'UTC' },
+    { id: 'j3', kind: 'task', title: 'Report', text: 'write report', next: Date.now() + 30, repeat: 'none', tz: 'UTC' },
+    { id: 'j4', kind: 'reminder', title: 'Old', text: 'long gone', next: Date.now() - 3600_000, repeat: 'none', tz: 'UTC' },
+  ] } });
+  O.armBrainReminders(true);
+  await new Promise((r) => setTimeout(r, 150));
+  assert.deepEqual(rang.sort(), ['take the bins out', 'take your pills']);
+  assert.deepEqual(O.offline.get().outbox.map((o) => [o.kind, o.jobId]), [['deleteJob', 'j1']], 'the one-off is cleared from the brain later');
+  O.armBrainReminders(false);
+  O.offline.set({ outbox: [] });
 });
