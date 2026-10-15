@@ -455,3 +455,4 @@ body.sweep #frame .scan { animation: scan .55s cubic-bezier(.3,.6,.2,1) both; }
   .dclock b { font-size: 26px; }
   .dquick button { flex: 1 1 40%; }
 }
+.eyeinfo small.dim { display: block; opacity: .6; font-size: 10px; margin: 6px 0 2px; }

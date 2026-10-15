@@ -42,7 +42,13 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${out}/${name}-camera.png` });
   // close the card: the grid of nearest cameras takes over
-  await page.click('.eyeinfo button:has-text("✕")');
+  const closed = await page.click('.eyeinfo button:has-text("✕")', { timeout: 15000 }).then(() => true, () => false);
+  if (!closed) {
+    const toastText = await page.evaluate(() => [...document.querySelectorAll('.toast, [class*=toast]')].map((t) => t.textContent).join(' | ')).catch(() => '');
+    problems.push(`[${name}] no camera card to close. card: "${(title ?? '').slice(0, 100)}" toasts: "${toastText.slice(0, 200)}" layers: "${(await page.textContent('.eyelay').catch(() => '') ?? '').replace(/\s+/g, ' ').slice(0, 300)}"`);
+    await page.close();
+    continue;
+  }
   const tiles = await page.waitForFunction(() => document.querySelectorAll('.camgrid:not([hidden]) .camview img').length === 4, null, { timeout: 20000 }).then(() => true).catch(() => false);
   if (!tiles) problems.push(`[${name}] the CCTV grid did not show four cameras`);
   await page.waitForTimeout(3000);

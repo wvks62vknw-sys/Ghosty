@@ -19,6 +19,7 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   quakes: 'quakes', earthquakes: 'quakes',
   events: 'events', hazards: 'events',
   'traffic cameras': 'cams',
+  enforce: 'enforce', anpr: 'enforce', alpr: 'enforce', 'number plate': 'enforce', 'number plates': 'enforce', 'number plate cameras': 'enforce', 'speed cameras': 'enforce', 'speed camera': 'enforce', 'red light cameras': 'enforce', enforcement: 'enforce', 'enforcement cameras': 'enforce', surveillance: 'enforce',
   ships: 'ships', ais: 'ships', vessels: 'ships', boats: 'ships', maritime: 'ships',
   radar: 'radar', rain: 'radar', precipitation: 'radar', 'weather radar': 'radar',
   alerts: 'alerts', warnings: 'alerts', 'weather alerts': 'alerts',
@@ -84,10 +85,16 @@ export function registerBuiltins(): void {
           if (openNearestCamera?.(where.lat, where.lon, 40) != null) return;
           await new Promise((r) => setTimeout(r, 1500));
         }
+        // No open live picture feed there (e.g. Birmingham: council and National Highways cameras
+        // aren't published) — show live traffic and the mapped ANPR / speed / red-light cameras instead.
         const { nearestCameras } = await import('../data/cameras');
         const near = nearestCameras(where.lat, where.lon, 1, 20000)[0];
-        globe.vis = { ...globe.vis, traffic: true };
-        toast(`No public cameras in ${where.name || 'that area'}${near ? ` — the nearest is ${Math.round(near.km)} km away (${near.src})` : ''}. Showing live traffic instead.`, 'warn');
+        const { enforce } = await import('../data/enforce');
+        await enforce.refresh(where.lat, where.lon, 40).catch(() => undefined);
+        globe.vis = { ...globe.vis, traffic: true, enforce: true };
+        ui.set({});
+        const n = enforce.near(where.lat, where.lon, 40).filter((c) => c.kind !== 'cctv').length;
+        toast(`No public live cameras in ${where.name || 'that area'}${near ? ` — the nearest is ${Math.round(near.km)} km away (${near.src})` : ''}. Showing live traffic${n ? ` and ${n} mapped ANPR, speed and red-light cameras` : ''} instead.`, 'warn');
       },
     },
     {
@@ -99,12 +106,16 @@ export function registerBuiltins(): void {
         const lat = Number(a?.lat);
         const lon = Number(a?.lon);
         const where = Number.isFinite(lat) && Number.isFinite(lon) && a?.lat !== undefined ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
-        globe.vis = { ...globe.vis, traffic: true, cams: true };
-        if (where) globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 14, tilt: 0 });
+        globe.vis = { ...globe.vis, traffic: true, cams: true, enforce: true };
+        if (where) {
+          globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 14, tilt: 0 });
+          const { enforce } = await import('../data/enforce');
+          void enforce.refresh(where.lat, where.lon, 40).catch(() => undefined);
+        }
         const { trafficState } = await import('../engine/layers/radar');
         const { brain } = await import('../api/brain');
         trafficState.ready = (await brain.trafficStatus().catch(() => ({ ready: false }))).ready;
-        if (!trafficState.ready) toast('Live traffic needs the free TomTom key — System → Keys → TomTom traffic', 'warn');
+        if (!trafficState.ready) toast('Live traffic needs the free TomTom key — Links → Live traffic', 'warn');
         ui.set({});
       },
     },

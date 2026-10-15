@@ -32,7 +32,7 @@ export const trafficTools: Tool[] = [
   {
     name: 'show_cameras',
     description:
-      "Show live public traffic/road CCTV for a place on God's Eye (e.g. \"cameras in Birmingham city centre\"). Public cameras exist in London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary. If the place has none (e.g. Birmingham — its council and National Highways don't publish theirs), this says so, shows how far the nearest are, and shows live traffic on the map there instead. Repeat its answer honestly.",
+      "Show live public traffic/road CCTV for a place on God's Eye (e.g. \"cameras in Birmingham city centre\"). Public cameras exist in London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary. If the place has none (e.g. Birmingham — its council and National Highways don't publish theirs), this says so, shows how far the nearest are, and shows live traffic plus mapped ANPR/speed camera locations there instead. Repeat its answer honestly.",
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
     async run(a, ctx) {
@@ -44,7 +44,7 @@ export const trafficTools: Tool[] = [
         return `Showing the nearest live public camera to ${p.name} (${cov.area}) on God's Eye; the four nearest are in the CCTV grid.`;
       }
       ctx.emit({ t: 'client', name: 'show_traffic', args: { place: p.name, lat: p.lat, lon: p.lon } });
-      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV (Birmingham City Council and National Highways only share theirs with control rooms and media partners). The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed); call traffic_now for speeds and incidents.` : `I've flown God's Eye there. ${NO_KEY}`}`;
+      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV (Birmingham City Council and National Highways only share theirs with control rooms and media partners). The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed) and the mapped ANPR, speed and red-light camera locations; call traffic_now for speeds and incidents.` : `I've flown God's Eye there and marked the mapped ANPR, speed and red-light camera locations. ${NO_KEY}`}`;
     },
   },
   {
