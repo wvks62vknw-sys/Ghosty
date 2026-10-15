@@ -6,6 +6,7 @@
 import type { ToolSpec } from '../llm/router';
 import { agendaTools } from './agenda';
 import { dataTools } from './data';
+import { evolveTools } from './evolve';
 import { extraTools } from './extra';
 import { knowledgeTools } from './knowledge';
 import { mediaTools } from './media';
@@ -17,7 +18,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...mediaTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...repoTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...mediaTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...evolveTools, ...repoTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];

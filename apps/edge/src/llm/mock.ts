@@ -23,6 +23,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
   if ((m = text.match(/^learn (.+)$/)) && has('learn_lesson')) return { message: call('learn_lesson', { text: m[1], tags: ['test'] }), model };
   if ((m = text.match(/^study ?(.*)$/)) && has('study')) return { message: call('study', m[1] ? { topic: m[1] } : {}), model };
+  if (text === 'audit yourself' && has('self_audit')) return { message: call('self_audit', {}), model };
+  if (text === 'plan upgrade' && has('plan_upgrade')) return { message: call('plan_upgrade', { goal: 'Become a sharper finance assistant', steps: ['Add a stocks feed with a minimal panel', 'Add a portfolio tool', 'Add price alerts'] }), model };
+  if ((m = text.match(/^step (\d+) (todo|doing|done|blocked)(?: #(\d+))?$/)) && has('update_step')) return { message: call('update_step', { step: Number(m[1]), status: m[2], ...(m[3] ? { pr: Number(m[3]) } : {}) }), model };
+  if (text === 'read many' && has('repo_read_many')) return { message: call('repo_read_many', { paths: ['MAP.md', 'apps/web/src/hello.ts', 'apps/web/src/missing.ts'] }), model };
   if (text === 'propose cut off' && has('propose_change')) {
     // a reply that ran out of room mid-arguments
     return { message: { role: 'assistant', content: null, tool_calls: [{ id: `mock_${++n}`, type: 'function', function: { name: 'propose_change', arguments: '{"title":"Big rewrite","edits":[{"path":"apps/web/src/hello.ts","action":"write","content":"export const greeting = ' } }] }, model };

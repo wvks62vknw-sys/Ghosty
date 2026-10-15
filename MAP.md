@@ -63,8 +63,10 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
 | `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (general engineering), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
+| `tools/evolve.ts` | self-evolution: `self_audit` (what Ghosty has), `plan_upgrade` / `roadmap` / `update_step` (an upgrade done as several shippable changes; shown in Workshop → Upgrade roadmap, `/api/roadmap`) |
 | `tools/knowledge.ts` | `study` (look up playbooks + matching lessons), `learn_lesson` / `list_lessons` / `forget_lesson` (lessons from experience, shown in every prompt and in the Memory tab) |
 | `tools/index.ts` | registry of tools (protected) |
+| `tools/repo.ts` | self-edit tools (protected): `repo_tree`, `repo_read`, `repo_read_many` (up to 8 files at once), `repo_search`, `propose_change`, `wait_for_checks`, … |
 | `tools/extra.ts` | **where new tools go** |
 | `tools/types.ts` | `Tool` interface, `arg` helpers |
 | `tools/{memory,web,data,ui,widgets}.ts` | tools by area |

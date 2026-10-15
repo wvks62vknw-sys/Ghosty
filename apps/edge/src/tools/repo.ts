@@ -2,7 +2,7 @@
  * KERNEL-ADJACENT — protected (see kernel/protected.ts).
  *
  * Self-editing. Ghosty changes its own source code through these tools:
- *   repo_tree / repo_read / repo_search  → understand the code (start with MAP.md)
+ *   repo_tree / repo_read / repo_read_many / repo_search → understand the code (start with MAP.md)
  *   propose_change                       → branch + commit + pull request (Cloudflare builds a preview)
  *   change_status                        → CI result, preview link, error output to fix
  *   update_change                        → push a fix to an open change
@@ -106,6 +106,30 @@ export const repoTools: Tool[] = [
       const text = await g.read(path, arg.str(a, 'ref', false) || (await mainBranch(g, ctx)));
       if (text === null) throw new Error(`${path} does not exist`);
       return clip(text, 40000);
+    },
+  },
+  {
+    name: 'repo_read_many',
+    description: 'Read up to 8 files from your own source code in one step (main branch, or a change branch via "ref"). Use it to read every file you will touch at once, e.g. ["MAP.md", "apps/web/src/features/index.ts", "apps/web/src/ui/components.ts"].',
+    parameters: { type: 'object', properties: { paths: { type: 'array', items: { type: 'string' } }, ref: { type: 'string' } }, required: ['paths'] },
+    risk: 'auto',
+    async run(a, ctx) {
+      const g = await gh(ctx);
+      const paths = (Array.isArray(a.paths) ? a.paths.map(String) : []).map((p) => p.trim()).filter(Boolean);
+      if (!paths.length) throw new Error('give "paths": a list of file paths');
+      if (paths.length > 8) throw new Error('at most 8 files per call; read the rest in another call');
+      const ref = arg.str(a, 'ref', false) || (await mainBranch(g, ctx));
+      const per = Math.floor(48000 / paths.length);
+      const parts = await Promise.all(
+        paths.map(async (p) => {
+          if (unreadable(p)) return `===== ${p} =====
+(holds deploy settings and is not readable; MAP.md describes what it contains)`;
+          const text = await g.read(p, ref).catch(() => null);
+          return `===== ${p} =====
+${text === null ? '(does not exist)' : clip(text, per)}`;
+        }),
+      );
+      return parts.join('\n\n');
     },
   },
   {

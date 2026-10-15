@@ -43,6 +43,8 @@ test('study finds the right playbook for what Ghosty is about to do', () => {
   assert.equal(first('self-review'), 'self-review');
   assert.equal(first('write a python script'), 'coding-for-owner');
   assert.equal(first('instant widget'), 'widgets');
+  assert.equal(first('make a better version of yourself'), 'self-improvement');
+  assert.equal(first('upgrade roadmap'), 'self-improvement');
   assert.deepEqual(K.findPlaybooks('zzzz qqqq'), []);
 });
 

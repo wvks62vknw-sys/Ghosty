@@ -183,6 +183,22 @@ Brain (Cloudflare Worker free plan: 10 ms CPU per request, ~50 outbound requests
 - Durable Object storage: store compact JSON, cap list sizes (slice(-500)).`,
   },
   {
+    id: 'self-improvement',
+    title: 'Building a better version of yourself (self-upgrades, step by step)',
+    tags: ['upgrade', 'improve', 'improve yourself', 'better version', 'self-improvement', 'evolve', 'roadmap', 'superior', 'smarter', 'new abilities'],
+    body: `When the owner asks you to improve yourself, make a better version of yourself, or add a big new capability:
+
+1. AUDIT. Call self_audit. Note what exists (tools, tabs, feeds, playbooks, lessons) and what is weak: abilities the owner asks for that you lack, tabs that show little, failures you keep repeating (most-repeated lessons), slow or clumsy flows.
+2. CHOOSE. Pick the 3–6 upgrades worth most to the owner. Prefer: new abilities (brain tools) > better information on screen (panels, feeds) > polish. Fix repeated failures first — they make every later change cheaper.
+3. PLAN. plan_upgrade with the goal and ordered steps, each one change that works and ships on its own (study "large features"). Tell the owner the plan in a few short lines.
+4. BUILD ONE STEP AT A TIME. update_step to "doing"; do the normal self-edit procedure (study the playbook, read files with repo_read_many, self-review, propose_change, wait_for_checks, fix). When checks pass, update_step with the change number and ask the owner to ship it.
+5. AFTER EACH SHIP: update_step "done", then carry on with the next step (when the owner says "carry on", call roadmap to see where you are). If a step is impossible without the owner (kernel unlock, a new API key), update_step "blocked" with the reason and tell them exactly what you need.
+6. MAKE THE NEXT VERSION SMARTER TOO. Whenever you build a new kind of thing, add or update a playbook in apps/edge/src/knowledge (craft.ts for general know-how, ghosty.ts for this codebase) in the same change, with a short correct example. The handbook is how future you inherits what you learned. Keep MAP.md accurate.
+7. FINISH. When every step is done, tell the owner what is better now, and suggest the next upgrade.
+
+Never weaken safety to go faster: no edits to the kernel without the owner's unlock, no skipping checks, no shipping without approval.`,
+  },
+  {
     id: 'testing',
     title: 'Testing mindset',
     tags: ['test', 'tests', 'testing', 'unit', 'spec', 'assert', 'coverage'],

@@ -23,6 +23,10 @@ tests/       local preview server + browser test
 - **Lessons**: whenever a check fails and Ghosty fixes it, it records the cause and a rule with
   `learn_lesson`. Lessons are put in its instructions from then on (most-repeated first) and are listed
   in **Memory → Lessons learned**, where you can delete any that are wrong.
+- **Self-evolution**: ask Ghosty to upgrade itself (or press **Workshop → Upgrade roadmap → UPGRADE
+  YOURSELF**). It audits what it has, plans the upgrade as small shippable steps, builds them one by one
+  (you ship each), and adds what it learned to its handbook so every later version knows it too.
+  **CARRY ON** continues with the next step.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

@@ -322,3 +322,11 @@ test('a reply cut off mid-arguments is refused with a clear reason — nothing i
   assert.match(r.summary, /not valid JSON.*cut off/s);
   assert.equal(G.pulls.length, before);
 });
+
+test('repo_read_many reads several files in one step', async () => {
+  const r = result(await chat('read many'));
+  assert.ok(r.ok);
+  assert.match(r.summary, /===== MAP\.md =====\n# map/);
+  assert.match(r.summary, /===== apps\/web\/src\/hello\.ts =====\nexport const greeting/);
+  assert.match(r.summary, /missing\.ts =====\n\(does not exist\)/);
+});
