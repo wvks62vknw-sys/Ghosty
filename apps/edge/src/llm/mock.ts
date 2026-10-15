@@ -48,6 +48,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
       model,
     };
   }
+  if (text === 'propose broken' && has('propose_change')) {
+    return { message: call('propose_change', { title: 'Broken import', summary: 'x', edits: [{ path: 'apps/web/src/broken.ts', action: 'write', content: "import { nothing } from './does-not-exist';\nexport const x = nothing;\n" }] }), model };
+  }
   if (text === 'propose kernel' && has('propose_change')) {
     return { message: call('propose_change', { title: 'Weaken auth', summary: 'x', edits: [{ path: 'apps/edge/src/kernel/auth.ts', action: 'write', content: '// gone' }] }), model };
   }

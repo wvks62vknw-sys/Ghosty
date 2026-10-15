@@ -70,6 +70,7 @@ export function go(id: string): boolean {
   }
   for (const [k, v] of mounted) v.root.classList.toggle('on', k === def.id);
   setScene(def.scene === 'globe' ? globe : backdrop);
+  document.body.dataset.scene = def.scene;
   ui.set({ tab: def.id });
   try {
     history.replaceState(null, '', `#${def.id}`);

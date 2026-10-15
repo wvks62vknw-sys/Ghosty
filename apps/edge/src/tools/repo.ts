@@ -12,6 +12,16 @@
  */
 import { pathProblem, UNREADABLE } from '../kernel/protected';
 import { addJob } from '../schedule';
+import { selfCheck } from '../selfcheck';
+
+/** Stage edits and run the fast self-check; throws with every problem found. */
+async function stageChecked(g: GitHub, base: string, edits: ReturnType<typeof parseEdits>) {
+  const staged = await g.stage(base, edits);
+  const tree = await g.tree(base);
+  const problems = await selfCheck(staged, tree, (p) => g.read(p, base));
+  if (problems.length) throw new Error(`Self-check found problems — nothing was saved. Fix these and try again:\n- ${problems.join('\n- ')}`);
+  return staged;
+}
 
 /** Deploy settings (incl. the owner password hash) are never read into the conversation. */
 const unreadable = (p: string) => UNREADABLE.test(p.replace(/^\/+/, '').replace(/\/{2,}/g, '/').replace(/(^|\/)\.\//g, '$1'));
@@ -123,7 +133,7 @@ export const repoTools: Tool[] = [
   {
     name: 'propose_change',
     description:
-      'Change your own source code. Creates a branch and pull request; Cloudflare then builds a private preview of the changed Ghosty. Nothing goes live until the owner ships it. Keep changes small and focused. Afterwards call change_status (builds take 1–2 minutes).',
+      'Change your own source code. Creates a branch and pull request; Cloudflare then builds a private preview of the changed Ghosty. Nothing goes live until the owner ships it. Keep changes small and focused. A fast self-check runs first and rejects obvious mistakes (missing files/exports, unbalanced brackets, pasted-twice code) with exact reasons. Afterwards call wait_for_checks.',
     parameters: {
       type: 'object',
       properties: {
@@ -141,7 +151,8 @@ export const repoTools: Tool[] = [
       await checkPaths(edits, ctx);
       const main = await mainBranch(g, ctx);
       const head = await g.headSha(main);
-      const sha = await g.commit(head, `${title}\n\nProposed by Ghosty.`, edits);
+      const staged = await stageChecked(g, head, edits);
+      const sha = await g.commitStaged(head, `${title}\n\nProposed by Ghosty.`, staged);
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 16);
       const branch = `${BRANCH_PREFIX}${slug}-${Date.now().toString(36).slice(-4)}`;
       await g.createBranch(branch, sha);
@@ -149,7 +160,7 @@ export const repoTools: Tool[] = [
       const pr = await g.openPr(branch, main, title, body);
       ctx.emit({ t: 'client', name: 'notify', args: { text: `Change #${pr} proposed: ${title}` } });
       const preview = g.previewFor(branch);
-      return `Opened change #${pr} on branch ${branch}.${preview ? ` Preview (ready in ~1–2 min): ${preview}` : ''} Call change_status with pr=${pr} to check the build before suggesting the owner ships it.`;
+      return `Opened change #${pr} on branch ${branch}.${preview ? ` Preview (ready in a few minutes): ${preview}` : ''} Now call wait_for_checks with pr=${pr}.`;
     },
   },
   {
@@ -163,9 +174,10 @@ export const repoTools: Tool[] = [
       const pr = await g.ownOpenPr(n);
       const edits = parseEdits(a.edits);
       await checkPaths(edits, ctx);
-      const sha = await g.commit(pr.head.sha, arg.str(a, 'note', false) || 'Fix from Ghosty', edits);
+      const staged = await stageChecked(g, pr.head.sha, edits);
+      const sha = await g.commitStaged(pr.head.sha, arg.str(a, 'note', false) || 'Fix from Ghosty', staged);
       await g.moveBranch(pr.head.ref, sha);
-      return `Updated change #${n}. A new preview build has started; check change_status in 1–2 minutes.`;
+      return `Updated change #${n}. Checks restarted — call wait_for_checks with pr=${n}.`;
     },
   },
   {

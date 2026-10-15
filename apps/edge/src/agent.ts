@@ -23,7 +23,7 @@ import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadF
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
-const MAX_STEPS = 14;
+const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several times in one go
 const CTX_KEY = 'ctx';
 const TURNS_KEY = 'turns';
 const PENDING_KEY = 'pending';

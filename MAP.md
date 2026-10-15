@@ -119,6 +119,17 @@ in `apps/edge/src/tools/ui.ts` with the same name.
 **Animate something** — use `onFrame((dt) => …)` from `engine/scheduler.ts`. Never start
 your own `requestAnimationFrame` or `setInterval` for animation.
 
+## How a change gets checked
+
+1. `propose_change` / `update_change` run a fast self-check first (`apps/edge/src/selfcheck.ts`):
+   missing files or exports in imports, unbalanced brackets, code pasted twice, bad JSON.
+2. CI (`.github/workflows/check.yml`): brain typecheck + tests, interface typecheck + build, the
+   Cloudflare build (dry run), and a real-browser run (`tests/*.spec.mjs`: chat, approvals, every
+   tab, agenda, radio, app/notifications, and that every tab scrolls instead of cutting off).
+   Errors come back as annotations — `wait_for_checks` shows them to you.
+3. Shipping needs every check green. After shipping, the deploy is checked and rolled back if it fails;
+   anything broken that lands on main by other means is restored by the `guard` job.
+
 ## Rules
 
 - TypeScript strict. Run `npm run check` in `apps/web` and `apps/edge` (CI does this on every change).

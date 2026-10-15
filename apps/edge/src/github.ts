@@ -113,17 +113,19 @@ export class GitHub {
   }
 
   /** Apply edits on top of `baseRef` and return the new commit's sha. */
-  async commit(baseRef: string, message: string, edits: FileEdit[]): Promise<string> {
-    const base = await this.req<{ sha: string; tree: { sha: string } }>('GET', `/git/commits/${baseRef}`);
-    const entries: { path: string; mode: '100644'; type: 'blob'; sha?: string | null; content?: string }[] = [];
+  /** Work out every file's new content (without committing), for checking first. */
+  async stage(baseRef: string, edits: FileEdit[]): Promise<{ path: string; content: string | null; before: string | null }[]> {
+    const out: { path: string; content: string | null; before: string | null }[] = [];
     for (const e of edits) {
+      const before = await this.read(e.path, baseRef);
       if (e.action === 'delete') {
-        entries.push({ path: e.path, mode: '100644', type: 'blob', sha: null });
+        out.push({ path: e.path, content: null, before });
         continue;
       }
       let content = e.content ?? '';
       if (e.action === 'replace') {
-        const current = await this.read(e.path, baseRef);
+        // Several replace edits to one file apply one after another.
+        const current = out.find((x) => x.path === e.path)?.content ?? before;
         if (current === null) throw new Error(`${e.path} does not exist, so it cannot be edited with "replace". Use "write".`);
         const find = e.find ?? '';
         if (!find) throw new Error(`"replace" on ${e.path} needs a "find" string`);
@@ -133,12 +135,31 @@ export class GitHub {
         }
         content = current.replace(find, () => e.replace ?? '');
       }
-      const blob = await this.req<{ sha: string }>('POST', '/git/blobs', { content: utf8ToB64(content), encoding: 'base64' });
-      entries.push({ path: e.path, mode: '100644', type: 'blob', sha: blob.sha });
+      const prev = out.findIndex((x) => x.path === e.path);
+      if (prev >= 0) out[prev] = { path: e.path, content, before: out[prev]!.before };
+      else out.push({ path: e.path, content, before });
+    }
+    return out;
+  }
+
+  async commitStaged(baseRef: string, message: string, staged: { path: string; content: string | null }[]): Promise<string> {
+    const base = await this.req<{ sha: string; tree: { sha: string } }>('GET', `/git/commits/${baseRef}`);
+    const entries: { path: string; mode: '100644'; type: 'blob'; sha?: string | null }[] = [];
+    for (const f of staged) {
+      if (f.content === null) {
+        entries.push({ path: f.path, mode: '100644', type: 'blob', sha: null });
+        continue;
+      }
+      const blob = await this.req<{ sha: string }>('POST', '/git/blobs', { content: utf8ToB64(f.content), encoding: 'base64' });
+      entries.push({ path: f.path, mode: '100644', type: 'blob', sha: blob.sha });
     }
     const tree = await this.req<{ sha: string }>('POST', '/git/trees', { base_tree: base.tree.sha, tree: entries });
     const c = await this.req<{ sha: string }>('POST', '/git/commits', { message, tree: tree.sha, parents: [base.sha] });
     return c.sha;
+  }
+
+  async commit(baseRef: string, message: string, edits: FileEdit[]): Promise<string> {
+    return this.commitStaged(baseRef, message, await this.stage(baseRef, edits));
   }
 
   async createBranch(name: string, sha: string): Promise<void> {

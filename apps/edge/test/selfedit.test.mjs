@@ -306,3 +306,11 @@ test('after shipping, Ghosty checks the deploy: live → told; broken → rolled
   assert.equal(G.commits.get(now).tree, G.commits.get(shipped).tree, 'Ghosty is exactly as it was before the broken change');
   G.failSha = null;
 });
+
+test('the self-check rejects a change that imports a missing file — no PR is opened', async () => {
+  const before = G.pulls.length;
+  const r = result(await chat('propose broken'));
+  assert.equal(r.ok, false);
+  assert.match(r.summary, /Self-check found problems.*does-not-exist/s);
+  assert.equal(G.pulls.length, before);
+});
