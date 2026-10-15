@@ -41,7 +41,11 @@ test('study finds the right playbook for what Ghosty is about to do', () => {
   assert.equal(first('new brain tool'), 'recipe-brain-tool');
   assert.equal(first('error TS2532 object is possibly undefined'), 'ci-errors');
   assert.equal(first('self-review'), 'self-review');
-  assert.equal(first('write a python script'), 'coding-for-owner');
+  assert.equal(first('write a python script'), 'python');
+  assert.ok(K.findPlaybooks('write a python script').some((p) => p.id === 'coding-for-owner'));
+  assert.equal(first('build a snake game'), 'game-recipes');
+  assert.equal(first('make a game'), 'game-kit');
+  assert.equal(first('dijkstra pathfinding'), 'algorithms');
   assert.equal(first('instant widget'), 'widgets');
   assert.equal(first('make a better version of yourself'), 'self-improvement');
   assert.equal(first('upgrade roadmap'), 'self-improvement');

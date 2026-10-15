@@ -29,7 +29,7 @@ export const widgetTools: Tool[] = [
   {
     name: 'create_widget',
     description:
-      'Install (or replace) an instant widget: ONE complete HTML document with inline CSS and JS, no external scripts. Dark theme (#02070d background, #5ce1ff accents). It may fetch() public CORS-enabled APIs. Appears in the Widgets section of the Workshop tab immediately.',
+      'Install (or replace) an instant widget: ONE complete HTML document with inline CSS and JS — games, tools, trackers, mini dashboards. Build on the widget kit GK (<script src="/widget-kit.js"></script>: canvas, game loop, keyboard + touch controls, collisions, sound, particles, scenes, saving, app UI) — study "game kit" or "app widgets" first. Dark theme (#02070d background, #5ce1ff accents). It may fetch() public CORS-enabled APIs. Appears in the Widgets section of the Workshop tab immediately.',
     parameters: {
       type: 'object',
       properties: { name: { type: 'string', description: 'short id like pomodoro_timer' }, title: { type: 'string' }, html: { type: 'string' } },

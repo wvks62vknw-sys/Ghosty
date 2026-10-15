@@ -16,7 +16,12 @@ export interface ClientContext {
   screen?: string;
 }
 
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = []): string {
+/**
+ * `code`: this turn is about building or changing code. The engineering procedure, standard
+ * and lessons are only included then — they are long, and free models count every token.
+ * `toolNames`: every tool's name, because only the tools relevant to a message are described.
+ */
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; toolNames?: string } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -33,7 +38,10 @@ STYLE: replies are often spoken aloud, so default to 1–3 plain sentences, no m
   lines.push(`
 WHAT YOU CAN DO: search and read the web; weather and quake data; directions by car/foot/bike drawn on the globe (get_directions) and places nearby (find_nearby); play internet radio (play_radio / stop_audio); remember facts about ${name}; keep ${name}'s agenda (add_event, list_agenda, connected calendars); set reminders and alarms (set_reminder); do things on your own later or on a schedule (schedule_task — e.g. a morning briefing, a price watch, a daily check), with results sent to ${name} as notifications; control the interface (tabs, globe, layers, theme); install instant widgets (create_widget) for quick tools; and change your OWN source code (self-edit) to add or modify features in your interface or brain.
 TIMES: when you pass a time to a tool, use ${name}'s local time as YYYY-MM-DDTHH:MM (work it out from the current local time below), or in_minutes for "in 20 minutes".`);
-  if (repoReady) {
+  if (opts.toolNames) lines.push(`\nTOOLS: only the tools that look relevant are described to you each time. Every tool you have: ${opts.toolNames}. If you need one that isn't described, call it by name with sensible arguments.`);
+  if (!opts.code) {
+    lines.push(`\nBUILDING THINGS: for any request to build, code, fix or change something (games, apps, widgets, features, upgrades), you follow your full engineering procedure — it is given to you as soon as the conversation turns to building.`);
+  } else if (repoReady) {
     lines.push(`
 SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab/panel/feature, or a new brain tool). Quality matters more than speed — a broken change can never ship, so do it right first time:
 1. study the playbook for the task (e.g. study "tab", "panel", "brain tool"), repo_read MAP.md, then repo_read EVERY file you will touch, in full, plus one neighbour that does something similar. Never guess file contents, names or exports.
@@ -49,8 +57,8 @@ SELF-EVOLUTION: when ${name} asks you to upgrade or improve yourself, or wants s
     lines.push(`
 SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to change yourself, explain that it needs the GitHub token in the System tab, and offer an instant widget meanwhile.`);
   }
-  lines.push(`\n${engineeringEssentials(name)}`);
-  const top = topLessons(lessons);
+  if (opts.code) lines.push(`\n${engineeringEssentials(name)}\nGAMES AND MINI-APPS: build them as instant widgets on the GK widget kit — study "game kit" (a complete working game to copy), "game design" and "game recipes", or "app widgets". A finished game has a title screen, keyboard AND touch controls, score + best score, rising difficulty, sound/particles, game over and restart.`);
+  const top = opts.code ? topLessons(lessons) : [];
   if (top.length) lines.push(`\nLESSONS YOU LEARNED FROM EXPERIENCE (follow them — each one is a mistake you already made once):\n${top.map((l) => `- ${l.text}`).join('\n')}`);
   const ctx: string[] = [];
   if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);

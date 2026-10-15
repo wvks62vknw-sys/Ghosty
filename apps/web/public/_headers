@@ -8,6 +8,13 @@
 
 # Widgets run here, inside a sandboxed iframe with an opaque origin, so they may use
 # inline scripts and call public APIs without weakening the main app's policy.
+# Cloudflare serves this page at /widget-host (it redirects /widget-host.html there), so the rule
+# must name that address: without it the page gets the app's "never in a frame" policy and every
+# widget shows up as a blank white box.
+/widget-host
+  ! Content-Security-Policy
+  Content-Security-Policy: sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'
+
 /widget-host.html
   ! Content-Security-Policy
   Content-Security-Policy: sandbox allow-scripts; default-src * data: blob: 'unsafe-inline' 'unsafe-eval'

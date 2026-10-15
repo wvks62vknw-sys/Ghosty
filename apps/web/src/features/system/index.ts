@@ -8,6 +8,7 @@ import { stats } from '../../engine/scheduler';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
+import { BUILD } from '../../state/build';
 import { applyTheme, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -200,6 +201,19 @@ export const systemTab: TabDef = {
     );
     lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
+    // A newer version shipped than the one on screen? (Compares with the latest version on GitHub.)
+    let newer = false;
+    const checkVersion = async () => {
+      if (!/^[0-9a-f]{40}$/.test(BUILD.sha)) return;
+      try {
+        const c = await brain.changes();
+        const latest = c.versions[0]?.sha;
+        newer = !!latest && latest !== BUILD.sha && Date.parse(c.versions[0]!.date) > Date.parse(BUILD.at || '0');
+        paintStatus();
+      } catch {
+        /* no GitHub connection: nothing to compare with */
+      }
+    };
     const paintStatus = () => {
       clear(sp.body);
       sp.body.append(
@@ -209,7 +223,9 @@ export const systemTab: TabDef = {
         row('PREVIEWS', status?.previews ?? 'unknown'),
         row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
         row('THIS DEVICE', ownerKey.get() ? 'paired with owner key' : 'signed in via Cloudflare Access'),
+        row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`, newer ? 'NEWER SHIPPED' : null, { tone: newer ? 'bad' : undefined }),
       );
+      if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
       if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
     };
 
@@ -229,6 +245,7 @@ export const systemTab: TabDef = {
     return {
       enter() {
         void load();
+        void checkVersion();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };

@@ -228,17 +228,20 @@ The emit name must be in CLIENT_COMMANDS or TypeScript rejects it.`,
   {
     id: 'widgets',
     title: 'Instant widgets: when and how',
-    tags: ['widget', 'widgets', 'html', 'quick', 'mini app', 'calculator', 'timer', 'tool', 'instant'],
-    body: `Use create_widget when the owner wants a small standalone tool NOW (timer, calculator, converter, checklist, mini dashboard). It installs in seconds with no build.
+    tags: ['widget', 'widgets', 'html', 'quick', 'mini app', 'calculator', 'timer', 'tool', 'instant', 'white screen', 'blank'],
+    body: `Use create_widget when the owner wants something standalone NOW: a game, timer, calculator, converter, checklist, tracker, mini dashboard. It installs in seconds with no build and costs no checks.
 
-How widgets run: one HTML document inside a sandboxed iframe (allow-scripts only, opaque origin).
-- Inline <style> and <script> only; no external scripts unless you really need a library (allowed, but prefer plain JS).
-- localStorage/sessionStorage/cookies THROW in the sandbox. Wrap any use in try/catch, or keep state in variables (it resets on reload).
+Build games and apps on GK, the widget kit: study "game kit" (games — includes a complete working game to copy), "game design", "game recipes", and "app widgets" (DOM tools).
+
+How widgets run: one HTML document inside a sandboxed iframe (scripts only, opaque origin).
+- Inline <style>/<script> plus <script src="/widget-kit.js"></script>. Avoid other external scripts.
+- Storage, alert/confirm/prompt: the sandbox blocks the real ones; Ghosty swaps in safe versions (storage lives in memory until the widget is closed; alerts show as a banner). Use GK.save/GK.load.
+- Script errors are shown as a red banner at the bottom of the widget — if the owner reports one, read it and fix the code.
 - fetch() works only with APIs that send Access-Control-Allow-Origin: * (the origin is "null").
-- No forms submission, no popups, no alert/confirm/prompt (blocked) — build the UI in the page.
-- Look: background #02070d, text #e6f6ff, accent #5ce1ff, font system-ui; responsive (it is shown on phones too).
-- Under 100 KB. Complete document, nothing left out.
-- Test it in your head: click every button once; what happens with empty input?`,
+- No form submission or popups — build the UI in the page.
+- Look: background #02070d, text #e6f6ff, accent #5ce1ff (GK.theme), responsive (phones too), touch controls for games.
+- Under 100 KB, complete document, nothing left out. Replace a widget by calling create_widget again with the same name.
+- Mentally run it before installing: page load, first click/tap, empty input, game over and restart.`,
   },
   {
     id: 'kernel',

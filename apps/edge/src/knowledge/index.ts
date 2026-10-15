@@ -3,17 +3,21 @@
  * GitHub requests) plus lessons Ghosty learns from its own mistakes (kept in its private
  * storage and shown in every prompt, so it doesn't repeat them).
  *
- * Add playbooks to craft.ts (general engineering), typescript.ts or ghosty.ts (this
- * codebase). Lessons are added at runtime with the learn_lesson tool.
+ * Add playbooks to craft.ts (engineering method), coding.ts (languages, web platform,
+ * algorithms), games.ts (games and mini-apps on the widget kit), typescript.ts or ghosty.ts
+ * (this codebase). Lessons are added at runtime with the learn_lesson tool.
  */
+import { CODING } from './coding';
 import { CRAFT } from './craft';
+import { GAMES } from './games';
 import { GHOSTY } from './ghosty';
 import { TYPESCRIPT } from './typescript';
 import type { Lesson, Playbook } from './types';
 
 export type { Lesson, Playbook } from './types';
+export { NEON_DODGE } from './games';
 
-export const PLAYBOOKS: Playbook[] = [...CRAFT, ...TYPESCRIPT, ...GHOSTY];
+export const PLAYBOOKS: Playbook[] = [...CRAFT, ...GAMES, ...CODING, ...TYPESCRIPT, ...GHOSTY];
 
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9_.]+/g) ?? [];
 
