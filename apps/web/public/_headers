@@ -1,7 +1,7 @@
 # Cloudflare response headers for the interface. The main app gets a strict Content Security Policy:
 # scripts only from this site, network only to this site (/api), no framing by others.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; frame-src 'self'; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems; worker-src 'self'; frame-src 'self'; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: microphone=(self), geolocation=(self), camera=()

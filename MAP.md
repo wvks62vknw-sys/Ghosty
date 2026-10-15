@@ -51,7 +51,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `commands/builtin.ts` | built-in commands incl. the ones the brain triggers (`open_tab`, `fly_to`, …) |
 | `shell/tabs.ts` | tab registry + `go(id)` navigation |
 | `shell/layout.ts` | top bar, dock, MORE launcher |
-| `engine/` | WebGL2 engine: `gfx.ts` (renderer, LineSet, PointSet), `scheduler.ts` (the one frame loop: use `onFrame`), `globe.ts` (God's Eye), `camera.ts`, `geo.ts`, `world.ts`, `backdrop.ts`, `layers/{air,sats,hazards,route}.ts` |
+| `engine/` | WebGL2 engine: `gfx.ts` (renderer, LineSet, PointSet), `scheduler.ts` (the one frame loop: use `onFrame`), `globe.ts` (God's Eye), `camera.ts`, `geo.ts`, `world.ts`, `backdrop.ts`, `layers/{air,sats,hazards,route,imagery,buildings}.ts` (imagery = satellite tiles below ~3,000 km; buildings = OSM 3D below ~4.5 km) |
 | `../styles.css` | all styles. Colours: `var(--c)` primary, `var(--a)` accent, `var(--r)` alert; `rgba(var(--cr), .2)` for tints |
 | `../public/` | static files (`data/world.json`, `_headers` security policy, widget host, `sw.js` service worker, `manifest.webmanifest`, app icons) |
 

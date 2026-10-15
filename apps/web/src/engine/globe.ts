@@ -6,6 +6,8 @@
 import { GeoCam, type CamState } from './camera';
 import { GEO, R_EARTH } from './geo';
 import { gfx, LineSet, PointSet, type DrawOpts } from './gfx';
+import { buildings } from './layers/buildings';
+import { imagery } from './layers/imagery';
 import { M4, RAD, V3, rng, type Mat4, type Vec3 } from './math';
 import { buildTextures, type TextureSet } from './textures';
 import { World } from './world';
@@ -83,6 +85,8 @@ export interface LayerVisibility {
   events: boolean;
   orbits: boolean;
   route: boolean;
+  imagery: boolean;
+  buildings: boolean;
 }
 
 export interface Pickable {
@@ -104,7 +108,7 @@ export class GlobeScene {
   cam = new GeoCam();
   mode = 0;
   sunLock = false;
-  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true };
+  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true, imagery: true, buildings: true };
   layers: GlobeLayer[] = [];
   sunDir: Vec3 = [1, 0, 0];
   private ready = false;
@@ -325,8 +329,12 @@ export class GlobeScene {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(this.sphereVao);
     gl.drawElements(gl.TRIANGLES, this.sphereCount, gl.UNSIGNED_INT, 0);
+    gl.bindVertexArray(null);
+    // Real satellite imagery fades in below ~3,000 km.
+    imagery.draw(cs, c.lat, c.lon, c.range, c.fov, sun, this.vis.imagery ? Math.max(0, Math.min(1, (3200 - cs.alt) / 2200)) : 0);
 
     g.cam(cs.V, cs.P, cs.near, cs.pos);
+    buildings.draw(cs, c.lat, c.lon, this.vis.buildings && cs.alt < 4.5, !!c.fly);
     g.additive();
     const rel = M4.trans(-cs.pos[0], -cs.pos[1], -cs.pos[2]);
     const oc: DrawOpts = { occ: 1, R: R_EARTH };

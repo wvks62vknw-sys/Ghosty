@@ -18,7 +18,7 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   sats: 'sats', satellites: 'sats',
   quakes: 'quakes', earthquakes: 'quakes',
   events: 'events', hazards: 'events',
-  borders: 'borders', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
+  borders: 'borders', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
 async function locate(place: string): Promise<{ lat: number; lon: number; name: string } | null> {

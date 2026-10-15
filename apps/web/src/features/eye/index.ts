@@ -19,6 +19,8 @@ import type { TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
+import { imagery } from '../../engine/layers/imagery';
+import { buildings } from '../../engine/layers/buildings';
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -94,6 +96,8 @@ export const eyeTab: TabDef = {
     const lay = panel('LAYERS', { grow: false });
     lay.el.classList.add('eyelay');
     const LAYERS: [keyof LayerVisibility, string, () => string][] = [
+      ['imagery', 'SATELLITE MAP', () => (imagery.credit ? `Z${imagery.level}` : '')],
+      ['buildings', '3D BUILDINGS', () => (buildings.status || (buildings.count ? String(buildings.count) : ''))],
       ['air', 'AIRCRAFT', () => `${air.list.size} ${air.status}`],
       ['sats', 'SATELLITES', () => String(sats.list.length)],
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
@@ -435,7 +439,7 @@ export const eyeTab: TabDef = {
       const near = World.near(g.lat, g.lon, 2e5);
       const alt = c.cs?.alt ?? c.range;
       const mk = (n: number) => (n < 1 ? `${(n * 1000).toFixed(0)} m` : n < 100 ? `${n.toFixed(1)} km` : `${fmt.n(n)} km`);
-      readout.textContent = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}\nALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round((((c.hd % 360) + 360) % 360))}° · ${SENSOR_MODES[globe.mode]![0]}\n${air.list.size} AC · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ`;
+      readout.textContent = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}\nALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round((((c.hd % 360) + 360) % 360))}° · ${SENSOR_MODES[globe.mode]![0]}\n${air.list.size} AC · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${imagery.credit ? `\n${imagery.credit}` : ''}`;
       zLabel.textContent = mk(c.range);
       LAYERS.forEach(([k, , f], i) => {
         counts[i]!.textContent = f();

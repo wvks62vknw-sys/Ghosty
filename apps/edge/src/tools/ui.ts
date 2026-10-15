@@ -24,7 +24,7 @@ export const uiTools: Tool[] = [
     "Open the God's Eye globe and fly the camera to a place name or coordinates.",
     { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' }, range_km: { type: 'number', description: 'camera distance, default 500' } },
   ),
-  client('set_layer', 'Show or hide a globe layer: air, sats, quakes, events, borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
+  client('set_layer', 'Show or hide a globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
   client('set_theme', 'Change the interface colour theme: stark, cyan, crimson, gold, emerald, violet, ice.', { theme: { type: 'string' } }, ['theme']),
   client('set_sensor_mode', 'Change the globe sensor mode: normal, nvg, flir, crt, noir.', { mode: { type: 'string' } }, ['mode']),
   client('notify', 'Show a short notice on screen.', { text: { type: 'string' } }, ['text']),
