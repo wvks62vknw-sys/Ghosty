@@ -21,7 +21,7 @@ export const libraryTab: TabDef = {
   scene: 'backdrop',
   blurb: 'ask the offline brain · add books & PDFs',
   mount(root) {
-    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
+    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF' });
     let docs: LibraryDoc[] = [];
 
     // ---- add knowledge

@@ -19,7 +19,7 @@ export const systemTab: TabDef = {
   scene: 'backdrop',
   blurb: 'AI keys · models · theme · voice',
   mount(root) {
-    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'LOOK & STATUS', leftLabel: 'KEYS & MODELS', stack: true });
+    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'LOOK & STATUS', leftLabel: 'KEYS & MODELS' });
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
