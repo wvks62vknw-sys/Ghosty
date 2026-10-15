@@ -66,7 +66,7 @@ export const workshopTab: TabDef = {
         for (const c of changes) {
           const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), h('small', `${CHECK_LABEL[c.checks]} · ${PREVIEW_LABEL[c.preview ?? 'none']} · ${fmt.ago(Date.parse(c.createdAt))}`)));
           const actions = h('div.row.wrap');
-          if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener')));
+          if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener')), h('small.note', 'view only — previews never ask for your password'));
           actions.append(
             button('SHIP IT', async (b) => {
               if (c.checks === 'failed' && !confirm(`The code checks FAILED for #${c.number}: shipping it could break Ghosty.\n\nAsk Ghosty to "fix change #${c.number}" instead.\n\nShip anyway?`)) return;

@@ -23,11 +23,14 @@ That's all the dashboard work. Every push to `main` redeploys. Settings live in
 | `OWNER_EMAIL` | Your email (used by the optional Cloudflare login, step 5). |
 | `GITHUB_REPO` | `owner/name` of this repository, for self-editing. |
 
-No secrets are needed. The brain makes its own encryption key for the API keys you give it.
+No secrets are needed. The brain makes its own encryption key for the API keys you give it (kept in
+its private storage, which only the brain can read; set a `VAULT_KEY` secret if you want the key kept
+separately).
 To set your own instead, add a `VAULT_KEY` secret (32 random bytes, base64) **before** saving
 any keys, and never change it afterwards.
 
-**Changing the owner password:** pick a long random password, put its SHA-256 in
+**Changing the owner password:** pick a long random password (at least 30 random characters — its
+fingerprint is in the code, so a short or guessable password could be cracked), put its SHA-256 in
 `OWNER_KEY_HASH` (in a browser console:
 `[...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('YOUR-PASSWORD')))].map(b=>b.toString(16).padStart(2,'0')).join('')`),
 and push. Or add an `OWNER_KEY` secret on the Worker with the password itself (24+ characters).
@@ -57,7 +60,8 @@ scheduled tasks now reach the phone even when Ghosty is closed. **SEND TEST** ch
 3. Try: *"Add a panel to the Brief tab showing the time in Tokyo and New York."*
    Ghosty reads its code, writes the change and shows it in **Workshop**. Cloudflare builds a
    preview of each change (1–2 minutes); the link appears on the change. Previews start with an
-   empty brain (no keys or memory), so use them to look at the interface. Press **SHIP IT**
+   empty brain (no keys or memory) and no password, so use them to look at the interface only.
+   **A preview never asks for your password** — if one does, don't type it. Press **SHIP IT**
    (or say "ship it") to put the change live. **Versions → ↶** rolls back.
 
 If no preview link ever appears, turn on **Worker → Settings → Build → Builds for non-production

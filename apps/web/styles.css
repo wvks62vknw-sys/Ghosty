@@ -337,3 +337,4 @@ input[type="datetime-local"] { color-scheme: dark; }
 .nowplaying { font: 600 10px var(--m); letter-spacing: .1em; color: var(--ok); background: none; border: 1px solid rgba(82,242,181,.4); padding: 3px 8px; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .npstop { font: 600 10px var(--m); color: var(--r, #ff4d6a); background: none; border: 1px solid rgba(255,77,106,.4); padding: 3px 7px; margin-left: 4px; }
 input[type="range"] { flex: 1; accent-color: var(--c, #2ff); }
+#previewbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 90; padding: 6px 12px; background: rgba(255,178,62,.92); color: #120a00; font: 600 10px/1.4 var(--m); letter-spacing: .08em; text-align: center; }

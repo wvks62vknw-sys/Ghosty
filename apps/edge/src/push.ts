@@ -116,7 +116,7 @@ async function vapidHeader(keys: VapidKeys, endpoint: string, contact: string): 
 }
 
 /** Push services Ghosty will deliver to (subscriptions pointing anywhere else are refused). */
-const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com)$/i;
+const PUSH_HOSTS = /^(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|web\.push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)$/i;
 
 export function checkEndpoint(endpoint: string): string {
   let u: URL;

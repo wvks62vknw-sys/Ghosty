@@ -10,7 +10,10 @@
  *   discard_change                       → close a change without shipping
  *   list_versions / restore_version      → roll back (owner approval)
  */
-import { pathProblem } from '../kernel/protected';
+import { pathProblem, UNREADABLE } from '../kernel/protected';
+
+/** Deploy settings (incl. the owner password hash) are never read into the conversation. */
+const unreadable = (p: string) => UNREADABLE.test(p.replace(/^\/+/, '').replace(/\/{2,}/g, '/').replace(/(^|\/)\.\//g, '$1'));
 import { BRANCH_PREFIX, type FileEdit, type GitHub } from '../github';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
@@ -88,6 +91,7 @@ export const repoTools: Tool[] = [
     async run(a, ctx) {
       const g = await gh(ctx);
       const path = arg.str(a, 'path');
+      if (unreadable(path)) throw new Error(`${path} holds deploy settings and is not readable; MAP.md describes what it contains.`);
       const text = await g.read(path, arg.str(a, 'ref', false) || (await mainBranch(g, ctx)));
       if (text === null) throw new Error(`${path} does not exist`);
       return clip(text, 40000);
@@ -103,7 +107,7 @@ export const repoTools: Tool[] = [
       const needle = arg.str(a, 'text').toLowerCase();
       const prefix = arg.str(a, 'prefix');
       const ref = await mainBranch(g, ctx);
-      const files = (await g.tree(ref)).filter((p) => p.startsWith(prefix) && /\.(ts|tsx|js|mjs|css|html|md|json|jsonc)$/.test(p) && !p.includes('/data/')).slice(0, 30);
+      const files = (await g.tree(ref)).filter((p) => p.startsWith(prefix) && /\.(ts|tsx|js|mjs|css|html|md|json|jsonc)$/.test(p) && !p.includes('/data/') && !unreadable(p)).slice(0, 30);
       const hits: string[] = [];
       for (const f of files) {
         const t = await g.read(f, ref);

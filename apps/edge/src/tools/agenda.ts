@@ -4,6 +4,7 @@
  */
 import { addEvent, addFeed, addJob, agenda, loadFeeds, loadJobs, removeEvent, removeFeed, removeJob, type Job } from '../schedule';
 import { fmtLocal, isoLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from '../time';
+import { asData } from '../kernel/permissions';
 import { arg, type Tool, type ToolContext } from './types';
 
 export async function ownerTz(ctx: Pick<ToolContext, 'storage'>): Promise<string> {
@@ -160,9 +161,12 @@ export const agendaTools: Tool[] = [
       const { events, errors } = await agenda(ctx.storage, ctx.vault, from, from + days * 86400_000, tz);
       const lines = events.map((e) => `${e.allDay ? `${fmtLocal(e.start, tz, false)} (all day)` : fmtLocal(e.start, tz)}${e.end && !e.allDay ? `–${fmtLocal(e.end, tz).slice(-5)}` : ''} · ${e.title}${e.location ? ` @ ${e.location}` : ''}${e.source === 'mine' ? ` [id ${e.id}]` : ` [${e.source}]`}`);
       const jobs = (await loadJobs(ctx.storage)).filter((j) => j.next < from + days * 86400_000);
+      const own = lines.filter((_, i) => events[i]!.source === 'mine');
+      const fed = lines.filter((_, i) => events[i]!.source !== 'mine');
       return [
         `Agenda for ${days} day(s) from ${fmtLocal(from, tz, false)} (${tz}):`,
-        lines.length ? lines.join('\n') : 'No events.',
+        own.length ? own.join('\n') : fed.length ? '' : 'No events.',
+        fed.length ? asData('connected calendars', fed.join('\n')) : '',
         jobs.length ? `\nReminders/tasks due in that time:\n${jobs.map(describeJob).join('\n')}` : '',
         errors.length ? `\nCalendar problems: ${errors.join('; ')}` : '',
       ].join('\n');

@@ -13,6 +13,7 @@ export const ALWAYS_CONFIRM = new Set<string>([
   'restore_version', // roll Ghosty back to an earlier version
   'forget_everything',
   'schedule_task', // a standing instruction Ghosty will act on while the owner is away
+  'add_calendar_feed', // outside text that flows into every agenda answer
 ]);
 
 /**
@@ -33,6 +34,11 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'forget_everything',
   'create_widget',
   'delete_widget',
+  // Nothing a background run reads may leave instructions behind for later:
+  'remember',
+  'set_reminder',
+  'add_event',
+  'remove_event',
 ]);
 
 /** Word patterns in tool names that imply acting as the owner or spending money. */

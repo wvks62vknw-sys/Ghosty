@@ -27,12 +27,11 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GhostyAgent"] }],
   "observability": { "enabled": true },
-  // Previews (one per proposed change) get their own empty brain storage.
+  // Previews (one per proposed change) run code you have not approved yet, so they get
+  // their own empty storage and NO owner credential: they show the interface only, and
+  // never accept your password.
   "previews": {
     "vars": {
-      "OWNER_KEY_HASH": "a944f0946252df9f96bb93bedff208daebd404294a40fa18cc772a759ed08ab0",
-      "OWNER_EMAIL": "aqishussain1@gmail.com",
-      "GITHUB_REPO": "wvks62vknw-sys/Ghosty",
       "IS_PREVIEW": "1"
     },
     "durable_objects": {

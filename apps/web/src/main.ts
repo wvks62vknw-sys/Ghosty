@@ -52,6 +52,13 @@ async function connect(): Promise<void> {
     bootLog('BRAIN', 'UNREACHABLE');
     return;
   }
+  if (health.preview) {
+    // A preview of a proposed change: unreviewed code, so it must never see the password.
+    bootLog('PREVIEW', 'VIEW ONLY');
+    ui.set({ connected: false });
+    document.body.append(h('div#previewbar', 'PREVIEW OF A PROPOSED CHANGE · view only · previews never ask for your password — if this one does, do not type it'));
+    return;
+  }
   if (!health.secured) {
     bootLog('BRAIN', 'NOT SECURED');
     await pair('The brain is running but not secured yet: set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md). Until then it refuses every request.');

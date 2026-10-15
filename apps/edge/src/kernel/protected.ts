@@ -29,12 +29,22 @@ export const PROTECTED_PATHS: string[] = [
   'apps/web/bun',
   'apps/web/build.mjs',
   'apps/web/.',
-  '.npmrc',
-  'bunfig.toml',
+  'apps/edge/src/keys.ts', // handles every API key in plain text when testing it
   'apps/web/functions/', // legacy Pages gateway (unused now; kept locked)
   'apps/web/public/_headers', // Content Security Policy + widget sandbox
   '.github/', // CI checks that gate every change
 ];
+
+/**
+ * File names that are protected wherever they are: anything a package manager, build tool
+ * or deploy reads and may execute (npm walks up to a workspace root, so a root
+ * package.json counts too), plus every dotfile and dot-folder.
+ */
+const PROTECTED_NAMES =
+  /^(package\.json|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|bun\.lockb?|bunfig\.toml|wrangler\.(json|jsonc|toml)|deno\.jsonc?|\..*)$/i;
+
+/** Files Ghosty may not even read (deploy settings, including the owner password hash). */
+export const UNREADABLE = /^apps\/edge\/wrangler\.(json|jsonc|toml)$/i;
 
 /** Returns a reason string if the path is not allowed, otherwise null. */
 export function pathProblem(path: string, kernelUnlocked: boolean): string | null {
@@ -44,6 +54,7 @@ export function pathProblem(path: string, kernelUnlocked: boolean): string | nul
   }
   if (kernelUnlocked) return null;
   const p = path.toLowerCase();
+  if (segs.some((seg) => PROTECTED_NAMES.test(seg))) return `"${path}" is a build, package or hidden file, which is part of the protected kernel. Ask the owner to unlock the kernel in the Workshop tab first.`;
   for (const rule of PROTECTED_PATHS.map((r) => r.toLowerCase())) {
     const dir = rule.endsWith('/') ? rule.slice(0, -1) : rule;
     const hit =

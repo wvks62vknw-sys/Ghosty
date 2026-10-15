@@ -39,6 +39,11 @@ const env = {
   OWNER_EMAIL: 'owner@example.com',
   MOCK_LLM: '1',
 };
+// PREVIEW=1 behaves like a Worker Preview: no owner credential at all.
+if (process.env.PREVIEW === '1') {
+  delete env.OWNER_KEY_HASH;
+  env.IS_PREVIEW = '1';
+}
 let agent;
 env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new mod.GhostyAgent(state, env)).fetch(r) }) };
 

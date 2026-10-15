@@ -165,7 +165,8 @@ test('kernel files are protected unless unlocked', async () => {
   assert.equal(pathProblem('apps/edge/src/kernel/auth.ts', true), null);
   for (const p of ['apps/edge/src/index.ts', 'apps/edge/src/agent.ts', 'apps/edge/wrangler.json', 'apps/edge/wrangler.toml', 'apps/edge/package.json', 'apps/web/public/_headers', '.github/workflows/check.yml',
     'APPS/EDGE/SRC/KERNEL/auth.ts', 'apps/edge/src/kernel', 'apps/edge', 'apps', '.github', 'apps/web/functions', 'apps/edge/./src/kernel/auth.ts', 'apps//edge/src/kernel/auth.ts', 'apps/edge/src/tools/index.ts',
-    'apps/web/build.mjs', 'apps/web/package.json', 'apps/web/.npmrc', 'apps/edge/.npmrc', 'apps/edge/bunfig.toml', 'apps/edge/bun.lock', 'apps/web/package-lock.json', '.npmrc']) {
+    'apps/web/build.mjs', 'apps/web/package.json', 'apps/web/.npmrc', 'apps/edge/.npmrc', 'apps/edge/bunfig.toml', 'apps/edge/bun.lock', 'apps/web/package-lock.json', '.npmrc',
+    'package.json', 'package-lock.json', 'packages/shared/package.json', 'apps/web/src/.npmrc', 'apps/web/src/x/.env', 'wrangler.toml', 'apps/web/wrangler.jsonc', 'pnpm-workspace.yaml', 'apps/edge/src/keys.ts']) {
     assert.ok(pathProblem(p, false), `${p} should be protected`);
   }
   assert.equal(pathProblem('apps/edge/src/tools/weather_extra.ts', false), null);

@@ -45,7 +45,7 @@ self.addEventListener('push', (e) => {
       tag: msg.tag,
       icon: '/icon-192.png',
       badge: '/badge-96.png',
-      data: { url: typeof msg.url === 'string' && msg.url.startsWith('/') ? msg.url : '/#agenda' },
+      data: { url: typeof msg.url === 'string' && /^\/(?!\/)/.test(msg.url) && !msg.url.includes('\\') ? msg.url : '/#agenda' },
       renotify: !!msg.tag,
     }),
   );
@@ -53,7 +53,9 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const target = new URL(e.notification.data?.url || '/#agenda', self.location.origin).href;
+  let target = new URL(e.notification.data?.url || '/#agenda', self.location.origin);
+  if (target.origin !== self.location.origin) target = new URL('/#agenda', self.location.origin);
+  target = target.href;
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {

@@ -274,7 +274,7 @@ async function feedSeries(storage: DurableObjectStorage, vault: Vault, f: Feed, 
     if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('that link does not return a calendar (.ics)');
     // Keep repeating series and anything from two weeks ago to a year ahead.
     const now = Date.now();
-    let series = parseIcs(text, tz).filter((x) => x.rule || (x.start + x.dur > now - 14 * 86400_000 && x.start < now + 400 * 86400_000));
+    let series = parseIcs(text, tz).filter((x) => (x.rule ? ruleEnd(x) > now - 14 * 86400_000 : x.start + x.dur > now - 14 * 86400_000 && x.start < now + 400 * 86400_000));
     series.sort((a, b) => Math.abs(a.start - now) - Math.abs(b.start - now));
     // Durable Object values are limited to 128 KB.
     while (series.length && JSON.stringify(series).length > 110_000) series = series.slice(0, Math.floor(series.length * 0.8));
@@ -282,7 +282,10 @@ async function feedSeries(storage: DurableObjectStorage, vault: Vault, f: Feed, 
     await storage.put(key, out);
     return out;
   } catch (e) {
-    return { at: Date.now(), series: cached?.series ?? [], error: String((e as Error)?.message ?? e).slice(0, 160) };
+    // Cache the failure too, so a broken or hostile feed isn't re-fetched on every request.
+    const out: FeedCache = { at: Date.now(), series: cached?.series ?? [], error: String((e as Error)?.message ?? e).slice(0, 160) };
+    await storage.put(key, out).catch(() => undefined);
+    return out;
   }
 }
 
@@ -391,14 +394,14 @@ function expandRule(start: number, rule: string, tz: string, from: number, to: n
   }
   const freq = r.FREQ;
   const interval = Math.max(1, parseInt(r.INTERVAL ?? '1', 10) || 1);
-  const count = r.COUNT ? parseInt(r.COUNT, 10) : Infinity;
+  const count = r.COUNT ? Math.min(2000, Math.max(0, parseInt(r.COUNT, 10) || 0)) : Infinity;
   const until = r.UNTIL ? icsTime(r.UNTIL, {}, tz)?.t ?? Infinity : Infinity;
   const z0 = zoned(start, tz);
-  const byday = (r.BYDAY ?? '').split(',').filter(Boolean).map((d) => {
+  const byday = [...new Set((r.BYDAY ?? '').split(',').filter(Boolean))].slice(0, 14).map((d) => {
     const mm = d.match(/^([+-]?\d+)?([A-Z]{2})$/);
     return mm ? { n: mm[1] ? parseInt(mm[1], 10) : 0, wd: BYDAY[mm[2]!] ?? 0 } : null;
   }).filter((x): x is { n: number; wd: number } => !!x);
-  const bymonthday = (r.BYMONTHDAY ?? '').split(',').filter(Boolean).map((x) => parseInt(x, 10));
+  const bymonthday = [...new Set((r.BYMONTHDAY ?? '').split(',').filter(Boolean).map((x) => parseInt(x, 10)))].filter((x) => x >= -31 && x <= 31 && x !== 0).slice(0, 31);
   const out: number[] = [];
   let n = 0;
   const emit = (t: number): boolean => {
@@ -409,11 +412,16 @@ function expandRule(start: number, rule: string, tz: string, from: number, to: n
     return t < to;
   };
   const at = (y: number, m: number, d: number) => fromZoned(y, m, d, z0.h, z0.mi, tz, z0.s);
-  for (let i = 0; i < 3000; i++) {
+  // Without COUNT, jump close to the window instead of walking from a start date that may
+  // be decades ago. Period estimates err long (31-day months), so we never jump too far.
+  const DAY = 86400_000;
+  const per = ({ DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 } as Record<string, number>)[freq ?? ''];
+  const i0 = count === Infinity && per && from > start ? Math.max(0, Math.floor((from - start) / (per * interval * DAY)) - 2) : 0;
+  for (let i = i0; i < i0 + (count === Infinity ? 400 : 2000); i++) {
     if (freq === 'DAILY') {
       if (!emit(at(z0.y, z0.m, z0.d + i * interval))) break;
     } else if (freq === 'WEEKLY') {
-      const days = (byday.length ? byday.map((b) => b.wd) : [z0.wd]).sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+      const days = [...new Set(byday.length ? byday.map((b) => b.wd) : [z0.wd])].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
       const weekStart = z0.d - ((z0.wd - 1 + 7) % 7) + i * 7 * interval; // Monday of this week
       let more = true;
       for (const wd of days) {
@@ -442,7 +450,7 @@ function expandRule(start: number, rule: string, tz: string, from: number, to: n
         for (const d of bymonthday) days.push(d < 0 ? dim + d + 1 : d);
       } else days.push(z0.d);
       let more = true;
-      for (const d of days.filter((x) => x >= 1 && x <= dim).sort((a, b) => a - b)) {
+      for (const d of [...new Set(days)].filter((x) => x >= 1 && x <= dim).sort((a, b) => a - b)) {
         if (!emit(at(y, mo, d))) {
           more = false;
           break;
@@ -475,6 +483,7 @@ export function parseIcs(ics: string, tz: string): Series[] {
   const events: Prop[][] = [];
   let cur: Prop[] | null = null;
   for (const line of lines) {
+    if (events.length >= 6000) break; // enough for any personal calendar
     if (/^BEGIN:VEVENT/i.test(line)) cur = [];
     else if (/^END:VEVENT/i.test(line)) {
       if (cur) events.push(cur);
@@ -490,7 +499,12 @@ export function parseIcs(ics: string, tz: string): Series[] {
     const uid = ev.find((p) => p.name === 'UID')?.value ?? '';
     if (rid) {
       const t = icsTime(rid.value, rid.params, tz);
-      if (t) overrides.set(uid, [...(overrides.get(uid) ?? []), t.t]);
+      if (t) {
+        const list = overrides.get(uid);
+        if (list) {
+          if (list.length < 500) list.push(t.t);
+        } else overrides.set(uid, [t.t]);
+      }
     }
   }
   const out: Series[] = [];
@@ -515,7 +529,7 @@ export function parseIcs(ics: string, tz: string): Series[] {
       s.zone = st.allDay ? tz : ds.params.TZID && safeTz(ds.params.TZID) !== 'UTC' ? ds.params.TZID : windowsZone(ds.params.TZID) ?? (/Z$/.test(ds.value) ? 'UTC' : tz);
       const ex = [...(overrides.get(uid) ?? [])];
       for (const p of ev.filter((x) => x.name === 'EXDATE')) {
-        for (const v of p.value.split(',')) {
+        for (const v of p.value.split(',').slice(0, 500)) {
           const t = icsTime(v, p.params, tz);
           if (t) ex.push(t.t);
         }
@@ -527,9 +541,22 @@ export function parseIcs(ics: string, tz: string): Series[] {
   return out;
 }
 
+/** Latest time a repeating series can still produce an event (Infinity if open-ended). */
+export function ruleEnd(s: Series): number {
+  const r = Object.fromEntries((s.rule ?? '').split(';').map((p) => p.split('=') as [string, string]).map(([k, v]) => [k?.toUpperCase(), v]));
+  let end = Infinity;
+  if (r.UNTIL) end = Math.min(end, icsTime(r.UNTIL, {}, s.zone ?? 'UTC')?.t ?? Infinity);
+  if (r.COUNT) {
+    const per = ({ DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 } as Record<string, number>)[r.FREQ ?? ''] ?? 366;
+    end = Math.min(end, s.start + (parseInt(r.COUNT, 10) || 0) * per * Math.max(1, parseInt(r.INTERVAL ?? '1', 10) || 1) * 86400_000 + s.dur);
+  }
+  return end;
+}
+
 export function expandSeries(series: Series[], from: number, to: number, source: string): AgendaEvent[] {
   const out: AgendaEvent[] = [];
   for (const s of series) {
+    if (out.length >= 800) break;
     const starts = s.rule ? expandRule(s.start, s.rule, s.zone ?? 'UTC', from, to, new Set(s.ex ?? []), s.dur) : s.start + Math.max(s.dur, 1) > from && s.start < to ? [s.start] : [];
     for (const t of starts) {
       const e: AgendaEvent = { id: `${source}:${s.uid}:${t}`.slice(0, 200), title: s.title, start: t, source };
