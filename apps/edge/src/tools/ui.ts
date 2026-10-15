@@ -24,7 +24,7 @@ export const uiTools: Tool[] = [
     "Open the God's Eye globe and fly the camera to a place name or coordinates.",
     { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' }, range_km: { type: 'number', description: 'camera distance, default 500' } },
   ),
-  client('set_layer', 'Show or hide a globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, cams (live public CCTV), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
+  client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, cams (live public CCTV), ships (AIS vessels), radar (live rain radar), alerts (US weather warnings), disasters (GDACS cyclones/floods/volcanoes/fires), aurora, dispatch (Seattle 911 calls), buoys (ocean waves/wind), cables (undersea internet cables), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
   client(
     'show_cameras',
     "Open God's Eye on live public traffic/road cameras near a place (London, New York City, California, Finland have them) and show the nearest camera's live picture. Use when the owner wants to see a place live, check traffic or the weather on the road.",

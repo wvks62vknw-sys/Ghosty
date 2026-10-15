@@ -119,6 +119,19 @@ export function keyDefs(repo?: string): KeyDef[] {
       steps: ['Open the link and sign in.', 'Choose the free Experiment plan if asked.', 'Press "Create new key", copy it, paste it below and press SAVE.'],
     },
     {
+      name: 'aisstream',
+      label: 'AISstream (ships)',
+      hint: 'a long letters-and-numbers key',
+      link: 'https://aisstream.io/apikeys',
+      need: 'optional',
+      why: "Live ships anywhere in the world on the God's Eye globe (free). Without it you still see ships around the Baltic.",
+      steps: [
+        'Open the link and press "Sign in with GitHub" (use your normal GitHub account).',
+        'Press "Create New API Key", then copy the key it shows.',
+        'Paste it below and press SAVE. Ships appear on the globe within a minute when you zoom in on any coast.',
+      ],
+    },
+    {
       name: 'brave',
       label: 'Brave Search',
       hint: 'starts with BSA…',

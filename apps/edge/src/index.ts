@@ -9,13 +9,43 @@ export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
 // Live public cameras (God's Eye CCTV): camera lists and images.
-const CAMERA_HOSTS = ['api.tfl.gov.uk', 'webcams.nyctmc.org', 'cwwp2.dot.ca.gov', 'tie.digitraffic.fi', 'weathercam.digitraffic.fi'];
+const CAMERA_HOSTS = [
+  'api.tfl.gov.uk',
+  'webcams.nyctmc.org',
+  'cwwp2.dot.ca.gov',
+  'tie.digitraffic.fi',
+  'weathercam.digitraffic.fi',
+  '511on.ca',
+  'www.drivebc.ca',
+  'data.livetraffic.com',
+  'webcams.transport.nsw.gov.au',
+  'data.calgary.ca',
+  'trafficcam.calgary.ca',
+];
+// Intelligence feeds (God's Eye): ships, radar, weather alerts, disasters, buoys, aurora, cables, 911.
+const INTEL_HOSTS = [
+  'meri.digitraffic.fi',
+  'api.weather.gov',
+  'www.gdacs.org',
+  'www.ndbc.noaa.gov',
+  'www.submarinecablemap.com',
+  'data.seattle.gov',
+  'api.rainviewer.com',
+  'tilecache.rainviewer.com',
+];
+/** Publishers that ask clients to identify themselves / accept compression. */
+const FEED_HEADERS: Record<string, Record<string, string>> = {
+  'meri.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
+  'tie.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
+  'api.weather.gov': { Accept: 'application/geo+json' },
+};
 /** Hosts shared by many sites: allowed only under these paths. */
 const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];
 const allowedFeed = (u: URL) => FEED_HOSTS.has(u.hostname) || FEED_PREFIXES.some((p) => `${u.hostname}${u.pathname}`.startsWith(p));
 
 const FEED_HOSTS = new Set([
   ...CAMERA_HOSTS,
+  ...INTEL_HOSTS,
   'api.adsb.lol',
   'api.airplanes.live',
   'opensky-network.org',
@@ -54,7 +84,7 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
   const hit = await cache.match(key);
   if (hit) return hit;
   const r = await fetch(t.toString(), {
-    headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: req.headers.get('accept') ?? '*/*' },
+    headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: req.headers.get('accept') ?? '*/*', ...(FEED_HEADERS[t.hostname] ?? {}) },
   });
   // Redirects must stay on allowed hosts too.
   if (r.url && !allowedFeed(new URL(r.url))) return json({ error: 'redirected to a host that is not allowed' }, 403);

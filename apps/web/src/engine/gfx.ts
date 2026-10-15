@@ -349,14 +349,14 @@ void main(){if(uOcc>.5&&hidden(aA)&&hidden(aB)){gl_Position=vec4(2.,2.,2.,1.);re
   }
 
   private makePoints(): void {
-    // Point kinds (aK): 0 glow dot, 1 ring, 2 diamond, 3 aircraft (rotated to heading), 4 satellite cross.
+    // Point kinds (aK): 0 glow dot, 1 ring, 2 diamond, 3 aircraft (rotated to heading), 4 satellite cross, 5 ship (rotated to heading).
     this.mk(
       'pt',
       `in vec2 aQ;in vec3 aP;in vec4 aC;in float aS;in float aK;in float aR;
 uniform mat4 uMV,uP;uniform vec2 uRes;uniform float uPx,uOcc,uNear,uR,uSizeMul;uniform vec3 uCam;out vec4 vC;out vec2 vU;out float vK;
 void main(){if(uOcc>.5){vec3 d=aP-uCam;float L=length(d);vec3 n=d/L;float t=clamp(-dot(uCam,n),0.,L);if(length(uCam+n*t)<uR*.9985){gl_Position=vec4(2.,2.,2.,1.);return;}}
  vec4 v=uMV*vec4(aP,1.);if(v.z>-uNear){gl_Position=vec4(2.,2.,2.,1.);return;}vec4 c=uP*v;float rot=0.;
- if(aK>=3.&&aK<3.5){vec3 nu=normalize(aP);vec3 east=normalize(cross(vec3(0.,0.,1.),nu));vec3 north=cross(nu,east);vec3 dir=east*sin(aR)+north*cos(aR);vec4 v2=uMV*vec4(aP+dir*50.,1.);
+ if((aK>=3.&&aK<3.5)||(aK>=5.&&aK<5.5)){vec3 nu=normalize(aP);vec3 east=normalize(cross(vec3(0.,0.,1.),nu));vec3 north=cross(nu,east);vec3 dir=east*sin(aR)+north*cos(aR);vec4 v2=uMV*vec4(aP+dir*50.,1.);
   if(v2.z<-uNear){vec4 c2=uP*v2;vec2 s1=c.xy/c.w*uRes,s2=c2.xy/c2.w*uRes;vec2 dd=s2-s1;rot=atan(dd.x,dd.y);}}
  float sz=aS*uPx*uSizeMul;float cr=cos(rot),sr=sin(rot);vec2 q=aQ*sz*.5;vec2 qq=vec2(q.x*cr+q.y*sr,-q.x*sr+q.y*cr);c.xy+=qq/uRes*2.*c.w;gl_Position=c;vC=aC;vU=aQ;vK=aK;}`,
       `in vec4 vC;in vec2 vU;in float vK;out vec4 o;
@@ -365,7 +365,8 @@ void main(){float r=length(vU);float a;vec3 col=vC.rgb;
  else if(vK<1.5){a=smoothstep(.12,0.,abs(r-.78))*step(r,1.);}
  else if(vK<2.5){float d=abs(vU.x)+abs(vU.y);a=(smoothstep(.1,0.,abs(d-.7))+smoothstep(.34,0.,d)*.6)*step(d,1.);}
  else if(vK<3.5){vec2 p=vU*1.25;float body=step(abs(p.x),.2)*step(abs(p.y),.9);float wing=smoothstep(.1,0.,abs(p.y+.1+abs(p.x)*.55)-.12)*step(abs(p.x),.82);float tail=smoothstep(.1,0.,abs(p.y+.78+abs(p.x)*.9)-.08)*step(abs(p.x),.34);a=clamp(max(max(body,wing),tail),0.,1.);}
- else{float d=abs(vU.x)+abs(vU.y);a=smoothstep(.12,0.,d-.75)*.9+(1.-smoothstep(0.,.5,r))*.4;}
+ else if(vK<4.5){float d=abs(vU.x)+abs(vU.y);a=smoothstep(.12,0.,d-.75)*.9+(1.-smoothstep(0.,.5,r))*.4;}
+ else{vec2 p=vU*1.15;float w=.36*clamp((.95-p.y)/.6,0.,1.);float hull=smoothstep(.08,0.,abs(p.x)-w)*step(-.85,p.y)*step(p.y,.95);float br=smoothstep(.06,0.,abs(p.x)-.14)*step(-.55,p.y)*step(p.y,-.25);a=clamp(hull-br*.55,0.,1.);}
  if(a<.01)discard;o=vec4(col*vC.a*a,vC.a*a);}`,
       { aQ: 0, aP: 1, aC: 2, aS: 3, aK: 4, aR: 5 },
     );
@@ -489,7 +490,7 @@ export class PointSet {
     this.dirty = true;
     return this;
   }
-  /** kind: 0 glow dot, 1 ring, 2 diamond, 3 aircraft (rot = heading in radians), 4 satellite. */
+  /** kind: 0 glow dot, 1 ring, 2 diamond, 3 aircraft (rot = heading in radians), 4 satellite, 5 ship (rot = heading). */
   add(p: ArrayLike<number>, c: ArrayLike<number>, size = 6, kind = 0, rot = 0): this {
     if (this.n >= this.cap) {
       const nd = new Float32Array(this.cap * 2 * 10);
