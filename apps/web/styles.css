@@ -331,3 +331,9 @@ ol.steps li { margin: 2px 0; }
 #dock button[data-badge]:not([data-badge=""])::after { content: attr(data-badge); position: absolute; top: 2px; right: 6px; min-width: 15px; height: 15px; border-radius: 8px; background: var(--r, #ff4d6a); color: #fff; font: 600 9px/15px var(--m); text-align: center; padding: 0 3px; }
 input[type="datetime-local"] { color-scheme: dark; }
 .pn.feeds > .bd { max-height: 34vh; }
+
+/* radio */
+.chips button { font-size: 9px; padding: 4px 8px; }
+.nowplaying { font: 600 10px var(--m); letter-spacing: .1em; color: var(--ok); background: none; border: 1px solid rgba(82,242,181,.4); padding: 3px 8px; max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.npstop { font: 600 10px var(--m); color: var(--r, #ff4d6a); background: none; border: 1px solid rgba(255,77,106,.4); padding: 3px 7px; margin-left: 4px; }
+input[type="range"] { flex: 1; accent-color: var(--c, #2ff); }

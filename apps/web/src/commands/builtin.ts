@@ -3,6 +3,8 @@
  * are also what Ghosty's brain calls to act on screen.
  */
 import { fetchJson } from '../api/feed';
+import { playStation, stopAudio } from '../assistant/media';
+import { routeLayer, type RouteInfo } from '../engine/layers/route';
 import { globe, SENSOR_MODES, type LayerVisibility } from '../engine/globe';
 import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
@@ -80,6 +82,43 @@ export function registerBuiltins(): void {
       },
     },
     { id: 'notify', title: 'Notify', hidden: true, run: (a) => toast(String(a?.text ?? '')) },
+    {
+      id: 'show_route',
+      title: 'Show route',
+      hidden: true,
+      run: (a) => {
+        const r = a as unknown as RouteInfo;
+        const path = Array.isArray(r?.path) ? r.path.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1])).slice(0, 2000) : [];
+        if (path.length < 2) return;
+        go('eye');
+        if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
+        routeLayer.set({ path: path as [number, number][], from: String(r.from ?? ''), to: String(r.to ?? ''), mode: String(r.mode ?? 'driving'), distance_m: Number(r.distance_m) || 0, duration_s: Number(r.duration_s) || 0 });
+        globe.vis = { ...globe.vis, route: true };
+        // Frame the whole route: centre between the ends, distance from its length.
+        let la = 0;
+        let lo = 0;
+        for (const [y, x] of path) {
+          la += y;
+          lo += x;
+        }
+        const km = Math.max(...path.map(([y, x]) => Math.hypot(y - path[0]![0], (x - path[0]![1]) * Math.cos((y * Math.PI) / 180)) * 111));
+        globe.cam.flyTo({ lat: la / path.length, lon: lo / path.length, range: Math.max(2.5, Math.min(9000, km * 2.4)), tilt: km < 60 ? 35 : 0 });
+      },
+    },
+    { id: 'clear_route', title: 'Clear route from globe', group: 'EYE', run: () => routeLayer.set(null) },
+    {
+      id: 'play_radio',
+      title: 'Play radio',
+      hidden: true,
+      run: (a) => {
+        const url = String(a?.url ?? '');
+        if (!/^https:\/\//i.test(url)) return;
+        void playStation({ name: String(a?.name ?? 'Radio').slice(0, 80), url, info: a?.info ? String(a.info).slice(0, 120) : undefined }).then((ok) => {
+          if (!ok) toast('Tap anywhere, then say "play" again — the browser blocked the audio, or the stream is down.', 'warn');
+        });
+      },
+    },
+    { id: 'stop_audio', title: 'Stop radio', group: 'MEDIA', run: () => stopAudio() },
     { id: 'reload_interface', title: 'Reload interface', group: 'SYSTEM', run: () => location.reload() },
     { id: 'fullscreen', title: 'Toggle fullscreen', group: 'SYSTEM', keys: 'f', run: () => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
     {

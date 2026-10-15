@@ -1,6 +1,7 @@
 /** The frame around every tab: top bar, stage, dock (and MORE launcher on phones). */
 import { togglePalette } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
+import { player, stopAudio } from '../assistant/media';
 import { ui } from '../state/app';
 import { go, tabs } from './tabs';
 
@@ -11,7 +12,15 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const dot = h('i.conn');
   const clock = h('span.clock');
   const status = h('span.tstatus');
-  const top = h('header#top', h('b.logo', { onclick: () => go('core'), title: 'Core' }, icon(LOGO), 'GHOSTY'), status, h('span.sp'), h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
+  const np = h('button.nowplaying', { type: 'button', title: 'Radio — tap to open, ■ to stop', onclick: () => go('radio') });
+  np.hidden = true;
+  const npStop = h('button.npstop', { type: 'button', title: 'Stop radio', onclick: () => stopAudio() }, '■');
+  npStop.hidden = true;
+  player.subscribe((p) => {
+    np.hidden = npStop.hidden = !p.now;
+    np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'TUNING' : p.state === 'error' ? 'NO SIGNAL' : p.now.name}` : '';
+  });
+  const top = h('header#top', h('b.logo', { onclick: () => go('core'), title: 'Core' }, icon(LOGO), 'GHOSTY'), status, h('span.sp'), np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const more = h('div#more', { role: 'dialog', 'aria-label': 'More tabs' });

@@ -23,6 +23,9 @@ export const CLIENT_COMMANDS = [
   'set_sensor_mode',
   'notify',
   'reload_interface',
+  'show_route',
+  'play_radio',
+  'stop_audio',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

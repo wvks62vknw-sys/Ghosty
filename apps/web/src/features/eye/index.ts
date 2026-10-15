@@ -18,12 +18,14 @@ import { World, type City } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
+import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 
 let layersInstalled = false;
 function installLayers(): void {
   if (layersInstalled) return;
   layersInstalled = true;
   sats.init();
+  if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
   globe.layers.push(quakeLayer, eventLayer, sats, air);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
@@ -45,6 +47,10 @@ function describe(sel: Pickable): string {
       return `natural event: ${(r as unknown as NaturalEvent).title}`;
     case 'launch':
       return `rocket launch ${(r as unknown as Launch).name} from ${(r as unknown as Launch).pad}`;
+    case 'route': {
+      const rr = (r as { route: RouteInfo }).route;
+      return `the route from ${rr.from} to ${rr.to} (${rr.mode}, ${(rr.distance_m / 1000).toFixed(1)} km)`;
+    }
     case 'city':
       return `the city of ${(r as unknown as City).name}, ${(r as unknown as City).country}`;
     default:
@@ -179,6 +185,18 @@ export const eyeTab: TabDef = {
         R('PROVIDER', l.provider);
         R('PAD', l.pad);
         R('T-', `${Math.max(0, Math.round((l.net - Date.now()) / 36e5))} h`);
+      } else if (s.kind === 'route') {
+        const rr = (s.ref as { route: RouteInfo }).route;
+        info.title.textContent = 'ROUTE';
+        info.setStatus(rr.mode.toUpperCase(), 'ok');
+        R('FROM', rr.from);
+        R('TO', rr.to);
+        R('DISTANCE', `${(rr.distance_m / 1000).toFixed(1)} km`, `${(rr.distance_m / 1609.34).toFixed(1)} mi`);
+        R('TIME', `${Math.floor(rr.duration_s / 3600) ? `${Math.floor(rr.duration_s / 3600)} h ` : ''}${Math.round((rr.duration_s % 3600) / 60)} min`);
+        actions.append(button('CLEAR ROUTE', () => {
+          routeLayer.set(null);
+          select(null);
+        }));
       } else if (s.kind === 'city') {
         const c = s.ref as City;
         info.title.textContent = c.name.toUpperCase();
