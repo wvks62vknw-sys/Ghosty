@@ -102,7 +102,7 @@ globalThis.fetch = async (input, init = {}) => {
     pr.merged = true;
     return ok({ sha: s });
   }
-  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ name: 'Workers Builds: ghosty', status: 'completed', conclusion: 'success', details_url: 'https://dash.cloudflare.com/x/workers/services/view/ghosty', output: { summary: 'Preview URL: https://ghosty-rename-the-greeting-ghosty.me.workers.dev' } }] });
+  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ name: 'brain', status: 'completed', conclusion: 'success' }, { name: 'interface', status: 'completed', conclusion: 'success' }, { name: 'Workers Builds: ghosty', status: 'completed', conclusion: 'success', details_url: 'https://dash.cloudflare.com/x/workers/services/view/ghosty', output: { summary: 'Preview URL: https://ghosty-rename-the-greeting-ghosty.me.workers.dev' } }] });
   if ((m = p.match(/^\/commits\/([^/]+)\/status$/))) return ok({ statuses: [] });
   if (p === '/commits') {
     const out = [];
@@ -161,7 +161,8 @@ test('propose_change opens a PR with the edit applied on a ghosty/ branch', asyn
 
 test('change_status reports checks and the preview link', async () => {
   const r = result(await chat('status 1'));
-  assert.match(r.summary, /Checks: passed/);
+  assert.match(r.summary, /Code checks: passed/);
+  assert.match(r.summary, /Preview build: ok/);
   assert.match(r.summary, /workers\.dev/);
 });
 

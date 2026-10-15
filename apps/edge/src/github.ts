@@ -196,23 +196,34 @@ export class GitHub {
     const out: ChangeSummary[] = [];
     for (const p of prs.filter((x) => this.isOwn(x))) {
       const s = await this.checks(p.head.sha);
-      out.push({ number: p.number, title: p.title, branch: p.head.ref, sha: p.head.sha, url: p.html_url, previewUrl: s.previewUrl ?? this.previewFor(p.head.ref), checks: s.state, createdAt: p.created_at });
+      out.push({ number: p.number, title: p.title, branch: p.head.ref, sha: p.head.sha, url: p.html_url, previewUrl: s.previewUrl ?? (s.preview === 'ok' ? this.previewFor(p.head.ref) : null), checks: s.state, preview: s.preview, createdAt: p.created_at });
     }
     return out;
   }
 
   /** Combined result of CI checks and the Cloudflare Pages build for a commit. */
-  async checks(sha: string): Promise<{ state: ChangeSummary['checks']; previewUrl: string | null; details: string }> {
+  /**
+   * Build checks for a commit. `state` covers the code checks (CI: typecheck, tests, build);
+   * Cloudflare's preview build is reported separately as `preview`, so a preview problem
+   * never hides (or fakes) a real code failure.
+   */
+  async checks(sha: string): Promise<{ state: ChangeSummary['checks']; preview: ChangeSummary['preview']; previewUrl: string | null; details: string }> {
     const runs = await this.req<{ check_runs: { name: string; status: string; conclusion: string | null; details_url?: string; output?: { summary?: string; text?: string } }[] }>('GET', `/commits/${sha}/check-runs?per_page=30`).catch(() => ({ check_runs: [] }));
     const statuses = await this.req<{ statuses: { context: string; state: string; target_url?: string; description?: string }[] }>('GET', `/commits/${sha}/status`).catch(() => ({ statuses: [] }));
     const items = [
       ...runs.check_runs.map((r) => ({ name: r.name, done: r.status === 'completed', ok: r.conclusion === 'success' || r.conclusion === 'neutral' || r.conclusion === 'skipped', url: r.details_url ?? '', text: `${r.output?.summary ?? ''}\n${r.output?.text ?? ''}` })),
       ...statuses.statuses.map((s) => ({ name: s.context, done: s.state !== 'pending', ok: s.state === 'success', url: s.target_url ?? '', text: s.description ?? '' })),
     ];
-    const preview = items.map((i) => `${i.url}\n${i.text}`.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.(?:pages|workers)\.dev/i)?.[0]).find(Boolean) ?? null;
-    const state: ChangeSummary['checks'] = !items.length ? 'none' : items.some((i) => i.done && !i.ok) ? 'failed' : items.every((i) => i.done) ? 'passed' : 'pending';
-    const details = items.map((i) => `${i.name}: ${!i.done ? 'running' : i.ok ? 'passed' : 'FAILED'}${i.done && !i.ok && i.text.trim() ? `\n${i.text.trim().slice(0, 1500)}` : ''}`).join('\n');
-    return { state, previewUrl: preview, details };
+    const isPreview = (n: string) => /^(workers builds|cloudflare)/i.test(n);
+    const code = items.filter((i) => !isPreview(i.name));
+    const prev = items.filter((i) => isPreview(i.name));
+    const previewUrl = items.map((i) => `${i.url}\n${i.text}`.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.(?:pages|workers)\.dev/i)?.[0]).find(Boolean) ?? null;
+    const roll = (list: typeof items) => (!list.length ? 'none' : list.some((i) => i.done && !i.ok) ? 'failed' : list.every((i) => i.done) ? 'passed' : 'pending');
+    const state = roll(code) as ChangeSummary['checks'];
+    const p = roll(prev);
+    const preview: ChangeSummary['preview'] = p === 'passed' ? 'ok' : (p as ChangeSummary['preview']);
+    const details = items.map((i) => `${i.name}${isPreview(i.name) ? ' (preview build)' : ''}: ${!i.done ? 'running' : i.ok ? 'passed' : 'FAILED'}${i.done && !i.ok && i.text.trim() ? `\n${i.text.trim().slice(0, 1500)}` : ''}`).join('\n');
+    return { state, preview, previewUrl, details };
   }
 
   /** Merge, but only if the branch is still exactly at `sha` (GitHub refuses otherwise). */

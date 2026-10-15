@@ -14,7 +14,8 @@ import { go, type TabDef } from '../../shell/tabs';
 import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
-const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'BUILD OK', failed: 'BUILD FAILED', pending: 'BUILDING…', none: 'WAITING' };
+const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
+const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
 
 export const workshopTab: TabDef = {
   id: 'workshop',
@@ -63,12 +64,13 @@ export const workshopTab: TabDef = {
         cp.setStatus(`${changes.length} OPEN`, changes.length ? 'mid' : 'ok');
         if (!changes.length) cp.body.append(h('div.note', 'No open changes. Ask Ghosty to build something.'));
         for (const c of changes) {
-          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), h('small', `${CHECK_LABEL[c.checks]} · ${fmt.ago(Date.parse(c.createdAt))}`)));
+          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), h('small', `${CHECK_LABEL[c.checks]} · ${PREVIEW_LABEL[c.preview ?? 'none']} · ${fmt.ago(Date.parse(c.createdAt))}`)));
           const actions = h('div.row.wrap');
           if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener')));
           actions.append(
             button('SHIP IT', async (b) => {
-              if (c.checks === 'failed' && !confirm('The build failed. Ship anyway?')) return;
+              if (c.checks === 'failed' && !confirm(`The code checks FAILED for #${c.number}: shipping it could break Ghosty.\n\nAsk Ghosty to "fix change #${c.number}" instead.\n\nShip anyway?`)) return;
+              if ((c.checks === 'pending' || c.checks === 'none') && !confirm('The checks have not finished yet. Ship without waiting?')) return;
               b.disabled = true;
               try {
                 toast((await brain.ship(c.number, c.sha)).result, 'ok');

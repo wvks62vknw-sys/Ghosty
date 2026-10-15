@@ -87,7 +87,10 @@ export interface ChangeSummary {
   sha: string;
   url: string;
   previewUrl: string | null;
+  /** Code checks (typecheck, tests, build) — shipping needs these to pass. */
   checks: 'pending' | 'passed' | 'failed' | 'none';
+  /** Cloudflare's preview build of the change. */
+  preview: 'ok' | 'failed' | 'pending' | 'none';
   createdAt: string;
 }
 

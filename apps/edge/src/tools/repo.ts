@@ -173,9 +173,9 @@ export const repoTools: Tool[] = [
       const n = arg.num(a, 'pr');
       const pr = await g.pr(n);
       const c = await g.checks(pr.head.sha);
-      const preview = c.previewUrl ?? g.previewFor(pr.head.ref);
+      const preview = c.previewUrl ?? (c.preview === 'ok' ? g.previewFor(pr.head.ref) : null);
       return clip(
-        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nChecks: ${c.state}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}\nPreview: ${preview ?? 'not reported yet (Cloudflare posts it on the change once the preview build finishes)'}`,
+        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nCode checks: ${c.state}${c.state === 'failed' ? ' — fix with update_change before asking to ship' : ''}\nPreview build: ${c.preview}${c.preview === 'failed' ? ' (a Cloudflare preview problem; it does not block shipping if the code checks pass)' : ''}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}\nPreview: ${preview ?? 'not reported yet (Cloudflare posts it on the change once the preview build finishes)'}`,
         5000,
       );
     },
