@@ -75,7 +75,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     memoryPaused.set({ on: true });
     throw new PausedError();
   }
-  if (!r.ok) throw new Error(err ?? `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(err ?? `HTTP ${r.status}`), { status: r.status });
   return j as T;
 }
 
@@ -216,6 +216,11 @@ export const brain = {
 
 /** The brain can't be used right now, but will be: database paused, or no connection. */
 const unreachable = (e: unknown) => isPaused(e) || e instanceof TypeError;
+/** A queued change is dropped only when the brain clearly refused it (a 4xx); anything else is retried. */
+function keepForLater(e: unknown): boolean {
+  const status = (e as { status?: unknown })?.status;
+  return unreachable(e) || e instanceof AuthError || typeof status !== 'number' || status >= 500 || status === 408 || status === 429;
+}
 
 const raw = { memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
 
@@ -283,7 +288,7 @@ brain.deleteJob = (id: string) => orQueue(isLocal(id), () => raw.deleteJob(id), 
 /** Send changes queued while the brain was unreachable. Runs when memory is back and every 2 min while anything waits. */
 export async function sendQueued(): Promise<number> {
   if (!offline.get().outbox.length) return 0;
-  return flushOutbox(raw, unreachable);
+  return flushOutbox(raw, keepForLater);
 }
 memoryPaused.subscribe((m, prev) => {
   if (prev.on && !m.on) void sendQueued();

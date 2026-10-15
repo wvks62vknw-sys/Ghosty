@@ -17,9 +17,9 @@ export type NewJob = { kind: 'reminder' | 'task'; title?: string; text: string; 
 export type Op =
   | { id: string; at: number; kind: 'addMemory'; text: string }
   | { id: string; at: number; kind: 'forget'; factId: string }
-  | { id: string; at: number; kind: 'addEvent'; event: NewEvent }
+  | { id: string; at: number; kind: 'addEvent'; event: NewEvent; fired?: boolean }
   | { id: string; at: number; kind: 'deleteEvent'; eventId: string }
-  | { id: string; at: number; kind: 'addJob'; job: NewJob }
+  | { id: string; at: number; kind: 'addJob'; job: NewJob; fired?: boolean }
   | { id: string; at: number; kind: 'deleteJob'; jobId: string };
 type OpInput = Op extends infer O ? (O extends Op ? Omit<O, 'id' | 'at'> : never) : never;
 
@@ -79,21 +79,34 @@ export function enqueue(input: OpInput): Op {
 // ---------------------------------------------------------------------------------------
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
-let ring: (title: string, text: string) => void = () => undefined;
+let ring: ((title: string, text: string) => void) | null = null;
 /** How a local reminder is shown (set by the interface: toast + notification + voice). */
 export function onLocalReminder(fn: (title: string, text: string) => void): void {
   ring = fn;
   for (const op of offline.get().outbox) armLocalReminder(op);
 }
+function alarmOf(op: Op): { at: number; title: string; text: string; stale: number } | null {
+  if (op.kind === 'addJob' && op.job.kind === 'reminder') return { at: op.job.at, title: op.job.title ?? 'Reminder', text: op.job.text, stale: Infinity };
+  if (op.kind === 'addEvent' && op.event.remindMin != null) {
+    const start = op.event.allDay ? op.event.start + 9 * 3600_000 : op.event.start;
+    // An event reminder is only worth ringing late until the event is well under way.
+    return { at: start - op.event.remindMin * 60_000, title: op.event.title, text: op.event.title, stale: start + 3600_000 };
+  }
+  return null;
+}
+/** Ring it once and note that it rang (so it isn't set again in the brain). */
+function fire(id: string, title: string, text: string, late: boolean): void {
+  timers.delete(id);
+  offline.set((s) => ({ outbox: s.outbox.map((o) => (o.id === id && (o.kind === 'addJob' || o.kind === 'addEvent') ? { ...o, fired: true } : o)) }));
+  if (!late) ring?.(title, text);
+}
 function armLocalReminder(op: Op): void {
-  let at = 0;
-  let title = '';
-  let text = '';
-  if (op.kind === 'addJob' && op.job.kind === 'reminder') ({ at, title, text } = { at: op.job.at, title: op.job.title ?? 'Reminder', text: op.job.text });
-  if (op.kind === 'addEvent' && op.event.remindMin != null) ({ at, title, text } = { at: (op.event.allDay ? op.event.start + 9 * 3600_000 : op.event.start) - op.event.remindMin * 60_000, title: op.event.title, text: op.event.title });
-  const wait = at - Date.now();
-  if (!at || wait < -60_000 || wait > 24 * 3600_000 || timers.has(op.id)) return;
-  timers.set(op.id, setTimeout(() => ring(title, text), Math.max(0, wait)));
+  const a = alarmOf(op);
+  if (!a || !ring || timers.has(op.id) || ('fired' in op && op.fired)) return;
+  const wait = a.at - Date.now();
+  if (wait > 24 * 3600_000) return; // armed again on a later load or flush
+  // Missed while Ghosty was closed: ring now, once (unless the moment has long gone).
+  timers.set(op.id, setTimeout(() => fire(op.id, a.title, a.text, Date.now() > a.stale), Math.max(0, wait)));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -115,7 +128,7 @@ let flushing = false;
  * paused); a change the brain refuses outright is dropped so it can't block the rest.
  * Returns how many were sent.
  */
-export async function flushOutbox(api: OutboxApi, isPaused: (e: unknown) => boolean): Promise<number> {
+export async function flushOutbox(api: OutboxApi, keepForLater: (e: unknown) => boolean): Promise<number> {
   if (flushing) return 0;
   flushing = true;
   let sent = 0;
@@ -127,13 +140,13 @@ export async function flushOutbox(api: OutboxApi, isPaused: (e: unknown) => bool
         else if (op.kind === 'addEvent') await api.addEvent(op.event);
         else if (op.kind === 'deleteEvent') await api.deleteEvent(op.eventId);
         else if (op.kind === 'addJob') {
-          // A reminder that already went off here doesn't need setting again.
-          if (!(op.job.kind === 'reminder' && op.job.repeat === 'none' && op.job.at < Date.now())) await api.addJob(op.job);
+          // A one-off reminder that already rang here doesn't need setting again.
+          if (!(op.job.kind === 'reminder' && op.job.repeat === 'none' && op.fired)) await api.addJob(op.job);
         } else if (op.kind === 'deleteJob') await api.deleteJob(op.jobId);
         sent++;
       } catch (e) {
-        if (isPaused(e)) break;
-        // refused (e.g. already deleted): drop it
+        if (keepForLater(e)) break; // paused, offline, signed out or a server error: try again later
+        // refused outright (e.g. already deleted): drop it
       }
       offline.set((s) => ({ outbox: s.outbox.filter((o) => o.id !== op.id) }));
       const t = timers.get(op.id);
@@ -145,6 +158,7 @@ export async function flushOutbox(api: OutboxApi, isPaused: (e: unknown) => bool
   } finally {
     flushing = false;
   }
+  for (const op of offline.get().outbox) armLocalReminder(op);
   return sent;
 }
 

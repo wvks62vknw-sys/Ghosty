@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 
 globalThis.window = globalThis;
 const O = await import('./.build/offline.mjs');
-const paused = (e) => /paused/.test(String(e?.message));
+// Like brain.ts: keep a change for later unless the brain clearly refused it (a 4xx).
+const paused = (e) => /paused/.test(String(e?.message)) || !(e?.status >= 400 && e.status < 500);
 
 const fakeBrain = () => {
   const calls = [];
@@ -14,7 +15,8 @@ const fakeBrain = () => {
   for (const k of ['addMemory', 'forget', 'addEvent', 'deleteEvent', 'addJob', 'deleteJob']) {
     api[k] = async (x) => {
       if (isPaused) throw new Error('memory paused');
-      if (x === 'gone') throw new Error('not found');
+      if (x === 'gone') throw Object.assign(new Error('not found'), { status: 404 });
+      if (x === 'busy') throw Object.assign(new Error('server error'), { status: 500 });
       calls.push([k, x]);
     };
   }
@@ -62,20 +64,34 @@ test('the queue is sent in order when the brain is back; stops while still pause
   assert.equal(O.offline.get().outbox.length, 0);
 });
 
-test('a one-off reminder that already went off on the device is not set again', async () => {
+test('a server error or sign-in problem keeps the queue for the next try', async () => {
   O.offline.set({ outbox: [] });
-  O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'past', at: Date.now() - 60_000, repeat: 'none' } });
-  O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'future', at: Date.now() + 3600_000, repeat: 'none' } });
+  O.enqueue({ kind: 'forget', factId: 'busy' });
+  O.enqueue({ kind: 'addMemory', text: 'C' });
   const b = fakeBrain();
-  await O.flushOutbox(b.api, paused);
-  assert.deepEqual(b.calls.map((c) => c[1].text), ['future']);
+  assert.equal(await O.flushOutbox(b.api, paused), 0);
+  assert.equal(O.offline.get().outbox.length, 2, 'nothing dropped on a 500');
+  O.offline.set({ outbox: [] });
 });
 
-test('reminders set while paused go off from the device', async () => {
+test('a reminder whose time passed without ringing on the device is still sent to the brain', async () => {
+  O.offline.set({ outbox: [] }); // no ringer yet: as if Ghosty was closed at that moment
+  O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'missed', at: Date.now() - 60_000, repeat: 'none' } });
+  const b = fakeBrain();
+  await O.flushOutbox(b.api, paused);
+  assert.deepEqual(b.calls.map((c) => c[1].text), ['missed']);
+});
+
+test('reminders set while paused go off from the device, missed ones once on load, and are not set again', async () => {
   O.offline.set({ outbox: [] });
+  O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'missed while closed', at: Date.now() - 3 * 3600_000, repeat: 'none' } });
   const rang = [];
-  O.onLocalReminder((title, text) => rang.push(text));
+  O.onLocalReminder((title, text) => rang.push(text)); // Ghosty opens
   O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'take the bins out', at: Date.now() + 30, repeat: 'none' } });
+  O.enqueue({ kind: 'addJob', job: { kind: 'reminder', text: 'later', at: Date.now() + 3600_000, repeat: 'none' } });
   await new Promise((r) => setTimeout(r, 120));
-  assert.deepEqual(rang, ['take the bins out']);
+  assert.deepEqual(rang, ['missed while closed', 'take the bins out']);
+  const b = fakeBrain();
+  await O.flushOutbox(b.api, paused);
+  assert.deepEqual(b.calls.map((c) => c[1].text), ['later'], 'the ones that rang here are not set again');
 });
