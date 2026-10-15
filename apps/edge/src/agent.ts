@@ -764,6 +764,11 @@ export class GhostyAgent {
         return json({ hits: searchStarterInMemory(q, k), paused: true });
       }
     }
+    const pg = path.match(/^\/library\/docs\/([^/]+)\/passages$/);
+    if (pg && method === 'GET') {
+      // The owner's device keeps a full copy of the library, fetched a page at a time.
+      return json(lib.passagesOf(decodeURIComponent(pg[1]!), Number(url.searchParams.get('after')) || 0, Number(url.searchParams.get('limit')) || 300));
+    }
     if (path === '/library/docs' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { title?: string; source?: string; kind?: string; pages?: number };
       return json({ doc: lib.createDoc({ title: String(b.title ?? 'Untitled'), source: String(b.source ?? ''), kind: String(b.kind ?? 'text'), pages: Number(b.pages) || 0 }) });

@@ -1,9 +1,11 @@
 /**
- * The owner's library on this device. Every document added here is also kept in the browser
- * (IndexedDB), so it can be searched — by the Library tab and by Ghosty in chat — while the
- * brain's database is paused, and documents added while it is paused are kept here and sent to
- * the brain afterwards (syncLocalDocs). Search is the same keyword match the brain uses when its
- * database is unavailable; no AI.
+ * Ghosty's whole library on this device (IndexedDB): every book, PDF, note, paper, study
+ * session and the built-in starter library, mirrored from the brain a little at a time
+ * (mirrorLibrary), plus documents added here that the brain doesn't have yet. It is searched —
+ * by the Library tab, by Ghosty in chat, and to answer with no connection at all — whenever the
+ * brain's database is paused or unreachable; documents added meanwhile are sent to the brain
+ * afterwards (syncLocalDocs). Search is the same keyword match the brain uses when its database
+ * is unavailable; no AI.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
 
@@ -25,6 +27,9 @@ export interface LocalDoc {
   at: number;
   /** Removed here while the brain couldn't be told: remove it there later. */
   removed?: boolean;
+  /** Copied from the brain: its passage count and size when copied (re-copied when they change). */
+  sig?: string;
+  builtin?: boolean;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -182,6 +187,97 @@ export async function syncLocalDocs(api: { upload: (d: LocalDoc) => Promise<Libr
     syncing = false;
   }
   return n;
+}
+
+// ---------------------------------------------------------------------------------------
+// The mirror: the brain's whole library, copied here document by document
+// ---------------------------------------------------------------------------------------
+
+export interface MirrorApi {
+  docs(): Promise<LibraryDoc[]>;
+  passages(id: string, after: number): Promise<{ passages: { rid: number; text: string; heading: string; page: number | null }[]; next: number | null }>;
+}
+
+let mirroring = false;
+/**
+ * Bring this device's copy of the library up to date: copy documents that are new or changed,
+ * drop ones the brain no longer has. At most `budget` passages per run (the next run carries
+ * on), so it never hogs the connection or the brain's daily database allowance. Returns what
+ * it did, and how many documents are still to copy.
+ */
+export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ copied: number; dropped: number; left: number }> {
+  if (mirroring) return { copied: 0, dropped: 0, left: 0 };
+  mirroring = true;
+  try {
+    const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-'));
+    const have = new Map([...(await all()).values()].filter((d) => d.brainId).map((d) => [d.brainId!, d]));
+    const live = new Set(docs.map((d) => d.id));
+    let dropped = 0;
+    for (const [brainId, d] of have) {
+      if (live.has(brainId) || d.removed) continue;
+      await write({ id: d.id, delete: true });
+      dropped++;
+    }
+    const todo = docs.filter((d) => have.get(d.id)?.sig !== `${d.passages}:${d.chars}`);
+    let copied = 0;
+    let spent = 0;
+    for (const d of todo) {
+      if (spent >= budget) break;
+      const passages: LocalPassage[] = [];
+      let after = 0;
+      for (let guard = 0; guard < 200; guard++) {
+        const page = await api.passages(d.id, after);
+        for (const p of page.passages) passages.push({ text: p.text, ...(p.heading ? { heading: p.heading } : {}), ...(p.page ? { page: p.page } : {}) });
+        if (page.next === null || !page.passages.length) break;
+        after = page.next;
+      }
+      const prev = have.get(d.id);
+      await write({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, passages, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) });
+      spent += passages.length;
+      copied++;
+    }
+    return { copied, dropped, left: todo.length - copied };
+  } finally {
+    mirroring = false;
+  }
+}
+
+/** The shelf from this device's copy (used when the brain can't be reached). */
+export async function shelf(): Promise<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number } }> {
+  const docs = [...(await all()).values()]
+    .filter((d) => !d.removed && d.title)
+    .map((d): LibraryDoc => {
+      const chars = d.passages.reduce((n, p) => n + p.text.length, 0);
+      return { id: d.brainId ?? d.id, title: d.title, source: d.brainId ? d.source : `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.passages.length, chars, status: 'ready', builtin: !!d.builtin, at: d.at };
+    })
+    .sort((a, b) => Number(a.builtin) - Number(b.builtin) || b.at - a.at);
+  const passages = docs.reduce((n, d) => n + d.passages, 0);
+  const chars = docs.reduce((n, d) => n + d.chars, 0);
+  return { docs, stats: { docs: docs.length, passages, chars, bytes: chars, vectors: 0 } };
+}
+
+/**
+ * An answer from the library alone, for when Ghosty can't be reached at all (no connection):
+ * the best passages for the question, or null if nothing matches.
+ */
+export async function offlineAnswer(q: string): Promise<string | null> {
+  const hits = await searchLocal(q, 3);
+  if (!hits.length) return null;
+  const parts = hits.map((h) => {
+    const where = [h.title, h.heading && h.heading !== h.title ? h.heading : '', h.page ? `p. ${h.page}` : ''].filter(Boolean).join(' · ');
+    const t = h.text.length > 700 ? `${h.text.slice(0, 700).replace(/\s+\S*$/, '')}…` : h.text;
+    return `From "${where}":\n${t}`;
+  });
+  return `I can't reach my brain right now (no connection), so here is what my library on this device says:\n\n${parts.join('\n\n')}`;
+}
+
+/** Ask the browser not to clear the library copy when space runs low. */
+export function keepForever(): void {
+  try {
+    void navigator.storage?.persist?.();
+  } catch {
+    /* not supported */
+  }
 }
 
 /** Tests only: forget the in-memory copy. */

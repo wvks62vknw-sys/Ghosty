@@ -4,7 +4,7 @@
  *  2. connect to the brain (Cloudflare Access, or pair this device with the owner key)
  *  3. build the shell, open the first tab, start the single frame loop
  */
-import { AuthError, brain, ownerKey, refreshKeyCopy, sendQueued } from './api/brain';
+import { AuthError, brain, mirrorLibraryNow, ownerKey, refreshKeyCopy, sendQueued } from './api/brain';
 import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
@@ -112,6 +112,9 @@ async function boot(): Promise<void> {
     // Changes made while the brain was unreachable (memory, agenda) go to it now.
     void sendQueued();
     void refreshKeyCopy();
+    // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
+    void mirrorLibraryNow();
+    window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
     window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.

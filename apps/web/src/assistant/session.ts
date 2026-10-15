@@ -5,6 +5,7 @@
 import type { ChatEvent } from '../../../../packages/shared/src/protocol';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
+import { offlineAnswer } from '../library/local';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { currentTab } from '../shell/tabs';
@@ -124,7 +125,7 @@ function handle(ev: ChatEvent): void {
   }
 }
 
-async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>): Promise<void> {
+async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>): Promise<void> {
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
   try {
     await fn(handle);
@@ -132,7 +133,15 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>): Promis
     if (e instanceof AuthError) {
       ui.set({ connected: false });
       push({ kind: 'error', text: `I can't reach my brain: ${e.message}` });
-    } else push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+    } else {
+      // No connection at all: answer from the library copy on this device.
+      const answer = e instanceof TypeError && offline ? await offline().catch(() => null) : null;
+      if (answer) {
+        push({ kind: 'assistant', text: answer, at: Date.now(), model: 'Library on this device · offline' });
+        chat.set({ live: answer });
+        if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer);
+      } else push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+    }
   } finally {
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
@@ -157,7 +166,7 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
     .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
-  await stream((cb) => brain.chat(t, context(), cb, undefined, recent));
+  await stream((cb) => brain.chat(t, context(), cb, undefined, recent), () => offlineAnswer(t));
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

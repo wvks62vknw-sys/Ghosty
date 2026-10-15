@@ -75,3 +75,60 @@ test('a document being uploaded right now, or a sync already running, is not upl
   assert.equal(await first, 1);
   assert.deepEqual(sent, ['C']);
 });
+
+test("Ghosty's whole library is copied to the device, kept current, and answers with no connection", async () => {
+  L._reset();
+  const brain = {
+    docs: [
+      { id: 'b1', title: 'Orbital mechanics', source: 'book.pdf', kind: 'pdf', pages: 3, passages: 3, chars: 90, status: 'ready', builtin: false, at: 1 },
+      { id: 'b2', title: 'Starter: algorithms', source: 'built in', kind: 'notes', pages: 0, passages: 1, chars: 40, status: 'ready', builtin: true, at: 0 },
+      { id: 'b3', title: 'Half added', source: 'x', kind: 'notes', pages: 0, passages: 0, chars: 0, status: 'adding', builtin: false, at: 2 },
+    ],
+    text: {
+      b1: ['The Hohmann transfer uses two engine burns.', 'Escape velocity from Earth is 11.2 km/s.', 'Geostationary orbit is 35,786 km up.'],
+      b2: ['Binary search halves the range each step.'],
+    },
+    reads: 0,
+  };
+  const api = {
+    docs: async () => brain.docs,
+    passages: async (id, after) => {
+      const all = brain.text[id].map((text, i) => ({ rid: i + 1, text, heading: '', page: i + 1 }));
+      const page = all.filter((p) => p.rid > after).slice(0, 2);
+      brain.reads += page.length;
+      return { passages: page, next: page.length === 2 ? page[1].rid : null };
+    },
+  };
+  assert.deepEqual(await L.mirrorLibrary(api), { copied: 2, dropped: 0, left: 0 });
+  assert.match((await L.searchLocal('escape velocity earth'))[0].text, /11\.2 km\/s/);
+  const sh = await L.shelf();
+  assert.deepEqual(sh.docs.map((d) => d.id).sort(), ['b1', 'b2']);
+  assert.equal(sh.stats.passages, 4);
+
+  // Nothing changed: nothing is fetched again.
+  const before = brain.reads;
+  assert.deepEqual(await L.mirrorLibrary(api), { copied: 0, dropped: 0, left: 0 });
+  assert.equal(brain.reads, before);
+
+  // A document grows, another is removed from the brain.
+  brain.text.b1.push('Lagrange points are where gravity balances.');
+  brain.docs[0] = { ...brain.docs[0], passages: 4, chars: 130 };
+  brain.docs.splice(1, 1);
+  assert.deepEqual(await L.mirrorLibrary(api), { copied: 1, dropped: 1, left: 0 });
+  assert.equal((await L.searchLocal('lagrange points gravity')).length, 1);
+  assert.equal((await L.searchLocal('binary search halves')).length, 0);
+
+  const answer = await L.offlineAnswer('how fast is escape velocity from earth');
+  assert.match(answer, /no connection/);
+  assert.match(answer, /Orbital mechanics/);
+  assert.equal(await L.offlineAnswer('quantum chromodynamics gluons'), null);
+});
+
+test('a big library is copied a few thousand passages per run, carrying on next time', async () => {
+  L._reset();
+  const docs = Array.from({ length: 5 }, (_, i) => ({ id: `d${i}`, title: `Doc ${i}`, source: '', kind: 'notes', pages: 0, passages: 3, chars: 30, status: 'ready', builtin: false, at: i }));
+  const api = { docs: async () => docs, passages: async () => ({ passages: [1, 2, 3].map((rid) => ({ rid, text: `t${rid}`, heading: '', page: null })), next: null }) };
+  assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 2, dropped: 0, left: 3 });
+  assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 2, dropped: 0, left: 1 });
+  assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 1, dropped: 0, left: 0 });
+});

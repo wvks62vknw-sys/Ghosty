@@ -5,7 +5,7 @@
  */
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
-import { passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, syncLocalDocs } from '../library/local';
+import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain). */
@@ -70,7 +70,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt/.test(path);
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/library$|\/passages/.test(path);
 function remember(path: string, j: unknown): void {
   try {
     const text = JSON.stringify(j);
@@ -208,6 +208,7 @@ export const brain = {
   studyStatus: () => req<StudyInfo>('GET', '/library/study'),
   study: (p: { on?: boolean; now?: boolean }) => req<StudyInfo>('POST', '/library/study', p),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
+  libraryPassages: (id: string, after = 0) => req<{ passages: { rid: number; text: string; heading: string; page: number | null }[]; next: number | null }>('GET', `/library/docs/${encodeURIComponent(id)}/passages?after=${after}&limit=300`),
   libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),
   /** Ask the brain to turn a document the browser can't read into text (Workers AI, no key). */
   libraryConvert: async (file: File): Promise<string> => {
@@ -310,10 +311,44 @@ brain.inbox = async () => {
 
 // The library: documents kept on this device are part of it (library/local.ts).
 brain.library = async () => {
-  const r = await raw.library();
+  let r: Awaited<ReturnType<typeof raw.library>>;
+  try {
+    r = await raw.library();
+  } catch (e) {
+    if (!unreachable(e)) throw e;
+    // Paused or offline: the shelf from this device's copy of the library.
+    const here = await shelf();
+    if (!here.docs.length) throw e;
+    return { ...here, starterReady: true, vectors: false };
+  }
   const [mine, gone] = await Promise.all([pendingDocs(), removedHere()]);
   return { ...r, docs: [...mine, ...r.docs.filter((d) => !gone.has(d.id))] };
 };
+
+/**
+ * Keep this device's copy of the whole library up to date (new and changed documents, a few
+ * thousand passages at a time). Runs at start-up, every half hour, when the Library tab opens
+ * and when the brain's database is back.
+ */
+let mirrorRun: Promise<void> | null = null;
+export function mirrorLibraryNow(): Promise<void> {
+  mirrorRun ??= (async () => {
+    keepForever();
+    try {
+      for (let round = 0; round < 50; round++) {
+        if (memoryPaused.get().on) break;
+        const r = await mirrorLibrary({ docs: async () => (await raw.library()).docs, passages: (id, after) => brain.libraryPassages(id, after) });
+        if (!r.left) break;
+        await new Promise((ok) => setTimeout(ok, 1500));
+      }
+    } catch {
+      /* paused or offline: carry on next time */
+    } finally {
+      mirrorRun = null;
+    }
+  })();
+  return mirrorRun;
+}
 brain.librarySearch = async (q, k = 8) => {
   try {
     const r = await raw.librarySearch(q, k);
@@ -418,5 +453,6 @@ memoryPaused.subscribe((m, prev) => {
   if (prev.on && !m.on) {
     void sendQueued();
     void refreshKeyCopy();
+    void mirrorLibraryNow();
   }
 });
