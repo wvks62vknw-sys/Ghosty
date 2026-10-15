@@ -298,8 +298,9 @@ export const workshopTab: TabDef = {
           versions = c.value.versions;
         }
         if (w.status === 'fulfilled') {
-          const saved = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
-          widgets = saved ? (await brain.widgets()).widgets : w.value.widgets;
+          const { saved, removed } = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
+          // The list fetched above is out of date if anything was saved or deleted just now.
+          widgets = saved || removed ? (await brain.widgets()).widgets : w.value.widgets;
           if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
         }
         if (s.status === 'fulfilled') kernelUntil = s.value.kernelUnlockedUntil;

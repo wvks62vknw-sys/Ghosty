@@ -36,15 +36,18 @@ export function mergeWidgets(brainList: Widget[]): Widget[] {
 /**
  * Bring the brain up to date: carry out deletions made while it was unreachable, and save any
  * widget whose local version it doesn't have (new, or changed while paused). Stops at the first
- * failure (still paused) and tries again next time. Returns how many widgets were saved.
+ * failure (still paused) and tries again next time. Returns how many were saved and removed
+ * (when either is non-zero the caller's copy of the brain's list is out of date).
  */
-export async function syncLocalWidgets(brainList: Widget[], api: { save: (w: Widget) => Promise<unknown>; remove: (name: string) => Promise<unknown> }): Promise<number> {
+export async function syncLocalWidgets(brainList: Widget[], api: { save: (w: Widget) => Promise<unknown>; remove: (name: string) => Promise<unknown> }): Promise<{ saved: number; removed: number }> {
+  let removed = 0;
   for (const name of localWidgets.get().deleted ?? []) {
     try {
       await api.remove(name);
       localWidgets.set((s) => ({ deleted: (s.deleted ?? []).filter((n) => n !== name) }));
+      removed++;
     } catch {
-      return 0;
+      return { saved: 0, removed };
     }
   }
   const have = new Map(brainList.map((w) => [w.name, w]));
@@ -64,5 +67,5 @@ export async function syncLocalWidgets(brainList: Widget[], api: { save: (w: Wid
       break; // still paused: try next time
     }
   }
-  return n;
+  return { saved: n, removed };
 }
