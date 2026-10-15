@@ -1,9 +1,11 @@
 /** The frame around every tab: top bar, stage, dock, HUD frame and the systems deck. */
 import { togglePalette } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
+import { memoryPaused } from '../api/brain';
 import { player, stopAudio } from '../assistant/media';
 import { ui } from '../state/app';
 import { buildLauncher } from './launcher';
+import { modal } from '../ui/components';
 import { go, tabs } from './tabs';
 
 const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
@@ -21,7 +23,20 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     np.hidden = npStop.hidden = !p.now;
     np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'TUNING' : p.state === 'error' ? 'NO SIGNAL' : p.now.name}` : '';
   });
-  const top = h('header#top', h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), 'GHOSTY', h('i.caret')), status, h('span.sp'), np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
+  // Quiet tag while the database is paused (free daily allowance); tap for what still works.
+  const pausedTag = h('button.pausedtag', {
+    type: 'button',
+    title: 'What still works',
+    onclick: () =>
+      modal('MEMORY PAUSED', h('div.mnote',
+        h('p', "Ghosty's memory is paused until 1am UK time (midnight UTC): Cloudflare's free daily database allowance ran out. Nothing is lost."),
+        h('p', h('b', 'Still working: '), "chat and AI, web search, weather, maps, God's Eye, radio, games and widgets (kept on this device, saved to Ghosty when memory is back)."),
+        h('p', h('b', 'Back at 1am: '), 'saved memories, your library uploads, agenda and reminders.'),
+      )),
+  }, 'MEMORY PAUSED');
+  pausedTag.hidden = true;
+  memoryPaused.subscribe((m) => (pausedTag.hidden = !m.on));
+  const top = h('header#top', h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), 'GHOSTY', h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();

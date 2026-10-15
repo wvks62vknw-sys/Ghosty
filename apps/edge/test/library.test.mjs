@@ -297,3 +297,12 @@ test('opening the Library on a fresh brain makes exactly one self-study job', as
   await agent.fetch(new Request('https://ghosty.test/api/library/study', { method: 'POST', body: JSON.stringify({ on: false }) }));
   assert.equal(study().length, 0, 'switching off removes it');
 });
+
+test('a widget built while the database is paused still opens, marked unsaved', async () => {
+  const T = await import('./.build/tools/index.mjs');
+  const events = [];
+  const out = await T.toolByName.get('create_widget').run({ name: 'merge', title: 'Merge', html: '<h1>2048</h1>' }, { storage: { put: async () => { throw new Error('Exceeded allowed rows read'); } }, emit: (e) => events.push(e) });
+  assert.match(out, /kept it in Workshop/);
+  assert.equal(events[0].name, 'open_widget');
+  assert.equal(events[0].args.saved, false);
+});

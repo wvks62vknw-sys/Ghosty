@@ -3,6 +3,7 @@
  * Authentication: Cloudflare Access cookies go along automatically; if Access is not set
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
+import { createStore } from '../core/store';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain). */
@@ -68,9 +69,28 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     /* non-JSON */
   }
   if (r.status === 401 || r.status === 503) throw new AuthError((j as { error?: string })?.error ?? 'not authorised');
-  if (!r.ok) throw new Error((j as { error?: string })?.error ?? `HTTP ${r.status}`);
+  const err = (j as { error?: string })?.error;
+  if (!r.ok && err && PAUSED_TEXT.test(err)) {
+    memoryPaused.set({ on: true });
+    throw new PausedError();
+  }
+  if (!r.ok) throw new Error(err ?? `HTTP ${r.status}`);
   return j as T;
 }
+
+/**
+ * The brain's database is paused (Cloudflare's free daily allowance used up, until midnight UTC).
+ * Shown once as a small MEMORY PAUSED tag in the top bar — never as a pop-up per tab.
+ */
+const PAUSED_TEXT = /free daily allowance|database is paused/i;
+export const memoryPaused = createStore({ on: false });
+export class PausedError extends Error {
+  readonly paused = true;
+  constructor() {
+    super('memory paused until 1am');
+  }
+}
+export const isPaused = (e: unknown) => !!(e as { paused?: boolean })?.paused;
 
 /** Stream newline-delimited ChatEvents from a POST. */
 async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
@@ -107,7 +127,11 @@ async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent)
 
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
-  status: () => req<BrainStatus>('GET', '/status'),
+  status: () =>
+    req<BrainStatus>('GET', '/status').then((s) => {
+      memoryPaused.set({ on: !!s.paused });
+      return s;
+    }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
   chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) => streamEvents('/chat', { message, context, recent }, onEvent, signal),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
@@ -145,6 +169,7 @@ export const brain = {
   resetModels: () => req('POST', '/models/reset'),
   setOrder: (order: string[]) => req('POST', '/models/order', { order }),
   widgets: () => req<{ widgets: Widget[] }>('GET', '/widgets'),
+  saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),
   ship: (n: number, sha: string) => req<{ result: string }>('POST', `/changes/${n}/ship`, { sha }),

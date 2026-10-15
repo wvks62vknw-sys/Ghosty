@@ -10,6 +10,7 @@ import { World } from '../engine/world';
 import { go, tabs } from '../shell/tabs';
 import { ui } from '../state/app';
 import { applyTheme, THEMES } from '../state/theme';
+import { keepWidget } from '../state/widgets';
 import { modal, sandboxFrame, toast } from '../ui/components';
 import { addPaletteProvider, register, type Command } from './registry';
 
@@ -104,6 +105,8 @@ export function registerBuiltins(): void {
       run: (a) => {
         const html = String(a?.html ?? '');
         if (!html) return;
+        // Kept on this device too (and saved to the brain later if its database was paused).
+        keepWidget({ name: String(a?.name ?? 'widget'), title: String(a?.title ?? 'Widget'), html, at: Date.now() }, a?.saved !== false);
         const f = sandboxFrame(html);
         modal(String(a?.title ?? 'Widget'), f);
       },

@@ -9,12 +9,13 @@
  *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
  */
 import type { ChangeSummary, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
-import { brain } from '../../api/brain';
+import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { forgetWidget, localWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
@@ -257,7 +258,8 @@ export const workshopTab: TabDef = {
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.addEventListener('click', async () => {
-          await brain.deleteWidget(w.name);
+          forgetWidget(w.name);
+          await brain.deleteWidget(w.name).catch(() => undefined);
           void load();
         });
         wp.body.append(r);
@@ -281,15 +283,27 @@ export const workshopTab: TabDef = {
     };
     const load = async () => {
       try {
-        const [c, w, s] = await Promise.all([brain.changes(), brain.widgets(), brain.status()]);
-        ready = c.ready;
-        changes = c.changes;
-        versions = c.versions;
-        widgets = w.widgets;
-        kernelUntil = s.kernelUnlockedUntil;
+        // Each part on its own: one failing (e.g. the database paused) doesn't blank the others.
+        const [c, w, s] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status()]);
+        if (c.status === 'fulfilled') {
+          ready = c.value.ready;
+          changes = c.value.changes;
+          versions = c.value.versions;
+        }
+        if (w.status === 'fulfilled') {
+          const saved = await syncLocalWidgets(w.value.widgets, (x) => brain.saveWidget(x));
+          widgets = saved ? (await brain.widgets()).widgets : w.value.widgets;
+          if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
+        }
+        if (s.status === 'fulfilled') kernelUntil = s.value.kernelUnlockedUntil;
+        const failed = [c, w, s].find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
       } catch (e) {
-        toast(`Workshop: ${String((e as Error).message)}`, 'warn');
+        if (!isPaused(e)) toast(`Workshop: ${String((e as Error).message)}`, 'warn');
       }
+      // Widgets kept on this device that the brain doesn't have yet (database paused) show too.
+      const names = new Set(widgets.map((x) => x.name));
+      widgets = [...localWidgets.get().list.filter((x) => !x.synced && !names.has(x.name)), ...widgets];
       paint();
     };
     paint();

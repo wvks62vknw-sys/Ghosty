@@ -30,7 +30,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { ToolContext } from './tools/types';
-import { deleteWidget, loadWidgets, widgetTools } from './tools/widgets';
+import { deleteWidget, loadWidgets, saveWidget, widgetTools } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -209,6 +209,11 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       if (path === '/widgets' && method === 'GET') return json({ widgets: await loadWidgets(this.storage) });
+      if (path === '/widgets' && method === 'POST') {
+        // A widget the interface kept while the database was paused.
+        const w = (await req.json().catch(() => ({}))) as { name?: string; title?: string; html?: string; at?: number };
+        return json({ widget: await saveWidget(this.storage, { name: String(w.name ?? ''), title: String(w.title ?? ''), html: String(w.html ?? ''), at: w.at }) });
+      }
       if (path.startsWith('/widgets/') && method === 'DELETE') {
         await deleteWidget(this.storage, decodeURIComponent(path.slice(9)));
         return json({ ok: true });

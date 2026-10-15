@@ -159,6 +159,8 @@ export function dial(label: string, frac: number, text: string, color = 'var(--c
 
 let toastBox: HTMLElement | null = null;
 export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
+  // The paused database has one quiet tag in the top bar; no pop-ups about it.
+  if (/memory paused until|free daily allowance/i.test(msg)) return;
   if (!toastBox) {
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
     document.body.append(toastBox);

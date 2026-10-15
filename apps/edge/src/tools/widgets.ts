@@ -14,6 +14,18 @@ export async function loadWidgets(storage: DurableObjectStorage): Promise<Widget
   return [...map.values()].sort((a, b) => b.at - a.at);
 }
 
+/** Save a widget (the create_widget tool, and widgets the interface kept while the database was paused). */
+export async function saveWidget(storage: DurableObjectStorage, w: { name: string; title: string; html: string; at?: number }): Promise<Widget> {
+  const name = slug(String(w.name ?? ''));
+  if (!name) throw new Error('name must contain letters or numbers');
+  const html = String(w.html ?? '');
+  if (html.length > 100_000) throw new Error('widget is too large (100 KB max) — simplify it');
+  if (!/<[a-z]/i.test(html)) throw new Error('html must be an HTML document');
+  const widget: Widget = { name, title: String(w.title ?? name).slice(0, 120) || name, html, at: Number(w.at) || Date.now() };
+  await storage.put(PREFIX + name, widget);
+  return widget;
+}
+
 export async function deleteWidget(storage: DurableObjectStorage, name: string): Promise<boolean> {
   return storage.delete(PREFIX + slug(name));
 }
@@ -45,15 +57,15 @@ export const widgetTools: Tool[] = [
       const title = arg.str(a, 'title');
       let saved = true;
       try {
-        await ctx.storage.put(PREFIX + name, { name, title, html, at: Date.now() } satisfies Widget);
+        await saveWidget(ctx.storage, { name, title, html });
       } catch {
-        saved = false; // database paused (free daily allowance): still show it now
+        saved = false; // database paused: the interface keeps it and saves it here when memory is back
       }
       // Open it on screen straight away — the owner asked for it to play/use it.
-      ctx.emit({ t: 'client', name: 'open_widget', args: { name, title, html } });
+      ctx.emit({ t: 'client', name: 'open_widget', args: { name, title, html, saved } });
       return saved
         ? `Installed widget "${name}" and opened it on screen. It stays in Workshop → Widgets.`
-        : `Opened "${title}" on screen. It couldn't be saved because my database is paused until midnight UTC — ask me to make it again after that to keep it.`;
+        : `Opened "${title}" on screen and kept it in Workshop → Widgets on this device; it is saved to my memory automatically when the database is back (midnight UTC).`;
     },
   },
   {
