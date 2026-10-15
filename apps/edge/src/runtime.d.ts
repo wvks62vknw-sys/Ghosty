@@ -63,3 +63,16 @@ interface ScheduledController {
   readonly scheduledTime: number;
   readonly cron: string;
 }
+
+/** Outbound TCP sockets (IMAP/SMTP in integrations/mail.ts). */
+declare module 'cloudflare:sockets' {
+  interface Socket {
+    readonly readable: ReadableStream<Uint8Array>;
+    readonly writable: WritableStream<Uint8Array>;
+    readonly closed: Promise<void>;
+    readonly opened: Promise<unknown>;
+    close(): Promise<void>;
+    startTls(): Socket;
+  }
+  function connect(address: { hostname: string; port: number }, options?: { secureTransport?: 'off' | 'on' | 'starttls'; allowHalfOpen?: boolean }): Socket;
+}

@@ -6,6 +6,7 @@
 import type { ToolSpec } from '../llm/router';
 import { agendaTools } from './agenda';
 import { dataTools } from './data';
+import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
 import { knowledgeTools } from './knowledge';
@@ -46,6 +47,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },
+  { name: 'email', tools: emailTools, when: /\b(e-?mails?|inbox|mail|gmail|reply|replied|unread|send (a |an )?(message|note) to)\b/i },
   { name: 'media', tools: mediaTools, when: /\b(radio|music|song|songs|play|station|listen|stop audio|stop the music|volume)\b/i },
   { name: 'library', tools: libraryTools.filter((t) => t.name === 'library_search'), when: 'always' },
   { name: 'library-admin', tools: libraryTools.filter((t) => t.name !== 'library_search'), when: /\b(library|import|arxiv|cve-?\d*|github|paper|papers|repo|repository|save (this|that)|read (this|that)|add (this|that))\b/i },

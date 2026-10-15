@@ -3,6 +3,8 @@
  * vault and set from the System tab, which shows the `steps` to anyone who has never
  * made an API key before. Add an entry here when a new tool needs a key.
  */
+import { MailError, parseEmailKey, testLogin } from './integrations/mail';
+
 export interface KeyDef {
   name: string;
   label: string;
@@ -125,6 +127,22 @@ export function keyDefs(repo?: string): KeyDef[] {
       why: 'Alternative web search. Not needed if you have Tavily (Brave may ask for a card even on the free plan).',
       steps: ['Open the link and sign up.', 'Subscribe to the free plan, then open "API Keys" and copy your key.', 'Paste it below and press SAVE.'],
     },
+    {
+      name: 'email',
+      label: 'Email (app password)',
+      hint: 'you@gmail.com then a space, then the app password',
+      link: 'https://myaccount.google.com/apppasswords',
+      need: 'optional',
+      why: 'Lets Ghosty check, search and read your email, and send email as you (every email it sends waits for your OK).',
+      steps: [
+        'Gmail: 2-Step Verification must be on (myaccount.google.com/security). Then open the link, type any name (e.g. Ghosty) and press Create.',
+        'Google shows a 16-letter app password. Copy it. (It is not your normal password, and you can delete it any time to cut Ghosty off.)',
+        'In the box below type your address, a space, then the app password, e.g.: you@gmail.com abcd efgh ijkl mnop — then press SAVE. Ghosty signs in once to check it.',
+        'iCloud (account.apple.com → Sign-In and Security → App-Specific Passwords), Yahoo, AOL and Fastmail work the same way: your address, a space, the app password.',
+        'Any other provider (or Google Workspace on your own domain): address, password, IMAP server, SMTP server, e.g.: you@domain.com password imap.domain.com smtp.domain.com (add :port if not 993 / 465).',
+        'Outlook.com / Hotmail / Live addresses cannot be linked: Microsoft no longer allows app passwords for mail.',
+      ],
+    },
   ];
 }
 
@@ -182,6 +200,17 @@ export async function testKey(name: string, value: string, repo?: string): Promi
         }).catch(() => null);
         const models = m?.ok || m?.status === 429 ? ' · free GPT-4.1 for coding: on' : ' · free GPT-4.1 for coding: off (edit the token on GitHub and set Account permissions → Models → Read to switch it on)';
         return { ok: true, info: `works · can edit ${repo}${models}` };
+      }
+      case 'email': {
+        // The value holds a password: only owner-friendly messages come back, never the value itself.
+        try {
+          const cfg = parseEmailKey(value);
+          await testLogin(cfg);
+          return { ok: true, info: `works ✓ · Ghosty can read and send email as ${cfg.address}` };
+        } catch (e) {
+          if (e instanceof MailError && e.kind === 'network') return { ok: false, info: `could not reach the mail server: ${e.message.slice(0, 200)}` };
+          return { ok: false, info: e instanceof MailError ? e.message.slice(0, 400) : 'could not check the email account; try again in a minute' };
+        }
       }
       default:
         return { ok: true, info: 'saved' };

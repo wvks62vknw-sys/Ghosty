@@ -20,7 +20,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 
 `apps/edge/src/kernel/*` (auth, permissions, vault, protected list) · `apps/edge/src/index.ts`
 · `apps/edge/src/agent.ts` · `apps/edge/src/env.ts` · `apps/edge/src/tools/{index,types,repo}.ts`
-· `apps/edge/src/github.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · build scripts and installer settings (`apps/web/build.mjs`, `apps/*/package.json`, lockfiles, `.npmrc`, `bunfig.toml`)
+· `apps/edge/src/github.ts` · `apps/edge/src/keys.ts` · `apps/edge/src/{integrations/mail,tools/email}.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · build scripts and installer settings (`apps/web/build.mjs`, `apps/*/package.json`, lockfiles, `.npmrc`, `bunfig.toml`)
 · `apps/web/public/_headers` · `.github/*`. The exact list is `PROTECTED_PATHS` in
 `apps/edge/src/kernel/protected.ts`. New brain tools go in **`apps/edge/src/tools/extra.ts`**
 (unprotected), which is registered automatically.
@@ -88,6 +88,8 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `tools/travel.ts` | `get_directions` (OSRM; draws the route via `show_route`), `find_nearby` (Nominatim) |
 | `tools/media.ts` | `play_radio` (radio-browser; https streams only), `stop_audio` |
 | `tools/agenda.ts` | `set_reminder`, `schedule_task` (always needs approval), `add_event`, `list_agenda`, calendar feeds |
+| `integrations/mail.ts` | email over IMAP (read) and SMTP (send) on Cloudflare TCP sockets (`cloudflare:sockets`, loaded lazily; the connector is injectable for tests): `parseEmailKey` (the `email` key: `address app-password [imap smtp]`, provider presets, Outlook refused), `listMessages`, `readMessage` (EXAMINE + BODY.PEEK: nothing marked read), `sendMessage`, `testLogin`, MIME/RFC 2047 decoding (protected) |
+| `tools/email.ts` | `check_email`, `search_email`, `read_email` (mail text wrapped with `asData`; allowed in background tasks), `send_email` (always needs approval; blocked in background) (protected) |
 
 ## Recipes
 
