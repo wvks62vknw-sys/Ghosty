@@ -181,6 +181,8 @@ export const coreTab: TabDef = {
       const ok = await brain.health();
       return ok ? Math.round(performance.now() - t0) : null;
     };
+    let libAt = 0;
+    let libText = '…';
     const paintCallouts = async () => {
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
@@ -193,8 +195,13 @@ export const coreTab: TabDef = {
       stark.set({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
       const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);
       stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : 'ARC · 3 GW', tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
-      const lib = await brain.library().catch(() => null);
-      stark.set({ id: 'library', label: 'LIBRARY', value: lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : 'OFFLINE' });
+      // The library size changes slowly: ask every 5 minutes, not on every 15-second repaint (each ask is database reads).
+      if (Date.now() - libAt > 300_000) {
+        libAt = Date.now();
+        const lib = await brain.library().catch(() => null);
+        libText = lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : 'OFFLINE';
+      }
+      stark.set({ id: 'library', label: 'LIBRARY', value: libText });
     };
     let calloutTimer = 0;
 

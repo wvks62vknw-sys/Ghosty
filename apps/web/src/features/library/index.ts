@@ -4,7 +4,7 @@
  * things up in them before answering. Searching here uses no AI at all.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain } from '../../api/brain';
+import { brain, type StudyInfo } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
@@ -188,7 +188,35 @@ export const libraryTab: TabDef = {
       }
       return r;
     }, () => 'SYNC');
-    P.right.append(ap.el, shelf.el);
+    // ---- self-study: Ghosty reads a topic an hour on its own (no AI, no keys)
+    const study = panel('SELF-STUDY', { grow: false });
+    const paintStudy = (st: StudyInfo | null) => {
+      clear(study.body);
+      if (!st) {
+        study.setStatus('OFFLINE', 'off');
+        return;
+      }
+      study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
+      study.body.append(
+        h('div.note', st.on
+          ? 'Every hour Ghosty reads one topic into its library on its own — first the questions it couldn\'t answer, then a coding, games, systems and AI curriculum (Wikipedia, MDN, arXiv). No AI or keys used.'
+          : 'Switched off. Turn it on and Ghosty reads a new topic into its library every hour, free.'),
+        st.last ? row('LAST', st.last.error ? `${st.last.topic} — failed: ${st.last.error}` : `${st.last.topic} → ${st.last.title ?? ''}${st.last.passages ? ` (${st.last.passages})` : ''}`, fmt.ago(st.last.at), { wrap: true }) : '',
+        row('STUDIED', `${st.sessions} session${st.sessions === 1 ? '' : 's'} · topic ${st.i + 1} of ${st.topics ?? '?'}`),
+        st.gaps.length ? row('TO LEARN', st.gaps.slice(-3).join(' · '), String(st.gaps.length), { wrap: true }) : '',
+        st.on && st.next ? row('NEXT', new Date(st.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : '',
+        h('div.keyrow',
+          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy(await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)), st.on ? 'warn' : 'on'),
+          st.on ? button('STUDY NOW', async (b) => {
+            b.disabled = true;
+            study.setStatus('READING…', 'mid');
+            await brain.study({ now: true }).catch(() => null);
+            paintStudy(await brain.studyStatus().catch(() => null));
+            void refresh();
+          }) : ''),
+      );
+    };
+    P.right.append(study.el, ap.el, shelf.el);
 
     let vectors = false;
     let starterReady = true;
@@ -218,6 +246,7 @@ export const libraryTab: TabDef = {
     return {
       enter() {
         void refresh();
+        void brain.studyStatus().then(paintStudy, () => paintStudy(null));
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,
     };

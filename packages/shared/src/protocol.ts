@@ -193,7 +193,7 @@ export interface AgendaEventInfo {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify';
+  kind: 'reminder' | 'task' | 'verify' | 'study';
   title: string;
   text: string;
   next: number;

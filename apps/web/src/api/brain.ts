@@ -5,6 +5,17 @@
  */
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
+/** Ghosty's self-study (library/study.ts in the brain). */
+export interface StudyInfo {
+  on: boolean;
+  i: number;
+  gaps: string[];
+  sessions: number;
+  last?: { at: number; topic: string; title?: string; passages?: number; error?: string };
+  next?: number | null;
+  topics?: number;
+}
+
 /** This device's time zone; the brain uses it for reminders and the agenda. */
 export const TZ = (() => {
   try {
@@ -116,6 +127,8 @@ export const brain = {
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
+  studyStatus: () => req<StudyInfo>('GET', '/library/study'),
+  study: (p: { on?: boolean; now?: boolean }) => req<StudyInfo>('POST', '/library/study', p),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
   libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),
   /** Ask the brain to turn a document the browser can't read into text (Workers AI, no key). */

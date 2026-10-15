@@ -165,19 +165,40 @@ export const eyeTab: TabDef = {
       ['grid', 'GRID', () => ''],
       ['orbits', 'ORBITS', () => ''],
     ];
+    // Grouped tiles (two columns) instead of one long list: on a phone the panel is a sheet
+    // along the bottom that scrolls, so every layer is reachable.
+    const GROUPS: [string, (keyof LayerVisibility)[]][] = [
+      ['ROADS & CAMERAS', ['cams', 'traffic', 'enforce', 'dispatch']],
+      ['AIR, SEA & SPACE', ['air', 'ships', 'sats', 'orbits']],
+      ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
+      ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
+    ];
     const counts: HTMLElement[] = [];
-    const boxes: HTMLInputElement[] = [];
-    for (const [k, n, f] of LAYERS) {
-      const cb = h('input', { type: 'checkbox', checked: globe.vis[k] });
-      cb.addEventListener('change', () => {
-        globe.vis = { ...globe.vis, [k]: cb.checked };
-        sats.showOrbit = globe.vis.orbits;
-      });
+    const boxes: HTMLButtonElement[] = [];
+    const tileFor = new Map<keyof LayerVisibility, number>();
+    LAYERS.forEach(([k], i) => tileFor.set(k, i));
+    const tiles: HTMLButtonElement[] = LAYERS.map(([k, n, f]) => {
       const em = h('em', f());
-      boxes.push(cb);
+      const b = h('button.ltile', { type: 'button', 'aria-pressed': String(globe.vis[k]) }, h('span', n), em);
+      b.classList.toggle('on', globe.vis[k]);
+      b.addEventListener('click', () => {
+        globe.vis = { ...globe.vis, [k]: !globe.vis[k] };
+        sats.showOrbit = globe.vis.orbits;
+        b.classList.toggle('on', globe.vis[k]);
+        b.setAttribute('aria-pressed', String(globe.vis[k]));
+      });
       counts.push(em);
-      lay.body.append(h('label', cb, h('span', n), em));
+      boxes.push(b);
+      return b;
+    });
+    const placed = new Set<number>();
+    for (const [title, keys] of GROUPS) {
+      const idx = keys.map((k) => tileFor.get(k)).filter((i): i is number => i !== undefined);
+      idx.forEach((i) => placed.add(i));
+      lay.body.append(h('div.lgroup', title), h('div.lgrid', ...idx.map((i) => tiles[i]!)));
     }
+    const rest = tiles.filter((_, i) => !placed.has(i));
+    if (rest.length) lay.body.append(h('div.lgroup', 'MORE'), h('div.lgrid', ...rest));
     if (innerWidth < 700) lay.el.classList.add('min');
 
     // ---------- target card ----------
@@ -706,7 +727,10 @@ export const eyeTab: TabDef = {
       zLabel.textContent = mk(c.range);
       LAYERS.forEach(([k, , f], i) => {
         counts[i]!.textContent = f();
-        boxes[i]!.checked = globe.vis[k];
+        if (boxes[i]!.classList.contains('on') !== globe.vis[k]) {
+          boxes[i]!.classList.toggle('on', globe.vis[k]);
+          boxes[i]!.setAttribute('aria-pressed', String(globe.vis[k]));
+        }
       });
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
