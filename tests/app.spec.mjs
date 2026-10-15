@@ -6,7 +6,8 @@ import { mkdirSync } from 'node:fs';
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+// The full browser (not the stripped-down headless shell), which supports notifications.
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, ...(process.env.CHROMIUM ? {} : { channel: 'chromium' }), args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await ctx.grantPermissions(['notifications'], { origin: base });

@@ -44,11 +44,6 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Cloudflare build (dry run)
         run: npx wrangler deploy --dry-run --outdir .wrangler-dry > w.txt 2>&1 || { echo "::error title=cloudflare build::$(grep -v '^\s*$' w.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"; cat w.txt; exit 1; }
-      - name: Preview build diagnostics (does not block)
-        continue-on-error: true
-        run: |
-          npx wrangler preview --dry-run > p.txt 2>&1 || true; echo "::warning title=preview dry run::$(grep -v '^\s*$' p.txt | tail -n 10 | cut -c1-200 | tr '\n' '|')"
-          cat p.txt
   # Opens the built interface in a real browser (phone and desktop sizes) and clicks
   # through chat, approvals, tabs, agenda, radio and the app/notifications setup.
   smoke:
