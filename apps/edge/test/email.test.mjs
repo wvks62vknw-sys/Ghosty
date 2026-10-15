@@ -451,7 +451,7 @@ test('email tools: registered, grouped, friendly when not linked, approval shows
   assert.equal(T.toolByName.get('send_email').risk, 'confirm');
 
   const vault = (v) => ({ get: async (k) => (k === 'email' ? v : null) });
-  await assert.rejects(T.toolByName.get('check_email').run({}, { vault: vault(null) }), /System → Keys → Email/);
+  await assert.rejects(T.toolByName.get('check_email').run({}, { vault: vault(null) }), /LINKS tab → EMAIL/);
   await assert.rejects(T.toolByName.get('read_email').run({ uid: 1 }, { vault: vault('me@outlook.com pw') }), /Microsoft/);
   const send = T.toolByName.get('send_email');
   const { args, reason } = await send.approval({ to: 'ann@example.com, Bob <bob@example.com>', subject: 'Lunch', body: 'Friday at 1?' }, { vault: vault('me@gmail.com abcd efgh ijkl mnop') });

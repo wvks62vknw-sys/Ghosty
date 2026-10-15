@@ -1,13 +1,11 @@
-/** SYSTEM tab: keys, AI models, appearance, voice, home location and connection status. */
-import type { BrainStatus, KeyStatus, SpotifyStatus } from '../../../../../packages/shared/src/protocol';
+/** SYSTEM tab: keys, AI models, appearance, voice, sounds, home location and connection status. (Email, Spotify and phone notifications are in LINKS.) */
+import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey } from '../../api/brain';
-import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, pushState } from '../../assistant/push';
-import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
 import { listVoices } from '../../assistant/voice';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { World } from '../../engine/world';
-import type { TabDef } from '../../shell/tabs';
+import { go, type TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
 import { BUILD } from '../../state/build';
 import { applyTheme, THEMES } from '../../state/theme';
@@ -19,122 +17,15 @@ export const systemTab: TabDef = {
   title: 'SYSTEM',
   icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>',
   scene: 'backdrop',
+  blurb: 'AI keys · models · theme · voice',
   mount(root) {
     const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'LOOK & STATUS', leftLabel: 'KEYS & MODELS' });
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
     const lp = panel('LOOK & VOICE', { grow: false });
-    const ap = panel('PHONE APP & NOTIFICATIONS', { grow: false, cls: 'scroll' });
-    const spot = panel('SPOTIFY', { grow: false, cls: 'scroll' });
     const sp = panel('STATUS');
-    P.right.append(lp.el, ap.el, spot.el, sp.el);
-    const paintApp = async () => {
-      const st = pushState.get();
-      clear(ap.body);
-      ap.setStatus(st.status === 'on' ? 'NOTIFYING' : st.installed ? 'APP' : '', st.status === 'on' ? 'ok' : 'mid');
-      ap.body.append(
-        h('div.note', st.installed ? 'Ghosty is installed as an app on this device.' : `Install Ghosty like an app: ${installHelp()}`),
-        h(
-          'div.keyrow.wrapit',
-          canPromptInstall() && !st.installed ? button('INSTALL APP', async () => void (await promptInstall())) : '',
-          st.status === 'on'
-            ? button('TURN OFF HERE', async () => {
-                await disablePush();
-                void paintApp();
-              }, 'warn')
-            : button('TURN ON NOTIFICATIONS', async () => {
-                toast(await enablePush(), pushState.get().status === 'on' ? 'ok' : 'warn');
-                void paintApp();
-              }, 'on'),
-          button('SEND TEST', async () => {
-            const r = await brain.pushTest().catch(() => ({ sent: 0 }));
-            toast(r.sent ? `Sent to ${r.sent} device(s)` : 'No device has notifications on yet', r.sent ? 'ok' : 'warn');
-          }),
-        ),
-        st.status === 'blocked' ? h('div.note.bad', "Notifications are blocked for this site. Allow them in the browser's site settings (padlock icon), then press TURN ON.") : '',
-        st.status === 'needs-install' ? h('div.note.bad', 'On iPhone, notifications only work after "Add to Home Screen". Open Ghosty from the home-screen icon and turn them on there.') : '',
-      );
-      try {
-        const { devices } = await brain.pushDevices();
-        if (devices.length) ap.body.append(h('div.lab', 'DEVICES THAT GET NOTIFICATIONS'));
-        for (const d of devices) {
-          const r = row(fmt.ago(d.at), d.label, '✕');
-          const x = r.lastChild as HTMLElement;
-          x.classList.add('del');
-          x.title = 'Stop notifying this device';
-          x.addEventListener('click', async () => {
-            await brain.pushRemove(d.id);
-            void paintApp();
-          });
-          ap.body.append(r);
-        }
-      } catch {
-        /* offline */
-      }
-    };
-    pushState.subscribe(() => void paintApp());
-    void paintApp();
-
-    // Spotify: the owner links their own account (PKCE). The brain makes every Spotify call.
-    const paintSpotify = async () => {
-      let st: SpotifyStatus | null = null;
-      try {
-        st = await brain.spotifyStatus();
-      } catch {
-        /* offline */
-      }
-      clear(spot.body);
-      spot.setStatus(st?.linked ? 'LINKED' : st ? 'NOT LINKED' : '', st?.linked ? 'ok' : 'mid');
-      if (st?.linked) {
-        spot.body.append(
-          row('ACCOUNT', st.name ?? 'Spotify user', (st.product ?? '').toUpperCase() || null, { tone: st.product === 'premium' ? 'up' : undefined }),
-          h('div.note', st.product && st.product !== 'premium'
-            ? 'Linked. Ghosty can see what is playing and your playlists; controlling playback (play, pause, skip, volume) needs Spotify Premium.'
-            : 'Linked. Ask Ghosty "what\'s playing?", "play some jazz on Spotify", "skip", "turn it down".'),
-          h('div.keyrow', button('UNLINK', async () => {
-            await brain.spotifyUnlink().catch(() => undefined);
-            toast('Spotify unlinked', 'ok');
-            void paintSpotify();
-          }, 'warn')),
-        );
-        return;
-      }
-      const uri = redirectUri();
-      const idIn = h('input', { type: 'text', value: st?.clientId ?? savedClientId.get(), placeholder: "paste your app's Client ID", autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Spotify Client ID' });
-      const msg = h('small.note', '');
-      spot.body.append(
-        h('div.note', 'Link your Spotify account so Ghosty can show what is playing and control it by voice or chat.'),
-        h(
-          'ol.steps',
-          h('li', 'Open ', h('a.lnk', { href: 'https://developer.spotify.com/dashboard', target: '_blank', rel: 'noopener' }, 'developer.spotify.com/dashboard ↗'), ' and press Create app (any name and description).'),
-          h('li', 'Under Redirect URIs add exactly the address below (press COPY), tick "Web API", and save.'),
-          h('li', "Open the app's Settings, copy the Client ID and paste it here."),
-          h('li', 'Press LINK SPOTIFY and allow access. You come straight back here.'),
-        ),
-        h('div.lab', 'REDIRECT URI'),
-        h('div.keyrow', h('input', { type: 'text', value: uri, readOnly: true, 'aria-label': 'Redirect URI to copy' }), button('COPY', async () => {
-          try {
-            await navigator.clipboard.writeText(uri);
-            toast('Redirect URI copied', 'ok');
-          } catch {
-            toast(`Copy this: ${uri}`, 'warn');
-          }
-        })),
-        h('div.lab', 'CLIENT ID'),
-        h('div.keyrow', idIn, button('LINK SPOTIFY', async (b) => {
-          b.disabled = true;
-          try {
-            await startSpotifyLink(idIn.value);
-          } catch (e) {
-            msg.textContent = String((e as Error).message);
-            msg.className = 'note bad';
-            b.disabled = false;
-          }
-        }, 'on')),
-        msg,
-      );
-    };
+    P.right.append(lp.el, sp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -261,7 +152,10 @@ export const systemTab: TabDef = {
         { timeout: 8000 },
       ),
     );
-    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
+    const sfx = h('select', { 'aria-label': 'Interface sounds' }, h('option', { value: 'on' }, 'Interface sounds: on'), h('option', { value: 'off' }, 'Interface sounds: off'));
+    sfx.value = settings.get().sounds ? 'on' : 'off';
+    sfx.addEventListener('change', () => settings.set({ sounds: sfx.value === 'on' }));
+    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, sfx, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     // A newer version shipped than the one on screen? (Compares with the latest version on GitHub.)
     let newer = false;
@@ -287,6 +181,7 @@ export const systemTab: TabDef = {
         row('THIS DEVICE', ownerKey.get() ? 'paired with owner key' : 'signed in via Cloudflare Access'),
         row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`, newer ? 'NEWER SHIPPED' : null, { tone: newer ? 'bad' : undefined }),
       );
+      sp.body.append(h('div.keyrow', button('EMAIL · SPOTIFY · PHONE → LINKS', () => go('links'))));
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
       if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
     };
@@ -307,7 +202,6 @@ export const systemTab: TabDef = {
     return {
       enter() {
         void load();
-        void paintSpotify();
         void checkVersion();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,

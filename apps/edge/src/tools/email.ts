@@ -1,12 +1,12 @@
 /**
- * The owner's email (linked with an app password in System → Keys → Email): check, search
+ * The owner's email (linked with an app password in the LINKS tab → EMAIL): check, search
  * and read mail (nothing is marked read unless asked), and send as the owner (always approved).
  */
 import { addressList, listMessages, parseEmailKey, readMessage, sendMessage, type ListQuery, type MailConfig, type MessageSummary } from '../integrations/mail';
 import { asData } from '../kernel/permissions';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
-const NOT_LINKED = 'Email is not linked yet. Ask the owner to link it in System → Keys → Email (app password): paste their address, a space, then an app password (for Gmail: myaccount.google.com/apppasswords).';
+const NOT_LINKED = 'Email is not linked yet. Ask the owner to link it in the LINKS tab → EMAIL: pick the provider, type the address and an app password (for Gmail: myaccount.google.com/apppasswords).';
 
 async function account(ctx: Pick<ToolContext, 'vault'>): Promise<MailConfig> {
   const v = await ctx.vault.get('email');

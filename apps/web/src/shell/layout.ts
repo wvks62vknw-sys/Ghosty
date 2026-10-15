@@ -1,11 +1,12 @@
-/** The frame around every tab: top bar, stage, dock (and MORE launcher on phones). */
+/** The frame around every tab: top bar, stage, dock, HUD frame and the systems deck. */
 import { togglePalette } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
 import { player, stopAudio } from '../assistant/media';
 import { ui } from '../state/app';
+import { buildLauncher } from './launcher';
 import { go, tabs } from './tabs';
 
-const MORE = '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
+const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
 const LOGO = '<path d="M12 3c-4 0-7 3-7 7v11l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10c0-4-3-7-7-7z"/><circle cx="9.5" cy="10.5" r="1.1"/><circle cx="14.5" cy="10.5" r="1.1"/>';
 
 export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
@@ -20,12 +21,14 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     np.hidden = npStop.hidden = !p.now;
     np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'TUNING' : p.state === 'error' ? 'NO SIGNAL' : p.now.name}` : '';
   });
-  const top = h('header#top', h('b.logo', { onclick: () => go('core'), title: 'Core' }, icon(LOGO), 'GHOSTY'), status, h('span.sp'), np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
+  const top = h('header#top', h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), 'GHOSTY', h('i.caret')), status, h('span.sp'), np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
-  const more = h('div#more', { role: 'dialog', 'aria-label': 'More tabs' });
+  const deck = buildLauncher();
+  // Thin HUD frame around the whole screen: corner brackets and edge ticks (decoration only).
+  const frame = h('div#frame', { 'aria-hidden': 'true' }, h('i.tl'), h('i.tr'), h('i.bl'), h('i.br'), h('b.scan'));
   document.getElementById('app')!.append(top, stage, dock);
-  document.body.append(more);
+  document.body.append(frame);
 
   const buildDock = () => {
     const wide = innerWidth >= 900;
@@ -38,23 +41,12 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
       dock.append(b);
     }
     if (!wide) {
-      const b = h('button', { type: 'button', dataset: { id: 'more' } }, icon(MORE), h('span', 'MORE'));
-      b.addEventListener('click', () => {
-        clear(more, h('div.grid', ...list.filter((t) => !shown.includes(t)).map((t) => {
-          const x = h('button', { type: 'button' }, icon(t.icon), h('span', t.title));
-          x.addEventListener('click', () => {
-            more.classList.remove('on');
-            go(t.id);
-          });
-          return x;
-        })));
-        more.classList.add('on');
-      });
+      const b = h('button', { type: 'button', dataset: { id: 'deck' } }, icon(DECK), h('span', 'SYSTEMS'));
+      b.addEventListener('click', () => deck.open());
       dock.append(b);
     }
     paintDock();
   };
-  more.addEventListener('click', (e) => e.target === more && more.classList.remove('on'));
   const paintDock = () => [...dock.children].forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.id === ui.get().tab));
   let wasWide = innerWidth >= 900;
   addEventListener('resize', () => {

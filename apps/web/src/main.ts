@@ -98,9 +98,9 @@ async function boot(): Promise<void> {
     startNotices();
     void initApp();
   }
-  // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show System.
+  // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
   const spotify = await finishSpotifyLink().catch(() => null);
-  const first = spotify ? 'system' : location.hash.slice(1);
+  const first = spotify ? 'links' : location.hash.slice(1);
   if (!go(first)) go('core');
   if (spotify) toast(spotify.text, spotify.ok ? 'ok' : 'warn');
   addEventListener('hashchange', () => go(location.hash.slice(1)));

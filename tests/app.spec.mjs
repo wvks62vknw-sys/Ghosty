@@ -53,13 +53,32 @@ else {
   if (!notes.includes('⏰ Reminder|stretch')) problems.push(`push did not become a notification: ${JSON.stringify(notes)}`);
 }
 
-await page.evaluate(() => (location.hash = 'system'));
+// The systems deck (logo) lists every screen; LINKS holds email, Spotify and notifications.
+await page.click('#top .logo');
+await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open from the logo'));
+const tiles = await page.$$eval('#deck .dtile b', (n) => n.map((x) => x.textContent));
+if (tiles.length < 12 || !tiles.includes('LINKS') || !tiles.includes('LIBRARY')) problems.push(`systems deck tiles: ${tiles.join(', ')}`);
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/phone-deck.png` });
+await page.click('#deck .dtile[data-id="links"]');
 await page.waitForTimeout(1500);
-await page.click('#pg-system .swap');
-await page.waitForTimeout(500);
-const panelText = await page.evaluate(() => [...document.querySelectorAll('#pg-system .pn')].map((p) => p.textContent).join(' '));
-if (!/PHONE APP & NOTIFICATIONS/.test(panelText) || !/TURN ON NOTIFICATIONS|TURN OFF HERE/.test(panelText)) problems.push('System panel for notifications missing');
-await page.screenshot({ path: `${out}/phone-system-app.png` });
+if (await page.$('#deck.on')) problems.push('systems deck did not close after choosing a screen');
+const panelText = await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn')].map((p) => p.textContent).join(' '));
+for (const want of ['EMAIL', 'SPOTIFY', 'PHONE · APP & NOTIFICATIONS', 'AI BRAIN', 'GITHUB']) if (!panelText.includes(want)) problems.push(`Links: ${want} panel missing`);
+if (!/TURN ON NOTIFICATIONS|TURN OFF HERE/.test(panelText)) problems.push('Links: notifications button missing');
+if (!/LINK EMAIL/.test(panelText) || !(await page.$('#pg-links select[aria-label="Email provider"]'))) problems.push('Links: email sign-in form missing');
+if (!/LINK SPOTIFY|UNLINK/.test(panelText)) problems.push('Links: Spotify link button missing');
+// On a phone everything is on one scrolling page: the last panel can be scrolled into view.
+const reach = await page.evaluate(() => {
+  const hud = document.querySelector('#pg-links .hud');
+  const last = [...document.querySelectorAll('#pg-links .pn')].pop();
+  hud.scrollTop = hud.scrollHeight;
+  const r = last.getBoundingClientRect();
+  return r.top < innerHeight && r.bottom > 0 && getComputedStyle(last).display !== 'none';
+});
+if (!reach) problems.push('Links: the last panel cannot be scrolled into view on a phone');
+await page.evaluate(() => (document.querySelector('#pg-links .hud').scrollTop = 0));
+await page.screenshot({ path: `${out}/phone-links.png` });
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `App run clean (manifest ${manifest.n} icons, service worker active, push → notification).`);
 process.exit(problems.length ? 1 : 0);

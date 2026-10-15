@@ -5,6 +5,7 @@
  * Add a tab: create apps/web/src/features/<name>/index.ts exporting a TabDef, then add it
  * to the list in apps/web/src/features/index.ts.
  */
+import { sfx } from '../assistant/sfx';
 import { h } from '../core/dom';
 import { backdrop } from '../engine/backdrop';
 import { globe } from '../engine/globe';
@@ -25,7 +26,9 @@ export interface TabDef {
   icon: string;
   /** Which 3D scene renders behind the tab. */
   scene: 'globe' | 'backdrop';
-  /** Shown in the dock on phones (others go in MORE). */
+  /** A few words under the tab's name in the systems deck. */
+  blurb?: string;
+  /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
   mount(root: HTMLElement): TabInstance;
 }
@@ -53,6 +56,7 @@ export function go(id: string): boolean {
   if (!def) return false;
   const prev = ui.get().tab;
   if (prev === def.id && mounted.has(def.id)) return true;
+  const switching = mounted.has(prev);
   mounted.get(prev)?.inst.leave?.();
   let m = mounted.get(def.id);
   if (!m) {
@@ -69,6 +73,13 @@ export function go(id: string): boolean {
     mounted.set(def.id, m);
   }
   for (const [k, v] of mounted) v.root.classList.toggle('on', k === def.id);
+  if (switching) {
+    // Holographic scan across the screen + a soft blip on every tab change.
+    document.body.classList.remove('sweep');
+    void document.body.offsetWidth;
+    document.body.classList.add('sweep');
+    sfx('tab');
+  }
   setScene(def.scene === 'globe' ? globe : backdrop);
   document.body.dataset.scene = def.scene;
   ui.set({ tab: def.id });

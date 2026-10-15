@@ -12,6 +12,7 @@ export const memoryTab: TabDef = {
   title: 'MEMORY',
   icon: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7l8 1M7 8l2 8M17 10l-6 7"/>',
   scene: 'backdrop',
+  blurb: 'what Ghosty knows about you',
   mount(root) {
     const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
     const fp = panel('WHAT I REMEMBER', { footer: true });

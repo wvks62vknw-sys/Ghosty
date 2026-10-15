@@ -1,4 +1,4 @@
-/** Spotify: what's playing and playback control on the owner's linked account (System → SPOTIFY). */
+/** Spotify: what's playing and playback control on the owner's linked account (LINKS tab → SPOTIFY). */
 import { api, SpotifyError } from '../integrations/spotify';
 import { asData } from '../kernel/permissions';
 import { arg, type Tool, type ToolContext } from './types';
