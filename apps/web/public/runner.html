@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Ghosty test runner</title></head>
+<body>
+<script>
+// Ghosty's training-ground test runner. It lives in a sandboxed frame with an opaque
+// origin and a security policy that allows no network at all; each run happens in a fresh
+// Web Worker that is killed after a time limit, so broken or endless code can't hang Ghosty.
+var HARNESS = [
+  'function eq(a, b) {',
+  '  if (a === b) return true;',
+  '  if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return Number.isNaN(a) && Number.isNaN(b);',
+  '  if (Array.isArray(a) !== Array.isArray(b)) return false;',
+  '  var ka = Object.keys(a), kb = Object.keys(b);',
+  '  if (ka.length !== kb.length) return false;',
+  '  for (var i = 0; i < ka.length; i++) if (!Object.prototype.hasOwnProperty.call(b, ka[i]) || !eq(a[ka[i]], b[ka[i]])) return false;',
+  '  return true;',
+  '}',
+  'function norm(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }',
+  'self.onmessage = function (e) {',
+  '  var d = e.data, fn, out = [];',
+  '  try { fn = new Function(d.code + "\\n;return typeof " + d.entry + " !== \\"undefined\\" ? " + d.entry + " : undefined;")(); }',
+  '  catch (err) { postMessage({ error: "does not run: " + (err && err.message || err) }); return; }',
+  '  if (typeof fn !== "function") { postMessage({ error: "no function called " + d.entry + " is defined" }); return; }',
+  '  for (var i = 0; i < d.tests.length; i++) {',
+  '    var t = d.tests[i];',
+  '    try {',
+  '      var got = norm(fn.apply(null, JSON.parse(JSON.stringify(t.args))));',
+  '      var ok = eq(got, t.expect);',
+  '      out.push({ ok: ok, got: ok ? undefined : (got === undefined ? "undefined" : JSON.stringify(got)).slice(0, 300) });',
+  '    } catch (err) { out.push({ ok: false, error: String(err && err.message || err).slice(0, 300) }); }',
+  '  }',
+  '  postMessage({ results: out });',
+  '};',
+].join('\n');
+var workerUrl = URL.createObjectURL(new Blob([HARNESS], { type: 'text/javascript' }));
+addEventListener('message', function (e) {
+  if (e.source !== parent || !e.data || !e.data.ghostyRun) return;
+  var job = e.data.ghostyRun;
+  var w = new Worker(workerUrl);
+  var done = false;
+  var finish = function (msg) {
+    if (done) return;
+    done = true;
+    w.terminate();
+    parent.postMessage({ ghostyResult: { id: job.id, result: msg } }, '*');
+  };
+  var timer = setTimeout(function () { finish({ error: 'timed out after ' + job.timeout + ' ms (an endless loop or far too slow)' }); }, job.timeout);
+  w.onmessage = function (m) { clearTimeout(timer); finish(m.data); };
+  w.onerror = function (err) { clearTimeout(timer); err.preventDefault(); finish({ error: 'crashed: ' + (err.message || 'unknown error') }); };
+  w.postMessage({ code: job.code, entry: job.entry, tests: job.tests });
+});
+</script>
+</body>
+</html>

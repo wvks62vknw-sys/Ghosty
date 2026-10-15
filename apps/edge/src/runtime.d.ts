@@ -14,6 +14,21 @@ interface DurableObjectStorage {
   list<T = unknown>(options?: { prefix?: string; limit?: number; reverse?: boolean }): Promise<Map<string, T>>;
   setAlarm(scheduledTime: number | Date): Promise<void>;
   getAlarm(): Promise<number | null>;
+  /** SQLite (SQLite-backed Durable Objects only — Ghosty's is). Includes FTS5 full-text search. */
+  sql?: SqlStorage;
+}
+
+type SqlStorageValue = ArrayBuffer | Uint8Array | string | number | null;
+
+interface SqlStorageCursor<T> {
+  toArray(): T[];
+  one(): T;
+  readonly rowsWritten: number;
+}
+
+interface SqlStorage {
+  exec<T = Record<string, SqlStorageValue>>(query: string, ...bindings: unknown[]): SqlStorageCursor<T>;
+  readonly databaseSize: number;
 }
 
 interface DurableObjectState {
@@ -47,4 +62,17 @@ interface CacheStorage {
 interface ScheduledController {
   readonly scheduledTime: number;
   readonly cron: string;
+}
+
+/** Outbound TCP sockets (IMAP/SMTP in integrations/mail.ts). */
+declare module 'cloudflare:sockets' {
+  interface Socket {
+    readonly readable: ReadableStream<Uint8Array>;
+    readonly writable: WritableStream<Uint8Array>;
+    readonly closed: Promise<void>;
+    readonly opened: Promise<unknown>;
+    close(): Promise<void>;
+    startTls(): Socket;
+  }
+  function connect(address: { hostname: string; port: number }, options?: { secureTransport?: 'off' | 'on' | 'starttls'; allowHalfOpen?: boolean }): Socket;
 }

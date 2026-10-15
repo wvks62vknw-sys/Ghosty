@@ -4,22 +4,28 @@ import { hex2rgb } from '../engine/math';
 import { settings } from './app';
 import { Emitter } from '../core/store';
 
+/**
+ * Each theme is one of Tony Stark's suits or systems, with its own distinct colours
+ * (primary, accent, alert). No two are alike: earlier near-copies are mapped to the
+ * closest one in ALIASES, so a saved choice still works.
+ */
 export const THEMES: Record<string, { c: string; a: string; r: string; label: string }> = {
-  stark: { c: '#62e4ff', a: '#ffb23e', r: '#ff3b3b', label: 'STARK' },
-  cyan: { c: '#5ce1ff', a: '#ffb000', r: '#ff4d6a', label: 'ARC CYAN' },
-  crimson: { c: '#ff4d6a', a: '#ffc857', r: '#ff2b4d', label: 'WAR MACHINE' },
-  gold: { c: '#ffc233', a: '#ff6a3a', r: '#ff4d6a', label: 'MARK III' },
-  emerald: { c: '#52f2b5', a: '#d6ff5c', r: '#ff4d6a', label: 'FRIDAY' },
-  violet: { c: '#a58bff', a: '#5ce1ff', r: '#ff5c9d', label: 'ULTRON' },
-  ice: { c: '#d6f3ff', a: '#7fd6ff', r: '#ff6b7f', label: 'FROST' },
-  sunrise: { c: '#ff9a56', a: '#ffd27f', r: '#ff4d4d', label: 'SUNRISE' },
-  midnight: { c: '#7f9dff', a: '#9b59b6', r: '#e74c3c', label: 'MIDNIGHT' },
-  forest: { c: '#2ecc71', a: '#f1c40f', r: '#e67e22', label: 'FOREST' },
-  ocean: { c: '#3498db', a: '#1abc9c', r: '#e74c3c', label: 'OCEAN' },
-  arc_reactor: { c: '#ff6a00', a: '#ffdd00', r: '#ff0000', label: 'ARC REACTOR' },
-  iron_man: { c: '#ff6600', a: '#ffbb00', r: '#ff3300', label: 'IRON MAN' },
-  jarvis: { c: '#00bfff', a: '#66ffff', r: '#ff6600', label: 'JARVIS' },
+  stark: { c: '#62e4ff', a: '#ffb23e', r: '#ff3b3b', label: 'JARVIS' },
+  arc: { c: '#d8f6ff', a: '#4fc3ff', r: '#ff5470', label: 'ARC CORE' },
+  mark3: { c: '#ff3b30', a: '#ffc233', r: '#ff8a00', label: 'MARK III' },
+  nano: { c: '#ffc233', a: '#ff5a36', r: '#ff2b4d', label: 'NANOTECH' },
+  warmachine: { c: '#b8c7d1', a: '#ff6a3a', r: '#ff2b4d', label: 'WAR MACHINE' },
+  friday: { c: '#52f2b5', a: '#d6ff5c', r: '#ff4d6a', label: 'FRIDAY' },
+  ultron: { c: '#a58bff', a: '#ff4fa3', r: '#ff3b3b', label: 'ULTRON' },
+  stealth: { c: '#7a8cff', a: '#e8ecff', r: '#ff4060', label: 'STEALTH' },
 };
+
+/** Old theme names → the theme that replaced them. */
+const ALIASES: Record<string, string> = {
+  cyan: 'stark', jarvis: 'stark', ocean: 'stark', ice: 'arc', crimson: 'mark3', iron_man: 'mark3', gold: 'nano', arc_reactor: 'nano', sunrise: 'nano', emerald: 'friday', forest: 'friday', violet: 'ultron', midnight: 'stealth',
+};
+
+export const themeKey = (name: string): string => (THEMES[name] ? name : ALIASES[name] && THEMES[ALIASES[name]!] ? ALIASES[name]! : 'stark');
 
 export const themeEvents = new Emitter<{ change: string }>();
 
@@ -29,7 +35,7 @@ const rgbTriplet = (hex: string) =>
     .join(',');
 
 export function applyTheme(name: string): void {
-  const key = THEMES[name] ? name : 'stark';
+  const key = themeKey(name);
   const t = THEMES[key]!;
   const s = document.documentElement.style;
   s.setProperty('--c', t.c);

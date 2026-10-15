@@ -24,10 +24,40 @@ export const CLIENT_COMMANDS = [
   'notify',
   'reload_interface',
   'show_route',
+  'show_cameras',
   'play_radio',
   'stop_audio',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
+
+/** A document in Ghosty's library (a book, PDF, page, paper, repository…). */
+export interface LibraryDoc {
+  id: string;
+  title: string;
+  /** Where it came from: file name, URL, "arXiv 1706.03762"… */
+  source: string;
+  kind: string;
+  pages: number;
+  /** How many searchable passages it was cut into. */
+  passages: number;
+  chars: number;
+  status: 'adding' | 'ready';
+  /** Part of the built-in starter library. */
+  builtin: boolean;
+  at: number;
+}
+
+/** A passage found in the library. */
+export interface LibraryHit {
+  doc: string;
+  title: string;
+  heading: string;
+  page: number | null;
+  text: string;
+  score: number;
+  /** True when it really matches the question (not just one shared word). */
+  relevant: boolean;
+}
 
 /** One step of an upgrade roadmap: one change that ships on its own. */
 export interface RoadmapStep {
@@ -104,6 +134,17 @@ export interface BrainStatus {
   keys: KeyStatus[];
   models: ModelHealth[];
   lastModel: string | null;
+}
+
+/** The owner's linked Spotify account (System → SPOTIFY). Tokens never leave the brain. */
+export interface SpotifyStatus {
+  linked: boolean;
+  /** Spotify display name, when linked. */
+  name: string | null;
+  /** 'premium' or 'free' (playback control needs Premium). */
+  product: string | null;
+  /** The Client ID of the owner's Spotify app (not a secret), to prefill the System tab. */
+  clientId: string | null;
 }
 
 export interface ChangeSummary {

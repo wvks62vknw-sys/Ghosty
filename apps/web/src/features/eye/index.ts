@@ -1,6 +1,7 @@
 /**
  * GOD'S EYE tab: the live globe. Search, sensor modes, layer toggles, target card,
- * floating labels, touch/mouse gestures and the zoom rail.
+ * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
+ * to watch it, and a grid shows the four cameras nearest the view.
  */
 import { send } from '../../assistant/session';
 import { flyTo } from '../../commands/builtin';
@@ -21,6 +22,12 @@ import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
+import { camLayer } from '../../engine/layers/cams';
+import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCameras, type Camera } from '../../data/cameras';
+import { fetchImage } from '../../api/feed';
+
+/** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
+export let openNearestCamera: ((lat: number, lon: number) => boolean) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -28,7 +35,7 @@ function installLayers(): void {
   layersInstalled = true;
   sats.init();
   if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
-  globe.layers.push(quakeLayer, eventLayer, sats, air);
+  globe.layers.push(quakeLayer, eventLayer, sats, air, camLayer);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
   void sats.refresh();
@@ -47,6 +54,8 @@ function describe(sel: Pickable): string {
       return `magnitude ${(r as unknown as Quake).mag} earthquake ${(r as unknown as Quake).place}`;
     case 'event':
       return `natural event: ${(r as unknown as NaturalEvent).title}`;
+    case 'cam':
+      return `live public traffic camera "${(r as unknown as Camera).name}" in ${(r as unknown as Camera).src}`;
     case 'launch':
       return `rocket launch ${(r as unknown as Launch).name} from ${(r as unknown as Launch).pad}`;
     case 'route': {
@@ -102,6 +111,7 @@ export const eyeTab: TabDef = {
       ['sats', 'SATELLITES', () => String(sats.list.length)],
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
       ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
+      ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'SYNC' : String(cams.list.length))],
       ['borders', 'BORDERS', () => ''],
       ['adm1', 'REGIONS', () => ''],
       ['cities', 'CITIES', () => ''],
@@ -201,6 +211,21 @@ export const eyeTab: TabDef = {
           routeLayer.set(null);
           select(null);
         }));
+      } else if (s.kind === 'cam') {
+        const c = s.ref as Camera;
+        info.title.textContent = 'CCTV';
+        info.setStatus(`${c.src.toUpperCase()} · LIVE`, 'ok');
+        info.body.append(camView(c, true));
+        R('CAMERA', c.name);
+        if (c.view) R('FACING', c.view.toUpperCase());
+        R('POSITION', `${c.lat.toFixed(4)}°, ${c.lon.toFixed(4)}°`);
+        const hop = (dir: 1 | -1) => {
+          const list = nearestCameras(c.lat, c.lon, 12, 50).filter((x) => x.id !== c.id);
+          const next = dir === 1 ? list[0] : list[list.length - 1];
+          if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
+          else toast('No other camera nearby', 'warn');
+        };
+        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => globe.cam.flyTo({ lat: c.lat, lon: c.lon, range: 1.2, tilt: 60 })));
       } else if (s.kind === 'city') {
         const c = s.ref as City;
         info.title.textContent = c.name.toUpperCase();
@@ -219,13 +244,116 @@ export const eyeTab: TabDef = {
       selected = p;
       air.selected = p?.kind === 'air' ? (p.ref as Aircraft) : null;
       sats.selected = p?.kind === 'sat' ? (p.ref as Satellite) : null;
+      camLayer.selected = p?.kind === 'cam' ? (p.ref as Camera) : null;
       if (!p) globe.cam.follow = null;
       if (p && fly) {
         const ll = GEO.ll(p.w);
-        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' ? 60 : 400, tilt: p.kind === 'air' ? 50 : 0 });
+        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' ? 60 : p.kind === 'cam' ? 6 : 400, tilt: p.kind === 'air' ? 50 : p.kind === 'cam' ? 45 : 0 });
       }
+      stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
+      gridKey = '';
       paintInfo();
     }
+
+    // ---------- live camera views ----------
+    /** Live views currently on screen, refreshed every few seconds; stopped when hidden. */
+    const views = new Map<HTMLElement, { cam: Camera; timer: number; url: string }>();
+    const stopCamViews = (keep: string | null = null) => {
+      for (const [el, v] of views) {
+        if (v.cam.id === keep && el.isConnected) continue;
+        clearInterval(v.timer);
+        if (v.url) URL.revokeObjectURL(v.url);
+        views.delete(el);
+      }
+    };
+    /** A live picture of one camera: still images refreshed every few seconds, plus video where the camera offers it. */
+    function camView(c: Camera, big: boolean): HTMLElement {
+      const img = h('img', { alt: `Live view: ${c.name}` });
+      const stamp = h('small.camstamp', 'CONNECTING…');
+      const box = h(`div.camview${big ? '.big' : ''}` as 'div', img, stamp, h('i.camrec'));
+      const v = { cam: c, timer: 0, url: '' };
+      const load = async () => {
+        if (!box.isConnected && v.url) return;
+        try {
+          const url = await fetchImage(c.image, c.src === 'New York' ? 5 : 30);
+          if (v.url) URL.revokeObjectURL(v.url);
+          v.url = url;
+          img.src = url;
+          stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
+          box.classList.remove('dead');
+        } catch {
+          stamp.textContent = 'SIGNAL LOST — retrying';
+          box.classList.add('dead');
+        }
+      };
+      void load();
+      v.timer = window.setInterval(() => void load(), c.src === 'New York' ? 4000 : 15000);
+      views.set(box, v);
+      if (big) {
+        const actions = h('div.row.wrap');
+        if (c.video) {
+          actions.append(button('▶ PLAY CLIP', () => {
+            const vid = h('video', { src: c.video, autoplay: true, muted: true, playsInline: true, loop: true, controls: true });
+            vid.addEventListener('error', () => toast('That clip is not available right now', 'warn'));
+            box.replaceChildren(vid, stamp, h('i.camrec'));
+          }));
+        }
+        if (c.hls && document.createElement('video').canPlayType('application/vnd.apple.mpegurl')) {
+          actions.append(button('▶ LIVE VIDEO', () => {
+            const vid = h('video', { src: c.hls, autoplay: true, muted: true, playsInline: true, controls: true });
+            vid.addEventListener('error', () => toast('The live stream is not available right now', 'warn'));
+            box.replaceChildren(vid, stamp, h('i.camrec'));
+          }));
+        }
+        return h('div', box, actions);
+      }
+      return box;
+    }
+
+    // ---------- CCTV grid: the four cameras nearest the view ----------
+    const grid = panel('CCTV · NEAREST', { grow: false });
+    grid.el.classList.add('camgrid');
+    grid.el.hidden = true;
+    let gridKey = '';
+    const paintGrid = () => {
+      // where the view is going (not where a fly-to animation happens to be right now)
+      const T = globe.cam.target;
+      const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && selected?.kind !== 'cam';
+      const near = show ? nearestCameras(T.lat, T.lon, 4, Math.max(30, T.range)) : [];
+      grid.el.hidden = !near.length;
+      const key = near.map((c) => c.id).join();
+      if (key === gridKey) return;
+      gridKey = key;
+      for (const el of [...grid.body.children]) {
+        const v = views.get(el as HTMLElement);
+        if (v) {
+          clearInterval(v.timer);
+          if (v.url) URL.revokeObjectURL(v.url);
+          views.delete(el as HTMLElement);
+        }
+      }
+      clear(grid.body);
+      grid.setStatus(near.length ? `${near[0]!.src.toUpperCase()} · ${near.length} LIVE` : '', 'ok');
+      for (const c of near) {
+        const tile = camView(c, false);
+        tile.title = c.name;
+        tile.append(h('span.camname', c.name));
+        tile.addEventListener('click', () => select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true));
+        grid.body.append(tile);
+      }
+    };
+    camEvents.on('change', () => {
+      gridKey = '';
+    });
+    openNearestCamera = (lat, lon) => {
+      loadCameras();
+      if (inCalifornia(lat, lon)) loadCalifornia();
+      globe.vis = { ...globe.vis, cams: true };
+      const c = nearestCameras(lat, lon, 1, 300)[0];
+      if (!c) return false;
+      select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
+      return true;
+    };
 
     // ---------- bottom: readout + buttons ----------
     const readout = h('div.readout');
@@ -257,7 +385,7 @@ export const eyeTab: TabDef = {
 
     const labels = h('div.labels');
     const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), modes);
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, lay.el, rail), h('div.eyebot', readout, btns)));
+    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, lay.el, rail), h('div.eyebot', readout, btns)));
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -448,6 +576,11 @@ export const eyeTab: TabDef = {
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
       if (selected?.kind === 'air') paintInfo();
+      if (globe.vis.cams) {
+        loadCameras();
+        if (globe.cam.range < 2500 && inCalifornia(g.lat, g.lon)) loadCalifornia();
+      }
+      paintGrid();
     }, 1);
 
     return {
@@ -462,8 +595,11 @@ export const eyeTab: TabDef = {
       },
       leave() {
         clearInterval(airTimer);
+        stopCamViews();
+        gridKey = '';
+        clear(grid.body);
       },
-      describe: () => `God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft tracked.`,
+      describe: () => `${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft tracked.`,
     };
   },
 };

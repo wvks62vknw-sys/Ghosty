@@ -1,0 +1,306 @@
+/**
+ * Ghosty's library: everything the owner gives it to read (books, PDFs, notes, web pages,
+ * papers, code) plus a built-in starter library, kept forever in the brain's own SQLite
+ * database and searched without any AI:
+ *
+ *   - FTS5 full-text search with stemming and BM25 ranking finds candidate passages.
+ *   - If Workers AI is connected (no key needed), passages also get embeddings (meaning
+ *     vectors, bge-small) when they are added, and candidates are re-ranked by meaning.
+ *
+ * Only the few best passages ever reach the model, so a huge library costs almost nothing
+ * per question. Heavy work (reading files, cutting text into passages) happens in the
+ * owner's browser; the brain only stores and searches (Cloudflare's free plan allows
+ * ~10 ms of CPU per request).
+ */
+import type { Env } from '../env';
+import { chunkText, type Passage } from '../../../../packages/shared/src/chunk';
+import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
+import { STARTER } from './starter';
+
+export type { LibraryDoc, LibraryHit };
+
+const EMBED_MODEL = '@cf/baai/bge-small-en-v1.5';
+const MAX_PASSAGES_PER_CALL = 40;
+const MAX_PASSAGE_CHARS = 4000;
+
+const STOP = new Set(
+  'a an and are as at be been but by can could did do does for from had has have how i if in into is it its me my no not of on or our so than that the their them then there these they this to was we were what when where which who why will with would you your about also any just like more most only other some such very use using want need make get show tell give please ghosty'.split(' '),
+);
+
+/** Meaningful words of a query (lower case, no stop words, at most 12). */
+export function queryTerms(q: string): string[] {
+  const seen = new Set<string>();
+  for (const w of q.toLowerCase().match(/[a-z0-9][a-z0-9_+#.-]*[a-z0-9+#]|[a-z0-9]/g) ?? []) {
+    const t = w.replace(/^[.-]+|[.-]+$/g, '');
+    if (t.length < 2 || STOP.has(t) || seen.has(t)) continue;
+    seen.add(t);
+    if (seen.size >= 12) break;
+  }
+  return [...seen];
+}
+
+const bytesOf = (v: unknown): Uint8Array | null => (v instanceof ArrayBuffer ? new Uint8Array(v) : v instanceof Uint8Array ? v : null);
+const vecOf = (v: unknown): Float32Array | null => {
+  const b = bytesOf(v);
+  return b && b.byteLength % 4 === 0 ? new Float32Array(b.slice().buffer) : null;
+};
+function cosine(a: Float32Array, b: Float32Array): number {
+  let d = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length && i < b.length; i++) {
+    d += a[i]! * b[i]!;
+    na += a[i]! * a[i]!;
+    nb += b[i]! * b[i]!;
+  }
+  return na && nb ? d / Math.sqrt(na * nb) : 0;
+}
+
+export class Library {
+  private ready = false;
+
+  constructor(
+    private storage: DurableObjectStorage,
+    private env: Env,
+  ) {}
+
+  /** False only where SQLite isn't available (some tests). */
+  get available(): boolean {
+    return !!this.storage.sql;
+  }
+
+  private get db(): SqlStorage {
+    const s = this.storage.sql;
+    if (!s) throw new Error('the library needs SQLite storage, which is not available here');
+    if (!this.ready) {
+      s.exec(`CREATE TABLE IF NOT EXISTS lib_docs (id TEXT PRIMARY KEY, title TEXT NOT NULL, source TEXT, kind TEXT, pages INTEGER DEFAULT 0, passages INTEGER DEFAULT 0, chars INTEGER DEFAULT 0, status TEXT DEFAULT 'adding', builtin INTEGER DEFAULT 0, at INTEGER)`);
+      s.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS lib_fts USING fts5(text, heading, doc UNINDEXED, page UNINDEXED, tokenize = 'porter unicode61')`);
+      s.exec(`CREATE TABLE IF NOT EXISTS lib_vec (rid INTEGER PRIMARY KEY, doc TEXT, v BLOB)`);
+      s.exec(`CREATE INDEX IF NOT EXISTS lib_vec_doc ON lib_vec (doc)`);
+      this.ready = true;
+    }
+    return s;
+  }
+
+  createDoc(d: { title: string; source?: string; kind?: string; pages?: number; builtin?: boolean; id?: string }): LibraryDoc {
+    const id = d.id ?? `doc_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const title = d.title.replace(/\s+/g, ' ').trim().slice(0, 200) || 'Untitled';
+    this.db.exec(
+      `INSERT OR REPLACE INTO lib_docs (id, title, source, kind, pages, passages, chars, status, builtin, at) VALUES (?, ?, ?, ?, ?, 0, 0, 'adding', ?, ?)`,
+      id, title, (d.source ?? '').slice(0, 500), (d.kind ?? 'text').slice(0, 20), Math.max(0, Math.floor(d.pages ?? 0)), d.builtin ? 1 : 0, Date.now(),
+    );
+    return this.doc(id)!;
+  }
+
+  doc(id: string): LibraryDoc | null {
+    const r = this.db.exec<Record<string, SqlStorageValue>>(`SELECT * FROM lib_docs WHERE id = ?`, id).toArray()[0];
+    return r ? toDoc(r) : null;
+  }
+
+  /** Store passages of a document (at most 40 per call) and, if Workers AI is there, their meaning vectors. */
+  async addPassages(id: string, passages: Passage[]): Promise<number> {
+    const doc = this.doc(id);
+    if (!doc) throw new Error('no such document');
+    const list = passages
+      .filter((p) => p && typeof p.text === 'string' && p.text.trim())
+      .slice(0, MAX_PASSAGES_PER_CALL)
+      .map((p) => ({ text: p.text.trim().slice(0, MAX_PASSAGE_CHARS), heading: String(p.heading ?? '').slice(0, 200), page: Number.isFinite(p.page) ? Math.floor(p.page!) : null }));
+    if (!list.length) return 0;
+    const db = this.db;
+    let next = Number(db.exec<{ m: number | null }>(`SELECT max(rowid) AS m FROM lib_fts`).one().m ?? 0) + 1;
+    const rids: number[] = [];
+    let chars = 0;
+    for (const p of list) {
+      db.exec(`INSERT INTO lib_fts (rowid, text, heading, doc, page) VALUES (?, ?, ?, ?, ?)`, next, p.text, p.heading, id, p.page);
+      rids.push(next++);
+      chars += p.text.length;
+    }
+    db.exec(`UPDATE lib_docs SET passages = passages + ?, chars = chars + ? WHERE id = ?`, list.length, chars, id);
+    const vecs = await this.embed(list.map((p) => `${p.heading ? `${p.heading}\n` : ''}${p.text}`));
+    if (vecs) vecs.forEach((v, i) => db.exec(`INSERT OR REPLACE INTO lib_vec (rid, doc, v) VALUES (?, ?, ?)`, rids[i], id, new Uint8Array(v.buffer)));
+    return list.length;
+  }
+
+  /**
+   * Add one of Ghosty's own notes to a running notebook document (created on first use).
+   * Skips a note whose text is already there.
+   */
+  async note(docId: string, title: string, kind: string, passage: Passage): Promise<boolean> {
+    if (!this.doc(docId)) this.createDoc({ id: docId, title, source: 'written by Ghosty', kind });
+    const text = passage.text.trim();
+    if (!text) return false;
+    const dup = this.db.exec<{ n: number }>(`SELECT count(*) AS n FROM lib_fts WHERE doc = ? AND text = ?`, docId, text.slice(0, MAX_PASSAGE_CHARS)).one();
+    if (Number(dup.n)) return false;
+    await this.addPassages(docId, [passage]);
+    this.finish(docId);
+    return true;
+  }
+
+  /** Remove the passages of one section of a document (e.g. one source file, before re-reading it). */
+  removeSection(docId: string, heading: string): number {
+    const db = this.db;
+    const rows = db.exec<{ rowid: number; chars: number }>(`SELECT rowid, length(text) AS chars FROM lib_fts WHERE doc = ? AND heading = ?`, docId, heading).toArray();
+    if (!rows.length) return 0;
+    const ids = rows.map((r) => Number(r.rowid));
+    db.exec(`DELETE FROM lib_fts WHERE rowid IN (${ids.map(() => '?').join(',')})`, ...ids);
+    db.exec(`DELETE FROM lib_vec WHERE rid IN (${ids.map(() => '?').join(',')})`, ...ids);
+    db.exec(`UPDATE lib_docs SET passages = max(0, passages - ?), chars = max(0, chars - ?) WHERE id = ?`, rows.length, rows.reduce((n, r) => n + Number(r.chars), 0), docId);
+    return rows.length;
+  }
+
+  finish(id: string): LibraryDoc | null {
+    this.db.exec(`UPDATE lib_docs SET status = 'ready' WHERE id = ?`, id);
+    return this.doc(id);
+  }
+
+  list(): LibraryDoc[] {
+    return this.db.exec<Record<string, SqlStorageValue>>(`SELECT * FROM lib_docs ORDER BY builtin ASC, at DESC`).toArray().map(toDoc);
+  }
+
+  remove(id: string): boolean {
+    const db = this.db;
+    const had = !!this.doc(id);
+    db.exec(`DELETE FROM lib_fts WHERE doc = ?`, id);
+    db.exec(`DELETE FROM lib_vec WHERE doc = ?`, id);
+    db.exec(`DELETE FROM lib_docs WHERE id = ?`, id);
+    return had;
+  }
+
+  stats(): { docs: number; passages: number; chars: number; bytes: number; vectors: number } {
+    const db = this.db;
+    const r = db.exec<{ d: number; p: number | null; c: number | null }>(`SELECT count(*) AS d, sum(passages) AS p, sum(chars) AS c FROM lib_docs`).one();
+    const v = db.exec<{ n: number }>(`SELECT count(*) AS n FROM lib_vec`).one();
+    return { docs: Number(r.d), passages: Number(r.p ?? 0), chars: Number(r.c ?? 0), bytes: db.databaseSize, vectors: Number(v.n) };
+  }
+
+  /**
+   * The best passages for a question. `relevant` is true when a passage really matches
+   * (most of the question's words, or — with meaning vectors — a close match in meaning).
+   */
+  async search(query: string, k = 6): Promise<LibraryHit[]> {
+    const terms = queryTerms(query);
+    if (!terms.length) return [];
+    const db = this.db;
+    const match = terms.map((t) => `"${t.replace(/"/g, '')}"`).join(' OR ');
+    let rows: { rowid: number; text: string; heading: string; doc: string; page: number | null; score: number }[];
+    try {
+      rows = db.exec<{ rowid: number; text: string; heading: string; doc: string; page: number | null; score: number }>(
+        `SELECT rowid, text, heading, doc, page, bm25(lib_fts, 1.0, 0.5) AS score FROM lib_fts WHERE lib_fts MATCH ? ORDER BY score LIMIT 40`,
+        match,
+      ).toArray();
+    } catch {
+      return [];
+    }
+    if (!rows.length) return [];
+    const best = Math.min(...rows.map((r) => Number(r.score))) || -1;
+    // meaning re-rank (optional)
+    let qv: Float32Array | null = null;
+    const vecs = new Map<number, Float32Array>();
+    if (this.env.AI) {
+      const ids = rows.map((r) => Number(r.rowid));
+      const found = db.exec<{ rid: number; v: unknown }>(`SELECT rid, v FROM lib_vec WHERE rid IN (${ids.map(() => '?').join(',')})`, ...ids).toArray();
+      for (const f of found) {
+        const v = vecOf(f.v);
+        if (v) vecs.set(Number(f.rid), v);
+      }
+      if (vecs.size) qv = (await this.embed([query]))?.[0] ?? null;
+    }
+    const titles = new Map(this.list().map((d) => [d.id, d.title]));
+    // a term "covers" a passage when a word in it starts with the term's stem (whole words, so "hi" ≠ "this")
+    const stems = terms.map((t) => new RegExp(`(^|[^a-z0-9])${t.slice(0, Math.max(3, Math.min(t.length, 5))).replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}`));
+    const enough = terms.length >= 2 || terms[0]!.length >= 5; // one short word is never enough to bring a passage up by itself
+    const hits = rows.map((r) => {
+      const low = `${r.heading} ${r.text}`.toLowerCase();
+      const cover = stems.filter((s) => s.test(low)).length / stems.length;
+      const kw = Number(r.score) / best; // 1 for the best keyword match
+      const v = qv ? vecs.get(Number(r.rowid)) : undefined;
+      const sem = v && qv ? cosine(qv, v) : null;
+      const score = sem === null ? 0.7 * kw + 0.3 * cover : 0.35 * kw + 0.2 * cover + 0.45 * Math.max(0, (sem - 0.5) * 2);
+      const relevant = enough && (cover >= (terms.length >= 3 ? 0.6 : 0.99) || (sem !== null && sem >= 0.72));
+      return { doc: r.doc, title: titles.get(r.doc) ?? r.doc, heading: r.heading || '', page: r.page === null || r.page === undefined ? null : Number(r.page), text: r.text, score: Math.round(score * 1000) / 1000, relevant };
+    });
+    hits.sort((a, b) => b.score - a.score);
+    // at most two passages from the same document section, for variety
+    const out: LibraryHit[] = [];
+    const per = new Map<string, number>();
+    for (const h of hits) {
+      const key = `${h.doc}|${h.heading}`;
+      if ((per.get(key) ?? 0) >= 2) continue;
+      per.set(key, (per.get(key) ?? 0) + 1);
+      out.push(h);
+      if (out.length >= k) break;
+    }
+    return out;
+  }
+
+  /** Meaning vectors through Workers AI (free, no key). Null when unavailable — search then uses keywords only. */
+  private async embed(texts: string[]): Promise<Float32Array[] | null> {
+    if (!this.env.AI || !texts.length) return null;
+    try {
+      const r = (await this.env.AI.run(EMBED_MODEL, { text: texts.map((t) => t.slice(0, 1800)), pooling: 'cls' })) as { data?: number[][] };
+      if (!Array.isArray(r?.data) || r.data.length !== texts.length) return null;
+      return r.data.map((v) => Float32Array.from(v));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Put the built-in starter library in (and keep it up to date), a little at a time:
+   * at most `budget` passages per call, so no single request does too much work.
+   */
+  async seedStarter(budget = 40): Promise<boolean> {
+    const version = `${STARTER.length}:${STARTER.reduce((n, d) => n + d.text.length, 0)}`;
+    const state = (await this.storage.get<{ version: string; doc: number; at: number }>('lib:starter')) ?? { version: '', doc: 0, at: 0 };
+    if (state.version === version && state.doc >= STARTER.length) return true;
+    if (state.version !== version) {
+      for (const d of this.list().filter((x) => x.builtin)) this.remove(d.id);
+      state.version = version;
+      state.doc = 0;
+      state.at = 0;
+    }
+    let left = budget;
+    while (left > 0 && state.doc < STARTER.length) {
+      const s = STARTER[state.doc]!;
+      const id = `starter_${s.id}`;
+      if (state.at === 0) this.createDoc({ id, title: s.title, source: 'Ghosty starter library', kind: 'starter', builtin: true });
+      const passages = chunkText(s.text);
+      const part = passages.slice(state.at, state.at + Math.min(left, MAX_PASSAGES_PER_CALL));
+      await this.addPassages(id, part);
+      state.at += part.length;
+      left -= part.length;
+      if (state.at >= passages.length) {
+        this.finish(id);
+        state.doc++;
+        state.at = 0;
+      }
+    }
+    await this.storage.put('lib:starter', state);
+    return state.doc >= STARTER.length;
+  }
+}
+
+function toDoc(r: Record<string, SqlStorageValue>): LibraryDoc {
+  return {
+    id: String(r.id),
+    title: String(r.title),
+    source: String(r.source ?? ''),
+    kind: String(r.kind ?? 'text'),
+    pages: Number(r.pages ?? 0),
+    passages: Number(r.passages ?? 0),
+    chars: Number(r.chars ?? 0),
+    status: r.status === 'ready' ? 'ready' : 'adding',
+    builtin: Number(r.builtin ?? 0) === 1,
+    at: Number(r.at ?? 0),
+  };
+}
+
+/** Passages formatted for the model, with where each came from. */
+export function formatHits(hits: LibraryHit[], max = 6000): string {
+  let out = '';
+  for (const h of hits) {
+    const where = [h.title, h.heading && h.heading !== h.title ? h.heading : '', h.page ? `p. ${h.page}` : ''].filter(Boolean).join(' · ');
+    const block = `[${where}]\n${h.text}\n\n`;
+    if (out.length + block.length > max) break;
+    out += block;
+  }
+  return out.trim();
+}

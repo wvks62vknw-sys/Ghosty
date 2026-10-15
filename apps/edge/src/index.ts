@@ -8,7 +8,14 @@ import { authenticate, ownerSecured } from './kernel/auth';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
+// Live public cameras (God's Eye CCTV): camera lists and images.
+const CAMERA_HOSTS = ['api.tfl.gov.uk', 'webcams.nyctmc.org', 'cwwp2.dot.ca.gov', 'tie.digitraffic.fi', 'weathercam.digitraffic.fi'];
+/** Hosts shared by many sites: allowed only under these paths. */
+const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];
+const allowedFeed = (u: URL) => FEED_HOSTS.has(u.hostname) || FEED_PREFIXES.some((p) => `${u.hostname}${u.pathname}`.startsWith(p));
+
 const FEED_HOSTS = new Set([
+  ...CAMERA_HOSTS,
   'api.adsb.lol',
   'api.airplanes.live',
   'opensky-network.org',
@@ -40,7 +47,7 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
   } catch {
     return json({ error: 'bad url' }, 400);
   }
-  if (t.protocol !== 'https:' || !FEED_HOSTS.has(t.hostname)) return json({ error: `host not allowed: ${t.hostname}` }, 403);
+  if (t.protocol !== 'https:' || !allowedFeed(t)) return json({ error: `host not allowed: ${t.hostname}` }, 403);
   const ttl = Math.max(5, Math.min(86400, Number(u.searchParams.get('ttl')) || 60));
   const cache = (caches as unknown as CacheStorage).default;
   const key = new Request(`https://ghosty-cache.internal/${encodeURIComponent(t.toString())}`);
@@ -50,7 +57,7 @@ async function proxy(req: Request, ctx: ExecutionContext): Promise<Response> {
     headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: req.headers.get('accept') ?? '*/*' },
   });
   // Redirects must stay on allowed hosts too.
-  if (r.url && !FEED_HOSTS.has(new URL(r.url).hostname)) return json({ error: 'redirected to a host that is not allowed' }, 403);
+  if (r.url && !allowedFeed(new URL(r.url))) return json({ error: 'redirected to a host that is not allowed' }, 403);
   // Feed data is never rendered as a page on Ghosty's own address: no scripts, download only.
   const out = new Response(r.body, {
     status: r.status,

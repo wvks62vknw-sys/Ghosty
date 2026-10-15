@@ -30,6 +30,8 @@ export const PROTECTED_PATHS: string[] = [
   'apps/web/build.mjs',
   'apps/web/.',
   'apps/edge/src/keys.ts', // handles every API key in plain text when testing it
+  'apps/edge/src/integrations/mail.ts', // holds the email password while signing in
+  'apps/edge/src/tools/email.ts', // read-only mail tools skip approval (kernel/permissions.ts READ_ONLY)
   'apps/web/functions/', // legacy Pages gateway (unused now; kept locked)
   'apps/web/public/_headers', // Content Security Policy + widget sandbox
   '.github/', // CI checks that gate every change

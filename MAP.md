@@ -20,7 +20,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 
 `apps/edge/src/kernel/*` (auth, permissions, vault, protected list) · `apps/edge/src/index.ts`
 · `apps/edge/src/agent.ts` · `apps/edge/src/env.ts` · `apps/edge/src/tools/{index,types,repo}.ts`
-· `apps/edge/src/github.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · build scripts and installer settings (`apps/web/build.mjs`, `apps/*/package.json`, lockfiles, `.npmrc`, `bunfig.toml`)
+· `apps/edge/src/github.ts` · `apps/edge/src/keys.ts` · `apps/edge/src/{integrations/mail,tools/email}.ts` · `apps/edge/wrangler*` · `apps/edge/package.json` · build scripts and installer settings (`apps/web/build.mjs`, `apps/*/package.json`, lockfiles, `.npmrc`, `bunfig.toml`)
 · `apps/web/public/_headers` · `.github/*`. The exact list is `PROTECTED_PATHS` in
 `apps/edge/src/kernel/protected.ts`. New brain tools go in **`apps/edge/src/tools/extra.ts`**
 (unprotected), which is registered automatically.
@@ -31,7 +31,12 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `main.ts` | boot: theme, engine, Earth data, connect to brain, open first tab |
 | `features/index.ts` | **list of tabs** (dock order) |
-| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `workshop`, `system` |
+| `features/<tab>/index.ts` | one tab each: `core`, `eye`, `brief`, `agenda`, `threats`, `markets`, `radio`, `memory`, `library`, `workshop`, `system` |
+| `features/core/hud.ts` | the Stark HUD around the reactor: rings, degree scale, text ring, radar sweep, state-reactive waves, power-up, live call-outs |
+| `data/cameras.ts`, `engine/layers/cams.ts` | God's Eye CCTV: ~5,000 official public cameras (TfL London, NYC DOT, Caltrans, Fintraffic); camera hosts are in `CAMERA_HOSTS`/`FEED_PREFIXES` in `apps/edge/src/index.ts`; live pictures via `fetchImage` (proxy → blob URL) |
+| `training/runner.ts` + `../public/runner.html` | training-ground test runner: sandboxed frame (no network), a fresh Web Worker per run, killed after a time limit |
+| `library/extract.ts` | reads documents in the browser, no libraries or AI: PDF (incl. ToUnicode fonts, object streams), Word .docx, .epub, HTML, text, code |
+| `library/upload.ts` | file/text → passages (`packages/shared/src/chunk.ts`) → brain in batches of 30; scanned/unreadable files go to `/api/library/convert` (Workers AI) |
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
 | `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns |
@@ -45,6 +50,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `assistant/session.ts` | the conversation: sends messages, handles streamed events, approvals |
 | `assistant/notices.ts` | inbox polling: toasts, spoken reminders, system notifications, Agenda badge |
 | `assistant/media.ts` | the audio player (radio): `playStation`, `stopAudio`, favourites; ducks while Ghosty speaks |
+| `assistant/spotify.ts` | linking Spotify (PKCE): `startSpotifyLink` (verifier + state in sessionStorage → Spotify sign-in), `finishSpotifyLink` (at boot: `?code&state` → brain `/api/spotify/link`, cleans the URL), `redirectUri()`. System tab → SPOTIFY panel |
 | `assistant/push.ts` | installable app: registers `public/sw.js`, Web Push subscribe/unsubscribe, install help |
 | `assistant/voice.ts` | speaking (speech synthesis) and listening (Whisper via brain, or browser) |
 | `commands/registry.ts` | command registry, hotkeys, command palette |
@@ -64,6 +70,13 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `index.ts` | Worker entry: auth gate, `/api/proxy` feed proxy (**`FEED_HOSTS` allowlist**), forwards to agent |
 | `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
+| `library/store.ts` | **the library** (Ghosty's offline brain): documents + passages in the Durable Object's SQLite, FTS5 full-text search (BM25, stemming), optional meaning vectors (Workers AI `bge-small`, no key) for re-ranking. Max 40 passages per call (free-plan CPU) |
+| `library/importers.ts` | `library_import`: web pages, arXiv papers (full HTML text), CVE records (cve.org API), public GitHub repos (30 files per call) |
+| `library/starter/*.ts` | built-in starter library (algorithms, system design, compilers, maths, AI research, DL frameworks, RL/evaluation, production code, debugging, security/CVEs); seeded into the library a little at a time, re-seeded when the text changes |
+| `tools/library.ts` | `library_search` (always offered), `library_import`, `library_list`. `agent.ts` also looks up every owner message in the library and puts relevant passages in the prompt; with no AI reachable it answers from the library |
+| `training/exercises.ts`, `training/coach.ts` | the training ground: 40 exercises with hidden tests (validated against reference solutions in `test/exercises.test.mjs`); `/api/train/*` hands them out, asks the model (showing earlier failures), records results; a solve becomes a library note, a multi-attempt solve a lesson |
+| `tools/notify.ts` | `push_to_phone`: a push notification to the owner's devices now |
+| `library/starter/self.ts` | self-knowledge: how Ghosty works and the models it runs on (and why weights aren't in the library). `library_import "self"` reads its whole codebase (doc `self_code`); changed files are re-read after every ship. Research answers are filed in `notes_research`, ships in `notes_builds`, training solutions in `notes_training` |
 | `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
 | `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (engineering method), `coding.ts` (algorithms, JavaScript, CSS, browser APIs, Python, SQL, web APIs, regex, git, architecture, charts), `games.ts` (games + mini-apps on the widget kit, incl. the example game `NEON_DODGE` that the browser test runs), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
 | `tools/evolve.ts` | self-evolution: `self_audit` (what Ghosty has), `plan_upgrade` / `roadmap` / `update_step` (an upgrade done as several shippable changes; shown in Workshop → Upgrade roadmap, `/api/roadmap`) |
@@ -81,7 +94,11 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |
 | `tools/travel.ts` | `get_directions` (OSRM; draws the route via `show_route`), `find_nearby` (Nominatim) |
 | `tools/media.ts` | `play_radio` (radio-browser; https streams only), `stop_audio` |
+| `integrations/spotify.ts` | the owner's Spotify account: code exchange + token refresh (vault entry `spotify`, JSON; keeps rotated refresh tokens), `api(ctx, method, path, body?)` for api.spotify.com (refresh once on 401; plain errors for 403 Premium, 404 no active device, 429), `spotifyRoute` for `/api/spotify/{link,status,unlink}`. All Spotify calls go through the brain (the interface's CSP only allows its own site) |
+| `tools/spotify.ts` | `spotify_now_playing`, `spotify_control`, `spotify_play` (search → `uris` for tracks, `context_uri` for album/artist/playlist), `spotify_queue`, `spotify_playlists`, `spotify_devices` |
 | `tools/agenda.ts` | `set_reminder`, `schedule_task` (always needs approval), `add_event`, `list_agenda`, calendar feeds |
+| `integrations/mail.ts` | email over IMAP (read) and SMTP (send) on Cloudflare TCP sockets (`cloudflare:sockets`, loaded lazily; the connector is injectable for tests): `parseEmailKey` (the `email` key: `address app-password [imap smtp]`, provider presets, Outlook refused), `listMessages`, `readMessage` (EXAMINE + BODY.PEEK: nothing marked read), `sendMessage`, `testLogin`, MIME/RFC 2047 decoding (protected) |
+| `tools/email.ts` | `check_email`, `search_email`, `read_email` (mail text wrapped with `asData`; allowed in background tasks), `send_email` (always needs approval; blocked in background) (protected) |
 
 ## Recipes
 

@@ -27,6 +27,18 @@ tests/       local preview server + browser test
   YOURSELF**). It audits what it has, plans the upgrade as small shippable steps, builds them one by one
   (you ship each), and adds what it learned to its handbook so every later version knows it too.
   **CARRY ON** continues with the next step.
+- **Library (offline brain)**: the **Library** tab takes books, PDFs, Word files, e-books, notes, web pages,
+  arXiv papers, CVEs and GitHub repositories. They are read in your browser and kept forever in Ghosty's
+  own database with full-text search (plus meaning search through Workers AI, no key). Every message is
+  looked up there first, so only the few passages that matter reach the AI — and with no AI available at
+  all, Ghosty answers straight from the library. A built-in starter library covers algorithms, system
+  design, compilers, maths, AI research, PyTorch/JAX/Triton/CUDA, reinforcement learning, production code,
+  debugging and security.
+- **Grows by itself**: research answers become notes in its library, every shipped change is logged and
+  its own changed source files are re-read, and the **Workshop → Training Ground** has it solve 40 verified
+  coding exercises — it isn't done with one until every hidden test passes; mistakes become lessons.
+- **Linked to your life**: email (app password; sending always asks you), Spotify, push notifications on
+  demand, and live public CCTV (London, New York, California, Finland) on the God's Eye globe.
 - **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),
   so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
   tests on every change.

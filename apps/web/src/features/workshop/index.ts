@@ -6,6 +6,7 @@
  *  - Roll back to any earlier version
  *  - Open, or remove, instant widgets
  *  - Unlock the protected kernel for a limited time (only you can do this)
+ *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
  */
 import type { ChangeSummary, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
@@ -14,6 +15,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { failureReport, runTests } from '../../training/runner';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
@@ -91,7 +93,94 @@ export const workshopTab: TabDef = {
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
     P.left.append(ask.el, rp.el, cp.el);
-    P.right.append(wp.el, vp.el, kp.el);
+    // training ground
+    const tp = panel('TRAINING GROUND', { footer: true, grow: false });
+    const tStats = h('div.note', 'Ghosty writes a solution, hidden tests run it in a locked sandbox, and it must fix every failure until all tests pass.');
+    const tNow = h('div.trainnow');
+    const tLog = h('div.liblog');
+    const tLevel = h('select', { 'aria-label': 'Exercise level' }, h('option', { value: '0' }, 'All levels'), h('option', { value: '1' }, 'Level 1'), h('option', { value: '2' }, 'Level 2'), h('option', { value: '3' }, 'Level 3'));
+    const MAX_TRIES = 6;
+    let training = false;
+    const tLine = (text: string, kind: '' | 'ok' | 'bad' = '') => {
+      tLog.prepend(h(`div.note${kind ? `.${kind}` : ''}` as 'div', text));
+      while (tLog.children.length > 8) tLog.lastChild!.remove();
+    };
+    const paintTraining = async () => {
+      try {
+        const t = await brain.training();
+        const recs = Object.values(t.records);
+        const solved = recs.filter((r) => r.solved).length;
+        const first = recs.filter((r) => r.firstSolve === 1).length;
+        tp.setStatus(`${solved}/${t.exercises.length} SOLVED`, solved === t.exercises.length ? 'ok' : 'mid');
+        tStats.textContent = `${solved} of ${t.exercises.length} exercises solved · ${first} first time · every solution is verified by hidden tests and saved to the library.`;
+      } catch {
+        tp.setStatus('OFFLINE', 'off');
+      }
+    };
+    /** One exercise: attempt → run tests → feed failures back → repeat until it passes (or the limit). */
+    const trainOne = async (id: string): Promise<boolean> => {
+      const ex = await brain.trainingExercise(id);
+      const history: { code: string; report: string }[] = [];
+      let firstReport = '';
+      for (let attempt = 1; attempt <= MAX_TRIES && training; attempt++) {
+        tNow.textContent = `${ex.title} · level ${ex.level} · attempt ${attempt}/${MAX_TRIES}: writing…`;
+        let code = '';
+        let model = '';
+        try {
+          ({ code, model } = await brain.trainingAttempt(id, history));
+        } catch (e) {
+          tLine(`✕ ${ex.title}: no AI available (${(e as Error).message}) — stopping`, 'bad');
+          training = false;
+          return false;
+        }
+        tNow.textContent = `${ex.title} · attempt ${attempt}: running ${ex.tests.length} hidden tests…`;
+        const r = await runTests(code, ex.entry, ex.tests);
+        const passed = 'results' in r && r.results.every((x) => x.ok);
+        if (passed) {
+          tLine(`✓ ${ex.title} — all ${ex.tests.length} tests pass (attempt ${attempt}, ${model})`, 'ok');
+          const res = await brain.trainingResult({ id, solved: true, attempts: attempt, code, model, firstReport: firstReport || undefined }).catch(() => ({ lesson: '' }));
+          if (res.lesson) tLine(`lesson learned: ${res.lesson}`);
+          return true;
+        }
+        const report = failureReport(r, ex.tests);
+        if (!firstReport) firstReport = report;
+        tLine(`… ${ex.title} attempt ${attempt}: ${report.split('\n')[0]}`);
+        history.push({ code, report });
+      }
+      if (training) {
+        tLine(`✕ ${ex.title}: not solved in ${MAX_TRIES} attempts — it will come back`, 'bad');
+        await brain.trainingResult({ id, solved: false, attempts: MAX_TRIES, code: history.at(-1)?.code ?? '', model: '' }).catch(() => undefined);
+      }
+      return false;
+    };
+    const startBtn = button('TRAIN', async (b) => {
+      if (training) {
+        training = false;
+        b.textContent = 'TRAIN';
+        return;
+      }
+      training = true;
+      b.textContent = 'STOP';
+      try {
+        const t = await brain.training();
+        const lv = Number(tLevel.value);
+        // unsolved first, easiest first; then everything again for practice
+        const order = t.exercises.filter((e) => !lv || e.level === lv).sort((a, c) => Number(!!t.records[a.id]?.solved) - Number(!!t.records[c.id]?.solved) || a.level - c.level);
+        for (const e of order) {
+          if (!training) break;
+          await trainOne(e.id);
+          void paintTraining();
+        }
+      } finally {
+        training = false;
+        b.textContent = 'TRAIN';
+        tNow.textContent = '';
+        void paintTraining();
+      }
+    }, 'on');
+    tp.body.append(tStats, tNow, tLog);
+    tp.foot!.append(tLevel, startBtn);
+    P.right.append(tp.el, wp.el, vp.el, kp.el);
 
     let changes: ChangeSummary[] = [];
     let versions: VersionSummary[] = [];
@@ -208,6 +297,7 @@ export const workshopTab: TabDef = {
       enter() {
         void load();
         void loadRoadmap();
+        void paintTraining();
         timer = window.setInterval(() => {
           void load();
           void loadRoadmap();

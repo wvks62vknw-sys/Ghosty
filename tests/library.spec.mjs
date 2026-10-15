@@ -1,0 +1,164 @@
+// Ghosty's library in a real browser:
+//  1. the document reader (no libraries, no AI) on a real PDF printed by Chromium, a Word file and an e-book
+//  2. the Library tab: add files, see them on the shelf, search them (no AI)
+//   node tests/library.spec.mjs [outDir]
+import { chromium } from 'playwright';
+import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { deflateRawSync, crc32 } from 'node:zlib';
+
+const out = process.argv[2] ?? 'tests/.shots';
+mkdirSync(out, { recursive: true });
+const base = process.env.BASE ?? 'http://localhost:8788';
+const root = new URL('..', import.meta.url).pathname;
+const esbuild = createRequire(`${root}apps/web/package.json`)('esbuild');
+const problems = [];
+
+// The reader, bundled on its own so it can be tested without signing in.
+const reader = esbuild.buildSync({
+  stdin: { contents: "import * as X from './src/library/extract.ts'; import { chunkText } from '../../packages/shared/src/chunk.ts'; window.__lib = { ...X, chunkText };", resolveDir: `${root}apps/web`, loader: 'ts' },
+  bundle: true, format: 'iife', write: false, target: 'es2022',
+}).outputFiles[0].text;
+
+// ---------- test documents ----------
+function zip(files) {
+  const locals = [];
+  const central = [];
+  let offset = 0;
+  for (const [name, text] of Object.entries(files)) {
+    const data = Buffer.from(text);
+    const comp = deflateRawSync(data);
+    const nameB = Buffer.from(name);
+    const crc = crc32(data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(crc, 14); local.writeUInt32LE(comp.length, 18); local.writeUInt32LE(data.length, 22); local.writeUInt16LE(nameB.length, 26);
+    const cd = Buffer.alloc(46);
+    cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6); cd.writeUInt16LE(8, 10);
+    cd.writeUInt32LE(crc, 16); cd.writeUInt32LE(comp.length, 20); cd.writeUInt32LE(data.length, 24); cd.writeUInt16LE(nameB.length, 28); cd.writeUInt32LE(offset, 42);
+    locals.push(local, nameB, comp);
+    central.push(cd, nameB);
+    offset += 30 + nameB.length + comp.length;
+  }
+  const cdBuf = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(Object.keys(files).length, 8); end.writeUInt16LE(Object.keys(files).length, 10);
+  end.writeUInt32LE(cdBuf.length, 12); end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, cdBuf, end]);
+}
+
+const docx = zip({
+  '[Content_Types].xml': '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+  'docProps/core.xml': '<?xml version="1.0"?><cp:coreProperties xmlns:cp="x" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Fishing Handbook</dc:title></cp:coreProperties>',
+  'word/document.xml': '<?xml version="1.0"?><w:document xmlns:w="w"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>Knots</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">The improved clinch knot </w:t></w:r><w:r><w:t>holds hooks &amp; lures securely.</w:t></w:r></w:p></w:body></w:document>',
+});
+const epub = zip({
+  mimetype: 'application/epub+zip',
+  'META-INF/container.xml': '<?xml version="1.0"?><container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>',
+  'OEBPS/content.opf': '<?xml version="1.0"?><package><metadata><dc:title>Lighthouse Tales</dc:title></metadata><manifest><item id="c1" href="one.xhtml"/><item id="c2" href="two.xhtml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>',
+  'OEBPS/one.xhtml': '<html><body><h1>Chapter One</h1><p>The keeper climbed one hundred and twelve steps every night.</p></body></html>',
+  'OEBPS/two.xhtml': '<html><body><h1>Chapter Two</h1><p>A storm broke the great lens in the winter of 1887.</p></body></html>',
+});
+
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+
+// A real-world PDF: Chromium prints it (compressed streams, embedded subset fonts, ToUnicode maps).
+const printer = await browser.newPage();
+await printer.setContent(`<html><body style="font-family: Georgia, serif">
+  <h1>Volcano Field Notes</h1>
+  <p>The quick brown fox jumps over the lazy dog near the crater rim.</p>
+  <p>Basaltic lava flows faster than rhyolitic lava because it has less silica.</p>
+  <div style="page-break-before: always"></div>
+  <h2>Safety</h2>
+  <p>Always carry a gas mask: sulphur dioxide levels rise without warning.</p>
+  <p style="font-family: Arial">Emergency frequency is 156.8 MHz — call the station on channel 16.</p>
+</body></html>`);
+const pdf = await printer.pdf({ format: 'A4' });
+await printer.close();
+
+// ---------- 1. the reader ----------
+const page = await browser.newPage();
+page.on('pageerror', (e) => problems.push(`reader pageerror: ${e.message}`));
+await page.setContent('<html><body></body></html>');
+await page.addScriptTag({ content: reader });
+const read = (fn, bytes, title) => page.evaluate(async ([fn, b64, title]) => {
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const x = await window.__lib[fn](bytes, title);
+  return { ...x, passages: window.__lib.chunkText(x.pages).length };
+}, [fn, Buffer.from(bytes).toString('base64'), title]);
+
+const p = await read('extractPdf', pdf, 'volcano');
+const pdfText = p.pages.join('\n');
+if (p.pages.length !== 2) problems.push(`PDF: expected 2 pages, got ${p.pages.length}`);
+for (const s of ['Volcano Field Notes', 'The quick brown fox jumps over the lazy dog near the crater rim.', 'Basaltic lava flows faster than rhyolitic lava', 'sulphur dioxide levels rise without warning', 'Emergency frequency is 156.8 MHz']) {
+  if (!pdfText.replace(/\s+/g, ' ').includes(s)) problems.push(`PDF text is missing "${s}". Got: ${pdfText.slice(0, 300).replace(/\n/g, ' | ')}`);
+}
+if (!/sulphur/.test(p.pages[1] ?? '')) problems.push('PDF: page 2 text not on page 2');
+if (p.warning) problems.push(`PDF: unexpected warning "${p.warning}"`);
+
+const d = await read('extractDocx', docx, 'fishing');
+if (d.title !== 'Fishing Handbook' || !d.pages[0].includes('# Knots') || !d.pages[0].includes('The improved clinch knot holds hooks & lures securely.')) problems.push(`Word: got ${JSON.stringify(d).slice(0, 300)}`);
+
+// A classic PDF: standard Type 1 font, no ToUnicode map, kerning arrays (TJ), a /Differences glyph (fi).
+const classic = Buffer.from(['%PDF-1.4',
+  '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
+  '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+  '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj',
+  '4 0 obj << /Length 120 >>', 'stream',
+  'BT /F1 12 Tf 72 720 Td [(Hello) -250 (W) 80 (orld)] TJ 0 -14 Td (Second line \\(ok\\) to \\037nd caf\\351.) Tj ET',
+  'endstream', 'endobj',
+  '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [31 /fi] >> >> endobj',
+  'trailer << /Root 1 0 R >>', '%%EOF'].join('\n'), 'latin1');
+const c = await read('extractPdf', classic, 'classic');
+if (c.pages[0] !== 'Hello World\nSecond line (ok) to find café.') problems.push(`classic PDF: got ${JSON.stringify(c.pages[0])}`);
+
+const e = await read('extractEpub', epub, 'lighthouse');
+if (e.title !== 'Lighthouse Tales' || e.pages.length !== 2 || !e.pages[1].includes('A storm broke the great lens')) problems.push(`E-book: got ${JSON.stringify(e).slice(0, 300)}`);
+await page.close();
+
+// ---------- 2. the Library tab ----------
+for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {
+  const name = viewport.width < 600 ? 'phone' : 'desktop';
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const ui = await ctx.newPage();
+  ui.on('pageerror', (er) => problems.push(`[${name}] pageerror: ${er.message}`));
+  ui.on('console', (m) => {
+    if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) problems.push(`[${name}] console: ${m.text()}`);
+  });
+  await ui.goto(base, { waitUntil: 'domcontentloaded' });
+  await ui.waitForSelector('#pair input', { timeout: 15000 });
+  await ui.fill('#pair input', 'preview-owner-key-0123456789');
+  await ui.click('#pair button.on');
+  await ui.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await ui.evaluate(() => (location.hash = 'library'));
+  await ui.waitForFunction(() => /PASSAGES/.test(document.querySelector('#pg-library .bigv')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push(`[${name}] library tab never loaded`));
+  // starter library fills in by itself
+  await ui.waitForFunction(() => !/setting up starter/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] starter library never finished`));
+  if (name === 'desktop') {
+    await ui.setInputFiles('#pg-library input[type=file]', [
+      { name: 'volcano-notes.pdf', mimeType: 'application/pdf', buffer: pdf },
+      { name: 'fishing.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: docx },
+      { name: 'recipes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Pancakes\n\nWhisk two eggs with 100 g flour and 300 ml milk; rest the batter for 20 minutes.') },
+    ]);
+    await ui.waitForFunction(() => document.querySelectorAll('#pg-library .liblog .note.ok').length >= 3 || document.querySelector('#pg-library .liblog .note.bad'), null, { timeout: 20000 }).catch(() => undefined);
+    const log = await ui.$$eval('#pg-library .liblog .note', (n) => n.map((x) => x.textContent));
+    if (log.filter((l) => l.startsWith('✓')).length < 3) problems.push(`[${name}] uploads: ${log.join(' | ')}`);
+  }
+  // search (no AI)
+  await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+  await ui.keyboard.press('Enter');
+  await ui.waitForTimeout(800);
+  const res = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
+  if (!res.length || !/Volcano/i.test(res[0])) problems.push(`[${name}] search found: ${res.slice(0, 2).join(' || ') || 'nothing'}`);
+  await ui.screenshot({ path: `${out}/${name}-library.png` });
+  if (name === 'phone') {
+    await ui.click('#pg-library .swap');
+    await ui.waitForTimeout(400);
+    await ui.screenshot({ path: `${out}/${name}-library-shelf.png` });
+  }
+  await ctx.close();
+}
+
+await browser.close();
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches.');
+process.exit(problems.length ? 1 : 0);

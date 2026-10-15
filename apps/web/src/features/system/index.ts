@@ -1,7 +1,8 @@
 /** SYSTEM tab: keys, AI models, appearance, voice, home location and connection status. */
-import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
+import type { BrainStatus, KeyStatus, SpotifyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey } from '../../api/brain';
 import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, pushState } from '../../assistant/push';
+import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
 import { listVoices } from '../../assistant/voice';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
@@ -25,8 +26,9 @@ export const systemTab: TabDef = {
     P.left.append(kp.el, mp.el);
     const lp = panel('LOOK & VOICE', { grow: false });
     const ap = panel('PHONE APP & NOTIFICATIONS', { grow: false, cls: 'scroll' });
+    const spot = panel('SPOTIFY', { grow: false, cls: 'scroll' });
     const sp = panel('STATUS');
-    P.right.append(lp.el, ap.el, sp.el);
+    P.right.append(lp.el, ap.el, spot.el, sp.el);
     const paintApp = async () => {
       const st = pushState.get();
       clear(ap.body);
@@ -73,6 +75,66 @@ export const systemTab: TabDef = {
     };
     pushState.subscribe(() => void paintApp());
     void paintApp();
+
+    // Spotify: the owner links their own account (PKCE). The brain makes every Spotify call.
+    const paintSpotify = async () => {
+      let st: SpotifyStatus | null = null;
+      try {
+        st = await brain.spotifyStatus();
+      } catch {
+        /* offline */
+      }
+      clear(spot.body);
+      spot.setStatus(st?.linked ? 'LINKED' : st ? 'NOT LINKED' : '', st?.linked ? 'ok' : 'mid');
+      if (st?.linked) {
+        spot.body.append(
+          row('ACCOUNT', st.name ?? 'Spotify user', (st.product ?? '').toUpperCase() || null, { tone: st.product === 'premium' ? 'up' : undefined }),
+          h('div.note', st.product && st.product !== 'premium'
+            ? 'Linked. Ghosty can see what is playing and your playlists; controlling playback (play, pause, skip, volume) needs Spotify Premium.'
+            : 'Linked. Ask Ghosty "what\'s playing?", "play some jazz on Spotify", "skip", "turn it down".'),
+          h('div.keyrow', button('UNLINK', async () => {
+            await brain.spotifyUnlink().catch(() => undefined);
+            toast('Spotify unlinked', 'ok');
+            void paintSpotify();
+          }, 'warn')),
+        );
+        return;
+      }
+      const uri = redirectUri();
+      const idIn = h('input', { type: 'text', value: st?.clientId ?? savedClientId.get(), placeholder: "paste your app's Client ID", autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Spotify Client ID' });
+      const msg = h('small.note', '');
+      spot.body.append(
+        h('div.note', 'Link your Spotify account so Ghosty can show what is playing and control it by voice or chat.'),
+        h(
+          'ol.steps',
+          h('li', 'Open ', h('a.lnk', { href: 'https://developer.spotify.com/dashboard', target: '_blank', rel: 'noopener' }, 'developer.spotify.com/dashboard ↗'), ' and press Create app (any name and description).'),
+          h('li', 'Under Redirect URIs add exactly the address below (press COPY), tick "Web API", and save.'),
+          h('li', "Open the app's Settings, copy the Client ID and paste it here."),
+          h('li', 'Press LINK SPOTIFY and allow access. You come straight back here.'),
+        ),
+        h('div.lab', 'REDIRECT URI'),
+        h('div.keyrow', h('input', { type: 'text', value: uri, readOnly: true, 'aria-label': 'Redirect URI to copy' }), button('COPY', async () => {
+          try {
+            await navigator.clipboard.writeText(uri);
+            toast('Redirect URI copied', 'ok');
+          } catch {
+            toast(`Copy this: ${uri}`, 'warn');
+          }
+        })),
+        h('div.lab', 'CLIENT ID'),
+        h('div.keyrow', idIn, button('LINK SPOTIFY', async (b) => {
+          b.disabled = true;
+          try {
+            await startSpotifyLink(idIn.value);
+          } catch (e) {
+            msg.textContent = String((e as Error).message);
+            msg.className = 'note bad';
+            b.disabled = false;
+          }
+        }, 'on')),
+        msg,
+      );
+    };
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -245,6 +307,7 @@ export const systemTab: TabDef = {
     return {
       enter() {
         void load();
+        void paintSpotify();
         void checkVersion();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,

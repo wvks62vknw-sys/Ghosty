@@ -47,6 +47,11 @@ them, so it runs out far less often. Two more free sources need no extra key:
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
 - **GitHub Models**: give your GitHub token (step 4) the **Models: Read-only** account permission.
 
+**Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
+(or import a web page, an arXiv paper id, a CVE id or a GitHub repo). Reading happens in your browser and
+searching uses no AI, so a big library costs nothing. Scanned PDFs (photos of pages) are converted by
+Workers AI. Storage: the free plan's Durable Object storage holds several GB — thousands of books' worth of text.
+
 To check which version you're running, open **System → Status → VERSION**. If it says **NEWER SHIPPED**,
 press **RELOAD TO GET THE NEW VERSION**.
 
@@ -57,6 +62,37 @@ press **RELOAD TO GET THE NEW VERSION**.
 
 Then in **System → Phone app & notifications** press **TURN ON NOTIFICATIONS**. Reminders and the results of
 scheduled tasks now reach the phone even when Ghosty is closed. **SEND TEST** checks it works.
+
+## 3c. Link your email (optional)
+
+Ghosty can check, search and read your email and send email as you. Every email it sends waits
+for your OK, and reading never marks anything as read unless you ask.
+
+**Gmail** (needs 2-Step Verification, myaccount.google.com/security):
+1. Open **myaccount.google.com/apppasswords**, type a name (e.g. *Ghosty*) and press **Create**.
+2. Copy the 16-letter app password Google shows (not your normal password).
+3. In Ghosty → **System → Keys → Email (app password)** type your address, a space, then the app
+   password — `you@gmail.com abcd efgh ijkl mnop` — and press **SAVE**. Ghosty signs in once to check it.
+
+**iCloud, Yahoo, AOL, Fastmail:** the same, with an app password from your account's security
+settings. **Any other provider** (or Google Workspace on your own domain): add the servers after the
+password — `you@domain.com password imap.domain.com smtp.domain.com` (add `:port` if not 993 / 465;
+`:587` means STARTTLS). **Outlook.com / Hotmail / Live** can't be linked: Microsoft no longer allows
+app passwords for mail. To cut Ghosty off, delete the app password at your provider (or press
+REMOVE in System). Try: *"Any new email?"* or *"Reply to Ann's email and say Friday works."*
+
+
+## 3d. Link Spotify (optional)
+
+Ghosty can show what's playing on your Spotify and control it ("play some Queen", "skip", "turn it down").
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app** (any name).
+2. Under **Redirect URIs** add exactly your Ghosty address with a trailing slash, e.g. `https://ghosty.you.workers.dev/`
+   (**System → Spotify** shows it with a **COPY** button). Tick **Web API** and save.
+3. Copy the app's **Client ID** into **System → Spotify** and press **LINK SPOTIFY**, then allow access.
+
+No client secret is needed (PKCE), and the sign-in is kept encrypted in your brain. Reading what's playing works on any
+account; play, pause, skip and volume need **Spotify Premium**, and Spotify must be open on some device.
+A new Spotify app is in "development mode": add your own Spotify email under the app's **User Management** if it asks.
 
 ## 4. Let Ghosty edit itself
 

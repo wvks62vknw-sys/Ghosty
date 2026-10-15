@@ -14,6 +14,7 @@ export const ALWAYS_CONFIRM = new Set<string>([
   'forget_everything',
   'schedule_task', // a standing instruction Ghosty will act on while the owner is away
   'add_calendar_feed', // outside text that flows into every agenda answer
+  'send_email', // sends mail as the owner
 ]);
 
 /**
@@ -38,18 +39,23 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'remember',
   'learn_lesson', // lessons go into every prompt, so only the owner's own sessions may write them
   'forget_lesson',
+  'library_import', // the library flows into every prompt; only the owner's sessions add to it
   'plan_upgrade', // a roadmap is a standing plan for self-edits; only the owner's sessions set it
   'update_step',
   'set_reminder',
   'add_event',
   'remove_event',
+  'send_email',
 ]);
 
 /** Word patterns in tool names that imply acting as the owner or spending money. */
 const SENSITIVE = /(send|email|message|post|publish|pay|purchase|buy|transfer|delete_account|book)/i;
 
+/** Built-in tools whose names match SENSITIVE but only read (the owner's own mailbox). */
+const READ_ONLY = new Set<string>(['check_email', 'search_email', 'read_email']);
+
 export function needsApproval(tool: Tool): boolean {
-  return tool.risk === 'confirm' || ALWAYS_CONFIRM.has(tool.name) || SENSITIVE.test(tool.name);
+  return tool.risk === 'confirm' || ALWAYS_CONFIRM.has(tool.name) || (SENSITIVE.test(tool.name) && !READ_ONLY.has(tool.name));
 }
 
 /**

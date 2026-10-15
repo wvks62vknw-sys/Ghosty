@@ -13,6 +13,7 @@ import { onFrame } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
+import { StarkHud } from './hud';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -70,6 +71,7 @@ export const coreTab: TabDef = {
   primary: true,
   mount(root) {
     const reactor = new Reactor();
+    const stark = new StarkHud();
     const hud = h('div.hud.core');
     const stateLabel = h('div#cstate', 'ONLINE');
     const caption = h('div#ccap', h('span', ''));
@@ -130,7 +132,7 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', h('div.rwrap', reactor.el), stateLabel, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic), chips);
+    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic), chips);
     hud.append(left, center, right);
     root.append(hud);
 
@@ -142,7 +144,18 @@ export const coreTab: TabDef = {
     };
     chat.subscribe(paintLog);
     paintLog();
+    // power-up sequence: the HUD draws itself in, then reports
+    const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];
+    let booting = true;
+    bootMsgs.forEach((m, i) => setTimeout(() => {
+      stateLabel.textContent = m;
+      if (i === bootMsgs.length - 1) setTimeout(() => {
+        booting = false;
+        paintState();
+      }, 1400);
+    }, i * 650));
     const paintState = () => {
+      if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
       stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : conversation ? 'READY' : 'ONLINE';
@@ -154,7 +167,35 @@ export const coreTab: TabDef = {
       reactor.level = ui.get().voice === 'listening' ? micLevel.level : 0;
       reactor.spectrum = ui.get().voice === 'listening' ? micLevel.spectrum : null;
       reactor.frame(dt);
+      // the HUD rings sit just outside the reactor's own instruments
+      const rr = reactor.el.getBoundingClientRect();
+      const lr = stark.el.getBoundingClientRect();
+      const half = Math.min(rr.width, rr.height) / 2;
+      stark.frame(dt, reactor.state, reactor.level, { x: rr.left - lr.left + rr.width / 2, y: rr.top - lr.top + rr.height / 2 }, (half / 1.45) * 1.22);
     });
+
+    // live call-outs around the reactor
+    const latency = async (): Promise<number | null> => {
+      const t0 = performance.now();
+      const ok = await brain.health();
+      return ok ? Math.round(performance.now() - t0) : null;
+    };
+    const paintCallouts = async () => {
+      const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
+      const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
+      const ms = await latency().catch(() => null);
+      stark.set({ id: 'ai', label: 'AI LINK', value: model ? model.replace(/ · /, ' ▸ ').slice(0, 30) : 'STANDING BY', tone: 'ok' });
+      stark.set({ id: 'uplink', label: 'UPLINK', value: ms === null ? 'OFFLINE' : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
+      const w = weather.data;
+      stark.set({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${WMO(w.current.weather_code).toUpperCase().slice(0, 14)}` : ''}` });
+      const lv = threatLevel(signals());
+      stark.set({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
+      const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);
+      stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : 'ARC · 3 GW', tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
+      const lib = await brain.library().catch(() => null);
+      stark.set({ id: 'library', label: 'LIBRARY', value: lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : 'OFFLINE' });
+    };
+    let calloutTimer = 0;
 
     const paintSide = () => {
       const w = weather.data;
@@ -184,6 +225,9 @@ export const coreTab: TabDef = {
     paintSide();
     return {
       enter() {
+        void paintCallouts();
+        clearInterval(calloutTimer);
+        calloutTimer = window.setInterval(() => void paintCallouts(), 15000);
         weather.start();
         quakes.start();
         events.start();
@@ -194,6 +238,9 @@ export const coreTab: TabDef = {
           .status()
           .then((s) => (whisper = s.keys.some((k) => k.name === 'groq' && k.set)))
           .catch(() => undefined);
+      },
+      leave() {
+        clearInterval(calloutTimer);
       },
       describe: () => `Core screen. Last thing said: ${chat.get().live.slice(0, 160)}`,
     };

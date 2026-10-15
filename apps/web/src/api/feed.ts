@@ -82,3 +82,18 @@ export class Feed<T> {
     return this.events.on('change', fn);
   }
 }
+
+/** An image from an allowed public host, through the proxy, as a temporary object URL (the page may only show its own or blob: images). */
+export async function fetchImage(url: string, ttl = 20, timeout = 20000): Promise<string> {
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(`/api/proxy?ttl=${ttl}&url=${encodeURIComponent(url)}`, { signal: ctl.signal, headers: headers() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const b = await r.blob();
+    if (!b.type.startsWith('image/') && b.size < 200) throw new Error('not an image');
+    return URL.createObjectURL(b);
+  } finally {
+    clearTimeout(to);
+  }
+}
