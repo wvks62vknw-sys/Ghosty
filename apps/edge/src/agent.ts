@@ -30,6 +30,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { ToolContext } from './tools/types';
+import { deviceTools } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget, widgetTools } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
@@ -323,7 +324,7 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown };
+    const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown; offline?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     const { s, signal, done } = this.begin();
@@ -351,7 +352,7 @@ export class GhostyAgent {
           await this.loop(ctx, client, s.emit, signal);
         } catch (e) {
           const paused = storageError(e);
-          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused);
+          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline);
           // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
           else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
           else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
@@ -371,18 +372,24 @@ export class GhostyAgent {
    * conversation comes from the browser, and only tools that need no database are offered.
    * With no AI reachable either, it answers from the built-in library in the code.
    */
-  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string): Promise<void> {
+  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown): Promise<void> {
+    // The owner's memory and agenda, from the copy their device keeps (it is data, not instructions).
+    const dev = (offlineRaw && typeof offlineRaw === 'object' ? offlineRaw : {}) as { facts?: unknown; agenda?: unknown };
+    const strings = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-n).map((x) => x.slice(0, 300)) : []);
+    const facts = strings(dev.facts, 80).map((t, i) => ({ id: `device${i}`, text: t, at: 0 }));
+    const agendaLines = strings(dev.agenda, 40);
     const recent: Msg[] = (Array.isArray(recentRaw) ? recentRaw : [])
       .filter((m): m is { role: 'user' | 'assistant'; text: string } => !!m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
       .slice(-12)
       .map((m) => ({ role: m.role, content: m.text.slice(0, 1500) }));
     const hits = searchStarterInMemory(text);
     // Database-free tools; create_widget still works (it opens the widget on screen, unsaved).
-    const tools = [...webTools, ...dataTools, ...widgetTools.filter((t) => t.name === 'create_widget')].filter((t) => t.side !== 'client' && !needsApproval(t));
+    const tools = [...webTools, ...dataTools, ...widgetTools.filter((t) => t.name === 'create_widget'), ...deviceTools(client.tz)].filter((t) => t.side !== 'client' && !needsApproval(t));
     const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
     const sys =
-      systemPrompt(client, [], false) +
-      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Until then you have no saved memory, library uploads, agenda, reminders or email/Spotify links, and nothing you say is saved. Answer normally with what you know and the tools you have (web search, weather, and create_widget — widgets and games open on screen but aren't saved; build them directly with the widget kit, no web search needed). If asked to remember, schedule or use something that needs the database, say it can be done after the reset. Mention the pause only when it matters.` +
+      systemPrompt(client, facts, false) +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Your memory and agenda come from the copy on the owner's device (above and below), and remember / set_reminder / add_event still work: they are kept on the device and saved to you automatically after the reset. Also available: web search, weather, and create_widget (widgets and games open on screen; build them directly with the widget kit, no web search needed). Not available until the reset: library uploads, email and Spotify. Mention the pause only when it matters.` +
+      (agendaLines.length ? `\n\nTHE OWNER'S AGENDA (next two weeks, from their device):\n${asData("the owner's agenda", agendaLines.join('\n'))}` : '') +
       (hits.length ? `\n\nFROM YOUR BUILT-IN LIBRARY:\n${asData('your library', formatHits(hits, 3000))}` : '');
     const ctx: Msg[] = [...recent, { role: 'user', content: text }];
     const tctx = this.toolContext(emit);

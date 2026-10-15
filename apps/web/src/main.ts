@@ -4,7 +4,8 @@
  *  2. connect to the brain (Cloudflare Access, or pair this device with the owner key)
  *  3. build the shell, open the first tab, start the single frame loop
  */
-import { AuthError, brain, ownerKey } from './api/brain';
+import { AuthError, brain, ownerKey, sendQueued } from './api/brain';
+import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
@@ -82,6 +83,17 @@ async function connect(): Promise<void> {
   }
 }
 
+// Reminders set while the brain's database was paused go off from this device.
+onLocalReminder((title, text) => {
+  toast(`⏰ ${text}`, 'ok');
+  if (settings.get().speak) void import('./assistant/voice').then((v) => v.speak(`Reminder: ${text}`));
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') new Notification('Ghosty reminder', { body: text, tag: title, icon: '/icon-192.png' });
+  } catch {
+    /* notifications unavailable */
+  }
+});
+
 async function boot(): Promise<void> {
   applyTheme(settings.get().theme);
   const cv = document.getElementById('gl') as HTMLCanvasElement;
@@ -97,6 +109,9 @@ async function boot(): Promise<void> {
     await loadHistory();
     startNotices();
     void initApp();
+    // Changes made while the brain was unreachable (memory, agenda) go to it now.
+    void sendQueued();
+    window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
   const spotify = await finishSpotifyLink().catch(() => null);

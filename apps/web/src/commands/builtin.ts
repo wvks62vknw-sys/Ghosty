@@ -11,6 +11,7 @@ import { go, tabs } from '../shell/tabs';
 import { ui } from '../state/app';
 import { applyTheme, THEMES } from '../state/theme';
 import { keepWidget } from '../state/widgets';
+import { enqueue, type NewEvent, type NewJob } from '../api/offline';
 import { modal, sandboxFrame, toast } from '../ui/components';
 import { addPaletteProvider, register, type Command } from './registry';
 
@@ -96,6 +97,19 @@ export function registerBuiltins(): void {
         ui.set({});
         const n = enforce.near(where.lat, where.lon, 40).filter((c) => c.kind !== 'cctv').length;
         toast(`No public live cameras in ${where.name || 'that area'}${near ? ` — the nearest is ${Math.round(near.km)} km away (${near.src})` : ''}. Showing live traffic${n ? ` and ${n} mapped ANPR, speed and red-light cameras` : ''} instead.`, 'warn');
+      },
+    },
+    {
+      // Ghosty remembered something / set a reminder or event while its database was paused:
+      // keep it on this device (shows at once) and send it to the brain when it's back.
+      id: 'offline_save',
+      title: 'Save on this device',
+      hidden: true,
+      run: (a) => {
+        const op = a?.op;
+        if (op === 'addMemory' && a?.text) enqueue({ kind: 'addMemory', text: String(a.text) });
+        else if (op === 'addJob' && a?.job) enqueue({ kind: 'addJob', job: a.job as NewJob });
+        else if (op === 'addEvent' && a?.event) enqueue({ kind: 'addEvent', event: a.event as NewEvent });
       },
     },
     {

@@ -306,3 +306,40 @@ test('a widget built while the database is paused still opens, marked unsaved', 
   assert.equal(events[0].name, 'open_widget');
   assert.equal(events[0].args.saved, false);
 });
+
+test("while paused, Ghosty knows the owner's memory from their device and can still remember things", async () => {
+  const quota = () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+  const storage = new MemStorage();
+  storage.get = async () => quota();
+  storage.put = async () => quota();
+  storage.delete = async () => quota();
+  storage.sql = { exec: quota, databaseSize: 0 };
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (!/chat\/completions/.test(url)) return new Response('not faked', { status: 599 });
+    const body = JSON.parse(init.body);
+    sent.push(body);
+    const reply = sent.length === 1
+      ? { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'remember', arguments: JSON.stringify({ text: 'Ghost has a dog called Rex' }) } }] }
+      : { role: 'assistant', content: "Got it — and you're seeing Sam at 7." };
+    return new Response(JSON.stringify({ choices: [{ message: reply }] }), { headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const pending = [];
+    const agent = new brain.GhostyAgent({ storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() }, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), GROQ_KEY: 'gsk_x' });
+    const r = await agent.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', body: JSON.stringify({ message: 'remember my dog is Rex. what am I doing tonight?', context: { tz: 'Europe/London' }, offline: { facts: ['Ghost lives in Birmingham'], agenda: ['event "Dinner with Sam" 2026-10-15T18:00:00.000Z'] } }) }));
+    const ev = (await r.text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    const sys = sent[0].messages[0].content;
+    assert.match(sys, /Ghost lives in Birmingham/, 'memory from the device');
+    assert.match(sys, /Dinner with Sam/, 'agenda from the device');
+    assert.ok(sent[0].tools.some((t) => t.function.name === 'set_reminder'), 'reminders offered while paused');
+    const save = ev.find((e) => e.t === 'client' && e.name === 'offline_save');
+    assert.deepEqual(save?.args, { op: 'addMemory', text: 'Ghost has a dog called Rex' });
+    assert.match(ev.find((e) => e.t === 'text').text, /Sam at 7/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

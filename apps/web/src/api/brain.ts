@@ -4,6 +4,7 @@
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
 import { createStore } from '../core/store';
+import { agendaWithOutbox, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain). */
@@ -133,7 +134,9 @@ export const brain = {
       return s;
     }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) => streamEvents('/chat', { message, context, recent }, onEvent, signal),
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) =>
+    // `offline`: memory and agenda kept on this device, so Ghosty still knows them if its database is paused.
+    streamEvents('/chat', { message, context, recent, offline: offlineContext() }, onEvent, signal),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   stop: () => req<{ ok: boolean }>('POST', '/stop'),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
@@ -204,3 +207,84 @@ export const brain = {
     return j.text ?? '';
   },
 };
+
+// ---------------------------------------------------------------------------------------
+// Memory and agenda keep working while the brain's database is paused (or the network is
+// down): reads fall back to the copy on this device, changes are queued and sent later.
+// See api/offline.ts.
+// ---------------------------------------------------------------------------------------
+
+/** The brain can't be used right now, but will be: database paused, or no connection. */
+const unreachable = (e: unknown) => isPaused(e) || e instanceof TypeError;
+
+const raw = { memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
+
+brain.memory = async () => {
+  try {
+    const r = await raw.memory();
+    offline.set({ memory: r.facts });
+    return { facts: factsWithOutbox(r.facts) };
+  } catch (e) {
+    const kept = offline.get().memory;
+    if (unreachable(e) && kept) return { facts: factsWithOutbox(kept) };
+    throw e;
+  }
+};
+brain.agenda = async (days = 14) => {
+  try {
+    const r = await raw.agenda(days);
+    offline.set({ agenda: r });
+    return agendaWithOutbox(r);
+  } catch (e) {
+    const kept = offline.get().agenda;
+    if (unreachable(e) && kept) return agendaWithOutbox(kept);
+    throw e;
+  }
+};
+brain.inbox = async () => {
+  try {
+    const r = await raw.inbox();
+    offline.set({ inbox: r });
+    return r;
+  } catch (e) {
+    const kept = offline.get().inbox;
+    if (unreachable(e) && kept) return kept;
+    throw e;
+  }
+};
+
+/** Try the brain; if it can't be reached, queue the change on this device instead. */
+async function orQueue<T>(isLocal: boolean, call: () => Promise<T>, queue: () => T): Promise<T> {
+  if (isLocal) return queue(); // only exists on this device: just change the queue
+  try {
+    return await call();
+  } catch (e) {
+    if (unreachable(e)) return queue();
+    throw e;
+  }
+}
+const isLocal = (id: string) => id.startsWith('local-');
+
+brain.addMemory = (text: string) => orQueue(false, () => raw.addMemory(text), () => (enqueue({ kind: 'addMemory', text }), { queued: true }));
+brain.forget = (id: string) => orQueue(isLocal(id), () => raw.forget(id), () => (enqueue({ kind: 'forget', factId: id }), { queued: true }));
+brain.addEvent = (e) =>
+  orQueue(false, () => raw.addEvent(e), () => {
+    const op = enqueue({ kind: 'addEvent', event: e });
+    return { event: { id: op.id, title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, source: 'this device (not saved yet)' } };
+  });
+brain.deleteEvent = (id: string) => orQueue(isLocal(id), () => raw.deleteEvent(id), () => (enqueue({ kind: 'deleteEvent', eventId: id }), { queued: true }));
+brain.addJob = (j) =>
+  orQueue(false, () => raw.addJob(j), () => {
+    const op = enqueue({ kind: 'addJob', job: j });
+    return { job: { id: op.id, kind: j.kind, title: j.title ?? j.text.slice(0, 120), text: j.text, next: j.at, repeat: j.repeat, tz: TZ } };
+  });
+brain.deleteJob = (id: string) => orQueue(isLocal(id), () => raw.deleteJob(id), () => (enqueue({ kind: 'deleteJob', jobId: id }), { queued: true }));
+
+/** Send changes queued while the brain was unreachable. Runs when memory is back and every 2 min while anything waits. */
+export async function sendQueued(): Promise<number> {
+  if (!offline.get().outbox.length) return 0;
+  return flushOutbox(raw, unreachable);
+}
+memoryPaused.subscribe((m, prev) => {
+  if (prev.on && !m.on) void sendQueued();
+});
