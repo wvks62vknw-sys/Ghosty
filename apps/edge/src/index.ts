@@ -21,6 +21,8 @@ const CAMERA_HOSTS = [
   'webcams.transport.nsw.gov.au',
   'data.calgary.ca',
   'trafficcam.calgary.ca',
+  'spatial.durham.gov.uk',
+  'dcc.ussgroup.co.uk',
 ];
 // Intelligence feeds (God's Eye): ships, radar, weather alerts, disasters, buoys, aurora, cables, 911.
 const INTEL_HOSTS = [

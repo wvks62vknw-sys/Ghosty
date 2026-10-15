@@ -15,6 +15,7 @@ import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions'
 import { Vault } from './kernel/vault';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
+import { trafficRoute } from './integrations/traffic';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
@@ -229,6 +230,7 @@ export class GhostyAgent {
           return json({ linked: true, problem: String((e as Error).message).slice(0, 200) });
         }
       }
+      if (path.startsWith('/traffic/')) return await trafficRoute(path, method, this.vault);
       if (path.startsWith('/spotify/')) return await spotifyRoute(req, path, method, this.vault);
       if (path.startsWith('/agenda') || path.startsWith('/jobs') || path.startsWith('/inbox') || path.startsWith('/feeds')) return await this.agendaRoute(req, path, method, url);
       return json({ error: 'not found' }, 404);

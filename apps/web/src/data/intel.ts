@@ -167,6 +167,21 @@ export function parseCalgary(rows: unknown): Cam[] {
   return out;
 }
 
+/** Durham County Council traffic cameras (ArcGIS layer; pictures on dcc.ussgroup.co.uk). */
+export function parseDurham(j: unknown): Cam[] {
+  const out: Cam[] = [];
+  const feats = ((j as { features?: unknown[] } | null)?.features ?? []) as { attributes?: { Camera_Nam?: string; Camera_Vie?: string; Status?: string; USS_Camera_Number?: string }; geometry?: { x?: number; y?: number } }[];
+  for (const f of feats) {
+    const a = f.attributes ?? {};
+    const id = String(a.USS_Camera_Number ?? '').toLowerCase();
+    const lat = num(f.geometry?.y);
+    const lon = num(f.geometry?.x);
+    if (!/^[a-z0-9_]+$/.test(id) || !okLL(lat, lon) || (a.Status && !/live/i.test(a.Status))) continue;
+    out.push({ id: `dur-${id}`, name: `${a.Camera_Nam ?? 'Durham camera'}${a.Camera_Vie ? ` · ${a.Camera_Vie}` : ''}`, src: 'Durham County Council', lat, lon, img: `https://dcc.ussgroup.co.uk/images/${id}.jpg` });
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Ships
 // ---------------------------------------------------------------------------

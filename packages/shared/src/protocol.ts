@@ -25,6 +25,7 @@ export const CLIENT_COMMANDS = [
   'reload_interface',
   'show_route',
   'show_cameras',
+  'show_traffic',
   'play_radio',
   'stop_audio',
 ] as const;

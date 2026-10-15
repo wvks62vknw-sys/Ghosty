@@ -27,7 +27,7 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   aurora: 'aurora', 'northern lights': 'aurora',
   cables: 'cables', 'undersea cables': 'cables', 'submarine cables': 'cables', internet: 'cables',
   dispatch: 'dispatch', '911': 'dispatch', emergency: 'dispatch',
-  borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
+  borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', traffic: 'traffic', 'live traffic': 'traffic', congestion: 'traffic', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
 async function locate(place: string): Promise<{ lat: number; lon: number; name: string } | null> {
@@ -73,16 +73,39 @@ export function registerBuiltins(): void {
       hidden: true,
       run: async (a) => {
         go('eye');
-        const where = a?.place ? await locateAny(String(a.place)) : { lat: Number(a?.lat), lon: Number(a?.lon) };
-        if (!where || !Number.isFinite(where.lat) || !Number.isFinite(where.lon)) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        const where = Number.isFinite(lat) && Number.isFinite(lon) && a?.lat !== undefined ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+        if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
         const { openNearestCamera } = await import('../features/eye');
-        globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: 40, tilt: 0 });
+        globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: 25, tilt: 0 });
         // camera lists load in the background; try a few times
         for (let i = 0; i < 12; i++) {
-          if (openNearestCamera?.(where.lat, where.lon)) return;
+          if (openNearestCamera?.(where.lat, where.lon, 40) != null) return;
           await new Promise((r) => setTimeout(r, 1500));
         }
-        toast('No public cameras near there yet — London, New York, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary have them', 'warn');
+        const { nearestCameras } = await import('../data/cameras');
+        const near = nearestCameras(where.lat, where.lon, 1, 20000)[0];
+        globe.vis = { ...globe.vis, traffic: true };
+        toast(`No public cameras in ${where.name || 'that area'}${near ? ` — the nearest is ${Math.round(near.km)} km away (${near.src})` : ''}. Showing live traffic instead.`, 'warn');
+      },
+    },
+    {
+      id: 'show_traffic',
+      title: 'Show live traffic',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        const where = Number.isFinite(lat) && Number.isFinite(lon) && a?.lat !== undefined ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
+        globe.vis = { ...globe.vis, traffic: true, cams: true };
+        if (where) globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 14, tilt: 0 });
+        const { trafficState } = await import('../engine/layers/radar');
+        const { brain } = await import('../api/brain');
+        trafficState.ready = (await brain.trafficStatus().catch(() => ({ ready: false }))).ready;
+        if (!trafficState.ready) toast('Live traffic needs the free TomTom key — System → Keys → TomTom traffic', 'warn');
+        ui.set({});
       },
     },
     {

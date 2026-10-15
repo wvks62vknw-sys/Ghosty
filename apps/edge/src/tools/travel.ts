@@ -13,12 +13,12 @@ interface Spot {
   lon: number;
 }
 
-async function ownerPlace(ctx: Pick<ToolContext, 'storage'>): Promise<Spot | null> {
+export async function ownerPlace(ctx: Pick<ToolContext, 'storage'>): Promise<Spot | null> {
   const c = await ctx.storage.get<{ location?: { name: string; lat: number; lon: number } }>('owner:ctx');
   return c?.location ? { name: c.location.name || 'your location', lat: c.location.lat, lon: c.location.lon } : null;
 }
 
-async function geocode(q: string, near?: Spot | null): Promise<Spot | null> {
+export async function geocode(q: string, near?: Spot | null): Promise<Spot | null> {
   const coords = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
   if (coords) return { name: q.trim(), lat: +coords[1]!, lon: +coords[2]! };
   const u = new URL('https://nominatim.openstreetmap.org/search');

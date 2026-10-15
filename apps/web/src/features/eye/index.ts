@@ -3,6 +3,7 @@
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
  * to watch it, and a grid shows the four cameras nearest the view.
  */
+import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { flyTo } from '../../commands/builtin';
 import { clear, fmt, h } from '../../core/dom';
@@ -23,7 +24,7 @@ import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
 import { INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
-import { radar } from '../../engine/layers/radar';
+import { radar, trafficState } from '../../engine/layers/radar';
 import {
   alerts, aurora, buoys, cables, disasters, dispatch, NAV_STATUS, radarFrames, shipKind, ships,
   type Alert, type Buoy, type Cable, type Disaster, type Dispatch, type Ship,
@@ -33,7 +34,8 @@ import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCame
 import { fetchImage } from '../../api/feed';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
-export let openNearestCamera: ((lat: number, lon: number) => boolean) | null = null;
+/** Open the nearest public camera within `maxKm`; returns its distance (km), or null if none is that close. */
+export let openNearestCamera: ((lat: number, lon: number, maxKm?: number) => number | null) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -136,6 +138,7 @@ export const eyeTab: TabDef = {
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
       ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'ADD KEY')],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
       ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
       ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
@@ -432,14 +435,14 @@ export const eyeTab: TabDef = {
     camEvents.on('change', () => {
       gridKey = '';
     });
-    openNearestCamera = (lat, lon) => {
+    openNearestCamera = (lat, lon, maxKm = 40) => {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
       globe.vis = { ...globe.vis, cams: true };
-      const c = nearestCameras(lat, lon, 1, 300)[0];
-      if (!c) return false;
+      const c = nearestCameras(lat, lon, 1, maxKm)[0];
+      if (!c) return null;
       select({ kind: 'cam', ref: c, w: GEO.ecef(c.lat, c.lon, 0.08) }, true);
-      return true;
+      return c.km;
     };
 
     // ---------- bottom: readout + buttons ----------
@@ -684,6 +687,8 @@ export const eyeTab: TabDef = {
 
     return {
       enter() {
+        // Live traffic tiles need the TomTom key in the brain (it may have been added since).
+        void brain.trafficStatus().then((r) => (trafficState.ready = r.ready)).catch(() => undefined);
         quakes.start();
         events.start();
         launches.start();
