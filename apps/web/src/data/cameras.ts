@@ -5,17 +5,20 @@
  *   New York City — NYC DOT traffic cameras (stills, refreshed every few seconds)
  *   California — Caltrans CCTV (stills; many also stream live video)
  *   Finland — Fintraffic road weather cameras (stills)
+ *   Ontario — Ontario 511 highway cameras; British Columbia — DriveBC; Sydney/NSW — Live
+ *   Traffic NSW; Calgary — City of Calgary traffic cameras (stills; parsers in data/intel.ts)
  * Only public, official feeds are used — never private or unsecured cameras.
  */
 import { fetchJson, fetchText } from '../api/feed';
 import { Emitter } from '../core/store';
+import { parseCalgary, parseDriveBc, parseNsw, parseOntario, type Cam } from './intel';
 
 export interface Camera {
   id: string;
   name: string;
   lat: number;
   lon: number;
-  src: 'London' | 'New York' | 'California' | 'Finland';
+  src: 'London' | 'New York' | 'California' | 'Finland' | 'Ontario' | 'British Columbia' | 'New South Wales' | 'Calgary';
   image: string;
   /** Short clip (mp4) the browser can play directly. */
   video?: string;
@@ -83,6 +86,10 @@ async function california(district: number): Promise<Camera[]> {
     }));
 }
 
+/** The extra networks share one shape (data/intel.ts parsers). */
+const extra = (src: Camera['src'], url: string, parse: (j: unknown) => Cam[]) => async (): Promise<Camera[]> =>
+  parse(await fetchJson(url, 1800, 30000)).map((c) => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon, src, image: c.img }));
+
 let started = false;
 /** Load the camera networks (once). California loads when the view is over California. */
 export function loadCameras(): void {
@@ -90,7 +97,15 @@ export function loadCameras(): void {
   started = true;
   cams.status = 'SYNC';
   camEvents.emit('change', undefined);
-  const jobs: [string, () => Promise<Camera[]>][] = [['London', london], ['New York', newYork], ['Finland', finland]];
+  const jobs: [string, () => Promise<Camera[]>][] = [
+    ['London', london],
+    ['New York', newYork],
+    ['Finland', finland],
+    ['Ontario', extra('Ontario', 'https://511on.ca/api/v2/get/cameras?format=json&lang=en', parseOntario)],
+    ['British Columbia', extra('British Columbia', 'https://www.drivebc.ca/api/webcams/', parseDriveBc)],
+    ['New South Wales', extra('New South Wales', 'https://data.livetraffic.com/cameras/traffic-cam.json', parseNsw)],
+    ['Calgary', extra('Calgary', 'https://data.calgary.ca/resource/k7p9-kppz.json?$limit=500', parseCalgary)],
+  ];
   let ok = 0;
   let done = 0;
   for (const [name, job] of jobs) {
@@ -148,4 +163,8 @@ export const CAM_COLORS: Record<Camera['src'], [number, number, number]> = {
   'New York': [1, 0.75, 0.2],
   California: [0.3, 0.85, 1],
   Finland: [0.55, 1, 0.6],
+  Ontario: [0.85, 0.5, 1],
+  'British Columbia': [0.35, 1, 0.85],
+  'New South Wales': [1, 0.55, 0.85],
+  Calgary: [1, 0.95, 0.45],
 };

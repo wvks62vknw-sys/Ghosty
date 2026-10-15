@@ -408,7 +408,7 @@ export async function selfCheck(staged: Staged[], tree: string[], read: Reader):
   if (webFetches.length) {
     const index = await contentOf('apps/edge/src/index.ts');
     // every host listed in FEED_HOSTS or in a *_HOSTS / FEED_PREFIXES list it is built from
-    const lists = [...(index ?? '').matchAll(/(?:FEED_HOSTS\s*=\s*new Set\(\[|[A-Z_]*HOSTS\s*=\s*\[|FEED_PREFIXES\s*=\s*\[)([\s\S]*?)\]/g)].map((m) => m[1]!).join(' ');
+    const lists = [...(index ?? '').matchAll(/(?:FEED_HOSTS\s*=\s*new Set\(\[|[A-Z_]*HOSTS\s*=\s*\[|FEED_PREFIXES\s*=\s*\[)([\s\S]*?)\]/g)].map((m) => m[1]!.replace(/\/\/[^\n]*/g, '')).join(' ');
     const allowed = new Set([...lists.matchAll(/['"]([^'"/]+)[^'"]*['"]/g)].map((m) => m[1]!));
     if (allowed.size) {
       for (const s of webFetches) {

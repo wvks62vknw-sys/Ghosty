@@ -9,6 +9,7 @@
 import type { BrainStatus, ChatEvent, ChatTurn, KeyStatus } from '../../../packages/shared/src/protocol';
 import type { Env } from './env';
 import { GitHub } from './github';
+import { collectAis, type AisShip } from './ais';
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
@@ -108,6 +109,27 @@ export class GhostyAgent {
   /** Hostname the owner reached Ghosty on (used to work out preview links). */
   private host?: string;
 
+  private shipCache = new Map<string, { at: number; ships: AisShip[] }>();
+
+  /** Ships in a box from AISstream (free key). Cached 30 s per half-degree box. */
+  private async ships(url: URL): Promise<{ ships: AisShip[]; note?: string }> {
+    const box = (url.searchParams.get('bbox') ?? '').split(',').map(Number);
+    if (box.length !== 4 || box.some((v) => !Number.isFinite(v))) return { ships: [], note: 'bbox must be west,south,east,north' };
+    const key = await this.vault.get('aisstream');
+    if (!key) return { ships: [], note: 'Add a free AISstream key in the System tab to see ships everywhere (Baltic ships work without one).' };
+    const ck = box.map((v) => Math.round(v * 2) / 2).join(',');
+    const hit = this.shipCache.get(ck);
+    if (hit && Date.now() - hit.at < 30_000) return { ships: hit.ships };
+    try {
+      const ships = await collectAis(key, box, 6000);
+      this.shipCache.set(ck, { at: Date.now(), ships });
+      if (this.shipCache.size > 40) this.shipCache.delete(this.shipCache.keys().next().value!);
+      return { ships };
+    } catch (e) {
+      return { ships: [], note: String((e as Error)?.message ?? e) };
+    }
+  }
+
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     this.host = url.hostname;
@@ -194,6 +216,7 @@ export class GhostyAgent {
         return json({ kernelUnlockedUntil: mins ? Date.now() + mins * 60_000 : 0 });
       }
       if (path === '/stt' && method === 'POST') return await this.stt(req);
+      if (path === '/ships' && method === 'GET') return json(await this.ships(url));
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path === '/email/status' && method === 'GET') {
         // Which account is linked (never the password), for the LINKS tab.

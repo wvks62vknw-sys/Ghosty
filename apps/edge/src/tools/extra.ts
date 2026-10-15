@@ -15,4 +15,6 @@
  */
 import type { Tool } from './types';
 
-export const extraTools: Tool[] = [];
+import { detect_crime } from './detect_crime';
+
+export const extraTools: Tool[] = [detect_crime];

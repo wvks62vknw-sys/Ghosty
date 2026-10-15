@@ -18,6 +18,15 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   sats: 'sats', satellites: 'sats',
   quakes: 'quakes', earthquakes: 'quakes',
   events: 'events', hazards: 'events',
+  'traffic cameras': 'cams',
+  ships: 'ships', ais: 'ships', vessels: 'ships', boats: 'ships', maritime: 'ships',
+  radar: 'radar', rain: 'radar', precipitation: 'radar', 'weather radar': 'radar',
+  alerts: 'alerts', warnings: 'alerts', 'weather alerts': 'alerts',
+  disasters: 'disasters', gdacs: 'disasters', cyclones: 'disasters', floods: 'disasters',
+  buoys: 'buoys', waves: 'buoys', ocean: 'buoys',
+  aurora: 'aurora', 'northern lights': 'aurora',
+  cables: 'cables', 'undersea cables': 'cables', 'submarine cables': 'cables', internet: 'cables',
+  dispatch: 'dispatch', '911': 'dispatch', emergency: 'dispatch',
   borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
@@ -73,7 +82,7 @@ export function registerBuiltins(): void {
           if (openNearestCamera?.(where.lat, where.lon)) return;
           await new Promise((r) => setTimeout(r, 1500));
         }
-        toast('No public cameras near there yet — London, New York, California and Finland have them', 'warn');
+        toast('No public cameras near there yet — London, New York, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary have them', 'warn');
       },
     },
     {

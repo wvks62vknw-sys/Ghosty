@@ -22,6 +22,12 @@ import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
+import { INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
+import { radar } from '../../engine/layers/radar';
+import {
+  alerts, aurora, buoys, cables, disasters, dispatch, NAV_STATUS, radarFrames, shipKind, ships,
+  type Alert, type Buoy, type Cable, type Disaster, type Dispatch, type Ship,
+} from '../../data/intel';
 import { camLayer } from '../../engine/layers/cams';
 import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCameras, type Camera } from '../../data/cameras';
 import { fetchImage } from '../../api/feed';
@@ -35,7 +41,7 @@ function installLayers(): void {
   layersInstalled = true;
   sats.init();
   if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
-  globe.layers.push(quakeLayer, eventLayer, sats, air, camLayer);
+  globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, sats, air, camLayer);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
   void sats.refresh();
@@ -64,6 +70,20 @@ function describe(sel: Pickable): string {
     }
     case 'city':
       return `the city of ${(r as unknown as City).name}, ${(r as unknown as City).country}`;
+    case 'ship': {
+      const v = r as unknown as Ship;
+      return `${shipKind(v.type).toLowerCase()} vessel ${v.name || `MMSI ${v.mmsi}`} at ${v.sog.toFixed(1)} knots, course ${Math.round(v.cog)}°${v.dest ? `, bound for ${v.dest}` : ''}`;
+    }
+    case 'alert':
+      return `${(r as unknown as Alert).severity} weather alert: ${(r as unknown as Alert).headline || (r as unknown as Alert).event} (${(r as unknown as Alert).area})`;
+    case 'disaster':
+      return `GDACS ${(r as unknown as Disaster).level} alert: ${(r as unknown as Disaster).kind.toLowerCase()} ${(r as unknown as Disaster).name} ${(r as unknown as Disaster).country}`;
+    case 'buoy':
+      return `NOAA buoy ${(r as unknown as Buoy).id}${(r as unknown as Buoy).wvht !== undefined ? ` with ${(r as unknown as Buoy).wvht} m waves` : ''}`;
+    case 'cable':
+      return `the ${(r as unknown as Cable).name} undersea cable`;
+    case 'dispatch':
+      return `Seattle 911 call: ${(r as unknown as Dispatch).type} at ${(r as unknown as Dispatch).addr}`;
     default:
       return sel.kind;
   }
@@ -81,9 +101,10 @@ export const eyeTab: TabDef = {
     installLayers();
     let selected: Pickable | null = null;
     let airTimer = 0;
+    let shipTimer = 0;
 
     // ---------- top: search + sensor modes ----------
-    const q = h('input', { placeholder: 'Search city, airport, flight, satellite…', autocomplete: 'off', 'aria-label': 'Search the globe' });
+    const q = h('input', { placeholder: 'Search place, flight, ship, satellite…', autocomplete: 'off', 'aria-label': 'Search the globe' });
     const search = async () => {
       const s = q.value.trim();
       if (!s) return;
@@ -91,6 +112,8 @@ export const eyeTab: TabDef = {
       if (a) return select({ kind: 'air', ref: a, w: air.world(a, Date.now()) }, true);
       const sat = sats.list.find((x) => x.name.toLowerCase().includes(s.toLowerCase()));
       if (sat) return select({ kind: 'sat', ref: sat, w: sat.w }, true);
+      const ship = ships.find(s);
+      if (ship) return select({ kind: 'ship', ref: ship, w: shipLayer.world(ship, Date.now()) }, true);
       if (!(await flyTo({ place: s, range_km: 300 }))) toast(`Nothing found for ${s}`, 'warn');
     };
     q.addEventListener('keydown', (e) => {
@@ -112,6 +135,14 @@ export const eyeTab: TabDef = {
       ['sats', 'SATELLITES', () => String(sats.list.length)],
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
       ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
+      ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
+      ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
+      ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
+      ['aurora', 'AURORA', () => (aurora.data ? `${Math.max(0, ...aurora.data.cells.map((c) => c[2]))}%` : aurora.status)],
+      ['dispatch', '911 SEATTLE', () => String(dispatch.data?.length ?? dispatch.status)],
+      ['buoys', 'OCEAN BUOYS', () => (buoys.data ? String(buoys.data.length) : '')],
+      ['cables', 'UNDERSEA CABLES', () => (cables.data ? String(cables.data.length) : '')],
       ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'SYNC' : String(cams.list.length))],
       ['borders', 'BORDERS', () => ''],
       ['adm1', 'REGIONS', () => ''],
@@ -227,6 +258,60 @@ export const eyeTab: TabDef = {
           else toast('No other camera nearby', 'warn');
         };
         actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => globe.cam.flyTo({ lat: c.lat, lon: c.lon, range: 1.2, tilt: 60 })));
+      } else if (s.kind === 'ship') {
+        const v = s.ref as Ship;
+        info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
+        info.setStatus(shipKind(v.type), shipKind(v.type) === 'MILITARY' ? 'off' : 'ok');
+        R('MMSI', String(v.mmsi));
+        R('SPEED', `${v.sog.toFixed(1)} kt`, `${(v.sog * 1.852).toFixed(0)} km/h`);
+        R('COURSE', `${Math.round(v.cog)}°`, GEO.card(v.cog));
+        if (v.dest) R('DEST', v.dest);
+        if (v.nav < NAV_STATUS.length) R('STATUS', NAV_STATUS[v.nav]!);
+        R('SEEN', fmt.ago(v.t), v.src);
+        actions.append(button('FOLLOW', () => {
+          const p = ships.pos(v);
+          globe.cam.flyTo({ lat: p.lat, lon: p.lon, range: 25, tilt: 50 });
+          setTimeout(() => (globe.cam.follow = () => ships.pos(shipLayer.selected ?? v)), 2500);
+        }));
+      } else if (s.kind === 'alert') {
+        const a = s.ref as Alert;
+        info.title.textContent = a.event.toUpperCase();
+        info.setStatus(a.severity.toUpperCase(), a.severity === 'Extreme' || a.severity === 'Severe' ? 'off' : 'mid');
+        if (a.headline) R('ALERT', a.headline);
+        R('AREA', a.area.length > 140 ? `${a.area.slice(0, 140)}…` : a.area);
+        R('UNTIL', fmt.time(new Date(a.expires)));
+      } else if (s.kind === 'disaster') {
+        const d = s.ref as Disaster;
+        info.title.textContent = d.kind;
+        info.setStatus(`${d.level.toUpperCase()} ALERT`, d.level === 'Red' ? 'off' : d.level === 'Orange' ? 'mid' : 'ok');
+        R('EVENT', d.name || d.kind);
+        if (d.country) R('WHERE', d.country);
+        if (d.severity) R('SEVERITY', d.severity);
+        if (d.from) R('SINCE', fmt.ago(d.from));
+        if (d.url) actions.append(button('GDACS ↗', () => window.open(d.url, '_blank', 'noopener')));
+      } else if (s.kind === 'buoy') {
+        const b = s.ref as Buoy;
+        info.title.textContent = `BUOY ${b.id}`;
+        info.setStatus(fmt.ago(b.t), 'ok');
+        if (b.wvht !== undefined) R('WAVES', `${b.wvht} m`, b.dpd ? `${b.dpd} s period` : undefined);
+        if (b.wspd !== undefined) R('WIND', `${Math.round(b.wspd * 1.944)} kt${b.wdir !== undefined ? ` from ${GEO.card(b.wdir)}` : ''}`, b.gst !== undefined ? `gust ${Math.round(b.gst * 1.944)} kt` : undefined);
+        if (b.wtmp !== undefined) R('WATER', `${b.wtmp} °C`);
+        if (b.atmp !== undefined) R('AIR', `${b.atmp} °C`);
+        if (b.pres !== undefined) R('PRESSURE', `${b.pres} hPa`);
+        actions.append(button('NOAA ↗', () => window.open(`https://www.ndbc.noaa.gov/station_page.php?station=${encodeURIComponent(b.id)}`, '_blank', 'noopener')));
+      } else if (s.kind === 'cable') {
+        const c = s.ref as Cable;
+        info.title.textContent = 'UNDERSEA CABLE';
+        info.setStatus('TELEGEOGRAPHY', 'ok');
+        R('NAME', c.name);
+        R('SEGMENTS', String(c.lines.length));
+      } else if (s.kind === 'dispatch') {
+        const d = s.ref as Dispatch;
+        info.title.textContent = '911 CALL';
+        info.setStatus(fmt.ago(d.t), /fire/i.test(d.type) ? 'off' : 'mid');
+        R('TYPE', d.type);
+        R('ADDRESS', d.addr);
+        R('INCIDENT', d.id);
       } else if (s.kind === 'city') {
         const c = s.ref as City;
         info.title.textContent = c.name.toUpperCase();
@@ -243,13 +328,14 @@ export const eyeTab: TabDef = {
     };
     function select(p: Pickable | null, fly = false): void {
       selected = p;
+      shipLayer.selected = p?.kind === 'ship' ? (p.ref as Ship) : null;
       air.selected = p?.kind === 'air' ? (p.ref as Aircraft) : null;
       sats.selected = p?.kind === 'sat' ? (p.ref as Satellite) : null;
       camLayer.selected = p?.kind === 'cam' ? (p.ref as Camera) : null;
       if (!p) globe.cam.follow = null;
       if (p && fly) {
         const ll = GEO.ll(p.w);
-        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' ? 60 : p.kind === 'cam' ? 6 : 400, tilt: p.kind === 'air' ? 50 : p.kind === 'cam' ? 45 : 0 });
+        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 60 : p.kind === 'cam' ? 6 : 400, tilt: p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 50 : p.kind === 'cam' ? 45 : 0 });
       }
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
@@ -532,7 +618,16 @@ export const eyeTab: TabDef = {
         for (const o of near) add(o.w, `${o.a.call || o.a.hex}${o.a.gnd ? '' : ` ${Math.round(o.a.altft / 100)}`}`, o.a.mil ? '#ff8a8a' : '#bff');
       }
       if (globe.vis.sats && alt > 1500) for (const s of sats.list.filter((x) => x.group === 'stations').slice(0, 12)) add(s.w, s.name.replace(/ \(.*/, ''), '#ffe08a');
-      if (selected) add(selected.kind === 'air' ? air.world(selected.ref as Aircraft, Date.now()) : selected.w, '◆ TARGET', '#fff');
+      if (globe.vis.ships && alt < 250) {
+        const now = Date.now();
+        let n = 0;
+        for (const v of ships.list.values()) {
+          if (!v.name || v.sog < 0.5 || v === shipLayer.selected) continue;
+          add(shipLayer.world(v, now), v.name, '#9fe8b0');
+          if (++n > 24) break;
+        }
+      }
+      if (selected) add(selected.kind === 'air' ? air.world(selected.ref as Aircraft, Date.now()) : selected.kind === 'ship' ? shipLayer.world(selected.ref as Ship, Date.now()) : selected.w, '◆ TARGET', '#fff');
       items.slice(0, 90).forEach((it, i) => {
         let e = pool[i];
         if (!e) {
@@ -568,7 +663,10 @@ export const eyeTab: TabDef = {
       const near = World.near(g.lat, g.lon, 2e5);
       const alt = c.cs?.alt ?? c.range;
       const mk = (n: number) => (n < 1 ? `${(n * 1000).toFixed(0)} m` : n < 100 ? `${n.toFixed(1)} km` : `${fmt.n(n)} km`);
-      readout.textContent = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}\nALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round((((c.hd % 360) + 360) % 360))}° · ${SENSOR_MODES[globe.mode]![0]}\n${air.list.size} AC · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${imagery.credit ? `\n${imagery.credit}` : ''}`;
+      readout.textContent = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}\nALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round((((c.hd % 360) + 360) % 360))}° · ${SENSOR_MODES[globe.mode]![0]}\n${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}${imagery.credit ? `\n${imagery.credit}` : ''}`;
+      // Start a feed only once its layer is switched on (big downloads stay optional).
+      const want: [keyof LayerVisibility, { start(): unknown }][] = [['radar', radarFrames], ['alerts', alerts], ['disasters', disasters], ['aurora', aurora], ['dispatch', dispatch], ['buoys', buoys], ['cables', cables]];
+      for (const [k, f] of want) if (globe.vis[k]) f.start();
       zLabel.textContent = mk(c.range);
       LAYERS.forEach(([k, , f], i) => {
         counts[i]!.textContent = f();
@@ -576,7 +674,7 @@ export const eyeTab: TabDef = {
       });
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
-      if (selected?.kind === 'air') paintInfo();
+      if (selected?.kind === 'air' || selected?.kind === 'ship') paintInfo();
       if (globe.vis.cams) {
         loadCameras();
         if (globe.cam.range < 2500 && inCalifornia(g.lat, g.lon)) loadCalifornia();
@@ -592,15 +690,19 @@ export const eyeTab: TabDef = {
         const tick = () => void air.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
         tick();
         airTimer = window.setInterval(tick, 8000);
+        const shipTick = () => globe.vis.ships && void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+        shipTick();
+        shipTimer = window.setInterval(shipTick, 20000);
         paintModes();
       },
       leave() {
         clearInterval(airTimer);
+        clearInterval(shipTimer);
         stopCamViews();
         gridKey = '';
         clear(grid.body);
       },
-      describe: () => `${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft tracked.`,
+      describe: () => `${cams.list.length ? `${cams.list.length} public cameras on the globe (${[...cams.sources].join(', ')}). ` : ''}God's Eye globe at ${globe.cam.lat.toFixed(2)}, ${globe.cam.lon.toFixed(2)}, ${Math.round(globe.cam.range)} km range, sensor ${SENSOR_MODES[globe.mode]![0]}${selected ? `, selected ${describe(selected)}` : ''}. ${air.list.size} aircraft, ${ships.list.size} ships, ${disasters.data?.length ?? 0} GDACS disasters, ${alerts.data?.length ?? 0} US weather alerts loaded.`,
     };
   },
 };
