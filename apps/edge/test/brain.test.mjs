@@ -108,6 +108,23 @@ test('agent loop: remember tool then reply', async () => {
   assert.equal(mem.facts[0].text, 'i prefer my coffee black');
 });
 
+test('Ghosty learns lessons from experience and studies its handbook', async () => {
+  let ev = await chat('learn TS2532 came from indexing an array without a fallback. Rule: always use arr[i]! or ?? for indexed values.');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /Learned/);
+  ev = await chat('learn TS2532 came from indexing an array without fallback. Rule: always use arr[i]! or ?? for indexed values');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /already knew this/);
+  let lessons = (await (await call('/api/lessons')).json()).lessons;
+  assert.equal(lessons.length, 1);
+  assert.equal(lessons[0].hits, 2);
+  ev = await chat('study add a new tab');
+  const r = ev.find((e) => e.t === 'tool_result');
+  assert.ok(r.ok);
+  assert.match(r.summary, /add a new tab/i);
+  assert.equal((await call(`/api/lessons/${lessons[0].id}`, { method: 'DELETE' })).status, 200);
+  lessons = (await (await call('/api/lessons')).json()).lessons;
+  assert.equal(lessons.length, 0);
+});
+
 test('client tools reach the interface', async () => {
   const ev = await chat('fly to tokyo');
   const c = ev.find((e) => e.t === 'client');

@@ -21,6 +21,12 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
+  if ((m = text.match(/^learn (.+)$/)) && has('learn_lesson')) return { message: call('learn_lesson', { text: m[1], tags: ['test'] }), model };
+  if ((m = text.match(/^study ?(.*)$/)) && has('study')) return { message: call('study', m[1] ? { topic: m[1] } : {}), model };
+  if (text === 'propose cut off' && has('propose_change')) {
+    // a reply that ran out of room mid-arguments
+    return { message: { role: 'assistant', content: null, tool_calls: [{ id: `mock_${++n}`, type: 'function', function: { name: 'propose_change', arguments: '{"title":"Big rewrite","edits":[{"path":"apps/web/src/hello.ts","action":"write","content":"export const greeting = ' } }] }, model };
+  }
   if ((m = text.match(/^remind me in (\d+) minutes? to (.+)$/)) && has('set_reminder')) return { message: call('set_reminder', { text: m[2], in_minutes: Number(m[1]) }), model };
   if ((m = text.match(/^every day at (\d\d:\d\d) (.+)$/)) && has('schedule_task')) return { message: call('schedule_task', { title: 'Daily job', prompt: m[2], at: m[1], repeat: 'daily' }), model };
   if ((m = text.match(/^add event (.+) on (\S+)$/)) && has('add_event')) return { message: call('add_event', { title: m[1], start: m[2], remind_minutes_before: 30 }), model };

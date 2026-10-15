@@ -1,5 +1,5 @@
 /** MEMORY tab: what Ghosty knows about you, and the conversation history. */
-import type { MemoryFact } from '../../../../../packages/shared/src/protocol';
+import type { Lesson, MemoryFact } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat, clearConversation } from '../../assistant/session';
 import { fmt, h } from '../../core/dom';
@@ -48,6 +48,29 @@ export const memoryTab: TabDef = {
     input.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
     fp.el.insertBefore(h('div.keyrow', input, button('SAVE', () => void add())), fp.body);
     P.left.append(fp.el);
+    const lp = panel('LESSONS LEARNED', { footer: true, status: 'from my own mistakes' });
+    let lessons: Lesson[] = [];
+    const lg = pager(lp, 46, (l: Lesson) => {
+      const r = row(l.hits > 1 ? `×${l.hits}` : fmt.ago(l.at), l.text, '✕', { wrap: true });
+      const x = r.lastChild as HTMLElement;
+      x.classList.add('del');
+      x.title = 'Forget this lesson';
+      x.addEventListener('click', async () => {
+        await brain.forgetLesson(l.id);
+        void refreshLessons();
+      });
+      return r;
+    }, () => 'NONE YET');
+    const refreshLessons = async () => {
+      try {
+        lessons = (await brain.lessons()).lessons;
+        lp.setStatus(`${lessons.length}`, 'ok');
+      } catch {
+        lp.setStatus('OFFLINE', 'off');
+      }
+      lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
+    };
+    P.left.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }));
     cp.foot!.prepend(button('CLEAR CONVERSATION', async () => {
@@ -65,8 +88,9 @@ export const memoryTab: TabDef = {
     return {
       enter() {
         void refresh();
+        void refreshLessons();
       },
-      describe: () => `Memory: ${facts.length} facts stored.`,
+      describe: () => `Memory: ${facts.length} facts stored, ${lessons.length} lessons learned.`,
     };
   },
 };

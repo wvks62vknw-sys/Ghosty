@@ -175,45 +175,56 @@ export class Router {
     await this.storage.delete(H_KEY);
   }
 
-  /** One completion. Returns the assistant message and which model wrote it. */
-  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal): Promise<{ message: Msg; model: string }> {
+  /**
+   * One completion. Returns the assistant message and which model wrote it.
+   * `code`: this turn writes code — try strong models before small ones (across every
+   * provider, keeping the owner's provider order within each group), with a lower
+   * temperature and room for longer replies.
+   */
+  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean } = {}): Promise<{ message: Msg; model: string }> {
     if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
     let lastErr: LlmError | null = null;
     let anyKey = false;
     let soonest = Infinity;
-    {
-      const h = await this.health();
-      const now = Date.now();
-      for (const p of await this.order()) {
-        const key = await this.vault.get(p.key);
-        if (!key) continue;
-        anyKey = true;
-        if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now) continue;
-        for (const model of await this.models(p)) {
-          const s = h[`${p.id}|${model}`] ?? {};
-          if ((s.dead ?? 0) > now) continue;
-          if ((s.cool ?? 0) > now) {
-            soonest = Math.min(soonest, s.cool! - now);
-            continue;
-          }
-          const t0 = Date.now();
-          try {
-            const message = await this.call(p, key, model, messages, tools, signal);
-            await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
-            await this.storage.put('llm:last', `${p.name} · ${model}`);
-            return { message, model: `${p.name} · ${model}` };
-          } catch (err) {
-            if ((err as Error)?.name === 'AbortError') throw err;
-            const e = err as LlmError;
-            lastErr = e;
-            const c = classify(e);
-            if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
-            else if (c.kind === 'net') await this.mark(`net|${p.id}`, { cool: Date.now() + c.ms, why: c.why });
-            else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
-            else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
-            if (c.kind === 'key' || c.kind === 'net') break; // skip the rest of this provider
-          }
-        }
+    const h = await this.health();
+    const now = Date.now();
+    const candidates: { p: Provider; key: string; model: string }[] = [];
+    for (const p of await this.order()) {
+      const key = await this.vault.get(p.key);
+      if (!key) continue;
+      anyKey = true;
+      if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now) continue;
+      for (const model of await this.models(p)) candidates.push({ p, key, model });
+    }
+    if (opts.code) {
+      const weak = (m: string) => modelScore(m) < 0;
+      candidates.sort((a, b) => Number(weak(a.model)) - Number(weak(b.model))); // stable: keeps provider order within each group
+    }
+    const skipProvider = new Set<string>();
+    for (const { p, key, model } of candidates) {
+      if (skipProvider.has(p.id)) continue;
+      const s = h[`${p.id}|${model}`] ?? {};
+      if ((s.dead ?? 0) > now) continue;
+      if ((s.cool ?? 0) > now) {
+        soonest = Math.min(soonest, s.cool! - now);
+        continue;
+      }
+      const t0 = Date.now();
+      try {
+        const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+        await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
+        await this.storage.put('llm:last', `${p.name} · ${model}`);
+        return { message, model: `${p.name} · ${model}` };
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') throw err;
+        const e = err as LlmError;
+        lastErr = e;
+        const c = classify(e);
+        if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
+        else if (c.kind === 'net') await this.mark(`net|${p.id}`, { cool: Date.now() + c.ms, why: c.why });
+        else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
+        else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
+        if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
       }
     }
     if (!anyKey) throw new Error('No AI key is set. Add a free Gemini or Groq key in the System tab.');
@@ -224,11 +235,13 @@ export class Router {
     throw new Error(`Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).`);
   }
 
-  private async call(p: Provider, key: string, model: string, messages: Msg[], tools: ToolSpec[], signal?: AbortSignal): Promise<Msg> {
+  private async call(p: Provider, key: string, model: string, messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
-    const tuned: Record<string, unknown> = { ...minimal, temperature: 0.4 };
-    if (/gpt-oss/.test(model)) Object.assign(tuned, { reasoning_effort: 'low', max_completion_tokens: 6000 });
-    else tuned.max_tokens = 4096;
+    const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
+    // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
+    const out = code ? (p.maxOut ?? 8192) : 4096;
+    if (/gpt-oss/.test(model)) Object.assign(tuned, { reasoning_effort: code ? 'medium' : 'low', max_completion_tokens: out + 2000 });
+    else tuned.max_tokens = out;
     for (const body of [tuned, minimal]) {
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), 60_000);

@@ -15,6 +15,8 @@ export interface Provider {
   seed: string[];
   /** Optional filter for discovered model ids. */
   accept?: (id: string) => boolean;
+  /** Reply length (tokens) to allow when writing code; providers with small free rate limits keep it lower. */
+  maxOut?: number;
 }
 
 export const PROVIDERS: Provider[] = [
@@ -25,6 +27,7 @@ export const PROVIDERS: Provider[] = [
     key: 'gemini',
     seed: ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
     accept: (id) => /gemini/.test(id) && !/(tts|image|embed|live|audio|vision-only)/.test(id),
+    maxOut: 16384,
   },
   {
     id: 'groq',
@@ -53,7 +56,8 @@ export const PROVIDERS: Provider[] = [
     name: 'Mistral',
     base: 'https://api.mistral.ai/v1',
     key: 'mistral',
-    seed: ['mistral-medium-latest', 'mistral-small-latest'],
+    seed: ['mistral-medium-latest', 'devstral-medium-latest', 'mistral-small-latest'],
+    maxOut: 16384,
   },
 ];
 
@@ -64,7 +68,7 @@ export const NOT_CHAT =
 /** Rough quality score so stronger discovered models are tried first. */
 export function modelScore(id: string): number {
   let s = 0;
-  if (/(pro|large|120b|235b|405b|70b|medium|qwen3|deepseek|kimi|glm|gpt-oss)/i.test(id)) s += 2;
+  if (/(pro|large|120b|235b|405b|70b|medium|qwen3|deepseek|kimi|glm|gpt-oss|coder|codestral|devstral)/i.test(id)) s += 2;
   if (/(lite|8b|nano|mini\b|small|1b|3b|tiny)/i.test(id)) s -= 1.5;
   if (/(preview|exp|beta)/i.test(id)) s -= 0.5;
   return s;

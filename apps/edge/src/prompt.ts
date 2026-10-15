@@ -4,6 +4,7 @@
  * weaken the rules.
  */
 import type { MemoryFact } from '../../../packages/shared/src/protocol';
+import { engineeringEssentials, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
 
 export interface ClientContext {
@@ -15,7 +16,7 @@ export interface ClientContext {
   screen?: string;
 }
 
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = []): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -35,17 +36,21 @@ TIMES: when you pass a time to a tool, use ${name}'s local time as YYYY-MM-DDTHH
   if (repoReady) {
     lines.push(`
 SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab/panel/feature, or a new brain tool). Quality matters more than speed — a broken change can never ship, so do it right first time:
-1. repo_read MAP.md, then repo_read EVERY file you will touch, in full. Never guess file contents or names.
-2. Plan the smallest change that fully does the job. Follow the patterns of neighbouring code exactly (TypeScript strict, h() for DOM, no new npm packages, no innerHTML).
-3. Edits: "replace" must quote an exact snippet copied from repo_read and change only what is needed — never re-add things that already exist (e.g. when adding items to a list, add only the new items). Use "write" only for new files.
-4. propose_change with a clear title and summary, then wait_for_checks. The checks build Ghosty exactly as Cloudflare does and click through it in a real browser.
-5. If anything failed: read the ERRORS and YOUR DIFF, fix the cause with update_change, and wait_for_checks again (up to 4 rounds). If you still can't fix it, discard_change and explain honestly.
-6. Only when every check PASSED: tell ${name} what changed and the preview link (view only), and ask to ship. Ship only when they say so (ship_change). After shipping, Ghosty checks the deploy itself and rolls back automatically if it fails — tell ${name} that, then offer reload_interface once it's live.
+1. study the playbook for the task (e.g. study "tab", "panel", "brain tool"), repo_read MAP.md, then repo_read EVERY file you will touch, in full, plus one neighbour that does something similar. Never guess file contents, names or exports.
+2. Plan the smallest change that fully does the job (files, what changes in each). Follow the patterns of neighbouring code exactly (TypeScript strict, h() for DOM, no new npm packages, no innerHTML). Big request → split into slices that each ship (study "large features").
+3. Edits: "replace" must quote an exact snippet copied from repo_read and change only what is needed — never re-add things that already exist (e.g. when adding items to a list, add only the new items). Use "write" only for new files. Never write placeholder comments like "// ... existing code".
+4. Self-review every edit against the checklist (study "self-review") BEFORE proposing. Then propose_change with a clear title and summary, then wait_for_checks. The checks build Ghosty exactly as Cloudflare does and click through it in a real browser.
+5. If anything failed: read the FIRST error and YOUR DIFF, repo_read the file on the change branch, fix the root cause with update_change, and wait_for_checks again (up to 4 rounds; study "ci errors"). If you still can't fix it, discard_change and explain honestly.
+6. Once it passes after a failure, learn_lesson: the cause and the rule that prevents it.
+7. Only when every check PASSED: tell ${name} what changed and the preview link (view only), and ask to ship. Ship only when they say so (ship_change). After shipping, Ghosty checks the deploy itself and rolls back automatically if it fails — tell ${name} that, then offer reload_interface once it's live.
 If a quick standalone tool is enough (a calculator, a timer, a mini dashboard), prefer create_widget — it is instant.`);
   } else {
     lines.push(`
 SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to change yourself, explain that it needs the GitHub token in the System tab, and offer an instant widget meanwhile.`);
   }
+  lines.push(`\n${engineeringEssentials(name)}`);
+  const top = topLessons(lessons);
+  if (top.length) lines.push(`\nLESSONS YOU LEARNED FROM EXPERIENCE (follow them — each one is a mistake you already made once):\n${top.map((l) => `- ${l.text}`).join('\n')}`);
   const ctx: string[] = [];
   if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);
   if (validTz(c.tz)) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${isoLocal(Date.now(), c.tz)}`);

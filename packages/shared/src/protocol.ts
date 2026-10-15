@@ -29,6 +29,16 @@ export const CLIENT_COMMANDS = [
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
+/** A lesson Ghosty learned from its own experience (shown in the Memory tab). */
+export interface Lesson {
+  id: string;
+  text: string;
+  tags: string[];
+  at: number;
+  /** How many times the same lesson was learned again. */
+  hits: number;
+}
+
 export interface ChatTurn {
   role: 'user' | 'assistant';
   text: string;

@@ -36,6 +36,8 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'delete_widget',
   // Nothing a background run reads may leave instructions behind for later:
   'remember',
+  'learn_lesson', // lessons go into every prompt, so only the owner's own sessions may write them
+  'forget_lesson',
   'set_reminder',
   'add_event',
   'remove_event',
