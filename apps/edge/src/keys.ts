@@ -164,7 +164,13 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       case 'github': {
         if (!repo) return { ok: true, info: 'saved (no repository configured to check against)' };
         const r = await fetch(`https://api.github.com/repos/${repo}`, { headers: { ...bearer, 'User-Agent': 'Ghosty', Accept: 'application/vnd.github+json' } });
-        if (r.status === 404) return { ok: false, info: `the token can't see ${repo}. Make a new one and pick that repository under "Repository access".` };
+        if (r.status === 404) {
+          // Say which repositories the token CAN see, so the fix is obvious.
+          const list = await fetch('https://api.github.com/user/repos?per_page=100', { headers: { ...bearer, 'User-Agent': 'Ghosty', Accept: 'application/vnd.github+json' } }).catch(() => null);
+          const names = list?.ok ? ((await list.json()) as { full_name: string }[]).map((x) => x.full_name) : [];
+          const sees = names.length ? `It can only see: ${names.slice(0, 5).join(', ')}.` : 'It can\'t see any of your repositories.';
+          return { ok: false, info: `this token doesn't have access to your Ghosty repository. ${sees} On GitHub, edit the token → "Repository access" → "Only select repositories" → tick ${repo.split('/')[1]} → Update. Then paste the token here again.` };
+        }
         if (!r.ok) return { ok: false, info: r.status === 401 ? 'GitHub says this token is not valid. Copy it again.' : `GitHub answered ${r.status}` };
         const j = (await r.json()) as { permissions?: { push?: boolean } };
         if (j.permissions && !j.permissions.push) return { ok: false, info: 'the token can read but not write. It needs "Contents: Read and write".' };

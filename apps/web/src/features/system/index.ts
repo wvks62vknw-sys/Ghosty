@@ -91,7 +91,7 @@ export const systemTab: TabDef = {
           : 'All set. The others are optional extras. Keys are encrypted in your brain and never shown again.'),
       );
       const block = (k: KeyStatus) => {
-        const input = h('input', { type: 'password', placeholder: k.set ? 'saved — paste a new one to replace' : `paste here (${k.hint})`, autocomplete: 'off', 'aria-label': `${k.label} key` });
+        const input = h('input', { type: 'text', placeholder: k.set ? 'saved — paste a new one to replace' : `paste here (${k.hint})`, autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': `${k.label} key` });
         const st = h('small.note', '');
         const save = button(k.set ? 'REPLACE' : 'SAVE', async (b) => {
           const v = input.value.trim();

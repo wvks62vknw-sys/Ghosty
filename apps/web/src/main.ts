@@ -26,7 +26,7 @@ const bootLog = (text: string, ok = 'OK') => bootEl.querySelector('.log')!.appen
 /** Ask for the owner key on this device (only needed when Cloudflare Access isn't set up). */
 function pair(reason: string): Promise<void> {
   return new Promise((resolve) => {
-    const input = h('input', { type: 'password', placeholder: 'Owner key', autocomplete: 'current-password', 'aria-label': 'Owner key' });
+    const input = h('input', { type: 'text', placeholder: 'Owner key', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Owner key' });
     const msg = h('p.note', reason);
     const submit = async () => {
       ownerKey.set(input.value.trim());
