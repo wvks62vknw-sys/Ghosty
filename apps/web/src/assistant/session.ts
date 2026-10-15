@@ -104,9 +104,12 @@ function handle(ev: ChatEvent): void {
       break;
     case 'done':
       if (/memory paused/.test(ev.model)) {
-        const turns = chat
-          .get()
-          .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => (e.kind === 'user' || e.kind === 'assistant') && e.at > pausedFrom)
+        // Only this exchange: the message that got the paused reply, and the replies since.
+        const es = chat.get().entries;
+        const lastUser = [...es].reverse().find((e) => e.kind === 'user');
+        const from = Math.max(pausedFrom, (lastUser && 'at' in lastUser ? lastUser.at : Date.now()) - 1);
+        const turns = es
+          .filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => (e.kind === 'user' || (e.kind === 'assistant' && !e.model)) && e.at > from)
           .map((e) => ({ role: e.kind, text: e.text, at: e.at, ...(e.kind === 'assistant' ? { model: ev.model } : {}) }));
         if (turns.length) {
           pausedFrom = turns.at(-1)!.at;

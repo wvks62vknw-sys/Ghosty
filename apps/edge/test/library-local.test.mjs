@@ -51,3 +51,27 @@ test('documents added while paused are uploaded later; removals made while pause
   void a;
   void b;
 });
+
+test('a document being uploaded right now, or a sync already running, is not uploaded twice', async () => {
+  L._reset();
+  const d = await L.keepDoc({ title: 'C', source: 'c.txt', kind: 'notes', pages: 0 }, [{ text: 'gamma' }]);
+  const sent = [];
+  let release;
+  const slow = new Promise((r) => (release = r));
+  const api = {
+    upload: async (x) => {
+      sent.push(x.title);
+      await slow;
+      return { id: `brain-${x.title}` };
+    },
+    remove: async () => undefined,
+  };
+  L.uploading.add(d.id);
+  assert.equal(await L.syncLocalDocs(api), 0, 'left alone while the Library tab sends it');
+  L.uploading.delete(d.id);
+  const first = L.syncLocalDocs(api);
+  assert.equal(await L.syncLocalDocs(api), 0, 'a second sync while one runs does nothing');
+  release();
+  assert.equal(await first, 1);
+  assert.deepEqual(sent, ['C']);
+});

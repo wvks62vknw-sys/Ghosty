@@ -183,10 +183,14 @@ export class GhostyAgent {
           .map((t) => ({ role: t.role, text: t.text.slice(0, 8000), at: Number(t.at) || Date.now(), ...(typeof t.model === 'string' ? { model: t.model.slice(0, 80) } : {}) }));
         if (!add.length) return json({ added: 0 });
         const turns = (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
-        await this.storage.put(TURNS_KEY, [...turns, ...add].sort((x, y) => x.at - y.at).slice(-120));
+        // Sent twice (a retry, another device): keep one.
+        const have = new Set(turns.map((t) => `${t.at}|${t.role}|${t.text}`));
+        const fresh = add.filter((t) => !have.has(`${t.at}|${t.role}|${t.text}`));
+        if (!fresh.length) return json({ added: 0 });
+        await this.storage.put(TURNS_KEY, [...turns, ...fresh].sort((x, y) => x.at - y.at).slice(-120));
         const ctx = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
-        await this.storage.put(CTX_KEY, trimContext([...ctx, ...add.map((t) => ({ role: t.role, content: t.text }) as Msg)]));
-        return json({ added: add.length });
+        await this.storage.put(CTX_KEY, trimContext([...ctx, ...fresh.map((t) => ({ role: t.role, content: t.text }) as Msg)]));
+        return json({ added: fresh.length });
       }
       if (path === '/history' && method === 'DELETE') {
         await this.storage.delete([TURNS_KEY, CTX_KEY, PENDING_KEY]);

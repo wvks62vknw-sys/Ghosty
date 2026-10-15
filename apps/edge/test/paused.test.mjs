@@ -190,6 +190,10 @@ test('turns said while paused are added to the history and to what Ghosty rememb
   const h = await (await a.call('/history')).json();
   assert.deepEqual(h.turns.map((t) => t.text), ['my dog is Rex', 'Noted']);
   assert.deepEqual(storage.m.get('ctx').map((m) => m.content), ['my dog is Rex', 'Noted']);
+  // sent again (a retry): nothing doubled
+  const again = await a.call('/history', { method: 'POST', body: JSON.stringify({ turns: [{ role: 'user', text: 'my dog is Rex', at: 5 }] }) });
+  assert.equal((await again.json()).added, 0);
+  assert.equal(storage.m.get('turns').length, 2);
 });
 
 test('while paused, the Library search still answers from the built-in library', async () => {

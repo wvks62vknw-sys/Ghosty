@@ -155,21 +155,31 @@ export async function passagesFor(q: string): Promise<{ title: string; heading: 
  * have. Stops at the first failure (still paused) and tries again next time. Returns how many
  * were uploaded.
  */
+let syncing = false;
+/** Documents being sent to the brain right now by the Library tab: the sync leaves them alone. */
+export const uploading = new Set<string>();
 export async function syncLocalDocs(api: { upload: (d: LocalDoc) => Promise<LibraryDoc>; remove: (brainId: string) => Promise<unknown> }): Promise<number> {
+  if (syncing) return 0;
+  syncing = true;
   let n = 0;
-  for (const d of [...(await all()).values()]) {
-    try {
-      if (d.removed) {
-        if (d.brainId) await api.remove(d.brainId);
-        await write({ id: d.id, delete: true });
-      } else if (!d.brainId) {
-        const doc = await api.upload(d);
-        await markSynced(d.id, doc.id);
-        n++;
+  try {
+    for (const d of [...(await all()).values()]) {
+      if (uploading.has(d.id)) continue;
+      try {
+        if (d.removed) {
+          if (d.brainId) await api.remove(d.brainId);
+          await write({ id: d.id, delete: true });
+        } else if (!d.brainId) {
+          const doc = await api.upload(d);
+          await markSynced(d.id, doc.id);
+          n++;
+        }
+      } catch {
+        break;
       }
-    } catch {
-      break;
     }
+  } finally {
+    syncing = false;
   }
   return n;
 }

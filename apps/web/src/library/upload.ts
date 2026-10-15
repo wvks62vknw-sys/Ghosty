@@ -4,7 +4,7 @@
  * stores and indexes them; no AI model is used).
  */
 import { brain, unreachable } from '../api/brain';
-import { keepDoc, markSynced, pendingDocs, removeDoc, type LocalPassage } from './local';
+import { keepDoc, markSynced, pendingDocs, removeDoc, uploading, type LocalPassage } from './local';
 import type { LibraryDoc } from '../../../../packages/shared/src/protocol';
 import { chunkText } from '../../../../packages/shared/src/chunk';
 import { extractFile, type Extracted } from './extract';
@@ -19,6 +19,7 @@ export async function addExtracted(x: Extracted, source: string, progress: Progr
   const meta = { title: x.title, source, kind: x.kind, pages: x.pages.length > 1 ? x.pages.length : 0 };
   // A copy stays on this device: searchable while the brain's database is paused, and sent later if it is.
   const local = await keepDoc(meta, passages);
+  uploading.add(local.id); // the background sync must not send it too
   try {
     const doc = await uploadPassages(meta, passages, progress);
     await markSynced(local.id, doc.id);
@@ -30,6 +31,8 @@ export async function addExtracted(x: Extracted, source: string, progress: Progr
     }
     progress('kept on this device', 1);
     return (await pendingDocs()).find((d) => d.id === local.id)!;
+  } finally {
+    uploading.delete(local.id);
   }
 }
 
