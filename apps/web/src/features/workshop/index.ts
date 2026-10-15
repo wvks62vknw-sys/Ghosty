@@ -15,7 +15,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { forgetWidget, localWidgets, syncLocalWidgets } from '../../state/widgets';
+import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
@@ -258,9 +258,16 @@ export const workshopTab: TabDef = {
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.addEventListener('click', async () => {
-          forgetWidget(w.name);
-          await brain.deleteWidget(w.name).catch(() => undefined);
-          void load();
+          try {
+            await brain.deleteWidget(w.name);
+            forgetWidget(w.name, false);
+          } catch (e) {
+            // Paused: delete here now and in the brain when it's back. Anything else: say so.
+            forgetWidget(w.name, isPaused(e));
+            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${String((e as Error).message)}`, 'warn');
+          }
+          widgets = widgets.filter((x) => x.name !== w.name);
+          paint();
         });
         wp.body.append(r);
       }
@@ -291,7 +298,7 @@ export const workshopTab: TabDef = {
           versions = c.value.versions;
         }
         if (w.status === 'fulfilled') {
-          const saved = await syncLocalWidgets(w.value.widgets, (x) => brain.saveWidget(x));
+          const saved = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
           widgets = saved ? (await brain.widgets()).widgets : w.value.widgets;
           if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
         }
@@ -301,9 +308,9 @@ export const workshopTab: TabDef = {
       } catch (e) {
         if (!isPaused(e)) toast(`Workshop: ${String((e as Error).message)}`, 'warn');
       }
-      // Widgets kept on this device that the brain doesn't have yet (database paused) show too.
-      const names = new Set(widgets.map((x) => x.name));
-      widgets = [...localWidgets.get().list.filter((x) => !x.synced && !names.has(x.name)), ...widgets];
+      // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
+      // too; deletions not yet carried out in the brain are hidden.
+      widgets = mergeWidgets(widgets);
       paint();
     };
     paint();
