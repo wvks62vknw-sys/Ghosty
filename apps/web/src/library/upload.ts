@@ -3,7 +3,8 @@
  * browser, cut it into passages, and send them to the brain in small batches (the brain
  * stores and indexes them; no AI model is used).
  */
-import { brain } from '../api/brain';
+import { brain, unreachable } from '../api/brain';
+import { keepDoc, markSynced, pendingDocs, removeDoc, uploading, type LocalPassage } from './local';
 import type { LibraryDoc } from '../../../../packages/shared/src/protocol';
 import { chunkText } from '../../../../packages/shared/src/chunk';
 import { extractFile, type Extracted } from './extract';
@@ -15,7 +16,29 @@ const BATCH = 30;
 export async function addExtracted(x: Extracted, source: string, progress: Progress): Promise<LibraryDoc> {
   const passages = chunkText(x.pages, { code: x.code, heading: x.code ? x.title : undefined });
   if (!passages.length) throw new Error('no readable text found');
-  const { doc } = await brain.libraryCreate({ title: x.title, source, kind: x.kind, pages: x.pages.length > 1 ? x.pages.length : 0 });
+  const meta = { title: x.title, source, kind: x.kind, pages: x.pages.length > 1 ? x.pages.length : 0 };
+  // A copy stays on this device: searchable while the brain's database is paused, and sent later if it is.
+  const local = await keepDoc(meta, passages);
+  uploading.add(local.id); // the background sync must not send it too
+  try {
+    const doc = await uploadPassages(meta, passages, progress);
+    await markSynced(local.id, doc.id);
+    return doc;
+  } catch (e) {
+    if (!unreachable(e)) {
+      await removeDoc(local.id);
+      throw e;
+    }
+    progress('kept on this device', 1);
+    return (await pendingDocs()).find((d) => d.id === local.id)!;
+  } finally {
+    uploading.delete(local.id);
+  }
+}
+
+/** Send a document to the brain in small batches (removed again if that fails half way). */
+export async function uploadPassages(meta: { title: string; source: string; kind: string; pages: number }, passages: LocalPassage[], progress: Progress = () => undefined): Promise<LibraryDoc> {
+  const { doc } = await brain.libraryCreate(meta);
   try {
     for (let i = 0; i < passages.length; i += BATCH) {
       progress(`saving ${Math.min(i + BATCH, passages.length)} / ${passages.length} passages`, i / passages.length);

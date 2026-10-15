@@ -14,7 +14,7 @@ interface Spot {
 }
 
 export async function ownerPlace(ctx: Pick<ToolContext, 'storage'>): Promise<Spot | null> {
-  const c = await ctx.storage.get<{ location?: { name: string; lat: number; lon: number } }>('owner:ctx');
+  const c = await ctx.storage.get<{ location?: { name: string; lat: number; lon: number } }>('owner:ctx').catch(() => undefined); // database paused: not known
   return c?.location ? { name: c.location.name || 'your location', lat: c.location.lat, lon: c.location.lon } : null;
 }
 

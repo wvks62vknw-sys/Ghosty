@@ -23,15 +23,13 @@ import { trainingRoute } from './training/coach';
 import { CURRICULUM, loadStudy, noteGap, STUDY_KEY, studySession } from './library/study';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
-import { ALL_TOOL_NAMES, selectTools, TOOLS, toolByName, toolSpecs } from './tools';
-import { dataTools } from './tools/data';
-import { webTools } from './tools/web';
+import { ALL_TOOL_NAMES, selectTools, TOOL_GROUPS, TOOLS, toolByName, toolSpecs } from './tools';
 import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
-import type { ToolContext } from './tools/types';
-import { deviceTools } from './tools/device';
-import { deleteWidget, loadWidgets, saveWidget, widgetTools } from './tools/widgets';
+import type { Tool, ToolContext } from './tools/types';
+import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
+import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -40,6 +38,8 @@ const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several
 const CTX_KEY = 'ctx';
 const TURNS_KEY = 'turns';
 const PENDING_KEY = 'pending';
+/** Everything in the vault: the owner's keys and the Spotify link. */
+const VAULT_NAMES = [...KEYS.map((k) => k.name), 'spotify'];
 
 interface Pending {
   id: string;
@@ -156,6 +156,15 @@ export class GhostyAgent {
     const method = req.method;
     try {
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
+      // The device's encrypted copy of the owner's keys (sent while the database is paused).
+      const ownerKey = req.headers.get('x-ghosty-key');
+      const sealed = req.headers.get('x-ghosty-vault');
+      if (ownerKey && sealed && sealed.length < 60_000) await this.vault.warm(ownerKey, sealed);
+      if (path === '/vault/backup' && method === 'GET') {
+        if (!ownerKey) return json({ error: 'needs the owner key' }, 400);
+        const waiting = await this.vault.flushDirty();
+        return json({ ...(await this.vault.backup(ownerKey, VAULT_NAMES)), waiting });
+      }
       if (path === "/chat" && method === "POST") return await this.chat(req);
       if (path === '/approve' && method === 'POST') return await this.approve(req);
       if (path === '/stop' && method === 'POST') {
@@ -164,6 +173,25 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       if (path === '/history' && method === 'GET') return json({ turns: (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [], pending: await this.pendingInfo() });
+      if (path === '/history' && method === 'POST') {
+        // Turns from while the database was paused, sent by the device afterwards: kept in the
+        // history and in Ghosty's working context, so it remembers that conversation too.
+        const body = (await req.json().catch(() => ({}))) as { turns?: unknown };
+        const add = (Array.isArray(body.turns) ? body.turns : [])
+          .filter((t): t is ChatTurn => !!t && (t.role === 'user' || t.role === 'assistant') && typeof t.text === 'string')
+          .slice(0, 40)
+          .map((t) => ({ role: t.role, text: t.text.slice(0, 8000), at: Number(t.at) || Date.now(), ...(typeof t.model === 'string' ? { model: t.model.slice(0, 80) } : {}) }));
+        if (!add.length) return json({ added: 0 });
+        const turns = (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
+        // Sent twice (a retry, another device): keep one.
+        const have = new Set(turns.map((t) => `${t.at}|${t.role}|${t.text}`));
+        const fresh = add.filter((t) => !have.has(`${t.at}|${t.role}|${t.text}`));
+        if (!fresh.length) return json({ added: 0 });
+        await this.storage.put(TURNS_KEY, [...turns, ...fresh].sort((x, y) => x.at - y.at).slice(-120));
+        const ctx = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
+        await this.storage.put(CTX_KEY, trimContext([...ctx, ...fresh.map((t) => ({ role: t.role, content: t.text }) as Msg)]));
+        return json({ added: fresh.length });
+      }
       if (path === '/history' && method === 'DELETE') {
         await this.storage.delete([TURNS_KEY, CTX_KEY, PENDING_KEY]);
         return json({ ok: true });
@@ -297,7 +325,7 @@ export class GhostyAgent {
       keys,
       models: await this.router.summary(),
       lastModel,
-      ...(paused ? { paused: `${paused} Meanwhile chat keeps working with AI keys saved as Cloudflare secrets (and the built-in library); memory, library uploads and agenda come back after the reset.` } : {}),
+      ...(paused ? { paused: `${paused} Meanwhile nearly everything keeps working: chat and every tool with your keys (this device keeps an encrypted copy; Cloudflare secrets work too), and your memory, agenda, reminders, widgets and documents from the copy on this device. Changes made meanwhile are saved to the brain after the reset.` } : {}),
     };
   }
 
@@ -372,66 +400,151 @@ export class GhostyAgent {
    * conversation comes from the browser, and only tools that need no database are offered.
    * With no AI reachable either, it answers from the built-in library in the code.
    */
+  /** An approval asked for while the database was paused: kept in memory, it can't be saved. */
+  private pausedPending: { id: string; calls: ToolCall[]; ctx: Msg[]; sys: string; client: ClientContext; passages: DevicePassage[]; text: string; at: number } | null = null;
+
+  /**
+   * Tools that work without the database, for this message: web, weather, travel, traffic and
+   * cameras, email, radio and Spotify, the screen, widgets, plus memory, reminders, events and
+   * library search backed by the owner's device.
+   */
+  private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'email', 'media', 'spotify', 'widgets']);
+    const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
+    const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
+    const names = new Set(device.map((t) => t.name));
+    return [...picked.filter((t) => !names.has(t.name)), ...device];
+  }
+
+  /** The tool context while paused: the owner's location comes from their device. */
+  private pausedContext(emit: (ev: ChatEvent) => void, client: ClientContext): ToolContext {
+    const real = this.storage;
+    const storage = new Proxy(real, {
+      get(target, prop) {
+        if (prop === 'get') return async (k: string) => (k === 'owner:ctx' ? { location: client.location } : target.get(k));
+        const v = Reflect.get(target, prop) as unknown;
+        return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+      },
+    });
+    return { ...this.toolContext(emit), storage, kernelUnlocked: async () => false };
+  }
+
   private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown): Promise<void> {
-    // The owner's memory and agenda, from the copy their device keeps (it is data, not instructions).
-    const dev = (offlineRaw && typeof offlineRaw === 'object' ? offlineRaw : {}) as { facts?: unknown; agenda?: unknown };
+    // The owner's memory, agenda and documents, from the copy their device keeps (data, not instructions).
+    const dev = (offlineRaw && typeof offlineRaw === 'object' ? offlineRaw : {}) as { facts?: unknown; agenda?: unknown; library?: unknown };
     const strings = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-n).map((x) => x.slice(0, 300)) : []);
     const facts = strings(dev.facts, 80).map((t, i) => ({ id: `device${i}`, text: t, at: 0 }));
     const agendaLines = strings(dev.agenda, 40);
+    const passages: DevicePassage[] = (Array.isArray(dev.library) ? dev.library : [])
+      .filter((p): p is DevicePassage => !!p && typeof p === 'object' && typeof (p as DevicePassage).text === 'string' && typeof (p as DevicePassage).title === 'string')
+      .slice(0, 12)
+      .map((p) => ({ title: p.title.slice(0, 200), heading: typeof p.heading === 'string' ? p.heading.slice(0, 200) : '', page: typeof p.page === 'number' ? p.page : null, text: p.text.slice(0, 2500) }));
     const recent: Msg[] = (Array.isArray(recentRaw) ? recentRaw : [])
       .filter((m): m is { role: 'user' | 'assistant'; text: string } => !!m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
       .slice(-12)
       .map((m) => ({ role: m.role, content: m.text.slice(0, 1500) }));
-    const hits = searchStarterInMemory(text);
-    // Database-free tools; create_widget still works (it opens the widget on screen, unsaved).
-    const tools = [...webTools, ...dataTools, ...widgetTools.filter((t) => t.name === 'create_widget'), ...deviceTools(client.tz)].filter((t) => t.side !== 'client' && !needsApproval(t));
-    const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+    const hits = [...searchPassages(text, passages, 3), ...searchStarterInMemory(text)].slice(0, 4);
     const sys =
       systemPrompt(client, facts, false) +
-      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up). Your memory and agenda come from the copy on the owner's device (above and below), and remember / set_reminder / add_event still work: they are kept on the device and saved to you automatically after the reset. Also available: web search, weather, and create_widget (widgets and games open on screen; build them directly with the widget kit, no web search needed). Not available until the reset: library uploads, email and Spotify. Mention the pause only when it matters.` +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up), but nearly everything still works. Your memory, agenda and the owner's own documents come from the copy on their device (above and below); remember / set_reminder / add_event are kept on the device and saved to you automatically after the reset. Web search, weather, directions, traffic and cameras, email, radio, Spotify, the screen and widgets all work as usual (their keys come from the owner's device). Only library imports, push notifications to the phone and self-editing wait for the reset. Mention the pause only when it matters.` +
       (agendaLines.length ? `\n\nTHE OWNER'S AGENDA (next two weeks, from their device):\n${asData("the owner's agenda", agendaLines.join('\n'))}` : '') +
-      (hits.length ? `\n\nFROM YOUR BUILT-IN LIBRARY:\n${asData('your library', formatHits(hits, 3000))}` : '');
-    const ctx: Msg[] = [...recent, { role: 'user', content: text }];
-    const tctx = this.toolContext(emit);
+      (hits.length ? `\n\nFROM YOUR LIBRARY:\n${asData('your library', formatHits(hits, 3500))}` : '');
     try {
-      for (let step = 0; step < 6; step++) {
-        const { message, model } = await this.router.complete([{ role: 'system', content: sys }, ...ctx], specs, signal);
-        ctx.push(message);
-        const calls = message.tool_calls ?? [];
-        if (!calls.length) {
-          emit({ t: 'text', text: message.content?.trim() || '…' });
-          emit({ t: 'done', model: `${model} · memory paused` });
-          return;
-        }
-        for (const call of calls) {
-          const tool = tools.find((t) => t.name === call.function.name);
-          emit({ t: 'tool', id: call.id, name: call.function.name, args: safeArgs(call.function.arguments) });
-          let result: string;
-          let ok = true;
-          try {
-            if (!tool) throw new Error(`${call.function.name} needs my database, which is paused until midnight UTC`);
-            result = await tool.run(safeArgs(call.function.arguments), tctx);
-          } catch (e) {
-            ok = false;
-            result = `Error: ${String((e as Error)?.message ?? e)}`;
-          }
-          emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
-          ctx.push({ role: 'tool', tool_call_id: call.id, content: result.slice(0, 8000) });
-        }
-      }
-      emit({ t: 'error', message: 'I ran out of steps.' });
+      await this.pausedLoop([...recent, { role: 'user', content: text }], sys, client, passages, text, emit, signal);
     } catch (e) {
       if (signal.aborted) return;
-      // No AI either: the built-in library, or an honest explanation of what to do.
+      // No AI either: the library, or an honest explanation of what to do.
       if (hits.length) {
         emit({ t: 'text', text: `${why}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
         emit({ t: 'done', model: 'Built-in library · no AI' });
-      } else emit({ t: 'error', message: `${why} To keep chatting while it's paused, add your AI keys as Cloudflare secrets (GEMINI_KEY, GROQ_KEY…): see SETUP.md "Keep Ghosty working when the database is paused". (${String((e as Error)?.message ?? e).slice(0, 200)})` });
+      } else emit({ t: 'error', message: `${why} No AI model answered either. Give Ghosty an AI key once in System → Keys (Gemini and Groq are free) — your device keeps a copy, so it keeps working while the database is paused. (${String((e as Error)?.message ?? e).slice(0, 200)})` });
     }
+  }
+
+  private async pausedLoop(ctx: Msg[], sys: string, client: ClientContext, passages: DevicePassage[], text: string, emit: (ev: ChatEvent) => void, signal: AbortSignal, resume?: { calls: ToolCall[]; first: 'approved' | 'declined' }): Promise<void> {
+    const tools = this.pausedTools(text, client, passages);
+    const specs = tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+    const tctx = this.pausedContext(emit, client);
+    let model = '';
+    if (resume && (await this.pausedCalls(ctx, resume.calls, tools, tctx, emit, { sys, client, passages, text }, resume.first))) return;
+    for (let step = 0; step < 8; step++) {
+      if (signal.aborted) return emit({ t: 'error', message: 'Stopped.' });
+      const r = await this.router.complete([{ role: 'system', content: sys }, ...ctx], specs, signal);
+      model = r.model;
+      ctx.push(r.message);
+      const calls = r.message.tool_calls ?? [];
+      if (!calls.length) {
+        emit({ t: 'text', text: r.message.content?.trim() || '…' });
+        emit({ t: 'done', model: `${model} · memory paused` });
+        return;
+      }
+      if (await this.pausedCalls(ctx, calls, tools, tctx, emit, { sys, client, passages, text })) return emit({ t: 'done', model: `${model} · memory paused` });
+    }
+    emit({ t: 'error', message: 'I ran out of steps.' });
+  }
+
+  /** Run tool calls while paused. Returns true when it stopped to ask the owner's approval (kept in memory). */
+  private async pausedCalls(ctx: Msg[], calls: ToolCall[], tools: Tool[], tctx: ToolContext, emit: (ev: ChatEvent) => void, keep: { sys: string; client: ClientContext; passages: DevicePassage[]; text: string }, first?: 'approved' | 'declined'): Promise<boolean> {
+    for (let i = 0; i < calls.length; i++) {
+      const call = calls[i]!;
+      const tool = tools.find((t) => t.name === call.function.name);
+      let args = safeArgs(call.function.arguments);
+      let result: string;
+      let ok = true;
+      if (tool && needsApproval(tool) && i === 0 && first === 'declined') {
+        result = 'The owner declined this action. Do not retry it unless they ask again.';
+        ok = false;
+      } else if (tool && needsApproval(tool) && !(i === 0 && first === 'approved')) {
+        let reason = describe(tool.name, args);
+        try {
+          if (tool.approval) ({ reason, args } = await tool.approval(args, tctx));
+        } catch (e) {
+          result = `Error: ${String((e as Error)?.message ?? e)}`;
+          emit({ t: 'tool_result', id: call.id, name: tool.name, ok: false, summary: result.slice(0, 200) });
+          ctx.push({ role: 'tool', tool_call_id: call.id, content: result });
+          continue;
+        }
+        const id = crypto.randomUUID().slice(0, 12);
+        this.pausedPending = { id, calls: [{ ...call, function: { ...call.function, arguments: JSON.stringify(args) } }, ...calls.slice(i + 1)], ctx, ...keep, at: Date.now() };
+        emit({ t: 'approval', id, name: tool.name, args, reason });
+        return true;
+      } else {
+        emit({ t: 'tool', id: call.id, name: call.function.name, args });
+        try {
+          if (!tool) throw new Error(`${call.function.name} needs my database, which is paused until midnight UTC`);
+          result = await tool.run(args, tctx);
+        } catch (e) {
+          ok = false;
+          result = `Error: ${String((e as Error)?.message ?? e)}`;
+        }
+      }
+      emit({ t: 'tool_result', id: call.id, name: call.function.name, ok, summary: result.slice(0, 200) });
+      ctx.push({ role: 'tool', tool_call_id: call.id, content: result.slice(0, 8000) });
+    }
+    return false;
   }
 
   private async approve(req: Request): Promise<Response> {
     const body = (await req.json()) as { id: string; allow: boolean };
+    const pp = this.pausedPending;
+    if (pp && pp.id === body.id && Date.now() - pp.at < 3600_000) {
+      // Asked while the database was paused: carry on the same way.
+      this.pausedPending = null;
+      const { s, signal, done } = this.begin();
+      this.state.waitUntil(
+        (async () => {
+          try {
+            await this.pausedLoop(pp.ctx, pp.sys, pp.client, pp.passages, pp.text, s.emit, signal, { calls: pp.calls, first: body.allow ? 'approved' : 'declined' });
+          } catch (e) {
+            s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
+          } finally {
+            done();
+            await s.close();
+          }
+        })(),
+      );
+      return s.response;
+    }
     const pending = await this.storage.get<Pending>(PENDING_KEY);
     if (!pending || pending.id !== body.id) return json({ error: 'nothing is waiting for approval' }, 404);
     const { s, signal, done } = this.begin();
@@ -640,8 +753,16 @@ export class GhostyAgent {
       return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI });
     }
     if (path === '/library/search' && method === 'GET') {
-      await lib.seedStarter(40);
-      return json({ hits: await lib.search(url.searchParams.get('q') ?? '', Math.min(20, Number(url.searchParams.get('k')) || 8)) });
+      const q = url.searchParams.get('q') ?? '';
+      const k = Math.min(20, Number(url.searchParams.get('k')) || 8);
+      try {
+        await lib.seedStarter(40);
+        return json({ hits: await lib.search(q, k) });
+      } catch (e) {
+        // Database paused: the built-in library still answers (the device adds the owner's documents).
+        if (!storageError(e)) throw e;
+        return json({ hits: searchStarterInMemory(q, k), paused: true });
+      }
     }
     if (path === '/library/docs' && method === 'POST') {
       const b = (await req.json().catch(() => ({}))) as { title?: string; source?: string; kind?: string; pages?: number };

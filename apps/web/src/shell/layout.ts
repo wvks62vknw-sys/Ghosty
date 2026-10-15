@@ -30,8 +30,9 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     onclick: () =>
       modal('MEMORY PAUSED', h('div.mnote',
         h('p', "Ghosty's memory is paused until 1am UK time (midnight UTC): Cloudflare's free daily database allowance ran out. Nothing is lost."),
-        h('p', h('b', 'Still working: '), "chat and AI, web search, weather, maps, God's Eye, radio, games and widgets (kept on this device, saved to Ghosty when memory is back)."),
-        h('p', h('b', 'Back at 1am: '), 'saved memories, your library uploads, agenda and reminders.'),
+        h('p', h('b', 'Still working: '), "chat and AI with your keys, web search, weather, maps, traffic, God's Eye, email, radio, Spotify, games and widgets — and your memory, agenda, reminders and documents from the copy on this device."),
+        h('p', h('b', 'Saved when memory is back: '), "anything you add or change meanwhile (memories, reminders, events, widgets, documents, keys) — automatically."),
+        h('p', h('b', 'Waits for 1am: '), 'importing web pages into the library, push notifications to your phone, self-study and code changes.'),
       )),
   }, 'MEMORY PAUSED');
   pausedTag.hidden = true;

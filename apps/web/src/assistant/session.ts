@@ -3,7 +3,8 @@
  * into chat entries, runs on-screen actions the brain asks for, and handles approvals.
  */
 import type { ChatEvent } from '../../../../packages/shared/src/protocol';
-import { AuthError, brain } from '../api/brain';
+import { AuthError, brain, unreachable } from '../api/brain';
+import { enqueue } from '../api/offline';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { currentTab } from '../shell/tabs';
@@ -18,7 +19,10 @@ export type Entry =
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
   | { kind: 'error'; text: string };
 
-export const chat = createStore({ entries: [] as Entry[], live: '' });
+/** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
+export const chat = createStore({ entries: [] as Entry[], live: '' }, { persist: 'ghosty.chat', keys: ['entries'] });
+/** Turns said while the brain's database was paused are sent to its history afterwards (from this time on). */
+let pausedFrom = 0;
 
 const TOOL_LABELS: Record<string, string> = {
   web_search: 'Searching the web',
@@ -99,6 +103,19 @@ function handle(ev: ChatEvent): void {
       chat.set({ live: ev.message });
       break;
     case 'done':
+      if (/memory paused/.test(ev.model)) {
+        // Only this exchange: the message that got the paused reply, and the replies since.
+        const es = chat.get().entries;
+        const lastUser = [...es].reverse().find((e) => e.kind === 'user');
+        const from = Math.max(pausedFrom, (lastUser && 'at' in lastUser ? lastUser.at : Date.now()) - 1);
+        const turns = es
+          .filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => (e.kind === 'user' || (e.kind === 'assistant' && !e.model)) && e.at > from)
+          .map((e) => ({ role: e.kind, text: e.text, at: e.at, ...(e.kind === 'assistant' ? { model: ev.model } : {}) }));
+        if (turns.length) {
+          pausedFrom = turns.at(-1)!.at;
+          enqueue({ kind: 'addTurns', turns });
+        }
+      }
       patch(
         (e) => e.kind === 'assistant' && !e.model,
         (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), model: ev.model }),
@@ -161,7 +178,8 @@ export async function loadHistory(): Promise<void> {
     if (h.pending) entries.push({ kind: 'approval', id: h.pending.id, name: h.pending.name, reason: `Waiting for your approval: ${h.pending.name.replace(/_/g, ' ')}`, args: h.pending.args, state: 'waiting' });
     chat.set({ entries });
   } catch (e) {
-    if (!(e instanceof AuthError)) toast('Could not load conversation history', 'warn');
+    // Database paused or offline: the conversation kept on this device stays on screen.
+    if (!(e instanceof AuthError) && !(unreachable(e) && chat.get().entries.length)) toast('Could not load conversation history', 'warn');
   }
 }
 

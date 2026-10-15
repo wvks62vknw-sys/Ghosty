@@ -4,7 +4,8 @@
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
 import { createStore } from '../core/store';
-import { agendaWithOutbox, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
+import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
+import { passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, syncLocalDocs } from '../library/local';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain). */
@@ -49,13 +50,58 @@ export const ownerKey = {
 
 export class AuthError extends Error {}
 
+/**
+ * This device's encrypted copy of the owner's keys (sealed by the brain with the owner key).
+ * It goes with every request, and the brain uses it whenever its database can't be read, so a
+ * key given once keeps working, paused or not. Refreshed at start-up and after keys change.
+ */
+export const keyCopy = createStore({ sealed: '' }, { persist: 'ghosty.vault.copy' });
+
 /** Every brain request carries `x-ghosty: 1`; the brain refuses state changes without it (blocks cross-site forgery). */
 export function headers(extra: Record<string, string> = {}): Record<string, string> {
   const k = ownerKey.get();
-  return { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}), ...extra };
+  const sealed = k ? keyCopy.get().sealed : '';
+  return { 'x-ghosty': '1', ...(k ? { 'x-ghosty-key': k } : {}), ...(sealed ? { 'x-ghosty-vault': sealed } : {}), ...extra };
+}
+
+/**
+ * The last answer to each read, kept on this device: while the brain's database is paused (or
+ * the network is down) every tab shows what it last knew instead of going blank. Not used for
+ * searches, the conversation history (kept by assistant/session.ts) or the key copy.
+ */
+const READ_CACHE = 'ghosty.read:';
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt/.test(path);
+function remember(path: string, j: unknown): void {
+  try {
+    const text = JSON.stringify(j);
+    if (text.length < 300_000) localStorage.setItem(READ_CACHE + path, text);
+  } catch {
+    /* storage full or blocked */
+  }
+}
+function recall<T>(path: string): T | undefined {
+  try {
+    const t = localStorage.getItem(READ_CACHE + path);
+    return t ? (JSON.parse(t) as T) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  if (method !== 'GET' || !cacheable(path)) return send<T>(method, path, body);
+  try {
+    const j = await send<T>(method, path, body);
+    remember(path, j);
+    return j;
+  } catch (e) {
+    const kept = unreachable(e) ? recall<T>(path) : undefined;
+    if (kept !== undefined) return kept;
+    throw e;
+  }
+}
+
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const r = await fetch(`/api${path}`, {
     method,
     headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -135,12 +181,16 @@ export const brain = {
     }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
   chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) =>
-    // `offline`: memory and agenda kept on this device, so Ghosty still knows them if its database is paused.
-    streamEvents('/chat', { message, context, recent, offline: offlineContext() }, onEvent, signal),
+    // `offline`: memory, agenda and the owner's documents most related to the message, kept on this
+    // device, so Ghosty still knows them if its database is paused.
+    passagesFor(message)
+      .catch(() => [])
+      .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library } }, onEvent, signal)),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   stop: () => req<{ ok: boolean }>('POST', '/stop'),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),
   clearHistory: () => req('DELETE', '/history'),
+  addTurns: (turns: ChatTurn[]) => req<{ added: number }>('POST', '/history', { turns }),
   memory: () => req<{ facts: MemoryFact[] }>('GET', '/memory'),
   addMemory: (text: string) => req('POST', '/memory', { text }),
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
@@ -215,14 +265,14 @@ export const brain = {
 // ---------------------------------------------------------------------------------------
 
 /** The brain can't be used right now, but will be: database paused, or no connection. */
-const unreachable = (e: unknown) => isPaused(e) || e instanceof TypeError;
+export const unreachable = (e: unknown) => isPaused(e) || e instanceof TypeError;
 /** A queued change is dropped only when the brain clearly refused it (a 4xx); anything else is retried. */
 function keepForLater(e: unknown): boolean {
   const status = (e as { status?: unknown })?.status;
   return unreachable(e) || e instanceof AuthError || typeof status !== 'number' || status >= 500 || status === 408 || status === 429;
 }
 
-const raw = { memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
+const raw = { addTurns: brain.addTurns, library: brain.library, librarySearch: brain.librarySearch, libraryRemove: brain.libraryRemove, memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
 
 brain.memory = async () => {
   try {
@@ -258,6 +308,36 @@ brain.inbox = async () => {
   }
 };
 
+// The library: documents kept on this device are part of it (library/local.ts).
+brain.library = async () => {
+  const r = await raw.library();
+  const [mine, gone] = await Promise.all([pendingDocs(), removedHere()]);
+  return { ...r, docs: [...mine, ...r.docs.filter((d) => !gone.has(d.id))] };
+};
+brain.librarySearch = async (q, k = 8) => {
+  try {
+    const r = await raw.librarySearch(q, k);
+    // The brain has every document it was sent; add the ones only this device has (all of them while paused).
+    const local = await searchLocal(q, k, !(r as { paused?: boolean }).paused);
+    return { hits: [...local, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k) };
+  } catch (e) {
+    if (unreachable(e)) return { hits: await searchLocal(q, k) };
+    throw e;
+  }
+};
+brain.libraryRemove = async (id: string) => {
+  if (isLocal(id)) return removeDoc(id);
+  try {
+    const r = await raw.libraryRemove(id);
+    await removeDoc(id);
+    return r;
+  } catch (e) {
+    if (!unreachable(e)) throw e;
+    await removeDoc(id, true); // hidden now, removed from the brain when it's back
+    return { queued: true };
+  }
+};
+
 /** Try the brain; if it can't be reached, queue the change on this device instead. */
 async function orQueue<T>(isLocal: boolean, call: () => Promise<T>, queue: () => T): Promise<T> {
   if (isLocal) return queue(); // only exists on this device: just change the queue
@@ -285,11 +365,58 @@ brain.addJob = (j) =>
   });
 brain.deleteJob = (id: string) => orQueue(isLocal(id), () => raw.deleteJob(id), () => (enqueue({ kind: 'deleteJob', jobId: id }), { queued: true }));
 
+/** Fetch a fresh copy of the keys (also writes keys saved while paused to the brain's database). */
+export async function refreshKeyCopy(): Promise<void> {
+  if (!ownerKey.get()) return; // signed in with Cloudflare Access: no owner key to seal with
+  try {
+    const r = await req<{ backup: string; complete: boolean }>('GET', '/vault/backup');
+    // Partial (database paused, keys not in memory): keep the fuller copy we have.
+    if (r.backup && (r.complete || !keyCopy.get().sealed)) keyCopy.set({ sealed: r.backup });
+  } catch {
+    /* try again next time */
+  }
+}
+const rawSetKey = brain.setKey;
+brain.setKey = async (name, value) => {
+  const r = await rawSetKey(name, value);
+  await refreshKeyCopy();
+  return r;
+};
+const rawLink = brain.spotifyLink;
+const rawUnlink = brain.spotifyUnlink;
+brain.spotifyLink = async (p) => {
+  const r = await rawLink(p);
+  await refreshKeyCopy();
+  return r;
+};
+brain.spotifyUnlink = async () => {
+  const r = await rawUnlink();
+  await refreshKeyCopy();
+  return r;
+};
+
 /** Send changes queued while the brain was unreachable. Runs when memory is back and every 2 min while anything waits. */
 export async function sendQueued(): Promise<number> {
-  if (!offline.get().outbox.length) return 0;
-  return flushOutbox(raw, keepForLater);
+  const sent = offline.get().outbox.length ? await flushOutbox(raw, keepForLater) : 0;
+  const docs = await syncLocalDocs({
+    upload: async (d) => {
+      const { doc } = await brain.libraryCreate({ title: d.title, source: d.source, kind: d.kind, pages: d.pages });
+      try {
+        for (let i = 0; i < d.passages.length; i += 30) await brain.libraryAdd(doc.id, d.passages.slice(i, i + 30));
+      } catch (e) {
+        await raw.libraryRemove(doc.id).catch(() => undefined);
+        throw e;
+      }
+      return (await brain.libraryDone(doc.id)).doc;
+    },
+    remove: (id) => raw.libraryRemove(id),
+  }).catch(() => 0);
+  return sent + docs;
 }
 memoryPaused.subscribe((m, prev) => {
-  if (prev.on && !m.on) void sendQueued();
+  if (m.on !== prev.on) armBrainReminders(m.on);
+  if (prev.on && !m.on) {
+    void sendQueued();
+    void refreshKeyCopy();
+  }
 });

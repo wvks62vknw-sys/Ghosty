@@ -7,7 +7,7 @@
  *  - reminders set while paused also go off from this device (while Ghosty is open).
  * brain.ts routes the memory/agenda calls through here (withMirror / queueOr).
  */
-import type { AgendaEventInfo, FeedInfo, InboxEntry, JobInfo, MemoryFact } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, ChatTurn, FeedInfo, InboxEntry, JobInfo, MemoryFact } from '../../../../packages/shared/src/protocol';
 import { createStore } from '../core/store';
 
 export type AgendaData = { tz: string; events: AgendaEventInfo[]; errors: string[]; jobs: JobInfo[]; feeds: FeedInfo[] };
@@ -20,7 +20,8 @@ export type Op =
   | { id: string; at: number; kind: 'addEvent'; event: NewEvent; fired?: boolean }
   | { id: string; at: number; kind: 'deleteEvent'; eventId: string }
   | { id: string; at: number; kind: 'addJob'; job: NewJob; fired?: boolean }
-  | { id: string; at: number; kind: 'deleteJob'; jobId: string };
+  | { id: string; at: number; kind: 'deleteJob'; jobId: string }
+  | { id: string; at: number; kind: 'addTurns'; turns: ChatTurn[] };
 type OpInput = Op extends infer O ? (O extends Op ? Omit<O, 'id' | 'at'> : never) : never;
 
 export const offline = createStore(
@@ -109,6 +110,34 @@ function armLocalReminder(op: Op): void {
   timers.set(op.id, setTimeout(() => fire(op.id, a.title, a.text, Date.now() > a.stale), Math.max(0, wait)));
 }
 
+/**
+ * While the brain's database is paused its own alarm can't run, so the reminders it holds (in the
+ * agenda copy here) ring from this device instead. A one-off reminder that rang here is then
+ * removed from the brain's agenda (queued), so it doesn't ring again when the brain is back.
+ */
+export function armBrainReminders(on: boolean): void {
+  for (const [k, t] of timers) {
+    if (!k.startsWith('brain:')) continue;
+    clearTimeout(t);
+    timers.delete(k);
+  }
+  if (!on || !ring) return;
+  for (const j of offline.get().agenda?.jobs ?? []) {
+    if (j.kind !== 'reminder' || j.id.startsWith(LOCAL)) continue;
+    const key = `brain:${j.id}`;
+    const wait = j.next - Date.now();
+    if (wait < -60_000 || wait > 24 * 3600_000) continue; // due before the pause: the brain sends it when it's back
+    timers.set(
+      key,
+      setTimeout(() => {
+        timers.delete(key);
+        ring?.(j.title || 'Reminder', j.text);
+        if (j.repeat === 'none') enqueue({ kind: 'deleteJob', jobId: j.id });
+      }, Math.max(0, wait)),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------------------
 // Sending the queue once the brain answers again
 // ---------------------------------------------------------------------------------------
@@ -120,6 +149,7 @@ export interface OutboxApi {
   deleteEvent(id: string): Promise<unknown>;
   addJob(j: NewJob): Promise<unknown>;
   deleteJob(id: string): Promise<unknown>;
+  addTurns(turns: ChatTurn[]): Promise<unknown>;
 }
 
 let flushing = false;
@@ -140,9 +170,12 @@ export async function flushOutbox(api: OutboxApi, keepForLater: (e: unknown) => 
         else if (op.kind === 'addEvent') await api.addEvent(op.event);
         else if (op.kind === 'deleteEvent') await api.deleteEvent(op.eventId);
         else if (op.kind === 'addJob') {
-          // A one-off reminder that already rang here doesn't need setting again.
-          if (!(op.job.kind === 'reminder' && op.job.repeat === 'none' && op.fired)) await api.addJob(op.job);
+          // A one-off reminder that already rang here doesn't need setting again (read now: it may have rung during this flush).
+          const live = offline.get().outbox.find((o) => o.id === op.id);
+          const rang = !!(live && 'fired' in live && live.fired);
+          if (!(op.job.kind === 'reminder' && op.job.repeat === 'none' && rang)) await api.addJob(op.job);
         } else if (op.kind === 'deleteJob') await api.deleteJob(op.jobId);
+        else if (op.kind === 'addTurns') await api.addTurns(op.turns);
         sent++;
       } catch (e) {
         if (keepForLater(e)) break; // paused, offline, signed out or a server error: try again later
