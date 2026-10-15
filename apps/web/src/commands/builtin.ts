@@ -76,7 +76,7 @@ export function registerBuiltins(): void {
         go('eye');
         const lat = Number(a?.lat);
         const lon = Number(a?.lon);
-        const where = Number.isFinite(lat) && Number.isFinite(lon) && a?.lat !== undefined ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
         if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
         const { openNearestCamera } = await import('../features/eye');
         globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: 25, tilt: 0 });
@@ -105,7 +105,7 @@ export function registerBuiltins(): void {
         go('eye');
         const lat = Number(a?.lat);
         const lon = Number(a?.lon);
-        const where = Number.isFinite(lat) && Number.isFinite(lon) && a?.lat !== undefined ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
+        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
         globe.vis = { ...globe.vis, traffic: true, cams: true, enforce: true };
         if (where) {
           globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 14, tilt: 0 });

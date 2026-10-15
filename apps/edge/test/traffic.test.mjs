@@ -97,3 +97,9 @@ test('major places resolve from the built-in list, without the rate-limited map 
   assert.ok(Math.abs(b.events[0].args.lat - 52.48) < 0.01);
   assert.equal(calls.filter((u) => u.hostname === 'nominatim.openstreetmap.org').length, before, 'no map search for major places');
 });
+
+test('a null lat/lon from the model means "not given", not 0°N 0°E', async () => {
+  const { events, ctx } = ctxFor();
+  assert.match(await T.toolByName.get('show_cameras').run({ place: 'London', lat: null, lon: null }, ctx), /camera to London/);
+  assert.ok(Math.abs(events[0].args.lat - 51.507) < 0.01);
+});

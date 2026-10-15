@@ -12,9 +12,10 @@ import { arg, clip, type Tool, type ToolContext } from './types';
 const NO_KEY = 'Live traffic needs the free TomTom key: the owner adds it in System → Keys → "TomTom traffic" (developer.tomtom.com → sign up → copy the default API key). It takes about two minutes.';
 
 async function where(a: Record<string, unknown>, ctx: ToolContext): Promise<{ name: string; lat: number; lon: number }> {
-  const lat = Number(a.lat);
-  const lon = Number(a.lon);
-  if (Number.isFinite(lat) && Number.isFinite(lon) && a.lat !== undefined) return { name: arg.str(a, 'place', false) || `${lat.toFixed(3)}, ${lon.toFixed(3)}`, lat, lon };
+  // Real numbers only: models often send null for optional fields, and Number(null) is 0 (0°N 0°E).
+  const lat = a.lat;
+  const lon = a.lon;
+  if (typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon)) return { name: arg.str(a, 'place', false) || `${lat.toFixed(3)}, ${lon.toFixed(3)}`, lat, lon };
   const place = arg.str(a, 'place', false).trim();
   if (!place) {
     const home = await ownerPlace(ctx);

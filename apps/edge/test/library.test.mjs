@@ -285,3 +285,15 @@ test('with the database paused, AI keys from Cloudflare secrets keep Ghosty chat
     globalThis.fetch = realFetch;
   }
 });
+
+test('opening the Library on a fresh brain makes exactly one self-study job', async () => {
+  const pending = [];
+  const state = { storage: new MemStorage(), waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64') });
+  await Promise.all([agent.fetch(new Request('https://ghosty.test/api/library/study')), agent.fetch(new Request('https://ghosty.test/api/library/study'))]);
+  await Promise.allSettled(pending.splice(0));
+  const study = () => (state.storage.m.get('jobs') ?? []).filter((j) => j.kind === 'study');
+  assert.equal(study().length, 1);
+  await agent.fetch(new Request('https://ghosty.test/api/library/study', { method: 'POST', body: JSON.stringify({ on: false }) }));
+  assert.equal(study().length, 0, 'switching off removes it');
+});

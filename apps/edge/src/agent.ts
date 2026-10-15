@@ -822,14 +822,23 @@ export class GhostyAgent {
 
   /** Self-study runs as an hourly background job; make sure there is exactly one while it's on. */
   private studyChecked = false;
-  private async ensureStudyJob(): Promise<void> {
+  private studyCheck: Promise<void> = Promise.resolve();
+  /** One check at a time (two at once could both add a job), each after the previous one. */
+  private ensureStudyJob(): Promise<void> {
     this.studyChecked = true;
+    const run = this.studyCheck.then(() => this.reconcileStudyJob());
+    this.studyCheck = run.catch(() => undefined);
+    return run;
+  }
+  private async reconcileStudyJob(): Promise<void> {
     const st = await loadStudy(this.storage);
-    const job = (await loadJobs(this.storage)).find((j) => j.kind === 'study');
-    if (st.on && !job) {
+    const jobs = (await loadJobs(this.storage)).filter((j) => j.kind === 'study');
+    // Keep one while it's on (none while off); remove any extras.
+    for (const j of jobs.slice(st.on ? 1 : 0)) await removeJob(this.storage, j.id);
+    if (st.on && !jobs.length) {
       await addJob(this.storage, { kind: 'study', title: 'Self-study (no AI, no keys)', text: 'Read one topic from the study list into the library.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
       await rearm(this.storage);
-    } else if (!st.on && job) await removeJob(this.storage, job.id);
+    }
   }
 
   /**
