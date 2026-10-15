@@ -6,6 +6,8 @@
 export interface Env {
   /** Durable Object namespace holding Ghosty's single agent instance. */
   AGENT: DurableObjectNamespace;
+  /** Cloudflare Workers AI (free daily allowance, no key): Ghosty's always-available fallback brain. */
+  AI?: { run(model: string, inputs: Record<string, unknown>): Promise<unknown> };
   /** The built interface (apps/web/dist), served for every path outside /api. */
   ASSETS?: { fetch(req: Request): Promise<Response> };
 

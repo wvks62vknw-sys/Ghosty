@@ -22,6 +22,8 @@
     "OWNER_EMAIL": "aqishussain1@gmail.com",
     "GITHUB_REPO": "wvks62vknw-sys/Ghosty"
   },
+  // Workers AI: free daily allowance, no key — Ghosty's always-available fallback brain.
+  "ai": { "binding": "AI" },
   "durable_objects": {
     "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
   },
@@ -34,6 +36,7 @@
     "vars": {
       "IS_PREVIEW": "1"
     },
+    "ai": { "binding": "AI" },
     "durable_objects": {
       "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
     }

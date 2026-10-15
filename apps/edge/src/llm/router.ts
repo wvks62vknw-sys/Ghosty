@@ -7,7 +7,7 @@
 import type { Env } from '../env';
 import type { Vault } from '../kernel/vault';
 import type { ModelHealth } from '../../../../packages/shared/src/protocol';
-import { PROVIDERS, NOT_CHAT, modelScore, type Provider } from './providers';
+import { PROVIDERS, NOT_CHAT, codeScore, modelScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 
 export interface ToolCall {
@@ -36,6 +36,7 @@ interface Health {
 }
 
 interface LlmError {
+  /** HTTP status, or 'too-big' when a request can't be slimmed to a provider's limit. */
   code?: number | string;
   message: string;
   retryAfter?: string | null;
@@ -102,6 +103,12 @@ export class Router {
     });
   }
 
+  /** The provider's key, '' for a keyless provider that is available, or null if unusable. */
+  private async keyFor(p: Provider): Promise<string | null> {
+    if (p.transport === 'workers-ai') return this.env.AI ? '' : null;
+    return (await this.vault.get(p.key)) || null;
+  }
+
   async setOrder(ids: string[]): Promise<void> {
     await this.storage.put(ORDER_KEY, ids);
   }
@@ -121,7 +128,7 @@ export class Router {
   async discover(force = false): Promise<void> {
     const all = (await this.storage.get<Record<string, { at: number; ids: string[] }>>(M_KEY)) ?? {};
     for (const p of PROVIDERS) {
-      if (p.id === 'openrouter') continue; // its catalogue is huge; the free router is enough
+      if (p.id === 'openrouter' || p.noDiscovery) continue; // huge or fixed catalogues: the seeds are enough
       const key = await this.vault.get(p.key);
       if (!key) continue;
       if (!force && all[p.id] && Date.now() - all[p.id]!.at < 12 * 3600_000) continue;
@@ -143,7 +150,7 @@ export class Router {
     const out: ModelHealth[] = [];
     const now = Date.now();
     for (const p of await this.order()) {
-      if (!(await this.vault.has(p.key))) continue;
+      if ((await this.keyFor(p)) === null) continue;
       if ((h[`key|${p.id}`]?.dead ?? 0) > now) {
         out.push({ provider: p.name, model: '(key)', state: 'dead', info: 'key rejected — replace it in System' });
         continue;
@@ -190,16 +197,16 @@ export class Router {
     const now = Date.now();
     const candidates: { p: Provider; key: string; model: string }[] = [];
     for (const p of await this.order()) {
-      const key = await this.vault.get(p.key);
-      if (!key) continue;
+      const key = await this.keyFor(p);
+      if (key === null) continue;
+      if (p.codeOnly && !opts.code) continue; // keep small free allowances for writing code
       anyKey = true;
       if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now) continue;
       for (const model of await this.models(p)) candidates.push({ p, key, model });
     }
-    if (opts.code) {
-      const weak = (m: string) => modelScore(m) < 0;
-      candidates.sort((a, b) => Number(weak(a.model)) - Number(weak(b.model))); // stable: keeps provider order within each group
-    }
+    // The keyless fallback goes last for chat; for code, the best coders go first.
+    if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
+    else candidates.sort((a, b) => Number(a.p.transport === 'workers-ai') - Number(b.p.transport === 'workers-ai'));
     const skipProvider = new Set<string>();
     for (const { p, key, model } of candidates) {
       if (skipProvider.has(p.id)) continue;
@@ -218,6 +225,7 @@ export class Router {
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') throw err;
         const e = err as LlmError;
+        if (e.code === 'too-big') continue; // this model's free tier can't take a request this size; not its fault
         lastErr = e;
         const c = classify(e);
         if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
@@ -227,7 +235,7 @@ export class Router {
         if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
       }
     }
-    if (!anyKey) throw new Error('No AI key is set. Add a free Gemini or Groq key in the System tab.');
+    if (!anyKey) throw new Error('No AI model is available. Add a free Gemini or Groq key in the System tab.');
     if (!lastErr) {
       const wait = Number.isFinite(soonest) ? ` The first one frees up in about ${Math.ceil(soonest / 1000)} seconds.` : '';
       throw new Error(`Every model I can reach is cooling down after rate limits.${wait}`);
@@ -235,7 +243,15 @@ export class Router {
     throw new Error(`Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).`);
   }
 
-  private async call(p: Provider, key: string, model: string, messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
+    let messages = messagesIn;
+    let tools = toolsIn;
+    if (p.maxIn) {
+      const slim = slimToFit(messagesIn, toolsIn, p.maxIn - (code ? 400 : 200));
+      if (!slim) throw { code: 'too-big', message: 'request too large for this free tier' } satisfies LlmError;
+      ({ messages, tools } = slim);
+    }
+    if (p.transport === 'workers-ai') return this.callWorkersAi(model, messages, tools, code);
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
     const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
@@ -291,4 +307,87 @@ export class Router {
     }
     throw { code: 400, message: 'bad request' } satisfies LlmError;
   }
+
+  /** Cloudflare Workers AI through the AI binding. Replies come in a few shapes; all are normalised. */
+  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean): Promise<Msg> {
+    const ai = this.env.AI;
+    if (!ai) throw { code: 401, message: 'no AI binding' } satisfies LlmError;
+    let res: unknown;
+    try {
+      res = await ai.run(model, {
+        messages: messages.map((m) => (m.role === 'tool' ? { role: 'tool', tool_call_id: m.tool_call_id, content: m.content ?? '' } : m)),
+        ...(tools.length ? { tools } : {}),
+        max_tokens: code ? 8192 : 4096,
+        temperature: code ? 0.2 : 0.4,
+      });
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? e);
+      const daily = /(neuron|daily|quota|limit)/i.test(msg);
+      throw { code: daily ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
+    }
+    const msg = normaliseWorkersAi(res);
+    if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
+    return msg;
+  }
+}
+
+/** Rough token count (≈3.6 characters per token for English, code and JSON). */
+const tokensOf = (x: unknown) => Math.ceil(JSON.stringify(x).length / 3.6);
+
+/** Tools that matter when writing code — everything else is dropped to fit a small request. */
+const CORE_CODE_TOOLS = /^(study|repo_|propose_change|update_change|change_status|wait_for_checks|discard_change|list_changes|learn_lesson|self_audit|plan_upgrade|roadmap|update_step|web_search|web_fetch|remember|reload_interface|create_widget)/;
+
+/**
+ * Fit a request into `budget` tokens: first keep only coding tools, then shorten old
+ * tool outputs, then drop the oldest turns (never the system prompt or the latest
+ * owner message). Returns null if it still can't fit.
+ */
+export function slimToFit(messages: Msg[], tools: ToolSpec[], budget: number): { messages: Msg[]; tools: ToolSpec[] } | null {
+  if (tokensOf(messages) + tokensOf(tools) <= budget) return { messages, tools };
+  let t = tools.filter((x) => CORE_CODE_TOOLS.test(x.function.name)).map((x) => ({ ...x, function: { ...x.function, description: x.function.description.slice(0, 220) } }));
+  const sys = messages[0]?.role === 'system' ? messages[0] : null;
+  let rest = (sys ? messages.slice(1) : messages).map((m, i, arr) => (m.role === 'tool' && i < arr.length - 2 && (m.content?.length ?? 0) > 900 ? { ...m, content: `${m.content!.slice(0, 900)}…[shortened]` } : m));
+  let system = sys ? { ...sys, content: (sys.content ?? '').slice(0, 9000) } : null;
+  const size = () => tokensOf(rest) + tokensOf(t) + (system ? tokensOf(system) : 0);
+  // drop oldest turns, keeping tool results attached to their call
+  while (size() > budget && rest.length > 2) {
+    rest = rest.slice(1);
+    while (rest.length && rest[0]!.role === 'tool') rest = rest.slice(1);
+  }
+  if (size() > budget && system) system = { ...system, content: (system.content ?? '').slice(0, Math.max(1500, (budget - tokensOf(rest) - tokensOf(t)) * 3)) };
+  if (size() > budget) t = t.filter((x) => /^(repo_read|propose_change|update_change|wait_for_checks)$/.test(x.function.name));
+  if (size() > budget) return null;
+  return { messages: system ? [system, ...rest] : rest, tools: t };
+}
+
+/** Workers AI replies: OpenAI-style `choices`, the classic `{response, tool_calls}`, or Responses-style `output`. */
+export function normaliseWorkersAi(res: unknown): Msg | null {
+  const r = (res ?? {}) as Record<string, unknown>;
+  const toCalls = (list: { id?: string; call_id?: string; name?: string; arguments?: unknown; function?: { name?: string; arguments?: unknown } }[]) =>
+    list
+      .map((c, i) => {
+        const name = c.function?.name ?? c.name;
+        const args = c.function?.arguments ?? c.arguments ?? {};
+        return name ? { id: c.id || c.call_id || `call_${Date.now()}_${i}`, type: 'function' as const, function: { name, arguments: typeof args === 'string' ? args : JSON.stringify(args) } } : null;
+      })
+      .filter((x): x is ToolCall => !!x);
+  const clean = (t: unknown) => (typeof t === 'string' ? t.replace(/<think>[\s\S]*?<\/think>/g, '').trim() : '');
+  let content = '';
+  let calls: ToolCall[] = [];
+  const choice = (r.choices as { message?: { content?: unknown; tool_calls?: [] } }[] | undefined)?.[0]?.message;
+  if (choice) {
+    content = clean(choice.content);
+    calls = toCalls(choice.tool_calls ?? []);
+  } else if (Array.isArray(r.output)) {
+    for (const item of r.output as { type?: string; content?: { text?: string }[]; name?: string; arguments?: string; call_id?: string }[]) {
+      if (item.type === 'message') content += (item.content ?? []).map((c) => c.text ?? '').join('');
+      if (item.type === 'function_call') calls.push(...toCalls([item]));
+    }
+    content = clean(content);
+  } else {
+    content = clean(r.response);
+    calls = toCalls((r.tool_calls as []) ?? []);
+  }
+  if (!content && !calls.length) return null;
+  return { role: 'assistant', content: content || null, ...(calls.length ? { tool_calls: calls } : {}) };
 }

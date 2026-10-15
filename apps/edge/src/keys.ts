@@ -29,6 +29,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       pull_requests: 'write',
       statuses: 'read',
       actions: 'read',
+      models: 'read',
     }).toString();
   return [
     {
@@ -51,7 +52,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with github_pat_…',
       link: ghLink,
       need: 'needed',
-      why: 'Lets Ghosty change its own code when you ask (new panels, features, fixes).',
+      why: 'Lets Ghosty change its own code when you ask (new panels, features, fixes) — and gives it free GPT-4.1 for writing that code (GitHub Models).',
       steps: [
         'Open the link (sign in to GitHub if asked). The name, permissions and a 1-year expiry are already filled in.',
         `Under "Repository access" choose "Only select repositories" and pick ${repo ?? 'your Ghosty repository'}.`,
@@ -166,7 +167,14 @@ export async function testKey(name: string, value: string, repo?: string): Promi
         if (!r.ok) return { ok: false, info: r.status === 401 ? 'GitHub says this token is not valid. Copy it again.' : `GitHub answered ${r.status}` };
         const j = (await r.json()) as { permissions?: { push?: boolean } };
         if (j.permissions && !j.permissions.push) return { ok: false, info: 'the token can read but not write. It needs "Contents: Read and write".' };
-        return { ok: true, info: `works · can edit ${repo}` };
+        // Free GPT-4.1 for coding comes from GitHub Models with the same token.
+        const m = await fetch('https://models.github.ai/inference/chat/completions', {
+          method: 'POST',
+          headers: { ...bearer, 'Content-Type': 'application/json', 'User-Agent': 'Ghosty' },
+          body: JSON.stringify({ model: 'openai/gpt-4.1-mini', messages: [{ role: 'user', content: 'ok' }], max_tokens: 1 }),
+        }).catch(() => null);
+        const models = m?.ok || m?.status === 429 ? ' · free GPT-4.1 for coding: on' : ' · free GPT-4.1 for coding: off (edit the token on GitHub and set Account permissions → Models → Read to switch it on)';
+        return { ok: true, info: `works · can edit ${repo}${models}` };
       }
       default:
         return { ok: true, info: 'saved' };

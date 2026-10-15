@@ -17,6 +17,14 @@ export interface Provider {
   accept?: (id: string) => boolean;
   /** Reply length (tokens) to allow when writing code; providers with small free rate limits keep it lower. */
   maxOut?: number;
+  /** Largest request (input tokens) the free tier accepts; bigger requests are slimmed down first. */
+  maxIn?: number;
+  /** Only used for coding turns (small free daily allowance, strongest models). */
+  codeOnly?: boolean;
+  /** 'workers-ai' = Cloudflare's built-in AI binding (no key); otherwise an OpenAI-style HTTP API. */
+  transport?: 'openai' | 'workers-ai';
+  /** Skip GET /models discovery. */
+  noDiscovery?: boolean;
 }
 
 export const PROVIDERS: Provider[] = [
@@ -59,7 +67,47 @@ export const PROVIDERS: Provider[] = [
     seed: ['mistral-medium-latest', 'devstral-medium-latest', 'mistral-small-latest'],
     maxOut: 16384,
   },
+  {
+    // GitHub Models: GPT-4.1 / DeepSeek-V3 for free with the same GitHub token Ghosty
+    // already uses (the token needs the "Models: read" permission). Small daily allowance
+    // and 8k-token requests, so it is kept for coding turns only.
+    id: 'ghmodels',
+    name: 'GitHub Models',
+    base: 'https://models.github.ai/inference',
+    key: 'github',
+    seed: ['openai/gpt-4.1', 'deepseek/DeepSeek-V3-0324', 'openai/gpt-4.1-mini'],
+    maxIn: 7600,
+    maxOut: 4000,
+    codeOnly: true,
+    noDiscovery: true,
+  },
+  {
+    // Cloudflare Workers AI through the Worker's own AI binding: no key at all, a free
+    // daily allowance, and always there as the last resort.
+    id: 'workersai',
+    name: 'Workers AI',
+    base: '',
+    key: '',
+    transport: 'workers-ai',
+    seed: ['@cf/zai-org/glm-4.7-flash', '@cf/openai/gpt-oss-120b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
+    maxOut: 8192,
+    noDiscovery: true,
+  },
 ];
+
+/**
+ * How good a model is at agentic coding (higher first) — used to order models for coding
+ * turns across every provider. Unknown models fall back to the general score.
+ */
+export function codeScore(id: string): number {
+  const m = id.toLowerCase();
+  if (/kimi-k2/.test(m)) return 10;
+  if (/(gpt-5(?!-nano)|gpt-4\.1(?!-nano|-mini)|gemini-[3-9][\w.-]*pro|gemini-2\.5-pro|claude)/.test(m)) return 9;
+  if (/(qwen3?-coder|qwen-3-coder|deepseek-(v3|r1|chat)|glm-(4\.[5-9]|5)(?!.*flash)|devstral|codestral)/.test(m)) return 8;
+  if (/(gpt-oss-120b|llama-4-maverick|qwen3-235b|qwen-3-235b|mistral-medium|gpt-4\.1-mini|gemini-[\d.]+-flash(?!-lite))/.test(m)) return 7;
+  if (/(glm-4\.7-flash|llama-4-scout|llama-3\.3-70b|gpt-oss-20b|qwen3-32b)/.test(m)) return 5;
+  return 4 + modelScore(m);
+}
 
 /** Model ids that are never chat models. */
 export const NOT_CHAT =
