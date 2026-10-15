@@ -15,7 +15,8 @@ import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
 export interface Job {
   id: string;
-  kind: 'reminder' | 'task';
+  /** reminder = notify; task = Ghosty runs a prompt; verify = internal check of a shipped change */
+  kind: 'reminder' | 'task' | 'verify';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;

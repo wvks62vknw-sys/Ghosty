@@ -139,8 +139,8 @@ export const agendaTab: TabDef = {
       }
       for (const j of jobs) {
         const rep = j.repeat === 'none' ? '' : ` · ${REPEATS.find(([v]) => v === j.repeat)?.[1].toLowerCase()}`;
-        const r = row(when(j.next), `${j.kind === 'task' ? '✦ ' : '⏰ '}${j.title}${rep}`, '✕', { wrap: true });
-        r.title = j.kind === 'task' ? `Ghosty will: ${j.text}${j.lastResult ? `\n\nLast time: ${j.lastResult}` : ''}` : j.text;
+        const r = row(when(j.next), `${j.kind === 'task' ? '✦ ' : j.kind === 'verify' ? '🛡 ' : '⏰ '}${j.title}${rep}`, '✕', { wrap: true });
+        r.title = j.kind === 'verify' ? 'Ghosty is checking that a change you shipped deployed correctly' : j.kind === 'task' ? `Ghosty will: ${j.text}${j.lastResult ? `\n\nLast time: ${j.lastResult}` : ''}` : j.text;
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.title = 'Cancel';

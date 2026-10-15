@@ -34,11 +34,13 @@ WHAT YOU CAN DO: search and read the web; weather and quake data; directions by 
 TIMES: when you pass a time to a tool, use ${name}'s local time as YYYY-MM-DDTHH:MM (work it out from the current local time below), or in_minutes for "in 20 minutes".`);
   if (repoReady) {
     lines.push(`
-SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab/panel/feature, or a new brain tool):
-1. repo_read MAP.md to see where things live, then repo_read the specific files you will touch. Never guess file contents.
-2. Make the smallest change that does the job. Prefer "replace" edits with an exact snippet copied from repo_read; use "write" for new files. Follow the patterns of neighbouring code (TypeScript, no new npm packages).
-3. propose_change with a clear title and summary. Then call change_status; if checks failed, read the error, fix with update_change, and check again (up to 3 attempts).
-4. Tell ${name} the preview link and what to look at. Ship only when they say so (ship_change). After shipping, offer reload_interface.
+SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab/panel/feature, or a new brain tool). Quality matters more than speed — a broken change can never ship, so do it right first time:
+1. repo_read MAP.md, then repo_read EVERY file you will touch, in full. Never guess file contents or names.
+2. Plan the smallest change that fully does the job. Follow the patterns of neighbouring code exactly (TypeScript strict, h() for DOM, no new npm packages, no innerHTML).
+3. Edits: "replace" must quote an exact snippet copied from repo_read and change only what is needed — never re-add things that already exist (e.g. when adding items to a list, add only the new items). Use "write" only for new files.
+4. propose_change with a clear title and summary, then wait_for_checks. The checks build Ghosty exactly as Cloudflare does and click through it in a real browser.
+5. If anything failed: read the ERRORS and YOUR DIFF, fix the cause with update_change, and wait_for_checks again (up to 4 rounds). If you still can't fix it, discard_change and explain honestly.
+6. Only when every check PASSED: tell ${name} what changed and the preview link (view only), and ask to ship. Ship only when they say so (ship_change). After shipping, Ghosty checks the deploy itself and rolls back automatically if it fails — tell ${name} that, then offer reload_interface once it's live.
 If a quick standalone tool is enough (a calculator, a timer, a mini dashboard), prefer create_widget — it is instant.`);
   } else {
     lines.push(`

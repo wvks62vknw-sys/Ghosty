@@ -191,6 +191,45 @@ export class GitHub {
     return j.map((f) => `${f.filename}${f.status === 'removed' ? ' (deleted)' : f.status === 'added' ? ' (new)' : ''}`);
   }
 
+  /** The change's diff (for Ghosty to review its own work before asking to ship). */
+  async diff(n: number, max = 6000): Promise<string> {
+    const j = await this.req<{ filename: string; status: string; patch?: string }[]>('GET', `/pulls/${n}/files?per_page=100`);
+    let out = '';
+    for (const f of j) {
+      out += `--- ${f.filename} (${f.status})\n${(f.patch ?? '(binary or too large to show)').slice(0, 2500)}\n`;
+      if (out.length > max) break;
+    }
+    return out.slice(0, max);
+  }
+
+  /**
+   * The useful part of the logs of failed GitHub Actions jobs for a commit: error lines
+   * with a little context, so Ghosty can see exactly what broke.
+   */
+  async failureLog(sha: string, max = 3500): Promise<string> {
+    const runs = await this.req<{ check_runs: { id: number; name: string; conclusion: string | null; app?: { slug?: string } }[] }>('GET', `/commits/${sha}/check-runs?per_page=30`).catch(() => ({ check_runs: [] }));
+    let out = '';
+    for (const r of runs.check_runs.filter((x) => x.conclusion === 'failure' && x.app?.slug === 'github-actions')) {
+      try {
+        const head = await fetch(`${API}/repos/${this.repo}/actions/jobs/${r.id}/logs`, { headers: { Authorization: `Bearer ${this.token}`, 'User-Agent': 'ghosty-brain', Accept: 'application/vnd.github+json' }, redirect: 'manual' });
+        const loc = head.headers.get('location');
+        const res = loc ? await fetch(loc) : head;
+        if (!res.ok) continue;
+        const lines = (await res.text()).split('\n').map((l) => l.replace(/^\S+Z /, '').replace(/\x1b\[[0-9;]*m/g, ''));
+        const keep = new Set<number>();
+        lines.forEach((l, i) => {
+          if (/(error|Error|ERR!|FAIL|not ok|PROBLEMS|✘|failed|Expected|actual|expected|TS\d{4})/.test(l) && !/^##\[group\]/.test(l)) for (let k = Math.max(0, i - 2); k <= Math.min(lines.length - 1, i + 3); k++) keep.add(k);
+        });
+        const picked = [...keep].sort((a, b) => a - b).map((i) => lines[i]!.slice(0, 220));
+        out += `=== ${r.name} ===\n${picked.slice(0, 80).join('\n')}\n`;
+      } catch {
+        out += `=== ${r.name} === (log not available)\n`;
+      }
+      if (out.length > max) break;
+    }
+    return out.slice(0, max);
+  }
+
   async openChanges(): Promise<ChangeSummary[]> {
     const prs = await this.req<PullRequest[]>('GET', '/pulls?state=open&per_page=20');
     const out: ChangeSummary[] = [];

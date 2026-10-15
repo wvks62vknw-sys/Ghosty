@@ -11,6 +11,7 @@
  *   list_versions / restore_version      → roll back (owner approval)
  */
 import { pathProblem, UNREADABLE } from '../kernel/protected';
+import { addJob } from '../schedule';
 
 /** Deploy settings (incl. the owner password hash) are never read into the conversation. */
 const unreadable = (p: string) => UNREADABLE.test(p.replace(/^\/+/, '').replace(/\/{2,}/g, '/').replace(/(^|\/)\.\//g, '$1'));
@@ -178,9 +179,11 @@ export const repoTools: Tool[] = [
       const pr = await g.pr(n);
       const c = await g.checks(pr.head.sha);
       const preview = c.previewUrl ?? (c.preview === 'ok' ? g.previewFor(pr.head.ref) : null);
+      const log = c.state === 'failed' ? await g.failureLog(pr.head.sha) : '';
+      const diff = pr.merged ? '' : await g.diff(n, 4000).catch(() => '');
       return clip(
-        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nCode checks: ${c.state}${c.state === 'failed' ? ' — fix with update_change before asking to ship' : ''}\nPreview build: ${c.preview}${c.preview === 'failed' ? ' (a Cloudflare preview problem; it does not block shipping if the code checks pass)' : ''}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}\nPreview: ${preview ?? 'not reported yet (Cloudflare posts it on the change once the preview build finishes)'}`,
-        5000,
+        `Change #${n} "${pr.title}" — ${pr.merged ? 'SHIPPED' : pr.state.toUpperCase()}\nPreview: ${preview ?? 'not reported yet (Cloudflare posts it on the change once the preview build finishes)'}\nCode checks: ${c.state}${c.state === 'failed' ? ' — fix with update_change before asking to ship' : ''}\nPreview build: ${c.preview}${c.preview === 'failed' ? ' (a Cloudflare preview problem; it does not block shipping if the code checks pass)' : ''}\n${c.details || '(no checks reported yet — builds can take a minute to start)'}${log ? `\n\nERRORS FROM THE FAILED CHECKS:\n${log}` : ''}${diff ? `\n\nYOUR DIFF (review it: duplicates, leftovers, broken syntax):\n${diff}` : ''}`,
+        9000,
       );
     },
   },
@@ -192,6 +195,32 @@ export const repoTools: Tool[] = [
     async run(_a, ctx) {
       const list = await (await gh(ctx)).openChanges();
       return list.length ? list.map((c) => `#${c.number} ${c.title} — checks ${c.checks}${c.previewUrl ? ` — ${c.previewUrl}` : ''}`).join('\n') : 'No open changes.';
+    },
+  },
+  {
+    name: 'wait_for_checks',
+    description:
+      'Wait (up to ~6 minutes) for a change\'s checks to finish — typecheck, tests, the Cloudflare build and a real-browser run of the interface — then report the result with the exact errors if anything failed. Call this after propose_change and after every update_change.',
+    parameters: { type: 'object', properties: { pr: { type: 'number' } }, required: ['pr'] },
+    risk: 'auto',
+    async run(a, ctx) {
+      const g = await gh(ctx);
+      const n = arg.num(a, 'pr');
+      const t0 = Date.now();
+      let pr = await g.pr(n);
+      let c = await g.checks(pr.head.sha);
+      while ((c.state === 'pending' || c.state === 'none') && Date.now() - t0 < 6 * 60_000) {
+        ctx.emit({ t: 'status', text: `waiting for the checks on change #${n}… ${Math.round((Date.now() - t0) / 1000)}s` });
+        await new Promise((r) => setTimeout(r, 20_000));
+        pr = await g.pr(n);
+        c = await g.checks(pr.head.sha);
+      }
+      if (c.state === 'passed') return `All checks PASSED for change #${n} (commit ${pr.head.sha.slice(0, 7)}). Preview build: ${c.preview}.${c.previewUrl ? ` Preview: ${c.previewUrl}` : ''} You can now ask the owner to ship it.`;
+      if (c.state === 'failed') {
+        const log = await g.failureLog(pr.head.sha);
+        return clip(`Checks FAILED for change #${n}. Fix the cause with update_change, then call wait_for_checks again. Do not ask the owner to ship.\n${c.details}\n\nERRORS:\n${log || '(no log text available)'}`, 9000);
+      }
+      return `Checks are still running for change #${n} after 6 minutes (${c.details || 'no checks reported yet'}). Call wait_for_checks again shortly.`;
     },
   },
   {
@@ -222,10 +251,17 @@ export const repoTools: Tool[] = [
       if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error('shipping needs the exact approved commit; ask the owner to approve again');
       const pr = await g.ownOpenPr(n);
       if (pr.head.sha !== sha) throw new Error(`change #${n} changed after it was approved (now ${pr.head.sha.slice(0, 7)}); review and approve again`);
+      // Nothing ships unless every check passed — from chat or from the Workshop button.
+      const c = await g.checks(sha);
+      if (c.state !== 'passed') throw new Error(`change #${n} can't ship: its checks are ${c.state}. ${c.state === 'failed' ? 'Fix it first (update_change).' : 'Wait until they finish (wait_for_checks).'}`);
+      const main = await mainBranch(g, ctx);
+      const prev = await g.headSha(main);
       const merged = await g.merge(n, pr.title, sha);
       await g.deleteBranch(pr.head.ref);
-      ctx.emit({ t: 'client', name: 'notify', args: { text: `Shipped #${n}. Live in about a minute.` } });
-      return `Shipped change #${n} (commit ${merged.slice(0, 7)}). Cloudflare is deploying it; the interface can be reloaded in about a minute.`;
+      // Check the live deploy a few minutes from now; roll back automatically if it failed.
+      await addJob(ctx.storage, { kind: 'verify', title: `Checking shipped change #${n}`, text: JSON.stringify({ pr: n, title: pr.title, merged, prev, main, since: Date.now() }), next: Date.now() + 3 * 60_000, tz: 'UTC' });
+      ctx.emit({ t: 'client', name: 'notify', args: { text: `Shipped #${n}. Live in about two minutes — I'll check the deploy and roll back by myself if it fails.` } });
+      return `Shipped change #${n} (commit ${merged.slice(0, 7)}). Cloudflare is deploying it. I will check the deploy in a few minutes and automatically roll back if it fails.`;
     },
   },
   {

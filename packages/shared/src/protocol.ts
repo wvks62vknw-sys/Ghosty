@@ -114,7 +114,7 @@ export interface AgendaEventInfo {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task';
+  kind: 'reminder' | 'task' | 'verify';
   title: string;
   text: string;
   next: number;

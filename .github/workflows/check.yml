@@ -1,5 +1,6 @@
-# PROTECTED (kernel). Runs on every change Ghosty proposes. Ghosty reads the result with
-# change_status and fixes failures before asking you to ship.
+# PROTECTED (kernel). Runs on every change Ghosty proposes. A change can only be shipped
+# when every job here passes. Ghosty reads the results with change_status / wait_for_checks
+# and fixes failures before asking you to ship.
 name: check
 on:
   pull_request:
@@ -28,3 +29,42 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
       - run: npm run build
+  # The same build Cloudflare runs (interface + Worker bundle + config), without deploying.
+  deploy-build:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/edge } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - run: npx wrangler deploy --dry-run --outdir .wrangler-dry
+      - name: Preview build diagnostics (does not block)
+        continue-on-error: true
+        run: |
+          npx wrangler --version
+          npx wrangler preview --help || true
+          npx wrangler preview --dry-run 2>&1 || true
+  # Opens the built interface in a real browser (phone and desktop sizes) and clicks
+  # through chat, approvals, tabs, agenda, radio and the app/notifications setup.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+        working-directory: apps/edge
+      - run: npm test
+        working-directory: apps/edge
+      - run: npm install --no-audit --no-fund --no-save playwright@1.56.0 && npx playwright install --with-deps chromium
+      - name: Browser run
+        run: |
+          node tests/preview-server.mjs > preview.log 2>&1 &
+          sleep 3
+          node tests/ui.spec.mjs tests/.shots
+          node tests/agenda.spec.mjs tests/.shots
+          node tests/media.spec.mjs tests/.shots
+          node tests/app.spec.mjs tests/.shots
+      - if: failure()
+        run: cat preview.log || true

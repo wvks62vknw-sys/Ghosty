@@ -102,7 +102,7 @@ globalThis.fetch = async (input, init = {}) => {
     pr.merged = true;
     return ok({ sha: s });
   }
-  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ name: 'brain', status: 'completed', conclusion: 'success' }, { name: 'interface', status: 'completed', conclusion: 'success' }, { name: 'Workers Builds: ghosty', status: 'completed', conclusion: 'success', details_url: 'https://dash.cloudflare.com/x/workers/services/view/ghosty', output: { summary: 'Preview URL: https://ghosty-rename-the-greeting-ghosty.me.workers.dev' } }] });
+  if ((m = p.match(/^\/commits\/([^/]+)\/check-runs$/))) return ok({ check_runs: [{ id: 77, app: { slug: 'github-actions' }, name: 'brain', status: 'completed', conclusion: G.failSha === resolve(m[1]) ? 'failure' : 'success' }, { name: 'interface', status: 'completed', conclusion: 'success' }, { name: 'Workers Builds: ghosty', status: 'completed', conclusion: 'success', details_url: 'https://dash.cloudflare.com/x/workers/services/view/ghosty', output: { summary: 'Preview URL: https://ghosty-rename-the-greeting-ghosty.me.workers.dev' } }] });
   if ((m = p.match(/^\/commits\/([^/]+)\/status$/))) return ok({ statuses: [] });
   if (p === '/commits') {
     const out = [];
@@ -114,6 +114,7 @@ globalThis.fetch = async (input, init = {}) => {
     }
     return ok(out);
   }
+  if ((m = p.match(/^\/actions\/jobs\/(\d+)\/logs$/))) return ok('2026-10-15T01:00:00Z src/state/theme.ts(19,3): error TS1117: An object literal cannot have multiple properties with the same name.\n');
   return ok({ message: `fake GitHub does not handle ${method} ${p}` }, 501);
 };
 process.on('exit', () => (globalThis.fetch = realFetch));
@@ -121,6 +122,9 @@ process.on('exit', () => (globalThis.fetch = realFetch));
 // ---------- brain under test ----------
 class MemStorage {
   m = new Map();
+  alarm = null;
+  async setAlarm(t) { this.alarm = t; }
+  async getAlarm() { return this.alarm; }
   async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
   async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
   async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
@@ -248,4 +252,57 @@ test('owner buttons in the Workshop work without the model', async () => {
   const ok = await call(`/api/changes/${n}/ship`, { method: 'POST', body: JSON.stringify({ sha: G.refs.get(G.pulls[n - 1].head) }) });
   assert.equal(ok.status, 200, await ok.clone().text());
   assert.equal(G.pulls[n - 1].merged, true);
+});
+
+test('shipping is refused while checks fail — even from the Workshop button', async () => {
+  const ev = await chat('propose file');
+  const n = G.pulls.length;
+  const pr = G.pulls[n - 1];
+  G.failSha = G.refs.get(pr.head);
+  const st = result(await chat(`status ${n}`));
+  assert.match(st.summary, /Code checks: failed/);
+  const full = await (await call(`/api/changes/${n}/ship`, { method: 'POST', body: JSON.stringify({ sha: G.refs.get(pr.head) }) })).json();
+  assert.ok(full.error || /can't ship/.test(full.result ?? ''), JSON.stringify(full));
+  assert.ok(!pr.merged, 'not merged');
+  G.failSha = null;
+  assert.ok(ev.length);
+});
+
+test('after shipping, Ghosty checks the deploy: live → told; broken → rolled back by itself', async () => {
+  // ship a change whose checks pass
+  await chat('propose file');
+  const n = G.pulls.length;
+  const pr = G.pulls[n - 1];
+  const before = G.refs.get('main');
+  const r = await call(`/api/changes/${n}/ship`, { method: 'POST', body: JSON.stringify({ sha: G.refs.get(pr.head) }) });
+  assert.equal(r.status, 200);
+  const shipped = G.refs.get('main');
+  assert.notEqual(shipped, before);
+  const jobs = () => state.storage.m.get('jobs') ?? [];
+  const verify = jobs().find((j) => j.kind === 'verify');
+  assert.ok(verify, 'a deploy check was scheduled');
+  // the deploy went fine
+  verify.next = Date.now() - 1;
+  state.storage.m.set('jobs', [verify]);
+  await agent.alarm();
+  let inbox = state.storage.m.get('inbox');
+  assert.match(inbox[inbox.length - 1].title, /is live/);
+  assert.equal(G.refs.get('main'), shipped, 'left alone');
+  // ship another one, and this time its checks fail after merging
+  await chat('propose file');
+  const n2 = G.pulls.length;
+  const pr2 = G.pulls[n2 - 1];
+  await call(`/api/changes/${n2}/ship`, { method: 'POST', body: JSON.stringify({ sha: G.refs.get(pr2.head) }) });
+  const bad = G.refs.get('main');
+  G.failSha = bad;
+  const v2 = jobs().find((j) => j.kind === 'verify');
+  v2.next = Date.now() - 1;
+  state.storage.m.set('jobs', [v2]);
+  await agent.alarm();
+  inbox = state.storage.m.get('inbox');
+  assert.match(inbox[inbox.length - 1].title, /Rolled back change/);
+  const now = G.refs.get('main');
+  assert.notEqual(now, bad, 'a new commit was made');
+  assert.equal(G.commits.get(now).tree, G.commits.get(shipped).tree, 'Ghosty is exactly as it was before the broken change');
+  G.failSha = null;
 });

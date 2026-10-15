@@ -32,6 +32,7 @@ function whenArg(a: Record<string, unknown>, tz: string): number {
 }
 
 const describeJob = (j: Job) =>
+  j.kind === 'verify' ? `${j.id} · CHECK · ${fmtLocal(j.next, j.tz)} · "${j.title}" (automatic deploy check)` :
   `${j.id} · ${j.kind.toUpperCase()} · ${fmtLocal(j.next, j.tz)}${j.repeat !== 'none' ? ` · repeats ${j.repeat}` : ''} · "${j.title}"${j.kind === 'task' ? ` → ${j.text.slice(0, 160)}` : j.text && j.text !== j.title ? ` → ${j.text.slice(0, 160)}` : ''}`;
 
 const WHEN = {

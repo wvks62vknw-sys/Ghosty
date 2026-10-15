@@ -429,6 +429,10 @@ export class GhostyAgent {
     if (jr && jr[2] && method === 'POST') {
       const job = (await loadJobs(this.storage)).find((j) => j.id === jr[1]);
       if (!job) return json({ error: 'not found' }, 404);
+      if (job.kind === 'verify') {
+        await this.verifyShip(job);
+        return json({ ok: true });
+      }
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -499,6 +503,8 @@ export class GhostyAgent {
         if (job.kind === 'reminder') {
           await this.notify({ kind: 'reminder', title: job.title, text: job.text });
           await finishJob(this.storage, job.id);
+        } else if (job.kind === 'verify') {
+          await this.verifyShip(job);
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -515,6 +521,44 @@ export class GhostyAgent {
   }
 
   private bgBusy = false;
+
+  /**
+   * After a change ships: look at the checks on the shipped commit (CI + Cloudflare's
+   * production build). All green → tell the owner it's live. Anything red → put Ghosty
+   * back exactly as it was before the change (a new commit, so it can be redone) and say so.
+   * Still running → look again in two minutes (up to 40 minutes).
+   */
+  private async verifyShip(job: Job): Promise<void> {
+    const info = JSON.parse(job.text) as { pr: number; title: string; merged: string; prev: string; main: string; since: number };
+    const g = await this.github();
+    if (!g) return void (await removeJob(this.storage, job.id));
+    const c = await g.checks(info.merged);
+    const prodBuild = c.preview; // on main, Cloudflare's check is the production deploy
+    const failed = c.state === 'failed' || prodBuild === 'failed';
+    const done = c.state === 'passed' && prodBuild === 'ok';
+    if (!failed && !done) {
+      if (Date.now() - info.since < 40 * 60_000) await deferJob(this.storage, job.id, 2 * 60_000);
+      else {
+        await this.notify({ kind: 'error', title: `Change #${info.pr}`, text: `I couldn't confirm that "${info.title}" deployed (its checks were still running after 40 minutes). Have a look in the Workshop.` });
+        await removeJob(this.storage, job.id);
+      }
+      return;
+    }
+    await removeJob(this.storage, job.id);
+    if (!failed) {
+      await this.notify({ kind: 'task', title: `Change #${info.pr} is live`, text: `"${info.title}" shipped and passed every check. Reload Ghosty to see it.` });
+      return;
+    }
+    // Only undo it if nothing else has been shipped on top since.
+    const head = await g.headSha(info.main).catch(() => '');
+    if (head !== info.merged) {
+      await this.notify({ kind: 'error', title: `Change #${info.pr} failed`, text: `"${info.title}" failed its checks after shipping, but newer versions have been shipped since, so I didn't roll back automatically. Ask me to "roll back" if something is wrong.` });
+      return;
+    }
+    const restored = await g.restore(info.main, info.prev);
+    const why = c.state === 'failed' ? 'its code checks failed' : "Cloudflare's build failed";
+    await this.notify({ kind: 'error', title: `Rolled back change #${info.pr}`, text: `"${info.title}" broke after shipping (${why}), so I put Ghosty back exactly as it was before (version ${restored.slice(0, 7)}). Nothing broken stays live. Ask me to fix and re-propose it if you still want it.` });
+  }
 
   /**
    * Run a scheduled task on Ghosty's own, without the owner watching: a fresh, separate
