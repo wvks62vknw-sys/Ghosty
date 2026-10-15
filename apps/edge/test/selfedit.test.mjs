@@ -314,3 +314,11 @@ test('the self-check rejects a change that imports a missing file — no PR is o
   assert.match(r.summary, /Self-check found problems.*does-not-exist/s);
   assert.equal(G.pulls.length, before);
 });
+
+test('a reply cut off mid-arguments is refused with a clear reason — nothing is run', async () => {
+  const before = G.pulls.length;
+  const r = result(await chat('propose cut off'));
+  assert.equal(r.ok, false);
+  assert.match(r.summary, /not valid JSON.*cut off/s);
+  assert.equal(G.pulls.length, before);
+});

@@ -14,5 +14,18 @@ packages/shared   types shared by both
 tests/       local preview server + browser test
 ```
 
+## How Ghosty learns
+
+- **Handbook** (`apps/edge/src/knowledge/`): playbooks on how to engineer changes without mistakes —
+  method, self-review checklist, strict TypeScript, a catalogue of CI errors and fixes, debugging, and
+  complete worked examples for this codebase (new tab, panel + feed, brain tool, screen action, widget).
+  Ghosty looks them up with `study` before it builds anything.
+- **Lessons**: whenever a check fails and Ghosty fixes it, it records the cause and a rule with
+  `learn_lesson`. Lessons are put in its instructions from then on (most-repeated first) and are listed
+  in **Memory → Lessons learned**, where you can delete any that are wrong.
+- **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
+  half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
+  and coding turns are routed to the strongest free models with room for longer replies.
+
 Runs on free tiers: one Cloudflare Worker + Durable Object, GitHub, and free AI keys
 (Gemini, Groq, Cerebras, OpenRouter, Mistral).

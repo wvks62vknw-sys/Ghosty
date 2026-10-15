@@ -61,12 +61,14 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 |---|---|
 | `index.ts` | Worker entry: auth gate, `/api/proxy` feed proxy (**`FEED_HOSTS` allowlist**), forwards to agent |
 | `agent.ts` | `GhostyAgent` Durable Object: agent loop, approvals, history, keys, widgets, Workshop endpoints, `alarm()` (runs due reminders/tasks), `runBackground` (unattended tasks: no approvals, `BACKGROUND_BLOCKED` tools refused) |
-| `prompt.ts` | system prompt (persona, loyalty, self-edit procedure) |
+| `prompt.ts` | system prompt (persona, loyalty, self-edit procedure, engineering essentials, learned lessons) |
+| `knowledge/` | **Ghosty's handbook**: playbooks in `craft.ts` (general engineering), `typescript.ts` (strict TS + CI error catalogue), `ghosty.ts` (this codebase: worked examples). `index.ts`: search, lessons store, the always-on essentials. Keep it accurate when code changes; add playbooks here |
+| `tools/knowledge.ts` | `study` (look up playbooks + matching lessons), `learn_lesson` / `list_lessons` / `forget_lesson` (lessons from experience, shown in every prompt and in the Memory tab) |
 | `tools/index.ts` | registry of tools (protected) |
 | `tools/extra.ts` | **where new tools go** |
 | `tools/types.ts` | `Tool` interface, `arg` helpers |
 | `tools/{memory,web,data,ui,widgets}.ts` | tools by area |
-| `llm/router.ts`, `llm/providers.ts` | model router across free providers |
+| `llm/router.ts`, `llm/providers.ts` | model router across free providers. Coding turns try strong models first, with lower temperature and longer replies (`maxOut`) |
 | `keys.ts` | which API keys exist, with the owner-facing steps (shown in System tab) and `testKey` |
 | `schedule.ts` | agenda events, calendar feeds (.ics parsing), reminders/tasks (`Job`), inbox |
 | `push.ts` | Web Push: VAPID keys, RFC 8291 encryption, device list (protected: push-service allowlist) |
@@ -122,7 +124,10 @@ your own `requestAnimationFrame` or `setInterval` for animation.
 ## How a change gets checked
 
 1. `propose_change` / `update_change` run a fast self-check first (`apps/edge/src/selfcheck.ts`):
-   missing files or exports in imports, unbalanced brackets, code pasted twice, bad JSON.
+   missing files or exports in imports, unbalanced brackets, code pasted twice, a name declared twice,
+   placeholder comments ("// ... existing code"), a file replaced by a fragment of itself, npm package
+   imports, dynamic innerHTML/eval, a new tab not added to `TABS`, a feed host missing from `FEED_HOSTS`,
+   bad JSON. A tool call whose arguments were cut off (invalid JSON) is refused before anything runs.
 2. CI (`.github/workflows/check.yml`): brain typecheck + tests, interface typecheck + build, the
    Cloudflare build (dry run), and a real-browser run (`tests/*.spec.mjs`: chat, approvals, every
    tab, agenda, radio, app/notifications, and that every tab scrolls instead of cutting off).
@@ -131,6 +136,8 @@ your own `requestAnimationFrame` or `setInterval` for animation.
    anything broken that lands on main by other means is restored by the `guard` job.
 
 ## Rules
+
+- Before a self-edit, `study` the matching playbook. After fixing a failed check, `learn_lesson`.
 
 - TypeScript strict. Run `npm run check` in `apps/web` and `apps/edge` (CI does this on every change).
 - Build DOM with `h()` and `textContent`. Never put fetched or user text into `innerHTML`.
