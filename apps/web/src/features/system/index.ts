@@ -112,11 +112,13 @@ export const systemTab: TabDef = {
     }));
 
     // look & voice
-    const themes = h('div.grid3', ...Object.entries(THEMES).map(([k, t]) => {
-      const b = button(t.label, () => {
+    const themes = h('div.themes', ...Object.entries(THEMES).map(([k, t]) => {
+      const sw = h('span.sw', { style: `background:linear-gradient(90deg, ${t.c} 0 34%, ${t.a} 34% 67%, ${t.r} 67% 100%)` });
+      const b = button(h('span.tn', sw, h('span', t.label)), () => {
         applyTheme(k);
         [...themes.children].forEach((x) => x.classList.toggle('on', x === b));
       }, settings.get().theme === k ? 'on' : '');
+      b.classList.add('themechip');
       b.style.color = t.c;
       return b;
     }));
