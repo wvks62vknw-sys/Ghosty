@@ -14,8 +14,9 @@ export interface LocalPassage {
   heading?: string;
   page?: number;
 }
+/** A document's details (its passages are stored separately, and only read when searched). */
 export interface LocalDoc {
-  /** This device's id ("local-…"). */
+  /** This device's id ("local-…", or "m-…" for a copy of the brain's). */
   id: string;
   /** The brain's id once it has the document. */
   brainId?: string;
@@ -23,7 +24,9 @@ export interface LocalDoc {
   source: string;
   kind: string;
   pages: number;
-  passages: LocalPassage[];
+  /** How many passages, and their total length. */
+  count: number;
+  chars: number;
   at: number;
   /** Removed here while the brain couldn't be told: remove it there later. */
   removed?: boolean;
@@ -31,36 +34,72 @@ export interface LocalDoc {
   sig?: string;
   builtin?: boolean;
 }
+interface StoredPassage extends LocalPassage {
+  doc: string;
+  n: number;
+}
 
 // ---------------------------------------------------------------------------------------
-// Storage: IndexedDB in the browser; a plain map where there is none (tests, old browsers).
+// Storage: IndexedDB in the browser — document details in "docs" (kept in memory, small),
+// passages in "pass" keyed [doc, n] (read in batches, never all held at once). Plain maps
+// where there is no IndexedDB (tests, old browsers).
 // ---------------------------------------------------------------------------------------
 
 const DB = 'ghosty-library';
-const STORE = 'docs';
 let cache: Map<string, LocalDoc> | null = null;
+let memPass = new Map<string, LocalPassage[]>();
+let opening: Promise<IDBDatabase | null> | null = null;
 
 function idb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
-  return new Promise((resolve) => {
+  opening ??= new Promise((resolve) => {
     try {
-      const r = indexedDB.open(DB, 1);
-      r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'id' });
+      const r = indexedDB.open(DB, 2);
+      r.onupgradeneeded = (ev) => {
+        const db = r.result;
+        if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('pass')) db.createObjectStore('pass', { keyPath: ['doc', 'n'] });
+        // Version 1 kept each document's passages inside it: move them out.
+        if (ev.oldVersion === 1) {
+          const tx = r.transaction!;
+          const docs = tx.objectStore('docs');
+          const pass = tx.objectStore('pass');
+          docs.openCursor().onsuccess = (e) => {
+            const c = (e.target as IDBRequest<IDBCursorWithValue | null>).result;
+            if (!c) return;
+            const old = c.value as LocalDoc & { passages?: LocalPassage[] };
+            const list = old.passages ?? [];
+            list.forEach((p, n) => pass.put({ ...p, doc: old.id, n }));
+            delete old.passages;
+            c.update({ ...old, count: list.length, chars: list.reduce((x, p) => x + p.text.length, 0) });
+            c.continue();
+          };
+        }
+      };
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => resolve(null);
     } catch {
       resolve(null);
     }
   });
+  return opening;
 }
 
+const docRange = (id: string) => IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER]);
+const done = (tx: IDBTransaction) => new Promise<void>((ok) => {
+  tx.oncomplete = () => ok();
+  tx.onerror = () => ok(); // full or blocked: the in-memory details still serve this session
+  tx.onabort = () => ok();
+});
+
+/** Every document's details (small; kept in memory). */
 async function all(): Promise<Map<string, LocalDoc>> {
   if (cache) return cache;
   const out = new Map<string, LocalDoc>();
   const db = await idb();
   if (db) {
     await new Promise<void>((resolve) => {
-      const r = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+      const r = db.transaction('docs', 'readonly').objectStore('docs').getAll();
       r.onsuccess = () => {
         for (const d of r.result as LocalDoc[]) out.set(d.id, d);
         resolve();
@@ -72,41 +111,91 @@ async function all(): Promise<Map<string, LocalDoc>> {
   return out;
 }
 
-async function write(d: LocalDoc | { id: string; delete: true }): Promise<void> {
+/** Save a document's details, and (when given) replace its passages. */
+async function put(d: LocalDoc, passages?: LocalPassage[]): Promise<void> {
   const docs = await all();
-  if ('delete' in d) docs.delete(d.id);
-  else docs.set(d.id, d);
+  const meta = passages ? { ...d, count: passages.length, chars: passages.reduce((n, p) => n + p.text.length, 0) } : d;
+  docs.set(d.id, meta);
   const db = await idb();
-  if (!db) return;
-  await new Promise<void>((resolve) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    const s = tx.objectStore(STORE);
-    if ('delete' in d) s.delete(d.id);
-    else s.put(d);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => resolve(); // full or blocked: the in-memory copy still serves this session
+  if (!db) {
+    if (passages) memPass.set(d.id, passages);
+    return;
+  }
+  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  tx.objectStore('docs').put(meta);
+  if (passages) {
+    const pass = tx.objectStore('pass');
+    pass.delete(docRange(d.id));
+    passages.forEach((p, n) => pass.put({ ...p, doc: d.id, n }));
+  }
+  await done(tx);
+}
+
+async function drop(id: string): Promise<void> {
+  (await all()).delete(id);
+  const db = await idb();
+  if (!db) {
+    memPass.delete(id);
+    return;
+  }
+  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  tx.objectStore('docs').delete(id);
+  tx.objectStore('pass').delete(docRange(id));
+  await done(tx);
+}
+
+/** One document's passages, in order. */
+export async function passagesOf(id: string): Promise<LocalPassage[]> {
+  const db = await idb();
+  if (!db) return memPass.get(id) ?? [];
+  return new Promise((resolve) => {
+    const r = db.transaction('pass', 'readonly').objectStore('pass').getAll(docRange(id));
+    r.onsuccess = () => resolve((r.result as StoredPassage[]).map(({ text, heading, page }) => ({ text, ...(heading ? { heading } : {}), ...(page ? { page } : {}) })));
+    r.onerror = () => resolve([]);
   });
+}
+
+/** Every passage, a batch at a time (pausing between batches so the screen never freezes). */
+async function eachBatch(fn: (batch: StoredPassage[]) => void): Promise<void> {
+  const db = await idb();
+  if (!db) {
+    for (const [doc, list] of memPass) fn(list.map((p, n) => ({ ...p, doc, n })));
+    return;
+  }
+  let after: IDBValidKey | null = null;
+  for (;;) {
+    const batch = await new Promise<StoredPassage[]>((resolve) => {
+      const r = db.transaction('pass', 'readonly').objectStore('pass').getAll(after === null ? undefined : IDBKeyRange.lowerBound(after, true), 1500);
+      r.onsuccess = () => resolve(r.result as StoredPassage[]);
+      r.onerror = () => resolve([]);
+    });
+    if (!batch.length) return;
+    fn(batch);
+    const last = batch[batch.length - 1]!;
+    after = [last.doc, last.n];
+    await new Promise((ok) => setTimeout(ok, 0));
+  }
 }
 
 // ---------------------------------------------------------------------------------------
 
 /** Keep a document here; returns this device's copy. */
 export async function keepDoc(meta: { title: string; source: string; kind: string; pages: number }, passages: LocalPassage[]): Promise<LocalDoc> {
-  const d: LocalDoc = { id: `local-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ...meta, passages, at: Date.now() };
-  await write(d);
-  return d;
+  const d: LocalDoc = { id: `local-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ...meta, count: 0, chars: 0, at: Date.now() };
+  await put(d, passages);
+  return (await all()).get(d.id)!;
 }
 
 export async function markSynced(id: string, brainId: string): Promise<void> {
   const d = (await all()).get(id);
-  if (d) await write({ ...d, brainId });
+  if (d) await put({ ...d, brainId });
 }
 
 /** Documents here the brain doesn't have yet, shown on the shelf as "on this device". */
 export async function pendingDocs(): Promise<LibraryDoc[]> {
   return [...(await all()).values()]
     .filter((d) => !d.brainId && !d.removed)
-    .map((d) => ({ id: d.id, title: d.title, source: `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.passages.length, chars: d.passages.reduce((n, p) => n + p.text.length, 0), status: 'ready', builtin: false, at: d.at }));
+    .map((d) => ({ id: d.id, title: d.title, source: `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: false, at: d.at }));
 }
 
 /** Brain ids removed here that the brain still has to remove (hidden from the shelf meanwhile). */
@@ -119,8 +208,8 @@ export async function removeDoc(id: string, brainLater = false): Promise<void> {
   const docs = await all();
   const d = docs.get(id) ?? [...docs.values()].find((x) => x.brainId === id);
   if (brainLater) {
-    await write(d ? { ...d, removed: true } : { id: `local-rm-${id}`, brainId: id, title: '', source: '', kind: '', pages: 0, passages: [], at: Date.now(), removed: true });
-  } else if (d) await write({ id: d.id, delete: true });
+    await put(d ? { ...d, removed: true } : { id: `local-rm-${id}`, brainId: id, title: '', source: '', kind: '', pages: 0, count: 0, chars: 0, at: Date.now(), removed: true });
+  } else if (d) await drop(d.id);
 }
 
 function score(q: string): ((low: string) => number) | null {
@@ -135,18 +224,24 @@ function score(q: string): ((low: string) => number) | null {
 }
 const STOP = new Set('the and are for from has have how its not our that their them then there these they this was were what when where which who why will with would you your about also any just like more most only other some such very use using want need make get show tell give please ghosty does did can could'.split(' '));
 
-/** Search documents kept here. `onlyPending`: just the ones the brain doesn't have yet. */
+/**
+ * Search documents kept here, reading passages from storage a batch at a time (only the best
+ * few are kept). `onlyPending`: just the ones the brain doesn't have yet.
+ */
 export async function searchLocal(q: string, k = 8, onlyPending = false): Promise<LibraryHit[]> {
   const f = score(q);
   if (!f) return [];
-  const out: LibraryHit[] = [];
-  for (const d of (await all()).values()) {
-    if (d.removed || (onlyPending && d.brainId)) continue;
-    for (const p of d.passages) {
+  const docs = await all();
+  let out: LibraryHit[] = [];
+  await eachBatch((batch) => {
+    for (const p of batch) {
+      const d = docs.get(p.doc);
+      if (!d || d.removed || (onlyPending && d.brainId)) continue;
       const s = f(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase());
       if (s) out.push({ doc: d.brainId ?? d.id, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: s, relevant: true });
     }
-  }
+    if (out.length > k * 4) out = out.sort((a, b) => b.score - a.score).slice(0, k);
+  });
   return out.sort((a, b) => b.score - a.score).slice(0, k);
 }
 
@@ -163,7 +258,7 @@ export async function passagesFor(q: string): Promise<{ title: string; heading: 
 let syncing = false;
 /** Documents being sent to the brain right now by the Library tab: the sync leaves them alone. */
 export const uploading = new Set<string>();
-export async function syncLocalDocs(api: { upload: (d: LocalDoc) => Promise<LibraryDoc>; remove: (brainId: string) => Promise<unknown> }): Promise<number> {
+export async function syncLocalDocs(api: { upload: (d: LocalDoc, passages: LocalPassage[]) => Promise<LibraryDoc>; remove: (brainId: string) => Promise<unknown> }): Promise<number> {
   if (syncing) return 0;
   syncing = true;
   let n = 0;
@@ -173,9 +268,9 @@ export async function syncLocalDocs(api: { upload: (d: LocalDoc) => Promise<Libr
       try {
         if (d.removed) {
           if (d.brainId) await api.remove(d.brainId);
-          await write({ id: d.id, delete: true });
+          await drop(d.id);
         } else if (!d.brainId) {
-          const doc = await api.upload(d);
+          const doc = await api.upload(d, await passagesOf(d.id));
           await markSynced(d.id, doc.id);
           n++;
         }
@@ -215,7 +310,7 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
     let dropped = 0;
     for (const [brainId, d] of have) {
       if (live.has(brainId) || d.removed) continue;
-      await write({ id: d.id, delete: true });
+      await drop(d.id);
       dropped++;
     }
     const todo = docs.filter((d) => have.get(d.id)?.sig !== `${d.passages}:${d.chars}`);
@@ -232,7 +327,7 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
         after = page.next;
       }
       const prev = have.get(d.id);
-      await write({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, passages, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) });
+      await put({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: 0, chars: 0, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) }, passages);
       spent += passages.length;
       copied++;
     }
@@ -246,10 +341,7 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
 export async function shelf(): Promise<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number } }> {
   const docs = [...(await all()).values()]
     .filter((d) => !d.removed && d.title)
-    .map((d): LibraryDoc => {
-      const chars = d.passages.reduce((n, p) => n + p.text.length, 0);
-      return { id: d.brainId ?? d.id, title: d.title, source: d.brainId ? d.source : `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.passages.length, chars, status: 'ready', builtin: !!d.builtin, at: d.at };
-    })
+    .map((d): LibraryDoc => ({ id: d.brainId ?? d.id, title: d.title, source: d.brainId ? d.source : `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: !!d.builtin, at: d.at }))
     .sort((a, b) => Number(a.builtin) - Number(b.builtin) || b.at - a.at);
   const passages = docs.reduce((n, d) => n + d.passages, 0);
   const chars = docs.reduce((n, d) => n + d.chars, 0);
@@ -283,4 +375,5 @@ export function keepForever(): void {
 /** Tests only: forget the in-memory copy. */
 export function _reset(): void {
   cache = null;
+  memPass = new Map();
 }
