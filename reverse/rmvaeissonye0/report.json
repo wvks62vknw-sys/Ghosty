@@ -1,0 +1,15 @@
+{
+  "job": "rmvaeissonye0",
+  "target": "https://linear.app/",
+  "kind": "npm",
+  "question": "",
+  "startedAt": "2026-10-16T03:22:17.724Z",
+  "sections": [],
+  "errors": [
+    {
+      "what": "analysis",
+      "error": " warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID checksum failure\nnpm warn tar TAR_ENTRY_INVALID chec"
+    }
+  ],
+  "finishedAt": "2026-10-16T03:22:20.376Z"
+}
