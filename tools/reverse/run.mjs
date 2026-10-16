@@ -7,7 +7,7 @@
  * Kinds: web (a website), npm (a package on npm), repo (a public GitHub repository),
  * artifact (a downloadable file: .apk .dll .exe .zip .asar .tgz .jar ...).
  */
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -41,7 +41,7 @@ const sh = (cmd, args, opts = {}) => {
 /** Run one REA command; add its (pretty) JSON to the report. Returns parsed JSON or null. */
 const rea = (title, args, opts) => {
   try {
-    const out = sh('rea', [...args, '--json'], opts);
+    const out = sh('rea', [...args, '--format', 'json'], opts);
     let data;
     try {
       data = JSON.parse(out);
@@ -255,14 +255,62 @@ function baselineArtifact(file) {
 }
 
 // ---------------------------------------------------------------------------
+// A real browser for REA's web commands (they speak to Chrome over its debugging port)
+// ---------------------------------------------------------------------------
+const CDP = 'http://127.0.0.1:9222';
+let chrome = null;
+async function startChrome() {
+  const bin = ['google-chrome', 'google-chrome-stable', 'chromium-browser', 'chromium'].find((b) => spawnSync('which', [b]).status === 0);
+  if (!bin) throw new Error('no Chrome on this runner');
+  chrome = spawn(bin, ['--headless=new', '--remote-debugging-port=9222', '--remote-allow-origins=*', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${path.join(WORK, 'chrome')}`, '--window-size=1366,900', 'about:blank'], { stdio: 'ignore', detached: true });
+  for (let i = 0; i < 60; i++) {
+    try {
+      const r = await fetch(`${CDP}/json/version`);
+      if (r.ok) return bin;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  throw new Error('Chrome did not start');
+}
+async function openTab(u) {
+  let r = await fetch(`${CDP}/json/new?${encodeURIComponent(u)}`, { method: 'PUT' });
+  if (!r.ok) r = await fetch(`${CDP}/json/new?${encodeURIComponent(u)}`);
+  const tab = await r.json();
+  await new Promise((r) => setTimeout(r, 6000)); // let the page load and settle
+  return tab.id;
+}
+function stopChrome() {
+  try {
+    if (chrome) process.kill(-chrome.pid, 'SIGTERM');
+  } catch {
+    /* already gone */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
 try {
   if (KIND === 'web') {
     await baselineWeb(TARGET);
-    rea('web page', ['inspect-web-page', TARGET], { timeout: 6 * 60_000 });
-    rea('web bundle', ['analyze-web-bundle', TARGET], { timeout: 8 * 60_000 });
-    rea('WebMCP tools', ['discover-webmcp-tools', TARGET], { timeout: 3 * 60_000 });
+    try {
+      await startChrome();
+      let tid = await openTab(TARGET);
+      const targets = rea('browser targets', ['list-browser-targets', CDP], { timeout: 60_000 });
+      // Prefer the id REA reports for our page (shapes vary; search any array of objects with an id + url).
+      const found = JSON.stringify(targets ?? '').match(/"id":"([^"]+)"[^}]*"url":"https?:\/\/[^"]*"/g) || [];
+      const mine = found.map((f) => ({ id: /"id":"([^"]+)"/.exec(f)[1], url: /"url":"([^"]+)"/.exec(f)[1] })).find((t) => t.url.startsWith(TARGET.replace(/\/$/, '')) || TARGET.startsWith(t.url.replace(/\/$/, '')));
+      if (mine) tid = mine.id;
+      rea('web page', ['inspect-web-page', CDP, tid, '--observation-ms', '4000', '--include-json-body-shapes', '--include-storage-keys', '--include-console-text'], { timeout: 6 * 60_000 });
+      rea('web bundle', ['analyze-web-bundle', CDP, tid, '--observation-ms', '4000', '--fetch-source-maps'], { timeout: 10 * 60_000 });
+      rea('WebMCP tools', ['discover-webmcp-tools', CDP, tid], { timeout: 2 * 60_000 });
+    } catch (e) {
+      fail('browser for REA', e);
+    } finally {
+      stopChrome();
+    }
   } else if (KIND === 'npm' || KIND === 'repo') {
     const dir = path.join(WORK, 'app');
     fs.mkdirSync(dir, { recursive: true });
