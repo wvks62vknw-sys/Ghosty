@@ -3105,4 +3105,436 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Transport economics
 3|arxiv|Diffusion convolutional recurrent neural network traffic forecasting`,
   },
+  {
+    id: 'electronics-electrical',
+    name: `Electronics & electrical engineering`,
+    why: `Circuits, components, power and signals underpin every device the AI is asked to debug, design or explain, from a blown fuse to a microcontroller project.`,
+    t: `1|wiki|Electrical engineering
+1|wiki|Electric current
+1|wiki|Voltage
+1|wiki|Electrical resistance and conductance
+1|wiki|Ohm's law
+1|wiki|Electric power
+1|wiki|Series and parallel circuits
+1|wiki|Kirchhoff's circuit laws
+1|openstax|/books/university-physics-volume-2/pages/10-3-kirchhoffs-rules
+1|wiki|Resistor
+1|wiki|Capacitor
+1|wiki|Inductor
+1|wiki|Alternating current
+1|wiki|Multimeter
+1|wiki|Soldering
+1|wiki|Ground (electricity)
+2|wiki|Thévenin's theorem
+2|wiki|RC circuit
+2|wiki|RLC circuit
+2|wiki|Electrical impedance
+2|wiki|Transformer
+2|wiki|Semiconductor
+2|wiki|Diode
+2|wiki|Bipolar junction transistor
+2|wiki|MOSFET
+2|wiki|Amplifier
+2|wiki|Operational amplifier
+2|wiki|Operational amplifier applications
+2|wiki|Negative feedback
+2|wiki|Digital electronics
+2|wiki|Flip-flop (electronics)
+2|wiki|Analog-to-digital converter
+2|wiki|Microcontroller
+2|wiki|Arduino
+2|wiki|Printed circuit board
+2|wiki|Oscilloscope
+2|wiki|Electromagnetic induction
+2|wiki|Electric motor
+2|wiki|Three-phase electric power
+2|wiki|Power factor
+2|wiki|Voltage regulator
+2|wiki|Switched-mode power supply
+2|wiki|Pulse-width modulation
+2|wiki|Light-emitting diode
+2|wiki|Electronic oscillator
+3|wiki|Maxwell's equations
+3|wiki|Integrated circuit
+3|wiki|Semiconductor device fabrication
+3|wiki|Electronic filter
+3|wiki|Bode plot
+3|wiki|Noise (electronics)
+3|wiki|Transmission line
+3|wiki|Antenna (radio)
+3|wiki|Signal modulation
+3|wiki|Electromagnetic compatibility
+3|wiki|Field-programmable gate array
+3|wiki|Power electronics`,
+  },
+  {
+    id: 'mechanical-civil-aero',
+    name: `Mechanical, civil & aerospace engineering`,
+    why: `Forces, materials, fluids and structures are how the physical world is built and why things break, so the AI can reason about anything from a shelf bracket to a rocket.`,
+    t: `1|wiki|Mechanical engineering
+1|wiki|Civil engineering
+1|wiki|Aerospace engineering
+1|wiki|Engineering design process
+1|wiki|Statics
+1|wiki|Free body diagram
+1|wiki|Stress (mechanics)
+1|wiki|Strain (mechanics)
+1|wiki|Hooke's law
+1|openstax|/books/university-physics-volume-1/pages/12-3-stress-strain-and-elastic-modulus
+1|wiki|Torque
+1|wiki|Gear
+1|wiki|Beam (structure)
+1|wiki|Truss
+1|wiki|Strength of materials
+2|wiki|Euler–Bernoulli beam theory
+2|wiki|Buckling
+2|wiki|Fatigue (material)
+2|wiki|Factor of safety
+2|wiki|Von Mises yield criterion
+2|wiki|Heat transfer
+2|wiki|Heat exchanger
+2|wiki|Fluid mechanics
+2|wiki|Bernoulli's principle
+2|wiki|Reynolds number
+2|wiki|Boundary layer
+2|wiki|Lift (force)
+2|wiki|Drag (physics)
+2|wiki|Airfoil
+2|wiki|Aircraft flight dynamics
+2|wiki|Jet engine
+2|wiki|Rocket engine
+2|wiki|Tsiolkovsky rocket equation
+2|wiki|Orbital mechanics
+2|wiki|Reinforced concrete
+2|wiki|Structural engineering
+2|wiki|Geotechnical engineering
+2|wiki|Foundation (engineering)
+2|wiki|Bridge
+2|wiki|Surveying
+2|wiki|Machining
+2|wiki|Welding
+2|wiki|Computer-aided design
+2|wiki|3D printing
+2|wiki|Four-bar linkage
+2|wiki|Composite material
+2|wiki|Vibration
+3|wiki|Fracture mechanics
+3|wiki|Navier–Stokes equations
+3|wiki|Computational fluid dynamics
+3|wiki|Turbulence
+3|wiki|Compressible flow
+3|wiki|Shock wave
+3|wiki|Hohmann transfer orbit
+3|wiki|Spacecraft propulsion
+3|wiki|Spacecraft attitude determination and control
+3|wiki|Atmospheric entry
+3|wiki|Earthquake engineering`,
+  },
+  {
+    id: 'energy-environment',
+    name: `Energy systems & the environment`,
+    why: `How power is generated, stored, moved and priced, and how it changes the climate, is behind most questions about bills, batteries, policy and the planet.`,
+    t: `1|wiki|Energy
+1|wiki|Energy density
+1|wiki|World energy supply and consumption
+1|wiki|Fossil fuel
+1|wiki|Electricity generation
+1|wiki|Electrical grid
+1|wiki|Renewable energy
+1|wiki|Solar energy
+1|wiki|Wind power
+1|wiki|Hydroelectricity
+1|wiki|Nuclear power
+1|wiki|Greenhouse effect
+1|wiki|Greenhouse gas
+1|wiki|Climate change
+1|wiki|Efficient energy use
+1|wiki|Air pollution
+2|wiki|Heat engine
+2|openstax|/books/university-physics-volume-2/pages/4-2-heat-engines
+2|wiki|Combined-cycle power plant
+2|wiki|Solar cell
+2|wiki|Wind turbine
+2|wiki|Nuclear reactor
+2|wiki|Radioactive waste
+2|wiki|Geothermal energy
+2|wiki|Biofuel
+2|wiki|Heat pump
+2|wiki|Lithium-ion battery
+2|wiki|Electric vehicle
+2|wiki|Electric power transmission
+2|wiki|Capacity factor
+2|wiki|Levelized cost of electricity
+2|wiki|Carbon footprint
+2|wiki|Life-cycle assessment
+2|wiki|Emissions trading
+2|wiki|Climate change mitigation
+2|wiki|Paris Agreement
+2|wiki|Intergovernmental Panel on Climate Change
+2|wiki|Earth's energy budget
+2|wiki|Carbon cycle
+2|wiki|Water pollution
+2|wiki|Deforestation
+2|wiki|Biodiversity loss
+2|wiki|Ozone depletion
+2|wiki|Sustainability
+3|wiki|Fusion power
+3|wiki|Small modular reactor
+3|wiki|Perovskite solar cell
+3|wiki|Hydrogen economy
+3|wiki|Smart grid
+3|wiki|Grid energy storage
+3|wiki|Variable renewable energy
+3|wiki|Energy transition
+3|wiki|Carbon capture and storage
+3|wiki|Carbon dioxide removal
+3|wiki|General circulation model
+3|wiki|Planetary boundaries`,
+  },
+  {
+    id: 'health-nutrition-firstaid',
+    name: `Health, nutrition, fitness & first aid (evidence-based)`,
+    why: `People ask their AI about food, training, sleep, symptoms and emergencies constantly, and sound advice needs the physiology, the evidence hierarchy and the first-aid steps that save lives.`,
+    t: `1|wiki|Human nutrition
+1|wiki|Carbohydrate
+1|wiki|Protein (nutrient)
+1|wiki|Fat
+1|wiki|Dietary fiber
+1|wiki|Vitamin
+1|wiki|Mineral (nutrient)
+1|wiki|Food energy
+1|wiki|Healthy diet
+1|wiki|Physical fitness
+1|wiki|Aerobic exercise
+1|wiki|Strength training
+1|wiki|Sleep hygiene
+1|wiki|First aid
+1|wiki|Cardiopulmonary resuscitation
+1|wiki|Automated external defibrillator
+1|wiki|Heimlich maneuver
+1|wiki|Recovery position
+1|wiki|Bleeding
+1|wiki|Burn
+1|wiki|Bone fracture
+2|openstax|/books/anatomy-and-physiology-2e/pages/24-7-nutrition-and-diet
+2|wiki|Basal metabolic rate
+2|wiki|Obesity
+2|wiki|Mediterranean diet
+2|wiki|Glycemic index
+2|wiki|Vitamin D
+2|wiki|Ultra-processed food
+2|wiki|High-intensity interval training
+2|wiki|Muscle hypertrophy
+2|openstax|/books/anatomy-and-physiology-2e/pages/10-6-exercise-and-muscle-performance
+2|wiki|Vaccine
+2|wiki|Hypertension
+2|wiki|Type 2 diabetes
+2|wiki|Cardiovascular disease
+2|wiki|Smoking cessation
+2|wiki|Health effects of alcohol
+2|wiki|Major depressive disorder
+2|wiki|Cognitive behavioral therapy
+2|wiki|Stroke
+2|wiki|Myocardial infarction
+2|wiki|Anaphylaxis
+2|wiki|Hypothermia
+2|wiki|Heat stroke
+2|wiki|Concussion
+2|wiki|Drowning
+2|wiki|Opioid overdose
+3|wiki|Evidence-based medicine
+3|wiki|Hierarchy of evidence
+3|wiki|Placebo
+3|wiki|Systematic review
+3|wiki|Number needed to treat
+3|wiki|Screening (medicine)
+3|wiki|Epidemiology
+3|wiki|Gut microbiota
+3|wiki|Intermittent fasting
+3|wiki|Insulin resistance
+3|wiki|Antimicrobial resistance`,
+  },
+  {
+    id: 'cooking-food-science',
+    name: `Cooking & food science`,
+    why: `Knowing why heat, salt, acid, time and microbes transform food lets the AI rescue a dinner, adapt a recipe safely and explain what is happening in the pan.`,
+    t: `1|wiki|Cooking
+1|wiki|Food science
+1|wiki|Kitchen knife
+1|wiki|Mise en place
+1|wiki|Taste
+1|wiki|Salt
+1|wiki|Cooking oil
+1|wiki|Eggs as food
+1|wiki|Meat
+1|wiki|Doneness
+1|wiki|Bread
+1|wiki|Rice
+1|wiki|Stock (food)
+1|wiki|Food safety
+1|wiki|Danger zone (food safety)
+1|wiki|Foodborne illness
+2|wiki|Maillard reaction
+2|wiki|Caramelization
+2|wiki|Starch gelatinization
+2|wiki|Denaturation (biochemistry)
+2|wiki|Emulsion
+2|wiki|Gluten
+2|wiki|Leavening agent
+2|wiki|Yeast
+2|wiki|Baking
+2|wiki|Sourdough
+2|wiki|Roux
+2|wiki|French mother sauces
+2|wiki|Braising
+2|wiki|Roasting
+2|wiki|Deep frying
+2|wiki|Stir frying
+2|wiki|Grilling
+2|wiki|Brining
+2|wiki|Smoking (cooking)
+2|wiki|Custard
+2|wiki|Chocolate
+2|wiki|Sugar
+2|wiki|Umami
+2|wiki|Spice
+3|wiki|Sous vide
+3|wiki|Fermentation in food processing
+3|wiki|Pasteurization
+3|wiki|Food preservation
+3|wiki|Canning
+3|wiki|Pickling
+3|wiki|Curing (food preservation)
+3|wiki|Cheesemaking
+3|wiki|Brewing
+3|wiki|Coffee preparation
+3|wiki|Hazard Analysis Critical Control Point
+3|wiki|Molecular gastronomy
+3|wiki|Nixtamalization
+3|wiki|Food additive
+3|wiki|On Food and Cooking`,
+  },
+  {
+    id: 'home-diy-practical',
+    name: `Home, DIY, cars & practical skills`,
+    why: `Fixing a leak, wiring a socket safely, keeping a car running and knowing what is dangerous in a house are the everyday problems a personal AI is asked about most.`,
+    t: `1|wiki|Do it yourself
+1|wiki|Home improvement
+1|wiki|Hand tool
+1|wiki|Power tool
+1|wiki|Screw
+1|wiki|Wall plug
+1|wiki|Drywall
+1|wiki|Paint
+1|wiki|Caulk
+1|wiki|Plumbing
+1|wiki|Flush toilet
+1|wiki|Trap (plumbing)
+1|wiki|Smoke detector
+1|wiki|Carbon monoxide detector
+1|wiki|Fire extinguisher
+1|wiki|Personal protective equipment
+1|wiki|Knot
+1|wiki|Car
+1|wiki|Tire
+1|wiki|Motor oil
+2|wiki|Electrical wiring
+2|wiki|Circuit breaker
+2|wiki|Residual-current device
+2|wiki|AC power plugs and sockets
+2|wiki|Water heating
+2|wiki|Heating, ventilation, and air conditioning
+2|wiki|Thermostat
+2|wiki|Thermal insulation
+2|wiki|Indoor mold
+2|wiki|Roof
+2|wiki|Carpentry
+2|wiki|Joinery
+2|wiki|Framing (construction)
+2|wiki|Tile
+2|wiki|Flooring
+2|wiki|Gardening
+2|wiki|Pest control
+2|wiki|Sewing
+2|wiki|Internal combustion engine
+2|wiki|Transmission (mechanical device)
+2|wiki|Disc brake
+2|wiki|Automotive battery
+2|wiki|Jump start (vehicle)
+2|wiki|Spark plug
+2|wiki|Service (motor vehicle)
+2|wiki|Defensive driving
+2|wiki|Bicycle
+3|wiki|Building code
+3|wiki|Radon
+3|wiki|Asbestos
+3|wiki|Weatherization
+3|wiki|On-board diagnostics
+3|wiki|Wheel alignment
+3|wiki|Catalytic converter
+3|wiki|Hybrid vehicle
+3|wiki|Survival kit`,
+  },
+  {
+    id: 'law-of-computing-ethics',
+    name: `Technology law, AI ethics & responsible computing`,
+    why: `An AI that builds software and advises people must know what it may copy, store and say, and how to recognise bias, harm and unsafe behaviour in systems like itself.`,
+    t: `1|wiki|Information technology law
+1|wiki|Intellectual property
+1|wiki|Copyright
+1|wiki|Fair use
+1|wiki|Patent
+1|wiki|Trade secret
+1|wiki|Open-source license
+1|wiki|GNU General Public License
+1|wiki|Creative Commons license
+1|wiki|Terms of service
+1|wiki|Privacy
+1|wiki|Information privacy
+1|wiki|Personal data
+1|wiki|Computer ethics
+1|wiki|Ethics of artificial intelligence
+1|wiki|Web accessibility
+2|wiki|Digital Millennium Copyright Act
+2|wiki|Software patent
+2|wiki|Google LLC v. Oracle America, Inc.
+2|wiki|Authors Guild, Inc. v. Google, Inc.
+2|wiki|Artificial intelligence and copyright
+2|wiki|Privacy law
+2|wiki|California Consumer Privacy Act
+2|wiki|Health Insurance Portability and Accountability Act
+2|wiki|Data breach notification laws
+2|wiki|Computer Fraud and Abuse Act
+2|wiki|Section 230
+2|wiki|Digital Services Act
+2|wiki|Net neutrality
+2|wiki|Content moderation
+2|wiki|Carpenter v. United States
+2|wiki|Coordinated vulnerability disclosure
+2|wiki|Algorithmic bias
+2|wiki|COMPAS (software)
+2|wiki|Automated decision-making
+2|wiki|Attention economy
+2|wiki|Facebook–Cambridge Analytica data scandal
+2|wiki|Facial recognition system
+2|wiki|Synthetic media
+2|wiki|Regulation of artificial intelligence
+2|wiki|Artificial Intelligence Act
+2|wiki|Privacy by design
+2|wiki|De-identification
+2|wiki|Therac-25
+2|wiki|Right to repair
+3|wiki|AI safety
+3|wiki|Machine ethics
+3|wiki|Existential risk from artificial intelligence
+3|wiki|Surveillance capitalism
+3|wiki|Crypto Wars
+3|wiki|Lethal autonomous weapon
+3|wiki|EU–US Data Privacy Framework
+3|arxiv|Datasheets Datasets Gebru
+3|arxiv|Amodei Olah Steinhardt Concrete Problems AI Safety
+3|arxiv|Mitchell Zaldivar Vasserman Model Cards Reporting
+3|arxiv|Bai Kadavath Constitutional AI Harmlessness Feedback
+3|arxiv|Kleinberg Mullainathan Raghavan Fair Determination Risk Scores`,
+  },
 ];
