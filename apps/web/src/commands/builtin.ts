@@ -15,6 +15,7 @@ import { keepWidget } from '../state/widgets';
 import { enqueue, type NewEvent, type NewJob } from '../api/offline';
 import { modal, sandboxFrame, toast } from '../ui/components';
 import type { OverlayId, StyleId } from '../ui/flatmap';
+import type { Style3dId } from '../ui/map3d';
 import { addPaletteProvider, register, type Command } from './registry';
 
 const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
@@ -51,20 +52,35 @@ export async function locatePlace(place: string): Promise<{ lat: number; lon: nu
 
 const locateAny = (place: string) => locatePlace(place);
 
-/** Street View or the live traffic map at a place: fly God's Eye there and open the sheet (ui/mapsheet.ts). */
-async function openMap(view: 'street' | 'traffic', a: Record<string, unknown> | undefined): Promise<void> {
+/** A place from a command's arguments: coordinates, or a name looked up. */
+async function placeFrom(a: Record<string, unknown> | undefined): Promise<{ lat: number; lon: number; name: string } | null> {
   const lat = Number(a?.lat);
   const lon = Number(a?.lon);
-  const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+  if (typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon, name: String(a?.place ?? '') };
+  if (!a?.place) return null;
+  const p = await locateAny(String(a.place));
+  return p ? { lat: p.lat, lon: p.lon, name: p.name ?? String(a.place) } : null;
+}
+
+/** Street View at a place: God's Eye dives down to the street and the panorama takes over (ui/streetview.ts). */
+async function openStreet(a: Record<string, unknown> | undefined): Promise<void> {
+  const where = await placeFrom(a);
+  if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
+  const heading = Number(a?.heading);
+  const { openStreetView } = await import('../ui/streetview');
+  await openStreetView({ ...where, ...(Number.isFinite(heading) ? { heading } : {}) });
+}
+
+/** The live traffic map at a place: fly God's Eye there and open the sheet (ui/mapsheet.ts). */
+async function openTraffic(a: Record<string, unknown> | undefined): Promise<void> {
+  const where = await placeFrom(a);
   if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
   go('eye');
-  globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: view === 'street' ? 2 : 25, tilt: view === 'street' ? 60 : 0 });
-  if (view === 'traffic') {
-    globe.vis = { ...globe.vis, traffic: true };
-    ui.set({});
-  }
+  globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: 25, tilt: 0 });
+  globe.vis = { ...globe.vis, traffic: true };
+  ui.set({});
   const { openMapSheet } = await import('../ui/mapsheet');
-  openMapSheet(view, where);
+  openMapSheet('traffic', where);
 }
 
 export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number }): Promise<boolean> {
@@ -130,16 +146,14 @@ export function registerBuiltins(): void {
         else if (op === 'addEvent' && a?.event) enqueue({ kind: 'addEvent', event: a.event as NewEvent });
       },
     },
-    { id: 'street_view', title: 'Street View', hidden: true, run: (a) => void openMap('street', a) },
+    { id: 'street_view', title: 'Street View', hidden: true, run: (a) => void openStreet(a) },
     {
       // The flat map (ui/flatmap.ts) at a place, with a style, overlays and pins from the brain.
       id: 'show_map',
       title: 'Show map',
       hidden: true,
       run: async (a) => {
-        const lat = Number(a?.lat);
-        const lon = Number(a?.lon);
-        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+        const where = await placeFrom(a);
         if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
         go('eye');
         const { openMapSheet } = await import('../ui/mapsheet');
@@ -152,10 +166,21 @@ export function registerBuiltins(): void {
               .map((p) => ({ lat: Number(p.lat), lon: Number(p.lon), ...(p.label ? { label: String(p.label).slice(0, 60) } : {}) }))
           : undefined;
         const zoom = Number(a?.zoom);
-        openMapSheet('map', where, { style, overlays, points, line: !!a?.line, zoom: Number.isFinite(zoom) && zoom >= 2 && zoom <= 19 ? zoom : undefined });
+        // The 3D view (MapLibre + OpenFreeMap) has its own style names; the shared ones map across.
+        const three = a?.view === '3d';
+        const STYLE3D: Record<string, Style3dId> = { dark: 'dark', liberty: 'liberty', bright: 'bright', positron: 'positron', fiord: 'fiord', traffic: 'mbtraffic', mapbox: 'mbsat', night: 'mbnight', streets: 'liberty', satellite: 'mbsat' };
+        const pitch = Number(a?.pitch);
+        openMapSheet(three ? '3d' : 'map', where, {
+          style: style && !three ? style : undefined,
+          overlays,
+          points,
+          line: !!a?.line,
+          zoom: Number.isFinite(zoom) && zoom >= 2 && zoom <= 19 ? zoom : undefined,
+          map3d: three ? { style: style ? STYLE3D[style] : undefined, pitch: Number.isFinite(pitch) ? Math.max(0, Math.min(70, pitch)) : undefined, buildings: a?.buildings !== false, overlays: overlays?.filter((o): o is 'rail' | 'rain' => o === 'rail' || o === 'rain') } : undefined,
+        });
       },
     },
-    { id: 'traffic_map', title: 'Live traffic map', hidden: true, run: (a) => void openMap('traffic', a) },
+    { id: 'traffic_map', title: 'Live traffic map', hidden: true, run: (a) => void openTraffic(a) },
     {
       // A page Ghosty published (publish_site): a tappable card in the chat.
       id: 'show_link',

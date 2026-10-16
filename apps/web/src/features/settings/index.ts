@@ -25,6 +25,10 @@ export const settingsTab: TabDef = {
     // Theme picker: one card per theme, drawn in that theme's own colours and finish, so the
     // choice is made by looking rather than by name.
     const themes = h('div.themes');
+    const paintHead = () => {
+      P.big.textContent = THEMES[settings.get().theme]?.label.toUpperCase() ?? 'SETTINGS';
+      P.sub.textContent = `${settings.get().name} · ${settings.get().units === 'metric' ? '°C · km' : '°F · miles'}`;
+    };
     const paintThemes = () => {
       clear(themes);
       const cur = settings.get().theme;
@@ -41,6 +45,7 @@ export const settingsTab: TabDef = {
             x.classList.toggle('on', x === b);
             x.setAttribute('aria-pressed', String(x === b));
           });
+          paintHead();
         });
         themes.append(b);
       }
@@ -88,13 +93,17 @@ export const settingsTab: TabDef = {
     );
     vp.body.append(h('div.lab', 'VOICE'), voice, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
-    P.big.textContent = THEMES[settings.get().theme]?.label.toUpperCase() ?? 'SETTINGS';
-    P.sub.textContent = `${settings.get().name} · ${settings.get().units === 'metric' ? '°C · km' : '°F · miles'}`;
+    paintHead();
+    // The name top-left is the theme in use: it follows every change, whether a card was tapped
+    // here, the name or units were edited, or Ghosty switched the theme from chat.
+    settings.subscribe((s, p) => {
+      if (s.theme !== p.theme || s.name !== p.name || s.units !== p.units) paintHead();
+      if (s.theme !== p.theme) paintThemes();
+    });
     return {
       enter() {
         paintThemes();
-        P.big.textContent = THEMES[settings.get().theme]?.label.toUpperCase() ?? 'SETTINGS';
-        P.sub.textContent = `${settings.get().name} · ${settings.get().units === 'metric' ? '°C · km' : '°F · miles'}`;
+        paintHead();
       },
       describe: () => `Settings: theme ${settings.get().theme}, name ${settings.get().name}`,
     };

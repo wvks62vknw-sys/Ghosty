@@ -59,6 +59,8 @@ const inUK = (lat: number, lon: number) => lat > 49.8 && lat < 60.9 && lon > -8.
 const fmtKm = (k: number) => (k < 1 ? `${Math.round(k * 1000)} m` : k < 10 ? `${k.toFixed(2)} km` : `${Math.round(k)} km`);
 
 const STYLES = ['dark', 'streets', 'topo', 'cycle', 'satellite', 'traffic', 'mapbox', 'night'];
+/** The 3D view's own styles (OpenFreeMap vector maps); the flat names above map across too. */
+const STYLES_3D = ['liberty', 'bright', 'positron', 'fiord'];
 const OVERLAYS = ['rail', 'sea', 'rain', 'cctv', 'cameras'];
 
 interface Postcode {
@@ -84,16 +86,19 @@ export const mapTools: Tool[] = [
   {
     name: 'show_map',
     description:
-      "Open a flat map on God's Eye at a place (free, no key): styles dark (OpenStreetMap in Ghosty's dark look), streets (OpenStreetMap), topo (contours), cycle, satellite — and, if the owner's Mapbox token is set, traffic (live traffic colours, like Google Maps), mapbox (satellite with streets) and night. Overlays: rail (railway lines and stations), sea (sea marks, buoys, lights), rain (live radar), cctv (public live cameras), cameras (ANPR / speed / red-light cameras). Tapping the map gives the address, Street View, a route, the elevation and nearby landmarks. Use for \"show me a map of X\", \"where is X\", \"map the railway near X\".",
+      "Open a map on God's Eye at a place (free, no key). view 'flat' (default): styles dark (OpenStreetMap in Ghosty's dark look), streets (OpenStreetMap), topo (contours), cycle, satellite — and, if the owner's Mapbox token is set, traffic (live traffic colours, like Google Maps), mapbox (satellite with streets) and night. Overlays: rail (railway lines and stations), sea (sea marks, buoys, lights), rain (live radar), cctv (public live cameras), cameras (ANPR / speed / red-light cameras). Tapping the map gives the address, Street View, a route, the elevation and nearby landmarks. Use for \"show me a map of X\", \"where is X\", \"map the railway near X\". view '3d': a vector map (MapLibre + OpenFreeMap) with the buildings in 3D, rotate and tilt — styles dark, liberty, bright, positron, fiord (and with the Mapbox token: traffic, mapbox, night); pitch 0–70 tilts it; buildings false flattens it. Use '3d' for \"3D map of X\", \"show me X in 3D\", \"the buildings in X\".",
     parameters: {
       type: 'object',
       properties: {
         place: { type: 'string' },
         lat: { type: 'number' },
         lon: { type: 'number' },
-        style: { type: 'string', enum: STYLES },
+        view: { type: 'string', enum: ['flat', '3d'], description: "flat (default) or 3d (buildings in 3D, rotate and tilt)" },
+        style: { type: 'string', enum: [...STYLES, ...STYLES_3D] },
         overlays: { type: 'array', items: { type: 'string', enum: OVERLAYS } },
         zoom: { type: 'number', description: '2 (world) to 19 (a street); default fits the place' },
+        pitch: { type: 'number', description: '3d only: tilt in degrees, 0 (flat) to 70' },
+        buildings: { type: 'boolean', description: '3d only: buildings in 3D (default true)' },
         points: { type: 'array', description: 'extra pins to mark', items: { type: 'object', properties: { lat: { type: 'number' }, lon: { type: 'number' }, label: { type: 'string' } }, required: ['lat', 'lon'] } },
         line: { type: 'boolean', description: 'join the points with a line' },
       },
@@ -101,12 +106,14 @@ export const mapTools: Tool[] = [
     risk: 'auto',
     async run(a, ctx) {
       const p = await where(a, ctx);
-      const style = STYLES.includes(String(a.style)) ? String(a.style) : undefined;
+      const view = a.view === '3d' ? '3d' : 'flat';
+      const style = (view === '3d' ? [...STYLES, ...STYLES_3D] : STYLES).includes(String(a.style)) ? String(a.style) : undefined;
+      const pitch = view === '3d' && typeof a.pitch === 'number' && Number.isFinite(a.pitch) ? Math.max(0, Math.min(70, Math.round(a.pitch))) : undefined;
       const overlays = Array.isArray(a.overlays) ? a.overlays.map(String).filter((o) => OVERLAYS.includes(o)) : [];
       const points = Array.isArray(a.points) ? a.points.filter((x): x is { lat: number; lon: number; label?: string } => !!x && typeof x === 'object' && Number.isFinite((x as { lat: unknown }).lat) && Number.isFinite((x as { lon: unknown }).lon)).slice(0, 50).map((x) => ({ lat: Number(x.lat), lon: Number(x.lon), ...(x.label ? { label: String(x.label).slice(0, 60) } : {}) })) : [];
       const zoom = typeof a.zoom === 'number' && Number.isFinite(a.zoom) ? Math.max(2, Math.min(19, Math.round(a.zoom))) : undefined;
-      ctx.emit({ t: 'client', name: 'show_map', args: { place: p.name, lat: p.lat, lon: p.lon, ...(style ? { style } : {}), ...(overlays.length ? { overlays } : {}), ...(points.length ? { points } : {}), ...(a.line ? { line: true } : {}), ...(zoom ? { zoom } : {}) } });
-      return `The map of ${p.name} is open on God's Eye${style ? ` (${style})` : ''}${overlays.length ? ` with ${overlays.join(', ')}` : ''}${points.length ? `, ${points.length} pin${points.length === 1 ? '' : 's'} marked` : ''}. The owner can tap anywhere on it for the address, Street View, a route, the elevation and nearby landmarks.`;
+      ctx.emit({ t: 'client', name: 'show_map', args: { place: p.name, lat: p.lat, lon: p.lon, ...(view === '3d' ? { view, ...(pitch != null ? { pitch } : {}), ...(a.buildings === false ? { buildings: false } : {}) } : {}), ...(style ? { style } : {}), ...(overlays.length ? { overlays } : {}), ...(points.length ? { points } : {}), ...(a.line ? { line: true } : {}), ...(zoom ? { zoom } : {}) } });
+      return `The ${view === '3d' ? '3D map' : 'map'} of ${p.name} is open on God's Eye${style ? ` (${style})` : ''}${overlays.length ? ` with ${overlays.join(', ')}` : ''}${points.length ? `, ${points.length} pin${points.length === 1 ? '' : 's'} marked` : ''}. The owner can tap anywhere on it for the address, Street View, a route, the elevation and nearby landmarks.`;
     },
   },
   {

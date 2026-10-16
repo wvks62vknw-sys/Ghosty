@@ -59,6 +59,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   }
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
   if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };
+  if ((m = text.match(/^(?:show (?:me )?)?(?:a |the )?3d map of (.+?)\??$/i)) && has('show_map')) return { message: call('show_map', { place: m[1], view: '3d' }), model };
   if ((m = text.match(/^(?:show (?:me )?)?(?:a |the )?map of (.+?)\??$/)) && has('show_map')) return { message: call('show_map', { place: m[1] }), model };
   if ((m = text.match(/^(?:show (?:me )?(?:the )?)?street view (?:of |in |at )?(.+?)\??$/)) && has('street_view')) return { message: call('street_view', { place: m[1] }), model };
   if ((m = text.match(/^(?:how'?s|what'?s) the traffic (?:like )?in (.+?)\??$/)) && has('traffic_now')) return { message: call('traffic_now', { place: m[1] }), model };

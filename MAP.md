@@ -40,6 +40,12 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `features/core/reactor.ts` | the arc reactor drawing (2D canvas) |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
 | `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns; phones swap the columns, or with `stack: true` show both in one scrolling page |
+| `ui/mapsheet.ts` | the maps sheet over God's Eye: MAP (flat), 3D, SATELLITE (Google, framed), LIVE TRAFFIC (Waze, framed); `openMapSheet(view, spot, opts)` |
+| `ui/flatmap.ts` | the flat map: Leaflet (vendored under `public/vendor/leaflet`) over OpenStreetMap / OpenTopoMap / CyclOSM / Esri tiles, overlays, tap-for-address, routes (OSRM), measuring; Mapbox styles with the owner's `pk.` token |
+| `ui/map3d.ts` | the 3D map: MapLibre GL (vendored under `public/vendor/maplibre`, imported at runtime — never bundled) over OpenFreeMap's vector tiles, buildings in 3D, tilt/rotate, RAIL/RAIN overlays, pins; Mapbox raster styles with the token; types in `ui/maplibre.ts` |
+| `ui/streetview.ts` | Street View as if you were there: God's Eye dives to the spot, then Google's panorama (framed) takes the screen; `openStreetView(spot)`; `ui/mapurls.ts` has the Google/Waze page addresses |
+| `data/places.ts` | `reverseAddress(lat, lon)`: the address at a spot (Nominatim via the brain's proxy), shared by the maps and the globe's pin |
+| `engine/layers/spot.ts` | the pin where the owner tapped God's Eye (`spotLayer`), pickable as kind `spot` → the spot card (STREET VIEW, MAP, 3D, TRAFFIC) |
 | `core/dom.ts` | `h('div.class', props, ...children)` element builder, `clear`, `fmt`, `icon` |
 | `core/store.ts` | `createStore` (get/set/subscribe) and `Emitter` |
 | `state/app.ts` | `settings` (saved on device) and `ui` (tab, busy, voice) stores; `home()` location |

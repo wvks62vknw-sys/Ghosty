@@ -86,6 +86,8 @@ export interface LayerVisibility {
   events: boolean;
   orbits: boolean;
   route: boolean;
+  /** The pin where the owner tapped (engine/layers/spot.ts). */
+  spot: boolean;
   imagery: boolean;
   buildings: boolean;
   cams: boolean;
@@ -122,7 +124,7 @@ export class GlobeScene {
   cam = new GeoCam();
   mode = 0;
   sunLock = false;
-  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true, imagery: true, buildings: true, cams: true, ships: true, radar: true, traffic: true, alerts: true, disasters: true, buoys: false, aurora: true, cables: false, dispatch: true, enforce: true, crime: true };
+  vis: LayerVisibility = { coast: true, borders: true, adm1: true, grid: true, cities: true, airports: true, clouds: true, air: true, sats: true, quakes: true, events: true, orbits: true, route: true, spot: true, imagery: true, buildings: true, cams: true, ships: true, radar: true, traffic: true, alerts: true, disasters: true, buoys: false, aurora: true, cables: false, dispatch: true, enforce: true, crime: true };
   layers: GlobeLayer[] = [];
   sunDir: Vec3 = [1, 0, 0];
   private ready = false;

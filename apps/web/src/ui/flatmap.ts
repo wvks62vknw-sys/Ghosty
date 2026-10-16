@@ -19,9 +19,10 @@ import { RAD } from '../engine/math';
 import { World } from '../engine/world';
 import { home, ui } from '../state/app';
 import { cams, type Camera } from '../data/cameras';
+import { reverseAddress, shortName, whatIs } from '../data/places';
 import { enforce, ENFORCE_LABEL } from '../data/enforce';
 import { button, toast } from './components';
-import type { MapSpot } from './mapsheet';
+import type { MapSpot } from './mapurls';
 
 export type StyleId = 'dark' | 'streets' | 'topo' | 'cycle' | 'satellite' | 'traffic' | 'mapbox' | 'night';
 export type OverlayId = 'rail' | 'sea' | 'rain' | 'cctv' | 'cameras';
@@ -91,13 +92,6 @@ const km = (m: number) => (m < 1000 ? `${Math.round(m)} m` : m < 10000 ? `${(m /
 const miles = (m: number) => `${(m / 1609.344).toFixed(m < 16000 ? 2 : 1)} mi`;
 const dur = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`);
 
-interface Reverse {
-  name?: string;
-  display_name?: string;
-  category?: string;
-  type?: string;
-  address?: Record<string, string>;
-}
 interface OsrmRoute {
   code: string;
   routes?: { distance: number; duration: number; geometry: { coordinates: [number, number][] }; legs: { steps: { name: string; distance: number; maneuver: { type: string; modifier?: string } }[] }[] }[];
@@ -323,7 +317,10 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
   const dropPin = async (lat: number, lon: number, name?: string) => {
     const Lf = await loadLeaflet();
     if (!map) return;
-    current = { lat, lon, name };
+    // The pin's own spot: the buttons act on it even after the map has been moved (`current`
+    // follows the view, and the popup itself pans the map to come into view).
+    const here: MapSpot = { lat, lon, name };
+    current = here;
     pin?.remove();
     pin = Lf.marker([lat, lon]).addTo(map);
     const body = h('div.fmpop');
@@ -332,8 +329,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     const out = h('div.fmout');
     const row = h(
       'div.fmbtns',
-      button('STREET VIEW', () => hooks.streetView(current)),
-      button('TRAFFIC', () => hooks.traffic(current)),
+      button('STREET VIEW', () => hooks.streetView({ ...here })),
+      button('TRAFFIC', () => hooks.traffic({ ...here })),
       button('ROUTE HERE', () => void routeTo(current)),
       button('ELEVATION', () => void elevation(lat, lon, out)),
       button('NEARBY', () => void wiki(lat, lon, out)),
@@ -345,12 +342,11 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     body.append(title, status, out, row);
     pin.bindPopup(body, { maxWidth: 320, minWidth: 240, className: 'fmpopup', autoPanPadding: [16, 60] }).openPopup();
     try {
-      const r = await fetchJson<Reverse>(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=en&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`, 3600);
-      const what = r.name && r.type ? `${r.name} (${r.type.replace(/_/g, ' ')})` : r.type ? r.type.replace(/_/g, ' ') : '';
+      const r = await reverseAddress(lat, lon);
       if (!name && r.name) title.textContent = r.name;
-      status.textContent = [what, r.display_name].filter(Boolean).join(' — ') || 'No address known here';
+      status.textContent = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
       if (r.address?.postcode) status.append(h('div.fmpc', `POSTCODE ${r.address.postcode}`));
-      current.name = r.name || r.display_name?.split(',').slice(0, 2).join(',') || current.name;
+      here.name = shortName(r) || here.name;
     } catch {
       status.textContent = 'The address service is not reachable right now.';
     }
