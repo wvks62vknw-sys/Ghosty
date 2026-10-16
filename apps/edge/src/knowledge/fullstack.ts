@@ -102,7 +102,7 @@ PYTHON (FastAPI) — argon2 + JWT access/refresh
       except jwt.PyJWTError: raise HTTPException(401, "sign in first")
   Refresh: store sha256(refresh_token) in a refresh_tokens table with expiry; on /auth/refresh delete the old row and issue a new pair; if an already-used token comes back, delete every token of that user (it was stolen).
 
-ALWAYS: authorisation on every route (check the row belongs to the user — "WHERE id = ? AND user_id = ?"), not just authentication; log sign-ins; email verification and password reset use single-use random tokens that expire in under an hour.`,
+ALWAYS: decide per route who may call it — public (product list, sign-up, sign-in, contact form: open, but rate-limited) or private; every private route checks authorisation, not just authentication (the row belongs to the user — "WHERE id = ? AND user_id = ?"); log sign-ins; email verification and password reset use single-use random tokens that expire in under an hour.`,
   },
   {
     id: 'crud-api',
