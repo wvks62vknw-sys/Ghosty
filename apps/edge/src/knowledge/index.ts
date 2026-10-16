@@ -4,11 +4,12 @@
  * storage and shown in every prompt, so it doesn't repeat them).
  *
  * Add playbooks to craft.ts (engineering method), coding.ts (languages, web platform,
- * algorithms), games.ts (games and mini-apps on the widget kit), typescript.ts or ghosty.ts
- * (this codebase). Lessons are added at runtime with the learn_lesson tool.
+ * algorithms), fullstack.ts (architecture, auth, APIs, databases, iPhone-first layout), games.ts
+ * (games and mini-apps on the widget kit), typescript.ts or ghosty.ts (this codebase). Lessons are added at runtime with the learn_lesson tool.
  */
 import { CODING } from './coding';
 import { CRAFT } from './craft';
+import { FULLSTACK } from './fullstack';
 import { GAMES } from './games';
 import { GHOSTY } from './ghosty';
 import { TYPESCRIPT } from './typescript';
@@ -16,8 +17,9 @@ import type { Lesson, Playbook } from './types';
 
 export type { Lesson, Playbook } from './types';
 export { NEON_DODGE } from './games';
+export { FULLSTACK } from './fullstack';
 
-export const PLAYBOOKS: Playbook[] = [...CRAFT, ...GAMES, ...CODING, ...TYPESCRIPT, ...GHOSTY];
+export const PLAYBOOKS: Playbook[] = [...CRAFT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY];
 
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9_.]+/g) ?? [];
 
@@ -134,4 +136,5 @@ export const engineeringEssentials = (name: string): string => `ENGINEERING STAN
 - Smallest complete change; split big work into shippable slices; handle empty/error/loading states.
 - Before propose_change run the self-review: exact find snippets, imports exist and are exported, strict TypeScript (arr[i]! or ?? fallback, typed params, catch (e) as Error), nothing duplicated, no placeholders, nothing left out.
 - When checks fail: read the FIRST error, find the root cause in the code on the branch, make the smallest fix. After any failure is fixed, call learn_lesson with the cause and a rule ("Rule: always …").
+- Full-stack work: UI, API/business logic and data access always in separate layers; validate every input on the server; parameterised SQL; auth on every route. study "clean architecture", "auth", "crud api", "database schema", "ui to backend". Every page you build is iPhone-first (390px): study "mobile 390".
 - Code written FOR ${name} in chat: complete and runnable, edge cases handled, mentally tested, with how to run it.`;

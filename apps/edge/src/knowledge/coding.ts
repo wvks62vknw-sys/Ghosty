@@ -164,6 +164,7 @@ PITFALLS: off-by-one at boundaries (< vs <=), integer division (Math.floor / //)
     title: 'Software architecture and clean code principles',
     tags: ['architecture', 'design', 'clean code', 'refactor', 'structure', 'modules', 'patterns', 'maintainable', 'state management', 'separation'],
     body: `- Separate concerns: data (fetching, storage) / logic (pure functions) / presentation (DOM, canvas). Pure functions are easy to test and reuse.
+- Apps with a backend (UI + API + database): study "clean-architecture" for the full layering, then "auth", "crud api", "database schema".
 - Single source of truth for state; derive everything else; update via one function (setState / save + render).
 - Small modules with clear exports; names that say what things ARE (fetchForecast, not doStuff); functions under ~40 lines.
 - Make illegal states unrepresentable: unions ('idle' | 'loading' | 'error' | 'ready') instead of several booleans.

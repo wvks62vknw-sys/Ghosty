@@ -67,6 +67,34 @@ const top = <T>(list: T[], n: number) => {
   return [...count].sort((a, b) => b[1] - a[1]).slice(0, n).map(([x]) => x);
 };
 
+/**
+ * The backend a page implies, worked out from its repeated components and forms (study
+ * "ui to backend"): each is a table with typed fields, so the rebuild keeps its content as data
+ * shaped like those tables, and the owner can be handed the real schema and routes.
+ */
+export function dataModels(html: string): string[] {
+  const low = html.toLowerCase();
+  const n = (re: RegExp) => (html.match(re) ?? []).length;
+  const prices = n(/(?:£|\$|€|&pound;|&euro;)\s?\d[\d,]*(?:\.\d{2})?/g);
+  const inputs = [...html.matchAll(/<input\b[^>]*>/gi)].map((m) => (attr(m[0], 'type') || 'text').toLowerCase());
+  const out: string[] = [];
+  const shop = /add[ -]to[ -](?:cart|basket|bag)|shopping[ -]?(?:cart|basket)|checkout/.test(low);
+  if (/\/mo\b|per month|a month|pricing|per year/.test(low) && prices >= 2 && !shop) out.push('plans(name TEXT, price_monthly NUMERIC(10,2), price_yearly NUMERIC(10,2), features TEXT[], highlighted BOOLEAN) — pricing table');
+  else if (/\bmenu\b/.test(low) && /starters?|mains?|desserts?|vegan|gluten/.test(low) && prices >= 3) out.push('menu_items(section TEXT, name TEXT, description TEXT, price NUMERIC(10,2), dietary TEXT[], available BOOLEAN) — food menu');
+  else if (prices >= 3 || shop) out.push(`products(title TEXT, slug TEXT UNIQUE, price NUMERIC(10,2), compare_at_price NUMERIC(10,2) NULL, currency CHAR(3), images TEXT[], rating NUMERIC(2,1), review_count INTEGER, in_stock BOOLEAN, category_id → categories) — ${prices} price tags`);
+  if (shop) out.push('carts + cart_items(cart_id, product_id, quantity INTEGER); orders + order_items(unit_price copied at purchase) — basket/checkout');
+  if (n(/<article\b/gi) >= 2 || n(/<time\b/gi) >= 2 || /\b(?:blog|news|latest posts|read more)\b/.test(low)) out.push('posts(title TEXT, slug TEXT UNIQUE, excerpt TEXT, body TEXT, cover_url TEXT, published_at TIMESTAMPTZ, author_id → authors) + tags/post_tags — articles');
+  if (/testimonial|reviews?\b|★|rating/.test(low)) out.push('reviews(author_name TEXT, rating SMALLINT CHECK 1–5, body TEXT, product_id NULL, approved BOOLEAN, created_at) — reviews/testimonials');
+  if (/\b(?:our team|meet the team|our people|staff)\b/.test(low)) out.push('people(name TEXT, role TEXT, photo_url TEXT, bio TEXT, position INTEGER) — team');
+  if (/\b(?:events?|tickets?|book now|what's on)\b/.test(low) && n(/<time\b|\b\d{1,2}(?:st|nd|rd|th)? (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/gi) >= 2) out.push('events(title TEXT, starts_at TIMESTAMPTZ, venue TEXT, price NUMERIC(10,2), capacity INTEGER, tickets_left INTEGER) + bookings — events');
+  if (/\bfaq|frequently asked/.test(low) || n(/<details\b/gi) >= 3) out.push('faqs(question TEXT, answer TEXT, position INTEGER) — FAQ');
+  if (inputs.includes('password')) out.push('users(email TEXT UNIQUE, password_hash TEXT) + sessions — sign-in (study "auth"; never rebuilt as a working form)');
+  if (inputs.includes('email') && /<textarea\b/i.test(html)) out.push('contact_messages(name TEXT, email TEXT, message TEXT, created_at, handled BOOLEAN) + POST /api/contact — contact form');
+  else if (inputs.includes('email') && /subscribe|newsletter|sign up/.test(low)) out.push('subscribers(email TEXT UNIQUE, confirmed_at NULL) + POST /api/subscribe — newsletter');
+  if (inputs.includes('search')) out.push('GET /api/search?q= over the main table (full-text index) — search box');
+  return out;
+}
+
 /** What a page is made of, for rebuilding it (pure: the fetched HTML and CSS in, a blueprint out). */
 export function blueprint(url: string, html: string, css: string[]): string {
   const head = html.match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
@@ -103,6 +131,7 @@ export function blueprint(url: string, html: string, css: string[]): string {
   const googleFonts = [...html.matchAll(/https:\/\/fonts\.googleapis\.com\/[^"'\s>]+/gi)].map((m) => decode(m[0]));
   const forms = [...html.matchAll(/<input\b[^>]*>/gi)].map((m) => attr(m[0], 'type') || 'text');
   const text = strip(html.match(/<main\b[\s\S]*?<\/main>/i)?.[0] ?? html.match(/<body\b[\s\S]*<\/body>/i)?.[0] ?? html);
+  const models = dataModels(html);
   const cssCount = (html.match(/<link\b[^>]*rel\s*=\s*["']?stylesheet/gi) ?? []).length;
   const lines = [
     `URL: ${url}`,
@@ -120,6 +149,7 @@ export function blueprint(url: string, html: string, css: string[]): string {
     fonts.length ? `FONTS: ${fonts.join(', ')}${googleFonts.length ? ` (Google Fonts: ${googleFonts[0]})` : ''}` : '',
     images.length ? `IMAGES (use these URLs):\n${images.map((i) => `- ${i.src}${i.alt ? ` — "${i.alt}"` : ''}`).join('\n')}` : '',
     forms.length ? `FORM FIELDS: ${top(forms, 8).join(', ')}` : '',
+    models.length ? `DATA MODELS IT IMPLIES (backend tables behind the repeated parts):\n${models.map((m) => `- ${m}`).join('\n')}` : '',
     links.length ? `OTHER LINKS: ${links.filter((l) => !nav.some((n) => n.includes(l.href))).slice(0, 12).map((l) => `${l.text} → ${l.href}`).join(' | ')}` : '',
     `TEXT CONTENT:\n${clip(text, 7000)}`,
   ];
@@ -250,7 +280,7 @@ export const siteTools: Tool[] = [
       }
       return (
         asData(`the website ${final}`, blueprint(final, html, css) + (rendered ? `\n\nRENDERED CONTENT (the page builds itself with JavaScript; this is what visitors see):\n${clip(rendered, 9000)}` : '')) +
-        '\n\nNEXT: write ONE complete, self-contained HTML document that recreates this site — same sections in the same order, same text, navigation, images (their URLs above), colours and fonts — and rebuild its interactive parts (menu, carousel, modals, tabs…) in small vanilla JS, without the trackers or heavy libraries. Make it clearly better: mobile-first for an iPhone (390×844: viewport-fit=cover, env(safe-area-inset-*), 16px+ text, 44px tap targets, no sideways scrolling, sticky compact header with a working menu), semantic HTML, fast (no frameworks, system or Google fonts with display=swap, lazy images, CSS animations that respect prefers-reduced-motion), accessible (alt text, contrast, focus states), and a more polished, modern look. It runs locked down: only your own inline <script> and <style> (no script files from elsewhere, no fetch/XHR — put everything it needs in the page), images from any https URL, Google Fonts and YouTube/Vimeo embeds allowed; forms are visual only and password fields are refused. Then call publish_site with it.'
+        '\n\nNEXT: write ONE complete, self-contained HTML document that recreates this site — same sections in the same order, same text, navigation, images (their URLs above), colours and fonts — and rebuild its interactive parts (menu, carousel, modals, tabs…) in small vanilla JS, without the trackers or heavy libraries. Make it clearly better: mobile-first for an iPhone (390×844: viewport-fit=cover, env(safe-area-inset-*), 100dvh not 100vh, fluid type with clamp(), 16px+ text, 44px tap targets, no sideways scrolling, sticky compact header with a working menu, container queries for cards, scroll-snap carousels), semantic HTML, smooth and fast (animate only transform/opacity, content-visibility:auto on long sections, passive listeners, width/height on images, lazy images, no frameworks, system or Google fonts with display=swap, prefers-reduced-motion respected), accessible (alt text, contrast, focus states), and a more polished, modern look. Keep it cleanly layered inside the one file: the content of repeated parts (cards, posts, reviews, menu items…) as a JS data array shaped like the DATA MODELS above, small render functions that build the elements from it, and event handlers separate from both (study "ui to backend", "mobile 390"). It runs locked down: only your own inline <script> and <style> (no script files from elsewhere, no fetch/XHR — put everything it needs in the page), images from any https URL, Google Fonts and YouTube/Vimeo embeds allowed; forms are visual only and password fields are refused. Then call publish_site with it. When you give the owner the link, also offer the backend for it (the tables above as SQL plus the API routes) in case they want it working for real.'
       );
     },
   },

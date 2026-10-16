@@ -44,6 +44,9 @@ test('study_site describes the structure, text, images, colours, fonts and scrip
     assert.match(out, /NO mobile viewport tag/);
     assert.match(out, /Sourdough baked every morning/);
     assert.match(out, /call publish_site/);
+    assert.match(out, /DATA MODELS IT IMPLIES[\s\S]*subscribers\(email TEXT UNIQUE/);
+    assert.match(out, /JS data array shaped like the DATA MODELS/);
+    assert.match(out, /100dvh/);
   } finally {
     globalThis.fetch = real;
   }
@@ -134,6 +137,27 @@ test('publish_site puts the page live at a public link that anyone can open, san
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/s/nope'), env, { waitUntil() {} })).status, 404);
   // the API itself still needs the owner
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/api/site/acme-bakery'), env, { waitUntil() {} })).status, 401);
+});
+
+test('the backend a page implies is worked out from its repeated parts and forms', () => {
+  const card = (t, p) => `<div class="product-card"><img src="/${t}.jpg"><h3>${t}</h3><span>£${p}</span><button>Add to basket</button></div>`;
+  const shop = `<html><body><input type="search">${card('Loaf', '3.50')}${card('Bun', '1.20')}${card('Cake', '12.00')}<section class="reviews">★★★★★ Lovely</section><form><input type="email"><textarea></textarea></form></body></html>`;
+  const m = S.dataModels(shop).join('\n');
+  assert.match(m, /products\(title TEXT, slug TEXT UNIQUE, price NUMERIC\(10,2\).*images TEXT\[\]/);
+  assert.match(m, /carts \+ cart_items/);
+  assert.match(m, /reviews\(/);
+  assert.match(m, /contact_messages\(/);
+  assert.match(m, /GET \/api\/search/);
+  const blog = '<html><body><article><time>1 May</time><h2>A</h2></article><article><time>2 May</time><h2>B</h2></article><details>1</details><details>2</details><details>3</details></body></html>';
+  const b = S.dataModels(blog).join('\n');
+  assert.match(b, /posts\(title TEXT/);
+  assert.match(b, /faqs\(/);
+  assert.doesNotMatch(b, /products/);
+  const saas = '<html><body><h2>Pricing</h2><div>Starter £9 per month</div><div>Pro £29 per month</div><input type="password"></body></html>';
+  const p = S.dataModels(saas).join('\n');
+  assert.match(p, /plans\(/);
+  assert.match(p, /users\(email TEXT UNIQUE, password_hash TEXT\) \+ sessions/);
+  assert.deepEqual(S.dataModels('<html><body><h1>Hello</h1></body></html>'), []);
 });
 
 test('the site tools are offered when the owner gives a URL or asks for a website', () => {
