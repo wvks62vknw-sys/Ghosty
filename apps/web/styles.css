@@ -369,7 +369,6 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 .eyetop .search input { background: transparent; border-color: transparent; }
 .eyetop .search input:focus { border-color: transparent; }
 .modes { display: flex; gap: 3px; flex-wrap: wrap; }
-.modes button { padding: 5px 8px; min-height: 26px; font-size: 9px; letter-spacing: .12em; background: rgba(var(--bgr), .5); }
 .eyemid { position: relative; }
 .labels { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 .labels .lb { position: absolute; left: 0; top: 0; margin: -6px 0 0 8px; font: 400 9.5px var(--m); letter-spacing: .02em; text-shadow: 0 0 4px #000, 0 0 8px #000; white-space: nowrap; will-change: transform; }
@@ -397,16 +396,43 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
   .eyelay:not(.min) > h3::after { content: '▾'; font-size: 9px; color: var(--c); }
   .ltile { padding: 9px 9px; font-size: 9.5px; }
   .eyelay:not(.min) ~ .zoomrail { opacity: 0; pointer-events: none; }
+  /* the open sheet is readable on its own: solid, and the camera grid under it steps aside */
+  .eyelay:not(.min) { background: rgba(var(--bgr), .94); }
+  .eyemid:has(.eyelay:not(.min)) .camgrid { display: none; }
+  /* while the LOOK menu is up it has the corner: the LAYERS pill and the zoom rail step aside */
+  /* (visibility, not pointer-events: #app .pn and #app button switch pointer-events back on) */
+  .hud.eye:has(.lookmenu:not([hidden])) .eyelay.min, .hud.eye:has(.lookmenu:not([hidden])) .zoomrail { visibility: hidden; }
 }
 .zoomrail { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto; }
 .zoomrail button { width: 40px; height: 40px; padding: 0; font: 200 22px/1 var(--d); letter-spacing: 0; touch-action: none; background: rgba(var(--bgr), .5); }
 .zoomrail small { font: 400 9px var(--m); color: var(--mute); text-align: center; max-width: 60px; }
 .eyebot { position: relative; z-index: 2; display: flex; gap: 6px; align-items: flex-end; justify-content: space-between; }
 .eyebot .readout { font: 400 9.5px/1.7 var(--m); color: rgba(var(--cr), .85); padding: 5px 10px; border-left: 1px solid rgba(var(--cr), .5); background: rgba(var(--bgr), .55); white-space: pre; max-width: 60vw; overflow: hidden; border-radius: 0 var(--rad) var(--rad) 0; }
-.eyebot .btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto; }
+.eyebot .btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; pointer-events: auto; }
 .eyebot .btns button { padding: 6px 9px; min-height: 28px; font-size: 9px; background: rgba(var(--bgr), .5); }
+/* two groups: what to open about the spot under the crosshair, and how to move or draw the view */
+.bgroup { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; padding: 3px 4px 3px 6px; border: 1px solid var(--line2); border-radius: 6px; background: rgba(var(--bgr), .35); }
+.bcap { font: 500 8px var(--d); letter-spacing: .18em; color: var(--mute); padding-right: 4px; white-space: nowrap; }
+/* the LOOK menu: tiles, sensor looks, sun and spin — above the bar, closed by LOOK, a tap on the globe or Escape */
+.lookmenu { position: absolute; right: 0; bottom: 100%; margin-bottom: 6px; width: min(380px, 100%); display: flex; flex-direction: column; gap: 5px; padding: 8px 10px 10px; background: rgba(var(--bgr), .96); border: 1px solid var(--line); border-radius: 8px; z-index: 6; pointer-events: auto; }
+.lookmenu[hidden] { display: none; }
+.lookmenu .lgroup { margin-top: 4px; }
+.lookmenu .chips { display: flex; gap: 3px; flex-wrap: wrap; }
+.lookmenu .chips button, .modes button { padding: 5px 8px; min-height: 26px; font-size: 9px; letter-spacing: .12em; background: rgba(var(--bgr), .5); }
+.lookmenu .hint { font: 400 10px/1.4 var(--b); color: var(--mute); }
+.eyebot .readout span { display: block; }
+.eyebot .readout span:empty { display: none; }
 @media (min-width: 900px) { .hud.eye { padding-left: 72px; } }
-@media (max-width: 600px) { .eyebot { flex-direction: column; align-items: stretch; } .eyebot .readout { max-width: 100%; } }
+@media (max-width: 600px) {
+  .eyebot { flex-direction: column; align-items: stretch; }
+  .eyebot .readout { max-width: 100%; }
+  /* the live counts are in LAYERS already; the readout keeps where you are, the camera and the imagery credit */
+  .eyebot .readout .r3 { display: none; }
+  .eyebot .btns { justify-content: stretch; gap: 5px; }
+  .bgroup { flex: 1 1 100%; }
+  .bgroup button { flex: 1 1 auto; padding: 6px 4px; }
+}
+.zoomrail small { background: rgba(var(--bgr), .7); padding: 2px 5px; border-radius: 4px; }
 
 /* ---------- WORKSHOP ---------- */
 .change { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; flex: none; border-left: 2px solid var(--a); background: rgba(var(--ar), .05); border-radius: 0 var(--rad) var(--rad) 0; }

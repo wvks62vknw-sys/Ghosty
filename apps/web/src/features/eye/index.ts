@@ -25,7 +25,7 @@ import { spotLayer, type Spot } from '../../engine/layers/spot';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
-import { imagery } from '../../engine/layers/imagery';
+import { imagery, SOURCES } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
 import { enforceLayer, INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
 import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
@@ -141,7 +141,8 @@ export const eyeTab: TabDef = {
     q.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void search();
     });
-    const modes = h('div.modes', ...SENSOR_MODES.map(([n], i) => button(n, () => {
+    // Sensor looks (night vision, thermal…) are a look, not a tool: they live in the LOOK menu below.
+    const modes = h('div.modes.chips', ...SENSOR_MODES.map(([n], i) => button(n, () => {
       globe.mode = i;
       ui.set({});
     })));
@@ -168,7 +169,7 @@ export const eyeTab: TabDef = {
         return `${c.total} · ${crime.month}`;
       }],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
-      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'ADD KEY')],
+      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'KEY NEEDED')],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
       ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
       ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
@@ -421,7 +422,8 @@ export const eyeTab: TabDef = {
         info.setStatus(c.country, 'ok');
         R('POPULATION', fmt.n(c.pop));
         R('AIRCRAFT', `${air.nearby(c.lat, c.lon, 100).length} within 100 km`);
-        actions.append(button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })), button('TRAFFIC', () => openMapSheet('traffic', { lat: c.lat, lon: c.lon, name: c.name })));
+        const at = { lat: c.lat, lon: c.lon, name: c.name };
+        actions.append(button('STREET VIEW', () => void openStreetView(at)), button('MAP', () => openMapSheet('map', at)), button('3D', () => openMapSheet('3d', at)), button('TRAFFIC', () => openMapSheet('traffic', at)));
         actions.append(button('SET HOME', () => {
           settings.set({ home: { name: c.name, lat: c.lat, lon: c.lon } });
           toast(`Home set to ${c.name}`, 'ok');
@@ -565,7 +567,11 @@ export const eyeTab: TabDef = {
     };
 
     // ---------- bottom: readout + buttons ----------
+    // The readout: where you are, the camera, the live counts, the imagery credit — four lines kept
+    // in place and rewritten every frame (an empty line hides itself, styles.css: .readout span:empty).
     const readout = h('div.readout');
+    const rLines = [h('span.r1'), h('span.r2'), h('span.r3'), h('span.r4')] as const;
+    readout.append(...rLines);
     /** The spot under the crosshair (named by the nearest city) for Street View and the live traffic map. */
     const centre = () => {
       const c = globe.cam;
@@ -578,24 +584,85 @@ export const eyeTab: TabDef = {
       const near = World.near(g.lat, g.lon, 2e5);
       return { lat: g.lat, lon: g.lon, name: near && near.km < 400 ? near.city.name : undefined, heading: c.hd };
     };
+    // ---------- the LOOK menu: how the globe is drawn (tiles, sensor looks, sun, spin) ----------
+    const tileChips = h('div.chips');
+    const paintTiles = () => {
+      clear(
+        tileChips,
+        ...SOURCES.map((src) => {
+          const b = button(src.name.toUpperCase(), () => {
+            imagery.setSource(src.name);
+            if (!globe.vis.imagery) globe.vis = { ...globe.vis, imagery: true };
+            paintTiles();
+          });
+          b.dataset.src = src.name;
+          b.classList.toggle('on', globe.vis.imagery && imagery.source === src.name);
+          return b;
+        }),
+        (() => {
+          const b = button('OFF', () => {
+            globe.vis = { ...globe.vis, imagery: false };
+            paintTiles();
+          });
+          b.dataset.src = 'off';
+          b.classList.toggle('on', !globe.vis.imagery);
+          return b;
+        })(),
+      );
+    };
+    paintTiles();
+    const sunBtn = button('SUN', (b) => b.classList.toggle('on', (globe.sunLock = !globe.sunLock)));
+    const spinBtn = button('SPIN', (b) => b.classList.toggle('on', (globe.cam.autoSpin = !globe.cam.autoSpin)));
+    sunBtn.classList.toggle('on', globe.sunLock);
+    const look = h(
+      'div.lookmenu',
+      { role: 'group', 'aria-label': 'How the globe looks' },
+      h('div.lgroup', 'MAP TILES ON THE GLOBE'),
+      tileChips,
+      h('div.hint', 'Satellite photos, streets, a dark map, contours or Sentinel imagery drawn onto the globe — or off for the plain globe.'),
+      h('div.lgroup', 'SENSOR'),
+      modes,
+      h('div.hint', 'A look for the whole view: hologram, old screen, night vision, thermal, film noir.'),
+      h('div.lgroup', 'GLOBE'),
+      h('div.chips', sunBtn, spinBtn),
+      h('div.hint', 'SUN lights the globe as the real sun does right now. SPIN turns it slowly on its own.'),
+    );
+    look.hidden = true;
+    const lookBtn = button('LOOK', () => {
+      look.hidden = !look.hidden;
+      lookBtn.classList.toggle('on', !look.hidden);
+      if (!look.hidden) paintTiles();
+    });
+    const closeLook = () => {
+      if (look.hidden) return;
+      look.hidden = true;
+      lookBtn.classList.remove('on');
+    };
+    addEventListener('keydown', (e) => e.key === 'Escape' && closeLook());
+
+    // ---------- the bar: what to open about this spot, and how to move the view ----------
+    const tiltBtn = button('TILT', () => (globe.cam.target.tilt = globe.cam.target.tilt > 5 ? 0 : 55));
     const btns = h(
       'div.btns',
-      button('MAP', () => openMapSheet('map', centre())),
-      button('STREET', () => void openStreetView(centre())),
-      button('TRAFFIC', () => openMapSheet('traffic', centre())),
-      // the tiles on the globe itself: satellite, streets, dark, topographic, Sentinel
-      button(imagery.source.toUpperCase(), (b) => {
-        b.textContent = imagery.cycle().toUpperCase();
-        if (!globe.vis.imagery) globe.vis = { ...globe.vis, imagery: true };
-      }, 'tilesbtn'),
-      button('YOU', () => {
-        const L = home();
-        globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });
-      }),
-      button('NORTH', () => (globe.cam.target.hd = 0)),
-      button('TILT', () => (globe.cam.target.tilt = globe.cam.target.tilt > 5 ? 0 : 55)),
-      button('SUN', (b) => b.classList.toggle('on', (globe.sunLock = !globe.sunLock))),
-      button('SPIN', (b) => b.classList.toggle('on', (globe.cam.autoSpin = !globe.cam.autoSpin))),
+      h(
+        'div.bgroup',
+        h('small.bcap', 'THIS SPOT'),
+        button('MAP', () => openMapSheet('map', centre())),
+        button('3D', () => openMapSheet('3d', centre())),
+        button('STREET VIEW', () => void openStreetView(centre())),
+        button('TRAFFIC', () => openMapSheet('traffic', centre())),
+      ),
+      h(
+        'div.bgroup',
+        h('small.bcap', 'VIEW'),
+        lookBtn,
+        button('HOME', () => {
+          const L = home();
+          globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });
+        }),
+        button('NORTH', () => (globe.cam.target.hd = 0)),
+        tiltBtn,
+      ),
     );
 
     // ---------- zoom rail ----------
@@ -613,8 +680,8 @@ export const eyeTab: TabDef = {
     const rail = h('div.zoomrail', zIn, zLabel, zOut);
 
     const labels = h('div.labels');
-    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), modes);
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, lay.el, rail), h('div.eyebot', readout, btns)));
+    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())));
+    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -641,6 +708,7 @@ export const eyeTab: TabDef = {
     };
     cv.addEventListener('pointerdown', (e) => {
       if (!active()) return;
+      closeLook();
       cv.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       t0 = performance.now();
@@ -821,7 +889,14 @@ export const eyeTab: TabDef = {
       const near = World.near(g.lat, g.lon, 2e5);
       const alt = c.cs?.alt ?? c.range;
       const mk = (n: number) => (n < 1 ? `${(n * 1000).toFixed(0)} m` : n < 100 ? `${n.toFixed(1)} km` : `${fmt.n(n)} km`);
-      readout.textContent = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}\nALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round((((c.hd % 360) + 360) % 360))}° · ${SENSOR_MODES[globe.mode]![0]}\n${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}${imagery.credit ? `\n${imagery.credit}` : ''}`;
+      const lines = [
+        `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}`,
+        `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
+        `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
+        imagery.credit,
+      ];
+      rLines.forEach((el, i) => el.textContent !== lines[i] && (el.textContent = lines[i]!));
+      tiltBtn.classList.toggle('on', c.tilt > 5);
       // Start a feed only once its layer is switched on (big downloads stay optional).
       const want: [keyof LayerVisibility, { start(): unknown }][] = [['radar', radarFrames], ['alerts', alerts], ['disasters', disasters], ['aurora', aurora], ['dispatch', dispatch], ['buoys', buoys], ['cables', cables]];
       for (const [k, f] of want) if (globe.vis[k]) f.start();
@@ -863,6 +938,7 @@ export const eyeTab: TabDef = {
         paintModes();
       },
       leave() {
+        closeLook();
         clearInterval(airTimer);
         clearInterval(shipTimer);
         stopCamViews();
