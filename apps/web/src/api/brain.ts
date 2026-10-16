@@ -464,7 +464,23 @@ export async function sendQueued(): Promise<number> {
   }).catch(() => 0);
   return sent + docs;
 }
+/**
+ * While the tag shows, keep asking the brain whether its database is back (every minute, and
+ * whenever Ghosty comes back to the screen or the network returns), so the tag clears by
+ * itself after the reset even if Ghosty was left open.
+ */
+let pauseCheck: ReturnType<typeof setInterval> | null = null;
+const recheckPause = () => {
+  if (memoryPaused.get().on) void brain.status().catch(() => undefined);
+};
+if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && recheckPause());
+if (typeof window !== 'undefined') window.addEventListener?.('online', recheckPause);
 memoryPaused.subscribe((m, prev) => {
+  if (m.on && !pauseCheck) pauseCheck = setInterval(recheckPause, 60_000);
+  if (!m.on && pauseCheck) {
+    clearInterval(pauseCheck);
+    pauseCheck = null;
+  }
   if (m.on !== prev.on) armBrainReminders(m.on);
   if (prev.on && !m.on) {
     void sendQueued();
