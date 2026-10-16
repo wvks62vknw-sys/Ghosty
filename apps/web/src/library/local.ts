@@ -76,8 +76,26 @@ function idb(): Promise<IDBDatabase | null> {
           };
         }
       };
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => resolve(null);
+      r.onsuccess = () => {
+        const db = r.result;
+        // A newer version of Ghosty in another tab needs to upgrade: step aside.
+        db.onversionchange = () => {
+          db.close();
+          opening = null;
+          cache = null;
+        };
+        // (after a block, this arrives once the older tab closes: use storage from then on)
+        opening = Promise.resolve(db);
+        cache = null;
+        resolve(db);
+      };
+      r.onerror = () => {
+        opening = null;
+        resolve(null);
+      };
+      // An older tab still has the previous version open: do without storage until it closes.
+      // (Not retried meanwhile: a second open would only queue behind this one.)
+      r.onblocked = () => resolve(null);
     } catch {
       resolve(null);
     }
@@ -302,6 +320,8 @@ let mirroring = false;
  */
 export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ copied: number; dropped: number; left: number }> {
   if (mirroring) return { copied: 0, dropped: 0, left: 0 };
+  // Storage unavailable right now (e.g. an older tab blocks it): don't copy the library into memory.
+  if (typeof indexedDB !== 'undefined' && !(await idb())) return { copied: 0, dropped: 0, left: 0 };
   mirroring = true;
   try {
     const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-'));
