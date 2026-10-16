@@ -177,6 +177,38 @@ test('while paused: email (with approval), travel, traffic, Spotify and the libr
   }
 });
 
+test('while paused, a photo still reaches a model that can see it; with none, the owner is told rather than the photo being dropped', async () => {
+  const PHOTO = `data:image/jpeg;base64,/9j/${'A'.repeat(4000)}`;
+  const ai = fakeAI('I can see a picture: a red bicycle.');
+  try {
+    const storage = new MemStorage();
+    storage.down = true;
+    const a = newAgent(storage, { GEMINI_KEY: 'g_x', KEYLESS_MODELS: '0' });
+    const ev = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'what is this?', images: [PHOTO] }) }));
+    assert.match(ev.find((e) => e.t === 'text')?.text ?? '', /red bicycle/);
+    const last = ai.sent.at(-1).body.messages.at(-1);
+    assert.ok(Array.isArray(last.content) && last.content[0].text === 'what is this?' && last.content[1].image_url.url === PHOTO, 'the picture went with the question, as parts');
+    assert.match(ai.sent.at(-1).url, /googleapis/, 'to a model that can see');
+  } finally {
+    ai.restore();
+  }
+  // only a text-only key: no model can look, and the owner hears so (with what the phone itself saw), still paused
+  const ai2 = fakeAI('should not be asked');
+  try {
+    const storage = new MemStorage();
+    storage.down = true;
+    const a = newAgent(storage, { GROQ_KEY: 'gsk_x', KEYLESS_MODELS: '0' });
+    const ev = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'what is this? [on-device: labels bicycle, person; text none]', images: [PHOTO] }) }));
+    const text = ev.find((e) => e.t === 'text')?.text ?? '';
+    assert.match(text, /can't see pictures/);
+    assert.match(text, /bicycle/, 'what the phone saw is passed on');
+    assert.equal(ev.find((e) => e.t === 'done')?.model, 'No vision model · memory paused');
+    assert.equal(ai2.sent.length, 0, 'a text-only model was never given the question');
+  } finally {
+    ai2.restore();
+  }
+});
+
 test("while paused, library_search finds the owner's documents sent by their device, and the built-in library", async () => {
   const D = await import('./.build/tools/device.mjs');
   const t = D.deviceLibrarySearch([{ title: 'Lease agreement', heading: 'Rent', text: 'The monthly rent is £950, due on the 1st of each month.' }]);

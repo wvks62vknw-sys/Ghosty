@@ -74,6 +74,20 @@ test('with only text-only models reachable, a picture turn fails at once with a 
   await assert.rejects(new R.Router(new MemStorage(), vaultWith({}), { KEYLESS_MODELS: '0' }).complete([withPhoto('x')], []), /Add a free Gemini or Groq key/);
 });
 
+test('a vision provider that is only cooling down is not reported as missing: the usual "frees up" answer, with a wait', async () => {
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  // Gemini's day is used up (as the router records it after a per-day 429): every model that can see is cooling, none is missing
+  await r.mark('cool|gemini', { cool: Date.now() + 3600_000, why: 'per day' });
+  const err = await r.complete([withPhoto('what is this?')], []).then(() => null, (e) => String(e?.message ?? e));
+  assert.ok(err, 'no answer while the only provider that can see is cooling');
+  assert.ok(!/no vision model reachable/.test(err), `not "no vision model": ${err}`);
+  assert.ok(!/Add a free Gemini/.test(err), `not "add a key" to an owner who has one: ${err}`);
+  assert.match(err, /frees up in about/, 'the ordinary cooling-down answer, with the wait');
+  assert.equal(log.length, 0, 'nothing was asked');
+});
+
 test('slimming a request to a small free tier keeps the picture and counts it as about 1,000 tokens', () => {
   const big = [{ role: 'system', content: 'S'.repeat(20000) }];
   for (let i = 0; i < 30; i++) big.push({ role: 'user', content: `q${i} ${'x'.repeat(2000)}` }, { role: 'assistant', content: `a${i}` });

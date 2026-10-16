@@ -289,7 +289,9 @@ export class Router {
       }
       for (const model of await this.models(p)) if (!vision || visionScore(model) > 0) candidates.push({ p, key, model });
     }
-    if (vision && anyKey && !candidates.length) return { error: NO_VISION, waitMs: Infinity };
+    // No model that can see, and none merely cooling down: say so. (A cooling one falls through to
+    // the usual "back in N seconds" answer below, rather than "add a key" to an owner who has one.)
+    if (vision && anyKey && !candidates.length && !Number.isFinite(soonest)) return { error: NO_VISION, waitMs: Infinity };
     // Chat: the owner's keys, then Workers AI, then open endpoints. Code: the best coders first.
     // Ghosty's own small jobs (cheap): the small, generously rationed models first.
     if (cheap) candidates.sort((a, b) => cheapScore(b.model, b.p) - cheapScore(a.model, a.p));

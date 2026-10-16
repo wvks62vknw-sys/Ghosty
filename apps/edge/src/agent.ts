@@ -552,7 +552,7 @@ export class GhostyAgent {
           await this.loop(ctx, client, s.emit, signal);
         } catch (e) {
           const paused = storageError(e);
-          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline);
+          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline, images);
           // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
           else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
           else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
@@ -601,7 +601,7 @@ export class GhostyAgent {
     return { ...this.toolContext(emit), storage, kernelUnlocked: async () => false };
   }
 
-  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown): Promise<void> {
+  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown, images: string[] = []): Promise<void> {
     // The owner's memory, agenda and documents, from the copy their device keeps (data, not instructions).
     const dev = (offlineRaw && typeof offlineRaw === 'object' ? offlineRaw : {}) as { facts?: unknown; agenda?: unknown; library?: unknown };
     const strings = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-n).map((x) => x.slice(0, 300)) : []);
@@ -622,9 +622,16 @@ export class GhostyAgent {
       (agendaLines.length ? `\n\nTHE OWNER'S AGENDA (next two weeks, from their device):\n${asData("the owner's agenda", agendaLines.join('\n'))}` : '') +
       (hits.length ? `\n\nFROM YOUR LIBRARY:\n${asData('your library', formatHits(hits, 3500))}` : '');
     try {
-      await this.pausedLoop([...recent, { role: 'user', content: text }], sys, client, passages, text, emit, signal);
+      // A photo rides along in paused mode too (as parts, like in the normal loop; never stored).
+      await this.pausedLoop([...recent, { role: 'user', content: images.length ? withImages(text, images) : text }], sys, client, passages, text, emit, signal);
     } catch (e) {
       if (signal.aborted) return;
+      // A photo, but no model that can see it: say so, and pass on what the phone itself saw.
+      if (images.length && /no vision model reachable/.test(String((e as Error)?.message ?? e))) {
+        emit({ t: 'text', text: `${why}\n\n${noVisionAnswer(text)}` });
+        emit({ t: 'done', model: 'No vision model · memory paused' });
+        return;
+      }
       // No AI either: the library, or an honest explanation of what to do.
       if (hits.length) {
         emit({ t: 'text', text: `${why}\n\n${offlineAnswer(hits, 'my memory is paused').replace(/^I can't reach an AI model right now \([^)]*\), so here/, 'Meanwhile, here')}` });
