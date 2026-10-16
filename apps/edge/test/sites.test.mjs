@@ -283,6 +283,41 @@ test('the store keeps a list of published pages, takes pages down, and assembles
   assert.equal(await store.draft('big'), undefined);
 });
 
+test("a KV hiccup after the database took the page: KV's older copy is cleared so the new page is the one served; if that fails too, publishing fails", async () => {
+  const old = { name: 'shop', title: 'OLD', html: '<html>old</html>', source: '', at: 0 };
+  const kv = { m: new Map([['site:shop', JSON.stringify(old)]]), async get(k) { return this.m.has(k) ? JSON.parse(this.m.get(k)) : null; }, async put() { throw new Error('KV put failed: daily limit'); }, async delete(k) { this.m.delete(k); } };
+  const db = new Map();
+  const storage = { async get(k) { return db.get(k); }, async put(k, v) { db.set(k, structuredClone(v)); }, async delete(k) { return db.delete(k); } };
+  const store = S.siteStore({ SITES: kv }, storage);
+  await store.put({ ...old, title: 'NEW', html: '<html>new</html>', at: 1 });
+  assert.equal(db.get('site:shop').title, 'NEW');
+  assert.ok(!kv.m.has('site:shop'), "KV's stale copy is gone");
+  assert.equal((await store.get('shop')).title, 'NEW', 'served from the database');
+  // KV refuses the clean-up as well: its old copy would win every read, so the publish fails honestly
+  const stuck = { ...kv, m: new Map([['site:shop', JSON.stringify(old)]]), async delete() { throw new Error('KV delete failed'); } };
+  await assert.rejects(S.siteStore({ SITES: stuck }, storage).put({ ...old, title: 'NEWER', at: 2 }), /KV put failed/);
+});
+
+test('a page taken down while the database was paused stays down after the reset', async () => {
+  const kv = { m: new Map(), async get(k) { return this.m.has(k) ? JSON.parse(this.m.get(k)) : null; }, async put(k, v) { this.m.set(k, v); }, async delete(k) { this.m.delete(k); } };
+  const db = new Map();
+  const quota = () => { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); };
+  const storage = { down: false, async get(k) { if (this.down) quota(); return db.get(k); }, async put(k, v) { if (this.down) quota(); db.set(k, structuredClone(v)); }, async delete(k) { if (this.down) quota(); return db.delete(k); } };
+  const store = S.siteStore({ SITES: kv }, storage);
+  await store.put({ name: 'shop', title: 'Shop', html: '<html>shop</html>', source: '', at: 1 });
+  storage.down = true; // paused: the database's copy cannot go yet
+  assert.equal(await store.remove('shop'), true);
+  assert.equal(await store.get('shop'), undefined);
+  assert.equal(await S.siteStore({ SITES: kv }).get('shop'), undefined, 'the public route (no database) finds nothing either');
+  assert.deepEqual((await store.list()).map((e) => e.name), []);
+  assert.ok(db.has('site:shop'), 'still in the paused database');
+  storage.down = false; // midnight: the database is back, still holding the page
+  assert.equal(await store.get('shop'), undefined, 'not served from the database');
+  assert.ok(!db.has('site:shop'), 'the first read after the reset finished the removal');
+  assert.ok(!kv.m.has('site:shop'), 'and the marker is gone');
+  assert.equal(await store.get('shop'), undefined);
+});
+
 test('a KV hiccup after the database took the page does not fail the publish (the page is live from the database)', async () => {
   const kv = { async get() { return null; }, async put() { throw new Error('KV put failed: daily limit'); }, async delete() {} };
   const db = new Map();

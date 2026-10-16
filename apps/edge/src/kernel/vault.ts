@@ -27,6 +27,10 @@ const PREFIX = 'vault:';
 const OWN_KEY = 'vaultkey';
 /** KV: the names saved while the database was paused, not yet written to it. */
 const DIRTY_KEY = 'vault:dirty';
+/** What the mirror holds for a key removed (so a removal made during a pause is not mistaken for "never mirrored"). */
+const REMOVED = '-';
+/** fromMirror(): the mirror has no entry for this name at all. */
+const MISSING = Symbol('missing');
 let cached: { raw: string; key: CryptoKey } | null = null;
 /** Tests only: forget the brain's own vault key, as a restart in a fresh isolate would. */
 export const _testing = { forgetVaultKey: () => void (cached = null) };
@@ -173,7 +177,7 @@ export class Vault {
   private async write(name: string, value: string | null): Promise<void> {
     const sealed = value ? await this.seal(value) : '';
     const kv = this.kv;
-    const mirror = kv ? (sealed ? kv.put(PREFIX + name, sealed) : kv.delete(PREFIX + name)).catch(() => undefined) : Promise.resolve();
+    const mirror = kv ? kv.put(PREFIX + name, sealed || REMOVED).catch(() => undefined) : Promise.resolve();
     try {
       if (sealed) await this.storage.put(PREFIX + name, sealed);
       else await this.storage.delete(PREFIX + name);
@@ -209,17 +213,21 @@ export class Vault {
     }
   }
 
-  /** The mirror's value for a name: null when the mirror has none (removed), undefined when it can't be read or opened. */
-  private async fromMirror(name: string): Promise<string | null | undefined> {
+  /**
+   * The mirror's value for a name: null when it was removed, MISSING when the mirror has no
+   * entry at all (never mirrored, or no KV), undefined when it can't be read or opened right now.
+   */
+  private async fromMirror(name: string): Promise<string | null | undefined | typeof MISSING> {
     const kv = this.kv;
-    if (!kv) return undefined;
+    if (!kv) return MISSING;
     let sealed: string | null;
     try {
       sealed = await kv.get(PREFIX + name, 'text');
     } catch {
       return undefined;
     }
-    if (!sealed) return null;
+    if (sealed === null || sealed === '') return MISSING;
+    if (sealed === REMOVED) return null;
     try {
       return await this.open(sealed);
     } catch {
@@ -239,7 +247,8 @@ export class Vault {
     } catch {
       // Database unavailable: the KV mirror, then the device's copy, stand in.
       const mirrored = await this.fromMirror(name);
-      if (mirrored) {
+      if (typeof mirrored === 'string' || mirrored === null) {
+        // Known from the mirror: the value, or that it was removed (the device's copy may be older).
         this.mem.set(name, mirrored);
         return mirrored;
       }
@@ -342,7 +351,13 @@ export class Vault {
       // A name only KV knows about (the brain restarted during the pause): the mirror has the
       // value — newer than whatever the database holds, which is why the name is on the list.
       const v = this.mem.has(n) ? (this.mem.get(n) ?? null) : await this.fromMirror(n);
-      if (v === undefined) continue;
+      if (v === undefined) continue; // the mirror can't be read right now: next time
+      if (v === MISSING) {
+        // Nothing to write: the mirror never took it (its write failed during the pause, and the
+        // brain has restarted since). The database keeps what it had; the owner saves the key again.
+        this.dirty.delete(n);
+        continue;
+      }
       this.mem.set(n, v);
       try {
         await this.write(n, v);

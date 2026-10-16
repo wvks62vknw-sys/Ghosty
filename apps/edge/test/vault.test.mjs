@@ -27,10 +27,13 @@ class MemStorage {
 }
 class FakeKv {
   m = new Map();
+  /** A key KV refuses to write (its own limit, a blip). */
+  failFor = null;
   async get(k) {
     return this.m.get(k) ?? null;
   }
   async put(k, v) {
+    if (k === this.failFor) throw new Error('KV put failed');
     this.m.set(k, String(v));
   }
   async delete(k) {
@@ -49,7 +52,9 @@ test("the brain's own vault key and every key's ciphertext are mirrored into KV;
   assert.equal(kv.m.get('vault:groq'), storage.m.get('vault:groq'), 'the same ciphertext in both');
   assert.ok(!kv.m.get('vault:groq').includes('gsk_plain_value'));
   await v.set('groq', '');
-  assert.ok(!storage.m.has('vault:groq') && !kv.m.has('vault:groq'), 'removed from both');
+  assert.ok(!storage.m.has('vault:groq'), 'removed from the database');
+  assert.equal(kv.m.get('vault:groq'), '-', 'the mirror marks it removed (so a removal made during a pause is never mistaken for "never mirrored")');
+  assert.equal(await v.get('groq'), null);
 });
 
 test('a key saved during the pause is kept in KV and used after a restart in a fresh isolate, then written to the database by the brain itself', async () => {
@@ -105,4 +110,47 @@ test('automatic flushes wait a few minutes after a failed try; forced ones do no
   storage.down = false;
   assert.equal(await v.flushDirty(), 1, 'the automatic one waits');
   assert.equal(await v.flushDirty(true), 0, 'the forced one writes');
+});
+
+test('a key the mirror never took is not deleted from the database by the flush after a restart (missing is not "removed")', async () => {
+  _testing.forgetVaultKey();
+  const storage = new MemStorage();
+  const kv = new FakeKv();
+  kv.failFor = 'vault:cerebras'; // KV refuses this key's writes throughout
+  const v1 = new Vault(storage, { VAULT: kv });
+  await v1.set('cerebras', 'csk_first'); // the database took it; the mirror did not
+  assert.equal(await v1.get('cerebras'), 'csk_first');
+  assert.equal(await v1.waiting(), 0);
+  assert.ok(!kv.m.has('vault:cerebras'));
+  storage.down = true;
+  await v1.set('cerebras', 'csk_second'); // paused: memory only, and on the waiting list
+  assert.equal(await v1.get('cerebras'), 'csk_second');
+  assert.equal(await v1.waiting(), 1);
+  // a restart during the pause, then the reset
+  _testing.forgetVaultKey();
+  storage.down = false;
+  const v2 = new Vault(storage, { VAULT: kv });
+  assert.equal(await v2.flushDirty(true), 0, 'nothing is left waiting');
+  assert.equal(await v2.get('cerebras'), 'csk_first', 'the database keeps the key it had: the newer value was never mirrored, so there was nothing to write — and nothing to delete');
+});
+
+test("a key removed during the pause stays removed after a restart: the device's older copy does not bring it back", async () => {
+  _testing.forgetVaultKey();
+  const storage = new MemStorage();
+  const kv = new FakeKv();
+  const v1 = new Vault(storage, { VAULT: kv });
+  await v1.set('groq', 'gsk_secret');
+  const { backup } = await v1.backup('owner-key', ['groq']); // the phone's copy still carries it
+  storage.down = true;
+  await v1.set('groq', '');
+  assert.equal(await v1.get('groq'), null);
+  assert.equal(kv.m.get('vault:groq'), '-');
+  _testing.forgetVaultKey();
+  const v2 = new Vault(storage, { VAULT: kv }); // a fresh isolate, still paused
+  assert.equal(await v2.warm('owner-key', backup), true);
+  assert.equal(await v2.lookup('groq'), null, 'known to be removed, not "unknown" and not the older device copy');
+  assert.equal(await v2.has('groq'), false);
+  storage.down = false;
+  assert.equal(await v2.flushDirty(true), 0);
+  assert.ok(!storage.m.has('vault:groq'), 'removed from the database after the reset');
 });

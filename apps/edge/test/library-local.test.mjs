@@ -137,27 +137,29 @@ test('the device mirror copies only the new passages of a notebook that grew, an
   L._reset();
   const calls = [];
   let brain = [{ id: 'notes', title: 'Study log', source: 'ghosty', kind: 'notes', pages: 0, passages: 2, chars: 10, at: 1, status: 'ready' }];
-  const pages = { notes: [{ text: 'one' }, { text: 'two' }] };
+  // The brain pages by its row ids, shared by every document: this notebook's start high and are not contiguous.
+  const pages = { notes: [{ rid: 501, text: 'one' }, { rid: 507, text: 'two' }] };
   const api = {
     docs: async () => brain,
     passages: async (id, after) => {
       calls.push([id, after]);
-      const list = pages[id].slice(after);
-      return { passages: list, next: null };
+      const list = pages[id].filter((p) => p.rid > after).slice(0, 2);
+      return { passages: list.map((p) => ({ ...p, heading: '', page: null })), next: list.length === 2 ? list[1].rid : null };
     },
   };
   let r = await L.mirrorLibrary(api);
   assert.equal(r.copied, 1);
-  assert.deepEqual(calls, [['notes', 0]]);
-  // the notebook grew by one passage: only that one is fetched
-  pages.notes.push({ text: 'three' });
+  assert.deepEqual(calls, [['notes', 0], ['notes', 507]]);
+  // the notebook grew by one passage: only that one is fetched, from the last row id copied
+  pages.notes.push({ rid: 630, text: 'three' });
   brain = [{ ...brain[0], passages: 3, chars: 15 }];
   r = await L.mirrorLibrary(api);
   assert.equal(r.copied, 1);
-  assert.deepEqual(calls.at(-1), ['notes', 2]);
-  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['one', 'two', 'three']);
+  assert.deepEqual(calls.at(-1), ['notes', 507]);
+  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['one', 'two', 'three'], 'no passage twice');
+  assert.equal((await L.shelf()).docs.find((d) => d.id === 'notes').passages, 3);
   // a document that shrank or was rewritten is copied whole again
-  pages.notes = [{ text: 'rewritten' }];
+  pages.notes = [{ rid: 700, text: 'rewritten' }];
   brain = [{ ...brain[0], passages: 1, chars: 9 }];
   r = await L.mirrorLibrary(api);
   assert.deepEqual(calls.at(-1), ['notes', 0]);
