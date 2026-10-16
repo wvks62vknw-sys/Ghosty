@@ -6,7 +6,7 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const K = await import('./.build/knowledge/index.mjs');
-const { selfCheck, placeholderProblem, shrinkProblem, duplicateDeclarations, unsafeDomProblem } = await import('./.build/selfcheck.mjs');
+const { selfCheck, placeholderProblem, shrinkProblem, duplicateDeclarations, unsafeDomProblem, bracketProblem } = await import('./.build/selfcheck.mjs');
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -150,6 +150,13 @@ test('lessons are capped, dropping the least useful', async () => {
 // ---------- self-check rules ----------
 
 const big = Array.from({ length: 80 }, (_, i) => `export const v${i} = ${i};`).join('\n');
+
+test('self-check: a division after "return <name>" is not read as a regex, a real regex after return still is', () => {
+  assert.equal(bracketProblem("function f(t) {\n  const letters = 3;\n  return letters / t.replace(/\\s/g, '').length < 0.4 && t.length > 2;\n}\n"), null);
+  assert.equal(bracketProblem("const ok = (x) => { return /ab+c/.test(x) ? 1 : 0; };\n"), null);
+  assert.equal(bracketProblem("const r = a / b / c;\nconst q = typeof x / 2;\n"), null);
+  assert.match(bracketProblem("function g() {\n  return (1 + 2;\n}\n") ?? '', /never closed|closes/);
+});
 
 test('self-check: placeholder comments that would delete code are caught', () => {
   assert.match(placeholderProblem('import x;\n// ... existing code ...\nexport const y = 1;', 'import x;\n'), /placeholder/);

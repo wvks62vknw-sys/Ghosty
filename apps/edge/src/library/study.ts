@@ -189,6 +189,25 @@ export async function readSource(source: string): Promise<{ title: string; text:
 }
 
 const readDoc = (domain: string) => `read_${domain}`;
+
+/**
+ * The same source listed in two fields (Big O notation in algorithms and in discrete maths, say) is
+ * read once: the second field copies the first field's section instead of fetching it again — one
+ * fetch fewer, the same text, and the field still gets its own digest. Found from the cursors, so
+ * nothing extra is stored.
+ */
+export function readElsewhere(st: StudyState, domain: string, topic: Topic): { domain: string; heading: string } | null {
+  const key = `${topic.k}|${topic.t.trim().toLowerCase()}`;
+  for (const d of DOMAINS) {
+    if (d.id === domain) continue;
+    const read = Math.min(d.topics.length, st.cursor[d.id] ?? 0);
+    for (let i = 0; i < read; i++) {
+      const t = d.topics[i]!;
+      if (`${t.k}|${t.t.trim().toLowerCase()}` === key) return { domain: d.id, heading: t.t.slice(0, 180) };
+    }
+  }
+  return null;
+}
 const digestDoc = (domain: string) => `digest_${domain}`;
 export const QUIZ_DOC = 'study_quiz';
 export const LOG_DOC = 'notes_study';
@@ -282,10 +301,27 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     const domain = gap ? 'questions' : pickd!.domain;
     if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
     try {
-      const source = await findSource(topic, kind);
-      if (!source) throw new Error('no source found');
-      const { title, text, url } = await readSource(source);
-      const body = text.length > MAX_READ ? text.slice(0, MAX_READ) : text;
+      let title = topic;
+      let url = '';
+      let body = '';
+      let copiedFrom = '';
+      const prior = pickd ? readElsewhere(st, pickd.domain, pickd.topic) : null;
+      const kept0 = prior ? lib.sectionText(readDoc(prior.domain), prior.heading, MAX_READ + 400) : '';
+      if (prior && kept0.trim().length >= 200) {
+        // "<title>\nSource: <url>\n\n<text>" is how a section is filed below
+        const m = kept0.match(/^([^\n]*)\nSource: (\S+)\n\n([\s\S]*)$/);
+        title = m?.[1]?.trim() || topic;
+        url = m?.[2] ?? '';
+        body = (m?.[3] ?? kept0).slice(0, MAX_READ);
+        copiedFrom = domainById(prior.domain)?.name ?? prior.domain;
+      } else {
+        const source = await findSource(topic, kind);
+        if (!source) throw new Error('no source found');
+        const got = await readSource(source);
+        title = got.title;
+        url = got.url;
+        body = got.text.length > MAX_READ ? got.text.slice(0, MAX_READ) : got.text;
+      }
       if (body.trim().length < 200) throw new Error('the source had almost no text');
       const docId = readDoc(domain);
       const heading = topic.slice(0, 180);
@@ -303,7 +339,7 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
       bump(st, domain, 'read');
       st.last = { at: now, topic, title, passages: kept, kind: 'read' };
       if (gap) delete st.gapFails[gap];
-      await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: `Studied: ${topic}`, text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — read "${topic}" (${dname}) from ${url}: "${title}", ${kept} passages.` });
+      await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: `Studied: ${topic}`, text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — ${copiedFrom ? `copied "${topic}" (${dname}) from the ${copiedFrom} notebook, already read` : `read "${topic}" (${dname}) from ${url}`}: "${title}", ${kept} passages.` });
       // ---------- 2. DIGEST (right away while the text is in hand) ----------
       const note = await useAi(DIGEST_SYSTEM, `TOPIC: ${topic}\nDOMAIN: ${dname}\n\nTEXT:\n${body.slice(0, 7000)}`);
       if (note) {

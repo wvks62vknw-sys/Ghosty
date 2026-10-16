@@ -136,6 +136,46 @@ test('a question whose source keeps failing is tried once a session (the curricu
   assert.ok(lib.passagesOf('notes_study').passages.some((p) => /^Gave up: what is the unanswerable thing\?/.test(p.heading)), 'and said so in the study log');
 });
 
+test('a source already read in another field is copied, not fetched again; the field still gets its own section and log line', async () => {
+  // find a title two fields share (there are a few dozen: Big O notation, TLS, …)
+  let pair = null;
+  outer: for (const a of S.DOMAINS) {
+    for (let i = 0; i < a.topics.length; i++) {
+      const key = `${a.topics[i].k}|${a.topics[i].t.toLowerCase()}`;
+      for (const b of S.DOMAINS) {
+        if (b.id === a.id) continue;
+        const j = b.topics.findIndex((t) => `${t.k}|${t.t.toLowerCase()}` === key);
+        if (j >= 0) {
+          pair = { a, i, b, j };
+          break outer;
+        }
+      }
+    }
+  }
+  assert.ok(pair, 'the curriculum has at least one title shared by two fields');
+  const { a, i, b, j } = pair;
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  // field A has read up to and including the shared title, and its notebook holds the section
+  const prior = await S.loadStudy(st);
+  prior.cursor[a.id] = i + 1;
+  prior.cursor[b.id] = j; // field B is about to read the same title
+  prior.focus = [b.id];
+  await st.put(S.STUDY_KEY, prior);
+  lib.createDoc({ id: `read_${a.id}`, title: `Reading: ${a.name}`, source: 'self-study', kind: 'study' });
+  const heading = a.topics[i].t.slice(0, 180);
+  await lib.addPassages(`read_${a.id}`, [{ text: `${a.topics[i].t}\nSource: https://en.wikipedia.org/wiki/Shared\n\n${'Shared text that was read once already. '.repeat(12)}`, heading }]);
+  lib.finish(`read_${a.id}`);
+  seen.length = 0;
+  const r = await S.studySession(st, lib, { reads: 1 });
+  assert.equal(r.did.reads, 1);
+  assert.equal(r.state.last.topic, b.topics[j].t);
+  assert.ok(!seen.some((h) => /wikipedia|mdn|arxiv|swift|openstax/.test(h)), `nothing was fetched: ${seen.join(', ')}`);
+  assert.ok(lib.sectionText(`read_${b.id}`, b.topics[j].t.slice(0, 180)).includes('Shared text that was read once already'), 'field B has its own copy');
+  assert.ok(lib.passagesOf('notes_study').passages.some((p) => /^Studied: /.test(p.heading) && /copied .* from the .* notebook, already read/.test(p.text)), 'the log says it was copied');
+  assert.equal(r.state.cursor[b.id], j + 1);
+});
+
 test("the Swift book's oddly named chapters resolve to their real pages", async () => {
   assert.equal(await S.findSource('A Swift Tour', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/guidedtour/');
   assert.equal(await S.findSource('Structures and Classes', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/classesandstructures/');
