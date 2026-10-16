@@ -33,6 +33,9 @@ export const CLIENT_COMMANDS = [
   'offline_save',
   'show_link',
   'show_crime',
+  'show_transit',
+  'show_incidents',
+  'road_ahead',
   'play_radio',
   'stop_audio',
 ] as const;

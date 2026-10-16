@@ -55,14 +55,14 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   if (!tiles) problems.push(`[${name}] the CCTV grid did not show four cameras`);
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${out}/${name}-camgrid.png` });
-  // A city without public cameras: Ghosty says so (and how far the nearest are) and shows live traffic there.
+  // Birmingham: its own streets have no public cameras; the motorways around it do (National Highways), and live traffic shows.
   if (name === 'desktop') {
     await page.evaluate(() => (location.hash = 'core'));
     await page.waitForTimeout(500);
     await page.fill('#cin', 'show me the cameras in Birmingham City Centre');
     await page.keyboard.press('Enter');
-    const said = await page.waitForFunction(() => /no public live cameras in Birmingham/i.test(document.body.textContent ?? ''), null, { timeout: 30000 }).then(() => true).catch(() => false);
-    if (!said) problems.push(`[${name}] Birmingham: Ghosty did not say there are no public cameras there`);
+    const said = await page.waitForFunction(() => /motorway camera to Birmingham/i.test(document.body.textContent ?? '') && /own streets have no public cameras/i.test(document.body.textContent ?? ''), null, { timeout: 30000 }).then(() => true).catch(() => false);
+    if (!said) problems.push(`[${name}] Birmingham: Ghosty did not explain the city has no cameras of its own and open a motorway camera`);
     const state = await page.evaluate(() => ({ tab: window.__ghosty.ui.get().tab, traffic: window.__ghosty.globe.vis.traffic, lat: window.__ghosty.globe.cam.target.lat }));
     if (state.tab !== 'eye' || !state.traffic || Math.abs(state.lat - 52.48) > 0.5) problems.push(`[${name}] Birmingham: God's Eye not showing traffic there (${JSON.stringify(state)})`);
     await page.waitForTimeout(6000);

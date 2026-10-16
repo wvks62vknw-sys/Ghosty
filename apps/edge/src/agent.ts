@@ -20,6 +20,8 @@ export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
+import { transitRoute } from './integrations/transit';
+import { liveEvents } from './integrations/highways';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
@@ -334,6 +336,18 @@ export class GhostyAgent {
       }
       if (path === '/stt' && method === 'POST') return await this.stt(req);
       if (path === '/ships' && method === 'GET') return json(await this.ships(url));
+      if (path === '/transit' && method === 'GET') return json(await transitRoute(url, this.vault));
+      if (path === '/highways/events' && method === 'GET') {
+        // Live motorway incidents for the globe's ROAD INCIDENTS layer: National Highways' list (3-minute cache), placed at their junctions.
+        const region = (url.searchParams.get('region') ?? 'West Midlands').slice(0, 40);
+        const road = url.searchParams.get('road') ?? undefined;
+        const r = await liveEvents({ region, ...(road ? { road } : {}) });
+        const events = r.events
+          .filter((e) => e.lat != null && e.lon != null)
+          .slice(0, 200)
+          .map((e) => ({ id: e.id, road: e.road, direction: e.direction, title: e.title, reason: e.reason, delayS: e.delayS, lanesClosed: e.lanesClosed, lat: e.lat, lon: e.lon, normalBy: e.normalBy, updated: e.updated }));
+        return json({ events, total: r.events.length, at: r.at, src: r.src, credit: r.credit });
+      }
       if (path.startsWith('/reverse')) return await this.reverseRoute(req, path, method);
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path === '/email/status' && method === 'GET') {

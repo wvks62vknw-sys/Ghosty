@@ -33,7 +33,7 @@ globalThis.fetch = async (input) => {
   seen.push(url.hostname + url.pathname);
   const j = (o) => new Response(JSON.stringify(o), { headers: { 'content-type': 'application/json' } });
   const html = (t, b) => new Response(`<html><head><title>${t}</title></head><body><p>${b}</p></body></html>`, { headers: { 'content-type': 'text/html' } });
-  const q = url.searchParams.get('q') ?? url.searchParams.get('srsearch') ?? '';
+  const q = url.searchParams.get('q') ?? url.searchParams.get('srsearch') ?? url.searchParams.get('search_query') ?? '';
   if (url.hostname === 'developer.mozilla.org' && url.pathname === '/api/v1/search') return j({ documents: [{ mdn_url: `/en-US/docs/Web/${encodeURIComponent(q.replace(/\s+/g, '_'))}` }] });
   if (url.hostname === 'developer.mozilla.org') {
     const t = decodeURIComponent(url.pathname.split('/').pop()).replace(/_/g, ' ');
@@ -48,7 +48,10 @@ globalThis.fetch = async (input) => {
     const t = decodeURIComponent(url.pathname.split('/').pop()).replace(/_/g, ' ');
     return html(t, lorem(t));
   }
-  if (url.hostname === 'export.arxiv.org') return new Response(`<feed><entry><id>http://arxiv.org/abs/2301.00001v2</id><title>${q}</title></entry></feed>`, { headers: { 'content-type': 'application/atom+xml' } });
+  if (url.hostname === 'export.arxiv.org') {
+    const id = /Polynomial-Time Algorithms/.test(q) ? 'quant-ph/9508027v2' : '2301.00001v2';
+    return new Response(`<feed><entry><id>http://arxiv.org/abs/${id}</id><title>${q}</title></entry></feed>`, { headers: { 'content-type': 'application/atom+xml' } });
+  }
   if (url.hostname === 'arxiv.org' && url.pathname.startsWith('/abs/')) return new Response(`<html><head><meta name="citation_title" content="A paper on things"><title>[2301.00001] A paper on things</title></head><body><blockquote class="abstract mathjax">Abstract: ${lorem('the paper')}</blockquote></body></html>`, { headers: { 'content-type': 'text/html' } });
   if (url.hostname === 'arxiv.org') return html('A paper on things', lorem('the full paper'));
   if (url.hostname === 'docs.swift.org' || url.hostname === 'openstax.org') {
@@ -107,6 +110,7 @@ test("questions the library couldn't answer are studied first; a failed source i
   assert.deepEqual(failed.did, { reads: 0, digests: 0, drills: 0 });
   assert.equal(failed.state.gaps.length, 1, 'kept to try again');
   assert.equal(failed.state.domains.questions.failed, 1);
+  assert.equal(failed.state.gapFails['how does collision detection work in games?'], undefined, 'a rate limit is not held against the question');
   assert.equal(failed.next, HOUR, 'nothing read: back in an hour');
   const ok = await S.studySession(st, lib, { reads: 1 });
   assert.equal(ok.state.last.topic, 'how does collision detection work in games?');
@@ -130,6 +134,24 @@ test('a question whose source keeps failing is tried once a session (the curricu
   assert.deepEqual(r3.state.gaps, [], 'given up after three sessions');
   assert.deepEqual(r3.state.gapFails, {});
   assert.ok(lib.passagesOf('notes_study').passages.some((p) => /^Gave up: what is the unanswerable thing\?/.test(p.heading)), 'and said so in the study log');
+});
+
+test("the Swift book's oddly named chapters resolve to their real pages", async () => {
+  assert.equal(await S.findSource('A Swift Tour', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/guidedtour/');
+  assert.equal(await S.findSource('Structures and Classes', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/classesandstructures/');
+  assert.equal(await S.findSource('Opaque and Boxed Protocol Types', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/opaquetypes/');
+  assert.equal(await S.findSource('Optional Chaining', 'swift'), 'https://docs.swift.org/swift-book/documentation/the-swift-programming-language/optionalchaining/');
+});
+
+test("a pre-2007 arXiv id (archive/NNNNNNN) is found and read like a new-style one", async () => {
+  assert.equal(await S.findSource('Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms', 'arxiv'), 'quant-ph/9508027');
+  assert.equal(await S.findSource('A paper on things', 'arxiv'), '2301.00001');
+  const old = await S.readSource('quant-ph/9508027');
+  assert.equal(old.url, 'https://arxiv.org/abs/quant-ph/9508027');
+  assert.equal(old.title, 'A paper on things');
+  assert.ok(/Abstract: /.test(old.text));
+  const versioned = await S.readSource('cs.LG/0101001v3');
+  assert.equal(versioned.url, 'https://arxiv.org/abs/cs.LG/0101001');
 });
 
 test('switched off, it does nothing', async () => {

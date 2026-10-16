@@ -2,7 +2,7 @@
 // buoys and cables. Every upstream feed is replaced with a small fixture so the run is
 // deterministic; the brain's own /api/ships answer is faked too.
 import { chromium } from 'playwright';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -42,6 +42,9 @@ function png(w, h, [r, g, b, a]) {
 
 const now = Date.now();
 const iso = (ms) => new Date(ms).toISOString();
+// National Highways' West Midlands cameras are vendored (no download), so they always count.
+const root = new URL('..', import.meta.url).pathname;
+const nhCount = (readFileSync(`${root}apps/web/src/data/wm/nhCameras.ts`, 'utf8').match(/^\s+\['\d{5}',/gm) ?? []).length;
 const sq = (lat, lon, d) => [[lon, lat], [lon + d, lat], [lon + d, lat + d], [lon, lat + d], [lon, lat]];
 const FIXTURES = [
   [/api\.tfl\.gov\.uk/, [
@@ -134,7 +137,7 @@ const layerText = async () => (await page.evaluate(() => document.querySelector(
 const waitLayer = async (re) => page.waitForFunction((src) => new RegExp(src).test((document.querySelector('.eyelay')?.textContent ?? '').replace(/\s+/g, ' ')), re.source, { timeout: 25000 }).then(() => true, () => false);
 let lt = await layerText();
 for (const [label, re] of [
-  ['cameras (TfL 2 + Fintraffic + Ontario)', /CCTV CAMERAS\s*4(?!\d)/],
+  ['cameras (TfL 2 + Fintraffic + Ontario + the vendored motorway cameras)', new RegExp(`CCTV CAMERAS\\s*${4 + nhCount}(?!\\d)`)],
   ['alerts', /WEATHER ALERTS\s*1/],
   ['disasters', /DISASTERS\s*1/],
   ['dispatch', /911 SEATTLE\s*1/],
@@ -153,9 +156,9 @@ if (!asked.has('radar-tile')) problems.push('no radar tiles requested');
 await page.waitForFunction(() => /ANPR \/ SPEED\s*\d+ ANPR/.test(document.querySelector('.eyelay')?.textContent ?? ''), null, { timeout: 25000 }).catch(() => problems.push(`ANPR layer not loaded near London: ${asked.has('osm-cams')}`));
 await page.screenshot({ path: `${out}/intel-london.png` });
 
-// Birmingham: no open live feed, so Ghosty shows the mapped ANPR / speed / red-light cameras.
+// Birmingham: the nearest National Highways motorway camera opens (its picture comes through the proxy), and the mapped ANPR / speed cameras stay counted.
 await page.evaluate(() => window.__ghosty.run('show_cameras', { place: 'Birmingham' }));
-await page.waitForFunction(() => /mapped ANPR, speed and red-light cameras/.test(document.body.textContent ?? ''), null, { timeout: 45000 }).catch(() => problems.push('Birmingham fallback toast never appeared'));
+await page.waitForFunction(() => /NATIONAL HIGHWAYS/.test(document.querySelector('.eyeinfo')?.textContent ?? ''), null, { timeout: 45000 }).catch(() => problems.push(`Birmingham: no motorway camera opened: ${document.querySelector('.eyeinfo')?.textContent}`));
 await page.waitForTimeout(3000);
 const bhm = await page.evaluate(() => document.querySelector('.eyelay')?.textContent?.replace(/\s+/g, ' ') ?? '');
 if (!/ANPR \/ SPEED\s*2 ANPR · 3/.test(bhm)) problems.push(`Birmingham cameras not counted: ${bhm.slice(0, 300)}`);
@@ -176,7 +179,7 @@ await settle(1500);
 await page.screenshot({ path: `${out}/intel-ship.png` });
 
 const readout = await page.evaluate(() => document.querySelector('.readout')?.textContent ?? '');
-if (!/\d+ SHIP/.test(readout) || !/4 CAM/.test(readout)) problems.push(`readout missing counts: ${readout}`);
+if (!/\d+ SHIP/.test(readout) || !new RegExp(`${4 + nhCount} CAM`).test(readout)) problems.push(`readout missing counts: ${readout}`);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `Intel layers run clean (${asked.size} feeds answered).`);
 process.exit(problems.length ? 1 : 0);

@@ -24,9 +24,14 @@ export const uiTools: Tool[] = [
     "Open the God's Eye globe and fly the camera to a place name or coordinates.",
     { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' }, range_km: { type: 'number', description: 'camera distance, default 500' } },
   ),
-  client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, cams (live public CCTV), traffic (live road speeds, needs the TomTom key), ships (AIS vessels), radar (live rain radar), alerts (US weather warnings), disasters (GDACS cyclones/floods/volcanoes/fires), aurora, dispatch (Seattle 911 calls), buoys (ocean waves/wind), cables (undersea internet cables), enforce (ANPR number-plate readers, speed/average-speed/red-light/bus-lane cameras and mapped CCTV from OpenStreetMap — locations only, loads when zoomed in), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
+  client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, cams (live public CCTV), traffic (live road speeds, needs the TomTom key), ships (AIS vessels), radar (live rain radar), alerts (US weather warnings), disasters (GDACS cyclones/floods/volcanoes/fires), aurora, dispatch (Seattle 911 calls), buoys (ocean waves/wind), cables (undersea internet cables), enforce (ANPR number-plate readers, speed/average-speed/red-light/bus-lane cameras and mapped CCTV from OpenStreetMap, plus West Midlands Police mobile-enforcement and average-speed sites — locations only, loads when zoomed in), transit (live buses and trams), incidents (live motorway incidents at their junctions), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
   client('set_theme', 'Change the interface colour theme: stark (JARVIS blue), arc (white arc core), mark3 (red and gold), nano (nanotech gold), warmachine (gunmetal), friday (green), ultron (violet), stealth (indigo).', { theme: { type: 'string' } }, ['theme']),
   client('set_sensor_mode', 'Change the globe sensor mode: normal, nvg, flir, crt, noir.', { mode: { type: 'string' } }, ['mode']),
   client('notify', 'Show a short notice on screen.', { text: { type: 'string' } }, ['text']),
+  client(
+    'road_ahead',
+    "ROAD AHEAD mode on God's Eye: the globe follows the owner's own position from their phone's GPS (heading up, nothing leaves the device) and a panel shows what is ahead of them — live road incidents, safety-camera sites, public motorway cameras to tap, buses nearby. Use when the owner says they are driving or walking somewhere and wants to see the road ahead; on:false ends it.",
+    { on: { type: 'boolean' } },
+  ),
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
 ];

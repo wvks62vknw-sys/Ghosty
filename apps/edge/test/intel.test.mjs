@@ -129,3 +129,31 @@ test('ANPR / speed / red-light cameras from OpenStreetMap are classified', () =>
   assert.equal(list[0].operator, 'Birmingham City Council');
   assert.match(E.overpassQuery([52.4, -2, 52.6, -1.7]), /speed_camera.*surveillance.*enforcement/);
 });
+
+test('West Midlands Police safety-camera sites: kinds mapped, dates converted, bad rows and unknown types skipped', () => {
+  const sites = I.parseWmSafety([
+    { name: 'A34 Stratford Road, Hall Green', siteno: '101', cat: 'A', area: 'Birmingham', ltt: '52.4283', lgt: '-1.8420', limit: '30', sitetype: 'mobile', totaloffences: 412, highspeed: 58, lastenforced: '14/11/2024' },
+    { name: 'M6 J5 to J4A southbound', siteno: 'S12', cat: 'M', area: 'Solihull', ltt: '52.4800', lgt: '-1.7600', limit: '50', sitetype: 'specs', totaloffences: '1583', highspeed: '94', lastenforced: 'No Data' },
+    { name: 'M6 J10A gantry', siteno: 'H3', cat: 'M', area: 'Walsall', ltt: '52.6262', lgt: '-2.0387', limit: 'Variable', sitetype: 'hadecs', totaloffences: 77, highspeed: 101, lastenforced: '02/03/2024' },
+    { name: 'Broken row', siteno: '999', area: 'Dudley', ltt: 'n/a', lgt: '', limit: '40', sitetype: 'mobile', totaloffences: 1, highspeed: 1, lastenforced: '01/01/2024' },
+    { name: 'Unknown type', siteno: '7', area: 'Coventry', ltt: '52.41', lgt: '-1.51', limit: '30', sitetype: 'fixed', totaloffences: 0, highspeed: 0, lastenforced: 'No Data' },
+    null,
+    'not a site',
+  ]);
+  assert.deepEqual(sites.map((s) => [s.id, s.kind]), [['wmp-101-mobile', 'mobile'], ['wmp-S12-average', 'average'], ['wmp-H3-variable', 'variable']]);
+  assert.equal(sites[0].name, 'A34 Stratford Road, Hall Green');
+  assert.equal(sites[0].area, 'Birmingham');
+  assert.equal(sites[0].lat, 52.4283);
+  assert.equal(sites[0].lon, -1.842);
+  assert.equal(sites[0].limit, '30');
+  assert.equal(sites[0].offences, 412);
+  assert.equal(sites[0].topSpeed, 58);
+  assert.equal(sites[0].lastEnforced, '2024-11-14', 'dd/mm/yyyy becomes yyyy-mm-dd');
+  assert.equal(sites[1].lastEnforced, '', '"No Data" becomes an empty date');
+  assert.equal(sites[1].offences, 1583, 'numbers given as strings are read');
+  assert.equal(sites[1].topSpeed, 94);
+  assert.equal(sites[2].limit, 'Variable');
+  assert.equal(sites[2].lastEnforced, '2024-03-02');
+  assert.deepEqual(I.parseWmSafety({ not: 'an array' }), []);
+  assert.deepEqual(I.parseWmSafety(null), []);
+});

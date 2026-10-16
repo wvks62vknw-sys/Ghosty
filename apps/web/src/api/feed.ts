@@ -92,6 +92,8 @@ export async function fetchImage(url: string, ttl = 20, timeout = 20000): Promis
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const b = await r.blob();
     if (!b.type.startsWith('image/') && b.size < 200) throw new Error('not an image');
+    // National Highways answers for a camera that is off with a fixed "Camera not available" picture (always 21,422 bytes), not an error.
+    if (b.size === 21422 && b.type === 'image/jpeg') throw new Error('offline');
     return URL.createObjectURL(b);
   } finally {
     clearTimeout(to);

@@ -3,15 +3,18 @@
  * cameras. The interface never sees the key: flow tiles come through /api/traffic/tile/z/x/y,
  * and the traffic tools ask TomTom from here.
  *
- * Cameras: only official, public feeds (see apps/web/src/data/cameras.ts). Many councils —
- * Birmingham, and National Highways' motorway cameras — do not publish theirs, so a place can
- * have live traffic speeds and incidents but no camera picture.
+ * Cameras: only official, public feeds (see apps/web/src/data/cameras.ts). National Highways'
+ * motorway cameras around Birmingham (M6, M5, M42, M54, A38(M)) ARE shown: their public stills,
+ * a new frame every 20–30 s. Birmingham's own streets still have none (the council does not
+ * publish its CCTV), so a city street can have live traffic speeds and incidents, and the
+ * nearest motorway camera, but no picture of the street itself.
  */
 import type { Vault } from '../kernel/vault';
 
 /** Areas with public cameras in God's Eye (centre + rough radius, km). Keep in sync with data/cameras.ts. */
 export const CAMERA_AREAS: { name: string; lat: number; lon: number; km: number }[] = [
   { name: 'London (TfL JamCams)', lat: 51.507, lon: -0.128, km: 30 },
+  { name: 'West Midlands motorways (National Highways)', lat: 52.5, lon: -1.9, km: 45 },
   { name: 'County Durham (Durham County Council)', lat: 54.73, lon: -1.6, km: 30 },
   { name: 'New York City (NYC DOT)', lat: 40.73, lon: -73.95, km: 30 },
   { name: 'Los Angeles (Caltrans)', lat: 34.05, lon: -118.25, km: 80 },

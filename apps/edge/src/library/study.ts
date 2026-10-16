@@ -114,8 +114,9 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 const WIKI_HOSTS: Record<string, string> = { wiki: 'en.wikipedia.org', wikibooks: 'en.wikibooks.org', wikiversity: 'en.wikiversity.org' };
-/** The Swift book's page addresses are the title in lower case with the spaces removed. */
-const swiftSlug = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, '');
+/** The Swift book's page addresses are the title in lower case with the spaces removed — except a few chapters whose page is named differently. */
+const SWIFT_SLUGS: Record<string, string> = { 'a swift tour': 'guidedtour', 'structures and classes': 'classesandstructures', 'opaque and boxed protocol types': 'opaquetypes', 'the basics': 'thebasics', 'about swift': 'aboutswift' };
+const swiftSlug = (t: string) => SWIFT_SLUGS[t.toLowerCase().trim()] ?? t.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 /** Find one good source for a topic: a URL (or an arXiv id) that readSource can read. */
 export async function findSource(topic: string, kind: SourceKind): Promise<string | null> {
@@ -126,7 +127,7 @@ export async function findSource(topic: string, kind: SourceKind): Promise<strin
   }
   if (kind === 'arxiv') {
     const r = await fetch(`https://export.arxiv.org/api/query?max_results=1&sortBy=relevance&search_query=${encodeURIComponent(`all:${topic}`)}`, { headers: { 'User-Agent': UA } });
-    const id = r.ok ? (await r.text()).match(/<id>https?:\/\/arxiv\.org\/abs\/(\d{4}\.\d{4,5})(?:v\d+)?<\/id>/)?.[1] : undefined;
+    const id = r.ok ? (await r.text()).match(/<id>https?:\/\/arxiv\.org\/abs\/(\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?<\/id>/)?.[1] : undefined;
     if (id) return id;
   }
   if (kind === 'swift') return `https://docs.swift.org/swift-book/documentation/the-swift-programming-language/${swiftSlug(topic)}/`;
@@ -161,7 +162,8 @@ async function readCapped(r: Response, max = MAX_BYTES): Promise<string> {
 
 /** Fetch a source and turn it into plain text: a web page, or an arXiv paper (abstract + HTML full text). */
 export async function readSource(source: string): Promise<{ title: string; text: string; url: string }> {
-  const arxiv = source.match(/^(\d{4}\.\d{4,5})(?:v\d+)?$/);
+  // new-style ids (2301.00001) and the pre-2007 archive/NNNNNNN form (quant-ph/9508027)
+  const arxiv = source.match(/^(\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?$/);
   if (arxiv) {
     const id = arxiv[1]!;
     const abs = await fetch(`https://arxiv.org/abs/${id}`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
@@ -318,7 +320,10 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
       const error = String((e as Error)?.message ?? e).slice(0, 200);
       st.last = { at: now, topic, error, kind: 'read' };
       if (gap) {
-        const fails = (st.gapFails[gap] = (st.gapFails[gap] ?? 0) + 1);
+        // Only a definite miss counts against the question (no source, or a page with nothing in it);
+        // a rate limit, an outage or a timeout is tried again next session without counting.
+        const definite = /no source found|almost no text/.test(error);
+        const fails = definite ? (st.gapFails[gap] = (st.gapFails[gap] ?? 0) + 1) : (st.gapFails[gap] ?? 0);
         if (fails < MAX_GAP_FAILS) retry.push(gap); // another session, another try
         else {
           delete st.gapFails[gap];

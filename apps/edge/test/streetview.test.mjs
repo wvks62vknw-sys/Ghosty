@@ -30,10 +30,14 @@ test('traffic_now with no key still opens the live Waze map and the nearest came
   assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_cameras']);
   assert.match(out, /Waze/);
   assert.match(out, /TomTom key/);
-  // Birmingham has no public cameras: the live map alone
+  // Birmingham: the motorways around it have public cameras (National Highways), so those open too
   const ev2 = [];
   await T.toolByName.get('traffic_now').run({ place: 'Birmingham' }, ctx((e) => ev2.push(e)));
-  assert.deepEqual(ev2.map((e) => e.name), ['traffic_map']);
+  assert.deepEqual(ev2.map((e) => e.name), ['traffic_map', 'show_cameras']);
+  // a place with none at all: the live map alone
+  const ev3 = [];
+  await T.toolByName.get('traffic_now').run({ lat: 55.95, lon: -3.19, place: 'Edinburgh' }, ctx((e) => ev3.push(e)));
+  assert.deepEqual(ev3.map((e) => e.name), ['traffic_map']);
 });
 
 test('the interface may frame exactly Google Maps and Waze, nothing else', () => {

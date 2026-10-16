@@ -64,7 +64,7 @@ export async function importSource(lib: Library, source: string, opts: { offset?
   const s = source.trim();
   const cve = s.match(/^(CVE-\d{4}-\d{4,})$/i);
   if (cve) return importCve(lib, cve[1]!.toUpperCase());
-  const arxiv = s.match(/^(?:arxiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?)$/i) ?? s.match(/arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5}(?:v\d+)?)/i);
+  const arxiv = s.match(/^(?:arxiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)$/i) ?? s.match(/arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)/i);
   if (arxiv) return importArxiv(lib, arxiv[1]!);
   const gh = s.match(/^(?:https?:\/\/github\.com\/)?([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/[^/]+\/(.+))?\/?$/);
   if (gh && !/^https?:\/\/(?!github\.com)/.test(s) && !s.includes(' ')) return importGithub(lib, gh[1]!, gh[2]!, gh[3] ?? '', opts.offset ?? 0);

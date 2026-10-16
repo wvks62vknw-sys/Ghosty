@@ -106,18 +106,44 @@ account; play, pause, skip and volume need **Spotify Premium**, and Spotify must
 A new Spotify app is in "development mode": add your own Spotify email under the app's **User Management** if it asks.
 
 
-## 3e. Live traffic (optional, free)
+## 3e. Birmingham, the West Midlands and live traffic
 
-God's Eye shows live public CCTV where operators publish it (London, County Durham, New York, California,
-Finland, Ontario, British Columbia, Sydney, Calgary). Many places — Birmingham included, and National
-Highways' motorway cameras — don't publish theirs, so for everywhere else Ghosty uses live traffic:
-1. Create a free account at [developer.tomtom.com](https://developer.tomtom.com/user/register) (no card).
-2. Dashboard → **Keys** → copy **My first API key**.
-3. In Ghosty: **Links → Live traffic** (or **System → Keys → TomTom traffic**), paste it and press **SAVE**.
+**Works with no key at all** (God's Eye, and in chat):
+- **Motorway cameras** — National Highways' public CCTV stills around Birmingham (M6 incl. Spaghetti
+  Junction and the Bromford viaduct, M5, M42, M54, A38(M)): a new frame every 20–30 seconds. Ask *"show me the
+  cameras at M6 junction 6"* or tap the **CCTV CAMERAS** layer. Birmingham's own streets have no public
+  cameras (the council doesn't publish its CCTV), so there Ghosty shows the nearest motorway camera and says so.
+  The pictures are Crown copyright, for your own viewing only — they are never republished.
+- **Live motorway incidents** — National Highways' own list: crashes, queues, closures, roadworks, with the
+  delay in minutes, lanes closed and when it should clear, placed at the junctions they name
+  (**ROAD INCIDENTS** layer; ask *"what's happening on the M6?"* or *"any bottlenecks around Birmingham?"*).
+  Plus the *usual* speed at this time of day on the nearest stretch, from National Highways' traffic counts
+  (not live — the live counts have been paused by National Highways since September 2026).
+- **Safety cameras** — West Midlands Police's own enforcement sites: mobile-van sites, average-speed routes and
+  motorway variable-limit gantries (the **ANPR / SPEED** layer over the West Midlands, with 2024 offence counts
+  and the limit; data published January 2025 — the newer Birmingham average-speed routes announced in 2025 are
+  not in it yet), alongside the OpenStreetMap-mapped ANPR and camera locations.
+- **Live buses and trams** — the **BUSES & TRAMS** layer and *"buses near me"*: without a key Ghosty uses
+  bustimes.org's community feed (updated about once a minute); with the free keys below it uses the official feeds.
+- **ROAD AHEAD** — say *"I'm driving up the M6"* or press **ROAD AHEAD** on God's Eye: the globe follows your
+  phone's GPS heading-up and the panel shows your speed, the nearest junction, and what is ahead of you —
+  road reports, safety-camera sites, buses, and the motorway cameras ahead (opened only when you tap one).
+  Your position stays on the phone; it never goes to Ghosty's brain.
 
-Then ask *"show me the cameras in Birmingham city centre"* or *"how's the traffic on the M6?"*: God's Eye
-flies there with every road coloured by speed, and Ghosty lists crashes, closures and queues with delays.
-The free plan allows 50,000 map tiles and 2,500 lookups a day.
+**Free keys that make it better** (System → Keys, each takes two minutes):
+- **TfWM transport** — [api-portal.tfwm.org.uk](https://api-portal.tfwm.org.uk/signup): the official live
+  positions of every West Midlands bus and Metro tram (10,000 requests a day). Paste the Application ID and Key
+  as `id key`. The feed requires the credit *Powered by TfWM part of West Midlands Combined Authority Open Data*,
+  which Ghosty shows.
+- **Bus Open Data** — [data.bus-data.dft.gov.uk](https://data.bus-data.dft.gov.uk/account/signup/): live buses
+  anywhere in England, every 10 seconds (no trams).
+- **TomTom traffic** — [developer.tomtom.com](https://developer.tomtom.com/user/register): every road coloured
+  by speed on God's Eye and the numbers (speed vs normal, incidents with delays) anywhere, not just the motorways.
+  Dashboard → **Keys** → copy **My first API key** → **Links → Live traffic**. Free: 50,000 map tiles and
+  2,500 lookups a day.
+
+Not available anywhere free: Birmingham City Council's street CCTV, National Rail train positions, and live
+motorway speed counts (WebTRIS is a monthly archive). Ghosty says so rather than pretending.
 
 ## 4. Let Ghosty edit itself
 

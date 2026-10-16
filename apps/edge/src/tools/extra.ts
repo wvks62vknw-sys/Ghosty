@@ -16,5 +16,7 @@
 import type { Tool } from './types';
 
 import { detect_crime } from './detect_crime';
+import { highwaysTools } from './highways';
+import { transitTools } from './transit';
 
-export const extraTools: Tool[] = [detect_crime];
+export const extraTools: Tool[] = [detect_crime, ...transitTools, ...highwaysTools];

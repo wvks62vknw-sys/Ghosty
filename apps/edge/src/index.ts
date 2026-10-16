@@ -24,6 +24,8 @@ const CAMERA_HOSTS = [
   'trafficcam.calgary.ca',
   'spatial.durham.gov.uk',
   'dcc.ussgroup.co.uk',
+  'wmsafetycameras.co.uk',
+  'public.highwaystrafficcameras.co.uk',
 ];
 // Intelligence feeds (God's Eye): ships, radar, weather alerts, disasters, buoys, aurora, cables, 911.
 const INTEL_HOSTS = [
@@ -36,12 +38,17 @@ const INTEL_HOSTS = [
   'data.police.uk',
   'api.rainviewer.com',
   'tilecache.rainviewer.com',
+  'nationalhighways.co.uk',
+  'webtris.highwaysengland.co.uk',
+  'trafficengland.uk',
 ];
 /** Publishers that ask clients to identify themselves / accept compression. */
 const FEED_HEADERS: Record<string, Record<string, string>> = {
   'meri.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
   'tie.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
   'api.weather.gov': { Accept: 'application/geo+json' },
+  // Sits behind a web application firewall that turns away bare bot agents.
+  'wmsafetycameras.co.uk': { 'User-Agent': 'Mozilla/5.0 (compatible; Ghosty personal assistant)' },
 };
 /** Hosts shared by many sites: allowed only under these paths. */
 const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];

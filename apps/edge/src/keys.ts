@@ -4,6 +4,7 @@
  * made an API key before. Add an entry here when a new tool needs a key.
  */
 import { MailError, parseEmailKey, testLogin } from './integrations/mail';
+import { parseTfwmKey } from './integrations/transit';
 
 export interface KeyDef {
   name: string;
@@ -154,6 +155,32 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     {
+      name: 'tfwm',
+      label: 'TfWM transport (West Midlands buses & trams)',
+      hint: 'app id, a space, then the app key',
+      link: 'https://api-portal.tfwm.org.uk/signup',
+      need: 'optional',
+      why: "Live National Express West Midlands buses and Metro trams on God's Eye, and \"what buses are running near X\" when you ask. Free, 10,000 hits a day.",
+      steps: [
+        'Open the link and register (free, about two minutes; confirm the email they send).',
+        'Open your application on the portal to see its Application ID and Key.',
+        'Paste them here as "id key" — the Application ID, a space, then the Key — and press SAVE.',
+      ],
+    },
+    {
+      name: 'bods',
+      label: 'Bus Open Data (all England buses)',
+      hint: 'a long letters-and-numbers key',
+      link: 'https://data.bus-data.dft.gov.uk/account/signup/',
+      need: 'optional',
+      why: "Live buses anywhere in England on God's Eye, every 10 seconds (the Department for Transport's Bus Open Data Service). Free, no trams.",
+      steps: [
+        'Open the link and create the free account (confirm the email they send).',
+        'Sign in, open Account Settings and copy the API key shown there.',
+        'Paste it here and press SAVE.',
+      ],
+    },
+    {
       name: 'mapbox',
       label: 'Mapbox token',
       hint: 'starts with pk.…',
@@ -242,6 +269,18 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       }
       case 'tomtom':
         status = await check(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?point=51.5074,-0.1278&key=${encodeURIComponent(value)}`, {});
+        break;
+      case 'tfwm': {
+        // A gentle check: one request for the live feed. The documented host has a bad certificate,
+        // so the mirror with a valid one is tried first (see integrations/transit.ts).
+        const k = parseTfwmKey(value);
+        if (!k) return { ok: false, info: 'type the Application ID, a space, then the Key (both from your application on the TfWM portal)' };
+        const q = `?app_id=${encodeURIComponent(k.id)}&app_key=${encodeURIComponent(k.key)}`;
+        status = await check(`https://api-realtime-odp.tfwm.itoworld.com/gtfs/vehicle_positions${q}`).catch(() => check(`http://api.tfwm.org.uk/gtfs/vehicle_positions${q}`));
+        break;
+      }
+      case 'bods':
+        status = await check(`https://data.bus-data.dft.gov.uk/api/v1/gtfsrtdatafeed/?boundingBox=-1.95,52.45,-1.85,52.52&api_key=${encodeURIComponent(value.trim())}`);
         break;
       case 'email': {
         // The value holds a password: only owner-friendly messages come back, never the value itself.
