@@ -20,7 +20,9 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const page = await browser.newPage({ viewport });
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  // Errors thrown by Waze's own scripts inside the live-traffic frame (opened for a city with no
+  // public cameras) surface here too; only Ghosty's own errors count.
+  page.on('pageerror', (e) => !/^\{"message"/.test(e.message) && problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 15000 });
   await page.fill('#pair input', 'preview-owner-key-0123456789');

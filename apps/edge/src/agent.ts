@@ -249,11 +249,24 @@ export class GhostyAgent {
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
+      if (path === '/keys/public' && method === 'GET') {
+        // Only a key that is public by design: Mapbox's "pk." token goes in the map's tile addresses.
+        let mapbox = '';
+        try {
+          mapbox = (await this.vault.get('mapbox')) || '';
+        } catch {
+          /* database paused and no copy from the device: no token */
+        }
+        return json(mapbox.startsWith('pk.') ? { mapbox } : {});
+      }
       if (path === '/keys' && method === 'POST') {
         const { name, value } = (await req.json()) as { name: string; value: string };
         if (!KEYS.some((k) => k.name === name)) return json({ error: 'unknown key' }, 400);
         // Keys never contain spaces; the email entry is "address password [imap smtp]", so it keeps single spaces.
         const v = name === 'email' ? String(value ?? '').trim().replace(/\s+/g, ' ') : String(value ?? '').trim().replace(/\s+/g, '');
+        // Mapbox: only the public token is accepted, and a secret one is refused before it reaches the
+        // vault — so a mistaken paste never overwrites a good public token (which goes in tile addresses on the device).
+        if (name === 'mapbox' && v && !v.startsWith('pk.')) return json({ error: 'not saved: use the public token (it starts with pk.), never a secret sk. token' }, 400);
         await this.vault.set(name, v);
         await this.router.resetHealth();
         if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));
@@ -443,7 +456,7 @@ export class GhostyAgent {
    * library search backed by the owner's device.
    */
   private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
-    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'email', 'media', 'spotify', 'widgets', 'sites']);
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'maps', 'email', 'media', 'spotify', 'widgets', 'sites']);
     const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
     const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
     const names = new Set(device.map((t) => t.name));

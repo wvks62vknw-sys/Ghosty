@@ -15,6 +15,7 @@ import { mediaTools } from './media';
 import { notifyTools } from './notify';
 import { crimeTools } from './crime';
 import { trafficTools } from './traffic';
+import { mapTools } from './maps';
 import { travelTools } from './travel';
 import { memoryTools } from './memory';
 import { repoTools } from './repo';
@@ -26,7 +27,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -54,8 +55,9 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },
-  { name: 'traffic', tools: trafficTools, when: /\b(tomtom|street data|speeds?|incidents?|cams?|cameras?|cctv|webcams?|traffic|jams?|congestion|roads?|motorway|highway|accidents?|crash|closures?|roadworks|commute|rush hour|live view|god'?s eye|see (it|there|.+) live)\b/i },
+  { name: 'traffic', tools: trafficTools, when: /\b(tomtom|street data|speeds?|incidents?|cams?|cameras?|cctv|webcams?|traffic|jams?|congestion|roads?|motorway|highway|accidents?|crash|closures?|roadworks|commute|rush hour|live view|god'?s eye|see (it|there|.+) live|street ?views?|street level|look around|walk around|satellite)\b/i },
   { name: 'crime', tools: crimeTools, when: /\b(crimes?|criminal|safe|safety|dangerous|rough area|burglar(y|ies)|robber(y|ies)|theft|thefts|stolen|stabbing|stabbings|assaults?|anti-?social|police|mugging|muggings|shoplifting|drug dealing)\b/i },
+  { name: 'maps', tools: mapTools, when: /\b(maps?|map of|map it|on (the|a) map|elevation|altitude|how high|above sea level|post ?codes?|what(?:'s| is) (?:here|there|this|that|at)|landmarks?|wikipedia|nearby|measure|distance (?:between|from|to)|as the crow flies|crow flies|topo(?:graphic)?|terrain|contours?|cycle (?:map|route)|rail(?:way)? (?:map|lines?)|sea ?marks?|nautical|where is|where'?s)\b/i },
   { name: 'email', tools: emailTools, when: /\b(e-?mails?|inbox|mail|gmail|reply|replied|unread|send (a |an )?(message|note) to)\b/i },
   { name: 'media', tools: mediaTools, when: /\b(radio|music|song|songs|play|station|listen|stop audio|stop the music|volume)\b/i },
   { name: 'library', tools: libraryTools.filter((t) => t.name === 'library_search'), when: 'always' },

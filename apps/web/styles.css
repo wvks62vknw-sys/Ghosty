@@ -237,6 +237,48 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .mhead { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--line2); }
 .mhead b { font: 500 10px var(--d); letter-spacing: .2em; color: var(--c); text-transform: uppercase; }
 .mbody { flex: 1; min-height: 0; display: flex; }
+/* ---------- street view / satellite / live traffic: Google's and Waze's pages in a locked frame (ui/mapsheet.ts) ---------- */
+.mapsheet { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; }
+.mapbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+.maptabs { display: flex; gap: 4px; }
+.maptabs button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
+.mapwhere { font: 400 9px var(--m); letter-spacing: .14em; color: var(--mute); }
+.mapframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #000; }
+.mapnote { font: 400 11px/1.4 var(--b); color: var(--mute); }
+/* the flat map (ui/flatmap.ts): Leaflet in Ghosty's colours */
+.flathost { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 5px; }
+.fmbar { display: flex; flex-direction: column; gap: 4px; }
+.fmsearchrow { display: flex; gap: 4px; }
+.fmsearch { flex: 1 1 auto; min-width: 0; }
+.fmchips { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+.fmchips::-webkit-scrollbar { display: none; }
+.fmchip { flex: none; padding: 6px 8px; min-height: 0; font-size: 8.5px; white-space: nowrap; }
+.fmhint { opacity: .65; }
+.flatmap { flex: 1 1 auto; min-height: 220px; position: relative; z-index: 0; background: #02070d; }
+/* DARK: OpenStreetMap's tiles inverted and hue-rotated (water stays blue), dimmed to sit with the HUD */
+.leaflet-layer.osm-dark { filter: invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.6); }
+.fminfo { font: 400 10px/1.4 var(--m); color: var(--a); letter-spacing: .04em; }
+.fmsteps { max-height: 26vh; overflow: auto; font: 400 11px/1.45 var(--b); color: var(--mute); border-top: 1px solid var(--line); padding-top: 4px; }
+.fmsteps b { display: block; color: #fff; margin-bottom: 3px; }
+.leaflet-container { font: 400 11px var(--b); background: #02070d; }
+.leaflet-container .leaflet-control-attribution { font-size: 8px; background: rgba(2,7,13,.75); color: #9ab; max-width: 62%; text-align: right; }
+.leaflet-container .leaflet-control-attribution a { color: #9ab; }
+.leaflet-container .leaflet-control-scale-line { background: rgba(2,7,13,.6); color: #cfe9f7; border-color: rgba(var(--cr), .6); font: 400 9px var(--m); }
+.fmpopup .leaflet-popup-content-wrapper { background: #02070d; color: #dfe9f2; border-radius: 0; box-shadow: inset 0 0 0 1px rgba(var(--cr), .5), 0 10px 30px rgba(0,0,0,.6); }
+.fmpopup .leaflet-popup-tip { background: #02070d; }
+.fmpopup .leaflet-popup-close-button { color: var(--c); }
+.fmpop { font: 400 12px/1.4 var(--b); }
+.fmpop > b { display: block; color: var(--a); font: 500 11px var(--m); letter-spacing: .1em; }
+.fmaddr { color: var(--mute); margin: 4px 0; }
+.fmpc { font: 500 9px var(--m); color: var(--c); letter-spacing: .14em; margin-top: 2px; }
+.fmout { margin: 4px 0; }
+.fmwiki { margin: 5px 0; }
+.fmwiki b { display: block; color: #fff; font: 500 11px var(--b); }
+.fmwiki span { display: block; color: var(--mute); }
+.fmbtns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.fmbtns button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
+.fmlabel { background: rgba(2,7,13,.9); color: #fff; border: 1px solid rgba(var(--cr), .5); font: 500 9px var(--m); letter-spacing: .1em; border-radius: 0; box-shadow: none; padding: 2px 5px; }
+.fmlabel::before { display: none; }
 iframe.sandbox { flex: 1; border: 0; width: 100%; background: #02070d; }
 #palette { position: fixed; inset: 0; z-index: 140; display: none; align-items: flex-start; justify-content: center; padding: max(10vh, 56px) 12px 12px; background: rgba(var(--bgr), .75); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 #palette.on { display: flex; }
