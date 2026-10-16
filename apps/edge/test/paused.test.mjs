@@ -204,3 +204,21 @@ test('while paused, the Library search still answers from the built-in library',
   assert.equal(j.paused, true);
   assert.ok(j.hits.length > 0);
 });
+
+test('backend and auth requests get the engineering standard; everyday words like "author" do not', async () => {
+  const ai = fakeAI();
+  try {
+    const a = newAgent(new MemStorage(), { GROQ_KEY: 'gsk_x' });
+    const coding = async (message) => {
+      ai.sent.length = 0;
+      await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message }) }));
+      return /ENGINEERING STANDARD/.test(String(ai.sent[0].body.messages[0].content));
+    };
+    assert.equal(await coding('add authentication and a database schema to my express server'), true);
+    assert.equal(await coding('design the backend for an online shop'), true);
+    assert.equal(await coding('who is the author of Dune?'), false);
+    assert.equal(await coding('is the Discord server busy tonight?'), false);
+  } finally {
+    ai.restore();
+  }
+});
