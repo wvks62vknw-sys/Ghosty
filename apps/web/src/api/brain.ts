@@ -202,6 +202,8 @@ export const brain = {
       memoryPaused.set({ on: !!s.paused, since: s.paused ? memoryPaused.get().since || Date.now() : 0 });
       return s;
     }),
+  /** Keys that are public by design (a Mapbox "pk." token goes in the map's tile addresses); nothing else ever comes this way. */
+  publicKeys: () => req<{ mapbox?: string }>('GET', '/keys/public').catch(() => ({}) as { mapbox?: string }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
   chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) =>
     // `offline`: memory, agenda and the owner's documents most related to the message, kept on this

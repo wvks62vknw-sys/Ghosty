@@ -143,7 +143,7 @@ export const eyeTab: TabDef = {
     const lay = panel('LAYERS', { grow: false });
     lay.el.classList.add('eyelay');
     const LAYERS: [keyof LayerVisibility, string, () => string][] = [
-      ['imagery', 'SATELLITE MAP', () => (imagery.credit ? `Z${imagery.level}` : '')],
+      ['imagery', 'MAP TILES', () => (imagery.credit ? `${imagery.source.toUpperCase()} Z${imagery.level}` : imagery.source.toUpperCase())],
       ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : buildings.status || (buildings.count ? String(buildings.count) : ''))],
       ['air', 'AIRCRAFT', () => `${air.list.size} ${air.status}`],
       ['sats', 'SATELLITES', () => String(sats.list.length)],
@@ -522,14 +522,25 @@ export const eyeTab: TabDef = {
     /** The spot under the crosshair (named by the nearest city) for Street View and the live traffic map. */
     const centre = () => {
       const c = globe.cam;
+      // Looking at the whole planet: the map opens at home rather than on whatever is under the crosshair.
+      if (c.range > 2500) {
+        const H = home();
+        return { lat: H.lat, lon: H.lon, name: H.name, heading: 0 };
+      }
       const g = c.pick(innerWidth / 2, innerHeight / 2) ?? { lat: c.lat, lon: c.lon };
       const near = World.near(g.lat, g.lon, 2e5);
       return { lat: g.lat, lon: g.lon, name: near && near.km < 400 ? near.city.name : undefined, heading: c.hd };
     };
     const btns = h(
       'div.btns',
+      button('MAP', () => openMapSheet('map', centre())),
       button('STREET', () => openMapSheet('street', centre())),
       button('TRAFFIC', () => openMapSheet('traffic', centre())),
+      // the tiles on the globe itself: satellite, streets, dark, topographic, Sentinel
+      button(imagery.source.toUpperCase(), (b) => {
+        b.textContent = imagery.cycle().toUpperCase();
+        if (!globe.vis.imagery) globe.vis = { ...globe.vis, imagery: true };
+      }, 'tilesbtn'),
       button('YOU', () => {
         const L = home();
         globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });

@@ -14,6 +14,7 @@ import { applyTheme, THEMES } from '../state/theme';
 import { keepWidget } from '../state/widgets';
 import { enqueue, type NewEvent, type NewJob } from '../api/offline';
 import { modal, sandboxFrame, toast } from '../ui/components';
+import type { OverlayId, StyleId } from '../ui/flatmap';
 import { addPaletteProvider, register, type Command } from './registry';
 
 const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
@@ -34,7 +35,7 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', traffic: 'traffic', 'live traffic': 'traffic', congestion: 'traffic', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
-async function locate(place: string): Promise<{ lat: number; lon: number; name: string } | null> {
+export async function locatePlace(place: string): Promise<{ lat: number; lon: number; name: string } | null> {
   const c = World.find(place);
   if (c) return { lat: c.lat, lon: c.lon, name: c.name };
   const a = place.length <= 4 ? World.findAirport(place) : null;
@@ -48,7 +49,7 @@ async function locate(place: string): Promise<{ lat: number; lon: number; name: 
   return null;
 }
 
-const locateAny = (place: string) => locate(place);
+const locateAny = (place: string) => locatePlace(place);
 
 /** Street View or the live traffic map at a place: fly God's Eye there and open the sheet (ui/mapsheet.ts). */
 async function openMap(view: 'street' | 'traffic', a: Record<string, unknown> | undefined): Promise<void> {
@@ -71,7 +72,7 @@ export async function flyTo(args: { place?: string; lat?: number; lon?: number; 
   let lat = Number(args.lat);
   let lon = Number(args.lon);
   if (args.place) {
-    const p = await locate(String(args.place));
+    const p = await locatePlace(String(args.place));
     if (!p) {
       toast(`I couldn't find ${args.place}`, 'warn');
       return false;
@@ -130,6 +131,30 @@ export function registerBuiltins(): void {
       },
     },
     { id: 'street_view', title: 'Street View', hidden: true, run: (a) => void openMap('street', a) },
+    {
+      // The flat map (ui/flatmap.ts) at a place, with a style, overlays and pins from the brain.
+      id: 'show_map',
+      title: 'Show map',
+      hidden: true,
+      run: async (a) => {
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+        if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
+        go('eye');
+        const { openMapSheet } = await import('../ui/mapsheet');
+        const style = typeof a?.style === 'string' ? (a.style as StyleId) : undefined;
+        const overlays = Array.isArray(a?.overlays) ? (a.overlays as unknown[]).map(String).filter((o): o is OverlayId => ['rail', 'sea', 'rain', 'cctv', 'cameras'].includes(o)) : undefined;
+        const points = Array.isArray(a?.points)
+          ? (a.points as unknown[])
+              .filter((p): p is { lat: number; lon: number; label?: unknown } => !!p && typeof p === 'object' && Number.isFinite((p as { lat: unknown }).lat) && Number.isFinite((p as { lon: unknown }).lon))
+              .slice(0, 50)
+              .map((p) => ({ lat: Number(p.lat), lon: Number(p.lon), ...(p.label ? { label: String(p.label).slice(0, 60) } : {}) }))
+          : undefined;
+        const zoom = Number(a?.zoom);
+        openMapSheet('map', where, { style, overlays, points, line: !!a?.line, zoom: Number.isFinite(zoom) && zoom >= 2 && zoom <= 19 ? zoom : undefined });
+      },
+    },
     { id: 'traffic_map', title: 'Live traffic map', hidden: true, run: (a) => void openMap('traffic', a) },
     {
       // A page Ghosty published (publish_site): a tappable card in the chat.

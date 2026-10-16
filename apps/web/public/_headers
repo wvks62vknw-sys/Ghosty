@@ -1,7 +1,7 @@
 # Cloudflare response headers for the interface. The main app gets a strict Content Security Policy:
 # scripts only from this site, network only to this site (/api), no framing by others.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr https://*.tiles.openrailwaymap.org https://tiles.openseamap.org https://tilecache.rainviewer.com https://api.mapbox.com; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: microphone=(self), geolocation=(self), camera=()
@@ -30,6 +30,10 @@
 
 /data/*
   Cache-Control: public, max-age=86400
+
+# Leaflet (the flat map's library), vendored: a fixed version, cached for a week.
+/vendor/*
+  Cache-Control: public, max-age=604800
 
 /sw.js
   Cache-Control: no-cache

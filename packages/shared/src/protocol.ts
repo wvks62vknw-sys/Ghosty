@@ -28,6 +28,7 @@ export const CLIENT_COMMANDS = [
   'show_traffic',
   'street_view',
   'traffic_map',
+  'show_map',
   'open_widget',
   'offline_save',
   'show_link',

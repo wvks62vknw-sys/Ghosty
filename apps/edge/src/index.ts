@@ -69,6 +69,9 @@ const FEED_HOSTS = new Set([
   'overpass-api.de',
   'de1.api.radio-browser.info',
   'routing.openstreetmap.de',
+  'router.project-osrm.org',
+  'en.wikipedia.org',
+  'api.postcodes.io',
 ]);
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });

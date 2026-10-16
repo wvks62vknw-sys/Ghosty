@@ -171,6 +171,7 @@ test('while paused: email (with approval), travel, traffic, Spotify and the libr
     assert.ok((await more('play some music on spotify')).includes('spotify_play'));
     assert.ok((await more('what is the weather tomorrow')).includes('weather'));
     assert.ok((await more('rebuild https://acme.example as a better website')).includes('publish_site'), 'websites can be rebuilt and published while paused (they live in KV)');
+    assert.ok((await more('show me a map of birmingham')).includes('show_map'), 'maps need no database');
   } finally {
     ai.restore();
   }

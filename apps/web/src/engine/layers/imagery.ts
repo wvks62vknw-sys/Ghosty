@@ -14,17 +14,40 @@ interface Source {
   url: (z: number, x: number, y: number) => string;
   maxZ: number;
   credit: string;
+  /** Invert and hue-rotate the tiles in the shader (a dark map from light tiles). */
+  dark?: boolean;
 }
 
+/** Tile sources, free and keyless (every host is allowed as an image source in public/_headers). */
 export const SOURCES: Source[] = [
   {
-    name: 'esri',
+    name: 'satellite',
     url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
     maxZ: 19,
     credit: 'Imagery © Esri, Maxar, Earthstar Geographics',
   },
   {
-    name: 'eox',
+    name: 'streets',
+    url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+    maxZ: 19,
+    credit: '© OpenStreetMap contributors',
+  },
+  {
+    // OpenStreetMap's tiles, inverted and hue-rotated in the shader: a dark map, same free source.
+    name: 'dark',
+    url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+    maxZ: 19,
+    credit: '© OpenStreetMap contributors (dark)',
+    dark: true,
+  },
+  {
+    name: 'topo',
+    url: (z, x, y) => `https://${'abc'[(x + y) % 3]}.tile.opentopomap.org/${z}/${x}/${y}.png`,
+    maxZ: 17,
+    credit: '© OpenStreetMap contributors, SRTM · © OpenTopoMap (CC-BY-SA)',
+  },
+  {
+    name: 'sentinel',
     url: (z, x, y) => `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/${z}/${y}/${x}.jpg`,
     maxZ: 15,
     credit: 'Sentinel-2 cloudless by EOX (Copernicus data)',
@@ -58,11 +81,12 @@ const latToY = (lat: number, z: number) => {
 
 const VS = `in vec3 aP;in vec2 aUV;uniform mat4 uV,uP;uniform vec3 uOff;out vec2 vUV;out vec3 vRel;
 void main(){vec3 r=aP+uOff;vRel=r;vUV=aUV;gl_Position=uP*(uV*vec4(r,1.));}`;
-const FS = `uniform sampler2D uTex;uniform vec3 uCam,uSun;uniform float uR,uFade,uHaze;in vec2 vUV;in vec3 vRel;out vec4 o;
+const FS = `uniform sampler2D uTex;uniform vec3 uCam,uSun;uniform float uR,uFade,uHaze,uDark;in vec2 vUV;in vec3 vRel;out vec4 o;
 void main(){
  vec3 e=-uCam;float t=clamp(dot(e,vRel)/max(dot(vRel,vRel),1e-6),0.,1.);
  if(t<.999&&length(e-vRel*t)<uR-.25)discard;
  vec3 c=texture(uTex,vUV).rgb;
+ if(uDark>.5){c=1.-c;c=clamp(mat3(-.574,.426,.426,1.43,.43,1.43,.144,.144,-.856)*c,0.,1.)*.85;}
  vec3 n=normalize(vRel+uCam);float day=smoothstep(-.12,.25,dot(n,uSun));
  c*=mix(.45,1.05,day);
  float d=length(vRel);float fog=1.-exp(-d/uHaze);c=mix(c,vec3(.32,.5,.75)*mix(.15,.6,day),fog*.55);
@@ -80,6 +104,24 @@ export class ImageryLayer {
   credit = '';
   /** Last zoom level drawn (for the readout). */
   level = 0;
+
+  /** The tile source on the globe ('satellite', 'streets', 'dark', 'topo', 'sentinel'). */
+  get source(): string {
+    return SOURCES[this.src]!.name;
+  }
+  setSource(name: string): void {
+    const i = SOURCES.findIndex((s) => s.name === name);
+    if (i >= 0) {
+      this.src = i;
+      this.fails = 0;
+    }
+  }
+  /** The next source round the list; returns its name. */
+  cycle(): string {
+    this.src = (this.src + 1) % SOURCES.length;
+    this.fails = 0;
+    return this.source;
+  }
 
   private init(): void {
     if (this.ready) return;
@@ -245,6 +287,7 @@ export class ImageryLayer {
     g.u1('uR', R_EARTH);
     g.u1('uFade', fadeIn);
     g.u1('uHaze', Math.max(60, cs.alt * 40));
+    g.u1('uDark', src.dark ? 1 : 0);
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.enable(gl.BLEND);

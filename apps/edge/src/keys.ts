@@ -154,6 +154,19 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     {
+      name: 'mapbox',
+      label: 'Mapbox token',
+      hint: 'starts with pk.…',
+      link: 'https://account.mapbox.com/access-tokens/',
+      need: 'optional',
+      why: "Live traffic colours on the flat map — jams in red, like Google Maps — plus Mapbox's satellite-with-streets and night navigation maps. The map itself works without it. Free tier (50,000 map loads a month).",
+      steps: [
+        'Open the link and create a free Mapbox account.',
+        'On the Access tokens page, copy the "Default public token" (it starts with pk.). That is all Ghosty needs.',
+        'Paste it here. It is a public token by design (it travels in map tile addresses); on the same page you can restrict it to your Ghosty address.',
+      ],
+    },
+    {
       name: 'email',
       label: 'Email (app password)',
       hint: 'you@gmail.com then a space, then the app password',
@@ -241,6 +254,10 @@ export async function testKey(name: string, value: string, repo?: string): Promi
           return { ok: false, info: e instanceof MailError ? e.message.slice(0, 400) : 'could not check the email account; try again in a minute' };
         }
       }
+      case 'mapbox':
+        if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
+        status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);
+        break;
       default:
         return { ok: true, info: 'saved' };
     }
