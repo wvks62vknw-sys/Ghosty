@@ -29,14 +29,14 @@ export const libraryTools: Tool[] = [
       const l = lib(ctx);
       await l.seedStarter();
       const hits = await l.search(arg.str(a, 'query'), Math.max(1, Math.min(10, arg.num(a, 'k', 5))));
-      if (!hits.length) return 'Nothing in the library matches that. (The owner can add books and documents in the Library tab, or ask you to library_import a web page, arXiv paper, CVE or GitHub repository.)';
+      if (!hits.length) return 'Nothing in the library matches that. (The owner can add books and documents in the Library tab, or ask you to library_import a web page, arXiv paper, CVE, GitHub repository or Project Gutenberg book.)';
       return clip(asData('your library', formatHits(hits, 7000)), 8000);
     },
   },
   {
     name: 'library_import',
     description:
-      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time — pass offset to continue), or "self" = YOUR OWN source code and architecture (25 files at a time; pass offset to continue) so you understand exactly how you work. PDFs, Word files and e-books are added by the owner in the Library tab.',
+      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time — pass offset to continue), a Project Gutenberg book ("gutenberg.org/ebooks/1342" or "gutenberg 1342": the whole text, chapter by chapter, a part at a time — pass offset to continue), or "self" = YOUR OWN source code and architecture (25 files at a time; pass offset to continue) so you understand exactly how you work. PDFs, Word files and e-books are added by the owner in the Library tab.',
     parameters: { type: 'object', properties: { source: { type: 'string' }, offset: { type: 'number', description: 'GitHub only: continue from this file number' } }, required: ['source'] },
     risk: 'auto',
     async run(a, ctx) {

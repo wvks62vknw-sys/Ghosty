@@ -235,6 +235,32 @@ test('import: CVE, arXiv, web page and GitHub repository', async () => {
   }
 });
 
+test('import: a Project Gutenberg book — header and footer off, chapters as pages, a part at a time, wrapped lines joined', async () => {
+  const lib = new Library(new MemStorage(), {});
+  const names = ['CHAPTER I. THE START', 'CHAPTER II. THE MIDDLE', 'CHAPTER III. THE END'];
+  const chapter = (n) => `${names[n]}\n\n${Array.from({ length: 230 }, (_, i) => `Chapter ${n + 1} paragraph ${i + 1}: the ${['apples', 'bridges', 'candles'][n]} of the story go on and on, wrapped at seventy\ncolumns by the typesetter, as Gutenberg texts are, so the reader sees short\nlines on the page (${i}).`).join('\n\n')}`;
+  const book = `The Project Gutenberg eBook of A Test Book\n\nThis eBook is for the use of anyone anywhere.\n\nTitle: A Test Book\n\nAuthor: Some Author\n\nRelease date: January 1, 2000\n\n*** START OF THE PROJECT GUTENBERG EBOOK A TEST BOOK ***\n\nA TEST BOOK\n\nContents\n\n CHAPTER I.\n CHAPTER II.\n CHAPTER III.\n\n${chapter(0)}\n\n${chapter(1)}\n\n${chapter(2)}\n\n*** END OF THE PROJECT GUTENBERG EBOOK A TEST BOOK ***\n\nSection 1. General Terms of Use and Redistributing Project Gutenberg-tm electronic works.`;
+  fakeWeb([[/gutenberg\.org\/cache\/epub\/1342\/pg1342\.txt/, book, 'text/plain']]);
+  try {
+    const r = await importSource(lib, 'https://www.gutenberg.org/ebooks/1342');
+    assert.equal(r.doc.title, 'A Test Book — Some Author');
+    assert.equal(r.doc.kind, 'book');
+    assert.equal(r.doc.pages, 3, 'three chapters (the contents list is not one: its lines are not on their own)');
+    assert.match(r.note, /part 1 of 2 \("CHAPTER I\. THE START" to "CHAPTER II\. THE MIDDLE", 3 chapters in all\)\. To continue, import again with offset 1\./);
+    const r2 = await importSource(lib, 'gutenberg 1342', { offset: 1 });
+    assert.equal(r2.doc.id, r.doc.id, 'the next part goes into the same document');
+    assert.match(r2.note, /whole book: 3 chapters/);
+    const hit = (await lib.search('candles of the story typesetter'))[0];
+    assert.match(hit.heading, /CHAPTER III\. THE END/);
+    assert.equal(hit.page, 3);
+    assert.ok(/columns by the typesetter/.test(hit.text) && !/seventy\ncolumns/.test(hit.text), 'hard-wrapped lines are joined into sentences');
+    assert.ok(!(await lib.search('general terms of use redistributing')).some((h) => /Terms of Use/.test(h.text)), 'the licence footer is not filed');
+    assert.ok(!(await lib.search('eBook is for the use of anyone')).some((h) => /use of anyone/.test(h.text)), 'the header is not filed');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 // ---------- the brain uses the library ----------
 
 async function chatWith(agent, message) {

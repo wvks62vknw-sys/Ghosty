@@ -54,6 +54,10 @@ globalThis.fetch = async (input) => {
   }
   if (url.hostname === 'arxiv.org' && url.pathname.startsWith('/abs/')) return new Response(`<html><head><meta name="citation_title" content="A paper on things"><title>[2301.00001] A paper on things</title></head><body><blockquote class="abstract mathjax">Abstract: ${lorem('the paper')}</blockquote></body></html>`, { headers: { 'content-type': 'text/html' } });
   if (url.hostname === 'arxiv.org') return html('A paper on things', lorem('the full paper'));
+  if (url.hostname === 'www.gutenberg.org') {
+    const id = url.pathname.match(/pg(\d+)\.txt$/)?.[1] ?? '0';
+    return new Response(`Title: Book ${id}\n\nAuthor: An Author\n\n*** START OF THE PROJECT GUTENBERG EBOOK BOOK ***\n\nTHE FIRST BOOK\n\n${lorem(`book ${id}`)}\n\n*** END OF THE PROJECT GUTENBERG EBOOK BOOK ***\n\nLicence text.`, { headers: { 'content-type': 'text/plain' } });
+  }
   if (url.hostname === 'docs.swift.org' || url.hostname === 'openstax.org') {
     const t = url.pathname.split('/').filter(Boolean).pop();
     return html(t, lorem(t));
@@ -192,6 +196,17 @@ test("a pre-2007 arXiv id (archive/NNNNNNN) is found and read like a new-style o
   assert.ok(/Abstract: /.test(old.text));
   const versioned = await S.readSource('cs.LG/0101001v3');
   assert.equal(versioned.url, 'https://arxiv.org/abs/cs.LG/0101001');
+});
+
+test('a classic text is found by its Project Gutenberg number and read without the licence text', async () => {
+  const url = await S.findSource('2680 Meditations', 'gutenberg');
+  assert.equal(url, 'https://www.gutenberg.org/cache/epub/2680/pg2680.txt');
+  assert.equal(await S.findSource('Meditations', 'gutenberg'), null, 'no number, no source');
+  const got = await S.readSource(url);
+  assert.equal(got.title, 'Book 2680 — An Author');
+  assert.equal(got.url, 'https://www.gutenberg.org/ebooks/2680');
+  assert.match(got.text, /^Book 2680 — An Author\n\nTHE FIRST BOOK\n\nbook 2680 is explained here/);
+  assert.ok(!/Licence text|PROJECT GUTENBERG/.test(got.text), 'header and footer are left out');
 });
 
 test('switched off, it does nothing', async () => {
@@ -337,7 +352,7 @@ test('the curriculum is real: every domain has topics at every level, from a kno
     assert.ok(d.why.length > 10);
     const titles = new Set();
     for (const t of d.topics) {
-      assert.ok(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax'].includes(t.k), `${d.id}: ${t.k}`);
+      assert.ok(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax', 'gutenberg'].includes(t.k), `${d.id}: ${t.k}`);
       assert.ok([1, 2, 3].includes(t.l));
       assert.ok(!titles.has(t.k + t.t), `${d.id}: duplicate topic ${t.t}`);
       titles.add(t.k + t.t);

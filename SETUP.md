@@ -54,14 +54,15 @@ resets. Two more free sources need no key at all:
 
 **Ghosty studies on its own:** the Library tab's **SELF-STUDY** panel shows what it reads around the clock
 (a curriculum of thousands of topics across maths, science, computing, finance, law, health, history and
-more, from Wikipedia, MDN, arXiv, OpenStax and the Swift book), the study notes it writes with a free
+more, from Wikipedia, MDN, arXiv, OpenStax, the Swift book and the classics on Project Gutenberg), the study notes it writes with a free
 model, and how its self-set drills go. Type a field into FOCUS to put it first. Everything it learns is
 filed in the library (open any notebook on the shelf); **EXPORT TO GITHUB** writes every notebook as
 Markdown to a `library` branch of your repository, so it costs nothing on your phone and is readable
 anywhere. It stays within the free plan on its own: it waits while the day's database allowance is low.
 
 **Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
-(or import a web page, an arXiv paper id, a CVE id or a GitHub repo). Reading happens in your browser and
+(or import a web page, an arXiv paper id, a CVE id, a GitHub repo or a Project Gutenberg book by its
+number — the whole text, chapter by chapter, free). Reading happens in your browser and
 searching uses no AI, so a big library costs nothing. Scanned PDFs (photos of pages) are converted by
 Workers AI. Storage: the free plan's Durable Object storage holds several GB — thousands of books' worth of text.
 

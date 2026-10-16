@@ -28,7 +28,7 @@ tests/       local preview server + browser test
   (you ship each), and adds what it learned to its handbook so every later version knows it too.
   **CARRY ON** continues with the next step.
 - **Library (offline brain)**: the **Library** tab takes books, PDFs, Word files, e-books, notes, web pages,
-  arXiv papers, CVEs and GitHub repositories. They are read in your browser and kept forever in Ghosty's
+  arXiv papers, CVEs, GitHub repositories and whole Project Gutenberg books. They are read in your browser and kept forever in Ghosty's
   own database with full-text search (plus meaning search through Workers AI, no key). Every message is
   looked up there first, so only the few passages that matter reach the AI — and with no AI available at
   all, Ghosty answers straight from the library. A built-in starter library covers algorithms, system
@@ -52,7 +52,7 @@ tests/       local preview server + browser test
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
   on your Cloudflare account) and the open **Pollinations** endpoint (no key, no account).
 - **Self-study**: around the clock Ghosty reads a curriculum of thousands of topics (Wikipedia, MDN, arXiv,
-  OpenStax, the Swift book) into its library, writes study notes with a free model, drills itself with
+  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, writes study notes with a free model, drills itself with
   questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
   repository.
 - **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,

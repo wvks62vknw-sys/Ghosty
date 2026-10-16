@@ -3629,4 +3629,985 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Bai Kadavath Constitutional AI Harmlessness Feedback
 3|arxiv|Kleinberg Mullainathan Raghavan Fair Determination Risk Scores`,
   },
+  {
+    id: 'classic-texts',
+    name: `Classic texts (Project Gutenberg)`,
+    why: `The books people still argue from — philosophy, politics, science and the novels everyone refers to — read from the public domain itself, so Ghosty can quote the source rather than a summary of it.`,
+    t: `1|gutenberg|21279 2 B R 0 2 B
+1|gutenberg|46 A Christmas Carol in Prose; Being a Ghost Story of Christmas
+1|gutenberg|1080 A Modest Proposal
+1|gutenberg|98 A Tale of Two Cities
+1|gutenberg|76 Adventures of Huckleberry Finn
+1|gutenberg|11 Alice's Adventures in Wonderland
+1|gutenberg|2446 An Enemy of the People
+1|gutenberg|1250 Anthem
+1|gutenberg|20203 Autobiography of Benjamin Franklin
+1|gutenberg|147 Common Sense
+1|gutenberg|3090 Complete Original Short Stories of Guy De Maupassant
+1|gutenberg|345 Dracula
+1|gutenberg|158 Emma
+1|gutenberg|84 Frankenstein; or, the modern prometheus
+1|gutenberg|1400 Great Expectations
+1|gutenberg|2591 Grimms' Fairy Tales
+1|gutenberg|829 Gulliver's Travels into Several Remote Nations of the World
+1|gutenberg|1260 Jane Eyre: An Autobiography
+1|gutenberg|37106 Little Women; Or, Meg, Jo, Beth, and Amy
+1|gutenberg|7700 Lysistrata
+1|gutenberg|5200 Metamorphosis
+1|gutenberg|23 Narrative of the Life of Frederick Douglass, an American Slave
+1|gutenberg|730 Oliver Twist
+1|gutenberg|105 Persuasion
+1|gutenberg|16 Peter Pan
+1|gutenberg|1342 Pride and Prejudice
+1|gutenberg|161 Sense and Sensibility
+1|gutenberg|2500 Siddhartha
+1|gutenberg|1661 The Adventures of Sherlock Holmes
+1|gutenberg|74 The Adventures of Tom Sawyer, Complete
+1|gutenberg|541 The Age of Innocence
+1|gutenberg|16317 The Art of Public Speaking
+1|gutenberg|132 The Art of War
+1|gutenberg|1184 The Count of Monte Cristo
+1|gutenberg|2852 The Hound of the Baskervilles
+1|gutenberg|844 The Importance of Being Earnest: A Trivial Comedy for Serious People
+1|gutenberg|140 The Jungle
+1|gutenberg|521 The Life and Adventures of Robinson Crusoe
+1|gutenberg|3268 The Mysteries of Udolpho
+1|gutenberg|174 The Picture of Dorian Gray
+1|gutenberg|1974 The Poetics of Aristotle
+1|gutenberg|1065 The Raven
+1|gutenberg|1155 The Secret Adversary
+1|gutenberg|43 The strange case of Dr. Jekyll and Mr. Hyde
+1|gutenberg|216 The Tao Teh King, or the Tao and its Characteristics
+1|gutenberg|1257 The three musketeers
+1|gutenberg|35 The Time Machine
+1|gutenberg|36 The war of the worlds
+1|gutenberg|55 The Wonderful Wizard of Oz
+1|gutenberg|2148 The Works of Edgar Allan Poe — Volume 2
+1|gutenberg|1952 The Yellow Wallpaper
+1|gutenberg|120 Treasure Island
+1|gutenberg|164 Twenty Thousand Leagues under the Sea
+1|gutenberg|2376 Up from Slavery: An Autobiography
+1|gutenberg|768 Wuthering Heights
+2|gutenberg|19942 Candide
+2|gutenberg|600 Notes from the Underground
+3|gutenberg|38219 A General Introduction to Psychoanalysis
+3|gutenberg|4705 A Treatise of Human Nature
+3|gutenberg|3420 A Vindication of the Rights of Woman
+3|gutenberg|4320 An Enquiry Concerning the Principles of Morals
+3|gutenberg|10615 An Essay Concerning Humane Understanding, Volume 1
+3|gutenberg|3300 An Inquiry into the Nature and Causes of the Wealth of Nations
+3|gutenberg|1399 Anna Karenina
+3|gutenberg|1656 Apology
+3|gutenberg|4363 Beyond Good and Evil
+3|gutenberg|1023 Bleak House
+3|gutenberg|2554 Crime and Punishment
+3|gutenberg|766 David Copperfield
+3|gutenberg|59 Discourse on the Method of Rightly Conducting One's Reason and of Seeking Truth…
+3|gutenberg|996 Don Quixote
+3|gutenberg|2814 Dubliners
+3|gutenberg|3600 Essays of Michel de Montaigne — Complete
+3|gutenberg|3800 Ethics
+3|gutenberg|1524 Hamlet
+3|gutenberg|219 Heart of Darkness
+3|gutenberg|1532 King Lear
+3|gutenberg|1322 Leaves of Grass
+3|gutenberg|135 Les Misérables
+3|gutenberg|3207 Leviathan
+3|gutenberg|1533 Macbeth
+3|gutenberg|2680 Meditations
+3|gutenberg|2701 Moby Dick; Or, The Whale
+3|gutenberg|34901 On Liberty
+3|gutenberg|1228 On the Origin of Species By Means of Natural Selection
+3|gutenberg|2267 Othello
+3|gutenberg|26 Paradise Lost
+3|gutenberg|30155 Relativity: The Special and General Theory
+3|gutenberg|1513 Romeo and Juliet
+3|gutenberg|7370 Second Treatise of Government
+3|gutenberg|1041 Shakespeare's Sonnets
+3|gutenberg|3330 The Analects of Confucius (from the Chinese Classics)
+3|gutenberg|28054 The Brothers Karamazov
+3|gutenberg|2412 The Categories
+3|gutenberg|61 The Communist Manifesto
+3|gutenberg|100 The Complete Works of William Shakespeare
+3|gutenberg|3296 The Confessions of St. Augustine
+3|gutenberg|14328 The Consolation of Philosophy
+3|gutenberg|4280 The Critique of Pure Reason
+3|gutenberg|2300 The Descent of Man, and Selection in Relation to Sex
+3|gutenberg|4200 The Diary of Samuel Pepys — Complete
+3|gutenberg|8800 The divine comedy
+3|gutenberg|1404 The Federalist Papers
+3|gutenberg|25717 The History of the Decline and Fall of the Roman Empire
+3|gutenberg|2638 The Idiot
+3|gutenberg|6130 The Iliad
+3|gutenberg|15399 The Interesting Narrative of the Life of Olaudah Equiano, Or Gustavus Vassa,…
+3|gutenberg|1079 The life and opinions of Tristram Shandy, gentleman
+3|gutenberg|8438 The Nicomachean ethics of Aristotle
+3|gutenberg|1727 The Odyssey
+3|gutenberg|2009 The Origin of Species
+3|gutenberg|1232 The Prince
+3|gutenberg|5827 The Problems of Philosophy
+3|gutenberg|1497 The Republic
+3|gutenberg|408 The Souls of Black Folk
+3|gutenberg|27083 The Subjection of Women
+3|gutenberg|944 The Voyage of the Beagle
+3|gutenberg|38427 The World as Will and Idea (Vol. 1 of 3)
+3|gutenberg|1998 Thus Spake Zarathustra: A Book for All and None
+3|gutenberg|14725 Treatise on light : In which are explained the causes of that which occurs in…
+3|gutenberg|4300 Ulysses
+3|gutenberg|2130 Utopia
+3|gutenberg|205 Walden, and On The Duty Of Civil Disobedience
+3|gutenberg|2600 War and Peace`,
+  },
+  {
+    id: 'religion-belief',
+    name: `Religion and world belief systems`,
+    why: `Birmingham is one of the most religiously diverse cities in Britain, so advising its owner well means knowing the faiths, scriptures, calendars and festivals that shape neighbours, holidays, food and daily life.`,
+    t: `1|wiki|Religion
+1|wiki|Islam
+1|wiki|Christianity
+1|wiki|Judaism
+1|wiki|Hinduism
+1|wiki|Sikhism
+1|wiki|Buddhism
+1|wiki|Five Pillars of Islam
+1|wiki|Quran
+1|wiki|Muhammad
+1|wiki|Bible
+1|wiki|Jesus
+1|wiki|Torah
+1|wiki|Guru Nanak
+1|wiki|Guru Granth Sahib
+1|wiki|The Buddha
+1|wiki|Ramadan
+1|wiki|Eid al-Fitr
+1|wiki|Christmas
+1|wiki|Easter
+1|wiki|Diwali
+1|wiki|Vaisakhi
+1|wiki|Passover
+2|wiki|Eid al-Adha
+2|wiki|Sunni Islam
+2|wiki|Shia Islam
+2|wiki|Halal
+2|wiki|Catholic Church
+2|wiki|Protestantism
+2|wiki|Eastern Orthodox Church
+2|wiki|Church of England
+2|wiki|Bhagavad Gita
+2|wiki|Karma
+2|wiki|Schools of Buddhism
+2|wiki|Jainism
+2|wiki|Taoism
+2|wiki|Rastafari
+2|wiki|Atheism
+2|wiki|Islamic calendar
+2|wiki|Hebrew calendar
+2|wiki|Hindu calendar
+2|wiki|Liturgical year
+2|wiki|Religion in the United Kingdom
+2|wiki|Religion in Birmingham
+2|wiki|Birmingham Central Mosque
+3|wiki|Comparative religion
+3|wiki|Problem of evil
+3|wiki|Sharia
+3|wiki|Hadith
+3|wiki|Sufism
+3|wiki|Religious pluralism
+3|wiki|Interfaith dialogue
+3|wiki|Freedom of religion
+3|wiki|Islamophobia
+3|wiki|Antisemitism`,
+  },
+  {
+    id: 'reproductive-health-parenting',
+    name: `Reproductive and sexual health, pregnancy, parenting, child development, ageing and elder care`,
+    why: `From contraception and pregnancy to toddlers, teenagers and ageing parents, these are the life stages the owner and their family will actually ask about, and the advice must match NHS evidence rather than folklore.`,
+    t: `1|wiki|Sexual and reproductive health
+1|wiki|Female reproductive system
+1|wiki|Male reproductive system
+1|wiki|Menstrual cycle
+1|wiki|Puberty
+1|wiki|Birth control
+1|wiki|Condom
+1|wiki|Combined oral contraceptive pill
+1|wiki|Intrauterine device
+1|wiki|Emergency contraception
+1|wiki|Sexually transmitted infection
+1|wiki|HIV/AIDS
+1|wiki|HPV vaccine
+1|wiki|Cervical screening
+1|wiki|Pregnancy
+1|wiki|Prenatal care
+1|wiki|Childbirth
+1|wiki|Midwifery
+1|wiki|Breastfeeding
+1|wiki|Child development
+1|wiki|Parenting
+1|wiki|Sex education
+1|wiki|Menopause
+1|wiki|Ageing
+2|wiki|Sexual consent
+2|wiki|Infertility
+2|wiki|In vitro fertilisation
+2|wiki|Miscarriage
+2|wiki|Abortion in the United Kingdom
+2|wiki|Prenatal testing
+2|wiki|Preterm birth
+2|wiki|Caesarean section
+2|openstax|/books/anatomy-and-physiology-2e/pages/27-2-anatomy-and-physiology-of-the-ovarian-reproductive-system
+2|openstax|/books/anatomy-and-physiology-2e/pages/28-3-fetal-development
+2|openstax|/books/anatomy-and-physiology-2e/pages/28-4-changes-during-pregnancy-labor-and-birth
+2|wiki|Postpartum depression
+2|wiki|SIDS
+2|wiki|Vaccination schedule
+2|wiki|Attachment theory
+2|wiki|Parenting styles
+2|wiki|Child development stages
+2|openstax|/books/psychology-2e/pages/9-3-stages-of-development
+2|wiki|Adolescence
+2|wiki|Autism
+2|wiki|Attention deficit hyperactivity disorder
+2|wiki|Endometriosis
+2|wiki|Polyendocrine metabolic ovarian syndrome
+2|wiki|Hormone replacement therapy
+2|wiki|Dementia
+2|wiki|Elderly care
+3|wiki|Gerontology
+3|wiki|Falls in older adults
+3|wiki|Lasting power of attorney
+3|wiki|Palliative care
+3|wiki|Advance healthcare directive
+3|wiki|Safeguarding`,
+  },
+  {
+    id: 'agriculture-animals-pets',
+    name: `Agriculture, food systems, animals and pets`,
+    why: `Food prices, allotments, a family dog or cat, and the farm news on the radio all come back to how food is grown and how animals are kept, and UK welfare law tells an owner what they must do for any animal in their care.`,
+    t: `1|wiki|Agriculture
+1|wiki|Crop
+1|wiki|Soil
+1|wiki|Livestock
+1|wiki|Cattle
+1|wiki|Sheep
+1|wiki|Pig
+1|wiki|Chicken
+1|wiki|Dairy farming
+1|wiki|Horticulture
+1|wiki|Allotment (gardening)
+1|wiki|Pet
+1|wiki|Dog
+1|wiki|Cat
+1|wiki|Domestic rabbit
+1|wiki|Veterinary medicine
+1|wiki|Animal welfare
+1|wiki|Agriculture in the United Kingdom
+1|wiki|Beekeeping
+2|wiki|Crop rotation
+2|wiki|Fertilizer
+2|wiki|Pesticide
+2|wiki|Organic farming
+2|wiki|Genetically modified crops
+2|wiki|Animal husbandry
+2|wiki|Selective breeding
+2|wiki|Aquaculture
+2|wiki|Dog training
+2|wiki|Dog breed
+2|wiki|Cat behavior
+2|wiki|Neutering
+2|wiki|Microchip implant (animal)
+2|wiki|Canine parvovirus
+2|wiki|Rabies
+2|wiki|Pet passport
+2|wiki|Animal Welfare Act 2006
+2|wiki|Dangerous Dogs Act 1991
+2|wiki|RSPCA
+2|wiki|People's Dispensary for Sick Animals
+2|wiki|Department for Environment, Food and Rural Affairs
+2|wiki|Mycobacterium bovis
+2|wiki|Foot-and-mouth disease
+2|wiki|Avian influenza
+2|wiki|Food security
+3|wiki|Soil erosion
+3|wiki|Regenerative agriculture
+3|wiki|Precision agriculture
+3|wiki|Green Revolution
+3|wiki|Intensive animal farming
+3|wiki|Antibiotic use in livestock
+3|wiki|Cultured meat
+3|wiki|Zoonosis
+3|wiki|One Health
+3|wiki|Animal rights
+3|wiki|Common Agricultural Policy`,
+  },
+  {
+    id: 'screen-media-photography',
+    name: `Film, television, video games as culture, and photography`,
+    why: `Most of what the owner watches, plays and photographs on a phone sits in these traditions; knowing the craft and the history lets Ghosty recommend, critique and help take a better picture.`,
+    t: `1|wiki|Film
+1|wiki|History of film
+1|wiki|Television
+1|wiki|Video game
+1|wiki|Photography
+1|wiki|History of photography
+1|wiki|Film genre
+1|wiki|Cinematography
+1|wiki|Film editing
+1|wiki|Screenwriting
+1|wiki|Documentary film
+1|wiki|Animation
+1|wiki|Camera
+1|wiki|Exposure (photography)
+1|wiki|Aperture
+1|wiki|Shutter speed
+1|wiki|Film speed
+1|wiki|Depth of field
+1|wiki|Composition (visual arts)
+1|wiki|Rule of thirds
+2|wiki|Silent film
+2|wiki|Classical Hollywood cinema
+2|wiki|Film noir
+2|wiki|French New Wave
+2|wiki|Italian neorealism
+2|wiki|Cinema of the United Kingdom
+2|wiki|Hindi cinema
+2|wiki|Anime
+2|wiki|Television in the United Kingdom
+2|wiki|BBC
+2|wiki|Sitcom
+2|wiki|Soap opera
+2|wiki|Reality television
+2|wiki|Streaming television
+2|wiki|Peaky Blinders (TV series)
+2|wiki|History of video games
+2|wiki|Video game genre
+2|wiki|Video game development
+2|wiki|Game design
+2|wiki|Esports
+2|wiki|Focal length
+2|wiki|Raw image format
+2|wiki|Color balance
+2|wiki|Image editing
+2|wiki|Photojournalism
+3|wiki|Film theory
+3|wiki|Auteur
+3|wiki|Mise-en-scène
+3|wiki|Montage (filmmaking)
+3|wiki|Continuity editing
+3|wiki|British Board of Film Classification
+3|wiki|Visual effects
+3|wiki|Color grading
+3|wiki|Video game culture
+3|wiki|Video game addiction
+3|wiki|Loot box`,
+  },
+  {
+    id: 'sport-games',
+    name: `Sport and games`,
+    why: `Sport is the small talk of the city, from Villa and Blues to Test matches at Edgbaston, and the owner will want rules explained, results put in context, chess and board games played, and training advice grounded in exercise science.`,
+    t: `1|wiki|Sport
+1|wiki|Association football
+1|wiki|Laws of the Game (association football)
+1|wiki|Cricket
+1|wiki|Laws of Cricket
+1|wiki|Rugby union
+1|wiki|Rugby league
+1|wiki|Sport of athletics
+1|wiki|Tennis
+1|wiki|Boxing
+1|wiki|Competitive swimming
+1|wiki|Olympic Games
+1|wiki|Commonwealth Games
+1|wiki|Chess
+1|wiki|Rules of chess
+1|wiki|Board game
+1|wiki|Physical fitness
+1|wiki|Aerobic exercise
+2|wiki|Premier League
+2|wiki|English Football League
+2|wiki|FA Cup
+2|wiki|FIFA World Cup
+2|wiki|England national football team
+2|wiki|Aston Villa F.C.
+2|wiki|Birmingham City F.C.
+2|wiki|Villa Park
+2|wiki|Second City derby
+2|wiki|Edgbaston Cricket Ground
+2|wiki|Warwickshire County Cricket Club
+2|wiki|Test cricket
+2|wiki|The Ashes
+2|wiki|Six Nations Championship
+2|wiki|Wimbledon Championships
+2|wiki|Formula One
+2|wiki|Snooker
+2|wiki|London Marathon
+2|wiki|Parkrun
+2|wiki|2022 Commonwealth Games
+2|wiki|Chess opening
+2|wiki|Go (game)
+2|wiki|Dungeons & Dragons
+2|wiki|Strength training
+2|wiki|High-intensity interval training
+2|wiki|Sports nutrition
+3|wiki|Exercise physiology
+3|wiki|VO2 max
+3|wiki|Sport psychology
+3|wiki|Doping in sport
+3|wiki|Expected goals
+3|wiki|Elo rating system
+3|wiki|Duckworth–Lewis–Stern method
+3|wiki|Video assistant referee
+3|wiki|Bosman ruling
+3|wiki|Hillsborough disaster
+3|wiki|Women's association football
+3|arxiv|mastering chess shogi self-play general reinforcement learning`,
+  },
+  {
+    id: 'careers-education',
+    name: `Careers and education`,
+    why: `Helping the owner get a job, a qualification or a degree, and then learn efficiently for it, needs the UK system (GCSEs to UCAS to apprenticeships and chartered bodies) and the science of how people actually learn.`,
+    t: `1|wiki|Career
+1|wiki|Résumé
+1|wiki|Cover letter
+1|wiki|Job interview
+1|wiki|Job hunting
+1|wiki|Apprenticeship
+1|wiki|GCSE
+1|wiki|A-level
+1|wiki|Business and Technology Education Council
+1|wiki|T Level
+1|wiki|UCAS
+1|wiki|Bachelor's degree
+1|wiki|Master's degree
+1|wiki|Further education
+1|wiki|Universities in the United Kingdom
+1|wiki|Study skills
+1|wiki|Note-taking
+1|openstax|/books/college-success/pages/6-2-studying
+2|wiki|Education in England
+2|wiki|University of Birmingham
+2|wiki|Aston University
+2|wiki|Birmingham City University
+2|wiki|Open University
+2|wiki|Russell Group
+2|wiki|Student loans and grants in the United Kingdom
+2|wiki|Tuition fees in the United Kingdom
+2|wiki|Doctor of Philosophy
+2|wiki|Degree apprenticeship
+2|wiki|Jobcentre Plus
+2|wiki|Zero-hour contract
+2|wiki|Gig economy
+2|wiki|Self-employment
+2|wiki|Institute of Chartered Accountants in England and Wales
+2|wiki|Chartered Institute of Personnel and Development
+2|wiki|Postgraduate Certificate in Education
+2|wiki|Professional development
+2|wiki|Spaced repetition
+2|wiki|Testing effect
+2|wiki|Forgetting curve
+2|wiki|Pomodoro Technique
+2|wiki|Metacognition
+2|wiki|Time management
+2|wiki|Procrastination
+2|openstax|/books/psychology-2e/pages/8-1-how-memory-functions
+2|openstax|/books/psychology-2e/pages/8-4-ways-to-enhance-memory
+2|openstax|/books/college-success/pages/12-2-your-map-to-success-the-career-planning-cycle
+3|wiki|Career development
+3|wiki|Career counseling
+3|wiki|Holland Codes
+3|wiki|Situational judgement test
+3|wiki|Myers–Briggs Type Indicator
+3|wiki|Impostor syndrome
+3|wiki|Desirable difficulty
+3|wiki|Cognitive load
+3|wiki|Bloom's taxonomy
+3|wiki|Self-regulated learning`,
+  },
+  {
+    id: 'uk-public-services-life-admin',
+    name: `UK public services and life admin`,
+    why: `The owner lives inside GOV.UK, the NHS, Birmingham City Council and the DWP, so Ghosty must know which service does what, what the owner is entitled to, and how to get a passport, a licence, a GP appointment or a refund without a wasted afternoon.`,
+    t: `1|wiki|Gov.uk
+1|wiki|National Health Service (England)
+1|wiki|General practitioner
+1|wiki|Emergency department
+1|wiki|NHS 111
+1|wiki|999 (emergency telephone number)
+1|wiki|NHS app
+1|wiki|Prescription charges
+1|wiki|Dentistry in the United Kingdom
+1|wiki|British passport
+1|wiki|Driving licence in the United Kingdom
+1|wiki|Driver and Vehicle Licensing Agency
+1|wiki|MOT test
+1|wiki|Council Tax
+1|wiki|Birmingham City Council
+1|wiki|Local government in England
+1|wiki|Electoral roll
+1|wiki|Elections in the United Kingdom
+1|wiki|National Insurance number
+1|wiki|Universal Credit
+1|wiki|Citizens Advice
+1|wiki|Technical support
+2|wiki|HM Passport Office
+2|wiki|United Kingdom driving test
+2|wiki|Birmingham Clean Air Zone
+2|wiki|Transport for West Midlands
+2|wiki|West Midlands Police
+2|wiki|Elections Act 2022
+2|wiki|Absentee voting in the United Kingdom
+2|wiki|HM Revenue and Customs
+2|wiki|Pay-as-you-earn tax
+2|wiki|Tax returns in the United Kingdom
+2|wiki|Department for Work and Pensions
+2|wiki|Personal Independence Payment
+2|wiki|Child benefit
+2|wiki|State Pension (United Kingdom)
+2|wiki|Modern immigration to the United Kingdom
+2|wiki|Visa policy of the United Kingdom
+2|wiki|Indefinite leave to remain
+2|wiki|British nationality law
+2|wiki|Life in the United Kingdom test
+2|wiki|European Union Settlement Scheme
+2|wiki|Consumer Rights Act 2015
+2|wiki|Trading Standards
+2|wiki|Ofcom
+2|wiki|Financial Ombudsman Service
+2|wiki|Chargeback
+2|wiki|Television licensing in the United Kingdom
+2|wiki|Disabled parking permit
+3|wiki|Social care in England
+3|wiki|Care Quality Commission
+3|wiki|National Institute for Health and Care Excellence
+3|wiki|Renters' Rights Act 2025
+3|wiki|Assured shorthold tenancy
+3|wiki|Section 114 notice
+3|wiki|National Fraud Intelligence Bureau
+3|wiki|Public Service Ombudsman`,
+  },
+  {
+    id: 'unix-shell-sysadmin',
+    name: `Unix/Linux command line, shell scripting and basic system administration`,
+    why: `Ghosty builds and deploys on servers and in terminals, so it must read, write and reason about shell commands, permissions, services and containers with confidence.`,
+    t: `1|wiki|Unix shell
+1|wiki|Command-line interface
+1|wiki|Bash (Unix shell)
+1|wiki|Unix filesystem
+1|wiki|Filesystem Hierarchy Standard
+1|wiki|GNU Core Utilities
+1|wiki|Man page
+1|wiki|Pipeline (Unix)
+1|wiki|Redirection (computing)
+1|wiki|Standard streams
+1|wiki|Environment variable
+1|wiki|Glob (programming)
+1|wiki|File-system permissions
+1|wiki|Chmod
+1|wiki|Grep
+1|wiki|Find (Unix)
+1|wiki|Tar (computing)
+1|wiki|Vim (text editor)
+1|wiki|Symbolic link
+1|wiki|Linux distribution
+2|wiki|Shell script
+2|wiki|Shebang (Unix)
+2|wiki|Exit status
+2|wiki|Sed
+2|wiki|AWK
+2|wiki|Xargs
+2|wiki|Signal (IPC)
+2|wiki|Job control (Unix)
+2|wiki|Cron
+2|wiki|Systemd
+2|wiki|OpenSSH
+2|wiki|Rsync
+2|wiki|Package manager
+2|wiki|APT (software)
+2|wiki|Sudo
+2|wiki|Mount (Unix)
+2|wiki|Ext4
+2|wiki|Inode
+2|wiki|Setuid
+2|wiki|Syslog
+2|wiki|Tmux
+2|wiki|Iptables
+2|wiki|CURL
+2|wiki|POSIX
+2|wikibooks|Bash Shell Scripting
+3|wiki|Cgroups
+3|wiki|Linux namespaces
+3|wiki|Containerization (computing)
+3|wiki|Ansible (software)
+3|wiki|Chroot
+3|wiki|Strace
+3|wiki|Procfs
+3|wiki|SELinux
+3|wiki|Logical Volume Manager (Linux)
+3|wiki|Fail2ban
+3|wiki|Linux Unified Key Setup`,
+  },
+  {
+    id: 'computer-vision-imaging',
+    name: `Computer vision and image processing`,
+    why: `Ghosty sees through the owner's phone camera and reads documents, so it needs the theory behind filters, features, detection, OCR and 3D reconstruction to explain and improve what it sees.`,
+    t: `1|wiki|Digital image
+1|wiki|Pixel
+1|wiki|Digital image processing
+1|wiki|Computer vision
+1|wiki|Image sensor
+1|wiki|Bayer filter
+1|wiki|HSL and HSV
+1|wiki|Image noise
+1|wiki|Image histogram
+1|wiki|Histogram equalization
+1|wiki|Kernel (image processing)
+1|wiki|Gaussian blur
+1|wiki|Median filter
+1|wiki|Edge detection
+1|wiki|Sobel operator
+1|wiki|Canny edge detector
+1|wiki|Thresholding (image processing)
+1|wiki|Otsu's method
+2|wiki|Mathematical morphology
+2|wiki|Connected-component labeling
+2|wiki|Image segmentation
+2|wiki|Hough transform
+2|wiki|Template matching
+2|wiki|Harris corner detector
+2|wiki|Scale-invariant feature transform
+2|wiki|Oriented FAST and rotated BRIEF
+2|wiki|Histogram of oriented gradients
+2|wiki|Random sample consensus
+2|wiki|Homography (computer vision)
+2|wiki|Image stitching
+2|wiki|Pinhole camera model
+2|wiki|Camera resectioning
+2|wiki|Distortion (optics)
+2|wiki|Optical flow
+2|wiki|Optical character recognition
+2|wiki|Tesseract (software)
+2|wiki|OpenCV
+2|wiki|Object detection
+2|wiki|Viola–Jones object detection framework
+2|wiki|ImageNet
+2|wiki|Data augmentation
+2|wiki|QR code
+3|wiki|Epipolar geometry
+3|wiki|Computer stereo vision
+3|wiki|Structure from motion
+3|wiki|Bundle adjustment
+3|wiki|Photogrammetry
+3|wiki|Point cloud
+3|wiki|Lidar
+3|wiki|Region Based Convolutional Neural Networks
+3|wiki|You Only Look Once
+3|wiki|U-Net
+3|wiki|Vision transformer
+3|wiki|Super-resolution imaging
+3|arxiv|U-Net Convolutional Networks for Biomedical Image Segmentation
+3|arxiv|Segment Anything Kirillov Mintun Ravi`,
+  },
+  {
+    id: 'information-theory-coding',
+    name: `Information theory, data compression and character encoding`,
+    why: `Every text Ghosty stores, every file it compresses or decodes and every noisy channel it sends data over rests on entropy, codes and encodings it should understand rather than guess at.`,
+    t: `1|wiki|Information theory
+1|wiki|A Mathematical Theory of Communication
+1|wiki|Bit
+1|wiki|Character encoding
+1|wiki|ASCII
+1|wiki|Windows-1252
+1|wiki|Unicode
+1|wiki|UTF-8
+1|wiki|UTF-16
+1|wiki|Byte order mark
+1|wiki|Mojibake
+1|wiki|Base64
+1|wiki|Data compression
+1|wiki|Lossless compression
+1|wiki|Run-length encoding
+1|wiki|Parity bit
+1|wiki|Checksum
+2|wiki|Mutual information
+2|wiki|Kullback–Leibler divergence
+2|wiki|Prefix code
+2|wiki|Kraft–McMillan inequality
+2|wiki|Shannon's source coding theorem
+2|wiki|Huffman coding
+2|wiki|Arithmetic coding
+2|wiki|LZ77 and LZ78
+2|wiki|Lempel–Ziv–Welch
+2|wiki|Deflate
+2|wiki|Burrows–Wheeler transform
+2|wiki|Cyclic redundancy check
+2|wiki|Hamming code
+2|wiki|Error detection and correction
+2|wiki|Channel capacity
+2|wiki|Noisy-channel coding theorem
+2|wiki|Shannon–Hartley theorem
+2|wiki|Unicode equivalence
+2|wiki|Quantization (signal processing)
+2|wiki|Pulse-code modulation
+2|wiki|Discrete cosine transform
+2|wiki|JPEG
+2|wiki|PNG
+2|wiki|MP3
+3|wiki|Asymmetric numeral systems
+3|wiki|Rate–distortion theory
+3|wiki|Reed–Solomon error correction
+3|wiki|Convolutional code
+3|wiki|Viterbi algorithm
+3|wiki|Low-density parity-check code
+3|wiki|Turbo code
+3|wiki|Polar code (coding theory)
+3|wiki|Kolmogorov complexity
+3|wiki|Minimum description length
+3|wiki|Advanced Video Coding
+3|wiki|AV1
+3|wiki|Opus (audio format)
+3|arxiv|Language Modeling Is Compression
+3|arxiv|Channel polarization constructing capacity-achieving codes`,
+  },
+  {
+    id: 'automata-computability',
+    name: `Automata, formal languages and computability`,
+    why: `Regular expressions, parsers and the limits of what any program can decide are everyday tools and hard boundaries for an AI that writes and checks code.`,
+    t: `1|wiki|Formal language
+1|wiki|Alphabet (formal languages)
+1|wiki|Kleene star
+1|wiki|Automata theory
+1|wiki|Deterministic finite automaton
+1|wiki|Nondeterministic finite automaton
+1|wiki|Powerset construction
+1|wiki|Regular language
+1|wiki|Regular grammar
+1|wiki|Thompson's construction
+1|wiki|Moore machine
+1|wiki|Finite-state transducer
+1|wiki|Formal grammar
+1|wiki|Chomsky hierarchy
+1|wiki|Backus–Naur form
+2|wiki|Pumping lemma for regular languages
+2|wiki|DFA minimization
+2|wiki|Myhill–Nerode theorem
+2|wiki|Pushdown automaton
+2|wiki|Chomsky normal form
+2|wiki|Ambiguous grammar
+2|wiki|Pumping lemma for context-free languages
+2|wiki|Deterministic context-free language
+2|wiki|CYK algorithm
+2|wiki|Earley parser
+2|wiki|Parsing expression grammar
+2|wiki|Context-sensitive grammar
+2|wiki|Linear bounded automaton
+2|wiki|Unrestricted grammar
+2|wiki|Universal Turing machine
+2|wiki|Turing completeness
+2|wiki|Church–Turing thesis
+2|wiki|Computable function
+2|wiki|Undecidable problem
+2|wiki|Recursively enumerable language
+2|wiki|Entscheidungsproblem
+2|wiki|Cellular automaton
+2|wiki|Computability theory
+3|wiki|Primitive recursive function
+3|wiki|General recursive function
+3|wiki|Ackermann function
+3|wiki|Rice's theorem
+3|wiki|Reduction (computability theory)
+3|wiki|Oracle machine
+3|wiki|Post correspondence problem
+3|wiki|Busy beaver
+3|wiki|Chaitin's constant
+3|wiki|Rule 110
+3|wiki|Hilbert's tenth problem
+3|wiki|Büchi automaton
+3|wiki|Model checking
+3|wiki|Linear temporal logic
+3|wiki|Arithmetical hierarchy
+3|arxiv|Neural Networks and the Chomsky Hierarchy
+3|arxiv|Transformers as recognizers of formal languages`,
+  },
+  {
+    id: 'nlp-speech',
+    name: `Natural language processing and speech`,
+    why: `Language and voice are Ghosty's own medium; knowing how text is tokenised, parsed, translated, transcribed and evaluated lets it build and judge language tools honestly.`,
+    t: `1|wiki|Natural language processing
+1|wiki|Text corpus
+1|wiki|Text segmentation
+1|wiki|Stemming
+1|wiki|Lemmatization
+1|wiki|Stop word
+1|wiki|Bag-of-words model
+1|wiki|N-gram
+1|wiki|Language model
+1|wiki|Zipf's law
+1|wiki|Levenshtein distance
+1|wiki|Spell checker
+1|wiki|Language identification
+1|wiki|ELIZA
+1|wiki|Georgetown–IBM experiment
+2|wiki|Part-of-speech tagging
+2|wiki|Hidden Markov model
+2|wiki|Named-entity recognition
+2|wiki|Conditional random field
+2|wiki|Dependency grammar
+2|wiki|Universal Dependencies
+2|wiki|Word-sense disambiguation
+2|wiki|WordNet
+2|wiki|Coreference
+2|wiki|Sentiment analysis
+2|wiki|Document classification
+2|wiki|Topic model
+2|wiki|Latent Dirichlet allocation
+2|wiki|Word2Vec
+2|wiki|Machine translation
+2|wiki|Neural machine translation
+2|wiki|BLEU
+2|wiki|Perplexity
+2|wiki|Word error rate
+2|wiki|Seq2seq
+2|wiki|SpaCy
+2|wiki|Speech recognition
+2|wiki|Speech synthesis
+2|wiki|Spectrogram
+2|wiki|Mel-frequency cepstrum
+3|wiki|Connectionist temporal classification
+3|wiki|Vocoder
+3|wiki|WaveNet
+3|wiki|Speaker recognition
+3|wiki|Speaker diarisation
+3|wiki|Whisper (speech recognition system)
+3|wiki|BERT (language model)
+3|wiki|Question answering
+3|wiki|Automatic summarization
+3|wiki|Information extraction
+3|wiki|Winograd schema challenge
+3|wiki|Audio deepfake
+3|arxiv|Neural Machine Translation Rare Words Subword Units
+3|arxiv|wav2vec 2.0 Self-Supervised Learning Speech Representations
+3|arxiv|Listen Attend and Spell
+3|arxiv|GLUE Multi-Task Benchmark Natural Language Understanding`,
+  },
+  {
+    id: 'geometry-trigonometry',
+    name: `Geometry, trigonometry and measurement`,
+    why: `Maps, measurements, camera geometry and unit conversions come up constantly in building, navigation and advice, and the UK mixes metric, imperial and the Ordnance Survey grid.`,
+    t: `1|wiki|Euclidean geometry
+1|wiki|Euclid's Elements
+1|wiki|Angle
+1|wiki|Triangle
+1|wiki|Pythagorean theorem
+1|wiki|Congruence (geometry)
+1|wiki|Similarity (geometry)
+1|wiki|Polygon
+1|wiki|Circle
+1|wiki|Area
+1|wiki|Straightedge and compass construction
+1|wiki|Trigonometry
+1|wiki|Unit circle
+1|wiki|Radian
+1|wiki|Sine and cosine
+1|wiki|International System of Units
+1|wiki|Metric prefix
+1|wiki|Imperial units
+1|wiki|Significant figures
+1|wiki|Accuracy and precision
+1|wiki|Geographic coordinate system
+1|openstax|/books/college-physics-2e/pages/1-2-physical-quantities-and-units
+2|wiki|Parallel postulate
+2|wiki|Inscribed angle
+2|wiki|Platonic solid
+2|wiki|Tessellation
+2|wiki|Law of sines
+2|wiki|Law of cosines
+2|wiki|List of trigonometric identities
+2|wiki|Inverse trigonometric functions
+2|wiki|Polar coordinate system
+2|wiki|Conic section
+2|wiki|Ellipse
+2|wiki|Parabola
+2|wiki|Measurement uncertainty
+2|openstax|/books/university-physics-volume-1/pages/1-4-dimensional-analysis
+2|wiki|National Physical Laboratory (United Kingdom)
+2|wiki|Metrication in the United Kingdom
+2|wiki|Map projection
+2|wiki|Mercator projection
+2|wiki|Transverse Mercator projection
+2|wiki|Ordnance Survey National Grid
+2|wiki|Great-circle distance
+2|wiki|Haversine formula
+3|wiki|Spherical trigonometry
+3|wiki|Non-Euclidean geometry
+3|wiki|Hyperbolic geometry
+3|wiki|Projective geometry
+3|wiki|Buckingham pi theorem
+3|wiki|Geodesy
+3|wiki|Geodetic datum
+3|wiki|World Geodetic System
+3|wiki|Web Mercator projection
+3|wiki|Tissot's indicatrix
+3|wiki|2019 revision of the SI
+3|wiki|Erlangen program`,
+  },
+  {
+    id: 'accounting-business',
+    name: `Accounting and business basics`,
+    why: `An owner who sells, freelances or starts a company needs correct UK answers about the books, VAT, payroll, Companies House and pricing, and Ghosty should be able to give them.`,
+    t: `1|wiki|Accounting
+1|wiki|Bookkeeping
+1|wiki|Double-entry bookkeeping
+1|wiki|Debits and credits
+1|wiki|General ledger
+1|wiki|Accounting equation
+1|wiki|Balance sheet
+1|wiki|Income statement
+1|wiki|Cash flow statement
+1|wiki|Invoice
+1|wiki|Reconciliation (accounting)
+1|wiki|Sole proprietorship
+1|wiki|Limited company
+1|wiki|Companies House
+1|wiki|Business plan
+1|wiki|Marketing
+1|wiki|Marketing mix
+1|wiki|Pricing
+1|wiki|Trial balance
+2|wiki|Basis of accounting
+2|wiki|Depreciation
+2|wiki|Working capital
+2|wiki|Management accounting
+2|wiki|Break-even point
+2|wiki|Financial ratio
+2|wiki|Cash flow forecasting
+2|openstax|/books/principles-financial-accounting/pages/3-5-use-journal-entries-to-record-transactions-and-post-to-t-accounts
+2|wiki|Private company limited by shares
+2|wiki|Limited liability partnership
+2|wiki|Community interest company
+2|wiki|Companies Act 2006
+2|wiki|Articles of association
+2|wiki|Value-added tax in the United Kingdom
+2|wiki|United Kingdom corporation tax
+2|wiki|Pay-as-you-earn tax
+2|wiki|Payroll
+2|wiki|Business rates in England
+2|wiki|Making Tax Digital
+2|wiki|SWOT analysis
+2|wiki|Pricing strategy
+2|wiki|Entrepreneurship
+2|wiki|Business model
+2|wiki|Statutory sick pay
+3|wiki|International Financial Reporting Standards
+3|wiki|Financial audit
+3|wiki|IR35
+3|wiki|Capital allowance
+3|wiki|Seed Enterprise Investment Scheme
+3|wiki|Angel investor
+3|wiki|Crowdfunding
+3|wiki|Porter's five forces analysis
+3|wiki|Customer lifetime value
+3|wiki|Subscription business model
+3|wiki|Federation of Small Businesses
+3|wiki|Generally Accepted Accounting Practice (UK)
+3|wiki|British Chambers of Commerce`,
+  },
 ];

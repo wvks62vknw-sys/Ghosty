@@ -4,6 +4,8 @@
  *   - arXiv papers by id ("1706.03762", "arxiv.org/abs/…") — full text from arXiv's HTML version when it exists
  *   - CVE records by id ("CVE-2021-44228") from the official CVE service
  *   - public GitHub repositories ("owner/repo" or a github.com link) — README, docs and source
+ *   - Project Gutenberg books ("gutenberg.org/ebooks/1342", "gutenberg 1342") — the plain-text edition,
+ *     its licence header and footer removed, chapter by chapter, a part (~90k characters) per call
  * Each call imports a bounded amount (the free plan allows ~50 outbound requests and little
  * CPU per request); large sources say how to continue.
  */
@@ -71,6 +73,8 @@ export async function importSource(lib: Library, source: string, opts: { offset?
   if (cve) return importCve(lib, cve[1]!.toUpperCase(), opts.onProgress);
   const arxiv = s.match(/^(?:arxiv:\s*)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)$/i) ?? s.match(/arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+(?:\.[a-z]{2})?\/\d{7}(?:v\d+)?)/i);
   if (arxiv) return importArxiv(lib, arxiv[1]!, opts.onProgress);
+  const pg = s.match(/^(?:gutenberg|pg|project gutenberg)[:\s#]*(\d{1,6})$/i) ?? s.match(/gutenberg\.org\/(?:ebooks|cache\/epub|files)\/(\d{1,6})\b/i);
+  if (pg) return importGutenberg(lib, Number(pg[1]), opts.offset ?? 0, opts.onProgress);
   const gh = s.match(/^(?:https?:\/\/github\.com\/)?([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/tree\/[^/]+\/(.+))?\/?$/);
   if (gh && !/^https?:\/\/(?!github\.com)/.test(s) && !s.includes(' ')) return importGithub(lib, gh[1]!, gh[2]!, gh[3] ?? '', opts.offset ?? 0, opts.onProgress);
   if (/^https?:\/\//i.test(s)) return importUrl(lib, s, opts.onProgress);
@@ -197,6 +201,115 @@ async function importGithub(lib: Library, owner: string, repo: string, sub: stri
 }
 
 /** Ghosty's own source code, as a library document (kept up to date after every shipped change). */
+/** The address of a Project Gutenberg book's plain-text edition. */
+export const gutenbergTextUrl = (id: number): string => `https://www.gutenberg.org/cache/epub/${id}/pg${id}.txt`;
+
+/** A line that opens a chapter, book, part, act… (its own line, blank lines around it). */
+const CHAPTER_WORD = /^(?:THE\s+)?(?:CHAPTER|BOOK|PART|VOLUME|LETTER|CANTO|ACT|SCENE|STAVE|SECTION|EPISODE|EPILOGUE|PROLOGUE|PREFACE|INTRODUCTION|APPENDIX|CONCLUSION)\b.{0,80}$|^(?:THE\s+)?(?:FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|LAST)\s+(?:BOOK|PART|CHAPTER)\b.{0,60}$/i;
+/** A roman numeral on its own, or followed by a stop and a title ("IV. THE GARDEN") — never "I think…". */
+const CHAPTER_ROMAN = /^[IVXLCDM]{1,8}$|^[IVXLCDM]{1,8}(?:\.|:|\s*[—–-])(?:\s+\S.{0,70})?$/;
+
+/** Hard-wrapped paragraphs (Gutenberg wraps at ~70 columns) joined into lines; verse (short lines) kept as it is. */
+function unwrap(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((para) => {
+      const p = para.replace(/^\n+|\n+$/g, '');
+      const lines = p.split('\n');
+      const avg = lines.reduce((n, l) => n + l.trim().length, 0) / lines.length;
+      return lines.length > 1 && avg > 45 ? lines.map((l) => l.trim()).join(' ') : p;
+    })
+    .join('\n\n');
+}
+
+/**
+ * The plain-text edition of a Project Gutenberg book, taken apart: title and author from the header,
+ * the licence header and footer removed, and the body split into chapters (a short heading line
+ * such as "CHAPTER I", "THE FIRST BOOK" or "IV. THE GARDEN" opens each). A book without such
+ * headings is one chapter.
+ */
+export function gutenbergText(raw: string): { title: string; author: string; chapters: { heading: string; text: string }[] } {
+  const t = raw.replace(/\r\n?/g, '\n');
+  const title = (t.match(/^Title:\s*(.+)$/m)?.[1] ?? '').trim();
+  const author = (t.match(/^Author:\s*(.+)$/m)?.[1] ?? '').trim();
+  const start = t.search(/^\*\*\* ?START OF (?:THE|THIS) PROJECT GUTENBERG EBOOK[^\n]*$/m);
+  let body = start >= 0 ? t.slice(t.indexOf('\n', start) + 1) : t;
+  const end = body.search(/^\*\*\* ?END OF (?:THE|THIS) PROJECT GUTENBERG EBOOK/m);
+  if (end >= 0) body = body.slice(0, end);
+  const lines = body.split('\n');
+  const chapters: { heading: string; text: string }[] = [];
+  let heading = title || 'Front matter';
+  let buf: string[] = [];
+  const flush = () => {
+    const text = unwrap(buf.join('\n')).trim();
+    if (text.length > 200 || (chapters.length && text)) chapters.push({ heading, text });
+    buf = [];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.trim();
+    const alone = line.length > 0 && line.length <= 80 && !(lines[i - 1] ?? '').trim() && !(lines[i + 1] ?? '').trim();
+    if (alone && (CHAPTER_WORD.test(line) || CHAPTER_ROMAN.test(line))) {
+      flush();
+      heading = line.replace(/\s+/g, ' ');
+      continue;
+    }
+    buf.push(lines[i]!);
+  }
+  flush();
+  return { title, author, chapters };
+}
+
+/**
+ * A Project Gutenberg book, a part at a time: part `offset` of the parts the chapters make at
+ * ~MAX_TEXT characters each (a long chapter is cut at paragraph ends). Passages carry the chapter
+ * as their heading and its number as the page, so a search hit says "chapter 12".
+ */
+async function importGutenberg(lib: Library, id: number, offset: number, onProgress?: ProgressFn): Promise<ImportResult> {
+  onProgress?.(`book ${id} from gutenberg.org…`);
+  const url = gutenbergTextUrl(id);
+  const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/plain' }, redirect: 'follow' });
+  if (!r.ok) throw new Error(`gutenberg.org answered ${r.status} for book ${id} (the number is in the book's address: gutenberg.org/ebooks/<number>)`);
+  const raw = await readCapped(r, 2_500_000);
+  const book = gutenbergText(raw);
+  if (!book.chapters.length) throw new Error(`book ${id} has no readable text`);
+  // chapters → pieces of at most MAX_TEXT characters → parts of about MAX_TEXT
+  const pieces: { heading: string; text: string; page: number }[] = [];
+  book.chapters.forEach((c, i) => {
+    let rest = c.text;
+    while (rest.length > MAX_TEXT) {
+      const cut = rest.lastIndexOf('\n\n', MAX_TEXT);
+      const at = cut > MAX_TEXT / 2 ? cut : MAX_TEXT;
+      pieces.push({ heading: c.heading, text: rest.slice(0, at), page: i + 1 });
+      rest = rest.slice(at).trimStart();
+    }
+    if (rest.trim()) pieces.push({ heading: c.heading, text: rest, page: i + 1 });
+  });
+  const parts: (typeof pieces)[] = [[]];
+  let size = 0;
+  for (const p of pieces) {
+    if (size + p.text.length > MAX_TEXT && parts[parts.length - 1]!.length) {
+      parts.push([]);
+      size = 0;
+    }
+    parts[parts.length - 1]!.push(p);
+    size += p.text.length;
+  }
+  const part = parts[Math.max(0, Math.min(offset, parts.length - 1))]!;
+  const source = `https://www.gutenberg.org/ebooks/${id}`;
+  const title = `${book.title || `Gutenberg ${id}`}${book.author ? ` — ${book.author}` : ''}`;
+  const doc = (offset > 0 ? lib.list().find((d) => d.source === source) : undefined) ?? lib.createDoc({ title, source, kind: 'book', pages: book.chapters.length });
+  const passages = part.flatMap((p) => chunkText(p.text, { heading: p.heading }).map((x) => ({ ...x, page: p.page })));
+  onProgress?.(`part ${offset + 1} of ${parts.length}: ${part[0]!.heading}…`, offset + 1, parts.length);
+  const n = await store(lib, doc, passages, onProgress);
+  const next = offset + 1;
+  const cut = raw.length >= 2_500_000 ? ' The text was very long and its end was left out.' : '';
+  return {
+    doc: lib.doc(doc.id)!,
+    passages: n,
+    note: next < parts.length ? `Saved part ${next} of ${parts.length} ("${part[0]!.heading}" to "${part[part.length - 1]!.heading}", ${book.chapters.length} chapters in all). To continue, import again with offset ${next}.` : `That was the whole book: ${book.chapters.length} chapter${book.chapters.length === 1 ? '' : 's'}.${cut}`,
+  };
+}
+
 export const SELF_DOC = 'self_code';
 const SELF_FILES = /^(MAP\.md|README\.md|SETUP\.md|apps\/(edge|web)\/src\/.+\.ts|packages\/shared\/src\/.+\.ts|apps\/web\/styles\.css|apps\/web\/public\/widget-(kit|host)\.js|\.github\/workflows\/.+\.yml|tests\/.+\.mjs)$/;
 const UNREADABLE_SELF = /^apps\/edge\/wrangler\./i;

@@ -18,6 +18,7 @@
  * Never throws: a failed source is logged and the next session carries on.
  */
 import { chunkText } from '../../../../packages/shared/src/chunk';
+import { gutenbergText, gutenbergTextUrl } from './importers';
 import { htmlToText } from '../tools/web';
 import { DOMAINS, TOPIC_COUNT, domainById, type SourceKind, type Topic } from './curriculum';
 import { grade, makeDrill, SKILLS, type Drill } from './drills';
@@ -131,6 +132,8 @@ export async function findSource(topic: string, kind: SourceKind): Promise<strin
     if (id) return id;
   }
   if (kind === 'swift') return `https://docs.swift.org/swift-book/documentation/the-swift-programming-language/${swiftSlug(topic)}/`;
+  // a classic text: "2680 Meditations" — the number is the book's Project Gutenberg id
+  if (kind === 'gutenberg') return /^\d{1,6}\b/.test(topic.trim()) ? gutenbergTextUrl(Number(topic.trim().match(/^\d{1,6}/)![0])) : null;
   if (kind === 'openstax') return `https://openstax.org${topic.startsWith('/') ? topic : `/${topic}`}`;
   const host = WIKI_HOSTS[kind] ?? 'en.wikipedia.org';
   const j = await getJson<{ query?: { search?: { title: string }[] } }>(`https://${host}/w/api.php?action=query&list=search&format=json&srlimit=1&srsearch=${encodeURIComponent(topic)}`);
@@ -183,6 +186,12 @@ export async function readSource(source: string): Promise<{ title: string; text:
   const r = await fetch(source, { headers: { 'User-Agent': UA, Accept: 'text/html,*/*;q=0.5' }, redirect: 'follow' });
   if (!r.ok) throw new Error(`${new URL(source).hostname} answered ${r.status}`);
   const raw = await readCapped(r);
+  if (/^https:\/\/www\.gutenberg\.org\/cache\/epub\/\d+\/pg\d+\.txt$/.test(source)) {
+    // a Gutenberg book: the licence header and footer off, the chapters in order (a session reads its first part)
+    const book = gutenbergText(raw);
+    const title = `${book.title || source}${book.author ? ` — ${book.author}` : ''}`;
+    return { title, text: `${title}\n\n${book.chapters.map((c) => `${c.heading}\n\n${c.text}`).join('\n\n')}`, url: `https://www.gutenberg.org/ebooks/${source.match(/pg(\d+)\.txt$/)![1]}` };
+  }
   const type = r.headers.get('content-type') ?? '';
   const { title, text } = /html|xml/.test(type) || /^\s*</.test(raw) ? htmlToText(raw) : { title: '', text: raw };
   return { title: title || new URL(source).pathname.split('/').filter(Boolean).pop() || source, text, url: source };

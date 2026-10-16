@@ -11,9 +11,9 @@
  */
 import { DOMAIN_TEXT } from './domains';
 
-export type SourceKind = 'wiki' | 'wikibooks' | 'wikiversity' | 'mdn' | 'arxiv' | 'swift' | 'openstax';
+export type SourceKind = 'wiki' | 'wikibooks' | 'wikiversity' | 'mdn' | 'arxiv' | 'swift' | 'openstax' | 'gutenberg';
 export interface Topic {
-  /** The source title (an article title, an MDN page, a search phrase for arXiv, a Swift book page, an OpenStax page path). */
+  /** The source title (an article title, an MDN page, a search phrase for arXiv, a Swift book page, an OpenStax page path, a Gutenberg book number then its title). */
   t: string;
   /** 1 basics, 2 intermediate, 3 advanced. */
   l: 1 | 2 | 3;
@@ -27,7 +27,7 @@ export interface Domain {
   topics: Topic[];
 }
 
-const KINDS = new Set<string>(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax']);
+const KINDS = new Set<string>(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax', 'gutenberg']);
 
 function parse(text: string): Topic[] {
   const out: Topic[] = [];
