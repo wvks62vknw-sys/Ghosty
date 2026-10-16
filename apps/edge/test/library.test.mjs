@@ -343,3 +343,28 @@ test("while paused, Ghosty knows the owner's memory from their device and can st
     globalThis.fetch = realFetch;
   }
 });
+
+test("the library is handed to the owner's device a page at a time, by index (no full scans)", async () => {
+  const st = new MemStorage();
+  const l = new Library(st, {});
+  const d = l.createDoc({ title: 'Big book' });
+  const list = Array.from({ length: 25 }, (_, i) => ({ text: `Passage number ${i} about orbital mechanics.`, heading: `Ch ${Math.floor(i / 10)}`, page: i + 1 }));
+  for (let i = 0; i < list.length; i += 10) await l.addPassages(d.id, list.slice(i, i + 10));
+  const other = l.createDoc({ title: 'Other' });
+  await l.addPassages(other.id, [{ text: 'not this one' }]);
+  const got = [];
+  let after = 0;
+  for (;;) {
+    const p = l.passagesOf(d.id, after, 10);
+    got.push(...p.passages);
+    if (p.next === null) break;
+    after = p.next;
+  }
+  assert.equal(got.length, 25);
+  assert.deepEqual(got.map((p) => p.page), list.map((p) => p.page), 'in order');
+  assert.equal(got[12].heading, 'Ch 1');
+  const mine = st.sql.plans.filter((p) => /FROM lib_pass WHERE doc = \? AND rid|FROM lib_fts WHERE rowid IN/.test(p.query));
+  assert.ok(mine.length >= 3);
+  // (an FTS5 "INDEX 0:=" is a lookup by row id; "INDEX 0:" with nothing after it would read everything)
+  assert.ok(!mine.some((p) => p.detail.some((x) => /^SCAN lib_(pass|vec)\b/.test(x) || /^SCAN lib_fts VIRTUAL TABLE INDEX 0:$/.test(x))), 'index lookups only');
+});

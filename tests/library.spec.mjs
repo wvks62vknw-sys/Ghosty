@@ -117,6 +117,12 @@ if (e.title !== 'Lighthouse Tales' || e.pages.length !== 2 || !e.pages[1].includ
 await page.close();
 
 // ---------- 2. the Library tab ----------
+/** Wait for a library search to finish (its panel says "searching…" until the results are in). */
+const searched = (ui) =>
+  ui
+    .waitForFunction(() => !/searching/.test(document.querySelector('#pg-library .pn.ask h3 small')?.textContent ?? 'searching'), null, { timeout: 10000 })
+    .catch(() => undefined);
+
 for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
@@ -147,9 +153,31 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
   // search (no AI)
   await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
   await ui.keyboard.press('Enter');
-  await ui.waitForTimeout(800);
+  await searched(ui);
   const res = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
   if (!res.length || !/Volcano/i.test(res[0])) problems.push(`[${name}] search found: ${res.slice(0, 2).join(' || ') || 'nothing'}`);
+  if (name === 'desktop') {
+    // The whole library is copied to this device and answers with no connection at all.
+    await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] the library was never copied to the device: ${'' }`));
+    await ctx.setOffline(true);
+    await ui.fill('#pg-library input[aria-label="Search the library"]', 'binary search');
+    await ui.keyboard.press('Enter');
+    await searched(ui);
+    const off = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
+    if (!off.length) problems.push(`[${name}] offline library search found nothing`);
+    await ui.evaluate(() => (location.hash = 'core'));
+    await ui.fill('#cin', 'pancake batter eggs flour milk');
+    await ui.keyboard.press('Enter');
+    await ui.waitForFunction(() => /library on this device/i.test(document.body.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] no offline answer from the library in chat`));
+    const said = await ui.evaluate(() => /Whisk two eggs/.test(document.body.textContent ?? ''));
+    if (!said) problems.push(`[${name}] the offline answer didn't quote the uploaded recipe`);
+    await ui.screenshot({ path: `${out}/${name}-library-offline.png` });
+    await ctx.setOffline(false);
+    await ui.evaluate(() => (location.hash = 'library'));
+    await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+    await ui.keyboard.press('Enter');
+    await searched(ui);
+  }
   const askH = await ui.$eval('#pg-library .pn.ask > .bd', (el) => el.clientHeight);
   if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
@@ -169,5 +197,5 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches; the whole library is copied to the device and answers offline.');
 process.exit(problems.length ? 1 : 0);

@@ -4,7 +4,8 @@
  * things up in them before answering. Searching here uses no AI at all.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, type StudyInfo } from '../../api/brain';
+import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { shelf as deviceShelf } from '../../library/local';
 import { clear, fmt, h } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
@@ -237,6 +238,13 @@ export const libraryTab: TabDef = {
           ['SIZE', Math.min(1, r.stats.bytes / 1e9), r.stats.bytes < 1e7 ? `${(r.stats.bytes / 1e6).toFixed(1)}MB` : `${Math.round(r.stats.bytes / 1e6)}MB`, '#ffd24d'],
         ]);
         if (!starterReady && !busy.n) setTimeout(() => void refresh(), 1500); // keep filling the starter library
+        // Keep this device's copy current (it answers when the brain can't), and say how much is here.
+        const sub = P.sub.textContent;
+        void mirrorLibraryNow()
+          .then(() => deviceShelf())
+          .then((x) => {
+            if (P.sub.textContent === sub) P.sub.textContent = `${sub} · ${fmt.n(x.stats.passages)} passages on this device (works offline)`;
+          });
       } catch (e) {
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);

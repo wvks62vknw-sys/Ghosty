@@ -81,6 +81,7 @@ export class Library {
       s.exec(`CREATE TABLE IF NOT EXISTS lib_pass (rid INTEGER PRIMARY KEY, doc TEXT NOT NULL, heading TEXT, chars INTEGER DEFAULT 0, h TEXT)`);
       s.exec(`CREATE INDEX IF NOT EXISTS lib_pass_doc ON lib_pass (doc, heading)`);
       s.exec(`CREATE INDEX IF NOT EXISTS lib_pass_h ON lib_pass (h)`);
+      s.exec(`CREATE INDEX IF NOT EXISTS lib_pass_doc_rid ON lib_pass (doc, rid)`);
       s.exec(`CREATE TABLE IF NOT EXISTS lib_meta (k TEXT PRIMARY KEY, v TEXT)`);
       // One-time: libraries from before lib_pass existed get it filled from lib_fts (a single scan).
       const done = s.exec<{ v: string }>(`SELECT v FROM lib_meta WHERE k = 'pass_index'`).toArray()[0];
@@ -157,6 +158,24 @@ export class Library {
     this.dropRows(ids);
     db.exec(`UPDATE lib_docs SET passages = max(0, passages - ?), chars = max(0, chars - ?) WHERE id = ?`, rows.length, rows.reduce((n, r) => n + Number(r.chars), 0), docId);
     return rows.length;
+  }
+
+  /**
+   * A document's passages in order, a page at a time (for the copy on the owner's device).
+   * Index lookups only: the rows of this page, never the whole library.
+   */
+  passagesOf(docId: string, after = 0, limit = 300): { passages: { rid: number; text: string; heading: string; page: number | null }[]; next: number | null } {
+    const db = this.db;
+    const n = Math.max(1, Math.min(400, Math.floor(limit)));
+    const rids = db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE doc = ? AND rid > ? ORDER BY rid LIMIT ?`, docId, Math.max(0, Math.floor(after)), n).toArray().map((r) => Number(r.rid));
+    if (!rids.length) return { passages: [], next: null };
+    const rows = db.exec<{ rid: number; text: string; heading: string | null; page: number | null }>(`SELECT rowid AS rid, text, heading, page FROM lib_fts WHERE rowid IN (${rids.map(() => '?').join(',')})`, ...rids).toArray();
+    const byRid = new Map(rows.map((r) => [Number(r.rid), r]));
+    const passages = rids.flatMap((rid) => {
+      const r = byRid.get(rid);
+      return r ? [{ rid, text: String(r.text), heading: String(r.heading ?? ''), page: r.page === null || r.page === undefined ? null : Number(r.page) }] : [];
+    });
+    return { passages, next: rids.length === n ? rids[rids.length - 1]! : null };
   }
 
   finish(id: string): LibraryDoc | null {
