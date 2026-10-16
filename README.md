@@ -28,7 +28,7 @@ tests/       local preview server + browser test
   (you ship each), and adds what it learned to its handbook so every later version knows it too.
   **CARRY ON** continues with the next step.
 - **Library (offline brain)**: the **Library** tab takes books, PDFs, Word files, e-books, notes, web pages,
-  arXiv papers, CVEs and GitHub repositories. They are read in your browser and kept forever in Ghosty's
+  arXiv papers, CVEs, GitHub repositories and whole Project Gutenberg books. They are read in your browser and kept forever in Ghosty's
   own database with full-text search (plus meaning search through Workers AI, no key). Every message is
   looked up there first, so only the few passages that matter reach the AI — and with no AI available at
   all, Ghosty answers straight from the library. A built-in starter library covers algorithms, system
@@ -38,17 +38,33 @@ tests/       local preview server + browser test
   its own changed source files are re-read, and the **Workshop → Training Ground** has it solve 40 verified
   coding exercises — it isn't done with one until every hidden test passes; mistakes become lessons.
 - **Linked to your life**: email (app password; sending always asks you), Spotify, push notifications on
-  demand — all set up in the **Links** tab — live public CCTV (London, Durham, New York, California, Finland, Canada, Sydney) and live
-  road traffic anywhere (free TomTom key) on the God's Eye globe.
+  demand — all set up in the **Links** tab — live public CCTV (the West Midlands motorways, London, Durham, New York,
+  California, Finland, Canada, Sydney), live motorway incidents and the West Midlands' safety-camera sites (no key),
+  live buses and trams, live road traffic anywhere (free TomTom key), and a ROAD AHEAD mode that follows your
+  phone on the God's Eye globe with what lies ahead.
 - **Every screen one tap away**: tap the **GHOSTY** logo (or **SYSTEMS** in the phone dock, or press **M**)
   for the systems deck — every screen with what it does, plus quick actions.
 - **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),
   so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
   tests on every change.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
-  long tasks, short rate limits are waited out, and when the keys run dry Ghosty falls back to
-  **Cloudflare Workers AI** (no key — runs on your Cloudflare account) and **GitHub Models** (your GitHub
-  token with the "Models" permission).
+  long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
+  until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
+  on your Cloudflare account) and the open **Pollinations** endpoint (no key, no account).
+- **Self-study**: around the clock Ghosty reads a curriculum of thousands of topics (Wikipedia, MDN, arXiv,
+  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, writes study notes with a free model, drills itself with
+  questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
+  repository.
+- **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
+  a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
+  picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
+  white-labelled). Vendored MediaPipe and Tesseract.js; no face recognition, no number-plate lookups.
+- **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
+  registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
+  Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
+  with its other tools. Infrastructure only, never a person.
+- **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
+  report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

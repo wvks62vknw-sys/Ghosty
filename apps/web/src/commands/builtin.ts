@@ -33,6 +33,8 @@ const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
   aurora: 'aurora', 'northern lights': 'aurora',
   cables: 'cables', 'undersea cables': 'cables', 'submarine cables': 'cables', internet: 'cables',
   dispatch: 'dispatch', '911': 'dispatch', emergency: 'dispatch',
+  transit: 'transit', buses: 'transit', bus: 'transit', trams: 'transit', tram: 'transit', metro: 'transit', 'public transport': 'transit', 'live buses': 'transit',
+  incidents: 'incidents', 'road incidents': 'incidents', 'motorway incidents': 'incidents', crashes: 'incidents', closures: 'incidents', 'road reports': 'incidents',
   borders: 'borders', cams: 'cams', cameras: 'cams', cctv: 'cams', traffic: 'traffic', 'live traffic': 'traffic', congestion: 'traffic', webcams: 'cams', satellite: 'imagery', imagery: 'imagery', map: 'imagery', buildings: 'buildings', '3d': 'buildings', cities: 'cities', grid: 'grid', clouds: 'clouds', airports: 'airports', coast: 'coast', regions: 'adm1', orbits: 'orbits',
 };
 
@@ -249,6 +251,67 @@ export function registerBuiltins(): void {
           void crime.refresh(where.lat, where.lon, 12).catch(() => undefined);
         }
         ui.set({});
+      },
+    },
+    {
+      // Live buses and trams around a place (the brain's transit_now tool, or "show me the buses").
+      id: 'show_transit',
+      title: 'Show live buses & trams',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
+        globe.vis = { ...globe.vis, transit: true };
+        if (where) {
+          globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 5, tilt: 40 });
+          const { transit } = await import('../data/transit');
+          void transit.refresh(where.lat, where.lon, Number(a?.range_km) || 5).catch(() => undefined);
+        }
+        ui.set({});
+      },
+    },
+    {
+      // Live road incidents the brain found (motorway_now): shown at the junctions they name.
+      id: 'show_incidents',
+      title: 'Show road incidents',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const { incidents } = await import('../data/incidents');
+        const n = Array.isArray(a?.events) ? incidents.seed(a?.events) : 0;
+        globe.vis = { ...globe.vis, incidents: true };
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        if (typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon)) globe.cam.flyTo({ lat, lon, range: Number(a?.range_km) || 40, tilt: 20 });
+        if (!n) void incidents.refresh(String(a?.region ?? 'West Midlands'), true).catch(() => undefined);
+        ui.set({});
+      },
+    },
+    {
+      // ROAD AHEAD: follow the owner's own position on the globe with what lies ahead (their phone's GPS; nothing leaves the device).
+      id: 'road_ahead',
+      title: 'Road ahead (follow me)',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const { startRoadAhead, stopRoadAhead } = await import('../features/eye');
+        if (a?.on === false) stopRoadAhead?.();
+        else startRoadAhead?.();
+        ui.set({});
+      },
+    },
+    {
+      // The Lens (the phone's camera): SEE, READ, HANDS or ASK — "read this document" → open_lens read.
+      // This is also the brain's auto-approved tool, so it only picks the tab and mode: the camera
+      // itself opens from the owner's own tap (the START button), never from here.
+      id: 'open_lens',
+      title: 'Open the Lens',
+      hidden: true,
+      run: async (a) => {
+        const { openLens } = await import('../features/lens');
+        openLens(typeof a?.mode === 'string' ? a.mode : undefined, typeof a?.question === 'string' ? a.question.slice(0, 500) : undefined);
       },
     },
     {

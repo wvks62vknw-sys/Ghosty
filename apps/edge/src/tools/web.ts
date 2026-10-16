@@ -104,6 +104,15 @@ interface Hit {
   text: string;
 }
 
+/** The host of a web address, for progress lines ("fetching example.com…"); the address itself when it won't parse. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url.slice(0, 60);
+  }
+}
+
 const entities = (t: string) => htmlToText(t).text;
 
 const STOP = new Set('a an and are as at be best by can do does for from game get how i in is it make me my of on or simple the to what when where which who why with you your short'.split(' '));
@@ -155,6 +164,7 @@ export const webTools: Tool[] = [
     description: 'Search the web. Use for anything current or that you are unsure about. Returns titles, links and snippets.',
     parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const q = arg.str(a, 'query');
       return asData('web search', clip(await search(q, ctx), 6000));
@@ -165,12 +175,16 @@ export const webTools: Tool[] = [
     description: 'Read a web page (or JSON/text URL) and return its text. Use after web_search to read a result.',
     parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
     risk: 'auto',
-    async run(a) {
+    pure: true,
+    async run(a, ctx) {
       const url = arg.str(a, 'url');
       if (!/^https?:\/\//i.test(url)) throw new Error('url must start with http:// or https://');
+      // (?. — tests call tools with a bare context)
+      ctx.progress?.(`fetching ${hostOf(url)}…`);
       const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const type = r.headers.get('content-type') ?? '';
+      ctx.progress?.('reading…');
       const raw = await readCapped(r);
       if (/json|text\/plain|csv|xml/.test(type)) return asData(url, clip(raw, 9000));
       const { title, text } = htmlToText(raw);

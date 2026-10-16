@@ -1,6 +1,8 @@
 /**
  * Live cameras and live traffic for a place. show_cameras checks where God's Eye has public
  * cameras and says honestly when a place has none (then shows live traffic there instead);
+ * around Birmingham the city's own streets have none, but National Highways' motorway cameras
+ * (M6, M5, M42, M54, A38(M)) are public stills, so the nearest of those is shown instead;
  * traffic_now opens the live traffic map (Waze's own embeddable map: jams and hazards drivers report
  * right now — free, no key), shows the nearest public cameras, and with the free TomTom key adds
  * speeds and incidents; street_view opens Google Street View (free, no key) at a place.
@@ -37,27 +39,38 @@ export const trafficTools: Tool[] = [
   {
     name: 'show_cameras',
     description:
-      "Show live public traffic/road CCTV for a place on God's Eye (e.g. \"cameras in Birmingham city centre\"). Public cameras exist in London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary. If the place has none (e.g. Birmingham — its council and National Highways don't publish theirs), this says so, shows how far the nearest are, and shows live traffic plus mapped ANPR/speed camera locations there instead. Repeat its answer honestly.",
+      "Show live public traffic/road CCTV for a place on God's Eye (e.g. \"cameras in Birmingham city centre\", \"M6 at junction 6\"). Public cameras exist on the West Midlands motorways (National Highways: M6, M5, M42, M54, A38(M) — stills refreshed every 20–30 s), in London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary. Birmingham's own streets have none (the council doesn't publish its CCTV): there the nearest motorway camera is shown, with live traffic and the mapped ANPR/speed camera locations. Elsewhere with none, this says so and shows how far the nearest are. Repeat its answer honestly.",
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const p = await where(a, ctx);
       const cov = cameraCoverage(p.lat, p.lon);
       const traffic = !!(await ctx.vault.get('tomtom'));
       if (cov.away < 5) {
         ctx.emit({ t: 'client', name: 'show_cameras', args: { place: p.name, lat: p.lat, lon: p.lon } });
+        if (/National Highways/.test(cov.area)) {
+          // The motorways around Birmingham: public stills, Crown copyright, for the owner's own viewing.
+          ctx.emit({ t: 'client', name: 'show_traffic', args: { place: p.name, lat: p.lat, lon: p.lon } });
+          const local = /birmingham|west midlands|solihull|wolverhampton|walsall|dudley|sandwell|coventry/i.test(p.name);
+          const detail = `M6, M5, M42, M54 and the A38(M) around the city have public stills (a new frame every 20–30 seconds); the four nearest are in the CCTV grid, with live traffic and the mapped camera locations. ${traffic ? '' : NO_KEY}`;
+          // the honest part first: a model that shortens the answer still keeps it
+          if (local) return `${p.name}'s own streets have no public cameras (the council doesn't publish its CCTV), so the nearest National Highways motorway camera to ${p.name} is open on God's Eye. ${detail}`;
+          return `Showing the nearest National Highways motorway camera to ${p.name} on God's Eye. ${detail}`;
+        }
         return `Showing the nearest live public camera to ${p.name} (${cov.area}) on God's Eye; the four nearest are in the CCTV grid.`;
       }
       ctx.emit({ t: 'client', name: 'traffic_map', args: { place: p.name, lat: p.lat, lon: p.lon } });
       ctx.emit({ t: 'client', name: 'show_traffic', args: { place: p.name, lat: p.lat, lon: p.lon } });
-      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV (Birmingham City Council and National Highways only share theirs with control rooms and media partners). The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. The live traffic map (Waze) for ${p.name} is open on God's Eye instead. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed) and the mapped ANPR, speed and red-light camera locations; call traffic_now for speeds and incidents.` : `I've flown God's Eye there and marked the mapped ANPR, speed and red-light camera locations. ${NO_KEY}`}`;
+      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV. The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. The live traffic map (Waze) for ${p.name} is open on God's Eye instead. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed) and the mapped ANPR, speed and red-light camera locations; call traffic_now for speeds and incidents.` : `I've flown God's Eye there and marked the mapped ANPR, speed and red-light camera locations. ${NO_KEY}`}`;
     },
   },
   {
     name: 'traffic_now',
-    description: "Live road traffic around a place right now. Opens the live traffic map on God's Eye (Waze: jams, slow roads, hazards and crashes drivers report now — free, no key), shows the nearest public cameras if there are any, and with the free TomTom key adds speed on the nearest main road vs normal and current incidents (crashes, closures, queues, roadworks) with delays.",
+    description: "Live road traffic around a place right now. Opens the live traffic map on God's Eye (Waze: jams, slow roads, hazards and crashes drivers report now — free, no key), shows the nearest public cameras if there are any, and with the free TomTom key adds speed on the nearest main road vs normal and current incidents (crashes, closures, queues, roadworks) with delays. For the motorways (M6, M42, M5…) and their junctions, motorway_now gives National Highways' own live incident list with no key.",
     parameters: { type: 'object', properties: { place: { type: 'string', description: 'e.g. "Birmingham city centre", "M6 junction 6"' }, lat: { type: 'number' }, lon: { type: 'number' }, radius_km: { type: 'number', description: 'default 5, max 40' } } },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const p = await where(a, ctx);
       const r = Math.max(1, Math.min(40, arg.num(a, 'radius_km', 5)));

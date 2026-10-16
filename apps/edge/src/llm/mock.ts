@@ -3,6 +3,7 @@
  * It turns simple phrases into tool calls so the agent loop can be tested offline.
  */
 import type { Msg, ToolSpec } from './router';
+import { imagesIn, ownerWords, textOf } from './content';
 import { EXERCISES } from '../training/exercises';
 
 let n = 0;
@@ -23,10 +24,44 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
-  if (last.role === 'tool') {
-    return { message: { role: 'assistant', content: `Done. ${String(last.content).slice(0, 160)}` }, model };
+  // Chains: one tool's result feeds the next in the same turn; several read-only calls in one
+  // reply; and a chain long enough to show the step cap leaves room for real work.
+  const chainUser = [...messages].reverse().find((x) => x.role === 'user');
+  const chainAsked = textOf(chainUser?.content).toLowerCase().trim();
+  const chainSince = chainUser ? messages.slice(messages.lastIndexOf(chainUser)) : [];
+  const chainDid = (name: string) => chainSince.filter((x) => x.role === 'assistant' && x.tool_calls?.some((c) => c.function.name === name)).length;
+  const offered = (name: string) => tools.some((t) => t.function.name === name);
+  if (chainAsked === 'recon then save example.com' && offered('recon_domain')) {
+    // recon_domain files its report; then the page it looked at is read into the library — the host comes from the first result, not from the question.
+    if (!chainDid('recon_domain')) return { message: call('recon_domain', { target: 'example.com', save: true }), model };
+    const host = textOf(chainSince.find((x) => x.role === 'tool')?.content).match(/^# Recon: (\S+)/m)?.[1];
+    if (host && !chainDid('library_import')) return { message: call('library_import', { source: `https://${host}/` }), model };
+    const found = textOf(last.content).replace(/<<[^>]*>>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    return { message: { role: 'assistant', content: `Done: looked at ${host ?? 'example.com'} and saved what I found. ${found}` }, model };
   }
-  const text = String(last.content ?? '').toLowerCase().replace(/^scheduled task "[^"]*": /, '');
+  const together = chainAsked.match(/^read (https?:\/\/\S+) and (https?:\/\/\S+) together( and remember them)?$/);
+  if (together && last.role === 'user') {
+    // Two reads in one reply (both read-only: they run together); "and remember them" puts a write between them (then they run in order).
+    const calls = [call('web_fetch', { url: together[1] }).tool_calls![0]!, ...(together[3] ? [call('remember', { text: `read ${together[1]} and ${together[2]}` }).tool_calls![0]!] : []), call('web_fetch', { url: together[2] }).tool_calls![0]!];
+    return { message: { role: 'assistant', content: null, tool_calls: calls }, model };
+  }
+  const steps = chainAsked.match(/^chain (\d+) steps$/);
+  // list_memory in the usual loop; while the database is paused only the device's library search is offered.
+  const stepTool = offered('list_memory') ? 'list_memory' : offered('library_search') ? 'library_search' : '';
+  if (steps && stepTool) {
+    const done = chainDid(stepTool);
+    if (done < Number(steps[1])) return { message: call(stepTool, stepTool === 'library_search' ? { query: `step ${done + 1}` } : {}), model };
+    return { message: { role: 'assistant', content: `Done after ${done} steps.` }, model };
+  }
+  if (last.role === 'tool') {
+    // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
+    const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
+    if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
+    return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
+  }
+  // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived (the owner's words only, not the phone's data note).
+  if (last.role === 'user' && imagesIn(last.content)) return { message: { role: 'assistant', content: `I can see a picture. ${ownerWords(textOf(last.content))}`.trim() }, model };
+  const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
@@ -46,7 +81,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^directions to (.+?)(?: by (walking|cycling|driving))?$/)) && has('get_directions')) return { message: call('get_directions', { to: m[1], ...(m[2] ? { mode: m[2] } : {}) }), model };
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
-  if ((m = text.match(/^publish site ([a-z0-9-]+)$/)) && has('publish_site')) {
+  if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
+  if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
+    const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];
+    return { message: call('draft_site', { name: m[1], html_part: parts[Number(m[2]) - 1] ?? '' }), model };
+  }
+  if ((m = text.match(/^publish draft ([a-z0-9-]+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], from_draft: true }), model };
+  if ((m = text.match(/^publish site ([a-z0-9-]+)(?: quietly)?$/)) && has('publish_site')) {
     return {
       message: call('publish_site', {
         name: m[1],

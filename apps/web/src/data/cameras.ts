@@ -8,20 +8,26 @@
  *   Ontario — Ontario 511 highway cameras; British Columbia — DriveBC; Sydney/NSW — Live
  *   Traffic NSW; Calgary — City of Calgary traffic cameras; County Durham — Durham County
  *   Council traffic cameras (stills; parsers in data/intel.ts)
- * Not available: Birmingham / West Midlands and National Highways motorway cameras — their
- * operators don't publish them (God's Eye shows live TomTom traffic there instead).
+ *   West Midlands motorways — National Highways' public CCTV stills (M6, M5, M42, M54, A38(M):
+ *   a new frame every 20–30 s; Crown copyright, shown to the owner for private study only;
+ *   the camera index is vendored in data/wm/nhCameras.ts)
+ * Not available: Birmingham's own streets (the council doesn't publish its CCTV; God's Eye
+ * shows live traffic and the mapped camera locations there instead).
  * Only public, official feeds are used — never private or unsecured cameras.
  */
 import { fetchJson, fetchText } from '../api/feed';
 import { Emitter } from '../core/store';
 import { parseCalgary, parseDriveBc, parseDurham, parseNsw, parseOntario, type Cam } from './intel';
+import { NH_CAMERAS_WM } from './wm/nhCameras';
 
 export interface Camera {
   id: string;
   name: string;
   lat: number;
   lon: number;
-  src: 'London' | 'New York' | 'California' | 'Finland' | 'Ontario' | 'British Columbia' | 'New South Wales' | 'Calgary' | 'Durham';
+  src: 'London' | 'New York' | 'California' | 'Finland' | 'Ontario' | 'British Columbia' | 'New South Wales' | 'Calgary' | 'Durham' | 'National Highways';
+  /** The road the camera watches (motorway cameras). */
+  road?: string;
   image: string;
   /** Short clip (mp4) the browser can play directly. */
   video?: string;
@@ -89,6 +95,22 @@ async function california(district: number): Promise<Camera[]> {
     }));
 }
 
+/** The credit National Highways' terms ask for wherever its pictures are shown. */
+export const NH_CREDIT = 'Crown copyright — National Highways traffic cameras. For your own viewing only.';
+
+/** National Highways' motorway cameras around the West Midlands: a vendored index, pictures from the public stills host. */
+export function nationalHighways(): Camera[] {
+  return NH_CAMERAS_WM.map(([id, lat, lon, road, desc, name]) => ({
+    id: `nh:${id}`,
+    name: `${road} ${desc}${name ? ` · ${name}` : ''}`,
+    lat,
+    lon,
+    src: 'National Highways' as const,
+    image: `https://public.highwaystrafficcameras.co.uk/cctvpublicaccess/images/${id}.jpg`,
+    road,
+  }));
+}
+
 /** The extra networks share one shape (data/intel.ts parsers). */
 const extra = (src: Camera['src'], url: string, parse: (j: unknown) => Cam[]) => async (): Promise<Camera[]> =>
   parse(await fetchJson(url, 1800, 30000)).map((c) => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon, src, image: c.img }));
@@ -101,6 +123,7 @@ export function loadCameras(): void {
   cams.status = 'SYNC';
   camEvents.emit('change', undefined);
   const jobs: [string, () => Promise<Camera[]>][] = [
+    ['National Highways', async () => nationalHighways()],
     ['London', london],
     ['New York', newYork],
     ['Finland', finland],
@@ -172,4 +195,5 @@ export const CAM_COLORS: Record<Camera['src'], [number, number, number]> = {
   'New South Wales': [1, 0.55, 0.85],
   Calgary: [1, 0.95, 0.45],
   Durham: [0.6, 0.75, 1],
+  'National Highways': [1, 0.5, 0.25],
 };

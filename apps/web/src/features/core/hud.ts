@@ -47,10 +47,25 @@ export class StarkHud {
   private dpr = 1;
   private particles = Array.from({ length: 14 }, (_, i) => ({ a: (i / 14) * TAU, r: 1.08 + (i % 4) * 0.035, s: 0.25 + (i % 5) * 0.08 }));
 
+  /** What the tool at work is doing right now, on the ring band under the reactor. */
+  private taskEl: HTMLElement;
+  private taskShown = '';
+  private taskTarget = '';
+
   constructor() {
     this.cv = h('canvas.starkhud', { 'aria-hidden': 'true' });
     this.ctx = this.cv.getContext('2d')!;
-    this.el = h('div.hudlayer', this.cv);
+    this.taskEl = h('div.hudtask', { hidden: true, role: 'status' });
+    this.el = h('div.hudlayer', this.cv, this.taskEl);
+  }
+
+  /** Show what a tool is doing right now ("crt.sh… 3 of 7"); null clears it. Text types itself in, like the call-outs. */
+  task(text: string | null): void {
+    this.taskTarget = (text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!this.taskTarget) {
+      this.taskEl.hidden = true;
+      this.taskEl.textContent = this.taskShown = '';
+    }
   }
 
   /** Add or update a call-out. Text types itself in when it changes. */
@@ -213,6 +228,17 @@ export class StarkHud {
 
   /** Position the call-outs at the end of their leader lines; type text in; hide what doesn't fit. */
   private place(c: { x: number; y: number }, R: number): void {
+    // The task line sits on the ring band just under the reactor (inside its box, so it never covers the readings below).
+    if (this.taskTarget) {
+      this.taskEl.hidden = this.boot < 0.35;
+      this.taskEl.style.left = `${c.x}px`;
+      this.taskEl.style.top = `${c.y + R * 1.13}px`;
+      if (this.taskShown !== this.taskTarget) {
+        const keep = commonPrefix(this.taskShown, this.taskTarget);
+        this.taskShown = this.taskShown.length > keep ? this.taskShown.slice(0, -1) : this.taskTarget.slice(0, this.taskShown.length + 2);
+        this.taskEl.textContent = this.taskShown;
+      }
+    }
     const roomy = this.w > 560 && R > 130;
     for (const n of this.notes.values()) {
       const s = SLOTS[n.slot]!;

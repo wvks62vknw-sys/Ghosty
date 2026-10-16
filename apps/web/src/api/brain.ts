@@ -6,17 +6,38 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
-/** Ghosty's self-study (library/study.ts in the brain). */
+/** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
+export interface StudySummary {
+  topics: number;
+  read: number;
+  digested: number;
+  domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
+  today: { reads: number; digests: number; drills: number; ai: number };
+  drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
+  pending: number;
+}
 export interface StudyInfo {
   on: boolean;
   i: number;
   gaps: string[];
   sessions: number;
-  last?: { at: number; topic: string; title?: string; passages?: number; error?: string };
+  last?: { at: number; topic: string; title?: string; passages?: number; error?: string; kind?: 'read' | 'digest' | 'drill' };
   next?: number | null;
   topics?: number;
+  focus: string[];
+  summary: StudySummary;
+  /** After STUDY NOW: what that session did. */
+  did?: { reads: number; digests: number; drills: number };
+}
+/** One export of the library to the `library` branch of Ghosty's repository (library/export.ts). */
+export interface ExportInfo {
+  branch: string;
+  files: number;
+  passages: number;
+  left: number;
+  url: string;
 }
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
@@ -85,6 +106,8 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
 const READ_CACHE = 'ghosty.read:';
 const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/library$|\/passages/.test(path);
 function remember(path: string, j: unknown): void {
+  // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
+  if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
   try {
     const text = JSON.stringify(j);
     if (text.length < 300_000) localStorage.setItem(READ_CACHE + path, text);
@@ -154,16 +177,18 @@ if (typeof document !== 'undefined') {
     if (m.on && Date.now() >= pauseEndsAt(m.since)) memoryPaused.set({ on: false, since: 0 });
   }, 30_000);
 }
+/** When the pause ends, in the owner's local time (midnight UTC). */
+export const pauseEndsText = () => new Date(pauseEndsAt(memoryPaused.get().since || Date.now())).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 export class PausedError extends Error {
   readonly paused = true;
   constructor() {
-    super('memory paused until 1am');
+    super(`memory paused until ${pauseEndsText()}`);
   }
 }
 export const isPaused = (e: unknown) => !!(e as { paused?: boolean })?.paused;
 
-/** Stream newline-delimited ChatEvents from a POST. */
-async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
+/** Stream newline-delimited ChatEvents from a POST (the chat, approvals, and the Lens's question with a picture — vision/ask.ts). */
+export async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
   const r = await fetch(`/api${path}`, { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify(body), signal });
   if (r.status === 401 || r.status === 503) {
     const j = (await r.json().catch(() => ({}))) as { error?: string };
@@ -225,13 +250,16 @@ export const brain = {
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
-  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean }>('GET', '/library'),
+  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
   librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
   studyStatus: () => req<StudyInfo>('GET', '/library/study'),
-  study: (p: { on?: boolean; now?: boolean }) => req<StudyInfo>('POST', '/library/study', p),
+  /** `focus`: the owner's words for the domains to put first ("physics and finance"; "none" clears it). */
+  study: (p: { on?: boolean; now?: boolean; focus?: string }) => req<StudyInfo>('POST', '/library/study', p),
+  /** Write the next batch of Ghosty's notebooks as Markdown to the `library` branch of its repository. */
+  libraryExport: (offset = 0) => req<ExportInfo>('POST', '/library/export', { offset }),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
   libraryPassages: (id: string, after = 0) => req<{ passages: { rid: number; text: string; heading: string; page: number | null }[]; next: number | null }>('GET', `/library/docs/${encodeURIComponent(id)}/passages?after=${after}&limit=300`),
   libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),
@@ -244,10 +272,13 @@ export const brain = {
   },
   clearRoadmap: () => req('DELETE', '/roadmap'),
   forgetLesson: (id: string) => req('DELETE', `/lessons/${encodeURIComponent(id)}`),
-  setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string }>,
+  setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string; waiting?: number }>,
   resetModels: () => req('POST', '/models/reset'),
   setOrder: (order: string[]) => req('POST', '/models/order', { order }),
   widgets: () => req<{ widgets: Widget[] }>('GET', '/widgets'),
+  /** The pages Ghosty published, and the address they live at. */
+  sites: () => req<{ sites: PublishedSite[]; origin: string }>('GET', '/sites'),
+  unpublishSite: (name: string) => req<{ removed: boolean }>('DELETE', `/sites/${encodeURIComponent(name)}`),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),
@@ -365,7 +396,10 @@ export function mirrorLibraryNow(): Promise<void> {
     try {
       for (let round = 0; round < 50; round++) {
         if (memoryPaused.get().on) break;
-        const r = await mirrorLibrary({ docs: async () => (await raw.library()).docs, passages: (id, after) => brain.libraryPassages(id, after) });
+        const lib = await raw.library();
+        // The brain says the day's database allowance is running low: copying can wait for tomorrow.
+        if (lib.spare === false) break;
+        const r = await mirrorLibrary({ docs: async () => lib.docs, passages: (id, after) => brain.libraryPassages(id, after) });
         if (!r.left) break;
         await new Promise((ok) => setTimeout(ok, 1500));
       }

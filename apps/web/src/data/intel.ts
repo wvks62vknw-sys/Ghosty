@@ -4,7 +4,12 @@
  * caching proxy, so one upstream fetch serves every device.
  *
  *   cameras   parsers for the extra public camera networks (Ontario 511, DriveBC,
- *             Live Traffic NSW, Calgary) used by data/cameras.ts
+ *             Live Traffic NSW, Calgary, Durham) used by data/cameras.ts
+ *   safety    West Midlands Police Camera Enforcement Unit safety-camera sites (mobile van
+ *             sites, average-speed zones, motorway variable-limit gantries) from
+ *             wmsafetycameras.co.uk, used by data/enforce.ts — a snapshot of 2024
+ *             enforcement; credit 'West Midlands Police Camera Enforcement Unit
+ *             (wmsafetycameras.co.uk)'; fetched live and cached, never republished
  *   ships     AIS vessels: Fintraffic Digitraffic (Baltic, keyless) + AISstream (anywhere,
  *             free key) around the camera
  *   alerts    US National Weather Service warnings (polygons)
@@ -32,6 +37,25 @@ export interface Cam {
   lon: number;
   img: string;
   video?: string;
+}
+
+/** One West Midlands Police safety-camera site (wmsafetycameras.co.uk). */
+export interface SafetySite {
+  id: string;
+  /** mobile = where the speed vans operate; average = SPECS average-speed zone; variable = HADECS motorway gantry. */
+  kind: 'mobile' | 'average' | 'variable';
+  name: string;
+  area: string;
+  lat: number;
+  lon: number;
+  /** '30' | '40' | '50' | 'Variable' as the site publishes it. */
+  limit: string;
+  /** Offences recorded there in the published year (2024). */
+  offences: number;
+  /** Highest speed recorded there, mph. */
+  topSpeed: number;
+  /** ISO date (yyyy-mm-dd) of the last enforcement, or '' when the site says 'No Data'. */
+  lastEnforced: string;
 }
 
 export interface Ship {
@@ -178,6 +202,48 @@ export function parseDurham(j: unknown): Cam[] {
     const lon = num(f.geometry?.x);
     if (!/^[a-z0-9_]+$/.test(id) || !okLL(lat, lon) || (a.Status && !/live/i.test(a.Status))) continue;
     out.push({ id: `dur-${id}`, name: `${a.Camera_Nam ?? 'Durham camera'}${a.Camera_Vie ? ` · ${a.Camera_Vie}` : ''}`, src: 'Durham County Council', lat, lon, img: `https://dcc.ussgroup.co.uk/images/${id}.jpg` });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Safety-camera sites (West Midlands Police)
+// ---------------------------------------------------------------------------
+
+/** The site's own type names → ours. There are no fixed spot or red-light cameras in the dataset (switched off in 2013). */
+const WMP_KIND: Record<string, SafetySite['kind']> = { mobile: 'mobile', specs: 'average', hadecs: 'variable' };
+
+/**
+ * wmsafetycameras.co.uk/camera_map/manage/data.json: an array of sites with lat/lon as strings
+ * ("ltt"/"lgt"), the limit as a string, and "lastenforced" as dd/mm/yyyy or "No Data". Rows
+ * without a usable position, site number or known type are skipped.
+ */
+export function parseWmSafety(j: unknown): SafetySite[] {
+  const out: SafetySite[] = [];
+  for (const r of (Array.isArray(j) ? j : []) as (Record<string, unknown> | null)[]) {
+    if (!r || typeof r !== 'object') continue;
+    const kind = WMP_KIND[String(r.sitetype ?? '').trim().toLowerCase()];
+    const lat = num(r.ltt);
+    const lon = num(r.lgt);
+    const siteno = String(r.siteno ?? '').trim();
+    if (!kind || !siteno || !okLL(lat, lon)) continue;
+    const d = String(r.lastenforced ?? '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const day = d ? Number(d[1]) : 0;
+    const month = d ? Number(d[2]) : 0;
+    const offences = num(r.totaloffences);
+    const top = num(r.highspeed);
+    out.push({
+      id: `wmp-${siteno}-${kind}`,
+      kind,
+      name: String(r.name ?? '').trim() || `Site ${siteno}`,
+      area: String(r.area ?? '').trim(),
+      lat,
+      lon,
+      limit: String(r.limit ?? '').trim(),
+      offences: Number.isFinite(offences) && offences >= 0 ? Math.round(offences) : 0,
+      topSpeed: Number.isFinite(top) && top >= 0 ? Math.round(top) : 0,
+      lastEnforced: d && month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${d[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '',
+    });
   }
   return out;
 }

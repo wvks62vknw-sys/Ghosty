@@ -8,7 +8,7 @@
  *  - Unlock the protected kernel for a limited time (only you can do this)
  *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
  */
-import type { ChangeSummary, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
+import type { ChangeSummary, PublishedSite, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
 import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
@@ -92,6 +92,8 @@ export const workshopTab: TabDef = {
     const vp = panel('VERSIONS', { status: '' });
     // widgets
     const wp = panel('WIDGETS', { status: '' });
+    // published pages (publish_site): every live link, to open, copy or take down
+    const pp = panel('PUBLISHED PAGES', { status: '' });
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
     P.left.append(ask.el, rp.el, cp.el);
@@ -182,11 +184,45 @@ export const workshopTab: TabDef = {
     }, 'on');
     tp.body.append(tStats, tNow, tLog);
     tp.foot!.append(tLevel, startBtn);
-    P.right.append(tp.el, wp.el, vp.el, kp.el);
+    P.right.append(tp.el, pp.el, wp.el, vp.el, kp.el);
 
     let changes: ChangeSummary[] = [];
     let versions: VersionSummary[] = [];
     let widgets: Widget[] = [];
+    let sites: PublishedSite[] = [];
+    let siteOrigin = '';
+    const siteUrl = (name: string) => `${siteOrigin || location.origin}/s/${name}`;
+    const paintSites = () => {
+      clear(pp.body);
+      pp.setStatus(sites.length ? `${sites.length} LIVE` : '', 'ok');
+      if (!sites.length) {
+        pp.body.append(h('div.note', 'Nothing published yet. Ask Ghosty to "make me a website for…" or to rebuild one from a link: it goes live at a public link here.'));
+        return;
+      }
+      for (const s of sites) {
+        const open = h('a.sitelink', { href: siteUrl(s.name), target: '_blank', rel: 'noopener' }, h('b', s.title), h('small', `${siteUrl(s.name).replace(/^https?:\/\//, '')} · ${fmt.ago(s.at)} · ${Math.max(1, Math.round(s.bytes / 1024))} KB${s.source ? ` · from ${s.source.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}` : ''}`));
+        const copy = button('COPY LINK', async () => {
+          try {
+            await navigator.clipboard.writeText(siteUrl(s.name));
+            toast('Link copied', 'ok');
+          } catch {
+            toast(siteUrl(s.name), 'ok');
+          }
+        });
+        const down = button('UNPUBLISH', async () => {
+          if (!confirm(`Take "${s.title}" down? Its link stops working.`)) return;
+          try {
+            await brain.unpublishSite(s.name);
+            sites = sites.filter((x) => x.name !== s.name);
+            toast(`${s.title} taken down`, 'ok');
+            paintSites();
+          } catch (e) {
+            toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+          }
+        }, 'warn');
+        pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
+      }
+    };
     let ready = false;
     let kernelUntil = 0;
 
@@ -291,7 +327,12 @@ export const workshopTab: TabDef = {
     const load = async () => {
       try {
         // Each part on its own: one failing (e.g. the database paused) doesn't blank the others.
-        const [c, w, s] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status()]);
+        const [c, w, s, p] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status(), brain.sites()]);
+        if (p.status === 'fulfilled') {
+          sites = p.value.sites;
+          siteOrigin = p.value.origin;
+          paintSites();
+        }
         if (c.status === 'fulfilled') {
           ready = c.value.ready;
           changes = c.value.changes;
@@ -329,7 +370,7 @@ export const workshopTab: TabDef = {
       leave() {
         clearInterval(timer);
       },
-      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets.`,
+      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
     };
   },
 };

@@ -31,8 +31,8 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
       modal('MEMORY PAUSED', h('div.mnote',
         h('p', `Ghosty's memory is paused until ${new Date(pauseEndsAt(memoryPaused.get().since || Date.now())).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (midnight UTC): Cloudflare's free daily database allowance ran out. Nothing is lost.`),
         h('p', h('b', 'Still working: '), "chat and AI with your keys, web search, weather, maps, traffic, God's Eye, email, radio, Spotify, games and widgets — and your memory, agenda, reminders and documents from the copy on this device."),
-        h('p', h('b', 'Saved when memory is back: '), "anything you add or change meanwhile (memories, reminders, events, widgets, documents, keys) — automatically."),
-        h('p', h('b', 'Waits for 1am: '), 'importing web pages into the library, push notifications to your phone, self-study and code changes.'),
+        h('p', h('b', 'Saved when memory is back: '), "anything you add or change meanwhile (memories, reminders, events, widgets, documents) — automatically. A key you add meanwhile is kept straight away and works at once."),
+        h('p', h('b', 'Waits for the reset: '), 'importing web pages into the library, push notifications to your phone, self-study and code changes. The SYSTEM tab shows what used up the allowance.'),
       )),
   }, 'MEMORY PAUSED');
   pausedTag.hidden = true;

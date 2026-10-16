@@ -62,6 +62,8 @@ async function run(name, viewport) {
   await page.waitForTimeout(800);
   if (viewport.width < 900) await page.click('#pg-workshop .swap');
   const w = page.locator('#pg-workshop .rw.link .v').first();
+  // the list fills from the brain; on a slow runner that takes a moment
+  await w.waitFor({ state: 'attached', timeout: 15000 }).catch(() => undefined);
   if (await w.count()) {
     await w.click();
     await page.waitForTimeout(1800);
@@ -75,9 +77,12 @@ async function run(name, viewport) {
   await page.evaluate(() => (location.hash = 'core'));
   await page.fill('#cin', 'fly to tokyo');
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(3000);
-  const target = await page.evaluate(() => window.__ghosty.globe.cam.target);
-  if (Math.abs(target.lon - 139.7) > 1 || Math.abs(target.lat - 35.7) > 1) problems.push(`[${name}] fly_to did not target Tokyo: ${JSON.stringify(target)}`);
+  // the brain answers with a client command; wait for the camera to be sent there rather than a fixed pause
+  const flew = await page.waitForFunction(() => {
+    const t = window.__ghosty?.globe?.cam?.target;
+    return !!t && Math.abs(t.lon - 139.7) < 1 && Math.abs(t.lat - 35.7) < 1;
+  }, null, { timeout: 20000 }).then(() => true).catch(() => false);
+  if (!flew) problems.push(`[${name}] fly_to did not target Tokyo: ${JSON.stringify(await page.evaluate(() => window.__ghosty.globe.cam.target))}`);
   const hud = await page.evaluate(() => ({ readout: document.querySelector('.readout')?.textContent ?? '', targetHidden: document.querySelector('.eyeinfo')?.hidden }));
   if (!hud.readout.includes('ALT')) problems.push(`[${name}] globe readout empty`);
   await page.screenshot({ path: `${out}/${name}-fly.png` });

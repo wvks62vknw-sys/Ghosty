@@ -28,7 +28,7 @@ import { routeLayer, type RouteInfo } from '../../engine/layers/route';
 import { imagery, SOURCES } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
 import { enforceLayer, INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
-import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
+import { enforce, ENFORCE_LABEL, inWestMidlands, loadWmSafety, type EnforceCam } from '../../data/enforce';
 import { crime, crimeFamily, crimeLabel, type Crime } from '../../data/crime';
 import { crimeLayer } from '../../engine/layers/crime';
 import { radar, trafficState } from '../../engine/layers/radar';
@@ -37,12 +37,22 @@ import {
   type Alert, type Buoy, type Cable, type Disaster, type Dispatch, type Ship,
 } from '../../data/intel';
 import { camLayer } from '../../engine/layers/cams';
-import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCameras, type Camera } from '../../data/cameras';
+import { cams, camEvents, inCalifornia, loadCalifornia, loadCameras, nearestCameras, NH_CREDIT, type Camera } from '../../data/cameras';
+import { transit, delayText, type Vehicle } from '../../data/transit';
+import { transitLayer } from '../../engine/layers/transit';
+import { delayWords, incidents, INCIDENT_CREDIT, severity, type Incident } from '../../data/incidents';
+import { incidentLayer } from '../../engine/layers/incidents';
+import { meLayer } from '../../engine/layers/me';
+import { roadAhead, type Me } from '../../data/roadahead';
+import { createRoadAhead } from './roadahead';
 import { fetchImage } from '../../api/feed';
 
 /** Set while God's Eye is mounted: open the camera nearest a place (used by the brain's show_cameras). */
 /** Open the nearest public camera within `maxKm`; returns its distance (km), or null if none is that close. */
 export let openNearestCamera: ((lat: number, lon: number, maxKm?: number) => number | null) | null = null;
+/** ROAD AHEAD on/off (the brain's road_ahead command and the bar button). */
+export let startRoadAhead: (() => void) | null = null;
+export let stopRoadAhead: (() => void) | null = null;
 
 let layersInstalled = false;
 function installLayers(): void {
@@ -51,7 +61,7 @@ function installLayers(): void {
   sats.init();
   if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
   globe.layers.push(spotLayer);
-  globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, crimeLayer, sats, air, camLayer);
+  globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, crimeLayer, incidentLayer, transitLayer, sats, air, camLayer, meLayer);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
   void sats.refresh();
@@ -102,6 +112,16 @@ function describe(sel: Pickable): string {
     }
     case 'dispatch':
       return `Seattle 911 call: ${(r as unknown as Dispatch).type} at ${(r as unknown as Dispatch).addr}`;
+    case 'transit': {
+      const v = r as unknown as Vehicle;
+      return `${v.kind} ${v.line}${v.dest ? ` to ${v.dest}` : ''}${v.operator ? ` (${v.operator})` : ''}${v.delayS != null ? `, ${delayText(v.delayS)}` : ''} (live from ${v.src})`;
+    }
+    case 'incident': {
+      const i = r as unknown as Incident;
+      return `road incident: ${i.title || `${i.road} ${i.direction}`} — ${i.reason}${i.delayS ? `, ${delayWords(i.delayS)} delay` : ''}${i.normalBy ? `; ${i.normalBy}` : ''} (National Highways)`;
+    }
+    case 'me':
+      return `the owner's own position (ROAD AHEAD), ${(r as unknown as Me).lat.toFixed(4)}, ${(r as unknown as Me).lon.toFixed(4)}`;
     case 'crime': {
       const c = r as unknown as Crime;
       return `a reported crime (${crimeLabel(c.category).toLowerCase()}) on or near ${c.street || 'an unnamed street'} in ${c.month}${c.outcome ? `, outcome: ${c.outcome.toLowerCase()}` : ''} (police.uk open data)`;
@@ -169,6 +189,12 @@ export const eyeTab: TabDef = {
         return `${c.total} · ${crime.month}`;
       }],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['transit', 'BUSES & TRAMS', () => {
+        if (!transit.list.size) return transit.status === 'SYNC' ? 'SYNC' : transit.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 120 ? 'ZOOM IN' : '';
+        const c = transit.counts();
+        return `${c.bus} BUS · ${c.tram} TRAM`;
+      }],
+      ['incidents', 'ROAD INCIDENTS', () => (incidents.list.size ? String(incidents.list.size) : incidents.status === 'SYNC' ? 'SYNC' : incidents.status === 'NO FEED' ? 'NO FEED' : 'MOTORWAYS')],
       ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'KEY NEEDED')],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
       ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
@@ -189,7 +215,7 @@ export const eyeTab: TabDef = {
     // Grouped tiles (two columns) instead of one long list: on a phone the panel is a sheet
     // along the bottom that scrolls, so every layer is reachable.
     const GROUPS: [string, (keyof LayerVisibility)[]][] = [
-      ['STREETS & SAFETY', ['cams', 'traffic', 'enforce', 'crime', 'dispatch']],
+      ['STREETS & SAFETY', ['cams', 'traffic', 'incidents', 'transit', 'enforce', 'crime', 'dispatch']],
       ['AIR, SEA & SPACE', ['air', 'ships', 'sats', 'orbits']],
       ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
       ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
@@ -329,6 +355,7 @@ export const eyeTab: TabDef = {
         R('CAMERA', c.name);
         if (c.view) R('FACING', c.view.toUpperCase());
         R('POSITION', `${c.lat.toFixed(4)}°, ${c.lon.toFixed(4)}°`);
+        if (c.src === 'National Highways') info.body.append(h('small.dim', `${NH_CREDIT} A new frame every 20–30 seconds; the time is printed on the picture.`));
         const hop = (dir: 1 | -1) => {
           const list = nearestCameras(c.lat, c.lon, 12, 50).filter((x) => x.id !== c.id);
           const next = dir === 1 ? list[0] : list[list.length - 1];
@@ -397,18 +424,61 @@ export const eyeTab: TabDef = {
         info.body.append(h('small.dim', 'Locations are approximate (snapped to a nearby point by the police). Nobody is identified.'));
       } else if (s.kind === 'enforce') {
         const e = s.ref as EnforceCam;
+        const wmp = e.source === 'wmp';
         info.title.textContent = ENFORCE_LABEL[e.kind];
-        info.setStatus('OPENSTREETMAP', e.kind === 'anpr' ? 'off' : 'mid');
+        info.setStatus(wmp ? 'WEST MIDLANDS POLICE' : 'OPENSTREETMAP', e.kind === 'anpr' ? 'off' : 'mid');
         if (e.name) R('NAME', e.name);
         if (e.operator) R('OPERATOR', e.operator);
-        if (e.maxspeed) R('LIMIT', e.maxspeed);
+        if (wmp) {
+          const d = e.detail ?? {};
+          R('LIMIT', d.limit ? (/^\d+$/.test(d.limit) ? `${d.limit} mph` : d.limit) : e.maxspeed || 'Not given');
+          R('OFFENCES (2024)', d.offences !== undefined ? fmt.n(d.offences) : 'Not given');
+          R('TOP SPEED', d.topSpeed ? `${d.topSpeed} mph` : 'Not given');
+          R('LAST ENFORCED', d.lastEnforced ? new Date(`${d.lastEnforced}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : 'No data');
+          if (d.area) R('AREA', d.area);
+        } else if (e.maxspeed) R('LIMIT', e.maxspeed);
         if (e.direction) R('FACING', /^\d+$/.test(e.direction) ? `${e.direction}° ${GEO.card(Number(e.direction))}` : e.direction);
         if (e.ref) R('REF', e.ref);
         if (e.tags['surveillance:zone']) R('WATCHES', e.tags['surveillance:zone']);
         R('WHERE', `${e.lat.toFixed(5)}, ${e.lon.toFixed(5)}`);
-        info.body.append(h('small.dim', 'Location mapped by OpenStreetMap volunteers. No images.'));
-        actions.append(button('OSM ↗', () => window.open(`https://www.openstreetmap.org/${e.id}`, '_blank', 'noopener')));
+        info.body.append(h('small.dim', wmp ? 'West Midlands Police Camera Enforcement Unit site (wmsafetycameras.co.uk): enforcement data for 2024, published Jan 2025. No images.' : 'Location mapped by OpenStreetMap volunteers. No images.'));
+        actions.append(wmp ? button('WMP ↗', () => window.open('https://wmsafetycameras.co.uk/camera_map/', '_blank', 'noopener')) : button('OSM ↗', () => window.open(`https://www.openstreetmap.org/${e.id}`, '_blank', 'noopener')));
         actions.append(button('ZOOM', () => globe.cam.flyTo({ lat: e.lat, lon: e.lon, range: 0.8, tilt: 50 })));
+      } else if (s.kind === 'transit') {
+        const v = s.ref as Vehicle;
+        info.title.textContent = `${v.kind === 'tram' ? 'TRAM' : 'BUS'} ${v.line}`.toUpperCase();
+        info.setStatus(`${v.src.toUpperCase()} · ${fmt.ago(v.t)}`, Date.now() - v.t < 4 * 60_000 ? 'ok' : 'mid');
+        if (v.dest) R('TO', v.dest);
+        if (v.operator) R('OPERATOR', v.operator);
+        if (v.speedMs != null) R('SPEED', `${Math.round(v.speedMs * 2.23694)} mph`, v.bearing != null ? GEO.card(v.bearing) : undefined);
+        if (v.delayS != null) R('RUNNING', delayText(v.delayS));
+        if (transit.credit) info.body.append(h('small.dim', transit.credit));
+        actions.append(button('FOLLOW', () => {
+          const p = transit.pos(v);
+          globe.cam.flyTo({ lat: p.lat, lon: p.lon, range: 4, tilt: 50 });
+          setTimeout(() => (globe.cam.follow = () => transit.pos(transitLayer.selected ?? v)), 2500);
+        }));
+      } else if (s.kind === 'incident') {
+        const i = s.ref as Incident;
+        const sev = severity(i);
+        info.title.textContent = `${i.road} ${i.direction}`.trim().toUpperCase() || 'ROAD INCIDENT';
+        info.setStatus(sev === 3 ? 'CLOSED' : sev === 2 ? 'SERIOUS' : sev === 1 ? 'DELAYS' : 'MINOR', sev >= 2 ? 'off' : 'mid');
+        R('WHERE', i.title || `${i.road} ${i.direction}`);
+        R('WHAT', i.reason || 'incident');
+        if (i.delayS) R('DELAY', delayWords(i.delayS));
+        if (/[1-9]/.test(i.lanesClosed)) R('LANES CLOSED', i.lanesClosed.replace(/\|/g, ' / '));
+        if (i.normalBy) R('CLEAR', i.normalBy, undefined);
+        if (i.updated) R('UPDATED', fmt.ago(i.updated));
+        info.body.append(h('small.dim', `${INCIDENT_CREDIT}. Placed at the junction it names.`));
+        actions.append(button('ZOOM', () => globe.cam.flyTo({ lat: i.lat, lon: i.lon, range: 3, tilt: 50 })));
+      } else if (s.kind === 'me') {
+        const m = s.ref as Me;
+        info.title.textContent = 'YOU';
+        info.setStatus(`GPS ±${Math.round(m.accuracy)} m`, 'ok');
+        R('WHERE', `${m.lat.toFixed(4)}°, ${m.lon.toFixed(4)}°`);
+        if (m.speed != null) R('SPEED', `${Math.round(m.speed * 2.23694)} mph`);
+        if (m.heading != null) R('HEADING', `${Math.round(m.heading)}°`, GEO.card(m.heading));
+        info.body.append(h('small.dim', 'Your phone\'s own position. It stays on this device.'));
       } else if (s.kind === 'dispatch') {
         const d = s.ref as Dispatch;
         info.title.textContent = '911 CALL';
@@ -456,10 +526,12 @@ export const eyeTab: TabDef = {
       air.selected = p?.kind === 'air' ? (p.ref as Aircraft) : null;
       sats.selected = p?.kind === 'sat' ? (p.ref as Satellite) : null;
       camLayer.selected = p?.kind === 'cam' ? (p.ref as Camera) : null;
-      if (!p) globe.cam.follow = null;
+      transitLayer.selected = p?.kind === 'transit' ? (p.ref as Vehicle) : null;
+      incidentLayer.selected = p?.kind === 'incident' ? (p.ref as Incident) : null;
+      if (!p && !roadAhead.on) globe.cam.follow = null;
       if (p && fly) {
         const ll = GEO.ll(p.w);
-        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 60 : p.kind === 'cam' ? 6 : p.kind === 'crime' || p.kind === 'enforce' ? 4 : 400, tilt: p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 50 : p.kind === 'cam' || p.kind === 'crime' || p.kind === 'enforce' ? 45 : 0 });
+        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 60 : p.kind === 'incident' ? 12 : p.kind === 'cam' || p.kind === 'transit' ? 6 : p.kind === 'crime' || p.kind === 'enforce' || p.kind === 'me' ? 4 : 400, tilt: p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' || p.kind === 'incident' ? 50 : p.kind === 'cam' || p.kind === 'crime' || p.kind === 'enforce' || p.kind === 'transit' || p.kind === 'me' ? 45 : 0 });
       }
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
@@ -486,19 +558,19 @@ export const eyeTab: TabDef = {
       const load = async () => {
         if (!box.isConnected && v.url) return;
         try {
-          const url = await fetchImage(c.image, c.src === 'New York' ? 5 : 30);
+          const url = await fetchImage(c.image, c.src === 'New York' ? 5 : c.src === 'National Highways' ? 20 : 30);
           if (v.url) URL.revokeObjectURL(v.url);
           v.url = url;
           img.src = url;
           stamp.textContent = `● REC  ${fmt.time(new Date())}  ${c.src.toUpperCase()}`;
           box.classList.remove('dead');
-        } catch {
-          stamp.textContent = 'SIGNAL LOST — retrying';
+        } catch (e) {
+          stamp.textContent = (e as Error)?.message === 'offline' ? 'CAMERA OFFLINE (National Highways)' : 'SIGNAL LOST — retrying';
           box.classList.add('dead');
         }
       };
       void load();
-      v.timer = window.setInterval(() => void load(), c.src === 'New York' ? 4000 : 15000);
+      v.timer = window.setInterval(() => void load(), c.src === 'New York' ? 4000 : c.src === 'National Highways' ? 20000 : 15000);
       views.set(box, v);
       if (big) {
         const actions = h('div.row.wrap');
@@ -556,6 +628,21 @@ export const eyeTab: TabDef = {
     camEvents.on('change', () => {
       gridKey = '';
     });
+    // ---------- ROAD AHEAD: follow the phone, what lies ahead ----------
+    const ra = createRoadAhead({
+      cameraView: (c) => camView(c, false),
+      flyTo: (lat, lon, rangeKm) => globe.cam.flyTo({ lat, lon, range: rangeKm, tilt: 50 }),
+    });
+    startRoadAhead = () => {
+      loadCameras();
+      ra.start();
+      raBtn.classList.add('on');
+    };
+    stopRoadAhead = () => {
+      ra.stop();
+      raBtn.classList.remove('on');
+    };
+    const raBtn = button('ROAD AHEAD', () => (ra.on ? stopRoadAhead!() : startRoadAhead!()));
     openNearestCamera = (lat, lon, maxKm = 40) => {
       loadCameras();
       if (inCalifornia(lat, lon)) loadCalifornia();
@@ -651,6 +738,7 @@ export const eyeTab: TabDef = {
         button('3D', () => openMapSheet('3d', centre())),
         button('STREET VIEW', () => void openStreetView(centre())),
         button('TRAFFIC', () => openMapSheet('traffic', centre())),
+        raBtn,
       ),
       h(
         'div.bgroup',
@@ -681,7 +769,7 @@ export const eyeTab: TabDef = {
 
     const labels = h('div.labels');
     const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())));
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
+    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -840,7 +928,23 @@ export const eyeTab: TabDef = {
         let n = 0;
         for (const e of enforce.list.values()) {
           if (e.kind === 'cctv') continue;
-          add(GEO.ecef(e.lat, e.lon, 0.03), e.kind === 'anpr' ? 'ANPR' : e.maxspeed ? `${e.maxspeed.replace(/ mph/, '')}` : e.kind === 'redlight' ? 'RED LIGHT' : 'SPEED', e.kind === 'anpr' ? '#ff7ad9' : '#ffd84a');
+          add(GEO.ecef(e.lat, e.lon, 0.03), e.kind === 'anpr' ? 'ANPR' : e.kind === 'mobile' ? 'VAN' : e.kind === 'variable' ? 'VAR' : e.maxspeed ? `${e.maxspeed.replace(/ mph/, '')}` : e.kind === 'redlight' ? 'RED LIGHT' : 'SPEED', e.kind === 'anpr' ? '#ff7ad9' : '#ffd84a');
+          if (++n > 30) break;
+        }
+      }
+      if (globe.vis.transit && alt < 60) {
+        const now = Date.now();
+        let n = 0;
+        for (const v of transit.list.values()) {
+          if (!v.line || v === transitLayer.selected) continue;
+          add(transitLayer.world(v, now), v.line, v.kind === 'tram' ? '#9ef' : '#ffd27a');
+          if (++n > 40) break;
+        }
+      }
+      if (globe.vis.incidents && alt < 400) {
+        let n = 0;
+        for (const i of incidents.list.values()) {
+          add(GEO.ecef(i.lat, i.lon, 0.05), `${i.road}${i.delayS >= 60 ? ` +${Math.round(i.delayS / 60)}m` : ''}`, severity(i) >= 2 ? '#ff6a6a' : '#ffc46a');
           if (++n > 30) break;
         }
       }
@@ -892,7 +996,7 @@ export const eyeTab: TabDef = {
       const lines = [
         `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}`,
         `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
-        `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
+        `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM${transit.list.size ? ` · ${transit.list.size} BUS` : ''}${incidents.list.size ? ` · ${incidents.list.size} INC` : ''} · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
         imagery.credit,
       ];
       rLines.forEach((el, i) => el.textContent !== lines[i] && (el.textContent = lines[i]!));
@@ -910,11 +1014,13 @@ export const eyeTab: TabDef = {
       });
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
-      if (selected?.kind === 'air' || selected?.kind === 'ship') paintInfo();
+      if (selected?.kind === 'air' || selected?.kind === 'ship' || selected?.kind === 'transit') paintInfo();
+      if (ra.on) ra.paint();
       if (globe.vis.cams) {
         loadCameras();
         if (globe.cam.range < 2500 && inCalifornia(g.lat, g.lon)) loadCalifornia();
       }
+      if (globe.vis.enforce && globe.cam.range < 400 && inWestMidlands(g.lat, g.lon)) void loadWmSafety();
       paintGrid();
     }, 1);
 
@@ -930,6 +1036,9 @@ export const eyeTab: TabDef = {
         airTimer = window.setInterval(tick, 8000);
         const shipTick = () => {
           if (globe.vis.ships) void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+          if (globe.vis.transit) void transit.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+          // Motorway incidents: National Highways lists them by region; the West Midlands is the one Ghosty can place on the map.
+          if (globe.vis.incidents && globe.cam.range < 600 && globe.cam.lat > 52.2 && globe.cam.lat < 52.8 && globe.cam.lon > -2.5 && globe.cam.lon < -1.2) void incidents.refresh('West Midlands');
           if (globe.vis.enforce) void enforce.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
           if (globe.vis.crime) void crime.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
         };

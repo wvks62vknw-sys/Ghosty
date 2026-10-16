@@ -9,6 +9,7 @@ import type { TabDef } from '../../shell/tabs';
 import { home } from '../../state/app';
 import { bar, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
+import { reconPanel } from './recon';
 
 export const threatsTab: TabDef = {
   id: 'threats',
@@ -25,7 +26,7 @@ export const threatsTab: TabDef = {
     const space = panel('SPACE WEATHER', { grow: false });
     const lp = panel('LAUNCH WINDOW', { footer: true, status: 'LL2' });
     const lg = pager(lp, 46, (l: Launch) => row(l.status || 'NET', l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status);
-    P.right.append(near.el, space.el, lp.el);
+    P.right.append(near.el, space.el, lp.el, reconPanel());
 
     const paint = () => {
       const list = signals();

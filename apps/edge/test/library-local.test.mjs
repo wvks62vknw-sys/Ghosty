@@ -132,3 +132,63 @@ test('a big library is copied a few thousand passages per run, carrying on next 
   assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 2, dropped: 0, left: 1 });
   assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 1, dropped: 0, left: 0 });
 });
+
+test('the device mirror copies only the new passages of a notebook that grew, and everything of a document that changed', async () => {
+  L._reset();
+  const calls = [];
+  let brain = [{ id: 'notes', title: 'Study log', source: 'ghosty', kind: 'notes', pages: 0, passages: 2, chars: 10, at: 1, status: 'ready' }];
+  // The brain pages by its row ids, shared by every document: this notebook's start high and are not contiguous.
+  const pages = { notes: [{ rid: 501, text: 'one' }, { rid: 507, text: 'two' }] };
+  const api = {
+    docs: async () => brain,
+    passages: async (id, after) => {
+      calls.push([id, after]);
+      const list = pages[id].filter((p) => p.rid > after).slice(0, 2);
+      return { passages: list.map((p) => ({ ...p, heading: '', page: null })), next: list.length === 2 ? list[1].rid : null };
+    },
+  };
+  let r = await L.mirrorLibrary(api);
+  assert.equal(r.copied, 1);
+  assert.deepEqual(calls, [['notes', 0], ['notes', 507]]);
+  // the notebook grew by one passage: only that one is fetched, from the last row id copied
+  pages.notes.push({ rid: 630, text: 'three' });
+  brain = [{ ...brain[0], passages: 3, chars: 15 }];
+  r = await L.mirrorLibrary(api);
+  assert.equal(r.copied, 1);
+  assert.deepEqual(calls.at(-1), ['notes', 507]);
+  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['one', 'two', 'three'], 'no passage twice');
+  assert.equal((await L.shelf()).docs.find((d) => d.id === 'notes').passages, 3);
+  // a document that shrank or was rewritten is copied whole again
+  pages.notes = [{ rid: 700, text: 'rewritten' }];
+  brain = [{ ...brain[0], passages: 1, chars: 9 }];
+  r = await L.mirrorLibrary(api);
+  assert.deepEqual(calls.at(-1), ['notes', 0]);
+  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['rewritten']);
+});
+
+test("Ghosty's reading notebooks (kind 'study') stay off the device; its own study notes come along; an old copy is dropped", async () => {
+  L._reset();
+  const docs = [
+    { id: 'read_physics', title: 'Reading: Physics', source: 'self-study', kind: 'study', pages: 0, passages: 2, chars: 60000, status: 'ready', builtin: false, at: 3 },
+    { id: 'digest_physics', title: 'Study notes: Physics', source: 'written by Ghosty', kind: 'digest', pages: 0, passages: 1, chars: 400, status: 'ready', builtin: false, at: 3 },
+  ];
+  const text = { read_physics: ['x'.repeat(30000), 'y'.repeat(30000)], digest_physics: ['SUMMARY Forces change motion.'] };
+  const asked = [];
+  const api = {
+    docs: async () => docs,
+    passages: async (id, after) => {
+      asked.push(id);
+      const all = text[id].map((t, i) => ({ rid: i + 1, text: t, heading: 'h', page: null }));
+      const page = all.filter((p) => p.rid > after);
+      return { passages: page, next: null };
+    },
+  };
+  // an earlier version mirrored the reading too: it is dropped now
+  await L.keepDoc({ title: 'old', source: 's', kind: 'notes', pages: 0 }, []);
+  assert.deepEqual(await L.mirrorLibrary(api), { copied: 1, dropped: 0, left: 0 });
+  assert.deepEqual(asked, ['digest_physics']);
+  const sh = await L.shelf();
+  assert.ok(sh.docs.some((d) => d.id === 'digest_physics'));
+  assert.ok(!sh.docs.some((d) => d.id === 'read_physics'));
+  assert.equal((await L.searchLocal('forces change motion')).length, 1);
+});

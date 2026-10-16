@@ -28,7 +28,8 @@ const approve = await ui.waitForSelector('.approval button.on', { timeout: 15000
 if (!approve) problems.push('Ghosty did not ask before publishing');
 else {
   const reason = await ui.$eval('.approval b', (b) => b.textContent);
-  if (!/Publish "Acme Bakery — rebuilt" \(rebuilt from acme\.example\) as a public page at .*\/s\/acme-bakery/.test(reason ?? '')) problems.push(`approval says: ${reason}`);
+  // (Update when the page is already there from an earlier run on the same brain.)
+  if (!/(Publish|Update) "Acme Bakery — rebuilt" \(rebuilt from acme\.example\) as a public page at .*\/s\/acme-bakery/.test(reason ?? '')) problems.push(`approval says: ${reason}`);
   await approve.tap();
 }
 const card = await ui.waitForSelector('a.sitelink', { timeout: 15000 }).catch(() => null);
@@ -65,7 +66,43 @@ else {
   const direct = await ctx.newPage();
   await direct.goto(`${base}/s/acme-bakery/page`);
   if (!/\/s\/acme-bakery$/.test(direct.url()) || !(await direct.$('#bar'))) problems.push(`the bare page opened without the bar: ${direct.url()}`);
+  await direct.close();
+  await site.close();
+
+  // A reload keeps the link card in the conversation (the brain's history carries it).
+  await ui.reload({ waitUntil: 'domcontentloaded' });
+  await ui.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await ui.evaluate(() => (location.hash = 'core'));
+  await ui.waitForTimeout(800);
+  if (await ui.$('.logbtn')) await ui.click('.logbtn'); // the phone keeps the log folded until asked
+  const kept = await ui.waitForSelector('#pg-core a.sitelink', { timeout: 15000 }).catch(() => null);
+  if (!kept) problems.push('after a reload the link card is gone from the conversation');
+  else if (!/\/s\/acme-bakery$/.test((await kept.getAttribute('href')) ?? '')) problems.push('the kept card links elsewhere');
+
+  // The Workshop lists every published page, with COPY LINK and UNPUBLISH.
+  await ui.evaluate(() => (location.hash = 'workshop'));
+  await ui.waitForTimeout(800);
+  // On the phone the Workshop shows one column at a time: PUBLISHED PAGES is in the WIDGETS & VERSIONS column.
+  const swap = await ui.$('#pg-workshop button.swap');
+  if (swap && !(await ui.$eval('#pg-workshop .site', (el) => el.getBoundingClientRect().height > 0).catch(() => false))) await swap.tap();
+  const listed = await ui.waitForSelector('#pg-workshop .site a.sitelink', { timeout: 15000 }).catch(() => null);
+  if (!listed) problems.push('the Workshop does not list the published page');
+  else {
+    const title = (await listed.textContent()) ?? '';
+    if (!/Acme Bakery — rebuilt/.test(title)) problems.push(`the listed page reads: ${title}`);
+    if (!/\/s\/acme-bakery$/.test((await listed.getAttribute('href')) ?? '')) problems.push('the listed page links elsewhere');
+    const btns = await ui.$$eval('#pg-workshop .site button', (b) => b.map((x) => x.textContent.trim()));
+    for (const want of ['COPY LINK', 'UNPUBLISH']) if (!btns.includes(want)) problems.push(`the listed page has no ${want} button (${btns.join(', ')})`);
+    await ui.screenshot({ path: `${out}/iphone-published-pages.png` });
+    // UNPUBLISH asks, then the link stops working.
+    ui.once('dialog', (d) => void d.accept());
+    await ui.click('#pg-workshop .site button:has-text("UNPUBLISH")');
+    await ui.waitForSelector('#pg-workshop .site a.sitelink', { state: 'detached', timeout: 10000 }).catch(() => problems.push('the page is still listed after UNPUBLISH'));
+    // (asked outside the browser's cache: the page was opened a moment ago and is cacheable for a minute)
+    const r = await ctx.request.get(`${base}/s/acme-bakery`, { headers: { 'cache-control': 'no-cache' } });
+    if (r.status() !== 404) problems.push(`the taken-down page still answers ${r.status()}`);
+  }
 }
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Sites run clean: published from chat on an iPhone 13, tappable card, live page opens under Ghosty\'s bar in a locked frame (no storage, no sending data), no sideways scroll.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Sites run clean: published from chat on an iPhone 13, tappable card (kept after a reload), live page opens under Ghosty\'s bar in a locked frame (no storage, no sending data), no sideways scroll; the Workshop lists it and UNPUBLISH takes it down.');
 process.exit(problems.length ? 1 : 0);

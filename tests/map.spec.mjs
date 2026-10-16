@@ -113,7 +113,7 @@ await page.evaluate(() => (location.hash = 'eye'));
 await page.waitForTimeout(800);
 // The bar: two captioned groups, and the LOOK menu holding the tiles, sensor looks, sun and spin.
 const bar = await page.$$eval('#pg-eye .eyebot .btns .bgroup', (gs) => gs.map((g) => [...g.children].map((c) => c.textContent.trim()).join(' ')));
-if (bar.join(' | ') !== 'THIS SPOT MAP 3D STREET VIEW TRAFFIC | VIEW LOOK HOME NORTH TILT') problems.push(`the bar reads: ${bar.join(' | ')}`);
+if (bar.join(' | ') !== 'THIS SPOT MAP 3D STREET VIEW TRAFFIC ROAD AHEAD | VIEW LOOK HOME NORTH TILT') problems.push(`the bar reads: ${bar.join(' | ')}`);
 await page.click('#pg-eye .eyebot .btns button:has-text("LOOK")');
 const sections = await page.$$eval('#pg-eye .lookmenu .lgroup', (g) => g.map((x) => x.textContent.trim()));
 if (sections.join(' | ') !== 'MAP TILES ON THE GLOBE | SENSOR | GLOBE') problems.push(`LOOK sections: ${sections.join(' | ')}`);

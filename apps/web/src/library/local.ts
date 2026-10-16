@@ -32,6 +32,8 @@ export interface LocalDoc {
   removed?: boolean;
   /** Copied from the brain: its passage count and size when copied (re-copied when they change). */
   sig?: string;
+  /** Copied from the brain: the brain's row id of the last passage here, so a notebook that grew is read on from there. */
+  lastRid?: number;
   builtin?: boolean;
 }
 interface StoredPassage extends LocalPassage {
@@ -146,6 +148,23 @@ async function put(d: LocalDoc, passages?: LocalPassage[]): Promise<void> {
     pass.delete(docRange(d.id));
     passages.forEach((p, n) => pass.put({ ...p, doc: d.id, n }));
   }
+  await done(tx);
+}
+
+/** Add passages to the end of a document already here (a notebook that grew): its details are updated. */
+async function append(d: LocalDoc, from: number, passages: LocalPassage[]): Promise<void> {
+  const docs = await all();
+  const meta = { ...d, count: from + passages.length, chars: d.chars + passages.reduce((n, p) => n + p.text.length, 0) };
+  docs.set(d.id, meta);
+  const db = await idb();
+  if (!db) {
+    memPass.set(d.id, [...(memPass.get(d.id) ?? []).slice(0, from), ...passages]);
+    return;
+  }
+  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  tx.objectStore('docs').put(meta);
+  const pass = tx.objectStore('pass');
+  passages.forEach((p, i) => pass.put({ ...p, doc: d.id, n: from + i }));
   await done(tx);
 }
 
@@ -335,7 +354,10 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
   if (typeof indexedDB !== 'undefined' && !(await idb())) return { copied: 0, dropped: 0, left: 0 };
   mirroring = true;
   try {
-    const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-'));
+    // Not mirrored: Ghosty's reading notebooks (kind 'study' — the raw texts it studied, tens of
+    // thousands of characters a topic). They stay in the brain and on github.com (the library
+    // branch); its own study notes (kind 'digest') are small and come along.
+    const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-') && d.kind !== 'study');
     const have = new Map([...(await all()).values()].filter((d) => d.brainId).map((d) => [d.brainId!, d]));
     const live = new Set(docs.map((d) => d.id));
     let dropped = 0;
@@ -349,16 +371,26 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
     let spent = 0;
     for (const d of todo) {
       if (spent >= budget) break;
+      const prev = have.get(d.id);
+      // A notebook that only grew (Ghosty's study log, its notes): copy the new passages, not the
+      // whole document again. The brain pages by its own row ids (shared by every document), so
+      // the copy carries on from the last row id it has, never from a count.
+      const grown = !!prev && prev.count > 0 && !!prev.lastRid && d.passages > prev.count && d.chars >= prev.chars && prev.sig?.startsWith(`${prev.count}:`);
       const passages: LocalPassage[] = [];
-      let after = 0;
+      let after = grown ? prev.lastRid! : 0;
+      let lastRid = after;
       for (let guard = 0; guard < 200; guard++) {
         const page = await api.passages(d.id, after);
-        for (const p of page.passages) passages.push({ text: p.text, ...(p.heading ? { heading: p.heading } : {}), ...(p.page ? { page: p.page } : {}) });
+        for (const p of page.passages) {
+          passages.push({ text: p.text, ...(p.heading ? { heading: p.heading } : {}), ...(p.page ? { page: p.page } : {}) });
+          lastRid = Math.max(lastRid, p.rid);
+        }
         if (page.next === null || !page.passages.length) break;
         after = page.next;
       }
-      const prev = have.get(d.id);
-      await put({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: 0, chars: 0, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) }, passages);
+      const meta: LocalDoc = { id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: prev?.count ?? 0, chars: prev?.chars ?? 0, at: d.at, sig: `${d.passages}:${d.chars}`, lastRid, ...(d.builtin ? { builtin: true } : {}) };
+      if (grown) await append(meta, prev.count, passages);
+      else await put({ ...meta, count: 0, chars: 0 }, passages);
       spent += passages.length;
       copied++;
     }

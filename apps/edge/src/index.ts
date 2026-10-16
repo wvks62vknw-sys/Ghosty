@@ -6,6 +6,7 @@
 import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { imageResponse } from './lens';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -24,6 +25,8 @@ const CAMERA_HOSTS = [
   'trafficcam.calgary.ca',
   'spatial.durham.gov.uk',
   'dcc.ussgroup.co.uk',
+  'wmsafetycameras.co.uk',
+  'public.highwaystrafficcameras.co.uk',
 ];
 // Intelligence feeds (God's Eye): ships, radar, weather alerts, disasters, buoys, aurora, cables, 911.
 const INTEL_HOSTS = [
@@ -36,12 +39,17 @@ const INTEL_HOSTS = [
   'data.police.uk',
   'api.rainviewer.com',
   'tilecache.rainviewer.com',
+  'nationalhighways.co.uk',
+  'webtris.highwaysengland.co.uk',
+  'trafficengland.uk',
 ];
 /** Publishers that ask clients to identify themselves / accept compression. */
 const FEED_HEADERS: Record<string, Record<string, string>> = {
   'meri.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
   'tie.digitraffic.fi': { 'Digitraffic-User': 'Ghosty/personal', 'Accept-Encoding': 'gzip' },
   'api.weather.gov': { Accept: 'application/geo+json' },
+  // Sits behind a web application firewall that turns away bare bot agents.
+  'wmsafetycameras.co.uk': { 'User-Agent': 'Mozilla/5.0 (compatible; Ghosty personal assistant)' },
 };
 /** Hosts shared by many sites: allowed only under these paths. */
 const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];
@@ -122,11 +130,19 @@ export default {
       // Straight from KV when it is bound: no database involved, so the link stays up while
       // the brain's database is paused. Pages published before KV existed are still in the brain.
       if (env.SITES) {
-        const site = await siteStore(env).get(pub[1]!);
+        // A KV hiccup (its own daily limit, a blip) is not a dead link: the brain still has the page.
+        const site = await siteStore(env).get(pub[1]!).catch(() => undefined);
         if (site) return pub[2] ? siteFrameResponse(site, dest) : siteResponse(site);
       }
       const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
       return stub.fetch(new Request(`${url.origin}/api/site/${pub[1]}${pub[2] ? `/page${dest ? `?dest=${encodeURIComponent(dest)}` : ''}` : ''}`));
+    }
+    // A picture the owner shared from the Lens for reverse image search (lens.ts): a public link for
+    // 24 hours, served straight from KV — the brain is never involved, and nothing but image bytes goes out.
+    const img = url.pathname.match(/^\/i\/([A-Za-z0-9_-]{16})$/);
+    if (img && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (!env.SITES) return new Response('not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+      return imageResponse(env.SITES, img[1]!, req.method === 'HEAD');
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS ? env.ASSETS.fetch(req) : json({ error: 'not found' }, 404);
     if (url.pathname === '/api/health') {

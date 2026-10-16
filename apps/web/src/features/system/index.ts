@@ -1,6 +1,6 @@
 /** SYSTEM tab: keys, AI models and connection status. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
 import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
-import { brain, ownerKey } from '../../api/brain';
+import { brain, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
@@ -49,9 +49,11 @@ export const systemTab: TabDef = {
           try {
             const r = await brain.setKey(k.name, v);
             input.value = '';
-            st.textContent = r.works === false ? `saved, but ${r.info}` : `saved · ${r.info ?? 'ok'}`;
+            // waiting: the database is paused — the key is in use now (memory, the mirror, this device) and written to the vault after the reset.
+            const later = r.waiting ? ` · in use now, written to the vault after ${pauseEndsText()}` : '';
+            st.textContent = r.works === false ? `saved, but ${r.info}${later}` : `saved · ${r.info ?? 'ok'}${later}`;
             st.className = `note ${r.works === false ? 'bad' : 'good'}`;
-            toast(r.works === false ? `${k.label}: ${r.info}` : `${k.label} key works`, r.works === false ? 'warn' : 'ok');
+            toast(r.works === false ? `${k.label}: ${r.info}` : `${k.label} key works${r.waiting ? ' (kept while memory is paused)' : ''}`, r.works === false ? 'warn' : 'ok');
             setTimeout(() => void load(), 1200);
           } catch (e) {
             st.textContent = String((e as Error).message);
@@ -74,7 +76,7 @@ export const systemTab: TabDef = {
         const link = h('a.lnk', { href: k.link, target: '_blank', rel: 'noopener' }, 'OPEN SITE ↗');
         return h(
           'div.keyblock',
-          h('div.row', h('span.lab', k.label), h('span.sp'), h(`small.chip${k.set ? '.good' : ''}` as 'small', k.set ? '✓ SAVED' : 'NOT SET')),
+          h('div.row', h('span.lab', k.label), h('span.sp'), h(`small.chip${k.set ? '.good' : ''}` as 'small', k.set === null ? 'NOT KNOWN WHILE PAUSED' : k.set ? '✓ SAVED' : 'NOT SET')),
           h('div.note', k.why),
           h('div.keyrow', help, link),
           steps,
@@ -119,6 +121,21 @@ export const systemTab: TabDef = {
         /* no GitHub connection: nothing to compare with */
       }
     };
+    // The database meter: how much of Cloudflare's free daily allowance is used, and by what
+    // (the brain counts every row; see apps/edge/src/meter.ts). Past the allowance, memory pauses until midnight UTC.
+    const meterRows = () => {
+      const m = status?.meter;
+      if (!m) return [];
+      const pct = (n: number, of: number) => `${Math.min(999, Math.round((n / of) * 100))}%`;
+      const resets = new Date(m.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const top = m.by.slice(0, 3).map((b) => `${b.label} ${fmt.n(b.r)}r/${fmt.n(b.w)}w`).join(' · ');
+      const tone = m.level >= 1 ? 'bad' : m.level > 0.7 ? 'dn' : 'up';
+      return [
+        row('DATABASE TODAY', `reads ${fmt.n(m.reads)} (${pct(m.reads, m.limits.reads)}) · writes ${fmt.n(m.writes)} (${pct(m.writes, m.limits.writes)})`, m.level >= 1 ? 'PAUSED' : m.level > 0.7 ? 'LOW' : 'OK', { tone }),
+        row('ALLOWANCE RESETS', `${resets} (midnight UTC)${top ? ` · biggest: ${top}` : ''}`, null, { wrap: true }),
+        ...(status?.waiting ? [row('KEYS WAITING', `${status.waiting} saved while memory was paused · in use now, written to the vault at ${resets}`, null, { wrap: true })] : []),
+      ];
+    };
     const paintStatus = () => {
       clear(sp.body);
       sp.body.append(
@@ -127,6 +144,7 @@ export const systemTab: TabDef = {
         row('SELF-EDIT', status?.repoReady ? `ON · ${status.repo}` : 'OFF — needs GitHub token', null, { tone: status?.repoReady ? 'up' : undefined }),
         row('PREVIEWS', status?.previews ?? 'unknown'),
         row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
+        ...meterRows(),
         row('THIS DEVICE', ownerKey.get() ? 'paired with owner key' : 'signed in via Cloudflare Access'),
         row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`, newer ? 'NEWER SHIPPED' : null, { tone: newer ? 'bad' : undefined }),
       );

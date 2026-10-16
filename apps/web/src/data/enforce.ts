@@ -4,10 +4,22 @@
  * These are locations volunteers have mapped in public — there are no images, and
  * nothing here identifies or follows people. Loaded for the area under the globe
  * camera when zoomed in (Overpass API, the same mirrors the 3D buildings use).
+ *
+ * Over the West Midlands the police's own safety-camera site list is merged in too:
+ * the West Midlands Police Camera Enforcement Unit publishes every mobile (speed van)
+ * site, SPECS average-speed zone and HADECS motorway variable-limit gantry, with the
+ * offences and top speed recorded at each in 2024 (wmsafetycameras.co.uk, published
+ * Jan 2025; no fixed spot or red-light cameras — those were switched off in 2013).
+ * Credit: West Midlands Police Camera Enforcement Unit (wmsafetycameras.co.uk). The
+ * list is fetched live through the brain's proxy and cached for a day, never copied
+ * into Ghosty. Parsed by parseWmSafety in data/intel.ts.
  */
+import { fetchJson } from '../api/feed';
 import { Emitter } from '../core/store';
+import { parseWmSafety, type SafetySite } from './intel';
 
-export type EnforceKind = 'anpr' | 'speed' | 'average' | 'redlight' | 'buslane' | 'cctv';
+/** mobile = a police mobile enforcement site (where the speed vans operate); variable = motorway variable-speed gantry camera. */
+export type EnforceKind = 'anpr' | 'speed' | 'average' | 'redlight' | 'buslane' | 'cctv' | 'mobile' | 'variable';
 
 export interface EnforceCam {
   id: string;
@@ -20,6 +32,10 @@ export interface EnforceCam {
   direction: string;
   ref: string;
   tags: Record<string, string>;
+  /** Where the location came from: OpenStreetMap volunteers (the default when absent) or West Midlands Police's own site list. */
+  source?: 'osm' | 'wmp';
+  /** The police's published figures for a site (the 2024 snapshot); only on 'wmp' sites. */
+  detail?: { limit?: string; offences?: number; topSpeed?: number; lastEnforced?: string; area?: string };
 }
 
 export const ENFORCE_LABEL: Record<EnforceKind, string> = {
@@ -29,6 +45,8 @@ export const ENFORCE_LABEL: Record<EnforceKind, string> = {
   redlight: 'RED-LIGHT CAMERA',
   buslane: 'BUS-LANE CAMERA',
   cctv: 'CCTV (MAPPED)',
+  mobile: 'MOBILE SPEED ENFORCEMENT SITE',
+  variable: 'VARIABLE-SPEED GANTRY CAMERA',
 };
 
 export const ENFORCE_COLORS: Record<EnforceKind, [number, number, number]> = {
@@ -38,6 +56,8 @@ export const ENFORCE_COLORS: Record<EnforceKind, [number, number, number]> = {
   redlight: [1, 0.2, 0.2],
   buslane: [0.3, 0.6, 1],
   cctv: [0.6, 0.85, 1],
+  mobile: [1, 0.72, 0.3],
+  variable: [0.78, 0.55, 1],
 };
 
 /** Decide what an OSM element is from its tags (null = not a camera we show). */
@@ -103,7 +123,7 @@ export class EnforceFeed {
   private busy = false;
 
   counts(): Record<EnforceKind, number> {
-    const c = { anpr: 0, speed: 0, average: 0, redlight: 0, buslane: 0, cctv: 0 };
+    const c = { anpr: 0, speed: 0, average: 0, redlight: 0, buslane: 0, cctv: 0, mobile: 0, variable: 0 };
     for (const x of this.list.values()) c[x.kind]++;
     return c;
   }
@@ -161,3 +181,63 @@ export class EnforceFeed {
 }
 
 export const enforce = new EnforceFeed();
+
+// ---------------------------------------------------------------------------
+// West Midlands Police safety-camera sites
+// ---------------------------------------------------------------------------
+
+/** '30' → '30 mph'; 'Variable' → 'variable' (the gantries change the limit with the traffic). */
+const limitText = (limit: string): string => (/^\d+$/.test(limit) ? `${limit} mph` : limit.toLowerCase() === 'variable' ? 'variable' : limit);
+
+/**
+ * Put the police's sites into a feed as enforcement cameras (replacing any earlier copy of the
+ * same site), tell listeners the feed changed, and say how many went in.
+ */
+export function mergeSafety(feed: EnforceFeed, sites: SafetySite[]): number {
+  let n = 0;
+  for (const s of sites) {
+    feed.list.set(s.id, {
+      id: s.id,
+      kind: s.kind,
+      lat: s.lat,
+      lon: s.lon,
+      name: s.name,
+      operator: 'West Midlands Police',
+      maxspeed: limitText(s.limit),
+      direction: '',
+      ref: '',
+      tags: {},
+      source: 'wmp',
+      detail: { limit: s.limit, offences: s.offences, topSpeed: s.topSpeed, lastEnforced: s.lastEnforced, area: s.area },
+    });
+    n++;
+  }
+  feed.events.emit('change', undefined);
+  return n;
+}
+
+const WMP_URL = 'https://wmsafetycameras.co.uk/camera_map/manage/data.json';
+
+/** The view is over the West Midlands (Wolverhampton to Coventry, Cannock to Redditch). */
+export const inWestMidlands = (lat: number, lon: number): boolean => lat > 52.2 && lat < 52.8 && lon > -2.5 && lon < -1.2;
+
+let wmp: Promise<number> | null = null;
+
+/**
+ * Fetch the West Midlands Police site list (through the brain's proxy, cached a day) and merge it
+ * into the enforcement feed. Runs once per page life, and only when called — the eye tab calls it
+ * when the view is over the West Midlands. Resolves to how many sites went in (0 when the site
+ * could not be reached).
+ */
+export async function loadWmSafety(): Promise<number> {
+  if (!wmp) {
+    wmp = (async () => {
+      try {
+        return mergeSafety(enforce, parseWmSafety(await fetchJson<unknown>(WMP_URL, 86400, 30000)));
+      } catch {
+        return 0;
+      }
+    })();
+  }
+  return wmp;
+}

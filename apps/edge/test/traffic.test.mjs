@@ -35,17 +35,28 @@ const ctxFor = (keys = {}) => {
   return { events, ctx: { vault: { get: async (k) => keys[k] ?? null }, storage: { get: async () => undefined }, emit: (e) => events.push(e) } };
 };
 
-test('show_cameras says honestly that Birmingham has no public cameras and shows live traffic instead', async () => {
+test("show_cameras in Birmingham: the city's own streets have none, so the nearest National Highways motorway camera opens, with live traffic", async () => {
   const tool = T.toolByName.get('show_cameras');
   assert.equal(tool.side ?? 'brain', 'brain');
   const { events, ctx } = ctxFor({ tomtom: 'TT-KEY' });
   const out = await tool.run({ place: 'Birmingham City Centre' }, ctx);
-  assert.match(out, /no public live cameras in Birmingham/i);
-  assert.match(out, /London \(TfL JamCams\), about 1[0-9]{2} km away/);
+  assert.match(out, /nearest National Highways motorway camera to Birmingham City Centre/);
+  assert.match(out, /own streets have no public cameras/);
+  assert.match(out, /every 20–30 seconds/);
+  assert.doesNotMatch(out, /TomTom key/, 'the key is there');
+  assert.deepEqual(events.map((e) => e.name), ['show_cameras', 'show_traffic']);
+  assert.ok(Math.abs(events[0].args.lat - 52.48) < 0.01);
+});
+
+test('show_cameras says honestly where there are no public cameras at all, and shows live traffic instead', async () => {
+  const tool = T.toolByName.get('show_cameras');
+  const { events, ctx } = ctxFor({ tomtom: 'TT-KEY' });
+  const out = await tool.run({ lat: 55.95, lon: -3.19, place: 'Edinburgh' }, ctx);
+  assert.match(out, /no public live cameras in Edinburgh/i);
+  assert.match(out, /about \d+ km away/);
   assert.match(out, /live traffic/i);
   // the live Waze map opens first (free), then the TomTom overlay
   assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_traffic']);
-  assert.ok(Math.abs(events[0].args.lat - 52.48) < 0.01);
 });
 
 test('show_cameras opens the cameras where they exist, and explains the key when traffic is off', async () => {
@@ -66,9 +77,9 @@ test('traffic_now reads TomTom speeds and incidents, worst first, and needs the 
   assert.match(out, /2 incidents/);
   assert.ok(out.indexOf('Accident on A38(M)') < out.indexOf('Roadworks'), 'worst incident first');
   assert.match(out, /delay 14 min/);
-  // the live map always opens; the TomTom overlay follows with the key (Birmingham has no cameras to show)
-  assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_traffic']);
-  assert.ok(events[1].args.range_km >= 6);
+  // the live map always opens, then the nearest motorway cameras (National Highways), then the TomTom overlay with the key
+  assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_cameras', 'show_traffic']);
+  assert.ok(events[2].args.range_km >= 6);
   const bad = ctxFor({ tomtom: 'WRONG' }).ctx;
   await assert.rejects(tool.run({ place: 'Birmingham' }, bad), /did not accept the traffic key/);
 });
@@ -96,7 +107,7 @@ test('major places resolve from the built-in list, without the rate-limited map 
   assert.match(await T.toolByName.get('show_cameras').run({ place: 'london' }, ctx), /camera to London/);
   assert.ok(Math.abs(events[0].args.lat - 51.507) < 0.01);
   const b = ctxFor();
-  assert.match(await T.toolByName.get('show_cameras').run({ place: 'Birmingham City Centre' }, b.ctx), /no public live cameras in Birmingham City Centre/);
+  assert.match(await T.toolByName.get('show_cameras').run({ place: 'Birmingham City Centre' }, b.ctx), /motorway camera to Birmingham City Centre/);
   assert.ok(Math.abs(b.events[0].args.lat - 52.48) < 0.01);
   assert.equal(calls.filter((u) => u.hostname === 'nominatim.openstreetmap.org').length, before, 'no map search for major places');
 });

@@ -10,13 +10,16 @@ import { signals, threatLevel, quakes, events } from '../../data/hazards';
 import { news } from '../../data/news';
 import { air, airBand, WMO, temp, weather } from '../../data/weather';
 import { onFrame } from '../../engine/scheduler';
+import { run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { StarkHud } from './hud';
+import { progressRatio, progressText } from './progress';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
+const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
 
 let whisper = false;
 let conversation = false;
@@ -64,8 +67,16 @@ function renderEntry(e: Entry): HTMLElement {
       return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
-    case 'activity':
-      return h(`div.act.${e.state}` as 'div', h('i'), h('span', e.label), e.detail ? h('em', e.detail) : null);
+    case 'activity': {
+      const el = h(`div.act.${e.state}` as 'div', h('i'), h('span', e.label), e.detail ? h('em', e.detail) : null);
+      // What the tool is doing right now, under its line, with a thin bar when it knows how far it is.
+      if (e.progress && e.state === 'running') {
+        const ratio = progressRatio(e.progress);
+        el.classList.add('live');
+        el.append(h('div.prog', h('span', progressText(e.progress)), ratio === null ? null : h('div.pbar', h('b', { style: { width: `${Math.round(ratio * 100)}%` } }))));
+      }
+      return el;
+    }
     case 'error':
       return h('div.msg.err', h('small', 'PROBLEM'), h('span', e.text));
     case 'approval': {
@@ -119,6 +130,13 @@ export const coreTab: TabDef = {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit();
     });
+    // The Lens: a photo question goes to a model that can see pictures (the Lens's ASK mode).
+    const lensBtn = h('button#lensbtn', { type: 'button', 'aria-label': 'Ask about a photo with the Lens', title: 'Ask with the camera' }, icon(CAM));
+    lensBtn.addEventListener('click', () => {
+      void run('open_lens', { mode: 'ask' }).then((ok) => {
+        if (!ok) toast('The Lens is not available in this build', 'warn');
+      });
+    });
     const mic = h('button#mic', { type: 'button', 'aria-label': 'Talk by voice' }, icon(MIC));
     mic.addEventListener('click', () => {
       if (conversation) {
@@ -159,7 +177,7 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic));
+    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, lensBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 
@@ -204,6 +222,9 @@ export const coreTab: TabDef = {
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
       armFade();
+      // The HUD says what the tool at work is doing right now (the latest report); nothing once it has finished.
+      const working = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'activity' }> => e.kind === 'activity' && e.state === 'running' && !!e.progress);
+      stark.task(working?.progress ? progressText(working.progress) : null);
     };
     chat.subscribe(paintLog);
     paintLog();
@@ -218,6 +239,7 @@ export const coreTab: TabDef = {
       }, 1400);
     }, i * 650));
     const paintState = () => {
+      if (!ui.get().busy) stark.task(null); // nothing to show between turns (a tool left running by a broken turn is marked stopped in session.ts, so paintLog never picks it up again)
       if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;

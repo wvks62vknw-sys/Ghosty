@@ -31,6 +31,7 @@ export function bracketProblem(src: string): string | null {
   let i = 0;
   const tmpl: number[] = []; // stack depth where each open template literal's ${ began
   let prevSig = '';
+  let gap = false; // whitespace seen since the last token
   while (i < src.length) {
     const c = src[i]!;
     const n = src[i + 1];
@@ -105,7 +106,13 @@ export function bracketProblem(src: string): string | null {
       if (!top) return `unexpected "${c}" on line ${line} (nothing open)`;
       if (top.ch !== pairs[c]) return `"${c}" on line ${line} closes "${top.ch}" from line ${top.line}`;
     }
-    if (!/\s/.test(c)) prevSig = /[\w$]/.test(c) ? (prevSig.endsWith('return') ? 'return' : /[\w$]$/.test(prevSig) ? prevSig + c : c) : c;
+    // The previous significant token: identifier characters join only when nothing separated them,
+    // so `return letters / 2` sees "letters" before the "/", not "return" (which would read it as a regex).
+    if (/\s/.test(c)) gap = true;
+    else {
+      prevSig = /[\w$]/.test(c) ? (/[\w$]$/.test(prevSig) && !gap ? prevSig + c : c) : c;
+      gap = false;
+    }
     i++;
   }
   if (stack.length) return `"${stack[stack.length - 1]!.ch}" opened on line ${stack[stack.length - 1]!.line} is never closed`;
@@ -158,6 +165,7 @@ export function literalRanges(src: string): [number, number][] {
   const depth: number[] = []; // brace depth at which each open template's ${ began
   let braces = 0;
   let prevSig = '';
+  let gap = false; // whitespace seen since the last token
   let i = 0;
   const template = (from: number) => {
     // scan template text from `from` until the closing backtick or a ${
@@ -240,7 +248,13 @@ export function literalRanges(src: string): [number, number][] {
         continue;
       }
     }
-    if (!/\s/.test(c)) prevSig = /[\w$]/.test(c) ? (prevSig.endsWith('return') ? 'return' : /[\w$]$/.test(prevSig) ? prevSig + c : c) : c;
+    // The previous significant token: identifier characters join only when nothing separated them,
+    // so `return letters / 2` sees "letters" before the "/", not "return" (which would read it as a regex).
+    if (/\s/.test(c)) gap = true;
+    else {
+      prevSig = /[\w$]/.test(c) ? (/[\w$]$/.test(prevSig) && !gap ? prevSig + c : c) : c;
+      gap = false;
+    }
     i++;
   }
   return out;

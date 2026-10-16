@@ -14,18 +14,35 @@
  */
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
-import { durableGet, durablePut } from '../kv';
+import { durableDelete, durableGet, durablePut } from '../kv';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
 
 const PREFIX = 'site:';
+/** The list of published pages (name, title, source, when, size), kept in both places like the pages. */
+const INDEX = 'site:index';
+const DRAFT = 'site:draft:';
 const MAX_HTML = 400_000;
+const MAX_SITES = 500;
 
 export interface Site {
   name: string;
   title: string;
   html: string;
   source: string;
+  at: number;
+}
+/** One line of the list of published pages. */
+export interface SiteEntry {
+  name: string;
+  title: string;
+  source: string;
+  at: number;
+  bytes: number;
+}
+/** A page sent in parts (draft_site) before it is published. */
+interface Draft {
+  parts: string[];
   at: number;
 }
 
@@ -41,11 +58,89 @@ export const siteSlug = (s: string) =>
  * with its own allowance), so a published link stays up — and publishing works — while the
  * database is paused. Without KV (tests, a bare dev setup) the database alone is used.
  */
-export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: DurableObjectStorage): { get(name: string): Promise<Site | undefined>; put(site: Site): Promise<void> } {
+export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: DurableObjectStorage): {
+  get(name: string): Promise<Site | undefined>;
+  put(site: Site): Promise<void>;
+  list(): Promise<SiteEntry[]>;
+  remove(name: string): Promise<boolean>;
+  draft(name: string): Promise<Draft | undefined>;
+  addPart(name: string, part: string): Promise<Draft>;
+  dropDraft(name: string): Promise<void>;
+} {
+  const list = async () => (await durableGet<SiteEntry[]>(env, storage, INDEX)) ?? [];
+  const saveList = (entries: SiteEntry[]) => durablePut(env, storage, INDEX, entries.slice(0, MAX_SITES));
   return {
     get: (name) => durableGet<Site>(env, storage, PREFIX + siteSlug(name)),
-    put: (site) => durablePut(env, storage, PREFIX + site.name, site),
+    async put(site) {
+      await durablePut(env, storage, PREFIX + site.name, site);
+      // The page is live now; the list is for finding it again, so a hiccup here is not a failure.
+      try {
+        const entries = (await list()).filter((e) => e.name !== site.name);
+        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.html.length });
+        await saveList(entries);
+      } catch {
+        /* listed next time */
+      }
+    },
+    list,
+    async remove(name) {
+      const slug = siteSlug(name);
+      const entries = await list();
+      const had = entries.some((e) => e.name === slug) || !!(await durableGet<Site>(env, storage, PREFIX + slug));
+      await durableDelete(env, storage, PREFIX + slug);
+      await saveList(entries.filter((e) => e.name !== slug)).catch(() => undefined);
+      return had;
+    },
+    draft: (name) => durableGet<Draft>(env, storage, DRAFT + siteSlug(name)),
+    async addPart(name, part) {
+      const slug = siteSlug(name);
+      const d = (await durableGet<Draft>(env, storage, DRAFT + slug)) ?? { parts: [], at: Date.now() };
+      if (Date.now() - d.at > 6 * 3600_000) d.parts = []; // an old, abandoned draft starts over
+      d.parts.push(part);
+      d.at = Date.now();
+      const size = d.parts.reduce((n, p) => n + p.length, 0);
+      if (size > MAX_HTML) throw new Error(`the draft is too large (${Math.round(size / 1024)} KB; 400 KB max) — use image URLs instead of embedded images and keep it lean`);
+      await durablePut(env, storage, DRAFT + slug, d);
+      return d;
+    },
+    dropDraft: (name) => durableDelete(env, storage, DRAFT + siteSlug(name)).catch(() => undefined),
   };
+}
+
+/** The public address of a page: the host the owner uses, else the one set in wrangler.jsonc (PUBLIC_ORIGIN), else just the path. */
+export const siteLink = (origin: string | undefined, env: Pick<Env, 'PUBLIC_ORIGIN'> | undefined, name: string) => `${origin || env?.PUBLIC_ORIGIN || ''}/s/${siteSlug(name)}`;
+
+/** The published links in a tool's answer (so the final reply can be checked for them). */
+export const linksIn = (text: string): string[] => [...text.matchAll(/https?:\/\/[^\s"'<>)]+\/s\/[a-z0-9-]{1,48}/g)].map((m) => m[0]);
+
+/**
+ * Relative addresses in a rebuilt page point nowhere once it lives on Ghosty (its images,
+ * stylesheets and other pages belong to the original site): make them absolute against the
+ * source. Anchors, mail and phone links stay as they are.
+ */
+export function absolutise(html: string, source: string): string {
+  let base: URL;
+  try {
+    base = new URL(source);
+  } catch {
+    return html;
+  }
+  if (base.protocol !== 'http:' && base.protocol !== 'https:') return html;
+  const keep = /^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i; // already absolute, a scheme (mailto:, data:, javascript:…), an anchor, or protocol-relative (fixed below)
+  const fix = (v: string) => {
+    const t = v.trim();
+    if (!t) return v;
+    if (/^\/\//.test(t)) return `${base.protocol}${t}`;
+    if (keep.test(t)) return v;
+    return abs(t, base.toString()) || v;
+  };
+  return html.replace(/<(img|script|link|source|video|audio|iframe|a|use|track)\b([^>]*)>/gi, (tag, _name: string, attrs: string) =>
+    tag.replace(attrs, attrs.replace(/\s(src|href|poster|srcset)\s*=\s*("([^"]*)"|'([^']*)')/gi, (m, name: string, _q: string, dq?: string, sq?: string) => {
+      const v = dq ?? sq ?? '';
+      const out = name.toLowerCase() === 'srcset' ? v.split(',').map((c) => c.trim().replace(/^(\S+)/, (u) => fix(u))).join(', ') : fix(v);
+      return ` ${name}="${out.replace(/"/g, '&quot;')}"`;
+    })),
+  );
 }
 
 // ---------------------------------------------------------------------------------------
@@ -192,11 +287,18 @@ const decodeRefs = (s: string) =>
  * a mobile viewport, lazy images, not indexed. (These are tidy-ups: what the page can actually
  * do is enforced by the browser — see siteFrameResponse.)
  */
-export function prepareSite(htmlIn: string, _source: string): { html: string; notes: string[] } {
+export function prepareSite(htmlIn: string, source: string): { html: string; notes: string[] } {
   let html = htmlIn.trim();
   const notes: string[] = [];
   if (html.length > MAX_HTML) throw new Error(`the page is too large (${Math.round(html.length / 1024)} KB; 400 KB max) — use image URLs instead of embedded images and keep it lean`);
   if (!/<html[\s>]/i.test(html) || !/<body[\s>]/i.test(html)) throw new Error('send ONE complete HTML document (<!doctype html><html>…<body>…</body></html>)');
+  if (source) {
+    const fixed = absolutise(html, source);
+    if (fixed !== html) {
+      html = fixed;
+      notes.push('relative addresses pointed at the original site');
+    }
+  }
   if (/type\s*=\s*["']?\s*password|["'`]password["'`]/i.test(decodeRefs(html))) throw new Error("rebuilt pages can't contain password fields (they could pass for a real login page). Leave sign-in out, or show it as a plain button");
   // (attributes inside form, button and input tags only: never text or script code like `action = …`)
   const targets = /(<(?:form|button|input)\b[^>]*?)\s(?:form)?action\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
@@ -264,6 +366,7 @@ export function siteFrameResponse(site: Site | undefined, dest: string | null): 
 }
 
 const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
+const when = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 
 export const siteTools: Tool[] = [
   {
@@ -272,18 +375,23 @@ export const siteTools: Tool[] = [
       "Study a website so you can rebuild it: fetches the page and its stylesheets and returns its structure (sections, navigation, headings), text, images, colours, fonts, the scripts/libraries it loads and what they do (menus, carousels, modals…), and how heavy it is. Step 1 of rebuilding a site; then write the improved page and call publish_site. For the owner's own sites, sites they may remake, or as a clearly labelled redesign concept — never to impersonate a real login or payment page.",
     parameters: { type: 'object', properties: { url: { type: 'string', description: 'https://…' } }, required: ['url'] },
     risk: 'auto',
-    async run(a) {
+    async run(a, ctx) {
       let url = arg.str(a, 'url').trim();
       if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      ctx.emit?.({ t: 'status', text: `reading ${hostOf(url) || url}…` });
+      // A big page and its stylesheets take a while: the chat shows which step is under way. (?. — tests call tools with a bare context.)
+      ctx.progress?.(`fetching ${hostOf(url) || url}…`);
       const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,*/*;q=0.5' }, redirect: 'follow' });
       if (!r.ok) throw new Error(`the site answered HTTP ${r.status}`);
       const html = await readCapped(r, 1_500_000);
       const final = r.url || url;
       const sheets = [...html.matchAll(/<link\b[^>]*rel\s*=\s*["']?stylesheet[^>]*>/gi)].map((m) => abs(attr(m[0], 'href'), final)).filter(Boolean).slice(0, 4);
+      ctx.progress?.(sheets.length ? `reading the page and ${sheets.length} stylesheet${sheets.length === 1 ? '' : 's'}…` : 'reading the page…');
       const css = await Promise.all(sheets.map((s) => fetch(s, { headers: { 'User-Agent': UA } }).then((x) => (x.ok ? readCapped(x, 250_000) : '')).catch(() => '')));
       // Sites that build their page with JavaScript send almost no text: read it rendered (free reader, no key).
       let rendered = '';
       if (strip(html.match(/<body\b[\s\S]*<\/body>/i)?.[0] ?? html).length < 400) {
+        ctx.progress?.('reading the page as visitors see it…');
         rendered = await fetch(`https://r.jina.ai/${final}`, { headers: { Accept: 'text/plain', 'X-Return-Format': 'markdown' } })
           .then((x) => (x.ok ? readCapped(x, 200_000) : ''))
           .catch(() => '');
@@ -297,16 +405,17 @@ export const siteTools: Tool[] = [
   {
     name: 'publish_site',
     description:
-      "Publish a page you built (usually a rebuilt website after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or setup. Send ONE complete HTML document. The link works on any phone; give it to the owner exactly as returned. Publishing again with the same name updates it.",
+      "Publish a page you built (a website, landing page, portfolio, CV, menu, invitation — or a rebuilt website after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or setup. Send ONE complete HTML document (or, for a page too big for one call, send it in parts with draft_site first and then call this with from_draft true). The link works on any phone; give it to the owner exactly as returned. Publishing again with the same name updates it; list_sites shows every page, unpublish_site takes one down.",
     parameters: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'short name for the link, e.g. "acme-bakery"' },
         title: { type: 'string' },
-        html: { type: 'string', description: 'the complete HTML document' },
+        html: { type: 'string', description: 'the complete HTML document (leave out when from_draft is true)' },
+        from_draft: { type: 'boolean', description: 'true: publish the parts sent with draft_site under this name' },
         source_url: { type: 'string', description: 'the original site it was rebuilt from (if any)' },
       },
-      required: ['name', 'html'],
+      required: ['name'],
     },
     risk: 'confirm', // it goes on the public internet: the owner taps APPROVE (the kernel would insist anyway)
     /** Check the page first (so problems show before asking), and say exactly what goes live where. */
@@ -314,7 +423,7 @@ export const siteTools: Tool[] = [
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
       const source = arg.str(a, 'source_url', false);
-      const { html } = prepareSite(arg.str(a, 'html'), source);
+      const { html } = prepareSite(await pageHtml(a, name, ctx), source);
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
       let from = '';
       try {
@@ -322,19 +431,91 @@ export const siteTools: Tool[] = [
       } catch {
         /* not a URL */
       }
-      return { args: a, reason: `Publish "${title}"${from} as a public page at ${ctx.origin ?? ''}/s/${name}? (${kb(html.length)}; anyone with the link can open it)` };
+      const had = await siteStore(ctx.env, ctx.storage).get(name);
+      return { args: a, reason: `${had ? 'Update' : 'Publish'} "${title}"${from} as a public page at ${siteLink(ctx.origin, ctx.env, name)}? (${kb(html.length)}; anyone with the link can open it${had ? '; this replaces the page already there' : ''})` };
     },
     async run(a, ctx) {
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
       const source = arg.str(a, 'source_url', false);
-      const { html, notes } = prepareSite(arg.str(a, 'html'), source);
+      const store = siteStore(ctx.env, ctx.storage);
+      // Progress under this tool's line in the chat (?. — tests call tools with a bare context).
+      if (a.from_draft) ctx.progress?.('joining the parts of the draft…');
+      const page = await pageHtml(a, name, ctx);
+      ctx.progress?.(`checking the page (${kb(page.length)})…`);
+      const { html, notes } = prepareSite(page, source);
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
-      await siteStore(ctx.env, ctx.storage).put({ name, title, html, source, at: Date.now() });
-      const link = `${ctx.origin ?? ''}/s/${name}`;
+      ctx.emit?.({ t: 'status', text: `publishing ${title} (${kb(html.length)})…` });
+      ctx.progress?.(`publishing "${title}"…`);
+      await store.put({ name, title, html, source, at: Date.now() });
+      if (a.from_draft) await store.dropDraft(name);
+      const link = siteLink(ctx.origin, ctx.env, name);
       ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title } });
       const requests = 1 + (html.match(/<script\b[^>]*\ssrc=/gi) ?? []).length + (html.match(/<link\b[^>]*stylesheet/gi) ?? []).length + (html.match(/<img\b/gi) ?? []).length;
       return `Published "${title}" — live now at ${link} (${kb(html.length)}, about ${requests} requests${notes.length ? `; ${notes.join('; ')}` : ''}). Give the owner this exact link.`;
     },
   },
+  {
+    name: 'draft_site',
+    description:
+      'Send a page to publish in parts when it is too long for one publish_site call: call this once per part, in order (each part is a slice of the same HTML document; the slices are joined exactly as sent), then call publish_site with the same name and from_draft true. Up to 400 KB in all.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'the name the page will be published under' },
+        html_part: { type: 'string', description: 'the next slice of the HTML document' },
+      },
+      required: ['name', 'html_part'],
+    },
+    risk: 'auto',
+    async run(a, ctx) {
+      const name = siteSlug(arg.str(a, 'name'));
+      if (!name) throw new Error('name must contain letters or numbers');
+      const part = arg.str(a, 'html_part');
+      ctx.progress?.(`keeping this part of "${name}" (${kb(part.length)})…`);
+      const d = await siteStore(ctx.env, ctx.storage).addPart(name, part);
+      const size = d.parts.reduce((n, p) => n + p.length, 0);
+      ctx.progress?.(`${d.parts.length} part${d.parts.length === 1 ? '' : 's'} kept, ${kb(size)} so far`);
+      return `Part ${d.parts.length} kept (${kb(size)} so far). Send the next part, or call publish_site with name "${name}" and from_draft true when the document is complete.`;
+    },
+  },
+  {
+    name: 'list_sites',
+    description: "The pages Ghosty has published (name, link, title, when, size). Use it when the owner asks what is online, wants a link again, or wants something updated or taken down.",
+    parameters: { type: 'object', properties: {} },
+    risk: 'auto',
+    pure: true,
+    async run(_a, ctx) {
+      const entries = await siteStore(ctx.env, ctx.storage).list();
+      if (!entries.length) return 'Nothing is published yet.';
+      return `${entries.length} published page${entries.length === 1 ? '' : 's'}:\n${entries.map((e) => `- ${siteLink(ctx.origin, ctx.env, e.name)} — "${e.title}"${e.source ? ` (from ${hostOf(e.source)})` : ''}, ${when(e.at)} UTC, ${kb(e.bytes)}`).join('\n')}`;
+    },
+  },
+  {
+    name: 'unpublish_site',
+    description: 'Take a published page down (its link stops working). Only when the owner asks.',
+    parameters: { type: 'object', properties: { name: { type: 'string', description: 'the name in the link: …/s/<name>' } }, required: ['name'] },
+    risk: 'confirm',
+    async approval(a, ctx) {
+      const name = siteSlug(arg.str(a, 'name'));
+      const site = await siteStore(ctx.env, ctx.storage).get(name);
+      if (!site) throw new Error(`nothing is published at /s/${name}`);
+      return { args: a, reason: `Take down "${site.title}" at ${siteLink(ctx.origin, ctx.env, name)}? (the link stops working)` };
+    },
+    async run(a, ctx) {
+      const name = siteSlug(arg.str(a, 'name'));
+      const had = await siteStore(ctx.env, ctx.storage).remove(name);
+      return had ? `Taken down: ${siteLink(ctx.origin, ctx.env, name)} no longer works.` : `Nothing was published at /s/${name}.`;
+    },
+  },
 ];
+
+/** The document to publish: sent whole, or assembled from the parts sent with draft_site. */
+async function pageHtml(a: Record<string, unknown>, name: string, ctx: { env: Env; storage?: DurableObjectStorage }): Promise<string> {
+  if (a.from_draft) {
+    const d = await siteStore(ctx.env, ctx.storage).draft(name);
+    if (!d?.parts.length) throw new Error(`no draft for "${name}": send its parts with draft_site first`);
+    return d.parts.join('');
+  }
+  return arg.str(a, 'html');
+}

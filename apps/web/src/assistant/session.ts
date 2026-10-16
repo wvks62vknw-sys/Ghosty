@@ -8,6 +8,7 @@ import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
+import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { toast } from '../ui/components';
@@ -16,7 +17,8 @@ import { speak, stopListening, stopSpeaking } from './voice';
 export type Entry =
   | { kind: 'user'; text: string; at: number }
   | { kind: 'assistant'; text: string; at: number; model?: string }
-  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string }
+  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
+  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
   | { kind: 'error'; text: string }
   | { kind: 'link'; url: string; title: string };
@@ -35,6 +37,11 @@ const TOOL_LABELS: Record<string, string> = {
   forget: 'Updating memory',
   list_memory: 'Recalling memory',
   create_widget: 'Building a widget',
+  study_site: 'Studying the site',
+  publish_site: 'Publishing the page',
+  draft_site: 'Writing the page',
+  list_sites: 'Listing published pages',
+  unpublish_site: 'Taking the page down',
   repo_tree: 'Looking through my code',
   repo_read: 'Reading my code',
   repo_search: 'Searching my code',
@@ -64,6 +71,18 @@ function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void 
   chat.set((s) => ({ entries: s.entries.map((e) => (match(e) ? change(e) : e)) }));
 }
 
+/**
+ * The turn is over (its stream ended with `done` or `error`, or broke off): a tool still shown
+ * as running has no result coming, so its row stops blinking and its step leaves the HUD,
+ * instead of being shown as the task at work through the whole next turn.
+ */
+function settle(): void {
+  patch(
+    (e) => e.kind === 'activity' && e.state === 'running',
+    (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: 'fail', detail: 'stopped', progress: undefined }),
+  );
+}
+
 function context(): Record<string, unknown> {
   const now = new Date();
   return {
@@ -86,10 +105,17 @@ function handle(ev: ChatEvent): void {
     case 'tool':
       push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
       break;
+    case 'progress':
+      // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
+      patch(
+        (e) => e.kind === 'activity' && e.id === ev.id && e.state === 'running',
+        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), progress: progressOf(ev) }),
+      );
+      break;
     case 'tool_result':
       patch(
         (e) => e.kind === 'activity' && e.id === ev.id,
-        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary }),
+        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary, progress: undefined }),
       );
       if (!chat.get().entries.some((e) => e.kind === 'activity' && e.id === ev.id)) push({ kind: 'activity', id: ev.id, label: label(ev.name, {}), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary });
       break;
@@ -106,10 +132,12 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.text);
       break;
     case 'error':
+      settle(); // the turn ends here: nothing is running any more
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
       break;
     case 'done':
+      settle();
       if (/memory paused/.test(ev.model)) {
         // Only this exchange: the message that got the paused reply, and the replies since.
         const es = chat.get().entries;
@@ -154,6 +182,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
+    settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
   }
@@ -194,7 +223,11 @@ export async function answerApproval(id: string, allow: boolean): Promise<void> 
 export async function loadHistory(): Promise<void> {
   try {
     const h = await brain.history();
-    const entries: Entry[] = h.turns.slice(-30).map((t) => (t.role === 'user' ? { kind: 'user', text: t.text, at: t.at } : { kind: 'assistant', text: t.text, at: t.at, model: t.model }));
+    const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
+      if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
+      // A page published in that turn keeps its live-link card under the reply.
+      return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
+    });
     if (h.pending) entries.push({ kind: 'approval', id: h.pending.id, name: h.pending.name, reason: `Waiting for your approval: ${h.pending.name.replace(/_/g, ' ')}`, args: h.pending.args, state: 'waiting' });
     chat.set({ entries });
   } catch (e) {
