@@ -74,7 +74,8 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
-    if (url.pathname.startsWith('/api/')) {
+    // Like run_worker_first in wrangler.jsonc: the API and published pages (/s/…) go to the Worker.
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const body = chunks.length ? Buffer.concat(chunks) : undefined;

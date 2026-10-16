@@ -29,6 +29,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
+import { loadSite, siteResponse } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
@@ -123,11 +124,14 @@ export class GhostyAgent {
       emit,
       kernelUnlocked: async () => ((await this.storage.get<number>('kernelUnlockedUntil')) ?? 0) > Date.now(),
       github: () => this.github(),
+      origin: this.origin,
     };
   }
 
   /** Hostname the owner reached Ghosty on (used to work out preview links). */
   private host?: string;
+  /** Where Ghosty is reached (https://…), for links it hands out. */
+  private origin = '';
 
   private shipCache = new Map<string, { at: number; ships: AisShip[] }>();
 
@@ -173,6 +177,7 @@ export class GhostyAgent {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
     this.host = url.hostname;
+    this.origin = url.origin;
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
     try {
@@ -181,6 +186,16 @@ export class GhostyAgent {
       const ownerKey = req.headers.get('x-ghosty-key');
       const sealed = req.headers.get('x-ghosty-vault');
       if (ownerKey && sealed && sealed.length < 60_000) await this.vault.warm(ownerKey, sealed);
+      // A published page (public: the Worker forwards /s/<name> here without signing in).
+      const sp = path.match(/^\/site\/([a-z0-9-]{1,48})$/);
+      if (sp && method === 'GET') {
+        try {
+          return siteResponse(await loadSite(this.storage, sp[1]!));
+        } catch (e) {
+          if (!storageError(e)) throw e;
+          return new Response('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">This page is resting until midnight UTC (its host\'s free daily allowance is used up). Try again then.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'retry-after': '3600' } });
+        }
+      }
       if (path === '/vault/backup' && method === 'GET') {
         if (!ownerKey) return json({ error: 'needs the owner key' }, 400);
         const waiting = await this.vault.flushDirty();
@@ -1148,8 +1163,8 @@ function argsProblem(raw: string): string | null {
   }
 }
 
-const CODE_TOOLS = /^(study|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson|self_audit|plan_upgrade|roadmap|update_step)/;
-const CODE_WORDS = /\b(code|coding|build|program|script|function|bug|fix|feature|tab|panel|widget|game|app|refactor|typescript|javascript|python|html|css|api|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|carry on|add (a|an) )/i;
+const CODE_TOOLS = /^(study|publish_site|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson|self_audit|plan_upgrade|roadmap|update_step)/;
+const CODE_WORDS = /\b(code|coding|build|rebuild|recreate|remake|redesign|clone|website|web ?site|landing page|program|script|function|bug|fix|feature|tab|panel|widget|game|app|refactor|typescript|javascript|python|html|css|api|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|carry on|add (a|an) )/i;
 
 /** The owner's latest message. */
 function lastUserText(ctx: Msg[]): string {

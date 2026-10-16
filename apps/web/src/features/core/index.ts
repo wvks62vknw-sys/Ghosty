@@ -44,12 +44,26 @@ async function voiceTurn(): Promise<void> {
   }
 }
 
+/** Text with its web links made tappable (built as nodes: text can never become HTML). */
+function linked(text: string): HTMLElement {
+  const out = h('span');
+  let last = 0;
+  for (const m of text.matchAll(/https?:\/\/[^\s<>"')\]]+[^\s<>"')\].,;:!?]/g)) {
+    out.append(text.slice(last, m.index), h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, m[0]));
+    last = m.index! + m[0].length;
+  }
+  out.append(text.slice(last));
+  return out;
+}
+
 function renderEntry(e: Entry): HTMLElement {
   switch (e.kind) {
     case 'user':
       return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant':
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), h('span', e.text));
+      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+    case 'link':
+      return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity':
       return h(`div.act.${e.state}` as 'div', h('i'), h('span', e.label), e.detail ? h('em', e.detail) : null);
     case 'error':

@@ -18,7 +18,8 @@ export type Entry =
   | { kind: 'assistant'; text: string; at: number; model?: string }
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
-  | { kind: 'error'; text: string };
+  | { kind: 'error'; text: string }
+  | { kind: 'link'; url: string; title: string };
 
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
 export const chat = createStore({ entries: [] as Entry[], live: '' }, { persist: 'ghosty.chat', keys: ['entries'] });
@@ -52,6 +53,11 @@ const label = (name: string, args: Record<string, unknown>) => {
 
 function push(e: Entry): void {
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
+}
+
+/** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
+export function addLink(url: string, title: string): void {
+  push({ kind: 'link', url, title });
 }
 
 function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void {
