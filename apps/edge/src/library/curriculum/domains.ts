@@ -505,4 +505,439 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Berkeley View on Serverless Computing
 3|arxiv|Conflict-free Replicated Data Types An Overview`,
   },
+  {
+    id: 'javascript-web-platform',
+    name: `JavaScript, TypeScript & the web platform`,
+    why: `Almost everything a personal AI builds or explains for its owner ends up as a web page, a Worker or a script, so it must know the language, the DOM and the browser's security and performance model cold.`,
+    t: `1|mdn|JavaScript language overview
+1|mdn|Grammar and types
+1|mdn|Control flow and error handling
+1|mdn|Expressions and operators
+1|mdn|Working with objects
+1|mdn|Indexed collections
+1|mdn|Keyed collections
+1|mdn|Equality comparisons and sameness
+1|mdn|Template literals (Template strings)
+1|mdn|Destructuring
+1|mdn|Arrow function expressions
+1|mdn|Array.prototype.map()
+1|mdn|Array.prototype.reduce()
+1|mdn|Working with JSON
+1|mdn|DOM scripting introduction
+1|mdn|Introduction to events
+1|mdn|CSS flexible box layout
+1|mdn|CSS grid layout
+1|mdn|Responsive web design
+1|mdn|Overview of HTTP
+2|mdn|Closures
+2|mdn|this
+2|mdn|Inheritance and the prototype chain
+2|mdn|Using classes
+2|mdn|Strict mode
+2|mdn|Using promises
+2|mdn|async function
+2|mdn|JavaScript execution model
+2|mdn|JavaScript modules
+2|mdn|Iterators and generators
+2|mdn|Regular expressions
+2|mdn|Using the Fetch API
+2|mdn|Client-side storage
+2|mdn|IndexedDB API
+2|mdn|Using Web Workers
+2|mdn|Service Worker API
+2|mdn|WebSocket API (WebSockets)
+2|mdn|Canvas API
+2|mdn|Web Components
+2|wiki|TypeScript
+2|wiki|Node.js
+2|wiki|React (software)
+3|mdn|Memory management
+3|mdn|JavaScript typed arrays
+3|mdn|Streams API
+3|mdn|Same-origin policy
+3|mdn|Cross-Origin Resource Sharing (CORS)
+3|mdn|Content Security Policy (CSP)
+3|mdn|HTTP caching
+3|mdn|Populating the page: how browsers work
+3|mdn|WebAssembly concepts
+3|mdn|Web Crypto API
+3|wiki|V8 (JavaScript engine)
+3|wiki|Single-page application
+3|wiki|Progressive web app
+3|arxiv|Not So Fast Analyzing Performance WebAssembly Native`,
+  },
+  {
+    id: 'python',
+    name: `Python language, stdlib & ecosystem`,
+    why: `Python is the language people reach for to script, analyse data and prototype, so an AI that writes, debugs and explains Python idiomatically is useful every day.`,
+    t: `1|wiki|Python (programming language)
+1|wikibooks|Python Programming/Variables and Strings
+1|wikibooks|Python Programming/Data types
+1|wikibooks|Python Programming/Lists
+1|wikibooks|Python Programming/Tuples
+1|wikibooks|Python Programming/Dictionaries
+1|wikibooks|Python Programming/Conditional Statements
+1|wikibooks|Python Programming/Loops
+1|wikibooks|Python Programming/Functions
+1|wikibooks|Python Programming/Scoping
+1|wikibooks|Python Programming/Exceptions
+1|wikibooks|Python Programming/Files
+1|wikibooks|Python Programming/Modules
+1|wikibooks|Python Programming/Classes
+1|wiki|Zen of Python
+1|wiki|List comprehension
+2|wiki|Python syntax and semantics
+2|wikibooks|Python Programming/Decorators
+2|wikibooks|Python Programming/Context Managers
+2|wikibooks|Python Programming/Regular Expression
+2|wikibooks|Python Programming/Standard Library
+2|wikibooks|Python Programming/Idioms
+2|wiki|Docstring
+2|wiki|Generator (computer programming)
+2|wiki|Closure (computer programming)
+2|wiki|Duck typing
+2|wiki|Exception handling
+2|wiki|Gradual typing
+2|wiki|Pip (package manager)
+2|wiki|Python Package Index
+2|wiki|Conda (package manager)
+2|wiki|Pytest
+2|wikibooks|Python Programming/Threading
+2|wiki|Requests (software)
+2|wiki|NumPy
+2|wiki|Pandas (software)
+2|wiki|Matplotlib
+2|wiki|Django (web framework)
+2|wiki|FastAPI
+2|wiki|Project Jupyter
+2|wiki|Web Server Gateway Interface
+3|wiki|CPython
+3|wiki|Global interpreter lock
+3|wiki|Garbage collection (computer science)
+3|wiki|Reference counting
+3|wiki|Metaclass
+3|wiki|Coroutine
+3|wiki|Async/await
+3|wikibooks|Python Programming/Performance
+3|wiki|Cython
+3|wiki|PyPy
+3|wiki|Scikit-learn
+3|arxiv|Array programming with NumPy
+3|arxiv|SciPy 1.0 fundamental algorithms scientific computing Python
+3|arxiv|PyTorch imperative style high-performance deep learning library`,
+  },
+  {
+    id: 'swift-ios',
+    name: `Swift & iOS app architecture`,
+    why: `The owner lives on a phone, so an AI that can design, write and reason about native iOS apps in Swift, and explain how Apple's platform works, is a practical builder rather than a web-only one.`,
+    t: `1|swift|About Swift
+1|swift|A Swift Tour
+1|swift|The Basics
+1|swift|Basic Operators
+1|swift|Strings and Characters
+1|swift|Collection Types
+1|swift|Control Flow
+1|swift|Functions
+1|swift|Closures
+1|swift|Enumerations
+1|swift|Structures and Classes
+1|swift|Properties
+1|swift|Methods
+1|swift|Inheritance
+1|swift|Initialization
+1|swift|Optional Chaining
+1|swift|Error Handling
+1|wiki|Swift (programming language)
+1|wiki|IOS
+1|wiki|Xcode
+2|swift|Protocols
+2|swift|Extensions
+2|swift|Generics
+2|swift|Type Casting
+2|swift|Access Control
+2|swift|Automatic Reference Counting
+2|wiki|Value semantics
+2|wiki|Objective-C
+2|wiki|SwiftUI
+2|wiki|UIKit
+2|wiki|Declarative programming
+2|wiki|Model–view–controller
+2|wiki|Model–view–viewmodel
+2|wiki|Delegation pattern
+2|wiki|Observer pattern
+2|wiki|Foundation Kit
+2|wiki|Core Data
+2|wiki|Grand Central Dispatch
+2|wiki|Human interface guidelines
+2|wiki|App Store (Apple)
+3|swift|Concurrency
+3|wiki|Structured concurrency
+3|swift|Opaque and Boxed Protocol Types
+3|swift|Advanced Operators
+3|swift|Macros
+3|wiki|Reactive programming
+3|wiki|Dependency injection
+3|wiki|Weak reference
+3|wiki|Memory leak
+3|wiki|Core Animation
+3|wiki|Keychain (software)
+3|wiki|Apple Push Notification service
+3|wiki|CloudKit
+3|wiki|ARKit
+3|wiki|Darwin (operating system)
+3|wiki|Instruments (software)`,
+  },
+  {
+    id: 'rust-systems',
+    name: `Rust & systems programming`,
+    why: `Understanding ownership, memory, concurrency and what the OS and hardware actually do lets the AI write fast, safe low-level code and explain why programs crash, leak or stall.`,
+    t: `1|wiki|Rust (programming language)
+1|wiki|Memory safety
+1|wiki|Call stack
+1|wiki|C dynamic memory allocation
+1|wiki|Manual memory management
+1|wiki|Null pointer
+1|wiki|Dangling pointer
+1|wiki|Undefined behavior
+1|wiki|Resource acquisition is initialization
+1|wiki|Algebraic data type
+1|wiki|Tagged union
+1|wiki|Option type
+1|wiki|Result type
+1|wiki|Pattern matching
+1|wiki|Trait (computer programming)
+1|wiki|Generic programming
+1|wiki|Type inference
+1|wiki|Iterator pattern
+2|wiki|Substructural type system
+2|wiki|Smart pointer
+2|wiki|Dynamic dispatch
+2|wiki|Monomorphization
+2|wiki|Macro (computer science)
+2|wiki|Thread (computing)
+2|wiki|Race condition
+2|wiki|Mutual exclusion
+2|wiki|Deadlock
+2|wiki|Channel (programming)
+2|wiki|Futures and promises
+2|wiki|Asynchronous I/O
+2|wiki|Event loop
+2|wiki|Tokio (software)
+2|wiki|System call
+2|wiki|Virtual memory
+2|wiki|CPU cache
+2|wiki|Linker (computing)
+2|wiki|Foreign function interface
+2|wiki|LLVM
+2|wiki|Profiling (computer programming)
+2|wiki|Embedded system
+3|wiki|Memory model (programming)
+3|wiki|Memory ordering
+3|wiki|Compare-and-swap
+3|wiki|Non-blocking algorithm
+3|wiki|Cache coherence
+3|wiki|Single instruction, multiple data
+3|wiki|Work stealing
+3|wiki|Green thread
+3|wiki|Epoll
+3|wiki|Io uring
+3|wiki|Code sanitizer
+3|wiki|Formal verification
+3|wiki|Rust for Linux
+3|wiki|WebAssembly
+3|arxiv|Oxide essence of Rust
+3|arxiv|unsafe Achilles Heel safety requirements Rust`,
+  },
+  {
+    id: 'security-crypto',
+    name: `Security engineering & cryptography`,
+    why: `An AI that holds its owner's keys and publishes their sites must know how attacks work and how real defences (TLS, hashing, auth, sandboxing) are built, so its advice keeps people safe rather than merely sounding safe.`,
+    t: `1|wiki|Information security
+1|wiki|Computer security
+1|wiki|Threat model
+1|wiki|STRIDE model
+1|wiki|Attack surface
+1|wiki|Defense in depth (computing)
+1|wiki|Principle of least privilege
+1|wiki|Cryptography
+1|wiki|Symmetric-key algorithm
+1|wiki|Public-key cryptography
+1|wiki|Cryptographic hash function
+1|wiki|Authentication
+1|wiki|Multi-factor authentication
+1|wiki|Kerckhoffs's principle
+2|wiki|Advanced Encryption Standard
+2|wiki|Block cipher mode of operation
+2|wiki|Authenticated encryption
+2|wiki|HMAC
+2|wiki|SHA-2
+2|wiki|Salt (cryptography)
+2|wiki|Key derivation function
+2|wiki|Argon2
+2|wiki|RSA (cryptosystem)
+2|wiki|Diffie–Hellman key exchange
+2|wiki|Elliptic-curve cryptography
+2|wiki|Digital signature
+2|wiki|Cryptographically secure pseudorandom number generator
+2|wiki|Transport Layer Security
+2|wiki|Public key infrastructure
+2|wiki|Forward secrecy
+2|wiki|HTTP cookie
+2|wiki|OAuth
+2|wiki|JSON Web Token
+2|wiki|WebAuthn
+2|wiki|Cross-site scripting
+2|wiki|Cross-site request forgery
+2|wiki|SQL injection
+2|wiki|Server-side request forgery
+2|wiki|OWASP
+2|wiki|Sandbox (computer security)
+2|wiki|Secure Shell
+2|wiki|Buffer overflow
+2|wiki|Address space layout randomization
+3|wiki|Return-oriented programming
+3|wiki|Control-flow integrity
+3|wiki|Timing attack
+3|wiki|Side-channel attack
+3|wiki|Padding oracle attack
+3|wiki|Zero trust architecture
+3|wiki|Supply chain attack
+3|wiki|Fuzzing
+3|wiki|Spectre (security vulnerability)
+3|wiki|Signal Protocol
+3|wiki|Post-quantum cryptography
+3|wiki|ML-KEM
+3|wiki|Zero-knowledge proof
+3|wiki|Trusted execution environment
+3|arxiv|Spectre Attacks Exploiting Speculative Execution Kocher
+3|arxiv|Meltdown Lipp Schwarz Gruss Prescher`,
+  },
+  {
+    id: 'graphics-games',
+    name: `Computer graphics, game engines & simulation`,
+    why: `From the 3D globe it renders to any game or visualisation its owner asks for, the AI needs the maths of transforms and lighting, the GPU pipeline, and the engine patterns that make interactive simulations run in real time.`,
+    t: `1|wiki|Computer graphics
+1|wiki|Rendering (computer graphics)
+1|wiki|Rasterisation
+1|wiki|Graphics pipeline
+1|wiki|Shader
+1|wiki|Transformation matrix
+1|wiki|3D projection
+1|wiki|Quaternions and spatial rotation
+1|wiki|Gimbal lock
+1|wiki|Polygon mesh
+1|wiki|Texture mapping
+1|wiki|Z-buffering
+1|wiki|Game engine
+1|wiki|Video game programming
+2|wiki|Viewing frustum
+2|wiki|Hidden-surface determination
+2|wiki|Spatial anti-aliasing
+2|wiki|Phong reflection model
+2|wiki|Normal mapping
+2|wiki|Shadow mapping
+2|wiki|Deferred shading
+2|wiki|Bounding volume hierarchy
+2|wiki|OpenGL
+2|wiki|OpenGL Shading Language
+2|wiki|Vulkan
+2|wiki|WebGL
+2|wiki|WebGPU
+2|wiki|Graphics processing unit
+2|wiki|Bézier curve
+2|wiki|Skeletal animation
+2|wiki|Particle system
+2|wiki|Collision detection
+2|wiki|Physics engine
+2|wiki|Rigid body dynamics
+2|wiki|Entity component system
+2|wiki|A* search algorithm
+2|wiki|Navigation mesh
+2|wiki|Behavior tree (artificial intelligence, robotics and control)
+2|wiki|Procedural generation
+2|wiki|Perlin noise
+2|wiki|Unity (game engine)
+2|wiki|Gamma correction
+3|wiki|Physically based rendering
+3|wiki|Bidirectional reflectance distribution function
+3|wiki|Rendering equation
+3|wiki|Ray tracing (graphics)
+3|wiki|Path tracing
+3|wiki|Global illumination
+3|wiki|Tone mapping
+3|wiki|Signed distance function
+3|wiki|General-purpose computing on graphics processing units
+3|wiki|Deep learning super sampling
+3|wiki|Neural radiance field
+3|wiki|Gaussian splatting
+3|wiki|Smoothed-particle hydrodynamics
+3|wiki|Netcode
+3|wiki|Data-oriented design
+3|arxiv|Representing Scenes Neural Radiance Fields View Synthesis
+3|arxiv|3D Gaussian splatting real-time radiance field rendering`,
+  },
+  {
+    id: 'hci-product',
+    name: `Human–computer interaction, accessibility & product design`,
+    why: `Every page, app and answer the AI produces is used by a human, so knowing how people perceive, decide and get frustrated, and how to design accessibly and measure what works, makes its output usable rather than merely correct.`,
+    t: `1|wiki|Human–computer interaction
+1|wiki|User interface
+1|wiki|Graphical user interface
+1|wiki|User experience
+1|wiki|Usability
+1|wiki|Interaction design
+1|wiki|User-centered design
+1|wiki|Affordance
+1|wiki|Mental model
+1|wiki|Gestalt psychology
+1|openstax|/books/psychology-2e/pages/5-6-gestalt-principles-of-perception
+1|wiki|Fitts's law
+1|wiki|Hick's law
+1|wiki|Cognitive load
+1|wiki|The Design of Everyday Things
+1|wiki|Accessibility
+2|wiki|Usability testing
+2|wiki|Heuristic evaluation
+2|wiki|Jakob Nielsen (usability consultant)
+2|wiki|System usability scale
+2|wiki|Card sorting
+2|wiki|Persona (user experience)
+2|wiki|User story
+2|wiki|Website wireframe
+2|wiki|Information architecture
+2|wiki|Design thinking
+2|wiki|A/B testing
+2|wiki|Web Content Accessibility Guidelines
+2|wiki|Screen reader
+2|mdn|WAI-ARIA basics
+2|wiki|Assistive technology
+2|wiki|Inclusive design
+2|wiki|Color blindness
+2|wiki|Contrast ratio
+2|wiki|Typography
+2|wiki|Design system
+2|wiki|Material Design
+2|wiki|Dark mode
+2|wiki|Direct manipulation interface
+2|wiki|Internationalization and localization
+2|wiki|Product management
+2|wiki|Minimum viable product
+2|wiki|Lean startup
+2|wiki|Product–market fit
+2|wiki|Kano model
+2|wiki|Funnel analysis
+3|wiki|GOMS
+3|wiki|Human processor model
+3|wiki|Dark pattern
+3|wiki|Nudge theory
+3|wiki|Persuasive technology
+3|wiki|Progressive disclosure
+3|wiki|Calm technology
+3|wiki|Value sensitive design
+3|wiki|Human-in-the-loop
+3|wiki|Automation bias
+3|wiki|Goodhart's law
+3|arxiv|Dark Patterns at Scale Findings Crawl Shopping Websites
+3|arxiv|Human-Centered Artificial Intelligence Reliable Safe Trustworthy`,
+  },
 ];
