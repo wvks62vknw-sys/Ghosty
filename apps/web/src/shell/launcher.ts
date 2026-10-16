@@ -1,9 +1,9 @@
 /**
- * The systems deck: a full-screen holographic menu with every screen Ghosty has, each with
- * its icon, name and what it is for, plus quick actions. Opens from the GHOSTY logo (any
+ * The systems deck: a full-screen menu with every screen Ghosty has, each with its icon,
+ * name and what it is for, plus a Settings tile. Opens from the GHOSTY logo (any
  * screen size), the SYSTEMS button in the phone dock, or the M key. Escape closes it.
  */
-import { register, togglePalette } from '../commands/registry';
+import { register } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
@@ -33,7 +33,7 @@ export function buildLauncher(): Launcher {
     tiles,
     quick,
   );
-  const deck = h('div#deck', h('div.drings', h('i'), h('i'), h('i')), box);
+  const deck = h('div#deck', box);
   deck.addEventListener('click', (e) => e.target === deck && close());
   document.body.append(deck);
 
@@ -44,7 +44,6 @@ export function buildLauncher(): Launcher {
     date.textContent = `${DAYS[d.getDay()]} ${pad(d.getDate())} ${MONTHS[d.getMonth()]}`;
   };
 
-  const action = (label: string, run: () => void) => h('button', { type: 'button', onclick: () => { close(); run(); } }, label);
   const paint = () => {
     const cur = ui.get().tab;
     clear(tiles, ...tabs().map((t, i) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {

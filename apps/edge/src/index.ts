@@ -33,6 +33,7 @@ const INTEL_HOSTS = [
   'www.ndbc.noaa.gov',
   'www.submarinecablemap.com',
   'data.seattle.gov',
+  'data.police.uk',
   'api.rainviewer.com',
   'tilecache.rainviewer.com',
 ];
@@ -57,6 +58,7 @@ const FEED_HOSTS = new Set([
   'eonet.gsfc.nasa.gov',
   'll.thespacedevs.com',
   'api.open-meteo.com',
+  'air-quality-api.open-meteo.com',
   'geocoding-api.open-meteo.com',
   'api.coingecko.com',
   'api.frankfurter.app',

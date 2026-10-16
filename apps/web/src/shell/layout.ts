@@ -41,10 +41,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();
-  // Thin HUD frame around the whole screen: corner brackets and edge ticks (decoration only).
-  const frame = h('div#frame', { 'aria-hidden': 'true' }, h('i.tl'), h('i.tr'), h('i.bl'), h('i.br'), h('b.scan'));
   document.getElementById('app')!.append(top, stage, dock);
-  document.body.append(frame);
 
   const buildDock = () => {
     const wide = innerWidth >= 900;
@@ -74,7 +71,11 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   });
   ui.subscribe((s, p) => {
     if (s.tab !== p.tab) paintDock();
-    status.textContent = s.busy ? `● ${s.status || 'thinking…'}` : '';
+    status.textContent = s.busy ? (s.status || 'thinking…') : '';
+    // The signal line under the top bar follows Ghosty's state (see #top::after in styles.css).
+    document.body.classList.toggle('busy', !!s.busy && s.voice !== 'speaking');
+    document.body.classList.toggle('speaking', s.voice === 'speaking');
+    document.body.classList.toggle('listening', s.voice === 'listening');
     dot.className = `conn ${s.connected === false ? 'off' : s.connected ? 'on' : ''}`;
     dot.title = s.connected === false ? 'Brain unreachable' : 'Brain connected';
   });

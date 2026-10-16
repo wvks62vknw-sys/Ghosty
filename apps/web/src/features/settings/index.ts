@@ -11,7 +11,7 @@ import { page } from '../../ui/page';
 export const settingsTab: TabDef = {
   id: 'settings',
   title: 'SETTINGS',
-  icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>',
+  icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
   blurb: 'theme · name · units · voice · sounds · tilt · home',
   mount(root) {

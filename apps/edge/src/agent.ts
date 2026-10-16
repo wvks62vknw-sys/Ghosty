@@ -443,7 +443,7 @@ export class GhostyAgent {
    * library search backed by the owner's device.
    */
   private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
-    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'email', 'media', 'spotify', 'widgets', 'sites']);
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'email', 'media', 'spotify', 'widgets', 'sites']);
     const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
     const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
     const names = new Set(device.map((t) => t.name));
