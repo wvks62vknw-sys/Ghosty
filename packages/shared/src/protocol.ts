@@ -28,6 +28,7 @@ export const CLIENT_COMMANDS = [
   'show_traffic',
   'open_widget',
   'offline_save',
+  'show_link',
   'play_radio',
   'stop_audio',
 ] as const;

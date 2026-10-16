@@ -7,10 +7,10 @@
 import { asData } from '../kernel/permissions';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
-const UA = 'Mozilla/5.0 (compatible; GhostyAssistant/2.0; personal assistant)';
+export const UA = 'Mozilla/5.0 (compatible; GhostyAssistant/2.0; personal assistant)';
 const MAX_BYTES = 350_000;
 
-async function readCapped(r: Response, max = MAX_BYTES): Promise<string> {
+export async function readCapped(r: Response, max = MAX_BYTES): Promise<string> {
   if (!r.body) return '';
   const reader = r.body.getReader();
   const chunks: Uint8Array[] = [];

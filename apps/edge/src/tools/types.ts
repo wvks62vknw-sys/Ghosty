@@ -27,6 +27,8 @@ export interface ToolContext {
   kernelUnlocked: () => Promise<boolean>;
   /** GitHub client for Ghosty's own repository, or null if not configured. */
   github: () => Promise<GitHub | null>;
+  /** Where Ghosty is reached (https://…), for links it hands out; '' when unknown. */
+  origin?: string;
 }
 
 export interface Tool {

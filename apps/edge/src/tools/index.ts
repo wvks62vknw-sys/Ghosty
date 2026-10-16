@@ -18,13 +18,14 @@ import { travelTools } from './travel';
 import { memoryTools } from './memory';
 import { repoTools } from './repo';
 import { reverseTools } from './reverse';
+import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
 import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -48,6 +49,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'ui', tools: uiTools, when: 'always' },
   { name: 'widgets', tools: widgetTools, when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i },
   { name: 'extra', tools: extras, when: 'always' },
+  { name: 'sites', tools: siteTools, when: /\b(websites?|site|web ?page|landing page|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|host(ing)?|live link)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i },
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },

@@ -281,6 +281,12 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 .act.running i { animation: blink .8s infinite; } .act.ok i { background: var(--ok); box-shadow: 0 0 8px var(--ok); } .act.fail i { background: var(--r); box-shadow: 0 0 8px var(--r); }
 .act em { font-style: normal; color: #ff9aa6; flex-basis: 100%; padding-left: 14px; white-space: pre-wrap; }
 .act.fail { flex-wrap: wrap; }
+.msg a { color: var(--c); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.sitelink { display: flex; flex-direction: column; gap: 3px; min-height: 44px; padding: 12px 14px; text-decoration: none; color: inherit; border: 1px solid rgba(var(--cr), .55); border-radius: 10px; background: linear-gradient(120deg, rgba(var(--cr), .18), rgba(var(--cr), .04)); box-shadow: 0 0 18px rgba(var(--cr), .18); -webkit-tap-highlight-color: transparent; }
+.sitelink small { font: 600 8px var(--m); letter-spacing: .24em; color: var(--c); }
+.sitelink b { font-size: 15px; font-weight: 600; }
+.sitelink span { font: 12px var(--m); opacity: .75; word-break: break-all; }
+.sitelink:active { transform: scale(.98); }
 .approval { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: linear-gradient(90deg, rgba(var(--ar), .16), transparent); box-shadow: inset 2px 0 0 var(--a); }
 .approval small { font: 600 8px var(--m); letter-spacing: .24em; color: var(--a); }
 .approval b { font-weight: 500; font-size: 13.5px; }

@@ -46,6 +46,17 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^directions to (.+?)(?: by (walking|cycling|driving))?$/)) && has('get_directions')) return { message: call('get_directions', { to: m[1], ...(m[2] ? { mode: m[2] } : {}) }), model };
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
+  if ((m = text.match(/^publish site ([a-z0-9-]+)$/)) && has('publish_site')) {
+    return {
+      message: call('publish_site', {
+        name: m[1],
+        title: 'Acme Bakery — rebuilt',
+        source_url: 'https://acme.example/',
+        html: '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Acme Bakery</title><style>body{margin:0;font:17px/1.5 -apple-system,system-ui,sans-serif;background:#fff8ef;color:#3b2a1a}header{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#b5651d;color:#fff}main{padding:16px}a.cta{display:inline-block;min-height:44px;padding:12px 18px;border-radius:10px;background:#b5651d;color:#fff}</style></head><body><header><b>Acme Bakery</b></header><main><h1>Bread worth waking up for</h1><p>Sourdough baked every morning since 1998.</p><a class="cta" href="#visit">Visit us</a><script>document.querySelector("h1").dataset.ready="1";try{localStorage.getItem("x");document.body.dataset.storage="open"}catch(e){document.body.dataset.storage="blocked"}fetch("https://example.com/collect").then(function(){document.body.dataset.net="sent"},function(){document.body.dataset.net="blocked"})</script></main></body></html>',
+      }),
+      model,
+    };
+  }
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
   if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };
   if ((m = text.match(/^(?:how'?s|what'?s) the traffic (?:like )?in (.+?)\??$/)) && has('traffic_now')) return { message: call('traffic_now', { place: m[1] }), model };

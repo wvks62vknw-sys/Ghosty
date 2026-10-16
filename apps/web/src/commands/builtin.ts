@@ -4,6 +4,7 @@
  */
 import { fetchJson } from '../api/feed';
 import { playStation, stopAudio } from '../assistant/media';
+import { addLink } from '../assistant/session';
 import { routeLayer, type RouteInfo } from '../engine/layers/route';
 import { globe, SENSOR_MODES, type LayerVisibility } from '../engine/globe';
 import { World } from '../engine/world';
@@ -110,6 +111,23 @@ export function registerBuiltins(): void {
         if (op === 'addMemory' && a?.text) enqueue({ kind: 'addMemory', text: String(a.text) });
         else if (op === 'addJob' && a?.job) enqueue({ kind: 'addJob', job: a.job as NewJob });
         else if (op === 'addEvent' && a?.event) enqueue({ kind: 'addEvent', event: a.event as NewEvent });
+      },
+    },
+    {
+      // A page Ghosty published (publish_site): a tappable card in the chat.
+      id: 'show_link',
+      title: 'Show link',
+      hidden: true,
+      run: (a) => {
+        const raw = String(a?.url ?? '');
+        let url: URL;
+        try {
+          url = new URL(raw, location.origin);
+        } catch {
+          return;
+        }
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+        addLink(url.toString(), String(a?.title ?? url.hostname).slice(0, 120));
       },
     },
     {
