@@ -251,10 +251,21 @@ export async function searchLocal(q: string, k = 8, onlyPending = false): Promis
   if (!f) return [];
   const docs = await all();
   let out: LibraryHit[] = [];
+  if (onlyPending) {
+    // Just the few documents the brain doesn't have yet: read those, not the whole copy.
+    for (const d of docs.values()) {
+      if (d.brainId || d.removed) continue;
+      for (const p of await passagesOf(d.id)) {
+        const s = f(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase());
+        if (s) out.push({ doc: d.id, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: s, relevant: true });
+      }
+    }
+    return out.sort((a, b) => b.score - a.score).slice(0, k);
+  }
   await eachBatch((batch) => {
     for (const p of batch) {
       const d = docs.get(p.doc);
-      if (!d || d.removed || (onlyPending && d.brainId)) continue;
+      if (!d || d.removed) continue;
       const s = f(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase());
       if (s) out.push({ doc: d.brainId ?? d.id, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: s, relevant: true });
     }
