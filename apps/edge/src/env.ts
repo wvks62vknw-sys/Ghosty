@@ -44,6 +44,8 @@ export interface Env {
 
   /** "owner/name" of Ghosty's own GitHub repository. */
   GITHUB_REPO?: string;
+  /** Ghosty's public address (https://…), for links it hands out when it cannot tell from the request (wrangler.jsonc). */
+  PUBLIC_ORIGIN?: string;
   /** Optional: GitHub token as a secret (otherwise set it from the System tab). */
   GITHUB_TOKEN?: string;
   /** Legacy: Cloudflare Pages project name, if the interface is hosted on Pages. */

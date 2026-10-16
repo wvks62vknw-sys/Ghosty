@@ -24,6 +24,9 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
   if (last.role === 'tool') {
+    // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
+    const asked = String([...messages].reverse().find((x) => x.role === 'user')?.content ?? '');
+    if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
     return { message: { role: 'assistant', content: `Done. ${String(last.content).slice(0, 160)}` }, model };
   }
   const text = String(last.content ?? '').toLowerCase().replace(/^scheduled task "[^"]*": /, '');
@@ -46,7 +49,14 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^directions to (.+?)(?: by (walking|cycling|driving))?$/)) && has('get_directions')) return { message: call('get_directions', { to: m[1], ...(m[2] ? { mode: m[2] } : {}) }), model };
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
-  if ((m = text.match(/^publish site ([a-z0-9-]+)$/)) && has('publish_site')) {
+  if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
+  if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
+    const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];
+    return { message: call('draft_site', { name: m[1], html_part: parts[Number(m[2]) - 1] ?? '' }), model };
+  }
+  if ((m = text.match(/^publish draft ([a-z0-9-]+)$/)) && has('publish_site')) return { message: call('publish_site', { name: m[1], from_draft: true }), model };
+  if ((m = text.match(/^publish site ([a-z0-9-]+)(?: quietly)?$/)) && has('publish_site')) {
     return {
       message: call('publish_site', {
         name: m[1],

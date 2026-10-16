@@ -32,7 +32,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
@@ -127,7 +127,8 @@ export class GhostyAgent {
       emit,
       kernelUnlocked: async () => ((await this.storage.get<number>('kernelUnlockedUntil')) ?? 0) > Date.now(),
       github: () => this.github(),
-      origin: this.origin,
+      // The host the owner uses; failing that, Ghosty's public address from wrangler.jsonc.
+      origin: this.origin || this.env.PUBLIC_ORIGIN || '',
     };
   }
 
@@ -135,6 +136,8 @@ export class GhostyAgent {
   private host?: string;
   /** Where Ghosty is reached (https://…), for links it hands out. */
   private origin = '';
+  /** Pages published in the turn under way: the reply must carry their links, and the history keeps a card. */
+  private turnLinks: { url: string; title: string }[] = [];
 
   private shipCache = new Map<string, { at: number; ships: AisShip[] }>();
 
@@ -295,6 +298,8 @@ export class GhostyAgent {
         await this.router.setOrder(Array.isArray(order) ? order.map(String) : []);
         return json({ ok: true });
       }
+      if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
+      if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path === '/widgets' && method === 'GET') return json({ widgets: await loadWidgets(this.storage) });
       if (path === '/widgets' && method === 'POST') {
         // A widget the interface kept while the database was paused.
@@ -423,6 +428,7 @@ export class GhostyAgent {
     const body = (await req.json()) as { message: string; context?: ClientContext; recent?: unknown; offline?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
+    this.turnLinks = [];
     const { s, signal, done } = this.begin();
     const client = body.context ?? {};
     await this.rememberClient(client).catch(() => undefined);
@@ -687,6 +693,10 @@ export class GhostyAgent {
         emit({ t: 'tool', id: call.id, name: tool.name, args });
         try {
           result = await tool.run(args, tctx);
+          if (tool.name === 'publish_site') {
+            const title = result.match(/^Published "([^"]*)"/)?.[1] ?? '';
+            for (const url of linksIn(result)) if (!this.turnLinks.some((l) => l.url === url)) this.turnLinks.push({ url, title });
+          }
           emit({ t: 'tool_result', id: call.id, name: tool.name, ok: true, summary: result.slice(0, 280) });
         } catch (e) {
           result = `Error: ${String((e as Error)?.message ?? e)}`;
@@ -736,10 +746,15 @@ export class GhostyAgent {
       ctx.push(message);
       const calls = message.tool_calls ?? [];
       if (!calls.length) {
-        const text = message.content?.trim() || 'Done.';
+        let text = message.content?.trim() || 'Done.';
+        // A page published this turn is delivered by its link: if the reply left it out, it goes in.
+        const missing = this.turnLinks.filter((l) => !text.includes(l.url));
+        if (missing.length) text += `\n\n${missing.map((l) => `Live link: ${l.url}`).join('\n')}`;
+        const link = this.turnLinks[0];
+        this.turnLinks = [];
         emit({ t: 'text', text });
         emit({ t: 'done', model });
-        await this.addTurn({ role: 'assistant', text, at: Date.now(), model });
+        await this.addTurn({ role: 'assistant', text, at: Date.now(), model, ...(link ? { link } : {}) });
         this.state.waitUntil(this.takeNotes(ctx, text).catch(() => undefined));
         await this.storage.put(CTX_KEY, trimContext(ctx));
         return;

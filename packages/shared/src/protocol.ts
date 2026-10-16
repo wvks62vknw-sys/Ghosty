@@ -32,6 +32,7 @@ export const CLIENT_COMMANDS = [
   'open_widget',
   'offline_save',
   'show_link',
+  'show_crime',
   'play_radio',
   'stop_audio',
 ] as const;
@@ -98,6 +99,8 @@ export interface ChatTurn {
   text: string;
   at: number;
   model?: string;
+  /** A page published in this turn: shown as a live-link card under the reply, reloads included. */
+  link?: { url: string; title: string };
 }
 
 export interface MemoryFact {
@@ -111,6 +114,17 @@ export interface Widget {
   title: string;
   html: string;
   at: number;
+}
+
+/** One of the pages Ghosty published (GET /api/sites). */
+export interface PublishedSite {
+  /** The name in the link: …/s/<name>. */
+  name: string;
+  title: string;
+  /** The site it was rebuilt from, if any. */
+  source: string;
+  at: number;
+  bytes: number;
 }
 
 export interface KeyStatus {

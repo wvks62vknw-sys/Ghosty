@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain). */
 export interface StudyInfo {
@@ -252,6 +252,9 @@ export const brain = {
   resetModels: () => req('POST', '/models/reset'),
   setOrder: (order: string[]) => req('POST', '/models/order', { order }),
   widgets: () => req<{ widgets: Widget[] }>('GET', '/widgets'),
+  /** The pages Ghosty published, and the address they live at. */
+  sites: () => req<{ sites: PublishedSite[]; origin: string }>('GET', '/sites'),
+  unpublishSite: (name: string) => req<{ removed: boolean }>('DELETE', `/sites/${encodeURIComponent(name)}`),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

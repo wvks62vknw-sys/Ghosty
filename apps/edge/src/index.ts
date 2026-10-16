@@ -122,7 +122,8 @@ export default {
       // Straight from KV when it is bound: no database involved, so the link stays up while
       // the brain's database is paused. Pages published before KV existed are still in the brain.
       if (env.SITES) {
-        const site = await siteStore(env).get(pub[1]!);
+        // A KV hiccup (its own daily limit, a blip) is not a dead link: the brain still has the page.
+        const site = await siteStore(env).get(pub[1]!).catch(() => undefined);
         if (site) return pub[2] ? siteFrameResponse(site, dest) : siteResponse(site);
       }
       const stub = env.AGENT.get(env.AGENT.idFromName('owner'));

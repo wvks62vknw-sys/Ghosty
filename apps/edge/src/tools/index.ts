@@ -51,7 +51,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'ui', tools: uiTools, when: 'always' },
   { name: 'widgets', tools: widgetTools, when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i },
   { name: 'extra', tools: extras, when: 'always' },
-  { name: 'sites', tools: siteTools, when: /\b(websites?|site|web ?page|landing page|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|host(ing)?|live link)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i },
+  { name: 'sites', tools: siteTools, when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i },
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },

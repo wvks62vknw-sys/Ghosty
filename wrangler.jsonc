@@ -19,7 +19,9 @@
     // SHA-256 of your owner password. The password itself is never stored anywhere.
     "OWNER_KEY_HASH": "a944f0946252df9f96bb93bedff208daebd404294a40fa18cc772a759ed08ab0",
     "OWNER_EMAIL": "aqishussain1@gmail.com",
-    "GITHUB_REPO": "wvks62vknw-sys/Ghosty"
+    "GITHUB_REPO": "wvks62vknw-sys/Ghosty",
+    // Where Ghosty lives: published links use this when a request does not say (background runs).
+    "PUBLIC_ORIGIN": "https://ghosty.wvks62vknw.workers.dev"
   },
   // Workers AI: free daily allowance, no key — Ghosty's always-available fallback brain.
   "ai": { "binding": "AI" },

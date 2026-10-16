@@ -49,6 +49,31 @@ export async function durablePut(env: KvEnv, storage: DurableObjectStorage | und
       paused = e;
     }
   }
-  if (kv) await kv.put(key, JSON.stringify(value));
+  if (!kv) {
+    if (paused) throw paused;
+    return;
+  }
+  try {
+    await kv.put(key, JSON.stringify(value));
+  } catch (e) {
+    // KV refused (its own daily limit, a blip): the record is in the database, so it is kept and
+    // served from there; only when the database refused too is nothing kept.
+    if (paused || !storage) throw e;
+  }
+}
+
+/** Remove a record from both places (a published page taken down). */
+export async function durableDelete(env: KvEnv, storage: DurableObjectStorage | undefined, key: string): Promise<void> {
+  const kv = env?.SITES as (KvEnv extends undefined ? never : { delete?(key: string): Promise<void> }) | undefined;
+  let paused: unknown;
+  if (storage) {
+    try {
+      await storage.delete(key);
+    } catch (e) {
+      if (!storageError(e) || !kv) throw e;
+      paused = e;
+    }
+  }
+  if (kv?.delete) await kv.delete(key);
   else if (paused) throw paused;
 }

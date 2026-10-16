@@ -35,6 +35,11 @@ const TOOL_LABELS: Record<string, string> = {
   forget: 'Updating memory',
   list_memory: 'Recalling memory',
   create_widget: 'Building a widget',
+  study_site: 'Studying the site',
+  publish_site: 'Publishing the page',
+  draft_site: 'Writing the page',
+  list_sites: 'Listing published pages',
+  unpublish_site: 'Taking the page down',
   repo_tree: 'Looking through my code',
   repo_read: 'Reading my code',
   repo_search: 'Searching my code',
@@ -194,7 +199,11 @@ export async function answerApproval(id: string, allow: boolean): Promise<void> 
 export async function loadHistory(): Promise<void> {
   try {
     const h = await brain.history();
-    const entries: Entry[] = h.turns.slice(-30).map((t) => (t.role === 'user' ? { kind: 'user', text: t.text, at: t.at } : { kind: 'assistant', text: t.text, at: t.at, model: t.model }));
+    const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
+      if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
+      // A page published in that turn keeps its live-link card under the reply.
+      return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
+    });
     if (h.pending) entries.push({ kind: 'approval', id: h.pending.id, name: h.pending.name, reason: `Waiting for your approval: ${h.pending.name.replace(/_/g, ' ')}`, args: h.pending.args, state: 'waiting' });
     chat.set({ entries });
   } catch (e) {

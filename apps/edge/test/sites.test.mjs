@@ -55,10 +55,10 @@ test('study_site describes the structure, text, images, colours, fonts and scrip
 test('a rebuilt page is made safe and phone-ready before it goes live', () => {
   const { html, notes } = S.prepareSite('<!doctype html><html><head><title>A</title></head><body><img src="x.jpg"><form action="https://evil.example/steal" method="post"><input name="e"><button formaction="https://evil.example/2">Go</button></form></body></html>', 'https://acme.example/');
   assert.match(html, /name="viewport"/);
-  assert.match(html, /<img loading="lazy" decoding="async" src="x.jpg">/);
+  assert.match(html, /<img loading="lazy" decoding="async" src="https:\/\/acme\.example\/x\.jpg">/, 'relative addresses point at the original site');
   assert.match(html, /noindex/);
   assert.doesNotMatch(html, /evil\.example/, 'form action and formaction removed');
-  assert.equal(notes.length, 3);
+  assert.equal(notes.length, 4);
   assert.throws(() => S.prepareSite('<html><body><input type="password"></body></html>', 'https://bank.example'), /password fields/);
   assert.throws(() => S.prepareSite('<html><body><input type="pass&#119;ord"></body></html>', ''), /password fields/, 'disguised with a character reference');
   assert.throws(() => S.prepareSite('<html><body><input type="pass&#x77;ord"></body></html>', ''), /password fields/);
@@ -103,7 +103,8 @@ test('publish_site puts the page live at a public link that anyone can open, san
     { storage, emit: (e) => events.push(e), origin: 'https://ghosty.example.workers.dev' },
   );
   assert.match(out, /live now at https:\/\/ghosty\.example\.workers\.dev\/s\/acme-bakery/);
-  assert.deepEqual(events[0], { t: 'client', name: 'show_link', args: { url: 'https://ghosty.example.workers.dev/s/acme-bakery', title: 'Acme Bakery — rebuilt' } });
+  assert.deepEqual(events.find((e) => e.t === 'client'), { t: 'client', name: 'show_link', args: { url: 'https://ghosty.example.workers.dev/s/acme-bakery', title: 'Acme Bakery — rebuilt' } });
+  assert.ok(events.some((e) => e.t === 'status' && /publishing/.test(e.text)), 'says what it is doing');
 
   // Served by the Worker to anyone, without signing in.
   const state = { storage, waitUntil() {}, blockConcurrencyWhile: (f) => f() };
@@ -226,4 +227,132 @@ test('a site that builds itself with JavaScript is read rendered, so its content
   } finally {
     globalThis.fetch = real;
   }
+});
+
+// ---------------------------------------------------------------------------------------
+// Always a live link: absolute addresses, the list of pages, taking one down, pages in parts
+// ---------------------------------------------------------------------------------------
+
+test('relative addresses in a rebuilt page are pointed at the original site; anchors, mail links and absolute ones are left alone', () => {
+  const html = '<html><body><img src="/img/loaf.jpg"><img src="img/bun.jpg" srcset="img/bun-2x.jpg 2x, /img/bun-3x.jpg 3x"><a href="/menu">Menu</a><a href="#visit">Visit</a><a href="mailto:hi@acme.example">Mail</a><a href="https://other.example/x">Other</a><script src="//cdn.example/lib.js"></script><link rel="stylesheet" href="css/site.css"><a href="javascript:void(0)">js</a></body></html>';
+  const out = S.absolutise(html, 'https://acme.example/shop/index.html');
+  assert.match(out, /<img src="https:\/\/acme\.example\/img\/loaf\.jpg">/);
+  assert.match(out, /<img src="https:\/\/acme\.example\/shop\/img\/bun\.jpg" srcset="https:\/\/acme\.example\/shop\/img\/bun-2x\.jpg 2x, https:\/\/acme\.example\/img\/bun-3x\.jpg 3x">/);
+  assert.match(out, /<a href="https:\/\/acme\.example\/menu">Menu<\/a>/);
+  assert.match(out, /<a href="#visit">Visit<\/a>/);
+  assert.match(out, /<a href="mailto:hi@acme\.example">/);
+  assert.match(out, /<a href="https:\/\/other\.example\/x">/);
+  assert.match(out, /<script src="https:\/\/cdn\.example\/lib\.js">/);
+  assert.match(out, /<link rel="stylesheet" href="https:\/\/acme\.example\/shop\/css\/site\.css">/);
+  assert.match(out, /<a href="javascript:void\(0\)">/);
+  assert.equal(S.absolutise(html, 'not a url'), html, 'no source: nothing changes');
+  const { html: prepared, notes } = S.prepareSite('<!doctype html><html><head><title>x</title></head><body><img src="/a.jpg"></body></html>', 'https://acme.example/');
+  assert.match(prepared, /src="https:\/\/acme\.example\/a\.jpg"/);
+  assert.ok(notes.includes('relative addresses pointed at the original site'));
+});
+
+test('the link is absolute: the host the owner uses, else PUBLIC_ORIGIN from the config, else the path', () => {
+  assert.equal(S.siteLink('https://ghosty.example', { PUBLIC_ORIGIN: 'https://pub.example' }, 'My Page'), 'https://ghosty.example/s/my-page');
+  assert.equal(S.siteLink('', { PUBLIC_ORIGIN: 'https://pub.example' }, 'my-page'), 'https://pub.example/s/my-page');
+  assert.equal(S.siteLink(undefined, undefined, 'my-page'), '/s/my-page');
+  assert.deepEqual(S.linksIn('Published "A" — live now at https://g.example/s/a (2 KB). Also https://g.example/s/b-2.'), ['https://g.example/s/a', 'https://g.example/s/b-2']);
+});
+
+test('the store keeps a list of published pages, takes pages down, and assembles a page sent in parts', async () => {
+  const kv = { m: new Map(), async get(k) { return this.m.has(k) ? JSON.parse(this.m.get(k)) : null; }, async put(k, v) { this.m.set(k, v); }, async delete(k) { this.m.delete(k); } };
+  const db = new Map();
+  const storage = { async get(k) { return db.get(k); }, async put(k, v) { db.set(k, structuredClone(v)); }, async delete(k) { return db.delete(k); } };
+  const store = S.siteStore({ SITES: kv }, storage);
+  await store.put({ name: 'one', title: 'One', html: '<html>1</html>', source: 'https://a.example/', at: 1 });
+  await store.put({ name: 'two', title: 'Two', html: '<html>22</html>', source: '', at: 2 });
+  await store.put({ name: 'one', title: 'One again', html: '<html>111</html>', source: 'https://a.example/', at: 3 });
+  let list = await store.list();
+  assert.deepEqual(list.map((e) => [e.name, e.title, e.bytes]), [['one', 'One again', 16], ['two', 'Two', 15]], 'newest first, one line per name');
+  assert.ok(kv.m.has('site:index') && db.has('site:index'), 'the list lives in both places');
+  assert.equal(await store.remove('two'), true);
+  assert.equal(await store.get('two'), undefined);
+  assert.ok(!kv.m.has('site:two') && !db.has('site:two'));
+  assert.deepEqual((await store.list()).map((e) => e.name), ['one']);
+  assert.equal(await store.remove('never-was'), false);
+  // a page in parts
+  await store.addPart('big', '<html><head><title>Big</title></head>');
+  await store.addPart('big', '<body>hello</body></html>');
+  assert.equal((await store.draft('big')).parts.join(''), '<html><head><title>Big</title></head><body>hello</body></html>');
+  await assert.rejects(store.addPart('huge', 'x'.repeat(400_001)), /too large/);
+  await store.dropDraft('big');
+  assert.equal(await store.draft('big'), undefined);
+});
+
+test('a KV hiccup after the database took the page does not fail the publish (the page is live from the database)', async () => {
+  const kv = { async get() { return null; }, async put() { throw new Error('KV put failed: daily limit'); }, async delete() {} };
+  const db = new Map();
+  const storage = { async get(k) { return db.get(k); }, async put(k, v) { db.set(k, structuredClone(v)); }, async delete(k) { return db.delete(k); } };
+  const store = S.siteStore({ SITES: kv }, storage);
+  await store.put({ name: 'ok', title: 'OK', html: '<html>ok</html>', source: '', at: 1 });
+  assert.ok(db.has('site:ok'));
+  // but with the database paused too, nothing kept it: that is a failure
+  const paused = { async get() { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); }, async put() { throw new Error('Exceeded allowed rows written in Durable Objects free tier.'); } };
+  await assert.rejects(S.siteStore({ SITES: kv }, paused).put({ name: 'lost', title: 'Lost', html: '<html>x</html>', source: '', at: 1 }), /KV put failed/);
+});
+
+test('publishing through the agent: the reply always carries the link, the history keeps a link card, pages are listed and taken down', async () => {
+  class MemStorage {
+    m = new Map();
+    async get(k) { return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
+    async put(k, v) { this.m.set(k, structuredClone(v)); }
+    async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
+    async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([x]) => x.startsWith(prefix))); }
+    async setAlarm() {}
+    async getAlarm() { return null; }
+  }
+  const storage = new MemStorage();
+  const pending = [];
+  const env = { MOCK_LLM: '1', VAULT_KEY: Buffer.alloc(32, 3).toString('base64'), PUBLIC_ORIGIN: 'https://pub.example' };
+  const agent = new brain.GhostyAgent({ storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() }, env);
+  const call = async (path, init = {}) => {
+    const r = await agent.fetch(new Request(`https://ghosty.test/api${path}`, { ...init, headers: { 'x-ghosty-key': 'owner-key-for-tests-0123456789', ...(init.headers ?? {}) } }));
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return { status: r.status, text, json: () => JSON.parse(text), events: () => text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) };
+  };
+  // the model forgets to repeat the link ("quietly"): the agent adds it
+  let ev = (await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'publish site acme-bakery quietly' }) })).events();
+  const approval = ev.find((e) => e.t === 'approval');
+  assert.ok(approval, 'asks before publishing');
+  assert.match(approval.reason, /^Publish "Acme Bakery — rebuilt" \(rebuilt from acme\.example\) as a public page at https:\/\/ghosty\.test\/s\/acme-bakery\?/);
+  ev = (await call('/approve', { method: 'POST', body: JSON.stringify({ id: approval.id, allow: true }) })).events();
+  const text = ev.find((e) => e.t === 'text')?.text ?? '';
+  assert.match(text, /^Done\.\n\nLive link: https:\/\/ghosty\.test\/s\/acme-bakery$/);
+  assert.ok(ev.some((e) => e.t === 'client' && e.name === 'show_link' && e.args.url === 'https://ghosty.test/s/acme-bakery'));
+  const history = (await call('/history')).json();
+  const last = history.turns.at(-1);
+  assert.deepEqual(last.link, { url: 'https://ghosty.test/s/acme-bakery', title: 'Acme Bakery — rebuilt' }, 'the history keeps the card');
+  // the list, through the route the Workshop uses and through the tool
+  const sites = (await call('/sites')).json();
+  assert.equal(sites.origin, 'https://ghosty.test');
+  assert.deepEqual(sites.sites.map((s) => [s.name, s.title]), [['acme-bakery', 'Acme Bakery — rebuilt']]);
+  ev = (await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'list sites' }) })).events();
+  assert.match(ev.find((e) => e.t === 'text')?.text ?? '', /https:\/\/ghosty\.test\/s\/acme-bakery — "Acme Bakery — rebuilt" \(from acme\.example\)/);
+  // publishing again under the same name says it replaces the page
+  ev = (await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'publish site acme-bakery' }) })).events();
+  assert.match(ev.find((e) => e.t === 'approval').reason, /^Update "Acme Bakery — rebuilt".*this replaces the page already there\)$/);
+  // a page in parts
+  for (const n of [1, 2, 3]) (await call('/chat', { method: 'POST', body: JSON.stringify({ message: `draft site in-parts part ${n}` }) })).events();
+  ev = (await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'publish draft in-parts' }) })).events();
+  const ap2 = ev.find((e) => e.t === 'approval');
+  assert.match(ap2.reason, /^Publish "In parts" as a public page at https:\/\/ghosty\.test\/s\/in-parts\?/);
+  ev = (await call('/approve', { method: 'POST', body: JSON.stringify({ id: ap2.id, allow: true }) })).events();
+  assert.match(ev.find((e) => e.t === 'text')?.text ?? '', /live now at https:\/\/ghosty\.test\/s\/in-parts/);
+  assert.match(storage.m.get('site:in-parts').html, /<h1>Part two<\/h1><p>Part three<\/p>/);
+  assert.equal(storage.m.has('site:draft:in-parts'), false, 'the draft is dropped once published');
+  // taking a page down: asks first, then the link is gone
+  ev = (await call('/chat', { method: 'POST', body: JSON.stringify({ message: 'unpublish site in-parts' }) })).events();
+  const ap3 = ev.find((e) => e.t === 'approval');
+  assert.match(ap3.reason, /^Take down "In parts" at https:\/\/ghosty\.test\/s\/in-parts\?/);
+  ev = (await call('/approve', { method: 'POST', body: JSON.stringify({ id: ap3.id, allow: true }) })).events();
+  assert.match(ev.find((e) => e.t === 'text')?.text ?? '', /Taken down/);
+  assert.equal(storage.m.has('site:in-parts'), false);
+  assert.deepEqual((await call('/sites')).json().sites.map((s) => s.name), ['acme-bakery']);
+  assert.equal((await call('/sites/acme-bakery', { method: 'DELETE' })).json().removed, true, 'the Workshop button');
+  assert.deepEqual((await call('/sites')).json().sites, []);
 });
