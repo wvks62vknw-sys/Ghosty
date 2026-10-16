@@ -216,7 +216,9 @@ test('backend and auth requests get the engineering standard; everyday words lik
     };
     assert.equal(await coding('add authentication and a database schema to my express server'), true);
     assert.equal(await coding('design the backend for an online shop'), true);
+    for (const m of ['add authorization to my routes', 'how do I authenticate users', 'add OAuth sign-in', 'set up a postgres server', 'should I authorise with JWT']) assert.equal(await coding(m), true, m);
     assert.equal(await coding('who is the author of Dune?'), false);
+    assert.equal(await coding('the local authority is closed today'), false);
     assert.equal(await coding('is the Discord server busy tonight?'), false);
   } finally {
     ai.restore();
