@@ -264,6 +264,9 @@ export class GhostyAgent {
         if (!KEYS.some((k) => k.name === name)) return json({ error: 'unknown key' }, 400);
         // Keys never contain spaces; the email entry is "address password [imap smtp]", so it keeps single spaces.
         const v = name === 'email' ? String(value ?? '').trim().replace(/\s+/g, ' ') : String(value ?? '').trim().replace(/\s+/g, '');
+        // Mapbox: only the public token is accepted, and a secret one is refused before it reaches the
+        // vault — so a mistaken paste never overwrites a good public token (which goes in tile addresses on the device).
+        if (name === 'mapbox' && v && !v.startsWith('pk.')) return json({ error: 'not saved: use the public token (it starts with pk.), never a secret sk. token' }, 400);
         await this.vault.set(name, v);
         await this.router.resetHealth();
         if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));

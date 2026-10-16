@@ -143,9 +143,13 @@ test('/keys/public hands the interface a public Mapbox token and never anything 
     await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'mapbox', value: 'pk.eyJ1IjoidGVzdCJ9.abc' }) });
     await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'groq', value: 'gsk_secret_never_public' }) });
     assert.deepEqual(await (await call('/keys/public')).json(), { mapbox: 'pk.eyJ1IjoidGVzdCJ9.abc' });
-    // a secret Mapbox token is refused at the door, and would never be handed out anyway
-    const bad = await (await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'mapbox', value: 'sk.secret' }) })).json();
-    assert.equal(bad.works, false);
+    // a secret Mapbox token is refused before it reaches the vault: the public one stays, and is still handed out
+    const bad = await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'mapbox', value: 'sk.secret' }) });
+    assert.equal(bad.status, 400);
+    assert.match((await bad.json()).error, /public token/);
+    assert.deepEqual(await (await call('/keys/public')).json(), { mapbox: 'pk.eyJ1IjoidGVzdCJ9.abc' });
+    // removing the token (an empty value) still works
+    await call('/keys', { method: 'POST', body: JSON.stringify({ name: 'mapbox', value: '' }) });
     assert.deepEqual(await (await call('/keys/public')).json(), {});
     // without the owner key: nothing (sign-in is checked by the Worker in front of the brain)
     const env = { OWNER_KEY: 'k'.repeat(32), AGENT: { idFromName: () => 'owner', get: () => ({ fetch: (r) => agent.fetch(r) }) } };
