@@ -31,12 +31,15 @@ await page.evaluate(() => {
 await page.evaluate(() => (location.hash = 'eye'));
 await page.waitForTimeout(1500);
 
-// Under software rendering the dive is slow (the camera moves at most a tenth of a second per drawn frame).
-const streetOpen = () => page.waitForSelector('#street.in iframe.svframe', { timeout: 60000 }).then(() => true, () => false);
-const streetGone = async () => {
-  await page.waitForTimeout(700);
-  return !(await page.$('#street'));
-};
+// Software rendering draws the globe at a frame or two a second near the ground, and the dive
+// follows the frames; the layers that have nothing to do with Street View stay off to keep it moving.
+await page.evaluate(() => {
+  const g = window.__ghosty.globe;
+  g.vis = { ...g.vis, imagery: false, buildings: false, clouds: false, cams: false, crime: false, enforce: false, air: false, ships: false, dispatch: false, quakes: false, events: false, sats: false, orbits: false, radar: false };
+});
+const streetOpen = () => page.waitForSelector('#street.in iframe.svframe', { timeout: 120000 }).then(() => true, () => false);
+// Leaving fades the panorama out and then drops it; under software rendering that moment can lag.
+const streetGone = () => page.waitForSelector('#street', { state: 'detached', timeout: 20000 }).then(() => true, () => false);
 
 // 1. STREET: the camera dives, then the panorama takes over, facing the camera's heading
 const before = await page.evaluate(() => ({ range: window.__ghosty.globe.cam.range, hd: window.__ghosty.globe.cam.hd }));
@@ -64,9 +67,7 @@ else {
 // 2. A tap on the globe drops a pin; its card offers STREET VIEW, which dives in
 await page.evaluate(() => {
   const g = window.__ghosty.globe;
-  // Open ground only: the live points over London (cameras, crime, ANPR, aircraft…) have their own cards.
-  // (and no 3D buildings: thousands of them make software rendering crawl, which is not what is under test)
-  g.vis = { ...g.vis, cams: false, crime: false, enforce: false, air: false, ships: false, dispatch: false, quakes: false, events: false, buildings: false };
+  // (open ground only: the live points over London have their own cards — they are off, see above)
   const cam = g.cam;
   cam.fly = null;
   cam.target = { lat: 51.5074, lon: -0.1278, range: 12, hd: 0, tilt: 0 };

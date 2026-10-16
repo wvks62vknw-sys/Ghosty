@@ -30,13 +30,19 @@ export const streetViewOpen = (): boolean => !!open;
 /** The spot on screen right now, if Street View is open. */
 export const streetViewSpot = (): MapSpot | null => (open ? { ...open.spot } : null);
 
-/** Resolves when the camera's flight has ended (or after `max` ms, whichever is first). */
-const settled = (max: number) =>
+/**
+ * Resolves when the flight that is running now is over: it arrived, a drag or zoom cut it short,
+ * another flight replaced it, or the owner left the tab. It follows the frames, not a clock: at
+ * full frame rate that is 1.8 s, on a slow device as long as the flight takes.
+ */
+const settled = () =>
   new Promise<void>((ok) => {
-    const t0 = performance.now();
-    const tick = () => (!globe.cam.fly || performance.now() - t0 > max ? ok() : requestAnimationFrame(tick));
+    const mine = globe.cam.fly;
+    const tick = () => (globe.cam.fly !== mine || ui.get().tab !== 'eye' ? ok() : requestAnimationFrame(tick));
     requestAnimationFrame(tick);
   });
+/** Did the dive actually land on the spot? A drag or a zoom cancels the flight (it also ends it), and so does leaving the tab. */
+const arrived = (at: MapSpot) => ui.get().tab === 'eye' && globe.cam.range < 0.6 && Math.abs(globe.cam.lat - at.lat) < 0.002 && Math.abs(((globe.cam.lon - at.lon + 540) % 360) - 180) < 0.003;
 
 export async function openStreetView(spot: MapSpot, opts: StreetOptions = {}): Promise<void> {
   closeStreetView(true);
@@ -49,10 +55,9 @@ export async function openStreetView(spot: MapSpot, opts: StreetOptions = {}): P
     // Down to the street: close in, tilted like a person standing there, facing the way the
     // camera faced. The 3D buildings switch on by themselves this close.
     cam.flyTo({ lat: at.lat, lon: at.lon, range: 0.35, tilt: 72, hd: at.heading }, 1.8);
-    // 1.8 s at full frame rate; a slow device draws fewer frames and the flight takes longer
-    // (the camera moves at most a tenth of a second per frame), so the wait is only capped as a safety net.
-    await settled(20000);
+    await settled();
     if (open) return; // something else opened meanwhile
+    if (!arrived(at)) return; // the owner grabbed the globe or left the tab: the dive is cancelled, the pin stays
   } else at.heading ??= globe.cam.hd;
 
   const frame = h('iframe.svframe', { title: 'Street View', sandbox: 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox', allow: 'fullscreen', referrerpolicy: 'no-referrer' });

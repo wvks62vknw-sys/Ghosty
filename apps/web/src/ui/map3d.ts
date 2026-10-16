@@ -202,16 +202,19 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
   // ---------- the pin and what is there ----------
   const dropPin = async (lat: number, lon: number, name?: string) => {
     if (!ML || !map) return;
-    current = { lat, lon, name };
+    // The pin's own spot: the buttons act on it even after the map has been moved (`current`
+    // follows the view, and the popup itself pans the map to come into view).
+    const here: MapSpot = { lat, lon, name };
+    current = here;
     pin?.remove();
     const body = h('div.m3pop');
     const title = h('b', name || `${lat.toFixed(5)}, ${lon.toFixed(5)}`);
     const status = h('div.m3addr', name ? '' : 'Looking up the address…');
     const row = h(
       'div.fmbtns',
-      button('STREET VIEW', () => hooks.streetView(current)),
-      button('TRAFFIC', () => hooks.traffic(current)),
-      button('FLAT MAP', () => hooks.flat(current)),
+      button('STREET VIEW', () => hooks.streetView({ ...here })),
+      button('TRAFFIC', () => hooks.traffic({ ...here })),
+      button('FLAT MAP', () => hooks.flat({ ...here })),
       button('GLOBE', () => {
         hooks.close();
         globe.cam.flyTo({ lat, lon, range: 2, tilt: 55 });
@@ -225,7 +228,7 @@ export function createMap3d(host: HTMLElement, hooks: Map3dHooks): Map3d {
       const r = await reverseAddress(lat, lon);
       if (!name && r.name) title.textContent = r.name;
       status.textContent = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
-      current.name = shortName(r) || current.name;
+      here.name = shortName(r) || here.name;
     } catch {
       status.textContent = 'The address service is not reachable right now.';
     }

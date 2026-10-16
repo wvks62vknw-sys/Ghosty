@@ -68,6 +68,11 @@ else {
       return c && c.width > 0 && c.height > 0;
     }, null, { timeout: 15000 }).then(() => true, () => false);
     if (!drawn) problems.push('the 3D map canvas has no size');
+    // Checked; now lighten the scene for the rest (thousands of 3D buildings plus rail tiles make
+    // software rendering stall the page for seconds at a time, which is not what is under test).
+    await page.click('.modal .m3host .fmchips button:has-text("RAIL")');
+    await page.click('.modal .m3host .fmchips button:has-text("BUILDINGS")');
+    await page.waitForTimeout(800);
   }
   // a tap drops a pin with the popup
   const box = await page.$eval('.modal .map3d', (el) => el.getBoundingClientRect().toJSON());
@@ -88,8 +93,9 @@ else {
     const back = await page.evaluate(() => ({ flat: !document.querySelector('.modal .flathost:not(.m3host)')?.hidden, three: !!document.querySelector('.modal .m3host')?.hidden }));
     if (!back.flat || !back.three) problems.push(`FLAT MAP did not switch back: ${JSON.stringify(back)}`);
   }
-  await page.click('.modal .mhead button:has-text("CLOSE")', { timeout: 10000 }).catch(() => page.click('.modal .mhead button:has-text("CLOSE")', { force: true }));
-  await page.waitForTimeout(300);
+  // CLOSE, as on a phone; if the page is busy drawing, ask the DOM directly and give it time.
+  await page.click('.modal .mhead button:has-text("CLOSE")', { timeout: 15000 }).catch(() => page.evaluate(() => [...document.querySelectorAll('.modal .mhead button')].find((b) => /CLOSE/.test(b.textContent ?? ''))?.click()));
+  await page.waitForTimeout(600);
   if (await page.$('.modal')) problems.push('the sheet did not close');
 }
 

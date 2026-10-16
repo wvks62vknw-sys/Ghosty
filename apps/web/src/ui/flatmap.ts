@@ -317,7 +317,10 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
   const dropPin = async (lat: number, lon: number, name?: string) => {
     const Lf = await loadLeaflet();
     if (!map) return;
-    current = { lat, lon, name };
+    // The pin's own spot: the buttons act on it even after the map has been moved (`current`
+    // follows the view, and the popup itself pans the map to come into view).
+    const here: MapSpot = { lat, lon, name };
+    current = here;
     pin?.remove();
     pin = Lf.marker([lat, lon]).addTo(map);
     const body = h('div.fmpop');
@@ -326,8 +329,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     const out = h('div.fmout');
     const row = h(
       'div.fmbtns',
-      button('STREET VIEW', () => hooks.streetView(current)),
-      button('TRAFFIC', () => hooks.traffic(current)),
+      button('STREET VIEW', () => hooks.streetView({ ...here })),
+      button('TRAFFIC', () => hooks.traffic({ ...here })),
       button('ROUTE HERE', () => void routeTo(current)),
       button('ELEVATION', () => void elevation(lat, lon, out)),
       button('NEARBY', () => void wiki(lat, lon, out)),
@@ -343,7 +346,7 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       if (!name && r.name) title.textContent = r.name;
       status.textContent = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
       if (r.address?.postcode) status.append(h('div.fmpc', `POSTCODE ${r.address.postcode}`));
-      current.name = shortName(r) || current.name;
+      here.name = shortName(r) || here.name;
     } catch {
       status.textContent = 'The address service is not reachable right now.';
     }

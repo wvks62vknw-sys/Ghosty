@@ -211,8 +211,8 @@ test('self-check: every file already in Ghosty passes, even as if newly written 
   const files = [];
   const walk = (dir) => {
     for (const name of readdirSync(dir)) {
-      // vendor/: third-party libraries served as-is (Leaflet, MapLibre) — not Ghosty's code to check
-      if (['node_modules', '.git', 'dist', '.build', '.wrangler-dry', 'vendor'].includes(name) || (name === 'data' && dir.endsWith('public'))) continue;
+      // public/vendor: third-party libraries served as-is (Leaflet, MapLibre) — not Ghosty's code to check
+      if (['node_modules', '.git', 'dist', '.build', '.wrangler-dry'].includes(name) || ((name === 'data' || name === 'vendor') && dir.endsWith('public'))) continue;
       const full = join(dir, name);
       if (statSync(full).isDirectory()) walk(full);
       else if (/\.(ts|mjs|css|md|json)$/.test(name)) files.push(relative(ROOT, full));
