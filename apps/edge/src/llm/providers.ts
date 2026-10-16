@@ -153,8 +153,10 @@ export function codeScore(id: string): number {
 export function cheapScore(id: string, p?: Provider): number {
   const m = id.toLowerCase();
   let s = p?.cheap ?? 4;
-  if (/(flash-lite|gpt-oss-20b|glm-4\.7-flash|mini\b|small|nano|8b|27b)/.test(m)) s += 2;
-  else if (/(pro|120b|235b|405b|70b|medium|large|kimi|deepseek)/.test(m)) s -= 2;
+  // The big ones first (Gemini Pro, the 70b+ models), so a Pro model never counts as cheap; then the
+  // small ones ("mini" only as a word of its own: "gemini" is not it).
+  if (/(pro|120b|235b|405b|70b|medium|large|kimi|deepseek)/.test(m) && !/flash/.test(m)) s -= 2;
+  else if (/(flash-lite|gpt-oss-20b|glm-4\.7-flash|(^|[-/])mini\b|small|nano|8b|27b)/.test(m)) s += 2;
   return s;
 }
 

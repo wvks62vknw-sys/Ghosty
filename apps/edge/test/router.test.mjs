@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const R = await import('./.build/llm/router.mjs');
+const P = await import('./.build/llm/providers.mjs');
 
 class MemStorage {
   m = new Map();
@@ -157,4 +158,39 @@ test('Workers AI reply shapes are all understood', () => {
   assert.equal(resp.tool_calls[0].id, 'c1');
   assert.equal(R.normaliseWorkersAi({ response: '<think>hmm</think>Hello' }).content, 'Hello');
   assert.equal(R.normaliseWorkersAi({ response: '' }), null);
+});
+
+test("a per-minute 429 that mentions 'quota' (Gemini's wording) is a short cool-down, not the day's allowance", async () => {
+  const log = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    log.push({ url, model: body.model });
+    if (url.includes('googleapis') && body.model === 'gemini-3.8-flash') return new Response('{"error":{"message":"You exceeded your current quota, please check your plan and billing details. Please retry in 23.5s."}}', { status: 429 });
+    return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `hi from ${body.model}` } }] }), { headers: { 'content-type': 'application/json' } });
+  };
+  const storage = new MemStorage();
+  const r = new R.Router(storage, vaultWith({ gemini: 'g' }), {});
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Gemini · gemini-3.6-flash', "the provider's next model answers");
+  const h = storage.m.get('llm:health');
+  assert.equal(h['cool|gemini'], undefined, 'the provider is not shut for the day');
+  const cool = h['gemini|gemini-3.8-flash'].cool - Date.now();
+  assert.ok(cool > 20_000 && cool < 30_000, `cooled for the stated 23.5 s: ${cool}`);
+  // the real thing: a named per-day metric shuts the provider until its reset
+  globalThis.fetch = async () => new Response('{"error":{"message":"You exceeded your current quota. quota_id: GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit: 250"}}', { status: 429 });
+  await r.resetHealth();
+  await assert.rejects(r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }));
+  assert.ok(storage.m.get('llm:health')['cool|gemini'].cool > Date.now() + 60_000);
+});
+
+test('cheapScore: small and generously rationed first; a Pro model is never cheap, and "gemini" is not "mini"', () => {
+  const gemini = P.PROVIDERS.find((p) => p.id === 'gemini');
+  const cf = P.PROVIDERS.find((p) => p.id === 'workersai');
+  const poll = P.PROVIDERS.find((p) => p.id === 'pollinations');
+  assert.ok(P.cheapScore('gemini-2.5-pro', gemini) < P.cheapScore('gemini-3.8-flash', gemini));
+  assert.ok(P.cheapScore('gemini-3.8-flash', gemini) < P.cheapScore('gemini-3.5-flash-lite', gemini));
+  assert.ok(P.cheapScore('gemini-2.5-pro', gemini) < P.cheapScore('openai', poll), 'study drills go to the open endpoint before Gemini Pro');
+  assert.ok(P.cheapScore('@cf/zai-org/glm-4.7-flash', cf) > P.cheapScore('openai', poll));
+  assert.ok(P.cheapScore('gpt-4.1-mini') > P.cheapScore('gpt-4.1'), '"mini" as a word of its own still counts');
+  assert.ok(P.cheapScore('openai/gpt-oss-120b') < P.cheapScore('openai/gpt-oss-20b'));
 });

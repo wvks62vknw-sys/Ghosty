@@ -75,7 +75,9 @@ function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: num
     let ms = parseDur(e.retryAfter);
     const m = msg.match(/(?:try again|retry) in ([\d.hms ]+)/);
     if (m) ms = Math.max(ms, parseDur(m[1]));
-    const daily = /per[- ]day|daily|rpd|tpd|quota|neuron/.test(msg);
+    // The day's allowance, not a per-minute limit: Gemini says "quota" for both, so only a named
+    // per-day metric (…PerDay…, RPD/TPD, Workers AI's neurons) or a stated wait of over an hour counts.
+    const daily = /per[- ]?day|daily|rpd|tpd|neuron/.test(msg) || ms > 3600_000;
     ms = ms || (daily ? 3600_000 : 60_000);
     return { kind: 'cool', ms: Math.min(ms + 1500, 8 * 3600_000), why: daily ? 'daily limit' : 'rate limit', daily };
   }

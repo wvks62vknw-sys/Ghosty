@@ -19,7 +19,7 @@
  */
 import { chunkText } from '../../../../packages/shared/src/chunk';
 import { htmlToText } from '../tools/web';
-import { DOMAINS, TOPIC_COUNT, domainById, type Domain, type SourceKind, type Topic } from './curriculum';
+import { DOMAINS, TOPIC_COUNT, domainById, type SourceKind, type Topic } from './curriculum';
 import { grade, makeDrill, SKILLS, type Drill } from './drills';
 import type { Library } from './store';
 
@@ -47,7 +47,10 @@ export interface StudyState {
   focus: string[];
   /** Topics read but not yet digested (no model was reachable): [docId, domainId, topic]. */
   pending: [string, string, string][];
+  /** Per unanswered question: how many sessions it failed in (given up after three). */
+  gapFails: Record<string, number>;
 }
+const MAX_GAP_FAILS = 3;
 
 export const STUDY_KEY = 'study:state';
 const UA = 'Ghosty/2.0 (personal assistant; https://github.com/wvks62vknw-sys/Ghosty)';
@@ -98,7 +101,7 @@ export async function noteGap(storage: DurableObjectStorage, question: string): 
 
 export async function loadStudy(storage: DurableObjectStorage): Promise<StudyState> {
   const raw = (await storage.get<Partial<StudyState>>(STUDY_KEY)) ?? {};
-  const base: StudyState = { on: true, i: 0, gaps: [], sessions: 0, cursor: {}, domains: {}, day: '', today: { reads: 0, digests: 0, drills: 0, ai: 0 }, skills: {}, drills: 0, right: 0, focus: [], pending: [] };
+  const base: StudyState = { on: true, i: 0, gaps: [], sessions: 0, cursor: {}, domains: {}, day: '', today: { reads: 0, digests: 0, drills: 0, ai: 0 }, skills: {}, drills: 0, right: 0, focus: [], pending: [], gapFails: {} };
   const st: StudyState = { ...base, ...raw } as StudyState;
   st.today = { ...base.today, ...(raw.today ?? {}) };
   return st;
@@ -265,6 +268,9 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
   };
 
   // ---------- 1. READ ----------
+  // A question whose source fails is held aside until the session ends (tried once a session, so
+  // the curriculum still moves), and given up after a few sessions.
+  const retry: string[] = [];
   for (let n = 0; n < caps.reads && st.today.reads < caps.dailyReads; n++) {
     const gap = st.gaps.shift();
     const pickd = gap ? null : nextTopic(st);
@@ -294,6 +300,7 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
       did.reads++;
       bump(st, domain, 'read');
       st.last = { at: now, topic, title, passages: kept, kind: 'read' };
+      if (gap) delete st.gapFails[gap];
       await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: `Studied: ${topic}`, text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — read "${topic}" (${dname}) from ${url}: "${title}", ${kept} passages.` });
       // ---------- 2. DIGEST (right away while the text is in hand) ----------
       const note = await useAi(DIGEST_SYSTEM, `TOPIC: ${topic}\nDOMAIN: ${dname}\n\nTEXT:\n${body.slice(0, 7000)}`);
@@ -308,11 +315,19 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
       }
     } catch (e) {
       bump(st, domain, 'failed');
-      st.last = { at: now, topic, error: String((e as Error)?.message ?? e).slice(0, 200), kind: 'read' };
-      if (gap) st.gaps.push(gap); // try that question again later
-      st.gaps = st.gaps.slice(-20);
+      const error = String((e as Error)?.message ?? e).slice(0, 200);
+      st.last = { at: now, topic, error, kind: 'read' };
+      if (gap) {
+        const fails = (st.gapFails[gap] = (st.gapFails[gap] ?? 0) + 1);
+        if (fails < MAX_GAP_FAILS) retry.push(gap); // another session, another try
+        else {
+          delete st.gapFails[gap];
+          await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: `Gave up: ${topic.slice(0, 160)}`, text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — could not find a source for "${topic}" after ${fails} tries (${error}).` }).catch(() => undefined);
+        }
+      }
     }
   }
+  st.gaps = [...st.gaps, ...retry].slice(-20);
 
   // ---------- 2b. DIGEST what was read earlier without a model ----------
   while (st.pending.length && aiLeft > 0 && st.today.ai < caps.dailyAi) {
@@ -398,15 +413,16 @@ export function studySummary(st: StudyState): {
  * so "data structures" is algorithms, not databases.
  */
 export function matchDomains(words: string): string[] {
-  const q = new Set(words.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2));
-  const score = (parts: string[]) => (parts.length ? parts.filter((w) => q.has(w)).length / parts.length : 0);
-  const rank = (f: (d: Domain) => string[], floor: number) => {
-    const hits = DOMAINS.map((d) => ({ id: d.id, s: score(f(d)) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
-    const best = hits[0]?.s ?? 0;
-    // Only the clear matches: at least half as good as the best (so "physics and finance" is both, "data" is not databases too).
-    return hits.filter((x) => x.s >= Math.max(floor, best / 2)).map((x) => x.id);
-  };
-  const byId = rank((d) => d.id.split('-'), 0);
-  if (byId.length) return byId;
-  return rank((d) => d.name.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 5), 0.5);
+  const q = new Set(words.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && !STOP.has(w)));
+  if (!q.size) return [];
+  const hits = DOMAINS.map((d) => {
+    const own = new Set([...d.id.split('-'), ...d.name.toLowerCase().split(/[^a-z0-9]+/)].filter((w) => w.length >= 2 && !STOP.has(w)));
+    const matched = [...own].filter((w) => q.has(w)).length;
+    return { id: d.id, matched, frac: matched / own.size };
+  }).filter((x) => x.matched > 0);
+  // The domains that match the most of the owner's words — all of them when they tie ("physics and
+  // finance" is two), none of the weaker ones ("data structures" is algorithms, not databases too).
+  const best = Math.max(0, ...hits.map((x) => x.matched));
+  return hits.filter((x) => x.matched === best).sort((a, b) => b.frac - a.frac).map((x) => x.id);
 }
+const STOP = new Set(['the', 'and', 'or', 'of', 'on', 'in', 'to', 'for', 'with', 'about', 'a', 'an', 'at', 'by', 'from', 'focus', 'please', 'put', 'first', 'me', 'my', 'study', 'learn', 'more', 'also', 'then', 'its', 'it']);

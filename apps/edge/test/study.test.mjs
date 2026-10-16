@@ -39,7 +39,11 @@ globalThis.fetch = async (input) => {
     const t = decodeURIComponent(url.pathname.split('/').pop()).replace(/_/g, ' ');
     return html(`${t} - MDN`, lorem(t));
   }
-  if (/wiki(pedia|books|versity)\.org$/.test(url.hostname) && url.pathname === '/w/api.php') return wikiDown ? new Response('rate limited', { status: 429 }) : j({ query: { search: [{ title: q }] } });
+  if (/wiki(pedia|books|versity)\.org$/.test(url.hostname) && url.pathname === '/w/api.php') {
+    if (wikiDown) return new Response('rate limited', { status: 429 });
+    if (/unanswerable/.test(q)) return j({ query: { search: [] } }); // nothing to read for this one
+    return j({ query: { search: [{ title: q }] } });
+  }
   if (/wiki(pedia|books|versity)\.org$/.test(url.hostname)) {
     const t = decodeURIComponent(url.pathname.split('/').pop()).replace(/_/g, ' ');
     return html(t, lorem(t));
@@ -110,6 +114,22 @@ test("questions the library couldn't answer are studied first; a failed source i
   const doc = lib.doc('read_questions');
   assert.equal(doc.title, 'Reading: Your questions');
   assert.equal(ok.state.cursor[first.id] ?? 0, 0, 'the curriculum waited');
+});
+
+test('a question whose source keeps failing is tried once a session (the curriculum still moves) and given up after three', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  await S.noteGap(st, 'what is the unanswerable thing?');
+  const r1 = await S.studySession(st, lib, { reads: 3 });
+  assert.equal(r1.did.reads, 2, 'the two other slots read the curriculum');
+  assert.deepEqual(r1.state.gaps, ['what is the unanswerable thing?'], 'kept for another session');
+  assert.equal(r1.state.gapFails['what is the unanswerable thing?'], 1);
+  assert.equal(r1.state.domains.questions.failed, 1, 'one try, not three');
+  await S.studySession(st, lib, { reads: 1 });
+  const r3 = await S.studySession(st, lib, { reads: 1 });
+  assert.deepEqual(r3.state.gaps, [], 'given up after three sessions');
+  assert.deepEqual(r3.state.gapFails, {});
+  assert.ok(lib.passagesOf('notes_study').passages.some((p) => /^Gave up: what is the unanswerable thing\?/.test(p.heading)), 'and said so in the study log');
 });
 
 test('switched off, it does nothing', async () => {
@@ -237,9 +257,11 @@ test("the owner's focus domains come first; matchDomains understands plain words
   assert.equal(row.topics, second.topics.length);
   assert.equal(S.matchDomains(`please focus on ${second.name.toLowerCase()}`)[0], second.id);
   assert.deepEqual(S.matchDomains(second.id), [second.id]);
-  assert.deepEqual(S.matchDomains('data structures and algorithms'), ['algorithms-data-structures'], 'whole words, the short name first: not databases');
-  assert.deepEqual(S.matchDomains('operating systems'), ['computer-architecture-os'], 'the full name when the short name has no match');
+  assert.deepEqual(S.matchDomains('data structures and algorithms'), ['algorithms-data-structures'], 'the most words matched wins: not databases too');
+  assert.deepEqual(S.matchDomains('focus on operating systems please'), ['computer-architecture-os'], 'two words beat one');
+  assert.deepEqual(S.matchDomains('swift and python'), ['python', 'swift-ios'].filter((id) => S.DOMAINS.some((d) => d.id === id)).sort(), 'a tie keeps both');
   assert.deepEqual(S.matchDomains('zzzz qqqq'), []);
+  assert.deepEqual(S.matchDomains('please focus on the'), []);
 });
 
 test('the curriculum is real: every domain has topics at every level, from a known source kind, and no duplicates', () => {
