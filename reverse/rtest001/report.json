@@ -1,0 +1,51 @@
+{
+  "job": "rtest001",
+  "target": "https://example.com",
+  "kind": "web",
+  "question": "what is it built with",
+  "startedAt": "2026-10-16T00:10:20.684Z",
+  "sections": [
+    {
+      "title": "Site overview (Ghosty baseline)",
+      "body": "- **Title:** Example Domain\n- **Final URL:** https://example.com/ (HTTP 200, 1 KB)\n- **Server:** cloudflare  ·  **Powered by:** ?\n- **Technologies spotted:** none recognised\n- **Scripts:** 0 (0 first-party scripts scanned)\n- **Stylesheets:** 0  ·  **Forms:** 0\n- **Third-party hosts:** none\n\n**API endpoints found in code (0):**\n- none found\n\n**Security headers:**\n- content-security-policy: ✗ missing\n- strict-transport-security: ✗ missing\n- x-frame-options: ✗ missing\n- x-content-type-options: ✗ missing\n- referrer-policy: ✗ missing\n- permissions-policy: ✗ missing",
+      "data": {
+        "title": "Example Domain",
+        "finalUrl": "https://example.com/",
+        "status": 200,
+        "services": [],
+        "endpoints": [],
+        "hosts": [],
+        "scripts": [],
+        "headers": {
+          "age": "4",
+          "allow": "GET, HEAD",
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "HIT",
+          "cf-ray": "a4b2d7087d48a915-DFW",
+          "connection": "keep-alive",
+          "content-encoding": "br",
+          "content-type": "text/html; charset=utf-8",
+          "date": "Fri, 16 Oct 2026 00:10:20 GMT",
+          "last-modified": "Tue, 13 Oct 2026 22:05:48 GMT",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked"
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "what": "REA web page (rea inspect-web-page https://example.com)",
+      "error": "rea inspect-web-page https://example.com --json exited 1"
+    },
+    {
+      "what": "REA web bundle (rea analyze-web-bundle https://example.com)",
+      "error": "rea analyze-web-bundle https://example.com --json exited 1"
+    },
+    {
+      "what": "REA WebMCP tools (rea discover-webmcp-tools https://example.com)",
+      "error": "rea discover-webmcp-tools https://example.com --json exited 1"
+    }
+  ],
+  "finishedAt": "2026-10-16T00:10:22.994Z"
+}
