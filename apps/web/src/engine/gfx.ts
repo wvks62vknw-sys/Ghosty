@@ -49,7 +49,7 @@ export class Gfx {
   scale = 1;
   time = 0;
   ready = false;
-  theme = { c: [0.36, 0.88, 1] as Vec3, a: [1, 0.69, 0] as Vec3, r: [1, 0.3, 0.42] as Vec3 };
+  theme = { c: [0.36, 0.88, 1] as Vec3, a: [1, 0.69, 0] as Vec3, r: [1, 0.3, 0.42] as Vec3, bg: [0.008, 0.02, 0.04] as Vec3 };
   post: PostSettings = { mode: 0, bloom: 0.9, scan: 0.2, vig: 0.5, chroma: 0.0012, grain: 0.035, flash: 0 };
   V: Mat4 = M4.id();
   P: Mat4 = M4.id();

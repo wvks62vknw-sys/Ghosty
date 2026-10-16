@@ -21,6 +21,8 @@ export interface Settings {
   currency: 'gbp' | 'usd' | 'eur';
   /** Soft interface sounds (tab changes, the systems deck). */
   sounds: boolean;
+  /** Tilt the phone to look around the holographic room (asks for motion access). */
+  motion: boolean;
 }
 
 const tz = (() => {
@@ -40,6 +42,7 @@ export const settings = createStore<Settings>(
     voice: 'auto',
     home: null,
     sounds: true,
+    motion: false,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

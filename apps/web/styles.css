@@ -8,19 +8,22 @@
 :root {
   --c: #62e4ff; --a: #ffb23e; --r: #ff3b3b; --cr: 98,228,255; --ar: 255,178,62;
   --ok: #52f2b5; --bg: #02050a; --fg: #e6f6ff; --mute: #7f9bb0;
-  --d: 'Rajdhani', 'Arial Narrow', sans-serif;
-  --m: 'JetBrains Mono', ui-monospace, Menlo, monospace;
-  --b: 'IBM Plex Sans', system-ui, sans-serif;
+  /* display: squared-off and technical (titles, tiles, big numbers); mono: the narrow HUD
+     readout face; body: a clean humanist sans for anything you actually read */
+  --d: 'Chakra Petch', 'Rajdhani', 'Arial Narrow', sans-serif;
+  --m: 'Share Tech Mono', 'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --b: 'Inter', 'IBM Plex Sans', system-ui, sans-serif;
+  --bgr: 2,5,10;
   --line: rgba(var(--cr), .22);
-  --glass: rgba(4, 14, 24, .5);
+  --glass: rgba(var(--bgr), .55);
   /* viewer position (-1..1), written each frame by engine/space.ts: pointer or phone tilt */
-  --px: 0; --py: 0;
+  --px: 0; --py: 0; --dx: 0px; --dy: 0px;
   /* how far the panes float: tilt of the side columns, depth of parallax (px) */
   --tilt: 7deg; --par: 14px;
   color-scheme: dark;
 }
 @media (max-width: 899px) { :root { --tilt: 0deg; --par: 8px; } }
-@media (prefers-reduced-motion: reduce) { :root { --tilt: 0deg; --par: 0px; } }
+@media (prefers-reduced-motion: reduce) { :root { --tilt: 0deg; --par: 0px; --dx: 0px; --dy: 0px; } }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--b); overscroll-behavior: none; }
@@ -79,9 +82,9 @@ a, .lnk { color: var(--a); }
 .hud { position: absolute; inset: 0; display: grid; gap: 10px; padding: 6px 12px 8px; pointer-events: none; transform-style: preserve-3d; }
 /* The side columns float in the volume: tilted in towards the viewer, drifting with --px/--py.
    Origins sit on the inner edge so the outer edge recedes and nothing sticks out of the screen. */
-.two > .cL, .hud.core > .cside.l { transform-origin: 100% 50%; transform: translate3d(calc(var(--px) * var(--par)), calc(var(--py) * var(--par) * .6), 0) rotateY(var(--tilt)); }
-.two > .cR, .hud.core > .cside.r { transform-origin: 0 50%; transform: translate3d(calc(var(--px) * var(--par)), calc(var(--py) * var(--par) * .6), 0) rotateY(calc(var(--tilt) * -1)); }
-.two > .hero, .hud.core > .ccenter { transform: translate3d(calc(var(--px) * var(--par) * -.5), calc(var(--py) * var(--par) * -.3), 40px); }
+.two > .cL, .hud.core > .cside.l { transform-origin: 100% 50%; transform: translate3d(var(--dx), var(--dy), 0) rotateY(var(--tilt)); backface-visibility: hidden; }
+.two > .cR, .hud.core > .cside.r { transform-origin: 0 50%; transform: translate3d(var(--dx), var(--dy), 0) rotateY(calc(var(--tilt) * -1)); backface-visibility: hidden; }
+.two > .hero, .hud.core > .ccenter { transform: translate3d(calc(var(--dx) * -.5), calc(var(--dy) * -.5), 0); }
 @media (max-width: 899px) { .two > .hero, .hud.core > .ccenter { transform: none; } }
 /* Assemble: outlines sweep in first, then each pane's content scans in, staggered down the column. */
 .pg.on .col > .pn, .pg.on .cside > .pn { animation: pnin .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.08s + var(--i, 0) * .09s); }
@@ -255,6 +258,8 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 #cstate { font: 400 9px var(--m); letter-spacing: .6em; color: var(--a); text-shadow: 0 0 10px rgba(var(--ar), .7); text-align: center; max-width: 92vw; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 #ccap { max-width: min(660px, 92vw); max-height: 26vh; overflow-y: auto; pointer-events: auto; font: 300 19px/1.45 var(--d); letter-spacing: .03em; color: #fff; text-shadow: 0 0 14px rgba(var(--cr), .4), 0 0 4px #000; padding: 4px 14px 4px 16px; border-left: 2px solid var(--a); background: linear-gradient(90deg, rgba(var(--ar), .1), transparent 80%); }
 #ccap:empty, #ccap span:empty { display: none; }
+#ccap { transition: opacity .9s ease, transform .9s ease; cursor: pointer; }
+#ccap.fade { opacity: 0; transform: translateY(-6px); }
 #ccap span { display: block; -webkit-mask-image: linear-gradient(transparent, #000 18%); mask-image: linear-gradient(transparent, #000 18%); }
 #cbar { display: flex; gap: 6px; align-items: center; width: min(680px, 100%); padding: 6px; background: rgba(2,10,18,.6); backdrop-filter: blur(14px); box-shadow: inset 0 0 0 1px rgba(var(--cr), .25), 0 0 30px -10px rgba(var(--cr), .5); clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
 #cbar #cin { flex: 1; }
@@ -324,13 +329,20 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 @media (max-width: 699px) {
   /* phone: a sheet along the bottom of the globe, half the height at most, scrolling */
   .eyelay { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 58%; z-index: 4; }
-  .eyelay.min { left: auto; right: 50px; width: 132px; }
+  /* closed: a small LAYERS pill in the corner that opens the sheet (no chamfer cut-outs at that size) */
+  .eyelay.min { --ch: 6px; left: auto; right: 0; bottom: 4px; width: auto; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+  .eyelay.min > h3 { padding: 9px 12px 9px 11px; gap: 7px; }
+  .eyelay.min > h3 small { display: none; }
+  .eyelay.min > h3::after { content: '▴'; font-size: 9px; color: var(--a); }
+  .eyelay:not(.min) > h3::after { content: '▾'; font-size: 9px; color: var(--a); }
   .ltile { padding: 9px 9px; font-size: 8.5px; }
+  .eyelay:not(.min) ~ .zoomrail { opacity: 0; pointer-events: none; }
 }
 .zoomrail { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; }
 .zoomrail button { width: 42px; height: 42px; padding: 0; font: 300 22px/1 var(--d); letter-spacing: 0; touch-action: none; }
 .zoomrail small { font: 500 8px var(--m); color: var(--a); text-align: center; max-width: 60px; }
-.eyebot { display: flex; gap: 6px; align-items: flex-end; justify-content: space-between; }
+.eyebot { position: relative; z-index: 2; display: flex; gap: 6px; align-items: flex-end; justify-content: space-between; }
+.eyetop { position: relative; z-index: 2; }
 .eyebot .readout { font: 400 9px/1.6 var(--m); color: var(--c); padding: 4px 8px; border-left: 1px solid var(--line); background: rgba(2,10,18,.6); white-space: pre; text-shadow: 0 0 6px #000; max-width: 60vw; overflow: hidden; }
 .eyebot .btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; pointer-events: auto; }
 .eyebot .btns button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
@@ -508,10 +520,41 @@ body.sweep #frame .scan { animation: scan .55s cubic-bezier(.3,.6,.2,1) both; }
 .eyeinfo small.dim { display: block; opacity: .6; font-size: 10px; margin: 6px 0 2px; }
 
 /* ---------- theme picker ---------- */
-.themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-.themes .themechip { justify-content: flex-start; padding: 7px 9px; min-height: 0; }
-.themes .tn { display: flex; align-items: center; gap: 7px; min-width: 0; width: 100%; }
-.themes .tn > span:last-child { font: 600 8.5px var(--m); letter-spacing: .12em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.themes .sw { flex: none; width: 22px; height: 11px; border-radius: 1px; box-shadow: 0 0 6px -1px currentColor, inset 0 0 0 1px rgba(255,255,255,.25); }
+.themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 @media (min-width: 420px) { .themes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .themes { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* each card is a tiny HUD in its own theme: background, three panes, a glow */
+.tcard { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 6px 7px 8px; min-height: 0; text-align: left; letter-spacing: 0; text-transform: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tb) 70%, #000), var(--tb)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 28%, transparent); color: #fff; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); transition: box-shadow .2s, transform .2s; }
+.tcard:hover { background: linear-gradient(180deg, color-mix(in srgb, var(--tb) 70%, #000), var(--tb)); box-shadow: inset 0 0 0 1px var(--tc), 0 0 18px -4px var(--tc); transform: translateY(-1px); }
+.tcard.on { box-shadow: inset 0 0 0 1px var(--tc), inset 0 -2px 0 var(--ta), 0 0 22px -6px var(--tc); }
+.tprev { position: relative; display: block; height: 46px; overflow: hidden; background: radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--tc) 22%, transparent), transparent 60%); }
+.tprev i { position: absolute; display: block; }
+.tprev .tp1 { left: 6%; top: 14%; width: 44%; height: 58%; background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 55%, transparent) 0 1px, color-mix(in srgb, var(--tc) 12%, transparent) 1px, color-mix(in srgb, var(--tc) 4%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 30%, transparent); clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 4px); }
+.tprev .tp1::after { content: ''; position: absolute; left: 10%; top: 55%; width: 60%; height: 3px; background: var(--ta); box-shadow: 0 0 6px var(--ta); }
+.tprev .tp2 { right: 6%; top: 14%; width: 40%; height: 26%; background: color-mix(in srgb, var(--tc) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tc) 40%, transparent); }
+.tprev .tp2::after { content: ''; position: absolute; left: 12%; top: 38%; width: 40%; height: 2px; background: var(--tc); box-shadow: 0 0 6px var(--tc); }
+.tprev .tp3 { right: 6%; bottom: 14%; width: 40%; height: 26%; background: color-mix(in srgb, var(--tr) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tr) 55%, transparent); }
+.tprev .tp3::after { content: ''; position: absolute; right: 12%; top: 32%; width: 5px; height: 5px; border-radius: 50%; background: var(--tr); box-shadow: 0 0 8px var(--tr); }
+.tprev .tglow { left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: radial-gradient(circle, #fff, var(--tc) 40%, transparent 70%); box-shadow: 0 0 14px 2px var(--tc); opacity: .9; }
+.tcard[data-finish="carbon"] .tprev { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 5px); }
+.tcard[data-finish="plate"] .tprev { background-image: linear-gradient(90deg, rgba(255,255,255,.08), transparent 40%, rgba(255,255,255,.06) 70%, transparent); }
+.tcard[data-finish="crt"] .tprev { background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px); }
+.tcard[data-finish="neon"] .tprev .tp1, .tcard[data-finish="neon"] .tprev .tp2 { box-shadow: inset 0 0 0 1px var(--tc), 0 0 8px -2px var(--tc); }
+.tcard[data-finish="nano"] .tprev { background-image: radial-gradient(circle, color-mix(in srgb, var(--tc) 45%, transparent) 0.6px, transparent 1px); background-size: 6px 6px; }
+.tname { font: 600 9.5px var(--d); letter-spacing: .18em; color: var(--tc); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ttag { font: 400 9px/1.25 var(--b); color: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tcard.on .ttag { color: rgba(255,255,255,.8); }
+
+/* ---------- finishes: what the panes are made of (set by the theme on <html data-finish>) ---------- */
+html[data-finish="carbon"] .pn { background-image: linear-gradient(180deg, rgba(216,246,255,.4), transparent 1px), repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 2px, transparent 2px 6px), repeating-linear-gradient(-45deg, rgba(0,0,0,.25) 0 2px, transparent 2px 6px), linear-gradient(135deg, rgba(var(--cr), .06), rgba(var(--bgr), .7) 40%, rgba(var(--bgr), .85)); }
+html[data-finish="plate"] .pn { background-image: linear-gradient(180deg, rgba(255,255,255,.5), transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07), transparent 30%, rgba(255,255,255,.05) 60%, transparent), linear-gradient(135deg, rgba(var(--cr), .12), rgba(var(--bgr), .6) 40%, rgba(var(--bgr), .8)); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35), inset 0 -1px 0 rgba(0,0,0,.6), 0 24px 40px -30px rgba(var(--cr), .35); }
+html[data-finish="plate"] .pn::before { height: 3px; width: 60px; }
+html[data-finish="neon"] .pn { box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), 0 0 24px -8px rgba(var(--cr), .7), 0 24px 40px -30px rgba(var(--cr), .35); background-image: linear-gradient(180deg, rgba(var(--cr), .7), transparent 1px), linear-gradient(0deg, rgba(var(--cr), .22), transparent 70px), linear-gradient(135deg, rgba(var(--cr), .1), rgba(var(--bgr), .5) 40%, rgba(var(--bgr), .7)); }
+html[data-finish="neon"] button { box-shadow: inset 0 0 0 1px rgba(var(--cr), .5), 0 0 10px -4px rgba(var(--cr), .6); }
+html[data-finish="crt"] body::after { background: radial-gradient(ellipse 120% 90% at 50% 46%, transparent 55%, rgba(0,3,8,.6) 100%), repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
+html[data-finish="crt"] .pn { background-image: linear-gradient(180deg, rgba(var(--cr), .5), transparent 1px), linear-gradient(135deg, rgba(var(--cr), .06), rgba(var(--bgr), .55) 40%, rgba(var(--bgr), .75)); }
+html[data-finish="crt"] .pn > h3, html[data-finish="crt"] button { text-shadow: 0 0 6px rgba(var(--cr), .7); }
+html[data-finish="nano"] .pn { background-image: linear-gradient(180deg, rgba(216,246,255,.55), transparent 1px), radial-gradient(circle, rgba(var(--cr), .22) 0.6px, transparent 1px), linear-gradient(135deg, rgba(var(--cr), .1), rgba(var(--bgr), .45) 40%, rgba(var(--bgr), .65)); background-size: auto, 7px 7px, auto; }
+html[data-finish="nano"] .pn::before { width: 90px; background: linear-gradient(90deg, var(--a), transparent); box-shadow: 0 0 12px var(--a); }
 

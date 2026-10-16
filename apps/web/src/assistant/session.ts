@@ -133,6 +133,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
     if (e instanceof AuthError) {
       ui.set({ connected: false });
       push({ kind: 'error', text: `I can't reach my brain: ${e.message}` });
+      toast(`Can't reach the brain: ${e.message}`, 'bad');
     } else {
       // No connection at all: answer from the library copy on this device.
       const answer = e instanceof TypeError && offline ? await offline().catch(() => null) : null;
@@ -140,7 +141,11 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
         push({ kind: 'assistant', text: answer, at: Date.now(), model: 'Library on this device · offline' });
         chat.set({ live: answer });
         if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer);
-      } else push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+      } else {
+        const msg = String((e as Error)?.message ?? e);
+        push({ kind: 'error', text: msg });
+        toast(msg.length > 140 ? `${msg.slice(0, 140)}…` : msg, 'bad');
+      }
     }
   } finally {
     ui.set({ busy: false, status: '' });

@@ -51,7 +51,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },
-  { name: 'traffic', tools: trafficTools, when: /\b(cams?|cameras?|cctv|webcams?|traffic|jams?|congestion|roads?|motorway|highway|accidents?|crash|closures?|roadworks|commute|rush hour|live view|god'?s eye|see (it|there|.+) live)\b/i },
+  { name: 'traffic', tools: trafficTools, when: /\b(tomtom|street data|speeds?|incidents?|cams?|cameras?|cctv|webcams?|traffic|jams?|congestion|roads?|motorway|highway|accidents?|crash|closures?|roadworks|commute|rush hour|live view|god'?s eye|see (it|there|.+) live)\b/i },
   { name: 'email', tools: emailTools, when: /\b(e-?mails?|inbox|mail|gmail|reply|replied|unread|send (a |an )?(message|note) to)\b/i },
   { name: 'media', tools: mediaTools, when: /\b(radio|music|song|songs|play|station|listen|stop audio|stop the music|volume)\b/i },
   { name: 'library', tools: libraryTools.filter((t) => t.name === 'library_search'), when: 'always' },

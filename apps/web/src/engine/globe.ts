@@ -295,7 +295,7 @@ export class GlobeScene {
       this.sunDir = V3.norm(GEO.ecef(s.lat, s.lon, 0));
     }
     const sun = this.sunDir;
-    g.begin([0.003, 0.006, 0.014]);
+    g.begin(g.theme.bg.map((v) => v * 0.4) as Vec3);
     g.cam(cs.V, M4.persp(c.fov * RAD, g.w / g.h, 1, 2000), 1, [0, 0, 0]);
     g.additive();
     this.stars.draw(M4.rotZ(t * 0.0003), { px: 1 });
@@ -349,7 +349,7 @@ export class GlobeScene {
     radar.draw(cs, c.lat, c.lon, c.range, c.fov, this.vis.radar);
 
     g.cam(cs.V, cs.P, cs.near, cs.pos);
-    buildings.draw(cs, c.lat, c.lon, this.vis.buildings && cs.alt < 4.5, !!c.fly);
+    buildings.draw(cs, c.lat, c.lon, this.vis.buildings && cs.alt < 6, !!c.fly);
     g.additive();
     const rel = M4.trans(-cs.pos[0], -cs.pos[1], -cs.pos[2]);
     const oc: DrawOpts = { occ: 1, R: R_EARTH };

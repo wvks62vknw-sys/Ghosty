@@ -229,7 +229,7 @@ export const linksTab: TabDef = {
       const idIn = h('input', { type: 'text', value: st?.clientId ?? savedClientId.get(), placeholder: "paste your app's Client ID", ...NOSPELL, 'aria-label': 'Spotify Client ID' });
       const msg = h('small.note', '');
       spot.body.append(
-        h('div.note', 'Link your Spotify account so Ghosty can show what is playing and control it by voice or chat.'),
+        h('div.note', 'Link your Spotify account so Ghosty can show what is playing and control it by voice or chat. No computer needed: every step works in Safari on the phone (if Ghosty is on the home screen, open ghosty in Safari for the linking step so Spotify can send you back).'),
         h(
           'ol.steps',
           h('li', 'Open ', h('a.lnk', { href: 'https://developer.spotify.com/dashboard', target: '_blank', rel: 'noopener' }, 'SPOTIFY DASHBOARD ↗'), ' and press Create app (any name and description).'),

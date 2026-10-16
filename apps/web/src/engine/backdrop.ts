@@ -11,7 +11,7 @@
  * the panes in front (CSS, --px/--py) and this scene move as one volume.
  */
 import { gfx, LineSet, PointSet } from './gfx';
-import { M4, RAD, rng } from './math';
+import { M4, RAD, rng, type Vec3 } from './math';
 import { view } from './space';
 
 const FLOOR_Y = -3.4;
@@ -136,7 +136,7 @@ export class Backdrop {
     const wide = innerWidth >= 900;
     const dist = wide ? 10.6 : 15;
     const eye: [number, number, number] = [Math.sin(ry) * dist, 0.4 + Math.sin(rx) * dist * 0.5, Math.cos(ry) * dist];
-    g.begin([0.003, 0.008, 0.018]);
+    g.begin(g.theme.bg.map((v) => v * 0.55) as Vec3);
     g.cam(M4.look(eye, [0, 0.2, 0], [0, 1, 0]), M4.persp(46 * RAD, g.w / g.h, 0.05, 200), 0.05, eye);
     g.additive();
     this.stars.draw(M4.mul(M4.rotY(this.t * 0.01), M4.rotX(this.t * 0.006)));

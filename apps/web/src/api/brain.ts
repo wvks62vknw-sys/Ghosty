@@ -131,7 +131,7 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
   if (r.status === 401 || r.status === 503) throw new AuthError((j as { error?: string })?.error ?? 'not authorised');
   const err = (j as { error?: string })?.error;
   if (!r.ok && err && PAUSED_TEXT.test(err)) {
-    memoryPaused.set({ on: true });
+    memoryPaused.set({ on: true, since: memoryPaused.get().since || Date.now() });
     throw new PausedError();
   }
   if (!r.ok) throw Object.assign(new Error(err ?? `HTTP ${r.status}`), { status: r.status });
@@ -143,7 +143,15 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
  * Shown once as a small MEMORY PAUSED tag in the top bar — never as a pop-up per tab.
  */
 const PAUSED_TEXT = /free daily allowance|database is paused/i;
-export const memoryPaused = createStore({ on: false });
+export const memoryPaused = createStore({ on: false, since: 0 });
+/** Midnight UTC after `t` — when Cloudflare's free daily allowance resets. */
+export const pauseEndsAt = (t: number) => Math.floor(t / 86_400_000) * 86_400_000 + 86_400_000;
+// The pause ends at midnight UTC: clear the tag then (and re-check with the brain), instead of
+// leaving a stale "paused" badge on a phone that was never reloaded.
+setInterval(() => {
+  const m = memoryPaused.get();
+  if (m.on && Date.now() >= pauseEndsAt(m.since)) memoryPaused.set({ on: false, since: 0 });
+}, 30_000);
 export class PausedError extends Error {
   readonly paused = true;
   constructor() {
@@ -189,7 +197,7 @@ export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () =>
     req<BrainStatus>('GET', '/status').then((s) => {
-      memoryPaused.set({ on: !!s.paused });
+      memoryPaused.set({ on: !!s.paused, since: s.paused ? memoryPaused.get().since || Date.now() : 0 });
       return s;
     }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */

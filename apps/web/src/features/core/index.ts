@@ -103,12 +103,6 @@ export const coreTab: TabDef = {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
     });
-    const chips = h(
-      'div#chips',
-      ...['Brief me on today', "What's overhead right now?", 'Show me threats near me', 'Fly to Tokyo', 'Add a feature to yourself'].map((c) =>
-        button(c, () => (c.startsWith('Add a feature') ? (input.focus(), (input.value = 'Add to your interface: ')) : void send(c, { speak: settings.get().speak }))),
-      ),
-    );
     const convo = panel('CONVERSATION', { status: '' });
     convo.body.append(log);
     convo.el.classList.add('convo');
@@ -133,15 +127,30 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic), chips);
+    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 
+    // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
+    // in the LOG). Tap it to dismiss sooner.
+    let fadeTimer = 0;
+    const armFade = () => {
+      clearTimeout(fadeTimer);
+      caption.classList.remove('fade');
+      if (!chat.get().live) return;
+      fadeTimer = window.setTimeout(() => {
+        if (ui.get().busy || ui.get().voice === 'speaking') return armFade();
+        caption.classList.add('fade');
+        fadeTimer = window.setTimeout(() => chat.set({ live: '' }), 900);
+      }, 25000);
+    };
+    caption.addEventListener('click', () => chat.set({ live: '' }));
     const paintLog = () => {
       clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
       log.scrollTop = log.scrollHeight;
       const live = chat.get().live;
       (caption.firstChild as HTMLElement).textContent = live;
+      armFade();
     };
     chat.subscribe(paintLog);
     paintLog();

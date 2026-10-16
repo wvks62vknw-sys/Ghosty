@@ -24,6 +24,7 @@ export const systemTab: TabDef = {
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
     const lp = panel('LOOK & VOICE', { grow: false });
+    lp.el.classList.add('look');
     const sp = panel('STATUS');
     P.right.append(lp.el, sp.el);
     let status: BrainStatus | null = null;
@@ -112,16 +113,30 @@ export const systemTab: TabDef = {
     }));
 
     // look & voice
-    const themes = h('div.themes', ...Object.entries(THEMES).map(([k, t]) => {
-      const sw = h('span.sw', { style: `background:linear-gradient(90deg, ${t.c} 0 34%, ${t.a} 34% 67%, ${t.r} 67% 100%)` });
-      const b = button(h('span.tn', sw, h('span', t.label)), () => {
-        applyTheme(k);
-        [...themes.children].forEach((x) => x.classList.toggle('on', x === b));
-      }, settings.get().theme === k ? 'on' : '');
-      b.classList.add('themechip');
-      b.style.color = t.c;
-      return b;
-    }));
+    // Theme picker: one card per theme, drawn in that theme's own colours and finish, so the
+    // choice is made by looking rather than by name.
+    const themes = h('div.themes');
+    const paintThemes = () => {
+      clear(themes);
+      const cur = settings.get().theme;
+      for (const [k, t] of Object.entries(THEMES)) {
+        const b = h('button.tcard', { type: 'button', 'data-finish': t.finish, 'aria-pressed': String(cur === k), style: `--tc:${t.c};--ta:${t.a};--tr:${t.r};--tb:${t.bg}` },
+          h('span.tprev', h('i.tp1'), h('i.tp2'), h('i.tp3'), h('i.tglow')),
+          h('span.tname', t.label),
+          h('span.ttag', t.tag),
+        );
+        b.classList.toggle('on', cur === k);
+        b.addEventListener('click', () => {
+          applyTheme(k);
+          [...themes.children].forEach((x) => {
+            x.classList.toggle('on', x === b);
+            x.setAttribute('aria-pressed', String(x === b));
+          });
+        });
+        themes.append(b);
+      }
+    };
+    paintThemes();
     const name = h('input', { value: settings.get().name, placeholder: 'What should I call you?', 'aria-label': 'Your name' });
     name.addEventListener('change', () => settings.set({ name: name.value.trim() || 'Boss' }));
     const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
@@ -157,7 +172,10 @@ export const systemTab: TabDef = {
     const sfx = h('select', { 'aria-label': 'Interface sounds' }, h('option', { value: 'on' }, 'Interface sounds: on'), h('option', { value: 'off' }, 'Interface sounds: off'));
     sfx.value = settings.get().sounds ? 'on' : 'off';
     sfx.addEventListener('change', () => settings.set({ sounds: sfx.value === 'on' }));
-    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, sfx, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
+    const motion = h('select', { 'aria-label': 'Tilt to look around' }, h('option', { value: 'off' }, 'Tilt phone to look around: off'), h('option', { value: 'on' }, 'Tilt phone to look around: on'));
+    motion.value = settings.get().motion ? 'on' : 'off';
+    motion.addEventListener('change', () => settings.set({ motion: motion.value === 'on' }));
+    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     // A newer version shipped than the one on screen? (Compares with the latest version on GitHub.)
     let newer = false;

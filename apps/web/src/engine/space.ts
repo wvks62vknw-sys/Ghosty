@@ -7,6 +7,7 @@
  * iOS needs a tap before it hands over motion data: the first touch asks once.
  */
 import { Emitter } from '../core/store';
+import { settings } from '../state/app';
 
 export const view = {
   /** Raw target, -1..1. */
@@ -40,32 +41,57 @@ function onOrientation(e: DeviceOrientationEvent): void {
 }
 
 let askedMotion = false;
-/** Ask for gyroscope access (iOS shows a prompt). Safe to call many times. */
+let listening = false;
+/**
+ * Ask for gyroscope access (iOS shows a prompt; it must come from a tap). Safe to call many
+ * times. A refusal switches the setting off so the owner is not asked again every visit.
+ */
 export async function enableMotion(): Promise<boolean> {
-  if (askedMotion || view.reduced) return view.source === 'motion';
+  if (view.reduced) return false;
+  if (listening) return true;
+  if (askedMotion) return false;
   askedMotion = true;
   const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> };
   try {
     if (typeof D.requestPermission === 'function') {
-      if ((await D.requestPermission()) !== 'granted') return false;
+      if ((await D.requestPermission()) !== 'granted') {
+        settings.set({ motion: false });
+        return false;
+      }
     }
     addEventListener('deviceorientation', onOrientation, { passive: true });
+    listening = true;
     spaceEvents.emit('motion', true);
     return true;
   } catch {
+    settings.set({ motion: false });
     return false;
   }
+}
+
+export function disableMotion(): void {
+  removeEventListener('deviceorientation', onOrientation);
+  listening = false;
+  askedMotion = false;
+  base = null;
+  view.source = 'none';
+  view.x = view.y = 0;
 }
 
 const coarse = matchMedia('(hover: none) and (pointer: coarse)').matches;
 if (!view.reduced) {
   if (coarse) {
-    // Phones/tablets: motion after the first touch (iOS permission needs a user gesture).
+    // Phones/tablets: only when the owner has switched "tilt to look around" on (System tab),
+    // and then from the first touch, because iOS only grants motion access from a tap.
     const once = () => {
-      void enableMotion();
+      if (settings.get().motion) void enableMotion();
       removeEventListener('touchend', once);
     };
     addEventListener('touchend', once, { passive: true });
+    settings.subscribe((s, p) => {
+      if (s.motion && !p.motion) void enableMotion();
+      if (!s.motion && p.motion) disableMotion();
+    });
   } else {
     addEventListener('pointermove', (e) => {
       if (view.source === 'motion') return;
@@ -92,4 +118,8 @@ export function stepView(dt: number): void {
   last = key;
   root.setProperty('--px', view.sx.toFixed(3));
   root.setProperty('--py', view.sy.toFixed(3));
+  // Whole pixels for the pane offsets: fractional translations blur text on 3D-transformed layers.
+  const par = innerWidth >= 900 ? 14 : 8;
+  root.setProperty('--dx', `${Math.round(view.sx * par)}px`);
+  root.setProperty('--dy', `${Math.round(view.sy * par * 0.6)}px`);
 }

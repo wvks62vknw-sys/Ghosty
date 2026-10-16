@@ -23,6 +23,26 @@ try {
 
 export const listVoices = () => voices.filter((v) => /^en/i.test(v.lang));
 
+/**
+ * iPhones and iPads only let a page speak once speech has been started from a tap. The first
+ * touch on the page speaks a silent utterance to unlock it, so Ghosty's replies (which arrive
+ * later, not from a tap) are heard. Also wakes a synthesiser that iOS has paused.
+ */
+let unlocked = false;
+export function unlockSpeech(): void {
+  if (unlocked || !('speechSynthesis' in window)) return;
+  unlocked = true;
+  try {
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    speechSynthesis.resume();
+  } catch {
+    /* ignore */
+  }
+}
+for (const ev of ['touchend', 'pointerup', 'keydown'] as const) addEventListener(ev, () => unlockSpeech(), { passive: true, once: true });
+
 function bestVoice(): SpeechSynthesisVoice | null {
   if (!voices.length) loadVoices();
   const want = settings.get().voice;
@@ -79,6 +99,11 @@ export function speak(text: string): Promise<void> {
       u.pitch = 0.92;
       u.onend = u.onerror = () => next(i + 1);
       ui.set({ voice: 'speaking' });
+      try {
+        speechSynthesis.resume(); // iOS sometimes leaves the synthesiser paused
+      } catch {
+        /* ignore */
+      }
       speechSynthesis.speak(u);
     };
     next(0);

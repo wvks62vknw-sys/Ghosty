@@ -1,7 +1,7 @@
 /** The frame around every tab: top bar, stage, dock, HUD frame and the systems deck. */
 import { togglePalette } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
-import { memoryPaused } from '../api/brain';
+import { memoryPaused, pauseEndsAt } from '../api/brain';
 import { player, stopAudio } from '../assistant/media';
 import { ui } from '../state/app';
 import { buildLauncher } from './launcher';
@@ -29,7 +29,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     title: 'What still works',
     onclick: () =>
       modal('MEMORY PAUSED', h('div.mnote',
-        h('p', "Ghosty's memory is paused until 1am UK time (midnight UTC): Cloudflare's free daily database allowance ran out. Nothing is lost."),
+        h('p', `Ghosty's memory is paused until ${new Date(pauseEndsAt(memoryPaused.get().since || Date.now())).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (midnight UTC): Cloudflare's free daily database allowance ran out. Nothing is lost.`),
         h('p', h('b', 'Still working: '), "chat and AI with your keys, web search, weather, maps, traffic, God's Eye, email, radio, Spotify, games and widgets — and your memory, agenda, reminders and documents from the copy on this device."),
         h('p', h('b', 'Saved when memory is back: '), "anything you add or change meanwhile (memories, reminders, events, widgets, documents, keys) — automatically."),
         h('p', h('b', 'Waits for 1am: '), 'importing web pages into the library, push notifications to your phone, self-study and code changes.'),

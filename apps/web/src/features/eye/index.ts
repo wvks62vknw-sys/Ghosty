@@ -137,7 +137,7 @@ export const eyeTab: TabDef = {
     lay.el.classList.add('eyelay');
     const LAYERS: [keyof LayerVisibility, string, () => string][] = [
       ['imagery', 'SATELLITE MAP', () => (imagery.credit ? `Z${imagery.level}` : '')],
-      ['buildings', '3D BUILDINGS', () => (buildings.status || (buildings.count ? String(buildings.count) : ''))],
+      ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : buildings.status || (buildings.count ? String(buildings.count) : ''))],
       ['air', 'AIRCRAFT', () => `${air.list.size} ${air.status}`],
       ['sats', 'SATELLITES', () => String(sats.list.length)],
       ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
