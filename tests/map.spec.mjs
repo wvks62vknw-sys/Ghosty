@@ -107,15 +107,20 @@ else {
   const w = await page.textContent('.modal .mapwhere').catch(() => '');
   if (!/^51\.5\d+°, -0\.1\d+°/.test(w ?? '')) problems.push(`the map from chat is not on London: ${w}`);
 }
-// the same tiles on the 3D globe: cycle the tiles button to DARK, fly in, and the readout credits them once they draw
+// the same tiles on the 3D globe: pick DARK in the LOOK menu, fly in, and the readout credits them once they draw
 await page.click('.modal .mhead button:has-text("CLOSE")', { timeout: 10000 }).catch(() => page.click('.modal .mhead button:has-text("CLOSE")', { force: true }));
 await page.evaluate(() => (location.hash = 'eye'));
 await page.waitForTimeout(800);
-for (let i = 0; i < 6; i++) {
-  if ((await page.textContent('#pg-eye .eyebot .btns button.tilesbtn'))?.trim() === 'DARK') break;
-  await page.click('#pg-eye .eyebot .btns button.tilesbtn');
-}
-if ((await page.textContent('#pg-eye .eyebot .btns button.tilesbtn'))?.trim() !== 'DARK') problems.push('the tiles button does not reach DARK');
+// The bar: two captioned groups, and the LOOK menu holding the tiles, sensor looks, sun and spin.
+const bar = await page.$$eval('#pg-eye .eyebot .btns .bgroup', (gs) => gs.map((g) => [...g.children].map((c) => c.textContent.trim()).join(' ')));
+if (bar.join(' | ') !== 'THIS SPOT MAP 3D STREET VIEW TRAFFIC | VIEW LOOK HOME NORTH TILT') problems.push(`the bar reads: ${bar.join(' | ')}`);
+await page.click('#pg-eye .eyebot .btns button:has-text("LOOK")');
+const sections = await page.$$eval('#pg-eye .lookmenu .lgroup', (g) => g.map((x) => x.textContent.trim()));
+if (sections.join(' | ') !== 'MAP TILES ON THE GLOBE | SENSOR | GLOBE') problems.push(`LOOK sections: ${sections.join(' | ')}`);
+await page.click('#pg-eye .lookmenu button[data-src="dark"]');
+if (!(await page.$('#pg-eye .lookmenu button[data-src="dark"].on'))) problems.push('DARK tiles did not switch on in LOOK');
+await page.click('#pg-eye .eyebot .btns button:has-text("LOOK")');
+if (!(await page.$eval('#pg-eye .lookmenu', (el) => el.hidden))) problems.push('LOOK did not close');
 // Put the camera over London at once (a fly-to crawls under software rendering) and wait for tiles to draw.
 await page.evaluate(() => {
   const cam = window.__ghosty.globe.cam;
