@@ -20,6 +20,10 @@ export function createHandsMode(L: LensContext): Mode {
   let loading: Promise<void> | null = null;
   let lastStatus = 0;
   let acting = false;
+  /** recognizeForVideo failures in a row (see failed()). */
+  let failures = 0;
+  /** Bumped on leave: a load still in flight then belongs to a past visit and is dropped. */
+  let visit = 0;
 
   const bigName = h('span', 'no hand in view');
   const bigHand = h('small');
@@ -110,19 +114,46 @@ export function createHandsMode(L: LensContext): Mode {
     }
   };
 
+  const progress = (s: string) => S.mode === 'hands' && L.status(s, 'mid');
   const load = () => {
     loading ??= (async () => {
+      const v = visit;
       try {
-        rec = await gestures.get((s) => S.mode === 'hands' && L.status(s, 'mid'));
+        const r = await gestures.get(progress);
+        // left meanwhile (leave() dropped the task, the Lens closed it): the next enter loads again
+        if (v !== visit) return;
+        rec = r;
         if (S.mode === 'hands') L.status(S.camera === 'on' ? 'show a hand' : 'recogniser ready · START the camera', 'ok');
         // for the thumbs-up note's labels
         void detector.get(() => undefined).catch(() => undefined);
       } catch (e) {
+        if (v !== visit) return;
         loading = null;
         S.error = String((e as Error)?.message ?? e);
         if (S.mode === 'hands') L.status(S.error, 'off');
       }
     })();
+  };
+  /** The recogniser threw on a frame; a few in a row → made again on the CPU (as SEE does for the detector), else the owner is told. */
+  const failed = (e: unknown) => {
+    if (++failures < 3 || !rec) return;
+    failures = 0;
+    rec = null;
+    const msg = String((e as Error)?.message ?? e);
+    if (gestures.delegate === 'CPU') {
+      S.error = `The hand recogniser keeps failing: ${msg}`;
+      if (S.mode === 'hands') L.status(S.error, 'off');
+      return;
+    }
+    const v = visit;
+    void gestures.recreate('CPU', progress).then((r) => {
+      if (v !== visit) return;
+      rec = r;
+      if (S.mode === 'hands') L.status('show a hand (on the CPU: the GPU could not run the recogniser)', 'ok');
+    }).catch((e2: unknown) => {
+      S.error = `The hand recogniser cannot run here: ${String((e2 as Error)?.message ?? e2)}`;
+      if (S.mode === 'hands') L.status(S.error, 'off');
+    });
   };
 
   return {
@@ -138,6 +169,11 @@ export function createHandsMode(L: LensContext): Mode {
       deb.reset();
       S.gesture = '';
       S.hand = '';
+      // the task is taken on entering, every time: leaving the Lens closes it (index.ts)
+      visit++;
+      rec = null;
+      loading = null;
+      failures = 0;
     },
     tick(now) {
       if (!rec || !budget.due(now)) return;
@@ -145,9 +181,11 @@ export function createHandsMode(L: LensContext): Mode {
       let r: MPGestureResult;
       try {
         r = rec.recognizeForVideo(L.video, nextStamp(now));
-      } catch {
+      } catch (e) {
+        failed(e);
         return;
       }
+      failures = 0;
       budget.record(performance.now() - t0, now);
       draw(r);
       const hands = r.landmarks?.length ?? 0;
@@ -161,9 +199,13 @@ export function createHandsMode(L: LensContext): Mode {
       bigHand.textContent = hands ? `${hand}${hands > 1 ? ` + ${hands - 1} more` : ''}` : '';
       const ev = deb.feed(hands ? name : null, score, now);
       holdFill.style.width = `${Math.round(deb.progress(now) * 100)}%`;
-      if (ev) void act(ev);
+      if (ev) {
+        // the action's own status line (stopped, frozen…) stands; the rate line below would overwrite it
+        void act(ev);
+        return;
+      }
       S.fps = budget.rate(now);
-      if (now - lastStatus > 500) {
+      if (now - lastStatus > 500 && S.camera === 'on' && !S.frozen) {
         lastStatus = now;
         L.status(`${fpsText(S.fps)} · ${deb.coolingDown(now) ? 'done — let go' : hands ? 'hold a gesture' : 'show a hand'}`, 'ok');
       }

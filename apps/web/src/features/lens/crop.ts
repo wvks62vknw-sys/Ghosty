@@ -1,8 +1,10 @@
 /**
  * The picture-search sheet: a crop over a still (drag a box, drag its corners, or USE WHOLE
  * PICTURE), then a link for the engines — the crop is shared through the brain as a JPEG
- * (≤ 1.5 MB) and is reachable by that link for 24 hours; FORGET NOW takes it down. Each engine is
- * named plainly and opens in a new tab: Google Lens, Bing Visual Search, Yandex Images, TinEye.
+ * (≤ 1.5 MB) and is reachable by that link for 24 hours; FORGET NOW takes it down, and so does
+ * changing the crop or closing the sheet (a link nothing on screen can take down any more would
+ * stay public for a day). Each engine is named plainly and opens in a new tab: Google Lens, Bing
+ * Visual Search, Yandex Images, TinEye.
  */
 import { clear, h } from '../../core/dom';
 import { button, modal, toast } from '../../ui/components';
@@ -24,6 +26,8 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
   let sharing = false;
   /** CSS pixels per picture pixel. */
   let k = 1;
+  /** The same box to the pixel (a touch that only jittered did not change the crop). */
+  const sameBox = (a: Box, b: Box) => Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1 && Math.abs(a.w - b.w) < 1 && Math.abs(a.h - b.h) < 1;
 
   const pic = h('canvas.cropic');
   pic.width = frame.w;
@@ -87,7 +91,6 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     startRect = rect;
     grab = handleAt(rect, start.x, start.y, 22 / k) ?? 'new';
     ov.setPointerCapture(e.pointerId);
-    invalidateShare();
   });
   ov.addEventListener('pointermove', (e) => {
     if (!grab) return;
@@ -102,15 +105,21 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
   const up = () => {
     if (grab === 'new' && (rect.w < 24 || rect.h < 24)) rect = startRect;
     grab = null;
+    // a crop that really changed (not a stray tap, which keeps the box) needs a new link
+    if (!sameBox(rect, startRect)) invalidateShare();
     paint();
   };
   ov.addEventListener('pointerup', up);
   ov.addEventListener('pointercancel', up);
 
+  /** Take a link down without waiting (a crop that changed, the sheet closing): nothing on screen could reach it afterwards. */
+  const takeDown = (id: string) => void opts.forget(id).catch(() => undefined);
   const invalidateShare = () => {
     if (!shared) return;
-    // a new crop needs a new link; the old one stays until it expires or FORGET NOW
+    // the old link showed the old crop: it goes, and this crop gets its own when asked
+    takeDown(shared.id);
     shared = null;
+    status.textContent = 'The crop changed, so its link is being taken down. GET A LINK again for this crop.';
     paintShare();
   };
 
@@ -129,7 +138,8 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     try {
       await opts.forget(id);
       shared = null;
-      status.textContent = 'Forgotten: the link no longer works.';
+      // the brain's delete takes up to a minute to reach every edge, and a viewer may have a copy by then
+      status.textContent = 'Taken down: the link stops working within a minute; anything that already fetched it may keep a copy.';
       paintShare();
     } catch (e) {
       toast(`Could not forget it: ${String((e as Error)?.message ?? e)}`, 'bad');
@@ -143,7 +153,7 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     if (shared) {
       clear(shareCard,
         h('b', `This crop is ${expiresText(shared.expires)}.`),
-        h('span', 'Anyone with the link can see it; the engines fetch it from there. '),
+        h('span', 'Anyone with the link can see it; the engines fetch it from there. Closing this sheet or changing the crop takes it down too. '),
         h('a', { href: shared.url, target: '_blank', rel: 'noopener' }, shared.url),
         h('div.row', forgetBtn),
       );
@@ -172,7 +182,9 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     box,
     h('div.row.wrap',
       button('USE WHOLE PICTURE', () => {
-        rect = wholeFrame(frame);
+        const whole = wholeFrame(frame);
+        if (sameBox(rect, whole)) return;
+        rect = whole;
         invalidateShare();
         paint();
       }),
@@ -180,14 +192,18 @@ export function openCrop(still: HTMLCanvasElement, opts: CropOptions): { close()
     ),
     h('div.note', 'Drag on the picture to draw a box, drag a corner to resize it, drag inside to move it.'),
     h('div.lab', 'SEARCH WITH…'),
-    h('div.note', 'The engines need a link to the picture: the crop is shared through the brain, reachable by link for 24 hours, and FORGET NOW takes it down. The engines are named as they are; nothing is white-labelled.'),
+    h('div.note', 'The engines need a link to the picture: the crop is shared through the brain, reachable by link for 24 hours, and FORGET NOW (or closing this sheet) takes it down. The engines are named as they are; nothing is white-labelled.'),
     shareBtn,
     status,
     shareCard,
     engines,
   );
   paintShare();
-  const m = modal('SEARCH BY PICTURE', body);
+  const m = modal('SEARCH BY PICTURE', body, () => {
+    // once the sheet is gone no button can take the link down, so it goes with the sheet
+    if (shared) takeDown(shared.id);
+    shared = null;
+  });
   setTimeout(fit, 0);
   return m;
 }

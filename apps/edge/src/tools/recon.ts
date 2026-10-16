@@ -7,7 +7,7 @@
  * looked up. Sources are keyless and public; nothing scans or logs in.
  */
 import { chunkText } from '../../../../packages/shared/src/chunk';
-import { certs, dnsLookup, httpFingerprint, ipInfo, notInfrastructure, rdap, recon, renderCerts, renderDns, renderHosting, renderHttp, renderRdap, renderReport, renderSubdomains, renderWayback, subdomains, wayback } from '../integrations/recon';
+import { certs, dnsLookup, httpFingerprint, ipInfo, isIp, NOT_BY_ADDRESS, notInfrastructure, parseTarget, rdap, recon, renderCerts, renderDns, renderHosting, renderHttp, renderRdap, renderReport, renderSubdomains, renderWayback, subdomains, wayback } from '../integrations/recon';
 import { asData } from '../kernel/permissions';
 import { Library } from '../library/store';
 import { arg, clip, type Tool, type ToolContext } from './types';
@@ -22,8 +22,12 @@ const refusal = (raw: string): string => {
 
 const progress = (ctx: ToolContext, label: string, done?: number, total?: number): void => ctx.progress?.(label, done, total);
 
-/** The bare hostname in what the model sent (a URL, a host with a path, upper case). Checked for refusal first, as given. */
-const bareHost = (raw: string): string => raw.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0]!;
+/**
+ * The bare hostname in what the model sent (a URL, a host with a path, upper case), in the
+ * form the sources expect (münchen.de → xn--mnchen-3ya.de, as recon_domain sends it); a private
+ * or local address is refused with the reason. Checked for refusal first, as given.
+ */
+const bareHost = (raw: string): string => parseTarget(raw).host;
 
 const SOURCE = 'recon sources (dns.google, rdap.org, crt.sh, archive.org, ipwho.is, internetdb.shodan.io, hackertarget, the site itself)';
 
@@ -52,19 +56,28 @@ export const reconTools: Tool[] = [
       required: ['target'],
     },
     risk: 'auto',
-    pure: true,
+    // Read-only unless it files the report: then it writes to the library and runs on its own.
+    pure: (a) => !arg.bool(a, 'save'),
     async run(a, ctx) {
       const target = arg.str(a, 'target').trim();
       const no = refusal(target);
       if (no) return no;
-      const report = await recon(target, { onStep: (label, done, total) => progress(ctx, done ? `${label} · ${done} of ${total}` : `running ${total} checks on ${target}…`, done, total) });
-      let md = renderReport(report);
+      // The interface adds "n of N" to the label itself.
+      const report = await recon(target, { onStep: (label, done, total) => progress(ctx, done ? label : `running ${total} checks on ${target}…`, done, total) });
+      const md = renderReport(report);
+      let trailer = '';
       if (arg.bool(a, 'save')) {
         progress(ctx, 'filing the report in the library…');
-        const title = await fileReport(ctx, report.host, md);
-        md += `\n\nFiled in the library as "${title}" (kind: recon).`;
+        // The lookups took seconds: a library that cannot take the report must not cost them.
+        try {
+          const title = await fileReport(ctx, report.host, md);
+          trailer = `\n\nFiled in the library as "${title}" (kind: recon).`;
+        } catch (e) {
+          trailer = `\n\nCould not file it: ${String((e as Error)?.message ?? e)}.`;
+        }
       }
-      return asData(SOURCE, clip(md, 9000));
+      // the trailer goes after the clip, so a long report never loses the word on its filing
+      return asData(SOURCE, clip(md, 9000) + trailer);
     },
   },
   {
@@ -110,6 +123,7 @@ export const reconTools: Tool[] = [
       const no = refusal(raw);
       if (no) return no;
       const domain = bareHost(raw);
+      if (isIp(domain)) return `Not looking that up: ${NOT_BY_ADDRESS.certs}.`;
       progress(ctx, 'crt.sh… (can take ten seconds)');
       const c = await certs(domain);
       return asData('crt.sh', [`Certificates for ${c.domain}:`, ...renderCerts(c)].join('\n'));
@@ -126,6 +140,7 @@ export const reconTools: Tool[] = [
       const no = refusal(raw);
       if (no) return no;
       const domain = bareHost(raw);
+      if (isIp(domain)) return `Not looking that up: ${NOT_BY_ADDRESS.subdomains}.`;
       progress(ctx, 'crt.sh and hackertarget…');
       const s = await subdomains(domain);
       return asData('crt.sh, hackertarget', clip([`Subdomains of ${s.domain}:`, ...renderSubdomains(s)].join('\n'), 6000));
@@ -141,22 +156,24 @@ export const reconTools: Tool[] = [
       const raw = arg.str(a, 'url').trim();
       const no = refusal(raw);
       if (no) return no;
-      const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}/`;
+      const url = parseTarget(raw).url;
       progress(ctx, 'archive.org…');
       const w = await wayback(url);
-      return asData('archive.org', [`Wayback Machine for ${url}:`, ...renderWayback(w)].join('\n'));
+      // w.url is what archive.org was asked for: the origin and path, never a query string.
+      return asData('archive.org', [`Wayback Machine for ${w.url}:`, ...renderWayback(w)].join('\n'));
     },
   },
   {
     name: 'ip_lookup',
-    description: `Who an IP address belongs to and where it is (ipwho.is: organisation, ASN, country, city) and what Shodan's free InternetDB already lists for it (open ports, hostnames, CPEs, known vulnerabilities) — a summary of what others have seen, never a scan by you. whois_rdap gives the network block. ${POLICY}`,
+    description: `Who an IP address belongs to and where it is (ipwho.is: organisation, ASN, country, city) and what Shodan's free InternetDB already lists for it (open ports, hostnames, CPEs, known vulnerabilities) — a summary of what others have seen, never a scan by you. whois_rdap gives the network block. For servers and services only: an address taken from a person's email header, message or game lobby can be their home connection, and placing it would then place a household, so do not look those up. ${POLICY}`,
     parameters: { type: 'object', properties: { ip: { type: 'string', description: 'an IPv4 or IPv6 address' } }, required: ['ip'] },
     risk: 'auto',
     pure: true,
     async run(a, ctx) {
-      const ip = arg.str(a, 'ip').trim();
-      const no = refusal(ip);
+      const raw = arg.str(a, 'ip').trim();
+      const no = refusal(raw);
       if (no) return no;
+      const ip = bareHost(raw);
       progress(ctx, 'ipwho.is and internetdb.shodan.io…');
       const i = await ipInfo(ip);
       return asData('ipwho.is, internetdb.shodan.io', [`Address ${ip}:`, ...renderHosting({ ips: [i], network: null })].join('\n'));
@@ -172,7 +189,7 @@ export const reconTools: Tool[] = [
       const raw = arg.str(a, 'url').trim();
       const no = refusal(raw);
       if (no) return no;
-      const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}/`;
+      const url = parseTarget(raw).url;
       progress(ctx, `fetching ${url}…`);
       const x = await httpFingerprint(url);
       return asData(url, [`HTTP fingerprint of ${url}:`, ...renderHttp(x)].join('\n'));

@@ -52,9 +52,18 @@ export const isImageId = (s: string): boolean => /^[A-Za-z0-9_-]{16}$/.test(s);
 
 const dayKey = (now: number) => `${COUNT}${new Date(now).toISOString().slice(0, 10)}`;
 
-/** How many pictures were shared today (UTC). */
+/**
+ * How many pictures were shared today (UTC). A count that cannot be read (KV's own daily
+ * allowance used up, a blip) is refused rather than taken as zero: otherwise the day's limit
+ * would stop applying exactly when KV is under strain.
+ */
 export async function sharesToday(kv: ImageKv, now = Date.now()): Promise<number> {
-  const v = await kv.get(dayKey(now), 'json').catch(() => null);
+  let v: unknown;
+  try {
+    v = await kv.get(dayKey(now), 'json');
+  } catch {
+    throw new LensError(503, "could not read today's share count (the picture store did not answer, or its own daily allowance is used up), so no picture is shared until it can be read — try again later, or tomorrow");
+  }
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 

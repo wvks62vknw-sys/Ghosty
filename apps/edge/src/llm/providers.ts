@@ -168,7 +168,8 @@ export const NOT_CHAT =
  * Models that can look at a picture (an image part in the owner's message): Gemini, Llama 4,
  * Pixtral and Mistral Small/Medium 3 (their "latest" aliases point at those), Gemma 3, the
  * Qwen VL models, GPT-4o/4.1/5, Claude, LLaVA, anything calling itself vision — and
- * Pollinations' `openai` (a GPT-4o class model behind an open endpoint).
+ * Pollinations' `openai` (a GPT-4o class model behind an open endpoint; the router still never
+ * sends a picture to an open endpoint, so this only says what the model could do).
  */
 export const VISION = /(gemini|llama-4|pixtral|mistral-small-3|mistral-medium-3|mistral-(small|medium)-latest|gemma-3|qwen[\w.-]*vl|gpt-4o|gpt-4\.1|gpt-5|^openai$|claude|llava|vision)/i;
 

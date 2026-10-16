@@ -48,7 +48,7 @@ export interface Target {
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 const IPV6 = /^[0-9a-f:]+$/i;
-const HOST = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/i;
+const HOST = /^(?=.{1,253}$)([a-z0-9_](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/i; // a label may start with _ (_dmarc.example.com)
 
 export const isIpv4 = (s: string): boolean => IPV4.test(s);
 /** An IPv6 address: hex groups of up to four digits, eight of them or fewer around one "::". */
@@ -61,6 +61,33 @@ export function isIpv6(s: string): boolean {
   return parts.length === 2 ? groups.length <= 7 : groups.length === 8;
 }
 export const isIp = (s: string): boolean => isIpv4(s) || isIpv6(s);
+
+/** The eight groups of an IPv6 address, each four hex digits ("2001:db8::1" → 2001, 0db8, 0000, …, 0001). */
+const groups6 = (ip: string): string[] => {
+  const [head = '', tail = ''] = ip.toLowerCase().split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail ? tail.split(':') : [];
+  return [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].map((g) => g.padStart(4, '0'));
+};
+
+/**
+ * An address no public record describes: loopback, private (10/8, 172.16/12, 192.168/16,
+ * fc00::/7), carrier NAT, link-local, multicast, reserved, the unspecified address, or an IPv4
+ * address mapped into IPv6. Refused before anything is asked about it.
+ */
+export function isPrivateIp(ip: string): boolean {
+  if (isIpv4(ip)) {
+    const [a, b] = ip.split('.').map(Number) as [number, number];
+    return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224;
+  }
+  const g = groups6(ip);
+  const first = parseInt(g[0]!, 16);
+  const hex = g.join('');
+  return /^0{31}[01]$/.test(hex) || hex.startsWith('00000000000000000000ffff') || (first & 0xfe00) === 0xfc00 || (first & 0xffc0) === 0xfe80 || (first & 0xff00) === 0xff00;
+}
+
+/** Names that never leave a local network (localhost, .local, .internal, .home.arpa). */
+const LOCAL_NAME = /^localhost$|\.(localhost|local|internal|home\.arpa)$/i;
 
 /** Second-level suffixes under which the registrable domain has three labels (co.uk, com.au, …). */
 const SECOND_LEVEL = /^(co|com|org|net|gov|edu|ac|or|ne|go|mil|nom|gob|sch|ltd|plc|me|biz|info|nhs|police)\.[a-z]{2}$/;
@@ -100,12 +127,15 @@ export function parseTarget(raw: string): Target {
   } catch {
     throw new Error(`"${raw.trim()}" is not a domain, host, IP address or web address`);
   }
+  // A username and password in the address would go out to every source: not sent anywhere.
+  if (u.username || u.password) throw new Error('leave the username and password out of the address');
   const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (isIp(host)) {
+    if (isPrivateIp(host)) throw new Error(`${host} is a private, local or reserved address — the public records are about public addresses only`);
     const url = hadScheme ? u.toString() : `http://${isIpv6(host) ? `[${host}]` : host}/`;
     return { kind: 'ip', host, domain: '', url };
   }
-  if (!HOST.test(host) || /^localhost$/i.test(host)) throw new Error(`"${host}" is not a public domain name or IP address`);
+  if (!HOST.test(host) || LOCAL_NAME.test(host)) throw new Error(`"${host}" is not a public domain name or IP address`);
   const bare = !hadScheme && (u.pathname === '/' || u.pathname === '') && !u.search;
   return { kind: bare ? 'domain' : 'url', host, domain: registrable(host), url: u.toString() };
 }
@@ -187,11 +217,7 @@ export function parseDns(json: unknown): DnsRecord[] {
 /** The in-addr.arpa / ip6.arpa name of an address, for a PTR lookup. */
 export function reverseName(ip: string): string {
   if (isIpv4(ip)) return `${ip.split('.').reverse().join('.')}.in-addr.arpa`;
-  const [head = '', tail = ''] = ip.toLowerCase().split('::');
-  const h = head ? head.split(':') : [];
-  const t = tail ? tail.split(':') : [];
-  const groups = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t].map((g) => g.padStart(4, '0'));
-  return `${groups.join('').split('').reverse().join('.')}.ip6.arpa`;
+  return `${groups6(ip).join('').split('').reverse().join('.')}.ip6.arpa`;
 }
 
 /** Email posture from the TXT records of a name and of _dmarc.<name>. */
@@ -302,6 +328,9 @@ export async function rdap(target: string, opts: { timeoutMs?: number } = {}): P
 
 /* ---------- certificates (crt.sh) ---------- */
 
+/** Why an IP address gets no certificate or subdomain lookup (registrable("93.184.216.34") would be "216.34"). */
+export const NOT_BY_ADDRESS = { certs: 'certificates are looked up by domain name, not by address', subdomains: 'subdomains are looked up by domain name, not by address' };
+
 /** The organisation in an issuer DN ("C=US, O=Let's Encrypt, CN=R11" → Let's Encrypt), else its CN, else the text. */
 export function issuerName(dn: string): string {
   const o = dn.match(/(?:^|,\s*)O=("[^"]*"|[^,]+)/)?.[1]?.replace(/^"|"$/g, '').trim();
@@ -353,6 +382,7 @@ export function repairJsonArray(text: string): unknown {
 /** Certificates issued for a domain and its subdomains, from certificate transparency logs via crt.sh. */
 export async function certs(domain: string, opts: { timeoutMs?: number } = {}): Promise<CertInfo> {
   const ms = opts.timeoutMs ?? TIMEOUTS.certs;
+  if (isIp(domain)) throw new Error(NOT_BY_ADDRESS.certs);
   const d = registrable(domain);
   const r = await fetch(`https://crt.sh/?q=${encodeURIComponent(d)}&output=json`, { headers: { 'User-Agent': API_UA, Accept: 'application/json' }, signal: AbortSignal.timeout(ms) });
   if (!r.ok) throw new Error(`answered ${r.status}`);
@@ -394,15 +424,28 @@ export function parseCdx(json: unknown): { timestamp: string; url: string } | nu
 /** "20020120142510" → "2002-01-20". */
 export const waybackDay = (ts: string): string => (ts.length >= 8 ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}` : ts);
 
-/** The closest snapshot of a URL, plus the first and latest captures of its host when the CDX API answers in time. */
+/** The address as archive.org is asked for it: origin and path only. A query string, fragment or password (a share link's token, a reset link) stays here. */
+export function archiveUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    u.username = u.password = '';
+    u.search = u.hash = '';
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/** The closest snapshot of a URL (looked up as its origin and path), plus the first and latest captures of its host when the CDX API answers in time. */
 export async function wayback(url: string, host = '', opts: { timeoutMs?: number } = {}): Promise<WaybackInfo> {
   const ms = opts.timeoutMs ?? TIMEOUTS.wayback;
-  const h = host || (() => { try { return new URL(url).hostname; } catch { return url; } })();
+  const asked = archiveUrl(url);
+  const h = host || (() => { try { return new URL(asked).hostname; } catch { return asked; } })();
   const cdx = (limit: number) => getJson<unknown>(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(h)}&output=json&limit=${limit}`, ms).then(parseCdx);
-  const [avail, first, latest] = await Promise.allSettled([getJson<unknown>(`https://archive.org/wayback/available?url=${encodeURIComponent(url)}`, ms), cdx(1), cdx(-1)]);
+  const [avail, first, latest] = await Promise.allSettled([getJson<unknown>(`https://archive.org/wayback/available?url=${encodeURIComponent(asked)}`, ms), cdx(1), cdx(-1)]);
   if (avail.status === 'rejected' && first.status === 'rejected' && latest.status === 'rejected') throw new Error(why(avail.reason, ms));
   return {
-    url,
+    url: asked,
     closest: avail.status === 'fulfilled' ? parseAvailable(avail.value) : null,
     first: first.status === 'fulfilled' ? first.value : null,
     latest: latest.status === 'fulfilled' ? latest.value : null,
@@ -509,6 +552,7 @@ export function mergeHosts(domain: string, certNames: string[], ht: SubdomainHos
 export async function subdomains(domain: string, opts: { timeoutMs?: number; certsMs?: number; certNames?: string[] | null; certsError?: string } = {}): Promise<SubdomainInfo> {
   const ms = opts.timeoutMs ?? TIMEOUTS.hackertarget;
   const certsMs = opts.certsMs ?? TIMEOUTS.certs;
+  if (isIp(domain)) throw new Error(NOT_BY_ADDRESS.subdomains);
   const d = registrable(domain);
   const [ht, ct] = await Promise.allSettled([
     fetch(`https://api.hackertarget.com/hostsearch/?q=${encodeURIComponent(d)}`, { headers: { 'User-Agent': API_UA, Accept: 'text/plain' }, signal: AbortSignal.timeout(ms) }).then(async (r) => {
@@ -593,6 +637,9 @@ export async function httpFingerprint(url: string, opts: { timeoutMs?: number; p
       break;
     }
     hops.push({ url: current, status: r.status, location: next });
+    // A hop into a private or local address (10.0.0.1, 169.254.169.254, foo.localhost) is recorded but not followed: the report ends at this redirect.
+    const to = new URL(next).hostname.replace(/^\[|\]$/g, '');
+    if (isIp(to) ? isPrivateIp(to) : LOCAL_NAME.test(to)) break;
     r.body?.cancel().catch(() => undefined);
     current = next;
     r = await fetch(current, { headers, redirect: 'manual', signal: AbortSignal.timeout(ms) });
@@ -678,7 +725,7 @@ export async function recon(raw: string, opts: ReconOptions = {}): Promise<Recon
 
   const dnsP = step('dns.google', () => dnsLookup(t.host, { timeoutMs: T.dns }), T.dns);
   const regP = step('rdap.org', () => rdap(t.kind === 'ip' ? t.host : t.domain, { timeoutMs: T.rdap }), T.rdap);
-  const certP = t.kind === 'ip' ? Promise.resolve(skip<CertInfo>('crt.sh', 'certificates are looked up by domain name, not by address')) : step('crt.sh', () => certs(t.domain, { timeoutMs: T.certs }), T.certs);
+  const certP = t.kind === 'ip' ? Promise.resolve(skip<CertInfo>('crt.sh', NOT_BY_ADDRESS.certs)) : step('crt.sh', () => certs(t.domain, { timeoutMs: T.certs }), T.certs);
   const histP = step('archive.org', () => wayback(t.url, t.host, { timeoutMs: T.wayback }), T.wayback);
   const httpP = step('direct request', () => httpFingerprint(t.url, { timeoutMs: T.http, probeMs: T.probe }), T.http);
   // hackertarget starts now; its names are merged with the certificates' once crt.sh answers.
@@ -686,17 +733,20 @@ export async function recon(raw: string, opts: ReconOptions = {}): Promise<Recon
     t.kind === 'ip'
       ? null
       : certP.then((c) => subdomains(t.domain, { timeoutMs: T.hackertarget, certsMs: T.certs, certNames: c.ok ? c.data.names : [], ...(c.ok ? {} : { certsError: c.error.replace(/^crt\.sh /, '') }) }));
-  const subP = htNames ? step('crt.sh, hackertarget', () => htNames, T.hackertarget) : Promise.resolve(skip<SubdomainInfo>('crt.sh, hackertarget', 'subdomains are looked up by domain name, not by address'));
+  const subP = htNames ? step('crt.sh, hackertarget', () => htNames, T.hackertarget) : Promise.resolve(skip<SubdomainInfo>('crt.sh, hackertarget', NOT_BY_ADDRESS.subdomains));
   const hostP = step(
     t.kind === 'ip' ? 'ipwho.is, internetdb.shodan.io' : 'ipwho.is, internetdb.shodan.io, rdap.org',
     async (): Promise<HostingInfo> => {
       const d = await dnsP;
       const ips = t.kind === 'ip' ? [t.host] : d.ok ? pickIps(d.data.ips) : [];
       if (!ips.length) throw new Error(d.ok ? 'the name has no address' : 'no address to look up without the DNS answer');
-      const [infos, net] = await Promise.all([
-        Promise.all(ips.map((ip) => ipInfo(ip, { timeoutMs: T.ip }))),
+      const [settled, net] = await Promise.all([
+        Promise.allSettled(ips.map((ip) => ipInfo(ip, { timeoutMs: T.ip }))),
         t.kind === 'ip' ? Promise.resolve(null) : rdap(ips[0]!, { timeoutMs: T.rdap }).catch(() => null),
       ]);
+      // An address neither source answered for is noted; the section only fails when that is true of every address.
+      if (settled.every((s) => s.status === 'rejected')) throw (settled[0] as PromiseRejectedResult).reason;
+      const infos: IpInfo[] = settled.map((s, i) => (s.status === 'fulfilled' ? s.value : { ip: ips[i]!, who: null, db: null, notes: why(s.reason, T.ip).split('; ') }));
       return { ips: infos, network: net };
     },
     T.ip,
@@ -704,7 +754,8 @@ export async function recon(raw: string, opts: ReconOptions = {}): Promise<Recon
 
   const [dns, registration, certificates, subs, history, hosting, http] = await Promise.all([dnsP, regP, certP, subP, histP, hostP, httpP]);
   const report: ReconReport = { target: raw.trim(), kind: t.kind, host: t.host, domain: t.domain, url: t.url, at: now, ms: Date.now() - started, dns, registration, certificates, subdomains: subs, history, hosting, http };
-  cache.set(key, { at: now, report });
+  // A report no source answered for (a network blip, everything timing out) is not kept: the next run asks again.
+  if ([dns, registration, certificates, subs, history, hosting, http].some((s) => s.ok)) cache.set(key, { at: now, report });
   for (const [k, v] of cache) if (now - v.at >= RECON_CACHE_MS) cache.delete(k);
   while (cache.size > 40) cache.delete(cache.keys().next().value!);
   return report;
@@ -806,7 +857,7 @@ export function renderReport(r: ReconReport): string {
   const failed = [r.dns, r.registration, r.certificates, r.subdomains, r.history, r.hosting, r.http].filter((s) => !s.ok && !s.skipped).length;
   return [
     `# Recon: ${r.target}`,
-    `Passive lookups of public records about ${r.kind === 'ip' ? `the address ${r.host}` : r.kind === 'url' ? `${r.url} (host ${r.host}, domain ${r.domain})` : `${r.host}${r.domain !== r.host ? ` (domain ${r.domain})` : ''}`} on ${when} UTC, ${(r.ms / 1000).toFixed(1)} s${r.cached ? ', from the last run' : ''}${failed ? `; ${failed} source${failed === 1 ? '' : 's'} did not answer` : ''}. Sources: ${SOURCES}. Infrastructure only — nothing here identifies a person.`,
+    `Passive lookups of public records about ${r.kind === 'ip' ? `the address ${r.host}` : r.kind === 'url' ? `${r.url} (host ${r.host}, domain ${r.domain})` : `${r.host}${r.domain !== r.host ? ` (domain ${r.domain})` : ''}`} on ${when} UTC, ${(r.ms / 1000).toFixed(1)} s${r.cached ? ', from the last run' : ''}${failed ? `; ${failed} source${failed === 1 ? '' : 's'} did not answer` : ''}. Sources: ${SOURCES}. These are records about infrastructure, not about a person; an address used by a home connection can still point to a household, so do not use this to find someone.`,
     ...sec('DNS', r.dns, renderDns),
     ...sec('Registration', r.registration, renderRdap),
     ...sec('Certificates', r.certificates, renderCerts),

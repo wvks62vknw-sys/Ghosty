@@ -25,6 +25,16 @@ export interface AskResult {
 /** The brain's own words when no model it can reach sees pictures. */
 export const NO_VISION = /can'?t see pictures|no vision model|cannot see (the |this )?(picture|image|photo)/i;
 
+/**
+ * What goes with the question as its own fields, which the brain marks as data about the picture
+ * (never as the owner's words): `seen` is what the phone's own detector and OCR saw, in plain
+ * words; `scan` is text the phone read off a picture with OCR.
+ */
+export interface AskExtras {
+  seen?: string;
+  scan?: string;
+}
+
 const push = (e: Entry) => chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 
 function context(): Record<string, unknown> {
@@ -41,12 +51,15 @@ function context(): Record<string, unknown> {
 
 /**
  * Ask with a picture (a JPEG data URL, ≤ 1024 px) or, with null, in text only. `onEvent` sees
- * every streamed event (for a status line); the result has the whole reply.
+ * every streamed event (for a status line); the result has the whole reply. `extras` ride along
+ * as their own fields (the brain's caps: seen 1,500 characters, scan 6,000).
  */
-export async function askWithImage(text: string, dataUrl: string | null, onEvent?: (e: ChatEvent) => void): Promise<AskResult> {
+export async function askWithImage(text: string, dataUrl: string | null, onEvent?: (e: ChatEvent) => void, extras: AskExtras = {}): Promise<AskResult> {
   const question = text.trim();
   const out: AskResult = { text: '', model: '', error: null, noVision: false };
   if (!question) return { ...out, error: 'Ask something first' };
+  const seen = (extras.seen ?? '').trim().slice(0, 1500);
+  const scan = (extras.scan ?? '').trim().slice(0, 6000);
   const recent = chat
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
@@ -84,7 +97,7 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
   };
   try {
     const library = await passagesFor(question).catch(() => []);
-    await streamEvents('/chat', { message: question, context: context(), recent, images: dataUrl ? [dataUrl] : undefined, offline: { ...offlineContext(), library } }, handle);
+    await streamEvents('/chat', { message: question, context: context(), recent, images: dataUrl ? [dataUrl] : undefined, offline: { ...offlineContext(), library }, ...(seen ? { seen } : {}), ...(scan ? { scan } : {}) }, handle);
   } catch (e) {
     out.error = String((e as Error)?.message ?? e);
     push({ kind: 'error', text: out.error });

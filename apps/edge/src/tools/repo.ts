@@ -175,7 +175,10 @@ ${text === null ? '(does not exist)' : clip(text, per)}`;
       await checkPaths(edits, ctx);
       const main = await mainBranch(g, ctx);
       const head = await g.headSha(main);
+      // Reading, checking and writing take a while each: the chat shows which is under way. (?. — tests call tools with a bare context.)
+      ctx.progress?.(`reading ${edits.length} file${edits.length === 1 ? '' : 's'}…`);
       const staged = await stageChecked(g, head, edits);
+      ctx.progress?.('writing the change…');
       const sha = await g.commitStaged(head, `${title}\n\nProposed by Ghosty.`, staged);
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 16);
       const branch = `${BRANCH_PREFIX}${slug}-${Date.now().toString(36).slice(-4)}`;
@@ -243,11 +246,15 @@ ${text === null ? '(does not exist)' : clip(text, per)}`;
       const g = await gh(ctx);
       const n = arg.num(a, 'pr');
       const t0 = Date.now();
+      // A build takes a minute or two: each look at the checks is counted under this tool's line. (?. — tests call tools with a bare context.)
+      let poll = 1;
+      ctx.progress?.(`checking… poll ${poll}`);
       let pr = await g.pr(n);
       let c = await g.checks(pr.head.sha);
       while ((c.state === 'pending' || c.state === 'none') && Date.now() - t0 < 6 * 60_000) {
         ctx.emit({ t: 'status', text: `waiting for the checks on change #${n}… ${Math.round((Date.now() - t0) / 1000)}s` });
         await new Promise((r) => setTimeout(r, 20_000));
+        ctx.progress?.(`checking… poll ${++poll}`);
         pr = await g.pr(n);
         c = await g.checks(pr.head.sha);
       }

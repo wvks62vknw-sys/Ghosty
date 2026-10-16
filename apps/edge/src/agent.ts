@@ -24,7 +24,7 @@ import { transitRoute } from './integrations/transit';
 import { liveEvents } from './integrations/highways';
 import { notInfrastructure, recon, renderReport } from './integrations/recon';
 import { Router, type Msg, type ToolCall } from './llm/router';
-import { imagesIn, markPhotos, stripImages, textOf, withImages } from './llm/content';
+import { imagesIn, markPhotos, ownerWords, stripImages, textOf, withImages } from './llm/content';
 import { forgetImage, LensError, MAX_IMAGE_BYTES, shareImage } from './lens';
 import { chunkText } from '../../../packages/shared/src/chunk';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
@@ -121,10 +121,29 @@ function pictures(raw: unknown): string[] | null {
   return out;
 }
 
-/** The reply to a photo when no model that can see it is reachable: honest, and what the phone itself saw. */
-function noVisionAnswer(text: string): string {
-  const seen = text.match(/\[on-device:([^\]]*)\]/)?.[1]?.trim().replace(/[.;\s]+$/, '');
-  return `I can't see pictures with the models I can reach right now (add a Gemini key in the System tab: free). ${seen ? `Here is what the phone itself saw: ${seen}.` : 'The phone did not pass on what it saw, so tell me the labels or the text and I will work from those.'}`;
+/** What the phone's own detector and OCR saw (`seen`, one line) and text it read off a picture (`scan`): at most this long. */
+const MAX_SEEN_CHARS = 1500;
+const MAX_SCAN_CHARS = 6000;
+
+/** A string field of a request, trimmed and capped; anything else counts as empty. */
+const field = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+
+/**
+ * The owner's words, then what the phone's camera saw and read, each marked as external data
+ * (facts about the picture, never instructions): a sign or a document the camera read must not
+ * arrive with the owner's authority.
+ */
+function withSeen(text: string, seen: string, scan: string): string {
+  let out = text;
+  if (seen) out += `\n\n${asData("the phone's own camera detector and OCR", seen)}`;
+  if (scan) out += `\n\n${asData('text the phone read off the picture with OCR', scan)}`;
+  return out;
+}
+
+/** The reply to a photo when no model that can see it is reachable: honest, and what the phone itself saw (its `seen` note). */
+function noVisionAnswer(seen: string): string {
+  const saw = seen.trim().replace(/[.;\s]+$/, '');
+  return `I can't see pictures with the models I can reach right now (add a Gemini key in the System tab: free). ${saw ? `Here is what the phone itself saw: ${saw}.` : 'The phone did not pass on what it saw, so tell me the labels or the text and I will work from those.'}`;
 }
 
 
@@ -396,12 +415,12 @@ export class GhostyAgent {
         return json({ events, total: r.events.length, at: r.at, src: r.src, credit: r.credit });
       }
       if (path === '/recon' && method === 'GET') {
-        // Infrastructure recon for the Threats tab's RECON card: passive public records about a domain, host, IP or URL (10-minute cache); never a person.
+        // Infrastructure recon for the Threats tab's RECON card: passive public records about a domain, host, IP or URL (10-minute cache; fresh=1 asks again); never a person.
         const target = (url.searchParams.get('target') ?? '').trim().slice(0, 300);
         const why = notInfrastructure(target);
         if (why) return json({ error: why }, 400);
         try {
-          const report = await recon(target);
+          const report = await recon(target, { fresh: url.searchParams.get('fresh') === '1' });
           return json({ report, markdown: renderReport(report) });
         } catch (e) {
           return json({ error: String((e as Error)?.message ?? e) }, 400);
@@ -520,12 +539,16 @@ export class GhostyAgent {
   }
 
   private async chat(req: Request): Promise<Response> {
-    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown };
+    const body = (await req.json()) as { message: string; images?: unknown; context?: ClientContext; recent?: unknown; offline?: unknown; seen?: unknown; scan?: unknown };
     const text = String(body.message ?? '').trim().slice(0, 12000);
     if (!text) return json({ error: 'empty message' }, 400);
     // Pictures from the Lens ride along as parts of the owner's message (never stored: see trimContext).
     const images = pictures(body.images);
     if (!images) return json({ error: 'a picture must be a JPEG, PNG or WebP data URL of at most 1.5 MB, two at most' }, 400);
+    // What the phone's own camera saw (seen) and read off the picture (scan) go after the owner's words, marked as data; the history keeps the words alone.
+    const seen = field(body.seen, MAX_SEEN_CHARS).replace(/\s+/g, ' ');
+    const scan = field(body.scan, MAX_SCAN_CHARS);
+    const turn = withSeen(text, seen, scan);
     this.turnLinks = [];
     const { s, signal, done } = this.begin();
     const client = body.context ?? {};
@@ -548,11 +571,11 @@ export class GhostyAgent {
             await this.storage.delete(PENDING_KEY);
           }
           await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
-          const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(text, images) : text }];
-          await this.loop(ctx, client, s.emit, signal);
+          const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
+          await this.loop(ctx, client, s.emit, signal, seen);
         } catch (e) {
           const paused = storageError(e);
-          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline, images);
+          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline, images, turn, seen);
           // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
           else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
           else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
@@ -577,11 +600,11 @@ export class GhostyAgent {
 
   /**
    * Tools that work without the database, for this message: web, weather, travel, traffic and
-   * cameras, email, radio and Spotify, the screen, widgets, plus memory, reminders, events and
-   * library search backed by the owner's device.
+   * cameras, email, radio and Spotify, the screen, widgets, recon (public records, keyless),
+   * plus memory, reminders, events and library search backed by the owner's device.
    */
   private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
-    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'maps', 'email', 'media', 'spotify', 'widgets', 'sites']);
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'maps', 'email', 'media', 'spotify', 'widgets', 'sites', 'recon']);
     const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
     const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
     const names = new Set(device.map((t) => t.name));
@@ -601,7 +624,8 @@ export class GhostyAgent {
     return { ...this.toolContext(emit), storage, kernelUnlocked: async () => false };
   }
 
-  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown, images: string[] = []): Promise<void> {
+  /** `turn`: the owner's words with what the phone's camera saw and read after them, marked as data (`text` is the words alone); `seen`: the camera's note on its own. */
+  private async pausedChat(text: string, recentRaw: unknown, client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, why: string, offlineRaw?: unknown, images: string[] = [], turn = text, seen = ''): Promise<void> {
     // The owner's memory, agenda and documents, from the copy their device keeps (data, not instructions).
     const dev = (offlineRaw && typeof offlineRaw === 'object' ? offlineRaw : {}) as { facts?: unknown; agenda?: unknown; library?: unknown };
     const strings = (v: unknown, n: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(-n).map((x) => x.slice(0, 300)) : []);
@@ -618,17 +642,17 @@ export class GhostyAgent {
     const hits = [...searchPassages(text, passages, 3), ...searchStarterInMemory(text)].slice(0, 4);
     const sys =
       systemPrompt(client, facts, false) +
-      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up), but nearly everything still works. Your memory, agenda and the owner's own documents come from the copy on their device (above and below); remember / set_reminder / add_event are kept on the device and saved to you automatically after the reset. Web search, weather, directions, traffic and cameras, email, radio, Spotify, the screen and widgets all work as usual (their keys come from the owner's device). Rebuilding and publishing websites (study_site, publish_site) works too: published pages live outside the database. Only library imports, push notifications to the phone and self-editing wait for the reset. Mention the pause only when it matters.` +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up), but nearly everything still works. Your memory, agenda and the owner's own documents come from the copy on their device (above and below); remember / set_reminder / add_event are kept on the device and saved to you automatically after the reset. Web search, weather, directions, traffic and cameras, email, radio, Spotify, the screen and widgets all work as usual (their keys come from the owner's device). Rebuilding and publishing websites (study_site, publish_site) works too: published pages live outside the database. Recon (recon_domain and its pieces) works as well: it reads public records, but recon_domain's save: true cannot file the report until the reset. Only library imports, push notifications to the phone and self-editing wait for the reset. Mention the pause only when it matters.` +
       (agendaLines.length ? `\n\nTHE OWNER'S AGENDA (next two weeks, from their device):\n${asData("the owner's agenda", agendaLines.join('\n'))}` : '') +
       (hits.length ? `\n\nFROM YOUR LIBRARY:\n${asData('your library', formatHits(hits, 3500))}` : '');
     try {
       // A photo rides along in paused mode too (as parts, like in the normal loop; never stored).
-      await this.pausedLoop([...recent, { role: 'user', content: images.length ? withImages(text, images) : text }], sys, client, passages, text, emit, signal);
+      await this.pausedLoop([...recent, { role: 'user', content: images.length ? withImages(turn, images) : turn }], sys, client, passages, text, emit, signal);
     } catch (e) {
       if (signal.aborted) return;
       // A photo, but no model that can see it: say so, and pass on what the phone itself saw.
       if (images.length && /no vision model reachable/.test(String((e as Error)?.message ?? e))) {
-        emit({ t: 'text', text: `${why}\n\n${noVisionAnswer(text)}` });
+        emit({ t: 'text', text: `${why}\n\n${noVisionAnswer(seen)}` });
         emit({ t: 'done', model: 'No vision model · memory paused' });
         return;
       }
@@ -690,7 +714,8 @@ export class GhostyAgent {
       } else {
         emit({ t: 'tool', id: call.id, name: call.function.name, args });
         try {
-          if (!tool) throw new Error(`${call.function.name} needs my database, which is paused until midnight UTC`);
+          // Not offered while paused (memory, agenda, library imports, self-editing…): say that, not that it needs the database.
+          if (!tool) throw new Error(`${call.function.name} is not available while my database is paused (it is back at midnight UTC)`);
           result = await tool.run(args, forCall(tctx, emit, call.id, tool.name));
         } catch (e) {
           ok = false;
@@ -829,7 +854,8 @@ export class GhostyAgent {
     }
   }
 
-  private async loop(ctx: Msg[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal): Promise<void> {
+  /** `seen`: the phone camera's own note about a picture in this message, for the answer when no model can look at it. */
+  private async loop(ctx: Msg[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, seen = ''): Promise<void> {
     const repoReady = !!(await this.github());
     const knowledge = await this.recall(lastUserText(ctx), codingTurn(ctx));
     for (let step = 0; step < MAX_STEPS; step++) {
@@ -856,7 +882,7 @@ export class GhostyAgent {
         const why = String((e as Error)?.message ?? e);
         // A photo, but no model that can see it: say so, and pass on what the phone itself saw.
         if (step === 0 && !signal.aborted && /no vision model reachable/.test(why) && imagesIn(ctx[ctx.length - 1]?.content)) {
-          const text = noVisionAnswer(textOf(ctx[ctx.length - 1]!.content));
+          const text = noVisionAnswer(seen);
           emit({ t: 'text', text });
           emit({ t: 'done', model: 'No vision model' });
           await this.addTurn({ role: 'assistant', text, at: Date.now(), model: 'No vision model' });
@@ -935,7 +961,7 @@ export class GhostyAgent {
     if (!this.library.available || answer.length < 120) return;
     let i = ctx.length - 1;
     while (i > 0 && ctx[i]!.role !== 'user') i--;
-    const question = textOf(ctx[i]?.content);
+    const question = ownerWords(textOf(ctx[i]?.content));
     const calls = ctx.slice(i).flatMap((m) => m.tool_calls ?? []);
     const research = calls.filter((c) => /^(web_search|web_fetch|library_import|weather|earthquakes|find_nearby|get_directions)$/.test(c.function.name));
     if (!research.length || !question.trim()) return;
@@ -1403,9 +1429,9 @@ function argsProblem(raw: string): string | null {
 const CODE_TOOLS = /^(study|publish_site|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson|self_audit|plan_upgrade|roadmap|update_step)/;
 const CODE_WORDS = /\b(code|coding|build|rebuild|recreate|remake|redesign|clone|website|web ?site|landing page|program|script|function|bug|fix|feature|tab|panel|widget|game|app|refactor|typescript|javascript|python|html|css|api|backend|full-?stack|databases?\b|schemas?\b|crud\b|endpoints?\b|(?:web|api|node|express|postgres|db|database) server|server-?side|login system|o?auth(?:n|z|enticat\w*|ori[sz]\w*)?\b|jwt\b|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|carry on|add (a|an) )/i;
 
-/** The owner's latest message. */
+/** The owner's latest message: their own words, without the data the brain attached (what the phone's camera saw or read). */
 function lastUserText(ctx: Msg[]): string {
-  for (let i = ctx.length - 1; i >= 0; i--) if (ctx[i]!.role === 'user') return textOf(ctx[i]!.content);
+  for (let i = ctx.length - 1; i >= 0; i--) if (ctx[i]!.role === 'user') return ownerWords(textOf(ctx[i]!.content));
   return '';
 }
 

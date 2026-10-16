@@ -67,6 +67,10 @@ export function flattenRaw(d: RawData): { lines: OcrLine[]; words: OcrWord[] } {
 
 export class Reader {
   private worker: Promise<WorkerLike> | null = null;
+  /** The read in flight hears the library's progress (its bar); between reads, whoever warmed the worker does. */
+  private onProgress: Progress | null = null;
+  /** Ends the read in flight: the library's own promise never settles once its worker is terminated. */
+  private stop: ((e: Error) => void) | null = null;
   busy = false;
 
   /** Start the worker and load the English model now, so the first capture is quick. */
@@ -91,7 +95,7 @@ export class Reader {
         gzip: true,
         logger: (m: { status?: string; progress?: number }) => {
           const s = String(m.status ?? '');
-          progress(STATUS[s] ?? s, typeof m.progress === 'number' ? m.progress : undefined);
+          (this.onProgress ?? progress)(STATUS[s] ?? s, typeof m.progress === 'number' ? m.progress : undefined);
         },
       });
     })().catch((e: unknown) => {
@@ -101,17 +105,23 @@ export class Reader {
     return this.worker;
   }
 
-  /** Read the text in a canvas or picture file. */
+  /** Read the text in a canvas or picture file; rejects with "reader stopped" if terminate() comes first. */
   async read(src: HTMLCanvasElement | Blob, progress: Progress = () => undefined): Promise<OcrResult> {
     if (this.busy) throw new Error('Still reading the last picture');
     this.busy = true;
+    let stop: (e: Error) => void = () => undefined;
+    const stopped = new Promise<never>((_, bad) => (stop = bad));
+    this.stop = stop;
+    this.onProgress = progress;
     try {
-      const w = await this.get(progress);
+      const w = await Promise.race([this.get(progress), stopped]);
       progress('reading…', 0);
-      const { data } = await w.recognize(src, {}, { text: true, blocks: true });
+      const { data } = await Promise.race([w.recognize(src, {}, { text: true, blocks: true }), stopped]);
       const { lines, words } = flattenRaw(data);
       return { text: String(data.text ?? ''), confidence: Number(data.confidence) || 0, lines, words };
     } finally {
+      if (this.stop === stop) this.stop = null;
+      this.onProgress = null;
       this.busy = false;
     }
   }
@@ -124,6 +134,8 @@ export class Reader {
     const w = this.worker;
     this.worker = null;
     this.busy = false;
+    this.stop?.(new Error('reader stopped'));
+    this.stop = null;
     if (w) void w.then((x) => x.terminate()).catch(() => undefined);
   }
 }

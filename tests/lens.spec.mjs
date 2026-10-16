@@ -1,5 +1,7 @@
-// The Lens on an iPhone 13: the camera opens (a fake one here), SEE loads the detector and runs,
-// READ reads a drawn line of text on the phone and files it in the library, HANDS loads the
+// The Lens on an iPhone 13: the brain's open_lens opens the tab but not the camera, START (a tap)
+// opens it (a fake one here), SEE loads the detector and runs, UNFREEZE in READ clears the held
+// frame, READ reads a drawn line of text on the phone and files it in the library and still works
+// after the tab was left mid-read, a tap on the Lens tile opens the camera again, HANDS loads the
 // gesture recogniser, ASK sends a still to the brain and shows its reply (the mock model answers
 // "I can see a picture"), and the security policy lets the vendored WebAssembly run.
 import { chromium } from 'playwright';
@@ -45,11 +47,20 @@ const lens = () => page.evaluate(() => {
 });
 const until = (fn, ms, what) => page.waitForFunction(fn, null, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
 
-// ---- SEE: the camera opens and the detector runs on the live picture ----
-await page.evaluate(() => window.__ghosty.run('open_lens', { mode: 'see' }));
-await page.waitForTimeout(500);
+// ---- open_lens (the brain's auto-approved command) opens the LENS tab but leaves the camera off ----
+// A Playwright evaluate counts as a tap for 5 s, so the command runs from a timer after that, like a
+// client event from the brain with no tap behind it; nothing is evaluated in the page meanwhile.
+await page.evaluate(() => setTimeout(() => window.__ghosty.run('open_lens', { mode: 'see' }), 5500));
+await page.waitForTimeout(7000);
 if (!(await page.locator('#pg-lens').isVisible())) problems.push('open_lens did not open the LENS tab');
-await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open: ${JSON.stringify(await lens())}`);
+const untouched = await lens();
+if (untouched?.camera !== 'off') problems.push(`open_lens switched the camera on by itself: ${JSON.stringify(untouched)}`);
+const startLabel = (await page.locator('#pg-lens .lensbar button').first().textContent()) ?? '';
+if (startLabel !== 'START') problems.push(`the camera button reads "${startLabel}" while the camera is off`);
+
+// ---- SEE: START (a tap) opens the camera and the detector runs on the live picture ----
+await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open from START: ${JSON.stringify(await lens())}`);
 // swiftshader runs the detector slowly; one run is enough to show it loaded and works
 await until(() => window.__ghosty?.lens?.fps > 0 || window.__ghosty?.lens?.scene?.length > 0, 90000, `SEE never ran the detector: ${JSON.stringify(await lens())}`);
 const see = await lens();
@@ -64,7 +75,16 @@ if (!/live|frozen|fps/.test(seeStatus)) problems.push(`SEE status is "${seeStatu
 await page.evaluate(() => window.__ghosty.lens.setMode('read'));
 await page.waitForTimeout(500);
 await page.screenshot({ path: `${out}/lens-see.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot after SEE: ${e.message.split('\n')[0]}`));
-const png = await page.evaluate(async () => {
+// FREEZE holds a frame over the live picture; UNFREEZE lets go of it in READ too (nothing else to clear it there)
+const stillShown = () => page.evaluate(() => !document.querySelector('#pg-lens canvas.lensstill')?.hidden);
+await page.locator('#pg-lens .lensbar button', { hasText: 'FREEZE' }).click();
+await page.waitForTimeout(300);
+if (!(await stillShown())) problems.push('FREEZE in READ did not show the held frame');
+await page.locator('#pg-lens .lensbar button', { hasText: 'UNFREEZE' }).click();
+await page.waitForTimeout(300);
+if (await stillShown()) problems.push('UNFREEZE in READ left the held frame on screen');
+if ((await lens())?.frozen) problems.push('UNFREEZE in READ left the Lens frozen');
+const drawn = (big, small) => page.evaluate(async ([big, small]) => {
   const c = document.createElement('canvas');
   c.width = 1200;
   c.height = 400;
@@ -73,16 +93,18 @@ const png = await page.evaluate(async () => {
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#000';
   g.font = 'bold 72px sans-serif';
-  g.fillText('GHOSTY READS THIS', 60, 150);
+  g.fillText(big, 60, 150);
   g.font = '48px sans-serif';
-  g.fillText('Second line of the note', 60, 280);
+  g.fillText(small, 60, 280);
   const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
   const buf = new Uint8Array(await blob.arrayBuffer());
   let s = '';
   for (const b of buf) s += String.fromCharCode(b);
   return btoa(s);
-});
-await page.locator('#pg-lens input[type=file]').setInputFiles({ name: 'note.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+}, [big, small]);
+const pickPhoto = async (png) => page.locator('#pg-lens input[type=file]').setInputFiles({ name: 'note.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+const png = await drawn('GHOSTY READS THIS', 'Second line of the note');
+await pickPhoto(png);
 await until(() => /GHOSTY READS THIS/i.test(window.__ghosty?.lens?.ocrText ?? ''), 120000, `READ did not read the drawn text: ${JSON.stringify(await lens())}`);
 const read = await lens();
 if (read && read.ocrConfidence < 60) problems.push(`READ confidence is low: ${read.ocrConfidence}`);
@@ -97,6 +119,23 @@ else {
   else if (j.kind !== 'scan') problems.push(`the scanned note was filed as "${j.kind}", not "scan"`);
 }
 await page.screenshot({ path: `${out}/lens-read.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot after READ: ${e.message.split('\n')[0]}`));
+
+// ---- leaving the Lens mid-read, then coming back by a tap on its tile: the camera opens again and READ reads again ----
+await pickPhoto(png);
+await until(() => { const p = document.querySelector('#pg-lens .lensprog'); return !!p && !p.hidden; }, 15000, `the second read did not start: ${JSON.stringify(await lens())}`);
+await page.click('#dock button[data-id="core"]');
+await page.waitForTimeout(600);
+if (await page.locator('#pg-lens').isVisible()) problems.push('the CORE tab did not replace the Lens');
+const away = await lens();
+if (away?.camera !== 'off') problems.push(`leaving the Lens did not stop the camera: ${JSON.stringify(away)}`);
+await page.click('#top .logo');
+await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open from the logo'));
+await page.click('#deck .dtile[data-id="lens"]');
+await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `a tap on the Lens tile did not open the camera again: ${JSON.stringify(await lens())}`);
+if ((await lens())?.mode !== 'read') problems.push(`the Lens came back in ${(await lens())?.mode}, not READ`);
+await page.evaluate(() => (window.__ghosty.lens.ocrText = ''));
+await pickPhoto(await drawn('LENS READS AGAIN', 'after the tab was left'));
+await until(() => /LENS READS AGAIN/i.test(window.__ghosty?.lens?.ocrText ?? ''), 120000, `READ did not work again after the Lens was left mid-read: ${JSON.stringify(await lens())}`);
 
 // ---- HANDS: the gesture recogniser loads and runs (the fake camera shows no hand) ----
 await page.evaluate(() => window.__ghosty.lens.setMode('hands'));
@@ -138,5 +177,5 @@ const wide = await page.evaluate(() => document.documentElement.scrollWidth > wi
 if (wide) problems.push('the Lens is wider than the phone screen');
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: the camera opened, SEE ran the detector, READ read a drawn note on the phone and filed it as SCANNED, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, and the security policy blocked nothing.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, and the security policy blocked nothing.');
 process.exit(problems.length ? 1 : 0);

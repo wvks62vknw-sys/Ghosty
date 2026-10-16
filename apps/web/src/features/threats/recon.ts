@@ -56,8 +56,11 @@ export function reconPanel(): HTMLElement {
     const tick = () => (status.textContent = runningText(target, Date.now() - t0));
     tick();
     const timer = window.setInterval(tick, 250);
+    // RUN again on a target whose last run had silent sources asks the sources again instead of showing the kept report.
+    const same = (a: string, b: string) => a.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '') === b.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    const fresh = !!current && same(current.report.target, target) && failedCount(current.report) > 0;
     try {
-      const r = await fetch(`/api/recon?target=${encodeURIComponent(target)}`, { headers: headers(), credentials: 'same-origin' });
+      const r = await fetch(`/api/recon?target=${encodeURIComponent(target)}${fresh ? '&fresh=1' : ''}`, { headers: headers(), credentials: 'same-origin' });
       const j = (await r.json().catch(() => null)) as { report?: ReconReport; markdown?: string; error?: string } | null;
       if (!r.ok || !j?.report || typeof j.markdown !== 'string') throw new Error(j?.error ?? `the brain answered ${r.status}`);
       current = { report: j.report, markdown: j.markdown };

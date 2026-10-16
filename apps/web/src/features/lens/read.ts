@@ -26,6 +26,8 @@ export function createReadMode(L: LensContext): Mode {
   file.hidden = true;
   const live = button('LIVE VIEW', () => {
     still = null;
+    // a held frame is a still on screen too: let go of it
+    if (S.frozen) L.freeze(false);
     L.showStill(null);
     L.clearOverlay();
     live.hidden = true;
@@ -119,7 +121,8 @@ export function createReadMode(L: LensContext): Mode {
       progress.hidden = true;
       const msg = String((e as Error)?.message ?? e);
       L.status(`Could not read it: ${msg}`, 'off');
-      toast(`Could not read it: ${msg}`, 'bad');
+      // no pop-up for a read the owner ended themselves by leaving the Lens ("reader stopped")
+      if (L.active()) toast(`Could not read it: ${msg}`, 'bad');
     } finally {
       reading = false;
     }
@@ -147,6 +150,16 @@ export function createReadMode(L: LensContext): Mode {
     leave() {
       L.showStill(null);
       L.clearOverlay();
+      // Leaving the Lens terminates the reader, which ends any read in flight: READ must not stay "still reading".
+      reading = false;
+      progress.hidden = true;
+    },
+    froze() {
+      // the held frame is a still on screen: LIVE VIEW lets go of it too
+      live.hidden = false;
+    },
+    unfroze() {
+      live.hidden = !still;
     },
   };
 }

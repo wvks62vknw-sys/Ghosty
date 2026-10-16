@@ -192,16 +192,16 @@ test('while paused, a photo still reaches a model that can see it; with none, th
   } finally {
     ai.restore();
   }
-  // only a text-only key: no model can look, and the owner hears so (with what the phone itself saw), still paused
+  // only a text-only key: no model can look, and the owner hears so (with what the phone itself saw, from the `seen` field), still paused
   const ai2 = fakeAI('should not be asked');
   try {
     const storage = new MemStorage();
     storage.down = true;
     const a = newAgent(storage, { GROQ_KEY: 'gsk_x', KEYLESS_MODELS: '0' });
-    const ev = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'what is this? [on-device: labels bicycle, person; text none]', images: [PHOTO] }) }));
+    const ev = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'what is this?', images: [PHOTO], seen: 'labels bicycle, person; text "EXIT [1]"' }) }));
     const text = ev.find((e) => e.t === 'text')?.text ?? '';
     assert.match(text, /can't see pictures/);
-    assert.match(text, /bicycle/, 'what the phone saw is passed on');
+    assert.match(text, /Here is what the phone itself saw: labels bicycle, person; text "EXIT \[1\]"\.$/, 'what the phone saw is passed on, whole');
     assert.equal(ev.find((e) => e.t === 'done')?.model, 'No vision model · memory paused');
     assert.equal(ai2.sent.length, 0, 'a text-only model was never given the question');
   } finally {
@@ -354,6 +354,38 @@ test('the database meter counts the brain\'s own reads and writes and shows in /
     const labels = m.by.map((b) => b.label);
     assert.ok(labels.includes('route:chat') && labels.includes('route:keys'), labels.join(','));
     assert.ok(m.resetAt > Date.now());
+  } finally {
+    ai.restore();
+  }
+});
+
+test('while paused: recon is offered and runs (public records, no database); a tool not offered is refused as unavailable, not as needing the database', async () => {
+  const replies = [
+    { role: 'assistant', content: null, tool_calls: [{ id: 'r1', type: 'function', function: { name: 'dns_lookup', arguments: JSON.stringify({ name: 'example.com' }) } }] },
+    { role: 'assistant', content: 'Looked it up.' },
+    // called by name although it is not offered while paused (the prompt lists every tool name)
+    { role: 'assistant', content: null, tool_calls: [{ id: 'r2', type: 'function', function: { name: 'library_import', arguments: JSON.stringify({ source: 'https://example.com/page' }) } }] },
+    { role: 'assistant', content: 'That has to wait.' },
+  ];
+  const ai = fakeAI((n) => replies[Math.min(n, replies.length) - 1]);
+  try {
+    const storage = new MemStorage();
+    storage.down = true;
+    const a = newAgent(storage, { GROQ_KEY: 'gsk_x' });
+    const ev = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'recon example.com' }) }));
+    const names = ai.sent[0].body.tools.map((t) => t.function.name);
+    for (const n of ['recon_domain', 'dns_lookup', 'whois_rdap', 'cert_search', 'subdomains', 'wayback_lookup', 'ip_lookup', 'http_fingerprint']) assert.ok(names.includes(n), `${n} offered while paused`);
+    assert.match(String(ai.sent[0].body.messages[0].content), /Recon \(recon_domain and its pieces\) works as well/, 'the paused prompt says recon works');
+    const ran = ev.find((e) => e.t === 'tool_result' && e.name === 'dns_lookup');
+    assert.ok(ran, 'the lookup ran');
+    assert.doesNotMatch(ran.summary, /needs my database|not available while my database is paused/, ran.summary);
+    assert.equal(ev.find((e) => e.t === 'text')?.text, 'Looked it up.');
+
+    const ev2 = await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'import https://example.com/page into the library' }) }));
+    const refused = ev2.find((e) => e.t === 'tool_result' && e.name === 'library_import');
+    assert.ok(refused && !refused.ok, JSON.stringify(ev2));
+    assert.match(refused.summary, /library_import is not available while my database is paused \(it is back at midnight UTC\)/);
+    assert.doesNotMatch(refused.summary, /needs my database/);
   } finally {
     ai.restore();
   }

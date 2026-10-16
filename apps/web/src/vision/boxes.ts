@@ -175,15 +175,25 @@ export function sceneLine(cats: Category[], max = 3): string {
     .join(' · ');
 }
 
-/** What the phone itself saw, in words, for a message to Ghosty ("[on-device: labels …; scene …]"). */
-export function onDeviceSummary(dets: Detection[], scene: Category[], text = ''): string {
+/**
+ * What the phone itself saw, in plain words ("labels car, person; scene street 60%; text "STOP"");
+ * '' when nothing. Sent to the brain as its own `seen` field, which the brain marks as data about
+ * the picture — never inside the owner's words.
+ */
+export function onDeviceSeen(dets: Detection[], scene: Category[], text = ''): string {
   const parts: string[] = [];
   const counts = countLabels(dets);
   if (counts.length) parts.push(`labels ${counts.map((c) => (c.n > 1 ? `${c.label} ×${c.n}` : c.label)).join(', ')}`);
   if (scene.length) parts.push(`scene ${sceneLine(scene, 3)}`);
   const t = text.replace(/\s+/g, ' ').trim();
   if (t) parts.push(`text "${t.slice(0, 600)}${t.length > 600 ? '…' : ''}"`);
-  return parts.length ? `[on-device: ${parts.join('; ')}]` : '';
+  return parts.join('; ');
+}
+
+/** The same as a bracketed note ("[on-device: labels …; scene …]"). */
+export function onDeviceSummary(dets: Detection[], scene: Category[], text = ''): string {
+  const seen = onDeviceSeen(dets, scene, text);
+  return seen ? `[on-device: ${seen}]` : '';
 }
 
 /** Detections from MediaPipe's result shape, cleaned up: a label, a score and a box each. */

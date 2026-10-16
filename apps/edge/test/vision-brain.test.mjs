@@ -44,13 +44,18 @@ test('visionScore: which models can look at a picture (and every earlier export 
   assert.ok(P.PROVIDERS.find((p) => p.id === 'groq').seed.every((m) => P.visionScore(m) === 0));
 });
 
-test('a message with a picture goes only to models that can see it; text-only models are skipped', async () => {
+test('a message with a picture goes only to models that can see it; text-only models are skipped, and the open endpoint is never given a picture', async () => {
   const log = [];
   const gemini = P.PROVIDERS.find((p) => p.id === 'gemini').seed;
   globalThis.fetch = fakeFetch(log, Object.fromEntries(gemini.map((m) => [m, 429])));
   const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q', cerebras: 'c' }), {});
-  const out = await r.complete([withPhoto('What is this?')], TOOLS);
-  assert.equal(out.model, 'Pollinations · openai', 'every Gemini model was rate-limited; the next model that can see is the open endpoint');
+  // every Gemini model is rate-limited and there is no Workers AI here: the turn ends with the ordinary "busy" answer
+  // rather than the photo going to Pollinations (an open endpoint with no account and shared cached answers)
+  const err = await r.complete([withPhoto('What is this?')], TOOLS).then(() => null, (e) => String(e?.message ?? e));
+  assert.ok(err, 'no answer');
+  assert.match(err, /busy or failing/, err);
+  assert.match(err, /frees up in about \d+ seconds/, err);
+  assert.ok(!log.some((l) => /pollinations/.test(l.url)), 'the picture never went to the open endpoint');
   assert.ok(!log.some((l) => /groq|cerebras/.test(l.url)), 'gpt-oss and the other text-only models were never asked');
   assert.equal(log.filter((l) => /googleapis/.test(l.url)).length, gemini.length);
   const sent = log.at(-1).messages.at(-1).content;
@@ -58,6 +63,19 @@ test('a message with a picture goes only to models that can see it; text-only mo
   // a plain message afterwards uses every model again (Gemini is still cooling, so Groq answers)
   const chat = await r.complete([{ role: 'user', content: 'hello' }], TOOLS);
   assert.equal(chat.model, 'Groq · openai/gpt-oss-120b');
+});
+
+test('with no keys and no binding, text still falls back to the open endpoint, but a picture gets the "no vision model" answer instead', async () => {
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  const r = new R.Router(new MemStorage(), vaultWith({}), {});
+  const t0 = Date.now();
+  await assert.rejects(r.complete([withPhoto('what is this?')], []), /no vision model reachable: none of the models I can reach right now can look at a picture/);
+  assert.ok(Date.now() - t0 < 2000, 'no waiting for rate limits');
+  assert.equal(log.length, 0, 'nothing was asked: the open endpoint is not a place for a picture');
+  const plain = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(plain.model, 'Pollinations · openai', 'text is unaffected');
+  assert.ok(!log.some((l) => l.messages.some((m) => Array.isArray(m.content))), 'nothing sent there carried a picture');
 });
 
 test('with only text-only models reachable, a picture turn fails at once with a clear reason', async () => {

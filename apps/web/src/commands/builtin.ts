@@ -304,6 +304,8 @@ export function registerBuiltins(): void {
     },
     {
       // The Lens (the phone's camera): SEE, READ, HANDS or ASK — "read this document" → open_lens read.
+      // This is also the brain's auto-approved tool, so it only picks the tab and mode: the camera
+      // itself opens from the owner's own tap (the START button), never from here.
       id: 'open_lens',
       title: 'Open the Lens',
       hidden: true,

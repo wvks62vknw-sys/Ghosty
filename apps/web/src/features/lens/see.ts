@@ -24,6 +24,10 @@ export function createSeeMode(L: LensContext): Mode {
   let selected = -1;
   let lastScene = 0;
   let lastStatus = 0;
+  /** detectForVideo failures in a row (see failed()). */
+  let failures = 0;
+  /** Bumped on leave: a load still in flight then belongs to a past visit and is dropped. */
+  let visit = 0;
 
   const selTitle = h('b');
   const card = h('div.lenssel');
@@ -100,18 +104,50 @@ export function createSeeMode(L: LensContext): Mode {
     ),
   );
 
+  const progress = (s: string) => S.mode === 'see' && L.status(s, 'mid');
   const load = () => {
     loading ??= (async () => {
+      const v = visit;
       try {
-        det = await detector.get((s) => S.mode === 'see' && L.status(s, 'mid'));
-        cls = await classifier.get((s) => S.mode === 'see' && L.status(s, 'mid'));
+        const d = await detector.get(progress);
+        const c = await classifier.get(progress);
+        // left meanwhile (leave() dropped the tasks, the Lens closed them): the next enter loads again
+        if (v !== visit) return;
+        det = d;
+        cls = c;
         if (S.mode === 'see') L.status(S.camera === 'on' ? 'looking…' : 'models ready · START the camera', 'ok');
       } catch (e) {
+        if (v !== visit) return;
         loading = null;
         S.error = String((e as Error)?.message ?? e);
         if (S.mode === 'see') L.status(S.error, 'off');
       }
     })();
+  };
+  /**
+   * The detector threw on a frame. One slip is nothing; a few in a row means this task cannot run
+   * here at all (the GPU delegate on some phones works at creation and fails at every run, see
+   * models.ts), so it is made again on the CPU — and if that fails too, the owner is told why.
+   */
+  const failed = (e: unknown) => {
+    if (++failures < 3 || !det) return;
+    failures = 0;
+    det = null;
+    const msg = String((e as Error)?.message ?? e);
+    if (detector.delegate === 'CPU') {
+      S.error = `The detector keeps failing: ${msg}`;
+      if (S.mode === 'see') L.status(S.error, 'off');
+      return;
+    }
+    const v = visit;
+    void detector.recreate('CPU', progress).then((d) => {
+      if (v !== visit) return;
+      det = d;
+      if (S.mode === 'see') L.status('looking (on the CPU: the GPU could not run the detector)…', 'ok');
+    }).catch((e2: unknown) => {
+      S.error = `The detector cannot run here: ${String((e2 as Error)?.message ?? e2)}`;
+      if (S.mode === 'see') L.status(S.error, 'off');
+    });
   };
 
   return {
@@ -125,6 +161,12 @@ export function createSeeMode(L: LensContext): Mode {
     leave() {
       select(-1);
       L.clearOverlay();
+      // the tasks are taken on entering, every time: leaving the Lens closes them (index.ts)
+      visit++;
+      det = null;
+      cls = null;
+      loading = null;
+      failures = 0;
     },
     tick(now) {
       if (!det || S.frozen) return;
@@ -133,9 +175,11 @@ export function createSeeMode(L: LensContext): Mode {
         let fresh: Detection[];
         try {
           fresh = fromMediaPipe(det.detectForVideo(L.video, nextStamp(now)));
-        } catch {
+        } catch (e) {
+          failed(e);
           return;
         }
+        failures = 0;
         budget.record(performance.now() - t0, now);
         // keep the pick on the same thing while it is still there
         if (selected >= 0) {

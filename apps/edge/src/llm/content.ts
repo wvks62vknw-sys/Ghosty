@@ -38,6 +38,13 @@ export const withImages = (text: string, images: string[]): ContentPart[] => [{ 
 export const markPhotos = (text: string, n: number): string => (n > 0 ? `${text}${text ? ' ' : ''}${Array.from({ length: n }, () => PHOTO_MARK).join(' ')}` : text);
 
 /**
+ * The owner's own words of a message: the blocks the brain itself attached as marked data
+ * (what the phone's camera saw, text it read off a picture — see asData in kernel/permissions.ts)
+ * are left out, so they steer neither the tools offered nor the library lookup.
+ */
+export const ownerWords = (text: string): string => text.replace(/\n*<<external content from [^\n]*>>\n[\s\S]*?\n<<end external content>>/g, '').trim();
+
+/**
  * The same messages with every picture replaced by its marker, so nothing stored is ever a
  * picture. Any parts content becomes plain text; messages already in text are returned as they are.
  */

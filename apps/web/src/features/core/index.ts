@@ -239,7 +239,7 @@ export const coreTab: TabDef = {
       }, 1400);
     }, i * 650));
     const paintState = () => {
-      if (!ui.get().busy) stark.task(null); // a turn that ended without a tool_result (an error) leaves no stale task line
+      if (!ui.get().busy) stark.task(null); // nothing to show between turns (a tool left running by a broken turn is marked stopped in session.ts, so paintLog never picks it up again)
       if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;

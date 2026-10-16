@@ -17,13 +17,17 @@ const page = await ctx.newPage();
 page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 
 const ndjson = (events) => events.map((e) => JSON.stringify(e)).join('\n') + '\n';
-// Part 1a: the brain starts a tool and reports its third step of seven; the stream then goes quiet.
+// Part 1a: the brain starts a tool and reports its third step of seven; the stream then stays open
+// (a turn still live) for a few seconds, so the row can be looked at: a stream that ends without
+// the tool's result marks it stopped, and the row goes.
 let body = ndjson([
   { t: 'status', text: 'thinking…' },
   { t: 'tool', id: 'c1', name: 'cert_search', args: { domain: 'example.com' } },
   { t: 'progress', id: 'c1', name: 'cert_search', label: 'crt.sh…', done: 3, total: 7 },
 ]);
-const fake = (r) => r.fulfill({ status: 200, contentType: 'application/x-ndjson', body });
+let hold = 6000;
+// the preview server's test-only stream: the same lines, held open `hold` ms (a fulfilled route would end at once)
+const fake = (r) => r.continue({ url: `${base}/__test/stream?lines=${encodeURIComponent(Buffer.from(body).toString('base64'))}&hold=${hold}` });
 await page.route('**/api/chat', fake);
 
 await page.goto(base);
@@ -46,7 +50,12 @@ await page.locator('.logbtn').first().click().catch(() => undefined);
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/progress-phone.png` });
 
+// The held stream ends without the tool's result: the row stops (no stale task on the HUD for the next turn).
+const stopped = await page.waitForFunction(() => !document.querySelector('.convo .log .act.live') && !document.querySelector('.convo .log .act .prog'), null, { timeout: 15000 }).then(() => true).catch(() => false);
+if (!stopped) problems.push('a turn that ended without the tool result left its row live (stale progress)');
+
 // Part 1b: the same tool call finishes; its row goes and the line turns green.
+hold = 0;
 body = ndjson([
   { t: 'tool_result', id: 'c1', name: 'cert_search', ok: true, summary: '81 certificates' },
   { t: 'text', text: 'Done: 81 certificates for example.com.' },

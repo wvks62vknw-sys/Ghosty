@@ -26,6 +26,8 @@ export class Camera {
   readonly video: HTMLVideoElement;
   stream: MediaStream | null = null;
   facing: Facing = 'environment';
+  /** Bumped by stop() and start(): a start still waiting on the browser can tell it was overtaken. */
+  private gen = 0;
 
   constructor(video?: HTMLVideoElement) {
     this.video = video ?? document.createElement('video');
@@ -49,12 +51,22 @@ export class Camera {
     return this.stream?.getVideoTracks()[0] ?? null;
   }
 
-  /** Open the camera on one side; resolves once frames arrive. Throws a DOMException the message helper understands. */
+  /**
+   * Open the camera on one side; resolves once frames arrive. Throws a DOMException the message
+   * helper understands. If stop() (or another start) runs while the browser is still opening the
+   * camera, the stream it then hands over is stopped at once, not kept: it resolves with `on` false.
+   */
   async start(facing: Facing = this.facing): Promise<void> {
     if (!cameraSupported()) throw new TypeError('getUserMedia is not supported');
     this.stop();
+    const gen = ++this.gen;
     this.facing = facing;
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    if (gen !== this.gen) {
+      // overtaken while opening: nobody wants this stream any more (the camera light would stay on)
+      for (const t of stream.getTracks()) t.stop();
+      return;
+    }
     this.stream = stream;
     this.video.srcObject = stream;
     const settings = this.track()?.getSettings?.();
@@ -95,6 +107,7 @@ export class Camera {
   }
 
   stop(): void {
+    this.gen++;
     for (const t of this.stream?.getTracks() ?? []) t.stop();
     this.stream = null;
     this.video.srcObject = null;

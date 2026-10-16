@@ -16,22 +16,31 @@ const { GhostyAgent } = mod;
 
 class MemStorage {
   m = new Map();
+  /** True: every read and write throws the free plan's "allowance used up" error, as a paused database does. */
+  down = false;
   constructor(sql = false) {
     if (sql) this.sql = sqlStorage();
   }
+  check() {
+    if (this.down) throw new Error('Exceeded allowed rows read in Durable Objects free tier.');
+  }
   async get(k) {
+    this.check();
     if (Array.isArray(k)) return new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))]));
     return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
   }
   async put(k, v) {
+    this.check();
     if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b));
     else this.m.set(k, structuredClone(v));
   }
   async delete(k) {
+    this.check();
     if (Array.isArray(k)) return k.filter((x) => this.m.delete(x)).length;
     return this.m.delete(k);
   }
   async list({ prefix = '' } = {}) {
+    this.check();
     return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).sort().map(([k, v]) => [k, structuredClone(v)]));
   }
   async setAlarm() {}
@@ -54,6 +63,25 @@ async function chat(message) {
   const text = await r.text();
   await Promise.allSettled(pending.splice(0));
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+}
+
+/** A brain of its own on the storage given (SQLite for the library, or a paused database), reached through the Worker like the one above. */
+function agentWith(storage) {
+  const st = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const e2 = { ...env };
+  let a2;
+  e2.AGENT = { idFromName: (n) => ({ toString: () => n }), get: () => ({ fetch: (r) => (a2 ??= new GhostyAgent(st, e2)).fetch(r) }) };
+  const go = (path, init = {}) => worker.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY, ...(init.headers ?? {}) } }), e2, ctx);
+  return {
+    go,
+    async chat(message) {
+      const r = await go('/api/chat', { method: 'POST', body: JSON.stringify({ message }) });
+      assert.equal(r.status, 200, await r.clone().text());
+      const text = await r.text();
+      await Promise.allSettled(pending.splice(0));
+      return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    },
+  };
 }
 
 const page = (title) => new Response(`<html><head><title>${title}</title></head><body><p>${title} body text.</p></body></html>`, { headers: { 'content-type': 'text/html' } });

@@ -307,3 +307,67 @@ test('camera: errors come back as plain words with what to do', () => {
   assert.equal(C.cameraMessage(err('WeirdError', 'boom')), 'Camera error: boom');
   assert.equal(C.cameraSupported(), false, 'no navigator in Node');
 });
+
+test('camera: a stop while the browser is still opening the camera lets the new stream go instead of keeping it', async () => {
+  // the least of a video element and of getUserMedia that Camera.start touches
+  const video = () => ({ videoWidth: 640, videoHeight: 480, srcObject: null, setAttribute() {}, addEventListener() {}, play: async () => undefined });
+  const stream = (facing = 'environment') => {
+    const s = { stopped: 0, tracks: [] };
+    s.tracks.push({ stop: () => s.stopped++, getSettings: () => ({ facingMode: facing }) });
+    s.getTracks = () => s.tracks;
+    s.getVideoTracks = () => s.tracks;
+    return s;
+  };
+  const pending = [];
+  navigator.mediaDevices = { getUserMedia: () => new Promise((ok) => pending.push(ok)) };
+  try {
+    assert.equal(C.cameraSupported(), true);
+    const cam = new C.Camera(video());
+    // the plain case: the stream is kept, the video plays it, the side comes from the track
+    let p = cam.start('environment');
+    const first = stream('user');
+    pending.shift()(first);
+    await p;
+    assert.equal(cam.stream, first);
+    assert.equal(cam.video.srcObject, first);
+    assert.equal(cam.on, true);
+    assert.equal(cam.facing, 'user', 'the track says which camera the browser actually gave');
+    cam.stop();
+    assert.equal(first.stopped, 1);
+    assert.equal(cam.on, false);
+    // STOP (or leaving the Lens) while getUserMedia is still pending: the stream it then hands over is stopped at once
+    p = cam.start('environment');
+    cam.stop();
+    const late = stream();
+    pending.shift()(late);
+    await p;
+    assert.equal(late.stopped, 1, 'nobody wanted it any more');
+    assert.equal(cam.stream, null);
+    assert.equal(cam.video.srcObject, null);
+    assert.equal(cam.on, false);
+    // a second start overtaking the first (FLIP, or START after STOP) keeps only the second stream
+    const p1 = cam.start('environment');
+    const p2 = cam.start('user');
+    const s1 = stream('environment');
+    const s2 = stream('user');
+    pending.shift()(s1);
+    pending.shift()(s2);
+    await Promise.all([p1, p2]);
+    assert.equal(s1.stopped, 1, 'the overtaken start let its stream go');
+    assert.equal(s2.stopped, 0);
+    assert.equal(cam.stream, s2);
+    assert.equal(cam.on, true);
+    cam.stop();
+    assert.equal(s2.stopped, 1);
+    // a denied permission still throws, with the browser's own error name for the message helper
+    navigator.mediaDevices.getUserMedia = async () => { throw err('NotAllowedError'); };
+    await assert.rejects(cam.start(), (e) => e.name === 'NotAllowedError');
+    assert.equal(cam.on, false);
+  } finally {
+    delete navigator.mediaDevices;
+  }
+  assert.equal(C.cameraSupported(), false);
+  function err(name) {
+    return Object.assign(new Error(name), { name });
+  }
+});

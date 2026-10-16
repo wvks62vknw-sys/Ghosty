@@ -140,6 +140,7 @@ export function fetchModel(url: string, progress: Progress, label = 'model'): Pr
  * One task, created on first use and shared by every mode. GPU first, then CPU — except for a
  * model that asks for the CPU: the int8 classifier runs but fails on every frame on the GPU
  * delegate (an error at run time, not at creation, so a creation-time fallback never sees it).
+ * A mode that sees the same thing from another task calls recreate('CPU').
  */
 class Lazy<T extends { close(): void }> {
   private p: Promise<T> | null = null;
@@ -148,7 +149,8 @@ class Lazy<T extends { close(): void }> {
     private label: string,
     private model: string,
     private make: (ns: VisionNS, files: unknown, base: Record<string, unknown>) => Promise<T>,
-    private delegate: 'GPU' | 'CPU' = 'GPU',
+    /** Which delegate the next creation uses (recreate() changes it for the rest of the session). */
+    public delegate: 'GPU' | 'CPU' = 'GPU',
   ) {}
 
   get(progress: Progress = () => undefined): Promise<T> {
@@ -175,14 +177,25 @@ class Lazy<T extends { close(): void }> {
     return this.p;
   }
 
+  /** Close the task and make it again on the given delegate (a task that throws on every frame). */
+  recreate(delegate: 'GPU' | 'CPU', progress: Progress = () => undefined): Promise<T> {
+    this.close();
+    this.delegate = delegate;
+    return this.get(progress);
+  }
+
   close(): void {
+    const p = this.p;
+    const t = this.loaded;
+    this.loaded = null;
+    this.p = null;
     try {
-      this.loaded?.close();
+      t?.close();
     } catch {
       /* already closed */
     }
-    this.loaded = null;
-    this.p = null;
+    // a creation still in flight: its task arrives with nobody to hold it, so close it then
+    if (p && !t) void p.then((task) => task.close()).catch(() => undefined);
   }
 }
 

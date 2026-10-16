@@ -281,6 +281,8 @@ export class Router {
       if (key === null) continue;
       if (p.codeOnly && !opts.code) continue; // keep small free allowances for writing code
       anyKey = true;
+      // A picture never goes to an open endpoint (no account, shared cached answers): only the owner's own keys or Cloudflare's binding may see it.
+      if (vision && p.keyless && p.transport !== 'workers-ai') continue;
       if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now) continue;
       // Out of allowance for the day: not tried again until it resets.
       if ((h[`cool|${p.id}`]?.cool ?? 0) > now) {

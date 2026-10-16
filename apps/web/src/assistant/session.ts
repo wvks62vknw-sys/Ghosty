@@ -71,6 +71,18 @@ function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void 
   chat.set((s) => ({ entries: s.entries.map((e) => (match(e) ? change(e) : e)) }));
 }
 
+/**
+ * The turn is over (its stream ended with `done` or `error`, or broke off): a tool still shown
+ * as running has no result coming, so its row stops blinking and its step leaves the HUD,
+ * instead of being shown as the task at work through the whole next turn.
+ */
+function settle(): void {
+  patch(
+    (e) => e.kind === 'activity' && e.state === 'running',
+    (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: 'fail', detail: 'stopped', progress: undefined }),
+  );
+}
+
 function context(): Record<string, unknown> {
   const now = new Date();
   return {
@@ -120,10 +132,12 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.text);
       break;
     case 'error':
+      settle(); // the turn ends here: nothing is running any more
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
       break;
     case 'done':
+      settle();
       if (/memory paused/.test(ev.model)) {
         // Only this exchange: the message that got the paused reply, and the replies since.
         const es = chat.get().entries;
@@ -168,6 +182,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
+    settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
   }

@@ -74,6 +74,17 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/ja
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
+    // Test only: an NDJSON stream of the given lines (base64) that stays open `hold` ms before ending —
+    // a spec routes the chat's request here to look at the interface while a turn is still live.
+    if (url.pathname === '/__test/stream') {
+      const lines = Buffer.from(url.searchParams.get('lines') ?? '', 'base64').toString('utf8');
+      const hold = Math.min(30_000, Number(url.searchParams.get('hold') ?? 0) || 0);
+      for await (const c of req) void c;
+      res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
+      res.write(lines);
+      setTimeout(() => res.end(), hold);
+      return;
+    }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) {
       const chunks = [];

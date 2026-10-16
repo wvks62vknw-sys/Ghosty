@@ -7,7 +7,9 @@
  *
  * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet.
  * This file owns the viewfinder (video + overlay canvas), the mode tiles, the bottom bar, the
- * frame loop and the state a test can read at window.__ghosty.lens.
+ * frame loop and the state a test can read at window.__ghosty.lens. The camera opens from the
+ * owner's own tap (the START button, a tap that brought the tab up), never on its own: not on a
+ * reload that lands on #lens, and not because the brain called open_lens.
  */
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -19,6 +21,7 @@ import { askWithImage, type AskResult } from '../../vision/ask';
 import { coverTransform, sceneLine, toFrame, toView, type Box, type Category, type Detection, type Size, type Transform } from '../../vision/boxes';
 import { Camera, cameraMessage, cameraSupported, drawScaled, type Facing } from '../../vision/camera';
 import { forgetImage, shareImage } from '../../vision/engines';
+import { closeAll } from '../../vision/models';
 import { Reader } from '../../vision/ocr';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
@@ -74,6 +77,8 @@ export interface Mode {
   tap?(x: number, y: number): void;
   /** The picture was just frozen (the held frame). */
   froze?(still: HTMLCanvasElement): void;
+  /** The held frame was let go of. */
+  unfroze?(): void;
 }
 
 /** What every mode gets to work with. */
@@ -156,11 +161,27 @@ function expose(): void {
 
 let controller: { setMode(m: LensMode, opts?: ModeOpts): void } | null = null;
 
-/** Open the Lens in a mode (the `open_lens` client command: "read this document" → open_lens read). */
-export function openLens(mode?: string, question?: string): void {
-  go('lens');
+/** What openLens asked for, taken by the tab's enter() so the first mode entered is that one (only its models load). */
+let wanted: { mode: LensMode; opts?: ModeOpts; start: boolean } | null = null;
+
+/** True for a few seconds after the owner's own tap or key press: the only time the camera opens on entering the tab. */
+const recentTap = (): boolean => !!navigator.userActivation?.isActive;
+
+/**
+ * Open the Lens in a mode (the `open_lens` client command: "read this document" → open_lens read).
+ * `start` opens the camera too; only a button the owner tapped may pass it — the brain's open_lens
+ * never does, so a command in a model reply switches the screen but cannot switch the camera on.
+ */
+export function openLens(mode?: string, question?: string, start = false): void {
   const m = LENS_MODES.find((x) => x === String(mode ?? '').toLowerCase()) ?? (question ? 'ask' : 'see');
-  controller?.setMode(m, question ? { question } : undefined);
+  const opts = question ? { question } : undefined;
+  wanted = { mode: m, opts, start };
+  go('lens');
+  if (wanted) {
+    // the tab was already showing (enter() did not run): switch mode now
+    wanted = null;
+    controller?.setMode(m, opts);
+  }
 }
 
 export const lensTab: TabDef = {
@@ -190,6 +211,8 @@ export const lensTab: TabDef = {
     let viewSize: Size = { w: 0, h: 0 };
     let shown: HTMLCanvasElement | null = null;
     let frozenStill: HTMLCanvasElement | null = null;
+    /** Bumped by every start and stop: a start still waiting on the browser stands down if a stop came meanwhile. */
+    let cameraGen = 0;
     const dpr = () => Math.min(2, window.devicePixelRatio || 1);
     const fit = () => {
       viewSize = { w: view.clientWidth, h: view.clientHeight };
@@ -287,12 +310,14 @@ export const lensTab: TabDef = {
           mode?.froze?.(c);
           L.status('frozen · tap a box or an action', 'mid');
         } else {
+          // the held frame goes; a mode's own still (READ's picture, ASK's crop) stays on screen
+          const held = shown === frozenStill;
           frozenStill = null;
           S.frozen = false;
-          if (shown && S.mode !== 'read') L.showStill(null);
-          else if (S.mode === 'read' && shown === still) L.showStill(null);
+          if (held) L.showStill(null);
           freezeBtn.textContent = 'FREEZE';
           freezeBtn.classList.remove('on');
+          mode?.unfroze?.();
           L.status(camera.on ? 'live' : S.status, camera.on ? 'ok' : undefined);
         }
       },
@@ -337,9 +362,12 @@ export const lensTab: TabDef = {
           return;
         }
         S.camera = 'starting';
+        const gen = ++cameraGen;
         L.status('opening the camera…', 'mid');
         try {
           await camera.start(S.facing);
+          // STOP was pressed, or the Lens left, while the browser was opening the camera: it is off (camera.ts let the stream go)
+          if (gen !== cameraGen) return;
           S.camera = 'on';
           S.facing = camera.facing;
           video.classList.toggle('mirror', mirror());
@@ -347,6 +375,7 @@ export const lensTab: TabDef = {
           startBtn.textContent = 'STOP';
           L.status('live', 'ok');
         } catch (e) {
+          if (gen !== cameraGen) return;
           S.camera = 'error';
           S.error = cameraMessage(e);
           startBtn.textContent = 'START';
@@ -355,6 +384,7 @@ export const lensTab: TabDef = {
         }
       },
       stopCamera() {
+        cameraGen++;
         camera.stop();
         if (S.frozen) L.freeze(false);
         S.camera = 'off';
@@ -449,19 +479,29 @@ export const lensTab: TabDef = {
     return {
       enter() {
         expose();
-        mode?.enter();
-        void L.startCamera();
+        const w = wanted;
+        wanted = null;
+        // The camera opens from a tap: the dock or deck tile just tapped, the chat bar's camera
+        // button (openLens with start). A reload landing on #lens or the brain's open_lens is no
+        // tap, so the camera stays off and START is the way to open it.
+        if (S.camera === 'off') {
+          if (w?.start || recentTap()) void L.startCamera();
+          else L.status('camera off · START to open it', undefined);
+        }
+        if (w) setMode(w.mode, w.opts);
+        else mode?.enter();
       },
       leave() {
         L.stopCamera();
         reader.terminate();
         mode?.leave();
+        // Free every model (GPU memory); the modes take them again on entering, from the cached bytes.
+        closeAll();
       },
       describe: () => {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         if (S.counts) bits.push(`in view: ${S.counts}`);
         if (S.scene.length) bits.push(`scene: ${sceneLine(S.scene)}`);
-        if (S.ocrText) bits.push(`last text read: "${S.ocrText.replace(/\s+/g, ' ').slice(0, 160)}"`);
         if (S.gesture) bits.push(`gesture: ${S.gesture}`);
         return `${bits.join('; ')}.`;
       },

@@ -182,6 +182,22 @@ test('targets: domains, hosts, URLs and addresses are infrastructure; names and 
   assert.throws(() => R.parseTarget('localhost'), /not a public domain/);
   assert.throws(() => R.parseTarget('ftp://example.com/'), /only http/);
   assert.throws(() => R.parseTarget('not a host!'), /spaces/);
+  // private, loopback, link-local, carrier-NAT, multicast and reserved addresses, and local-only names: nothing public to look up
+  for (const ip of ['127.0.0.1', '10.0.0.1', '172.16.5.5', '172.31.255.1', '192.168.1.1', '169.254.169.254', '100.64.0.1', '0.0.0.0', '224.0.0.1', '255.255.255.255', '::1', '::', 'fd00::1', 'fc00::', 'fe80::1', 'ff02::1', '::ffff:7f00:1', '0:0:0:0:0:0:0:1']) {
+    assert.ok(R.isPrivateIp(ip), `${ip} is private`);
+    assert.throws(() => R.parseTarget(ip), /private, local or reserved address/, ip);
+  }
+  assert.throws(() => R.parseTarget('http://[::1]:8080/admin'), /private, local or reserved address/);
+  assert.throws(() => R.parseTarget('http://10.0.0.1/admin'), /private, local or reserved address/);
+  for (const ip of ['93.184.216.34', '8.8.8.8', '172.15.0.1', '172.32.0.1', '100.63.0.1', '100.128.0.1', '169.253.0.1', '223.255.255.255', '2606:2800:220:1:248:1893:25c8:1946', '2001:db8::1', 'fb00::1', 'fec0::1']) assert.ok(!R.isPrivateIp(ip), `${ip} is public`);
+  for (const name of ['foo.localhost', 'router.local', 'metadata.google.internal', 'printer.home.arpa', 'LOCALHOST']) assert.throws(() => R.parseTarget(name), /not a public domain/, name);
+  assert.equal(R.parseTarget('internal.example.com').host, 'internal.example.com', 'only the suffix counts');
+  // a username and password never go out to the sources
+  assert.throws(() => R.parseTarget('https://user:secret@example.com/'), /leave the username and password out/);
+  assert.throws(() => R.parseTarget('https://user@example.com/'), /leave the username and password out/);
+  // an international name is sent the way a browser sends it (punycode), which is what the sources expect
+  assert.equal(R.parseTarget('münchen.de').host, 'xn--mnchen-3ya.de');
+  assert.equal(R.parseTarget('https://münchen.de/path').url, 'https://xn--mnchen-3ya.de/path');
   assert.equal(R.registrable('a.b.example.com'), 'example.com');
   assert.equal(R.registrable('www.england.nhs.uk'), 'england.nhs.uk', 'nhs.uk is a public suffix like co.uk');
   assert.equal(R.registrable('example.com'), 'example.com');
@@ -282,12 +298,26 @@ test('certs: crt.sh rows deduplicated by name set, wildcards and other domains s
   assert.equal(R.parseCerts(R.repairJsonArray(cut), 'example.com').total, 5);
   assert.throws(() => R.repairJsonArray('not json'), /not a JSON list/);
   assert.deepEqual(R.parseCerts([], 'example.com').names, []);
+  // an address is never turned into a "domain" (registrable("93.184.216.34") would be "216.34")
+  const calls = network();
+  await assert.rejects(R.certs('93.184.216.34'), /certificates are looked up by domain name, not by address/);
+  await assert.rejects(R.subdomains('93.184.216.34'), /subdomains are looked up by domain name, not by address/);
+  assert.equal(calls.length, 0, 'nothing was asked');
 });
 
 test('wayback: the closest snapshot plus first and latest captures; a CDX index that never answers leaves just the snapshot; nothing answering is an error', async () => {
-  network();
+  const calls = network();
   const w = await R.wayback('https://example.com/', 'example.com');
+  assert.equal(w.url, 'https://example.com/');
   assert.equal(w.cdx, true);
+  // archive.org is asked for the origin and path only: a share link's token, a reset link's secret or a password stays here
+  await R.wayback('https://user:secret@example.com/reset?token=abc123#frag');
+  const asked = calls.filter((c) => c.url.hostname === 'archive.org').map((c) => c.url.searchParams.get('url'));
+  assert.deepEqual(asked, ['https://example.com/', 'https://example.com/reset']);
+  assert.ok(!calls.some((c) => /abc123|secret/.test(c.url.toString())), 'the secret part of the link never leaves');
+  assert.equal(calls.filter((c) => c.url.hostname === 'web.archive.org').at(-1).url.searchParams.get('url'), 'example.com');
+  assert.equal(R.archiveUrl('https://app.example.com/share?id=1&token=xyz'), 'https://app.example.com/share');
+  assert.equal(R.archiveUrl('not a url'), 'not a url');
   assert.equal(w.first.timestamp, '20020120142510');
   assert.equal(w.latest.timestamp, '20261001120000');
   assert.equal(w.closest.url, 'http://web.archive.org/web/20261001120000/https://example.com/');
@@ -431,6 +461,30 @@ test('recon: every source in parallel, crt.sh never answering leaves its section
   assert.equal(ip.hosting.data.network, null, 'the network is already the registration section');
   assert.equal(steps[steps.length - 1][2], 5);
   await assert.rejects(R.recon('Jane Doe'), /person's name/);
+  await assert.rejects(R.recon('127.0.0.1'), /private, local or reserved address/);
+});
+
+test('recon: one address with both lookups silent is noted, and the other address keeps the Hosting section', async () => {
+  R.clearReconCache();
+  // the IPv6 address: ipwho.is never answers and InternetDB is down; the IPv4 address answers as usual
+  const enc6 = encodeURIComponent('2606:2800:220:1:248:1893:25c8:1946');
+  network({ [`ipwho.is/${enc6}`]: 'hang', [`internetdb.shodan.io/${enc6}`]: new Response('down', { status: 503 }) });
+  const r = await R.recon('example.com', { now: 2_000_000, timeouts: { ip: 40 } });
+  assert.equal(r.hosting.ok, true, 'the IPv4 details that came back are kept');
+  const [v4, v6] = r.hosting.data.ips;
+  assert.equal(v4.who.asn, 'AS15133');
+  assert.deepEqual(v6, { ip: '2606:2800:220:1:248:1893:25c8:1946', who: null, db: null, notes: ['ipwho.is did not answer (timed out after 40 ms)', 'internetdb.shodan.io did not answer (answered 503)'] });
+  assert.equal(r.hosting.data.network.cidr, '93.184.216.0/24');
+  const md = R.renderReport(r);
+  assert.match(md, /- 2606:2800:220:1:248:1893:25c8:1946: ipwho\.is did not answer \(timed out after 40 ms\) \(ipwho\.is\)/);
+  assert.match(md, /- 2606:2800:220:1:248:1893:25c8:1946: internetdb\.shodan\.io did not answer \(answered 503\) \(internetdb\.shodan\.io\)/);
+  assert.ok(V.reportRows(r).find((v) => v.key === 'hosting').rows.some((x) => x.k === 'NOTE' && /2606.*ipwho\.is did not answer/.test(x.v)));
+  // every address silent: the section says so
+  R.clearReconCache();
+  network({ 'ipwho.is': 'hang', 'internetdb.shodan.io': new Response('down', { status: 503 }) });
+  const none = await R.recon('example.com', { now: 2_000_000, timeouts: { ip: 40 } });
+  assert.equal(none.hosting.ok, false);
+  assert.match(none.hosting.error, /^ipwho\.is, internetdb\.shodan\.io, rdap\.org did not answer \(ipwho\.is did not answer \(timed out after 40 ms\); internetdb\.shodan\.io did not answer \(answered 503\)\)$/);
 });
 
 test('recon keeps a report for ten minutes per target, then asks again', async () => {
@@ -449,6 +503,24 @@ test('recon keeps a report for ten minutes per target, then asks again', async (
   const fresh = await R.recon('example.com', { now: 5_000_000 + 11 * 60_000, fresh: true });
   assert.equal(fresh.cached, undefined);
   assert.equal(R.RECON_CACHE_MS, 10 * 60_000);
+});
+
+test('a report no source answered for is not kept: the next run asks again', async () => {
+  R.clearReconCache();
+  const quiet = { dns: 30, rdap: 30, certs: 30, wayback: 30, ip: 30, hackertarget: 30, http: 30, probe: 30 };
+  const calls = network({ 'dns.google': 'hang', 'rdap.org': 'hang', 'crt.sh': 'hang', 'archive.org': 'hang', 'web.archive.org': 'hang', 'api.hackertarget.com': 'hang', 'example.com': 'hang' });
+  const a = await R.recon('example.com', { now: 6_000_000, timeouts: quiet });
+  assert.ok([a.dns, a.registration, a.certificates, a.subdomains, a.history, a.hosting, a.http].every((s) => !s.ok), 'every source silent');
+  assert.equal(V.failedCount(a), 7);
+  const n = calls.length;
+  const b = await R.recon('example.com', { now: 6_000_000 + 1000, timeouts: quiet });
+  assert.equal(b.cached, undefined, 'not served from the cache');
+  assert.ok(calls.length > n, 'asked again');
+  // one source answering is enough to keep the report
+  network({ 'rdap.org': 'hang', 'crt.sh': 'hang', 'archive.org': 'hang', 'web.archive.org': 'hang', 'api.hackertarget.com': 'hang', 'example.com': 'hang' });
+  const c = await R.recon('example.com', { now: 6_000_000 + 2000, timeouts: quiet });
+  assert.equal(c.dns.ok, true);
+  assert.equal((await R.recon('example.com', { now: 6_000_000 + 3000, timeouts: quiet })).cached, true);
 });
 
 test('renderReport: readable Markdown, a section per source group, the source named on every line', async () => {
@@ -477,7 +549,8 @@ test('renderReport: readable Markdown, a section per source group, the source na
   assert.match(md, /- Security headers present: HSTS, X-Content-Type-Options; missing: CSP, X-Frame-Options, Referrer-Policy, Permissions-Policy \(direct request\)/);
   assert.match(md, /- Title: "Example & Co — home" · generator: WordPress 6\.6/);
   assert.match(md, /- robots\.txt: present · sitemap\.xml: 404 · security\.txt: present/);
-  assert.match(md, /nothing here identifies a person/);
+  assert.match(md, /records about infrastructure, not about a person; an address used by a home connection can still point to a household, so do not use this to find someone/);
+  assert.doesNotMatch(md, /nothing here identifies a person/, 'no claim the tool cannot keep');
   // the single-source renderers are what the piece tools print
   assert.match(R.renderCerts(R.parseCerts(CRT, 'example.com')).join('\n'), /6 certificates \(5 distinct name sets\), 5 names, 1 wildcard; newest issued 2026-09-01 for example\.com by Let's Encrypt, valid to 2027-01-01 \(crt\.sh\)/);
   assert.match(R.renderCerts(R.parseCerts([], 'example.com'))[0], /No certificates/);
@@ -497,10 +570,17 @@ test('the recon tools are registered, read-only, and refuse a person-like target
     const t = T.toolByName.get(n);
     assert.ok(t, `${n} registered`);
     assert.equal(t.risk, 'auto');
-    assert.equal(t.pure, true, `${n} is pure`);
+    if (n !== 'recon_domain') assert.equal(t.pure, true, `${n} is pure`);
     assert.match(t.description, /Infrastructure only/);
     assert.match(t.description, /refuses a person's name or an email address/);
   }
+  // recon_domain is read-only unless it files the report
+  const rd = T.toolByName.get('recon_domain');
+  assert.equal(typeof rd.pure, 'function');
+  assert.equal(rd.pure({ target: 'example.com' }), true);
+  assert.equal(rd.pure({ target: 'example.com', save: false }), true);
+  assert.equal(rd.pure({ target: 'example.com', save: true }), false);
+  assert.match(T.toolByName.get('ip_lookup').description, /home connection.*do not look those up/);
   const calls = network();
   const { ctx } = toolCtx();
   const refused = await T.toolByName.get('recon_domain').run({ target: 'John Smith' }, ctx);
@@ -513,6 +593,17 @@ test('the recon tools are registered, read-only, and refuse a person-like target
   assert.match(await T.toolByName.get('wayback_lookup').run({ url: 'Grace Hopper' }, ctx), /person's name/);
   assert.match(await T.toolByName.get('ip_lookup').run({ ip: 'ops@example.com' }, ctx), /email address/);
   assert.match(await T.toolByName.get('http_fingerprint').run({ url: 'Alan Turing' }, ctx), /person's name/);
+  // the pieces refuse what recon_domain refuses: a private or local address, a password in the address
+  await assert.rejects(T.toolByName.get('http_fingerprint').run({ url: 'localhost' }, ctx), /not a public domain/);
+  await assert.rejects(T.toolByName.get('http_fingerprint').run({ url: 'http://127.0.0.1:8787/' }, ctx), /private, local or reserved/);
+  await assert.rejects(T.toolByName.get('http_fingerprint').run({ url: '[::1]' }, ctx), /private, local or reserved/);
+  await assert.rejects(T.toolByName.get('wayback_lookup').run({ url: 'https://user:pw@example.com/' }, ctx), /username and password/);
+  await assert.rejects(T.toolByName.get('dns_lookup').run({ name: 'metadata.google.internal' }, ctx), /not a public domain/);
+  await assert.rejects(T.toolByName.get('ip_lookup').run({ ip: '169.254.169.254' }, ctx), /private, local or reserved/);
+  await assert.rejects(T.toolByName.get('whois_rdap').run({ target: '10.0.0.1' }, ctx), /private, local or reserved/);
+  // certificates and subdomains are looked up by domain name: an address is refused, not mangled into "216.34"
+  assert.equal(await T.toolByName.get('cert_search').run({ domain: '93.184.216.34' }, ctx), 'Not looking that up: certificates are looked up by domain name, not by address.');
+  assert.equal(await T.toolByName.get('subdomains').run({ domain: 'http://93.184.216.34/' }, ctx), 'Not looking that up: subdomains are looked up by domain name, not by address.');
   assert.equal(calls.length, 0, 'nothing was looked up');
 });
 
@@ -525,7 +616,9 @@ test('recon_domain reports with progress, the pieces answer on their own, and sa
   assert.match(out, /- Registrar: RESERVED-Internet Assigned Numbers Authority/);
   assert.match(out, /Filed in the library as "Recon: example\.com \d{4}-\d{2}-\d{2}" \(kind: recon\)/);
   assert.deepEqual(progress[0], ['running 7 checks on example.com…', 0, 7]);
-  assert.ok(progress.some(([l, d, t]) => /^dns\.google answered · \d of 7$/.test(l) && t === 7 && d >= 1));
+  // the label is the plain step; the interface adds "n of N" from the counts, so the label must not carry it too
+  assert.ok(progress.some(([l, d, t]) => l === 'dns.google answered' && t === 7 && d >= 1));
+  assert.ok(progress.every(([l]) => !/\d of \d/.test(l)), JSON.stringify(progress));
   assert.equal(progress.filter(([, , t]) => t === 7).length, 8);
   assert.deepEqual(progress[progress.length - 1], ['filing the report in the library…', undefined, undefined]);
   const docs = ctx.storage.sql.exec(`SELECT title, kind, source, passages, status FROM lib_docs`).toArray();
@@ -544,12 +637,26 @@ test('recon_domain reports with progress, the pieces answer on their own, and sa
   assert.match(await T.toolByName.get('cert_search').run({ domain: 'example.com' }, toolCtx().ctx), /- Issuers: Let's Encrypt \(4\), Other CA \(1\), DigiCert Inc \(1\) \(crt\.sh\)/);
   assert.match(await T.toolByName.get('subdomains').run({ domain: 'example.com' }, toolCtx().ctx), /- 4 hosts under example\.com \(crt\.sh, hackertarget\)/);
   assert.match(await T.toolByName.get('wayback_lookup').run({ url: 'example.com' }, toolCtx().ctx), /- Closest snapshot: 2026-10-01 http:\/\/web\.archive\.org/);
+  const wb = await T.toolByName.get('wayback_lookup').run({ url: 'https://example.com/reset?token=abc123' }, toolCtx().ctx);
+  assert.match(wb, /Wayback Machine for https:\/\/example\.com\/reset:/, 'says what archive.org was asked for');
+  assert.ok(!wb.includes('abc123'));
   assert.match(await T.toolByName.get('ip_lookup').run({ ip: '93.184.216.34' }, toolCtx().ctx), /vulns CVE-2024-0001/);
   const fp = toolCtx();
   assert.match(await T.toolByName.get('http_fingerprint').run({ url: 'www.example.com' }, fp.ctx), /- Server: nginx\/1\.25 · X-Powered-By: PHP\/8\.3/);
   assert.deepEqual(fp.progress, [['fetching https://www.example.com/…', undefined, undefined]]);
-  // without SQLite the save is refused plainly, the report still comes back
-  await assert.rejects(T.toolByName.get('recon_domain').run({ target: 'example.com', save: true }, toolCtx().ctx), /library is not available/);
+  // an international name reaches the sources as punycode, the way recon_domain sends it
+  const idn = network();
+  await T.toolByName.get('dns_lookup').run({ name: 'münchen.de' }, toolCtx().ctx);
+  await T.toolByName.get('whois_rdap').run({ target: 'MÜNCHEN.de' }, toolCtx().ctx).catch(() => undefined);
+  await T.toolByName.get('cert_search').run({ domain: 'https://münchen.de/x' }, toolCtx().ctx);
+  assert.ok(idn.length >= 10);
+  assert.ok(idn.every((c) => !/m%C3%BCnchen|münchen/i.test(c.url.toString()) && /xn--mnchen-3ya\.de/.test(c.url.toString())), idn.map((c) => c.url.toString()).join('\n'));
+  network();
+  // without SQLite the save is refused plainly, and the report that took the lookups still comes back
+  const unsaved = await T.toolByName.get('recon_domain').run({ target: 'example.com', save: true }, toolCtx().ctx);
+  assert.match(unsaved, /- Registrar: RESERVED-Internet Assigned Numbers Authority/);
+  assert.match(unsaved, /\n\nCould not file it: the library is not available here \(it needs Ghosty’s SQLite storage\)\.\n<<end external content>>$/);
+  assert.ok(!unsaved.includes('Filed in the library'));
   // a bare context (some callers pass no progress) still works
   const bare = await T.toolByName.get('dns_lookup').run({ name: 'example.com' }, { env: {}, storage: {}, vault: { get: async () => null }, emit: () => undefined });
   assert.match(bare, /- NS: a\.iana-servers\.net, b\.iana-servers\.net/);
@@ -600,10 +707,17 @@ test('GET /api/recon?target= answers the report and its Markdown for the owner, 
   assert.ok(!JSON.stringify(j).includes('Jane'), 'no contact person leaks through the route');
   const again = await (await call('/api/recon?target=example.com')).json();
   assert.equal(again.report.cached, true, 'the second look within ten minutes comes from the cache');
+  const forced = await (await call('/api/recon?target=example.com&fresh=1')).json();
+  assert.equal(forced.report.cached, undefined, 'fresh=1 (the card\'s RUN after silent sources) asks the sources again');
+  assert.equal(forced.report.host, 'example.com');
+  assert.equal((await (await call('/api/recon?target=example.com&fresh=0')).json()).report.cached, true);
   const person = await call('/api/recon?target=John%20Smith');
   assert.equal(person.status, 400);
   assert.match((await person.json()).error, /person's name/);
   assert.match((await (await call('/api/recon?target=someone%40example.com')).json()).error, /email address/);
+  const local = await call('/api/recon?target=http%3A%2F%2F192.168.1.1%2F');
+  assert.equal(local.status, 400);
+  assert.match((await local.json()).error, /private, local or reserved address/);
   assert.equal((await call('/api/recon?target=')).status, 400);
   assert.equal((await call('/api/recon?target=example.com', null)).status, 401, 'owner only');
   await Promise.allSettled(pending.splice(0));
