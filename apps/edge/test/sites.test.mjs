@@ -166,6 +166,21 @@ test('with KV bound, a page can be published while the database is paused, and i
   assert.equal(asked, 1);
 });
 
+test('a page republished while the database was paused is the one served after the reset (KV is never behind)', async () => {
+  const kv = { m: new Map(), async get(k) { return this.m.has(k) ? JSON.parse(this.m.get(k)) : null; }, async put(k, v) { this.m.set(k, v); }, async delete(k) { this.m.delete(k); } };
+  const db = new Map();
+  const storage = { down: false, async get(k) { if (this.down) throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); return db.get(k); }, async put(k, v) { if (this.down) throw new Error('Exceeded allowed rows written in Durable Objects free tier.'); db.set(k, structuredClone(v)); } };
+  const store = S.siteStore({ SITES: kv }, storage);
+  await store.put({ name: 'shop', title: 'v1', html: '<html>one</html>', source: '', at: 1 });
+  storage.down = true; // paused: the new version reaches KV only
+  await store.put({ name: 'shop', title: 'v2', html: '<html>two</html>', source: '', at: 2 });
+  storage.down = false; // midnight: the database is back, still holding v1
+  assert.equal((await store.get('shop')).title, 'v2');
+  // a page from before KV existed is still found in the database
+  db.set('site:old', { name: 'old', title: 'old', html: '<html>old</html>', source: '', at: 0 });
+  assert.equal((await store.get('old')).title, 'old');
+});
+
 test('the backend a page implies is worked out from its repeated parts and forms', () => {
   const card = (t, p) => `<div class="product-card"><img src="/${t}.jpg"><h3>${t}</h3><span>£${p}</span><button>Add to basket</button></div>`;
   const shop = `<html><body><input type="search">${card('Loaf', '3.50')}${card('Bun', '1.20')}${card('Cake', '12.00')}<section class="reviews">★★★★★ Lovely</section><form><input type="email"><textarea></textarea></form></body></html>`;

@@ -3,9 +3,9 @@
  * database a daily allowance (rows read/written); once it is used up every read and write
  * throws until midnight UTC. Cloudflare KV is free too and has its own, separate allowance,
  * so what matters most to the outside world — pages Ghosty published, jobs in flight — is
- * kept in BOTH: written to the database (immediately consistent) and to KV, read from the
- * database first and from KV when the database is paused, absent, or has no copy yet
- * (something written during a pause).
+ * kept in BOTH: written to the database and to KV, and read from KV first (it receives every
+ * write, including those made during a pause), with the database answering for records from
+ * before KV existed.
  */
 import type { Env } from './env';
 
@@ -18,18 +18,24 @@ export function storageError(e: unknown): string | null {
 
 type KvEnv = Pick<Env, 'SITES'> | undefined;
 
+/**
+ * KV first when it is bound: every write reaches KV, including those made while the database
+ * was paused, so KV is never behind. The database only answers for records written before KV
+ * existed (and is the whole story when KV is not bound).
+ */
 export async function durableGet<T>(env: KvEnv, storage: DurableObjectStorage | undefined, key: string): Promise<T | undefined> {
   const kv = env?.SITES;
-  if (storage) {
-    try {
-      const v = await storage.get<T>(key);
-      if (v !== undefined || !kv) return v;
-    } catch (e) {
-      if (!storageError(e) || !kv) throw e;
-    }
+  if (kv) {
+    const v = (await kv.get(key, 'json')) as T | null;
+    if (v != null) return v;
   }
-  if (!kv) return undefined;
-  return ((await kv.get(key, 'json')) as T | null) ?? undefined;
+  if (!storage) return undefined;
+  try {
+    return await storage.get<T>(key);
+  } catch (e) {
+    if (!storageError(e) || !kv) throw e;
+    return undefined;
+  }
 }
 
 export async function durablePut(env: KvEnv, storage: DurableObjectStorage | undefined, key: string, value: unknown): Promise<void> {

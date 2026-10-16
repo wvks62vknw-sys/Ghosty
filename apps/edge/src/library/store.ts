@@ -302,10 +302,10 @@ export class Library {
     if (real && this.starterReady) return true;
     const want = new Map(docs.map((d) => [`starter_${d.id}`, { d, h: starterHash(d) }]));
     const version = [...want.values()].map((x) => x.h).join(',');
-    type State = { v: 2; version: string; done: Record<string, string>; cur: { id: string; at: number } | null };
+    type State = { v: 2; version: string; done: Record<string, string>; cur: { id: string; at: number; h: string } | null };
     const raw = await this.storage.get<Partial<State>>('lib:starter');
     let state: State;
-    if (raw?.v === 2 && raw.done) state = { v: 2, version: raw.version ?? '', done: raw.done, cur: raw.cur ?? null };
+    if (raw?.v === 2 && raw.done) state = { v: 2, version: raw.version ?? '', done: raw.done, cur: raw.cur?.h ? raw.cur : null };
     else {
       // Older bookkeeping (or none): documents already in the library whose size matches the
       // text they should hold are accepted as they are — an upgrade rewrites nothing.
@@ -318,6 +318,12 @@ export class Library {
     if (state.version === version) {
       if (real) this.starterReady = true;
       return true;
+    }
+    // Half way through a document whose text has since changed, or which is gone: start it over.
+    if (state.cur && want.get(state.cur.id)?.h !== state.cur.h) {
+      this.remove(state.cur.id);
+      delete state.done[state.cur.id];
+      state.cur = null;
     }
     // Only documents that were removed from the starter library, or whose text changed, go.
     for (const doc of this.list().filter((x) => x.builtin)) {
@@ -334,7 +340,7 @@ export class Library {
       const id = `starter_${next.d.id}`;
       if (state.cur?.id !== id) {
         this.createDoc({ id, title: next.d.title, source: 'Ghosty starter library', kind: 'starter', builtin: true });
-        state.cur = { id, at: 0 };
+        state.cur = { id, at: 0, h: next.h };
       }
       const passages = chunkText(next.d.text);
       const part = passages.slice(state.cur.at, state.cur.at + Math.min(left, MAX_PASSAGES_PER_CALL));
@@ -348,7 +354,7 @@ export class Library {
       }
     }
     const complete = [...want.entries()].every(([id, w]) => state.done[id] === w.h);
-    if (complete) state.version = version;
+    state.version = complete ? version : ''; // only ever the set that is wholly in: a half-done round never short-circuits later
     await this.storage.put('lib:starter', state);
     if (complete && real) this.starterReady = true;
     return complete;
