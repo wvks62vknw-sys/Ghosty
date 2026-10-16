@@ -1,0 +1,98 @@
+{
+  "job": "rmvaej2pw4z8x",
+  "target": "https://linear.app/",
+  "kind": "web",
+  "question": "",
+  "startedAt": "2026-10-16T03:22:40.629Z",
+  "sections": [
+    {
+      "title": "Site overview (Ghosty baseline)",
+      "body": "- **Title:** Linear – The system for product development\n- **Final URL:** https://linear.app/ (HTTP 200, 1227 KB)\n- **Server:** cloudflare  ·  **Powered by:** ?\n- **Technologies spotted:** Next.js, Cloudflare, Vite, React\n- **Scripts:** 3 (3 first-party scripts scanned)\n- **Stylesheets:** 40  ·  **Forms:** 0\n- **Third-party hosts:** static.linear.app, rolldown.rs, vinext.local, react.dev, nextjs.org, www.w3.org\n\n**API endpoints found in code (31):**\n- `/api`\n- `/api/`\n- `/api/oauth-app-manifest-schema`\n- `/api/llms`\n- `/api/draft-mode/disable`\n- `/api/draft-mode/enable`\n- `/api/draft-mode/status`\n- `/api/health/liveliness`\n- `/api/health/readiness`\n- `/api/mobile-diffs-waitlist`\n- `/api/og/careers`\n- `/api/og/customers`\n- `/api/og/developers`\n- `/api/og/docs`\n- `/api/og/generic`\n- `/api/og/integrations`\n- `/api/og/integrations-category`\n- `/api/og/learn`\n- `/api/og/main`\n- `/api/og/method`\n- `/api/og/now`\n- `/api/og/twitter`\n- `/api/reviews-waitlist`\n- `/api/route-protection/crypt`\n- `/api/route-unlock`\n- `/api/rss/changelog.json`\n- `/api/rss/changelog.xml`\n- `/api/rss/now.json`\n- `/api/rss/now.xml`\n- `/api/search-index`\n- `/api/unsubscribe`\n\n**Security headers:**\n- content-security-policy: ✓ default-src 'self' https://static.linear.app https://static.linear.dev; connect-src https://*.ads.linkedin.com 'self' ht\n- strict-transport-security: ✓ max-age=63072000; includeSubDomains\n- x-frame-options: ✗ missing\n- x-content-type-options: ✓ nosniff\n- referrer-policy: ✓ same-origin\n- permissions-policy: ✗ missing\n\n**Script files:**\n- https://static.linear.app/web/_next/static/chunks/C_JJxWoe.js\n- https://static.linear.app/web/_next/static/chunks/B5mLuTUC.js\n- https://static.linear.app/web/_next/static/chunks/index-DrFM7gz5.js",
+      "data": {
+        "title": "Linear – The system for product development",
+        "finalUrl": "https://linear.app/",
+        "status": 200,
+        "services": [
+          "Next.js",
+          "Cloudflare",
+          "Vite",
+          "React"
+        ],
+        "endpoints": [
+          "/api",
+          "/api/",
+          "/api/oauth-app-manifest-schema",
+          "/api/llms",
+          "/api/draft-mode/disable",
+          "/api/draft-mode/enable",
+          "/api/draft-mode/status",
+          "/api/health/liveliness",
+          "/api/health/readiness",
+          "/api/mobile-diffs-waitlist",
+          "/api/og/careers",
+          "/api/og/customers",
+          "/api/og/developers",
+          "/api/og/docs",
+          "/api/og/generic",
+          "/api/og/integrations",
+          "/api/og/integrations-category",
+          "/api/og/learn",
+          "/api/og/main",
+          "/api/og/method",
+          "/api/og/now",
+          "/api/og/twitter",
+          "/api/reviews-waitlist",
+          "/api/route-protection/crypt",
+          "/api/route-unlock",
+          "/api/rss/changelog.json",
+          "/api/rss/changelog.xml",
+          "/api/rss/now.json",
+          "/api/rss/now.xml",
+          "/api/search-index",
+          "/api/unsubscribe"
+        ],
+        "hosts": [
+          "static.linear.app",
+          "rolldown.rs",
+          "vinext.local",
+          "react.dev",
+          "nextjs.org",
+          "www.w3.org"
+        ],
+        "scripts": [
+          "https://static.linear.app/web/_next/static/chunks/C_JJxWoe.js",
+          "https://static.linear.app/web/_next/static/chunks/B5mLuTUC.js",
+          "https://static.linear.app/web/_next/static/chunks/index-DrFM7gz5.js"
+        ],
+        "headers": {
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cache-control": "s-maxage=1800, stale-while-revalidate",
+          "cf-cache-status": "DYNAMIC",
+          "cf-ray": "a4b3f0c4be764b20-IAD",
+          "connection": "keep-alive",
+          "content-encoding": "br",
+          "content-security-policy": "default-src 'self' https://static.linear.app https://static.linear.dev; connect-src https://*.ads.linkedin.com 'self' https://o415358.ingest.sentry.io/api/5337513/ https://o415358.ingest.sentry.io/api/4504277957279744/ wss://ornj730p.api.sanity.io/ https://ornj730p.apicdn.sanity.io/ https://*.linear.app https://9RXBCYQ6DV-dsn.algolia.net https://linearstatus.com/ https://statuspage.incident.io/ https://app.posthog.com https://api.github.com/ https://api.openai.com/v1/realtime/calls https://us.api.openai.com/v1/realtime/calls https://eu.api.openai.com/v1/realtime/calls https://raw.githubusercontent.com/ https://www.githubstatus.com/ https://dns.google/ http://127.0.0.1:44450/ http://127.0.0.1:18450/ http://127.0.0.1:33234/ https://api.linear.app https://client-api.linear.app wss://sync.linear.app/ https://*.sandbox.linear.run wss://*.sandbox.linear.run https://storage.googleapis.com/uploads.linear.app/ https://storage.googleapis.com/linear-uploads-europe-west1/ https://storage.googleapis.com/linear-uploads-us-central1/ https://storage.googleapis.com/linear-uploads-c4-us-east4/ https://storage.googleapis.com/imports.linear.app/ https://storage.googleapis.com/linear-imports-europe-west1/ https://storage.googleapis.com/linear-imports-us-central1/ https://storage.googleapis.com/linear-imports-c4-us-east4/ https://storage.googleapis.com/public.linear.app/ https://ornj730p.api.sanity.io/; script-src https://snap.licdn.com 'unsafe-inline' 'self' blob: https://js.stripe.com/v3 https://jobs.ashbyhq.com/Linear/embed https://e.linear.app https://challenges.cloudflare.com/turnstile/ 'wasm-unsafe-eval' https://static.linear.app https://static.linear.dev; worker-src 'self' blob: https://static.linear.app https://static.linear.dev; style-src 'self' 'unsafe-inline' https://static.linear.app https://static.linear.dev; font-src 'self' data: https://static.linear.app https://static.linear.dev; img-src https://*.ads.linkedin.com https://www.linkedin.com 'self' data: blob: https://*.linear.app https://*.googleusercontent.com https://cdn.sanity.io/images/ornj730p/ https://webassets.linear.app https://linear.app/cdn-cgi/imagedelivery/ https://avatars.githubusercontent.com https://i.ytimg.com/vi/ https://avatars.slack-edge.com https://pbs.twimg.com/profile_images/ https://pbs.twimg.com/ext_tw_video_thumb/ https://secure.gravatar.com; frame-ancestors 'self' https://cms.linear.app; frame-src *; media-src blob: https://uploads.linear.app https://client-api.linear.app https://public.linear.app https://imports.linear.app https://static.linear.app https://webassets.linear.app https://cdn.sanity.io/files/ornj730p/ https://video.twimg.com/ext_tw_video/ https://linear.app/static/; base-uri 'self'; report-uri https://api.linear.app/report-violation",
+          "content-type": "text/html; charset=utf-8",
+          "date": "Fri, 16 Oct 2026 03:22:40 GMT",
+          "link": "<https://static.linear.app/fonts/InterVariable.woff2?v=4.1>; rel=preload; as=\"font\"; crossorigin=\"anonymous\"; type=\"font/woff2\", <https://static.linear.app/web/_next/static/css/Tpxbzi3N.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BNNY1qpD.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/pcGZUK31.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BYDaMjMd.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/dcAi4KbO.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Bl8l9ltc.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/C-dCEHFh.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BEZjGLsi.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/DCkYdNzn.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/3p32EmO1.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/mgHd0F-S.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/ByHmXOx_.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/CNiZpoOa.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/mYgpGelO.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Blq4ZW3W.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Cidbg-cz.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/B3f9yiOq.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BluMS353.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/B6ktxgTN.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BUY_OmUN.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/krMPHN5w.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/BNdf6sgA.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/layout.TfwOB7lY.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Spacer.mYgpGelO.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/utils.BNNY1qpD.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Layout.tvkMFESE.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Header.BNHV4lAU.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Icon.B18TDZc7.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/LayoutContent.D8YYVbao.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/CTA.CDNJI-Em.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Grid.Cds8fjKR.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/HomepageSeparator.DAb6YYB9.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Bleed.CbcodEv9.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/GlobalSidePanel.cAFbFP1F.css>; rel=preload; as=\"style\", <https://static.linear.app/web/_next/static/css/Changelog.C40xlRzV.css>; rel=preload; as=\"style\"",
+          "referrer-policy": "same-origin",
+          "server": "cloudflare",
+          "strict-transport-security": "max-age=63072000; includeSubDomains",
+          "transfer-encoding": "chunked",
+          "vary": "RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch, Next-Url, X-Vinext-Interception-Context, X-Vinext-Interception-Id, X-Vinext-Mounted-Slots, X-Vinext-Rsc-Render-Mode, X-Vinext-Rsc-State-Fingerprint, Accept-Encoding",
+          "via": "1.1 google",
+          "x-content-type-options": "nosniff",
+          "x-nextjs-cache": "HIT",
+          "x-vinext-cache": "HIT"
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "what": "browser for REA",
+      "error": "Chrome did not start"
+    }
+  ],
+  "finishedAt": "2026-10-16T03:23:11.227Z"
+}
