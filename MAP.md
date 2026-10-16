@@ -172,3 +172,11 @@ your own `requestAnimationFrame` or `setInterval` for animation.
 - No new npm packages, no external `<script>` tags (the security policy blocks them).
 - Small, focused changes. One feature per change. Explain it in the change summary.
 - Keep `MAP.md` accurate when you add files or move things.
+
+## Reverse engineering (REA)
+
+| Where | What |
+|---|---|
+| `.github/workflows/reverse.yml` + `tools/reverse/run.mjs` | Runs REA (github.com/morluto/rea) on a GitHub runner for a website, npm package, GitHub repo or app file, plus Ghosty's own baseline analysis; publishes `reverse/<job>/report.md` to the `reports` branch |
+| `apps/edge/src/tools/reverse.ts` | `reverse_engineer` (dispatches the workflow, schedules a follow-up task that notifies the owner), `reverse_status`, `reverse_jobs`; `/api/reverse` routes for the tab |
+| `apps/web/src/features/reverse/` | REVERSE tab: start a job, list jobs, read the report, ask Ghosty / save to the library |

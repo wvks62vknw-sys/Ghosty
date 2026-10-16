@@ -17,13 +17,14 @@ import { trafficTools } from './traffic';
 import { travelTools } from './travel';
 import { memoryTools } from './memory';
 import { repoTools } from './repo';
+import { reverseTools } from './reverse';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
 import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -59,6 +60,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'spotify', tools: spotifyTools, when: /\b(spotify|song|songs|music|track|album|artist|playlist|playing|pause|skip|next song|previous song|shuffle|volume|queue)\b/i },
   { name: 'knowledge', tools: knowledgeTools, when: /\b(study|learn|lessons?|handbook|playbooks?)\b/i },
   { name: 'evolve', tools: evolveTools, when: /\b(upgrade|improve yourself|better version|roadmap|carry on|continue|audit)\b/i },
+  { name: 'reverse', tools: reverseTools, when: /\b(reverse[- ]?engineer(ing)?|decompile|disassemble|analy[sz]e (this|that|the) (app|site|website|package|binary|apk|file)|what is .* built with|how does .* work under the hood|rea\b)/i },
   { name: 'repo', tools: repoTools, when: /\b(ship|propose|proposed|changes?|versions?|roll ?back|restore|discard|preview|workshop|repo|source code)\b/i },
 ];
 

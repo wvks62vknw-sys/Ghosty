@@ -1,0 +1,68 @@
+# Reverse-engineer a target with REA (Reverse Engineer Anything, github.com/morluto/rea) on
+# GitHub's runners, then publish the report to the `reports` branch where Ghosty reads it.
+# Started by Ghosty's reverse_engineer tool (workflow_dispatch). Lawful research only: the
+# owner is responsible for having the right to analyse the target.
+name: reverse
+run-name: "reverse ${{ inputs.job }}"
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job id (set by Ghosty)
+        required: true
+        type: string
+      target:
+        description: URL, npm package, owner/repo or a direct file link
+        required: true
+        type: string
+      kind:
+        description: auto | web | npm | repo | artifact
+        required: false
+        default: auto
+        type: string
+      question:
+        description: What the owner wants to know (shapes the report)
+        required: false
+        default: ""
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: reverse-${{ inputs.job }}
+jobs:
+  reverse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Install REA
+        run: npm install --global --no-audit --no-fund rea-agents@latest && rea --help | head -5
+      - name: Extra engines (best effort)
+        if: inputs.kind == 'artifact' || inputs.kind == 'auto'
+        run: |
+          sudo apt-get update -qq >/dev/null 2>&1 || true
+          sudo apt-get install -y -qq jadx default-jdk-headless >/dev/null 2>&1 && echo "jadx ready" || echo "jadx not available (APK decompiling skipped)"
+      - name: Analyse
+        env:
+          JOB: ${{ inputs.job }}
+          TARGET: ${{ inputs.target }}
+          KIND: ${{ inputs.kind }}
+          QUESTION: ${{ inputs.question }}
+        run: node tools/reverse/run.mjs
+      - name: Publish the report
+        env:
+          JOB: ${{ inputs.job }}
+        run: |
+          set -e
+          git config user.name "ghosty-reverse"
+          git config user.email "ghosty@users.noreply.github.com"
+          mkdir -p /tmp/out && cp -r reverse-out/. /tmp/out/
+          git fetch origin reports:reports 2>/dev/null && git checkout -q reports || git checkout -q --orphan reports
+          git rm -rfq --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name reverse -exec rm -rf {} +
+          mkdir -p "reverse/$JOB" && cp -r /tmp/out/. "reverse/$JOB/"
+          git add -A reverse
+          git commit -qm "reverse $JOB" || true
+          git push -q origin HEAD:reports

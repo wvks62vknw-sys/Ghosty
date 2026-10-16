@@ -10,6 +10,7 @@ import type { BrainStatus, ChatEvent, ChatTurn, KeyStatus } from '../../../packa
 import type { Env } from './env';
 import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
+import { loadReverseJobs, refreshReverse, startReverse } from './tools/reverse';
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
@@ -129,6 +130,26 @@ export class GhostyAgent {
   private host?: string;
 
   private shipCache = new Map<string, { at: number; ships: AisShip[] }>();
+
+  /** The Reverse tab: list, start and refresh REA jobs. */
+  private async reverseRoute(req: Request, path: string, method: string): Promise<Response> {
+    const ctx = this.toolContext(() => undefined);
+    if (path === '/reverse' && method === 'GET') {
+      const jobs = await loadReverseJobs(this.storage);
+      return json({ jobs: jobs.slice().reverse().map((j) => ({ ...j, report: undefined, reportChars: j.report?.length ?? 0 })) });
+    }
+    if (path === '/reverse' && method === 'POST') {
+      const body = (await req.json().catch(() => ({}))) as { target?: string; kind?: string; question?: string };
+      const job = await startReverse(ctx, String(body.target ?? ''), String(body.kind ?? 'auto'), String(body.question ?? ''));
+      return json({ job });
+    }
+    const m = path.match(/^\/reverse\/([\w-]+)$/);
+    if (m && method === 'GET') {
+      const job = await refreshReverse(ctx, m[1]!);
+      return job ? json({ job }) : json({ error: 'no such job' }, 404);
+    }
+    return json({ error: 'not found' }, 404);
+  }
 
   /** Ships in a box from AISstream (free key). Cached 30 s per half-degree box. */
   private async ships(url: URL): Promise<{ ships: AisShip[]; note?: string }> {
@@ -270,6 +291,7 @@ export class GhostyAgent {
       }
       if (path === '/stt' && method === 'POST') return await this.stt(req);
       if (path === '/ships' && method === 'GET') return json(await this.ships(url));
+      if (path.startsWith('/reverse')) return await this.reverseRoute(req, path, method);
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path === '/email/status' && method === 'GET') {
         // Which account is linked (never the password), for the LINKS tab.

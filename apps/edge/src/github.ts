@@ -78,6 +78,21 @@ export class GitHub {
     return (text ? JSON.parse(text) : undefined) as T;
   }
 
+  /** Start a workflow_dispatch workflow on the default branch. */
+  async dispatchWorkflow(file: string, inputs: Record<string, string>, ref?: string): Promise<void> {
+    await this.req('POST', `/actions/workflows/${encodeURIComponent(file)}/dispatches`, { ref: ref ?? (await this.defaultBranch()), inputs });
+  }
+
+  /** The newest run of a workflow whose run-name matches (run-name can carry an id). */
+  async findRun(file: string, runName: string): Promise<{ id: number; status: string; conclusion: string | null; url: string } | null> {
+    const j = await this.req<{ workflow_runs: { id: number; name: string; display_title: string; status: string; conclusion: string | null; html_url: string }[] }>(
+      'GET',
+      `/actions/workflows/${encodeURIComponent(file)}/runs?per_page=30`,
+    );
+    const r = j.workflow_runs.find((x) => x.display_title === runName || x.name === runName);
+    return r ? { id: r.id, status: r.status, conclusion: r.conclusion, url: r.html_url } : null;
+  }
+
   async defaultBranch(): Promise<string> {
     const j = await this.req<{ default_branch: string }>('GET', '');
     return j.default_branch;

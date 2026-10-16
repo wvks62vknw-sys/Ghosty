@@ -20,6 +20,19 @@ export interface StudyInfo {
 }
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
+export interface ReverseJobInfo {
+  id: string;
+  target: string;
+  kind: string;
+  question: string;
+  at: number;
+  status: 'queued' | 'running' | 'done' | 'failed';
+  runUrl?: string;
+  error?: string;
+  finishedAt?: number;
+  reportChars?: number;
+}
+
 export const TZ = (() => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -250,6 +263,9 @@ export const brain = {
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
+  reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
+  reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),
+  reverseJob: (id: string) => req<{ job: ReverseJobInfo & { report?: string } }>('GET', `/reverse/${encodeURIComponent(id)}`),
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });
     const j = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
