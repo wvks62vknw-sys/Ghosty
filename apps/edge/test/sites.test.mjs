@@ -60,6 +60,16 @@ test('a rebuilt page is made safe and phone-ready before it goes live', () => {
   assert.throws(() => S.prepareSite('<html><body><input type="pass&#119;ord"></body></html>', ''), /password fields/, 'disguised with a character reference');
   assert.throws(() => S.prepareSite('<html><body><input type="pass&#x77;ord"></body></html>', ''), /password fields/);
   assert.throws(() => S.prepareSite("<html><body><script>i.type='password'</script></body></html>", ''), /password fields/, 'made by a script');
+  // Only tag attributes are touched, never script code or text.
+  const js = S.prepareSite('<html><head></head><body><p>Take action = now</p><script>const action = btn.dataset.action; go(action)</script><form action="/x"><button formaction="/y">Go</button></form></body></html>', '').html;
+  assert.match(js, /const action = btn\.dataset\.action; go\(action\)/);
+  assert.match(js, /Take action = now/);
+  assert.match(js, /<form><button>Go<\/button><\/form>/);
+  // Links to other sites leave the frame when tapped; links within the page stay.
+  const links = S.prepareSite('<html><head></head><body><a href="https://acme.example/contact">Contact</a><a href="#visit">Visit</a><a target="_blank" href="https://x.example">X</a></body></html>', '').html;
+  assert.match(links, /<a target="_top" href="https:\/\/acme\.example\/contact">/);
+  assert.match(links, /<a href="#visit">/);
+  assert.match(links, /<a target="_blank" href="https:\/\/x\.example">/);
   assert.throws(() => S.prepareSite('<div>just a fragment</div>', ''), /ONE complete HTML document/);
   assert.throws(() => S.prepareSite(`<html><body>${'x'.repeat(400_001)}</body></html>`, ''), /too large/);
 });
@@ -103,7 +113,7 @@ test('publish_site puts the page live at a public link that anyone can open, san
   assert.equal(r.status, 200);
   const wrap = await r.text();
   assert.match(wrap, /Rebuilt by Ghosty from acme\.example · not the official site/);
-  assert.match(wrap, /<iframe src="\/s\/acme-bakery\/page"[^>]*sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals"/);
+  assert.match(wrap, /<iframe src="\/s\/acme-bakery\/page"[^>]*sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation"/);
   assert.doesNotMatch(wrap, /allow-forms|allow-same-origin/);
   assert.match(r.headers.get('content-security-policy'), /default-src 'none'.*frame-src 'self'/);
   assert.doesNotMatch(r.headers.get('content-security-policy'), /script-src/, 'the bar page runs no scripts');
@@ -120,6 +130,7 @@ test('publish_site puts the page live at a public link that anyone can open, san
   const direct = await go('/s/acme-bakery/page', { 'sec-fetch-dest': 'document' });
   assert.equal(direct.status, 302);
   assert.equal(direct.headers.get('location'), '/s/acme-bakery');
+  assert.equal((await go('/s/acme-bakery/page')).status, 302, "a browser that doesn't say how it loads the page gets the bar too");
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/s/nope'), env, { waitUntil() {} })).status, 404);
   // the API itself still needs the owner
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/api/site/acme-bakery'), env, { waitUntil() {} })).status, 401);

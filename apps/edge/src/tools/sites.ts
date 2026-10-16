@@ -158,11 +158,14 @@ export function prepareSite(htmlIn: string, _source: string): { html: string; no
   if (html.length > MAX_HTML) throw new Error(`the page is too large (${Math.round(html.length / 1024)} KB; 400 KB max) — use image URLs instead of embedded images and keep it lean`);
   if (!/<html[\s>]/i.test(html) || !/<body[\s>]/i.test(html)) throw new Error('send ONE complete HTML document (<!doctype html><html>…<body>…</body></html>)');
   if (/type\s*=\s*["']?\s*password|["'`]password["'`]/i.test(decodeRefs(html))) throw new Error("rebuilt pages can't contain password fields (they could pass for a real login page). Leave sign-in out, or show it as a plain button");
-  const targets = /\s(form)?action\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+  // (attributes inside form, button and input tags only: never text or script code like `action = …`)
+  const targets = /(<(?:form|button|input)\b[^>]*?)\s(?:form)?action\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
   if (targets.test(html)) {
-    html = html.replace(targets, '');
+    html = html.replace(targets, '$1');
     notes.push('form targets removed (forms on rebuilt pages are visual only)');
   }
+  // Links to other sites leave Ghosty's frame when tapped (inside it, other sites can't load).
+  html = html.replace(/<a\b(?![^>]*\starget\s*=)([^>]*\shref\s*=\s*["']?https?:)/gi, '<a target="_top"$1');
   if (!/<meta\b[^>]*name\s*=\s*["']?viewport/i.test(html)) {
     html = html.replace(/<head([^>]*)>/i, '<head$1><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">');
     notes.push('mobile viewport added');
@@ -180,6 +183,9 @@ export function prepareSite(htmlIn: string, _source: string): { html: string; no
 const notFound = () => new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>Not found</title><p style="font:16px system-ui;padding:24px">This page doesn\'t exist (any more).</p>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
 const common = { 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer', 'cache-control': 'public, max-age=60', 'x-content-type-options': 'nosniff' };
 
+/** What the rebuilt page may do: run its own scripts, open links in new tabs, leave the frame when tapped. Not: forms, Ghosty's origin. */
+const FRAME_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation';
+
 /**
  * What a visitor opens (/s/<name>): a page Ghosty writes, with a bar the rebuilt page can't
  * touch saying where it came from, and the rebuilt page in a locked frame below it.
@@ -190,7 +196,7 @@ export function siteResponse(site: Site | undefined): Response {
   const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
   const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>
 <style>html,body{margin:0;height:100%;background:#02070d;overflow:hidden}#bar{position:fixed;top:0;left:0;right:0;z-index:2;box-sizing:border-box;height:calc(28px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;display:flex;align-items:center;justify-content:center;gap:6px;font:600 11px/1 -apple-system,system-ui,sans-serif;letter-spacing:.02em;color:#cfefff;background:#02070d;border-bottom:1px solid rgba(92,225,255,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#bar i{width:6px;height:6px;border-radius:50%;background:#5ce1ff;flex:none}iframe{position:fixed;left:0;right:0;bottom:0;top:calc(28px + env(safe-area-inset-top));width:100%;height:calc(100% - 28px - env(safe-area-inset-top));border:0;background:#fff}</style></head>
-<body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals"></iframe></body></html>`;
+<body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="${FRAME_SANDBOX}"></iframe></body></html>`;
   return new Response(page, {
     headers: {
       ...common,
@@ -208,11 +214,11 @@ export function siteResponse(site: Site | undefined): Response {
  * scripts (nothing loaded from elsewhere), and it can't be shown outside Ghosty's frame.
  */
 export const PAGE_CSP =
-  "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'";
+  `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
-  // Opened directly (not in the frame): go to the page with the bar.
-  if (dest && dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
+  // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
+  if (dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
   // Never reused for a direct visit: the answer depends on how it is loaded.
   return new Response(site.html, { headers: { ...common, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PAGE_CSP } });
 }
