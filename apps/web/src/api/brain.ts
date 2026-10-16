@@ -8,15 +8,36 @@ import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOut
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
-/** Ghosty's self-study (library/study.ts in the brain). */
+/** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
+export interface StudySummary {
+  topics: number;
+  read: number;
+  digested: number;
+  domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
+  today: { reads: number; digests: number; drills: number; ai: number };
+  drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
+  pending: number;
+}
 export interface StudyInfo {
   on: boolean;
   i: number;
   gaps: string[];
   sessions: number;
-  last?: { at: number; topic: string; title?: string; passages?: number; error?: string };
+  last?: { at: number; topic: string; title?: string; passages?: number; error?: string; kind?: 'read' | 'digest' | 'drill' };
   next?: number | null;
   topics?: number;
+  focus: string[];
+  summary: StudySummary;
+  /** After STUDY NOW: what that session did. */
+  did?: { reads: number; digests: number; drills: number };
+}
+/** One export of the library to the `library` branch of Ghosty's repository (library/export.ts). */
+export interface ExportInfo {
+  branch: string;
+  files: number;
+  passages: number;
+  left: number;
+  url: string;
 }
 
 /** This device's time zone; the brain uses it for reminders and the agenda. */
@@ -235,7 +256,10 @@ export const brain = {
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
   studyStatus: () => req<StudyInfo>('GET', '/library/study'),
-  study: (p: { on?: boolean; now?: boolean }) => req<StudyInfo>('POST', '/library/study', p),
+  /** `focus`: the owner's words for the domains to put first ("physics and finance"; "none" clears it). */
+  study: (p: { on?: boolean; now?: boolean; focus?: string }) => req<StudyInfo>('POST', '/library/study', p),
+  /** Write the next batch of Ghosty's notebooks as Markdown to the `library` branch of its repository. */
+  libraryExport: (offset = 0) => req<ExportInfo>('POST', '/library/export', { offset }),
   libraryRemove: (id: string) => req('DELETE', `/library/docs/${encodeURIComponent(id)}`),
   libraryPassages: (id: string, after = 0) => req<{ passages: { rid: number; text: string; heading: string; page: number | null }[]; next: number | null }>('GET', `/library/docs/${encodeURIComponent(id)}/passages?after=${after}&limit=300`),
   libraryImport: (source: string, offset = 0) => req<{ doc: LibraryDoc; passages: number; note: string; next?: number | null }>('POST', '/library/import', { source, offset }),

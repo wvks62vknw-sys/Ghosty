@@ -7,7 +7,7 @@
 import type { Env } from '../env';
 import type { Vault } from '../kernel/vault';
 import type { ModelHealth } from '../../../../packages/shared/src/protocol';
-import { PROVIDERS, NOT_CHAT, codeScore, modelScore, type Provider } from './providers';
+import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 
 export interface ToolCall {
@@ -58,21 +58,26 @@ const parseDur = (s: string | null | undefined): number => {
   return t * 1000;
 };
 
-/** Decide what a failure means: cool down briefly, skip for hours, or blame the key. */
-function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: number; why: string } {
+/** Decide what a failure means: cool down briefly, skip for hours, or blame the key. `daily`: the provider's whole allowance is gone until it resets. */
+function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: number; why: string; daily?: boolean } {
   const msg = (e.message || '').toLowerCase();
   if (e.net) return { kind: 'net', ms: 45_000, why: 'network' };
   if (e.timeout) return { kind: 'cool', ms: 45_000, why: 'timeout' };
   const c = typeof e.code === 'number' ? e.code : 0;
   if (c === 401 || (c === 403 && /key|auth|permission/.test(msg))) return { kind: 'key', ms: 6 * 3600_000, why: 'key rejected' };
-  if (c === 402) return { kind: 'cool', ms: 3600_000, why: 'no credits' };
+  if (c === 402) {
+    // An open endpoint's per-address pacing (Pollinations: one reply every 30 s, with Retry-After) is a short wait, not a bill.
+    const ra = parseDur(e.retryAfter);
+    if (ra || /free limit|free_limit|wait \d+ ?s/.test(msg)) return { kind: 'cool', ms: Math.min((ra || 30_000) + 1500, 10 * 60_000), why: 'free limit · one reply every 30 s' };
+    return { kind: 'cool', ms: 3600_000, why: 'no credits', daily: true };
+  }
   if (c === 429) {
     let ms = parseDur(e.retryAfter);
-    const m = msg.match(/try again in ([\d.hms ]+)/);
+    const m = msg.match(/(?:try again|retry) in ([\d.hms ]+)/);
     if (m) ms = Math.max(ms, parseDur(m[1]));
-    const daily = /per day|daily|rpd|tpd/.test(msg);
+    const daily = /per[- ]day|daily|rpd|tpd|quota|neuron/.test(msg);
     ms = ms || (daily ? 3600_000 : 60_000);
-    return { kind: 'cool', ms: Math.min(ms + 1500, 8 * 3600_000), why: daily ? 'daily limit' : 'rate limit' };
+    return { kind: 'cool', ms: Math.min(ms + 1500, 8 * 3600_000), why: daily ? 'daily limit' : 'rate limit', daily };
   }
   if (c === 404 || c === 410 || (c === 400 && /(decommission|deprecat|not found|does not exist|unknown model|not supported|does not support tools|tool use|function calling)/.test(msg))) {
     return { kind: 'dead', ms: 12 * 3600_000, why: 'unavailable or no tool support' };
@@ -81,6 +86,18 @@ function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: num
   if (c === 413) return { kind: 'cool', ms: 60_000, why: 'request too large' };
   if (c >= 500 || c === 408 || c === 409) return { kind: 'cool', ms: 25_000, why: 'server busy' };
   return { kind: 'cool', ms: 30_000, why: 'error' };
+}
+
+/** Ms until a provider's allowance resets (its stated reset time), or null when it is a rolling window. */
+export function resetDelay(p: Provider, now = Date.now()): number | null {
+  if (p.reset === 'utc-midnight') return Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000 - now;
+  if (p.reset === 'pt-midnight') {
+    // Midnight in California is 07:00 or 08:00 UTC; the later one is the safe choice.
+    const day = Math.floor(now / 86_400_000) * 86_400_000;
+    const at = day + 8 * 3600_000;
+    return (at > now ? at : at + 86_400_000) - now;
+  }
+  return null;
 }
 
 export class Router {
@@ -130,6 +147,8 @@ export class Router {
   /** The provider's key, '' for a keyless provider that is available, or null if unusable. */
   private async keyFor(p: Provider): Promise<string | null> {
     if (p.transport === 'workers-ai') return this.env.AI ? '' : null;
+    // Open endpoints need nothing; KEYLESS_MODELS=0 switches them off (tests, or an owner who prefers only their own keys).
+    if (p.keyless) return this.env.KEYLESS_MODELS === '0' ? null : '';
     return (await this.vault.get(p.key)) || null;
   }
 
@@ -179,6 +198,12 @@ export class Router {
         out.push({ provider: p.name, model: '(key)', state: 'dead', info: 'key rejected — replace it in System' });
         continue;
       }
+      const limit = h[`cool|${p.id}`];
+      if ((limit?.cool ?? 0) > now) {
+        const back = new Date(limit!.cool!);
+        out.push({ provider: p.name, model: '(all)', state: 'cool', info: `${limit!.why ?? 'daily limit'} · back ${back.toISOString().slice(11, 16)} UTC` });
+        continue;
+      }
       for (const m of await this.models(p)) {
         const s = h[`${p.id}|${m}`] ?? {};
         const state = (s.dead ?? 0) > now ? 'dead' : (s.cool ?? 0) > now ? 'cool' : 'ok';
@@ -202,9 +227,15 @@ export class Router {
     await this.sput(H_KEY, h);
   }
 
-  async resetHealth(): Promise<void> {
+  /** Forget what went wrong. `keepLimits`: a provider known to be out of allowance for the day stays known (a new key for another provider does not reopen it). */
+  async resetHealth(keepLimits = false): Promise<void> {
+    const h = keepLimits ? await this.health() : {};
+    const kept: Record<string, Health> = {};
+    const now = Date.now();
+    for (const [k, v] of Object.entries(h)) if (k.startsWith('cool|') && (v.cool ?? 0) > now) kept[k] = v;
     this.mem.delete(H_KEY); // else a paused database would keep serving the old health
     await this.storage.delete(H_KEY).catch(() => undefined);
+    if (Object.keys(kept).length) await this.sput(H_KEY, kept);
   }
 
   /**
@@ -213,13 +244,13 @@ export class Router {
    * provider, keeping the owner's provider order within each group), with a lower
    * temperature and room for longer replies.
    */
-  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean; maxWaitMs?: number } = {}): Promise<{ message: Msg; model: string }> {
+  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean; maxWaitMs?: number; cheap?: boolean } = {}): Promise<{ message: Msg; model: string }> {
     if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
     // When every model is only briefly rate-limited, wait (up to ~45 s at a time, twice) and try
     // again, instead of giving up halfway through a long task.
     const maxWait = opts.maxWaitMs ?? 45_000;
     for (let round = 0; ; round++) {
-      const r = await this.attempt(messages, tools, signal, !!opts.code);
+      const r = await this.attempt(messages, tools, signal, !!opts.code, !!opts.cheap);
       if ('message' in r) return r;
       if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new Error(r.error);
       await new Promise((ok) => setTimeout(ok, r.waitMs + 500));
@@ -227,7 +258,7 @@ export class Router {
   }
 
   /** One pass over every usable model: the answer, or why none answered and how long until one frees up. */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -241,11 +272,18 @@ export class Router {
       if (p.codeOnly && !opts.code) continue; // keep small free allowances for writing code
       anyKey = true;
       if ((h[`key|${p.id}`]?.dead ?? 0) > now || (h[`net|${p.id}`]?.cool ?? 0) > now) continue;
+      // Out of allowance for the day: not tried again until it resets.
+      if ((h[`cool|${p.id}`]?.cool ?? 0) > now) {
+        soonest = Math.min(soonest, h[`cool|${p.id}`]!.cool! - now);
+        continue;
+      }
       for (const model of await this.models(p)) candidates.push({ p, key, model });
     }
-    // The keyless fallback goes last for chat; for code, the best coders go first.
-    if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
-    else candidates.sort((a, b) => Number(a.p.transport === 'workers-ai') - Number(b.p.transport === 'workers-ai'));
+    // Chat: the owner's keys, then Workers AI, then open endpoints. Code: the best coders first.
+    // Ghosty's own small jobs (cheap): the small, generously rationed models first.
+    if (cheap) candidates.sort((a, b) => cheapScore(b.model, b.p) - cheapScore(a.model, a.p));
+    else if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
+    else candidates.sort((a, b) => (a.p.tier ?? 0) - (b.p.tier ?? 0));
     const skipProvider = new Set<string>();
     const tooBig = new Set<string>();
     for (const { p, key, model } of candidates) {
@@ -274,7 +312,11 @@ export class Router {
         if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
         else if (c.kind === 'net') await this.mark(`net|${p.id}`, { cool: Date.now() + c.ms, why: c.why });
         else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
-        else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
+        else if (c.daily) {
+          // The whole provider's allowance is gone: remember it until the reset, and stop asking its other models today.
+          await this.mark(`cool|${p.id}`, { cool: Date.now() + (resetDelay(p) ?? c.ms), why: c.why });
+          skipProvider.add(p.id);
+        } else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
         if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
       }
     }
@@ -285,13 +327,11 @@ export class Router {
     for (const { p, model } of candidates) {
       const s = after[`${p.id}|${model}`] ?? {};
       if ((s.dead ?? 0) > t || (after[`key|${p.id}`]?.dead ?? 0) > t || tooBig.has(`${p.id}|${model}`)) continue;
-      soonest = Math.min(soonest, Math.max(0, (s.cool ?? 0) - t, (after[`net|${p.id}`]?.cool ?? 0) - t));
+      soonest = Math.min(soonest, Math.max(0, (s.cool ?? 0) - t, (after[`net|${p.id}`]?.cool ?? 0) - t, (after[`cool|${p.id}`]?.cool ?? 0) - t));
     }
-    if (!lastErr) {
-      const wait = Number.isFinite(soonest) ? ` The first one frees up in about ${Math.ceil(soonest / 1000)} seconds.` : '';
-      return { error: `Every model I can reach is cooling down after rate limits.${wait} Another free key in the System tab gives me more room.`, waitMs: soonest };
-    }
-    return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).`, waitMs: soonest };
+    const wait = Number.isFinite(soonest) ? ` The first one frees up in about ${Math.ceil(soonest / 1000)} seconds.` : '';
+    if (!lastErr) return { error: `Every model I can reach is cooling down after rate limits.${wait} Another free key in the System tab gives me more room.`, waitMs: soonest };
+    return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).${wait}`, waitMs: soonest };
   }
 
   private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
@@ -309,16 +349,17 @@ export class Router {
     const out = code ? (p.maxOut ?? 8192) : 4096;
     if (/gpt-oss/.test(model)) Object.assign(tuned, { reasoning_effort: code ? 'medium' : 'low', max_completion_tokens: out + 2000 });
     else tuned.max_tokens = out;
+    const limit = p.timeoutMs ?? 60_000;
     for (const body of [tuned, minimal]) {
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 60_000);
+      const timer = setTimeout(() => ctl.abort(), limit);
       const onAbort = () => ctl.abort();
       signal?.addEventListener('abort', onAbort, { once: true });
       let r: Response;
       try {
         r = await fetch(`${p.base}/chat/completions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+          headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: `Bearer ${key}` } : {}) },
           body: JSON.stringify(body),
           signal: ctl.signal,
         });
@@ -326,7 +367,7 @@ export class Router {
         clearTimeout(timer);
         signal?.removeEventListener('abort', onAbort);
         if (signal?.aborted) throw e;
-        if ((e as Error)?.name === 'AbortError') throw { timeout: true, message: 'no response in 60s' } satisfies LlmError;
+        if ((e as Error)?.name === 'AbortError') throw { timeout: true, message: `no response in ${Math.round(limit / 1000)}s` } satisfies LlmError;
         throw { net: true, message: String((e as Error)?.message ?? e) } satisfies LlmError;
       }
       clearTimeout(timer);

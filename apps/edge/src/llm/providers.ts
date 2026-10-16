@@ -1,16 +1,21 @@
 /**
  * The AI providers Ghosty can use. All of them speak the OpenAI chat-completions
  * format, including tool calling. Add a provider by adding an entry here and a key
- * entry in KEYS (apps/edge/src/keys.ts).
+ * entry in KEYS (apps/edge/src/keys.ts) — unless it is keyless.
  *
  * `seed` lists models to try before live discovery has run. Discovery (GET /models)
  * then adds whatever else the key can reach.
+ *
+ * Keyless providers (no account at all): Cloudflare Workers AI through the Worker's own
+ * binding, and Pollinations' free text API (one model, one reply every 30 s per address,
+ * best effort). They come after the owner's own keys for chat, and first for Ghosty's
+ * own study drills (the cheap tier), so the owner's allowances are kept for the owner.
  */
 export interface Provider {
   id: string;
   name: string;
   base: string;
-  /** Vault key name holding this provider's API key. */
+  /** Vault key name holding this provider's API key ('' for a keyless provider). */
   key: string;
   seed: string[];
   /** Optional filter for discovered model ids. */
@@ -25,6 +30,16 @@ export interface Provider {
   transport?: 'openai' | 'workers-ai';
   /** Skip GET /models discovery. */
   noDiscovery?: boolean;
+  /** Needs no key (an open endpoint). Tried after keyed providers for chat. */
+  keyless?: boolean;
+  /** Order for chat when nothing else decides: 0 the owner's keys, 1 Workers AI, 2 open endpoints. */
+  tier?: number;
+  /** How long to wait for an answer (default 60 s; open endpoints that queue get less). */
+  timeoutMs?: number;
+  /** When this provider's daily allowance resets, for remembering an exhausted provider until then. */
+  reset?: 'utc-midnight' | 'pt-midnight' | 'rolling';
+  /** How good a fit for Ghosty's own small jobs (study digests and drills): higher first. */
+  cheap?: number;
 }
 
 export const PROVIDERS: Provider[] = [
@@ -33,23 +48,31 @@ export const PROVIDERS: Provider[] = [
     name: 'Gemini',
     base: 'https://generativelanguage.googleapis.com/v1beta/openai',
     key: 'gemini',
-    seed: ['gemini-2.5-flash', 'gemini-2.5-flash-lite'],
+    // The free tier moves on: discovery keeps the ones the key can reach, newest first.
+    seed: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
     accept: (id) => /gemini/.test(id) && !/(tts|image|embed|live|audio|vision-only)/.test(id),
     maxOut: 16384,
+    reset: 'pt-midnight',
+    cheap: 6,
   },
   {
     id: 'groq',
     name: 'Groq',
     base: 'https://api.groq.com/openai/v1',
     key: 'groq',
-    seed: ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b'],
+    // Free plan (2026): the gpt-oss models and Qwen; Llama 3.x moved to enterprise plans.
+    seed: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
+    reset: 'rolling',
+    cheap: 6,
   },
   {
     id: 'cerebras',
     name: 'Cerebras',
     base: 'https://api.cerebras.ai/v1',
     key: 'cerebras',
-    seed: ['gpt-oss-120b', 'llama-3.3-70b'],
+    seed: ['gpt-oss-120b', 'qwen-3.8-27b', 'llama-3.3-70b'],
+    reset: 'rolling',
+    cheap: 4,
   },
   {
     id: 'openrouter',
@@ -58,6 +81,8 @@ export const PROVIDERS: Provider[] = [
     key: 'openrouter',
     seed: ['openrouter/free'],
     accept: (id) => id.endsWith(':free') || id === 'openrouter/free',
+    reset: 'utc-midnight',
+    cheap: 5,
   },
   {
     id: 'mistral',
@@ -66,32 +91,43 @@ export const PROVIDERS: Provider[] = [
     key: 'mistral',
     seed: ['mistral-medium-latest', 'devstral-medium-latest', 'mistral-small-latest'],
     maxOut: 16384,
-  },
-  {
-    // GitHub Models: GPT-4.1 / DeepSeek-V3 for free with the same GitHub token Ghosty
-    // already uses (the token needs the "Models: read" permission). Small daily allowance
-    // and 8k-token requests, so it is kept for coding turns only.
-    id: 'ghmodels',
-    name: 'GitHub Models',
-    base: 'https://models.github.ai/inference',
-    key: 'github',
-    seed: ['openai/gpt-4.1', 'deepseek/DeepSeek-V3-0324', 'openai/gpt-4.1-mini'],
-    maxIn: 7600,
-    maxOut: 4000,
-    codeOnly: true,
-    noDiscovery: true,
+    reset: 'rolling',
+    cheap: 5,
   },
   {
     // Cloudflare Workers AI through the Worker's own AI binding: no key at all, a free
-    // daily allowance, and always there as the last resort.
+    // daily allowance (10,000 neurons, reset midnight UTC), and always there.
     id: 'workersai',
     name: 'Workers AI',
     base: '',
     key: '',
     transport: 'workers-ai',
-    seed: ['@cf/zai-org/glm-4.7-flash', '@cf/openai/gpt-oss-120b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
+    seed: ['@cf/zai-org/glm-4.7-flash', '@cf/openai/gpt-oss-20b', '@cf/openai/gpt-oss-120b', '@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'],
     maxOut: 8192,
     noDiscovery: true,
+    keyless: true,
+    tier: 1,
+    reset: 'utc-midnight',
+    cheap: 9,
+  },
+  {
+    // Pollinations' free text API: no account, no key. One model (gpt-oss-20b, tool calling
+    // works), one reply every 30 seconds per address, best effort, and identical requests may
+    // get a shared cached answer — fine as a last resort for chat and for study drills, never
+    // for anything secret. Over the limit it answers 402 with Retry-After, which the router
+    // honours; requests that queue are cut off after 25 s.
+    id: 'pollinations',
+    name: 'Pollinations',
+    base: 'https://text.pollinations.ai/v1',
+    key: '',
+    seed: ['openai'],
+    maxOut: 4096,
+    noDiscovery: true,
+    keyless: true,
+    tier: 2,
+    timeoutMs: 25_000,
+    reset: 'rolling',
+    cheap: 8,
   },
 ];
 
@@ -105,8 +141,21 @@ export function codeScore(id: string): number {
   if (/(gpt-5(?!-nano)|gpt-4\.1(?!-nano|-mini)|gemini-[3-9][\w.-]*pro|gemini-2\.5-pro|claude)/.test(m)) return 9;
   if (/(qwen3?-coder|qwen-3-coder|deepseek-(v3|r1|chat)|glm-(4\.[5-9]|5)(?!.*flash)|devstral|codestral)/.test(m)) return 8;
   if (/(gpt-oss-120b|llama-4-maverick|qwen3-235b|qwen-3-235b|mistral-medium|gpt-4\.1-mini|gemini-[\d.]+-flash(?!-lite))/.test(m)) return 7;
-  if (/(glm-4\.7-flash|llama-4-scout|llama-3\.3-70b|gpt-oss-20b|qwen3-32b)/.test(m)) return 5;
+  if (/(glm-4\.7-flash|llama-4-scout|llama-3\.3-70b|gpt-oss-20b|qwen3-32b|qwen3?\.8-27b)/.test(m)) return 5;
   return 4 + modelScore(m);
+}
+
+/**
+ * How good a model is for Ghosty's own small, unattended jobs (study digests, drills): the
+ * small, fast, generously rationed ones first, so the strong models keep their allowance
+ * for the owner. Higher first.
+ */
+export function cheapScore(id: string, p?: Provider): number {
+  const m = id.toLowerCase();
+  let s = p?.cheap ?? 4;
+  if (/(flash-lite|gpt-oss-20b|glm-4\.7-flash|mini\b|small|nano|8b|27b)/.test(m)) s += 2;
+  else if (/(pro|120b|235b|405b|70b|medium|large|kimi|deepseek)/.test(m)) s -= 2;
+  return s;
 }
 
 /** Model ids that are never chat models. */

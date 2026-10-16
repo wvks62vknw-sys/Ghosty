@@ -60,6 +60,8 @@ export interface Env {
    */
   [secret: `${string}_KEY`]: string | undefined;
 
+  /** "0" switches off the open, keyless model endpoints (Pollinations); the owner's keys and Workers AI stay. */
+  KEYLESS_MODELS?: string;
   /** Testing only: "1" makes the brain use a scripted fake model. Never set in production. */
   MOCK_LLM?: string;
 }

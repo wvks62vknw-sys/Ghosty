@@ -46,9 +46,13 @@ tests/       local preview server + browser test
   so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
   tests on every change.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
-  long tasks, short rate limits are waited out, and when the keys run dry Ghosty falls back to
-  **Cloudflare Workers AI** (no key — runs on your Cloudflare account) and **GitHub Models** (your GitHub
-  token with the "Models" permission).
+  long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
+  until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
+  on your Cloudflare account) and the open **Pollinations** endpoint (no key, no account).
+- **Self-study**: around the clock Ghosty reads a curriculum of thousands of topics (Wikipedia, MDN, arXiv,
+  OpenStax, the Swift book) into its library, writes study notes with a free model, drills itself with
+  questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
+  repository.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

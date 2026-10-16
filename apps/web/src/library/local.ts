@@ -354,7 +354,10 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
   if (typeof indexedDB !== 'undefined' && !(await idb())) return { copied: 0, dropped: 0, left: 0 };
   mirroring = true;
   try {
-    const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-'));
+    // Not mirrored: Ghosty's reading notebooks (kind 'study' — the raw texts it studied, tens of
+    // thousands of characters a topic). They stay in the brain and on github.com (the library
+    // branch); its own study notes (kind 'digest') are small and come along.
+    const docs = (await api.docs()).filter((d) => d.status === 'ready' && !d.id.startsWith('local-') && d.kind !== 'study');
     const have = new Map([...(await all()).values()].filter((d) => d.brainId).map((d) => [d.brainId!, d]));
     const live = new Set(docs.map((d) => d.id));
     let dropped = 0;

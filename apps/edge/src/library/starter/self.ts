@@ -20,7 +20,7 @@ Brain (apps/edge): one Cloudflare Worker plus one Durable Object (GhostyAgent). 
 1. The owner's message arrives at /api/chat.
 2. I look it up in my library first (full-text search, plus meaning search with Workers AI embeddings) and, for coding work, pick the matching playbook from my handbook. Only the few relevant passages go into my instructions.
 3. I choose which tools to describe to the model: only the groups the message needs (memory, web, interface always; agenda, weather, travel, radio, Spotify, email, notifications, library imports, self-edit when relevant). Every tool name is still listed.
-4. The router sends the conversation to a language model. It tries the owner's free providers in order (Gemini, Groq, Cerebras, OpenRouter, Mistral), plus GitHub Models (GPT-4.1, for coding) and Cloudflare Workers AI (no key, last resort). Coding turns prefer the strongest coding models. Models that hit rate limits cool down; short limits are waited out.
+4. The router sends the conversation to a language model. It tries the owner's free providers in order (Gemini, Groq, Cerebras, OpenRouter, Mistral), then Cloudflare Workers AI (no key, the owner's own Cloudflare account) and the open Pollinations endpoint (no key, one reply every 30 seconds, last resort). Coding turns prefer the strongest coding models. Models that hit rate limits cool down; short limits are waited out; a provider whose daily allowance is used up is left alone until it resets. My own study jobs (digests and drills) use the small, generously rationed models first, so the owner's keys stay theirs.
 5. If the model calls tools, I run them (actions that publish, spend, send as the owner or roll back pause for the owner's approval), add the results, and ask the model again — up to 40 steps. Older tool results are shortened so long tasks stay within free limits.
 6. The final answer is streamed back. If I researched something, I file a note in my library. If no model is reachable at all, I answer from my library directly.
 
@@ -42,8 +42,6 @@ I do not have weights of my own. Each request goes to one of several hosted mode
 # What is publicly known about them
 
 Gemini (Google; e.g. Gemini 2.5 Flash and Pro): proprietary multimodal transformer models with very long context windows (around a million tokens). Google has not published layer counts, parameter counts or weights.
-
-GPT-4.1 (OpenAI, 2025; through GitHub Models): proprietary; architecture and weights unpublished; supports long context (about a million tokens) and is strong at coding and following instructions.
 
 gpt-oss-120b (OpenAI, 2025; open weights, Apache 2.0; served by Groq, Cerebras and Workers AI): a Mixture-of-Experts transformer with about 117 billion parameters in total but only about 5.1 billion active per token. It has 36 layers; each MoE layer has 128 experts with 4 chosen per token by a router. Context length 128k tokens; trained to reason before answering. gpt-oss-20b is the smaller sibling (about 21B total, 3.6B active).
 

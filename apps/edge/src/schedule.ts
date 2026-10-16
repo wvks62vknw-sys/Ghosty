@@ -147,6 +147,15 @@ export async function finishJob(storage: DurableObjectStorage, id: string, resul
   await saveJobs(storage, jobs);
 }
 
+/** Run a job at a time of its own choosing next (a study session that wants to come back sooner or later). */
+export async function setNext(storage: DurableObjectStorage, id: string, at: number): Promise<void> {
+  const jobs = await loadJobs(storage);
+  const j = jobs.find((x) => x.id === id);
+  if (!j) return;
+  j.next = Math.max(Date.now() + 1000, at);
+  await saveJobs(storage, jobs);
+}
+
 export async function deferJob(storage: DurableObjectStorage, id: string, ms: number): Promise<void> {
   const jobs = await loadJobs(storage);
   const j = jobs.find((x) => x.id === id);

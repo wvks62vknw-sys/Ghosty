@@ -28,20 +28,21 @@ function fakeFetch(log, replies = {}) {
 test('coding turns try the strongest coder first, across providers', async () => {
   const log = [];
   globalThis.fetch = fakeFetch(log);
-  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q', github: 'gh' }), {});
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', mistral: 'm' }), {});
   const out = await r.complete([{ role: 'system', content: 'sys' }, { role: 'user', content: 'add a tab' }], TOOLS, undefined, { code: true });
-  assert.match(out.model, /GitHub Models · openai\/gpt-4\.1$/, out.model);
+  assert.match(out.model, /^Mistral · devstral-medium-latest$/, out.model);
   const chat = await r.complete([{ role: 'user', content: 'hello' }], TOOLS);
-  assert.match(chat.model, /^Gemini/, 'chat keeps the owner\'s provider order');
-  assert.ok(!log.slice(1).some((l) => l.url.includes('models.github.ai')), 'GitHub Models is never spent on chat');
+  assert.match(chat.model, /^Gemini/, "chat keeps the owner's provider order");
+  assert.ok(!log.some((l) => l.url.includes('pollinations')), 'open endpoints are not asked while the owner\'s keys answer');
 });
 
 test('rate-limited coders fall through to the next best', async () => {
   const log = [];
-  globalThis.fetch = fakeFetch(log, { 'openai/gpt-4.1': 429, 'deepseek/DeepSeek-V3-0324': 429 });
-  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', github: 'gh' }), {});
+  globalThis.fetch = fakeFetch(log, { 'devstral-medium-latest': 429 });
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', mistral: 'm' }), {});
   const out = await r.complete([{ role: 'user', content: 'fix the bug' }], TOOLS, undefined, { code: true });
-  assert.match(out.model, /gemini-2\.5-flash|gpt-4\.1-mini/, out.model);
+  assert.match(out.model, /gemini-3\.8-flash/, out.model);
+  assert.equal(log[0].model, 'devstral-medium-latest', 'the strongest coder was tried first');
 });
 
 test('no keys at all: Workers AI answers through the binding', async () => {
@@ -55,9 +56,82 @@ test('no keys at all: Workers AI answers through the binding', async () => {
   assert.ok(calls[0].inputs.tools.length, 'tools are passed to the model');
 });
 
-test('without a binding and without keys, the error says what to do', async () => {
-  const r = new R.Router(new MemStorage(), vaultWith({}), {});
+test('without a binding, without keys and with open endpoints switched off, the error says what to do', async () => {
+  const r = new R.Router(new MemStorage(), vaultWith({}), { KEYLESS_MODELS: '0' });
   await assert.rejects(r.complete([{ role: 'user', content: 'x' }], TOOLS), /Add a free Gemini or Groq key/);
+});
+
+test('no keys, no binding: the open Pollinations endpoint answers, with no Authorization header', async () => {
+  const log = [];
+  const headers = [];
+  globalThis.fetch = async (url, init) => {
+    headers.push(init.headers);
+    return fakeFetch(log)(url, init);
+  };
+  const r = new R.Router(new MemStorage(), vaultWith({}), {});
+  const out = await r.complete([{ role: 'user', content: 'hello' }], TOOLS);
+  assert.equal(out.model, 'Pollinations · openai');
+  assert.match(log[0].url, /^https:\/\/text\.pollinations\.ai\/v1\/chat\/completions$/);
+  assert.equal(headers[0].Authorization, undefined, 'nothing secret is sent to an open endpoint');
+  assert.equal(out.message.content, 'hi from openai');
+});
+
+test("Pollinations' pacing (402 + Retry-After) cools it for that long, and the summary says why", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response('{"error":"FREE_LIMIT","message":"wait 30s"}', { status: 402, headers: { 'retry-after': '30' } });
+  };
+  const r = new R.Router(new MemStorage(), vaultWith({}), {});
+  await assert.rejects(r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }), /busy or failing.*402.*frees up in about 3[0-9] seconds/);
+  assert.equal(calls, 1);
+  const row = (await r.summary()).find((m) => m.provider === 'Pollinations');
+  assert.equal(row.state, 'cool');
+  assert.match(row.info, /free limit/);
+});
+
+test("a provider out of allowance for the day is remembered until its reset; a new key elsewhere doesn't reopen it", async () => {
+  const log = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    log.push({ url, model: body.model });
+    if (url.includes('googleapis')) return new Response('{"error":{"message":"Quota exceeded for quota metric: requests per day"}}', { status: 429 });
+    return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `hi from ${body.model}` } }] }), { headers: { 'content-type': 'application/json' } });
+  };
+  const storage = new MemStorage();
+  const r = new R.Router(storage, vaultWith({ gemini: 'g' }), {});
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Pollinations · openai', 'the open endpoint carries on');
+  assert.equal(log.filter((l) => l.url.includes('googleapis')).length, 1, "the rest of Gemini's models are not asked once the day's allowance is gone");
+  log.length = 0;
+  await r.complete([{ role: 'user', content: 'again' }], []);
+  assert.ok(!log.some((l) => l.url.includes('googleapis')), 'not asked again before the reset');
+  const sum = await r.summary();
+  const g = sum.find((m) => m.provider === 'Gemini');
+  assert.equal(g.model, '(all)');
+  assert.equal(g.state, 'cool');
+  assert.match(g.info, /daily limit · back \d\d:\d\d UTC/);
+  // the reset is at midnight in California (08:00 UTC at the latest), never more than a day away
+  const h = storage.m.get('llm:health');
+  const left = h['cool|gemini'].cool - Date.now();
+  assert.ok(left > 0 && left <= 24 * 3600_000 + 1000, String(left));
+  // saving another key keeps what is known about the limit; a full reset forgets it
+  await r.resetHealth(true);
+  assert.ok((await r.summary()).find((m) => m.provider === 'Gemini').state === 'cool');
+  await r.resetHealth();
+  assert.ok((await r.summary()).find((m) => m.provider === 'Gemini').state === 'ok');
+});
+
+test("Ghosty's own small jobs (cheap) go to the small, generously rationed models first", async () => {
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  const env = { AI: { run: async (model) => ({ response: `cf ${model}` }) } };
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), env);
+  const cheap = await r.complete([{ role: 'user', content: 'What is 2 + 2?' }], [], undefined, { cheap: true });
+  assert.match(cheap.model, /^Workers AI · @cf\/zai-org\/glm-4\.7-flash$/, cheap.model);
+  assert.equal(log.length, 0, "the owner's keys were not spent");
+  const chat = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.match(chat.model, /^Gemini/, "chat still uses the owner's keys first");
 });
 
 test('big requests are slimmed to fit an 8k free tier: coding tools kept, old turns dropped', () => {

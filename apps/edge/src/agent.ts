@@ -24,7 +24,8 @@ import { Router, type Msg, type ToolCall } from './llm/router';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
 import { trainingRoute } from './training/coach';
-import { CURRICULUM, loadStudy, noteGap, STUDY_KEY, studySession } from './library/study';
+import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
+import { exportLibrary } from './library/export';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext } from './prompt';
 import { ALL_TOOL_NAMES, selectTools, TOOL_GROUPS, TOOLS, toolByName, toolSpecs } from './tools';
@@ -35,7 +36,7 @@ import type { Tool, ToolContext } from './tools/types';
 import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
-import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
+import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -282,7 +283,7 @@ export class GhostyAgent {
         // vault — so a mistaken paste never overwrites a good public token (which goes in tile addresses on the device).
         if (name === 'mapbox' && v && !v.startsWith('pk.')) return json({ error: 'not saved: use the public token (it starts with pk.), never a secret sk. token' }, 400);
         await this.vault.set(name, v);
-        await this.router.resetHealth();
+        await this.router.resetHealth(true); // a provider known to be out of allowance today stays known
         if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));
         const check = v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
         // waiting > 0: the database is paused — the key is in use now (memory, KV, this device) and written to it after the reset.
@@ -824,18 +825,31 @@ export class GhostyAgent {
     if (path === '/library/study' && method === 'GET') {
       await this.ensureStudyJob();
       const job = (await loadJobs(this.storage)).find((j) => j.kind === 'study');
-      return json({ ...(await loadStudy(this.storage)), next: job?.next ?? null, topics: CURRICULUM.length });
+      const st = await loadStudy(this.storage);
+      return json({ ...st, next: job?.next ?? null, topics: TOPIC_COUNT, summary: studySummary(st) });
     }
     if (path === '/library/study' && method === 'POST') {
-      const b = (await req.json().catch(() => ({}))) as { on?: boolean; now?: boolean };
+      const b = (await req.json().catch(() => ({}))) as { on?: boolean; now?: boolean; focus?: string };
       const st = await loadStudy(this.storage);
-      if (typeof b.on === 'boolean') {
-        st.on = b.on;
+      if (typeof b.on === 'boolean') st.on = b.on;
+      // "focus": the domains to put first, from the owner's words ("physics and finance"; "none" clears it).
+      if (typeof b.focus === 'string') st.focus = /^(none|off|clear|-)?$/i.test(b.focus.trim()) ? [] : matchDomains(b.focus).slice(0, 6);
+      if (typeof b.on === 'boolean' || typeof b.focus === 'string') {
         await this.storage.put(STUDY_KEY, st);
         await this.ensureStudyJob();
       }
-      if (b.now) return json(await studySession(this.storage, this.library));
-      return json(st);
+      if (b.now) {
+        const r = await this.meter.as('study', () => studySession(this.storage, this.library, { ai: this.studyAi(), spare: this.meter.spare() }));
+        return json({ ...r.state, did: r.did, next: Date.now() + r.next, topics: TOPIC_COUNT, summary: studySummary(r.state) });
+      }
+      return json({ ...st, topics: TOPIC_COUNT, summary: studySummary(st) });
+    }
+    if (path === '/library/export' && method === 'POST') {
+      // The notebooks as Markdown on the "library" branch of Ghosty's repository (readable on github.com, off the phone).
+      const g = await this.github();
+      if (!g || !this.env.GITHUB_REPO) return json({ error: 'exporting needs the GitHub token (System tab)' }, 400);
+      const b = (await req.json().catch(() => ({}))) as { offset?: number };
+      return json(await exportLibrary(g, this.library, this.env.GITHUB_REPO, { offset: Number(b.offset) || 0 }));
     }
     if (path === '/library' && method === 'GET') {
       const seeded = await lib.seedStarter(40);
@@ -962,7 +976,11 @@ export class GhostyAgent {
         await this.verifyShip(job);
         return json({ ok: true });
       }
-      if (job.kind === 'study') return json({ study: await studySession(this.storage, this.library) });
+      if (job.kind === 'study') {
+        const r = await this.meter.as('study', () => studySession(this.storage, this.library, { ai: this.studyAi(), spare: this.meter.spare() }));
+        await setNext(this.storage, job.id, Date.now() + r.next);
+        return json({ study: { ...r.state, did: r.did, next: Date.now() + r.next, summary: studySummary(r.state) } });
+      }
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -1039,11 +1057,12 @@ export class GhostyAgent {
         } else if (job.kind === 'verify') {
           await this.verifyShip(job);
         } else if (job.kind === 'study') {
-          // Quiet: no notification each hour; what it read is in the library and its study log.
-          // Optional work: it waits while the day's database allowance is running low (meter.ts).
-          const room = this.meter.spare();
-          if (room) await this.meter.as('study', () => studySession(this.storage, this.library));
-          await finishJob(this.storage, job.id, room ? 'studied' : 'waited: most of today\'s database allowance is used');
+          // Quiet: no notification each session; what it read, digested and drilled is in the library.
+          // Optional work: it waits while the day's database allowance is running low (meter.ts), and
+          // comes back every quarter of an hour while there is room and work, hourly otherwise.
+          const r = await this.meter.as('study', () => studySession(this.storage, this.library, { ai: this.studyAi(), spare: this.meter.spare() }));
+          await finishJob(this.storage, job.id, r.did.reads || r.did.digests || r.did.drills ? `studied: ${r.did.reads} read, ${r.did.digests} digested, ${r.did.drills} drilled` : (r.state.last?.error ?? 'nothing to do'));
+          await setNext(this.storage, job.id, Date.now() + r.next);
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -1062,7 +1081,15 @@ export class GhostyAgent {
 
   private bgBusy = false;
 
-  /** Self-study runs as an hourly background job; make sure there is exactly one while it's on. */
+  /** A model for Ghosty's own study (digests and drills): the cheap tier, never waiting on rate limits. */
+  private studyAi(): (system: string, user: string) => Promise<string> {
+    return async (system, user) => {
+      const r = await this.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { cheap: true, maxWaitMs: 0 });
+      return r.message.content ?? '';
+    };
+  }
+
+  /** Self-study runs as a background job (its own cadence: 15 min to an hour); make sure there is exactly one while it's on. */
   private studyChecked = false;
   private studyCheck: Promise<void> = Promise.resolve();
   /** One check at a time (two at once could both add a job), each after the previous one. */
@@ -1078,7 +1105,7 @@ export class GhostyAgent {
     // Keep one while it's on (none while off); remove any extras.
     for (const j of jobs.slice(st.on ? 1 : 0)) await removeJob(this.storage, j.id);
     if (st.on && !jobs.length) {
-      await addJob(this.storage, { kind: 'study', title: 'Self-study (no AI, no keys)', text: 'Read one topic from the study list into the library.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
+      await addJob(this.storage, { kind: 'study', title: 'Self-study', text: 'Read the next topics of the curriculum into the library, write study notes, and run a drill.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
       await rearm(this.storage);
     }
   }

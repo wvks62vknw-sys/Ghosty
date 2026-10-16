@@ -42,10 +42,22 @@ owner password on the pairing screen, then go to **System** and add a free AI ke
 **Gemini** (aistudio.google.com/apikey) is the best free model for building things;
 **Groq** (console.groq.com/keys) is the fastest for chat and gives Ghosty speech recognition.
 Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral): Ghosty spreads its work across all of
-them, so it runs out far less often. Two more free sources need no extra key:
+them, so it runs out far less often, and a provider whose daily allowance is used up is left alone until it
+resets. Two more free sources need no key at all:
 - **Cloudflare Workers AI** is connected automatically (the `ai` binding in `apps/edge/wrangler.jsonc`) and
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
-- **GitHub Models**: give your GitHub token (step 4) the **Models: Read-only** account permission.
+- **Pollinations** (an open text endpoint, one reply every 30 seconds, best effort) is the last resort for
+  chat and the first choice for Ghosty's own study drills, so your keys stay yours. Nothing secret is ever
+  sent there. Set the `KEYLESS_MODELS` variable to `0` in `wrangler.jsonc` if you would rather it never
+  used an open endpoint.
+
+**Ghosty studies on its own:** the Library tab's **SELF-STUDY** panel shows what it reads around the clock
+(a curriculum of thousands of topics across maths, science, computing, finance, law, health, history and
+more, from Wikipedia, MDN, arXiv, OpenStax and the Swift book), the study notes it writes with a free
+model, and how its self-set drills go. Type a field into FOCUS to put it first. Everything it learns is
+filed in the library (open any notebook on the shelf); **EXPORT TO GITHUB** writes every notebook as
+Markdown to a `library` branch of your repository, so it costs nothing on your phone and is readable
+anywhere. It stays within the free plan on its own: it waits while the day's database allowance is low.
 
 **Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
 (or import a web page, an arXiv paper id, a CVE id or a GitHub repo). Reading happens in your browser and

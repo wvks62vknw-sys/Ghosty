@@ -178,6 +178,41 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
     await ui.keyboard.press('Enter');
     await searched(ui);
   }
+  // ---- SELF-STUDY: what Ghosty learns on its own, with the owner's focus; and the reader
+  const study = await ui.evaluate(() => {
+    const pn = document.querySelector('#pg-library .pn.study');
+    if (!pn) return null;
+    return {
+      status: pn.querySelector('h3 small')?.textContent ?? '',
+      bars: [...pn.querySelectorAll('.bar')].map((b) => b.textContent?.trim() ?? ''),
+      fields: [...pn.querySelectorAll('.bar span')].map((b) => b.textContent?.trim() ?? '').slice(2),
+      buttons: [...pn.querySelectorAll('button')].map((b) => b.textContent?.trim()),
+    };
+  });
+  if (!study) problems.push(`[${name}] no SELF-STUDY panel`);
+  else {
+    if (!/LEARNING/.test(study.status)) problems.push(`[${name}] self-study status "${study.status}"`);
+    if (!/^READ.*topics$/.test(study.bars[0] ?? '')) problems.push(`[${name}] no READ progress: ${study.bars.join(' | ')}`);
+    if (study.fields.length < 1) problems.push(`[${name}] no fields in the study panel: ${study.bars.join(' | ')}`);
+    for (const b of ['TURN OFF', 'STUDY NOW', 'EXPORT TO GITHUB', 'FOCUS']) if (!study.buttons.includes(b)) problems.push(`[${name}] no ${b} button (${study.buttons.join(', ')})`);
+    const field = study.fields[0].replace(/^★ /, '');
+    await ui.fill('#pg-library input[aria-label="Fields to study first"]', field);
+    await ui.click('#pg-library .pn.study button:has-text("FOCUS")');
+    await ui.waitForFunction((f) => [...document.querySelectorAll('#pg-library .pn.study .rw')].some((r) => r.querySelector('.k')?.textContent === 'FIRST' && (r.textContent ?? '').includes(f)), field, { timeout: 8000 }).catch(() => problems.push(`[${name}] FOCUS "${field}" did not put that field first`));
+  }
+  // any document on the shelf opens in the reader
+  const shelfRow = await ui.$('#pg-library .pn .rw.link .v');
+  if (!shelfRow) problems.push(`[${name}] no readable document on the shelf`);
+  else {
+    const title = (await shelfRow.textContent())?.trim();
+    await shelfRow.click();
+    await ui.waitForSelector('.modal .reader p', { timeout: 8000 }).catch(() => problems.push(`[${name}] the reader did not open for "${title}"`));
+    const shown = await ui.evaluate(() => ({ title: document.querySelector('.modal .mhead b')?.textContent, words: (document.querySelector('.modal .reader')?.textContent ?? '').length }));
+    if (shown.title !== title || shown.words < 40) problems.push(`[${name}] reader shows ${JSON.stringify(shown)} for "${title}"`);
+    if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-reader.png` });
+    await ui.click('.modal .mhead button');
+    await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
+  }
   const askH = await ui.$eval('#pg-library .pn.ask > .bd', (el) => el.clientHeight);
   if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
@@ -197,5 +232,5 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches; the whole library is copied to the device and answers offline.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches; the whole library is copied to the device and answers offline; SELF-STUDY shows progress and takes a focus; the reader opens any document.');
 process.exit(problems.length ? 1 : 0);

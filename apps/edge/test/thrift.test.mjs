@@ -58,14 +58,19 @@ test('Workers AI tool calls are understood in every shape models use', async () 
 
 test('a short rate limit is waited out instead of failing the task', async () => {
   let calls = 0;
+  const tried = new Set();
   const env = {
     AI: {
-      run: async () => {
+      run: async (model) => {
         calls++;
-        if (calls <= 4) throw new Error('429 rate limited, try again in 0.2s'); // every Workers AI model, once
+        if (!tried.has(model)) {
+          tried.add(model); // every Workers AI model is rate-limited once
+          throw new Error('429 rate limited, try again in 0.2s');
+        }
         return { response: 'made it' };
       },
     },
+    KEYLESS_MODELS: '0',
   };
   const storage = new MemStorage();
   const router = new Router(storage, noKeys, env);
@@ -73,10 +78,10 @@ test('a short rate limit is waited out instead of failing the task', async () =>
   const r = await router.complete(msgs, [], undefined, { maxWaitMs: 70_000 }).catch((e) => e);
   assert.ok(!(r instanceof Error), String(r?.message));
   assert.equal(r.message.content, 'made it');
-  assert.ok(calls === 5 && Date.now() - t0 >= 1500, 'waited for the cool-down, then retried');
+  assert.ok(calls === tried.size + 1 && Date.now() - t0 >= 1500, `waited for the cool-down, then retried (${calls} calls over ${Date.now() - t0} ms)`);
 });
 
 test('daily allowance used up → a clear message, no endless waiting', async () => {
-  const env = { AI: { run: async () => { throw new Error('You have used up your daily free allocation of 10,000 neurons'); } } };
+  const env = { AI: { run: async () => { throw new Error('You have used up your daily free allocation of 10,000 neurons'); } }, KEYLESS_MODELS: '0' };
   await assert.rejects(new Router(new MemStorage(), noKeys, env).complete(msgs, []), /busy or failing|cooling down/);
 });

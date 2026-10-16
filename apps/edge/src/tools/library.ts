@@ -5,6 +5,9 @@
  */
 import { asData } from '../kernel/permissions';
 import { importSelf, importSource } from '../library/importers';
+import { DOMAINS } from '../library/curriculum';
+import { exportLibrary } from '../library/export';
+import { loadStudy, matchDomains, STUDY_KEY, studySummary } from '../library/study';
 import { formatHits, Library } from '../library/store';
 import { arg, clip, type Tool } from './types';
 
@@ -59,6 +62,52 @@ export const libraryTools: Tool[] = [
       const s = l.stats();
       const docs = l.list();
       return clip(`${s.docs} documents, ${s.passages} passages, ${(s.bytes / 1e6).toFixed(1)} MB.\n${docs.map((d) => `- ${d.title}${d.builtin ? ' (starter)' : ''} — ${d.passages} passages${d.source && !d.builtin ? ` — ${d.source}` : ''}`).join('\n')}`, 6000);
+    },
+  },
+  {
+    name: 'study_progress',
+    description: "How your self-study is going: what you have read, digested and drilled, by domain and skill, today's counts, and what is next. Use it when the owner asks what you have been learning or how your studies are going.",
+    parameters: { type: 'object', properties: {} },
+    risk: 'auto',
+    async run(_a, ctx) {
+      const st = await loadStudy(ctx.storage);
+      const s = studySummary(st);
+      const acc = s.drills.asked ? Math.round((100 * s.drills.right) / s.drills.asked) : null;
+      const weak = s.drills.skills.slice(0, 4).map((k) => `${k.skill} ${k.right}/${k.n}`).join(', ');
+      const lines = [
+        `Self-study is ${st.on ? 'on' : 'off'}: ${s.read} of ${s.topics} topics read, ${s.digested} digested, ${s.drills.asked} drills${acc === null ? '' : ` (${acc}% right)`}; today ${s.today.reads} read, ${s.today.digests} digested, ${s.today.drills} drilled.`,
+        st.focus.length ? `Focus: ${st.focus.join(', ')}.` : 'No focus set (every domain in turn).',
+        weak ? `Shakiest skills: ${weak}.` : '',
+        st.last ? `Last: ${st.last.kind ?? 'read'} "${st.last.topic}" — ${st.last.error ? `failed: ${st.last.error}` : st.last.title ?? 'done'}.` : '',
+        `Domains: ${s.domains.map((d) => `${d.name} ${d.read}/${d.topics}${d.focus ? ' ★' : ''}`).join('; ')}.`,
+      ];
+      return clip(lines.filter(Boolean).join('\n'), 5000);
+    },
+  },
+  {
+    name: 'focus_study',
+    description: 'Put some study domains first ("focus on quantum computing and macroeconomics"), or clear the focus ("none"). The rest of the curriculum carries on after them.',
+    parameters: { type: 'object', properties: { on: { type: 'string', description: 'words naming the domains, or "none"' } }, required: ['on'] },
+    risk: 'auto',
+    async run(a, ctx) {
+      const words = arg.str(a, 'on');
+      const st = await loadStudy(ctx.storage);
+      st.focus = /^(none|off|clear|-)$/i.test(words.trim()) ? [] : matchDomains(words).slice(0, 6);
+      await ctx.storage.put(STUDY_KEY, st);
+      return st.focus.length ? `Focusing on: ${st.focus.join(', ')} (then everything else in turn).` : words.trim().toLowerCase() === 'none' ? 'Focus cleared: every domain in turn.' : `No domain matches "${words}". Domains: ${DOMAINS.map((d) => d.name).join(', ')}.`;
+    },
+  },
+  {
+    name: 'library_export',
+    description: "Export your notebooks (study notes, reading, drills, research notes) as Markdown files to the 'library' branch of your own GitHub repository, so the owner can read them anywhere. Up to 40 notebooks per call; pass offset to continue.",
+    parameters: { type: 'object', properties: { offset: { type: 'number' } } },
+    risk: 'auto',
+    async run(a, ctx) {
+      const g = await ctx.github();
+      const repo = ctx.env.GITHUB_REPO;
+      if (!g || !repo) throw new Error('exporting needs the GitHub token (System tab)');
+      const r = await exportLibrary(g, lib(ctx), repo, { offset: arg.num(a, 'offset', 0) });
+      return `Exported ${r.files} notebook${r.files === 1 ? '' : 's'} (${r.passages} passages) to ${r.url}.${r.left ? ` ${r.left} more to go — call library_export again with offset ${(arg.num(a, 'offset', 0) || 0) + r.files}.` : ''}`;
     },
   },
 ];

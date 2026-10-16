@@ -160,6 +160,26 @@ export class Library {
     return rows.length;
   }
 
+  /** The text of one section of a document (one heading), up to `max` characters, in order. Index lookups only. */
+  sectionText(docId: string, heading: string, max = 7000): string {
+    const db = this.db;
+    const rids = db.exec<{ rid: number }>(`SELECT rid FROM lib_pass WHERE doc = ? AND heading = ? ORDER BY rid LIMIT 40`, docId, heading).toArray().map((r) => Number(r.rid));
+    if (!rids.length) return '';
+    const rows = db.exec<{ rid: number; text: string }>(`SELECT rowid AS rid, text FROM lib_fts WHERE rowid IN (${rids.map(() => '?').join(',')})`, ...rids).toArray();
+    const byRid = new Map(rows.map((r) => [Number(r.rid), String(r.text)]));
+    let out = '';
+    for (const rid of rids) {
+      const t = byRid.get(rid);
+      if (!t) continue;
+      if (out.length + t.length > max) {
+        out += t.slice(0, Math.max(0, max - out.length));
+        break;
+      }
+      out += (out ? '\n' : '') + t;
+    }
+    return out;
+  }
+
   /**
    * A document's passages in order, a page at a time (for the copy on the owner's device).
    * Index lookups only: the rows of this page, never the whole library.

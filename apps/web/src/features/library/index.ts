@@ -1,7 +1,10 @@
 /**
  * LIBRARY tab: Ghosty's offline brain. Add books, PDFs, Word files, e-books, notes, web
  * pages, arXiv papers, CVEs and GitHub repositories; Ghosty keeps them forever and looks
- * things up in them before answering. Searching here uses no AI at all.
+ * things up in them before answering. Searching here uses no AI at all. SELF-STUDY shows
+ * what Ghosty is learning on its own (what it read, the notes it wrote, how its drills go),
+ * takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
+ * opens in a reader.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
@@ -10,10 +13,10 @@ import { clear, fmt, h } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
-import { button, pager, panel, row, toast } from '../../ui/components';
+import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
-const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN' };
+const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES' };
 
 export const libraryTab: TabDef = {
   id: 'library',
@@ -177,12 +180,13 @@ export const libraryTab: TabDef = {
     // ---- shelf
     const shelf = panel('SHELF', { footer: true });
     const shelfList = pager(shelf, 46, (d: LibraryDoc) => {
-      const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, d.builtin ? `${d.passages}` : '✕', { wrap: true });
+      const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, d.builtin ? `${d.passages}` : '✕', { wrap: true, onClick: () => openDoc(d) });
       if (!d.builtin) {
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.title = `Remove "${d.title}" from the library`;
-        x.addEventListener('click', async () => {
+        x.addEventListener('click', async (e) => {
+          e.stopPropagation();
           if (!confirm(`Remove "${d.title}" from Ghosty's library?`)) return;
           await brain.libraryRemove(d.id).catch(() => toast('Could not remove it', 'bad'));
           void refresh();
@@ -190,32 +194,119 @@ export const libraryTab: TabDef = {
       }
       return r;
     }, () => 'SYNC');
-    // ---- self-study: Ghosty reads a topic an hour on its own (no AI, no keys)
-    const study = panel('SELF-STUDY', { grow: false });
+    // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
+    const openDoc = (d: LibraryDoc) => {
+      const body = h('div.reader');
+      const more = button('MORE', () => void load(), 'on');
+      let after = 0;
+      let last = '';
+      const load = async () => {
+        more.disabled = true;
+        try {
+          const r = await brain.libraryPassages(d.id, after);
+          for (const p of r.passages) {
+            if (p.heading && p.heading !== last) {
+              body.append(h('h4', p.heading));
+              last = p.heading;
+            }
+            body.append(h('p', p.text));
+          }
+          if (r.next === null) more.remove();
+          else {
+            after = r.next;
+            more.disabled = false;
+          }
+        } catch (e) {
+          body.append(h('div.note.bad', `Could not read it: ${(e as Error).message}`));
+          more.remove();
+        }
+      };
+      modal(d.title, h('div.readwrap', h('div.note', `${KIND[d.kind] ?? d.kind.toUpperCase()} · ${d.source || 'no source'} · ${fmt.n(d.passages)} passages`), body, h('div.keyrow', more)));
+      void load();
+    };
+
+    // ---- self-study: Ghosty studies on its own, around the clock, within the free plan
+    const study = panel('SELF-STUDY', { grow: false, cls: 'study' });
+    let allFields = false;
+    const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
     const paintStudy = (st: StudyInfo | null) => {
       clear(study.body);
       if (!st) {
         study.setStatus('OFFLINE', 'off');
         return;
       }
+      const sum = st.summary;
+      const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
       study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
+      const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
+      const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
+      const fields = [...sum.domains].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
+      const shown = allFields ? fields : fields.slice(0, 5);
+      const focusNames = st.focus.map((id) => sum.domains.find((d) => d.id === id)?.name ?? id);
       study.body.append(
         h('div.note', st.on
-          ? 'Every hour Ghosty reads one topic into its library on its own — first the questions it couldn\'t answer, then a coding, games, systems and AI curriculum (Wikipedia, MDN, arXiv). No AI or keys used.'
-          : 'Switched off. Turn it on and Ghosty reads a new topic into its library every hour, free.'),
-        st.last ? row('LAST', st.last.error ? `${st.last.topic} — failed: ${st.last.error}` : `${st.last.topic} → ${st.last.title ?? ''}${st.last.passages ? ` (${st.last.passages})` : ''}`, fmt.ago(st.last.at), { wrap: true }) : '',
-        row('STUDIED', `${st.sessions} session${st.sessions === 1 ? '' : 's'} · topic ${st.i + 1} of ${st.topics ?? '?'}`),
-        st.gaps.length ? row('TO LEARN', st.gaps.slice(-3).join(' · '), String(st.gaps.length), { wrap: true }) : '',
-        st.on && st.next ? row('NEXT', new Date(st.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })) : '',
+          ? `Around the clock, on its own: Ghosty reads a curriculum of ${fmt.n(sum.topics)} topics across ${sum.domains.length} fields (Wikipedia, MDN, arXiv, OpenStax, the Swift book), writes study notes on each with a free model, and sets itself drills it marks without any AI. Everything is filed in this library — open any notebook on the shelf, or export it all to GitHub.`
+          : 'Switched off. Turn it on and Ghosty reads, takes notes and drills itself around the clock, free, filing everything here.'),
+        bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),
+        bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, '#52f2b5'),
+        row('TODAY', `${sum.today.reads} read · ${sum.today.digests} notes · ${sum.today.drills} drills`, `${sum.today.ai} AI calls`),
+        row('DRILLS', sum.drills.asked ? `${sum.drills.right} of ${sum.drills.asked} right · ${pct(sum.drills.right, sum.drills.asked)}%` : 'none yet', weakest ? `weakest: ${weakest}` : null, { wrap: true, tone: sum.drills.asked && pct(sum.drills.right, sum.drills.asked) < 60 ? 'dn' : 'up' }),
+        st.last ? row('LAST', lastText, fmt.ago(st.last.at), { wrap: true, ...(st.last.error ? { tone: 'bad' as const } : {}) }) : '',
+        st.gaps.length ? row('YOUR QUESTIONS', st.gaps.slice(-3).join(' · '), String(st.gaps.length), { wrap: true }) : '',
+        st.on && st.next ? row('NEXT', new Date(st.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), `${st.sessions} sessions`) : row('SESSIONS', String(st.sessions)),
+        h('div.lab', 'FIELDS'),
+        ...shown.map((d) => bar(d.focus ? `★ ${d.name}` : d.name, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined)),
+        fields.length > 5
+          ? h('div.keyrow', button(allFields ? 'FEWER' : `ALL ${fields.length} FIELDS`, () => {
+            allFields = !allFields;
+            paintStudy(st);
+          }))
+          : '',
+        focusNames.length ? row('FIRST', focusNames.join(', '), '★', { wrap: true }) : '',
+        h('div.keyrow', focusIn, button('FOCUS', async () => {
+          const words = focusIn.value.trim();
+          if (!words) return;
+          focusIn.value = '';
+          const r = await brain.study({ focus: words }).catch(() => null);
+          if (r && !r.focus.length && !/^(none|off|clear|-)$/i.test(words)) toast('No field by that name — the FIELDS list has them all', 'warn');
+          paintStudy(r ? await brain.studyStatus().catch(() => r) : null);
+        })),
         h('div.keyrow',
           button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy(await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)), st.on ? 'warn' : 'on'),
           st.on ? button('STUDY NOW', async (b) => {
             b.disabled = true;
-            study.setStatus('READING…', 'mid');
-            await brain.study({ now: true }).catch(() => null);
-            paintStudy(await brain.studyStatus().catch(() => null));
+            study.setStatus('STUDYING…', 'mid');
+            const r = await brain.study({ now: true }).catch(() => null);
+            if (r?.did) toast(`Studied: ${r.did.reads} read, ${r.did.digests} notes, ${r.did.drills} drills`, 'ok');
+            paintStudy(await brain.studyStatus().catch(() => r));
             void refresh();
-          }) : ''),
+          }) : '',
+          button('EXPORT TO GITHUB', async (b) => {
+            // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
+            b.disabled = true;
+            const line = h('div.note', 'exporting…');
+            b.parentElement!.after(line);
+            try {
+              let offset = 0;
+              let total = 0;
+              let r = await brain.libraryExport(0);
+              total += r.files;
+              for (let guard = 0; guard < 25 && r.left > 0; guard++) {
+                offset += r.files;
+                line.textContent = `exporting… ${total} notebooks written, ${r.left} to go`;
+                r = await brain.libraryExport(offset);
+                total += r.files;
+              }
+              clear(line, `✓ ${total} notebook${total === 1 ? '' : 's'} on GitHub: `, h('a', { href: r.url, target: '_blank', rel: 'noopener' }, r.url.replace(/^https:\/\//, '')));
+              line.className = 'note ok';
+            } catch (e) {
+              line.textContent = `✕ ${(e as Error).message}`;
+              line.className = 'note bad';
+            } finally {
+              b.disabled = false;
+            }
+          }),
+        ),
       );
     };
     P.right.append(study.el, ap.el, shelf.el);
