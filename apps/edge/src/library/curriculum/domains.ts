@@ -144,7 +144,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Fast Fourier transform
 3|wiki|Segment tree
 3|wiki|HyperLogLog
-3|arxiv|A Model for Learned Bloom Filters`,
+3|arxiv|A Model for Learned Bloom Filters
+2|wiki|Cache replacement policies
+2|wiki|Suffix array`,
   },
   {
     id: 'computer-architecture-os',
@@ -204,7 +206,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Single instruction, multiple data
 3|wiki|Amdahl's law
 3|wiki|Booting
-3|arxiv|Spectre Attacks Exploiting Speculative Execution`,
+3|arxiv|Spectre Attacks Exploiting Speculative Execution
+2|wiki|Direct memory access
+2|wiki|Semaphore (programming)
+2|wiki|Solid-state drive`,
   },
   {
     id: 'networking-web',
@@ -264,7 +269,12 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|HTTP Strict Transport Security
 3|mdn|Content Security Policy (CSP)
 3|wiki|Anycast
-3|openstax|/books/introduction-computer-science/pages/11-1-modern-web-applications-architectures`,
+3|openstax|/books/introduction-computer-science/pages/11-1-modern-web-applications-architectures
+2|wiki|Address Resolution Protocol
+2|wiki|DMARC
+2|wiki|Ethernet
+2|wiki|Simple Mail Transfer Protocol
+2|wiki|Wi-Fi`,
   },
   {
     id: 'databases',
@@ -324,7 +334,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Apache Parquet
 3|wiki|DuckDB
 3|arxiv|The Case for Learned Index Structures
-3|arxiv|Survey of Vector Database Management Systems`,
+3|arxiv|Survey of Vector Database Management Systems
+2|wiki|Backup
+2|wiki|Schema migration
+2|wiki|Two-phase locking`,
   },
   {
     id: 'software-engineering',
@@ -384,7 +397,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Conway's law
 3|wiki|Twelve-Factor App methodology
 3|arxiv|Evaluating Large Language Models Trained on Code
-3|arxiv|SWE-bench Can Language Models Resolve Real-World GitHub Issues`,
+3|arxiv|SWE-bench Can Language Models Resolve Real-World GitHub Issues
+2|wiki|Build automation
+2|wiki|Regression testing`,
   },
   {
     id: 'languages-compilers',
@@ -444,7 +459,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Structure and Interpretation of Computer Programs
 3|wiki|Compilers: Principles, Techniques, and Tools
 3|swift|Memory Safety
-3|arxiv|practical linearity in a higher-order polymorphic language`,
+3|arxiv|practical linearity in a higher-order polymorphic language
+2|wiki|C (programming language)
+2|wiki|Data-flow analysis
+2|wiki|Tail call`,
   },
   {
     id: 'distributed-cloud',
@@ -717,7 +735,7 @@ export const DOMAIN_TEXT: DomainText[] = [
 2|wiki|Thread (computing)
 2|wiki|Race condition
 2|wiki|Mutual exclusion
-2|wiki|Deadlock
+2|wiki|Deadlock (computer science)
 2|wiki|Channel (programming)
 2|wiki|Futures and promises
 2|wiki|Asynchronous I/O
@@ -810,7 +828,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Zero-knowledge proof
 3|wiki|Trusted execution environment
 3|arxiv|Spectre Attacks Exploiting Speculative Execution Kocher
-3|arxiv|Meltdown Lipp Schwarz Gruss Prescher`,
+3|arxiv|Meltdown Lipp Schwarz Gruss Prescher
+2|wiki|Common Vulnerabilities and Exposures
+2|wiki|Disk encryption`,
   },
   {
     id: 'graphics-games',
@@ -874,7 +894,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Netcode
 3|wiki|Data-oriented design
 3|arxiv|Representing Scenes Neural Radiance Fields View Synthesis
-3|arxiv|3D Gaussian splatting real-time radiance field rendering`,
+3|arxiv|3D Gaussian splatting real-time radiance field rendering
+2|wiki|Color space
+2|wiki|SRGB`,
   },
   {
     id: 'hci-product',
@@ -938,7 +960,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Automation bias
 3|wiki|Goodhart's law
 3|arxiv|Dark Patterns at Scale Findings Crawl Shopping Websites
-3|arxiv|Human-Centered Artificial Intelligence Reliable Safe Trustworthy`,
+3|arxiv|Human-Centered Artificial Intelligence Reliable Safe Trustworthy
+2|wiki|Customer attrition
+2|wiki|User research`,
   },
   {
     id: 'ml-fundamentals',
@@ -997,7 +1021,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Explainable artificial intelligence
 3|wiki|Conformal prediction
 3|wiki|Concept drift
-3|wiki|Fairness (machine learning)`,
+3|wiki|Fairness (machine learning)
+2|wiki|Collaborative filtering
+2|wiki|Curse of dimensionality`,
   },
   {
     id: 'deep-learning-llms',
@@ -1058,7 +1084,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Fast Inference from Transformers via Speculative Decoding
 3|wiki|Mechanistic interpretability
 3|arxiv|Toy Models of Superposition
-3|wiki|Double descent`,
+3|wiki|Double descent
+2|wiki|Beam search
+2|wiki|Cross-entropy
+2|wiki|Variational autoencoder`,
   },
   {
     id: 'ai-agents-rag',
@@ -1118,7 +1147,8 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection
 3|arxiv|Transferable Adversarial Attacks on Aligned Language Models
 3|arxiv|Red Teaming Language Models with Language Models
-3|wiki|AI alignment`,
+3|wiki|AI alignment
+2|wiki|Semantic search`,
   },
   {
     id: 'quantum-computing',
@@ -1239,7 +1269,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Eventual consistency
 3|wiki|Shard (database architecture)
 3|wiki|Apache Iceberg
-3|wiki|Apache Flink`,
+3|wiki|Apache Flink
+2|wiki|Apache Avro
+2|wiki|Data lineage`,
   },
   {
     id: 'robotics-control',
@@ -1300,7 +1332,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Robot learning
 3|arxiv|Domain Randomization for Transferring Deep Neural Networks
 3|arxiv|Diffusion Policy Visuomotor Policy Learning via Action Diffusion
-3|arxiv|RT-2 Vision-Language-Action Models Transfer Web Knowledge`,
+3|arxiv|RT-2 Vision-Language-Action Models Transfer Web Knowledge
+2|wiki|Rotary encoder
+2|wiki|Stepper motor
+2|wiki|Zero-order hold`,
   },
   {
     id: 'osint-privacy-safety',
@@ -1420,7 +1455,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Prime number theorem
 3|wiki|Riemann zeta function
 3|wiki|Riemann hypothesis
-3|wiki|Dirichlet's theorem on arithmetic progressions`,
+3|wiki|Dirichlet's theorem on arithmetic progressions
+2|wiki|Discrete logarithm
+2|wiki|Sieve of Eratosthenes`,
   },
   {
     id: 'calculus-analysis',
@@ -1480,7 +1517,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Functional analysis
 3|wiki|Complex analysis
 3|wiki|Residue theorem
-3|wiki|Calculus of variations`,
+3|wiki|Calculus of variations
+2|wiki|Euler's formula
+2|wiki|Separation of variables
+2|wiki|Trigonometric functions`,
   },
   {
     id: 'linear-algebra',
@@ -1599,7 +1639,11 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Concentration inequality
 3|wiki|Hoeffding's inequality
 3|wiki|Large deviations theory
-3|wiki|Queueing theory`,
+3|wiki|Queueing theory
+2|wiki|Bayesian network
+2|wiki|Chi-squared distribution
+2|wiki|Entropy (information theory)
+2|wiki|Student's t-distribution`,
   },
   {
     id: 'statistics-data',
@@ -2589,7 +2633,7 @@ export const DOMAIN_TEXT: DomainText[] = [
 2|wiki|Negligence
 2|wiki|Assured shorthold tenancy
 2|wiki|Section 21 notice
-2|wiki|Tenancy deposit scheme
+2|wiki|Tenancy deposit scheme (England and Wales)
 2|wiki|Leasehold estate
 2|wiki|United Kingdom labour law
 2|wiki|Employment Rights Act 1996
