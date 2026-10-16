@@ -12,7 +12,9 @@
  * It is not indexed by search engines, and password fields are refused before publishing, so it
  * can't pass for a real login or payment page.
  */
+import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
+import { durableGet, durablePut } from '../kv';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
 
@@ -34,8 +36,16 @@ export const siteSlug = (s: string) =>
     .replace(/^-|-$/g, '')
     .slice(0, 48);
 
-export async function loadSite(storage: DurableObjectStorage, name: string): Promise<Site | undefined> {
-  return storage.get<Site>(PREFIX + siteSlug(name));
+/**
+ * Where published pages live: the brain's database AND Cloudflare KV when it is bound (free,
+ * with its own allowance), so a published link stays up — and publishing works — while the
+ * database is paused. Without KV (tests, a bare dev setup) the database alone is used.
+ */
+export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: DurableObjectStorage): { get(name: string): Promise<Site | undefined>; put(site: Site): Promise<void> } {
+  return {
+    get: (name) => durableGet<Site>(env, storage, PREFIX + siteSlug(name)),
+    put: (site) => durablePut(env, storage, PREFIX + site.name, site),
+  };
 }
 
 // ---------------------------------------------------------------------------------------
@@ -320,7 +330,7 @@ export const siteTools: Tool[] = [
       const source = arg.str(a, 'source_url', false);
       const { html, notes } = prepareSite(arg.str(a, 'html'), source);
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
-      await ctx.storage.put(PREFIX + name, { name, title, html, source, at: Date.now() } satisfies Site);
+      await siteStore(ctx.env, ctx.storage).put({ name, title, html, source, at: Date.now() });
       const link = `${ctx.origin ?? ''}/s/${name}`;
       ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title } });
       const requests = 1 + (html.match(/<script\b[^>]*\ssrc=/gi) ?? []).length + (html.match(/<link\b[^>]*stylesheet/gi) ?? []).length + (html.match(/<img\b/gi) ?? []).length;

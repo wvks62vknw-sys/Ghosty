@@ -107,6 +107,67 @@ test('the starter library fills in a little at a time and covers the big topics'
   assert.equal(await lib.seedStarter(40), true, 'nothing more to do once seeded');
 });
 
+test('a changed starter document is re-seeded alone; an upgrade from the old bookkeeping rewrites nothing', async () => {
+  const storage = new MemStorage();
+  const lib = new Library(storage, {});
+  const para = (w) => Array.from({ length: 60 }, (_, i) => `${w} sentence number ${i} says something about ${w}.`).join(' ');
+  const A = { id: 'a', title: 'Doc A', text: `# A\n\n${para('alpha')}\n\n${para('alpha two')}` };
+  const B = { id: 'b', title: 'Doc B', text: `# B\n\n${para('bravo')}` };
+  while (!(await lib.seedStarter(40, [A, B])));
+  const rids = (id) => lib.passagesOf(id).passages.map((p) => p.rid);
+  const a1 = rids('starter_a');
+  assert.ok(a1.length > 0);
+  // B's text changes: only B is rewritten.
+  const B2 = { ...B, text: `${B.text}\n\nA new paragraph about bravo.` };
+  while (!(await lib.seedStarter(40, [A, B2])));
+  assert.deepEqual(rids('starter_a'), a1, 'A untouched');
+  assert.ok(lib.passagesOf('starter_b').passages.some((p) => /new paragraph/.test(p.text)));
+  // The old bookkeeping (one version for everything) is replaced without rewriting a thing.
+  const b2 = rids('starter_b');
+  await storage.put('lib:starter', { version: 'old', doc: 2, at: 0 });
+  assert.equal(await lib.seedStarter(40, [A, B2]), true);
+  assert.deepEqual(rids('starter_a'), a1);
+  assert.deepEqual(rids('starter_b'), b2);
+  // A document dropped from the starter library goes.
+  while (!(await lib.seedStarter(40, [A])));
+  assert.equal(lib.doc('starter_b'), null);
+  assert.deepEqual(rids('starter_a'), a1);
+});
+
+test('a document half seeded when its text changes, or when it is dropped, is started over — never mixed, never stuck', async () => {
+  const storage = new MemStorage();
+  const lib = new Library(storage, {});
+  const para = (w) => Array.from({ length: 60 }, (_, i) => `${w} sentence number ${i} says something about ${w}.`).join(' ');
+  const A = { id: 'a', title: 'Doc A', text: `# A\n\n${para('alpha')}` };
+  const B = { id: 'b', title: 'Doc B', text: `# B\n\n${para('bravo')}\n\n${para('bravo two')}\n\n${para('bravo three')}` };
+  // seed a passage at a time until B is under way but not finished
+  let st;
+  for (let i = 0; i < 40; i++) {
+    await lib.seedStarter(1, [A, B]);
+    st = await storage.get('lib:starter');
+    if (st.cur?.id === 'starter_b' && st.cur.at > 0) break;
+  }
+  assert.equal(st.cur?.id, 'starter_b', 'B is half seeded');
+  // B's text is replaced: what was already added is thrown away, not mixed with the new text
+  const B2 = { ...B, text: `# B\n\n${para('charlie')}` };
+  let rounds = 0;
+  while (!(await lib.seedStarter(40, [A, B2])) && rounds++ < 20);
+  assert.ok(rounds < 20, 'finishes');
+  const texts = lib.passagesOf('starter_b').passages.map((p) => p.text);
+  assert.ok(texts.length > 0 && texts.every((t) => /charlie/.test(t)) && !texts.some((t) => /bravo/.test(t)));
+  // half way through again, then the document is dropped altogether
+  const C = { id: 'c', title: 'Doc C', text: `# C\n\n${para('delta')}\n\n${para('delta two')}\n\n${para('delta three')}` };
+  for (let i = 0; i < 40; i++) {
+    await lib.seedStarter(1, [A, B2, C]);
+    st = await storage.get('lib:starter');
+    if (st.cur?.id === 'starter_c' && st.cur.at > 0) break;
+  }
+  assert.equal(st.cur?.id, 'starter_c');
+  assert.equal(await lib.seedStarter(40, [A, B2]), true, 'complete straight away');
+  assert.equal(lib.doc('starter_c'), null);
+  assert.equal(await lib.seedStarter(40, [A, B2]), true);
+});
+
 test('query words: stop words dropped, technical tokens kept', () => {
   assert.deepEqual(queryTerms('How do I use the C++ std::vector in my code?'), ['c++', 'std', 'vector', 'code']);
   assert.deepEqual(queryTerms('what is the'), []);

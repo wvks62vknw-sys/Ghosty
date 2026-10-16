@@ -18,7 +18,7 @@
 import type { Env } from '../env';
 import { chunkText, type Passage } from '../../../../packages/shared/src/chunk';
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
-import { STARTER } from './starter';
+import { STARTER, type StarterDoc } from './starter';
 
 export type { LibraryDoc, LibraryHit };
 
@@ -286,39 +286,94 @@ export class Library {
     }
   }
 
+  /** Once the starter library is known to be complete, no call in this brain's lifetime touches the database for it again. */
+  private starterReady = false;
+
   /**
-   * Put the built-in starter library in (and keep it up to date), a little at a time:
-   * at most `budget` passages per call, so no single request does too much work.
+   * Put the built-in starter library in (and keep it up to date), a little at a time: at
+   * most `budget` passages per call, so no single request does too much work. Each document
+   * is tracked by its own fingerprint, so editing or adding one starter document re-seeds
+   * ONLY that document — never the whole library. (Rewriting everything on any change used
+   * to burn through Cloudflare's free daily write allowance in one go and pause the brain.)
+   * `docs` is for tests; it is always the real starter library otherwise.
    */
-  async seedStarter(budget = 40): Promise<boolean> {
-    const version = `${STARTER.length}:${STARTER.reduce((n, d) => n + d.text.length, 0)}`;
-    const state = (await this.storage.get<{ version: string; doc: number; at: number }>('lib:starter')) ?? { version: '', doc: 0, at: 0 };
-    if (state.version === version && state.doc >= STARTER.length) return true;
-    if (state.version !== version) {
-      for (const d of this.list().filter((x) => x.builtin)) this.remove(d.id);
-      state.version = version;
-      state.doc = 0;
-      state.at = 0;
-    }
-    let left = budget;
-    while (left > 0 && state.doc < STARTER.length) {
-      const s = STARTER[state.doc]!;
-      const id = `starter_${s.id}`;
-      if (state.at === 0) this.createDoc({ id, title: s.title, source: 'Ghosty starter library', kind: 'starter', builtin: true });
-      const passages = chunkText(s.text);
-      const part = passages.slice(state.at, state.at + Math.min(left, MAX_PASSAGES_PER_CALL));
-      await this.addPassages(id, part);
-      state.at += part.length;
-      left -= part.length;
-      if (state.at >= passages.length) {
-        this.finish(id);
-        state.doc++;
-        state.at = 0;
+  async seedStarter(budget = 40, docs: StarterDoc[] = STARTER): Promise<boolean> {
+    const real = docs === STARTER;
+    if (real && this.starterReady) return true;
+    const want = new Map(docs.map((d) => [`starter_${d.id}`, { d, h: starterHash(d) }]));
+    const version = [...want.values()].map((x) => x.h).join(',');
+    type State = { v: 2; version: string; done: Record<string, string>; cur: { id: string; at: number; h: string } | null };
+    const raw = await this.storage.get<Partial<State>>('lib:starter');
+    let state: State;
+    if (raw?.v === 2 && raw.done) state = { v: 2, version: raw.version ?? '', done: raw.done, cur: raw.cur?.h ? raw.cur : null };
+    else {
+      // Older bookkeeping (or none): documents already in the library whose size matches the
+      // text they should hold are accepted as they are — an upgrade rewrites nothing.
+      state = { v: 2, version: '', done: {}, cur: null };
+      for (const doc of this.list().filter((x) => x.builtin && x.status === 'ready')) {
+        const w = want.get(doc.id);
+        if (w && doc.chars === starterChars(w.d)) state.done[doc.id] = w.h;
       }
     }
+    if (state.version === version) {
+      if (real) this.starterReady = true;
+      return true;
+    }
+    // Half way through a document whose text has since changed, or which is gone: start it over.
+    if (state.cur && want.get(state.cur.id)?.h !== state.cur.h) {
+      this.remove(state.cur.id);
+      delete state.done[state.cur.id];
+      state.cur = null;
+    }
+    // Only documents that were removed from the starter library, or whose text changed, go.
+    for (const doc of this.list().filter((x) => x.builtin)) {
+      const w = want.get(doc.id);
+      if (w && state.done[doc.id] === w.h) continue;
+      if (state.cur?.id === doc.id) continue; // half way through adding it: carry on below
+      this.remove(doc.id);
+      delete state.done[doc.id];
+    }
+    let left = budget;
+    for (;;) {
+      const next = state.cur ? want.get(state.cur.id) : [...want.entries()].find(([id, w]) => state.done[id] !== w.h)?.[1];
+      if (!next || left <= 0) break;
+      const id = `starter_${next.d.id}`;
+      if (state.cur?.id !== id) {
+        this.createDoc({ id, title: next.d.title, source: 'Ghosty starter library', kind: 'starter', builtin: true });
+        state.cur = { id, at: 0, h: next.h };
+      }
+      const passages = chunkText(next.d.text);
+      const part = passages.slice(state.cur.at, state.cur.at + Math.min(left, MAX_PASSAGES_PER_CALL));
+      await this.addPassages(id, part);
+      state.cur.at += part.length;
+      left -= part.length;
+      if (state.cur.at >= passages.length) {
+        this.finish(id);
+        state.done[id] = next.h;
+        state.cur = null;
+      }
+    }
+    const complete = [...want.entries()].every(([id, w]) => state.done[id] === w.h);
+    state.version = complete ? version : ''; // only ever the set that is wholly in: a half-done round never short-circuits later
     await this.storage.put('lib:starter', state);
-    return state.doc >= STARTER.length;
+    if (complete && real) this.starterReady = true;
+    return complete;
   }
+}
+
+/** Fingerprint of a starter document (FNV-1a over title and text). */
+function starterHash(d: StarterDoc): string {
+  let h = 0x811c9dc5;
+  for (const ch of `${d.title}\n${d.text}`) {
+    h ^= ch.codePointAt(0)!;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${d.text.length}:${h.toString(16)}`;
+}
+
+/** The characters a starter document occupies once cut into passages (what lib_docs.chars holds). */
+function starterChars(d: StarterDoc): number {
+  return chunkText(d.text).reduce((n, p) => n + p.text.trim().slice(0, MAX_PASSAGE_CHARS).length, 0);
 }
 
 /** Key for spotting a note that is already filed (length + start of the text; indexed). */

@@ -112,7 +112,7 @@ export const coreTab: TabDef = {
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
       const t = input.value.trim();
-      if (!t) return;
+      if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
       input.value = '';
       void send(t, { speak: settings.get().speak });
     };

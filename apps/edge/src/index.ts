@@ -5,6 +5,7 @@
  */
 import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
+import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -113,9 +114,15 @@ export default {
     // Pages Ghosty published (publish_site): public links, no sign-in, served sandboxed.
     const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page)?\/?$/);
     if (pub && (req.method === 'GET' || req.method === 'HEAD')) {
-      const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
       // Nothing from the visitor's request is passed on, except whether it is loading a frame.
       const dest = req.headers.get('sec-fetch-dest');
+      // Straight from KV when it is bound: no database involved, so the link stays up while
+      // the brain's database is paused. Pages published before KV existed are still in the brain.
+      if (env.SITES) {
+        const site = await siteStore(env).get(pub[1]!);
+        if (site) return pub[2] ? siteFrameResponse(site, dest) : siteResponse(site);
+      }
+      const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
       return stub.fetch(new Request(`${url.origin}/api/site/${pub[1]}${pub[2] ? `/page${dest ? `?dest=${encodeURIComponent(dest)}` : ''}` : ''}`));
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS ? env.ASSETS.fetch(req) : json({ error: 'not found' }, 404);

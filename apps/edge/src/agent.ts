@@ -14,6 +14,8 @@ import { loadReverseJobs, refreshReverse, startReverse } from './tools/reverse';
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
+import { storageError } from './kv';
+export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
@@ -29,7 +31,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { loadSite, siteFrameResponse, siteResponse } from './tools/sites';
+import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
@@ -83,12 +85,6 @@ function trimContext(msgs: Msg[]): Msg[] {
   return out.map((m, i) => (m.role === 'tool' && i < out.length - 8 && (m.content?.length ?? 0) > 600 ? { ...m, content: `${m.content!.slice(0, 600)}…[older tool output trimmed]` } : m));
 }
 
-/** Cloudflare's free-plan database allowance (rows read/written per day) in plain words, or null for other errors. */
-export function storageError(e: unknown): string | null {
-  const m = String((e as Error)?.message ?? e);
-  if (!/rows (read|written)|exceeded allowed|free tier|storage (operation|quota)/i.test(m)) return null;
-  return "Ghosty's database has used up Cloudflare's free daily allowance, so it is paused until it resets at midnight UTC (1am UK summer time). Nothing is lost. The heavy readers that caused this have been fixed; Workers Paid ($5/month) removes the limit.";
-}
 
 export class GhostyAgent {
   private vault: Vault;
@@ -139,7 +135,7 @@ export class GhostyAgent {
   private async reverseRoute(req: Request, path: string, method: string): Promise<Response> {
     const ctx = this.toolContext(() => undefined);
     if (path === '/reverse' && method === 'GET') {
-      const jobs = await loadReverseJobs(this.storage);
+      const jobs = await loadReverseJobs(this.env, this.storage);
       return json({ jobs: jobs.slice().reverse().map((j) => ({ ...j, report: undefined, reportChars: j.report?.length ?? 0 })) });
     }
     if (path === '/reverse' && method === 'POST') {
@@ -190,7 +186,7 @@ export class GhostyAgent {
       const sp = path.match(/^\/site\/([a-z0-9-]{1,48})(\/page)?$/);
       if (sp && method === 'GET') {
         try {
-          const site = await loadSite(this.storage, sp[1]!);
+          const site = await siteStore(this.env, this.storage).get(sp[1]!);
           return sp[2] ? siteFrameResponse(site, url.searchParams.get('dest')) : siteResponse(site);
         } catch (e) {
           if (!storageError(e)) throw e;
@@ -447,7 +443,7 @@ export class GhostyAgent {
    * library search backed by the owner's device.
    */
   private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
-    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'email', 'media', 'spotify', 'widgets']);
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'email', 'media', 'spotify', 'widgets', 'sites']);
     const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
     const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
     const names = new Set(device.map((t) => t.name));
@@ -484,7 +480,7 @@ export class GhostyAgent {
     const hits = [...searchPassages(text, passages, 3), ...searchStarterInMemory(text)].slice(0, 4);
     const sys =
       systemPrompt(client, facts, false) +
-      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up), but nearly everything still works. Your memory, agenda and the owner's own documents come from the copy on their device (above and below); remember / set_reminder / add_event are kept on the device and saved to you automatically after the reset. Web search, weather, directions, traffic and cameras, email, radio, Spotify, the screen and widgets all work as usual (their keys come from the owner's device). Only library imports, push notifications to the phone and self-editing wait for the reset. Mention the pause only when it matters.` +
+      `\n\nPAUSED MODE: your database is paused until it resets at midnight UTC (Cloudflare's free daily allowance is used up), but nearly everything still works. Your memory, agenda and the owner's own documents come from the copy on their device (above and below); remember / set_reminder / add_event are kept on the device and saved to you automatically after the reset. Web search, weather, directions, traffic and cameras, email, radio, Spotify, the screen and widgets all work as usual (their keys come from the owner's device). Rebuilding and publishing websites (study_site, publish_site) works too: published pages live outside the database. Only library imports, push notifications to the phone and self-editing wait for the reset. Mention the pause only when it matters.` +
       (agendaLines.length ? `\n\nTHE OWNER'S AGENDA (next two weeks, from their device):\n${asData("the owner's agenda", agendaLines.join('\n'))}` : '') +
       (hits.length ? `\n\nFROM YOUR LIBRARY:\n${asData('your library', formatHits(hits, 3500))}` : '');
     try {
