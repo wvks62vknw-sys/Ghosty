@@ -1,14 +1,10 @@
-/** SYSTEM tab: keys, AI models, appearance, voice, sounds, home location and connection status. (Email, Spotify and phone notifications are in LINKS.) */
+/** SYSTEM tab: keys, AI models and connection status. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
 import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey } from '../../api/brain';
-import { listVoices } from '../../assistant/voice';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
-import { World } from '../../engine/world';
 import { go, type TabDef } from '../../shell/tabs';
-import { home, settings } from '../../state/app';
 import { BUILD } from '../../state/build';
-import { applyTheme, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
@@ -17,16 +13,14 @@ export const systemTab: TabDef = {
   title: 'SYSTEM',
   icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>',
   scene: 'backdrop',
-  blurb: 'AI keys · models · theme · voice',
+  blurb: 'AI keys · models · status',
   mount(root) {
-    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'LOOK & STATUS', leftLabel: 'KEYS & MODELS', stack: true });
+    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'STATUS', leftLabel: 'KEYS & MODELS', stack: true });
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
-    const lp = panel('LOOK & VOICE', { grow: false });
-    lp.el.classList.add('look');
     const sp = panel('STATUS');
-    P.right.append(lp.el, sp.el);
+    P.right.append(sp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -111,71 +105,6 @@ export const systemTab: TabDef = {
       await brain.resetModels().catch(() => undefined);
       void load();
     }));
-
-    // look & voice
-    // Theme picker: one card per theme, drawn in that theme's own colours and finish, so the
-    // choice is made by looking rather than by name.
-    const themes = h('div.themes');
-    const paintThemes = () => {
-      clear(themes);
-      const cur = settings.get().theme;
-      for (const [k, t] of Object.entries(THEMES)) {
-        const b = h('button.tcard', { type: 'button', 'data-finish': t.finish, 'aria-pressed': String(cur === k), style: `--tc:${t.c};--ta:${t.a};--tr:${t.r};--tb:${t.bg}` },
-          h('span.tprev', h('i.tp1'), h('i.tp2'), h('i.tp3'), h('i.tglow')),
-          h('span.tname', t.label),
-          h('span.ttag', t.tag),
-        );
-        b.classList.toggle('on', cur === k);
-        b.addEventListener('click', () => {
-          applyTheme(k);
-          [...themes.children].forEach((x) => {
-            x.classList.toggle('on', x === b);
-            x.setAttribute('aria-pressed', String(x === b));
-          });
-        });
-        themes.append(b);
-      }
-    };
-    paintThemes();
-    const name = h('input', { value: settings.get().name, placeholder: 'What should I call you?', 'aria-label': 'Your name' });
-    name.addEventListener('change', () => settings.set({ name: name.value.trim() || 'Boss' }));
-    const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
-    units.value = settings.get().units;
-    units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
-    const voice = h('select', { 'aria-label': 'Voice' });
-    const fillVoices = () => {
-      clear(voice, h('option', { value: 'auto' }, 'Voice: best available'), ...listVoices().map((v) => h('option', { value: v.name }, `${v.name} (${v.lang})`)));
-      voice.value = settings.get().voice;
-    };
-    fillVoices();
-    setTimeout(fillVoices, 1000);
-    voice.addEventListener('change', () => settings.set({ voice: voice.value }));
-    const homeIn = h('input', { placeholder: `Home city (now ${home().name})`, 'aria-label': 'Home city' });
-    const setHome = button('SET HOME', () => {
-      const c = World.find(homeIn.value);
-      if (!c) return toast('City not in my atlas', 'warn');
-      settings.set({ home: { name: c.name, lat: c.lat, lon: c.lon } });
-      toast(`Home set to ${c.name}`, 'ok');
-      homeIn.value = '';
-    });
-    const gps = button('USE GPS', () =>
-      navigator.geolocation?.getCurrentPosition(
-        (p) => {
-          const n = World.near(p.coords.latitude, p.coords.longitude, 5e4);
-          settings.set({ home: { name: n && n.km < 80 ? n.city.name : 'Current position', lat: p.coords.latitude, lon: p.coords.longitude } });
-          toast(`Home set to ${settings.get().home!.name}`, 'ok');
-        },
-        () => toast('Location unavailable', 'warn'),
-        { timeout: 8000 },
-      ),
-    );
-    const sfx = h('select', { 'aria-label': 'Interface sounds' }, h('option', { value: 'on' }, 'Interface sounds: on'), h('option', { value: 'off' }, 'Interface sounds: off'));
-    sfx.value = settings.get().sounds ? 'on' : 'off';
-    sfx.addEventListener('change', () => settings.set({ sounds: sfx.value === 'on' }));
-    const motion = h('select', { 'aria-label': 'Tilt to look around' }, h('option', { value: 'off' }, 'Tilt phone to look around: off'), h('option', { value: 'on' }, 'Tilt phone to look around: on'));
-    motion.value = settings.get().motion ? 'on' : 'off';
-    motion.addEventListener('change', () => settings.set({ motion: motion.value === 'on' }));
-    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units, voice, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     // A newer version shipped than the one on screen? (Compares with the latest version on GitHub.)
     let newer = false;

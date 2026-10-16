@@ -139,6 +139,33 @@ test('publish_site puts the page live at a public link that anyone can open, san
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/api/site/acme-bakery'), env, { waitUntil() {} })).status, 401);
 });
 
+test('with KV bound, a page can be published while the database is paused, and is served without the brain', async () => {
+  const kv = { m: new Map(), async get(k) { return this.m.has(k) ? JSON.parse(this.m.get(k)) : null; }, async put(k, v) { this.m.set(k, v); }, async delete(k) { this.m.delete(k); } };
+  // The database is paused (Cloudflare's daily allowance used up): publishing still works.
+  const paused = { async get() { throw new Error('Exceeded allowed rows read in Durable Objects free tier.'); }, async put() { throw new Error('Exceeded allowed rows written in Durable Objects free tier.'); } };
+  const events = [];
+  const out = await T.toolByName.get('publish_site').run(
+    { name: 'paused-bakery', html: '<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>Paused</title></head><body><h1>Still here</h1></body></html>' },
+    { env: { SITES: kv }, storage: paused, emit: (e) => events.push(e), origin: 'https://ghosty.example.workers.dev' },
+  );
+  assert.match(out, /live now at https:\/\/ghosty\.example\.workers\.dev\/s\/paused-bakery/);
+  assert.ok(kv.m.has('site:paused-bakery'));
+  // Served straight from KV: the brain is never asked.
+  const env = { SITES: kv, AGENT: { idFromName: () => 'owner', get: () => ({ fetch: () => { throw new Error('the brain must not be needed'); } }) } };
+  const go = (path, headers = {}) => brain.default.fetch(new Request(`https://ghosty.example.workers.dev${path}`, { headers }), env, { waitUntil() {} });
+  const r = await go('/s/paused-bakery', { 'sec-fetch-dest': 'document' });
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /<iframe src="\/s\/paused-bakery\/page"/);
+  const f = await go('/s/paused-bakery/page', { 'sec-fetch-dest': 'iframe' });
+  assert.equal(f.status, 200);
+  assert.match(await f.text(), /Still here/);
+  // A page published before KV existed is still in the brain: the brain is asked for it.
+  let asked = 0;
+  env.AGENT.get = () => ({ fetch: async () => { asked++; return new Response('from the brain'); } });
+  assert.equal(await (await go('/s/older-page')).text(), 'from the brain');
+  assert.equal(asked, 1);
+});
+
 test('the backend a page implies is worked out from its repeated parts and forms', () => {
   const card = (t, p) => `<div class="product-card"><img src="/${t}.jpg"><h3>${t}</h3><span>£${p}</span><button>Add to basket</button></div>`;
   const shop = `<html><body><input type="search">${card('Loaf', '3.50')}${card('Bun', '1.20')}${card('Cake', '12.00')}<section class="reviews">★★★★★ Lovely</section><form><input type="email"><textarea></textarea></form></body></html>`;

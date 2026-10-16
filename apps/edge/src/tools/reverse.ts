@@ -8,6 +8,8 @@
  *
  * Lawful research only: the owner is responsible for having the right to analyse a target.
  */
+import type { Env } from '../env';
+import { durableGet, durablePut } from '../kv';
 import { addJob } from '../schedule';
 import { arg, type Tool, type ToolContext } from './types';
 
@@ -31,12 +33,13 @@ const KEY = 'reverse.jobs';
 const MAX_JOBS = 40;
 const KINDS = ['auto', 'web', 'npm', 'repo', 'artifact'];
 
-export async function loadReverseJobs(storage: DurableObjectStorage): Promise<ReverseJob[]> {
-  return (await storage.get<ReverseJob[]>(KEY)) ?? [];
+/** The job list lives in the database AND in KV, so REA keeps working while the database is paused. */
+export async function loadReverseJobs(env: Pick<Env, 'SITES'> | undefined, storage: DurableObjectStorage): Promise<ReverseJob[]> {
+  return (await durableGet<ReverseJob[]>(env, storage, KEY)) ?? [];
 }
 
-async function saveJobs(storage: DurableObjectStorage, jobs: ReverseJob[]): Promise<void> {
-  await storage.put(KEY, jobs.slice(-MAX_JOBS));
+async function saveJobs(env: Pick<Env, 'SITES'> | undefined, storage: DurableObjectStorage, jobs: ReverseJob[]): Promise<void> {
+  await durablePut(env, storage, KEY, jobs.slice(-MAX_JOBS));
 }
 
 /** A target is a URL, an npm package name or owner/repo. */
@@ -71,15 +74,15 @@ export async function startReverse(ctx: ToolContext, raw: string, kind = 'auto',
   const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   await g.dispatchWorkflow('reverse.yml', { job: id, target: n.target, kind: k === 'auto' ? n.kind : k, question: question.slice(0, 500) });
   const job: ReverseJob = { id, target: n.target, kind: k === 'auto' ? n.kind : k, question: question.slice(0, 500), at: Date.now(), status: 'queued' };
-  const jobs = await loadReverseJobs(ctx.storage);
+  const jobs = await loadReverseJobs(ctx.env, ctx.storage);
   jobs.push(job);
-  await saveJobs(ctx.storage, jobs);
+  await saveJobs(ctx.env, ctx.storage, jobs);
   return job;
 }
 
 /** Refresh one job from GitHub; loads the report when the run has finished. */
 export async function refreshReverse(ctx: ToolContext, id: string): Promise<ReverseJob | null> {
-  const jobs = await loadReverseJobs(ctx.storage);
+  const jobs = await loadReverseJobs(ctx.env, ctx.storage);
   const job = jobs.find((j) => j.id === id);
   if (!job) return null;
   if (job.status === 'done' || job.status === 'failed') return job;
@@ -106,7 +109,7 @@ export async function refreshReverse(ctx: ToolContext, id: string): Promise<Reve
     job.error = 'GitHub never started the run (is the reverse workflow in the repository, and does the token have Actions access?)';
     job.finishedAt = Date.now();
   }
-  await saveJobs(ctx.storage, jobs);
+  await saveJobs(ctx.env, ctx.storage, jobs);
   return job;
 }
 
@@ -150,7 +153,7 @@ export const reverseTools: Tool[] = [
     parameters: { type: 'object', properties: { job: { type: 'string', description: 'job id; omit for the latest' }, section: { type: 'string', description: 'optional: only the section whose title contains this' } } },
     risk: 'auto',
     async run(a, ctx) {
-      const jobs = await loadReverseJobs(ctx.storage);
+      const jobs = await loadReverseJobs(ctx.env, ctx.storage);
       const want = arg.str(a, 'job', false);
       const j0 = want ? jobs.find((j) => j.id === want) : jobs[jobs.length - 1];
       if (!j0) return 'No reverse-engineering jobs yet.';
@@ -171,7 +174,7 @@ export const reverseTools: Tool[] = [
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
     async run(_a, ctx) {
-      const jobs = await loadReverseJobs(ctx.storage);
+      const jobs = await loadReverseJobs(ctx.env, ctx.storage);
       return jobs.length ? jobs.slice(-15).reverse().map(describe).join('\n') : 'No reverse-engineering jobs yet.';
     },
   },

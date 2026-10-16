@@ -9,7 +9,6 @@ import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
 
-const GEAR = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>';
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -57,22 +56,6 @@ export function buildLauncher(): Launcher {
         go(t.id);
       },
     }, icon(t.icon), h('b', t.title), h('small', t.blurb ?? ''))));
-    // One more tile: Settings (name, units, voice, sounds, tilt, theme) — lives on the System tab.
-    tiles.append(h('button.dtile.settings', {
-      type: 'button',
-      dataset: { id: 'settings' },
-      style: { animationDelay: `${tabs().length * 28}ms` },
-      onclick: () => {
-        close(true);
-        go('system');
-        setTimeout(() => {
-          const look = document.querySelector<HTMLElement>('#pg-system .pn.look');
-          const box = look?.closest<HTMLElement>('.two.stack');
-          if (look && box) box.scrollTo({ top: box.scrollTop + look.getBoundingClientRect().top - box.getBoundingClientRect().top - 8, behavior: 'smooth' });
-          else look?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-        }, 120);
-      },
-    }, icon(GEAR), h('b', 'SETTINGS'), h('small', 'name · units · voice · sounds · tilt · theme')));
     quick.hidden = true;
     (box.querySelector('.dtitle span') as HTMLElement).textContent = `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`;
   };

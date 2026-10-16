@@ -107,6 +107,33 @@ test('the starter library fills in a little at a time and covers the big topics'
   assert.equal(await lib.seedStarter(40), true, 'nothing more to do once seeded');
 });
 
+test('a changed starter document is re-seeded alone; an upgrade from the old bookkeeping rewrites nothing', async () => {
+  const storage = new MemStorage();
+  const lib = new Library(storage, {});
+  const para = (w) => Array.from({ length: 60 }, (_, i) => `${w} sentence number ${i} says something about ${w}.`).join(' ');
+  const A = { id: 'a', title: 'Doc A', text: `# A\n\n${para('alpha')}\n\n${para('alpha two')}` };
+  const B = { id: 'b', title: 'Doc B', text: `# B\n\n${para('bravo')}` };
+  while (!(await lib.seedStarter(40, [A, B])));
+  const rids = (id) => lib.passagesOf(id).passages.map((p) => p.rid);
+  const a1 = rids('starter_a');
+  assert.ok(a1.length > 0);
+  // B's text changes: only B is rewritten.
+  const B2 = { ...B, text: `${B.text}\n\nA new paragraph about bravo.` };
+  while (!(await lib.seedStarter(40, [A, B2])));
+  assert.deepEqual(rids('starter_a'), a1, 'A untouched');
+  assert.ok(lib.passagesOf('starter_b').passages.some((p) => /new paragraph/.test(p.text)));
+  // The old bookkeeping (one version for everything) is replaced without rewriting a thing.
+  const b2 = rids('starter_b');
+  await storage.put('lib:starter', { version: 'old', doc: 2, at: 0 });
+  assert.equal(await lib.seedStarter(40, [A, B2]), true);
+  assert.deepEqual(rids('starter_a'), a1);
+  assert.deepEqual(rids('starter_b'), b2);
+  // A document dropped from the starter library goes.
+  while (!(await lib.seedStarter(40, [A])));
+  assert.equal(lib.doc('starter_b'), null);
+  assert.deepEqual(rids('starter_a'), a1);
+});
+
 test('query words: stop words dropped, technical tokens kept', () => {
   assert.deepEqual(queryTerms('How do I use the C++ std::vector in my code?'), ['c++', 'std', 'vector', 'code']);
   assert.deepEqual(queryTerms('what is the'), []);

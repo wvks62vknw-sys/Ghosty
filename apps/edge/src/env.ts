@@ -14,6 +14,12 @@ export interface Env {
   };
   /** The built interface (apps/web/dist), served for every path outside /api. */
   ASSETS?: { fetch(req: Request): Promise<Response> };
+  /**
+   * Cloudflare KV (free, with its own daily allowance separate from the database's): pages
+   * Ghosty published and jobs in flight, so links stay up and publishing works while the
+   * database is paused. Bound as "SITES" in wrangler.jsonc.
+   */
+  SITES?: { get(key: string, type: 'json'): Promise<unknown>; put(key: string, value: string): Promise<void>; delete(key: string): Promise<void> };
 
   /** Your email address. Only this identity may talk to Ghosty. */
   OWNER_EMAIL?: string;
