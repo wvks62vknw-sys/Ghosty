@@ -24,6 +24,7 @@ export const libraryTools: Tool[] = [
       "Search your own library — the books, PDFs, notes, papers, CVEs and code the owner gave you, plus your built-in starter library (algorithms, system design, compilers, maths, AI research, PyTorch/JAX/Triton/CUDA, reinforcement learning, production code, debugging, security). Returns the most relevant passages with their source. Costs no AI. Use it before answering knowledge questions and when you need facts for code; cite the source.",
     parameters: { type: 'object', properties: { query: { type: 'string', description: 'what you want to know, in plain words' }, k: { type: 'number', description: 'how many passages (default 5, max 10)' } }, required: ['query'] },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const l = lib(ctx);
       await l.seedStarter();
@@ -44,10 +45,11 @@ export const libraryTools: Tool[] = [
       if (/^(self|me|myself|yourself|your (own )?(code|source)|my (own )?(code|source)|ghosty)$/i.test(source)) {
         const g = await ctx.github();
         if (!g) throw new Error('reading your own code needs the GitHub token (System tab)');
-        const r = await importSelf(l, g, await g.defaultBranch(), { offset: arg.num(a, 'offset', 0) });
+        const r = await importSelf(l, g, await g.defaultBranch(), { offset: arg.num(a, 'offset', 0), onProgress: ctx.progress });
         return `Read ${r.files} of my own files into the library ("${r.doc.title}", ${r.doc.passages} passages so far). ${r.next !== null ? `${r.total - r.next} files left — call library_import again with source "self" and offset ${r.next}.` : 'That was the last of them: my whole codebase is in the library.'}`;
       }
-      const r = await importSource(l, source, { offset: arg.num(a, 'offset', 0) });
+      // The chat shows how far a long import has got (file n of N, the pages of a paper) under this tool's line.
+      const r = await importSource(l, source, { offset: arg.num(a, 'offset', 0), onProgress: ctx.progress });
       return `Saved "${r.doc.title}" to the library: ${r.passages} passages (${Math.round(r.doc.chars / 1000)}k characters). ${r.note}`.trim();
     },
   },
@@ -56,6 +58,7 @@ export const libraryTools: Tool[] = [
     description: 'List the documents in your library with their size.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const l = lib(ctx);
       await l.seedStarter();
@@ -69,6 +72,7 @@ export const libraryTools: Tool[] = [
     description: "How your self-study is going: what you have read, digested and drilled, by domain and skill, today's counts, and what is next. Use it when the owner asks what you have been learning or how your studies are going.",
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const st = await loadStudy(ctx.storage);
       const s = studySummary(st);
@@ -106,7 +110,7 @@ export const libraryTools: Tool[] = [
       const g = await ctx.github();
       const repo = ctx.env.GITHUB_REPO;
       if (!g || !repo) throw new Error('exporting needs the GitHub token (System tab)');
-      const r = await exportLibrary(g, lib(ctx), repo, { offset: arg.num(a, 'offset', 0) });
+      const r = await exportLibrary(g, lib(ctx), repo, { offset: arg.num(a, 'offset', 0), onProgress: ctx.progress });
       return `Exported ${r.files} notebook${r.files === 1 ? '' : 's'} (${r.passages} passages) to ${r.url}.${r.left ? ` ${r.left} more to go — call library_export again with offset ${(arg.num(a, 'offset', 0) || 0) + r.files}.` : ''}`;
     },
   },

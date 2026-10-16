@@ -16,7 +16,7 @@ import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
-const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES' };
+const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE' };
 
 export const libraryTab: TabDef = {
   id: 'library',

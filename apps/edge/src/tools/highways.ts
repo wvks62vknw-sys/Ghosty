@@ -95,6 +95,7 @@ export const highwaysTools: Tool[] = [
       },
     },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const road = arg.str(a, 'road', false).trim() ? roadName(arg.str(a, 'road', false)) : '';
       let p: { name: string; lat: number; lon: number } | null = null;

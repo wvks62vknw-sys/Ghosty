@@ -15,6 +15,7 @@ export const dataTools: Tool[] = [
     description: 'Current weather, air quality and 3-day forecast for a place name (or the owner\'s location if no place given).',
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
+    pure: true,
     async run(a) {
       let name = 'requested location';
       let lat = arg.num(a, 'lat', NaN);
@@ -56,6 +57,7 @@ export const dataTools: Tool[] = [
     description: 'Recent earthquakes worldwide from USGS (last 24 hours, magnitude 2.5+), biggest first.',
     parameters: { type: 'object', properties: { min_magnitude: { type: 'number' } } },
     risk: 'auto',
+    pure: true,
     async run(a) {
       const min = arg.num(a, 'min_magnitude', 4);
       const r = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');

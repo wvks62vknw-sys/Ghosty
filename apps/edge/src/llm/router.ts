@@ -7,8 +7,10 @@
 import type { Env } from '../env';
 import type { Vault } from '../kernel/vault';
 import type { ModelHealth } from '../../../../packages/shared/src/protocol';
-import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, type Provider } from './providers';
+import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
+import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+export { hasImage, imagesIn, markPhotos, stripImages, textOf, withImages, type Content, type ContentPart } from './content';
 
 export interface ToolCall {
   id: string;
@@ -18,7 +20,8 @@ export interface ToolCall {
 
 export interface Msg {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
+  /** Text; parts (text, then pictures as data URLs) when the owner sent a photo; null for a reply that is only tool calls. */
+  content: Content;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 }
@@ -43,6 +46,9 @@ interface LlmError {
   net?: boolean;
   timeout?: boolean;
 }
+
+/** The agent looks for this wording to answer a photo in text instead. */
+const NO_VISION = 'no vision model reachable: none of the models I can reach right now can look at a picture (a free Gemini key in the System tab adds several).';
 
 const H_KEY = 'llm:health';
 const M_KEY = 'llm:models';
@@ -268,6 +274,8 @@ export class Router {
     const h = await this.health();
     const now = Date.now();
     const candidates: { p: Provider; key: string; model: string }[] = [];
+    // A picture in the conversation: only a model that can see it may answer (same order otherwise).
+    const vision = hasImage(messages);
     for (const p of await this.order()) {
       const key = await this.keyFor(p);
       if (key === null) continue;
@@ -279,8 +287,9 @@ export class Router {
         soonest = Math.min(soonest, h[`cool|${p.id}`]!.cool! - now);
         continue;
       }
-      for (const model of await this.models(p)) candidates.push({ p, key, model });
+      for (const model of await this.models(p)) if (!vision || visionScore(model) > 0) candidates.push({ p, key, model });
     }
+    if (vision && anyKey && !candidates.length) return { error: NO_VISION, waitMs: Infinity };
     // Chat: the owner's keys, then Workers AI, then open endpoints. Code: the best coders first.
     // Ghosty's own small jobs (cheap): the small, generously rationed models first.
     if (cheap) candidates.sort((a, b) => cheapScore(b.model, b.p) - cheapScore(a.model, a.p));
@@ -288,6 +297,7 @@ export class Router {
     else candidates.sort((a, b) => (a.p.tier ?? 0) - (b.p.tier ?? 0));
     const skipProvider = new Set<string>();
     const tooBig = new Set<string>();
+    let tried = 0;
     for (const { p, key, model } of candidates) {
       if (skipProvider.has(p.id)) continue;
       const s = h[`${p.id}|${model}`] ?? {};
@@ -296,6 +306,7 @@ export class Router {
         soonest = Math.min(soonest, s.cool! - now);
         continue;
       }
+      tried++;
       const t0 = Date.now();
       try {
         const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
@@ -323,6 +334,8 @@ export class Router {
       }
     }
     if (!anyKey) return { error: 'No AI model is available. Add a free Gemini or Groq key in the System tab.', waitMs: Infinity };
+    // Every model that can see is marked unavailable (none is merely cooling): say so, rather than "rate limits".
+    if (vision && !tried && !Number.isFinite(soonest)) return { error: NO_VISION, waitMs: Infinity };
     // How long until the first model is usable again (including ones that just failed).
     const after = await this.health();
     const t = Date.now();
@@ -409,7 +422,7 @@ export class Router {
     let res: unknown;
     try {
       res = await ai.run(model, {
-        messages: messages.map((m) => (m.role === 'tool' ? { role: 'tool', tool_call_id: m.tool_call_id, content: m.content ?? '' } : m)),
+        messages: messages.map((m) => (m.role === 'tool' ? { role: 'tool', tool_call_id: m.tool_call_id, content: textOf(m.content) } : m)),
         ...(tools.length ? { tools } : {}),
         max_tokens: code ? 8192 : 4096,
         temperature: code ? 0.2 : 0.4,
@@ -426,8 +439,16 @@ export class Router {
   }
 }
 
-/** Rough token count (≈3.6 characters per token for English, code and JSON). */
-const tokensOf = (x: unknown) => Math.ceil(JSON.stringify(x).length / 3.6);
+/** Rough token count (≈3.6 characters per token for English, code and JSON); a picture counts as IMAGE_TOKENS, not as its data URL. */
+function tokensOf(x: unknown): number {
+  if (Array.isArray(x)) return x.reduce((n: number, y) => n + tokensOf(y), 0);
+  const m = x as Msg | null;
+  if (m && typeof m === 'object' && Array.isArray(m.content)) {
+    const images = m.content.filter((p) => p.type === 'image_url').length;
+    return tokensOf({ ...m, content: textOf(m.content) }) + images * IMAGE_TOKENS;
+  }
+  return Math.ceil(JSON.stringify(x).length / 3.6);
+}
 
 /** Tools that matter when writing code — everything else is dropped to fit a small request. */
 const CORE_CODE_TOOLS = /^(study|repo_|propose_change|update_change|change_status|wait_for_checks|discard_change|list_changes|learn_lesson|self_audit|plan_upgrade|roadmap|update_step|web_search|web_fetch|remember|reload_interface|create_widget)/;
@@ -441,15 +462,15 @@ export function slimToFit(messages: Msg[], tools: ToolSpec[], budget: number): {
   if (tokensOf(messages) + tokensOf(tools) <= budget) return { messages, tools };
   let t = tools.filter((x) => CORE_CODE_TOOLS.test(x.function.name)).map((x) => ({ ...x, function: { ...x.function, description: x.function.description.slice(0, 220) } }));
   const sys = messages[0]?.role === 'system' ? messages[0] : null;
-  let rest = (sys ? messages.slice(1) : messages).map((m, i, arr) => (m.role === 'tool' && i < arr.length - 2 && (m.content?.length ?? 0) > 900 ? { ...m, content: `${m.content!.slice(0, 900)}…[shortened]` } : m));
-  let system = sys ? { ...sys, content: (sys.content ?? '').slice(0, 9000) } : null;
+  let rest = (sys ? messages.slice(1) : messages).map((m, i, arr) => (m.role === 'tool' && i < arr.length - 2 && typeof m.content === 'string' && m.content.length > 900 ? { ...m, content: `${m.content.slice(0, 900)}…[shortened]` } : m));
+  let system = sys ? { ...sys, content: textOf(sys.content).slice(0, 9000) } : null;
   const size = () => tokensOf(rest) + tokensOf(t) + (system ? tokensOf(system) : 0);
   // drop oldest turns, keeping tool results attached to their call
   while (size() > budget && rest.length > 2) {
     rest = rest.slice(1);
     while (rest.length && rest[0]!.role === 'tool') rest = rest.slice(1);
   }
-  if (size() > budget && system) system = { ...system, content: (system.content ?? '').slice(0, Math.max(1500, (budget - tokensOf(rest) - tokensOf(t)) * 3)) };
+  if (size() > budget && system) system = { ...system, content: textOf(system.content).slice(0, Math.max(1500, (budget - tokensOf(rest) - tokensOf(t)) * 3)) };
   if (size() > budget) t = t.filter((x) => /^(repo_read|propose_change|update_change|wait_for_checks)$/.test(x.function.name));
   if (size() > budget) return null;
   return { messages: system ? [system, ...rest] : rest, tools: t };

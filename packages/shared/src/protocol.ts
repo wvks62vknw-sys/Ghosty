@@ -8,6 +8,8 @@ export type ChatEvent =
   | { t: 'status'; text: string }
   | { t: 'tool'; id: string; name: string; args: Record<string, unknown> }
   | { t: 'tool_result'; id: string; name: string; ok: boolean; summary: string }
+  /** What a running tool is doing right now ("crt.sh… 3 of 7"); sits between its `tool` and `tool_result`, same id. */
+  | { t: 'progress'; id: string; name: string; label: string; done?: number; total?: number }
   | { t: 'client'; name: string; args: Record<string, unknown> }
   | { t: 'approval'; id: string; name: string; args: Record<string, unknown>; reason: string }
   | { t: 'text'; text: string }
@@ -36,6 +38,7 @@ export const CLIENT_COMMANDS = [
   'show_transit',
   'show_incidents',
   'road_ahead',
+  'open_lens',
   'play_radio',
   'stop_audio',
 ] as const;

@@ -435,9 +435,14 @@ export const siteTools: Tool[] = [
       if (!name) throw new Error('name must contain letters or numbers');
       const source = arg.str(a, 'source_url', false);
       const store = siteStore(ctx.env, ctx.storage);
-      const { html, notes } = prepareSite(await pageHtml(a, name, ctx), source);
+      // Progress under this tool's line in the chat (?. — tests call tools with a bare context).
+      if (a.from_draft) ctx.progress?.('joining the parts of the draft…');
+      const page = await pageHtml(a, name, ctx);
+      ctx.progress?.(`checking the page (${kb(page.length)})…`);
+      const { html, notes } = prepareSite(page, source);
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
       ctx.emit?.({ t: 'status', text: `publishing ${title} (${kb(html.length)})…` });
+      ctx.progress?.(`publishing "${title}"…`);
       await store.put({ name, title, html, source, at: Date.now() });
       if (a.from_draft) await store.dropDraft(name);
       const link = siteLink(ctx.origin, ctx.env, name);
@@ -462,8 +467,11 @@ export const siteTools: Tool[] = [
     async run(a, ctx) {
       const name = siteSlug(arg.str(a, 'name'));
       if (!name) throw new Error('name must contain letters or numbers');
-      const d = await siteStore(ctx.env, ctx.storage).addPart(name, arg.str(a, 'html_part'));
+      const part = arg.str(a, 'html_part');
+      ctx.progress?.(`keeping this part of "${name}" (${kb(part.length)})…`);
+      const d = await siteStore(ctx.env, ctx.storage).addPart(name, part);
       const size = d.parts.reduce((n, p) => n + p.length, 0);
+      ctx.progress?.(`${d.parts.length} part${d.parts.length === 1 ? '' : 's'} kept, ${kb(size)} so far`);
       return `Part ${d.parts.length} kept (${kb(size)} so far). Send the next part, or call publish_site with name "${name}" and from_draft true when the document is complete.`;
     },
   },
@@ -472,6 +480,7 @@ export const siteTools: Tool[] = [
     description: "The pages Ghosty has published (name, link, title, when, size). Use it when the owner asks what is online, wants a link again, or wants something updated or taken down.",
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const entries = await siteStore(ctx.env, ctx.storage).list();
       if (!entries.length) return 'Nothing is published yet.';

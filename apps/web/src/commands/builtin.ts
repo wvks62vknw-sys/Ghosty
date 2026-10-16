@@ -303,6 +303,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The Lens (the phone's camera): SEE, READ, HANDS or ASK — "read this document" → open_lens read.
+      id: 'open_lens',
+      title: 'Open the Lens',
+      hidden: true,
+      run: async (a) => {
+        const { openLens } = await import('../features/lens');
+        openLens(typeof a?.mode === 'string' ? a.mode : undefined, typeof a?.question === 'string' ? a.question.slice(0, 500) : undefined);
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

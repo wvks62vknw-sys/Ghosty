@@ -19,7 +19,14 @@ export interface Env {
    * Ghosty published and jobs in flight, so links stay up and publishing works while the
    * database is paused. Bound as "SITES" in wrangler.jsonc.
    */
-  SITES?: { get(key: string, type: 'json'): Promise<unknown>; put(key: string, value: string): Promise<void>; delete(key: string): Promise<void> };
+  SITES?: {
+    get(key: string, type: 'json'): Promise<unknown>;
+    /** Raw bytes (a picture the Lens shared, see lens.ts), or null when there is none. */
+    get(key: string, type: 'arrayBuffer'): Promise<ArrayBuffer | null>;
+    /** `expirationTtl` (seconds, 60 or more): the record removes itself — a shared picture lasts a day. */
+    put(key: string, value: string | ArrayBuffer, options?: { expirationTtl?: number }): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
   /**
    * Cloudflare KV holding the vault's mirror: the same encrypted keys as the database (and the
    * brain's own vault key), so keys saved while the database is paused are kept at once and a

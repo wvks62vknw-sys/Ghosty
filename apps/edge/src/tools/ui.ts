@@ -34,4 +34,9 @@ export const uiTools: Tool[] = [
     { on: { type: 'boolean' } },
   ),
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
+  client(
+    'open_lens',
+    "Open the LENS tab: the phone's camera with vision that runs on the phone. mode see = spot objects live (boxes, a scene line, a count per kind); read = turn a document, sign or label into text (OCR) that the owner can save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (the picture reaches you as a photo when a model that can see is reachable; with question pre-filled). Use when the owner says \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\", \"take a picture\". It never identifies people.",
+    { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
+  ),
 ];

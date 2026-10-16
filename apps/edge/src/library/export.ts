@@ -6,6 +6,7 @@
  * free plan allows ~50 outbound requests per request); a big library takes a few calls.
  */
 import type { GitHub } from '../github';
+import type { ProgressFn } from '../tools/types';
 import type { Library } from './store';
 
 export const EXPORT_BRANCH = 'library';
@@ -40,15 +41,17 @@ function markdown(title: string, source: string, passages: { heading: string; te
 
 /**
  * Write the next batch of notebooks to the branch. `offset` skips documents already written
- * by an earlier call (the list is in a fixed order).
+ * by an earlier call (the list is in a fixed order). `onProgress` hears which file is being
+ * gathered (n of N) and when the commit goes up.
  */
-export async function exportLibrary(g: GitHub, lib: Library, repo: string, opts: { offset?: number } = {}): Promise<ExportResult> {
+export async function exportLibrary(g: GitHub, lib: Library, repo: string, opts: { offset?: number; onProgress?: ProgressFn } = {}): Promise<ExportResult> {
   const docs = lib.list().filter(exportable).sort((a, b) => a.id.localeCompare(b.id));
   const offset = Math.max(0, opts.offset ?? 0);
   const batch = docs.slice(offset, offset + MAX_FILES);
   const files: { path: string; content: string }[] = [];
   let passages = 0;
-  for (const d of batch) {
+  for (const [i, d] of batch.entries()) {
+    opts.onProgress?.(`gathering ${d.title}…`, i + 1, batch.length);
     const all: { heading: string; text: string }[] = [];
     let after = 0;
     for (let guard = 0; guard < 50; guard++) {
@@ -64,6 +67,7 @@ export async function exportLibrary(g: GitHub, lib: Library, repo: string, opts:
     path: 'README.md',
     content: `# Ghosty's library\n\nWhat Ghosty has studied and written, exported as Markdown (one file per notebook).\nUpdated by Ghosty itself; read it here or in the Library tab.\n\n${docs.map((d) => `- [${d.title}](library/${slug(d.id)}.md) — ${d.passages} passages`).join('\n')}\n`,
   };
+  opts.onProgress?.(`writing ${files.length} file${files.length === 1 ? '' : 's'} to GitHub…`);
   // The branch starts from the default branch's tree the first time, so it is a normal branch (no orphan tricks).
   let base: string;
   try {

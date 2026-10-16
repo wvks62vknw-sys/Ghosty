@@ -3,6 +3,7 @@
  * It turns simple phrases into tool calls so the agent loop can be tested offline.
  */
 import type { Msg, ToolSpec } from './router';
+import { imagesIn, textOf } from './content';
 import { EXERCISES } from '../training/exercises';
 
 let n = 0;
@@ -23,13 +24,42 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
+  // Chains: one tool's result feeds the next in the same turn; several read-only calls in one
+  // reply; and a chain long enough to show the step cap leaves room for real work.
+  const chainUser = [...messages].reverse().find((x) => x.role === 'user');
+  const chainAsked = textOf(chainUser?.content).toLowerCase().trim();
+  const chainSince = chainUser ? messages.slice(messages.lastIndexOf(chainUser)) : [];
+  const chainDid = (name: string) => chainSince.filter((x) => x.role === 'assistant' && x.tool_calls?.some((c) => c.function.name === name)).length;
+  const offered = (name: string) => tools.some((t) => t.function.name === name);
+  if (chainAsked === 'recon then save example.com') {
+    const found = textOf(last.content).replace(/<<[^>]*>>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (offered('recon_domain') && !chainDid('recon_domain')) return { message: call('recon_domain', { target: 'example.com', save: true }), model };
+    // Without the recon tool: read the page, then file what it said (learn_lesson is called by name — the agent runs any tool by name, as the prompt says).
+    if (!offered('recon_domain') && !chainDid('web_fetch')) return { message: call('web_fetch', { url: 'https://example.com/' }), model };
+    if (!offered('recon_domain') && !chainDid('learn_lesson')) return { message: call('learn_lesson', { text: `example.com says: ${found}. Rule: read a page before filing it.`, tags: ['recon'] }), model };
+    return { message: { role: 'assistant', content: `Done: looked at example.com and saved what I found. ${found}` }, model };
+  }
+  const together = chainAsked.match(/^read (https?:\/\/\S+) and (https?:\/\/\S+) together( and remember them)?$/);
+  if (together && last.role === 'user') {
+    // Two reads in one reply (both read-only: they run together); "and remember them" puts a write between them (then they run in order).
+    const calls = [call('web_fetch', { url: together[1] }).tool_calls![0]!, ...(together[3] ? [call('remember', { text: `read ${together[1]} and ${together[2]}` }).tool_calls![0]!] : []), call('web_fetch', { url: together[2] }).tool_calls![0]!];
+    return { message: { role: 'assistant', content: null, tool_calls: calls }, model };
+  }
+  const steps = chainAsked.match(/^chain (\d+) steps$/);
+  if (steps && offered('list_memory')) {
+    const done = chainDid('list_memory');
+    if (done < Number(steps[1])) return { message: call('list_memory', {}), model };
+    return { message: { role: 'assistant', content: `Done after ${done} steps.` }, model };
+  }
   if (last.role === 'tool') {
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
-    const asked = String([...messages].reverse().find((x) => x.role === 'user')?.content ?? '');
+    const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
     if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
-    return { message: { role: 'assistant', content: `Done. ${String(last.content).slice(0, 160)}` }, model };
+    return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
   }
-  const text = String(last.content ?? '').toLowerCase().replace(/^scheduled task "[^"]*": /, '');
+  // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived.
+  if (last.role === 'user' && imagesIn(last.content)) return { message: { role: 'assistant', content: `I can see a picture. ${textOf(last.content).trim()}`.trim() }, model };
+  const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
   if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };

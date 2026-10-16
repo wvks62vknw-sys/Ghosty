@@ -18,6 +18,7 @@ import { trafficTools } from './traffic';
 import { mapTools } from './maps';
 import { travelTools } from './travel';
 import { memoryTools } from './memory';
+import { reconTools } from './recon';
 import { repoTools } from './repo';
 import { reverseTools } from './reverse';
 import { siteTools } from './sites';
@@ -27,7 +28,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -68,6 +69,8 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'evolve', tools: evolveTools, when: /\b(upgrade|improve yourself|better version|roadmap|carry on|continue|audit)\b/i },
   { name: 'reverse', tools: reverseTools, when: /\b(reverse[- ]?engineer(ing)?|decompile|disassemble|analy[sz]e (this|that|the) (app|site|website|package|binary|apk|file)|what is .* built with|how does .* work under the hood|rea\b)/i },
   { name: 'repo', tools: repoTools, when: /\b(ship|propose|proposed|changes?|versions?|roll ?back|restore|discard|preview|workshop|repo|source code)\b/i },
+  // Passive infrastructure recon: only when a domain, host, address or one of its words comes up.
+  { name: 'recon', tools: reconTools, when: /\b(recon|reconnaissance|dns|whois|rdap|registrar|registered|certificates?|certs?|crt\.sh|subdomains?|wayback|archive\.org|snapshots?|fingerprint|security headers|hsts|open ports?|shodan|spf|dmarc|look ?up|lookup|who (?:owns|runs|hosts)|hosted|hosting|name ?servers?|mx records?|ip address)\b|\b\d{1,3}(?:\.\d{1,3}){3}\b|\b[a-z0-9-]+\.(?:com|co\.uk|org|net|io|dev|app|uk|ac\.uk|gov\.uk|edu|info|me)\b/i },
 ];
 
 /** The tools to offer for this request: always-on groups, groups the words call for, groups already in use. */

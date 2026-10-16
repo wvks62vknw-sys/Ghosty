@@ -11,6 +11,9 @@ import type { GitHub } from '../github';
 
 export type Risk = 'auto' | 'confirm';
 
+/** A live progress report from a long job: what it is doing, and how far along when it knows ("crt.sh…", 3, 7). */
+export type ProgressFn = (label: string, done?: number, total?: number) => void;
+
 export interface JsonSchema {
   type: 'object';
   properties: Record<string, unknown>;
@@ -23,6 +26,11 @@ export interface ToolContext {
   storage: DurableObjectStorage;
   vault: Vault;
   emit: (ev: ChatEvent) => void;
+  /**
+   * Say what the tool is doing right now, for long runs: shown under the tool's line in the chat
+   * and on the HUD ("crt.sh… 3 of 7" with done/total). Tagged with this call's id by the agent.
+   */
+  progress: ProgressFn;
   /** True while the owner has unlocked the kernel from the Workshop tab. */
   kernelUnlocked: () => Promise<boolean>;
   /** GitHub client for Ghosty's own repository, or null if not configured. */
@@ -39,6 +47,11 @@ export interface Tool {
   risk: Risk;
   /** 'client' tools are carried out by the interface, not the brain. */
   side?: 'brain' | 'client';
+  /**
+   * Read-only: it looks things up and changes nothing, so when the model asks for several
+   * pure tools in one message the agent runs them together instead of one after another.
+   */
+  pure?: boolean;
   /** Returns text for the model to read. Throw an Error to report failure. */
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
   /**

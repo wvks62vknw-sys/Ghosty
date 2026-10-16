@@ -8,6 +8,7 @@ import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
+import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { toast } from '../ui/components';
@@ -16,7 +17,8 @@ import { speak, stopListening, stopSpeaking } from './voice';
 export type Entry =
   | { kind: 'user'; text: string; at: number }
   | { kind: 'assistant'; text: string; at: number; model?: string }
-  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string }
+  /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
+  | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
   | { kind: 'error'; text: string }
   | { kind: 'link'; url: string; title: string };
@@ -91,10 +93,17 @@ function handle(ev: ChatEvent): void {
     case 'tool':
       push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
       break;
+    case 'progress':
+      // Under the running tool's line, in place (never a new entry); the same id's tool_result removes it.
+      patch(
+        (e) => e.kind === 'activity' && e.id === ev.id && e.state === 'running',
+        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), progress: progressOf(ev) }),
+      );
+      break;
     case 'tool_result':
       patch(
         (e) => e.kind === 'activity' && e.id === ev.id,
-        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary }),
+        (e) => ({ ...(e as Extract<Entry, { kind: 'activity' }>), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary, progress: undefined }),
       );
       if (!chat.get().entries.some((e) => e.kind === 'activity' && e.id === ev.id)) push({ kind: 'activity', id: ev.id, label: label(ev.name, {}), state: ev.ok ? 'ok' : 'fail', detail: ev.ok ? undefined : ev.summary });
       break;

@@ -8,6 +8,7 @@
 import { addLesson } from '../knowledge';
 import type { Library } from '../library/store';
 import type { Msg, Router } from '../llm/router';
+import { textOf } from '../llm/content';
 import { EXERCISES, type Exercise } from './exercises';
 
 export interface TrainingRecord {
@@ -59,7 +60,7 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     }
     try {
       const { message, model } = await deps.router.complete(msgs, [], undefined, { code: true });
-      return json({ code: extractCode(message.content ?? ''), model });
+      return json({ code: extractCode(textOf(message.content)), model });
     } catch (err) {
       return json({ error: String((err as Error)?.message ?? err) }, 503);
     }
@@ -89,7 +90,7 @@ export async function trainingRoute(req: Request, path: string, method: string, 
           ],
           [],
         );
-        lesson = (message.content ?? '').trim().replace(/\s+/g, ' ').slice(0, 280);
+        lesson = textOf(message.content).trim().replace(/\s+/g, ' ').slice(0, 280);
         if (lesson.length > 20) await addLesson(deps.storage, lesson, ['training', e.topic]);
       } catch {
         /* the lesson is a bonus */

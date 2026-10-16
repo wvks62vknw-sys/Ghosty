@@ -164,6 +164,19 @@ export function cheapScore(id: string, p?: Provider): number {
 export const NOT_CHAT =
   /(audio|tts|whisper|orpheus|guard|embed|image|imagen|veo|moderation|ocr|transcribe|rerank|dall|flux|sdxl|robotic|computer-use|native-audio)/i;
 
+/**
+ * Models that can look at a picture (an image part in the owner's message): Gemini, Llama 4,
+ * Pixtral and Mistral Small/Medium 3 (their "latest" aliases point at those), Gemma 3, the
+ * Qwen VL models, GPT-4o/4.1/5, Claude, LLaVA, anything calling itself vision — and
+ * Pollinations' `openai` (a GPT-4o class model behind an open endpoint).
+ */
+export const VISION = /(gemini|llama-4|pixtral|mistral-small-3|mistral-medium-3|mistral-(small|medium)-latest|gemma-3|qwen[\w.-]*vl|gpt-4o|gpt-4\.1|gpt-5|^openai$|claude|llava|vision)/i;
+
+/** 1 for a model that can see pictures, else 0: a message with a picture is routed only to these. */
+export function visionScore(id: string): number {
+  return VISION.test(id) && !NOT_CHAT.test(id) ? 1 : 0;
+}
+
 /** Rough quality score so stronger discovered models are tried first. */
 export function modelScore(id: string): number {
   let s = 0;

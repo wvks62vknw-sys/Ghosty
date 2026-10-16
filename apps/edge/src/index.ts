@@ -6,6 +6,7 @@
 import type { Env } from './env';
 import { authenticate, ownerSecured } from './kernel/auth';
 import { siteFrameResponse, siteResponse, siteStore } from './tools/sites';
+import { imageResponse } from './lens';
 export { GhostyAgent } from './agent';
 
 /** Hosts the interface may read through /api/proxy (public data feeds only). */
@@ -135,6 +136,13 @@ export default {
       }
       const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
       return stub.fetch(new Request(`${url.origin}/api/site/${pub[1]}${pub[2] ? `/page${dest ? `?dest=${encodeURIComponent(dest)}` : ''}` : ''}`));
+    }
+    // A picture the owner shared from the Lens for reverse image search (lens.ts): a public link for
+    // 24 hours, served straight from KV — the brain is never involved, and nothing but image bytes goes out.
+    const img = url.pathname.match(/^\/i\/([A-Za-z0-9_-]{16})$/);
+    if (img && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (!env.SITES) return new Response('not found', { status: 404, headers: { 'cache-control': 'no-store' } });
+      return imageResponse(env.SITES, img[1]!, req.method === 'HEAD');
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS ? env.ASSETS.fetch(req) : json({ error: 'not found' }, 404);
     if (url.pathname === '/api/health') {

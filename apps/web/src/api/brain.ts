@@ -187,8 +187,8 @@ export class PausedError extends Error {
 }
 export const isPaused = (e: unknown) => !!(e as { paused?: boolean })?.paused;
 
-/** Stream newline-delimited ChatEvents from a POST. */
-async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
+/** Stream newline-delimited ChatEvents from a POST (the chat, approvals, and the Lens's question with a picture — vision/ask.ts). */
+export async function streamEvents(path: string, body: unknown, onEvent: (e: ChatEvent) => void, signal?: AbortSignal): Promise<void> {
   const r = await fetch(`/api${path}`, { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify(body), signal });
   if (r.status === 401 || r.status === 503) {
     const j = (await r.json().catch(() => ({}))) as { error?: string };

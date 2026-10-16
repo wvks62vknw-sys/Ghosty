@@ -67,6 +67,7 @@ export const transitTools: Tool[] = [
       },
     },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const p = await where(a, ctx);
       const r = Math.max(0.3, Math.min(10, arg.num(a, 'radius_km', 2)));
