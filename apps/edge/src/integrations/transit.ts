@@ -131,9 +131,9 @@ function fromGtfs(feed: { vehicles: VehiclePosition[]; trips: TripUpdate[] }, sr
 
 const TFWM_HOSTS = [
   // The documented address is api.tfwm.org.uk, whose HTTPS certificate is wrong; this host serves
-  // the same feed with a valid one. Try it first, then the documented one.
+  // the same feed with a valid one. Only HTTPS is ever used: the owner's key rides on the address,
+  // so a plain-HTTP fallback would put it on the wire in clear text.
   'https://api-realtime-odp.tfwm.itoworld.com/gtfs/vehicle_positions',
-  'http://api.tfwm.org.uk/gtfs/vehicle_positions',
 ];
 
 export async function tfwmVehicles(key: { id: string; key: string }, bbox: Bbox, now: number): Promise<Vehicle[]> {

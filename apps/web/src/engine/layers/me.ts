@@ -20,7 +20,9 @@ export class MeLayer implements GlobeLayer {
     const w = this.world();
     if (!m || !w) return;
     const a = gfx.theme.a;
-    if (this.trailN !== roadAhead.trail.length) {
+    // Rebuilt on every change, not on a change of length: a trail at its cap (one point in, one out
+    // each fix) keeps the same length for the rest of the drive.
+    if (this.trailN !== roadAhead.rev) {
       this.line.clear();
       let prev: Vec3 | null = null;
       for (const [lat, lon] of roadAhead.trail) {
@@ -28,7 +30,7 @@ export class MeLayer implements GlobeLayer {
         if (prev) this.line.add(prev, q, [a[0], a[1], a[2], 0.55], 2);
         prev = q;
       }
-      this.trailN = roadAhead.trail.length;
+      this.trailN = roadAhead.rev;
     }
     this.line.draw(rel, oc);
     const P = this.pts.clear();

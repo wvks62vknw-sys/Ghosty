@@ -25,6 +25,8 @@ export class RoadAhead {
   error = '';
   /** The last few minutes of positions, oldest first (for the trail and for a heading when the GPS gives none). */
   trail: [number, number, number][] = [];
+  /** Goes up on every change to the trail (its length stays at the cap while driving, so length is no signal). */
+  rev = 0;
   readonly events = new Emitter<{ change: void }>();
   private watch = 0;
 
@@ -68,6 +70,7 @@ export class RoadAhead {
       else if (sp != null && sp < 0.5) hd = this.me?.heading ?? null;
     }
     this.trail.push([lat, lon, t]);
+    this.rev++;
     const cut = t - 10 * 60_000;
     while (this.trail.length > 240 || (this.trail.length && this.trail[0]![2] < cut)) this.trail.shift();
     this.me = { lat, lon, heading: hd, speed: sp, accuracy, t };

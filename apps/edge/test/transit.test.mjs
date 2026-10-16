@@ -246,17 +246,17 @@ test('vehiclesIn prefers TfWM in the West Midlands: app_id/app_key on the URL, b
   assert.equal(out.vehicles.find((v) => v.id === 'TfWM:bus50').delayS, null);
 });
 
-test('vehiclesIn falls back to the documented TfWM host when the first fails the TLS way', async () => {
+test('vehiclesIn never sends the TfWM key over plain HTTP: a TLS failure on the HTTPS host moves on to the next feed', async () => {
   reset();
   tfwmFirstHostFails = true;
-  const out = await X.vehiclesIn(BBOX_BHAM, { tfwm: 'myid:mysecretkey1' }, { now: NOW });
-  assert.equal(out.src, 'TfWM');
+  const out = await X.vehiclesIn(BBOX_BHAM, { tfwm: 'myid:mysecretkey1', bods: 'BODSKEY' }, { now: NOW });
+  assert.equal(out.src, 'BODS', 'the next keyed feed answers instead');
   assert.deepEqual(
     calls.map((u) => `${u.protocol}//${u.hostname}`),
-    ['https://api-realtime-odp.tfwm.itoworld.com', 'http://api.tfwm.org.uk'],
+    ['https://api-realtime-odp.tfwm.itoworld.com', 'https://data.bus-data.dft.gov.uk'],
   );
-  assert.equal(calls[1].searchParams.get('app_key'), 'mysecretkey1');
-  assert.equal(out.vehicles.length, 3);
+  assert.ok(calls.every((u) => u.protocol === 'https:'), 'the owner\'s key only ever rides on HTTPS');
+  assert.match(out.note, /TfWM's live feed did not answer/);
 });
 
 test('vehiclesIn uses BODS when TfWM has no key or the place is outside the West Midlands; the exact credit', async () => {
@@ -313,7 +313,7 @@ test('vehiclesIn says so and moves on when a keyed feed fails; a wrong key is re
   let out = await X.vehiclesIn(BBOX_BHAM, { tfwm: 'myid mysecretkey1', bods: 'BODSKEY' }, { now: NOW });
   assert.equal(out.src, 'BODS');
   assert.match(out.note, /TfWM's live feed did not answer \(TfWM answered 500\)/);
-  assert.deepEqual(calls.map((u) => u.hostname), ['api-realtime-odp.tfwm.itoworld.com', 'api.tfwm.org.uk', 'data.bus-data.dft.gov.uk']);
+  assert.deepEqual(calls.map((u) => u.hostname), ['api-realtime-odp.tfwm.itoworld.com', 'data.bus-data.dft.gov.uk']);
   reset();
   out = await X.vehiclesIn(BBOX_BHAM, { tfwm: 'myid WRONGKEY123' }, { now: NOW });
   assert.equal(out.src, 'bustimes.org');

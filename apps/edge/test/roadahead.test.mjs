@@ -38,6 +38,17 @@ test('ROAD AHEAD: heading comes from movement when the fix has none; the cone ke
   assert.deepEqual(fresh.ahead(items, 15, 60).map((x) => x.name), ['ahead east', 'behind west', 'north']);
 });
 
+test('ROAD AHEAD: the trail revision keeps moving once the trail is full, so the globe keeps redrawing it', () => {
+  const ra = new R.RoadAhead();
+  for (let i = 0; i < 300; i++) ra.update(52.5 + i * 0.0001, -1.9, null, 10, 10, 1000 + i * 1000);
+  assert.equal(ra.trail.length, 240, 'the cap holds');
+  assert.equal(ra.rev, 300, 'every fix moved the revision, including the 60 that did not change the length');
+  const before = ra.rev;
+  ra.update(52.53, -1.9, null, 10, 10, 301_000);
+  assert.equal(ra.trail.length, 240);
+  assert.equal(ra.rev, before + 1);
+});
+
 test('incidents: parsed defensively, placed ones only; severity from closures, lanes and delay', () => {
   const list = I.parseIncidents({ events: [
     { id: 'a', road: 'M6', direction: 'S', title: 'M6 southbound between J6 and J5', reason: 'Congestion', delayS: 1140, lanesClosed: '0|0|0', lat: 52.509, lon: -1.838, normalBy: 'by 13:45' },
