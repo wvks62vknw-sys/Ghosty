@@ -1781,4 +1781,1328 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Automatic differentiation
 3|arxiv|Adam A Method for Stochastic Optimization`,
   },
+  {
+    id: 'physics-classical-modern',
+    name: `Physics: mechanics, electromagnetism, thermodynamics, waves`,
+    why: `Nearly every practical question about motion, energy, electricity, heat, sound and light reduces to these laws, so a personal AI that explains, builds or advises on anything physical needs them cold.`,
+    t: `1|wiki|Physics
+1|wiki|Classical mechanics
+1|wiki|Kinematics
+1|wiki|Newton's laws of motion
+1|wiki|Force
+1|wiki|Momentum
+1|wiki|Energy
+1|wiki|Work (physics)
+1|wiki|Conservation of energy
+1|wiki|Friction
+1|wiki|Newton's law of universal gravitation
+1|wiki|Torque
+1|wiki|Angular momentum
+1|wiki|Simple harmonic motion
+1|wiki|Pressure
+1|wiki|Buoyancy
+1|wiki|Temperature
+1|wiki|Wave
+1|wiki|Sound
+1|wiki|Doppler effect
+1|wiki|Electric charge
+1|wiki|Electric field
+1|wiki|Electric potential
+1|wiki|Electric current
+1|wiki|Ohm's law
+1|wiki|Magnetic field
+2|wiki|Lagrangian mechanics
+2|wiki|Hamiltonian mechanics
+2|wiki|Fluid dynamics
+2|wiki|Thermodynamics
+2|wiki|Laws of thermodynamics
+2|wiki|Entropy
+2|wiki|Heat transfer
+2|wiki|Ideal gas law
+2|wiki|Kinetic theory of gases
+2|wiki|Carnot cycle
+2|wiki|Lorentz force
+2|wiki|Faraday's law of induction
+2|wiki|Maxwell's equations
+2|wiki|Electromagnetic radiation
+2|wiki|Optics
+2|wiki|Diffraction
+2|wiki|Wave interference
+2|wiki|Resonance
+2|wiki|RLC circuit
+2|wiki|Alternating current
+2|wiki|Dimensional analysis
+3|wiki|Statistical mechanics
+3|wiki|Phase transition
+3|wiki|Noether's theorem
+3|wiki|Chaos theory
+3|wiki|Navier–Stokes equations
+3|wiki|Wave equation
+3|wiki|Plasma (physics)
+3|wiki|Laser
+3|wiki|Black-body radiation`,
+  },
+  {
+    id: 'quantum-relativity',
+    name: `Quantum mechanics, relativity & particle physics`,
+    why: `Modern technology (lasers, semiconductors, GPS, nuclear power) and modern cosmology rest on quantum theory and relativity, and a knowledgeable AI must explain them accurately rather than by pop-science analogy.`,
+    t: `1|wiki|Quantum mechanics
+1|wiki|Introduction to quantum mechanics
+1|wiki|Photoelectric effect
+1|wiki|Wave–particle duality
+1|wiki|Double-slit experiment
+1|wiki|Uncertainty principle
+1|wiki|Photon
+1|wiki|Bohr model
+1|wiki|Atomic orbital
+1|wiki|Radioactive decay
+1|wiki|Nuclear fission
+1|wiki|Nuclear fusion
+1|wiki|Special relativity
+1|wiki|Mass–energy equivalence
+1|wiki|Time dilation
+1|wiki|Standard Model
+2|wiki|Schrödinger equation
+2|wiki|Wave function
+2|wiki|Quantum superposition
+2|wiki|Quantum entanglement
+2|wiki|Quantum tunnelling
+2|wiki|Spin (physics)
+2|wiki|Pauli exclusion principle
+2|wiki|Lorentz transformation
+2|wiki|Spacetime
+2|wiki|General relativity
+2|wiki|Black hole
+2|wiki|Gravitational wave
+2|wiki|Quark
+2|wiki|Fermion
+2|wiki|Boson
+2|wiki|Neutrino
+2|wiki|Antimatter
+2|wiki|Higgs boson
+2|wiki|Weak interaction
+2|wiki|Large Hadron Collider
+3|wiki|Quantum field theory
+3|wiki|Feynman diagram
+3|wiki|Quantum electrodynamics
+3|wiki|Quantum chromodynamics
+3|wiki|Dirac equation
+3|wiki|Path-integral formulation
+3|wiki|Renormalization
+3|wiki|Gauge theory
+3|wiki|Higgs mechanism
+3|wiki|Bell's theorem
+3|wiki|Quantum decoherence
+3|wiki|Interpretations of quantum mechanics
+3|wiki|Einstein field equations
+3|wiki|Schwarzschild metric
+3|wiki|Hawking radiation
+3|wiki|Quantum gravity
+3|wiki|String theory
+3|wiki|Neutrino oscillation
+3|arxiv|"new boson at a mass of 125 GeV"
+3|arxiv|GW150914 "Observation of Gravitational Waves"`,
+  },
+  {
+    id: 'chemistry',
+    name: `Chemistry (general, organic, physical, materials)`,
+    why: `Cooking, cleaning, batteries, medicines, plastics and materials choices all come down to chemistry, so the AI needs bonding, reactions, kinetics and the organic and materials vocabulary to advise and explain.`,
+    t: `1|wiki|Chemistry
+1|wiki|Atom
+1|wiki|Chemical element
+1|wiki|Periodic table
+1|wiki|Electron configuration
+1|wiki|Chemical bond
+1|wiki|Covalent bond
+1|wiki|Ionic bonding
+1|wiki|Molecule
+1|wiki|Mole (unit)
+1|wiki|Chemical reaction
+1|wiki|Stoichiometry
+1|wiki|State of matter
+1|wiki|Solution (chemistry)
+1|wiki|Acid
+1|wiki|PH
+1|wiki|Redox
+1|wiki|Chemical equilibrium
+1|wiki|Intermolecular force
+2|wiki|Organic chemistry
+2|wiki|Functional group
+2|wiki|Alkane
+2|wiki|Aromaticity
+2|wiki|Stereochemistry
+2|wiki|Nucleophilic substitution
+2|wiki|Reaction mechanism
+2|wiki|Chemical kinetics
+2|wiki|Catalysis
+2|wiki|Enthalpy
+2|wiki|Gibbs free energy
+2|wiki|Le Chatelier's principle
+2|wiki|Electrochemistry
+2|wiki|Galvanic cell
+2|wiki|VSEPR theory
+2|wiki|Molecular orbital theory
+2|wiki|Nuclear magnetic resonance spectroscopy
+2|wiki|Mass spectrometry
+2|wiki|Chromatography
+2|wiki|Titration
+2|wiki|Crystal structure
+2|wiki|Materials science
+2|wiki|Polymer
+2|wiki|Semiconductor
+3|wiki|Quantum chemistry
+3|wiki|Density functional theory
+3|wiki|Transition state theory
+3|wiki|Coordination complex
+3|wiki|Organometallic chemistry
+3|wiki|Diels–Alder reaction
+3|wiki|Retrosynthetic analysis
+3|wiki|Haber process
+3|wiki|Lithium-ion battery
+3|wiki|Graphene
+3|wiki|Metal–organic framework
+3|wiki|Green chemistry
+3|wiki|Click chemistry`,
+  },
+  {
+    id: 'biology-genetics',
+    name: `Biology, genetics & evolution`,
+    why: `Questions about health, food, pets, gardens, ancestry and biotech all depend on how cells, genes and evolution work, and an AI should reason from the real mechanisms.`,
+    t: `1|wiki|Biology
+1|wiki|Cell (biology)
+1|wiki|Eukaryote
+1|wiki|Mitochondria
+1|wiki|DNA
+1|wiki|RNA
+1|wiki|Gene
+1|wiki|Chromosome
+1|wiki|Protein
+1|wiki|Enzyme
+1|wiki|Metabolism
+1|wiki|Photosynthesis
+1|wiki|Cellular respiration
+1|wiki|Meiosis
+1|wiki|Evolution
+1|wiki|Natural selection
+1|wiki|Bacteria
+1|wiki|Virus
+1|wiki|Ecology
+2|wiki|Genetics
+2|wiki|Mendelian inheritance
+2|wiki|DNA replication
+2|wiki|Transcription (biology)
+2|wiki|Translation (biology)
+2|wiki|Genetic code
+2|wiki|Mutation
+2|wiki|Gene expression
+2|wiki|Regulation of gene expression
+2|wiki|Epigenetics
+2|wiki|Genome
+2|wiki|Polymerase chain reaction
+2|wiki|DNA sequencing
+2|wiki|CRISPR gene editing
+2|wiki|Population genetics
+2|wiki|Genetic drift
+2|wiki|Speciation
+2|wiki|Phylogenetics
+2|wiki|Common descent
+2|wiki|Sexual selection
+2|wiki|Cell signaling
+2|wiki|Stem cell
+2|wiki|Developmental biology
+2|wiki|Biodiversity
+3|wiki|Modern synthesis (20th century)
+3|wiki|Neutral theory of molecular evolution
+3|wiki|Horizontal gene transfer
+3|wiki|Symbiogenesis
+3|wiki|Abiogenesis
+3|wiki|Genome-wide association study
+3|wiki|Synthetic biology
+3|wiki|Protein structure prediction
+3|wiki|Non-coding RNA
+3|wiki|Extinction event
+3|wiki|Human evolution
+3|wiki|Evolutionary developmental biology
+3|wiki|Bioinformatics`,
+  },
+  {
+    id: 'anatomy-medicine',
+    name: `Human anatomy, physiology & medicine basics`,
+    why: `People ask their AI about symptoms, medicines, fitness and emergencies; it must know how the body works and how medicine reasons about evidence so it can explain clearly and know when to say see a doctor.`,
+    t: `1|openstax|/books/anatomy-and-physiology-2e/pages/1-1-overview-of-anatomy-and-physiology
+1|openstax|/books/anatomy-and-physiology-2e/pages/1-2-structural-organization-of-the-human-body
+1|openstax|/books/anatomy-and-physiology-2e/pages/1-5-homeostasis
+1|openstax|/books/anatomy-and-physiology-2e/pages/1-6-anatomical-terminology
+1|openstax|/books/anatomy-and-physiology-2e/pages/4-1-types-of-tissues
+1|openstax|/books/anatomy-and-physiology-2e/pages/6-3-bone-structure
+1|openstax|/books/anatomy-and-physiology-2e/pages/10-2-skeletal-muscle
+1|wiki|Medicine
+1|wiki|Vital signs
+1|wiki|Blood pressure
+1|wiki|First aid
+1|wiki|Cardiopulmonary resuscitation
+1|wiki|Nutrition
+1|wiki|Infection
+2|openstax|/books/anatomy-and-physiology-2e/pages/10-3-muscle-fiber-contraction-and-relaxation
+2|openstax|/books/anatomy-and-physiology-2e/pages/12-1-basic-structure-and-function-of-the-nervous-system
+2|openstax|/books/anatomy-and-physiology-2e/pages/15-1-divisions-of-the-autonomic-nervous-system
+2|openstax|/books/anatomy-and-physiology-2e/pages/17-2-hormones
+2|openstax|/books/anatomy-and-physiology-2e/pages/17-9-the-endocrine-pancreas
+2|openstax|/books/anatomy-and-physiology-2e/pages/18-1-an-overview-of-blood
+2|openstax|/books/anatomy-and-physiology-2e/pages/19-1-heart-anatomy
+2|openstax|/books/anatomy-and-physiology-2e/pages/19-2-cardiac-muscle-and-electrical-activity
+2|openstax|/books/anatomy-and-physiology-2e/pages/19-3-cardiac-cycle
+2|openstax|/books/anatomy-and-physiology-2e/pages/20-2-blood-flow-blood-pressure-and-resistance
+2|openstax|/books/anatomy-and-physiology-2e/pages/21-2-barrier-defenses-and-the-innate-immune-response
+2|openstax|/books/anatomy-and-physiology-2e/pages/21-3-the-adaptive-immune-response-t-lymphocytes-and-their-functional-types
+2|openstax|/books/anatomy-and-physiology-2e/pages/21-4-the-adaptive-immune-response-b-lymphocytes-and-antibodies
+2|openstax|/books/anatomy-and-physiology-2e/pages/22-3-the-process-of-breathing
+2|openstax|/books/anatomy-and-physiology-2e/pages/22-4-gas-exchange
+2|openstax|/books/anatomy-and-physiology-2e/pages/23-1-overview-of-the-digestive-system
+2|openstax|/books/anatomy-and-physiology-2e/pages/23-6-accessory-organs-in-digestion-the-liver-pancreas-and-gallbladder
+2|openstax|/books/anatomy-and-physiology-2e/pages/24-5-metabolic-states-of-the-body
+2|openstax|/books/anatomy-and-physiology-2e/pages/25-5-physiology-of-urine-formation
+2|openstax|/books/anatomy-and-physiology-2e/pages/26-4-acid-base-balance
+2|wiki|Pharmacology
+2|wiki|Antibiotic
+2|wiki|Vaccine
+2|wiki|Inflammation
+2|wiki|Pathology
+2|wiki|Epidemiology
+2|wiki|Medical diagnosis
+2|wiki|Cardiovascular disease
+2|wiki|Myocardial infarction
+2|wiki|Stroke
+2|wiki|Diabetes
+2|wiki|Cancer
+3|wiki|Evidence-based medicine
+3|wiki|Randomized controlled trial
+3|wiki|Pharmacokinetics
+3|wiki|Sepsis
+3|wiki|Antimicrobial resistance
+3|wiki|Anesthesia
+3|wiki|Differential diagnosis
+3|wiki|Public health`,
+  },
+  {
+    id: 'neuroscience-mind',
+    name: `Neuroscience & the mind`,
+    why: `To explain memory, attention, sleep, mood and learning, and to reason about minds (including its own), the AI needs real neuroscience plus the leading theories of cognition and consciousness.`,
+    t: `1|wiki|Neuroscience
+1|wiki|Neuron
+1|wiki|Human brain
+1|wiki|Synapse
+1|wiki|Neurotransmitter
+1|wiki|Action potential
+1|wiki|Glia
+1|wiki|Cerebral cortex
+1|wiki|Hippocampus
+1|wiki|Amygdala
+1|wiki|Basal ganglia
+1|wiki|Dopamine
+1|wiki|Cognition
+1|wiki|Memory
+1|wiki|Perception
+1|wiki|Attention
+1|wiki|Emotion
+1|wiki|Sleep
+1|wiki|Consciousness
+2|wiki|Neuroplasticity
+2|wiki|Long-term potentiation
+2|wiki|Hebbian theory
+2|wiki|Visual system
+2|wiki|Prefrontal cortex
+2|wiki|Default mode network
+2|wiki|Reward system
+2|wiki|Working memory
+2|wiki|Broca's area
+2|wiki|Cognitive neuroscience
+2|wiki|Theory of mind
+2|wiki|Dual process theory
+2|wiki|Cognitive bias
+2|wiki|Functional magnetic resonance imaging
+2|wiki|Optogenetics
+2|wiki|Circadian rhythm
+2|wiki|Neural oscillation
+2|wiki|Mental disorder
+2|wiki|Major depressive disorder
+2|wiki|Alzheimer's disease
+2|wiki|Addiction
+3|wiki|Computational neuroscience
+3|wiki|Hodgkin–Huxley model
+3|wiki|Neural coding
+3|wiki|Place cell
+3|wiki|Predictive coding
+3|wiki|Free energy principle
+3|wiki|Global workspace theory
+3|wiki|Hard problem of consciousness
+3|wiki|Connectome
+3|wiki|Brain–computer interface
+3|wiki|Philosophy of mind
+3|wiki|Embodied cognition
+3|wiki|Chinese room
+3|wiki|Lateralization of brain function
+3|arxiv|"integration of deep learning and neuroscience"`,
+  },
+  {
+    id: 'earth-climate-weather',
+    name: `Earth science, climate & weather (meteorology for forecasts)`,
+    why: `Forecasting the weather, explaining a storm or an earthquake, and answering climate questions honestly require real meteorology, geology and climate science rather than headlines.`,
+    t: `1|wiki|Earth science
+1|wiki|Internal structure of Earth
+1|wiki|Plate tectonics
+1|wiki|Rock cycle
+1|wiki|Earthquake
+1|wiki|Volcano
+1|wiki|Erosion
+1|wiki|Water cycle
+1|wiki|Ocean current
+1|wiki|Atmosphere of Earth
+1|wiki|Weather
+1|wiki|Climate
+1|wiki|Cloud
+1|wiki|Precipitation
+1|wiki|Wind
+1|wiki|Atmospheric pressure
+1|wiki|Geologic time scale
+2|wiki|Meteorology
+2|wiki|Weather forecasting
+2|wiki|Numerical weather prediction
+2|wiki|Weather front
+2|wiki|Extratropical cyclone
+2|wiki|Tropical cyclone
+2|wiki|Thunderstorm
+2|wiki|Tornado
+2|wiki|Jet stream
+2|wiki|Coriolis force
+2|wiki|Atmospheric circulation
+2|wiki|El Niño–Southern Oscillation
+2|wiki|Dew point
+2|wiki|Lapse rate
+2|wiki|Convective available potential energy
+2|wiki|Weather radar
+2|wiki|Greenhouse effect
+2|wiki|Climate change
+2|wiki|Carbon cycle
+2|wiki|Milankovitch cycles
+2|wiki|Radiometric dating
+2|wiki|Groundwater
+2|wiki|Glacier
+2|wiki|Flood
+2|wiki|Drought
+2|wiki|Seismology
+2|wiki|Earth's magnetic field
+3|wiki|Ensemble forecasting
+3|wiki|Lorenz system
+3|wiki|Climate model
+3|wiki|Climate sensitivity
+3|wiki|Radiative forcing
+3|wiki|Climate change mitigation
+3|wiki|Tipping points in the climate system
+3|wiki|Thermohaline circulation
+3|wiki|Sea level rise
+3|wiki|Atmospheric river
+3|wiki|Polar vortex
+3|wiki|Paleoclimatology
+3|arxiv|GraphCast learning skillful medium-range global weather forecasting`,
+  },
+  {
+    id: 'astronomy-space',
+    name: `Astronomy, spaceflight & satellites`,
+    why: `From naming what is in tonight's sky to explaining how GPS, launches and orbits work and what the universe is made of, the AI needs astronomy, cosmology and the engineering of spaceflight.`,
+    t: `1|wiki|Astronomy
+1|wiki|Solar System
+1|wiki|Sun
+1|wiki|Moon
+1|wiki|Planet
+1|wiki|Star
+1|wiki|Galaxy
+1|wiki|Milky Way
+1|wiki|Celestial sphere
+1|wiki|Telescope
+1|wiki|Orbit
+1|wiki|Kepler's laws of planetary motion
+1|wiki|Mars
+1|wiki|Spaceflight
+1|wiki|Rocket
+1|wiki|Satellite
+1|wiki|International Space Station
+2|wiki|Stellar evolution
+2|wiki|Hertzsprung–Russell diagram
+2|wiki|Stellar nucleosynthesis
+2|wiki|Supernova
+2|wiki|Exoplanet
+2|wiki|Methods of detecting exoplanets
+2|wiki|Big Bang
+2|wiki|Cosmic microwave background
+2|wiki|Hubble's law
+2|wiki|Dark matter
+2|wiki|Dark energy
+2|wiki|Cosmic distance ladder
+2|wiki|Formation and evolution of the Solar System
+2|wiki|Orbital mechanics
+2|wiki|Hohmann transfer orbit
+2|wiki|Delta-v
+2|wiki|Tsiolkovsky rocket equation
+2|wiki|Geostationary orbit
+2|wiki|Low Earth orbit
+2|wiki|Orbital elements
+2|wiki|Global Positioning System
+2|wiki|Earth observation satellite
+2|wiki|James Webb Space Telescope
+2|wiki|Apollo program
+2|wiki|Falcon 9
+2|wiki|Space weather
+3|wiki|Lambda-CDM model
+3|wiki|Cosmic inflation
+3|wiki|Supermassive black hole
+3|wiki|Gravitational-wave astronomy
+3|wiki|Habitable zone
+3|wiki|Gravity assist
+3|wiki|Lagrange point
+3|wiki|Space debris
+3|wiki|Spacecraft attitude determination and control
+3|wiki|Ion thruster
+3|wiki|Two-line element set
+3|wiki|Satellite constellation
+3|arxiv|"Planck 2018 results" "cosmological parameters"
+3|arxiv|Event Horizon Telescope M87 shadow supermassive black hole`,
+  },
+  {
+    id: 'microeconomics',
+    name: `Microeconomics`,
+    why: `Explaining prices, incentives, market failures and strategic behaviour lets a personal AI reason about why things cost what they do, how firms and people respond to rules, and what policy or business advice actually follows from the evidence.`,
+    t: `1|openstax|/books/principles-microeconomics-3e/pages/1-1-what-is-economics-and-why-is-it-important
+1|openstax|/books/principles-microeconomics-3e/pages/2-1-how-individuals-make-choices-based-on-their-budget-constraint
+1|openstax|/books/principles-microeconomics-3e/pages/2-2-the-production-possibilities-frontier-and-social-choices
+1|openstax|/books/principles-microeconomics-3e/pages/3-1-demand-supply-and-equilibrium-in-markets-for-goods-and-services
+1|openstax|/books/principles-microeconomics-3e/pages/3-2-shifts-in-demand-and-supply-for-goods-and-services
+1|openstax|/books/principles-microeconomics-3e/pages/3-4-price-ceilings-and-price-floors
+1|openstax|/books/principles-microeconomics-3e/pages/3-5-demand-supply-and-efficiency
+1|openstax|/books/principles-microeconomics-3e/pages/5-1-price-elasticity-of-demand-and-price-elasticity-of-supply
+1|openstax|/books/principles-microeconomics-3e/pages/6-1-consumption-choices
+1|openstax|/books/principles-microeconomics-3e/pages/6-3-behavioral-economics-an-alternative-framework-for-consumer-choice
+1|openstax|/books/principles-microeconomics-3e/pages/7-3-costs-in-the-short-run
+1|openstax|/books/principles-microeconomics-3e/pages/7-5-costs-in-the-long-run
+2|openstax|/books/principles-microeconomics-3e/pages/8-2-how-perfectly-competitive-firms-make-output-decisions
+2|openstax|/books/principles-microeconomics-3e/pages/9-2-how-a-profit-maximizing-monopoly-chooses-output-and-price
+2|openstax|/books/principles-microeconomics-3e/pages/10-1-monopolistic-competition
+2|openstax|/books/principles-microeconomics-3e/pages/10-2-oligopoly
+2|openstax|/books/principles-microeconomics-3e/pages/13-3-public-goods
+2|openstax|/books/principles-microeconomics-3e/pages/14-1-the-theory-of-labor-markets
+2|openstax|/books/principles-microeconomics-3e/pages/15-4-income-inequality-measurement-and-causes
+2|openstax|/books/principles-microeconomics-3e/pages/16-1-the-problem-of-imperfect-information-and-asymmetric-information
+2|openstax|/books/principles-microeconomics-3e/pages/19-1-absolute-and-comparative-advantage
+2|openstax|/books/principles-microeconomics-3e/pages/20-1-protectionism-an-indirect-subsidy-from-consumers-to-producers
+2|wiki|Indifference curve
+2|wiki|Economic surplus
+2|wiki|Tax incidence
+2|wiki|Deadweight loss
+2|wiki|Price discrimination
+2|wiki|Monopsony
+2|wiki|Externality
+2|wiki|Pigouvian tax
+2|wiki|Tragedy of the commons
+2|wiki|Market failure
+2|wiki|Game theory
+2|wiki|Nash equilibrium
+2|wiki|Prisoner's dilemma
+2|wiki|Adverse selection
+2|wiki|Moral hazard
+2|wiki|Pareto efficiency
+2|wiki|Nudge theory
+3|wiki|Cournot competition
+3|wiki|Bertrand competition
+3|wiki|Coase theorem
+3|wiki|The Market for Lemons
+3|wiki|Signalling (economics)
+3|wiki|Principal–agent problem
+3|wiki|Mechanism design
+3|wiki|Auction theory
+3|wiki|General equilibrium theory
+3|wiki|Fundamental theorems of welfare economics
+3|wiki|Arrow's impossibility theorem
+3|wiki|Prospect theory
+3|wiki|Two-sided market
+3|wiki|Difference in differences
+3|arxiv|Optimal auctions through deep learning`,
+  },
+  {
+    id: 'macroeconomics-money',
+    name: `Macroeconomics, money & central banking`,
+    why: `Understanding GDP, inflation, unemployment, how banks create money and what central banks and governments actually do lets a personal AI explain the news, interest-rate moves and recessions, and advise sensibly on how they touch savings, jobs and prices.`,
+    t: `1|openstax|/books/principles-macroeconomics-3e/pages/6-1-measuring-the-size-of-the-economy-gross-domestic-product
+1|openstax|/books/principles-macroeconomics-3e/pages/7-1-the-relatively-recent-arrival-of-economic-growth
+1|openstax|/books/principles-macroeconomics-3e/pages/7-2-labor-productivity-and-economic-growth
+1|openstax|/books/principles-macroeconomics-3e/pages/8-1-how-economists-define-and-compute-unemployment-rate
+1|openstax|/books/principles-macroeconomics-3e/pages/9-1-tracking-inflation
+1|openstax|/books/principles-macroeconomics-3e/pages/14-1-defining-money-by-its-functions
+1|openstax|/books/principles-macroeconomics-3e/pages/14-4-how-banks-create-money
+1|openstax|/books/principles-macroeconomics-3e/pages/15-3-how-a-central-bank-executes-monetary-policy
+2|openstax|/books/principles-macroeconomics-3e/pages/11-2-building-a-model-of-aggregate-demand-and-aggregate-supply
+2|openstax|/books/principles-macroeconomics-3e/pages/12-2-the-building-blocks-of-keynesian-analysis
+2|openstax|/books/principles-macroeconomics-3e/pages/12-3-the-phillips-curve
+2|openstax|/books/principles-macroeconomics-3e/pages/13-1-the-building-blocks-of-neoclassical-analysis
+2|openstax|/books/principles-macroeconomics-3e/pages/15-4-monetary-policy-and-economic-outcomes
+2|openstax|/books/principles-macroeconomics-3e/pages/16-1-how-the-foreign-exchange-market-works
+2|openstax|/books/principles-macroeconomics-3e/pages/16-4-exchange-rate-policies
+2|openstax|/books/principles-macroeconomics-3e/pages/17-3-federal-deficits-and-the-national-debt
+2|openstax|/books/principles-macroeconomics-3e/pages/17-4-using-fiscal-policy-to-fight-recession-unemployment-and-inflation
+2|openstax|/books/principles-macroeconomics-3e/pages/19-2-improving-countries-standards-of-living
+2|wiki|Business cycle
+2|wiki|IS–LM model
+2|wiki|Monetarism
+2|wiki|Inflation targeting
+2|wiki|Bank of England
+2|wiki|Federal Reserve
+2|wiki|European Central Bank
+2|wiki|Fractional-reserve banking
+2|wiki|Lender of last resort
+2|wiki|Bank run
+2|wiki|Yield curve
+2|wiki|Quantitative easing
+2|wiki|Great Depression
+2|wiki|Stagflation
+2|wiki|2008 financial crisis
+2|wiki|Gold standard
+2|wiki|Bretton Woods system
+2|wiki|Balance of payments
+3|wiki|Solow–Swan model
+3|wiki|Endogenous growth theory
+3|wiki|NAIRU
+3|wiki|Rational expectations
+3|wiki|Lucas critique
+3|wiki|New Keynesian economics
+3|wiki|Dynamic stochastic general equilibrium
+3|wiki|Taylor rule
+3|wiki|Zero lower bound
+3|wiki|Liquidity trap
+3|wiki|Basel III
+3|wiki|Shadow banking system
+3|wiki|Eurozone crisis
+3|wiki|Hyperinflation
+3|wiki|Impossible trinity
+3|wiki|Fiscal multiplier
+3|wiki|Sovereign default
+3|wiki|Modern Monetary Theory
+3|wiki|Central bank digital currency`,
+  },
+  {
+    id: 'finance-investing-uk',
+    name: `Finance, investing & UK personal finance`,
+    why: `Knowing how compounding, markets, pensions, ISAs, UK tax, mortgages and credit actually work lets a personal AI give its owner grounded, specific money advice instead of generic platitudes, and spot when a product or plan is a bad deal.`,
+    t: `1|wiki|Personal finance
+1|wiki|Personal budget
+1|wiki|Emergency fund
+1|wiki|Compound interest
+1|wiki|Annual percentage rate
+1|wiki|Credit score
+1|wiki|Credit card
+1|wiki|Individual savings account
+1|wiki|Premium Bonds
+1|wiki|Stock
+1|wiki|Bond (finance)
+1|wiki|Dividend
+1|wiki|Index fund
+1|wiki|Exchange-traded fund
+2|wiki|Diversification (finance)
+2|wiki|Asset allocation
+2|wiki|Passive management
+2|wiki|Dollar-cost averaging
+2|wiki|Gilt-edged securities
+2|wiki|Price–earnings ratio
+2|wiki|Financial statement
+2|wiki|Net present value
+2|wiki|Pensions in the United Kingdom
+2|wiki|State Pension (United Kingdom)
+2|wiki|Automatic enrolment
+2|wiki|Self-invested personal pension
+2|wiki|Annuity
+2|wiki|Taxation in the United Kingdom
+2|wiki|National Insurance
+2|wiki|Capital gains tax in the United Kingdom
+2|wiki|Inheritance tax in the United Kingdom
+2|wiki|Council Tax
+2|wiki|Stamp duty in the United Kingdom
+2|wiki|Student loans and grants in the United Kingdom
+2|wiki|Universal Credit
+2|wiki|Mortgage
+2|wiki|Mortgage industry of the United Kingdom
+2|wiki|Fixed-rate mortgage
+2|wiki|Payday loan
+2|wiki|Financial Conduct Authority
+2|wiki|Financial Services Compensation Scheme
+2|wiki|Financial Ombudsman Service
+2|wiki|Individual voluntary arrangement
+2|wiki|Bankruptcy in the United Kingdom
+2|wiki|Life insurance
+3|wiki|Modern portfolio theory
+3|wiki|Capital asset pricing model
+3|wiki|Efficient-market hypothesis
+3|wiki|Behavioural finance
+3|wiki|Sharpe ratio
+3|wiki|Option (finance)
+3|wiki|Black–Scholes model
+3|wiki|Income drawdown
+3|wiki|Cryptocurrency
+3|arxiv|Deep hedging derivatives neural networks`,
+  },
+  {
+    id: 'psychology',
+    name: `Psychology: cognitive, social, developmental, clinical basics`,
+    why: `Knowing how people learn, remember, decide, develop and go wrong lets a personal AI explain its owner's own mind to them, teach in ways that stick, and recognise when to point toward real help rather than guess.`,
+    t: `1|openstax|/books/psychology-2e/pages/1-1-what-is-psychology
+1|openstax|/books/psychology-2e/pages/1-2-history-of-psychology
+1|openstax|/books/psychology-2e/pages/2-2-approaches-to-research
+1|openstax|/books/psychology-2e/pages/2-3-analyzing-findings
+1|openstax|/books/psychology-2e/pages/3-4-the-brain-and-spinal-cord
+1|openstax|/books/psychology-2e/pages/4-2-sleep-and-why-we-sleep
+1|openstax|/books/psychology-2e/pages/5-1-sensation-versus-perception
+1|openstax|/books/psychology-2e/pages/6-2-classical-conditioning
+1|openstax|/books/psychology-2e/pages/6-3-operant-conditioning
+1|openstax|/books/psychology-2e/pages/7-1-what-is-cognition
+1|openstax|/books/psychology-2e/pages/8-1-how-memory-functions
+1|openstax|/books/psychology-2e/pages/9-3-stages-of-development
+1|openstax|/books/psychology-2e/pages/10-1-motivation
+1|openstax|/books/psychology-2e/pages/10-4-emotion
+1|openstax|/books/psychology-2e/pages/12-1-what-is-social-psychology
+2|openstax|/books/psychology-2e/pages/8-3-problems-with-memory
+2|openstax|/books/psychology-2e/pages/9-2-lifespan-theories
+2|openstax|/books/psychology-2e/pages/12-3-attitudes-and-persuasion
+2|openstax|/books/psychology-2e/pages/12-4-conformity-compliance-and-obedience
+2|openstax|/books/psychology-2e/pages/12-5-prejudice-and-discrimination
+2|openstax|/books/psychology-2e/pages/14-1-what-is-stress
+2|openstax|/books/psychology-2e/pages/15-2-diagnosing-and-classifying-psychological-disorders
+2|openstax|/books/psychology-2e/pages/15-4-anxiety-disorders
+2|openstax|/books/psychology-2e/pages/15-7-depressive-bipolar-and-related-disorders
+2|openstax|/books/psychology-2e/pages/15-8-schizophrenia
+2|openstax|/books/psychology-2e/pages/16-2-types-of-treatment
+2|wiki|Cognitive bias
+2|wiki|Confirmation bias
+2|wiki|Working memory
+2|wiki|Spaced repetition
+2|wiki|Testing effect
+2|wiki|Attachment theory
+2|wiki|Theory of mind
+2|wiki|Big Five personality traits
+2|wiki|Cognitive dissonance
+2|wiki|Fundamental attribution error
+2|wiki|Milgram experiment
+2|wiki|Bystander effect
+2|wiki|Self-determination theory
+2|wiki|Cognitive behavioral therapy
+2|wiki|Mindfulness
+2|wiki|Placebo
+3|wiki|Dual process theory
+3|wiki|Baddeley's model of working memory
+3|wiki|Executive functions
+3|wiki|Neuroplasticity
+3|wiki|Replication crisis
+3|wiki|Psychometrics
+3|wiki|Intelligence quotient
+3|wiki|Flynn effect
+3|wiki|Emotional self-regulation
+3|wiki|Evolutionary psychology
+3|wiki|Dunning–Kruger effect
+3|arxiv|Using cognitive psychology to understand GPT-3`,
+  },
+  {
+    id: 'sociology-politics',
+    name: `Sociology, political science & government (UK and comparative)`,
+    why: `Understanding how societies are structured, how power is won and exercised, and how the UK state and its peers actually work lets a personal AI explain elections, institutions and social change accurately and advise on engaging with them.`,
+    t: `1|wiki|Sociology
+1|wiki|Culture
+1|wiki|Socialization
+1|wiki|Social structure
+1|wiki|Social stratification
+1|wiki|Social class
+1|wiki|Social mobility
+1|wiki|Politics
+1|wiki|State (polity)
+1|wiki|Democracy
+1|wiki|Constitution
+1|wiki|Political party
+2|wiki|Émile Durkheim
+2|wiki|Max Weber
+2|wiki|Karl Marx
+2|wiki|Structural functionalism
+2|wiki|Conflict theories
+2|wiki|Symbolic interactionism
+2|wiki|Cultural capital
+2|wiki|Bureaucracy
+2|wiki|Deviance (sociology)
+2|wiki|Demographic transition
+2|wiki|Social movement
+2|wiki|Separation of powers
+2|wiki|Liberal democracy
+2|wiki|Authoritarianism
+2|wiki|Parliamentary system
+2|wiki|Federalism
+2|wiki|Electoral system
+2|wiki|First-past-the-post voting
+2|wiki|Proportional representation
+2|wiki|Liberalism
+2|wiki|Conservatism
+2|wiki|Socialism
+2|wiki|Populism
+2|wiki|Nationalism
+2|wiki|Welfare state
+2|wiki|International relations
+2|wiki|United Nations
+2|wiki|European Union
+2|wiki|Politics of the United Kingdom
+2|wiki|Parliament of the United Kingdom
+2|wiki|Prime Minister of the United Kingdom
+2|wiki|Devolution in the United Kingdom
+2|wiki|Elections in the United Kingdom
+2|wiki|Brexit
+2|wiki|Politics of the United States
+3|wiki|Pierre Bourdieu
+3|wiki|Intersectionality
+3|wiki|Constitution of the United Kingdom
+3|wiki|Parliamentary sovereignty
+3|wiki|Comparative politics
+3|wiki|Political polarization
+3|wiki|Democratic backsliding
+3|wiki|Duverger's law`,
+  },
+  {
+    id: 'uk-law-rights',
+    name: `UK law & everyday rights`,
+    why: `Knowing the real statutes and procedures behind consumer refunds, tenancies, dismissal, data rights, police powers and driving offences lets a personal AI tell its owner what they are actually entitled to and which steps and bodies to use, while knowing when a solicitor is needed.`,
+    t: `1|wiki|Law of the United Kingdom
+1|wiki|English law
+1|wiki|Common law
+1|wiki|Precedent
+1|wiki|Courts of England and Wales
+1|wiki|Rule of law
+1|wiki|Citizens Advice
+1|wiki|Human Rights Act 1998
+1|wiki|Equality Act 2010
+1|wiki|The Highway Code
+2|wiki|Consumer Rights Act 2015
+2|wiki|Consumer Credit Act 1974
+2|wiki|Consumer protection in the United Kingdom
+2|wiki|County Court (England and Wales)
+2|wiki|English contract law
+2|wiki|English tort law
+2|wiki|Negligence
+2|wiki|Assured shorthold tenancy
+2|wiki|Section 21 notice
+2|wiki|Tenancy deposit scheme
+2|wiki|Leasehold estate
+2|wiki|United Kingdom labour law
+2|wiki|Employment Rights Act 1996
+2|wiki|Unfair dismissal in the United Kingdom
+2|wiki|Employment tribunal
+2|wiki|National Minimum Wage Act 1998
+2|wiki|Working Time Regulations 1998
+2|wiki|Zero-hour contract
+2|wiki|Data Protection Act 2018
+2|wiki|General Data Protection Regulation
+2|wiki|Information Commissioner's Office
+2|wiki|Right of access to personal data
+2|wiki|Road Traffic Act 1988
+2|wiki|Driving licence in the United Kingdom
+2|wiki|Road speed limits in the United Kingdom
+2|wiki|Drunk driving law by country
+2|wiki|MOT test
+2|wiki|Vehicle insurance
+2|wiki|Police and Criminal Evidence Act 1984
+2|wiki|Powers of the police in England and Wales
+2|wiki|Right to silence in England and Wales
+2|wiki|Magistrates' court (England and Wales)
+2|wiki|Crown Court
+2|wiki|Legal aid
+2|wiki|Will and testament
+2|wiki|Intestacy
+2|wiki|Lasting power of attorney
+2|wiki|Divorce in England and Wales
+2|wiki|Common-law marriage
+3|wiki|Renters' Rights Act 2025
+3|wiki|Employment Rights Act 2025
+3|wiki|Public Interest Disclosure Act 1998
+3|wiki|Online Safety Act 2023
+3|wiki|Judicial review in English law
+3|wiki|Supreme Court of the United Kingdom`,
+  },
+  {
+    id: 'world-history',
+    name: `World history (landmark events, eras, civilisations)`,
+    why: `A working map of civilisations, turning points and long-run causes lets a personal AI place any question, place or institution in context, explain how the present came about, and draw honest analogies rather than inventing them.`,
+    t: `1|wiki|Human history
+1|wiki|Neolithic Revolution
+1|wiki|Cradle of civilization
+1|wiki|Mesopotamia
+1|wiki|Ancient Egypt
+1|wiki|Indus Valley Civilisation
+1|wiki|Ancient Greece
+1|wiki|Roman Empire
+1|wiki|Middle Ages
+1|wiki|Renaissance
+1|wiki|Industrial Revolution
+1|wiki|World War I
+1|wiki|World War II
+1|wiki|Cold War
+2|wiki|Late Bronze Age collapse
+2|wiki|Achaemenid Empire
+2|wiki|Alexander the Great
+2|wiki|Han dynasty
+2|wiki|Maurya Empire
+2|wiki|Byzantine Empire
+2|wiki|Early Muslim conquests
+2|wiki|Islamic Golden Age
+2|wiki|Crusades
+2|wiki|Mongol Empire
+2|wiki|Black Death
+2|wiki|Ottoman Empire
+2|wiki|Mali Empire
+2|wiki|Aztec Empire
+2|wiki|Inca Empire
+2|wiki|Age of Discovery
+2|wiki|Columbian exchange
+2|wiki|Reformation
+2|wiki|Atlantic slave trade
+2|wiki|Scientific Revolution
+2|wiki|Mughal Empire
+2|wiki|Qing dynasty
+2|wiki|Age of Enlightenment
+2|wiki|American Revolution
+2|wiki|French Revolution
+2|wiki|Meiji Restoration
+2|wiki|Scramble for Africa
+2|wiki|British Empire
+2|wiki|Russian Revolution
+2|wiki|The Holocaust
+2|wiki|Decolonization
+2|wiki|Partition of India
+2|wiki|Chinese Communist Revolution
+2|wiki|Dissolution of the Soviet Union
+2|wiki|September 11 attacks
+3|wiki|Great Divergence
+3|wiki|Silk Road
+3|wiki|Peace of Westphalia
+3|wiki|Haitian Revolution
+3|wiki|Rwandan genocide
+3|wiki|Arab Spring`,
+  },
+  {
+    id: 'british-history-birmingham',
+    name: `British history and Birmingham & the West Midlands (industrial revolution, the city, its transport and institutions)`,
+    why: `Its owner lives in the West Midlands, so knowing how Britain and Birmingham came to be lets the AI explain the places, institutions and history around them with real local depth.`,
+    t: `1|wiki|History of England
+1|wiki|Roman Britain
+1|wiki|Anglo-Saxons
+1|wiki|Norman Conquest
+1|wiki|Magna Carta
+1|wiki|Wars of the Roses
+1|wiki|Tudor period
+1|wiki|English Reformation
+1|wiki|English Civil War
+1|wiki|Glorious Revolution
+1|wiki|Acts of Union 1707
+1|wiki|Industrial Revolution
+1|wiki|British Empire
+1|wiki|Victorian era
+1|wiki|Birmingham
+1|wiki|History of Birmingham
+1|wiki|West Midlands (county)
+1|wiki|Black Country
+2|wiki|Lunar Society of Birmingham
+2|wiki|Matthew Boulton
+2|wiki|James Watt
+2|wiki|Soho Manufactory
+2|wiki|Joseph Priestley
+2|wiki|Priestley Riots
+2|wiki|Birmingham Canal Navigations
+2|wiki|Jewellery Quarter
+2|wiki|Birmingham Small Arms Company
+2|wiki|Birmingham Political Union
+2|wiki|Reform Act 1832
+2|wiki|Joseph Chamberlain
+2|wiki|Birmingham Town Hall
+2|wiki|Cadbury
+2|wiki|Bournville
+2|wiki|Ironbridge Gorge
+2|wiki|Wolverhampton
+2|wiki|Birmingham New Street railway station
+2|wiki|Spaghetti Junction, Birmingham
+2|wiki|West Midlands Metro
+2|wiki|Transport for West Midlands
+2|wiki|University of Birmingham
+2|wiki|Birmingham Museum and Art Gallery
+2|wiki|Birmingham Back to Backs
+2|wiki|Peaky Blinders
+3|wiki|Birmingham Blitz
+3|wiki|Coventry Blitz
+3|wiki|Post-war Britain (1945–1979)
+3|wiki|National Health Service
+3|wiki|Longbridge plant
+3|wiki|British Leyland
+3|wiki|Birmingham pub bombings
+3|wiki|Thatcherism
+3|wiki|Balti (food)
+3|wiki|Birmingham City Council
+3|wiki|2022 Commonwealth Games
+3|wiki|Brexit`,
+  },
+  {
+    id: 'philosophy-ethics',
+    name: `Philosophy, ethics & critical thinking`,
+    why: `Sound reasoning, spotting fallacies and weighing ethical trade-offs are what let a personal AI give honest, well-argued advice rather than confident nonsense.`,
+    t: `1|wiki|Philosophy
+1|openstax|/books/introduction-philosophy/pages/1-1-what-is-philosophy
+1|wiki|Epistemology
+1|wiki|Metaphysics
+1|wiki|Ethics
+1|wiki|Logic
+1|wiki|Critical thinking
+1|wiki|Socrates
+1|wiki|Plato
+1|wiki|Aristotle
+1|wiki|Socratic method
+1|wiki|Stoicism
+1|wiki|Argument
+1|wiki|Fallacy
+1|openstax|/books/introduction-philosophy/pages/5-5-informal-fallacies
+1|wiki|Deductive reasoning
+1|wiki|Inductive reasoning
+1|wiki|Abductive reasoning
+2|wiki|Validity (logic)
+2|wiki|Propositional logic
+2|wiki|First-order logic
+2|wiki|Occam's razor
+2|wiki|Falsifiability
+2|wiki|Problem of induction
+2|wiki|Philosophy of science
+2|wiki|The Structure of Scientific Revolutions
+2|wiki|Empiricism
+2|wiki|David Hume
+2|wiki|Immanuel Kant
+2|wiki|Categorical imperative
+2|wiki|Utilitarianism
+2|wiki|Deontology
+2|wiki|Virtue ethics
+2|openstax|/books/introduction-philosophy/pages/9-2-consequentialism
+2|wiki|Social contract
+2|wiki|A Theory of Justice
+2|wiki|Existentialism
+2|wiki|Friedrich Nietzsche
+2|wiki|Ludwig Wittgenstein
+2|wiki|Trolley problem
+2|wiki|Gettier problem
+3|wiki|Philosophy of mind
+3|wiki|Hard problem of consciousness
+3|wiki|Free will
+3|wiki|Compatibilism
+3|wiki|Personal identity
+3|wiki|Moral relativism
+3|wiki|Metaethics
+3|wiki|Is–ought problem
+3|wiki|Bioethics
+3|wiki|Ethics of artificial intelligence
+3|wiki|Effective altruism
+3|wiki|Chinese room
+3|arxiv|Concrete Problems in AI Safety
+3|arxiv|alignment problem from a deep learning perspective`,
+  },
+  {
+    id: 'linguistics-languages',
+    name: `Linguistics & how languages work`,
+    why: `An AI that works in language should understand how sounds, words, grammar and meaning are built, how languages change, and why its owner's Brummie English is the way it is.`,
+    t: `1|wiki|Linguistics
+1|wiki|Language
+1|wiki|Phonetics
+1|wiki|International Phonetic Alphabet
+1|wiki|Syllable
+1|wiki|Phonology
+1|wiki|Phoneme
+1|wiki|Morphology (linguistics)
+1|wiki|Morpheme
+1|wiki|Syntax
+1|wiki|Semantics
+1|wiki|Pragmatics
+1|wiki|Grammar
+1|wiki|Part of speech
+1|wiki|English grammar
+2|wiki|Historical linguistics
+2|wiki|Comparative method
+2|wiki|Indo-European languages
+2|wiki|Proto-Indo-European language
+2|wiki|Grimm's law
+2|wiki|Great Vowel Shift
+2|wiki|History of English
+2|wiki|Language family
+2|wiki|Sociolinguistics
+2|wiki|Dialect
+2|wiki|Code-switching
+2|wiki|Brummie dialect
+2|wiki|Languages of the United Kingdom
+2|wiki|Language acquisition
+2|wiki|Second-language acquisition
+2|wiki|Noam Chomsky
+2|wiki|Generative grammar
+2|wiki|Universal grammar
+2|wiki|Linguistic typology
+2|wiki|Word order
+2|wiki|Grammatical aspect
+2|wiki|Writing system
+2|wiki|Etymology
+2|wiki|Loanword
+2|wiki|Speech act
+2|wiki|Cooperative principle
+2|wiki|Implicature
+2|wiki|Creole language
+3|wiki|Linguistic relativity
+3|wiki|Psycholinguistics
+3|wiki|Corpus linguistics
+3|wiki|Computational linguistics
+3|wiki|Language death
+3|wiki|Minimalist program
+3|wiki|Construction grammar
+3|wiki|Conceptual metaphor
+3|wiki|Discourse analysis
+3|arxiv|Syntactic Structure from Deep Learning
+3|arxiv|BERT Rediscovers the Classical NLP Pipeline`,
+  },
+  {
+    id: 'literature-writing',
+    name: `Literature, rhetoric & clear writing`,
+    why: `Everything the AI produces is writing, so it needs the craft of clear prose and persuasion plus the literary knowledge to discuss, quote and recommend books well.`,
+    t: `1|wiki|Literature
+1|wiki|Rhetoric
+1|wiki|Modes of persuasion
+1|wiki|Narrative
+1|wiki|Plot (narrative)
+1|wiki|Character (arts)
+1|wiki|Theme (narrative)
+1|wiki|Literary genre
+1|wiki|Poetry
+1|wiki|Novel
+1|wiki|Essay
+1|wiki|Drama
+1|wiki|Figure of speech
+1|wiki|Metaphor
+1|wiki|Irony
+1|wiki|Paragraph
+1|wiki|Thesis statement
+1|wiki|Writing style
+1|wiki|Plain language
+1|wiki|Punctuation
+2|wiki|Rhetoric (Aristotle)
+2|wiki|Inventio
+2|wiki|The Elements of Style
+2|wiki|Politics and the English Language
+2|wiki|Active voice
+2|wiki|Copy editing
+2|wiki|Style guide
+2|wiki|Technical writing
+2|wiki|Writing process
+2|wiki|Show, don't tell
+2|wiki|Narration
+2|wiki|Unreliable narrator
+2|wiki|Hero's journey
+2|wiki|Three-act structure
+2|wiki|Satire
+2|wiki|Epic poetry
+2|wiki|Iliad
+2|wiki|The Canterbury Tales
+2|wiki|William Shakespeare
+2|wiki|Romantic poetry
+2|wiki|Jane Austen
+2|wiki|Charles Dickens
+2|wiki|Sonnet
+2|wiki|Readability
+2|wiki|Inverted pyramid (journalism)
+2|openstax|/books/writing-guide/pages/10-1-making-a-case-defining-a-position-argument
+2|openstax|/books/writing-guide/pages/11-1-developing-your-sense-of-logic
+3|wiki|Literary modernism
+3|wiki|Stream of consciousness
+3|wiki|Postmodern literature
+3|wiki|Literary criticism
+3|wiki|Literary theory
+3|wiki|Deconstruction
+3|wiki|Postcolonial literature
+3|wiki|Close reading`,
+  },
+  {
+    id: 'music-theory-art',
+    name: `Music theory, art & design history`,
+    why: `Being able to explain why a chord progression works or why a design feels balanced lets the AI help with music, visual projects and taste, not just facts.`,
+    t: `1|wiki|Music theory
+1|wiki|Pitch (music)
+1|wiki|Scale (music)
+1|wiki|Major scale
+1|wiki|Minor scale
+1|wiki|Interval (music)
+1|wiki|Chord (music)
+1|wiki|Key (music)
+1|wiki|Rhythm
+1|wiki|Time signature
+1|wiki|Musical notation
+1|wiki|Melody
+1|wiki|Harmony
+1|wiki|Art history
+1|wiki|Elements of art
+1|wiki|Composition (visual arts)
+1|wiki|Color theory
+1|wiki|Perspective (graphical)
+1|wiki|Typography
+2|wiki|Circle of fifths
+2|wiki|Chord progression
+2|wiki|Cadence
+2|wiki|Counterpoint
+2|wiki|Tonality
+2|wiki|Modulation (music)
+2|wiki|Twelve-bar blues
+2|wiki|Roman numeral analysis
+2|wiki|Sonata form
+2|wiki|Baroque music
+2|wiki|Johann Sebastian Bach
+2|wiki|Jazz
+2|wiki|Renaissance art
+2|wiki|Leonardo da Vinci
+2|wiki|Romanticism
+2|wiki|Impressionism
+2|wiki|Post-Impressionism
+2|wiki|Pre-Raphaelite Brotherhood
+2|wiki|Arts and Crafts movement
+2|wiki|Art Nouveau
+2|wiki|Bauhaus
+2|wiki|Graphic design
+2|wiki|Principles of grouping
+2|wiki|Golden ratio
+3|wiki|Jazz harmony
+3|wiki|Twelve-tone technique
+3|wiki|Minimal music
+3|arxiv|Music Transformer generating music with long-term structure
+3|wiki|Cubism
+3|wiki|Surrealism
+3|wiki|Abstract expressionism
+3|wiki|Pop art
+3|wiki|Modern art
+3|wiki|Swiss Style (design)
+3|wiki|Dieter Rams
+3|wiki|Brutalist architecture`,
+  },
+  {
+    id: 'communication-negotiation-productivity',
+    name: `Communication, negotiation, decision-making & productivity`,
+    why: `Advising a person well means knowing how people listen, bargain, decide under bias and get things done, so the AI's suggestions actually work in real life.`,
+    t: `1|wiki|Communication
+1|wiki|Interpersonal communication
+1|wiki|Active listening
+1|wiki|Nonverbal communication
+1|wiki|Public speaking
+1|wiki|Assertiveness
+1|wiki|Emotional intelligence
+1|wiki|Persuasion
+1|wiki|Negotiation
+1|wiki|Decision-making
+1|wiki|Time management
+1|wiki|Goal setting
+2|wiki|Best alternative to a negotiated agreement
+2|wiki|Getting to Yes
+2|wiki|Zone of possible agreement
+2|wiki|Conflict resolution
+2|wiki|Nonviolent Communication
+2|wiki|Crucial Conversations: Tools for Talking When Stakes Are High
+2|wiki|Influence: Science and Practice
+2|openstax|/books/organizational-behavior/pages/14-4-negotiation-behavior
+2|wiki|Cognitive bias
+2|wiki|List of cognitive biases
+2|wiki|Confirmation bias
+2|wiki|Anchoring effect
+2|wiki|Sunk cost
+2|wiki|Loss aversion
+2|wiki|Planning fallacy
+2|wiki|Groupthink
+2|wiki|Thinking, Fast and Slow
+2|openstax|/books/principles-management/pages/2-4-barriers-to-effective-decision-making
+2|wiki|Getting Things Done
+2|wiki|Procrastination
+2|wiki|Flow (psychology)
+2|wiki|SMART criteria
+2|wiki|Objectives and key results
+2|wiki|Five whys
+2|wiki|Spaced repetition
+2|wiki|Testing effect
+2|wiki|Zettelkasten
+2|wiki|Metacognition
+2|wiki|Barbara Minto
+3|wiki|Game theory
+3|wiki|Prisoner's dilemma
+3|wiki|Nash equilibrium
+3|wiki|Decision theory
+3|wiki|Expected utility hypothesis
+3|wiki|Bounded rationality
+3|wiki|Prospect theory
+3|wiki|Nudge theory
+3|wiki|Multiple-criteria decision analysis
+3|wiki|Pre-mortem
+3|wiki|The Good Judgment Project
+3|wiki|Cynefin framework
+3|openstax|/books/principles-management/pages/2-6-group-decision-making
+3|arxiv|Deal or No Deal end-to-end learning negotiation dialogues`,
+  },
+  {
+    id: 'geography-transport-uk',
+    name: `Geography & transport systems (UK roads, rail, aviation, shipping, how traffic and transit networks work)`,
+    why: `The AI reads live West Midlands traffic and transit feeds, so it must understand how UK roads, railways, airports and ports are organised and why networks jam or flow.`,
+    t: `1|wiki|Geography
+1|wiki|Physical geography
+1|wiki|Human geography
+1|wiki|Geography of the United Kingdom
+1|wiki|Regions of England
+1|wiki|Ordnance Survey
+1|wiki|Transport in the United Kingdom
+1|wiki|Roads in the United Kingdom
+1|wiki|Public transport
+1|wiki|Rail transport in Great Britain
+1|wiki|Aviation in the United Kingdom
+2|wiki|Great Britain road numbering scheme
+2|wiki|List of motorways in the United Kingdom
+2|wiki|M6 motorway
+2|wiki|The Highway Code
+2|wiki|National Highways
+2|wiki|Smart motorway
+2|wiki|Traffic congestion
+2|wiki|Traffic flow
+2|wiki|Transportation planning
+2|wiki|Bus deregulation in Great Britain
+2|wiki|National Express
+2|wiki|History of rail transport in Great Britain
+2|wiki|Beeching cuts
+2|wiki|Privatisation of British Rail
+2|wiki|Network Rail
+2|wiki|Great British Railways
+2|wiki|Railway signalling
+2|wiki|High Speed 2
+2|wiki|London Underground
+2|wiki|Heathrow Airport
+2|wiki|Birmingham Airport
+2|wiki|Maritime transport
+2|wiki|Port of Felixstowe
+2|wiki|Channel Tunnel
+2|wiki|Canals of the United Kingdom
+2|wiki|Postcodes in the United Kingdom
+2|wiki|Geographic information system
+2|wiki|GTFS
+2|wiki|Road safety
+3|wiki|Induced demand
+3|wiki|Braess's paradox
+3|wiki|Fundamental diagram of traffic flow
+3|wiki|Nagel–Schreckenberg model
+3|wiki|Split Cycle Offset Optimisation Technique
+3|wiki|Transportation forecasting
+3|wiki|Route assignment
+3|wiki|Vehicle routing problem
+3|wiki|European Train Control System
+3|wiki|Railway electrification in Great Britain
+3|wiki|Air traffic control
+3|wiki|Congestion pricing
+3|wiki|Low traffic neighbourhood
+3|wiki|Transport economics
+3|arxiv|Diffusion convolutional recurrent neural network traffic forecasting`,
+  },
 ];
