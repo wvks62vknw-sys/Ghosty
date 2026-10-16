@@ -1,0 +1,15 @@
+{
+  "job": "rmvaeiwqjpfoa",
+  "target": "https://linear.app/",
+  "kind": "repo",
+  "question": "",
+  "startedAt": "2026-10-16T03:22:23.258Z",
+  "sections": [],
+  "errors": [
+    {
+      "what": "analysis",
+      "error": "Cloning into '/tmp/rea-0eRbth/app'...\nremote: Not Found\nfatal: repository 'https://github.com/.git/' not found\n"
+    }
+  ],
+  "finishedAt": "2026-10-16T03:22:23.359Z"
+}
