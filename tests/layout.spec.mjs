@@ -48,7 +48,8 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
     // Phones: the Library shelf and System status must get real room and scroll fully into view above the dock.
     const must = { library: 'SHELF', system: 'STATUS' }[tab];
     if (name === 'phone' && must) {
-      const r = await page.evaluate((m) => {
+      // The panel fills in once its data arrives (slower on CI runners): measure when it has, or after 8 s.
+      const measure = () => page.evaluate((m) => {
         const pn = [...document.querySelectorAll('.pg.on .pn')].find((x) => x.querySelector('h3')?.textContent?.trim().startsWith(m));
         if (!pn) return { missing: true };
         pn.scrollIntoView({ block: 'end' });
@@ -56,6 +57,11 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
         const dock = document.querySelector('nav')?.getBoundingClientRect().top ?? innerHeight;
         return { h: Math.round(b.height), bottom: Math.round(b.bottom), dock: Math.round(dock), top: Math.round(b.top) };
       }, must);
+      let r = await measure();
+      for (let i = 0; i < 16 && !r.missing && (r.h < 220 || r.bottom > r.dock + 2 || r.top < 0); i++) {
+        await page.waitForTimeout(500);
+        r = await measure();
+      }
       if (r.missing) problems.push(`[phone ${tab}] no ${must} panel`);
       else if (r.h < 220 || r.bottom > r.dock + 2 || r.top < 0) problems.push(`[phone ${tab}] ${must} panel squeezed or unreachable: ${JSON.stringify(r)}`);
     }
