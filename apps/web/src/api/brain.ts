@@ -148,10 +148,12 @@ export const memoryPaused = createStore({ on: false, since: 0 });
 export const pauseEndsAt = (t: number) => Math.floor(t / 86_400_000) * 86_400_000 + 86_400_000;
 // The pause ends at midnight UTC: clear the tag then (and re-check with the brain), instead of
 // leaving a stale "paused" badge on a phone that was never reloaded.
-setInterval(() => {
-  const m = memoryPaused.get();
-  if (m.on && Date.now() >= pauseEndsAt(m.since)) memoryPaused.set({ on: false, since: 0 });
-}, 30_000);
+if (typeof document !== 'undefined') {
+  setInterval(() => {
+    const m = memoryPaused.get();
+    if (m.on && Date.now() >= pauseEndsAt(m.since)) memoryPaused.set({ on: false, since: 0 });
+  }, 30_000);
+}
 export class PausedError extends Error {
   readonly paused = true;
   constructor() {
