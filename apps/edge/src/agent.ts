@@ -1165,7 +1165,7 @@ function argsProblem(raw: string): string | null {
 }
 
 const CODE_TOOLS = /^(study|publish_site|repo_|propose_change|update_change|change_status|wait_for_checks|create_widget|learn_lesson|self_audit|plan_upgrade|roadmap|update_step)/;
-const CODE_WORDS = /\b(code|coding|build|rebuild|recreate|remake|redesign|clone|website|web ?site|landing page|program|script|function|bug|fix|feature|tab|panel|widget|game|app|refactor|typescript|javascript|python|html|css|api|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|carry on|add (a|an) )/i;
+const CODE_WORDS = /\b(code|coding|build|rebuild|recreate|remake|redesign|clone|website|web ?site|landing page|program|script|function|bug|fix|feature|tab|panel|widget|game|app|refactor|typescript|javascript|python|html|css|api|backend|full-?stack|databases?\b|schemas?\b|crud\b|endpoints?\b|(?:web|api|node|express|postgres|db|database) server|server-?side|login system|o?auth(?:n|z|enticat\w*|ori[sz]\w*)?\b|jwt\b|compile|deploy|self-?edit|change yourself|upgrade|improve yourself|better version|carry on|add (a|an) )/i;
 
 /** The owner's latest message. */
 function lastUserText(ctx: Msg[]): string {

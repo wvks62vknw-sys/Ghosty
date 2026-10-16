@@ -52,6 +52,50 @@ test('study finds the right playbook for what Ghosty is about to do', () => {
   assert.deepEqual(K.findPlaybooks('zzzz qqqq'), []);
 });
 
+test('the full-stack handbook: architecture, auth, APIs, schemas, validation, UI → backend, state, iPhone layout', () => {
+  const first = (q) => K.findPlaybooks(q)[0]?.id;
+  assert.ok(K.findPlaybooks('clean architecture separation of concerns').some((p) => p.id === 'clean-architecture'));
+  assert.equal(first('clean-architecture'), 'clean-architecture');
+  assert.equal(first('jwt login with sessions and password hashing'), 'auth');
+  assert.equal(first('crud api endpoints in express'), 'crud-api');
+  assert.equal(first('database schema with foreign keys'), 'database-schema');
+  assert.equal(first('validate form input against sql injection'), 'validation');
+  assert.equal(first('reverse engineer the backend for a product card'), 'ui-to-backend');
+  assert.equal(first('react hook with loading and error state'), 'state-and-errors');
+  assert.equal(first('iphone 13 responsive layout'), 'mobile-390');
+  const body = (id) => K.PLAYBOOKS.find((p) => p.id === id).body;
+  // the rules that matter most are really in there
+  assert.match(body('auth'), /HttpOnly; Secure; SameSite=Lax/);
+  assert.match(body('auth'), /timingSafeEqual/);
+  assert.match(body('database-schema'), /NEVER float/);
+  assert.match(body('ui-to-backend'), /Product card → products: title TEXT.*price NUMERIC\(10,2\).*images TEXT\[\]/);
+  assert.match(body('mobile-390'), /clamp\(/);
+  assert.match(body('mobile-390'), /@container/);
+  assert.match(body('mobile-390'), /transform and opacity/);
+  // and every code turn is told to use them
+  const e = K.engineeringEssentials('boss');
+  assert.match(e, /separate layers/);
+  assert.match(e, /mobile 390/);
+});
+
+test('the full-stack templates are valid code (SQL parses, JavaScript compiles)', () => {
+  const body = (id) => K.PLAYBOOKS.find((p) => p.id === id).body;
+  // the validator template, run for real
+  const src = body('validation').match(/export function validateProduct[\s\S]*?\n  }\n/)[0].replace('export ', '');
+  const HttpError = class extends Error { constructor(status, message, fields) { super(message); this.status = status; this.fields = fields; } };
+  const validateProduct = new Function('HttpError', `${src}; return validateProduct;`)(HttpError);
+  assert.deepEqual(validateProduct({ title: ' Loaf ', price: '3.5', images: ['https://x.example/a.jpg'], role: 'admin' }), { title: 'Loaf', price: 3.5, images: ['https://x.example/a.jpg'] });
+  assert.throws(() => validateProduct({ title: '', price: -1, images: ['http://x'] }), (e) => e.status === 422 && Object.keys(e.fields).length === 3);
+  // the tiny store template
+  const store = body('state-and-errors').match(/function createStore[\s\S]*?\n  }\n/)[0];
+  const createStore = new Function(`${store}; return createStore;`)();
+  const s = createStore({ n: 0 });
+  const seen = [];
+  s.subscribe((x) => seen.push(x.n));
+  s.set((x) => ({ n: x.n + 1 }));
+  assert.deepEqual(seen, [0, 1]);
+});
+
 test('playbook code examples point at files and exports that really exist', () => {
   const src = (p) => readFileSync(join(ROOT, p), 'utf8');
   const components = src('apps/web/src/ui/components.ts');

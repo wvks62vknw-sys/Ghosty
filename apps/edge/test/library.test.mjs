@@ -102,6 +102,8 @@ test('the starter library fills in a little at a time and covers the big topics'
   assert.match(await top('PPO clipped objective advantage'), /Reinforcement/);
   assert.match(await top('CUDA warps shared memory coalescing'), /Frameworks/);
   assert.match(await top('singular value decomposition eigenvectors'), /Mathematics/);
+  assert.match(await top('JWT refresh token rotation HttpOnly cookie'), /authentication/i);
+  assert.match(await top('container queries fluid typography safe area'), /iPhone-first/);
   assert.equal(await lib.seedStarter(40), true, 'nothing more to do once seeded');
 });
 
