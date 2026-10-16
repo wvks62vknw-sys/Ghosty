@@ -1,10 +1,10 @@
 # Cloudflare response headers for the interface. The main app gets a strict Content Security Policy:
 # scripts only from this site, network only to this site (/api), no framing by others.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr https://*.tiles.openrailwaymap.org https://tiles.openseamap.org https://tilecache.rainviewer.com https://api.mapbox.com; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems https://tiles.openfreemap.org https://api.mapbox.com https://*.tiles.openrailwaymap.org https://tilecache.rainviewer.com; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://server.arcgisonline.com https://tiles.maps.eox.at https://tile.openstreetmap.org https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr https://*.tiles.openrailwaymap.org https://tiles.openseamap.org https://tilecache.rainviewer.com https://api.mapbox.com; connect-src 'self' https://overpass-api.de https://overpass.kumi.systems https://tiles.openfreemap.org https://api.mapbox.com https://*.tiles.openrailwaymap.org https://tilecache.rainviewer.com; worker-src 'self'; frame-src 'self' https://www.google.com https://embed.waze.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
-  Permissions-Policy: microphone=(self), geolocation=(self), camera=()
+  Permissions-Policy: microphone=(self), geolocation=(self), camera=(self)
 
 # Widgets run here, inside a sandboxed iframe with an opaque origin, so they may use
 # inline scripts and call public APIs without weakening the main app's policy.
@@ -31,7 +31,9 @@
 /data/*
   Cache-Control: public, max-age=86400
 
-# Leaflet (the flat map) and MapLibre GL (the 3D map), vendored: fixed versions, cached for a week.
+# Leaflet (the flat map), MapLibre GL (the 3D map) and the Lens's vision and reading libraries
+# (MediaPipe, Tesseract.js and their models), vendored: fixed versions, cached for a week. The
+# 'wasm-unsafe-eval' above lets those WebAssembly runtimes compile; scripts still come only from here.
 # MapLibre fetches OpenFreeMap's styles, vector tiles, fonts and sprites itself (connect-src above);
 # its tile worker is a module from this same folder, so no blob: worker is ever needed.
 /vendor/*

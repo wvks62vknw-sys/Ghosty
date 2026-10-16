@@ -14,7 +14,7 @@
   "assets": {
     "directory": "../web/dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/s/*"]
+    "run_worker_first": ["/api/*", "/s/*", "/i/*"]
   },
   "vars": {
     // SHA-256 of your owner password. The password itself is never stored anywhere.

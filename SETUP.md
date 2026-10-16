@@ -145,6 +145,50 @@ A new Spotify app is in "development mode": add your own Spotify email under the
 Not available anywhere free: Birmingham City Council's street CCTV, National Rail train positions, and live
 motorway speed counts (WebTRIS is a monthly archive). Ghosty says so rather than pretending.
 
+## 3f. The Lens: your phone's camera, reading and hands
+
+Open **Systems → LENS** (or tell Ghosty *"read this"* / *"what is this?"*). Everything in the Lens runs
+on the phone itself with libraries served from your Ghosty: no picture leaves the phone unless you
+press ASK GHOSTY or SEARCH, no account, no key. The first use of each mode downloads its model once
+(5–14 MB each) and keeps it. Needs iOS 16.4 or newer (WebAssembly SIMD); Safari will ask for the camera
+the first time.
+
+- **SEE** — names what the camera sees as it moves: boxes around 80 kinds of everyday thing (people,
+  cars, buses, bikes, dogs, bottles, laptops…), a line about the scene from a 1,000-class classifier,
+  and a running count. Tap a box for actions: ASK GHOSTY about it, SEARCH for it (reverse image), READ
+  the text on it, SAVE a note. FREEZE holds the frame.
+- **READ** — a still (or a photo from your camera roll) is read as text on the phone, with a progress
+  bar; the text can be edited, copied, saved to the library (it appears as SCANNED and is searchable,
+  on the phone and in Ghosty's memory) or sent to Ghosty as a question — the text, not the picture, so
+  any model can answer.
+- **HANDS** — 21 points per hand drawn live and seven gestures recognised: thumbs up saves a SEE note,
+  open palm freezes, a V flips the camera, a pointing finger captures and reads, a fist stops.
+- **ASK** — a question about what the camera sees ("what is this plant?", "translate this sign", "is
+  this safe to eat?"). The still goes to a model that can see pictures (Gemini's free key, Workers AI's
+  Llama 4 or the open Pollinations endpoint); with none reachable Ghosty says so and answers from what
+  the phone itself saw (the labels and the text).
+- **SEARCH** — draw a box on a still and open it in Google Lens, Bing Visual Search, Yandex Images or
+  TinEye (named as such; each opens in its own tab). The engines need a web address for the picture, so
+  the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
+  at once; at most 30 a day).
+
+What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
+face model is included, and that is on purpose.
+
+## 3g. Recon: what the internet knows about a domain
+
+**Threats → RECON**, or ask *"recon example.com"* in chat. Passive, keyless sources only, and only for
+domains, hosts, IPs and web addresses — never a person:
+
+- DNS records and email posture (SPF, DMARC) from dns.google; registration (registrar, dates, name
+  servers) from RDAP; every certificate ever issued, and the subdomains they reveal, from crt.sh;
+  first and latest snapshots from the Wayback Machine; hosting (network, country, open ports seen by
+  Shodan's free InternetDB) for each address; the site's HTTP fingerprint (server, redirects, which
+  security headers are missing, robots/sitemap/security.txt).
+- Each line names its source. SAVE TO LIBRARY files the report (kind RECON); ASK GHOSTY ABOUT THIS
+  sends it to chat, where Ghosty can chain on — fetch the site, import an interesting page, or look up
+  a subdomain — in the same turn.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

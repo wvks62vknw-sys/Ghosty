@@ -55,6 +55,16 @@ tests/       local preview server + browser test
   OpenStax, the Swift book) into its library, writes study notes with a free model, drills itself with
   questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
   repository.
+- **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
+  a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
+  picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
+  white-labelled). Vendored MediaPipe and Tesseract.js; no face recognition, no number-plate lookups.
+- **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
+  registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
+  Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
+  with its other tools. Infrastructure only, never a person.
+- **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
+  report → an imported page), read-only tools run side by side, and every long job shows live progress in chat.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

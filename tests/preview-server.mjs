@@ -69,13 +69,13 @@ function headersFor(path) {
   return h;
 }
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.map': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.wasm': 'application/wasm', '.tflite': 'application/octet-stream', '.task': 'application/octet-stream', '.gz': 'application/gzip', '.traineddata': 'application/octet-stream' };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   try {
-    // Like run_worker_first in wrangler.jsonc: the API and published pages (/s/…) go to the Worker.
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/')) {
+    // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) {
       const chunks = [];
       for await (const c of req) chunks.push(c);
       const body = chunks.length ? Buffer.concat(chunks) : undefined;
