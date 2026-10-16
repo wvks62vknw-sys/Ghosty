@@ -132,3 +132,34 @@ test('a big library is copied a few thousand passages per run, carrying on next 
   assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 2, dropped: 0, left: 1 });
   assert.deepEqual(await L.mirrorLibrary(api, 6), { copied: 1, dropped: 0, left: 0 });
 });
+
+test('the device mirror copies only the new passages of a notebook that grew, and everything of a document that changed', async () => {
+  L._reset();
+  const calls = [];
+  let brain = [{ id: 'notes', title: 'Study log', source: 'ghosty', kind: 'notes', pages: 0, passages: 2, chars: 10, at: 1, status: 'ready' }];
+  const pages = { notes: [{ text: 'one' }, { text: 'two' }] };
+  const api = {
+    docs: async () => brain,
+    passages: async (id, after) => {
+      calls.push([id, after]);
+      const list = pages[id].slice(after);
+      return { passages: list, next: null };
+    },
+  };
+  let r = await L.mirrorLibrary(api);
+  assert.equal(r.copied, 1);
+  assert.deepEqual(calls, [['notes', 0]]);
+  // the notebook grew by one passage: only that one is fetched
+  pages.notes.push({ text: 'three' });
+  brain = [{ ...brain[0], passages: 3, chars: 15 }];
+  r = await L.mirrorLibrary(api);
+  assert.equal(r.copied, 1);
+  assert.deepEqual(calls.at(-1), ['notes', 2]);
+  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['one', 'two', 'three']);
+  // a document that shrank or was rewritten is copied whole again
+  pages.notes = [{ text: 'rewritten' }];
+  brain = [{ ...brain[0], passages: 1, chars: 9 }];
+  r = await L.mirrorLibrary(api);
+  assert.deepEqual(calls.at(-1), ['notes', 0]);
+  assert.deepEqual((await L.passagesOf('m-notes')).map((p) => p.text), ['rewritten']);
+});

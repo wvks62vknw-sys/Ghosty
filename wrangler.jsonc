@@ -26,7 +26,12 @@
   // Pages Ghosty published (publish_site) and jobs in flight. KV is free and has its own daily
   // allowance, separate from the database's, so published links stay up — and publishing
   // works — while the database is paused.
-  "kv_namespaces": [{ "binding": "SITES", "id": "3ea76c576392464bb1f2726a18203ba4" }],
+  "kv_namespaces": [
+    { "binding": "SITES", "id": "3ea76c576392464bb1f2726a18203ba4" },
+    // The vault's mirror (encrypted keys, so they survive the database pause). Production only:
+    // previews below do not get it, so an unreviewed change can never read the owner's keys.
+    { "binding": "VAULT", "id": "7e48e1e22f274b4eb0bd5420f570cda3" }
+  ],
   "durable_objects": {
     "bindings": [{ "name": "AGENT", "class_name": "GhostyAgent" }]
   },

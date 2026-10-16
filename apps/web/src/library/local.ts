@@ -149,6 +149,23 @@ async function put(d: LocalDoc, passages?: LocalPassage[]): Promise<void> {
   await done(tx);
 }
 
+/** Add passages to the end of a document already here (a notebook that grew): its details are updated. */
+async function append(d: LocalDoc, from: number, passages: LocalPassage[]): Promise<void> {
+  const docs = await all();
+  const meta = { ...d, count: from + passages.length, chars: d.chars + passages.reduce((n, p) => n + p.text.length, 0) };
+  docs.set(d.id, meta);
+  const db = await idb();
+  if (!db) {
+    memPass.set(d.id, [...(memPass.get(d.id) ?? []).slice(0, from), ...passages]);
+    return;
+  }
+  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  tx.objectStore('docs').put(meta);
+  const pass = tx.objectStore('pass');
+  passages.forEach((p, i) => pass.put({ ...p, doc: d.id, n: from + i }));
+  await done(tx);
+}
+
 async function drop(id: string): Promise<void> {
   (await all()).delete(id);
   const db = await idb();
@@ -349,16 +366,20 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
     let spent = 0;
     for (const d of todo) {
       if (spent >= budget) break;
+      const prev = have.get(d.id);
+      // A notebook that only grew (Ghosty's study log, its notes): copy the new passages, not the whole document again.
+      const grown = prev && prev.count > 0 && d.passages > prev.count && d.chars >= prev.chars && prev.sig?.startsWith(`${prev.count}:`);
       const passages: LocalPassage[] = [];
-      let after = 0;
+      let after = grown ? prev.count : 0;
       for (let guard = 0; guard < 200; guard++) {
         const page = await api.passages(d.id, after);
         for (const p of page.passages) passages.push({ text: p.text, ...(p.heading ? { heading: p.heading } : {}), ...(p.page ? { page: p.page } : {}) });
         if (page.next === null || !page.passages.length) break;
         after = page.next;
       }
-      const prev = have.get(d.id);
-      await put({ id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: 0, chars: 0, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) }, passages);
+      const meta: LocalDoc = { id: prev?.id ?? `m-${d.id}`, brainId: d.id, title: d.title, source: d.source, kind: d.kind, pages: d.pages, count: prev?.count ?? 0, chars: prev?.chars ?? 0, at: d.at, sig: `${d.passages}:${d.chars}`, ...(d.builtin ? { builtin: true } : {}) };
+      if (grown) await append(meta, prev.count, passages);
+      else await put({ ...meta, count: 0, chars: 0 }, passages);
       spent += passages.length;
       copied++;
     }

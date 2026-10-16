@@ -122,8 +122,9 @@ export async function incidentsNear(key: string, lat: number, lon: number, radiu
 
 /** /traffic/status and /traffic/tile/z/x/y (TomTom flow tiles, key added here). */
 export async function trafficRoute(path: string, method: string, vault: Vault): Promise<Response> {
-  const key = await vault.get('tomtom');
-  if (path === '/traffic/status' && method === 'GET') return Response.json({ ready: !!key });
+  const key = await vault.lookup('tomtom');
+  // unknown: the database is paused and no copy of the key is reachable (not the same as "no key").
+  if (path === '/traffic/status' && method === 'GET') return Response.json(key === undefined ? { ready: false, unknown: true } : { ready: !!key });
   const m = path.match(/^\/traffic\/tile\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})$/);
   if (m && method === 'GET') {
     if (!key) return new Response('no traffic key', { status: 404 });

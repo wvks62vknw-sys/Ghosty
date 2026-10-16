@@ -23,7 +23,7 @@ interface Saved {
   product?: string;
 }
 
-type Keys = Pick<Vault, 'get' | 'set'>;
+type Keys = Pick<Vault, 'get' | 'set'> & Partial<Pick<Vault, 'lookup'>>;
 
 export const NOT_LINKED = "Spotify isn't linked yet. The owner can link it in the LINKS tab → SPOTIFY (it takes about a minute).";
 
@@ -161,6 +161,8 @@ export async function api<T>(ctx: { vault: Keys }, method: string, path: string,
 }
 
 export async function spotifyStatus(vault: Keys): Promise<SpotifyStatus> {
+  // Database paused and no copy of the sign-in reachable: say so, rather than "not linked".
+  if (vault.lookup && (await vault.lookup(VAULT_NAME)) === undefined) return { linked: false, name: null, product: null, clientId: null, unknown: true };
   const s = await load(vault);
   return { linked: !!s, name: s?.name ?? null, product: s?.product ?? null, clientId: s?.clientId ?? null };
 }

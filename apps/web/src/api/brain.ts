@@ -85,6 +85,8 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
 const READ_CACHE = 'ghosty.read:';
 const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/library$|\/passages/.test(path);
 function remember(path: string, j: unknown): void {
+  // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
+  if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
   try {
     const text = JSON.stringify(j);
     if (text.length < 300_000) localStorage.setItem(READ_CACHE + path, text);
@@ -154,10 +156,12 @@ if (typeof document !== 'undefined') {
     if (m.on && Date.now() >= pauseEndsAt(m.since)) memoryPaused.set({ on: false, since: 0 });
   }, 30_000);
 }
+/** When the pause ends, in the owner's local time (midnight UTC). */
+export const pauseEndsText = () => new Date(pauseEndsAt(memoryPaused.get().since || Date.now())).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 export class PausedError extends Error {
   readonly paused = true;
   constructor() {
-    super('memory paused until 1am');
+    super(`memory paused until ${pauseEndsText()}`);
   }
 }
 export const isPaused = (e: unknown) => !!(e as { paused?: boolean })?.paused;
@@ -225,7 +229,7 @@ export const brain = {
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
-  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean }>('GET', '/library'),
+  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
   librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
@@ -244,7 +248,7 @@ export const brain = {
   },
   clearRoadmap: () => req('DELETE', '/roadmap'),
   forgetLesson: (id: string) => req('DELETE', `/lessons/${encodeURIComponent(id)}`),
-  setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string }>,
+  setKey: (name: string, value: string) => req('POST', '/keys', { name, value }) as Promise<{ ok: boolean; works?: boolean; info?: string; waiting?: number }>,
   resetModels: () => req('POST', '/models/reset'),
   setOrder: (order: string[]) => req('POST', '/models/order', { order }),
   widgets: () => req<{ widgets: Widget[] }>('GET', '/widgets'),
@@ -365,7 +369,10 @@ export function mirrorLibraryNow(): Promise<void> {
     try {
       for (let round = 0; round < 50; round++) {
         if (memoryPaused.get().on) break;
-        const r = await mirrorLibrary({ docs: async () => (await raw.library()).docs, passages: (id, after) => brain.libraryPassages(id, after) });
+        const lib = await raw.library();
+        // The brain says the day's database allowance is running low: copying can wait for tomorrow.
+        if (lib.spare === false) break;
+        const r = await mirrorLibrary({ docs: async () => lib.docs, passages: (id, after) => brain.libraryPassages(id, after) });
         if (!r.left) break;
         await new Promise((ok) => setTimeout(ok, 1500));
       }

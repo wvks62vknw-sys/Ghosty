@@ -20,6 +20,13 @@ export interface Env {
    * database is paused. Bound as "SITES" in wrangler.jsonc.
    */
   SITES?: { get(key: string, type: 'json'): Promise<unknown>; put(key: string, value: string): Promise<void>; delete(key: string): Promise<void> };
+  /**
+   * Cloudflare KV holding the vault's mirror: the same encrypted keys as the database (and the
+   * brain's own vault key), so keys saved while the database is paused are kept at once and a
+   * brain that restarts during the pause still has them. Bound as "VAULT" in production only —
+   * previews (unreviewed changes) never see it.
+   */
+  VAULT?: { get(key: string, type: 'text'): Promise<string | null>; put(key: string, value: string): Promise<void>; delete(key: string): Promise<void> };
 
   /** Your email address. Only this identity may talk to Ghosty. */
   OWNER_EMAIL?: string;

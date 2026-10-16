@@ -116,7 +116,8 @@ export interface Widget {
 export interface KeyStatus {
   name: string;
   label: string;
-  set: boolean;
+  /** null: not known right now (the database is paused and no copy of this key is reachable). */
+  set: boolean | null;
   hint: string;
   link: string;
   need: 'needed' | 'recommended' | 'optional';
@@ -143,11 +144,32 @@ export interface BrainStatus {
   lastModel: string | null;
   /** Set while the database is unavailable (free daily allowance used up): what still works. */
   paused?: string;
+  /** Keys saved while the database was paused, still waiting to be written to it. */
+  waiting?: number;
+  /** Today's use of the database's free daily allowance (see apps/edge/src/meter.ts). */
+  meter?: DatabaseMeter;
+}
+
+/** Today's use of the brain's database against Cloudflare's free daily allowance. */
+export interface DatabaseMeter {
+  /** UTC day the counts are for (YYYY-MM-DD). */
+  day: string;
+  reads: number;
+  writes: number;
+  /** Counts by the work that caused them, biggest first. */
+  by: { label: string; r: number; w: number }[];
+  limits: { reads: number; writes: number };
+  /** The larger of reads/limit and writes/limit (can pass 1 once the allowance is gone). */
+  level: number;
+  /** When the allowance resets (midnight UTC), ms since the epoch. */
+  resetAt: number;
 }
 
 /** The owner's linked Spotify account (LINKS → SPOTIFY). Tokens never leave the brain. */
 export interface EmailStatus {
   linked: boolean;
+  /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
+  unknown?: boolean;
   /** The linked address (the password is never sent back). */
   address?: string;
   /** The IMAP server it reads from. */
@@ -164,6 +186,8 @@ export interface SpotifyStatus {
   product: string | null;
   /** The Client ID of the owner's Spotify app (not a secret), to prefill the LINKS tab. */
   clientId: string | null;
+  /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
+  unknown?: boolean;
 }
 
 export interface ChangeSummary {

@@ -161,11 +161,14 @@ If Cloudflare's free daily database allowance runs out, the database pauses unti
 (1am UK summer time). Nothing is lost, and there is nothing to set up: Ghosty shows a small
 **MEMORY PAUSED** tag and keeps working.
 
-- **Your keys**: every key you give Ghosty once (System → Keys, the email login, the Spotify link) is
-  also kept on your device in encrypted form (sealed with your owner key, which the brain never
-  stores). Your device sends it with each request, and the brain uses it whenever its database can't
-  be read, so all your AIs and tools keep working. A key saved while paused works at once and is
-  written to the database after the reset.
+- **Your keys**: every key you give Ghosty (System → Keys, the email login, the Spotify link) is
+  kept encrypted in the database and, in the same encrypted form, in a KV mirror (the `VAULT`
+  namespace in `wrangler.jsonc`; KV is free with its own allowance, and previews never see it). A key
+  saved while paused is kept in the mirror at once and works at once; the brain writes it to the
+  database itself on its first request after the reset. Your device also keeps an encrypted copy
+  (sealed with your owner key, which the brain never stores) and sends it with each request, as a
+  last resort. The System tab shows NOT KNOWN WHILE PAUSED for a key the brain cannot see right now,
+  rather than guessing "not set".
 - **Your memory, agenda, reminders, widgets and documents** come from the copy on your device.
   Anything you add or change meanwhile shows at once and is saved to Ghosty automatically after the
   reset. Reminders ring from your device while Ghosty is open.
@@ -174,6 +177,10 @@ If Cloudflare's free daily database allowance runs out, the database pauses unti
   knew.
 - **Waits for the reset**: importing web pages into the library, push notifications to your phone,
   self-study and code changes.
+- **The meter**: System → STATUS shows DATABASE TODAY — how much of the day's allowance is used,
+  for reads and writes, and which work used it (chat, searches, the study job, the device mirror…).
+  Past 70% the optional readers (self-study, the device's library copy) wait for the reset on their
+  own, so a busy day slows Ghosty's reading rather than pausing its memory.
 
 Optional extra backup: you can also save keys as Cloudflare **secrets** (Workers & Pages → ghosty →
 Settings → Variables and Secrets → Add → Secret). Ghosty recognises the usual names: `GEMINI_KEY`,

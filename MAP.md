@@ -97,6 +97,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `llm/router.ts`, `llm/providers.ts` | model router across free providers. Coding turns try strong models first, with lower temperature and longer replies (`maxOut`). Short rate limits are waited out (≤ 45 s, twice) instead of failing |
 | `llm/providers.ts` extras | `workersai`: Cloudflare Workers AI through the `AI` binding (wrangler.jsonc) — free models on the owner's Cloudflare account, **no key**. `ghmodels`: GitHub Models (GPT-4.1) through the GitHub token ("Models: read"), coding turns only. `codeScore` orders models for coding |
 | `keys.ts` | which API keys exist, with the owner-facing steps (shown in System tab) and `testKey` |
+| `kernel/vault.ts` | the vault: keys encrypted (AES-GCM) in the database and mirrored, same ciphertext, in the `VAULT` KV namespace (production only), so a key saved while the database is paused is kept and used at once and written to the database by the brain after the reset (`flushDirty`); `lookup()` says "not known" (undefined) while paused; the device's sealed copy is the last resort |
+| `kv.ts` | `storageError` (the free-plan pause, in plain words) and `durableGet`/`durablePut`: records that must outlive the pause (published sites, REA jobs) live in the database AND the `SITES` KV namespace |
+| `meter.ts` | the database meter: counts every row read and written (key-value storage and the library's SQL, by the work that caused it) against the free daily allowance; day counts kept in KV; `/status` → System tab DATABASE TODAY; `spare()` lets self-study and the device mirror wait while the allowance is low |
 | `schedule.ts` | agenda events, calendar feeds (.ics parsing), reminders/tasks (`Job`), inbox |
 | `push.ts` | Web Push: VAPID keys, RFC 8291 encryption, device list (protected: push-service allowlist) |
 | `time.ts` | time-zone helpers: `parseWhen`, `fromZoned`, `nextRun` (repeats keep local time across DST) |

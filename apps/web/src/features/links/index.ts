@@ -4,7 +4,7 @@
  * Every secret goes straight into the brain's encrypted vault and is never shown again.
  */
 import type { BrainStatus, EmailStatus, KeyStatus, SpotifyStatus } from '../../../../../packages/shared/src/protocol';
-import { brain } from '../../api/brain';
+import { brain, pauseEndsText } from '../../api/brain';
 import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, pushState } from '../../assistant/push';
 import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
 import { clear, fmt, h } from '../../core/dom';
@@ -104,7 +104,7 @@ export const linksTab: TabDef = {
       online.email = !!st?.linked && !st.problem;
       paintHero();
       clear(ep.body);
-      ep.setStatus(st?.linked ? (st.problem ? 'CHECK' : 'LINKED') : st ? 'NOT LINKED' : 'OFFLINE', st?.linked && !st.problem ? 'ok' : 'mid');
+      ep.setStatus(st?.linked ? (st.problem ? 'CHECK' : 'LINKED') : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT LINKED' : 'OFFLINE', st?.linked && !st.problem ? 'ok' : 'mid');
       if (st?.linked && !editing) {
         ep.body.append(
           row('ACCOUNT', st.address ?? 'linked'),
@@ -210,7 +210,7 @@ export const linksTab: TabDef = {
       online.spotify = !!st?.linked;
       paintHero();
       clear(spot.body);
-      spot.setStatus(st?.linked ? 'LINKED' : st ? 'NOT LINKED' : 'OFFLINE', st?.linked ? 'ok' : 'mid');
+      spot.setStatus(st?.linked ? 'LINKED' : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT LINKED' : 'OFFLINE', st?.linked ? 'ok' : 'mid');
       if (st?.linked) {
         spot.body.append(
           row('ACCOUNT', st.name ?? 'Spotify user', (st.product ?? '').toUpperCase() || null, { tone: st.product === 'premium' ? 'up' : undefined }),
@@ -323,7 +323,8 @@ export const linksTab: TabDef = {
         try {
           const r = await brain.setKey(k.name, v);
           input.value = '';
-          msg.textContent = r.works === false ? `saved, but ${r.info}` : `saved · ${r.info ?? 'ok'}`;
+          const later = r.waiting ? ` · in use now, written to the vault after ${pauseEndsText()}` : '';
+          msg.textContent = r.works === false ? `saved, but ${r.info}${later}` : `saved · ${r.info ?? 'ok'}${later}`;
           msg.className = `note ${r.works === false ? 'bad' : 'good'}`;
           setTimeout(done, 1200);
         } catch (e) {

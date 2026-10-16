@@ -15,6 +15,7 @@ import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
+import { Meter } from './meter';
 export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
@@ -95,15 +96,21 @@ export class GhostyAgent {
     private state: DurableObjectState,
     private env: Env,
   ) {
-    this.vault = new Vault(state.storage, env);
-    this.router = new Router(state.storage, this.vault, env);
-    this.library = new Library(state.storage, env);
+    this.meter = new Meter(env.SITES ?? null);
+    this.store = this.meter.wrapStorage(state.storage);
+    this.vault = new Vault(this.store, env);
+    this.router = new Router(this.store, this.vault, env);
+    this.library = new Library(this.store, env);
   }
 
   private library: Library;
+  /** Counts every row read and written against the free daily allowance (meter.ts). */
+  private meter: Meter;
+  /** The Durable Object's storage, counted by the meter. */
+  private store: DurableObjectStorage;
 
   private get storage() {
-    return this.state.storage;
+    return this.store;
   }
 
   private async github(): Promise<GitHub | null> {
@@ -176,12 +183,16 @@ export class GhostyAgent {
     this.origin = url.origin;
     const path = url.pathname.replace(/^\/api/, '');
     const method = req.method;
+    this.meter.label = `route:${path.split('/')[1] || '/'}`;
+    this.state.waitUntil(this.meter.load());
     try {
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).
       const ownerKey = req.headers.get('x-ghosty-key');
       const sealed = req.headers.get('x-ghosty-vault');
       if (ownerKey && sealed && sealed.length < 60_000) await this.vault.warm(ownerKey, sealed);
+      // Keys saved while the database was paused are written to it as soon as it is back (cheap when nothing waits).
+      this.state.waitUntil(this.vault.flushDirty().catch(() => undefined));
       // A published page (public: the Worker forwards /s/<name> here without signing in).
       const sp = path.match(/^\/site\/([a-z0-9-]{1,48})(\/page)?$/);
       if (sp && method === 'GET') {
@@ -195,7 +206,7 @@ export class GhostyAgent {
       }
       if (path === '/vault/backup' && method === 'GET') {
         if (!ownerKey) return json({ error: 'needs the owner key' }, 400);
-        const waiting = await this.vault.flushDirty();
+        const waiting = await this.vault.flushDirty(true);
         return json({ ...(await this.vault.backup(ownerKey, VAULT_NAMES)), waiting });
       }
       if (path === "/chat" && method === "POST") return await this.chat(req);
@@ -271,7 +282,8 @@ export class GhostyAgent {
         await this.router.resetHealth();
         if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));
         const check = v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
-        return json({ ok: true, works: check.ok, info: check.info });
+        // waiting > 0: the database is paused — the key is in use now (memory, KV, this device) and written to it after the reset.
+        return json({ ok: true, works: check.ok, info: check.info, waiting: await this.vault.waiting() });
       }
       if (path === '/models/reset' && method === 'POST') {
         await this.router.resetHealth();
@@ -320,7 +332,8 @@ export class GhostyAgent {
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path === '/email/status' && method === 'GET') {
         // Which account is linked (never the password), for the LINKS tab.
-        const v = await this.vault.get('email');
+        const v = await this.vault.lookup('email');
+        if (v === undefined) return json({ linked: false, unknown: true }); // database paused, no copy reachable: not "unlinked"
         if (!v) return json({ linked: false });
         try {
           const c = parseEmailKey(v);
@@ -335,6 +348,8 @@ export class GhostyAgent {
       return json({ error: 'not found' }, 404);
     } catch (e) {
       return json({ error: storageError(e) ?? String((e as Error)?.message ?? e) }, 500);
+    } finally {
+      this.state.waitUntil(this.meter.flush());
     }
   }
 
@@ -347,7 +362,11 @@ export class GhostyAgent {
 
   private async status(owner: string): Promise<BrainStatus> {
     const keys: KeyStatus[] = [];
-    for (const k of keyDefs(this.env.GITHUB_REPO)) keys.push({ name: k.name, label: k.label, set: await this.vault.has(k.name), hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
+    for (const k of keyDefs(this.env.GITHUB_REPO)) {
+      // null: the database is paused and no copy of this key is reachable, so "not set" would be a guess.
+      const v = await this.vault.lookup(k.name);
+      keys.push({ name: k.name, label: k.label, set: v === undefined ? null : !!v, hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
+    }
     if (this.env.GITHUB_TOKEN) keys.find((k) => k.name === 'github')!.set = true;
     this.state.waitUntil(this.router.discover(false).catch(() => undefined));
     let paused: string | undefined;
@@ -372,6 +391,8 @@ export class GhostyAgent {
       keys,
       models: await this.router.summary(),
       lastModel,
+      waiting: await this.vault.waiting(),
+      meter: this.meter.snapshot(),
       ...(paused ? { paused: `${paused} Meanwhile nearly everything keeps working: chat and every tool with your keys (this device keeps an encrypted copy; Cloudflare secrets work too), and your memory, agenda, reminders, widgets and documents from the copy on this device. Changes made meanwhile are saved to the brain after the reset.` } : {}),
     };
   }
@@ -592,7 +613,13 @@ export class GhostyAgent {
       );
       return s.response;
     }
-    const pending = await this.storage.get<Pending>(PENDING_KEY);
+    let pending: Pending | undefined;
+    try {
+      pending = await this.storage.get<Pending>(PENDING_KEY);
+    } catch (e) {
+      if (!storageError(e)) throw e;
+      return json({ error: 'That was asked before my database paused, and it needs the database, which is back at midnight UTC. Ask me again then.' }, 409);
+    }
     if (!pending || pending.id !== body.id) return json({ error: 'nothing is waiting for approval' }, 404);
     const { s, signal, done } = this.begin();
     this.state.waitUntil(
@@ -797,7 +824,8 @@ export class GhostyAgent {
     }
     if (path === '/library' && method === 'GET') {
       const seeded = await lib.seedStarter(40);
-      return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI });
+      // spare: room left in today's database allowance for optional work (the device's mirror waits when there is none).
+      return json({ docs: lib.list(), stats: lib.stats(), starterReady: seeded, vectors: !!this.env.AI, spare: this.meter.spare() });
     }
     if (path === '/library/search' && method === 'GET') {
       const q = url.searchParams.get('q') ?? '';
@@ -839,7 +867,9 @@ export class GhostyAgent {
         const r = await importSource(lib, String(b.source ?? ''), { offset: Number(b.offset) || 0 });
         return json({ doc: r.doc, passages: r.passages, note: r.note });
       } catch (e) {
-        return json({ error: String((e as Error)?.message ?? e) }, 400);
+        // While the database is paused the interface must recognise the pause, not read a raw storage error.
+        const paused = storageError(e);
+        return json({ error: paused ?? String((e as Error)?.message ?? e) }, paused ? 500 : 400);
       }
     }
     if (path === '/library/convert' && method === 'POST') {
@@ -982,6 +1012,9 @@ export class GhostyAgent {
 
   /** Durable Object alarm: run every reminder and task that is due, then re-arm. */
   async alarm(): Promise<void> {
+    this.meter.label = 'alarm';
+    await this.meter.load();
+    await this.vault.flushDirty(true).catch(() => undefined);
     const due = (await loadJobs(this.storage)).filter((j) => j.next <= Date.now() + 1500);
     for (const job of due) {
       try {
@@ -992,8 +1025,10 @@ export class GhostyAgent {
           await this.verifyShip(job);
         } else if (job.kind === 'study') {
           // Quiet: no notification each hour; what it read is in the library and its study log.
-          await studySession(this.storage, this.library);
-          await finishJob(this.storage, job.id, 'studied');
+          // Optional work: it waits while the day's database allowance is running low (meter.ts).
+          const room = this.meter.spare();
+          if (room) await this.meter.as('study', () => studySession(this.storage, this.library));
+          await finishJob(this.storage, job.id, room ? 'studied' : 'waited: most of today\'s database allowance is used');
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -1007,6 +1042,7 @@ export class GhostyAgent {
       }
     }
     await rearm(this.storage);
+    await this.meter.flush(true);
   }
 
   private bgBusy = false;
@@ -1016,8 +1052,8 @@ export class GhostyAgent {
   private studyCheck: Promise<void> = Promise.resolve();
   /** One check at a time (two at once could both add a job), each after the previous one. */
   private ensureStudyJob(): Promise<void> {
-    this.studyChecked = true;
-    const run = this.studyCheck.then(() => this.reconcileStudyJob());
+    // Counted as done only once it worked: while the database is paused it fails, and is tried again later.
+    const run = this.studyCheck.then(() => this.reconcileStudyJob()).then(() => void (this.studyChecked = true));
     this.studyCheck = run.catch(() => undefined);
     return run;
   }

@@ -226,3 +226,103 @@ test('backend and auth requests get the engineering standard; everyday words lik
     ai.restore();
   }
 });
+
+/** A fake KV namespace (the SITES / VAULT bindings): strings by key, always available. */
+class FakeKv {
+  m = new Map();
+  async get(k, type) {
+    const v = this.m.get(k);
+    if (v == null) return null;
+    return type === 'json' ? JSON.parse(v) : v;
+  }
+  async put(k, v) {
+    this.m.set(k, String(v));
+  }
+  async delete(k) {
+    this.m.delete(k);
+  }
+}
+
+test('with the KV mirror: a key saved while paused is kept at once, survives a restart with no device copy, and the brain writes it to the database after the reset on its own', async () => {
+  const ai = fakeAI();
+  try {
+    const storage = new MemStorage();
+    const env = { VAULT: new FakeKv(), SITES: new FakeKv() };
+    const a = newAgent(storage, env);
+    storage.down = true;
+    const r = await a.call('/keys', { method: 'POST', body: JSON.stringify({ name: 'groq', value: 'gsk_mirrored' }) });
+    const rj = await r.json();
+    assert.equal(r.status, 200);
+    assert.equal(rj.waiting, 1, 'the answer says it waits for the database');
+    assert.ok(env.VAULT.m.has('vault:groq'), 'the ciphertext is in KV');
+    assert.ok(!env.VAULT.m.get('vault:groq').includes('gsk_mirrored'));
+    // /status: the saved key is known, a key never saved is "not known" (null), not "not set"; keys waiting are counted
+    const st = await (await a.call('/status')).json();
+    assert.equal(st.keys.find((k) => k.name === 'groq').set, true);
+    assert.equal(st.keys.find((k) => k.name === 'tavily').set, null);
+    assert.equal(st.waiting, 1);
+    assert.ok(st.paused);
+
+    // The brain restarts during the pause; the device sends no copy.
+    const b = newAgent(storage, env);
+    await events(await b.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    assert.match(ai.sent.at(-1).auth, /gsk_mirrored/, 'the key came from KV');
+
+    // Midnight UTC: the database is back. The first request flushes, no device needed.
+    storage.down = false;
+    const c = newAgent(storage, env);
+    await c.call('/status');
+    assert.ok(storage.m.has('vault:groq'), 'written to the database by the brain itself');
+    const st2 = await (await c.call('/status')).json();
+    assert.equal(st2.waiting, 0);
+    assert.ok(!env.VAULT.m.has('vault:dirty'));
+    assert.equal(st2.keys.find((k) => k.name === 'tavily').set, false, 'database back: unset keys are known to be unset');
+  } finally {
+    ai.restore();
+  }
+});
+
+test('while paused: statuses that cannot be known say so, an old approval gets a plain answer, and a library import reports the pause', async () => {
+  const storage = new MemStorage();
+  const a = newAgent(storage, { VAULT: new FakeKv() });
+  storage.down = true;
+  const email = await (await a.call('/email/status')).json();
+  assert.deepEqual(email, { linked: false, unknown: true });
+  const traffic = await (await a.call('/traffic/status')).json();
+  assert.deepEqual(traffic, { ready: false, unknown: true });
+  const spotify = await (await a.call('/spotify/status')).json();
+  assert.equal(spotify.unknown, true);
+  const ap = await a.call('/approve', { method: 'POST', body: JSON.stringify({ id: 'old', allow: true }) });
+  assert.equal(ap.status, 409);
+  assert.match((await ap.json()).error, /midnight UTC/);
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response('<html><body><h1>A page</h1><p>Some words to import into the library.</p></body></html>', { headers: { 'content-type': 'text/html' } });
+  try {
+    const imp = await a.call('/library/import', { method: 'POST', body: JSON.stringify({ source: 'https://example.com/page' }) });
+    assert.equal(imp.status, 500);
+    assert.match((await imp.json()).error, /free daily allowance/);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('the database meter counts the brain\'s own reads and writes and shows in /status, by the work that caused them', async () => {
+  const ai = fakeAI();
+  try {
+    const storage = new MemStorage();
+    const a = newAgent(storage, { SITES: new FakeKv() });
+    await a.call('/keys', { method: 'POST', body: JSON.stringify({ name: 'groq', value: 'gsk_meter' }) });
+    await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'hi' }) }));
+    const st = await (await a.call('/status')).json();
+    const m = st.meter;
+    assert.ok(m && m.reads > 0 && m.writes > 0, JSON.stringify(m));
+    assert.equal(m.limits.reads, 5_000_000);
+    assert.equal(m.limits.writes, 100_000);
+    assert.ok(m.level > 0 && m.level < 0.01);
+    const labels = m.by.map((b) => b.label);
+    assert.ok(labels.includes('route:chat') && labels.includes('route:keys'), labels.join(','));
+    assert.ok(m.resetAt > Date.now());
+  } finally {
+    ai.restore();
+  }
+});
