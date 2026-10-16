@@ -3,7 +3,7 @@ import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
-import { speed, temp, WMO, weather } from '../../data/weather';
+import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
 import { home } from '../../state/app';
 import { button, pager, panel, row, spark } from '../../ui/components';
@@ -53,6 +53,11 @@ export const briefTab: TabDef = {
         row('UV', (d.uv_index_max[0] ?? 0).toFixed(1)),
         row('SUN', `↑ ${d.sunrise[0]!.slice(11, 16)}   ↓ ${d.sunset[0]!.slice(11, 16)}`),
       );
+      const q = air.data?.current;
+      if (q) {
+        const band = airBand(q.european_aqi);
+        wp.body.append(row('AIR', `${band.label} · AQI ${Math.round(q.european_aqi)}`, `PM2.5 ${Math.round(q.pm2_5)} · NO₂ ${Math.round(q.nitrogen_dioxide)}`, { tone: band.tone === 'bad' ? 'bad' : band.tone === 'ok' ? 'up' : undefined }));
+      }
       const h0 = new Date().getHours();
       wp.body.append(h('div.lab', 'NEXT 24H TEMPERATURE'), spark(w.hourly.temperature_2m.slice(h0, h0 + 24), 300, 38), h('div.lab', 'RAIN CHANCE'), spark(w.hourly.precipitation_probability.slice(h0, h0 + 24), 300, 26));
       P.dials([
@@ -66,12 +71,14 @@ export const briefTab: TabDef = {
       np.setStatus(news.status, news.status === 'LIVE' ? 'ok' : 'off');
     };
     weather.onChange(paintWeather);
+    air.onChange(paintWeather);
     news.onChange(paintNews);
     paintWeather();
     paintNews();
     return {
       enter() {
         weather.start();
+        air.start();
         news.start();
       },
       describe: () => `Brief: ${P.big.textContent} ${P.sub.textContent}. Top headline: ${news.data?.[0]?.title ?? 'none'}`,

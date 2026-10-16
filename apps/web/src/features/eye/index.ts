@@ -25,6 +25,8 @@ import { imagery } from '../../engine/layers/imagery';
 import { buildings } from '../../engine/layers/buildings';
 import { enforceLayer, INTEL_LAYERS, shipLayer } from '../../engine/layers/intel';
 import { enforce, ENFORCE_LABEL, type EnforceCam } from '../../data/enforce';
+import { crime, crimeFamily, crimeLabel, type Crime } from '../../data/crime';
+import { crimeLayer } from '../../engine/layers/crime';
 import { radar, trafficState } from '../../engine/layers/radar';
 import {
   alerts, aurora, buoys, cables, disasters, dispatch, NAV_STATUS, radarFrames, shipKind, ships,
@@ -44,7 +46,7 @@ function installLayers(): void {
   layersInstalled = true;
   sats.init();
   if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
-  globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, sats, air, camLayer);
+  globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, crimeLayer, sats, air, camLayer);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
   void sats.refresh();
@@ -91,6 +93,10 @@ function describe(sel: Pickable): string {
     }
     case 'dispatch':
       return `Seattle 911 call: ${(r as unknown as Dispatch).type} at ${(r as unknown as Dispatch).addr}`;
+    case 'crime': {
+      const c = r as unknown as Crime;
+      return `a reported crime (${crimeLabel(c.category).toLowerCase()}) on or near ${c.street || 'an unnamed street'} in ${c.month}${c.outcome ? `, outcome: ${c.outcome.toLowerCase()}` : ''} (police.uk open data)`;
+    }
     default:
       return sel.kind;
   }
@@ -147,6 +153,11 @@ export const eyeTab: TabDef = {
         const c = enforce.counts();
         return enforce.status === 'SYNC' && !enforce.list.size ? 'SYNC' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
       }],
+      ['crime', 'STREET CRIME', () => {
+        if (!crime.list.size) return crime.status === 'SYNC' ? 'SYNC' : crime.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 45 ? 'ZOOM IN · UK' : 'UK ONLY';
+        const c = crime.counts();
+        return `${c.total} · ${crime.month}`;
+      }],
       ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
       ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'ADD KEY')],
       ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
@@ -168,7 +179,7 @@ export const eyeTab: TabDef = {
     // Grouped tiles (two columns) instead of one long list: on a phone the panel is a sheet
     // along the bottom that scrolls, so every layer is reachable.
     const GROUPS: [string, (keyof LayerVisibility)[]][] = [
-      ['ROADS & CAMERAS', ['cams', 'traffic', 'enforce', 'dispatch']],
+      ['STREETS & SAFETY', ['cams', 'traffic', 'enforce', 'crime', 'dispatch']],
       ['AIR, SEA & SPACE', ['air', 'ships', 'sats', 'orbits']],
       ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
       ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
@@ -339,6 +350,18 @@ export const eyeTab: TabDef = {
         info.setStatus('TELEGEOGRAPHY', 'ok');
         R('NAME', c.name);
         R('SEGMENTS', String(c.lines.length));
+      } else if (s.kind === 'crime') {
+        const c = s.ref as Crime;
+        const fam = crimeFamily(c.category);
+        info.title.textContent = crimeLabel(c.category);
+        info.setStatus(`POLICE.UK · ${c.month}`, fam === 'person' ? 'off' : fam === 'property' ? 'mid' : 'ok');
+        R('WHERE', c.street ? `On or near ${c.street}` : 'Street not given');
+        R('MONTH', c.month);
+        R('OUTCOME', c.outcome || 'Not yet recorded');
+        const around = crime.near(c.lat, c.lon, 0.5);
+        const tally = around.reduce<Record<string, number>>((m, x) => ((m[x.category] = (m[x.category] ?? 0) + 1), m), {});
+        R('WITHIN 500 M', `${around.length} reported`, Object.entries(tally).sort((p, q) => q[1] - p[1]).slice(0, 2).map(([k, n]) => `${n} ${crimeLabel(k).toLowerCase()}`).join(', ') || undefined);
+        info.body.append(h('small.dim', 'Locations are approximate (snapped to a nearby point by the police). Nobody is identified.'));
       } else if (s.kind === 'enforce') {
         const e = s.ref as EnforceCam;
         info.title.textContent = ENFORCE_LABEL[e.kind];
@@ -378,13 +401,14 @@ export const eyeTab: TabDef = {
       selected = p;
       shipLayer.selected = p?.kind === 'ship' ? (p.ref as Ship) : null;
       enforceLayer.selected = p?.kind === 'enforce' ? (p.ref as EnforceCam) : null;
+      crimeLayer.selected = p?.kind === 'crime' ? (p.ref as Crime) : null;
       air.selected = p?.kind === 'air' ? (p.ref as Aircraft) : null;
       sats.selected = p?.kind === 'sat' ? (p.ref as Satellite) : null;
       camLayer.selected = p?.kind === 'cam' ? (p.ref as Camera) : null;
       if (!p) globe.cam.follow = null;
       if (p && fly) {
         const ll = GEO.ll(p.w);
-        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 60 : p.kind === 'cam' ? 6 : 400, tilt: p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 50 : p.kind === 'cam' ? 45 : 0 });
+        globe.cam.flyTo({ lat: ll.lat, lon: ll.lon, range: p.kind === 'sat' ? Math.max(6000, ll.alt * 3) : p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 60 : p.kind === 'cam' ? 6 : p.kind === 'crime' || p.kind === 'enforce' ? 4 : 400, tilt: p.kind === 'air' || p.kind === 'ship' || p.kind === 'dispatch' ? 50 : p.kind === 'cam' || p.kind === 'crime' || p.kind === 'enforce' ? 45 : 0 });
       }
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
@@ -755,6 +779,7 @@ export const eyeTab: TabDef = {
         const shipTick = () => {
           if (globe.vis.ships) void ships.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
           if (globe.vis.enforce) void enforce.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
+          if (globe.vis.crime) void crime.refresh(globe.cam.lat, globe.cam.lon, globe.cam.range);
         };
         shipTick();
         shipTimer = window.setInterval(shipTick, 8000);

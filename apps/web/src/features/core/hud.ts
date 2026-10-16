@@ -1,8 +1,9 @@
 /**
- * The Stark HUD around the arc reactor: holographic rings, a rotating degree scale and text
- * ring, a radar sweep, orbiting particles, state-reactive waves, a power-up sequence on
- * boot, and live call-outs (AI link, library, conditions, threat, power, uplink) joined to
- * the rings by leader lines. Drawn on one canvas behind the controls; call-outs are DOM text.
+ * The HUD around the arc reactor: a few thin rings, one slow segmented arc, a faint radar
+ * sweep, a handful of orbiting motes, state-reactive waves, a power-up sequence on boot, and
+ * live call-outs (AI link, library, conditions, threat, power, uplink) joined to the rings by
+ * leader lines. Quiet when idle; it brightens and speeds up as Ghosty listens, thinks and
+ * speaks. Drawn on one canvas behind the controls; call-outs are DOM text.
  */
 import { h } from '../../core/dom';
 import { gfx } from '../../engine/gfx';
@@ -10,7 +11,6 @@ import type { VoiceState } from '../../state/app';
 
 const TAU = Math.PI * 2;
 const rgba = (c: ArrayLike<number>, a: number) => `rgba(${Math.round(c[0]! * 255)},${Math.round(c[1]! * 255)},${Math.round(c[2]! * 255)},${Math.max(0, Math.min(1, a))})`;
-const WHITE = [1, 1, 1];
 const GREEN = [0.35, 1, 0.75];
 
 export interface Callout {
@@ -31,7 +31,6 @@ const SLOTS = [
   { a: 62, side: 'r', d: 1.42 },
 ] as const;
 
-const RING_TEXT = 'STARK INDUSTRIES · GHOSTY MK II · NEURAL LINK SECURE · ARC OUTPUT NOMINAL · ';
 
 export class StarkHud {
   readonly el: HTMLElement;
@@ -46,7 +45,7 @@ export class StarkHud {
   private w = 0;
   private hgt = 0;
   private dpr = 1;
-  private particles = Array.from({ length: 28 }, (_, i) => ({ a: (i / 28) * TAU, r: 1.08 + (i % 4) * 0.035, s: 0.25 + (i % 5) * 0.08 }));
+  private particles = Array.from({ length: 14 }, (_, i) => ({ a: (i / 14) * TAU, r: 1.08 + (i % 4) * 0.035, s: 0.25 + (i % 5) * 0.08 }));
 
   constructor() {
     this.cv = h('canvas.starkhud', { 'aria-hidden': 'true' });
@@ -116,7 +115,7 @@ export class StarkHud {
     const spin = 1 + this.energy * 2.5;
 
     // 1. thin full circles (drawn in by the boot sweep)
-    for (const [k, al] of [[1.04, 0.35], [1.32, 0.18], [1.45, 0.12]] as const) ring(R * k, -Math.PI / 2, -Math.PI / 2 + TAU * boot, th, al, 1);
+    for (const [k, al] of [[1.04, 0.28], [1.32, 0.1], [1.45, 0.07]] as const) ring(R * k, -Math.PI / 2, -Math.PI / 2 + TAU * boot, th, al + this.energy * 0.12, 1);
 
     // 2. segmented arcs, counter-rotating
     const segs = (rad: number, n: number, gap: number, speed: number, al: number, w: number, col: ArrayLike<number>) => {
@@ -126,57 +125,25 @@ export class StarkHud {
         ring(rad, a0, a0 + (TAU / n) * (1 - gap) * boot, col, al, w);
       }
     };
-    segs(R * 1.1, 3, 0.35, 0.18, 0.55, 3, th);
-    segs(R * 1.16, 12, 0.55, -0.11, 0.3, 2, th);
-    segs(R * 1.38, 5, 0.7, 0.06, 0.4, 2, ac);
+    segs(R * 1.1, 3, 0.35, 0.12, 0.3 + this.energy * 0.4, 2, th);
+    segs(R * 1.38, 5, 0.7, 0.05, 0.18 + this.energy * 0.3, 1.5, th);
 
     // 3. degree scale with numbers
     x.save();
     x.rotate(-t * 0.03 * spin);
-    x.font = `${Math.max(8, R * 0.032)}px ${getComputedStyle(document.documentElement).getPropertyValue('--m') || 'monospace'}`;
-    x.textAlign = 'center';
-    x.textBaseline = 'middle';
     const ticks = Math.round(120 * boot);
     for (let i = 0; i < ticks; i++) {
       const a = (i / 120) * TAU;
       const big = i % 10 === 0;
       const r0 = R * 1.22;
-      x.strokeStyle = rgba(big ? ac : th, big ? 0.85 : 0.35);
-      x.lineWidth = big ? 1.5 : 1;
+      x.strokeStyle = rgba(th, big ? 0.5 : 0.18);
+      x.lineWidth = 1;
       x.beginPath();
       x.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
       x.lineTo(Math.cos(a) * (r0 + (big ? R * 0.04 : R * 0.018)), Math.sin(a) * (r0 + (big ? R * 0.04 : R * 0.018)));
       x.stroke();
-      if (big && R > 140) {
-        x.fillStyle = rgba(th, 0.55);
-        x.save();
-        x.rotate(a + Math.PI / 2);
-        x.fillText(String(i * 3).padStart(3, '0'), 0, -(r0 + R * 0.075));
-        x.restore();
-      }
     }
     x.restore();
-
-    // 4. rotating text ring
-    if (R > 120) {
-      x.save();
-      x.rotate(t * 0.05);
-      const fs = Math.max(8, R * 0.03);
-      x.font = `${fs}px ${getComputedStyle(document.documentElement).getPropertyValue('--m') || 'monospace'}`;
-      x.fillStyle = rgba(th, 0.4 * boot);
-      const rad = R * 1.29;
-      const text = RING_TEXT.repeat(2);
-      const step = (fs * 0.72) / rad;
-      const n = Math.min(text.length, Math.floor(TAU / step));
-      for (let i = 0; i < n; i++) {
-        x.save();
-        x.rotate(i * step);
-        x.translate(0, -rad);
-        x.fillText(text[i]!, 0, 0);
-        x.restore();
-      }
-      x.restore();
-    }
 
     // 5. radar sweep
     const sweepA = t * (0.8 + this.energy * 1.6);
@@ -184,7 +151,7 @@ export class StarkHud {
     if (g) {
       g.addColorStop(0, rgba(th, 0.0));
       g.addColorStop(0.9, rgba(th, 0.0));
-      g.addColorStop(1, rgba(th, 0.16 * boot));
+      g.addColorStop(1, rgba(th, (0.06 + this.energy * 0.1) * boot));
       x.fillStyle = g;
       x.beginPath();
       x.arc(0, 0, R * 1.45, 0, TAU);
@@ -196,7 +163,7 @@ export class StarkHud {
     for (const p of this.particles) {
       p.a += p.s * (0.02 + this.energy * 0.05);
       const pr = R * p.r;
-      x.fillStyle = rgba(state === 'thinking' ? ac : th, (0.3 + this.energy * 0.6) * boot);
+      x.fillStyle = rgba(state === 'thinking' ? ac : th, (0.18 + this.energy * 0.6) * boot);
       x.beginPath();
       x.arc(Math.cos(p.a) * pr, Math.sin(p.a) * pr, 1.2 + this.energy * 1.4, 0, TAU);
       x.fill();
@@ -231,15 +198,15 @@ export class StarkHud {
       const p0 = { x: Math.cos(a) * R * 1.05, y: Math.sin(a) * R * 1.05 };
       const p1 = { x: Math.cos(a) * R * s.d, y: Math.sin(a) * R * s.d };
       const p2 = { x: p1.x + (s.side === 'l' ? -R * 0.1 : R * 0.1), y: p1.y };
-      x.strokeStyle = rgba(th, 0.55 * boot);
+      x.strokeStyle = rgba(th, 0.4 * boot);
       x.lineWidth = 1;
       x.beginPath();
       x.moveTo(p0.x, p0.y);
       x.lineTo(p1.x, p1.y);
       x.lineTo(p2.x, p2.y);
       x.stroke();
-      x.fillStyle = rgba(ac, 0.9 * boot);
-      x.fillRect(p0.x - 2, p0.y - 2, 4, 4);
+      x.fillStyle = rgba(th, 0.9 * boot);
+      x.fillRect(p0.x - 1.5, p0.y - 1.5, 3, 3);
     }
     x.globalCompositeOperation = 'source-over';
   }

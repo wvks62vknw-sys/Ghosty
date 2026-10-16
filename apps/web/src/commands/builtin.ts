@@ -166,6 +166,24 @@ export function registerBuiltins(): void {
       },
     },
     {
+      id: 'show_crime',
+      title: 'Show street crime',
+      hidden: true,
+      run: async (a) => {
+        go('eye');
+        const lat = Number(a?.lat);
+        const lon = Number(a?.lon);
+        const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : a?.place ? await locateAny(String(a.place)) : null;
+        globe.vis = { ...globe.vis, crime: true };
+        if (where) {
+          globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: Number(a?.range_km) || 6, tilt: 30 });
+          const { crime } = await import('../data/crime');
+          void crime.refresh(where.lat, where.lon, 12).catch(() => undefined);
+        }
+        ui.set({});
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

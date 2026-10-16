@@ -1,15 +1,15 @@
 /**
- * The systems deck: a full-screen holographic menu with every screen Ghosty has, each with
- * its icon, name and what it is for, plus quick actions. Opens from the GHOSTY logo (any
+ * The systems deck: a full-screen menu with every screen Ghosty has, each with its icon,
+ * name and what it is for, plus a Settings tile. Opens from the GHOSTY logo (any
  * screen size), the SYSTEMS button in the phone dock, or the M key. Escape closes it.
  */
-import { register, togglePalette } from '../commands/registry';
+import { register } from '../commands/registry';
 import { clear, h, icon, pad } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
 
-const GEAR = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/>';
+const SLIDERS = '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>';
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -34,7 +34,7 @@ export function buildLauncher(): Launcher {
     tiles,
     quick,
   );
-  const deck = h('div#deck', h('div.drings', h('i'), h('i'), h('i')), box);
+  const deck = h('div#deck', box);
   deck.addEventListener('click', (e) => e.target === deck && close());
   document.body.append(deck);
 
@@ -45,7 +45,6 @@ export function buildLauncher(): Launcher {
     date.textContent = `${DAYS[d.getDay()]} ${pad(d.getDate())} ${MONTHS[d.getMonth()]}`;
   };
 
-  const action = (label: string, run: () => void) => h('button', { type: 'button', onclick: () => { close(); run(); } }, label);
   const paint = () => {
     const cur = ui.get().tab;
     clear(tiles, ...tabs().map((t, i) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
@@ -72,7 +71,7 @@ export function buildLauncher(): Launcher {
           else look?.scrollIntoView({ block: 'start', behavior: 'smooth' });
         }, 120);
       },
-    }, icon(GEAR), h('b', 'SETTINGS'), h('small', 'name · units · voice · sounds · tilt · theme')));
+    }, icon(SLIDERS), h('b', 'SETTINGS'), h('small', 'name · units · voice · sounds · tilt · theme')));
     quick.hidden = true;
     (box.querySelector('.dtitle span') as HTMLElement).textContent = `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`;
   };

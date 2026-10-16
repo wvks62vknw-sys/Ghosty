@@ -73,13 +73,7 @@ export function go(id: string): boolean {
     mounted.set(def.id, m);
   }
   for (const [k, v] of mounted) v.root.classList.toggle('on', k === def.id);
-  if (switching) {
-    // Holographic scan across the screen + a soft blip on every tab change.
-    document.body.classList.remove('sweep');
-    void document.body.offsetWidth;
-    document.body.classList.add('sweep');
-    sfx('tab');
-  }
+  if (switching) sfx('tab');
   setScene(def.scene === 'globe' ? globe : backdrop);
   document.body.dataset.scene = def.scene;
   ui.set({ tab: def.id });

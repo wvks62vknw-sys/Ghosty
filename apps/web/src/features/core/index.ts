@@ -8,7 +8,7 @@ import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
 import { news } from '../../data/news';
-import { WMO, temp, weather } from '../../data/weather';
+import { air, airBand, WMO, temp, weather } from '../../data/weather';
 import { onFrame } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
@@ -89,6 +89,24 @@ export const coreTab: TabDef = {
     const stark = new StarkHud();
     const hud = h('div.hud.core');
     const stateLabel = h('div#cstate', 'ONLINE');
+    // On phones the call-outs around the reactor have no room: the same readings sit in one
+    // quiet row under it instead (hidden on wide screens, where the call-outs show).
+    const glance = h('div#glance');
+    const glanceItems = new Map<string, { el: HTMLElement; v: HTMLElement }>();
+    const note = (c: { id: string; label: string; value: string; tone?: 'ok' | 'warn' | 'bad' }) => {
+      stark.set(c);
+      let g = glanceItems.get(c.id);
+      if (!g) {
+        const v = h('b', '');
+        const el = h('span.gi', h('small', c.label), v);
+        glance.append(el);
+        g = { el, v };
+        glanceItems.set(c.id, g);
+      }
+      (g.el.firstChild as HTMLElement).textContent = c.label;
+      g.v.textContent = c.value;
+      g.el.className = `gi${c.tone ? ` ${c.tone}` : ''}`;
+    };
     const caption = h('div#ccap', h('span', ''));
     const log = h('div.log');
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
@@ -141,7 +159,7 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic));
+    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 
@@ -159,11 +177,32 @@ export const coreTab: TabDef = {
       }, 25000);
     };
     caption.addEventListener('click', () => chat.set({ live: '' }));
+    // Ghosty's words appear as he says them: the caption types itself in (fast — a whole
+    // reply within about a second), instead of landing all at once.
+    let typing = 0;
+    let shownLive = '';
+    const reveal = (text: string) => {
+      cancelAnimationFrame(typing);
+      const span = caption.firstChild as HTMLElement;
+      if (!text) {
+        span.textContent = shownLive = '';
+        return;
+      }
+      const from = text.startsWith(shownLive) ? shownLive.length : 0;
+      const ms = Math.min(1400, Math.max(200, (text.length - from) * 9));
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const k = Math.min(1, (now - t0) / ms);
+        const n = from + Math.round((text.length - from) * k);
+        span.textContent = shownLive = text.slice(0, n);
+        if (k < 1) typing = requestAnimationFrame(step);
+      };
+      typing = requestAnimationFrame(step);
+    };
     const paintLog = () => {
       clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
       log.scrollTop = log.scrollHeight;
-      const live = chat.get().live;
-      (caption.firstChild as HTMLElement).textContent = live;
+      reveal(chat.get().live);
       armFade();
     };
     chat.subscribe(paintLog);
@@ -210,12 +249,12 @@ export const coreTab: TabDef = {
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
       const ms = await latency().catch(() => null);
-      stark.set({ id: 'ai', label: 'AI LINK', value: model ? model.replace(/ · /, ' ▸ ').slice(0, 30) : 'STANDING BY', tone: 'ok' });
-      stark.set({ id: 'uplink', label: 'UPLINK', value: ms === null ? 'OFFLINE' : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
+      note({ id: 'ai', label: 'AI LINK', value: model ? model.replace(/ · /, ' ▸ ').slice(0, 30) : 'STANDING BY', tone: 'ok' });
+      note({ id: 'uplink', label: 'UPLINK', value: ms === null ? 'OFFLINE' : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
       const w = weather.data;
-      stark.set({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${WMO(w.current.weather_code).toUpperCase().slice(0, 14)}` : ''}` });
+      note({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${WMO(w.current.weather_code).toUpperCase().slice(0, 14)}` : ''}` });
       const lv = threatLevel(signals());
-      stark.set({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
+      note({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
       const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);
       stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : 'ARC · 3 GW', tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
       // The library size changes slowly: ask every 5 minutes, not on every 15-second repaint (each ask is database reads).
@@ -234,7 +273,7 @@ export const coreTab: TabDef = {
       if (w) {
         wx.body.append(
           h('div.row', h('div.big', temp(w.current.temperature_2m)), h('div.lab', WMO(w.current.weather_code))),
-          h('div.note', `feels ${temp(w.current.apparent_temperature)} · ${temp(w.daily.temperature_2m_min[0]!)} to ${temp(w.daily.temperature_2m_max[0]!)} · rain ${w.daily.precipitation_probability_max[0]}%`),
+          h('div.note', `feels ${temp(w.current.apparent_temperature)} · ${temp(w.daily.temperature_2m_min[0]!)} to ${temp(w.daily.temperature_2m_max[0]!)} · rain ${w.daily.precipitation_probability_max[0]}%${air.data ? ` · air ${airBand(air.data.current.european_aqi).label.toLowerCase()}` : ''}`),
           spark(w.hourly.temperature_2m.slice(new Date().getHours(), new Date().getHours() + 24), 260, 34),
         );
       } else wx.body.append(h('div.note', weather.status === 'NO FEED' ? 'Weather unavailable right now.' : 'Fetching forecast…'));
@@ -252,7 +291,7 @@ export const coreTab: TabDef = {
       nwPager.set((news.data ?? []).slice(0, 8));
       nw.setStatus(news.status, news.status === 'LIVE' ? 'ok' : 'off');
     };
-    for (const f of [weather, quakes, events, coins, indices, news]) f.onChange(paintSide);
+    for (const f of [weather, air, quakes, events, coins, indices, news]) f.onChange(paintSide);
     paintSide();
     return {
       enter() {
@@ -260,6 +299,7 @@ export const coreTab: TabDef = {
         clearInterval(calloutTimer);
         calloutTimer = window.setInterval(() => void paintCallouts(), 15000);
         weather.start();
+        air.start();
         quakes.start();
         events.start();
         coins.start();
