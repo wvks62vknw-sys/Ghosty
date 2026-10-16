@@ -76,6 +76,18 @@ else {
   await page.screenshot({ path: `${out}/phone-map.png` });
   const w = await page.textContent('.modal .mapwhere').catch(() => '');
   if (!/°/.test(w ?? '')) problems.push('the sheet does not show where the map is');
+  // back from Street View, the map keeps the owner's style, overlay and measurement
+  await page.click('.modal .maptabs button:has-text("STREET VIEW")');
+  await page.waitForTimeout(500);
+  await page.click('.modal .maptabs button:has-text("MAP")');
+  await page.waitForTimeout(500);
+  const kept = await page.evaluate(() => ({
+    style: document.querySelector('.modal .fmchips button.on')?.textContent?.trim(),
+    rail: [...document.querySelectorAll('.modal .fmchips button.on')].some((b) => b.textContent?.trim() === 'RAIL'),
+    measure: /MEASURE: .*(m|km)/.test(document.querySelector('.modal .fminfo')?.textContent ?? ''),
+    frame: !!document.querySelector('.modal iframe.mapframe'),
+  }));
+  if (kept.style !== 'TOPO' || !kept.rail || !kept.measure || kept.frame) problems.push(`going back to MAP lost the owner's view: ${JSON.stringify(kept)}`);
   // CLOSE, as on a phone (Escape goes to the map once it has focus)
   await page.click('.modal .mhead button:has-text("CLOSE")', { timeout: 10000 }).catch(() => page.click('.modal .mhead button:has-text("CLOSE")', { force: true }));
   await page.waitForTimeout(300);

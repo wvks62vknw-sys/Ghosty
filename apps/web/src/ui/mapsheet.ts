@@ -77,8 +77,14 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: FlatMapOptions 
     frame = null;
     if (v === 'map') {
       flatHost.hidden = false;
-      flat ??= createFlatMap(flatHost, hooks);
-      void flat.open(at, opts).then(() => flat?.invalidate());
+      if (flat) {
+        // Back from Street View or the traffic map: the owner's view, style, overlays, pins and
+        // measurements are still there — only the size needs a refresh.
+        flat.invalidate();
+      } else {
+        flat = createFlatMap(flatHost, hooks);
+        void flat.open(at, opts).then(() => flat?.invalidate());
+      }
     } else {
       if (flat && !flatHost.hidden) at = { ...flat.spot(), name: at.name };
       flatHost.hidden = true;
