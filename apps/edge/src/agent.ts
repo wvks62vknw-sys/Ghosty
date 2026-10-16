@@ -29,7 +29,7 @@ import { loadMemory, addFact, MEMORY_KEY } from './tools/memory';
 import { loadRoadmap, ROADMAP_KEY } from './tools/evolve';
 import { repoTools } from './tools/repo';
 import type { Tool, ToolContext } from './tools/types';
-import { loadSite, siteResponse } from './tools/sites';
+import { loadSite, siteFrameResponse, siteResponse } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, type InboxItem, type Job } from './schedule';
@@ -187,10 +187,11 @@ export class GhostyAgent {
       const sealed = req.headers.get('x-ghosty-vault');
       if (ownerKey && sealed && sealed.length < 60_000) await this.vault.warm(ownerKey, sealed);
       // A published page (public: the Worker forwards /s/<name> here without signing in).
-      const sp = path.match(/^\/site\/([a-z0-9-]{1,48})$/);
+      const sp = path.match(/^\/site\/([a-z0-9-]{1,48})(\/page)?$/);
       if (sp && method === 'GET') {
         try {
-          return siteResponse(await loadSite(this.storage, sp[1]!));
+          const site = await loadSite(this.storage, sp[1]!);
+          return sp[2] ? siteFrameResponse(site, url.searchParams.get('dest')) : siteResponse(site);
         } catch (e) {
           if (!storageError(e)) throw e;
           return new Response('<!doctype html><meta name="viewport" content="width=device-width"><p style="font:16px system-ui;padding:24px">This page is resting until midnight UTC (its host\'s free daily allowance is used up). Try again then.</p>', { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'retry-after': '3600' } });

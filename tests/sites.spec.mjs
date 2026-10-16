@@ -44,15 +44,28 @@ else {
   await ui.screenshot({ path: `${out}/iphone-site-card.png` });
   const [site] = await Promise.all([ctx.waitForEvent('page'), card.tap()]);
   await site.waitForLoadState('domcontentloaded');
-  await site.waitForFunction(() => document.querySelector('h1')?.dataset.ready === '1', null, { timeout: 10000 }).catch(() => problems.push("the published page's script didn't run"));
-  const r = await site.evaluate(() => ({ h1: document.querySelector('h1')?.textContent, badge: document.getElementById('ghosty-badge')?.textContent, storage: document.body.dataset.storage, wide: document.documentElement.scrollWidth > innerWidth + 1, w: innerWidth }));
-  if (r.h1 !== 'Bread worth waking up for') problems.push(`page shows: ${r.h1}`);
-  if (!/Rebuilt by Ghosty from acme\.example/.test(r.badge ?? '')) problems.push(`badge: ${r.badge}`);
-  if (r.storage !== 'blocked') problems.push(`the published page could reach Ghosty's storage (${r.storage})`);
-  if (r.wide) problems.push('the published page scrolls sideways on the phone');
-  if (r.w !== 390) problems.push(`not phone width: ${r.w}`);
+  // Ghosty's own bar, which the rebuilt page can't touch, over the page in a locked frame.
+  const bar = await site.textContent('#bar').catch(() => '');
+  if (!/Rebuilt by Ghosty from acme\.example · not the official site/.test(bar ?? '')) problems.push(`bar: ${bar}`);
+  const frame = await site.waitForSelector('iframe').then((f) => f.contentFrame()).catch(() => null);
+  if (!frame) problems.push('the rebuilt page is not in its frame');
+  else {
+    await frame.waitForFunction(() => document.querySelector('h1')?.dataset.ready === '1' && document.body.dataset.net, null, { timeout: 10000 }).catch(() => problems.push("the published page's script didn't run"));
+    const r = await frame.evaluate(() => ({ h1: document.querySelector('h1')?.textContent, storage: document.body.dataset.storage, net: document.body.dataset.net, wide: document.documentElement.scrollWidth > innerWidth + 1, w: innerWidth }));
+    if (r.h1 !== 'Bread worth waking up for') problems.push(`page shows: ${r.h1}`);
+    if (r.storage !== 'blocked') problems.push(`the published page could reach Ghosty's storage (${r.storage})`);
+    if (r.net !== 'blocked') problems.push(`the published page could send data out (${r.net})`);
+    if (r.wide) problems.push('the published page scrolls sideways on the phone');
+    if (r.w !== 390) problems.push(`not phone width: ${r.w}`);
+  }
+  const outer = await site.evaluate(() => ({ wide: document.documentElement.scrollWidth > innerWidth + 1 }));
+  if (outer.wide) problems.push('the page with the bar scrolls sideways');
   await site.screenshot({ path: `${out}/iphone-site-live.png` });
+  // Opened directly, the bare page goes back to the one with the bar.
+  const direct = await ctx.newPage();
+  await direct.goto(`${base}/s/acme-bakery/page`);
+  if (!/\/s\/acme-bakery$/.test(direct.url()) || !(await direct.$('#bar'))) problems.push(`the bare page opened without the bar: ${direct.url()}`);
 }
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Sites run clean: published from chat on an iPhone 13, tappable card, live page opens sandboxed with the badge, no sideways scroll.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Sites run clean: published from chat on an iPhone 13, tappable card, live page opens under Ghosty\'s bar in a locked frame (no storage, no sending data), no sideways scroll.');
 process.exit(problems.length ? 1 : 0);

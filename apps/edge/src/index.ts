@@ -109,10 +109,12 @@ export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     // Pages Ghosty published (publish_site): public links, no sign-in, served sandboxed.
-    const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})\/?$/);
+    const pub = url.pathname.match(/^\/s\/([a-z0-9-]{1,48})(\/page)?\/?$/);
     if (pub && (req.method === 'GET' || req.method === 'HEAD')) {
       const stub = env.AGENT.get(env.AGENT.idFromName('owner'));
-      return stub.fetch(new Request(`${url.origin}/api/site/${pub[1]}`)); // nothing from the visitor's request is passed on
+      // Nothing from the visitor's request is passed on, except whether it is loading a frame.
+      const dest = req.headers.get('sec-fetch-dest');
+      return stub.fetch(new Request(`${url.origin}/api/site/${pub[1]}${pub[2] ? `/page${dest ? `?dest=${encodeURIComponent(dest)}` : ''}` : ''}`));
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS ? env.ASSETS.fetch(req) : json({ error: 'not found' }, 404);
     if (url.pathname === '/api/health') {

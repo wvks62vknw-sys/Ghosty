@@ -17,8 +17,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  // Never touch the brain's API or anything off-site.
-  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  // Never touch the brain's API, published pages (/s/…) or anything off-site.
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/')) return;
   e.respondWith(
     fetch(req)
       .then((res) => {

@@ -4,10 +4,13 @@
  * publishes it (publish_site) at a free, public, clickable link on Ghosty's own address:
  * https://<ghosty>/s/<name>. No account or setup.
  *
- * Safety: a rebuilt page is served in a sandbox (its own opaque origin — it can't read Ghosty's
- * data or keys), is not indexed by search engines, carries a small "rebuilt by Ghosty" badge
- * naming the original, and may not contain password fields or forms that send data anywhere,
- * so it can't be used to impersonate a real login or payment page.
+ * Safety (enforced by the browser, not by inspecting the HTML): the link opens a page Ghosty
+ * writes, with a bar the rebuilt page can't touch naming the original ("not the official site");
+ * the rebuilt page runs below it in a locked frame with its own opaque origin (no access to
+ * Ghosty's data or keys), can't submit forms, can't make network requests (nothing typed can be
+ * sent anywhere), can't load scripts from elsewhere, and can't be opened outside that frame.
+ * It is not indexed by search engines, and password fields are refused before publishing, so it
+ * can't pass for a real login or payment page.
  */
 import { asData } from '../kernel/permissions';
 import { arg, clip, type Tool } from './types';
@@ -127,30 +130,38 @@ export function blueprint(url: string, html: string, css: string[]): string {
 // Publishing
 // ---------------------------------------------------------------------------------------
 
-const BADGE = (source: string) => {
-  let host = source;
+/** The original site's host, for the bar ("" when unknown). */
+const hostOf = (source: string) => {
   try {
-    host = new URL(source).hostname;
+    return new URL(source).hostname;
   } catch {
-    /* not a URL */
+    return '';
   }
-  const label = host ? `Rebuilt by Ghosty from ${host.replace(/[<>&"']/g, '')} · not the official site` : 'Built by Ghosty';
-  return `<div id="ghosty-badge" style="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(8px + env(safe-area-inset-bottom));z-index:2147483647;font:500 11px/1.2 -apple-system,system-ui,sans-serif;background:rgba(2,7,13,.82);color:#cfefff;padding:6px 10px;border-radius:999px;border:1px solid rgba(92,225,255,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;white-space:nowrap">${label}</div>`;
 };
+const esc = (s: string) => s.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Character references decoded, so checks see what a browser would (&#119; is "w"). */
+const decodeRefs = (s: string) =>
+  s.replace(/&#(x[0-9a-f]+|\d+);?/gi, (_, n: string) => {
+    const code = n[0] === 'x' || n[0] === 'X' ? parseInt(n.slice(1), 16) : parseInt(n, 10);
+    return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : '';
+  });
 
 /**
- * Check and finish a rebuilt page before it goes live: no password fields or forms that send
- * data anywhere, a mobile viewport, lazy images, not indexed, and the badge naming the original.
+ * Check and finish a rebuilt page before it goes live: no password fields, no form targets,
+ * a mobile viewport, lazy images, not indexed. (These are tidy-ups: what the page can actually
+ * do is enforced by the browser — see siteFrameResponse.)
  */
-export function prepareSite(htmlIn: string, source: string): { html: string; notes: string[] } {
+export function prepareSite(htmlIn: string, _source: string): { html: string; notes: string[] } {
   let html = htmlIn.trim();
   const notes: string[] = [];
   if (html.length > MAX_HTML) throw new Error(`the page is too large (${Math.round(html.length / 1024)} KB; 400 KB max) — use image URLs instead of embedded images and keep it lean`);
   if (!/<html[\s>]/i.test(html) || !/<body[\s>]/i.test(html)) throw new Error('send ONE complete HTML document (<!doctype html><html>…<body>…</body></html>)');
-  if (/<input\b[^>]*type\s*=\s*["']?password/i.test(html)) throw new Error("rebuilt pages can't contain password fields (they could pass for a real login page). Leave sign-in out, or show it as a plain button");
-  if (/<form\b[^>]*\saction\s*=/i.test(html)) {
-    html = html.replace(/(<form\b[^>]*?)\saction\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1');
-    notes.push('form actions removed (forms on rebuilt pages are visual only)');
+  if (/type\s*=\s*["']?\s*password|["'`]password["'`]/i.test(decodeRefs(html))) throw new Error("rebuilt pages can't contain password fields (they could pass for a real login page). Leave sign-in out, or show it as a plain button");
+  const targets = /\s(form)?action\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+  if (targets.test(html)) {
+    html = html.replace(targets, '');
+    notes.push('form targets removed (forms on rebuilt pages are visual only)');
   }
   if (!/<meta\b[^>]*name\s*=\s*["']?viewport/i.test(html)) {
     html = html.replace(/<head([^>]*)>/i, '<head$1><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">');
@@ -163,23 +174,47 @@ export function prepareSite(htmlIn: string, source: string): { html: string; not
   });
   if (lazy) notes.push(`${lazy} image${lazy === 1 ? '' : 's'} set to load lazily`);
   html = html.replace(/<head([^>]*)>/i, '<head$1><meta name="robots" content="noindex,nofollow">');
-  html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${BADGE(source)}</body>`) : html + BADGE(source);
   return { html, notes };
 }
 
-/** The response for a published page: sandboxed (opaque origin), not indexed, short cache. */
+const notFound = () => new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>Not found</title><p style="font:16px system-ui;padding:24px">This page doesn\'t exist (any more).</p>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
+const common = { 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-referrer', 'cache-control': 'public, max-age=60', 'x-content-type-options': 'nosniff' };
+
+/**
+ * What a visitor opens (/s/<name>): a page Ghosty writes, with a bar the rebuilt page can't
+ * touch saying where it came from, and the rebuilt page in a locked frame below it.
+ */
 export function siteResponse(site: Site | undefined): Response {
-  if (!site) return new Response('<!doctype html><meta name="viewport" content="width=device-width"><title>Not found</title><p style="font:16px system-ui;padding:24px">This page doesn\'t exist (any more).</p>', { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } });
-  return new Response(site.html, {
+  if (!site) return notFound();
+  const host = hostOf(site.source);
+  const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
+  const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>
+<style>html,body{margin:0;height:100%;background:#02070d;overflow:hidden}#bar{position:fixed;top:0;left:0;right:0;z-index:2;box-sizing:border-box;height:calc(28px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;display:flex;align-items:center;justify-content:center;gap:6px;font:600 11px/1 -apple-system,system-ui,sans-serif;letter-spacing:.02em;color:#cfefff;background:#02070d;border-bottom:1px solid rgba(92,225,255,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#bar i{width:6px;height:6px;border-radius:50%;background:#5ce1ff;flex:none}iframe{position:fixed;left:0;right:0;bottom:0;top:calc(28px + env(safe-area-inset-top));width:100%;height:calc(100% - 28px - env(safe-area-inset-top));border:0;background:#fff}</style></head>
+<body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals"></iframe></body></html>`;
+  return new Response(page, {
     headers: {
+      ...common,
       'content-type': 'text/html; charset=utf-8',
-      // Its own opaque origin: scripts run, but can't touch Ghosty's storage, keys or API.
-      'content-security-policy': 'sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals',
-      'x-robots-tag': 'noindex, nofollow',
-      'referrer-policy': 'no-referrer',
-      'cache-control': 'public, max-age=60',
+      // No scripts of its own; it may only frame the page below.
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; frame-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     },
   });
+}
+
+/**
+ * The rebuilt page itself (/s/<name>/page), only inside the frame above. The browser enforces:
+ * its own opaque origin (no access to Ghosty's storage, keys or API), no form submission, no
+ * network requests from scripts (nothing typed can be sent anywhere), only its own inline
+ * scripts (nothing loaded from elsewhere), and it can't be shown outside Ghosty's frame.
+ */
+export const PAGE_CSP =
+  "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'";
+export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
+  if (!site) return notFound();
+  // Opened directly (not in the frame): go to the page with the bar.
+  if (dest && dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
+  // Never reused for a direct visit: the answer depends on how it is loaded.
+  return new Response(site.html, { headers: { ...common, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PAGE_CSP } });
 }
 
 const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -209,7 +244,7 @@ export const siteTools: Tool[] = [
       }
       return (
         asData(`the website ${final}`, blueprint(final, html, css) + (rendered ? `\n\nRENDERED CONTENT (the page builds itself with JavaScript; this is what visitors see):\n${clip(rendered, 9000)}` : '')) +
-        '\n\nNEXT: write ONE complete, self-contained HTML document that recreates this site — same sections in the same order, same text, navigation, images (their URLs above), colours and fonts — and rebuild its interactive parts (menu, carousel, modals, tabs…) in small vanilla JS, without the trackers or heavy libraries. Make it clearly better: mobile-first for an iPhone (390×844: viewport-fit=cover, env(safe-area-inset-*), 16px+ text, 44px tap targets, no sideways scrolling, sticky compact header with a working menu), semantic HTML, fast (no frameworks, system or Google fonts with display=swap, lazy images, CSS animations that respect prefers-reduced-motion), accessible (alt text, contrast, focus states), and a more polished, modern look. No password fields or real form submission. Then call publish_site with it.'
+        '\n\nNEXT: write ONE complete, self-contained HTML document that recreates this site — same sections in the same order, same text, navigation, images (their URLs above), colours and fonts — and rebuild its interactive parts (menu, carousel, modals, tabs…) in small vanilla JS, without the trackers or heavy libraries. Make it clearly better: mobile-first for an iPhone (390×844: viewport-fit=cover, env(safe-area-inset-*), 16px+ text, 44px tap targets, no sideways scrolling, sticky compact header with a working menu), semantic HTML, fast (no frameworks, system or Google fonts with display=swap, lazy images, CSS animations that respect prefers-reduced-motion), accessible (alt text, contrast, focus states), and a more polished, modern look. It runs locked down: only your own inline <script> and <style> (no script files from elsewhere, no fetch/XHR — put everything it needs in the page), images from any https URL, Google Fonts and YouTube/Vimeo embeds allowed; forms are visual only and password fields are refused. Then call publish_site with it.'
       );
     },
   },
