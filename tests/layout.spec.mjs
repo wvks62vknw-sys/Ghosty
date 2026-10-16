@@ -17,6 +17,8 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
   for (const tab of TABS) {
     await page.evaluate((t) => (location.hash = t), tab);
     await page.waitForTimeout(tab === 'eye' ? 1500 : 700);
+    // Panes assemble with a short 3D animation; measure them where they land, not mid-flight.
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
     for (const side of ['main', 'alt']) {
       if (side === 'alt') {
         const swap = page.locator(`#pg-${tab} .swap`);
@@ -54,7 +56,8 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
         pn.scrollIntoView({ block: 'end' });
         const b = pn.getBoundingClientRect();
         const dock = document.querySelector('nav')?.getBoundingClientRect().top ?? innerHeight;
-        return { h: Math.round(b.height), bottom: Math.round(b.bottom), dock: Math.round(dock), top: Math.round(b.top) };
+        const bd = pn.querySelector(':scope > .bd');
+        return { h: Math.round(b.height), bottom: Math.round(b.bottom), dock: Math.round(dock), top: Math.round(b.top), cls: pn.className, bd: bd ? `${getComputedStyle(bd).display} ${Math.round(bd.getBoundingClientRect().height)}px ${bd.children.length} kids` : 'no body', fonts: document.fonts.status, w: innerWidth };
       }, must);
       if (r.missing) problems.push(`[phone ${tab}] no ${must} panel`);
       else if (r.h < 220 || r.bottom > r.dock + 2 || r.top < 0) problems.push(`[phone ${tab}] ${must} panel squeezed or unreachable: ${JSON.stringify(r)}`);
