@@ -12,5 +12,9 @@ from here only). Everything runs on the phone; no picture leaves it unless the o
 | `tesseract/` | Tesseract.js (reading text in pictures): the page module, its worker and the LSTM cores (SIMD, relaxed-SIMD, plain) | tesseract.js 7.0.0, tesseract.js-core 7.0.0 | Apache-2.0 |
 | `tesseract/lang/eng.traineddata.gz` | English reading model (fast) | tesseract-ocr/tessdata_fast | Apache-2.0 |
 
+One change to the upstream files: `mediapipe/vision_bundle.mjs` had a usage-logging call to
+`odml.pa.googleapis.com` (sent with an API key whenever a task ran); it is removed, so the runtime
+never talks to Google. The interface's security policy would have blocked it anyway.
+
 Nothing here recognises faces or reads number plates on purpose: no face model is included, and
 Ghosty never tries to identify a person.
