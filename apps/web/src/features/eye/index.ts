@@ -18,6 +18,7 @@ import { DEG, RAD, clamp } from '../../engine/math';
 import { onFrame } from '../../engine/scheduler';
 import { World, type City } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
+import { openMapSheet } from '../../ui/mapsheet';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
@@ -302,7 +303,7 @@ export const eyeTab: TabDef = {
           if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
           else toast('No other camera nearby', 'warn');
         };
-        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => globe.cam.flyTo({ lat: c.lat, lon: c.lon, range: 1.2, tilt: 60 })));
+        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => openMapSheet('street', { lat: c.lat, lon: c.lon, name: c.name })));
       } else if (s.kind === 'ship') {
         const v = s.ref as Ship;
         info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
@@ -389,6 +390,7 @@ export const eyeTab: TabDef = {
         info.setStatus(c.country, 'ok');
         R('POPULATION', fmt.n(c.pop));
         R('AIRCRAFT', `${air.nearby(c.lat, c.lon, 100).length} within 100 km`);
+        actions.append(button('STREET VIEW', () => openMapSheet('street', { lat: c.lat, lon: c.lon, name: c.name })), button('TRAFFIC', () => openMapSheet('traffic', { lat: c.lat, lon: c.lon, name: c.name })));
         actions.append(button('SET HOME', () => {
           settings.set({ home: { name: c.name, lat: c.lat, lon: c.lon } });
           toast(`Home set to ${c.name}`, 'ok');
@@ -517,8 +519,17 @@ export const eyeTab: TabDef = {
 
     // ---------- bottom: readout + buttons ----------
     const readout = h('div.readout');
+    /** The spot under the crosshair (named by the nearest city) for Street View and the live traffic map. */
+    const centre = () => {
+      const c = globe.cam;
+      const g = c.pick(innerWidth / 2, innerHeight / 2) ?? { lat: c.lat, lon: c.lon };
+      const near = World.near(g.lat, g.lon, 2e5);
+      return { lat: g.lat, lon: g.lon, name: near && near.km < 400 ? near.city.name : undefined, heading: c.hd };
+    };
     const btns = h(
       'div.btns',
+      button('STREET', () => openMapSheet('street', centre())),
+      button('TRAFFIC', () => openMapSheet('traffic', centre())),
       button('YOU', () => {
         const L = home();
         globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });

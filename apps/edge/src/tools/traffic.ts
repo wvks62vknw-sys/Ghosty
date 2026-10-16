@@ -1,7 +1,9 @@
 /**
  * Live cameras and live traffic for a place. show_cameras checks where God's Eye has public
  * cameras and says honestly when a place has none (then shows live traffic there instead);
- * traffic_now reads current speeds and incidents from TomTom (free key "tomtom").
+ * traffic_now opens the live traffic map (Waze's own embeddable map: jams and hazards drivers report
+ * right now — free, no key), shows the nearest public cameras, and with the free TomTom key adds
+ * speeds and incidents; street_view opens Google Street View (free, no key) at a place.
  * No tool here identifies people or vehicles: no number-plate reading, face recognition or tracking.
  */
 import { asData } from '../kernel/permissions';
@@ -9,7 +11,7 @@ import { cameraCoverage, flowAt, incidentsNear, knownPlace } from '../integratio
 import { geocode, ownerPlace } from './travel';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
-const NO_KEY = 'Live traffic needs the free TomTom key: the owner adds it in System → Keys → "TomTom traffic" (developer.tomtom.com → sign up → copy the default API key). It takes about two minutes.';
+const NO_KEY = 'For the numbers too — speed on the roads vs normal and the list of incidents with delays — add the free TomTom key once in System → Keys → "TomTom traffic" (developer.tomtom.com → sign up → copy the default API key; about two minutes).';
 
 async function where(a: Record<string, unknown>, ctx: ToolContext): Promise<{ name: string; lat: number; lon: number }> {
   // Real numbers only: models often send null for optional fields, and Number(null) is 0 (0°N 0°E).
@@ -46,20 +48,27 @@ export const trafficTools: Tool[] = [
         ctx.emit({ t: 'client', name: 'show_cameras', args: { place: p.name, lat: p.lat, lon: p.lon } });
         return `Showing the nearest live public camera to ${p.name} (${cov.area}) on God's Eye; the four nearest are in the CCTV grid.`;
       }
+      ctx.emit({ t: 'client', name: 'traffic_map', args: { place: p.name, lat: p.lat, lon: p.lon } });
       ctx.emit({ t: 'client', name: 'show_traffic', args: { place: p.name, lat: p.lat, lon: p.lon } });
-      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV (Birmingham City Council and National Highways only share theirs with control rooms and media partners). The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed) and the mapped ANPR, speed and red-light camera locations; call traffic_now for speeds and incidents.` : `I've flown God's Eye there and marked the mapped ANPR, speed and red-light camera locations. ${NO_KEY}`}`;
+      return `There are no public live cameras in ${p.name}: the operators there don't publish their CCTV (Birmingham City Council and National Highways only share theirs with control rooms and media partners). The nearest public cameras are ${cov.area}, about ${Math.round(cov.away)} km away. The live traffic map (Waze) for ${p.name} is open on God's Eye instead. ${traffic ? `I've flown God's Eye to ${p.name} with live traffic speeds on the roads (green = flowing, red = jammed) and the mapped ANPR, speed and red-light camera locations; call traffic_now for speeds and incidents.` : `I've flown God's Eye there and marked the mapped ANPR, speed and red-light camera locations. ${NO_KEY}`}`;
     },
   },
   {
     name: 'traffic_now',
-    description: 'Live road traffic around a place right now: speed on the nearest main road vs normal, and current incidents (crashes, closures, queues, roadworks) with delays. Also shows the live traffic layer on God\'s Eye. Needs the free TomTom key.',
+    description: "Live road traffic around a place right now. Opens the live traffic map on God's Eye (Waze: jams, slow roads, hazards and crashes drivers report now — free, no key), shows the nearest public cameras if there are any, and with the free TomTom key adds speed on the nearest main road vs normal and current incidents (crashes, closures, queues, roadworks) with delays.",
     parameters: { type: 'object', properties: { place: { type: 'string', description: 'e.g. "Birmingham city centre", "M6 junction 6"' }, lat: { type: 'number' }, lon: { type: 'number' }, radius_km: { type: 'number', description: 'default 5, max 40' } } },
     risk: 'auto',
     async run(a, ctx) {
-      const key = await ctx.vault.get('tomtom');
-      if (!key) return NO_KEY;
       const p = await where(a, ctx);
       const r = Math.max(1, Math.min(40, arg.num(a, 'radius_km', 5)));
+      // The live map first (Waze: what drivers report right now, no key), then the nearest public
+      // cameras if there are any, then TomTom's numbers.
+      ctx.emit({ t: 'client', name: 'traffic_map', args: { place: p.name, lat: p.lat, lon: p.lon } });
+      const cov = cameraCoverage(p.lat, p.lon);
+      if (cov.away < 5) ctx.emit({ t: 'client', name: 'show_cameras', args: { place: p.name, lat: p.lat, lon: p.lon } });
+      const shown = `The live traffic map for ${p.name} is open on God's Eye (Waze: red and orange roads are slow or jammed right now, with the hazards and crashes drivers reported)${cov.away < 5 ? ', and the nearest public cameras are in the CCTV grid' : ''}.`;
+      const key = await ctx.vault.get('tomtom');
+      if (!key) return `${shown} ${NO_KEY}`;
       ctx.emit({ t: 'client', name: 'show_traffic', args: { place: p.name, lat: p.lat, lon: p.lon, range_km: Math.max(6, r * 3) } });
       const [flow, inc] = await Promise.all([flowAt(key, p.lat, p.lon), incidentsNear(key, p.lat, p.lon, r)]);
       const lines = [`Live traffic around ${p.name} (within ${r} km):`];
@@ -72,7 +81,19 @@ export const trafficTools: Tool[] = [
         lines.push(`${inc.length} incident${inc.length === 1 ? '' : 's'}:`);
         for (const i of inc.slice(0, 12)) lines.push(`- ${i.kind}${i.roads ? ` on ${i.roads}` : ''}${i.from ? `: ${i.from}${i.to && i.to !== i.from ? ` → ${i.to}` : ''}` : ''}${i.what ? ` — ${i.what}` : ''}${i.delaySec ? ` (delay ${mins(i.delaySec)})` : ''}`);
       }
-      return clip(asData('TomTom traffic', lines.join('\n')), 5000);
+      return `${shown}\n\n${clip(asData('TomTom traffic', lines.join('\n')), 5000)}`;
+    },
+  },
+  {
+    name: 'street_view',
+    description:
+      "Open Google Street View at a place on God's Eye: the owner can look around and walk along the street (free, no key), with satellite imagery and the live traffic map a tap away in the same view. Use for \"what does X look like\", \"show me the street\", \"look around X\". Street View was photographed on an earlier date — it is not live.",
+    parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
+    risk: 'auto',
+    async run(a, ctx) {
+      const p = await where(a, ctx);
+      ctx.emit({ t: 'client', name: 'street_view', args: { place: p.name, lat: p.lat, lon: p.lon } });
+      return `Street View of ${p.name} is open on God's Eye: drag to look around, tap the arrows to move along the street; SATELLITE and LIVE TRAFFIC are a tap away in the same view. (Google's imagery, photographed on an earlier date — not live.)`;
     },
   },
 ];

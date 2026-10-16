@@ -43,7 +43,8 @@ test('show_cameras says honestly that Birmingham has no public cameras and shows
   assert.match(out, /no public live cameras in Birmingham/i);
   assert.match(out, /London \(TfL JamCams\), about 1[0-9]{2} km away/);
   assert.match(out, /live traffic/i);
-  assert.deepEqual(events.map((e) => e.name), ['show_traffic']);
+  // the live Waze map opens first (free), then the TomTom overlay
+  assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_traffic']);
   assert.ok(Math.abs(events[0].args.lat - 52.48) < 0.01);
 });
 
@@ -65,7 +66,9 @@ test('traffic_now reads TomTom speeds and incidents, worst first, and needs the 
   assert.match(out, /2 incidents/);
   assert.ok(out.indexOf('Accident on A38(M)') < out.indexOf('Roadworks'), 'worst incident first');
   assert.match(out, /delay 14 min/);
-  assert.equal(events[0].name, 'show_traffic');
+  // the live map always opens; the TomTom overlay follows with the key (Birmingham has no cameras to show)
+  assert.deepEqual(events.map((e) => e.name), ['traffic_map', 'show_traffic']);
+  assert.ok(events[1].args.range_km >= 6);
   const bad = ctxFor({ tomtom: 'WRONG' }).ctx;
   await assert.rejects(tool.run({ place: 'Birmingham' }, bad), /did not accept the traffic key/);
 });

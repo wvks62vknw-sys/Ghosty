@@ -237,6 +237,14 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .mhead { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--line2); }
 .mhead b { font: 500 10px var(--d); letter-spacing: .2em; color: var(--c); text-transform: uppercase; }
 .mbody { flex: 1; min-height: 0; display: flex; }
+/* ---------- street view / satellite / live traffic: Google's and Waze's pages in a locked frame (ui/mapsheet.ts) ---------- */
+.mapsheet { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; }
+.mapbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+.maptabs { display: flex; gap: 4px; }
+.maptabs button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
+.mapwhere { font: 400 9px var(--m); letter-spacing: .14em; color: var(--mute); }
+.mapframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #000; }
+.mapnote { font: 400 11px/1.4 var(--b); color: var(--mute); }
 iframe.sandbox { flex: 1; border: 0; width: 100%; background: #02070d; }
 #palette { position: fixed; inset: 0; z-index: 140; display: none; align-items: flex-start; justify-content: center; padding: max(10vh, 56px) 12px 12px; background: rgba(var(--bgr), .75); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 #palette.on { display: flex; }

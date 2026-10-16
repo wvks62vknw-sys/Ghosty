@@ -50,6 +50,22 @@ async function locate(place: string): Promise<{ lat: number; lon: number; name: 
 
 const locateAny = (place: string) => locate(place);
 
+/** Street View or the live traffic map at a place: fly God's Eye there and open the sheet (ui/mapsheet.ts). */
+async function openMap(view: 'street' | 'traffic', a: Record<string, unknown> | undefined): Promise<void> {
+  const lat = Number(a?.lat);
+  const lon = Number(a?.lon);
+  const where = typeof a?.lat === 'number' && typeof a?.lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, name: String(a?.place ?? '') } : a?.place ? await locateAny(String(a.place)) : null;
+  if (!where) return void toast(`I couldn't find ${a?.place ?? 'that place'}`, 'warn');
+  go('eye');
+  globe.cam.flyTo({ lat: where.lat, lon: where.lon, range: view === 'street' ? 2 : 25, tilt: view === 'street' ? 60 : 0 });
+  if (view === 'traffic') {
+    globe.vis = { ...globe.vis, traffic: true };
+    ui.set({});
+  }
+  const { openMapSheet } = await import('../ui/mapsheet');
+  openMapSheet(view, where);
+}
+
 export async function flyTo(args: { place?: string; lat?: number; lon?: number; range_km?: number }): Promise<boolean> {
   go('eye');
   let lat = Number(args.lat);
@@ -113,6 +129,8 @@ export function registerBuiltins(): void {
         else if (op === 'addEvent' && a?.event) enqueue({ kind: 'addEvent', event: a.event as NewEvent });
       },
     },
+    { id: 'street_view', title: 'Street View', hidden: true, run: (a) => void openMap('street', a) },
+    { id: 'traffic_map', title: 'Live traffic map', hidden: true, run: (a) => void openMap('traffic', a) },
     {
       // A page Ghosty published (publish_site): a tappable card in the chat.
       id: 'show_link',
