@@ -1,0 +1,63 @@
+{
+  "job": "rtest002",
+  "target": "https://example.com",
+  "kind": "web",
+  "question": "",
+  "startedAt": "2026-10-16T00:11:36.716Z",
+  "sections": [
+    {
+      "title": "Site overview (Ghosty baseline)",
+      "body": "- **Title:** Example Domain\n- **Final URL:** https://example.com/ (HTTP 200, 1 KB)\n- **Server:** cloudflare  ·  **Powered by:** ?\n- **Technologies spotted:** none recognised\n- **Scripts:** 0 (0 first-party scripts scanned)\n- **Stylesheets:** 0  ·  **Forms:** 0\n- **Third-party hosts:** none\n\n**API endpoints found in code (0):**\n- none found\n\n**Security headers:**\n- content-security-policy: ✗ missing\n- strict-transport-security: ✗ missing\n- x-frame-options: ✗ missing\n- x-content-type-options: ✗ missing\n- referrer-policy: ✗ missing\n- permissions-policy: ✗ missing",
+      "data": {
+        "title": "Example Domain",
+        "finalUrl": "https://example.com/",
+        "status": 200,
+        "services": [],
+        "endpoints": [],
+        "hosts": [],
+        "scripts": [],
+        "headers": {
+          "age": "5",
+          "allow": "GET, HEAD",
+          "alt-svc": "h3=\":443\"; ma=86400",
+          "cf-cache-status": "HIT",
+          "cf-ray": "a4b2d8e2f905ef32-LAX",
+          "connection": "keep-alive",
+          "content-encoding": "br",
+          "content-type": "text/html; charset=utf-8",
+          "date": "Fri, 16 Oct 2026 00:11:36 GMT",
+          "last-modified": "Tue, 13 Oct 2026 22:05:48 GMT",
+          "server": "cloudflare",
+          "transfer-encoding": "chunked"
+        }
+      }
+    }
+  ],
+  "errors": [
+    {
+      "what": "REA web page (rea inspect-web-page https://example.com)",
+      "error": "rea inspect-web-page https://example.com --json exited 1"
+    },
+    {
+      "what": "help: rea inspect-web-page",
+      "error": "rea inspect-web-page — Passively inspect one page through CDP, defaulting to its current origin\n\nUsage: rea inspect-web-page <endpoint> <targetId> [options]\n\nArguments:\n  endpoint  Loopback CDP HTTP endpoint or browser WebSocket URL\n  targetId  Target ID from list-browser-targets\n\nOptions:\n  --allowed-origins <array>       Optional exact-origin filter\n  --observation-ms <number>       Observation duration in milliseconds (default: 500)\n  --include-accessibility-text    Include accessibility text\n  --include-console-text          Include console message text\n  --include-json-body-shapes      Include structural shapes of JSON response bodies\n  --include-websocket-shapes      Include structural shapes of WebSocket payloads\n  --include-script-sources        Include JavaScript source text\n  --include-storage-keys          Include storage key names without values\n  --include-storage-fingerprints  Include content-derived storage fingerprints\n\nGlobal Options:\n  --filter-output <keys>              Filter output by key paths (e.g. foo,bar.baz,a[0,3])\n  --format <toon|json|yaml|md|jsonl>  Output format\n  --full-output                       Show full output envelope\n  --help                              Show help\n  --llms, --llms-full                 Print LLM-readable manifest\n  --schema                            Show JSON Schema for command\n  --token-count                       Print token count of output (instead of output)\n  --token-limit <n>                   Limit output to n tokens\n  --token-offset <n>                  Skip first n tokens of output\n\n"
+    },
+    {
+      "what": "REA web bundle (rea analyze-web-bundle https://example.com)",
+      "error": "rea analyze-web-bundle https://example.com --json exited 1"
+    },
+    {
+      "what": "help: rea analyze-web-bundle",
+      "error": "rea analyze-web-bundle — Capture and statically analyze a page bundle, defaulting to the selected target origin\n\nUsage: rea analyze-web-bundle <endpoint> <targetId> [options]\n\nArguments:\n  endpoint  Loopback CDP HTTP endpoint or browser WebSocket URL\n  targetId  Target ID from list-browser-targets\n\nOptions:\n  --allowed-origins <array>  Optional exact-origin filter\n  --observation-ms <number>  Observation duration in milliseconds (default: 500)\n  --fetch-source-maps        Fetch source maps referenced by captured scripts\n\nGlobal Options:\n  --filter-output <keys>              Filter output by key paths (e.g. foo,bar.baz,a[0,3])\n  --format <toon|json|yaml|md|jsonl>  Output format\n  --full-output                       Show full output envelope\n  --help                              Show help\n  --llms, --llms-full                 Print LLM-readable manifest\n  --schema                            Show JSON Schema for command\n  --token-count                       Print token count of output (instead of output)\n  --token-limit <n>                   Limit output to n tokens\n  --token-offset <n>                  Skip first n tokens of output\n\n"
+    },
+    {
+      "what": "REA WebMCP tools (rea discover-webmcp-tools https://example.com)",
+      "error": "rea discover-webmcp-tools https://example.com --json exited 1"
+    },
+    {
+      "what": "help: rea discover-webmcp-tools",
+      "error": "rea discover-webmcp-tools — Passively discover page-declared WebMCP tools\n\nUsage: rea discover-webmcp-tools <endpoint> <targetId> [options]\n\nArguments:\n  endpoint  Loopback CDP HTTP endpoint or browser WebSocket URL\n  targetId  Target ID from list-browser-targets\n\nOptions:\n  --allowed-origins <array>  Optional exact-origin filter\n  --observation-ms <number>  Observation duration in milliseconds (default: 100)\n\nGlobal Options:\n  --filter-output <keys>              Filter output by key paths (e.g. foo,bar.baz,a[0,3])\n  --format <toon|json|yaml|md|jsonl>  Output format\n  --full-output                       Show full output envelope\n  --help                              Show help\n  --llms, --llms-full                 Print LLM-readable manifest\n  --schema                            Show JSON Schema for command\n  --token-count                       Print token count of output (instead of output)\n  --token-limit <n>                   Limit output to n tokens\n  --token-offset <n>                  Skip first n tokens of output\n\n"
+    }
+  ],
+  "finishedAt": "2026-10-16T00:11:44.334Z"
+}
