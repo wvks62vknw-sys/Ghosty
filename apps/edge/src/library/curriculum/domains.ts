@@ -146,7 +146,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|HyperLogLog
 3|arxiv|A Model for Learned Bloom Filters
 2|wiki|Cache replacement policies
-2|wiki|Suffix array`,
+2|wiki|Suffix array
+2|wiki|Hopcroft–Karp algorithm
+2|wiki|Priority queue
+2|wiki|Rabin–Karp algorithm`,
   },
   {
     id: 'computer-architecture-os',
@@ -209,7 +212,8 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Spectre Attacks Exploiting Speculative Execution
 2|wiki|Direct memory access
 2|wiki|Semaphore (programming)
-2|wiki|Solid-state drive`,
+2|wiki|Solid-state drive
+2|wiki|Random-access memory`,
   },
   {
     id: 'networking-web',
@@ -274,7 +278,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 2|wiki|DMARC
 2|wiki|Ethernet
 2|wiki|Simple Mail Transfer Protocol
-2|wiki|Wi-Fi`,
+2|wiki|Wi-Fi
+2|wiki|Firewall (computing)
+2|wiki|Network socket`,
   },
   {
     id: 'databases',
@@ -399,7 +405,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Evaluating Large Language Models Trained on Code
 3|arxiv|SWE-bench Can Language Models Resolve Real-World GitHub Issues
 2|wiki|Build automation
-2|wiki|Regression testing`,
+2|wiki|Regression testing
+2|wiki|Logging (computing)
+2|wiki|Package manager
+2|wiki|Postmortem documentation`,
   },
   {
     id: 'languages-compilers',
@@ -462,7 +471,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|practical linearity in a higher-order polymorphic language
 2|wiki|C (programming language)
 2|wiki|Data-flow analysis
-2|wiki|Tail call`,
+2|wiki|Tail call
+2|wiki|Recursive descent parser
+2|wiki|Register allocation`,
   },
   {
     id: 'distributed-cloud',
@@ -830,7 +841,12 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Spectre Attacks Exploiting Speculative Execution Kocher
 3|arxiv|Meltdown Lipp Schwarz Gruss Prescher
 2|wiki|Common Vulnerabilities and Exposures
-2|wiki|Disk encryption`,
+2|wiki|Disk encryption
+2|wiki|Intrusion detection system
+2|wiki|Malware
+2|wiki|OpenID
+2|wiki|Password strength
+2|wiki|Ransomware`,
   },
   {
     id: 'graphics-games',
@@ -896,7 +912,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Representing Scenes Neural Radiance Fields View Synthesis
 3|arxiv|3D Gaussian splatting real-time radiance field rendering
 2|wiki|Color space
-2|wiki|SRGB`,
+2|wiki|SRGB
+2|wiki|Frame rate
+2|wiki|Level of detail (computer graphics)
+2|wiki|Mipmap`,
   },
   {
     id: 'hci-product',
@@ -962,7 +981,9 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|Dark Patterns at Scale Findings Crawl Shopping Websites
 3|arxiv|Human-Centered Artificial Intelligence Reliable Safe Trustworthy
 2|wiki|Customer attrition
-2|wiki|User research`,
+2|wiki|User research
+2|wiki|Net promoter score
+2|wiki|Prototype`,
   },
   {
     id: 'ml-fundamentals',
@@ -1023,7 +1044,13 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Concept drift
 3|wiki|Fairness (machine learning)
 2|wiki|Collaborative filtering
-2|wiki|Curse of dimensionality`,
+2|wiki|Curse of dimensionality
+2|wiki|F-score
+2|wiki|Kernel method
+2|wiki|Learning rate
+2|wiki|Mean squared error
+2|wiki|Multi-armed bandit
+2|wiki|Recommender system`,
   },
   {
     id: 'deep-learning-llms',
@@ -1087,7 +1114,11 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Double descent
 2|wiki|Beam search
 2|wiki|Cross-entropy
-2|wiki|Variational autoencoder`,
+2|wiki|Variational autoencoder
+2|wiki|Graph neural network
+2|wiki|Image segmentation
+2|wiki|Normalization (machine learning)
+2|wiki|Object detection`,
   },
   {
     id: 'ai-agents-rag',
@@ -1271,7 +1302,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Apache Iceberg
 3|wiki|Apache Flink
 2|wiki|Apache Avro
-2|wiki|Data lineage`,
+2|wiki|Data lineage
+2|wiki|Lambda architecture
+2|wiki|Partition (database)
+2|wiki|Protocol Buffers`,
   },
   {
     id: 'robotics-control',
@@ -1335,7 +1369,11 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|arxiv|RT-2 Vision-Language-Action Models Transfer Web Knowledge
 2|wiki|Rotary encoder
 2|wiki|Stepper motor
-2|wiki|Zero-order hold`,
+2|wiki|Zero-order hold
+2|wiki|Full state feedback
+2|wiki|Lidar
+2|wiki|Occupancy grid mapping
+2|wiki|Odometry`,
   },
   {
     id: 'osint-privacy-safety',
@@ -1457,7 +1495,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Riemann hypothesis
 3|wiki|Dirichlet's theorem on arithmetic progressions
 2|wiki|Discrete logarithm
-2|wiki|Sieve of Eratosthenes`,
+2|wiki|Sieve of Eratosthenes
+2|wiki|AM–GM inequality
+2|wiki|Module (mathematics)
+2|wiki|Partial fraction decomposition`,
   },
   {
     id: 'calculus-analysis',
@@ -1520,7 +1561,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Calculus of variations
 2|wiki|Euler's formula
 2|wiki|Separation of variables
-2|wiki|Trigonometric functions`,
+2|wiki|Trigonometric functions
+2|wiki|Heat equation
+2|wiki|Implicit function
+2|wiki|Line integral`,
   },
   {
     id: 'linear-algebra',
@@ -1643,7 +1687,10 @@ export const DOMAIN_TEXT: DomainText[] = [
 2|wiki|Bayesian network
 2|wiki|Chi-squared distribution
 2|wiki|Entropy (information theory)
-2|wiki|Student's t-distribution`,
+2|wiki|Student's t-distribution
+2|wiki|Geometric distribution
+2|wiki|Inverse transform sampling
+2|wiki|Kullback–Leibler divergence`,
   },
   {
     id: 'statistics-data',
@@ -1884,7 +1931,8 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Wave equation
 3|wiki|Plasma (physics)
 3|wiki|Laser
-3|wiki|Black-body radiation`,
+3|wiki|Black-body radiation
+2|wiki|International System of Units`,
   },
   {
     id: 'quantum-relativity',

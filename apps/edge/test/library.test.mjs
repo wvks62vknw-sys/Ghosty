@@ -65,6 +65,24 @@ test('the library keeps passages and finds the right one without AI', async () =
   assert.deepEqual(await lib.search('swallows'), []);
 });
 
+test('a section read back is its text once: the overlap each passage carries from the one before is dropped, and the end is kept', async () => {
+  const { chunkText, joinPassages } = await import('./.build/library/store.mjs');
+  const lib = new Library(new MemStorage(), {});
+  const sentences = Array.from({ length: 80 }, (_, i) => `Sentence ${i + 1} of the long note says something a little different each time, so no two lines repeat.`);
+  const text = `Long note\nSource: https://example.com/note\n\n${sentences.join(' ')}`;
+  const passages = chunkText(text, { heading: 'Long note' });
+  assert.ok(passages.length >= 6, `several passages: ${passages.length}`);
+  // (the first passage is the short header line, which carries nothing over)
+  assert.ok(passages.slice(2).every((p, i) => passages[i + 1].text.includes(p.text.slice(0, 60))), 'each passage starts with the end of the one before (context for search hits)');
+  const doc = lib.createDoc({ title: 'Long note', id: 'note1' });
+  for (let i = 0; i < passages.length; i += 40) await lib.addPassages(doc.id, passages.slice(i, i + 40));
+  const out = lib.sectionText(doc.id, 'Long note', 30000);
+  for (let i = 1; i <= 80; i++) assert.equal(out.split(`Sentence ${i} of`).length - 1, 1, `sentence ${i} is read once`);
+  assert.ok(out.trimEnd().endsWith(sentences[79]), 'the end of the note is kept');
+  assert.equal(joinPassages(passages.map((p) => p.text)).replace(/\s+/g, ' '), text.replace(/\s+/g, ' '), 'joined, the passages are the text again');
+  assert.equal(lib.sectionText(doc.id, 'Long note', 500).length, 500, 'a cap still cuts the text at the cap');
+});
+
 test('at most 40 passages per call (each request stays small)', async () => {
   const lib = new Library(new MemStorage(), {});
   const doc = lib.createDoc({ title: 'Big' });

@@ -82,6 +82,28 @@ function normalise(t: string): string {
     .trim();
 }
 
+/**
+ * Passages back into running text. Every passage after the first starts with the last
+ * ~OVERLAP characters of the one before it (so a search hit keeps its context); joined
+ * again, that repeat is dropped, so the text reads once and ends where the source ended.
+ */
+export function joinPassages(texts: string[]): string {
+  let out = '';
+  for (const t of texts) out += out ? `\n${unoverlap(out, t)}` : t;
+  return out;
+}
+
+/** `next` without the words it repeats from the end of `prev` (the tail the chunker carried over). */
+export function unoverlap(prev: string, next: string): string {
+  const s = prev.slice(-OVERLAP);
+  for (let i = s.indexOf(' '); i >= 0 && i < s.length - 1; i = s.indexOf(' ', i + 1)) {
+    const carried = s.slice(i + 1);
+    if (carried.length < 8) break;
+    if (next.startsWith(carried)) return next.slice(carried.length).replace(/^\s+/, '');
+  }
+  return next;
+}
+
 /** The last ~OVERLAP characters, starting at a word boundary — carried into the next passage. */
 function tail(t: string): string {
   const s = t.slice(-OVERLAP);

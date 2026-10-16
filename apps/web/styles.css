@@ -750,3 +750,4 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .pn.recon .reconout .rw .k { min-width: 70px; }
 .pn.recon .reconout .rw.wrap .v { -webkit-line-clamp: 6; font-size: 11.5px; word-break: break-word; }
 .pn.recon > .ft { flex-wrap: wrap; }
+.pn.recon > .ft button { flex: 1 1 auto; min-height: 44px; font-size: 10px; }

@@ -1468,7 +1468,13 @@ const toolMsg = (call: ToolCall, result: string): Msg => ({ role: 'tool', tool_c
 /** A call that only looks something up, with arguments that parse: safe to run alongside others like it. */
 function pureCall(call: ToolCall): boolean {
   const tool = toolByName.get(call.function.name);
-  return !!tool && tool.pure === true && tool.side !== 'client' && !needsApproval(tool) && !argsProblem(call.function.arguments);
+  if (!tool || !tool.pure || tool.side === 'client' || needsApproval(tool) || argsProblem(call.function.arguments)) return false;
+  if (tool.pure === true) return true;
+  try {
+    return tool.pure((call.function.arguments.trim() ? JSON.parse(call.function.arguments) : {}) as Record<string, unknown>);
+  } catch {
+    return false;
+  }
 }
 
 /** The tool context for one call: its progress reports carry the call's id, so the chat shows them under that tool's line. */

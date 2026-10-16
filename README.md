@@ -64,7 +64,7 @@ tests/       local preview server + browser test
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
   with its other tools. Infrastructure only, never a person.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
-  report → an imported page), read-only tools run side by side, and every long job shows live progress in chat.
+  report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

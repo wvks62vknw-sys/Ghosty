@@ -48,8 +48,9 @@ resets. Two more free sources need no key at all:
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
 - **Pollinations** (an open text endpoint, one reply every 30 seconds, best effort) is the last resort for
   chat and the first choice for Ghosty's own study drills, so your keys stay yours. Nothing secret is ever
-  sent there. Set the `KEYLESS_MODELS` variable to `0` in `wrangler.jsonc` if you would rather it never
-  used an open endpoint.
+  sent there, and never a picture: a photo from the Lens only goes to a key of yours or to Workers AI on
+  your own account. Set the `KEYLESS_MODELS` variable to `0` in `wrangler.jsonc` if you would rather it
+  never used an open endpoint.
 
 **Ghosty studies on its own:** the Library tab's **SELF-STUDY** panel shows what it reads around the clock
 (a curriculum of thousands of topics across maths, science, computing, finance, law, health, history and
@@ -164,9 +165,10 @@ the first time.
 - **HANDS** — 21 points per hand drawn live and seven gestures recognised: thumbs up saves a SEE note,
   open palm freezes, a V flips the camera, a pointing finger captures and reads, a fist stops.
 - **ASK** — a question about what the camera sees ("what is this plant?", "translate this sign", "is
-  this safe to eat?"). The still goes to a model that can see pictures (Gemini's free key, Workers AI's
-  Llama 4 or the open Pollinations endpoint); with none reachable Ghosty says so and answers from what
-  the phone itself saw (the labels and the text).
+  this safe to eat?"). The still goes to a model that can see pictures (Gemini's free key or Workers AI's
+  Llama 4 on your own account — never the open Pollinations endpoint); with none reachable Ghosty says so
+  and answers from what the phone itself saw (the labels and the text). What the phone saw and any text
+  it read go to the brain marked as data, not as your words.
 - **SEARCH** — draw a box on a still and open it in Google Lens, Bing Visual Search, Yandex Images or
   TinEye (named as such; each opens in its own tab). The engines need a web address for the picture, so
   the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
@@ -216,6 +218,12 @@ Puts a Cloudflare email-code login in front of Ghosty and its previews.
    note your Zero Trust team name.
 3. Add `ACCESS_TEAM` and `ACCESS_AUD` under `vars` in `apps/edge/wrangler.jsonc` (and under
    `previews.vars`), then push.
+4. Let two paths through without a login, or they stop working: published pages (`/s/*`) are meant
+   for other people, and the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
+   must be able to fetch. In the Access application add a **Bypass** policy for the paths `/s/*` and
+   `/i/*` (Zero Trust → Access → Applications → your application → Policies → Add, action Bypass,
+   include Everyone, with the path in the application's settings), or make them their own application
+   with a Bypass policy.
 
 ## What's protected
 

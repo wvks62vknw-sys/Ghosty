@@ -50,8 +50,10 @@ export interface Tool {
   /**
    * Read-only: it looks things up and changes nothing, so when the model asks for several
    * pure tools in one message the agent runs them together instead of one after another.
+   * A function decides per call from the arguments (a lookup that also files its result
+   * when asked is pure only without that flag).
    */
-  pure?: boolean;
+  pure?: boolean | ((args: Record<string, unknown>) => boolean);
   /** Returns text for the model to read. Throw an Error to report failure. */
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<string>;
   /**
