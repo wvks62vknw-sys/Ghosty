@@ -30,7 +30,7 @@ const section = (title, body, data) => {
 const fail = (what, e) => {
   const msg = String(e?.stderr || e?.message || e).slice(0, 2000);
   report.errors.push({ what, error: msg });
-  md.push(`\n> ${what}: ${msg.split('\n')[0]}\n`);
+  md.push(`\n> ${what}: ${msg.trim().split('\n').filter(Boolean).slice(0, 3).join(' · ')}\n`);
 };
 const sh = (cmd, args, opts = {}) => {
   const r = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: opts.timeout ?? 10 * 60_000, cwd: opts.cwd });
@@ -53,6 +53,13 @@ const rea = (title, args, opts) => {
     return data;
   } catch (e) {
     fail(`REA ${title} (rea ${args.join(' ')})`, e);
+    // Record the command's own help so a wrong invocation is easy to correct next time.
+    try {
+      const help = spawnSync('rea', [args[0], '--help'], { encoding: 'utf8', timeout: 60_000 });
+      report.errors.push({ what: `help: rea ${args[0]}`, error: `${help.stdout || ''}\n${help.stderr || ''}`.slice(0, 4000) });
+    } catch {
+      /* no help available */
+    }
     return null;
   }
 };
