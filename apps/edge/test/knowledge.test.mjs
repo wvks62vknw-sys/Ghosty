@@ -108,6 +108,13 @@ test('playbook code examples point at files and exports that really exist', () =
   assert.match(src('apps/edge/src/index.ts'), /'api\.frankfurter\.app'/);
 });
 
+test('the system prompt tells Ghosty it can rebuild AND publish a live website', () => {
+  const prompt = readFileSync(join(ROOT, 'apps/edge/src/prompt.ts'), 'utf8');
+  assert.match(prompt, /rebuild any website from a link and PUBLISH it live/);
+  assert.match(prompt, /never reply that you can't host or publish/i);
+  assert.match(prompt, /study_site[\s\S]*publish_site/);
+});
+
 test('the always-on essentials stay short (free models have small limits)', () => {
   const e = K.engineeringEssentials('boss');
   assert.ok(e.includes('boss'));
