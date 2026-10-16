@@ -76,8 +76,8 @@ else {
   await page.screenshot({ path: `${out}/phone-map.png` });
   const w = await page.textContent('.modal .mapwhere').catch(() => '');
   if (!/°/.test(w ?? '')) problems.push('the sheet does not show where the map is');
-  // back from Street View, the map keeps the owner's style, overlay and measurement
-  await page.click('.modal .maptabs button:has-text("STREET VIEW")');
+  // back from another view, the map keeps the owner's style, overlay and measurement
+  await page.click('.modal .maptabs button:has-text("SATELLITE")');
   await page.waitForTimeout(500);
   await page.click('.modal .maptabs button:has-text("MAP")');
   await page.waitForTimeout(500);

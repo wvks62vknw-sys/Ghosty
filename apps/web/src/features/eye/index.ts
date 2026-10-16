@@ -19,6 +19,9 @@ import { onFrame } from '../../engine/scheduler';
 import { World, type City } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { openMapSheet } from '../../ui/mapsheet';
+import { openStreetView } from '../../ui/streetview';
+import { reverseAddress, whatIs } from '../../data/places';
+import { spotLayer, type Spot } from '../../engine/layers/spot';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
@@ -47,6 +50,7 @@ function installLayers(): void {
   layersInstalled = true;
   sats.init();
   if (!globe.layers.includes(routeLayer)) globe.layers.push(routeLayer);
+  globe.layers.push(spotLayer);
   globe.layers.push(quakeLayer, eventLayer, ...INTEL_LAYERS, crimeLayer, sats, air, camLayer);
   air.onEmergency = (a) => toast(`${a.call || a.hex} squawking ${a.emergency}`, 'bad');
   setInterval(() => void sats.refresh(), 6 * 3600_000);
@@ -56,6 +60,10 @@ function installLayers(): void {
 function describe(sel: Pickable): string {
   const r = sel.ref as Record<string, unknown>;
   switch (sel.kind) {
+    case 'spot': {
+      const sp = r as unknown as Spot;
+      return `the spot at ${sp.lat.toFixed(4)}, ${sp.lon.toFixed(4)}${sp.name ? ` near ${sp.name}` : ''}${sp.address ? `: ${sp.address}` : ''}`;
+    }
     case 'air': {
       const a = r as unknown as Aircraft;
       return `aircraft ${a.call || a.hex} ${a.type} ${a.reg} at ${Math.round(a.altft)} ft, ${Math.round(a.gs)} knots, heading ${Math.round(a.trk)}°`;
@@ -228,7 +236,30 @@ export const eyeTab: TabDef = {
       const actions = h('div.row.wrap');
       const ask = button('ASK GHOSTY', () => void send(`Tell me about this: ${describe(selected!)}`), 'warn');
       const s = selected;
-      if (s.kind === 'air') {
+      if (s.kind === 'spot') {
+        const sp = s.ref as Spot;
+        info.title.textContent = (sp.name || 'THIS SPOT').toUpperCase();
+        info.setStatus('TAPPED', 'ok');
+        R('WHERE', `${sp.lat.toFixed(4)}°, ${sp.lon.toFixed(4)}°`);
+        const near = World.near(sp.lat, sp.lon, 2e5);
+        if (near) R('NEAR', near.city.name, `${Math.round(near.km)} km`);
+        // The address arrives later (see lookupSpot) and is written into this row in place.
+        const addr = row('ADDRESS', sp.address ?? 'Looking up…', null, { wrap: true });
+        addr.classList.add('addr');
+        info.body.append(addr);
+        const spot = () => ({ lat: sp.lat, lon: sp.lon, name: sp.name, heading: globe.cam.hd });
+        actions.append(
+          button('STREET VIEW', () => void openStreetView(spot())),
+          button('MAP', () => openMapSheet('map', spot())),
+          button('3D', () => openMapSheet('3d', spot())),
+          button('TRAFFIC', () => openMapSheet('traffic', spot())),
+          button('ZOOM', () => globe.cam.flyTo({ lat: sp.lat, lon: sp.lon, range: 1.2, tilt: 55 })),
+          button('CLEAR', () => {
+            spotLayer.set(null);
+            select(null);
+          }),
+        );
+      } else if (s.kind === 'air') {
         const a = s.ref as Aircraft;
         info.title.textContent = (a.call || a.hex).toUpperCase();
         info.setStatus(a.emergency ? `EMERGENCY ${a.emergency}` : a.mil ? 'MILITARY' : 'LIVE', a.emergency ? 'off' : 'ok');
@@ -303,7 +334,7 @@ export const eyeTab: TabDef = {
           if (next) select({ kind: 'cam', ref: next, w: GEO.ecef(next.lat, next.lon, 0.08) }, true);
           else toast('No other camera nearby', 'warn');
         };
-        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => openMapSheet('street', { lat: c.lat, lon: c.lon, name: c.name })));
+        actions.append(button('◀ PREV', () => hop(-1)), button('NEXT ▶', () => hop(1)), button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })));
       } else if (s.kind === 'ship') {
         const v = s.ref as Ship;
         info.title.textContent = (v.name || `MMSI ${v.mmsi}`).toUpperCase();
@@ -390,7 +421,7 @@ export const eyeTab: TabDef = {
         info.setStatus(c.country, 'ok');
         R('POPULATION', fmt.n(c.pop));
         R('AIRCRAFT', `${air.nearby(c.lat, c.lon, 100).length} within 100 km`);
-        actions.append(button('STREET VIEW', () => openMapSheet('street', { lat: c.lat, lon: c.lon, name: c.name })), button('TRAFFIC', () => openMapSheet('traffic', { lat: c.lat, lon: c.lon, name: c.name })));
+        actions.append(button('STREET VIEW', () => void openStreetView({ lat: c.lat, lon: c.lon, name: c.name })), button('TRAFFIC', () => openMapSheet('traffic', { lat: c.lat, lon: c.lon, name: c.name })));
         actions.append(button('SET HOME', () => {
           settings.set({ home: { name: c.name, lat: c.lat, lon: c.lon } });
           toast(`Home set to ${c.name}`, 'ok');
@@ -399,6 +430,22 @@ export const eyeTab: TabDef = {
       actions.append(ask, button('✕', () => select(null)));
       info.body.append(actions);
     };
+    /** The address of a tapped spot, looked up once; the card (if it still shows the spot) is updated in place, nothing repaints. */
+    const lookupSpot = (sp: Spot) =>
+      void reverseAddress(sp.lat, sp.lon)
+        .then((r) => {
+          sp.address = [whatIs(r), r.display_name].filter(Boolean).join(' — ') || 'No address known here';
+          if (!sp.name && r.name) sp.name = r.name;
+        })
+        .catch(() => {
+          sp.address = 'Address service not reachable';
+        })
+        .finally(() => {
+          if (selected?.ref !== sp) return;
+          const v = info.body.querySelector('.rw.addr .v');
+          if (v) v.textContent = sp.address ?? '';
+          info.title.textContent = (sp.name || 'THIS SPOT').toUpperCase();
+        });
     function select(p: Pickable | null, fly = false): void {
       selected = p;
       shipLayer.selected = p?.kind === 'ship' ? (p.ref as Ship) : null;
@@ -534,7 +581,7 @@ export const eyeTab: TabDef = {
     const btns = h(
       'div.btns',
       button('MAP', () => openMapSheet('map', centre())),
-      button('STREET', () => openMapSheet('street', centre())),
+      button('STREET', () => void openStreetView(centre())),
       button('TRAFFIC', () => openMapSheet('traffic', centre())),
       // the tiles on the globe itself: satellite, streets, dark, topographic, Sentinel
       button(imagery.source.toUpperCase(), (b) => {
@@ -657,7 +704,15 @@ export const eyeTab: TabDef = {
       }
       lastTap = now;
       const hit = globe.pickAt(x, y, innerWidth < 700 ? 34 : 26);
-      if (hit) select(hit);
+      if (hit) return select(hit);
+      // Nothing there: drop a pin on the ground under the finger — the spot card opens on it.
+      const g = globe.cam.pick(x, y);
+      if (!g) return select(null);
+      const near = World.near(g.lat, g.lon, 2e5);
+      const sp: Spot = { lat: g.lat, lon: g.lon, name: near && near.km < 25 ? near.city.name : undefined };
+      spotLayer.set(sp);
+      select({ kind: 'spot', ref: sp, w: GEO.ecef(sp.lat, sp.lon, 0.06) });
+      lookupSpot(sp);
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);

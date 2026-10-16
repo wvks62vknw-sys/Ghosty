@@ -339,6 +339,8 @@ export async function selfCheck(staged: Staged[], tree: string[], read: Reader):
       // deleting a file other files still import?
       continue;
     }
+    // Third-party libraries served as-is (apps/web/public/vendor: Leaflet, MapLibre) are not Ghosty's code to judge.
+    if (/(^|\/)vendor\//.test(s.path)) continue;
     if (/\.json$/.test(s.path)) {
       try {
         JSON.parse(s.content);

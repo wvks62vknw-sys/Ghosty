@@ -1,37 +1,37 @@
 /**
  * Maps on top of God's Eye, in one sheet with four views — all free, no key, nothing to set up:
- * MAP (the flat map: OpenStreetMap, CARTO, OpenTopoMap, CyclOSM and Esri tiles with overlays,
- * tap-for-what-is-here, routes and measuring — ui/flatmap.ts), Google Street View (look around
- * and walk the street), Google satellite imagery, and the Waze live map (jams, hazards and
- * crashes drivers report right now). Google's and Waze's pages run in a frame with its own
- * origin, so they can't see Ghosty's page, keys or storage; the app's security policy
- * (public/_headers) lets exactly those two hosts be framed and nothing else. No referrer is sent.
+ * MAP (the flat map: OpenStreetMap, OpenTopoMap, CyclOSM and Esri tiles with overlays,
+ * tap-for-what-is-here, routes and measuring — ui/flatmap.ts), 3D (MapLibre GL over OpenFreeMap's
+ * vector tiles: buildings in 3D, rotate and tilt — ui/map3d.ts; Mapbox's styles too with the
+ * owner's token), Google satellite imagery, and the Waze live map (jams, hazards and crashes
+ * drivers report right now). Google's and Waze's pages run in a frame with its own origin, so they
+ * can't see Ghosty's page, keys or storage; the app's security policy (public/_headers) lets exactly
+ * those two hosts be framed and nothing else. No referrer is sent.
+ *
+ * Street View is not a tab here: it is the immersive view (ui/streetview.ts) that dives in from the
+ * globe, and every pin's STREET VIEW button goes there.
  */
 import { h } from '../core/dom';
 import { button, modal } from './components';
 import { createFlatMap, type FlatMap, type FlatMapOptions } from './flatmap';
+import { createMap3d, type Map3d, type Map3dOptions } from './map3d';
+import { openStreetView } from './streetview';
+import { satelliteUrl, wazeUrl, type MapSpot } from './mapurls';
 
-export type MapView = 'map' | 'street' | 'satellite' | 'traffic';
-export interface MapSpot {
-  lat: number;
-  lon: number;
-  name?: string;
-  /** Compass heading to face in Street View (degrees). */
-  heading?: number;
-  /** Up/down in Street View (degrees, positive looks up). */
-  pitch?: number;
+export type { MapSpot } from './mapurls';
+export { satelliteUrl, streetViewUrl, wazeUrl } from './mapurls';
+
+export type MapView = 'map' | '3d' | 'satellite' | 'traffic';
+export interface MapSheetOptions extends FlatMapOptions {
+  /** Options for the 3D view (style, pitch, buildings…); pins and lines come from the flat-map fields. */
+  map3d?: Map3dOptions;
 }
 
-const f = (n: number) => Number(n.toFixed(6));
-/** Google Street View at a spot: Google snaps to the nearest panorama (and says when there is none). */
-export const streetViewUrl = (s: MapSpot): string => `https://www.google.com/maps/embed?origin=mfe&pb=!6m7!1m6!2m2!1d${f(s.lat)}!2d${f(s.lon)}!3f${Math.round(s.heading ?? 0)}!4f${-Math.round(s.pitch ?? 0)}!5f1`;
-export const satelliteUrl = (s: MapSpot, zoom = 17): string => `https://www.google.com/maps/embed?origin=mfe&pb=!1m4!2m1!1s${f(s.lat)},${f(s.lon)}!5e1!6i${zoom}`;
-export const wazeUrl = (s: MapSpot, zoom = 14): string => `https://embed.waze.com/iframe?zoom=${zoom}&lat=${f(s.lat)}&lon=${f(s.lon)}&ct=livemap&pin=1`;
-export const mapUrl = (view: Exclude<MapView, 'map'>, s: MapSpot): string => (view === 'street' ? streetViewUrl(s) : view === 'satellite' ? satelliteUrl(s) : wazeUrl(s));
+export const mapUrl = (view: 'satellite' | 'traffic', s: MapSpot): string => (view === 'satellite' ? satelliteUrl(s) : wazeUrl(s));
 
 export const MAP_VIEWS: [MapView, string, string][] = [
   ['map', 'MAP', 'OpenStreetMap, OpenTopoMap, CyclOSM and Esri, free. Tap the map for the address, Street View, a route, the elevation and nearby landmarks; MEASURE for distances.'],
-  ['street', 'STREET VIEW', 'Google Street View — drag to look around, tap the arrows on the road to move. Photographed on an earlier date: not live.'],
+  ['3d', '3D', 'MapLibre over OpenFreeMap — free vector maps with the buildings in 3D. Pinch to zoom, two fingers to rotate and tilt, tap for the address. With your Mapbox token: live traffic colours, satellite and night styles.'],
   ['satellite', 'SATELLITE', 'Google satellite imagery — pinch to zoom, drag to move.'],
   ['traffic', 'LIVE TRAFFIC', 'Waze live map — red and orange roads are slow or jammed right now; the icons are hazards, crashes and police that drivers reported.'],
 ];
@@ -39,58 +39,80 @@ export const MAP_VIEWS: [MapView, string, string][] = [
 let open: { close(): void } | null = null;
 
 /** Open the sheet on a spot (or move it there), showing one of the views; the tabs switch between them. */
-export function openMapSheet(view: MapView, spot: MapSpot, opts: FlatMapOptions = {}): { close(): void } {
+export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions = {}): { close(): void } {
   open?.close();
   let at: MapSpot = { ...spot };
   let frame: HTMLIFrameElement | null = null;
   let flat: FlatMap | null = null;
+  let map3d: Map3d | null = null;
   const flatHost = h('div.flathost');
   flatHost.hidden = true;
+  const host3d = h('div.flathost.m3host');
+  host3d.hidden = true;
   const note = h('div.mapnote');
   const tabs = h('div.maptabs');
   const where = h('div.mapwhere');
   const place = () => (where.textContent = `${at.lat.toFixed(4)}°, ${at.lon.toFixed(4)}°`);
-  const sheet = h('div.mapsheet', h('div.mapbar', tabs, where), flatHost, note);
+  const sheet = h('div.mapsheet', h('div.mapbar', tabs, where), flatHost, host3d, note);
+  const close = () => open?.close();
   const hooks = {
     streetView: (s: MapSpot) => {
-      at = { ...s };
-      show('street');
+      // The immersive view: the sheet goes, the globe dives, the panorama takes over.
+      close();
+      void openStreetView({ ...s });
     },
     traffic: (s: MapSpot) => {
       at = { ...s };
       show('traffic');
     },
-    close: () => open?.close(),
+    flat: (s: MapSpot) => {
+      at = { ...s };
+      show('map');
+    },
+    close,
   };
-  flatHost.addEventListener('flatmap:move', (e) => {
+  const moved = (e: Event) => {
     const d = (e as CustomEvent<{ lat: number; lon: number }>).detail;
     at = { ...at, lat: d.lat, lon: d.lon, name: undefined };
     place();
-  });
+  };
+  flatHost.addEventListener('flatmap:move', moved);
+  host3d.addEventListener('map3d:move', moved);
+  /** Where the map that is showing has been moved to, so the next view opens there. */
+  const leave = () => {
+    if (flat && !flatHost.hidden) at = { ...flat.spot(), name: at.name };
+    if (map3d && !host3d.hidden) at = { ...map3d.spot(), name: at.name };
+  };
   const show = (v: MapView) => {
     const def = MAP_VIEWS.find((x) => x[0] === v)!;
     note.textContent = def[2];
     for (const b of tabs.children) b.classList.toggle('on', (b as HTMLElement).dataset.view === v);
+    leave();
     // Google's and Waze's frames are made fresh each time and dropped when not shown, so a
-    // panorama never keeps running behind the map.
+    // page never keeps running behind a map.
     frame?.remove();
     frame = null;
+    flatHost.hidden = v !== 'map';
+    host3d.hidden = v !== '3d';
     if (v === 'map') {
-      flatHost.hidden = false;
       if (flat) {
-        // Back from Street View or the traffic map: the owner's view, style, overlays, pins and
-        // measurements are still there — only the size needs a refresh.
+        // Back from another view: the owner's view, style, overlays, pins and measurements are
+        // still there — only the size needs a refresh.
         flat.invalidate();
       } else {
         flat = createFlatMap(flatHost, hooks);
         void flat.open(at, opts).then(() => flat?.invalidate());
       }
+    } else if (v === '3d') {
+      if (map3d) map3d.invalidate();
+      else {
+        map3d = createMap3d(host3d, hooks);
+        void map3d.open(at, { points: opts.points, line: opts.line, zoom: opts.zoom, ...opts.map3d }).then(() => map3d?.invalidate());
+      }
     } else {
-      if (flat && !flatHost.hidden) at = { ...flat.spot(), name: at.name };
-      flatHost.hidden = true;
       frame = h('iframe.mapframe', { title: def[1], sandbox: 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox', allow: 'fullscreen', referrerpolicy: 'no-referrer' });
       frame.src = mapUrl(v, at);
-      flatHost.after(frame);
+      host3d.after(frame);
     }
     place();
   };
@@ -101,6 +123,7 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: FlatMapOptions 
   }
   open = modal((spot.name || 'GOD’S EYE').toUpperCase(), sheet, () => {
     flat?.destroy();
+    map3d?.destroy();
     open = null;
   });
   show(view);

@@ -43,6 +43,19 @@ test('show_map opens the flat map at a known place with a style, overlays and pi
   assert.deepEqual(a.points, [{ lat: 51.5, lon: -0.1, label: 'A' }]);
   assert.equal(a.zoom, 19);
   assert.match(out, /map of London is open on God's Eye \(topo\) with rail, 1 pin marked/);
+  // the 3D view: its own styles, a tilt, buildings off; a flat-only style is dropped
+  const ev3 = [];
+  const out3 = await T.toolByName.get('show_map').run({ place: 'London', view: '3d', style: 'liberty', pitch: 95, buildings: false }, ctx((e) => ev3.push(e)));
+  assert.equal(ev3[0].args.view, '3d');
+  assert.equal(ev3[0].args.style, 'liberty');
+  assert.equal(ev3[0].args.pitch, 70);
+  assert.equal(ev3[0].args.buildings, false);
+  assert.match(out3, /The 3D map of London is open/);
+  const ev4 = [];
+  await T.toolByName.get('show_map').run({ place: 'London', style: 'liberty' }, ctx((e) => ev4.push(e)));
+  assert.equal(ev4[0].args.view, undefined);
+  assert.equal(ev4[0].args.style, undefined);
+  assert.ok(T.selectTools('show me london in 3d', new Set(), false).map((t) => t.name).includes('show_map'));
   // "lat,lon" as the place
   const ev2 = [];
   await T.toolByName.get('show_map').run({ place: '48.8584, 2.2945' }, ctx((e) => ev2.push(e)));
