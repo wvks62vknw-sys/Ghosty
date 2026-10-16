@@ -10,7 +10,7 @@ import type { ModelHealth } from '../../../../packages/shared/src/protocol';
 import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
-export { hasImage, imagesIn, markPhotos, stripImages, textOf, withImages, type Content, type ContentPart } from './content';
+export { hasImage, imagesIn, markPhotos, ownerWords, stripImages, textOf, withImages, type Content, type ContentPart } from './content';
 
 export interface ToolCall {
   id: string;
