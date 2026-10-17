@@ -129,6 +129,7 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
   { id: 'name', label: 'NAME', hint: 'name anything' },
+  { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
   { id: 'aim', label: 'AIM', hint: 'point at anything' },
 ];
 
@@ -198,7 +199,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'camera · see · read · hands · ask · name · scan',
+  blurb: 'camera · see · read · hands · ask · name · scan · aim',
   mount(root) {
     const S = lensState;
     const camera = new Camera(h('video.lensvideo'));
