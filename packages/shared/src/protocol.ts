@@ -41,6 +41,7 @@ export const CLIENT_COMMANDS = [
   'open_lens',
   'play_radio',
   'stop_audio',
+  'show_journey',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -269,4 +270,77 @@ export interface FeedInfo {
   id: string;
   name: string;
   at: number;
+}
+
+// ---- Public-transport journeys (apps/edge/src/integrations/transitous.ts; drawn by apps/web/src/ui/journeysheet.ts).
+
+/** One place on a journey: a stop or station, an address, or any point. */
+export interface JourneyPlace {
+  name: string;
+  lat: number;
+  lon: number;
+  /** The stop's id in the timetable, when it is a stop. */
+  stopId?: string;
+}
+
+/** The kind of a leg, for its colour and icon; `kind` on the leg keeps the router's own word. */
+export type JourneyMode = 'walk' | 'bus' | 'tram' | 'rail' | 'subway' | 'ferry' | 'other';
+
+/** One leg of a journey — a walk, or one ride — compact enough to send to the phone and draw. */
+export interface JourneyLeg {
+  mode: JourneyMode;
+  /** The router's own word for it (WALK, BUS, COACH, REGIONAL_RAIL…). */
+  kind: string;
+  /** The line's short name: "50", "X1", "WMR"; '' for a walk. */
+  line: string;
+  /** The operator's colour for the line ("#e07709"), or ''. */
+  color: string;
+  headsign: string;
+  agency: string;
+  from: JourneyPlace;
+  to: JourneyPlace;
+  /** Live times when the operator publishes them (`realTime`), else the timetable; ISO 8601. */
+  start: string;
+  end: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  realTime: boolean;
+  cancelled: boolean;
+  /** Seconds. */
+  duration: number;
+  /** Metres, for a walk. */
+  distance: number;
+  /** The stand, bay or platform to board at, when known. */
+  track: string;
+  /** The stops ridden through, in order (not the one boarded at or the one to get off at). */
+  stops: JourneyPlace[];
+  /** The leg's shape as an encoded polyline with its precision (decimal digits), or '' when too long to send. */
+  points: string;
+  precision: number;
+}
+
+export interface Journey {
+  id: string;
+  start: string;
+  end: string;
+  /** Seconds, door to door. */
+  duration: number;
+  transfers: number;
+  /** A walk all the way, no ride. */
+  direct?: boolean;
+  legs: JourneyLeg[];
+}
+
+/** The answer to GET /api/journey, and the payload of the show_journey command. */
+export interface JourneyAnswer {
+  from: JourneyPlace;
+  to: JourneyPlace;
+  /** The owner's time zone, which the clock times are shown in. */
+  tz: string;
+  /** Leaving at (or, with `arriveBy`, arriving by), ISO 8601. */
+  time: string;
+  arriveBy: boolean;
+  itineraries: Journey[];
+  /** Why the list is empty, in plain words. */
+  note?: string;
 }

@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
@@ -104,7 +104,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/library$|\/passages/.test(path);
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -302,6 +302,9 @@ export const brain = {
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
   trafficStatus: () => req<{ ready: boolean }>('GET', '/traffic/status'),
+  /** A public-transport journey for the GO panel: the brain asks Transitous and answers in the shape the map draws (`from`/`to`: "here", "lat,lon" or a name; `time`: local YYYY-MM-DDTHH:MM, else now). */
+  journey: (p: { from: string; to: string; time?: string; arriveBy?: boolean }) =>
+    req<JourneyAnswer>('GET', `/journey?from=${encodeURIComponent(p.from)}&to=${encodeURIComponent(p.to)}${p.time ? `&time=${encodeURIComponent(p.time)}` : ''}${p.arriveBy ? '&arriveBy=true' : ''}&tz=${encodeURIComponent(TZ)}`),
   emailStatus: () => req<EmailStatus>('GET', '/email/status'),
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),

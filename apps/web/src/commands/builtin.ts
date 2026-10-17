@@ -16,6 +16,7 @@ import { enqueue, type NewEvent, type NewJob } from '../api/offline';
 import { modal, sandboxFrame, toast } from '../ui/components';
 import type { OverlayId, StyleId } from '../ui/flatmap';
 import type { Style3dId } from '../ui/map3d';
+import type { JourneyAnswer } from '../../../../packages/shared/src/protocol';
 import { addPaletteProvider, register, type Command } from './registry';
 
 const LAYER_ALIASES: Record<string, keyof LayerVisibility> = {
@@ -374,6 +375,29 @@ export function registerBuiltins(): void {
       },
     },
     { id: 'clear_route', title: 'Clear route from globe', group: 'EYE', run: () => routeLayer.set(null) },
+    {
+      // A journey the brain planned (plan_journey): drawn on the map leg by leg, with its steps (ui/journeysheet.ts).
+      id: 'show_journey',
+      title: 'Show journey',
+      hidden: true,
+      run: async (a) => {
+        if (!Array.isArray(a?.itineraries) || !a.itineraries.length) return;
+        go('eye');
+        const { showJourney } = await import('../ui/journeysheet');
+        showJourney(a as unknown as JourneyAnswer, 0);
+      },
+    },
+    {
+      // The GO panel: a journey by bus, tram, train, metro or ferry (ui/journeysheet.ts).
+      id: 'journey_planner',
+      title: 'Journey planner: buses, trams, trains',
+      group: 'GO',
+      run: async () => {
+        go('eye');
+        const { openJourneyPlanner } = await import('../ui/journeysheet');
+        openJourneyPlanner();
+      },
+    },
     {
       id: 'play_radio',
       title: 'Play radio',

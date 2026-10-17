@@ -79,6 +79,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^every day at (\d\d:\d\d) (.+)$/)) && has('schedule_task')) return { message: call('schedule_task', { title: 'Daily job', prompt: m[2], at: m[1], repeat: 'daily' }), model };
   if ((m = text.match(/^add event (.+) on (\S+)$/)) && has('add_event')) return { message: call('add_event', { title: m[1], start: m[2], remind_minutes_before: 30 }), model };
   if ((m = text.match(/^directions to (.+?)(?: by (walking|cycling|driving))?$/)) && has('get_directions')) return { message: call('get_directions', { to: m[1], ...(m[2] ? { mode: m[2] } : {}) }), model };
+  if ((m = text.match(/^plan a journey from (.+?) to (.+?)(?: (arriving by .+|at .+))?$/)) && has('plan_journey')) return { message: call('plan_journey', { from: m[1], to: m[2], ...(m[3] ? { when: m[3] } : {}) }), model };
+  if ((m = text.match(/^next (?:buses|trains|trams|departures) (?:from|at) (.+)$/)) && has('next_departures')) return { message: call('next_departures', { stop: m[1] }), model };
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };

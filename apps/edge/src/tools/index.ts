@@ -9,6 +9,7 @@ import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
+import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
@@ -28,7 +29,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -46,7 +47,7 @@ export function toolSpecs(list: Tool[] = TOOLS): ToolSpec[] {
  * the conversation has used it.
  */
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
-export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code' }[] = [
+export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code'; about?: string }[] = [
   { name: 'memory', tools: memoryTools, when: 'always' },
   { name: 'web', tools: webTools, when: 'always' },
   { name: 'ui', tools: uiTools, when: 'always' },
@@ -56,6 +57,12 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },
+  {
+    name: 'journeys',
+    tools: journeyTools,
+    when: /\b(journey|journeys|train|trains|bus|buses|tram|trams|metro|rail|how do i get|get me to|take me to|travel to|next (bus|train|tram)|departures?|leave (at|by)|arrive (at|by)|public transport|commute)\b/i,
+    about: 'you can plan door-to-door journeys by bus, tram, train, metro or ferry anywhere, with live times where published, drawn on the map (plan_journey), and list the next departures from any stop (next_departures)',
+  },
   { name: 'traffic', tools: trafficTools, when: /\b(tomtom|street data|speeds?|incidents?|cams?|cameras?|cctv|webcams?|traffic|jams?|congestion|roads?|motorway|highway|accidents?|crash|closures?|roadworks|commute|rush hour|live view|god'?s eye|see (it|there|.+) live|street ?views?|street level|look around|walk around|satellite)\b/i },
   { name: 'crime', tools: crimeTools, when: /\b(crimes?|criminal|safe|safety|dangerous|rough area|burglar(y|ies)|robber(y|ies)|theft|thefts|stolen|stabbing|stabbings|assaults?|anti-?social|police|mugging|muggings|shoplifting|drug dealing)\b/i },
   { name: 'maps', tools: mapTools, when: /\b(maps?|map of|map it|on (the|a) map|3-?d|three-?d|vector map|buildings|elevation|altitude|how high|above sea level|post ?codes?|what(?:'s| is) (?:here|there|this|that|at)|landmarks?|wikipedia|nearby|measure|distance (?:between|from|to)|as the crow flies|crow flies|topo(?:graphic)?|terrain|contours?|cycle (?:map|route)|rail(?:way)? (?:map|lines?)|sea ?marks?|nautical|where is|where'?s)\b/i },

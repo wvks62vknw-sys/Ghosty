@@ -279,6 +279,50 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .fmbtns button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
 .fmlabel { background: rgba(2,7,13,.9); color: #fff; border: 1px solid rgba(var(--cr), .5); font: 500 9px var(--m); letter-spacing: .1em; border-radius: 0; box-shadow: none; padding: 2px 5px; }
 .fmlabel::before { display: none; }
+/* ---------- journeys: the GO panel and the JOURNEY sheet under the map (ui/journeysheet.ts) ---------- */
+/* With a panel under it the map gives up some height and never paints over the panel (a phone has room for both). */
+.mapsheet.withbelow .flathost { overflow: hidden; }
+.mapsheet.withbelow .flatmap { min-height: 150px; }
+.jsheet { flex: none; max-height: min(34vh, 300px); overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.jsheet[hidden] { display: none; }
+.jhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.jhead b { font: 500 10px var(--d); letter-spacing: .16em; color: var(--c); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.jwhen { font: 400 9px var(--m); letter-spacing: .1em; color: var(--mute); white-space: nowrap; }
+.jtabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: none; }
+.jtabs::-webkit-scrollbar { display: none; }
+.jtab { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 9px; min-height: 0; text-align: left; letter-spacing: 0; text-transform: none; }
+.jtab b { font: 500 12px var(--d); color: var(--fg); }
+.jtab small { font: 400 9px var(--m); color: var(--mute); }
+.jtab.on small { color: var(--c); }
+.jsteps { display: flex; flex-direction: column; }
+.jstep { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line2); cursor: pointer; min-width: 0; }
+.jstep:last-child { border-bottom: 0; }
+.jstep:hover, .jstep.on { background: rgba(var(--cr), .07); }
+.jic { flex: none; width: 18px; height: 18px; display: flex; } .jic svg { width: 18px; height: 18px; fill: currentColor; }
+.jbadge { flex: none; display: inline-block; min-width: 24px; padding: 2px 6px; border-radius: 3px; font: 600 11px var(--m); font-style: normal; text-align: center; letter-spacing: .04em; }
+.jtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; font: 400 11px/1.35 var(--b); color: var(--mute); }
+.jtext b { font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jtext span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jtext em { font: 400 9px var(--m); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--ok); }
+.jtext em.late { color: var(--a); } .jtext em.jcancel { color: var(--r); }
+.jtime { flex: none; display: flex; flex-direction: column; align-items: flex-end; font: 400 11px var(--m); color: var(--fg); font-variant-numeric: tabular-nums; }
+.jtime small { font-size: 9px; color: var(--mute); }
+.jacts { display: flex; gap: 4px; flex-wrap: wrap; } .jacts button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
+.jcredit { font: 400 9px var(--m); color: var(--mute); letter-spacing: .04em; }
+.jform { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; overflow: auto; }
+.jform .lab { margin-top: 2px; }
+.jin { width: 100%; box-sizing: border-box; }
+.jchips { display: flex; gap: 4px; flex-wrap: wrap; } .jchips button { padding: 6px 9px; min-height: 0; font-size: 8.5px; }
+.jhint { font: 400 10.5px/1.4 var(--b); color: var(--mute); }
+.jerr { font: 400 11.5px/1.4 var(--b); color: var(--a); border-left: 2px solid var(--a); padding-left: 8px; }
+.jres { display: flex; flex-direction: column; }
+.jopt { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--line2); cursor: pointer; min-width: 0; }
+.jopt:hover { background: rgba(var(--cr), .07); }
+.jopt b { font: 500 13px var(--m); color: var(--fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jopt > span { font: 400 11px var(--b); color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.jopt .jlines { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.jlines .jwalk { font: 400 10px var(--m); font-style: normal; color: var(--mute); letter-spacing: .08em; }
+.jnone { font: 400 11.5px/1.4 var(--b); color: var(--mute); padding: 6px 0; }
 iframe.sandbox { flex: 1; border: 0; width: 100%; background: #02070d; }
 #palette { position: fixed; inset: 0; z-index: 140; display: none; align-items: flex-start; justify-content: center; padding: max(10vh, 56px) 12px 12px; background: rgba(var(--bgr), .75); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 #palette.on { display: flex; }

@@ -63,6 +63,10 @@ tests/       local preview server + browser test
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
   with its other tools. Infrastructure only, never a person.
+- **Journeys**: a door-to-door public-transport planner (bus, tram, train, metro, coach, ferry, with the walks
+  between) anywhere in the world, free and keyless (Transitous over the open timetables operators publish, live
+  times where they exist): **GO** on God's Eye or *"how do I get to X"*, the options drawn on the map leg by leg
+  with every stop, the steps in a JOURNEY sheet, and *"next buses from X"* for departures.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
   report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,

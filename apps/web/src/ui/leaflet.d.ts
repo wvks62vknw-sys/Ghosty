@@ -109,6 +109,8 @@ declare namespace L {
     dashArray?: string;
     lineCap?: string;
     interactive?: boolean;
+    /** A class on the SVG path, so a test can count the lines a feature drew. */
+    className?: string;
   }
   interface MarkerOptions {
     title?: string;
