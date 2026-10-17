@@ -58,7 +58,7 @@ import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finis
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 import { model3dRoute } from './model3d';
-import { CITED_PROMPT, citeAnswer, citedAsked } from './cited';
+import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -209,6 +209,8 @@ export class GhostyAgent {
   private turnLinks: { url: string; title: string }[] = [];
   /** This turn wants a cited answer (cited.ts): CITED on in the chat, or the owner's words asked for sources. */
   private citedTurn = false;
+  /** What this turn's lookups recorded they returned (ToolContext.found): a cited answer's only sources. */
+  private turnRead: Read[] = [];
 
   private shipCache = new Map<string, { at: number; ships: AisShip[] }>();
 
@@ -610,6 +612,7 @@ export class GhostyAgent {
   private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown; cited?: boolean } = {}): Promise<void> {
     const seen = extra.seen ?? '';
     this.citedTurn = !!extra.cited || citedAsked(text);
+    this.turnRead = [];
     const turn = withSeen(text, seen, extra.scan ?? '');
     this.turnLinks = [];
     // Did any reply text go out before a failure? (Then paused mode must not answer again.)
@@ -941,7 +944,9 @@ export class GhostyAgent {
   private async runOne(call: ToolCall, tool: Tool, args: Record<string, unknown>, tctx: ToolContext, emit: (ev: ChatEvent) => void, code = false): Promise<string> {
     emit({ t: 'tool', id: call.id, name: tool.name, args });
     try {
-      const result = await tool.run(args, forCall(tctx, emit, call.id, tool.name));
+      const read: Read[] = [];
+      const result = await tool.run(args, { ...forCall(tctx, emit, call.id, tool.name), found: (source) => read.push({ call: call.id, source }) });
+      this.turnRead.push(...read);
       if (tool.name === 'publish_site') {
         const title = result.match(/^Published "([^"]*)"/)?.[1] ?? '';
         for (const url of linksIn(result)) if (!this.turnLinks.some((l) => l.url === url)) this.turnLinks.push({ url, title });
@@ -1022,7 +1027,7 @@ export class GhostyAgent {
         const link = this.turnLinks[0];
         this.turnLinks = [];
         // A cited answer: its sources matched to what was read this turn and each claim checked (one cheap call at most).
-        const cited = this.citedTurn ? await citeAnswer(text, ctx, async (m) => textOf((await this.router.complete(m, [], signal, { cheap: true, maxWaitMs: 0 })).message.content), emit).catch(() => null) : null;
+        const cited = this.citedTurn ? await citeAnswer(text, ctx, this.turnRead, async (m) => textOf((await this.router.complete(m, [], signal, { cheap: true, maxWaitMs: 0 })).message.content), emit).catch(() => null) : null;
         if (cited) text = cited.text;
         emit({ t: 'text', text });
         if (cited) emit({ t: 'cited', ...cited.info });

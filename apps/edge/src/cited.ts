@@ -9,7 +9,7 @@
 import type { ChatEvent, Citation, CitedInfo, ClaimCheck } from '../../../packages/shared/src/protocol';
 import { asData } from './kernel/permissions';
 import type { Msg } from './llm/router';
-import { textOf } from './llm/content';
+import type { LookedUp } from './tools/types';
 
 /** The owner's words that make a turn a cited one (the composer's CITED toggle does it too). */
 export const CITED_ASK = /\b(?:with (?:sources|citations|references)|cite|citations?|fact[- ]?check(?:ing)?|is it (?:really )?true that)\b/i;
@@ -20,12 +20,12 @@ export const CITED_PROMPT =
   '\n\nCITED ANSWER (the owner wants facts they can rely on): look it up before answering — library_search and/or web_search, then web_fetch the 1–3 best pages. Put [1], [2]… after each fact, numbered by source. End with a list headed SOURCES, one line per source: [n] title — full URL (or the library document\'s title). Cite only what you searched or read in this turn; never invent a source, a number or a quote. If the sources disagree or say nothing, say so.';
 
 /** Something read in this turn: a web page or search result (`url`), or a library passage (`doc`: its document's title). */
-export interface Source {
-  kind: 'web' | 'library';
-  title: string;
-  url?: string;
-  doc?: string;
-  text: string;
+export type Source = LookedUp;
+
+/** What one tool call recorded it read (ToolContext.found), with the call's id. */
+export interface Read {
+  call: string;
+  source: Source;
 }
 
 /** A line of the answer's own SOURCES list. */
@@ -39,17 +39,6 @@ export interface Listed {
 const MAX_CLAIMS = 8;
 /** What the checking model reads of all the sources together. */
 const CHECK_CHARS = 8000;
-
-const unwrap = (t: string) => t.replace(/<<external content from [^\n]*>>\n?/g, '').replace(/\n?<<end external content>>/g, '').trim();
-
-function args(raw: string): Record<string, unknown> {
-  try {
-    const v = JSON.parse(raw) as unknown;
-    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
 
 function host(url: string): string {
   try {
@@ -66,51 +55,23 @@ export function sameUrl(url: string): string {
   return i < 0 ? u.toLowerCase() : u.slice(0, i).toLowerCase() + u.slice(i);
 }
 
-/** web_search's results: "n. title", the address, then the snippet. */
-function searchHits(text: string): Source[] {
-  const out: Source[] = [];
-  for (const block of text.split(/\n\s*\n/)) {
-    const m = block.trim().match(/^\d+\.\s+(.*)\n(https?:\/\/\S+)(?:\n([\s\S]*))?$/);
-    if (m) out.push({ kind: 'web', title: m[1]!.trim() || host(m[2]!), url: m[2]!, text: (m[3] ?? '').trim() });
-  }
-  return out;
-}
-
-/** library_search's passages: "[title · heading · p. N]" then the passage. */
-function libraryHits(text: string): Source[] {
-  const out: Source[] = [];
-  for (const block of text.split(/\n\s*\n(?=\[)/)) {
-    const m = block.trim().match(/^\[([^\]\n]+)\]\n([\s\S]+)$/);
-    if (m) out.push({ kind: 'library', title: m[1]!.trim(), doc: m[1]!.split(' · ')[0]!.trim(), text: m[2]!.trim() });
-  }
-  return out;
-}
-
 /**
- * Everything looked up since the owner's last message, from the turn's own tool results (as the
- * model read them): pages fetched, search results, library passages. The same address twice
- * (found by a search, then read) is one source with both texts.
+ * Everything looked up since the owner's last message: the records the lookups themselves made
+ * as they ran (pages fetched, search results, library passages), in the order the model asked
+ * for them. Never re-read from the tool results' text: a page or passage could dress its own
+ * words up as another result with any address. The same address twice (found by a search, then
+ * read) is one source with both texts.
  */
-export function turnSources(ctx: Msg[]): Source[] {
+export function turnSources(ctx: Msg[], read: Read[]): Source[] {
   let from = ctx.length - 1;
   while (from > 0 && ctx[from]!.role !== 'user') from--;
-  const calls = new Map<string, { name: string; args: Record<string, unknown> }>();
-  const found: Source[] = [];
-  for (const m of ctx.slice(Math.max(0, from))) {
-    if (m.role === 'assistant') for (const c of m.tool_calls ?? []) calls.set(c.id, { name: c.function.name, args: args(c.function.arguments) });
-    if (m.role !== 'tool' || !m.tool_call_id) continue;
-    const call = calls.get(m.tool_call_id);
-    const text = unwrap(textOf(m.content));
-    if (!call || !text || /^(Error:|Not run:|The owner declined)/.test(text)) continue;
-    if (call.name === 'web_fetch') {
-      const url = String(call.args.url ?? '');
-      if (!/^https?:\/\//i.test(url)) continue;
-      const [first = '', ...rest] = text.split('\n');
-      const titled = rest.length > 0 && first.trim().length > 0 && first.length < 200 && !/^[[{<]/.test(first.trim());
-      found.push({ kind: 'web', title: titled ? first.trim() : host(url), url, text: titled ? rest.join('\n').trim() : text });
-    } else if (call.name === 'web_search') found.push(...searchHits(text));
-    else if (call.name === 'library_search') found.push(...libraryHits(text));
-  }
+  const order: string[] = [];
+  for (const m of ctx.slice(Math.max(0, from))) if (m.role === 'assistant') for (const c of m.tool_calls ?? []) order.push(c.id);
+  const found = read
+    .map((r, i) => ({ ...r, at: order.indexOf(r.call), i }))
+    .filter((r) => r.at >= 0)
+    .sort((x, y) => x.at - y.at || x.i - y.i)
+    .map((r) => r.source);
   const out: Source[] = [];
   for (const s of found) {
     const twin = s.url ? out.find((o) => o.url && sameUrl(o.url) === sameUrl(s.url!)) : out.find((o) => o.kind === 'library' && o.title === s.title);
@@ -176,14 +137,20 @@ export function markersIn(text: string): number[] {
   return out;
 }
 
+/** A name in one spelling: lower case, words only. */
+const plainName = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+/**
+ * A listed line with an address matches the source with that address. One without names a
+ * library document, and must name it exactly (its title, or its title with the passage's
+ * heading); a web page is never matched by its title, which is often just "Home" or "News".
+ */
 function findSource(l: Listed, sources: Source[]): Source | undefined {
   if (l.url) return sources.find((s) => s.url && sameUrl(s.url) === sameUrl(l.url!));
-  const low = l.title.toLowerCase();
-  if (low.length < 3) return undefined;
-  return sources.find((s) => {
-    const name = (s.doc ?? s.title).toLowerCase();
-    return name.length >= 3 && (low.includes(name) || name.includes(low));
-  });
+  const name = plainName(l.title);
+  const bare = plainName(l.title.replace(/[\s(—–:|-]*(?:your\s+)?library\)?\s*$/i, ''));
+  if (!name) return undefined;
+  return sources.find((s) => s.kind === 'library' && [s.doc ?? '', s.title].map(plainName).some((n) => n && (n === name || n === bare)));
 }
 
 /**
@@ -244,18 +211,35 @@ export function keyTerms(text: string): string[] {
     .filter((w) => /^\d+$/.test(w) || (w.length >= 4 && !STOP.has(w)));
 }
 
-/** A claim checked without a model: most of its telling words, and every number in it, in one source. */
+/** Words that turn a statement round: matching words cannot tell "does" from "does not". */
+const NEGATION = /\b(?:not|no|never|none|nobody|nothing|neither|nor|cannot|without|(?:is|are|was|were|does|do|did|wo|ca|could|should|would|has|have|had)n't|false|untrue|myth|disproven|debunked)\b/i;
+const negated = (t: string) => NEGATION.test(t.replace(/[’‘]/g, "'").replace(MARKER, ' '));
+/** Words that say which way something goes: a claim and the sentence backing it must use the same ones. */
+const DIRECTION = /\b(?:more|less|fewer|most|least|higher|lower|larger|smaller|bigger|increas\w*|decreas\w*|reduc\w*|rais\w*|ris(?:e|es|ing)|fall(?:s|ing)?|before|after|above|below)\b/gi;
+const direction = (t: string) => [...new Set((t.toLowerCase().match(DIRECTION) ?? []).map((w) => w.replace(/(?:e|es|ed|ing|s)$/, '')))].sort().join(' ');
+
+/**
+ * A claim checked without a model: most of its telling words, and every number in it, in one
+ * sentence of a source that points the same way. A claim that negates is never passed this way
+ * (nor is it backed by a sentence that negates): words alone cannot see which way it points, so
+ * it stays not found rather than being marked as backed.
+ */
 export function wordCheck(claim: string, pool: { n?: number; text: string }[]): ClaimCheck {
   const want = [...new Set(keyTerms(claim))];
   const nums = want.filter((w) => /^\d+$/.test(w));
+  if (want.length < 2 || negated(claim)) return { claim, status: 'not_found' };
+  const dir = direction(claim);
   let best: { score: number; n?: number } = { score: 0 };
   for (const s of pool) {
-    const have = new Set(keyTerms(s.text));
-    if (!nums.every((x) => have.has(x))) continue;
-    const score = want.length ? want.filter((w) => have.has(w)).length / want.length : 0;
-    if (score > best.score) best = { score, n: s.n };
+    for (const part of s.text.split(/(?<=[.!?])\s+|\n+/)) {
+      if (negated(part) || direction(part) !== dir) continue;
+      const have = new Set(keyTerms(part));
+      if (!nums.every((x) => have.has(x))) continue;
+      const score = want.filter((w) => have.has(w)).length / want.length;
+      if (score > best.score) best = { score, n: s.n };
+    }
   }
-  return want.length >= 2 && best.score >= 0.6 ? { claim, status: 'supported', ...(best.n ? { source: best.n } : {}) } : { claim, status: 'not_found' };
+  return best.score >= 0.6 ? { claim, status: 'supported', ...(best.n ? { source: best.n } : {}) } : { claim, status: 'not_found' };
 }
 
 /** The parts of a long source that bear on the claims, in their order, up to `max` characters. */
@@ -356,8 +340,8 @@ export function renderCited(body: string, citations: Citation[], line: string): 
  * A cited turn's final answer, finished: sources matched, claims checked (`complete`: one cheap
  * model call, skipped when nothing was looked up; any failure falls back to matching words).
  */
-export async function citeAnswer(text: string, ctx: Msg[], complete: (m: Msg[]) => Promise<string>, emit: (ev: ChatEvent) => void): Promise<{ text: string; info: CitedInfo }> {
-  const sources = turnSources(ctx);
+export async function citeAnswer(text: string, ctx: Msg[], read: Read[], complete: (m: Msg[]) => Promise<string>, emit: (ev: ChatEvent) => void): Promise<{ text: string; info: CitedInfo }> {
+  const sources = turnSources(ctx, read);
   const { body, listed } = splitAnswer(text);
   const { citations, picked } = matchCitations(body, listed, sources);
   const claims = splitClaims(body);

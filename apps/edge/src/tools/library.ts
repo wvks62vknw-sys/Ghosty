@@ -30,7 +30,10 @@ export const libraryTools: Tool[] = [
       await l.seedStarter();
       const hits = await l.search(arg.str(a, 'query'), Math.max(1, Math.min(10, arg.num(a, 'k', 5))));
       if (!hits.length) return 'Nothing in the library matches that. (The owner can add books and documents in the Library tab, or ask you to library_import a web page, arXiv paper, CVE, GitHub repository or Project Gutenberg book.)';
-      return clip(asData('your library', formatHits(hits, 7000)), 8000);
+      const text = formatHits(hits, 7000);
+      // What was read, as records (a cited answer's library sources): only the passages that fit.
+      for (const h of hits) if (text.includes(h.text)) ctx.found?.({ kind: 'library', title: [h.title, h.heading && h.heading !== h.title ? h.heading : '', h.page ? `p. ${h.page}` : ''].filter(Boolean).join(' · '), doc: h.title, text: h.text });
+      return clip(asData('your library', text), 8000);
     },
   },
   {
