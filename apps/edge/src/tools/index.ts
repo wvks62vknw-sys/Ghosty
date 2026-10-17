@@ -80,7 +80,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'ui',
     tools: uiTools,
     when: 'always',
-    about: "You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow the owner's drive (road_ahead) and open their camera (open_lens: see, read, hands, ask, name, scan, aim, measure).",
+    about: "You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow the owner's drive (road_ahead) and open their camera (open_lens: nine modes, from SEE to SOUND).",
   },
   {
     name: 'widgets',
@@ -163,7 +163,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages are also looked up for you automatically); cite the source.',
+    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages also come in on their own); cite the source.',
   },
   {
     name: 'library-admin',
@@ -241,18 +241,21 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: homeTools,
     when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange)\b/i,
     about: 'You can find furniture that fits at UK shops (find_furniture: the shops\' own prices and sizes, never guessed; links) and open the SPACE PLANNER (open_space) to lay out a room and MAKE SPACE.',
+  },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',
     tools: vehicleTools,
     when: /\b(mot|mots|vehicle|vehicles|reg|registration|number ?plates?|plates?|car check|check (?:this|that|a|the|my) (?:car|van|motorbike)|tax(?:ed)?|mileage|dvla|dvsa)\b|\b[a-z]{2}\d{2} ?[a-z]{3}\b/i,
     about: 'You can check ONE UK vehicle by its plate when the owner asks (vehicle_check: MOT history, mileage, advisories; tax with the DVLA key): never the keeper, never several cars, and never remember or file the record.',
+  },
   // Gadgets (integrations/gadgets.ts, integrations/parts.ts): best settings and replacement parts, when the words are about them.
   {
     name: 'gadgets',
     tools: gadgetTools,
     when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
     about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
+  },
   // 3D STUDIO (model3d.ts, features/studio): pictures into 3-D models, and the studio itself.
   // Named "3d" and one tool: the plain-turn prompt names every group's tools within a hard budget.
   {

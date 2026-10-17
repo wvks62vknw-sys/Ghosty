@@ -85,7 +85,7 @@ tests/       local preview server + browser test
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
   white-labelled). NAME mode names thousands of everyday things, on the phone (4,624 names, about 33,000
   with MORE NAMES, from Apple's MobileCLIP-S0 under ONNX Runtime Web). Vendored MediaPipe, Tesseract.js and
-  ONNX Runtime; no face recognition, no number-plate lookups.
+  ONNX Runtime; no face recognition; a number plate is looked up only on your tap (Vehicle check).
 - **Scan anything** (Lens → SCAN): barcodes and QR codes read on the phone (vendored ZXing) — a product's
   barcode becomes a card from Open Food Facts (Nutri-Score, nutrition, allergens) or its sister databases, a
   book's ISBN one from Open Library, a QR link is shown with its real site and warnings and opened only on
