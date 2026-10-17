@@ -23,14 +23,15 @@ import { Camera, cameraMessage, cameraSupported, drawScaled, type Facing } from 
 import { forgetImage, shareImage } from '../../vision/engines';
 import { closeAll } from '../../vision/models';
 import { Reader } from '../../vision/ocr';
+import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'aim';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'aim'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -122,6 +123,7 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'read', label: 'READ', hint: 'text in a picture' },
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
+  { id: 'aim', label: 'AIM', hint: 'point at anything' },
 ];
 
 export const lensState: LensState = {
@@ -407,7 +409,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), aim: createAimMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
