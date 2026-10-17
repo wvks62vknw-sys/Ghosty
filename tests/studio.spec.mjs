@@ -234,6 +234,15 @@ await page.fill('#cin', 'open the studio with the chair');
 await page.keyboard.press('Enter');
 await until(() => window.__ghosty.studio.state().title === 'Sheen chair', 60000, `"open the studio with the chair" did not open the chair: ${JSON.stringify((await S())?.title)} — ${(await page.evaluate(() => document.querySelector('.convo, .log')?.innerText ?? document.body.innerText)).slice(-600)}`);
 
+// ---- a model that arrives after the owner has left the studio does not start drawing behind another tab ----
+await page.evaluate(() => (location.hash = 'core'));
+await until(() => window.__ghosty?.ui?.get?.().tab === 'core', 5000, 'the chat tab did not open');
+if (await page.evaluate(() => window.__ghosty.studio.viewer.running)) problems.push('the studio still draws after leaving it');
+await page.evaluate(() => void window.__ghosty.studio.loadSample('toycar'));
+await until(() => window.__ghosty.studio.state().title === 'Toy car', 30000, 'the toy car did not load while away');
+await page.waitForTimeout(300);
+if (await page.evaluate(() => window.__ghosty.studio.viewer.running)) problems.push('a model that arrived while away restarted the studio\'s drawing behind the chat');
+
 // ---- the security policy and the phone layout ----
 await page.evaluate(() => window.__ghosty.run('open_studio', { sample: 'reactor' }));
 await page.waitForTimeout(500);
@@ -254,6 +263,26 @@ for (const p of ['MODELS', 'PARTS', 'CUT', 'PHOTO', 'ROOM', 'SPLINE']) {
 }
 const st = await S();
 if (st?.error) problems.push(`studio error: ${st.error}`);
+
+// ---- a first visit straight into a room (open_studio {room} before the studio was ever shown):
+// one drawing surface, and the room stays (the default reactor must not replace it) ----
+const fresh = await ctx.newPage();
+fresh.on('pageerror', (e) => problems.push(`fresh pageerror: ${e.message}`));
+await fresh.goto(base);
+if (await fresh.locator('#pair input').isVisible().catch(() => false)) {
+  await fresh.fill('#pair input', 'preview-owner-key-0123456789');
+  await fresh.click('#pair button.on');
+}
+await fresh.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+await fresh.waitForFunction(() => typeof window.__ghosty?.run === 'function', null, { timeout: 10000 });
+if (await fresh.evaluate(() => !!window.__ghosty.studio)) problems.push('the fresh page had the studio open already (the first-visit check means nothing)');
+await fresh.evaluate(() => window.__ghosty.run('open_studio', { room: { w: 380, d: 290, h: 240 } }));
+await fresh.waitForFunction(() => window.__ghosty?.studio?.state().room === true, null, { timeout: 30000 }).catch(() => problems.push('the room did not build on a first visit'));
+await fresh.waitForTimeout(1500);
+const first = await fresh.evaluate(() => ({ canvases: document.querySelectorAll('#pg-studio canvas.studiocanvas').length, title: window.__ghosty.studio.state().title }));
+if (first.canvases !== 1) problems.push(`a first visit with a room made ${first.canvases} drawing surfaces (want 1)`);
+if (!/^Room 380 × 290/.test(first.title)) problems.push(`a first visit with a room shows "${first.title}" (the reactor replaced the room?)`);
+await fresh.close();
 
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : '3D STUDIO run clean on an iPhone 13: three.js loaded from this site, the arc reactor came apart and went back exactly, the slider, select, isolate, hide, section and measure worked, the toy car loaded in parts with its credit, a photo became a model through the (stubbed) brain and a quota refusal was shown in words, rooms were built from sizes and from the planner\'s JSON (the misfit named), Spline took only public my.spline.design links and framed one with "Powered by Spline", SHOT gave a PNG, Ghosty opened the chair on request, and the security policy blocked nothing.');

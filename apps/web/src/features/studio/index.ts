@@ -376,11 +376,17 @@ export const studioTab: TabDef = {
     };
     V.onChange = paintState;
 
+    // `active`: the tab is showing, so a load that lands after the owner left (a 2-minute photo
+    // model) does not restart drawing behind another tab. `asked`: something was asked to load, so
+    // the first visit's default reactor does not replace it.
+    let active = false;
+    let asked = false;
     const loadAny = async (src: ModelSource) => {
+      asked = true;
       vstat.textContent = 'loading…';
       try {
         await V.load(src);
-        V.start();
+        if (active) V.start();
       } catch (e) {
         vstat.textContent = `Could not open it: ${errText(e)}`;
         toast(`Could not open the model: ${errText(e)}`, 'bad');
@@ -389,6 +395,7 @@ export const studioTab: TabDef = {
     const loadSample = async (id: SampleId | string) => {
       const s = SAMPLES.find((x) => x.id === id);
       if (!s) return;
+      asked = true;
       if (!s.file) return loadAny({ kind: 'reactor' });
       vstat.textContent = `fetching ${s.title}…`;
       try {
@@ -401,6 +408,7 @@ export const studioTab: TabDef = {
       }
     };
     const loadMade = async (id: string, title = 'From a picture') => {
+      asked = true;
       vstat.textContent = 'fetching your model…';
       try {
         const r = await fetch(`/api/m3d/${encodeURIComponent(id)}`, { headers: headers(), credentials: 'same-origin' });
@@ -480,22 +488,25 @@ export const studioTab: TabDef = {
     let first = true;
     return {
       enter() {
+        active = true;
         void (async () => {
           if (!(await V.init())) {
             vstat.textContent = V.error;
             return;
           }
+          if (!active) return;
           V.start();
           const a = wanted;
           wanted = null;
           if (a && (a.sample || a.model || a.room || a.spline)) apply(a);
-          else if (first && !V.model) void loadSample('reactor');
+          else if (first && !V.model && !asked) void loadSample('reactor');
           first = false;
           void refreshMade();
         })();
       },
       leave() {
         // Nothing is drawn while the studio is not showing (the phone's battery and memory).
+        active = false;
         V.stop();
         V.setTurntable(false);
       },
