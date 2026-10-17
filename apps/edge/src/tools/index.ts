@@ -164,7 +164,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your library — books, PDFs, papers, notes, code and the starter library (library_search; relevant passages also come in on their own); cite the source.',
+    about: 'You can search your library of books, PDFs, papers, notes, code and the starter library (library_search; relevant passages also come in on their own); cite the source.',
   },
   {
     name: 'library-admin',
