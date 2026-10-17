@@ -70,6 +70,7 @@ export const CLIENT_COMMANDS = [
   'open_space',
   'open_studio',
   'open_learn',
+  'design_changes',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

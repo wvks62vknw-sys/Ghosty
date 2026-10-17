@@ -15,9 +15,11 @@ import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, row, toast } from '../../ui/components';
+import { planToRoom } from '../../space/roomjson';
+import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
 import { splineEmbedUrl } from '../../studio/spline';
-import { Viewer, type Axis, type ModelSource } from '../../studio/viewer';
+import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
 
 /** The samples that ship with Ghosty (public/models), each credited as its licence asks. */
 export const SAMPLES = [
@@ -96,8 +98,57 @@ export const studioTab: TabDef = {
     const vmeasure = h('div.studiomeasure');
     vmeasure.hidden = true;
     const credit = h('div.studiocredit');
-    view.append(h('div.studiohud', vtitle, vstat), vmeasure, credit);
+    // WALK's joystick: push the knob to walk (up = forward); drag anywhere else on the scene to look about.
+    const knob = h('div.studioknob');
+    const stick = h('div.studiostick', { 'aria-label': 'Walk: push to move', role: 'slider' }, knob);
+    stick.hidden = true;
+    const modeBar = h('div.studiomodes');
+    view.append(h('div.studiohud', vtitle, vstat), vmeasure, credit, stick, modeBar);
     const V = new Viewer(view);
+    let stickId: number | null = null;
+    const stickMove = (e: PointerEvent) => {
+      const r = stick.getBoundingClientRect();
+      const R = r.width / 2;
+      let dx = e.clientX - (r.left + R);
+      let dy = e.clientY - (r.top + R);
+      const len = Math.hypot(dx, dy);
+      if (len > R) {
+        dx = (dx / len) * R;
+        dy = (dy / len) * R;
+      }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      V.walkInput = { fwd: -dy / R, side: dx / R };
+    };
+    const stickEnd = () => {
+      stickId = null;
+      knob.style.transform = '';
+      V.walkInput = { fwd: 0, side: 0 };
+    };
+    stick.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      stickId = e.pointerId;
+      stick.setPointerCapture(e.pointerId);
+      stickMove(e);
+    });
+    stick.addEventListener('pointermove', (e) => e.pointerId === stickId && stickMove(e));
+    stick.addEventListener('pointerup', stickEnd);
+    stick.addEventListener('pointercancel', stickEnd);
+    // Arrow keys and WASD walk too (a computer).
+    const keys = new Set<string>();
+    const keyInput = () => {
+      const k = (a: string, b: string) => (keys.has(a) || keys.has(b) ? 1 : 0);
+      V.walkInput = { fwd: k('arrowup', 'w') - k('arrowdown', 's'), side: k('arrowright', 'd') - k('arrowleft', 'a') };
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (V.mode !== 'walk' || (e.target as HTMLElement)?.closest?.('input, textarea')) return;
+      const k = e.key.toLowerCase();
+      if (!['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(k)) return;
+      e.preventDefault();
+      if (e.type === 'keydown') keys.add(k);
+      else keys.delete(k);
+      keyInput();
+    };
 
     // ---- the bar under the scene: take apart, the slider, turntable, frame, screenshot
     const slider = h('input', { type: 'range', min: '0', max: '100', value: '0', step: '1', 'aria-label': 'How far apart', class: 'studioslider' });
@@ -285,6 +336,21 @@ export const studioTab: TabDef = {
     const rh = num('Height (cm)', '240');
     const rjson = h('textarea', { rows: 4, placeholder: 'Optional: paste the SPACE PLANNER’s JSON — {"room":{"w":400,"d":300,"h":240},"items":[{"name":"Sofa","w":200,"d":90,"h":85,"x":20,"y":200,"rot":0}]}', 'aria-label': 'Room JSON' });
     const roomNote = h('div.studioreadout', '');
+    let ceiling = false;
+    let lastRoom: RoomPlan | null = null;
+    const builtText = (plan: RoomPlan) => {
+      const ops = plan.openings ?? [];
+      const doors = ops.filter((o) => o.type === 'door').length;
+      const wins = ops.length - doors;
+      const bits = [plan.rooms && plan.rooms.length > 1 ? `${plan.rooms.length} rooms` : '', doors ? `${doors} door${doors === 1 ? '' : 's'}` : '', wins ? `${wins} window${wins === 1 ? '' : 's'}` : '', plan.items?.length ? `${plan.items.length} item${plan.items.length === 1 ? '' : 's'}` : ''].filter(Boolean);
+      return V.info.warnings.length ? `Check: ${V.info.warnings.join('; ')}.` : `Built: ${plan.room.w} × ${plan.room.d} cm${bits.length ? `, ${bits.join(', ')}` : ''}. WALK stands you in it; AERIAL looks down on it.`;
+    };
+    const showRoom = async (plan: RoomPlan) => {
+      lastRoom = plan;
+      await loadAny({ kind: 'room', plan, ceiling });
+      roomNote.textContent = builtText(plan);
+      paintModes();
+    };
     const buildRoom = async () => {
       let plan: RoomPlan;
       try {
@@ -293,18 +359,45 @@ export const studioTab: TabDef = {
         roomNote.textContent = errText(e);
         return;
       }
-      await loadAny({ kind: 'room', plan });
-      roomNote.textContent = V.info.warnings.length ? `Check: ${V.info.warnings.join('; ')}.` : `Built: ${plan.room.w} × ${plan.room.d} cm${plan.items?.length ? `, ${plan.items.length} item${plan.items.length === 1 ? '' : 's'}` : ''}. Drag to walk round it; INSIDE VIEW stands you in it.`;
+      await showRoom(plan);
     };
+    const fromPlanner = async () => {
+      try {
+        await showRoom(parseRoom(planToRoom(space.get().plan)));
+      } catch (e) {
+        roomNote.textContent = errText(e);
+      }
+    };
+    const ceilBtn = button('CEILING: OFF', () => {
+      ceiling = !ceiling;
+      ceilBtn.textContent = ceiling ? 'CEILING: ON' : 'CEILING: OFF';
+      ceilBtn.classList.toggle('on', ceiling);
+      if (lastRoom && V.info.room) {
+        const mode = V.mode;
+        void showRoom(lastRoom).then(() => mode !== 'orbit' && setMode(mode));
+      }
+    });
     const paintRoom = () =>
       clear(
         roomPane,
-        h('div.note', 'Type the room’s inside size in centimetres, or paste a plan from the SPACE PLANNER, and walk round it in 3-D. TAKE APART lifts the walls away.'),
+        h('div.note', 'Your SPACE PLANNER plan — rooms, doors, windows and furniture — built in 3-D; or type a room’s inside size in centimetres, or paste Room JSON. WALK stands you inside at eye height (push the joystick to walk, drag to look); AERIAL looks straight down.'),
+        h('div.row.wrap', button('FROM MY PLAN', () => void fromPlanner(), 'on'), ceilBtn),
         h('div.studioroom', h('label', 'W', rw), h('label', 'D', rd), h('label', 'H', rh)),
         rjson,
-        h('div.row.wrap', button('BUILD ROOM', () => void buildRoom(), 'on'), button('INSIDE VIEW', () => V.insideView())),
+        h('div.row.wrap', button('BUILD ROOM', () => void buildRoom()), button('INSIDE VIEW', () => V.insideView())),
         roomNote,
       );
+    // ORBIT / WALK / AERIAL, on the scene while a room is showing.
+    const setMode = (m: ViewMode) => {
+      V.setMode(m);
+      stick.hidden = V.mode !== 'walk';
+      paintModes();
+    };
+    const paintModes = () => {
+      modeBar.hidden = !V.info.room;
+      stick.hidden = V.mode !== 'walk';
+      clear(modeBar, ...(['orbit', 'walk', 'aerial'] as const).map((m) => button(m.toUpperCase(), () => setMode(m), V.mode === m ? 'on' : '')));
+    };
 
     // ---- SPLINE
     const splinePane = h('div.studiopane');
@@ -373,6 +466,7 @@ export const studioTab: TabDef = {
       vmeasure.textContent = m ? `◆ ${m}` : V.measuring ? `MEASURE · tap point ${V.measure.points.length + 1} of 2` : '';
       if (pane === 'parts') paintParts();
       if (pane === 'tools') paintTools();
+      paintModes();
     };
     V.onChange = paintState;
 
@@ -451,7 +545,7 @@ export const studioTab: TabDef = {
           rw.value = String(plan.room.w);
           rd.value = String(plan.room.d);
           if (plan.room.h) rh.value = String(plan.room.h);
-          void loadAny({ kind: 'room', plan });
+          void showRoom(plan);
         } catch (e) {
           toast(errText(e), 'warn');
         }
@@ -464,7 +558,10 @@ export const studioTab: TabDef = {
       viewer: V,
       lastShot: null as null | { bytes: number; type: string },
       loadSample: (id: string) => loadSample(id),
-      loadRoom: (plan: unknown) => loadAny({ kind: 'room', plan: parseRoom(plan) }),
+      loadRoom: (plan: unknown) => showRoom(parseRoom(plan)),
+      fromPlanner: () => fromPlanner(),
+      setMode: (m: ViewMode) => setMode(m),
+      setCeiling: (on: boolean) => on !== ceiling && ceilBtn.click(),
       show: (p: Pane) => show(p),
       state: () => ({
         title: V.info.title,
@@ -478,6 +575,13 @@ export const studioTab: TabDef = {
         spline: splineUrl,
         error: V.error,
         running: !!V.renderer,
+        mode: V.mode,
+        walk: V.walk ? { ...V.walk } : null,
+        camera: V.camera ? [V.camera.position.x, V.camera.position.y, V.camera.position.z] : null,
+        ceiling,
+        rooms: V.roomPlan?.rooms?.length ?? (V.info.room ? 1 : 0),
+        openings: V.roomPlan?.openings?.length ?? 0,
+        boxes: V.parts.length,
       }),
     };
     const g = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -489,6 +593,8 @@ export const studioTab: TabDef = {
     return {
       enter() {
         active = true;
+        window.addEventListener('keydown', onKey);
+        window.addEventListener('keyup', onKey);
         void (async () => {
           if (!(await V.init())) {
             vstat.textContent = V.error;
@@ -507,6 +613,10 @@ export const studioTab: TabDef = {
       leave() {
         // Nothing is drawn while the studio is not showing (the phone's battery and memory).
         active = false;
+        window.removeEventListener('keydown', onKey);
+        window.removeEventListener('keyup', onKey);
+        keys.clear();
+        stickEnd();
         V.stop();
         V.setTurntable(false);
       },

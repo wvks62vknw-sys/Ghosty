@@ -269,6 +269,21 @@ the first time.
   **JSON** a file you can **IMPORT** later. The plan stays on this phone. Ask in the chat "find a 3 seater
   sofa under 210 cm for £800" and Ghosty reads UK shops' own pages for prices and sizes (never guessed).
 
+- **SPACE: walls, doors and windows** — tap a wall on the plan (it lights up orange) and press **ADD DOOR**
+  or **ADD WINDOW**; tap a door or window to change its width (and a window's sill height), **FLIP HINGE**,
+  **SWING: IN/OUT** or **REMOVE** it, or drag it along its wall. In **ROOMS · WALLS**: **L-SHAPE** cuts a
+  notch (type its size, **NOTCH:** chooses the corner), **+ ROOM RIGHT** / **+ ROOM BELOW** add a room next
+  door (tap the wall between them to put a door in it), and set the wall thickness, ceiling height and which
+  way is **NORTH**. Each wall shows its length; each room its area in m² and ft². **SEE IN 3-D** (EXPORT)
+  builds the whole plan in the 3D STUDIO.
+
+- **DESIGN REVIEW** (in SPACE) — tap a goal (**MAKE IT FEEL BIGGER**, **A HOME OFFICE**, **MORE LIGHT**,
+  **SAFER…**) or type your own, then **REVIEW MY PLAN**. Ghosty answers in the chat with what matters,
+  each point's source named (UK Approved Documents, good practice), and SPACE opens with up to three
+  changes: tap one to see it **AFTER**, **BEFORE** to compare, **APPLY** to keep it, **UNDO CHANGE** to go
+  back. Nothing changes until you press APPLY. This is advice, not approval: for structural work (taking a
+  wall out, a loft conversion, an extension) check with your council's Building Control.
+
 - **SOUND: is it distorting?** — tap **SOUND** (the camera switches off; only the microphone is used,
   and Safari asks for it the first time — say Allow). Two ways:
   1. **LISTEN**: play your music at your usual volume, hold the phone a metre or two from the speaker,
@@ -432,6 +447,10 @@ on an arc reactor. Nothing to set up; the 3-D engine loads the first time you op
    (it starts `https://my.spline.design/`), paste it here and press **SHOW**. Spline has no way for Ghosty
    to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
 8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
+9. **WALK and AERIAL** (on a room): **FROM MY PLAN** in ROOM builds your SPACE plan — doors and windows cut
+   into the walls; **CEILING** puts a ceiling on. Tap **WALK** on the scene to stand inside at eye height:
+   push the round joystick to walk (walls stop you; doors let you through), drag anywhere else to look
+   about (arrow keys or WASD on a computer). **AERIAL** looks straight down; **ORBIT** goes back.
 
 ## 3m. LEARN: Ghosty as your tutor
 

@@ -59,6 +59,7 @@ import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './u
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked } from './cited';
+import { designRoute } from './tools/design';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -383,6 +384,7 @@ export class GhostyAgent {
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
+      if (path === '/design/plan') return await designRoute(req, method);
       if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface') });
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);

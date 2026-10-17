@@ -7,7 +7,13 @@
  *
  * Coordinates: x across the room's width (left → right), y across its depth (top → bottom, the
  * top wall being the one the plan shows at the top), each piece's x/y its top-left corner.
+ *
+ * A plan may also have the architecture of Room JSON v2 (packages/shared/src/design.ts): rooms
+ * as polygons (an L, several rooms side by side), doors and windows in their walls. `room` is then
+ * the box round them all, and the functions below that take `rooms` keep furniture on the floor
+ * of a room (out of the notch of an L and the gaps between rooms).
  */
+import { DEFAULTS, describeRooms, layoutBounds, outsideRects, readLayout, rectInRooms, type Opening, type RoomShape } from '../../../../packages/shared/src/design';
 
 export interface Room {
   w: number;
@@ -64,7 +70,11 @@ export function footprint(it: Pick<Item, 'x' | 'y' | 'w' | 'd' | 'rot'>): Rect {
 
 export const overlap = (a: Rect, b: Rect, pad = 0) => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
 
-export const insideRoom = (room: Room, r: Rect) => r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= room.w + 0.01 && r.y + r.h <= room.d + 0.01;
+/** Inside the room: its box, or, given its rooms, wholly on one room's floor. */
+export const insideRoom = (room: Room, r: Rect, rooms?: RoomShape[]) => (rooms?.length ? rectInRooms(rooms, r) : r.x >= -0.01 && r.y >= -0.01 && r.x + r.w <= room.w + 0.01 && r.y + r.h <= room.d + 0.01);
+
+/** The parts of the box that are not floor (none for a plain box room). */
+const offFloor = (rooms?: RoomShape[]): Rect[] => (rooms?.length ? outsideRects(rooms) : []);
 
 const clampTo = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -129,11 +139,11 @@ export function tightGaps(items: Item[], min = WALKWAY): Gap[] {
 }
 
 /** Pieces that overlap another or stick out of the room. */
-export function clashes(room: Room, items: Item[]): string[] {
+export function clashes(room: Room, items: Item[], rooms?: RoomShape[]): string[] {
   const bad = new Set<string>();
   items.forEach((it, i) => {
     const f = footprint(it);
-    if (!insideRoom(room, f)) bad.add(it.id);
+    if (!insideRoom(room, f, rooms)) bad.add(it.id);
     for (let j = i + 1; j < items.length; j++) {
       if (overlap(f, footprint(items[j]!))) {
         bad.add(it.id);
@@ -145,18 +155,17 @@ export function clashes(room: Room, items: Item[]): string[] {
 }
 
 /** Room floor not covered by furniture (cm²). */
-export const freeArea = (room: Room, items: Item[]) => room.w * room.d - items.reduce((s, it) => s + it.w * it.d, 0);
+export const freeArea = (room: Room, items: Item[], rooms?: RoomShape[]) => room.w * room.d - offFloor(rooms).reduce((s, r) => s + r.w * r.h, 0) - items.reduce((s, it) => s + it.w * it.d, 0);
 
 /**
  * The biggest open rectangle of floor (cm and cm²), on a 5 cm grid: the classic largest
  * rectangle in a histogram, row by row.
  */
-export function largestOpen(room: Room, items: Item[], cell = GRID): Rect & { area: number } {
+export function largestOpen(room: Room, items: Item[], cell = GRID, rooms?: RoomShape[]): Rect & { area: number } {
   const cols = Math.max(1, Math.floor(room.w / cell));
   const rows = Math.max(1, Math.floor(room.d / cell));
   const blocked = new Uint8Array(cols * rows);
-  for (const it of items) {
-    const f = footprint(it);
+  for (const f of [...items.map(footprint), ...offFloor(rooms)]) {
     const x0 = Math.max(0, Math.floor(f.x / cell + 1e-6));
     const x1 = Math.min(cols, Math.ceil((f.x + f.w) / cell - 1e-6));
     const y0 = Math.max(0, Math.floor(f.y / cell + 1e-6));
@@ -186,8 +195,9 @@ export function largestOpen(room: Room, items: Item[], cell = GRID): Rect & { ar
 }
 
 /** Where a new piece (w × d cm) could stand without overlapping anything, trying both turns; null when nowhere. */
-export function findSpot(room: Room, items: Item[], w: number, d: number, clearance = 0): { x: number; y: number; rot: 0 | 1 } | null {
+export function findSpot(room: Room, items: Item[], w: number, d: number, clearance = 0, rooms?: RoomShape[]): { x: number; y: number; rot: 0 | 1 } | null {
   const others = items.map(footprint);
+  const off = offFloor(rooms);
   for (const rot of [0, 1] as const) {
     const fw = rot ? d : w;
     const fh = rot ? w : d;
@@ -195,7 +205,7 @@ export function findSpot(room: Room, items: Item[], w: number, d: number, cleara
     for (let y = 0; y + fh <= room.d + 0.01; y += GRID) {
       for (let x = 0; x + fw <= room.w + 0.01; x += GRID) {
         const r = { x, y, w: fw, h: fh };
-        if (!others.some((o) => overlap(r, o, clearance - 0.01))) return { x, y, rot };
+        if (!others.some((o) => overlap(r, o, clearance - 0.01)) && !off.some((o) => overlap(r, o, -0.01)) && (!rooms?.length || rectInRooms(rooms, r))) return { x, y, rot };
       }
     }
   }
@@ -203,14 +213,14 @@ export function findSpot(room: Room, items: Item[], w: number, d: number, cleara
 }
 
 /** "Will it fit?": with a walkway round it, without one, or not at all — in plain words. */
-export function willItFit(room: Room, items: Item[], w: number, d: number): { fits: boolean; spot: { x: number; y: number; rot: 0 | 1 } | null; text: string } {
+export function willItFit(room: Room, items: Item[], w: number, d: number, rooms?: RoomShape[]): { fits: boolean; spot: { x: number; y: number; rot: 0 | 1 } | null; text: string } {
   if (!(w > 0 && d > 0)) return { fits: false, spot: null, text: 'Type its width and depth.' };
   if (Math.min(w, d) > Math.min(room.w, room.d) || Math.max(w, d) > Math.max(room.w, room.d)) return { fits: false, spot: null, text: `No: ${w} × ${d} cm is bigger than the room (${room.w} × ${room.d} cm).` };
-  const easy = findSpot(room, items, w, d, WALKWAY);
+  const easy = findSpot(room, items, w, d, WALKWAY, rooms);
   if (easy) return { fits: true, spot: easy, text: `Yes, with a ${WALKWAY} cm walkway round it${easy.rot ? ' (turned)' : ''}.` };
-  const tight = findSpot(room, items, w, d, 0);
+  const tight = findSpot(room, items, w, d, 0, rooms);
   if (tight) return { fits: true, spot: tight, text: `Only just: it fits${tight.rot ? ' turned' : ''}, but leaves less than ${WALKWAY} cm to walk past. Try MAKE SPACE first.` };
-  const open = largestOpen(room, items);
+  const open = largestOpen(room, items, GRID, rooms);
   return { fits: false, spot: null, text: `Not as things stand: the biggest open floor is ${open.w} × ${open.h} cm. MAKE SPACE may free enough.` };
 }
 
@@ -258,15 +268,16 @@ export interface Arrangement {
 }
 
 /** One strategy: biggest pieces first, each against the first wall in the list that has room. */
-function arrange(room: Room, items: Item[], walls: Wall[], fromEnd: boolean[]): Item[] | null {
+function arrange(room: Room, items: Item[], walls: Wall[], fromEnd: boolean[], rooms?: RoomShape[]): Item[] | null {
   const order = [...items].sort((a, b) => b.w * b.d - a.w * a.d || a.id.localeCompare(b.id));
-  const placed: Rect[] = [];
+  // The notch of an L and the gaps between rooms are taken before anything is placed.
+  const placed: Rect[] = offFloor(rooms);
   const out: Item[] = [];
   for (const it of order) {
     let put: Item | null = null;
     for (let k = 0; k < walls.length && !put; k++) put = onWall(room, it, walls[k]!, placed, fromEnd[k]!);
     if (!put) {
-      const spot = findSpot(room, out, it.w, it.d);
+      const spot = findSpot(room, out, it.w, it.d, 0, rooms);
       if (!spot) return null;
       put = { ...it, x: spot.x, y: spot.y, rot: spot.rot };
     }
@@ -282,17 +293,17 @@ function arrange(room: Room, items: Item[], walls: Wall[], fromEnd: boolean[]): 
  * rectangle first (fewer tight gaps, then fewer pieces moved, break ties). Every piece stays in
  * the room and nothing overlaps.
  */
-export function makeSpace(room: Room, items: Item[], max = 3): { now: Rect & { area: number }; options: Arrangement[] } {
-  const now = largestOpen(room, items);
+export function makeSpace(room: Room, items: Item[], max = 3, rooms?: RoomShape[]): { now: Rect & { area: number }; options: Arrangement[] } {
+  const now = largestOpen(room, items, GRID, rooms);
   const seen = new Set<string>();
   const options: Arrangement[] = [];
   for (const s of STRATEGIES) {
-    const got = arrange(room, items, s.walls, s.fromEnd);
-    if (!got || clashes(room, got).length) continue;
+    const got = arrange(room, items, s.walls, s.fromEnd, rooms);
+    if (!got || clashes(room, got, rooms).length) continue;
     const key = got.map((it) => `${it.x},${it.y},${it.rot}`).join('|');
     if (seen.has(key)) continue;
     seen.add(key);
-    const open = largestOpen(room, got);
+    const open = largestOpen(room, got, GRID, rooms);
     const moved = got.filter((g, i) => g.x !== items[i]!.x || g.y !== items[i]!.y || g.rot !== items[i]!.rot).length;
     options.push({ name: s.name, items: got, open, gaps: tightGaps(got).length, moved });
   }
@@ -303,17 +314,47 @@ export function makeSpace(room: Room, items: Item[], max = 3): { now: Rect & { a
 // ---------------------------------------------------------------- saving
 
 export interface Plan {
-  v: 1;
+  /** 1: one box room (as older files were); 2: with the architecture below. */
+  v: 1 | 2;
   room: Room;
   items: Item[];
+  /** v2: the rooms (cm, the box round them starting at 0, 0), doors and windows, wall thickness, ceiling height, the plan's north. */
+  rooms?: RoomShape[];
+  openings?: Opening[];
+  wall?: number;
+  h?: number;
+  north?: number;
 }
+
+/** The architecture of a plan, as Room JSON v2 says it (a v1 plan: one box room, no openings). */
+export function layoutOf(plan: Plan): { rooms: RoomShape[]; openings: Opening[]; wall: number; h: number; north: number } {
+  if (plan.rooms?.length) return { rooms: plan.rooms, openings: plan.openings ?? [], wall: plan.wall ?? DEFAULTS.wall, h: plan.h ?? DEFAULTS.h, north: plan.north ?? 0 };
+  return { rooms: [{ id: 'r1', name: 'Room', poly: [[0, 0], [plan.room.w, 0], [plan.room.w, plan.room.d], [0, plan.room.d]] }], openings: plan.openings ?? [], wall: plan.wall ?? DEFAULTS.wall, h: plan.h ?? DEFAULTS.h, north: plan.north ?? 0 };
+}
+
+/** The rooms to keep furniture in: a v2 plan's polygons, none for a plain box (the box itself is the room). */
+export const roomsOf = (plan: Plan): RoomShape[] | undefined => (plan.rooms?.length ? plan.rooms : undefined);
 
 /** A plan read back from JSON (the phone's storage or an imported file), checked and cleaned; null when it is not one. */
 export function readPlan(json: unknown): Plan | null {
-  const o = json as { room?: { w?: unknown; d?: unknown }; items?: unknown };
+  const o = json as { room?: { w?: unknown; d?: unknown; h?: unknown }; items?: unknown; rooms?: unknown; openings?: unknown; h?: unknown };
   const n = (v: unknown, lo: number, hi: number) => (typeof v === 'number' && Number.isFinite(v) ? clampTo(v, lo, hi) : null);
-  const w = n(o?.room?.w, 50, 5000);
-  const d = n(o?.room?.d, 50, 5000);
+  // v2: rooms and openings come with it, checked; the box round the rooms is the room.
+  const v2 = (Array.isArray(o?.rooms) && o.rooms.length > 0) || (Array.isArray(o?.openings) && o.openings.length > 0);
+  // The planner keeps the ceiling height as `h`; Room JSON as room.h.
+  const lay = v2 ? readLayout({ ...o, room: { ...o.room, h: o.h ?? o.room?.h } }) : null;
+  // Rooms drawn away from 0, 0 are moved there, and the furniture with them.
+  let dx = 0;
+  let dy = 0;
+  if (lay) {
+    const b = layoutBounds(lay.rooms);
+    dx = -b.x;
+    dy = -b.y;
+    if (dx || dy) for (const r of lay.rooms) r.poly = r.poly.map(([x, y]) => [x + dx, y + dy]);
+  }
+  const box = lay ? layoutBounds(lay.rooms) : null;
+  const w = box ? clampTo(Math.round(box.w * 10) / 10, 50, 5000) : n(o?.room?.w, 50, 5000);
+  const d = box ? clampTo(Math.round(box.h * 10) / 10, 50, 5000) : n(o?.room?.d, 50, 5000);
   if (w == null || d == null || !Array.isArray(o.items)) return null;
   const items: Item[] = [];
   for (const raw of o.items.slice(0, 60) as Record<string, unknown>[]) {
@@ -321,9 +362,10 @@ export function readPlan(json: unknown): Plan | null {
     const id = n(raw?.d, 5, 1000);
     if (iw == null || id == null) continue;
     const rot = [0, 1, 2, 3].includes(raw.rot as number) ? (raw.rot as Item['rot']) : 0;
-    items.push({ id: String(raw.id ?? `i${items.length}`).slice(0, 24), kind: String(raw.kind ?? 'custom').slice(0, 20), label: String(raw.label ?? 'Item').slice(0, 40), w: iw, d: id, x: n(raw.x, 0, w) ?? 0, y: n(raw.y, 0, d) ?? 0, rot });
+    items.push({ id: String(raw.id ?? `i${items.length}`).slice(0, 24), kind: String(raw.kind ?? 'custom').slice(0, 20), label: String(raw.label ?? 'Item').slice(0, 40), w: iw, d: id, x: n(typeof raw.x === 'number' ? raw.x + dx : raw.x, 0, w) ?? 0, y: n(typeof raw.y === 'number' ? raw.y + dy : raw.y, 0, d) ?? 0, rot });
   }
-  return { v: 1, room: { w, d }, items };
+  if (!lay) return { v: 1, room: { w, d }, items };
+  return { v: 2, room: { w, d }, items, rooms: lay.rooms, openings: lay.openings, wall: lay.wall, h: lay.h, north: lay.north };
 }
 
 /** The plan in plain words, for the chat ("Room 420 × 360 cm; Sofa, 3-seater 210 × 95 at the top wall; …"). */
@@ -333,10 +375,10 @@ export function describePlan(plan: Plan): string {
     const at = [f.y <= 1 ? 'top wall' : '', f.x + f.w >= plan.room.w - 1 ? 'right wall' : '', f.y + f.h >= plan.room.d - 1 ? 'bottom wall' : '', f.x <= 1 ? 'left wall' : ''].filter(Boolean);
     return at.length ? `against the ${at.join(' and ')}` : `at ${Math.round(f.x)},${Math.round(f.y)} cm`;
   };
-  const open = largestOpen(plan.room, plan.items);
+  const open = largestOpen(plan.room, plan.items, GRID, roomsOf(plan));
   const gaps = tightGaps(plan.items);
   return [
-    `Room ${plan.room.w} × ${plan.room.d} cm (${(plan.room.w * plan.room.d / 10000).toFixed(1)} m²)`,
+    plan.rooms?.length ? `Plan ${plan.room.w} × ${plan.room.d} cm: ${describeRooms(layoutOf(plan)).join('; ')}` : `Room ${plan.room.w} × ${plan.room.d} cm (${(plan.room.w * plan.room.d / 10000).toFixed(1)} m²)`,
     ...plan.items.map((it) => `${it.label} ${it.w} × ${it.d} cm ${wall(it)}`),
     `biggest open floor ${open.w} × ${open.h} cm`,
     gaps.length ? `${gaps.length} gap${gaps.length > 1 ? 's' : ''} under ${WALKWAY} cm` : '',

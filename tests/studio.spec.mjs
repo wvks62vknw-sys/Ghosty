@@ -200,6 +200,58 @@ await btn('INSIDE VIEW').click();
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/studio-room.png` });
 
+// ---- ARCHITECTURE: an L-shaped room with a door and a window — walls cut round them; CEILING; WALK and AERIAL ----
+const lroom = { v: 2, room: { w: 500, d: 400, h: 240 }, wall: 10, rooms: [{ id: 'r1', name: 'Lounge', poly: [[0, 0], [300, 0], [300, 150], [500, 150], [500, 400], [0, 400]] }], openings: [{ id: 'd1', type: 'door', room: 'r1', wall: 4, at: 300, w: 80, hinge: 'start', swing: 'in' }, { id: 'w1', type: 'window', room: 'r1', wall: 0, at: 100, w: 120, h: 120, sill: 90 }], items: [{ name: 'Sofa', w: 200, d: 90, h: 85, x: 20, y: 280, rot: 0 }] };
+await page.fill('#pg-studio textarea[aria-label="Room JSON"]', JSON.stringify(lroom));
+await btn('BUILD ROOM').click();
+await until(() => { const s = window.__ghosty.studio.state(); return s.room && s.openings === 2 && s.parts.some((p) => /over the door/.test(p.name)); }, 8000, `the L-shaped room with a door and a window was not built: ${JSON.stringify((await S())?.parts.map((p) => p.name))}`);
+let arch = await S();
+const names = arch.parts.map((p) => p.name);
+// six walls; the top one cut round the window (2 solid + over + under + glass), the bottom round the door (2 solid + over), a door leaf, a floor, the sofa
+const want = { wall: 4 + (2 + 2) + (2 + 1), glass: 1, door: 1 };
+const n = (re) => names.filter((x) => re.test(x)).length;
+if (n(/, window$/) !== want.glass || n(/^Door d1$/) !== want.door || n(/^Lounge, wall \d(?!.*, window$)/) !== want.wall || n(/floor$/) !== 1) problems.push(`the L's pieces: ${JSON.stringify(names)}`);
+if (arch.warnings.length) problems.push(`the L warned: ${arch.warnings}`);
+if (!/WALK stands you in it/.test(await page.locator('#pg-studio .studiopane .studioreadout').textContent())) problems.push('the room pane does not say what WALK does');
+await btn('CEILING: OFF').click();
+await until(() => window.__ghosty.studio.state().ceiling && window.__ghosty.studio.state().parts.some((p) => /ceiling$/.test(p.name)), 8000, 'CEILING did not add a ceiling');
+// WALK: eye height, the joystick walks, a drag on the scene looks about
+const modes = page.locator('#pg-studio .studiomodes');
+if (!(await modes.isVisible())) problems.push('no ORBIT / WALK / AERIAL on the scene for a room');
+await modes.locator('button', { hasText: 'WALK' }).click();
+arch = await S();
+if (arch.mode !== 'walk' || !arch.walk || Math.abs(arch.camera[1] - 1.6) > 0.1) problems.push(`WALK: ${JSON.stringify({ mode: arch.mode, walk: arch.walk, camera: arch.camera })}`);
+const stick = page.locator('#pg-studio .studiostick');
+if (!(await stick.isVisible())) problems.push('no joystick in WALK');
+else {
+  const sb = await stick.boundingBox();
+  const start = arch.walk;
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + 4, { steps: 4 });
+  await page.waitForTimeout(900);
+  await page.mouse.up();
+  const walked = (await S()).walk;
+  const d = Math.hypot(walked.x - start.x, walked.z - start.z);
+  if (!(d > 0.3)) problems.push(`the joystick did not walk: moved ${d.toFixed(2)} m (${JSON.stringify(start)} → ${JSON.stringify(walked)})`);
+  const view = await page.locator('#pg-studio .studioview').boundingBox();
+  await page.mouse.move(view.x + view.width * 0.7, view.y + view.height * 0.4);
+  await page.mouse.down();
+  await page.mouse.move(view.x + view.width * 0.3, view.y + view.height * 0.4, { steps: 5 });
+  await page.mouse.up();
+  const looked = (await S()).walk;
+  if (!(looked.yaw > walked.yaw + 0.3)) problems.push(`dragging the scene did not turn the head: yaw ${walked.yaw} → ${looked.yaw}`);
+}
+await page.screenshot({ path: `${out}/studio-walk.png` });
+await modes.locator('button', { hasText: 'AERIAL' }).click();
+arch = await S();
+if (arch.mode !== 'aerial' || !(arch.camera[1] > 4)) problems.push(`AERIAL: ${JSON.stringify({ mode: arch.mode, camera: arch.camera })}`);
+if (await stick.isVisible()) problems.push('the joystick stays in AERIAL');
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/studio-aerial.png` });
+await modes.locator('button', { hasText: 'ORBIT' }).click();
+if ((await S()).mode !== 'orbit') problems.push('ORBIT did not come back');
+
 // ---- SPLINE: strict links only; a good one is framed with "Powered by Spline" ----
 await pane('SPLINE');
 const spline = page.locator('#pg-studio input[aria-label="Spline public URL"]');
@@ -285,5 +337,5 @@ if (!/^Room 380 × 290/.test(first.title)) problems.push(`a first visit with a r
 await fresh.close();
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : '3D STUDIO run clean on an iPhone 13: three.js loaded from this site, the arc reactor came apart and went back exactly, the slider, select, isolate, hide, section and measure worked, the toy car loaded in parts with its credit, a photo became a model through the (stubbed) brain and a quota refusal was shown in words, rooms were built from sizes and from the planner\'s JSON (the misfit named), Spline took only public my.spline.design links and framed one with "Powered by Spline", SHOT gave a PNG, Ghosty opened the chair on request, and the security policy blocked nothing.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : '3D STUDIO run clean on an iPhone 13: three.js loaded from this site, the arc reactor came apart and went back exactly, the slider, select, isolate, hide, section and measure worked, the toy car loaded in parts with its credit, a photo became a model through the (stubbed) brain and a quota refusal was shown in words, rooms were built from sizes and from the planner\'s JSON (the misfit named), an L-shaped room with a door and a window was built with its walls cut round them, a ceiling added, WALK walked with the joystick and looked about with a drag, AERIAL looked down, Spline took only public my.spline.design links and framed one with "Powered by Spline", SHOT gave a PNG, Ghosty opened the chair on request, and the security policy blocked nothing.');
 process.exit(problems.length ? 1 : 0);
