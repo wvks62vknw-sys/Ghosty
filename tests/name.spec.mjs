@@ -3,8 +3,9 @@
 // picked photo of a lemon (tests/fixtures/lemon.jpg, CC0, Evan-Amos on Wikimedia Commons) is named
 // "lemon" first, a tap on that name offers SEARCH THE WEB (words only to the brain) and ASK GHOSTY
 // (the picture plus the names as the phone's guesses in `seen`), the live fake camera is named too,
-// and the security policy lets the vendored runtime and its WebAssembly run. The real model runs
-// here: no WebGPU needed, one thread.
+// and the security policy lets the vendored runtime and its WebAssembly run. The runtime runs in its
+// own worker, ended on leaving NAME (the only way to give its WebAssembly memory back). The real
+// model runs here: no WebGPU needed, one thread.
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync } from 'node:fs';
 
@@ -32,6 +33,21 @@ page.on('console', (m) => {
 });
 await page.addInitScript(() => {
   window.__csp = [];
+  // every worker the page starts, and whether it was ended
+  window.__workers = [];
+  const W = window.Worker;
+  window.Worker = class extends W {
+    constructor(url, opts) {
+      super(url, opts);
+      const rec = { url: String(url), ended: false };
+      window.__workers.push(rec);
+      const end = this.terminate.bind(this);
+      this.terminate = () => {
+        rec.ended = true;
+        end();
+      };
+    }
+  };
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
 
@@ -108,6 +124,12 @@ else {
 }
 await until(() => window.__ghosty?.lens?.mode === 'ask' && /I can see a picture/.test(window.__ghosty?.lens?.reply ?? ''), 30000, `ASK from NAME got no reply: ${JSON.stringify(await lens())}`);
 
+// ---- leaving NAME ends the namer's worker: its runtime and WebAssembly memory go with it ----
+const clipWorkers = () => page.evaluate(() => window.__workers.filter((w) => /\/vendor\/clip\/worker\.mjs/.test(w.url)));
+const afterLeave = await clipWorkers();
+if (!afterLeave.length) problems.push('the namer did not run in its own worker');
+else if (afterLeave.some((w) => !w.ended)) problems.push(`leaving NAME left the namer's worker running: ${JSON.stringify(afterLeave)}`);
+
 // ---- live: START the camera, back to NAME, the fake camera's picture gets names (loaded again after leaving) ----
 await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open: ${JSON.stringify(await lens())}`);
@@ -118,6 +140,8 @@ await until(() => (window.__ghosty?.lens?.names?.length ?? 0) === 5 && /ms a loo
 const box = await page.locator('#pg-lens .lensview').boundingBox();
 if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 await until(() => /tapped part/.test(document.querySelector('#pg-lens .lenscount')?.textContent ?? ''), 10000, 'a tap on the viewfinder did not name the tapped part');
+const again = await clipWorkers();
+if (again.filter((w) => !w.ended).length !== 1) problems.push(`back in NAME, ${again.filter((w) => !w.ended).length} namer workers are running, not 1`);
 await page.screenshot({ path: `${out}/name-live.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot: ${e.message.split('\n')[0]}`));
 
 const csp = await page.evaluate(() => window.__csp);

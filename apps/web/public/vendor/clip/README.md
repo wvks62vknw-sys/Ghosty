@@ -6,6 +6,7 @@ worker after the first use. Nothing here talks to the network on its own.
 | File | What | Size |
 | --- | --- | --- |
 | `ort.wasm.min.mjs`, `ort-wasm-simd-threaded.mjs`, `ort-wasm-simd-threaded.wasm` | ONNX Runtime Web 1.30.0 (`npm pack onnxruntime-web@1.30.0`, `dist/`), WebAssembly only; MIT | 14.3 MB |
+| `worker.mjs` | ours: the worker the runtime and the encoder run in (`src/vision/clip.ts` talks to it with two plain messages, `load` and `run`); leaving NAME ends it, which is what gives the runtime's WebAssembly memory back | 2 KB |
 | `mobileclip_s0_vision_fp16.onnx` | MobileCLIP-S0 picture encoder from `Xenova/mobileclip_s0` (`onnx/vision_model_fp16.onnx`): input `pixel_values` 1×3×256×256 (RGB 0–1, no mean/std: `do_normalize` false in its `preprocessor_config.json`; shortest side to 256, centre 256), output `image_embeds` 1×512 | 22.9 MB |
 | `core.labels.json` + `core.f16.bin` | 4,624 names × 512 half floats (little-endian), each row length 1 | 4.8 MB |
 | `extended.labels.json` + `extended.i8.bin` | 28,223 names: 28,223 float32 scales, then 28,223 × 512 int8 (value = int8 × the row's scale) | 14.9 MB |
