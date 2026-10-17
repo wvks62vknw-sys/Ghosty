@@ -71,6 +71,15 @@ test('check digits: EAN-13, EAN-8, UPC-A, ISBN-10; a book is 978/979 but not 979
   assert.equal(kinds('0140328726', ''), 'isbn');
   assert.equal(kinds('9790260000438', 'EAN13'), 'product', 'sheet music (979-0) is not a book');
   assert.equal(S.classifyCode('9780140328721', 'EAN-13').code, '9780140328721');
+  // UPC-E: checked and looked up as the UPC-A it stands for, whichever reader named it
+  assert.equal(S.expandUpcE('03917139'), '039100000719');
+  assert.equal(S.expandUpcE('04451266'), '044512000066');
+  assert.equal(S.expandUpcE('01234505'), '012000003455');
+  assert.equal(S.expandUpcE('01234531'), '012300000451');
+  assert.equal(S.expandUpcE('01234544'), '012340000054');
+  assert.deepEqual(S.classifyCode('03917139', 'UPCE'), { kind: 'product', raw: '03917139', code: '039100000719' });
+  assert.equal(S.classifyCode('04451266', 'upc_e').code, '044512000066');
+  assert.equal(kinds('03917138', 'UPCE'), 'text', 'a wrong UPC-E check digit is not a product');
 });
 
 test('a web address: the real site picked out, and warnings for the usual tricks', () => {
@@ -88,6 +97,13 @@ test('a web address: the real site picked out, and warnings for the usual tricks
   assert.match(w('https://bit.ly/abc'), /link shortener/);
   assert.match(w('https://hmrc-tax-refund-claim.com/'), /mentions "hmrc"|joined by dashes/);
   assert.equal(w('https://www.paypal.com/signin'), '', 'the real site is not flagged');
+  // a brand's name registered under someone else's suffix is not the brand
+  assert.match(w('https://barclays.co.ua/login'), /mentions "barclays" but the site really belongs to barclays\.co\.ua/);
+  assert.match(w('https://paypal.com.ru/signin'), /mentions "paypal" but the site really belongs to paypal\.com\.ru/);
+  assert.match(w('https://paypal.ru/x'), /mentions "paypal"/);
+  assert.match(w('https://microsoft.azurewebsites.net/'), /mentions "microsoft"/);
+  for (const real of ['https://www.barclays.co.uk/', 'https://www.tax.service.gov.uk/', 'https://www.hmrc.gov.uk/', 'https://www.nhs.uk/', 'https://www.amazon.co.uk/', 'https://outlook.office.com/mail', 'https://www.gov.uk/'])
+    assert.equal(w(real), '', `${real} is the real site`);
   assert.equal(C.registrableDomain('a.b.example.com.au'), 'example.com.au');
   assert.equal(C.classifyCode('www.example.org/menu').url.scheme, 'http');
   assert.equal(C.classifyCode('javascript:alert(1)').kind, 'text', 'no scheme but http(s) is a link');
@@ -165,4 +181,15 @@ test('straightening: corners go to the page corners, A4-shaped, and the page com
   assert.equal(e[0], 0);
   assert.equal(e[4], 255);
   assert.throws(() => P.homography([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }], to), /do not make a page/);
+});
+
+test('the barcode reader ships both its licences: zxing-wasm (MIT) and zxing-cpp compiled into the wasm (Apache-2.0)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const dir = new URL('../../web/public/vendor/', import.meta.url);
+  assert.match(await readFile(new URL('zxing/LICENSE', dir), 'utf8'), /MIT License/);
+  const apache = await readFile(new URL('zxing/LICENSE-zxing-cpp.txt', dir), 'utf8');
+  assert.match(apache, /zxing-cpp/);
+  assert.match(apache, /Apache License\s+Version 2\.0, January 2004/);
+  assert.match(apache, /4\. Redistribution\./);
+  assert.match(await readFile(new URL('VISION.md', dir), 'utf8'), /zxing\/LICENSE-zxing-cpp\.txt/);
 });

@@ -17,6 +17,7 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const HERE = { latitude: 52.4797, longitude: -1.9026 };
+const placesAsked = [];
 
 async function phone({ compass }) {
   const ctx = await browser.newContext({
@@ -44,14 +45,14 @@ async function phone({ compass }) {
 
   // ---- the data routes, stubbed: a tower due east, a hill due north, a plane, a bus, no ships, the station overhead
   const json = (route, body) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
-  await page.route('**/api/aim/places?**', (r) =>
+  await page.route('**/api/aim/places?**', (r) => (placesAsked.push(r.request().url()),
     json(r, {
       credit: 'Places: Wikipedia, OpenStreetMap',
       places: [
         { id: 'east', name: 'East Tower', kind: 'tower', lat: HERE.latitude, lon: HERE.longitude + 0.05, height: 100, wiki: 'East Tower', dist: 3400 },
         { id: 'north', name: 'North Hill', kind: 'peak', lat: HERE.latitude + 0.06, lon: HERE.longitude, ele: 260, dist: 6700 },
       ],
-    }),
+    })),
   );
   await page.route('**/api/aim/about?**', (r) => json(r, { title: 'East Tower', extract: 'East Tower is a made-up tower used to test AIM.', url: '' }));
   await page.route('**/api/aim/iss', (r) => json(r, { lat: 52.6, lon: -1.6, altKm: 420, speedKmh: 27600, visibility: 'daylight', at: Date.now() }));
@@ -111,7 +112,9 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
 
   // facing 75° (a little left of east): the tower is right of the middle
   await face(page, 285);
-  await page.waitForTimeout(700);
+  // the compass is smoothed: wait for the reading to settle on 75° rather than a fixed time
+  await page.waitForFunction(() => Math.abs((window.__ghosty?.aim?.heading ?? 0) - 75) < 1, null, { timeout: 5000 }).catch(() => undefined);
+  await page.waitForTimeout(200);
   m = await marker(page, 'east');
   if (!m?.on || m.x < w / 2 + 25) problems.push(`facing 75°, the place due east is not right of the middle: ${JSON.stringify(m)}`);
 
@@ -145,6 +148,9 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
     if (sent.images) problems.push('WHAT\'S THAT? sent a picture (words only expected)');
     if (sent.message !== "What's that?") problems.push(`the question was "${sent.message}"`);
   }
+  // the brain is told the square kilometre, not the exact spot
+  const precise = placesAsked.filter((u) => !/[?&]lat=52\.48&lon=-1\.90&/.test(u));
+  if (!placesAsked.length || precise.length) problems.push(`places were asked about the exact spot: ${precise.join(' ')}`);
   const counts = (await aim(page)).counts;
   if (counts.plane !== 1 || counts.transit !== 1 || counts.space !== 1) problems.push(`counts: ${JSON.stringify(counts)}`);
   // describe() tells the chat what is aimed at
@@ -184,8 +190,8 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   await until(page, () => window.__ghosty?.aim?.sensors === 'manual', null, 8000, `no fallback to drag-to-pan without a compass: ${JSON.stringify(await aim(page))}`);
   if (!(await page.locator('#pg-lens .aimslider').isVisible())) problems.push('no heading slider without a compass');
   await page.locator('#pg-lens .aimslider').fill('90');
-  await page.waitForTimeout(400);
-  if (Math.abs((await aim(page)).heading - 90) > 0.5) problems.push(`the slider did not turn AIM to 90°: ${(await aim(page)).heading}`);
+  // the heading is read back from the drawing loop, which a busy machine may run late
+  await until(page, () => Math.abs((window.__ghosty?.aim?.heading ?? 0) - 90) <= 0.5, null, 5000, `the slider did not turn AIM to 90°: ${(await aim(page)).heading}`);
   await until(page, () => (window.__ghosty?.aim?.markers ?? []).some((m) => m.id === 'east' && m.on), null, 15000, 'slider at 90°: the tower is not on screen');
   // a drag to the left turns the view right (like moving a picture)
   const box = await page.locator('#pg-lens .lensview').boundingBox();
@@ -197,6 +203,21 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   await page.waitForTimeout(300);
   const after = (await aim(page)).heading;
   if (!(after > before + 5)) problems.push(`dragging left did not turn the view right: ${before} → ${after}`);
+  // the same with a finger: the browser must not take the drag as a page pan (pointercancel)
+  const pan = await page.evaluate(() => getComputedStyle(document.querySelector('#pg-lens .lensview')).touchAction);
+  if (pan !== 'none') problems.push(`in drag-to-pan the viewfinder leaves touch drags to the browser (touch-action: ${pan})`);
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type, x) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: box.y + box.height / 2 }] });
+  const fingerBefore = (await aim(page)).heading;
+  await touch('touchStart', box.x + box.width * 0.7);
+  for (let i = 1; i <= 8; i++) {
+    await touch('touchMove', box.x + box.width * (0.7 - 0.05 * i));
+    await page.waitForTimeout(16);
+  }
+  await touch('touchEnd');
+  await page.waitForTimeout(300);
+  const fingerAfter = (await aim(page)).heading;
+  if (!(fingerAfter > fingerBefore + 5)) problems.push(`a finger drag to the left did not turn the view right: ${fingerBefore} → ${fingerAfter}`);
   await page.screenshot({ path: `${out}/aim-manual.png` });
   await ctx.close();
 }

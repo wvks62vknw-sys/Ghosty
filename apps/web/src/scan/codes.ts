@@ -36,8 +36,46 @@ export interface CodeInfo {
 
 /** Second-level labels under which a country's names are registered ("co.uk", "com.au"). */
 const SECOND_LEVEL = new Set(['co', 'com', 'org', 'net', 'gov', 'ac', 'edu', 'ltd', 'plc', 'me', 'sch', 'nhs', 'police', 'mod', 'gob', 'ne', 'or', 'go']);
-/** Names that lookalike addresses borrow, so a code pointing at "paypal.com.secure-login.ru" is called out. */
-const BRANDS = ['paypal', 'apple', 'icloud', 'google', 'microsoft', 'outlook', 'amazon', 'netflix', 'facebook', 'instagram', 'whatsapp', 'hmrc', 'gov', 'nhs', 'dvla', 'royalmail', 'evri', 'dpd', 'barclays', 'hsbc', 'lloyds', 'natwest', 'santander', 'monzo', 'revolut', 'halifax', 'nationwide', 'ebay', 'binance', 'coinbase'];
+/**
+ * Names that lookalike addresses borrow, each with the owner's own registrable domains, so a code
+ * pointing at "paypal.com.secure-login.ru" or at "barclays.co.ua" is called out. Only the listed
+ * domains count as the real thing (an entry also covers names registered under it, for "gov.uk"):
+ * anyone can register "<brand>.<some country>", so a brand's name on its own proves nothing.
+ */
+const BRANDS: Record<string, readonly string[]> = {
+  paypal: ['paypal.com', 'paypal.me', 'paypal.co.uk'],
+  apple: ['apple.com', 'apple.co', 'apple.news'],
+  icloud: ['icloud.com'],
+  google: ['google.com', 'google.co.uk', 'google.ie', 'google.de', 'google.fr', 'google.es', 'google.it', 'google.nl', 'google.ca', 'google.com.au', 'google.co.in', 'google.co.jp', 'google.dev', 'google.org'],
+  microsoft: ['microsoft.com'],
+  outlook: ['outlook.com', 'live.com', 'office.com', 'office365.com'],
+  amazon: ['amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.es', 'amazon.it', 'amazon.nl', 'amazon.ie', 'amazon.ca', 'amazon.com.au', 'amazon.co.jp', 'amazon.in', 'amazonaws.com'],
+  netflix: ['netflix.com', 'netflix.net'],
+  facebook: ['facebook.com', 'fb.com', 'facebook.net'],
+  instagram: ['instagram.com'],
+  whatsapp: ['whatsapp.com', 'whatsapp.net', 'wa.me'],
+  hmrc: ['gov.uk'],
+  gov: ['gov.uk', 'gov', 'gov.ie', 'gov.au', 'gov.in'],
+  nhs: ['nhs.uk', 'nhs.net'],
+  dvla: ['gov.uk'],
+  royalmail: ['royalmail.com', 'royalmail.co.uk'],
+  evri: ['evri.com'],
+  dpd: ['dpd.co.uk', 'dpd.com'],
+  barclays: ['barclays.co.uk', 'barclays.com'],
+  hsbc: ['hsbc.co.uk', 'hsbc.com'],
+  lloyds: ['lloydsbank.com'],
+  natwest: ['natwest.com'],
+  santander: ['santander.co.uk', 'santander.com'],
+  monzo: ['monzo.com', 'monzo.me'],
+  revolut: ['revolut.com', 'revolut.me'],
+  halifax: ['halifax.co.uk', 'halifax-online.co.uk'],
+  nationwide: ['nationwide.co.uk'],
+  ebay: ['ebay.com', 'ebay.co.uk', 'ebay.de', 'ebay.fr', 'ebay.ie', 'ebay.com.au'],
+  binance: ['binance.com'],
+  coinbase: ['coinbase.com'],
+};
+/** True when `domain` is one of the brand's own (or registered under one, as "hmrc.gov.uk" is under "gov.uk"). */
+const isOfficial = (brand: string, domain: string): boolean => (BRANDS[brand] ?? []).some((d) => domain === d || domain.endsWith(`.${d}`));
 const SHORTENERS = new Set(['bit.ly', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'rebrand.ly', 'cutt.ly', 'shorturl.at', 'rb.gy', 'tiny.cc', 's.id', 'qrco.de', 'qr.link']);
 
 /** The owning part of a host name: the last two labels, or three under a country's "co.uk"-style label. */
@@ -68,7 +106,9 @@ export function urlParts(text: string): UrlParts | null {
   if (host.split('.').some((l) => l.startsWith('xn--'))) warnings.push('The name uses look-alike letters from another alphabet (it is written in "punycode"): it may imitate a real site.');
   if (u.username || u.password || /@/.test(text.split('?')[0]!.replace(/^https?:\/\//i, '').split('/')[0]!)) warnings.push('The address hides its real destination behind an "@": the site is the part after it.');
   const sub = host.slice(0, Math.max(0, host.length - domain.length)).replace(/\.$/, '');
-  const brand = BRANDS.find((b) => (sub.split(/[.-]/).includes(b) || domain.replace(/\.[^.]+$/, '').split('-').includes(b)) && !domain.startsWith(`${b}.`));
+  // The brand may be in the part before the owner's name, or be (part of) that name itself ("barclays.co.ua").
+  const named = [...sub.split(/[.-]/), ...domain.split('.')[0]!.split('-')];
+  const brand = Object.keys(BRANDS).find((b) => named.includes(b) && !isOfficial(b, domain));
   if (brand) warnings.push(`It mentions "${brand}" but the site really belongs to ${domain}: a common trick. Check before trusting it.`);
   if ((domain.match(/-/g) ?? []).length >= 2) warnings.push(`The site name ${domain} is a string of words joined by dashes, often a sign of a throwaway site.`);
   if (SHORTENERS.has(host)) warnings.push('A link shortener: the real destination is hidden until it is opened.');
@@ -150,12 +190,28 @@ function parseGeo(text: string): CodeInfo['geo'] | null {
   return { lat, lon, label: q.replace(/^-?\d+(\.\d+)?,-?\d+(\.\d+)?\s*/, '').replace(/^\((.*)\)$/, '$1') };
 }
 
+/**
+ * An 8-digit UPC-E (number system, six digits, check digit) → the 12-digit UPC-A it is short for.
+ * The sixth digit says where the zeros that were left out go.
+ */
+export function expandUpcE(code: string): string {
+  const [ns, a, b, c, d, e, f, check] = code.split('');
+  const mid =
+    f === '0' || f === '1' || f === '2' ? `${a}${b}${f}0000${c}${d}${e}` : f === '3' ? `${a}${b}${c}00000${d}${e}` : f === '4' ? `${a}${b}${c}${d}00000${e}` : `${a}${b}${c}${d}${e}0000${f}`;
+  return `${ns}${mid}${check}`;
+}
+
 /** A scanned code's text (and the format the reader named) → what it is. */
 export function classifyCode(raw: string, format = ''): CodeInfo {
   const text = String(raw ?? '').trim();
   const fmt = format.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const digits = digitsOf(text);
   const linear = /^(EAN|UPC|ISBN)/.test(fmt);
+  // A UPC-E's check digit belongs to the UPC-A it stands for, and the databases file it under that number.
+  if (fmt === 'UPCE' && /^[01]\d{7}$/.test(digits)) {
+    const upca = expandUpcE(digits);
+    return isProductCode(upca) ? { kind: 'product', raw: text, code: upca } : { kind: 'text', raw: text };
+  }
   if ((linear || !fmt || /^\d[\d\s-]+$/.test(text)) && /^\d{8,14}$|^\d{9}[\dX]$/i.test(digits)) {
     if (isIsbn(digits)) return { kind: 'isbn', raw: text, code: digits };
     if (isProductCode(digits)) return { kind: 'product', raw: text, code: digits };

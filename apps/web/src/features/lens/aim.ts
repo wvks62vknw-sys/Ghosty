@@ -182,6 +182,7 @@ export function createAimMode(L: LensContext): Mode {
     sensorPose = sensorPose ? smooth(sensorPose, next, 0.35) : next;
     A.sensors = absolute || compass != null ? 'compass' : 'relative';
     if (!manual.hidden) manual.hidden = true;
+    view.classList.remove('aimpan');
   };
 
   const startSensors = (tapped: boolean) => {
@@ -216,6 +217,8 @@ export function createAimMode(L: LensContext): Mode {
   const goManual = (why: string) => {
     A.sensors = 'manual';
     manual.hidden = false;
+    // A finger drag must reach onMove: left to the browser it becomes a page pan and is cancelled.
+    view.classList.add('aimpan');
     startBtn.hidden = false;
     startBtn.textContent = 'TRY THE COMPASS';
     L.status(`${why} · drag the picture to look around`, 'mid');
@@ -231,6 +234,7 @@ export function createAimMode(L: LensContext): Mode {
     lastEventAt = 0;
     lastAbsoluteAt = 0;
     A.sensors = 'off';
+    view.classList.remove('aimpan');
   };
 
   /** Where the camera points now: the sensor (corrected by ALIGN) or the manual heading. */
@@ -289,7 +293,8 @@ export function createAimMode(L: LensContext): Mode {
       return transitFrom(j);
     }
     if (k === 'place') {
-      const j = (await brainJson(`/api/aim/places?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&r=15000`)) as { note?: string };
+      // About a kilometre is all the brain needs (it answers per square kilometre); bearings are worked out here.
+      const j = (await brainJson(`/api/aim/places?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}&r=15000`)) as { note?: string };
       A.feeds.place = j.note ? `note: ${j.note}` : 'live';
       return placesFrom(j);
     }

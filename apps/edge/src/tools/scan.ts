@@ -4,7 +4,7 @@
  * chat as well as in the Lens. Both look things up and change nothing.
  */
 import { LANGUAGES } from '../../../../packages/shared/src/scan';
-import { lookupBarcode, renderLookup, translate } from '../integrations/lookup';
+import { LookupError, lookupBarcode, renderLookup, translate } from '../integrations/lookup';
 import { asData } from '../kernel/permissions';
 import { arg, type Tool } from './types';
 import { search } from './web';
@@ -39,9 +39,17 @@ export const scanTools: Tool[] = [
     async run(a, ctx) {
       const text = arg.str(a, 'text');
       const to = arg.str(a, 'to', false) || 'en';
-      // No chat model here: without Workers AI the model calling this is the translator, and is told so.
-      if (!ctx.env.AI) return `The free translator (Workers AI) is not available here: translate it yourself into ${to}, keeping the meaning exactly.`;
-      const r = await translate(text, to, { ai: ctx.env.AI, from: arg.str(a, 'from', false) });
+      // No chat model here: without Workers AI (or when it fails, e.g. the day's allowance is used) the model calling this is the translator, and is told so.
+      const yourself = `The free translator (Workers AI) is not available here: translate it yourself into ${to}, keeping the meaning exactly.`;
+      if (!ctx.env.AI) return yourself;
+      let r;
+      try {
+        r = await translate(text, to, { ai: ctx.env.AI, from: arg.str(a, 'from', false) });
+      } catch (e) {
+        // A request problem (nothing to translate, a language it does not offer) is said as it is.
+        if (e instanceof LookupError && e.status !== 503) throw e;
+        return yourself;
+      }
       if (r.engine === 'none') return `The text is already in ${r.to}.`;
       return asData('the translator', `Translation (${r.from || '?'} → ${r.to}):\n${r.text}`);
     },

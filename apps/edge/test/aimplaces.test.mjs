@@ -101,7 +101,9 @@ test('/places: Wikipedia and the second Overpass mirror (the first reset the con
   assert.match(decodeURIComponent(calls.find((u) => u.hostname === 'overpass.openstreetmap.fr').search), /\[bbox:52\.345/);
   const geo = calls.find((u) => u.hostname === 'en.wikipedia.org');
   assert.equal(geo.searchParams.get('gsradius'), '10000', "Wikipedia's own limit");
-  assert.equal(geo.searchParams.get('gscoord'), '52.47970|-1.90260');
+  assert.equal(geo.searchParams.get('gscoord'), '52.48000|-1.90000', 'only the square kilometre leaves the brain, not the exact spot');
+  const box = decodeURIComponent(calls.find((u) => u.hostname === 'overpass.openstreetmap.fr').search).match(/\[bbox:([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)\]/).slice(1).map(Number);
+  assert.ok(Math.abs((box[0] + box[2]) / 2 - 52.48) < 0.001 && Math.abs((box[1] + box[3]) / 2 + 1.9) < 0.001, `the box is centred on the square kilometre: ${box}`);
   // the same square kilometre again: no new requests
   const n = calls.length;
   await X.placesNear(BHAM.lat + 0.001, BHAM.lon, 15_000);

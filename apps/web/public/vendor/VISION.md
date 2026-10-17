@@ -25,7 +25,7 @@ one person's private, non-commercial assistant, which is within those terms; it 
 in a commercial product with these files. Our changes: none to the model; the name vectors are derived
 from the model's text encoder (see `clip/README.md`). Apple Machine Learning Research Model is licensed
 under the Apple Machine Learning Research Model License Agreement.
-| `zxing/` | ZXing-C++ barcode and QR reader, WebAssembly (`zxing_reader.wasm`, 931 KB) and its ES module bundled into one file (`zxing-reader.mjs`, 36 KB) | zxing-wasm 3.1.4 (reader build; zxing-cpp inside) | MIT (zxing-wasm), Apache-2.0 (zxing-cpp) |
+| `zxing/` | ZXing-C++ barcode and QR reader, WebAssembly (`zxing_reader.wasm`, 931 KB) and its ES module bundled into one file (`zxing-reader.mjs`, 36 KB) | zxing-wasm 3.1.4 (reader build; zxing-cpp inside) | MIT (zxing-wasm, `zxing/LICENSE`), Apache-2.0 (zxing-cpp, `zxing/LICENSE-zxing-cpp.txt`) |
 
 One change to the upstream files: `mediapipe/vision_bundle.mjs` had a usage-logging call to
 `odml.pa.googleapis.com` (sent with an API key whenever a task ran); it is removed, so the runtime

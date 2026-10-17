@@ -122,16 +122,46 @@ test('an outage is said plainly and not remembered; a wrong number is refused', 
   await assert.rejects(LK.lookupBarcode('hello'), LK.LookupError);
 });
 
+test('a rate limit or a refusal (429, 403) is a failure, not "nobody knows it", and is not remembered', async () => {
+  // Open Food Facts rate-limits with an HTML page; its sister databases rightly say 404
+  network({ 'world.openfoodfacts.org': () => new Response('<html>Too Many Requests</html>', { status: 429, headers: { 'content-type': 'text/html' } }) });
+  const r = await LK.lookupBarcode('4006381333931');
+  assert.equal(r.kind, 'unknown');
+  assert.match(r.note, /Open Food Facts answered 429/);
+  network({ 'world.openfoodfacts.org/api/v2/product/4006381333931': jsonRes({ status: 1, product: { product_name: 'Highlighter', brands: 'Stabilo' } }) });
+  assert.equal((await LK.lookupBarcode('4006381333931')).kind, 'product', 'asked again once the limit cleared');
+  // the same for a book: Open Library refusing is not "no such book"
+  network({ 'openlibrary.org/isbn/9780306406157': () => jsonRes({ error: 'forbidden' }, 403) });
+  const book = await LK.lookupBarcode('9780306406157');
+  assert.equal(book.kind, 'unknown');
+  assert.match(book.note, /Open Library answered 403/);
+  const calls = network();
+  await LK.lookupBarcode('9780306406157');
+  assert.ok(calls.some((c) => c.url === 'https://openlibrary.org/isbn/9780306406157.json'), 'asked again, not answered from memory');
+});
+
 test('translation: Workers AI m2m100 with the right inputs; a chat model when there is none; neither is an error', async () => {
   const runs = [];
   const ai = { run: async (model, inputs) => (runs.push({ model, inputs }), { translated_text: 'Good morning, everyone' }) };
-  const r = await LK.translate('Buenos días a todos, por favor', 'English', { ai });
+  const r = await LK.translate('Buenos días a todos, la puerta está cerrada por favor', 'English', { ai });
   assert.deepEqual(r, { text: 'Good morning, everyone', from: 'es', to: 'en', engine: 'workers-ai' });
-  assert.deepEqual(runs, [{ model: '@cf/meta/m2m100-1.2b', inputs: { text: 'Buenos días a todos, por favor', source_lang: 'es', target_lang: 'en' } }]);
-  // already in that language: nothing asked
-  const same = await LK.translate('Please keep the door closed for the cat', 'en', { ai });
+  assert.deepEqual(runs, [{ model: '@cf/meta/m2m100-1.2b', inputs: { text: 'Buenos días a todos, la puerta está cerrada por favor', source_lang: 'es', target_lang: 'en' } }]);
+  // already in that language, as the caller said: nothing asked
+  const same = await LK.translate('Please keep the door closed for the cat', 'en', { ai, from: 'English' });
   assert.equal(same.engine, 'none');
   assert.equal(runs.length, 1);
+  // a guess never answers "already in that language": an Italian sign with one English-looking word is translated
+  const italian = await LK.translate('Vietato fumare in questa area', 'en', { ai });
+  assert.equal(italian.engine, 'workers-ai');
+  assert.equal(runs.length, 2);
+  // a French sign whose only small word is "de" is not taken for Spanish
+  assert.equal((await LK.translate('Sortie de secours', 'es', { ai })).engine, 'workers-ai');
+  // unsure of the source, the chat model (which recognises it) goes first; Workers AI if it fails
+  const both = await LK.translate('Saída de emergência', 'en', { ai, complete: async () => 'Emergency exit' });
+  assert.deepEqual(both, { text: 'Emergency exit', from: '', to: 'en', engine: 'model' });
+  assert.equal(runs.length, 3);
+  const fallback = await LK.translate('Saída de emergência', 'en', { ai, complete: async () => { throw new Error('rate limited'); } });
+  assert.equal(fallback.engine, 'workers-ai');
 
   let seen;
   const complete = async (messages) => ((seen = messages), 'Exit');
@@ -162,6 +192,12 @@ test('the language guess: alphabets first, then common words; unsure is empty', 
   assert.equal(LK.guessLang('Proszę nie palić, to jest zabronione'), 'pl');
   assert.equal(LK.guessLang('I love it'), 'en');
   assert.equal(LK.guessLang('Xyzzy'), '');
+  // one shared small word, or a tie, is no guess
+  assert.equal(LK.guessLang('Vietato fumare in questa area'), '');
+  assert.equal(LK.guessLang('Sortie de secours'), '');
+  assert.equal(LK.guessLang('Prière de ne pas fumer'), '');
+  assert.equal(LK.guessLang('Saída de emergência'), '');
+  assert.equal(LK.guessLang('Buenos días a todos, la puerta está cerrada por favor'), 'es');
 });
 
 test('the chat tools: lookup_barcode as data from the source; translate_text with and without Workers AI', async () => {
@@ -174,8 +210,14 @@ test('the chat tools: lookup_barcode as data from the source; translate_text wit
   assert.match(out, /Book: Fantastic Mr\. Fox/);
   assert.match(await tool('translate_text').run({ text: 'Hola amigos', to: 'English' }, ctx), /translate it yourself into English/);
   const ai = { run: async () => ({ translated_text: 'Hello friends' }) };
-  const t = await tool('translate_text').run({ text: 'Hola amigos, por favor', to: 'en' }, { ...ctx, env: { AI: ai } });
+  const t = await tool('translate_text').run({ text: 'Hola amigos, la puerta está cerrada por favor', to: 'en' }, { ...ctx, env: { AI: ai } });
   assert.match(t, /Translation \(es → en\):\nHello friends/);
+  // Workers AI bound but failing (the day's allowance used, or an empty answer): the caller translates
+  const spent = { run: async () => { throw new Error('daily allowance used'); } };
+  assert.match(await tool('translate_text').run({ text: 'Hola amigos', to: 'English' }, { ...ctx, env: { AI: spent } }), /translate it yourself into English/);
+  const empty = { run: async () => ({ translated_text: '' }) };
+  assert.match(await tool('translate_text').run({ text: 'Hola amigos', to: 'fr' }, { ...ctx, env: { AI: empty } }), /translate it yourself into fr/);
+  await assert.rejects(tool('translate_text').run({ text: 'Hola', to: 'Klingon' }, { ...ctx, env: { AI: ai } }), /cannot translate into "Klingon"/);
   // the group switches on for barcodes and translation words, and stays off otherwise
   const on = (text) => T.selectGroups(text, new Set()).on.some((g) => g.name === 'scan');
   assert.ok(on('what is barcode 3017620422003?'));
@@ -226,9 +268,9 @@ test('GET /api/lookup/barcode and POST /api/translate through the worker, owner 
   assert.equal((await call('/api/lookup/barcode?code=3017620422003', {}, null)).status, 401, 'owner only');
 
   env.AI = { run: async (_m, i) => ({ translated_text: `[${i.target_lang}] ${i.text}` }) };
-  const t = await call('/api/translate', { method: 'POST', body: JSON.stringify({ text: 'Hola amigos, por favor', to: 'fr' }) });
+  const t = await call('/api/translate', { method: 'POST', body: JSON.stringify({ text: 'Hola amigos, la puerta está cerrada', to: 'fr' }) });
   assert.equal(t.status, 200);
-  assert.deepEqual(await t.json(), { text: '[fr] Hola amigos, por favor', from: 'es', to: 'fr', engine: 'workers-ai' });
+  assert.deepEqual(await t.json(), { text: '[fr] Hola amigos, la puerta está cerrada', from: 'es', to: 'fr', engine: 'workers-ai' });
   assert.equal((await call('/api/translate', { method: 'POST', body: JSON.stringify({ text: '' }) })).status, 400);
   // without Workers AI the mock chat model translates (MOCK_LLM)
   delete env.AI;
