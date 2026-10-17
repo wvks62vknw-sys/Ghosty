@@ -243,9 +243,21 @@ export interface AgendaEventInfo {
   source: string;
 }
 
+/** An upgrade Ghosty proposed for itself (apps/edge/src/upgrades.ts; Workshop → UPGRADE IDEAS, GET /api/upgrades). */
+export interface UpgradeIdea {
+  id: string;
+  title: string;
+  /** What the owner gets. */
+  why: string;
+  /** Short concrete steps, each naming the files or tools. */
+  steps: string[];
+  /** When it was proposed. */
+  at: number;
+}
+
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'upgrade';
   title: string;
   text: string;
   next: number;

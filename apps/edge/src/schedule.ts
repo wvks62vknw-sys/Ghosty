@@ -15,8 +15,8 @@ import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
 export interface Job {
   id: string;
-  /** reminder = notify; task = Ghosty runs a prompt; verify = internal check of a shipped change; study = self-study session (no AI) */
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  /** reminder = notify; task = Ghosty runs a prompt; verify = internal check of a shipped change; study = self-study session (no AI); upgrade = the daily upgrade ideas (upgrades.ts) */
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'upgrade';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;
@@ -120,6 +120,23 @@ export async function addJob(
   jobs.push(job);
   await saveJobs(storage, jobs);
   return job;
+}
+
+/**
+ * One standing job of a kind (Ghosty's own daily routines, e.g. the upgrade ideas): added once,
+ * at the next hour:minute in its time zone, and left alone when it is already there — so a brain
+ * that restarts never doubles it. Any extra of the kind is removed.
+ */
+export async function ensureJob(storage: DurableObjectStorage, j: { kind: Job['kind']; title: string; text: string; hour: number; minute: number; tz: string; repeat: Repeat }): Promise<Job> {
+  const jobs = await loadJobs(storage);
+  const mine = jobs.filter((x) => x.kind === j.kind);
+  if (mine.length > 1) await saveJobs(storage, jobs.filter((x) => x.kind !== j.kind || x === mine[0]));
+  if (mine[0]) return mine[0];
+  const tz = safeTz(j.tz);
+  const z = zoned(Date.now(), tz);
+  let next = fromZoned(z.y, z.m, z.d, j.hour, j.minute, tz);
+  if (next <= Date.now() + 60_000) next = fromZoned(z.y, z.m, z.d + 1, j.hour, j.minute, tz);
+  return addJob(storage, { kind: j.kind, title: j.title, text: j.text, next, repeat: j.repeat, tz });
 }
 
 export async function removeJob(storage: DurableObjectStorage, id: string): Promise<boolean> {

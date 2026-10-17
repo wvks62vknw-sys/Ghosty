@@ -42,7 +42,8 @@ import type { Tool, ToolContext } from './tools/types';
 import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
-import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -252,6 +253,7 @@ export class GhostyAgent {
     this.state.waitUntil(this.meter.load());
     try {
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
+      if (!this.dailyChecked) this.state.waitUntil(this.ensureDailyJobs().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).
       const ownerKey = req.headers.get('x-ghosty-key');
       const sealed = req.headers.get('x-ghosty-vault');
@@ -362,6 +364,7 @@ export class GhostyAgent {
       }
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
+      if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);
       const li = path.match(/^\/lens\/share\/([A-Za-z0-9_-]{16})$/);
@@ -1156,6 +1159,7 @@ export class GhostyAgent {
         await setNext(this.storage, job.id, Date.now() + r.next);
         return json({ study: { ...r.state, did: r.did, next: Date.now() + r.next, summary: studySummary(r.state) } });
       }
+      if (job.kind === 'upgrade') return json(await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps())));
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -1238,6 +1242,9 @@ export class GhostyAgent {
           const r = await this.meter.as('study', () => studySession(this.storage, this.library, { ai: this.studyAi(), spare: this.meter.spare() }));
           await finishJob(this.storage, job.id, r.did.reads || r.did.digests || r.did.drills ? `studied: ${r.did.reads} read, ${r.did.digests} digested, ${r.did.drills} drilled` : (r.state.last?.error ?? 'nothing to do'));
           await setNext(this.storage, job.id, Date.now() + r.next);
+        } else if (job.kind === 'upgrade') {
+          // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
+          await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else {
@@ -1283,6 +1290,27 @@ export class GhostyAgent {
       await addJob(this.storage, { kind: 'study', title: 'Self-study', text: 'Read the next topics of the curriculum into the library, write study notes, and run a drill.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
       await rearm(this.storage);
     }
+  }
+
+  /** Ghosty's own daily routines (upgrades.ts), one standing job each: checked once per brain, again later if the database was paused. */
+  private dailyChecked = false;
+  private dailyCheck: Promise<void> = Promise.resolve();
+  private ensureDailyJobs(): Promise<void> {
+    // After the study check: both read and rewrite the jobs list, and two of those at once lose one job.
+    const run = this.dailyCheck.then(() => this.studyCheck).then(() => ensureJob(this.storage, UPGRADE_JOB)).then(() => void (this.dailyChecked = true));
+    this.dailyCheck = run.catch(() => undefined);
+    return run;
+  }
+
+  /** What the daily upgrade ideas (job and Workshop routes) need from the brain. */
+  private upgradeDeps(): UpgradeDeps {
+    return {
+      storage: this.storage,
+      library: this.library,
+      audit: () => toolByName.get('self_audit')!.run({}, this.toolContext(() => undefined)),
+      ask: this.studyAi(),
+      notify: async (title, text) => void (await this.notify({ kind: 'task', title, text })),
+    };
   }
 
   /**

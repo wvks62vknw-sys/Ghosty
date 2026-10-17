@@ -47,8 +47,8 @@ async function chat(message, path = '/api/chat', body = { message, context: { tz
   await Promise.allSettled(pending.splice(0));
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
-// The owner's jobs (Ghosty's own hourly self-study job is left out).
-const jobs = () => (state.storage.m.get('jobs') ?? []).filter((j) => j.kind !== 'study');
+// The owner's jobs (Ghosty's own jobs — hourly self-study, the daily upgrade ideas — are left out).
+const jobs = () => (state.storage.m.get('jobs') ?? []).filter((j) => j.kind !== 'study' && j.kind !== 'upgrade');
 const inbox = async () => (await (await call('/api/inbox')).json()).items;
 
 test('time zones: wall-clock times survive daylight-saving changes', () => {

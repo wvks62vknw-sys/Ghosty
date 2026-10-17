@@ -209,6 +209,13 @@ domains, hosts, IPs and web addresses — never a person:
 If no preview link ever appears, turn on **Worker → Settings → Build → Builds for non-production
 branches**. Shipping still works without previews.
 
+Once a day (05:40 UTC, so before you are up) Ghosty also thinks about what it could build for itself,
+from what you asked that week, what it couldn't answer and what went wrong. New ideas appear in
+**Workshop → UPGRADE IDEAS**, with a notification the first time each one appears. **BUILD** hands an
+idea to the chat (it then goes through the same change → preview → SHIP IT flow), **DISMISS** drops it,
+and **THINK NOW** asks straight away. Nothing is built or shipped without you; with no free model
+reachable that morning it simply tries again the next day.
+
 ## 5. Cloudflare login (optional, recommended)
 
 Puts a Cloudflare email-code login in front of Ghosty and its previews.
