@@ -47,6 +47,8 @@ const ms = () => page.evaluate(() => {
 const until = (fn, ms, what) => page.waitForFunction(fn, null, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
 /** A tap on the picture at its own pixel (x, y). */
 const tapAt = async (x, y) => {
+  // On a phone the Lens scrolls as one page: bring the picture back into view first, as a person would.
+  await page.evaluate(() => document.querySelector('#pg-lens .lensview').scrollIntoView({ block: 'nearest' }));
   const p = await page.evaluate(([x, y]) => window.__ghosty.measure.at(x, y), [x, y]);
   if (!p) return void problems.push(`no place on screen for picture point ${x},${y}`);
   await page.mouse.click(p.x, p.y);
