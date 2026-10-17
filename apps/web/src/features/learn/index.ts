@@ -444,12 +444,13 @@ export const learnTab: TabDef = {
       rates.hidden = true;
       for (const r of ['again', 'hard', 'good', 'easy'] as Rating[]) {
         const b = button(h('span', h('b', r.toUpperCase()), h('small', nextText(card, r, Date.now()))), () => {
-          L.review(card, r);
+          const rated = L.review(card, r);
           learnState.revise.done++;
-          // Forgotten: seen again before this sitting ends (SM-2 brings it back in 10 minutes anyway).
+          // Forgotten: seen again before this sitting ends (SM-2 brings it back in 10 minutes anyway),
+          // as the card is now — the lapse just recorded is what the next rating builds on.
           if (r === 'again' && !again.has(card.id)) {
             again.add(card.id);
-            queue.push({ ...card });
+            queue.push(rated);
           }
           paintHero();
           nextCard();
