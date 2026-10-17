@@ -1,0 +1,28 @@
+{
+ "_note": "Trimmed from a real answer of simple.wikipedia.org/w/api.php (generator=search, prop=extracts|info, explaintext, exsectionformat=wiki, formatversion=2) for 'photosynthesis', captured 2026-10-17; the flattened maths block is kept as Wikipedia sends it.",
+ "simple": {
+  "batchcomplete": true,
+  "continue": {
+   "gsroffset": 1,
+   "continue": "gsroffset||"
+  },
+  "query": {
+   "pages": [
+    {
+     "pageid": 3518,
+     "ns": 0,
+     "title": "Photosynthesis",
+     "index": 1,
+     "extract": "Photosynthesis is a process in which green plants make their own food from sunlight, using the help of leaves to produce sugar. It is the process by which these organisms convert light energy into chemical energy, which is used to produce food. Photosynthesis is the process by which plant cells containing chlorophyll produce food substances (glucose and starch) from carbon dioxide and water, and oxygen is released. \n\n\n== Origin ==\nPhotosynthesis is not an accident. It happens because its building blocks occur in space, and get included when planets form.\nBefore photosynthesis, the Earth's atmosphere had almost no oxygen. \n\n\n=== Ways it is done ===\nPhotosynthesis can happen in different ways, but there are some parts that are common.\n\n  \n    \n      \n        6\n        C\n        \n          O\n          \n            2\n          \n        \n        +\n        6\n        \n          H\n          \n            2\n          \n        \n        O\n      \n    \n    {\\displaystyle 6CO_{2}+6H_{2}O\\xrightarrow {light\\ +\\ chlorophyll} C_{6}H_{12}O_{6}+6O_{2}}\n  \n\ncarbon dioxide + water + light energy → glucose + oxygen\nCarbon dioxide enters the leaf through the stomata by diffusion from the atmosphere.\nPhotosynthesis occurs in the chloroplasts in leaves (or other green tissues). They contain chlorophyll, the green pigment that absorbs light energy.\n\n\n== Process ==\n\nPhotosynthesis has two main sets of reactions, known as phases. Light-dependent reactions which need light to do work; and light-independent reactions which do not need light to do work.\n\n\n=== Light-dependent phase ===\n\nLight energy from the sun is used to split water molecules (photolysis). Water, when split, gives oxygen, hydrogen, and electrons.\n\n\n== Factors affecting photosynthesis ==\n\nThere are three main factors affecting photosynthesis:\n\nLight intensity\nCarbon dioxide concentration\nTemperature\n\n\n== Related pages ==\nCell\nPlant\nEcology\nChloroplast\n\n\n== References ==",
+     "contentmodel": "wikitext",
+     "pagelanguage": "en",
+     "touched": "2026-09-06T23:45:54Z",
+     "lastrevid": 10903963,
+     "length": 11908,
+     "fullurl": "https://simple.wikipedia.org/wiki/Photosynthesis",
+     "canonicalurl": "https://simple.wikipedia.org/wiki/Photosynthesis"
+    }
+   ]
+  }
+ }
+}

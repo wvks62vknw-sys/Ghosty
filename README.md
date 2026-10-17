@@ -114,6 +114,12 @@ tests/       local preview server + browser test
   its manual and reviewers recommend, sources named (`gadget_settings`); show it a broken part and it finds
   it in UK shops with prices read off their pages, best match first (`find_part`). Never a guessed setting
   or price.
+- **LEARN — Ghosty as your tutor**: "teach me X" plans a short course at your level (beginner, intermediate
+  or advanced) from the library and Wikipedia; each lesson is written once at your level with a worked
+  example, its sources marked [n] and a check question, and can be read aloud; quizzes (multiple choice and
+  short answers marked by a model) come from the same sources; wrong answers become flashcards revised with
+  spaced repetition (SM-2), with a morning "cards to revise" note and a daily streak. Everything is kept on
+  the phone so reading and revision work offline. In chat: `tutor` (also "quiz me out loud" in voice).
 - **3D STUDIO**: a Stark-style holographic lab (vendored three.js): turn any model, **TAKE APART** and
   **REASSEMBLE** it (one-piece models are split into their real pieces), isolate or hide parts, cut it open
   with a **SECTION** plane, **MEASURE** between two taps, screenshot it. Free samples (Khronos glTF, credited),

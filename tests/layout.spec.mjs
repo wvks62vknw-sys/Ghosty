@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
-const TABS = ['core', 'eye', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio'];
+const TABS = ['core', 'eye', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn'];
 for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', { width: 1440, height: 900 }]]) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
