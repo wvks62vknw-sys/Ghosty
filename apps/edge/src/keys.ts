@@ -5,6 +5,7 @@
  */
 import { MailError, parseEmailKey, testLogin } from './integrations/mail';
 import { parseTfwmKey } from './integrations/transit';
+import { dropTokens, motToken, parseMotKey, VES_API, VehicleError } from './integrations/vehicle';
 
 export interface KeyDef {
   name: string;
@@ -17,6 +18,8 @@ export interface KeyDef {
   why: string;
   /** Plain-English steps, shown when the owner opens "how do I get this?". */
   steps: string[];
+  /** Pasted as several lines: the System tab shows a box this many lines tall (a one-line box would run them together). */
+  lines?: number;
 }
 
 export function keyDefs(repo?: string): KeyDef[] {
@@ -247,6 +250,36 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     {
+      name: 'dvsa_mot',
+      label: 'DVSA MOT history (vehicle check)',
+      hint: 'the five lines from DVSA\'s email: client ID, client secret, API key, token URL, scope',
+      link: 'https://documentation.history.mot.api.gov.uk/mot-history-api/register/',
+      need: 'optional',
+      lines: 5,
+      why: "Check one car you photograph or type in: make, model, colour, MOT valid until, every MOT test with its mileage and advisories, and a warning if the mileage ever went down. Free from DVSA. Looked up once, never saved.",
+      steps: [
+        'Open the link and press "Register for MOT history API". Choose to register as an individual and fill in your name, email and postal address (it is free).',
+        'For what you will use it for, write something like: "Personal use: checking the MOT history of a car before buying it."',
+        'Wait for DVSA\'s email (up to 5 working days). It gives you five things: a client ID, a client secret, an API key, a token URL (it starts with https://login.microsoftonline.com/) and a scope (https://tapi.dvsa.gov.uk/.default).',
+        'Copy those five lines from the email and paste them all into the box below, one per line, in any order (the words in front, like "Client ID:", can stay). Press SAVE. Ghosty signs in once to check them; no car is looked up.',
+        'Use it at least once every 90 days or DVSA cancels the key. The client secret runs out after 2 years: DVSA emails you before then.',
+        'What is never stored: the plate and the record are shown once and not kept — not in the chat history, memory, library or anywhere else. Ghosty never looks up who owns a car.',
+      ],
+    },
+    {
+      name: 'dvla_ves',
+      label: 'DVLA vehicle enquiry (tax status)',
+      hint: 'a long letters-and-numbers key (for when DVLA reopens registrations)',
+      link: 'https://developer-portal.driver-vehicle-licensing.api.gov.uk/apis/vehicle-enquiry-service/vehicle-enquiry-service-description.html',
+      need: 'optional',
+      why: 'Adds tax status and due date, CO2, engine size and year to a vehicle check. DVLA has paused new registrations: keep this for when they reopen. Not needed for MOT history.',
+      steps: [
+        'DVLA is not taking new registrations at the moment (the link says "Registration closed"). When they reopen, register there (free).',
+        'DVLA emails you an API key. Copy it, paste it below and press SAVE.',
+        'Meanwhile the free check at vehicleenquiry.service.gov.uk shows the same tax details in any browser.',
+      ],
+    },
+    {
       name: 'email',
       label: 'Email (app password)',
       hint: 'you@gmail.com then a space, then the app password',
@@ -355,6 +388,27 @@ export async function testKey(name: string, value: string, repo?: string): Promi
           return { ok: false, info: e instanceof MailError ? e.message.slice(0, 400) : 'could not check the email account; try again in a minute' };
         }
       }
+      case 'dvsa_mot': {
+        // A token only: no vehicle is looked up. The secret goes nowhere but Microsoft's sign-in address.
+        let k;
+        try {
+          k = parseMotKey(value);
+        } catch (e) {
+          return { ok: false, info: (e as Error).message };
+        }
+        try {
+          dropTokens();
+          await motToken(k);
+          return { ok: true, info: 'works ✓ · DVSA signed Ghosty in (no vehicle was looked up)' };
+        } catch (e) {
+          return { ok: false, info: e instanceof VehicleError ? e.message : `could not reach DVSA's sign-in (${String((e as Error)?.message ?? e).slice(0, 80)})` };
+        }
+      }
+      case 'dvla_ves':
+        // "0" is no plate: a valid key gets "bad request" back, a wrong one "forbidden" — no vehicle is looked up.
+        status = await check(VES_API, { method: 'POST', headers: { 'x-api-key': value.trim(), 'content-type': 'application/json' }, body: JSON.stringify({ registrationNumber: '0' }) });
+        if (status === 400 || status === 404) status = 200;
+        break;
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);

@@ -33,10 +33,11 @@ import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
 import { uiTools } from './ui';
+import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...vehicleTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -159,7 +160,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the built-in starter library — without any AI (library_search; relevant passages are also looked up for you automatically); cite the source.',
+    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — without any AI (library_search; relevant passages are also looked up automatically); cite the source.',
   },
   {
     name: 'library-admin',
@@ -230,6 +231,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: scanTools,
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
+  },
+  // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
+  {
+    name: 'vehicle',
+    tools: vehicleTools,
+    when: /\b(mot|mots|vehicle|vehicles|reg|registration|number ?plates?|plates?|car check|check (?:this|that|a|the|my) (?:car|van|motorbike)|tax(?:ed)?|mileage|dvla|dvsa)\b|\b[a-z]{2}\d{2} ?[a-z]{3}\b/i,
+    about: 'You can check ONE UK vehicle by its plate when the owner asks (vehicle_check: MOT history, mileage, advisories; tax with the DVLA key): never the keeper, never several cars, and never remember or file the record.',
   },
 ];
 
