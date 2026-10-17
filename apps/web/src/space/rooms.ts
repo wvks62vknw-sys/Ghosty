@@ -241,7 +241,10 @@ export function slideOpening(plan: Plan, id: string, at: Pt): Plan | null {
   if (!op || !room) return null;
   const e = edgeOf(room.poly, op.wall);
   const t = (at[0] - e.a[0]) * e.ux + (at[1] - e.a[1]) * e.uy - op.w / 2;
-  const s = Math.max(5, Math.min(e.len - op.w - 5, snap(t)));
+  // The far end rounded DOWN to the grid: a wall that is not a whole number of grid steps long (403 cm) must not
+  // snap the opening past its far jamb, or the slide is refused and the door stops following the finger.
+  const max = Math.floor((e.len - op.w - 5) / GRID) * GRID;
+  const s = Math.max(5, Math.min(max, snap(t)));
   try {
     return updateOpening(plan, id, { at: s });
   } catch {

@@ -155,6 +155,14 @@ test('planner edits: a box becomes an L, rooms are added, doors and windows go i
   const slid = RM.slideOpening(withWin, 'w2', [100, -30]);
   assert.equal(slid.openings.find((o) => o.id === 'w2').at, 50);
   assert.equal(RM.slideOpening(withWin, 'w2', [-500, 0]).openings.find((o) => o.id === 'w2').at, 5);
+  // a wall that is not a whole number of 5 cm steps (403 cm): sliding to the far end still moves the door, inside the jamb
+  const odd = S.readPlan({ v: 2, room: { w: 0, d: 0 }, rooms: [{ id: 'r1', name: 'Odd', poly: D.rectPoly(0, 0, 403, 300) }], openings: [], items: [] });
+  const oddDoor = RM.addOpening(odd, 'r1', 0, 'door').plan;
+  const far = RM.slideOpening(oddDoor, 'd1', [1000, 0]);
+  assert.ok(far, 'the slide to the far end is not refused');
+  const fd = far.openings.find((o) => o.id === 'd1');
+  assert.equal(fd.at, 315);
+  assert.ok(fd.at + fd.w <= 403 - 5, 'inside the far jamb');
   assert.throws(() => RM.updateOpening(withWin, 'w2', { w: 500 }), /does not fit/);
   assert.equal(RM.updateOpening(withWin, 'd1', { hinge: 'end', swing: 'out' }).openings[0].swing, 'out');
   assert.equal(RM.removeOpening(withWin, 'd1').openings.length, 1);
