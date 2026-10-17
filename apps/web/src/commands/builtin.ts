@@ -412,6 +412,16 @@ export function registerBuiltins(): void {
     },
     { id: 'stop_audio', title: 'Stop radio', group: 'MEDIA', run: () => stopAudio() },
     {
+      // VEHICLE CHECK (ui/vehiclecheck.ts): one UK plate → its MOT record, looked up once, not saved.
+      id: 'vehicle_check',
+      title: 'Vehicle check: MOT history of one car',
+      group: 'TOOLS',
+      run: async (a) => {
+        const { openVehicleCheck } = await import('../ui/vehiclecheck');
+        openVehicleCheck(typeof a?.plate === 'string' ? a.plate : '');
+      },
+    },
+    {
       id: 'offline_brain',
       title: 'Offline brain',
       group: 'SYSTEM',

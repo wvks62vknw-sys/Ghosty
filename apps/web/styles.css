@@ -800,6 +800,56 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .scanurl b, .scansite b { color: #fff; font-weight: 600; }
 .scansite { font-size: 14px; }
 .scanwarn { font-size: 12px; line-height: 1.4; color: var(--a); padding-left: 8px; border-left: 2px solid var(--r); }
+/* VEHICLE CHECK (ui/vehiclecheck.ts): one plate, its MOT record, shown once */
+.keyrow > textarea.keylines { flex: 1; min-width: 0; font: 400 12px/1.4 var(--m); }
+.vcwrap { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.vcbanner { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-left: 2px solid var(--ok); background: rgba(79,227,168,.06); font-size: 12px; line-height: 1.4; color: var(--fg); }
+.vcbanner b { font: 500 9.5px var(--d); letter-spacing: .2em; color: var(--ok); }
+.vcform { display: flex; gap: 8px; align-items: stretch; }
+.vcform .vcinput { flex: 1; min-width: 0; font: 600 20px/1 var(--m); letter-spacing: .12em; text-transform: uppercase; text-align: center; color: #111; background: #f5c518; border-color: #b08a00; }
+.vcform .vcinput::placeholder { color: rgba(0,0,0,.35); }
+.vcform button { flex: none; min-width: 84px; }
+.vcout { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vcerr { font-size: 13px; line-height: 1.45; color: var(--a); padding-left: 8px; border-left: 2px solid var(--a); }
+.vccard { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vchead { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.vcplate { flex: none; font: 600 15px/1 var(--m); letter-spacing: .1em; color: #111; background: #f5c518; padding: 7px 9px; border-radius: 3px; white-space: nowrap; }
+.vcname { display: flex; flex-direction: column; min-width: 0; }
+.vcname b { font: 500 16px/1.2 var(--d); letter-spacing: .04em; color: #fff; overflow-wrap: anywhere; }
+.vcname small { color: var(--mute); font-size: 12px; overflow-wrap: anywhere; }
+.vcverdict { display: flex; align-items: center; gap: 9px; padding: 9px 10px; font: 500 15px/1.3 var(--d); letter-spacing: .03em; border: 1px solid var(--line); border-radius: var(--rad); }
+.vcverdict i { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--mute); }
+.vcverdict.ok { border-color: rgba(79,227,168,.45); color: var(--ok); }
+.vcverdict.ok i { background: var(--ok); box-shadow: 0 0 8px rgba(79,227,168,.7); }
+.vcverdict.mid { border-color: rgba(var(--ar), .45); color: var(--a); }
+.vcverdict.mid i { background: var(--a); }
+.vcverdict.off { border-color: rgba(255,77,94,.5); color: var(--r); }
+.vcverdict.off i { background: var(--r); }
+.vcwarn { font-size: 12.5px; line-height: 1.45; color: var(--fg); padding: 7px 9px; border-left: 2px solid var(--r); background: rgba(255,77,94,.07); }
+.vcwarn b { font: 500 9.5px var(--d); letter-spacing: .18em; color: var(--r); }
+.vcrow { display: flex; gap: 10px; align-items: baseline; min-width: 0; font-size: 12.5px; }
+.vcrow .k { flex: none; width: 76px; font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.vcrow .v { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vcspark { display: flex; flex-direction: column; gap: 2px; padding-left: 86px; }
+.vcspark .spark { height: 40px; }
+.vchist { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; min-width: 0; }
+.vctest { display: grid; grid-template-columns: 82px auto 1fr; grid-template-areas: "date res miles" "notes notes notes"; gap: 2px 8px; align-items: center; padding: 6px 8px; border-left: 2px solid rgba(79,227,168,.5); background: rgba(var(--cr), .03); cursor: pointer; min-width: 0; }
+.vctest.fail { border-left-color: var(--r); }
+.vctest .vcdate { grid-area: date; font: 400 12px var(--m); }
+.vctest .chip { grid-area: res; justify-self: start; }
+.vctest .chip.bad { color: var(--r); border-color: rgba(255,77,94,.5); }
+.vctest .vcmiles { grid-area: miles; font: 400 12px var(--m); color: var(--fg); text-align: right; }
+.vctest .vcnotes { grid-area: notes; font-size: 11.5px; color: var(--mute); }
+.vcdefects { margin: 2px 0 6px; padding: 0 0 0 22px; font-size: 12px; line-height: 1.45; }
+.vcdefects li { margin: 2px 0; overflow-wrap: anywhere; }
+.vcdefects li b { font: 500 9px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.vcdefects li.mid b { color: var(--a); }
+.vcdefects li.bad b { color: var(--r); }
+.vcsource { color: var(--mute); }
+.vclinks { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.vclinks .lab { margin: 0; width: 100%; }
+.vcchips { margin: 2px 0; }
+button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-weight: 600; }
 .scangrade { font: 600 10px var(--d); letter-spacing: .12em; padding: 4px 8px; border-radius: 3px; color: #02070d; background: var(--mute); }
 .scangrade.ga { background: #038141; color: #fff; } .scangrade.gb { background: #85bb2f; } .scangrade.gc { background: #fecb02; } .scangrade.gd { background: #ee8100; } .scangrade.ge { background: #e63e11; color: #fff; }
 .scannut { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; font-size: 12px; }

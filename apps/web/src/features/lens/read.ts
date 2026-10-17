@@ -4,7 +4,11 @@
  * 'scan', title from the first line), COPY, ASK GHOSTY (sends the text, not the picture, so any
  * model can answer) or WORDS to see each word's box on the still. The reader stays warm between
  * captures and is terminated when the Lens is left.
+ *
+ * A UK number plate in the text brings up a CHECK THIS VEHICLE? chip: only a tap on it sends that
+ * one plate to the brain (ui/vehiclecheck.ts: the official MOT record, shown once, not saved).
  */
+import { findPlates, formatPlate } from '../../../../../packages/shared/src/plates';
 import { clear, h } from '../../core/dom';
 import { bar, button, toast } from '../../ui/components';
 import { loadImageFile } from '../../vision/camera';
@@ -63,10 +67,19 @@ export function createReadMode(L: LensContext): Mode {
     S.lastAction = 'ask about the text';
     L.setMode('ask', { text: t, question: 'What is this text about? Anything important in it?', send: true });
   }, 'warn');
+  // A plate in the text: offered, never looked up until tapped.
+  const plateChip = h('div.row.wrap.vcchips');
+  plateChip.hidden = true;
+  const offerPlates = () => {
+    const plates = findPlates(text.value).slice(0, 2);
+    plateChip.hidden = !plates.length;
+    clear(plateChip, ...plates.map((p) => button(`CHECK THIS VEHICLE? ${formatPlate(p)}`, () => void import('../../ui/vehiclecheck').then((m) => m.openVehicleCheck(p, true)), 'vcchip')));
+  };
   const root = h('div.stackf',
     h('div.row', capture, pick, live),
     h('div.note', 'Reads English text on the phone (Tesseract). Best with the text filling the frame, flat and well lit. Nothing is sent anywhere.'),
     progress,
+    plateChip,
     text,
     sure,
     h('div.row.wrap', save, copy, ask, wordsBtn),
@@ -81,7 +94,10 @@ export function createReadMode(L: LensContext): Mode {
       toast(String((e as Error)?.message ?? e), 'bad');
     }
   });
-  text.addEventListener('input', () => (S.ocrText = text.value));
+  text.addEventListener('input', () => {
+    S.ocrText = text.value;
+    offerPlates();
+  });
 
   const setProgress = (status: string, frac?: number) => {
     progress.hidden = false;
@@ -101,6 +117,7 @@ export function createReadMode(L: LensContext): Mode {
     regions = [];
     L.clearOverlay();
     text.value = '';
+    offerPlates();
     sure.textContent = '';
     try {
       const r = await L.reader.read(c, (s, f) => {
@@ -111,6 +128,7 @@ export function createReadMode(L: LensContext): Mode {
       text.value = t;
       S.ocrText = t;
       S.ocrConfidence = r.confidence;
+      offerPlates();
       regions = wordRegions(r.words);
       const summary = ocrSummary(t, r.confidence);
       sure.textContent = t ? `${summary} · edit the text, then save, copy or ask` : 'No text found: try closer, flatter, with more light';

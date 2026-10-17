@@ -11,7 +11,11 @@ export interface Store<T extends object> {
   subscribe(fn: Listener<T>): () => void;
 }
 
-export function createStore<T extends object>(initial: T, opts: { persist?: string; keys?: (keyof T)[] } = {}): Store<T> {
+/**
+ * `persist`: kept in localStorage under this name; `keys`: only these fields; `save`: what is
+ * written, worked out from the state each time (e.g. leaving out what must not be kept).
+ */
+export function createStore<T extends object>(initial: T, opts: { persist?: string; keys?: (keyof T)[]; save?: (s: T) => Partial<T> } = {}): Store<T> {
   let state = initial;
   if (opts.persist) {
     try {
@@ -28,7 +32,7 @@ export function createStore<T extends object>(initial: T, opts: { persist?: stri
     clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
       try {
-        const out = opts.keys ? Object.fromEntries(opts.keys.map((k) => [k, state[k]])) : state;
+        const out = opts.save ? opts.save(state) : opts.keys ? Object.fromEntries(opts.keys.map((k) => [k, state[k]])) : state;
         localStorage.setItem(opts.persist!, JSON.stringify(out));
       } catch {
         /* ignore */
