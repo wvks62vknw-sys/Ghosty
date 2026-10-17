@@ -62,7 +62,8 @@ export interface Env {
 
   /**
    * Optional backup copies of API keys as secrets, named <NAME>_KEY (GEMINI_KEY, GROQ_KEY,
-   * CEREBRAS_KEY, OPENROUTER_KEY, MISTRAL_KEY, TAVILY_KEY, TOMTOM_KEY, …). The vault falls back
+   * CEREBRAS_KEY, OPENROUTER_KEY, MISTRAL_KEY, NVIDIA_KEY, SAMBANOVA_KEY, COHERE_KEY, TAVILY_KEY,
+   * TOMTOM_KEY, …). The vault falls back
    * to them, and they keep the AI working while the database is unavailable (see kernel/vault.ts).
    */
   [secret: `${string}_KEY`]: string | undefined;

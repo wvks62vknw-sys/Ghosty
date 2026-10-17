@@ -372,7 +372,7 @@ export const siteTools: Tool[] = [
   {
     name: 'study_site',
     description:
-      "Study a website so you can rebuild it: fetches the page and its stylesheets and returns its structure (sections, navigation, headings), text, images, colours, fonts, the scripts/libraries it loads and what they do (menus, carousels, modals…), and how heavy it is. Step 1 of rebuilding a site; then write the improved page and call publish_site. For the owner's own sites, sites they may remake, or as a clearly labelled redesign concept — never to impersonate a real login or payment page.",
+      "Study a website so you can rebuild it: fetches the page and its stylesheets and returns its structure, text, images, colours, fonts, the scripts it loads and what they do, and how heavy it is. Step 1 of rebuilding a site; then write the improved page and call publish_site. A link on its own, with no request to rebuild, is for the web tools, not this. For the owner's own sites, sites they may remake, or a clearly labelled redesign concept — never to impersonate a real login or payment page.",
     parameters: { type: 'object', properties: { url: { type: 'string', description: 'https://…' } }, required: ['url'] },
     risk: 'auto',
     async run(a, ctx) {
@@ -405,7 +405,7 @@ export const siteTools: Tool[] = [
   {
     name: 'publish_site',
     description:
-      "Publish a page you built (a website, landing page, portfolio, CV, menu, invitation — or a rebuilt website after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or setup. Send ONE complete HTML document (or, for a page too big for one call, send it in parts with draft_site first and then call this with from_draft true). The link works on any phone; give it to the owner exactly as returned. Publishing again with the same name updates it; list_sites shows every page, unpublish_site takes one down.",
+      "Publish a page you built (a website, landing page, portfolio, CV, menu, invitation, or a site rebuilt after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or hosting. Send ONE complete self-contained HTML document, iPhone-first (a page too big for one call: draft_site in parts, then from_draft true). ALWAYS give the owner the link exactly as returned — a page without its link is not delivered. The same name again updates the page; list_sites shows every page, unpublish_site takes one down. Pages are standalone (sandboxed, no server calls): rebuild look, content and scripts faithfully, and where a real backend is needed (logins, a database, a cart) say so plainly and offer it as code (study \"ui to backend\") rather than claiming the copy works.",
     parameters: {
       type: 'object',
       properties: {

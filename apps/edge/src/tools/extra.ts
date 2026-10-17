@@ -16,10 +16,8 @@
 import type { Tool } from './types';
 
 import { detect_crime } from './detect_crime';
-import { highwaysTools } from './highways';
-import { transitTools } from './transit';
-import { lensTools } from './lens';
 
-// The recon tools live in tools/index.ts as their own keyword-gated group (eight descriptions on
-// every turn would cost more than a free model's per-minute allowance is worth).
-export const extraTools: Tool[] = [detect_crime, ...transitTools, ...highwaysTools, ...lensTools];
+// The transit, motorway, recon and reverse-image tools live in tools/index.ts as their own
+// keyword-gated groups (their descriptions on every turn would cost more than a free model's
+// per-minute allowance is worth). Tools here are described on every turn.
+export const extraTools: Tool[] = [detect_crime];

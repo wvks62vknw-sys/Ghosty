@@ -24,19 +24,19 @@ export const uiTools: Tool[] = [
     "Open the God's Eye globe and fly the camera to a place name or coordinates.",
     { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' }, range_km: { type: 'number', description: 'camera distance, default 500' } },
   ),
-  client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite (real imagery when zoomed in), buildings (3D), air, sats, quakes, events, cams (live public CCTV), traffic (live road speeds, needs the TomTom key), ships (AIS vessels), radar (live rain radar), alerts (US weather warnings), disasters (GDACS cyclones/floods/volcanoes/fires), aurora, dispatch (Seattle 911 calls), buoys (ocean waves/wind), cables (undersea internet cables), enforce (ANPR number-plate readers, speed/average-speed/red-light/bus-lane cameras and mapped CCTV from OpenStreetMap, plus West Midlands Police mobile-enforcement and average-speed sites — locations only, loads when zoomed in), transit (live buses and trams), incidents (live motorway incidents at their junctions), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
+  client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite, buildings (3D), air, sats, quakes, events, cams (live public CCTV), traffic (live road speeds, TomTom key), ships, radar (rain), alerts (US weather), disasters (GDACS), aurora, dispatch (Seattle 911), buoys, cables, enforce (mapped ANPR, speed, red-light and bus-lane camera sites — locations only), transit (live buses and trams), incidents (motorway incidents), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
   client('set_theme', 'Change the interface colour theme: stark (JARVIS blue), arc (white arc core), mark3 (red and gold), nano (nanotech gold), warmachine (gunmetal), friday (green), ultron (violet), stealth (indigo).', { theme: { type: 'string' } }, ['theme']),
   client('set_sensor_mode', 'Change the globe sensor mode: normal, nvg, flir, crt, noir.', { mode: { type: 'string' } }, ['mode']),
   client('notify', 'Show a short notice on screen.', { text: { type: 'string' } }, ['text']),
   client(
     'road_ahead',
-    "ROAD AHEAD mode on God's Eye: the globe follows the owner's own position from their phone's GPS (heading up, nothing leaves the device) and a panel shows what is ahead of them — live road incidents, safety-camera sites, public motorway cameras to tap, buses nearby. Use when the owner says they are driving or walking somewhere and wants to see the road ahead; on:false ends it.",
+    "ROAD AHEAD mode on God's Eye: the globe follows the owner's own phone position (heading up, nothing leaves the device) and a panel lists what is ahead — road incidents, safety-camera sites, motorway cameras to tap, buses. Use when the owner is driving or walking and wants the road ahead; on:false ends it.",
     { on: { type: 'boolean' } },
   ),
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
   client(
     'open_lens',
-    "Open the LENS tab: the phone's camera with vision that runs on the phone. mode see = spot objects live (boxes, a scene line, a count per kind); read = turn a document, sign or label into text (OCR) that the owner can save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (the picture reaches you as a photo when a model that can see is reachable; with question pre-filled). Use when the owner says \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\", \"take a picture\". It never identifies people.",
+    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled). Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
     { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
   ),
 ];

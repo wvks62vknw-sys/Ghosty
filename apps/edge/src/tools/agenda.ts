@@ -155,6 +155,7 @@ export const agendaTools: Tool[] = [
     description: "The owner's agenda: their own events plus connected calendars, for a number of days from today (or from a date).",
     parameters: { type: 'object', properties: { days: { type: 'number', description: 'Default 7, max 60.' }, from: { type: 'string', description: 'Local date to start from, e.g. 2026-10-20 (default today).' } } },
     risk: 'auto',
+    pure: true,
     async run(a, ctx) {
       const tz = await ownerTz(ctx);
       const days = Math.max(1, Math.min(60, arg.num(a, 'days', 7)));

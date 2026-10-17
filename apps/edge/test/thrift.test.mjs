@@ -78,7 +78,22 @@ test('a short rate limit is waited out instead of failing the task', async () =>
   const r = await router.complete(msgs, [], undefined, { maxWaitMs: 70_000 }).catch((e) => e);
   assert.ok(!(r instanceof Error), String(r?.message));
   assert.equal(r.message.content, 'made it');
-  assert.ok(calls === tried.size + 1 && Date.now() - t0 >= 1500, `waited for the cool-down, then retried (${calls} calls over ${Date.now() - t0} ms)`);
+  // The model said "try again in 0.2s": that short wait is sat out and the same model asked once more, before any other model is tried.
+  assert.ok(calls === 2 && tried.size === 1 && Date.now() - t0 >= 200, `waited for the stated 0.2 s, then asked the same model again (${calls} calls over ${Date.now() - t0} ms)`);
+  // A wait too long to sit out (a minute) still means every model is tried once, then the soonest cool-down is waited for.
+  calls = 0;
+  tried.clear();
+  env.AI.run = async (model) => {
+    calls++;
+    if (!tried.has(model)) {
+      tried.add(model);
+      throw new Error('429 rate limited, try again in 60s');
+    }
+    return { response: 'made it later' };
+  };
+  const r2 = await new Router(new MemStorage(), noKeys, env).complete(msgs, [], undefined, { maxWaitMs: 0 }).catch((e) => e);
+  assert.ok(r2 instanceof Error && /frees up in about 6[0-9] seconds/.test(r2.message), String(r2?.message));
+  assert.equal(calls, tried.size, 'each model once, no retry on a long wait');
 });
 
 test('daily allowance used up → a clear message, no endless waiting', async () => {

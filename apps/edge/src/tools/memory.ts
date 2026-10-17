@@ -59,6 +59,7 @@ export const memoryTools: Tool[] = [
     description: 'List everything you remember about your owner, with ids.',
     parameters: { type: 'object', properties: {} },
     risk: 'auto',
+    pure: true,
     async run(_a, ctx) {
       const facts = await loadMemory(ctx.storage);
       return facts.length ? facts.map((f) => `${f.id}: ${f.text}`).join('\n') : 'Nothing remembered yet.';
