@@ -12,6 +12,7 @@ import type { MemoryFact } from '../../../packages/shared/src/protocol';
 import { engineeringEssentials, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
 import type { ToolGroup } from './tools';
+import { SPEECH_ABOUT } from './speech';
 
 export interface ClientContext {
   now?: string;
@@ -35,7 +36,8 @@ export interface PromptGroups {
  */
 export function capabilityLines(groups: PromptGroups): string {
   const line = (g: ToolGroup) => `- ${g.about?.trim() || `You can use ${g.tools.map((t) => t.name).join(', ')}.`}`;
-  const out = [`WHAT YOU CAN DO NOW:\n${groups.on.map(line).join('\n')}`];
+  // Hearing and speaking are not tools the model calls, but it should know replies may be heard, not read.
+  const out = [`WHAT YOU CAN DO NOW:\n${groups.on.map(line).join('\n')}\n- ${SPEECH_ABOUT.charAt(0).toUpperCase()}${SPEECH_ABOUT.slice(1)}`];
   if (groups.off.length) out.push(`ALSO (call the tool by name; it is described next turn):\n${groups.off.map((g) => `- ${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
   return out.join('\n');
 }
