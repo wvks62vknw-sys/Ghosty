@@ -30,6 +30,7 @@ import { matchDomains } from './library/study';
 import { textOf } from './llm/content';
 import type { Msg, Router } from './llm/router';
 import type { ClientContext } from './prompt';
+import { ensureJob, rearm } from './schedule';
 import { safeTz } from './time';
 
 export const INDEX_KEY = 'learn:index';
@@ -95,6 +96,15 @@ export async function tutorDepsFor(ctx: { storage: DurableObjectStorage; env: En
 const clean = (v: unknown, max: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const newId = () => crypto.randomUUID().replace(/-/g, '').slice(0, 8);
 export const isLevel = (v: unknown): v is LearnLevel => typeof v === 'string' && (LEARN_LEVELS as string[]).includes(v);
+
+/**
+ * The daily cards note exists once the tutor is used (a course or a card), not before: an owner who
+ * never learns anything has no job waking the brain for nothing. Kept at 08:50 in the owner's zone.
+ */
+async function ensureReviseJob(storage: DurableObjectStorage): Promise<void> {
+  await ensureJob(storage, { ...REVISE_JOB, tz: await ownerTz(storage) });
+  await rearm(storage);
+}
 
 async function ownerTz(storage: DurableObjectStorage): Promise<string> {
   return safeTz(((await storage.get<ClientContext>('owner:ctx').catch(() => undefined)) ?? {}).tz);
@@ -518,6 +528,7 @@ export async function startCourse(deps: TutorDeps, a: { topic: string; level?: u
     basis: plan ? (m.web ? 'library + Wikipedia' : 'library') : 'outline only (no model was free)',
   };
   await saveCourse(deps.storage, course);
+  await ensureReviseJob(deps.storage).catch(() => undefined);
   return course;
 }
 
@@ -678,6 +689,7 @@ export async function addCard(deps: TutorDeps, course: string, front: string, ba
   const list = [...cards, card];
   if (list.length > MAX_CARDS) list.splice(list.indexOf([...cards].sort((x, y) => y.interval - x.interval)[0]!), 1);
   await saveCards(deps.storage, course, list, cards);
+  await ensureReviseJob(deps.storage).catch(() => undefined);
   return card;
 }
 

@@ -56,7 +56,7 @@ import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } 
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
-import { learnRoute, REVISE_JOB, reviseNudge, tutorDeps } from './tutor';
+import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 import { model3dRoute } from './model3d';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -1459,7 +1459,6 @@ export class GhostyAgent {
     await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
     await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
     await ensureJob(this.storage, UPGRADE_JOB);
-    await ensureJob(this.storage, { ...REVISE_JOB, tz });
   }
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */

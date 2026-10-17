@@ -433,6 +433,27 @@ on an arc reactor. Nothing to set up; the 3-D engine loads the first time you op
    to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
 8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
 
+## 3m. LEARN: Ghosty as your tutor
+
+Nothing to set up. Say **"teach me photosynthesis"** (or anything: chess openings, Spanish verbs, how
+mortgages work) or open **LEARN** (the graduation cap in the dock's SYSTEMS deck).
+
+1. **START A COURSE**: type what you want to learn, pick **BEGINNER**, **INTERMEDIATE** or **ADVANCED**
+   and how many minutes a day, press **START**. Ghosty plans 5–12 short lessons, from the basics up, out of
+   what its library holds and Wikipedia (Simple English Wikipedia first for a beginner).
+2. **A LESSON**: an explanation at your level, a worked example, a few lines to remember, and the sources
+   as chips under it (the small numbers in the text say which source each fact came from). **READ ALOUD**
+   reads it to you. Answer the **CHECK QUESTION**, then **NEXT LESSON**. A lesson is written once and kept,
+   so you can read it again later, even with no signal.
+3. **QUIZ ME** (in a course, or say "quiz me on …"): tap an answer and see at once if it was right; short
+   answers are marked by Ghosty. In a voice chat say **"quiz me out loud"**: one short question at a time.
+4. **REVISE**: every answer you get wrong becomes a flashcard. Tap the card (or **SHOW ANSWER**), then say
+   how well you knew it: **AGAIN** (back in 10 minutes), **HARD**, **GOOD** or **EASY** — each card comes
+   back just before you would forget it (spaced repetition). On a morning with cards due, Ghosty sends
+   "3 cards to revise". Revision works with no signal; it is sent to the brain when you are back online.
+5. The **streak** at the top counts the days in a row you learned something (a lesson, a quiz answer or a
+   card).
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

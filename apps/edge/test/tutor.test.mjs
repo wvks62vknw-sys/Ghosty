@@ -258,7 +258,7 @@ test('quizzes and answers: one call for the questions; MC marked exactly, short 
   r = await T.answer(d, { quiz: quiz.id, q: 'q3', answer: 'Chlorophyll' });
   assert.deepEqual([r.correct, r.how], [true, 'words']);
   assert.equal(d.asked.length, 2);
-  // …and an unclear one goes to a cheap model with the rubric, the answer marked as data
+  // and an unclear one goes to a cheap model with the rubric, the answer marked as data
   reply = () => '{"correct": true, "feedback": "Yes: CO2 is carbon dioxide."}';
   r = await T.answer(d, { quiz: quiz.id, q: 'q4', answer: 'water and CO2' });
   assert.deepEqual([r.correct, r.how, r.feedback], [true, 'model', 'Yes: CO2 is carbon dioxide.']);
@@ -392,7 +392,8 @@ test('through the agent (scripted model): the tool plans, teaches, quizzes; the 
     assert.deepEqual(r.json().courses.map((c) => [c.id, c.done]), [[id, 1]]);
     assert.equal(r.json().tz, 'UTC');
     const job = (await S.loadJobs(storage)).find((j) => j.kind === 'revise');
-    assert.ok(job, 'the daily cards job is standing after the first request');
+    assert.ok(job, 'the daily cards job is standing once a course exists');
+    assert.equal((await S.loadJobs(storage)).filter((j) => j.kind === 'revise').length, 1, 'only one');
     r = await call('/learn/quiz', { method: 'POST', body: JSON.stringify({ course: id, n: 3 }) });
     const quiz = r.json().quiz;
     assert.deepEqual(quiz.questions.map((q) => q.kind), ['mc', 'mc', 'short']);
