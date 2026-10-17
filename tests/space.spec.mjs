@@ -137,6 +137,25 @@ await page.screenshot({ path: `${out}/space-make.png` });
 await page.locator('#pg-space .spacemake button', { hasText: 'UNDO' }).click();
 s = await sp();
 if (JSON.stringify(s.items) !== JSON.stringify(before.items)) problems.push('UNDO did not put the furniture back');
+// a layout tried, then the room changes (SET): the old room's layouts and UNDO go
+const undoBtn = page.locator('#pg-space .spacemake button', { hasText: 'UNDO' });
+const makeAndTry = async () => {
+  await page.locator('#pg-space button', { hasText: 'MAKE SPACE' }).first().click();
+  if (await opts.count()) await opts.first().click();
+  if (!(await undoBtn.isVisible())) problems.push(`no UNDO after trying a layout (${await opts.count()} layouts, ${JSON.stringify((await sp()).options)})`);
+};
+await makeAndTry();
+await page.fill('#pg-space input[aria-label="Room width in cm"]', '430');
+await page.locator('#pg-space .spaceroom button', { hasText: 'SET' }).click();
+await until(() => window.__ghosty?.space?.room?.w === 430, 5000, 'SET did not change the room');
+if (await undoBtn.isVisible()) problems.push('UNDO from the old room is still offered after SET');
+if (await opts.count()) problems.push('the old room\'s layouts are still listed after SET');
+// an older planner file (quarter turns, `label`) still imports: the room as it was before MAKE SPACE
+await page.locator('#pg-space .spaceexport input[type=file]').setInputFiles({ name: 'old.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ v: 1, room: { w: 420, d: 360 }, items: before.items })) });
+await until(() => window.__ghosty?.space?.room?.w === 420, 5000, 'an older planner file did not import');
+if (JSON.stringify((await sp()).items) !== JSON.stringify(before.items)) problems.push('an older planner file did not import its pieces as they were');
+await makeAndTry();
+const exportedItems = (await sp()).items;
 
 // ---- EXPORT: a real PNG and a JSON plan; IMPORT reads one back ----
 const [png] = await Promise.all([page.waitForEvent('download', { timeout: 10000 }).catch(() => null), page.locator('#pg-space .spaceexport button', { hasText: 'PNG' }).click()]);
@@ -152,11 +171,19 @@ if (!json) problems.push('JSON export gave no file');
 else {
   plan = JSON.parse(readFileSync(await json.path(), 'utf8'));
   if (plan.room?.w !== 420 || plan.items?.length !== 4) problems.push(`the JSON plan reads ${JSON.stringify(plan).slice(0, 200)}`);
+  // Room JSON (what the 3D STUDIO reads): names, and turns in degrees
+  if (!plan.items?.every((i) => typeof i.name === 'string' && [0, 90, 180, 270].includes(i.rot))) problems.push(`the JSON plan is not Room JSON: ${JSON.stringify(plan.items).slice(0, 300)}`);
 }
 if (plan) {
   plan.room = { w: 500, d: 400 };
   await page.locator('#pg-space .spaceexport input[type=file]').setInputFiles({ name: 'plan.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) });
   await until(() => window.__ghosty?.space?.room?.w === 500, 5000, 'IMPORT did not read the plan back');
+  const back = (await sp()).items;
+  const key = (i) => [i.id, i.label, i.w, i.d, i.x, i.y, i.rot].join(',');
+  if (back.map(key).join('|') !== exportedItems.map(key).join('|')) problems.push(`IMPORT did not give back the exported pieces: ${back.map(key).join('|')} vs ${exportedItems.map(key).join('|')}`);
+  // the layouts, UNDO and preview were for the room before the import
+  if (await undoBtn.isVisible()) problems.push('UNDO from the old plan is still offered after IMPORT');
+  if (await opts.count()) problems.push('the old plan\'s layouts are still listed after IMPORT');
 }
 
 // ---- the planner remembers (this phone's storage) ----

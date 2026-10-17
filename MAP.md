@@ -177,6 +177,14 @@ Room 50 cm – 50 m a side, height 1–10 m, at most 120 items; an item without 
 out. A bare `{ "w", "d", "h" }` is a room with nothing in it. The planner's export and the brain's
 `open_studio` `room` argument use the same shape.
 
+The SPACE PLANNER keeps its own plan differently (quarter turns `rot` 0–3, `x`, `y` = the corner of the
+**turned** footprint, the name in `label`). One pure converter, `apps/web/src/space/roomjson.ts`, joins the
+two: `planToRoom` (the planner's EXPORT → JSON writes Room JSON: `label` → `name`, `rot × 90`, and for a
+quarter-turned piece the corner moved by `((d − w)/2, (w − d)/2)` to the unturned rectangle's corner, plus
+the planner's `id` and `kind`), `roomToPlan` (the planner's IMPORT: Room JSON back, turns rounded to the
+nearest quarter, or an older planner file as it is) and `isPlannerPlan` (pieces with `label` and no
+`name`; `parseRoom` converts those first). Round-trip tested in `apps/edge/test/studio.test.mjs`.
+
 ## Recipes
 
 **Add a panel to an existing tab** — in `features/<tab>/index.ts`:
