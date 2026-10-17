@@ -326,6 +326,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The LEARN tab (the tutor): a course, a lesson, a quiz the brain wrote, or REVISE.
+      id: 'open_learn',
+      title: 'Learn something',
+      group: 'GO',
+      run: async (a) => {
+        const { openLearn } = await import('../features/learn');
+        openLearn(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
       // The 3D STUDIO: a sample, a model made from a picture (make_3d), a room in cm, or a Spline link.
       id: 'open_studio',
       title: 'Open the 3D Studio',

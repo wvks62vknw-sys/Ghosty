@@ -252,7 +252,7 @@ test('quizzes and answers: one call for the questions; MC marked exactly, short 
   assert.equal(r.correct, false);
   assert.match(r.feedback, /^Not quite: the answer is B\) Chloroplast\./);
   assert.match(r.card.front, /^Where does it happen\?\nA\) Nucleus\nB\) Chloroplast\nC\) Root$/);
-  assert.match(r.card.back, /^B\) Chloroplast \(Photosynthesis from scratch\)$/);
+  assert.equal(r.card.back, 'B) Chloroplast');
   assert.equal(d.asked.length, 2, 'no model for multiple choice');
   // short answers: the words settle it without a model…
   r = await T.answer(d, { quiz: quiz.id, q: 'q3', answer: 'Chlorophyll' });
@@ -274,8 +274,9 @@ test('quizzes and answers: one call for the questions; MC marked exactly, short 
   const cards = await T.loadCards(d.storage, c.id);
   assert.equal(cards.length, 2);
   assert.deepEqual(Object.keys(cards[0]).sort(), ['added', 'back', 'course', 'due', 'ef', 'front', 'id', 'interval', 'lapses', 'last', 'reps']);
-  const e = (await T.loadIndex(d.storage))[0];
+  const e = (await T.loadEntries(d.storage))[0];
   assert.deepEqual([e.asked, e.right], [6, 3]);
+  assert.equal((await T.loadIndex(d.storage))[0].asked, 0, 'marking never rewrites the course list');
   // a lesson's check question is marked the same way
   reply = () => LESSON;
   await T.lesson(d, c.id, 1);

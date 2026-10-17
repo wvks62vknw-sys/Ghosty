@@ -35,6 +35,8 @@ import { safeTz } from './time';
 export const INDEX_KEY = 'learn:index';
 export const STREAK_KEY = 'learn:streak';
 export const QUIZZES_KEY = 'learn:quizzes';
+/** Questions answered and right, per course: a key of its own, so marking an answer never rewrites the course list. */
+export const SCORES_KEY = 'learn:scores';
 export const courseKey = (id: string) => `course:${id}`;
 export const cardKeys = (id: string) => [`cards:${id}`, `cards:${id}:2`];
 export const MAX_COURSES = 30;
@@ -270,7 +272,7 @@ async function saveCards(storage: DurableObjectStorage, course: string, cards: C
 }
 
 /** A course as a list entry (no lesson texts). */
-export function entryOf(c: Course, prev?: Pick<IndexEntry, 'asked' | 'right'>): IndexEntry {
+export function entryOf(c: Course): IndexEntry {
   const next = c.lessons.find((l) => !l.done);
   return {
     id: c.id,
@@ -282,8 +284,8 @@ export function entryOf(c: Course, prev?: Pick<IndexEntry, 'asked' | 'right'>): 
     done: c.lessons.filter((l) => l.done).length,
     next: next ? next.n : 0,
     nextTitle: next?.title ?? '',
-    asked: prev?.asked ?? 0,
-    right: prev?.right ?? 0,
+    asked: 0,
+    right: 0,
     updated: c.updated,
   };
 }
@@ -291,19 +293,26 @@ export function entryOf(c: Course, prev?: Pick<IndexEntry, 'asked' | 'right'>): 
 async function saveCourse(storage: DurableObjectStorage, c: Course): Promise<IndexEntry[]> {
   const index = await loadIndex(storage);
   const at = index.findIndex((e) => e.id === c.id);
-  const entry = entryOf(c, at >= 0 ? index[at] : undefined);
+  const entry = entryOf(c);
   const list = at >= 0 ? index.map((e, i) => (i === at ? entry : e)) : [entry, ...index];
   await storage.put({ [courseKey(c.id)]: c, [INDEX_KEY]: list });
   return list;
 }
 
+type Scores = Record<string, { asked: number; right: number }>;
+
 async function bumpScore(storage: DurableObjectStorage, course: string, right: boolean): Promise<void> {
-  const index = await loadIndex(storage);
-  const e = index.find((x) => x.id === course);
-  if (!e) return;
-  e.asked++;
-  if (right) e.right++;
-  await storage.put(INDEX_KEY, index);
+  const scores = (await storage.get<Scores>(SCORES_KEY)) ?? {};
+  const s = (scores[course] ??= { asked: 0, right: 0 });
+  s.asked++;
+  if (right) s.right++;
+  await storage.put(SCORES_KEY, scores);
+}
+
+/** The course list with each course's score filled in. */
+export async function loadEntries(storage: DurableObjectStorage): Promise<IndexEntry[]> {
+  const [index, scores] = await Promise.all([loadIndex(storage), storage.get<Scores>(SCORES_KEY)]);
+  return index.map((e) => ({ ...e, asked: scores?.[e.id]?.asked ?? 0, right: scores?.[e.id]?.right ?? 0 }));
 }
 
 /** Today counted as a learning day (one small write, only the first time each day). */
@@ -390,12 +399,15 @@ export async function gather(deps: TutorDeps, query: string, opts: { level: Lear
   if (deps.library) {
     try {
       const hits = await deps.library.search(query, k + 2);
-      for (const h of hits) {
+      // Only passages that really match: one shared word with a compilers book is not a source for a lesson on leaves.
+      for (const h of hits.filter((x) => x.relevant)) {
         if (sources.length >= k) break;
         const url = h.text.match(SOURCE_LINE)?.[1] ?? (deps.library.doc(h.doc)?.source.match(/^https?:\/\/\S+$/)?.[0] || undefined);
-        add([h.title, h.heading && h.heading !== h.title ? h.heading : ''].filter(Boolean).join(' · '), h.text.replace(SOURCE_LINE, ''), url);
+        // A course notebook's passage is named after what it came from (the article), not the notebook.
+        const title = h.doc.startsWith('learn_') && h.heading ? `${/wikipedia\.org/.test(url ?? '') ? 'Wikipedia: ' : ''}${h.heading}` : [h.title, h.heading && h.heading !== h.title ? h.heading : ''].filter(Boolean).join(' · ');
+        add(title, h.text.replace(SOURCE_LINE, ''), url);
         if (h.heading) headings.push(h.heading);
-        if (h.relevant) relevant++;
+        relevant++;
       }
     } catch {
       /* the library is a help, not a must */
@@ -403,7 +415,8 @@ export async function gather(deps: TutorDeps, query: string, opts: { level: Lear
   }
   if (relevant < 2 && opts.web !== false) {
     const w = await wikiRead(query, opts.level, deps.fetch ?? fetch).catch(() => null);
-    if (w) {
+    // The same article already found in the course notebook is not added twice.
+    if (w && !sources.some((s) => s.url === w.url)) {
       web = true;
       headings.push(...w.headings);
       // The article's opening and the sections whose names share the query's words: what a lesson needs.
@@ -566,8 +579,12 @@ export async function lesson(deps: TutorDeps, courseId: string, n?: number, opts
   const now = deps.now ?? Date.now();
   if (opts.markDone && !l.done) l.done = now;
   if (fresh || opts.markDone) {
-    course.updated = now;
-    await saveCourse(deps.storage, course);
+    // Writing took a while: what changed meanwhile (a lesson finished from the tab) is kept; only this lesson is put in.
+    const latest = (await loadCourse(deps.storage, course.id)) ?? course;
+    latest.lessons = latest.lessons.map((x) => (x.n === l.n ? { ...l, done: x.done ?? l.done } : x));
+    latest.updated = now;
+    await saveCourse(deps.storage, latest);
+    return { course: latest, lesson: latest.lessons.find((x) => x.n === l.n)!, fresh };
   }
   if (opts.markDone) await touchStreak(deps).catch(() => undefined);
   return { course, lesson: l, fresh };
@@ -584,7 +601,7 @@ export async function finishLesson(deps: TutorDeps, courseId: string, n: number)
     await saveCourse(deps.storage, course);
   }
   await touchStreak(deps).catch(() => undefined);
-  return (await loadIndex(deps.storage)).find((e) => e.id === courseId) ?? null;
+  return (await loadEntries(deps.storage)).find((e) => e.id === courseId) ?? null;
 }
 
 export async function removeCourse(storage: DurableObjectStorage, id: string): Promise<boolean> {
@@ -592,6 +609,11 @@ export async function removeCourse(storage: DurableObjectStorage, id: string): P
   if (!index.some((e) => e.id === id)) return false;
   await storage.put(INDEX_KEY, index.filter((e) => e.id !== id));
   await storage.delete([courseKey(id), ...cardKeys(id)]);
+  const scores = await storage.get<Scores>(SCORES_KEY);
+  if (scores?.[id]) {
+    delete scores[id];
+    await storage.put(SCORES_KEY, scores);
+  }
   return true;
 }
 
@@ -709,7 +731,7 @@ export async function answer(deps: TutorDeps, a: { quiz?: string; q?: string; co
     }
   }
   let card: Card | null = null;
-  if (!res.correct) card = await addCard(deps, course, `${q.q}${q.kind === 'mc' ? `\n${(q.choices ?? []).map((_, i) => choiceText(q, i)).join('\n')}` : ''}`, `${expected}${q.why ? ` — ${q.why}` : ''}${context ? ` (${context})` : ''}`).catch(() => null);
+  if (!res.correct) card = await addCard(deps, course, `${q.q}${q.kind === 'mc' ? `\n${(q.choices ?? []).map((_, i) => choiceText(q, i)).join('\n')}` : ''}`, `${expected}${q.why ? ` — ${q.why}` : ''}${course === GENERAL && context ? ` (${context})` : ''}`).catch(() => null);
   await bumpScore(deps.storage, course, res.correct).catch(() => undefined);
   await touchStreak(deps).catch(() => undefined);
   return { ...res, ...(card ? { card } : {}) };
@@ -746,7 +768,7 @@ export async function applyReviews(deps: TutorDeps, reviews: Review[]): Promise<
 /** Everything the LEARN tab mirrors: the courses with their card counts, every card, the streak. */
 export async function learnState(deps: TutorDeps): Promise<LearnState> {
   const now = deps.now ?? Date.now();
-  const index = await loadIndex(deps.storage);
+  const index = await loadEntries(deps.storage);
   const ids = [...index.map((e) => e.id), GENERAL];
   const keys = ids.flatMap(cardKeys);
   const got = new Map<string, Card[]>();
