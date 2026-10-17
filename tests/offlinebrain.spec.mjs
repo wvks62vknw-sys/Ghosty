@@ -101,10 +101,11 @@ async function run(name, viewport) {
   await page.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel did not turn READY after DOWNLOAD`));
   // A download alone leaves nothing in memory (the camera and the namer need the room).
   if ((await page.evaluate(() => window.__ghostyOfflineEngine.unloads)) < 1) problems.push(`[${name}] the model stayed in memory after DOWNLOAD`);
+  // Counted before TEST: on a slow runner the idle unload (500 ms here) can land before the reply is seen.
+  const unloaded = await page.evaluate(() => window.__ghostyOfflineEngine.unloads);
   await pn.locator('button:has-text("TEST")').click();
   await page.waitForFunction(() => /Hello from your phone\.[\s\S]*tokens a second/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] TEST did not show the reply and its speed`));
   // After a reply, too, it leaves memory once idle (idleMs here; two minutes on the phone).
-  const unloaded = await page.evaluate(() => window.__ghostyOfflineEngine.unloads);
   await page.waitForFunction((k) => window.__ghostyOfflineEngine.unloads > k, unloaded, { timeout: 5000 }).catch(() => problems.push(`[${name}] the model stayed in memory after TEST`));
   await pn.scrollIntoViewIfNeeded();
   await page.waitForTimeout(400);
