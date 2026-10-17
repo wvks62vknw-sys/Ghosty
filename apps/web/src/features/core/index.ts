@@ -69,6 +69,8 @@ function renderEntry(e: Entry): HTMLElement {
     case 'user':
       return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant':
+      // Answered by the small model on the phone itself: one quiet chip says so.
+      if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
       return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
