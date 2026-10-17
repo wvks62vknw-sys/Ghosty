@@ -30,9 +30,10 @@ import { createHandsMode } from './hands';
 import { createNameMode } from './name';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
+import { createScanMode } from './scan';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -127,6 +128,7 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
   { id: 'name', label: 'NAME', hint: 'name anything' },
+  { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
 ];
 
 export const lensState: LensState = {
@@ -195,7 +197,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'camera · see · read · hands · ask · name',
+  blurb: 'camera · see · read · hands · ask · name · scan',
   mount(root) {
     const S = lensState;
     const camera = new Camera(h('video.lensvideo'));
@@ -413,7 +415,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();

@@ -783,6 +783,41 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .lensnames button small { font: 500 10px var(--m); color: var(--c); letter-spacing: .06em; }
 .lensnames button i { position: absolute; left: 10px; bottom: 4px; height: 2px; max-width: calc(100% - 20px); background: var(--c); opacity: .7; border-radius: 1px; }
 .lensnames button.on { border-color: var(--a); } .lensnames button.on i { background: var(--a); }
+.scansubs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.scansubs button { font: 500 10.5px var(--d); letter-spacing: .14em; text-transform: uppercase; min-height: 38px; padding: 6px 4px; }
+.scancard { display: flex; flex-direction: column; gap: 7px; padding: 9px 10px; border-left: 2px solid var(--c); background: rgba(var(--cr), .05); border-radius: 0 var(--rad) var(--rad) 0; min-width: 0; }
+.scancard > small { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.scanhead { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.scanhead > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.scanimg { flex: none; width: 64px; height: 64px; object-fit: contain; background: #fff; border-radius: 4px; }
+.scantitle { font: 500 15px/1.3 var(--b); color: #fff; overflow-wrap: anywhere; }
+.scantext { font-size: 12px; line-height: 1.45; color: var(--mute); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9.5em; overflow-y: auto; }
+.scankv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12.5px; align-items: baseline; }
+.scankv b { font: 500 9px var(--d); letter-spacing: .14em; color: var(--c); }
+.scankv span { overflow-wrap: anywhere; }
+.scankv .row { gap: 8px; align-items: center; }
+.scanurl { font: 400 12px/1.4 var(--m); color: var(--mute); overflow-wrap: anywhere; }
+.scanurl b, .scansite b { color: #fff; font-weight: 600; }
+.scansite { font-size: 14px; }
+.scanwarn { font-size: 12px; line-height: 1.4; color: var(--a); padding-left: 8px; border-left: 2px solid var(--r); }
+.scangrade { font: 600 10px var(--d); letter-spacing: .12em; padding: 4px 8px; border-radius: 3px; color: #02070d; background: var(--mute); }
+.scangrade.ga { background: #038141; color: #fff; } .scangrade.gb { background: #85bb2f; } .scangrade.gc { background: #fecb02; } .scangrade.gd { background: #ee8100; } .scangrade.ge { background: #e63e11; color: #fff; }
+.scannut { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; font-size: 12px; }
+.scannut span { display: flex; flex-direction: column; }
+.scannut b { font: 500 8.5px var(--d); letter-spacing: .14em; color: var(--mute); }
+.scanhit { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; }
+.scanhit b { font-weight: 500; font-size: 12.5px; overflow-wrap: anywhere; } .scanhit small { color: var(--c); font: 400 10px var(--m); }
+.scancredit { font: 400 10px var(--m); color: var(--mute); }
+.scanedit { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--line); border-radius: var(--rad); background: #000; }
+.scancount { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.scanpages { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.scanpages:empty { display: none; }
+.scanthumb { position: relative; flex: none; }
+.scanthumb img { display: block; height: 84px; width: auto; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+.scanthumb span { position: absolute; left: 3px; bottom: 3px; font: 500 9px var(--m); color: #02070d; background: rgba(255,255,255,.8); padding: 0 3px; border-radius: 2px; }
+.scanthumb button { position: absolute; top: 2px; right: 2px; min-height: 0; width: 24px; height: 24px; padding: 0; line-height: 1; }
+.scanlbl { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); align-self: center; }
+.scanlang { flex: 1 1 auto; min-width: 0; min-height: 40px; }
 .lensgesture { font: 200 26px/1.1 var(--d); color: #fff; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .lensgesture small { font: 500 10px var(--m); letter-spacing: .12em; color: var(--mute); text-transform: uppercase; }
 .lenshold { height: 3px; background: rgba(var(--cr), .12); border-radius: 2px; overflow: hidden; }

@@ -36,7 +36,7 @@ export const uiTools: Tool[] = [
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
   client(
     'open_lens',
-    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled). Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
-    { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
+    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled); scan = barcodes and QR codes (products, books, links), documents to PDF, translate a sign. Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
+    { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask', 'scan'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
   ),
 ];

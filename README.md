@@ -86,6 +86,11 @@ tests/       local preview server + browser test
   white-labelled). NAME mode names thousands of everyday things, on the phone (4,624 names, about 33,000
   with MORE NAMES, from Apple's MobileCLIP-S0 under ONNX Runtime Web). Vendored MediaPipe, Tesseract.js and
   ONNX Runtime; no face recognition, no number-plate lookups.
+- **Scan anything** (Lens → SCAN): barcodes and QR codes read on the phone (vendored ZXing) — a product's
+  barcode becomes a card from Open Food Facts (Nutri-Score, nutrition, allergens) or its sister databases, a
+  book's ISBN one from Open Library, a QR link is shown with its real site and warnings and opened only on
+  your tap; documents photographed, straightened and exported as a PDF made on the phone; signs and menus
+  read and translated (Workers AI's free translator). In chat: `lookup_barcode`, `translate_text`.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

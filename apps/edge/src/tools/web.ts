@@ -50,7 +50,7 @@ export function htmlToText(html: string): { title: string; text: string } {
   return { title, text };
 }
 
-async function search(query: string, ctx: ToolContext): Promise<string> {
+export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<string> {
   // .catch: with the database paused, fall through to the keyless search.
   const brave = await ctx.vault.get('brave').catch(() => null);
   if (brave) {
