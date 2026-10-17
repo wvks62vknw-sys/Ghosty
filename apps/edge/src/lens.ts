@@ -14,6 +14,10 @@ export const IMAGE_TTL_S = 86_400;
 export const MAX_IMAGE_BYTES = 1_500_000;
 /** Shares allowed per day (the counter lives in KV too). */
 export const SHARES_PER_DAY = 30;
+/** How long a picture Ghosty made (tools/pictures.ts) stays reachable (seconds): a week. */
+export const PICTURE_TTL_S = 7 * 86_400;
+/** Pictures Ghosty makes per day (its own counter, next to the shares'). */
+export const PICTURES_PER_DAY = 40;
 
 const PREFIX = 'img:';
 const COUNT = 'img:count:';
@@ -50,40 +54,61 @@ export function imageId(): string {
 }
 export const isImageId = (s: string): boolean => /^[A-Za-z0-9_-]{16}$/.test(s);
 
-const dayKey = (now: number) => `${COUNT}${new Date(now).toISOString().slice(0, 10)}`;
+const dayKey = (counter: string, now: number) => `${counter}${new Date(now).toISOString().slice(0, 10)}`;
 
 /**
- * How many pictures were shared today (UTC). A count that cannot be read (KV's own daily
+ * How many pictures a counter has seen today (UTC). A count that cannot be read (KV's own daily
  * allowance used up, a blip) is refused rather than taken as zero: otherwise the day's limit
  * would stop applying exactly when KV is under strain.
  */
-export async function sharesToday(kv: ImageKv, now = Date.now()): Promise<number> {
+export async function countToday(kv: ImageKv, counter: string, noun: string, now = Date.now()): Promise<number> {
   let v: unknown;
   try {
-    v = await kv.get(dayKey(now), 'json');
+    v = await kv.get(dayKey(counter, now), 'json');
   } catch {
-    throw new LensError(503, "could not read today's share count (the picture store did not answer, or its own daily allowance is used up), so no picture is shared until it can be read — try again later, or tomorrow");
+    throw new LensError(503, `could not read today's ${noun} count (the picture store did not answer, or its own daily allowance is used up), so no picture is ${noun === 'share' ? 'shared' : 'kept'} until it can be read — try again later, or tomorrow`);
   }
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
 
+/** How many pictures were shared today (UTC). */
+export const sharesToday = (kv: ImageKv, now = Date.now()): Promise<number> => countToday(kv, COUNT, 'share', now);
+
+/** Where a kind of picture is counted and for how long it is kept. */
+export interface StoreOptions {
+  /** Seconds the picture stays reachable. */
+  ttl: number;
+  /** The day counter's key prefix (a day's count lives under `<counter><YYYY-MM-DD>`). */
+  counter: string;
+  /** Pictures a day under that counter. */
+  limit: number;
+  /** For the owner: "share" / "picture", and what happened to them: "shared" / "made". */
+  noun: string;
+  verb: string;
+}
+
 /**
- * Store a picture for 24 hours. The bytes must be a JPEG, PNG or WebP whatever the upload
- * claimed, at most 1.5 MB, and within the day's allowance. Returns the id, the type the
- * bytes really are, and when the link stops working.
+ * Keep a picture under /i/<id>. The bytes must be a JPEG, PNG or WebP whatever the caller
+ * claimed, at most 1.5 MB, and within the day's allowance for this kind of picture. Returns
+ * the id, the type the bytes really are, and when the link stops working.
  */
-export async function shareImage(kv: ImageKv, bytes: ArrayBuffer, claimedType: string, now = Date.now()): Promise<{ id: string; type: ImageType; expires: number }> {
+export async function storeImage(kv: ImageKv, bytes: ArrayBuffer, claimedType: string, o: StoreOptions, now = Date.now()): Promise<{ id: string; type: ImageType; expires: number }> {
   if (!/^image\/(jpeg|png|webp)$/i.test(claimedType.split(';')[0]!.trim())) throw new LensError(415, 'send the picture itself as image/jpeg, image/png or image/webp');
   if (bytes.byteLength > MAX_IMAGE_BYTES) throw new LensError(413, `the picture is too big (${(bytes.byteLength / 1e6).toFixed(1)} MB; 1.5 MB at most) — the Lens sends a smaller JPEG`);
   const type = sniffImage(bytes);
   if (!type) throw new LensError(415, 'that is not a JPEG, PNG or WebP picture');
-  const n = await sharesToday(kv, now);
-  if (n >= SHARES_PER_DAY) throw new LensError(429, `${SHARES_PER_DAY} pictures have been shared today, which is the daily limit; more tomorrow`);
+  const n = await countToday(kv, o.counter, o.noun, now);
+  if (n >= o.limit) throw new LensError(429, `${o.limit} pictures have been ${o.verb} today, which is the daily limit; more tomorrow`);
   const id = imageId();
-  await kv.put(PREFIX + id, bytes, { expirationTtl: IMAGE_TTL_S });
-  await kv.put(dayKey(now), String(n + 1), { expirationTtl: 2 * IMAGE_TTL_S });
-  return { id, type, expires: now + IMAGE_TTL_S * 1000 };
+  await kv.put(PREFIX + id, bytes, { expirationTtl: o.ttl });
+  // The count outlives the day by one, so a late write never starts a fresh count.
+  await kv.put(dayKey(o.counter, now), String(n + 1), { expirationTtl: 2 * 86_400 });
+  return { id, type, expires: now + o.ttl * 1000 };
 }
+
+/** Share a picture from the Lens for 24 hours (30 a day). */
+export const shareImage = (kv: ImageKv, bytes: ArrayBuffer, claimedType: string, now = Date.now()): Promise<{ id: string; type: ImageType; expires: number }> =>
+  storeImage(kv, bytes, claimedType, { ttl: IMAGE_TTL_S, counter: COUNT, limit: SHARES_PER_DAY, noun: 'share', verb: 'shared' }, now);
 
 const gone = () =>
   new Response('That picture is no longer shared.', {

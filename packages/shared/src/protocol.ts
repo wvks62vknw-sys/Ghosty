@@ -168,6 +168,8 @@ export interface BrainStatus {
   waiting?: number;
   /** Today's use of the database's free daily allowance (see apps/edge/src/meter.ts). */
   meter?: DatabaseMeter;
+  /** What the brain can do with sound: hear (a Groq key or Workers AI) and speak with its own voice (Workers AI). */
+  speech?: { stt: boolean; tts: boolean };
 }
 
 /** Today's use of the brain's database against Cloudflare's free daily allowance. */
@@ -196,6 +198,25 @@ export interface EmailStatus {
   server?: string;
   /** Set when the saved settings can't be used. */
   problem?: string;
+}
+
+/** The Telegram bot (LINKS → TELEGRAM, apps/edge/src/telegram.ts). The bot token never leaves the vault. */
+export interface TelegramStatus {
+  /** The token is saved and the bot's webhook points at Ghosty. */
+  linked: boolean;
+  /** The bot's username, without the @. */
+  bot: string | null;
+  /** A chat has sent the pairing code: Ghosty answers that chat alone. */
+  paired: boolean;
+  /** The owner's first name on Telegram. */
+  name: string | null;
+  /** The pairing code to send the bot, while it is valid (only before pairing). */
+  code?: string;
+  codeUntil?: number;
+  /** The token is saved (even when the bot could not be connected, so the owner knows to save it again). */
+  token?: boolean;
+  /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
+  unknown?: boolean;
 }
 
 export interface SpotifyStatus {

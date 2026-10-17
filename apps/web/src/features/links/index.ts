@@ -1,9 +1,9 @@
 /**
- * LINKS tab: everything Ghosty is connected to, in one place — email, Spotify, this phone
- * (app + notifications), live traffic (TomTom), GitHub (self-editing) and the AI brain.
+ * LINKS tab: everything Ghosty is connected to, in one place — email, Spotify, Telegram, this
+ * phone (app + notifications), live traffic (TomTom), GitHub (self-editing) and the AI brain.
  * Every secret goes straight into the brain's encrypted vault and is never shown again.
  */
-import type { BrainStatus, EmailStatus, KeyStatus, SpotifyStatus } from '../../../../../packages/shared/src/protocol';
+import type { BrainStatus, EmailStatus, KeyStatus, SpotifyStatus, TelegramStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, pauseEndsText } from '../../api/brain';
 import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, pushState } from '../../assistant/push';
 import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
@@ -73,23 +73,24 @@ export const linksTab: TabDef = {
   title: 'LINKS',
   icon: '<path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>',
   scene: 'backdrop',
-  blurb: 'email · spotify · phone · traffic · github · AI',
+  blurb: 'email · spotify · telegram · phone · traffic · github · AI',
   mount(root) {
     const P = page(root, { tag: 'LINKS // CONNECTED SYSTEMS', sub: 'everything Ghosty is plugged into', leftLabel: 'EMAIL & MUSIC', rightLabel: 'PHONE & BRAIN', stack: true });
     const ep = panel('EMAIL', { grow: false });
     const spot = panel('SPOTIFY', { grow: false });
+    const tg = panel('TELEGRAM', { grow: false });
     const ap = panel('PHONE · APP & NOTIFICATIONS', { grow: false });
     const bp = panel('AI BRAIN', { grow: false });
     const gp = panel('GITHUB · SELF-EDIT', { grow: false });
     const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
-    P.left.append(ep.el, spot.el);
+    P.left.append(ep.el, spot.el, tg.el);
     P.right.append(ap.el, tp.el, bp.el, gp.el);
 
-    const online = { email: false, spotify: false, phone: false, traffic: false, brain: false, github: false };
+    const online = { email: false, spotify: false, telegram: false, phone: false, traffic: false, brain: false, github: false };
     const paintHero = () => {
       const n = Object.values(online).filter(Boolean).length;
-      P.big.textContent = `${n} / 6 ONLINE`;
-      P.dials(([['EMAIL', online.email], ['MUSIC', online.spotify], ['PHONE', online.phone], ['TRAFFIC', online.traffic], ['AI', online.brain], ['GITHUB', online.github]] as [string, boolean][]).map(([l, on]) => [l, on ? 1 : 0.04, on ? 'ON' : 'OFF', on ? '#52f2b5' : '#ff9a3c']));
+      P.big.textContent = `${n} / 7 ONLINE`;
+      P.dials(([['EMAIL', online.email], ['MUSIC', online.spotify], ['TELEGRAM', online.telegram], ['PHONE', online.phone], ['TRAFFIC', online.traffic], ['AI', online.brain], ['GITHUB', online.github]] as [string, boolean][]).map(([l, on]) => [l, on ? 1 : 0.04, on ? 'ON' : 'OFF', on ? '#52f2b5' : '#ff9a3c']));
     };
 
     // ---- email
@@ -261,6 +262,78 @@ export const linksTab: TabDef = {
       );
     };
 
+    // ---- Telegram: the bot token lives in SYSTEM → KEYS; here the pairing and what is paired.
+    let codeTimer = 0;
+    const paintTelegram = async () => {
+      let st: TelegramStatus | null = null;
+      try {
+        st = await brain.telegramStatus();
+      } catch {
+        /* offline */
+      }
+      online.telegram = !!st?.paired;
+      paintHero();
+      clearInterval(codeTimer);
+      clear(tg.body);
+      tg.setStatus(st?.paired ? `PAIRED · @${st.bot}` : st?.linked ? 'WAITING FOR PAIRING' : st?.unknown ? 'NOT KNOWN WHILE PAUSED' : st ? 'NOT CONNECTED' : 'OFFLINE', st?.paired ? 'ok' : 'mid');
+      if (!st) return void tg.body.append(h('div.note', 'The brain is not reachable right now.'));
+      if (st.unknown) return void tg.body.append(h('div.note', "The brain cannot read its Telegram link while its database is paused. If a chat was paired, it still works."));
+      if (!st.linked) {
+        tg.body.append(
+          h('div.note', st.token
+            ? 'The bot token is saved, but the bot is not connected yet (Ghosty could not reach Telegram, or has no https address). Open SYSTEM → KEYS → Telegram bot and press SAVE again.'
+            : 'Talk to Ghosty from the Telegram app — text, voice notes and photos — and get its reminders and task results there. Paste the bot token in SYSTEM → KEYS → Telegram bot (HOW TO GET IT shows the two-minute setup).'),
+          h('div.keyrow', button('SYSTEM → KEYS', () => go('system'), 'on')),
+        );
+        return;
+      }
+      const newCode = button('NEW CODE', async (b) => {
+        b.disabled = true;
+        try {
+          await brain.telegramCode();
+        } catch (e) {
+          toast(String((e as Error).message), 'warn');
+        }
+        void paintTelegram();
+      });
+      if (!st.paired) {
+        const code = h('div.tgcode', st.code ?? '······');
+        const left = h('small.note', '');
+        const tick = () => {
+          const ms = (st!.codeUntil ?? 0) - Date.now();
+          const live = !!st!.code && ms > 0;
+          left.textContent = live ? `valid for ${Math.max(1, Math.ceil(ms / 60_000))} min` : 'the code has expired — press NEW CODE';
+          if (!live) code.textContent = '······';
+        };
+        tick();
+        codeTimer = window.setInterval(tick, 5000);
+        tg.body.append(
+          row('BOT', `@${st.bot}`),
+          h('div.note', `Open Telegram → @${st.bot} → press START → send it this code:`),
+          code,
+          left,
+          h('div.keyrow', newCode, h('a.lnk', { href: `https://t.me/${st.bot}`, target: '_blank', rel: 'noopener' }, 'OPEN THE BOT ↗')),
+        );
+        return;
+      }
+      tg.body.append(
+        row('BOT', `@${st.bot}`, null, { tone: 'up' }),
+        row('PAIRED WITH', st.name ?? 'you'),
+        h('div.note', 'Message the bot in Telegram the way you talk to Ghosty here: text, a voice note or a photo. Reminders and finished tasks arrive there too.'),
+        h('div.keyrow.wrapit', button('TEST', async (b) => {
+          b.disabled = true;
+          const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: e.message }));
+          toast(r.sent ? 'Sent to your Telegram' : `Could not send: ${r.error ?? 'unknown'}`, r.sent ? 'ok' : 'warn');
+          b.disabled = false;
+        }, 'on'), newCode, button('UNPAIR', async () => {
+          if (!confirm('Unpair this Telegram chat? You can pair again with a new code.')) return;
+          await brain.telegramUnpair().catch(() => undefined);
+          toast('Telegram unpaired', 'ok');
+          void paintTelegram();
+        }, 'warn')),
+      );
+    };
+
     // ---- this phone: install + push notifications
     const paintApp = async () => {
       const st = pushState.get();
@@ -381,8 +454,12 @@ export const linksTab: TabDef = {
       enter() {
         void paintEmail();
         void paintSpotify();
+        void paintTelegram();
         void paintApp();
         void paintBrain();
+      },
+      leave() {
+        clearInterval(codeTimer);
       },
       describe: () => `Links: ${Object.entries(online).map(([k, v]) => `${k} ${v ? 'on' : 'off'}`).join(', ')}.`,
     };

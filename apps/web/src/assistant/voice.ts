@@ -1,10 +1,15 @@
 /**
- * Voice: speaking (browser speech synthesis, sentence by sentence) and listening.
- * Listening uses Groq Whisper through the brain when a Groq key is set (best accuracy, works
- * in every browser), otherwise the browser's own speech recognition.
+ * Voice: speaking and listening.
+ * Speaking: Ghosty's own voice from the brain (MeloTTS through Workers AI, POST /api/tts) when
+ * the owner chose it in SETTINGS and the brain can speak — sentence by sentence through one
+ * audio element the first tap unlocked — otherwise, and whenever that fails, the phone's own
+ * speech synthesis. Listening: the recording goes to the brain as WAV (Groq's Whisper with a
+ * key, else Workers AI's Whisper) when the brain can hear, otherwise the browser's own
+ * speech recognition.
  */
-import { brain } from '../api/brain';
+import { brain, speechCaps } from '../api/brain';
 import { settings, ui } from '../state/app';
+import { encodeWav, toMono16k } from './wav';
 
 let voices: SpeechSynthesisVoice[] = [];
 const loadVoices = () => {
@@ -24,14 +29,41 @@ try {
 export const listVoices = () => voices.filter((v) => /^en/i.test(v.lang));
 
 /**
- * iPhones and iPads only let a page speak once speech has been started from a tap. The first
- * touch on the page speaks a silent utterance to unlock it, so Ghosty's replies (which arrive
- * later, not from a tap) are heard. Also wakes a synthesiser that iOS has paused.
+ * The one audio element Ghosty's own voice plays through. Started once from a tap, iPhones let
+ * it play every later clip on its own; it sits in the page (hidden) so a test can watch it.
+ */
+let player: HTMLAudioElement | null = null;
+function audioEl(): HTMLAudioElement {
+  if (!player) {
+    player = document.createElement('audio');
+    player.id = 'gvoice';
+    player.preload = 'auto';
+    player.hidden = true;
+    document.body.append(player);
+  }
+  return player;
+}
+
+/**
+ * iPhones and iPads only let a page make sound once it has been started from a tap. The first
+ * touch on the page plays a moment of silence through the audio element and speaks a silent
+ * utterance, so Ghosty's replies (which arrive later, not from a tap) are heard either way.
+ * Also wakes a synthesiser that iOS has paused.
  */
 let unlocked = false;
 export function unlockSpeech(): void {
-  if (unlocked || !('speechSynthesis' in window)) return;
+  if (unlocked) return;
   unlocked = true;
+  try {
+    // A blob address, not a data one: the page's security policy allows blob: media only.
+    const el = audioEl();
+    const url = URL.createObjectURL(new Blob([encodeWav(new Float32Array(800))], { type: 'audio/wav' }));
+    el.src = url;
+    void el.play().catch(() => undefined).finally(() => setTimeout(() => URL.revokeObjectURL(url), 3000));
+  } catch {
+    /* no audio */
+  }
+  if (!('speechSynthesis' in window)) return;
   try {
     const u = new SpeechSynthesisUtterance(' ');
     u.volume = 0;
@@ -75,13 +107,45 @@ const clean = (t: string) =>
     .replace(/\s{2,}/g, ' ')
     .trim();
 
+/** The sentences of a reply, none longer than `max` characters (a long one is cut at a comma, else a space). */
+export function sentences(t: string, max = 300): string[] {
+  const out: string[] = [];
+  for (const raw of t.match(/[^.!?]+[.!?]*\s*/g) ?? [t]) {
+    let s = raw.trim();
+    while (s.length > max) {
+      const slice = s.slice(0, max);
+      let cut = Math.max(slice.lastIndexOf(', '), slice.lastIndexOf('; '), slice.lastIndexOf(': ')) + 1;
+      if (cut < max / 3) cut = slice.lastIndexOf(' ');
+      if (cut < max / 3) cut = max;
+      out.push(s.slice(0, cut).trim());
+      s = s.slice(cut).trim();
+    }
+    if (s) out.push(s);
+  }
+  return out;
+}
+
 let speakToken = 0;
+/** After Ghosty's voice failed (no sound, a refusal), the phone's voice speaks until this time. */
+let phoneUntil = 0;
+
+const ghostyVoice = (): boolean => settings.get().voiceEngine !== 'phone' && ui.get().connected === true && speechCaps.get().tts && Date.now() >= phoneUntil;
 
 export function speak(text: string): Promise<void> {
   const t = clean(text);
-  if (!t || !('speechSynthesis' in window)) return Promise.resolve();
+  if (!t) return Promise.resolve();
   const token = ++speakToken;
-  const parts = t.match(/[^.!?]+[.!?]*\s*/g) ?? [t];
+  const parts = sentences(t);
+  // Ghosty's own voice first; whatever it could not say, the phone says.
+  if (ghostyVoice()) return speakGhosty(parts, token).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token) : undefined));
+  return speakPhone(parts, token);
+}
+
+function speakPhone(parts: string[], token: number): Promise<void> {
+  if (!('speechSynthesis' in window)) {
+    if (token === speakToken) ui.set({ voice: 'idle' });
+    return Promise.resolve();
+  }
   return new Promise((resolve) => {
     const next = (i: number) => {
       if (token !== speakToken || i >= parts.length) {
@@ -110,6 +174,69 @@ export function speak(text: string): Promise<void> {
   });
 }
 
+/**
+ * The sentences in Ghosty's own voice, in order: the first two are fetched together, the next
+ * one while one plays. Resolves with how many were spoken — fewer than all means a clip failed
+ * (no sound within 4 s, a refusal, the day's allowance) and the phone says the rest, and the
+ * phone's voice is used for the next ten minutes.
+ */
+async function speakGhosty(parts: string[], token: number): Promise<number> {
+  const el = audioEl();
+  const clips: Promise<Blob | null>[] = [];
+  const fetchClip = (i: number) => {
+    if (i < parts.length && !clips[i]) clips[i] = brain.tts(parts[i]!).catch(() => null);
+  };
+  fetchClip(0);
+  fetchClip(1);
+  const giveUp = (i: number) => {
+    phoneUntil = Date.now() + 10 * 60_000;
+    return i;
+  };
+  for (let i = 0; i < parts.length; i++) {
+    fetchClip(i + 1);
+    const blob = await clips[i]!;
+    if (token !== speakToken) return parts.length;
+    if (!blob) return giveUp(i);
+    ui.set({ voice: 'speaking' });
+    const ok = await playClip(el, blob);
+    if (token !== speakToken) return parts.length;
+    if (!ok) return giveUp(i);
+  }
+  ui.set({ voice: 'idle' });
+  return parts.length;
+}
+
+let stopClip: (() => void) | null = null;
+/** One clip through the shared element. True once it played to the end; false when it never made a sound, broke, or was stopped. */
+function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    let timer = 0;
+    const finish = (ok: boolean) => {
+      clearTimeout(timer);
+      el.onplaying = el.onended = el.onerror = null;
+      stopClip = null;
+      URL.revokeObjectURL(url);
+      resolve(ok);
+    };
+    stopClip = () => {
+      el.pause();
+      finish(false);
+    };
+    // Silence for 4 s means the clip was refused (autoplay, a broken file): the phone's voice takes over.
+    timer = window.setTimeout(() => finish(false), 4000);
+    el.onplaying = () => {
+      clearTimeout(timer);
+      // An end that never comes (a stalled clip) must not leave the reactor "speaking" for good.
+      timer = window.setTimeout(() => finish(true), ((Number.isFinite(el.duration) ? el.duration : 30) + 2) * 1000);
+    };
+    el.onended = () => finish(true);
+    el.onerror = () => finish(false);
+    el.src = url;
+    el.play().catch(() => finish(false));
+  });
+}
+
 export function stopSpeaking(): void {
   speakToken++;
   try {
@@ -117,6 +244,7 @@ export function stopSpeaking(): void {
   } catch {
     /* ignore */
   }
+  stopClip?.();
   if (ui.get().voice === 'speaking') ui.set({ voice: 'idle' });
 }
 
@@ -161,6 +289,13 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
     abortListen = () => rc.abort();
     rc.start();
   });
+}
+
+/** The recording as 16 kHz mono WAV, which every recogniser reads (iPhones record AAC, which not all of them do). */
+async function toWav(ctx: AudioContext, blob: Blob): Promise<Blob> {
+  const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+  const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
+  return new Blob([encodeWav(toMono16k(channels, decoded.sampleRate))], { type: 'audio/wav' });
 }
 
 async function listenWhisper(): Promise<string> {
@@ -221,12 +356,14 @@ async function listenWhisper(): Promise<string> {
     rec.stop();
   });
   stream.getTracks().forEach((t) => t.stop());
-  void ctx.close();
   micLevel.level = 0;
   micLevel.spectrum = null;
   const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+  // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats).
+  const wav = blob.size >= 4000 ? await toWav(ctx, blob).catch(() => null) : null;
+  void ctx.close();
   if (blob.size < 4000) return '';
-  const text = (await brain.stt(blob)).trim();
+  const text = (await brain.stt(wav ?? blob)).trim();
   return /^(thank you|thanks for watching|you|bye)\.?$/i.test(text) ? '' : text;
 }
 

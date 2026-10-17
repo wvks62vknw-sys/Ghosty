@@ -13,6 +13,7 @@ import { knowledgeTools } from './knowledge';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
 import { notifyTools } from './notify';
+import { picturesTools } from './pictures';
 import { crimeTools } from './crime';
 import { trafficTools } from './traffic';
 import { mapTools } from './maps';
@@ -28,7 +29,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -46,7 +47,7 @@ export function toolSpecs(list: Tool[] = TOOLS): ToolSpec[] {
  * the conversation has used it.
  */
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
-export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code' }[] = [
+export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code'; /** One line for the prompt, second person, when the group is on. */ about?: string }[] = [
   { name: 'memory', tools: memoryTools, when: 'always' },
   { name: 'web', tools: webTools, when: 'always' },
   { name: 'ui', tools: uiTools, when: 'always' },
@@ -64,6 +65,12 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'library', tools: libraryTools.filter((t) => t.name === 'library_search'), when: 'always' },
   { name: 'library-admin', tools: libraryTools.filter((t) => t.name !== 'library_search'), when: /\b(library|import|arxiv|cve-?\d*|github|paper|papers|repo|repository|save (this|that)|read (this|that)|add (this|that))\b/i },
   { name: 'notify', tools: notifyTools, when: /\b(push|notify|notification|notifications|ping|alert me|phone|text me|let me know)\b/i },
+  {
+    name: 'pictures',
+    tools: picturesTools,
+    when: /\b(picture|image|draw|paint|illustrat|logo|wallpaper|poster|artwork|sketch|render|generate .*(image|picture))/i,
+    about: 'you can make pictures (make_picture: write the whole scene out in English yourself — subject, style, light, mood); the chat shows the picture, Telegram gets it as a photo, and the link lasts 7 days.',
+  },
   { name: 'spotify', tools: spotifyTools, when: /\b(spotify|song|songs|music|track|album|artist|playlist|playing|pause|skip|next song|previous song|shuffle|volume|queue)\b/i },
   { name: 'knowledge', tools: knowledgeTools, when: /\b(study|learn|lessons?|handbook|playbooks?)\b/i },
   { name: 'evolve', tools: evolveTools, when: /\b(upgrade|improve yourself|better version|roadmap|carry on|continue|audit)\b/i },

@@ -148,6 +148,9 @@ export default {
     if (url.pathname === '/api/health') {
       return json({ ok: true, secured: ownerSecured(env), access: !!env.ACCESS_TEAM, preview: env.IS_PREVIEW === '1' });
     }
+    // Telegram's webhook (telegram.ts): Telegram itself calls it, so no owner sign-in — the brain
+    // checks the secret it gave Telegram when it set the webhook, and turns away anything else.
+    if (url.pathname === '/api/telegram/hook' && req.method === 'POST') return env.AGENT.get(env.AGENT.idFromName('owner')).fetch(req);
     // Only Ghosty's own interface may call the brain: refuse requests made by other sites
     // or by sandboxed widgets (cross-site request forgery), even if a login cookie rides along.
     const site = req.headers.get('sec-fetch-site');

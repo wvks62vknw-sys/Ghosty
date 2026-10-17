@@ -37,8 +37,9 @@ tests/       local preview server + browser test
 - **Grows by itself**: research answers become notes in its library, every shipped change is logged and
   its own changed source files are re-read, and the **Workshop → Training Ground** has it solve 40 verified
   coding exercises — it isn't done with one until every hidden test passes; mistakes become lessons.
-- **Linked to your life**: email (app password; sending always asks you), Spotify, push notifications on
-  demand — all set up in the **Links** tab — live public CCTV (the West Midlands motorways, London, Durham, New York,
+- **Linked to your life**: email (app password; sending always asks you), Spotify, **Telegram** (one bot
+  token and a pairing code, then text, voice notes and photos from the Telegram app, with reminders and
+  task results sent back there), push notifications on demand — all set up in the **Links** tab — live public CCTV (the West Midlands motorways, London, Durham, New York,
   California, Finland, Canada, Sydney), live motorway incidents and the West Midlands' safety-camera sites (no key),
   live buses and trams, live road traffic anywhere (free TomTom key), and a ROAD AHEAD mode that follows your
   phone on the God's Eye globe with what lies ahead.
@@ -65,6 +66,9 @@ tests/       local preview server + browser test
   with its other tools. Infrastructure only, never a person.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
   report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
+- **Real ears, its own voice, pictures**: speech to text with Groq's Whisper or Cloudflare Workers AI's (no
+  key), replies read in Ghosty's own voice (MeloTTS on Workers AI; the phone's voice as the fallback), and
+  pictures made on request (flux-1-schnell, free) that the chat shows and Telegram sends as photos.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.

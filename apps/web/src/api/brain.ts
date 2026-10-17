@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, TelegramStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
@@ -220,11 +220,15 @@ export async function streamEvents(path: string, body: unknown, onEvent: (e: Cha
   }
 }
 
+/** What the brain can do with sound (from its status): hear a recording, speak with its own voice. assistant/voice.ts reads it. */
+export const speechCaps = createStore({ stt: false, tts: false });
+
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () =>
     req<BrainStatus>('GET', '/status').then((s) => {
       memoryPaused.set({ on: !!s.paused, since: s.paused ? memoryPaused.get().since || Date.now() : 0 });
+      speechCaps.set({ stt: !!s.speech?.stt, tts: !!s.speech?.tts });
       return s;
     }),
   /** Keys that are public by design (a Mapbox "pk." token goes in the map's tile addresses); nothing else ever comes this way. */
@@ -306,6 +310,11 @@ export const brain = {
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
+  /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
+  telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
+  telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
+  telegramUnpair: () => req<TelegramStatus>('POST', '/telegram/unpair'),
+  telegramTest: () => req<{ sent: boolean; error?: string }>('POST', '/telegram/test'),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
   reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),
@@ -315,6 +324,15 @@ export const brain = {
     const j = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
     if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
     return j.text ?? '';
+  },
+  /** A sentence in Ghosty's own voice (MP3 bytes from the brain; 404 when it has no voice, 429 past the day's allowance). */
+  async tts(text: string): Promise<Blob> {
+    const r = await fetch('/api/tts', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text }), credentials: 'same-origin' });
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
+    }
+    return r.blob();
   },
 };
 

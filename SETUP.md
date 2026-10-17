@@ -192,6 +192,47 @@ domains, hosts, IPs and web addresses — never a person:
   sends it to chat, where Ghosty can chain on — fetch the site, import an interesting page, or look up
   a subdomain — in the same turn.
 
+## 3h. Telegram: talk to Ghosty from the Telegram app
+
+Text, voice notes and photos from Telegram, and Ghosty's reminders and task results back to it.
+Free; the whole setup is one token and a 6-digit code.
+
+1. In Telegram open **@BotFather** ([t.me/BotFather](https://t.me/BotFather)) and send `/newbot`: a
+   name, then a username ending in `bot`. BotFather shows a token (numbers, a colon, then letters).
+   Already have a bot? `/mybots` → the bot → **API Token**.
+2. In Ghosty open **System → Keys → Telegram bot**, paste the token and press **SAVE**. Ghosty connects
+   the bot itself (it points the bot's webhook at your Ghosty, with a secret only the two of them know)
+   and shows a 6-digit pairing code — also in **Links → Telegram**, big, with a countdown (15 minutes;
+   **NEW CODE** makes another).
+3. Open your bot in Telegram, press **START** and send it the code. It answers *"Paired."* From then on
+   only you can talk to it: anyone else gets *"This bot answers only to its owner."* once and is ignored.
+
+In the chat, talk as you would in Ghosty: text, a voice note (heard with Workers AI, or your Groq key), or
+a photo with a question (it goes to a model that can see pictures). A reply that needs your approval comes
+with **APPROVE / DECLINE** buttons; a picture Ghosty made arrives as a photo; `/status`, `/stop` and
+`/unpair` work as commands. Things on the screen (the globe, maps, the camera, widgets) only happen in the
+Ghosty app, and the brain says so. The conversation is the same one you see in the app.
+
+**With Cloudflare Access (step 5):** Telegram calls `/api/telegram/hook` itself, so the login must let that
+one path through — add a **Bypass** policy for the path `/api/telegram/hook`, exactly like `/s/*` and
+`/i/*` below. The brain still checks its secret on every call.
+
+The token is kept encrypted in the vault (and its KV mirror), never shown again; **REMOVE** in System →
+Keys disconnects the bot. **Links → Telegram → UNPAIR** forgets the chat (a new code pairs it again).
+
+## 3i. Real ears, Ghosty's own voice, and pictures
+
+- **Ears:** press the microphone and talk. The phone records, turns the recording into WAV and the brain
+  writes down the words — Groq's Whisper with your Groq key, otherwise Cloudflare Workers AI's Whisper
+  (free, no key, there as soon as Ghosty runs on Cloudflare). Voice notes on Telegram are heard the same way.
+- **Voice:** **Settings → Voice** has *Ghosty's own voice (from the brain)* — the default: replies are read
+  by MeloTTS on Workers AI, the same voice on every device — and *This phone's voice*, which uses the voice
+  picked in the list under it. If the brain cannot speak right now (no Workers AI, the day's 2,000 sentences
+  used up, a clip that does not play), the phone's voice takes over by itself.
+- **Pictures:** say *"draw me a red fox in the snow"*, *"make a logo for my bakery"*. Ghosty writes a full
+  description and makes the picture with Workers AI (flux-1-schnell, free): the chat shows it, Telegram sends
+  it as a photo, and the link (`https://<your Ghosty>/i/<id>`) lasts 7 days. Up to 40 a day.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
@@ -219,12 +260,12 @@ Puts a Cloudflare email-code login in front of Ghosty and its previews.
    note your Zero Trust team name.
 3. Add `ACCESS_TEAM` and `ACCESS_AUD` under `vars` in `apps/edge/wrangler.jsonc` (and under
    `previews.vars`), then push.
-4. Let two paths through without a login, or they stop working: published pages (`/s/*`) are meant
-   for other people, and the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
-   must be able to fetch. In the Access application add a **Bypass** policy for the paths `/s/*` and
-   `/i/*` (Zero Trust → Access → Applications → your application → Policies → Add, action Bypass,
-   include Everyone, with the path in the application's settings), or make them their own application
-   with a Bypass policy.
+4. Let three paths through without a login, or they stop working: published pages (`/s/*`) are meant
+   for other people, the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
+   must be able to fetch, and Telegram calls `/api/telegram/hook` itself (step 3h). In the Access
+   application add a **Bypass** policy for the paths `/s/*`, `/i/*` and `/api/telegram/hook` (Zero Trust →
+   Access → Applications → your application → Policies → Add, action Bypass, include Everyone, with the
+   path in the application's settings), or make them their own application with a Bypass policy.
 
 ## What's protected
 

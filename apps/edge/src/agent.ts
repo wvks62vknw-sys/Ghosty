@@ -26,6 +26,8 @@ import { notInfrastructure, recon, renderReport } from './integrations/recon';
 import { Router, type Msg, type ToolCall } from './llm/router';
 import { imagesIn, markPhotos, ownerWords, stripImages, textOf, withImages } from './llm/content';
 import { forgetImage, LensError, MAX_IMAGE_BYTES, shareImage } from './lens';
+import { sttRoute, ttsRoute } from './speech';
+import { telegramHook, telegramKey, telegramNotify, telegramRoute, type TelegramHost } from './telegram';
 import { chunkText } from '../../../packages/shared/src/chunk';
 import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
@@ -251,6 +253,8 @@ export class GhostyAgent {
     this.meter.label = `route:${path.split('/')[1] || '/'}`;
     this.state.waitUntil(this.meter.load());
     try {
+      // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
+      if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).
       const ownerKey = req.headers.get('x-ghosty-key');
@@ -343,10 +347,12 @@ export class GhostyAgent {
         // Mapbox: only the public token is accepted, and a secret one is refused before it reaches the
         // vault — so a mistaken paste never overwrites a good public token (which goes in tile addresses on the device).
         if (name === 'mapbox' && v && !v.startsWith('pk.')) return json({ error: 'not saved: use the public token (it starts with pk.), never a secret sk. token' }, 400);
+        // The Telegram token being replaced or removed still has its webhook to take down (telegram.ts).
+        const was = name === 'telegram' ? await this.vault.get('telegram').catch(() => null) : null;
         await this.vault.set(name, v);
         await this.router.resetHealth(true); // a provider known to be out of allowance today stays known
-        if (name !== 'github' && name !== 'email' && v) this.state.waitUntil(this.router.discover(true));
-        const check = v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
+        if (!['github', 'email', 'telegram'].includes(name) && v) this.state.waitUntil(this.router.discover(true));
+        const check = name === 'telegram' ? await telegramKey(this.telegramHost(), v, was) : v ? await testKey(name, v, this.env.GITHUB_REPO) : { ok: true, info: 'removed' };
         // waiting > 0: the database is paused — the key is in use now (memory, KV, this device) and written to it after the reset.
         return json({ ok: true, works: check.ok, info: check.info, waiting: await this.vault.waiting() });
       }
@@ -400,7 +406,9 @@ export class GhostyAgent {
         await this.storage.put('kernelUnlockedUntil', mins ? Date.now() + mins * 60_000 : 0);
         return json({ kernelUnlockedUntil: mins ? Date.now() + mins * 60_000 : 0 });
       }
-      if (path === '/stt' && method === 'POST') return await this.stt(req);
+      if (path === '/stt' && method === 'POST') return await sttRoute(this.env, this.vault, req);
+      if (path === '/tts' && method === 'POST') return await ttsRoute(this.env, req);
+      if (path.startsWith('/telegram/')) return await telegramRoute(this.telegramHost(), path, method);
       if (path === '/ships' && method === 'GET') return json(await this.ships(url));
       if (path === '/transit' && method === 'GET') return json(await transitRoute(url, this.vault));
       if (path === '/highways/events' && method === 'GET') {
@@ -512,6 +520,8 @@ export class GhostyAgent {
       lastModel,
       waiting: await this.vault.waiting(),
       meter: this.meter.snapshot(),
+      // Hearing: a Groq key or Workers AI; Ghosty's own voice: Workers AI (speech.ts).
+      speech: { stt: keys.find((k) => k.name === 'groq')?.set === true || !!this.env.AI, tts: !!this.env.AI },
       ...(paused ? { paused: `${paused} Meanwhile nearly everything keeps working: chat and every tool with your keys (this device keeps an encrypted copy; Cloudflare secrets work too), and your memory, agenda, reminders, widgets and documents from the copy on this device. Changes made meanwhile are saved to the brain after the reset.` } : {}),
     };
   }
@@ -532,10 +542,14 @@ export class GhostyAgent {
   /** A new message takes over: whatever was still running (or stuck) is stopped first. */
   private begin(): { s: ReturnType<typeof stream>; signal: AbortSignal; done: () => void } {
     this.busy?.abort();
+    return { s: stream(), ...this.claim() };
+  }
+
+  /** The turn slot (what /stop and the next message abort). Only cleared if it's still ours: a newer message may have taken it. */
+  private claim(): { signal: AbortSignal; done: () => void } {
     const ctl = new AbortController();
     this.busy = ctl;
-    // Only clear the slot if it's still ours (a newer message may have taken it).
-    return { s: stream(), signal: ctl.signal, done: () => void (this.busy === ctl && (this.busy = null)) };
+    return { signal: ctl.signal, done: () => void (this.busy === ctl && (this.busy = null)) };
   }
 
   private async chat(req: Request): Promise<Response> {
@@ -548,37 +562,13 @@ export class GhostyAgent {
     // What the phone's own camera saw (seen) and read off the picture (scan) go after the owner's words, marked as data; the history keeps the words alone.
     const seen = field(body.seen, MAX_SEEN_CHARS).replace(/\s+/g, ' ');
     const scan = field(body.scan, MAX_SCAN_CHARS);
-    const turn = withSeen(text, seen, scan);
-    this.turnLinks = [];
     const { s, signal, done } = this.begin();
     const client = body.context ?? {};
     await this.rememberClient(client).catch(() => undefined);
-    // Did any reply text go out before a failure? (Then paused mode must not answer again.)
-    let said = false;
-    const emit = s.emit;
-    s.emit = (ev: ChatEvent) => {
-      if (ev.t === 'text') said = true;
-      emit(ev);
-    };
     this.state.waitUntil(
       (async () => {
         try {
-          const prev = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
-          const stale = await this.storage.get<Pending>(PENDING_KEY);
-          if (stale) {
-            // The owner moved on without answering an approval: close those calls off.
-            for (const c of stale.calls) prev.push({ role: 'tool', tool_call_id: c.id, content: 'Not run: the owner moved on without approving.' });
-            await this.storage.delete(PENDING_KEY);
-          }
-          await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
-          const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
-          await this.loop(ctx, client, s.emit, signal, seen);
-        } catch (e) {
-          const paused = storageError(e);
-          if (paused && !said) await this.pausedChat(text, body.recent, client, s.emit, signal, paused, body.offline, images, turn, seen);
-          // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
-          else if (paused) s.emit({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
-          else s.emit({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
+          await this.runTurn(text, images, client, s.emit, signal, { seen, scan, recent: body.recent, offline: body.offline });
         } finally {
           done();
           await s.close();
@@ -586,6 +576,42 @@ export class GhostyAgent {
       })(),
     );
     return s.response;
+  }
+
+  /**
+   * One turn of the conversation, from any channel (the interface's chat, Telegram): the owner's
+   * words into the history and the working context, the agent loop, and — the database being
+   * paused — the paused-mode answer instead. `seen`/`scan`: what the phone's camera saw and
+   * read, marked as data; `recent`/`offline`: what the device sends for paused mode.
+   */
+  private async runTurn(text: string, images: string[], client: ClientContext, emit: (ev: ChatEvent) => void, signal: AbortSignal, extra: { seen?: string; scan?: string; recent?: unknown; offline?: unknown } = {}): Promise<void> {
+    const seen = extra.seen ?? '';
+    const turn = withSeen(text, seen, extra.scan ?? '');
+    this.turnLinks = [];
+    // Did any reply text go out before a failure? (Then paused mode must not answer again.)
+    let said = false;
+    const out = (ev: ChatEvent) => {
+      if (ev.t === 'text') said = true;
+      emit(ev);
+    };
+    try {
+      const prev = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
+      const stale = await this.storage.get<Pending>(PENDING_KEY);
+      if (stale) {
+        // The owner moved on without answering an approval: close those calls off.
+        for (const c of stale.calls) prev.push({ role: 'tool', tool_call_id: c.id, content: 'Not run: the owner moved on without approving.' });
+        await this.storage.delete(PENDING_KEY);
+      }
+      await this.addTurn({ role: 'user', text: markPhotos(text, images.length), at: Date.now() });
+      const ctx: Msg[] = [...trimContext(prev), { role: 'user', content: images.length ? withImages(turn, images) : turn }];
+      await this.loop(ctx, client, out, signal, seen);
+    } catch (e) {
+      const paused = storageError(e);
+      if (paused && !said) await this.pausedChat(text, extra.recent, client, out, signal, paused, extra.offline, images, turn, seen);
+      // Shown as an entry that stays on screen (a status line is cleared when the stream ends).
+      else if (paused) out({ t: 'error', message: 'Answered, but not saved: my database is paused until midnight UTC.' });
+      else out({ t: 'error', message: paused ?? String((e as Error)?.message ?? e) });
+    }
   }
 
   /**
@@ -604,7 +630,7 @@ export class GhostyAgent {
    * plus memory, reminders, events and library search backed by the owner's device.
    */
   private pausedTools(text: string, client: ClientContext, passages: DevicePassage[]): Tool[] {
-    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'maps', 'email', 'media', 'spotify', 'widgets', 'sites', 'recon']);
+    const groups = new Set(['web', 'ui', 'extra', 'data', 'travel', 'traffic', 'crime', 'maps', 'email', 'media', 'spotify', 'widgets', 'sites', 'recon', 'pictures']);
     const picked = TOOL_GROUPS.filter((g) => groups.has(g.name) && (g.when === 'always' || (g.when instanceof RegExp && g.when.test(text)))).flatMap((g) => (g.name === 'widgets' ? g.tools.filter((t) => t.name === 'create_widget') : g.tools));
     const device = [...deviceTools(client.tz), deviceLibrarySearch(passages)];
     const names = new Set(device.map((t) => t.name));
@@ -730,43 +756,13 @@ export class GhostyAgent {
 
   private async approve(req: Request): Promise<Response> {
     const body = (await req.json()) as { id: string; allow: boolean };
-    const pp = this.pausedPending;
-    if (pp && pp.id === body.id && Date.now() - pp.at < 3600_000) {
-      // Asked while the database was paused: carry on the same way.
-      this.pausedPending = null;
-      const { s, signal, done } = this.begin();
-      this.state.waitUntil(
-        (async () => {
-          try {
-            await this.pausedLoop(pp.ctx, pp.sys, pp.client, pp.passages, pp.text, s.emit, signal, { calls: pp.calls, first: body.allow ? 'approved' : 'declined' });
-          } catch (e) {
-            s.emit({ t: 'error', message: String((e as Error)?.message ?? e) });
-          } finally {
-            done();
-            await s.close();
-          }
-        })(),
-      );
-      return s.response;
-    }
-    let pending: Pending | undefined;
-    try {
-      pending = await this.storage.get<Pending>(PENDING_KEY);
-    } catch (e) {
-      if (!storageError(e)) throw e;
-      return json({ error: 'That was asked before my database paused, and it needs the database, which is back at midnight UTC. Ask me again then.' }, 409);
-    }
-    if (!pending || pending.id !== body.id) return json({ error: 'nothing is waiting for approval' }, 404);
+    const a = await this.takeApproval(body.id, body.allow);
+    if ('error' in a) return json({ error: a.error }, a.status);
     const { s, signal, done } = this.begin();
     this.state.waitUntil(
       (async () => {
         try {
-          await this.storage.delete(PENDING_KEY);
-          const ctx = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
-          const paused = await this.runCalls(ctx, pending.calls, pending.client, s.emit, body.allow ? 'approved' : 'declined');
-          if (!paused) await this.loop(ctx, pending.client, s.emit, signal);
-        } catch (e) {
-          s.emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
+          await a.run(s.emit, signal);
         } finally {
           done();
           await s.close();
@@ -774,6 +770,49 @@ export class GhostyAgent {
       })(),
     );
     return s.response;
+  }
+
+  /**
+   * The owner's answer to an approval, from any channel (POST /approve, Telegram's buttons):
+   * what was waiting under that id is taken, and `run` carries the turn on with its events
+   * going to `emit`; or why nothing could be, with the status the route answers.
+   */
+  private async takeApproval(id: string, allow: boolean): Promise<{ error: string; status: number } | { run: (emit: (ev: ChatEvent) => void, signal: AbortSignal) => Promise<void> }> {
+    const pp = this.pausedPending;
+    if (pp && pp.id === id && Date.now() - pp.at < 3600_000) {
+      // Asked while the database was paused: carry on the same way.
+      this.pausedPending = null;
+      return {
+        run: async (emit, signal) => {
+          try {
+            await this.pausedLoop(pp.ctx, pp.sys, pp.client, pp.passages, pp.text, emit, signal, { calls: pp.calls, first: allow ? 'approved' : 'declined' });
+          } catch (e) {
+            emit({ t: 'error', message: String((e as Error)?.message ?? e) });
+          }
+        },
+      };
+    }
+    let pending: Pending | undefined;
+    try {
+      pending = await this.storage.get<Pending>(PENDING_KEY);
+    } catch (e) {
+      if (!storageError(e)) throw e;
+      return { error: 'That was asked before my database paused, and it needs the database, which is back at midnight UTC. Ask me again then.', status: 409 };
+    }
+    if (!pending || pending.id !== id) return { error: 'nothing is waiting for approval', status: 404 };
+    const found = pending;
+    return {
+      run: async (emit, signal) => {
+        try {
+          await this.storage.delete(PENDING_KEY);
+          const ctx = (await this.storage.get<Msg[]>(CTX_KEY)) ?? [];
+          const paused = await this.runCalls(ctx, found.calls, found.client, emit, allow ? 'approved' : 'declined');
+          if (!paused) await this.loop(ctx, found.client, emit, signal);
+        } catch (e) {
+          emit({ t: 'error', message: storageError(e) ?? String((e as Error)?.message ?? e) });
+        }
+      },
+    };
   }
 
   /**
@@ -1185,11 +1224,48 @@ export class GhostyAgent {
     const it = await addInbox(this.storage, item);
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
     this.state.waitUntil(pushAll(this.storage, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    // The owner's Telegram chat gets it too, once paired (telegram.ts).
+    this.state.waitUntil(telegramNotify(this.telegramHost(), item).catch(() => false));
     return it;
   }
 
   private contact(): string {
     return this.env.OWNER_EMAIL ? `mailto:${this.env.OWNER_EMAIL}` : 'mailto:owner@ghosty.invalid';
+  }
+
+  /** What Telegram (telegram.ts) may do: the same turn, approval and status paths the interface uses, and nothing else. */
+  private telegramHost(): TelegramHost {
+    return {
+      env: this.env,
+      storage: this.storage,
+      vault: this.vault,
+      origin: this.origin || this.env.PUBLIC_ORIGIN || '',
+      waitUntil: (p) => this.state.waitUntil(p),
+      client: async () => {
+        const c: ClientContext = { ...((await this.storage.get<ClientContext>('owner:ctx').catch(() => undefined)) ?? {}) };
+        c.tz = safeTz(c.tz);
+        c.now = fmtLocal(Date.now(), c.tz);
+        c.tab = 'telegram';
+        c.screen = 'The owner is talking from the Telegram app, not from your interface: answer in plain text (no markdown tables or headings); screen actions (tabs, the globe, maps, the Lens, widgets) do not show there, so say what you would show instead, or tell them to open Ghosty on their phone.';
+        return c;
+      },
+      claimTurn: async (waitMs) => {
+        // A turn from the interface is never cut short from Telegram: wait for it, then take the slot.
+        const until = Date.now() + waitMs;
+        while (this.busy && Date.now() < until) await new Promise((ok) => setTimeout(ok, 500));
+        return this.busy ? null : this.claim();
+      },
+      runTurn: (text, images, client, emit, signal) => this.runTurn(text, images, client, emit, signal),
+      takeApproval: (id, allow) => this.takeApproval(id, allow),
+      statusLine: async () => {
+        const st = await this.status('owner');
+        return `${st.models.filter((m) => m.state === 'ok').length} of ${st.models.length} models ready · ${st.keys.filter((k) => k.set).length} keys set${st.paused ? ' · memory paused until midnight UTC' : ''}`;
+      },
+      stop: () => {
+        this.busy?.abort();
+        this.busy = null;
+      },
+    };
   }
 
   /** Phone/desktop notifications (Web Push) — the System and Agenda tabs turn these on. */
@@ -1374,25 +1450,6 @@ export class GhostyAgent {
     } finally {
       this.bgBusy = false;
     }
-  }
-
-  /** Speech to text through Groq Whisper (needs the Groq key). */
-  private async stt(req: Request): Promise<Response> {
-    const key = await this.vault.get('groq');
-    if (!key) return json({ error: 'no groq key' }, 400);
-    const type = req.headers.get('content-type') ?? 'audio/webm';
-    const audio = await req.arrayBuffer();
-    if (audio.byteLength > 8_000_000) return json({ error: 'recording too long' }, 413);
-    const ext = /mp4/.test(type) ? 'mp4' : /ogg/.test(type) ? 'ogg' : 'webm';
-    const fd = new FormData();
-    fd.append('file', new Blob([audio], { type }), `speech.${ext}`);
-    fd.append('model', 'whisper-large-v3-turbo');
-    fd.append('response_format', 'json');
-    fd.append('temperature', '0');
-    const r = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: fd });
-    if (!r.ok) return json({ error: `whisper ${r.status}` }, 502);
-    const j = (await r.json()) as { text?: string };
-    return json({ text: j.text ?? '' });
   }
 }
 

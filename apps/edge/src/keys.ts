@@ -80,6 +80,20 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     {
+      name: 'telegram',
+      label: 'Telegram bot',
+      hint: 'numbers, a colon, then letters (from @BotFather)',
+      link: 'https://t.me/BotFather',
+      need: 'recommended',
+      why: 'Talk to Ghosty from Telegram — text, voice notes and photos — and get its notifications there. Free.',
+      steps: [
+        'Open the link (it opens @BotFather in Telegram) and send /newbot: give the bot a name, then a username ending in "bot". Already have one? Send /mybots → your bot → API Token.',
+        'Copy the token BotFather shows (numbers, a colon, then letters).',
+        'Paste it below and press SAVE. Ghosty connects itself and shows a 6-digit pairing code here (and in LINKS → TELEGRAM).',
+        'Open your bot in Telegram, press START and send it the code. From then on only you can talk to it.',
+      ],
+    },
+    {
       name: 'tavily',
       label: 'Tavily search',
       hint: 'starts with tvly-…',
