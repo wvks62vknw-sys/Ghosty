@@ -94,6 +94,10 @@ tests/       local preview server + browser test
   **AIM: point the phone at the sky or the street** — labels float over aircraft (callsign, height, distance),
   ships, buses and trams, hilltops, towers and landmarks, and the space station when it is up, with a compass
   ribbon and the horizon; tap one for its card, or ask WHAT'S THAT? (Places: Wikipedia, OpenStreetMap.)
+- **Vehicle check**: photograph or type ONE UK number plate and see that car's official record — make, model,
+  colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
+  unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
+  CHECK THIS VEHICLE? and looks nothing up until you tap it. Shown once, never saved anywhere; never who owns it.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
