@@ -36,7 +36,7 @@ export const uiTools: Tool[] = [
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
   client(
     'open_lens',
-    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled); scan = barcodes and QR codes (products, books, links), documents to PDF, translate a sign; aim = point the phone at the sky or the street for live labels on planes, ships, buses, places and the space station. Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
-    { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask', 'scan', 'aim'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
+    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled); scan = barcodes and QR codes (products, books, links), documents to PDF, translate a sign; aim = point the phone at the sky or the street for live labels on planes, ships, buses, places and the space station. sound = a sound check with the microphone (is a speaker distorting, hum, boomy bass; a test tone measures the speaker). Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
+    { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask', 'scan', 'aim', 'sound'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
   ),
 ];

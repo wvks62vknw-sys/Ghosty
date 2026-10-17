@@ -810,6 +810,20 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .scancredit { font: 400 10px var(--m); color: var(--mute); }
 .scanedit { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--line); border-radius: var(--rad); background: #000; }
 .scancount { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.soundsubs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.soundsubs button { font: 500 10.5px var(--d); letter-spacing: .14em; min-height: 38px; padding: 6px 4px; }
+.soundlab { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); align-self: center; margin-right: 4px; }
+.soundmeter { height: 6px; background: rgba(var(--cr), .1); border-radius: 3px; overflow: hidden; }
+.soundmeter i { display: block; height: 100%; width: 0; background: var(--c); transition: width .08s linear; }
+.soundmeter i.hot { background: var(--r); }
+.soundcard { display: flex; flex-direction: column; gap: 8px; padding: 9px 10px; border-left: 2px solid var(--c); background: rgba(var(--cr), .05); border-radius: 0 var(--rad) var(--rad) 0; min-width: 0; }
+.soundcard > small { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.soundverdict { font: 300 18px/1.3 var(--d); color: #fff; overflow-wrap: anywhere; }
+.soundverdict.ok { color: var(--ok); } .soundverdict.mid { color: var(--a); } .soundverdict.bad { color: var(--r); }
+.soundfind { margin: 0; padding-left: 16px; font-size: 12.5px; line-height: 1.45; color: var(--fg); }
+.soundfind:empty { display: none; }
+.soundrows { display: flex; flex-direction: column; gap: 3px; }
+.soundchart { display: block; max-width: 100%; border: 1px solid var(--line); border-radius: var(--rad); background: rgba(2, 7, 13, .5); }
 .scanpages { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
 .scanpages:empty { display: none; }
 .scanthumb { position: relative; flex: none; }
