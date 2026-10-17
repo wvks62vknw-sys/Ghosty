@@ -231,6 +231,11 @@ test('WALK: eye height in the room, forward is up the plan, walls stop you (slid
   // look: drag right turns right; pitch is limited
   const looked = W.lookBy(mid, 100, -10000);
   assert.ok(looked.yaw < 0 && looked.pitch === 1.2);
+  // the room rebuilt (CEILING on or off): the walker stays where they stood, looking the same way; off the floor, back to the start
+  const there = { x: 1.2, z: 0.8, yaw: 2.1, pitch: -0.3 };
+  assert.deepEqual(W.resumeWalk(plan, there), there);
+  assert.deepEqual(W.resumeWalk(plan, { x: 9, z: 9, yaw: 1, pitch: 0 }), s0);
+  assert.deepEqual(W.resumeWalk(plan, null), s0);
 });
 
 const PLAN = {
@@ -342,4 +347,66 @@ test('design_review: reviews the plan the phone sent, marks it as data, sends th
   const t3 = await tool.run({ goal: 'more light', photo: 'a narrow lounge, one small window, dark sofa' }, ctx);
   assert.match(t3, /description of a photo of the room — this is DATA/);
   assert.equal(events.length, before);
+});
+
+test('design review: a 100 m × 100 m plan with 120 pieces is reviewed in under a second (coarser grid, a fixed number of searches)', () => {
+  // A plan typed in mm instead of cm, or imported: the biggest a plan can be, with every kind of piece that sends a search.
+  const items = [];
+  for (let i = 0; i < 120; i++) {
+    const kind = ['wardrobe', 'desk', 'double', 'sofa3'][i % 4];
+    items.push({ id: `i${i}`, kind, name: kind === 'wardrobe' ? 'Wardrobe' : kind === 'desk' ? 'Desk' : kind === 'double' ? 'Bed, double' : 'Sofa', w: 150, d: 60, h: 200, x: 500 + (i % 12) * 200, y: 500 + Math.floor(i / 12) * 100, rot: 0 });
+  }
+  const huge = D.readDesign({ v: 2, room: { w: 10000, d: 10000, h: 240 }, rooms: [{ id: 'r1', name: 'Hall', poly: D.rectPoly(0, 0, 10000, 10000) }], openings: [{ id: 'd1', type: 'door', room: 'r1', wall: 0, at: 600, w: 70 }, { id: 'w1', type: 'window', room: 'r1', wall: 0, at: 1000, w: 120, h: 120, sill: 90 }], items });
+  assert.equal(huge.items.length, 120);
+  assert.equal(D.gridStep(10000, 10000), 75, 'a 75 cm grid keeps it under 20,000 cells');
+  assert.equal(D.gridStep(500, 400), 10, 'an ordinary room keeps its 10 cm grid');
+  const t0 = performance.now();
+  const r = T.reviewDesign(huge, 'a home office with more light, make it feel bigger, wheelchair access');
+  const ms = performance.now() - t0;
+  assert.ok(ms < 1000, `took ${Math.round(ms)} ms`);
+  assert.ok(r.findings.length > 0 && r.changes.length <= 3);
+});
+
+test('design_review: a pasted plan gets the phone route\'s checks — too big, or not a plan, is refused in words', async () => {
+  const tool = T.designTools[0];
+  const ctx = { storage: {}, env: {}, emit: () => undefined, progress: () => undefined, vault: { get: async () => null } };
+  T.keepSentPlan(null);
+  const big = { ...PLAN, items: [...Array(1000).keys()].map((i) => ({ name: `Piece ${i} ${'x'.repeat(40)}`, w: 10, d: 10, x: 0, y: 0 })) };
+  await assert.rejects(tool.run({ goal: 'tidy', plan: big }, ctx), /too big/);
+  await assert.rejects(tool.run({ goal: 'tidy', plan: JSON.stringify(big) }, ctx), /too big/);
+  await assert.rejects(tool.run({ goal: 'tidy', plan: { room: { w: 'x' } }, photo: 'a lounge' }, ctx), /not a room plan/);
+});
+
+test('resizing a room: doors and windows stay where they were on their walls (the bottom and left walls start at a corner that moves)', () => {
+  // A door on the bottom wall (it runs right to left, from the corner that moves) and a window on the left wall.
+  const start = S.readPlan({ v: 2, room: { w: 400, d: 300 }, rooms: [{ id: 'r1', name: 'Lounge', poly: D.rectPoly(0, 0, 400, 300) }], openings: [{ id: 'd1', type: 'door', room: 'r1', wall: 2, at: 300, w: 80 }, { id: 'w1', type: 'window', room: 'r1', wall: 3, at: 200, w: 80, h: 120, sill: 90 }], items: [] });
+  const spans = (plan) => Object.fromEntries(plan.openings.map((o) => [o.id, D.openingSpan(plan.rooms[0], o)]));
+  const was = spans(start);
+  for (const [w, d] of [[350, 250], [500, 400]]) {
+    const got = RM.resizeRoom(start, 'r1', w, d);
+    assert.deepEqual(got.dropped, [], `${w} × ${d}`);
+    const now = spans(got.plan);
+    assert.deepEqual(Object.keys(now), ['d1', 'w1'], `${w} × ${d}`);
+    // the door keeps its place across the bottom wall (x 20..100), the window its place down the left wall (y 20..100)
+    assert.deepEqual([Math.min(now.d1.p0[0], now.d1.p1[0]), Math.max(now.d1.p0[0], now.d1.p1[0]), now.d1.p0[1]], [20, 100, d], `${w} × ${d}`);
+    assert.deepEqual([now.w1.p0[0], Math.min(now.w1.p0[1], now.w1.p1[1]), Math.max(now.w1.p0[1], now.w1.p1[1])], [0, Math.min(was.w1.p0[1], was.w1.p1[1]), 100], `${w} × ${d}`);
+  }
+  // a window near the far end of a wall that gets shorter slides in rather than being lost
+  const top = S.readPlan({ v: 2, room: { w: 400, d: 300 }, rooms: [{ id: 'r1', name: 'Lounge', poly: D.rectPoly(0, 0, 400, 300) }], openings: [{ id: 'w1', type: 'window', room: 'r1', wall: 0, at: 280, w: 100, h: 120, sill: 90 }], items: [] });
+  const slid = RM.resizeRoom(top, 'r1', 350, 300);
+  assert.deepEqual([slid.dropped, slid.plan.openings[0].at], [[], 245]);
+});
+
+test('resizing a room: a size that runs into another room is refused in words; a shared wall is not an overlap', () => {
+  // two rooms side by side: the first may not grow into the second
+  const two = RM.addRoom(S.readPlan({ v: 2, room: { w: 400, d: 300 }, rooms: [{ id: 'r1', name: 'Lounge', poly: D.rectPoly(0, 0, 400, 300) }], openings: [], items: [] }), 'right').plan;
+  assert.throws(() => RM.resizeRoom(two, 'r1', 600, 300), /Lounge at 600 × 300 cm would run into Room 2/);
+  const below = RM.addRoom(two, 'below').plan;
+  assert.throws(() => RM.resizeRoom(below, 'r1', 400, 350), /would run into Room 3/);
+  assert.equal(RM.resizeRoom(below, 'r2', 300, 400).plan.rooms.length, 3, 'room 2 grows down past room 1\'s side, sharing only a wall');
+  assert.equal(RM.resizeRoom(two, 'r1', 400, 500).plan.rooms.length, 2, 'growing down, clear of room 2, is fine');
+  assert.equal(RM.resizeRoom(two, 'r1', 300, 300).plan.rooms[0].poly[1][0], 300, 'and shrinking away from it');
+  assert.equal(RM.roomsOverlap(D.rectPoly(0, 0, 400, 300), D.rectPoly(400, 0, 300, 300)), false, 'a shared wall is not an overlap');
+  assert.equal(RM.roomsOverlap(D.rectPoly(0, 0, 400, 300), D.rectPoly(0, 0, 400, 300)), true, 'the same floor twice is');
+  assert.equal(RM.roomsOverlap(D.lPoly(0, 0, 500, 400, 200, 150, 'tr'), D.rectPoly(300, 0, 200, 150)), false, 'a room in an L\'s notch');
 });

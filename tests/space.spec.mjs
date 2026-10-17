@@ -205,12 +205,33 @@ const closeLog = async () => {
 };
 await closeLog();
 await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+// A finger, not a mouse: taps and drags on the plan go through the touch path (pointer events of type touch).
+const cdp = await ctx.newCDPSession(page);
 const tap = async (xcm, ycm) => {
   await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
   const p = await at(xcm, ycm);
-  await page.mouse.click(p.x, p.y);
+  await page.touchscreen.tap(p.x, p.y);
   await page.waitForTimeout(120);
 };
+const touchDrag = async (from, to) => {
+  const a = await at(...from);
+  const b = await at(...to);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] });
+  for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + ((b.x - a.x) * i) / 8, y: a.y + ((b.y - a.y) * i) / 8 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(150);
+};
+/** Where an opening is across the plan (cm): its two ends. */
+const spanOf = (o, poly) => {
+  const a = poly[o.wall];
+  const b = poly[(o.wall + 1) % poly.length];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+  return [[a[0] + u[0] * o.at, a[1] + u[1] * o.at], [a[0] + u[0] * (o.at + o.w), a[1] + u[1] * (o.at + o.w)]].map((q) => q.map((v) => Math.round(v)));
+};
+const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.space')).plan);
+const toasts = () => page.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent));
+const overlapsRect = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 await tap(250, -6);
 if (!/^wall:r1:0$/.test((await sp()).selected)) problems.push(`tapping the top wall chose "${(await sp()).selected}"`);
 await page.locator('#pg-space .spacearch button', { hasText: 'ADD DOOR' }).click();
@@ -227,7 +248,7 @@ if (!(await page.locator('#pg-space .spaceroomnote', { hasText: 'm² (215 ft²)'
 // the window, chosen, slides along its wall (wall 2 runs right to left: its middle follows the finger)
 if (win) {
   const mid = 500 - win.at - win.w / 2;
-  await drag([mid, 402], [mid - 120, 402]);
+  await touchDrag([mid, 402], [mid - 120, 402]);
   const moved = (await sp()).openings.find((o) => o.id === win.id);
   if (!moved || moved.at !== win.at + 120) problems.push(`the window did not slide 120 cm along its wall: at ${moved?.at} (was ${win.at})`);
 }
@@ -240,6 +261,8 @@ await page.locator('#pg-space .spacerooms button', { hasText: 'L-SHAPE' }).click
 s = await sp();
 if (s.rooms[0]?.corners !== 6 || s.rooms[0]?.m2 !== 18.2) problems.push(`L-SHAPE gave ${JSON.stringify(s.rooms[0])} (want 6 corners, 18.2 m²)`);
 if (s.openings.length !== 2) problems.push(`the door and window did not stay on the L: ${JSON.stringify(s.openings)}`);
+// the open floor is floor: never in the L's notch (top right, 150 × 120)
+if (overlapsRect(s.open, { x: 350, y: 0, w: 150, h: 120 })) problems.push(`the open floor counts the L's notch: ${JSON.stringify(s.open)}`);
 await page.locator('#pg-space .spacerooms button', { hasText: '+ ROOM RIGHT' }).click();
 s = await sp();
 if (s.rooms.length !== 2 || s.room.w !== 800) problems.push(`+ ROOM RIGHT: ${s.rooms.length} rooms, plan ${s.room.w} wide`);
@@ -249,6 +272,31 @@ if (!/^wall:/.test((await sp()).selected)) problems.push(`tapping the wall betwe
 else await page.locator('#pg-space .spacearch button', { hasText: 'ADD DOOR' }).click();
 s = await sp();
 if (s.openings.filter((o) => o.type === 'door').length !== 2 || s.openings.length !== 3) problems.push(`doors and windows after the L and the new room: ${JSON.stringify(s.openings)}`);
+if (overlapsRect(s.open, { x: 350, y: 0, w: 150, h: 120 }) || overlapsRect(s.open, { x: 500, y: 300, w: 300, h: 100 })) problems.push(`the open floor counts floor that is not in a room: ${JSON.stringify(s.open)}`);
+// resize room 1 by finger: wider runs into room 2 and is refused; narrower keeps every door and window where it was across the plan
+await tap(250, -6);
+const roomIn = page.locator('#pg-space .spaceroom input');
+const p0 = await saved();
+const spans0 = Object.fromEntries(p0.openings.map((o) => [o.id, spanOf(o, p0.rooms.find((r) => r.id === o.room).poly)]));
+await roomIn.nth(0).fill('600');
+await roomIn.nth(1).fill('400');
+await page.locator('#pg-space .spaceroom button', { hasText: 'SET' }).tap();
+if (!(await toasts()).some((t) => /would run into Room 2/.test(t))) problems.push(`growing room 1 into room 2 was not refused: ${JSON.stringify(await toasts())}`);
+if (JSON.stringify((await saved()).rooms) !== JSON.stringify(p0.rooms)) problems.push('a refused size changed the rooms');
+for (const w of ['450', '500']) {
+  await roomIn.nth(0).fill(w);
+  await page.locator('#pg-space .spaceroom button', { hasText: 'SET' }).tap();
+  const p1 = await saved();
+  const spans1 = Object.fromEntries(p1.openings.map((o) => [o.id, spanOf(o, p1.rooms.find((r) => r.id === o.room).poly)]));
+  // the window on the bottom wall and the door on the top keep their place across the plan; the door between the rooms moves only with its wall
+  for (const id of Object.keys(spans0)) {
+    const [a, b] = [spans0[id], spans1[id]];
+    const across = a[0][1] === a[1][1] ? 0 : 1;
+    const same = b && a[0][across] === b[0][across] && a[1][across] === b[1][across];
+    if (!same) problems.push(`room 1 at ${w} cm wide moved or lost ${id}: ${JSON.stringify(a)} → ${JSON.stringify(b)}`);
+  }
+}
+s = await sp();
 await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/space-rooms.png` });
 

@@ -224,23 +224,30 @@ if (arch.mode !== 'walk' || !arch.walk || Math.abs(arch.camera[1] - 1.6) > 0.1) 
 const stick = page.locator('#pg-studio .studiostick');
 if (!(await stick.isVisible())) problems.push('no joystick in WALK');
 else {
+  // a thumb on the joystick and a finger on the scene: the touch path (pointer events of type touch)
+  const cdp = await ctx.newCDPSession(page);
+  const touch = async (from, to, steps, holdMs = 0) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from[0], y: from[1] }] });
+    for (let i = 1; i <= steps; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from[0] + ((to[0] - from[0]) * i) / steps, y: from[1] + ((to[1] - from[1]) * i) / steps }] });
+    if (holdMs) await page.waitForTimeout(holdMs);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
   const sb = await stick.boundingBox();
   const start = arch.walk;
-  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(sb.x + sb.width / 2, sb.y + 4, { steps: 4 });
-  await page.waitForTimeout(900);
-  await page.mouse.up();
+  await touch([sb.x + sb.width / 2, sb.y + sb.height / 2], [sb.x + sb.width / 2, sb.y + 4], 4, 900);
   const walked = (await S()).walk;
   const d = Math.hypot(walked.x - start.x, walked.z - start.z);
   if (!(d > 0.3)) problems.push(`the joystick did not walk: moved ${d.toFixed(2)} m (${JSON.stringify(start)} → ${JSON.stringify(walked)})`);
   const view = await page.locator('#pg-studio .studioview').boundingBox();
-  await page.mouse.move(view.x + view.width * 0.7, view.y + view.height * 0.4);
-  await page.mouse.down();
-  await page.mouse.move(view.x + view.width * 0.3, view.y + view.height * 0.4, { steps: 5 });
-  await page.mouse.up();
+  await touch([view.x + view.width * 0.7, view.y + view.height * 0.4], [view.x + view.width * 0.3, view.y + view.height * 0.4], 5);
   const looked = (await S()).walk;
   if (!(looked.yaw > walked.yaw + 0.3)) problems.push(`dragging the scene did not turn the head: yaw ${walked.yaw} → ${looked.yaw}`);
+  // CEILING off while walking: the room is rebuilt, and the walker stays where they stood, looking the same way
+  await btn('CEILING: ON').tap();
+  await until(() => { const s = window.__ghosty.studio.state(); return !s.ceiling && s.room && !s.parts.some((p) => /ceiling$/.test(p.name)); }, 8000, 'CEILING did not come off');
+  await page.waitForTimeout(300);
+  const after = await S();
+  if (after.mode !== 'walk' || !after.walk || Math.hypot(after.walk.x - looked.x, after.walk.z - looked.z) > 1e-6 || Math.abs(after.walk.yaw - looked.yaw) > 1e-6) problems.push(`CEILING sent the walker back: ${JSON.stringify(looked)} → ${JSON.stringify(after.walk)} (${after.mode})`);
 }
 await page.screenshot({ path: `${out}/studio-walk.png` });
 await modes.locator('button', { hasText: 'AERIAL' }).click();
