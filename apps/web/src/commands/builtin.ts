@@ -316,6 +316,22 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The 3D STUDIO: a sample, a model made from a picture (make_3d), a room in cm, or a Spline link.
+      id: 'open_studio',
+      title: 'Open the 3D Studio',
+      hidden: true,
+      run: async (a) => {
+        const { openStudio } = await import('../features/studio');
+        openStudio({
+          sample: typeof a?.sample === 'string' ? a.sample : undefined,
+          model: typeof a?.model === 'string' ? a.model : undefined,
+          title: typeof a?.title === 'string' ? a.title.slice(0, 80) : undefined,
+          room: a?.room && typeof a.room === 'object' ? a.room : undefined,
+          spline: typeof a?.spline === 'string' ? a.spline : undefined,
+        });
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

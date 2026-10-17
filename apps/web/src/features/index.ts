@@ -14,9 +14,10 @@ import { marketsTab } from './markets';
 import { radioTab } from './radio';
 import { reverseTab } from './reverse';
 import { settingsTab } from './settings';
+import { studioTab } from './studio';
 import { memoryTab } from './memory';
 import { systemTab } from './system';
 import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, reverseTab, linksTab, settingsTab, systemTab];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, studioTab, reverseTab, linksTab, settingsTab, systemTab];
