@@ -4,6 +4,7 @@
  * name and an `action`. Each action also opens the LEARN tab where it can (`open_learn`).
  */
 import { lesson, makeQuiz, pickCourse, startCourse, tutorDepsFor, learnState, isLevel } from '../tutor';
+import { asData } from '../kernel/permissions';
 import { arg, type Tool } from './types';
 
 const LETTERS = 'ABCDEF';
@@ -44,10 +45,12 @@ export const learnTools: Tool[] = [
         const r = await lesson(deps, e.id, Number(a.n) || undefined, { markDone: true });
         open({ course: e.id, n: r.lesson.n });
         const l = r.lesson;
-        const check = l.check ? `\n\nCHECK (ask it, wait for their answer): ${l.check.q}\n${l.check.choices.map((c, i) => `${LETTERS[i]}) ${c}`).join('\n')}\n[right answer, do not show before they answer: ${LETTERS[l.check.answer]}${l.check.why ? ` — ${l.check.why}` : ''}]` : '';
+        const check = l.check ? `\n\nCHECK: ${l.check.q}\n${l.check.choices.map((c, i) => `${LETTERS[i]}) ${c}`).join('\n')}${l.check.why ? `\nWHY (after they answer): ${l.check.why}` : ''}` : '';
         const sources = l.sources?.length ? `\n\nSources: ${l.sources.map((s) => `[${s.n}] ${s.title}${s.url ? ` ${s.url}` : ''}`).join(' · ')}` : '';
         const left = r.course.lessons.filter((x) => !x.done).length;
-        return `Lesson ${l.n} of ${r.course.lessons.length} of "${r.course.title}" — ${l.title} (also open in LEARN). Give it to the owner as written:\n\n${(l.text ?? '').slice(0, 2600)}${sources}${check}\n\n${left ? `${left} lesson${left === 1 ? '' : 's'} left.` : 'That was the last lesson: offer a quiz.'}`;
+        // The lesson is written from (or, with no model free, IS) library and Wikipedia text: data to relay, never instructions.
+        const body = asData('the lesson (written from your library and Wikipedia)', `${(l.text ?? '').slice(0, 2600)}${sources}${check}`);
+        return `Lesson ${l.n} of ${r.course.lessons.length} of "${r.course.title}" — ${l.title} (also open in LEARN). Give it to the owner as written${l.check ? `, then ask its CHECK question and wait for their answer [right answer, do not show before they answer: ${LETTERS[l.check.answer]}]` : ''}:\n\n${body}\n\n${left ? `${left} lesson${left === 1 ? '' : 's'} left.` : 'That was the last lesson: offer a quiz.'}`;
       }
       if (action === 'quiz') {
         ctx.progress('writing the quiz…');
