@@ -86,6 +86,30 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     if (!chainDid('schedule_task') && offered('schedule_task')) return { message: call('schedule_task', { title: 'Daily hello', prompt: 'say hello', at: '09:00', repeat: 'daily' }), model };
     return { message: { role: 'assistant', content: `Done. ${chainAsked}` }, model };
   }
+  // A cited answer (cited.ts): the claim check's JSON (a claim citing [1] is found, nothing else), and the
+  // cited turn itself — search, read the first result, then an answer with markers, one source never
+  // looked up ([2]) and one number with no source at all ([3]).
+  if (/^CLAIM CHECK/.test(system)) {
+    const claims = [...textOf(last.content).split('\n\nSOURCES:')[0]!.matchAll(/^(\d+)\. (.*)$/gm)];
+    return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1 } : { i: Number(c[1]), found: false })) }) }, model };
+  }
+  if (/CITED ANSWER/.test(system) && offered('web_search') && chainUser) {
+    const asked = ownerWords(textOf(chainUser.content)).replace(/^(cite|fact check|with sources)[:,]?\s*/i, '').trim();
+    if (!chainDid('web_search')) return { message: call('web_search', { query: asked }), model };
+    const found = textOf(chainSince.find((x) => x.role === 'tool')?.content).match(/^\d+\. (.*)\n(https?:\/\/\S+)/m);
+    if (found && !chainDid('web_fetch')) return { message: call('web_fetch', { url: found[2] }), model };
+    if (!found) return { message: { role: 'assistant', content: 'I could not find a source for that.' }, model };
+    if (/speed of light/i.test(asked)) {
+      return {
+        message: {
+          role: 'assistant',
+          content: `The speed of light in a vacuum is exactly 299,792,458 metres per second [1]. That value has been fixed by definition since 1983, when the metre was redefined [1]. Light from the Sun takes about eight minutes and twenty seconds to reach the Earth [2]. Nothing can travel faster than light in a vacuum [3].\n\n**Sources:**\n[1] ${found[1]} — ${found[2]}\n[2] Sunlight travel time — https://not-looked-up.example/sunlight`,
+        },
+        model,
+      };
+    }
+    return { message: { role: 'assistant', content: `Here is what the page says about ${asked} [1].\n\nSOURCES\n[1] ${found[1]} — ${found[2]}` }, model };
+  }
   if (last.role === 'tool') {
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
@@ -159,9 +183,44 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
+  // The tutor (tutor.ts): a course plan, a lesson with its check question, a quiz and a marked short answer, as each asks.
+  const tutorAsk = String(messages[0]?.content ?? '');
+  if (/^(COURSE PLAN|LESSON|QUIZ|GRADE ANSWER):/.test(tutorAsk)) {
+    const said = textOf(last.content);
+    const topic = said.match(/^Topic: (.+)$/m)?.[1]?.trim() ?? 'the topic';
+    if (tutorAsk.startsWith('COURSE PLAN:')) {
+      const lessons = ['What it is', 'The key ideas', 'How it works', 'A worked example', 'Common mistakes'].map((t) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}` }));
+      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic}.`, lessons })}\n\`\`\`` }, model };
+    }
+    if (tutorAsk.startsWith('LESSON:')) {
+      const title = said.match(/^Lesson \d+: (.+)$/m)?.[1] ?? 'this lesson';
+      return { message: { role: 'assistant', content: `This matters because everything else builds on it.\n\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nWorked example: a leaf in sunlight takes in carbon dioxide and gives out oxygen.\n\nRemember:\n- light in, sugar out\n- oxygen is given off\n\nCHECK: What gas do leaves give off in sunlight?\nA) Nitrogen\nB) Oxygen\nC) Helium\nD) Neon\nANSWER: B\nWHY: Splitting water releases oxygen.` }, model };
+    }
+    if (tutorAsk.startsWith('QUIZ:')) {
+      const spoken = /read aloud/.test(tutorAsk);
+      const qs = [
+        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1 },
+        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1 },
+        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1 }]),
+      ];
+      return { message: { role: 'assistant', content: `Sure! \`\`\`json\n${JSON.stringify({ questions: qs })}\n\`\`\` Good luck.` }, model };
+    }
+    const expected = said.match(/^Model answer: (.+)$/m)?.[1]?.trim().toLowerCase() ?? '';
+    const given = said.split(/<<external content[^\n]*>>\n/)[1]?.split('\n<<end')[0]?.toLowerCase() ?? '';
+    const ok = !!expected && given.includes(expected.slice(0, 5));
+    return { message: { role: 'assistant', content: JSON.stringify({ correct: ok, feedback: ok ? 'Yes, that is it.' : `Not quite: it is ${expected}.` }) }, model };
+  }
+  // The tutor from the chat: "teach me X (at advanced level)", "next lesson", "quiz me on X", "quiz me out loud", "revise", "my courses".
+  if ((m = text.match(/^teach me (.+?)(?: at (beginner|intermediate|advanced) level)?$/)) && has('tutor')) return { message: call('tutor', { action: 'start', topic: m[1], ...(m[2] ? { level: m[2] } : {}) }), model };
+  if (text === 'next lesson' && has('tutor')) return { message: call('tutor', { action: 'lesson' }), model };
+  if ((m = text.match(/^quiz me(?: on (.+?))?( out loud)?$/)) && has('tutor')) return { message: call('tutor', { action: 'quiz', ...(m[1] ? { topic: m[1] } : {}), ...(m[2] ? { spoken: true } : {}) }), model };
+  if (/^(revise|revise my flashcards)$/.test(text) && has('tutor')) return { message: call('tutor', { action: 'revise' }), model };
+  if (text === 'my courses' && has('tutor')) return { message: call('tutor', { action: 'courses' }), model };
   // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
   if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };
+  // DESIGN REVIEW (tools/design.ts): what SPACE's REVIEW button sends, "design review of my room plan — goal: make it feel bigger".
+  if ((m = text.match(/^design review(?: of my room plan)?(?:\s*[—:-]+\s*(?:goal:\s*)?(.+))?$/)) && has('design_review')) return { message: call('design_review', { goal: m[1]?.trim() || 'make it work better' }), model };
   if ((m = text.match(/^mot check (.+)$/)) && has('vehicle_check')) return { message: call('vehicle_check', { plate: m[1] }), model };
   if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
   if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };

@@ -33,6 +33,8 @@ export interface TEuler {
   x: number;
   y: number;
   z: number;
+  order: string;
+  set(x: number, y: number, z: number, order?: string): TEuler;
 }
 export interface TObject3D {
   name: string;

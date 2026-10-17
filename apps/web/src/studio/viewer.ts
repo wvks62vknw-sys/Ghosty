@@ -9,7 +9,9 @@
  * apart is just moving each part's position from `home` along its `offset`.
  */
 import { explodeOffsets, ease, fmtLength, thinnestAxis, type V3 } from './explode';
+import { triangulate } from '../../../../packages/shared/src/design';
 import { roomBoxes, type RoomPlan } from './room';
+import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TPlane, type TRenderer, type TScene, type TVector3 } from './three';
 
@@ -27,7 +29,7 @@ export interface StudioPart {
 export type ModelSource =
   | { kind: 'glb'; data: ArrayBuffer; title: string; metres: boolean; credit?: string; split?: boolean }
   | { kind: 'reactor' }
-  | { kind: 'room'; plan: RoomPlan };
+  | { kind: 'room'; plan: RoomPlan; ceiling?: boolean };
 
 export interface ModelInfo {
   title: string;
@@ -40,6 +42,9 @@ export interface ModelInfo {
 }
 
 export type Axis = 'x' | 'y' | 'z';
+
+/** How a room is looked at: orbiting it, standing in it at eye height (WALK), or from above (AERIAL). */
+export type ViewMode = 'orbit' | 'walk' | 'aerial';
 
 const CYAN = 0x38e8ff;
 const GLOW = 0x00e5ff;
@@ -69,6 +74,12 @@ export class Viewer {
   measuring = false;
   measure: { points: TVector3[]; distance: number | null } = { points: [], distance: null };
   error = '';
+  mode: ViewMode = 'orbit';
+  /** WALK: where one stands and looks; the joystick's push (−1…1 forward and to the right). */
+  walk: WalkState | null = null;
+  walkInput = { fwd: 0, side: 0 };
+  /** The room plan on show (cm), for WALK's walls and doors. */
+  roomPlan: RoomPlan | null = null;
   /** Called whenever something the panels show changed (parts, selection, measure…). */
   onChange: () => void = () => undefined;
 
@@ -82,6 +93,8 @@ export class Viewer {
   private ro: ResizeObserver | null = null;
   private down: { x: number; y: number; t: number } | null = null;
   private loadGen = 0;
+  private lastStep = 0;
+  private look: { x: number; y: number; id: number } | null = null;
   private initP: Promise<boolean> | null = null;
 
   constructor(host: HTMLElement) {
@@ -158,8 +171,23 @@ export class Viewer {
     scene.add(this.stage, this.marks);
 
     const el = renderer.domElement;
-    el.addEventListener('pointerdown', (e) => (this.down = { x: e.clientX, y: e.clientY, t: performance.now() }));
+    el.addEventListener('pointerdown', (e) => {
+      this.down = { x: e.clientX, y: e.clientY, t: performance.now() };
+      // WALK: a drag on the scene turns the head.
+      if (this.mode === 'walk') this.look = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    });
+    el.addEventListener('pointermove', (e) => {
+      const l = this.look;
+      if (!l || l.id !== e.pointerId || this.mode !== 'walk' || !this.walk) return;
+      this.walk = lookBy(this.walk, e.clientX - l.x, e.clientY - l.y);
+      this.look = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      this.placeWalker();
+    });
+    const endLook = () => (this.look = null);
+    el.addEventListener('pointercancel', endLook);
+    el.addEventListener('pointerleave', endLook);
     el.addEventListener('pointerup', (e) => {
+      this.look = null;
       const d = this.down;
       this.down = null;
       if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || performance.now() - d.t > 600) return;
@@ -198,6 +226,12 @@ export class Viewer {
   }
 
   private step(now: number): void {
+    const dt = this.lastStep ? (now - this.lastStep) / 1000 : 0;
+    this.lastStep = now;
+    if (this.mode === 'walk' && this.walk && this.roomPlan && (this.walkInput.fwd || this.walkInput.side)) {
+      this.walk = walkStep(this.roomPlan, this.walk, this.walkInput, dt);
+      this.placeWalker();
+    }
     const tw = this.tween;
     if (tw) {
       const k = Math.min(1, (now - tw.t0) / tw.ms);
@@ -207,7 +241,7 @@ export class Viewer {
         tw.done();
       }
     }
-    this.controls?.update();
+    if (this.mode !== 'walk') this.controls?.update();
     this.renderer!.render(this.scene!, this.camera!);
   }
 
@@ -236,12 +270,13 @@ export class Viewer {
       root = this.reactor();
       info = { title: 'Arc reactor (built in)', credit: 'Made for Ghosty from simple shapes', metres: true, room: false, warnings: [] };
     } else {
-      const r = this.room(src.plan);
+      const r = this.room(src.plan, !!src.ceiling);
       root = r.root;
       info = { title: `Room ${src.plan.room.w} × ${src.plan.room.d} cm`, credit: 'Built from your measurements', metres: true, room: true, warnings: r.warnings };
     }
     if (gen !== this.loadGen) return;
     this.clear();
+    this.roomPlan = src.kind === 'room' ? src.plan : null;
 
     const model = new THREE.Group();
     model.name = 'model';
@@ -601,6 +636,62 @@ export class Viewer {
     this.controls.update();
   }
 
+  /**
+   * How to look at a room: ORBIT round it, WALK through it (eye height 1.6 m; drag to look, the
+   * joystick or arrow keys to move; walls stop you, doors let you through) or AERIAL (straight
+   * down from above). Anything that is not a room is always orbited. `keep`: where a walker stood
+   * before the room was rebuilt, to stand there again.
+   */
+  setMode(mode: ViewMode, keep: WalkState | null = null): void {
+    if (!this.camera || !this.controls) return;
+    const m: ViewMode = this.roomPlan ? mode : 'orbit';
+    this.mode = m;
+    this.walkInput = { fwd: 0, side: 0 };
+    this.controls.enabled = m !== 'walk';
+    if (m === 'walk' && this.roomPlan) {
+      // Walls stay where they are while walking (taken apart they would float overhead).
+      if (this.explode) this.setExplode(0, true);
+      this.setTurntable(false);
+      this.walk = resumeWalk(this.roomPlan, keep);
+      this.camera.near = 0.05;
+      this.camera.far = 200;
+      this.camera.updateProjectionMatrix();
+      this.placeWalker();
+    } else {
+      this.walk = null;
+      this.camera.rotation.set(0, 0, 0, 'XYZ');
+      if (m === 'aerial') this.aerial();
+      else this.frame();
+    }
+    this.onChange();
+  }
+
+  /** The camera where the walker stands, looking where they look. */
+  private placeWalker(): void {
+    if (!this.camera || !this.walk) return;
+    // Rooms are built about the plan's centre, then the whole model is moved to stand centred on the pad.
+    const off = this.model?.position;
+    this.camera.position.set(this.walk.x + (off?.x ?? 0), EYE + (off?.y ?? 0), this.walk.z + (off?.z ?? 0));
+    this.camera.rotation.set(this.walk.pitch, this.walk.yaw, 0, 'YXZ');
+  }
+
+  /** Straight down onto the plan from above, top wall at the top. */
+  private aerial(): void {
+    const { THREE } = this.lib!;
+    if (!this.model || !this.camera || !this.controls) return;
+    const b = new THREE.Box3().setFromObject(this.model);
+    const c = b.getCenter(new THREE.Vector3());
+    const s = b.getSize(new THREE.Vector3());
+    const r = Math.max(s.x, s.z, 1);
+    const h = (r / 2 / Math.tan(((this.camera.fov / 2) * Math.PI) / 180)) * 1.25 + s.y;
+    this.camera.near = r / 200;
+    this.camera.far = r * 200;
+    this.camera.updateProjectionMatrix();
+    this.controls.target.copy(c);
+    this.camera.position.set(c.x, c.y + h, c.z + h * 0.02);
+    this.controls.update();
+  }
+
   /** A room seen from inside, at eye height, from one corner. */
   insideView(): void {
     if (!this.info.room || !this.camera || !this.controls) return;
@@ -656,10 +747,10 @@ export class Viewer {
     return stand;
   }
 
-  /** A room from measurements: floor, glass walls and every item as a box. */
-  private room(plan: RoomPlan): { root: TObject3D; warnings: string[] } {
+  /** A room from measurements: floors, glass walls cut round doors and windows, and every item as a box. */
+  private room(plan: RoomPlan, ceiling: boolean): { root: TObject3D; warnings: string[] } {
     const { THREE } = this.lib!;
-    const { boxes, warnings } = roomBoxes(plan);
+    const { boxes, warnings } = roomBoxes(plan, { ceiling });
     const root = new THREE.Group();
     const hue = (s: string) => {
       let x = 0;
@@ -669,20 +760,39 @@ export class Viewer {
     for (const b of boxes) {
       const mat =
         b.kind === 'floor'
-          ? new THREE.MeshStandardMaterial({ color: 0x0c2230, roughness: 0.9, metalness: 0.1 })
-          : b.kind === 'wall'
-            ? new THREE.MeshStandardMaterial({ color: 0x6fe3ff, transparent: true, opacity: 0.14, roughness: 0.1, metalness: 0, depthWrite: false, side: THREE.DoubleSide })
-            : new THREE.MeshStandardMaterial({ color: hue(b.name), roughness: 0.6, metalness: 0.1, transparent: true, opacity: 0.9 });
-      const m = new THREE.Mesh(new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]), mat);
+          ? new THREE.MeshStandardMaterial({ color: 0x0c2230, roughness: 0.9, metalness: 0.1, side: THREE.DoubleSide })
+          : b.kind === 'ceiling'
+            ? new THREE.MeshStandardMaterial({ color: 0x9fdcef, transparent: true, opacity: 0.12, roughness: 0.6, metalness: 0, depthWrite: false, side: THREE.DoubleSide })
+            : b.kind === 'wall'
+              ? new THREE.MeshStandardMaterial({ color: 0x6fe3ff, transparent: true, opacity: 0.14, roughness: 0.1, metalness: 0, depthWrite: false, side: THREE.DoubleSide })
+              : b.kind === 'glass'
+                ? new THREE.MeshStandardMaterial({ color: 0xbff6ff, transparent: true, opacity: 0.3, roughness: 0.05, metalness: 0.2, depthWrite: false, side: THREE.DoubleSide, emissive: 0x0a3a48, emissiveIntensity: 0.6 })
+                : b.kind === 'door'
+                  ? new THREE.MeshStandardMaterial({ color: 0xd9a54f, roughness: 0.55, metalness: 0.05, transparent: true, opacity: 0.85 })
+                  : new THREE.MeshStandardMaterial({ color: hue(b.name), roughness: 0.6, metalness: 0.1, transparent: true, opacity: 0.9 });
+      const m = new THREE.Mesh(b.poly ? this.slab(b.poly, b.pos[1] + b.size[1] / 2) : new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]), mat);
       m.name = b.name;
-      m.position.set(b.pos[0], b.pos[1], b.pos[2]);
+      if (!b.poly) m.position.set(b.pos[0], b.pos[1], b.pos[2]);
       m.rotation.y = b.rotY;
-      const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: b.kind === 'item' ? 0xffffff : GLOW, transparent: true, opacity: b.kind === 'item' ? 0.5 : 0.6, depthWrite: false }));
+      const edgy = b.kind === 'item' || b.kind === 'door';
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: edgy ? 0xffffff : GLOW, transparent: true, opacity: edgy ? 0.5 : b.kind === 'ceiling' ? 0.25 : 0.6, depthWrite: false }));
       e.userData.edges = true;
       m.add(e);
       root.add(m);
     }
     return { root, warnings };
+  }
+
+  /** A flat floor (or ceiling) the shape of a room at height y: its corners, triangulated. */
+  private slab(poly: [number, number][], y: number): TBufferGeometry {
+    const { THREE } = this.lib!;
+    const pos = new Float32Array(poly.length * 3);
+    poly.forEach(([x, z], i) => pos.set([x, y, z], i * 3));
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setIndex(triangulate(poly));
+    g.computeVertexNormals();
+    return g;
   }
 
   // ------------------------------------------------------------------ freeing
@@ -702,6 +812,13 @@ export class Viewer {
   /** Remove the model and everything about it. */
   clear(): void {
     this.tween = null;
+    if (this.mode !== 'orbit') {
+      this.mode = 'orbit';
+      this.walk = null;
+      if (this.controls) this.controls.enabled = true;
+      this.camera?.rotation.set(0, 0, 0, 'XYZ');
+    }
+    this.roomPlan = null;
     this.select(null);
     this.orig.clear();
     this.plane = null;

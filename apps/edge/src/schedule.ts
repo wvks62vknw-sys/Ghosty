@@ -22,7 +22,7 @@ export interface Job {
    * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
    * upgrade = the daily upgrade ideas (upgrades.ts)
    */
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;

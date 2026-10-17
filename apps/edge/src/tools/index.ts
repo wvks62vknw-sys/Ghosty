@@ -13,8 +13,10 @@ import { extraTools } from './extra';
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
+import { designTools } from './design';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
+import { learnTools } from './learn';
 import { lensTools } from './lens';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
@@ -40,7 +42,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -88,7 +90,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i,
     about: 'You can install instant widgets (create_widget: one HTML document on the GK kit — games, tools, trackers; list_widgets, delete_widget); a tool for the owner alone is a widget, not a published page.',
   },
-  { name: 'extra', tools: extras, when: 'always', about: 'You can also use the extra abilities added to your tools/extra.ts (always described in full).' },
+  { name: 'extra', tools: extras, when: 'always', about: 'You can also use the abilities in tools/extra.ts (always described in full).' },
   {
     name: 'sites',
     tools: siteTools,
@@ -163,7 +165,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages also come in on their own); cite the source.',
+    about: 'You can search your library of books, PDFs, papers, notes, code and the starter library (library_search; relevant passages also come in on their own); cite the source.',
   },
   {
     name: 'library-admin',
@@ -235,12 +237,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
   },
-  // FIT FINDER (tools/home.ts): furniture, sizes, measuring and making space. (open_space sits in 'ui' with open_lens: naming it here too would push the plain prompt past its 5,500 characters.)
+  // FIT FINDER (tools/home.ts): furniture, sizes, measuring and making space; DESIGN REVIEW (tools/design.ts): a room plan
+  // against UK guidance. (open_space sits in 'ui' with open_lens: naming it here too would push the plain prompt past its 5,500 characters.)
   {
     name: 'home',
-    tools: homeTools,
-    when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange)\b/i,
-    about: 'You can find furniture that fits at UK shops (find_furniture: the shops\' own prices and sizes, never guessed; links) and open the SPACE PLANNER (open_space) to lay out a room and MAKE SPACE.',
+    tools: [...homeTools, ...designTools],
+    when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange|design review|review (?:my|the|this) (?:room|plan|design|layout)|interior design|architect\w*|building reg\w*|approved documents?|building control|home office|feel bigger|extension|loft conversion|knock(?:ing)? through|load[- ]bearing)\b/i,
+    about: "You can find furniture that fits at UK shops (find_furniture: shops' own prices and sizes; links), lay out a room (open_space) and review a room design against UK guidance (design_review: advice, never approval).",
   },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
@@ -263,6 +266,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: studioTools,
     when: /\b(3-?d|three[- ]?d|models?|mesh|meshes|glb|gltf|spline|take (?:it |this |that )?apart|exploded view|explode|reconstruct|reassemble|studio|cad|sculpt\w*)\b/i,
     about: 'You can turn a picture or a described object into a 3-D model (make_3d: free, best effort, ~2–3 a day, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link (make_3d with no picture).',
+  },
+  // The tutor (tutor.ts, features/learn): courses, lessons, quizzes and flashcards. One tool, for the same reason as 3d.
+  {
+    name: 'learn',
+    tools: learnTools,
+    when: /\b(teach(?:es|ing)? me|learn\w*|lessons?|tutor\w*|quiz(?:zes)? me|test me|flash ?cards?|revis(?:e|ion|ing)|explain (?:it )?like|courses?|spaced repetition)\b/i,
+    about: "You can be the owner's patient tutor at their level (tutor: start a course from the library and Wikipedia, give the next lesson with its sources and check question, quiz them, revise flashcards; LEARN tab).",
   },
 ];
 

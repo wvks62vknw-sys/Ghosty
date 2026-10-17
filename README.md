@@ -58,6 +58,9 @@ tests/       local preview server + browser test
   for itself — each free, phone-first and one change. They wait in **Workshop → UPGRADE IDEAS** (it tells
   you once when there's a new one); **BUILD** starts one in the chat, **DISMISS** drops it, **THINK NOW**
   asks right away.
+- **Cited answers**: press **CITED** in the chat (or say "with sources", "fact check", "is it true that…") and
+  Ghosty looks it up first, answers with numbered sources you can tap, lists them, and checks every claim against
+  the pages it actually read — "✓ 5 of 6 claims found in the sources", the unconfirmed ones marked.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
   long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
@@ -102,6 +105,15 @@ tests/       local preview server + browser test
   most floor (PNG/JSON export, kept on the phone). In chat, Ghosty finds furniture that fits at UK shops
   (IKEA, Argos, Dunelm, John Lewis, Wayfair, DFS, Habitat, B&Q, eBay), reading each shop's own page for the
   price and the size — never a guessed price — best fit then cheapest first, with links.
+- **Architecture and design** (the **SPACE** tab, the **3D STUDIO**, `design_review`): rooms as real plans —
+  L-shapes and several rooms side by side, walls with their thickness, doors (with their swing) and windows
+  tapped onto walls and slid along them, every wall's length and each room's area in m² and ft². SEE IN 3-D
+  builds it with the walls cut round the doors and windows, an optional ceiling, **WALK** (stand inside at
+  eye height: joystick to walk, drag to look, through doors not walls) and **AERIAL**. **DESIGN REVIEW**:
+  give a goal ("make it feel bigger", "a home office") and Ghosty measures the plan against UK guidance —
+  walkways, door swings, bed and wardrobe space, light and ventilation, escape windows, Approved Documents
+  B, F, K and M, the kitchen triangle — names its sources, and sends up to three changes you see BEFORE
+  and AFTER and APPLY with a tap. Advice only: anything structural goes to Building Control.
 - **Vehicle check**: photograph or type ONE UK number plate and see that car's official record — make, model,
   colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
   unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
@@ -114,6 +126,12 @@ tests/       local preview server + browser test
   its manual and reviewers recommend, sources named (`gadget_settings`); show it a broken part and it finds
   it in UK shops with prices read off their pages, best match first (`find_part`). Never a guessed setting
   or price.
+- **LEARN — Ghosty as your tutor**: "teach me X" plans a short course at your level (beginner, intermediate
+  or advanced) from the library and Wikipedia; each lesson is written once at your level with a worked
+  example, its sources marked [n] and a check question, and can be read aloud; quizzes (multiple choice and
+  short answers marked by a model) come from the same sources; wrong answers become flashcards revised with
+  spaced repetition (SM-2), with a morning "cards to revise" note and a daily streak. Everything is kept on
+  the phone so reading and revision work offline. In chat: `tutor` (also "quiz me out loud" in voice).
 - **3D STUDIO**: a Stark-style holographic lab (vendored three.js): turn any model, **TAKE APART** and
   **REASSEMBLE** it (one-piece models are split into their real pieces), isolate or hide parts, cut it open
   with a **SECTION** plane, **MEASURE** between two taps, screenshot it. Free samples (Khronos glTF, credited),

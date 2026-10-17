@@ -269,6 +269,21 @@ the first time.
   **JSON** a file you can **IMPORT** later. The plan stays on this phone. Ask in the chat "find a 3 seater
   sofa under 210 cm for £800" and Ghosty reads UK shops' own pages for prices and sizes (never guessed).
 
+- **SPACE: walls, doors and windows** — tap a wall on the plan (it lights up orange) and press **ADD DOOR**
+  or **ADD WINDOW**; tap a door or window to change its width (and a window's sill height), **FLIP HINGE**,
+  **SWING: IN/OUT** or **REMOVE** it, or drag it along its wall. In **ROOMS · WALLS**: **L-SHAPE** cuts a
+  notch (type its size, **NOTCH:** chooses the corner), **+ ROOM RIGHT** / **+ ROOM BELOW** add a room next
+  door (tap the wall between them to put a door in it), and set the wall thickness, ceiling height and which
+  way is **NORTH**. Each wall shows its length; each room its area in m² and ft². **SEE IN 3-D** (EXPORT)
+  builds the whole plan in the 3D STUDIO.
+
+- **DESIGN REVIEW** (in SPACE) — tap a goal (**MAKE IT FEEL BIGGER**, **A HOME OFFICE**, **MORE LIGHT**,
+  **SAFER…**) or type your own, then **REVIEW MY PLAN**. Ghosty answers in the chat with what matters,
+  each point's source named (UK Approved Documents, good practice), and SPACE opens with up to three
+  changes: tap one to see it **AFTER**, **BEFORE** to compare, **APPLY** to keep it, **UNDO CHANGE** to go
+  back. Nothing changes until you press APPLY. This is advice, not approval: for structural work (taking a
+  wall out, a loft conversion, an extension) check with your council's Building Control.
+
 - **SOUND: is it distorting?** — tap **SOUND** (the camera switches off; only the microphone is used,
   and Safari asks for it the first time — say Allow). Two ways:
   1. **LISTEN**: play your music at your usual volume, hold the phone a metre or two from the speaker,
@@ -432,6 +447,47 @@ on an arc reactor. Nothing to set up; the 3-D engine loads the first time you op
    (it starts `https://my.spline.design/`), paste it here and press **SHOW**. Spline has no way for Ghosty
    to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
 8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
+9. **WALK and AERIAL** (on a room): **FROM MY PLAN** in ROOM builds your SPACE plan — doors and windows cut
+   into the walls; **CEILING** puts a ceiling on. Tap **WALK** on the scene to stand inside at eye height:
+   push the round joystick to walk (walls stop you; doors let you through), drag anywhere else to look
+   about (arrow keys or WASD on a computer). **AERIAL** looks straight down; **ORBIT** goes back.
+
+## 3m. LEARN: Ghosty as your tutor
+
+Nothing to set up. Say **"teach me photosynthesis"** (or anything: chess openings, Spanish verbs, how
+mortgages work) or open **LEARN** (the graduation cap in the dock's SYSTEMS deck).
+
+1. **START A COURSE**: type what you want to learn, pick **BEGINNER**, **INTERMEDIATE** or **ADVANCED**
+   and how many minutes a day, press **START**. Ghosty plans 5–12 short lessons, from the basics up, out of
+   what its library holds and Wikipedia (Simple English Wikipedia first for a beginner).
+2. **A LESSON**: an explanation at your level, a worked example, a few lines to remember, and the sources
+   as chips under it (the small numbers in the text say which source each fact came from). **READ ALOUD**
+   reads it to you. Answer the **CHECK QUESTION**, then **NEXT LESSON**. A lesson is written once and kept,
+   so you can read it again later, even with no signal.
+3. **QUIZ ME** (in a course, or say "quiz me on …"): tap an answer and see at once if it was right; short
+   answers are marked by Ghosty. In a voice chat say **"quiz me out loud"**: one short question at a time.
+4. **REVISE**: every answer you get wrong becomes a flashcard. Tap the card (or **SHOW ANSWER**), then say
+   how well you knew it: **AGAIN** (back in 10 minutes), **HARD**, **GOOD** or **EASY** — each card comes
+   back just before you would forget it (spaced repetition). On a morning with cards due, Ghosty sends
+   "3 cards to revise". Revision works with no signal; it is sent to the brain when you are back online.
+5. The **streak** at the top counts the days in a row you learned something (a lesson, a quiz answer or a
+   card).
+
+## 3n. Cited answers: facts you can rely on
+
+Nothing to set up. When you want an answer you can check:
+
+1. Press **CITED** next to **SEND** in the chat (it lights up and stays on, on this phone, until you press it
+   again). Or just say it: *"… with sources"*, *"cite …"*, *"fact check …"*, *"is it true that …"*.
+2. Ghosty looks it up first (your library and the web, then reads the best one to three pages) and answers with
+   numbered markers like **[1]**. Tap a marker to open its page (or, for something from your library, the words
+   it came from). The **SOURCES** list sits under the answer.
+3. Under the list, a line such as **✓ 5 of 6 claims found in the sources**: each sentence of the answer was
+   checked against the pages Ghosty actually read this time. Sentences no source backed are underlined in
+   orange. A marker or source Ghosty never looked up is shown in red, dashed — treat what it backs with care.
+
+It costs one extra small AI call per cited answer (none when CITED is off). Spoken replies leave the markers and
+the list out. In Telegram the markers stay and the sources are listed as plain links.
 
 ## 4. Let Ghosty edit itself
 

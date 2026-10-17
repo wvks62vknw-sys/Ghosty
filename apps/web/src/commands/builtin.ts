@@ -326,6 +326,27 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The LEARN tab (the tutor): a course, a lesson, a quiz the brain wrote, or REVISE.
+      id: 'open_learn',
+      title: 'Learn something',
+      group: 'GO',
+      run: async (a) => {
+        const { openLearn } = await import('../features/learn');
+        openLearn(a && typeof a === 'object' ? (a as Record<string, unknown>) : {});
+      },
+    },
+    {
+      // DESIGN REVIEW (brain tools/design.ts): up to three changes to the owner's plan, each a whole Room JSON;
+      // SPACE checks each against the plan the owner has and shows BEFORE and AFTER to APPLY or not.
+      id: 'design_changes',
+      title: 'Design changes',
+      hidden: true,
+      run: async (a) => {
+        const { receiveDesignChanges } = await import('../features/space');
+        receiveDesignChanges(a);
+      },
+    },
+    {
       // The 3D STUDIO: a sample, a model made from a picture (make_3d), a room in cm, or a Spline link.
       id: 'open_studio',
       title: 'Open the 3D Studio',

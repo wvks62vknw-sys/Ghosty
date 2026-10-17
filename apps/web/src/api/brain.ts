@@ -236,12 +236,13 @@ export const brain = {
   /** Keys that are public by design (a Mapbox "pk." token goes in the map's tile addresses); nothing else ever comes this way. */
   publicKeys: () => req<{ mapbox?: string }>('GET', '/keys/public').catch(() => ({}) as { mapbox?: string }),
   /** `recent`: the last turns on screen, so Ghosty can follow the conversation even while its database is paused. */
-  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[]) =>
+  /** `cited`: CITED is on — the answer is looked up, with numbered sources and each claim checked (cited.ts in the brain). */
+  chat: (message: string, context: Record<string, unknown>, onEvent: (e: ChatEvent) => void, signal?: AbortSignal, recent?: { role: 'user' | 'assistant'; text: string }[], cited = false) =>
     // `offline`: memory, agenda and the owner's documents most related to the message, kept on this
     // device, so Ghosty still knows them if its database is paused.
     passagesFor(message)
       .catch(() => [])
-      .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library } }, onEvent, signal)),
+      .then((library) => streamEvents('/chat', { message, context, recent, offline: { ...offlineContext(), library }, ...(cited ? { cited: true } : {}) }, onEvent, signal)),
   approve: (id: string, allow: boolean, onEvent: (e: ChatEvent) => void) => streamEvents('/approve', { id, allow }, onEvent),
   stop: () => req<{ ok: boolean }>('POST', '/stop'),
   history: () => req<{ turns: ChatTurn[]; pending: { id: string; name: string; args: Record<string, unknown> } | null }>('GET', '/history'),

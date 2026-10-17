@@ -50,7 +50,20 @@ export function htmlToText(html: string): { title: string; text: string } {
   return { title, text };
 }
 
+/** One line of text: a snippet's own line breaks must not start what looks like another result. */
+const oneLine = (t: string) => t.replace(/\s*\n\s*/g, ' ').trim();
+
+/** Search results as text for the model: "n. title", the address, the snippet; one blank line between. */
+export function formatSearch(hits: Hit[]): string {
+  return hits.map((h, i) => `${i + 1}. ${oneLine(h.title)}\n${h.url}\n${oneLine(h.text)}`.trim()).join('\n\n');
+}
+
 export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<string> {
+  return formatSearch(await searchHits(query, ctx));
+}
+
+/** The search itself, as results (title, address, snippet). */
+export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<Hit[]> {
   // .catch: with the database paused, fall through to the keyless search.
   const brave = await ctx.vault.get('brave').catch(() => null);
   if (brave) {
@@ -59,7 +72,7 @@ export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Pr
     });
     if (r.ok) {
       const j = (await r.json()) as { web?: { results?: { title: string; url: string; description?: string }[] } };
-      return (j.web?.results ?? []).map((x, i) => `${i + 1}. ${x.title}\n${x.url}\n${htmlToText(x.description ?? '').text}`).join('\n\n');
+      return (j.web?.results ?? []).map((x) => ({ title: x.title, url: x.url, text: htmlToText(x.description ?? '').text }));
     }
   }
   const tavily = await ctx.vault.get('tavily').catch(() => null);
@@ -71,7 +84,7 @@ export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Pr
     });
     if (r.ok) {
       const j = (await r.json()) as { results?: { title: string; url: string; content?: string }[] };
-      return (j.results ?? []).map((x, i) => `${i + 1}. ${x.title}\n${x.url}\n${(x.content ?? '').slice(0, 400)}`).join('\n\n');
+      return (j.results ?? []).map((x) => ({ title: x.title, url: x.url, text: (x.content ?? '').slice(0, 400) }));
     }
   }
   const out: Hit[] = [];
@@ -95,10 +108,10 @@ export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Pr
   const seen = new Set<string>();
   const list = out.filter((h) => h.url && !seen.has(h.url) && seen.add(h.url)).slice(0, 8);
   if (!list.length) throw new Error('Search found nothing for that. Try other words, or web_fetch a page you know.');
-  return list.map((h, i) => `${i + 1}. ${h.title}\n${h.url}\n${h.text}`.trim()).join('\n\n');
+  return list;
 }
 
-interface Hit {
+export interface Hit {
   title: string;
   url: string;
   text: string;
@@ -167,7 +180,11 @@ export const webTools: Tool[] = [
     pure: true,
     async run(a, ctx) {
       const q = arg.str(a, 'query');
-      return asData('web search', clip(await search(q, ctx), 6000));
+      const hits = await searchHits(q, ctx);
+      const text = clip(formatSearch(hits), 6000);
+      // Only the results the model gets to read count as looked up.
+      for (const h of hits) if (text.includes(h.url)) ctx.found?.({ kind: 'web', title: oneLine(h.title) || hostOf(h.url), url: h.url, text: oneLine(h.text) });
+      return asData('web search', text);
     },
   },
   {
@@ -186,9 +203,15 @@ export const webTools: Tool[] = [
       const type = r.headers.get('content-type') ?? '';
       ctx.progress?.('reading…');
       const raw = await readCapped(r);
-      if (/json|text\/plain|csv|xml/.test(type)) return asData(url, clip(raw, 9000));
+      if (/json|text\/plain|csv|xml/.test(type)) {
+        const text = clip(raw, 9000);
+        ctx.found?.({ kind: 'web', title: hostOf(url).replace(/^www\./, ''), url, text });
+        return asData(url, text);
+      }
       const { title, text } = htmlToText(raw);
-      return asData(url, clip(`${title}\n\n${text}`, 9000));
+      const read = clip(`${title}\n\n${text}`, 9000);
+      ctx.found?.({ kind: 'web', title: oneLine(title).slice(0, 200) || hostOf(url).replace(/^www\./, ''), url, text: read.slice(title.length).trim() });
+      return asData(url, read);
     },
   },
 ];

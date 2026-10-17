@@ -4,8 +4,11 @@
  * footprint and a `label`; Room JSON has degrees clockwise, the corner of the UNTURNED rectangle
  * (turned about its own centre) and a `name`. The planner's EXPORT writes Room JSON through
  * `planToRoom`; its IMPORT and the studio both read either shape, so an older planner file still
- * works. Pure, unit-tested in apps/edge/test/studio.test.mjs.
+ * works. A plan with rooms, doors or windows (Room JSON v2, packages/shared/src/design.ts) carries
+ * them across unchanged; a plain box room is written exactly as v1 was. Pure, unit-tested in
+ * apps/edge/test/studio.test.mjs and design.test.mjs.
  */
+import type { Opening, RoomShape } from '../../../../packages/shared/src/design';
 import { readPlan, type Item, type Plan } from './plan';
 import type { RoomItem, RoomPlan } from '../studio/room';
 
@@ -21,9 +24,11 @@ export function isPlannerPlan(json: unknown): boolean {
 }
 
 /** The planner's plan as Room JSON: label → name, quarter turns → degrees, footprint corner → unturned corner. */
-export function planToRoom(plan: Plan): { room: { w: number; d: number }; items: PlannerRoomItem[] } {
+export function planToRoom(plan: Plan): { room: { w: number; d: number; h?: number }; items: PlannerRoomItem[]; v?: 2; wall?: number; north?: number; rooms?: RoomShape[]; openings?: Opening[] } {
+  const arch = plan.rooms?.length || plan.openings?.length ? { v: 2 as const, wall: plan.wall, north: plan.north ?? 0, rooms: plan.rooms, openings: plan.openings ?? [] } : {};
   return {
-    room: { w: plan.room.w, d: plan.room.d },
+    ...arch,
+    room: { w: plan.room.w, d: plan.room.d, ...(plan.h ? { h: plan.h } : {}) },
     items: plan.items.map((it) => {
       // A piece turned a quarter has its footprint's sides swapped about the same centre.
       const side = it.rot % 2 === 1;
@@ -61,5 +66,6 @@ export function roomToPlan(json: unknown): Plan | null {
     const cy = Number(x.y) || 0;
     return [{ id: String(x.id ?? `i${i}`), kind: String(x.kind ?? 'custom'), label: String(x.name ?? x.label ?? 'Item'), w, d, x: side ? cx - (d - w) / 2 : cx, y: side ? cy - (w - d) / 2 : cy, rot }];
   });
-  return readPlan({ room: o.room, items });
+  const x = o as { rooms?: unknown; openings?: unknown; wall?: unknown; north?: unknown };
+  return readPlan({ room: o.room, items, rooms: x.rooms, openings: x.openings, wall: x.wall, north: x.north });
 }
