@@ -143,6 +143,13 @@ await page.locator('#pg-lens .measrefs button', { hasText: 'DISTANCE' }).click()
 await page.fill('#pg-lens .measin input[placeholder]', '2.5');
 await page.locator('#pg-lens .measin button', { hasText: 'SET' }).click();
 await until(() => window.__ghosty.measure.calibrated === true && window.__ghosty.measure.ref === 'distance', 5000, 'the distance did not set the scale');
+// the field is in metres: a far wall typed as "12" is 12 m (1200 cm), not 12 cm
+await page.fill('#pg-lens .measin input[placeholder]', '12');
+await page.locator('#pg-lens .measin button', { hasText: 'SET' }).click();
+await until(() => window.__ghosty.measure.status.includes('1200 cm'), 5000, 'a typed 12 (metres) was not read as 12 m');
+await page.fill('#pg-lens .measin input[placeholder]', '2.5');
+await page.locator('#pg-lens .measin button', { hasText: 'SET' }).click();
+await until(() => window.__ghosty.measure.status.includes('250 cm'), 5000, 'the 2.5 m distance did not set the scale again');
 await page.locator('#pg-lens button', { hasText: 'UNDO' }).click(); // the door's length goes; the wall stays
 st = await ms();
 if (st?.results.length !== 1) problems.push(`after the second UNDO: ${st?.results.length} results`);
