@@ -389,6 +389,21 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 .hudtask { position: absolute; transform: translate(-50%, -50%); max-width: 72%; padding: 2px 8px; border-radius: 3px; background: rgba(2,7,13,.72); border: 1px solid rgba(var(--cr), .35); font: 400 9.5px var(--m); letter-spacing: .06em; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hudtask[hidden] { display: none; }
 .msg a { color: var(--c); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+/* cited answers (features/core/cited.ts): [n] chips, the SOURCES list, the claim-check line */
+.msg .cite { display: inline-grid; place-items: center; min-width: 24px; height: 22px; margin: 0 2px; padding: 0 6px; vertical-align: 1px; border: 1px solid rgba(var(--cr), .6); border-radius: 10px; background: rgba(var(--cr), .1); color: var(--c); font: 600 10px var(--m); letter-spacing: 0; text-decoration: none; word-break: normal; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.msg .cite:active { transform: scale(.92); }
+.msg .cite.miss { border-color: var(--r); color: #ffb3bd; background: rgba(255,77,94,.12); border-style: dashed; }
+.msg mark.unconf { background: rgba(var(--ar), .14); color: inherit; text-decoration: underline wavy rgba(var(--ar), .8); text-underline-offset: 3px; border-radius: 2px; }
+.msg .citesrc { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(var(--cr), .2); white-space: normal; }
+.msg .csrc { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; min-height: 36px; padding: 6px 8px; text-align: left; text-decoration: none; color: var(--fg); font-family: inherit; font-size: 12px; font-weight: 400; line-height: 1.35; text-transform: none; letter-spacing: normal; border: 1px solid rgba(var(--cr), .22); border-radius: 5px; background: rgba(var(--cr), .05); word-break: break-word; -webkit-tap-highlight-color: transparent; }
+.msg .csrc b { grid-row: span 3; font: 600 11px var(--m); color: var(--c); }
+.msg .csrc em { font: 10.5px var(--m); font-style: normal; color: var(--mute); word-break: break-all; }
+.msg .csrc i { font-style: normal; font-size: 10.5px; color: #ffb3bd; }
+.msg .csrc.miss { border-color: rgba(255,77,94,.5); border-style: dashed; }
+.msg .citecheck { margin-top: 6px; font: 500 10px var(--d); letter-spacing: .1em; text-transform: uppercase; color: var(--ok); white-space: normal; }
+.msg .citecheck.warn { color: var(--a); }
+.msg .citecheck span { text-transform: none; letter-spacing: 0; font: 11px var(--m); color: var(--mute); }
+.citedoc blockquote { margin: 10px 0; padding: 8px 12px; border-left: 2px solid var(--c); background: rgba(var(--cr), .06); font-size: 14px; line-height: 1.5; }
 .sitelink { display: flex; flex-direction: column; gap: 3px; min-height: 44px; padding: 12px 14px; text-decoration: none; color: inherit; border: 1px solid rgba(var(--cr), .4); border-radius: 6px; background: rgba(var(--cr), .08); -webkit-tap-highlight-color: transparent; }
 .sitelink small { font: 500 9px var(--d); letter-spacing: .2em; color: var(--c); text-transform: uppercase; }
 .sitelink b { font-size: 15px; font-weight: 500; }
