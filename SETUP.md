@@ -332,6 +332,36 @@ minutes after it last answered (the download stays), so the camera and the Lens 
 **DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
 keeps the download.
 
+## 3k. The 3D STUDIO: take things apart, rooms in 3-D, Spline
+
+Open **3D STUDIO** (the cube in the dock's SYSTEMS deck, or ask Ghosty to "open the 3D studio"). It opens
+on an arc reactor. Nothing to set up; the 3-D engine loads the first time you open the tab.
+
+1. **Turn it** with one finger, **zoom** with two, **move** with two fingers dragging. **TURNTABLE** spins it.
+2. **TAKE APART** flies every part out from the centre; **REASSEMBLE** puts them back. The slider stops
+   anywhere in between. **PARTS** lists every part: tap one to light it up (or tap it on the model),
+   **ISOLATE** shows it alone, **●** hides it, **SHOW ALL** brings everything back.
+3. **CUT · MEASURE**: **SECTION** X, Y or Z cuts the model open and the slider moves the cut. **MEASURE**,
+   then tap two points on the model: the distance appears (in cm / m for the samples and rooms).
+4. **MODELS**: the arc reactor, a toy car, a chair, a velvet sofa and a milk truck (free samples, credited
+   under the scene) — or **OPEN A FILE…** for any .glb from Files (it stays on the phone).
+5. **PHOTO → 3D**: choose a photo of **one object on a plain background** and press **MAKE 3-D**. It takes
+   20 seconds to 2 minutes; the model is shape only (clay, no colours) and is kept for 24 hours. Or type a
+   description and **ASK GHOSTY**: it draws the object first, then models it. In chat: *"make a 3D model of
+   a brass telescope"*. This uses a free public demo on Hugging Face (Hunyuan3D-2), so it is best effort:
+   without an account it allows only about **2–3 models a day**, shared with everyone on the same network,
+   and Ghosty tells you when to try again. For your own daily allowance (about 5 minutes of GPU a day,
+   free, no card): make a free account at huggingface.co, open
+   **huggingface.co/settings/tokens/new?tokenType=read**, name it Ghosty, press **Create token**, copy it
+   (it starts `hf_`) and paste it in **SYSTEM → KEYS → Hugging Face (3-D models)**.
+6. **ROOM**: type the room's inside width, depth and height in centimetres and press **BUILD ROOM**, or
+   paste the SPACE PLANNER's exported JSON to see your furniture in it; an item that sticks out of the
+   room is named. **INSIDE VIEW** stands you in the corner; **TAKE APART** lifts the walls away.
+7. **SPLINE**: made something at spline.design? In Spline press **Export → Public URL**, copy the link
+   (it starts `https://my.spline.design/`), paste it here and press **SHOW**. Spline has no way for Ghosty
+   to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
+8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
@@ -389,6 +419,7 @@ rolling back. It treats web pages and feeds as information, never as orders.
 | Workers Builds | 3,000 build minutes/month | Each change is about 1–2 minutes |
 | Worker Previews | 100 per Worker | Old previews can be deleted from the dashboard |
 | GitHub Actions | 2,000 minutes/month for private repos | About 1 minute per check |
+| Hugging Face ZeroGPU (3D STUDIO's PHOTO → 3D) | Without an account: about 2 minutes of GPU and 3 runs a day, shared by everyone on the same network; with a free token: about 5 minutes a day | About 2–3 models a day; Ghosty says when to try again |
 
 If the Worker's logs show **"Exceeded CPU"** errors often, the Workers Paid plan ($5/month)
 raises the limit. Nothing else needs to change.
