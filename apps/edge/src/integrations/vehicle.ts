@@ -14,11 +14,12 @@
  *
  * Nothing about a check is stored: no library, memory or notes, and the conversation that is kept
  * between turns has the plate replaced with "[plate]" and the record itself left out (see
- * forgetVehicleChecks / forgetVehicleTurns, used where the brain saves its context and history).
- * The plates looked up are remembered in memory only, for an hour, so those can be found and
- * blanked. Never anything about a keeper: these services do not have it, and no other is asked.
+ * forgetVehicleChecks / forgetPlateInHistory / forgetVehicleTurns, used where the brain saves its
+ * context and history). What is blanked follows from what is saved (the check's call, a mark on
+ * the owner's message), never from memory, so a restart or a late approval changes nothing.
+ * Never anything about a keeper: these services do not have it, and no other is asked.
  */
-import { formatPlate, normalisePlate, OFFICIAL_CHECKS, PLATE_MARK, plateFormat, redactPlates, type MileageDrop, type MotDefect, type MotTest, type VehicleAnswer, type VehicleReport } from '../../../../packages/shared/src/plates';
+import { distinctivePlates, formatPlate, isPlate, normalisePlate, OFFICIAL_CHECKS, PLATE_MARK, plateFormat, redactPlates, type MileageDrop, type MotDefect, type MotTest, type VehicleAnswer, type VehicleReport } from '../../../../packages/shared/src/plates';
 import type { ChatTurn } from '../../../../packages/shared/src/protocol';
 import type { Msg } from '../llm/router';
 
@@ -138,12 +139,12 @@ export async function motToken(key: MotKey): Promise<string> {
   return j.access_token;
 }
 
-// ---------- the plates looked up from the chat: in memory only, for an hour ----------
+// ---------- the checks made from the chat: how many lately (memory only, never a store) ----------
 
 const LOOKED_MS = 3600_000;
 const looked: { plate: string; at: number }[] = [];
 
-/** A plate the chat just looked up: its words are blanked wherever the conversation is saved. */
+/** A plate the chat just looked up: counted (in memory) so a run of checks can be turned away. */
 export function noteLookup(plate: string, at = Date.now()): void {
   const p = normalisePlate(plate);
   if (!p) return;
@@ -167,10 +168,12 @@ export const RECORD_GONE = 'Vehicle record shown to the owner once; it is not ke
 export const REPLY_GONE = '[A vehicle check was shown here once. Its details are not kept.]';
 
 const isCheck = (name: string) => name === 'vehicle_check';
+/** The plate a vehicle_check call asked for, when it is one ("[plate]", already blanked, is not). */
 const plateArg = (raw: string): string => {
   try {
     const a = JSON.parse(raw) as { plate?: unknown };
-    return typeof a.plate === 'string' ? normalisePlate(a.plate) : '';
+    const p = typeof a.plate === 'string' ? normalisePlate(a.plate) : '';
+    return isPlate(p) ? p : '';
   } catch {
     return '';
   }
@@ -179,52 +182,84 @@ const plateArg = (raw: string): string => {
 /**
  * The conversation as it is saved between turns: each vehicle check's arguments and record are
  * replaced, what the model wrote after a check in that exchange (which repeats the record) is
- * replaced, and every plate checked is "[plate]" wherever it appears. The model still had the
- * record for the turn itself; nothing is lost but what was meant to go.
+ * replaced, and the plate checked is "[plate]" throughout that exchange (and everywhere else
+ * when it cannot be mistaken for ordinary words). It works from the saved messages alone, so
+ * it gives the same result however often it runs. The model still had the record for the turn
+ * itself; nothing is lost but what was meant to go.
  */
-export function forgetVehicleChecks(msgs: Msg[], now = Date.now()): Msg[] {
-  const plates = new Set(recentLookups(now).map((l) => l.plate));
+export function forgetVehicleChecks(msgs: Msg[]): Msg[] {
   const ids = new Set<string>();
+  // the plates of each exchange (from one owner message to the next), per message
+  const exchange: Set<string>[] = [];
+  let cur = new Set<string>();
   for (const m of msgs) {
+    if (m.role === 'user') cur = new Set<string>();
+    exchange.push(cur);
     for (const c of m.tool_calls ?? []) {
       if (!isCheck(c.function.name)) continue;
       ids.add(c.id);
       const p = plateArg(c.function.arguments);
-      if (p) plates.add(p);
+      if (p) cur.add(p);
     }
   }
-  if (!ids.size && !plates.size) return msgs;
-  const red = (c: Msg['content']): Msg['content'] => (typeof c === 'string' ? redactPlates(c, plates) : c);
+  if (!ids.size) return msgs;
+  const everywhere = distinctivePlates(new Set(exchange.flatMap((x) => [...x])));
+  const redact = (text: string, i: number) => redactPlates(redactPlates(text, exchange[i]!), everywhere);
+  const red = (c: Msg['content'], i: number): Msg['content'] => (typeof c === 'string' ? redact(c, i) : c);
   let after = false;
-  return msgs.map((m): Msg => {
+  return msgs.map((m, i): Msg => {
     if (m.role === 'user') {
       after = false;
-      return { ...m, content: red(m.content) };
+      return { ...m, content: red(m.content, i) };
     }
-    if (m.role === 'tool') return { ...m, content: m.tool_call_id && ids.has(m.tool_call_id) ? RECORD_GONE : red(m.content) };
+    if (m.role === 'tool') return { ...m, content: m.tool_call_id && ids.has(m.tool_call_id) ? RECORD_GONE : red(m.content, i) };
     if (m.role !== 'assistant') return m;
-    const content = after && typeof m.content === 'string' && m.content.trim() ? REPLY_GONE : red(m.content);
-    const tool_calls = m.tool_calls?.map((c) => ({ ...c, function: { ...c.function, arguments: isCheck(c.function.name) ? JSON.stringify({ plate: PLATE_MARK }) : redactPlates(c.function.arguments, plates) } }));
+    const content = after && typeof m.content === 'string' && m.content.trim() ? REPLY_GONE : red(m.content, i);
+    const tool_calls = m.tool_calls?.map((c) => ({ ...c, function: { ...c.function, arguments: isCheck(c.function.name) ? JSON.stringify({ plate: PLATE_MARK }) : redact(c.function.arguments, i) } }));
     if (m.tool_calls?.some((c) => isCheck(c.function.name))) after = true;
     return { ...m, content, ...(tool_calls ? { tool_calls } : {}) };
   });
 }
 
 /**
- * The chat history as it is saved: the plates looked up in the last hour are "[plate]" in every
- * turn, and the first reply after each lookup (which gave the record) is replaced.
+ * The chat history the moment a check runs: the owner's message that asked for it (the last one
+ * saved) gets "[plate]" and is marked `vehicle`, so the reply that answers it is left out
+ * whenever it is saved (forgetVehicleTurns) — after a failed step, or an approval answered
+ * hours later on a fresh instance. Earlier turns get "[plate]" too unless the plate is a
+ * dateless one, which is also ordinary text.
  */
-export function forgetVehicleTurns(turns: ChatTurn[], now = Date.now()): ChatTurn[] {
-  const recent = recentLookups(now);
-  if (!recent.length) return turns;
-  const plates = recent.map((l) => l.plate);
-  const blank = new Set<number>();
-  for (const l of recent) {
-    // the reply that answered it comes within the turn: ten minutes is ample
-    const i = turns.findIndex((t) => t.role === 'assistant' && t.at >= l.at && t.at - l.at < 10 * 60_000);
-    if (i >= 0) blank.add(i);
-  }
-  return turns.map((t, i) => (blank.has(i) ? { ...t, text: REPLY_GONE } : { ...t, text: redactPlates(t.text, plates) }));
+export function forgetPlateInTurns(turns: ChatTurn[], plate: string): ChatTurn[] {
+  const p = normalisePlate(plate);
+  if (!isPlate(p)) return turns;
+  let ask = turns.length - 1;
+  while (ask >= 0 && turns[ask]!.role !== 'user') ask--;
+  const everywhere = distinctivePlates([p]);
+  return turns.map((t, i) => (ask >= 0 && i >= ask ? { ...t, text: redactPlates(t.text, [p]), ...(i === ask ? { vehicle: true } : {}) } : { ...t, text: redactPlates(t.text, everywhere) }));
+}
+
+/** Where the brain keeps the chat history (agent.ts TURNS_KEY). */
+const TURNS_KEY = 'turns';
+
+/** forgetPlateInTurns on the saved history, written back at once (one read and one write per check). */
+export async function forgetPlateInHistory(storage: { get<T>(key: string): Promise<T | undefined>; put<T>(key: string, value: T): Promise<void> }, plate: string): Promise<void> {
+  const turns = (await storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
+  if (!turns.length) return;
+  await storage.put(TURNS_KEY, forgetPlateInTurns(turns, plate));
+}
+
+/** The chat history as it is saved: every reply to a message that ran a check (marked `vehicle`) is replaced. */
+export function forgetVehicleTurns(turns: ChatTurn[]): ChatTurn[] {
+  let checked = false;
+  let changed = false;
+  const out = turns.map((t) => {
+    if (t.role === 'user') checked = !!t.vehicle;
+    else if (checked && t.text !== REPLY_GONE) {
+      changed = true;
+      return { ...t, text: REPLY_GONE };
+    }
+    return t;
+  });
+  return changed ? out : turns;
 }
 
 // ---------- the lookups ----------

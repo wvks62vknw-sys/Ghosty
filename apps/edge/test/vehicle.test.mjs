@@ -243,7 +243,6 @@ test("DVLA's record (when its key is set): the plate goes in the body, tax statu
 });
 
 test('the saved conversation: the check, its record and the reply that gave it are left out, and the plate is [plate] everywhere', () => {
-  V.clearLookups();
   const ctx = [
     { role: 'user', content: 'what is the weather' },
     { role: 'assistant', content: 'Sunny.' },
@@ -268,19 +267,66 @@ test('the saved conversation: the check, its record and the reply that gave it a
   const plain = [{ role: 'user', content: 'hi' }];
   assert.equal(V.forgetVehicleChecks(plain), plain);
 
-  // the chat history: the plates looked up in the last hour are blanked, the reply after each lookup replaced
-  V.noteLookup('AB12CDE', 1000);
+  // the chat history: as a check runs, the owner's message gets [plate] and a mark; the reply to it is left out whenever it is saved
   const turns = [
+    { role: 'user', text: 'my car is AB12CDE', at: 100 },
+    { role: 'assistant', text: 'Noted.', at: 200 },
     { role: 'user', text: 'MOT check AB12-CDE please', at: 900 },
-    { role: 'assistant', text: 'Silver Ford Focus…', at: 2000 },
-    { role: 'user', text: 'and the weather?', at: 3000 },
-    { role: 'assistant', text: 'Sunny.', at: 4000 },
   ];
-  const t = V.forgetVehicleTurns(turns, 5000);
-  assert.deepEqual(t.map((x) => x.text), ['MOT check [plate] please', V.REPLY_GONE, 'and the weather?', 'Sunny.']);
-  // after an hour the plate is no longer remembered, even in memory
-  assert.deepEqual(V.recentLookups(1000 + 3600_001), []);
-  V.clearLookups();
+  const marked = V.forgetPlateInTurns(turns, 'ab12 cde');
+  assert.deepEqual(marked.map((x) => x.text), ['my car is [plate]', 'Noted.', 'MOT check [plate] please']);
+  assert.equal(marked[2].vehicle, true);
+  assert.ok(!marked[0].vehicle);
+  const t = V.forgetVehicleTurns([...marked, { role: 'assistant', text: 'Silver Ford Focus…', at: 2000 }, { role: 'user', text: 'and the weather?', at: 3000 }, { role: 'assistant', text: 'Sunny.', at: 4000 }]);
+  assert.deepEqual(t.map((x) => x.text), ['my car is [plate]', 'Noted.', 'MOT check [plate] please', V.REPLY_GONE, 'and the weather?', 'Sunny.']);
+  // the same from the saved data alone, however often and whenever it runs: no memory involved
+  assert.deepEqual(V.forgetVehicleTurns(t), t);
+  assert.equal(V.forgetVehicleTurns(turns), turns, 'nothing marked: the very same array back');
+});
+
+test('the [plate] marker and ordinary words are never taken for a plate, however often the context is saved', () => {
+  assert.equal(P.redactPlates('mot check [plate]; the number plate is on the photo', ['PLATE', '[plate]', 'HELLO', '']), 'mot check [plate]; the number plate is on the photo');
+  const ctx = [
+    { role: 'user', content: 'mot check AB12 CDE' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'vehicle_check', arguments: '{"plate":"AB12 CDE"}' } }] },
+    { role: 'tool', tool_call_id: 'c1', content: 'Vehicle AB12 CDE: Silver FORD FOCUS' },
+    { role: 'assistant', content: 'A silver Ford Focus.' },
+    { role: 'user', content: 'the number plate is on the photo' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c2', type: 'function', function: { name: 'web_search', arguments: '{"query":"number plate fonts"}' } }] },
+    { role: 'tool', tool_call_id: 'c2', content: 'Plate fonts: Charles Wright.' },
+    { role: 'assistant', content: 'Plates use Charles Wright.' },
+  ];
+  const once = V.forgetVehicleChecks(ctx);
+  assert.equal(once[0].content, 'mot check [plate]');
+  let again = once;
+  for (let i = 0; i < 4; i++) again = V.forgetVehicleChecks(again);
+  assert.deepEqual(again, once, 'saving again changes nothing');
+  assert.equal(again[4].content, 'the number plate is on the photo');
+  assert.equal(again[5].tool_calls[0].function.arguments, '{"query":"number plate fonts"}');
+  assert.equal(again[7].content, 'Plates use Charles Wright.');
+});
+
+test('a dateless plate (A1) is blanked in the exchange that checked it, and ordinary text elsewhere is left alone', () => {
+  assert.equal(P.plateFormat('A1'), 'dateless');
+  assert.deepEqual(P.distinctivePlates(['A1', 'K 1', 'AB12CDE', 'PLATE']), ['AB12CDE']);
+  const turns = [
+    { role: 'user', text: 'a 1 hour wait for the A1 road, said K-1', at: 100 },
+    { role: 'assistant', text: 'The A1 is busy; a 1 hour wait.', at: 200 },
+    { role: 'user', text: 'mot check a1', at: 300 },
+  ];
+  const marked = V.forgetPlateInTurns(turns, 'A1');
+  assert.deepEqual(marked.map((x) => x.text), ['a 1 hour wait for the A1 road, said K-1', 'The A1 is busy; a 1 hour wait.', 'mot check [plate]']);
+  assert.equal(marked[2].vehicle, true);
+  const ctx = [
+    { role: 'user', content: 'a 1 hour wait on the A1' },
+    { role: 'assistant', content: 'The A1 is slow.' },
+    { role: 'user', content: 'mot check A 1' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'd1', type: 'function', function: { name: 'vehicle_check', arguments: '{"plate":"A 1"}' } }] },
+    { role: 'tool', tool_call_id: 'd1', content: 'Vehicle A 1: Black ROLLS ROYCE' },
+    { role: 'assistant', content: 'A black Rolls-Royce.' },
+  ];
+  const kept = V.forgetVehicleChecks(ctx);
+  assert.deepEqual(kept.map((m) => m.content), ['a 1 hour wait on the A1', 'The A1 is slow.', 'mot check [plate]', null, V.RECORD_GONE, V.REPLY_GONE]);
 });
 
 test('the vehicle tool group: keyword gated, about line within budget, the tool not run in parallel or remembered', () => {
@@ -395,4 +441,76 @@ test('nothing with the plate or the record reaches the database or KV: a check f
   const next = await call('/api/chat', { method: 'POST', body: JSON.stringify({ message: 'hello again' }) });
   assert.match(await next.text(), /Mock reply to: hello again/);
   await Promise.allSettled(pending.splice(0));
+});
+
+/** A brain on its own storage; `fresh()` drops the instance, as when Cloudflare evicts it, keeping what was saved. */
+async function brainOn() {
+  const OWNER_KEY = 'test-owner-key-0123456789abcdef';
+  const pending = [];
+  const storage = new MemStorage();
+  const kv = new MemKv();
+  const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const env = { OWNER_KEY, VAULT_KEY: Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64'), MOCK_LLM: '1', SITES: kv };
+  let agent;
+  env.AGENT = { idFromName: (n) => ({ toString: () => n }), get: () => ({ fetch: (r) => (agent ??= new GhostyAgent(state, env)).fetch(r) }) };
+  const ctx = { waitUntil: (p) => pending.push(p), passThroughOnException() {} };
+  const call = (path, init = {}) => worker.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'x-ghosty': '1', 'content-type': 'application/json', 'x-ghosty-key': OWNER_KEY } }), env, ctx);
+  const send = async (path, body) => {
+    const r = await call(path, { method: 'POST', body: JSON.stringify(body) });
+    const events = (await r.text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    return events;
+  };
+  const dump = () => JSON.stringify([...storage.m.entries()]) + JSON.stringify([...kv.m.entries()]);
+  await send('/api/keys', { name: 'dvsa_mot', value: KEY_LINES });
+  return { storage, call, send, dump, fresh: () => (agent = undefined) };
+}
+
+test('a check whose next step finds no model: the plate is not kept, and the next, unrelated reply is kept as it was', async () => {
+  V.dropTokens();
+  network();
+  const b = await brainOn();
+  const ev = await b.send('/api/chat', { message: 'mot check AB12 CDE then no model' });
+  assert.ok(ev.some((e) => e.t === 'tool_result' && e.name === 'vehicle_check' && e.ok), 'the check ran');
+  assert.ok(ev.some((e) => e.t === 'error'), 'then no model');
+  assert.doesNotMatch(b.dump(), /AB12\s?CDE|FOCUS/i, 'nothing holds the plate after the failed step');
+  const turns = await b.storage.get('turns');
+  assert.equal(turns.at(-1).text, 'mot check [plate] then no model');
+  // the next message (within minutes): its reply has nothing to do with the check and is kept
+  await b.send('/api/chat', { message: 'hello again' });
+  const h = await (await b.call('/api/history')).json();
+  assert.deepEqual(h.turns.slice(-2).map((t) => t.text), ['hello again', 'Mock reply to: hello again']);
+});
+
+test('an approval answered hours later on a fresh instance: the plate and the reply are not kept', async () => {
+  V.dropTokens();
+  network();
+  const b = await brainOn();
+  const ev = await b.send('/api/chat', { message: 'mot check AB12 CDE then daily hello' });
+  const ask = ev.find((e) => e.t === 'approval');
+  assert.ok(ask, 'the daily task waits for approval');
+  assert.ok(ev.some((e) => e.t === 'tool_result' && e.name === 'vehicle_check' && e.ok), 'the check ran first');
+  const realNow = Date.now;
+  Date.now = () => realNow() + 3 * 3600_000;
+  try {
+    b.fresh();
+    const done = await b.send('/api/approve', { id: ask.id, allow: true });
+    assert.ok(done.some((e) => e.t === 'text'), 'the turn carried on');
+  } finally {
+    Date.now = realNow;
+  }
+  assert.doesNotMatch(b.dump(), /AB12\s?CDE|FOCUS/i, 'nothing holds the plate or the record');
+  const h = await (await b.call('/api/history')).json();
+  assert.deepEqual(h.turns.slice(-2).map((t) => t.text), ['mot check [plate] then daily hello', V.REPLY_GONE]);
+});
+
+test('a dateless plate checked from the chat: the earlier, unrelated history keeps its words', async () => {
+  V.dropTokens();
+  network();
+  const b = await brainOn();
+  await b.send('/api/chat', { message: 'a 1 hour wait for the A1 road' });
+  const ev = await b.send('/api/chat', { message: 'mot check A1' });
+  assert.ok(ev.some((e) => e.t === 'tool_result' && e.name === 'vehicle_check'), 'the check ran');
+  const h = await (await b.call('/api/history')).json();
+  assert.deepEqual(h.turns.map((t) => t.text), ['a 1 hour wait for the A1 road', 'Mock reply to: a 1 hour wait for the a1 road', 'mot check [plate]', V.REPLY_GONE]);
 });

@@ -77,6 +77,15 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     if (done < Number(steps[1])) return { message: call(stepTool, stepTool === 'library_search' ? { query: `step ${done + 1}` } : {}), model };
     return { message: { role: 'assistant', content: `Done after ${done} steps.` }, model };
   }
+  // "mot check X then no model": the check runs, then every model is cooling down; "mot check X then daily hello":
+  // the check, then a daily task that waits for approval, then a reply (the vehicle check's privacy tests).
+  const motThen = chainAsked.match(/^mot check (.+?) then (no model|daily hello)$/);
+  if (motThen && offered('vehicle_check')) {
+    if (!chainDid('vehicle_check')) return { message: call('vehicle_check', { plate: motThen[1] }), model };
+    if (motThen[2] === 'no model') throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
+    if (!chainDid('schedule_task') && offered('schedule_task')) return { message: call('schedule_task', { title: 'Daily hello', prompt: 'say hello', at: '09:00', repeat: 'daily' }), model };
+    return { message: { role: 'assistant', content: `Done. ${chainAsked}` }, model };
+  }
   if (last.role === 'tool') {
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);

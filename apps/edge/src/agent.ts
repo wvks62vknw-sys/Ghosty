@@ -551,7 +551,7 @@ export class GhostyAgent {
   private async addTurn(turn: ChatTurn): Promise<void> {
     const turns = (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
     turns.push(turn);
-    // A vehicle check's plate and the reply that gave its record are never kept (integrations/vehicle.ts).
+    // The reply to a message that ran a vehicle check is never kept (integrations/vehicle.ts).
     await this.storage.put(TURNS_KEY, forgetVehicleTurns(turns.slice(-120)));
   }
 
