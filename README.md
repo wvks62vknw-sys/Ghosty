@@ -94,6 +94,10 @@ tests/       local preview server + browser test
   with every stop, the steps in a JOURNEY sheet, and *"next buses from X"* for departures.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
   report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
+- **An offline brain on the phone**: download a small AI (≈352 MB, once, in Settings → Offline brain) and
+  Ghosty keeps talking with no signal, when every free model is busy, or always if you prefer: it runs on the
+  iPhone itself (WebLLM on WebGPU, iOS 26+), free and private, knows your memory, agenda and library copy,
+  and each such reply says "Answered on your phone (offline)".
 - **Real ears, its own voice, pictures**: speech to text with Groq's Whisper or Cloudflare Workers AI's (no
   key), replies read in Ghosty's own voice (MeloTTS on Workers AI; the phone's voice as the fallback), and
   pictures made on request (flux-1-schnell, free) that the chat shows and Telegram sends as photos.

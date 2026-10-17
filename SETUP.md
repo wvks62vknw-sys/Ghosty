@@ -267,6 +267,26 @@ Keys disconnects the bot. **Links → Telegram → UNPAIR** forgets the chat (a 
   description and makes the picture with Workers AI (flux-1-schnell, free): the chat shows it, Telegram sends
   it as a photo, and the link (`https://<your Ghosty>/i/<id>`) lasts 7 days. Up to 40 a day.
 
+## 3j. An offline brain on your phone
+
+Ghosty can also talk with no connection at all, using a small AI that runs on the iPhone itself — free and
+private, nothing leaves the phone.
+
+1. Update the iPhone to **iOS 26 or newer** (older versions have no WebGPU, which the small AI needs; the
+   panel says so plainly if your phone can't run it).
+2. On **Wi-Fi**, open **Settings → Offline brain** (or the command palette: *Offline brain*) and press
+   **DOWNLOAD**. It is about 352 MB, downloaded once from Hugging Face; keep Ghosty open until the bar
+   reaches 100%. If the phone can't hold that model, Ghosty fetches a smaller one (about 290 MB) by itself.
+3. Press **TEST**: the small AI says hello and shows how fast it is.
+4. Choose when it answers: **only when needed** (the default — when the brain can't be reached or every free
+   model is busy), **always** (the cloud brain is never asked), or **off**.
+
+Replies from the phone show a small **ANSWERED ON YOUR PHONE (OFFLINE)** chip and are spoken with the usual
+voice (the phone's own voice when Ghosty's can't be reached). The small AI has no tools and no live data
+(no web, weather or news), but it knows your memory, today's agenda and the library copy on the phone.
+**DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
+keeps the download.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

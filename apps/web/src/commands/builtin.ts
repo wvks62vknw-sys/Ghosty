@@ -411,6 +411,16 @@ export function registerBuiltins(): void {
       },
     },
     { id: 'stop_audio', title: 'Stop radio', group: 'MEDIA', run: () => stopAudio() },
+    {
+      id: 'offline_brain',
+      title: 'Offline brain',
+      group: 'SYSTEM',
+      // SETTINGS → OFFLINE BRAIN: download, test, and when the phone's own model answers.
+      run: () => {
+        go('settings');
+        setTimeout(() => document.querySelector('#pg-settings .offbrain')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+      },
+    },
     { id: 'reload_interface', title: 'Reload interface', group: 'SYSTEM', run: () => location.reload() },
     { id: 'fullscreen', title: 'Toggle fullscreen', group: 'SYSTEM', keys: 'f', run: () => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
     {

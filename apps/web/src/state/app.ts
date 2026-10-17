@@ -25,6 +25,8 @@ export interface Settings {
   sounds: boolean;
   /** Tilt the phone to look around the holographic room (asks for motion access). */
   motion: boolean;
+  /** The offline brain on the phone: 'auto' when the brain can't answer, 'always' instead of it, or 'off'. */
+  offlineBrain: 'auto' | 'always' | 'off';
 }
 
 const tz = (() => {
@@ -46,6 +48,7 @@ export const settings = createStore<Settings>(
     home: null,
     sounds: true,
     motion: false,
+    offlineBrain: 'auto',
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },
