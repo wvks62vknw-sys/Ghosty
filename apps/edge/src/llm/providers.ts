@@ -95,6 +95,43 @@ export const PROVIDERS: Provider[] = [
     cheap: 5,
   },
   {
+    // NVIDIA's free tier: big open models at about 40 requests a minute, a rolling window.
+    id: 'nvidia',
+    name: 'NVIDIA NIM',
+    base: 'https://integrate.api.nvidia.com/v1',
+    key: 'nvidia',
+    seed: ['moonshotai/kimi-k2-instruct', 'deepseek-ai/deepseek-v3.1', 'qwen/qwen3-coder-480b-a35b-instruct', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.3-nemotron-super-49b-v1.5'],
+    // A huge mixed catalogue: embedders, rerankers, guard models, vision-only and science models are not chat (NOT_CHAT catches the rest).
+    accept: (id) => !/(embed|retriev|rerank|reward|guard|safety|vision|neva|paligemma|florence|deplot|kosmos|clip|cosmos|parakeet|riva|canary|fastpitch|maxine|ocdr|cuopt|evo-?2|genmol|molmim|diffdock|esm|alphafold|proteinmpnn|-vl-|vila)/i.test(id),
+    maxOut: 8192,
+    reset: 'rolling',
+    cheap: 3,
+  },
+  {
+    // SambaNova's free tier: very fast DeepSeek and Llama, about 20 requests a day per model.
+    id: 'sambanova',
+    name: 'SambaNova',
+    base: 'https://api.sambanova.ai/v1',
+    key: 'sambanova',
+    seed: ['DeepSeek-V3.1', 'Meta-Llama-3.3-70B-Instruct', 'Llama-4-Maverick-17B-128E-Instruct', 'Qwen3-32B'],
+    // Its list also carries an embedder and Whisper.
+    accept: (id) => !/(e5-|embed|whisper)/i.test(id),
+    reset: 'utc-midnight',
+    cheap: 2,
+  },
+  {
+    // Cohere's trial key: the Command models, 1,000 calls a month, through its OpenAI-compatible endpoint (fixed list).
+    id: 'cohere',
+    name: 'Cohere',
+    base: 'https://api.cohere.ai/compatibility/v1',
+    key: 'cohere',
+    seed: ['command-a-03-2025', 'command-r-plus-08-2024', 'command-r7b-12-2024'],
+    accept: (id) => /command/.test(id),
+    noDiscovery: true,
+    reset: 'rolling',
+    cheap: 3,
+  },
+  {
     // Cloudflare Workers AI through the Worker's own AI binding: no key at all, a free
     // daily allowance (10,000 neurons, reset midnight UTC), and always there.
     id: 'workersai',

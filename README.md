@@ -73,5 +73,10 @@ tests/       local preview server + browser test
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.
 
+- **Token discipline**: the prompt is a quarter of what it was (one line per tool group, only the groups a
+  message turns on, the rest by name), tool results are cut to a budget each, and the conversation is kept
+  within a character budget — so free models' per-minute allowances last; when every model is out, simple
+  asks are still answered without AI, with the exact time the first model is back.
+
 Runs on free tiers: one Cloudflare Worker + Durable Object, GitHub, and free AI keys
-(Gemini, Groq, Cerebras, OpenRouter, Mistral).
+(Gemini, Groq, Cerebras, OpenRouter, Mistral, NVIDIA NIM, SambaNova, Cohere).

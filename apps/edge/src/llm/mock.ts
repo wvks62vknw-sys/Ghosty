@@ -24,6 +24,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
+  // "no model: …": every model is cooling down — what Ghosty answers with no AI at all (direct.ts), as the router would report it.
+  if (last.role === 'user' && /^no model:/i.test(ownerWords(textOf(last.content)).replace(/^Scheduled task "[^"]*": /, '').trim())) {
+    throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds. Another free key in the System tab gives me more room.'), { waitMs: 40_000 });
+  }
   // Chains: one tool's result feeds the next in the same turn; several read-only calls in one
   // reply; and a chain long enough to show the step cap leaves room for real work.
   const chainUser = [...messages].reverse().find((x) => x.role === 'user');

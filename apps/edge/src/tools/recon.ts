@@ -46,7 +46,7 @@ async function fileReport(ctx: ToolContext, target: string, markdown: string): P
 export const reconTools: Tool[] = [
   {
     name: 'recon_domain',
-    description: `Everything the public record says about a domain, host, IP address or web address, in one go: DNS records and email posture (SPF, DMARC), registration (registrar, dates, status, nameservers), certificates and the subdomains they reveal, the Wayback Machine's first and latest captures, hosting (owner, ASN, place, the ports and vulnerabilities Shodan's free InternetDB already lists) and one HTTP fingerprint (redirects, server, security headers, title, robots/sitemap/security.txt). Runs the sources in parallel, about 5–15 s; a source that does not answer is said so. Then chain: library_import or web_fetch an interesting page or subdomain it found. save: true files the report in the library. ${POLICY}`,
+    description: `Every passive check on a domain, host, IP address or web address at once (5–15 s; a silent source is said so): DNS and email posture (SPF, DMARC), registration (RDAP), certificates and the subdomains they reveal, Wayback first and latest captures, hosting with the ports and vulnerabilities Shodan's free InternetDB lists, and one HTTP fingerprint (redirects, security headers, title, robots/sitemap/security.txt). Then chain: web_fetch an interesting page or subdomain it found and say what stands out (missing security headers, no DMARC, odd subdomains, listed vulnerabilities, an expiring registration); a whole-repository library_import goes in the next turn (this alone makes up to 28 outbound requests of the 50 a turn allows). save: true files the report in the library. ${POLICY}`,
     parameters: {
       type: 'object',
       properties: {
@@ -165,7 +165,7 @@ export const reconTools: Tool[] = [
   },
   {
     name: 'ip_lookup',
-    description: `Who an IP address belongs to and where it is (ipwho.is: organisation, ASN, country, city) and what Shodan's free InternetDB already lists for it (open ports, hostnames, CPEs, known vulnerabilities) — a summary of what others have seen, never a scan by you. whois_rdap gives the network block. For servers and services only: an address taken from a person's email header, message or game lobby can be their home connection, and placing it would then place a household, so do not look those up. ${POLICY}`,
+    description: `Who an IP address belongs to and where it is (ipwho.is: organisation, ASN, country, city) and what Shodan's free InternetDB already lists for it (open ports, hostnames, CPEs, known vulnerabilities) — what others have seen, never a scan by you. Servers and services only: an address from a person's email header, message or game lobby can be a home connection, and placing it would place a household, so do not look those up. ${POLICY}`,
     parameters: { type: 'object', properties: { ip: { type: 'string', description: 'an IPv4 or IPv6 address' } }, required: ['ip'] },
     risk: 'auto',
     pure: true,
@@ -181,7 +181,7 @@ export const reconTools: Tool[] = [
   },
   {
     name: 'http_fingerprint',
-    description: `One ordinary page request to a web address, like a browser would make: the redirect chain and final address, status, server and X-Powered-By headers, which security headers are present or missing (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy), the page title and generator, and whether robots.txt, sitemap.xml and security.txt exist. Nothing else is requested. ${POLICY}`,
+    description: `One ordinary page request to a web address, as a browser makes: the redirect chain and final address, status, server and X-Powered-By headers, which security headers are present or missing (CSP, HSTS, X-Frame-Options, Referrer-Policy…), the page title and generator, and whether robots.txt, sitemap.xml and security.txt exist. Nothing else is requested. ${POLICY}`,
     parameters: { type: 'object', properties: { url: { type: 'string', description: 'e.g. https://example.com/ or a bare domain' } }, required: ['url'] },
     risk: 'auto',
     pure: true,

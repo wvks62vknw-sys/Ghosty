@@ -39,7 +39,7 @@ export const trafficTools: Tool[] = [
   {
     name: 'show_cameras',
     description:
-      "Show live public traffic/road CCTV for a place on God's Eye (e.g. \"cameras in Birmingham city centre\", \"M6 at junction 6\"). Public cameras exist on the West Midlands motorways (National Highways: M6, M5, M42, M54, A38(M) — stills refreshed every 20–30 s), in London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW and Calgary. Birmingham's own streets have none (the council doesn't publish its CCTV): there the nearest motorway camera is shown, with live traffic and the mapped ANPR/speed camera locations. Elsewhere with none, this says so and shows how far the nearest are. Repeat its answer honestly.",
+      "Show live public road CCTV for a place on God's Eye (\"cameras in Birmingham city centre\", \"M6 at junction 6\"). Public cameras: the West Midlands motorways (National Highways: M6, M5, M42, M54, A38(M); stills every 20–30 s), London, County Durham, New York City, California, Finland, Ontario, British Columbia, Sydney/NSW, Calgary. Birmingham's own streets have none: the nearest motorway camera is shown, with live traffic. Elsewhere with none it says so and how far the nearest are. Repeat its answer honestly.",
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
     pure: true,
@@ -67,7 +67,7 @@ export const trafficTools: Tool[] = [
   },
   {
     name: 'traffic_now',
-    description: "Live road traffic around a place right now. Opens the live traffic map on God's Eye (Waze: jams, slow roads, hazards and crashes drivers report now — free, no key), shows the nearest public cameras if there are any, and with the free TomTom key adds speed on the nearest main road vs normal and current incidents (crashes, closures, queues, roadworks) with delays. For the motorways (M6, M42, M5…) and their junctions, motorway_now gives National Highways' own live incident list with no key.",
+    description: "Live road traffic around a place right now: opens the live traffic map on God's Eye (Waze: jams, hazards and crashes drivers report now — no key), shows the nearest public cameras if any, and with the free TomTom key adds speed on the nearest main road vs normal and current incidents with delays. For motorways and their junctions, motorway_now gives National Highways' own incident list with no key.",
     parameters: { type: 'object', properties: { place: { type: 'string', description: 'e.g. "Birmingham city centre", "M6 junction 6"' }, lat: { type: 'number' }, lon: { type: 'number' }, radius_km: { type: 'number', description: 'default 5, max 40' } } },
     risk: 'auto',
     pure: true,

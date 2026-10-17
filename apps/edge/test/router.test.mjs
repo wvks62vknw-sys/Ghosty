@@ -194,3 +194,168 @@ test('cheapScore: small and generously rationed first; a Pro model is never chea
   assert.ok(P.cheapScore('gpt-4.1-mini') > P.cheapScore('gpt-4.1'), '"mini" as a word of its own still counts');
   assert.ok(P.cheapScore('openai/gpt-oss-120b') < P.cheapScore('openai/gpt-oss-20b'));
 });
+
+const ok = (model) => new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `hi from ${model}` } }] }), { headers: { 'content-type': 'application/json' } });
+
+test('the best model cooling for a few seconds is waited for rather than skipped for a worse one; a long cool-down is skipped; own jobs never wait', async () => {
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q' }), {});
+  await r.mark('gemini|gemini-3.8-flash', { cool: Date.now() + 1500, why: 'rate limit' });
+  let t0 = Date.now();
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Gemini · gemini-3.8-flash');
+  assert.ok(Date.now() - t0 >= 1400, 'waited for it');
+  assert.equal(log.length, 1, 'nothing else was asked meanwhile');
+  // cooling for a minute: the next model answers at once
+  await r.mark('gemini|gemini-3.8-flash', { cool: Date.now() + 60_000, why: 'rate limit' });
+  t0 = Date.now();
+  assert.equal((await r.complete([{ role: 'user', content: 'hello' }], [])).model, 'Gemini · gemini-3.6-flash');
+  assert.ok(Date.now() - t0 < 1000, 'no waiting on a long cool-down');
+  // Ghosty's own jobs (maxWaitMs: 0) take what is free now
+  await r.mark('gemini|gemini-3.8-flash', { cool: Date.now() + 1500, why: 'rate limit' });
+  t0 = Date.now();
+  const own = await r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 });
+  assert.notEqual(own.model, 'Gemini · gemini-3.8-flash');
+  assert.ok(Date.now() - t0 < 1000);
+});
+
+test('a 429 asking for a short wait is retried once on the same model after waiting; a long Retry-After moves on', async () => {
+  let n = 0;
+  const log = [];
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    log.push(body.model);
+    if (n++ === 0) return new Response('{"error":{"message":"rate limit"}}', { status: 429, headers: { 'retry-after': '1' } });
+    return ok(body.model);
+  };
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), {});
+  const t0 = Date.now();
+  const out = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(out.model, 'Gemini · gemini-3.8-flash');
+  assert.deepEqual(log, ['gemini-3.8-flash', 'gemini-3.8-flash'], 'the same model, once more');
+  assert.ok(Date.now() - t0 >= 1000, 'after the stated second');
+  // a per-day limit or a long wait is not retried: the next model is asked
+  n = 0;
+  log.length = 0;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    log.push(body.model);
+    if (n++ === 0) return new Response('{"error":{"message":"rate limit"}}', { status: 429, headers: { 'retry-after': '30' } });
+    return ok(body.model);
+  };
+  const r2 = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), {});
+  assert.equal((await r2.complete([{ role: 'user', content: 'hello' }], [])).model, 'Gemini · gemini-3.6-flash');
+  assert.deepEqual(log, ['gemini-3.8-flash', 'gemini-3.6-flash']);
+  // a retry that fails again is classified as usual
+  n = 0;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.model === 'gemini-3.8-flash') return new Response('{"error":{"message":"rate limit"}}', { status: 429, headers: { 'retry-after': '1' } });
+    return ok(body.model);
+  };
+  const storage = new MemStorage();
+  const r3 = new R.Router(storage, vaultWith({ gemini: 'g' }), {});
+  assert.equal((await r3.complete([{ role: 'user', content: 'hello' }], [])).model, 'Gemini · gemini-3.6-flash');
+  assert.ok(storage.m.get('llm:health')['gemini|gemini-3.8-flash'].cool > Date.now(), 'cooled after the second 429');
+});
+
+test('the error carries how long until the first model is back, and nextFree() says it too', async () => {
+  globalThis.fetch = async () => new Response('{"error":{"message":"rate limit"}}', { status: 429, headers: { 'retry-after': '120' } });
+  const r = new R.Router(new MemStorage(), vaultWith({ groq: 'q' }), { KEYLESS_MODELS: '0' });
+  const err = await r.complete([{ role: 'user', content: 'hello' }], []).then(() => null, (e) => e);
+  assert.ok(err instanceof Error && err.name === 'RouterError');
+  assert.match(err.message, /busy or failing.*frees up in about 1[12]\d seconds/);
+  assert.ok(err.waitMs > 100_000 && err.waitMs < 130_000, String(err.waitMs));
+  const next = await r.nextFree();
+  assert.ok(next > 100_000 && next <= err.waitMs + 1000, String(next));
+  assert.equal(await new R.Router(new MemStorage(), vaultWith({}), { KEYLESS_MODELS: '0' }).nextFree(), null, 'no model at all');
+  assert.equal(await new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), {}).nextFree(), 0, 'free now');
+  const day = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  await day.mark('cool|gemini', { cool: Date.now() + 3600_000, why: 'daily limit' });
+  const left = await day.nextFree();
+  assert.ok(left > 3590_000 && left <= 3600_000, 'a provider out for the day counts as a whole');
+});
+
+test('the three new free providers: after the existing keys and before Workers AI, their keys and live checks, discovery filtered, Cohere fixed', async () => {
+  const ids = P.PROVIDERS.map((p) => p.id);
+  assert.deepEqual(ids.slice(0, 8), ['gemini', 'groq', 'cerebras', 'openrouter', 'mistral', 'nvidia', 'sambanova', 'cohere']);
+  assert.ok(ids.indexOf('cohere') < ids.indexOf('workersai') && ids.indexOf('workersai') < ids.indexOf('pollinations'));
+  const nv = P.PROVIDERS.find((p) => p.id === 'nvidia');
+  assert.equal(nv.name, 'NVIDIA NIM');
+  assert.equal(nv.base, 'https://integrate.api.nvidia.com/v1');
+  assert.deepEqual(nv.seed, ['moonshotai/kimi-k2-instruct', 'deepseek-ai/deepseek-v3.1', 'qwen/qwen3-coder-480b-a35b-instruct', 'meta/llama-3.3-70b-instruct', 'nvidia/llama-3.3-nemotron-super-49b-v1.5']);
+  assert.ok(nv.accept('meta/llama-3.1-405b-instruct') && !nv.accept('nvidia/nv-embedqa-e5-v5') && !nv.accept('nvidia/llama-3.2-nv-rerankqa-1b-v2') && !nv.accept('microsoft/phi-3-vision-128k-instruct') && !nv.accept('nvidia/llama-3.1-nemoguard-8b-content-safety'));
+  assert.equal(nv.maxOut, 8192);
+  assert.equal(nv.reset, 'rolling');
+  assert.equal(nv.cheap, 3);
+  const sn = P.PROVIDERS.find((p) => p.id === 'sambanova');
+  assert.equal(sn.base, 'https://api.sambanova.ai/v1');
+  assert.deepEqual(sn.seed, ['DeepSeek-V3.1', 'Meta-Llama-3.3-70B-Instruct', 'Llama-4-Maverick-17B-128E-Instruct', 'Qwen3-32B']);
+  assert.equal(sn.reset, 'utc-midnight');
+  assert.equal(sn.cheap, 2);
+  assert.ok(sn.accept('DeepSeek-V3.1') && !sn.accept('E5-Mistral-7B-Instruct') && !sn.accept('Whisper-Large-v3'));
+  const co = P.PROVIDERS.find((p) => p.id === 'cohere');
+  assert.equal(co.base, 'https://api.cohere.ai/compatibility/v1');
+  assert.deepEqual(co.seed, ['command-a-03-2025', 'command-r-plus-08-2024', 'command-r7b-12-2024']);
+  assert.equal(co.noDiscovery, true);
+  assert.equal(co.reset, 'rolling');
+  assert.equal(co.cheap, 3);
+  assert.ok(co.accept('command-a-03-2025') && !co.accept('embed-english-v3.0'));
+  for (const p of [nv, sn, co]) assert.ok(!p.tier && !p.keyless, `${p.id} is one of the owner's keys (tier 0)`);
+  for (const m of [...nv.seed, ...sn.seed, ...co.seed]) assert.ok(!P.NOT_CHAT.test(m), m);
+  // the owner's small jobs still go to the generously rationed models first
+  assert.ok(P.cheapScore('moonshotai/kimi-k2-instruct', nv) < P.cheapScore('openai', P.PROVIDERS.find((p) => p.id === 'pollinations')));
+  // keys: a System tab entry each, and the live check is GET /models with the bearer
+  const K = await import('./.build/keys.mjs');
+  for (const n of ['nvidia', 'sambanova', 'cohere']) {
+    const k = K.KEYS.find((x) => x.name === n);
+    assert.ok(k, `${n} key`);
+    assert.equal(k.need, 'optional');
+    assert.ok(k.steps.length >= 3 && k.why.length > 30 && /^https:\/\//.test(k.link), n);
+  }
+  assert.match(K.KEYS.find((x) => x.name === 'nvidia').hint, /nvapi-/);
+  assert.equal(K.KEYS.find((x) => x.name === 'nvidia').link, 'https://build.nvidia.com/settings/api-keys');
+  assert.equal(K.KEYS.find((x) => x.name === 'sambanova').link, 'https://cloud.sambanova.ai/apis');
+  assert.equal(K.KEYS.find((x) => x.name === 'cohere').link, 'https://dashboard.cohere.com/api-keys');
+  const asked = [];
+  globalThis.fetch = async (url, init) => {
+    asked.push({ url, auth: init?.headers?.Authorization });
+    return new Response('{"data":[]}', { status: 200 });
+  };
+  for (const [n, url] of [['nvidia', 'https://integrate.api.nvidia.com/v1/models'], ['sambanova', 'https://api.sambanova.ai/v1/models'], ['cohere', 'https://api.cohere.ai/compatibility/v1/models']]) {
+    const r = await K.testKey(n, 'secret-key-value');
+    assert.equal(r.ok, true, n);
+    assert.equal(asked.at(-1).url, url);
+    assert.equal(asked.at(-1).auth, 'Bearer secret-key-value');
+  }
+  globalThis.fetch = async () => new Response('{}', { status: 401 });
+  assert.equal((await K.testKey('nvidia', 'bad')).ok, false);
+  // discovery: the catalogue's chat models join the seeds, embedders and Whisper do not, Cohere is never asked
+  globalThis.fetch = async (url) => {
+    if (/integrate\.api\.nvidia\.com\/v1\/models$/.test(url)) return new Response(JSON.stringify({ data: [{ id: 'meta/llama-3.1-405b-instruct' }, { id: 'nvidia/nv-embedqa-e5-v5' }, { id: 'moonshotai/kimi-k2-instruct' }] }));
+    if (/api\.sambanova\.ai\/v1\/models$/.test(url)) return new Response(JSON.stringify({ data: [{ id: 'DeepSeek-V3.1' }, { id: 'E5-Mistral-7B-Instruct' }, { id: 'Whisper-Large-v3' }, { id: 'DeepSeek-R1' }] }));
+    if (/cohere/.test(url)) throw new Error('Cohere must not be asked for its models');
+    return new Response('{}', { status: 404 });
+  };
+  const r = new R.Router(new MemStorage(), vaultWith({ nvidia: 'n', sambanova: 's', cohere: 'c' }), { KEYLESS_MODELS: '0' });
+  await r.discover(true);
+  const sum = await r.summary();
+  const models = (name) => sum.filter((m) => m.provider === name).map((m) => m.model);
+  assert.ok(models('NVIDIA NIM').includes('meta/llama-3.1-405b-instruct') && models('NVIDIA NIM').includes('moonshotai/kimi-k2-instruct'), models('NVIDIA NIM').join());
+  assert.ok(!models('NVIDIA NIM').includes('nvidia/nv-embedqa-e5-v5'));
+  assert.ok(models('SambaNova').includes('DeepSeek-R1') && !models('SambaNova').some((m) => /e5|whisper/i.test(m)), models('SambaNova').join());
+  assert.deepEqual(models('Cohere'), co.seed);
+  // chat order: the owner's existing keys first, then the new ones; the open endpoint is not asked while they answer
+  const log = [];
+  globalThis.fetch = fakeFetch(log);
+  assert.match((await new R.Router(new MemStorage(), vaultWith({ nvidia: 'n', mistral: 'm' }), {}).complete([{ role: 'user', content: 'hello' }], [])).model, /^Mistral/);
+  assert.equal((await new R.Router(new MemStorage(), vaultWith({ cohere: 'c' }), {}).complete([{ role: 'user', content: 'hello' }], [])).model, 'Cohere · command-a-03-2025');
+  assert.equal((await new R.Router(new MemStorage(), vaultWith({ sambanova: 's' }), {}).complete([{ role: 'user', content: 'hello' }], [])).model, 'SambaNova · DeepSeek-V3.1');
+  assert.ok(!log.some((l) => /pollinations/.test(l.url)));
+  assert.ok(log.every((l) => /nvidia|sambanova|cohere|mistral/.test(l.url)));
+  // the owner's saved order still wins, and a provider it never named comes after the named ones
+  const ordered = new R.Router(new MemStorage(), vaultWith({ nvidia: 'n', mistral: 'm' }), {});
+  await ordered.setOrder(['nvidia']);
+  assert.match((await ordered.complete([{ role: 'user', content: 'hello' }], [])).model, /^NVIDIA NIM/);
+});

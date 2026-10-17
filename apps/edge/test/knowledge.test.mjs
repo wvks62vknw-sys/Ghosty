@@ -109,10 +109,12 @@ test('playbook code examples point at files and exports that really exist', () =
 });
 
 test('the system prompt tells Ghosty it can rebuild AND publish a live website', () => {
-  const prompt = readFileSync(join(ROOT, 'apps/edge/src/prompt.ts'), 'utf8');
-  assert.match(prompt, /rebuild any website from a link and PUBLISH it live/);
-  assert.match(prompt, /never reply that you can't host or publish/i);
-  assert.match(prompt, /study_site[\s\S]*publish_site/);
+  // The rule lives with the sites tool group now (its `about` line in tools/index.ts); the prompt carries it whenever that group is on.
+  const groups = readFileSync(join(ROOT, 'apps/edge/src/tools/index.ts'), 'utf8');
+  assert.match(groups, /You can PUBLISH websites/);
+  assert.match(groups, /never reply that you can't host or publish/i);
+  assert.match(groups, /study_site[\s\S]*publish_site[\s\S]*ALWAYS give the exact live link/);
+  assert.match(readFileSync(join(ROOT, 'apps/edge/src/prompt.ts'), 'utf8'), /WHAT YOU CAN DO NOW/);
 });
 
 test('the always-on essentials stay short (free models have small limits)', () => {

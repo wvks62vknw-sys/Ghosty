@@ -41,9 +41,13 @@ Your address is shown on the Worker's overview page (**Domains & Routes**). Open
 owner password on the pairing screen, then go to **System** and add a free AI key:
 **Gemini** (aistudio.google.com/apikey) is the best free model for building things;
 **Groq** (console.groq.com/keys) is the fastest for chat and gives Ghosty speech recognition.
-Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral): Ghosty spreads its work across all of
-them, so it runs out far less often, and a provider whose daily allowance is used up is left alone until it
-resets. Two more free sources need no key at all:
+Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral, NVIDIA NIM, SambaNova, Cohere — each one
+in the System tab says how to get it in a minute): Ghosty spreads its work across all of them, so it runs out
+far less often, and a provider whose daily allowance is used up is left alone until it resets. A model that is
+only seconds from being free again is waited for rather than swapped for a weaker one. And when every model
+really is out, Ghosty is never useless: simple asks (the time, the weather, your agenda, what it remembers,
+buses or traffic nearby) are still answered from the tool itself with no AI, and every "no model" reply tells
+you the exact time the first one is back. Two more free sources need no key at all:
 - **Cloudflare Workers AI** is connected automatically (the `ai` binding in `apps/edge/wrangler.jsonc`) and
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
 - **Pollinations** (an open text endpoint, one reply every 30 seconds, best effort) is the last resort for
