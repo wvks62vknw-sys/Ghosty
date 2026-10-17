@@ -304,8 +304,10 @@ export function textDims(input: string, bed = bedLike(input.slice(0, 300))): { d
     if (/packag|box|carton/i.test(before(text, m.index ?? 0, 30))) continue;
     const [w, d, h] = [m[1], m[2], m[3]].map((x) => toCm(Number(x), m[4]!));
     if (w != null && d != null && h != null) {
-      // "(H x W x D)" written just after says the order
-      const order = text.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 16).match(/\(?\s*([WDH])\s*x\s*([WDH])\s*x\s*([WDH])\s*\)?/i);
+      // "(H x W x D)" written just after, or just before ("Dimensions (H x W x D): 85 x 200 x 90 cm"), says the order
+      const orderRe = /\(?\s*([WDH])\s*[x×]\s*([WDH])\s*[x×]\s*([WDH])\s*\)?/gi;
+      const at = m.index ?? 0;
+      const order = text.slice(at + m[0].length, at + m[0].length + 16).match(new RegExp(orderRe.source, 'i')) ?? [...text.slice(Math.max(0, at - 40), at).matchAll(orderRe)].pop();
       if (order) {
         const out: Dims = {};
         [w, d, h].forEach((v, i) => (out[order[i + 1]!.toLowerCase() as keyof Dims] = v));

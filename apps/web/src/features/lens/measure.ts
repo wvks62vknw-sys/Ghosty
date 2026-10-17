@@ -240,7 +240,7 @@ export function createMeasureMode(L: LensContext): Mode {
     refPts = [];
     cal = null;
     pts = [];
-    if (r === 'distance' && photo && parseLength(distIn.value, 'auto')) setDistance();
+    if (r === 'distance' && photo && parseLength(distIn.value, 'm')) setDistance();
     paintState();
     if (photo) status(r === 'distance' ? 'type the distance to the wall' : refDef().hint, 'mid');
   };
@@ -250,7 +250,7 @@ export function createMeasureMode(L: LensContext): Mode {
     paintState();
   };
   const setDistance = () => {
-    const mm = parseLength(distIn.value, 'auto');
+    const mm = parseLength(distIn.value, 'm');
     if (!mm) return void toast('Type the distance to the wall, e.g. 2.5 (metres)', 'warn');
     if (!photo) return void toast('HOLD FRAME or PICK PHOTO first', 'warn');
     cal = calibrateDistance(mm, orig.w ? orig : { w: photo.width, h: photo.height });
@@ -266,7 +266,7 @@ export function createMeasureMode(L: LensContext): Mode {
     refPts = [];
     cal = null;
     pts = [];
-    if (S.ref === 'distance' && parseLength(distIn.value, 'auto')) setDistance();
+    if (S.ref === 'distance' && parseLength(distIn.value, 'm')) setDistance();
     paintState();
     status(S.ref === 'distance' ? 'type the distance to the wall, then SET' : refDef().hint, 'mid');
   };
