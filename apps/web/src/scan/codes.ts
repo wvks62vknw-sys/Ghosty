@@ -49,7 +49,7 @@ const BRANDS: Record<string, readonly string[]> = {
   google: ['google.com', 'google.co.uk', 'google.ie', 'google.de', 'google.fr', 'google.es', 'google.it', 'google.nl', 'google.ca', 'google.com.au', 'google.co.in', 'google.co.jp', 'google.dev', 'google.org'],
   microsoft: ['microsoft.com'],
   outlook: ['outlook.com', 'live.com', 'office.com', 'office365.com'],
-  amazon: ['amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.es', 'amazon.it', 'amazon.nl', 'amazon.ie', 'amazon.ca', 'amazon.com.au', 'amazon.co.jp', 'amazon.in', 'amazonaws.com'],
+  amazon: ['amazon.com', 'amazon.co.uk', 'amazon.de', 'amazon.fr', 'amazon.es', 'amazon.it', 'amazon.nl', 'amazon.ie', 'amazon.ca', 'amazon.com.au', 'amazon.co.jp', 'amazon.in'],
   netflix: ['netflix.com', 'netflix.net'],
   facebook: ['facebook.com', 'fb.com', 'facebook.net'],
   instagram: ['instagram.com'],

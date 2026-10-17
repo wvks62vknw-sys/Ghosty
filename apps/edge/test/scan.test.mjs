@@ -102,6 +102,8 @@ test('a web address: the real site picked out, and warnings for the usual tricks
   assert.match(w('https://paypal.com.ru/signin'), /mentions "paypal" but the site really belongs to paypal\.com\.ru/);
   assert.match(w('https://paypal.ru/x'), /mentions "paypal"/);
   assert.match(w('https://microsoft.azurewebsites.net/'), /mentions "microsoft"/);
+  // Amazon's shared hosting is anyone's: a bucket named after Amazon is not Amazon
+  assert.match(w('https://amazon-account-verify.s3.amazonaws.com/login.html'), /mentions "amazon"/);
   for (const real of ['https://www.barclays.co.uk/', 'https://www.tax.service.gov.uk/', 'https://www.hmrc.gov.uk/', 'https://www.nhs.uk/', 'https://www.amazon.co.uk/', 'https://outlook.office.com/mail', 'https://www.gov.uk/'])
     assert.equal(w(real), '', `${real} is the real site`);
   assert.equal(C.registrableDomain('a.b.example.com.au'), 'example.com.au');
