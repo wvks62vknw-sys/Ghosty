@@ -9,8 +9,12 @@
  * w = width (left to right on the plan), d = depth (top to bottom on the plan), h = height;
  * x, y = the item's top-left corner on the plan, measured from the room's top-left corner, as a
  * planner draws it before turning; rot = degrees clockwise seen from above, about the item's own
- * centre. room.h and item h are optional (240 cm and 75 cm).
+ * centre. room.h and item h are optional (240 cm and 75 cm). The planner's own shape (quarter
+ * turns, `label`) is read too, converted by space/roomjson.ts.
  */
+import { readPlan } from '../space/plan';
+import { isPlannerPlan, planToRoom } from '../space/roomjson';
+
 export interface RoomItem {
   name: string;
   w: number;
@@ -51,6 +55,10 @@ export function parseRoom(input: unknown): RoomPlan {
     } catch {
       throw new Error('that is not room JSON — it should look like {"room":{"w":400,"d":300,"h":240},"items":[…]}');
     }
+  }
+  if (isPlannerPlan(v)) {
+    const p = readPlan(v);
+    if (p) v = planToRoom(p);
   }
   const o = (v ?? {}) as { room?: unknown; items?: unknown; w?: unknown; d?: unknown; h?: unknown };
   const r = (o.room && typeof o.room === 'object' ? o.room : o) as { w?: unknown; d?: unknown; h?: unknown };

@@ -9,6 +9,7 @@ const E = await import('./.build/studio/explode.mjs');
 const P = await import('./.build/studio/split.mjs');
 const R = await import('./.build/studio/room.mjs');
 const SP = await import('./.build/studio/spline.mjs');
+const RJ = await import('./.build/studio/roomjson.mjs');
 const M = await import('./.build/model3d.mjs');
 const FX = JSON.parse(readFileSync(new URL('./model3d.fixture.json', import.meta.url), 'utf8'));
 
@@ -128,6 +129,63 @@ test('room: the planner JSON (cm) → floor, four walls and items in metres; mis
   assert.throws(() => R.parseRoom({ room: { w: 400 } }), /width \(w\) and a depth \(d\)/);
   assert.throws(() => R.parseRoom({ room: { w: 10, d: 300 } }), /between 50 cm and 50 m/);
   assert.throws(() => R.parseRoom({ room: { w: 400, d: 300, h: 20 } }), /height/);
+});
+
+// The SPACE PLANNER keeps quarter turns, the TURNED footprint's corner and `label`; Room JSON has
+// degrees, the UNTURNED corner and `name`. Each turned piece must land on its planner footprint.
+const PLANNER = {
+  v: 1,
+  room: { w: 400, d: 300 },
+  items: [
+    { id: 'a', kind: 'sofa3', label: 'Sofa, 3-seater', w: 210, d: 95, x: 305, y: 40, rot: 1 },
+    { id: 'b', kind: 'double', label: 'Bed, double', w: 145, d: 205, x: 0, y: 0, rot: 1 },
+    { id: 'c', kind: 'tv', label: 'TV unit', w: 150, d: 40, x: 100, y: 260, rot: 2 },
+    { id: 'd', kind: 'desk', label: 'Desk', w: 120, d: 60, x: 230, y: 180, rot: 3 },
+    { id: 'e', kind: 'armchair', label: 'Armchair', w: 85, d: 85, x: 150, y: 100, rot: 0 },
+  ],
+};
+const footprintOf = (it) => (it.rot % 2 ? { x: it.x, y: it.y, w: it.d, h: it.w } : { x: it.x, y: it.y, w: it.w, h: it.d });
+const boxFootprint = (b, room) => {
+  const c = Math.abs(Math.cos(b.rotY));
+  const s = Math.abs(Math.sin(b.rotY));
+  const fw = (b.size[0] * c + b.size[2] * s) * 100;
+  const fh = (b.size[0] * s + b.size[2] * c) * 100;
+  return { x: b.pos[0] * 100 + room.w / 2 - fw / 2, y: b.pos[2] * 100 + room.d / 2 - fh / 2, w: fw, h: fh };
+};
+
+test('room: a SPACE PLANNER plan (old export or new) builds every piece on its planner footprint, turned the planner way, with its name', () => {
+  for (const input of [PLANNER, RJ.planToRoom(PLANNER), JSON.stringify(RJ.planToRoom(PLANNER))]) {
+    const { boxes, warnings } = R.roomBoxes(R.parseRoom(input));
+    assert.deepEqual(warnings, [], 'nothing sticks out: every piece is inside the room in the planner');
+    const items = boxes.filter((b) => b.kind === 'item');
+    assert.deepEqual(items.map((b) => b.name), PLANNER.items.map((i) => i.label));
+    PLANNER.items.forEach((it, k) => {
+      const b = items[k];
+      assert.ok(near(b.rotY, it.rot ? -(it.rot * Math.PI) / 2 : 0), `${it.label} turned ${b.rotY}`);
+      const want = footprintOf(it);
+      const got = boxFootprint(b, PLANNER.room);
+      for (const f of ['x', 'y', 'w', 'h']) assert.ok(near(got[f], want[f], 1e-6), `${it.label} ${f}: ${got[f]} vs ${want[f]}`);
+    });
+  }
+  // the sofa on the right wall: footprint 95 × 210 at (305, 40) → centre (352.5, 145) cm
+  const sofa = R.roomBoxes(R.parseRoom(PLANNER)).boxes.find((b) => b.name === 'Sofa, 3-seater');
+  assert.ok(near(sofa.pos[0], 1.525) && near(sofa.pos[2], -0.05), JSON.stringify(sofa.pos));
+});
+
+test('room JSON: the planner EXPORT and IMPORT round-trip exactly; Room JSON typed by hand imports to the nearest quarter turn', () => {
+  const exported = JSON.parse(JSON.stringify(RJ.planToRoom(PLANNER)));
+  assert.equal(exported.v, undefined);
+  assert.ok(exported.items.every((i) => 'name' in i && !('label' in i)));
+  assert.deepEqual(exported.items[0], { name: 'Sofa, 3-seater', w: 210, d: 95, x: 247.5, y: 97.5, rot: 90, id: 'a', kind: 'sofa3' });
+  assert.deepEqual(RJ.roomToPlan(exported), PLANNER);
+  // an older planner file (quarter turns, label) still imports unchanged
+  assert.deepEqual(RJ.roomToPlan(PLANNER), PLANNER);
+  assert.equal(RJ.isPlannerPlan(PLANNER), true);
+  assert.equal(RJ.isPlannerPlan(exported), false);
+  const typed = RJ.roomToPlan({ room: { w: 400, d: 300 }, items: [{ name: 'Bed', w: 200, d: 150, x: 100, y: 50, rot: 95 }, { name: 'Chair', w: 50, d: 50, x: 10, y: 10, rot: -90 }] });
+  assert.deepEqual(typed.items.map((i) => [i.label, i.rot, i.x, i.y]), [['Bed', 1, 125, 25], ['Chair', 3, 10, 10]]);
+  assert.equal(RJ.roomToPlan('nope'), null);
+  assert.equal(RJ.roomToPlan({ room: { w: 'big' }, items: [] }), null);
 });
 
 test('spline: only my.spline.design public scene links; the iframe code works too; everything else refused in words', () => {

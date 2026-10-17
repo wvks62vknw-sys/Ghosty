@@ -82,20 +82,32 @@ export class Viewer {
   private ro: ResizeObserver | null = null;
   private down: { x: number; y: number; t: number } | null = null;
   private loadGen = 0;
+  private initP: Promise<boolean> | null = null;
 
   constructor(host: HTMLElement) {
     this.host = host;
   }
 
   /** Load three.js and build the empty lab. False (with `error` set) when this device has no WebGL. */
-  async init(): Promise<boolean> {
-    if (this.renderer) return true;
+  init(): Promise<boolean> {
+    // One build however many callers arrive while three.js is still loading (the tab's enter() and
+    // an open_studio load race on a first visit): two would stack two canvases, one never drawn.
+    if (this.renderer) return Promise.resolve(true);
+    this.initP ??= this.build().then((ok) => {
+      if (!ok) this.initP = null;
+      return ok;
+    });
+    return this.initP;
+  }
+
+  private async build(): Promise<boolean> {
     try {
       this.lib = await loadThree();
     } catch (e) {
       this.error = `The 3-D engine did not load: ${(e as Error).message}`;
       return false;
     }
+    if (this.renderer) return true;
     const { THREE, OrbitControls, RoomEnvironment } = this.lib;
     let renderer: TRenderer;
     try {
@@ -715,6 +727,7 @@ export class Viewer {
     this.renderer?.forceContextLoss();
     this.renderer?.domElement.remove();
     this.renderer = null;
+    this.initP = null;
     this.scene = null;
     this.camera = null;
     this.controls = null;

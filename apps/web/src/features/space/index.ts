@@ -14,7 +14,8 @@ import { bothText, cmText, describeMeasurements, parseLength } from '../../measu
 import { go, type TabDef } from '../../shell/tabs';
 import { button, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { CATALOGUE, clashes, describePlan, footprint, largestOpen, makeSpace, readPlan, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
+import { roomToPlan, planToRoom } from '../../space/roomjson';
+import { CATALOGUE, clashes, describePlan, footprint, largestOpen, makeSpace, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
 import { space } from '../../space/store';
 
 /** What the planner shows, for tests and the console (window.__ghosty.space). */
@@ -288,6 +289,16 @@ export const spaceTab: TabDef = {
         optList.append(b);
       });
     };
+    // MAKE SPACE's layouts, UNDO and open-floor preview belong to the room they were made for:
+    // a new room (SET, MEASURED, IMPORT) drops them, or UNDO would put the old room's pieces back.
+    const resetMake = () => {
+      options = [];
+      undoItems = null;
+      preview = null;
+      spaceState.options = [];
+      undoBtn.hidden = true;
+      clear(optList);
+    };
     const apply = (i: number) => {
       const o = options[i];
       if (!o) return;
@@ -317,8 +328,10 @@ export const spaceTab: TabDef = {
       importIn.value = '';
       if (!f) return;
       try {
-        const plan = readPlan(JSON.parse(await f.text()));
+        const plan = roomToPlan(JSON.parse(await f.text()));
         if (!plan) throw new Error('That file is not a room plan');
+        resetMake();
+        selected = '';
         space.setPlan(plan);
         toast('Plan imported', 'ok');
       } catch (e) {
@@ -344,7 +357,8 @@ export const spaceTab: TabDef = {
     };
     const exportJson = async () => {
       const plan = space.get().plan;
-      const blob = new Blob([JSON.stringify(plan, null, 1)], { type: 'application/json' });
+      // Room JSON (MAP.md), so the 3D STUDIO's ROOM pane builds exactly this plan.
+      const blob = new Blob([JSON.stringify(planToRoom(plan), null, 1)], { type: 'application/json' });
       spaceState.exported.json = blob.size;
       await saveFile(blob, `room-plan-${plan.room.w}x${plan.room.d}.json`);
     };
@@ -374,8 +388,12 @@ export const spaceTab: TabDef = {
       g.clearRect(0, 0, cssW, cssH);
       drawPlan(g, space.get().plan, scale, PAD, { selected, preview });
     };
+    let roomKey = '';
     const paint = () => {
       const { plan, measures } = space.get();
+      const key = `${plan.room.w}x${plan.room.d}`;
+      if (roomKey && key !== roomKey) resetMake();
+      roomKey = key;
       const gaps = tightGaps(plan.items);
       const bad = clashes(plan.room, plan.items);
       const open = largestOpen(plan.room, plan.items);
