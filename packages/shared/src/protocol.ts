@@ -110,6 +110,8 @@ export interface ChatTurn {
   model?: string;
   /** A page published in this turn: shown as a live-link card under the reply, reloads included. */
   link?: { url: string; title: string };
+  /** The owner's message ran a vehicle check: the reply to it is never kept (integrations/vehicle.ts). */
+  vehicle?: boolean;
 }
 
 export interface MemoryFact {

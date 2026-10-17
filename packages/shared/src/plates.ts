@@ -115,16 +115,32 @@ export function mentionsPlate(text: string): boolean {
 
 export const PLATE_MARK = '[plate]';
 
-/** Every way a plate may be written ("AB12CDE", "ab12 cde", "AB 12-CDE") → "[plate]", for the plates given. */
+/**
+ * Every way a plate may be written ("AB12CDE", "ab12 cde", "AB 12-CDE") → "[plate]", for the plates
+ * given. Only what is a UK plate counts: "[plate]" itself (read back as "PLATE") or any other word
+ * is never one, so text already blanked stays as it is.
+ */
 export function redactPlates(text: string, plates: Iterable<string>): string {
   let out = text;
   for (const raw of plates) {
     const p = normalisePlate(raw);
-    if (p.length < 2) continue;
+    if (!isPlate(p)) continue;
     const re = new RegExp(`(?<![A-Za-z0-9])${[...p].join('[\\s-]?')}(?![A-Za-z0-9])`, 'gi');
     out = out.replace(re, PLATE_MARK);
   }
   return out;
+}
+
+/**
+ * The plates that may be blanked across the whole saved history: a dateless plate ("A1", "K 1",
+ * "M6") is also ordinary text ("a 1 hour wait", "the M6"), so it is blanked only in the exchange
+ * that checked it.
+ */
+export function distinctivePlates(plates: Iterable<string>): string[] {
+  return [...plates].map(normalisePlate).filter((p) => {
+    const f = plateFormat(p);
+    return f !== null && f !== 'dateless';
+  });
 }
 
 /** The free official checks anyone can use in a browser: offered when there is no key, and always alongside a result. */
