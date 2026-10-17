@@ -12,10 +12,14 @@ import { button, toast } from '../../ui/components';
 import { askWithImage, type AskExtras } from '../../vision/ask';
 import { fromClassifier, onDeviceSeen } from '../../vision/boxes';
 import { toJpegDataUrl } from '../../vision/camera';
+import { namesSeen, type NameGuess } from '../../vision/clipmath';
 import { classifier, nextStamp } from '../../vision/models';
 import type { LensContext, Mode, ModeOpts } from './index';
 
 const EXAMPLES = ['What is this?', 'Is this edible?', 'Translate this sign'];
+
+/** NAME's closest names join the note as the phone's guesses (marked so, never as facts). */
+const withNames = (seen: string, names: NameGuess[]): string => [seen, namesSeen(names)].filter(Boolean).join('; ');
 
 export function createAskMode(L: LensContext): Mode {
   const S = L.state;
@@ -77,7 +81,7 @@ export function createAskMode(L: LensContext): Mode {
         lastStill = still;
         L.showStill(still);
         dataUrl = toJpegDataUrl(still, 1024, 0.8);
-        extras.seen = onDeviceSeen(S.detections, S.scene, S.ocrText);
+        extras.seen = withNames(onDeviceSeen(S.detections, S.scene, S.ocrText), S.names);
       }
       L.status(dataUrl ? 'sending the picture to Ghosty…' : 'asking Ghosty…', 'mid');
       const r = await askBrain(question, dataUrl, extras);
@@ -100,7 +104,7 @@ export function createAskMode(L: LensContext): Mode {
   const describe = async () => {
     const question = q.value.trim() || 'What is this?';
     const still = lastStill ?? L.still(1024);
-    let seen = onDeviceSeen(S.detections, S.scene, S.ocrText);
+    let seen = withNames(onDeviceSeen(S.detections, S.scene, S.ocrText), S.names);
     if (!seen && still) {
       try {
         L.status('looking with the phone itself…', 'mid');

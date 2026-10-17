@@ -83,7 +83,9 @@ tests/       local preview server + browser test
 - **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
   a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
-  white-labelled). Vendored MediaPipe and Tesseract.js; no face recognition, no number-plate lookups.
+  white-labelled). NAME mode names thousands of everyday things, on the phone (4,624 names, about 33,000
+  with MORE NAMES, from Apple's MobileCLIP-S0 under ONNX Runtime Web). Vendored MediaPipe, Tesseract.js and
+  ONNX Runtime; no face recognition, no number-plate lookups.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

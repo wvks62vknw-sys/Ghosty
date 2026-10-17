@@ -755,7 +755,8 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .lensscene, .lenscount { position: absolute; bottom: 6px; z-index: 2; font: 400 9.5px var(--m); letter-spacing: .04em; color: #fff; text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lensscene { left: 8px; max-width: 58%; } .lenscount { right: 8px; max-width: 38%; text-align: right; color: var(--a); }
 .lensscene:empty, .lenscount:empty { display: none; }
-.lensmodes { grid-area: modes; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.lensmodes { grid-area: modes; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(62px, 1fr); gap: 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.lensmodes::-webkit-scrollbar { display: none; }
 .lensmodes button { min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 5px 2px; }
 .lensmodes button small { font: 400 8.5px var(--m); letter-spacing: 0; text-transform: none; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .lensmodes button.on small { color: var(--c); }
@@ -774,6 +775,14 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .lensreply small { display: block; font: 500 8.5px var(--d); letter-spacing: .18em; color: var(--mute); text-transform: uppercase; margin-bottom: 3px; }
 .lenschips { display: flex; gap: 4px; flex-wrap: wrap; }
 .lenschips button { font: 400 11.5px var(--b); text-transform: none; letter-spacing: 0; padding: 6px 10px; min-height: 34px; }
+/* NAME: the closest names, each a button with its share as a thin bar under the name */
+.lensnames { display: flex; flex-direction: column; gap: 3px; }
+.lensnames:empty { display: none; }
+.lensnames button { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px 8px; text-align: left; font: 400 13px var(--b); text-transform: none; letter-spacing: 0; }
+.lensnames button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lensnames button small { font: 500 10px var(--m); color: var(--c); letter-spacing: .06em; }
+.lensnames button i { position: absolute; left: 10px; bottom: 4px; height: 2px; max-width: calc(100% - 20px); background: var(--c); opacity: .7; border-radius: 1px; }
+.lensnames button.on { border-color: var(--a); } .lensnames button.on i { background: var(--a); }
 .lensgesture { font: 200 26px/1.1 var(--d); color: #fff; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .lensgesture small { font: 500 10px var(--m); letter-spacing: .12em; color: var(--mute); text-transform: uppercase; }
 .lenshold { height: 3px; background: rgba(var(--cr), .12); border-radius: 2px; overflow: hidden; }

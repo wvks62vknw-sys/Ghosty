@@ -208,6 +208,15 @@ the first time.
   TinEye (named as such; each opens in its own tab). The engines need a web address for the picture, so
   the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
   at once; at most 30 a day).
+- **NAME** — names almost anything in view, on the phone: the five closest of 4,624 everyday names (tap
+  **MORE NAMES** for about 33,000, a further 15 MB once), each with how strongly it matches, about once a
+  second. Tap the picture to name just that part; **PICK PHOTO** names a picture from your camera roll.
+  Tap a name for **ASK GHOSTY** (the picture and your question, with the names going along as the
+  phone's guesses) or **SEARCH THE WEB** (only the name is sent). The first use downloads the namer once
+  (about 42 MB: the runtime, Apple's MobileCLIP-S0 picture model and the names); it is freed from memory
+  when you leave NAME. These are the closest names, not certainties — and people are only ever "person",
+  "man", "woman" or "child". The model's licence (Apple's research licence) allows personal,
+  non-commercial use, which is what Ghosty is.
 
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
