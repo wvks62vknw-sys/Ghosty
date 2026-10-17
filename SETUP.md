@@ -224,7 +224,7 @@ the first time.
     Open Food Facts (credited on the card: its data is open, ODbL); a book shows title, author, year and a
     description from Open Library; a number nobody knows gets a web search. A QR code with a web address
     shows the address with the real website in bold, warns you about tricks (not https, look-alike names
-    like "paypal.com.something-else.ru", hidden addresses, link shorteners) and opens only when you tap
+    like "paypal.com.something-else.ru" or "barclays.co.ua", hidden addresses, link shorteners) and opens only when you tap
     OPEN. Wi-Fi codes show the network and password (COPY PASSWORD, then Settings → Wi-Fi), contact
     cards, places (SHOW ON MAP), emails and phone numbers are shown plainly. ASK GHOSTY and SAVE send the
     card as text, only when you tap them.
