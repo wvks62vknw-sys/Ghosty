@@ -218,6 +218,8 @@ export interface KeyStatus {
   need: 'needed' | 'recommended' | 'optional';
   why: string;
   steps: string[];
+  /** A key pasted as several lines (DVSA's five): the System tab gives it a box this many lines tall. */
+  lines?: number;
 }
 
 export interface ModelHealth {

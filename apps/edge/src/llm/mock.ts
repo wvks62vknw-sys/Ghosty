@@ -153,6 +153,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
   if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };
+  if ((m = text.match(/^mot check (.+)$/)) && has('vehicle_check')) return { message: call('vehicle_check', { plate: m[1] }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
   if ((m = text.match(/^(?:draw|paint) (?:me )?(?:a |an )?(.+)$/)) && has('make_picture')) return { message: call('make_picture', { prompt: `A ${m[1]}, digital illustration, soft light`, steps: 4 }), model };
   if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };

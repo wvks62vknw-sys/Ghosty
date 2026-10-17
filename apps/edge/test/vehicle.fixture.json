@@ -1,0 +1,133 @@
+{
+  "_about": "Shaped exactly like the DVSA MOT history API's documented responses (OpenAPI: https://documentation.history.mot.api.gov.uk/mot-history-api/api-specification/mot_history_open_api_specification.yml, VehicleWithMotResponse / NewRegVehicleResponse / ErrorResponse) and DVLA VES's documented example; the vehicle and its values are made up for the tests.",
+  "withMot": {
+    "registration": "AB12CDE",
+    "make": "FORD",
+    "model": "FOCUS",
+    "firstUsedDate": "2012-03-28",
+    "fuelType": "Petrol",
+    "primaryColour": "Silver",
+    "registrationDate": "2012-03-28",
+    "manufactureDate": "2012-03-01",
+    "engineSize": "1596",
+    "hasOutstandingRecall": "No",
+    "motTests": [
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2026-03-20T10:12:31.000Z",
+        "testResult": "PASSED",
+        "expiryDate": "2027-03-19",
+        "odometerValue": "71234",
+        "odometerUnit": "MI",
+        "odometerResultType": "READ",
+        "motTestNumber": "123456789012",
+        "dataSource": "DVSA",
+        "defects": [
+          { "text": "Nearside Front Tyre worn close to legal limit (5.2.3 (e))", "type": "ADVISORY", "dangerous": false },
+          { "text": "Offside Rear Brake disc worn, pitted or scored, but not seriously weakened (1.1.14 (a) (ii))", "type": "ADVISORY", "dangerous": false },
+          { "text": "Oil leak, but not excessive (8.4.1 (a) (i))", "type": "MINOR", "dangerous": false }
+        ]
+      },
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2026-03-18T09:01:02.000Z",
+        "testResult": "FAILED",
+        "expiryDate": null,
+        "odometerValue": "71230",
+        "odometerUnit": "MI",
+        "odometerResultType": "READ",
+        "motTestNumber": "123456789011",
+        "dataSource": "DVSA",
+        "defects": [
+          { "text": "Nearside Headlamp aim too high (4.1.2 (a))", "type": "MAJOR", "dangerous": false },
+          { "text": "Offside Front Brake pipe excessively corroded (1.1.11 (c))", "type": "DANGEROUS", "dangerous": true }
+        ]
+      },
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2025-03-14T14:40:00.000Z",
+        "testResult": "PASSED",
+        "expiryDate": "2026-03-27",
+        "odometerValue": "58100",
+        "odometerUnit": "MI",
+        "odometerResultType": "READ",
+        "motTestNumber": "123456789010",
+        "dataSource": "DVSA",
+        "defects": []
+      },
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2024-03-11T11:00:00.000Z",
+        "testResult": "PASSED",
+        "expiryDate": "2025-03-27",
+        "odometerValue": "64500",
+        "odometerUnit": "MI",
+        "odometerResultType": "READ",
+        "motTestNumber": "123456789009",
+        "dataSource": "DVSA",
+        "defects": [
+          { "text": "Front wiper blade deteriorated", "type": "ADVISORY", "dangerous": false }
+        ]
+      },
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2023-03-09T11:00:00.000Z",
+        "testResult": "PASSED",
+        "expiryDate": "2024-03-27",
+        "odometerValue": null,
+        "odometerUnit": null,
+        "odometerResultType": "UNREADABLE",
+        "motTestNumber": "123456789008",
+        "dataSource": "DVSA",
+        "defects": null
+      },
+      {
+        "registrationAtTimeOfTest": "AB12CDE",
+        "completedDate": "2022-03-10T11:00:00.000Z",
+        "testResult": "PASSED",
+        "expiryDate": "2023-03-27",
+        "odometerValue": "52010",
+        "odometerUnit": "MI",
+        "odometerResultType": "READ",
+        "motTestNumber": "123456789007",
+        "dataSource": "DVSA",
+        "defects": []
+      }
+    ]
+  },
+  "newReg": {
+    "registration": "XY25ABC",
+    "make": "KIA",
+    "model": "EV3",
+    "manufactureYear": "2025",
+    "fuelType": "Electric",
+    "primaryColour": "White",
+    "registrationDate": "2025-05-02",
+    "manufactureDate": "2025-03-14",
+    "motTestDueDate": "2028-05-01",
+    "hasOutstandingRecall": "Unknown"
+  },
+  "notFound": { "errorCode": "MOTH-NF-01", "errorMessage": "The vehicle requested has not been found", "requestId": "123-123-1234657" },
+  "badKey": { "errorCode": "MOTH-FB-03", "errorMessage": "The API key sent with the request is not recognised", "requestId": "123-123-1234658" },
+  "token": { "token_type": "Bearer", "expires_in": 3599, "ext_expires_in": 3599, "access_token": "issued-access-token-1" },
+  "ves": {
+    "artEndDate": "2025-02-28",
+    "co2Emissions": 135,
+    "colour": "SILVER",
+    "engineCapacity": 1596,
+    "fuelType": "PETROL",
+    "make": "FORD",
+    "markedForExport": false,
+    "monthOfFirstRegistration": "2012-03",
+    "motStatus": "Valid",
+    "registrationNumber": "AB12CDE",
+    "revenueWeight": 1640,
+    "taxDueDate": "2027-04-01",
+    "taxStatus": "Taxed",
+    "typeApproval": "M1",
+    "wheelplan": "2 AXLE RIGID BODY",
+    "yearOfManufacture": 2012,
+    "euroStatus": "EURO 5",
+    "dateOfLastV5CIssued": "2016-12-25"
+  }
+}

@@ -351,6 +351,42 @@ minutes after it last answered (the download stays), so the camera and the Lens 
 **DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
 keeps the download.
 
+## 3k. Vehicle check: one car's MOT history
+
+Photograph a car's number plate (or type it) and Ghosty shows that one car's official record: make, model,
+colour, fuel, when it was first used, whether its MOT is valid and until when, every MOT test with its
+mileage, advisories and defects, a warning if the recorded mileage ever went **down**, and any unfixed safety
+recall. It is free, from DVSA (the Driver and Vehicle Standards Agency).
+
+**Get the free key (once; DVSA takes up to 5 working days):**
+
+1. Open **System → Keys**, press **SHOW OPTIONAL KEYS**, find **DVSA MOT history (vehicle check)** and press
+   **OPEN SITE** (or go to documentation.history.mot.api.gov.uk → *Register for API*).
+2. Press **Register for MOT history API** and fill in the form as an individual: your name, email and postal
+   address. For what you will use it for, write: *"Personal use: checking the MOT history of a car before
+   buying it."*
+3. Wait for DVSA's email. It holds five things: a **client ID**, a **client secret**, an **API key**, a
+   **token URL** (it starts with `https://login.microsoftonline.com/`) and a **scope**
+   (`https://tapi.dvsa.gov.uk/.default`).
+4. Copy those five lines from the email and paste them all into the DVSA box in System → Keys (it is five lines
+   tall; any order; the words in front such as "Client ID:" can stay). Press **SAVE**. Ghosty signs in to DVSA
+   once to check them — no car is looked up — and says **works ✓**.
+5. Use it at least once every 90 days, or DVSA cancels the key. The client secret lasts 2 years; DVSA emails
+   you before it runs out (then paste the new five lines).
+
+**Use it:** in the Lens, **READ** a photo of the plate: when the text holds a UK plate a yellow
+**CHECK THIS VEHICLE?** button appears — nothing leaves the phone until you tap it. Or open the command palette
+(**CMD**) → *Vehicle check*, type the plate and press **CHECK**. Or ask in chat: *"MOT check AB12 CDE"*.
+
+**What is never stored:** the plate and the record are shown once and not kept — not in the chat history (it
+says *[plate]* and "a vehicle check was shown here once"), not in memory, the library, study notes, Cloudflare
+KV or the phone's storage. Closing the sheet forgets it. Ghosty checks one car at a time, only when you ask,
+and never looks up who owns a car (the services don't have that, and no other source is asked).
+
+DVLA's tax check (tax status and due date, CO2, engine size) has a key slot too (**DVLA vehicle enquiry**), but
+DVLA has closed new registrations for now. Without any key, Ghosty gives you the free official checks to open
+yourself: gov.uk/check-mot-history and vehicleenquiry.service.gov.uk.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.

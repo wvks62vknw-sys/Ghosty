@@ -2,8 +2,8 @@
  * LENS tab: the phone's camera with its modes — SEE (what is in view, boxed and counted), READ
  * (text in a picture, into the library), HANDS (gestures that drive the Lens), ASK (a
  * question with a picture for Ghosty) and NAME (the closest of thousands of names, name.ts). Everything runs on the phone; nothing leaves it until the
- * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition, no
- * number-plate lookups: Ghosty does not identify people.
+ * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition; a number
+ * plate is looked up only from READ's chip, on a tap (ui/vehiclecheck.ts): Ghosty does not identify people.
  *
  * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet.
  * This file owns the viewfinder (video + overlay canvas), the mode tiles, the bottom bar, the
@@ -216,7 +216,7 @@ export const lensTab: TabDef = {
     const countEl = h('div.lenscount');
     const view = h('div.lensview', video, still, ov, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
-    const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition, no number-plate lookups — Ghosty does not identify people.');
+    const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition; a number plate is looked up only when you tap CHECK, never who owns the car — Ghosty does not identify people.');
     const reader = new Reader();
 
     // ---- the viewfinder's size, the overlay's pixels and the frame → view mapping

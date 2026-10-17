@@ -102,6 +102,10 @@ tests/       local preview server + browser test
   most floor (PNG/JSON export, kept on the phone). In chat, Ghosty finds furniture that fits at UK shops
   (IKEA, Argos, Dunelm, John Lewis, Wayfair, DFS, Habitat, B&Q, eBay), reading each shop's own page for the
   price and the size — never a guessed price — best fit then cheapest first, with links.
+- **Vehicle check**: photograph or type ONE UK number plate and see that car's official record — make, model,
+  colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
+  unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
+  CHECK THIS VEHICLE? and looks nothing up until you tap it. Shown once, never saved anywhere; never who owns it.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
