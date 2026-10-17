@@ -182,3 +182,14 @@ test('straightening: corners go to the page corners, A4-shaped, and the page com
   assert.equal(e[4], 255);
   assert.throws(() => P.homography([{ x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 0 }], to), /do not make a page/);
 });
+
+test('the barcode reader ships both its licences: zxing-wasm (MIT) and zxing-cpp compiled into the wasm (Apache-2.0)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const dir = new URL('../../web/public/vendor/', import.meta.url);
+  assert.match(await readFile(new URL('zxing/LICENSE', dir), 'utf8'), /MIT License/);
+  const apache = await readFile(new URL('zxing/LICENSE-zxing-cpp.txt', dir), 'utf8');
+  assert.match(apache, /zxing-cpp/);
+  assert.match(apache, /Apache License\s+Version 2\.0, January 2004/);
+  assert.match(apache, /4\. Redistribution\./);
+  assert.match(await readFile(new URL('VISION.md', dir), 'utf8'), /zxing\/LICENSE-zxing-cpp\.txt/);
+});
