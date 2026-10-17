@@ -114,6 +114,12 @@ tests/       local preview server + browser test
   its manual and reviewers recommend, sources named (`gadget_settings`); show it a broken part and it finds
   it in UK shops with prices read off their pages, best match first (`find_part`). Never a guessed setting
   or price.
+- **3D STUDIO**: a Stark-style holographic lab (vendored three.js): turn any model, **TAKE APART** and
+  **REASSEMBLE** it (one-piece models are split into their real pieces), isolate or hide parts, cut it open
+  with a **SECTION** plane, **MEASURE** between two taps, screenshot it. Free samples (Khronos glTF, credited),
+  any .glb from Files, **PHOTO → 3D** (a picture or a described object becomes a model through the free
+  Hunyuan3D-2 demo on Hugging Face — best effort, a few a day), a **ROOM** built from its measurements or the
+  space planner's JSON, and your own **Spline** scenes framed with "Powered by Spline". In chat: `make_3d`.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

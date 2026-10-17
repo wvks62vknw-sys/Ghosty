@@ -33,13 +33,14 @@ import { reverseTools } from './reverse';
 import { scanTools } from './scan';
 import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
+import { studioTools } from './studio';
 import type { Tool } from './types';
 import { uiTools } from './ui';
 import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -252,6 +253,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: gadgetTools,
     when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
     about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
+  // 3D STUDIO (model3d.ts, features/studio): pictures into 3-D models, and the studio itself.
+  // Named "3d" and one tool: the plain-turn prompt names every group's tools within a hard budget.
+  {
+    name: '3d',
+    tools: studioTools,
+    when: /\b(3-?d|three[- ]?d|models?|mesh|meshes|glb|gltf|spline|take (?:it |this |that )?apart|exploded view|explode|reconstruct|reassemble|studio|cad|sculpt\w*)\b/i,
+    about: 'You can turn a picture or a described object into a 3-D model (make_3d: free, best effort, ~2–3 a day, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link (make_3d with no picture).',
   },
 ];
 

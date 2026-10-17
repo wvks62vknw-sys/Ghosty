@@ -40,10 +40,10 @@ test('traffic_now with no key still opens the live Waze map and the nearest came
   assert.deepEqual(ev3.map((e) => e.name), ['traffic_map']);
 });
 
-test('the interface may frame exactly Google Maps and Waze, nothing else', () => {
+test('the interface may frame exactly Google Maps, Waze and Spline public scenes (3D STUDIO), nothing else', () => {
   const headers = readFileSync(`${ROOT}apps/web/public/_headers`, 'utf8');
   const csp = headers.split('\n').find((l) => /^\s*Content-Security-Policy: default-src 'self'/.test(l));
-  assert.match(csp, /frame-src 'self' https:\/\/www\.google\.com https:\/\/embed\.waze\.com;/);
+  assert.match(csp, /frame-src 'self' https:\/\/www\.google\.com https:\/\/embed\.waze\.com https:\/\/my\.spline\.design;/);
   const protocol = readFileSync(`${ROOT}packages/shared/src/protocol.ts`, 'utf8');
   for (const c of ['street_view', 'traffic_map']) assert.ok(protocol.includes(`'${c}'`), c);
 });

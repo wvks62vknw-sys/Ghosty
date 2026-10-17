@@ -43,6 +43,7 @@ export const CLIENT_COMMANDS = [
   'stop_audio',
   'show_journey',
   'open_space',
+  'open_studio',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

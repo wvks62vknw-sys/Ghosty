@@ -2,7 +2,7 @@
 // Network first, so a newly shipped version always wins; the cache is only a fallback.
 const CACHE = 'ghosty-shell-v1';
 const SHELL = ['/', '/index.html', '/app.js', '/styles.css', '/manifest.webmanifest', '/icon-192.png'];
-// The vendored libraries and models (maps, the Lens's vision and reading models) are large and fixed:
+// The vendored libraries and models (maps, the Lens's vision and reading models, the 3D STUDIO's samples) are large and fixed:
 // kept in their own cache, served from it first, fetched once. Only what a mode actually used is kept.
 const VENDOR = 'ghosty-vendor-v1';
 
@@ -22,7 +22,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // Never touch the brain's API, published pages (/s/…), shared pictures (/i/…) or anything off-site.
   if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/s/') || url.pathname.startsWith('/i/')) return;
-  if (url.pathname.startsWith('/vendor/')) {
+  if (url.pathname.startsWith('/vendor/') || url.pathname.startsWith('/models/')) {
     e.respondWith(
       caches.open(VENDOR).then((c) =>
         c.match(req).then(
