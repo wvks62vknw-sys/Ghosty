@@ -10,12 +10,16 @@ export type Piece = { kind: 'text'; text: string; unconfirmed?: boolean } | { ki
 
 const MARKER = /\[(\d{1,2}(?:\s*[,–-]\s*\d{1,2})*)\](?!\()/g;
 
-/** The reply's own words: what comes before its SOURCES list (the list and the check line are drawn from the data instead). */
+/** The brain's check line ("✓ 2 of 3 claims found in the sources"), last in a cited reply. */
+const CHECK_LINE = /\n\n[✓✕] \d+ of \d+ claims? found in the sources\s*$/;
+
+/** The reply's own words: what comes before its SOURCES list and check line (those are drawn from the data instead). */
 export function citedBody(text: string): string {
   const i = text.lastIndexOf('\n\nSOURCES\n');
   if (i >= 0) return text.slice(0, i).trim();
+  // No list (the answer used no [n] markers), but its claims were still checked: the check line goes.
   // Nothing was looked up: the last paragraph is the brain's note saying so (it stays, as words).
-  return text.trim();
+  return text.replace(CHECK_LINE, '').trim();
 }
 
 function numbers(inside: string): number[] {
@@ -70,5 +74,5 @@ export function spokenOf(text: string): string {
     .trim();
 }
 
-/** Does this reply look like a cited one (a SOURCES list the brain wrote)? */
-export const looksCited = (text: string): boolean => text.includes('\n\nSOURCES\n[');
+/** Does this reply look like a cited one (a SOURCES list or a check line the brain wrote)? */
+export const looksCited = (text: string): boolean => text.includes('\n\nSOURCES\n[') || CHECK_LINE.test(text);

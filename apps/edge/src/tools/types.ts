@@ -37,6 +37,21 @@ export interface ToolContext {
   github: () => Promise<GitHub | null>;
   /** Where Ghosty is reached (https://…), for links it hands out; '' when unknown. */
   origin?: string;
+  /**
+   * Record what a lookup really returned (a page read, a search result, a library passage), kept
+   * apart from the text the model reads: a cited answer's sources come from these records, never
+   * from re-reading that text, which a page could dress up as an extra, made-up result.
+   */
+  found?: (s: LookedUp) => void;
+}
+
+/** One thing a lookup returned: a web page or search result (`url`), or a library passage (`doc`: its document's title). */
+export interface LookedUp {
+  kind: 'web' | 'library';
+  title: string;
+  url?: string;
+  doc?: string;
+  text: string;
 }
 
 export interface Tool {
