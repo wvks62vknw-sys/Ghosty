@@ -143,8 +143,14 @@ export async function ensureJob(storage: DurableObjectStorage, j: { kind: Job['k
   const jobs = await loadJobs(storage);
   const mine = jobs.filter((x) => x.kind === j.kind);
   if (mine.length) {
-    const keep = mine[0]!;
-    const extras = new Set(mine.slice(1));
+    // The standing job stays: the one due at the asked wall-clock time (a stray duplicate from a merge or a second
+    // brain is usually due at some other time), the oldest of those, since jobs are listed by due time.
+    const onTime = (x: Job) => {
+      const w = zoned(x.next, tz);
+      return w.h === j.hour && w.mi === j.minute;
+    };
+    const keep = [...mine].sort((a, b) => Number(onTime(b)) - Number(onTime(a)) || a.createdAt - b.createdAt)[0]!;
+    const extras = new Set(mine.filter((x) => x !== keep));
     let changed = extras.size > 0;
     if (keep.tz !== tz) {
       keep.tz = tz;
