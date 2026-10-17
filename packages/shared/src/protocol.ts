@@ -14,7 +14,32 @@ export type ChatEvent =
   | { t: 'approval'; id: string; name: string; args: Record<string, unknown>; reason: string }
   | { t: 'text'; text: string }
   | { t: 'done'; model: string }
-  | { t: 'error'; message: string };
+  | { t: 'error'; message: string }
+  /** A cited answer (CITED on, or "with sources"): its numbered sources and each claim checked against them; sent after its `text`. */
+  | ({ t: 'cited' } & CitedInfo);
+
+/** One numbered source of a cited answer: a web page (`url`) or a library document (`doc`, its title); `missing`: cited but never looked up this turn. */
+export interface Citation {
+  n: number;
+  title: string;
+  url?: string;
+  doc?: string;
+  /** The words in the source that back the answer, when found. */
+  quote?: string;
+  missing?: boolean;
+}
+
+/** One claim of a cited answer (the exact words of the reply) and whether a source it looked up says it. */
+export interface ClaimCheck {
+  claim: string;
+  status: 'supported' | 'not_found';
+  source?: number;
+}
+
+export interface CitedInfo {
+  citations: Citation[];
+  checks: ClaimCheck[];
+}
 
 /** Commands the brain may ask the interface to run (tools with `side: 'client'`). */
 export const CLIENT_COMMANDS = [
@@ -112,6 +137,8 @@ export interface ChatTurn {
   link?: { url: string; title: string };
   /** The owner's message ran a vehicle check: the reply to it is never kept (integrations/vehicle.ts). */
   vehicle?: boolean;
+  /** A cited answer's sources and claim checks (cited.ts), so they show again after a reload. */
+  cited?: CitedInfo;
 }
 
 export interface MemoryFact {

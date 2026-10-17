@@ -86,6 +86,30 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     if (!chainDid('schedule_task') && offered('schedule_task')) return { message: call('schedule_task', { title: 'Daily hello', prompt: 'say hello', at: '09:00', repeat: 'daily' }), model };
     return { message: { role: 'assistant', content: `Done. ${chainAsked}` }, model };
   }
+  // A cited answer (cited.ts): the claim check's JSON (a claim citing [1] is found, nothing else), and the
+  // cited turn itself — search, read the first result, then an answer with markers, one source never
+  // looked up ([2]) and one number with no source at all ([3]).
+  if (/^CLAIM CHECK/.test(system)) {
+    const claims = [...textOf(last.content).split('\n\nSOURCES:')[0]!.matchAll(/^(\d+)\. (.*)$/gm)];
+    return { message: { role: 'assistant', content: JSON.stringify({ checks: claims.map((c) => (/\[1\]/.test(c[2]!) ? { i: Number(c[1]), found: true, source: 1 } : { i: Number(c[1]), found: false })) }) }, model };
+  }
+  if (/CITED ANSWER/.test(system) && offered('web_search') && chainUser) {
+    const asked = ownerWords(textOf(chainUser.content)).replace(/^(cite|fact check|with sources)[:,]?\s*/i, '').trim();
+    if (!chainDid('web_search')) return { message: call('web_search', { query: asked }), model };
+    const found = textOf(chainSince.find((x) => x.role === 'tool')?.content).match(/^\d+\. (.*)\n(https?:\/\/\S+)/m);
+    if (found && !chainDid('web_fetch')) return { message: call('web_fetch', { url: found[2] }), model };
+    if (!found) return { message: { role: 'assistant', content: 'I could not find a source for that.' }, model };
+    if (/speed of light/i.test(asked)) {
+      return {
+        message: {
+          role: 'assistant',
+          content: `The speed of light in a vacuum is exactly 299,792,458 metres per second [1]. That value has been fixed by definition since 1983, when the metre was redefined [1]. Light from the Sun takes about eight minutes and twenty seconds to reach the Earth [2]. Nothing can travel faster than light in a vacuum [3].\n\n**Sources:**\n[1] ${found[1]} — ${found[2]}\n[2] Sunlight travel time — https://not-looked-up.example/sunlight`,
+        },
+        model,
+      };
+    }
+    return { message: { role: 'assistant', content: `Here is what the page says about ${asked} [1].\n\nSOURCES\n[1] ${found[1]} — ${found[2]}` }, model };
+  }
   if (last.role === 'tool') {
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
