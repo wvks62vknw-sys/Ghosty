@@ -6,14 +6,16 @@
  * Add playbooks to craft.ts (engineering method), appkit.ts (the single-file app page kit, the
  * quality loop, motion and 3D), coding.ts (languages, web platform, algorithms), fullstack.ts
  * (architecture, auth, APIs, databases, iPhone-first layout), games.ts (games and mini-apps on
- * the widget kit), typescript.ts or ghosty.ts (this codebase). Lessons are added at runtime with the learn_lesson tool.
+ * the widget kit), typescript.ts or ghosty.ts (this codebase), home.ts (furniture and space). Lessons are added at runtime with the learn_lesson tool.
  */
 import { APPKIT } from './appkit';
 import { CODING } from './coding';
 import { CRAFT } from './craft';
 import { FULLSTACK } from './fullstack';
+import { GADGETS } from './gadgets';
 import { GAMES } from './games';
 import { GHOSTY } from './ghosty';
+import { HOME } from './home';
 import { TYPESCRIPT } from './typescript';
 import type { Lesson, Playbook } from './types';
 
@@ -22,7 +24,7 @@ export { NEON_DODGE } from './games';
 export { APP_KIT_PAGE } from './appkit';
 export { FULLSTACK } from './fullstack';
 
-export const PLAYBOOKS: Playbook[] = [...CRAFT, ...APPKIT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY];
+export const PLAYBOOKS: Playbook[] = [...CRAFT, ...APPKIT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY, ...HOME, ...GADGETS];
 
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9_.]+/g) ?? [];
 

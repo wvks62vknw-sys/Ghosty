@@ -42,6 +42,8 @@ export const CLIENT_COMMANDS = [
   'play_radio',
   'stop_audio',
   'show_journey',
+  'open_space',
+  'open_studio',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -108,6 +110,8 @@ export interface ChatTurn {
   model?: string;
   /** A page published in this turn: shown as a live-link card under the reply, reloads included. */
   link?: { url: string; title: string };
+  /** The owner's message ran a vehicle check: the reply to it is never kept (integrations/vehicle.ts). */
+  vehicle?: boolean;
 }
 
 export interface MemoryFact {
@@ -217,6 +221,8 @@ export interface KeyStatus {
   need: 'needed' | 'recommended' | 'optional';
   why: string;
   steps: string[];
+  /** A key pasted as several lines (DVSA's five): the System tab gives it a box this many lines tall. */
+  lines?: number;
 }
 
 export interface ModelHealth {

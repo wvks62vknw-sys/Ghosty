@@ -316,6 +316,32 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The SPACE PLANNER (features/space): a room to scale, furniture to drag, MAKE SPACE; the brain may pass the room's size.
+      id: 'open_space',
+      title: 'Space planner',
+      group: 'GO',
+      run: async (a) => {
+        const { openSpace } = await import('../features/space');
+        openSpace(Number(a?.width_cm) || undefined, Number(a?.depth_cm) || undefined);
+      },
+    },
+    {
+      // The 3D STUDIO: a sample, a model made from a picture (make_3d), a room in cm, or a Spline link.
+      id: 'open_studio',
+      title: 'Open the 3D Studio',
+      hidden: true,
+      run: async (a) => {
+        const { openStudio } = await import('../features/studio');
+        openStudio({
+          sample: typeof a?.sample === 'string' ? a.sample : undefined,
+          model: typeof a?.model === 'string' ? a.model : undefined,
+          title: typeof a?.title === 'string' ? a.title.slice(0, 80) : undefined,
+          room: a?.room && typeof a.room === 'object' ? a.room : undefined,
+          spline: typeof a?.spline === 'string' ? a.spline : undefined,
+        });
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,
@@ -411,6 +437,16 @@ export function registerBuiltins(): void {
       },
     },
     { id: 'stop_audio', title: 'Stop radio', group: 'MEDIA', run: () => stopAudio() },
+    {
+      // VEHICLE CHECK (ui/vehiclecheck.ts): one UK plate → its MOT record, looked up once, not saved.
+      id: 'vehicle_check',
+      title: 'Vehicle check: MOT history of one car',
+      group: 'TOOLS',
+      run: async (a) => {
+        const { openVehicleCheck } = await import('../ui/vehiclecheck');
+        openVehicleCheck(typeof a?.plate === 'string' ? a.plate : '');
+      },
+    },
     {
       id: 'offline_brain',
       title: 'Offline brain',

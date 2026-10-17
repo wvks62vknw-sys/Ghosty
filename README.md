@@ -85,7 +85,7 @@ tests/       local preview server + browser test
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
   white-labelled). NAME mode names thousands of everyday things, on the phone (4,624 names, about 33,000
   with MORE NAMES, from Apple's MobileCLIP-S0 under ONNX Runtime Web). Vendored MediaPipe, Tesseract.js and
-  ONNX Runtime; no face recognition, no number-plate lookups.
+  ONNX Runtime; no face recognition; a number plate is looked up only on your tap (Vehicle check).
 - **Scan anything** (Lens → SCAN): barcodes and QR codes read on the phone (vendored ZXing) — a product's
   barcode becomes a card from Open Food Facts (Nutri-Score, nutrition, allergens) or its sister databases, a
   book's ISBN one from Open Library, a QR link is shown with its real site and warnings and opened only on
@@ -94,6 +94,32 @@ tests/       local preview server + browser test
   **AIM: point the phone at the sky or the street** — labels float over aircraft (callsign, height, distance),
   ships, buses and trams, hilltops, towers and landmarks, and the space station when it is up, with a compass
   ribbon and the horizon; tap one for its card, or ask WHAT'S THAT? (Places: Wikipedia, OpenStreetMap.)
+- **Measure, plan, fit** (Lens → MEASURE, the **SPACE** tab, `find_furniture`): real sizes from a photo —
+  a bank card or an A4 sheet on the wall sets the scale exactly (a door's height or a typed distance gives an
+  estimate), then two taps make a length and four a wall's width × height, in cm and ft/in with how far to
+  trust them. The SPACE PLANNER draws the room to scale with furniture in common UK sizes to drag about,
+  marks walkways under 70 cm, answers WILL IT FIT?, and MAKE SPACE proposes up to three layouts that free the
+  most floor (PNG/JSON export, kept on the phone). In chat, Ghosty finds furniture that fits at UK shops
+  (IKEA, Argos, Dunelm, John Lewis, Wayfair, DFS, Habitat, B&Q, eBay), reading each shop's own page for the
+  price and the size — never a guessed price — best fit then cheapest first, with links.
+- **Vehicle check**: photograph or type ONE UK number plate and see that car's official record — make, model,
+  colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
+  unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
+  CHECK THIS VEHICLE? and looks nothing up until you tap it. Shown once, never saved anywhere; never who owns it.
+- **Sound check** (Lens → SOUND): LISTEN records a few seconds of whatever is playing and says plainly if it
+  is clipping, humming, boomy or harsh ("clipping: turn the volume down a couple of notches"); TEST TONE plays
+  a tone that gets louder and a sweep through the speaker under test and says where it starts to distort
+  ("distorts above ~70% volume") and how its bass and treble fall away — worked out on the phone, with charts.
+  **Best settings and spare parts**: show Ghosty a speaker, amp, soundbar or TV and it looks up the settings
+  its manual and reviewers recommend, sources named (`gadget_settings`); show it a broken part and it finds
+  it in UK shops with prices read off their pages, best match first (`find_part`). Never a guessed setting
+  or price.
+- **3D STUDIO**: a Stark-style holographic lab (vendored three.js): turn any model, **TAKE APART** and
+  **REASSEMBLE** it (one-piece models are split into their real pieces), isolate or hide parts, cut it open
+  with a **SECTION** plane, **MEASURE** between two taps, screenshot it. Free samples (Khronos glTF, credited),
+  any .glb from Files, **PHOTO → 3D** (a picture or a described object becomes a model through the free
+  Hunyuan3D-2 demo on Hugging Face — best effort, a few a day), a **ROOM** built from its measurements or the
+  space planner's JSON, and your own **Spline** scenes framed with "Powered by Spline". In chat: `make_3d`.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

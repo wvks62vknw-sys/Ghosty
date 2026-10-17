@@ -250,6 +250,41 @@ the first time.
   phone: to about 1 km for places (your Ghosty asks Wikipedia and OpenStreetMap about that square
   kilometre) and about 100 m for the aircraft lists.
 
+- **MEASURE: sizes from a photo** — tap **MEASURE**, then **HOLD FRAME** (or **PICK PHOTO**).
+  1. The scale: hold a **bank card** flat on the wall (or lay an **A4 sheet** there) and tap its four
+     corners; or choose **DOOR**, type its height (a UK internal door is 198 cm) and tap its top and
+     bottom; or choose **DISTANCE**, type how far you stand from the wall in metres and press **SET**.
+  2. Measure: **LENGTH** — tap two points; **WALL** — tap the wall's (or a window's, an alcove's) four
+     corners. Each size shows in cm and feet/inches with GOOD / FAIR / ROUGH: exact on the surface the card
+     lies on, an estimate anywhere else (a card on the floor does not measure the wall). **UNDO** takes the
+     last tap back.
+  3. **SAVE → PLANNER** puts the sizes in the SPACE tab (the wall's width becomes the room's width);
+     **ASK GHOSTY** sends them to Ghosty to find furniture that fits.
+
+- **SPACE: plan a room** (the SPACE tile in SYSTEMS, or say "open the space planner") — type the room's
+  width and depth, add furniture from the list (UK sizes) or your own, drag pieces with a finger (they snap
+  to the walls), **ROTATE** or **REMOVE** the chosen one. Red strips are gaps under 70 cm — too tight to
+  walk through. **WILL IT FIT?** checks something you might buy; **MAKE SPACE** offers up to three layouts
+  with more open floor (tap one to try it, **UNDO** to go back). **PNG** saves a picture of the plan,
+  **JSON** a file you can **IMPORT** later. The plan stays on this phone. Ask in the chat "find a 3 seater
+  sofa under 210 cm for £800" and Ghosty reads UK shops' own pages for prices and sizes (never guessed).
+
+- **SOUND: is it distorting?** — tap **SOUND** (the camera switches off; only the microphone is used,
+  and Safari asks for it the first time — say Allow). Two ways:
+  1. **LISTEN**: play your music at your usual volume, hold the phone a metre or two from the speaker,
+     keep quiet and tap **RECORD** (5 or 10 seconds). You get one plain verdict — clean, clipping (turn it
+     down), hum at 50 Hz (check the cable and earth), boomy bass (turn the bass down or move the speaker
+     off the wall), harsh treble — with the numbers and a chart.
+  2. **TEST TONE**: plug the phone into the speaker (cable or Bluetooth) at your usual volume, or hold it
+     close, and tap **START TEST**. The phone plays a tone that gets louder in ten steps, then a sweep from
+     deep bass to high treble (about 10 seconds; it is loud at the end, so turn the speaker down first if
+     unsure). You get where it starts to distort ("distorts above ~70% volume"), whether it is limiting,
+     and how far down its bass goes.
+  **ASK GHOSTY** sends the result (in words, never the recording) and your question, e.g. *"what should I
+  change on my Sony soundbar?"*. For the best settings of a gadget or a replacement part, just send Ghosty a
+  photo of it (or its label) and ask — it finds the model, then the published settings or UK shops with
+  prices, and says so when it finds nothing.
+
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
 
@@ -332,6 +367,72 @@ minutes after it last answered (the download stays), so the camera and the Lens 
 **DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
 keeps the download.
 
+## 3k. Vehicle check: one car's MOT history
+
+Photograph a car's number plate (or type it) and Ghosty shows that one car's official record: make, model,
+colour, fuel, when it was first used, whether its MOT is valid and until when, every MOT test with its
+mileage, advisories and defects, a warning if the recorded mileage ever went **down**, and any unfixed safety
+recall. It is free, from DVSA (the Driver and Vehicle Standards Agency).
+
+**Get the free key (once; DVSA takes up to 5 working days):**
+
+1. Open **System → Keys**, press **SHOW OPTIONAL KEYS**, find **DVSA MOT history (vehicle check)** and press
+   **OPEN SITE** (or go to documentation.history.mot.api.gov.uk → *Register for API*).
+2. Press **Register for MOT history API** and fill in the form as an individual: your name, email and postal
+   address. For what you will use it for, write: *"Personal use: checking the MOT history of a car before
+   buying it."*
+3. Wait for DVSA's email. It holds five things: a **client ID**, a **client secret**, an **API key**, a
+   **token URL** (it starts with `https://login.microsoftonline.com/`) and a **scope**
+   (`https://tapi.dvsa.gov.uk/.default`).
+4. Copy those five lines from the email and paste them all into the DVSA box in System → Keys (it is five lines
+   tall; any order; the words in front such as "Client ID:" can stay). Press **SAVE**. Ghosty signs in to DVSA
+   once to check them — no car is looked up — and says **works ✓**.
+5. Use it at least once every 90 days, or DVSA cancels the key. The client secret lasts 2 years; DVSA emails
+   you before it runs out (then paste the new five lines).
+
+**Use it:** in the Lens, **READ** a photo of the plate: when the text holds a UK plate a yellow
+**CHECK THIS VEHICLE?** button appears — nothing leaves the phone until you tap it. Or open the command palette
+(**CMD**) → *Vehicle check*, type the plate and press **CHECK**. Or ask in chat: *"MOT check AB12 CDE"*.
+
+**What is never stored:** the plate and the record are shown once and not kept — not in the chat history (it
+says *[plate]* and "a vehicle check was shown here once"), not in memory, the library, study notes, Cloudflare
+KV or the phone's storage. Closing the sheet forgets it. Ghosty checks one car at a time, only when you ask,
+and never looks up who owns a car (the services don't have that, and no other source is asked).
+
+DVLA's tax check (tax status and due date, CO2, engine size) has a key slot too (**DVLA vehicle enquiry**), but
+DVLA has closed new registrations for now. Without any key, Ghosty gives you the free official checks to open
+yourself: gov.uk/check-mot-history and vehicleenquiry.service.gov.uk.
+
+## 3l. The 3D STUDIO: take things apart, rooms in 3-D, Spline
+
+Open **3D STUDIO** (the cube in the dock's SYSTEMS deck, or ask Ghosty to "open the 3D studio"). It opens
+on an arc reactor. Nothing to set up; the 3-D engine loads the first time you open the tab.
+
+1. **Turn it** with one finger, **zoom** with two, **move** with two fingers dragging. **TURNTABLE** spins it.
+2. **TAKE APART** flies every part out from the centre; **REASSEMBLE** puts them back. The slider stops
+   anywhere in between. **PARTS** lists every part: tap one to light it up (or tap it on the model),
+   **ISOLATE** shows it alone, **●** hides it, **SHOW ALL** brings everything back.
+3. **CUT · MEASURE**: **SECTION** X, Y or Z cuts the model open and the slider moves the cut. **MEASURE**,
+   then tap two points on the model: the distance appears (in cm / m for the samples and rooms).
+4. **MODELS**: the arc reactor, a toy car, a chair, a velvet sofa and a milk truck (free samples, credited
+   under the scene) — or **OPEN A FILE…** for any .glb from Files (it stays on the phone).
+5. **PHOTO → 3D**: choose a photo of **one object on a plain background** and press **MAKE 3-D**. It takes
+   20 seconds to 2 minutes; the model is shape only (clay, no colours) and is kept for 24 hours. Or type a
+   description and **ASK GHOSTY**: it draws the object first, then models it. In chat: *"make a 3D model of
+   a brass telescope"*. This uses a free public demo on Hugging Face (Hunyuan3D-2), so it is best effort:
+   without an account it allows only about **2–3 models a day**, shared with everyone on the same network,
+   and Ghosty tells you when to try again. For your own daily allowance (about 5 minutes of GPU a day,
+   free, no card): make a free account at huggingface.co, open
+   **huggingface.co/settings/tokens/new?tokenType=read**, name it Ghosty, press **Create token**, copy it
+   (it starts `hf_`) and paste it in **SYSTEM → KEYS → Hugging Face (3-D models)**.
+6. **ROOM**: type the room's inside width, depth and height in centimetres and press **BUILD ROOM**, or
+   paste the SPACE PLANNER's exported JSON to see your furniture in it; an item that sticks out of the
+   room is named. **INSIDE VIEW** stands you in the corner; **TAKE APART** lifts the walls away.
+7. **SPLINE**: made something at spline.design? In Spline press **Export → Public URL**, copy the link
+   (it starts `https://my.spline.design/`), paste it here and press **SHOW**. Spline has no way for Ghosty
+   to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
+8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
@@ -389,6 +490,7 @@ rolling back. It treats web pages and feeds as information, never as orders.
 | Workers Builds | 3,000 build minutes/month | Each change is about 1–2 minutes |
 | Worker Previews | 100 per Worker | Old previews can be deleted from the dashboard |
 | GitHub Actions | 2,000 minutes/month for private repos | About 1 minute per check |
+| Hugging Face ZeroGPU (3D STUDIO's PHOTO → 3D) | Without an account: about 2 minutes of GPU and 3 runs a day, shared by everyone on the same network; with a free token: about 5 minutes a day | About 2–3 models a day; Ghosty says when to try again |
 
 If the Worker's logs show **"Exceeded CPU"** errors often, the Workers Paid plan ($5/month)
 raises the limit. Nothing else needs to change.

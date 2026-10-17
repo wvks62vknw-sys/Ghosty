@@ -2,6 +2,7 @@
  * The conversation with Ghosty: sends messages to the brain, turns the streamed events
  * into chat entries, runs on-screen actions the brain asks for, and handles approvals.
  */
+import { normalisePlate, redactPlates } from '../../../../packages/shared/src/plates';
 import type { ChatEvent } from '../../../../packages/shared/src/protocol';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
@@ -18,16 +19,29 @@ import { speak, stopListening, stopSpeaking } from './voice';
 
 export type Entry =
   | { kind: 'user'; text: string; at: number }
-  /** `offline`: answered by the small model on the phone itself (offline/brain.ts). */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean }
+  /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
   | { kind: 'error'; text: string }
   | { kind: 'link'; url: string; title: string };
 
+/**
+ * A vehicle check from the chat is shown once (integrations/vehicle.ts on the brain): the plates
+ * checked in this session (memory only) and whether this turn ran one. What the device keeps
+ * leaves out the reply that gave the record and has "[plate]" for the plate.
+ */
+const checkedPlates = new Set<string>();
+let vehicleTurn = false;
+function kept(entries: Entry[]): Entry[] {
+  const out = entries.filter((e) => !(e.kind === 'assistant' && e.once));
+  if (!checkedPlates.size) return out;
+  return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
+}
+
 /** The conversation is also kept on this device, so it's there even when the brain's history can't be read. */
-export const chat = createStore({ entries: [] as Entry[], live: '' }, { persist: 'ghosty.chat', keys: ['entries'] });
+export const chat = createStore({ entries: [] as Entry[], live: '' }, { persist: 'ghosty.chat', save: (s) => ({ entries: kept(s.entries) }) });
 /** Turns said while the brain's database was paused are sent to its history afterwards (from this time on). */
 let pausedFrom = 0;
 
@@ -53,6 +67,7 @@ const TOOL_LABELS: Record<string, string> = {
   change_status: 'Checking the build',
   ship_change: 'Shipping the change',
   restore_version: 'Rolling back',
+  vehicle_check: 'Checking a vehicle',
 };
 
 const label = (name: string, args: Record<string, unknown>) => {
@@ -106,6 +121,10 @@ function handle(ev: ChatEvent): void {
       ui.set({ status: ev.text });
       break;
     case 'tool':
+      if (ev.name === 'vehicle_check') {
+        vehicleTurn = true;
+        if (typeof ev.args.plate === 'string' && normalisePlate(ev.args.plate)) checkedPlates.add(normalisePlate(ev.args.plate));
+      }
       push({ kind: 'activity', id: ev.id, label: label(ev.name, ev.args), state: 'running' });
       break;
     case 'progress':
@@ -130,16 +149,18 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
     case 'text':
-      push({ kind: 'assistant', text: ev.text, at: Date.now() });
+      push({ kind: 'assistant', text: ev.text, at: Date.now(), ...(vehicleTurn ? { once: true } : {}) });
       chat.set({ live: ev.text });
       if (speakReplies && settings.get().speak) void speak(ev.text);
       break;
     case 'error':
+      vehicleTurn = false;
       settle(); // the turn ends here: nothing is running any more
       push({ kind: 'error', text: ev.message });
       chat.set({ live: ev.message });
       break;
     case 'done':
+      vehicleTurn = false;
       settle();
       if (/memory paused/.test(ev.model)) {
         // Only this exchange: the message that got the paused reply, and the replies since.
@@ -190,6 +211,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       }
     }
   } finally {
+    vehicleTurn = false;
     settle(); // a stream that broke off (connection lost, stopped) sent no done or error event
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });

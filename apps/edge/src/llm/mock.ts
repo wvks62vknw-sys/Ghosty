@@ -77,6 +77,15 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     if (done < Number(steps[1])) return { message: call(stepTool, stepTool === 'library_search' ? { query: `step ${done + 1}` } : {}), model };
     return { message: { role: 'assistant', content: `Done after ${done} steps.` }, model };
   }
+  // "mot check X then no model": the check runs, then every model is cooling down; "mot check X then daily hello":
+  // the check, then a daily task that waits for approval, then a reply (the vehicle check's privacy tests).
+  const motThen = chainAsked.match(/^mot check (.+?) then (no model|daily hello)$/);
+  if (motThen && offered('vehicle_check')) {
+    if (!chainDid('vehicle_check')) return { message: call('vehicle_check', { plate: motThen[1] }), model };
+    if (motThen[2] === 'no model') throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
+    if (!chainDid('schedule_task') && offered('schedule_task')) return { message: call('schedule_task', { title: 'Daily hello', prompt: 'say hello', at: '09:00', repeat: 'daily' }), model };
+    return { message: { role: 'assistant', content: `Done. ${chainAsked}` }, model };
+  }
   if (last.role === 'tool') {
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
@@ -150,6 +159,12 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
+  // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
+  if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
+  if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };
+  if ((m = text.match(/^mot check (.+)$/)) && has('vehicle_check')) return { message: call('vehicle_check', { plate: m[1] }), model };
+  if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
+  if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
   if ((m = text.match(/^(?:draw|paint) (?:me )?(?:a |an )?(.+)$/)) && has('make_picture')) return { message: call('make_picture', { prompt: `A ${m[1]}, digital illustration, soft light`, steps: 4 }), model };
   if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };

@@ -25,6 +25,7 @@ import { journeyRoute } from './integrations/transitous';
 import { aimRoute } from './integrations/aim';
 import { liveEvents } from './integrations/highways';
 import { scanRoute } from './integrations/lookup';
+import { forgetVehicleChecks, forgetVehicleTurns, vehicleRoute } from './integrations/vehicle';
 import { search as webSearch } from './tools/web';
 import { notInfrastructure, recon, renderReport } from './integrations/recon';
 import { Router, type Msg, type ToolCall } from './llm/router';
@@ -55,6 +56,7 @@ import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } 
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
+import { model3dRoute } from './model3d';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -347,7 +349,9 @@ export class GhostyAgent {
         const { name, value } = (await req.json()) as { name: string; value: string };
         if (!KEYS.some((k) => k.name === name)) return json({ error: 'unknown key' }, 400);
         // Keys never contain spaces; the email entry is "address password [imap smtp]", so it keeps single spaces.
-        const v = name === 'email' ? String(value ?? '').trim().replace(/\s+/g, ' ') : String(value ?? '').trim().replace(/\s+/g, '');
+        // A key pasted as several lines (DVSA's five, keys.ts `lines`) keeps one value per line.
+        const multi = KEYS.find((k) => k.name === name)?.lines;
+        const v = name === 'email' ? String(value ?? '').trim().replace(/\s+/g, ' ') : multi ? String(value ?? '').split(/\r?\n/).map((l) => l.trim().replace(/\s+/g, ' ')).filter(Boolean).join('\n') : String(value ?? '').trim().replace(/\s+/g, '');
         // Mapbox: only the public token is accepted, and a secret one is refused before it reaches the
         // vault — so a mistaken paste never overwrites a good public token (which goes in tile addresses on the device).
         if (name === 'mapbox' && v && !v.startsWith('pk.')) return json({ error: 'not saved: use the public token (it starts with pk.), never a secret sk. token' }, 400);
@@ -373,6 +377,8 @@ export class GhostyAgent {
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
+      // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
+      if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface') });
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);
       const li = path.match(/^\/lens\/share\/([A-Za-z0-9_-]{16})$/);
@@ -417,6 +423,7 @@ export class GhostyAgent {
       if (path === '/ships' && method === 'GET') return json(await this.ships(url));
       if (path === '/transit' && method === 'GET') return json(await transitRoute(url, this.vault));
       if (path === '/journey' && method === 'GET') return await journeyRoute(url, { storage: this.storage });
+      if (path === '/vehicle' && method === 'POST') return await vehicleRoute(req, this.vault);
       if (path === '/lookup/barcode' || path === '/translate') return await scanRoute(req, path, method, url, { ai: this.env.AI, search: (q) => webSearch(q, { vault: this.vault }), complete: async (m) => textOf((await this.router.complete(m, [], undefined, { cheap: true, maxWaitMs: 0 })).message.content) });
       if (path.startsWith('/aim/') && method === 'GET') return await aimRoute(path, url);
       if (path === '/highways/events' && method === 'GET') {
@@ -500,7 +507,7 @@ export class GhostyAgent {
     for (const k of keyDefs(this.env.GITHUB_REPO)) {
       // null: the database is paused and no copy of this key is reachable, so "not set" would be a guess.
       const v = await this.vault.lookup(k.name);
-      keys.push({ name: k.name, label: k.label, set: v === undefined ? null : !!v, hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps });
+      keys.push({ name: k.name, label: k.label, set: v === undefined ? null : !!v, hint: k.hint, link: k.link, need: k.need, why: k.why, steps: k.steps, ...(k.lines ? { lines: k.lines } : {}) });
     }
     if (this.env.GITHUB_TOKEN) keys.find((k) => k.name === 'github')!.set = true;
     this.state.waitUntil(this.router.discover(false).catch(() => undefined));
@@ -544,7 +551,8 @@ export class GhostyAgent {
   private async addTurn(turn: ChatTurn): Promise<void> {
     const turns = (await this.storage.get<ChatTurn[]>(TURNS_KEY)) ?? [];
     turns.push(turn);
-    await this.storage.put(TURNS_KEY, turns.slice(-120));
+    // The reply to a message that ran a vehicle check is never kept (integrations/vehicle.ts).
+    await this.storage.put(TURNS_KEY, forgetVehicleTurns(turns.slice(-120)));
   }
 
   /** A new message takes over: whatever was still running (or stuck) is stopped first. */
@@ -909,7 +917,7 @@ export class GhostyAgent {
         const id = crypto.randomUUID().slice(0, 12);
         const pinnedCalls = [{ ...call, function: { ...call.function, arguments: JSON.stringify(pinned) } }, ...calls.slice(i + 1)];
         await this.storage.put(PENDING_KEY, { id, calls: pinnedCalls, client, at: Date.now() } satisfies Pending);
-        await this.storage.put(CTX_KEY, stripImages(ctx));
+        await this.storage.put(CTX_KEY, stripImages(forgetVehicleChecks(ctx)));
         emit({ t: 'approval', id, name: tool.name, args: pinned, reason });
         emit({ t: 'done', model: (await this.storage.get<string>('llm:last')) ?? '' });
         return true;
@@ -1057,6 +1065,8 @@ export class GhostyAgent {
     while (i > 0 && ctx[i]!.role !== 'user') i--;
     const question = ownerWords(textOf(ctx[i]?.content));
     const calls = ctx.slice(i).flatMap((m) => m.tool_calls ?? []);
+    // A vehicle check is shown once and never filed.
+    if (calls.some((c) => c.function.name === 'vehicle_check')) return;
     const research = calls.filter((c) => /^(web_search|web_fetch|library_import|weather|earthquakes|find_nearby|get_directions)$/.test(c.function.name));
     if (!research.length || !question.trim()) return;
     const sources = [...new Set(research.flatMap((c) => {

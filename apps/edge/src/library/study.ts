@@ -18,6 +18,7 @@
  * Never throws: a failed source is logged and the next session carries on.
  */
 import { chunkText } from '../../../../packages/shared/src/chunk';
+import { mentionsPlate } from '../../../../packages/shared/src/plates';
 import { gutenbergText, gutenbergTextUrl } from './importers';
 import { htmlToText } from '../tools/web';
 import { DOMAINS, TOPIC_COUNT, domainById, type SourceKind, type Topic } from './curriculum';
@@ -94,6 +95,8 @@ const looksLikeQuestion = (t: string) => /\?\s*$/.test(t) || /^(what|how|why|who
 export async function noteGap(storage: DurableObjectStorage, question: string): Promise<void> {
   const q = question.replace(/\s+/g, ' ').trim();
   if (q.length < 8 || q.length > 200 || !looksLikeQuestion(q)) return;
+  // A question about a number plate is about one car, looked up once: never kept for study.
+  if (mentionsPlate(q)) return;
   const st = await loadStudy(storage);
   if (!st.on || st.gaps.some((g) => g.toLowerCase() === q.toLowerCase())) return;
   st.gaps = [...st.gaps, q].slice(-20);

@@ -2,8 +2,8 @@
  * LENS tab: the phone's camera with its modes — SEE (what is in view, boxed and counted), READ
  * (text in a picture, into the library), HANDS (gestures that drive the Lens), ASK (a
  * question with a picture for Ghosty) and NAME (the closest of thousands of names, name.ts). Everything runs on the phone; nothing leaves it until the
- * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition, no
- * number-plate lookups: Ghosty does not identify people.
+ * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition; a number
+ * plate is looked up only from READ's chip, on a tap (ui/vehiclecheck.ts): Ghosty does not identify people.
  *
  * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet.
  * This file owns the viewfinder (video + overlay canvas), the mode tiles, the bottom bar, the
@@ -28,13 +28,15 @@ import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
+import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
+import { createSoundMode } from './sound';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim' | 'measure' | 'sound';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim', 'measure', 'sound'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -131,6 +133,8 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'name', label: 'NAME', hint: 'name anything' },
   { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
   { id: 'aim', label: 'AIM', hint: 'point at anything' },
+  { id: 'measure', label: 'MEASURE', hint: 'sizes from a photo' },
+  { id: 'sound', label: 'SOUND', hint: 'is it distorting?' },
 ];
 
 export const lensState: LensState = {
@@ -199,7 +203,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'camera · see · read · hands · ask · name · scan · aim',
+  blurb: 'camera · see · read · hands · ask · name · scan · aim · measure · sound',
   mount(root) {
     const S = lensState;
     const camera = new Camera(h('video.lensvideo'));
@@ -214,7 +218,7 @@ export const lensTab: TabDef = {
     const countEl = h('div.lenscount');
     const view = h('div.lensview', video, still, ov, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
-    const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition, no number-plate lookups — Ghosty does not identify people.');
+    const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition; a number plate is looked up only when you tap CHECK, never who owns the car — Ghosty does not identify people.');
     const reader = new Reader();
 
     // ---- the viewfinder's size, the overlay's pixels and the frame → view mapping
@@ -417,7 +421,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L), sound: createSoundMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
