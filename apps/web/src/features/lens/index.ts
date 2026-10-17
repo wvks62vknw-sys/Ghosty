@@ -210,7 +210,7 @@ export const lensTab: TabDef = {
     const video = camera.video;
     const still = h('canvas.lensstill');
     still.hidden = true;
-    const ov = h('canvas.lensov');
+    let ov = h('canvas.lensov');
     const light = h('i');
     const statusText = h('span');
     const statusEl = h('div.lensstatus', light, statusText);
@@ -270,7 +270,12 @@ export const lensTab: TabDef = {
         return c;
       },
       clearOverlay() {
-        ov.getContext('2d')?.clearRect(0, 0, ov.width, ov.height);
+        // A fresh canvas, not clearRect: after AIM's labels Chromium kept showing them through every clear.
+        const fresh = h('canvas.lensov');
+        fresh.width = ov.width;
+        fresh.height = ov.height;
+        ov.replaceWith(fresh);
+        ov = fresh;
       },
       viewBox(b) {
         const { t, size } = L.view();

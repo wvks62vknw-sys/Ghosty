@@ -172,6 +172,22 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   const csp = await page.evaluate(() => window.__csp);
   if (csp.length) problems.push(`CSP: ${csp.join(' | ')}`);
 
+  // another mode starts on a clean viewfinder: none of AIM's labels or compass left over the picture
+  const inked = () => page.evaluate(() => {
+    const c = document.querySelector('#pg-lens .lensov');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i]) n++;
+    return n;
+  });
+  if (!(await inked())) problems.push('AIM drew nothing over the picture (the check below would prove nothing)');
+  await page.locator('#pg-lens .lensmodes button', { hasText: 'MEASURE' }).click();
+  await page.waitForTimeout(600);
+  const left = await inked();
+  if (left) problems.push(`AIM's drawing stayed over the picture after switching to MEASURE (${left} pixels)`);
+  await page.locator('#pg-lens .lensmodes button', { hasText: 'AIM' }).click();
+  await page.waitForTimeout(600);
+
   // leaving the Lens stops the sensors
   await page.evaluate(() => window.__ghosty.run('open_tab', { tab: 'core' }));
   await page.waitForTimeout(500);

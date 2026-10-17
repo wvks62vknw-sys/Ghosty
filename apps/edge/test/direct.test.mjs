@@ -122,6 +122,8 @@ test('the no-model line carries the exact local time the first model is back (an
   assert.equal(D.waitOf(null), null);
 });
 
+// These run on the real clock: when the first model is back after London midnight the time carries its day
+// ("back at 00:00 Sun 18 Oct"), so the patterns allow it.
 test('in the chat with every model rate-limited: the time, the weather here or in a place, memory and the agenda are answered with no model, with the time the first model is back', async () => {
   const world = fakeWorld();
   try {
@@ -131,7 +133,7 @@ test('in the chat with every model rate-limited: the time, the weather here or i
     const ask = async (message) => events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message, context: CTX }) }));
     let ev = await ask('what time is it?');
     let t = said(ev);
-    assert.match(t, /^No AI model is free right now \(the first is back at \d\d:\d\d\)\. The raw answer:\nIt is \w{3} \d{1,2} \w{3} \d{4}, \d\d:\d\d \(Europe\/London\)\.$/, t);
+    assert.match(t, /^No AI model is free right now \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\nIt is \w{3} \d{1,2} \w{3} \d{4}, \d\d:\d\d \(Europe\/London\)\.$/, t);
     assert.equal(ev.find((e) => e.t === 'done')?.model, 'Direct · no AI');
     assert.ok(!ev.some((e) => e.t === 'tool'), 'the time needs no tool');
     assert.ok(world.sent.length >= 1, 'the models were asked first');
@@ -140,7 +142,7 @@ test('in the chat with every model rate-limited: the time, the weather here or i
     assert.equal(tool?.name, 'weather');
     assert.deepEqual(tool.args, { lat: 52.48, lon: -1.9 }, "the owner's own coordinates");
     assert.ok(ev.find((e) => e.t === 'tool_result')?.ok, 'the tool ran');
-    assert.match(said(ev), /\(the first is back at \d\d:\d\d\)\. The raw answer:\n.*now 12°C \(feels 10°C\)/);
+    assert.match(said(ev), /\(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\n.*now 12°C \(feels 10°C\)/);
     ev = await ask('weather in Leeds');
     assert.deepEqual(ev.find((e) => e.t === 'tool')?.args, { place: 'leeds' });
     assert.match(said(ev), /Leeds, United Kingdom: now 12°C/);
@@ -168,7 +170,7 @@ test('anything else gets the usual message, always with the exact time the first
     const err = ev.find((e) => e.t === 'error')?.message ?? '';
     assert.match(err, /cooling down|busy or failing/);
     assert.match(err, /frees up in about 1\d\d seconds/);
-    assert.match(err, /The first model is back at \d\d:\d\d\. Tip: a free key in SYSTEM \(Groq, Cerebras or NVIDIA\) means never waiting\.$/, err);
+    assert.match(err, /The first model is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\. Tip: a free key in SYSTEM \(Groq, Cerebras or NVIDIA\) means never waiting\.$/, err);
     assert.ok(!ev.some((e) => e.t === 'text'));
   } finally {
     world.restore();
@@ -183,7 +185,7 @@ test('while the database is paused and no model answers: the time, memory and th
     const a = newAgent(storage, { GROQ_KEY: 'gsk_x', KEYLESS_MODELS: '0' });
     const ask = async (message) => events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message, context: CTX, offline: { facts: ['Ghost lives in Birmingham', 'my dog is Rex'], agenda: ['Sat 17 Oct 18:00 · Dinner with Sam'] } }) }));
     let ev = await ask('what time is it');
-    assert.match(said(ev), /paused until it resets at midnight UTC[\s\S]*No AI model is free right now \(the first is back at \d\d:\d\d\)\. The raw answer:\nIt is /);
+    assert.match(said(ev), /paused until it resets at midnight UTC[\s\S]*No AI model is free right now \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\nIt is /);
     assert.equal(ev.find((e) => e.t === 'done')?.model, 'Direct · no AI · memory paused');
     ev = await ask('what do you remember about me');
     assert.match(said(ev), /The raw answer:\nGhost lives in Birmingham\nmy dog is Rex$/);
@@ -193,7 +195,7 @@ test('while the database is paused and no model answers: the time, memory and th
     assert.equal(ev.find((e) => e.t === 'tool')?.name, 'weather');
     assert.match(said(ev), /now 12°C/);
     ev = await ask('tell me a joke');
-    assert.match(ev.find((e) => e.t === 'error')?.message ?? '', /No AI model answered either \(the first is back at \d\d:\d\d\)\. Give Ghosty an AI key once/);
+    assert.match(ev.find((e) => e.t === 'error')?.message ?? '', /No AI model answered either \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. Give Ghosty an AI key once/);
   } finally {
     world.restore();
   }
@@ -207,7 +209,7 @@ test('a scheduled task that needs no model (the weather here) still reports its 
     await events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message: 'what time is it', context: CTX }) })); // the brain learns where the owner is
     const j = await (await a.call('/jobs', { method: 'POST', body: JSON.stringify({ kind: 'task', title: 'Morning weather', text: "what's the weather like this morning", at: Date.now() + 60_000, tz: 'Europe/London' }) })).json();
     const r = await (await a.call(`/jobs/${j.job.id}/run`, { method: 'POST' })).json();
-    assert.match(r.item?.text ?? JSON.stringify(r), /^No AI model is free right now \(the first is back at \d\d:\d\d\)\. The raw answer:\n[\s\S]*now 12°C/);
+    assert.match(r.item?.text ?? JSON.stringify(r), /^No AI model is free right now \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\n[\s\S]*now 12°C/);
     const j2 = await (await a.call('/jobs', { method: 'POST', body: JSON.stringify({ kind: 'task', title: 'Poem', text: 'write me a poem about autumn, three stanzas', at: Date.now() + 60_000, tz: 'Europe/London' }) })).json();
     const r2 = await (await a.call(`/jobs/${j2.job.id}/run`, { method: 'POST' })).json();
     assert.match(r2.error ?? '', /cooling down|busy or failing/, 'a task only a model can do fails honestly');
@@ -219,8 +221,8 @@ test('a scheduled task that needs no model (the weather here) still reports its 
 test('the scripted model\'s "no model:" phrase drives the same path (the browser spec\'s way in)', async () => {
   const a = newAgent(new MemStorage(), { MOCK_LLM: '1' });
   const ask = async (message) => events(await a.call('/chat', { method: 'POST', body: JSON.stringify({ message, context: CTX }) }));
-  assert.match(said(await ask('no model: what time is it')), /^No AI model is free right now \(the first is back at \d\d:\d\d\)\. The raw answer:\nIt is /);
+  assert.match(said(await ask('no model: what time is it')), /^No AI model is free right now \(the first is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\)\. The raw answer:\nIt is /);
   const err = (await ask('no model: tell me a joke')).find((e) => e.t === 'error')?.message ?? '';
-  assert.match(err, /^Every model I can reach is cooling down after rate limits\. The first one frees up in about 40 seconds\. The first model is back at \d\d:\d\d\. Tip: a free key in SYSTEM \(Groq, Cerebras or NVIDIA\) means never waiting\.$/, err);
+  assert.match(err, /^Every model I can reach is cooling down after rate limits\. The first one frees up in about 40 seconds\. The first model is back at \d\d:\d\d(?: \w{3} \d{1,2} \w{3})?\. Tip: a free key in SYSTEM \(Groq, Cerebras or NVIDIA\) means never waiting\.$/, err);
   assert.match(said(await ask('hello')), /^Mock reply to: hello/, 'an ordinary turn is unaffected');
 });
