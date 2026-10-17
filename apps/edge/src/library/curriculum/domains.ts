@@ -4610,4 +4610,105 @@ export const DOMAIN_TEXT: DomainText[] = [
 3|wiki|Generally Accepted Accounting Practice (UK)
 3|wiki|British Chambers of Commerce`,
   },
+  {
+    id: 'architecture-interior-design',
+    name: `Architecture, interior design and UK building regulations`,
+    why: `The owner plans rooms, furniture and building work on the phone, and Ghosty's design reviews should rest on how rooms are drawn and lit, how people move through them, and what the Approved Documents ask for.`,
+    t: `1|wiki|Architecture
+1|wiki|Interior design
+1|wiki|Floor plan
+1|wiki|Architectural drawing
+1|wiki|Room
+1|wiki|Kitchen work triangle
+1|wiki|Daylighting
+1|wiki|Window
+1|wiki|Door
+1|wiki|Wall
+1|wiki|Ceiling
+1|wiki|Stairs
+1|wiki|Building regulations in the United Kingdom
+1|wiki|Planning permission in the United Kingdom
+1|wiki|Load-bearing wall
+1|wiki|Lintel
+1|wiki|Open plan
+1|wiki|Color scheme
+1|wiki|Lighting design
+1|wiki|Furniture
+1|wiki|Bathroom
+1|wiki|Bedroom
+1|wiki|Living room
+1|wiki|Ergonomics
+1|wiki|Kitchen
+1|wiki|Hallway
+2|wiki|Approved Document
+2|wiki|Building control body
+2|wiki|Party Wall etc. Act 1996
+2|wiki|Listed building
+2|wiki|Loft conversion
+2|wiki|Conservatory (greenhouse)
+2|wiki|Permitted development rights
+2|wiki|Means of escape
+2|wiki|Fire door
+2|wiki|Smoke detector
+2|wiki|Universal design
+2|wiki|Lifetime Homes Standard
+2|wiki|Accessible housing
+2|wiki|Proxemics
+2|wiki|Damp (structural)
+2|wiki|Building insulation
+2|wiki|Thermal bridge
+2|wiki|Ventilation (architecture)
+2|wiki|Passive solar building design
+2|wiki|Daylight factor
+2|wiki|Insulated glazing
+2|wiki|Thermal transmittance
+2|wiki|Soundproofing
+2|wiki|Structural engineering
+2|wiki|Beam (structure)
+2|wiki|Joist
+2|wiki|Foundation (engineering)
+2|wiki|Cavity wall
+2|wiki|Timber framing
+2|wiki|Brick
+2|wiki|Plasterwork
+2|wiki|Orthographic projection
+2|wiki|Section (architecture)
+2|wiki|Computer-aided design
+2|wiki|Building information modeling
+2|wiki|Handrail
+2|wiki|Glazing (window)
+2|wiki|Conservation area (United Kingdom)
+2|wiki|Building code
+2|wiki|Fire safety
+2|wiki|Accessibility
+3|wiki|A Pattern Language
+3|wiki|Christopher Alexander
+3|wiki|Le Corbusier
+3|wiki|Modulor
+3|wiki|Bauhaus
+3|wiki|Brutalist architecture
+3|wiki|Passive house
+3|wiki|Building envelope
+3|wiki|Interstitial condensation
+3|wiki|Grenfell Tower fire
+3|wiki|Environmental psychology
+3|wiki|Biophilic design
+3|wiki|Wayfinding
+3|wiki|Space syntax
+3|wiki|Isovist
+3|wiki|Shape grammar
+3|wiki|Generative design
+3|wiki|Architects' Data
+3|wiki|Human-centric lighting
+3|wiki|Circadian rhythm
+3|wiki|Prefabricated building
+3|wiki|Modular building
+3|wiki|Steel frame
+3|wiki|Reinforced concrete
+3|wiki|Building Research Establishment
+3|wiki|Standard Assessment Procedure
+3|wiki|Energy Performance Certificate (United Kingdom)
+3|wiki|Royal Institute of British Architects
+3|wiki|Parametric design`,
+  },
 ];

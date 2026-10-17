@@ -44,6 +44,7 @@ export const CLIENT_COMMANDS = [
   'show_journey',
   'open_space',
   'open_studio',
+  'design_changes',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
