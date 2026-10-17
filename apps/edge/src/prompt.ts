@@ -12,7 +12,8 @@ import type { MemoryFact } from '../../../packages/shared/src/protocol';
 import { engineeringEssentials, topLessons, type Lesson } from './knowledge';
 import { isoLocal, validTz } from './time';
 import type { ToolGroup } from './tools';
-import { SPEECH_ABOUT } from './speech';
+import type { Profile } from '../../../packages/shared/src/protocol';
+import { profileLines } from './profile';
 
 export interface ClientContext {
   now?: string;
@@ -29,6 +30,10 @@ export interface PromptGroups {
   off: ToolGroup[];
 }
 
+/** Not tools the model calls, but things it should know: replies may be heard, and the library holds today's world. */
+const HEARING = 'You can hear (voice notes and the microphone are transcribed for you) and speak replies in your own voice, so keep spoken answers short and plain.';
+const TODAY = 'Your library\'s "Fresh knowledge" notebook holds today\'s news, Hacker News, new arXiv papers and current events: library_search it for anything about today.';
+
 /**
  * WHAT YOU CAN DO NOW: one line per group that is on (its `about`, or its tool names for a
  * group that has none yet), then every group that is off as "name: tool, tool" so the model
@@ -37,7 +42,7 @@ export interface PromptGroups {
 export function capabilityLines(groups: PromptGroups): string {
   const line = (g: ToolGroup) => `- ${g.about?.trim() || `You can use ${g.tools.map((t) => t.name).join(', ')}.`}`;
   // Hearing and speaking are not tools the model calls, but it should know replies may be heard, not read.
-  const out = [`WHAT YOU CAN DO NOW:\n${groups.on.map(line).join('\n')}\n- ${SPEECH_ABOUT.charAt(0).toUpperCase()}${SPEECH_ABOUT.slice(1)}`];
+  const out = [`WHAT YOU CAN DO NOW:\n${groups.on.map(line).join('\n')}\n- ${HEARING}\n- ${TODAY}`];
   if (groups.off.length) out.push(`ALSO (call the tool by name; it is described next turn):\n${groups.off.map((g) => `- ${g.name}: ${g.tools.map((t) => t.name).join(', ')}`).join('\n')}`);
   return out.join('\n');
 }
@@ -48,7 +53,7 @@ export function capabilityLines(groups: PromptGroups): string {
  * `groups`: the tool groups on and off for this message (none given: no capability section —
  * the caller describes every tool it offers).
  */
-export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups } = {}): string {
+export function systemPrompt(c: ClientContext, facts: MemoryFact[], repoReady: boolean, lessons: Lesson[] = [], opts: { code?: boolean; groups?: PromptGroups; profile?: Profile | null } = {}): string {
   const name = c.name || 'boss';
   const lines: string[] = [];
   lines.push(
@@ -95,6 +100,9 @@ SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to ch
   if (c.tab) ctx.push(`Interface tab open: ${c.tab}`);
   if (c.screen) ctx.push(`On screen: ${c.screen.slice(0, 400)}`);
   if (ctx.length) lines.push(`\nCONTEXT:\n${ctx.join('\n')}`);
+  // The owner in their own words (profile.ts: the nightly reflection), then the facts they told Ghosty to remember.
+  const me = opts.profile ? profileLines(opts.profile) : [];
+  if (me.length) lines.push(`\nWHO ${name.toUpperCase()} IS (in their own words, from your nightly reflection; add to it with remember):\n${me.map((l) => `- ${l}`).join('\n')}`);
   if (facts.length) lines.push(`\nWHAT YOU KNOW ABOUT ${name.toUpperCase()}:\n${facts.slice(-60).map((f) => `- ${f.text}`).join('\n')}`);
   return lines.join('\n');
 }
