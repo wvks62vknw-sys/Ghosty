@@ -549,7 +549,11 @@ D) <choice>
 ANSWER: <letter>
 WHY: <one sentence>`;
 
-/** The passages themselves as a lesson, when no model is free: still something to read, cited. */
+/**
+ * The passages themselves as a lesson, when no model is free: still something to read, cited. The
+ * markers come off for the tab, which shows it to the owner; the chat's tutor tool marks every
+ * lesson as data again before the agent sees it (tools/learn.ts).
+ */
 function passagesLesson(m: Material): string {
   if (!m.sources.length) return '';
   const raw = m.text.replace(/^<<[^\n]*>>\n|\n<<end external content>>$/g, '');
@@ -595,9 +599,10 @@ export async function lesson(deps: TutorDeps, courseId: string, n?: number, opts
     latest.lessons = latest.lessons.map((x) => (x.n === l.n ? { ...l, done: x.done ?? l.done } : x));
     latest.updated = now;
     await saveCourse(deps.storage, latest);
+    // A lesson read in the chat or by voice counts for the day, like NEXT in the tab.
+    if (opts.markDone) await touchStreak(deps).catch(() => undefined);
     return { course: latest, lesson: latest.lessons.find((x) => x.n === l.n)!, fresh };
   }
-  if (opts.markDone) await touchStreak(deps).catch(() => undefined);
   return { course, lesson: l, fresh };
 }
 
@@ -620,6 +625,9 @@ export async function removeCourse(storage: DurableObjectStorage, id: string): P
   if (!index.some((e) => e.id === id)) return false;
   await storage.put(INDEX_KEY, index.filter((e) => e.id !== id));
   await storage.delete([courseKey(id), ...cardKeys(id)]);
+  // Its quizzes go too: an answer to one would otherwise write cards under an id nothing lists or removes.
+  const quizzes = (await storage.get<Quiz[]>(QUIZZES_KEY)) ?? [];
+  if (quizzes.some((q) => q.course === id)) await storage.put(QUIZZES_KEY, quizzes.filter((q) => q.course !== id));
   const scores = await storage.get<Scores>(SCORES_KEY);
   if (scores?.[id]) {
     delete scores[id];
@@ -674,12 +682,23 @@ export const GRADE_PROMPT = `GRADE ANSWER: you mark one short answer for a patie
 const choiceText = (q: QuizQuestion | CheckQuestion, i: number) => `${LETTERS[i]}) ${(q as QuizQuestion).choices?.[i] ?? ''}`;
 const expectedOf = (q: QuizQuestion) => (q.kind === 'mc' ? choiceText(q, Number(q.answer)) : String(q.answer));
 
+/**
+ * The course a card or a score is kept under: a course in the list, else GENERAL. Cards are only
+ * ever read and removed for listed courses, so any other id (a removed course, a made-up string,
+ * "abc:2" landing on course abc's second key) would be storage nothing sees or frees.
+ */
+export async function knownCourse(storage: DurableObjectStorage, id: unknown): Promise<string> {
+  if (typeof id !== 'string' || id === GENERAL || !/^[a-z0-9]{1,16}$/.test(id)) return GENERAL;
+  return (await loadIndex(storage)).some((e) => e.id === id) ? id : GENERAL;
+}
+
 /** A wrong answer becomes a card: the question on the front, the right answer and why on the back (once per question). */
 export async function addCard(deps: TutorDeps, course: string, front: string, back: string): Promise<Card | null> {
   const lines = (v: string, max: number) => String(v ?? '').split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n').slice(0, max);
   const f = lines(front, 400);
   const b = lines(back, 300);
   if (f.length < 3 || !b) return null;
+  course = await knownCourse(deps.storage, course);
   const cards = await loadCards(deps.storage, course);
   const have = cards.find((c) => c.front.toLowerCase() === f.toLowerCase());
   if (have) return have;
@@ -707,7 +726,7 @@ export async function answer(deps: TutorDeps, a: { quiz?: string; q?: string; co
     const found = quiz?.questions.find((x) => x.id === a.q);
     if (!quiz || !found) throw new Error('that quiz is no longer kept; ask for a new one');
     q = found;
-    course = quiz.course;
+    course = await knownCourse(deps.storage, quiz.course);
     context = quiz.topic;
   } else {
     const c = a.course ? await loadCourse(deps.storage, a.course) : null;
