@@ -2,9 +2,10 @@
 // a course is planned and the tab opens on it; lesson 1 is read (written by the scripted model,
 // its CHECK question answered right), NEXT goes on to lesson 2 and the streak starts; a quiz is
 // taken (a wrong multiple-choice answer, a right one, a right short answer marked by the brain)
-// and scored; the miss became a flashcard that REVISE shows, flips and rates GOOD; with the
-// brain unreachable the course and cards are still there (the phone's copy). Nothing sticks out
-// sideways; the security policy blocks nothing.
+// and scored; the miss became a flashcard that REVISE shows offline, rated AGAIN and then GOOD
+// when it comes back (the lapse counts); with the brain unreachable the course and cards are still
+// there (the phone's copy) and a lesson is finished; back online the queued revisions and lesson
+// reach the brain and both copies agree. Nothing sticks out sideways; the security policy blocks nothing.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
@@ -109,8 +110,11 @@ if (score !== '2 / 3') problems.push(`the score says "${score}"`);
 await wideCheck('the quiz');
 await until(() => document.querySelector('#pg-learn .learncourse .learnring text')?.textContent === '1/5', 8000, `the course ring does not show lesson 1 done: ${await L('.learncourse .learnring text').first().textContent().catch(() => '?')}`);
 
-// ---- REVISE: the miss is a card, due now; flip it, rate it GOOD ----
+// ---- REVISE, offline: the miss is a card, due now; AGAIN, then GOOD when it comes back ----
 await until(() => window.__ghosty?.learn?.due >= 1, 8000, 'the wrong answer did not become a card due now');
+const mirror = () => page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}'));
+const ask = (path) => page.evaluate((p) => fetch(`/api/learn${p}`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).then((r) => r.json()), path);
+await page.route('**/api/learn**', (r) => r.abort());
 await page.locator('#pg-learn button:has-text("REVISE")').first().click();
 await until(() => window.__ghosty?.learn?.view === 'revise' && !!document.querySelector('#pg-learn .learncard'), 5000, 'REVISE did not show a card');
 const front = await L('.learnfront').innerText();
@@ -121,24 +125,61 @@ const small = await L('button.learnrate.good small').innerText();
 if (small !== '1 day') problems.push(`GOOD on a new card should say "1 day", says "${small}"`);
 await page.screenshot({ path: `${out}/learn-revise.png` });
 await wideCheck('the flashcards');
+await L('button.learnrate.again').click();
+await until(() => window.__ghosty?.learn?.revise?.done === 1 && !!document.querySelector('#pg-learn .learncard'), 5000, 'AGAIN did not bring the card back in this sitting');
+const front2 = await L('.learnfront').innerText();
+if (front2 !== front) problems.push(`after AGAIN the next card is "${front2.slice(0, 80)}", not the forgotten one`);
+await page.locator('#pg-learn button:has-text("SHOW ANSWER")').click();
 await L('button.learnrate.good').click();
-await until(() => window.__ghosty?.learn?.revise?.done === 1 && window.__ghosty?.learn?.due === 0, 5000, `rating GOOD did not finish the card (${JSON.stringify((await st())?.revise)})`);
-// the revision reached the brain
-await until(() => JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').pending?.length === 0, 8000, 'the revision was not sent to the brain');
+await until(() => window.__ghosty?.learn?.revise?.done === 2 && window.__ghosty?.learn?.due === 0, 5000, `GOOD did not finish the card (${JSON.stringify((await st())?.revise)})`);
+await page.waitForTimeout(400);
+// AGAIN then GOOD on a new card: the lapse counts (ease 2.5 → 1.96, one lapse), then 1 day
+let m = await mirror();
+const card = (m.cards ?? []).find((c) => front.startsWith(c.front.split('\n')[0]));
+if (!card || card.lapses !== 1 || card.reps !== 1 || card.interval !== 1 || Math.abs(card.ef - 1.96) > 1e-9) problems.push(`after AGAIN then GOOD the phone's card is ${JSON.stringify(card && { reps: card.reps, interval: card.interval, ef: card.ef, lapses: card.lapses })} (want reps 1, interval 1, ef 1.96, lapses 1)`);
+if (m.pending?.length !== 2) problems.push(`offline, ${m.pending?.length} revisions are queued (want 2)`);
 
-// ---- offline: the phone's copy still has the course and the card ----
-await page.route('**/api/learn**', (r) => r.abort());
+// ---- still offline after a reload: the course and the cards are on the phone; a lesson is finished here ----
 await page.reload();
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
 await page.evaluate(() => (location.hash = 'learn'));
 await until(() => window.__ghosty?.learn?.courses === 1 && document.querySelectorAll('#pg-learn .learncourse').length === 1, 10000, 'with the brain unreachable the course is gone from the phone');
-const cards = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards?.length ?? 0);
+const cards = (await mirror()).cards?.length ?? 0;
 if (cards < 1) problems.push('the cards were not kept on the phone');
 await page.locator('#pg-learn .learncourse').first().click();
 await until(() => window.__ghosty?.learn?.view === 'course', 5000, 'the course does not open offline');
 await page.locator('#pg-learn .learnlesson').first().click();
 await until(() => window.__ghosty?.learn?.view === 'lesson' && /Plants use light/.test(document.querySelector('#pg-learn .learntext')?.textContent ?? ''), 5000, 'lesson 1 cannot be read again offline');
+await page.locator('#pg-learn button:has-text("BACK TO COURSE")').click();
+await until(() => window.__ghosty?.learn?.view === 'course', 5000, 'BACK TO COURSE did not go back offline');
+await page.locator('#pg-learn .learnlesson').nth(1).click();
+await until(() => window.__ghosty?.learn?.view === 'lesson' && window.__ghosty?.learn?.lesson === 2 && !!document.querySelector('#pg-learn .learntext'), 5000, 'lesson 2 cannot be read again offline');
+await page.locator('#pg-learn button:has-text("NEXT LESSON")').click();
+await until(() => JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').courses?.[0]?.done === 2, 5000, 'finishing lesson 2 offline did not count on the phone');
+m = await mirror();
+if (m.pendingDone?.length !== 1) problems.push(`offline, ${m.pendingDone?.length} finished lessons are queued (want 1)`);
+
+// ---- back online: what waited is sent, and the brain's copy agrees with the phone's ----
 await page.unroute('**/api/learn**');
+await page.reload();
+await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
+await page.evaluate(() => (location.hash = 'learn'));
+await until(() => {
+  const s = JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}');
+  return s.pending?.length === 0 && s.pendingDone?.length === 0 && s.synced > 0;
+}, 10000, `the offline revisions and lesson were not sent on reconnect (${JSON.stringify(await mirror().then((x) => ({ pending: x.pending?.length, pendingDone: x.pendingDone?.length })))})`);
+await page.waitForTimeout(500);
+m = await mirror();
+const brainState = await ask('');
+const bc = brainState.cards?.find((c) => c.id === card?.id);
+const pc = m.cards?.find((c) => c.id === card?.id);
+const pick = (c) => c && JSON.stringify([c.reps, c.interval, c.ef, c.lapses, c.due, c.last]);
+if (!bc || pick(bc) !== pick(pc)) problems.push(`the brain's card ${pick(bc)} is not the phone's ${pick(pc)}`);
+if (brainState.courses?.[0]?.done !== 2) problems.push(`the brain has ${brainState.courses?.[0]?.done} lessons done (want 2: lesson 2 was finished offline)`);
+if (m.courses?.[0]?.done !== 2) problems.push(`after syncing the phone shows ${m.courses?.[0]?.done} lessons done (want 2)`);
+const brainCourse = await ask(`/course/${brainState.courses?.[0]?.id}`);
+if (!brainCourse.course?.lessons?.[1]?.done) problems.push("the brain's course does not have lesson 2 done");
+await until(() => document.querySelector('#pg-learn .learncourse .learnring text')?.textContent === '2/5', 8000, `after syncing the course ring says ${await L('.learncourse .learnring text').first().textContent().catch(() => '?')} (want 2/5)`);
 
 await wideCheck('the tab');
 const csp = await page.evaluate(() => window.__csp);
@@ -146,5 +187,5 @@ if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.screenshot({ path: `${out}/learn-final.png` });
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'LEARN run clean on an iPhone 13: "teach me photosynthesis" planned a 5-lesson course and opened it, lesson 1 read with its sources and check question answered, NEXT went on and the streak started, a quiz scored 2 / 3 with the short answer marked by the brain, the miss became a card that REVISE flipped and rated, and the course, cards and lesson stayed on the phone offline.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `LEARN run clean on an iPhone 13: "teach me photosynthesis" planned a 5-lesson course and opened it, lesson 1 read with its sources and check question answered, NEXT went on and the streak started, a quiz scored 2 / 3 with the short answer marked by the brain, the miss became a card that REVISE rated AGAIN then GOOD offline, the course, cards and lessons stayed on the phone offline, a lesson finished offline counted, and on reconnect the brain's copy matched the phone's.`);
 process.exit(problems.length ? 1 : 0);
