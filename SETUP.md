@@ -318,11 +318,15 @@ private, nothing leaves the phone.
    reaches 100%. If the phone can't hold that model, Ghosty fetches a smaller one (about 290 MB) by itself.
 3. Press **TEST**: the small AI says hello and shows how fast it is.
 4. Choose when it answers: **only when needed** (the default — when the brain can't be reached or every free
-   model is busy), **always** (the cloud brain is never asked), or **off**.
+   model is busy), **always** (the cloud brain is never asked), or **off**. Ghosty never downloads it by itself:
+   until you press DOWNLOAD, "always" only tells you it isn't on the phone yet.
 
 Replies from the phone show a small **ANSWERED ON YOUR PHONE (OFFLINE)** chip and are spoken with the usual
 voice (the phone's own voice when Ghosty's can't be reached). The small AI has no tools and no live data
-(no web, weather or news), but it knows your memory, today's agenda and the library copy on the phone.
+(no web, weather or news), but it knows your memory, today's agenda and the library copy on the phone. If the
+cloud brain had already started on your message (looked something up, set a reminder) and then ran out of
+free models, you see its message rather than a guess from the small AI. It leaves the phone's memory two
+minutes after it last answered (the download stays), so the camera and the Lens have room.
 **DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
 keeps the download.
 

@@ -28,6 +28,12 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (last.role === 'user' && /^no model:/i.test(ownerWords(textOf(last.content)).replace(/^Scheduled task "[^"]*": /, '').trim())) {
     throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds. Another free key in the System tab gives me more room.'), { waitMs: 40_000 });
   }
+  // "tool then no model: …": a tool runs, then every model is cooling down at the next step (the turn has already acted).
+  const askedNow = [...messages].reverse().find((x) => x.role === 'user');
+  if (askedNow && /^tool then no model:/i.test(ownerWords(textOf(askedNow.content)).trim())) {
+    if (last.role === 'user') return { message: call('list_memory', {}), model };
+    throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
+  }
   const system = String(messages[0]?.content ?? '');
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {

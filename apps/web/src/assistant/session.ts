@@ -201,7 +201,7 @@ const OFFLINE_MODEL = 'On this phone · offline';
 /**
  * Answer on the phone itself with the offline brain (offline/brain.ts): the reply streams into
  * its entry like any other and is spoken the usual way. False (and nothing left on screen) if the
- * model could not answer.
+ * model could not answer; true, with nothing spoken, when the owner said "stop".
  */
 async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[]): Promise<boolean> {
   const at = Date.now();
@@ -226,7 +226,14 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     if (speakReplies && settings.get().speak) void speak(r.text);
     return true;
   } catch (e) {
+    // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
+    const said = cleanReply(raw).trim();
+    if ((e as Error)?.name === 'AbortError' && said) {
+      show(said);
+      return true;
+    }
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
+    if ((e as Error)?.name === 'AbortError') return true;
     console.warn('offline brain', e);
     return false;
   }
@@ -255,23 +262,26 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
   if (mode === 'always') {
     // The owner chose the phone's own brain: the cloud brain is never asked.
     await stream(async () => {
-      if (await answerHere(t, recent)) return;
+      // Never a 352 MB download on the first message (perhaps on mobile data): only DOWNLOAD in Settings fetches it.
       const ready = await offlineReady().catch(() => false);
+      if (ready && (await answerHere(t, recent))) return;
       push({ kind: 'error', text: ready ? "The offline brain on this phone couldn't answer. Try again, or set it to 'only when needed' in Settings → Offline brain." : "Offline brain is set to 'always', but it isn't on this phone yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi)." });
     });
     return;
   }
   // When the brain can't answer (no connection, a server error, no free model), the phone's own model does — if it's here.
   const here = mode !== 'off' && (await offlineReady().catch(() => false));
-  let spoke = false;
+  // The brain already said or did something this turn (a reply, a tool run, an approval asked, an
+  // on-screen action): the small model can't see any of it, so the brain's own error stands.
+  let acted = false;
   let held: Extract<ChatEvent, { t: 'error' }> | null = null;
-  const rescue = async (e: unknown) => here && !spoke && shouldFallBack(e) && answerHere(t, recent);
+  const rescue = async (e: unknown) => here && !acted && shouldFallBack(e) && answerHere(t, recent);
   await stream(
     async (cb) => {
       await brain.chat(t, context(), (ev) => {
-        if (ev.t === 'text') spoke = true;
-        // "No model is free": held back, answered on the phone instead (shown as usual if that fails).
-        if (here && !spoke && ev.t === 'error' && noModelError(ev.message)) {
+        if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
+        // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
+        if (here && !acted && ev.t === 'error' && noModelError(ev.message)) {
           held = ev;
           return;
         }

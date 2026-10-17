@@ -3,41 +3,30 @@
  * so Ghosty can still talk when the brain can't be reached, when every free model is busy, or
  * whenever the owner switches it to "always". Free and private: nothing leaves the phone.
  *
- * Nothing loads until the owner downloads it (SETTINGS → OFFLINE BRAIN) or it is first needed.
- * The runtime and the model live in a Web Worker (public/vendor/webllm/worker.mjs), so the page
- * never parses the 6 MB runtime; the weights (~352 MB) come from Hugging Face once and stay in
- * the browser's Cache API; the model's compiled code is served from this site (vendor/webllm/libs).
- * The model is unloaded when Ghosty has been in the background for five minutes (phone memory
- * is tight); the download stays.
+ * Nothing is downloaded until the owner presses DOWNLOAD (SETTINGS → OFFLINE BRAIN): a chat
+ * message never starts the ~352 MB download (it may be on mobile data). The runtime and the model
+ * live in a Web Worker (public/vendor/webllm/worker.mjs), so the page never parses the 6 MB
+ * runtime; the weights come from Hugging Face once, at the commit pinned in offline/models.ts, and
+ * stay in the browser's Cache API; the model's compiled code is served from this site
+ * (vendor/webllm/libs). Phone memory is tight: the model leaves memory (the worker ends) as soon as
+ * a download finishes and two minutes after it last answered; the download stays.
  *
- * Tests (no WebGPU in CI) set `window.__ghostyOfflineEngine = { chat(messages, onToken) }`.
+ * Tests (no WebGPU in CI) set `window.__ghostyOfflineEngine = { chat(messages, onToken) }`, with
+ * optional `load()` (stands in for loading the model), `unload()` and `idleMs`.
  */
 import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
 import { searchLocal } from '../library/local';
 import { settings } from '../state/app';
+import { MODELS, modelBase, type ModelDef } from './models';
 import { buildOfflinePrompt, cleanReply, type OfflineMsg } from './prompt';
 
 export type { OfflineMsg } from './prompt';
 
-interface ModelDef {
-  id: string;
-  label: string;
-  repo: string;
-  lib: string;
-  mb: number;
-  vram: number;
-}
-
-/** The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it. Both Apache-2.0. */
-const MODELS: ModelDef[] = [
-  { id: 'Qwen3-0.6B-q4f16_1-MLC', label: 'Qwen3 0.6B', repo: 'https://huggingface.co/mlc-ai/Qwen3-0.6B-q4f16_1-MLC', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm', mb: 352, vram: 1403.34 },
-  { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label: 'Qwen2.5 0.5B', repo: 'https://huggingface.co/mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', lib: 'Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 290, vram: 944.62 },
-];
 const VENDOR = '/vendor/webllm';
 /** WebLLM's own Cache API stores (weights + tokenizer, chat config, compiled model code). */
 const WEBLLM_CACHES = ['webllm/model', 'webllm/config', 'webllm/wasm'];
-const IDLE_UNLOAD_MS = 5 * 60_000;
+const IDLE_UNLOAD_MS = 2 * 60_000;
 
 /** What the settings panel shows. `model` and `downloaded` are kept on this device. */
 export const offlineBrain = createStore(
@@ -48,6 +37,12 @@ export const offlineBrain = createStore(
 /** The test engine, when a browser test put one there. */
 interface TestEngine {
   ready?: boolean;
+  /** Stands in for loading the model into memory (a reply waits for it). */
+  load?(): Promise<unknown> | unknown;
+  /** Told when the model leaves memory. */
+  unload?(): void;
+  /** How long after the last use the model leaves memory (instead of two minutes). */
+  idleMs?: number;
   chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal): Promise<unknown> | unknown;
 }
 const testEngine = (): TestEngine | null => {
@@ -90,7 +85,7 @@ export async function offlineReady(): Promise<boolean> {
   if (Date.now() - checkedAt < 10 * 60_000) return true;
   try {
     // WebLLM's own check, done here without loading WebLLM: the weight list and every shard it names.
-    const base = `${currentModel().repo}/resolve/main/`;
+    const base = modelBase(currentModel());
     const cache = await caches.open('webllm/model');
     const list = await cache.match(new Request(`${base}tensor-cache.json`));
     if (!list) return false;
@@ -157,7 +152,8 @@ function dropWorker(): void {
 
 const appConfig = () => ({
   model_list: MODELS.map((m) => ({
-    model: m.repo,
+    // Pinned to one commit (offline/models.ts): WebLLM keeps a URL that names its revision.
+    model: modelBase(m),
     model_id: m.id,
     // The model's compiled code comes from this site, not GitHub: same version, no third party.
     model_lib: new URL(`${VENDOR}/libs/${m.lib}`, location.origin).href,
@@ -169,11 +165,18 @@ const appConfig = () => ({
   })),
 });
 
+const notHere = () => new Error("The offline brain isn't on this phone yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi).");
+const stopped = () => Object.assign(new Error('stopped'), { name: 'AbortError' });
+
 let loading: Promise<void> | null = null;
-/** Download (the first time) and load the model; `onProgress` gets 0–1 and WebLLM's own words. */
-function load(onProgress?: (frac: number, text: string) => void): Promise<void> {
+/**
+ * Load the model into memory; `onProgress` gets 0–1 and WebLLM's own words. Only DOWNLOAD
+ * (`download` true) may fetch it from the internet: otherwise every file must already be here.
+ */
+function load(onProgress?: (frac: number, text: string) => void, download = false): Promise<void> {
   if (offlineBrain.get().loaded && worker) return Promise.resolve();
   loading ??= (async () => {
+    if (!download && !(await offlineReady())) throw notHere();
     const model = currentModel();
     offlineBrain.set({ busy: offlineBrain.get().downloaded ? 'load' : 'download', progress: 0, text: '' });
     try {
@@ -183,6 +186,10 @@ function load(onProgress?: (frac: number, text: string) => void): Promise<void> 
         onProgress?.(frac, e.text ?? '');
       });
       offlineBrain.set({ downloaded: true, loaded: true });
+      armIdle();
+    } catch (e) {
+      dropWorker(); // a worker that could not load holds nothing worth keeping
+      throw e;
     } finally {
       offlineBrain.set({ busy: '' });
       loading = null;
@@ -201,23 +208,56 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
     t.ready = true;
     offlineBrain.set({ downloaded: true, loaded: true });
     onProgress?.(1, 'done');
+    freeModel();
     return;
   }
   const s = await offlineSupport();
   if (!s.ok) throw new Error(s.reason);
   try {
-    await load(onProgress);
+    await load(onProgress, true);
   } catch (e) {
     if (currentModel().id !== MODELS[1]!.id && tooBig(e)) {
       dropWorker();
       await clearCaches();
       offlineBrain.set({ model: MODELS[1]!.id, downloaded: false });
       onProgress?.(0, 'Too big for this phone: getting the smaller model instead');
-      await load(onProgress);
-      return;
-    }
-    throw e;
+      await load(onProgress, true);
+    } else throw e;
   }
+  // Downloaded is all that was asked: the model leaves memory until it is needed (the camera, the
+  // namer and the reader need the room), and files from an older pinned revision go.
+  freeModel();
+  await pruneOtherRevisions();
+}
+
+/** Remove cached model files that are not the current model's pinned revision (an older download). */
+async function pruneOtherRevisions(): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  const keep = modelBase(currentModel());
+  for (const name of ['webllm/model', 'webllm/config']) {
+    try {
+      const c = await caches.open(name);
+      for (const r of await c.keys()) if (r.url.startsWith('https://huggingface.co/') && !r.url.startsWith(keep)) await c.delete(r);
+    } catch {
+      /* no cache storage */
+    }
+  }
+}
+
+/** Free the model's memory now (the download stays). */
+function freeModel(): void {
+  clearTimeout(idle);
+  testEngine()?.unload?.();
+  dropWorker();
+}
+
+let idle: ReturnType<typeof setTimeout> | undefined;
+/** The model leaves memory a while after it was last used (sooner than the phone would kill the page for it). */
+function armIdle(): void {
+  clearTimeout(idle);
+  const t = testEngine();
+  if (!worker && !t) return;
+  idle = setTimeout(() => (offlineBrain.get().busy ? armIdle() : freeModel()), t?.idleMs ?? IDLE_UNLOAD_MS);
 }
 
 async function clearCaches(): Promise<void> {
@@ -258,25 +298,37 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   };
   const t = testEngine();
   if (t) {
-    const r = await t.chat(messages, on, signal);
-    if (!raw && typeof r === 'string') raw = r;
-    const secs = (performance.now() - started) / 1000;
-    return { text: cleanReply(raw).trim(), tokens: count, perSecond: secs > 0 ? count / secs : 0 };
-  }
-  await load();
-  offlineBrain.set({ busy: 'reply' });
-  const stop = () => void call('stop').catch(() => undefined);
-  signal?.addEventListener('abort', stop, { once: true });
+    if (t.ready === false) throw notHere();
+    await t.load?.();
+  } else await load();
+  // A "stop" while the model was loading: an abort that already happened never fires again for a
+  // listener added now, so it is checked here, and no reply is written at all.
+  if (signal?.aborted) throw stopped();
   try {
-    const done = await call('chat', { messages, max: 400 }, (e) => {
-      if (e.t === 'token' && e.text) on(e.text);
-    });
-    const secs = (performance.now() - started) / 1000;
-    const tokens = done.usage?.tokens ?? count;
-    return { text: cleanReply(raw).trim(), tokens, perSecond: done.usage?.perSecond ?? (secs > 0 ? tokens / secs : 0) };
+    if (t) {
+      const r = await t.chat(messages, on, signal);
+      if (signal?.aborted) throw stopped();
+      if (!raw && typeof r === 'string') raw = r;
+      const secs = (performance.now() - started) / 1000;
+      return { text: cleanReply(raw).trim(), tokens: count, perSecond: secs > 0 ? count / secs : 0 };
+    }
+    offlineBrain.set({ busy: 'reply' });
+    const stop = () => void call('stop').catch(() => undefined);
+    signal?.addEventListener('abort', stop, { once: true });
+    try {
+      const done = await call('chat', { messages, max: 400 }, (e) => {
+        if (e.t === 'token' && e.text) on(e.text);
+      });
+      if (signal?.aborted) throw stopped();
+      const secs = (performance.now() - started) / 1000;
+      const tokens = done.usage?.tokens ?? count;
+      return { text: cleanReply(raw).trim(), tokens, perSecond: done.usage?.perSecond ?? (secs > 0 ? tokens / secs : 0) };
+    } finally {
+      signal?.removeEventListener('abort', stop);
+      offlineBrain.set({ busy: '' });
+    }
   } finally {
-    signal?.removeEventListener('abort', stop);
-    offlineBrain.set({ busy: '' });
+    armIdle();
   }
 }
 
@@ -310,7 +362,19 @@ function agendaLines(now = Date.now()): string[] {
 
 /** Answer one message on this phone: the prompt (persona, memory, agenda, library, recent turns) and the streamed reply. */
 export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void): Promise<{ text: string; tokens: number; perSecond: number }> {
+  // Made before the first wait, so a "stop" while the library is searched counts too.
+  const ctl = new AbortController();
+  replying = ctl;
+  try {
+    return await answerWith(ctl.signal, question, recent, onToken);
+  } finally {
+    if (replying === ctl) replying = null;
+  }
+}
+
+async function answerWith(signal: AbortSignal, question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void): Promise<{ text: string; tokens: number; perSecond: number }> {
   const hits = await searchLocal(question, 3).catch(() => []);
+  if (signal.aborted) throw stopped();
   const now = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const messages = buildOfflinePrompt({
     name: settings.get().name,
@@ -321,21 +385,7 @@ export async function answerOffline(question: string, recent: { role: 'user' | '
     recent,
     question,
   });
-  replying = new AbortController();
-  try {
-    return await offlineReply(messages, onToken, replying.signal);
-  } finally {
-    replying = null;
-  }
-}
-
-// Phone memory is tight: the model goes when Ghosty has been in the background a while.
-if (typeof document !== 'undefined') {
-  let idle: ReturnType<typeof setTimeout> | undefined;
-  document.addEventListener('visibilitychange', () => {
-    clearTimeout(idle);
-    if (document.visibilityState === 'hidden' && worker) idle = setTimeout(() => { if (!offlineBrain.get().busy) dropWorker(); }, IDLE_UNLOAD_MS);
-  });
+  return offlineReply(messages, onToken, signal);
 }
 
 /** The size of the model being used, for the settings panel. */

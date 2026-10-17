@@ -24,7 +24,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
   mode.addEventListener('change', () => {
     const v = mode.value === 'always' || mode.value === 'off' ? mode.value : 'auto';
     settings.set({ offlineBrain: v });
-    toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
+    // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
+    if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
+    else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
   });
   const out = h('div.note.obtest');
   let ok = false;
