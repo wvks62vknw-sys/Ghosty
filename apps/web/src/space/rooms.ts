@@ -5,7 +5,7 @@
  * readPlan, so what comes out is always a checked plan (the box round the rooms at 0, 0, furniture
  * kept in it, an opening that no longer fits its wall left out — named in `dropped`).
  */
-import { DEFAULTS, bounds, edgeOf, lPoly, openingProblem, openingSpan, rectPoly, type Corner, type Opening, type Pt, type RoomShape } from '../../../../packages/shared/src/design';
+import { DEFAULTS, bounds, edgeOf, lPoly, openingProblem, openingSpan, pointInPoly, rectPoly, segmentsCross, type Corner, type Opening, type Pt, type RoomShape } from '../../../../packages/shared/src/design';
 import { GRID, layoutOf, readPlan, type Plan } from './plan';
 
 /** A plan with its architecture spelled out (a v1 plan becomes one box room, nothing in its walls). */
@@ -76,17 +76,49 @@ export function outline(s: Shape): Pt[] {
   return s.kind === 'l' ? lPoly(s.x, s.y, s.w, s.d, s.nw, s.nd, s.corner) : rectPoly(s.x, s.y, s.w, s.d);
 }
 
-/** Resize one room (cm), keeping its shape (an L keeps its notch) and its top-left corner. */
+/**
+ * Resize one room (cm), keeping its shape (an L keeps its notch) and its top-left corner. Its doors
+ * and windows stay on their walls, where they were across the plan (slid in from a wall's end when
+ * it got shorter). Throws in words when the new size would run into another room.
+ */
 export function resizeRoom(plan: Plan, roomId: string, w: number, d: number): { plan: Plan; dropped: string[] } {
   const p = ensureV2(plan);
   const room = p.rooms.find((r) => r.id === roomId) ?? p.rooms[0]!;
   const s = shapeOf(room);
   const W = snap(Math.max(50, w));
   const D = snap(Math.max(50, d));
+  const old = { ...room, poly: room.poly.map((q): Pt => [q[0], q[1]]) };
   // A room drawn by hand keeps its outline, stretched to the new size.
-  if (s.kind === 'other') room.poly = room.poly.map(([x, y]): Pt => [Math.round(s.x + ((x - s.x) * W) / s.w), Math.round(s.y + ((y - s.y) * D) / s.d)]);
+  const stretch = ([x, y]: Pt): Pt => [s.x + ((x - s.x) * W) / s.w, s.y + ((y - s.y) * D) / s.d];
+  if (s.kind === 'other') room.poly = room.poly.map((q): Pt => stretch(q).map(Math.round) as Pt);
   else room.poly = outline({ ...s, w: W, d: D, nw: Math.min(s.nw, W - 30), nd: Math.min(s.nd, D - 30) });
+  const hit = p.rooms.find((r) => r !== room && roomsOverlap(r.poly, room.poly));
+  if (hit) throw new Error(`${room.name} at ${W} × ${D} cm would run into ${hit.name}: move or resize ${hit.name} first`);
+  // `at` is measured from a wall's first corner, and on the bottom and left walls that corner moves:
+  // put each opening back where it was across the plan, on its wall's new line.
+  p.openings = p.openings.map((o) => {
+    if (o.room !== room.id || o.wall >= room.poly.length || room.poly.length !== old.poly.length) return o;
+    const mid = openingSpan(old, o).mid;
+    const m = s.kind === 'other' ? stretch(mid) : mid;
+    const e = edgeOf(room.poly, o.wall);
+    const at = (m[0] - e.a[0]) * e.ux + (m[1] - e.a[1]) * e.uy - o.w / 2;
+    return { ...o, at: Math.round(Math.max(5, Math.min(e.len - o.w - 5, at)) * 10) / 10 };
+  });
   return settle(p);
+}
+
+/** Do two rooms share floor (not just a wall)? Tested at the middle of every cell of the grid their corners make, and where walls cross. */
+export function roomsOverlap(a: Pt[], b: Pt[]): boolean {
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) if (segmentsCross(a[i]!, a[(i + 1) % a.length]!, b[j]!, b[(j + 1) % b.length]!)) return true;
+  const xs = [...new Set([...a, ...b].map((q) => q[0]))].sort((x, y) => x - y);
+  const ys = [...new Set([...a, ...b].map((q) => q[1]))].sort((x, y) => x - y);
+  for (let j = 0; j + 1 < ys.length; j++) {
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const c: Pt = [(xs[i]! + xs[i + 1]!) / 2, (ys[j]! + ys[j + 1]!) / 2];
+      if (pointInPoly(c, a, 0) && pointInPoly(c, b, 0)) return true;
+    }
+  }
+  return false;
 }
 
 /** Make a room a box or an L (its notch nw × nd cm cut from `corner`). */

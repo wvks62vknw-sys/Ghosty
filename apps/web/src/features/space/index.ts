@@ -382,7 +382,11 @@ async function saveFile(blob: Blob, name: string): Promise<'share' | 'download'>
 export function openSpace(widthCm?: number, depthCm?: number): void {
   const w = Number(widthCm);
   const d = Number(depthCm);
-  if (w >= 50 && w <= 5000 && d >= 50 && d <= 5000) space.setRoom({ w, d });
+  try {
+    if (w >= 50 && w <= 5000 && d >= 50 && d <= 5000) space.setRoom({ w, d });
+  } catch (e) {
+    toast(String((e as Error)?.message ?? e), 'warn');
+  }
   go('space');
 }
 
@@ -427,7 +431,11 @@ export const spaceTab: TabDef = {
       if (!w || !d) return void toast('Type the room’s width and depth (cm, or e.g. 4.2 m)', 'warn');
       if (w < 500 || d < 500 || w > 50000 || d > 50000) return void toast('A room between 0.5 m and 50 m each way', 'warn');
       const name = space.get().plan.rooms?.length ? `${selRoom().name}: ` : 'Room ';
-      dropNote(space.setRoom({ w: w / 10, d: d / 10 }, selRoomId()));
+      try {
+        dropNote(space.setRoom({ w: w / 10, d: d / 10 }, selRoomId()));
+      } catch (e) {
+        return void toast(String((e as Error)?.message ?? e), 'warn');
+      }
       toast(`${name}${Math.round(w / 10)} × ${Math.round(d / 10)} cm`, 'ok');
     };
     for (const i of [wIn, dIn]) i.addEventListener('keydown', (e) => e.key === 'Enter' && setRoom());
@@ -854,7 +862,8 @@ export const spaceTab: TabDef = {
       roomKey = key;
       const gaps = tightGaps(plan.items);
       const bad = clashes(plan.room, plan.items, roomsOf(plan));
-      const open = largestOpen(plan.room, plan.items);
+      // Only floor counts as open: not an L's notch, nor the gap beside a smaller room.
+      const open = largestOpen(plan.room, plan.items, GRID, roomsOf(plan));
       const lay = layoutOf(plan);
       const floor = lay.rooms.reduce((s, r) => s + polyArea(r.poly), 0);
       const swing = inDoorways(plan);
@@ -892,11 +901,11 @@ export const spaceTab: TabDef = {
       roomNote.textContent = `${cur.name}: ${areaText(polyArea(cur.poly))}, walls ${(polyPerimeter(cur.poly) / 100).toFixed(2)} m${cs.kind === 'l' ? ' (L-shaped)' : ''}. Plan: ${areaText(floor)}, ${doors} door${doors === 1 ? '' : 's'}, ${lay.openings.length - doors} window${lay.openings.length - doors === 1 ? '' : 's'}.`;
       paintSel();
       paintReview();
-      const used = plan.items.reduce((s, it) => s + it.w * it.d, 0) / (plan.room.w * plan.room.d);
+      const used = plan.items.reduce((s, it) => s + it.w * it.d, 0) / Math.max(1, floor);
       P.dials([
         ['PIECES', Math.min(1, plan.items.length / 12), String(plan.items.length)],
         ['FLOOR USED', Math.min(1, used), `${Math.round(used * 100)}%`],
-        ['OPEN', open.area / (plan.room.w * plan.room.d), `${(open.w / 100).toFixed(1)}×${(open.h / 100).toFixed(1)}`, '#52f2b5'],
+        ['OPEN', open.area / Math.max(1, floor), `${(open.w / 100).toFixed(1)}×${(open.h / 100).toFixed(1)}`, '#52f2b5'],
       ]);
       const sel = plan.items.find((i) => i.id === selected);
       selName.textContent = sel ? `${sel.label} · ${sel.w} × ${sel.d} cm` : 'Tap a piece to choose it, drag to move it';
@@ -915,7 +924,11 @@ export const spaceTab: TabDef = {
           const text = m.kind === 'rect' ? `${cmText(m.w)} × ${cmText(m.h ?? 0)}` : cmText(m.w);
           const use = (k: 'w' | 'd') => button(k === 'w' ? 'AS WIDTH' : 'AS DEPTH', () => {
             const r = space.get().plan.room;
-            space.setRoom(k === 'w' ? { w: m.w / 10, d: r.d } : { w: r.w, d: m.w / 10 });
+            try {
+              dropNote(space.setRoom(k === 'w' ? { w: m.w / 10, d: r.d } : { w: r.w, d: m.w / 10 }));
+            } catch (e) {
+              toast(String((e as Error)?.message ?? e), 'warn');
+            }
           });
           mList.append(h('div.row.wrap.spacemrow', h('span', h('b', text), h('small', ` ${m.kind === 'rect' ? 'wall' : 'length'} · ${m.confidence} · ${m.via}`)), use('w'), use('d')));
         });

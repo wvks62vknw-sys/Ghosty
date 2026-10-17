@@ -20,6 +20,7 @@ import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
 import { splineEmbedUrl } from '../../studio/spline';
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
+import type { WalkState } from '../../studio/walk';
 
 /** The samples that ship with Ghosty (public/models), each credited as its licence asks. */
 export const SAMPLES = [
@@ -373,8 +374,10 @@ export const studioTab: TabDef = {
       ceilBtn.textContent = ceiling ? 'CEILING: ON' : 'CEILING: OFF';
       ceilBtn.classList.toggle('on', ceiling);
       if (lastRoom && V.info.room) {
+        // Rebuilding the room resets the view: WALK stands the walker back where they were, looking the same way.
         const mode = V.mode;
-        void showRoom(lastRoom).then(() => mode !== 'orbit' && setMode(mode));
+        const walk = V.walk ? { ...V.walk } : null;
+        void showRoom(lastRoom).then(() => mode !== 'orbit' && setMode(mode, walk));
       }
     });
     const paintRoom = () =>
@@ -388,8 +391,8 @@ export const studioTab: TabDef = {
         roomNote,
       );
     // ORBIT / WALK / AERIAL, on the scene while a room is showing.
-    const setMode = (m: ViewMode) => {
-      V.setMode(m);
+    const setMode = (m: ViewMode, keep: WalkState | null = null) => {
+      V.setMode(m, keep);
       stick.hidden = V.mode !== 'walk';
       paintModes();
     };

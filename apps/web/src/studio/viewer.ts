@@ -11,7 +11,7 @@
 import { explodeOffsets, ease, fmtLength, thinnestAxis, type V3 } from './explode';
 import { triangulate } from '../../../../packages/shared/src/design';
 import { roomBoxes, type RoomPlan } from './room';
-import { EYE, lookBy, startWalk, walkStep, type WalkState } from './walk';
+import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
 import { loadThree, type StudioLib, type TBufferGeometry, type TCamera, type TControls, type TMaterial, type TMesh, type TObject3D, type TPlane, type TRenderer, type TScene, type TVector3 } from './three';
 
@@ -639,9 +639,10 @@ export class Viewer {
   /**
    * How to look at a room: ORBIT round it, WALK through it (eye height 1.6 m; drag to look, the
    * joystick or arrow keys to move; walls stop you, doors let you through) or AERIAL (straight
-   * down from above). Anything that is not a room is always orbited.
+   * down from above). Anything that is not a room is always orbited. `keep`: where a walker stood
+   * before the room was rebuilt, to stand there again.
    */
-  setMode(mode: ViewMode): void {
+  setMode(mode: ViewMode, keep: WalkState | null = null): void {
     if (!this.camera || !this.controls) return;
     const m: ViewMode = this.roomPlan ? mode : 'orbit';
     this.mode = m;
@@ -651,7 +652,7 @@ export class Viewer {
       // Walls stay where they are while walking (taken apart they would float overhead).
       if (this.explode) this.setExplode(0, true);
       this.setTurntable(false);
-      this.walk = startWalk(this.roomPlan);
+      this.walk = resumeWalk(this.roomPlan, keep);
       this.camera.near = 0.05;
       this.camera.far = 200;
       this.camera.updateProjectionMatrix();

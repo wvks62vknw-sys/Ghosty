@@ -115,6 +115,11 @@ export function walkStep(plan: RoomPlan, s: WalkState, input: { fwd: number; sid
   return s;
 }
 
+/** Where WALK picks up again after the room is rebuilt (the CEILING turned on or off): where the walker stood, if they still can; else the start. */
+export function resumeWalk(plan: RoomPlan, was: WalkState | null): WalkState {
+  return was && canStand(plan, was.x, was.z) ? { ...was } : startWalk(plan);
+}
+
 /**
  * Where WALK starts: just inside the first door, looking into its room; with no door, the middle
  * of the first room (or the first point inside it), looking up the plan.
