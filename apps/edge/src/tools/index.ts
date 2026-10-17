@@ -31,12 +31,13 @@ import { reverseTools } from './reverse';
 import { scanTools } from './scan';
 import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
+import { studioTools } from './studio';
 import type { Tool } from './types';
 import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...studioTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -230,6 +231,14 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: scanTools,
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
+  },
+  // 3D STUDIO (model3d.ts, features/studio): pictures into 3-D models, and the studio itself.
+  // Named "3d" and one tool: the plain-turn prompt names every group's tools within a hard budget.
+  {
+    name: '3d',
+    tools: studioTools,
+    when: /\b(3-?d|three[- ]?d|models?|mesh|meshes|glb|gltf|spline|take (?:it |this |that )?apart|exploded view|explode|reconstruct|reassemble|studio|cad|sculpt\w*)\b/i,
+    about: 'You can turn a picture or a described object into a 3-D model (make_3d: free, best effort, ~2–3 a day, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link (make_3d with no picture).',
   },
 ];
 

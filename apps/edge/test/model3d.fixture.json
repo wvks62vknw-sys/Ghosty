@@ -1,0 +1,286 @@
+{
+ "_note": "Captured 2026-10-17 from https://tencent-hunyuan3d-2.hf.space (Gradio 4.44.0, sse_v3): /config dependencies (trimmed), /upload answer, /queue/data streams for shape_generation and on_export_click. The quota error is the documented ZeroGPU wording (huggingface.co forums, Jul 2025).",
+ "config": {
+  "version": "4.44.0",
+  "protocol": "sse_v3",
+  "dependencies": [
+   {
+    "id": 0,
+    "api_name": "load_example",
+    "targets": [
+     [
+      66,
+      "click"
+     ]
+    ],
+    "inputs": [
+     66
+    ],
+    "outputs": [
+     6
+    ]
+   },
+   {
+    "id": 1,
+    "api_name": "load_example_1",
+    "targets": [
+     [
+      69,
+      "click"
+     ]
+    ],
+    "inputs": [
+     69
+    ],
+    "outputs": [
+     8
+    ]
+   },
+   {
+    "id": 2,
+    "api_name": "load_example_2",
+    "targets": [
+     [
+      72,
+      "click"
+     ]
+    ],
+    "inputs": [
+     72
+    ],
+    "outputs": [
+     12,
+     13,
+     15
+    ]
+   },
+   {
+    "id": 3,
+    "api_name": "lambda",
+    "targets": [
+     [
+      5,
+      "select"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     63
+    ]
+   },
+   {
+    "id": 4,
+    "api_name": "lambda_1",
+    "targets": [
+     [
+      7,
+      "select"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     63
+    ]
+   },
+   {
+    "id": 5,
+    "api_name": "shape_generation",
+    "targets": [
+     [
+      18,
+      "click"
+     ]
+    ],
+    "inputs": [
+     8,
+     6,
+     12,
+     13,
+     15,
+     16,
+     35,
+     39,
+     33,
+     36,
+     30,
+     40,
+     31
+    ],
+    "outputs": [
+     21,
+     57,
+     61,
+     33
+    ]
+   },
+   {
+    "id": 6,
+    "api_name": "lambda_2",
+    "targets": [
+     [
+      null,
+      "then"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     47,
+     46,
+     51,
+     52
+    ]
+   },
+   {
+    "id": 7,
+    "api_name": "lambda_3",
+    "targets": [
+     [
+      null,
+      "then"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     55
+    ]
+   },
+   {
+    "id": 8,
+    "api_name": "generation_all",
+    "targets": [
+     [
+      19,
+      "click"
+     ]
+    ],
+    "inputs": [
+     8,
+     6,
+     12,
+     13,
+     15,
+     16,
+     35,
+     39,
+     33,
+     36,
+     30,
+     40,
+     31
+    ],
+    "outputs": [
+     21,
+     22,
+     57,
+     61,
+     33
+    ]
+   },
+   {
+    "id": 9,
+    "api_name": "lambda_4",
+    "targets": [
+     [
+      null,
+      "then"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     47,
+     46,
+     51,
+     52
+    ]
+   },
+   {
+    "id": 10,
+    "api_name": "lambda_5",
+    "targets": [
+     [
+      null,
+      "then"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     55
+    ]
+   },
+   {
+    "id": 11,
+    "api_name": "on_gen_mode_change",
+    "targets": [
+     [
+      25,
+      "change"
+     ]
+    ],
+    "inputs": [
+     25
+    ],
+    "outputs": [
+     35
+    ]
+   },
+   {
+    "id": 12,
+    "api_name": "on_decode_mode_change",
+    "targets": [
+     [
+      26,
+      "change"
+     ]
+    ],
+    "inputs": [
+     26
+    ],
+    "outputs": [
+     36
+    ]
+   },
+   {
+    "id": 13,
+    "api_name": "lambda_6",
+    "targets": [
+     [
+      51,
+      "click"
+     ]
+    ],
+    "inputs": [],
+    "outputs": [
+     55
+    ]
+   },
+   {
+    "id": 14,
+    "api_name": "on_export_click",
+    "targets": [
+     [
+      null,
+      "then"
+     ]
+    ],
+    "inputs": [
+     21,
+     22,
+     45,
+     46,
+     47,
+     49
+    ],
+    "outputs": [
+     59,
+     52
+    ]
+   }
+  ]
+ },
+ "upload": [
+  "/tmp/gradio/1e78bab1b081a1cac56816fd27f3f22b5520810e2d1cca5e1acab2c38d631861/chair.jpg"
+ ],
+ "sseShape": "data: {\"msg\":\"estimation\",\"event_id\":\"b0310ed910e4474185f79d6cf2bca2e7\",\"rank\":0,\"queue_size\":1,\"rank_eta\":8.905270744571448}\n\ndata: {\"msg\":\"process_starts\",\"event_id\":\"b0310ed910e4474185f79d6cf2bca2e7\",\"eta\":8.905270744571448}\n\ndata: {\"msg\":\"process_completed\",\"event_id\":\"b0310ed910e4474185f79d6cf2bca2e7\",\"output\":{\"data\":[{\"value\":{\"path\":\"/tmp/gradio/f0c88515f1f3accf7dcedb15b5862d091c266e7eed72976f55e8e3369a201e4b/white_mesh.glb\",\"url\":\"https://tencent-hunyuan3d-2.hf.space/file=/tmp/gradio/f0c88515f1f3accf7dcedb15b5862d091c266e7eed72976f55e8e3369a201e4b/white_mesh.glb\",\"size\":11665764,\"orig_name\":\"white_mesh.glb\",\"mime_type\":null,\"is_stream\":false,\"meta\":{\"_type\":\"gradio.FileData\"}},\"__type__\":\"update\"},\"\\n        <div style='height: 650; width: 100%;'>\\n        <iframe src=\\\"/static/3708e631-6430-4929-80b9-dbd55b0bd1a9/white_mesh.html\\\" height=\\\"650\\\" width=\\\"100%\\\" frameborder=\\\"0\\\"></iframe>\\n        </div>\\n    \",{\"model\":{\"shapegen\":\"tencent/Hunyuan3D-2/hunyuan3d-dit-v2-0\",\"texgen\":\"tencent/Hunyuan3D-2\"},\"params\":{\"caption\":\"\",\"steps\":30,\"guidance_scale\":5,\"seed\":6024314,\"octree_resolution\":256,\"check_box_rembg\":true,\"num_chunks\":8000},\"number_of_faces\":762352,\"number_of_vertices\":209690,\"time\":{\"remove background\":0.9892091751098633,\"shape generation\":6.534787893295288,\"export to trimesh\":0.10843753814697266,\"total\":7.634737014770508}},6024314],\"is_generating\":false,\"duration\":10.432498931884766,\"average_duration\":8.8576065206176,\"render_config\":null,\"changed_state_ids\":[]},\"success\":true}\n\ndata: {\"msg\":\"close_stream\",\"event_id\":null}\n\n",
+ "sseExport": "data: {\"msg\":\"estimation\",\"event_id\":\"4532df3aa7014034b81c349cf97eb227\",\"rank\":0,\"queue_size\":1,\"rank_eta\":2.8832715669037987}\n\ndata: {\"msg\":\"process_starts\",\"event_id\":\"4532df3aa7014034b81c349cf97eb227\",\"eta\":2.8832715669037987}\n\ndata: {\"msg\":\"process_completed\",\"event_id\":\"4532df3aa7014034b81c349cf97eb227\",\"output\":{\"data\":[\"\\n        <div style='height: 650; width: 100%;'>\\n        <iframe src=\\\"/static/fa578732-cfae-4ffd-9048-59621a5cdd25/white_mesh.html\\\" height=\\\"650\\\" width=\\\"100%\\\" frameborder=\\\"0\\\"></iframe>\\n        </div>\\n    \",{\"interactive\":true,\"value\":{\"path\":\"/tmp/gradio/6f55e746f9685b1356092ff1a308a520a1ef39a2fd50e8b891845eef0a2ae1b4/white_mesh.glb\",\"url\":\"https://tencent-hunyuan3d-2.hf.space/file=/tmp/gradio/6f55e746f9685b1356092ff1a308a520a1ef39a2fd50e8b891845eef0a2ae1b4/white_mesh.glb\",\"size\":null,\"orig_name\":\"white_mesh.glb\",\"mime_type\":null,\"is_stream\":false,\"meta\":{\"_type\":\"gradio.FileData\"}},\"__type__\":\"update\"}],\"is_generating\":false,\"duration\":14.729779720306396,\"average_duration\":2.882930446246972,\"render_config\":null,\"changed_state_ids\":[]},\"success\":true}\n\ndata: {\"msg\":\"close_stream\",\"event_id\":null}\n\n",
+ "sseQuota": "data: {\"msg\":\"estimation\",\"event_id\":\"e1\",\"rank\":0,\"queue_size\":1,\"rank_eta\":9.1}\n\ndata: {\"msg\":\"process_completed\",\"event_id\":\"e1\",\"output\":{\"error\":\"You have exceeded your free GPU quota (60s requested vs. 55s left). Try again in 13:46:29\",\"title\":\"ZeroGPU quota exceeded\"},\"success\":false}\n\ndata: {\"msg\":\"close_stream\",\"event_id\":null}\n\n"
+}

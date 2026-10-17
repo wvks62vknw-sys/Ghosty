@@ -262,6 +262,19 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Outlook.com / Hotmail / Live addresses cannot be linked: Microsoft no longer allows app passwords for mail.',
       ],
     },
+    {
+      name: 'huggingface',
+      label: 'Hugging Face (3-D models)',
+      hint: 'starts with hf_…',
+      link: 'https://huggingface.co/settings/tokens/new?tokenType=read',
+      need: 'optional',
+      why: "Gives the 3D STUDIO's picture-to-3-D maker your own free daily GPU allowance (about 5 minutes a day) instead of the small one shared by everyone without an account. Free, no card.",
+      steps: [
+        'Open the link and create a free Hugging Face account (confirm the email they send), then open the link again.',
+        'The token type is already "Read". Type any name (e.g. Ghosty) and press "Create token".',
+        'Copy the token (it starts with hf_), paste it below and press SAVE.',
+      ],
+    },
   ];
 }
 
@@ -355,6 +368,9 @@ export async function testKey(name: string, value: string, repo?: string): Promi
           return { ok: false, info: e instanceof MailError ? e.message.slice(0, 400) : 'could not check the email account; try again in a minute' };
         }
       }
+      case 'huggingface':
+        status = await check('https://huggingface.co/api/whoami-v2', { headers: bearer });
+        break;
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);
