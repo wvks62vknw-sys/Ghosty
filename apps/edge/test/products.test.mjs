@@ -169,12 +169,15 @@ test('find_furniture: two searches, the shop pages read (≤ 8), what fits ranke
   }
 });
 
-test('find_furniture is offered for furniture words and the planner can be opened from the chat', () => {
+test('find_furniture is offered for furniture words (keyword-gated); the planner can always be opened from the chat', () => {
   const on = (text) => T.selectGroups(text, new Set()).on.map((g) => g.name);
   assert.ok(on('find me a sofa that fits 2 metres').includes('home'));
   assert.ok(on('will a double wardrobe fit?').includes('home'));
   assert.ok(!on('what is the weather tomorrow').includes('home'));
   const names = T.selectTools('make space in my living room', new Set()).map((t) => t.name);
   assert.ok(names.includes('find_furniture') && names.includes('open_space'));
-  assert.ok(!T.selectTools('hello', new Set()).some((t) => t.name === 'open_space'), 'not described on a plain turn');
+  // find_furniture costs nothing on other turns; open_space is a short screen command beside open_lens
+  const hello = T.selectTools('hello', new Set()).map((t) => t.name);
+  assert.ok(!hello.includes('find_furniture'), 'find_furniture is not described on a plain turn');
+  assert.ok(hello.includes('open_space'));
 });

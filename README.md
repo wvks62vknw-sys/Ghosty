@@ -94,6 +94,14 @@ tests/       local preview server + browser test
   **AIM: point the phone at the sky or the street** — labels float over aircraft (callsign, height, distance),
   ships, buses and trams, hilltops, towers and landmarks, and the space station when it is up, with a compass
   ribbon and the horizon; tap one for its card, or ask WHAT'S THAT? (Places: Wikipedia, OpenStreetMap.)
+- **Measure, plan, fit** (Lens → MEASURE, the **SPACE** tab, `find_furniture`): real sizes from a photo —
+  a bank card or an A4 sheet on the wall sets the scale exactly (a door's height or a typed distance gives an
+  estimate), then two taps make a length and four a wall's width × height, in cm and ft/in with how far to
+  trust them. The SPACE PLANNER draws the room to scale with furniture in common UK sizes to drag about,
+  marks walkways under 70 cm, answers WILL IT FIT?, and MAKE SPACE proposes up to three layouts that free the
+  most floor (PNG/JSON export, kept on the phone). In chat, Ghosty finds furniture that fits at UK shops
+  (IKEA, Argos, Dunelm, John Lewis, Wayfair, DFS, Habitat, B&Q, eBay), reading each shop's own page for the
+  price and the size — never a guessed price — best fit then cheapest first, with links.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

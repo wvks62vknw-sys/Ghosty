@@ -36,17 +36,12 @@ export const uiTools: Tool[] = [
   client('reload_interface', 'Reload the interface so a freshly shipped change appears.', {}),
   client(
     'open_lens',
-    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled); scan = barcodes and QR codes (products, books, links), documents to PDF, translate a sign; aim = point the phone at the sky or the street for live labels on planes, ships, buses, places and the space station; measure = real sizes from a photo (a bank card, A4 sheet, door or distance for scale). Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
+    "Open the LENS tab (the phone's camera, vision on the phone). mode see = spot objects live; read = turn a document, sign or label into text (OCR) to save to the library, copy or send to you; hands = hand gestures; ask = take a picture and ask you about it (question pre-filled); scan = barcodes and QR codes (products, books, links), documents to PDF, translate a sign; aim = point the phone at the sky or the street for live labels on planes, ships, buses, places and the space station; measure = sizes from a photo. Use for \"read this\", \"scan this\", \"what am I looking at\", \"use the camera\". It never identifies people.",
     { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask', 'scan', 'aim', 'measure'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
   ),
+  client(
+    'open_space',
+    'Open the SPACE PLANNER (room plan to scale, furniture, WILL IT FIT?, MAKE SPACE); pass the room size in cm when known.',
+    { width_cm: { type: 'number' }, depth_cm: { type: 'number' } },
+  ),
 ];
-
-/**
- * The SPACE PLANNER (a client tool, kept out of uiTools: it is offered only with the keyword-gated
- * 'home' group in tools/index.ts, so its description costs nothing on other turns).
- */
-export const openSpaceTool: Tool = client(
-  'open_space',
-  "Open the SPACE PLANNER tab: a 2-D plan of a room in real sizes (walls from the Lens's MEASURE or typed), furniture to drag and rotate, walkway clearances, a WILL IT FIT? check and MAKE SPACE (up to 3 layouts freeing the most floor). Pass the room's size when known.",
-  { width_cm: { type: 'number', description: 'room width (cm)' }, depth_cm: { type: 'number', description: 'room depth (cm)' } },
-);

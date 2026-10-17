@@ -250,6 +250,25 @@ the first time.
   phone: to about 1 km for places (your Ghosty asks Wikipedia and OpenStreetMap about that square
   kilometre) and about 100 m for the aircraft lists.
 
+- **MEASURE: sizes from a photo** — tap **MEASURE**, then **HOLD FRAME** (or **PICK PHOTO**).
+  1. The scale: hold a **bank card** flat on the wall (or lay an **A4 sheet** there) and tap its four
+     corners; or choose **DOOR**, type its height (a UK internal door is 198 cm) and tap its top and
+     bottom; or choose **DISTANCE**, type how far you stand from the wall in metres and press **SET**.
+  2. Measure: **LENGTH** — tap two points; **WALL** — tap the wall's (or a window's, an alcove's) four
+     corners. Each size shows in cm and feet/inches with GOOD / FAIR / ROUGH: exact on the surface the card
+     lies on, an estimate anywhere else (a card on the floor does not measure the wall). **UNDO** takes the
+     last tap back.
+  3. **SAVE → PLANNER** puts the sizes in the SPACE tab (the wall's width becomes the room's width);
+     **ASK GHOSTY** sends them to Ghosty to find furniture that fits.
+
+- **SPACE: plan a room** (the SPACE tile in SYSTEMS, or say "open the space planner") — type the room's
+  width and depth, add furniture from the list (UK sizes) or your own, drag pieces with a finger (they snap
+  to the walls), **ROTATE** or **REMOVE** the chosen one. Red strips are gaps under 70 cm — too tight to
+  walk through. **WILL IT FIT?** checks something you might buy; **MAKE SPACE** offers up to three layouts
+  with more open floor (tap one to try it, **UNDO** to go back). **PNG** saves a picture of the plan,
+  **JSON** a file you can **IMPORT** later. The plan stays on this phone. Ask in the chat "find a 3 seater
+  sofa under 210 cm for £800" and Ghosty reads UK shops' own pages for prices and sizes (never guessed).
+
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
 

@@ -33,11 +33,11 @@ import { scanTools } from './scan';
 import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
-import { openSpaceTool, uiTools } from './ui';
+import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, openSpaceTool];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -77,7 +77,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'ui',
     tools: uiTools,
     when: 'always',
-    about: "You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow the owner's drive (road_ahead) and open their camera (open_lens: SEE objects, READ text, HANDS gestures, ASK about a picture).",
+    about: "You can drive the interface (open_tab, fly_to, set_layer, set_theme, set_sensor_mode), follow the owner's drive (road_ahead) and open their camera (open_lens: see, read, hands, ask, name, scan, aim, measure).",
   },
   {
     name: 'widgets',
@@ -232,10 +232,10 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
   },
-  // FIT FINDER and the SPACE PLANNER (tools/home.ts): furniture, sizes, measuring and making space.
+  // FIT FINDER (tools/home.ts): furniture, sizes, measuring and making space. (open_space sits in 'ui' with open_lens: naming it here too would push the plain prompt past its 5,500 characters.)
   {
     name: 'home',
-    tools: [...homeTools, openSpaceTool],
+    tools: homeTools,
     when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange)\b/i,
     about: 'You can find furniture that fits at UK shops (find_furniture: the shops\' own prices and sizes, never guessed; links) and open the SPACE PLANNER (open_space) to lay out a room and MAKE SPACE.',
   },
