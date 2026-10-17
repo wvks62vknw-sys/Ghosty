@@ -47,12 +47,17 @@ async function voiceTurn(): Promise<void> {
   }
 }
 
-/** Text with its web links made tappable (built as nodes: text can never become HTML). */
+/** A link to one of Ghosty's own pictures (made, or shared from the Lens): shown as the picture itself. */
+const PICTURE = new RegExp(`^${location.origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/i/[A-Za-z0-9_-]{16}$`);
+
+/** Text with its web links made tappable (built as nodes: text can never become HTML); a picture link becomes the picture. */
 function linked(text: string): HTMLElement {
   const out = h('span');
   let last = 0;
   for (const m of text.matchAll(/https?:\/\/[^\s<>"')\]]+[^\s<>"')\].,;:!?]/g)) {
-    out.append(text.slice(last, m.index), h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, m[0]));
+    out.append(text.slice(last, m.index));
+    if (PICTURE.test(m[0])) out.append(h('a.piccard', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, h('img', { src: m[0], alt: 'picture Ghosty made', loading: 'lazy' })));
+    else out.append(h('a', { href: m[0], target: '_blank', rel: 'noopener noreferrer' }, m[0]));
     last = m.index! + m[0].length;
   }
   out.append(text.slice(last));
@@ -327,9 +332,10 @@ export const coreTab: TabDef = {
         coins.start();
         indices.start();
         news.start();
+        // Whisper through the brain when it can hear (a Groq key, or Workers AI); older brains only say which keys are set.
         brain
           .status()
-          .then((s) => (whisper = s.keys.some((k) => k.name === 'groq' && k.set)))
+          .then((s) => (whisper = s.speech ? s.speech.stt : s.keys.some((k) => k.name === 'groq' && k.set)))
           .catch(() => undefined);
       },
       leave() {

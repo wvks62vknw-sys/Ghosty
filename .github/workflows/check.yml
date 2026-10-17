@@ -66,7 +66,7 @@ jobs:
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
           fail=0
-          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens progress; do
+          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens progress telegram voice direct journey memory projects upgrades; do
             # Street View's dives follow the frames, which software rendering draws slowly: give each run up to 8 minutes.
             if ! timeout 480 node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
               fail=1

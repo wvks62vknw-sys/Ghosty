@@ -410,3 +410,32 @@ test('in the brain: the Library tab turns it on, STUDY NOW studies at once, the 
   assert.equal((await api('GET', '/library/study')).next, null);
   assert.equal(storage.m.get('jobs').filter((j) => j.kind === 'study').length, 0);
 });
+
+test("levels: a topic's level comes from its place in the field (first third beginner, then intermediate, then advanced), the cursor reads them in that order, and the summary counts them", async () => {
+  assert.deepEqual([S.topicLevel(0, 30), S.topicLevel(9, 30), S.topicLevel(10, 30), S.topicLevel(19, 30), S.topicLevel(20, 30), S.topicLevel(29, 30)], ['beginner', 'beginner', 'intermediate', 'intermediate', 'advanced', 'advanced']);
+  assert.equal(S.topicLevel(0, 0), 'beginner');
+  assert.deepEqual(S.LEVELS, ['beginner', 'intermediate', 'advanced']);
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const none = S.studySummary(await S.loadStudy(st));
+  assert.deepEqual(none.levels.map((l) => l.level), ['beginner', 'intermediate', 'advanced']);
+  assert.equal(none.levels.reduce((n, l) => n + l.topics, 0), S.TOPIC_COUNT, 'every topic has one level');
+  assert.ok(none.levels.every((l) => l.read === 0));
+  // reading the first field from the start: its beginner third fills before anything intermediate
+  const n = first.topics.length;
+  const third = Math.ceil(n / 3);
+  st.m.set(S.STUDY_KEY, { focus: [first.id] });
+  const r = await S.studySession(st, lib, { reads: 2 });
+  assert.equal(r.state.cursor[first.id], 2, 'the picker walks the field from its first topic');
+  const sum = S.studySummary(r.state);
+  assert.equal(sum.levels[0].read, 2);
+  assert.equal(sum.levels[1].read, 0);
+  assert.equal(sum.levels[2].read, 0);
+  // a field read past its beginner third shows intermediate progress; the whole field read fills advanced too
+  const mid = S.studySummary({ ...r.state, cursor: { [first.id]: third + 1 } });
+  assert.equal(mid.levels[0].read, third);
+  assert.equal(mid.levels[1].read, 1);
+  const all = S.studySummary({ ...r.state, cursor: { [first.id]: n } });
+  assert.equal(all.levels.reduce((k, l) => k + l.read, 0), n);
+  assert.ok(all.levels[2].read > 0);
+});

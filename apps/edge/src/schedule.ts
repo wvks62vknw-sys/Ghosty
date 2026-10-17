@@ -15,8 +15,14 @@ import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
 export interface Job {
   id: string;
-  /** reminder = notify; task = Ghosty runs a prompt; verify = internal check of a shipped change; study = self-study session (no AI) */
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  /**
+   * reminder = notify; task = Ghosty runs a prompt; verify = internal check of a shipped change;
+   * study = self-study session (no AI); reflect = the nightly look back at the day's conversation
+   * (profile.ts); digest = the morning gathering of fresh knowledge (library/digest.ts);
+   * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
+   * upgrade = the daily upgrade ideas (upgrades.ts)
+   */
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;
@@ -117,6 +123,45 @@ export async function addJob(
     createdAt: Date.now(),
     ...(j.eventId ? { eventId: j.eventId } : {}),
   };
+  jobs.push(job);
+  await saveJobs(storage, jobs);
+  return job;
+}
+
+/**
+ * A job Ghosty keeps for itself (the nightly reflection, the morning digest): exactly one of
+ * its kind, first due at the given wall-clock time in `tz`. Already there: it is kept as it is
+ * (re-timed when the owner's time zone has changed) and any extra of the same kind goes, so
+ * this is safe to call on every request.
+ */
+export async function ensureJob(storage: DurableObjectStorage, j: { kind: Job['kind']; title: string; text: string; hour: number; minute: number; tz: string; repeat: Repeat }): Promise<Job> {
+  const tz = safeTz(j.tz);
+  const now = Date.now();
+  const z = zoned(now, tz);
+  let next = fromZoned(z.y, z.m, z.d, j.hour, j.minute, tz);
+  if (next <= now) next = fromZoned(z.y, z.m, z.d + 1, j.hour, j.minute, tz);
+  const jobs = await loadJobs(storage);
+  const mine = jobs.filter((x) => x.kind === j.kind);
+  if (mine.length) {
+    // The standing job stays: the one due at the asked wall-clock time (a stray duplicate from a merge or a second
+    // brain is usually due at some other time), the oldest of those, since jobs are listed by due time.
+    const onTime = (x: Job) => {
+      const w = zoned(x.next, tz);
+      return w.h === j.hour && w.mi === j.minute;
+    };
+    const keep = [...mine].sort((a, b) => Number(onTime(b)) - Number(onTime(a)) || a.createdAt - b.createdAt)[0]!;
+    const extras = new Set(mine.filter((x) => x !== keep));
+    let changed = extras.size > 0;
+    if (keep.tz !== tz) {
+      keep.tz = tz;
+      keep.next = next;
+      changed = true;
+    }
+    if (changed) await saveJobs(storage, jobs.filter((x) => !extras.has(x)));
+    return keep;
+  }
+  if (jobs.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
+  const job: Job = { id: newId(), kind: j.kind, title: j.title.trim().slice(0, 120), text: j.text.trim().slice(0, 4000), next, repeat: j.repeat, tz, createdAt: now };
   jobs.push(job);
   await saveJobs(storage, jobs);
   return job;

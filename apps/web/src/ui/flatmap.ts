@@ -21,6 +21,7 @@ import { home, ui } from '../state/app';
 import { cams, type Camera } from '../data/cameras';
 import { reverseAddress, shortName, whatIs } from '../data/places';
 import { enforce, ENFORCE_LABEL } from '../data/enforce';
+import { legColor, legPath, modeWord, type Journey } from '../data/journey';
 import { button, toast } from './components';
 import type { MapSpot } from './mapurls';
 
@@ -106,6 +107,10 @@ export interface FlatMap {
   open(spot: MapSpot, opts?: FlatMapOptions): Promise<void>;
   /** Where the map is looking (for the other views). */
   spot(): MapSpot;
+  /** Draw a public-transport journey leg by leg (ui/journeysheet.ts); null clears it. */
+  showJourney(journey: Journey | null): void;
+  /** Look at a point (a step of the journey the owner tapped). */
+  panTo(lat: number, lon: number, zoom?: number): void;
   invalidate(): void;
   destroy(): void;
 }
@@ -133,6 +138,8 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
   let pin: L.Marker | null = null;
   let extra: L.LayerGroup | null = null;
   let route: L.Polyline | null = null;
+  let journeyLayer: L.LayerGroup | null = null;
+  let journey: Journey | null = null;
   let measure: { on: boolean; pts: L.LatLng[]; line: L.Polyline | null; dots: L.LayerGroup | null } = { on: false, pts: [], line: null, dots: null };
   let gpsHere: { lat: number; lon: number } | null = null;
   let current: MapSpot = { lat: 0, lon: 0 };
@@ -332,6 +339,7 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       button('STREET VIEW', () => hooks.streetView({ ...here })),
       button('TRAFFIC', () => hooks.traffic({ ...here })),
       button('ROUTE HERE', () => void routeTo(current)),
+      button('JOURNEY', () => void journeyTo(here)),
       button('ELEVATION', () => void elevation(lat, lon, out)),
       button('NEARBY', () => void wiki(lat, lon, out)),
       button('GLOBE', () => {
@@ -434,6 +442,46 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     }
   };
 
+  // The GO panel with this spot as the destination (ui/journeysheet.ts): the sheet closes, the planner opens.
+  const journeyTo = async (to: MapSpot) => {
+    const { openJourneyPlanner } = await import('./journeysheet');
+    hooks.close();
+    openJourneyPlanner({ to: `${to.lat.toFixed(5)},${to.lon.toFixed(5)}`, toName: to.name || 'the pinned spot' });
+  };
+
+  // ---------- a journey (ui/journeysheet.ts): each leg in its line's colour, its stops as dots, the ends and changes ringed ----------
+  const drawJourney = () => {
+    void loadLeaflet().then((Lf) => {
+      if (!map || !journeyLayer) return;
+      journeyLayer.clearLayers();
+      const j = journey;
+      if (!j) return;
+      const group = journeyLayer;
+      let bb: L.LatLngBounds | null = null;
+      const ring = (p: { lat: number; lon: number; name: string }, fill: string, what: string) =>
+        group.addLayer(Lf.circleMarker([p.lat, p.lon], { radius: 6, color: '#fff', weight: 2, fillColor: fill, fillOpacity: 1, className: 'jend' }).bindTooltip(`${what}${p.name ? `: ${p.name}` : ''}`, { direction: 'top', offset: [0, -6] }));
+      for (const [i, leg] of j.legs.entries()) {
+        const path = legPath(leg);
+        if (path.length < 2) continue;
+        const color = legColor(leg);
+        const walk = leg.mode === 'walk';
+        // A dark casing under each line keeps it readable over any tiles.
+        group.addLayer(Lf.polyline(path, { color: '#02070d', weight: walk ? 7 : 10, opacity: 0.75, lineCap: 'round', className: 'jcase' }));
+        group.addLayer(Lf.polyline(path, { color, weight: walk ? 3 : 5, opacity: 0.95, lineCap: 'round', className: 'jleg', ...(walk ? { dashArray: '4 8' } : {}) }));
+        for (const p of path) bb = bb ? bb.extend(p) : Lf.latLngBounds(p, p);
+        for (const s of leg.stops) group.addLayer(Lf.circleMarker([s.lat, s.lon], { radius: 3, color, weight: 1.5, fillColor: '#02070d', fillOpacity: 1, className: 'jstop' }).bindTooltip(s.name, { direction: 'top', offset: [0, -4] }));
+        if (i === 0) ring(leg.from, '#52f2b5', 'Start');
+        if (i === j.legs.length - 1) ring(leg.to, '#ff4d6a', 'End');
+        else {
+          const next = j.legs[i + 1]!;
+          const board = next.mode !== 'walk';
+          ring(leg.to, board ? legColor(next) : color, board ? `Get on the ${next.line || modeWord(next)}` : 'Get off');
+        }
+      }
+      if (bb) map.fitBounds(bb.pad(0.12), { padding: [24, 24], maxZoom: 16 });
+    });
+  };
+
   // ---------- open / move ----------
   const onClick = (e: L.LeafletMouseEvent) => {
     if (measure.on) {
@@ -473,6 +521,7 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
       map = Lf.map(mapEl, { zoomControl: true, attributionControl: true, worldCopyJump: true, minZoom: 2, maxZoom: 20 });
       Lf.control.scale({ metric: true, imperial: true, position: 'bottomleft' }).addTo(map);
       extra = Lf.layerGroup().addTo(map);
+      journeyLayer = Lf.layerGroup().addTo(map);
       map.on('click', onClick);
       map.on('moveend', onMove);
       paintOverlays();
@@ -501,17 +550,25 @@ export function createFlatMap(host: HTMLElement, hooks: FlatMapHooks): FlatMap {
     }
     map.invalidateSize();
     onMove();
+    if (journey) drawJourney();
   };
 
   return {
     open,
     spot: () => ({ ...current }),
+    showJourney: (j) => {
+      journey = j;
+      drawJourney();
+    },
+    panTo: (lat, lon, zoom) => map?.setView([lat, lon], zoom ?? Math.max(map.getZoom(), 15), { animate: true }),
     invalidate: () => map?.invalidateSize(),
     destroy: () => {
       clearTimeout(moveTimer);
       map?.remove();
       map = null;
       base = null;
+      journeyLayer = null;
+      journey = null;
       overlays.clear();
     },
   };

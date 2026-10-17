@@ -10,7 +10,7 @@ export const lensTools: Tool[] = [
   {
     name: 'reverse_image_links',
     description:
-      'Reverse image search links for a picture at a public web address (https://…jpg/png/webp, or a picture Ghosty shared at /i/…): Google Lens, Bing Visual Search, Yandex Images and TinEye, each named plainly for the owner to tap. Nothing is uploaded and no engine is called by you — the engine fetches the picture from that address itself. Use when the owner pastes a picture link and asks where it is from, what it shows, or to search by image. Never for finding who a person is from their face.',
+      'Reverse image search links for a picture at a public web address (https://…jpg/png/webp, or one Ghosty shared at /i/…): Google Lens, Bing Visual Search, Yandex Images and TinEye, each named plainly for the owner to tap; nothing is uploaded and no engine is called by you. Use when the owner pastes a picture link and asks where it is from or what it shows. Never for finding who a person is from their face.',
     parameters: { type: 'object', properties: { url: { type: 'string', description: 'the full public address of the picture (https://…)' } }, required: ['url'] },
     risk: 'auto',
     async run(a) {

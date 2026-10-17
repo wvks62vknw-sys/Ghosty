@@ -738,6 +738,12 @@ export const eyeTab: TabDef = {
         button('3D', () => openMapSheet('3d', centre())),
         button('STREET VIEW', () => void openStreetView(centre())),
         button('TRAFFIC', () => openMapSheet('traffic', centre())),
+        button('GO', () => {
+          // The journey planner; the spot under the crosshair is the destination when the view is close enough to mean one.
+          const c = centre();
+          const close = globe.cam.range <= 12;
+          void import('../../ui/journeysheet').then((m) => m.openJourneyPlanner(close ? { to: `${c.lat.toFixed(5)},${c.lon.toFixed(5)}`, toName: 'the spot under the crosshair' } : {}));
+        }),
         raBtn,
       ),
       h(

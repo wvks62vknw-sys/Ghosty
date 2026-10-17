@@ -41,6 +41,7 @@ export const CLIENT_COMMANDS = [
   'open_lens',
   'play_radio',
   'stop_audio',
+  'show_journey',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -115,6 +116,79 @@ export interface MemoryFact {
   at: number;
 }
 
+/** The parts of the owner's profile (apps/edge/src/profile.ts): short lines in the owner's own words, shown in the Memory tab's ME panel. */
+export const PROFILE_SECTIONS = ['about', 'likes', 'dislikes', 'people', 'places', 'routines', 'goals', 'work', 'other'] as const;
+export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
+
+/** What Ghosty knows about its owner from what they said themselves: built by the nightly reflection, edited in the Memory tab. */
+export interface Profile {
+  /** One line on who the owner is, as far as Ghosty knows. */
+  summary: string;
+  /** Short lines (at most 160 characters, 40 a section). */
+  sections: Record<ProfileSection, string[]>;
+  updatedAt: number;
+}
+
+/** One day's diary entry, written by the nightly reflection into the library (doc notes_diary). */
+export interface DiaryEntry {
+  /** The day, YYYY-MM-DD. */
+  heading: string;
+  text: string;
+  rid: number;
+}
+
+/** What a reflection (nightly, or REFLECT NOW) changed. */
+export interface ReflectInfo {
+  ok: boolean;
+  /** Why nothing was done, when nothing was ("no model free", "nothing new"). */
+  skipped?: string;
+  facts: string[];
+  lines: { section: ProfileSection; text: string }[];
+  diary: string;
+  summary: string;
+  profile: Profile;
+}
+
+/** What one run of the morning digest (apps/edge/src/library/digest.ts) filed. */
+export interface DigestInfo {
+  day: string;
+  passages: number;
+  sources: string[];
+  /** The "in three levels" passage was written (a cheap model was free). */
+  levels: boolean;
+  skipped?: string;
+  summary: string;
+}
+
+/** One step of a project that runs for days (apps/edge/src/projects.ts). */
+export interface ProjectStep {
+  n: number;
+  title: string;
+  instruction: string;
+  status: 'todo' | 'doing' | 'done' | 'failed';
+  /** What the step produced, shortened; the full result is in the library (doc project_<id>). */
+  result?: string;
+  at?: number;
+}
+
+/** A project Ghosty works through on its own, one step per alarm; the Workshop tab's PROJECTS panel. */
+export interface Project {
+  id: string;
+  title: string;
+  goal: string;
+  steps: ProjectStep[];
+  status: 'active' | 'paused' | 'done' | 'cancelled';
+  /** steady = a step every 20 minutes; fast = every 3. */
+  pace: 'fast' | 'steady';
+  created: number;
+  updated: number;
+  /** Failures in a row on the current step (three pause the project). */
+  fails: number;
+  docId: string;
+  /** The last thing worth knowing: waiting for a free model, why a step failed. */
+  note?: string;
+}
+
 export interface Widget {
   name: string;
   title: string;
@@ -168,6 +242,8 @@ export interface BrainStatus {
   waiting?: number;
   /** Today's use of the database's free daily allowance (see apps/edge/src/meter.ts). */
   meter?: DatabaseMeter;
+  /** What the brain can do with sound: hear (a Groq key or Workers AI) and speak with its own voice (Workers AI). */
+  speech?: { stt: boolean; tts: boolean };
 }
 
 /** Today's use of the brain's database against Cloudflare's free daily allowance. */
@@ -196,6 +272,25 @@ export interface EmailStatus {
   server?: string;
   /** Set when the saved settings can't be used. */
   problem?: string;
+}
+
+/** The Telegram bot (LINKS → TELEGRAM, apps/edge/src/telegram.ts). The bot token never leaves the vault. */
+export interface TelegramStatus {
+  /** The token is saved and the bot's webhook points at Ghosty. */
+  linked: boolean;
+  /** The bot's username, without the @. */
+  bot: string | null;
+  /** A chat has sent the pairing code: Ghosty answers that chat alone. */
+  paired: boolean;
+  /** The owner's first name on Telegram. */
+  name: string | null;
+  /** The pairing code to send the bot, while it is valid (only before pairing). */
+  code?: string;
+  codeUntil?: number;
+  /** The token is saved (even when the bot could not be connected, so the owner knows to save it again). */
+  token?: boolean;
+  /** The brain could not tell right now (database paused, no copy reachable); the last known answer stands. */
+  unknown?: boolean;
 }
 
 export interface SpotifyStatus {
@@ -243,9 +338,21 @@ export interface AgendaEventInfo {
   source: string;
 }
 
+/** An upgrade Ghosty proposed for itself (apps/edge/src/upgrades.ts; Workshop → UPGRADE IDEAS, GET /api/upgrades). */
+export interface UpgradeIdea {
+  id: string;
+  title: string;
+  /** What the owner gets. */
+  why: string;
+  /** Short concrete steps, each naming the files or tools. */
+  steps: string[];
+  /** When it was proposed. */
+  at: number;
+}
+
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade';
   title: string;
   text: string;
   next: number;
@@ -269,4 +376,77 @@ export interface FeedInfo {
   id: string;
   name: string;
   at: number;
+}
+
+// ---- Public-transport journeys (apps/edge/src/integrations/transitous.ts; drawn by apps/web/src/ui/journeysheet.ts).
+
+/** One place on a journey: a stop or station, an address, or any point. */
+export interface JourneyPlace {
+  name: string;
+  lat: number;
+  lon: number;
+  /** The stop's id in the timetable, when it is a stop. */
+  stopId?: string;
+}
+
+/** The kind of a leg, for its colour and icon; `kind` on the leg keeps the router's own word. */
+export type JourneyMode = 'walk' | 'bus' | 'tram' | 'rail' | 'subway' | 'ferry' | 'other';
+
+/** One leg of a journey — a walk, or one ride — compact enough to send to the phone and draw. */
+export interface JourneyLeg {
+  mode: JourneyMode;
+  /** The router's own word for it (WALK, BUS, COACH, REGIONAL_RAIL…). */
+  kind: string;
+  /** The line's short name: "50", "X1", "WMR"; '' for a walk. */
+  line: string;
+  /** The operator's colour for the line ("#e07709"), or ''. */
+  color: string;
+  headsign: string;
+  agency: string;
+  from: JourneyPlace;
+  to: JourneyPlace;
+  /** Live times when the operator publishes them (`realTime`), else the timetable; ISO 8601. */
+  start: string;
+  end: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  realTime: boolean;
+  cancelled: boolean;
+  /** Seconds. */
+  duration: number;
+  /** Metres, for a walk. */
+  distance: number;
+  /** The stand, bay or platform to board at, when known. */
+  track: string;
+  /** The stops ridden through, in order (not the one boarded at or the one to get off at). */
+  stops: JourneyPlace[];
+  /** The leg's shape as an encoded polyline with its precision (decimal digits), or '' when too long to send. */
+  points: string;
+  precision: number;
+}
+
+export interface Journey {
+  id: string;
+  start: string;
+  end: string;
+  /** Seconds, door to door. */
+  duration: number;
+  transfers: number;
+  /** A walk all the way, no ride. */
+  direct?: boolean;
+  legs: JourneyLeg[];
+}
+
+/** The answer to GET /api/journey, and the payload of the show_journey command. */
+export interface JourneyAnswer {
+  from: JourneyPlace;
+  to: JourneyPlace;
+  /** The owner's time zone, which the clock times are shown in. */
+  tz: string;
+  /** Leaving at (or, with `arriveBy`, arriving by), ISO 8601. */
+  time: string;
+  arriveBy: boolean;
+  itineraries: Journey[];
+  /** Why the list is empty, in plain words. */
+  note?: string;
 }

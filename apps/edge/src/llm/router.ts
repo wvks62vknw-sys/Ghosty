@@ -54,6 +54,32 @@ const H_KEY = 'llm:health';
 const M_KEY = 'llm:models';
 const ORDER_KEY = 'llm:order';
 
+/** A wait this short is sat through (for the best model, or a 429's Retry-After) rather than falling to a worse model. */
+const SHORT_WAIT_MS = 8_000;
+
+/** No model answered: the message for the owner, and how long until the first one is back (Infinity when none is coming back). */
+export class RouterError extends Error {
+  constructor(
+    message: string,
+    public waitMs: number,
+  ) {
+    super(message);
+    this.name = 'RouterError';
+  }
+}
+
+/** A pause that ends early when the turn is stopped. */
+const sleep = (ms: number, signal?: AbortSignal): Promise<void> =>
+  new Promise((ok) => {
+    const done = () => {
+      clearTimeout(t);
+      signal?.removeEventListener('abort', done);
+      ok();
+    };
+    const t = setTimeout(done, ms);
+    signal?.addEventListener('abort', done, { once: true });
+  });
+
 const parseDur = (s: string | null | undefined): number => {
   if (!s) return 0;
   let t = 0;
@@ -63,6 +89,14 @@ const parseDur = (s: string | null | undefined): number => {
   if (!t && /^\d+(\.\d+)?$/.test(s)) t = parseFloat(s);
   return t * 1000;
 };
+
+/** The wait a rate limit asks for: the Retry-After header, or "retry in 2.5s" in the body (0 when it says nothing). */
+function statedWait(e: LlmError): number {
+  let ms = parseDur(e.retryAfter);
+  const m = (e.message || '').toLowerCase().match(/(?:try again|retry) in ([\d.hms ]+)/);
+  if (m) ms = Math.max(ms, parseDur(m[1]));
+  return ms;
+}
 
 /** Decide what a failure means: cool down briefly, skip for hours, or blame the key. `daily`: the provider's whole allowance is gone until it resets. */
 function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: number; why: string; daily?: boolean } {
@@ -78,9 +112,7 @@ function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: num
     return { kind: 'cool', ms: 3600_000, why: 'no credits', daily: true };
   }
   if (c === 429) {
-    let ms = parseDur(e.retryAfter);
-    const m = msg.match(/(?:try again|retry) in ([\d.hms ]+)/);
-    if (m) ms = Math.max(ms, parseDur(m[1]));
+    let ms = statedWait(e);
     // The day's allowance, not a per-minute limit: Gemini says "quota" for both, so only a named
     // per-day metric (…PerDay…, RPD/TPD, Workers AI's neurons) or a stated wait of over an hour counts.
     const daily = /per[- ]?day|daily|rpd|tpd|neuron/.test(msg) || ms > 3600_000;
@@ -255,18 +287,44 @@ export class Router {
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean; maxWaitMs?: number; cheap?: boolean } = {}): Promise<{ message: Msg; model: string }> {
     if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
     // When every model is only briefly rate-limited, wait (up to ~45 s at a time, twice) and try
-    // again, instead of giving up halfway through a long task.
+    // again, instead of giving up halfway through a long task. maxWaitMs: 0 never waits at all.
     const maxWait = opts.maxWaitMs ?? 45_000;
     for (let round = 0; ; round++) {
-      const r = await this.attempt(messages, tools, signal, !!opts.code, !!opts.cheap);
+      const r = await this.attempt(messages, tools, signal, !!opts.code, !!opts.cheap, Math.min(maxWait, SHORT_WAIT_MS));
       if ('message' in r) return r;
-      if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new Error(r.error);
-      await new Promise((ok) => setTimeout(ok, r.waitMs + 500));
+      if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new RouterError(r.error, r.waitMs);
+      await sleep(r.waitMs + 500, signal);
+      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
     }
   }
 
-  /** One pass over every usable model: the answer, or why none answered and how long until one frees up. */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
+  /**
+   * How long until the first usable model is free: 0 when one is free now, ms otherwise, null when
+   * no model is usable at all (no keys, or every one marked unavailable). For the owner's "back at".
+   */
+  async nextFree(): Promise<number | null> {
+    const h = await this.health();
+    const now = Date.now();
+    let soonest: number | null = null;
+    for (const p of await this.order()) {
+      if ((await this.keyFor(p)) === null || (h[`key|${p.id}`]?.dead ?? 0) > now) continue;
+      const provider = Math.max(0, (h[`net|${p.id}`]?.cool ?? 0) - now, (h[`cool|${p.id}`]?.cool ?? 0) - now);
+      for (const m of await this.models(p)) {
+        const s = h[`${p.id}|${m}`] ?? {};
+        if ((s.dead ?? 0) > now) continue;
+        const ms = Math.max(provider, (s.cool ?? 0) - now);
+        soonest = soonest === null ? ms : Math.min(soonest, ms);
+      }
+    }
+    return soonest;
+  }
+
+  /**
+   * One pass over every usable model: the answer, or why none answered and how long until one frees
+   * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
+   * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
+   */
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -302,39 +360,62 @@ export class Router {
     const skipProvider = new Set<string>();
     const tooBig = new Set<string>();
     let tried = 0;
+    let waited = false;
     for (const { p, key, model } of candidates) {
       if (skipProvider.has(p.id)) continue;
       const s = h[`${p.id}|${model}`] ?? {};
       if ((s.dead ?? 0) > now) continue;
-      if ((s.cool ?? 0) > now) {
-        soonest = Math.min(soonest, s.cool! - now);
-        continue;
+      const left = (s.cool ?? 0) - Date.now();
+      if (left > 0) {
+        // The best model left is nearly free: wait for it (once per pass) rather than take a worse one.
+        if (left <= shortWait && !waited && !signal?.aborted) {
+          waited = true;
+          await sleep(left + 200, signal);
+          if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
+        } else {
+          soonest = Math.min(soonest, left);
+          continue;
+        }
       }
       tried++;
-      const t0 = Date.now();
-      try {
-        const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
-        await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
-        await this.sput('llm:last', `${p.name} · ${model}`);
-        return { message, model: `${p.name} · ${model}` };
-      } catch (err) {
-        if ((err as Error)?.name === 'AbortError') throw err;
-        const e = err as LlmError;
-        if (e.code === 'too-big') {
-          tooBig.add(`${p.id}|${model}`);
-          continue; // this model's free tier can't take a request this size; not its fault
+      let retried = false;
+      for (;;) {
+        const t0 = Date.now();
+        try {
+          const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+          await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
+          await this.sput('llm:last', `${p.name} · ${model}`);
+          return { message, model: `${p.name} · ${model}` };
+        } catch (err) {
+          if ((err as Error)?.name === 'AbortError') throw err;
+          const e = err as LlmError;
+          if (e.code === 'too-big') {
+            tooBig.add(`${p.id}|${model}`);
+            break; // this model's free tier can't take a request this size; not its fault
+          }
+          // A per-second limit with a short stated wait: sit it out and ask the same model once more.
+          const again = e.code === 429 ? statedWait(e) : 0;
+          // One short wait per pass (shared with the cooling wait above): several rate-limited models must not add up to a minute of silence.
+          if (!retried && !waited && again > 0 && again <= shortWait && !signal?.aborted) {
+            retried = true;
+            waited = true;
+            await sleep(again + 200, signal);
+            if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
+            continue;
+          }
+          lastErr = e;
+          const c = classify(e);
+          if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
+          else if (c.kind === 'net') await this.mark(`net|${p.id}`, { cool: Date.now() + c.ms, why: c.why });
+          else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
+          else if (c.daily) {
+            // The whole provider's allowance is gone: remember it until the reset, and stop asking its other models today.
+            await this.mark(`cool|${p.id}`, { cool: Date.now() + (resetDelay(p) ?? c.ms), why: c.why });
+            skipProvider.add(p.id);
+          } else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
+          if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
+          break;
         }
-        lastErr = e;
-        const c = classify(e);
-        if (c.kind === 'key') await this.mark(`key|${p.id}`, { dead: Date.now() + c.ms, why: c.why });
-        else if (c.kind === 'net') await this.mark(`net|${p.id}`, { cool: Date.now() + c.ms, why: c.why });
-        else if (c.kind === 'dead') await this.mark(`${p.id}|${model}`, { dead: Date.now() + c.ms, why: c.why });
-        else if (c.daily) {
-          // The whole provider's allowance is gone: remember it until the reset, and stop asking its other models today.
-          await this.mark(`cool|${p.id}`, { cool: Date.now() + (resetDelay(p) ?? c.ms), why: c.why });
-          skipProvider.add(p.id);
-        } else await this.mark(`${p.id}|${model}`, { cool: Date.now() + c.ms, why: c.why });
-        if (c.kind === 'key' || c.kind === 'net') skipProvider.add(p.id); // skip the rest of this provider
       }
     }
     if (!anyKey) return { error: 'No AI model is available. Add a free Gemini or Groq key in the System tab.', waitMs: Infinity };
@@ -370,6 +451,7 @@ export class Router {
     else tuned.max_tokens = out;
     const limit = p.timeoutMs ?? 60_000;
     for (const body of [tuned, minimal]) {
+      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), limit);
       const onAbort = () => ctl.abort();

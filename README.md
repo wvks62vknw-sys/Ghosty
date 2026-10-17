@@ -37,8 +37,9 @@ tests/       local preview server + browser test
 - **Grows by itself**: research answers become notes in its library, every shipped change is logged and
   its own changed source files are re-read, and the **Workshop → Training Ground** has it solve 40 verified
   coding exercises — it isn't done with one until every hidden test passes; mistakes become lessons.
-- **Linked to your life**: email (app password; sending always asks you), Spotify, push notifications on
-  demand — all set up in the **Links** tab — live public CCTV (the West Midlands motorways, London, Durham, New York,
+- **Linked to your life**: email (app password; sending always asks you), Spotify, **Telegram** (one bot
+  token and a pairing code, then text, voice notes and photos from the Telegram app, with reminders and
+  task results sent back there), push notifications on demand — all set up in the **Links** tab — live public CCTV (the West Midlands motorways, London, Durham, New York,
   California, Finland, Canada, Sydney), live motorway incidents and the West Midlands' safety-camera sites (no key),
   live buses and trams, live road traffic anywhere (free TomTom key), and a ROAD AHEAD mode that follows your
   phone on the God's Eye globe with what lies ahead.
@@ -47,14 +48,38 @@ tests/       local preview server + browser test
 - **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),
   so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
   tests on every change.
+- **Pages, apps and widgets that work first time**: its handbook carries a complete single-file **app page
+  kit** (design tokens, glass cards, 44 px buttons, a pink octopus mascot, toast, modal, saved state — nothing
+  fetched), a **quality loop** (plan → build on the kit → `check_html` → self-review → fix → publish) and a
+  motion/3D playbook. `check_html` reads a page the way a browser would and reports, line by line, what
+  would break; **nothing is published with errors**, and warnings ride along with the link.
+- **Daily upgrade ideas**: every morning Ghosty looks at what you asked that week, what it couldn't
+  answer, what went wrong and what it knows about you, and proposes one to three upgrades it can build
+  for itself — each free, phone-first and one change. They wait in **Workshop → UPGRADE IDEAS** (it tells
+  you once when there's a new one); **BUILD** starts one in the chat, **DISMISS** drops it, **THINK NOW**
+  asks right away.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
   long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
   on your Cloudflare account) and the open **Pollinations** endpoint (no key, no account).
 - **Self-study**: around the clock Ghosty reads a curriculum of thousands of topics (Wikipedia, MDN, arXiv,
-  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, writes study notes with a free model, drills itself with
+  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, from the basics of each field
+  up through intermediate to advanced, writes study notes with a free model, drills itself with
   questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
   repository.
+- **Fresh knowledge every day**: every morning it gathers the day's news (BBC: world, UK, Birmingham, technology,
+  science), Hacker News' front page, the newest AI and machine-learning papers on arXiv and Wikipedia's current
+  events into its library with no AI at all, and sums the day up in three levels (one line, more detail, for an
+  expert) when a free model is there — so it answers about today, not last year. **Library → FRESH TODAY**.
+- **A memory of you**: every night it looks back over the day's conversation and keeps what you said about
+  yourself — your likes, your people, your places, your routines and plans — as a profile in your own words
+  (**Memory → ME**, where you can add or remove any line) and writes a diary entry (**Memory → DIARY**). Never
+  anything it read on the web, never a password or a card number.
+- **Projects that run for days**: ask for something big — "research the options over the next few days, then
+  build it" — and it plans 3–12 steps for your approval, then works through them on its own schedule, a step every
+  few minutes, research on the cheap free models and building on the strong ones, filing every result in the
+  library and telling you as it goes. **Workshop → PROJECTS** shows progress; pause, resume, cancel, or run the
+  next step now; "carry on" resumes a paused project.
 - **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
   a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
@@ -63,11 +88,23 @@ tests/       local preview server + browser test
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
   with its other tools. Infrastructure only, never a person.
+- **Journeys**: a door-to-door public-transport planner (bus, tram, train, metro, coach, ferry, with the walks
+  between) anywhere in the world, free and keyless (Transitous over the open timetables operators publish, live
+  times where they exist): **GO** on God's Eye or *"how do I get to X"*, the options drawn on the map leg by leg
+  with every stop, the steps in a JOURNEY sheet, and *"next buses from X"* for departures.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
   report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
+- **Real ears, its own voice, pictures**: speech to text with Groq's Whisper or Cloudflare Workers AI's (no
+  key), replies read in Ghosty's own voice (MeloTTS on Workers AI; the phone's voice as the fallback), and
+  pictures made on request (flux-1-schnell, free) that the chat shows and Telegram sends as photos.
 - **Guard rails**: a fast self-check rejects the mistakes free models make most (placeholder comments,
   half-deleted files, duplicate declarations, missing imports, unregistered tabs, blocked feed hosts),
   and coding turns are routed to the strongest free models with room for longer replies.
 
+- **Token discipline**: the prompt is a quarter of what it was (one line per tool group, only the groups a
+  message turns on, the rest by name), tool results are cut to a budget each, and the conversation is kept
+  within a character budget — so free models' per-minute allowances last; when every model is out, simple
+  asks are still answered without AI, with the exact time the first model is back.
+
 Runs on free tiers: one Cloudflare Worker + Durable Object, GitHub, and free AI keys
-(Gemini, Groq, Cerebras, OpenRouter, Mistral).
+(Gemini, Groq, Cerebras, OpenRouter, Mistral, NVIDIA NIM, SambaNova, Cohere).

@@ -81,9 +81,32 @@ test('publish_site asks the owner first, showing exactly what goes live where', 
   const tool = T.toolByName.get('publish_site');
   const brain2 = await import('./.build/brain.mjs');
   void brain2;
-  const ask = await tool.approval({ name: 'acme', title: 'Acme', source_url: 'https://acme.example/', html: '<html><body>x</body></html>' }, { origin: 'https://g.example' });
+  const ask = await tool.approval({ name: 'acme', title: 'Acme', source_url: 'https://acme.example/', html: '<!doctype html><html><head><title>Acme</title></head><body>x</body></html>' }, { origin: 'https://g.example' });
   assert.match(ask.reason, /Publish "Acme" \(rebuilt from acme\.example\) as a public page at https:\/\/g\.example\/s\/acme\?/);
   await assert.rejects(tool.approval({ name: 'bank', html: '<html><body><input type=password></body></html>' }, {}), /password fields/);
+  // the quality gate: a broken page is never put to the owner for approval
+  await assert.rejects(tool.approval({ name: 'broken', html: '<html><body><div><span>x</div></body></html>' }, {}), /not published — fix these first:\n1\. line 1: no <!doctype html>/);
+});
+
+test('publish_site refuses a page with errors (the quality gate) and passes warnings on with the link', async () => {
+  const db = new Map();
+  const storage = { async get(k) { return db.get(k); }, async put(k, v) { db.set(k, structuredClone(v)); }, async delete(k) { return db.delete(k); } };
+  const tool = T.toolByName.get('publish_site');
+  const tctx = { storage, env: {}, emit: () => undefined, origin: 'https://g.example' };
+  const broken = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>B</title>\n<script src="https://cdn.example/app.js"></script></head>\n<body><section><h2>Hi</h2>\n<script>fetch("https://api.example/x")</script></body></html>';
+  await assert.rejects(tool.run({ name: 'broken', html: broken }, tctx), (e) => {
+    assert.match(e.message, /^not published — fix these first:\n1\. line 2: <script src="https:\/\/cdn\.example\/app\.js"> won't load/);
+    assert.match(e.message, /\n2\. line 4: <\/body> closes <body> from line 3, but <section> \(line 3\) is still open — add <\/section> before it/);
+    assert.match(e.message, /\n3\. line 4: fetch\(\) — a published page can't make network requests/);
+    return true;
+  });
+  assert.ok(!db.has('site:broken'), 'nothing went live');
+  // warnings don't stop a publish: they ride along in the result, so the model can fix them next
+  const warned = '<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>W</title></head><body><img src="https://x.example/a.jpg"><script>console.log(1)</script></body></html>';
+  const out = await tool.run({ name: 'warned', html: warned }, tctx);
+  assert.match(out, /live now at https:\/\/g\.example\/s\/warned/);
+  assert.match(out, /Worth fixing \(check_html warnings\): line 1: <html> has no lang attribute.*\| line 1: <img> without alt.*\| line 1: console\.log left in/);
+  assert.ok(db.has('site:warned'));
 });
 
 test('publish_site puts the page live at a public link that anyone can open, sandboxed', async () => {

@@ -24,6 +24,24 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/ONE sentence \(max 40 words\)/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: 'Returned a placeholder instead of computing the result. Rule: implement the full behaviour the task describes before running tests.' }, model };
   }
+  // "no model: …": every model is cooling down — what Ghosty answers with no AI at all (direct.ts), as the router would report it.
+  if (last.role === 'user' && /^no model:/i.test(ownerWords(textOf(last.content)).replace(/^Scheduled task "[^"]*": /, '').trim())) {
+    throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds. Another free key in the System tab gives me more room.'), { waitMs: 40_000 });
+  }
+  const system = String(messages[0]?.content ?? '');
+  // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
+  if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
+    const said = textOf(messages[messages.length - 1]?.content);
+    const likes = [...new Set([...said.matchAll(/OWNER \([^)]*\): (?:remember )?i (?:like|love|prefer) ([^.\n<]+)/gi)].map((x) => x[1]!.trim()))];
+    return { message: { role: 'assistant', content: JSON.stringify({ summary: likes.length ? `Someone who likes ${likes.join(' and ')}.` : 'The owner, as far as the mock knows.', facts: likes.map((l) => `likes ${l}`), sections: { likes }, diary: `Today the owner and I talked${likes.length ? ` and they told me they like ${likes.join(' and ')}` : ''}. Nothing was decided. Nothing to follow up.` }) }, model };
+  }
+  // The morning digest's "in three levels" note (library/digest.ts).
+  if (/"In one line:"/.test(system)) return { message: { role: 'assistant', content: 'In one line: the mock read the day\'s headlines.\n\nIn more detail: the mock gathered the news, technology and science of the day and found them interesting.\n\nFor an expert: the mock has no paper to single out.' }, model };
+  // One step of a project that runs for days (projects.ts): the result itself, with a source.
+  if (/PROJECT STEP/.test(system)) {
+    const step = textOf(messages[messages.length - 1]?.content).match(/^Step (\d+): ([^\n—]+) — /m);
+    return { message: { role: 'assistant', content: `Step ${step?.[1] ?? '?'} (${(step?.[2] ?? 'the step').trim()}) is done: the mock looked into it and found two options, A and B, and A is the better one. Sources: https://example.com/a https://example.com/b` }, model };
+  }
   // Chains: one tool's result feeds the next in the same turn; several read-only calls in one
   // reply; and a chain long enough to show the step cap leaves room for real work.
   const chainUser = [...messages].reverse().find((x) => x.role === 'user');
@@ -76,9 +94,29 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     return { message: { role: 'assistant', content: null, tool_calls: [{ id: `mock_${++n}`, type: 'function', function: { name: 'propose_change', arguments: '{"title":"Big rewrite","edits":[{"path":"apps/web/src/hello.ts","action":"write","content":"export const greeting = ' } }] }, model };
   }
   if ((m = text.match(/^remind me in (\d+) minutes? to (.+)$/)) && has('set_reminder')) return { message: call('set_reminder', { text: m[2], in_minutes: Number(m[1]) }), model };
+  if ((m = text.match(/^start (?:a )?project (.+)$/)) && has('start_project')) {
+    return {
+      message: call('start_project', {
+        title: m[1],
+        goal: `Finish "${m[1]}" with a clear write-up.`,
+        steps: [
+          { title: 'Research the options', instruction: 'Look up the options and list them with sources.' },
+          { title: 'Compare the options', instruction: 'Compare the options found in step 1 and pick one.' },
+          { title: 'Write the plan', instruction: 'Write the plan for the chosen option.' },
+        ],
+        pace: 'fast',
+      }),
+      model,
+    };
+  }
+  if (text === 'project status' && has('project_status')) return { message: call('project_status', {}), model };
+  if (text === 'pause the project' && has('pause_project')) return { message: call('pause_project', {}), model };
+  if (text === 'carry on' && has('resume_project')) return { message: call('resume_project', {}), model };
   if ((m = text.match(/^every day at (\d\d:\d\d) (.+)$/)) && has('schedule_task')) return { message: call('schedule_task', { title: 'Daily job', prompt: m[2], at: m[1], repeat: 'daily' }), model };
   if ((m = text.match(/^add event (.+) on (\S+)$/)) && has('add_event')) return { message: call('add_event', { title: m[1], start: m[2], remind_minutes_before: 30 }), model };
   if ((m = text.match(/^directions to (.+?)(?: by (walking|cycling|driving))?$/)) && has('get_directions')) return { message: call('get_directions', { to: m[1], ...(m[2] ? { mode: m[2] } : {}) }), model };
+  if ((m = text.match(/^plan a journey from (.+?) to (.+?)(?: (arriving by .+|at .+))?$/)) && has('plan_journey')) return { message: call('plan_journey', { from: m[1], to: m[2], ...(m[3] ? { when: m[3] } : {}) }), model };
+  if ((m = text.match(/^next (?:buses|trains|trams|departures) (?:from|at) (.+)$/)) && has('next_departures')) return { message: call('next_departures', { stop: m[1] }), model };
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
@@ -94,12 +132,20 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
         name: m[1],
         title: 'Acme Bakery — rebuilt',
         source_url: 'https://acme.example/',
-        html: '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Acme Bakery</title><style>body{margin:0;font:17px/1.5 -apple-system,system-ui,sans-serif;background:#fff8ef;color:#3b2a1a}header{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#b5651d;color:#fff}main{padding:16px}a.cta{display:inline-block;min-height:44px;padding:12px 18px;border-radius:10px;background:#b5651d;color:#fff}</style></head><body><header><b>Acme Bakery</b></header><main><h1>Bread worth waking up for</h1><p>Sourdough baked every morning since 1998.</p><a class="cta" href="#visit">Visit us</a><script>document.querySelector("h1").dataset.ready="1";try{localStorage.getItem("x");document.body.dataset.storage="open"}catch(e){document.body.dataset.storage="blocked"}fetch("https://example.com/collect").then(function(){document.body.dataset.net="sent"},function(){document.body.dataset.net="blocked"})</script></main></body></html>',
+        // The script probes the sandbox on purpose (storage and the network must be blocked): the network probe is
+        // written as window.fetch.call so the quality gate, which refuses a page that relies on fetch(), lets it through.
+        html: '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Acme Bakery</title><style>body{margin:0;font:17px/1.5 -apple-system,system-ui,sans-serif;background:#fff8ef;color:#3b2a1a}header{position:sticky;top:0;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#b5651d;color:#fff}main{padding:16px}a.cta{display:inline-block;min-height:44px;padding:12px 18px;border-radius:10px;background:#b5651d;color:#fff}</style></head><body><header><b>Acme Bakery</b></header><main><h1>Bread worth waking up for</h1><p>Sourdough baked every morning since 1998.</p><a class="cta" href="#visit">Visit us</a><script>document.querySelector("h1").dataset.ready="1";try{localStorage.getItem("x");document.body.dataset.storage="open"}catch(e){document.body.dataset.storage="blocked"}window.fetch.call(window,"https://example.com/collect").then(function(){document.body.dataset.net="sent"},function(){document.body.dataset.net="blocked"})</script></main></body></html>',
       }),
       model,
     };
   }
+  if ((m = text.match(/^check (site|draft) ([a-z0-9-]+)$/)) && has('check_html')) return { message: call('check_html', { site: m[2], ...(m[1] === 'draft' ? { draft: true } : {}) }), model };
+  // the daily upgrade job (upgrades.ts): the ideas it asks a cheap model for, as the JSON it wants
+  if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
+    return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
+  }
   if ((m = text.match(/^fly to (.+)$/)) && has('fly_to')) return { message: call('fly_to', { place: m[1] }), model };
+  if ((m = text.match(/^(?:draw|paint) (?:me )?(?:a |an )?(.+)$/)) && has('make_picture')) return { message: call('make_picture', { prompt: `A ${m[1]}, digital illustration, soft light`, steps: 4 }), model };
   if ((m = text.match(/^show (?:me )?(?:the )?(?:live )?cameras in (.+)$/)) && has('show_cameras')) return { message: call('show_cameras', { place: m[1] }), model };
   if ((m = text.match(/^(?:show (?:me )?)?(?:a |the )?3d map of (.+?)\??$/i)) && has('show_map')) return { message: call('show_map', { place: m[1], view: '3d' }), model };
   if ((m = text.match(/^(?:show (?:me )?)?(?:a |the )?map of (.+?)\??$/)) && has('show_map')) return { message: call('show_map', { place: m[1] }), model };

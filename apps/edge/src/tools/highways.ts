@@ -83,7 +83,7 @@ export const highwaysTools: Tool[] = [
   {
     name: 'motorway_now',
     description:
-      "What is happening on the motorways and main roads around a place or on a road right now: National Highways' live incidents (crashes, queues, closures, roadworks, delays in minutes, lanes closed, when it should clear), the bottlenecks ordered by delay, and the usual speed at this time of day on the nearest stretch (from past traffic counts; not live). Pins the incidents on God's Eye. Best around the West Midlands (M6, M5, M42, M54, M6 Toll, A38(M), M69), where it knows the junctions; elsewhere in England it lists incidents but cannot place them on the map.",
+      "What is happening on the motorways and main roads around a place or on a road right now: National Highways' live incidents (crashes, queues, closures, roadworks; delay in minutes, lanes closed, when it should clear) worst first, pinned on God's Eye, plus the usual speed at this time of day on the nearest stretch (past counts, not live). Best around the West Midlands (M6, M5, M42, M54, M6 Toll, A38(M), M69), where it knows the junctions; elsewhere in England it lists incidents but cannot map them.",
     parameters: {
       type: 'object',
       properties: {

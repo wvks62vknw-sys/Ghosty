@@ -55,7 +55,7 @@ export const transitTools: Tool[] = [
   {
     name: 'transit_now',
     description:
-      "Live buses and trams near a place right now, shown on God's Eye (e.g. \"what buses are running in Birmingham city centre?\", \"is the 11A near me late?\"). West Midlands with TfWM's free key: National Express West Midlands buses and West Midlands Metro trams; anywhere in England with the free Bus Open Data (BODS) key; otherwise bustimes.org's community feed. Says which lines are running, how many vehicles there are, and the nearest ones with destination and delay. National Rail trains are not in these feeds.",
+      "Live buses and trams near a place right now, shown on God's Eye (\"what buses are running in Birmingham city centre?\", \"is the 11A near me late?\"): West Midlands buses and Metro trams with the free TfWM key, any bus in England with the free BODS key, else bustimes.org's community feed. Says which lines are running, how many vehicles, and the nearest with destination and delay. No National Rail trains.",
     parameters: {
       type: 'object',
       properties: {

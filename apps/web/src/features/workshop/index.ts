@@ -7,13 +7,15 @@
  *  - Open, or remove, instant widgets
  *  - Unlock the protected kernel for a limited time (only you can do this)
  *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
+ *  - Projects that run for days: progress, steps and results, pause / resume / cancel / run next now
+ *  - Upgrade ideas: what Ghosty proposed for itself this morning; BUILD starts one in the chat
  */
-import type { ChangeSummary, PublishedSite, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
+import type { ChangeSummary, Project, ProjectStep, PublishedSite, Roadmap, RoadmapStep, UpgradeIdea, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
 import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, modal, panel, row, sandboxFrame, toast } from '../../ui/components';
+import { bar, button, modal, panel, row, sandboxFrame, toast, type Light } from '../../ui/components';
 import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
@@ -86,6 +88,126 @@ export const workshopTab: TabDef = {
     };
     paintRoadmap();
 
+    // projects that run for days (projects.ts): one step every few minutes on Ghosty's own schedule
+    const jp = panel('PROJECTS', { status: '' });
+    let projects: Project[] = [];
+    const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
+    const PROJECT_LIGHT: Record<Project['status'], Light> = { active: 'ok', paused: 'mid', done: 'ok', cancelled: 'off' };
+    const act = (id: string, action: 'pause' | 'resume' | 'cancel' | 'run', ask?: string) => async (b: HTMLButtonElement) => {
+      if (ask && !confirm(ask)) return;
+      b.disabled = true;
+      try {
+        const r = await brain.projectAction(id, action);
+        projects = projects.map((p) => (p.id === id ? r.project : p));
+        if (action === 'run') toast(r.did === 'step' || r.did === 'done' ? 'Step done' : r.did === 'waiting' ? 'Waiting: no model is free right now (or Ghosty is busy); it tries again on its own' : `Step not finished (${r.did})`, r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
+      } catch (e) {
+        toast(`Could not ${action}: ${String((e as Error).message)}`, 'bad');
+      }
+      paintProjects();
+      void loadProjects();
+    };
+    const paintProjects = () => {
+      clear(jp.body);
+      const running = projects.filter((p) => p.status === 'active').length;
+      jp.setStatus(projects.length ? (running ? `${running} RUNNING` : `${projects.length}`) : '', running ? 'ok' : projects.some((p) => p.status === 'paused') ? 'mid' : 'ok');
+      if (!projects.length) {
+        jp.body.append(h('div.note', 'Nothing running. Ask Ghosty for something that takes days — "research the options over the next few days, then build it" — and it works through a plan step by step on its own, a step every few minutes, without burning through a day\'s free models.'));
+        return;
+      }
+      for (const p of projects) {
+        const done = p.steps.filter((s) => s.status === 'done').length;
+        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min'} · ${fmt.ago(p.updated)}`)));
+        card.append(bar('STEPS', done / Math.max(1, p.steps.length), `${done}/${p.steps.length}`, p.status === 'paused' ? '#ffd24d' : undefined));
+        for (const s of p.steps) {
+          const r = row(`${s.n}`, s.title, s.status.toUpperCase(), { wrap: true, tone: PSTEP_TONE[s.status] });
+          if (s.result) {
+            // a done step opens what it produced (its own class, not .link: the widgets list is the tab's .rw.link)
+            r.classList.add('open');
+            r.tabIndex = 0;
+            const open = () => modal(`Step ${s.n}: ${s.title}`, h('div.readwrap', h('div.note', `${p.title} · ${s.at ? fmt.ago(s.at) : ''}`), h('div.reader', ...s.result!.split(/\n+/).map((line) => h('p', line)))));
+            r.addEventListener('click', open);
+            r.addEventListener('keydown', (e) => e.key === 'Enter' && open());
+          }
+          card.append(r);
+        }
+        if (p.note) card.append(h('small.note', p.note));
+        const actions = h('div.row.wrap');
+        if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
+        if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
+        if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `Cancel "${p.title}"? What it already produced stays in the library.`), 'warn'));
+        if (actions.childElementCount) card.append(actions);
+        jp.body.append(card);
+      }
+    };
+    const loadProjects = async () => {
+      try {
+        projects = (await brain.projects()).projects;
+      } catch {
+        /* paused or offline: the last list stays */
+      }
+      paintProjects();
+    };
+    paintProjects();
+    // upgrade ideas (the brain's upgrades.ts): proposed every morning; BUILD hands one to the chat, DISMISS drops it
+    const ip = panel('UPGRADE IDEAS', { footer: true, status: '' });
+    let ideas: UpgradeIdea[] = [];
+    let ideasNext: number | null = null;
+    const nextNote = h('span.note', '');
+    const buildIdea = (i: UpgradeIdea) => {
+      go('core');
+      void send(`Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.`);
+    };
+    const paintIdeas = () => {
+      clear(ip.body);
+      ip.setStatus(ideas.length ? `${ideas.length}` : 'NONE YET', ideas.length ? 'ok' : 'off');
+      nextNote.textContent = ideasNext ? `next look ${new Date(ideasNext).toLocaleDateString([], { weekday: 'short' })} ${fmt.time(new Date(ideasNext))}` : 'every morning';
+      if (!ideas.length) ip.body.append(h('div.note', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. They appear here; BUILD starts one.'));
+      for (const i of ideas) {
+        const card = h('div.idea', h('b', i.title), i.why ? h('div.note', i.why) : null, h('ol', ...i.steps.map((s) => h('li', s))));
+        card.append(
+          h('div.row', button('BUILD', () => buildIdea(i), 'on'), button('DISMISS', async () => {
+            try {
+              await brain.dismissUpgrade(i.id);
+              ideas = ideas.filter((x) => x.id !== i.id);
+              paintIdeas();
+            } catch (e) {
+              if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
+            }
+          }), h('small.note', fmt.ago(i.at))),
+        );
+        ip.body.append(card);
+      }
+    };
+    ip.foot!.append(
+      button('THINK NOW', async (b) => {
+        b.disabled = true;
+        b.textContent = 'THINKING…';
+        try {
+          const r = await brain.thinkUpgrades();
+          ideas = r.ideas;
+          paintIdeas();
+          toast(r.added ? `${r.added} new upgrade idea${r.added === 1 ? '' : 's'}` : r.note, r.added ? 'ok' : '');
+        } catch (e) {
+          if (!isPaused(e)) toast(`Could not think about upgrades: ${String((e as Error).message)}`, 'warn');
+        } finally {
+          b.disabled = false;
+          b.textContent = 'THINK NOW';
+        }
+      }, 'on'),
+      nextNote,
+    );
+    const loadIdeas = async () => {
+      try {
+        const r = await brain.upgrades();
+        ideas = r.ideas;
+        ideasNext = r.next;
+      } catch {
+        /* the rest of the Workshop reports connection problems */
+      }
+      paintIdeas();
+    };
+    paintIdeas();
+
     // changes
     const cp = panel('PROPOSED CHANGES', { status: '' });
     // versions
@@ -96,7 +218,7 @@ export const workshopTab: TabDef = {
     const pp = panel('PUBLISHED PAGES', { status: '' });
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
-    P.left.append(ask.el, rp.el, cp.el);
+    P.left.append(ask.el, rp.el, jp.el, ip.el, cp.el);
     // training ground
     const tp = panel('TRAINING GROUND', { footer: true, grow: false });
     const tStats = h('div.note', 'Ghosty writes a solution, hidden tests run it in a locked sandbox, and it must fix every failure until all tests pass.');
@@ -357,20 +479,30 @@ export const workshopTab: TabDef = {
     };
     paint();
     let timer = 0;
+    let ptimer = 0;
     return {
       enter() {
         void load();
         void loadRoadmap();
+        void loadIdeas();
         void paintTraining();
+        void loadProjects();
         timer = window.setInterval(() => {
           void load();
           void loadRoadmap();
+          void loadIdeas();
         }, 20000);
+        // a running project moves every few minutes: a look every 15 s while one runs, once a minute otherwise (each look reads every listed project)
+        let ticks = 0;
+        ptimer = window.setInterval(() => {
+          if (projects.some((p) => p.status === 'active') || ++ticks % 4 === 0) void loadProjects();
+        }, 15000);
       },
       leave() {
         clearInterval(timer);
+        clearInterval(ptimer);
       },
-      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
+      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${projects.length ? `projects: ${projects.slice(0, 4).map((p) => `"${p.title}" ${p.status} ${p.steps.filter((s) => s.status === 'done').length}/${p.steps.length}`).join('; ')}; ` : ''}${ideas.length} upgrade ideas${ideas.length ? ` (${ideas.slice(0, 3).map((i) => i.title).join('; ')})` : ''}, ${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
     };
   },
 };

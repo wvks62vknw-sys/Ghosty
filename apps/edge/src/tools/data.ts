@@ -12,7 +12,7 @@ async function geocode(place: string): Promise<{ name: string; lat: number; lon:
 export const dataTools: Tool[] = [
   {
     name: 'weather',
-    description: 'Current weather, air quality and 3-day forecast for a place name (or the owner\'s location if no place given).',
+    description: 'Current weather, air quality and 3-day forecast for a place name, or for lat/lon (pass the owner\'s own coordinates from CONTEXT for "here").',
     parameters: { type: 'object', properties: { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' } } },
     risk: 'auto',
     pure: true,

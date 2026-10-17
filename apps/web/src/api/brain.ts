@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
@@ -14,6 +14,8 @@ export interface StudySummary {
   read: number;
   digested: number;
   domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
+  /** Per level across every field (a topic's level is its place in its field: first third beginner, then intermediate, then advanced). */
+  levels: { level: 'beginner' | 'intermediate' | 'advanced'; topics: number; read: number }[];
   today: { reads: number; digests: number; drills: number; ai: number };
   drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
   pending: number;
@@ -104,7 +106,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/library$|\/passages/.test(path);
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -220,11 +222,15 @@ export async function streamEvents(path: string, body: unknown, onEvent: (e: Cha
   }
 }
 
+/** What the brain can do with sound (from its status): hear a recording, speak with its own voice. assistant/voice.ts reads it. */
+export const speechCaps = createStore({ stt: false, tts: false });
+
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () =>
     req<BrainStatus>('GET', '/status').then((s) => {
       memoryPaused.set({ on: !!s.paused, since: s.paused ? memoryPaused.get().since || Date.now() : 0 });
+      speechCaps.set({ stt: !!s.speech?.stt, tts: !!s.speech?.tts });
       return s;
     }),
   /** Keys that are public by design (a Mapbox "pk." token goes in the map's tile addresses); nothing else ever comes this way. */
@@ -245,6 +251,17 @@ export const brain = {
   addMemory: (text: string) => req('POST', '/memory', { text }),
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
   lessons: () => req<{ lessons: Lesson[] }>('GET', '/lessons'),
+  /** What Ghosty knows about you from your own words (profile.ts): the profile, the latest diary entries, when it last reflected. */
+  profile: () => req<{ profile: Profile; diary: DiaryEntry[]; lastReflect: number | null }>('GET', '/profile'),
+  profileAdd: (section: ProfileSection, text: string) => req<{ profile: Profile; added: boolean }>('POST', '/profile', { section, text }),
+  profileRemove: (section: ProfileSection, i: number) => req<{ profile: Profile; removed: boolean }>('DELETE', `/profile?section=${encodeURIComponent(section)}&i=${i}`),
+  /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
+  reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
+  /** DIGEST NOW: today's fresh knowledge gathered into the library, right away (library/digest.ts). */
+  digestNow: () => req<DigestInfo>('POST', '/library/digest', {}),
+  /** Projects that run for days (projects.ts): the Workshop tab's PROJECTS panel. */
+  projects: () => req<{ projects: Project[] }>('GET', '/projects'),
+  projectAction: (id: string, action: 'pause' | 'resume' | 'cancel' | 'run') => req<{ project: Project; did?: string }>('POST', `/projects/${encodeURIComponent(id)}/${action}`, {}),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
   training: () => req<{ exercises: { id: string; title: string; level: number; topic: string }[]; records: Record<string, { solved: boolean; attempts: number; at: number; model?: string; firstSolve?: number }> }>('GET', '/train'),
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
@@ -279,6 +296,10 @@ export const brain = {
   /** The pages Ghosty published, and the address they live at. */
   sites: () => req<{ sites: PublishedSite[]; origin: string }>('GET', '/sites'),
   unpublishSite: (name: string) => req<{ removed: boolean }>('DELETE', `/sites/${encodeURIComponent(name)}`),
+  /** Upgrades Ghosty proposed for itself (Workshop → UPGRADE IDEAS): the list and when it next looks, dismiss one, think now. */
+  upgrades: () => req<{ ideas: UpgradeIdea[]; next: number | null; last: string | null }>('GET', '/upgrades'),
+  dismissUpgrade: (id: string) => req<{ removed: boolean }>('DELETE', `/upgrades/${encodeURIComponent(id)}`),
+  thinkUpgrades: () => req<{ ideas: UpgradeIdea[]; added: number; note: string }>('POST', '/upgrades/now'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),
@@ -302,10 +323,18 @@ export const brain = {
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
   trafficStatus: () => req<{ ready: boolean }>('GET', '/traffic/status'),
+  /** A public-transport journey for the GO panel: the brain asks Transitous and answers in the shape the map draws (`from`/`to`: "here", "lat,lon" or a name; `time`: local YYYY-MM-DDTHH:MM, else now). */
+  journey: (p: { from: string; to: string; time?: string; arriveBy?: boolean }) =>
+    req<JourneyAnswer>('GET', `/journey?from=${encodeURIComponent(p.from)}&to=${encodeURIComponent(p.to)}${p.time ? `&time=${encodeURIComponent(p.time)}` : ''}${p.arriveBy ? '&arriveBy=true' : ''}&tz=${encodeURIComponent(TZ)}`),
   emailStatus: () => req<EmailStatus>('GET', '/email/status'),
   spotifyStatus: () => req<SpotifyStatus>('GET', '/spotify/status'),
   spotifyLink: (p: { code: string; verifier: string; redirectUri: string; clientId: string }) => req<{ ok: boolean; name: string; product: string }>('POST', '/spotify/link', p),
   spotifyUnlink: () => req<{ ok: boolean }>('POST', '/spotify/unlink'),
+  /** The Telegram bot (LINKS → TELEGRAM): its state, a fresh pairing code, forget the paired chat, a test message. */
+  telegramStatus: () => req<TelegramStatus>('GET', '/telegram/status'),
+  telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
+  telegramUnpair: () => req<TelegramStatus>('POST', '/telegram/unpair'),
+  telegramTest: () => req<{ sent: boolean; error?: string }>('POST', '/telegram/test'),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
   reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),
@@ -315,6 +344,16 @@ export const brain = {
     const j = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
     if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
     return j.text ?? '';
+  },
+  /** A sentence in Ghosty's own voice (MP3 bytes from the brain; 404 when it has no voice, 429 past the day's allowance). */
+  async tts(text: string): Promise<Blob> {
+    // A stalled clip must not hold the reactor "speaking": 15 s, then the phone's voice takes over.
+    const r = await fetch('/api/tts', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text }), credentials: 'same-origin', signal: AbortSignal.timeout(15_000) });
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
+    }
+    return r.blob();
   },
 };
 

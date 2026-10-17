@@ -4,7 +4,8 @@
  * things up in them before answering. Searching here uses no AI at all. SELF-STUDY shows
  * what Ghosty is learning on its own (what it read, the notes it wrote, how its drills go),
  * takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
- * opens in a reader.
+ * opens in a reader. FRESH TODAY is the day's digest (the news, papers and events Ghosty
+ * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
@@ -16,7 +17,12 @@ import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
-const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE' };
+const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT' };
+/** One passage of the day's digest (library/digest.ts in the brain): "YYYY-MM-DD · source". */
+interface FreshItem {
+  heading: string;
+  text: string;
+}
 
 export const libraryTab: TabDef = {
   id: 'library',
@@ -249,6 +255,8 @@ export const libraryTab: TabDef = {
           : 'Switched off. Turn it on and Ghosty reads, takes notes and drills itself around the clock, free, filing everything here.'),
         bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),
         bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, '#52f2b5'),
+        // from the basics up: each field is read beginner → intermediate → advanced
+        sum.levels ? row('LEVELS', sum.levels.map((l) => `${l.level} ${pct(l.read, l.topics)}%`).join(' · '), null, { wrap: true }) : '',
         row('TODAY', `${sum.today.reads} read · ${sum.today.digests} notes · ${sum.today.drills} drills`, `${sum.today.ai} AI calls`),
         row('DRILLS', sum.drills.asked ? `${sum.drills.right} of ${sum.drills.asked} right · ${pct(sum.drills.right, sum.drills.asked)}%` : 'none yet', weakest ? `weakest: ${weakest}` : null, { wrap: true, tone: sum.drills.asked && pct(sum.drills.right, sum.drills.asked) < 60 ? 'dn' : 'up' }),
         st.last ? row('LAST', lastText, fmt.ago(st.last.at), { wrap: true, ...(st.last.error ? { tone: 'bad' as const } : {}) }) : '',
@@ -309,7 +317,48 @@ export const libraryTab: TabDef = {
         ),
       );
     };
-    P.right.append(study.el, ap.el, shelf.el);
+    // ---- fresh today: the morning digest (BBC, Hacker News, arXiv, Wikipedia's current events, the day in three levels)
+    const fresh = panel('FRESH TODAY', { footer: true, status: '', cls: 'fresh' });
+    const freshRow = (p: FreshItem) => {
+      const source = p.heading.replace(/^\d{4}-\d{2}-\d{2} · /, '');
+      const body = p.text.split('\n').slice(1).join(' ').replace(/\s+/g, ' ');
+      return row(source, body, '›', { wrap: true, onClick: () => modal(p.heading, h('div.readwrap', h('div.reader', ...p.text.split('\n').map((line) => h('p', line))))) });
+    };
+    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET');
+    const paintFresh = async () => {
+      try {
+        const all: FreshItem[] = [];
+        let after = 0;
+        for (let i = 0; i < 6; i++) {
+          const r = await brain.libraryPassages('notes_daily', after);
+          all.push(...r.passages);
+          if (r.next === null) break;
+          after = r.next;
+        }
+        const day = all.reduce((d, p) => (p.heading.slice(0, 10) > d ? p.heading.slice(0, 10) : d), '');
+        const today = all.filter((p) => p.heading.startsWith(day));
+        fresh.setStatus(day || 'NOTHING YET', day ? 'ok' : 'mid');
+        freshList.set(today);
+      } catch {
+        fresh.setStatus('OFFLINE', 'off');
+      }
+    };
+    fresh.foot!.prepend(button('DIGEST NOW', async (b) => {
+      b.disabled = true;
+      b.textContent = 'GATHERING…';
+      try {
+        const r = await brain.digestNow();
+        if (r.skipped) toast(`Not gathered: ${r.skipped}`, 'warn');
+        else toast(`Gathered ${r.passages} passages from ${r.sources.length} sources${r.levels ? ', and the day in three levels' : ''}`, 'ok');
+      } catch (e) {
+        toast(`Could not gather: ${(e as Error).message}`, 'bad');
+      }
+      b.disabled = false;
+      b.textContent = 'DIGEST NOW';
+      void paintFresh();
+      void refresh();
+    }, 'on'));
+    P.right.append(fresh.el, study.el, ap.el, shelf.el);
 
     let vectors = false;
     let starterReady = true;
@@ -347,6 +396,7 @@ export const libraryTab: TabDef = {
       enter() {
         void refresh();
         void brain.studyStatus().then(paintStudy, () => paintStudy(null));
+        void paintFresh();
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,
     };

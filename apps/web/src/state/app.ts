@@ -17,6 +17,8 @@ export interface Settings {
   units: 'metric' | 'imperial';
   speak: boolean;
   voice: string;
+  /** Whose voice reads replies: Ghosty's own (from the brain) or this phone's speech synthesis. */
+  voiceEngine: 'ghosty' | 'phone';
   home: Place | null;
   currency: 'gbp' | 'usd' | 'eur';
   /** Soft interface sounds (tab changes, the systems deck). */
@@ -40,6 +42,7 @@ export const settings = createStore<Settings>(
     units: /^en-US/i.test(navigator.language) ? 'imperial' : 'metric',
     speak: true,
     voice: 'auto',
+    voiceEngine: 'ghosty',
     home: null,
     sounds: true,
     motion: false,

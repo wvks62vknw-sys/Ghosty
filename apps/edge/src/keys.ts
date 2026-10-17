@@ -80,6 +80,20 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     {
+      name: 'telegram',
+      label: 'Telegram bot',
+      hint: 'numbers, a colon, then letters (from @BotFather)',
+      link: 'https://t.me/BotFather',
+      need: 'recommended',
+      why: 'Talk to Ghosty from Telegram — text, voice notes and photos — and get its notifications there. Free.',
+      steps: [
+        'Open the link (it opens @BotFather in Telegram) and send /newbot: give the bot a name, then a username ending in "bot". Already have one? Send /mybots → your bot → API Token.',
+        'Copy the token BotFather shows (numbers, a colon, then letters).',
+        'Paste it below and press SAVE. Ghosty connects itself and shows a 6-digit pairing code here (and in LINKS → TELEGRAM).',
+        'Open your bot in Telegram, press START and send it the code. From then on only you can talk to it.',
+      ],
+    },
+    {
       name: 'tavily',
       label: 'Tavily search',
       hint: 'starts with tvly-…',
@@ -118,6 +132,45 @@ export function keyDefs(repo?: string): KeyDef[] {
       need: 'optional',
       why: 'Another backup brain (free "Experiment" plan; asks for a phone number).',
       steps: ['Open the link and sign in.', 'Choose the free Experiment plan if asked.', 'Press "Create new key", copy it, paste it below and press SAVE.'],
+    },
+    {
+      name: 'nvidia',
+      label: 'NVIDIA NIM',
+      hint: 'starts with nvapi-…',
+      link: 'https://build.nvidia.com/settings/api-keys',
+      need: 'optional',
+      why: 'Free: big open models (Kimi K2, DeepSeek, Llama 3.3, Qwen3 Coder) at about 40 requests a minute. Asks for a phone number once.',
+      steps: [
+        'Open the link and sign in, or create a free NVIDIA account (it asks you to confirm a phone number once).',
+        'Press "Generate API Key", give it any name (e.g. Ghosty) and generate it.',
+        'Copy the key (it starts with nvapi-), paste it below and press SAVE.',
+      ],
+    },
+    {
+      name: 'sambanova',
+      label: 'SambaNova',
+      hint: 'a long letters-and-numbers key',
+      link: 'https://cloud.sambanova.ai/apis',
+      need: 'optional',
+      why: 'Free: very fast DeepSeek and Llama models (about 20 requests a day per model).',
+      steps: [
+        'Open the link and sign up for the free SambaNova Cloud account (Google sign-in works).',
+        'Open "APIs" in the left menu and press "Generate New API Key".',
+        'Copy the key, paste it below and press SAVE.',
+      ],
+    },
+    {
+      name: 'cohere',
+      label: 'Cohere',
+      hint: 'a long letters-and-numbers key',
+      link: 'https://dashboard.cohere.com/api-keys',
+      need: 'optional',
+      why: 'Free trial key: Command A and Command R models, 1,000 calls a month.',
+      steps: [
+        'Open the link and sign up (Google or GitHub sign-in works).',
+        'On the API keys page, copy the Trial key shown there (or press "New Trial key" and copy that).',
+        'Paste it below and press SAVE.',
+      ],
     },
     {
       name: 'aisstream',
@@ -238,6 +291,15 @@ export async function testKey(name: string, value: string, repo?: string): Promi
         break;
       case 'mistral':
         status = await check('https://api.mistral.ai/v1/models', { headers: bearer });
+        break;
+      case 'nvidia':
+        status = await check('https://integrate.api.nvidia.com/v1/models', { headers: bearer });
+        break;
+      case 'sambanova':
+        status = await check('https://api.sambanova.ai/v1/models', { headers: bearer });
+        break;
+      case 'cohere':
+        status = await check('https://api.cohere.ai/compatibility/v1/models', { headers: bearer });
         break;
       case 'tavily':
         status = await check('https://api.tavily.com/search', { method: 'POST', headers: { ...bearer, 'content-type': 'application/json' }, body: JSON.stringify({ query: 'test', max_results: 1 }) });

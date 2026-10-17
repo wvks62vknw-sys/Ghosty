@@ -58,6 +58,10 @@ export const settingsTab: TabDef = {
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
     lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units);
 
+    // Whose voice: Ghosty's own (made by the brain, the same everywhere) or this phone's, which the list below picks.
+    const engine = h('select', { 'aria-label': 'Voice engine' }, h('option', { value: 'ghosty' }, "Ghosty's own voice (from the brain)"), h('option', { value: 'phone' }, "This phone's voice"));
+    engine.value = settings.get().voiceEngine;
+    engine.addEventListener('change', () => settings.set({ voiceEngine: engine.value === 'phone' ? 'phone' : 'ghosty' }));
     const voice = h('select', { 'aria-label': 'Voice' });
     const fillVoices = () => {
       clear(voice, h('option', { value: 'auto' }, 'Voice: best available'), ...listVoices().map((v) => h('option', { value: v.name }, `${v.name} (${v.lang})`)));
@@ -91,7 +95,7 @@ export const settingsTab: TabDef = {
         { timeout: 8000 },
       ),
     );
-    vp.body.append(h('div.lab', 'VOICE'), voice, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
+    vp.body.append(h('div.lab', 'VOICE'), engine, voice, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     paintHead();
     // The name top-left is the theme in use: it follows every change, whether a card was tapped

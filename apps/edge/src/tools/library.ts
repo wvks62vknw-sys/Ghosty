@@ -21,7 +21,7 @@ export const libraryTools: Tool[] = [
   {
     name: 'library_search',
     description:
-      "Search your own library — the books, PDFs, notes, papers, CVEs and code the owner gave you, plus your built-in starter library (algorithms, system design, compilers, maths, AI research, PyTorch/JAX/Triton/CUDA, reinforcement learning, production code, debugging, security). Returns the most relevant passages with their source. Costs no AI. Use it before answering knowledge questions and when you need facts for code; cite the source.",
+      "Search your own library — the books, PDFs, notes, papers, CVEs and code the owner gave you, plus the built-in starter library (algorithms, systems, compilers, maths, AI research, frameworks, RL, debugging, security). Returns the most relevant passages with their source; costs no AI. Use it before answering knowledge questions and for facts in code; cite the source.",
     parameters: { type: 'object', properties: { query: { type: 'string', description: 'what you want to know, in plain words' }, k: { type: 'number', description: 'how many passages (default 5, max 10)' } }, required: ['query'] },
     risk: 'auto',
     pure: true,
@@ -36,7 +36,7 @@ export const libraryTools: Tool[] = [
   {
     name: 'library_import',
     description:
-      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time — pass offset to continue), a Project Gutenberg book ("gutenberg.org/ebooks/1342" or "gutenberg 1342": the whole text, chapter by chapter, a part at a time — pass offset to continue), or "self" = YOUR OWN source code and architecture (25 files at a time; pass offset to continue) so you understand exactly how you work. PDFs, Word files and e-books are added by the owner in the Library tab.',
+      'Add knowledge to your library permanently, without AI: a web page or text file (https://…), an arXiv paper ("1706.03762"), a CVE record ("CVE-2021-44228"), a public GitHub repository ("owner/repo", 30 files at a time), a whole Project Gutenberg book ("gutenberg 1342", chapter by chapter, a part at a time), or "self" = YOUR OWN source code (25 files at a time). Pass offset to continue a long one. PDFs, Word files and e-books are added by the owner in the Library tab.',
     parameters: { type: 'object', properties: { source: { type: 'string' }, offset: { type: 'number', description: 'GitHub only: continue from this file number' } }, required: ['source'] },
     risk: 'auto',
     async run(a, ctx) {

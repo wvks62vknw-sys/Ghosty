@@ -3,10 +3,12 @@
  * GitHub requests) plus lessons Ghosty learns from its own mistakes (kept in its private
  * storage and shown in every prompt, so it doesn't repeat them).
  *
- * Add playbooks to craft.ts (engineering method), coding.ts (languages, web platform,
- * algorithms), fullstack.ts (architecture, auth, APIs, databases, iPhone-first layout), games.ts
- * (games and mini-apps on the widget kit), typescript.ts or ghosty.ts (this codebase). Lessons are added at runtime with the learn_lesson tool.
+ * Add playbooks to craft.ts (engineering method), appkit.ts (the single-file app page kit, the
+ * quality loop, motion and 3D), coding.ts (languages, web platform, algorithms), fullstack.ts
+ * (architecture, auth, APIs, databases, iPhone-first layout), games.ts (games and mini-apps on
+ * the widget kit), typescript.ts or ghosty.ts (this codebase). Lessons are added at runtime with the learn_lesson tool.
  */
+import { APPKIT } from './appkit';
 import { CODING } from './coding';
 import { CRAFT } from './craft';
 import { FULLSTACK } from './fullstack';
@@ -17,9 +19,10 @@ import type { Lesson, Playbook } from './types';
 
 export type { Lesson, Playbook } from './types';
 export { NEON_DODGE } from './games';
+export { APP_KIT_PAGE } from './appkit';
 export { FULLSTACK } from './fullstack';
 
-export const PLAYBOOKS: Playbook[] = [...CRAFT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY];
+export const PLAYBOOKS: Playbook[] = [...CRAFT, ...APPKIT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY];
 
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9_.]+/g) ?? [];
 

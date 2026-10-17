@@ -41,9 +41,13 @@ Your address is shown on the Worker's overview page (**Domains & Routes**). Open
 owner password on the pairing screen, then go to **System** and add a free AI key:
 **Gemini** (aistudio.google.com/apikey) is the best free model for building things;
 **Groq** (console.groq.com/keys) is the fastest for chat and gives Ghosty speech recognition.
-Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral): Ghosty spreads its work across all of
-them, so it runs out far less often, and a provider whose daily allowance is used up is left alone until it
-resets. Two more free sources need no key at all:
+Add several free keys (Gemini, Groq, Cerebras, OpenRouter, Mistral, NVIDIA NIM, SambaNova, Cohere — each one
+in the System tab says how to get it in a minute): Ghosty spreads its work across all of them, so it runs out
+far less often, and a provider whose daily allowance is used up is left alone until it resets. A model that is
+only seconds from being free again is waited for rather than swapped for a weaker one. And when every model
+really is out, Ghosty is never useless: simple asks (the time, the weather, your agenda, what it remembers,
+buses or traffic nearby) are still answered from the tool itself with no AI, and every "no model" reply tells
+you the exact time the first one is back. Two more free sources need no key at all:
 - **Cloudflare Workers AI** is connected automatically (the `ai` binding in `apps/edge/wrangler.jsonc`) and
   used when the keys are busy — a free daily allowance on your own Cloudflare account.
 - **Pollinations** (an open text endpoint, one reply every 30 seconds, best effort) is the last resort for
@@ -59,6 +63,29 @@ model, and how its self-set drills go. Type a field into FOCUS to put it first. 
 filed in the library (open any notebook on the shelf); **EXPORT TO GITHUB** writes every notebook as
 Markdown to a `library` branch of your repository, so it costs nothing on your phone and is readable
 anywhere. It stays within the free plan on its own: it waits while the day's database allowance is low.
+
+**Fresh knowledge every day:** every morning (06:10 UTC) Ghosty gathers the day's BBC news (world, UK, Birmingham,
+technology, science), Hacker News' front page, the newest AI and machine-learning papers on arXiv and Wikipedia's
+current events into its library — no AI, no key, about twenty small requests — and, when a free model is there,
+sums the day up in three levels. **Library → FRESH TODAY** shows the day's entries (tap one to read it;
+**DIGEST NOW** gathers again). Nothing to set up.
+
+**A memory of you:** every night (03:20 your time) Ghosty looks back over the day's conversation with a free model
+and keeps what you said about yourself — likes, dislikes, people, places, routines, goals, work — as a profile in
+your own words, plus a diary entry for the day. **Memory → ME** shows the profile (add a line, or tap ✕ to remove
+one); **Memory → DIARY** shows the entries, and **REFLECT NOW** does tonight's reflection at once. It never keeps
+anything it read on the web, and never a password, key or card number. If no free model is reachable that night,
+it quietly tries again the next.
+
+**Projects that run for days:** for anything too big for one conversation — "research the best way to do X over
+the next few days, then build it" — Ghosty proposes a plan of 3 to 12 steps and a pace (steady: a step every 20
+minutes; fast: every 3). You approve the plan once; it then works through the steps on its own, research on the
+cheap free models and building on the strong ones, so a long job no longer runs a key dry in one go. Every step's
+result is filed in the library ("Project: …" on the shelf) and you get a notification as steps finish (every step
+for a short project, every third for a long one, and a final report with any links). **Workshop → PROJECTS**
+shows each project's progress and steps (tap a done step for its result) with PAUSE, RESUME, CANCEL and RUN NEXT
+NOW; saying "carry on" resumes a paused project. If no model is free, a step waits a quarter of an hour; if a step
+fails three times, the project pauses and tells you once.
 
 **Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
 (or import a web page, an arXiv paper id, a CVE id, a GitHub repo or a Project Gutenberg book by its
@@ -127,6 +154,13 @@ A new Spotify app is in "development mode": add your own Spotify email under the
   not in it yet), alongside the OpenStreetMap-mapped ANPR and camera locations.
 - **Live buses and trams** — the **BUSES & TRAMS** layer and *"buses near me"*: without a key Ghosty uses
   bustimes.org's community feed (updated about once a minute); with the free keys below it uses the official feeds.
+- **Journeys** — a door-to-door planner by bus, tram, train, metro, coach and ferry, with the walks between,
+  anywhere in the world: press **GO** on God's Eye (FROM is *Here*; LEAVE NOW, LEAVE AT or ARRIVE BY), or ask
+  *"how do I get to Moseley?"*, *"train to Coventry at 9"*, *"next buses from New Street"*. The options are
+  drawn on the map leg by leg in the line's colour with every stop, and the JOURNEY sheet lists the steps
+  (which stop or platform, how many stops, where to get off); tap a step to look there. Free, no key:
+  powered by [Transitous](https://transitous.org), a community router over the open timetables operators
+  publish; times are live where the operator publishes a live feed (marked *live*), otherwise the timetable.
 - **ROAD AHEAD** — say *"I'm driving up the M6"* or press **ROAD AHEAD** on God's Eye: the globe follows your
   phone's GPS heading-up and the panel shows your speed, the nearest junction, and what is ahead of you —
   road reports, safety-camera sites, buses, and the motorway cameras ahead (opened only when you tap one).
@@ -192,6 +226,47 @@ domains, hosts, IPs and web addresses — never a person:
   sends it to chat, where Ghosty can chain on — fetch the site, import an interesting page, or look up
   a subdomain — in the same turn.
 
+## 3h. Telegram: talk to Ghosty from the Telegram app
+
+Text, voice notes and photos from Telegram, and Ghosty's reminders and task results back to it.
+Free; the whole setup is one token and a 6-digit code.
+
+1. In Telegram open **@BotFather** ([t.me/BotFather](https://t.me/BotFather)) and send `/newbot`: a
+   name, then a username ending in `bot`. BotFather shows a token (numbers, a colon, then letters).
+   Already have a bot? `/mybots` → the bot → **API Token**.
+2. In Ghosty open **System → Keys → Telegram bot**, paste the token and press **SAVE**. Ghosty connects
+   the bot itself (it points the bot's webhook at your Ghosty, with a secret only the two of them know)
+   and shows a 6-digit pairing code — also in **Links → Telegram**, big, with a countdown (15 minutes;
+   **NEW CODE** makes another).
+3. Open your bot in Telegram, press **START** and send it the code. It answers *"Paired."* From then on
+   only you can talk to it: anyone else gets *"This bot answers only to its owner."* once and is ignored.
+
+In the chat, talk as you would in Ghosty: text, a voice note (heard with Workers AI, or your Groq key), or
+a photo with a question (it goes to a model that can see pictures). A reply that needs your approval comes
+with **APPROVE / DECLINE** buttons; a picture Ghosty made arrives as a photo; `/status`, `/stop` and
+`/unpair` work as commands. Things on the screen (the globe, maps, the camera, widgets) only happen in the
+Ghosty app, and the brain says so. The conversation is the same one you see in the app.
+
+**With Cloudflare Access (step 5):** Telegram calls `/api/telegram/hook` itself, so the login must let that
+one path through — add a **Bypass** policy for the path `/api/telegram/hook`, exactly like `/s/*` and
+`/i/*` below. The brain still checks its secret on every call.
+
+The token is kept encrypted in the vault (and its KV mirror), never shown again; **REMOVE** in System →
+Keys disconnects the bot. **Links → Telegram → UNPAIR** forgets the chat (a new code pairs it again).
+
+## 3i. Real ears, Ghosty's own voice, and pictures
+
+- **Ears:** press the microphone and talk. The phone records, turns the recording into WAV and the brain
+  writes down the words — Groq's Whisper with your Groq key, otherwise Cloudflare Workers AI's Whisper
+  (free, no key, there as soon as Ghosty runs on Cloudflare). Voice notes on Telegram are heard the same way.
+- **Voice:** **Settings → Voice** has *Ghosty's own voice (from the brain)* — the default: replies are read
+  by MeloTTS on Workers AI, the same voice on every device — and *This phone's voice*, which uses the voice
+  picked in the list under it. If the brain cannot speak right now (no Workers AI, the day's 2,000 sentences
+  used up, a clip that does not play), the phone's voice takes over by itself.
+- **Pictures:** say *"draw me a red fox in the snow"*, *"make a logo for my bakery"*. Ghosty writes a full
+  description and makes the picture with Workers AI (flux-1-schnell, free): the chat shows it, Telegram sends
+  it as a photo, and the link (`https://<your Ghosty>/i/<id>`) lasts 7 days. Up to 40 a day.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
@@ -209,6 +284,13 @@ domains, hosts, IPs and web addresses — never a person:
 If no preview link ever appears, turn on **Worker → Settings → Build → Builds for non-production
 branches**. Shipping still works without previews.
 
+Once a day (05:40 UTC, so before you are up) Ghosty also thinks about what it could build for itself,
+from what you asked that week, what it couldn't answer and what went wrong. New ideas appear in
+**Workshop → UPGRADE IDEAS**, with a notification the first time each one appears. **BUILD** hands an
+idea to the chat (it then goes through the same change → preview → SHIP IT flow), **DISMISS** drops it,
+and **THINK NOW** asks straight away. Nothing is built or shipped without you; with no free model
+reachable that morning it simply tries again the next day.
+
 ## 5. Cloudflare login (optional, recommended)
 
 Puts a Cloudflare email-code login in front of Ghosty and its previews.
@@ -219,12 +301,12 @@ Puts a Cloudflare email-code login in front of Ghosty and its previews.
    note your Zero Trust team name.
 3. Add `ACCESS_TEAM` and `ACCESS_AUD` under `vars` in `apps/edge/wrangler.jsonc` (and under
    `previews.vars`), then push.
-4. Let two paths through without a login, or they stop working: published pages (`/s/*`) are meant
-   for other people, and the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
-   must be able to fetch. In the Access application add a **Bypass** policy for the paths `/s/*` and
-   `/i/*` (Zero Trust → Access → Applications → your application → Policies → Add, action Bypass,
-   include Everyone, with the path in the application's settings), or make them their own application
-   with a Bypass policy.
+4. Let three paths through without a login, or they stop working: published pages (`/s/*`) are meant
+   for other people, the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
+   must be able to fetch, and Telegram calls `/api/telegram/hook` itself (step 3h). In the Access
+   application add a **Bypass** policy for the paths `/s/*`, `/i/*` and `/api/telegram/hook` (Zero Trust →
+   Access → Applications → your application → Policies → Add, action Bypass, include Everyone, with the
+   path in the application's settings), or make them their own application with a Bypass policy.
 
 ## What's protected
 

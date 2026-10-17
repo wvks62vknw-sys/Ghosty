@@ -5,6 +5,7 @@
  * changes to Ghosty's own interface.
  */
 import type { Widget } from '../../../../packages/shared/src/protocol';
+import { checkHtml, refusal } from './check';
 import { arg, type Tool } from './types';
 
 const PREFIX = 'widget:';
@@ -41,7 +42,7 @@ export const widgetTools: Tool[] = [
   {
     name: 'create_widget',
     description:
-      'Install (or replace) an instant widget: ONE complete HTML document with inline CSS and JS — games, tools, trackers, mini dashboards. Build on the widget kit GK (<script src="/widget-kit.js"></script>: canvas, game loop, keyboard + touch controls, collisions, sound, particles, scenes, saving, app UI) — study "game kit" or "app widgets" first. Dark theme (#02070d background, #5ce1ff accents). It may fetch() public CORS-enabled APIs. Appears in the Widgets section of the Workshop tab immediately.',
+      'Install (or replace) an instant widget: ONE complete HTML document with inline CSS and JS — games, tools, trackers, mini dashboards. Build on the widget kit GK (<script src="/widget-kit.js"></script>: canvas, game loop, keyboard + touch, collisions, sound, particles, scenes, saving, app UI) — study "game kit" or "app widgets" first. Dark theme (#02070d background, #5ce1ff accents). It may fetch() public CORS-enabled APIs. Appears in the Workshop tab at once.',
     parameters: {
       type: 'object',
       properties: { name: { type: 'string', description: 'short id like pomodoro_timer' }, title: { type: 'string' }, html: { type: 'string' } },
@@ -54,6 +55,11 @@ export const widgetTools: Tool[] = [
       const html = arg.str(a, 'html');
       if (html.length > 100_000) throw new Error('widget is too large (100 KB max) — simplify it');
       if (!/<[a-z]/i.test(html)) throw new Error('html must be an HTML document');
+      // The quality gate (tools/check.ts): a widget whose tags or scripts are broken shows a blank box, so it is not installed.
+      const check = checkHtml(html, { kind: 'widget' });
+      const broken = check.findings.filter((f) => f.level === 'error' && (f.kind === 'structure' || f.kind === 'script'));
+      if (broken.length) throw new Error(refusal('not installed', broken.map((f) => `line ${f.line}: ${f.text}`)));
+      const worth = check.warnings.length ? ` Worth fixing (check_html): ${check.warnings.slice(0, 3).join(' | ')}.` : '';
       const title = arg.str(a, 'title');
       let saved = true;
       try {
@@ -63,9 +69,9 @@ export const widgetTools: Tool[] = [
       }
       // Open it on screen straight away — the owner asked for it to play/use it.
       ctx.emit({ t: 'client', name: 'open_widget', args: { name, title, html, saved } });
-      return saved
+      return (saved
         ? `Installed widget "${name}" and opened it on screen. It stays in Workshop → Widgets.`
-        : `Opened "${title}" on screen and kept it in Workshop → Widgets on this device; it is saved to my memory automatically when the database is back (midnight UTC).`;
+        : `Opened "${title}" on screen and kept it in Workshop → Widgets on this device; it is saved to my memory automatically when the database is back (midnight UTC).`) + worth;
     },
   },
   {
