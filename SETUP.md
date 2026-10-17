@@ -131,6 +131,13 @@ A new Spotify app is in "development mode": add your own Spotify email under the
   not in it yet), alongside the OpenStreetMap-mapped ANPR and camera locations.
 - **Live buses and trams** — the **BUSES & TRAMS** layer and *"buses near me"*: without a key Ghosty uses
   bustimes.org's community feed (updated about once a minute); with the free keys below it uses the official feeds.
+- **Journeys** — a door-to-door planner by bus, tram, train, metro, coach and ferry, with the walks between,
+  anywhere in the world: press **GO** on God's Eye (FROM is *Here*; LEAVE NOW, LEAVE AT or ARRIVE BY), or ask
+  *"how do I get to Moseley?"*, *"train to Coventry at 9"*, *"next buses from New Street"*. The options are
+  drawn on the map leg by leg in the line's colour with every stop, and the JOURNEY sheet lists the steps
+  (which stop or platform, how many stops, where to get off); tap a step to look there. Free, no key:
+  powered by [Transitous](https://transitous.org), a community router over the open timetables operators
+  publish; times are live where the operator publishes a live feed (marked *live*), otherwise the timetable.
 - **ROAD AHEAD** — say *"I'm driving up the M6"* or press **ROAD AHEAD** on God's Eye: the globe follows your
   phone's GPS heading-up and the panel shows your speed, the nearest junction, and what is ahead of you —
   road reports, safety-camera sites, buses, and the motorway cameras ahead (opened only when you tap one).

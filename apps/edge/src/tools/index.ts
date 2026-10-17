@@ -10,6 +10,7 @@ import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
 import { highwaysTools } from './highways';
+import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
 import { lensTools } from './lens';
 import { libraryTools } from './library';
@@ -32,7 +33,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -105,6 +106,12 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: travelTools,
     when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i,
     about: "You can give directions by car, foot or bike, drawn on the globe (get_directions), and find places nearby (find_nearby); both default to the owner's location.",
+  },
+  {
+    name: 'journeys',
+    tools: journeyTools,
+    when: /\b(journey|journeys|train|trains|bus|buses|tram|trams|metro|rail|how do i get|get me to|take me to|travel to|next (bus|train|tram)|departures?|leave (at|by)|arrive (at|by)|public transport|commute)\b/i,
+    about: 'You can plan door-to-door journeys by bus, tram, train, metro or ferry anywhere, with live times where published, drawn on the map (plan_journey), and list the next departures from any stop (next_departures)',
   },
   {
     name: 'traffic',

@@ -25,6 +25,8 @@ export type MapView = 'map' | '3d' | 'satellite' | 'traffic';
 export interface MapSheetOptions extends FlatMapOptions {
   /** Options for the 3D view (style, pitch, buildings…); pins and lines come from the flat-map fields. */
   map3d?: Map3dOptions;
+  /** A panel of Ghosty's own under the map, shown with the MAP view (the JOURNEY sheet, ui/journeysheet.ts). */
+  below?: HTMLElement;
 }
 
 export const mapUrl = (view: 'satellite' | 'traffic', s: MapSpot): string => (view === 'satellite' ? satelliteUrl(s) : wazeUrl(s));
@@ -38,8 +40,8 @@ export const MAP_VIEWS: [MapView, string, string][] = [
 
 let open: { close(): void } | null = null;
 
-/** Open the sheet on a spot (or move it there), showing one of the views; the tabs switch between them. */
-export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions = {}): { close(): void } {
+/** Open the sheet on a spot (or move it there), showing one of the views; the tabs switch between them. `flat()` is the flat map once the MAP view has opened it. */
+export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions = {}): { close(): void; flat(): FlatMap | null } {
   open?.close();
   let at: MapSpot = { ...spot };
   let frame: HTMLIFrameElement | null = null;
@@ -53,7 +55,7 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
   const tabs = h('div.maptabs');
   const where = h('div.mapwhere');
   const place = () => (where.textContent = `${at.lat.toFixed(4)}°, ${at.lon.toFixed(4)}°`);
-  const sheet = h('div.mapsheet', h('div.mapbar', tabs, where), flatHost, host3d, note);
+  const sheet = h(`div.mapsheet${opts.below ? '.withbelow' : ''}` as 'div', h('div.mapbar', tabs, where), flatHost, host3d, opts.below ?? null, note);
   const close = () => open?.close();
   const hooks = {
     streetView: (s: MapSpot) => {
@@ -94,6 +96,7 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
     frame = null;
     flatHost.hidden = v !== 'map';
     host3d.hidden = v !== '3d';
+    if (opts.below) opts.below.hidden = v !== 'map';
     if (v === 'map') {
       if (flat) {
         // Back from another view: the owner's view, style, overlays, pins and measurements are
@@ -127,5 +130,5 @@ export function openMapSheet(view: MapView, spot: MapSpot, opts: MapSheetOptions
     open = null;
   });
   show(view);
-  return { close: () => open?.close() };
+  return { close: () => open?.close(), flat: () => flat };
 }
