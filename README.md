@@ -102,6 +102,15 @@ tests/       local preview server + browser test
   most floor (PNG/JSON export, kept on the phone). In chat, Ghosty finds furniture that fits at UK shops
   (IKEA, Argos, Dunelm, John Lewis, Wayfair, DFS, Habitat, B&Q, eBay), reading each shop's own page for the
   price and the size — never a guessed price — best fit then cheapest first, with links.
+- **Architecture and design** (the **SPACE** tab, the **3D STUDIO**, `design_review`): rooms as real plans —
+  L-shapes and several rooms side by side, walls with their thickness, doors (with their swing) and windows
+  tapped onto walls and slid along them, every wall's length and each room's area in m² and ft². SEE IN 3-D
+  builds it with the walls cut round the doors and windows, an optional ceiling, **WALK** (stand inside at
+  eye height: joystick to walk, drag to look, through doors not walls) and **AERIAL**. **DESIGN REVIEW**:
+  give a goal ("make it feel bigger", "a home office") and Ghosty measures the plan against UK guidance —
+  walkways, door swings, bed and wardrobe space, light and ventilation, escape windows, Approved Documents
+  B, F, K and M, the kitchen triangle — names its sources, and sends up to three changes you see BEFORE
+  and AFTER and APPLY with a tap. Advice only: anything structural goes to Building Control.
 - **Vehicle check**: photograph or type ONE UK number plate and see that car's official record — make, model,
   colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
   unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
