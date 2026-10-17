@@ -642,7 +642,7 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
    and scrolls there) and the column scrolls, rather than every panel squeezed to the same height with its
    own little scroll box — a button cut in half, a list in a slit. */
 .col > .pn:not(.min) { flex: 1 0 auto; }
-.col > .pn > .bd { max-height: max(70vh, 320px); }
+:where(.col > .pn) > .bd { max-height: max(70vh, 320px); } /* low specificity: a panel's own cap (.pn.models, .pn.feeds) still wins */
 .stackf { display: flex; flex-direction: column; gap: 6px; }
 
 /* ---------- Library: asking comes first ---------- */
