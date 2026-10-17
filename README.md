@@ -84,6 +84,11 @@ tests/       local preview server + browser test
   a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
   white-labelled). Vendored MediaPipe and Tesseract.js; no face recognition, no number-plate lookups.
+- **Scan anything** (Lens → SCAN): barcodes and QR codes read on the phone (vendored ZXing) — a product's
+  barcode becomes a card from Open Food Facts (Nutri-Score, nutrition, allergens) or its sister databases, a
+  book's ISBN one from Open Library, a QR link is shown with its real site and warnings and opened only on
+  your tap; documents photographed, straightened and exported as a PDF made on the phone; signs and menus
+  read and translated (Workers AI's free translator). In chat: `lookup_barcode`, `translate_text`.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

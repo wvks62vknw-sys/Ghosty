@@ -209,6 +209,25 @@ the first time.
   the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
   at once; at most 30 a day).
 
+- **SCAN** — three things in one tile:
+  - **CODE**: point at a barcode or QR code and hold still (or PICK PHOTO). A box, a beep, then a card.
+    A food or household product shows its name, Nutri-Score, nutrition per 100 g and allergens from
+    Open Food Facts (credited on the card: its data is open, ODbL); a book shows title, author, year and a
+    description from Open Library; a number nobody knows gets a web search. A QR code with a web address
+    shows the address with the real website in bold, warns you about tricks (not https, look-alike names
+    like "paypal.com.something-else.ru", hidden addresses, link shorteners) and opens only when you tap
+    OPEN. Wi-Fi codes show the network and password (COPY PASSWORD, then Settings → Wi-Fi), contact
+    cards, places (SHOW ON MAP), emails and phone numbers are shown plainly. ASK GHOSTY and SAVE send the
+    card as text, only when you tap them.
+  - **DOCUMENT**: lay the page flat on something darker and CAPTURE PAGE (or PICK PHOTO). Ghosty finds
+    the page's corners; drag any that are wrong, then KEEP PAGE — it is straightened to A4 and cleaned up
+    (CLEAN UP: OFF keeps the colours). Add more pages, then EXPORT PDF: the share sheet opens (Save to
+    Files, Mail, WhatsApp…). READ ALL reads the pages into text you can save to the library.
+  - **TRANSLATE**: CAPTURE a sign or a menu (or type the text), pick the language (English first), and
+    the text is translated by Workers AI's free translator on your Cloudflare account (no key; a chat
+    model stands in when it is unavailable). The phone reads the Latin alphabet; for other scripts,
+    type or paste the text.
+
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
 
