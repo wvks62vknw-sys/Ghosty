@@ -441,7 +441,7 @@ test('the paused database: the link lives on in KV, so the webhook still answers
     delete state.storage.put;
     delete state.storage.delete;
   }
-  globalThis.fetch = real;
+  // the fake Telegram stays installed for the tests below; the last one puts the real fetch back
 });
 
 test('GET /api/status says whether the brain can hear and speak: nothing without Workers AI or a Groq key, both with Workers AI', async () => {
@@ -457,17 +457,22 @@ test('GET /api/status says whether the brain can hear and speak: nothing without
 });
 
 test('five wrong pairing codes lock a chat out until a new code: the right guess no longer pairs it, while the owner still can', async () => {
+  // Connected afresh, so the webhook secret in play is known (the module-level one is from the first connect).
+  tg.calls.length = 0;
+  assert.equal((await (await call('/api/keys', { method: 'POST', body: JSON.stringify({ name: 'telegram', value: TOKEN }) })).json()).works, true);
+  const live = tg.calls.find((c) => c.method === 'setWebhook').body.secret_token;
   const un = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
   assert.match(un.code, /^\d{6}$/);
   const BRUTE = 888000111;
-  for (const wrong of ['000001', '000002', '000003', '000004', '000005']) await hook(msg(BRUTE, { text: wrong }, { id: BRUTE, first_name: 'Mallory' }), secret);
+  for (const wrong of ['000001', '000002', '000003', '000004', '000005']) assert.equal((await hook(msg(BRUTE, { text: wrong }, { id: BRUTE, first_name: 'Mallory' }), live)).status, 200);
   tg.calls.length = 0;
-  await hook(msg(BRUTE, { text: un.code }, { id: BRUTE, first_name: 'Mallory' }), secret);
+  await hook(msg(BRUTE, { text: un.code }, { id: BRUTE, first_name: 'Mallory' }), live);
   assert.equal((await status()).paired, false, 'the right code after five wrong ones does not pair');
   assert.equal(texts().length, 0, 'and the chat gets no answer at all');
   // the owner's own chat is not locked out
-  await hook(msg(OWNER_CHAT, { text: un.code }), secret);
+  await hook(msg(OWNER_CHAT, { text: un.code }), live);
   assert.equal((await status()).paired, true);
   assert.equal(JSON.parse(kv.m.get('telegram:link')).chatId, OWNER_CHAT);
   tg.calls.length = 0;
+  globalThis.fetch = real;
 });
