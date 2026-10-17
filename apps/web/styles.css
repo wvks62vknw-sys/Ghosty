@@ -638,6 +638,11 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
   .two.stack > .col > .pn { flex: none; min-height: 0; }
   .two.stack .swap { display: none; }
 }
+/* Columns of panels: a panel is at least as tall as what it holds (a long list stops at 70 % of the screen
+   and scrolls there) and the column scrolls, rather than every panel squeezed to the same height with its
+   own little scroll box — a button cut in half, a list in a slit. */
+.col > .pn:not(.min) { flex: 1 0 auto; }
+.col > .pn > .bd { max-height: max(70vh, 320px); }
 .stackf { display: flex; flex-direction: column; gap: 6px; }
 
 /* ---------- Library: asking comes first ---------- */
@@ -1002,6 +1007,12 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
   .lensbar { max-width: 520px; }
 }
 @media (max-width: 899px) and (max-height: 700px) { .lensview { max-height: 36vh; } }
+/* Phones: the Lens scrolls as one page, with the camera's buttons straight under the modes and the mode's own
+   controls below at their full height, instead of squeezed into a strip that scrolls on its own. */
+@media (max-width: 899px) {
+  .hud.lens { grid-template-areas: 'view' 'modes' 'bar' 'panel' 'privacy'; grid-template-rows: repeat(5, max-content); align-content: start; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 18px; }
+  .lenspanel { overflow: visible; }
+}
 
 /* ---- 3D STUDIO (features/studio): the lab bench first, controls under the thumb, 44 px targets ---- */
 .hud.studio { display: grid; grid-template-areas: 'view' 'bar' 'seg' 'panel'; grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 4px 8px 6px; pointer-events: auto; }
@@ -1056,6 +1067,12 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
   .studiobtns { flex: 0 1 auto; }
 }
 @media (max-width: 899px) and (max-height: 700px) { .studioview { max-height: 38vh; } }
+/* Phones: the studio scrolls as one page, so the pane under the buttons gets its whole height instead of
+   a sliver that scrolls on its own (the scene itself takes no scroll: dragging it turns the model). */
+@media (max-width: 899px) {
+  .hud.studio { grid-template-rows: repeat(4, max-content); align-content: start; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 18px; }
+  .studiopanel { overflow: visible; }
+}
 
 /* ---- Recon card (features/threats/recon.ts): small while idle, most of the column once a report is in ---- */
 .col > .pn.recon.open { flex: 3 1 0; min-height: 320px; }

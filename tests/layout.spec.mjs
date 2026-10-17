@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
-const TABS = ['core', 'eye', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn'];
+const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn'];
 for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', { width: 1440, height: 900 }]]) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
@@ -39,9 +39,29 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
             out.push(`"${title.slice(0, 40)}" is cut off (${el.scrollHeight}px of content in ${el.clientHeight}px) and cannot scroll`);
           }
         }
+        // A box that scrolls on its own must be big enough to read: not a strip squeezed under the rest.
+        for (const el of root.querySelectorAll('*')) {
+          const cs = getComputedStyle(el);
+          if (!/(auto|scroll)/.test(cs.overflowY) || cs.visibility === 'hidden') continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height || el.scrollHeight <= el.clientHeight + 8) continue;
+          if (el.clientHeight < Math.min(140, innerHeight * 0.25)) out.push(`"${String(el.className).slice(0, 30)}" squeezed: ${el.scrollHeight}px of content in a ${el.clientHeight}px box`);
+        }
+        // The parts of a page laid out one under another may not overlap each other.
+        for (const grid of root.querySelectorAll('.hud.studio, .hud.lens')) {
+          const kids = [...grid.children].filter((k) => k.getBoundingClientRect().height > 0 && getComputedStyle(k).position !== 'absolute');
+          for (let i = 0; i < kids.length; i++)
+            for (let j = i + 1; j < kids.length; j++) {
+              const a = kids[i].getBoundingClientRect();
+              const b = kids[j].getBoundingClientRect();
+              if (a.bottom - 2 > b.top && b.bottom - 2 > a.top && a.right - 2 > b.left && b.right - 2 > a.left) out.push(`"${String(kids[i].className).slice(0, 20)}" overlaps "${String(kids[j].className).slice(0, 20)}"`);
+            }
+        }
         for (const el of root.querySelectorAll('.pn, button, input, select')) {
           const r = el.getBoundingClientRect();
-          if (r.width && (r.right > innerWidth + 2 || r.left < -2) && getComputedStyle(el).visibility !== 'hidden') out.push(`${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)}" sticks out sideways`);
+          // (a strip that scrolls sideways on purpose, like the Lens modes, may run past the edge)
+          const strip = el.parentElement && /(auto|scroll)/.test(getComputedStyle(el.parentElement).overflowX) && el.parentElement.getBoundingClientRect().right <= innerWidth + 2;
+          if (r.width && !strip && (r.right > innerWidth + 2 || r.left < -2) && getComputedStyle(el).visibility !== 'hidden') out.push(`${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || '').trim().slice(0, 30)}" sticks out sideways`);
         }
         return [...new Set(out)].slice(0, 6);
       }, tab);
