@@ -1,6 +1,6 @@
 // LINKS → TELEGRAM in every state the brain can report (the brain's /api/telegram/* answers are
 // stubbed here, since no Telegram bot exists on a test runner): not connected, waiting for the
-// pairing code (shown big, with a countdown), paired (TEST, NEW CODE, UNPAIR), and the Telegram
+// pairing code (shown big, with a countdown), paired (TEST, UNPAIR), and the Telegram
 // bot key block in SYSTEM → KEYS. Phone and desktop sizes.
 //   node tests/telegram.spec.mjs [outDir]
 import { chromium } from 'playwright';
@@ -93,7 +93,9 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   t = await panelText();
   if (!/^PAIRED/.test(t.status)) problems.push(`[${name}] paired status reads "${t.status}"`);
   if (!/PAIRED WITH\s*Sam/.test(t.body)) problems.push(`[${name}] paired panel does not name Sam: ${t.body.slice(0, 160)}`);
-  for (const b of ['TEST', 'NEW CODE', 'UNPAIR']) if (!t.buttons.includes(b)) problems.push(`[${name}] paired panel lacks ${b}`);
+  for (const b of ['TEST', 'UNPAIR']) if (!t.buttons.includes(b)) problems.push(`[${name}] paired panel lacks ${b}`);
+  // no NEW CODE while paired: a code the owner could not see would only let a stranger take the chat over (UNPAIR makes one)
+  if (t.buttons.includes('NEW CODE')) problems.push(`[${name}] paired panel offers NEW CODE`);
   const hero = await page.evaluate(() => document.querySelector('#pg-links .bigv')?.textContent ?? '');
   if (!/\/ 7 ONLINE/.test(hero)) problems.push(`[${name}] the hero does not count Telegram: "${hero}"`);
   await shot(`${name}-telegram-paired.png`);
