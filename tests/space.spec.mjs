@@ -66,9 +66,8 @@ if (!s || s.items.length !== 3) problems.push(`the planner starts with ${s?.item
 /** Canvas pixels for a point in room centimetres. */
 const at = async (xcm, ycm) => {
   const box = await page.locator('#pg-space .spacecanvas').boundingBox();
-  const room = (await sp()).room;
-  const k = (box.width - 44) / room.w;
-  return { x: box.x + 22 + xcm * k, y: box.y + 22 + ycm * k };
+  const { pad, k } = (await sp()).view;
+  return { x: box.x + pad + xcm * k, y: box.y + pad + ycm * k };
 };
 const drag = async (from, to) => {
   const a = await at(...from);
@@ -192,6 +191,100 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch
 await page.evaluate(() => (location.hash = 'space'));
 await until(() => window.__ghosty?.space?.room?.w === 500 && window.__ghosty?.space?.items?.length === 4, 10000, 'the plan was not kept on the phone');
 
+// ---- ARCHITECTURE: tap a wall → ADD DOOR; another → ADD WINDOW, dragged along its wall; the room an L; a second room ----
+const closeLog = async () => {
+  if (!(await page.locator('.logbtn').isVisible())) return;
+  const covered = await page.evaluate(() => {
+    const c = document.querySelector('#pg-space .spacecanvas');
+    if (!c) return true;
+    const r = c.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + r.width / 2, r.top + 20);
+    return !c.contains(el) && el !== c;
+  });
+  if (covered) await page.click('.logbtn');
+};
+await closeLog();
+await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+const tap = async (xcm, ycm) => {
+  await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+  const p = await at(xcm, ycm);
+  await page.mouse.click(p.x, p.y);
+  await page.waitForTimeout(120);
+};
+await tap(250, -6);
+if (!/^wall:r1:0$/.test((await sp()).selected)) problems.push(`tapping the top wall chose "${(await sp()).selected}"`);
+await page.locator('#pg-space .spacearch button', { hasText: 'ADD DOOR' }).click();
+await tap(250, 406);
+if (!/^wall:r1:2$/.test((await sp()).selected)) problems.push(`tapping the bottom wall chose "${(await sp()).selected}"`);
+await page.locator('#pg-space .spacearch button', { hasText: 'ADD WINDOW' }).click();
+s = await sp();
+const door = s.openings.find((o) => o.type === 'door');
+const win = s.openings.find((o) => o.type === 'window');
+if (!door || door.wall !== 0 || door.w !== 80 || door.at !== 210) problems.push(`the door: ${JSON.stringify(door)} (want 80 cm in the middle of the top wall)`);
+if (!win || win.wall !== 2 || win.w !== 100 || win.sill !== 90) problems.push(`the window: ${JSON.stringify(win)}`);
+if (s.rooms[0]?.m2 !== 20 || s.rooms[0]?.ft2 !== 215 || s.area !== '20.0 m² (215 ft²)') problems.push(`the room's area: ${JSON.stringify(s.rooms)} ${s.area}`);
+if (!(await page.locator('#pg-space .spaceroomnote', { hasText: 'm² (215 ft²)' }).count())) problems.push('the area in m² and ft² is not shown');
+// the window, chosen, slides along its wall (wall 2 runs right to left: its middle follows the finger)
+if (win) {
+  const mid = 500 - win.at - win.w / 2;
+  await drag([mid, 402], [mid - 120, 402]);
+  const moved = (await sp()).openings.find((o) => o.id === win.id);
+  if (!moved || moved.at !== win.at + 120) problems.push(`the window did not slide 120 cm along its wall: at ${moved?.at} (was ${win.at})`);
+}
+await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+await page.screenshot({ path: `${out}/space-doors.png` });
+// an L: the notch from the top right; the door and window stay where they are (on the renumbered walls)
+await page.fill('#pg-space .spacenotch input >> nth=0', '150');
+await page.fill('#pg-space .spacenotch input >> nth=1', '120');
+await page.locator('#pg-space .spacerooms button', { hasText: 'L-SHAPE' }).click();
+s = await sp();
+if (s.rooms[0]?.corners !== 6 || s.rooms[0]?.m2 !== 18.2) problems.push(`L-SHAPE gave ${JSON.stringify(s.rooms[0])} (want 6 corners, 18.2 m²)`);
+if (s.openings.length !== 2) problems.push(`the door and window did not stay on the L: ${JSON.stringify(s.openings)}`);
+await page.locator('#pg-space .spacerooms button', { hasText: '+ ROOM RIGHT' }).click();
+s = await sp();
+if (s.rooms.length !== 2 || s.room.w !== 800) problems.push(`+ ROOM RIGHT: ${s.rooms.length} rooms, plan ${s.room.w} wide`);
+// a door between the two rooms: tap the new room's left wall
+await tap(500, 150);
+if (!/^wall:/.test((await sp()).selected)) problems.push(`tapping the wall between the rooms chose "${(await sp()).selected}"`);
+else await page.locator('#pg-space .spacearch button', { hasText: 'ADD DOOR' }).click();
+s = await sp();
+if (s.openings.filter((o) => o.type === 'door').length !== 2 || s.openings.length !== 3) problems.push(`doors and windows after the L and the new room: ${JSON.stringify(s.openings)}`);
+await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+await page.screenshot({ path: `${out}/space-rooms.png` });
+
+// ---- DESIGN REVIEW: the plan goes to Ghosty with the goal; the changes come back as BEFORE / AFTER ----
+await page.locator('#pg-space .spacegoals button', { hasText: 'A HOME OFFICE' }).click();
+await page.locator('#pg-space .spacereview button', { hasText: 'REVIEW MY PLAN' }).click();
+await until(() => (window.__ghosty?.space?.review?.options?.length ?? 0) > 0, 20000, 'no design changes came back from the review');
+await until(() => window.__ghosty?.ui?.get?.().tab === 'space', 8000, 'SPACE did not open on the design changes');
+await closeLog();
+s = await sp();
+if (s.review.goal.toLowerCase() !== 'a home office') problems.push(`the review's goal: ${s.review.goal}`);
+const beforeItems = JSON.stringify(s.items);
+const beforePlan = JSON.stringify({ items: s.items, openings: s.openings });
+const clashedBefore = s.clashes;
+await page.locator('#pg-space .spacechanges .spaceopt').first().click();
+s = await sp();
+if (s.review.view !== 'after' || s.review.chosen !== 0) problems.push(`tapping a change did not show AFTER: ${JSON.stringify(s.review)}`);
+await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
+await page.screenshot({ path: `${out}/space-after.png` });
+await page.locator('#pg-space .spacebeforeafter button', { hasText: 'BEFORE' }).click();
+if ((await sp()).review.view !== 'before') problems.push('BEFORE did not go back to the plan as it is');
+await page.locator('#pg-space .spacebeforeafter button', { hasText: 'AFTER' }).click();
+await page.locator('#pg-space .spacebeforeafter button', { hasText: 'APPLY' }).click();
+s = await sp();
+if (s.review.applied !== 1) problems.push(`APPLY did not apply: ${JSON.stringify(s.review)}`);
+if (JSON.stringify({ items: s.items, openings: s.openings }) === beforePlan) problems.push('APPLY changed nothing on the plan');
+if (s.clashes.some((c) => !clashedBefore.includes(c))) problems.push(`the applied change left new clashes: ${s.clashes} (before: ${clashedBefore})`);
+await page.locator('#pg-space .spacebeforeafter button', { hasText: 'UNDO CHANGE' }).click();
+if (JSON.stringify((await sp()).items) !== beforeItems) problems.push('UNDO CHANGE did not put the plan back');
+
+// ---- SEE IN 3-D: the same rooms, doors and windows in the studio ----
+await page.locator('#pg-space .spaceexport button', { hasText: 'SEE IN 3-D' }).click();
+await until(() => window.__ghosty?.studio?.state?.().rooms === 2 && window.__ghosty.studio.state().openings === 3, 20000, 'SEE IN 3-D did not build the plan in the studio');
+const st = await page.evaluate(() => { const x = window.__ghosty?.studio?.state?.(); return x && { rooms: x.rooms, openings: x.openings, title: x.title, error: x.error, tab: window.__ghosty.ui.get().tab, warnings: x.warnings }; });
+if (!st || st.rooms !== 2 || st.openings !== 3) problems.push(`studio: ${JSON.stringify(st)} vs plan openings ${JSON.stringify((await sp()).openings.map((o) => o.id))}`);
+
 const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 if (wide) problems.push('the planner is wider than the phone screen');
 const csp = await page.evaluate(() => window.__csp);
@@ -199,5 +292,5 @@ if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.screenshot({ path: `${out}/space-final.png`, fullPage: false });
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'SPACE PLANNER run clean on an iPhone 13: opened from the chat with a 420 × 360 cm room, a piece dragged and snapped to the wall, a sub-70 cm walkway flagged, a desk added and turned, WILL IT FIT? answered both ways, MAKE SPACE offered layouts with more open floor and UNDO restored the room, PNG and JSON exported, a plan imported and kept on the phone.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'SPACE PLANNER run clean on an iPhone 13: opened from the chat with a 420 × 360 cm room, a piece dragged and snapped to the wall, a sub-70 cm walkway flagged, a desk added and turned, WILL IT FIT? answered both ways, MAKE SPACE offered layouts with more open floor and UNDO restored the room, PNG and JSON exported, a plan imported and kept on the phone; a door and a window put on tapped walls (area in m² and ft²), the window slid along its wall, the room made an L, a second room added with a door between; DESIGN REVIEW sent the plan, the changes came back BEFORE / AFTER, one applied and undone; SEE IN 3-D built it in the studio.');
 process.exit(problems.length ? 1 : 0);

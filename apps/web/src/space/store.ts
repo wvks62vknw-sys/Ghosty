@@ -6,6 +6,7 @@
  */
 import type { Measurement } from '../measure/geom';
 import { footprint, readPlan, type Item, type Plan, type Room } from './plan';
+import { resizeRoom } from './rooms';
 
 const KEY = 'ghosty.space';
 const MAX_MEASURES = 20;
@@ -69,11 +70,18 @@ export const space = {
     listeners.add(f);
     return () => listeners.delete(f);
   },
-  setRoom(room: Room): void {
+  /** A new size for the room — with several rooms or an L, for `roomId` (the first room when not given). */
+  setRoom(room: Room, roomId?: string): string[] {
     const d = load();
     const r = { w: Math.round(room.w), d: Math.round(room.d) };
-    d.plan = { ...d.plan, room: r, items: keepInside(r, d.plan.items) };
+    let dropped: string[] = [];
+    if (d.plan.rooms?.length) {
+      const got = resizeRoom(d.plan, roomId ?? d.plan.rooms[0]!.id, r.w, r.d);
+      d.plan = got.plan;
+      dropped = got.dropped;
+    } else d.plan = { ...d.plan, room: r, items: keepInside(r, d.plan.items) };
     save();
+    return dropped;
   },
   setItems(items: Item[]): void {
     const d = load();
@@ -95,7 +103,8 @@ export const space = {
       const w = Math.round(rects[0].w / 10);
       const depth = rects[1] ? Math.round(rects[1].w / 10) : d.plan.room.d;
       if (w >= 50 && w <= 5000) {
-        d.plan = { ...d.plan, room: { w, d: depth }, items: keepInside({ w, d: depth }, d.plan.items) };
+        if (d.plan.rooms?.length) d.plan = resizeRoom(d.plan, d.plan.rooms[0]!.id, w, depth).plan;
+        else d.plan = { ...d.plan, room: { w, d: depth }, items: keepInside({ w, d: depth }, d.plan.items) };
         room = true;
       }
     }
