@@ -364,10 +364,10 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   assert.deepEqual(await (await call('/api/telegram/test', { method: 'POST' })).json(), { sent: true });
   assert.deepEqual(texts(), ['Ghosty here. I can reach you on Telegram now.']);
   tg.calls.length = 0;
-  // NEW CODE while paired: a code, still paired
-  const fresh = await (await call('/api/telegram/code', { method: 'POST' })).json();
-  assert.equal(fresh.paired, true);
-  assert.equal(fresh.code, undefined, 'a code only shows while nothing is paired');
+  // NEW CODE while paired: refused (a code the owner cannot see would only let a stranger take the chat over)
+  const fresh = await call('/api/telegram/code', { method: 'POST' });
+  assert.equal(fresh.status, 400, 'no code while paired');
+  assert.equal((await status()).paired, true);
   // UNPAIR from the tab: a new code, no chat; the old chat is a stranger again
   const un = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
   assert.equal(un.paired, false);
@@ -418,7 +418,10 @@ test('the token never appears in an error: a dead connection while connecting is
 test('the paused database: the link lives on in KV, so the webhook still answers and a message still gets a reply', async () => {
   const link = JSON.parse(kv.m.get('telegram:link'));
   const code = link.code;
-  await hook(msg(OWNER_CHAT, { text: code }), link.secret);
+  // KV (readable by previews of unreviewed changes) holds only a hash of the secret; the secret itself went to Telegram alone.
+  assert.ok(!('secret' in link) && /^[0-9a-f]{64}$/.test(link.secretHash), 'KV holds a hash of the webhook secret, never the secret');
+  const live = tg.calls.find((c) => c.method === 'setWebhook').body.secret_token;
+  await hook(msg(OWNER_CHAT, { text: code }), live);
   assert.equal((await status()).paired, true);
   tg.calls.length = 0;
   const realGet = state.storage.get.bind(state.storage);
@@ -427,7 +430,7 @@ test('the paused database: the link lives on in KV, so the webhook still answers
   state.storage.put = async () => quota();
   state.storage.delete = async () => quota();
   try {
-    const r = await hook(msg(OWNER_CHAT, { text: 'hello' }), link.secret);
+    const r = await hook(msg(OWNER_CHAT, { text: 'hello' }), live);
     assert.equal(r.status, 200);
     const reply = texts();
     assert.ok(reply.length >= 1, 'answered while paused');
@@ -439,4 +442,16 @@ test('the paused database: the link lives on in KV, so the webhook still answers
     delete state.storage.delete;
   }
   globalThis.fetch = real;
+});
+
+test('GET /api/status says whether the brain can hear and speak: nothing without Workers AI or a Groq key, both with Workers AI', async () => {
+  const before = (await (await call('/api/status')).json()).speech;
+  assert.deepEqual(before, { stt: false, tts: false });
+  env.AI = { async run() { return {}; } };
+  try {
+    const withAi = (await (await call('/api/status')).json()).speech;
+    assert.deepEqual(withAi, { stt: true, tts: true });
+  } finally {
+    delete env.AI;
+  }
 });

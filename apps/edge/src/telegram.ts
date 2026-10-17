@@ -39,8 +39,12 @@ const WAIT_FOR_TURN_MS = 60_000;
 const API = 'https://api.telegram.org';
 
 export interface TelegramLink {
-  /** What Telegram sends back in X-Telegram-Bot-Api-Secret-Token (32 random characters). */
-  secret: string;
+  /**
+   * SHA-256 (hex) of what Telegram sends back in X-Telegram-Bot-Api-Secret-Token. The secret
+   * itself is kept nowhere but at Telegram: this record is mirrored to KV, which previews of
+   * unreviewed changes can read, and a hash lets nobody forge a webhook call.
+   */
+  secretHash: string;
   /** The bot's username, without the @. */
   bot: string;
   /** The pairing code, while it is valid. */
@@ -128,6 +132,11 @@ export function scrub(text: string, token: string): string {
 }
 
 /** Equal without leaking, through timing, how much of a wrong secret was right. */
+export async function sha256Hex(text: string): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export function sameSecret(a: string, b: string): boolean {
   const x = new TextEncoder().encode(a);
   const y = new TextEncoder().encode(b);
@@ -287,7 +296,9 @@ export async function telegramConnect(env: Env, storage: DurableObjectStorage, t
     await api(token, 'setWebhook', { url: `${origin}/api/telegram/hook`, secret_token: secret, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true });
     const prev = await loadLink(env, storage).catch(() => undefined);
     const same = prev && prev.bot === bot && prev.chatId;
-    const link = withNewCode({ secret, bot, ...(same ? { chatId: prev.chatId, name: prev.name } : {}) });
+    // The same bot, still paired: no pairing code (a code is only ever shown to the owner, while unpaired).
+    const base = { secretHash: await sha256Hex(secret), bot };
+    const link: TelegramLink = same ? { ...base, chatId: prev.chatId, name: prev.name } : withNewCode(base);
     await durablePut(env, storage, LINK_KEY, link);
     return {
       ok: true,
@@ -325,6 +336,8 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
   if (path === '/telegram/status' && method === 'GET') return json(statusOf(link, !!token));
   if (path === '/telegram/code' && method === 'POST') {
     if (!link) return json({ error: 'not connected: paste the bot token in SYSTEM → KEYS first' }, 400);
+    // While paired there is no code to give out: a code the owner cannot see would only let a stranger take the chat over.
+    if (link.chatId) return json({ error: 'already paired: press UNPAIR first to pair another chat' }, 400);
     link = withNewCode(link);
     await durablePut(host.env, host.storage, LINK_KEY, link);
     return json(statusOf(link, !!token));
@@ -364,6 +377,9 @@ export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' 
 
 /** Chats turned away in the last hour (once an hour each). In memory only: nothing about strangers is stored. */
 const refused = new Map<number, number>();
+/** Wrong pairing codes per chat: after five, that chat is ignored until a new code is made. */
+const wrongCodes = new Map<number, { code: string; n: number }>();
+const MAX_WRONG_CODES = 5;
 
 /**
  * POST /api/telegram/hook, which Telegram calls for every update. The secret header must
@@ -373,7 +389,7 @@ const refused = new Map<number, number>();
 export async function telegramHook(host: TelegramHost, req: Request): Promise<Response> {
   const link = await loadLink(host.env, host.storage).catch(() => undefined);
   const given = req.headers.get('x-telegram-bot-api-secret-token') ?? '';
-  if (!link || !given || !sameSecret(given, link.secret)) return new Response(null, { status: 403 });
+  if (!link || !given || !sameSecret(await sha256Hex(given), link.secretHash)) return new Response(null, { status: 403 });
   const update = (await req.json().catch(() => null)) as TgUpdate | null;
   if (update && typeof update === 'object') host.waitUntil(handleUpdate(host, link, update).catch(() => undefined));
   return new Response('ok', { status: 200 });
@@ -390,10 +406,24 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   if (link.chatId !== chatId) {
     // Not the owner's chat. The pairing code, while it is valid, makes it the owner's; anything else is turned away, once an hour, and never acted on.
     if (validCode(link) && text.replace(/\s+/g, '') === link.code) {
+      // Only a private chat can be the owner's: in a group every member would have the owner's authority.
+      if (m.chat.type !== 'private' || (m.from && m.from.id !== chatId)) {
+        await tgSend(token, chatId, 'Pair me in a private chat with you, not in a group.').catch(() => undefined);
+        return;
+      }
       const { code: _c, codeUntil: _u, ...rest } = link;
+      wrongCodes.delete(chatId);
       await durablePut(host.env, host.storage, LINK_KEY, { ...rest, chatId, name: (m.from?.first_name || m.chat.first_name || 'you').slice(0, 60) });
       await tgSend(token, chatId, "Paired. I'm Ghosty — talk to me here any time.");
       return;
+    }
+    if (validCode(link) && /^\d{6}$/.test(text.replace(/\s+/g, ''))) {
+      // A wrong six-digit guess: counted per chat, and after five the chat is ignored until the code changes.
+      const w = wrongCodes.get(chatId);
+      const n = w && w.code === link.code ? w.n + 1 : 1;
+      wrongCodes.set(chatId, { code: link.code!, n });
+      if (wrongCodes.size > 500) wrongCodes.delete(wrongCodes.keys().next().value!);
+      if (n > MAX_WRONG_CODES) return;
     }
     const last = refused.get(chatId) ?? 0;
     if (Date.now() - last < 3600_000) return;
@@ -457,14 +487,16 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
 async function handleCallback(host: TelegramHost, link: TelegramLink, token: string, q: NonNullable<TgUpdate['callback_query']>): Promise<void> {
   const chatId = q.message?.chat.id;
   const m = /^ap:([\w-]+):([01])$/.exec(q.data ?? '');
-  const ours = !!m && chatId !== undefined && chatId === link.chatId;
+  // The owner's chat, pressed by the owner (the chat id alone would let anyone in a group answer).
+  const ours = !!m && chatId !== undefined && chatId === link.chatId && q.from?.id === link.chatId;
   await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(ours ? { text: m![2] === '1' ? 'Approved' : 'Declined' } : {}) }).catch(() => undefined);
   if (!ours || !m || chatId === undefined) return;
   const allow = m[2] === '1';
+  const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
+  // The buttons stay while the brain is busy, so the answer can be given again later.
+  if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, then press the button again.");
   // The buttons come off the question, so it cannot be answered twice.
   if (q.message) await api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
-  const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
-  if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, then press the button again.");
   const out = collector(token, chatId, host.origin);
   const busy = typing(token, chatId);
   try {

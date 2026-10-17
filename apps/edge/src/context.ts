@@ -15,8 +15,9 @@ const RESULT_BUDGET: Record<string, number> = {
   library_search: 5000,
   study_site: 8000,
   recon_domain: 6000,
-  repo_read: 12000,
-  repo_read_many: 12000,
+  // Self-edits quote exact snippets of files up to ~37 KB: these keep the cap self-edit worked under.
+  repo_read: 30000,
+  repo_read_many: 30000,
   repo_search: 12000,
   change_status: 12000,
   wait_for_checks: 12000,

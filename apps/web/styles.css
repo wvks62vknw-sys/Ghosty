@@ -292,7 +292,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .jwhen { font: 400 9px var(--m); letter-spacing: .1em; color: var(--mute); white-space: nowrap; }
 .jtabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: none; }
 .jtabs::-webkit-scrollbar { display: none; }
-.jtab { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 9px; min-height: 0; text-align: left; letter-spacing: 0; text-transform: none; }
+.jtab { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 9px; text-align: left; letter-spacing: 0; text-transform: none; }
 .jtab b { font: 500 12px var(--d); color: var(--fg); }
 .jtab small { font: 400 9px var(--m); color: var(--mute); }
 .jtab.on small { color: var(--c); }
@@ -309,12 +309,12 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .jtext em.late { color: var(--a); } .jtext em.jcancel { color: var(--r); }
 .jtime { flex: none; display: flex; flex-direction: column; align-items: flex-end; font: 400 11px var(--m); color: var(--fg); font-variant-numeric: tabular-nums; }
 .jtime small { font-size: 9px; color: var(--mute); }
-.jacts { display: flex; gap: 4px; flex-wrap: wrap; } .jacts button { padding: 6px 8px; min-height: 0; font-size: 8.5px; }
+.jacts { display: flex; gap: 4px; flex-wrap: wrap; } .jacts button { padding: 6px 8px; font-size: 8.5px; }
 .jcredit { font: 400 9px var(--m); color: var(--mute); letter-spacing: .04em; }
 .jform { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; overflow: auto; }
 .jform .lab { margin-top: 2px; }
 .jin { width: 100%; box-sizing: border-box; }
-.jchips { display: flex; gap: 4px; flex-wrap: wrap; } .jchips button { padding: 6px 9px; min-height: 0; font-size: 8.5px; }
+.jchips { display: flex; gap: 4px; flex-wrap: wrap; } .jchips button { padding: 6px 9px; font-size: 8.5px; }
 .jhint { font: 400 10.5px/1.4 var(--b); color: var(--mute); }
 .jerr { font: 400 11.5px/1.4 var(--b); color: var(--a); border-left: 2px solid var(--a); padding-left: 8px; }
 .jres { display: flex; flex-direction: column; }

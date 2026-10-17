@@ -98,7 +98,7 @@ test('the reflection: facts to the memory, lines to the profile, the diary to th
   assert.equal(calls.length, 1);
   assert.match(calls[0].user, /<<external content from today's conversation/);
   assert.match(calls[0].user, /OWNER \([^)]*\): I like flat whites/);
-  assert.match(calls[0].user, /GHOSTY \([^)]*\): Noted/);
+  assert.ok(!/GHOSTY \(/.test(calls[0].user), "Ghosty's own replies (which quote the web) stay out of the reflection");
   assert.match(calls[0].system, /ONLY things the OWNER said/);
   // the facts about the owner are kept; a password never is, whatever the model said
   assert.deepEqual(r.facts, ['likes flat whites', 'lives in Kings Heath']);

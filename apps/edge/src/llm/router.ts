@@ -294,6 +294,7 @@ export class Router {
       if ('message' in r) return r;
       if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new RouterError(r.error, r.waitMs);
       await sleep(r.waitMs + 500, signal);
+      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
     }
   }
 
@@ -370,6 +371,7 @@ export class Router {
         if (left <= shortWait && !waited && !signal?.aborted) {
           waited = true;
           await sleep(left + 200, signal);
+          if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
         } else {
           soonest = Math.min(soonest, left);
           continue;
@@ -393,9 +395,12 @@ export class Router {
           }
           // A per-second limit with a short stated wait: sit it out and ask the same model once more.
           const again = e.code === 429 ? statedWait(e) : 0;
-          if (!retried && again > 0 && again <= shortWait && !signal?.aborted) {
+          // One short wait per pass (shared with the cooling wait above): several rate-limited models must not add up to a minute of silence.
+          if (!retried && !waited && again > 0 && again <= shortWait && !signal?.aborted) {
             retried = true;
+            waited = true;
             await sleep(again + 200, signal);
+            if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
             continue;
           }
           lastErr = e;
@@ -446,6 +451,7 @@ export class Router {
     else tuned.max_tokens = out;
     const limit = p.timeoutMs ?? 60_000;
     for (const body of [tuned, minimal]) {
+      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
       const ctl = new AbortController();
       const timer = setTimeout(() => ctl.abort(), limit);
       const onAbort = () => ctl.abort();

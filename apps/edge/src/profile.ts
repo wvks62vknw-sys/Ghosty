@@ -160,8 +160,9 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
   const turns = ((await storage.get<ChatTurn[]>(TURNS_KEY)) ?? []).filter((t) => t.at > last && t.at <= now).slice(-MAX_TURNS);
   if (turns.filter((t) => t.role === 'user').length < 2) return none('nothing new to reflect on');
   let conversation = '';
-  for (const t of turns) {
-    const line = `${t.role === 'user' ? 'OWNER' : 'GHOSTY'} (${fmtLocal(t.at, tz)}): ${t.text.replace(/\s+/g, ' ').slice(0, MAX_TURN_CHARS)}\n`;
+  // Only what the owner said: Ghosty's own replies quote web pages and tool output, which must never become a "fact about the owner".
+  for (const t of turns.filter((x) => x.role === 'user')) {
+    const line = `OWNER (${fmtLocal(t.at, tz)}): ${t.text.replace(/\s+/g, ' ').slice(0, MAX_TURN_CHARS)}\n`;
     if (conversation.length + line.length > MAX_CONVERSATION_CHARS) break;
     conversation += line;
   }

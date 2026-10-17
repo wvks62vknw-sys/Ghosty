@@ -1204,7 +1204,9 @@ export class GhostyAgent {
       const days = Math.max(1, Math.min(62, Number(url.searchParams.get('days')) || 14));
       const from = Number(url.searchParams.get('from')) || startOfDay(Date.now(), tz);
       const { events, errors } = await agenda(this.storage, this.vault, from, from + days * 86400_000, tz);
-      return json({ tz, events, errors, jobs: await loadJobs(this.storage), feeds: await loadFeeds(this.storage) });
+      // The owner's own jobs: Ghosty's routines (study, reflection, digest, upgrade ideas) and project steps have their own panels.
+      const own = new Set(['reminder', 'task', 'verify']);
+      return json({ tz, events, errors, jobs: (await loadJobs(this.storage)).filter((j) => own.has(j.kind)), feeds: await loadFeeds(this.storage) });
     }
     if (path === '/agenda/events' && method === 'POST') {
       const start = when(body.start);

@@ -43,6 +43,11 @@ export const BACKGROUND_BLOCKED = new Set<string>([
   'plan_upgrade', // a roadmap is a standing plan for self-edits; only the owner's sessions set it
   'update_step',
   'set_reminder',
+  // Projects run for days on their own: only the owner starts, pauses, resumes or cancels one.
+  'start_project',
+  'pause_project',
+  'resume_project',
+  'cancel_project',
   'add_event',
   'remove_event',
   'send_email',

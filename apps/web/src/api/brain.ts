@@ -347,7 +347,8 @@ export const brain = {
   },
   /** A sentence in Ghosty's own voice (MP3 bytes from the brain; 404 when it has no voice, 429 past the day's allowance). */
   async tts(text: string): Promise<Blob> {
-    const r = await fetch('/api/tts', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text }), credentials: 'same-origin' });
+    // A stalled clip must not hold the reactor "speaking": 15 s, then the phone's voice takes over.
+    const r = await fetch('/api/tts', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text }), credentials: 'same-origin', signal: AbortSignal.timeout(15_000) });
     if (!r.ok) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });

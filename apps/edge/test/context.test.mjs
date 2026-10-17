@@ -13,9 +13,11 @@ test('tool results are cut to a budget per tool, half as much again on a coding 
   assert.equal(C.resultBudget('library_search'), 5000);
   assert.equal(C.resultBudget('study_site'), 8000);
   assert.equal(C.resultBudget('recon_domain'), 6000);
-  for (const n of ['repo_read', 'repo_read_many', 'repo_search', 'change_status', 'wait_for_checks']) assert.equal(C.resultBudget(n), 12000, n);
+  for (const n of ['repo_search', 'change_status', 'wait_for_checks']) assert.equal(C.resultBudget(n), 12000, n);
+  // Self-edits quote exact snippets copied from repo_read: a file of up to ~37 KB comes back whole, as before.
+  for (const n of ['repo_read', 'repo_read_many']) assert.equal(C.resultBudget(n), 30000, n);
   assert.equal(C.resultBudget('weather', true), 5250);
-  assert.equal(C.resultBudget('repo_read', true), 18000);
+  assert.equal(C.resultBudget('repo_read', true), 45000);
   const cut = C.clipResult('weather', 'x'.repeat(10000));
   assert.ok(cut.startsWith('x'.repeat(3500)) && !cut.startsWith('x'.repeat(3501)));
   assert.match(cut, /…\[truncated, 6500 more characters\]$/, 'the note the model knows to ask for more on');

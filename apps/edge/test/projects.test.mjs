@@ -89,7 +89,7 @@ test('start_project: the record in the database and KV, the index, the first ste
   await assert.rejects(tool.approval({ title: 'x', goal: 'y', steps: STEPS.slice(0, 2) }, {}), /3 to 12 steps/);
   await assert.rejects(tool.approval({ title: 'x', goal: 'y', steps: [{ title: 'a' }, ...STEPS] }, {}), /title and an instruction/);
   assert.ok(T.TOOL_GROUPS.find((g) => g.name === 'projects').when.test('can you keep working on this over the next few days'));
-  assert.ok(T.TOOL_GROUPS.find((g) => g.name === 'projects').when.test('carry on'));
+  assert.ok(!T.TOOL_GROUPS.find((g) => g.name === 'projects').when.test('carry on'), '"carry on" is the chat\'s own word for continuing a capped task');
   assert.ok(!T.TOOL_GROUPS.find((g) => g.name === 'projects').when.test('what is the weather'));
   assert.ok(T.TOOL_GROUPS.find((g) => g.name === 'projects').about.length <= 220);
 });

@@ -207,8 +207,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'projects',
     tools: projectTools,
-    when: /\b(project|over (the next )?(few )?days|in the background|keep working|long task|carry on|multi-?day|step by step)\b/i,
-    about: 'You can run a project over days on your own schedule (start_project: 3–12 steps, one every few minutes, each result filed in the library; project_status, pause_project, resume_project — "carry on" — cancel_project)',
+    when: /\b(project|over (the next )?(few )?days|in the background|keep working|long task|multi-?day|step by step)\b/i,
+    about: 'You can run a project over days on your own schedule (start_project: 3–12 steps, one every few minutes, each result filed in the library; project_status, pause_project, resume_project (a paused one), cancel_project)',
   },
   // Passive infrastructure recon: only when a domain, host, address or one of its words comes up.
   {

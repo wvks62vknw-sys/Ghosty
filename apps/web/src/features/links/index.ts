@@ -9,6 +9,7 @@ import { canPromptInstall, disablePush, enablePush, installHelp, promptInstall, 
 import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/spotify';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
+import { ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
@@ -271,6 +272,8 @@ export const linksTab: TabDef = {
       } catch {
         /* offline */
       }
+      // The answer came after the owner left: nothing to paint, and no countdown ticking on a hidden panel.
+      if (ui.get().tab !== 'links') return;
       online.telegram = !!st?.paired;
       paintHero();
       clearInterval(codeTimer);
@@ -312,7 +315,7 @@ export const linksTab: TabDef = {
           h('div.note', `Open Telegram → @${st.bot} → press START → send it this code:`),
           code,
           left,
-          h('div.keyrow', newCode, h('a.lnk', { href: `https://t.me/${st.bot}`, target: '_blank', rel: 'noopener' }, 'OPEN THE BOT ↗')),
+          h('div.keyrow', newCode, button('OPEN THE BOT ↗', () => void window.open(`https://t.me/${st!.bot}`, '_blank', 'noopener'))),
         );
         return;
       }
@@ -325,7 +328,7 @@ export const linksTab: TabDef = {
           const r = await brain.telegramTest().catch((e: Error) => ({ sent: false, error: e.message }));
           toast(r.sent ? 'Sent to your Telegram' : `Could not send: ${r.error ?? 'unknown'}`, r.sent ? 'ok' : 'warn');
           b.disabled = false;
-        }, 'on'), newCode, button('UNPAIR', async () => {
+        }, 'on'), button('UNPAIR', async () => {
           if (!confirm('Unpair this Telegram chat? You can pair again with a new code.')) return;
           await brain.telegramUnpair().catch(() => undefined);
           toast('Telegram unpaired', 'ok');

@@ -136,10 +136,21 @@ export function speak(text: string): Promise<void> {
   if (!t) return Promise.resolve();
   const token = ++speakToken;
   const parts = sentences(t);
-  // Ghosty's own voice first; whatever it could not say, the phone says.
-  if (ghostyVoice()) return speakGhosty(parts, token).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token) : undefined));
+  // A clip still playing from the last reply stops now, so its handlers never touch the next clip.
+  stopClip?.();
+  // Ghosty's own voice first; whatever it could not say, the phone says. The reactor shows "speaking" at
+  // once: the first clip takes a moment to arrive, and a hands-free turn must not reopen the mic meanwhile.
+  if (ghostyVoice()) {
+    ui.set({ voice: 'speaking' });
+    return speakGhosty(parts, token).then((from) => (from < parts.length ? speakPhone(parts.slice(from), token) : undefined));
+  }
   return speakPhone(parts, token);
 }
+
+// Choosing a voice again in SETTINGS ends any wait on the phone's voice.
+settings.subscribe((s, prev) => {
+  if (s.voiceEngine !== prev.voiceEngine) phoneUntil = 0;
+});
 
 function speakPhone(parts: string[], token: number): Promise<void> {
   if (!('speechSynthesis' in window)) {
@@ -183,13 +194,21 @@ function speakPhone(parts: string[], token: number): Promise<void> {
 async function speakGhosty(parts: string[], token: number): Promise<number> {
   const el = audioEl();
   const clips: Promise<Blob | null>[] = [];
+  // The brain saying no (no Workers AI, the day's allowance) is what sends the next ten minutes to the
+  // phone's voice; a lost request, or a clip refused before the first tap unlocked the element, is not.
+  let refused = false;
   const fetchClip = (i: number) => {
-    if (i < parts.length && !clips[i]) clips[i] = brain.tts(parts[i]!).catch(() => null);
+    if (i < parts.length && !clips[i]) {
+      clips[i] = brain.tts(parts[i]!).catch((e: { status?: number }) => {
+        if (e?.status === 404 || e?.status === 429) refused = true;
+        return null;
+      });
+    }
   };
   fetchClip(0);
   fetchClip(1);
   const giveUp = (i: number) => {
-    phoneUntil = Date.now() + 10 * 60_000;
+    if (refused && unlocked) phoneUntil = Date.now() + 10 * 60_000;
     return i;
   };
   for (let i = 0; i < parts.length; i++) {
@@ -212,17 +231,23 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob);
     let timer = 0;
+    let done = false;
+    const onEnded = () => finish(true);
     const finish = (ok: boolean) => {
+      if (done) return;
+      done = true;
       clearTimeout(timer);
-      el.onplaying = el.onended = el.onerror = null;
-      stopClip = null;
+      // Only this clip's own handlers and stop hook come off: a later clip may already own the element.
+      if (el.onended === onEnded) el.onplaying = el.onended = el.onerror = null;
+      if (stopClip === stop) stopClip = null;
       URL.revokeObjectURL(url);
       resolve(ok);
     };
-    stopClip = () => {
-      el.pause();
+    const stop = () => {
+      if (el.onended === onEnded) el.pause();
       finish(false);
     };
+    stopClip = stop;
     // Silence for 4 s means the clip was refused (autoplay, a broken file): the phone's voice takes over.
     timer = window.setTimeout(() => finish(false), 4000);
     el.onplaying = () => {
@@ -230,7 +255,7 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
       // An end that never comes (a stalled clip) must not leave the reactor "speaking" for good.
       timer = window.setTimeout(() => finish(true), ((Number.isFinite(el.duration) ? el.duration : 30) + 2) * 1000);
     };
-    el.onended = () => finish(true);
+    el.onended = onEnded;
     el.onerror = () => finish(false);
     el.src = url;
     el.play().catch(() => finish(false));
