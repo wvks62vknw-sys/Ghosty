@@ -22,6 +22,7 @@ import { spotifyRoute } from './integrations/spotify';
 import { trafficRoute } from './integrations/traffic';
 import { transitRoute } from './integrations/transit';
 import { journeyRoute } from './integrations/transitous';
+import { aimRoute } from './integrations/aim';
 import { liveEvents } from './integrations/highways';
 import { scanRoute } from './integrations/lookup';
 import { search as webSearch } from './tools/web';
@@ -417,6 +418,7 @@ export class GhostyAgent {
       if (path === '/transit' && method === 'GET') return json(await transitRoute(url, this.vault));
       if (path === '/journey' && method === 'GET') return await journeyRoute(url, { storage: this.storage });
       if (path === '/lookup/barcode' || path === '/translate') return await scanRoute(req, path, method, url, { ai: this.env.AI, search: (q) => webSearch(q, { vault: this.vault }), complete: async (m) => textOf((await this.router.complete(m, [], undefined, { cheap: true, maxWaitMs: 0 })).message.content) });
+      if (path.startsWith('/aim/') && method === 'GET') return await aimRoute(path, url);
       if (path === '/highways/events' && method === 'GET') {
         // Live motorway incidents for the globe's ROAD INCIDENTS layer: National Highways' list (3-minute cache), placed at their junctions.
         const region = (url.searchParams.get('region') ?? 'West Midlands').slice(0, 40);

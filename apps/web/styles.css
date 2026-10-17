@@ -818,6 +818,19 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .scanthumb button { position: absolute; top: 2px; right: 2px; min-height: 0; width: 24px; height: 24px; padding: 0; line-height: 1; }
 .scanlbl { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); align-self: center; }
 .scanlang { flex: 1 1 auto; min-width: 0; min-height: 40px; }
+.aimchips button { font: 500 9.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.aimchips button.on { color: var(--c); border-color: var(--c); background: rgba(var(--cr), .08); }
+.aimmanual { display: flex; flex-direction: column; gap: 4px; }
+.aimmanual b { font: 500 9.5px var(--d); letter-spacing: .14em; color: var(--a); }
+.aimmanual .row { align-items: center; gap: 8px; }
+.aimslider { flex: 1 1 auto; min-width: 0; accent-color: var(--c); min-height: 32px; }
+.aimval { flex: none; min-width: 64px; font: 400 11px var(--m); color: var(--c); text-align: right; }
+.aimcard .lenshow span { word-break: break-word; }
+.aimextract { font-size: 12.5px; line-height: 1.45; color: var(--mute); }
+.aimextract:empty { display: none; }
+.aimfeeds { color: var(--a); }
+.aimfeeds:empty { display: none; }
+.aimcredit { font-size: 10px; }
 .lensgesture { font: 200 26px/1.1 var(--d); color: #fff; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .lensgesture small { font: 500 10px var(--m); letter-spacing: .12em; color: var(--mute); text-transform: uppercase; }
 .lenshold { height: 3px; background: rgba(var(--cr), .12); border-radius: 2px; overflow: hidden; }

@@ -24,6 +24,7 @@ import { namesLine, type NameGuess } from '../../vision/clipmath';
 import { forgetImage, shareImage } from '../../vision/engines';
 import { closeAll } from '../../vision/models';
 import { Reader } from '../../vision/ocr';
+import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
@@ -32,8 +33,8 @@ import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -128,7 +129,7 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
   { id: 'name', label: 'NAME', hint: 'name anything' },
-  { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
+  { id: 'aim', label: 'AIM', hint: 'point at anything' },
 ];
 
 export const lensState: LensState = {
@@ -415,7 +416,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
