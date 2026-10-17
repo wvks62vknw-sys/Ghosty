@@ -12,7 +12,7 @@
  * never sign-off: structural work and anything under building regulations goes to Building
  * Control. No AI here, no outbound requests.
  */
-import { areaText, changeProblem, describeRooms, designProblems, doorSwing, facing, inSwing, itemRect, openFloor, openingProblem, openingSpan, polyArea, readDesign, rectInRooms, toRoomJson, type DesignPlan, type Opening, type PlanItem, type Rect } from '../../../../packages/shared/src/design';
+import { areaText, changeProblem, describeRooms, designProblems, doorSwing, facing, gridStep, inSwing, itemRect, openFloor, openingProblem, openingSpan, polyArea, readDesign, rectInRooms, toRoomJson, type DesignPlan, type Opening, type PlanItem, type Rect } from '../../../../packages/shared/src/design';
 import { asData } from '../kernel/permissions';
 import { formatHits, Library } from '../library/store';
 import { arg, clip, type Tool } from './types';
@@ -166,7 +166,10 @@ export function relocate(p: DesignPlan, i: number, opts: { wall?: boolean; near?
   const it = p.items[i]!;
   const others = p.items.filter((_, j) => j !== i).map(itemRect);
   const keep = opts.keep ?? WALKWAY_CM;
-  const step = 10;
+  // 10 cm in an ordinary room; coarser in a very big plan, so one search stays within MAX_CELLS.
+  const step = gridStep(p.room.w, p.room.d);
+  const home = itemRect(it);
+  const target = opts.near ?? [home.x + home.w / 2, home.y + home.h / 2];
   let best: { it: PlanItem; score: number } | null = null;
   for (const rot of [it.rot ?? 0, (it.rot ?? 0) + 90].map((r) => quarter(r) * 90)) {
     const side = quarter(rot) % 2 === 1;
@@ -174,8 +177,12 @@ export function relocate(p: DesignPlan, i: number, opts: { wall?: boolean; near?
     const fh = side ? it.w : it.d;
     for (let y = 0; y + fh <= p.room.d + 0.01; y += step) {
       for (let x = 0; x + fw <= p.room.w + 0.01; x += step) {
+        // The cheap test first: a spot no nearer than the best so far is never checked.
+        const score = Math.hypot(x + fw / 2 - target[0], y + fh / 2 - target[1]) + (rot === (it.rot ?? 0) ? 0 : 25);
+        if (best && score >= best.score) continue;
         const r: Rect = { x, y, w: fw, h: fh };
         if (!rectInRooms(p.rooms, r)) continue;
+        if (opts.wall && rectInRooms(p.rooms, { x: x - 2, y, w: fw + 4, h: fh }) && rectInRooms(p.rooms, { x, y: y - 2, w: fw, h: fh + 4 })) continue;
         if (others.some((o) => overlaps(r, o, keep - 0.5))) continue;
         if (p.openings.some((o) => {
           const room = p.rooms.find((q) => q.id === o.room);
@@ -184,16 +191,15 @@ export function relocate(p: DesignPlan, i: number, opts: { wall?: boolean; near?
         // the unturned corner of a rectangle turned about its centre
         const cand: PlanItem = { ...it, rot, x: x + fw / 2 - it.w / 2, y: y + fh / 2 - it.d / 2 };
         if (blocksWindow(p, cand)) continue;
-        const touching = !rectInRooms(p.rooms, { x: x - 2, y, w: fw + 4, h: fh }) || !rectInRooms(p.rooms, { x, y: y - 2, w: fw, h: fh + 4 });
-        if (opts.wall && !touching) continue;
-        const target = opts.near ?? [itemRect(it).x + itemRect(it).w / 2, itemRect(it).y + itemRect(it).h / 2];
-        const score = Math.hypot(x + fw / 2 - target[0], y + fh / 2 - target[1]) + (rot === (it.rot ?? 0) ? 0 : 25);
-        if (!best || score < best.score) best = { it: cand, score };
+        best = { it: cand, score };
       }
     }
   }
   return best?.it ?? null;
 }
+
+/** How many new places one review may search for. */
+export const MAX_RELOCATES = 8;
 
 const withItem = (p: DesignPlan, i: number, it: PlanItem): DesignPlan => ({ ...p, items: p.items.map((x, j) => (j === i ? it : x)) });
 const withOpening = (p: DesignPlan, id: string, patch: Partial<Opening>): DesignPlan => ({ ...p, openings: p.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) });
@@ -297,6 +303,10 @@ export function reviewDesign(p: DesignPlan, goal: string): { facts: string[]; fi
 /** Up to three concrete changes, each a whole plan that adds no problem. */
 export function proposeChanges(p: DesignPlan, goal: string): Change[] {
   const out: Change[] = [];
+  // Each search for a new place walks the whole plan: a fixed number per review keeps a plan of
+  // 120 pieces from running the brain past its time limit (the first ones found are the ones used).
+  let tries = MAX_RELOCATES;
+  const place = (q: DesignPlan, i: number, opts?: Parameters<typeof relocate>[2]) => (tries-- > 0 ? relocate(q, i, opts) : null);
   const before = toRoomJson(p);
   // Each change moves different pieces, so the owner can take any of them.
   const touched = new Set<number>();
@@ -322,7 +332,7 @@ export function proposeChanges(p: DesignPlan, goal: string): Change[] {
     else {
       let q = p;
       for (const { i } of inWay) {
-        const moved = relocate(q, i);
+        const moved = place(q, i);
         if (moved) q = withItem(q, i, moved);
       }
       if (q !== p) push(`Move ${inWay.map(({ it }) => name(it)).join(' and ')} out of the door's way`, `Door ${o.id} cannot open fully as things stand.`, q);
@@ -336,19 +346,19 @@ export function proposeChanges(p: DesignPlan, goal: string): Change[] {
       const near = room && win ? (openingSpan(room, win).mid as [number, number]) : undefined;
       const di = p.items.findIndex(is.desk);
       if (di >= 0) {
-        const moved = relocate(p, di, { wall: true, near, keep: 60 });
+        const moved = place(p, di, { wall: true, near, keep: 60 });
         if (moved) push('Move the desk to the window', 'Daylight from the side is the kindest light to work by, and the desk stays against a wall.', withItem(p, di, moved));
       } else {
         const desk: PlanItem = { id: `desk${p.items.length + 1}`, kind: 'desk', name: 'Desk', w: 120, d: 60, h: 75, x: 0, y: 0, rot: 0 };
         const q: DesignPlan = { ...p, items: [...p.items, desk] };
-        const placed = relocate(q, q.items.length - 1, { wall: true, near, keep: 60 });
+        const placed = place(q, q.items.length - 1, { wall: true, near, keep: 60 });
         if (placed) push('Add a 120 × 60 cm desk by the window', 'A home office needs a proper desk; by a window it gets daylight, against a wall it keeps the floor open.', withItem(q, q.items.length - 1, placed));
       }
     }
     if (GOALS.light.test(goal)) {
       p.items.forEach((it, i) => {
         if (!blocksWindow(p, it)) return;
-        const moved = relocate(p, i, { wall: true });
+        const moved = place(p, i, { wall: true });
         if (moved) push(`Move ${name(it)} away from the window`, 'It blocks the window\'s light where it stands.', withItem(p, i, moved));
       });
     }
@@ -364,7 +374,7 @@ export function proposeChanges(p: DesignPlan, goal: string): Change[] {
       const now = openFloor(p).area;
       const order = p.items.map((it, i) => ({ it, i })).sort((a, b) => b.it.w * b.it.d - a.it.w * a.it.d);
       for (const { it, i } of order) {
-        const moved = relocate(p, i, { wall: true });
+        const moved = place(p, i, { wall: true });
         if (!moved || (moved.x === it.x && moved.y === it.y && moved.rot === it.rot)) continue;
         const q = withItem(p, i, moved);
         const gain = openFloor(q).area - now;
@@ -379,12 +389,12 @@ export function proposeChanges(p: DesignPlan, goal: string): Change[] {
   // 3. tight walkways and wardrobes that cannot open: move the smaller piece
   for (const g of tightPairs(p)) {
     const [i, j] = [g.a, g.b].sort((x, y) => p.items[x]!.w * p.items[x]!.d - p.items[y]!.w * p.items[y]!.d);
-    const moved = relocate(p, i!);
+    const moved = place(p, i!);
     if (moved) push(`Move ${name(p.items[i!]!)} to give a ${WALKWAY_CM} cm walkway`, `It is ${g.cm} cm from ${name(p.items[j!]!)} now.`, withItem(p, i!, moved));
   }
   p.items.forEach((it, i) => {
     if (is.wardrobe(it) && !clear(p, frontStrip(itemRect(it), it.rot, WARDROBE_FRONT_CM), i)) {
-      const moved = relocate(p, i, { wall: true });
+      const moved = place(p, i, { wall: true });
       if (moved) push(`Move ${name(it)} where its doors can open`, `It needs ${WARDROBE_FRONT_CM} cm clear in front.`, withItem(p, i, moved));
     }
   });
@@ -434,7 +444,11 @@ export const designTools: Tool[] = [
     async run(a, ctx) {
       const goal = arg.str(a, 'goal').slice(0, 200);
       const photo = arg.str(a, 'photo', false).slice(0, 1500);
-      const raw = a.plan && typeof a.plan === 'object' ? a.plan : typeof a.plan === 'string' && a.plan.trim().startsWith('{') ? a.plan : sentPlan();
+      const given = a.plan && typeof a.plan === 'object' ? a.plan : typeof a.plan === 'string' && a.plan.trim().startsWith('{') ? a.plan : null;
+      // A pasted plan gets the same checks as the phone's (POST /api/design/plan): its size, and that it reads as a plan.
+      if (given && (typeof given === 'string' ? given : JSON.stringify(given)).length > MAX_PLAN_CHARS) throw new Error('that plan is too big to review');
+      if (given && !readDesign(given)) throw new Error('that is not a room plan (Room JSON from the SPACE PLANNER)');
+      const raw = given ?? sentPlan();
       const plan = raw ? readDesign(raw) : null;
       if (!plan && !photo) throw new Error('no plan to review: ask the owner to open SPACE and press REVIEW (it sends the plan), or describe the room or a photo of it');
       const review = plan ? reviewDesign(plan, goal) : null;

@@ -587,21 +587,35 @@ export function changeProblem(before: unknown, after: unknown): string | null {
   return fresh.length ? `the change would leave ${fresh[0]}` : null;
 }
 
+/** The most grid cells a search over the plan may visit (a 14 × 14 m plan at 10 cm). */
+export const MAX_CELLS = 20_000;
+
+/**
+ * The grid step (cm) for a search over a w × h box: `min`, or coarser (in 5 cm steps) so the grid
+ * stays within MAX_CELLS — a 100 m plan (typed in mm, or imported) must not stall the brain.
+ */
+export function gridStep(w: number, h: number, min = 10): number {
+  return Math.max(min, Math.ceil(Math.sqrt((Math.max(0, w) * Math.max(0, h)) / MAX_CELLS) / 5) * 5);
+}
+
 /**
  * The biggest open rectangle of floor (cm), on a `cell` grid: floor that is in a room and under no
  * furniture. The classic largest rectangle in a histogram, row by row.
  */
 export function openFloor(p: Pick<DesignPlan, 'rooms' | 'items'>, cell = 10): Rect & { area: number } {
   const b = layoutBounds(p.rooms);
+  cell = gridStep(b.w, b.h, cell);
   const cols = Math.max(1, Math.floor(b.w / cell));
   const rows = Math.max(1, Math.floor(b.h / cell));
   const free = new Uint8Array(cols * rows);
-  const rects = p.items.map(itemRect);
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const c: Pt = [b.x + (x + 0.5) * cell, b.y + (y + 0.5) * cell];
-      if (roomAt(p.rooms, c) && !rects.some((r) => c[0] > r.x && c[0] < r.x + r.w && c[1] > r.y && c[1] < r.y + r.h)) free[y * cols + x] = 1;
-    }
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (roomAt(p.rooms, [b.x + (x + 0.5) * cell, b.y + (y + 0.5) * cell])) free[y * cols + x] = 1;
+  // Each piece clears the cells whose centres it covers (a cell at a time per piece, not every piece per cell).
+  for (const r of p.items.map(itemRect)) {
+    const x0 = Math.max(0, Math.floor((r.x - b.x) / cell - 0.5) + 1);
+    const x1 = Math.min(cols - 1, Math.ceil((r.x + r.w - b.x) / cell - 0.5) - 1);
+    const y0 = Math.max(0, Math.floor((r.y - b.y) / cell - 0.5) + 1);
+    const y1 = Math.min(rows - 1, Math.ceil((r.y + r.h - b.y) / cell - 0.5) - 1);
+    for (let y = y0; y <= y1; y++) free.fill(0, y * cols + x0, y * cols + x1 + 1);
   }
   const hts = new Int32Array(cols);
   let best = { x: 0, y: 0, w: 0, h: 0, area: 0 };
