@@ -61,6 +61,14 @@ test('matching: the part number on the page counts most; the shops are named, Al
   const f = P.matchScore(fuse, q);
   assert.equal(f.exact, false);
   assert.ok(f.score < 1, `fuse scores ${f.score}`);
+  // the part number as a whole word: a longer number, or letters and digits run together across words, are not it
+  const pnq = (partNumber) => ({ description: 'part', partNumber });
+  assert.equal(P.matchScore({ title: 'Pump C00119230 for Indesit', partNumbers: [] }, pnq('C0011923')).exact, false);
+  assert.equal(P.matchScore({ title: 'Fuses', partNumbers: [], snippet: 'pack of 10 x 13 A fuses' }, pnq('X13A')).exact, false);
+  assert.equal(P.matchScore({ title: 'Pump C00119230 for Indesit', partNumbers: [] }, pnq('C00119230')).exact, true);
+  assert.equal(P.matchScore({ title: 'Remote control', partNumbers: [], snippet: 'Fits BN59-01315B (bn59 01315b)' }, pnq('BN5901315B')).exact, true, 'a dash inside the number is fine');
+  assert.equal(P.matchScore({ title: 'Belt', partNumbers: [], snippet: 'Whirlpool 4812 310 18294' }, pnq('481231018294')).exact, true, 'spaces between digit groups are fine');
+  assert.equal(P.matchScore({ title: 'Belt', partNumbers: ['AG-420'] }, pnq('AG420')).exact, true, 'a part number the page states');
   assert.equal(P.retailerOf('https://www.ebay.co.uk/itm/123').name, 'eBay UK');
   assert.match(P.retailerOf('https://www.aliexpress.com/item/1.html').note, /slow shipping/);
   assert.equal(P.retailerOf('https://uk.rs-online.com/web/p/fuses/123').name, 'RS Components');

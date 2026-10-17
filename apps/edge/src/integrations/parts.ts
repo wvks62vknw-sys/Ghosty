@@ -213,12 +213,31 @@ const norm = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const WORD_STOP = new Set('a an and for the of to with in on replacement spare part parts new genuine compatible uk buy my this that'.split(' '));
 const wordsOf = (s: string) => [...new Set(s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !WORD_STOP.has(w)))];
 
+/**
+ * The asked part number as a whole word in a page's text: "-", "/" and "." may sit anywhere inside it,
+ * a space only where the owner typed one or between two digits ("4812 310 18294"). So "C00119230"
+ * is not "C0011923", and "pack of 10 x 13 A" is not "X13A".
+ */
+function partNumberRe(asked: string): RegExp {
+  let src = '';
+  let gap = false;
+  for (const ch of asked.toUpperCase()) {
+    if (!/[A-Z0-9]/.test(ch)) {
+      gap = src !== '';
+      continue;
+    }
+    if (src) src += gap || (/\d/.test(src[src.length - 1]!) && /\d/.test(ch)) ? '[\\-/. ]?' : '[\\-/.]?';
+    src += ch;
+    gap = false;
+  }
+  return new RegExp(`(?<![A-Z0-9])${src}(?![A-Z0-9])`, 'i');
+}
+
 /** How well a listing fits: the asked part number on the page counts most, then the description's words, then the device's. */
 export function matchScore(l: Pick<Listing, 'title' | 'partNumbers' | 'snippet'>, q: PartQuery, pageText = ''): { score: number; exact: boolean } {
   const hay = `${l.title} ${l.snippet ?? ''} ${pageText.slice(0, 20000)}`;
-  const hayNorm = norm(`${hay} ${l.partNumbers.join(' ')}`);
   const pn = norm(q.partNumber ?? '');
-  const exact = pn.length >= 4 && hayNorm.includes(pn);
+  const exact = pn.length >= 4 && (l.partNumbers.some((p) => norm(p) === pn) || partNumberRe(q.partNumber ?? '').test(hay));
   const title = l.title.toLowerCase();
   const dw = wordsOf(q.description);
   const inTitle = dw.filter((w) => title.includes(w)).length;
