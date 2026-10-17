@@ -67,6 +67,8 @@ export interface GradioEvent {
   queue_size?: number;
   rank_eta?: number;
   eta?: number;
+  /** A note from the Space while it works ("Waiting for a GPU to become available"). */
+  log?: string;
   success?: boolean;
   output?: { data?: unknown[]; error?: string | null; title?: string | null };
 }
@@ -168,6 +170,8 @@ async function readQueue(res: Response, progress: (l: string) => void, what: str
           last = ev;
           if (ev.msg === 'estimation' && typeof ev.rank === 'number') progress(ev.rank > 0 ? `${what}: number ${ev.rank + 1} in the queue…` : `${what}: next in the queue…`);
           else if (ev.msg === 'process_starts') progress(`${what}…`);
+          // The Space's own notes ("Waiting for a GPU to become available").
+          else if (ev.msg === 'log' && typeof ev.log === 'string') progress(`${what}: ${ev.log.slice(0, 80)}`);
           else if (ev.msg === 'process_completed' || ev.msg === 'queue_full' || ev.msg === 'unexpected_error') return ev;
         }
         buf = buf.slice(cut + 2);

@@ -173,6 +173,10 @@ test('gradio: the queue stream, the function names and the file in the answer (l
   assert.equal(M.findFn(FX.config, 'on_export_click').fnIndex, 14);
   assert.equal(M.findFn(FX.config, 'nope'), null);
   assert.equal(M.findFn({}, 'shape_generation'), null);
+  // the Space's "log" and "heartbeat" messages come through as events too; the answer is still found
+  const logged = M.parseSse(FX.sseQueueLog);
+  assert.deepEqual(logged.map((e) => e.msg), ['estimation', 'process_starts', 'log', 'heartbeat', 'heartbeat', 'log', 'process_completed', 'close_stream']);
+  assert.match(M.fileFrom(logged[6].output.data), /white_mesh\.glb$/);
   // half a line at the end of a chunk is skipped, not a crash
   assert.deepEqual(M.parseSse('data: {"msg":"estimation","rank":2}\n\ndata: {"msg":"proc').map((e) => e.msg), ['estimation']);
 });
@@ -181,7 +185,7 @@ test('gradio: failures in words — the ZeroGPU quota with when to try again, a 
   const q = M.parseSse(FX.sseQuota).find((e) => e.msg === 'process_completed');
   const f = M.failureText(q, false);
   assert.equal(f.status, 429);
-  assert.match(f.text, /used up today's GPU allowance — try again in about 13 h 46 min\./);
+  assert.match(f.text, /used up today's GPU allowance — try again in about 7 h 11 min\./);
   assert.match(f.text, /free Hugging Face token \(SYSTEM → KEYS → Hugging Face\)/);
   assert.doesNotMatch(M.failureText(q, true).text, /token/, 'no token tip when a token is already used');
   // the runs-a-day cap says 0:00:00: no time is named

@@ -141,11 +141,15 @@ test('make a model: the lighter copy failing falls back to the full model', asyn
 });
 
 test('make a model: refusals in words — the quota (when to try again), a sleeping Space, not a picture, a changed Space', async () => {
-  await assert.rejects(M.makeModel({ fetch: fakeSpace({ shape: FX.sseQuota }).f }, png()), (e) => e instanceof M.Model3dError && e.status === 429 && /try again in about 13 h 46 min/.test(e.message) && /free Hugging Face token/.test(e.message));
+  await assert.rejects(M.makeModel({ fetch: fakeSpace({ shape: FX.sseQuota }).f }, png()), (e) => e instanceof M.Model3dError && e.status === 429 && /try again in about 7 h 11 min/.test(e.message) && /free Hugging Face token/.test(e.message));
   await assert.rejects(M.makeModel({ fetch: fakeSpace({ configStatus: 503 }).f }, png()), (e) => e.status === 503 && /not running right now/.test(e.message));
   await assert.rejects(M.makeModel({ fetch: fakeSpace().f }, new TextEncoder().encode('<svg>').buffer), (e) => e.status === 415);
   await assert.rejects(M.makeModel({ fetch: fakeSpace({ config: { dependencies: [] } }).f }, png()), (e) => /no longer offers shape generation/.test(e.message));
   await assert.rejects(M.makeModel({ fetch: async () => { throw new TypeError('fetch failed'); } }, png()), (e) => e.status === 502 && /could not reach the 3-D model maker/.test(e.message));
+  // the Space's own notes show as progress
+  const logs = [];
+  await M.makeModel({ fetch: fakeSpace({ shape: FX.sseQueueLog }).f, progress: (l) => logs.push(l) }, png());
+  assert.ok(logs.includes('shaping the model: Waiting for a GPU to become available'), JSON.stringify(logs));
   // a stream that ends before the model is ready
   const cut = fakeSpace({ shape: 'data: {"msg":"estimation","rank":3}\n\n' });
   const progress = [];
