@@ -12,6 +12,7 @@ import { APPKIT } from './appkit';
 import { CODING } from './coding';
 import { CRAFT } from './craft';
 import { FULLSTACK } from './fullstack';
+import { GADGETS } from './gadgets';
 import { GAMES } from './games';
 import { GHOSTY } from './ghosty';
 import { HOME } from './home';
@@ -23,7 +24,7 @@ export { NEON_DODGE } from './games';
 export { APP_KIT_PAGE } from './appkit';
 export { FULLSTACK } from './fullstack';
 
-export const PLAYBOOKS: Playbook[] = [...CRAFT, ...APPKIT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY, ...HOME];
+export const PLAYBOOKS: Playbook[] = [...CRAFT, ...APPKIT, ...GAMES, ...CODING, ...FULLSTACK, ...TYPESCRIPT, ...GHOSTY, ...HOME, ...GADGETS];
 
 const words = (s: string) => s.toLowerCase().match(/[a-z0-9_.]+/g) ?? [];
 

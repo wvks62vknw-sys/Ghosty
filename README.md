@@ -106,6 +106,14 @@ tests/       local preview server + browser test
   colour, MOT valid until, every MOT test with its mileage and advisories, a warning when the mileage went down,
   unfixed recalls (DVSA MOT history, free key; DVLA tax status when its registrations reopen). Lens READ offers
   CHECK THIS VEHICLE? and looks nothing up until you tap it. Shown once, never saved anywhere; never who owns it.
+- **Sound check** (Lens → SOUND): LISTEN records a few seconds of whatever is playing and says plainly if it
+  is clipping, humming, boomy or harsh ("clipping: turn the volume down a couple of notches"); TEST TONE plays
+  a tone that gets louder and a sweep through the speaker under test and says where it starts to distort
+  ("distorts above ~70% volume") and how its bass and treble fall away — worked out on the phone, with charts.
+  **Best settings and spare parts**: show Ghosty a speaker, amp, soundbar or TV and it looks up the settings
+  its manual and reviewers recommend, sources named (`gadget_settings`); show it a broken part and it finds
+  it in UK shops with prices read off their pages, best match first (`find_part`). Never a guessed setting
+  or price.
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on

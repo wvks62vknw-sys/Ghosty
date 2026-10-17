@@ -10,6 +10,7 @@ import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
+import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
 import { journeyTools } from './journey';
@@ -38,7 +39,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -73,7 +74,7 @@ export interface ToolGroup {
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
 export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'memory', tools: memoryTools, when: 'always', about: 'You can remember lasting facts the owner tells you (remember), list them (list_memory) and drop one (forget); forget_everything needs approval.' },
-  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch) — use them for anything current or that you are unsure about; never invent live data.' },
+  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch) — use them for anything current or that you are unsure about.' },
   {
     name: 'ui',
     tools: uiTools,
@@ -161,7 +162,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — without any AI (library_search; relevant passages are also looked up automatically); cite the source.',
+    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages are also looked up for you automatically); cite the source.',
   },
   {
     name: 'library-admin',
@@ -245,6 +246,12 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: vehicleTools,
     when: /\b(mot|mots|vehicle|vehicles|reg|registration|number ?plates?|plates?|car check|check (?:this|that|a|the|my) (?:car|van|motorbike)|tax(?:ed)?|mileage|dvla|dvsa)\b|\b[a-z]{2}\d{2} ?[a-z]{3}\b/i,
     about: 'You can check ONE UK vehicle by its plate when the owner asks (vehicle_check: MOT history, mileage, advisories; tax with the DVLA key): never the keeper, never several cars, and never remember or file the record.',
+  // Gadgets (integrations/gadgets.ts, integrations/parts.ts): best settings and replacement parts, when the words are about them.
+  {
+    name: 'gadgets',
+    tools: gadgetTools,
+    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
+    about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
   },
 ];
 
