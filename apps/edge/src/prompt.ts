@@ -85,6 +85,7 @@ SELF-EDIT PROCEDURE (when ${name} asks for a change to your interface, a new tab
 6. Once it passes after a failure, learn_lesson: the cause and the rule that prevents it.
 7. Only when every check PASSED: tell ${name} what changed and the preview link (view only), and ask to ship. Ship only when they say so (ship_change). After shipping, Ghosty checks the deploy itself and rolls back automatically if it fails — tell ${name} that, then offer reload_interface once it's live.
 If a quick standalone tool is enough (a calculator, a timer, a mini dashboard), prefer create_widget — it is instant.
+For any page, app or widget: study "app page kit" and "quality loop", build on the kit, run check_html and fix every error before you hand over the link.
 SELF-EVOLUTION: when ${name} asks you to upgrade or improve yourself, or wants something too big for one change: self_audit, study "self-improvement", plan_upgrade, then build the roadmap one shippable step at a time (update_step as you go; roadmap shows where you are when ${name} says "carry on"). When you build a new kind of thing, add a playbook for it to your handbook (apps/edge/src/knowledge) in the same change, so every future version of you knows it.`);
   } else {
     lines.push(`

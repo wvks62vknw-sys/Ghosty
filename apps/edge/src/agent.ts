@@ -51,6 +51,7 @@ import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sit
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -368,6 +369,7 @@ export class GhostyAgent {
       }
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
+      if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);
       const li = path.match(/^\/lens\/share\/([A-Za-z0-9_-]{16})$/);
@@ -1246,6 +1248,7 @@ export class GhostyAgent {
       // Ghosty's own daily jobs and a project's step run now too (quietly: no inbox item).
       if (job.kind === 'reflect' || job.kind === 'digest') return json({ result: await this.runDaily(job.kind) });
       if (job.kind === 'project') return json(await runProjectStep(this.projectDeps(), job));
+      if (job.kind === 'upgrade') return json(await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps())));
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -1368,6 +1371,9 @@ export class GhostyAgent {
         } else if (job.kind === 'reflect' || job.kind === 'digest') {
           // Quiet too: what the nightly reflection and the morning digest found is in the profile, the diary and the library.
           await finishJob(this.storage, job.id, await this.runDaily(job.kind));
+        } else if (job.kind === 'upgrade') {
+          // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
+          await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else if (job.kind === 'project') {
@@ -1429,6 +1435,7 @@ export class GhostyAgent {
     const tz = safeTz(((await this.storage.get<ClientContext>('owner:ctx')) ?? {}).tz);
     await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
     await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
+    await ensureJob(this.storage, UPGRADE_JOB);
   }
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */
@@ -1461,6 +1468,17 @@ export class GhostyAgent {
       },
       notify: (item) => this.notify(item),
       busy: { get: () => this.bgBusy, set: (v) => void (this.bgBusy = v) },
+    };
+  }
+
+  /** What the daily upgrade ideas (job and Workshop routes) need from the brain. */
+  private upgradeDeps(): UpgradeDeps {
+    return {
+      storage: this.storage,
+      library: this.library,
+      audit: () => toolByName.get('self_audit')!.run({}, this.toolContext(() => undefined)),
+      ask: this.studyAi(),
+      notify: async (title, text) => void (await this.notify({ kind: 'task', title, text })),
     };
   }
 

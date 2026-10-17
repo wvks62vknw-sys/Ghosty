@@ -500,6 +500,12 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 .change .ct { display: flex; flex-direction: column; gap: 2px; } .change .ct b { font-weight: 500; font-size: 13px; } .change .ct small { font: 500 9px var(--d); letter-spacing: .14em; color: var(--mute); text-transform: uppercase; }
 .change.failed .ct small { color: var(--r); } .change.passed .ct small { color: var(--ok); }
 .change button { padding: 5px 8px; min-height: 26px; font-size: 9px; }
+/* an upgrade idea Ghosty proposed for itself (Workshop → UPGRADE IDEAS) */
+.idea { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; flex: none; border-left: 2px solid var(--c); background: rgba(var(--cr), .05); border-radius: 0 var(--rad) var(--rad) 0; min-width: 0; }
+.idea b { font-weight: 500; font-size: 13px; overflow-wrap: anywhere; }
+.idea ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 1.45; color: var(--mute); overflow-wrap: anywhere; }
+.idea button { padding: 5px 8px; min-height: 26px; font-size: 9px; }
+.idea .row small { margin-left: auto; font-size: 10px; }
 #pg-workshop .pn > .bd, #pg-system .pn > .bd { overflow-y: auto; scrollbar-width: thin; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

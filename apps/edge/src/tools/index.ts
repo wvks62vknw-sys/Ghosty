@@ -5,6 +5,7 @@
  */
 import type { ToolSpec } from '../llm/router';
 import { agendaTools } from './agenda';
+import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
@@ -34,7 +35,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -89,6 +90,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i,
     // The rule the owner cares about most, so it stays forceful: a page is delivered by its link.
     about: "You can PUBLISH websites: any site, page, portfolio, CV, shop or invitation the owner asks for, or a site to clone or rebuild — DO IT, never reply that you can't host or publish: study_site a link first, write ONE complete HTML document, publish_site, and ALWAYS give the exact live link.",
+  },
+  // The quality gate: also on for every coding turn (selectTools), since every page, app and widget goes through it.
+  {
+    name: 'build',
+    tools: checkTools,
+    when: /\b(check|test|verify|review|broken|bug|fix|polish|improve|better|perfect)\b/i,
+    about: 'You can check any page, app or widget with check_html before handing it over (broken tags, script errors, what the sandbox blocks, missing basics — line by line); publish_site refuses a page with errors',
   },
   {
     name: 'agenda',
@@ -218,7 +226,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
 ];
 
 /** Groups that are always on while the conversation is about building things. */
-const CODE_GROUPS = new Set(['widgets', 'evolve', 'knowledge', 'repo']);
+const CODE_GROUPS = new Set(['widgets', 'evolve', 'knowledge', 'repo', 'build']);
 
 /**
  * The groups for this request: `on` (always-on groups, groups the words call for, groups

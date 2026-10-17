@@ -47,8 +47,8 @@ async function chat(message, path = '/api/chat', body = { message, context: { tz
   await Promise.allSettled(pending.splice(0));
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
-// The owner's jobs (Ghosty's own jobs — the hourly self-study, the nightly reflection, the morning digest — are left out).
-const OWN = new Set(['study', 'reflect', 'digest']);
+// The owner's jobs (Ghosty's own jobs — the hourly self-study, the nightly reflection, the morning digest, the daily upgrade ideas — are left out).
+const OWN = new Set(['study', 'reflect', 'digest', 'upgrade']);
 const jobs = () => (state.storage.m.get('jobs') ?? []).filter((j) => !OWN.has(j.kind));
 const inbox = async () => (await (await call('/api/inbox')).json()).items;
 

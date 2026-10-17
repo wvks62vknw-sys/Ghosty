@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
@@ -296,6 +296,10 @@ export const brain = {
   /** The pages Ghosty published, and the address they live at. */
   sites: () => req<{ sites: PublishedSite[]; origin: string }>('GET', '/sites'),
   unpublishSite: (name: string) => req<{ removed: boolean }>('DELETE', `/sites/${encodeURIComponent(name)}`),
+  /** Upgrades Ghosty proposed for itself (Workshop → UPGRADE IDEAS): the list and when it next looks, dismiss one, think now. */
+  upgrades: () => req<{ ideas: UpgradeIdea[]; next: number | null; last: string | null }>('GET', '/upgrades'),
+  dismissUpgrade: (id: string) => req<{ removed: boolean }>('DELETE', `/upgrades/${encodeURIComponent(id)}`),
+  thinkUpgrades: () => req<{ ideas: UpgradeIdea[]; added: number; note: string }>('POST', '/upgrades/now'),
   saveWidget: (w: Widget) => req<{ widget: Widget }>('POST', '/widgets', w),
   deleteWidget: (name: string) => req('DELETE', `/widgets/${encodeURIComponent(name)}`),
   changes: () => req<{ ready: boolean; changes: ChangeSummary[]; versions: VersionSummary[] }>('GET', '/changes'),

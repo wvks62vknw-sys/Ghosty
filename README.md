@@ -48,6 +48,16 @@ tests/       local preview server + browser test
 - **Games and mini-apps**: widgets are built on GK, Ghosty's widget kit (`apps/web/public/widget-kit.js`),
   so Ghosty writes only the game itself — a complete example game in its handbook is run by the browser
   tests on every change.
+- **Pages, apps and widgets that work first time**: its handbook carries a complete single-file **app page
+  kit** (design tokens, glass cards, 44 px buttons, a pink octopus mascot, toast, modal, saved state — nothing
+  fetched), a **quality loop** (plan → build on the kit → `check_html` → self-review → fix → publish) and a
+  motion/3D playbook. `check_html` reads a page the way a browser would and reports, line by line, what
+  would break; **nothing is published with errors**, and warnings ride along with the link.
+- **Daily upgrade ideas**: every morning Ghosty looks at what you asked that week, what it couldn't
+  answer, what went wrong and what it knows about you, and proposes one to three upgrades it can build
+  for itself — each free, phone-first and one change. They wait in **Workshop → UPGRADE IDEAS** (it tells
+  you once when there's a new one); **BUILD** starts one in the chat, **DISMISS** drops it, **THINK NOW**
+  asks right away.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
   long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs

@@ -8,8 +8,9 @@
  *  - Unlock the protected kernel for a limited time (only you can do this)
  *  - Training ground: Ghosty solves verified coding exercises until every hidden test passes
  *  - Projects that run for days: progress, steps and results, pause / resume / cancel / run next now
+ *  - Upgrade ideas: what Ghosty proposed for itself this morning; BUILD starts one in the chat
  */
-import type { ChangeSummary, Project, ProjectStep, PublishedSite, Roadmap, RoadmapStep, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
+import type { ChangeSummary, Project, ProjectStep, PublishedSite, Roadmap, RoadmapStep, UpgradeIdea, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
 import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
@@ -147,6 +148,65 @@ export const workshopTab: TabDef = {
       paintProjects();
     };
     paintProjects();
+    // upgrade ideas (the brain's upgrades.ts): proposed every morning; BUILD hands one to the chat, DISMISS drops it
+    const ip = panel('UPGRADE IDEAS', { footer: true, status: '' });
+    let ideas: UpgradeIdea[] = [];
+    let ideasNext: number | null = null;
+    const nextNote = h('span.note', '');
+    const buildIdea = (i: UpgradeIdea) => {
+      go('core');
+      void send(`Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.`);
+    };
+    const paintIdeas = () => {
+      clear(ip.body);
+      ip.setStatus(ideas.length ? `${ideas.length}` : 'NONE YET', ideas.length ? 'ok' : 'off');
+      nextNote.textContent = ideasNext ? `next look ${new Date(ideasNext).toLocaleDateString([], { weekday: 'short' })} ${fmt.time(new Date(ideasNext))}` : 'every morning';
+      if (!ideas.length) ip.body.append(h('div.note', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. They appear here; BUILD starts one.'));
+      for (const i of ideas) {
+        const card = h('div.idea', h('b', i.title), i.why ? h('div.note', i.why) : null, h('ol', ...i.steps.map((s) => h('li', s))));
+        card.append(
+          h('div.row', button('BUILD', () => buildIdea(i), 'on'), button('DISMISS', async () => {
+            try {
+              await brain.dismissUpgrade(i.id);
+              ideas = ideas.filter((x) => x.id !== i.id);
+              paintIdeas();
+            } catch (e) {
+              if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
+            }
+          }), h('small.note', fmt.ago(i.at))),
+        );
+        ip.body.append(card);
+      }
+    };
+    ip.foot!.append(
+      button('THINK NOW', async (b) => {
+        b.disabled = true;
+        b.textContent = 'THINKING…';
+        try {
+          const r = await brain.thinkUpgrades();
+          ideas = r.ideas;
+          paintIdeas();
+          toast(r.added ? `${r.added} new upgrade idea${r.added === 1 ? '' : 's'}` : r.note, r.added ? 'ok' : '');
+        } catch (e) {
+          if (!isPaused(e)) toast(`Could not think about upgrades: ${String((e as Error).message)}`, 'warn');
+        } finally {
+          b.disabled = false;
+          b.textContent = 'THINK NOW';
+        }
+      }, 'on'),
+      nextNote,
+    );
+    const loadIdeas = async () => {
+      try {
+        const r = await brain.upgrades();
+        ideas = r.ideas;
+        ideasNext = r.next;
+      } catch {
+        /* the rest of the Workshop reports connection problems */
+      }
+      paintIdeas();
+    };
+    paintIdeas();
 
     // changes
     const cp = panel('PROPOSED CHANGES', { status: '' });
@@ -158,7 +218,7 @@ export const workshopTab: TabDef = {
     const pp = panel('PUBLISHED PAGES', { status: '' });
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
-    P.left.append(ask.el, rp.el, jp.el, cp.el);
+    P.left.append(ask.el, rp.el, jp.el, ip.el, cp.el);
     // training ground
     const tp = panel('TRAINING GROUND', { footer: true, grow: false });
     const tStats = h('div.note', 'Ghosty writes a solution, hidden tests run it in a locked sandbox, and it must fix every failure until all tests pass.');
@@ -424,11 +484,13 @@ export const workshopTab: TabDef = {
       enter() {
         void load();
         void loadRoadmap();
+        void loadIdeas();
         void paintTraining();
         void loadProjects();
         timer = window.setInterval(() => {
           void load();
           void loadRoadmap();
+          void loadIdeas();
         }, 20000);
         // a running project moves every few minutes: a look every 15 s while one runs, once a minute otherwise (each look reads every listed project)
         let ticks = 0;
@@ -440,7 +502,7 @@ export const workshopTab: TabDef = {
         clearInterval(timer);
         clearInterval(ptimer);
       },
-      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${projects.length ? `projects: ${projects.slice(0, 4).map((p) => `"${p.title}" ${p.status} ${p.steps.filter((s) => s.status === 'done').length}/${p.steps.length}`).join('; ')}; ` : ''}${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
+      describe: () => `Workshop: ${roadmap ? `upgrade roadmap "${roadmap.goal}" ${roadmap.steps.filter((s) => s.status === 'done').length}/${roadmap.steps.length} done; ` : ''}${projects.length ? `projects: ${projects.slice(0, 4).map((p) => `"${p.title}" ${p.status} ${p.steps.filter((s) => s.status === 'done').length}/${p.steps.length}`).join('; ')}; ` : ''}${ideas.length} upgrade ideas${ideas.length ? ` (${ideas.slice(0, 3).map((i) => i.title).join('; ')})` : ''}, ${changes.length} open changes (${changes.map((c) => `#${c.number} ${c.title} ${c.checks}`).join('; ')}), ${widgets.length} widgets, ${sites.length} published pages${sites.length ? ` (${sites.slice(0, 5).map((s) => `${s.title} at ${siteUrl(s.name)}`).join('; ')})` : ''}.`,
     };
   },
 };
