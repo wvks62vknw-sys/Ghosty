@@ -13,6 +13,7 @@ import { knowledgeTools } from './knowledge';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
 import { notifyTools } from './notify';
+import { projectTools } from '../projects';
 import { crimeTools } from './crime';
 import { trafficTools } from './traffic';
 import { mapTools } from './maps';
@@ -28,7 +29,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -46,7 +47,8 @@ export function toolSpecs(list: Tool[] = TOOLS): ToolSpec[] {
  * the conversation has used it.
  */
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
-export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code' }[] = [
+/** `about`: one sentence for the prompt on what the group lets Ghosty do (second person). */
+export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code'; about?: string }[] = [
   { name: 'memory', tools: memoryTools, when: 'always' },
   { name: 'web', tools: webTools, when: 'always' },
   { name: 'ui', tools: uiTools, when: 'always' },
@@ -69,6 +71,13 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
   { name: 'evolve', tools: evolveTools, when: /\b(upgrade|improve yourself|better version|roadmap|carry on|continue|audit)\b/i },
   { name: 'reverse', tools: reverseTools, when: /\b(reverse[- ]?engineer(ing)?|decompile|disassemble|analy[sz]e (this|that|the) (app|site|website|package|binary|apk|file)|what is .* built with|how does .* work under the hood|rea\b)/i },
   { name: 'repo', tools: repoTools, when: /\b(ship|propose|proposed|changes?|versions?|roll ?back|restore|discard|preview|workshop|repo|source code)\b/i },
+  // Projects that run for days (projects.ts): a plan of steps worked through on Ghosty's own schedule.
+  {
+    name: 'projects',
+    tools: projectTools,
+    when: /\b(project|over (the next )?(few )?days|in the background|keep working|long task|carry on|multi-?day|step by step)\b/i,
+    about: 'you can run a project over days on your own schedule (start_project: 3–12 steps, one every few minutes, each result filed in the library; project_status, pause_project, resume_project — "carry on" — cancel_project)',
+  },
   // Passive infrastructure recon: only when a domain, host, address or one of its words comes up.
   { name: 'recon', tools: reconTools, when: /\b(recon|reconnaissance|dns|whois|rdap|registrar|registered|certificates?|certs?|crt\.sh|subdomains?|wayback|archive\.org|snapshots?|fingerprint|security headers|hsts|open ports?|shodan|spf|dmarc|look ?up|lookup|who (?:owns|runs|hosts)|hosted|hosting|name ?servers?|mx records?|ip address)\b|\b\d{1,3}(?:\.\d{1,3}){3}\b|\b[a-z0-9-]+\.(?:com|co\.uk|org|net|io|dev|app|uk|ac\.uk|gov\.uk|edu|info|me)\b/i },
 ];
