@@ -130,7 +130,10 @@ async function run(name, viewport) {
   const before = await page.locator('.msg.off').count();
   await page.fill('#cin', 'no model: zxqv blorf quux');
   await page.keyboard.press('Enter');
-  await page.waitForFunction((n) => document.querySelectorAll('.msg.off').length > n, before, { timeout: 15000 }).catch(() => problems.push(`[${name}] no offline reply when no model was free`));
+  // Wait for the reply itself, not just its bubble: the bubble shows before the phone's model is asked,
+  // and the next step counts the model's calls.
+  await page.waitForFunction((n) => { const off = [...document.querySelectorAll('.msg.off')]; return off.length > n && /Hello from your phone\./.test(off.at(-1)?.textContent ?? ''); }, before, { timeout: 15000 }).catch(() => problems.push(`[${name}] no offline reply when no model was free`));
+  await page.waitForFunction(() => !document.body.innerText.includes('thinking on your phone'), null, { timeout: 5000 }).catch(() => undefined);
   if (await page.locator('.msg.err', { hasText: 'cooling down' }).count()) problems.push(`[${name}] the "no model" error showed although the phone answered`);
 
   // A tool already ran in the turn, then no model was free: the phone's model can't see what the tool
