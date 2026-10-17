@@ -433,6 +433,22 @@ on an arc reactor. Nothing to set up; the 3-D engine loads the first time you op
    to make scenes for you; this shows the ones you make, with "Powered by Spline" under them.
 8. **SHOT** saves a picture of the view (the share sheet on the iPhone: Save Image, Messages…).
 
+## 3m. Cited answers: facts you can rely on
+
+Nothing to set up. When you want an answer you can check:
+
+1. Press **CITED** next to **SEND** in the chat (it lights up and stays on, on this phone, until you press it
+   again). Or just say it: *"… with sources"*, *"cite …"*, *"fact check …"*, *"is it true that …"*.
+2. Ghosty looks it up first (your library and the web, then reads the best one to three pages) and answers with
+   numbered markers like **[1]**. Tap a marker to open its page (or, for something from your library, the words
+   it came from). The **SOURCES** list sits under the answer.
+3. Under the list, a line such as **✓ 5 of 6 claims found in the sources**: each sentence of the answer was
+   checked against the pages Ghosty actually read this time. Sentences no source backed are underlined in
+   orange. A marker or source Ghosty never looked up is shown in red, dashed — treat what it backs with care.
+
+It costs one extra small AI call per cited answer (none when CITED is off). Spoken replies leave the markers and
+the list out. In Telegram the markers stay and the sources are listed as plain links.
+
 ## 4. Let Ghosty edit itself
 
 1. GitHub → **Settings → Developer settings → Fine-grained tokens → Generate new token**.
