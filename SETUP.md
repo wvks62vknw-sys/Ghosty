@@ -208,6 +208,16 @@ the first time.
   TinEye (named as such; each opens in its own tab). The engines need a web address for the picture, so
   the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
   at once; at most 30 a day).
+- **AIM: point the phone at the sky or the street** — hold the phone up and labels sit over what is out
+  there: aircraft overhead (callsign, height in feet, distance), ships, buses and trams, hilltops, towers,
+  stadiums and other places (from Wikipedia and OpenStreetMap), and the space station when it is above
+  your horizon. The first time, tap **AIM** (or **START AIM**): Safari asks for motion access and your
+  location — say Allow to both. Tap a label for its card; **WHAT'S THAT?** asks Ghosty about the thing
+  under the cross in the middle. If the labels sit beside the real things, tap the marker of something
+  you can see (a tower, a church, a hill), put the cross on the real thing and press **ALIGN** — the
+  phone remembers the correction (**RESET ALIGN** clears it). Ships need the free AISstream key (the
+  System tab, HOW TO GET IT). On a laptop with no compass, drag the picture or use the heading slider.
+  Your position only goes to your own Ghosty, to ask what is near it.
 
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
