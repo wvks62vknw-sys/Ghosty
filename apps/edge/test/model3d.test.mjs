@@ -283,3 +283,11 @@ test('make_3d: from a description — one object is drawn first (kept as a pictu
     globalThis.fetch = real;
   }
 });
+
+test('a kept picture link is read for any id, including one that ends or starts with "-" or "_"', async () => {
+  const S = await import('./.build/tools/studio.mjs');
+  for (const id of ['gI7jRUfpm58Q-Kq-', '-bcdefghijklmnop', 'abcdefghijklmno_', 'AbCdEfGh12345678'])
+    for (const ref of [`https://ghosty.example/i/${id}`, `https://ghosty.example/i/${id}.jpg`, `/i/${id}`, ` ${id} `]) assert.equal(S.pictureIdOf(ref), id, ref);
+  assert.equal(S.pictureIdOf('https://ghosty.example/i/abcdefghijklmnopq'), null, 'seventeen characters is not an id');
+  assert.equal(S.pictureIdOf('https://example.com/cat.jpg'), null);
+});

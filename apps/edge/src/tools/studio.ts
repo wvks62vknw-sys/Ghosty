@@ -17,8 +17,14 @@ const FLUX = '@cf/black-forest-labs/flux-1-schnell';
 export const objectPrompt = (what: string): string => `${what.trim().replace(/[.\s]+$/, '')}, a single object, whole and centred, three-quarter view, plain white background, soft even studio light, product photo`;
 
 /** A picture Ghosty made or the owner shared (/i/<id> link or bare id), or a public picture address. */
+/** The kept picture's id in a /i/<id> link or a bare id, else null. Ids may start or end with "-" or "_", so the
+ * end of the id is "no further id character", not a word boundary (which a trailing "-" never has). */
+export function pictureIdOf(ref: string): string | null {
+  return ref.match(/\/i\/([A-Za-z0-9_-]{16})(?![A-Za-z0-9_-])/)?.[1] ?? (isImageId(ref.trim()) ? ref.trim() : null);
+}
+
 async function pictureBytes(ref: string, kv: NonNullable<Parameters<Tool['run']>[1]['env']['SITES']>): Promise<ArrayBuffer> {
-  const id = ref.match(/\/i\/([A-Za-z0-9_-]{16})\b/)?.[1] ?? (isImageId(ref.trim()) ? ref.trim() : null);
+  const id = pictureIdOf(ref);
   if (id) {
     const r = await imageResponse(kv, id);
     if (!r.ok) throw new Error('that picture is no longer kept (shared pictures last a day, made ones a week) — make or share it again');
