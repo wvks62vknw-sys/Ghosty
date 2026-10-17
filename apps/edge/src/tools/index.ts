@@ -5,6 +5,7 @@
  */
 import type { ToolSpec } from '../llm/router';
 import { agendaTools } from './agenda';
+import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
@@ -28,7 +29,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...trafficTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...uiTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -46,13 +47,21 @@ export function toolSpecs(list: Tool[] = TOOLS): ToolSpec[] {
  * the conversation has used it.
  */
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
-export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code' }[] = [
+/** `about`: one sentence for the prompt's list of what Ghosty can do ("you can …"). */
+export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always' | 'code'; about?: string }[] = [
   { name: 'memory', tools: memoryTools, when: 'always' },
   { name: 'web', tools: webTools, when: 'always' },
   { name: 'ui', tools: uiTools, when: 'always' },
   { name: 'widgets', tools: widgetTools, when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i },
   { name: 'extra', tools: extras, when: 'always' },
   { name: 'sites', tools: siteTools, when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i },
+  // The quality gate: also on for every coding turn (selectTools), since every page, app and widget goes through it.
+  {
+    name: 'build',
+    tools: checkTools,
+    when: /\b(check|test|verify|review|broken|bug|fix|polish|improve|better|perfect)\b/i,
+    about: 'you can check any page, app or widget with check_html before handing it over (broken tags, script errors, what the sandbox blocks, missing basics — line by line); publish_site refuses a page with errors',
+  },
   { name: 'agenda', tools: agendaTools, when: /\b(remind|reminder|alarm|wake|schedule|scheduled|calendar|event|agenda|meeting|appointment|diary|today|tomorrow|tonight|week|every|daily|at \d|in \d+ ?(min|hour)|plans?)\b/i },
   { name: 'data', tools: dataTools, when: /\b(weather|forecast|rain|snow|temperature|hot|cold|wind|umbrella|quake|earthquake|seismic)\b/i },
   { name: 'travel', tools: travelTools, when: /\b(direction|directions|route|drive|driving|walk|walking|cycle|cycling|bike|near|nearby|nearest|closest|restaurant|cafe|shop|how far|get to|way to|navigate|petrol|station)\b/i },
@@ -77,7 +86,7 @@ export const TOOL_GROUPS: { name: string; tools: Tool[]; when: RegExp | 'always'
 export function selectTools(text: string, used: Set<string>, code: boolean): Tool[] {
   const out: Tool[] = [];
   for (const g of TOOL_GROUPS) {
-    const on = g.when === 'always' || (g.when === 'code' ? code : g.when.test(text)) || (code && ['widgets', 'evolve', 'knowledge', 'repo'].includes(g.name)) || g.tools.some((t) => used.has(t.name));
+    const on = g.when === 'always' || (g.when === 'code' ? code : g.when.test(text)) || (code && ['widgets', 'build', 'evolve', 'knowledge', 'repo'].includes(g.name)) || g.tools.some((t) => used.has(t.name));
     if (on) out.push(...g.tools);
   }
   return out;

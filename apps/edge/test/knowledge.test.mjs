@@ -52,6 +52,36 @@ test('study finds the right playbook for what Ghosty is about to do', () => {
   assert.deepEqual(K.findPlaybooks('zzzz qqqq'), []);
 });
 
+test('the builder kit: the app page kit and the quality loop are found for web apps, stay small, and the kit page checks clean', async () => {
+  const ids = K.findPlaybooks('web app').map((p) => p.id);
+  assert.ok(ids.includes('app-page-kit') && ids.includes('quality-loop'), ids.join(', '));
+  const first = (q) => K.findPlaybooks(q)[0]?.id;
+  assert.equal(first('app page kit'), 'app-page-kit');
+  assert.equal(first('quality loop'), 'quality-loop');
+  assert.equal(first('motion and 3d'), 'motion-3d');
+  assert.equal(first('make a game'), 'game-kit', 'games still go to the game kit');
+  assert.equal(first('instant widget'), 'widgets');
+  for (const id of ['app-page-kit', 'quality-loop', 'motion-3d']) {
+    const p = K.PLAYBOOKS.find((x) => x.id === id);
+    assert.ok(p, id);
+    assert.ok(p.body.length <= 9000, `${id} is ${p.body.length} characters (9,000 at most: it is injected into coding turns)`);
+  }
+  const kit = K.PLAYBOOKS.find((p) => p.id === 'app-page-kit').body;
+  assert.ok(kit.includes(K.APP_KIT_PAGE), 'the playbook carries the page itself');
+  for (const must of [/Welcome to the realm/, /prefers-reduced-motion/, /prefers-color-scheme/, /env\(safe-area-inset/, /clamp\(/, /<dialog/, /localStorage/, /<symbol id="i-/, /class="octo"/]) assert.match(K.APP_KIT_PAGE, must);
+  const loop = K.PLAYBOOKS.find((p) => p.id === 'quality-loop').body;
+  assert.match(loop, /WHAT GREAT LOOKS LIKE/);
+  assert.match(loop, /12 MOST COMMON MISTAKES/);
+  assert.ok((loop.match(/^\d+\. /gm) ?? []).length >= 26, 'steps, 8 lines of great, 12 mistakes');
+  const motion = K.PLAYBOOKS.find((p) => p.id === 'motion-3d').body;
+  for (const must of [/perspective/, /requestAnimationFrame/, /pathLength/, /animation-timeline: scroll\(\)/, /prefers-reduced-motion/]) assert.match(motion, must);
+  // the example page passes the gate exactly as written
+  const { checkHtml } = await import('./.build/tools/check.mjs');
+  const r = checkHtml(K.APP_KIT_PAGE);
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+});
+
 test('the full-stack handbook: architecture, auth, APIs, schemas, validation, UI → backend, state, iPhone layout', () => {
   const first = (q) => K.findPlaybooks(q)[0]?.id;
   assert.ok(K.findPlaybooks('clean architecture separation of concerns').some((p) => p.id === 'clean-architecture'));

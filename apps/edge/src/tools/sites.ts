@@ -15,6 +15,7 @@
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { durableDelete, durableGet, durablePut } from '../kv';
+import { checkHtml, refusal } from './check';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
 
@@ -405,7 +406,7 @@ export const siteTools: Tool[] = [
   {
     name: 'publish_site',
     description:
-      "Publish a page you built (a website, landing page, portfolio, CV, menu, invitation — or a rebuilt website after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or setup. Send ONE complete HTML document (or, for a page too big for one call, send it in parts with draft_site first and then call this with from_draft true). The link works on any phone; give it to the owner exactly as returned. Publishing again with the same name updates it; list_sites shows every page, unpublish_site takes one down.",
+      "Publish a page you built (a website, landing page, portfolio, CV, menu, invitation — or a rebuilt website after study_site) at a free public link on Ghosty's own address — live as soon as the owner taps APPROVE, no account or setup. Send ONE complete HTML document (or, for a page too big for one call, send it in parts with draft_site first and then call this with from_draft true). The page is checked first (check_html): one with errors is refused until they are fixed. The link works on any phone; give it to the owner exactly as returned. Publishing again with the same name updates it; list_sites shows every page, unpublish_site takes one down.",
     parameters: {
       type: 'object',
       properties: {
@@ -424,6 +425,9 @@ export const siteTools: Tool[] = [
       if (!name) throw new Error('name must contain letters or numbers');
       const source = arg.str(a, 'source_url', false);
       const { html } = prepareSite(await pageHtml(a, name, ctx), source);
+      // The quality gate: a broken page is never put to the owner for approval.
+      const check = checkHtml(html);
+      if (check.errors.length) throw new Error(refusal('not published', check.errors));
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
       let from = '';
       try {
@@ -444,6 +448,9 @@ export const siteTools: Tool[] = [
       const page = await pageHtml(a, name, ctx);
       ctx.progress?.(`checking the page (${kb(page.length)})…`);
       const { html, notes } = prepareSite(page, source);
+      // The quality gate (tools/check.ts): errors stop the publish; warnings go to the model with the link.
+      const check = checkHtml(html);
+      if (check.errors.length) throw new Error(refusal('not published', check.errors));
       const title = (arg.str(a, 'title', false) || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || name).trim().slice(0, 120);
       ctx.emit?.({ t: 'status', text: `publishing ${title} (${kb(html.length)})…` });
       ctx.progress?.(`publishing "${title}"…`);
@@ -452,7 +459,8 @@ export const siteTools: Tool[] = [
       const link = siteLink(ctx.origin, ctx.env, name);
       ctx.emit({ t: 'client', name: 'show_link', args: { url: link, title } });
       const requests = 1 + (html.match(/<script\b[^>]*\ssrc=/gi) ?? []).length + (html.match(/<link\b[^>]*stylesheet/gi) ?? []).length + (html.match(/<img\b/gi) ?? []).length;
-      return `Published "${title}" — live now at ${link} (${kb(html.length)}, about ${requests} requests${notes.length ? `; ${notes.join('; ')}` : ''}). Give the owner this exact link.`;
+      const worth = check.warnings.length ? ` Worth fixing (check_html warnings): ${check.warnings.slice(0, 5).join(' | ')}${check.warnings.length > 5 ? ` | …${check.warnings.length - 5} more` : ''}.` : '';
+      return `Published "${title}" — live now at ${link} (${kb(html.length)}, about ${requests} requests${notes.length ? `; ${notes.join('; ')}` : ''}).${worth} Give the owner this exact link.`;
     },
   },
   {

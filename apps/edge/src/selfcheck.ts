@@ -80,6 +80,7 @@ export function bracketProblem(src: string): string | null {
       if (c === '}') tmpl.pop();
       let j = i + 1;
       let opened = false;
+      const from = line; // where the template text begins (the message names the start, not where the scan gave up)
       while (j < src.length) {
         if (src[j] === '\\') {
           j += 2;
@@ -95,7 +96,7 @@ export function bracketProblem(src: string): string | null {
         }
         j++;
       }
-      if (j >= src.length) return `unterminated template string starting on line ${line}`;
+      if (j >= src.length) return `unterminated template string starting on line ${from}`;
       i = opened ? j : j + 1;
       prevSig = opened ? '{' : 'x';
       continue;
