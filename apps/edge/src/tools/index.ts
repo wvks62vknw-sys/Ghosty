@@ -10,6 +10,7 @@ import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
+import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
@@ -36,7 +37,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...gadgetTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -71,7 +72,7 @@ export interface ToolGroup {
 const extras = TOOLS.filter((t) => !coreNames.has(t.name));
 export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'memory', tools: memoryTools, when: 'always', about: 'You can remember lasting facts the owner tells you (remember), list them (list_memory) and drop one (forget); forget_everything needs approval.' },
-  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch) — use them for anything current or that you are unsure about; never invent live data.' },
+  { name: 'web', tools: webTools, when: 'always', about: 'You can search the web (web_search) and read any page or JSON address (web_fetch) — use them for anything current or that you are unsure about.' },
   {
     name: 'ui',
     tools: uiTools,
@@ -159,7 +160,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the built-in starter library — without any AI (library_search; relevant passages are also looked up for you automatically); cite the source.',
+    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages are also looked up for you automatically); cite the source.',
   },
   {
     name: 'library-admin',
@@ -230,6 +231,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: scanTools,
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
+  },
+  // Gadgets (integrations/gadgets.ts, integrations/parts.ts): best settings and replacement parts, when the words are about them.
+  {
+    name: 'gadgets',
+    tools: gadgetTools,
+    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
+    about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
   },
 ];
 
