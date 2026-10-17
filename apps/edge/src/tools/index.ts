@@ -17,6 +17,7 @@ import { libraryTools } from './library';
 import { mediaTools } from './media';
 import { notifyTools } from './notify';
 import { picturesTools } from './pictures';
+import { projectTools } from '../projects';
 import { crimeTools } from './crime';
 import { trafficTools } from './traffic';
 import { transitTools } from './transit';
@@ -33,7 +34,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -193,6 +194,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: repoTools,
     when: /\b(ship|propose|proposed|changes?|versions?|roll ?back|restore|discard|preview|workshop|repo|source code)\b/i,
     about: 'You can change your OWN source code: repo_tree, repo_read, repo_read_many, repo_search to look; propose_change, then wait_for_checks (fix with update_change); ship_change and restore_version need approval.',
+  },
+  // Projects that run for days (projects.ts): a plan of steps worked through on Ghosty's own schedule.
+  {
+    name: 'projects',
+    tools: projectTools,
+    when: /\b(project|over (the next )?(few )?days|in the background|keep working|long task|carry on|multi-?day|step by step)\b/i,
+    about: 'You can run a project over days on your own schedule (start_project: 3–12 steps, one every few minutes, each result filed in the library; project_status, pause_project, resume_project — "carry on" — cancel_project)',
   },
   // Passive infrastructure recon: only when a domain, host, address or one of its words comes up.
   {

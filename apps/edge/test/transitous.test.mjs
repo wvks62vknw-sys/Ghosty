@@ -358,7 +358,7 @@ test('the journey tools are offered for the right words, and are read-only', () 
   assert.equal(T.toolByName.get('next_departures').pure, true);
   assert.equal(T.toolByName.get('plan_journey').risk, 'auto');
   const group = T.TOOL_GROUPS.find((g) => g.name === 'journeys');
-  assert.ok(group && group.about.length <= 220 && /^you can /.test(group.about));
+  assert.ok(group && group.about.length <= 220 && /^you can /i.test(group.about));
 });
 
 test('plan_journey: the numbered lines as data, the planner credited, and show_journey for the phone with the compact journeys', async () => {

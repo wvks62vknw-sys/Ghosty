@@ -53,9 +53,23 @@ tests/       local preview server + browser test
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs
   on your Cloudflare account) and the open **Pollinations** endpoint (no key, no account).
 - **Self-study**: around the clock Ghosty reads a curriculum of thousands of topics (Wikipedia, MDN, arXiv,
-  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, writes study notes with a free model, drills itself with
+  OpenStax, the Swift book, the classics on Project Gutenberg) into its library, from the basics of each field
+  up through intermediate to advanced, writes study notes with a free model, drills itself with
   questions it marks without AI, and can export every notebook as Markdown to a `library` branch of its own
   repository.
+- **Fresh knowledge every day**: every morning it gathers the day's news (BBC: world, UK, Birmingham, technology,
+  science), Hacker News' front page, the newest AI and machine-learning papers on arXiv and Wikipedia's current
+  events into its library with no AI at all, and sums the day up in three levels (one line, more detail, for an
+  expert) when a free model is there — so it answers about today, not last year. **Library → FRESH TODAY**.
+- **A memory of you**: every night it looks back over the day's conversation and keeps what you said about
+  yourself — your likes, your people, your places, your routines and plans — as a profile in your own words
+  (**Memory → ME**, where you can add or remove any line) and writes a diary entry (**Memory → DIARY**). Never
+  anything it read on the web, never a password or a card number.
+- **Projects that run for days**: ask for something big — "research the options over the next few days, then
+  build it" — and it plans 3–12 steps for your approval, then works through them on its own schedule, a step every
+  few minutes, research on the cheap free models and building on the strong ones, filing every result in the
+  library and telling you as it goes. **Workshop → PROJECTS** shows progress; pause, resume, cancel, or run the
+  next step now; "carry on" resumes a paused project.
 - **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
   a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never

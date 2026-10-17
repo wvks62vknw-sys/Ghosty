@@ -34,7 +34,10 @@ import { findPlaybooks, loadLessons, removeLesson } from './knowledge';
 import { importSelf, importSource, SELF_DOC } from './library/importers';
 import { trainingRoute } from './training/coach';
 import { loadStudy, matchDomains, noteGap, STUDY_KEY, studySession, studySummary, TOPIC_COUNT } from './library/study';
+import { runDigest } from './library/digest';
 import { exportLibrary } from './library/export';
+import { profileRoute, reflect, reflectSummary } from './profile';
+import { projectsRoute, runProjectStep, type ProjectDeps } from './projects';
 import { formatHits, Library, searchStarterInMemory, type LibraryHit } from './library/store';
 import { systemPrompt, type ClientContext, type PromptGroups } from './prompt';
 import { clipResult, compact, trimContext } from './context';
@@ -47,7 +50,7 @@ import type { Tool, ToolContext } from './tools/types';
 import { linksIn, siteFrameResponse, siteResponse, siteStore } from './tools/sites';
 import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } from './tools/device';
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
-import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -249,6 +252,7 @@ export class GhostyAgent {
       // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
+      if (!this.dailyChecked) this.state.waitUntil(this.ensureDailyJobs().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).
       const ownerKey = req.headers.get('x-ghosty-key');
       const sealed = req.headers.get('x-ghosty-vault');
@@ -312,6 +316,9 @@ export class GhostyAgent {
         await this.storage.put(MEMORY_KEY, (await loadMemory(this.storage)).filter((f) => f.id !== id));
         return json({ ok: true });
       }
+      if (path.startsWith('/profile')) return await profileRoute(req, path, method, url, this.dailyDeps());
+      if (path.startsWith('/projects')) return await projectsRoute(req, path, method, this.projectDeps());
+      if (path === '/library/digest' && method === 'POST') return json(await runDigest(this.dailyDeps(), { force: true }));
       if (path === '/lessons' && method === 'GET') return json({ lessons: await loadLessons(this.storage) });
       if (path.startsWith('/lessons/') && method === 'DELETE') return json({ removed: await removeLesson(this.storage, decodeURIComponent(path.slice(9))) });
       if (path === '/roadmap' && method === 'GET') return json({ roadmap: await loadRoadmap(this.storage) });
@@ -1234,6 +1241,9 @@ export class GhostyAgent {
         await setNext(this.storage, job.id, Date.now() + r.next);
         return json({ study: { ...r.state, did: r.did, next: Date.now() + r.next, summary: studySummary(r.state) } });
       }
+      // Ghosty's own daily jobs and a project's step run now too (quietly: no inbox item).
+      if (job.kind === 'reflect' || job.kind === 'digest') return json({ result: await this.runDaily(job.kind) });
+      if (job.kind === 'project') return json(await runProjectStep(this.projectDeps(), job));
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -1353,8 +1363,13 @@ export class GhostyAgent {
           const r = await this.meter.as('study', () => studySession(this.storage, this.library, { ai: this.studyAi(), spare: this.meter.spare() }));
           await finishJob(this.storage, job.id, r.did.reads || r.did.digests || r.did.drills ? `studied: ${r.did.reads} read, ${r.did.digests} digested, ${r.did.drills} drilled` : (r.state.last?.error ?? 'nothing to do'));
           await setNext(this.storage, job.id, Date.now() + r.next);
+        } else if (job.kind === 'reflect' || job.kind === 'digest') {
+          // Quiet too: what the nightly reflection and the morning digest found is in the profile, the diary and the library.
+          await finishJob(this.storage, job.id, await this.runDaily(job.kind));
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
+        } else if (job.kind === 'project') {
+          await runProjectStep(this.projectDeps(), job); // one step; it times the next one itself and never throws
         } else {
           const result = await this.runBackground(job);
           await this.notify({ kind: 'task', title: job.title, text: result });
@@ -1398,6 +1413,53 @@ export class GhostyAgent {
       await addJob(this.storage, { kind: 'study', title: 'Self-study', text: 'Read the next topics of the curriculum into the library, write study notes, and run a drill.', next: Date.now() + 10 * 60_000, repeat: 'hourly', tz: 'UTC' });
       await rearm(this.storage);
     }
+  }
+
+  /** The jobs Ghosty runs for itself every day — exactly one of each (ensureJob), checked once per brain like the study job, on the same chain so two requests at once cannot both add one. */
+  private dailyChecked = false;
+  private ensureDailyJobs(): Promise<void> {
+    const run = this.studyCheck.then(() => this.reconcileDailyJobs()).then(() => void (this.dailyChecked = true));
+    this.studyCheck = run.catch(() => undefined);
+    return run;
+  }
+  private async reconcileDailyJobs(): Promise<void> {
+    // The reflection at 03:20 in the owner's time zone (their day is over); the digest at 06:10 UTC (the morning feeds are out).
+    const tz = safeTz(((await this.storage.get<ClientContext>('owner:ctx')) ?? {}).tz);
+    await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
+    await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
+  }
+
+  /** What the reflection and the digest need: the database, the library and one cheap model call. */
+  private dailyDeps() {
+    return { storage: this.storage, library: this.library, ai: this.studyAi() };
+  }
+
+  /** One daily job (never throws: a miss is tried again tomorrow, and the owner is not told). */
+  private async runDaily(kind: 'reflect' | 'digest'): Promise<string> {
+    try {
+      return kind === 'reflect' ? reflectSummary(await reflect(this.dailyDeps())) : (await runDigest(this.dailyDeps())).summary;
+    } catch (e) {
+      return `failed: ${String((e as Error)?.message ?? e).slice(0, 200)}`;
+    }
+  }
+
+  /** What a project step needs from the brain: the tools and prompt of a background task, the model, the library, notifications and the one-at-a-time lock. */
+  private projectDeps(): ProjectDeps {
+    return {
+      env: this.env,
+      storage: this.storage,
+      library: this.library,
+      complete: (messages, specs, opts) => this.router.complete(messages, specs, undefined, opts),
+      tools: TOOLS.filter((t) => t.side !== 'client' && !BACKGROUND_BLOCKED.has(t.name) && !needsApproval(t)),
+      tctx: this.toolContext(() => undefined),
+      system: async () => {
+        const client: ClientContext = { ...((await this.storage.get<ClientContext>('owner:ctx')) ?? {}) };
+        client.now = fmtLocal(Date.now(), safeTz(client.tz));
+        return systemPrompt(client, await loadMemory(this.storage), false);
+      },
+      notify: (item) => this.notify(item),
+      busy: { get: () => this.bgBusy, set: (v) => void (this.bgBusy = v) },
+    };
   }
 
   /**

@@ -801,3 +801,15 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .pn.recon .reconout .rw.wrap .v { -webkit-line-clamp: 6; font-size: 11.5px; word-break: break-word; }
 .pn.recon > .ft { flex-wrap: wrap; }
 .pn.recon > .ft button { flex: 1 1 auto; min-height: 44px; font-size: 10px; }
+
+/* ---- ME (Memory tab): the profile in the owner's words; DIARY entries; FRESH TODAY (Library tab); PROJECTS (Workshop tab) ---- */
+.pn.me .note.summary { color: var(--fg); font-size: 12.5px; }
+.pn.me .lab { margin-top: 8px; }
+.pn.me .rw { padding: 4px 0; }
+.pn.fresh .rw .k { width: 88px; min-width: 0; white-space: normal; line-height: 1.3; }
+.change.project .bar { margin: 2px 0; }
+.change.project .rw { padding: 4px 0; }
+.change.project .rw.open { cursor: pointer; border-radius: 2px; transition: background .12s; } .change.project .rw.open:hover { background: rgba(var(--cr), .07); }
+.change.project .rw .k { min-width: 18px; }
+.change.project .rw .n { font-size: 9px; letter-spacing: .1em; }
+.change.project > small.note { font-size: 11px; }

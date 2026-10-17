@@ -199,6 +199,21 @@ export async function readSource(source: string): Promise<{ title: string; text:
 
 const readDoc = (domain: string) => `read_${domain}`;
 
+export type Level = 'beginner' | 'intermediate' | 'advanced';
+export const LEVELS: Level[] = ['beginner', 'intermediate', 'advanced'];
+/**
+ * A topic's level from where it sits in its field's list: the first third beginner, the middle
+ * third intermediate, the last third advanced. The lists are written basics first and the
+ * cursor reads each field in that order, so a field is studied beginner → intermediate →
+ * advanced, and the round-robin across fields (least-read fraction first) fills every field's
+ * beginner third before any intermediate one.
+ */
+export function topicLevel(index: number, count: number): Level {
+  if (count <= 0 || index < 0) return 'beginner';
+  const frac = index / count;
+  return frac < 1 / 3 ? 'beginner' : frac < 2 / 3 ? 'intermediate' : 'advanced';
+}
+
 /**
  * The same source listed in two fields (Big O notation in algorithms and in discrete maths, say) is
  * read once: the second field copies the first field's section instead of fetching it again — one
@@ -446,15 +461,25 @@ export function studySummary(st: StudyState): {
   read: number;
   digested: number;
   domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
+  /** Per level across every field: how many topics there are and how many are read ("beginner 40% · intermediate 12% · advanced 0%"). */
+  levels: { level: Level; topics: number; read: number }[];
   today: StudyState['today'];
   drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
   pending: number;
 } {
   const domains = DOMAINS.map((d) => ({ id: d.id, name: d.name, topics: d.topics.length, read: Math.min(d.topics.length, st.cursor[d.id] ?? 0), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id) }));
+  const levels = LEVELS.map((level) => ({ level, topics: 0, read: 0 }));
+  for (const d of domains) {
+    for (let i = 0; i < d.topics; i++) {
+      const row = levels[LEVELS.indexOf(topicLevel(i, d.topics))]!;
+      row.topics++;
+      if (i < d.read) row.read++;
+    }
+  }
   const skills = Object.entries(st.skills)
     .map(([skill, s]) => ({ skill, n: s.n, right: s.right }))
     .sort((a, b) => a.right / Math.max(1, a.n) - b.right / Math.max(1, b.n));
-  return { topics: TOPIC_COUNT, read: domains.reduce((n, d) => n + d.read, 0), digested: domains.reduce((n, d) => n + d.digested, 0), domains, today: st.today, drills: { asked: st.drills, right: st.right, skills }, pending: st.pending.length };
+  return { topics: TOPIC_COUNT, read: domains.reduce((n, d) => n + d.read, 0), digested: domains.reduce((n, d) => n + d.digested, 0), domains, levels, today: st.today, drills: { asked: st.drills, right: st.right, skills }, pending: st.pending.length };
 }
 
 /**

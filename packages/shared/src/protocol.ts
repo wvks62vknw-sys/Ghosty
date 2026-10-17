@@ -116,6 +116,79 @@ export interface MemoryFact {
   at: number;
 }
 
+/** The parts of the owner's profile (apps/edge/src/profile.ts): short lines in the owner's own words, shown in the Memory tab's ME panel. */
+export const PROFILE_SECTIONS = ['about', 'likes', 'dislikes', 'people', 'places', 'routines', 'goals', 'work', 'other'] as const;
+export type ProfileSection = (typeof PROFILE_SECTIONS)[number];
+
+/** What Ghosty knows about its owner from what they said themselves: built by the nightly reflection, edited in the Memory tab. */
+export interface Profile {
+  /** One line on who the owner is, as far as Ghosty knows. */
+  summary: string;
+  /** Short lines (at most 160 characters, 40 a section). */
+  sections: Record<ProfileSection, string[]>;
+  updatedAt: number;
+}
+
+/** One day's diary entry, written by the nightly reflection into the library (doc notes_diary). */
+export interface DiaryEntry {
+  /** The day, YYYY-MM-DD. */
+  heading: string;
+  text: string;
+  rid: number;
+}
+
+/** What a reflection (nightly, or REFLECT NOW) changed. */
+export interface ReflectInfo {
+  ok: boolean;
+  /** Why nothing was done, when nothing was ("no model free", "nothing new"). */
+  skipped?: string;
+  facts: string[];
+  lines: { section: ProfileSection; text: string }[];
+  diary: string;
+  summary: string;
+  profile: Profile;
+}
+
+/** What one run of the morning digest (apps/edge/src/library/digest.ts) filed. */
+export interface DigestInfo {
+  day: string;
+  passages: number;
+  sources: string[];
+  /** The "in three levels" passage was written (a cheap model was free). */
+  levels: boolean;
+  skipped?: string;
+  summary: string;
+}
+
+/** One step of a project that runs for days (apps/edge/src/projects.ts). */
+export interface ProjectStep {
+  n: number;
+  title: string;
+  instruction: string;
+  status: 'todo' | 'doing' | 'done' | 'failed';
+  /** What the step produced, shortened; the full result is in the library (doc project_<id>). */
+  result?: string;
+  at?: number;
+}
+
+/** A project Ghosty works through on its own, one step per alarm; the Workshop tab's PROJECTS panel. */
+export interface Project {
+  id: string;
+  title: string;
+  goal: string;
+  steps: ProjectStep[];
+  status: 'active' | 'paused' | 'done' | 'cancelled';
+  /** steady = a step every 20 minutes; fast = every 3. */
+  pace: 'fast' | 'steady';
+  created: number;
+  updated: number;
+  /** Failures in a row on the current step (three pause the project). */
+  fails: number;
+  docId: string;
+  /** The last thing worth knowing: waiting for a free model, why a step failed. */
+  note?: string;
+}
+
 export interface Widget {
   name: string;
   title: string;
@@ -267,7 +340,7 @@ export interface AgendaEventInfo {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify' | 'study';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project';
   title: string;
   text: string;
   next: number;
