@@ -405,7 +405,11 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   let text = (m.text ?? m.caption ?? '').trim();
   if (link.chatId !== chatId) {
     // Not the owner's chat. The pairing code, while it is valid, makes it the owner's; anything else is turned away, once an hour, and never acted on.
-    if (validCode(link) && text.replace(/\s+/g, '') === link.code) {
+    const guess = text.replace(/\s+/g, '');
+    const wrong = wrongCodes.get(chatId);
+    // Five wrong guesses at this code and the chat is locked out of pairing until a new code is made — the right guess included.
+    const lockedOut = validCode(link) && !!wrong && wrong.code === link.code && wrong.n >= MAX_WRONG_CODES;
+    if (validCode(link) && !lockedOut && guess === link.code) {
       // Only a private chat can be the owner's: in a group every member would have the owner's authority.
       if (m.chat.type !== 'private' || (m.from && m.from.id !== chatId)) {
         await tgSend(token, chatId, 'Pair me in a private chat with you, not in a group.').catch(() => undefined);
@@ -417,13 +421,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
       await tgSend(token, chatId, "Paired. I'm Ghosty — talk to me here any time.");
       return;
     }
-    if (validCode(link) && /^\d{6}$/.test(text.replace(/\s+/g, ''))) {
-      // A wrong six-digit guess: counted per chat, and after five the chat is ignored until the code changes.
-      const w = wrongCodes.get(chatId);
-      const n = w && w.code === link.code ? w.n + 1 : 1;
+    if (validCode(link) && /^\d{6}$/.test(guess)) {
+      // A six-digit guess that did not pair: counted per chat; from the fifth on the chat is silent until the code changes.
+      const n = wrong && wrong.code === link.code ? wrong.n + 1 : 1;
       wrongCodes.set(chatId, { code: link.code!, n });
       if (wrongCodes.size > 500) wrongCodes.delete(wrongCodes.keys().next().value!);
-      if (n > MAX_WRONG_CODES) return;
+      if (n >= MAX_WRONG_CODES) return;
     }
     const last = refused.get(chatId) ?? 0;
     if (Date.now() - last < 3600_000) return;

@@ -455,3 +455,19 @@ test('GET /api/status says whether the brain can hear and speak: nothing without
     delete env.AI;
   }
 });
+
+test('five wrong pairing codes lock a chat out until a new code: the right guess no longer pairs it, while the owner still can', async () => {
+  const un = await (await call('/api/telegram/unpair', { method: 'POST' })).json();
+  assert.match(un.code, /^\d{6}$/);
+  const BRUTE = 888000111;
+  for (const wrong of ['000001', '000002', '000003', '000004', '000005']) await hook(msg(BRUTE, { text: wrong }, { id: BRUTE, first_name: 'Mallory' }), secret);
+  tg.calls.length = 0;
+  await hook(msg(BRUTE, { text: un.code }, { id: BRUTE, first_name: 'Mallory' }), secret);
+  assert.equal((await status()).paired, false, 'the right code after five wrong ones does not pair');
+  assert.equal(texts().length, 0, 'and the chat gets no answer at all');
+  // the owner's own chat is not locked out
+  await hook(msg(OWNER_CHAT, { text: un.code }), secret);
+  assert.equal((await status()).paired, true);
+  assert.equal(JSON.parse(kv.m.get('telegram:link')).chatId, OWNER_CHAT);
+  tg.calls.length = 0;
+});
