@@ -159,6 +159,39 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
+  // The tutor (tutor.ts): a course plan, a lesson with its check question, a quiz and a marked short answer, as each asks.
+  const tutorAsk = String(messages[0]?.content ?? '');
+  if (/^(COURSE PLAN|LESSON|QUIZ|GRADE ANSWER):/.test(tutorAsk)) {
+    const said = textOf(last.content);
+    const topic = said.match(/^Topic: (.+)$/m)?.[1]?.trim() ?? 'the topic';
+    if (tutorAsk.startsWith('COURSE PLAN:')) {
+      const lessons = ['What it is', 'The key ideas', 'How it works', 'A worked example', 'Common mistakes'].map((t) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}` }));
+      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic}.`, lessons })}\n\`\`\`` }, model };
+    }
+    if (tutorAsk.startsWith('LESSON:')) {
+      const title = said.match(/^Lesson \d+: (.+)$/m)?.[1] ?? 'this lesson';
+      return { message: { role: 'assistant', content: `This matters because everything else builds on it.\n\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nWorked example: a leaf in sunlight takes in carbon dioxide and gives out oxygen.\n\nRemember:\n- light in, sugar out\n- oxygen is given off\n\nCHECK: What gas do leaves give off in sunlight?\nA) Nitrogen\nB) Oxygen\nC) Helium\nD) Neon\nANSWER: B\nWHY: Splitting water releases oxygen.` }, model };
+    }
+    if (tutorAsk.startsWith('QUIZ:')) {
+      const spoken = /read aloud/.test(tutorAsk);
+      const qs = [
+        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1 },
+        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1 },
+        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1 }]),
+      ];
+      return { message: { role: 'assistant', content: `Sure! \`\`\`json\n${JSON.stringify({ questions: qs })}\n\`\`\` Good luck.` }, model };
+    }
+    const expected = said.match(/^Model answer: (.+)$/m)?.[1]?.trim().toLowerCase() ?? '';
+    const given = said.split(/<<external content[^\n]*>>\n/)[1]?.split('\n<<end')[0]?.toLowerCase() ?? '';
+    const ok = !!expected && given.includes(expected.slice(0, 5));
+    return { message: { role: 'assistant', content: JSON.stringify({ correct: ok, feedback: ok ? 'Yes, that is it.' : `Not quite: it is ${expected}.` }) }, model };
+  }
+  // The tutor from the chat: "teach me X (at advanced level)", "next lesson", "quiz me on X", "quiz me out loud", "revise", "my courses".
+  if ((m = text.match(/^teach me (.+?)(?: at (beginner|intermediate|advanced) level)?$/)) && has('tutor')) return { message: call('tutor', { action: 'start', topic: m[1], ...(m[2] ? { level: m[2] } : {}) }), model };
+  if (text === 'next lesson' && has('tutor')) return { message: call('tutor', { action: 'lesson' }), model };
+  if ((m = text.match(/^quiz me(?: on (.+?))?( out loud)?$/)) && has('tutor')) return { message: call('tutor', { action: 'quiz', ...(m[1] ? { topic: m[1] } : {}), ...(m[2] ? { spoken: true } : {}) }), model };
+  if (/^(revise|revise my flashcards)$/.test(text) && has('tutor')) return { message: call('tutor', { action: 'revise' }), model };
+  if (text === 'my courses' && has('tutor')) return { message: call('tutor', { action: 'courses' }), model };
   // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
   if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };

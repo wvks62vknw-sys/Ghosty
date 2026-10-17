@@ -15,6 +15,7 @@ import { highwaysTools } from './highways';
 import { homeTools } from './home';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
+import { learnTools } from './learn';
 import { lensTools } from './lens';
 import { libraryTools } from './library';
 import { mediaTools } from './media';
@@ -40,7 +41,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -163,7 +164,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'library',
     tools: libraryTools.filter((t) => t.name === 'library_search'),
     when: 'always',
-    about: 'You can search your permanent library — books, PDFs, papers, notes, code and the starter library — with no AI (library_search; relevant passages also come in on their own); cite the source.',
+    about: 'You can search your library — books, PDFs, papers, notes, code and the starter library (library_search; relevant passages also come in on their own); cite the source.',
   },
   {
     name: 'library-admin',
@@ -263,6 +264,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: studioTools,
     when: /\b(3-?d|three[- ]?d|models?|mesh|meshes|glb|gltf|spline|take (?:it |this |that )?apart|exploded view|explode|reconstruct|reassemble|studio|cad|sculpt\w*)\b/i,
     about: 'You can turn a picture or a described object into a 3-D model (make_3d: free, best effort, ~2–3 a day, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link (make_3d with no picture).',
+  },
+  // The tutor (tutor.ts, features/learn): courses, lessons, quizzes and flashcards. One tool, for the same reason as 3d.
+  {
+    name: 'learn',
+    tools: learnTools,
+    when: /\b(teach(?:es|ing)? me|learn\w*|lessons?|tutor\w*|quiz(?:zes)? me|test me|flash ?cards?|revis(?:e|ion|ing)|explain (?:it )?like|courses?|spaced repetition)\b/i,
+    about: "You can be the owner's patient tutor at their level (tutor: start a course from the library and Wikipedia, give the next lesson with its sources and check question, quiz them, revise flashcards; LEARN tab).",
   },
 ];
 

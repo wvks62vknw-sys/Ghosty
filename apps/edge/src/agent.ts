@@ -56,6 +56,7 @@ import { deviceLibrarySearch, deviceTools, searchPassages, type DevicePassage } 
 import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
+import { learnRoute, REVISE_JOB, reviseNudge, tutorDeps } from './tutor';
 import { model3dRoute } from './model3d';
 import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
@@ -377,6 +378,7 @@ export class GhostyAgent {
       if (path === '/sites' && method === 'GET') return json({ sites: await siteStore(this.env, this.storage).list(), origin: this.origin || this.env.PUBLIC_ORIGIN || '' });
       if (path.startsWith('/sites/') && method === 'DELETE') return json({ removed: await siteStore(this.env, this.storage).remove(decodeURIComponent(path.slice(7))) });
       if (path.startsWith('/upgrades')) return await upgradesRoute(path, method, this.upgradeDeps());
+      if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface') });
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
@@ -1266,6 +1268,7 @@ export class GhostyAgent {
       if (job.kind === 'reflect' || job.kind === 'digest') return json({ result: await this.runDaily(job.kind) });
       if (job.kind === 'project') return json(await runProjectStep(this.projectDeps(), job));
       if (job.kind === 'upgrade') return json(await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps())));
+      if (job.kind === 'revise') return json({ result: await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router })) });
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result });
       return json({ item });
@@ -1391,6 +1394,9 @@ export class GhostyAgent {
         } else if (job.kind === 'upgrade') {
           // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
           await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);
+        } else if (job.kind === 'revise') {
+          // The tutor's flashcards (tutor.ts): a note only when cards are due.
+          await finishJob(this.storage, job.id, await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router, notify: (item) => this.notify(item) })));
         } else if (this.bgBusy) {
           await deferJob(this.storage, job.id, 60_000);
         } else if (job.kind === 'project') {
@@ -1453,6 +1459,7 @@ export class GhostyAgent {
     await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
     await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
     await ensureJob(this.storage, UPGRADE_JOB);
+    await ensureJob(this.storage, { ...REVISE_JOB, tz });
   }
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */

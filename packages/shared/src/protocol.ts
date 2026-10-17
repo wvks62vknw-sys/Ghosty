@@ -44,6 +44,7 @@ export const CLIENT_COMMANDS = [
   'show_journey',
   'open_space',
   'open_studio',
+  'open_learn',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -358,7 +359,7 @@ export interface UpgradeIdea {
 
 export interface JobInfo {
   id: string;
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise';
   title: string;
   text: string;
   next: number;
