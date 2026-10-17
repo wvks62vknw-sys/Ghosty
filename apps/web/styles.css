@@ -820,6 +820,7 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .scanlang { flex: 1 1 auto; min-width: 0; min-height: 40px; }
 .aimchips button { font: 500 9.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
 .aimchips button.on { color: var(--c); border-color: var(--c); background: rgba(var(--cr), .08); }
+.lensview.aimpan { touch-action: none; }
 .aimmanual { display: flex; flex-direction: column; gap: 4px; }
 .aimmanual b { font: 500 9.5px var(--d); letter-spacing: .14em; color: var(--a); }
 .aimmanual .row { align-items: center; gap: 8px; }

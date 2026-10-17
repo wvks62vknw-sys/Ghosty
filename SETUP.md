@@ -234,7 +234,7 @@ the first time.
     Files, Mail, WhatsApp…). READ ALL reads the pages into text you can save to the library.
   - **TRANSLATE**: CAPTURE a sign or a menu (or type the text), pick the language (English first), and
     the text is translated by Workers AI's free translator on your Cloudflare account (no key; a chat
-    model stands in when it is unavailable). The phone reads the Latin alphabet; for other scripts,
+    model stands in when it is unavailable, or when the language of the text is unclear). The phone reads the Latin alphabet; for other scripts,
     type or paste the text.
 
 - **AIM: point the phone at the sky or the street** — hold the phone up and labels sit over what is out
@@ -245,8 +245,10 @@ the first time.
   under the cross in the middle. If the labels sit beside the real things, tap the marker of something
   you can see (a tower, a church, a hill), put the cross on the real thing and press **ALIGN** — the
   phone remembers the correction (**RESET ALIGN** clears it). Ships need the free AISstream key (the
-  System tab, HOW TO GET IT). On a laptop with no compass, drag the picture or use the heading slider.
-  Your position only goes to your own Ghosty, to ask what is near it.
+  System tab, HOW TO GET IT). With no compass (a laptop, or motion access refused), drag the picture
+  with a finger or the mouse, or use the heading slider. Your position is rounded before it leaves the
+  phone: to about 1 km for places (your Ghosty asks Wikipedia and OpenStreetMap about that square
+  kilometre) and about 100 m for the aircraft lists.
 
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.

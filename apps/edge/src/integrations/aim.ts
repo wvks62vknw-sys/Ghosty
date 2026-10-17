@@ -229,7 +229,11 @@ export function mergePlaces(osm: AimPlace[], wiki: AimPlace[], max = MAX_PLACES)
   return out.sort((a, b) => a.dist - b.dist).slice(0, max);
 }
 
-export async function placesNear(lat: number, lon: number, radiusM = 15_000): Promise<PlacesAnswer> {
+export async function placesNear(rawLat: number, rawLon: number, radiusM = 15_000): Promise<PlacesAnswer> {
+  // Wikipedia and Overpass are asked about the square kilometre, never the exact spot (often home):
+  // the answer covers 10-15 km and the phone works out its own bearings and distances.
+  const lat = Number(rawLat.toFixed(2));
+  const lon = Number(rawLon.toFixed(2));
   const k = `places:${lat.toFixed(2)},${lon.toFixed(2)},${Math.round(radiusM / 1000)}`;
   return cached(k, PLACES_TTL_MS, async () => {
     const [w, o] = await Promise.allSettled([wikipediaNear(lat, lon, Math.min(10_000, radiusM)), landmarksNear(lat, lon, radiusM)]);
