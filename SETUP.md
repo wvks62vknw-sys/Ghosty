@@ -250,6 +250,22 @@ the first time.
   phone: to about 1 km for places (your Ghosty asks Wikipedia and OpenStreetMap about that square
   kilometre) and about 100 m for the aircraft lists.
 
+- **SOUND: is it distorting?** — tap **SOUND** (the camera switches off; only the microphone is used,
+  and Safari asks for it the first time — say Allow). Two ways:
+  1. **LISTEN**: play your music at your usual volume, hold the phone a metre or two from the speaker,
+     keep quiet and tap **RECORD** (5 or 10 seconds). You get one plain verdict — clean, clipping (turn it
+     down), hum at 50 Hz (check the cable and earth), boomy bass (turn the bass down or move the speaker
+     off the wall), harsh treble — with the numbers and a chart.
+  2. **TEST TONE**: plug the phone into the speaker (cable or Bluetooth) at your usual volume, or hold it
+     close, and tap **START TEST**. The phone plays a tone that gets louder in ten steps, then a sweep from
+     deep bass to high treble (about 10 seconds; it is loud at the end, so turn the speaker down first if
+     unsure). You get where it starts to distort ("distorts above ~70% volume"), whether it is limiting,
+     and how far down its bass goes.
+  **ASK GHOSTY** sends the result (in words, never the recording) and your question, e.g. *"what should I
+  change on my Sony soundbar?"*. For the best settings of a gadget or a replacement part, just send Ghosty a
+  photo of it (or its label) and ask — it finds the model, then the published settings or UK shops with
+  prices, and says so when it finds nothing.
+
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
 
