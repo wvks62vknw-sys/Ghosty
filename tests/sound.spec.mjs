@@ -164,5 +164,22 @@ await session(files.tone, 'tone', async (page) => {
   }
 });
 
+// 4. leaving SOUND while the audio is still starting gives the microphone back
+await session(files.clean, 'leave-early', async (page) => {
+  await page.evaluate(() => {
+    window.__tracks = [];
+    const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = async (c) => { const s = await gum(c); window.__tracks.push(...s.getTracks()); return s; };
+    const resume = AudioContext.prototype.resume;
+    AudioContext.prototype.resume = function () { return new Promise((r) => setTimeout(r, 1500)).then(() => resume.call(this)); };
+  });
+  await press(page, 'RECORD');
+  await page.waitForFunction(() => window.__tracks.length > 0, null, { timeout: 5000 }).catch(() => problems.push('leave-early: the microphone never opened'));
+  await page.evaluate(() => window.__ghosty.lens.setMode('see'));
+  await page.waitForTimeout(2500);
+  const live = await page.evaluate(() => window.__tracks.filter((t) => t.readyState !== 'ended').length);
+  if (live) problems.push(`leave-early: ${live} microphone track(s) still running after leaving SOUND during start-up`);
+});
+
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'SOUND run clean on an iPhone 13: a clipped tone from the microphone was called clipping with the advice to turn it down and its spectrum drawn, ASK GHOSTY sent the report as data, a clean tone was called clean, TEST TONE said plainly when it could not hear the tone and found where a clipping speaker starts to distort; the camera stayed off and the security policy blocked nothing.');
 process.exit(problems.length ? 1 : 0);

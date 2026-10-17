@@ -343,6 +343,12 @@ export function createSoundMode(L: LensContext): Mode {
       return;
     }
     await ctx.resume().catch(() => undefined);
+    // SOUND may have been left while the audio was starting: give the microphone back at once.
+    if (gen !== runGen) {
+      for (const t of stream.getTracks()) t.stop();
+      void ctx.close().catch(() => undefined);
+      return;
+    }
     S.sampleRate = ctx.sampleRate;
     const src = ctx.createMediaStreamSource(stream);
     // ScriptProcessor: deprecated but everywhere (iOS included), and an AudioWorklet would need a module file of its own
