@@ -64,6 +64,11 @@ test('the size patterns shops write', () => {
   assert.deepEqual(bare.dims, { w: 200, d: 90, h: 85 });
   assert.equal(bare.orderAssumed, true, 'three bare numbers: the order is assumed, and said so');
   assert.deepEqual(t('85 x 200 x 90 cm (H x W x D)').dims, { h: 85, w: 200, d: 90 });
+  const lead = t('Dimensions (H x W x D): 85 x 200 x 90 cm');
+  assert.deepEqual(lead.dims, { h: 85, w: 200, d: 90 }, 'the order named before the numbers is used');
+  assert.equal(lead.orderAssumed, false);
+  assert.equal(P.fitOf({ url: 'u', shop: 'X', title: 'Sofa', price: 300, priceFrom: false, dims: lead.dims, dimsFrom: 'page text', orderAssumed: false }, { w: 100 }).fit, 'too big', 'a 200 cm wide sofa does not fit 100 cm');
+  assert.deepEqual(t('Size HxWxD 85 x 200 x 90 cm').dims, { h: 85, w: 200, d: 90 });
   assert.deepEqual(t('Package size H67, W195, D93cm.').dims, {}, 'a box is not the thing');
   assert.deepEqual(t('2 doors, 3 drawers, oak').dims, {});
   assert.deepEqual(t('W 72 x D 30 x H 180 in').dims, { w: 182.9, d: 76.2, h: 457.2 });
