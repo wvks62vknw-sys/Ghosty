@@ -14,7 +14,19 @@ browser keeps them in WebLLM's Cache API stores (`webllm/model`, `webllm/config`
 | `libs/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen2.5-0.5B-Instruct (the fallback when a phone can't hold Qwen3) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` | Apache-2.0 | 4.9 MB |
 
 Weights (not vendored): `mlc-ai/Qwen3-0.6B-q4f16_1-MLC` (≈352 MB) and `mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC`
-(≈290 MB) on Hugging Face, Apache-2.0 (Qwen).
+(≈290 MB) on Hugging Face, Apache-2.0 (Qwen). Each is pinned to one commit in `src/offline/models.ts`, so the
+weights, tokenizer and chat settings (`mlc-chat-config.json`) are always the files these libs were checked
+with, never whatever the repository's main branch holds that day:
+
+| Model | Hugging Face commit (checked 2026-10-17) |
+| --- | --- |
+| `mlc-ai/Qwen3-0.6B-q4f16_1-MLC` | `8c14ce481d4c692769976ad52afea453a102df19` |
+| `mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC` | `32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad` |
+
+The page passes `https://huggingface.co/<repo>/resolve/<commit>/` as the model's address; WebLLM's
+`cleanModelUrl` keeps an address that names a revision (it adds `resolve/main/` only to a bare one).
+Moving to a new commit means a new download for the owner (older files are removed after it): change
+`rev` together with the libs above and re-run TEST on a phone.
 
 One change to the upstream file: the last line of `lib/index.js` (`//# sourceMappingURL=index.js.map`) is
 removed, since the 7 MB source map is not shipped. Every file is far under Cloudflare's 25 MiB limit.

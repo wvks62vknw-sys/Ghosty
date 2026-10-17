@@ -86,3 +86,29 @@ test('replies are cleaned of the empty thinking block and end marks; the downloa
   assert.equal(P.progressLabel(NaN, 352), '0 MB of 352 MB · 0%');
   assert.equal(P.progressLabel(2, 352), '352 MB of 352 MB · 100%');
 });
+
+test('the models are pinned to one Hugging Face commit each, and the vendored WebLLM keeps that revision', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  assert.equal(M.MODELS.length, 2);
+  for (const m of M.MODELS) {
+    assert.match(m.repo, /^mlc-ai\/[\w.-]+-MLC$/);
+    assert.match(m.rev, /^[0-9a-f]{40}$/, `${m.id} is not pinned to a commit`);
+    const base = M.modelBase(m);
+    assert.equal(base, `https://huggingface.co/${m.repo}/resolve/${m.rev}/`);
+    assert.doesNotMatch(base, /\/resolve\/main\//);
+  }
+  // WebLLM's own cleanModelUrl (vendor/webllm/web-llm.mjs) must leave a pinned URL as it is: it adds
+  // "resolve/main/" only to a URL that names no revision.
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  const fn = src.match(/function cleanModelUrl\(modelUrl\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'cleanModelUrl not found in the vendored WebLLM');
+  const cleanModelUrl = new Function(`${fn}; return cleanModelUrl;`)();
+  for (const m of M.MODELS) assert.equal(cleanModelUrl(M.modelBase(m)), M.modelBase(m));
+  assert.equal(cleanModelUrl('https://huggingface.co/mlc-ai/x-MLC'), 'https://huggingface.co/mlc-ai/x-MLC/resolve/main/');
+  // brain.ts takes its models (and the base its download check reads) from here, never a bare repository URL.
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(brain, /resolve\/main|huggingface\.co\/mlc-ai/);
+  assert.match(brain, /model: modelBase\(m\)/);
+  assert.match(brain, /const base = modelBase\(currentModel\(\)\)/);
+});
