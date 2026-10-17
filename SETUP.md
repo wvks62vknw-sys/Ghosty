@@ -60,6 +60,29 @@ filed in the library (open any notebook on the shelf); **EXPORT TO GITHUB** writ
 Markdown to a `library` branch of your repository, so it costs nothing on your phone and is readable
 anywhere. It stays within the free plan on its own: it waits while the day's database allowance is low.
 
+**Fresh knowledge every day:** every morning (06:10 UTC) Ghosty gathers the day's BBC news (world, UK, Birmingham,
+technology, science), Hacker News' front page, the newest AI and machine-learning papers on arXiv and Wikipedia's
+current events into its library — no AI, no key, about twenty small requests — and, when a free model is there,
+sums the day up in three levels. **Library → FRESH TODAY** shows the day's entries (tap one to read it;
+**DIGEST NOW** gathers again). Nothing to set up.
+
+**A memory of you:** every night (03:20 your time) Ghosty looks back over the day's conversation with a free model
+and keeps what you said about yourself — likes, dislikes, people, places, routines, goals, work — as a profile in
+your own words, plus a diary entry for the day. **Memory → ME** shows the profile (add a line, or tap ✕ to remove
+one); **Memory → DIARY** shows the entries, and **REFLECT NOW** does tonight's reflection at once. It never keeps
+anything it read on the web, and never a password, key or card number. If no free model is reachable that night,
+it quietly tries again the next.
+
+**Projects that run for days:** for anything too big for one conversation — "research the best way to do X over
+the next few days, then build it" — Ghosty proposes a plan of 3 to 12 steps and a pace (steady: a step every 20
+minutes; fast: every 3). You approve the plan once; it then works through the steps on its own, research on the
+cheap free models and building on the strong ones, so a long job no longer runs a key dry in one go. Every step's
+result is filed in the library ("Project: …" on the shelf) and you get a notification as steps finish (every step
+for a short project, every third for a long one, and a final report with any links). **Workshop → PROJECTS**
+shows each project's progress and steps (tap a done step for its result) with PAUSE, RESUME, CANCEL and RUN NEXT
+NOW; saying "carry on" resumes a paused project. If no model is free, a step waits a quarter of an hour; if a step
+fails three times, the project pauses and tells you once.
+
 **Teach Ghosty from your own books:** open the **Library** tab and drop in PDFs, Word files, e-books or notes
 (or import a web page, an arXiv paper id, a CVE id, a GitHub repo or a Project Gutenberg book by its
 number — the whole text, chapter by chapter, free). Reading happens in your browser and

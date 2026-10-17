@@ -35,7 +35,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/"In one line:"/.test(system)) return { message: { role: 'assistant', content: 'In one line: the mock read the day\'s headlines.\n\nIn more detail: the mock gathered the news, technology and science of the day and found them interesting.\n\nFor an expert: the mock has no paper to single out.' }, model };
   // One step of a project that runs for days (projects.ts): the result itself, with a source.
   if (/PROJECT STEP/.test(system)) {
-    const step = textOf(messages[messages.length - 1]?.content).match(/^Step (\d+): ([^\n—]+)/m);
+    const step = textOf(messages[messages.length - 1]?.content).match(/^Step (\d+): ([^\n—]+) — /m);
     return { message: { role: 'assistant', content: `Step ${step?.[1] ?? '?'} (${(step?.[2] ?? 'the step').trim()}) is done: the mock looked into it and found two options, A and B, and A is the better one. Sources: https://example.com/a https://example.com/b` }, model };
   }
   // Chains: one tool's result feeds the next in the same turn; several read-only calls in one

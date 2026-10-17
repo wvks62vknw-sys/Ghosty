@@ -6,7 +6,7 @@
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, PublishedSite, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
@@ -14,6 +14,8 @@ export interface StudySummary {
   read: number;
   digested: number;
   domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
+  /** Per level across every field (a topic's level is its place in its field: first third beginner, then intermediate, then advanced). */
+  levels: { level: 'beginner' | 'intermediate' | 'advanced'; topics: number; read: number }[];
   today: { reads: number; digests: number; drills: number; ai: number };
   drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
   pending: number;
@@ -245,6 +247,17 @@ export const brain = {
   addMemory: (text: string) => req('POST', '/memory', { text }),
   forget: (id: string) => req('DELETE', `/memory/${encodeURIComponent(id)}`),
   lessons: () => req<{ lessons: Lesson[] }>('GET', '/lessons'),
+  /** What Ghosty knows about you from your own words (profile.ts): the profile, the latest diary entries, when it last reflected. */
+  profile: () => req<{ profile: Profile; diary: DiaryEntry[]; lastReflect: number | null }>('GET', '/profile'),
+  profileAdd: (section: ProfileSection, text: string) => req<{ profile: Profile; added: boolean }>('POST', '/profile', { section, text }),
+  profileRemove: (section: ProfileSection, i: number) => req<{ profile: Profile; removed: boolean }>('DELETE', `/profile?section=${encodeURIComponent(section)}&i=${i}`),
+  /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
+  reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
+  /** DIGEST NOW: today's fresh knowledge gathered into the library, right away (library/digest.ts). */
+  digestNow: () => req<DigestInfo>('POST', '/library/digest', {}),
+  /** Projects that run for days (projects.ts): the Workshop tab's PROJECTS panel. */
+  projects: () => req<{ projects: Project[] }>('GET', '/projects'),
+  projectAction: (id: string, action: 'pause' | 'resume' | 'cancel' | 'run') => req<{ project: Project; did?: string }>('POST', `/projects/${encodeURIComponent(id)}/${action}`, {}),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
   training: () => req<{ exercises: { id: string; title: string; level: number; topic: string }[]; records: Record<string, { solved: boolean; attempts: number; at: number; model?: string; firstSolve?: number }> }>('GET', '/train'),
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
