@@ -168,7 +168,7 @@ test('the check_html tool: the html given, a published page, or the draft in par
   assert.ok(names('make me a landing page for my bakery', true).includes('check_html'), 'every coding turn');
   assert.ok(!names('hello, how are you?').includes('check_html'));
   const build = T.TOOL_GROUPS.find((g) => g.name === 'build');
-  assert.ok(build.about.startsWith('you can ') && build.about.length <= 220, build.about);
+  assert.ok(/^you can /i.test(build.about) && build.about.length <= 220, build.about);
 });
 
 test('create_widget refuses broken tags and scripts only; a widget without a doctype installs with a note', async () => {

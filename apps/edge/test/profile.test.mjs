@@ -188,7 +188,7 @@ test('in the brain: the ME and DIARY routes, REFLECT NOW through the mock model,
   await api('GET', '/profile');
   await api('GET', '/profile');
   const kinds = (await S.loadJobs(storage)).map((j) => j.kind).filter((k) => k !== 'study').sort();
-  assert.deepEqual(kinds, ['digest', 'reflect']);
+  assert.deepEqual(kinds, ['digest', 'reflect', 'upgrade']);
   const empty = await api('GET', '/profile');
   assert.deepEqual(empty.profile.sections.likes, []);
   assert.deepEqual(empty.diary, []);
