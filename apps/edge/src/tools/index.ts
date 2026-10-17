@@ -11,6 +11,7 @@ import { emailTools } from './email';
 import { evolveTools } from './evolve';
 import { extraTools } from './extra';
 import { highwaysTools } from './highways';
+import { homeTools } from './home';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
 import { lensTools } from './lens';
@@ -32,11 +33,11 @@ import { scanTools } from './scan';
 import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
-import { uiTools } from './ui';
+import { openSpaceTool, uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, openSpaceTool];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -230,6 +231,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: scanTools,
     when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
     about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
+  },
+  // FIT FINDER and the SPACE PLANNER (tools/home.ts): furniture, sizes, measuring and making space.
+  {
+    name: 'home',
+    tools: [...homeTools, openSpaceTool],
+    when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange)\b/i,
+    about: 'You can find furniture that fits at UK shops (find_furniture: the shops\' own prices and sizes, never guessed; links) and open the SPACE PLANNER (open_space) to lay out a room and MAKE SPACE.',
   },
 ];
 

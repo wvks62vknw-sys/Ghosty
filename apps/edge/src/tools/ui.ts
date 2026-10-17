@@ -40,3 +40,13 @@ export const uiTools: Tool[] = [
     { mode: { type: 'string', enum: ['see', 'read', 'hands', 'ask', 'scan', 'aim'], description: 'which mode to open (default see)' }, question: { type: 'string', description: 'for ask: the question to pre-fill' } },
   ),
 ];
+
+/**
+ * The SPACE PLANNER (a client tool, kept out of uiTools: it is offered only with the keyword-gated
+ * 'home' group in tools/index.ts, so its description costs nothing on other turns).
+ */
+export const openSpaceTool: Tool = client(
+  'open_space',
+  "Open the SPACE PLANNER tab: a 2-D plan of a room in real sizes (walls from the Lens's MEASURE or typed), furniture to drag and rotate, walkway clearances, a WILL IT FIT? check and MAKE SPACE (up to 3 layouts freeing the most floor). Pass the room's size when known.",
+  { width_cm: { type: 'number', description: 'room width (cm)' }, depth_cm: { type: 'number', description: 'room depth (cm)' } },
+);
