@@ -83,7 +83,17 @@ tests/       local preview server + browser test
 - **The Lens**: the phone's camera, on the phone — names what it sees (80 kinds of thing, boxes and counts,
   a 1,000-class scene line), reads text in pictures into the library, tracks hands and seven gestures, asks a
   picture-capable model about a still, and opens a crop in Google Lens, Bing, Yandex or TinEye (named, never
-  white-labelled). Vendored MediaPipe and Tesseract.js; no face recognition, no number-plate lookups.
+  white-labelled). NAME mode names thousands of everyday things, on the phone (4,624 names, about 33,000
+  with MORE NAMES, from Apple's MobileCLIP-S0 under ONNX Runtime Web). Vendored MediaPipe, Tesseract.js and
+  ONNX Runtime; no face recognition, no number-plate lookups.
+- **Scan anything** (Lens → SCAN): barcodes and QR codes read on the phone (vendored ZXing) — a product's
+  barcode becomes a card from Open Food Facts (Nutri-Score, nutrition, allergens) or its sister databases, a
+  book's ISBN one from Open Library, a QR link is shown with its real site and warnings and opened only on
+  your tap; documents photographed, straightened and exported as a PDF made on the phone; signs and menus
+  read and translated (Workers AI's free translator). In chat: `lookup_barcode`, `translate_text`.
+  **AIM: point the phone at the sky or the street** — labels float over aircraft (callsign, height, distance),
+  ships, buses and trams, hilltops, towers and landmarks, and the space station when it is up, with a compass
+  ribbon and the horizon; tap one for its card, or ask WHAT'S THAT? (Places: Wikipedia, OpenStreetMap.)
 - **Recon**: passive, keyless reconnaissance of a domain, host, IP or address (DNS and email posture, RDAP
   registration, certificates and the subdomains they reveal, Wayback history, hosting and open ports seen by
   Shodan's free InternetDB, the HTTP fingerprint) — in the **Threats** tab or in chat, where Ghosty chains on
@@ -94,6 +104,10 @@ tests/       local preview server + browser test
   with every stop, the steps in a JOURNEY sheet, and *"next buses from X"* for departures.
 - **Tools work together**: one turn can chain many tools (a photo's labels → a search → a saved note; a recon
   report → an imported page), read-only tools run side by side, and the long tools report their steps in chat.
+- **An offline brain on the phone**: download a small AI (≈352 MB, once, in Settings → Offline brain) and
+  Ghosty keeps talking with no signal, when every free model is busy, or always if you prefer: it runs on the
+  iPhone itself (WebLLM on WebGPU, iOS 26+), free and private, knows your memory, agenda and library copy,
+  and each such reply says "Answered on your phone (offline)".
 - **Real ears, its own voice, pictures**: speech to text with Groq's Whisper or Cloudflare Workers AI's (no
   key), replies read in Ghosty's own voice (MeloTTS on Workers AI; the phone's voice as the fallback), and
   pictures made on request (flux-1-schnell, free) that the chat shows and Telegram sends as photos.

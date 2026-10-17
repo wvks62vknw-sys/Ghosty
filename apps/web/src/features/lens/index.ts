@@ -1,7 +1,7 @@
 /**
- * LENS tab: the phone's camera with four modes — SEE (what is in view, boxed and counted), READ
- * (text in a picture, into the library), HANDS (gestures that drive the Lens) and ASK (a
- * question with a picture for Ghosty). Everything runs on the phone; nothing leaves it until the
+ * LENS tab: the phone's camera with its modes — SEE (what is in view, boxed and counted), READ
+ * (text in a picture, into the library), HANDS (gestures that drive the Lens), ASK (a
+ * question with a picture for Ghosty) and NAME (the closest of thousands of names, name.ts). Everything runs on the phone; nothing leaves it until the
  * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition, no
  * number-plate lookups: Ghosty does not identify people.
  *
@@ -20,17 +20,21 @@ import { button, toast, type Light } from '../../ui/components';
 import { askWithImage, type AskResult } from '../../vision/ask';
 import { coverTransform, sceneLine, toFrame, toView, type Box, type Category, type Detection, type Size, type Transform } from '../../vision/boxes';
 import { Camera, cameraMessage, cameraSupported, drawScaled, type Facing } from '../../vision/camera';
+import { namesLine, type NameGuess } from '../../vision/clipmath';
 import { forgetImage, shareImage } from '../../vision/engines';
 import { closeAll } from '../../vision/models';
 import { Reader } from '../../vision/ocr';
+import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
+import { createNameMode } from './name';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
+import { createScanMode } from './scan';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -43,6 +47,8 @@ export interface LensState {
   fps: number;
   detections: Detection[];
   scene: Category[];
+  /** NAME's closest names for the picture (share 0–1), best first. */
+  names: NameGuess[];
   counts: string;
   selected: number;
   ocrText: string;
@@ -122,6 +128,9 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'read', label: 'READ', hint: 'text in a picture' },
   { id: 'hands', label: 'HANDS', hint: 'gestures drive it' },
   { id: 'ask', label: 'ASK', hint: 'a question + photo' },
+  { id: 'name', label: 'NAME', hint: 'name anything' },
+  { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
+  { id: 'aim', label: 'AIM', hint: 'point at anything' },
 ];
 
 export const lensState: LensState = {
@@ -133,6 +142,7 @@ export const lensState: LensState = {
   fps: 0,
   detections: [],
   scene: [],
+  names: [],
   counts: '',
   selected: -1,
   ocrText: '',
@@ -189,7 +199,7 @@ export const lensTab: TabDef = {
   title: 'LENS',
   icon: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   scene: 'backdrop',
-  blurb: 'camera · see · read · hands · ask',
+  blurb: 'camera · see · read · hands · ask · name · scan · aim',
   mount(root) {
     const S = lensState;
     const camera = new Camera(h('video.lensvideo'));
@@ -407,7 +417,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
@@ -502,6 +512,7 @@ export const lensTab: TabDef = {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         if (S.counts) bits.push(`in view: ${S.counts}`);
         if (S.scene.length) bits.push(`scene: ${sceneLine(S.scene)}`);
+        if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
         if (S.gesture) bits.push(`gesture: ${S.gesture}`);
         return `${bits.join('; ')}.`;
       },

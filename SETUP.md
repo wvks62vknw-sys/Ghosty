@@ -208,6 +208,47 @@ the first time.
   TinEye (named as such; each opens in its own tab). The engines need a web address for the picture, so
   the crop is published at `https://<your Ghosty>/i/<random id>` for 24 hours (FORGET NOW removes it
   at once; at most 30 a day).
+- **NAME** — names almost anything in view, on the phone: the five closest of 4,624 everyday names (tap
+  **MORE NAMES** for about 33,000, a further 15 MB once), each with how strongly it matches, about once a
+  second. Tap the picture to name just that part; **PICK PHOTO** names a picture from your camera roll.
+  Tap a name for **ASK GHOSTY** (the picture and your question, with the names going along as the
+  phone's guesses) or **SEARCH THE WEB** (only the name is sent). The first use downloads the namer once
+  (about 42 MB: the runtime, Apple's MobileCLIP-S0 picture model and the names); it is freed from memory
+  when you leave NAME. These are the closest names, not certainties — and people are only ever "person",
+  "man", "woman" or "child". The model's licence (Apple's research licence) allows personal,
+  non-commercial use, which is what Ghosty is.
+
+- **SCAN** — three things in one tile:
+  - **CODE**: point at a barcode or QR code and hold still (or PICK PHOTO). A box, a beep, then a card.
+    A food or household product shows its name, Nutri-Score, nutrition per 100 g and allergens from
+    Open Food Facts (credited on the card: its data is open, ODbL); a book shows title, author, year and a
+    description from Open Library; a number nobody knows gets a web search. A QR code with a web address
+    shows the address with the real website in bold, warns you about tricks (not https, look-alike names
+    like "paypal.com.something-else.ru" or "barclays.co.ua", hidden addresses, link shorteners) and opens only when you tap
+    OPEN. Wi-Fi codes show the network and password (COPY PASSWORD, then Settings → Wi-Fi), contact
+    cards, places (SHOW ON MAP), emails and phone numbers are shown plainly. ASK GHOSTY and SAVE send the
+    card as text, only when you tap them.
+  - **DOCUMENT**: lay the page flat on something darker and CAPTURE PAGE (or PICK PHOTO). Ghosty finds
+    the page's corners; drag any that are wrong, then KEEP PAGE — it is straightened to A4 and cleaned up
+    (CLEAN UP: OFF keeps the colours). Add more pages, then EXPORT PDF: the share sheet opens (Save to
+    Files, Mail, WhatsApp…). READ ALL reads the pages into text you can save to the library.
+  - **TRANSLATE**: CAPTURE a sign or a menu (or type the text), pick the language (English first), and
+    the text is translated by Workers AI's free translator on your Cloudflare account (no key; a chat
+    model stands in when it is unavailable, or when the language of the text is unclear). The phone reads the Latin alphabet; for other scripts,
+    type or paste the text.
+
+- **AIM: point the phone at the sky or the street** — hold the phone up and labels sit over what is out
+  there: aircraft overhead (callsign, height in feet, distance), ships, buses and trams, hilltops, towers,
+  stadiums and other places (from Wikipedia and OpenStreetMap), and the space station when it is above
+  your horizon. The first time, tap **AIM** (or **START AIM**): Safari asks for motion access and your
+  location — say Allow to both. Tap a label for its card; **WHAT'S THAT?** asks Ghosty about the thing
+  under the cross in the middle. If the labels sit beside the real things, tap the marker of something
+  you can see (a tower, a church, a hill), put the cross on the real thing and press **ALIGN** — the
+  phone remembers the correction (**RESET ALIGN** clears it). Ships need the free AISstream key (the
+  System tab, HOW TO GET IT). With no compass (a laptop, or motion access refused), drag the picture
+  with a finger or the mouse, or use the heading slider. Your position is rounded before it leaves the
+  phone: to about 1 km for places (your Ghosty asks Wikipedia and OpenStreetMap about that square
+  kilometre) and about 100 m for the aircraft lists.
 
 What the Lens will not do: recognise faces, read number plates to look anyone up, or track people. No
 face model is included, and that is on purpose.
@@ -266,6 +307,30 @@ Keys disconnects the bot. **Links → Telegram → UNPAIR** forgets the chat (a 
 - **Pictures:** say *"draw me a red fox in the snow"*, *"make a logo for my bakery"*. Ghosty writes a full
   description and makes the picture with Workers AI (flux-1-schnell, free): the chat shows it, Telegram sends
   it as a photo, and the link (`https://<your Ghosty>/i/<id>`) lasts 7 days. Up to 40 a day.
+
+## 3j. An offline brain on your phone
+
+Ghosty can also talk with no connection at all, using a small AI that runs on the iPhone itself — free and
+private, nothing leaves the phone.
+
+1. Update the iPhone to **iOS 26 or newer** (older versions have no WebGPU, which the small AI needs; the
+   panel says so plainly if your phone can't run it).
+2. On **Wi-Fi**, open **Settings → Offline brain** (or the command palette: *Offline brain*) and press
+   **DOWNLOAD**. It is about 352 MB, downloaded once from Hugging Face; keep Ghosty open until the bar
+   reaches 100%. If the phone can't hold that model, Ghosty fetches a smaller one (about 290 MB) by itself.
+3. Press **TEST**: the small AI says hello and shows how fast it is.
+4. Choose when it answers: **only when needed** (the default — when the brain can't be reached or every free
+   model is busy), **always** (the cloud brain is never asked), or **off**. Ghosty never downloads it by itself:
+   until you press DOWNLOAD, "always" only tells you it isn't on the phone yet.
+
+Replies from the phone show a small **ANSWERED ON YOUR PHONE (OFFLINE)** chip and are spoken with the usual
+voice (the phone's own voice when Ghosty's can't be reached). The small AI has no tools and no live data
+(no web, weather or news), but it knows your memory, today's agenda and the library copy on the phone. If the
+cloud brain had already started on your message (looked something up, set a reminder) and then ran out of
+free models, you see its message rather than a guess from the small AI. It leaves the phone's memory two
+minutes after it last answered (the download stays), so the camera and the Lens have room.
+**DELETE** removes it (you can download it again any time). Install Ghosty on the Home Screen (3b) so iOS
+keeps the download.
 
 ## 4. Let Ghosty edit itself
 

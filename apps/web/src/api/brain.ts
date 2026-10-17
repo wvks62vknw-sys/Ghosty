@@ -198,7 +198,7 @@ export async function streamEvents(path: string, body: unknown, onEvent: (e: Cha
   }
   if (!r.ok || !r.body) {
     const j = (await r.json().catch(() => ({}))) as { error?: string };
-    throw new Error(j.error ?? `HTTP ${r.status}`);
+    throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
   }
   const reader = r.body.getReader();
   const dec = new TextDecoder();

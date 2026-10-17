@@ -372,6 +372,8 @@ canvas.reactor { width: 100%; height: 100%; max-width: 560px; display: block; }
 .msg { padding: 6px 10px; font-size: 13px; line-height: 1.5; border-left: 1px solid rgba(var(--cr), .55); white-space: pre-wrap; word-break: break-word; color: var(--fg); }
 .msg.me { border-left-color: var(--a); color: rgba(232,241,246,.85); }
 .msg.err { border-left-color: var(--r); color: #ffb3bd; }
+.msg.off { border-left-style: dashed; }
+.msg .offchip { display: inline-block; margin-top: 4px; padding: 1px 7px; border: 1px solid rgba(var(--cr), .45); border-radius: 9px; font: 500 8.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--c); background: rgba(var(--cr), .07); white-space: nowrap; }
 .msg small { display: block; font: 500 8.5px var(--d); letter-spacing: .18em; color: var(--mute); margin-bottom: 3px; text-transform: uppercase; }
 .act { display: flex; align-items: center; gap: 8px; font: 400 10.5px var(--m); color: var(--mute); padding: 1px 10px; }
 .act i { width: 5px; height: 5px; border-radius: 50%; background: var(--c); flex: none; }
@@ -753,7 +755,8 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .lensscene, .lenscount { position: absolute; bottom: 6px; z-index: 2; font: 400 9.5px var(--m); letter-spacing: .04em; color: #fff; text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lensscene { left: 8px; max-width: 58%; } .lenscount { right: 8px; max-width: 38%; text-align: right; color: var(--a); }
 .lensscene:empty, .lenscount:empty { display: none; }
-.lensmodes { grid-area: modes; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.lensmodes { grid-area: modes; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(62px, 1fr); gap: 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.lensmodes::-webkit-scrollbar { display: none; }
 .lensmodes button { min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 5px 2px; }
 .lensmodes button small { font: 400 8.5px var(--m); letter-spacing: 0; text-transform: none; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .lensmodes button.on small { color: var(--c); }
@@ -772,6 +775,63 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .lensreply small { display: block; font: 500 8.5px var(--d); letter-spacing: .18em; color: var(--mute); text-transform: uppercase; margin-bottom: 3px; }
 .lenschips { display: flex; gap: 4px; flex-wrap: wrap; }
 .lenschips button { font: 400 11.5px var(--b); text-transform: none; letter-spacing: 0; padding: 6px 10px; min-height: 34px; }
+/* NAME: the closest names, each a button with its share as a thin bar under the name */
+.lensnames { display: flex; flex-direction: column; gap: 3px; }
+.lensnames:empty { display: none; }
+.lensnames button { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 6px 10px 8px; text-align: left; font: 400 13px var(--b); text-transform: none; letter-spacing: 0; }
+.lensnames button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lensnames button small { font: 500 10px var(--m); color: var(--c); letter-spacing: .06em; }
+.lensnames button i { position: absolute; left: 10px; bottom: 4px; height: 2px; max-width: calc(100% - 20px); background: var(--c); opacity: .7; border-radius: 1px; }
+.lensnames button.on { border-color: var(--a); } .lensnames button.on i { background: var(--a); }
+.scansubs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.scansubs button { font: 500 10.5px var(--d); letter-spacing: .14em; text-transform: uppercase; min-height: 38px; padding: 6px 4px; }
+.scancard { display: flex; flex-direction: column; gap: 7px; padding: 9px 10px; border-left: 2px solid var(--c); background: rgba(var(--cr), .05); border-radius: 0 var(--rad) var(--rad) 0; min-width: 0; }
+.scancard > small { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.scanhead { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.scanhead > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.scanimg { flex: none; width: 64px; height: 64px; object-fit: contain; background: #fff; border-radius: 4px; }
+.scantitle { font: 500 15px/1.3 var(--b); color: #fff; overflow-wrap: anywhere; }
+.scantext { font-size: 12px; line-height: 1.45; color: var(--mute); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9.5em; overflow-y: auto; }
+.scankv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12.5px; align-items: baseline; }
+.scankv b { font: 500 9px var(--d); letter-spacing: .14em; color: var(--c); }
+.scankv span { overflow-wrap: anywhere; }
+.scankv .row { gap: 8px; align-items: center; }
+.scanurl { font: 400 12px/1.4 var(--m); color: var(--mute); overflow-wrap: anywhere; }
+.scanurl b, .scansite b { color: #fff; font-weight: 600; }
+.scansite { font-size: 14px; }
+.scanwarn { font-size: 12px; line-height: 1.4; color: var(--a); padding-left: 8px; border-left: 2px solid var(--r); }
+.scangrade { font: 600 10px var(--d); letter-spacing: .12em; padding: 4px 8px; border-radius: 3px; color: #02070d; background: var(--mute); }
+.scangrade.ga { background: #038141; color: #fff; } .scangrade.gb { background: #85bb2f; } .scangrade.gc { background: #fecb02; } .scangrade.gd { background: #ee8100; } .scangrade.ge { background: #e63e11; color: #fff; }
+.scannut { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; font-size: 12px; }
+.scannut span { display: flex; flex-direction: column; }
+.scannut b { font: 500 8.5px var(--d); letter-spacing: .14em; color: var(--mute); }
+.scanhit { display: flex; flex-direction: column; gap: 1px; padding: 5px 0; border-top: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; }
+.scanhit b { font-weight: 500; font-size: 12.5px; overflow-wrap: anywhere; } .scanhit small { color: var(--c); font: 400 10px var(--m); }
+.scancredit { font: 400 10px var(--m); color: var(--mute); }
+.scanedit { width: 100%; height: auto; display: block; touch-action: none; border: 1px solid var(--line); border-radius: var(--rad); background: #000; }
+.scancount { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); }
+.scanpages { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.scanpages:empty { display: none; }
+.scanthumb { position: relative; flex: none; }
+.scanthumb img { display: block; height: 84px; width: auto; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+.scanthumb span { position: absolute; left: 3px; bottom: 3px; font: 500 9px var(--m); color: #02070d; background: rgba(255,255,255,.8); padding: 0 3px; border-radius: 2px; }
+.scanthumb button { position: absolute; top: 2px; right: 2px; min-height: 0; width: 24px; height: 24px; padding: 0; line-height: 1; }
+.scanlbl { font: 500 9px var(--d); letter-spacing: .18em; color: var(--mute); align-self: center; }
+.scanlang { flex: 1 1 auto; min-width: 0; min-height: 40px; }
+.aimchips button { font: 500 9.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.aimchips button.on { color: var(--c); border-color: var(--c); background: rgba(var(--cr), .08); }
+.lensview.aimpan { touch-action: none; }
+.aimmanual { display: flex; flex-direction: column; gap: 4px; }
+.aimmanual b { font: 500 9.5px var(--d); letter-spacing: .14em; color: var(--a); }
+.aimmanual .row { align-items: center; gap: 8px; }
+.aimslider { flex: 1 1 auto; min-width: 0; accent-color: var(--c); min-height: 32px; }
+.aimval { flex: none; min-width: 64px; font: 400 11px var(--m); color: var(--c); text-align: right; }
+.aimcard .lenshow span { word-break: break-word; }
+.aimextract { font-size: 12.5px; line-height: 1.45; color: var(--mute); }
+.aimextract:empty { display: none; }
+.aimfeeds { color: var(--a); }
+.aimfeeds:empty { display: none; }
+.aimcredit { font-size: 10px; }
 .lensgesture { font: 200 26px/1.1 var(--d); color: #fff; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .lensgesture small { font: 500 10px var(--m); letter-spacing: .12em; color: var(--mute); text-transform: uppercase; }
 .lenshold { height: 3px; background: rgba(var(--cr), .12); border-radius: 2px; overflow: hidden; }

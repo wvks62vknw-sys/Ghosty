@@ -6,6 +6,8 @@ import type { ChatEvent } from '../../../../packages/shared/src/protocol';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
+import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
+import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { progressOf, type Progress } from '../features/core/progress';
@@ -16,7 +18,8 @@ import { speak, stopListening, stopSpeaking } from './voice';
 
 export type Entry =
   | { kind: 'user'; text: string; at: number }
-  | { kind: 'assistant'; text: string; at: number; model?: string }
+  /** `offline`: answered by the small model on the phone itself (offline/brain.ts). */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
@@ -159,12 +162,17 @@ function handle(ev: ChatEvent): void {
   }
 }
 
-async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>): Promise<void> {
+/**
+ * `rescue`: a last try before the error is shown (the offline brain on the phone); true when it answered.
+ */
+async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline?: () => Promise<string | null>, rescue?: (e: unknown) => Promise<boolean>): Promise<void> {
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking…' });
   try {
     await fn(handle);
   } catch (e) {
-    if (e instanceof AuthError) {
+    if (!(e instanceof AuthError) && rescue && (await rescue(e).catch(() => false))) {
+      // answered on the phone
+    } else if (e instanceof AuthError) {
       ui.set({ connected: false });
       push({ kind: 'error', text: `I can't reach my brain: ${e.message}` });
       toast(`Can't reach the brain: ${e.message}`, 'bad');
@@ -188,6 +196,49 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
   }
 }
 
+const OFFLINE_MODEL = 'On this phone · offline';
+
+/**
+ * Answer on the phone itself with the offline brain (offline/brain.ts): the reply streams into
+ * its entry like any other and is spoken the usual way. False (and nothing left on screen) if the
+ * model could not answer; true, with nothing spoken, when the owner said "stop".
+ */
+async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[]): Promise<boolean> {
+  const at = Date.now();
+  const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.offline;
+  const show = (text: string) => patch(mine, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), text }));
+  push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true });
+  ui.set({ status: 'thinking on your phone…' });
+  let raw = '';
+  let painted = 0;
+  try {
+    const r = await answerOffline(t, recent, (piece) => {
+      raw += piece;
+      // A repaint per word redraws the whole log: a few times a second is smooth enough.
+      if (Date.now() - painted > 120) {
+        painted = Date.now();
+        show(cleanReply(raw));
+      }
+    });
+    if (!r.text) throw new Error('no reply');
+    show(r.text);
+    chat.set({ live: r.text });
+    if (speakReplies && settings.get().speak) void speak(r.text);
+    return true;
+  } catch (e) {
+    // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
+    const said = cleanReply(raw).trim();
+    if ((e as Error)?.name === 'AbortError' && said) {
+      show(said);
+      return true;
+    }
+    chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
+    if ((e as Error)?.name === 'AbortError') return true;
+    console.warn('offline brain', e);
+    return false;
+  }
+}
+
 /** Send a message to Ghosty. */
 export async function send(text: string, opts: { speak?: boolean } = {}): Promise<void> {
   const t = text.trim();
@@ -195,6 +246,7 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
   if (/^(stop|cancel|quiet|be quiet|shut up)$/i.test(t)) {
     stopSpeaking();
     stopListening();
+    stopOffline();
     if (ui.get().busy) await brain.stop().catch(() => undefined);
     return;
   }
@@ -206,7 +258,40 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
     .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
-  await stream((cb) => brain.chat(t, context(), cb, undefined, recent), () => offlineAnswer(t));
+  const mode = settings.get().offlineBrain;
+  if (mode === 'always') {
+    // The owner chose the phone's own brain: the cloud brain is never asked.
+    await stream(async () => {
+      // Never a 352 MB download on the first message (perhaps on mobile data): only DOWNLOAD in Settings fetches it.
+      const ready = await offlineReady().catch(() => false);
+      if (ready && (await answerHere(t, recent))) return;
+      push({ kind: 'error', text: ready ? "The offline brain on this phone couldn't answer. Try again, or set it to 'only when needed' in Settings → Offline brain." : "Offline brain is set to 'always', but it isn't on this phone yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi)." });
+    });
+    return;
+  }
+  // When the brain can't answer (no connection, a server error, no free model), the phone's own model does — if it's here.
+  const here = mode !== 'off' && (await offlineReady().catch(() => false));
+  // The brain already said or did something this turn (a reply, a tool run, an approval asked, an
+  // on-screen action): the small model can't see any of it, so the brain's own error stands.
+  let acted = false;
+  let held: Extract<ChatEvent, { t: 'error' }> | null = null;
+  const rescue = async (e: unknown) => here && !acted && shouldFallBack(e) && answerHere(t, recent);
+  await stream(
+    async (cb) => {
+      await brain.chat(t, context(), (ev) => {
+        if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
+        // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
+        if (here && !acted && ev.t === 'error' && noModelError(ev.message)) {
+          held = ev;
+          return;
+        }
+        cb(ev);
+      }, undefined, recent);
+      if (held && !(await answerHere(t, recent))) cb(held);
+    },
+    () => offlineAnswer(t),
+    rescue,
+  );
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

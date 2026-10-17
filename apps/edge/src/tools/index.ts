@@ -28,6 +28,7 @@ import { memoryTools } from './memory';
 import { reconTools } from './recon';
 import { repoTools } from './repo';
 import { reverseTools } from './reverse';
+import { scanTools } from './scan';
 import { siteTools } from './sites';
 import { spotifyTools } from './spotify';
 import type { Tool } from './types';
@@ -35,7 +36,7 @@ import { uiTools } from './ui';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -222,6 +223,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: lensTools,
     when: /\b(reverse image|image search|search by image|where is this (?:picture|photo|image) from|picture link|photo link|google lens|tineye|yandex)\b|https?:\/\/\S+\.(?:jpe?g|png|webp|gif)\b/i,
     about: 'You can give reverse image search links for a picture at a public web address (reverse_image_links: Google Lens, Bing Visual Search, Yandex Images and TinEye, each named plainly; never to find who a person is).',
+  },
+  // SCAN (integrations/lookup.ts): barcode numbers and translation, when the words are about them or a barcode-sized number comes up.
+  {
+    name: 'scan',
+    tools: scanTools,
+    when: /\b(barcode|bar code|isbn|ean|upc|qr|scan(?:ned)?|product|nutri-?score|ingredients?|allergens?|translat\w*|in (?:english|spanish|french|german|italian|polish|urdu|arabic|chinese|punjabi|portuguese|romanian)|what language)\b|\b\d{8}(?:\d{4,6})?\b/i,
+    about: 'You can say what a barcode number is (lookup_barcode: books by ISBN, food and other products from the open databases — credit them) and translate text (translate_text: free translator).',
   },
 ];
 
