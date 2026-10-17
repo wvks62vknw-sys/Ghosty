@@ -70,7 +70,7 @@ export const space = {
     listeners.add(f);
     return () => listeners.delete(f);
   },
-  /** A new size for the room — with several rooms or an L, for `roomId` (the first room when not given). */
+  /** A new size for the room — with several rooms or an L, for `roomId` (the first room when not given). Throws in words when it would run into another room. */
   setRoom(room: Room, roomId?: string): string[] {
     const d = load();
     const r = { w: Math.round(room.w), d: Math.round(room.d) };
@@ -103,9 +103,13 @@ export const space = {
       const w = Math.round(rects[0].w / 10);
       const depth = rects[1] ? Math.round(rects[1].w / 10) : d.plan.room.d;
       if (w >= 50 && w <= 5000) {
-        if (d.plan.rooms?.length) d.plan = resizeRoom(d.plan, d.plan.rooms[0]!.id, w, depth).plan;
-        else d.plan = { ...d.plan, room: { w, d: depth }, items: keepInside({ w, d: depth }, d.plan.items) };
-        room = true;
+        try {
+          if (d.plan.rooms?.length) d.plan = resizeRoom(d.plan, d.plan.rooms[0]!.id, w, depth).plan;
+          else d.plan = { ...d.plan, room: { w, d: depth }, items: keepInside({ w, d: depth }, d.plan.items) };
+          room = true;
+        } catch {
+          /* that size would run into another room: the measurements are still kept */
+        }
       }
     }
     save();
