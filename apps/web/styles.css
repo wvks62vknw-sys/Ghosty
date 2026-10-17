@@ -795,6 +795,28 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .scankv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12.5px; align-items: baseline; }
 .scankv b { font: 500 9px var(--d); letter-spacing: .14em; color: var(--c); }
 .scankv span { overflow-wrap: anywhere; }
+/* Lens MEASURE (features/lens/measure.ts) */
+.measin { gap: 8px; } .measin input { flex: 1 1 80px; min-width: 0; max-width: 140px; } .measin .lab { margin: 0; white-space: nowrap; } .measin small { white-space: nowrap; }
+.measguide { color: var(--c); font-size: 12.5px; }
+.measlist { display: flex; flex-direction: column; gap: 4px; }
+.measrow { display: grid; grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr); gap: 2px 10px; align-items: baseline; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: rgba(var(--cr), .05); }
+.measrow b { font: 500 10px var(--d); color: var(--mute); }
+.measrow .measv { font: 600 17px var(--d); color: var(--c); letter-spacing: .02em; white-space: nowrap; }
+.measrow .measi { font-size: 12px; color: var(--mute); overflow-wrap: anywhere; }
+.measrow small { grid-column: 2 / -1; font-size: 10.5px; color: var(--mute); line-height: 1.4; }
+.measrow.rough .measv { color: var(--a); } .measrow.fair .measv { color: #ffd24d; }
+/* SPACE PLANNER (features/space) */
+.spacewrap { width: 100%; min-width: 0; display: flex; justify-content: center; padding: 4px 0; }
+.spacecanvas { display: block; max-width: 100%; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 6px; background: radial-gradient(ellipse at center, rgba(var(--cr), .06), transparent 70%); }
+.spaceroom { flex-wrap: wrap; } .spaceroom input, .spacefitin input { flex: 1 1 60px; min-width: 0; max-width: 110px; } .spaceroom .lab { margin: 0; } .spaceroom .x, .spacefitin .x { color: var(--mute); }
+.spacefitin { flex-wrap: wrap; }
+.spacebar { gap: 6px; } .spacebar .spacesel { flex: 1 1 160px; min-width: 0; font-size: 12px; color: var(--c); overflow-wrap: anywhere; }
+.spacecat button { font-size: 11px; }
+.spaceown > input:first-child { flex: 2 1 120px; } .spaceown > input { flex: 1 1 60px; min-width: 0; }
+.spaceopts button.spaceopt { display: block; width: 100%; text-align: left; text-transform: none; letter-spacing: 0; padding: 8px 10px; min-height: 44px; }
+.spaceopt b { display: block; font: 500 10.5px var(--d); letter-spacing: .12em; color: var(--c); }
+.spaceopt small { display: block; font-size: 11.5px; color: var(--mute); margin-top: 2px; overflow-wrap: anywhere; }
+.spacemrow { gap: 6px; } .spacemrow > span { flex: 1 1 150px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; } .spacemrow b { color: var(--c); }
 .scankv .row { gap: 8px; align-items: center; }
 .scanurl { font: 400 12px/1.4 var(--m); color: var(--mute); overflow-wrap: anywhere; }
 .scanurl b, .scansite b { color: #fff; font-weight: 600; }

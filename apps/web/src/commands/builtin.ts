@@ -316,6 +316,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The SPACE PLANNER (features/space): a room to scale, furniture to drag, MAKE SPACE; the brain may pass the room's size.
+      id: 'open_space',
+      title: 'Space planner',
+      group: 'GO',
+      run: async (a) => {
+        const { openSpace } = await import('../features/space');
+        openSpace(Number(a?.width_cm) || undefined, Number(a?.depth_cm) || undefined);
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

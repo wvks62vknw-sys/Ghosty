@@ -28,13 +28,14 @@ import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
+import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
 
-export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim';
-export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim'];
+export type LensMode = 'see' | 'read' | 'hands' | 'ask' | 'name' | 'scan' | 'aim' | 'measure';
+export const LENS_MODES: readonly LensMode[] = ['see', 'read', 'hands', 'ask', 'name', 'scan', 'aim', 'measure'];
 
 /** What the Lens is doing, readable by a test at window.__ghosty.lens (and by describe() for Ghosty). */
 export interface LensState {
@@ -131,6 +132,7 @@ const TILES: { id: LensMode; label: string; hint: string }[] = [
   { id: 'name', label: 'NAME', hint: 'name anything' },
   { id: 'scan', label: 'SCAN', hint: 'codes · docs · translate' },
   { id: 'aim', label: 'AIM', hint: 'point at anything' },
+  { id: 'measure', label: 'MEASURE', hint: 'sizes from a photo' },
 ];
 
 export const lensState: LensState = {
@@ -417,7 +419,7 @@ export const lensTab: TabDef = {
     };
 
     // ---- modes
-    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L) };
+    const modes: Record<LensMode, Mode> = { see: createSeeMode(L), read: createReadMode(L), hands: createHandsMode(L), ask: createAskMode(L), name: createNameMode(L), scan: createScanMode(L), aim: createAimMode(L), measure: createMeasureMode(L) };
     let mode: Mode | null = null;
     const tiles = h('div.lensmodes');
     const tileBtns = new Map<LensMode, HTMLButtonElement>();
