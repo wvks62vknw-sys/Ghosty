@@ -163,7 +163,7 @@ test('open_lens is a client tool the interface carries out', async () => {
   assert.ok(tool, 'registered');
   assert.equal(tool.side, 'client');
   assert.equal(tool.risk, 'auto');
-  assert.deepEqual(tool.parameters.properties.mode.enum, ['see', 'read', 'hands', 'ask']);
+  assert.deepEqual(tool.parameters.properties.mode.enum, ['see', 'read', 'hands', 'ask', 'scan']);
   assert.ok('question' in tool.parameters.properties);
   assert.match(tool.description, /never identifies people/i);
   const events = [];
