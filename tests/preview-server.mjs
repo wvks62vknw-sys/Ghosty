@@ -31,6 +31,19 @@ class MemStorage {
   }
   async getAlarm() { return this.alarmAt; }
 }
+// Test only: the cited-answers spec's web (tests/cited.spec.mjs). A DuckDuckGo search about the speed
+// of light and pages on *.example.test hosts come from tests/fixtures/cited.json; everything else is the real fetch.
+const citedWeb = JSON.parse(await readFile(join(root, 'tests/fixtures/cited.json'), 'utf8'));
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  if (u.hostname === 'html.duckduckgo.com' && /speed of light/i.test(u.searchParams.get('q') ?? '')) return new Response(citedWeb.search, { headers: { 'content-type': 'text/html' } });
+  if (u.hostname.endsWith('.example.test')) {
+    const page = citedWeb.pages[u.href];
+    return page ? new Response(page, { headers: { 'content-type': 'text/html' } }) : new Response('not found', { status: 404 });
+  }
+  return realFetch(input, init);
+};
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
 const state = { storage: Object.assign(new MemStorage(), { sql: sqlStorage() }), waitUntil: () => undefined };
 const env = {

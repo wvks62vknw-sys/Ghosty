@@ -3,7 +3,8 @@
  * into chat entries, runs on-screen actions the brain asks for, and handles approvals.
  */
 import { normalisePlate, redactPlates } from '../../../../packages/shared/src/plates';
-import type { ChatEvent } from '../../../../packages/shared/src/protocol';
+import type { ChatEvent, CitedInfo } from '../../../../packages/shared/src/protocol';
+import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
@@ -20,7 +21,8 @@ import { speak, stopListening, stopSpeaking } from './voice';
 export type Entry =
   | { kind: 'user'; text: string; at: number }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean }
+  /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
@@ -148,11 +150,20 @@ function handle(ev: ChatEvent): void {
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
-    case 'text':
+    case 'text': {
       push({ kind: 'assistant', text: ev.text, at: Date.now(), ...(vehicleTurn ? { once: true } : {}) });
-      chat.set({ live: ev.text });
-      if (speakReplies && settings.get().speak) void speak(ev.text);
+      // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
+      const cited = looksCited(ev.text);
+      chat.set({ live: cited ? citedBody(ev.text) : ev.text });
+      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text);
       break;
+    }
+    case 'cited': {
+      // Belongs to the reply just sent (the latest one still without its model line).
+      const last = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant');
+      if (last) patch((e) => e === last, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cited: { citations: ev.citations, checks: ev.checks } }));
+      break;
+    }
     case 'error':
       vehicleTurn = false;
       settle(); // the turn ends here: nothing is running any more
@@ -308,7 +319,7 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
           return;
         }
         cb(ev);
-      }, undefined, recent);
+      }, undefined, recent, settings.get().cited);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
     () => offlineAnswer(t),
@@ -333,7 +344,7 @@ export async function loadHistory(): Promise<void> {
     const entries: Entry[] = h.turns.slice(-30).flatMap((t): Entry[] => {
       if (t.role === 'user') return [{ kind: 'user', text: t.text, at: t.at }];
       // A page published in that turn keeps its live-link card under the reply.
-      return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
+      return [{ kind: 'assistant', text: t.text, at: t.at, model: t.model, ...(t.cited ? { cited: t.cited } : {}) }, ...(t.link ? [{ kind: 'link', url: t.link.url, title: t.link.title } as Entry] : [])];
     });
     if (h.pending) entries.push({ kind: 'approval', id: h.pending.id, name: h.pending.name, reason: `Waiting for your approval: ${h.pending.name.replace(/_/g, ' ')}`, args: h.pending.args, state: 'waiting' });
     chat.set({ entries });

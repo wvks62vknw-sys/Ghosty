@@ -14,6 +14,7 @@ import { run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
+import { citedReply } from './cited';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { Reactor } from './reactor';
@@ -71,6 +72,8 @@ function renderEntry(e: Entry): HTMLElement {
     case 'assistant':
       // Answered by the small model on the phone itself: one quiet chip says so.
       if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
+      // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
+      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
       return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
@@ -156,6 +159,15 @@ export const coreTab: TabDef = {
       mic.classList.add('on');
       void voiceTurn().finally(() => mic.classList.toggle('on', conversation));
     });
+    // CITED: answers looked up and sourced, each claim checked (remembered on this device).
+    const citedBtn = button('CITED', (b) => {
+      settings.set({ cited: !settings.get().cited });
+      b.classList.toggle('on', settings.get().cited);
+      b.setAttribute('aria-pressed', String(settings.get().cited));
+      toast(settings.get().cited ? 'CITED on: answers come with sources, and each claim is checked' : 'CITED off', settings.get().cited ? 'ok' : '');
+    }, `citedbtn${settings.get().cited ? ' on' : ''}`);
+    citedBtn.setAttribute('aria-pressed', String(settings.get().cited));
+    citedBtn.title = 'Answers with numbered sources, each claim checked';
     const voiceBtn = button(settings.get().speak ? 'VOICE ON' : 'VOICE OFF', (b) => {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
@@ -184,7 +196,7 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), voiceBtn, lensBtn, mic));
+    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 

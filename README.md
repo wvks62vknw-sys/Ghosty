@@ -58,6 +58,9 @@ tests/       local preview server + browser test
   for itself — each free, phone-first and one change. They wait in **Workshop → UPGRADE IDEAS** (it tells
   you once when there's a new one); **BUILD** starts one in the chat, **DISMISS** drops it, **THINK NOW**
   asks right away.
+- **Cited answers**: press **CITED** in the chat (or say "with sources", "fact check", "is it true that…") and
+  Ghosty looks it up first, answers with numbered sources you can tap, lists them, and checks every claim against
+  the pages it actually read — "✓ 5 of 6 claims found in the sources", the unconfirmed ones marked.
 - **Free AI, used sparingly**: only the tools a message needs are sent, old tool output is shortened during
   long tasks, short rate limits are waited out, a provider that has used its day's allowance is left alone
   until it resets, and when the keys run dry Ghosty falls back to **Cloudflare Workers AI** (no key — runs

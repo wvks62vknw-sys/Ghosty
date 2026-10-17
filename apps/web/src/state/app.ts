@@ -27,6 +27,8 @@ export interface Settings {
   motion: boolean;
   /** The offline brain on the phone: 'auto' when the brain can't answer, 'always' instead of it, or 'off'. */
   offlineBrain: 'auto' | 'always' | 'off';
+  /** CITED in the chat: every answer looked up, with numbered sources and its claims checked. */
+  cited: boolean;
 }
 
 const tz = (() => {
@@ -49,6 +51,7 @@ export const settings = createStore<Settings>(
     sounds: true,
     motion: false,
     offlineBrain: 'auto',
+    cited: false,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },
