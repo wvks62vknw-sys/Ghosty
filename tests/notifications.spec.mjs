@@ -27,7 +27,7 @@ async function open(browser, opts = {}) {
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
   await page.evaluate(() => (location.hash = 'links'));
-  await openPanel(page, 'links', 'PHONE');
+  await openPanel(page, 'links', 'NOTIFICATIONS');
   await page.waitForSelector('#pg-links button[data-kind]', { timeout: 15000 });
   return { ctx, page };
 }
@@ -51,7 +51,7 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
   const p = await prefs(page);
   check(p.reminders === false && p.upgrades === false && p.flashcards === true, `the brain did not keep the choices: ${JSON.stringify(p)}`);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await openPanel(page, 'links', 'PHONE');
+  await openPanel(page, 'links', 'NOTIFICATIONS');
   await page.waitForSelector('#pg-links button[data-kind="reminders"]', { timeout: 20000 });
   check((await page.textContent('#pg-links button[data-kind="reminders"]')) === 'OFF', 'REMINDERS came back ON after a reload');
   check(!!(await page.$('#pg-links button:has-text("SEND A TEST")')), 'no SEND A TEST');
@@ -77,7 +77,7 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
   const page = await ctx.newPage();
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   await page.goto(`${base}/#links`, { waitUntil: 'domcontentloaded' });
-  await openPanel(page, 'links', 'PHONE');
+  await openPanel(page, 'links', 'NOTIFICATIONS');
   await page.waitForSelector('#pg-links button[data-kind]', { timeout: 20000 }).catch(() => problems.push('LINKS opened at start-up showed no switches'));
   await page.waitForTimeout(3000);
   const drawn = await page.$$eval('#pg-links button[data-kind]', (bs) => bs.map((b) => b.dataset.kind));
@@ -127,7 +127,7 @@ try {
 if (wk) {
   const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
   const { page } = await open(wk, { userAgent: ua });
-  await openPanel(page, 'links', 'PHONE');
+  await openPanel(page, 'links', 'NOTIFICATIONS');
   await page.waitForSelector('#pg-links .homeonly', { timeout: 8000 }).catch(() => problems.push('no Home Screen sentence on an iPhone in a Safari tab'));
   check((await page.textContent('#pg-links .homeonly').catch(() => '')) === HOME_ONLY, 'the Home Screen sentence is not word for word');
   check((await page.$$('#pg-links button[data-kind]')).length === 3, 'the switches are missing on the iPhone');

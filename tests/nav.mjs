@@ -17,7 +17,8 @@ export async function openDeck(page) {
 // `title` (a pushed one is popped first). The classic looks show every panel already: nothing to do.
 export async function openPanel(page, tab, title) {
   await page.waitForSelector(`#pg-${tab} .pn`, { state: 'attached', timeout: 15000 }).catch(() => undefined);
-  await page.waitForTimeout(300);
+  // in a calm look, wait until the page has become a list and the row is there (a slow machine draws it late)
+  await page.waitForFunction(({ tab, src }) => document.documentElement.dataset.look !== 'pro' || [...(document.getElementById(`pg-${tab}`)?.querySelectorAll('.pn[data-row]') ?? [])].some((p) => new RegExp(src).test(p.querySelector('.ptitle')?.textContent ?? '')), { tab, src: `^${title}` }, { timeout: 10000 }).catch(() => undefined);
   const done = await page.evaluate(({ tab, src }) => {
     const re = new RegExp(src);
     const root = document.getElementById(`pg-${tab}`);

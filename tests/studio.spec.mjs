@@ -142,6 +142,9 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/studio-section.png` });
 await page.locator('#pg-studio .studioaxes button', { hasText: 'OFF' }).click();
 await btn('MEASURE').click();
+// (the MEASURE button sits low on a phone: bring the model back into view before tapping it, as a thumb would)
+await page.locator('#pg-studio canvas.studiocanvas').evaluate((c) => c.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(300);
 const box = await page.locator('#pg-studio canvas.studiocanvas').boundingBox();
 // two taps on the reactor's face: its centre and a little to the side
 await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.52);

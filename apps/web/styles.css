@@ -1687,7 +1687,7 @@ html[data-look="pro"], html[data-look="pro"] body { font: 400 16px/1.4 var(--b);
 [data-look="pro"] .listmode .col:has(> .keepcard) > .pn[data-row] { box-shadow: none; }
 [data-look="pro"] .listmode .col > .pn[data-row]:last-child { box-shadow: 0 18px 40px -22px rgba(0,0,0,.9); }
 /* a swipe that starts on the camera picture scrolls the page (nothing listens on the video itself) */
-[data-look="pro"] .lensview video { pointer-events: none; }
+[data-look="pro"] .lensview video { touch-action: pan-y; }
 [data-look="pro"] .msg:not(.me) > small { display: none; }
 [data-look="pro"] .msg:not(.me) { padding-top: 11px; }
 [data-look="pro"] .hubtile small::first-letter { text-transform: uppercase; }
