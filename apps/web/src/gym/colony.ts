@@ -7,7 +7,7 @@
  * horizon; mastery = his output ÷ that optimum. Levels lengthen the run (10 → 40 days), start him with less
  * energy and, from Level 6, double the upkeep.
  */
-import { argmax, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { argmax, finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { COLONY } from './meta';
 
 export const ACTIONS = ['MINE', 'BUILD PANEL', 'REST'];
@@ -240,7 +240,10 @@ function generate(level: number, seed: number): Problem {
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { level: number; start: ColonyState; best: number };
   const R = rules(d.level);
-  const words = answer.toUpperCase().match(/MINE|BUILD|REST/g) ?? [];
+  // The plan: the actions on the last line, or in the whole answer when it is written as a list.
+  const act = /\b(MINE|BUILD|REST)\b/g;
+  const last = finalLine(answer).toUpperCase().match(act) ?? [];
+  const words = last.length > 1 ? last : (answer.toUpperCase().match(act) ?? []);
   const plan = words.map((w) => (w === 'MINE' ? 0 : w === 'BUILD' ? 1 : 2));
   let bad = false;
   const res = run(R, d.start, (s) => {

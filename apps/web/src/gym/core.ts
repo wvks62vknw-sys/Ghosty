@@ -125,6 +125,38 @@ export function argmax(xs: ArrayLike<number>, from = 0, n = xs.length - from): n
   return b;
 }
 
+// ---- reading an answer ------------------------------------------------------------------------------------
+
+/** The final answer in a reply: its last non-empty line, a leading label ("Answer:", "Final route:") and markdown taken off. */
+export function finalLine(text: string): string {
+  const lines = text
+    .split('\n')
+    .map((l) => l.replace(/[*_`#>]+/g, ' ').trim())
+    .filter(Boolean);
+  return (lines[lines.length - 1] ?? '').replace(/^[A-Za-z][A-Za-z ]{0,30}:\s*/, '').trim();
+}
+
+/** The last whole number in a piece of text (NaN if none). */
+export function lastInt(text: string): number {
+  const m = text.match(/-?\d+/g);
+  return m ? Number(m[m.length - 1]) : NaN;
+}
+
+/**
+ * Moves written as letters or words — "NNE", "N, E", "north, east" — as indices into `letters`. Words in
+ * `words` (same order) count as their letter; a word made only of the letters counts letter by letter;
+ * any other word (a label, "then") is ignored.
+ */
+export function readMoves(text: string, letters: string, words: string[]): number[] {
+  const out: number[] = [];
+  for (const t of text.toUpperCase().match(/[A-Z]+/g) ?? []) {
+    const w = words.indexOf(t);
+    if (w >= 0) out.push(w);
+    else if ([...t].every((ch) => letters.includes(ch))) for (const ch of t) out.push(letters.indexOf(ch));
+  }
+  return out;
+}
+
 /** Saved state is only reused when it was made for this game at this level (and shape). */
 export function savedFor<T>(saved: unknown, game: string, level?: number): T | null {
   const s = saved as { game?: string; level?: number } | null;

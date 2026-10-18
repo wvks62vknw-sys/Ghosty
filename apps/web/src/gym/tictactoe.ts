@@ -6,7 +6,7 @@
  * the choice matters (not every move equally good) in which his move is game-theoretically optimal. 100% is
  * reachable. Levels raise the bar (85% → 100%).
  */
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { TICTACTOE } from './meta';
 import { boardText, frameOf, keyOf, toMove, winner } from './tttboard';
 
@@ -199,7 +199,7 @@ function generate(level: number, seed: number): Problem {
 
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { best: number[] };
-  const m = Number(answer.match(/[1-9]/)?.[0] ?? 0);
+  const m = lastInt(finalLine(answer));
   const ok = d.best.includes(m);
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'A perfect move.' : `The best square${d.best.length > 1 ? 's are' : ' is'} ${d.best.join(', ')}.` };
 }

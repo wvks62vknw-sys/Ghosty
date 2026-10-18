@@ -6,7 +6,7 @@
  * Dijkstra); mastery = the share of start cells where his greedy route costs exactly that.
  * Levels grow the grid (5×5 → 14×14) and the walls and mud.
  */
-import { argmax, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { argmax, finalLine, readMoves, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { MAZE } from './meta';
 
 export const WALL = 1;
@@ -261,11 +261,11 @@ function generate(level: number, seed: number): Problem {
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { level: number; seed: number; start: number; opt: number };
   const m = makeMaze(d.level, d.seed);
-  const moves = answer.toUpperCase().replace(/[^NESW]/g, '');
+  const moves = readMoves(finalLine(answer), DIRS, ['NORTH', 'EAST', 'SOUTH', 'WEST']);
   let c = d.start;
   let cost = 0;
-  for (const ch of moves) {
-    const s = stepMaze(m, c, DIRS.indexOf(ch));
+  for (const dir of moves) {
+    const s = stepMaze(m, c, dir);
     if (s.bump) return { correct: false, score: 0, why: 'The route walks into a wall.' };
     cost += m.cells[s.to] === MUD ? 3 : 1;
     c = s.to;

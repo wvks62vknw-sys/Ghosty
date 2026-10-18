@@ -12,7 +12,7 @@
  */
 import { COLS, canPlay, copyPos, LINES, legal, newPos, play, type Pos, ROWS, turn, undo, wonAt, winsNow, winnerOf, boardText, frameOf, posFromBoard } from './c4board';
 import { C4_SETS } from './c4sets';
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { CONNECT4 } from './meta';
 
 export * from './c4board';
@@ -447,7 +447,7 @@ function generate(level: number, seed: number): Problem {
 
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { best: number[] };
-  const m = Number(answer.match(/[1-7]/)?.[0] ?? 0);
+  const m = lastInt(finalLine(answer));
   const ok = d.best.includes(m);
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'A perfect move.' : `Best: column ${d.best.join(' or ')}.` };
 }

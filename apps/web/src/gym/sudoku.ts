@@ -535,21 +535,36 @@ function generate(level: number, seed: number): Problem {
 function check(p: Problem, ans: string): Verdict {
   const d = p.data as { kind: string; puzzle?: number[]; solution?: number[]; people?: string[]; answer?: string[][] };
   if (d.kind === 'sudoku') {
-    const digits = ans.replace(/[^1-9]/g, '').split('').map(Number);
+    // Nine rows of nine digits (the last nine lines that have them, row labels ignored), else the last 81 digits.
+    const rows = ans
+      .split('\n')
+      .map((l) => l.replace(/[^1-9]/g, ''))
+      .filter((l) => l.length >= 9)
+      .map((l) => l.slice(-9));
+    const digits = (rows.length >= 9 ? rows.slice(-9).join('') : ans.replace(/[^1-9]/g, '').slice(-81)).split('').map(Number);
     const blanks = d.puzzle!.map((x, i) => (x ? -1 : i)).filter((i) => i >= 0);
     if (digits.length !== 81) return { correct: false, score: 0, why: 'The answer is not 81 digits.' };
     if (d.puzzle!.some((x, i) => x && x !== digits[i])) return { correct: false, score: 0, why: 'A given clue was changed.' };
     const right = blanks.filter((i) => digits[i] === d.solution![i]).length;
     return { correct: right === blanks.length, score: right / blanks.length, why: right === blanks.length ? 'Solved.' : `${right} of ${blanks.length} empty cells right.` };
   }
+  // Each person's part: from the last time their name is written to the next name or the end of the line.
+  // Exactly one item of each kind must be named there, and it must be the right one.
   let right = 0;
   let total = 0;
+  const names = d.people!;
   d.people!.forEach((nm, pi) => {
-    const line = ans.split('\n').find((l) => l.toLowerCase().includes(nm.toLowerCase())) ?? '';
-    for (const item of d.answer![pi]!) {
-      total++;
-      if (new RegExp(`\\b${item}\\b`, 'i').test(line)) right++;
+    const at = [...ans.matchAll(new RegExp(`\\b${nm}\\b`, 'gi'))].pop()?.index ?? -1;
+    let part = at < 0 ? '' : ans.slice(at + nm.length).split('\n')[0]!;
+    for (const other of names) {
+      const k = part.search(new RegExp(`\\b${other}\\b`, 'i'));
+      if (k >= 0) part = part.slice(0, k);
     }
+    d.answer![pi]!.forEach((item, ci) => {
+      total++;
+      const kinds = CATS[ci]![1].slice(0, names.length).filter((x) => new RegExp(`\\b${x}\\b`, 'i').test(part));
+      if (kinds.length === 1 && kinds[0] === item) right++;
+    });
   });
   return { correct: right === total, score: right / total, why: right === total ? 'All right.' : `${right} of ${total} right.` };
 }

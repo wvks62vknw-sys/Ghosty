@@ -10,7 +10,7 @@
  * different, fixed set of problems he solves within a third of the tries the plain order (no learning, every
  * combination as it comes) needs — so where he starts, the plain order, is 0%.
  */
-import { type Env, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
+import { type Env, finalLine, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
 import { COUNTDOWN } from './meta';
 
 const OPS = ['+', '−', '×', '÷'];
@@ -321,7 +321,14 @@ class CountLearner implements Learner {
 
 /** Evaluate an expression by the rules (whole numbers above zero at every step); the numbers it used. */
 export function evaluate(expr: string): { value: number; used: number[] } | { error: string } {
-  const t = expr.replace(/[x×*]/g, '*').replace(/[÷:/]/g, '/').replace(/[−–]/g, '-').match(/\d+|[-+*/()]/g) ?? [];
+  // × ✕ · * are times, and so is x between two numbers (or brackets); ÷ and / divide. Letters are not maths.
+  const t =
+    expr
+      .replace(/[×✕·*]/g, '*')
+      .replace(/(\d|\))\s*[xX]\s*(?=\d|\()/g, '$1*')
+      .replace(/[÷/]/g, '/')
+      .replace(/[−–]/g, '-')
+      .match(/\d+|[-+*/()]/g) ?? [];
   let i = 0;
   const used: number[] = [];
   const fail = (e: string): never => {
@@ -375,8 +382,8 @@ function generate(level: number, seed: number): Problem {
 
 function check(prob: Problem, answer: string): Verdict {
   const p = prob.data as Puzzle;
-  const line = answer.split('\n').find((l) => /\d/.test(l)) ?? '';
-  const e = evaluate(line.split('=')[0]!);
+  // The last line, label off; anything after "=" is the claimed result, not part of the expression.
+  const e = evaluate(finalLine(answer).split('=')[0]!);
   if ('error' in e) return { correct: false, score: 0, why: `Not valid: ${e.error}.` };
   const pool = p.nums.slice();
   for (const u of e.used) {

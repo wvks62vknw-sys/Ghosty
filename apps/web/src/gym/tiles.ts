@@ -8,7 +8,7 @@
  * mastery = average (shortest length ÷ his length) over a fixed set of puzzles, 0 for one he can't solve
  * within the budget. Levels scramble deeper, then move to the 15-puzzle.
  */
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, readMoves, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { TILES } from './meta';
 
 export const sizeFor = (level: number) => (lvl(level) <= 7 ? 3 : 4);
@@ -379,9 +379,9 @@ function generate(level: number, seed: number): Problem {
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { board: Board; n: number; opt: number };
   let b = d.board;
-  const moves = answer.toUpperCase().replace(/[^UDLR]/g, '');
-  for (const ch of moves) {
-    const nb = slide(b, d.n, MOVES.indexOf(ch));
+  const moves = readMoves(finalLine(answer), MOVES, ['UP', 'DOWN', 'LEFT', 'RIGHT']);
+  for (const dir of moves) {
+    const nb = slide(b, d.n, dir);
     if (!nb) return { correct: false, score: 0, why: 'A move pushes the gap off the board.' };
     b = nb;
   }

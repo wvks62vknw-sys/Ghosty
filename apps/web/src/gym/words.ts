@@ -6,7 +6,7 @@
  * secret word. He starts naive (the first word that still fits); mastery = how much of the gap between that
  * start (0%) and the yardstick (100%) he has closed. Levels grow the word list (30 → all).
  */
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { WORDS as WORDS_META } from './meta';
 import { closed, GuessPolicy, type GuessSave, infoGain, naiveAvg, playAll, playOne, type Space, split, weighted } from './guess';
 
@@ -192,7 +192,7 @@ function generate(level: number, seed: number): Problem {
 
 function check(p: Problem, answer: string): Verdict {
   const want = (p.data as { answer: string }).answer;
-  const ok = answer.trim().toLowerCase().replace(/[^a-z]/g, '') === want;
+  const ok = (finalLine(answer).toLowerCase().match(/[a-z]+/g) ?? []).filter((w) => w.length === 5).pop() === want;
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'Right.' : `It is ${want.toUpperCase()}.` };
 }
 

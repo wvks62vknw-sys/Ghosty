@@ -8,7 +8,7 @@
  * He starts naive (guess the first code that still fits). Mastery = how much of the gap between that naive
  * start (0%) and the yardstick (100%) he has closed, by average guesses over all secrets.
  */
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { CODEBREAKER } from './meta';
 import { closed, GuessPolicy, type GuessSave, minimax, naiveAvg, playAll, playOne, type Space, split, weighted } from './guess';
 
@@ -213,7 +213,9 @@ function generate(level: number, seed: number): Problem {
 
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { level: number; answer: string };
-  const got = answer.replace(/[^0-9]/g, '');
+  // The last group of exactly as many digits as the code has ("After 2 clues the code is 3 1 2" → 312).
+  const groups = (finalLine(answer).match(/\d(?:[\s,-]*\d)*/g) ?? []).map((g) => g.replace(/\D/g, ''));
+  const got = groups.filter((g) => g.length === d.answer.length).pop() ?? '';
   const ok = got === d.answer;
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'That is the only code that fits.' : `The code is ${d.answer}.` };
 }

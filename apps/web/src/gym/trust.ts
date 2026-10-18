@@ -11,7 +11,7 @@
  * memory-1 strategies tried against that test panel; mastery = where his champion's score sits between
  * ALWAYS DEFECT's (0%, where he starts) and the best memory-1 strategy's (100%).
  */
-import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { TRUST } from './meta';
 
 /** Payoff to me for (my move, their move); 0 = C, 1 = D. */
@@ -383,7 +383,7 @@ function generate(level: number, seed: number): Problem {
 
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { answer: number };
-  const got = Number(answer.match(/-?\d+/)?.[0] ?? NaN);
+  const got = lastInt(finalLine(answer));
   const ok = got === d.answer;
   return { correct: ok, score: ok ? 1 : Number.isFinite(got) ? Math.max(0, 1 - Math.abs(got - d.answer) / Math.max(1, d.answer)) : 0, why: ok ? 'Right.' : `A scores ${d.answer}.` };
 }
