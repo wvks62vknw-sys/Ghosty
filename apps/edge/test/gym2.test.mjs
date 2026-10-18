@@ -38,18 +38,6 @@ const DB = await load('debate');
 
 const NEW = ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate'];
 
-/** A session from scratch, trained in steps until it has passed `levels` levels (or the cap); the levels it passed. */
-function climb(id, levels, step, cap) {
-  const s = new S.Session(gameById(id));
-  const passed = [];
-  for (let units = 0; s.rec.level <= levels && units < cap && !s.rec.mastered; ) {
-    units += s.train(step);
-    const lv = s.rec.level;
-    if (s.measure()) passed.push(lv);
-  }
-  return { passed, s };
-}
-
 // ---------------------------------------------------------------------------------------------------------
 test('gym part 2: six reasoning games follow the first ten, on cards in that order', () => {
   assert.deepEqual(GAMES.slice(10).map((g) => g.id), NEW);
