@@ -893,7 +893,7 @@ button.gymcard { display: flex; flex-direction: column; align-items: flex-start;
 .gymst { font: 500 9px var(--d); font-style: normal; letter-spacing: .14em; color: var(--mute); }
 .gymst.training { color: var(--ok); } .gymst.mastered { color: var(--a); } .gymst.paused { color: var(--c); }
 .gymlearns { font-size: 13.5px; line-height: 1.5; color: #e6f8ff; margin: 0 0 6px; overflow-wrap: anywhere; }
-.gymstatus { font: 400 12px var(--m); color: var(--c); margin: 0 0 8px; overflow-wrap: anywhere; min-height: 1.4em; }
+.gymstatus { font: 400 12px/1.4 var(--m); color: var(--c); margin: 0 0 8px; overflow-wrap: anywhere; min-height: 4.2em; } /* three lines kept free: a status that grows must not push the buttons under a finger */
 .gymactions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
 .gymactions button { min-height: 40px; } .gymactions button[hidden] { display: none; }
 button.gymtrain { grid-column: 1 / -1; min-height: 52px; font-size: 12px; letter-spacing: .2em; }

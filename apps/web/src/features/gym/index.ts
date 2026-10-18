@@ -35,6 +35,8 @@ export const gymState = {
   play: { game: '', board: [] as number[], over: '', thinking: false },
   recs: {} as Record<string, { level: number; mastery: number; units: number; mastered: boolean }>,
   error: '',
+  /** The last few things the owner (or the app) did here, newest last — for specs reading what happened. */
+  log: [] as string[],
 };
 
 function expose(): void {
@@ -132,6 +134,7 @@ export const gymTab: TabDef = {
           worker.onmessage = (e: MessageEvent) => onWorker(e.data as GymOut);
           worker.onerror = (e) => {
             gymState.error = e.message || 'worker error';
+            gymState.log.push(`worker error ${gymState.error}`);
             toast('The gym stopped: training could not run on this phone', 'bad');
             training = null;
             gymState.training = '';
@@ -161,7 +164,8 @@ export const gymTab: TabDef = {
       if (!current(epochs, m.gym === 'error' ? m.id : m.rec.id, m.epoch)) return;
       if (m.gym === 'error') {
         // Training itself failed in the worker (and stopped there).
-        gymState.error = m.message;
+        gymState.error = m.message || 'training failed';
+        gymState.log.push(`training error ${m.id}: ${gymState.error}`);
         toast(`Training stopped: ${m.message}`, 'bad');
         if (training === m.id) training = null;
         paint();
@@ -177,7 +181,11 @@ export const gymTab: TabDef = {
       } else {
         gymState.progress++;
         views.set(rec.id, m.view);
-        if (!m.training && training === rec.id && rec.mastered) training = null;
+        if (!m.training && training === rec.id) {
+          // The worker stopped (all levels mastered): the page follows.
+          gymState.log.push(`stopped ${rec.id}${rec.mastered ? ' (mastered)' : ''}`);
+          training = null;
+        }
         if (m.event === 'level') toast(`${gameById(rec.id)?.title}: Level ${rec.level - 1} passed — on to Level ${rec.level}`, 'ok');
         if (m.event === 'mastered') toast(`${gameById(rec.id)?.title}: mastered all 10 levels!`, 'ok');
       }
@@ -228,9 +236,9 @@ export const gymTab: TabDef = {
       const mastered = all.filter((r) => r?.mastered).length;
       const avg = all.reduce((t, r) => t + (r?.mastery ?? 0), 0) / GAMES.length;
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
-      const tg = training ? gameById(training) : null;
-      P.big.textContent = tg ? `TRAINING ${tg.title}` : `${mastered} / ${GAMES.length} MASTERED`;
-      P.sub.textContent = tg ? statusLine(recs.get(tg.id) ?? null, tg, true) : 'Ghosty teaches himself by playing · on this phone';
+      P.big.textContent = `${mastered} / ${GAMES.length} MASTERED`;
+      // A fixed line: text that changes length here would shift every button below it mid-tap.
+      P.sub.textContent = 'Ghosty teaches himself by playing · on this phone';
       P.dials([
         ['MASTERY', avg, `${Math.round(avg * 100)}%`],
         ['LEVELS', levels / (GAMES.length * 10), `${levels}`],
@@ -281,7 +289,12 @@ export const gymTab: TabDef = {
     };
 
     // ======================= actions
+    const note = (x: string) => {
+      gymState.log.push(x);
+      if (gymState.log.length > 30) gymState.log.shift();
+    };
     const select = (id: string) => {
+      note(`select ${id}`);
       const g = gameById(id);
       if (!g) return;
       stopWatch();
@@ -294,6 +307,7 @@ export const gymTab: TabDef = {
       if (!views.has(id) && recs.has(id)) void ask({ gym: 'view', id }).then((m) => m.view && (views.set(id, m.view), paint()));
     };
     const toggleTrain = () => {
+      note(training === open.id ? `pause ${open.id}` : `train ${open.id}`);
       if (training === open.id) {
         send({ gym: 'pause' });
         training = null;
@@ -320,6 +334,7 @@ export const gymTab: TabDef = {
         return;
       }
       disarmReset();
+      gymState.log.push(`reset ${open.id}`);
       if (training === open.id) training = null;
       // A new epoch: whatever the worker still sends about the old game is dropped.
       epochs[open.id] = (epochs[open.id] ?? 0) + 1;
@@ -348,6 +363,7 @@ export const gymTab: TabDef = {
       gymState.watching = false;
     };
     const watch = async (secret?: string) => {
+      note(`watch ${open.id}`);
       stopWatch();
       gymState.play = open.play === 'secret' && secret != null ? gymState.play : { game: '', board: [], over: '', thinking: false };
       const id = open.id;
@@ -440,6 +456,7 @@ export const gymTab: TabDef = {
 
     // ======================= hidden app → pause (and save); back → carry on
     const onVisible = () => {
+      note(`visibility ${document.visibilityState}`);
       if (document.hidden && training) {
         resumeOnShow = training;
         send({ gym: 'pause' });

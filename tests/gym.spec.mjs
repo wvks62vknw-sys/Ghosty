@@ -31,6 +31,8 @@ page.on('console', (m) => {
 });
 await page.addInitScript(() => {
   window.__csp = [];
+  window.__vis = [];
+  document.addEventListener('visibilitychange', () => window.__vis.push(document.visibilityState));
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
 
@@ -101,9 +103,10 @@ const status = await G('.gymstatus').innerText();
 if (!/^Learning… [\d,]+ games · Level \d+ · mastery \d+% → \d+%$/.test(status)) problems.push(`the status line reads "${status}"`);
 if (!(await G('.gymgraph polyline').count())) problems.push('no progress graph');
 await page.screenshot({ path: `${out}/gym-training.png` });
-await G('button.gymtrain').click(); // PAUSE
-await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training');
+// (He may master every level and stop by himself before PAUSE — then there is nothing to pause.)
 const saves = (await st()).saves;
+if ((await st()).training) await G('button.gymtrain').dispatchEvent('click'); // PAUSE
+await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training');
 await until((s) => window.__ghosty?.gym?.saves > s, 10000, 'pausing did not save', saves);
 const before = (await st()).recs.tictactoe;
 await page.waitForTimeout(500);
@@ -116,10 +119,12 @@ const after = (await st()).recs.tictactoe;
 if (after && before && (after.level !== before.level || Math.abs(after.mastery - before.mastery) > 1e-9)) problems.push(`after the reload the record changed: ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
 await closeLog();
 await card('tictactoe').click();
-await G('button.gymtrain').click();
-await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) > u + 500, 20000, 'training did not carry on after the reload', after?.units ?? 0);
-await G('button.gymtrain').click();
-await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after the reload');
+if (!after?.mastered) {
+  await G('button.gymtrain').click();
+  await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) > u + 500 || window.__ghosty.gym.recs.tictactoe?.mastered, 20000, 'training did not carry on after the reload', after?.units ?? 0);
+  if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
+  await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after the reload');
+}
 
 // ---- PLAY HIM: tic-tac-toe ----
 await G('button', { hasText: 'PLAY HIM' }).click();
@@ -179,13 +184,15 @@ for (const id of ['maze', 'colony', 'tiles', 'connect4']) {
 }
 await G('button', { hasText: 'WATCH' }).click();
 await until(() => window.__ghosty.gym.watching, 20000, 'WATCH during training did not start');
-await until(() => !window.__ghosty.gym.watching, 20000, 'WATCH during training did not finish');
+await until(() => !window.__ghosty.gym.watching, 45000, 'WATCH during training did not finish'); // up to 42 moves at 0.45 s each
 const lastCap = await G('.gymboard .gymcap').innerText();
 const progressThen = (await st()).progress;
-await until((n) => window.__ghosty.gym.progress >= n + 2, 15000, 'no progress after WATCH', progressThen);
+// (If he masters the last level meanwhile, training ends by itself and no more repaints come — nothing to check.)
+if (!(await until((n) => window.__ghosty.gym.progress >= n + 2 || window.__ghosty.gym.recs.connect4?.mastered, 20000, 'no progress after WATCH', progressThen))) problems.push(`(state then: ${JSON.stringify({ ...(await st()), recs: undefined })}, log: ${(await st()).log.join(' | ')})`);
 const capNow = await G('.gymboard .gymcap').innerText().catch(() => '');
 if (capNow !== lastCap) problems.push(`the finished WATCH was replaced by a repaint: "${lastCap}" → "${capNow}"`);
-await G('button.gymtrain').click();
+// (A level-up toast may sit over the button while it trains: press it directly.)
+if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
 await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop (second time)');
 
 // ---- RESET: two taps; one tap does not carry over to another game ----
