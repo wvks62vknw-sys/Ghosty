@@ -1,17 +1,17 @@
 // Route on the globe and the Radio tab (outside services are not reachable here, so the
 // brain's client commands are triggered directly).
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
 const problems = [];
 for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');

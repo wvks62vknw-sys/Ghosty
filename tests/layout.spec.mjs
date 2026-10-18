@@ -1,15 +1,15 @@
 // Every tab at phone, small-laptop and desktop sizes: nothing may be cut off without a way
 // to scroll to it, and nothing may stick out sideways off the screen.
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn'];
 for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', { width: 1440, height: 900 }]]) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');

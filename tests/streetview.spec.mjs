@@ -5,7 +5,7 @@
 // "street view of london" in chat dives in too; the security policy lets exactly Google's and Waze's
 // pages load. Works without the internet (the frames' contents are not needed).
 //   node tests/streetview.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -13,11 +13,11 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 // Uncaught errors inside the Google and Waze frames surface here too (their own scripts talking to
 // their own servers, e.g. Waze's '{"message":"Missing user and visitor id"…}'); only Ghosty's count.
-page.on('pageerror', (e) => !/^\{"message"/.test(e.message) && problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || !/^\{"message"/.test(e.message) && problems.push(`pageerror: ${e.message}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });
 await page.fill('#pair input', 'preview-owner-key-0123456789');

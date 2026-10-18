@@ -5,7 +5,8 @@
 // "✓ 2 of 4 claims found in the sources" and the two unconfirmed claims marked. A reload shows
 // it all again from the brain's history; with CITED off a reply is plain.
 //   node tests/cited.spec.mjs [outDir]
-import { chromium, devices } from 'playwright';
+import { devices } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -13,10 +14,10 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const ctx = await browser.newContext({ ...devices['iPhone 13'] });
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 // What each chat request asked for (the cited flag rides in its body).
 const asked = [];
 ctx.on('request', (r) => {

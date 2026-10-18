@@ -8,14 +8,14 @@
 // is named); SPLINE refuses anything but a my.spline.design public link and frames a good one with
 // "Powered by Spline"; SHOT gives a PNG; asking Ghosty "open the studio with the chair" opens it on
 // the chair. The security policy blocks nothing and nothing sticks out sideways.
-import { chromium } from 'playwright';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const truck = readFileSync(new URL('../apps/web/public/models/CesiumMilkTruck.glb', import.meta.url));
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -26,7 +26,7 @@ const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 });
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => {
   const t = m.text();
   if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:|GPU stall|WebGL/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
@@ -36,6 +36,17 @@ await page.addInitScript(() => {
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
 
+// Playwright's WebKit cannot show a route the body of a request sent as a Blob (postDataBuffer() is null there),
+// so in WebKit the page notes the size of each photo it posts to /api/m3d, and that stands in for the body.
+if (isWebKit)
+  await page.addInitScript(() => {
+    window.__m3dBodies = [];
+    const f = window.fetch;
+    window.fetch = (u, o) => {
+      if (String(u).endsWith('/api/m3d') && o?.method === 'POST') window.__m3dBodies.push(o.body?.size ?? o.body?.byteLength ?? 0);
+      return f(u, o);
+    };
+  });
 // The brain's 3-D maker, stubbed: the first photo is "made" (a real GLB comes back), the second hits the quota.
 let makes = 0;
 const sentPhotos = [];
@@ -175,6 +186,7 @@ await until(() => !document.querySelector('#pg-studio .studiothumb')?.hidden, 20
 await btn('MAKE 3-D').click();
 await until(() => window.__ghosty.studio.state().title === 'From a photo' && window.__ghosty.studio.state().parts.length > 0, 30000, `the made model did not open: ${JSON.stringify(await S())}`);
 const sent = sentPhotos[0];
+if (isWebKit && sent && sent.bytes === 0) sent.bytes = (await page.evaluate(() => window.__m3dBodies[0])) ?? 0;
 if (!sent || sent.type !== 'image/jpeg' || !(sent.bytes > 1000)) problems.push(`the photo was not sent as a JPEG: ${JSON.stringify(sent)}`);
 const dims = await page.evaluate(() => new Promise((res) => { const i = new Image(); i.onload = () => res([i.naturalWidth, i.naturalHeight]); i.src = document.querySelector('#pg-studio .studiothumb').src; }));
 if (Math.max(...dims) > 1024) problems.push(`the photo was not shrunk before sending (${dims})`);
@@ -225,8 +237,17 @@ const stick = page.locator('#pg-studio .studiostick');
 if (!(await stick.isVisible())) problems.push('no joystick in WALK');
 else {
   // a thumb on the joystick and a finger on the scene: the touch path (pointer events of type touch)
-  const cdp = await ctx.newCDPSession(page);
+  // (Playwright's WebKit has no touch drag and no CDP: there the mouse stands in, through the same pointer events)
+  const cdp = isWebKit ? null : await ctx.newCDPSession(page);
   const touch = async (from, to, steps, holdMs = 0) => {
+    if (!cdp) {
+      await page.mouse.move(from[0], from[1]);
+      await page.mouse.down();
+      for (let i = 1; i <= steps; i++) await page.mouse.move(from[0] + ((to[0] - from[0]) * i) / steps, from[1] + ((to[1] - from[1]) * i) / steps);
+      if (holdMs) await page.waitForTimeout(holdMs);
+      await page.mouse.up();
+      return;
+    }
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from[0], y: from[1] }] });
     for (let i = 1; i <= steps; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from[0] + ((to[0] - from[0]) * i) / steps, y: from[1] + ((to[1] - from[1]) * i) / steps }] });
     if (holdMs) await page.waitForTimeout(holdMs);
@@ -326,7 +347,7 @@ if (st?.error) problems.push(`studio error: ${st.error}`);
 // ---- a first visit straight into a room (open_studio {room} before the studio was ever shown):
 // one drawing surface, and the room stays (the default reactor must not replace it) ----
 const fresh = await ctx.newPage();
-fresh.on('pageerror', (e) => problems.push(`fresh pageerror: ${e.message}`));
+fresh.on('pageerror', (e) => webkitNoise(e) || problems.push(`fresh pageerror: ${e.message}`));
 await fresh.goto(base);
 if (await fresh.locator('#pair input').isVisible().catch(() => false)) {
   await fresh.fill('#pair input', 'preview-owner-key-0123456789');

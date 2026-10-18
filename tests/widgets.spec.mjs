@@ -3,14 +3,14 @@
 //  - the example game from Ghosty's handbook runs, takes keyboard and touch input, and shows no errors
 //  - storage and alert work inside the sandbox; script errors are shown on screen, not a blank page
 //   node tests/widgets.spec.mjs [outDir]   (needs apps/edge `npm test` to have built the handbook)
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const { NEON_DODGE } = await import(new URL('../apps/edge/test/.build/knowledge/index.mjs', import.meta.url));
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
 const problems = [];
 
 // 1. the host's address and its security policy
@@ -24,7 +24,7 @@ async function widget(name, html, viewport, act) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 600 });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('pageerror', (e) => webkitNoise(e) || errors.push(e.message));
   await page.goto(hostUrl);
   // the host accepts a widget from its parent; at the top level the page is its own parent
   await page.evaluate((h) => window.postMessage({ ghostyWidget: h }, '*'), html);

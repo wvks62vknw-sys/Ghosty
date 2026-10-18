@@ -3,13 +3,13 @@
 // pairing code (shown big, with a countdown), paired (TEST, UNPAIR), and the Telegram
 // bot key block in SYSTEM → KEYS. Phone and desktop sizes.
 //   node tests/telegram.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 
 const NONE = { linked: false, bot: null, paired: false, name: null, token: false };
@@ -19,7 +19,7 @@ const PAIRED = { linked: true, bot: 'GhostyTestBot', paired: true, name: 'Sam', 
 for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   page.on('dialog', (d) => d.accept());
   let state = NONE;
   const asked = [];

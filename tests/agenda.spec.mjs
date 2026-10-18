@@ -1,19 +1,19 @@
 // Drives the Agenda tab: add an event and a reminder by hand, let Ghosty set a reminder
 // by chat, and check the notification pops up when the (emulated) alarm fires.
 //   node tests/agenda.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 
 async function run(name, viewport) {
   const ctx = await browser.newContext({ viewport, timezoneId: 'Europe/London' });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');
