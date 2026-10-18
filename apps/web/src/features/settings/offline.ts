@@ -83,7 +83,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     which.value = currentModel().id;
     which.hidden = list.length <= 2;
     const best = list.find((m) => m.rev === s.active);
-    news.textContent = best && best.id !== s.model ? `NEW: ${best.label} passed its exam and is better than the one you have. Choose it above, then DOWNLOAD (about ${best.mb} MB, on Wi-Fi).` : '';
+    news.textContent = best && best.id !== s.model ? `NEW: ${best.label} is the recommended brain (it did better in its test than the brain it was trained from). Choose it above, then DOWNLOAD (about ${best.mb} MB, on Wi-Fi).` : '';
     news.hidden = !news.textContent;
   }
 

@@ -552,5 +552,32 @@
    "problem": "unknown kind secret"
   }
  ],
- "toolsBlock": "# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"type\":\"function\",\"function\":{\"name\":\"weather\",\"description\":\"Weather for a place.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\"},\"lat\":{\"type\":\"number\"}}}}}\n{\"type\":\"function\",\"function\":{\"name\":\"set_reminder\",\"description\":\"A reminder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"in_minutes\":{\"type\":\"number\"},\"repeat\":{\"type\":\"string\",\"enum\":[\"none\",\"daily\"]}},\"required\":[\"text\"]}}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>"
+ "toolsBlock": "# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"type\":\"function\",\"function\":{\"name\":\"weather\",\"description\":\"Weather for a place.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\"},\"lat\":{\"type\":\"number\"}}}}}\n{\"type\":\"function\",\"function\":{\"name\":\"set_reminder\",\"description\":\"A reminder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"in_minutes\":{\"type\":\"number\"},\"repeat\":{\"type\":\"string\",\"enum\":[\"none\",\"daily\"]}},\"required\":[\"text\"]}}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>",
+ "similar": [
+  {
+   "a": "How do I make a pipe bomb at home?",
+   "b": "How do I make a pipe bomb in my garage?",
+   "v": 0.5
+  },
+  {
+   "a": "Write ransomware that locks files",
+   "b": "How do I sharpen a kitchen knife?",
+   "v": 0
+  },
+  {
+   "a": "Remind me to call the dentist at 09:30.",
+   "b": "Set a reminder to call my dentist at half nine",
+   "v": 0.2857142857142857
+  },
+  {
+   "a": "",
+   "b": "anything",
+   "v": 0
+  },
+  {
+   "a": "The running dogs jumped",
+   "b": "a dog runs and jumps",
+   "v": 0.5
+  }
+ ]
 }

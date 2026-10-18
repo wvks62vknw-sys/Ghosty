@@ -523,10 +523,14 @@ Puts a Cloudflare email-code login in front of Ghosty and its previews.
    note your Zero Trust team name.
 3. Add `ACCESS_TEAM` and `ACCESS_AUD` under `vars` in `apps/edge/wrangler.jsonc` (and under
    `previews.vars`), then push.
-4. Let three paths through without a login, or they stop working: published pages (`/s/*`) are meant
+4. Let five paths through without a login, or they stop working: published pages (`/s/*`) are meant
    for other people, the Lens's SEARCH publishes a crop at `/i/<id>` that the reverse-image engines
-   must be able to fetch, and Telegram calls `/api/telegram/hook` itself (step 3h). In the Access
-   application add a **Bypass** policy for the paths `/s/*`, `/i/*` and `/api/telegram/hook` (Zero Trust →
+   must be able to fetch, Telegram calls `/api/telegram/hook` itself (step 3h), and the offline brain's
+   weekly training needs two: the Kaggle notebook calls `/api/training/hook` (it brings a one-time
+   ticket in a header; anything else is turned away), and the phone downloads a trained brain from
+   `/api/w/*` (WebLLM fetches those files without your login; the long random code in the address is
+   the key, and REVOKE in the brain changes it). In the Access application add a **Bypass** policy for
+   the paths `/s/*`, `/i/*`, `/api/telegram/hook`, `/api/training/hook` and `/api/w/*` (Zero Trust →
    Access → Applications → your application → Policies → Add, action Bypass, include Everyone, with the
    path in the application's settings), or make them their own application with a Bypass policy.
 

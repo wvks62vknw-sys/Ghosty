@@ -38,6 +38,10 @@ Trained weeks (`src/offline/models.ts` `trainedModels`): the weekly self-trainin
 training/kaggle) publishes Qwen3-0.6B fine-tuned for the owner as q4f16_1 weights in exactly the stock files'
 layout (every tensor's name, shape and type from the stock `tensor-cache.json`; the writer reproduces mlc-ai's
 own shards bit for bit from the base weights), with the stock `mlc-chat-config.json` and tokenizer files, to the
-owner's own Hugging Face model repo at a new commit. So `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` runs them
-unchanged and no new compiled code is vendored; they come from huggingface.co like the stock weights (no new
-host in the security policy).
+owner's own PRIVATE Hugging Face model repo. So `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` runs them unchanged
+and no new compiled code is vendored. Because the repo is private (the brain learned from the owner's library
+and chats), the phone never fetches it directly: WebLLM is given `https://<ghosty>/api/w/<capability>/resolve/<commit>/`
+(same origin: `connect-src 'self'`), the brain fetches each file with the owner's token, streams the small ones
+and answers the large ones with Hugging Face's short-lived signed CDN address (`*.hf.co`, already in
+`connect-src`). No new host in the security policy. `pruneOtherRevisions` treats `/api/w/…` files like
+huggingface.co ones, and only after a download has finished; an interrupted download keeps every file.

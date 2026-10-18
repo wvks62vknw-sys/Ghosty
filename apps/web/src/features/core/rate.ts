@@ -11,20 +11,19 @@ import { chat, type Entry } from '../../assistant/session';
 import { createStore } from '../../core/store';
 import { h } from '../../core/dom';
 import { toast } from '../../ui/components';
+import { replyId, withRating } from './ratelist';
+
+export { replyId };
 
 type Reply = Extract<Entry, { kind: 'assistant' }>;
 
-/** The ratings given on this phone, by reply. */
-export const ratings = createStore({ map: {} as Record<string, 1 | -1> }, { persist: 'ghosty.rated' });
+/** The ratings given on this phone, oldest first: [reply id, 👍 1 / 👎 −1] (a list, so "the newest 300" really are). */
+export const ratings = createStore({ list: [] as [number, 1 | -1][] }, { persist: 'ghosty.rated' });
 
-/** A reply's id: a hash of its words (FNV-1a, 32 bits), the same on every load. */
-export function replyId(text: string): number {
-  let x = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) x = Math.imul(x ^ text.charCodeAt(i), 0x01000193) >>> 0;
-  return x;
-}
-
-export const ratedOf = (e: Reply): 1 | -1 | undefined => ratings.get().map[replyId(e.text.trim())];
+export const ratedOf = (e: Reply): 1 | -1 | undefined => {
+  const id = replyId(e.text.trim());
+  return (Array.isArray(ratings.get().list) ? ratings.get().list : []).find(([x]) => x === id)?.[1];
+};
 
 /** The owner's message a reply answered: the nearest one before it. */
 export function questionFor(entries: Entry[], reply: Reply): string {
@@ -40,12 +39,7 @@ export function questionFor(entries: Entry[], reply: Reply): string {
 export const rateable = (e: Reply): boolean => !!e.text.trim() && !e.once && e.text.trim() !== '…';
 
 function setRated(id: number, v: 1 | -1 | undefined): void {
-  const map = { ...ratings.get().map };
-  delete map[id];
-  if (v) map[id] = v;
-  const keys = Object.keys(map);
-  for (const k of keys.slice(0, Math.max(0, keys.length - 300))) delete map[k];
-  ratings.set({ map });
+  ratings.set({ list: withRating(Array.isArray(ratings.get().list) ? ratings.get().list : [], id, v) });
 }
 
 export function rateRow(e: Reply): HTMLElement {
