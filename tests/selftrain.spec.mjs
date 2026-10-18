@@ -11,6 +11,7 @@
 //   BASE=http://localhost:8875 node tests/selftrain.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { engine, launch, webkitNoise } from './browser.mjs';
+import { openPanel } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -35,6 +36,7 @@ const panelText = () => page.evaluate(() => document.querySelector('#pg-system .
 
 // ---- 1. no keys: the panel says exactly which two and where
 await page.evaluate(() => (location.hash = 'system'));
+await openPanel(page, 'system', 'OFFLINE BRAIN TRAINING');
 await page.waitForSelector('#pg-system .selftrain .trainnote', { timeout: 15000 });
 let light = await page.evaluate(() => document.querySelector('#pg-system .selftrain h3 small')?.textContent ?? '');
 check(light === 'NEEDS 2 KEYS', `status light: "${light}"`);
@@ -45,6 +47,7 @@ check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selft
 check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain button')].find((b) => b.textContent === 'ROLLBACK')?.disabled === true), 'ROLLBACK is off with nothing to go back to');
 await page.locator('#pg-system .selftrain').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/selftrain-${engine}-nokeys.png` });
+await openPanel(page, 'system', 'KEYS');
 await page.evaluate(() => [...document.querySelectorAll('#pg-system button')].find((b) => /OPTIONAL KEYS/.test(b.textContent ?? ''))?.click());
 await page.waitForFunction(() => [...document.querySelectorAll('#pg-system .keyblock .lab')].some((l) => /Kaggle/.test(l.textContent ?? '')), null, { timeout: 5000 }).catch(() => undefined);
 const slots = await page.evaluate(() => [...document.querySelectorAll('#pg-system .keyblock')].map((b) => ({ lab: b.querySelector('.lab')?.textContent ?? '', steps: b.querySelectorAll('ol.steps li').length, help: !!b.querySelector('button') })));
@@ -71,7 +74,7 @@ check((await page.locator('#ccap button[aria-label="Bad reply"]').getAttribute('
 let st = await api('/training');
 check(st.ratings?.down === r0.down + 1 && st.ratings?.up === r0.up, `the brain counted the 👎: ${JSON.stringify(st.ratings)}`);
 // the LOG: the same reply, the same choice; change of mind there
-await page.locator('#cbar .logbtn').click();
+await page.locator('.logbtn:visible').first().click();
 const reply = page.locator('.log .msg', { has: page.locator('.rate') }).last();
 await reply.waitFor({ state: 'visible', timeout: 5000 });
 check(/Mock reply to: hello there, rate me/.test((await reply.textContent()) ?? ''), 'the buttons sit under the reply in the LOG');
@@ -83,15 +86,15 @@ st = await api('/training');
 check(st.ratings?.down === r0.down && st.ratings?.up === r0.up + 1, `👍 replaced the 👎: ${JSON.stringify(st.ratings)}`);
 await page.screenshot({ path: `${out}/selftrain-${engine}-rate.png` });
 await page.reload({ waitUntil: 'domcontentloaded' });
-await page.waitForSelector('#cbar .logbtn', { timeout: 20000 });
-await page.locator('#cbar .logbtn').click();
+await page.locator('.logbtn:visible').first().waitFor({ timeout: 20000 });
+await page.locator('.logbtn:visible').first().click();
 await page.waitForSelector('.log .msg .rate', { state: 'visible', timeout: 20000 });
 check(await page.evaluate(() => [...document.querySelectorAll('.log .msg button[aria-label="Good reply"]')].some((b) => b.getAttribute('aria-pressed') === 'true')), 'the 👍 shows again after a reload');
 await page.locator('.log .msg button[aria-label="Good reply"][aria-pressed="true"]').last().click();
 await page.waitForTimeout(600);
 st = await api('/training');
 check(st.ratings?.down === r0.down && st.ratings?.up === r0.up, `tapping 👍 again took it back: ${JSON.stringify(st.ratings)}`);
-await page.locator('#cbar .logbtn').click();
+await page.locator('.logbtn:visible').first().click();
 
 // ---- 3. a finished week (the brain's answer stood in for): the report card
 const c = (ch) => ch.repeat(40);
@@ -115,6 +118,7 @@ await page.route('**/api/training/gym', (r) => r.fulfill({ json: { ok: true } })
 await page.evaluate(() => (location.hash = 'settings'));
 await page.waitForTimeout(300);
 await page.evaluate(() => (location.hash = 'system'));
+await openPanel(page, 'system', 'OFFLINE BRAIN TRAINING');
 await page.waitForFunction(() => document.querySelector('#pg-system .selftrain .trainweek')?.textContent?.startsWith('WEEK 2'), null, { timeout: 10000 }).catch(() => problems.push('the report card did not show week 2'));
 light = await page.evaluate(() => document.querySelector('#pg-system .selftrain h3 small')?.textContent ?? '');
 check(light === 'IDLE', `status light with keys: "${light}"`);
@@ -148,6 +152,7 @@ check(stored.active === c('a') && stored.trained?.length === 2, `the phone keeps
 
 // the offline brain's chooser in SETTINGS: the trained weeks, then the stock models; the recommended one said
 await page.evaluate(() => (location.hash = 'settings'));
+await openPanel(page, 'settings', 'OFFLINE BRAIN');
 await page.waitForSelector('#pg-settings .offbrain', { timeout: 10000 });
 const chooser = await page.evaluate(() => ({ options: [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].map((o) => o.textContent), hidden: document.querySelector('#pg-settings .offbrain select.obmodel')?.hidden, news: document.querySelector('#pg-settings .offbrain .obnew')?.textContent ?? '' }));
 check(JSON.stringify(chooser.options) === JSON.stringify(['Ghosty (week 2)', 'Ghosty (week 1) · recommended', 'Qwen3 0.6B', 'Qwen2.5 0.5B']) && chooser.hidden === false, `the chooser: ${JSON.stringify(chooser)}`);
@@ -161,6 +166,7 @@ await page.screenshot({ path: `${out}/selftrain-${engine}-chooser.png` });
 
 // ---- 4. iPhone width
 await page.evaluate(() => (location.hash = 'system'));
+await openPanel(page, 'system', 'OFFLINE BRAIN TRAINING');
 await page.waitForSelector('#pg-system .selftrain .trainweek', { timeout: 10000 });
 const fit = await page.evaluate(() => {
   const pn = document.querySelector('#pg-system .selftrain');

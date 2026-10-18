@@ -12,6 +12,7 @@
 //   node tests/thinkharder.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
+import { openPanel } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -170,6 +171,7 @@ async function run(name, viewport) {
   // ---- "always": ASK THE BIG BRAIN still asks the brain (the owner asked) ------------------------------------
   if (narrow) await page.click('.logbtn');
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'OFFLINE BRAIN');
   await page.locator('select[aria-label="Offline brain mode"]').selectOption('always');
   // THINK HARDER's time is an owner setting.
   const tsel = page.locator('select[aria-label="Think harder time"]');
@@ -186,6 +188,7 @@ async function run(name, viewport) {
   // ---- SYSTEM → OFFLINE BRAIN REPORT CARD ------------------------------------------------------------------------
   await page.evaluate(() => (window.__ghostyOfflineEngine.delay = 2));
   await page.evaluate(() => (location.hash = 'system'));
+  await openPanel(page, 'system', 'OFFLINE BRAIN REPORT CARD');
   const pn = page.locator('#pg-system .pn.reportcard');
   await pn.waitFor({ state: 'attached', timeout: 10000 }).catch(() => problems.push(`[${name}] no REPORT CARD panel in SYSTEM`));
   const status = () => pn.locator('h3').textContent();
@@ -238,12 +241,15 @@ async function run(name, viewport) {
   await page.reload();
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
   await page.evaluate(() => (location.hash = 'system'));
+  await openPanel(page, 'system', 'OFFLINE BRAIN REPORT CARD');
   await page.waitForFunction(() => /CHECKED/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => problems.push(`[${name}] after the sync, still the stock model: the report card should say CHECKED: ${await status()}`));
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'OFFLINE BRAIN');
   await page.waitForFunction(() => [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].some((o) => /Ghosty \(week 2\)/.test(o.textContent ?? '')), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the trained weeks never reached the chooser`));
   const week2 = await page.evaluate(() => [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].find((o) => /Ghosty \(week 2\)/.test(o.textContent ?? ''))?.textContent ?? '');
   if (week2) await page.selectOption('#pg-settings .offbrain select.obmodel', { label: week2 });
   await page.evaluate(() => (location.hash = 'system'));
+  await openPanel(page, 'system', 'OFFLINE BRAIN REPORT CARD');
   await page.waitForFunction(() => /NEW MODEL/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => problems.push(`[${name}] switching to a trained week does not make the report card offer a re-check: ${await status()}`));
   if (!/NEW MODEL since the last check/.test((await pn.locator('.rchead').textContent()) ?? '')) problems.push(`[${name}] the head does not say NEW MODEL`);
   // A check now measures the trained week, under its own name and commit.
