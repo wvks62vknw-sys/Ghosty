@@ -266,6 +266,9 @@ export const shapeOf = (k: string): Shape => {
   const [layers, width] = a!.split('x').map(Number) as [number, number];
   return { layers, width, act: b as 'tanh' | 'relu', lr: Number(c) };
 };
+/** The kind of data in plain words. */
+export const dataWords = (sp: Spec) =>
+  ({ xor: 'XOR corners (opposite corners alike)', circles: 'A disc inside a ring', checker: 'A 3×3 checkerboard', spiral2: 'Two spirals', spiral3: 'Three spirals', digits: `5×5 pixel digits, ${sp.classes} kinds` })[sp.kind];
 export const shapeWords = (s: Shape) => `${s.layers ? `${s.layers} hidden layer${s.layers > 1 ? 's' : ''} of ${s.width} (${s.act})` : 'no hidden layer'}, learning speed ${s.lr}`;
 
 /** Where he starts, knowing nothing: the first choice of each (the smallest network, the slowest learning). */
@@ -433,7 +436,7 @@ class BrainLearner implements Learner {
     const sp = specFor(this.level);
     return {
       mastery: g.ok / g.of,
-      detail: `${sp.kind === 'digits' ? `${sp.classes} digits` : sp.kind}: his pick (${shapeWords(this.best)}) scores ${Math.round(g.acc * 100)}% on held-out test data vs the baseline's ${Math.round(g.base * 100)}%; it matches the baseline on ${g.ok} of ${g.of} datasets${sp.energy ? (g.within ? ', within the energy budget' : ' — but it is over the energy budget') : ''}.`,
+      detail: `${dataWords(sp)}: his pick (${shapeWords(this.best)}) scores ${Math.round(g.acc * 100)}% on held-out test data vs the baseline's ${Math.round(g.base * 100)}%; it matches the baseline on ${g.ok} of ${g.of} datasets${sp.energy ? (g.within ? ', within the energy budget' : ' — but it is over the energy budget') : ''}.`,
     };
   }
   save(): BrainSave {
@@ -449,7 +452,7 @@ class BrainLearner implements Learner {
   watch(seed: number): Frame[] {
     const sp = specFor(this.level);
     const d = dataset(this.level, seed);
-    const head = `Data: ${sp.kind === 'digits' ? `5×5 pixel digits, ${sp.classes} kinds` : sp.kind}, ${d.train.x.length} points to learn from.`;
+    const head = `Data: ${dataWords(sp)}, ${d.train.x.length} points to learn from.`;
     const frames: Frame[] = [{ lines: [head], caption: 'He tries a few shapes he rates, then trains his favourite.' }];
     const lines: string[] = [];
     // His favourite and two neighbours he might try next (different shapes).

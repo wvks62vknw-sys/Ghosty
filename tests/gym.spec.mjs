@@ -72,7 +72,7 @@ const closeLog = async () => {
 
 // ---- the tab and its cards ----
 await boot();
-await until(() => window.__ghosty?.gym?.cards === CARDS, 15000, 'the GYM tab did not open with its game cards');
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM tab did not open with its game cards', CARDS);
 await closeLog();
 const n = await G('.gymcard').count();
 if (n !== CARDS) problems.push(`the GYM shows ${n} game cards (want ${CARDS})`);
@@ -118,7 +118,7 @@ await page.waitForTimeout(500);
 
 // ---- reload: what he learned is still there, and training carries on from it ----
 await boot();
-await until(() => window.__ghosty?.gym?.cards === CARDS, 15000, 'the GYM did not come back after a reload');
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after a reload', CARDS);
 await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `progress did not survive the reload (had ${before?.units} games)`, before?.units ?? 1);
 const after = (await st()).recs.tictactoe;
 if (after && before && (after.level !== before.level || Math.abs(after.mastery - before.mastery) > 1e-9)) problems.push(`after the reload the record changed: ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
@@ -217,7 +217,7 @@ const afterReset = await st();
 if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
 if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
 await boot();
-await until(() => window.__ghosty?.gym?.cards === CARDS, 15000, 'the GYM did not come back after the reset reload');
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the reset reload', CARDS);
 await page.waitForTimeout(1000);
 if ((await st()).recs.maze) problems.push('the reset maze came back after a reload');
 await closeLog();
@@ -229,6 +229,7 @@ for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate'])
   const acts = await G('.gymactions button:visible').allInnerTexts();
   for (const want of ['TRAIN', 'WATCH', 'RESET']) if (!acts.some((b) => b.trim() === want)) problems.push(`${id} has no ${want} button`);
   if (acts.some((b) => b.trim() === 'PLAY HIM')) problems.push(`${id} shows PLAY HIM (not a board game)`);
+  await page.evaluate(() => (window.__ghosty.gym.frames = 0));
   await G('button', { hasText: 'WATCH' }).click();
   await until(() => window.__ghosty.gym.frames >= 2, 20000, `WATCH did not play ${id}`);
   const text = await G('.gymboard').innerText();

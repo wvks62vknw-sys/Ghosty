@@ -562,11 +562,14 @@ class EscapeLearner implements Learner {
     const p = play(m, this.w, 2 * best.length, seed);
     const frames: Frame[] = [{ lines: [look(m, startState(m))], caption: `The shortest way out takes ${best.length} commands.` }];
     const lines: string[] = [];
+    // Each frame: what he sees now, then his last few commands and what they did.
+    let s = startState(m);
     p.log.forEach((x, i) => {
+      s = act(m, s, x.cmd).s;
       lines.push(`> ${x.cmd}`, `  ${x.said}`);
-      frames.push({ lines: lines.slice(-14), caption: `Step ${i + 1}` });
+      frames.push({ lines: [look(m, s), ...lines.slice(-10)], caption: `Step ${i + 1}` });
     });
-    frames.push({ lines: lines.slice(-14), caption: p.out ? `Out in ${p.steps} steps (shortest ${best.length}).` : `Still inside after ${p.steps} steps. The shortest way: ${best.join(', ')}.` });
+    frames.push({ lines: [look(m, s), ...lines.slice(-10)], caption: p.out ? `Out in ${p.steps} steps (shortest ${best.length}).` : `Still inside after ${p.steps} steps. The shortest way: ${best.join(', ')}.` });
     return frames;
   }
 }
