@@ -1,7 +1,8 @@
 /**
  * SETTINGS → OFFLINE BRAIN: whether this phone can run the small model (offline/brain.ts),
  * DOWNLOAD it (≈352 MB, once, best on Wi-Fi) with a progress bar, DELETE it, when to use it
- * (only when needed / always / off), and a TEST that shows a reply and its speed.
+ * (only when needed / always / off), a TEST that shows a reply and its speed, and how long THINK HARDER
+ * may take on one question (offline/think.ts; 55 s unless changed).
  */
 import { clear, h } from '../../core/dom';
 import { deleteOffline, downloadOffline, offlineBrain, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel } from '../../offline/brain';
@@ -27,6 +28,20 @@ export function offlinePanel(): Panel & { refresh(): void } {
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
     if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
     else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
+  });
+  // THINK HARDER's time on one question: longer is better on hard ones, and warmer on the phone.
+  const think = h(
+    'select',
+    { 'aria-label': 'Think harder time' },
+    h('option', { value: '30' }, 'THINK HARDER: up to 30 s'),
+    h('option', { value: '55' }, 'THINK HARDER: up to a minute'),
+    h('option', { value: '120' }, 'THINK HARDER: up to 2 minutes'),
+  );
+  think.value = String(offlineBrain.get().thinkSecs || 55);
+  if (!think.value) think.value = '55';
+  think.addEventListener('change', () => {
+    offlineBrain.set({ thinkSecs: Number(think.value) || 55 });
+    toast(`THINK HARDER takes up to ${think.selectedOptions[0]?.textContent?.replace(/^THINK HARDER: up to /, '') ?? 'a minute'} a question`, 'ok');
   });
   const out = h('div.note.obtest');
   let ok = false;
@@ -98,6 +113,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     prog,
     h('div.keyrow', download, test, del),
     mode,
+    think,
     out,
     h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
   );

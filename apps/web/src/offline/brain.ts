@@ -30,8 +30,8 @@ const IDLE_UNLOAD_MS = 2 * 60_000;
 
 /** What the settings panel shows. `model` and `downloaded` are kept on this device. */
 export const offlineBrain = createStore(
-  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '' },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded'] },
+  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', thinkSecs: 55 },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'thinkSecs'] },
 );
 
 /** The test engine, when a browser test put one there. */
@@ -43,7 +43,8 @@ interface TestEngine {
   unload?(): void;
   /** How long after the last use the model leaves memory (instead of two minutes). */
   idleMs?: number;
-  chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal): Promise<unknown> | unknown;
+  /** `opts`: THINK HARDER's temperature and length for this reply (absent: the chat's own). */
+  chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts?: ReplyOpts): Promise<unknown> | unknown;
 }
 const testEngine = (): TestEngine | null => {
   const e = (globalThis as { __ghostyOfflineEngine?: TestEngine }).__ghostyOfflineEngine;
@@ -282,12 +283,19 @@ export async function deleteOffline(): Promise<void> {
   offlineBrain.set({ downloaded: false, loaded: false, model: MODELS[0]!.id, progress: 0, text: '' });
 }
 
+/** How one reply is written: how adventurous (temperature, 0–1.5) and how long at most (tokens). */
+export interface ReplyOpts {
+  temperature?: number;
+  max?: number;
+}
+
 let replying: AbortController | null = null;
 /**
  * Stream a reply from the model on this phone. `onToken` gets each piece as it comes (raw;
- * the result's `text` is cleaned). Resolves with the speed the model managed.
+ * the result's `text` is cleaned). Resolves with the speed the model managed. `opts`: THINK
+ * HARDER's own temperature and length (offline/think.ts); the chat leaves them out.
  */
-export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal): Promise<{ text: string; tokens: number; perSecond: number }> {
+export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts: ReplyOpts = {}): Promise<{ text: string; tokens: number; perSecond: number }> {
   const started = performance.now();
   let raw = '';
   let count = 0;
@@ -306,7 +314,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   if (signal?.aborted) throw stopped();
   try {
     if (t) {
-      const r = await t.chat(messages, on, signal);
+      const r = await t.chat(messages, on, signal, opts);
       if (signal?.aborted) throw stopped();
       if (!raw && typeof r === 'string') raw = r;
       const secs = (performance.now() - started) / 1000;
@@ -316,7 +324,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
     const stop = () => void call('stop').catch(() => undefined);
     signal?.addEventListener('abort', stop, { once: true });
     try {
-      const done = await call('chat', { messages, max: 400 }, (e) => {
+      const done = await call('chat', { messages, max: Math.max(8, Math.min(800, Math.round(opts.max ?? 400))), ...(typeof opts.temperature === 'number' ? { temperature: Math.max(0, Math.min(1.5, opts.temperature)) } : {}) }, (e) => {
         if (e.t === 'token' && e.text) on(e.text);
       });
       if (signal?.aborted) throw stopped();

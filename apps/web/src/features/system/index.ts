@@ -7,6 +7,7 @@ import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 
@@ -21,7 +22,9 @@ export const systemTab: TabDef = {
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
-    P.left.append(kp.el, mp.el, rp.el);
+    // What the offline brain on this phone can do, measured here.
+    const rc = reportCardPanel();
+    P.left.append(kp.el, mp.el, rp.el, rc.el);
     const sp = panel('STATUS');
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });

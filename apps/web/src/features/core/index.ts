@@ -2,7 +2,8 @@
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
 import { brain } from '../../api/brain';
-import { answerApproval, chat, send, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { stopThinking } from '../../offline/harder';
 import { listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -65,16 +66,47 @@ function linked(text: string): HTMLElement {
   return out;
 }
 
-function renderEntry(e: Entry): HTMLElement {
+/** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
+function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+  // Answered by the small model on the phone itself: one quiet chip says so.
+  if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
+  // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
+  if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
+  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+}
+
+/** A THINK HARDER answer: live progress and STOP while it works; then the answer, how sure it is, its working, and ASK THE BIG BRAIN. */
+function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+  const t = e.think!;
+  const box = h('div.msg.off.think', h('small', 'GHOSTY · THINK HARDER'));
+  if (t.state === 'running') {
+    box.append(h('div.thinkline.live', h('i'), h('span', t.line)), h('div.row', button('STOP', () => stopThinking(), 'warn')));
+    return box;
+  }
+  box.append(
+    h('b.thinkans', t.answer || '(no answer)'),
+    h(`div.thinkconf.${t.confidence ?? 'none'}` as 'div', `${t.line}${t.secs != null ? ` · ${t.secs} s` : ''}`),
+  );
+  if (e.text && e.text.trim() !== (t.answer ?? '').trim()) box.append(h('details.thinkwork', h('summary', 'HOW IT GOT THERE'), linked(e.text)));
+  // The big brain is a separate, owner-asked step: only offered while the brain is reachable.
+  const row2 = h('div.row');
+  if (ui.get().connected) row2.append(button('ASK THE BIG BRAIN', () => void askBigBrain(t.q), 'bigbrain'));
+  if (row2.childElementCount) box.append(row2);
+  box.append(h('span.offchip', 'Worked out on your phone (offline)'));
+  return box;
+}
+
+/** `q`: the question this reply answers, when it is the latest answer (it gets THINK HARDER). */
+function renderEntry(e: Entry, q?: string): HTMLElement {
   switch (e.kind) {
     case 'user':
       return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
-    case 'assistant':
-      // Answered by the small model on the phone itself: one quiet chip says so.
-      if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
-      // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+    case 'assistant': {
+      if (e.think) return renderThink(e);
+      const el = plainReply(e);
+      if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
+      return el;
+    }
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -237,7 +269,13 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
+      const shown = chat.get().entries.slice(-40);
+      // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
+      const last = shown.findLastIndex((x) => x.kind === 'assistant');
+      const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
+      const lastReply = shown[last];
+      const q = lastReply?.kind === 'assistant' && !lastReply.think && asked?.kind === 'user' && !/^think harder\b/i.test(asked.text) ? asked.text : undefined;
+      clear(log, ...shown.map((x, i) => renderEntry(x, i === last ? q : undefined)));
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
       armFade();
