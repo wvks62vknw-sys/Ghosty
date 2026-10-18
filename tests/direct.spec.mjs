@@ -32,7 +32,7 @@ const seen = (re, timeout = 10000) => page.waitForFunction((src) => new RegExp(s
 
 // 1. a fact to remember, with the model working
 await ask('remember my dog is Rex');
-if (!(await seen(/Done\. (Saved|Already known)/))) problems.push('the ordinary turn before the fallback did not answer');
+if (!(await seen(/I’ll remember that|I already know that/))) problems.push('the ordinary turn before the fallback did not answer');
 
 // 2. the time, with no model: the raw answer and when the first model is back
 await ask('no model: what time is it');
@@ -43,7 +43,7 @@ await page.screenshot({ path: `${out}/direct-time.png` });
 
 // 3. memory, with no model: the list_memory tool runs and its raw text is the answer
 await ask('no model: what do you remember about me');
-if (!(await seen(/The raw answer:\n[^\n]*my dog is rex/i))) problems.push('memory was not listed without a model');
+if (!(await seen(/The raw answer:\n[^\n]*my dog is Rex/i))) problems.push('memory was not listed without a model');
 if (!(await seen(/Recalling memory/, 5000))) problems.push('the tool that answered (list_memory, "Recalling memory") is not shown in the log');
 
 // 4. anything else: the exact time the first model is back, and the one tip

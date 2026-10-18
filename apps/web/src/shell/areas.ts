@@ -68,12 +68,15 @@ export function navTo(id: string, dir: NavDir): void {
 }
 
 const def = (id: string) => tabs().find((t) => t.id === id);
+/** A tool's name inside its area: LEARN's own course tool is "Courses" there (not "Learn" inside Learn). */
+const ALIAS: Record<string, string> = { learn: 'Courses' };
+export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 
 /** A tool's tile: the tab's own glyph in a tinted squircle, its name and what it is for. */
 function tile(t: TabDef, a: Area, cls = 'hubtile'): HTMLElement {
   return h(`button.${cls}` as 'button', { type: 'button', dataset: { id: t.id }, style: `--tint:${a.tint}`, onclick: () => navTo(t.id, 'push') },
     h('span.sq', icon(t.icon)),
-    h('b', niceCase(t.title)),
+    h('b', toolName(t)),
     cls === 'hubtile' ? h('small', t.blurb ?? '') : null,
   );
 }
@@ -111,7 +114,8 @@ function hubTab(a: Area): TabDef {
       root.append(wrap);
       const paint = () => {
         clear(grid, ...a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => tile(t, a)), a.id === 'ask' ? voiceTile(a) : null);
-        const rec = recents.map(def).filter((t): t is TabDef => !!t).slice(0, 6);
+        // recent screens of this area only
+        const rec = recents.filter((id) => a.tabs.includes(id)).map(def).filter((t): t is TabDef => !!t).slice(0, 6);
         recentBox.hidden = !rec.length;
         clear(recentRow, ...rec.map((t) => tile(t, areaOf(t.id) ?? a, 'recent')));
       };
@@ -138,7 +142,9 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   let press = 0;
   you.addEventListener('pointerdown', () => (press = window.setTimeout(() => ((press = -1), openDeck()), 550)));
   you.addEventListener('pointerup', () => press > 0 && clearTimeout(press));
-  clear(dock, cap, you);
+  clear(dock, cap);
+  // "you" sits at the top right of the navigation bar (iOS's account button), not beside the tab bar
+  document.querySelector('#top .cmd')?.after(you);
   const tap = (a: Area) => {
     if (press === -1) return void (press = 0);
     const cur = ui.get().tab;
@@ -164,5 +170,5 @@ export function navInfo(tab: string): { back: string; backTo: string; title: str
   if (!t) return null;
   if (tab === 'core') return null;
   if (isHub(tab)) return { back: '', backTo: '', title: a?.title ?? t.title };
-  return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: t.title };
+  return { back: a?.title ?? 'Home', backTo: a ? hubId(a) : 'core', title: ALIAS[t.id] ?? t.title };
 }

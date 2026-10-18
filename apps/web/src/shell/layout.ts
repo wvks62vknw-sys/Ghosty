@@ -85,6 +85,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   let paintTabBar: (() => void) | null = null;
   const buildDock = () => {
     dock.classList.toggle('areas', proLook());
+    document.querySelector('#top .you')?.remove();
     paintTabBar = proLook() ? buildTabBar(dock, () => deck.open()) : null;
     if (paintTabBar) return paintNav();
     const wide = innerWidth >= 900;
@@ -131,6 +132,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     document.body.classList.toggle('busy', !!s.busy && s.voice !== 'speaking');
     document.body.classList.toggle('speaking', s.voice === 'speaking');
     document.body.classList.toggle('listening', s.voice === 'listening');
+    document.body.classList.toggle('offline', s.connected === false);
     dot.className = `conn ${s.connected === false ? 'off' : s.connected ? 'on' : ''}`;
     dot.title = s.connected === false ? 'Brain unreachable' : 'Brain connected';
   });

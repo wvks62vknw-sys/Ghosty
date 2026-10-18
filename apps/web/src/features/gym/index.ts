@@ -236,6 +236,7 @@ export const gymTab: TabDef = {
     const trainBtn = button('TRAIN', () => toggleTrain(), 'on gymtrain');
     const watchBtn = button('WATCH', () => void watch());
     const playBtn = button('PLAY HIM', () => startPlay());
+    playBtn.dataset.label = 'Play Ghosty'; // the calm looks' wording
     let resetArmed = 0;
     const resetBtn = button('RESET', () => reset(), 'warn');
     const graphBox = h('div.gymgraphbox');
@@ -244,14 +245,17 @@ export const gymTab: TabDef = {
     const heroLvl = h('b');
     const heroPct = h('span.gympct');
     const heroWord = h('span.gymword');
-    const hero = h('div.gymhero', h('div.gymringbox', bigRing.el, h('div.gymringtxt', h('small', 'LEVEL'), heroLvl)), h('div.gymherotxt', heroWord, heroPct));
+    const hero = h('div.gymhero', h('div.gymringbox', bigRing.el, h('div.gymringtxt', heroLvl)), h('div.gymherotxt', heroWord, heroPct));
+    // The mastery chart as its own titled section: what the line is, and where he levels up.
+    const legend = h('span.gymlegend');
+    const chart = h('section.gymchart', h('div.gymcharthead', h('b', 'Progress'), legend), h('div.gymplot', h('div.gymaxis', h('span', '100%'), h('span', '0%')), graphBox));
     const detail = h('div.note.gymdetail');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, resetBtn), graphBox, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, resetBtn), chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -261,7 +265,7 @@ export const gymTab: TabDef = {
       const mastered = all.filter((r) => r?.mastered).length;
       const avg = all.reduce((t, r) => t + (r?.mastery ?? 0), 0) / GAMES.length;
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
-      P.big.textContent = `${mastered} / ${GAMES.length} MASTERED`;
+      P.big.textContent = `${mastered} OF ${GAMES.length} MASTERED`;
       // A fixed line: text that changes length here would shift every button below it mid-tap.
       P.sub.textContent = 'Ghosty teaches himself by playing · on this phone';
       P.dials([
@@ -281,6 +285,9 @@ export const gymTab: TabDef = {
         c.small.textContent = r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
         c.ring.set(r?.mastered ? 1 : r ? r.mastery / g.bar(r.level) : 0);
         c.lvl.textContent = String(r?.level ?? 1);
+        // nothing has happened yet: no ring, no level, just "Not started"
+        c.b.classList.toggle('fresh', !r?.units);
+        c.st.dataset.label = st === 'NEW' ? 'Not started' : st === 'TRAINING' ? 'Learning' : `${st.charAt(0)}${st.slice(1).toLowerCase()} · level ${r?.level ?? 1}`;
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
         const pts = r?.history.map((p) => p.m) ?? [];
@@ -298,11 +305,17 @@ export const gymTab: TabDef = {
       gameP.setStatus(r ? `LEVEL ${r.level}${r.mastered ? ' · MASTERED' : ''}` : 'LEVEL 1', training === open.id ? 'ok' : r?.mastered ? 'ok' : 'mid');
       learns.textContent = open.learns;
       const word = stateOf(open, r ?? undefined);
-      bigRing.set(r?.mastered ? 1 : r ? r.mastery / open.bar(r.level) : 0);
-      heroLvl.textContent = String(r?.level ?? 1);
-      heroWord.textContent = word.charAt(0) + word.slice(1).toLowerCase();
+      // One ring, one number in it (how far to passing this level), one line saying the same in words.
+      const bar = Math.round(open.bar(r?.level ?? 1) * 100);
+      const frac = r?.mastered ? 1 : r ? Math.min(1, r.mastery / open.bar(r.level)) : 0;
+      bigRing.set(frac);
+      hero.classList.toggle('fresh', !r?.units);
+      heroLvl.textContent = `${Math.floor(frac * 100)}%`;
+      heroWord.textContent = r?.mastered ? 'Mastered' : `Level ${r?.level ?? 1}`;
       heroWord.className = `gymword ${word.toLowerCase()}`;
-      heroPct.textContent = r ? `${Math.round(r.mastery * 100)}% mastery · needs ${Math.round(open.bar(r.level) * 100)}%` : `Needs ${Math.round(open.bar(1) * 100)}% to pass level 1`;
+      const doing = word === 'TRAINING' ? 'Learning' : word === 'PAUSED' ? 'Paused' : 'Not started';
+      heroPct.textContent = r?.mastered ? 'Every level passed' : r?.units ? `${doing} · ${Math.floor(r.mastery * 100)}% of ${bar}% to pass` : `Not started · needs ${bar}% to pass`;
+      legend.textContent = `Level-up at ${bar}%`;
       status.textContent = statusLine(r, open, training === open.id);
       trainBtn.textContent = training === open.id ? 'PAUSE' : r?.mastered ? 'MASTERED' : 'TRAIN';
       trainBtn.disabled = !!r?.mastered;

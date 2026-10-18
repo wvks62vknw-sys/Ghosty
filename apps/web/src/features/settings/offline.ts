@@ -76,6 +76,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     else if (ready) state.textContent = `Ready on this phone: ${m.label} (${m.mb} MB). Ghosty can talk with no signal.`;
     else state.textContent = `Not downloaded. About ${m.mb} MB, once: use Wi-Fi. Afterwards Ghosty can talk with no connection.`;
     p.setStatus(ok ? (ready ? 'READY' : s.busy ? 'BUSY' : 'NOT DOWNLOADED') : 'UNSUPPORTED', ok ? (ready ? 'ok' : 'mid') : 'off');
+    // A phone that cannot run it: the calm looks show why on the row instead of a dead end.
+    p.el.querySelector<HTMLElement>(':scope > h3 small')!.dataset.label = ok ? p.el.querySelector<HTMLElement>(':scope > h3 small')!.dataset.label ?? '' : 'Not on this phone';
     download.disabled = !ok || ready || !!s.busy;
     del.disabled = !ok || (!ready && !s.downloaded) || !!s.busy;
     test.disabled = !ok || !ready || !!s.busy;

@@ -91,7 +91,9 @@ function renderEntry(e: Entry): HTMLElement {
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
-      const el = h(`div.act.${e.state}` as 'div', h('i'), h('span', e.label), e.detail ? h('em', e.detail) : null);
+      // done: "Saving to memory" reads "Saved to memory"
+      const label = e.state === 'ok' ? e.label.replace(/^Saving to /, 'Saved to ') : e.label;
+      const el = h(`div.act.${e.state}` as 'div', h('i'), h('span', label), e.detail ? h('em', e.detail) : null);
       // What the tool is doing right now, under its line, with a thin bar when it knows how far it is.
       if (e.progress && e.state === 'running') {
         const ratio = progressRatio(e.progress);
@@ -188,6 +190,7 @@ export const coreTab: TabDef = {
     }, `citedbtn${settings.get().cited ? ' on' : ''}`);
     citedBtn.setAttribute('aria-pressed', String(settings.get().cited));
     citedBtn.title = 'Answers with numbered sources, each claim checked';
+    citedBtn.dataset.label = 'Answers with sources'; // its line in the calm looks' "+" menu
     const voiceBtn = button(settings.get().speak ? 'VOICE ON' : 'VOICE OFF', (b) => {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
@@ -226,16 +229,19 @@ export const coreTab: TabDef = {
     const lockLine = h('div#lockline', lockWx, lockNext);
     const paintLock = () => {
       const d = new Date();
-      lockDate.textContent = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+      const w0 = weather.data;
+      // Lock Screen style: the date and the weather on one line above the time
+      lockDate.textContent = `${d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}${w0 ? `  ·  ${temp(w0.current.temperature_2m).replace(/[CF]$/, '')} ${WMO(w0.current.weather_code)}` : ''}`;
       lockTime.textContent = fmt.time(d);
       const w = weather.data;
-      lockWx.textContent = w ? `${temp(w.current.temperature_2m)}  ${WMO(w.current.weather_code)}` : '';
+      lockWx.textContent = '';
+      void w;
       lockNext.textContent = nextUp;
       lockNext.hidden = !nextUp;
     };
     let nextUp = '';
     const plus = h('button.plusbtn', { type: 'button', 'aria-label': 'More: voice replies and the camera', 'aria-expanded': 'false' }, icon('<path d="M12 5v14M5 12h14"/>'));
-    const plusMenu = h('div.plusmenu', voiceBtn, lensBtn);
+    const plusMenu = h('div.plusmenu', citedBtn, voiceBtn, lensBtn);
     plus.addEventListener('click', () => {
       const open = !plusMenu.classList.contains('open');
       plusMenu.classList.toggle('open', open);
@@ -245,7 +251,23 @@ export const coreTab: TabDef = {
       plusMenu.classList.remove('open');
       plus.setAttribute('aria-expanded', 'false');
     });
-    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, h('div#cbar', plus, logBtn, input, button('SEND', submit), citedBtn, plusMenu, mic));
+    // a tap anywhere else closes it
+    document.addEventListener('pointerdown', (e) => {
+      if (!plusMenu.classList.contains('open') || plus.contains(e.target as Node) || plusMenu.contains(e.target as Node)) return;
+      plusMenu.classList.remove('open');
+      plus.setAttribute('aria-expanded', 'false');
+    });
+    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, mic));
+    // The calm looks keep the conversation button in the navigation bar (top right, like a chat app's history);
+    // the classic looks keep it in the chat bar. Same button either way (tests and the phone layout use .logbtn).
+    const cbar = center.querySelector('#cbar')!;
+    const placeLog = () => {
+      const topCmd = document.querySelector('#top .cmd');
+      if (proLook() && topCmd) topCmd.before(logBtn);
+      else if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
+    };
+    setTimeout(placeLog, 0);
+    themeEvents.on('change', placeLog);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
     hud.append(left, center, right);
@@ -289,6 +311,8 @@ export const coreTab: TabDef = {
     };
     const paintLog = () => {
       clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
+      // copy / listen only under the latest reply
+      [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
       armFade();

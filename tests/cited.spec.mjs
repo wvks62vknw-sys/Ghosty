@@ -34,8 +34,14 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 
 // 1. CITED sits next to SEND, off at first; on with a tap; remembered on this device
 const cited = page.locator('#cbar button.citedbtn');
+// The calm looks keep CITED in the chat bar's "+" menu: open it first when there is one.
+const showCited = async () => {
+  const plus = page.locator('#cbar .plusbtn');
+  if (await plus.isVisible().catch(() => false)) await plus.click();
+};
+await showCited();
 await cited.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push('no CITED button in the chat bar'));
-const order = await page.$$eval('#cbar > button', (b) => b.map((x) => x.textContent.trim()));
+const order = await page.$$eval('#cbar button', (b) => b.map((x) => x.textContent.trim()));
 if (order.indexOf('CITED') !== order.indexOf('SEND') + 1) problems.push(`CITED is not next to SEND: ${order.join(', ')}`);
 if ((await cited.getAttribute('aria-pressed')) !== 'false') problems.push('CITED starts on');
 await cited.click();
@@ -44,6 +50,7 @@ if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth 
 await page.waitForTimeout(500); // settings are saved a moment after a change
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
+await showCited();
 await cited.waitFor({ state: 'visible', timeout: 10000 });
 if ((await cited.getAttribute('aria-pressed')) !== 'true') problems.push('CITED was not remembered after a reload');
 const bar = await page.locator('#cbar').boundingBox();
@@ -95,6 +102,7 @@ await again.waitFor({ state: 'visible', timeout: 15000 }).catch(() => problems.p
 if ((await again.locator('.cite').count()) !== 4) problems.push('chips missing after a reload');
 
 // 5. CITED off: a plain reply, and the request says nothing about citing
+await showCited();
 await cited.click();
 if ((await cited.getAttribute('aria-pressed')) !== 'false') problems.push('CITED did not turn off');
 const before = await page.locator('.log .msg:not(.me)').count();

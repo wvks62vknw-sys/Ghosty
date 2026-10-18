@@ -4,7 +4,7 @@
  * with `stack` — follow each other in one scrolling page.
  */
 import { clear, h } from '../core/dom';
-import { button, dial } from './components';
+import { button, dial, niceCase } from './components';
 
 export interface Page {
   root: HTMLElement;
@@ -26,6 +26,9 @@ export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftL
     const on = hud.classList.toggle('alt');
     b.textContent = on ? (opts.leftLabel ?? 'BACK') : (opts.rightLabel ?? 'MORE');
   }, 'swap');
+  // The calm looks draw this as a segmented control (both names, the shown side selected).
+  swap.dataset.left = niceCase(opts.leftLabel ?? 'Back');
+  swap.dataset.right = niceCase(opts.rightLabel ?? 'More');
   const hero = h('div.hero', tag, big, sub, swap, dialBox);
   const left = h('div.col.cL');
   const right = h('div.col.cR');

@@ -20,7 +20,7 @@ export interface Panel {
 
 export function panel(title: string, opts: { status?: string; footer?: boolean; grow?: boolean; cls?: string } = {}): Panel {
   const dot = h('i.light');
-  const st = h('small', opts.status ?? '');
+  const st = h('small', opts.status ? { dataset: { label: /[a-z]/.test(opts.status) ? opts.status : niceCase(opts.status) } } : {}, opts.status ?? '');
   const t = h('span.ptitle', title);
   // The calm looks' wording for the title, kept up to date when the title changes ("WEATHER · LONDON").
   const label = () => {
@@ -46,6 +46,8 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
     title: t,
     setStatus(text, light) {
       st.textContent = text;
+      // the calm looks show the status in sentence case, abbreviations kept ("LIVE" → "Live", "BBC")
+      st.dataset.label = /[a-z]/.test(text) ? text : niceCase(text);
       dot.className = `light ${light ?? ''}`;
     },
   };

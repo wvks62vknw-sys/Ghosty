@@ -105,7 +105,7 @@ test('agent loop: remember tool then reply', async () => {
   const ev = await chat('remember I prefer my coffee black');
   assert.deepEqual(ev.map((e) => e.t).filter((t) => t !== 'status'), ['tool', 'tool_result', 'text', 'done']);
   const mem = await (await call('/api/memory')).json();
-  assert.equal(mem.facts[0].text, 'i prefer my coffee black');
+  assert.equal(mem.facts[0].text, 'I prefer my coffee black');
 });
 
 test('Ghosty learns lessons from experience and studies its handbook', async () => {

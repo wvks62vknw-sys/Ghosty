@@ -752,23 +752,6 @@ export class Reactor {
       x.stroke();
     }
 
-    // ---- gyros, far side (thin and slow)
-    const gyro = (tilt: number, spin: number, r: number, col: number[], front: boolean) => {
-      x.save();
-      x.rotate(spin);
-      x.scale(1, Math.cos(tilt));
-      x.strokeStyle = rgba(col, front ? 0.32 : 0.1);
-      x.lineWidth = 0.0045;
-      x.beginPath();
-      x.arc(0, 0, r, front ? Math.PI : 0, front ? TAU : Math.PI);
-      x.stroke();
-      x.restore();
-    };
-    const tiltA = 1.2 + Math.sin(t * 0.13) * 0.2;
-    const tiltB = 1.32 + Math.cos(t * 0.11) * 0.22;
-    gyro(tiltA, t * 0.18, 1.185, th, false);
-    gyro(tiltB, -t * 0.14 + 1, 1.215, ac, false);
-
     // ---- housing
     x.globalCompositeOperation = 'source-over';
     x.drawImage(this.proUnder, -PX, -PX, 2 * PX, 2 * PX);
@@ -888,57 +871,20 @@ export class Reactor {
     x.fillRect(-R, -R, R * 2, R * 2);
     x.restore();
 
-    // ---- a few soft motes on the strongest beats
-    for (const s of this.sparks) {
-      const k = 1 - s.life / s.max;
-      if (s.r > 1.1) continue;
-      x.fillStyle = rgba(hot, k * 0.55);
-      x.beginPath();
-      x.arc(Math.cos(s.a) * s.r, Math.sin(s.a) * s.r, s.s * 0.6 * (0.5 + k), 0, TAU);
-      x.fill();
-    }
+    // ---- motes only when touched (the calm looks keep the reactor the one quiet light on the screen)
+    if (this.kick > 0.05)
+      for (const s of this.sparks) {
+        const k = 1 - s.life / s.max;
+        if (s.r > 1.1) continue;
+        x.fillStyle = rgba(hot, k * 0.5 * this.kick);
+        x.beginPath();
+        x.arc(Math.cos(s.a) * s.r, Math.sin(s.a) * s.r, s.s * 0.6 * (0.5 + k), 0, TAU);
+        x.fill();
+      }
 
     // ---- glass over the core and the face
     x.globalCompositeOperation = 'source-over';
     x.drawImage(this.proGlass, -PX, -PX, 2 * PX, 2 * PX);
-    x.globalCompositeOperation = 'lighter';
-
-    // ---- gyros, near side
-    gyro(tiltA, t * 0.18, 1.185, th, true);
-    gyro(tiltB, -t * 0.14 + 1, 1.215, ac, true);
-
-    // ---- the clock as two Activity-style rings, hour (accent) and minute (theme colour), and a seconds bead
-    const d = new Date();
-    const sec = (d.getSeconds() + d.getMilliseconds() / 1000) / 60;
-    const mn = (d.getMinutes() + sec) / 60;
-    const hr = ((d.getHours() % 12) + mn) / 12;
-    x.globalCompositeOperation = 'source-over';
-    x.lineCap = 'round';
-    const activity = (r: number, v: number, c: number[]) => {
-      x.strokeStyle = rgba(c, 0.13);
-      x.lineWidth = 0.034;
-      x.beginPath();
-      x.arc(0, 0, r, 0, TAU);
-      x.stroke();
-      const lg = x.createLinearGradient(0, -r, 0, r);
-      lg.addColorStop(0, rgba(mix(c, [255, 255, 255], 0.25), 1));
-      lg.addColorStop(1, rgba(c, 0.85));
-      x.strokeStyle = lg;
-      x.beginPath();
-      x.arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, v) * TAU);
-      x.stroke();
-    };
-    activity(1.07, hr, ac);
-    activity(1.115, mn, th);
-    const sa = -Math.PI / 2 + sec * TAU;
-    x.strokeStyle = 'rgba(255,255,255,.08)';
-    x.lineWidth = 0.003;
-    x.beginPath();
-    x.arc(0, 0, 1.155, 0, TAU);
-    x.stroke();
-    x.fillStyle = 'rgba(255,255,255,.85)';
-    x.beginPath();
-    x.arc(Math.cos(sa) * 1.155, Math.sin(sa) * 1.155, 0.011 + lub * 0.004, 0, TAU);
-    x.fill();
+    void lub;
   }
 }

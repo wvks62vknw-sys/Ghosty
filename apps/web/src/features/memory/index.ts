@@ -31,7 +31,11 @@ export const memoryTab: TabDef = {
       }
       fg.set([...facts].reverse());
       P.big.textContent = `${facts.length} ${facts.length === 1 ? 'FACT' : 'FACTS'}`;
+      paintSub();
     };
+    let messages = 0;
+    // one line under the title: what he knows, and how long this conversation is
+    const paintSub = () => (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -61,7 +65,7 @@ export const memoryTab: TabDef = {
     let profile: Profile | null = null;
     let diary: DiaryEntry[] = [];
     let lastReflect: number | null = null;
-    const sectionSel = h('select', { 'aria-label': 'Section of your profile' }, ...PROFILE_SECTIONS.map((s) => h('option', { value: s }, s.toUpperCase())));
+    const sectionSel = h('select', { 'aria-label': 'Section of your profile' }, ...PROFILE_SECTIONS.map((s) => h('option', { value: s }, s.charAt(0).toUpperCase() + s.slice(1))));
     const lineIn = h('input', { placeholder: 'Something about you, e.g. "I take my coffee black"', 'aria-label': 'New line about you' });
     const paintMe = () => {
       clear(mp.body);
@@ -72,7 +76,7 @@ export const memoryTab: TabDef = {
       }
       const n = PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0);
       mp.setStatus(n ? `${n} LINES` : 'EMPTY', n ? 'ok' : 'mid');
-      mp.body.append(h('div.note.summary', profile.summary || 'Every night Ghosty looks back over the day and keeps what you told it about yourself: your likes, your people, your places, your routines and plans — never what it read on the web, never a password. Add a line below, or tap ✕ to remove one.'));
+      mp.body.append(h('div.note.summary', profile.summary || 'Each night Ghosty keeps what you told him about yourself — never what he read online, never a password.'));
       for (const s of PROFILE_SECTIONS) {
         const lines = profile.sections[s];
         if (!lines.length) continue;
@@ -180,7 +184,8 @@ export const memoryTab: TabDef = {
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
       cg.set(list.map((e) => ({ who: e.kind === 'user' ? 'YOU' : 'GHOSTY', text: e.text })).reverse());
-      P.sub.textContent = `${list.length} messages in this conversation`;
+      messages = list.length;
+      paintSub();
     };
     chat.subscribe(paintChat);
     paintChat();

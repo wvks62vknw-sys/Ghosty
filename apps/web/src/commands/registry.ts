@@ -4,7 +4,23 @@
  *
  * Add a command:  register({ id: 'my_thing', title: 'Do my thing', run: () => … })
  */
-import { h, clear } from '../core/dom';
+import { h, clear, icon } from '../core/dom';
+import { niceCase } from '../ui/components';
+
+/** Each group of results has a heading and a glyph (SF Symbols-like line icons). */
+const GROUPS: Record<string, { name: string; icon: string }> = {
+  ASK: { name: 'Ask Ghosty', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/>' },
+  FLY: { name: 'Places', icon: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>' },
+  GO: { name: 'Screens', icon: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>' },
+  THEME: { name: 'Looks', icon: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M12 3.5a8.5 8.5 0 010 17"/>' },
+  SYSTEM: { name: 'System', icon: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>' },
+  EYE: { name: 'God’s eye', icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>' },
+  MEDIA: { name: 'Media', icon: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>' },
+  TOOLS: { name: 'Tools', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/>' },
+};
+const groupOf = (g?: string) => GROUPS[g ?? ''] ?? { name: g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More', icon: GROUPS.TOOLS!.icon };
+/** What a query is matched against: the title without its "Theme: " style prefix, and the group's name. */
+const matchText = (c: Command) => `${c.title.replace(/^[A-Z][a-z]+: /, '')} ${groupOf(c.group).name}`;
 
 export interface Command {
   id: string;
@@ -83,9 +99,17 @@ export function addPaletteProvider(fn: (q: string) => Command[]): void {
 
 export function togglePalette(): void {
   if (!pal) {
-    const input = h('input', { placeholder: 'Command, place or question…', 'aria-label': 'Command', autocomplete: 'off', spellcheck: false });
+    const input = h('input', { placeholder: 'Ask, or jump to a screen or place', 'aria-label': 'Command', autocomplete: 'off', spellcheck: false, type: 'search', enterKeyHint: 'go' });
     const list = h('div.ls');
-    pal = h('div#palette', h('div.bx', { role: 'dialog', 'aria-label': 'Command palette' }, input, list, h('div.hint', h('span', '↑↓ select'), h('span', '⏎ run'), h('span', 'esc close'))));
+    const clearBtn = h('button.pclear', { type: 'button', 'aria-label': 'Clear' }, '×');
+    const cancel = h('button.pcancel', { type: 'button' }, 'Cancel');
+    clearBtn.addEventListener('click', () => {
+      input.value = '';
+      render();
+      input.focus();
+    });
+    cancel.addEventListener('click', () => close());
+    pal = h('div#palette', h('div.bx', { role: 'dialog', 'aria-label': 'Command palette' }, h('div.prow', h('span.pglass', icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>')), input, clearBtn, cancel), list, h('div.hint', h('span', '↑↓ select'), h('span', '⏎ run'), h('span', 'esc close'))));
     document.body.append(pal);
     let items: Command[] = [];
     let sel = 0;
@@ -93,17 +117,35 @@ export function togglePalette(): void {
       const q = input.value.trim();
       items = allCommands()
         .filter((c) => !c.hidden)
-        .map((c) => ({ c, s: fuzzy(q, `${c.title} ${c.group ?? ''}`) }))
+        .map((c) => ({ c, s: fuzzy(q, matchText(c)) }))
         .filter((o) => o.s > 0)
         .sort((a, b) => b.s - a.s)
         .map((o) => o.c)
-        .slice(0, 8);
-      if (q.length > 1) for (const p of providers) items = [...p(q), ...items];
-      items = items.slice(0, 10);
+        .slice(0, 12);
+      // Typed words: asking Ghosty comes first, then places, then the rest.
+      if (q.length > 1) {
+        const extra = providers.flatMap((p) => p(q));
+        items = [...extra.filter((c) => c.group === 'ASK'), ...extra.filter((c) => c.group !== 'ASK'), ...items];
+      }
+      // Grouped under headings, at most three of each.
+      const seen = new Map<string, number>();
+      items = items.filter((c) => {
+        const n = seen.get(c.group ?? '') ?? 0;
+        seen.set(c.group ?? '', n + 1);
+        return n < 3;
+      });
+      const order = [...new Set(items.map((c) => c.group ?? ''))];
+      items = order.flatMap((g) => items.filter((c) => (c.group ?? '') === g)).slice(0, 12);
       sel = Math.min(sel, Math.max(0, items.length - 1));
       clear(list);
+      let last: string | null = null;
+      clearBtn.hidden = !input.value;
       items.forEach((c, i) => {
-        const it = h(`div.it${i === sel ? '.sel' : ''}` as 'div', h('small', c.group ?? ''), h('span', c.title), c.keys ? h('em', c.keys) : null);
+        if ((c.group ?? '') !== last) {
+          last = c.group ?? '';
+          list.append(h('div.grp', groupOf(c.group).name));
+        }
+        const it = h(`div.it${i === sel ? '.sel' : ''}` as 'div', h('i.gic', icon(groupOf(c.group).icon)), h('small', c.group ?? ''), h('span', c.group === 'GO' && c.title === c.title.toUpperCase() ? niceCase(c.title) : c.title.replace(/^Theme: /, '')), c.keys ? h('em', c.keys) : null);
         it.addEventListener('click', () => pick(i));
         list.append(it);
       });

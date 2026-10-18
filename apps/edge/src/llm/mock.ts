@@ -114,6 +114,18 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
     if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
+    // After remember: say it as a person would, not the tool's record ("Saved (id …)").
+    const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
+    const tc = prev?.tool_calls?.[0]?.function;
+    if (tc?.name === 'remember' && prev!.tool_calls!.length === 1) {
+      const said = textOf(last.content);
+      const fact = String((JSON.parse(tc.arguments || '{}') as { text?: string }).text ?? '')
+        .replace(/\bI am\b/gi, 'you are')
+        .replace(/\bmy\b/gi, 'your')
+        .replace(/\bme\b/gi, 'you')
+        .replace(/\bi\b/gi, 'you');
+      return { message: { role: 'assistant', content: /^Saved/.test(said) ? `Got it — I’ll remember that ${fact}.` : 'I already know that.' }, model };
+    }
     return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
   }
   // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived (the owner's words only, not the phone's data note).
@@ -121,7 +133,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
-  if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
+  // the fact keeps the owner's own capitals ("Aisha", "I")
+  if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: textOf(last.content).replace(/^scheduled task "[^"]*": /i, '').replace(/^remember /i, '') }), model };
+  // A day-at-a-glance answer for the preview's screenshots (MOCK_LLM only).
+  if (/^what should i know (about )?today\??$/.test(text)) return { message: { role: 'assistant', content: 'It’s 11° and overcast in London, with rain likely after 4 pm — take a light jacket. Your diary is clear until dinner with Sam at 7, and the trains into town are running normally.' }, model };
   if ((m = text.match(/^learn (.+)$/)) && has('learn_lesson')) return { message: call('learn_lesson', { text: m[1], tags: ['test'] }), model };
   if ((m = text.match(/^study ?(.*)$/)) && has('study')) return { message: call('study', m[1] ? { topic: m[1] } : {}), model };
   if (text === 'audit yourself' && has('self_audit')) return { message: call('self_audit', {}), model };

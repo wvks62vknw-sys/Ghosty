@@ -4,7 +4,7 @@ import { clear, h } from '../../core/dom';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
-import { applyTheme, THEMES } from '../../state/theme';
+import { applyTheme, proLook, THEMES } from '../../state/theme';
 import { button, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { offlinePanel } from './offline';
@@ -29,13 +29,30 @@ export const settingsTab: TabDef = {
     // choice is made by looking rather than by name.
     const themes = h('div.themes');
     const paintHead = () => {
-      P.big.textContent = THEMES[settings.get().theme]?.label.toUpperCase() ?? 'SETTINGS';
-      P.sub.textContent = `${settings.get().name} · ${settings.get().units === 'metric' ? '°C · km' : '°F · miles'}`;
+      const look = THEMES[settings.get().theme]?.label ?? 'Settings';
+      const units = settings.get().units === 'metric' ? '°C · km' : '°F · miles';
+      // The calm looks open Settings on a profile row (iOS): your name, then the look and units.
+      if (proLook()) {
+        P.big.textContent = settings.get().name;
+        P.big.dataset.initial = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
+        P.big.dataset.case = 'keep';
+        P.sub.textContent = `${look} · ${units}`;
+      } else {
+        P.big.textContent = look.toUpperCase();
+        delete P.big.dataset.case;
+        P.sub.textContent = `${settings.get().name} · ${units}`;
+      }
     };
     const paintThemes = () => {
       clear(themes);
       const cur = settings.get().theme;
+      let more = false;
       for (const [k, t] of Object.entries(THEMES)) {
+        // the calm looks first, then every classic style under one label
+        if (t.look !== 'pro' && !more) {
+          more = true;
+          themes.append(h('div.lab.morestyles', 'MORE STYLES'));
+        }
         const b = h('button.tcard', { type: 'button', 'data-finish': t.finish, 'aria-pressed': String(cur === k), style: `--tc:${t.c};--ta:${t.a};--tr:${t.r};--tb:${t.bg}` },
           h('span.tprev', h('i.tp1'), h('i.tp2'), h('i.tp3'), h('i.tglow')),
           h('span.tname', t.label),
