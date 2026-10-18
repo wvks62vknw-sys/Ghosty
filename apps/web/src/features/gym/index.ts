@@ -124,6 +124,8 @@ export const gymTab: TabDef = {
     let resumeOnShow = '';
     let worker: Worker | null = null;
     let req = 0;
+    /** Settles once the saved records are read: nothing goes to the worker before, or a fresh Level 1 would be saved over them. */
+    let ready: Promise<unknown> = Promise.resolve();
     const replies = new Map<number, (m: Extract<GymOut, { gym: 'reply' }>) => void>();
 
     // ======================= the worker
@@ -150,9 +152,11 @@ export const gymTab: TabDef = {
     };
     const ask = (m: Record<string, unknown>) =>
       new Promise<Extract<GymOut, { gym: 'reply' }>>((resolve) => {
-        const id = ++req;
-        replies.set(id, resolve);
-        send({ ...m, req: id, rec: recs.get(String(m.id)) ?? null, epoch: epochs[String(m.id)] ?? 0 });
+        void ready.then(() => {
+          const id = ++req;
+          replies.set(id, resolve);
+          send({ ...m, req: id, rec: recs.get(String(m.id)) ?? null, epoch: epochs[String(m.id)] ?? 0 });
+        });
       });
     const onWorker = (m: GymOut) => {
       if (m.gym === 'reply') {
@@ -314,8 +318,9 @@ export const gymTab: TabDef = {
       } else {
         stopWatch();
         held = '';
-        training = open.id;
-        send({ gym: 'train', id: open.id, rec: recs.get(open.id) ?? null, epoch: epochs[open.id] ?? 0 });
+        const id = open.id;
+        training = id;
+        void ready.then(() => training === id && send({ gym: 'train', id, rec: recs.get(id) ?? null, epoch: epochs[id] ?? 0 }));
       }
       paint();
     };
@@ -466,7 +471,7 @@ export const gymTab: TabDef = {
         const id = resumeOnShow;
         resumeOnShow = '';
         training = id;
-        send({ gym: 'train', id, rec: recs.get(id) ?? null });
+        void ready.then(() => training === id && send({ gym: 'train', id, rec: recs.get(id) ?? null, epoch: epochs[id] ?? 0 }));
         paint();
       }
     };
@@ -476,8 +481,9 @@ export const gymTab: TabDef = {
     opener = (id) => id && select(id);
     gymState.open = open.id;
     paint();
-    void store.loadAll().then((all) => {
-      for (const [id, r] of all) if (!recs.has(id)) recs.set(id, r);
+    ready = store.loadAll().then((all) => {
+      // (A game RESET while this was loading stays reset.)
+      for (const [id, r] of all) if (!recs.has(id) && !epochs[id]) recs.set(id, r);
       paint();
       if (waiting !== undefined) {
         const w = waiting;
