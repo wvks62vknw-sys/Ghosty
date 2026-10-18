@@ -52,7 +52,7 @@ async function pair(ctx) {
       live = r.status() === 200;
     }
     if (!live) problems.push('the site was never published');
-    // ... and the project finishes with the report.
+    // Then the project finishes with the report.
     let done = false;
     for (let i = 0; i < 40 && !done; i++) {
       await ui.evaluate(() => (location.hash = 'workshop'));

@@ -15,7 +15,8 @@ export { BEHAVIOURS } from '../../packages/shared/src/sitekit/assemble.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
-export { siteTools, siteStore, PAGE_CSP } from './src/tools/sites.ts';`,
+export { siteTools, siteStore, PAGE_CSP } from './src/tools/sites.ts';
+export { siteMessage } from '../web/src/offline/sitework.ts';`,
     resolveDir: at('..'),
     loader: 'ts',
   },
@@ -447,4 +448,31 @@ test('picture search: Openverse first, Commons next, every result credited; noth
   } finally {
     globalThis.fetch = real;
   }
+});
+
+// ── offline, on the phone ─────────────────────────────────────────────────────────
+
+test('offline: a website request is recognised, the answers are folded into the brief, and the worker builds a gated site', () => {
+  for (const t of ['build me a website for my cafe', 'can you make a site for my plumbing business', 'I need a landing page for my app']) assert.ok(K.siteAsk(t), t);
+  for (const t of ['unpublish site acme', 'what is a website', 'build me a timer']) assert.ok(!K.siteAsk(t), t);
+  assert.equal(K.townOf("build a website for my friend's barber shop in walsall"), 'Walsall');
+  const b = K.briefFrom('build me a website for my cafe in Bilston');
+  const asked = K.missing(b).map((m) => m.key);
+  assert.deepEqual(asked.slice(0, 3), ['name', 'phone', 'hours']);
+  const m = K.mergeAnswers(b, "Little Fern, 01902 000512, Mon-Fri 8-4, Sat 9-3, Sun closed, flat white £3.20, everything's baked here every morning", asked);
+  assert.equal(m.name, 'Little Fern');
+  assert.equal(m.phone, '01902 000512');
+  assert.equal(m.hours.length, 3);
+  assert.deepEqual(m.services.map((x) => [x.name, x.price]), [['Flat white', '£3.20']]);
+  assert.match(m.about, /baked here every morning/);
+  let out;
+  K.siteMessage({ site: 'build', req: 7, brief: m }, (r) => (out = r));
+  assert.equal(out.req, 7);
+  assert.ok(!out.error, out.error);
+  assert.deepEqual(out.pages, ['Home', 'Menu', 'About', 'Visit']);
+  assert.equal(out.problems, 0);
+  assert.match(out.html, /Little Fern/);
+  assert.match(out.html, /8:00–16:00/);
+  assert.match(out.html, /href="tel:\+441902000512"/);
+  assert.deepEqual(K.checkHtml(out.html).errors, []);
 });
