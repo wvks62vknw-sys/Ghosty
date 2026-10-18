@@ -102,6 +102,10 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 @keyframes pnin { from { opacity: 0; transform: translateY(8px); } }
 .hud > * { pointer-events: none; min-height: 0; min-width: 0; }
 .hud .pn, .hud button, .hud input, .hud textarea, .hud select { pointer-events: auto; }
+/* A column takes the touches between its panels too: a swipe there scrolls it instead of reaching the scene behind.
+   Inner scrollers (.col, .pn > .bd) pass a swipe on when they have nothing to scroll: iPhone Safari honours
+   overscroll-behavior: contain even then, which left whole pages unable to scroll. */
+.hud .col { pointer-events: auto; }
 
 /* ---------- panels ---------- */
 .pn {
@@ -118,7 +122,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .pn > h3 .light { width: 5px; height: 5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px rgba(var(--cr), .8); flex: none; animation: breath 2.8s ease-in-out infinite; }
 .pn > h3 .light.mid { background: var(--a); box-shadow: 0 0 6px rgba(var(--ar), .7); animation: none; }
 .pn > h3 .light.off { background: var(--r); box-shadow: none; animation: none; opacity: .9; }
-.pn > .bd { flex: 1; min-height: 0; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(var(--cr), .25) transparent; }
+.pn > .bd { flex: 1; min-height: 0; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(var(--cr), .25) transparent; }
 .pn > .ft { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line2); font: 400 9.5px var(--m); color: var(--mute); }
 .pn > .ft button { padding: 4px 9px; min-height: 24px; font-size: 9px; }
 .pn > .ft .pg-label { flex: 1; text-align: center; font-variant-numeric: tabular-nums; }
@@ -176,7 +180,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .two .bigv { font: 200 36px/1 var(--d); letter-spacing: .02em; color: #fff; min-height: 1em; position: relative; font-variant-numeric: tabular-nums; }
 .two .sub { font: 400 10.5px var(--m); letter-spacing: .02em; color: var(--mute); max-width: 70%; }
 .two .swap { position: absolute; right: 4px; top: 6px; pointer-events: auto; }
-.col { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.col { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: auto; scrollbar-width: none; }
 .col > .pn { min-height: 160px; }
 .col > .pn { flex: 1 1 0; }
 .dials { display: none; gap: 20px; justify-content: center; position: absolute; left: 0; right: 0; bottom: 14px; }
@@ -285,7 +289,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 /* With a panel under it the map gives up some height and never paints over the panel (a phone has room for both). */
 .mapsheet.withbelow .flathost { overflow: hidden; }
 .mapsheet.withbelow .flatmap { min-height: 150px; }
-.jsheet { flex: none; max-height: min(34vh, 300px); overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.jsheet { flex: none; max-height: min(34vh, 300px); overflow: auto; overscroll-behavior: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
 .jsheet[hidden] { display: none; }
 .jhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
 .jhead b { font: 500 10px var(--d); letter-spacing: .16em; color: var(--c); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
