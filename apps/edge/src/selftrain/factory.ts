@@ -462,7 +462,7 @@ export function evolSeeds(opts: { week: number; gymSeeds: { game: string; level:
 
 const INTERNAL_DOC = /^(read_|digest_|study_|notes_|project_|learn_|self_)/;
 
-/** Passages of the owner's own documents (not Ghosty's notebooks), a few from each, in a seeded order; `skip` = keys held out for the exam. */
+/** Passages of the owner's own documents (not Ghosty's notebooks), up to eight from each, in a seeded order; `skip` = keys held out for the exam. */
 export function ownerPassages(library: Library | null, week: number, max: number, skip: Set<string>): Passage[] {
   if (!library?.available) return [];
   const docs = library.list().filter((d) => !d.builtin && !INTERNAL_DOC.test(d.id) && d.status === 'ready');
@@ -470,7 +470,7 @@ export function ownerPassages(library: Library | null, week: number, max: number
   const out: Passage[] = [];
   for (const d of docs.sort(() => r() - 0.5)) {
     const ps = library.passagesOf(d.id, 0, 60).passages.filter((p) => p.text.length >= 200);
-    for (const p of ps.sort(() => r() - 0.5).slice(0, 4)) {
+    for (const p of ps.sort(() => r() - 0.5).slice(0, 8)) {
       const key = `${d.id}#${p.rid}`;
       if (skip.has(key)) continue;
       out.push({ key, title: d.title, text: p.text });

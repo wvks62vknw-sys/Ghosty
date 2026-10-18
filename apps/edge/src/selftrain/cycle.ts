@@ -44,6 +44,7 @@ import {
   libraryRecords,
   LIBRARY_SYSTEM,
   loadRecords,
+  overlap,
   ownerPassages,
   ratingRecords,
   redteamRecords,
@@ -90,7 +91,7 @@ interface State {
   note: string;
   /** Model calls made this week, and how far each kind of gathering got. */
   calls: number;
-  done: { free?: boolean; examLibrary?: boolean; prefs?: number; library?: number; evol?: number; redteam?: number };
+  done: { free?: boolean; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefs?: number; library?: number; evol?: number; redteam?: number };
   ticket?: string;
   ticketUntil?: number;
   dataCommit?: string;
@@ -276,26 +277,30 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
   };
   let noModel = false;
   const passages = priv ? ownerPassages(d.library, st.week, WEEKLY.library / 2 + 12, held) : [];
-  // 1. the exam's library questions, once (held out from training for good)
-  if (!st.done.examLibrary && passages.length >= 6 && room()) {
-    const cases = [];
-    for (const p of passages.slice(0, 6)) {
-      if (!room()) break;
+  // 1. the exam's library questions, once (held out from training for good): from at most half the passages
+  // there are, six at most, a few model calls at a time like everything else here.
+  st.done.examTarget ??= Math.min(6, Math.floor(passages.length / 2));
+  const tried = new Set(st.done.examKeys ?? []);
+  if (!st.done.examLibrary && st.done.examTarget >= 2) {
+    for (const p of passages) {
+      if (tried.size >= st.done.examTarget || !room()) break;
+      if (tried.has(p.key)) continue;
       const reply = await call(LIBRARY_SYSTEM, `${p.title}\n\n${p.text}`);
       if (reply === null) {
         noModel = true;
         break;
       }
-      const qa = ((jsonIn(reply)?.qa ?? []) as { q?: unknown; a?: unknown }[]).filter((x) => typeof x?.q === 'string' && typeof x?.a === 'string');
-      for (const x of qa.slice(0, 2)) cases.push(libraryCase(p, String(x.q), String(x.a)));
-    }
-    if (cases.length) {
-      exam.library = cases.slice(0, 12);
+      tried.add(p.key);
+      // the same check as training pairs: the answer's words must be in the passage
+      const qa = ((jsonIn(reply)?.qa ?? []) as { q?: unknown; a?: unknown }[]).filter((x) => typeof x?.q === 'string' && typeof x?.a === 'string' && x.q.length >= 8 && overlap(x.a, p.text) >= 0.6);
+      for (const x of qa.slice(0, 2)) if (exam.library.length < 12) exam.library.push(libraryCase(p, String(x.q), String(x.a)));
       await s.put(K.exam, exam);
-      st.done.examLibrary = true;
     }
+    st.done.examKeys = [...tried];
+    if (tried.size >= st.done.examTarget) st.done.examLibrary = true;
   }
-  const lib = passages.filter((p) => !new Set(exam.library.map((c) => c.key)).has(p.key));
+  if (!st.done.examLibrary && st.done.examTarget >= 2) return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: 'Gathering: writing the exam\'s library questions first.' };
+  const lib = passages.filter((p) => !tried.has(p.key));
   // 2. better replies for the owner's 👎
   if (priv && !noModel) {
     const downs = (await loadRatings(s)).filter((r) => !r.up && !r.used).slice(0, WEEKLY.pref);
@@ -525,7 +530,9 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     await d.storage.put(K.active, kept.commit);
     note = `Ghosty (week ${st.week}) passed the exam (${report.gate.why}) and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
   } else {
-    if (!pub) delete report.published;
+    // Not offered to the phone, whatever the notebook did.
+    if (pub) report.rejected.push({ why: `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam gate here: not offered to the phone`, n: 1 });
+    delete report.published;
     note = r.error ? `This week's training did not finish: ${String(r.error).slice(0, 160)}` : `This week's training did not beat the current brain (${report.gate.why}); nothing changed.`;
   }
   // The ratings this run learned from are not used again.
