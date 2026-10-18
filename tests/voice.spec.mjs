@@ -302,11 +302,12 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   // back to automatic: a passing Aura error is not "used up": the plain clip the brain sent plays, the phone stays quiet
   await engineSel.selectOption('auto');
   ttsAnswer = { voice: 'melo', note: 'the natural voice did not answer', reason: 'error', status: 200, seconds: 0.1 };
-  const quiet = await page.evaluate(() => window.__said.length);
+  // (only the sample line counts: anything else the phone may still be finishing is not this sample)
+  const quiet = await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length);
   const asked = ttsBodies.length;
   await page.click('button[aria-label="Hear a sample of this voice"]');
   await page.waitForFunction(() => /Just spoke: Melo/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] after an Aura error the plain clip was not played`));
-  if ((await page.evaluate(() => window.__said.length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
+  if ((await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
   if (ttsBodies.length === asked) problems.push(`[${name}] after an Aura error the brain was not asked`);
   // when the natural voice's share is used up for today, the phone's natural voice takes over
   ttsAnswer = { voice: 'melo', note: "today's share for the natural voice is used up", reason: 'share', status: 200, seconds: 0.1 };

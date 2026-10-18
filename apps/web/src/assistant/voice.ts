@@ -34,9 +34,14 @@ try {
   /* no speech synthesis */
 }
 
+let lastRead = 0;
 /** This phone's English voices, the most natural British ones first. */
 export const listVoices = (): SpeechSynthesisVoice[] => {
-  if (!voices.length) loadVoices();
+  // Read again at most once a second while the list is empty: reading it can itself announce a change.
+  if (!voices.length && Date.now() - lastRead > 1000) {
+    lastRead = Date.now();
+    loadVoices();
+  }
   return voices.filter((v) => /^en/i.test(v.lang)).sort((a, b) => phoneVoiceScore(b) - phoneVoiceScore(a) || a.name.localeCompare(b.name));
 };
 

@@ -73,8 +73,15 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
   fill();
   // The phone's voices arrive a moment after the page loads (and when one is downloaded).
   setTimeout(fill, 1000);
+  // Only when the list really changed: some browsers announce a change every time the list is read (fill reads it).
+  let heard = listVoices().map((v) => v.name).join('|');
   try {
-    speechSynthesis.addEventListener('voiceschanged', fill);
+    speechSynthesis.addEventListener('voiceschanged', () => {
+      const now = listVoices().map((v) => v.name).join('|');
+      if (now === heard) return;
+      heard = now;
+      fill();
+    });
   } catch {
     /* no speech synthesis */
   }
