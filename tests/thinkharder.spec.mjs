@@ -249,6 +249,7 @@ async function run(name, viewport) {
   // A check now measures the trained week, under its own name and commit.
   await pn.locator('button:has-text("QUICK CHECK")').click();
   await page.waitForFunction(() => /CHECKED/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`[${name}] the trained week's check did not finish: ${await status()}`));
+  await page.waitForTimeout(600); // (stores save a moment after they change)
   const lastKey = await page.evaluate(() => { const h = JSON.parse(localStorage.getItem('ghosty.reportcard') ?? '{}').history ?? []; return h.at(-1)?.model ?? ''; });
   if (!/^Ghosty-week-2-bbbbbbb@bbbbbbb$/.test(lastKey)) problems.push(`[${name}] the check was not filed under the trained week: ${lastKey}`);
   await ctx.close();
