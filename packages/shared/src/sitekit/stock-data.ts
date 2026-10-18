@@ -31,6 +31,35 @@ export const STOCK: Partial<Record<KindId, StockSet>> = {
       C('9/96/Barber_shop,_Quebec_city,_Canada.jpg', 7364, 4909, 'A black and white barber shop with a chequered floor', 'Wilfredor', 'CC0', 'Barber shop, Quebec city'),
     ],
   },
+  cafe: {
+    hero: C('c/c6/Latte_art_3.jpg', 3442, 2290, 'Milk being poured into a flat white to make latte art', 'Kim Sanso', 'CC0', 'Latte art 3', '45% 50%'),
+    story: [
+      C('3/3b/Barista_prepares_espresso_at_coffee_shop.jpg', 6048, 4032, 'A barista tamping espresso at the coffee machine', 'Shixart1985', 'CC BY 2.0', 'Barista prepares espresso at coffee shop'),
+      C('c/cb/Empty_coffee_shop_interior_with_wooden_table_and_water_skis.jpg', 4096, 2730, 'A quiet café corner with a brick wall and a long wooden table', 'Drew Coffman', 'CC0', 'Empty coffee shop interior'),
+    ],
+    gallery: [
+      C('8/8a/Latte_art_4.jpg', 3827, 2547, 'A hand holding a cup of coffee with latte art', 'Kim Sanso', 'CC0', 'Latte art 4'),
+      C("5/58/Latte_art_at_Balzac's.jpg", 1600, 1200, 'A rosetta poured into a latte', 'Linda N.', 'CC BY 2.0', "Latte art at Balzac's"),
+      C('1/1f/Matcha_tea_latte_with_rosetta_latte_art.jpg', 4032, 2268, 'A matcha latte on a wooden table', 'Irvan Ary Maulana', 'CC BY-SA 4.0', 'Matcha tea latte with rosetta latte art'),
+      C('0/03/Coffee_preparation_in_a_modern_cafe_with_steaming_equipment_and_skilled_barista_at_work_during_the_morning_rush_hour.jpg', 4747, 3169, 'Steam rising from the espresso machine during the morning rush', 'Shixart1985', 'CC BY 2.0', 'Coffee preparation in a modern cafe'),
+      C('0/01/Latte_art_and_laptop_(Unsplash).jpg', 3456, 1944, 'A latte beside a laptop on a café table', 'Nafinia Putra', 'CC0', 'Latte art and laptop'),
+      C('3/36/Latte_art_smile.jpg', 2592, 1944, 'A coffee with a smiling face in the foam, next to a pastry', 'קלאופטרה', 'CC BY-SA 3.0', 'Latte art smile'),
+    ],
+  },
+  restaurant: {
+    hero: C('f/f3/Restaurant_room_of_Amantaka_luxury_Resort_&_Hotel_in_Luang_Prabang_Laos.jpg', 6585, 4390, 'An elegant dining room with laid tables and warm light', 'Basile Morin', 'CC BY-SA 4.0', 'Restaurant room of Amantaka'),
+    story: [
+      C('2/2e/Waiter_serves_a_dish_to_a_diner_at_a_restaurant_during_evening_hours_with_people_seated_at_tables_nearby.jpg', 6048, 4024, 'A waiter serving a dish to a diner in the evening', 'Shixart1985', 'CC BY 2.0', 'Waiter serves a dish to a diner'),
+      C('3/35/Dining_area,_Locale_Restaurant,_Hastings_Street,_Noosa_Heads.jpg', 4032, 3024, 'A bright dining room with white tablecloths', 'Kgbo', 'CC BY-SA 4.0', 'Dining area, Locale Restaurant'),
+    ],
+    gallery: [
+      C("4/49/Chef's_special_fish_dish_at_a_restaurant.jpg", 3664, 2931, 'A plated fish dish', 'Prayitno', 'CC BY 2.0', "Chef's special fish dish"),
+      C('9/94/Delicious_gourmet_dish_served_at_a_restaurant_highlighting_tender_meat_undefined.jpg', 4160, 6240, 'A gourmet meat dish, carefully plated', 'Shixart1985', 'CC BY 2.0', 'Gourmet dish'),
+      C("6/64/Restaurant_R'Evolution,_New_Orleans_dish_2017.jpg", 2500, 1874, 'A refined plated dish with a dark sauce', 'Jeff Marquis', 'CC BY 2.0', "Restaurant R'Evolution dish"),
+      C('4/41/Starter_dish_in_Turkey.jpg', 2560, 1920, 'A selection of small starter plates', 'E4024', 'CC BY-SA 4.0', 'Starter dish'),
+      C('c/c6/Flickr_-_The_U.S._Army_-_Executive_chef.jpg', 2000, 3008, 'A chef finishing a plate in the kitchen', 'The U.S. Army', 'Public domain', 'Executive chef'),
+    ],
+  },
 };
 
 /** The pictures for a kind, falling back to a neighbour's when a kind has none of its own. */

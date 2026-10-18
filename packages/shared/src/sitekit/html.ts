@@ -58,7 +58,7 @@ export function img(ref: ImageRef | undefined, o: { sizes?: string; eager?: bool
   if (!ref) return '';
   const set = (ref.srcset ?? []).filter(([u, w]) => /^https:/.test(u) && w > 0).sort((x, y) => x[1] - y[1]);
   const alt = o.alt ?? ref.alt ?? '';
-  return `<img src="${esc(ref.src)}"${set.length > 1 ? ` srcset="${esc(set.map(([u, w]) => `${u} ${w}w`).join(', '))}" sizes="${esc(o.sizes ?? '100vw')}"` : ''}${ref.width && ref.height ? ` width="${ref.width}" height="${ref.height}"` : ''} alt="${esc(alt)}"${o.eager ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async"${ref.focus ? ` style="object-position:${esc(ref.focus)}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}>`;
+  return `<img src="${esc(ref.src)}"${set.length > 1 ? ` srcset="${esc(set.map(([u, w]) => `${u} ${w}w`).join(', '))}" sizes="${esc(o.sizes ?? '100vw')}"` : ''}${ref.width && ref.height ? ` width="${ref.width}" height="${ref.height}"` : ''} alt="${esc(alt)}"${o.eager ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"'} decoding="async"${ref.focus ? ` style="object-position:${esc(ref.focus)}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}>`;
 }
 
 // ── contact links ───────────────────────────────────────────────────────────────────

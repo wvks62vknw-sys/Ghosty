@@ -9,3 +9,6 @@ export * from './stock';
 export * from './stock-data';
 export * from './assemble';
 export { BLOCKS, BLOCK_LIST } from './blocks';
+export * from './gates';
+export * from './images';
+export * from './write';

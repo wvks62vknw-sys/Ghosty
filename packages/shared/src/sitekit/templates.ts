@@ -612,9 +612,9 @@ export function planFrom(input: Brief, o: { url?: string; theme?: Partial<Theme>
   const pages = t.pages(b, s).map((p) => ({ ...p, sections: p.sections.map((x) => ({ ...x, data: clean(x.data) })) }));
   const home = pages[0]!;
   const meta = t.meta(b);
-  home.title = meta.title;
+  home.title = meta.title.length <= 65 ? meta.title : `${b.name}${b.town && b.name.length + b.town.length < 60 ? ` · ${b.town}` : ''}`;
   home.description = meta.description.slice(0, 160);
-  for (const p of pages) if (!p.description) p.description = home.description;
+  for (const p of pages.slice(1)) if (!p.description || p.description.length < 50) p.description = `${p.description ? `${p.description} ` : `${p.label}: `}${home.description}`.slice(0, 160);
   const pageWords = pages.some((p) => p.sections.some((x) => x.block === 'faq')) ? ['FAQ answers (typical ones are shown)'] : [];
   const announce = t.announce?.(b);
   const plan: Plan = {

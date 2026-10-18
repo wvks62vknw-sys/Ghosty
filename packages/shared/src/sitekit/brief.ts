@@ -49,7 +49,7 @@ export function townOf(text: string): string | undefined {
 
 /** "called Fade & Co", "named 'The Daily Grind'", or a quoted name. */
 export function nameOf(text: string): string | undefined {
-  const q = text.match(/["“']([^"”']{2,48})["”']/);
+  const q = text.match(/["“]([^"”]{2,48})["”]/) ?? text.match(/(?:^|[\s(])['‘]([^'’]{2,48})['’](?=[\s,.!?)]|$)/);
   if (q) return q[1]!.trim();
   const m = text.match(/\b(?:called|named|name is|business is)\s+([A-Z0-9][\w&'’.-]*(?:\s+(?:&|and|of|the|[A-Z0-9][\w&'’.-]*)){0,5})/);
   return m?.[1]?.replace(/\s+(?:in|on|at|for|and)$/i, '').trim();

@@ -223,6 +223,8 @@ export interface Project {
   docId: string;
   /** The last thing worth knowing: waiting for a free model, why a step failed. */
   note?: string;
+  /** 'site': a website built on Ghosty's own (sitebuild.ts runs its fixed steps); absent: steps run by the model with tools. */
+  kind?: 'site';
 }
 
 export interface Widget {
