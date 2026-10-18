@@ -75,7 +75,7 @@ for (const b of ['address', 'article', 'aside', 'blockquote', 'details', 'dialog
 /** Script types that are data, not code to run. */
 const DATA_SCRIPT = /^(application\/(ld\+)?json|importmap|speculationrules|text\/(template|x-[\w-]+|plain|html))$/i;
 /** Frames a published page may show (tools/sites.ts PAGE_CSP frame-src). */
-const FRAME_HOSTS = ['www.youtube-nocookie.com', 'www.youtube.com', 'player.vimeo.com'];
+const FRAME_HOSTS = ['www.youtube-nocookie.com', 'www.youtube.com', 'player.vimeo.com', 'www.openstreetmap.org'];
 const FONT_CSS = 'https://fonts.googleapis.com/';
 const FONT_FILES = 'https://fonts.gstatic.com/';
 
@@ -180,7 +180,7 @@ export function checkHtml(html: string, opts: { kind?: CheckKind } = {}): CheckR
     const u = raw.trim();
     if (w === 'http') return resource(line, 'error', `${what} ${u.slice(0, 80)} is insecure (http:) — the browser blocks it on an https page; use an https:// address`);
     if (opts2.frame) {
-      if (page && w !== 'anchor' && !FRAME_HOSTS.includes(hostOf(u))) resource(line, 'error', `${what} ${u.slice(0, 80)} won't show — a published page may only frame YouTube (www.youtube-nocookie.com) and Vimeo (player.vimeo.com) embeds; link to it instead`);
+      if (page && w !== 'anchor' && !FRAME_HOSTS.includes(hostOf(u))) resource(line, 'error', `${what} ${u.slice(0, 80)} won't show — a published page may only frame YouTube (www.youtube-nocookie.com), Vimeo (player.vimeo.com) and OpenStreetMap (www.openstreetmap.org) embeds; link to it instead`);
       return;
     }
     if (opts2.stylesheet) {

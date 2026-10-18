@@ -17,6 +17,7 @@ import type { Library } from './library/store';
 import { textOf } from './llm/content';
 import type { Msg, ToolSpec } from './llm/router';
 import { addJob, deferJob, loadJobs, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { runSiteStep, SITE_STEP_MS } from './sitebuild';
 import { arg, clip, type Tool, type ToolContext } from './tools/types';
 
 const PREFIX = 'project:';
@@ -136,7 +137,7 @@ export function describeProject(p: Project, full = false): string {
 
 // ── starting, pausing, resuming, cancelling ────────────────────────────────────────
 
-export async function startProject(s: Store, a: { title: string; goal: string; steps: { title: string; instruction: string }[]; pace: Project['pace'] }): Promise<Project> {
+export async function startProject(s: Store, a: { title: string; goal: string; steps: { title: string; instruction: string }[]; pace: Project['pace']; kind?: Project['kind'] }): Promise<Project> {
   const now = Date.now();
   const id = newId();
   const p: Project = {
@@ -150,6 +151,7 @@ export async function startProject(s: Store, a: { title: string; goal: string; s
     updated: now,
     fails: 0,
     docId: `project_${id}`,
+    ...(a.kind ? { kind: a.kind } : {}),
   };
   await saveProject(s, p);
   await armJob(s.storage, p, FIRST_STEP_DELAY);
@@ -363,7 +365,8 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
     await saveProject(deps, p);
     let outcome: { text: string; sources: string[] };
     try {
-      outcome = await workStep(deps, p, step);
+      // A website (sitebuild.ts) runs its own fixed steps; anything else is the model working with tools.
+      outcome = p.kind === 'site' ? await runSiteStep(deps, p, step) : await workStep(deps, p, step);
     } catch (e) {
       const msg = String((e as Error)?.message ?? e);
       step.status = 'todo';
@@ -400,8 +403,9 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
     await fileStep(deps.library, p, step, outcome).catch(() => undefined);
     if (!p.steps.some((s) => s.status !== 'done')) return finish(deps, job, p);
     await saveProject(deps, p);
-    await setNext(storage, job.id, Date.now() + PACE_MS[p.pace]);
-    if (notifyStep(step.n, p.steps.length)) await deps.notify({ kind: 'task', title: `${p.title} · step ${step.n} of ${p.steps.length}`, text: `${step.title}: ${step.result}`.slice(0, 600) });
+    await setNext(storage, job.id, Date.now() + (p.kind === 'site' ? SITE_STEP_MS : PACE_MS[p.pace]));
+    // A website tells the owner once, at the end, with the link.
+    if (p.kind !== 'site' && notifyStep(step.n, p.steps.length)) await deps.notify({ kind: 'task', title: `${p.title} · step ${step.n} of ${p.steps.length}`, text: `${step.title}: ${step.result}`.slice(0, 600) });
     return { did: 'step', project: p };
   } finally {
     deps.busy.set(false);
@@ -420,7 +424,7 @@ async function finish(deps: ProjectDeps, job: Job, p: Project): Promise<{ did: '
   p.updated = Date.now();
   await saveProject(deps, p);
   await removeJob(deps.storage, job.id).catch(() => undefined);
-  await deps.notify({ kind: 'task', title: `${p.title} · done`, text: finalReport(p) });
+  await deps.notify({ kind: 'task', title: `${p.title} · done`, text: p.kind === 'site' ? (p.steps[p.steps.length - 1]?.result ?? finalReport(p)) : finalReport(p) });
   return { did: 'done', project: p };
 }
 

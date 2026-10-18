@@ -10,6 +10,7 @@ import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
+import { offlineSiteReply, offlineSiteTurn, pendingSite } from '../offline/site';
 import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
@@ -37,8 +38,9 @@ export type Entry =
   | { kind: 'user'; text: string; at: number }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
-  /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean }
+  /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
+   *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number } }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -252,7 +254,9 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
     } else {
       // No connection at all: answer from the library copy on this device.
       const answer = e instanceof TypeError && offline ? await offline().catch(() => null) : null;
-      if (answer) {
+      if (answer === HANDLED) {
+        // answered on the phone by its own builder (a website)
+      } else if (answer) {
         const at = stamp();
         push({ kind: 'assistant', text: answer, at, model: 'Library on this device · offline' });
         chat.set({ live: answer });
@@ -272,6 +276,16 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
 }
 
 const OFFLINE_MODEL = 'On this phone · offline';
+/** An offline fallback that already put its own answer in the log. */
+const HANDLED = '\u0000handled';
+
+/** A website built on the phone (no brain needed): the questions, or the finished site with its buttons. */
+async function siteHere(t: string): Promise<void> {
+  ui.set({ status: 'building on your phone…' });
+  const r = await offlineSiteReply(t);
+  push({ kind: 'assistant', text: r.text, at: Date.now(), model: 'On this phone · website kit', offline: true, ...(r.site ? { site: r.site } : {}) });
+  chat.set({ live: r.text });
+}
 
 /**
  * Answer on the phone itself with the offline brain (offline/brain.ts): the reply streams into
@@ -411,6 +425,11 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
   if (harder !== null) return thinkHarderAbout(harder, { asked: true });
   const mode = settings.get().offlineBrain;
+  // A website with no brain to ask (offline mode 'always', no connection, or the answers to the phone's own questions): built here from the website kit.
+  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false || pendingSite())) {
+    await stream(async () => siteHere(t));
+    return;
+  }
   if (mode === 'always' && !opts.cloud) {
     // The owner chose the phone's own brain: the cloud brain is never asked.
     await stream(async () => {
@@ -441,7 +460,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
       }, undefined, recent, settings.get().cited);
       if (held && !(await answerHere(t, recent))) cb(held);
     },
-    () => offlineAnswer(t),
+    () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t)),
     rescue,
   );
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.

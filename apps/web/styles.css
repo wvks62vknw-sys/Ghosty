@@ -1233,3 +1233,8 @@ button.srclink { padding: 0; border: 0; background: none; color: var(--c); font:
 .selftrain .note.small { font-size: 11px; opacity: .8; }
 .selftrain .trainkeys ol.steps { margin: 6px 0 0 18px; padding: 0; }
 .selftrain .trainkeys li { margin-bottom: 6px; line-height: 1.45; }
+
+/* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
+.msg .siterow { flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.sitepreview-wrap { display: flex; width: min(92vw, 430px); height: min(76dvh, 860px); }
+.sitepreview-wrap iframe.sandbox.sitepreview { background: #fff; border-radius: 6px; }
