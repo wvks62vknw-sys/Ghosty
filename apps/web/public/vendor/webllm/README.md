@@ -33,3 +33,11 @@ removed, since the 7 MB source map is not shipped. Every file is far under Cloud
 
 Needs WebGPU with 16-bit shaders (`shader-f16`): on iPhone, iOS 26 or newer. Elsewhere the panel says why
 it can't run, and Ghosty answers as before (the cloud brain, then the library copy on the phone).
+
+Trained weeks (`src/offline/models.ts` `trainedModels`): the weekly self-training (apps/edge/src/selftrain,
+training/kaggle) publishes Qwen3-0.6B fine-tuned for the owner as q4f16_1 weights in exactly the stock files'
+layout (every tensor's name, shape and type from the stock `tensor-cache.json`; the writer reproduces mlc-ai's
+own shards bit for bit from the base weights), with the stock `mlc-chat-config.json` and tokenizer files, to the
+owner's own Hugging Face model repo at a new commit. So `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` runs them
+unchanged and no new compiled code is vendored; they come from huggingface.co like the stock weights (no new
+host in the security policy).

@@ -455,17 +455,27 @@ def http_json(url, data=None, method=None, timeout=60):
         return json.loads(r.read().decode() or '{}')
 
 
+def node_cmd():
+    """How to run node here: the image's own, or (if the image has none) the one in the nodejs-bin wheel."""
+    import shutil
+    if shutil.which('node'):
+        return ['node']
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'nodejs-bin==18.4.0a4'], check=True)
+    return [sys.executable, '-m', 'nodejs']
+
+
 class Tasks:
     """The GYM's puzzles and the drills, made and checked by tasks.mjs (node) — the very code the phone runs."""
 
-    def __init__(self, path):
+    def __init__(self, path, node=None):
         self.path = path
+        self.node = node or ['node']
 
     def ask(self, reqs):
         if not reqs:
             return []
         lines = '\n'.join(json.dumps(dict(r, id=i)) for i, r in enumerate(reqs)) + '\n'
-        p = subprocess.run(['node', self.path], input=lines, capture_output=True, text=True, timeout=1800)
+        p = subprocess.run([*self.node, self.path], input=lines, capture_output=True, text=True, timeout=1800)
         out = [None] * len(reqs)
         for line in p.stdout.splitlines():
             try:
@@ -566,7 +576,7 @@ class Run:
         self.resume()
         c = self.cfg
         dl = lambda f: hf_hub_download(c['data_repo'], f, repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data')
-        self.tasks = Tasks(dl('tasks.mjs'))
+        self.tasks = Tasks(dl('tasks.mjs'), node_cmd())
         with open(dl('exam.json')) as f:
             self.exam = json.load(f)
         with open(dl(c['data_file'])) as f:

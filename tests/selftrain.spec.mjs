@@ -61,7 +61,8 @@ const r0 = (await api('/training')).ratings;
 await page.fill('#cin', 'hello there, rate me');
 await page.press('#cin', 'Enter');
 await page.waitForSelector('#ccap .rate button[aria-label="Bad reply"]', { state: 'visible', timeout: 20000 }).catch(() => problems.push('no 👍/👎 under the reply in the caption'));
-check(/Mock reply to: hello there, rate me/.test((await page.locator('#ccap').textContent()) ?? ''), 'the caption shows the reply with its buttons');
+// (the caption types itself in: wait for the whole reply)
+await page.waitForFunction(() => /Mock reply to: hello there, rate me/.test(document.querySelector('#ccap')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push('the caption shows the reply with its buttons'));
 await page.screenshot({ path: `${out}/selftrain-${engine}-caption.png` });
 await page.locator('#ccap button[aria-label="Bad reply"]').click();
 await page.waitForTimeout(600);
