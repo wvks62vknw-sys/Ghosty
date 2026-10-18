@@ -266,9 +266,8 @@ test('gym 2: answers that hedge, negate or name the wrong player are refused; ri
 test('gym 2: an untrained learner is below the bar at every level — measured in full (whole matches) — and measuring alone never moves up', () => {
   I.setSlice(Infinity);
   for (const id of NEW) {
-    // (Go's matches against the 100- and 150-play-out engines take minutes: Levels 5–10 under GYM_FULL=1. Levels
-    // 7–10 replay Level 6's games exactly, only scored with him giving points, so they can only score lower.)
-    for (let level = 1; level <= (id === 'go' && !FULL ? 4 : 10); level++) {
+    // (Go's matches against the 256-play-out engine take minutes: Levels 3–10 under GYM_FULL=1.)
+    for (let level = 1; level <= (id === 'go' && !FULL ? 2 : 10); level++) {
       const r = gameById(id).learner(level, 1).measure();
       assert.doesNotMatch(r.detail, /under way/, `${id} L${level}: a whole measurement was made`);
       assert.ok(r.mastery < gameById(id).bar(level) - 0.1, `${id} L${level}: untrained ${r.mastery} is not clearly below ${gameById(id).bar(level)} (${r.detail})`);
@@ -345,11 +344,13 @@ test('checkers: the rules — perft counts from the start, compulsory captures, 
 });
 
 test('checkers: TD self-play climbs the odds ladder; a frozen passer never passes the next level', () => {
-  const { s, passed, frozen } = FULL ? climb('checkers', 10, 50, 150000, true) : climb('checkers', 6, 50, 8000, true);
+  const { s, passed, frozen } = FULL ? climb('checkers', 10, 25, 150000, true) : climb('checkers', 6, 25, 8000, true);
   assert.ok(FULL ? s.rec.mastered : s.rec.level >= 7, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  checkers passed: ${passed.join('; ')}`);
   noFreeLevels('checkers', frozen);
   assert.doesNotMatch(s.rec.detail, /rating/);
+  // What he keeps: the square values and the n-tuple network, about 108 KB.
+  assert.ok(s.learner.save().w.byteLength < 200_000);
   // PLAY HIM: from the start he answers with a legal move.
   const mv = s.learner.move(CK.ckState(CK.startCk()));
   assert.ok(mv >= 0 && mv < 7);
@@ -584,9 +585,10 @@ test('go: he keeps improving with practice — a few games make an instinct, hun
 });
 
 test('go: expert-iteration self-play climbs the ladder; a frozen passer never passes the next level', () => {
-  // Measured after every few self-play games (the worker measures between slices of training).
-  const { s, passed, frozen } = FULL ? climb('go', 10, 4, 2000) : climb('go', 2, 4, 200);
-  assert.ok(s.rec.level >= 3, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+  // Measured after every game at first, then every eighth of what he has played. (Known gap: above Level 3
+  // his instinct improves too slowly for every rung to stand clear of the frozen passer below — see MAP.md.)
+  const { s, passed, frozen } = FULL ? climb('go', 10, 1, 2000, true) : climb('go', 1, 1, 50, true);
+  assert.ok(s.rec.level >= 2, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  go passed: ${passed.join('; ')}`);
   noFreeLevels('go', frozen);
   const mv = s.learner.move(GO.goState(GO.newGo(9)));

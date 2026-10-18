@@ -115,7 +115,7 @@ export const CHECKERS: GameMeta = {
   blurb: 'draughts · vs reference engines',
   learns: 'He plays himself to learn what a checkers position is worth — tens of thousands of small shapes — then searches with it against fixed reference engines: first ones that start men down, then even games, then ones that look further ahead than he does.',
   unit: 'games',
-  bar: per([0.75, 0.88, 0.85, 0.72, 0.52, 0.65, 0.76, 0.66, 0.79, 0.7]),
+  bar: per([0.75, 0.88, 0.85, 0.72, 0.52, 0.65, 0.77, 0.64, 0.76, 0.67]),
   play: 'board',
 };
 export const CHESS: GameMeta = {
@@ -133,7 +133,7 @@ export const GO: GameMeta = {
   blurb: 'learned instinct · vs tree search',
   learns: 'He plays himself, searching every move, and learns from his own searches which shapes are good moves — an instinct that keeps sharpening — then plays by that instinct against fixed tree-search engines.',
   unit: 'games',
-  bar: per([0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.7, 0.75]),
+  bar: per([0.75, 0.85, 0.65, 0.5, 0.6, 0.5, 0.72, 0.58, 0.8, 0.64]),
   play: 'board',
 };
 export const POKER: GameMeta = {

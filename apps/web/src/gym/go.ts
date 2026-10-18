@@ -309,7 +309,7 @@ export function search(g0: Go, sims: number, w: Float32Array | null, r: () => nu
 export const OPENINGS: [number, number][] = (() => {
   const r = rng(9090);
   const out: [number, number][] = [];
-  while (out.length < 32) {
+  while (out.length < 64) {
     const a = (2 + Math.floor(r() * 5)) * 9 + 2 + Math.floor(r() * 5);
     const b = (2 + Math.floor(r() * 5)) * 9 + 2 + Math.floor(r() * 5);
     if (a !== b && !out.some(([x, y]) => x === a && y === b)) out.push([a, b]);
@@ -327,19 +327,21 @@ export interface Rung {
 /** Where handicap stones go (outer points, in order): the 3-3 points, then the centre. */
 const HANDICAP = [20, 60, 24, 56, 40];
 export const RUNGS: Rung[] = [
-  { me: 1, ref: 8, bonus: 0 },
-  { me: 1, ref: 16, bonus: 0 },
   { me: 1, ref: 32, bonus: 0 },
-  { me: 1, ref: 64, bonus: 0 },
   { me: 1, ref: 128, bonus: 0 },
   { me: 1, ref: 256, bonus: 0 },
-  { me: 1, ref: 256, bonus: 0 },
-  { me: 1, ref: 256, bonus: 0 },
-  { me: 1, ref: 256, bonus: 0 },
-  { me: 1, ref: 256, bonus: 0 },
+  // Then he gives the 256-play-out engine a free stone, or two, and must win more and more often.
+  { me: 1, ref: 256, bonus: 0, stones: 1 },
+  { me: 1, ref: 256, bonus: 0, stones: 1 },
+  { me: 1, ref: 256, bonus: 0, stones: 2 },
+  { me: 1, ref: 256, bonus: 0, stones: 1 },
+  { me: 1, ref: 256, bonus: 0, stones: 2 },
+  { me: 1, ref: 256, bonus: 0, stones: 1 },
+  { me: 1, ref: 256, bonus: 0, stones: 2 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
-export const gamesFor = (_level: number) => 32;
+/** Games a match (half of them each way): 64 at first, 128 from Level 4, where the steps between levels are smaller. */
+export const gamesFor = (level: number) => (lvl(level) <= 3 ? 64 : 128);
 const rungWords = (r: Rung) =>
   `the reference engine (tree search with ${r.ref} play-outs a move)${r.stones ? `, starting with ${r.stones} extra stone${r.stones > 1 ? 's' : ''}` : ''}${r.bonus > 0 ? `, giving him ${r.bonus} points` : r.bonus < 0 ? `, with him giving ${-r.bonus} points` : ''}; he plays ${r.me <= 1 ? 'by instinct (his sense of shape alone, no search)' : `with ${r.me} searches a move`}`;
 
@@ -667,13 +669,16 @@ class GoLearner implements Learner {
     return frames;
   }
   /**
-   * PLAY HIM. When the owner has just passed, he passes too unless quick play-outs from here say he is
-   * behind — so a settled game can end instead of him filling the owner's territory.
+   * PLAY HIM. When the owner has just passed, he passes too unless he is behind — by the count as the
+   * board stands or by quick play-outs from here — so a settled game can end instead of him filling the
+   * owner's territory.
    */
   move(state: number[]) {
     const g = goFrom(state);
     if (over(g)) return -2;
-    if (g.passes >= 1 && expectedMargin(g, 32, this.r) * (g.side === 1 ? 1 : -1) >= 0) return -1;
+    // (Both the count as the board stands and quick play-outs from here must say he is not behind.)
+    const mine = g.side === 1 ? 1 : -1;
+    if (g.passes >= 1 && margin(g) * mine >= 0 && expectedMargin(g, 32, this.r) * mine >= 0) return -1;
     const m = search(g, 64, this.w, this.r);
     return m < 0 ? -1 : outer(g, m);
   }

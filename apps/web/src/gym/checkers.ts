@@ -1,19 +1,21 @@
 /**
- * CHECKERS (English draughts). Ghosty's evaluator is small and learned: a value for a man and for a king on
- * each of the 32 squares (seen from the owner's side of the board), trained by temporal-difference learning
- * in self-play — each position's value is nudged towards the value of the position after his move, and
- * the last one towards the result. He plays with an alpha-beta search (captures searched to the end) and
- * that evaluator.
+ * CHECKERS (English draughts). Ghosty's evaluator is learned: a value for a man and for a king on each of
+ * the 32 squares, plus an n-tuple network (every diamond of four neighbouring squares and every diagonal
+ * line of four, each with a value for each way it can be filled — 26,875 numbers), all seen from the side
+ * to move and trained by temporal-difference learning in self-play: each position's value is nudged
+ * towards the value of the position after his move, and the last one towards the result. He plays with an
+ * alpha-beta search (captures searched to the end) and that evaluator.
  *
  * Ground truth: a fixed ladder of reference engines — the SAME alpha-beta search with a hand-written
  * material + position evaluator (a man 100, a king 160, plus a little for advancing, the centre, guarding
- * the back row, and in a won ending chasing the last pieces down). Each level is one rung (RUNGS): at
- * first the reference gives odds (it starts 2, then 1 man down, both searching 4 moves ahead);
- * then even games against a deeper reference while he looks less far ahead (4 v 4, 3 v 4, 3 v 5, 4 v 6,
- * 3 v 6, and 3 v 6 won more and more often). Mastery = his match score (a win 1, a draw ½), from fixed openings
- * played both ways. Match games are cut short at 60 plies and scored by material (a man up wins), never
- * called a draw for running long. No rating is shown: only what the matches measured. Every rung was
- * checked by climbing (a passer of the level below, frozen, stays under the next bar).
+ * the back row, and in a won ending chasing the last pieces down). Each level is one rung (RUNGS): first
+ * the reference gives odds (it starts 4, 3, 2, then 1 man down, both searching 4 moves ahead); then even
+ * games at that depth, won more and more often; then he looks only one move ahead against a reference
+ * looking 3 or 2 ahead, so what he knows about positions has to do the work. Mastery = his match score (a
+ * win 1, a draw ½) over 96 fixed openings played both ways (192 openings, 768 games, at the top, where the
+ * steps between levels are small). Match games are cut short at 60 plies and scored by material (a man up
+ * wins), never called a draw for running long. No rating is shown: only what the matches measured. Every
+ * rung was checked by climbing (a passer of the level below, frozen, stays under the next bar).
  */
 import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, sqAt, startCk } from './ckboard';
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
@@ -499,7 +501,7 @@ class CkLearner implements Learner {
     const p = ckFrom(state);
     const moves = legalCk(p);
     if (resultCk(p, moves)) return -1;
-    const m = bestMove(p, rungFor(this.level).me, learnedEval(this.w), moves).move;
+    const m = bestMove(p, Math.max(4, rungFor(this.level).me), learnedEval(this.w), moves).move;
     return moves.indexOf(m);
   }
 }
