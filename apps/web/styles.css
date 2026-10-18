@@ -105,7 +105,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 /* A column takes the touches between its panels too: a swipe there scrolls it instead of reaching the scene behind.
    Inner scrollers (.col, .pn > .bd) pass a swipe on when they have nothing to scroll: iPhone Safari honours
    overscroll-behavior: contain even then, which left whole pages unable to scroll. */
-.hud .col { pointer-events: auto; }
+@media (max-width: 899px), (hover: none) { .hud .col { pointer-events: auto; } } /* (on a desktop the empty column space still reaches the scene) */
 
 /* ---------- panels ---------- */
 .pn {
