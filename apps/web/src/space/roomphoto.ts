@@ -1,0 +1,301 @@
+/**
+ * A room's size from photos of the room itself (pure, unit-tested in apps/edge/test/measure.test.mjs).
+ * Each photo's depth map (measure/depth3d.ts) becomes points in 3-D; the floor is found (the
+ * biggest flat surface facing up in the lower part of the picture), the walls are the upright
+ * surfaces, and seen from above they line up square (rooms are built with square corners: the
+ * walls' directions, the picture's vanishing points, give the turn). Then:
+ * - ACROSS: the two side walls both in view give the room's width directly;
+ * - ALONG: the far wall's distance, plus where the owner stood: the instructions say "back to the
+ *   wall", so the phone is about 25 cm in front of the wall behind (give or take 15 cm).
+ * Two photos, the second turned a quarter, each give both sizes once more; they are joined
+ * whichever way round agrees best (a second photo taken the same way just adds to the first).
+ *
+ * The phone's height above the found floor is a weak scale cue of its own (held at chest height,
+ * about 1.3 m) for rooms with nothing of known size in them.
+ */
+import { unproject, type DepthMap, type P3 } from '../measure/depth3d';
+import type { Intrinsics } from '../measure/exif';
+
+/** Where the phone is held, the instructions' way: back to a wall (m in front of it), at chest height (m). */
+export const STANCE = { back: 0.25, backSd: 0.15, height: 1.3, heightSigma: 0.12 } as const;
+
+const dot = (a: P3, b: P3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const sub = (a: P3, b: P3): P3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cross = (a: P3, b: P3): P3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = (a: P3): P3 => {
+  const l = Math.hypot(a[0], a[1], a[2]) || 1;
+  return [a[0] / l, a[1] / l, a[2] / l];
+};
+
+/** A seeded random number generator (the floor search must give the same answer every time). */
+function rng(seed: number) {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+export interface Cloud {
+  p: P3[];
+  n: P3[];
+  /** Picture row of each point, 0 (top) – 1 (bottom). */
+  row: number[];
+}
+
+/** Points and their surface normals from a depth map, every `step` pixels (`K` in the depth map's own pixels). */
+export function cloudOf(D: DepthMap, K: Pick<Intrinsics, 'f' | 'cx' | 'cy'>, step = 4): Cloud {
+  const P = (u: number, v: number) => unproject(K, { x: u + 0.5, y: v + 0.5 }, D.z[v * D.w + u]!);
+  const out: Cloud = { p: [], n: [], row: [] };
+  for (let v = step; v < D.h - step; v += step) {
+    for (let u = step; u < D.w - step; u += step) {
+      const c = P(u, v);
+      const dx = sub(P(u + step, v), P(u - step, v));
+      const dy = sub(P(u, v + step), P(u, v - step));
+      // a jump in depth (an edge) gives no trustworthy normal
+      const z = c[2];
+      if (Math.abs(dx[2]) > 0.25 * z || Math.abs(dy[2]) > 0.25 * z) continue;
+      let n = norm(cross(dx, dy));
+      if (dot(n, c) > 0) n = [-n[0], -n[1], -n[2]];
+      out.p.push(c);
+      out.n.push(n);
+      out.row.push(v / D.h);
+    }
+  }
+  return out;
+}
+
+export interface Floor {
+  /** Unit normal, pointing up (toward the camera's side). */
+  up: P3;
+  /** The phone's height above it, metres. */
+  height: number;
+  /** Share of the candidate points that lie on it. */
+  support: number;
+}
+
+/**
+ * The floor: a plane through points in the lower 60 % of the picture whose surfaces face up
+ * (normal within 40° of the picture's up), found by trying planes through three of them (RANSAC)
+ * and keeping the one most points lie on (within 3 cm + 2 % of their distance). Null when there
+ * is no such surface.
+ */
+export function findFloor(c: Cloud, tries = 300): Floor | null {
+  const cand: number[] = [];
+  for (let i = 0; i < c.p.length; i++) if (c.row[i]! > 0.4 && -c.n[i]![1] > Math.cos((40 * Math.PI) / 180)) cand.push(i);
+  if (cand.length < 30) return null;
+  const rand = rng(7);
+  let best: { n: P3; d: number; inl: number } | null = null;
+  for (let t = 0; t < tries; t++) {
+    const a = c.p[cand[Math.floor(rand() * cand.length)]!]!;
+    const b = c.p[cand[Math.floor(rand() * cand.length)]!]!;
+    const d0 = c.p[cand[Math.floor(rand() * cand.length)]!]!;
+    let n = cross(sub(b, a), sub(d0, a));
+    if (Math.hypot(...n) < 1e-6) continue;
+    n = norm(n);
+    if (n[1] > 0) n = [-n[0], -n[1], -n[2]];
+    if (-n[1] < Math.cos((40 * Math.PI) / 180)) continue;
+    const d = -dot(n, a);
+    let inl = 0;
+    for (const i of cand) {
+      const p = c.p[i]!;
+      if (Math.abs(dot(n, p) + d) < 0.03 + 0.02 * p[2]) inl++;
+    }
+    if (!best || inl > best.inl) best = { n, d, inl };
+  }
+  if (!best || best.inl < 20) return null;
+  // refine: the average normal of the inliers and their mean height
+  let ns: P3 = [0, 0, 0];
+  const ins: P3[] = [];
+  for (const i of cand) {
+    const p = c.p[i]!;
+    if (Math.abs(dot(best.n, p) + best.d) < 0.03 + 0.02 * p[2]) {
+      ins.push(p);
+      ns = [ns[0] + c.n[i]![0], ns[1] + c.n[i]![1], ns[2] + c.n[i]![2]];
+    }
+  }
+  const up0 = norm(ns);
+  const up = norm([(up0[0] + best.n[0]) / 2, (up0[1] + best.n[1]) / 2, (up0[2] + best.n[2]) / 2]);
+  // up points toward the camera's side: each floor point is that far below the camera
+  const hs = ins.map((p) => -dot(up, p)).sort((a, b) => a - b);
+  return { up, height: hs[hs.length >> 1] ?? 0, support: best.inl / cand.length };
+}
+
+export interface Seen {
+  /** The width between the two side walls, metres (null when one side wall is not in view). */
+  across: number | null;
+  acrossSd: number;
+  /** At least this wide: how much of the far wall is in view (metres; 0 when none). */
+  acrossMin: number;
+  /** The far wall's distance plus where the phone was (`STANCE.back`), metres. */
+  along: number | null;
+  alongSd: number;
+  /** The phone's height above the floor (metres, by this depth map). */
+  height: number;
+  notes: string[];
+}
+
+/** A peak in weighted 1-D values (bins of `bin` m), the farthest one in `dir` that is at least `share` of the biggest. */
+function farPeak(vals: number[], dir: 1 | -1, bin = 0.04, share = 0.2): { at: number; weight: number } | null {
+  if (vals.length < 15) return null;
+  const hist = new Map<number, number>();
+  for (const v of vals) {
+    const k = Math.round(v / bin);
+    hist.set(k, (hist.get(k) ?? 0) + 1);
+  }
+  const smooth = (k: number) => (hist.get(k - 1) ?? 0) * 0.5 + (hist.get(k) ?? 0) + (hist.get(k + 1) ?? 0) * 0.5;
+  const keys = [...hist.keys()];
+  const max = Math.max(...keys.map(smooth));
+  if (max < 8) return null;
+  const peaks = keys.filter((k) => smooth(k) >= share * max && smooth(k) >= smooth(k - 1) && smooth(k) >= smooth(k + 1));
+  if (!peaks.length) return null;
+  const k = dir > 0 ? Math.max(...peaks) : Math.min(...peaks);
+  // the peak's centre: the weighted mean of the values near it
+  const near = vals.filter((v) => Math.abs(v / bin - k) <= 1.5);
+  return { at: near.reduce((a, b) => a + b, 0) / near.length, weight: smooth(k) / max };
+}
+
+/**
+ * What one photo shows of the room: the floor, the walls seen from above squared up, then the
+ * width between the side walls and the distance to the far wall.
+ */
+export function roomFromCloud(c: Cloud): Seen | { error: string } {
+  const floor = findFloor(c);
+  if (!floor) return { error: 'No floor in view: take the photo with a strip of floor showing at the bottom' };
+  const up = floor.up;
+  // a level frame on the floor: x across (the camera's right, made level), y away from the camera
+  const ex = norm(sub([1, 0, 0], [up[0] * up[0], up[0] * up[1], up[0] * up[2]]));
+  const ey = norm(cross(up, ex));
+  const fwd = dot([0, 0, 1], ey) < 0 ? -1 : 1;
+  const walls: { x: number; y: number; nx: number; ny: number }[] = [];
+  for (let i = 0; i < c.p.length; i++) {
+    const p = c.p[i]!;
+    const n = c.n[i]!;
+    const hgt = dot(up, p) + floor.height;
+    if (Math.abs(dot(up, n)) > 0.3 || hgt < 0.25 || hgt > 2.2) continue;
+    const nx = dot(n, ex);
+    const ny = dot(n, ey) * fwd;
+    const l = Math.hypot(nx, ny) || 1;
+    walls.push({ x: dot(p, ex), y: dot(p, ey) * fwd, nx: nx / l, ny: ny / l });
+  }
+  if (walls.length < 30) return { error: 'No walls in view: stand back so the far wall and the side walls show' };
+  // the square turn: the walls' facing directions, folded into a quarter turn
+  const hist = new Array<number>(90).fill(0);
+  for (const w of walls) {
+    let a = (Math.atan2(w.ny, w.nx) * 180) / Math.PI;
+    a = ((a % 90) + 90) % 90;
+    hist[Math.floor(a) % 90]!++;
+  }
+  let best = 0;
+  let turn = 0;
+  for (let a = 0; a < 90; a++) {
+    let s = 0;
+    for (let k = -3; k <= 3; k++) s += hist[(a + k + 90) % 90]! * (1 - Math.abs(k) / 4);
+    if (s > best) {
+      best = s;
+      turn = a + 0.5;
+    }
+  }
+  // the turn closest to "facing straight ahead": within ±45°
+  if (turn > 45) turn -= 90;
+  const t = (-turn * Math.PI) / 180;
+  const ct = Math.cos(t);
+  const st = Math.sin(t);
+  const rot = walls.map((w) => ({ x: w.x * ct - w.y * st, y: w.x * st + w.y * ct, nx: w.nx * ct - w.ny * st, ny: w.nx * st + w.ny * ct }));
+  // side walls face across (left wall's surface faces right, +x), the far wall faces back (−y)
+  const left = farPeak(rot.filter((w) => w.nx > 0.85 && w.x < 0).map((w) => w.x), -1);
+  const right = farPeak(rot.filter((w) => w.nx < -0.85 && w.x > 0).map((w) => w.x), 1);
+  const far = farPeak(rot.filter((w) => w.ny < -0.85 && w.y > 0).map((w) => w.y), 1);
+  const notes: string[] = [];
+  if (Math.abs(turn) > 20) notes.push(`the room was at ${Math.round(Math.abs(turn))}° to the camera: squarer to the far wall is more accurate`);
+  const across = left && right ? right.at - left.at : null;
+  if (!left || !right) notes.push(!left && !right ? 'neither side wall was in view (the 0.5× lens sees more)' : `the ${left ? 'right' : 'left'} side wall was not in view`);
+  // the far wall's own width in view: the room is at least that wide
+  const farXs = far ? rot.filter((w) => w.ny < -0.85 && Math.abs(w.y - far.at) < 0.15).map((w) => w.x).sort((a, b) => a - b) : [];
+  const acrossMin = farXs.length > 10 ? farXs[Math.floor(farXs.length * 0.98)]! - farXs[Math.floor(farXs.length * 0.02)]! : 0;
+  const along = far ? far.at + STANCE.back : null;
+  if (!far) notes.push('the far wall was not in view');
+  return {
+    across,
+    // a wall's position from the depth: ±3 % of its distance, both walls' errors added
+    acrossSd: across != null ? 0.03 * Math.hypot(left!.at, right!.at) + 0.02 : Infinity,
+    acrossMin,
+    along,
+    alongSd: along != null ? Math.hypot(0.03 * far!.at, STANCE.backSd) : Infinity,
+    height: floor.height,
+    notes,
+  };
+}
+
+export interface RoomSize {
+  /** Width (left → right in the first photo) and depth (away from the camera in the first photo), cm. */
+  w: number;
+  d: number;
+  wSd: number;
+  dSd: number;
+  /** True when the second photo was taken a quarter turn from the first. */
+  turned: boolean;
+  notes: string[];
+}
+
+/** Inverse-variance mean of the values that exist. */
+function join(vals: { v: number | null; sd: number }[]): { v: number; sd: number } | null {
+  const ok = vals.filter((x): x is { v: number; sd: number } => x.v != null && Number.isFinite(x.sd) && x.sd > 0);
+  if (!ok.length) return null;
+  const w = ok.reduce((s, x) => s + 1 / x.sd ** 2, 0);
+  return { v: ok.reduce((s, x) => s + x.v / x.sd ** 2, 0) / w, sd: 1 / Math.sqrt(w) };
+}
+
+/**
+ * The room's width and depth from what each photo showed. Photos after the first are matched
+ * either way round (taken the same way, or a quarter turn) — whichever agrees better with the
+ * first. Null when no photo gave a width or a depth.
+ */
+export function joinRoom(seen: Seen[]): RoomSize | null {
+  if (!seen.length) return null;
+  const first = seen[0]!;
+  const W: { v: number | null; sd: number }[] = [{ v: first.across, sd: first.acrossSd }];
+  const Dp: { v: number | null; sd: number }[] = [{ v: first.along, sd: first.alongSd }];
+  let wMin = first.acrossMin;
+  let dMin = 0;
+  let turned = false;
+  const notes = [...first.notes];
+  for (const s of seen.slice(1)) {
+    const chi = (a: number | null, as: number, b: number | null, bs: number) => (a != null && b != null ? (a - b) ** 2 / (as ** 2 + bs ** 2) : 0.5);
+    const same = chi(first.across, first.acrossSd, s.across, s.acrossSd) + chi(first.along, first.alongSd, s.along, s.alongSd);
+    const quarter = chi(first.across, first.acrossSd, s.along, s.alongSd) + chi(first.along, first.alongSd, s.across, s.acrossSd);
+    if (quarter < same) {
+      turned = true;
+      W.push({ v: s.along, sd: s.alongSd });
+      Dp.push({ v: s.across, sd: s.acrossSd });
+      dMin = Math.max(dMin, s.acrossMin);
+    } else {
+      W.push({ v: s.across, sd: s.acrossSd });
+      Dp.push({ v: s.along, sd: s.alongSd });
+      wMin = Math.max(wMin, s.acrossMin);
+    }
+    notes.push(...s.notes);
+  }
+  let w = join(W);
+  let d = join(Dp);
+  // a far wall seen wider than the estimate: the room is at least that
+  if (w && wMin > w.v) w = { v: wMin, sd: w.sd };
+  if (!w && wMin > 0) {
+    w = { v: wMin, sd: Math.max(0.3, wMin * 0.2) };
+    notes.push(`the width is at least ${wMin.toFixed(1)} m (all of the far wall was not in view)`);
+  }
+  if (d && dMin > d.v) d = { v: dMin, sd: d.sd };
+  if (!w && !d) return null;
+  if (!w) notes.push('the width is a guess: no photo showed both side walls');
+  if (!d) notes.push('the depth is a guess: no photo showed the far wall');
+  return {
+    w: Math.round((w?.v ?? (d?.v ?? 3)) * 100),
+    d: Math.round((d?.v ?? (w?.v ?? 3)) * 100),
+    wSd: w ? Math.round(w.sd * 100) : 100,
+    dSd: d ? Math.round(d.sd * 100) : 100,
+    turned,
+    notes: [...new Set(notes)],
+  };
+}
