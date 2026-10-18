@@ -148,7 +148,7 @@ if (!after?.mastered) {
   const had = (await st()).recs.tictactoe;
   await page.evaluate(() => sessionStorage.setItem('gymslow', '1'));
   await boot();
-  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not show its cards while still loading');
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not show its cards while still loading', CARDS);
   await closeLog();
   await card('tictactoe').click();
   if (!had?.mastered) {
@@ -160,7 +160,7 @@ if (!after?.mastered) {
   }
   await page.evaluate(() => sessionStorage.removeItem('gymslow'));
   await boot();
-  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after the slow-load check');
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the slow-load check', CARDS);
   await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `an early TRAIN wiped his saved progress (had ${had?.units} games)`, had?.units ?? 1);
   const now = (await st()).recs.tictactoe;
   if (had && now && now.level < had.level) problems.push(`an early TRAIN sent him back from Level ${had.level} to Level ${now.level}`);
