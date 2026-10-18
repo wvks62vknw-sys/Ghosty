@@ -30,3 +30,27 @@ export const MODELS: ModelDef[] = [
  * stores each file in its cache under this base, so the check that the download is whole uses it too.
  */
 export const modelBase = (m: Pick<ModelDef, 'repo' | 'rev'>): string => `https://huggingface.co/${m.repo}/resolve/${m.rev}/`;
+
+/** A model the weekly self-training published (apps/edge/src/selftrain): the brain's list, as the phone keeps it. */
+export interface TrainedModel {
+  week: number;
+  label: string;
+  repo: string;
+  commit: string;
+}
+
+/**
+ * The trained models as model definitions: each is Qwen3-0.6B fine-tuned and quantised to q4f16_1 in exactly
+ * the stock build's layout (the notebook checks every tensor's name, shape and type against it), so it runs on
+ * the same compiled model library and needs the same memory; only the weights' address and commit differ. A
+ * bad entry (not a Hugging Face repo, not a full commit) is left out.
+ */
+export function trainedModels(list: TrainedModel[]): ModelDef[] {
+  const stock = MODELS[0]!;
+  return list
+    .filter((m) => /^[\w.-]+\/[\w.-]+$/.test(m.repo) && /^[0-9a-f]{40}$/.test(m.commit) && Number.isInteger(m.week))
+    .map((m) => ({ id: `Ghosty-week-${m.week}-${m.commit.slice(0, 7)}`, label: `Ghosty (week ${m.week})`, repo: m.repo, rev: m.commit, lib: stock.lib, mb: stock.mb, vram: stock.vram }));
+}
+
+/** Every model the phone can use: the trained ones first (newest first), then the stock models as the fallback. */
+export const allModels = (trained: TrainedModel[]): ModelDef[] => [...trainedModels(trained), ...MODELS];
