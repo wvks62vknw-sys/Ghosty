@@ -757,7 +757,9 @@ export const studioTab: TabDef = {
         const r = await fetch(`/api/m3d/${encodeURIComponent(id)}`, { headers: headers(), credentials: 'same-origin' });
         if (!r.ok) throw new Error(r.status === 404 ? 'that model is gone (models are kept 24 hours)' : `the brain answered ${r.status}`);
         const data = await r.arrayBuffer();
-        const credit = info?.credit || made.find((m) => m.id === id)?.credit || 'Made from a picture by Hunyuan3D-2 (Tencent), via Hugging Face';
+        // Opened by Ghosty from the chat: the brain's list says which free maker made it.
+        if (!info?.credit && !made.some((m) => m.id === id)) await refreshMade();
+        const credit = info?.credit || made.find((m) => m.id === id)?.credit || 'Made from a picture by a free 3-D maker on Hugging Face';
         if (await loadAny({ kind: 'glb', data: data.slice(0), title, metres: false, credit })) {
           // The brain keeps it a day; this phone keeps it until it is removed.
           await keep({ id: `m3d:${id}`, title, credit, at: Date.now(), bytes: data.byteLength, metres: false }, data);

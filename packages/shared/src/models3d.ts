@@ -363,7 +363,7 @@ export function searchCatalog(items: CatalogItem[], query: string, opts: { limit
     if (!score) continue;
     // the head noun matters most: "oak dining chair" is a chair before it is anything oak
     if (headHit) score += 2;
-    // …and a model whose category IS the head noun before one that merely has it in its name ("table and chairs")
+    // a model whose category IS the head noun comes before one that merely has it in its name ("table and chairs")
     if (headHit && [...synonyms(head)].some((w) => f.cat.has(w))) score += 4;
     // lighter models first among equals (they open sooner on a phone)
     score -= Math.min(0.5, item.kb / 24_000);
