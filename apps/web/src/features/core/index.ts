@@ -4,7 +4,7 @@
 import { brain } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
+import { holdMic, interrupt, listen, micLevel, onMicReleased, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
@@ -33,6 +33,8 @@ async function voiceTurn(): Promise<void> {
     conversation = false;
     return;
   }
+  // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
+  holdMic(true);
   try {
     const text = await listen(whisper, (t) => chat.set({ live: t }));
     if (!conversation) return;
@@ -46,6 +48,7 @@ async function voiceTurn(): Promise<void> {
     wait();
   } catch (e) {
     conversation = false;
+    holdMic(false);
     toast(String((e as Error)?.message ?? e), 'bad');
   }
 }
@@ -73,7 +76,8 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+  // Cut off: the owner interrupted while it was read out.
+  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
 }
 
 /**
@@ -102,6 +106,7 @@ function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   if (ui.get().connected) row2.append(button('ASK THE BIG BRAIN', () => void askBigBrain(t.q), 'bigbrain'));
   if (row2.childElementCount) box.append(row2);
   box.append(h('span.offchip', 'Worked out on your phone (offline)'));
+  if (e.cut) box.append(h('span.cutchip', 'Cut off — you interrupted'));
   return box;
 }
 
@@ -109,7 +114,8 @@ function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
 function renderEntry(e: Entry, q?: string): HTMLElement {
   switch (e.kind) {
     case 'user':
-      return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
+      // data-at: the Memory tab's "from your chat" opens the conversation here.
+      return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant': {
       if (e.think) return renderThink(e);
       const el = plainReply(e);
@@ -193,9 +199,17 @@ export const coreTab: TabDef = {
       });
     });
     const mic = h('button#mic', { type: 'button', 'aria-label': 'Talk by voice' }, icon(MIC));
+    // The app hidden ends the voice conversation: the microphone is let go (voice.ts) and not taken again.
+    onMicReleased(() => {
+      conversation = false;
+      mic.classList.remove('on');
+    });
     mic.addEventListener('click', () => {
+      // Ghosty is talking: the tap cuts in and it listens (a conversation's loop listens next by itself).
+      if (interrupt('tap') && conversation) return;
       if (conversation) {
         conversation = false;
+        holdMic(false);
         stopListening();
         mic.classList.remove('on');
         return;
@@ -241,7 +255,16 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
+    // A tap on the reactor — anywhere on this tab but a control or the log — while Ghosty is speaking stops it
+    // (in a voice conversation it then listens). The reactor itself lets taps through to the scene behind it.
+    document.addEventListener('pointerup', (e) => {
+      if (ui.get().tab !== 'core' || ui.get().voice !== 'speaking') return;
+      const t = e.target as Element | null;
+      if (t?.closest?.('button, input, select, textarea, a, .log, .cside, #cbar, #topbar, nav, .modal')) return;
+      interrupt('tap');
+    });
+    const rwrap = h('div.rwrap', reactor.el);
+    const center = h('div.ccenter', stark.el, rwrap, stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 

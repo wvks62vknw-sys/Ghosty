@@ -1167,6 +1167,35 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
   button:not(.scanthumb button):not(.maplibregl-ctrl button) { min-height: 40px !important; }
 }
 
+/* ---------- memory timeline, patterns, barge-in, voice picker (Wave A: features/memory/timeline.ts,
+   features/settings/voice.ts, assistant/voice.ts). Kept to this block, in the existing tokens. ---------- */
+.pn.tl .undo { display: flex; gap: 8px; align-items: center; margin: 8px 12px 0; padding: 6px 8px; border: 1px solid rgba(var(--ar), .45); border-radius: 3px; font-size: 12px; color: var(--fg); }
+.pn.tl .undo[hidden] { display: none; }
+.pn.tl .undo span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pn.tl .mi { padding: 8px 0; border-bottom: 1px solid var(--line2); min-width: 0; }
+.pn.tl .mi.locked { border-left: 2px solid var(--c); padding-left: 8px; }
+.pn.tl .mih { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.pn.tl .mih .k, .pn.tl .mik, .pn.tl .milock { font: 500 9.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.pn.tl .milock { color: var(--c); }
+.pn.tl .mit { margin: 3px 0; font-size: 13px; line-height: 1.4; color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pn.tl .misrc { font-size: 11.5px; color: var(--mute); }
+.pn.tl .mi textarea { width: 100%; margin: 4px 0; }
+button.srclink { padding: 0; border: 0; background: none; color: var(--c); font: inherit; text-transform: none; letter-spacing: 0; text-align: left; cursor: pointer; }
+.pn.tl .mia { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.pn.tl details.forgot { margin: 8px 12px 0; font-size: 12px; color: var(--mute); }
+.pn.tl details.forgot[hidden] { display: none; }
+.pn.tl details.forgot summary { cursor: pointer; font: 500 9.5px var(--d); letter-spacing: .14em; }
+.pn.tl .fgi { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line2); }
+.pn.tl .fgi .fgt { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--fg); }
+.pn.pats .pat { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line2); }
+.pn.pats .pt { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.4; }
+.pn.pats .pe { flex: none; font: 400 10px var(--m); color: var(--c); }
+.pn.pats .pat button.del { flex: none; padding: 2px 8px; }
+.msg .cutchip { display: inline-block; margin-left: 6px; padding: 1px 7px; border: 1px solid rgba(var(--ar), .5); border-radius: 9px; font: 500 8.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--a); white-space: nowrap; }
+.msg.me.found { background: rgba(var(--ar), .14); transition: background .4s; }
+.note.vnow, .note.vlast { margin: 4px 0; }
+@media (hover: none) { button.srclink { min-height: 40px !important; } }
+
 /* ---- SYSTEM → OFFLINE BRAIN REPORT CARD: scores per kind (as in chat / THINK HARDER / time), the verdict, the weeks ---- */
 .reportcard .bd { display: flex; flex-direction: column; gap: 6px; }
 .reportcard .keyrow { flex-wrap: wrap; }

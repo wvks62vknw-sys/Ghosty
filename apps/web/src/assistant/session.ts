@@ -18,7 +18,7 @@ import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { toast } from '../ui/components';
-import { speak, stopListening, stopSpeaking } from './voice';
+import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 
 /**
  * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
@@ -37,7 +37,8 @@ export type Entry =
   | { kind: 'user'; text: string; at: number }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo }
+  /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -97,9 +98,24 @@ const label = (name: string, args: Record<string, unknown>) => {
   return detail ? `${base}: ${String(detail).slice(0, 60)}` : base;
 };
 
+/** A time for a new entry, never the same as the last one's (it tags the reply that is read out: voice.ts owner). */
+let lastStamp = 0;
+function stamp(): number {
+  lastStamp = Math.max(Date.now(), lastStamp + 1);
+  return lastStamp;
+}
+
 function push(e: Entry): void {
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 }
+
+// The owner cut Ghosty off mid-reply (voice.ts interrupt): the reply being read out is marked, so the
+// log shows it was not all said. (The approval question read out has no reply entry to mark.)
+onCutOff((c) => {
+  // Only the reply that was being read out (its tag is its time): never a later or earlier one.
+  if (!c.owner) return;
+  patch((e) => e.kind === 'assistant' && String(e.at) === c.owner, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true }));
+});
 
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {
@@ -175,11 +191,12 @@ function handle(ev: ChatEvent): void {
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
     case 'text': {
-      push({ kind: 'assistant', text: ev.text, at: Date.now(), ...(vehicleTurn ? { once: true } : {}) });
+      const at = stamp();
+      push({ kind: 'assistant', text: ev.text, at, ...(vehicleTurn ? { once: true } : {}) });
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       chat.set({ live: cited ? citedBody(ev.text) : ev.text });
-      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text);
+      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at) });
       break;
     }
     case 'cited': {
@@ -236,9 +253,10 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
       // No connection at all: answer from the library copy on this device.
       const answer = e instanceof TypeError && offline ? await offline().catch(() => null) : null;
       if (answer) {
-        push({ kind: 'assistant', text: answer, at: Date.now(), model: 'Library on this device · offline' });
+        const at = stamp();
+        push({ kind: 'assistant', text: answer, at, model: 'Library on this device · offline' });
         chat.set({ live: answer });
-        if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer);
+        if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer, { owner: String(at) });
       } else {
         const msg = String((e as Error)?.message ?? e);
         push({ kind: 'error', text: msg });
@@ -261,7 +279,7 @@ const OFFLINE_MODEL = 'On this phone · offline';
  * model could not answer; true, with nothing spoken, when the owner said "stop".
  */
 async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text: string }[]): Promise<boolean> {
-  const at = Date.now();
+  const at = stamp();
   const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.offline;
   const show = (text: string) => patch(mine, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), text }));
   push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true });
@@ -280,7 +298,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     if (!r.text) throw new Error('no reply');
     show(r.text);
     chat.set({ live: r.text });
-    if (speakReplies && settings.get().speak) void speak(r.text);
+    if (speakReplies && settings.get().speak) void speak(r.text, { owner: String(at) });
     return true;
   } catch (e) {
     // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
@@ -316,12 +334,12 @@ function lastQuestion(): string {
  */
 export async function thinkHarderAbout(question: string, opts: { asked?: boolean } = {}): Promise<void> {
   const q = question.trim() || lastQuestion();
-  if (!opts.asked) push({ kind: 'user', text: `Think harder: ${q || '(no question)'}`, at: Date.now() });
+  if (!opts.asked) push({ kind: 'user', text: `Think harder: ${q || '(no question)'}`, at: stamp() });
   if (!q) {
     push({ kind: 'error', text: 'Think harder about what? Ask the question first, or say "think harder: …" with it.' });
     return;
   }
-  const at = Date.now() + 1;
+  const at = stamp();
   const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.think;
   const update = (think: Partial<ThinkInfo>, text?: string) =>
     patch(mine, (e) => {
@@ -351,7 +369,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
     update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
     const said = r.answer ? `${r.answer} (${r.line})` : r.line;
     chat.set({ live: said });
-    if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`);
+    if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`, { owner: String(at) });
   } catch (e) {
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
     if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: String((e as Error)?.message ?? e) });
@@ -509,5 +527,7 @@ export async function loadHistory(): Promise<void> {
 
 export async function clearConversation(): Promise<void> {
   await brain.clearHistory();
+  // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
+  await brain.clearPatterns().catch(() => undefined);
   chat.set({ entries: [], live: '' });
 }

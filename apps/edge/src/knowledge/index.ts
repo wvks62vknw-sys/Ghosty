@@ -88,21 +88,24 @@ export async function addLesson(storage: DurableObjectStorage, text: string, tag
   if (same) {
     same.hits++;
     same.at = Date.now();
-    if (t.length > same.text.length) same.text = t;
+    // A lesson the owner locked keeps its words.
+    if (t.length > same.text.length && !same.locked) same.text = t;
     same.tags = [...new Set([...same.tags, ...cleanTags])].slice(0, 8);
     await storage.put(LESSONS_KEY, list);
     return { lesson: same, repeat: true };
   }
   const lesson: Lesson = { id: crypto.randomUUID().slice(0, 6), text: t, tags: cleanTags, at: Date.now(), hits: 1 };
   list.push(lesson);
-  // Over the cap: drop the least useful (fewest repeats, then oldest).
+  // Over the cap: drop the least useful (fewest repeats, then oldest) — never a locked one.
   while (list.length > MAX_LESSONS) {
-    let worst = 0;
-    for (let i = 1; i < list.length; i++) {
+    let worst = -1;
+    for (let i = 0; i < list.length; i++) {
       const a = list[i]!;
-      const w = list[worst]!;
-      if (a.hits < w.hits || (a.hits === w.hits && a.at < w.at)) worst = i;
+      if (a.locked) continue;
+      const w = worst < 0 ? null : list[worst]!;
+      if (!w || a.hits < w.hits || (a.hits === w.hits && a.at < w.at)) worst = i;
     }
+    if (worst < 0) break;
     list.splice(worst, 1);
   }
   await storage.put(LESSONS_KEY, list);
@@ -113,7 +116,8 @@ export async function removeLesson(storage: DurableObjectStorage, idOrText: stri
   const q = idOrText.toLowerCase().trim();
   if (!q) return 0;
   const list = await loadLessons(storage);
-  const keep = list.filter((l) => l.id !== q && !l.text.toLowerCase().includes(q));
+  // A locked lesson is only forgotten from the Memory tab (memories.ts).
+  const keep = list.filter((l) => l.locked || (l.id !== q && !l.text.toLowerCase().includes(q)));
   await storage.put(LESSONS_KEY, keep);
   return list.length - keep.length;
 }

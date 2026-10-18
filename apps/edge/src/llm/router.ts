@@ -11,6 +11,7 @@ import type { AiCapacity, ProviderRoom } from '../../../../packages/shared/src/p
 import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+import { cost, neurons } from '../neurons';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
 import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
 export { resetDelay } from './providers';
@@ -569,7 +570,7 @@ export class Router {
         if (!retried) tried++;
         const t0 = Date.now();
         try {
-          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane);
           settle(tokens, true);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
@@ -639,7 +640,7 @@ export class Router {
   }
 
   /** One request to one model: its reply, and the tokens the provider says it used (for the counters). */
-  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<{ message: Msg; tokens?: number }> {
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat'): Promise<{ message: Msg; tokens?: number }> {
     let messages = messagesIn;
     let tools = toolsIn;
     if (p.maxIn) {
@@ -648,7 +649,7 @@ export class Router {
       ({ messages, tools } = slim);
     }
     if (p.noSystem) messages = foldSystem(messages);
-    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code) };
+    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code, lane) };
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
     const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
@@ -713,9 +714,14 @@ export class Router {
   }
 
   /** Cloudflare Workers AI through the AI binding. Replies come in a few shapes; all are normalised. */
-  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean): Promise<Msg> {
+  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean, lane: Priority = 'chat'): Promise<Msg> {
     const ai = this.env.AI;
     if (!ai) throw { code: 401, message: 'no AI binding' } satisfies LlmError;
+    // The day's Workers AI allowance is shared (neurons.ts): this call must leave hearing its reserve.
+    // Background work (study, projects, the weekly self-training factory) leaves more: the owner's chat, hearing and the voices come first.
+    const use = lane === 'background' ? 'background' : 'chat';
+    const asked = tokensOf(messages) + (code ? 2000 : 600);
+    if (!(await neurons().room(use, cost.chat(asked)))) throw { code: 429, message: "today's free Workers AI is nearly used up (the rest is kept for hearing the owner)", retryAfter: '3600' } satisfies LlmError;
     let res: unknown;
     try {
       res = await ai.run(model, {
@@ -731,6 +737,7 @@ export class Router {
       throw { code: rate ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
     }
     const msg = normaliseWorkersAi(res, new Set(tools.map((t) => t.function.name)));
+    await neurons().charge(use, cost.chat(tokensOf(messages) + (msg ? tokensOf(msg) : 0)));
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
     return msg;
   }
