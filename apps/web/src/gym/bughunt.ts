@@ -453,7 +453,7 @@ class BugLearner implements Learner {
 function generate(level: number, seed: number): Problem {
   const b = makeBuggy(level, seed);
   const text = [
-    `This program is meant to: ${b.t.what}. Exactly one line has a bug.`,
+    `The program ${b.t.name} ${b.t.what}, but exactly one line has a bug.`,
     RULES,
     programText(b.lines),
     'Tests:',

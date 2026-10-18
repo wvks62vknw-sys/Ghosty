@@ -805,7 +805,7 @@ const LEGEND = '¬ means "not", ∧ "and", ∨ "or", → "if … then", ↔ "if 
 const FO_LEGEND = '∀x means "for every individual x", ∃x "for at least one individual x"';
 
 export function claimWords(c: Claim): string {
-  const world = c.world.length ? `The world has exactly ${c.world.length} individuals: ${c.world.join(', ')} (no others). ` : '';
+  const world = c.world.length ? `The world has exactly ${c.world.length} individuals: ${c.world.join(', ')} (no others).\n` : '';
   const prem = c.premises.map((p, i) => `${i + 1}. ${show(p)}`).join('\n');
   return `${world}Premises:\n${prem}\nConclusion: ${show(c.goal)}\n(${LEGEND}${c.world.length ? `; ${FO_LEGEND}` : ''}.)`;
 }

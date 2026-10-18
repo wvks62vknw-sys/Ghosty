@@ -452,7 +452,13 @@ class BrainLearner implements Learner {
     const head = `Data: ${sp.kind === 'digits' ? `5×5 pixel digits, ${sp.classes} kinds` : sp.kind}, ${d.train.x.length} points to learn from.`;
     const frames: Frame[] = [{ lines: [head], caption: 'He tries a few shapes he rates, then trains his favourite.' }];
     const lines: string[] = [];
-    const tried = [this.best, neighbour(this.best, rng(seed)), neighbour(this.best, rng(seed + 1))];
+    // His favourite and two neighbours he might try next (different shapes).
+    const tried = [this.best];
+    const nr = rng(seed);
+    for (let k = 0; tried.length < 3 && k < 50; k++) {
+      const n = neighbour(this.best, nr);
+      if (!tried.some((t) => shapeKey(t) === shapeKey(n))) tried.push(n);
+    }
     for (const s of tried) {
       const net = trainNet(s, d, sp.epochs, seed);
       const e = energy(s, d.train, sp.epochs);
