@@ -1932,3 +1932,4 @@ html[data-look="pro"], html[data-look="pro"] body { font: 400 16px/1.4 var(--b);
 [data-look="pro"] .listmode.haspush .two > .hero { visibility: hidden; }
 [data-look="pro"] #pg-memory .rw .v::first-letter { text-transform: uppercase; }
 [data-look="pro"] #pg-memory .pn:has(> .bd > .empty):has(> .ft > button.on) { display: flex; }
+[data-look="pro"] .hud.core .convo { box-shadow: none !important; }
