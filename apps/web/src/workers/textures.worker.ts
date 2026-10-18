@@ -1,8 +1,16 @@
-/** Builds the globe textures off the main thread (see engine/textures.ts). */
+/**
+ * Builds the globe textures off the main thread (see engine/textures.ts). The GYM's training also runs in
+ * an instance of this worker (gym/worker.ts): a message carrying `gym` goes there instead.
+ */
 import { buildTextures } from '../engine/textures';
 import { WORLD_URL, type WorldPack } from '../engine/world';
+import { gymMessage, type GymIn } from '../gym/worker';
 
-self.onmessage = async () => {
+self.onmessage = async (e: MessageEvent) => {
+  if (e.data && typeof e.data === 'object' && 'gym' in e.data) {
+    gymMessage(e.data as GymIn, (m) => (self as unknown as Worker).postMessage(m));
+    return;
+  }
   try {
     const r = await fetch(WORLD_URL);
     const pack = (await r.json()) as WorldPack;

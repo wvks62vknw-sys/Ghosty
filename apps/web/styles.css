@@ -884,6 +884,37 @@ button.learnchoice.bad { border-color: var(--r); background: rgba(255, 77, 106, 
 .learnrates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 button.learnrate { min-height: 48px; padding: 4px 2px; } .learnrate > span { display: flex; flex-direction: column; align-items: center; } .learnrate b { font: 500 10px var(--d); letter-spacing: .1em; } .learnrate small { font-size: 10px; color: var(--mute); text-transform: none; letter-spacing: 0; margin-top: 2px; }
 button.learnrate.again b { color: var(--r); } button.learnrate.hard b { color: var(--a); } button.learnrate.good b { color: var(--ok); } button.learnrate.easy b { color: var(--c); }
+/* GYM tab (features/gym): game cards, the game's buttons, the mastery graph, a game's picture (grid / bars / lines) */
+.gymcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+button.gymcard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; min-height: 76px; padding: 8px; text-align: left; white-space: normal; overflow: hidden; }
+.gymcard .gymname { font: 500 11px var(--d); letter-spacing: .1em; color: var(--c); overflow-wrap: anywhere; }
+.gymcard small { font-size: 11px; color: var(--mute); letter-spacing: .04em; text-transform: none; }
+.gymcard .gymspark { display: block; width: 100%; } .gymcard .spark { height: 18px; }
+.gymst { font: 500 9px var(--d); font-style: normal; letter-spacing: .14em; color: var(--mute); }
+.gymst.training { color: var(--ok); } .gymst.mastered { color: var(--a); } .gymst.paused { color: var(--c); }
+.gymlearns { font-size: 13.5px; line-height: 1.5; color: #e6f8ff; margin: 0 0 6px; overflow-wrap: anywhere; }
+.gymstatus { font: 400 12px/1.4 var(--m); color: var(--c); margin: 0 0 8px; overflow-wrap: anywhere; min-height: 4.2em; } /* three lines kept free: a status that grows must not push the buttons under a finger */
+.gymactions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
+.gymactions button { min-height: 40px; } .gymactions button[hidden] { display: none; }
+button.gymtrain { grid-column: 1 / -1; min-height: 52px; font-size: 12px; letter-spacing: .2em; }
+.gymgraph { width: 100%; height: 96px; display: block; border: 1px solid var(--line2); border-radius: var(--rad); background: rgba(var(--cr), .03); }
+.gymline { fill: none; stroke: var(--c); stroke-width: 1.6; } .gymgoal { stroke: var(--a); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.gymlevel { stroke: rgba(var(--cr), .35); stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; } .gymgrid100 { stroke: rgba(var(--cr), .12); vector-effect: non-scaling-stroke; }
+.gymdetail { margin: 6px 0 8px; overflow-wrap: anywhere; }
+.gymsecret[hidden] { display: none; } .gymsecret input { flex: 1 1 auto; min-width: 0; font-size: 16px; } .gymsecret { margin: 0 0 8px; }
+.gymframe { min-width: 0; }
+.gymgrid { display: grid; gap: 2px; max-width: 360px; margin: 0 auto; }
+.gymcell { aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; display: grid; place-items: center; font: 500 12px var(--d); letter-spacing: 0; color: #fff; background: rgba(var(--cr), .06); border: 1px solid rgba(var(--cr), .14); border-radius: 3px; overflow: hidden; text-transform: none; white-space: nowrap; }
+.gymgrid.small .gymcell { font-size: 9px; }
+button.gymcell { min-height: 0; padding: 0; }
+.gymcell.wall { background: #18222c; border-color: #18222c; } .gymcell.mud { background: #4a3520; } .gymcell.gold { background: #6b5410; color: #ffd24d; }
+.gymcell.me { background: var(--c); color: #04070c; } .gymcell.path { background: rgba(var(--cr), .28); }
+.gymcell.x { color: var(--c); font-size: 18px; } .gymcell.o { color: var(--a); font-size: 18px; } .gymcell.new { box-shadow: inset 0 0 0 2px #fff; }
+.gymcell.hit { background: rgba(79, 227, 168, .35); } .gymcell.near { background: rgba(255, 210, 77, .4); } .gymcell.miss { background: rgba(255, 77, 106, .28); } .gymcell.dim { color: var(--mute); }
+.gymbars { display: flex; flex-direction: column; gap: 6px; margin: 4px 0; } .gymbars .bar span { width: 130px; }
+.gymlines { font: 400 12px var(--m); color: #e6f8ff; line-height: 1.6; overflow-wrap: anywhere; }
+.gymcap { font-size: 12px; color: var(--mute); text-align: center; margin: 6px 0 0; overflow-wrap: anywhere; }
+.gymagain { justify-content: center; margin-top: 8px; }
 /* SPACE: rooms, walls, doors and windows; DESIGN REVIEW with BEFORE / AFTER */
 .spacearch[hidden] { display: none; }
 .spacearch button { min-height: 40px; }
