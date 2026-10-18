@@ -606,3 +606,24 @@ test('through the brain: the standing job, the two key slots with plain steps, /
   assert.equal((await call('/training/feedback', { method: 'POST', body: JSON.stringify({ at: 5, up: true, question: 'q', reply: 'r' }) })).status, 200);
   assert.deepEqual((await call('/training')).json().ratings, { up: 1, down: 0 });
 });
+
+// ---- the phone's side: the trained weeks as offline models ------------------------------------------------------
+
+test('the phone: a trained week is the stock Qwen3 build (same model library, size and memory) at the owner\'s repo and commit; bad entries left out; the stock models stay as the fallback', async () => {
+  await build({ entryPoints: [at('../../web/src/offline/models.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/selftrain/models.mjs'), logLevel: 'warning' });
+  const M = await import('./.build/selftrain/models.mjs');
+  const list = [
+    { week: 3, label: 'x', repo: 'owner/ghosty-offline-brain', commit: 'c'.repeat(40) },
+    { week: 2, label: 'x', repo: 'owner/ghosty-offline-brain', commit: 'nothex'.padEnd(40, 'z') },
+    { week: 1, label: 'x', repo: 'https://evil.example/x', commit: 'a'.repeat(40) },
+  ];
+  const t = M.trainedModels(list);
+  assert.equal(t.length, 1);
+  const stock = M.MODELS[0];
+  assert.deepEqual({ ...t[0] }, { id: 'Ghosty-week-3-ccccccc', label: 'Ghosty (week 3)', repo: 'owner/ghosty-offline-brain', rev: 'c'.repeat(40), lib: stock.lib, mb: stock.mb, vram: stock.vram });
+  assert.equal(M.modelBase(t[0]), `https://huggingface.co/owner/ghosty-offline-brain/resolve/${'c'.repeat(40)}/`, 'from huggingface.co, which the security policy already allows');
+  assert.deepEqual(M.allModels(list).map((m) => m.label), ['Ghosty (week 3)', 'Qwen3 0.6B', 'Qwen2.5 0.5B']);
+  // the notebook publishes into the same build: its base and stock pins are the phone's
+  assert.equal(C.STOCK_MLC.rev, stock.rev);
+  assert.equal(C.STOCK_MLC.repo, stock.repo);
+});
