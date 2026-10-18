@@ -17,7 +17,7 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await webkit.launch();
 const problems = [];
-const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'learn', 'studio', 'reverse', 'space', 'links', 'settings', 'system'];
+const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'learn', 'gym', 'studio', 'reverse', 'space', 'links', 'settings', 'system'];
 const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 664 } });
 // iOS Safari has none of these (and no Notification at all outside a Home Screen app): code must feature-detect.
 await ctx.addInitScript(() => {

@@ -336,6 +336,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The GYM tab: Ghosty's self-play games; optionally open on one game (maze, codebreaker, colony, trust, tictactoe, connect4, tiles, sudoku, countdown, words).
+      id: 'open_gym',
+      title: 'Gym: Ghosty trains himself',
+      group: 'GO',
+      run: async (a) => {
+        const { openGym } = await import('../features/gym');
+        openGym(typeof a?.game === 'string' ? a.game : undefined);
+      },
+    },
+    {
       // DESIGN REVIEW (brain tools/design.ts): up to three changes to the owner's plan, each a whole Room JSON;
       // SPACE checks each against the plan the owner has and shows BEFORE and AFTER to APPLY or not.
       id: 'design_changes',
