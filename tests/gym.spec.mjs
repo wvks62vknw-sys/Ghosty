@@ -2,7 +2,9 @@
 // TRAIN runs in the Web Worker while a timer on the page keeps ticking (no frozen screen); progress is
 // measured, saved to IndexedDB, survives a reload and training carries on from it; PLAY HIM works on the
 // tic-tac-toe and Connect 4 boards (he answers each move); WATCH plays a maze route frame by frame;
-// Code Breaker cracks a code the owner picks. Nothing sticks out sideways at 390 px; the security policy
+// Code Breaker cracks a code the owner picks. While a game trains, card taps still land and a finished
+// WATCH stays on the board; an armed RESET does not carry over to another game; a game RESET while it
+// trains does not come back (in the page or after a reload). Nothing sticks out sideways at 390 px; the security policy
 // blocks nothing (the worker is the app's own bundled worker file).
 //   BASE=http://localhost:8872 node tests/gym.spec.mjs /tmp/gym-shots          (Chromium)
 //   PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers BROWSER=webkit BASE=… node tests/gym.spec.mjs …   (WebKit)
@@ -162,9 +164,55 @@ if (fs !== '16px') problems.push(`the secret box is ${fs} (16 px stops iPhone zo
 await wideCheck('Code Breaker');
 await page.screenshot({ path: `${out}/gym-code.png` });
 
+// ---- while training: card taps are never lost to a repaint, and a finished WATCH stays on the board ----
+// (Connect 4: it learns slowly, so it is still training throughout.)
+await card('connect4').click();
+await G('button.gymtrain').click();
+await until(() => window.__ghosty?.gym?.training === 'connect4', 5000, 'TRAIN did not start (second time)');
+const cardEl = await card('maze').elementHandle();
+await until((n) => window.__ghosty.gym.progress >= n + 2, 15000, 'no progress while training (second time)', (await st()).progress);
+if (!(await cardEl.evaluate((e) => e.isConnected))) problems.push('the game cards were rebuilt by a progress repaint (a tap in flight would be lost)');
+for (const id of ['maze', 'colony', 'tiles', 'connect4']) {
+  await card(id).click();
+  const ok = await until((x) => window.__ghosty.gym.open === x, 1500, `tapping the ${id} card while training did not open it`, id);
+  if (!ok) break;
+}
+await G('button', { hasText: 'WATCH' }).click();
+await until(() => window.__ghosty.gym.watching, 20000, 'WATCH during training did not start');
+await until(() => !window.__ghosty.gym.watching, 20000, 'WATCH during training did not finish');
+const lastCap = await G('.gymboard .gymcap').innerText();
+const progressThen = (await st()).progress;
+await until((n) => window.__ghosty.gym.progress >= n + 2, 15000, 'no progress after WATCH', progressThen);
+const capNow = await G('.gymboard .gymcap').innerText().catch(() => '');
+if (capNow !== lastCap) problems.push(`the finished WATCH was replaced by a repaint: "${lastCap}" → "${capNow}"`);
+await G('button.gymtrain').click();
+await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop (second time)');
+
+// ---- RESET: two taps; one tap does not carry over to another game ----
+await card('codebreaker').click();
+await G('button', { hasText: 'RESET' }).click();
+if (!/SURE/.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
+await card('maze').click();
+if ((await G('.gymactions button.warn').innerText()).trim() !== 'RESET') problems.push('the armed RESET carried over to another game');
+
+// ---- RESET while training: the wiped game does not come back (messages in flight are dropped) ----
+await G('button.gymtrain').click();
+await until(() => (window.__ghosty?.gym?.recs?.maze?.units ?? 0) > 0, 15000, 'maze did not train');
+await G('.gymactions button.warn').click();
+await G('.gymactions button.warn').click();
+await page.waitForTimeout(3500);
+const afterReset = await st();
+if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
+if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
+await boot();
+await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after the reset reload');
+await page.waitForTimeout(1000);
+if ((await st()).recs.maze) problems.push('the reset maze came back after a reload');
+await closeLog();
+
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.evaluate(() => clearInterval(window.__tick));
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: 10 cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on both boards, WATCH, and a code cracked.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: 10 cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on both boards, WATCH, a code cracked; card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
 process.exit(problems.length ? 1 : 0);
