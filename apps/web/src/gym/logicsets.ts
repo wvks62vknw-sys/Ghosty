@@ -1,6 +1,6 @@
 /**
  * LOGIC SANDBOX's fixed claims, one entry per level: `t` the 20 held-out TRUE claims and `f` the 8 FALSE
- * ones of the test, `p` the 16 practice claims he learns from. Each is "individuals|premise ; premise ⊢
+ * ones of the test, `p` the 32 practice claims he learns from. Each is "individuals|premise ; premise ⊢
  * conclusion", true ones with "|allowance" (half the steps the plain order needs). Stored so the phone never
  * waits on making them; `bench(level, true)` in logic.ts makes them again and gym2.test.mjs checks they agree.
  */
@@ -54,7 +54,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "|r → ¬p ; q → r ; r → q ⊢ p → ¬q|3",
       "|¬r → ¬p ; ¬q ; ¬q → r ⊢ ¬q ∧ r|3",
       "|p ; p → ¬r ; ¬q ⊢ ¬q ∧ ¬r|3",
-      "|q → r ; ¬p → q ; p → ¬r ⊢ ¬p ∨ ¬r|3"
+      "|q → r ; ¬p → q ; p → ¬r ⊢ ¬p ∨ ¬r|3",
+      "|p ; ¬q ; ¬q → r ⊢ p ∧ r|3",
+      "|¬r ; p → r ; ¬p → ¬q ⊢ q → r|3",
+      "|¬p ; ¬q → r ; q → p ⊢ ¬q ∧ r|4",
+      "|p → r ; r → p ; r → q ⊢ ¬q → ¬r|3",
+      "|r ; p → q ; q → ¬r ⊢ ¬p ∨ ¬r|3",
+      "|¬r ; ¬p → q ; p → r ⊢ ¬p ∧ ¬r|3",
+      "|r → ¬q ; p → r ; ¬q → ¬p ⊢ ¬p|4",
+      "|r → p ; p → r ; p → q ⊢ ¬q → ¬r|3",
+      "|q → ¬p ; ¬q → ¬r ; q ⊢ ¬p ∧ q|3",
+      "|p → ¬q ; r → p ; ¬p → r ⊢ p ∨ ¬q|3",
+      "|q ; r ; p → ¬q ⊢ ¬p ∧ r|3",
+      "|q → ¬p ; q → ¬r ; ¬r → p ⊢ ¬q|4",
+      "|¬r → ¬p ; ¬p → r ; r → q ⊢ q ∧ r|5",
+      "|r ; p ; q → ¬p ⊢ ¬q ∧ r|3",
+      "|q → p ; q → r ; ¬r ⊢ ¬q ∧ ¬r|3",
+      "|¬r → q ; ¬q → ¬r ; p → ¬q ⊢ ¬p ∨ ¬r|3"
     ]
   },
   {
@@ -106,7 +122,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "|¬p ; s → r ; r → ¬q ; p ∨ ¬q ⊢ q → ¬r|3",
       "|p ; r → s ; q ; q → ¬s ⊢ q → ¬r|3",
       "|s → p ; ¬r ∨ p ; r ∨ ¬p ; q → s ⊢ ¬p → ¬s|4",
-      "|q ∨ ¬p ; q ; ¬r → p ; p → ¬q ⊢ q → r|3"
+      "|q ∨ ¬p ; q ; ¬r → p ; p → ¬q ⊢ q → r|3",
+      "|p → q ; r ; ¬s ; ¬r ∨ p ⊢ q|3",
+      "|s ∨ q ; ¬s → ¬p ; r → s ; s → ¬p ⊢ ¬p ∨ ¬r|3",
+      "|s ∨ ¬r ; q ∨ p ; ¬p ∨ r ; ¬q → ¬s ⊢ q|6",
+      "|q ∨ r ; p ∨ ¬s ; ¬r → ¬q ; r ∨ s ⊢ ¬p → r|3",
+      "|p → r ; r ∨ p ; s → ¬r ; p ⊢ r ∧ ¬s|4",
+      "|¬p → r ; ¬r ∨ q ; s ∨ q ; r ∨ s ⊢ ¬p → q|3",
+      "|p → r ; ¬r → ¬s ; ¬q ∨ p ; s ∨ r ⊢ ¬q ∨ r|4",
+      "|r → q ; ¬r ∨ p ; p ∨ ¬q ; ¬r ∨ s ⊢ ¬p → ¬r|3",
+      "|r ∨ ¬s ; ¬q ∨ p ; p → ¬q ; ¬r ∨ p ⊢ ¬r → ¬s|3",
+      "|q → p ; r ∨ ¬p ; r → q ; s ⊢ ¬q ∨ r|3",
+      "|s → r ; p → r ; q ∨ p ; s ⊢ q ∨ r|3",
+      "|¬q ∨ ¬p ; ¬p ; ¬r ; ¬s → r ⊢ ¬p ∧ s|4",
+      "|p ; q → ¬p ; s → ¬r ; r ∨ q ⊢ r|4",
+      "|r ∨ p ; ¬r ∨ ¬q ; ¬r ∨ s ; q ∨ r ⊢ ¬p → s|5",
+      "|q → r ; ¬r ; p ∨ s ; ¬s ∨ q ⊢ p → ¬s|3",
+      "|s ∨ q ; ¬p ∨ r ; ¬p ; p ∨ ¬s ⊢ ¬s|4"
     ]
   },
   {
@@ -158,7 +190,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "|r ∨ q ; (s ∧ q) → p ; p → q ; (¬p ∧ q) → r ; (r ∧ q) → ¬p ⊢ p ∨ r|6",
       "|(s ∧ r) → ¬q ; (q ∧ ¬r) → p ; r → p ; (p ∧ q) → s ; (¬r ∧ p) → q ⊢ q → s|11",
       "|s ; (s ∧ ¬r) → ¬p ; ¬r ∨ s ; q ; (¬r ∧ q) → p ⊢ r ∨ ¬s|7",
-      "|r → ¬q ; r → q ; p ∨ s ; ¬r ∨ q ; s ∨ ¬p ⊢ r → s|3"
+      "|r → ¬q ; r → q ; p ∨ s ; ¬r ∨ q ; s ∨ ¬p ⊢ r → s|3",
+      "|(p ∧ r) → ¬s ; q → ¬p ; q ∨ r ; (s ∧ ¬p) → r ; r ∨ q ⊢ ¬r → ¬s|8",
+      "|r ; ¬s → p ; ¬s → r ; q ∨ r ; (p ∧ r) → s ⊢ ¬q ∨ s|4",
+      "|p ∨ ¬s ; r ; (r ∧ s) → q ; ¬p ∨ ¬r ; q → ¬p ⊢ ¬p ∧ ¬s|6",
+      "|(¬q ∧ s) → ¬r ; s ; r → s ; ¬q → s ; ¬q ∨ p ⊢ ¬p → ¬r|6",
+      "|q ∨ ¬s ; q ∨ s ; p ∨ s ; ¬p ; (¬p ∧ ¬r) → s ⊢ ¬p ∧ q|3",
+      "|(p ∧ ¬s) → q ; (r ∧ p) → s ; q ; ¬q → r ; (r ∧ q) → ¬s ⊢ ¬r ∨ ¬s|5",
+      "|q ∨ s ; (s ∧ p) → q ; (¬p ∧ q) → s ; (p ∧ ¬q) → s ; ¬r ∨ q ⊢ p → q|4",
+      "|(p ∧ ¬q) → r ; p ; ¬r → s ; (¬s ∧ p) → q ; ¬r ∨ q ⊢ ¬q → s|5",
+      "|p ; (q ∧ ¬s) → ¬r ; ¬s ∨ ¬r ; (q ∧ s) → r ; ¬r → p ⊢ ¬q ∨ ¬r|4",
+      "|r ∨ q ; ¬p → ¬r ; (¬s ∧ q) → r ; ¬r → ¬p ; s ∨ ¬q ⊢ ¬r → s|5",
+      "|¬s ∨ p ; p → ¬q ; (q ∧ s) → r ; r ∨ s ; (p ∧ s) → q ⊢ r ∧ ¬s|12",
+      "|(¬r ∧ ¬s) → ¬p ; (¬s ∧ q) → p ; ¬q → s ; q → s ; ¬s → q ⊢ ¬p → s|3",
+      "|(r ∧ ¬s) → p ; q → r ; (¬s ∧ r) → q ; ¬q ; q ∨ s ⊢ ¬p → s|4",
+      "|q ∨ s ; ¬p ; q ∨ r ; s ∨ p ; r → p ⊢ q ∧ s|6",
+      "|(¬p ∧ r) → ¬s ; (¬p ∧ ¬r) → q ; s ∨ r ; (¬p ∧ r) → q ; p → ¬s ⊢ ¬q → ¬s|9",
+      "|(s ∧ ¬q) → r ; ¬r → q ; ¬p ∨ ¬r ; p ; s → ¬q ⊢ ¬p ∨ ¬s|6"
     ]
   },
   {
@@ -210,7 +258,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "|(¬p ∧ q) → r ; ¬p → t ; r → ¬s ; ¬t ; r → p ; ¬s → r ⊢ p ∨ ¬r|2",
       "|t ; ¬r ↔ s ; r ∨ p ; (p ∧ t) → r ; t ∨ s ; ¬t ∨ ¬q ⊢ ¬p ∨ r|5",
       "|(q ∧ s) → t ; p → ¬s ; t → q ; (t ∧ q) → s ; q ↔ t ; p → s ⊢ ¬p ∨ ¬q|4",
-      "|r ∨ t ; t ∨ s ; (p ∧ q) → t ; p ; q ↔ r ; ¬r ∨ t ⊢ ¬s → t|4"
+      "|r ∨ t ; t ∨ s ; (p ∧ q) → t ; p ; q ↔ r ; ¬r ∨ t ⊢ ¬s → t|4",
+      "|s ↔ ¬r ; q ∨ ¬p ; (q ∧ ¬t) → r ; r → p ; ¬q → p ; q ↔ r ⊢ ¬q ∨ r|11",
+      "|q → p ; (r ∧ t) → s ; s ; ¬p ∨ ¬s ; r ∨ q ; q ∨ ¬p ⊢ ¬p ∧ ¬q|6",
+      "|(s ∧ ¬t) → ¬r ; ¬s → q ; ¬p ∨ s ; (¬q ∧ p) → s ; p ∨ ¬t ; s ∨ q ⊢ ¬p → ¬t|3",
+      "|q → ¬t ; p ∨ s ; t ∨ ¬r ; r → q ; q → p ; (¬r ∧ s) → p ⊢ ¬p → q|10",
+      "|r ∨ t ; t → ¬q ; s ∨ r ; (t ∧ ¬p) → ¬s ; ¬q → ¬t ; r ∨ ¬q ⊢ p ∨ ¬t|4",
+      "|s → q ; s ↔ t ; (p ∧ ¬q) → r ; s ∨ q ; r ∨ ¬t ; t ∨ r ⊢ q|4",
+      "|q → r ; t ↔ r ; ¬r ↔ ¬q ; p ∨ q ; t ; t ∨ ¬q ⊢ q ∧ r|4",
+      "|q ↔ t ; ¬p ↔ q ; t ; s → r ; s ; (¬r ∧ s) → p ⊢ q ∧ r|6",
+      "|t ↔ ¬q ; ¬r → p ; (r ∧ p) → s ; t ∨ r ; (p ∧ ¬s) → q ; (p ∧ s) → ¬r ⊢ ¬p ∨ s|13",
+      "|¬r ↔ ¬p ; q ↔ s ; (p ∧ s) → ¬q ; (¬q ∧ p) → r ; ¬s → r ; ¬p ↔ t ⊢ ¬q ∨ t|9",
+      "|r ↔ q ; s ∨ q ; s ∨ r ; r ; (q ∧ ¬t) → ¬s ; r ∨ t ⊢ ¬p ∨ q|2",
+      "|(q ∧ ¬t) → ¬r ; (r ∧ p) → t ; ¬p ↔ r ; r ; t ∨ ¬s ; (¬p ∧ r) → t ⊢ s ∨ t|6",
+      "|r ∨ s ; r → q ; t ↔ ¬q ; t ∨ ¬s ; ¬q ; r ↔ p ⊢ ¬p ∧ s|9",
+      "|q ↔ s ; t ↔ ¬q ; s ; p ∨ t ; s ∨ q ; s → ¬t ⊢ s ∧ ¬t|4",
+      "|s ↔ ¬t ; (s ∧ ¬r) → t ; ¬s ∨ ¬t ; (q ∧ p) → s ; (t ∧ r) → q ; q ↔ t ⊢ ¬q → ¬t|7",
+      "|t → ¬s ; ¬s ; q ; q → ¬r ; (r ∧ p) → ¬t ; r ∨ ¬p ⊢ r → ¬s|2"
     ]
   },
   {
@@ -262,7 +326,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "|¬r → ¬s ; (¬q ∧ p) → r ; r ∨ u ; t ↔ s ; (t ∧ q) → s ; ¬u → ¬r ; q ⊢ r ∨ ¬t|3",
       "|¬p → s ; s ∨ r ; ¬u ↔ ¬t ; ¬r → t ; (¬t ∧ p) → s ; t ∨ q ; (q ∧ t) → s ⊢ ¬q ∨ s|10",
       "|¬q → r ; r → (¬q ∨ ¬s) ; ¬s ; (¬u ∧ q) → t ; s → t ; t → (s ∨ r) ; t ∨ ¬p ⊢ ¬p ∨ r|8",
-      "|t ∨ u ; p ↔ r ; p ↔ u ; ¬q ↔ p ; (¬p ∧ ¬t) → q ; (p ∧ r) → t ; r ∨ p ⊢ r → t|8"
+      "|t ∨ u ; p ↔ r ; p ↔ u ; ¬q ↔ p ; (¬p ∧ ¬t) → q ; (p ∧ r) → t ; r ∨ p ⊢ r → t|8",
+      "|s → t ; ¬s → r ; p → (r ∨ s) ; (p ∧ s) → r ; ¬r → ¬q ; ¬u → (¬r ∨ q) ; p ∨ q ⊢ q ∨ u|14",
+      "|q ∨ s ; ¬t → (p ∨ ¬u) ; p → (u ∨ ¬q) ; ¬p ∨ t ; ¬u → (s ∨ ¬q) ; (q ∧ ¬u) → t ; q → ¬p ⊢ ¬q ∨ t|10",
+      "|r → q ; t → (r ∨ q) ; ¬q ; ¬u → (t ∨ r) ; t → (q ∨ r) ; q → (p ∨ ¬u) ; r ↔ s ⊢ ¬q ∧ ¬t|6",
+      "|p ∨ ¬u ; p → (u ∨ s) ; q → t ; (¬s ∧ t) → r ; t → r ; u ; q → (s ∨ r) ⊢ ¬r → ¬t|4",
+      "|¬t ↔ u ; ¬q ∨ ¬u ; p ↔ s ; (¬u ∧ q) → t ; ¬p ; (s ∧ ¬r) → ¬u ; ¬t → (p ∨ q) ⊢ ¬r → t|9",
+      "|¬u → ¬s ; u → q ; (s ∧ t) → p ; p ; ¬u → (¬t ∨ ¬p) ; (q ∧ ¬p) → t ; r → (¬q ∨ u) ⊢ q ∨ ¬u|2",
+      "|s ∨ u ; ¬t → (¬p ∨ ¬u) ; u → ¬p ; q ; s ↔ ¬p ; ¬u → s ; ¬s ∨ u ⊢ ¬s → t|6",
+      "|s ; r ; ¬q → ¬s ; ¬r ∨ p ; t ; ¬s ↔ ¬p ; (t ∧ u) → s ⊢ p ∧ q|4",
+      "|s ↔ ¬u ; u ↔ ¬s ; t → (p ∨ q) ; u ; t → (p ∨ r) ; p ↔ ¬u ; r → (q ∨ ¬p) ⊢ p → ¬u|5",
+      "|¬p ∨ s ; ¬q ; (¬t ∧ r) → s ; ¬r → ¬u ; (¬r ∧ u) → q ; p ∨ ¬r ; t → (s ∨ q) ⊢ r → s|7",
+      "|¬s ; ¬r ∨ p ; ¬q ↔ ¬s ; (¬s ∧ r) → p ; ¬q → p ; u ; ¬r ↔ u ⊢ p ∨ s|2",
+      "|p → (q ∨ ¬t) ; r → (¬p ∨ s) ; t ∨ q ; (p ∧ ¬q) → ¬u ; (¬u ∧ s) → r ; q ∨ u ; r → (p ∨ u) ⊢ ¬p ∨ q|5",
+      "|(q ∧ ¬t) → p ; u → (r ∨ q) ; ¬s ↔ r ; p ∨ s ; (u ∧ ¬r) → p ; u → (s ∨ p) ; ¬t → (¬p ∨ s) ⊢ r → t|11",
+      "|u ; p ; ¬p → r ; p ↔ ¬r ; u → (¬s ∨ ¬r) ; ¬u ↔ ¬q ; s → (t ∨ r) ⊢ q ∨ r|2",
+      "|¬r → (p ∨ u) ; t → (p ∨ q) ; s → q ; q → r ; (q ∧ u) → p ; u ↔ r ; ¬t → (p ∨ ¬u) ⊢ p ∨ ¬r|15",
+      "|q → s ; ¬p ↔ ¬r ; (r ∧ s) → u ; ¬s ↔ ¬r ; ¬r ∨ u ; s ; t → p ⊢ q → r|5"
     ]
   },
   {
@@ -314,7 +394,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "a,b,c|∀x (Red(x) → Round(x)) ; Round(c) ; ∀x (Round(x) ∨ Big(x)) ⊢ ∀x (¬Big(x) → Round(x))|5",
       "a,b,c|¬Round(c) ; ∀x (Round(x) ∨ Red(x)) ; Red(a) ⊢ ∀x (¬Round(x) → Red(x))|5",
       "a,b,c|∀x (Big(x) → Red(x)) ; ∀x (Round(x) ∨ Red(x)) ; ∀x (Round(x) → ¬Big(x)) ⊢ ∀x (¬Red(x) → ¬Big(x))|7",
-      "a,b,c|∀x (Big(x) → Red(x)) ; ∀x (Round(x) ∨ Big(x)) ; ¬Big(a) ⊢ ∀x (¬Round(x) → Big(x))|11"
+      "a,b,c|∀x (Big(x) → Red(x)) ; ∀x (Round(x) ∨ Big(x)) ; ¬Big(a) ⊢ ∀x (¬Round(x) → Big(x))|11",
+      "a,b,c|∀x (Round(x) → Red(x)) ; ¬Big(c) ; ∀x (¬Red(x) → Big(x)) ⊢ ∀x (¬Big(x) → Red(x))|7",
+      "a,b,c|∀x (Round(x) ∨ Big(x)) ; ¬Big(a) ; ∀x (Big(x) ∨ Round(x)) ⊢ ∀x (¬Big(x) → Round(x))|5",
+      "a,b,c|Round(c) ; ∀x (Red(x) ∨ Big(x)) ; ∀x (Round(x) → Red(x)) ⊢ ∀x (¬Red(x) → ¬Round(x))|7",
+      "a,b,c|∀x (¬Big(x) → Red(x)) ; Red(a) ; ∀x (¬Red(x) → ¬Round(x)) ⊢ ∀x (Round(x) → Red(x))|5",
+      "a,b,c|∀x (Red(x) → ¬Big(x)) ; ∀x (¬Red(x) → Round(x)) ; Big(a) ⊢ ∀x (¬Round(x) → ¬Big(x))|14",
+      "a,b,c|∀x (Red(x) ∨ Big(x)) ; Big(a) ; ∀x (Round(x) → ¬Red(x)) ⊢ ∀x (Round(x) → Big(x))|9",
+      "a,b,c|∀x (Red(x) → Round(x)) ; ∀x (¬Red(x) ∨ Big(x)) ; Big(b) ⊢ ∀x (Red(x) → Big(x))|5",
+      "a,b,c|∀x (Red(x) → Big(x)) ; ∀x (Round(x) ∨ Red(x)) ; ∀x (Round(x) → Big(x)) ⊢ ∀x (¬Big(x) → Red(x))|19",
+      "a,b,c|∀x (Round(x) ∨ ¬Big(x)) ; Red(b) ; ∀x (Big(x) → ¬Round(x)) ⊢ ∀x (Big(x) → Red(x))|9",
+      "a,b,c|∀x (Big(x) → Round(x)) ; ∀x (Red(x) → Big(x)) ; ∀x (Big(x) → ¬Red(x)) ⊢ ∀x (¬Round(x) → ¬Red(x))|15",
+      "a,b,c|∀x (Red(x) ∨ Round(x)) ; ¬Round(c) ; ∀x (¬Round(x) ∨ Big(x)) ⊢ ∀x (¬Red(x) → Big(x))|10",
+      "a,b,c|∀x (Round(x) ∨ Big(x)) ; Red(a) ; ∀x (Round(x) ∨ Red(x)) ⊢ ∀x (¬Big(x) → Round(x))|5",
+      "a,b,c|¬Big(b) ; ∀x (Red(x) ∨ Big(x)) ; ∀x (Round(x) ∨ Big(x)) ⊢ ∀x (¬Big(x) → Round(x))|8",
+      "a,b,c|∀x (Big(x) → ¬Round(x)) ; ∀x (Round(x) → Red(x)) ; ∀x (Red(x) ∨ Big(x)) ⊢ ∀x (¬Red(x) → Big(x))|6",
+      "a,b,c|∀x (Big(x) → Red(x)) ; ∀x (Red(x) → Big(x)) ; ∀x (¬Big(x) ∨ ¬Round(x)) ⊢ ∀x (Round(x) → ¬Big(x))|12",
+      "a,b,c|Round(a) ; ∀x (¬Red(x) → Round(x)) ; ∀x (¬Big(x) → ¬Red(x)) ⊢ ∀x (¬Big(x) → Round(x))|9"
     ]
   },
   {
@@ -366,7 +462,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "a,b,c|∀x (¬Round(x) ∨ Big(x)) ; ∀x (Big(x) → ¬Red(x)) ; ∃x Big(x) ⊢ ∃x (¬Red(x) ∧ Big(x))|33",
       "a,b,c|∀x (¬Big(x) → ¬Red(x)) ; ∀x (Big(x) ∨ ¬Red(x)) ; ∀x (Round(x) → Big(x)) ⊢ ∀x (¬Big(x) → ¬Round(x))|5",
       "a,b,c|∃x Red(x) ; ∀x (Round(x) → Big(x)) ; ∀x (Red(x) ∨ Big(x)) ⊢ ∀x (¬Red(x) → Big(x))|6",
-      "a,b,c|∀x (Round(x) ∨ Big(x)) ; ∀x (Big(x) → Round(x)) ; ∃x Big(x) ⊢ ∀x (¬Round(x) → ¬Red(x))|8"
+      "a,b,c|∀x (Round(x) ∨ Big(x)) ; ∀x (Big(x) → Round(x)) ; ∃x Big(x) ⊢ ∀x (¬Round(x) → ¬Red(x))|8",
+      "a,b,c|Red(c) ; ∃x ¬Red(x) ; ∀x (Big(x) → Red(x)) ⊢ ∃x (¬Big(x) ∧ ¬Red(x))|14",
+      "a,b,c|∀x (Big(x) ∨ Red(x)) ; Red(a) ; ∀x (Red(x) → Big(x)) ⊢ ∀x (¬Big(x) → ¬Round(x))|7",
+      "a,b,c|∀x (¬Red(x) → Round(x)) ; ∀x (Round(x) ∨ Big(x)) ; Red(c) ⊢ ∀x (¬Big(x) → Round(x))|4",
+      "a,b,c|∀x (Red(x) ∨ Round(x)) ; Round(a) ; ∀x (Red(x) → ¬Big(x)) ⊢ ∀x (Big(x) → Round(x))|8",
+      "a,b,c|∃x Round(x) ; ∀x (¬Red(x) ∨ Round(x)) ; ∀x (Red(x) ∨ Round(x)) ⊢ ∀x Round(x)|8",
+      "a,b,c|∀x (Round(x) ∨ Red(x)) ; ∀x (Round(x) ∨ ¬Red(x)) ; ∀x (Red(x) → Big(x)) ⊢ ∀x (¬Round(x) → Big(x))|8",
+      "a,b,c|∀x (Round(x) → Red(x)) ; ∀x (Red(x) ∨ Big(x)) ; ∃x ¬Round(x) ⊢ ∀x (¬Red(x) → ¬Round(x))|6",
+      "a,b,c|∀x (Round(x) ∨ Big(x)) ; ¬Big(b) ; ∀x (¬Red(x) → Round(x)) ⊢ ∀x (¬Round(x) → Big(x))|6",
+      "a,b,c|∀x (Big(x) ∨ Red(x)) ; ∃x ¬Big(x) ; Big(b) ⊢ ∃x (¬Big(x) ∧ Red(x))|22",
+      "a,b,c|¬Round(c) ; ∀x (¬Red(x) → Round(x)) ; ∀x (¬Red(x) ∨ Big(x)) ⊢ ∀x (¬Big(x) → Round(x))|12",
+      "a,b,c|∃x Big(x) ; ∀x (¬Round(x) → Big(x)) ; ∀x (Round(x) → Red(x)) ⊢ ∀x (¬Big(x) → Red(x))|12",
+      "a,b,c|Big(b) ; ∀x (¬Red(x) ∨ Big(x)) ; ∀x (¬Round(x) → ¬Big(x)) ⊢ ∀x (¬Round(x) → ¬Red(x))|9",
+      "a,b,c|∃x Round(x) ; ∃x ¬Round(x) ; ∀x (Round(x) ∨ Red(x)) ⊢ ∃x (¬Round(x) ∧ Red(x))|29",
+      "a,b,c|Red(a) ; ∀x (Round(x) → ¬Red(x)) ; ∃x Big(x) ⊢ ∀x (Red(x) → ¬Round(x))|4",
+      "a,b,c|∀x (Round(x) → ¬Big(x)) ; Big(b) ; ∃x Round(x) ⊢ ∃x (¬Big(x) ∧ Round(x))|22",
+      "a,b,c|Big(b) ; ∀x (Red(x) ∨ ¬Big(x)) ; ∀x (Big(x) → Red(x)) ⊢ ∀x (¬Red(x) → ¬Big(x))|4"
     ]
   },
   {
@@ -418,7 +530,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "a,b,c|∀x (¬Big(x) ∨ Red(x)) ; ∃x Round(x) ; ∀x ((Round(x) ∧ Big(x)) → Red(x)) ; ∀x (¬Red(x) ∨ Round(x)) ⊢ ∀x (¬Round(x) → ¬Big(x))|10",
       "a,b,c|∀x ((Round(x) ∧ Big(x)) → Red(x)) ; ∀x (¬Red(x) → (Big(x) ∨ Round(x))) ; ∀x ((¬Red(x) ∧ Round(x)) → Big(x)) ; Red(b) ⊢ ∀x (¬Big(x) → Red(x))|12",
       "a,b,c|∀x (¬Red(x) → Round(x)) ; ∀x (Red(x) → (Round(x) ∨ Big(x))) ; ∀x ((Big(x) ∧ Red(x)) → ¬Round(x)) ; ∃x Round(x) ⊢ ∀x (¬Big(x) → Round(x))|18",
-      "a,b,c|∀x ((Round(x) ∧ Big(x)) → Red(x)) ; ∀x (Big(x) → Red(x)) ; ∀x ((Big(x) ∧ Red(x)) → Round(x)) ; Likes(a, b) ⊢ ∀x (¬Red(x) → ¬Big(x))|12"
+      "a,b,c|∀x ((Round(x) ∧ Big(x)) → Red(x)) ; ∀x (Big(x) → Red(x)) ; ∀x ((Big(x) ∧ Red(x)) → Round(x)) ; Likes(a, b) ⊢ ∀x (¬Red(x) → ¬Big(x))|12",
+      "a,b,c|∀x ((Big(x) ∧ Red(x)) → Round(x)) ; ∀x (Round(x) → Red(x)) ; ∃x Red(x) ; ∀x (Big(x) → Red(x)) ⊢ ∀x (Big(x) → Round(x))|19",
+      "a,b,c|∀x (¬Round(x) → (¬Big(x) ∨ ¬Red(x))) ; Likes(c, c) ; ∀x (Big(x) → (¬Round(x) ∨ ¬Red(x))) ; ∃x Round(x) ⊢ ∀x (Red(x) → ¬Big(x))|14",
+      "a,b,c|∀x (¬Red(x) → Big(x)) ; ∃x Red(x) ; ∃x ¬Red(x) ; Big(b) ⊢ ∃x (Big(x) ∧ ¬Red(x))|20",
+      "a,b,c|∀x ((Red(x) ∧ Round(x)) → Big(x)) ; ∀x (Big(x) → ¬Round(x)) ; ∀x ((Round(x) ∧ Big(x)) → Red(x)) ; ∀x ((¬Big(x) ∧ ¬Red(x)) → Round(x)) ⊢ ∀x (Round(x) → ¬Red(x))|12",
+      "a,b,c|∃x Big(x) ; ∀x (Red(x) → Big(x)) ; Likes(c, c) ; ∀x (Big(x) → (Red(x) ∨ Round(x))) ⊢ ∀x (¬Big(x) → ¬Red(x))|9",
+      "a,b,c|∀x (Big(x) → Red(x)) ; ∀x ((¬Big(x) ∧ Red(x)) → ¬Round(x)) ; ∀x (¬Red(x) → (Round(x) ∨ Big(x))) ; ∀x (Round(x) → (Red(x) ∨ ¬Big(x))) ⊢ ∀x (¬Red(x) → Round(x))|12",
+      "a,b,c|∀x ((Round(x) ∧ ¬Red(x)) → Big(x)) ; ∃x ¬Red(x) ; ∀x (Round(x) ∨ ¬Red(x)) ; ¬Round(c) ⊢ ∀x (Red(x) → Round(x))|7",
+      "a,b,c|∀x (¬Round(x) → ¬Red(x)) ; ∀x (Red(x) ∨ ¬Round(x)) ; ∀x ((Red(x) ∧ Big(x)) → ¬Round(x)) ; ∀x ((¬Red(x) ∧ Round(x)) → Big(x)) ⊢ ∀x (Big(x) → ¬Round(x))|14",
+      "a,b,c|∃x Red(x) ; ∀x ((Red(x) ∧ ¬Round(x)) → ¬Big(x)) ; ∀x (¬Round(x) ∨ Big(x)) ; ∃x Round(x) ⊢ ∃x (Big(x) ∧ Round(x))|37",
+      "a,b,c|∀x (¬Round(x) → (Big(x) ∨ Red(x))) ; ∀x (Big(x) → (Red(x) ∨ Round(x))) ; ∃x Big(x) ; Big(b) ⊢ ∀x (¬Round(x) → Red(x))|13",
+      "a,b,c|∀x (Round(x) → ¬Red(x)) ; ∀x (¬Round(x) ∨ Big(x)) ; ∀x (Red(x) → (Round(x) ∨ Big(x))) ; Likes(b, b) ⊢ ∀x (¬Big(x) → ¬Red(x))|12",
+      "a,b,c|∃x Big(x) ; ∀x (Round(x) ∨ Red(x)) ; ∃x ¬Red(x) ; Red(a) ⊢ ∃x Round(x)|11",
+      "a,b,c|∀x (Big(x) → (Round(x) ∨ ¬Red(x))) ; ∀x (¬Red(x) → (Round(x) ∨ Big(x))) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ; ∀x (Red(x) → ¬Big(x)) ⊢ ∀x (Red(x) → ¬Round(x))|12",
+      "a,b,c|∀x ((Round(x) ∧ Red(x)) → Big(x)) ; ∀x ((Red(x) ∧ Round(x)) → ¬Big(x)) ; ∀x ((Red(x) ∧ Big(x)) → Round(x)) ; Red(a) ⊢ ∃x (¬Round(x) ∧ ¬Big(x))|9",
+      "a,b,c|∀x (Round(x) → Red(x)) ; ∀x (¬Round(x) ∨ Big(x)) ; Likes(a, c) ; ∀x (¬Round(x) → Red(x)) ⊢ ∀x (¬Big(x) → Red(x))|7",
+      "a,b,c|∀x (Big(x) ∨ Round(x)) ; Likes(b, a) ; Big(c) ; ∀x (Big(x) ∨ ¬Round(x)) ⊢ ∀x (¬Red(x) → Big(x))|5"
     ]
   },
   {
@@ -470,7 +598,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "a,b,c,d|∀x (Big(x) ∨ Red(x)) ; Likes(c, c) ; ¬Round(c) ; Red(a) ⊢ ∀x (¬Red(x) → Big(x))|3",
       "a,b,c,d|Likes(b, b) ; ∀x (Big(x) ∨ ¬Round(x)) ; ∀x ((Round(x) ∧ ¬Red(x)) → Big(x)) ; ∀x (Round(x) ∨ Big(x)) ⊢ ∀x (¬Big(x) → Red(x))|9",
       "a,b,c,d|∀x (Red(x) ∨ Big(x)) ; Likes(d, c) ; ∀x (Round(x) ∨ ¬Red(x)) ; ∀x (¬Red(x) ∨ Big(x)) ⊢ ∀x (¬Big(x) → Red(x))|15",
-      "a,b,c,d|∀x (Red(x) ∨ ¬Big(x)) ; ∀x (¬Red(x) → (¬Big(x) ∨ ¬Round(x))) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ; Likes(b, d) ⊢ ∀x (¬Red(x) → ¬Big(x))|4"
+      "a,b,c,d|∀x (Red(x) ∨ ¬Big(x)) ; ∀x (¬Red(x) → (¬Big(x) ∨ ¬Round(x))) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ; Likes(b, d) ⊢ ∀x (¬Red(x) → ¬Big(x))|4",
+      "a,b,c,d|∀x ((¬Big(x) ∧ Round(x)) → Red(x)) ; ∀x (Round(x) → (¬Red(x) ∨ Big(x))) ; ∀x (Big(x) → Red(x)) ; ∀x (Red(x) ∨ Big(x)) ⊢ ∀x Red(x)|22",
+      "a,b,c,d|∀x (¬Big(x) → Red(x)) ; Likes(c, c) ; ∀x (Round(x) ∨ Big(x)) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ⊢ ∀x (Red(x) → Big(x))|23",
+      "a,b,c,d|∃x Red(x) ; ∀x (Round(x) → Big(x)) ; Likes(d, a) ; ∃x ¬Red(x) ⊢ ∀x (¬Big(x) → ¬Round(x))|4",
+      "a,b,c,d|∀x (Big(x) ∨ Red(x)) ; ∃x Big(x) ; Likes(c, c) ; ∀x (Red(x) → Round(x)) ⊢ ∀x (¬Round(x) → Big(x))|14",
+      "a,b,c,d|Likes(b, a) ; ∃x ¬Round(x) ; ∀x (Red(x) ∨ ¬Round(x)) ; ∃x Red(x) ⊢ ∀x (¬Red(x) → ¬Round(x))|7",
+      "a,b,c,d|Likes(a, d) ; ∃x ¬Round(x) ; Red(b) ; ∀x (Round(x) ∨ Big(x)) ⊢ ∃x (Big(x) ∧ ¬Round(x))|90",
+      "a,b,c,d|∀x (Round(x) → (Big(x) ∨ Red(x))) ; Likes(c, a) ; ∀x (¬Big(x) → (¬Red(x) ∨ Round(x))) ; ∀x ((Round(x) ∧ Big(x)) → Red(x)) ⊢ ∀x (Round(x) → Red(x))|18",
+      "a,b,c,d|∃x Red(x) ; ∀x (Red(x) → Big(x)) ; ∀x (¬Big(x) ∨ Round(x)) ; ∀x ((¬Big(x) ∧ Red(x)) → ¬Round(x)) ⊢ ∃x Round(x)|93",
+      "a,b,c,d|Likes(a, d) ; Likes(a, a) ; Likes(a, b) ; ∀x (Red(x) → Round(x)) ⊢ ∀x (¬Round(x) → ¬Red(x))|4",
+      "a,b,c,d|∀x ((Round(x) ∧ Red(x)) → Big(x)) ; ∀x (¬Big(x) → Red(x)) ; ∀x ((Red(x) ∧ ¬Round(x)) → ¬Big(x)) ; Likes(a, a) ⊢ ∀x (¬Big(x) → ¬Round(x))|15",
+      "a,b,c,d|∃x Round(x) ; Likes(d, b) ; Big(d) ; ∀x (Round(x) → ¬Big(x)) ⊢ ∃x (¬Big(x) ∧ Round(x))|68",
+      "a,b,c,d|∀x (¬Big(x) → (Red(x) ∨ ¬Round(x))) ; ∀x ((Red(x) ∧ Big(x)) → Round(x)) ; ∀x (Big(x) → Red(x)) ; Likes(b, d) ⊢ ∀x (¬Round(x) → ¬Big(x))|19",
+      "a,b,c,d|∀x (Red(x) → Round(x)) ; ∀x (Round(x) → ¬Big(x)) ; Likes(c, d) ; ∀x (Red(x) → ¬Round(x)) ⊢ ∀x (¬Round(x) → ¬Red(x))|15",
+      "a,b,c,d|Red(c) ; ∀x (Round(x) → (Big(x) ∨ Red(x))) ; ∀x (Big(x) → (Round(x) ∨ Red(x))) ; ∀x (¬Round(x) → Red(x)) ⊢ ∀x (¬Red(x) → Big(x))|11",
+      "a,b,c,d|∀x (Round(x) → ¬Red(x)) ; ∀x ((Big(x) ∧ Red(x)) → Round(x)) ; ¬Big(a) ; ∀x ((¬Red(x) ∧ ¬Round(x)) → ¬Big(x)) ⊢ ∀x (¬Round(x) → ¬Big(x))|17",
+      "a,b,c,d|∀x (Round(x) → Big(x)) ; ∀x (Red(x) → Big(x)) ; ∀x (Red(x) ∨ Big(x)) ; ∀x ((Big(x) ∧ Round(x)) → Red(x)) ⊢ ∀x (¬Big(x) → ¬Round(x))|16"
     ]
   },
   {
@@ -522,7 +666,23 @@ export const LOGIC_SETS: { t: string[]; f: string[]; p: string[] }[] = [
       "a,b,c,d|∀x (¬Big(x) → Round(x)) ; ∀x (¬Round(x) ∨ Red(x)) ; Likes(d, d) ; ∀x (Big(x) → (Round(x) ∨ Red(x))) ; ∀x (Red(x) ∨ Round(x)) ⊢ ∀x (¬Round(x) → Red(x))|22",
       "a,b,c,d|∀x (Big(x) → (¬Round(x) ∨ ¬Red(x))) ; ∀x ((¬Round(x) ∧ Red(x)) → ¬Big(x)) ; Round(c) ; ∀x (¬Big(x) ∨ Red(x)) ; Red(c) ⊢ ∀x ¬Big(x)|28",
       "a,b,c,d|Likes(c, d) ; ∀x ((¬Big(x) ∧ Round(x)) → ¬Red(x)) ; Likes(d, c) ; ∀x (Round(x) → (Red(x) ∨ Big(x))) ; ∀x ((Big(x) ∧ Round(x)) → Red(x)) ⊢ ∀x (¬Big(x) → ¬Round(x))|21",
-      "a,b,c,d|∀x (Likes(x, d) → ¬Big(x)) ; ∀x (Red(x) → Big(x)) ; Red(a) ; ∃x ¬Big(x) ; ∀x ∀y (Likes(x, y) → Likes(y, x)) ⊢ ∃x (Big(x) ∧ Red(x))|6"
+      "a,b,c,d|∀x (Likes(x, d) → ¬Big(x)) ; ∀x (Red(x) → Big(x)) ; Red(a) ; ∃x ¬Big(x) ; ∀x ∀y (Likes(x, y) → Likes(y, x)) ⊢ ∃x (Big(x) ∧ Red(x))|6",
+      "a,b,c,d|∀x (Round(x) → ¬Big(x)) ; ∀x (Big(x) ∨ Red(x)) ; Big(a) ; ∀x (Round(x) → (Red(x) ∨ Big(x))) ; ∃x Round(x) ⊢ ∃x (Red(x) ∧ ¬Big(x))|169",
+      "a,b,c,d|∀x (Big(x) ∨ Red(x)) ; ∀x ((Red(x) ∧ ¬Round(x)) → Big(x)) ; ∀x (Big(x) ∨ Round(x)) ; ∀x (Likes(x, a) → Round(x)) ; Likes(a, d) ⊢ ∀x (¬Big(x) → Round(x))|10",
+      "a,b,c,d|∀x (¬Round(x) ∨ Big(x)) ; ∀x (¬Big(x) ∨ Red(x)) ; ∀x (Red(x) → ∃y Likes(x, y)) ; ∀x (Round(x) → Big(x)) ; ∀x (Red(x) → (Big(x) ∨ Round(x))) ⊢ ∀x (¬Red(x) → ¬Round(x))|27",
+      "a,b,c,d|∃x Big(x) ; ∀x (¬Red(x) → Big(x)) ; ∀x ((¬Round(x) ∧ Red(x)) → Big(x)) ; ∀x ((Big(x) ∧ Round(x)) → Red(x)) ; ∀x (¬Big(x) ∨ ¬Round(x)) ⊢ ∃x (¬Round(x) ∧ Big(x))|40",
+      "a,b,c,d|∀x (Big(x) ∨ Red(x)) ; ∀x (Round(x) → Red(x)) ; ∀x (Likes(x, c) → Big(x)) ; ∀x (Round(x) → ∃y Likes(x, y)) ; ∃x Round(x) ⊢ ∀x (¬Red(x) → Big(x))|71",
+      "a,b,c,d|∀x (¬Round(x) → (Big(x) ∨ Red(x))) ; ∃x Round(x) ; ∀x (Round(x) → Red(x)) ; Likes(b, c) ; ∀x (Likes(x, c) → Round(x)) ⊢ ∀x (¬Red(x) → Big(x))|32",
+      "a,b,c,d|∀x (Likes(x, b) → Big(x)) ; Big(b) ; ∀x (Big(x) → Round(x)) ; ∀x (Round(x) → Red(x)) ; ∀x ((Big(x) ∧ Red(x)) → Round(x)) ⊢ ∀x (Big(x) → Red(x))|25",
+      "a,b,c,d|∀x (Round(x) ∨ Red(x)) ; ∀x (Round(x) ∨ Big(x)) ; ∀x (¬Round(x) ∨ Big(x)) ; ∀x (Big(x) → Red(x)) ; ∀x (Red(x) → ∃y Likes(x, y)) ⊢ ∀x (¬Big(x) → Red(x))|32",
+      "a,b,c,d|∀x ((Round(x) ∧ ¬Big(x)) → Red(x)) ; ∃x Red(x) ; ∀x (Round(x) → Red(x)) ; Likes(a, b) ; ∀x (Red(x) → Round(x)) ⊢ ∃x (Red(x) ∧ Round(x))|36",
+      "a,b,c,d|∀x (Round(x) → (¬Big(x) ∨ Red(x))) ; ∀x (Round(x) ∨ Red(x)) ; ∀x (Round(x) → (¬Big(x) ∨ ¬Red(x))) ; ∀x (Big(x) ∨ Round(x)) ; ¬Big(d) ⊢ ∀x (Big(x) → ¬Round(x))|17",
+      "a,b,c,d|Red(b) ; ∀x (Round(x) → Big(x)) ; ∀x (Big(x) ∨ Round(x)) ; ∀x (¬Round(x) ∨ Red(x)) ; ∀x (Likes(x, a) → Round(x)) ⊢ ∀x (Round(x) → Red(x))|13",
+      "a,b,c,d|∀x ∀y (Likes(x, y) → Likes(y, x)) ; ∀x (Red(x) → (¬Round(x) ∨ ¬Big(x))) ; ∀x (Big(x) → Red(x)) ; ∀x (Round(x) ∨ Red(x)) ; ∀x (Red(x) → ¬Big(x)) ⊢ ∀x (¬Round(x) → Red(x))|13",
+      "a,b,c,d|∀x ∀y (Likes(x, y) → Likes(y, x)) ; ∀x (Round(x) → (Big(x) ∨ Red(x))) ; Big(a) ; Red(a) ; ∀x (Red(x) → Big(x)) ⊢ ∀x (¬Big(x) → ¬Round(x))|11",
+      "a,b,c,d|∀x ((Big(x) ∧ Round(x)) → Red(x)) ; Likes(a, c) ; ∀x (Round(x) ∨ ¬Big(x)) ; ∀x (Red(x) ∨ ¬Round(x)) ; ∃x ¬Big(x) ⊢ ∀x (Big(x) → Red(x))|14",
+      "a,b,c,d|∃x ¬Big(x) ; ∃x Big(x) ; ∀x (Round(x) → Big(x)) ; Round(b) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ⊢ ∃x ¬Round(x)|27",
+      "a,b,c,d|∀x ((¬Big(x) ∧ Round(x)) → ¬Red(x)) ; ∀x ∀y (Likes(x, y) → Likes(y, x)) ; ∀x (Round(x) → (Red(x) ∨ ¬Big(x))) ; ∀x ((¬Round(x) ∧ ¬Red(x)) → ¬Big(x)) ; ∀x ((Round(x) ∧ Red(x)) → Big(x)) ⊢ ∀x (¬Red(x) → ¬Big(x))|17"
     ]
   }
 ];

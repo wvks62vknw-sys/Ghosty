@@ -505,7 +505,8 @@ class EscapeLearner implements Learner {
     this.r = rng(this.rand);
     // He starts knowing nothing: every command looks as good as any other, so he tries them at random.
     this.w = s?.w?.length === FEATURES ? s.w.slice() : new Array(FEATURES).fill(0);
-    this.sigma = s?.sigma ?? 1;
+    // A new level: a fresh, wide search from what he knew (a narrow one could stay stuck where the last level left it).
+    this.sigma = s?.level === level ? s.sigma : 1;
     this.best = s?.level === level ? s.best : this.practiceScore(this.w);
   }
   /** Practice score: escapes (and how quickly) first; for a room he does not get out of, how many locks he opened. */

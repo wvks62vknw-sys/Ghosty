@@ -205,7 +205,8 @@ class DebateLearner implements Learner {
     this.r = rng(this.rand);
     // He starts knowing nothing: every fact looks the same, so he cites them in the order they lie on the table.
     this.w = s?.w?.length === FEATURES ? s.w.slice() : new Array(FEATURES).fill(0);
-    this.sigma = s?.sigma ?? 1;
+    // A new level: a fresh, wide search from what he knew (a narrow one could stay stuck where the last level left it).
+    this.sigma = s?.level === level ? s.sigma : 1;
     this.best = s?.level === level ? s.best : this.practiceScore(this.w);
   }
   practiceScore(w: number[]): number {

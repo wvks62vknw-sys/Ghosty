@@ -750,7 +750,7 @@ export interface Bench {
 }
 /**
  * Each level's fixed claims: 20 held-out true ones (each with its allowance) and 8 false ones for the
- * test, never trained on, and 16 true practice ones he learns from (different seeds). Read from the stored
+ * test, never trained on, and 32 true practice ones he learns from (different seeds). Read from the stored
  * list (logicsets.ts) so the phone never waits on making them; `fresh` makes them again (the tests check
  * the two agree).
  */
@@ -767,7 +767,7 @@ export function bench(level: number, fresh = false): Bench {
   else {
     const falses: Claim[] = [];
     for (let s = 0; s < 8; s++) falses.push(makeClaim(L, 70500 + s, false));
-    b = { truths: graded(L, 70000, 20), falses, practice: graded(L, 80000, 16) };
+    b = { truths: graded(L, 70000, 20), falses, practice: graded(L, 80000, 32) };
   }
   if (!fresh) benches.set(L, b);
   return b;
@@ -877,7 +877,8 @@ class LogicLearner implements Learner {
     this.r = rng(this.rand);
     // He starts knowing nothing: every pair looks the same, so he combines them in the order they come.
     this.w = s?.w?.length === FEATURES ? s.w.slice() : ZERO.slice();
-    this.sigma = s?.sigma ?? 1;
+    // A new level: a fresh, wide search from what he knew (a narrow one could stay stuck where the last level left it).
+    this.sigma = s?.level === level ? s.sigma : 1;
     this.best = s?.level === level ? s.best : this.practice(this.w);
   }
   /** Practice score with weights w: proved first, then fewer steps. */

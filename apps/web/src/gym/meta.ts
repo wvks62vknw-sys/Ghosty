@@ -114,7 +114,7 @@ export const LOGIC: GameMeta = {
   blurb: 'claims · proofs · truth tables',
   learns: 'He learns which steps to try first when proving a claim; every claim is checked by machine, and a false one “proved” counts as a failure.',
   unit: 'proofs',
-  bar: per([0.8, 0.8, 0.8, 0.75, 0.75, 0.8, 0.75, 0.7, 0.7, 0.7]),
+  bar: per([0.8, 0.8, 0.8, 0.75, 0.75, 0.8, 0.75, 0.7, 0.65, 0.65]),
 };
 export const BRAIN: GameMeta = {
   id: 'brain',
