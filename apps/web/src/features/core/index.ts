@@ -13,6 +13,8 @@ import { air, airBand, WMO, temp, weather } from '../../data/weather';
 import { onFrame } from '../../engine/scheduler';
 import { run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
+import { navTo } from '../../shell/areas';
+import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { citedReply } from './cited';
@@ -94,6 +96,8 @@ function renderEntry(e: Entry): HTMLElement {
       // done: "Saving to memory" reads "Saved to memory"
       const label = e.state === 'ok' ? e.label.replace(/^Saving to /, 'Saved to ') : e.label;
       const el = h(`div.act.${e.state}` as 'div', h('i'), h('span', label), e.detail ? h('em', e.detail) : null);
+      // saved to memory: the calm looks say "Remembered ✓" on the reply instead of a row of its own
+      if (/ to memory$/.test(label)) el.classList.add('memact');
       // What the tool is doing right now, under its line, with a thin bar when it knows how far it is.
       if (e.progress && e.state === 'running') {
         const ratio = progressRatio(e.progress);
@@ -198,11 +202,19 @@ export const coreTab: TabDef = {
     const convo = panel('CONVERSATION', { status: '' });
     convo.body.append(log);
     convo.el.classList.add('convo');
-    const logBtn = button('LOG', (b) => {
-      const open = hud.classList.toggle('logopen');
-      b.classList.toggle('on', open);
+    // The conversation's one way in and out (the calm looks: a "Chat" chip under the reactor, "Continue in chat" on a
+    // reply, and "‹ Ask" once open; the classic looks: LOG in the chat bar). Tests know it as .logbtn.
+    const logBtn = button('LOG', () => setChat(!hud.classList.contains('logopen')), 'logbtn');
+    const setChat = (open: boolean) => {
+      hud.classList.toggle('logopen', open);
+      logBtn.classList.toggle('on', open);
       if (open) log.scrollTop = log.scrollHeight;
-    }, 'logbtn');
+      if (proLook()) {
+        if (open) pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) });
+        else popScreen();
+      }
+      placeChat();
+    };
 
     // side panels (wide screens)
     const wx = panel('WEATHER', { status: home().name.toUpperCase(), grow: false });
@@ -221,6 +233,7 @@ export const coreTab: TabDef = {
     const right = h('div.cside.r', th.el, mk.el, nw.el);
     // The calm looks: a lock-screen glance (date and time above the reactor; the weather and what is next
     // under it) and a "+" that holds voice replies and the camera. The classic looks never show them.
+    // Under the greeting (the navigation bar's large title): the time and the weather in one small line, then what is next.
     const lockDate = h('span.ldate');
     const lockTime = h('b.ltime');
     const lock = h('div#lock', lockDate, lockTime);
@@ -230,16 +243,25 @@ export const coreTab: TabDef = {
     const paintLock = () => {
       const d = new Date();
       const w0 = weather.data;
-      // Lock Screen style: the date and the weather on one line above the time
-      lockDate.textContent = `${d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}${w0 ? `  ·  ${temp(w0.current.temperature_2m).replace(/[CF]$/, '')} ${WMO(w0.current.weather_code)}` : ''}`;
-      lockTime.textContent = fmt.time(d);
-      const w = weather.data;
+      lockDate.textContent = `${fmt.time(d)}${w0 ? `  ·  ${temp(w0.current.temperature_2m)} ${WMO(w0.current.weather_code).toLowerCase()}` : ''}`;
+      lockTime.textContent = nextUp ? `Next: ${nextUp}` : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
       lockWx.textContent = '';
-      void w;
       lockNext.textContent = nextUp;
       lockNext.hidden = !nextUp;
     };
     let nextUp = '';
+    // Two or three things to ask for, under the reactor (the calm looks); the first is the way into the conversation.
+    const chip = (label: string, tint: string, glyph: string, run: () => void) => {
+      const b = h('button.sugg', { type: 'button', style: `--tint:${tint}` }, icon(glyph), h('span', label));
+      b.addEventListener('click', run);
+      return b;
+    };
+    const suggest = h('div#suggest',
+      chip('Brief me', '#5e5ce6', '<path d="M5 4.5h11.5a2 2 0 012 2V19a1.5 1.5 0 01-1.5 1.5H6.5A1.5 1.5 0 015 19z"/><path d="M8.5 8.5h6M8.5 12h6M8.5 15.5h3.5M18.5 9H20v9.5a2 2 0 01-2 2"/>', () => navTo('brief', 'push')),
+      chip('What’s on today', '#ff453a', '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>', () => void send('What should I know today?', { speak: settings.get().speak })),
+      chip('God’s eye', '#0a84ff', '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5S14.6 18.1 12 20.5M12 3.5C9.4 5.9 8.2 8.7 8.2 12s1.2 6.1 3.8 8.5"/>', () => navTo('eye', 'push')),
+    );
+    const capActs = h('div.capacts');
     const plus = h('button.plusbtn', { type: 'button', 'aria-label': 'More: voice replies and the camera', 'aria-expanded': 'false' }, icon('<path d="M12 5v14M5 12h14"/>'));
     const plusMenu = h('div.plusmenu', citedBtn, voiceBtn, lensBtn);
     plus.addEventListener('click', () => {
@@ -251,23 +273,44 @@ export const coreTab: TabDef = {
       plusMenu.classList.remove('open');
       plus.setAttribute('aria-expanded', 'false');
     });
-    // a tap anywhere else closes it
+    // Escape closes it, and so does a tap anywhere else
+    addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !plusMenu.classList.contains('open')) return;
+      plusMenu.classList.remove('open');
+      plus.setAttribute('aria-expanded', 'false');
+    });
     document.addEventListener('pointerdown', (e) => {
       if (!plusMenu.classList.contains('open') || plus.contains(e.target as Node) || plusMenu.contains(e.target as Node)) return;
       plusMenu.classList.remove('open');
       plus.setAttribute('aria-expanded', 'false');
     });
-    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, mic));
-    // The calm looks keep the conversation button in the navigation bar (top right, like a chat app's history);
-    // the classic looks keep it in the chat bar. Same button either way (tests and the phone layout use .logbtn).
+    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, mic));
+    caption.append(capActs);
+    // Where the conversation button is (one at a time): the classic looks' chat bar; in the calm looks "‹ Ask" in the
+    // navigation bar while the conversation is open, "Continue in chat" on a reply, else the "Chat" chip.
     const cbar = center.querySelector('#cbar')!;
-    const placeLog = () => {
-      const topCmd = document.querySelector('#top .cmd');
-      if (proLook() && topCmd) topCmd.before(logBtn);
-      else if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
+    const placeChat = () => {
+      const top = document.querySelector('#top');
+      const replying = !!chat.get().live && !caption.classList.contains('fade');
+      center.classList.toggle('replying', proLook() && replying && !hud.classList.contains('logopen'));
+      if (!proLook()) {
+        delete logBtn.dataset.label;
+        if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
+        return;
+      }
+      if (hud.classList.contains('logopen') && top) {
+        logBtn.dataset.label = 'Ask';
+        if (logBtn.parentElement !== top) top.prepend(logBtn);
+      } else if (replying) {
+        logBtn.dataset.label = 'Continue in chat';
+        if (logBtn.parentElement !== capActs) capActs.append(logBtn);
+      } else {
+        logBtn.dataset.label = 'Chat';
+        if (logBtn.parentElement !== suggest) suggest.prepend(logBtn);
+      }
     };
-    setTimeout(placeLog, 0);
-    themeEvents.on('change', placeLog);
+    setTimeout(placeChat, 0);
+    themeEvents.on('change', placeChat);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
     hud.append(left, center, right);
@@ -286,7 +329,13 @@ export const coreTab: TabDef = {
         fadeTimer = window.setTimeout(() => chat.set({ live: '' }), 900);
       }, 25000);
     };
-    caption.addEventListener('click', () => chat.set({ live: '' }));
+    caption.addEventListener('click', (e) => !(e.target as HTMLElement).closest('button') && chat.set({ live: '' }));
+    // the reply card's own actions: copy, listen (then "Continue in chat", placed by placeChat)
+    const capCopy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
+    capCopy.addEventListener('click', () => void navigator.clipboard?.writeText(chat.get().live).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
+    const capHear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
+    capHear.addEventListener('click', () => void speak(chat.get().live).catch(() => undefined));
+    capActs.append(capCopy, capHear);
     // Ghosty's words appear as he says them: the caption types itself in (fast — a whole
     // reply within about a second), instead of landing all at once.
     let typing = 0;
@@ -310,9 +359,33 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
+      // a day line where the day changes ("Today", "Yesterday", "Friday 16 October")
+      const shown = chat.get().entries.slice(-40);
+      let day = '';
+      const els: HTMLElement[] = [];
+      for (const e of shown) {
+        const at = 'at' in e ? e.at : 0;
+        if (at) {
+          const d = new Date(at);
+          const k = d.toDateString();
+          if (k !== day) {
+            day = k;
+            const ago = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 864e5);
+            els.push(h('div.daysep', ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })));
+          }
+        }
+        els.push(renderEntry(e));
+      }
+      clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');
+      // "Remembered ✓" on the reply that follows a save to memory
+      for (const a of log.querySelectorAll('.act.memact.ok')) {
+        let n = a.nextElementSibling;
+        while (n && !n.matches('.msg:not(.me)') && n.matches('.act')) n = n.nextElementSibling;
+        if (n?.matches('.msg:not(.me)')) n.append(h('span.memchip', 'Remembered'));
+      }
+      placeChat();
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
       armFade();
@@ -428,6 +501,8 @@ export const coreTab: TabDef = {
     paintSide();
     return {
       enter() {
+        // back on the reactor with the conversation still open: the bar says so again
+        if (proLook() && hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
         clearInterval(calloutTimer);
         calloutTimer = window.setInterval(() => void paintCallouts(), 15000);

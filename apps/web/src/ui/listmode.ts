@@ -1,11 +1,13 @@
 /**
- * iOS Settings for the calm looks: a page's panels become one grouped list — a tinted icon square,
- * the name, its value on the right, a chevron — and a tap pushes the panel in as its own screen.
- * The navigation bar's back button pops it. Used on Settings, System and Links. Nothing changes in
- * the DOM a test reads (every panel, title and control stays where it was); the classic looks
- * never see it.
+ * iOS Settings for the calm looks: a page's panels become grouped lists — a small title above
+ * each card, a tinted glyph square, the name, its value on the right, a chevron, and a footer
+ * where a line explains something — and a tap pushes the panel in as its own screen. The
+ * navigation bar's back button pops it. A row with data-go opens another screen instead
+ * (Settings › System). Used on Settings, System and Links. Every panel, title and control keeps
+ * its classes (a group only wraps panels); the classic looks never see it.
  */
 import { h, icon } from '../core/dom';
+import { go } from '../shell/tabs';
 import { ui } from '../state/app';
 import { proLook } from '../state/theme';
 
@@ -26,47 +28,94 @@ const G = {
   car: '<path d="M4 16v-4l2-5h12l2 5v4z"/><circle cx="7.5" cy="16.5" r="1.5"/><circle cx="16.5" cy="16.5" r="1.5"/>',
   room: '<path d="M4 20V9l8-5 8 5v11z"/><path d="M9 20v-6h6v6"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>',
+  link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.4"/>',
+  hand: '<path d="M12 3.5l7 2.6v5.4c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6.1z"/><path d="M9 12l2 2 4-4"/>',
+  help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 014.9.8c0 1.7-2.5 2.2-2.5 3.8M12 16.6v.4"/>',
 };
-/** Panel title (start of it) → glyph and iOS system colour. */
+/** Panel title (start of it) → glyph and colour: by what the row does, the same language as the rest of the app. */
 const MAP: [RegExp, keyof typeof G, string][] = [
   [/^LOOK/, 'brush', '#bf5af2'],
   [/^VOICE/, 'wave', '#ff375f'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],
   [/^KEYS/, 'key', '#ffb340'],
   [/^AI ROOM/, 'room', '#ff9f0a'],
-  [/^AI/, 'spark', '#0a84ff'],
+  [/^AI/, 'spark', '#64d2ff'],
   [/^STATUS/, 'pulse', '#30d158'],
-  [/^STORAGE/, 'drive', '#8e8e93'],
+  [/^STORAGE/, 'drive', '#98989d'],
   [/^BACKUP/, 'restore', '#40c8e0'],
   [/^EMAIL/, 'mail', '#0a84ff'],
   [/^SPOTIFY/, 'music', '#30d158'],
-  [/^TELEGRAM/, 'plane', '#40c8e0'],
+  [/^TELEGRAM/, 'plane', '#5ac8fa'],
   [/^(PHONE|NOTIFICATIONS)/, 'bell', '#ff453a'],
-  [/^GITHUB/, 'branch', '#636366'],
+  [/^GITHUB/, 'branch', '#98989d'],
   [/^LIVE TRAFFIC/, 'car', '#ff9f0a'],
+  [/^SYSTEM$/, 'gear', '#98989d'],
+  [/^LINKS$/, 'link', '#0a84ff'],
+  [/^ABOUT$/, 'info', '#98989d'],
+  [/^PRIVACY$/, 'hand', '#0a84ff'],
+  [/^HELP$/, 'help', '#30d158'],
 ];
 
+export interface ListGroup {
+  /** The small title above the group's card. */
+  title: string;
+  /** Which panels (by title) belong to it. */
+  match: RegExp;
+  /** A line under the card. */
+  foot?: string;
+}
+
+/**
+ * Push a screen inside the current tab: the navigation bar shows "‹ back" and the label until
+ * `pop` runs (or the tab changes). `ownBack`: the screen draws its own back button.
+ */
+export function pushScreen(d: { back: string; label: string; title?: string; pop: () => void; ownBack?: boolean }): void {
+  dispatchEvent(new CustomEvent('ghosty:push', { detail: { title: d.label, ...d } }));
+}
+/** The pushed screen is gone: the bar goes back to the tab's own. */
+export function popScreen(): void {
+  dispatchEvent(new CustomEvent('ghosty:push', { detail: null }));
+}
+
 /** Make one page a grouped list with pushed sub-pages. `name` is the page's own name for the back button. */
-export function listMode(root: HTMLElement, name: string, keep: RegExp | null = null): void {
+export function listMode(root: HTMLElement, name: string, keep: RegExp | null = null, groups: ListGroup[] = []): void {
   if (root.dataset.list) return;
   root.dataset.list = '1';
   root.classList.add('listmode');
+  const titleOf = (pn: Element) => pn.querySelector('.ptitle')?.textContent ?? '';
   const deco = () => {
     for (const pn of root.querySelectorAll<HTMLElement>('.pn')) {
-      if (pn.dataset.row) continue;
       const head = pn.querySelector(':scope > h3');
       if (!head) continue;
-      const t = pn.querySelector('.ptitle')?.textContent ?? '';
-      // an overview the page opens on stays a card above the list
-      if (keep?.test(t)) {
-        pn.classList.add('keepcard');
+      const t = titleOf(pn);
+      if (!pn.dataset.row && !pn.classList.contains('keepcard')) {
+        // an overview the page opens on stays a card above the list
+        if (keep?.test(t)) {
+          pn.classList.add('keepcard');
+          continue;
+        }
+        const [, g, tint] = MAP.find(([re]) => re.test(t)) ?? [null, 'gear', '#98989d'];
+        pn.dataset.row = '1';
+        pn.style.setProperty('--tint', tint);
+        head.prepend(h('span.rowic', icon(G[g as keyof typeof G])));
+        head.append(h('i.chev', { 'aria-hidden': 'true' }));
+      }
+      // into its group's card (consecutive panels of one group in one column share a card)
+      const col = pn.parentElement;
+      if (!pn.dataset.row || !col?.classList.contains('col')) continue;
+      const gi = groups.findIndex((g) => g.match.test(t));
+      const prev = pn.previousElementSibling;
+      const prevCard = prev?.classList.contains('lgrp') && prev.getAttribute('data-g') === String(gi) ? prev.querySelector('.lcard') : null;
+      if (prevCard) {
+        prevCard.append(pn);
         continue;
       }
-      const [, g, tint] = MAP.find(([re]) => re.test(t)) ?? [null, 'gear', '#8e8e93'];
-      pn.dataset.row = '1';
-      pn.style.setProperty('--tint', tint);
-      head.prepend(h('span.rowic', icon(G[g as keyof typeof G])));
-      head.append(h('i.chev', { 'aria-hidden': 'true' }));
+      const g = groups[gi];
+      const card = h('div.lcard');
+      const grp = h('section.lgrp', { dataset: { g: String(gi) } }, g ? h('h4.lgt', g.title) : null, card, g?.foot ? h('p.lgf', g.foot) : null);
+      col.insertBefore(grp, pn);
+      card.append(pn);
     }
   };
   deco();
@@ -84,7 +133,7 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     root.classList.remove('haspush');
     const s = scroller();
     if (s) s.scrollTop = scroll;
-    dispatchEvent(new CustomEvent('ghosty:push', { detail: null }));
+    popScreen();
   };
   // Capture: in a calm look a tap on a panel's title pushes it, before the panel would fold itself.
   root.addEventListener('click', (e) => {
@@ -95,6 +144,13 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     const pn = head.parentElement as HTMLElement;
     if (pn.classList.contains('pushed')) return void e.stopPropagation();
     e.stopPropagation();
+    // a row that is another screen (Settings › System)
+    if (pn.dataset.go) {
+      document.documentElement.dataset.nav = 'push';
+      go(pn.dataset.go);
+      setTimeout(() => (document.documentElement.dataset.nav = 'switch'), 700);
+      return;
+    }
     pn.classList.remove('min');
     const s = scroller();
     scroll = s?.scrollTop ?? 0;
@@ -102,7 +158,7 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     pushed = pn;
     pn.classList.add('pushed');
     root.classList.add('haspush');
-    dispatchEvent(new CustomEvent('ghosty:push', { detail: { back: name, title: pn.querySelector('.ptitle')?.textContent ?? '', label: pn.querySelector<HTMLElement>('.ptitle')?.dataset.label ?? '', pop } }));
+    pushScreen({ back: name, title: titleOf(pn), label: pn.querySelector<HTMLElement>('.ptitle')?.dataset.label ?? '', pop });
   }, true);
   // Leaving the page closes the pushed panel, so the list is there next time.
   ui.subscribe((st, pr) => st.tab !== pr.tab && pop());

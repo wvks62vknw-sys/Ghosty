@@ -716,7 +716,17 @@ export class Reactor {
     x.setTransform(1, 0, 0, 1, 0, 0);
     x.clearRect(0, 0, W, H);
     const S = this.proUnder.width;
-    x.setTransform(S / 2 / PX, 0, 0, S / 2 / PX, W / 2, H / 2);
+    // States, as breathing: idle breathes slowly; listening follows the voice; thinking sends a light round
+    // the collar; speaking pulses with the words (the whole reactor swells a little on each).
+    let env = 0;
+    for (let i = 0; i < 40; i++) env += this.spec[i]!;
+    env /= 40;
+    const breath = 0.5 + 0.5 * Math.sin((t * TAU) / 5.2);
+    const swell = st === 'speaking' ? env * 0.03 : st === 'idle' ? breath * 0.006 : this.lv * 0.02;
+    const sc = (S / 2 / PX) * (1 + swell);
+    x.setTransform(sc, 0, 0, sc, W / 2, H / 2);
+    if (st === 'idle') glow = 0.78 + 0.22 * breath + this.lv * 0.8;
+    else if (st === 'speaking') glow = 0.8 + env * 0.9;
     const base = to255(gfx.theme.c);
     const th = st === 'thinking' ? to255(gfx.theme.a) : st === 'listening' ? mix(base, [120, 255, 200], 0.6) : base;
     const hot = mix(th, [255, 255, 255], 0.72);
@@ -809,7 +819,7 @@ export class Reactor {
     for (let i = 0; i < 72; i++) {
       const a = (i / 72) * TAU - t * 0.06;
       const v = this.spec[Math.floor((i / 72) * 96)]!;
-      x.strokeStyle = rgba(hot, (loud ? 0.3 : 0.12) + v * 0.6);
+      x.strokeStyle = rgba(hot, (loud ? 0.3 : 0.05) + v * (loud ? 0.6 : 0.3));
       x.lineWidth = 0.006;
       x.beginPath();
       x.moveTo(Math.cos(a) * 0.335, Math.sin(a) * 0.335);
@@ -817,8 +827,8 @@ export class Reactor {
       x.stroke();
     }
 
-    // ---- energy arcs (fainter than the classic look)
-    for (const a of this.arcs) {
+    // ---- energy arcs (fainter than the classic look), only while he thinks or speaks
+    for (const a of st === 'thinking' || st === 'speaking' ? this.arcs : []) {
       const k = 1 - a.life / a.max;
       const pts: [number, number][] = [];
       for (let i = 0; i <= 6; i++) {
@@ -834,6 +844,27 @@ export class Reactor {
         pts.forEach(([px, py], i) => (i ? x.lineTo(px, py) : x.moveTo(px, py)));
         x.stroke();
       }
+    }
+
+    // ---- thinking: a light running round the collar
+    if (st === 'thinking') {
+      const a0 = t * 2.4;
+      for (let k = 0; k < 14; k++) {
+        const q = k / 14;
+        x.strokeStyle = rgba(k > 11 ? hot : th, (1 - q) * 0.5);
+        x.lineWidth = 0.022 * (1 - q * 0.6);
+        x.beginPath();
+        x.arc(0, 0, 0.412, a0 - q * 1.3 - 0.09, a0 - q * 1.3);
+        x.stroke();
+      }
+    }
+    // ---- speaking: each word sends a soft ring out of the housing
+    if (st === 'speaking' && env > 0.05) {
+      x.strokeStyle = rgba(th, Math.min(0.35, env * 0.45));
+      x.lineWidth = 0.012;
+      x.beginPath();
+      x.arc(0, 0, 1.02 + env * 0.1, 0, TAU);
+      x.stroke();
     }
 
     // ---- the plasma core

@@ -57,7 +57,8 @@ const bar = await page.locator('#cbar').boundingBox();
 const btn = await cited.boundingBox();
 if (!bar || !btn || btn.x < bar.x - 1 || btn.x + btn.width > bar.x + bar.width + 1) problems.push(`CITED sticks out of the chat bar: ${JSON.stringify({ bar, btn })}`);
 
-// 2. a cited answer
+// 2. a cited answer (the "+" menu closed first: it opens over the conversation's button)
+await page.keyboard.press('Escape');
 await page.click('.logbtn');
 const had = await page.locator('.log .msg.cited').count();
 await page.fill('#cin', 'what is the speed of light');

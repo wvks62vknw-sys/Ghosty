@@ -1,11 +1,12 @@
 /** SETTINGS tab: theme, your name, units, voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { listVoices } from '../../assistant/voice';
-import { clear, h } from '../../core/dom';
+import { clear, fmt, h } from '../../core/dom';
+import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
 import { applyTheme, proLook, THEMES } from '../../state/theme';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { offlinePanel } from './offline';
 
@@ -24,6 +25,32 @@ export const settingsTab: TabDef = {
     P.right.append(vp.el);
     const op = offlinePanel();
     P.right.append(op.el);
+    // The calm looks: System and Links are rows of Settings (they open their own screens), then About, Privacy and Help.
+    const goRow = (title: string, to: string, status: string) => {
+      const p = panel(title, { grow: false, status });
+      p.el.dataset.go = to;
+      p.el.classList.add('gorow');
+      return p.el;
+    };
+    const about = panel('ABOUT', { grow: false, status: BUILD.sha.slice(0, 7) });
+    about.body.append(
+      row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
+      row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`),
+      row('THEMES', `${Object.keys(THEMES).length} looks, from Graphite to the classic HUDs`),
+    );
+    const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
+    privacy.body.append(
+      h('p.note', 'What you tell Ghosty, what he remembers and your keys are kept in your own Cloudflare account and on this phone — nowhere else.'),
+      h('p.note', 'Questions go to the AI services you added keys for, and only the words needed to answer them. Memory never keeps passwords or what he read online.'),
+    );
+    const help = panel('HELP', { grow: false, status: 'Tips' });
+    help.body.append(
+      row('ASK', 'Type or tap the microphone on the reactor screen. Tap the reactor to wake it.', null, { wrap: true }),
+      row('SEARCH', 'The magnifier at the top finds any screen, place or look, or asks Ghosty.', null, { wrap: true }),
+      row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
+      row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
+    );
+    P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), about.el, privacy.el, help.el);
 
     // Theme picker: one card per theme, drawn in that theme's own colours and finish, so the
     // choice is made by looking rather than by name.

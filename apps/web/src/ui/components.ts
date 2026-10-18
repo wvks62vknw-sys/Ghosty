@@ -193,7 +193,9 @@ export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void 
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
     document.body.append(toastBox);
   }
-  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', msg);
+  // The calm looks: a pill with the reactor's glyph, in sentence case (a word in capitals is shown in small letters, abbreviations kept).
+  const words = msg.replace(/\b[A-Z][A-Z'’-]+\b/g, (w) => (w === 'GHOSTY' ? 'Ghosty' : ACRONYM.test(w) ? w : w.toLowerCase()));
+  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', h('i.tglyph'), h('span', { dataset: words !== msg ? { label: words.charAt(0).toUpperCase() + words.slice(1) } : {} }, msg));
   toastBox.append(t);
   while (toastBox.children.length > 3) toastBox.firstChild!.remove();
   setTimeout(() => t.classList.add('out'), 3600);

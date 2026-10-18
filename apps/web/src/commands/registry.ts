@@ -18,7 +18,18 @@ const GROUPS: Record<string, { name: string; icon: string }> = {
   MEDIA: { name: 'Media', icon: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>' },
   TOOLS: { name: 'Tools', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/>' },
 };
-const groupOf = (g?: string) => GROUPS[g ?? ''] ?? { name: g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More', icon: GROUPS.TOOLS!.icon };
+const GROUP_NAMES: Record<string, string> = { RECENT: 'Recent' };
+const groupOf = (g?: string) => GROUPS[g ?? ''] ?? { name: GROUP_NAMES[g ?? ''] ?? (g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More'), icon: GROUPS.TOOLS!.icon };
+
+/** How the calm looks dress a result (shell/areas.ts): its colour and glyph, and the recent screens shown before anything is typed. */
+interface Decor {
+  look(c: Command): { tint: string; glyph: string | null };
+  recents(): Command[];
+}
+let decor: Decor | null = null;
+export function addPaletteDecor(d: Decor): void {
+  decor = d;
+}
 /** What a query is matched against: the title without its "Theme: " style prefix, and the group's name. */
 const matchText = (c: Command) => `${c.title.replace(/^[A-Z][a-z]+: /, '')} ${groupOf(c.group).name}`;
 
@@ -127,6 +138,9 @@ export function togglePalette(): void {
         const extra = providers.flatMap((p) => p(q));
         items = [...extra.filter((c) => c.group === 'ASK'), ...extra.filter((c) => c.group !== 'ASK'), ...items];
       }
+      // Nothing typed yet: the screens opened last come first (Spotlight's recents).
+      const rec = !q && decor ? decor.recents() : [];
+      if (rec.length) items = [...rec, ...items.filter((c) => !rec.some((r) => r.id === c.id))];
       // Grouped under headings, at most three of each.
       const seen = new Map<string, number>();
       items = items.filter((c) => {
@@ -145,7 +159,8 @@ export function togglePalette(): void {
           last = c.group ?? '';
           list.append(h('div.grp', groupOf(c.group).name));
         }
-        const it = h(`div.it${i === sel ? '.sel' : ''}` as 'div', h('i.gic', icon(groupOf(c.group).icon)), h('small', c.group ?? ''), h('span', c.group === 'GO' && c.title === c.title.toUpperCase() ? niceCase(c.title) : c.title.replace(/^Theme: /, '')), c.keys ? h('em', c.keys) : null);
+        const look = decor?.look(c);
+        const it = h(`div.it${i === sel ? '.sel' : ''}` as 'div', h('i.gic', { style: look ? `--tint:${look.tint}` : '' }, icon(look?.glyph ?? groupOf(c.group).icon)), h('small', c.group ?? ''), h('span', c.group === 'GO' && c.title === c.title.toUpperCase() ? niceCase(c.title) : c.title.replace(/^Theme: /, '')), c.keys ? h('em', c.keys) : null);
         it.addEventListener('click', () => pick(i));
         list.append(it);
       });

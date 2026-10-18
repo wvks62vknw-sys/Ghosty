@@ -57,16 +57,24 @@ async function run(name, viewport) {
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
-  // add a line under ROUTINES
-  await me.locator('select').selectOption('routines');
-  await me.locator('input').fill('I run on Tuesdays');
-  await me.locator('button:has-text("ADD")').click();
+  // add a line under ROUTINES (the calm looks: the "Add a memory…" row opens the form in a sheet)
+  const addRow = page.locator('#pg-memory .addrow');
+  const sheet = (await addRow.isVisible().catch(() => false)) ? (await addRow.click(), page.locator('.modal .memadd')) : me;
+  await sheet.locator('select').selectOption('routines');
+  await sheet.locator('input').fill('I run on Tuesdays');
+  await sheet.locator('button:has-text("ADD")').click();
   await page.waitForFunction(() => document.querySelector('#pg-memory .pn.me')?.textContent?.includes('I run on Tuesdays'), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the added line did not appear`));
+  await page.waitForTimeout(300);
+  if (await page.locator('.modal .memadd').count()) problems.push(`[${name}] the Add a memory sheet stayed open after ADD`);
   if (!/ROUTINES/i.test((await me.textContent()) ?? '')) problems.push(`[${name}] the ROUTINES section did not appear`);
-  // remove it again (the ✕ on its row)
+  // remove it again (the ✕ on its row; the calm looks show it after Edit)
   const added = me.locator('.rw', { hasText: 'I run on Tuesdays' });
+  const edit = page.locator('#pg-memory .editbtn');
+  const editing = await edit.isVisible().catch(() => false);
+  if (editing) await edit.click();
   await added.locator('.del').click();
   await page.waitForFunction(() => !document.querySelector('#pg-memory .pn.me')?.textContent?.includes('I run on Tuesdays'), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the removed line is still there`));
+  if (editing) await edit.click(); // Done
   // the DIARY (other column on phones): newest first, opens in a modal; REFLECT NOW toasts what changed
   const narrow = viewport.width < 900;
   if (narrow) await page.click('#pg-memory .swap');

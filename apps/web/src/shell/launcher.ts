@@ -9,7 +9,15 @@ import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
 import { ACRONYM, niceCase } from '../ui/components';
-import { AREAS, areaOf } from './areas';
+import { areaOf, tintOf } from './areas';
+
+/** The calm looks' home screen: four sections that fill whole rows of four (Learn and Plan share one). */
+const SECTIONS: [string, string[]][] = [
+  ['Ask and see', ['core', 'brief', 'eye', 'lens']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space']],
+  ['Learn and plan', ['learn', 'gym', 'library', 'agenda', 'markets', 'threats', 'radio']],
+  ['Me', ['memory', 'settings', 'system', 'links']],
+];
 import { proLook } from '../state/theme';
 import type { TabDef } from './tabs';
 
@@ -53,7 +61,7 @@ export function buildLauncher(): Launcher {
     const tile = (t: TabDef, i: number) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
       type: 'button',
       dataset: { id: t.id, area: areaOf(t.id)?.id ?? '' },
-      style: `animation-delay:${i * 22}ms;--tint:${areaOf(t.id)?.tint ?? '#8e8e93'}`,
+      style: `animation-delay:${i * 22}ms;--tint:${tintOf(t.id)}`,
       onclick: () => {
         close(true);
         go(t.id);
@@ -64,7 +72,7 @@ export function buildLauncher(): Launcher {
     // the classic looks keep the plain list.
     if (proLook()) {
       let i = 0;
-      clear(tiles, ...AREAS.flatMap((a) => [h('h4.dsec', { style: `--tint:${a.tint}` }, a.title), ...a.tabs.map((id) => all.find((t) => t.id === id)).filter((t): t is TabDef => !!t).map((t) => tile(t, i++))]));
+      clear(tiles, ...SECTIONS.flatMap(([name, ids]) => [h('h4.dsec', name), ...ids.map((id) => all.find((t) => t.id === id)).filter((t): t is TabDef => !!t).map((t) => tile(t, i++))]));
     } else clear(tiles, ...all.map(tile));
     quick.hidden = true;
     clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed (the classic look shows it in capitals)

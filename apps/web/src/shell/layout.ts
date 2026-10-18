@@ -10,10 +10,27 @@ import { go, tabs } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
 import { proLook, themeEvents } from '../state/theme';
 import { niceCase } from '../ui/components';
-import { listMode } from '../ui/listmode';
+import { listMode, type ListGroup } from '../ui/listmode';
 
 /** The pages shown as an iOS Settings list in the calm looks, and their names for the back button. */
 const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
+/** Their groups: a small title above each card, a footer under it where a line explains something. */
+const GROUPS: Record<string, ListGroup[]> = {
+  settings: [
+    { title: 'Appearance', match: /^LOOK/ },
+    { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
+    { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
+    { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
+  ],
+  system: [
+    { title: 'Brain', match: /^(KEYS|AI|GITHUB)/, foot: 'Keys are kept in your own Cloudflare account and never shown again once saved.' },
+    { title: 'Data', match: /^(STORAGE|BACKUP)/ },
+  ],
+  links: [
+    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM|GITHUB|LIVE)/ },
+    { title: 'This phone', match: /^(PHONE|NOTIF)/ },
+  ],
+};
 const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
 const LOGO = '<path d="M12 3c-4 0-7 3-7 7v11l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10c0-4-3-7-7-7z"/><circle cx="9.5" cy="10.5" r="1.1"/><circle cx="14.5" cy="10.5" r="1.1"/>';
 
@@ -51,31 +68,40 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     if (n?.backTo) navTo(n.backTo, 'pop');
   });
   const navTitle = h('h1.navtitle');
-  // A panel pushed in as its own screen (ui/listmode.ts, Settings · System · Links): the bar says where it came from.
-  let pushed: { back: string; title: string; label: string; pop: () => void } | null = null;
+  // A screen pushed inside a tab (a Settings row, a Gym game, the conversation): the bar says where it came from.
+  // ownBack: the screen brings its own back button (the conversation's, known to tests and the classic looks as .logbtn).
+  let pushed: { back: string; title: string; label: string; pop: () => void; ownBack?: boolean; tab: string } | null = null;
   addEventListener('ghosty:push', (e) => {
-    pushed = (e as CustomEvent).detail;
+    const d = (e as CustomEvent).detail;
+    pushed = d ? { ...d, tab: ui.get().tab } : null;
     paintNav();
   });
   const paintNav = () => {
     const tab = ui.get().tab;
-    if (pushed && LISTED[tab]) {
+    document.body.dataset.tab = tab;
+    if (pushed && pushed.tab === tab) {
       document.body.dataset.depth = 'inner';
+      document.body.classList.toggle('ownback', !!pushed.ownBack);
       (back.lastChild as HTMLElement).textContent = pushed.back;
-      back.hidden = false;
+      back.hidden = !!pushed.ownBack;
       navTitle.textContent = pushed.label || niceCase(pushed.title.split(' · ')[0]!);
+      navTitle.dataset.case = 'keep';
       return;
     }
     pushed = null;
+    document.body.classList.remove('ownback');
     const n = navInfo(tab);
     const pg = document.getElementById(`pg-${tab}`);
-    if (pg && LISTED[tab] && proLook()) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null);
-    document.body.dataset.tab = ui.get().tab;
-    document.body.dataset.depth = !n ? 'home' : n.back ? 'inner' : 'hub';
+    if (pg && LISTED[tab] && proLook()) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null, GROUPS[tab]);
+    document.body.dataset.depth = !n || tab === 'core' ? 'home' : n.back ? 'inner' : 'hub';
     (back.lastChild as HTMLElement).textContent = n?.back ?? '';
     back.hidden = !n?.back;
-    navTitle.textContent = niceCase(n?.title ?? '');
+    // the reactor's greeting keeps the name as typed
+    navTitle.textContent = tab === 'core' ? n?.title ?? '' : niceCase(n?.title ?? '');
+    navTitle.dataset.case = 'keep';
   };
+  // the greeting follows the clock
+  setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);
   const top = h('header#top', back, h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot, navTitle);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
@@ -87,6 +113,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     dock.classList.toggle('areas', proLook());
     document.querySelector('#top .you')?.remove();
     paintTabBar = proLook() ? buildTabBar(dock, () => deck.open()) : null;
+    document.body.classList.toggle('tabbar', !!paintTabBar);
     if (paintTabBar) return paintNav();
     const wide = innerWidth >= 900;
     const list = tabs().filter((t) => !t.hub);

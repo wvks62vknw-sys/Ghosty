@@ -7,7 +7,9 @@ import type { DiaryEntry, Lesson, MemoryFact, Profile, ProfileSection } from '..
 import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat, clearConversation } from '../../assistant/session';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, fmt, h, icon } from '../../core/dom';
+import { proLook } from '../../state/theme';
+import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -35,7 +37,10 @@ export const memoryTab: TabDef = {
     };
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
-    const paintSub = () => (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
+    const paintSub = () =>
+      (P.sub.textContent = proLook()
+        ? `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`
+        : `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -112,9 +117,29 @@ export const memoryTab: TabDef = {
       paintMe();
     };
     lineIn.addEventListener('keydown', (e) => e.key === 'Enter' && void addLine());
-    mp.el.insertBefore(h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine())), mp.body);
+    const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
+    mp.el.insertBefore(meForm, mp.body);
     paintMe();
-    P.left.append(mp.el, fp.el);
+    // The calm looks: one "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
+    // (a row also swipes left to delete). The classic looks keep the form in the panel.
+    let sheet: { close(): void } | null = null;
+    const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
+    addRow.addEventListener('click', () => {
+      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. He keeps it in your profile.'), meForm), () => {
+        mp.el.insertBefore(meForm, mp.body);
+        sheet = null;
+      });
+      setTimeout(() => lineIn.focus(), 60);
+    });
+    const editBtn = h('button.editbtn', { type: 'button', 'aria-pressed': 'false' }, 'Edit');
+    editBtn.addEventListener('click', () => {
+      const on = root.classList.toggle('editing');
+      editBtn.textContent = on ? 'Done' : 'Edit';
+      editBtn.setAttribute('aria-pressed', String(on));
+    });
+    P.sub.after(editBtn);
+    swipeToDelete(root);
+    P.left.append(addRow, mp.el, fp.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -176,9 +201,14 @@ export const memoryTab: TabDef = {
     P.left.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }));
-    cp.foot!.prepend(button('CLEAR CONVERSATION', async () => {
+    const clearNow = async () => {
       await clearConversation();
       toast('Conversation cleared');
+    };
+    cp.foot!.prepend(button('CLEAR CONVERSATION', () => {
+      // the calm looks confirm a destructive action first
+      if (!proLook()) return void clearNow();
+      const m = modal('Clear the conversation?', h('div.confirm', h('p.note', 'What was said is removed from this phone and the brain. What he remembers about you stays.'), h('div.row', button('CANCEL', () => m.close()), button('CLEAR', () => void clearNow().then(() => m.close()), 'warn'))));
     }, 'warn'));
     P.right.append(dp.el, cp.el);
     const paintChat = () => {
