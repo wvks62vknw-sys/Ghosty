@@ -1,5 +1,5 @@
 /** Long-term memory about the owner. Facts are added to every conversation. */
-import type { MemoryFact } from '../../../../packages/shared/src/protocol';
+import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/protocol';
 import { arg, type Tool } from './types';
 
 export const MEMORY_KEY = 'memory';
@@ -8,14 +8,25 @@ export async function loadMemory(storage: DurableObjectStorage): Promise<MemoryF
   return (await storage.get<MemoryFact[]>(MEMORY_KEY)) ?? [];
 }
 
-export async function addFact(storage: DurableObjectStorage, text: string): Promise<MemoryFact | null> {
+const MAX_FACTS = 500;
+
+/**
+ * Save a fact with where it came from (memories.ts shows it): no `src` means the owner typed it
+ * in the Memory tab (the /memory route). Over 500, the oldest unlocked fact goes — never a locked one.
+ */
+export async function addFact(storage: DurableObjectStorage, text: string, src?: MemorySource): Promise<MemoryFact | null> {
   const t = text.trim().slice(0, 400);
   if (!t) return null;
   const facts = await loadMemory(storage);
   if (facts.some((f) => f.text.toLowerCase() === t.toLowerCase())) return null;
-  const fact = { id: crypto.randomUUID().slice(0, 8), text: t, at: Date.now() };
+  const at = Date.now();
+  const fact: MemoryFact = { id: crypto.randomUUID().slice(0, 8), text: t, at, src: src ?? { kind: 'owner', at } };
   facts.push(fact);
-  await storage.put(MEMORY_KEY, facts.slice(-500));
+  while (facts.length > MAX_FACTS) {
+    const i = facts.findIndex((f) => !f.locked);
+    facts.splice(i < 0 ? 0 : i, 1);
+  }
+  await storage.put(MEMORY_KEY, facts);
   return fact;
 }
 
@@ -26,7 +37,8 @@ export const memoryTools: Tool[] = [
     parameters: { type: 'object', properties: { text: { type: 'string', description: 'The fact, as one short sentence.' } }, required: ['text'] },
     risk: 'auto',
     async run(a, ctx) {
-      const f = await addFact(ctx.storage, arg.str(a, 'text'));
+      // Saved during a chat: the Memory tab shows the owner's message from this moment as its source.
+      const f = await addFact(ctx.storage, arg.str(a, 'text'), { kind: 'chat', at: Date.now() });
       return f ? `Saved (id ${f.id}).` : 'Already known.';
     },
   },
@@ -38,9 +50,12 @@ export const memoryTools: Tool[] = [
     async run(a, ctx) {
       const q = arg.str(a, 'id_or_text').toLowerCase();
       const facts = await loadMemory(ctx.storage);
-      const keep = facts.filter((f) => f.id !== q && !f.text.toLowerCase().includes(q));
+      const match = (f: MemoryFact) => f.id === q || f.text.toLowerCase().includes(q);
+      // A locked memory is only forgotten by the owner's own FORGET in the Memory tab.
+      const locked = facts.filter((f) => match(f) && f.locked).length;
+      const keep = facts.filter((f) => !match(f) || f.locked);
       await ctx.storage.put(MEMORY_KEY, keep);
-      return `Removed ${facts.length - keep.length} fact(s).`;
+      return `Removed ${facts.length - keep.length} fact(s).${locked ? ` ${locked} locked one(s) kept: the owner can forget a locked memory in the Memory tab.` : ''}`;
     },
   },
   {
