@@ -19,6 +19,7 @@ import { citedReply } from './cited';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
+import { siteRow } from './sitecard';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -113,6 +114,8 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
     case 'assistant': {
       if (e.think) return renderThink(e);
       const el = plainReply(e);
+      // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
+      if (e.site) el.append(siteRow(e.site));
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
       if (rateable(e)) el.append(rateRow(e));
       if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));

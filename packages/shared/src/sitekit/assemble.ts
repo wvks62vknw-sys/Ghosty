@@ -252,19 +252,23 @@ var open=null;rows.forEach(function(r,i){if(r.d.indexOf(day)>=0){var tr=t.queryS
 var box=t.closest('section,footer');var flag=box&&box.querySelector('[data-open-now]');if(!flag||open===null)return;
 if(open===false){flag.textContent='Closed today';return}
 flag.classList.toggle('yes',open.yes);flag.textContent=open.yes?'Open now · until '+open.until:open.later?'Opens today at '+open.from:'Closed now'})})();`,
+  // form: the send buttons are type=button with data-via — a published page's sandbox has no allow-forms, and there the browser
+  // drops a form submission before any submit event fires, so a submit handler alone would never run.
   form: `(function(){var d=document;
 function wa(n){n=String(n).replace(/[^\\d+]/g,'');if(n.indexOf('00')===0)n='+'+n.slice(2);if(n.charAt(0)==='0')n='+44'+n.slice(1);return n.replace('+','')}
 [].forEach.call(d.querySelectorAll('form.ghost-form'),function(f){var note=f.querySelector('.form-note'),idle=note?note.innerHTML:'';
 var day=f.querySelector('input[type=date]');if(day){var t=new Date();day.min=t.toISOString().slice(0,10)}
-f.addEventListener('submit',function(e){e.preventDefault();var bad=null,lines=[];
+function go(viaAsked){var bad=null,lines=[];
 [].forEach.call(f.querySelectorAll('input,select,textarea'),function(el){var v=String(el.value||'').trim();var miss=el.required&&!v;var wrong=el.type==='email'&&v&&!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(v);el.setAttribute('aria-invalid',miss||wrong?'true':'false');if((miss||wrong)&&!bad)bad=el;if(v&&el.name)lines.push(el.name+': '+v)});
 if(bad){bad.focus();if(note){note.className='form-note bad';note.textContent='Please fill in '+((bad.labels&&bad.labels[0]&&bad.labels[0].textContent)||'the highlighted field').replace(/\\(optional\\)/,'').trim()+'.'}return}
-var via=(e.submitter&&e.submitter.value)||(f.getAttribute('data-to-wa')?'whatsapp':'email'),subject=f.getAttribute('data-subject')||'Enquiry',text=subject+'\\n\\n'+lines.join('\\n');
+var via=viaAsked||(f.getAttribute('data-to-wa')?'whatsapp':'email'),subject=f.getAttribute('data-subject')||'Enquiry',text=subject+'\\n\\n'+lines.join('\\n');
 var waTo=f.getAttribute('data-to-wa'),mailTo=f.getAttribute('data-to-mail'),url='';
 if(via==='whatsapp'&&waTo)url='https://wa.me/'+wa(waTo)+'?text='+encodeURIComponent(text);
 else if(mailTo)url='mailto:'+mailTo+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(lines.join('\\n'));
 if(!url){if(note){note.className='form-note bad';note.textContent='This form cannot send yet — please call us instead.'}return}
 var a=d.createElement('a');a.href=url;a.rel='noopener';a.target=url.indexOf('mailto:')===0?'_top':'_blank';d.body.appendChild(a);a.click();a.remove();
-if(note){note.className='form-note ok';note.textContent=(url.indexOf('mailto:')===0?'Your email app should open with the message ready — press send.':'WhatsApp should open with the message ready — press send.')+(mailTo?' Nothing opened? Email '+mailTo+'.':'');setTimeout(function(){note.className='form-note';note.innerHTML=idle},20000)}})})})();`,
+if(note){note.className='form-note ok';note.textContent=(url.indexOf('mailto:')===0?'Your email app should open with the message ready — press send.':'WhatsApp should open with the message ready — press send.')+(mailTo?' Nothing opened? Email '+mailTo+'.':'');setTimeout(function(){note.className='form-note';note.innerHTML=idle},20000)}}
+[].forEach.call(f.querySelectorAll('button[data-via]'),function(b){b.addEventListener('click',function(){go(b.getAttribute('data-via'))})});
+f.addEventListener('submit',function(e){e.preventDefault();go('')})})})();`,
   nav: '',
 };

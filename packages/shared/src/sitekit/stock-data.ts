@@ -46,6 +46,18 @@ export const STOCK: Partial<Record<KindId, StockSet>> = {
       C('3/36/Latte_art_smile.jpg', 2592, 1944, 'A coffee with a smiling face in the foam, next to a pastry', 'קלאופטרה', 'CC BY-SA 3.0', 'Latte art smile'),
     ],
   },
+  gym: {
+    hero: C('0/02/GymNation_gym_interior_2024.jpg', 2500, 1407, 'A long gym floor lined with benches and racks under blue light', 'GymNation', 'CC BY-SA 4.0', 'GymNation gym interior 2024', '50% 60%'),
+    story: [
+      C('3/30/Kettlebell_workout.jpg', 5472, 3648, 'A man swinging a kettlebell overhead in a bright gym', 'Rafaelqcn', 'CC BY-SA 4.0', 'Kettlebell workout'),
+      C('5/51/Marine_Corps_Base_Hawaii_cross-training_gym_celebrates_first_anniversary_120814-M-MM918-001.jpg', 2100, 1442, 'A cross-training gym with racks and rowers', 'Cpl. Reece Lodder', 'Public domain', 'Cross-training gym'),
+    ],
+    gallery: [
+      C('e/ee/Brightly_colored_kettlebells_and_dumbbells.jpg', 4016, 6016, 'Racks of brightly coloured kettlebells and dumbbells', 'Shixart1985', 'CC BY 2.0', 'Brightly colored kettlebells and dumbbells'),
+      C("2/27/Peterson_Airman_to_compete_in_England's_first-ever_Invictus_Games_(3561123).jpg", 3000, 2400, 'Trainers and a kettlebell on a gym floor', 'Senior Airman Rose Gudex, U.S. Space Force', 'Public domain', 'Kettlebell training'),
+      C('2/29/Heidemarie_Couch,_CIV_(1)_(14504740111).jpg', 1920, 1112, 'A black and white photo of an athlete resting between sets', 'U.S. Department of Defense', 'Public domain', 'Training'),
+    ],
+  },
   restaurant: {
     hero: C('f/f3/Restaurant_room_of_Amantaka_luxury_Resort_&_Hotel_in_Luang_Prabang_Laos.jpg', 6585, 4390, 'An elegant dining room with laid tables and warm light', 'Basile Morin', 'CC BY-SA 4.0', 'Restaurant room of Amantaka'),
     story: [

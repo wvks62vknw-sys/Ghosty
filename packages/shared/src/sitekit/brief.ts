@@ -44,7 +44,10 @@ const TOWN_STOP = /^(the|my|our|a|an|this|that|london road|town|city|centre|cent
 export function townOf(text: string): string | undefined {
   const m = text.match(/\b(?:in|based in|located in|near|around|serving)\s+((?:[A-Z][a-zA-Z'’-]+)(?:[ -](?:upon|on|under|in|le|de|by|[A-Z][a-zA-Z'’-]+))*)/);
   const t = m?.[1]?.replace(/\s+(?:called|named|which|that|and|for|with)$/i, '').trim();
-  return t && !TOWN_STOP.test(t) ? t : undefined;
+  if (t && !TOWN_STOP.test(t)) return t;
+  // typed in lower case on a phone: "… barber shop in walsall" (one word, at the end or before a comma)
+  const low = text.match(/\b(?:in|based in)\s+([a-z][a-z'’-]{2,})\s*(?:[,.!?]|$)/);
+  return low && !TOWN_STOP.test(low[1]!) && !/^(town|the|my|our|business|london)$/i.test(low[1]!) ? low[1]![0]!.toUpperCase() + low[1]!.slice(1) : undefined;
 }
 
 /** "called Fade & Co", "named 'The Daily Grind'", or a quoted name. */
@@ -124,5 +127,35 @@ export function missing(b: Brief): { key: keyof Brief; ask: string }[] {
   if (!b.hours && ['cafe', 'restaurant', 'barber', 'salon', 'gym', 'shop', 'clinic'].includes(b.kind)) out.push({ key: 'hours', ask: 'Opening hours? (e.g. Mon–Fri 9–6, Sat 9–4, Sun closed)' });
   if (!b.services?.length && ['barber', 'salon', 'trades', 'clinic', 'gym', 'photographer'].includes(b.kind)) out.push({ key: 'services', ask: 'The main services and prices? (e.g. skin fade £20, beard trim £10)' });
   if (!b.about) out.push({ key: 'about', ask: 'Anything that makes it special — how long it has been going, who runs it, what people love about it?' });
+  return out;
+}
+
+/** Is this a request for a website ("build me a website for…", "make a site for my café")? */
+export const siteAsk = (text: string): boolean => /\b(build|make|create|design|do|set up|need|want)\b[^.?!]{0,40}\b(web ?site|site|web ?page|landing page|home ?page)\b/i.test(text) && !/\b(unpublish|take (it|.{0,20}) down|list (my )?sites)\b/i.test(text);
+
+/**
+ * The owner's answers to the questions `missing` asked, folded into the brief: anything recognisable
+ * (a phone, an email, a postcode, hours, prices) wherever it is, then the plain pieces in the order the
+ * questions were asked ("Fade & Co, Walsall, been going since 2016" → name, town, about).
+ */
+export function mergeAnswers(b: Brief, text: string, asked: (keyof Brief)[]): Brief {
+  const found = briefFrom(text, { kind: b.kind });
+  const out: Brief = { ...b };
+  for (const k of ['phone', 'email', 'postcode', 'hours', 'services'] as const) if (found[k] && !out[k]) (out as unknown as Record<string, unknown>)[k] = found[k];
+  const labelled = (re: RegExp) => text.match(re)?.[1]?.trim();
+  const name = labelled(/\b(?:name|called)\s*[:=-]?\s*([^\n,;]+)/i);
+  const town = labelled(/\b(?:town|area)\s*[:=-]\s*([^\n,;]+)/i) ?? found.town;
+  if (name && !out.name) out.name = name;
+  if (town && !out.town) out.town = town;
+  // The rest, piece by piece, for the questions still open (in the order they were asked).
+  const pieces = text
+    .split(/[\n,;]/)
+    .map((p) => p.trim())
+    .filter((p) => p && !phoneOf(p) && !emailOf(p) && !postcodeOf(p) && !hoursOf(p) && !servicesOf(p) && !/^(name|town|area|called)\s*[:=-]?\s/i.test(p) && !(town && p.replace(/^(in|at)\s+/i, '') === town));
+  for (const k of asked) {
+    if (k === 'name' && !out.name && pieces.length) out.name = pieces.shift()!.replace(/^(it'?s|we'?re|called)\s+/i, '').slice(0, 60);
+    else if (k === 'town' && !out.town && pieces.length && pieces[0]!.split(/\s+/).length <= 4) out.town = pieces.shift()!.replace(/^(in|at)\s+/i, '').slice(0, 40);
+    else if (k === 'about' && !out.about && pieces.length) out.about = pieces.splice(0).join('. ').slice(0, 600);
+  }
   return out;
 }
