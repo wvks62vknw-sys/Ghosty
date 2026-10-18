@@ -25,7 +25,8 @@ export const DOOR_MM = 1981;
 /** The iPhone 13 wide (main) camera's field of view across the long side of the picture, in degrees. */
 export const IPHONE13_LONG_FOV = 69;
 
-export type RefKind = 'card' | 'a4' | 'door' | 'distance';
+/** 'auto': no reference at all — the depth model and the things it recognises (depth3d.ts, cues.ts). */
+export type RefKind = 'auto' | 'card' | 'a4' | 'door' | 'distance';
 
 export type Calibration =
   /** Photo pixels → millimetres on the reference's plane; `ref` is the reference's corners in the photo. */
@@ -188,22 +189,34 @@ export function parseLength(text: string, bare: 'cm' | 'm' | 'mm' | 'auto' = 'cm
 
 /** One saved measurement, as the planner and the chat get it. */
 export interface Measurement {
-  kind: 'length' | 'rect';
-  /** Millimetres: a length's `w` only; a rectangle's width and height. */
+  /** 'object': a thing tapped in AUTO — its width, height and (the part the camera saw of) its depth. */
+  kind: 'length' | 'rect' | 'object';
+  /** Millimetres: a length's `w` only; a rectangle's width and height; a thing's width, height and depth. */
   w: number;
   h?: number;
+  d?: number;
   confidence: Confidence;
-  /** How it was calibrated, in words ("bank card", "door 1981 mm", "distance 2.5 m"). */
+  /** How it was calibrated, in words ("bank card", "door 1981 mm", "distance 2.5 m", "depth + an A4 sheet"). */
   via: string;
+  /** AUTO: the likely range as a fraction either way (0.12: the real size is probably within about ±12 %). */
+  range?: number;
+  /** AUTO: what the thing is, when the detector knew. */
+  name?: string;
 }
+
+/** "±12 %" for a measurement that has a range. */
+export const rangeText = (m: Pick<Measurement, 'range'>) => (m.range ? ` ±${Math.max(1, Math.round((Math.exp(m.range) - 1) * 100))} %` : '');
 
 /** The set in plain words, as data for the chat ("Wall: 312 cm × 240 cm (10 ft 3 in × 7 ft 10 in), good, by bank card"). */
 export function describeMeasurements(list: Measurement[]): string {
   return list
     .map((m, i) =>
-      m.kind === 'rect'
-        ? `${i + 1}. Rectangle ${cmText(m.w)} wide × ${cmText(m.h ?? 0)} high (${ftInText(m.w)} × ${ftInText(m.h ?? 0)}), ${m.confidence}, by ${m.via}`
-        : `${i + 1}. Length ${cmText(m.w)} (${ftInText(m.w)}), ${m.confidence}, by ${m.via}`,
+      m.kind === 'object'
+        ? `${i + 1}. ${m.name ? `${m.name[0]!.toUpperCase()}${m.name.slice(1)}` : 'Thing'} ${cmText(m.w)} wide × ${cmText(m.h ?? 0)} high${m.d ? ` × ${cmText(m.d)} deep (the side seen)` : ''} (${ftInText(m.w)} × ${ftInText(m.h ?? 0)}), ${m.confidence}${rangeText(m)}, by ${m.via}`
+        : m.kind === 'rect'
+          ? `${i + 1}. Rectangle ${cmText(m.w)} wide × ${cmText(m.h ?? 0)} high (${ftInText(m.w)} × ${ftInText(m.h ?? 0)}), ${m.confidence}${rangeText(m)}, by ${m.via}`
+          : `${i + 1}. Length ${cmText(m.w)} (${ftInText(m.w)}), ${m.confidence}${rangeText(m)}, by ${m.via}`,
     )
     .join('\n');
 }
+

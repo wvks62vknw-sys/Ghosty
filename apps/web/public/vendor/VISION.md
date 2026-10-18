@@ -26,6 +26,7 @@ in a commercial product with these files. Our changes: none to the model; the na
 from the model's text encoder (see `clip/README.md`). Apple Machine Learning Research Model is licensed
 under the Apple Machine Learning Research Model License Agreement.
 | `zxing/` | ZXing-C++ barcode and QR reader, WebAssembly (`zxing_reader.wasm`, 931 KB) and its ES module bundled into one file (`zxing-reader.mjs`, 36 KB) | zxing-wasm 3.1.4 (reader build; zxing-cpp inside) | MIT (zxing-wasm, `zxing/LICENSE`), Apache-2.0 (zxing-cpp, `zxing/LICENSE-zxing-cpp.txt`) |
+| `depth/dav2-metric-indoor-small.int8.onnx.part1`, `.part2`, `depth/worker.mjs` | Depth Anything V2 Metric Indoor Small: metres to every pixel of a photo (MEASURE's AUTO scale, the planner's FROM PHOTO), int8 weights, one file in two parts, run by the `clip/` runtime in its own worker (ended on leaving MEASURE) — 35.6 MB | depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf, exported for Ghosty (see `depth/README.md`) | Apache-2.0 (`depth/LICENSE-depth-anything-v2.txt`) |
 | `three/` | three.js (the 3D STUDIO's 3-D engine): `three.module.min.js` + GLTFLoader, OrbitControls, RoomEnvironment and the two utils the loader needs, `import 'three'` rewritten to relative paths (see `three/README.md`) — 742 KB + 85 KB | three 0.186.1 | MIT (`three/LICENSE`) |
 
 One change to the upstream files: `mediapipe/vision_bundle.mjs` had a usage-logging call to

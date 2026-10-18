@@ -1,4 +1,9 @@
-// Lens MEASURE on an iPhone 13. A photo of a wall with a bank card held flat on it (drawn here:
+// Lens MEASURE on an iPhone 13. First AUTO, the default, with no settings: a photo with an iPhone
+// 13's EXIF (drawn here: a room, a cabinet, a sheet of paper on the floor) is picked; the camera is
+// read from the photo, the on-phone depth model runs (the real model from /vendor/depth, in its
+// worker), the main thing is measured by itself with a likely range and the cues named, a THING tap
+// and a LENGTH add more, UNDO takes one back, and nothing is fetched from anywhere but this site.
+// Then the overrides: a photo of a wall with a bank card held flat on it (drawn here:
 // the wall 2.00 × 2.70 m, the card 85.6 × 54 mm, at 0.42 px per mm) is picked; the card's four
 // corners are tapped (the scale), then the wall's four corners (WALL: width × height) and two
 // points 1 m apart (LENGTH); the values show in cm and ft/in with a confidence; UNDO takes the
@@ -86,7 +91,130 @@ const photo = await page.evaluate(async ([WALL, CARD]) => {
   for (const b of buf) s += String.fromCharCode(b);
   return btoa(s);
 }, [WALL, CARD]);
+// ---- AUTO: a photo with an iPhone 13's EXIF, no settings ----
+const offsite = [];
+page.on('request', (r) => {
+  const u = r.url();
+  // (the app's own web fonts are not AUTO's doing)
+  if (!u.startsWith(base) && !u.startsWith('data:') && !u.startsWith('blob:') && !/fonts\.(gstatic|googleapis)\.com/.test(u)) offsite.push(u);
+});
+const st0 = await ms();
+if (st0?.ref !== 'auto' || st0?.tool !== 'thing') problems.push(`MEASURE does not start in AUTO with THING: ${st0?.ref} ${st0?.tool}`);
+const roomJpeg = await page.evaluate(async () => {
+  const c = document.createElement('canvas');
+  c.width = 900;
+  c.height = 1200;
+  const g = c.getContext('2d');
+  // the far wall, the floor in perspective (boards converging), a cabinet, a sheet of paper on the floor
+  const wall = g.createLinearGradient(0, 0, 0, 640);
+  wall.addColorStop(0, '#cfc7b8');
+  wall.addColorStop(1, '#b9b09f');
+  g.fillStyle = wall;
+  g.fillRect(0, 0, 900, 640);
+  const floor = g.createLinearGradient(0, 640, 0, 1200);
+  floor.addColorStop(0, '#7a5a3a');
+  floor.addColorStop(1, '#4a3320');
+  g.fillStyle = floor;
+  g.fillRect(0, 640, 900, 560);
+  g.strokeStyle = 'rgba(30,20,10,.5)';
+  for (let k = -12; k <= 12; k++) {
+    g.beginPath();
+    g.moveTo(450 + k * 40, 640);
+    g.lineTo(450 + k * 160, 1200);
+    g.stroke();
+  }
+  g.fillStyle = '#6b6f78';
+  g.fillRect(300, 380, 300, 330);
+  g.fillStyle = '#8a8f99';
+  g.beginPath();
+  g.moveTo(300, 380);
+  g.lineTo(600, 380);
+  g.lineTo(570, 350);
+  g.lineTo(330, 350);
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#2d3036';
+  g.fillRect(440, 420, 20, 60);
+  g.fillStyle = '#f4f4f0';
+  g.beginPath();
+  g.moveTo(150, 900);
+  g.lineTo(330, 905);
+  g.lineTo(350, 1050);
+  g.lineTo(120, 1040);
+  g.closePath();
+  g.fill();
+  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let s = '';
+  for (const b of buf) s += String.fromCharCode(b);
+  return btoa(s);
+});
+/** An APP1 EXIF block like an iPhone 13's main camera writes (Make, Model, FocalLength 5.1, FocalLengthIn35mmFilm 26). */
+const exifApp1 = () => {
+  const bytes = [];
+  const u16 = (v) => bytes.push(v & 255, v >> 8);
+  const u32 = (v) => bytes.push(v & 255, (v >> 8) & 255, (v >> 16) & 255, v >>> 24);
+  const str = (t) => [...t].map((ch) => ch.charCodeAt(0));
+  const make = [...str('Apple'), 0];
+  const model = [...str('iPhone 13'), 0];
+  const exifIfd = 8 + 2 + 3 * 12 + 4;
+  const makeAt = exifIfd + 2 + 2 * 12 + 4;
+  const modelAt = makeAt + make.length;
+  const ratAt = modelAt + model.length;
+  bytes.push(...str('II'));
+  u16(42);
+  u32(8);
+  u16(3);
+  u16(0x010f), u16(2), u32(make.length), u32(makeAt);
+  u16(0x0110), u16(2), u32(model.length), u32(modelAt);
+  u16(0x8769), u16(4), u32(1), u32(exifIfd);
+  u32(0);
+  u16(2);
+  u16(0x920a), u16(5), u32(1), u32(ratAt);
+  u16(0xa405), u16(3), u32(1), bytes.push(26, 0, 0, 0);
+  u32(0);
+  bytes.push(...make, ...model);
+  u32(51);
+  u32(10);
+  const body = [...str('Exif'), 0, 0, ...bytes];
+  return Buffer.from([0xff, 0xe1, (body.length + 2) >> 8, (body.length + 2) & 255, ...body]);
+};
+const jpg = Buffer.from(roomJpeg, 'base64');
+const withExif = Buffer.concat([jpg.subarray(0, 2), exifApp1(), jpg.subarray(2)]);
+await page.locator('#pg-lens input[type=file]').setInputFiles({ name: 'room.jpg', mimeType: 'image/jpeg', buffer: withExif });
+await until(() => ['loading', 'working'].includes(window.__ghosty?.measure?.auto?.state), 15000, 'AUTO did not start on the picked photo');
+const t0 = Date.now();
+await until(() => window.__ghosty?.measure?.auto?.state === 'ready' || window.__ghosty?.measure?.auto?.state === 'failed', 240000, `AUTO did not finish: ${JSON.stringify((await ms())?.auto)}`);
+const autoSecs = ((Date.now() - t0) / 1000).toFixed(1);
+let sa = await ms();
+if (sa?.auto?.state !== 'ready') problems.push(`AUTO failed: ${sa?.auto?.error}`);
+if (!/Apple iPhone 13, 26 mm lens \(from the photo\)/.test(sa?.auto?.camera ?? '')) problems.push(`the camera was not read from the EXIF: "${sa?.auto?.camera}"`);
+const main = sa?.results?.[0];
+if (!main || main.kind !== 'object' || !(main.w > 0) || !(main.h > 0) || !(main.range > 0)) problems.push(`the main thing was not measured by itself: ${JSON.stringify(main)}`);
+const autoNote = (await page.locator('#pg-lens .measauto').textContent().catch(() => '')) ?? '';
+if (!/depth from the photo/.test(autoNote) || !/camera: Apple iPhone 13/.test(autoNote)) problems.push(`the cues line reads "${autoNote}"`);
+const autoRow = (await page.locator('#pg-lens .measrow').first().textContent().catch(() => '')) ?? '';
+if (!/W × H/.test(autoRow) || !/±\d+ %/.test(autoRow) || !/likely/.test(autoRow) || !/ft/.test(autoRow)) problems.push(`the AUTO result row reads "${autoRow}"`);
+await page.screenshot({ path: `${out}/measure-auto.png` });
+// THING: one tap on the sheet of paper; LENGTH: two taps along the floor
+const padA = sa?.frame ? { x: (sa.frame.w - 900) / 2, y: (sa.frame.h - 1200) / 2 } : { x: 0, y: 0 };
+await tapAt(235 + padA.x, 975 + padA.y);
+await until(() => window.__ghosty.measure.results.length === 2, 5000, 'a THING tap measured nothing');
+await page.locator('#pg-lens button', { hasText: 'LENGTH · 2 TAPS' }).click();
+await tapAt(200 + padA.x, 1100 + padA.y);
+await tapAt(700 + padA.x, 1100 + padA.y);
+await until(() => window.__ghosty.measure.results.length === 3, 5000, 'an AUTO length was not measured');
+sa = await ms();
+if (sa?.results?.[2]?.kind !== 'length' || !(sa.results[2].w > 100) || !(sa.results[2].range > 0)) problems.push(`the AUTO length: ${JSON.stringify(sa?.results?.[2])}`);
+await page.locator('#pg-lens button', { hasText: 'UNDO' }).click();
+if ((await ms())?.results.length !== 2) problems.push('UNDO did not take the AUTO length back');
+console.log(`AUTO: ready in ${autoSecs} s (model ${sa?.auto?.ms} ms); main thing ${main?.text} (±${Math.round((Math.exp(main?.range ?? 0) - 1) * 100)} %, ${main?.confidence}); cues ${JSON.stringify(sa?.auto?.cues)} ignored ${JSON.stringify(sa?.auto?.ignored)}; sheet tap ${sa?.results?.[1]?.text}`);
+if (offsite.length) problems.push(`AUTO fetched from off the site: ${offsite.slice(0, 3).join(' ')}`);
+await page.locator('#pg-lens button', { hasText: 'CLEAR' }).click();
+
+// ---- the overrides: a picked photo of a wall, the scale from a bank card ----
 await page.locator('#pg-lens input[type=file]').setInputFiles({ name: 'wall.png', mimeType: 'image/png', buffer: Buffer.from(photo, 'base64') });
+await page.locator('#pg-lens .measrefs button', { hasText: 'BANK CARD' }).click();
 await until(() => !!window.__ghosty?.measure?.frame, 10000, 'the picked photo was not taken in');
 const frame = (await ms())?.frame;
 // the photo is shown whole: padded to the viewfinder's shape, never cropped
@@ -169,5 +297,5 @@ const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'MEASURE run clean on an iPhone 13: a picked photo was shown whole, a bank card set the scale, a 2.00 × 2.70 m wall and a 1 m length measured within 1.5 % with cm, ft/in and a confidence, UNDO worked, a door and a typed distance set the scale too, and SAVE opened the SPACE PLANNER with the wall as the room\'s width.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'MEASURE run clean on an iPhone 13: AUTO read the camera from the EXIF, ran the depth model on the phone and measured the main thing with a likely range, a THING and a LENGTH added, UNDO, nothing fetched off the site; a picked photo was shown whole, a bank card set the scale, a 2.00 × 2.70 m wall and a 1 m length measured within 1.5 % with cm, ft/in and a confidence, UNDO worked, a door and a typed distance set the scale too, and SAVE opened the SPACE PLANNER with the wall as the room\'s width.');
 process.exit(problems.length ? 1 : 0);
