@@ -6,6 +6,7 @@
 import { MailError, parseEmailKey, testLogin } from './integrations/mail';
 import { parseTfwmKey } from './integrations/transit';
 import { dropTokens, motToken, parseMotKey, VES_API, VehicleError } from './integrations/vehicle';
+import { hfWhoami, kaggleWorks, parseKaggleKey, RemoteError } from './selftrain/remote'; // [selftrain]
 
 export interface KeyDef {
   name: string;
@@ -320,6 +321,35 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Copy the token (it starts with hf_), paste it below and press SAVE.',
       ],
     },
+    // [selftrain] The two keys the offline brain's weekly self-training needs (selftrain/cycle.ts).
+    {
+      name: 'kaggle',
+      label: 'Kaggle (free GPUs for training)',
+      hint: 'your Kaggle username, a space, then the API key (or the whole kaggle.json text)',
+      link: 'https://www.kaggle.com/settings',
+      need: 'optional',
+      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card). With the Hugging Face write token below, it runs on its own.",
+      steps: [
+        'Open the link and sign up or sign in to Kaggle (Google sign-in works).',
+        'Kaggle only lends GPUs to confirmed accounts: on the same Settings page, under "Phone verification", confirm your phone number (once).',
+        'Still on Settings, scroll to "API" and press "Create New Token". Your phone downloads a small file called kaggle.json.',
+        'Open kaggle.json (Files app → Downloads → tap it). It holds your username and key, like {"username":"you","key":"0123abcd…"}. Copy all of it.',
+        'Paste it below and press SAVE. (Typing your username, a space and the key works too.) Ghosty checks it once; nothing runs until both training keys are saved.',
+      ],
+    },
+    {
+      name: 'hf_write',
+      label: 'Hugging Face write token (training)',
+      hint: 'starts with hf_… (a WRITE token)',
+      link: 'https://huggingface.co/settings/tokens/new?tokenType=write',
+      need: 'optional',
+      why: "Where the trained offline brain is kept: Ghosty makes a private dataset for its training data and a model your phone downloads the new brain from. Free. (Anyone with the model's link can download it, and it learned from your library and the replies you rated.)",
+      steps: [
+        'Open the link and create a free Hugging Face account (confirm the email they send), then open the link again.',
+        'The token type is already "Write". Type any name (e.g. Ghosty training) and press "Create token".',
+        'Copy the token (it starts with hf_), paste it below and press SAVE. It is a different token from the read-only one above.',
+      ],
+    },
   ];
 }
 
@@ -431,6 +461,25 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       case 'huggingface':
         status = await check('https://huggingface.co/api/whoami-v2', { headers: bearer });
         break;
+      // [selftrain]
+      case 'kaggle': {
+        const c = parseKaggleKey(value);
+        if (!c) return { ok: false, info: 'paste the whole kaggle.json text, or your username, a space, then the key' };
+        try {
+          await kaggleWorks(fetch, c);
+          return { ok: true, info: `works ✓ · Kaggle account ${c.username}` };
+        } catch (e) {
+          return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Kaggle (${String((e as Error)?.message ?? e).slice(0, 80)})` };
+        }
+      }
+      case 'hf_write': {
+        try {
+          const me = await hfWhoami(fetch, value.trim());
+          return me.write ? { ok: true, info: `works ✓ · can write as ${me.name}` } : { ok: false, info: 'this token can only read: make a "Write" token' };
+        } catch (e) {
+          return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Hugging Face (${String((e as Error)?.message ?? e).slice(0, 80)})` };
+        }
+      }
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);
