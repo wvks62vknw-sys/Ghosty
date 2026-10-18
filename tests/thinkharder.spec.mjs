@@ -47,7 +47,7 @@ const engine = () => {
       else if (/Continue from these steps/.test(q)) said = 'ANSWER: 14';
       else if (/^What is (.+)\?$/.test(q) && SUMS[q.match(/^What is (.+)\?$/)[1]]) said = `ANSWER: ${SUMS[q.match(/^What is (.+)\?$/)[1]]}`;
       else if (/capital of Japan/.test(q)) said = 'ANSWER: Tokyo';
-      else if (/set_timer\(/.test(q)) said = '{"tool": "set_timer", "args": {"minutes": 5}}';
+      else if (/<tools>/.test(q)) said = '<tool_call>\n{"name": "set_timer", "arguments": {"minutes": 5}}\n</tool_call>';
       else if (/three words/.test(q)) said = /ANSWER:/.test(sys) ? 'ANSWER: BLUE SKY TODAY' : 'Sure: blue sky today';
       else said = /ANSWER: <the answer only>/.test(sys) ? 'ANSWER: 4' : 'Hello from your phone.';
       if (!signal?.aborted) onToken(said);
@@ -106,10 +106,24 @@ async function run(name, viewport) {
   if (!(await big.count())) problems.push(`[${name}] no ASK THE BIG BRAIN button`);
   else {
     const before = chats;
+    // The answer is the newest message (earlier runs' history may hold the same words further up).
     await big.click();
-    await page.waitForFunction(() => document.querySelectorAll('.log .msg').length && [...document.querySelectorAll('.log .msg')].filter((m) => m.textContent.includes('Mock reply to: what is 17 × 23')).length >= 2, null, { timeout: 10000 }).catch(() => problems.push(`[${name}] ASK THE BIG BRAIN got no answer from the brain`));
+    await page.waitForFunction(() => /Mock reply to: what is 17 × 23/.test([...document.querySelectorAll('.log .msg')].at(-1)?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] ASK THE BIG BRAIN got no answer from the brain`));
     if (chats !== before + 1) problems.push(`[${name}] ASK THE BIG BRAIN sent ${chats - before} chat requests`);
   }
+
+  // ---- an ordinary message that only mentions trying harder goes to the brain ----------------------------------
+  const sentT = chats;
+  const nT = await page.evaluate(() => window.__ghostyOfflineEngine.calls.length);
+  await page.fill('#cin', 'try harder to find me a cheaper flight');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: try harder to find me a cheaper flight'), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] "try harder to find me…" did not go to the brain`));
+  await page.waitForTimeout(300);
+  const nT2 = await page.evaluate(() => window.__ghostyOfflineEngine.calls.length);
+  if (chats !== sentT + 1 || nT2 !== nT) problems.push(`[${name}] "try harder to find me…" was taken for THINK HARDER (${chats - sentT} chat requests, ${nT2 - nT} model calls)`);
+  // What the phone knows went with the question: the system line of THINK HARDER's last prompt has the persona and the offline note.
+  const ctxSys = await page.evaluate(() => window.__ghostyOfflineEngine.calls.filter((c) => /17 × 23/.test(c.messages.at(-1).content)).at(-1)?.messages[0].content ?? '');
+  if (!/ANSWER: <the answer only>[\s\S]*running on .*phone, offline/.test(ctxSys)) problems.push(`[${name}] THINK HARDER was not given the phone's context: ${ctxSys.slice(0, 200)}`);
 
   // ---- "think harder: …" typed in the chat; three that agree stop it early -----------------------------------
   await page.evaluate(() => (window.__ghostyOfflineEngine.delay = 30));
@@ -130,7 +144,8 @@ async function run(name, viewport) {
     problems.push(`[${name}] the long think never got going: ${(await page.locator('.log').textContent()).slice(-400)}`);
     await page.screenshot({ path: `${out}/${name}-think-stuck.png` });
   });
-  await page.locator('.log .msg.think button:has-text("STOP")').last().click({ timeout: 8000 });
+  // The log repaints as progress comes in (the button itself is kept across repaints): dispatched, not a moving-target click.
+  await page.locator('.log .msg.think button:has-text("STOP")').last().dispatchEvent('click');
   await page.waitForFunction(() => /^(?:only 1 attempt: not enough to compare|[1-5] of [1-5] attempts agree.*) \(stopped early by you: best so far\) · \d+ s$/.test([...document.querySelectorAll('.log .msg.think .thinkconf')].at(-1)?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => problems.push(`[${name}] STOP did not keep the best so far: "${await page.locator('.log .msg.think .thinkconf').last().textContent().catch(() => '')}"`));
   if ((await page.locator('.log .msg.think .thinkline').count()) !== 0) problems.push(`[${name}] a THINK HARDER answer still shows as running after STOP`);
 
@@ -144,6 +159,12 @@ async function run(name, viewport) {
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => [...document.querySelectorAll('.log .msg.err')].some((m) => /isn't downloaded yet[\s\S]*DOWNLOAD/.test(m.textContent ?? '')), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] without the download, THINK HARDER did not say to DOWNLOAD it`));
   if ((await page.evaluate(() => window.__ghostyOfflineEngine.calls.length)) !== n1) problems.push(`[${name}] without the download the model was still asked`);
+  // Not on this phone: the chat stops offering THINK HARDER under the next answer.
+  await page.fill('#cin', 'hello brain');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => [...document.querySelectorAll('.log .msg')].at(-1)?.textContent?.includes('Mock reply to: hello brain'), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] no reply to "hello brain"`));
+  await page.waitForTimeout(300);
+  if (await page.locator('.log .msg .thinkbtn').count()) problems.push(`[${name}] THINK HARDER offered with the offline brain not on this phone`);
   await page.evaluate(() => (window.__ghostyOfflineEngine.ready = true));
 
   // ---- "always": ASK THE BIG BRAIN still asks the brain (the owner asked) ------------------------------------
