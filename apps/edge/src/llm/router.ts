@@ -58,7 +58,7 @@ interface Health {
 }
 
 interface LlmError {
-  /** HTTP status, or 'too-big' when a request can't be slimmed to a provider's limit. */
+  /** HTTP status; 'too-big' when a request can't be slimmed to a provider's limit; 'no-room' when today's free Workers AI share for this lane is spent. */
   code?: number | string;
   message: string;
   retryAfter?: string | null;
@@ -578,8 +578,14 @@ export class Router {
         } catch (err) {
           const e = err as LlmError;
           // A request that never reached the provider costs nothing; anything else keeps its count.
-          settle(e?.code === 'too-big' || e?.net ? 0 : undefined);
+          settle(e?.code === 'too-big' || e?.code === 'no-room' || e?.net ? 0 : undefined);
           if ((err as Error)?.name === 'AbortError') throw err;
+          // The day's free Workers AI share for this lane is spent (neurons.ts): skip the model for this call only.
+          // Not a provider limit, so nothing is learned or cooled: the owner's chat keeps its own, larger share.
+          if (e.code === 'no-room') {
+            lastErr = e;
+            break;
+          }
           if (e.code === 'too-big') {
             tooBig.add(`${p.id}|${model}`);
             break; // this model's free tier can't take a request this size; not its fault
@@ -721,7 +727,7 @@ export class Router {
     // Background work (study, projects, the weekly self-training factory) leaves more: the owner's chat, hearing and the voices come first.
     const use = lane === 'background' ? 'background' : 'chat';
     const asked = tokensOf(messages) + (code ? 2000 : 600);
-    if (!(await neurons().room(use, cost.chat(asked)))) throw { code: 429, message: "today's free Workers AI is nearly used up (the rest is kept for hearing the owner)", retryAfter: '3600' } satisfies LlmError;
+    if (!(await neurons().room(use, cost.chat(asked)))) throw { code: 'no-room', message: "today's free Workers AI is nearly used up (the rest is kept for hearing the owner)" } satisfies LlmError;
     let res: unknown;
     try {
       res = await ai.run(model, {
