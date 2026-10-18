@@ -69,8 +69,9 @@ export function inputSize(w: number, h: number): { w: number; h: number } {
 export function toInput(rgba: ArrayLike<number>, w: number, h: number): Float32Array {
   const n = w * h;
   const out = new Float32Array(3 * n);
+  const inv = MODEL_STD.map((s) => 1 / s);
   for (let i = 0; i < n; i++) {
-    for (let c = 0; c < 3; c++) out[c * n + i] = (rgba[i * 4 + c]! / 255 - MODEL_MEAN[c]!) / MODEL_STD[c]!;
+    for (let c = 0; c < 3; c++) out[c * n + i] = (rgba[i * 4 + c]! * (1 / 255) - MODEL_MEAN[c]!) * inv[c]!;
   }
   return out;
 }

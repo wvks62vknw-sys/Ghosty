@@ -298,6 +298,11 @@ test('AUTO: model input size, the focal and real-photo corrections, 3-D lengths 
   assert.deepEqual(D3.inputSize(1536, 2048), { w: 392, h: 518 });
   assert.deepEqual(D3.inputSize(4000, 1000), { w: 784, h: 392 }, 'a panorama is capped');
   for (const v of Object.values(D3.inputSize(999, 777))) assert.equal(v % 14, 0);
+  // the input: channels apart (CHW), ImageNet's mean and spread taken out
+  const x = D3.toInput([255, 0, 128, 255, 0, 255, 0, 255], 2, 1);
+  near(x[0], (1 - 0.485) / 0.229, 1e-5, 'red of pixel 0');
+  near(x[3], (1 - 0.456) / 0.224, 1e-5, 'green of pixel 1');
+  near(x[4], (128 / 255 - 0.406) / 0.225, 1e-5, 'blue of pixel 0');
   // Hypersim's own camera: no focal correction; an iPhone main camera: ×0.87
   near(D3.focalFactor({ f: 886.81 }, { w: 1024, h: 768 }), 1, 1e-9, 'Hypersim camera');
   near(D3.focalFactor({ f: 3028.4 }, { w: 4032, h: 3024 }), 0.869, 0.002, 'iPhone 13 main camera');
