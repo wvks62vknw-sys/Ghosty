@@ -37,19 +37,63 @@ function trainUnits(s, n) {
   for (let calls = 0; k < n && calls < n * 400; calls++) k += s.train(n - k);
   return k;
 }
-/** Climb: train in steps and measure (whole matches at once) until `upto` is passed or `cap` units are used. */
+/**
+ * Climb: train in steps and measure (whole matches at once) until `upto` is passed or `cap` units are used.
+ * Each time a level is passed, the passer is frozen (a fresh learner from what it knew then) and measured
+ * at the next level: it must be below that level's bar — every level asks for something new.
+ */
 function climb(id, upto, step, cap) {
   I.setSlice(Infinity);
-  const s = new S.Session(gameById(id));
+  const g = gameById(id);
+  const s = new S.Session(g);
   const passed = [];
+  const frozen = [];
   const t0 = performance.now();
-  while (s.rec.level <= upto && s.rec.units < cap) {
+  while (s.rec.level <= upto && s.rec.units < cap && !s.rec.mastered) {
     trainUnits(s, step);
-    if (s.measure() === 'level') passed.push(`L${s.rec.level - 1} at ${s.rec.units} ${gameById(id).unit} (${Math.round((performance.now() - t0) / 1000)} s)`);
+    const ev = s.measure();
+    if (!ev) continue;
+    const L = s.rec.level - (ev === 'level' ? 1 : 0);
+    passed.push(`L${L} at ${s.rec.units} ${g.unit} (${Math.round((performance.now() - t0) / 1000)} s)`);
+    if (ev === 'level') {
+      const m = g.learner(L + 1, s.rec.seed, s.learner.save()).measure().mastery;
+      frozen.push({ level: L + 1, m, bar: g.bar(L + 1) });
+    }
   }
-  I.setSlice(120);
-  return { s, passed };
+  I.setSlice(60);
+  return { s, passed, frozen };
 }
+/** The frozen passers were all below the next level's bar. */
+function noFreeLevels(id, frozen) {
+  for (const f of frozen) assert.ok(f.m < f.bar, `${id}: the frozen passer of Level ${f.level - 1} reaches ${f.m.toFixed(3)} at Level ${f.level} (bar ${f.bar})`);
+  console.log(`  ${id}: frozen passers at the next level: ${frozen.map((f) => `L${f.level} ${f.m.toFixed(2)}<${f.bar}`).join(', ')}`);
+}
+
+// ---- first, while nothing is warmed up: the phone's worker is never held up -----------------------------------------
+test('gym 2 worker: nothing the worker does for these games takes over 200 ms — at every level, with no warm-up', () => {
+  // As the worker calls them: a new session (it measures once), training as asked, measuring, WATCH, the picture, saving.
+  I.setSlice(60);
+  const slow = [];
+  for (const id of NEW) {
+    const g = gameById(id);
+    for (let L = 1; L <= 10; L++) {
+      const time = (what, f) => {
+        const t = performance.now();
+        const x = f();
+        const ms = performance.now() - t;
+        if (ms > 200) slow.push(`${id} L${L} ${what} ${Math.round(ms)} ms`);
+        return x;
+      };
+      const s = time('start', () => new S.Session(g, { ...S.newRecord(id), level: L }));
+      for (let i = 0; i < 4; i++) time('train', () => s.train(15));
+      for (let i = 0; i < 4; i++) time('measure', () => s.measure());
+      time('watch', () => s.learner.watch(3));
+      time('picture', () => s.learner.view());
+      time('save', () => s.snapshot());
+    }
+  }
+  assert.deepEqual(slow, []);
+});
 
 // ---------------------------------------------------------------------------------------------------------
 test('gym 2: six more games after part 1, on the same interface', () => {
@@ -74,8 +118,12 @@ test('gym 2: six more games after part 1, on the same interface', () => {
   }
   // Chess, checkers and Go can be played on the board; the others cannot.
   assert.deepEqual(NEW.filter((id) => gameById(id).play === 'board'), ['checkers', 'chess', 'go']);
-  // Chess says plainly what it is rated against.
+  // Chess says plainly what it is measured against.
   assert.match(gameById('chess').learns, /not Stockfish/);
+  // No made-up ratings: what the status says comes from the matches themselves.
+  for (const m of [CK, CH, GO]) assert.equal(m.LADDER, undefined);
+  // Every board-game level is one rung; harder rungs give fewer odds or face a deeper search (checked by matches below).
+  for (const m of [CK, CH, GO]) assert.equal(m.RUNGS.length, 10);
 });
 
 // ---- problems: right answers pass (also with labels and words), near misses fail ---------------------------------
@@ -148,29 +196,80 @@ test('gym 2: every new game makes checkable problems at levels 1, 4, 7, 10 — t
   assert.equal(GO.readPoint(9, 'I play J9'), 8);
 });
 
+test('gym 2: answers that hedge, negate or name the wrong player are refused; right answers in plain words are read', () => {
+  const both = (id, L, seed, f, want) => {
+    const g = gameById(id);
+    const p = g.generate(L, seed);
+    const a = f(p);
+    assert.equal(g.check(p, a).correct, want, `${id} L${L}: ${JSON.stringify(a)} should be ${want ? 'right' : 'refused'}`);
+  };
+  for (const L of [1, 4, 8]) {
+    const p = CH.chess.generate(L, 2);
+    const pos = CH.fromFen(p.data.fen);
+    const wrong = CH.san(pos, CH.legal(pos).find((x) => !p.data.best.includes(CH.uci(x))));
+    both('chess', L, 2, () => `${wrong} or ${p.data.san[0]}`, false);
+    both('chess', L, 2, () => `${p.data.san[0]} or ${wrong}`, false);
+    both('chess', L, 2, () => `Not ${wrong}: ${p.data.san[0]}`, true);
+    both('chess', L, 2, () => `${p.data.san[0]} (threatening mate on h7)`, true);
+    both('chess', L, 2, () => `1. ${p.data.san[0]}`, true);
+  }
+  for (const L of [1, 5, 9]) {
+    const p = GO.go.generate(L, 3);
+    const nm = p.data.names[0];
+    const wrong = GO.ptName(GO.newGo(p.data.n), [...Array(p.data.n * p.data.n).keys()].find((x) => !p.data.best.includes(x)));
+    both('go', L, 3, () => `${wrong} or ${nm}`, false);
+    both('go', L, 3, () => `Black plays ${nm}. A 2-move capture.`, true);
+    both('go', L, 3, () => `Answer: ${nm[0]}-${nm.slice(1)}`, true);
+  }
+  for (const L of [1, 4, 9]) {
+    const p = CK.checkers.generate(L, 2);
+    both('checkers', L, 2, () => `Move 1: ${p.data.answer}`, true);
+    both('checkers', L, 2, () => p.data.answer.replace(/[-x]/g, ' to '), true);
+    const other = CK.moveText(CK.legalCk(CK.ckFrom(p.data.board)).find((m) => CK.moveText(m) !== p.data.answer));
+    both('checkers', L, 2, () => `${other} or ${p.data.answer}`, false);
+  }
+  for (const seed of [2, 3]) {
+    const p = PK.poker.generate(1, seed);
+    const o = p.data.options.find((x) => x !== p.data.answer);
+    both('poker', 1, seed, () => `${o} or ${p.data.answer}`, false);
+    both('poker', 1, seed, () => `I would not ${o}; I'd ${p.data.answer}`, true);
+    both('poker', 1, seed, () => `Don't ${p.data.answer}.`, false);
+  }
+  // Which player wins, and breaking even.
+  assert.equal(PK.readChips('Player 2 wins 3'), -3);
+  assert.equal(PK.readChips('Player 2 loses 2 chips'), 2);
+  assert.equal(PK.readChips('Player 1 breaks even.'), 0);
+  assert.ok(Number.isNaN(PK.readChips('Player 1 is down 4 — no, up')));
+  // Balance: a crash that is ruled out is not a crash; working in brackets is not the answer; two numbers is a hedge.
+  assert.ok(Number.isNaN(BL.readBalance('It does not crash.', 'm')));
+  assert.ok(Number.isNaN(BL.readBalance('No crash: it stops in time.', 'm')));
+  assert.equal(BL.readBalance('crash at 0 m', 'm'), 'crash');
+  assert.equal(BL.readBalance('8.2 m (using g = 1.62)', 'm'), 8.2);
+  assert.ok(Number.isNaN(BL.readBalance('Either 11.2 or 8.2 m', 'm')));
+  // Sokoban: a solution with more pushes than needed is not the answer (it scores less than 1).
+  const room = SK.decode('8:#########@$-.--##------#########:9:0').p;
+  const pr = { game: 'sokoban', level: 1, seed: 0, text: '', data: { map: SK.encode(room, 2), opt: 2 } };
+  assert.ok(SK.sokoban.check(pr, 'RR').correct);
+  const long = SK.sokoban.check(pr, 'RRRDRRUL');
+  assert.ok(!long.correct && long.score === 0.5, JSON.stringify(long));
+});
+
 // ---- no level is handed out ------------------------------------------------------------------------------------
-test('gym 2: an untrained learner is below the bar — measured in full (whole matches) — and measuring alone never moves up', () => {
+test('gym 2: an untrained learner is below the bar at every level — measured in full (whole matches) — and measuring alone never moves up', () => {
   I.setSlice(Infinity);
-  for (const id of ['poker', 'sokoban', 'balance']) {
-    for (let level = 1; level <= 10; level++) {
-      const m = gameById(id).learner(level, 1).measure().mastery;
-      assert.ok(m < gameById(id).bar(level), `${id} L${level}: untrained ${m} reaches the bar`);
-    }
-  }
-  // The board games: whole matches against the reference ladder at the first rungs (deeper rungs search the same way, only longer).
-  for (const [id, levels] of [['checkers', [1, 2, 3, 4]], ['chess', [1, 3]], ['go', [1, 2]]]) {
-    for (const level of levels) {
-      const r = gameById(id).learner(level, 1).measure();
-      assert.ok(r.mastery < gameById(id).bar(level) - 0.15, `${id} L${level}: untrained ${r.mastery} is not clearly below ${gameById(id).bar(level)} (${r.detail})`);
-      assert.doesNotMatch(r.detail, /under way/, 'a whole match was played');
-    }
-  }
-  I.setSlice(120);
   for (const id of NEW) {
+    for (let level = 1; level <= 10; level++) {
+      const r = gameById(id).learner(level, 1).measure();
+      assert.doesNotMatch(r.detail, /under way/, `${id} L${level}: a whole measurement was made`);
+      assert.ok(r.mastery < gameById(id).bar(level) - 0.1, `${id} L${level}: untrained ${r.mastery} is not clearly below ${gameById(id).bar(level)} (${r.detail})`);
+    }
+    // Measuring alone (whole matches each time) never moves him up.
     const s = new S.Session(gameById(id));
     for (let i = 0; i < 3; i++) assert.equal(s.measure(), null, `${id}: measuring alone passed a level`);
     assert.equal(s.rec.level, 1);
+    assert.doesNotMatch(s.rec.detail, /under way/);
   }
+  I.setSlice(60);
 });
 
 // ---- checkers ----------------------------------------------------------------------------------------------------
@@ -203,8 +302,27 @@ test('checkers: the rules — perft counts from the start, compulsory captures, 
   kings.b[0] = 2;
   kings.b[31] = -2;
   assert.equal(CK.resultCk(kings), 0.5);
-  // The reference ladder is rated in order (each deeper engine stronger than the one before).
-  for (let d = 2; d <= 8; d++) assert.ok(CK.ladderRating(d) > CK.ladderRating(d - 1));
+  // A stalled game is scored by material, not called a draw: two men up wins.
+  const up = { b: new Int8Array(32), side: 1, quiet: 80 };
+  up.b[0] = 2;
+  up.b[1] = 2;
+  up.b[2] = 1;
+  up.b[31] = -2;
+  assert.equal(CK.scoreCk(up, 10, 160), 1);
+  assert.equal(CK.scoreCk({ ...up, quiet: 0 }, 160, 160), 1, 'at the move limit too');
+  assert.equal(CK.scoreCk({ ...up, quiet: 0 }, 10, 160), null);
+  // The reference finishes a won ending (two kings against one) instead of shuffling.
+  const end = { b: new Int8Array(32), side: 1, quiet: 0 };
+  end.b[13] = 2;
+  end.b[18] = 2;
+  end.b[3] = -2;
+  let r = null;
+  for (let ply = 0; ply < 80 && r == null; ply++) {
+    r = CK.scoreCk(end, ply, 1000);
+    if (r == null) CK.playCk(end, CK.bestMove(end, 6, CK.referenceEval).move);
+  }
+  assert.equal(r, 1, 'two kings beat one by capture or blockade, not by the stall rule');
+  assert.ok(CK.legalCk(end).length === 0 || ![...end.b].includes(-2), 'won on the board');
   // A paused search ends exactly where the whole search does.
   const mid = CK.startCk();
   for (const m of CK.openings(3)[2]) CK.playCk(mid, m);
@@ -216,11 +334,12 @@ test('checkers: the rules — perft counts from the start, compulsory captures, 
   assert.ok(steps > 0, 'the depth-5 search paused along the way');
 });
 
-test('checkers: TD self-play climbs the ladder — Levels 1 to 3 passed against the reference engines at depths 1–3', () => {
-  const { s, passed } = climb('checkers', 3, 2000, 60000);
-  assert.ok(s.rec.level >= 4, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('checkers: TD self-play climbs the odds ladder; a frozen passer never passes the next level', () => {
+  const { s, passed, frozen } = climb('checkers', 4, 250, 12000);
+  assert.ok(s.rec.level >= 5, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  checkers passed: ${passed.join('; ')}`);
-  assert.match(s.rec.detail, /Estimated rating \d+/);
+  noFreeLevels('checkers', frozen);
+  assert.doesNotMatch(s.rec.detail, /rating/);
   // PLAY HIM: from the start he answers with a legal move.
   const mv = s.learner.move(CK.ckState(CK.startCk()));
   assert.ok(mv >= 0 && mv < 7);
@@ -298,7 +417,10 @@ test('chess: the tactics set — every forced mate is proved by exhaustive searc
       CH.unmake(p);
     }
   }
-  for (let d = 2; d <= 4; d++) assert.ok(CH.ladderRating(d) > CH.ladderRating(d - 1));
+  // Odds: the reference starts without its pieces, the openings still play.
+  const q = CH.fromFen(CH.oddsFen(false, 'qrnpp'));
+  assert.equal(CH.material(q), 9 + 5 + 3 + 2);
+  for (const line of CH.OPENINGS) CH.applyUci(CH.fromFen(CH.oddsFen(true, 'qrnpp')), line);
   // A paused search ends exactly where the whole search does.
   const p = CH.fromFen('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1');
   const it = CH.searchGen(p, 3, CH.referenceEval);
@@ -309,10 +431,11 @@ test('chess: the tactics set — every forced mate is proved by exhaustive searc
   assert.ok(steps > 3);
 });
 
-test('chess: Texel-style self-play tuning climbs from 0% — Level 1 passed against the depth-1 reference engine', () => {
-  const { s, passed } = climb('chess', 1, 300, 6000);
-  assert.ok(s.rec.level >= 2, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('chess: self-play tuning climbs the odds ladder from 0%; a frozen passer never passes the next level', () => {
+  const { s, passed, frozen } = climb('chess', 3, 50, 1500);
+  assert.ok(s.rec.level >= 4, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  chess passed: ${passed.join('; ')}`);
+  noFreeLevels('chess', frozen);
   assert.match(s.rec.detail, /not Stockfish/);
   // What a queen is worth to him is learned, from nothing: more than a rook, a rook more than a pawn.
   const w = s.learner.save().w;
@@ -360,13 +483,46 @@ test('go: the rules — captures, no suicide, ko, area scoring with komi 7; the 
     assert.deepEqual(GO.capturingMoves(p.g, p.target, p.n).sort((a, b) => a - b), [...p.best].sort((a, b) => a - b));
     if (p.n > 1) assert.ok(!GO.captures(p.g, p.target, p.n - 1), 'not sooner');
   }
-  for (let L = 2; L <= 10; L++) assert.ok(GO.ladderRating(L) > GO.ladderRating(L - 1));
 });
 
-test('go: self-play of the pattern evaluator climbs from below the bar — Level 1 passed against the 8-play-out reference', () => {
-  const { s, passed } = climb('go', 1, 20, 400);
-  assert.ok(s.rec.level >= 2, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('go: he passes when a settled game is his; his tables are kept small', () => {
+  // A settled board: Black's wall down the middle, White owns the bigger side.
+  const g = GO.newGo(9);
+  for (let r = 0; r < 9; r++) {
+    g.b[GO.inner(g, r * 9 + 3)] = 1;
+    g.b[GO.inner(g, r * 9 + 4)] = 2;
+  }
+  const l = GO.go.learner(1, 1);
+  // The owner (Black) has just passed; White (him) is ahead by area: he passes and the game ends.
+  g.side = 2;
+  g.passes = 1;
+  assert.ok(GO.margin(g) < 0);
+  assert.equal(l.move(GO.goState(g)), -1);
+  // Behind, he plays on.
+  const h = GO.newGo(9);
+  for (let r = 0; r < 9; r++) {
+    h.b[GO.inner(h, r * 9 + 5)] = 1;
+    h.b[GO.inner(h, r * 9 + 6)] = 2;
+  }
+  h.side = 2;
+  h.passes = 1;
+  assert.ok(GO.margin(h) > 0);
+  assert.notEqual(l.move(GO.goState(h)), -1);
+  // What is kept is a few tens of KB after training, and comes back the same.
+  for (let k = 0; k < 10; ) k += l.train(1);
+  const saved = l.save();
+  const bytes = saved.idx.byteLength + saved.val.byteLength + saved.line.byteLength;
+  assert.ok(bytes < 200_000, `${bytes} bytes saved`);
+  const back = GO.go.learner(1, 1, saved);
+  assert.deepEqual(Array.from(back.t.own), Array.from(l.t.own));
+  assert.deepEqual(Array.from(back.t.pol), Array.from(l.t.pol));
+});
+
+test('go: self-play of the pattern evaluator climbs the ladder; a frozen passer never passes the next level', () => {
+  const { s, passed, frozen } = climb('go', 2, 10, 300);
+  assert.ok(s.rec.level >= 3, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  go passed: ${passed.join('; ')}`);
+  noFreeLevels('go', frozen);
   const mv = s.learner.move(GO.goState(GO.newGo(9)));
   assert.ok(mv >= 0 && mv < 81, `a point on the board: ${mv}`);
 });
@@ -409,11 +565,21 @@ test('poker: Kuhn poker is worth −1/18 to the first player at equilibrium; exp
   assert.ok(PK.bestResponse(t, avg, 0) >= -1 / 18 - 1e-9 && PK.bestResponse(t, avg, 1) >= 1 / 18 - 1e-9);
 });
 
-test("poker: CFR+ climbs Kuhn poker's four levels and on into Leduc hold'em", () => {
-  const { s, passed } = climb('poker', 6, 200, 20000);
-  assert.ok(s.rec.level >= 7, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('poker: every level is a different game with an absolute limit; CFR+ masters all ten, and no passer carries over', () => {
+  // Ten different games, each a different tree.
+  const keys = new Set();
+  for (let L = 1; L <= 10; L++) {
+    const t = PK.tree(PK.variantFor(L));
+    keys.add(`${t.infos.length}/${t.spec.ranks}/${t.spec.raises}/${t.spec.board}`);
+    // The bar is the level's own limit in chips: mastery 0.9 exactly at it.
+    assert.ok(Math.abs(PK.masteryOf(t.spec.limit, t.spec.limit) - gameById('poker').bar(L)) < 1e-12);
+  }
+  assert.equal(keys.size, 10);
+  const { s, passed, frozen } = climb('poker', 10, 100, 60000);
+  assert.ok(s.rec.mastered, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  poker passed: ${passed.join('; ')}`);
-  assert.match(s.rec.detail, /Leduc/);
+  noFreeLevels('poker', frozen);
+  assert.equal(frozen.length, 9);
 });
 
 // ---- Sokoban ---------------------------------------------------------------------------------------------------------
@@ -440,10 +606,12 @@ test('sokoban: backwards play makes solvable puzzles; the exact solver finds the
   assert.equal(live[8], 1);
 });
 
-test('sokoban: learning dead ends and his guess of the pushes left climbs Levels 1 to 3', () => {
-  const { s, passed } = climb('sokoban', 3, 15, 1500);
-  assert.ok(s.rec.level >= 4, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('sokoban: learning dead ends and his guess of the pushes left climbs the levels; a frozen passer never passes the next', () => {
+  const { s, passed, frozen } = climb('sokoban', 10, 30, 6000);
+  assert.ok(s.rec.mastered, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  sokoban passed: ${passed.join('; ')}`);
+  noFreeLevels('sokoban', frozen);
+  assert.equal(frozen.length, 9);
   // He has learned that a corner without a goal is a dead end (and believes no goal square is one).
   const brain = { ...s.learner.save() };
   let corners = 0;
@@ -460,16 +628,24 @@ test('sokoban: learning dead ends and his guess of the pushes left climbs Levels
 });
 
 // ---- balance & lander -------------------------------------------------------------------------------------------------
-test('balance: plain physics, the hand-tuned reference succeeds, doing nothing fails; policy search balances the pole and lands the lander', () => {
-  // With no push, a leaning pole falls.
-  const s = [0, 0, 0.05, 0];
-  for (let i = 0; i < 100; i++) BL.poleStep(s, 0, 0.5);
-  assert.ok(s[2] > 0.2);
-  for (const L of [1, 5, 6, 8]) assert.ok(BL.reference(L).ok.filter(Boolean).length >= 36, `reference L${L}`);
-  const { s: ses, passed } = climb('balance', 6, 300, 30000);
-  assert.ok(ses.rec.level >= 7, `stopped at Level ${ses.rec.level} (${ses.rec.detail}); passed ${passed.join(', ')}`);
+test('balance: plain physics, the reference controllers succeed, doing nothing fails; each level a new task; a frozen passer never passes the next', () => {
+  // With no push, a leaning pole falls — one pole, and two.
+  const one = [0, 0, 0.05, 0];
+  for (let i = 0; i < 100; i++) BL.poleStep(one, 0, { poles: 1, half: 0.5 });
+  assert.ok(one[2] > 0.2);
+  const two = [0, 0, 0.05, 0, 0, 0];
+  for (let i = 0; i < 100; i++) BL.poleStep(two, 0, { poles: 2, half: 0.05 });
+  assert.ok(Math.abs(two[2]) > 0.2);
+  // The reference controllers succeed (mostly) where nothing at all fails.
+  for (let L = 1; L <= 10; L++) assert.ok(BL.reference(L).ok.filter(Boolean).length >= (L <= 7 ? 36 : 14), `reference L${L}: ${BL.reference(L).ok.filter(Boolean).length}`);
+  // Two poles need a bigger controller than one: what one pole taught him cannot be used as it is.
+  assert.equal(BL.dims(2), 5);
+  assert.equal(BL.dims(3), 7);
+  const { s: ses, passed, frozen } = climb('balance', 10, 300, 60000);
+  assert.ok(ses.rec.mastered, `stopped at Level ${ses.rec.level} (${ses.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  balance passed: ${passed.join('; ')}`);
-  assert.match(ses.rec.detail, /reference/);
+  noFreeLevels('balance', frozen);
+  assert.equal(frozen.length, 9);
   // WATCH draws the run.
   const frames = ses.learner.watch(5);
   assert.ok(frames.length > 5 && frames.every((f) => f.draw?.shapes.length > 3));
@@ -492,14 +668,4 @@ test('gym 2 worker: PLAY HIM answers on all three boards; a measurement never ho
   assert.ok(pt >= 0 && pt < 81 && pt !== 40, `go: ${pt}`);
   W.gymMessage({ gym: 'watch', id: 'balance', req: 4, seed: 2 }, post);
   assert.ok(out.at(-1).frames[0].draw);
-  // Deep rungs: one measurement plays a short slice of the match, never a whole move's search at once.
-  I.setSlice(120);
-  for (const [id, level] of [['checkers', 8], ['chess', 8], ['go', 10], ['sokoban', 10], ['poker', 10], ['balance', 10]]) {
-    const l = gameById(id).learner(level, 1);
-    l.measure();
-    const t = performance.now();
-    l.measure();
-    const ms = performance.now() - t;
-    assert.ok(ms < 300, `${id} L${level}: a measurement took ${Math.round(ms)} ms`);
-  }
 });

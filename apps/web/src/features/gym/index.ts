@@ -39,6 +39,8 @@ export const gymState = {
   error: '',
   /** The last few things the owner (or the app) did here, newest last — for specs reading what happened. */
   log: [] as string[],
+  /** Per game: how many messages to the worker carried his whole record (once per game, then none). */
+  handed: {} as Record<string, number>,
 };
 
 function expose(): void {
@@ -159,6 +161,8 @@ export const gymTab: TabDef = {
           return;
         }
       }
+      const sent = m as { id?: unknown; rec?: unknown };
+      if (sent.rec) gymState.handed[String(sent.id)] = (gymState.handed[String(sent.id)] ?? 0) + 1;
       worker.postMessage(m);
     };
     /**

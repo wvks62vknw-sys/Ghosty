@@ -397,22 +397,24 @@ export interface Rung {
   ref: number;
   heavy: boolean;
   rand: number;
+  /** Points added to his score at the end (on top of the usual komi): the odds the reference gives him. */
+  bonus: number;
 }
 export const RUNGS: Rung[] = [
-  { me: 48, ref: 16, heavy: false, rand: 0.3 },
-  { me: 48, ref: 16, heavy: false, rand: 0 },
-  { me: 48, ref: 64, heavy: false, rand: 0 },
-  { me: 48, ref: 150, heavy: false, rand: 0 },
-  { me: 48, ref: 16, heavy: true, rand: 0 },
-  { me: 48, ref: 48, heavy: true, rand: 0 },
-  { me: 48, ref: 100, heavy: true, rand: 0 },
-  { me: 48, ref: 150, heavy: true, rand: 0 },
-  { me: 24, ref: 100, heavy: true, rand: 0 },
-  { me: 24, ref: 150, heavy: true, rand: 0 },
+  { me: 24, ref: 16, heavy: false, rand: 0.3, bonus: 0 },
+  { me: 24, ref: 48, heavy: false, rand: 0, bonus: 0 },
+  { me: 24, ref: 16, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 48, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 100, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 150, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -10 },
+  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -20 },
+  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -30 },
+  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -40 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
 export const gamesFor = (_level: number) => 10;
-const rungWords = (r: Rung) => `the reference engine (tree search with ${r.ref} ${r.heavy ? 'smarter' : 'random'} play-outs a move${r.rand ? `, ${Math.round(r.rand * 100)}% of its moves random` : ''}); he searches ${r.me} times a move`;
+const rungWords = (r: Rung) => `the reference engine (tree search with ${r.ref} ${r.heavy ? 'smarter' : 'random'} play-outs a move${r.rand ? `, ${Math.round(r.rand * 100)}% of its moves random` : ''})${r.bonus > 0 ? `, giving him ${r.bonus} points` : r.bonus < 0 ? `, with him giving ${-r.bonus} points` : ''}; he searches ${r.me} times a move`;
 
 export function duel(opening: number, first: boolean, rung: Rung, mine: Tables, seed: number): Stepper & { g: Go; me: number } {
   const g = newGo(9);
@@ -429,9 +431,9 @@ export function duel(opening: number, first: boolean, rung: Rung, mine: Tables, 
     // One step = a slice of one move's search (about 30 ms at most), so the worker is never held up for long.
     step() {
       if (over(g) || g.moves > 200) {
-        const m = margin(g);
-        const res = m === 0 ? 0.5 : m > 0 ? 1 : 0;
-        return me === 1 ? res : 1 - res;
+        // His margin (after the usual komi), plus the points the rung gives him.
+        const m = (me === 1 ? margin(g) : -margin(g)) + rung.bonus;
+        return m === 0 ? 0.5 : m > 0 ? 1 : 0;
       }
       if (!cur && g.side !== me && rung.rand && r() < rung.rand) {
         const c = candidates(g);
@@ -722,27 +724,33 @@ class GoLearner implements Learner {
     }
     return goFrame(g, `A random position: the small squares show who he expects to own each empty point (score estimate ${scoreEstimate(this.t, g).toFixed(1)} for Black, after komi).`, marks);
   }
+  /** He plays himself by instinct — his learned move patterns, no search — so the game is ready at once. */
   watch(seed: number): Frame[] {
-    // A quick game to show: a few searches a move on both sides (the match itself searches far more).
-    const rung: Rung = { me: 6, ref: 6, heavy: rungFor(this.level).heavy, rand: 0 };
-    const d = duel(seed % OPENINGS.length, seed % 2 === 0, rung, this.t, seed);
-    const who = d.me === 1 ? 'Black' : 'White';
-    const frames: Frame[] = [{ ...goFrame(d.g, `He is ${who}, against the reference engine (both searching only ${rung.me} times a move here, to be quick).`), every: 0.3 }];
-    for (let i = 0; i < 160; i++) {
-      const mover = d.g.side;
-      const before = d.g.b.slice();
-      // A step is a slice of a search: step until the move is made (or the game ends).
-      let res: number | null = null;
-      for (const m0 = d.g.moves; res == null && d.g.moves === m0; ) res = d.step();
-      if (res != null) {
-        const m = margin(d.g);
-        frames.push({ ...goFrame(d.g, `${res === 1 ? 'He wins' : res === 0 ? 'The reference engine wins' : 'A draw'}: ${m > 0 ? 'Black' : 'White'} by ${Math.abs(m)} (area, komi ${KOMI}).`), every: 0.3 });
-        break;
+    const g = newGo(9);
+    const r = rng(seed);
+    const [a, b] = OPENINGS[seed % OPENINGS.length]!;
+    playAt(g, inner(g, a));
+    playAt(g, inner(g, b));
+    const frames: Frame[] = [{ ...goFrame(g, 'He plays himself by instinct (his learned move patterns, no search).'), every: 0.3 }];
+    while (!over(g) && g.moves < 160) {
+      const moves = candidates(g);
+      let m = moves[0]!;
+      if (m >= 0 && moves.length > 1) {
+        const libs = libsAll(g);
+        let best = -Infinity;
+        for (const c of moves) {
+          const [cl, cap, save] = polFeatures(g, c, libs);
+          // His instinct, with a little noise so games differ.
+          const v = this.t.pol[cl]! + cap * this.t.pol[SHAPES]! + save * this.t.pol[SHAPES + 1]! + r() * 0.3;
+          if (v > best) (best = v), (m = c);
+        }
       }
-      let placed = -1;
-      for (let k = 0; k < before.length; k++) if (before[k] === 0 && d.g.b[k] === mover) placed = outer(d.g, k);
-      frames.push({ ...goFrame(d.g, `${mover === d.me ? 'He' : 'Reference'} ${placed >= 0 ? `plays ${ptName(d.g, placed)}` : 'passes'}.`, placed >= 0 ? { [placed]: 'new' } : {}), every: 0.3 });
+      const mover = g.side;
+      doMove(g, m);
+      frames.push({ ...goFrame(g, `${mover === 1 ? 'Black' : 'White'} ${m >= 0 ? `plays ${ptName(g, outer(g, m))}` : 'passes'}.`, m >= 0 ? { [outer(g, m)]: 'new' } : {}), every: 0.3 });
     }
+    const mg = margin(g);
+    frames.push({ ...goFrame(g, `${mg > 0 ? 'Black' : mg < 0 ? 'White' : 'Nobody'} wins${mg ? ` by ${Math.abs(mg)}` : ''} (area, komi ${KOMI}).`), every: 0.3 });
     return frames;
   }
   /**

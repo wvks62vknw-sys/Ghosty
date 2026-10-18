@@ -221,27 +221,40 @@ export function applyUci(p: Pos, line: string): void {
     make(p, m);
   }
 }
-/** A rung of the ladder: how far he searches, and the reference engine he plays (its depth, and how often it plays a random move instead). */
+/**
+ * A rung of the ladder: how far he searches, the reference engine he plays (its depth, how often it plays a
+ * random move instead), and the odds it gives him — pieces it starts without (q queen, r rook, n knight, p
+ * a pawn each). Odds are the old way to set strength levels apart: each rung up gives less.
+ */
 export interface Rung {
   me: number;
   ref: number;
   rand: number;
+  odds: string;
 }
 export const RUNGS: Rung[] = [
-  { me: 2, ref: 1, rand: 0.5 },
-  { me: 2, ref: 1, rand: 0.25 },
-  { me: 2, ref: 1, rand: 0 },
-  { me: 2, ref: 2, rand: 0.25 },
-  { me: 2, ref: 2, rand: 0 },
-  { me: 2, ref: 3, rand: 0.25 },
-  { me: 2, ref: 3, rand: 0 },
-  { me: 3, ref: 3, rand: 0 },
-  { me: 3, ref: 4, rand: 0.25 },
-  { me: 3, ref: 4, rand: 0 },
+  { me: 2, ref: 1, rand: 0, odds: 'q' },
+  { me: 2, ref: 1, rand: 0, odds: 'r' },
+  { me: 2, ref: 1, rand: 0, odds: 'n' },
+  { me: 2, ref: 1, rand: 0, odds: 'pp' },
+  { me: 2, ref: 1, rand: 0, odds: 'p' },
+  { me: 2, ref: 1, rand: 0, odds: '' },
+  { me: 2, ref: 2, rand: 0, odds: 'r' },
+  { me: 2, ref: 2, rand: 0, odds: 'n' },
+  { me: 2, ref: 2, rand: 0, odds: 'pp' },
+  { me: 2, ref: 2, rand: 0, odds: 'p' },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
-export const gamesFor = (_level: number) => 12;
-const rungWords = (r: Rung) => `Ghosty's own reference engine searching ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''} — not Stockfish; he searches ${r.me} ahead`;
+export const gamesFor = (_level: number) => 16;
+const ODDS: Record<string, string> = { q: 'queen', r: 'rook', n: 'knight', p: 'pawn' };
+const oddsWords = (o: string) => {
+  if (!o) return '';
+  const pawns = [...o].filter((c) => c === 'p').length;
+  const rest = [...o].filter((c) => c !== 'p').map((c) => `a ${ODDS[c]}`);
+  if (pawns) rest.push(pawns === 1 ? 'a pawn' : `${pawns} pawns`);
+  return `, giving him ${rest.join(' and ')}`;
+};
+const rungWords = (r: Rung) => `Ghosty's own reference engine (not Stockfish) searching ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${oddsWords(r.odds)}${r.rand ? `, ${Math.round(r.rand * 100)}% of its moves random` : ''}; he searches ${r.me} ahead`;
 const MAX_PLIES = 160;
 
 /** A finished game's result for White: 1, 0.5, 0 — or null while it goes on (after `plies`, scored by material: 3 points ahead wins). */
@@ -256,11 +269,45 @@ export function resultFor(p: Pos, plies: number, moves = legal(p)): number | nul
   return null;
 }
 
+/** The start position with pieces taken off one side (`white`): the queen, the queenside rook (and castling that way), the queenside knight, and pawns from the f- and h-files. */
+export function oddsFen(white: boolean, odds: string): string {
+  const back = 'rnbqkbnr'.split('');
+  const pawns = 'pppppppp'.split('');
+  let castle = 'KQ';
+  const pawnFiles = [5, 7, 6, 0];
+  for (const o of odds) {
+    if (o === 'q') back[3] = '';
+    else if (o === 'r') (back[0] = ''), (castle = 'K');
+    else if (o === 'n') back[1] = '';
+    else if (o === 'p') pawns[pawnFiles.shift()!] = '';
+  }
+  const row = (cells: string[], up: boolean) => {
+    let s = '';
+    let gap = 0;
+    for (const c of cells) {
+      if (!c) {
+        gap++;
+        continue;
+      }
+      if (gap) (s += gap), (gap = 0);
+      s += up ? c.toUpperCase() : c;
+    }
+    return gap ? s + gap : s;
+  };
+  const full = (cells: string[], up: boolean) => row(cells.map((c) => c), up);
+  const wb = white ? full(back, true) : 'RNBQKBNR';
+  const wp = white ? full(pawns, true) : 'PPPPPPPP';
+  const bb = white ? 'rnbqkbnr' : full(back, false);
+  const bp = white ? 'pppppppp' : full(pawns, false);
+  const rights = (white ? castle : 'KQ') + (white ? 'kq' : castle.toLowerCase());
+  return `${bb}/${bp}/8/8/8/8/${wp}/${wb} w ${rights} - 0 1`;
+}
+
 /** One match game: him (evaluator `mine`) against the reference engine of a rung. */
 export function duel(opening: number, first: boolean, rung: Rung, mine: ChessEval, seed = opening): Stepper & { p: Pos; me: number } {
-  const p = fromFen(START);
+  // He plays White when he moves "first"; the reference starts without its odds.
+  const p = fromFen(rung.odds ? oddsFen(!first, rung.odds) : START);
   applyUci(p, OPENINGS[opening % OPENINGS.length]!);
-  // He plays White when he moves "first" (the openings hand the move back to White).
   const me = first ? 1 : -1;
   const rr = rng(104729 * (seed + 1) + (first ? 1 : 2));
   let plies = 4;
@@ -524,7 +571,7 @@ class ChessLearner implements Learner {
   }
   watch(seed: number): Frame[] {
     // (Both search one move ahead here, so the game is quick to show.)
-    const rung = { me: 1, ref: 1, rand: rungFor(this.level).rand };
+    const rung = { ...rungFor(this.level), me: 1, ref: 1 };
     const g = duel(seed % OPENINGS.length, seed % 2 === 0, rung, learnedEval(this.w), seed);
     const who = g.me > 0 ? 'White' : 'Black';
     const frames: Frame[] = [{ ...chessFrame(g.p, `He is ${who}, against ${rungWords(rung)}.`), every: 0.6 }];

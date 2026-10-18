@@ -193,6 +193,12 @@ await cellAt(40).click();
 await until(() => window.__ghosty.gym.play.board.filter((x) => x === 2).length >= 1, 30000, 'he did not answer my Go move');
 if (!(await cellAt(40).evaluate((e) => e.classList.contains('bs')))) problems.push('Go: my stone is not on the centre point');
 if (!(await G('.gymboard button', { hasText: 'PASS' }).count())) problems.push('Go: no PASS button');
+// A second move: his record went to the worker once for this game, not with every move.
+const free2 = await page.evaluate(() => window.__ghosty.gym.play.board.findIndex((x, i) => x === 0 && i !== 40 && i % 9 > 0 && i % 9 < 8 && i > 9 && i < 71));
+await cellAt(free2).click();
+await until(() => window.__ghosty.gym.play.board.filter((x) => x === 2).length >= 2 || !!window.__ghosty.gym.play.over, 30000, 'he did not answer my second Go move');
+const handed = await page.evaluate(() => window.__ghosty.gym.handed.go ?? 0);
+if (handed > 1) problems.push(`Go: his whole record went to the worker ${handed} times (once is enough)`);
 await wideCheck('playing Go');
 await page.screenshot({ path: `${out}/gym-go.png` });
 

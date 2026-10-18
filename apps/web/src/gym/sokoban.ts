@@ -475,15 +475,17 @@ export interface Brain {
   /** Per wall shape: how often a box there could still reach a goal (live) or not (dead), in his practice. */
   live: Uint32Array;
   dead: Uint32Array;
+  /** Practice puzzles fitted into each level's guess (its steps shrink as these grow, so the guess settles). */
+  fits: Uint32Array;
 }
 /**
- * A separate guess for each level: at level L his guess is fitted while he practises for level L (on that
- * level's puzzles and easier ones). A new level starts that guess afresh — a passer of the level below,
+ * A separate guess for each level: at level L his guess is fitted while he practises for level L (on
+ * puzzles of that level and below). A new level starts that guess afresh — a passer of the level below,
  * frozen, has not fitted it and does not pass (tested). What he knows about dead ends is shared.
  */
 const BLOCKS = 10;
 const block = (level: number) => (lvl(level) - 1) * (NF + 1);
-export const newBrain = (): Brain => ({ w: new Float64Array((NF + 1) * BLOCKS), live: new Uint32Array(512), dead: new Uint32Array(512) });
+export const newBrain = (): Brain => ({ w: new Float64Array((NF + 1) * BLOCKS), live: new Uint32Array(512), dead: new Uint32Array(512), fits: new Uint32Array(BLOCKS) });
 
 /** The squares he believes are dead ends: a shape seen often in practice and never with a way out. */
 export function believedDead(b: Brain, p: Soko): Uint8Array {
@@ -556,6 +558,7 @@ interface SokoSave {
   w: Float64Array;
   live: Uint32Array;
   dead: Uint32Array;
+  fits?: Uint32Array;
   puzzles: number;
   rand: number;
 }
@@ -572,7 +575,7 @@ class SokoLearner implements Learner {
   ) {
     // What he learned carries over between levels (the shapes and the guess are the same kind of thing).
     const s = savedFor<SokoSave>(saved, 'sokoban');
-    this.brain = s?.w?.length === (NF + 1) * BLOCKS ? { w: s.w, live: s.live, dead: s.dead } : newBrain();
+    this.brain = s?.w?.length === (NF + 1) * BLOCKS ? { w: s.w, live: s.live, dead: s.dead, fits: s.fits?.length === BLOCKS ? s.fits : new Uint32Array(BLOCKS) } : newBrain();
     this.puzzles = s?.puzzles ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
@@ -581,6 +584,8 @@ class SokoLearner implements Learner {
   private fit(samples: { f: number[]; g: number }[], level: number) {
     const w = this.brain.w;
     const o = block(level);
+    // Big steps while the guess is new, then smaller ones: one odd practice puzzle no longer swings it about.
+    const step = Math.max(0.004, 0.1 / (1 + this.brain.fits[lvl(level) - 1]! / 40));
     for (const s of samples) {
       const x = [...s.f, 1];
       let y = 0;
@@ -588,7 +593,7 @@ class SokoLearner implements Learner {
       // Normalised steps (each one moves the guess a tenth of the way to the right number): stable whatever the scale.
       const err = s.g - y;
       const norm = x.reduce((t, v) => t + v * v, 0);
-      for (let i = 0; i <= NF; i++) w[o + i]! += (0.1 * err * x[i]!) / norm;
+      for (let i = 0; i <= NF; i++) w[o + i]! += (step * err * x[i]!) / norm;
     }
   }
   train(n: number) {
@@ -596,8 +601,8 @@ class SokoLearner implements Learner {
     let k = 0;
     while (k < n && (k === 0 || clock() - t0 < 30)) {
       k++;
-      // A practice puzzle from his own random numbers: half the time this level's kind, otherwise an easier one.
-      const L = this.r() < 0.5 ? this.level : 1 + Math.floor(this.r() * this.level);
+      // A practice puzzle from his own random numbers, at this level or below (the easier ones teach the guess best).
+      const L = 1 + Math.floor(this.r() * this.level);
       const m = makePuzzle(L, this.r);
       if (!m) continue;
       const p = m.p;
@@ -619,6 +624,7 @@ class SokoLearner implements Learner {
       if (found) samples.push(...found.states);
       // They tune the guess for the level he is practising for.
       for (let rep = 0; rep < 3; rep++) this.fit(samples, this.level);
+      this.brain.fits[lvl(this.level) - 1]!++;
     }
     this.puzzles += k;
     this.rand = (this.rand + k * 2654435761) >>> 0;
@@ -632,7 +638,7 @@ class SokoLearner implements Learner {
     const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
     // A frozen copy of what he knows, so one pass measures one fixed player.
-    this.pass ??= { i: 0, brain: { w: this.brain.w.slice(), live: this.brain.live.slice(), dead: this.brain.dead.slice() }, budget: 0, score: 0, solved: 0, his: 0, best: 0 };
+    this.pass ??= { i: 0, brain: { w: this.brain.w.slice(), live: this.brain.live.slice(), dead: this.brain.dead.slice(), fits: this.brain.fits }, budget: 0, score: 0, solved: 0, his: 0, best: 0 };
     const ps = this.pass;
     while (ps.i < set.length) {
       const t = set[ps.i++]!;
@@ -651,14 +657,16 @@ class SokoLearner implements Learner {
       this.pass = null;
     }
     const L = this.last;
-    if (!L) return { mastery: 0, detail: `His first test on ${set.length} puzzles he has never practised on is under way (${ps.i} done).` };
+    const pending = !!this.pass;
+    if (!L) return { mastery: 0, pending, detail: `His first test on ${set.length} puzzles he has never practised on is under way (${ps.i} done).` };
     return {
       mastery: L.score / set.length,
+      pending,
       detail: `He solves ${L.solved} of ${set.length} puzzles he has never practised on, opening at most ${Math.round(L.budget / set.length)} positions each on average (${spec(this.level).budget}× the fewest pushes)${L.solved ? `, in ${L.his} pushes where the fewest possible is ${L.best} (exact solver)` : ''}.`,
     };
   }
   save(): SokoSave {
-    return { game: 'sokoban', w: this.brain.w, live: this.brain.live, dead: this.brain.dead, puzzles: this.puzzles, rand: this.rand };
+    return { game: 'sokoban', w: this.brain.w, live: this.brain.live, dead: this.brain.dead, fits: this.brain.fits, puzzles: this.puzzles, rand: this.rand };
   }
   view(): Frame {
     // The first held-out puzzle, with the squares he believes are dead ends shaded.

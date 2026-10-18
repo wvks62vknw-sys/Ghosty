@@ -232,22 +232,24 @@ export interface Rung {
   me: number;
   ref: number;
   rand: number;
+  /** Men the reference engine starts without (taken from its back rows after the opening): the odds it gives. */
+  odds: number;
 }
 export const RUNGS: Rung[] = [
-  { me: 4, ref: 1, rand: 0.5 },
-  { me: 4, ref: 1, rand: 0.2 },
-  { me: 4, ref: 2, rand: 0.2 },
-  { me: 4, ref: 2, rand: 0 },
-  { me: 4, ref: 3, rand: 0.1 },
-  { me: 4, ref: 3, rand: 0 },
-  { me: 4, ref: 4, rand: 0.1 },
-  { me: 4, ref: 4, rand: 0 },
-  { me: 4, ref: 5, rand: 0 },
-  { me: 4, ref: 6, rand: 0 },
+  { me: 4, ref: 4, rand: 0, odds: 3 },
+  { me: 4, ref: 4, rand: 0, odds: 2 },
+  { me: 4, ref: 4, rand: 0, odds: 1 },
+  { me: 4, ref: 2, rand: 0, odds: 0 },
+  { me: 4, ref: 4, rand: 0, odds: 0 },
+  { me: 4, ref: 5, rand: 0, odds: 0 },
+  { me: 3, ref: 4, rand: 0, odds: 0 },
+  { me: 3, ref: 5, rand: 0, odds: 0 },
+  { me: 2, ref: 4, rand: 0, odds: 0 },
+  { me: 2, ref: 5, rand: 0, odds: 0 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
-export const gamesFor = (_level: number) => 12;
-const rungWords = (r: Rung) => `the reference engine looking ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''}; he looks ${r.me} ahead`;
+export const gamesFor = (_level: number) => 24;
+const rungWords = (r: Rung) => `the reference engine looking ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.odds ? `, starting ${r.odds} m${r.odds > 1 ? 'en' : 'an'} down` : ''}${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''}; he looks ${r.me} ahead`;
 
 /** One game: him (evaluator `mine`) against the reference engine of a rung. */
 export function duel(opening: number, first: boolean, rung: Rung, mine: CkEval, seed = opening): Stepper & { p: Ck } {
@@ -255,6 +257,11 @@ export function duel(opening: number, first: boolean, rung: Rung, mine: CkEval, 
   for (const m of OPEN[opening % OPEN.length]!) playCk(p, m);
   // "First" = he plays the side to move after the opening.
   const me = first ? p.side : -p.side;
+  // The odds: the reference's men nearest its own edge come off.
+  for (let k = 0, left = rung.odds; left > 0 && k < 32; k++) {
+    const sq = -me > 0 ? k : 31 - k;
+    if (p.b[sq] === -me) (p.b[sq] = 0), left--;
+  }
   const r = rng(7919 * (seed + 1) + (first ? 1 : 2));
   let plies = 0;
   let cur: Generator<void, { move: CkMove; value: number }, void> | null = null;
@@ -340,11 +347,13 @@ class CkLearner implements Learner {
       let opening = Math.floor(this.r() * 6);
       // Value of a result for the side to move: Black's result r seen by `side`.
       const forSide = (r: number, side: number) => (r === 0.5 ? 0 : (r === 1) === (side > 0) ? 1 : -1);
+      // Big steps at first, smaller as he settles (otherwise the last games' luck swings his values about).
+      const rate = RATE * Math.max(0.25, 1 / Math.sqrt(1 + this.games / 4000));
       for (let ply = 0; ; ply++) {
         const moves = legalCk(p);
         const res = scoreCk(p, ply, MAX_PLIES, moves);
         if (res != null) {
-          tdUpdate(this.w, p, forSide(res, p.side), RATE);
+          tdUpdate(this.w, p, forSide(res, p.side), rate);
           break;
         }
         const m = opening-- > 0 ? moves[Math.floor(this.r() * moves.length)]! : this.pick(p, moves);
@@ -353,7 +362,7 @@ class CkLearner implements Learner {
         const r2 = scoreCk(p, ply + 1, MAX_PLIES);
         // The value before the move should match minus the value after it (the other side to move then).
         const target = r2 != null ? forSide(r2, before.side) : -Math.tanh(learnedRaw(this.w, p));
-        tdUpdate(this.w, before, target, RATE);
+        tdUpdate(this.w, before, target, rate);
       }
     }
     this.games += k;
@@ -404,7 +413,7 @@ class CkLearner implements Learner {
     // He plays the reference engine (a shallower search than the match, so it is quick to show).
     // (Both look at most 3 moves ahead here, so the game is quick to show.)
     const full = rungFor(this.level);
-    const rung = { me: Math.min(3, full.me), ref: Math.min(3, full.ref), rand: full.rand };
+    const rung = { me: Math.min(3, full.me), ref: Math.min(3, full.ref), rand: full.rand, odds: full.odds };
     const g = duel(seed % OPEN.length, seed % 2 === 0, rung, learnedEval(this.w), seed);
     const me = seed % 2 === 0 ? g.p.side : -g.p.side;
     const who = me === 1 ? 'Black (cyan)' : 'White (amber)';

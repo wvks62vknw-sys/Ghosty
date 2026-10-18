@@ -22,7 +22,7 @@ export interface MatchResult {
   losses: number;
 }
 
-let slice = 120;
+let slice = 60;
 /** How long one measure() may play for (ms). Tests set Infinity to play a whole match at once. */
 export function setSlice(ms: number): void {
   slice = ms;

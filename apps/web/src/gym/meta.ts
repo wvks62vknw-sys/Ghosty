@@ -115,7 +115,7 @@ export const CHECKERS: GameMeta = {
   blurb: 'draughts · vs reference engines',
   learns: 'He plays himself to learn what a checkers position is worth, then searches ahead with it against fixed reference engines that look as far ahead.',
   unit: 'games',
-  bar: per([0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.5, 0.55]),
+  bar: per([0.6, 0.6, 0.6, 0.6, 0.5, 0.45, 0.45, 0.4, 0.4, 0.35]),
   play: 'board',
 };
 export const CHESS: GameMeta = {
@@ -124,7 +124,7 @@ export const CHESS: GameMeta = {
   blurb: 'learned eval · vs reference engines',
   learns: 'He plays himself and tunes what each piece is worth on each square, then searches ahead with it against Ghosty’s own fixed reference engines (not Stockfish).',
   unit: 'games',
-  bar: per([0.25, 0.4, 0.25, 0.4, 0.25, 0.4, 0.25, 0.4, 0.5, 0.6]),
+  bar: per([0.6, 0.6, 0.6, 0.55, 0.55, 0.7, 0.6, 0.55, 0.5, 0.56]),
   play: 'board',
 };
 export const GO: GameMeta = {
@@ -151,7 +151,7 @@ export const SOKOBAN: GameMeta = {
   blurb: 'push boxes · dead ends',
   learns: 'He learns which squares are dead ends for a box and how far a position is from solved, so his search finds short solutions within a budget.',
   unit: 'puzzles',
-  bar: per([0.8, 0.8, 0.8, 0.8, 0.8, 0.75, 0.75, 0.7, 0.7, 0.7]),
+  bar: per([0.8, 0.8, 0.8, 0.8, 0.75, 0.65, 0.6, 0.5, 0.5, 0.5]),
 };
 export const BALANCE: GameMeta = {
   id: 'balance',
