@@ -64,12 +64,25 @@ function expose(): void {
 
 const errText = (e: unknown) => String((e as Error)?.message ?? e);
 
+/** The beep's sound, made (or woken) by a tap in SCAN: iPhone Safari keeps a context made outside a tap silent,
+ *  and a code is found long after the tap that started the scan. One context, reused for every beep. */
+let beeper: AudioContext | null = null;
+function wakeBeeper(): void {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    beeper ??= new Ctx();
+    if (beeper.state === 'suspended') void beeper.resume().catch(() => undefined);
+  } catch {
+    /* no sound: the box and the card say it */
+  }
+}
+
 /** One short beep and a buzz where the phone can (iOS has no vibration for the web). */
 function beep(): void {
   try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (Ctx) {
-      const a = new Ctx();
+    const a = beeper;
+    if (a && a.state === 'running') {
       const o = a.createOscillator();
       const g = a.createGain();
       o.frequency.value = 1760;
@@ -77,7 +90,6 @@ function beep(): void {
       o.connect(g).connect(a.destination);
       o.start();
       o.stop(a.currentTime + 0.09);
-      o.onended = () => void a.close().catch(() => undefined);
     }
   } catch {
     /* no sound: the box and the card say it */
@@ -706,6 +718,8 @@ export function createScanMode(L: LensContext): Mode {
     id: 'scan',
     enter(opts?: ModeOpts) {
       expose();
+      wakeBeeper(); // (entered from the SCAN tile: this is the tap)
+      document.addEventListener('click', wakeBeeper, true);
       clear(L.panel);
       L.panel.append(root, file);
       setSub(sub);
@@ -716,6 +730,8 @@ export function createScanMode(L: LensContext): Mode {
       } else if (still) L.showStill(still);
     },
     leave() {
+      document.removeEventListener('click', wakeBeeper, true);
+      void beeper?.suspend().catch(() => undefined); // quiet until SCAN is used again
       lookupGen++;
       held = false;
       again.hidden = true;

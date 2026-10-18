@@ -69,7 +69,7 @@ export interface TutorDeps {
   /** Fetch for Wikipedia (tests pass a stub). */
   fetch?: typeof fetch;
   /** Tell the owner (inbox + push), for the daily cards note. */
-  notify?: (item: { kind: 'task'; title: string; text: string }) => Promise<unknown>;
+  notify?: (item: { kind: 'task'; title: string; text: string; pushKind?: 'flashcards' }) => Promise<unknown>;
   now?: number;
 }
 
@@ -79,7 +79,7 @@ export function tutorDeps(b: { storage: DurableObjectStorage; library: Library |
     storage: b.storage,
     library: b.library?.available ? b.library : null,
     ask: async (system, user) => {
-      const r = await b.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }] as Msg[], [], undefined, { cheap: true, maxWaitMs: 8000 });
+      const r = await b.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }] as Msg[], [], undefined, { tier: 'small', priority: 'background', maxWaitMs: 8000 });
       return textOf(r.message.content);
     },
     notify: b.notify,
@@ -827,7 +827,8 @@ export async function reviseNudge(deps: TutorDeps): Promise<string> {
   const general = st.cards.filter((c) => c.course === GENERAL && c.due <= now).length;
   const note = revisionNote(st.courses, general);
   if (!note) return 'nothing due';
-  await deps.notify?.({ kind: 'task', title: 'Cards to revise', text: note }).catch(() => undefined);
+  // Under the FLASHCARDS DUE switch (notifyprefs.ts).
+  await deps.notify?.({ kind: 'task', title: 'Cards to revise', text: note, pushKind: 'flashcards' }).catch(() => undefined);
   return note;
 }
 

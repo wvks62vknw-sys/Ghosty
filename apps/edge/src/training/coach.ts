@@ -59,7 +59,8 @@ export async function trainingRoute(req: Request, path: string, method: string, 
       msgs.push({ role: 'user', content: `That failed the hidden tests:\n${h.report.slice(0, 2500)}\nFind the root cause (re-read the task's exact rules), fix it, and reply with the complete corrected code block.` });
     }
     try {
-      const { message, model } = await deps.router.complete(msgs, [], undefined, { code: true });
+      // The owner pressed SOLVE and is watching: the chat lane, the best coder.
+      const { message, model } = await deps.router.complete(msgs, [], undefined, { code: true, priority: 'chat' });
       return json({ code: extractCode(textOf(message.content)), model });
     } catch (err) {
       return json({ error: String((err as Error)?.message ?? err) }, 503);
@@ -89,8 +90,10 @@ export async function trainingRoute(req: Request, path: string, method: string, 
             { role: 'user', content: `Task "${e.title}": ${e.prompt.slice(0, 900)}\nFirst attempt failed:\n${b.firstReport.slice(0, 1200)}\nThe final, passing code:\n${String(b.code ?? '').slice(0, 1500)}` },
           ],
           [],
+          undefined,
+          { tier: 'small', priority: 'background', maxWaitMs: 0 },
         );
-        lesson = textOf(message.content).trim().replace(/\s+/g, ' ').slice(0, 280);
+        lesson =textOf(message.content).trim().replace(/\s+/g, ' ').slice(0, 280);
         if (lesson.length > 20) await addLesson(deps.storage, lesson, ['training', e.topic]);
       } catch {
         /* the lesson is a bonus */

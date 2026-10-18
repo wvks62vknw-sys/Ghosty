@@ -1,18 +1,18 @@
 // Installable app + push: manifest, service worker, a push message delivered through the
 // browser's own push pipeline (Chrome DevTools Protocol) becomes a notification.
-import { chromium } from 'playwright';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 // The full browser (not the stripped-down headless shell), which supports notifications.
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, ...(process.env.CHROMIUM ? {} : { channel: 'chromium' }), args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, ...(process.env.CHROMIUM ? {} : { channel: 'chromium' }), args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' }); // (the default; WebKit runs block it otherwise)
 await ctx.grantPermissions(['notifications'], { origin: base });
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.goto(base);
 await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
@@ -32,25 +32,28 @@ const sw = await page.evaluate(async () => {
 });
 if (!sw.active) problems.push('service worker not active');
 
-// Deliver a push straight to the service worker, as a push service would.
-const cdp = await ctx.newCDPSession(page);
-await cdp.send('ServiceWorker.enable');
-const regId = await new Promise((resolve) => {
-  cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => {
-    const r = e.registrations.find((x) => x.scopeURL.startsWith(base));
-    if (r) resolve(r.registrationId);
+// Deliver a push straight to the service worker, as a push service would. That needs Chrome DevTools
+// Protocol, which only Chromium has: in WebKit the push pipeline is not driven (the rest of the run is).
+if (!isWebKit) {
+  const cdp = await ctx.newCDPSession(page);
+  await cdp.send('ServiceWorker.enable');
+  const regId = await new Promise((resolve) => {
+    cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => {
+      const r = e.registrations.find((x) => x.scopeURL.startsWith(base));
+      if (r) resolve(r.registrationId);
+    });
+    setTimeout(() => resolve(null), 5000);
   });
-  setTimeout(() => resolve(null), 5000);
-});
-if (!regId) problems.push('no service worker registration seen over CDP');
-else {
-  await cdp.send('ServiceWorker.deliverPushMessage', { origin: base, registrationId: regId, data: JSON.stringify({ title: '⏰ Reminder', body: 'stretch', tag: 't1', url: '/#agenda' }) });
-  let notes = [];
-  for (let i = 0; i < 20 && !notes.length; i++) {
-    await page.waitForTimeout(500);
-    notes = await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${n.body}`));
+  if (!regId) problems.push('no service worker registration seen over CDP');
+  else {
+    await cdp.send('ServiceWorker.deliverPushMessage', { origin: base, registrationId: regId, data: JSON.stringify({ title: '⏰ Reminder', body: 'stretch', tag: 't1', url: '/#agenda' }) });
+    let notes = [];
+    for (let i = 0; i < 20 && !notes.length; i++) {
+      await page.waitForTimeout(500);
+      notes = await page.evaluate(async () => (await (await navigator.serviceWorker.ready).getNotifications()).map((n) => `${n.title}|${n.body}`));
+    }
+    if (!notes.includes('⏰ Reminder|stretch')) problems.push(`push did not become a notification: ${JSON.stringify(notes)}`);
   }
-  if (!notes.includes('⏰ Reminder|stretch')) problems.push(`push did not become a notification: ${JSON.stringify(notes)}`);
 }
 
 // The systems deck (logo) lists every screen; LINKS holds email, Spotify and notifications.
@@ -98,5 +101,5 @@ await page.click('.eyelay .ltile:has-text("LIVE TRAFFIC")');
 if ((await page.evaluate(() => window.__ghosty.globe.vis.traffic)) === before) problems.push('tapping a layer tile did not switch it');
 await page.screenshot({ path: `${out}/phone-layers.png` });
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `App run clean (manifest ${manifest.n} icons, service worker active, push → notification).`);
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `App run clean (manifest ${manifest.n} icons, service worker active, ${isWebKit ? 'push not driven: no CDP in WebKit' : 'push → notification'}).`);
 process.exit(problems.length ? 1 : 0);

@@ -7,13 +7,13 @@
 // leaves memory after DOWNLOAD and soon after a reply; "always" never asks the brain at all, never
 // starts a download when the model isn't here, and "stop" while the model loads writes nothing.
 //   node tests/offlinebrain.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 
 // The vendored files load from this site, with the types a browser insists on.
@@ -60,7 +60,7 @@ const engine = () => {
 async function run(name, viewport) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.addInitScript(engine);
   let chats = 0;
   page.on('request', (r) => {

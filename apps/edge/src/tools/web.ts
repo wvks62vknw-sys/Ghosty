@@ -62,8 +62,59 @@ export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Pr
   return formatSearch(await searchHits(query, ctx));
 }
 
-/** The search itself, as results (title, address, snippet). */
+/**
+ * A short memory of identical searches and page reads, so a project step or a cited answer that asks
+ * the same thing twice reuses the first answer (saves the search allowance and the request size).
+ * Searches: 10 minutes, and only good ones (at least three results, no keyed search that failed).
+ * Pages: 3 minutes (about one turn or step), only the clipped text the model reads, and a reused copy
+ * says how old it is; web_fetch with fresh: true always reads the page again. In memory only.
+ */
+const SEARCH_MS = 10 * 60_000;
+const PAGE_MS = 3 * 60_000;
+class Reuse<T> {
+  private m = new Map<string, { at: number; v: T }>();
+  constructor(
+    private ttl: number,
+    private max: number,
+  ) {}
+  get(k: string): { at: number; v: T } | undefined {
+    const e = this.m.get(k);
+    if (!e) return undefined;
+    if (Date.now() - e.at > this.ttl) return void this.m.delete(k);
+    return e;
+  }
+  set(k: string, v: T): void {
+    this.m.delete(k);
+    this.m.set(k, { at: Date.now(), v });
+    while (this.m.size > this.max) this.m.delete(this.m.keys().next().value!);
+  }
+  clear(): void {
+    this.m.clear();
+  }
+}
+/** What a page read keeps: the text as the model reads it (at most 9,000 characters), 30 pages at most. */
+const PAGE_CHARS = 9000;
+const searches = new Reuse<Hit[]>(SEARCH_MS, 60);
+const pages = new Reuse<{ json: boolean; title: string; text: string }>(PAGE_MS, 30);
+/** Forget the reused searches and pages (tests). */
+export function forgetReuse(): void {
+  searches.clear();
+  pages.clear();
+}
+
+/** The search itself, as results (title, address, snippet); an identical search in the last 10 minutes is reused. */
 export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<Hit[]> {
+  const k = query.trim().toLowerCase().replace(/\s+/g, ' ');
+  const had = searches.get(k);
+  if (had) return had.v;
+  const { hits, degraded } = await searchFresh(query, ctx);
+  // A thin or stand-in answer (a search key that failed, fewer than three results) is not kept: next time may do better.
+  if (!degraded && hits.length >= 3) searches.set(k, hits);
+  return hits;
+}
+
+async function searchFresh(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<{ hits: Hit[]; degraded: boolean }> {
+  let degraded = false;
   // .catch: with the database paused, fall through to the keyless search.
   const brave = await ctx.vault.get('brave').catch(() => null);
   if (brave) {
@@ -72,8 +123,9 @@ export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>)
     });
     if (r.ok) {
       const j = (await r.json()) as { web?: { results?: { title: string; url: string; description?: string }[] } };
-      return (j.web?.results ?? []).map((x) => ({ title: x.title, url: x.url, text: htmlToText(x.description ?? '').text }));
+      return { hits: (j.web?.results ?? []).map((x) => ({ title: x.title, url: x.url, text: htmlToText(x.description ?? '').text })), degraded };
     }
+    degraded = true;
   }
   const tavily = await ctx.vault.get('tavily').catch(() => null);
   if (tavily) {
@@ -84,8 +136,9 @@ export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>)
     });
     if (r.ok) {
       const j = (await r.json()) as { results?: { title: string; url: string; content?: string }[] };
-      return (j.results ?? []).map((x) => ({ title: x.title, url: x.url, text: (x.content ?? '').slice(0, 400) }));
+      return { hits: (j.results ?? []).map((x) => ({ title: x.title, url: x.url, text: (x.content ?? '').slice(0, 400) })), degraded };
     }
+    degraded = true;
   }
   const out: Hit[] = [];
   try {
@@ -108,7 +161,7 @@ export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>)
   const seen = new Set<string>();
   const list = out.filter((h) => h.url && !seen.has(h.url) && seen.add(h.url)).slice(0, 8);
   if (!list.length) throw new Error('Search found nothing for that. Try other words, or web_fetch a page you know.');
-  return list;
+  return { hits: list, degraded };
 }
 
 export interface Hit {
@@ -190,28 +243,39 @@ export const webTools: Tool[] = [
   {
     name: 'web_fetch',
     description: 'Read a web page (or JSON/text URL) and return its text. Use after web_search to read a result.',
-    parameters: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+    parameters: { type: 'object', properties: { url: { type: 'string' }, fresh: { type: 'boolean', description: 'true: read it again, not a copy from the last few minutes' } }, required: ['url'] },
     risk: 'auto',
     pure: true,
     async run(a, ctx) {
       const url = arg.str(a, 'url');
       if (!/^https?:\/\//i.test(url)) throw new Error('url must start with http:// or https://');
       // (?. — tests call tools with a bare context)
-      ctx.progress?.(`fetching ${hostOf(url)}…`);
-      const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const type = r.headers.get('content-type') ?? '';
-      ctx.progress?.('reading…');
-      const raw = await readCapped(r);
-      if (/json|text\/plain|csv|xml/.test(type)) {
-        const text = clip(raw, 9000);
-        ctx.found?.({ kind: 'web', title: hostOf(url).replace(/^www\./, ''), url, text });
-        return asData(url, text);
+      const kept = a.fresh === true ? undefined : pages.get(url);
+      let page = kept?.v;
+      if (!page) {
+        ctx.progress?.(`fetching ${hostOf(url)}…`);
+        const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const type = r.headers.get('content-type') ?? '';
+        ctx.progress?.('reading…');
+        const raw = await readCapped(r);
+        if (/json|text\/plain|csv|xml/.test(type)) page = { json: true, title: '', text: clip(raw, PAGE_CHARS) };
+        else {
+          const { title, text } = htmlToText(raw);
+          page = { json: false, title, text: clip(`${title}\n\n${text}`, PAGE_CHARS) };
+        }
+        pages.set(url, page); // read again within a few minutes: this copy (fresh: true reads it again)
       }
-      const { title, text } = htmlToText(raw);
-      const read = clip(`${title}\n\n${text}`, 9000);
+      const age = kept ? Math.max(1, Math.round((Date.now() - kept.at) / 1000)) : 0;
+      const note = age ? `(a copy read ${age < 60 ? `${age} s` : `${Math.round(age / 60)} min`} ago; fresh: true reads it again)\n` : '';
+      if (page.json) {
+        ctx.found?.({ kind: 'web', title: hostOf(url).replace(/^www\./, ''), url, text: page.text });
+        return asData(url, note + page.text);
+      }
+      const { title } = page;
+      const read = page.text;
       ctx.found?.({ kind: 'web', title: oneLine(title).slice(0, 200) || hostOf(url).replace(/^www\./, ''), url, text: read.slice(title.length).trim() });
-      return asData(url, read);
+      return asData(url, note + read);
     },
   },
 ];

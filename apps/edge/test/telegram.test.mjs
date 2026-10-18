@@ -360,6 +360,13 @@ test('/start, /status, /stop and /unpair; a notification reaches the chat; TEST,
   await settle();
   assert.deepEqual(texts(), ['⏰ Reminder\nCall the dentist']);
   tg.calls.length = 0;
+  // REMINDERS switched off (LINKS → NOTIFICATIONS): Telegram does not get it either
+  await call('/api/push/prefs', { method: 'POST', body: JSON.stringify({ reminders: false }) });
+  const quiet = (await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text: 'Quiet one', at: Date.now() + 3600_000, repeat: 'none', tz: 'UTC' }) })).json()).job;
+  await call(`/api/jobs/${quiet.id}/run`, { method: 'POST' });
+  await settle();
+  assert.deepEqual(texts(), [], 'a switched-off kind does not go to Telegram');
+  await call('/api/push/prefs', { method: 'POST', body: JSON.stringify({ reminders: true }) });
   // TEST from the LINKS tab
   assert.deepEqual(await (await call('/api/telegram/test', { method: 'POST' })).json(), { sent: true });
   assert.deepEqual(texts(), ['Ghosty here. I can reach you on Telegram now.']);

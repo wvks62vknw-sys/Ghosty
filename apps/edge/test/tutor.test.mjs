@@ -360,7 +360,7 @@ test('cards: the phone\'s revisions replayed with the same SM-2, once each and i
   assert.deepEqual(T.revisionNote(st.courses), '1 card to revise (Photosynthesis from scratch 1) — about 1 min in LEARN → REVISE.');
   assert.equal(T.revisionNote([{ title: 'x', due: 0 }]), null);
   assert.equal(await T.reviseNudge(d), d.notes[0].text);
-  assert.deepEqual(d.notes[0], { kind: 'task', title: 'Cards to revise', text: '1 card to revise (Photosynthesis from scratch 1) — about 1 min in LEARN → REVISE.' });
+  assert.deepEqual(d.notes[0], { kind: 'task', title: 'Cards to revise', text: '1 card to revise (Photosynthesis from scratch 1) — about 1 min in LEARN → REVISE.', pushKind: 'flashcards' }, 'it says it falls under FLASHCARDS DUE');
   d.now = T0;
   await T.applyReviews(d, [{ course: c.id, card: b.id, rating: 'good', at: T0 + 5000 }]);
   d.now = T0 + 10 * 60_000;

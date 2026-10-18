@@ -235,6 +235,28 @@ export async function pendingDocs(): Promise<LibraryDoc[]> {
     .map((d) => ({ id: d.id, title: d.title, source: `${d.source} · on this device, saved to Ghosty when memory is back`, kind: d.kind, pages: d.pages, passages: d.count, chars: d.chars, status: 'ready', builtin: false, at: d.at }));
 }
 
+/**
+ * For the phone's backup (features/system/backup.ts): what only this device has — documents the
+ * brain doesn't have yet, with their passages, and removals the brain still has to hear about.
+ * Copies of the brain's own documents are left out: the brain has them.
+ */
+export async function deviceOnlyDocs(): Promise<{ doc: LocalDoc; passages: LocalPassage[] }[]> {
+  const out: { doc: LocalDoc; passages: LocalPassage[] }[] = [];
+  for (const d of (await all()).values()) {
+    if (d.removed && d.brainId) out.push({ doc: d, passages: [] });
+    else if (!d.brainId && !d.removed && !d.builtin) out.push({ doc: d, passages: await passagesOf(d.id) });
+  }
+  return out;
+}
+
+/** From a backup: put back a document this device no longer has (same id). False when it is already here. */
+export async function restoreDoc(doc: LocalDoc, passages: LocalPassage[]): Promise<boolean> {
+  const docs = await all();
+  if (!doc?.id || docs.has(doc.id) || (doc.brainId && [...docs.values()].some((x) => x.brainId === doc.brainId))) return false;
+  await put(doc, doc.removed ? undefined : passages);
+  return true;
+}
+
 /** Brain ids removed here that the brain still has to remove (hidden from the shelf meanwhile). */
 export async function removedHere(): Promise<Set<string>> {
   return new Set([...(await all()).values()].filter((d) => d.removed && d.brainId).map((d) => d.brainId!));
@@ -426,10 +448,14 @@ export async function offlineAnswer(q: string): Promise<string | null> {
   return `I can't reach my brain right now (no connection), so here is what my library on this device says:\n\n${parts.join('\n\n')}`;
 }
 
-/** Ask the browser not to clear the library copy when space runs low. */
-export function keepForever(): void {
+/**
+ * Ask the browser not to clear the library copy when space runs low — only when it is not kept
+ * already and `quietly` (asking makes no pop-up: features/system/storage.ts persistAsksQuietly).
+ */
+export function keepForever(quietly: boolean): void {
   try {
-    void navigator.storage?.persist?.();
+    const s = navigator.storage;
+    if (quietly && s?.persist) void s.persisted?.().then((on) => on || s.persist()).catch(() => undefined);
   } catch {
     /* not supported */
   }

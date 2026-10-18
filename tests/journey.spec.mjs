@@ -7,7 +7,7 @@
 // chat path (the brain's show_journey command) opens the same; the command palette finds the
 // planner; and the security policy blocked nothing.
 //   node tests/journey.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -30,9 +30,9 @@ itineraries.push(late);
 const answer = { from, to, tz: 'Europe/London', time: '2026-10-17T09:15:00Z', arriveBy: false, itineraries };
 const asked = [];
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.route(/\/api\/journey\?/, (r) => {
   const u = new URL(r.request().url());
   asked.push(u);

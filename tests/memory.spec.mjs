@@ -2,13 +2,13 @@
 // values), a line added and removed, a diary entry opened, REFLECT NOW's toast — then, through
 // the preview brain's scripted model, a real reflection over two things the owner said.
 //   node tests/memory.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 
 const profile = () => ({ summary: 'A bridge engineer in Kings Heath who likes flat whites.', sections: { about: ['bridge engineer'], likes: ['flat whites', 'rain on the window'], dislikes: [], people: ['Ann is my sister'], places: ['Kings Heath'], routines: [], goals: ['run a half marathon'], work: [], other: [] }, updatedAt: Date.now() });
@@ -20,7 +20,7 @@ const diary = [
 async function run(name, viewport) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   const state = { profile: profile(), reflected: 0 };
   const stub = async (route) => {
     const req = route.request();

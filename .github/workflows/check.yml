@@ -60,13 +60,13 @@ jobs:
         working-directory: apps/edge
       - run: npm test
         working-directory: apps/edge
-      - run: npm install --no-audit --no-fund --no-save playwright@1.56.0 && npx playwright install --with-deps chromium
+      - run: npm install --no-audit --no-fund --no-save playwright@1.56.0 && npx playwright install --with-deps chromium webkit
       - name: Browser run
         run: |
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
           fail=0
-          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited; do
+          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications airoom; do
             # Street View's dives follow the frames, which software rendering draws slowly: give each run up to 8 minutes.
             if ! timeout 480 node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
               fail=1

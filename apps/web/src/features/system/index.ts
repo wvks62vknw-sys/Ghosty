@@ -1,5 +1,5 @@
-/** SYSTEM tab: keys, AI models and connection status. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
-import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
+/** SYSTEM tab: keys, AI models, connection status, keeping data on the phone and its daily backup. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
+import type { BrainStatus, KeyStatus, ProviderRoom } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
@@ -7,6 +7,8 @@ import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
+import { checkStorage, storageLine, storageState } from './storage';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -18,9 +20,12 @@ export const systemTab: TabDef = {
     const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'STATUS', leftLabel: 'KEYS & MODELS', stack: true });
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
-    P.left.append(kp.el, mp.el);
+    const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
+    P.left.append(kp.el, mp.el, rp.el);
     const sp = panel('STATUS');
-    P.right.append(sp.el);
+    const stp = panel('STORAGE', { grow: false });
+    const bkp = panel('BACKUP & RESTORE', { grow: false });
+    P.right.append(sp.el, stp.el, bkp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -105,6 +110,34 @@ export const systemTab: TabDef = {
       if (!status.models.length) mp.body.append(h('div.note', 'Add at least one AI key above. Gemini is the strongest free option for building things; Groq is the fastest for chat.'));
       for (const m of status.models) mp.body.append(row(m.provider.toUpperCase(), m.model, m.info, { tone: m.state === 'ok' ? 'up' : m.state === 'cool' ? undefined : 'dn' }));
     };
+    // The free AI allowances right now (the brain's quota engine): room this minute, used today, when it resets.
+    const paintRoom = () => {
+      clear(rp.body);
+      const cap = status?.capacity;
+      if (!cap) {
+        rp.setStatus('', 'off');
+        if (status) rp.body.append(h('div.note', 'The brain does not count its free AI room yet: it needs an update first.'));
+        return;
+      }
+      const ready = cap.providers.filter((x) => !x.smallOnly && (x.state === 'ready' || x.state === 'busy')).length;
+      rp.setStatus(!cap.providers.length ? 'NONE' : !ready ? 'FULL' : /busy/i.test(cap.summary) ? 'BUSY' : 'PLENTY', !ready ? 'mid' : 'ok');
+      rp.body.append(h('div.note.roomsum', cap.summary));
+      const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const STATE: Record<ProviderRoom['state'], string> = { ready: 'READY', busy: 'BUSY', full: 'FULL', out: 'OUT TODAY' };
+      for (const p of cap.providers) {
+        const now = p.roomNow === null ? 'no minute limit' : `room now ${p.roomNow} of ${p.perMinute} a minute`;
+        const today = `used today ${fmt.n(p.usedToday)}${p.perDay ? ` of ${fmt.n(p.perDay)}` : ''}`;
+        // Each model its own daily allowance: the best one's room, and how many are out (never one summed number).
+        const best = p.dayLeft !== undefined ? `best model ${fmt.n(p.dayLeft)} left today` : '';
+        const out = p.modelsOut ? `${p.modelsOut} of ${p.models} models out` : '';
+        const reset = p.state === 'full' || p.state === 'out' ? (p.backAt ? `back ${clock(p.backAt)}` : '') : p.resetAt ? `resets ${clock(p.resetAt)}` : 'rolling day';
+        // (A long row is cut at three lines on a phone: what matters most goes first.)
+        const parts = [p.smallOnly ? 'small jobs only' : '', now, today, out, best, reset];
+        const r = row(p.provider.toUpperCase(), parts.filter(Boolean).join(' · '), STATE[p.state], { tone: p.state === 'ready' ? 'up' : p.state === 'busy' ? undefined : 'dn', wrap: true });
+        r.dataset.room = p.state;
+        rp.body.append(r);
+      }
+    };
     mp.foot!.append(button('RE-CHECK MODELS', async () => {
       await brain.resetModels().catch(() => undefined);
       void load();
@@ -155,7 +188,105 @@ export const systemTab: TabDef = {
       if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
     };
 
+    // ---- keeping data on this phone (storage.ts)
+    const paintStorage = () => {
+      const line = storageLine();
+      clear(stp.body);
+      stp.setStatus(line.ok ? 'PROTECTED' : 'AT RISK', line.ok ? 'ok' : 'mid');
+      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', line.text));
+      if (!line.ok) {
+        stp.body.append(
+          !storageState.get().supported ? '' : button('PROTECT', async (b) => {
+            b.disabled = true;
+            await checkStorage(true);
+            b.disabled = false;
+            if (!storageState.get().persisted) toast('iPhone said no. Add Ghosty to your Home Screen (Share → Add to Home Screen), open it from there, then press PROTECT again.', 'warn');
+          }, 'on'),
+          h('div.note', 'Without this, Safari deletes what Ghosty keeps on this phone after 7 days without use. Your daily backup (below) can bring it back.'),
+        );
+      }
+    };
+    storageState.subscribe(() => paintStorage());
+
+    // ---- the daily backup (backup.ts): sealed on this phone, kept by the brain for 7 days
+    // What the last restore put back, shown once after its reload.
+    let restored = takeRestoreReport();
+    let painting = 0;
+    const paintBackup = async () => {
+      const mine = ++painting;
+      clear(bkp.body);
+      const known = lastBackup.get();
+      const last = known && known.at > 0 ? known : null;
+      bkp.setStatus(!last ? 'NONE YET' : last.ok ? `LAST ${fmt.ago(last.at).toUpperCase()}` : 'LAST TRY FAILED', last?.ok ? 'ok' : 'mid');
+      const msg = h('div.note.backupmsg', '');
+      if (restored) {
+        msg.textContent = restored;
+        msg.className = 'note backupmsg good';
+        restored = null;
+      }
+      bkp.body.append(
+        h('div.note', 'Once a day Ghosty locks a copy of what lives only on this phone (courses, flashcards, plans, settings) with your owner key and keeps it in your brain. Only this phone can open it. Your chat, memory and agenda are kept by the brain itself.'),
+        last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
+        h('div.keyrow', button('BACK UP NOW', async (b) => {
+          // A phone with no backup record while the brain has copies may be a wiped one: ask first.
+          if (!phoneTrusted() && ownerKey.get()) {
+            const any = await listBackups().then((l) => l.length > 0).catch(() => false);
+            if (any && !confirm('This phone has no backup record. Backing up now could replace a good copy from today with an empty phone. Restore first?\n\nCancel: stop here and pick a backup to RESTORE below.\nOK: back up this phone anyway.')) return;
+          }
+          b.disabled = true;
+          msg.textContent = 'locking and sending…';
+          msg.className = 'note backupmsg';
+          try {
+            const text = await backUpNow();
+            toast(text, 'ok');
+            void paintBackup();
+          } catch (e) {
+            msg.textContent = String((e as Error).message);
+            msg.className = 'note backupmsg bad';
+            b.disabled = false;
+          }
+        }, 'on')),
+        msg,
+      );
+      if (!ownerKey.get()) return;
+      try {
+        const list = await listBackups();
+        if (mine !== painting) return; // a newer paint has started: this one's list is stale
+        bkp.body.append(h('div.lab', 'RESTORE FROM A BACKUP'));
+        if (!list.length) bkp.body.append(h('div.note', 'No backups yet.'));
+        else if (!phoneTrusted()) bkp.body.append(h('div.note.bad.wiped', 'This phone has no record of backing up, but your brain has backups. If Safari cleared Ghosty (or this is a new phone), RESTORE the newest one first. The daily backup waits until then, so it never puts an empty phone over your good copies.'));
+        for (const b of list) {
+          const day = new Date(b.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+          const time = new Date(b.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          const name = backupName(b);
+          const r = row(day, `${name} · ${time} · ${sizeText(b.size)}`, null, { wrap: true });
+          r.dataset.backup = b.id;
+          r.append(button('RESTORE', async (btn) => {
+            if (!confirm(`Restore the backup from ${day} (${name})?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted. Ghosty reloads straight after.`)) return;
+            btn.disabled = true;
+            msg.textContent = 'opening the backup…';
+            msg.className = 'note backupmsg';
+            try {
+              msg.textContent = `${await restoreAndReload(b)} Reloading…`;
+              msg.className = 'note backupmsg good';
+            } catch (e) {
+              msg.textContent = String((e as Error).message);
+              msg.className = 'note backupmsg bad';
+              btn.disabled = false;
+            }
+          }));
+          bkp.body.append(r);
+        }
+      } catch (e) {
+        if (mine !== painting) return;
+        const st = (e as { status?: number }).status;
+        bkp.body.append(h('div.note', st === 404 ? 'The brain cannot keep backups yet: it needs an update first.' : st === 501 ? String((e as Error).message) : 'The list of backups needs the brain; it is not reachable right now.'));
+      }
+    };
+
     const load = async () => {
+      void checkStorage(false).then(paintStorage);
+      void paintBackup();
       try {
         status = await brain.status();
         P.big.textContent = status.models.some((m) => m.state === 'ok') ? 'ONLINE' : 'NO MODELS';
@@ -166,6 +297,7 @@ export const systemTab: TabDef = {
       }
       paintKeys();
       paintModels();
+      paintRoom();
       paintStatus();
     };
     return {

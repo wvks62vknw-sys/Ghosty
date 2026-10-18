@@ -12,6 +12,7 @@ import { go, type TabDef } from '../../shell/tabs';
 import { ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { paintNotifications } from './notifications';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -81,11 +82,12 @@ export const linksTab: TabDef = {
     const spot = panel('SPOTIFY', { grow: false });
     const tg = panel('TELEGRAM', { grow: false });
     const ap = panel('PHONE · APP & NOTIFICATIONS', { grow: false });
+    const np = panel('NOTIFICATIONS', { grow: false });
     const bp = panel('AI BRAIN', { grow: false });
     const gp = panel('GITHUB · SELF-EDIT', { grow: false });
     const tp = panel('LIVE TRAFFIC · TOMTOM', { grow: false });
     P.left.append(ep.el, spot.el, tg.el);
-    P.right.append(ap.el, tp.el, bp.el, gp.el);
+    P.right.append(ap.el, np.el, tp.el, bp.el, gp.el);
 
     const online = { email: false, spotify: false, telegram: false, phone: false, traffic: false, brain: false, github: false };
     const paintHero = () => {
@@ -385,7 +387,10 @@ export const linksTab: TabDef = {
         /* offline */
       }
     };
-    pushState.subscribe(() => void paintApp());
+    pushState.subscribe(() => {
+      void paintApp();
+      void paintNotifications(np);
+    });
 
     // ---- AI brain + GitHub (from the brain's status)
     const keyForm = (k: KeyStatus, done: () => void) => {
@@ -459,6 +464,7 @@ export const linksTab: TabDef = {
         void paintSpotify();
         void paintTelegram();
         void paintApp();
+        void paintNotifications(np);
         void paintBrain();
       },
       leave() {

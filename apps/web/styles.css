@@ -26,6 +26,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--fg); font: 13px/1.5 var(--b); overscroll-behavior: none; -webkit-font-smoothing: antialiased; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; } /* iPhone Safari would enlarge text on its own when the phone turns sideways */
 body { position: fixed; inset: 0; }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; background: var(--bg); }
 body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 3; background: radial-gradient(ellipse 110% 90% at 50% 50%, transparent 60%, rgba(0,2,6,.45) 100%); }
@@ -42,10 +43,11 @@ button {
   padding: 8px 11px; min-height: 30px; cursor: pointer; white-space: nowrap;
   transition: background .15s, border-color .15s, color .15s;
 }
-button:hover { background: rgba(var(--cr), .1); border-color: rgba(var(--cr), .55); color: #fff; }
+/* hover only where there is a mouse: iPhone Safari keeps a tapped button in its hover look until the next tap elsewhere */
+@media (hover: hover) { button:hover { background: rgba(var(--cr), .1); border-color: rgba(var(--cr), .55); color: #fff; } }
 button.on { background: rgba(var(--cr), .16); border-color: rgba(var(--cr), .75); color: #fff; }
 button.warn { color: var(--a); border-color: rgba(var(--ar), .4); background: rgba(var(--ar), .05); }
-button.warn:hover { border-color: var(--a); background: rgba(var(--ar), .12); }
+@media (hover: hover) { button.warn:hover { border-color: var(--a); background: rgba(var(--ar), .12); } }
 button:disabled { opacity: .35; cursor: default; }
 @media (hover: none) { button { min-height: 40px; padding: 10px 12px; } }
 input, textarea, select {
@@ -102,6 +104,10 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 @keyframes pnin { from { opacity: 0; transform: translateY(8px); } }
 .hud > * { pointer-events: none; min-height: 0; min-width: 0; }
 .hud .pn, .hud button, .hud input, .hud textarea, .hud select { pointer-events: auto; }
+/* A column takes the touches between its panels too: a swipe there scrolls it instead of reaching the scene behind.
+   Inner scrollers (.col, .pn > .bd) pass a swipe on when they have nothing to scroll: iPhone Safari honours
+   overscroll-behavior: contain even then, which left whole pages unable to scroll. */
+@media (max-width: 899px), (hover: none) { .hud .col { pointer-events: auto; } } /* (on a desktop the empty column space still reaches the scene) */
 
 /* ---------- panels ---------- */
 .pn {
@@ -112,13 +118,13 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 }
 /* the one motif: a small corner tick, like a registration mark on a drawing */
 .pn::before { content: ''; position: absolute; left: -1px; top: -1px; width: 9px; height: 9px; border-left: 1px solid rgba(var(--cr), .85); border-top: 1px solid rgba(var(--cr), .85); border-top-left-radius: var(--rad); pointer-events: none; z-index: 1; }
-.pn > h3 { flex: none; margin: 0; display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font: 500 10px var(--d); letter-spacing: .18em; color: rgba(var(--cr), .92); text-transform: uppercase; cursor: pointer; user-select: none; border-bottom: 1px solid var(--line2); }
+.pn > h3 { flex: none; margin: 0; display: flex; align-items: center; gap: 8px; padding: 10px 14px 9px; font: 500 10px var(--d); letter-spacing: .18em; color: rgba(var(--cr), .92); text-transform: uppercase; cursor: pointer; -webkit-user-select: none; user-select: none; border-bottom: 1px solid var(--line2); }
 .pn > h3 .sp { flex: 1; }
 .pn > h3 small { font: 400 9.5px var(--m); letter-spacing: .02em; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; text-transform: none; }
 .pn > h3 .light { width: 5px; height: 5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px rgba(var(--cr), .8); flex: none; animation: breath 2.8s ease-in-out infinite; }
 .pn > h3 .light.mid { background: var(--a); box-shadow: 0 0 6px rgba(var(--ar), .7); animation: none; }
 .pn > h3 .light.off { background: var(--r); box-shadow: none; animation: none; opacity: .9; }
-.pn > .bd { flex: 1; min-height: 0; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(var(--cr), .25) transparent; }
+.pn > .bd { flex: 1; min-height: 0; padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 6px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(var(--cr), .25) transparent; }
 .pn > .ft { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-top: 1px solid var(--line2); font: 400 9.5px var(--m); color: var(--mute); }
 .pn > .ft button { padding: 4px 9px; min-height: 24px; font-size: 9px; }
 .pn > .ft .pg-label { flex: 1; text-align: center; font-variant-numeric: tabular-nums; }
@@ -176,7 +182,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 .two .bigv { font: 200 36px/1 var(--d); letter-spacing: .02em; color: #fff; min-height: 1em; position: relative; font-variant-numeric: tabular-nums; }
 .two .sub { font: 400 10.5px var(--m); letter-spacing: .02em; color: var(--mute); max-width: 70%; }
 .two .swap { position: absolute; right: 4px; top: 6px; pointer-events: auto; }
-.col { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.col { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: auto; scrollbar-width: none; }
 .col > .pn { min-height: 160px; }
 .col > .pn { flex: 1 1 0; }
 .dials { display: none; gap: 20px; justify-content: center; position: absolute; left: 0; right: 0; bottom: 14px; }
@@ -227,6 +233,9 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 #pair .bx { width: min(420px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 22px; background: var(--glass); border: 1px solid var(--line); border-radius: var(--rad); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
 #pair h2 { margin: 0; font: 500 11px var(--d); letter-spacing: .3em; color: var(--c); text-transform: uppercase; }
 #pair p { margin: 0; font-size: 13px; color: var(--fg); }
+#pair .pairtip { margin-top: -6px; font-size: 12px; color: var(--mute); }
+/* The sign-in form's username: there for iPhone's Passwords, never seen (display:none would hide it from password managers). */
+#pairform .pairuser { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); opacity: 0; pointer-events: none; }
 
 /* ---------- toasts, modal, palette ---------- */
 #toasts { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 54px); transform: translateX(-50%); z-index: 150; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(92vw, 440px); }
@@ -285,7 +294,7 @@ body.listening #top::after { background: linear-gradient(90deg, transparent, rgb
 /* With a panel under it the map gives up some height and never paints over the panel (a phone has room for both). */
 .mapsheet.withbelow .flathost { overflow: hidden; }
 .mapsheet.withbelow .flatmap { min-height: 150px; }
-.jsheet { flex: none; max-height: min(34vh, 300px); overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.jsheet { flex: none; max-height: min(34vh, 300px); overflow: auto; overscroll-behavior: auto; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
 .jsheet[hidden] { display: none; }
 .jhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
 .jhead b { font: 500 10px var(--d); letter-spacing: .16em; color: var(--c); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -745,7 +754,7 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .map3d { flex: 1 1 auto; min-height: 220px; position: relative; z-index: 0; background: #02070d; }
 .map3d .maplibregl-canvas { outline: none; }
 .map3d .maplibregl-ctrl-group { background: rgba(var(--bgr), .9); border: 1px solid var(--line); border-radius: 4px; box-shadow: none; }
-.map3d .maplibregl-ctrl-group button { width: 30px; height: 30px; border-color: var(--line2); }
+.map3d .maplibregl-ctrl-group button { width: 30px; height: 30px; min-height: 0; padding: 0; border-color: var(--line2); }
 .map3d .maplibregl-ctrl-group button + button { border-top: 1px solid var(--line2); }
 .map3d .maplibregl-ctrl-attrib { background: rgba(var(--bgr), .8); color: var(--mute); font: 400 9px var(--b); max-width: 70%; text-align: right; }
 .map3d .maplibregl-ctrl-attrib a { color: var(--mute); }
@@ -1101,3 +1110,15 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
 .change.project .rw .k { min-width: 18px; }
 .change.project .rw .n { font-size: 9px; letter-spacing: .1em; }
 .change.project > small.note { font-size: 11px; }
+
+/* ---------- touch screens (the owner's iPhone) ----------
+   iPhone Safari zooms the whole page into any text box whose text is under 16px the moment it is tapped,
+   and leaves it zoomed. And a finger needs about 40px: rules above that make buttons smaller for a mouse
+   (top bar, panel footers, chips, the globe's tools) give way here. Checked in WebKit by tests/safari.spec.mjs.
+   Not the buttons drawn at a fixed size inside something else: the × on a SCAN page thumbnail (pinned
+   to its corner) and the 3-D map's zoom/compass buttons (MapLibre's square stack) would only be stretched. */
+@media (hover: none) {
+  input, textarea, select { font-size: 16px !important; }
+  .vcform .vcinput { font-size: 20px !important; }
+  button:not(.scanthumb button):not(.maplibregl-ctrl button) { min-height: 40px !important; }
+}

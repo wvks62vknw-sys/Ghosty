@@ -279,6 +279,37 @@ export interface BrainStatus {
   meter?: DatabaseMeter;
   /** What the brain can do with sound: hear (a Groq key or Workers AI) and speak with its own voice (Workers AI). */
   speech?: { stt: boolean; tts: boolean };
+  /** How much free AI room each provider has (apps/edge/src/llm/quota.ts): the SYSTEM tab's gauge. */
+  capacity?: AiCapacity;
+}
+
+/** One provider's free allowance right now. */
+export interface ProviderRoom {
+  provider: string;
+  /** ready: plenty of room; busy: over half of this minute's room used; full: none this minute; out: none until the day resets. */
+  state: 'ready' | 'busy' | 'full' | 'out';
+  /** Calls it can take this minute, and its per-minute allowance (null: not limited per minute). */
+  roomNow: number | null;
+  perMinute: number | null;
+  /** Calls today, and the day's allowance (null: no daily cap). */
+  usedToday: number;
+  perDay: number | null;
+  /** When the day's allowance resets (ms since the epoch); null for a rolling 24 hours. */
+  resetAt: number | null;
+  /** When room comes back while full or out (ms since the epoch). */
+  backAt?: number;
+  /** A provider limited model by model (each its own daily allowance): how many models, how many are out for today, and the most any one has left today. */
+  models?: number;
+  modelsOut?: number;
+  dayLeft?: number;
+  /** Only used for Ghosty's small jobs, never the owner's chat (Google Gemma). */
+  smallOnly?: boolean;
+}
+
+export interface AiCapacity {
+  /** One line, e.g. "Plenty of room · 9 providers ready". */
+  summary: string;
+  providers: ProviderRoom[];
 }
 
 /** Today's use of the brain's database against Cloudflare's free daily allowance. */
@@ -405,6 +436,10 @@ export interface InboxEntry {
   title: string;
   text: string;
   read?: boolean;
+  /** Which NOTIFICATIONS switch it falls under (apps/edge/src/notifyprefs.ts), when its sender gave one. */
+  pushKind?: string;
+  /** That switch was off when it came: listed in the Agenda inbox, but no alert. */
+  quiet?: boolean;
 }
 
 export interface FeedInfo {

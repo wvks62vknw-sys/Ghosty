@@ -40,7 +40,8 @@ export async function pollInbox(): Promise<void> {
     const fresh = r.items.filter((i) => i.at > last && !i.read).reverse();
     if (fresh.length) seen.set(Math.max(...fresh.map((i) => i.at)));
     // On first load only announce things from the last 10 minutes.
-    for (const it of first ? fresh.filter((i) => Date.now() - i.at < 10 * 60_000) : fresh) announce(it);
+    // A kind switched off in LINKS → NOTIFICATIONS comes marked quiet: it stays in the Agenda inbox, with no toast, voice or notification.
+    for (const it of (first ? fresh.filter((i) => Date.now() - i.at < 10 * 60_000) : fresh).filter((i) => !i.quiet)) announce(it);
     first = false;
   } catch {
     /* offline: try again next round */

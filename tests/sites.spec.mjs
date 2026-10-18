@@ -2,7 +2,8 @@
 // tapping it opens the live page — phone-sized, sandboxed (no access to Ghosty's storage),
 // with the "rebuilt by Ghosty" badge.
 //   node tests/sites.spec.mjs [outDir]
-import { chromium, devices } from 'playwright';
+import { devices } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -10,10 +11,10 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
-const browser = await chromium.launch();
+const browser = await launch();
 const ctx = await browser.newContext({ ...devices['iPhone 13'] });
 const ui = await ctx.newPage();
-ui.on('pageerror', (er) => problems.push(`pageerror: ${er.message}`));
+ui.on('pageerror', (er) => webkitNoise(er) || problems.push(`pageerror: ${er.message}`));
 await ui.goto(base, { waitUntil: 'domcontentloaded' });
 await ui.waitForSelector('#pair input', { timeout: 15000 });
 await ui.fill('#pair input', 'preview-owner-key-0123456789');

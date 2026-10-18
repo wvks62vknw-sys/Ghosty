@@ -4,7 +4,7 @@
 //   West Midlands Police safety-camera sites load over Birmingham,
 //   and ROAD AHEAD follows the phone's own GPS with what lies ahead.
 //   node tests/westmidlands.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
@@ -67,7 +67,7 @@ const EVENTS = { events: [
   { id: 'e2', road: 'M42', direction: 'N', title: 'M42 northbound between J6 and J7', reason: 'Broken down vehicle', delayS: 300, lanesClosed: '1|0|0', lat: 52.45, lon: -1.73, normalBy: '' },
 ], at: now, credit: 'Contains public sector information licensed under the Open Government Licence v3.0 (National Highways)' };
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, geolocation: { latitude: 52.505, longitude: -1.9, accuracy: 15 }, permissions: ['geolocation'] });
 const asked = new Set();
 await ctx.route('**/api/proxy?**', (route) => {
@@ -87,7 +87,7 @@ await ctx.route('**/api/highways/events?**', (route) => { asked.add('events'); r
 for (const mirror of ['https://overpass-api.de/**', 'https://overpass.kumi.systems/**']) await ctx.route(mirror, (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: '{"elements":[]}' }));
 
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && /TypeError|ReferenceError/.test(m.text()) && problems.push(`console: ${m.text()}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });

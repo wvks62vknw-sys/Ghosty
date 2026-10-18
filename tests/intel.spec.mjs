@@ -1,7 +1,7 @@
 // GOD'S EYE intelligence layers: extra camera networks, ships, radar, alerts, disasters, aurora, dispatch,
 // buoys and cables. Every upstream feed is replaced with a small fixture so the run is
 // deterministic; the brain's own /api/ships answer is faked too.
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
@@ -80,7 +80,7 @@ const FIXTURES = [
 const IMG = png(64, 48, [40, 200, 160, 255]);
 const RADAR = png(256, 256, [60, 120, 255, 150]);
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 const asked = new Set();
 await ctx.route('**/api/proxy?**', (route) => {
@@ -118,7 +118,7 @@ for (const mirror of ['https://overpass-api.de/**', 'https://overpass.kumi.syste
   });
 }
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && /shader|WebGL|GL_|intel|TypeError/.test(m.text()) && problems.push(`console: ${m.text()}`));
 await page.goto(base);
 await page.fill('#pair input', 'preview-owner-key-0123456789');

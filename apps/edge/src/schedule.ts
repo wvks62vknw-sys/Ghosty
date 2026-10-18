@@ -10,6 +10,7 @@
  *
  * One Durable Object alarm is always set for the soonest job; agent.ts handles it.
  */
+import type { NotifyKind } from './notifyprefs';
 import type { Vault } from './kernel/vault';
 import { fromZoned, nextRun, safeTz, zoned, type Repeat } from './time';
 
@@ -44,6 +45,10 @@ export interface InboxItem {
   title: string;
   text: string;
   read?: boolean;
+  /** Which NOTIFICATIONS switch it falls under, as its sender says (notifyprefs.ts); none: always sent. */
+  pushKind?: NotifyKind;
+  /** That switch was off when it came: kept here only (no push, no Telegram, no alert in the app). */
+  quiet?: boolean;
 }
 
 export interface AgendaEvent {
@@ -79,6 +84,18 @@ export async function loadJobs(storage: DurableObjectStorage): Promise<Job[]> {
   return (await storage.get<Job[]>(JOBS)) ?? [];
 }
 
+/**
+ * Every change to the job list goes through here, one at a time per brain. Each change reads the whole list and
+ * writes it back: a reminder delivered while a background job waits for AI room would otherwise save over the
+ * job's own update (or the other way round), bringing a reminder back or losing a task's next time.
+ */
+const jobQueues = new WeakMap<DurableObjectStorage, Promise<unknown>>();
+function withJobs<T>(storage: DurableObjectStorage, change: () => Promise<T>): Promise<T> {
+  const run = (jobQueues.get(storage) ?? Promise.resolve()).then(change, change);
+  jobQueues.set(storage, run.catch(() => undefined));
+  return run;
+}
+
 async function saveJobs(storage: DurableObjectStorage, jobs: Job[]): Promise<void> {
   jobs.sort((a, b) => a.next - b.next);
   await storage.put(JOBS, jobs);
@@ -110,22 +127,24 @@ export async function addJob(
     const z = zoned(next, tz);
     if (z.wd === 0 || z.wd === 6) next = fromZoned(z.y, z.m, z.d + (z.wd === 6 ? 2 : 1), z.h, z.mi, tz);
   }
-  const jobs = await loadJobs(storage);
-  if (jobs.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
-  const job: Job = {
-    id: newId(),
-    kind: j.kind,
-    title: j.title.trim().slice(0, 120) || (j.kind === 'task' ? 'Task' : 'Reminder'),
-    text: j.text.trim().slice(0, 4000),
-    next,
-    repeat,
-    tz,
-    createdAt: Date.now(),
-    ...(j.eventId ? { eventId: j.eventId } : {}),
-  };
-  jobs.push(job);
-  await saveJobs(storage, jobs);
-  return job;
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    if (jobs.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
+    const job: Job = {
+      id: newId(),
+      kind: j.kind,
+      title: j.title.trim().slice(0, 120) || (j.kind === 'task' ? 'Task' : 'Reminder'),
+      text: j.text.trim().slice(0, 4000),
+      next,
+      repeat,
+      tz,
+      createdAt: Date.now(),
+      ...(j.eventId ? { eventId: j.eventId } : {}),
+    };
+    jobs.push(job);
+    await saveJobs(storage, jobs);
+    return job;
+  });
 }
 
 /**
@@ -140,73 +159,83 @@ export async function ensureJob(storage: DurableObjectStorage, j: { kind: Job['k
   const z = zoned(now, tz);
   let next = fromZoned(z.y, z.m, z.d, j.hour, j.minute, tz);
   if (next <= now) next = fromZoned(z.y, z.m, z.d + 1, j.hour, j.minute, tz);
-  const jobs = await loadJobs(storage);
-  const mine = jobs.filter((x) => x.kind === j.kind);
-  if (mine.length) {
-    // The standing job stays: the one due at the asked wall-clock time (a stray duplicate from a merge or a second
-    // brain is usually due at some other time), the oldest of those, since jobs are listed by due time.
-    const onTime = (x: Job) => {
-      const w = zoned(x.next, tz);
-      return w.h === j.hour && w.mi === j.minute;
-    };
-    const keep = [...mine].sort((a, b) => Number(onTime(b)) - Number(onTime(a)) || a.createdAt - b.createdAt)[0]!;
-    const extras = new Set(mine.filter((x) => x !== keep));
-    let changed = extras.size > 0;
-    if (keep.tz !== tz) {
-      keep.tz = tz;
-      keep.next = next;
-      changed = true;
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const mine = jobs.filter((x) => x.kind === j.kind);
+    if (mine.length) {
+      // The standing job stays: the one due at the asked wall-clock time (a stray duplicate from a merge or a second
+      // brain is usually due at some other time), the oldest of those, since jobs are listed by due time.
+      const onTime = (x: Job) => {
+        const w = zoned(x.next, tz);
+        return w.h === j.hour && w.mi === j.minute;
+      };
+      const keep = [...mine].sort((a, b) => Number(onTime(b)) - Number(onTime(a)) || a.createdAt - b.createdAt)[0]!;
+      const extras = new Set(mine.filter((x) => x !== keep));
+      let changed = extras.size > 0;
+      if (keep.tz !== tz) {
+        keep.tz = tz;
+        keep.next = next;
+        changed = true;
+      }
+      if (changed) await saveJobs(storage, jobs.filter((x) => !extras.has(x)));
+      return keep;
     }
-    if (changed) await saveJobs(storage, jobs.filter((x) => !extras.has(x)));
-    return keep;
-  }
-  if (jobs.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
-  const job: Job = { id: newId(), kind: j.kind, title: j.title.trim().slice(0, 120), text: j.text.trim().slice(0, 4000), next, repeat: j.repeat, tz, createdAt: now };
-  jobs.push(job);
-  await saveJobs(storage, jobs);
-  return job;
+    if (jobs.length >= MAX_JOBS) throw new Error(`there are already ${MAX_JOBS} reminders and tasks; cancel some first`);
+    const job: Job = { id: newId(), kind: j.kind, title: j.title.trim().slice(0, 120), text: j.text.trim().slice(0, 4000), next, repeat: j.repeat, tz, createdAt: now };
+    jobs.push(job);
+    await saveJobs(storage, jobs);
+    return job;
+  });
 }
 
 export async function removeJob(storage: DurableObjectStorage, id: string): Promise<boolean> {
-  const jobs = await loadJobs(storage);
-  const keep = jobs.filter((j) => j.id !== id);
-  if (keep.length === jobs.length) return false;
-  await saveJobs(storage, keep);
-  return true;
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const keep = jobs.filter((j) => j.id !== id);
+    if (keep.length === jobs.length) return false;
+    await saveJobs(storage, keep);
+    return true;
+  });
 }
 
 /** After a job ran: move a repeating job to its next time, or delete a one-off. */
 export async function finishJob(storage: DurableObjectStorage, id: string, result?: string): Promise<void> {
-  const jobs = await loadJobs(storage);
-  const j = jobs.find((x) => x.id === id);
-  if (!j) return;
-  const nxt = nextRun(j.next, j.repeat, j.tz);
-  if (nxt === null) {
-    await saveJobs(storage, jobs.filter((x) => x.id !== id));
-    return;
-  }
-  j.next = nxt;
-  j.lastRun = Date.now();
-  j.runs = (j.runs ?? 0) + 1;
-  if (result !== undefined) j.lastResult = result.slice(0, 600);
-  await saveJobs(storage, jobs);
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const j = jobs.find((x) => x.id === id);
+    if (!j) return;
+    const nxt = nextRun(j.next, j.repeat, j.tz);
+    if (nxt === null) {
+      await saveJobs(storage, jobs.filter((x) => x.id !== id));
+      return;
+    }
+    j.next = nxt;
+    j.lastRun = Date.now();
+    j.runs = (j.runs ?? 0) + 1;
+    if (result !== undefined) j.lastResult = result.slice(0, 600);
+    await saveJobs(storage, jobs);
+  });
 }
 
 /** Run a job at a time of its own choosing next (a study session that wants to come back sooner or later). */
 export async function setNext(storage: DurableObjectStorage, id: string, at: number): Promise<void> {
-  const jobs = await loadJobs(storage);
-  const j = jobs.find((x) => x.id === id);
-  if (!j) return;
-  j.next = Math.max(Date.now() + 1000, at);
-  await saveJobs(storage, jobs);
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const j = jobs.find((x) => x.id === id);
+    if (!j) return;
+    j.next = Math.max(Date.now() + 1000, at);
+    await saveJobs(storage, jobs);
+  });
 }
 
 export async function deferJob(storage: DurableObjectStorage, id: string, ms: number): Promise<void> {
-  const jobs = await loadJobs(storage);
-  const j = jobs.find((x) => x.id === id);
-  if (!j) return;
-  j.next = Date.now() + ms;
-  await saveJobs(storage, jobs);
+  return withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    const j = jobs.find((x) => x.id === id);
+    if (!j) return;
+    j.next = Date.now() + ms;
+    await saveJobs(storage, jobs);
+  });
 }
 
 // ── inbox ────────────────────────────────────────────────────────────────────────
@@ -260,8 +289,10 @@ export async function removeEvent(storage: DurableObjectStorage, id: string): Pr
   const ev = list.find((x) => x.id === id);
   if (!ev) return null;
   await storage.put(EVENTS, list.filter((x) => x.id !== id));
-  const jobs = await loadJobs(storage);
-  if (jobs.some((j) => j.eventId === id)) await saveJobs(storage, jobs.filter((j) => j.eventId !== id));
+  await withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    if (jobs.some((j) => j.eventId === id)) await saveJobs(storage, jobs.filter((j) => j.eventId !== id));
+  });
   return ev;
 }
 

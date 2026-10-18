@@ -3,7 +3,8 @@
  * other devices right now (the same Web Push channel reminders use). Only ever to the
  * owner's own registered devices, so it needs no approval.
  */
-import { pushAll, loadSubs } from '../push';
+import { loadSubs } from '../push';
+import { pushIfWanted } from '../notifyprefs';
 import { addInbox } from '../schedule';
 import { arg, type Tool } from './types';
 
@@ -20,7 +21,8 @@ export const notifyTools: Tool[] = [
       const devices = await loadSubs(ctx.storage);
       const item = await addInbox(ctx.storage, { kind: 'task', title, text });
       if (!devices.length) return 'Saved to the Agenda inbox, but no phone or device has notifications turned on yet: the owner can turn them on in the LINKS tab → PHONE (on iPhone, add Ghosty to the Home Screen first).';
-      const sent = await pushAll(ctx.storage, { title: `✦ ${title}`, body: text, tag: item.id }, ctx.env.OWNER_EMAIL ? `mailto:${ctx.env.OWNER_EMAIL}` : undefined);
+      // Asked for there and then: no kind, so the owner's NOTIFICATIONS switches never hold it back.
+      const sent = await pushIfWanted(ctx.storage, null, { title: `✦ ${title}`, body: text, tag: item.id }, ctx.env.OWNER_EMAIL ? `mailto:${ctx.env.OWNER_EMAIL}` : undefined);
       return sent ? `Sent to ${sent} device${sent === 1 ? '' : 's'}.` : 'Saved to the inbox, but the push service did not accept it (the device may need notifications turned on again in the LINKS tab).';
     },
   },

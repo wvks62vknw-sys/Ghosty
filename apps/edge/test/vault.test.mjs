@@ -154,3 +154,168 @@ test("a key removed during the pause stays removed after a restart: the device's
   assert.equal(await v2.flushDirty(true), 0);
   assert.ok(!storage.m.has('vault:groq'), 'removed from the database after the reset');
 });
+
+// ---------------------------------------------------------------------------------------
+// The phone's daily backup (backup.ts): ciphertext only, kept in KV under backup:<device>:<day> (older copies
+// backup:<day>), each phone's newest 7 days, never more than KV's 25 MiB, and only for the owner.
+// ---------------------------------------------------------------------------------------
+import { build } from 'esbuild';
+
+await build({ entryPoints: [new URL('../src/backup.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: new URL('./.build/backup.mjs', import.meta.url).pathname, logLevel: 'warning' });
+const BK = await import('./.build/backup.mjs');
+const brainMod = await import('./.build/brain.mjs');
+
+/** The SITES namespace as the brain uses it: strings in, JSON out. */
+class SitesKv {
+  m = new Map();
+  async get(k, type) {
+    if (!this.m.has(k)) return null;
+    return type === 'json' ? JSON.parse(this.m.get(k)) : this.m.get(k);
+  }
+  async put(k, v) {
+    this.m.set(k, String(v));
+  }
+  async delete(k) {
+    this.m.delete(k);
+  }
+}
+class AgentStorage {
+  m = new Map();
+  async get(k) {
+    if (Array.isArray(k)) return new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))]));
+    return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
+  }
+  async put(k, v) {
+    if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b));
+    else this.m.set(k, structuredClone(v));
+  }
+  async delete(k) {
+    if (Array.isArray(k)) return k.filter((x) => this.m.delete(x)).length;
+    return this.m.delete(k);
+  }
+  async list({ prefix = '' } = {}) {
+    return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)]));
+  }
+  async setAlarm() {}
+  async getAlarm() { return null; }
+}
+
+const b64 = (n) => Buffer.from(Array.from({ length: n }, (_, i) => i % 256)).toString('base64');
+/** An envelope shaped like the phone's (the brain cannot open it either way). */
+const sealed = (ctBytes = 64, at = Date.now()) => ({ v: 1, kdf: 'PBKDF2-SHA256', iter: 310000, salt: b64(16), iv: b64(12), ct: b64(ctBytes), at });
+const DAY = 86_400_000;
+
+test('backup store: one copy per day, today replaces today, only the newest 7 are kept', async () => {
+  const kv = new SitesKv();
+  const t0 = Date.parse('2026-10-01T09:00:00Z');
+  for (let d = 0; d < 9; d++) await BK.storeBackup(kv, JSON.stringify(sealed(64 + d)), t0 + d * DAY);
+  const list = await BK.listBackups(kv);
+  assert.deepEqual(list.map((b) => b.id), ['2026-10-09', '2026-10-08', '2026-10-07', '2026-10-06', '2026-10-05', '2026-10-04', '2026-10-03']);
+  assert.ok(!kv.m.has('backup:2026-10-01') && !kv.m.has('backup:2026-10-02'), 'older copies are deleted from KV, not only from the list');
+  assert.ok(kv.m.has('backup:2026-10-09'));
+  // Again on the same day (BACK UP NOW): replaces that day's copy, still 7.
+  const again = await BK.storeBackup(kv, JSON.stringify(sealed(500)), t0 + 8 * DAY + 3_600_000);
+  assert.equal(again.backup.id, '2026-10-09');
+  assert.equal((await BK.listBackups(kv)).length, 7);
+  assert.equal((await BK.getBackup(kv, '2026-10-09')).ct, b64(500));
+  assert.ok(list[0].size > 0 && list[0].at > 0);
+});
+
+test('backup store: refuses anything that is not a sealed envelope, and anything over 25 MiB, in plain words', async () => {
+  const kv = new SitesKv();
+  await assert.rejects(BK.storeBackup(kv, JSON.stringify({ learn: { cards: [] } })), /not an encrypted Ghosty backup/);
+  await assert.rejects(BK.storeBackup(kv, 'not json'), /not an encrypted Ghosty backup/);
+  await assert.rejects(BK.storeBackup(kv, JSON.stringify({ ...sealed(), iter: 1000 })), /not an encrypted/, 'a weak key derivation is refused too');
+  const big = JSON.stringify(sealed(19 * 1024 * 1024 + 10)); // base64 grows it past 25 MiB
+  assert.ok(big.length > BK.MAX_BACKUP_BYTES);
+  await assert.rejects(BK.storeBackup(kv, big), (e) => e.status === 413 && /at most 25 MB/.test(e.message) && /Nothing was saved/.test(e.message));
+  assert.equal(kv.m.size, 0, 'nothing was written');
+});
+
+test('backup routes: owner only, store / list / fetch one, and the size refusal over HTTP', async (t) => {
+  const OWNER_KEY = 'backup-owner-key-0123456789abcdef';
+  const kv = new SitesKv();
+  const state = { storage: new AgentStorage(), waitUntil: () => undefined };
+  const env = { OWNER_KEY, MOCK_LLM: '1', SITES: kv };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brainMod.GhostyAgent(state, env)).fetch(r) }) };
+  const ctx = { waitUntil: () => undefined };
+  const call = (path, init = {}, key = OWNER_KEY) =>
+    brainMod.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', ...(key ? { 'x-ghosty-key': key } : {}), ...(init.headers ?? {}) } }), env, ctx);
+
+  assert.equal((await call('/api/backup', {}, '')).status, 401, 'no key: refused');
+  assert.equal((await call('/api/backup', {}, 'wrong-key-0123456789abcdef')).status, 401, 'wrong key: refused');
+  assert.equal((await call('/api/backup', { method: 'POST', body: JSON.stringify(sealed()) }, '')).status, 401);
+  assert.equal(kv.m.size, 0);
+  const put = await call('/api/backup', { method: 'POST', body: JSON.stringify(sealed(80)) });
+  assert.equal(put.status, 200, await put.clone().text());
+  const { backup } = await put.json();
+  assert.match(backup.id, /^\d{4}-\d{2}-\d{2}$/);
+  const list = await (await call('/api/backup')).json();
+  assert.equal(list.backups.length, 1);
+  assert.equal(list.keep, 7);
+  const one = await (await call(`/api/backup/${backup.id}`)).json();
+  assert.equal(one.backup.ct, b64(80), 'the same ciphertext comes back');
+  assert.equal((await call('/api/backup/2001-01-01')).status, 404);
+
+  const bad = await call('/api/backup', { method: 'POST', body: JSON.stringify({ plain: 'text' }) });
+  assert.equal(bad.status, 400);
+  const big = await call('/api/backup', { method: 'POST', body: JSON.stringify(sealed(19 * 1024 * 1024 + 10)) });
+  assert.equal(big.status, 413);
+  assert.match((await big.json()).error, /at most 25 MB/);
+  assert.equal((await (await call('/api/backup')).json()).backups.length, 1, 'the refused one was not kept');
+
+  // No KV bound: a plain answer, not a crash.
+  delete env.SITES;
+  agent = undefined;
+  const none = await call('/api/backup');
+  assert.equal(none.status, 501, 'not 503: the phone reads 503 as "signed out"');
+  assert.match((await none.json()).error, /not set up on this brain yet/);
+});
+
+test('backup store: one copy per phone per day — two phones on the same day both kept, 7 each, older-format copies still listed and opened', async () => {
+  const kv = new SitesKv();
+  const t0 = Date.parse('2026-10-01T09:00:00Z');
+  // A copy kept before phones had names (backup:<day>).
+  await BK.storeBackup(kv, JSON.stringify(sealed(40)), t0 - DAY);
+  assert.ok(kv.m.has('backup:2026-09-30'));
+  const A = 'phoneAAAA1111';
+  const B = 'phoneBBBB2222';
+  const withDev = (device, n, label) => JSON.stringify({ ...sealed(n), device, ...(label ? { label } : {}) });
+  for (let d = 0; d < 9; d++) await BK.storeBackup(kv, withDev(A, 64 + d, 'iPhone'), t0 + d * DAY);
+  // The other phone backs up on the last day too: it must not replace phone A's copy.
+  const b = await BK.storeBackup(kv, withDev(B, 300, 'iPad <script>'), t0 + 8 * DAY + 60_000);
+  assert.equal(b.backup.id, `${B}:2026-10-09`);
+  assert.equal(b.backup.label, 'iPad script', 'the label is cut down to plain characters');
+  assert.ok(kv.m.has(`backup:${A}:2026-10-09`) && kv.m.has(`backup:${B}:2026-10-09`), 'both phones keep their copy of the same day');
+  const list = await BK.listBackups(kv);
+  assert.equal(list.filter((x) => x.device === A).length, 7, "phone A's newest 7");
+  assert.equal(list.filter((x) => x.device === B).length, 1);
+  assert.deepEqual(list.filter((x) => x.device === '').map((x) => x.id), ['2026-09-30'], 'the older-format copy is still listed');
+  assert.ok(!kv.m.has(`backup:${A}:2026-10-01`) && !kv.m.has(`backup:${A}:2026-10-02`), "phone A's oldest are deleted");
+  assert.equal((await BK.getBackup(kv, `${A}:2026-10-09`)).ct, b64(72));
+  assert.equal((await BK.getBackup(kv, `${B}:2026-10-09`)).ct, b64(300));
+  assert.equal((await BK.getBackup(kv, '2026-09-30')).ct, b64(40));
+  assert.equal(await BK.getBackup(kv, 'x:y:2026-09-30'), null);
+  // A device id that is not a plain random name is refused.
+  await assert.rejects(BK.storeBackup(kv, withDev('../index', 30)), /which phone it came from/);
+  await assert.rejects(BK.storeBackup(kv, JSON.stringify({ ...sealed(30), device: 42 })), /which phone it came from/);
+});
+
+test('backup routes: a phone fetches its own copy by device and day; the older format by day', async () => {
+  const OWNER_KEY = 'backup-owner-key-0123456789abcdef';
+  const kv = new SitesKv();
+  const state = { storage: new AgentStorage(), waitUntil: () => undefined };
+  const env = { OWNER_KEY, MOCK_LLM: '1', SITES: kv };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brainMod.GhostyAgent(state, env)).fetch(r) }) };
+  const call = (path, init = {}) => brainMod.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, { waitUntil: () => undefined });
+  await BK.storeBackup(kv, JSON.stringify(sealed(33)), Date.now() - DAY);
+  const put = await (await call('/api/backup', { method: 'POST', body: JSON.stringify({ ...sealed(81), device: 'dev_1234abcd', label: 'iPhone' }) })).json();
+  assert.equal(put.backup.device, 'dev_1234abcd');
+  const list = (await (await call('/api/backup')).json()).backups;
+  assert.equal(list.length, 2);
+  assert.equal((await (await call(`/api/backup/dev_1234abcd/${put.backup.day}`)).json()).backup.ct, b64(81));
+  const old = list.find((x) => !x.device);
+  assert.equal((await (await call(`/api/backup/${old.day}`)).json()).backup.ct, b64(33));
+});
