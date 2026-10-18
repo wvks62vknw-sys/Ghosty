@@ -17,7 +17,7 @@
 import { areaText, changeProblem, doorSwing, edgeOf, inSwing, openingSpan, pointInPoly, polyArea, polyPerimeter, roomAt, triangulate, type Corner, type Opening, type Pt, type RoomShape } from '../../../../../packages/shared/src/design';
 import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { bothText, cmText, describeMeasurements, parseLength } from '../../measure/geom';
+import { bothText, cmText, describeMeasurements, parseLength, rangeText } from '../../measure/geom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -26,6 +26,7 @@ import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutO
 import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom, shapeOf, slideOpening, updateOpening } from '../../space/rooms';
 import { space } from '../../space/store';
 import { wallRuns } from '../../studio/room';
+import { createFromPhotoPanel, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
 
 /** What the planner shows, for tests and the console (window.__ghosty.space). */
 export interface SpaceState {
@@ -47,9 +48,11 @@ export interface SpaceState {
   review: { goal: string; options: string[]; rejected: number; view: 'before' | 'after'; chosen: number; applied: number };
   /** The canvas: its padding and pixels per cm (CSS px), for a test to find a point on the plan. */
   view: { pad: number; k: number };
+  /** FROM PHOTO (fromphoto.ts): what the last photos gave. */
+  fromPhoto: FromPhotoState;
 }
 
-export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 } };
+export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState };
 
 /** A change Ghosty suggested: a whole plan, checked against the owner's. */
 interface DesignOption {
@@ -770,8 +773,14 @@ export const spaceTab: TabDef = {
     };
     xp.body.append(h('div.row.wrap', button('PNG', () => void exportPng(), 'on'), button('JSON', () => void exportJson()), button('IMPORT', () => importIn.click()), button('SEE IN 3-D', () => void see3d(), 'warn')), importIn, h('div.note', 'The plan is kept on this phone only. PNG is a picture to share; JSON can be imported again here or on another phone.'));
 
+    // ======================= FROM PHOTO (fromphoto.ts)
+    const photoPanel = createFromPhotoPanel(() => {
+      resetMake();
+      selected = '';
+    });
+
     P.left.append(pp.el);
-    P.right.append(rp.el, dp.el, ap.el, fp.el, mp.el, msp.el, xp.el);
+    P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, msp.el, xp.el);
 
     // ======================= drawing and dragging
     let scale = 1;
@@ -818,7 +827,17 @@ export const spaceTab: TabDef = {
             toast(String((err as Error)?.message ?? err), 'warn');
           }
         };
-        archRow.append(h('span.spacesel', `${r.name} · wall ${Number(wi) + 1} · ${Math.round(e.len)} cm`), button('ADD DOOR', () => add('door'), 'on'), button('ADD WINDOW', () => add('window'), 'on'));
+        // the wall's real length typed: the whole plan rescales to match (a plan from a photo put right)
+        const lenIn = h('input', { inputmode: 'decimal', placeholder: 'real length', 'aria-label': 'This wall’s real length (cm, or e.g. 3.6 m)' });
+        const setLen = () => {
+          const mm = parseLength(lenIn.value, 'auto');
+          if (!mm || mm < 300 || mm > 50000) return void toast('Type the wall’s real length, e.g. 360 (cm) or 3.6 m', 'warn');
+          const k = rescaleWall(r.id, Number(wi), mm / 10);
+          if (k == null) return void toast('That wall could not be rescaled', 'warn');
+          toast(`Everything rescaled ×${k.toFixed(3)} · UNDO in FROM PHOTO`, 'ok');
+        };
+        lenIn.addEventListener('keydown', (ev) => ev.key === 'Enter' && setLen());
+        archRow.append(h('span.spacesel', `${r.name} · wall ${Number(wi) + 1} · ${Math.round(e.len)} cm`), button('ADD DOOR', () => add('door'), 'on'), button('ADD WINDOW', () => add('window'), 'on'), h('span.keyrow.spacelen', lenIn, button('SET LENGTH', () => setLen())));
         archRow.hidden = false;
         return;
       }
@@ -921,6 +940,13 @@ export const spaceTab: TabDef = {
       if (!measures.length) mList.append(h('div.note', 'Nothing measured yet. MEASURE A WALL opens the Lens: hold a bank card to the wall, tap its corners, then the wall’s.'));
       else {
         measures.slice(-6).forEach((m) => {
+          if (m.kind === 'object') {
+            // a thing MEASURE's AUTO sized: its footprint as a piece (width × the depth seen, or its height when no depth was seen)
+            const d = m.d && m.d >= 100 ? m.d : Math.min(m.w, m.h ?? m.w);
+            const name = m.name ? `${m.name[0]!.toUpperCase()}${m.name.slice(1)}` : 'Measured thing';
+            mList.append(h('div.row.wrap.spacemrow', h('span', h('b', `${cmText(m.w)} × ${cmText(m.h ?? 0)}${m.d ? ` × ${cmText(m.d)}` : ''}`), h('small', ` ${name.toLowerCase()} · ${m.confidence}${rangeText(m)} · ${m.via}`)), button('ADD AS PIECE', () => addItem('custom', name.slice(0, 30), Math.max(10, Math.round(m.w / 10)), Math.max(10, Math.round(d / 10))))));
+            return;
+          }
           const text = m.kind === 'rect' ? `${cmText(m.w)} × ${cmText(m.h ?? 0)}` : cmText(m.w);
           const use = (k: 'w' | 'd') => button(k === 'w' ? 'AS WIDTH' : 'AS DEPTH', () => {
             const r = space.get().plan.room;
@@ -930,7 +956,7 @@ export const spaceTab: TabDef = {
               toast(String((e as Error)?.message ?? e), 'warn');
             }
           });
-          mList.append(h('div.row.wrap.spacemrow', h('span', h('b', text), h('small', ` ${m.kind === 'rect' ? 'wall' : 'length'} · ${m.confidence} · ${m.via}`)), use('w'), use('d')));
+          mList.append(h('div.row.wrap.spacemrow', h('span', h('b', text), h('small', ` ${m.kind === 'rect' ? 'wall' : 'length'} · ${m.confidence}${rangeText(m)} · ${m.via}`)), use('w'), use('d')));
         });
       }
       fit();
