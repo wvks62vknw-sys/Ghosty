@@ -8,7 +8,7 @@
 // barge-in — Ghosty's own echo never stops it, the owner talking over it does within ~300 ms,
 // the reply is marked cut off, what they said is heard and answered, a tap cuts in too.
 //   node tests/voice.spec.mjs [outDir]
-import { launch, webkitNoise } from './browser.mjs';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -144,8 +144,15 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   const name = 'barge';
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   await ctx.addInitScript(() => {
-    const mic = (window.__mic = { calls: 0, constraints: null, set: () => undefined });
-    navigator.mediaDevices.getUserMedia = async (c) => {
+    // Two sounds reach the made-up microphone: the owner (`set`, turned up and down by the test) and Ghosty's own voice
+    // leaking back (`echo`: a level heard only while the voice element is playing, with a louder syllable every 0.7 s),
+    // as a phone's echo cancellation leaves a little of it.
+    const mic = (window.__mic = { calls: 0, constraints: null, echo: 0, set: () => undefined });
+    let playing = false;
+    for (const ev of ['playing', 'pause', 'ended', 'emptied']) document.addEventListener(ev, (e) => e.target?.id === 'gvoice' && (playing = ev === 'playing'), true);
+    // On the prototype: WebKit ignores a method set on navigator.mediaDevices itself.
+    const devices = window.MediaDevices?.prototype ?? navigator.mediaDevices;
+    devices.getUserMedia = async (c) => {
       mic.calls++;
       mic.constraints = c;
       const ac = new AudioContext();
@@ -158,8 +165,44 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
       osc.connect(gain).connect(dest);
       osc.start();
       mic.set = (v) => gain.gain.setValueAtTime(v, ac.currentTime);
+      const echoOsc = ac.createOscillator();
+      echoOsc.frequency.value = 330;
+      const echoGain = ac.createGain();
+      echoGain.gain.value = 0;
+      echoOsc.connect(echoGain).connect(dest);
+      echoOsc.start();
+      setInterval(() => echoGain.gain.setValueAtTime(playing ? mic.echo * (performance.now() % 700 < 60 ? 1.8 : 1) : 0, ac.currentTime), 20);
       return dest.stream;
     };
+    // Playwright's WebKit on Linux has no MediaRecorder (Safari on the iPhone does): a stand-in that hands over a
+    // second of real silent WAV when stopped, so the rest of the path (decode, trim, send) runs as it would.
+    if (typeof MediaRecorder === 'undefined') {
+      window.MediaRecorder = class {
+        static isTypeSupported() {
+          return false;
+        }
+        constructor() {
+          this.state = 'inactive';
+          this.mimeType = 'audio/wav';
+        }
+        start() {
+          this.state = 'recording';
+        }
+        stop() {
+          if (this.state === 'inactive') return;
+          this.state = 'inactive';
+          const n = 16000;
+          const b = new DataView(new ArrayBuffer(44 + n * 2));
+          const w = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+          w(0, 'RIFF'); b.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+          b.setUint32(24, 16000, true); b.setUint32(28, 32000, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, 'data'); b.setUint32(40, n * 2, true);
+          setTimeout(() => {
+            this.ondataavailable?.({ data: new Blob([b.buffer], { type: 'audio/wav' }) });
+            this.onstop?.();
+          }, 10);
+        }
+      };
+    }
     const voices = [
       { name: 'Fred', lang: 'en-US' },
       { name: 'Daniel', lang: 'en-GB' },
@@ -174,7 +217,8 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
         Object.assign(this, { text, voice: null, lang: '', rate: 1, pitch: 1, volume: 1 });
       }
     };
-    const synth = window.speechSynthesis;
+    // On the prototype: WebKit ignores methods set on the speechSynthesis object itself.
+    const synth = window.SpeechSynthesis?.prototype ?? window.speechSynthesis;
     synth.getVoices = () => voices;
     synth.speak = (u) => {
       if (u.text.trim()) window.__said.push({ text: u.text, voice: u.voice?.name ?? null });
@@ -210,7 +254,8 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
     const size = route.request().postDataBuffer()?.length ?? 0;
     const type = route.request().headers()['content-type'];
     stt++;
-    if (size < 1000 || !/^audio\//.test(type)) problems.push(`[${name}] recording ${stt} sent as ${type}, ${size} bytes`);
+    // (WebKit does not show a test the bytes of a Blob body: the size is checked in Chromium.)
+    if ((size < 1000 && !isWebKit) || !/^audio\//.test(type)) problems.push(`[${name}] recording ${stt} sent as ${type}, ${size} bytes`);
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: heard[stt - 1] ?? '' }) });
   });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -277,8 +322,9 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.waitForTimeout(400);
 
   // 2. A voice conversation: the mic asks once (echo cancellation on), the owner speaks, Ghosty answers aloud
+  await page.evaluate(() => (window.__mic.echo = 0.05));
   await page.click('#mic');
-  if (!(await waitVoice('listening'))) problems.push(`[${name}] the mic did not start listening`);
+  if (!(await waitVoice('listening'))) problems.push(`[${name}] the mic did not start listening (${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? 'no toast')})`);
   await page.waitForTimeout(400);
   await say(0.3, 700);
   await say(0, 0);
@@ -287,10 +333,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   if (!cons?.audio?.echoCancellation) problems.push(`[${name}] the microphone was opened without echo cancellation: ${JSON.stringify(cons)}`);
   // Ghosty's own voice leaking back into the mic (steady, with louder syllables) must not stop it
   await page.waitForFunction(() => !document.querySelector('audio#gvoice')?.paused, null, { timeout: 8000 }).catch(() => undefined);
-  for (let i = 0; i < 6; i++) {
-    await say(0.05, 120);
-    await say(0.09, 40);
-  }
+  await page.waitForTimeout(1200);
   if ((await voiceState()) !== 'speaking') problems.push(`[${name}] Ghosty stopped for its own echo (voice ${await voiceState()})`);
   // 3. the owner talks over it: speech stops within about 300 ms, the reply is marked cut off, and what they say is heard
   const took = await page.evaluate(
@@ -308,7 +351,8 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
       }),
   );
   if (took < 0) problems.push(`[${name}] talking over Ghosty did not stop it`);
-  else if (took > 400) problems.push(`[${name}] talking over Ghosty took ${Math.round(took)} ms to stop it (want about 300)`);
+  // Headless WebKit here runs the page's 20 ms timer every 50–70 ms, so it gets a little more room than Chromium.
+  else if (took > (isWebKit ? 500 : 400)) problems.push(`[${name}] talking over Ghosty took ${Math.round(took)} ms to stop it (want about 300)`);
   else console.log(`[${name}] barge-in stopped Ghosty in ${Math.round(took)} ms`);
   const paused = await page.evaluate(() => document.querySelector('audio#gvoice')?.paused);
   if (!paused) problems.push(`[${name}] the audio still plays after the barge-in`);
@@ -316,6 +360,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await say(0, 0);
   await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: what about tomorrow'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] what the owner said over Ghosty was not heard and answered (stt calls ${stt})`));
   await page.click('.logbtn');
+  await page.waitForFunction(() => document.querySelectorAll('#pg-core .log .msg .cutchip').length >= 1, null, { timeout: 3000 }).catch(() => undefined);
   const cut = await page.locator('#pg-core .log .msg .cutchip').count();
   if (cut < 1) problems.push(`[${name}] the interrupted reply is not marked as cut off`);
   await page.screenshot({ path: `${out}/phone-barge-cut.png` });
@@ -329,6 +374,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 3000 }).catch(() => problems.push(`[${name}] a tap did not stop Ghosty`));
   if (Date.now() - t0 > 1500) problems.push(`[${name}] a tap took ${Date.now() - t0} ms to stop Ghosty`);
+  await page.waitForFunction(() => document.querySelectorAll('#pg-core .log .msg .cutchip').length >= 2, null, { timeout: 3000 }).catch(() => undefined);
   const cut2 = await page.locator('#pg-core .log .msg .cutchip').count();
   if (cut2 < 2) problems.push(`[${name}] the tapped reply is not marked as cut off (${cut2} marked)`);
   if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);
