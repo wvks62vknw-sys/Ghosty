@@ -12,7 +12,8 @@
  * - Elements: IUPAC periodic table (symbol, atomic number); state at 20 °C and melting points from the CRC
  *   Handbook of Chemistry and Physics (helium does not melt at normal pressure and carbon sublimes, so
  *   neither has a melting point recorded).
- * - Planets: NASA Planetary Fact Sheet (equatorial diameter, km; rings); known moons as counted in 2023.
+ * - Planets: NASA Planetary Fact Sheet (equatorial diameter, km; rings); known moons as counted in 2023, except
+ *   Uranus's 28 and Neptune's 16, which include the moons announced in February 2024.
  * Some values are left out on purpose ("not recorded"): a claim that needs one cannot be decided.
  */
 import { pick, randInt, rng, shuffle } from './core';
@@ -104,6 +105,8 @@ export const WORDY: Record<Kind, string[]> = { country: ['capital', 'continent']
 export const LINKS: Record<Kind, string[]> = { country: ['capital'], river: [], element: ['number', 'symbol'], planet: ['order'] };
 
 const num = (x: number) => x.toLocaleString('en-GB');
+/** The year a planet's moon count is from (2023 unless said). */
+const MOONS_AS_OF: Record<string, number> = { Uranus: 2024, Neptune: 2024 };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** One recorded fact as a sentence. */
@@ -136,7 +139,7 @@ export function factSentence(ent: string, field: string, v: Value): string {
     case 'diameter':
       return `${cap(ent)} is about ${num(v as number)} km across.`;
     case 'moons':
-      return `${cap(ent)} has ${v} known moon${v === 1 ? '' : 's'} (2023).`;
+      return `${cap(ent)} has ${v} known moon${v === 1 ? '' : 's'} (${MOONS_AS_OF[ent] ?? 2023}).`;
     case 'rings':
       return v ? `${cap(ent)} has rings.` : `${cap(ent)} has no rings.`;
   }
@@ -171,12 +174,17 @@ export const factOf = (ent: string, field: string) => FACTS.find((f) => f.ent ==
 /** A thing named outright, or found by one of its facts ("the country whose capital is Ottawa"). */
 export type Ref = { name: string } | { kind: Kind; by: string; v: string | number };
 
-export type Spec =
+/**
+ * A claim. `less`: the other way round ("fewer than", "the smallest"); `neg`: the claim is that it is NOT
+ * so ("It is not the case that …").
+ */
+export type Spec = (
   | { k: 'eq'; a: Ref; field: string; v: Value }
-  | { k: 'gt'; a: Ref; field: string; n: number }
-  | { k: 'cmp'; a: Ref; b: Ref; field: string }
-  | { k: 'super'; a: Ref; field: string; kind: Kind; group: string | null }
-  | { k: 'flows'; a: Ref; b: Ref };
+  | { k: 'gt'; a: Ref; field: string; n: number; less?: boolean }
+  | { k: 'cmp'; a: Ref; b: Ref; field: string; less?: boolean }
+  | { k: 'super'; a: Ref; field: string; kind: Kind; group: string | null; less?: boolean }
+  | { k: 'flows'; a: Ref; b: Ref }
+) & { neg?: boolean };
 
 export type Truth = 'T' | 'F' | 'U';
 
@@ -208,6 +216,11 @@ export const resolveRef = (r: Ref, k: Know): string | null | undefined => ('name
 
 /** Three-valued: settled true, settled false, or not settled by what is known. */
 export function evaluate(s: Spec, k: Know): Truth {
+  const t = evaluatePlain(s, k);
+  return s.neg && t !== 'U' ? (t === 'T' ? 'F' : 'T') : t;
+}
+
+function evaluatePlain(s: Spec, k: Know): Truth {
   const valOf = (r: Ref, field: string): Value | null | undefined => {
     const n = resolveRef(r, k);
     return n == null ? n : k.get(n, field);
@@ -219,12 +232,12 @@ export function evaluate(s: Spec, k: Know): Truth {
     }
     case 'gt': {
       const v = valOf(s.a, s.field);
-      return v == null ? 'U' : (v as number) > s.n ? 'T' : 'F';
+      return v == null ? 'U' : (s.less ? (v as number) < s.n : (v as number) > s.n) ? 'T' : 'F';
     }
     case 'cmp': {
       const a = valOf(s.a, s.field);
       const b = valOf(s.b, s.field);
-      return a == null || b == null ? 'U' : (a as number) > (b as number) ? 'T' : 'F';
+      return a == null || b == null ? 'U' : (s.less ? (a as number) < (b as number) : (a as number) > (b as number)) ? 'T' : 'F';
     }
     case 'flows': {
       const through = valOf(s.a, 'through');
@@ -240,7 +253,7 @@ export function evaluate(s: Spec, k: Know): Truth {
         if (o === a) continue;
         const v = k.get(o, s.field) as number | null | undefined;
         if (v == null) open = true;
-        else if (v > va) return 'F';
+        else if (s.less ? v < va : v > va) return 'F';
       }
       return open ? 'U' : 'T';
     }
@@ -249,7 +262,8 @@ export function evaluate(s: Spec, k: Know): Truth {
 
 /**
  * The fewest facts that settle a claim the book decides (what a careful arguer cites): the facts on the way
- * to the answer; for "X has the most …", all of the group when true, X and the biggest other when false.
+ * to the answer; for "X has the most …", all of the group when true, X and the biggest other when false
+ * (the smallest, for "the least"). "Not …" is settled by the same facts.
  */
 export function support(s: Spec): Fact[] {
   const out: Fact[] = [];
@@ -281,8 +295,10 @@ export function support(s: Spec): Fact[] {
       use(a, s.field);
       const others = roster(s.kind, s.group).filter((o) => o !== a);
       const va = BOOK.get(a, s.field) as number;
-      const bigger = others.filter((o) => ((BOOK.get(o, s.field) as number | null) ?? -Infinity) > va);
-      if (bigger.length) use(bigger.sort((x, y) => (BOOK.get(y, s.field) as number) - (BOOK.get(x, s.field) as number))[0], s.field);
+      const sign = s.less ? -1 : 1;
+      const val = (o: string) => sign * ((BOOK.get(o, s.field) as number | null) ?? NaN);
+      const beat = others.filter((o) => val(o) > sign * va);
+      if (beat.length) use(beat.sort((x, y) => val(y) - val(x))[0], s.field);
       else for (const o of others) use(o, s.field);
       break;
     }
@@ -319,10 +335,38 @@ const CMP: Record<string, (a: string, b: string) => string> = {
   moons: (a, b) => `${a} has more known moons than ${b}.`,
   order: (a, b) => `${a} is further from the Sun than ${b}.`,
 };
+const GT_LESS: Record<string, (a: string, n: string) => string> = {
+  population: (a, n) => `${a} has fewer than ${n} million people.`,
+  area: (a, n) => `${a} has an area of less than ${n} thousand km².`,
+  length: (a, n) => `${a} is shorter than ${n} km.`,
+  melting: (a, n) => `${a} melts at a temperature below ${n} °C.`,
+  number: (a, n) => `The atomic number of ${a} is less than ${n}.`,
+  diameter: (a, n) => `${a} is less than ${n} km across.`,
+  moons: (a, n) => `${a} has fewer than ${n} known moons.`,
+  order: (a, n) => `${a} is closer to the Sun than planet number ${n}.`,
+};
+const CMP_LESS: Record<string, (a: string, b: string) => string> = {
+  population: (a, b) => `${a} has fewer people than ${b}.`,
+  area: (a, b) => `${a} has a smaller area than ${b}.`,
+  length: (a, b) => `${a} is shorter than ${b}.`,
+  melting: (a, b) => `${a} has a lower melting point than ${b}.`,
+  number: (a, b) => `${a} has a lower atomic number than ${b}.`,
+  diameter: (a, b) => `${a} is smaller across than ${b}.`,
+  moons: (a, b) => `${a} has fewer known moons than ${b}.`,
+  order: (a, b) => `${a} is closer to the Sun than ${b}.`,
+};
+const SUPER_LESS: Record<string, string> = { population: 'has the fewest people', area: 'has the smallest area', length: 'is the shortest', melting: 'has the lowest melting point', number: 'has the lowest atomic number', diameter: 'is the smallest across', moons: 'has the fewest known moons (no other has fewer)', order: 'is the closest to the Sun' };
 const SUPER: Record<string, string> = { population: 'has the most people', area: 'has the largest area', length: 'is the longest', melting: 'has the highest melting point', number: 'has the highest atomic number', diameter: 'is the largest across', moons: 'has the most known moons', order: 'is the furthest from the Sun' };
 const KIND_WORDS: Record<Kind, string> = { country: 'countries', river: 'rivers', element: 'elements', planet: 'planets' };
 
 export function claimSentence(s: Spec): string {
+  const plain = plainSentence(s);
+  if (!s.neg) return plain;
+  // "It is not the case that the capital of …" (names keep their capital letter).
+  return `It is not the case that ${/^(The|Of the|Planet) /.test(plain) ? plain.charAt(0).toLowerCase() + plain.slice(1) : plain}`;
+}
+
+function plainSentence(s: Spec): string {
   const a = refText(s.a);
   switch (s.k) {
     case 'eq':
@@ -345,41 +389,83 @@ export function claimSentence(s: Spec): string {
           return cap(`${a}: ${s.field} is ${String(s.v)}.`);
       }
     case 'gt':
-      return cap(GT[s.field]!(a, num(s.n)));
+      return cap((s.less ? GT_LESS : GT)[s.field]!(a, num(s.n)));
     case 'cmp':
-      return cap(CMP[s.field]!(a, refText(s.b)));
+      return cap((s.less ? CMP_LESS : CMP)[s.field]!(a, refText(s.b)));
     case 'flows':
       return cap(`${a} flows through ${refText(s.b)}.`);
     case 'super':
-      return `Of the listed ${KIND_WORDS[s.kind]}${s.group ? ` in ${s.group}` : ''}, ${a} ${SUPER[s.field]}.`;
+      return `Of the listed ${KIND_WORDS[s.kind]}${s.group ? ` in ${s.group}` : ''}, ${a} ${(s.less ? SUPER_LESS : SUPER)[s.field]}.`;
   }
 }
 
 // ---- making claims ----------------------------------------------------------------------------------------
 
-export type ClaimKind = 'eq' | 'gt' | 'cmp' | 'super' | 'flows' | 'join' | 'cmpjoin';
+/**
+ * The forms a claim can take. Each level brings new ones (and keeps some of the old): what he learned
+ * about the old forms does not tell him how to judge a new one.
+ */
+export const CLAIM_FORMS = ['eq', 'eq-neg', 'gt-more', 'gt-less', 'cmp-more', 'cmp-less', 'join', 'flows', 'flows-neg', 'super-most', 'super-least', 'cmpjoin', 'cmp-neg', 'super-neg'] as const;
+export type ClaimForm = (typeof CLAIM_FORMS)[number];
+export const FORM_WORDS: Record<ClaimForm, string> = {
+  eq: 'a fact about one thing',
+  'eq-neg': 'a fact denied ("it is not the case that …")',
+  'gt-more': 'a number above a line',
+  'gt-less': 'a number below a line',
+  'cmp-more': 'one thing more than another',
+  'cmp-less': 'one thing less than another',
+  join: 'a two-step fact ("the country whose capital is …")',
+  flows: 'a river through a country',
+  'flows-neg': 'a river not through a country',
+  'super-most': 'the most in a group',
+  'super-least': 'the least in a group',
+  cmpjoin: 'two two-step things compared',
+  'cmp-neg': 'a comparison denied',
+  'super-neg': '"the most / least" denied',
+};
+
+/** The form of a claim. */
+export function formOf(s: Spec): ClaimForm {
+  const linked = (r: Ref) => !('name' in r);
+  switch (s.k) {
+    case 'eq':
+      return linked(s.a) ? 'join' : s.neg ? 'eq-neg' : 'eq';
+    case 'gt':
+      return linked(s.a) ? 'join' : s.less ? 'gt-less' : 'gt-more';
+    case 'cmp':
+      return linked(s.a) ? 'cmpjoin' : s.neg ? 'cmp-neg' : s.less ? 'cmp-less' : 'cmp-more';
+    case 'flows':
+      return s.neg ? 'flows-neg' : 'flows';
+    case 'super':
+      return s.neg ? 'super-neg' : s.less ? 'super-least' : 'super-most';
+  }
+}
 
 export interface Plan {
-  kinds: ClaimKind[];
+  /** The forms new at this level (most claims), and the earlier ones (some claims). */
+  fresh: ClaimForm[];
+  old: ClaimForm[];
   /** Can the claim be undecidable? */
   unsure: boolean;
 }
 
-export const planFor = (level: number): Plan =>
-  (
-    [
-      { kinds: ['eq'], unsure: false },
-      { kinds: ['eq', 'gt'], unsure: true },
-      { kinds: ['gt', 'cmp'], unsure: false },
-      { kinds: ['cmp', 'gt'], unsure: true },
-      { kinds: ['join', 'flows'], unsure: true },
-      { kinds: ['eq', 'gt', 'cmp', 'join', 'flows'], unsure: true },
-      { kinds: ['super', 'cmp'], unsure: false },
-      { kinds: ['super', 'join'], unsure: true },
-      { kinds: ['cmpjoin', 'flows', 'super'], unsure: true },
-      { kinds: ['eq', 'gt', 'cmp', 'super', 'flows', 'join', 'cmpjoin'], unsure: true },
-    ] as Plan[]
-  )[Math.max(1, Math.min(10, Math.round(level) || 1)) - 1]!;
+const NEW_FORMS: [ClaimForm[], boolean][] = [
+  [['eq'], false],
+  [['eq-neg'], true],
+  [['gt-more', 'gt-less'], false],
+  [['cmp-more', 'cmp-less'], true],
+  [['join'], true],
+  [['flows', 'flows-neg'], true],
+  [['super-most'], false],
+  [['super-least'], true],
+  [['cmpjoin'], true],
+  [['cmp-neg', 'super-neg'], true],
+];
+export const planFor = (level: number): Plan => {
+  const L = Math.max(1, Math.min(10, Math.round(level) || 1));
+  const [fresh, unsure] = NEW_FORMS[L - 1]!;
+  return { fresh, old: NEW_FORMS.slice(0, L - 1).flatMap(([f]) => f), unsure };
+};
 
 const KINDS: Kind[] = ['country', 'river', 'element', 'planet'];
 const ofKind = (k: Kind, unsure: boolean, r: () => number) => (unsure && r() < 0.25 ? [...ENTITIES, ...UNLISTED] : ENTITIES).filter((e) => e.kind === k);
@@ -399,7 +485,23 @@ function linkRef(r: () => number, e: Entity): Ref {
   return { kind: e.kind, by: f, v: e.f[f] as string | number };
 }
 
-function draft(r: () => number, ck: ClaimKind, unsure: boolean): Spec | null {
+function draft(r: () => number, form: ClaimForm, unsure: boolean): Spec | null {
+  const ck = form === 'eq-neg' ? 'eq' : form.startsWith('gt') ? 'gt' : form.startsWith('cmp-') ? 'cmp' : form.startsWith('flows') ? 'flows' : form.startsWith('super') ? 'super' : form;
+  const s = draftKind(r, ck as 'eq' | 'gt' | 'cmp' | 'super' | 'flows' | 'join' | 'cmpjoin', unsure);
+  if (!s) return null;
+  if (form === 'gt-less' || form === 'cmp-less' || form === 'super-least') (s as { less?: boolean }).less = true;
+  if (form === 'eq-neg' || form === 'flows-neg' || form === 'cmp-neg' || form === 'super-neg') s.neg = true;
+  if (form === 'eq-neg' && s.k === 'eq' && s.field === 'rings') return null;
+  if (s.k === 'super' && s.less) {
+    // Often the true last one (so true claims come up).
+    const known = roster(s.kind, s.group).filter((m) => BOOK.get(m, s.field) != null);
+    const last = known.sort((x, y) => (BOOK.get(x, s.field) as number) - (BOOK.get(y, s.field) as number))[0];
+    if (last && r() < 0.5) s.a = { name: last };
+  }
+  return formOf(s) === form ? s : null;
+}
+
+function draftKind(r: () => number, ck: 'eq' | 'gt' | 'cmp' | 'super' | 'flows' | 'join' | 'cmpjoin', unsure: boolean): Spec | null {
   const kind = pick(r, ck === 'flows' ? (['river'] as Kind[]) : ck === 'join' || ck === 'cmpjoin' ? (['country', 'element', 'planet'] as Kind[]) : KINDS);
   const pool = ofKind(kind, unsure, r);
   const a = pick(r, pool);
@@ -456,14 +558,17 @@ function draft(r: () => number, ck: ClaimKind, unsure: boolean): Spec | null {
   }
 }
 
-/** A claim the book judges `want` (T, F, or U = cannot be decided from it), of a kind the level allows. */
+/**
+ * A claim the book judges `want` (T, F, or U = cannot be decided from it): of one of the level's new forms
+ * seven times in ten, otherwise of an earlier form.
+ */
 export function makeSpec(level: number, seed: number, want: Truth): Spec {
   const plan = planFor(level);
   const r = rng(seed * 7919 + Math.round(level) * 104729 + want.charCodeAt(0));
-  const kinds = shuffle(r, plan.kinds.slice());
-  for (let tries = 0; tries < 4000; tries++) {
-    const ck = kinds[tries % kinds.length]!;
-    const s = draft(r, ck, plan.unsure && want === 'U');
+  const forms = plan.old.length && r() < 0.3 ? plan.old : plan.fresh;
+  for (let tries = 0; tries < 6000; tries++) {
+    const form = pick(r, forms);
+    const s = draft(r, form, plan.unsure && want === 'U');
     if (s && evaluate(s, BOOK) === want) return s;
   }
   throw new Error(`no ${want} claim at level ${level}`);

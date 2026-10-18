@@ -142,6 +142,121 @@ test('gym part 2: checkers read the final answer in words', () => {
   assert.deepEqual(ES.readCommands('1. open the drawer\n2. take brass key, unlock exit with brass key then go out'), ['open the drawer', 'take brass key', 'unlock exit with brass key', 'go out']);
 });
 
+test('gym part 2: a hedge is no answer (the final line naming two verdicts fails); right answers in common wordings pass', () => {
+  // Logic.
+  const lp = gameById('logic').generate(4, 2);
+  const lv = lp.data.valid ? 'VALID' : 'INVALID';
+  const lo = lp.data.valid ? 'INVALID' : 'VALID';
+  for (const a of ['VALID or INVALID', 'INVALID or VALID', `It is ${lo}? No, ${lv}.`]) assert.ok(!gameById('logic').check(lp, a).correct, `logic hedge passed: ${a}`);
+  for (const a of [`Answer: ${lv} — no counterexample exists.`, `Answer: ${lv}, not ${lo}`, `The answer is not ${lo.toLowerCase()}; it is ${lv.toLowerCase()}`, `**${lv}**`]) assert.ok(gameById('logic').check(lp, a).correct, `logic right answer failed: ${a}`);
+  assert.equal(LG.readValid('Yes it is valid, no doubt'), true);
+  // Fact-check: hedges over every level's problems.
+  let hedged = 0;
+  for (let level = 1; level <= 10; level++)
+    for (let seed = 0; seed < 30; seed++) {
+      const p = gameById('factcheck').generate(level, seed);
+      for (const a of ["TRUE, FALSE or CAN'T TELL", 'TRUE or FALSE', 'FALSE or TRUE', "TRUE or CAN'T TELL"]) if (gameById('factcheck').check(p, a).correct) hedged++;
+    }
+  assert.equal(hedged, 0, 'a hedge passed fact-check');
+  assert.equal(FC.readTruth('TRUE (it is not false)'), 'T');
+  assert.equal(FC.readTruth('TRUE. The claim is not wrong.'), 'T');
+  assert.equal(FC.readTruth("Verdict: TRUE — the facts are enough, it's not insufficient"), 'T');
+  assert.equal(FC.readTruth('Answer: TRUE — nothing here is unknown.'), 'T');
+  assert.equal(FC.readTruth('not false'), 'T', '"not false" is TRUE');
+  assert.equal(FC.readTruth('The facts are not enough.'), 'U');
+  assert.equal(FC.readTruth('enoughness'), null, 'whole words only');
+  // Brain: one number, the right number of outputs; labels are not answers.
+  const bc = gameById('brain').generate(2, 3);
+  const n = bc.data.answer;
+  assert.ok(!gameById('brain').check(bc, `${n - 5} or ${n}`).correct, 'two counts passed');
+  assert.ok(gameById('brain').check(bc, `It has ${n} numbers (weights and biases together).`).correct);
+  const bf = gameById('brain').generate(7, 3);
+  const o = bf.data.answer;
+  assert.ok(gameById('brain').check(bf, o.map((v, i) => `Output ${i + 1} = ${v}`).join(', ')).correct, 'labelled outputs failed');
+  assert.ok(gameById('brain').check(bf, o.map((v, i) => `y${i + 1} = ${v}`).join(', ')).correct, 'y1 = … failed');
+  assert.ok(gameById('brain').check(bf, `(${o.join(', ')})`).correct, 'outputs in brackets failed');
+  assert.ok(gameById('brain').check(bf, `${o.join(', ')} (from h1.1 = 2)`).correct, 'a remark in brackets broke it');
+  assert.ok(!gameById('brain').check(bf, `${o.map((x) => x - 1).join(', ')}, ${o.join(', ')}`).correct, 'two candidate lists passed');
+  // Debate: "not FALSE" is TRUE; hedges and padded citations are not right.
+  const dp = gameById('debate').generate(4, 3);
+  const side = dp.data.truth === 'T' ? 'TRUE' : 'FALSE';
+  const other = side === 'TRUE' ? 'FALSE' : 'TRUE';
+  assert.ok(gameById('debate').check(dp, `${side} (not ${other}): ${dp.data.best.join(', ')}`).correct);
+  assert.ok(!gameById('debate').check(dp, `TRUE or FALSE: ${dp.data.best.join(', ')}`).correct, 'a hedged side passed');
+  let padded = 0;
+  for (const level of [1, 4, 7, 10])
+    for (let seed = 0; seed < 20; seed++) {
+      const p = gameById('debate').generate(level, seed);
+      const d = DB.makeDebate(level, seed);
+      const extra = d.pool.filter((f) => !p.data.best.includes(f.id)).slice(0, Math.max(1, d.k - p.data.best.length)).map((f) => f.id);
+      if (gameById('debate').check(p, `${p.data.truth === 'T' ? 'TRUE' : 'FALSE'}: ${[...p.data.best, ...extra].join(', ')}`).correct) padded++;
+    }
+  assert.equal(padded, 0, 'citations padded past the fewest were marked right');
+  // Bug hunt: remarks after the line, and "the fix is on line N, it should be …".
+  const hp = gameById('bughunt').generate(4, 7);
+  const fix = hp.data.good;
+  const ln = hp.data.bug.line;
+  for (const a of [`Line ${ln}: ${fix} (was wrong)`, `Line ${ln}: ${fix}  // fixed`, `The fix is on line ${ln}, it should be ${fix}.`]) assert.ok(gameById('bughunt').check(hp, a).correct, `bug hunt right answer failed: ${a}`);
+  // Escape: other ways of saying a command.
+  const ep = gameById('escape').generate(3, 2);
+  assert.ok(gameById('escape').check(ep, ep.data.solution.map((c) => c.replace(/^take (.+)$/, 'take the $1 from the floor').replace(/^go out$/, 'leave through the exit')).join('\n')).correct);
+});
+
+test('bug hunt: an answer that only fits the shown tests (a lookup table, a rewritten line) fails; practice never meets a held-out program', () => {
+  let cheats = 0;
+  let tried = 0;
+  for (const level of [1, 2, 4, 5, 7, 10])
+    for (let seed = 0; seed < 20; seed++) {
+      const p = BH.bughunt.generate(level, seed);
+      const d = p.data;
+      const params = TY.tokens(d.lines[0]).slice(3, -1).filter((x) => x !== ',');
+      if (!d.tests.every((t) => t.args.every((a) => typeof a === 'number') && typeof t.want === 'number')) continue;
+      tried++;
+      const table = d.tests.map((t) => `(${t.args.map((a, i) => `${params[i]} == ${a}`).join(' and ')}) * ${t.want}`).join(' + ');
+      for (const ln of [2, d.bug.line]) if (BH.bughunt.check(p, `Line ${ln}: return ${table}`).correct) cheats++;
+    }
+  assert.ok(tried > 20);
+  assert.equal(cheats, 0, 'a lookup table of the shown tests passed');
+  // Rewriting a line (more than a slip) is not a fix, even when it would pass.
+  const p = BH.bughunt.generate(1, 4);
+  assert.match(BH.bughunt.check(p, `Line ${p.data.bug.line}: ${p.data.good} + 0 * 0 * 0`).why, /slip/);
+  assert.equal(BH.tokenEdits('s = s + i', 's = s - i'), 1);
+  // Hidden tests exist, are not in the text, and the right fix passes them.
+  assert.ok(p.data.hidden.length >= 5);
+  for (const t of p.data.hidden) assert.ok(!p.data.tests.some((x) => JSON.stringify(x.args) === JSON.stringify(t.args)), 'a hidden test is one of the shown ones');
+  assert.ok(BH.bughunt.check(p, `Line ${p.data.bug.line}: ${p.data.good}`).correct);
+  // Practice programs are never held-out ones (the same text counts as the same).
+  for (const level of [1, 5, 10]) {
+    const held = new Set(BH.bench(level).map((g) => g.cs.b.lines.join('\n')));
+    const r = C.rng(level);
+    for (let k = 0; k < 300; k++) assert.ok(!held.has(BH.practiceProgram(level, r).lines.join('\n')), `L${level}: a practice program is a held-out one`);
+  }
+  // A list write needs a whole-number position, as a read does.
+  assert.match(TY.run(TY.parse(['fn f(xs, k)', 'xs[k] = 1', 'return xs', 'end']), [[0, 0], 0.5]).error, /outside/);
+});
+
+test('escape rooms: a written problem shows every note, so its codes are known — no need to read them first', () => {
+  let withCodes = 0;
+  for (const level of [2, 3, 5, 7, 10])
+    for (let seed = 0; seed < 20; seed++) {
+      const p = ES.escape.generate(level, seed);
+      assert.ok(!p.data.solution.some((c) => c.startsWith('read ')), 'the shortest way does not need to read a printed note');
+      const m = ES.makeRoom(level, seed);
+      if (m.items.some((it) => it.code)) withCodes++;
+      assert.match(p.text, /already known to you/);
+    }
+  assert.ok(withCodes > 20, `${withCodes} problems with codes`);
+});
+
+test('fact book: moon counts say the year they were counted; WATCH keeps its indentation (pre-wrap)', async () => {
+  assert.match(FA.factSentence('Uranus', 'moons', 28), /\(2024\)/);
+  assert.match(FA.factSentence('Neptune', 'moons', 16), /\(2024\)/);
+  assert.match(FA.factSentence('Jupiter', 'moons', 95), /\(2023\)/);
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(at('../../web/styles.css'), 'utf8');
+  assert.match(css.match(/\.gymlines \{[^}]*\}/)[0], /white-space: pre-wrap/);
+});
+
 // ---- LOGIC SANDBOX -------------------------------------------------------------------------------------------
 test('logic: the truth table and the SAT solver agree; claims are made true or false as asked', () => {
   let checked = 0;
@@ -173,7 +288,7 @@ test('logic: the truth table and the SAT solver agree; claims are made true or f
 });
 
 test('logic: his proofs are re-checked step by step; a false claim "proved" is a hard failure (mastery 0)', () => {
-  const w = [3, -1, 2, 5, 2, -1, -1, -0.5, -0.5, 1];
+  const w = LG.REF;
   for (const level of [2, 5, 7]) {
     for (const { c, limit } of LG.bench(level).truths.slice(0, 6)) {
       const t = LG.prove(c, w, 10 * limit + 50);
@@ -372,34 +487,53 @@ test('debate: the judge checks every citation and the logic; the true side wins 
   assert.equal(g.wins, g.of, 'the reference arguer wins every debate from the true side');
 });
 
-// ---- learning: each game climbs from its own start ---------------------------------------------------------------
-test('gym part 2: a seeded learner climbs — Levels 1 to 3 passed by training, none handed out', () => {
-  const caps = { logic: [50, 20000], brain: [10, 2000], bughunt: [5, 3000], escape: [50, 20000], factcheck: [200, 20000], debate: [50, 20000] };
+// ---- learning: each game climbs the whole ladder, and no level is handed out by the one before -------------------
+test('gym part 2: every level needs something new — trained to pass level L−1, he is still below the bar at level L; he climbs all ten', (t) => {
+  const plan = { logic: [20, 400000], brain: [10, 6000], bughunt: [5, 6000], escape: [50, 400000], factcheck: [50, 200000], debate: [50, 3000000] };
+  const table = [];
   for (const id of NEW) {
-    const [step, cap] = caps[id];
-    const t = performance.now();
-    const { passed, s } = climb(id, 3, step, cap);
-    assert.deepEqual(passed.slice(0, 3), [1, 2, 3], `${id}: passed ${passed.join(', ')} (now L${s.rec.level}, ${s.rec.detail})`);
-    assert.ok(performance.now() - t < 60000, `${id} took ${Math.round(performance.now() - t)} ms`);
+    const [step, cap] = plan[id];
+    const g = gameById(id);
+    const s = new S.Session(g);
+    const t0 = performance.now();
+    const starts = [];
+    while (!s.rec.mastered && s.rec.units < cap) {
+      s.train(step);
+      const lv = s.rec.level;
+      const ev = s.measure();
+      if (ev === 'level') {
+        // What he carried from Level lv, measured on Level lv + 1 before any training there.
+        starts.push(`L${lv + 1} ${Math.round(s.rec.start * 100)}%`);
+        assert.ok(s.rec.start < g.bar(lv + 1), `${id}: trained to pass Level ${lv}, he already passes Level ${lv + 1} (${s.rec.start} ≥ ${g.bar(lv + 1)})`);
+      }
+    }
+    assert.ok(s.rec.mastered, `${id}: stopped at Level ${s.rec.level} (${s.rec.mastery}) after ${s.rec.units} ${g.unit}: ${s.rec.detail}`);
+    table.push(`${id}: mastered after ${s.rec.units} ${g.unit} in ${((performance.now() - t0) / 1000).toFixed(1)} s; starts ${starts.join(', ')}`);
   }
+  t.diagnostic(table.join(' | '));
 });
 
-test('gym part 2: nothing slow on the worker — a new learner and its first measurement, and a training slice', () => {
+test('gym part 2: nothing slow on the worker (cold) — a new learner and its measurement, a training slice, WATCH, a problem', () => {
+  const slow = [];
+  const time = (what, fn) => {
+    const t = performance.now();
+    fn();
+    const ms = performance.now() - t;
+    if (ms > 200) slow.push(`${what}: ${Math.round(ms)} ms`);
+  };
   for (const id of NEW) {
     const g = gameById(id);
-    for (const level of [1, 6, 10]) {
-      g.learner(level, 1).measure(); // (warm: the first build of shared tables)
-      let t = performance.now();
-      const l = g.learner(level, 2);
-      l.measure();
-      const first = performance.now() - t;
-      t = performance.now();
-      l.train(1);
-      const slice = performance.now() - t;
-      assert.ok(first < 300, `${id} L${level}: a new learner and its measurement took ${Math.round(first)} ms`);
-      assert.ok(slice < 300, `${id} L${level}: one training unit took ${Math.round(slice)} ms`);
+    for (let level = 1; level <= 10; level++) {
+      let l;
+      time(`${id} L${level} new learner + measure`, () => (l = g.learner(level, 2)).measure());
+      time(`${id} L${level} train(1)`, () => l.train(1));
+      for (let seed = 0; seed < 12; seed++) {
+        time(`${id} L${level} watch(${seed * 977})`, () => l.watch(seed * 977));
+        time(`${id} L${level} generate(${seed * 131})`, () => g.generate(level, seed * 131));
+      }
     }
   }
+  assert.deepEqual(slow, [], `over 200 ms: ${slow.join('; ')}`);
 });
 
 test('gym part 2: WATCH shows his reasoning as readable text, through the worker', () => {

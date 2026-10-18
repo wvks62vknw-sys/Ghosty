@@ -6,15 +6,19 @@
  * three-valued evaluator.
  *
  * He checks a claim by looking facts up one at a time (each lookup costs a little) and then answering. What
- * he sees is only the SHAPE of what he has found — "the first value is known, the second is not recorded",
- * "the first is bigger", "someone in the group beats the claimed one" — never the names or numbers, so he
- * cannot memorise the book: he has to learn a strategy. A table of how good each move is in each situation
- * (Q-learning) teaches him which facts to look up, when he has enough, and how the findings combine into
- * TRUE, FALSE or CAN'T TELL. Mastery = his accuracy on a fixed held-out set of claims; where a level has
- * undecidable claims, also his accuracy on those (the lower of the two counts).
+ * he sees is only the claim's FORM ("one thing less than another", "it is not the case that …", "the
+ * least in a group") and the raw outcome of his lookups — "the first value is known, the second is not
+ * recorded", "the first is bigger", "someone in the group is smaller" — never the names, the numbers or
+ * the verdict: what an outcome means depends on the form ("bigger" makes "more than" TRUE but "fewer than"
+ * FALSE), so he has to learn how findings combine. A table of how good each move is in each situation
+ * (Q-learning) teaches him which facts to look up, when he has enough, and what they add up to. Each level
+ * brings new forms (most of its claims), so what he learned before does not settle it. Mastery = his
+ * accuracy on a fixed held-out set of claims; where a level has undecidable claims, also his accuracy on
+ * those (the lower of the two counts).
  */
 import { type Env, finalLine, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { BOOK, byName, claimSentence, evaluate, factsFor, gapsFor, listed, makeSpec, planFor, type Ref, resolveRef, roster, rosterLine, type Spec, type Truth, truthsFor, type Value } from './facts';
+import { BOOK, byName, claimSentence, evaluate, FORM_WORDS, formOf, factsFor, gapsFor, listed, makeSpec, planFor, type Ref, resolveRef, roster, rosterLine, type Spec, type Truth, truthsFor, type Value } from './facts';
+import { oneVerdict } from './answer';
 import { FACTCHECK } from './meta';
 
 export const ACTIONS = ['answer TRUE', 'answer FALSE', 'answer CAN’T TELL', 'look up the first thing', 'look up the other thing'];
@@ -32,7 +36,9 @@ export class Check {
   /** For "the most …" claims: the others in the group, and how many he has looked at. */
   others: string[] = [];
   seen = 0;
-  beaten = false;
+  /** Among the others looked at: one with a bigger value than the claimed one, one with a smaller. */
+  bigger = false;
+  smaller = false;
   open = false;
   lookups = 0;
   log: string[] = [];
@@ -97,15 +103,22 @@ export class Check {
   }
   private rescan() {
     const s = this.s as Extract<Spec, { k: 'super' }>;
-    this.beaten = false;
+    this.bigger = false;
+    this.smaller = false;
     this.open = false;
     for (const o of this.others.slice(0, this.seen)) {
       const v = BOOK.get(o, s.field) as number | null;
       if (v == null) this.open = true;
-      else if (this.aVal != null && v > (this.aVal as number)) this.beaten = true;
+      else if (this.aVal != null && v > (this.aVal as number)) this.bigger = true;
+      else if (this.aVal != null && v < (this.aVal as number)) this.smaller = true;
     }
   }
-  /** What he can see: the claim's shape and what his lookups found — no names, no numbers. */
+  /**
+   * What he can see: the claim's form ("one thing less than another", "denied"…) and the raw outcome of his
+   * lookups — found or missing, which value is bigger, whether someone in the group is bigger or smaller —
+   * never names or numbers, and never the verdict: how a raw outcome bears on the claim depends on its
+   * form ("fewer than", "not", "the least"), and that he has to learn.
+   */
   sig(): string {
     const s = this.s;
     const st = (name: string | null | undefined, val: Value | null | undefined) => (name === null || val === null ? 'u' : val !== undefined ? 'k' : name !== undefined ? 'h' : '-');
@@ -116,7 +129,7 @@ export class Check {
     if (s.k === 'gt' && A === 'k') rel = (this.aVal as number) > s.n ? 'above' : 'below';
     if (s.k === 'cmp') {
       B = st(this.bName, this.bVal);
-      if (A === 'k' && B === 'k') rel = (this.aVal as number) > (this.bVal as number) ? 'bigger' : 'not bigger';
+      if (A === 'k' && B === 'k') rel = (this.aVal as number) > (this.bVal as number) ? 'first bigger' : (this.aVal as number) < (this.bVal as number) ? 'first smaller' : 'equal';
     }
     if (s.k === 'flows') {
       B = this.bName === undefined ? '-' : this.bName === null ? 'u' : 'k';
@@ -124,18 +137,18 @@ export class Check {
     }
     if (s.k === 'super') {
       B = this.seen === 0 ? 'none' : this.seen < this.others.length ? 'some' : 'all';
-      rel = `${this.beaten ? 'beaten' : 'unbeaten'}${this.open ? ', a gap' : ''}`;
+      rel = [this.bigger ? 'someone bigger' : '', this.smaller ? 'someone smaller' : '', this.open ? 'a gap' : ''].filter(Boolean).join(', ');
     }
-    return `${s.k}|${A}|${B}|${rel}`;
+    return `${formOf(s)}|${A}|${B}|${rel}`;
   }
 }
 
 /** Plain words for a situation (the learned table on screen). */
 export function sigWords(sig: string): string {
   const [k, A, B, rel] = sig.split('|');
-  const what: Record<string, string> = { eq: 'a fact about one thing', gt: 'a number above a line', cmp: 'one thing bigger than another', flows: 'a river through a country', super: 'the most in a group' };
+  const what = FORM_WORDS as Record<string, string>;
   const st: Record<string, string> = { '-': 'nothing looked up', h: 'found, value not yet', k: 'known', u: 'missing' };
-  const b = k === 'super' ? `others looked at: ${B}` : B ? `second: ${st[B!] ?? B}` : '';
+  const b = k!.startsWith('super') ? `others looked at: ${B}` : B ? `second: ${st[B!] ?? B}` : '';
   return [what[k!] ?? k, `first: ${st[A!] ?? A}`, b, rel].filter(Boolean).join(' · ');
 }
 
@@ -322,11 +335,18 @@ function generate(level: number, seed: number): Problem {
 
 /** TRUE / FALSE / CAN'T TELL from a reply's last line ("not true" is FALSE; "cannot be determined" is CAN'T TELL). */
 export function readTruth(answer: string): Truth | null {
-  const t = finalLine(answer).toLowerCase().replace(/[’`]/g, "'");
-  if (/can'?t tell|cannot tell|can not tell|not enough|undecid|cannot be (determined|decided|told)|can'?t be (determined|decided|told)|not (determinable|decidable)|insufficient|unknown/.test(t)) return 'U';
-  if (/\b(false|not true|incorrect|wrong)\b/.test(t)) return 'F';
-  if (/\b(true|correct|right)\b/.test(t)) return 'T';
-  return null;
+  return oneVerdict(
+    finalLine(answer),
+    [
+      [/\bcan'?t tell\b|\bcannot tell\b|\bcan not tell\b|\bcannot be (?:determined|decided|told)\b|\bcan'?t be (?:determined|decided|told)\b/, 'U'],
+      [/\bnot enough\b|\bundecidable\b|\bnot (?:determinable|decidable)\b|\binsufficient\b|\bunknown\b/, 'U'],
+      [/\bincorrect\b/, 'F'],
+      [/\bfalse\b/, 'F'],
+      [/\btrue\b/, 'T'],
+      [/\bcorrect\b/, 'T'],
+    ],
+    { T: 'F', F: 'T' },
+  );
 }
 
 function check(prob: Problem, answer: string): Verdict {

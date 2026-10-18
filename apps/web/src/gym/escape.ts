@@ -2,7 +2,7 @@
  * TEXT ESCAPE ROOMS: a made-up set of rooms with things to take, boxes and doors that are locked (by a key,
  * a code, or nails), notes that tell codes, and an exit. He plays by typed commands — `open drawer`, `take
  * brass key`, `unlock box with brass key`, `read note`, `enter 472 on safe`, `use crowbar on crate`, `go hall`,
- * `go out` — and sees only what a player would see (what is in the room, what he carries; a box's contents
+ * `go out`, and from Level 5 `push bookcase`, `lift rug`, … — and sees only what a player would see (what is in the room, what he carries; a box's contents
  * only once it is open).
  *
  * Rooms are built backwards from the exit: the exit's key (or code, or the crowbar) is inside something
@@ -13,10 +13,14 @@
  * He picks the command his weights score highest from what he can see (is it the exit, does the key's name
  * match the lock, did this thing just appear, is that room new…); he never types the same command twice
  * in the same situation (nothing changes by itself, so that could only go round in circles). He learns
- * the weights by evolution on practice rooms. Mastery = the average over held-out rooms of (shortest ÷ his
+ * the weights by evolution on practice rooms. Each level brings something new that every one of its rooms
+ * needs — keys, then codes, a crowbar, a second room, then a new hiding place each level (a bookcase to
+ * push, a rug to lift, …) — and he only types commands he has practised with, so a new one has to be
+ * learned before he can get out. Mastery = the average over held-out rooms of (shortest ÷ his
  * steps) when he escapes within twice the shortest, 0 when he does not.
  */
 import { type Env, type Frame, type Game, type Learner, lvl, pick, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
+import { ESCAPE_SETS } from './escapesets';
 import { ESCAPE } from './meta';
 import { gauss } from './logic';
 
@@ -24,15 +28,20 @@ type LockKind = 'key' | 'code' | 'nails' | 'none';
 
 export interface Thing {
   name: string;
-  /** container (box, drawer…) or door (between two rooms; to = -1 is the way out). */
-  kind: 'container' | 'door';
+  /**
+   * container (box, drawer…), door (between two rooms; to = -1 is the way out), or spot: a hiding place
+   * (a bookcase to push, a rug to lift…) that shows what it hides once he does the right thing to it.
+   */
+  kind: 'container' | 'door' | 'spot';
+  /** A spot's verb: push, lift, empty, turn, search, move. */
+  verb?: string;
   room: number;
   to?: number;
   lock: LockKind;
   /** The key (item index) or the code that opens it. */
   key?: number;
   code?: string;
-  /** Start: 0 locked, 1 closed, 2 open. */
+  /** Start: 0 locked (a spot: still hiding), 1 closed, 2 open (a spot: searched). */
   start: number;
 }
 
@@ -68,20 +77,48 @@ const METALS = ['brass', 'silver', 'iron', 'copper', 'red', 'blue', 'green', 'go
 const JUNK = ['spoon', 'candle', 'old map', 'teacup', 'pencil', 'glove'];
 const NOTES = ['note', 'card', 'letter', 'scrap of paper', 'postcard', 'receipt', 'ticket'];
 
-export const specFor = (level: number) => [
-  { rooms: 1, depth: 1, junk: 1 },
-  { rooms: 1, depth: 2, junk: 2 },
-  { rooms: 1, depth: 3, junk: 2 },
-  { rooms: 2, depth: 3, junk: 2 },
-  { rooms: 2, depth: 4, junk: 3 },
-  { rooms: 2, depth: 4, junk: 4 },
-  { rooms: 3, depth: 4, junk: 3 },
-  { rooms: 3, depth: 5, junk: 4 },
-  { rooms: 3, depth: 5, junk: 5 },
-  { rooms: 4, depth: 5, junk: 4 },
-][lvl(level) - 1]!;
+/** Hiding places: the verb that searches it, its name, and where the thing it hides is. */
+export const SPOTS: [string, string, string][] = [
+  ['push', 'bookcase', 'behind'],
+  ['lift', 'rug', 'under'],
+  ['empty', 'flowerpot', 'in'],
+  ['turn', 'painting', 'behind'],
+  ['search', 'coat', 'in a pocket of'],
+  ['move', 'armchair', 'under'],
+];
+export const SPOT_VERBS = SPOTS.map(([v]) => v);
 
-/** A room built backwards from the exit: every lock's opener lies behind the lock before it. */
+/**
+ * Each level brings something he has not met: Level 1 keys and boxes; 2 notes with codes and keypads; 3
+ * a crowbar for things nailed shut; 4 a second room behind a locked door; 5–10 a new hiding place each
+ * (a bookcase to push, a rug to lift, …). Every room of a level needs its new thing to get out.
+ */
+export interface Spec {
+  rooms: number;
+  depth: number;
+  junk: number;
+  locks: LockKind[];
+  spots: string[];
+  /** What every room of the level needs. */
+  need: 'key' | 'code' | 'nails' | 'door' | string;
+}
+export const specFor = (level: number): Spec =>
+  (
+    [
+      { rooms: 1, depth: 2, junk: 1, locks: ['key'], spots: [], need: 'key' },
+      { rooms: 1, depth: 2, junk: 2, locks: ['key', 'code'], spots: [], need: 'code' },
+      { rooms: 1, depth: 3, junk: 2, locks: ['key', 'code', 'nails'], spots: [], need: 'nails' },
+      { rooms: 2, depth: 3, junk: 2, locks: ['key', 'code', 'nails'], spots: [], need: 'door' },
+      { rooms: 2, depth: 3, junk: 3, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 1), need: 'push' },
+      { rooms: 2, depth: 4, junk: 3, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 2), need: 'lift' },
+      { rooms: 3, depth: 4, junk: 3, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 3), need: 'empty' },
+      { rooms: 3, depth: 4, junk: 4, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 4), need: 'turn' },
+      { rooms: 3, depth: 5, junk: 4, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 5), need: 'search' },
+      { rooms: 4, depth: 5, junk: 4, locks: ['key', 'code', 'nails'], spots: SPOT_VERBS.slice(0, 6), need: 'move' },
+    ] as Spec[]
+  )[lvl(level) - 1]!;
+
+/** A room built in solving order: every lock's opener lies behind the lock before it (or in a hiding place). */
 export function makeRoom(level: number, seed: number): Room {
   const sp = specFor(level);
   const r = rng(seed * 7477 + lvl(level) * 31);
@@ -92,16 +129,31 @@ export function makeRoom(level: number, seed: number): Room {
   const boxes = shuffle(r, CONTAINERS.slice());
   const notes = shuffle(r, NOTES.slice());
   const junk = shuffle(r, JUNK.slice());
+  const spotsLeft = shuffle(r, sp.spots.filter((v) => v !== sp.need));
   // Which links of the chain are doors: the exit last; the doors between rooms spread through the chain.
   const kinds: ('container' | 'door')[] = new Array(sp.depth).fill('container');
   kinds[sp.depth - 1] = 'door';
   const doorAt = shuffle(r, Array.from({ length: sp.depth - 1 }, (_, i) => i)).slice(0, sp.rooms - 1).sort((a, b) => a - b);
   for (const i of doorAt) kinds[i] = 'door';
+  // The link that must use this level's new kind of lock (a code, or the crowbar on a box).
+  const needAt = sp.need === 'code' ? randInt(r, 0, sp.depth - 1) : sp.need === 'nails' ? pick(r, kinds.map((k, i) => (k === 'container' ? i : -1)).filter((i) => i >= 0)) : -1;
   let room = 0;
   let nails = false;
+  let needSpot = SPOT_VERBS.includes(sp.need);
   /** Where the opener of the next lock goes: loose in a room, or inside the last container. */
   let place: { room?: number; in?: number } = { room: 0 };
+  /** A loose opener may lie in a hiding place instead (always the level's new one, the first time). */
+  const hide = () => {
+    if (place.room == null) return;
+    const verb = needSpot ? sp.need : spotsLeft.length && r() < 0.4 ? spotsLeft.pop()! : null;
+    if (!verb) return;
+    needSpot = false;
+    const [, name] = SPOTS.find(([v]) => v === verb)!;
+    things.push({ name, kind: 'spot', verb, room: place.room, lock: 'none', start: 0 });
+    place = { in: things.length - 1 };
+  };
   const placeOpener = (lock: LockKind, target: string): { key?: number; code?: string } => {
+    hide();
     if (lock === 'key') {
       const metal = metals.pop()!;
       items.push({ name: `${metal} key`, kind: 'key', ...place });
@@ -119,7 +171,8 @@ export function makeRoom(level: number, seed: number): Room {
   for (let i = 0; i < sp.depth; i++) {
     const kind = kinds[i]!;
     const exit = i === sp.depth - 1;
-    const lock: LockKind = pick(r, ['key', 'key', 'code', ...(nails || kind === 'door' ? [] : ['nails' as const])]);
+    const choices = sp.locks.filter((l) => l !== 'nails' || (!nails && kind === 'container'));
+    const lock: LockKind = i === needAt ? (sp.need as LockKind) : pick(r, choices.length > 1 ? [choices[0]!, ...choices] : choices);
     if (lock === 'nails') nails = true;
     const name = kind === 'door' ? (exit ? 'exit' : `${rooms[room + 1]} door`) : boxes.pop() ?? `box ${i}`;
     const opener = placeOpener(lock, name);
@@ -142,12 +195,17 @@ export function makeRoom(level: number, seed: number): Room {
     else if (what < 0.8 && boxes.length) {
       things.push({ name: boxes.pop()!, kind: 'container', room: roomJ, lock: 'none', start: 1 });
       if (junk.length) items.push({ name: junk.pop()!, kind: 'junk', in: things.length - 1 });
-    } else if (notes.length) items.push({ name: notes.pop()!, kind: 'note', room: roomJ, text: pick(r, ['buy milk', 'back in five minutes', 'the cat is called Biscuit']) });
+    } else if (notes.length && sp.locks.includes('code')) items.push({ name: notes.pop()!, kind: 'note', room: roomJ, text: pick(r, ['buy milk', 'back in five minutes', 'the cat is called Biscuit']) });
+    else if (junk.length) items.push({ name: junk.pop()!, kind: 'junk', room: roomJ });
   }
   return { rooms, things, items };
 }
 
-export const startState = (m: Room): State => ({ at: 0, held: 0, st: m.things.map((t) => t.start), read: 0, out: false });
+/**
+ * The start. `codesKnown`: a written problem prints every note, so its reader already knows each code — the
+ * notes count as read (in play, he has to read a note before he knows its code).
+ */
+export const startState = (m: Room, codesKnown = false): State => ({ at: 0, held: 0, st: m.things.map((t) => t.start), read: codesKnown ? m.items.reduce((mask, it, i) => (it.code ? mask | (1 << i) : mask), 0) : 0, out: false });
 export const keyOf = (s: State) => `${s.at}|${s.held}|${s.st.join('')}|${s.read}|${s.out ? 1 : 0}`;
 
 const has = (mask: number, i: number) => ((mask >> i) & 1) === 1;
@@ -169,19 +227,28 @@ export function commands(m: Room, s: State): string[] {
   for (const { t } of here) if (t.kind === 'door') out.push(t.to === -1 ? 'go out' : `go ${m.rooms[t.room === s.at ? t.to! : t.room]}`);
   m.items.forEach((it, i) => visible(m, s, i) && out.push(`take ${it.name}`));
   for (const { t } of here) if (t.kind === 'container') out.push(`open ${t.name}`);
+  for (const { t, i } of here) if (t.kind === 'spot' && s.st[i] === 0) out.push(`${t.verb} ${t.name}`);
   m.items.forEach((it, i) => it.kind === 'note' && (visible(m, s, i) || has(s.held, i)) && out.push(`read ${it.name}`));
   const keys = m.items.map((it, i) => ({ it, i })).filter(({ it, i }) => it.kind === 'key' && has(s.held, i));
-  for (const { t } of here) if (s.st[m.things.indexOf(t)] === 0) for (const { it } of keys) out.push(`unlock ${t.name} with ${it.name}`);
-  for (const code of knownCodes(m, s)) for (const { t } of here) if (s.st[m.things.indexOf(t)] === 0) out.push(`enter ${code} on ${t.name}`);
+  const locked = here.filter(({ t, i }) => t.kind !== 'spot' && s.st[i] === 0);
+  for (const { t } of locked) for (const { it } of keys) out.push(`unlock ${t.name} with ${it.name}`);
+  for (const code of knownCodes(m, s)) for (const { t } of locked) out.push(`enter ${code} on ${t.name}`);
   m.items.forEach((it, i) => {
-    if (it.kind === 'tool' && has(s.held, i)) for (const { t } of here) if (s.st[m.things.indexOf(t)] === 0) out.push(`use ${it.name} on ${t.name}`);
+    if (it.kind === 'tool' && has(s.held, i)) for (const { t } of locked) out.push(`use ${it.name} on ${t.name}`);
   });
   return out;
 }
 
 /** What a command does: the new state (or the same one) and what he is told. */
 export function act(m: Room, s: State, cmd: string): { s: State; said: string } {
-  const c = cmd.trim().toLowerCase().replace(/\s+/g, ' ').replace(/\bthe /g, '');
+  const c = cmd
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\bthe /g, '')
+    // Ways of saying the same thing: "leave through the exit", "take the key from the floor".
+    .replace(/^(?:leave|exit|go through exit|leave through exit|walk out|go out through exit)$/, 'go out')
+    .replace(/^((?:take|get|pick up) .+?) from (?:floor|.+)$/, '$1');
   const n: State = { ...s, st: s.st.slice() };
   const thing = (name: string) => m.things.findIndex((t) => t.name === name && (t.room === s.at || (t.kind === 'door' && t.to === s.at)));
   const item = (name: string) => m.items.findIndex((it) => it.name === name);
@@ -251,6 +318,17 @@ export function act(m: Room, s: State, cmd: string): { s: State; said: string } 
     const inside = m.items.filter((it) => it.in === t).map((it) => it.name);
     return { s: n, said: `You prise the ${th.name} open${inside.length ? `. Inside: ${inside.join(', ')}` : ''}.` };
   }
+  if ((mm = c.match(new RegExp(`^(${SPOT_VERBS.join('|')}) (.+)$`)))) {
+    const t = thing(mm[2]!);
+    if (t < 0) return { s, said: 'You do not see that here.' };
+    const th = m.things[t]!;
+    if (th.kind !== 'spot' || th.verb !== mm[1]) return { s, said: 'Nothing happens.' };
+    if (s.st[t] === 2) return { s, said: 'You find nothing more.' };
+    n.st[t] = 2;
+    const found = m.items.filter((it) => it.in === t).map((it) => it.name);
+    const where = SPOTS.find(([v]) => v === th.verb)![2];
+    return { s: n, said: `You ${th.verb} the ${th.name}${found.length ? `. Found: ${found.join(', ')} (${where} it)` : '. Nothing there'}.` };
+  }
   return { s, said: 'I do not understand that.' };
 }
 
@@ -273,8 +351,8 @@ export function useless(m: Room, c: string): boolean {
 }
 
 /** Ground truth: the shortest list of commands out (breadth-first over every state; see `useless`). */
-export function shortest(m: Room, all = false): string[] | null {
-  const s0 = startState(m);
+export function shortest(m: Room, all = false, codesKnown = false): string[] | null {
+  const s0 = startState(m, codesKnown);
   const prev = new Map<string, [string, string] | null>([[keyOf(s0), null]]);
   let frontier = [s0];
   while (frontier.length) {
@@ -306,7 +384,8 @@ export function shortest(m: Room, all = false): string[] | null {
 
 // ---- what he sees ------------------------------------------------------------------------------------------
 
-const lockWords = (m: Room, t: Thing, st: number) => (st === 2 ? 'open' : st === 1 ? 'closed' : t.lock === 'key' ? `locked — it has a ${m.items[t.key!]!.name.replace(' key', '')} lock` : t.lock === 'code' ? 'locked — it has a keypad' : t.lock === 'nails' ? 'nailed shut' : 'locked');
+const PAST: Record<string, string> = { push: 'pushed', lift: 'lifted', empty: 'emptied', turn: 'turned', search: 'searched', move: 'moved' };
+const lockWords = (m: Room, t: Thing, st: number) => (t.kind === 'spot' ? (st === 2 ? `already ${PAST[t.verb!]}` : `it looks as if it could be ${PAST[t.verb!]}`) : st === 2 ? 'open' : st === 1 ? 'closed' : t.lock === 'key' ? `locked — it has a ${m.items[t.key!]!.name.replace(' key', '')} lock` : t.lock === 'code' ? 'locked — it has a keypad' : t.lock === 'nails' ? 'nailed shut' : 'locked');
 
 /** The room as a player sees it. */
 export function look(m: Room, s: State): string {
@@ -326,6 +405,7 @@ export function fullText(m: Room): string {
       const ti = m.things.indexOf(t);
       const what = t.kind === 'door' ? (t.to === -1 ? 'the exit' : `a door to the ${m.rooms[t.to!]}`) : `a ${t.name}`;
       const inside = m.items.filter((it) => it.in === ti).map((it) => `a ${it.name}${it.text ? ` (it reads “${it.text}”)` : ''}`);
+      if (t.kind === 'spot') return `${what} (${lockWords(m, t, t.start)})${inside.length ? ` with ${inside.join(' and ')} ${SPOTS.find(([v]) => v === t.verb)![2]} it` : ''}`;
       return `${what} (${lockWords(m, t, t.start)})${inside.length ? ` containing ${inside.join(' and ')}` : t.kind === 'container' ? ' (empty)' : ''}`;
     });
     const loose = m.items.filter((it) => it.room === ri).map((it) => `a ${it.name}${it.text ? ` (it reads “${it.text}”)` : ''} on the floor`);
@@ -334,12 +414,35 @@ export function fullText(m: Room): string {
   return lines.join('\n');
 }
 
-export const FEATURES = 25;
+export const FEATURES = 32;
+const VERBS_F = ['take', 'open', 'unlock', 'enter', 'read', 'use', 'go'];
+/** The weight that says how much he likes a command's verb (-1: none); a verb whose weight is still exactly 0 he has never practised. */
+export function verbFeature(cmd: string): number {
+  if (cmd === 'go out') return 7;
+  const v = cmd.split(' ')[0]!;
+  const i = VERBS_F.indexOf(v);
+  if (i >= 0) return i;
+  const k = SPOT_VERBS.indexOf(v);
+  return k >= 0 ? 25 + k : -1;
+}
+/** Does he know this command at all? Only the verbs he has practised with (a weight for the verb). */
+export const knows = (w: number[], cmd: string) => {
+  const f = verbFeature(cmd);
+  return f < 0 || w[f] !== 0;
+};
+/** The weights a level's rooms bear on: everything general, and the verbs its rooms use. */
+export function activeFeatures(level: number): boolean[] {
+  const sp = specFor(level);
+  const verbs = new Set(['take', 'open', 'unlock', 'go out', ...(sp.locks.includes('code') ? ['read', 'enter'] : []), ...(sp.locks.includes('nails') ? ['use'] : []), ...(sp.rooms > 1 ? ['go'] : []), ...sp.spots]);
+  const on = new Array(FEATURES).fill(true);
+  for (const v of [...VERBS_F, 'go out', ...SPOT_VERBS]) on[verbFeature(v === 'go out' ? v : `${v} x`)] = verbs.has(v);
+  return on;
+}
 
 /** Facts about a command, from what he can see now (and what the last command showed him). */
 function features(m: Room, s: State, cmd: string, fresh: Set<string>, visited: Set<number>): number[] {
   const [verb] = cmd.split(' ');
-  const target = cmd.match(/(?:open|unlock|on) (.+?)(?: with .+)?$/)?.[1] ?? cmd.replace(/^(take|read|go) /, '');
+  const target = cmd.match(/(?:open|unlock|on) (.+?)(?: with .+)?$/)?.[1] ?? cmd.replace(/^(take|read|go|push|lift|empty|turn|search|move) /, '');
   const ti = m.things.findIndex((t) => t.name === target);
   const t = ti >= 0 ? m.things[ti] : null;
   const keyName = cmd.match(/ with (.+)$/)?.[1];
@@ -382,6 +485,8 @@ function features(m: Room, s: State, cmd: string, fresh: Set<string>, visited: S
     verb === 'take' && ii >= 0 && !/ key$/.test(target) && m.items[ii]!.kind !== 'tool' && m.items[ii]!.kind !== 'note' ? 1 : 0,
     shutThere ? 1 : 0,
     canThere ? 1 : 0,
+    ...SPOT_VERBS.map((v) => (verb === v ? 1 : 0)),
+    SPOT_VERBS.includes(verb!) ? 1 : 0,
   ];
 }
 
@@ -406,7 +511,8 @@ export function play(m: Room, w: number[], budget: number, seed: number): Play {
   const log: { cmd: string; said: string }[] = [];
   for (let step = 0; step < budget; step++) {
     const k = keyOf(s);
-    const cmds = commands(m, s).filter((c) => !tried.has(`${k}|${c}`));
+    // Only commands he knows how to give (a verb he has never practised is not in his head yet).
+    const cmds = commands(m, s).filter((c) => !tried.has(`${k}|${c}`) && knows(w, c));
     if (!cmds.length) return { out: false, steps: budget, opened: opened(s), log };
     let best = '';
     let bs = -Infinity;
@@ -418,7 +524,7 @@ export function play(m: Room, w: number[], budget: number, seed: number): Play {
     log.push({ cmd: best, said: res.said });
     tried.add(`${k}|${best}`);
     // What just appeared (opened things show their insides; a new room shows its things).
-    fresh = new Set([...res.said.matchAll(/Inside: ([^.]+)/g)].flatMap((x) => x[1]!.split(', ')));
+    fresh = new Set([...res.said.matchAll(/(?:Inside|Found): ([^.(]+)/g)].flatMap((x) => x[1]!.trim().split(', ')));
     if (res.s.at !== s.at) for (const { t } of thingsHere(m, res.s)) fresh.add(t.name);
     s = res.s;
     visited.add(s.at);
@@ -432,24 +538,38 @@ export interface Graded {
   best: number;
   seed: number;
 }
+/** The first n rooms from seed `from` on, with their shortest ways (worked out by the search). */
+function fresh(level: number, from: number, n: number): Graded[] {
+  const b: Graded[] = [];
+  for (let seed = from; b.length < n; seed++) {
+    const m = makeRoom(level, seed);
+    const p = shortest(m);
+    if (p) b.push({ m, best: p.length, seed });
+  }
+  return b;
+}
 const sets = new Map<string, Graded[]>();
-function set(level: number, from: number, n: number): Graded[] {
-  const key = `${lvl(level)}:${from}`;
+/**
+ * Held-out rooms (20, never practised on) and practice rooms (24, other seeds), with the shortest way out
+ * of each — stored (escapesets.ts) so the phone does not wait on the searches; `bench(level, true)` /
+ * `practiceRooms(level, true)` search again (the tests check they agree).
+ */
+function set(level: number, which: 'bench' | 'practice', fresh_ = false): Graded[] {
+  const L = lvl(level);
+  const [from, n] = which === 'bench' ? [70000, 20] : [80000, 24];
+  if (fresh_) return fresh(L, from, n);
+  const key = `${L}:${which}`;
   let b = sets.get(key);
   if (!b) {
-    b = [];
-    for (let seed = from; b.length < n; seed++) {
-      const m = makeRoom(level, seed);
-      const p = shortest(m);
-      if (p) b.push({ m, best: p.length, seed });
-    }
+    const st = ESCAPE_SETS[L - 1]?.[which === 'bench' ? 0 : 1];
+    b = st ? st.split(' ').map((x) => x.split(':').map(Number) as [number, number]).map(([seed, best]) => ({ m: makeRoom(L, seed), best, seed })) : fresh(L, from, n);
     sets.set(key, b);
   }
   return b;
 }
-/** Held-out rooms (20, never practised on) and practice rooms (24, other seeds). */
-export const bench = (level: number) => set(level, 70000, 20);
-const practice = (level: number) => set(level, 80000, 24);
+export const bench = (level: number, fresh_ = false) => set(level, 'bench', fresh_);
+export const practiceRooms = (level: number, fresh_ = false) => set(level, 'practice', fresh_);
+const practice = (level: number) => practiceRooms(level);
 
 /** One room's score: shortest ÷ his steps if he escapes within twice the shortest, else 0. */
 export const scoreRoom = (g: Graded, w: number[]) => {
@@ -521,7 +641,9 @@ class EscapeLearner implements Learner {
   train(n: number) {
     let done = 0;
     while (done < n) {
-      const cand = this.w.map((x) => x + this.sigma * gauss(this.r));
+      // Only what this level's rooms can show him is nudged: a verb he has not met stays unknown.
+      const on = activeFeatures(this.level);
+      const cand = this.w.map((x, i) => (on[i] ? x + this.sigma * gauss(this.r) : x));
       const sc = this.practiceScore(cand);
       done += practice(this.level).length;
       if (sc >= this.best) {
@@ -553,9 +675,10 @@ class EscapeLearner implements Learner {
     return { game: 'escape', level: this.level, w: this.w.slice(), best: this.best, sigma: this.sigma, rand: this.rand };
   }
   view(): Frame {
-    const names = ['take', 'open', 'unlock … with …', 'enter a code', 'read', 'use a tool', 'go to a room', 'go out', 'the key matches the lock', 'it just appeared', 'a room not seen yet', 'take a key', 'take a tool', 'the code is for that thing', 'leave with things undone', 'try a lock', 'open something closed', 'open something locked', 'go through a locked door', 'read a note again', 'take a note', 'the right way for that lock', 'take something else', 'back to a room with things still shut', 'back to a lock he can now open'];
+    const names = ['take', 'open', 'unlock … with …', 'enter a code', 'read', 'use a tool', 'go to a room', 'go out', 'the key matches the lock', 'it just appeared', 'a room not seen yet', 'take a key', 'take a tool', 'the code is for that thing', 'leave with things undone', 'try a lock', 'open something closed', 'open something locked', 'go through a locked door', 'read a note again', 'take a note', 'the right way for that lock', 'take something else', 'back to a room with things still shut', 'back to a lock he can now open', ...SPOT_VERBS, 'search a hiding place'];
+    const on = activeFeatures(this.level);
     const mx = Math.max(0.01, ...this.w.map(Math.abs));
-    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'tries first' : 'tries later'] as [string, number, string]), caption: 'Which commands he tries first.' };
+    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'tries first' : 'tries later'] as [string, number, string]).filter((_, i) => on[i]), caption: 'Which commands he tries first (the ones this level uses).' };
   }
   watch(seed: number): Frame[] {
     const m = makeRoom(this.level, seed);
@@ -579,17 +702,19 @@ class EscapeLearner implements Learner {
 
 function generate(level: number, seed: number): Problem {
   const m = makeRoom(level, seed);
-  const best = shortest(m)!;
+  // Every note is printed below, so its code is known from the start: no need to read it first.
+  const best = shortest(m, false, true)!;
   const text = [
     'An escape room, with nothing hidden from you:',
     fullText(m),
     'Commands (one per line): go <room>, go out, take <thing>, open <thing>, read <note>, unlock <thing> with <key>, enter <code> on <thing>, use <tool> on <thing>. A key opens the lock of its own colour; unlocking a box leaves it closed (open it next); a door opens once unlocked; you can only see inside a box once it is open, and only things in the room you are in.',
+    'Every code written above is already known to you: you can enter it without reading its note first.',
     'Give the shortest list of commands that gets you out.',
   ].join('\n');
   return { game: 'escape', level: lvl(level), seed, text, data: { level: lvl(level), seed, best: best.length, solution: best } };
 }
 
-const VERBS = /^(go|take|get|pick up|open|read|unlock|enter|type|dial|use|escape)\b/;
+const VERBS = /^(go|take|get|pick up|open|read|unlock|enter|type|dial|use|escape|leave|exit|walk out)\b/;
 /** The commands in a reply: every line (or part split by ; , "then") that starts with a command word; numbering and quotes off. */
 export function readCommands(answer: string): string[] {
   return answer
@@ -603,7 +728,7 @@ function check(prob: Problem, answer: string): Verdict {
   const m = makeRoom(d.level, d.seed);
   const cmds = readCommands(answer);
   if (!cmds.length) return { correct: false, score: 0, why: 'No commands found.' };
-  let s = startState(m);
+  let s = startState(m, true);
   for (let i = 0; i < cmds.length; i++) {
     s = act(m, s, cmds[i]!).s;
     if (s.out) {

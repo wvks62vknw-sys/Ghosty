@@ -1,10 +1,11 @@
 /**
  * BUG HUNT: a small program in TINY (tiny.ts, interpreted here — no eval) with ONE bug put in on purpose,
  * and a test suite it fails. He must name the buggy line and its fix. Ground truth is the tests: a fix is
- * right when the fixed program passes every test (check() runs it).
+ * right when the fixed program passes every test, the shown and the hidden ones (check() runs it).
  *
- * The bugs are the classic slips: an operator swapped (+ for −, < for <=), a number off by one, the wrong
- * variable, `and` for `or`. His candidate fixes are the same kinds of one-word change on every line; he
+ * The bugs are the classic slips: + for −, < for <= or turned round to >, == for !=, a number off by one, a
+ * wrong variable read or set, `and` for `or`, two things swapped round. Each level brings a new kind of
+ * slip (most of its bugs), and he only suspects kinds he has practised with, so it has to be learned. His candidate fixes are the same kinds of one-word change on every line; he
  * tries them one at a time (each try = run the tests) in the order his weights score them — from what he
  * can see: which lines the failing tests ran and the passing ones did not (fault localisation), what kind
  * of line it is (loop, condition, return, sum), what kind of change. He learns the weights from
@@ -67,12 +68,33 @@ export const specFor = (level: number) => {
 
 // ---- candidate changes: one word on one line -------------------------------------------------------------
 
+/**
+ * The kinds of slip, finer than the kind of word: + for −, an operator among * / %, a number off by one, < for
+ * <= (strictness), < for > (turned round), == for !=, a wrong variable read, a wrong variable set, and for
+ * or, and two things swapped round (a − b for b − a).
+ */
+export const SLIPS = ['plusminus', 'number', 'strict', 'operand', 'muldiv', 'flip', 'target', 'equality', 'logic', 'swap'] as const;
+export type Slip = (typeof SLIPS)[number];
+export const SLIP_WORDS: Record<Slip, string> = { plusminus: '+ for − (or − for +)', number: 'a number off by one', strict: '< for <= (or the like)', operand: 'a wrong variable read', muldiv: 'a wrong * / %', flip: '< turned round to >', target: 'a wrong variable set', equality: '== for != (or back)', logic: 'and for or (or back)', swap: 'two things swapped round' };
+
 export interface Change {
   line: number;
   tok: number;
   to: string;
-  kind: 'compare' | 'arith' | 'number' | 'variable' | 'logic';
+  kind: 'compare' | 'arith' | 'number' | 'variable' | 'logic' | 'swap';
+  slip: Slip;
+  /** A swap changes a second word too. */
+  tok2?: number;
+  to2?: string;
 }
+
+const STRICT: Record<string, string> = { '<': '<=', '<=': '<', '>': '>=', '>=': '>' };
+function compareSlip(x: string, y: string): Slip {
+  if (x === '==' || x === '!=' || y === '==' || y === '!=') return 'equality';
+  return STRICT[x] === y ? 'strict' : 'flip';
+}
+/** Operators whose two sides cannot be swapped without changing the meaning. */
+const ORDERED = new Set(['-', '/', '%', '<', '<=', '>', '>=']);
 
 const isName = (x: string) => /^[A-Za-z_]\w*$/.test(x) && !KEYWORDS.has(x);
 
@@ -89,14 +111,23 @@ export function changes(lines: string[]): Change[] {
     t.forEach((x, ti) => {
       const prev = t[ti - 1];
       const binary = prev != null && (/^\d+$/.test(prev) || isName(prev) || prev === ')' || prev === ']');
-      if (ARITH.includes(x) && binary) for (const y of ARITH) y !== x && out.push({ line: li + 1, tok: ti, to: y, kind: 'arith' });
-      else if (COMPARE.includes(x)) for (const y of COMPARE) y !== x && out.push({ line: li + 1, tok: ti, to: y, kind: 'compare' });
-      else if (x === 'and' || x === 'or') out.push({ line: li + 1, tok: ti, to: x === 'and' ? 'or' : 'and', kind: 'logic' });
+      const at = { line: li + 1, tok: ti };
+      if (ARITH.includes(x) && binary) for (const y of ARITH) y !== x && out.push({ ...at, to: y, kind: 'arith', slip: (x === '+' || x === '-') && (y === '+' || y === '-') ? 'plusminus' : 'muldiv' });
+      else if (COMPARE.includes(x)) for (const y of COMPARE) y !== x && out.push({ ...at, to: y, kind: 'compare', slip: compareSlip(x, y) });
+      else if (x === 'and' || x === 'or') out.push({ ...at, to: x === 'and' ? 'or' : 'and', kind: 'logic', slip: 'logic' });
       else if (/^\d+$/.test(x)) {
         const n = Number(x);
-        out.push({ line: li + 1, tok: ti, to: String(n + 1), kind: 'number' });
-        if (n > 0) out.push({ line: li + 1, tok: ti, to: String(n - 1), kind: 'number' });
-      } else if (isName(x) && !(t[0] === 'for' && ti === 1) && !(ti === 1 && prev === 'fn')) for (const y of vars) y !== x && out.push({ line: li + 1, tok: ti, to: y, kind: 'variable' });
+        out.push({ ...at, to: String(n + 1), kind: 'number', slip: 'number' });
+        if (n > 0) out.push({ ...at, to: String(n - 1), kind: 'number', slip: 'number' });
+      } else if (isName(x) && !(t[0] === 'for' && ti === 1) && !(ti === 1 && prev === 'fn')) {
+        const slip: Slip = ti === 0 && (t[1] === '=' || t[1] === '[') ? 'target' : 'operand';
+        for (const y of vars) y !== x && out.push({ ...at, to: y, kind: 'variable', slip });
+      }
+      // Two plain things either side of an operator whose order matters, swapped round.
+      const a = t[ti - 1];
+      const b = t[ti + 1];
+      if (ORDERED.has(x) && binary && a && b && a !== b && /^(\d+|[A-Za-z_]\w*)$/.test(a) && /^(\d+|[A-Za-z_]\w*)$/.test(b) && !KEYWORDS.has(a) && !KEYWORDS.has(b) && t[ti - 2] !== '[' && t[ti + 2] !== '[' && t[ti + 2] !== '(')
+        out.push({ line: li + 1, tok: ti - 1, to: b, tok2: ti + 1, to2: a, kind: 'swap', slip: 'swap' });
     });
   });
   return out;
@@ -106,6 +137,7 @@ export function apply(lines: string[], c: Change): string[] {
   const out = lines.slice();
   const t = tokens(out[c.line - 1]!);
   t[c.tok] = c.to;
+  if (c.tok2 != null) t[c.tok2] = c.to2!;
   out[c.line - 1] = fmt(t);
   return out;
 }
@@ -144,45 +176,68 @@ export interface Buggy {
   lines: string[];
   bug: Change;
   tests: Test[];
+  /** More tests, never shown: a fix is graded on these too (so answers that only fit the shown tests fail). */
+  hidden: Test[];
 }
+
+/**
+ * Each level brings a new kind of slip (most of its bugs, seven in ten), the rest are kinds met before.
+ * He only suspects kinds of slip he has met (practised with), so a new kind has to be learned.
+ */
+export const NEW_SLIP: Slip[] = ['plusminus', 'number', 'strict', 'operand', 'muldiv', 'flip', 'target', 'equality', 'logic', 'swap'];
+export const slipsUpTo = (level: number) => NEW_SLIP.slice(0, lvl(level));
 
 /** A program with one bug that at least one test catches (and that the same kind of one-word change can undo). */
 export function makeBuggy(level: number, seed: number): Buggy {
   const sp = specFor(level);
   const r = rng(seed * 4099 + lvl(level) * 17);
+  const L = lvl(level);
+  const slipFocus: Slip[] = L > 1 && r() < 0.3 ? NEW_SLIP.slice(0, L - 1) : [NEW_SLIP[L - 1]!];
   for (;;) {
     const t = pick(r, TEMPLATES.filter((x) => x.level >= sp.from && x.level <= sp.to));
     const names: Record<string, string> = {};
     for (const [k, opts] of Object.entries(t.vars)) names[k] = pick(r, opts);
     const good = t.src.map((l) => fmt(tokens(l.replace(/\{(\w+)\}/g, (_, k: string) => names[k] ?? k))));
     const prog = parse(good);
-    const tests: Test[] = [];
     const seen = new Set<string>();
-    for (let k = 0; tests.length < sp.tests && k < 200; k++) {
-      const args = t.inputs(r);
-      const key = JSON.stringify(args);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const o = run(prog, args);
-      if (o.error == null) tests.push({ args, want: o.value! });
-    }
-    const all = shuffle(r, changes(good));
+    const draw = (rr: () => number, n: number): Test[] => {
+      const out: Test[] = [];
+      for (let k = 0; out.length < n && k < 200; k++) {
+        const args = t.inputs(rr);
+        const key = JSON.stringify(args);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const o = run(prog, args);
+        if (o.error == null) out.push({ args, want: o.value! });
+      }
+      return out;
+    };
+    const tests = draw(r, sp.tests);
+    // The hidden tests come from their own random stream (so they never change which bug is chosen).
+    const hidden = draw(rng(seed * 6007 + lvl(level) * 29 + tests.length), 10);
+    const focus = slipFocus;
+    const all = shuffle(r, changes(good)).filter((c) => focus.includes(c.slip));
     for (const bug of all.slice(0, 40)) {
       const lines = apply(good, bug);
       const res = runTests(lines, tests);
       // Caught by some test; a bug that fails every test is kept only half the time (subtler ones are better).
       if (res.pass.every(Boolean) || (!res.pass.some(Boolean) && r() < 0.5)) continue;
       // The fix must be a change of the same kinds (so his search can find it).
-      const undo = changes(lines).find((c) => c.line === bug.line && c.tok === bug.tok && apply(lines, c)[c.line - 1] === good[bug.line - 1]);
+      const undo = changes(lines).find((c) => c.line === bug.line && apply(lines, c)[c.line - 1] === good[bug.line - 1]);
       if (!undo) continue;
-      return { t, good, lines, bug, tests };
+      return { t, good, lines, bug, tests, hidden };
     }
   }
 }
 
 // ---- his search ------------------------------------------------------------------------------------------
 
-export const FEATURES = 23;
+/** What he notices about a candidate change: 23 general facts, then the kind of slip (one each). */
+export const GENERAL = 23;
+export const FEATURES = GENERAL + SLIPS.length;
+const slipFeature = (c: Change) => GENERAL + SLIPS.indexOf(c.slip);
+/** Does he know this kind of slip (has practised with it: a weight for it)? */
+export const knowsSlip = (w: number[], c: Change) => w[slipFeature(c)] !== 0;
 
 export interface Case {
   b: Buggy;
@@ -237,6 +292,7 @@ export function prepare(b: Buggy): Case {
       selfish(tokens(apply(b.lines, c)[c.line - 1]!)) ? 1 : 0,
       c.kind === 'compare' && FLIP[old] === c.to ? 1 : 0,
       c.kind === 'arith' && (old === '/' || old === '%') ? 1 : 0,
+      ...SLIPS.map((k) => (c.slip === k ? 1 : 0)),
     ];
   });
   return { b, cands, feats, fixes: new Map() };
@@ -274,9 +330,12 @@ export function order(cs: Case, w: number[]): number[] {
   return cs.cands.map((_, i) => i).sort((a, b) => sc[b]! - sc[a]! || a - b);
 }
 
-/** Tries until a candidate passes every test (or the budget runs out). */
-export function hunt(cs: Case, w: number[], budget: number): { fix: Change | null; tries: number } {
-  const ord = order(cs, w);
+/**
+ * Tries until a candidate passes every test (or the budget runs out). `learner`: he only suspects the
+ * kinds of slip he has practised with; the yardsticks (the plain order) consider every change.
+ */
+export function hunt(cs: Case, w: number[], budget: number, learner = false): { fix: Change | null; tries: number } {
+  const ord = learner ? order(cs, w).filter((i) => knowsSlip(w, cs.cands[i]!)) : order(cs, w);
   for (let k = 0; k < Math.min(budget, ord.length); k++) if (fixes(cs, ord[k]!)) return { fix: cs.cands[ord[k]!]!, tries: k + 1 };
   return { fix: null, tries: Math.min(budget, ord.length) };
 }
@@ -301,6 +360,22 @@ function graded(level: number, from: number, size: number): Graded[] {
   return out;
 }
 const benches = new Map<number, Graded[]>();
+const benchTexts = new Map<number, Set<string>>();
+/** The held-out programs' text, so practice never meets one of them. */
+export function heldOut(level: number): Set<string> {
+  const L = lvl(level);
+  let t = benchTexts.get(L);
+  if (!t) benchTexts.set(L, (t = new Set(bench(L).map((g) => g.cs.b.lines.join('\n')))));
+  return t;
+}
+/** A fresh practice program from far-away seeds — never one of the held-out programs (the same text counts as the same). */
+export function practiceProgram(level: number, r: () => number): Buggy {
+  const held = heldOut(level);
+  for (;;) {
+    const b = makeBuggy(level, 1_000_000 + Math.floor(r() * 1e8));
+    if (!held.has(b.lines.join('\n'))) return b;
+  }
+}
 /**
  * The held-out programs (20 a level): never trained on (he practises on fresh ones from far-away seeds).
  * Which seeds and their allowances are stored (bugsets.ts) so the phone does not wait on the plain order's
@@ -389,7 +464,7 @@ class BugLearner implements Learner {
    */
   train(n: number) {
     for (let k = 0; k < n; k++) {
-      const cs = prepare(makeBuggy(this.level, 1_000_000 + Math.floor(this.r() * 1e8)));
+      const cs = prepare(practiceProgram(this.level, this.r));
       const good: number[] = [];
       const bad: number[] = [];
       cs.cands.forEach((_, i) => (fixes(cs, i) ? good : bad).push(i));
@@ -402,7 +477,9 @@ class BugLearner implements Learner {
           for (let j = 0; j < FEATURES; j++) g[j] += e * (cs.feats[p]![j]! - cs.feats[q]![j]!);
         }
       const norm = Math.max(1, good.length * bad.length);
-      for (let j = 0; j < FEATURES; j++) this.w[j]! += (1.5 * g[j]!) / Math.sqrt(norm);
+      // A kind of slip this level's programs do not have (yet) keeps no weight: he has not met it.
+      const met = new Set<string>(slipsUpTo(this.level));
+      for (let j = 0; j < FEATURES; j++) if (j < GENERAL || met.has(SLIPS[j - GENERAL]!)) this.w[j]! += (1.5 * g[j]!) / Math.sqrt(norm);
     }
     this.programs += n;
     this.rand = (this.rand + n * 2654435761) >>> 0;
@@ -413,7 +490,7 @@ class BugLearner implements Learner {
     let ok = 0;
     let tries = 0;
     for (const { cs, limit } of set) {
-      const h = hunt(cs, this.w, limit);
+      const h = hunt(cs, this.w, limit, true);
       if (h.fix) ok++;
       tries += h.tries;
     }
@@ -423,9 +500,9 @@ class BugLearner implements Learner {
     return { game: 'bughunt', level: this.level, w: this.w.slice(), programs: this.programs, rand: this.rand };
   }
   view(): Frame {
-    const names = ['line run by a failing test', 'suspicious line (failing tests only)', 'line run by passing tests', 'change a comparison', 'change + − * / %', 'change a number by one', 'change a variable', 'swap and / or', 'a loop line', 'an if line', 'a return line', 'a plain sum or setting', '< vs <= (off by one)', 'further down', 'would not even read', 'the most suspicious line', 'a loop’s number', 'what is returned', 'a sum’s operator', 'what a line sets', 'a thing with itself', '< turned round to >', 'a / or %'];
+    const names = ['line run by a failing test', 'suspicious line (failing tests only)', 'line run by passing tests', 'change a comparison', 'change + − * / %', 'change a number by one', 'change a variable', 'swap and / or', 'a loop line', 'an if line', 'a return line', 'a plain sum or setting', '< vs <= (off by one)', 'further down', 'would not even read', 'the most suspicious line', 'a loop’s number', 'what is returned', 'a sum’s operator', 'what a line sets', 'a thing with itself', '< turned round to >', 'a / or %', ...SLIPS.map((k) => `slip: ${SLIP_WORDS[k]}`)];
     const mx = Math.max(0.01, ...this.w.map(Math.abs));
-    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'suspects first' : 'suspects later'] as [string, number, string]), caption: 'What he suspects first.' };
+    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'suspects first' : 'suspects later'] as [string, number, string]).filter((_, i) => i < GENERAL || this.w[i] !== 0), caption: 'What he suspects first (only the kinds of slip he has met).' };
   }
   watch(seed: number): Frame[] {
     const cs = prepare(makeBuggy(this.level, seed));
@@ -433,8 +510,8 @@ class BugLearner implements Learner {
     const code = programText(b.lines).split('\n');
     const tests = testLines(b);
     const frames: Frame[] = [{ lines: [`This program ${b.t.what}.`, ...code, ...tests], caption: 'One line has a bug. The failing tests show where to look.' }];
-    const ord = order(cs, this.w);
-    const lim = Math.max(8, Math.min(ord.length, 40));
+    const ord = order(cs, this.w).filter((i) => knowsSlip(this.w, cs.cands[i]!));
+    const lim = Math.min(ord.length, 40);
     const tried: string[] = [];
     for (let k = 0; k < lim; k++) {
       const c = cs.cands[ord[k]!]!;
@@ -443,7 +520,8 @@ class BugLearner implements Learner {
       if (ok || k < 6) frames.push({ lines: [...code, ...tried.slice(-8)], caption: ok ? `Fixed after ${k + 1} tries: line ${c.line} should be "${apply(b.lines, c)[c.line - 1]}".` : `Try ${k + 1}` });
       if (ok) return frames;
     }
-    frames.push({ lines: [...code, ...tried.slice(-8)], caption: `Not found in ${lim} tries. The bug was on line ${b.bug.line}: it should be "${b.good[b.bug.line - 1]}".` });
+    const why = lim ? `Not found in ${lim} tries.` : 'He has not practised with this kind of slip yet, so he does not suspect it.';
+    frames.push({ lines: [...code, ...tried.slice(-8)], caption: `${why} The bug was on line ${b.bug.line}: it should be "${b.good[b.bug.line - 1]}".` });
     return frames;
   }
 }
@@ -460,7 +538,7 @@ function generate(level: number, seed: number): Problem {
     ...testLines(b),
     'Name the buggy line and write it corrected. Answer like: Line 4: s = s + i',
   ].join('\n');
-  return { game: 'bughunt', level: lvl(level), seed, text, data: { lines: b.lines, tests: b.tests, bug: b.bug, good: b.good[b.bug.line - 1] } };
+  return { game: 'bughunt', level: lvl(level), seed, text, data: { lines: b.lines, tests: b.tests, hidden: b.hidden, bug: b.bug, good: b.good[b.bug.line - 1] } };
 }
 
 /** "Line 4: s = s + i" (or "line 4 should be `s = s + i`") from a reply: the last line that names a line number and its new text. */
@@ -470,26 +548,56 @@ export function readFix(answer: string): { line: number; text: string } | null {
     .map((l) => l.replace(/\*\*|__/g, ' ').trim())
     .filter(Boolean);
   for (let i = rows.length - 1; i >= 0; i--) {
-    const m = rows[i]!.match(/\bline\s*(\d+)\s*(?:should\s+(?:be|read)|becomes|→|->|=>|[:\-–—])\s*(.+)$/i);
+    const m = rows[i]!.match(/\bline\s*(\d+)\b[\s,]*(?:(?:it|this)\s+)?(?:should\s+(?:be|read)|becomes|→|->|=>|[:\-–—])\s*(.+)$/i);
     if (m) {
-      const text = m[2]!.replace(/`/g, '').replace(/^["“']|["”'.]+$/g, '').trim();
+      // The new line, without quotes, a trailing remark in brackets ("(was wrong)") or a // comment.
+      const text = m[2]!
+        .replace(/`/g, '')
+        .replace(/\s*\/\/.*$/, '')
+        .replace(/\s+\((?=[^()]*[a-z]{3})[^()]*\)\s*\.?$/i, '')
+        .replace(/^["“']|["”'.]+$/g, '')
+        .trim();
       if (text) return { line: Number(m[1]), text };
     }
   }
   return null;
 }
 
+/** How many tokens must change (insert, delete, replace) to turn one line into the other. */
+export function tokenEdits(a: string, b: string): number {
+  const x = tokens(a);
+  const y = tokens(b);
+  let prev = Array.from({ length: y.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= x.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= y.length; j++) cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + (x[i - 1] === y[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[y.length]!;
+}
+
+/**
+ * A fix counts when the changed line is a small edit of the line that was there (at most two words
+ * changed — a bug is one slip, so its fix is too; no rewriting a line into a `return`), and the program
+ * then passes every test: the ones shown AND the hidden ones, so an answer that just lists the shown
+ * tests' answers fails.
+ */
 function check(prob: Problem, answer: string): Verdict {
-  const d = prob.data as { lines: string[]; tests: Test[] };
+  const d = prob.data as { lines: string[]; tests: Test[]; hidden: Test[] };
   const fix = readFix(answer) ?? readFix(`Line ${finalLine(answer)}`);
   if (!fix) return { correct: false, score: 0, why: 'No "Line N: corrected line" found.' };
   if (fix.line < 2 || fix.line > d.lines.length) return { correct: false, score: 0, why: `There is no line ${fix.line} to fix.` };
+  const old = d.lines[fix.line - 1]!;
+  const neu = fmt(tokens(fix.text));
+  if (tokens(neu)[0] === 'return' && tokens(old)[0] !== 'return') return { correct: false, score: 0, why: `Line ${fix.line} is not a return: a fix changes the slip, it does not rewrite the line.` };
+  if (tokenEdits(old, neu) > 2) return { correct: false, score: 0, why: `That rewrites line ${fix.line}; the bug is one small slip.` };
   const lines = d.lines.slice();
-  lines[fix.line - 1] = fmt(tokens(fix.text));
-  const res = runTests(lines, d.tests);
+  lines[fix.line - 1] = neu;
+  const all = [...d.tests, ...(d.hidden ?? [])];
+  const res = runTests(lines, all);
   const n = res.pass.filter(Boolean).length;
-  if (n === d.tests.length) return { correct: true, score: 1, why: `Line ${fix.line} fixed: every test passes.` };
-  return { correct: false, score: (0.5 * n) / d.tests.length, why: `With that change ${n} of ${d.tests.length} tests pass.` };
+  if (n === all.length) return { correct: true, score: 1, why: `Line ${fix.line} fixed: every test passes, the hidden ones too.` };
+  return { correct: false, score: (0.5 * n) / all.length, why: `With that change ${n} of ${all.length} tests pass (some are hidden).` };
 }
 
 export const bughunt: Game = {

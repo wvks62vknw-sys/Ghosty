@@ -8,10 +8,12 @@
  * their held-out test split, next to a fixed baseline network for the level trained the same way. From
  * Level 7 an energy budget counts too: the multiply-adds it takes to train the network must be at most
  * half the baseline's. Mastery = the share of held-out datasets where his network is at least as
- * accurate as the baseline (within 2 points) and within the energy budget. Compute is phone-sized: a
- * network learns from 120 points for a few dozen passes.
+ * accurate as the baseline (within 2 points) and within the energy budget. Each level is a new kind of
+ * data: he trusts no shape on it until he has tried it there (his last favourite is only where he starts
+ * looking). Compute is phone-sized: a network learns from 120 points for a few dozen passes.
  */
 import { type Env, finalLine, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
+import { answerNumbers } from './answer';
 import { BRAIN } from './meta';
 
 // ---- data ---------------------------------------------------------------------------------------------------
@@ -377,6 +379,7 @@ interface BrainSave {
   level: number;
   stats: Record<string, [number, number]>;
   best: string;
+  lead?: string;
   nets: number;
   rand: number;
 }
@@ -384,6 +387,8 @@ interface BrainSave {
 class BrainLearner implements Learner {
   stats = new Map<string, Stat>();
   best: Shape = FIRST;
+  /** Where his search starts on this level's data. */
+  lead: Shape = FIRST;
   nets: number;
   rand: number;
   r: () => number;
@@ -396,9 +401,15 @@ class BrainLearner implements Learner {
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
     this.nets = s?.nets ?? 0;
-    // A new level is a new kind of data: the scores start again, his last favourite is where he starts looking.
-    if (s?.best) this.best = shapeOf(s.best);
-    if (s && s.level === level) for (const [k, [n, sum]] of Object.entries(s.stats)) this.stats.set(k, { n, sum });
+    if (s && s.level === level) {
+      for (const [k, [n, sum]] of Object.entries(s.stats)) this.stats.set(k, { n, sum });
+      this.best = shapeOf(s.best);
+      this.lead = shapeOf(s.lead ?? s.best);
+    } else {
+      // A new level is a new kind of data: he trusts no shape on it until he has tried it there (so his pick
+      // is the plain first one), but his last favourite is where he starts looking.
+      this.lead = s?.best ? shapeOf(s.best) : FIRST;
+    }
   }
   /** His score for a shape on a practice dataset: check accuracy (0 when over the energy budget). */
   private score(s: Shape, k: number): number {
@@ -408,16 +419,16 @@ class BrainLearner implements Learner {
     return trainNet(s, d, sp.epochs, 1_000_000 + k).accuracy(d.check);
   }
   /** The best-scoring shape he has tried at least twice (where he starts, until then). */
-  private favourite(): Shape {
+  private favourite(): Shape | null {
     let best: string | null = null;
     let bv = -1;
     for (const [k, st] of this.stats) if (st.n >= 2 && st.sum / st.n > bv + 1e-9) (bv = st.sum / st.n), (best = k);
-    return best ? shapeOf(best) : this.best;
+    return best ? shapeOf(best) : null;
   }
   /** Each unit: train one candidate shape on one practice dataset (shapes he likes get tried again on new data). */
   train(n: number) {
     for (let i = 0; i < n; i++) {
-      const fav = this.favourite();
+      const fav = this.favourite() ?? this.lead;
       const favStat = this.stats.get(shapeKey(fav));
       const cand = favStat && favStat.n < 4 ? fav : neighbour(fav, this.r);
       const k = shapeKey(cand);
@@ -427,7 +438,7 @@ class BrainLearner implements Learner {
       this.stats.set(k, st);
     }
     this.nets += n;
-    this.best = this.favourite();
+    this.best = this.favourite() ?? FIRST;
     this.rand = (this.rand + n * 2654435761) >>> 0;
     return n;
   }
@@ -442,7 +453,7 @@ class BrainLearner implements Learner {
   save(): BrainSave {
     const stats: Record<string, [number, number]> = {};
     for (const [k, v] of this.stats) stats[k] = [v.n, v.sum];
-    return { game: 'brain', level: this.level, stats, best: shapeKey(this.best), nets: this.nets, rand: this.rand };
+    return { game: 'brain', level: this.level, stats, best: shapeKey(this.best), lead: shapeKey(this.lead), nets: this.nets, rand: this.rand };
   }
   view(): Frame {
     const rows = [...this.stats.entries()].filter(([, s]) => s.n >= 2).sort((a, b) => b[1].sum / b[1].n - a[1].sum / a[1].n).slice(0, 6);
@@ -526,18 +537,20 @@ function generate(level: number, seed: number): Problem {
 function check(prob: Problem, answer: string): Verdict {
   const d = prob.data as { kind: 'count' | 'forward'; answer: number | number[] };
   const raw = finalLine(answer).replace(/[−–]/g, '-');
-  // ("1,234" is one number when counting; a list of outputs is split at its commas.)
+  // ("1,234" is one number when counting; a list of outputs is split at its commas.) Labels such as "y1 =" or
+  // "Output 2:" are not part of the answer, nor are remarks in brackets.
   const line = d.kind === 'count' ? raw.replace(/(\d),(?=\d{3}\b)/g, '$1') : raw;
-  const nums = (line.match(/-?\d+/g) ?? []).map(Number);
+  const nums = answerNumbers(line);
   if (d.kind === 'count') {
-    const v = nums[nums.length - 1];
+    const v = nums[0];
     if (v == null) return { correct: false, score: 0, why: 'No number found.' };
+    if (new Set(nums).size > 1) return { correct: false, score: 0, why: 'Give one number, not several.' };
     const want = d.answer as number;
     return v === want ? { correct: true, score: 1, why: `${want} — right.` } : { correct: false, score: Math.max(0, 1 - Math.abs(v - want) / want), why: `It has ${want}.` };
   }
   const want = d.answer as number[];
-  const got = nums.slice(-want.length);
-  if (got.length < want.length) return { correct: false, score: 0, why: `Give ${want.length} numbers.` };
+  const got = nums;
+  if (got.length !== want.length) return { correct: false, score: 0, why: `Give exactly ${want.length} numbers.` };
   const right = got.filter((v, i) => v === want[i]).length;
   return right === want.length ? { correct: true, score: 1, why: `${want.join(', ')} — right.` } : { correct: false, score: (0.5 * right) / want.length, why: `The outputs are ${want.join(', ')}.` };
 }

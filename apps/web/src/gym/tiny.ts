@@ -272,7 +272,7 @@ export function run(p: Program, args: Val[], limit = 1500): Outcome {
           const xs = env.vars.get(s.name);
           if (!Array.isArray(xs)) throw new TinyError(`line ${s.line}: ${s.name} is not a list`);
           const k = num(s.ix(env), s.line);
-          if (k < 0 || k >= xs.length) throw new TinyError(`line ${s.line}: ${s.name}[${k}] is outside the list`);
+          if (k < 0 || k >= xs.length || !Number.isInteger(k)) throw new TinyError(`line ${s.line}: ${s.name}[${k}] is outside the list`);
           xs[k] = num(s.e(env), s.line);
           break;
         }

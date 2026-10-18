@@ -7,7 +7,7 @@
  *
  * Ground truth is never his say-so: a claim is VALID when no case makes every premise true and the
  * conclusion false. That is checked by a full truth table (every true/false assignment, worked out from
- * the formulas themselves) when there are at most 16 basic facts, and by a complete SAT solver (DPLL)
+ * the formulas themselves) when there are at most 8 basic facts, and by a complete SAT solver (DPLL)
  * otherwise; the tests check the two agree.
  *
  * He proves claims with resolution: the premises and the conclusion's opposite are written as clauses
@@ -16,11 +16,16 @@
  * every proof he offers is re-checked step by step (`verifyProof`) and against the truth table anyway: a
  * false claim accepted is a hard failure that sets mastery to 0 (tested with a cheating prover).
  * What he learns is the ORDER in which to try pairs of clauses (a score from a few facts about each pair:
- * does it use the conclusion's opposite, is one clause a single fact, how short is the result…), by
- * evolution on practice claims. Mastery = the share of held-out TRUE claims he proves within half the
- * steps the plain order (pairs tried as they come) needs, with no false claim ever accepted.
+ * does it use the conclusion's opposite, is one clause a single fact, how short is the result, which kinds
+ * of premise it draws on…), by evolution on practice claims. Each level brings a new kind of premise
+ * (either-or, if-both-then, if-and-only-if, for-every, there-is, Likes rules…) that every true claim of the
+ * level needs; he can only use kinds of premise he has practised with, so a level is never passed on what
+ * he knew before. Mastery = the share of held-out TRUE claims he proves within his allowance — a little
+ * more than a strong textbook search order needs (less slack level by level), never more than half the
+ * plain order's — with no false claim ever accepted.
  */
 import { type Env, finalLine, type Frame, type Game, type Learner, lvl, pick, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
+import { oneVerdict } from './answer';
 import { LOGIC_SETS } from './logicsets';
 import { LOGIC } from './meta';
 
@@ -283,9 +288,26 @@ export function sat(clauses: Clause[], n: number): Int8Array | null {
       val[Math.abs(unit) - 1] = unit > 0 ? 1 : -1;
       trail.push(Math.abs(unit) - 1);
     }
-    const free = val.indexOf(0);
-    if (free < 0) return true;
-    for (const v of [1, -1]) {
+    // Branch on a letter of the shortest clause not yet satisfied (none left: every clause holds).
+    let pickLit = 0;
+    let fewest = Infinity;
+    for (const c of clauses) {
+      let open = 0;
+      let lit = 0;
+      let ok = false;
+      for (const l of c) {
+        const v = litVal(l);
+        if (v === 1) {
+          ok = true;
+          break;
+        }
+        if (v === 0) open++, (lit = l);
+      }
+      if (!ok && open < fewest) (fewest = open), (pickLit = lit);
+    }
+    if (!pickLit) return true;
+    const free = Math.abs(pickLit) - 1;
+    for (const v of pickLit > 0 ? [1, -1] : [-1, 1]) {
       val[free] = v;
       if (rec()) return true;
     }
@@ -299,16 +321,17 @@ export function sat(clauses: Clause[], n: number): Int8Array | null {
 /** The claim's clauses: premises', then the conclusion's opposite (marked `goal`). */
 export function clausesOf(c: Claim) {
   const { at, prem, goal } = groundClaim(c);
-  const list: { lits: Clause; goal: boolean }[] = [];
+  /** Each clause, whether it comes from the conclusion's opposite, and the form of the premise it came from. */
+  const list: { lits: Clause; goal: boolean; form: number }[] = [];
   const seen = new Set<string>();
-  const add = (cs: Clause[], g: boolean) => {
+  const add = (cs: Clause[], g: boolean, form: number) => {
     for (const x of cs) {
       const k = x.join(',');
-      if (!seen.has(k)) seen.add(k), list.push({ lits: x, goal: g });
+      if (!seen.has(k)) seen.add(k), list.push({ lits: x, goal: g, form });
     }
   };
-  for (const p of prem) add(toClauses(p), false);
-  add(toClauses(goal, true), true);
+  prem.forEach((p, i) => add(toClauses(p), false, FORMS.indexOf(formOf(c.premises[i]!))));
+  add(toClauses(goal, true), true, 0);
   return { at, list };
 }
 
@@ -324,7 +347,9 @@ export function valid(c: Claim): boolean {
 
 // ---- his prover: resolution, pairs tried in the order his weights score them -------------------------------
 
-export const FEATURES = 10;
+/** What he notices about a pair of clauses: ten general facts, then one per premise form it draws on. */
+export const GENERAL = 10;
+export const FEATURES = GENERAL + 12;
 
 export interface PStep {
   /** Indices of the two clauses combined, the letter they disagree on, the new clause. */
@@ -338,6 +363,8 @@ interface Node {
   lits: Clause;
   goal: boolean;
   gen: number;
+  /** The premise forms it was derived from (bit per form). */
+  forms: number;
 }
 
 /** Combine two clauses on their one disagreement; null when they disagree on none or on more than one (the result would be always true). */
@@ -366,8 +393,10 @@ function pairFeatures(a: Node, b: Node, res: Clause, goalAtoms: Set<number>, piv
     Math.max(a.gen, b.gen) / 5,
     (a.lits.length + b.lits.length) / 6,
     goalAtoms.has(pivot) ? 1 : 0,
+    ...FORMS_BITS.map((bit) => ((a.forms | b.forms) & bit ? 1 : 0)),
   ];
 }
+const FORMS_BITS = Array.from({ length: 12 }, (_, i) => 1 << i);
 
 /** A tiny max-heap of scored pairs (ties: the earlier pair first — so zero weights try pairs as they come). */
 class Heap {
@@ -453,8 +482,12 @@ export function partsOf(c: Claim): Claim[] {
   return [c];
 }
 
-/** Resolution on one part with a step budget: each step combines the best-scored pair not yet combined. */
-export function refute(c: Claim, w: number[], budget: number): ProofRun {
+/**
+ * Resolution on one part with a step budget: each step combines the best-scored pair not yet combined.
+ * `learner`: he can only use the kinds of premise he has practised with (a weight for the form); clauses
+ * from any other kind are not used at all. Without it (the yardsticks) every clause is usable.
+ */
+export function refute(c: Claim, w: number[], budget: number, learner = false): ProofRun {
   const { list, at } = clausesOf(c);
   const nodes: Node[] = [];
   const seen = new Set<string>();
@@ -462,11 +495,14 @@ export function refute(c: Claim, w: number[], budget: number): ProofRun {
   const occ = new Map<number, number[]>();
   const heap = new Heap();
   const goalAtoms = new Set(list.filter((x) => x.goal).flatMap((x) => x.lits.map(Math.abs)));
+  /** The premise forms he has no weight for yet (never practised with): bit per form. */
+  let unknown = 0;
+  if (learner) for (let k = 0; k < FORMS.length; k++) if (w[GENERAL + k] === 0) unknown |= 1 << k;
   let order = 0;
   const subsumed = (r: Clause) => nodes.some((n) => n.lits.length <= r.length && n.lits.every((l) => r.includes(l)));
-  const add = (lits: Clause, goal: boolean, gen: number) => {
+  const add = (lits: Clause, goal: boolean, gen: number, forms: number) => {
     const i = nodes.length;
-    nodes.push({ lits, goal, gen });
+    nodes.push({ lits, goal, gen, forms });
     seen.add(lits.join(','));
     const partners = new Set<number>();
     for (const l of lits) for (const j of occ.get(-l) ?? []) partners.add(j);
@@ -484,7 +520,7 @@ export function refute(c: Claim, w: number[], budget: number): ProofRun {
       else occ.set(l, [i]);
     }
   };
-  for (const x of list) add(x.lits, x.goal, 0);
+  for (const x of list) if (!((1 << x.form) & unknown)) add(x.lits, x.goal, 0, 1 << x.form);
   const trace: PStep[] = [];
   let steps = 0;
   for (;;) {
@@ -498,7 +534,7 @@ export function refute(c: Claim, w: number[], budget: number): ProofRun {
       break;
     }
     trace.push({ i, j, pivot, res });
-    add(res, nodes[i]!.goal || nodes[j]!.goal, Math.max(nodes[i]!.gen, nodes[j]!.gen) + 1);
+    add(res, nodes[i]!.goal || nodes[j]!.goal, Math.max(nodes[i]!.gen, nodes[j]!.gen) + 1, nodes[i]!.forms | nodes[j]!.forms);
     if (!res.length) return { proved: true, steps, clauses: nodes, trace, at };
   }
   return { proved: false, steps, clauses: nodes, trace, at };
@@ -513,12 +549,12 @@ export interface Attempt {
 }
 
 /** His proof attempt: every part in turn, all sharing one step budget. */
-export function prove(c: Claim, w: number[], budget: number): Attempt {
+export function prove(c: Claim, w: number[], budget: number, learner = false): Attempt {
   const parts = partsOf(c);
   const runs: ProofRun[] = [];
   let steps = 0;
   for (const p of parts) {
-    const run = refute(p, w, budget - steps);
+    const run = refute(p, w, budget - steps, learner);
     runs.push(run);
     steps += run.steps;
     if (!run.proved) return { proved: false, steps, parts, runs };
@@ -569,55 +605,97 @@ export const proofSteps = (t: Attempt): ProofStep[][] => t.runs.map((run) => pro
 
 // ---- making claims ---------------------------------------------------------------------------------------
 
+/**
+ * The kinds of premise ("forms"). Each level brings one new form, and every true claim of that level
+ * needs a premise of it (without it the conclusion would not follow) — so a level asks for something he
+ * has not met before. His search order has a weight for pairs that use each form; a form he has never met
+ * has none until he practises with it.
+ */
+export const FORMS = ['goal', 'fact', 'imp', 'or', 'andimp', 'iff', 'impor', 'all-imp', 'all-or', 'exists', 'likes', 'all-complex'] as const;
+export type Form = (typeof FORMS)[number];
+export const FORM_WORDS: Record<Form, string> = {
+  goal: 'the conclusion’s opposite',
+  fact: 'a plain fact',
+  imp: 'an if-then',
+  or: 'an either-or',
+  andimp: 'an if-both-then',
+  iff: 'an if-and-only-if',
+  impor: 'an if-then-either',
+  'all-imp': 'a for-every if-then',
+  'all-or': 'a for-every either-or',
+  exists: 'a there-is',
+  likes: 'a Likes rule',
+  'all-complex': 'a for-every if-both / then-either',
+};
+
+const isLit = (f: F) => f.k === 'p' || (f.k === 'not' && f.a.k === 'p');
+/** Which form a premise has (read from its shape, so stored claims need no labels). */
+export function formOf(f: F): Form {
+  if (isLit(f)) return 'fact';
+  if (f.k === 'ex') return 'exists';
+  if (f.k === 'all') {
+    if (show(f).includes('Likes')) return 'likes';
+    const b = f.a;
+    if (b.k === 'or') return 'all-or';
+    if (b.k === 'imp' && isLit(b.a) && isLit(b.b)) return 'all-imp';
+    return 'all-complex';
+  }
+  if (f.k === 'iff') return 'iff';
+  if (f.k === 'or') return 'or';
+  if (f.k === 'imp') return f.a.k === 'and' ? 'andimp' : f.b.k === 'or' ? 'impor' : 'imp';
+  return 'fact';
+}
+
 export interface Spec {
   /** Letters (propositional) or individuals (first-order). */
   atoms: number;
   premises: number;
   fo: boolean;
-  /** Which premise forms are allowed (more with the level). */
-  forms: number;
-  likes: boolean;
+  /** The forms premises may take, and the new one every true claim of the level needs. */
+  forms: Form[];
+  fresh: Form;
 }
 
 export const specFor = (level: number): Spec =>
-  [
-    { atoms: 3, premises: 3, fo: false, forms: 2, likes: false },
-    { atoms: 4, premises: 4, fo: false, forms: 3, likes: false },
-    { atoms: 4, premises: 5, fo: false, forms: 4, likes: false },
-    { atoms: 5, premises: 6, fo: false, forms: 5, likes: false },
-    { atoms: 6, premises: 7, fo: false, forms: 6, likes: false },
-    { atoms: 3, premises: 3, fo: true, forms: 3, likes: false },
-    { atoms: 3, premises: 3, fo: true, forms: 4, likes: false },
-    { atoms: 3, premises: 4, fo: true, forms: 5, likes: true },
-    { atoms: 4, premises: 4, fo: true, forms: 5, likes: true },
-    { atoms: 4, premises: 5, fo: true, forms: 6, likes: true },
-  ][lvl(level) - 1]!;
+  (
+    [
+      { atoms: 4, premises: 5, fo: false, forms: ['fact', 'imp'], fresh: 'imp' },
+      { atoms: 5, premises: 6, fo: false, forms: ['fact', 'imp', 'or'], fresh: 'or' },
+      { atoms: 5, premises: 7, fo: false, forms: ['fact', 'imp', 'or', 'andimp'], fresh: 'andimp' },
+      { atoms: 6, premises: 8, fo: false, forms: ['fact', 'imp', 'or', 'andimp', 'iff'], fresh: 'iff' },
+      { atoms: 6, premises: 9, fo: false, forms: ['fact', 'imp', 'or', 'andimp', 'iff', 'impor'], fresh: 'impor' },
+      { atoms: 3, premises: 5, fo: true, forms: ['fact', 'all-imp'], fresh: 'all-imp' },
+      { atoms: 3, premises: 6, fo: true, forms: ['fact', 'all-imp', 'all-or'], fresh: 'all-or' },
+      { atoms: 3, premises: 6, fo: true, forms: ['fact', 'all-imp', 'all-or', 'exists'], fresh: 'exists' },
+      { atoms: 4, premises: 6, fo: true, forms: ['fact', 'all-imp', 'all-or', 'exists', 'likes'], fresh: 'likes' },
+      { atoms: 4, premises: 7, fo: true, forms: ['fact', 'all-imp', 'all-or', 'exists', 'likes', 'all-complex'], fresh: 'all-complex' },
+    ] as Spec[]
+  )[lvl(level) - 1]!;
 
 const LETTERS = ['p', 'q', 'r', 's', 't', 'u'];
 const PEOPLE = ['a', 'b', 'c', 'd'];
 const PREDS = ['Red', 'Big', 'Round'];
 
-function propPremise(r: () => number, sp: Spec): F {
+function propPremise(r: () => number, sp: Spec, form: Form): F {
   // Different letters within one premise (no "q → q").
   const pool = shuffle(r, LETTERS.slice(0, sp.atoms));
   const L = () => {
     const a = atom(pool.pop() ?? pick(r, LETTERS.slice(0, sp.atoms)));
     return r() < 0.3 ? not(a) : a;
   };
-  const form = randInt(r, 0, sp.forms - 1);
   switch (form) {
-    case 0:
+    case 'imp':
       return imp(L(), L());
-    case 1:
-      return L();
-    case 2:
+    case 'or':
       return or(L(), L());
-    case 3:
+    case 'andimp':
       return imp(and(L(), L()), L());
-    case 4:
+    case 'iff':
       return iff(L(), L());
-    default:
+    case 'impor':
       return imp(L(), or(L(), L()));
+    default:
+      return L();
   }
 }
 
@@ -630,7 +708,7 @@ function propGoals(sp: Spec): F[] {
   return out;
 }
 
-function foPremise(r: () => number, sp: Spec, world: string[]): F {
+function foPremise(r: () => number, sp: Spec, world: string[], form: Form): F {
   const preds = PREDS.slice(0, Math.min(3, sp.atoms));
   const pool = shuffle(r, preds.slice());
   const P = (v: string) => {
@@ -638,26 +716,20 @@ function foPremise(r: () => number, sp: Spec, world: string[]): F {
     return r() < 0.25 ? not(a) : a;
   };
   const who = () => pick(r, world);
-  const form = randInt(r, 0, sp.forms - 1 + (sp.likes ? 2 : 0));
   switch (form) {
-    case 0:
+    case 'all-imp':
       return all('x', imp(P('x'), P('x')));
-    case 1:
-      return P(who());
-    case 2:
+    case 'all-or':
       return all('x', or(P('x'), P('x')));
-    case 3:
+    case 'exists':
       return ex('x', P('x'));
-    case 4:
-      return all('x', imp(and(P('x'), P('x')), P('x')));
-    case 5:
-      return all('x', imp(P('x'), or(P('x'), P('x'))));
-    case 6:
-      return atom('Likes', who(), who());
-    case 7:
+    case 'likes':
       return pick(r, [all('x', all('y', imp(atom('Likes', 'x', 'y'), atom('Likes', 'y', 'x')))), all('x', imp(atom('Likes', 'x', who()), P('x'))), all('x', imp(P('x'), ex('y', atom('Likes', 'x', 'y'))))]);
+    case 'all-complex':
+      return r() < 0.5 ? all('x', imp(and(P('x'), P('x')), P('x'))) : all('x', imp(P('x'), or(P('x'), P('x'))));
     default:
-      return all('x', imp(P('x'), P('x')));
+      // A plain fact: about one individual (or who likes whom, once Likes rules are about).
+      return sp.forms.includes('likes') && r() < 0.4 ? atom('Likes', who(), who()) : P(who());
   }
 }
 
@@ -671,39 +743,49 @@ function foGoals(sp: Spec, world: string[]): F[] {
       out.push(ex('x', lit(p, 'x', n)), all('x', lit(p, 'x', n)));
       for (const q of preds) if (q !== p) for (const m of [false, true]) out.push(all('x', imp(lit(p, 'x', n), lit(q, 'x', m))), ex('x', and(lit(p, 'x', n), lit(q, 'x', m))));
     }
-  if (sp.likes) for (const a of world) for (const b of world) out.push(atom('Likes', a, b));
+  if (sp.forms.includes('likes')) for (const a of world) for (const b of world) out.push(atom('Likes', a, b));
   return out;
 }
 
 const same = (a: F, b: F) => show(a) === show(b);
 
 /**
- * A claim whose truth is `want`: random premises (that can all be true together), then a conclusion from
- * a pool of candidates that does (or does not) follow — never one of the premises themselves. A true claim
- * takes the candidate the plain order needs most steps for (of a few), so it is worth proving.
+ * A claim whose truth is `want`: premises (that can all be true together) with at least one of the level's
+ * new form, then a conclusion from a pool of candidates that does (or does not) follow — never one of the
+ * premises themselves; a true one must NEED the new form (without those premises it would not follow).
+ * `hard` (for the stored test sets): of a few true candidates, the one the plain order needs most steps
+ * for. Otherwise the first that fits, with a bounded number of tries — null if none (the caller falls
+ * back to a stored claim), so making a problem never stalls.
  */
-export function makeClaim(level: number, seed: number, want: boolean): Claim {
+export function makeClaim(level: number, seed: number, want: boolean, hard = true): Claim | null {
   const sp = specFor(level);
   const r = rng(seed * 31 + lvl(level) * 7 + (want ? 1 : 0));
   const world = sp.fo ? PEOPLE.slice(0, sp.atoms) : [];
   const cap = 2 * budgetFor(level);
-  for (;;) {
+  for (let tries = 0; hard || tries < 25; tries++) {
     const premises: F[] = [];
-    while (premises.length < sp.premises) {
-      const p = sp.fo ? foPremise(r, sp, world) : propPremise(r, sp);
+    for (let k = 0; premises.length < sp.premises && k < 50; k++) {
+      const form = premises.length === 0 ? sp.fresh : pick(r, sp.forms);
+      const p = sp.fo ? foPremise(r, sp, world, form) : propPremise(r, sp, form);
       if (!premises.some((q) => same(p, q))) premises.push(p);
     }
     // The premises must be possible together (otherwise anything follows).
     const pc = clausesOf({ premises, goal: atom('p'), world });
     if (!sat(pc.list.filter((x) => !x.goal).map((x) => x.lits), pc.at.names.length)) continue;
+    const without = premises.filter((p) => formOf(p) !== sp.fresh);
     const goals = shuffle(r, (sp.fo ? foGoals(sp, world) : propGoals(sp)).filter((g) => !premises.some((p) => same(p, g))));
     let best: Claim | null = null;
     let most = -1;
     let seen = 0;
-    for (const goal of goals.slice(0, 60)) {
+    for (const goal of goals.slice(0, hard ? 60 : 30)) {
       const c = { premises, goal, world };
       if (valid(c) !== want) continue;
       if (!want) return c;
+      if (valid({ premises: without, goal, world })) continue;
+      if (!hard) {
+        if (!prove(c, ZERO, 2).proved) return c;
+        continue;
+      }
       const run = prove(c, ZERO, cap);
       // (One the plain order cannot finish within the cap has no fair allowance: skipped.)
       if (run.proved && run.steps > most) (most = run.steps), (best = c);
@@ -711,6 +793,16 @@ export function makeClaim(level: number, seed: number, want: boolean): Claim {
     }
     if (best && most >= 3) return best;
   }
+  return null;
+}
+
+/** A claim for a problem or a WATCH: made fresh when that is quick, else one of the stored practice / test claims. */
+export function quickClaim(level: number, seed: number, want: boolean): Claim {
+  const c = makeClaim(level, seed, want, false);
+  if (c) return c;
+  const b = bench(level);
+  const list = want ? b.practice.map((g) => g.c) : b.falses;
+  return list[seed % list.length]!;
 }
 
 const ZERO = new Array(FEATURES).fill(0);
@@ -725,20 +817,34 @@ export function plainSteps(c: Claim, level: number): number {
 }
 
 /** His allowance on a claim: a share of the steps the plain order needs — half at first, a third by Level 10. */
-export const allowance = (plain: number, level: number) => Math.max(2, Math.floor(plain * [0.5, 0.5, 0.5, 0.45, 0.4, 0.5, 0.45, 0.4, 0.35, 0.33][lvl(level) - 1]!));
+/**
+ * A strong hand-made search order (the textbook one: use the conclusion's opposite, prefer single facts and
+ * short results), knowing every kind of premise — the yardstick his allowance is set from.
+ */
+export const REF = [3, -1, 2, 5, 2, -1, -1, -0.5, -0.5, 1, ...new Array(12).fill(0.01)];
+/** Steps the yardstick order needs on a claim. */
+export const refSteps = (c: Claim, level: number) => {
+  const run = prove(c, REF, 2 * budgetFor(level));
+  return run.proved ? run.steps : 2 * budgetFor(level);
+};
+/**
+ * His allowance on a claim: a little more than the yardstick order needs — less slack level by level —
+ * and never more than half of what the plain order needs.
+ */
+export const allowance = (plain: number, level: number, ref = plain) => Math.max(2, Math.min(Math.floor(plain / 2), Math.ceil(ref * [1.5, 1.4, 1.35, 1.3, 1.25, 1.3, 1.25, 1.2, 1.15, 1.1][lvl(level) - 1]!)));
 
 export interface Graded {
   c: Claim;
-  /** Half of what the plain order needs. */
+  /** His allowance of steps (see `allowance`). */
   limit: number;
 }
 
 function graded(level: number, from: number, size: number): Graded[] {
   const out: Graded[] = [];
   for (let seed = from; out.length < size; seed++) {
-    const c = makeClaim(level, seed, true);
+    const c = makeClaim(level, seed, true)!;
     const plain = plainSteps(c, level);
-    if (plain >= (specFor(level).fo ? 10 : 6)) out.push({ c, limit: allowance(plain, level) });
+    if (plain >= (specFor(level).fo ? 10 : 6)) out.push({ c, limit: allowance(plain, level, refSteps(c, level)) });
   }
   return out;
 }
@@ -766,7 +872,7 @@ export function bench(level: number, fresh = false): Bench {
   if (!fresh && st) b = { truths: st.t.map(read), falses: st.f.map(claimOf), practice: st.p.map(read) };
   else {
     const falses: Claim[] = [];
-    for (let s = 0; s < 8; s++) falses.push(makeClaim(L, 70500 + s, false));
+    for (let s = 0; s < 8; s++) falses.push(makeClaim(L, 70500 + s, false)!);
     b = { truths: graded(L, 70000, 20), falses, practice: graded(L, 80000, 32) };
   }
   if (!fresh) benches.set(L, b);
@@ -816,11 +922,11 @@ export function clauseText(cl: Clause, at: Atoms): string {
 }
 
 class LogicEnv implements Env {
-  c: Claim = makeClaim(1, 1, true);
+  c: Claim = quickClaim(1, 1, true);
   clauses: Clause[] = [];
   constructor(private level: number) {}
   reset(seed: number) {
-    this.c = makeClaim(this.level, seed, seed % 2 === 0);
+    this.c = quickClaim(this.level, seed, seed % 2 === 0);
     this.clauses = clausesOf(this.c).list.map((x) => x.lits);
   }
   private pairs() {
@@ -861,6 +967,12 @@ interface LogicSave {
   rand: number;
 }
 
+/** Which of his weights a level's claims bear on: the general ones, and the forms its premises may take. */
+export function activeFeatures(level: number): boolean[] {
+  const forms = new Set<string>(['goal', ...specFor(level).forms]);
+  return Array.from({ length: FEATURES }, (_, i) => i < GENERAL || forms.has(FORMS[i - GENERAL]!));
+}
+
 class LogicLearner implements Learner {
   w: number[];
   rand: number;
@@ -885,7 +997,7 @@ class LogicLearner implements Learner {
   practice(w: number[]): number {
     let sc = 0;
     for (const { c, limit } of practiceSet(this.level)) {
-      const run = prove(c, w, limit);
+      const run = prove(c, w, limit, true);
       sc += run.proved ? 100_000 - run.steps : -limit;
     }
     return sc;
@@ -893,7 +1005,9 @@ class LogicLearner implements Learner {
   train(n: number) {
     let done = 0;
     while (done < n) {
-      const cand = this.w.map((x) => x + this.sigma * gauss(this.r));
+      // Only what this level's claims can show him is nudged: a form he has not met keeps no opinion.
+      const on = activeFeatures(this.level);
+      const cand = this.w.map((x, i) => (on[i] ? x + this.sigma * gauss(this.r) : x));
       const sc = this.practice(cand);
       done += practiceSet(this.level).length;
       if (sc >= this.best) {
@@ -907,7 +1021,7 @@ class LogicLearner implements Learner {
   }
   measure() {
     const g = grade(this.level, (c, limit) => {
-      const t = prove(c, this.w, limit);
+      const t = prove(c, this.w, limit, true);
       return t.proved ? proofSteps(t) : null;
     });
     const kind = specFor(this.level).fo ? 'first-order claims over a small world' : 'propositional claims';
@@ -915,22 +1029,24 @@ class LogicLearner implements Learner {
       mastery: g.mastery,
       detail: g.accepted
         ? `HARD FAILURE: he accepted ${g.accepted} false claim(s) — mastery 0.`
-        : `${kind}: he proves ${g.proved} of ${g.of} true ones in half the steps the plain order needs (each proof re-checked), and accepted none of ${bench(this.level).falses.length} false ones (truth table / SAT).`,
+        : `${kind}: he proves ${g.proved} of ${g.of} true ones within his allowance of steps (each proof re-checked), and accepted none of ${bench(this.level).falses.length} false ones (truth table / SAT).`,
     };
   }
   save(): LogicSave {
     return { game: 'logic', level: this.level, w: this.w.slice(), best: this.best, sigma: this.sigma, rand: this.rand };
   }
   view(): Frame {
-    const names = ['uses the conclusion’s opposite', 'premises only', 'one clause is a single fact', 'gives a contradiction', 'gives a single fact', 'result shorter than its parts', 'long result', 'deep in the proof', 'big parents', 'about the conclusion’s letters'];
+    const names = ['uses the conclusion’s opposite', 'premises only', 'one clause is a single fact', 'gives a contradiction', 'gives a single fact', 'result shorter than its parts', 'long result', 'deep in the proof', 'big parents', 'about the conclusion’s letters', ...FORMS.map((f) => `uses ${FORM_WORDS[f]}`)];
+    const on = activeFeatures(this.level);
     const mx = Math.max(0.01, ...this.w.map(Math.abs));
-    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'tries first' : 'tries later'] as [string, number, string]), caption: 'Which pairs of clauses he combines first.' };
+    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'tries first' : 'tries later'] as [string, number, string]).filter((_, i) => on[i]), caption: 'Which pairs of clauses he combines first.' };
   }
   watch(seed: number): Frame[] {
-    const want = seed % 3 !== 0;
-    const c = makeClaim(this.level, seed, want);
+    // A stored claim (no waiting on making one): a practice one he can prove, or now and then a false one.
+    const b = bench(this.level);
+    const c = seed % 3 !== 0 ? b.practice[seed % b.practice.length]!.c : b.falses[seed % b.falses.length]!;
     const head = [`Claim: ${claimText(c)}`];
-    const t = prove(c, this.w, budgetFor(this.level));
+    const t = prove(c, this.w, budgetFor(this.level), true);
     const frames: Frame[] = [{ lines: head, caption: 'To prove it, he assumes the conclusion is false and looks for a contradiction.' }];
     const done: string[] = [];
     t.runs.forEach((run, p) => {
@@ -981,17 +1097,24 @@ export function gauss(r: () => number): number {
 
 function generate(level: number, seed: number): Problem {
   const want = rng(seed * 13 + level)() < 0.5;
-  const c = makeClaim(level, seed, want);
+  const c = quickClaim(level, seed, want);
   const text = `Decide whether the conclusion follows from the premises: it is VALID if, in every case where all the premises are true, the conclusion is true too; otherwise it is INVALID.\n${claimWords(c)}\nAnswer VALID or INVALID.`;
   return { game: 'logic', level: lvl(level), seed, text, data: { claim: c, valid: valid(c) } };
 }
 
 /** VALID / INVALID from a reply's last line ("does not follow", "not valid" and "invalid" are INVALID). */
 export function readValid(answer: string): boolean | null {
-  const t = finalLine(answer).toLowerCase();
-  if (/\b(invalid|not valid|does ?n[o']t follow|not follow|no)\b/.test(t)) return false;
-  if (/\b(valid|follows|yes)\b/.test(t)) return true;
-  return null;
+  const v = oneVerdict(
+    finalLine(answer),
+    [
+      [/\binvalid\b/, 'I'],
+      [/\bdoes ?n[o']t follow\b|\bdoesn't follow\b/, 'I'],
+      [/\bvalid\b/, 'V'],
+      [/\bfollows\b/, 'V'],
+    ],
+    { V: 'I', I: 'V' },
+  );
+  return v == null ? null : v === 'V';
 }
 
 function check(prob: Problem, answer: string): Verdict {

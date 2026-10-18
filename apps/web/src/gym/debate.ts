@@ -11,11 +11,15 @@
  * the fewest facts that settle the claim). Ghosty argues by adding facts in the order his weights score
  * them (is it about a thing the claim names, the claim's measure, the link "whose capital is …", the
  * biggest value on the table…) until his side is settled or he reaches k — so what he learns is which
- * evidence to cite. Mastery = the share of held-out debates he wins from the true side against the
- * reference arguer; winning from the false side even once is a hard failure (mastery 0).
+ * evidence to cite — with a separate set of weights for each form of claim (what settles "the most in a
+ * group" is not what settles "it is not the case that …"), and each level bringing new forms, so the top
+ * levels need several evidence patterns at once. Mastery = the share of held-out debates he wins from the
+ * true side against the reference arguer; winning from the false side even once is a hard failure
+ * (mastery 0).
  */
 import { type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { BOOK, byName, claimSentence, evaluate, type Fact, factById, factsFor, knowOnly, LINKS, makeSpec, type Ref, roster, rosterLine, type Spec, support, type Truth } from './facts';
+import { BOOK, byName, CLAIM_FORMS, claimSentence, evaluate, type Fact, factById, factsFor, FORM_WORDS, formOf, knowOnly, LINKS, makeSpec, planFor, type Ref, roster, rosterLine, type Spec, support, type Truth } from './facts';
+import { oneVerdict } from './answer';
 import { DEBATE } from './meta';
 import { gauss } from './logic';
 import { WORD } from './factcheck';
@@ -83,7 +87,7 @@ function names(s: Spec): string[] {
   return out;
 }
 
-export const FEATURES = 12;
+export const FEATURES = 14;
 
 /** Facts about a fact, as it bears on the claim (from the claim's words and the table only — never the answer). */
 export function features(d: Debate, f: Fact, side: Truth): number[] {
@@ -111,12 +115,21 @@ export function features(d: Debate, f: Fact, side: Truth): number[] {
     LINKS[kind].includes(f.field) ? 1 : 0,
     side === 'T' && group && f.field === field ? 1 : 0,
     side === 'F' && rank === 1 && f.field === field ? 1 : 0,
+    typeof f.v === 'number' && same.length > 1 && rank === 0 && f.field === field ? 1 : 0,
+    side === 'F' && typeof f.v === 'number' && same.length > 1 && rank === 0 && f.field === field ? 1 : 0,
   ];
 }
 
 /** His argument: facts added best-scored first until his side is settled, at most k. */
+/** All his weights: one set of FEATURES per form of claim (what to cite for "the most" is not what to cite for "it is not the case that …"). */
+export const WEIGHTS = FEATURES * CLAIM_FORMS.length;
+/** Where a claim's own weights start among all of his. */
+export const blockOf = (s: Spec) => CLAIM_FORMS.indexOf(formOf(s)) * FEATURES;
+
+/** His argument (w: all his weights, or one set used for every form): facts added best-scored first until his side is settled, at most k. */
 export function argue(d: Debate, side: Truth, w: number[]): string[] {
-  const scored = d.pool.map((f, i) => ({ f, i, sc: features(d, f, side).reduce((t, x, j) => t + x * w[j]!, 0) })).sort((a, b) => b.sc - a.sc || a.i - b.i);
+  const at = w.length === FEATURES ? 0 : blockOf(d.s);
+  const scored = d.pool.map((f, i) => ({ f, i, sc: features(d, f, side).reduce((t, x, j) => t + x * w[at + j]!, 0) })).sort((a, b) => b.sc - a.sc || a.i - b.i);
   const out: Fact[] = [];
   for (const { f } of scored) {
     if (out.length >= d.k) break;
@@ -189,6 +202,12 @@ interface DebateSave {
   rand: number;
 }
 
+/** The forms of claim new at a level: the weights he works on there (what he learned for earlier forms he keeps). */
+export function activeBlocks(level: number): boolean[] {
+  const fresh = new Set<string>(planFor(level).fresh);
+  return CLAIM_FORMS.map((f) => fresh.has(f));
+}
+
 class DebateLearner implements Learner {
   w: number[];
   best: number;
@@ -204,7 +223,8 @@ class DebateLearner implements Learner {
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
     // He starts knowing nothing: every fact looks the same, so he cites them in the order they lie on the table.
-    this.w = s?.w?.length === FEATURES ? s.w.slice() : new Array(FEATURES).fill(0);
+    // A form of claim he has not met keeps that until he practises with it.
+    this.w = s?.w?.length === WEIGHTS ? s.w.slice() : new Array(WEIGHTS).fill(0);
     // A new level: a fresh, wide search from what he knew (a narrow one could stay stuck where the last level left it).
     this.sigma = s?.level === level ? s.sigma : 1;
     this.best = s?.level === level ? s.best : this.practiceScore(this.w);
@@ -220,7 +240,9 @@ class DebateLearner implements Learner {
   train(n: number) {
     let done = 0;
     while (done < n) {
-      const cand = this.w.map((x) => x + this.sigma * gauss(this.r));
+      // Only the weights for this level's new forms of claim are nudged.
+      const on = activeBlocks(this.level);
+      const cand = this.w.map((x, i) => (on[Math.floor(i / FEATURES)] ? x + this.sigma * gauss(this.r) : x));
       const sc = this.practiceScore(cand);
       done += practice(this.level).length;
       if (sc >= this.best) {
@@ -245,9 +267,13 @@ class DebateLearner implements Learner {
     return { game: 'debate', level: this.level, w: this.w.slice(), best: this.best, sigma: this.sigma, rand: this.rand };
   }
   view(): Frame {
-    const names = ['about a thing the claim names', 'the claim’s measure', 'the link the claim uses (“whose capital is …”)', 'about the thing a link points to', 'in the claim’s group', 'the biggest value on the table', 'the same kind of thing', 'a big value', 'an unrelated measure', 'a linking fact', 'arguing TRUE: the group’s values', 'arguing FALSE: the biggest rival'];
-    const mx = Math.max(0.01, ...this.w.map(Math.abs));
-    return { bars: names.map((nm, i) => [nm, Math.abs(this.w[i]!) / mx, this.w[i]! >= 0 ? 'cites first' : 'cites later'] as [string, number, string]), caption: 'Which facts he reaches for first.' };
+    const names = ['about a thing the claim names', 'the claim’s measure', 'the link the claim uses (“whose capital is …”)', 'about the thing a link points to', 'in the claim’s group', 'the biggest value on the table', 'the same kind of thing', 'a big value', 'an unrelated measure', 'a linking fact', 'arguing TRUE: the group’s values', 'arguing FALSE: the biggest rival', 'the smallest value on the table', 'arguing FALSE: the smallest rival'];
+    // His weights for this level's newest form of claim.
+    const form = planFor(this.level).fresh[0]!;
+    const at = CLAIM_FORMS.indexOf(form) * FEATURES;
+    const w = this.w.slice(at, at + FEATURES);
+    const mx = Math.max(0.01, ...w.map(Math.abs));
+    return { bars: names.map((nm, i) => [nm, Math.abs(w[i]!) / mx, w[i]! >= 0 ? 'cites first' : 'cites later'] as [string, number, string]), caption: `Which facts he reaches for first, for ${FORM_WORDS[form]}.` };
   }
   watch(seed: number): Frame[] {
     const d = makeDebate(this.level, seed);
@@ -299,7 +325,14 @@ export function readArgument(answer: string): { side: Truth | null; ids: string[
   const last = (lines[lines.length - 1] ?? '').toUpperCase();
   const ids = [...last.matchAll(/\bF(\d+)\b/g)].map((m) => `F${Number(m[1])}`);
   const words = last.replace(/\bF\d+\b/g, ' ');
-  const side: Truth | null = /\b(FALSE|NOT TRUE)\b/.test(words) ? 'F' : /\bTRUE\b/.test(words) ? 'T' : null;
+  const side = oneVerdict<Truth>(
+    words,
+    [
+      [/\bfalse\b/, 'F'],
+      [/\btrue\b/, 'T'],
+    ],
+    { T: 'F', F: 'T' },
+  );
   return { side, ids };
 }
 
@@ -311,7 +344,10 @@ function check(prob: Problem, answer: string): Verdict {
   if (side !== d.truth) return { correct: false, score: 0, why: `The facts show the claim is ${WORD[d.truth]}.` };
   const j = judge(d, side, [...new Set(ids)]);
   if (!j.ok) return { correct: false, score: 0.25, why: `Right side, but the judge rejects the argument: ${j.why}.` };
-  return { correct: true, score: Math.min(1, p.best.length / new Set(ids).size), why: `${WORD[side]} — the cited facts settle it.` };
+  const n = new Set(ids).size;
+  // The question asks for the fewest facts: more than that is a weaker answer, not a right one.
+  if (n > p.best.length) return { correct: false, score: p.best.length / n, why: `Right, but ${n} facts where ${p.best.length} settle it.` };
+  return { correct: true, score: 1, why: `${WORD[side]} — the cited facts settle it.` };
 }
 
 export const debate: Game = {
