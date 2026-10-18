@@ -47,8 +47,9 @@ function climb(learner, bar, step, cap) {
 
 // ---------------------------------------------------------------------------------------------------------
 test('gym: ten games, one interface — every engine resets, lists moves, steps and describes itself', () => {
+  // Part 1's ten come first (later parts add theirs after them; gym2.test.mjs checks those).
   assert.deepEqual(
-    GAMES.map((g) => g.id),
+    GAMES.slice(0, 10).map((g) => g.id),
     ['maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words'],
   );
   for (const g of GAMES) {
@@ -208,7 +209,8 @@ const WRONG = {
 };
 
 test('gym: every game makes checkable problems at every level — same seed, same problem; the right answer passes, a wrong one fails', () => {
-  for (const g of GAMES) {
+  // (Part 2's games have their right and wrong answers in gym2.test.mjs.)
+  for (const g of GAMES.filter((x) => RIGHT[x.id])) {
     for (const level of [1, 4, 7, 10]) {
       for (const seed of [2, 3]) {
         const p = g.generate(level, seed);
@@ -720,14 +722,15 @@ test('worker speed: stored test sets, cached baselines, nothing slow on the way 
 
 test('bundle: the page imports only the games\' descriptions and the two boards — no engine reaches app.js', async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8');
+  // The page and its PLAY HIM boards (features/gym/play.ts).
+  const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8') + readFileSync(at('../../web/src/features/gym/play.ts'), 'utf8');
   const gymImports = [...src.matchAll(/from '\.\.\/\.\.\/gym\/([a-z0-9]+)'/g)].map((m) => m[1]);
-  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets'];
+  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'checkers', 'chess', 'go', 'poker', 'sokoban', 'balance', 'match', 'chesssets', 'gosets', 'sokosets'];
   assert.deepEqual(gymImports.filter((f) => engines.includes(f)), [], `the page imports ${gymImports.join(', ')}`);
   const typeOnly = [...src.matchAll(/^import (type )?\{[^}]*\} from '\.\.\/\.\.\/gym\/(worker|core)'/gm)];
   assert.ok(typeOnly.every((m) => m[1] === 'type '), 'worker and core are imported for their types only');
   // And what it does import pulls in no engine either.
-  for (const f of ['meta', 'session', 'c4board', 'tttboard']) {
+  for (const f of ['meta', 'session', 'c4board', 'tttboard', 'ckboard', 'chessboard', 'goboard']) {
     const s2 = readFileSync(at(`../../web/src/gym/${f}.ts`), 'utf8');
     const deps = [...s2.matchAll(/^import (type )?[^;]*from '\.\/([a-z0-9]+)'/gm)].filter((m) => !m[1]).map((m) => m[2]);
     assert.deepEqual(deps.filter((d) => engines.includes(d)), [], `${f} imports ${deps.join(', ')}`);

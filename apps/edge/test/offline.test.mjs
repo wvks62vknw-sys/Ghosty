@@ -219,3 +219,5 @@ test('daily backup: a failed try never turns off the wiped-phone guard; after wa
 // The GYM's games run on the phone with no brain at all: their tests live in gym.test.mjs (run from here,
 // because the test list in package.json is protected).
 await import('./gym.test.mjs');
+// GYM part 2: checkers, chess, Go, poker, Sokoban, balance & lander.
+await import('./gym2.test.mjs');

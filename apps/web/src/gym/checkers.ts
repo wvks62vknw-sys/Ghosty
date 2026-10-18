@@ -47,10 +47,14 @@ function unmake(p: Ck, m: CkMove, u: Undo): void {
   p.side = -p.side;
 }
 
-let nodes = 0;
-/** Negamax alpha-beta; at depth 0 a position with a capture to make is searched on (up to 8 plies more), so no exchange is cut in half. */
-function ab(p: Ck, depth: number, alpha: number, beta: number, ev: CkEval, ply: number): number {
-  nodes++;
+let lastNodes = 0;
+/**
+ * Negamax alpha-beta; at depth 0 a position with a capture to make is searched on (up to 8 plies more), so
+ * no exchange is cut in half. A generator that pauses every 2,048 positions, so a deep search can run a
+ * slice at a time.
+ */
+function* ab(p: Ck, depth: number, alpha: number, beta: number, ev: CkEval, ply: number, c: { nodes: number }): Generator<void, number, void> {
+  if ((++c.nodes & 2047) === 0) yield;
   const moves = legalCk(p);
   if (!moves.length) return -WIN + ply;
   if (p.quiet >= 80) return 0;
@@ -59,7 +63,7 @@ function ab(p: Ck, depth: number, alpha: number, beta: number, ev: CkEval, ply: 
   let best = -Infinity;
   for (const m of moves) {
     const u = make(p, m);
-    const v = -ab(p, depth - 1, -beta, -alpha, ev, ply + 1);
+    const v = -(yield* ab(p, depth - 1, -beta, -alpha, ev, ply + 1, c));
     unmake(p, m, u);
     if (v > best) best = v;
     if (v > alpha) alpha = v;
@@ -68,21 +72,31 @@ function ab(p: Ck, depth: number, alpha: number, beta: number, ev: CkEval, ply: 
   return best;
 }
 
-/** The best move at `depth` with evaluator `ev` (the first of equals, in the order moves are listed). */
-export function bestMove(p0: Ck, depth: number, ev: CkEval, moves = legalCk(p0)): { move: CkMove; value: number } {
+/** The best move at `depth` with evaluator `ev`, as a search that can be paused (the first of equals, in the order moves are listed). */
+export function* searchGen(p0: Ck, depth: number, ev: CkEval, moves = legalCk(p0)): Generator<void, { move: CkMove; value: number }, void> {
   const p = copyCk(p0);
   if (moves.length === 1) return { move: moves[0]!, value: 0 };
+  const c = { nodes: 0 };
   let best = moves[0]!;
   let alpha = -Infinity;
   for (const m of moves) {
     const u = make(p, m);
-    const v = -ab(p, depth - 1, -Infinity, -alpha, ev, 1);
+    const v = -(yield* ab(p, depth - 1, -Infinity, -alpha, ev, 1, c));
     unmake(p, m, u);
     if (v > alpha) (alpha = v), (best = m);
   }
+  lastNodes = c.nodes;
   return { move: best, value: alpha };
 }
-export const nodeCount = () => nodes;
+/** …run to the end at once. */
+export function bestMove(p0: Ck, depth: number, ev: CkEval, moves = legalCk(p0)): { move: CkMove; value: number } {
+  const it = searchGen(p0, depth, ev, moves);
+  for (;;) {
+    const r = it.next();
+    if (r.done) return r.value;
+  }
+}
+export const nodeCount = () => lastNodes;
 
 // ---- the reference evaluator (hand-written) -----------------------------------------------------------------------
 
@@ -159,7 +173,7 @@ export function openings(n: number): CkMove[][] {
   return out;
 }
 const OPEN = openings(8);
-export const gamesFor = (level: number) => (lvl(level) <= 5 ? 16 : 12);
+export const gamesFor = (level: number) => (lvl(level) <= 5 ? 16 : 8);
 const MAX_PLIES = 200;
 
 /** One game: him (evaluator `mine`) against the reference, both at `depth`. */
@@ -169,14 +183,23 @@ export function duel(opening: number, first: boolean, depth: number, mine: CkEva
   // "First" = he plays the side to move after the opening.
   const me = first ? p.side : -p.side;
   let plies = 0;
+  let cur: Generator<void, { move: CkMove; value: number }, void> | null = null;
   return {
     p,
+    // One step = a slice of one move's search (about two thousand positions), so the worker is never held up for long.
     step() {
-      const moves = legalCk(p);
-      const res = resultCk(p, moves);
-      if (res) return res === 0.5 ? 0.5 : res === me ? 1 : 0;
-      if (plies++ >= MAX_PLIES) return 0.5;
-      playCk(p, bestMove(p, depth, p.side === me ? mine : referenceEval, moves).move);
+      if (!cur) {
+        const moves = legalCk(p);
+        const res = resultCk(p, moves);
+        if (res) return res === 0.5 ? 0.5 : res === me ? 1 : 0;
+        if (plies++ >= MAX_PLIES) return 0.5;
+        cur = searchGen(p, depth, p.side === me ? mine : referenceEval, moves);
+      }
+      const x = cur.next();
+      if (x.done) {
+        playCk(p, x.value.move);
+        cur = null;
+      }
       return null;
     },
   };
@@ -184,9 +207,10 @@ export function duel(opening: number, first: boolean, depth: number, mine: CkEva
 
 /**
  * Ratings of the reference engines on Ghosty's own scale: depth 1 = 1000, each next depth rated by a
- * match between neighbouring depths (tests/… scripts measured them; gym2.test.mjs re-checks the order).
+ * 16-game match against the one before (fixed openings both ways). Deeper search helps less than one might
+ * think here: most games between them are drawn.
  */
-export const LADDER = [1000, 1240, 1400, 1560, 1690, 1810, 1920, 2020];
+export const LADDER = [1000, 1044, 1110, 1153, 1219, 1241, 1285, 1306];
 export const ladderRating = (depth: number) => LADDER[Math.max(1, Math.min(8, depth)) - 1]!;
 
 // ---- the learner ---------------------------------------------------------------------------------------------------

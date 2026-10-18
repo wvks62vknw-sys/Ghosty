@@ -130,18 +130,25 @@ function order(p: Pos, moves: number[]): number[] {
   return moves.map((m) => [score(m), m] as const).sort((a, b) => b[0] - a[0]).map((x) => x[1]);
 }
 
-let nodes = 0;
-let nodeCap = Infinity;
+/** One search's node count and cap (each search has its own, so a paused match search and a quick reply never mix). */
+interface Ctx {
+  nodes: number;
+  cap: number;
+  /** The node count at the last pause (the capture search counts too, so pauses go by distance, not multiples). */
+  paused: number;
+}
+let lastNodes = 0;
+
 /** Captures (and promotions) only, until the position is quiet; the side to move may also stand pat. */
-function quiesce(p: Pos, alpha: number, beta: number, ev: ChessEval, qd: number): number {
-  nodes++;
+function quiesce(p: Pos, alpha: number, beta: number, ev: ChessEval, qd: number, c: Ctx): number {
+  c.nodes++;
   const stand = ev(p);
   if (stand >= beta) return stand;
   if (stand > alpha) alpha = stand;
   if (qd > 8) return stand;
   for (const m of order(p, legal(p, true))) {
     make(p, m);
-    const v = -quiesce(p, -beta, -alpha, ev, qd + 1);
+    const v = -quiesce(p, -beta, -alpha, ev, qd + 1, c);
     unmake(p);
     if (v >= beta) return v;
     if (v > alpha) alpha = v;
@@ -149,20 +156,24 @@ function quiesce(p: Pos, alpha: number, beta: number, ev: ChessEval, qd: number)
   return alpha;
 }
 
-function ab(p: Pos, depth: number, alpha: number, beta: number, ev: ChessEval, ply: number): number {
-  nodes++;
+/** Alpha-beta; a generator that pauses about every 1,024 positions, so a long search can be run a slice at a time. */
+function* ab(p: Pos, depth: number, alpha: number, beta: number, ev: ChessEval, ply: number, c: Ctx): Generator<void, number, void> {
+  if (++c.nodes - c.paused >= 1024) {
+    c.paused = c.nodes;
+    yield;
+  }
   if (ply && (p.half >= 100 || repeats(p) >= 1)) return 0;
   if (depth <= 0) {
-    if (!inCheck(p)) return quiesce(p, alpha, beta, ev, 0);
+    if (!inCheck(p)) return quiesce(p, alpha, beta, ev, 0, c);
     depth = 1; // never stop while in check
   }
   const moves = legal(p);
   if (!moves.length) return inCheck(p) ? -MATE + ply : 0;
-  if (nodes > nodeCap) return ev(p);
+  if (c.nodes > c.cap) return ev(p);
   let best = -Infinity;
   for (const m of order(p, moves)) {
     make(p, m);
-    const v = -ab(p, depth - 1, -beta, -alpha, ev, ply + 1);
+    const v = -(yield* ab(p, depth - 1, -beta, -alpha, ev, ply + 1, c));
     unmake(p);
     if (v > best) best = v;
     if (v > alpha) alpha = v;
@@ -171,24 +182,32 @@ function ab(p: Pos, depth: number, alpha: number, beta: number, ev: ChessEval, p
   return best;
 }
 
-/** The best move at `depth` (then the capture search) with evaluator `ev`; the first of equals in move order. */
-export function bestMove(p0: Pos, depth: number, ev: ChessEval, moves = legal(p0), cap = 2_000_000): { move: number; value: number } {
+/** The best move at `depth` (then the capture search) with evaluator `ev`, as a search that can be paused. */
+export function* searchGen(p0: Pos, depth: number, ev: ChessEval, moves = legal(p0), cap = 2_000_000): Generator<void, { move: number; value: number }, void> {
   const p = copyPos(p0);
   p.hist = p0.hist.slice();
-  nodes = 0;
-  nodeCap = cap;
+  const c: Ctx = { nodes: 0, cap, paused: 0 };
   let best = moves[0]!;
   let alpha = -Infinity;
   for (const m of order(p, moves)) {
     make(p, m);
-    const v = -ab(p, depth - 1, -Infinity, -alpha, ev, 1);
+    const v = -(yield* ab(p, depth - 1, -Infinity, -alpha, ev, 1, c));
     unmake(p);
     if (v > alpha) (alpha = v), (best = m);
   }
-  nodeCap = Infinity;
+  lastNodes = c.nodes;
   return { move: best, value: alpha };
 }
-export const nodeCount = () => nodes;
+/** …run to the end at once (the first of equals in move order). */
+export function bestMove(p0: Pos, depth: number, ev: ChessEval, moves = legal(p0), cap = 2_000_000): { move: number; value: number } {
+  const it = searchGen(p0, depth, ev, moves, cap);
+  for (;;) {
+    const r = it.next();
+    if (r.done) return r.value;
+  }
+}
+export const nodeCount = () => lastNodes;
+
 
 // ---- games and matches ----------------------------------------------------------------------------------------------
 
@@ -223,22 +242,31 @@ export function duel(opening: number, first: boolean, depth: number, mine: Chess
   // He plays White when he moves "first" (the openings hand the move back to White).
   const me = first ? 1 : -1;
   let plies = 4;
+  let cur: Generator<void, { move: number; value: number }, void> | null = null;
   return {
     p,
     me,
+    // One step = a slice of one move's search (about a thousand positions), so the worker is never held up for long.
     step() {
-      const moves = legal(p);
-      const r = resultFor(p, plies, moves);
-      if (r != null) return me > 0 ? r : 1 - r;
-      make(p, bestMove(p, depth, p.side === me ? mine : referenceEval, moves).move);
-      plies++;
+      if (!cur) {
+        const moves = legal(p);
+        const r = resultFor(p, plies, moves);
+        if (r != null) return me > 0 ? r : 1 - r;
+        cur = searchGen(p, depth, p.side === me ? mine : referenceEval, moves);
+      }
+      const x = cur.next();
+      if (x.done) {
+        make(p, x.value.move);
+        plies++;
+        cur = null;
+      }
       return null;
     },
   };
 }
 
-/** Ratings of the reference engines on Ghosty's own scale (depth 1 = 1000; each next depth by a match between neighbours). */
-export const LADDER = [1000, 1330, 1590, 1800];
+/** Ratings of the reference engines on Ghosty's own scale: depth 1 = 1000, each next depth rated by a 16-game match against the one before. */
+export const LADDER = [1000, 1221, 1384, 1639];
 export const ladderRating = (depth: number) => LADDER[Math.max(1, Math.min(4, depth)) - 1]!;
 
 // ---- tactics: forced mates (exact) ------------------------------------------------------------------------------------
@@ -337,25 +365,32 @@ class ChessLearner implements Learner {
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
   }
-  /** One self-play game (a quick search with his evaluator, now and then a random move), then Texel-style tuning on its positions. */
-  private game() {
-    const p = fromFen(START);
-    const seen: Int8Array[] = [];
+  /** The self-play game under way (a few moves per call, so the worker is never held up). */
+  private cur: { p: Pos; seen: Int8Array[]; plies: number; opening: number } | null = null;
+  /** Play up to `k` moves of the current self-play game (a quick search with his evaluator, now and then a random move); when it ends, tune on it. True when a game finished. */
+  private play(k: number): boolean {
+    this.cur ??= { p: fromFen(START), seen: [], plies: 0, opening: 2 + Math.floor(this.r() * 6) };
+    const c = this.cur;
     const ev = learnedEval(this.w);
-    let plies = 0;
     let result: number | null = null;
-    let opening = 2 + Math.floor(this.r() * 6);
-    for (;;) {
-      const moves = legal(p);
-      result = resultFor(p, plies, moves);
+    for (let i = 0; i < k; i++) {
+      const moves = legal(c.p);
+      result = resultFor(c.p, c.plies, moves);
       if (result != null) break;
       let m: number;
-      if (opening-- > 0 || this.r() < 0.06) m = moves[Math.floor(this.r() * moves.length)]!;
-      else m = bestMove(p, 1, ev, moves, 4000).move;
-      make(p, m);
-      plies++;
-      if (plies > 6 && !inCheck(p)) seen.push(p.b.slice());
+      if (c.opening-- > 0 || this.r() < 0.06) m = moves[Math.floor(this.r() * moves.length)]!;
+      else m = bestMove(c.p, 1, ev, moves, 4000).move;
+      make(c.p, m);
+      c.plies++;
+      if (c.plies > 6 && !inCheck(c.p)) c.seen.push(c.p.b.slice());
     }
+    if (result == null) return false;
+    this.cur = null;
+    this.tune(c.p, c.seen, result);
+    return true;
+  }
+  /** Texel-style tuning on one finished game. */
+  private tune(p: Pos, seen: Int8Array[], result: number) {
     // Every position he saw learns how the game ended (White's view), TD(λ)-style: its target is a blend of
     // what he thought of the positions after it and, more and more towards the end, the result itself —
     // 1 / 0 for a mate, otherwise how far ahead on material each side finished, as a share (4 points up is
@@ -384,12 +419,12 @@ class ChessLearner implements Learner {
       G = LAMBDA * G + (1 - LAMBDA) * probs[k]!;
     }
   }
-  train(n: number) {
-    const k = Math.max(1, Math.min(n, 2));
-    for (let i = 0; i < k; i++) this.game();
-    this.games += k;
-    this.rand = (this.rand + k * 2654435761) >>> 0;
-    return k;
+  /** A unit is a whole self-play game; one call plays a slice of it (0 until a game is finished). */
+  train(_n: number) {
+    if (!this.play(24)) return 0;
+    this.games++;
+    this.rand = (this.rand + 2654435761) >>> 0;
+    return 1;
   }
   /** Tactics: how many forced mates his search finds (his move is one that keeps a forced mate). */
   tactics(w = this.w) {

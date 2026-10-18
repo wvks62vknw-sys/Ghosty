@@ -216,13 +216,24 @@ interface Node {
 }
 
 /**
- * One engine's move. `t` = his tables (PUCT, values from the tables); null = the reference (UCT with
- * random play-outs). `sims` searches. Returns an inner index or −1 for a pass.
+ * One engine's search for a move, run a slice at a time (so a long search never holds up the worker).
+ * `t` = his tables (PUCT, values from the tables); null = the reference (UCT with random play-outs).
  */
-export function search(g0: Go, sims: number, t: Tables | null, r: () => number): number {
-  const rootMoves = candidates(g0);
-  if (rootMoves.length === 1) return rootMoves[0]!;
-  const open = (g: Go, moves: number[]): Node => {
+export class Searcher {
+  root: Node | null = null;
+  only = -1;
+  done = 0;
+  constructor(
+    private g0: Go,
+    private t: Tables | null,
+    private r: () => number,
+  ) {
+    const rootMoves = candidates(g0);
+    if (rootMoves.length === 1) this.only = rootMoves[0]!;
+    else this.root = this.open(g0, rootMoves);
+  }
+  private open(g: Go, moves: number[]): Node {
+    const t = this.t;
     const prior = new Float32Array(moves.length);
     if (t) {
       const libs = libsAll(g);
@@ -236,60 +247,78 @@ export function search(g0: Go, sims: number, t: Tables | null, r: () => number):
       for (let k = 0; k < moves.length; k++) prior[k] = sum > 0 ? prior[k]! / sum : 1 / moves.length;
     } else prior.fill(1 / moves.length);
     return { moves, prior, n: new Int32Array(moves.length), w: new Float64Array(moves.length), kids: new Array(moves.length).fill(null), total: 0 };
-  };
-  const root = open(g0, rootMoves);
-  for (let s = 0; s < sims; s++) {
-    const g = copyGo(g0);
-    const path: [Node, number][] = [];
-    let node = root;
-    let value: number;
-    for (;;) {
-      // Pick a child: PUCT (his) or UCT with every move tried once first (the reference).
-      let best = 0;
-      let bv = -Infinity;
-      const sq = Math.sqrt(node.total + 1);
-      const ln = Math.log(node.total + 1);
-      for (let k = 0; k < node.moves.length; k++) {
-        const n = node.n[k]!;
-        let u: number;
-        if (t) u = (n ? node.w[k]! / n : 0.5) + 1.2 * node.prior[k]! * sq / (1 + n);
-        else u = n ? node.w[k]! / n + Math.sqrt((2 * ln) / n) : 1e9 + r();
-        if (u > bv) (bv = u), (best = k);
-      }
-      const mover = g.side;
-      doMove(g, node.moves[best]!);
-      path.push([node, best]);
-      if (over(g) || g.moves > g.n * g.n * 3) {
-        const m = margin(g);
-        value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
-        break;
-      }
-      const kid = node.kids[best];
-      if (!kid) {
-        node.kids[best] = open(g, candidates(g));
-        // The new position's value for the side that just moved.
-        if (t) value = 1 - winChance(t, g);
-        else {
-          const m = playout(g, r);
-          value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
+  }
+  /** Run `sims` more simulations. */
+  run(sims: number): void {
+    const root = this.root;
+    if (!root) return;
+    const { t, r, g0 } = this;
+    for (let s = 0; s < sims; s++) {
+      this.done++;
+      const g = copyGo(g0);
+      const path: [Node, number][] = [];
+      let node = root;
+      let value: number;
+      for (;;) {
+        // Pick a child: PUCT (his) or UCT with every move tried once first (the reference).
+        let best = 0;
+        let bv = -Infinity;
+        const sq = Math.sqrt(node.total + 1);
+        const ln = Math.log(node.total + 1);
+        for (let k = 0; k < node.moves.length; k++) {
+          const n = node.n[k]!;
+          let u: number;
+          if (t) u = (n ? node.w[k]! / n : 0.5) + (1.2 * node.prior[k]! * sq) / (1 + n);
+          else u = n ? node.w[k]! / n + Math.sqrt((2 * ln) / n) : 1e9 + r();
+          if (u > bv) (bv = u), (best = k);
         }
-        break;
+        const mover = g.side;
+        doMove(g, node.moves[best]!);
+        path.push([node, best]);
+        if (over(g) || g.moves > g.n * g.n * 3) {
+          const m = margin(g);
+          value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
+          break;
+        }
+        const kid = node.kids[best];
+        if (!kid) {
+          node.kids[best] = this.open(g, candidates(g));
+          // The new position's value for the side that just moved.
+          if (t) value = 1 - winChance(t, g);
+          else {
+            const m = playout(g, r);
+            value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
+          }
+          break;
+        }
+        node = kid;
       }
-      node = kid;
-    }
-    // Back up: value is for the player who made the last move on the path.
-    for (let k = path.length - 1; k >= 0; k--) {
-      const [nd, c] = path[k]!;
-      nd.n[c]!++;
-      nd.w[c]! += value;
-      nd.total++;
-      value = 1 - value;
+      // Back up: value is for the player who made the last move on the path.
+      for (let k = path.length - 1; k >= 0; k--) {
+        const [nd, c] = path[k]!;
+        nd.n[c]!++;
+        nd.w[c]! += value;
+        nd.total++;
+        value = 1 - value;
+      }
     }
   }
-  let best = 0;
-  for (let k = 1; k < root.moves.length; k++) if (root.n[k]! > root.n[best]!) best = k;
-  lastRoot = root;
-  return root.moves[best]!;
+  /** The most visited move (inner index, −1 = pass). */
+  best(): number {
+    const root = this.root;
+    if (!root) return this.only;
+    let best = 0;
+    for (let k = 1; k < root.moves.length; k++) if (root.n[k]! > root.n[best]!) best = k;
+    return root.moves[best]!;
+  }
+}
+
+/** A whole search at once: `sims` simulations, then the most visited move. */
+export function search(g0: Go, sims: number, t: Tables | null, r: () => number): number {
+  const s = new Searcher(g0, t, r);
+  s.run(sims);
+  lastRoot = s.root;
+  return s.best();
 }
 let lastRoot: Node | null = null;
 
@@ -306,7 +335,7 @@ export const OPENINGS: [number, number][] = (() => {
   }
   return out;
 })();
-export const gamesFor = (level: number) => (lvl(level) <= 4 ? 16 : 10);
+export const gamesFor = (level: number) => (lvl(level) <= 4 ? 12 : 8);
 
 export function duel(opening: number, first: boolean, sims: number, mine: Tables, seed: number): Stepper & { g: Go; me: number } {
   const g = newGo(9);
@@ -316,23 +345,34 @@ export function duel(opening: number, first: boolean, sims: number, mine: Tables
   // He is Black when he moves "first".
   const me = first ? 1 : 2;
   const r = rng(seed);
+  let cur: Searcher | null = null;
   return {
     g,
     me,
+    // One step = a slice of one move's search (at most 32 of his look-ups or 12 random play-outs), so the worker is never held up for long.
     step() {
       if (over(g) || g.moves > 200) {
         const m = margin(g);
         const res = m === 0 ? 0.5 : m > 0 ? 1 : 0;
         return me === 1 ? res : 1 - res;
       }
-      doMove(g, search(g, sims, g.side === me ? mine : null, r));
+      cur ??= new Searcher(g, g.side === me ? mine : null, r);
+      cur.run(Math.min(g.side === me ? 32 : 12, sims - cur.done));
+      if (cur.done >= sims || !cur.root) {
+        doMove(g, cur.best());
+        cur = null;
+      }
       return null;
     },
   };
 }
 
-/** Ratings of the reference engines on Ghosty's own scale (8 play-outs = 1000; each next rung by a match between neighbours). */
-export const LADDER = [1000, 1150, 1290, 1420, 1500, 1570, 1620, 1680, 1720, 1750];
+/**
+ * Ratings of the reference engines on Ghosty's own scale: 8 play-outs = 1000. Matches between neighbouring
+ * rungs (12 games each, 8 … 300 play-outs) came to about 140 points for each doubling of the play-outs —
+ * single small matches are noisy, so the ladder uses that fitted line: 1000 + 138 × log2(play-outs ÷ 8).
+ */
+export const LADDER = [1000, 1138, 1276, 1414, 1503, 1584, 1641, 1722, 1779, 1823];
 export const ladderRating = (level: number) => LADDER[lvl(level) - 1]!;
 
 // ---- capture puzzles (exact) ---------------------------------------------------------------------------------------
@@ -410,7 +450,7 @@ interface GoSave {
   rand: number;
 }
 
-const TRAIN_SIMS = 24;
+const TRAIN_SIMS = 16;
 
 class GoLearner implements Learner {
   t: Tables;
@@ -434,28 +474,40 @@ class GoLearner implements Learner {
     this.r = rng(this.rand);
   }
   /** One self-play game with a quick search, then every position learns who owned each point at the end, and which moves the search liked. */
-  private game() {
-    const g = newGo(9);
-    const seen: { g: Go; moves: number[]; visits: number[] }[] = [];
-    while (!over(g) && g.moves < 200) {
+  /** The self-play game under way (played a few moves per call, so the worker is never held up). */
+  private cur: { g: Go; seen: { g: Go; moves: number[]; visits: number[] }[] } | null = null;
+  /** Play up to `k` moves of the current self-play game; when it ends, learn from it. True when a game finished. */
+  private play(k: number): boolean {
+    this.cur ??= { g: newGo(9), seen: [] };
+    const { g, seen } = this.cur;
+    for (let i = 0; i < k && !over(g) && g.moves < 200; i++) {
       let m: number;
       const cand = candidates(g);
       if (g.moves < 4 || this.r() < 0.05) m = cand[Math.floor(this.r() * cand.length)]!;
       else {
         m = search(g, TRAIN_SIMS, this.t, this.r);
-        const root = lastRoot!;
-        seen.push({ g: copyGo(g), moves: root.moves.slice(), visits: Array.from(root.n) });
-        // Early on, follow the search's visits loosely (more variety).
-        if (g.moves < 12) {
-          let x = this.r() * root.total;
-          for (let k = 0; k < root.moves.length; k++) if ((x -= root.n[k]!) < 0) {
-            m = root.moves[k]!;
-            break;
+        const root = lastRoot;
+        if (root) {
+          seen.push({ g: copyGo(g), moves: root.moves.slice(), visits: Array.from(root.n) });
+          // Early on, follow the search's visits loosely (more variety).
+          if (g.moves < 12) {
+            let x = this.r() * root.total;
+            for (let j = 0; j < root.moves.length; j++)
+              if ((x -= root.n[j]!) < 0) {
+                m = root.moves[j]!;
+                break;
+              }
           }
         }
       }
       doMove(g, m);
     }
+    if (!over(g) && g.moves < 200) return false;
+    this.cur = null;
+    this.learn(g, seen);
+    return true;
+  }
+  private learn(g: Go, seen: { g: Go; moves: number[]; visits: number[] }[]) {
     const owner = area(g).owner;
     const t = this.t;
     for (const s of seen) {
@@ -494,11 +546,12 @@ class GoLearner implements Learner {
       });
     }
   }
-  train(n: number) {
-    this.game();
+  /** A unit is a whole self-play game; one call plays a slice of it (0 until a game is finished). */
+  train(_n: number) {
+    if (!this.play(12)) return 0;
     this.games++;
     this.rand = (this.rand + 2654435761) >>> 0;
-    return n > 0 ? 1 : 0;
+    return 1;
   }
   /** Capture puzzles: his move (his search on the small board) is one that captures the stones by force. */
   puzzles(t = this.t) {

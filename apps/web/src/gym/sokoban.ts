@@ -47,7 +47,7 @@ export function spec(level: number): LevelSpec {
     { w: 9, h: 9, boxes: 4, pulls: 80, minPush: 22, budget: 9 },
     { w: 10, h: 9, boxes: 4, pulls: 90, minPush: 25, budget: 10 },
     { w: 10, h: 10, boxes: 4, pulls: 100, minPush: 28, budget: 11 },
-    { w: 10, h: 10, boxes: 5, pulls: 110, minPush: 30, budget: 12 },
+    { w: 10, h: 10, boxes: 4, pulls: 110, minPush: 30, budget: 12 },
 ][L - 1]!;
 }
 

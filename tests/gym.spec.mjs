@@ -1,7 +1,9 @@
-// The GYM tab on an iPhone 13. The tab opens with a card for each of the ten games; tic-tac-toe opens and
+// The GYM tab on an iPhone 13. The tab opens with a card for each game (part 1's ten, part 2's six and any added later); tic-tac-toe opens and
 // TRAIN runs in the Web Worker while a timer on the page keeps ticking (no frozen screen); progress is
 // measured, saved to IndexedDB, survives a reload and training carries on from it; PLAY HIM works on the
-// tic-tac-toe and Connect 4 boards (he answers each move); WATCH plays a maze route frame by frame;
+// tic-tac-toe and Connect 4 boards (he answers each move), and on the checkers, chess and Go boards with taps
+// (a picked piece lights up its legal squares; Go marks the legal points and has PASS); WATCH plays a maze
+// route frame by frame and draws the balancing run;
 // Code Breaker cracks a code the owner picks. While a game trains, card taps still land and a finished
 // WATCH stays on the board; an armed RESET does not carry over to another game; a game RESET while it
 // trains does not come back (in the page or after a reload). Nothing sticks out sideways at 390 px; the security policy
@@ -67,11 +69,12 @@ const closeLog = async () => {
 
 // ---- the tab and its cards ----
 await boot();
-await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM tab did not open with its game cards');
+const CARDS = 16;
+await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM tab did not open with its game cards', CARDS);
 await closeLog();
 const n = await G('.gymcard').count();
-if (n !== 10) problems.push(`the GYM shows ${n} game cards (want 10)`);
-for (const name of ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS']) {
+if (n < CARDS) problems.push(`the GYM shows ${n} game cards (want at least ${CARDS})`);
+for (const name of ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS', 'CHECKERS', 'CHESS', 'GO 9×9', 'SIMPLE POKER', 'SOKOBAN', 'BALANCE & LANDER']) {
   if (!(await G('.gymcard .gymname', { hasText: name }).count()) && !(await page.locator(`#pg-gym .gymcard:has-text("${name}")`).count())) problems.push(`no card for ${name}`);
 }
 await wideCheck('the game cards');
@@ -113,7 +116,7 @@ await page.waitForTimeout(500);
 
 // ---- reload: what he learned is still there, and training carries on from it ----
 await boot();
-await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after a reload');
+await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM did not come back after a reload', CARDS);
 await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `progress did not survive the reload (had ${before?.units} games)`, before?.units ?? 1);
 const after = (await st()).recs.tictactoe;
 if (after && before && (after.level !== before.level || Math.abs(after.mastery - before.mastery) > 1e-9)) problems.push(`after the reload the record changed: ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
@@ -151,8 +154,57 @@ if (cb[3 * 6] !== 1) problems.push('my Connect 4 stone did not drop to the botto
 await wideCheck('playing Connect 4');
 await page.screenshot({ path: `${out}/gym-c4.png` });
 
+// ---- PLAY HIM on the bigger boards: checkers, chess, Go (taps; legal squares light up) ----
+const cellAt = (i) => G('.gymboard button.gymcell').nth(i);
+const lit = () => page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymboard .gymcell.tgt')].length);
+for (const [id, pick, to, label] of [
+  // Checkers: Black's man on square 9 (row 3 from the top, b-file) → square 13 below it.
+  ['checkers', 2 * 8 + 1, 3 * 8 + 2, 'checkers'],
+  // Chess: the e2 pawn → e4.
+  ['chess', 6 * 8 + 4, 4 * 8 + 4, 'chess'],
+]) {
+  await card(id).click();
+  await until((x) => window.__ghosty?.gym?.open === x, 5000, `the ${id} card did not open`, id);
+  await G('button', { hasText: 'PLAY HIM' }).click();
+  await until((x) => window.__ghosty?.gym?.play?.game === x, 5000, `PLAY HIM did not start ${id}`, id);
+  const cells = await G('.gymboard button.gymcell').count();
+  if (cells !== 64) problems.push(`${id}: the board has ${cells} squares (want 64)`);
+  const tiny = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymboard .gymcell')].filter((b) => b.getBoundingClientRect().width < 34).length);
+  if (tiny) problems.push(`${id}: ${tiny} squares are too small to tap`);
+  await cellAt(pick).click();
+  await until(() => document.querySelectorAll('#pg-gym .gymboard .gymcell.sel').length === 1, 5000, `${id}: tapping a piece did not pick it`);
+  const targets = await lit();
+  if (targets < 1) problems.push(`${id}: no legal squares lit after picking a piece`);
+  if (!(await cellAt(to).evaluate((e) => e.classList.contains('tgt')))) problems.push(`${id}: the square I want is not lit as legal`);
+  await page.evaluate(() => (window.__ghosty.gym.play.replies = 0));
+  await cellAt(to).click();
+  await until(() => (window.__ghosty.gym.play.replies ?? 0) >= 1 || /He played/.test(document.querySelector('#pg-gym .gymboard .gymcap')?.textContent ?? ''), 30000, `he did not answer my ${id} move`);
+  await wideCheck(`playing ${id}`);
+  await page.screenshot({ path: `${out}/gym-${id}.png` });
+}
+// Go: legal points are marked; tap the centre; he answers; PASS is there.
+await card('go').click();
+await until(() => window.__ghosty?.gym?.open === 'go', 5000, 'the Go card did not open');
+await G('button', { hasText: 'PLAY HIM' }).click();
+await until(() => window.__ghosty?.gym?.play?.game === 'go', 5000, 'PLAY HIM did not start Go');
+if ((await G('.gymboard button.gymcell').count()) !== 81) problems.push('Go: the board is not 9×9');
+if ((await lit()) < 81) problems.push(`Go: only ${await lit()} legal points marked on an empty board`);
+await cellAt(40).click();
+await until(() => window.__ghosty.gym.play.board.filter((x) => x === 2).length >= 1, 30000, 'he did not answer my Go move');
+if (!(await cellAt(40).evaluate((e) => e.classList.contains('bs')))) problems.push('Go: my stone is not on the centre point');
+if (!(await G('.gymboard button', { hasText: 'PASS' }).count())) problems.push('Go: no PASS button');
+await wideCheck('playing Go');
+await page.screenshot({ path: `${out}/gym-go.png` });
+
+// ---- WATCH draws the balancing run ----
+await card('balance').click();
+await G('button', { hasText: 'WATCH' }).click();
+await until(() => window.__ghosty?.gym?.frames >= 3 && !!document.querySelector('#pg-gym .gymboard svg.gymdraw'), 15000, 'WATCH did not draw the cart and pole');
+await wideCheck('watching the balance run');
+
 // ---- WATCH: a maze route, frame by frame ----
 await card('maze').click();
+await page.evaluate(() => (window.__ghosty.gym.frames = 0)); // (the balance run before counted frames too)
 await G('button', { hasText: 'WATCH' }).click();
 await until(() => window.__ghosty?.gym?.frames >= 2, 15000, 'WATCH did not play his maze route');
 if (!(await G('.gymboard .gymcell.me').count()) && !(await G('.gymboard .gymcell').count())) problems.push('WATCH shows no maze');
@@ -212,7 +264,7 @@ const afterReset = await st();
 if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
 if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
 await boot();
-await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after the reset reload');
+await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM did not come back after the reset reload', CARDS);
 await page.waitForTimeout(1000);
 if ((await st()).recs.maze) problems.push('the reset maze came back after a reload');
 await closeLog();
@@ -221,5 +273,5 @@ const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.evaluate(() => clearInterval(window.__tick));
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: 10 cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on both boards, WATCH, a code cracked; card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${n} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
 process.exit(problems.length ? 1 : 0);

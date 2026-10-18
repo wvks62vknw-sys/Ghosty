@@ -20,3 +20,6 @@ import { words } from './words';
 export const GAMES: Game[] = [maze, codebreaker, colony, trust, tictactoe, connect4, tiles, sudoku, countdown, words, checkers, chess, go, poker, sokoban, balance];
 
 export const gameById = (id: string): Game | undefined => GAMES.find((g) => g.id === id);
+
+/** Matches against reference engines play a slice per measurement; tests play whole matches at once. */
+export { setSlice } from './match';
