@@ -53,7 +53,7 @@ export const TRUST: GameMeta = {
   blurb: 'cooperate or defect · evolution',
   learns: 'A population of strategies evolves by playing each other; he learns which kind of trust pays off.',
   unit: 'generations',
-  bar: () => 0.8,
+  bar: () => 0.75,
 };
 export const TICTACTOE: GameMeta = {
   id: 'tictactoe',

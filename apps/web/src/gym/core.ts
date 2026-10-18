@@ -131,7 +131,7 @@ export function argmax(xs: ArrayLike<number>, from = 0, n = xs.length - from): n
 export function finalLine(text: string): string {
   const lines = text
     .split('\n')
-    .map((l) => l.replace(/[*_`#>]+/g, ' ').trim())
+    .map((l) => l.replace(/\*\*|__|`/g, ' ').replace(/^[#>\s]+/, '').trim())
     .filter(Boolean);
   return (lines[lines.length - 1] ?? '').replace(/^[A-Za-z][A-Za-z ]{0,30}:\s*/, '').trim();
 }

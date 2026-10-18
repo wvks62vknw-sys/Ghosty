@@ -9,7 +9,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['core', 'index', 'session', 'worker', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words'].map((f) => at(`../../web/src/gym/${f}.ts`)),
+  entryPoints: ['core', 'meta', 'index', 'session', 'worker', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words'].map((f) => at(`../../web/src/gym/${f}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -139,7 +139,73 @@ const RIGHT = {
   },
   words: (p) => p.data.answer,
 };
-const WRONG = { maze: '', codebreaker: '0', colony: 'MINE MINE MINE MINE MINE MINE MINE MINE MINE MINE MINE MINE', trust: '-1', tictactoe: '0', connect4: '0', tiles: 'U', sudoku: '1', countdown: '1 + 1', words: 'zzzzz' };
+/** The right answer written the way a person (or a model) might: a label, words, a sentence. */
+const MAZE_WORDS = { N: 'north', E: 'east', S: 'south', W: 'west' };
+const TILE_WORDS = { U: 'up', D: 'down', L: 'left', R: 'right' };
+const LABELLED = {
+  maze: (p, r) => `Working it out step by step.\nRoute: ${[...r].map((c) => MAZE_WORDS[c]).join(', ')}`,
+  codebreaker: (p, r) => `Looking at the clues one by one.\nAfter ${p.text.split('\n').length - 2} clues, the code is ${r.split('').join(' ')}`,
+  colony: (p, r) => `Plan:\n${r.split(' ').map((a, i) => `Day ${i + 1}: ${a}`).join('\n')}`,
+  trust: (p, r) => `Round by round it adds up.\nSo A scores ${r} points.`,
+  tictactoe: (p, r) => `I would play square ${r}.`,
+  connect4: (p, r) => `**Answer:** column ${r}`,
+  tiles: (p, r) => `Solution: ${[...r].map((c) => TILE_WORDS[c]).join(' ')}`,
+  sudoku: (p, r) => (p.data.kind === 'sudoku' ? `Here is the grid.\n${[...Array(9).keys()].map((i) => `Row ${i + 1}: ${r.slice(i * 9, i * 9 + 9).split('').join(' ')}`).join('\n')}` : `Answer:\n${r}`),
+  countdown: (p, r) => `Answer: ${r.replace(/\*/g, '×')} = ${p.data.target}`,
+  words: (p, r) => `The word is ${r.toUpperCase()}.`,
+};
+/** Near misses: answers that look right but are not. */
+const WRONG = {
+  maze(p) {
+    // The cheapest route with a step there and back added (still reaches the gold, costs more), or one step short.
+    const r = RIGHT.maze(p);
+    const m = MZ.makeMaze(p.data.level, p.data.seed);
+    for (let d = 0; d < 4; d++) {
+      const st = MZ.stepMaze(m, p.data.start, d);
+      if (!st.bump && !st.done) return `${'NESW'[d]}${'NESW'[(d + 2) % 4]}${r}`;
+    }
+    return r.slice(0, -1);
+  },
+  codebreaker: (p) => p.data.answer.split('').reverse().join('') === p.data.answer ? p.data.answer.replace(/^./, (c) => String((Number(c) % 2) + 1)) : p.data.answer.split('').reverse().join(''),
+  colony(p) {
+    // The best plan with its first action changed to something else that is allowed.
+    const plan = RIGHT.colony(p).split(' ');
+    plan[0] = plan[0] === 'REST' ? 'MINE' : 'REST';
+    return plan.join(' ');
+  },
+  trust: (p) => String(p.data.answer + 1),
+  tictactoe: (p) => String(p.data.board.map((x, i) => (x ? -1 : i + 1)).find((sq) => sq > 0 && !p.data.best.includes(sq))),
+  connect4: (p) => String([1, 2, 3, 4, 5, 6, 7].find((c) => !p.data.best.includes(c) && p.data.board[(c - 1) * 6 + 5] === 0)),
+  tiles(p) {
+    // A real solution with a wasted pair of moves in front.
+    const r = RIGHT.tiles(p);
+    for (const [a, b] of [['U', 'D'], ['D', 'U'], ['L', 'R'], ['R', 'L']]) if (TI.slide(p.data.board, p.data.n, 'UDLR'.indexOf(a))) return a + b + r;
+    return r.slice(1);
+  },
+  sudoku(p) {
+    if (p.data.kind === 'sudoku') {
+      // Two of the empty cells' answers swapped (a grid that looks finished).
+      const v = p.data.solution.slice();
+      const blanks = p.data.puzzle.map((x, i) => (x ? -1 : i)).filter((i) => i >= 0);
+      const j = blanks.find((k) => v[k] !== v[blanks[0]]);
+      [v[blanks[0]], v[j]] = [v[j], v[blanks[0]]];
+      return v.join('');
+    }
+    // Two people's answers swapped.
+    const a = p.data.answer.slice();
+    [a[0], a[1]] = [a[1], a[0]];
+    return p.data.people.map((nm, i) => `${nm}: ${a[i].join(', ')}`).join('\n');
+  },
+  countdown(p) {
+    // The right expression with its last number nudged by one (still all the numbers' look, the wrong result).
+    const r = RIGHT.countdown(p);
+    return r.replace(/(\d+)(\)*)$/, (_, n, br) => `${Number(n) + 1}${br}`);
+  },
+  words(p) {
+    const list = WD.WORDS.slice(0, WD.listSize(p.level));
+    return list.find((w) => w !== p.data.answer && w[0] === p.data.answer[0]) ?? list.find((w) => w !== p.data.answer);
+  },
+};
 
 test('gym: every game makes checkable problems at every level — same seed, same problem; the right answer passes, a wrong one fails', () => {
   for (const g of GAMES) {
@@ -153,11 +219,63 @@ test('gym: every game makes checkable problems at every level — same seed, sam
         const ok = g.check(p, RIGHT[g.id](p));
         assert.ok(ok.correct, `${g.id} L${level} seed ${seed}: the right answer failed: ${ok.why}`);
         assert.equal(ok.score, 1, `${g.id}: score`);
-        const bad = g.check(p, WRONG[g.id]);
-        assert.ok(!bad.correct, `${g.id} L${level}: a wrong answer passed`);
+        const lab = g.check(p, LABELLED[g.id](p, RIGHT[g.id](p)));
+        assert.ok(lab.correct, `${g.id} L${level} seed ${seed}: the right answer with a label and words failed: ${lab.why}`);
+        const wrong = WRONG[g.id](p);
+        const bad = g.check(p, wrong);
+        assert.ok(!bad.correct, `${g.id} L${level} seed ${seed}: a near miss passed: ${wrong}`);
         assert.ok(bad.score < 1 && bad.why, g.id);
+        assert.ok(!g.check(p, LABELLED[g.id](p, wrong)).correct, `${g.id} L${level}: a labelled near miss passed`);
       }
     }
+  }
+});
+
+test('gym: no level is handed out — an untrained learner is below the bar at every level of every game', () => {
+  for (const g of GAMES) {
+    for (let level = 1; level <= 10; level++) {
+      const m = g.learner(level, 1).measure().mastery;
+      assert.ok(m < g.bar(level), `${g.id} L${level}: untrained mastery ${m} reaches the bar ${g.bar(level)}`);
+    }
+    // And a session that only measures never moves up.
+    const s = new S.Session(g);
+    assert.equal(s.measure(), null, `${g.id}: measuring alone passed a level`);
+    assert.equal(s.rec.level, 1);
+  }
+});
+
+test('gym: checkers read the final answer — labels, words, "x" for times; they don\'t pick numbers out of the working', () => {
+  // Countdown: labels and "= result" off, x only between numbers, ":" is not division.
+  const p24 = { game: 'countdown', level: 1, seed: 0, text: '', data: { nums: [3, 5, 3], target: 24, exact: true } };
+  for (const a of ['Answer: (3 + 5) × 3', '(3+5)x3', '(3 + 5) * 3 = 24', 'Expression: (3 + 5) × 3']) assert.ok(CD.countdown.check(p24, a).correct, a);
+  assert.ok(!CD.countdown.check(p24, '(3 + 5) : 3').correct, 'a colon is not division');
+  // Maze: "EAST" is east, not E then S.
+  const mz = MZ.maze.generate(2, 3);
+  const route = RIGHT.maze(mz);
+  assert.ok(MZ.maze.check(mz, `My route: ${[...route].map((c) => MAZE_WORDS[c].toUpperCase()).join(' ')}`).correct);
+  // Colony: "determine" and "interest" are not MINE and REST.
+  const co = CO.colony.generate(3, 4);
+  assert.ok(CO.colony.check(co, `I determine the best plan in my interest:\n${RIGHT.colony(co)}`).correct);
+  // Tic-tac-toe, Connect 4, Trust: the last number of the last line, not the first digit anywhere.
+  const tt = TT.tictactoe.generate(5, 3);
+  assert.ok(TT.tictactoe.check(tt, `Looking at row 1 and column 2 …\nBest square: ${tt.data.best[0]}`).correct);
+  const tr = TR.trust.generate(4, 2);
+  assert.ok(TR.trust.check(tr, `Over ${tr.data.rounds} rounds\nA scores ${tr.data.answer}`).correct);
+  // Code breaker: "After 2 clues, the code is 312".
+  const cb = CB.codebreaker.generate(5, 2);
+  assert.ok(CB.codebreaker.check(cb, `After 2 clues, the code is ${cb.data.answer}`).correct);
+});
+
+test('logic grids: each person needs exactly one item of each kind — naming every item is not an answer', () => {
+  for (const seed of [1, 3, 5, 7]) {
+    const g = SU.sudoku.generate(6, seed);
+    const all = ['cat', 'dog', 'fish', 'bird', 'rabbit', 'tea', 'coffee', 'juice', 'milk', 'water', 'red', 'blue', 'green', 'yellow', 'white'];
+    const shotgun = g.data.people.map((nm) => `${nm}: ${all.join(', ')}`).join('\n');
+    assert.ok(!SU.sudoku.check(g, shotgun).correct, 'every item on every line');
+    assert.equal(SU.sudoku.check(g, shotgun).score, 0);
+    // Two people on one line still read apart.
+    const right = g.data.people.map((nm, i) => `${nm}: ${g.data.answer[i].join(', ')}`).join('; ');
+    assert.ok(SU.sudoku.check(g, right).correct, right);
   }
 });
 
@@ -215,9 +333,9 @@ test('code breaker: Mastermind feedback, and the yardstick is Knuth\'s: 4.476 gu
 
 test('code breaker: evolving his guessing policy brings him level with (or past) the minimax yardstick', () => {
   const r = climb(CB.codebreaker.learner(5, 3), CB.codebreaker.bar(5), 64, 64 * 200);
-  assert.ok(r.first < 0.9, `random weights should start worse (${r.first})`);
+  assert.equal(r.first, 0, 'he starts naive: the first code that fits (0%)');
   assert.ok(r.last >= CB.codebreaker.bar(5), `after ${r.units} games: ${r.last}`);
-  const l = CB.codebreaker.learner(3, 1);
+  const l = CB.codebreaker.learner(2, 1);
   const w = l.watch(1, '123');
   assert.match(w.at(-1).caption, /Cracked 123 in \d guesses/);
 });
@@ -268,15 +386,22 @@ test('trust: exact match scores, the classics by name, and the exhaustive best m
   assert.equal(TR.nameOf(TR.mem1(1, [1, 0, 1, 0])), 'TIT FOR TAT');
   assert.equal(TR.nameOf(TR.mem1(1, [1, 1, 0, 0])), 'C·CCDD');
   assert.equal(TR.bestMem1(1).name, 'TIT FOR TAT', 'with no mistakes Tit for Tat is the best memory-1 strategy against the panel');
+  // Evolution never plays the test panel: the two panels share no strategy.
+  assert.deepEqual(TR.PANEL.filter((x) => TR.TRAIN_PANEL.includes(x)), []);
+  // ALWAYS DEFECT is clearly worse than the best at every level (else defectors would pass at once).
+  for (let L = 1; L <= 10; L++) {
+    const b = TR.bestMem1(L);
+    assert.ok(b.score - b.defect > 0.3, `L${L}: best ${b.score} vs ALWAYS DEFECT ${b.defect}`);
+  }
 });
 
 test('trust: from a world of defectors, evolution finds trust — Tit-for-Tat-like strategies rise', () => {
   const l = TR.trust.learner(1, 3);
   const first = l.measure().mastery;
-  l.train(60);
+  l.train(150);
   const last = l.measure();
-  assert.ok(first < 0.85, `${first}`);
-  assert.ok(last.mastery >= 0.9, last.detail);
+  assert.equal(first, 0, 'a world of defectors is 0%');
+  assert.ok(last.mastery >= TR.trust.bar(1), last.detail);
   const shares = l.shares();
   const tftish = shares.filter(([nm]) => ['TIT FOR TAT', 'GRUDGER', 'WIN-STAY LOSE-SHIFT'].includes(nm)).reduce((t, [, v]) => t + v, 0);
   assert.ok(tftish >= 0.4, `nice, retaliating strategies should lead: ${JSON.stringify(shares.slice(0, 4))}`);
@@ -299,7 +424,7 @@ test('tic-tac-toe: self-play reaches 100% — his move is perfect in every one o
   const r = climb(l, 1, 5000, 200000);
   assert.ok(r.first < 0.9, `${r.first}`);
   assert.equal(r.last, 1, `after ${r.units} games: ${r.last}`);
-  assert.match(l.measure().detail, /4,520 of all 4,520/);
+  assert.match(l.measure().detail, /([\d,]+) of the \1 positions where the choice matters \(of all 4,520/);
   // PLAY HIM: he takes the win, and blocks.
   assert.equal(l.move([2, 2, 0, 1, 1, 0, 1, 0, 0]), 2, 'O to move wins at square 3');
   assert.equal(l.move([1, 1, 0, 2, 0, 0, 0, 0, 0]), 2, 'O to move blocks at square 3');
@@ -324,6 +449,14 @@ test('connect 4: the exact solver — a win in one, consistent values, and a fix
       else assert.ok(after < v);
     }
   }
+  // The stored test positions are exactly what the solver makes (checked here for the quicker levels).
+  for (const L of [1, 2, 3, 4, 5]) {
+    const stored = C4.testSet(L);
+    const fresh = C4.testSet(L, 40, true);
+    assert.deepEqual(stored.map((t) => [Array.from(t.pos.b).join(''), t.best]), fresh.map((t) => [Array.from(t.pos.b).join(''), t.best]), `L${L}`);
+  }
+  // A few of the hardest level's stored answers, solved again.
+  for (const t of C4.testSet(10).slice(0, 2)) assert.deepEqual(C4.bestMoves(t.pos).best, t.best);
   const set = C4.testSet(2);
   assert.equal(set.length, 40);
   assert.deepEqual(C4.testSet(2), set, 'the same positions every time');
@@ -338,7 +471,8 @@ test('connect 4: self-play training of the n-tuple evaluator raises agreement wi
   const first = l.measure().mastery;
   l.train(30000);
   const last = l.measure().mastery;
-  assert.ok(last > first + 0.05, `agreement ${first} → ${last}`);
+  assert.equal(first, 0, 'untrained = the search alone = 0%');
+  assert.ok(last >= C4.connect4.bar(1), `${l.measure().detail}`);
   // PLAY HIM: he takes a win in one.
   const b = C4.newPos();
   for (const c of [0, 6, 0, 6, 0]) C4.play(b, c);
@@ -400,6 +534,26 @@ test('sudoku: learning the order of his rules and how to guess cuts his steps un
 });
 
 // ---------------------------------------------------------------------------------------------------------
+test('countdown: the 24 game uses up a 1 with ×1 or ÷1 — the exact solver is exhaustive, and his moves can say so', () => {
+  const sol = CD.solve([1, 3, 8], 24, true);
+  assert.ok(sol, '(3 × 8) × 1');
+  const e = CD.countdown.env(1);
+  e.reset(1);
+  e.p = { nums: [1, 3, 8], target: 24, exact: true };
+  e.nums = [1, 3, 8];
+  const moves = CD.moves(e.nums, true);
+  assert.ok(moves.some((m) => m.s.op === 2 && m.s.b === 1), 'the moves include × 1');
+  // Play the solution through the env: it ends on 24.
+  let r;
+  for (const st of sol) {
+    const k = CD.moves(e.nums, true).findIndex((m) => m.s.a === st.a && m.s.b === st.b && m.s.op === st.op);
+    assert.ok(k >= 0 && e.actions().includes(k));
+    r = e.step(k);
+  }
+  assert.ok(r.done && r.reward > 0);
+  assert.ok(CD.countdown.check({ game: 'countdown', level: 1, seed: 0, text: '', data: { nums: [1, 3, 8], target: 24, exact: true } }, '3 × 8 × 1').correct);
+});
+
 test('countdown: the rules (whole numbers above zero), the exhaustive solver, and checking an expression', () => {
   assert.equal(CD.apply(7, 2, 3), -1, '7 ÷ 2 is not whole');
   assert.equal(CD.apply(3, 5, 1), -1, 'no going below zero');
@@ -410,7 +564,7 @@ test('countdown: the rules (whole numbers above zero), the exhaustive solver, an
   const p = { game: 'countdown', level: 5, seed: 0, text: '', data: { nums: [100, 4, 9, 2, 7], target: 728, exact: false } };
   assert.ok(CD.countdown.check(p, '(100 + 4) × (9 − 2)').correct);
   assert.ok(!CD.countdown.check(p, '100 × 7 + 4 × 7').correct, '7 used twice');
-  for (const L of [1, 5, 10]) for (const q of CD.bench(L).slice(0, 3)) assert.ok(CD.solve(q.nums, q.target, q.exact), 'only solvable problems are set');
+  for (const L of [1, 5, 10]) for (const { p: q } of CD.bench(L).slice(0, 3)) assert.ok(CD.solve(q.nums, q.target, q.exact), 'only solvable problems are set');
 });
 
 test('countdown: evolving the order he tries combinations in solves more within the budget', () => {
@@ -434,9 +588,9 @@ test('word guess: Wordle colours with repeated letters, and the information-gain
 });
 
 test('word guess: his learned policy catches up with the information-gain guesser', () => {
-  const r = climb(WD.words.learner(6, 3), 0.97, 200, 200 * 100);
-  assert.ok(r.first < 0.9, `${r.first}`);
-  assert.ok(r.last >= 0.97, `after ${r.units} games: ${r.last}`);
+  const r = climb(WD.words.learner(6, 3), WD.words.bar(6), 200, 200 * 100);
+  assert.equal(r.first, 0, 'he starts naive (0%)');
+  assert.ok(r.last >= WD.words.bar(6), `after ${r.units} games: ${r.last}`);
 });
 
 // ---------------------------------------------------------------------------------------------------------
@@ -474,22 +628,85 @@ test('session: passing the bar makes the next level by itself; the record keeps 
 test('worker: TRAIN posts progress and saves, PAUSE saves, WATCH / PLAY HIM / the picture answer by request', async () => {
   const out = [];
   const post = (m) => out.push(m);
+  // PLAY HIM against a trained player: his move is legal and perfect where the position is solved.
+  const tt = new S.Session(gameById('tictactoe'));
+  for (let i = 0; i < 40 && tt.rec.mastery < 1; i++) tt.train(5000), tt.measure();
+  const solved = TT.solve();
+  for (const [k, board] of [[2, [1, 1, 0, 2, 0, 0, 0, 0, 0]], [3, [1, 0, 0, 0, 2, 0, 0, 0, 1]], [4, [1, 2, 0, 0, 1, 0, 0, 0, 0]]]) {
+    W.gymMessage({ gym: 'move', id: 'tictactoe', rec: tt.snapshot(), req: k, board }, post);
+    const mv = out.at(-1).move;
+    assert.equal(out.at(-1).req, k);
+    assert.equal(board[mv], 0, `square ${mv + 1} is taken`);
+    assert.ok(solved.best.get(TT.keyOf(board)).includes(mv), `square ${mv + 1} is not a perfect move in ${board.join('')}`);
+  }
   W.gymMessage({ gym: 'view', id: 'tictactoe', req: 1 }, post);
   assert.equal(out.at(-1).gym, 'reply');
   assert.equal(out.at(-1).view.grid.w, 3);
-  W.gymMessage({ gym: 'move', id: 'tictactoe', req: 2, board: [1, 1, 0, 2, 2, 0, 0, 0, 0] }, post);
-  assert.equal(typeof out.at(-1).move, 'number');
+  W.gymMessage({ gym: 'move', id: 'connect4', req: 5, board: new Array(42).fill(0) }, post);
+  const c = out.at(-1).move;
+  assert.ok(Number.isInteger(c) && c >= 0 && c < 7, `a legal column: ${c}`);
   W.gymMessage({ gym: 'watch', id: 'maze', req: 3, seed: 4 }, post);
   assert.ok(out.at(-1).frames.length >= 1);
   W.gymMessage({ gym: 'train', id: 'maze', rec: null }, post);
   assert.equal(out.at(-1).gym, 'progress');
   assert.equal(out.at(-1).training, true);
   assert.equal(out.at(-1).rec.saved, null, 'progress carries no learner state');
+  const before = out.at(-1).rec.history.length;
   await new Promise((r) => setTimeout(r, 1900));
+  const during = out.filter((m) => m.gym === 'progress' && m.rec.id === 'maze').at(-1);
+  assert.ok(during.rec.history.length > before && during.rec.units > 0, 'it measured while training (a new point on the graph)');
+  const points = during.rec.history.length;
   W.gymMessage({ gym: 'pause' }, post);
   const saved = out.filter((m) => m.gym === 'save').at(-1);
   assert.ok(saved && saved.rec.units > 0 && saved.rec.saved?.q?.length > 0, 'pausing saves what he learned');
-  assert.ok(out.filter((m) => m.gym === 'progress').length >= 2, 'it measured while training');
+  assert.equal(saved.rec.history.length, points, 'pausing does not stop to measure first');
+  // A failed request answers that request (the page is never left waiting), and training errors are kept apart.
   W.gymMessage({ gym: 'watch', id: 'nope', req: 4 }, post);
-  assert.equal(out.at(-1).gym, 'error');
+  assert.equal(out.at(-1).gym, 'reply');
+  assert.equal(out.at(-1).req, 4);
+  assert.match(out.at(-1).error, /no game/);
+  // RESET: after a new epoch, the old session is gone and messages carry the new epoch.
+  W.gymMessage({ gym: 'reset', id: 'maze', epoch: 1 }, post);
+  W.gymMessage({ gym: 'train', id: 'maze', rec: null, epoch: 1 }, post);
+  const p1 = out.at(-1);
+  assert.equal(p1.epoch, 1);
+  assert.equal(p1.rec.units, 0, 'a reset game starts again');
+  W.gymMessage({ gym: 'pause' }, post);
+  // The page keeps only messages from a game's current epoch.
+  assert.ok(S.current({ maze: 1 }, 'maze', 1));
+  assert.ok(!S.current({ maze: 1 }, 'maze', 0), 'a message from before the reset is dropped');
+  assert.ok(S.current({}, 'tiles', undefined));
+});
+
+test('worker speed: stored test sets, cached baselines, nothing slow on the way to PAUSE / PLAY HIM / WATCH', () => {
+  // Connect 4's hardest test set and the 15-puzzle benchmark come from the stored lists (no solving).
+  let t = performance.now();
+  C4.testSet(10);
+  TI.bench(10);
+  assert.ok(performance.now() - t < 100, `stored sets took ${performance.now() - t} ms`);
+  // The stored tile benchmarks are what the solvers make.
+  for (let L = 1; L <= 10; L++) assert.deepEqual(TI.bench(L), TI.bench(L, true), `tiles L${L}`);
+  // A 15-puzzle measurement is quick now (a budget per level instead of thousands of positions).
+  const l = TI.tiles.learner(10, 1);
+  t = performance.now();
+  l.measure();
+  assert.ok(performance.now() - t < 200, `15-puzzle measure took ${performance.now() - t} ms`);
+  // Sudoku's plain-backtracking baseline is worked out once per level.
+  assert.equal(SU.baselines(4), SU.baselines(4));
+});
+
+test('bundle: the page imports only the games\' descriptions and the two boards — no engine reaches app.js', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8');
+  const gymImports = [...src.matchAll(/from '\.\.\/\.\.\/gym\/([a-z0-9]+)'/g)].map((m) => m[1]);
+  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets'];
+  assert.deepEqual(gymImports.filter((f) => engines.includes(f)), [], `the page imports ${gymImports.join(', ')}`);
+  const typeOnly = [...src.matchAll(/^import (type )?\{[^}]*\} from '\.\.\/\.\.\/gym\/(worker|core)'/gm)];
+  assert.ok(typeOnly.every((m) => m[1] === 'type '), 'worker and core are imported for their types only');
+  // And what it does import pulls in no engine either.
+  for (const f of ['meta', 'session', 'c4board', 'tttboard']) {
+    const s2 = readFileSync(at(`../../web/src/gym/${f}.ts`), 'utf8');
+    const deps = [...s2.matchAll(/^import (type )?[^;]*from '\.\/([a-z0-9]+)'/gm)].filter((m) => !m[1]).map((m) => m[2]);
+    assert.deepEqual(deps.filter((d) => engines.includes(d)), [], `${f} imports ${deps.join(', ')}`);
+  }
 });
