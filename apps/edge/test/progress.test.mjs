@@ -85,12 +85,12 @@ function agentWith(storage) {
 }
 
 const page = (title) => new Response(`<html><head><title>${title}</title></head><body><p>${title} body text.</p></body></html>`, { headers: { 'content-type': 'text/html' } });
-/** Two pages: the slow one answers well after the quick one. */
+/** Two pages: the slow one answers well after the quick one (slow2.example and quick2.example too: a page read moments ago is reused, so a test that times reads uses addresses of its own). */
 function slowAndQuick() {
   globalThis.fetch = (input) => {
     const url = typeof input === 'string' ? input : input.url;
-    if (url === 'https://slow.example/') return new Promise((ok) => setTimeout(() => ok(page('Slow page')), 80));
-    if (url === 'https://quick.example/') return new Promise((ok) => setTimeout(() => ok(page('Quick page')), 5));
+    if (/^https:\/\/slow\d*\.example\/$/.test(url)) return new Promise((ok) => setTimeout(() => ok(page('Slow page')), 80));
+    if (/^https:\/\/quick\d*\.example\/$/.test(url)) return new Promise((ok) => setTimeout(() => ok(page('Quick page')), 5));
     return Promise.reject(new TypeError(`fetch failed: tests have no network (${url})`));
   };
 }
@@ -111,13 +111,13 @@ test('a tool at work reports progress under its own call, between its tool and t
 
 test('two read-only calls in one model message run together: results arrive as each finishes', async () => {
   slowAndQuick();
-  const ev = await chat('read https://slow.example/ and https://quick.example/ together');
+  const ev = await chat('read https://slow2.example/ and https://quick2.example/ together');
   const tools = ev.filter((e) => e.t === 'tool');
-  assert.deepEqual(tools.map((e) => e.args.url), ['https://slow.example/', 'https://quick.example/'], 'both started, in the order the model gave');
+  assert.deepEqual(tools.map((e) => e.args.url), ['https://slow2.example/', 'https://quick2.example/'], 'both started, in the order the model gave');
   const results = ev.filter((e) => e.t === 'tool_result');
   assert.ok(results.every((r) => r.ok), JSON.stringify(results));
-  assert.deepEqual(results.map((r) => tools.find((t) => t.id === r.id).args.url), ['https://quick.example/', 'https://slow.example/'], 'the quick one answers first');
-  assert.ok(ev.findIndex((e) => e.t === 'tool' && e.args?.url === 'https://quick.example/') < ev.findIndex((e) => e.t === 'tool_result'), 'the second read started before the first finished');
+  assert.deepEqual(results.map((r) => tools.find((t) => t.id === r.id).args.url), ['https://quick2.example/', 'https://slow2.example/'], 'the quick one answers first');
+  assert.ok(ev.findIndex((e) => e.t === 'tool' && e.args?.url === 'https://quick2.example/') < ev.findIndex((e) => e.t === 'tool_result'), 'the second read started before the first finished');
   // The model reads every result, in the order it asked for them, whichever finished first.
   const saved = state.storage.m.get('ctx');
   const asked = [...saved].reverse().find((m) => m.role === 'assistant' && m.tool_calls);

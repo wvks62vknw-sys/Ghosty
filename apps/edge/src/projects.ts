@@ -193,6 +193,7 @@ export async function cancelProject(s: Store, p: Project): Promise<Project> {
     await saveProject(s, p);
   }
   await disarmJob(s.storage, p.id);
+  await s.storage.delete(WORK(p.id)).catch(() => undefined);
   return p;
 }
 
@@ -202,7 +203,7 @@ export interface ProjectDeps extends Store {
   env: Env;
   library: Library;
   /** One model call, like Router.complete with its options. */
-  complete: (messages: Msg[], tools: ToolSpec[], opts: { code?: boolean; cheap?: boolean; maxWaitMs?: number }) => Promise<{ message: Msg; model: string }>;
+  complete: (messages: Msg[], tools: ToolSpec[], opts: StepOptions) => Promise<{ message: Msg; model: string }>;
   /** The tools a step may use (nothing that needs approval or is blocked in the background) and the context to run them with. */
   tools: Tool[];
   tctx: ToolContext;
@@ -211,6 +212,8 @@ export interface ProjectDeps extends Store {
   notify: (item: Omit<InboxItem, 'id' | 'at'>) => Promise<unknown>;
   /** Only one run at a time (the agent's bgBusy). */
   busy: { get(): boolean; set(v: boolean): void };
+  /** The tools to send in full for a step (its words, the tools it used) and the prompt lines naming the rest; absent: every tool. */
+  pick?: (text: string, used: Set<string>, code: boolean) => { tools: Tool[]; prompt: string };
 }
 
 /** The router's own "no model answered" messages: a wait, not a failure of the step. */
@@ -225,12 +228,43 @@ const safeArgs = (raw: string): Record<string, unknown> => {
   }
 };
 
-/** Research steps go to the cheap models (never waiting on a rate limit); build steps to the strong ones; anything else takes what is free. */
-export function stepOptions(step: Pick<ProjectStep, 'title' | 'instruction'>): { code?: boolean; cheap?: boolean; maxWaitMs?: number } {
+/**
+ * Every step is background work (it only uses free room above what is kept for the owner's chat,
+ * and queues for it); research steps go to the small, generously rationed models, build steps to
+ * the strong coders, anything else to the best model with room.
+ */
+export function stepOptions(step: Pick<ProjectStep, 'title' | 'instruction'>): StepOptions {
   const text = `${step.title} ${step.instruction}`;
-  if (RESEARCH.test(text)) return { cheap: true, maxWaitMs: 0 };
-  if (BUILD.test(text)) return { code: true };
-  return { maxWaitMs: 0 };
+  if (RESEARCH.test(text)) return { tier: 'small', priority: 'background' };
+  if (BUILD.test(text)) return { code: true, priority: 'background' };
+  return { priority: 'background' };
+}
+
+/** The options a step's model calls carry (Router.complete's). */
+export type StepOptions = { code?: boolean; cheap?: boolean; maxWaitMs?: number; tier?: 'small' | 'big'; priority?: 'chat' | 'background' };
+
+/**
+ * Where a step's chain of model calls and tools had got to, kept after every round of tools: when
+ * the free models run out halfway through a step, the next alarm carries on from there instead of
+ * asking for (and running) the same tools again.
+ */
+interface StepWork {
+  n: number;
+  ctx: Msg[];
+  sources: string[];
+  said: string;
+  i: number;
+}
+const WORK = (id: string) => `project:work:${id}`;
+/** Kept only while it is small enough for one database value. */
+const MAX_WORK_CHARS = 100_000;
+async function loadWork(storage: DurableObjectStorage, p: Project, step: ProjectStep): Promise<StepWork | null> {
+  const w = await storage.get<StepWork>(WORK(p.id)).catch(() => undefined);
+  return w && w.n === step.n && Array.isArray(w.ctx) ? w : null;
+}
+async function saveWork(storage: DurableObjectStorage, id: string, w: StepWork): Promise<void> {
+  if (JSON.stringify(w).length > MAX_WORK_CHARS) return void (await storage.delete(WORK(id)).catch(() => undefined));
+  await storage.put(WORK(id), w).catch(() => undefined);
 }
 
 /** What the model is given for a step: the goal, what the earlier steps produced, and the step itself. */
@@ -250,13 +284,21 @@ const PROJECT_SYSTEM = (p: Project, step: ProjectStep) =>
 
 /** One step's work: the chain of model calls and tools; the reply is the result. Throws when the model could not be reached. */
 async function workStep(deps: ProjectDeps, p: Project, step: ProjectStep): Promise<{ text: string; sources: string[] }> {
-  const sys = `${await deps.system()}${PROJECT_SYSTEM(p, step)}`;
-  const specs: ToolSpec[] = deps.tools.map((t) => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } }));
+  const base = `${await deps.system()}${PROJECT_SYSTEM(p, step)}`;
+  const spec = (t: Tool): ToolSpec => ({ type: 'function' as const, function: { name: t.name, description: t.description, parameters: t.parameters } });
   const opts = stepOptions(step);
-  const ctx: Msg[] = [{ role: 'user', content: stepPrompt(p, step) }];
-  const sources: string[] = [];
-  let said = '';
-  for (let i = 0; i < CHAIN_STEPS; i++) {
+  // Carry on where the last try of this step stopped (its tools already ran), else from the start.
+  const was = await loadWork(deps.storage, p, step);
+  const ctx: Msg[] = was?.ctx ?? [{ role: 'user', content: stepPrompt(p, step) }];
+  const sources: string[] = was?.sources ?? [];
+  let said = was?.said ?? '';
+  for (let i = was?.i ?? 0; i < CHAIN_STEPS; i++) {
+    // Only the tool groups this step's words (and the tools it already used) call for are sent in
+    // full; the rest are named in the prompt and can still be called. Smaller requests, more room.
+    const used = new Set(ctx.flatMap((m) => (m.tool_calls ?? []).map((c) => c.function.name)));
+    const picked = deps.pick?.(`${step.title} ${step.instruction}`, used, !!opts.code);
+    const sys = picked ? `${base}\n\n${picked.prompt}` : base;
+    const specs = (picked?.tools ?? deps.tools).map(spec);
     const { message } = await deps.complete([{ role: 'system', content: sys }, ...ctx], specs, opts);
     ctx.push(message);
     const calls = message.tool_calls ?? [];
@@ -278,6 +320,7 @@ async function workStep(deps: ProjectDeps, p: Project, step: ProjectStep): Promi
       }
       ctx.push({ role: 'tool', tool_call_id: call.id, content: clip(result, MAX_TOOL_RESULT) });
     }
+    await saveWork(deps.storage, p.id, { n: step.n, ctx, sources, said, i: i + 1 });
   }
   return { text: `${said ? `${said}\n\n` : ''}(I ran out of steps before finishing this one; the above is as far as I got.)`, sources };
 }
@@ -331,6 +374,8 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
         await setNext(storage, job.id, Date.now() + NO_MODEL_WAIT);
         return { did: 'waiting', project: p };
       }
+      // Only a free-limit wait carries on mid-step; anything else starts the step afresh next time.
+      await storage.delete(WORK(p.id)).catch(() => undefined);
       p.fails++;
       p.note = `step ${step.n} failed (${p.fails} of ${MAX_FAILS}): ${msg.slice(0, 200)}`;
       if (p.fails >= MAX_FAILS) {
@@ -345,6 +390,7 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
       await setNext(storage, job.id, Date.now() + RETRY_WAIT);
       return { did: 'retry', project: p };
     }
+    await deps.storage.delete(WORK(p.id)).catch(() => undefined); // the step is done: nothing to carry on from
     step.status = 'done';
     step.result = outcome.text.slice(0, MAX_RESULT);
     step.at = Date.now();

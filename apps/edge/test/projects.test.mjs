@@ -94,7 +94,7 @@ test('start_project: the record in the database and KV, the index, the first ste
   assert.ok(T.TOOL_GROUPS.find((g) => g.name === 'projects').about.length <= 220);
 });
 
-test('a step: research goes to the cheap models without waiting, the tool result is clipped, the result is filed and kept short, the next step is timed by the pace, the owner is told', async () => {
+test('a step: research goes to the small models in the background lane, the tool result is clipped, the result is filed and kept short, the next step is timed by the pace, the owner is told', async () => {
   const st = new MemStorage();
   const d = deps(st, { reply: () => `Found: A and B, A is better (https://example.com/a). ${'y'.repeat(2000)}` });
   const p = await PJ.startProject(d, { title: 'Weekend site', goal: 'A site by Sunday.', steps: STEPS, pace: 'steady' });
@@ -103,7 +103,7 @@ test('a step: research goes to the cheap models without waiting, the tool result
   const r = await PJ.runProjectStep(d, job);
   assert.equal(r.did, 'step');
   assert.equal(d.calls.length, 2, 'a tool call, then the result');
-  assert.deepEqual(d.calls[0].opts, { cheap: true, maxWaitMs: 0 }, 'research: cheap, never waiting');
+  assert.deepEqual(d.calls[0].opts, { tier: 'small', priority: 'background' }, 'research: the small models, in the background lane');
   assert.match(d.calls[0].messages[0].content, /^SYSTEM PROMPT\n\nPROJECT STEP: you are working on your own through the project "Weekend site"[\s\S]*step 1 of 3/);
   assert.match(d.calls[0].messages[1].content, /^PROJECT: Weekend site\n\nGOAL: A site by Sunday\.\n\nThis is the first step\.\n\nStep 1: Research the options — Look up the options and list them with sources\.\n\nWhat you produce is filed/);
   const toolMsg = d.calls[1].messages.find((m) => m.role === 'tool');
@@ -127,11 +127,11 @@ test('a step: research goes to the cheap models without waiting, the tool result
   assert.ok(d.notes[0].text.length <= 600);
   // the next step: a build step goes to the strong models and sees what step 1 produced
   await PJ.runProjectStep(d, next);
-  assert.deepEqual(d.calls[2].opts, { cheap: true, maxWaitMs: 0 }, '"compare" is research');
+  assert.deepEqual(d.calls[2].opts, { tier: 'small', priority: 'background' }, '"compare" is research');
   assert.match(d.calls[2].messages[1].content, /WHAT THE EARLIER STEPS PRODUCED:\n<<external content from your earlier steps of this project[\s\S]*Step 1: Research the options\nFound: A and B/);
   const third = (await S.loadJobs(st)).find((j) => j.id === job.id);
   const r3 = await PJ.runProjectStep(d, third);
-  assert.deepEqual(d.calls[4].opts, { code: true }, '"write" is a build step');
+  assert.deepEqual(d.calls[4].opts, { code: true, priority: 'background' }, '"write" is a build step');
   assert.equal(r3.did, 'done');
   assert.equal(r3.project.status, 'done');
   assert.equal((await S.loadJobs(st)).filter((j) => j.kind === 'project').length, 0, 'the job is gone');
@@ -218,6 +218,67 @@ test('no model free: the step waits a quarter of an hour, nobody is blamed, the 
   job = (await S.loadJobs(st)).find((j) => j.kind === 'project');
   assert.equal((await PJ.runProjectStep(busy, job)).did, 'waiting');
   assert.ok((await S.loadJobs(st)).find((j) => j.id === job.id).next <= Date.now() + 61_000);
+});
+
+test('a step that hits the free limits halfway carries on from where it stopped next time: its tools are not run again', async () => {
+  const st = new MemStorage();
+  // The model asks for a search, then the free limits run out before it can write the result.
+  const d = deps(st, { fail: (n) => (n >= 2 ? 'Every model I can reach is full for now (free limits). The first one frees up in about 40 seconds.' : '') });
+  let searches = 0;
+  const realRun = d.tools[0].run;
+  d.tools[0].run = async (a) => { searches++; return realRun(a); };
+  // the first call works (fail returns '' → falsy, so the fake answers normally)
+  const complete = d.complete;
+  d.complete = async (m, s, o) => (d.calls.length === 0 ? (d.calls.push({ messages: m, specs: s, opts: o }), { message: { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'web_search', arguments: '{"query":"options"}' } }] }, model: 'fake' }) : complete(m, s, o));
+  const p = await PJ.startProject(d, { title: 'Halfway', goal: 'g', steps: STEPS, pace: 'fast' });
+  let job = (await S.loadJobs(st)).find((j) => j.kind === 'project');
+  const w = await PJ.runProjectStep(d, job);
+  assert.equal(w.did, 'waiting', 'a limit is a wait, not a failure');
+  assert.equal(searches, 1);
+  // next alarm, room again: the chain resumes with the search result already in hand
+  const ok = deps(st, { reply: () => 'A is best (https://example.com/a).' });
+  let okSearches = 0;
+  ok.tools[0].run = async () => { okSearches++; return 'should not run again'; };
+  job = (await S.loadJobs(st)).find((j) => j.kind === 'project');
+  const r = await PJ.runProjectStep(ok, job);
+  assert.equal(r.did, 'step');
+  assert.equal(okSearches, 0, 'the search from the first try is not run again');
+  assert.equal(ok.calls.length, 1, 'one model call: straight to the result');
+  const sent = ok.calls[0].messages;
+  assert.ok(sent.some((m) => m.role === 'tool' && /Results for options/.test(m.content)), 'the earlier tool result is in the request');
+  const saved = await PJ.loadProject(ok, p.id);
+  assert.equal(saved.steps[0].status, 'done');
+  assert.match(saved.steps[0].result, /^A is best/);
+  assert.equal(st.m.has(`project:work:${p.id}`), false, 'nothing left over once the step is done');
+  // the next step starts fresh
+  job = (await S.loadJobs(st)).find((j) => j.kind === 'project');
+  await PJ.runProjectStep(ok, job);
+  assert.equal(ok.calls[1].messages.filter((m) => m.role === 'tool').length, 0, 'step 2 starts from its own prompt');
+});
+
+test('a reminder that falls due while background work waits for free AI room is delivered on time; the alarm waits only so long', async () => {
+  const storage = new MemStorage();
+  const state = { storage, waitUntil: () => undefined, blockConcurrencyWhile: (f) => f() };
+  // Every Workers AI model is rate-limited once, asking for 9 s: the scheduled task has to wait for room.
+  const tried = new Set();
+  const env = {
+    VAULT_KEY: Buffer.alloc(32, 7).toString('base64'),
+    KEYLESS_MODELS: '0',
+    AI: { run: async (model) => { if (!tried.has(model)) { tried.add(model); throw new Error('429 rate limited, try again in 9s'); } return { response: 'The roads are clear.' }; } },
+  };
+  const agent = new brain.GhostyAgent(state, env);
+  const t0 = Date.now();
+  await S.addJob(storage, { kind: 'task', title: 'Check the roads', text: 'Tell me the roads are clear.', next: t0 - 1000, repeat: 'none', tz: 'UTC' });
+  await S.addJob(storage, { kind: 'reminder', title: 'Take the bread out', text: 'Take the bread out', next: t0 + 3000, repeat: 'none', tz: 'UTC' });
+  await agent.alarm();
+  const took = Date.now() - t0;
+  const inbox = await S.loadInbox(storage);
+  const rem = inbox.find((i) => i.kind === 'reminder');
+  const task = inbox.find((i) => i.kind === 'task');
+  assert.ok(rem, 'the reminder was delivered in this alarm run, not after it');
+  assert.ok(rem.at >= t0 + 1400 && rem.at <= t0 + 4600, `on time: ${rem.at - t0} ms after the alarm began (due at 3000)`);
+  assert.ok(task && task.at > rem.at, 'while the task was still waiting');
+  assert.ok(took < 20_000, `the alarm's waiting is capped (${took} ms)`);
 });
 
 test('with KV bound, a project is kept and listed while the database is paused, and the newest is the one "carry on" means', async () => {
