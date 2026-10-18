@@ -4,6 +4,13 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+## QUALITY SETTING (the owner's explicit request)
+The owner asked for "Fable max — best possible quality" from the session that continues this build. So: work at
+maximum reasoning effort yourself, and launch EVERY subagent and workflow agent with model "fable" and effort "max"
+(the Agent tool's `model` and `effort` parameters; `opts.model` / `opts.effort` in workflow scripts). Prefer
+thoroughness over speed: independent adversarial review on every feature, design critic loops until every screen
+scores 9+.
+
 ## The owner and how he works
 - One non-technical owner, in the UK (Europe/London), using Ghosty on an iPhone 13 as a Safari Home Screen app.
 - Everything must be FREE: free tiers and keyless free APIs only, never anything that can bill him (check account
