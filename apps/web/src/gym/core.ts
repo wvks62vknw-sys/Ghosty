@@ -75,6 +75,8 @@ export interface Report {
   mastery: number;
   /** One plain sentence: what was measured and against what. */
   detail: string;
+  /** A measurement played in slices is under way (a match): the worker measures more often until it is done. */
+  pending?: boolean;
 }
 
 export interface Learner {
@@ -164,6 +166,24 @@ export function readMoves(text: string, letters: string, words: string[]): numbe
     const w = words.indexOf(t);
     if (w >= 0) out.push(w);
     else if ([...t].every((ch) => letters.includes(ch))) for (const ch of t) out.push(letters.indexOf(ch));
+  }
+  return out;
+}
+
+/**
+ * Every match of `re` in `text` with whether it is negated ("not", "don't", "never", "avoid", "instead of"
+ * in the few words just before it). Answer checkers use it to drop what a reply rules out and to refuse a
+ * reply that still names two different answers ("Qe3 or Qb1#").
+ */
+export function mentions(text: string, re: RegExp): { m: RegExpExecArray; negated: boolean }[] {
+  const out: { m: RegExpExecArray; negated: boolean }[] = [];
+  const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+  for (let m = g.exec(text); m; m = g.exec(text)) {
+    const before = text.slice(Math.max(0, m.index - 24), m.index).toLowerCase();
+    // Only the clause the mention is in counts (a full stop, colon, semicolon or "but" starts a new one).
+    const clause = before.split(/[.;:!?]|\bbut\b/).pop() ?? '';
+    out.push({ m, negated: /\b(not|no|never|avoid|instead of|rather than|n't|dont|don't|won't|doesn't|isn't)\b[^,]*$/.test(clause) });
+    if (m[0] === '') g.lastIndex++;
   }
   return out;
 }

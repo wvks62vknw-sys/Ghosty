@@ -418,6 +418,7 @@ function features(p: Soko, dist: Int16Array[], boxes: number[], player: number):
   return [near, greedy, off, edge, off ? walkTo / 4 : 0];
 }
 export const NF = 5;
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /** The 3×3 shape around a square: which of the eight neighbours are wall, and whether it is a goal (512 shapes). */
 export function shapeAt(p: Soko, c: number): number {
@@ -475,7 +476,14 @@ export interface Brain {
   live: Uint32Array;
   dead: Uint32Array;
 }
-export const newBrain = (): Brain => ({ w: new Float64Array(NF + 1), live: new Uint32Array(512), dead: new Uint32Array(512) });
+/**
+ * A separate guess for each level: at level L his guess is fitted while he practises for level L (on that
+ * level's puzzles and easier ones). A new level starts that guess afresh — a passer of the level below,
+ * frozen, has not fitted it and does not pass (tested). What he knows about dead ends is shared.
+ */
+const BLOCKS = 10;
+const block = (level: number) => (lvl(level) - 1) * (NF + 1);
+export const newBrain = (): Brain => ({ w: new Float64Array((NF + 1) * BLOCKS), live: new Uint32Array(512), dead: new Uint32Array(512) });
 
 /** The squares he believes are dead ends: a shape seen often in practice and never with a way out. */
 export function believedDead(b: Brain, p: Soko): Uint8Array {
@@ -483,19 +491,29 @@ export function believedDead(b: Brain, p: Soko): Uint8Array {
   for (let c = 0; c < out.length; c++) {
     if (p.wall[c]) continue;
     const s = shapeAt(p, c);
-    if (b.dead[s]! >= 4 && b.live[s] === 0) out[c] = 1;
+    if (b.dead[s]! >= 8 && b.live[s] === 0) out[c] = 1;
   }
   return out;
 }
 
-const guess = (b: Brain, f: number[]) => {
-  let x = b.w[NF]!;
-  for (let i = 0; i < NF; i++) x += b.w[i]! * f[i]!;
+const guess = (b: Brain, f: number[], level: number) => {
+  const o = block(level);
+  let x = b.w[o + NF]!;
+  for (let i = 0; i < NF; i++) x += b.w[o + i]! * f[i]!;
   return Math.max(0, x);
 };
 
+/** A route of box positions with its loops cut out (where the same boxes stand again later, skip ahead). */
+export function cutLoops(route: number[][]): number[][] {
+  const last = new Map<string, number>();
+  route.forEach((bx, i) => last.set(bx.join(','), i));
+  const out: number[][] = [];
+  for (let i = 0; i < route.length; i = last.get(route[i]!.join(','))! + 1) out.push(route[last.get(route[i]!.join(','))!]!);
+  return out;
+}
+
 /** His search: best-first on (pushes so far + his guess of pushes left), opening at most `budget` positions. */
-export function search(b: Brain, p: Soko, budget: number): { route: Push[]; nodes: number; states: { f: number[]; g: number }[] } | null {
+export function search(b: Brain, p: Soko, budget: number, level: number): { route: Push[]; nodes: number; states: { f: number[]; g: number }[] } | null {
   const dead = believedDead(b, p);
   const dist = pushDistances(p);
   const nodes: { boxes: number[]; player: number; g: number; parent: number; push: Push | null }[] = [];
@@ -508,7 +526,7 @@ export function search(b: Brain, p: Soko, budget: number): { route: Push[]; node
     if (old != null && old <= g) return;
     seen.set(k, g);
     nodes.push({ boxes, player, g, parent, push });
-    heap.push(g + guess(b, features(p, dist, boxes, player)) + nodes.length * 1e-7, nodes.length - 1);
+    heap.push(g + guess(b, features(p, dist, boxes, player), level) + nodes.length * 1e-7, nodes.length - 1);
   };
   add(p.boxes.slice(), p.player, 0, -1, null);
   let opened = 0;
@@ -554,29 +572,32 @@ class SokoLearner implements Learner {
   ) {
     // What he learned carries over between levels (the shapes and the guess are the same kind of thing).
     const s = savedFor<SokoSave>(saved, 'sokoban');
-    this.brain = s?.w?.length === NF + 1 ? { w: s.w, live: s.live, dead: s.dead } : newBrain();
+    this.brain = s?.w?.length === (NF + 1) * BLOCKS ? { w: s.w, live: s.live, dead: s.dead } : newBrain();
     this.puzzles = s?.puzzles ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
   }
-  /** Fit the guess a little towards the pushes really left (least squares, small steps). */
-  private fit(samples: { f: number[]; g: number }[]) {
+  /** Fit the guess (for this level's puzzles) a little towards the pushes really left (least squares, small steps). */
+  private fit(samples: { f: number[]; g: number }[], level: number) {
     const w = this.brain.w;
+    const o = block(level);
     for (const s of samples) {
       const x = [...s.f, 1];
       let y = 0;
-      for (let i = 0; i <= NF; i++) y += w[i]! * x[i]!;
+      for (let i = 0; i <= NF; i++) y += w[o + i]! * x[i]!;
       // Normalised steps (each one moves the guess a tenth of the way to the right number): stable whatever the scale.
       const err = s.g - y;
       const norm = x.reduce((t, v) => t + v * v, 0);
-      for (let i = 0; i <= NF; i++) w[i]! += (0.1 * err * x[i]!) / norm;
+      for (let i = 0; i <= NF; i++) w[o + i]! += (0.1 * err * x[i]!) / norm;
     }
   }
   train(n: number) {
-    const k = Math.max(1, Math.min(n, 3));
-    for (let t = 0; t < k; t++) {
-      // A practice puzzle from his own random numbers, at this level or below.
-      const L = 1 + Math.floor(this.r() * this.level);
+    const t0 = clock();
+    let k = 0;
+    while (k < n && (k === 0 || clock() - t0 < 30)) {
+      k++;
+      // A practice puzzle from his own random numbers: half the time this level's kind, otherwise an easier one.
+      const L = this.r() < 0.5 ? this.level : 1 + Math.floor(this.r() * this.level);
       const m = makePuzzle(L, this.r);
       if (!m) continue;
       const p = m.p;
@@ -590,11 +611,14 @@ class SokoLearner implements Learner {
       }
       // The backward play is a route: its positions are at most the rest of it away from solved.
       const dist = pushDistances(p);
-      const samples = m.route.map((bx, i) => ({ f: features(p, dist, bx, p.player), g: m.route.length - 1 - i }));
-      // His own search, with room to spare: the positions on the route he finds teach the guess too.
-      const found = search(this.brain, p, budgetFor(L, m.route.length) * 3);
+      // (Loops in the backward play — a box pulled away and back — are cut out first.)
+      const route = cutLoops(m.route);
+      const samples = route.map((bx, i) => ({ f: features(p, dist, bx, p.player), g: route.length - 1 - i }));
+      // His own search, with some room: the positions on the route he finds teach the guess too.
+      const found = search(this.brain, p, Math.min(400, budgetFor(L, m.route.length)), this.level);
       if (found) samples.push(...found.states);
-      for (let rep = 0; rep < 3; rep++) this.fit(samples);
+      // They tune the guess for the level he is practising for.
+      for (let rep = 0; rep < 3; rep++) this.fit(samples, this.level);
     }
     this.puzzles += k;
     this.rand = (this.rand + k * 2654435761) >>> 0;
@@ -613,7 +637,7 @@ class SokoLearner implements Learner {
     while (ps.i < set.length) {
       const t = set[ps.i++]!;
       ps.budget += budgetFor(this.level, t.opt);
-      const r = search(ps.brain, t.p, budgetFor(this.level, t.opt));
+      const r = search(ps.brain, t.p, budgetFor(this.level, t.opt), this.level);
       if (r) {
         ps.solved++;
         ps.his += r.route.length;
@@ -645,7 +669,7 @@ class SokoLearner implements Learner {
   watch(seed: number): Frame[] {
     const set = testSet(this.level);
     const t = set[seed % set.length]!;
-    const s = search(this.brain, t.p, budgetFor(this.level, t.opt) * 3);
+    const s = search(this.brain, t.p, budgetFor(this.level, t.opt) * 3, this.level);
     if (!s) return [{ ...board(t.p, t.p.boxes, t.p.player, null), caption: 'He could not find a solution to this one yet.' }];
     const moves = spell(t.p, s.route);
     const frames: Frame[] = [{ ...board(t.p, t.p.boxes, t.p.player, null), caption: `A puzzle he has never practised on: ${t.opt} pushes at best.` }];
@@ -768,7 +792,7 @@ function check(pr: Problem, answer: string): Verdict {
   if (!res.ok) return { correct: false, score: 0, why: 'A move walks into a wall or pushes a box into something.' };
   if (!solvedBy(p, res.boxes)) return { correct: false, score: 0, why: 'Not every box is on a goal at the end.' };
   const best = res.pushes <= d.opt;
-  return { correct: true, score: best ? 1 : d.opt / res.pushes, why: best ? `Solved in the fewest pushes (${d.opt}).` : `Solved in ${res.pushes} pushes; the fewest is ${d.opt}.` };
+  return { correct: best, score: best ? 1 : d.opt / res.pushes, why: best ? `Solved in the fewest pushes (${d.opt}).` : `Solved in ${res.pushes} pushes; the fewest is ${d.opt}.` };
 }
 
 export const sokoban: Game = {

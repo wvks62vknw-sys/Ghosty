@@ -161,11 +161,22 @@ export const gymTab: TabDef = {
       }
       worker.postMessage(m);
     };
+    /**
+     * The record (with what he has learned) goes to the worker once per game: the worker keeps its own
+     * copy from then on, so moves, WATCH and pictures don't carry a big learner each time.
+     */
+    const handed = new Set<string>();
+    const recFor = (id: string): GymRecord | null => {
+      if (handed.has(id)) return null;
+      // (Without a record the worker starts the game afresh and keeps that: nothing to hand over later either.)
+      handed.add(id);
+      return recs.get(id) ?? null;
+    };
     const ask = (m: Record<string, unknown>) =>
       new Promise<Extract<GymOut, { gym: 'reply' }>>((resolve) => {
         const id = ++req;
         replies.set(id, resolve);
-        send({ ...m, req: id, rec: recs.get(String(m.id)) ?? null, epoch: epochs[String(m.id)] ?? 0 });
+        send({ ...m, req: id, rec: recFor(String(m.id)), epoch: epochs[String(m.id)] ?? 0 });
       });
     const onWorker = (m: GymOut) => {
       if (m.gym === 'reply') {
@@ -328,7 +339,7 @@ export const gymTab: TabDef = {
         stopWatch();
         held = '';
         training = open.id;
-        send({ gym: 'train', id: open.id, rec: recs.get(open.id) ?? null, epoch: epochs[open.id] ?? 0 });
+        send({ gym: 'train', id: open.id, rec: recFor(open.id), epoch: epochs[open.id] ?? 0 });
       }
       paint();
     };
@@ -355,6 +366,7 @@ export const gymTab: TabDef = {
       gymState.play = { game: '', board: [], over: '', thinking: false };
       stopWatch();
       send({ gym: 'reset', id: open.id, epoch: epochs[open.id] });
+      handed.delete(open.id);
       recs.delete(open.id);
       views.delete(open.id);
       delete gymState.recs[open.id];
@@ -545,7 +557,7 @@ export const gymTab: TabDef = {
         const id = resumeOnShow;
         resumeOnShow = '';
         training = id;
-        send({ gym: 'train', id, rec: recs.get(id) ?? null });
+        send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0 });
         paint();
       }
     };

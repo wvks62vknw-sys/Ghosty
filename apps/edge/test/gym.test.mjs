@@ -633,6 +633,10 @@ test('session: passing the bar makes the next level by itself; the record keeps 
   assert.equal(s.rec.level, 2);
   assert.equal(s.learner.save().level, 2);
   assert.equal(MZ.makeMaze(2, s.rec.seed).w, 6, 'the next level is a bigger maze');
+  // The new level is measured at the next call (one measurement per call), and that one only says where he starts.
+  assert.equal(s.rec.start, -1);
+  assert.equal(s.measure(), null);
+  assert.ok(s.rec.start >= 0);
   assert.ok(s.rec.history.some((p) => p.l === 2));
   assert.match(S.statusLine(s.rec, s.game, true), /^Learning… [\d,]+ runs · Level 2 · mastery \d+% → \d+%$/);
   // The snapshot carries on where it left off.

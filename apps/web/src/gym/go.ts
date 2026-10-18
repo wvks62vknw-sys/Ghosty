@@ -14,16 +14,17 @@
  * puzzles on small boards (Black to play and capture the marked stones, whatever White does), each
  * answer proved by exhaustive search.
  */
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
 import { area, copyGo, type Go, goFrame, goFrom, goState, goText, group, inner, isEye, KOMI, legalAt, margin, newGo, outer, over, pass, playAt, ptName } from './goboard';
 import { GO_PUZZLES } from './gosets';
-import { Match, type MatchResult, perfRating, record, share, type Stepper } from './match';
+import { Match, type MatchResult, record, share, sliceMs, type Stepper } from './match';
+
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 import { GO } from './meta';
 
 export * from './goboard';
 export { setSlice } from './match';
 
-export const playoutsFor = (level: number) => [8, 16, 32, 64, 100, 150, 200, 300, 400, 500][lvl(level) - 1]!;
 
 // ---- shapes ---------------------------------------------------------------------------------------------------
 
@@ -176,12 +177,54 @@ export function candidates(g: Go): number[] {
 const doMove = (g: Go, i: number) => (i < 0 ? (pass(g), true) : playAt(g, i));
 
 /** A random play-out to the end (no eye filling); the area result for Black (positive = Black wins, after komi). */
-function playout(g: Go, r: () => number): number {
+/** The liberty of a group in atari (one liberty), or −1. */
+function lastLiberty(g: Go, i: number): number {
+  const W = g.n + 2;
+  const c = g.b[i]!;
+  const seen = new Uint8Array(g.b.length);
+  const stones = [i];
+  seen[i] = 1;
+  let lib = -1;
+  for (let k = 0; k < stones.length; k++) {
+    for (const j of [stones[k]! - 1, stones[k]! + 1, stones[k]! - W, stones[k]! + W]) {
+      const x = g.b[j]!;
+      if (x === 0) {
+        if (lib >= 0 && lib !== j) return -1;
+        lib = j;
+      } else if (x === c && !seen[j]) (seen[j] = 1), stones.push(j);
+    }
+  }
+  return lib;
+}
+
+/**
+ * A play-out to the end (no eye filling); the area result for Black (positive = Black wins, after komi).
+ * Light: random moves. Heavy (the stronger reference engines): first answer the last move — capture a
+ * group it left in atari, or save one's own group it put in atari — and only then play at random.
+ */
+function playout(g: Go, r: () => number, heavy = false): number {
   const W = g.n + 2;
   const cap = g.n * g.n * 3;
   const empties: number[] = [];
   for (let k = 0; k < g.b.length; k++) if (g.b[k] === 0) empties.push(k);
+  let last = -1;
   while (!over(g) && g.moves < cap) {
+    if (heavy && last >= 0) {
+      let urgent = -1;
+      for (const j of [last - 1, last + 1, last - W, last + W, last]) {
+        const x = g.b[j]!;
+        if (x !== 1 && x !== 2) continue;
+        const lib = lastLiberty(g, j);
+        if (lib >= 0 && !isEye(g, lib, g.side)) {
+          urgent = lib;
+          if (x !== g.side) break; // a capture first
+        }
+      }
+      if (urgent >= 0 && playAt(g, urgent)) {
+        last = urgent;
+        continue;
+      }
+    }
     // Try empty points in random order until one is legal and not an own eye.
     let moved = false;
     let n = empties.length;
@@ -190,13 +233,14 @@ function playout(g: Go, r: () => number): number {
       const i = empties[k]!;
       if (g.b[i] === 0 && !isEye(g, i, g.side) && playAt(g, i)) {
         moved = true;
+        last = i;
         break;
       }
       empties[k] = empties[n - 1]!;
       empties[n - 1] = i;
       n--;
     }
-    if (!moved) pass(g);
+    if (!moved) (pass(g), (last = -1));
     else if (g.moves % 8 === 0) {
       // Captures free points: refresh the list now and then.
       empties.length = 0;
@@ -227,6 +271,7 @@ export class Searcher {
     private g0: Go,
     private t: Tables | null,
     private r: () => number,
+    private heavy = false,
   ) {
     const rootMoves = candidates(g0);
     if (rootMoves.length === 1) this.only = rootMoves[0]!;
@@ -247,6 +292,17 @@ export class Searcher {
       for (let k = 0; k < moves.length; k++) prior[k] = sum > 0 ? prior[k]! / sum : 1 / moves.length;
     } else prior.fill(1 / moves.length);
     return { moves, prior, n: new Int32Array(moves.length), w: new Float64Array(moves.length), kids: new Array(moves.length).fill(null), total: 0 };
+  }
+  /** Run up to `sims` more simulations, stopping early after `ms` milliseconds. */
+  runFor(sims: number, ms: number): void {
+    const t0 = clock();
+    let left = sims;
+    while (left > 0 && this.root) {
+      const k = Math.min(left, 4);
+      this.run(k);
+      left -= k;
+      if (clock() - t0 > ms) break;
+    }
   }
   /** Run `sims` more simulations. */
   run(sims: number): void {
@@ -286,7 +342,7 @@ export class Searcher {
           // The new position's value for the side that just moved.
           if (t) value = 1 - winChance(t, g);
           else {
-            const m = playout(g, r);
+            const m = playout(g, r, this.heavy);
             value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
           }
           break;
@@ -335,29 +391,56 @@ export const OPENINGS: [number, number][] = (() => {
   }
   return out;
 })();
-export const gamesFor = (level: number) => (lvl(level) <= 4 ? 12 : 8);
+/** A rung of the ladder: his searches a move, and the reference engine (its play-outs a move, light or heavy, and how often it plays a random move instead). */
+export interface Rung {
+  me: number;
+  ref: number;
+  heavy: boolean;
+  rand: number;
+}
+export const RUNGS: Rung[] = [
+  { me: 48, ref: 16, heavy: false, rand: 0.3 },
+  { me: 48, ref: 16, heavy: false, rand: 0 },
+  { me: 48, ref: 64, heavy: false, rand: 0 },
+  { me: 48, ref: 150, heavy: false, rand: 0 },
+  { me: 48, ref: 16, heavy: true, rand: 0 },
+  { me: 48, ref: 48, heavy: true, rand: 0 },
+  { me: 48, ref: 100, heavy: true, rand: 0 },
+  { me: 48, ref: 150, heavy: true, rand: 0 },
+  { me: 24, ref: 100, heavy: true, rand: 0 },
+  { me: 24, ref: 150, heavy: true, rand: 0 },
+];
+export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
+export const gamesFor = (_level: number) => 10;
+const rungWords = (r: Rung) => `the reference engine (tree search with ${r.ref} ${r.heavy ? 'smarter' : 'random'} play-outs a move${r.rand ? `, ${Math.round(r.rand * 100)}% of its moves random` : ''}); he searches ${r.me} times a move`;
 
-export function duel(opening: number, first: boolean, sims: number, mine: Tables, seed: number): Stepper & { g: Go; me: number } {
+export function duel(opening: number, first: boolean, rung: Rung, mine: Tables, seed: number): Stepper & { g: Go; me: number } {
   const g = newGo(9);
   const [a, b] = OPENINGS[opening % OPENINGS.length]!;
   playAt(g, inner(g, a));
   playAt(g, inner(g, b));
   // He is Black when he moves "first".
   const me = first ? 1 : 2;
-  const r = rng(seed);
+  const r = rng(seed * 2 + (first ? 1 : 0));
   let cur: Searcher | null = null;
   return {
     g,
     me,
-    // One step = a slice of one move's search (at most 32 of his look-ups or 12 random play-outs), so the worker is never held up for long.
+    // One step = a slice of one move's search (about 30 ms at most), so the worker is never held up for long.
     step() {
       if (over(g) || g.moves > 200) {
         const m = margin(g);
         const res = m === 0 ? 0.5 : m > 0 ? 1 : 0;
         return me === 1 ? res : 1 - res;
       }
-      cur ??= new Searcher(g, g.side === me ? mine : null, r);
-      cur.run(Math.min(g.side === me ? 32 : 12, sims - cur.done));
+      if (!cur && g.side !== me && rung.rand && r() < rung.rand) {
+        const c = candidates(g);
+        doMove(g, c[Math.floor(r() * c.length)]!);
+        return null;
+      }
+      const sims = g.side === me ? rung.me : rung.ref;
+      cur ??= new Searcher(g, g.side === me ? mine : null, r, rung.heavy);
+      cur.runFor(sims - cur.done, 30);
       if (cur.done >= sims || !cur.root) {
         doMove(g, cur.best());
         cur = null;
@@ -366,14 +449,6 @@ export function duel(opening: number, first: boolean, sims: number, mine: Tables
     },
   };
 }
-
-/**
- * Ratings of the reference engines on Ghosty's own scale: 8 play-outs = 1000. Matches between neighbouring
- * rungs (12 games each, 8 … 300 play-outs) came to about 140 points for each doubling of the play-outs —
- * single small matches are noisy, so the ladder uses that fitted line: 1000 + 138 × log2(play-outs ÷ 8).
- */
-export const LADDER = [1000, 1138, 1276, 1414, 1503, 1584, 1641, 1722, 1779, 1823];
-export const ladderRating = (level: number) => LADDER[lvl(level) - 1]!;
 
 // ---- capture puzzles (exact) ---------------------------------------------------------------------------------------
 
@@ -441,13 +516,37 @@ export function puzzles(): Puzzle[] {
 
 // ---- the learner -----------------------------------------------------------------------------------------------------
 
+/**
+ * What is kept: the two big tables are mostly zeros (only shapes he has met are filled in), so only the
+ * filled entries are stored — indices into ownership-then-policy, and their values — a few tens of KB
+ * instead of half a megabyte.
+ */
 interface GoSave {
   game: 'go';
-  own: Float32Array;
+  idx: Uint32Array;
+  val: Float32Array;
   line: Float32Array;
-  pol: Float32Array;
   games: number;
   rand: number;
+}
+export function packTables(t: Tables): { idx: Uint32Array; val: Float32Array } {
+  const n = t.own.length;
+  const idx: number[] = [];
+  const val: number[] = [];
+  for (let i = 0; i < n; i++) if (t.own[i]) (idx.push(i), val.push(t.own[i]!));
+  for (let i = 0; i < t.pol.length; i++) if (t.pol[i]) (idx.push(n + i), val.push(t.pol[i]!));
+  return { idx: Uint32Array.from(idx), val: Float32Array.from(val) };
+}
+export function unpackTables(idx: Uint32Array, val: Float32Array, line: Float32Array): Tables {
+  const t = newTables();
+  const n = t.own.length;
+  for (let k = 0; k < idx.length; k++) {
+    const i = idx[k]!;
+    if (i < n) t.own[i] = val[k]!;
+    else if (i - n < t.pol.length) t.pol[i - n] = val[k]!;
+  }
+  if (line.length === t.line.length) t.line.set(line);
+  return t;
 }
 
 const TRAIN_SIMS = 16;
@@ -459,6 +558,8 @@ class GoLearner implements Learner {
   r: () => number;
   match: Match | null = null;
   last: MatchResult | null = null;
+  /** The capture-puzzle test after each match (a slice at a time), and the last finished one. */
+  puzzling: { i: number; found: number; t: Tables } | null = null;
   puz: { found: number; of: number } | null = null;
   constructor(
     private level: number,
@@ -467,8 +568,7 @@ class GoLearner implements Learner {
   ) {
     // What he learned carries over between levels.
     const s = savedFor<GoSave>(saved, 'go');
-    const fresh = newTables();
-    this.t = s && s.own?.length === fresh.own.length ? { own: s.own, line: s.line, pol: s.pol } : fresh;
+    this.t = s?.idx && s.val && s.line ? unpackTables(s.idx, s.val, s.line) : newTables();
     this.games = s?.games ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
@@ -480,7 +580,8 @@ class GoLearner implements Learner {
   private play(k: number): boolean {
     this.cur ??= { g: newGo(9), seen: [] };
     const { g, seen } = this.cur;
-    for (let i = 0; i < k && !over(g) && g.moves < 200; i++) {
+    const t0 = clock();
+    for (let i = 0; i < k && !over(g) && g.moves < 200 && (i === 0 || clock() - t0 < 30); i++) {
       let m: number;
       const cand = candidates(g);
       if (g.moves < 4 || this.r() < 0.05) m = cand[Math.floor(this.r() * cand.length)]!;
@@ -553,41 +654,57 @@ class GoLearner implements Learner {
     this.rand = (this.rand + 2654435761) >>> 0;
     return 1;
   }
-  /** Capture puzzles: his move (his search on the small board) is one that captures the stones by force. */
-  puzzles(t = this.t) {
+  /** Capture puzzles, a slice at a time: his move (his search on the small board) is one that captures the stones by force. */
+  private puzzleSlice(t0: number): boolean {
     const set = puzzles();
-    let found = 0;
+    const c = (this.puzzling ??= { i: 0, found: 0, t: copyTables(this.t) });
     const r = rng(77);
-    for (const p of set) {
-      const m = search(p.g, 120, t, r);
-      if (m >= 0 && p.best.includes(outer(p.g, m))) found++;
+    while (c.i < set.length) {
+      const p = set[c.i++]!;
+      const m = search(p.g, 60, c.t, r);
+      if (m >= 0 && p.best.includes(outer(p.g, m))) c.found++;
+      if (clock() - t0 > sliceMs()) break;
     }
-    return { found, of: set.length };
+    if (c.i < set.length) return false;
+    this.puz = { found: c.found, of: set.length };
+    this.puzzling = null;
+    return true;
+  }
+  /** The whole puzzle test at once (tests). */
+  puzzles() {
+    this.puzzling = null;
+    while (!this.puzzleSlice(-Infinity));
+    return this.puz!;
   }
   measure() {
-    const sims = playoutsFor(this.level);
+    const t0 = clock();
+    const rung = rungFor(this.level);
     const n = gamesFor(this.level);
-    if (!this.match) {
-      const frozen: Tables = { own: this.t.own.slice(), line: this.t.line.slice(), pol: this.t.pol.slice() };
-      this.match = new Match(n, (o, first) => duel(o, first, sims, frozen, 1000 + o));
+    // A match against the reference (in slices), then the capture puzzles (in slices).
+    if (!this.match && !this.puzzling) {
+      const frozen = copyTables(this.t);
+      this.match = new Match(n, (o, first) => duel(o, first, rung, frozen, 1000 + o));
     }
-    if (this.match.run()) {
+    if (this.match && this.match.run()) {
       this.last = this.match.res;
       this.match = null;
-      this.puz = this.puzzles();
+      this.puzzling = { i: 0, found: 0, t: copyTables(this.t) };
     }
+    if (!this.match && this.puzzling) this.puzzleSlice(t0);
+    const pending = !!this.match || !!this.puzzling;
     if (!this.last) {
-      const played = this.match?.res.games ?? 0;
-      return { mastery: 0, detail: `His first match against the ${sims}-play-out reference engine is under way (${played} of ${n} games played).` };
+      const played = this.match?.res.games ?? n;
+      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     return {
       mastery: s,
-      detail: `Against the reference engine (tree search with ${sims} random play-outs a move), searching as many times himself: ${record(this.last)} — ${Math.round(s * 100)}% of the points; estimated rating ${perfRating(s, ladderRating(this.level))} on Ghosty's own scale (8 play-outs = 1000). Capture puzzles: ${this.puz!.found} of ${this.puz!.of} solved (each answer proved by exhaustive search).`,
+      pending,
+      detail: `Against ${rungWords(rung)}: ${record(this.last)} — ${Math.round(s * 100)}% of the points.${this.puz ? ` Capture puzzles: ${this.puz.found} of ${this.puz.of} solved (each answer proved by exhaustive search).` : ''}`,
     };
   }
   save(): GoSave {
-    return { game: 'go', own: this.t.own, line: this.t.line, pol: this.t.pol, games: this.games, rand: this.rand };
+    return { game: 'go', ...packTables(this.t), line: this.t.line.slice(), games: this.games, rand: this.rand };
   }
   view(): Frame {
     // A position from his last practice: who he thinks owns each point.
@@ -606,11 +723,12 @@ class GoLearner implements Learner {
     return goFrame(g, `A random position: the small squares show who he expects to own each empty point (score estimate ${scoreEstimate(this.t, g).toFixed(1)} for Black, after komi).`, marks);
   }
   watch(seed: number): Frame[] {
-    const sims = Math.min(24, playoutsFor(this.level));
-    const d = duel(seed % OPENINGS.length, seed % 2 === 0, sims, this.t, seed);
+    // A quick game to show: a few searches a move on both sides (the match itself searches far more).
+    const rung: Rung = { me: 6, ref: 6, heavy: rungFor(this.level).heavy, rand: 0 };
+    const d = duel(seed % OPENINGS.length, seed % 2 === 0, rung, this.t, seed);
     const who = d.me === 1 ? 'Black' : 'White';
-    const frames: Frame[] = [{ ...goFrame(d.g, `He is ${who}, against the ${sims}-play-out reference engine.`), every: 0.3 }];
-    for (let i = 0; i < 220; i++) {
+    const frames: Frame[] = [{ ...goFrame(d.g, `He is ${who}, against the reference engine (both searching only ${rung.me} times a move here, to be quick).`), every: 0.3 }];
+    for (let i = 0; i < 160; i++) {
       const mover = d.g.side;
       const before = d.g.b.slice();
       // A step is a slice of a search: step until the move is made (or the game ends).
@@ -627,13 +745,41 @@ class GoLearner implements Learner {
     }
     return frames;
   }
+  /**
+   * PLAY HIM. When the owner has just passed, he passes too unless he is behind — counting stones he
+   * expects to die (by his own ownership estimate) for the other side — so a settled game can end
+   * instead of him filling the owner's territory.
+   */
   move(state: number[]) {
     const g = goFrom(state);
     if (over(g)) return -2;
-    const m = search(g, Math.max(64, Math.min(200, playoutsFor(this.level))), this.t, this.r);
+    if (g.passes >= 1 && settledMargin(this.t, g) * (g.side === 1 ? 1 : -1) >= 0) return -1;
+    const m = search(g, rungFor(this.level).me * 2, this.t, this.r);
     return m < 0 ? -1 : outer(g, m);
   }
 }
+
+/** Black's score (area, minus komi) if the game ended now, with stones he expects to die counted for the other side. */
+export function settledMargin(t: Tables, g: Go): number {
+  const libs = libsAll(g);
+  const { owner } = area(g);
+  const W = g.n + 2;
+  let s = 0;
+  for (let r = 1; r <= g.n; r++)
+    for (let c = 1; c <= g.n; c++) {
+      const i = r * W + c;
+      const x = g.b[i]!;
+      const v = Math.tanh(ownRaw(t, g, i, libs));
+      let o = owner[i]!;
+      // A stone he is sure will die belongs to the other side.
+      if ((x === 1 && v < -0.5) || (x === 2 && v > 0.5)) o = 3 - x;
+      // An empty point surrounded by stones that die goes the same way.
+      if (x === 0 && !o && Math.abs(v) > 0.5) o = v > 0 ? 1 : 2;
+      s += o === 1 ? 1 : o === 2 ? -1 : 0;
+    }
+  return s - (g.n >= 9 ? KOMI : 0);
+}
+const copyTables = (t: Tables): Tables => ({ own: t.own.slice(), line: t.line.slice(), pol: t.pol.slice() });
 
 // ---- problems --------------------------------------------------------------------------------------------------------
 
@@ -649,13 +795,16 @@ function generate(level: number, seed: number): Problem {
 
 /** Read a point like "C3" (columns skip I) from the last line. */
 export function readPoint(n: number, answer: string): number {
-  const toks = finalLine(answer).toUpperCase().match(/\b[A-HJ-T]\s?\d{1,2}\b/g) ?? [];
-  const t = toks[toks.length - 1];
-  if (!t) return -1;
-  const col = 'ABCDEFGHJKLMNOPQRST'.indexOf(t[0]!);
-  const row = Number(t.slice(1).trim());
-  if (col < 0 || col >= n || row < 1 || row > n) return -1;
-  return (n - row) * n + col;
+  const named = new Set<number>();
+  for (const { m, negated } of mentions(finalLine(answer), /\b([A-HJ-Ta-hj-t])-?(\d{1,2})\b/g)) {
+    if (negated) continue;
+    const col = 'ABCDEFGHJKLMNOPQRST'.indexOf(m[1]!.toUpperCase());
+    const row = Number(m[2]);
+    if (col < 0 || col >= n || row < 1 || row > n) continue;
+    named.add((n - row) * n + col);
+  }
+  // Two different points named is not an answer.
+  return named.size === 1 ? [...named][0]! : -1;
 }
 
 function check(pr: Problem, answer: string): Verdict {

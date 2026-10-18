@@ -72,9 +72,12 @@ function measure(l: Live): 'level' | 'mastered' | null {
   const ev = l.s.measure();
   const took = now() - t;
   lastMeasure = now();
-  measureGap = Math.max(1500, 5 * took);
+  // While a match is being played (in slices), measuring gets a fair share of the worker: a slice every
+  // ~¼ s instead of every 1½ s, so a match does not take all day.
+  measureGap = l.s.pending ? Math.max(250, 2 * took) : Math.max(1500, 5 * took);
   return ev;
 }
+let lastProgress = 0;
 
 function tick(post: (m: GymOut) => void) {
   timer = null;
@@ -94,7 +97,11 @@ function tick(post: (m: GymOut) => void) {
       const ev = measure(l);
       if (ev) perUnit = 1;
       if (l.s.rec.mastered) active = null;
-      progress(post, l, ev);
+      // (Slices of a match come quickly: the page hears about them every 1½ s.)
+      if (ev || !l.s.pending || now() - lastProgress > 1500 || !active) {
+        lastProgress = now();
+        progress(post, l, ev);
+      }
       if (ev) {
         lastSave = now();
         post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });

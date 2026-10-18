@@ -12,7 +12,7 @@
  * is compared with a reference controller tuned by hand (a plain proportional-derivative design written
  * for this game), on the starts where both succeed.
  */
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Shape, type Verdict } from './core';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Shape, type Verdict } from './core';
 import { BALANCE } from './meta';
 
 export const taskFor = (level: number): 'pole' | 'lander' => (lvl(level) <= 5 ? 'pole' : 'lander');
@@ -20,33 +20,85 @@ export const taskFor = (level: number): 'pole' | 'lander' => (lvl(level) <= 5 ? 
 // ---- the cart and pole -------------------------------------------------------------------------------------------
 
 export interface PoleRules {
+  /** One pole, or two side by side on the same cart (the classic double-pole task). */
+  poles: 1 | 2;
   steps: number;
-  /** Start spread: angle (rad), position (m); speeds are a third of these. */
+  /** Start spread: the (long) pole's angle (rad), position (m); speeds are a third of these. */
   angle: number;
   pos: number;
   /** Random pushes (N) the cart gets every step. */
   gust: number;
-  /** Half the pole's length (m). */
+  /** Half the pole's length (m); with two poles, the long one is 0.5 and this is the short one. */
   half: number;
+  /** How wrong his sensors are (a random error on each reading, in the state's own units). */
+  noise: number;
+  /** The reference controller's gains on each reading (position, speed, then angle and spin of each pole). */
+  ref: number[];
 }
+export const FMAX = 10;
+export const TRACK = 2.4;
+/**
+ * Each level is harder in a new way. 1: one pole. 2: wider starts, a longer run. 3: TWO poles on the same
+ * cart, a long one and a short one (a new controller to learn: the short one falls fast, and one push has to
+ * hold both). 4: the short pole twice as long, and a longer run — the closer the two lengths, the harder
+ * they are to hold together. 5: closer still, with noisy sensors.
+ * The reference controllers: level 1–2 gains picked by hand; for two poles, a linear-quadratic regulator
+ * worked out for this cart (gym2.test.mjs checks they succeed).
+ */
 export function poleRules(level: number): PoleRules {
   const L = lvl(level);
   return [
-    { steps: 200, angle: 0.05, pos: 0.05, gust: 0, half: 0.5 },
-    { steps: 500, angle: 0.1, pos: 0.3, gust: 0, half: 0.5 },
-    { steps: 500, angle: 0.15, pos: 1.0, gust: 0, half: 0.5 },
-    { steps: 1000, angle: 0.18, pos: 1.4, gust: 2, half: 0.5 },
-    { steps: 1000, angle: 0.18, pos: 1.4, gust: 2, half: 1.0 },
-  ][Math.min(L, 5) - 1]!;
+    { poles: 1, steps: 200, angle: 0.05, pos: 0.05, gust: 0, half: 0.5, noise: 0, ref: [1, 2.2, 30, 6] },
+    { poles: 1, steps: 600, angle: 0.15, pos: 1.2, gust: 0, half: 0.5, noise: 0, ref: [1, 2.2, 30, 6] },
+    { poles: 2, steps: 600, angle: 0.05, pos: 0.1, gust: 0, half: 0.05, noise: 0, ref: DOUBLE_05 },
+    { poles: 2, steps: 1000, angle: 0.08, pos: 0.4, gust: 0, half: 0.1, noise: 0, ref: DOUBLE_10 },
+    { poles: 2, steps: 1000, angle: 0.06, pos: 0.3, gust: 0, half: 0.15, noise: 0.002, ref: DOUBLE_15 },
+  ][Math.min(L, 5) - 1]! as PoleRules;
 }
-const FMAX = 10;
+/** Linear-quadratic regulator gains for the double pole (short pole 0.05, 0.1 and 0.15 half-length), computed offline for this model. */
+const DOUBLE_05 = [-2.8, -5.08, -88.8, -23.21, 55.97, 4.59];
+const DOUBLE_10 = [-3.16, -5.88, -127.76, -33.39, 86.8, 10.02];
+const DOUBLE_15 = [-3.32, -6.29, -168.87, -44.13, 123.17, 17.47];
 const DT = 0.02;
 const LIMIT_A = (12 * Math.PI) / 180;
-const LIMIT_X = 2.4;
+const LIMIT_2 = (36 * Math.PI) / 180;
 
-/** One step of the cart-pole (Barto, Sutton & Anderson's equations, Euler steps of 0.02 s). s = [x, ẋ, θ, θ̇]. */
-export function poleStep(s: number[], force: number, half: number): void {
+/**
+ * One step (0.02 s) of the cart and pole(s). One pole: Barto, Sutton & Anderson's equations, s = [x, ẋ, θ,
+ * θ̇]. Two poles: the standard double-pole equations (Wieland), in four Euler steps of 5 ms, s = [x, ẋ, θ1,
+ * θ̇1, θ2, θ̇2]; masses: cart 1 kg, poles 0.1 kg and a tenth of that for the short one.
+ */
+export function poleStep(s: number[], force: number, R: { poles: number; half: number }): void {
+  if (R.poles === 2) {
+    const h = DT / 4;
+    const L1 = 0.5;
+    const L2 = R.half;
+    const m1 = 0.1;
+    const m2 = 0.1 * (R.half / 0.5);
+    for (let k = 0; k < 4; k++) {
+      const [, xd, t1, t1d, t2, t2d] = s as [number, number, number, number, number, number];
+      const c1 = Math.cos(t1);
+      const s1 = Math.sin(t1);
+      const c2 = Math.cos(t2);
+      const s2 = Math.sin(t2);
+      const f1 = m1 * L1 * t1d * t1d * s1 + 0.75 * m1 * c1 * (-9.8 * s1);
+      const f2 = m2 * L2 * t2d * t2d * s2 + 0.75 * m2 * c2 * (-9.8 * s2);
+      const e1 = m1 * (1 - 0.75 * c1 * c1);
+      const e2 = m2 * (1 - 0.75 * c2 * c2);
+      const xacc = (force + f1 + f2) / (1 + e1 + e2);
+      const a1 = (-0.75 * (xacc * c1 - 9.8 * s1)) / L1;
+      const a2 = (-0.75 * (xacc * c2 - 9.8 * s2)) / L2;
+      s[0]! += h * xd;
+      s[1]! += h * xacc;
+      s[2]! += h * t1d;
+      s[3]! += h * a1;
+      s[4]! += h * t2d;
+      s[5]! += h * a2;
+    }
+    return;
+  }
   const [, xd, th, thd] = s as [number, number, number, number];
+  const half = R.half;
   const mc = 1;
   const mp = 0.1;
   const M = mc + mp;
@@ -60,11 +112,12 @@ export function poleStep(s: number[], force: number, half: number): void {
   s[2]! += DT * thd;
   s[3]! += DT * thacc;
 }
-const poleFailed = (s: number[]) => Math.abs(s[0]!) > LIMIT_X || Math.abs(s[2]!) > LIMIT_A;
+const poleFailed = (s: number[], R: PoleRules) =>
+  Math.abs(s[0]!) > TRACK || (R.poles === 2 ? Math.abs(s[2]!) > LIMIT_2 || Math.abs(s[4]!) > LIMIT_2 : Math.abs(s[2]!) > LIMIT_A);
 
 function poleStart(R: PoleRules, r: () => number): number[] {
   const u = (a: number) => (r() * 2 - 1) * a;
-  return [u(R.pos), u(R.pos / 3), u(R.angle), u(R.angle / 3)];
+  return R.poles === 2 ? [u(R.pos), u(R.pos / 3), u(R.angle), u(R.angle / 3), 0, 0] : [u(R.pos), u(R.pos / 3), u(R.angle), u(R.angle / 3)];
 }
 
 // ---- the lander ----------------------------------------------------------------------------------------------------
@@ -77,37 +130,47 @@ export interface LanderRules {
   /** Steady wind (m/s² sideways, up to) and gusts. */
   wind: number;
   gust: number;
+  /** Full main engine (m/s² along the lander's axis). */
+  thrust: number;
+  /** How slowly the engine follows the throttle (seconds; 0 = at once). */
+  lag: number;
 }
+/**
+ * The lander gets harder in new ways: further away and a smaller pad, then wind, then gusts and a weaker
+ * engine, then an engine that answers the throttle late, little fuel and a tiny pad.
+ */
 export function landerRules(level: number): LanderRules {
   const L = Math.max(6, lvl(level));
   return [
-    { spread: 15, pad: 10, fuel: 60, wind: 0, gust: 0 },
-    { spread: 30, pad: 8, fuel: 60, wind: 0, gust: 0 },
-    { spread: 40, pad: 6, fuel: 50, wind: 0, gust: 0 },
-    { spread: 40, pad: 6, fuel: 45, wind: 0.25, gust: 0 },
-    { spread: 45, pad: 5, fuel: 40, wind: 0.3, gust: 0.4 },
+    { spread: 15, pad: 10, fuel: 60, wind: 0, gust: 0, thrust: 4, lag: 0 },
+    { spread: 40, pad: 5, fuel: 50, wind: 0, gust: 0, thrust: 4, lag: 0 },
+    { spread: 40, pad: 5, fuel: 50, wind: 0.4, gust: 0, thrust: 4, lag: 0 },
+    { spread: 40, pad: 4, fuel: 45, wind: 0.4, gust: 0.6, thrust: 3, lag: 0 },
+    { spread: 40, pad: 2.5, fuel: 45, wind: 0.4, gust: 0.9, thrust: 2.6, lag: 1 },
   ][L - 6]!;
 }
 export const MOON = 1.62;
-/** Full main engine: m/s² along the lander's axis. Turning thrusters: rad/s². */
-const THRUST = 4;
+/** Turning thrusters: rad/s². */
 const TURN = 1.5;
 const LDT = 0.05;
 const LSTEPS = 1400;
 
-/** s = [x, y, vx, vy, angle (0 upright, + leans right), spin, fuel, wind]. */
+/** s = [x, y, vx, vy, angle (0 upright, + leans right), spin, fuel, wind, engine (0–1, what it gives now)]. */
 function landerStart(R: LanderRules, r: () => number): number[] {
   const u = (a: number) => (r() * 2 - 1) * a;
-  return [u(R.spread), 60 + r() * 30, u(3), -r() * 2, u(0.1), 0, R.fuel, u(R.wind)];
+  return [u(R.spread), 60 + r() * 30, u(3), -r() * 2, u(0.1), 0, R.fuel, u(R.wind), 0];
 }
-/** One step: main engine u (0–1), turn t (−1–1), gust g (m/s²). Fuel burns 1 a second at full engine, a fifth of that per thruster. */
-export function landerStep(s: number[], u: number, t: number, g: number): void {
+/** One step: throttle u (0–1), turn t (−1–1), gust g (m/s²). Fuel burns 1 a second at full engine, a fifth of that per thruster. */
+export function landerStep(s: number[], u: number, t: number, g: number, R: LanderRules): void {
   if (s[6]! <= 0) (u = 0), (t = 0);
   u = Math.max(0, Math.min(1, u));
   t = Math.max(-1, Math.min(1, t));
+  // A slow engine moves towards the throttle a little each step.
+  s[8] = R.lag ? s[8]! + (u - s[8]!) * Math.min(1, LDT / R.lag) : u;
+  u = s[8]!;
   const a = s[4]!;
-  s[2]! += LDT * (Math.sin(a) * THRUST * u + s[7]! + g);
-  s[3]! += LDT * (Math.cos(a) * THRUST * u - MOON);
+  s[2]! += LDT * (Math.sin(a) * R.thrust * u + s[7]! + g);
+  s[3]! += LDT * (Math.cos(a) * R.thrust * u - MOON);
   s[5]! += LDT * TURN * t;
   s[0]! += LDT * s[2]!;
   s[1]! += LDT * s[3]!;
@@ -121,36 +184,41 @@ export const landedSafely = (s: number[], R: LanderRules) => Math.abs(s[3]!) < 2
 
 /** A linear controller: each output a weighted sum of the (scaled) state plus a bias. */
 export type Policy = Float64Array;
-export const dims = (task: 'pole' | 'lander') => (task === 'pole' ? 5 : 14);
+/** How many numbers his controller has at a level: one pole 4 + 1, two poles 6 + 1, the lander 2 × (7 + 1). */
+export const dims = (level: number) => (taskFor(level) === 'lander' ? 16 : poleRules(level).poles === 2 ? 7 : 5);
 
-const poleFeat = (s: number[]) => [s[0]!, s[1]!, s[2]! * 10, s[3]!];
-const landerFeat = (s: number[]) => [s[0]! / 20, s[1]! / 50, s[2]! / 5, s[3]! / 5, s[4]!, s[5]!];
+const poleFeat = (s: number[]) => (s.length >= 6 ? [s[0]!, s[1]!, s[2]! * 10, s[3]!, s[4]! * 10, s[5]!] : [s[0]!, s[1]!, s[2]! * 10, s[3]!]);
+/** What the lander senses: across, height, drift, fall speed, lean, spin, and the wind (a wind gauge). */
+const landerFeat = (s: number[]) => [s[0]! / 20, s[1]! / 50, s[2]! / 5, s[3]! / 5, s[4]!, s[5]!, s[7]! * 2];
 
 function polePolicy(w: Policy, s: number[]): number {
   const f = poleFeat(s);
-  let x = w[4]!;
-  for (let i = 0; i < 4; i++) x += w[i]! * f[i]!;
-  return Math.max(-FMAX, Math.min(FMAX, x * FMAX));
+  let x = w[f.length]!;
+  for (let i = 0; i < f.length; i++) x += w[i]! * f[i]!;
+  return Math.max(-FMAX, Math.min(FMAX, x * 10));
 }
 function landerPolicy(w: Policy, s: number[]): [number, number] {
   const f = landerFeat(s);
-  let u = w[6]!;
-  let t = w[13]!;
-  for (let i = 0; i < 6; i++) (u += w[i]! * f[i]!), (t += w[7 + i]! * f[i]!);
+  let u = w[7]!;
+  let t = w[15]!;
+  for (let i = 0; i < 7; i++) (u += w[i]! * f[i]!), (t += w[8 + i]! * f[i]!);
   return [u, t];
 }
 
 /** The hand-tuned reference: a proportional-derivative design (gains picked by hand for this game). */
-export function referencePole(s: number[], half = 0.5): number {
-  return Math.max(-FMAX, Math.min(FMAX, 1.0 * s[0]! + 2.2 * s[1]! + 60 * half * s[2]! + 12 * half * s[3]!));
+export function referencePole(s: number[], R: PoleRules): number {
+  let f = 0;
+  for (let i = 0; i < R.ref.length; i++) f += R.ref[i]! * s[i]!;
+  return Math.max(-FMAX, Math.min(FMAX, f));
 }
-export function referenceLander(s: number[]): [number, number] {
+export function referenceLander(s: number[], R: LanderRules = landerRules(6)): [number, number] {
   const [x, y, vx, vy, a, w] = s as [number, number, number, number, number, number];
   // Sink at a speed that shrinks with height; lean to steer over the pad; straighten up near the ground.
   const want = -Math.max(0.8, Math.min(6, 0.1 * y));
-  const u = (MOON + 2 * (want - vy)) / (THRUST * Math.max(0.5, Math.cos(a)));
-  const ax = -0.12 * x - 0.7 * vx;
-  const lean = y < 4 ? 0 : Math.max(-0.4, Math.min(0.4, ax / THRUST));
+  const u = (MOON + 2 * (want - vy)) / (R.thrust * Math.max(0.5, Math.cos(a)));
+  // (It reads the wind gauge too, and leans against the wind.)
+  const ax = -0.12 * x - 0.7 * vx - s[7]!;
+  const lean = y < 4 ? 0 : Math.max(-0.4, Math.min(0.4, ax / R.thrust));
   return [u, 4 * (lean - a) - 2.5 * w];
 }
 
@@ -169,11 +237,13 @@ export function runPole(R: PoleRules, start: number[], ctl: (s: number[]) => num
   let effort = 0;
   const tr: number[][] = [];
   for (let i = 0; i < R.steps; i++) {
-    const f = ctl(s);
+    // What the controller sees: the state, with sensor noise at the harder levels.
+    const seen = R.noise ? s.map((x) => x + (r() * 2 - 1) * R.noise) : s;
+    const f = ctl(seen);
     effort += Math.abs(f) * DT;
     if (trace && i % trace === 0) tr.push([...s, f]);
-    poleStep(s, f + (R.gust ? (r() * 2 - 1) * R.gust : 0), R.half);
-    if (poleFailed(s)) {
+    poleStep(s, f + (R.gust ? (r() * 2 - 1) * R.gust : 0), R);
+    if (poleFailed(s, R)) {
       tr.push([...s, 0]);
       return { ok: false, steps: i + 1, fuel: effort, trace: tr, why: Math.abs(s[2]!) > LIMIT_A ? 'the pole fell' : 'the cart ran off the track' };
     }
@@ -186,22 +256,22 @@ export function runLander(R: LanderRules, start: number[], ctl: (s: number[]) =>
   const tr: number[][] = [];
   for (let i = 0; i < LSTEPS; i++) {
     const [u, t] = ctl(s);
-    if (trace && i % trace === 0) tr.push([...s, s[6]! > 0 ? Math.max(0, Math.min(1, u)) : 0, s[6]! > 0 ? Math.max(-1, Math.min(1, t)) : 0]);
-    landerStep(s, u, t, R.gust ? (r() * 2 - 1) * R.gust : 0);
+    if (trace && i % trace === 0) tr.push(s.slice());
+    landerStep(s, u, t, R.gust ? (r() * 2 - 1) * R.gust : 0, R);
     if (s[1]! <= 0) {
       s[1] = 0;
       const ok = landedSafely(s, R);
-      tr.push([...s, 0, 0]);
+      tr.push(s.slice());
       const why = ok ? 'a soft landing on the pad' : Math.abs(s[0]!) >= R.pad ? 'touched down off the pad' : Math.abs(s[4]!) >= 0.25 ? 'landed tilted over' : 'came down too hard';
       return { ok, steps: i + 1, fuel: R.fuel - s[6]!, trace: tr, why };
     }
     if (Math.abs(s[4]!) > 1.2) {
-      tr.push([...s, 0, 0]);
+      tr.push(s.slice());
       return { ok: false, steps: i + 1, fuel: R.fuel - s[6]!, trace: tr, why: 'tipped over in the air' };
     }
     if (Math.abs(s[0]!) > 120 || s[1]! > 200) break;
   }
-  tr.push([...s, 0, 0]);
+  tr.push(s.slice());
   return { ok: false, steps: LSTEPS, fuel: R.fuel - s[6]!, trace: tr, why: 'never came down on the pad' };
 }
 
@@ -232,7 +302,7 @@ const refs = new Map<number, { ok: boolean[]; fuel: number[] }>();
 export function reference(level: number): { ok: boolean[]; fuel: number[] } {
   const L = lvl(level);
   let x = refs.get(L);
-  if (!x) refs.set(L, (x = test(L, (s) => referencePole(s, poleRules(L).half), referenceLander)));
+  if (!x) refs.set(L, (x = test(L, (s) => referencePole(s, poleRules(L)), (s) => referenceLander(s, landerRules(L)))));
   return x;
 }
 
@@ -264,7 +334,7 @@ class BalanceLearner implements Learner {
     saved?: unknown,
   ) {
     this.task = taskFor(level);
-    const n = dims(this.task);
+    const n = dims(level);
     const s = savedFor<BalanceSave>(saved, 'balance');
     // What he learned carries over while the task stays the same; a new level widens his search a little.
     const keep = s && s.task === this.task && s.mean?.length === n;
@@ -359,8 +429,9 @@ class BalanceLearner implements Learner {
   }
   view(): Frame {
     const w = this.mean;
-    const names = this.task === 'pole' ? ['position', 'speed', 'pole angle', 'pole spin'] : ['engine: across', 'engine: height', 'engine: drift', 'engine: fall speed', 'engine: lean', 'turn: across', 'turn: drift', 'turn: lean', 'turn: spin'];
-    const idx = this.task === 'pole' ? [0, 1, 2, 3] : [0, 1, 2, 3, 4, 7, 9, 11, 12];
+    const two = this.task === 'pole' && poleRules(this.level).poles === 2;
+    const names = this.task === 'pole' ? (two ? ['position', 'speed', 'long pole angle', 'long pole spin', 'short pole angle', 'short pole spin'] : ['position', 'speed', 'pole angle', 'pole spin']) : ['engine: across', 'engine: height', 'engine: drift', 'engine: fall speed', 'engine: lean', 'engine: wind', 'turn: across', 'turn: drift', 'turn: lean', 'turn: spin', 'turn: wind'];
+    const idx = this.task === 'pole' ? (two ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3]) : [0, 1, 2, 3, 4, 6, 8, 10, 12, 13, 14];
     const mx = Math.max(1e-9, ...idx.map((i) => Math.abs(w[i]!)));
     return {
       bars: names.map((nm, k) => [nm, Math.abs(w[idx[k]!]!) / mx, `${w[idx[k]!]! >= 0 ? '+' : '−'}${Math.abs(w[idx[k]!]!).toFixed(2)}`] as [string, number, string]),
@@ -386,17 +457,19 @@ class BalanceLearner implements Learner {
 export function poleFrame(s: number[], R: PoleRules, caption: string): Frame {
   const W = 300;
   const H = 150;
-  const sx = (x: number) => W / 2 + (x / LIMIT_X) * (W / 2 - 20);
+  const sx = (x: number) => W / 2 + (x / TRACK) * (W / 2 - 20);
   const cx = sx(s[0]!);
   const len = R.half * 2 * 90;
   const shapes: Shape[] = [
     { k: 'line', x1: 10, y1: 120, x2: W - 10, y2: 120, c: 'rgba(120,200,255,.35)', sw: 2 },
-    { k: 'line', x1: sx(-LIMIT_X), y1: 110, x2: sx(-LIMIT_X), y2: 130, c: '#ff4d6a', sw: 2 },
-    { k: 'line', x1: sx(LIMIT_X), y1: 110, x2: sx(LIMIT_X), y2: 130, c: '#ff4d6a', sw: 2 },
+    { k: 'line', x1: sx(-TRACK), y1: 110, x2: sx(-TRACK), y2: 130, c: '#ff4d6a', sw: 2 },
+    { k: 'line', x1: sx(TRACK), y1: 110, x2: sx(TRACK), y2: 130, c: '#ff4d6a', sw: 2 },
     { k: 'rect', x: cx - 18, y: 104, w: 36, h: 14, c: 'var(--c)' },
-    { k: 'line', x1: cx, y1: 104, x2: cx + Math.sin(s[2]!) * len, y2: 104 - Math.cos(s[2]!) * len, c: '#ffd24d', sw: 4 },
+    { k: 'line', x1: cx, y1: 104, x2: cx + Math.sin(s[2]!) * (R.poles === 2 ? 90 : len), y2: 104 - Math.cos(s[2]!) * (R.poles === 2 ? 90 : len), c: '#ffd24d', sw: 4 },
   ];
-  const f = s[4] ?? 0;
+  if (R.poles === 2) shapes.push({ k: 'line', x1: cx + 6, y1: 104, x2: cx + 6 + Math.sin(s[4]!) * len, y2: 104 - Math.cos(s[4]!) * len, c: '#ff9f43', sw: 4 });
+  // The push is the last number of a traced state.
+  const f = s[s.length - 1] ?? 0;
   if (Math.abs(f) > 0.5) shapes.push({ k: 'line', x1: cx - Math.sign(f) * 22, y1: 111, x2: cx - Math.sign(f) * (22 + Math.abs(f) * 2.5), y2: 111, c: '#4fe3a8', sw: 3 });
   return { draw: { w: W, h: H, shapes }, caption, every: 0.08 };
 }
@@ -449,21 +522,21 @@ class BalanceEnv implements Env {
     this.n++;
     if (taskFor(this.level) === 'pole') {
       const R = poleRules(this.level);
-      poleStep(this.s, a ? FMAX : -FMAX, R.half);
-      const dead = poleFailed(this.s);
+      poleStep(this.s, a ? FMAX : -FMAX, R);
+      const dead = poleFailed(this.s, R);
       return { reward: dead ? 0 : 1, done: dead || this.n >= R.steps };
     }
     const R = landerRules(this.level);
     const u = a === 1 || a >= 4 ? 1 : 0;
     const t = a === 2 || a === 4 ? -1 : a === 3 || a === 5 ? 1 : 0;
     const before = this.s[6]!;
-    landerStep(this.s, u, t, R.gust ? (this.r() * 2 - 1) * R.gust : 0);
+    landerStep(this.s, u, t, R.gust ? (this.r() * 2 - 1) * R.gust : 0, R);
     if (this.s[1]! <= 0) return { reward: landedSafely(this.s, R) ? 100 : -100, done: true };
     return { reward: -(before - this.s[6]!), done: this.n >= LSTEPS };
   }
   describe() {
     const s = this.s;
-    if (taskFor(this.level) === 'pole') return `Cart and pole: the cart is ${s[0]!.toFixed(2)} m from the centre (track ends at ±2.4 m), moving ${s[1]!.toFixed(2)} m/s; the pole leans ${((s[2]! * 180) / Math.PI).toFixed(1)}° (it falls past 12°), turning ${((s[3]! * 180) / Math.PI).toFixed(1)}°/s. Push left or right.`;
+    if (taskFor(this.level) === 'pole') return `Cart and pole: the cart is ${s[0]!.toFixed(2)} m from the centre (track ends at ±${TRACK} m), moving ${s[1]!.toFixed(2)} m/s; the pole leans ${((s[2]! * 180) / Math.PI).toFixed(1)}° (it falls past 12°), turning ${((s[3]! * 180) / Math.PI).toFixed(1)}°/s. Push left or right.`;
     return `Moon lander: ${s[0]!.toFixed(1)} m across from the pad centre, ${s[1]!.toFixed(1)} m up, drifting ${s[2]!.toFixed(1)} m/s across and ${s[3]!.toFixed(1)} m/s up, leaning ${((s[4]! * 180) / Math.PI).toFixed(0)}°, fuel ${s[6]!.toFixed(1)}. Land slower than 2 m/s, upright, on the pad.`;
   }
 }
@@ -505,11 +578,25 @@ function generate(level: number, seed: number): Problem {
   }
 }
 
+/**
+ * What a reply says: 'crash', a number, or NaN. A crash it rules out ("does not crash") is not a crash; a
+ * number in brackets ("using g = 1.62") is working, not the answer; with units, only numbers in the right
+ * unit count; two different numbers is not an answer.
+ */
+export function readBalance(answer: string, unit: 'm' | 's'): number | 'crash' {
+  const line = finalLine(answer).toLowerCase().replace(/[−–]/g, '-').replace(/\([^)]*\)/g, ' ').replace(/\b[a-z]\s*=\s*-?\d+(\.\d+)?/g, ' ');
+  const crash = mentions(line, /\bcrash(es|ed|ing)?\b/g);
+  if (crash.some((c) => !c.negated)) return crash.some((c) => c.negated) ? NaN : 'crash';
+  const all = [...line.matchAll(/(-?\d+(?:\.\d+)?)\s*(m|metres?|meters?|s|secs?|seconds?)?\b/g)];
+  // Numbers in the right unit, and bare numbers (a number in another unit is something else).
+  const pick = all.filter((x) => !x[2] || x[2][0] === unit);
+  const vals = [...new Set(pick.map((x) => Number(x[1])))];
+  return vals.length === 1 ? vals[0]! : NaN;
+}
+
 function check(p: Problem, answer: string): Verdict {
   const d = p.data as { kind: string; answer: number | 'crash' };
-  const line = finalLine(answer).toLowerCase();
-  const nums = line.replace(/[−–]/g, '-').match(/-?\d+(\.\d+)?/g);
-  const said = /crash/.test(line) && !nums ? 'crash' : nums ? Number(nums[nums.length - 1]) : NaN;
+  const said = readBalance(answer, d.kind === 'time' ? 's' : 'm');
   if (d.answer === 'crash') {
     const ok = said === 'crash';
     return { correct: ok, score: ok ? 1 : 0, why: ok ? 'Right: it crashes.' : 'It reaches the ground before it stops: crash.' };

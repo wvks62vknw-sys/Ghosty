@@ -20,7 +20,7 @@ export interface GymRecord {
   level: number;
   units: number;
   mastery: number;
-  /** Mastery when this level began ("61% → 88%"). */
+  /** Mastery when this level began ("61% → 88%"); −1 until the first measurement at a new level. */
   start: number;
   detail: string;
   history: Point[];
@@ -42,6 +42,8 @@ export function newRecord(id: string): GymRecord {
 export class Session {
   rec: GymRecord;
   learner: Learner;
+  /** The last measurement is still under way (a match played in slices). */
+  pending = false;
   constructor(
     public game: Game,
     rec?: GymRecord | null,
@@ -69,10 +71,19 @@ export class Session {
     this.rec.units += k;
     return k;
   }
-  /** Measure against the ground truth; past the bar, the next level is made. */
+  /**
+   * Measure against the ground truth; past the bar, the next level is made. The new level is measured at
+   * the next call (not straight away: one measurement per call keeps the worker responsive), and that
+   * first measurement only says where he starts.
+   */
   measure(): 'level' | 'mastered' | null {
     const r = this.learner.measure();
+    this.pending = !!r.pending;
     this.note(r);
+    if (this.rec.start < 0) {
+      this.rec.start = r.mastery;
+      return null;
+    }
     if (r.mastery + 1e-9 < this.game.bar(this.rec.level)) return null;
     if (this.rec.level >= LEVELS) {
       this.rec.mastered = true;
@@ -80,9 +91,9 @@ export class Session {
     }
     this.rec.level++;
     this.learner = this.game.learner(this.rec.level, this.rec.seed, this.learner.save());
-    const r2 = this.learner.measure();
-    this.note(r2);
-    this.rec.start = r2.mastery;
+    // Not measured at the new level yet.
+    this.rec.start = -1;
+    this.rec.mastery = 0;
     return 'level';
   }
   /** The record with the learner's state, to keep. */
@@ -98,7 +109,7 @@ const pc = (x: number) => `${Math.round(x * 100)}%`;
 export function statusLine(rec: GymRecord | null, game: GameMeta, training: boolean): string {
   if (!rec || (!rec.units && !training)) return `Not started · Level 1 · tap TRAIN to begin.`;
   if (rec.mastered) return `Mastered all ${LEVELS} levels · ${n(rec.units)} ${game.unit} · ${pc(rec.mastery)}`;
-  const move = `${pc(rec.start)} → ${pc(rec.mastery)}`;
+  const move = `${pc(Math.max(0, rec.start))} → ${pc(rec.mastery)}`;
   return training ? `Learning… ${n(rec.units)} ${game.unit} · Level ${rec.level} · mastery ${move}` : `Paused · ${n(rec.units)} ${game.unit} · Level ${rec.level} · mastery ${move}`;
 }
 

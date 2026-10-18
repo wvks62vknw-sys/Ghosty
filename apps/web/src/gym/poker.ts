@@ -10,11 +10,42 @@
  * exploitability of playing every option equally often (so 0% untrained, 100% unbeatable). Kuhn poker's
  * equilibrium value is −1/18 of a chip a hand for the first player (tested).
  */
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
 import { POKER } from './meta';
 
-export type Variant = 'kuhn' | 'leduc';
-export const variantFor = (level: number): Variant => (lvl(level) <= 4 ? 'kuhn' : 'leduc');
+/**
+ * The games of the ladder. Every level is a different game (more cards, a raise allowed, more raises), so
+ * what he learned at one level does not answer the next: he must learn each game from scratch.
+ * ranks: card values; copies: of each (1 = Kuhn-style, 2 = Leduc-style with a board card); bets: chip size
+ * per round; raises: bets allowed per round (a bet and raises).
+ */
+export interface Spec {
+  name: string;
+  ranks: number;
+  copies: number;
+  board: boolean;
+  bets: number[];
+  raises: number;
+  /** Exploitability (chips a hand) that passes the level. */
+  limit: number;
+}
+export const SPECS: Record<string, Spec> = {
+  kuhn: { name: 'Kuhn poker (3 cards)', ranks: 3, copies: 1, board: false, bets: [1], raises: 1, limit: 0.002 },
+  kuhn4: { name: 'Kuhn poker with 4 cards', ranks: 4, copies: 1, board: false, bets: [1], raises: 1, limit: 0.002 },
+  kuhn5r: { name: 'Kuhn poker with 5 cards and a raise', ranks: 5, copies: 1, board: false, bets: [1], raises: 2, limit: 0.002 },
+  kuhn6r: { name: 'Kuhn poker with 6 cards and a raise', ranks: 6, copies: 1, board: false, bets: [1], raises: 2, limit: 0.002 },
+  leduc: { name: "Leduc hold'em", ranks: 3, copies: 2, board: true, bets: [2, 4], raises: 2, limit: 0.01 },
+  leduc4: { name: "Leduc hold'em with 4 ranks", ranks: 4, copies: 2, board: true, bets: [2, 4], raises: 2, limit: 0.01 },
+  leduc3r3: { name: "Leduc hold'em with two raises a round", ranks: 3, copies: 2, board: true, bets: [2, 4], raises: 3, limit: 0.01 },
+  leduc4r3: { name: "Leduc hold'em, 4 ranks, two raises a round", ranks: 4, copies: 2, board: true, bets: [2, 4], raises: 3, limit: 0.01 },
+  leduc5: { name: "Leduc hold'em with 5 ranks", ranks: 5, copies: 2, board: true, bets: [2, 4], raises: 2, limit: 0.01 },
+  leduc5r3: { name: "Leduc hold'em, 5 ranks, two raises a round", ranks: 5, copies: 2, board: true, bets: [2, 4], raises: 3, limit: 0.008 },
+};
+export type Variant = keyof typeof SPECS | string;
+const LADDER = ['kuhn', 'kuhn4', 'kuhn5r', 'kuhn6r', 'leduc', 'leduc4', 'leduc3r3', 'leduc4r3', 'leduc5', 'leduc5r3'];
+export const variantFor = (level: number): Variant => LADDER[lvl(level) - 1]!;
+/** Card names, lowest first. */
+export const rankNames = (n: number) => (n <= 4 ? 'JQKA' : '9TJQKA').slice(n <= 4 ? 0 : 6 - n, n <= 4 ? n : 6);
 const RANK = 'JQK';
 
 // ---- the game tree ------------------------------------------------------------------------------------------
@@ -39,6 +70,9 @@ export interface PNode {
 
 export interface Tree {
   variant: Variant;
+  spec: Spec;
+  /** Card names. */
+  ranks: string;
   root: PNode;
   /** Information sets: key, player, actions, and the nodes in it. */
   infos: { key: string; player: number; acts: string; nodes: PNode[]; depth: number }[];
@@ -50,6 +84,9 @@ const trees = new Map<Variant, Tree>();
 export function tree(variant: Variant): Tree {
   const hit = trees.get(variant);
   if (hit) return hit;
+  const spec = SPECS[variant];
+  if (!spec) throw new Error(`no poker game ${variant}`);
+  const R = rankNames(spec.ranks);
   const infos: Tree['infos'] = [];
   const index = new Map<string, number>();
   const infoOf = (key: string, player: number, acts: string, node: PNode, depth: number) => {
@@ -63,22 +100,21 @@ export function tree(variant: Variant): Tree {
     return i;
   };
   const showdown = (c0: number, c1: number, board: number | undefined, pot0: number, pot1: number): number => {
-    // Each put in pot0 / pot1: the winner takes the other's stake.
-    const s0 = board != null && c0 === board ? 10 : c0;
-    const s1 = board != null && c1 === board ? 10 : c1;
+    // Each put in pot0 / pot1: the winner takes the other's stake. A pair with the board beats any card.
+    const s0 = board != null && c0 === board ? 100 : c0;
+    const s1 = board != null && c1 === board ? 100 : c1;
     return s0 > s1 ? pot1 : s0 < s1 ? -pot0 : 0;
   };
-  /** One betting round. h = actions this round; bets = raises so far; in0/in1 = chips in. */
+  /** One betting round. h = actions this round; bets = bets and raises so far; in0/in1 = chips in. */
   const round = (cards: number[], board: number | undefined, hist: string, h: string, in0: number, in1: number, bets: number, depth: number, after: (in0: number, in1: number, hist: string) => PNode): PNode => {
     const player = h.length % 2;
-    const size = variant === 'kuhn' ? 1 : board == null ? 2 : 4;
-    const maxBets = variant === 'kuhn' ? 1 : 2;
+    const size = spec.bets[board == null ? 0 : 1] ?? spec.bets[0]!;
     const last = h[h.length - 1];
     const facing = last === 'r';
-    const acts = facing ? (bets < maxBets ? 'fcr' : 'fc') : 'cr';
+    const acts = facing ? (bets < spec.raises ? 'fcr' : 'fc') : 'cr';
     const node: PNode = { kind: 'act', player, acts, kids: [], cards, board, hist: hist + h };
-    const priv = RANK[cards[player]!]!;
-    node.info = infoOf(`${player}|${priv}|${board != null ? RANK[board] : ''}|${hist}/${h}`, player, acts, node, depth);
+    const priv = R[cards[player]!]!;
+    node.info = infoOf(`${player}|${priv}|${board != null ? R[board] : ''}|${hist}/${h}`, player, acts, node, depth);
     for (const a of acts) {
       const h2 = h + a;
       let kid: PNode;
@@ -100,45 +136,38 @@ export function tree(variant: Variant): Tree {
     }
     return node;
   };
-  let root: PNode;
-  if (variant === 'kuhn') {
-    const kids: PNode[] = [];
-    const probs: number[] = [];
-    for (let a = 0; a < 3; a++)
-      for (let b = 0; b < 3; b++) {
-        if (a === b) continue;
-        const cards = [a, b];
+  // Deals by rank, with their probabilities (copies of each rank in the deck).
+  const n = spec.ranks;
+  const cp = spec.copies;
+  const deck = n * cp;
+  const kids: PNode[] = [];
+  const probs: number[] = [];
+  for (let a = 0; a < n; a++)
+    for (let b = 0; b < n; b++) {
+      const pab = (cp / deck) * ((cp - (a === b ? 1 : 0)) / (deck - 1));
+      if (pab <= 0) continue;
+      const cards = [a, b];
+      probs.push(pab);
+      if (!spec.board) {
         kids.push(round(cards, undefined, '', '', 1, 1, 0, 0, (i0, i1, hist) => ({ kind: 'end', pay: showdown(a, b, undefined, i0, i1), cards, hist })));
-        probs.push(1 / 6);
+        continue;
       }
-    root = { kind: 'chance', probs, kids };
-  } else {
-    // Six cards: two of each rank. Deals by rank with their probabilities.
-    const kids: PNode[] = [];
-    const probs: number[] = [];
-    for (let a = 0; a < 3; a++)
-      for (let b = 0; b < 3; b++) {
-        const pab = (2 / 6) * ((a === b ? 1 : 2) / 5);
-        const cards = [a, b];
-        kids.push(
-          round(cards, undefined, '', '', 1, 1, 0, 0, (i0, i1, hist) => {
-            // The board card: one of the four left.
-            const bk: PNode[] = [];
-            const bp: number[] = [];
-            for (let c = 0; c < 3; c++) {
-              const left = 2 - (a === c ? 1 : 0) - (b === c ? 1 : 0);
-              if (!left) continue;
-              bp.push(left / 4);
-              bk.push(round(cards, c, `${hist}|`, '', i0, i1, 0, 10, (j0, j1, h2) => ({ kind: 'end', pay: showdown(a, b, c, j0, j1), cards, board: c, hist: h2 })));
-            }
-            return { kind: 'chance', probs: bp, kids: bk, cards, hist };
-          }),
-        );
-        probs.push(pab);
-      }
-    root = { kind: 'chance', probs, kids };
-  }
-  const t: Tree = { variant, root, infos };
+      kids.push(
+        round(cards, undefined, '', '', 1, 1, 0, 0, (i0, i1, hist) => {
+          // The board card: one of those left.
+          const bk: PNode[] = [];
+          const bp: number[] = [];
+          for (let c = 0; c < n; c++) {
+            const left = cp - (a === c ? 1 : 0) - (b === c ? 1 : 0);
+            if (left <= 0) continue;
+            bp.push(left / (deck - 2));
+            bk.push(round(cards, c, `${hist}|`, '', i0, i1, 0, 10, (j0, j1, h2) => ({ kind: 'end', pay: showdown(a, b, c, j0, j1), cards, board: c, hist: h2 })));
+          }
+          return { kind: 'chance', probs: bp, kids: bk, cards, hist };
+        }),
+      );
+    }
+  const t: Tree = { variant, spec, ranks: R, root: { kind: 'chance', probs, kids }, infos };
   trees.set(variant, t);
   return t;
 }
@@ -336,7 +365,7 @@ class PokerEnv implements Env {
     return this.n.kind === 'end' ? { reward: this.n.pay!, done: true } : { reward: 0, done: false };
   }
   describe() {
-    return handText(this.t.variant, this.n, 0);
+    return handText(this.t, this.n, 0);
   }
 }
 
@@ -357,11 +386,13 @@ export function bettingWords(hist: string): string {
   return out.length ? out.join(', ') : 'no betting yet';
 }
 
-function handText(v: Variant, n: PNode, seat: number): string {
+function handText(t: Tree, n: PNode, seat: number): string {
+  const R = t.ranks;
+  const sp = t.spec;
+  const rules = `${sp.name}: cards ${[...R].join(' < ')}${sp.copies > 1 ? ` (${sp.copies} of each)` : ''}, ante 1, bets of ${sp.bets.join(' then ')}, at most ${sp.raises} bet${sp.raises > 1 ? 's' : ''} a round${sp.board ? '; a shared board card after round one, and a pair with the board beats any high card' : ', one round'}`;
   const cards = n.cards ?? [];
-  const rules = v === 'kuhn' ? 'Kuhn poker (cards J < Q < K, ante 1, bets of 1, one round)' : "Leduc hold'em (two each of J Q K, ante 1, bets of 2 then 4, a shared board card after round one; a pair with the board beats any high card)";
-  const lines = [`${rules}.`, `You are Player ${seat + 1} and hold ${cards[seat] != null ? RANK[cards[seat]!] : '?'}.`];
-  if (n.board != null) lines.push(`Board card: ${RANK[n.board]}.`);
+  const lines = [`${rules}.`, `You are Player ${seat + 1} and hold ${cards[seat] != null ? R[cards[seat]!] : '?'}.`];
+  if (n.board != null) lines.push(`Board card: ${R[n.board]}.`);
   lines.push(`Betting: ${bettingWords(n.hist ?? '')}.`);
   if (n.kind === 'end') lines.push(`Hand over: you ${n.pay! * (seat ? -1 : 1) >= 0 ? 'win' : 'lose'} ${Math.abs(n.pay!)}.`);
   else if (n.kind === 'act') lines.push(`Your options: ${[...n.acts!].map((a) => (a === 'c' && n.hist?.endsWith('r') ? 'call' : a === 'r' && n.hist?.endsWith('r') ? 'raise' : ACT[a as 'f' | 'c' | 'r'])).join(', ')}.`);
@@ -379,31 +410,41 @@ interface PokerSave {
 }
 
 /** CFR+ rounds per training unit is one; a unit is called a "round" of self-play over every deal. */
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+/**
+ * Mastery from exploitability: the bar (0.9) is exactly the level's limit; ten times the limit or more is 0.
+ * So the number counts how close he is to the limit in absolute chips, not compared with random play.
+ */
+export const masteryOf = (e: number, limit: number) => Math.max(0, Math.min(1, 1 - e / (10 * limit)));
+
 class PokerLearner implements Learner {
   cfr: CFR;
   variant: Variant;
   constructor(level: number, _seed: number, saved?: unknown) {
     this.variant = variantFor(level);
     const t = tree(this.variant);
-    // What he learned carries over while the game stays the same (Kuhn → Leduc starts afresh).
+    // Each level is a different game: what he learned carries over only within the same game (a reload).
     const s = savedFor<PokerSave>(saved, 'poker');
     this.cfr = s && s.variant === this.variant ? new CFR(t, s.regret, s.sum, s.iters) : new CFR(t);
   }
   train(n: number) {
-    // A Leduc round walks ~10,000 positions: keep each call short.
-    const k = Math.max(1, Math.min(n, this.variant === 'kuhn' ? 2000 : 40));
-    for (let i = 0; i < k; i++) this.cfr.iterate();
+    // As many rounds of CFR+ as fit in ~30 ms (a big game's round walks tens of thousands of positions).
+    const t0 = clock();
+    let k = 0;
+    while (k < n && (k === 0 || clock() - t0 < 30)) {
+      this.cfr.iterate();
+      k++;
+    }
     return k;
   }
   measure() {
     const s = this.cfr.average();
     const e = exploitability(this.cfr.t, s);
-    const u = uniformExploitability(this.variant);
-    const name = this.variant === 'kuhn' ? 'Kuhn poker' : "Leduc hold'em";
+    const spec = this.cfr.t.spec;
     const v0 = gameValue(this.cfr.t, s);
     return {
-      mastery: Math.max(0, Math.min(1, 1 - e / u)),
-      detail: `${name}: a perfect opponent who knew his strategy would win ${(e * 1000).toFixed(1)} thousandths of a chip a hand from him (exact best response; playing every option equally often loses ${(u * 1000).toFixed(0)}; 0 is unbeatable). Against himself the first player makes ${v0.toFixed(3)} a hand${this.variant === 'kuhn' ? ' (the true value is −1/18 = −0.056)' : ''}.`,
+      mastery: masteryOf(e, spec.limit),
+      detail: `${spec.name}: a perfect opponent who knew his strategy would win ${(e * 1000).toFixed(1)} thousandths of a chip a hand from him (exact best response; 0 is unbeatable). This level needs ${(spec.limit * 1000).toFixed(0)} or less. Against himself the first player makes ${v0.toFixed(3)} a hand${this.variant === 'kuhn' ? ' (the true value is −1/18 = −0.056)' : ''}.`,
     };
   }
   save(): PokerSave {
@@ -411,6 +452,7 @@ class PokerLearner implements Learner {
   }
   /** His chance of betting / calling with each card at the first decisions. */
   view(): Frame {
+    const R = this.cfr.t.ranks;
     const s = this.cfr.average();
     const t = this.cfr.t;
     const bars: [string, number, string][] = [];
@@ -419,17 +461,18 @@ class PokerLearner implements Learner {
       if (i < 0) return 0;
       return s[i * 3 + t.infos[i]!.acts.indexOf(act)]!;
     };
-    for (let c = 0; c < 3; c++) {
-      const p = prob(`0|${RANK[c]}||/`, 'r');
-      bars.push([`P1 bets with ${RANK[c]}`, p, `${Math.round(p * 100)}%`]);
+    for (let c = 0; c < R.length; c++) {
+      const p = prob(`0|${R[c]}||/`, 'r');
+      bars.push([`P1 bets with ${R[c]}`, p, `${Math.round(p * 100)}%`]);
     }
-    for (let c = 0; c < 3; c++) {
-      const p = prob(`1|${RANK[c]}||/r`, 'c') + (this.variant === 'leduc' ? prob(`1|${RANK[c]}||/r`, 'r') : 0);
-      bars.push([`P2 calls a bet with ${RANK[c]}`, p, `${Math.round(p * 100)}%`]);
+    for (let c = 0; c < R.length; c++) {
+      const p = prob(`1|${R[c]}||/r`, 'c') + (this.cfr.t.spec.raises > 1 ? prob(`1|${R[c]}||/r`, 'r') : 0);
+      bars.push([`P2 calls a bet with ${R[c]}`, p, `${Math.round(p * 100)}%`]);
     }
-    return { bars, caption: `${this.variant === 'kuhn' ? 'Kuhn poker' : "Leduc hold'em (first round)"}: how often he bets or calls with each card, after ${this.cfr.iters.toLocaleString('en-GB')} rounds of self-play. At the equilibrium he bluffs with J now and then and never folds K.` };
+    return { bars, caption: `${this.cfr.t.spec.name}${this.cfr.t.spec.board ? ' (first round)' : ''}: how often he bets or calls with each card, after ${this.cfr.iters.toLocaleString('en-GB')} rounds of self-play. At the equilibrium he bluffs with J now and then and never folds K.` };
   }
   watch(seed: number): Frame[] {
+    const R = this.cfr.t.ranks;
     const s = this.cfr.average();
     const r = rng(seed);
     const frames: Frame[] = [];
@@ -444,7 +487,7 @@ class PokerLearner implements Learner {
           let i = 0;
           for (; i < n.probs!.length - 1; i++) if ((x -= n.probs![i]!) < 0) break;
           n = n.kids![i]!;
-          if (n.board != null && !lines.some((l) => l.startsWith('Board'))) lines.push(`Board card: ${RANK[n.board]}`);
+          if (n.board != null && !lines.some((l) => l.startsWith('Board'))) lines.push(`Board card: ${R[n.board]}`);
           continue;
         }
         const i = n.info!;
@@ -453,12 +496,12 @@ class PokerLearner implements Learner {
         for (; a < n.acts!.length - 1; a++) if ((x -= s[i * 3 + a]!) < 0) break;
         const facing = (n.hist ?? '').endsWith('r');
         const word = n.acts![a] === 'f' ? 'folds' : n.acts![a] === 'c' ? (facing ? 'calls' : 'checks') : facing ? 'raises' : 'bets';
-        lines.push(`P${n.player! + 1} (${RANK[n.cards![n.player!]!]}) ${word} — ${Math.round(s[i * 3 + a]! * 100)}% of the time here`);
+        lines.push(`P${n.player! + 1} (${R[n.cards![n.player!]!]}) ${word} — ${Math.round(s[i * 3 + a]! * 100)}% of the time here`);
         n = n.kids![a]!;
-        frames.push({ lines: [`Hand ${hand + 1}: P1 holds ${RANK[n.cards![0]!]}, P2 holds ${RANK[n.cards![1]!]}`, ...lines], caption: 'He plays both seats with his learned strategy.' });
+        frames.push({ lines: [`Hand ${hand + 1}: P1 holds ${R[n.cards![0]!]}, P2 holds ${R[n.cards![1]!]}`, ...lines], caption: 'He plays both seats with his learned strategy.' });
       }
       total += n.pay!;
-      frames.push({ lines: [`Hand ${hand + 1}: P1 holds ${RANK[n.cards![0]!]}, P2 holds ${RANK[n.cards![1]!]}`, ...lines, `P1 ${n.pay! >= 0 ? 'wins' : 'loses'} ${Math.abs(n.pay!)} · P1 total ${total >= 0 ? '+' : ''}${total}`], caption: 'He plays both seats with his learned strategy.' });
+      frames.push({ lines: [`Hand ${hand + 1}: P1 holds ${R[n.cards![0]!]}, P2 holds ${R[n.cards![1]!]}`, ...lines, `P1 ${n.pay! >= 0 ? 'wins' : 'loses'} ${Math.abs(n.pay!)} · P1 total ${total >= 0 ? '+' : ''}${total}`], caption: 'He plays both seats with his learned strategy.' });
     }
     return frames;
   }
@@ -545,13 +588,25 @@ const ib0 = (t: Tree, card: number) => t.infos.findIndex((I) => I.key === `1|${R
 /** …and facing a bet. */
 const ib1 = (t: Tree, card: number) => t.infos.findIndex((I) => I.key === `1|${RANK[card]}||/r`);
 
-/** Read a signed chip count: "−3", "loses 3", "Player 1 wins 4 chips". */
+/**
+ * Read Player 1's net chips: "−3", "Player 1 loses 3", "Player 2 wins 3" (= −3 for Player 1), "Player 1
+ * breaks even". NaN when it says both ("down 4 — no, up") or names two different amounts.
+ */
 export function readChips(text: string): number {
-  const line = finalLine(text).replace(/[−–]/g, '-');
-  const m = line.match(/-?\d+/g);
-  if (!m) return NaN;
-  const v = Number(m[m.length - 1]);
-  return v > 0 && /\b(lose|loses|lost|losing|down)\b/i.test(line) && !/\b(win|wins|won)\b/i.test(line) ? -v : v;
+  const line = finalLine(text).replace(/[−–]/g, '-').toLowerCase();
+  if (/\b(breaks? even|broke even|nothing|no chips|neither)\b/.test(line) && !/\d/.test(line.replace(/player\s*[12]|p[12]\b/g, ''))) return 0;
+  const who = [...line.matchAll(/\b(?:player\s*|p)([12])\b/g)].map((m) => m[1]);
+  if (new Set(who).size > 1) return NaN;
+  const rest = line.replace(/\b(?:player\s*|p)[12]\b/g, ' ');
+  const nums = [...new Set((rest.match(/-?\d+/g) ?? []).map(Number))];
+  if (nums.length !== 1) return NaN;
+  const win = /\b(win|wins|won|winning|up|gains?|gained|ahead)\b/.test(rest);
+  const lose = /\b(lose|loses|lost|losing|down|behind)\b/.test(rest);
+  if (win && lose) return NaN;
+  let v = nums[0]!;
+  if (lose) v = -Math.abs(v);
+  else if (win) v = Math.abs(v);
+  return who[0] === '2' ? -v : v;
 }
 
 function check(p: Problem, answer: string): Verdict {
@@ -561,9 +616,9 @@ function check(p: Problem, answer: string): Verdict {
     const ok = v === d.answer;
     return { correct: ok, score: ok ? 1 : 0, why: ok ? 'Right.' : `Player 1 ${Number(d.answer) >= 0 ? 'wins' : 'loses'} ${Math.abs(Number(d.answer))}.` };
   }
-  const words = (finalLine(answer).toLowerCase().match(/[a-z]+/g) ?? []).filter((w) => d.options!.includes(w));
-  const said = words[words.length - 1];
-  const ok = said === d.answer;
+  // The options it names (leaving out the ones it rules out: "not fold"); two different ones is not an answer.
+  const said = new Set(mentions(finalLine(answer).toLowerCase(), new RegExp(`\\b(${d.options!.join('|')})\\b`, 'g')).filter((x) => !x.negated).map((x) => x.m[1]!));
+  const ok = said.size === 1 && said.has(String(d.answer));
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'The best action.' : `Best: ${d.answer}.` };
 }
 

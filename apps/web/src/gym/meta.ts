@@ -140,9 +140,10 @@ export const POKER: GameMeta = {
   id: 'poker',
   title: 'SIMPLE POKER',
   blurb: "Kuhn → Leduc hold'em",
-  learns: 'He plays every deal against himself and learns from regret how often to bet, call, fold and bluff, until no opponent can beat him.',
+  learns: 'He plays every deal against himself and learns from regret how often to bet, call, fold and bluff, until no opponent can beat him — in a bigger poker game at each level.',
   unit: 'rounds',
-  bar: per([0.9, 0.97, 0.99, 0.999, 0.9, 0.97, 0.99, 0.995, 0.997, 0.998]),
+  // 0.9 = exploitability down to the level's limit (every level is a different game; see poker.ts).
+  bar: () => 0.9,
 };
 export const SOKOBAN: GameMeta = {
   id: 'sokoban',

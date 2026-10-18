@@ -14,15 +14,15 @@
  * each step up measured by matches between the reference engines themselves).
  */
 import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, startCk } from './ckboard';
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { Match, type MatchResult, perfRating, record, share, type Stepper } from './match';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
+import { Match, type MatchResult, record, share, type Stepper } from './match';
 import { CHECKERS } from './meta';
 
 export * from './ckboard';
 export { setSlice } from './match';
 
 const WIN = 100_000;
-export const depthFor = (level: number) => Math.min(8, lvl(level));
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 // ---- the search -------------------------------------------------------------------------------------------------
 
@@ -48,6 +48,31 @@ function unmake(p: Ck, m: CkMove, u: Undo): void {
 }
 
 let lastNodes = 0;
+
+/** Material for Black (a man 1, a king 1½) minus White's. */
+export function materialCk(p: Ck): number {
+  let s = 0;
+  for (let i = 0; i < 32; i++) {
+    const x = p.b[i]!;
+    if (x) s += (x > 0 ? 1 : -1) * (Math.abs(x) === 2 ? 1.5 : 1);
+  }
+  return s;
+}
+/**
+ * A game that stalls — 40 moves each with no capture and no man moved, or the move limit in a match — is
+ * scored by material, the way engine testers cut games short: 2 or more ahead (a man counts 1, a king 1½)
+ * wins, anything closer is a draw. Returns Black's result 1 / ½ / 0.
+ */
+export const adjudicateCk = (p: Ck, lead = 2) => {
+  const m = materialCk(p);
+  return m >= lead ? 1 : m <= -lead ? 0 : 0.5;
+};
+/** A game's result for Black (1, ½, 0), or null while it goes on: no moves left loses; a stalled game or one past `limit` plies is scored by material. */
+export function scoreCk(p: Ck, plies: number, limit: number, moves = legalCk(p), lead = 2): number | null {
+  if (!moves.length) return p.side > 0 ? 0 : 1;
+  if (p.quiet >= 80 || plies >= limit) return adjudicateCk(p, lead);
+  return null;
+}
 /**
  * Negamax alpha-beta; at depth 0 a position with a capture to make is searched on (up to 8 plies more), so
  * no exchange is cut in half. A generator that pauses every 2,048 positions, so a deep search can run a
@@ -57,7 +82,11 @@ function* ab(p: Ck, depth: number, alpha: number, beta: number, ev: CkEval, ply:
   if ((++c.nodes & 2047) === 0) yield;
   const moves = legalCk(p);
   if (!moves.length) return -WIN + ply;
-  if (p.quiet >= 80) return 0;
+  if (p.quiet >= 80) {
+    // A stalled game is scored by material (see adjudicateCk).
+    const r = adjudicateCk(p);
+    return r === 0.5 ? 0 : (r === 1) === (p.side > 0) ? WIN / 2 : -WIN / 2;
+  }
   if (depth <= 0 && (!moves[0]!.caps.length || depth <= -8)) return ev(p);
   if (moves.length > 1 && moves[0]!.caps.length) moves.sort((a, b) => b.caps.length - a.caps.length);
   let best = -Infinity;
@@ -100,9 +129,27 @@ export const nodeCount = () => lastNodes;
 
 // ---- the reference evaluator (hand-written) -----------------------------------------------------------------------
 
-/** Material and position, for the side to move: man 100, king 160; men gain 3 a row advanced and 8 on their own back row; 4 for the centre. */
+/**
+ * Material and position, for the side to move: man 100, king 160; men gain 3 a row advanced and 8 on their
+ * own back row; 4 for the centre. In the ending, the side ahead is paid for trading down and for bringing
+ * its kings close to the other side's pieces (so a won ending gets finished instead of shuffled).
+ */
 export const referenceEval: CkEval = (p) => {
   let s = 0;
+  let pieces = 0;
+  const mat = materialCk(p);
+  if (Math.abs(mat) >= 1) {
+    const ahead = mat > 0 ? 1 : -1;
+    for (let i = 0; i < 32; i++) if (p.b[i]) pieces++;
+    let chase = (24 - pieces) * 6;
+    for (let i = 0; i < 32; i++) {
+      if (p.b[i] !== 2 * ahead) continue;
+      let near = 14;
+      for (let j = 0; j < 32; j++) if (p.b[j] && Math.sign(p.b[j]!) === -ahead) near = Math.min(near, Math.max(Math.abs(rowOf(i) - rowOf(j)), Math.abs(colOf(i) - colOf(j))));
+      chase -= 3 * near;
+    }
+    s += ahead * chase;
+  }
   for (let i = 0; i < 32; i++) {
     const x = p.b[i]!;
     if (!x) continue;
@@ -173,15 +220,42 @@ export function openings(n: number): CkMove[][] {
   return out;
 }
 const OPEN = openings(8);
-export const gamesFor = (level: number) => (lvl(level) <= 5 ? 16 : 8);
-const MAX_PLIES = 200;
+const MAX_PLIES = 160;
+/**
+ * Match games are cut at 30 moves each and scored by material then (a king 1½; ahead by `lead` wins):
+ * short, decisive games, so a stronger player shows clearly in a few games.
+ */
+export const MATCH = { plies: 60, lead: 1 };
 
-/** One game: him (evaluator `mine`) against the reference, both at `depth`. */
-export function duel(opening: number, first: boolean, depth: number, mine: CkEval): Stepper & { p: Ck } {
+/** A rung of the ladder: how far he looks ahead, and the reference engine he plays (its depth, and how often it plays a random move instead). */
+export interface Rung {
+  me: number;
+  ref: number;
+  rand: number;
+}
+export const RUNGS: Rung[] = [
+  { me: 4, ref: 1, rand: 0.5 },
+  { me: 4, ref: 1, rand: 0.2 },
+  { me: 4, ref: 2, rand: 0.2 },
+  { me: 4, ref: 2, rand: 0 },
+  { me: 4, ref: 3, rand: 0.1 },
+  { me: 4, ref: 3, rand: 0 },
+  { me: 4, ref: 4, rand: 0.1 },
+  { me: 4, ref: 4, rand: 0 },
+  { me: 4, ref: 5, rand: 0 },
+  { me: 4, ref: 6, rand: 0 },
+];
+export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
+export const gamesFor = (_level: number) => 12;
+const rungWords = (r: Rung) => `the reference engine looking ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''}; he looks ${r.me} ahead`;
+
+/** One game: him (evaluator `mine`) against the reference engine of a rung. */
+export function duel(opening: number, first: boolean, rung: Rung, mine: CkEval, seed = opening): Stepper & { p: Ck } {
   const p = startCk();
   for (const m of OPEN[opening % OPEN.length]!) playCk(p, m);
   // "First" = he plays the side to move after the opening.
   const me = first ? p.side : -p.side;
+  const r = rng(7919 * (seed + 1) + (first ? 1 : 2));
   let plies = 0;
   let cur: Generator<void, { move: CkMove; value: number }, void> | null = null;
   return {
@@ -190,10 +264,14 @@ export function duel(opening: number, first: boolean, depth: number, mine: CkEva
     step() {
       if (!cur) {
         const moves = legalCk(p);
-        const res = resultCk(p, moves);
-        if (res) return res === 0.5 ? 0.5 : res === me ? 1 : 0;
-        if (plies++ >= MAX_PLIES) return 0.5;
-        cur = searchGen(p, depth, p.side === me ? mine : referenceEval, moves);
+        const res = scoreCk(p, plies, MATCH.plies, moves, MATCH.lead);
+        if (res != null) return me > 0 ? res : 1 - res;
+        plies++;
+        if (p.side !== me && rung.rand && r() < rung.rand) {
+          playCk(p, moves[Math.floor(r() * moves.length)]!);
+          return null;
+        }
+        cur = searchGen(p, p.side === me ? rung.me : rung.ref, p.side === me ? mine : referenceEval, moves);
       }
       const x = cur.next();
       if (x.done) {
@@ -205,13 +283,6 @@ export function duel(opening: number, first: boolean, depth: number, mine: CkEva
   };
 }
 
-/**
- * Ratings of the reference engines on Ghosty's own scale: depth 1 = 1000, each next depth rated by a
- * 16-game match against the one before (fixed openings both ways). Deeper search helps less than one might
- * think here: most games between them are drawn.
- */
-export const LADDER = [1000, 1044, 1110, 1153, 1219, 1241, 1285, 1306];
-export const ladderRating = (depth: number) => LADDER[Math.max(1, Math.min(8, depth)) - 1]!;
 
 // ---- the learner ---------------------------------------------------------------------------------------------------
 
@@ -259,26 +330,29 @@ class CkLearner implements Learner {
     return best;
   }
   train(n: number) {
-    const k = Math.max(1, Math.min(n, 40));
-    for (let g = 0; g < k; g++) {
+    // Whole games, as many as fit in ~30 ms (the worker asks again straight after).
+    const t0 = clock();
+    let k = 0;
+    while (k < n && (k === 0 || clock() - t0 < 30)) {
+      k++;
       const p = startCk();
       // A few random moves first, so he meets all kinds of positions.
       let opening = Math.floor(this.r() * 6);
-      for (let ply = 0; ply < MAX_PLIES; ply++) {
+      // Value of a result for the side to move: Black's result r seen by `side`.
+      const forSide = (r: number, side: number) => (r === 0.5 ? 0 : (r === 1) === (side > 0) ? 1 : -1);
+      for (let ply = 0; ; ply++) {
         const moves = legalCk(p);
-        const res = resultCk(p, moves);
-        if (res) {
-          // Side to move has lost (no moves) or a draw.
-          tdUpdate(this.w, p, res === 0.5 ? 0 : -1, RATE);
+        const res = scoreCk(p, ply, MAX_PLIES, moves);
+        if (res != null) {
+          tdUpdate(this.w, p, forSide(res, p.side), RATE);
           break;
         }
         const m = opening-- > 0 ? moves[Math.floor(this.r() * moves.length)]! : this.pick(p, moves);
         const before = copyCk(p);
         playCk(p, m);
-        const after = legalCk(p);
-        const r2 = resultCk(p, after);
+        const r2 = scoreCk(p, ply + 1, MAX_PLIES);
         // The value before the move should match minus the value after it (the other side to move then).
-        const target = r2 ? (r2 === 0.5 ? 0 : 1) : -Math.tanh(learnedRaw(this.w, p));
+        const target = r2 != null ? forSide(r2, before.side) : -Math.tanh(learnedRaw(this.w, p));
         tdUpdate(this.w, before, target, RATE);
       }
     }
@@ -287,24 +361,26 @@ class CkLearner implements Learner {
     return k;
   }
   measure() {
-    const d = depthFor(this.level);
+    const rung = rungFor(this.level);
     const n = gamesFor(this.level);
     if (!this.match) {
       const frozen = this.w.slice();
-      this.match = new Match(n, (o, first) => duel(o, first, d, learnedEval(frozen)));
+      this.match = new Match(n, (o, first) => duel(o, first, rung, learnedEval(frozen)));
     }
     if (this.match.run()) {
       this.last = this.match.res;
       this.match = null;
     }
+    const pending = !!this.match;
     if (!this.last) {
       const played = this.match?.res.games ?? 0;
-      return { mastery: 0, detail: `His first match against the depth-${d} reference engine is under way (${played} of ${n} games played).` };
+      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
     return {
       mastery: s,
-      detail: `Against the reference engine that also looks ${d} move${d > 1 ? 's' : ''} ahead (hand-written material + position evaluator): ${record(this.last)} — ${Math.round(s * 100)}% of the points. Estimated rating ${perfRating(s, ladderRating(d))} on Ghosty's ladder (depth-1 engine = 1000, depth-${d} = ${ladderRating(d)}).`,
+      pending,
+      detail: `Against ${rungWords(rung)} (a hand-written material + position evaluator; games that stall are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.`,
     };
   }
   save(): CkSave {
@@ -326,11 +402,13 @@ class CkLearner implements Learner {
   }
   watch(seed: number): Frame[] {
     // He plays the reference engine (a shallower search than the match, so it is quick to show).
-    const d = Math.min(3, depthFor(this.level));
-    const g = duel(seed % OPEN.length, seed % 2 === 0, d, learnedEval(this.w));
+    // (Both look at most 3 moves ahead here, so the game is quick to show.)
+    const full = rungFor(this.level);
+    const rung = { me: Math.min(3, full.me), ref: Math.min(3, full.ref), rand: full.rand };
+    const g = duel(seed % OPEN.length, seed % 2 === 0, rung, learnedEval(this.w), seed);
     const me = seed % 2 === 0 ? g.p.side : -g.p.side;
     const who = me === 1 ? 'Black (cyan)' : 'White (amber)';
-    const frames: Frame[] = [{ ...ckFrame(g.p, `He is ${who}, against the depth-${d} reference engine.`), every: 0.35 }];
+    const frames: Frame[] = [{ ...ckFrame(g.p, `He is ${who}, against ${rungWords(rung)}.`), every: 0.35 }];
     for (let i = 0; i < 160; i++) {
       const before = Array.from(g.p.b);
       // A step is a slice of a search: step until the move is made (or the game ends).
@@ -351,7 +429,7 @@ class CkLearner implements Learner {
     const p = ckFrom(state);
     const moves = legalCk(p);
     if (resultCk(p, moves)) return -1;
-    const m = bestMove(p, Math.min(6, depthFor(this.level) + 1), learnedEval(this.w), moves).move;
+    const m = bestMove(p, rungFor(this.level).me, learnedEval(this.w), moves).move;
     return moves.indexOf(m);
   }
 }
@@ -437,17 +515,29 @@ function generate(level: number, seed: number): Problem {
   }
 }
 
+/** The move a reply names: "9-14", "9x18x27", "9 to 14" (its whole path, or where it starts and ends); null if none, or if it names two different moves. */
+export function readCkMove(p: Ck, answer: string): CkMove | null {
+  const legal = legalCk(p);
+  const named = new Set<CkMove>();
+  for (const { m, negated } of mentions(finalLine(answer), /\b\d{1,2}(?:\s*(?:[-x×]|to)\s*\d{1,2})+\b/gi)) {
+    if (negated) continue;
+    const nums = (m[0].match(/\d+/g) ?? []).map(Number);
+    const hits = legal.filter((mv) => {
+      const path = mv.path.map((s) => s + 1);
+      if (nums.length === path.length && nums.every((x, i) => x === path[i])) return true;
+      return nums.length === 2 && nums[0] === path[0] && nums[1] === path[path.length - 1];
+    });
+    // Where it starts and ends must pick out one move.
+    if (hits.length === 1) named.add(hits[0]!);
+    else if (hits.length > 1) return null;
+  }
+  return named.size === 1 ? [...named][0]! : null;
+}
+
 function check(pr: Problem, answer: string): Verdict {
   const d = pr.data as { board: number[]; answer: string; path: number[] };
-  const nums = (finalLine(answer).match(/\d+/g) ?? []).map(Number);
-  const p = ckFrom(d.board);
-  // The move named: its whole path, or just where it starts and ends (when that is unambiguous).
-  const moves = legalCk(p).filter((m) => {
-    const path = m.path.map((s) => s + 1);
-    if (nums.length === path.length && nums.every((x, i) => x === path[i])) return true;
-    return nums.length === 2 && nums[0] === path[0] && nums[1] === path[path.length - 1];
-  });
-  const ok = moves.length >= 1 && moves.every((m) => moveText(m) === d.answer) && nums.length >= 2;
+  const m = readCkMove(ckFrom(d.board), answer);
+  const ok = !!m && moveText(m) === d.answer;
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'The winning move.' : `The winning move is ${d.answer}.` };
 }
 

@@ -50,15 +50,16 @@ import {
   cellOf,
 } from './chessboard';
 import { CHESS_TACTICS } from './chesssets';
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { Match, type MatchResult, perfRating, record, share, type Stepper } from './match';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
+import { Match, type MatchResult, record, share, type Stepper } from './match';
 import { CHESS } from './meta';
 
 export * from './chessboard';
 export { setSlice } from './match';
+import { sliceMs } from './match';
 
 const MATE = 100_000;
-export const depthFor = (level: number) => [1, 1, 2, 2, 3, 3, 4, 4, 4, 4][lvl(level) - 1]!;
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 // ---- evaluators -------------------------------------------------------------------------------------------------
 
@@ -220,8 +221,28 @@ export function applyUci(p: Pos, line: string): void {
     make(p, m);
   }
 }
-export const gamesFor = (level: number) => (depthFor(level) <= 2 ? 16 : 12);
-const MAX_PLIES = 200;
+/** A rung of the ladder: how far he searches, and the reference engine he plays (its depth, and how often it plays a random move instead). */
+export interface Rung {
+  me: number;
+  ref: number;
+  rand: number;
+}
+export const RUNGS: Rung[] = [
+  { me: 2, ref: 1, rand: 0.5 },
+  { me: 2, ref: 1, rand: 0.25 },
+  { me: 2, ref: 1, rand: 0 },
+  { me: 2, ref: 2, rand: 0.25 },
+  { me: 2, ref: 2, rand: 0 },
+  { me: 2, ref: 3, rand: 0.25 },
+  { me: 2, ref: 3, rand: 0 },
+  { me: 3, ref: 3, rand: 0 },
+  { me: 3, ref: 4, rand: 0.25 },
+  { me: 3, ref: 4, rand: 0 },
+];
+export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
+export const gamesFor = (_level: number) => 12;
+const rungWords = (r: Rung) => `Ghosty's own reference engine searching ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''} — not Stockfish; he searches ${r.me} ahead`;
+const MAX_PLIES = 160;
 
 /** A finished game's result for White: 1, 0.5, 0 — or null while it goes on (after `plies`, scored by material: 3 points ahead wins). */
 export function resultFor(p: Pos, plies: number, moves = legal(p)): number | null {
@@ -235,12 +256,13 @@ export function resultFor(p: Pos, plies: number, moves = legal(p)): number | nul
   return null;
 }
 
-/** One match game: him against the reference engine, both at `depth`. */
-export function duel(opening: number, first: boolean, depth: number, mine: ChessEval): Stepper & { p: Pos; me: number } {
+/** One match game: him (evaluator `mine`) against the reference engine of a rung. */
+export function duel(opening: number, first: boolean, rung: Rung, mine: ChessEval, seed = opening): Stepper & { p: Pos; me: number } {
   const p = fromFen(START);
   applyUci(p, OPENINGS[opening % OPENINGS.length]!);
   // He plays White when he moves "first" (the openings hand the move back to White).
   const me = first ? 1 : -1;
+  const rr = rng(104729 * (seed + 1) + (first ? 1 : 2));
   let plies = 4;
   let cur: Generator<void, { move: number; value: number }, void> | null = null;
   return {
@@ -252,7 +274,12 @@ export function duel(opening: number, first: boolean, depth: number, mine: Chess
         const moves = legal(p);
         const r = resultFor(p, plies, moves);
         if (r != null) return me > 0 ? r : 1 - r;
-        cur = searchGen(p, depth, p.side === me ? mine : referenceEval, moves);
+        if (p.side !== me && rung.rand && rr() < rung.rand) {
+          make(p, moves[Math.floor(rr() * moves.length)]!);
+          plies++;
+          return null;
+        }
+        cur = p.side === me ? searchGen(p, rung.me, mine, moves) : searchGen(p, rung.ref, referenceEval, moves);
       }
       const x = cur.next();
       if (x.done) {
@@ -264,10 +291,6 @@ export function duel(opening: number, first: boolean, depth: number, mine: Chess
     },
   };
 }
-
-/** Ratings of the reference engines on Ghosty's own scale: depth 1 = 1000, each next depth rated by a 16-game match against the one before. */
-export const LADDER = [1000, 1221, 1384, 1639];
-export const ladderRating = (depth: number) => LADDER[Math.max(1, Math.min(4, depth)) - 1]!;
 
 // ---- tactics: forced mates (exact) ------------------------------------------------------------------------------------
 
@@ -352,6 +375,8 @@ class ChessLearner implements Learner {
   r: () => number;
   match: Match | null = null;
   last: MatchResult | null = null;
+  /** The tactics test after each match, also run a slice at a time; and the last finished one. */
+  tacting: { i: number; found: number; by: number[]; w: Float32Array } | null = null;
   tact: { found: number; of: number; by: number[] } | null = null;
   constructor(
     private level: number,
@@ -373,7 +398,8 @@ class ChessLearner implements Learner {
     const c = this.cur;
     const ev = learnedEval(this.w);
     let result: number | null = null;
-    for (let i = 0; i < k; i++) {
+    const t0 = clock();
+    for (let i = 0; i < k && (i === 0 || clock() - t0 < 30); i++) {
       const moves = legal(c.p);
       result = resultFor(c.p, c.plies, moves);
       if (result != null) break;
@@ -428,40 +454,54 @@ class ChessLearner implements Learner {
     this.rand = (this.rand + 2654435761) >>> 0;
     return 1;
   }
-  /** Tactics: how many forced mates his search finds (his move is one that keeps a forced mate). */
-  tactics(w = this.w) {
+  /** Tactics, a slice at a time: how many forced mates his search finds (his move is one that keeps a forced mate). */
+  private tacticsSlice(t0: number): boolean {
     const set = tactics();
-    const by = [0, 0, 0];
-    let found = 0;
-    const d = depthFor(this.level);
-    for (const t of set) {
+    const c = (this.tacting ??= { i: 0, found: 0, by: [0, 0, 0], w: this.w.slice() });
+    while (c.i < set.length) {
+      const t = set[c.i++]!;
       const p = fromFen(t.fen);
-      const m = bestMove(p, d, learnedEval(w), legal(p), 20_000).move;
-      if (t.best.includes(uci(m))) (found++, by[t.n - 1]!++);
+      const m = bestMove(p, rungFor(this.level).me, learnedEval(c.w), legal(p), 20_000).move;
+      if (t.best.includes(uci(m))) (c.found++, c.by[t.n - 1]!++);
+      if (clock() - t0 > sliceMs()) break;
     }
-    return { found, of: set.length, by };
+    if (c.i < set.length) return false;
+    this.tact = { found: c.found, of: set.length, by: c.by };
+    this.tacting = null;
+    return true;
+  }
+  /** The whole tactics test at once (tests). */
+  tactics() {
+    this.tacting = null;
+    while (!this.tacticsSlice(-Infinity));
+    return this.tact!;
   }
   measure() {
-    const d = depthFor(this.level);
+    const t0 = clock();
+    const rung = rungFor(this.level);
     const n = gamesFor(this.level);
-    if (!this.match) {
+    // A match against the reference (in slices), then the tactics test (in slices).
+    if (!this.match && !this.tacting) {
       const frozen = this.w.slice();
-      this.match = new Match(n, (o, first) => duel(o, first, d, learnedEval(frozen)));
+      this.match = new Match(n, (o, first) => duel(o, first, rung, learnedEval(frozen)));
     }
-    if (this.match.run()) {
+    if (this.match && this.match.run()) {
       this.last = this.match.res;
       this.match = null;
-      this.tact = this.tactics();
+      this.tacting = { i: 0, found: 0, by: [0, 0, 0], w: this.w.slice() };
     }
+    if (!this.match && this.tacting) this.tacticsSlice(t0);
+    const pending = !!this.match || !!this.tacting;
     if (!this.last) {
-      const played = this.match?.res.games ?? 0;
-      return { mastery: 0, detail: `His first match against the depth-${d} reference engine is under way (${played} of ${n} games played).` };
+      const played = this.match?.res.games ?? n;
+      return { mastery: 0, pending, detail: `His first match against ${rungWords(rung)} is under way (${played} of ${n} games played).` };
     }
     const s = share(this.last);
-    const t = this.tact!;
+    const t = this.tact;
     return {
       mastery: s,
-      detail: `Against Ghosty's fixed reference engine that also searches ${d} move${d > 1 ? 's' : ''} ahead (hand-written evaluator; not Stockfish): ${record(this.last)} — ${Math.round(s * 100)}% of the points; estimated rating ${perfRating(s, ladderRating(d))} on Ghosty's own scale (depth-1 engine = 1000, depth-${d} = ${ladderRating(d)}). Tactics: he finds ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).`,
+      pending,
+      detail: `Against ${rungWords(rung)} (hand-written evaluator; games still going after 80 moves are scored by material): ${record(this.last)} — ${Math.round(s * 100)}% of the points.${t ? ` Tactics: he finds ${t.found} of ${t.of} forced mates (in 1: ${t.by[0]}, in 2: ${t.by[1]}, in 3: ${t.by[2]}; each proved by exhaustive search).` : ''}`,
     };
   }
   save(): ChessSave {
@@ -483,10 +523,11 @@ class ChessLearner implements Learner {
     return { bars, caption: `What each piece is worth to him, learned from ${this.games.toLocaleString('en-GB')} games against himself (the textbook values are about 3, 3, 5 and 9 pawns).` };
   }
   watch(seed: number): Frame[] {
-    const d = 1;
-    const g = duel(seed % OPENINGS.length, seed % 2 === 0, d, learnedEval(this.w));
+    // (Both search one move ahead here, so the game is quick to show.)
+    const rung = { me: 1, ref: 1, rand: rungFor(this.level).rand };
+    const g = duel(seed % OPENINGS.length, seed % 2 === 0, rung, learnedEval(this.w), seed);
     const who = g.me > 0 ? 'White' : 'Black';
-    const frames: Frame[] = [{ ...chessFrame(g.p, `He is ${who}, against the depth-${d} reference engine.`), every: 0.6 }];
+    const frames: Frame[] = [{ ...chessFrame(g.p, `He is ${who}, against ${rungWords(rung)}.`), every: 0.6 }];
     for (let i = 0; i < 120; i++) {
       const moving = g.p.side;
       const before = copyPos(g.p);
@@ -495,7 +536,7 @@ class ChessLearner implements Learner {
       for (const n0 = g.p.undo.length; r == null && g.p.undo.length === n0; ) r = g.step();
       if (r != null) {
         const st = status(g.p);
-        frames.push({ ...chessFrame(g.p, `${r === 1 ? 'He wins' : r === 0 ? 'The reference engine wins' : 'A draw'}${st ? ` (${STATUS_WORDS[st]})` : ' (on material after 100 moves)'}.`), every: 0.6 });
+        frames.push({ ...chessFrame(g.p, `${r === 1 ? 'He wins' : r === 0 ? 'The reference engine wins' : 'A draw'}${st ? ` (${STATUS_WORDS[st]})` : ' (on material after 80 moves)'}.`), every: 0.6 });
         break;
       }
       const u = g.p.undo[g.p.undo.length - 1]!;
@@ -508,7 +549,7 @@ class ChessLearner implements Learner {
     const p = posFrom(state);
     const moves = legal(p);
     if (status(p, moves)) return -1;
-    return pageMove(bestMove(p, Math.min(3, depthFor(this.level) + 1), learnedEval(this.w), moves, 150_000).move);
+    return pageMove(bestMove(p, rungFor(this.level).me, learnedEval(this.w), moves, 60_000).move);
   }
 }
 
@@ -530,16 +571,20 @@ function generate(level: number, seed: number): Problem {
 export function readMove(p: Pos, answer: string): number {
   const line = finalLine(answer).replace(/0-0-0/g, 'O-O-O').replace(/0-0/g, 'O-O');
   const moves = legal(p);
-  const tokens = line.match(/O-O-O|O-O|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](=?[QRBNqrbn])?|[a-h][1-8][-x]?[a-h][1-8]=?[qrbnQRBN]?/g) ?? [];
-  for (let i = tokens.length - 1; i >= 0; i--) {
-    const tok = tokens[i]!;
+  const sans = moves.map((m) => san(p, m).replace(/[+#]/g, ''));
+  const named = new Set<number>();
+  const re = /O-O-O|O-O|[a-h][1-8][-x]?[a-h][1-8](?:=?[qrbnQRBN])?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=?[QRBN])?/g;
+  for (const { m, negated } of mentions(line, re)) {
+    if (negated) continue;
+    const tok = m[0];
+    // A bare square after "on", "at", "to"… is a place, not a move ("mate on h7").
+    if (/^[a-h][1-8]$/.test(tok) && /\b(on|at|to|towards|from|square|of)\s*$/i.test(line.slice(0, m.index))) continue;
     const plain = tok.replace(/[-x=+#]/g, '').toLowerCase();
-    for (const m of moves) {
-      if (uci(m) === plain) return m;
-      if (san(p, m).replace(/[+#]/g, '') === tok.replace(/[+#]/g, '')) return m;
-    }
+    const k = moves.findIndex((x, i) => uci(x) === plain || sans[i] === tok.replace(/[+#]/g, ''));
+    if (k >= 0) named.add(moves[k]!);
   }
-  return -1;
+  // Two different moves named is not an answer.
+  return named.size === 1 ? [...named][0]! : -1;
 }
 
 function check(pr: Problem, answer: string): Verdict {
