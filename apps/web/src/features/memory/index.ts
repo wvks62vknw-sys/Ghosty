@@ -13,7 +13,7 @@ import { clear, fmt, h } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { patternsPanel, timelinePanel } from './timeline';
+import { lineId, patternsPanel, timelinePanel } from './timeline';
 
 export const memoryTab: TabDef = {
   id: 'memory',
@@ -52,7 +52,8 @@ export const memoryTab: TabDef = {
       x.classList.add('del');
       x.title = 'Forget this';
       x.addEventListener('click', async () => {
-        await brain.forget(f.id);
+        // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
+        await brain.memoryChange(`f:${f.id}`, 'forget').catch((e) => toast(`Could not forget it: ${(e as Error).message}`, 'bad'));
         void refresh();
         void refreshTimeline();
       });
@@ -93,14 +94,16 @@ export const memoryTab: TabDef = {
         const lines = profile.sections[s];
         if (!lines.length) continue;
         mp.body.append(h('div.lab', s));
-        lines.forEach((text, i) => {
+        lines.forEach((text) => {
           const r = row(null, text, '✕', { wrap: true });
           const x = r.lastChild as HTMLElement;
           x.classList.add('del');
           x.title = 'Remove this line';
           x.addEventListener('click', async () => {
+            // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
             try {
-              profile = (await brain.profileRemove(s, i)).profile;
+              await brain.memoryChange(lineId(text), 'forget');
+              profile = (await brain.profile()).profile;
             } catch (e) {
               toast(`Could not remove it: ${(e as Error).message}`, 'bad');
             }

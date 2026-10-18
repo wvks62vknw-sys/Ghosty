@@ -8,7 +8,7 @@
  * PATTERNS: things Ghosty noticed by counting what is stored, each with what backs it up;
  * ✕ dismisses one for good.
  */
-import type { MemoryItem, MemoryPattern } from '../../../../../packages/shared/src/protocol';
+import type { ForgottenItem, MemoryItem, MemoryPattern } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
@@ -77,6 +77,9 @@ function sourceLine(m: MemoryItem): HTMLElement {
   return h('div.misrc', b, edited);
 }
 
+/** A profile line's id on the brain (memories.ts lineKey): the line in lower case, spaces squeezed. */
+export const lineId = (text: string): string => `p:${text.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+
 export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(): Promise<void>; patterns: MemoryPattern[] } {
   const p: Panel = panel('TIMELINE', { cls: 'tl', status: '' });
   const kindSel = h('select', { 'aria-label': 'Show which memories' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
@@ -84,6 +87,10 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   const undoBar = h('div.undo', { role: 'status', hidden: true });
   p.el.insertBefore(h('div.keyrow.wrapit', kindSel, find), p.body);
   p.el.insertBefore(undoBar, p.body);
+  // RECENTLY FORGOTTEN: everything forgotten in the last day (here, under ME, in WHAT I REMEMBER, or FORGET EVERYTHING), each with UNDO.
+  const forgotBox = h('details.forgot', { hidden: true });
+  p.el.insertBefore(forgotBox, p.body);
+  let forgotten: ForgottenItem[] = [];
   let items: MemoryItem[] = [];
   let shown = 30;
   let editing = '';
@@ -99,6 +106,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       else items = items.filter((x) => x.id !== m.id);
       paint();
       onChange();
+      if (op === 'forget' || op === 'restore') void refresh();
       return true;
     } catch (e) {
       toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${(e as Error).message}`, 'bad');
@@ -163,6 +171,39 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     return el;
   };
 
+  const ago = (t: number) => {
+    const m = Math.max(1, Math.round((Date.now() - t) / 60_000));
+    return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+  };
+  function paintForgotten(): void {
+    const open = forgotBox.open;
+    forgotBox.hidden = !forgotten.length;
+    clear(
+      forgotBox,
+      h('summary', `RECENTLY FORGOTTEN (${forgotten.length}) — UNDO for a day after`),
+      ...forgotten.map((f) =>
+        h(
+          'div.fgi',
+          { 'data-id': f.id },
+          h('span.fgt', f.text.length > 90 ? `${f.text.slice(0, 90)}…` : f.text),
+          h('span.k', ago(f.gone)),
+          button('UNDO', async (b) => {
+            b.disabled = true;
+            try {
+              await brain.memoryChange(f.id, 'restore');
+              toast('Back in my memory', 'ok');
+              onChange();
+            } catch (e) {
+              toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+            }
+            void refresh();
+          }, 'on'),
+        ),
+      ),
+    );
+    forgotBox.open = open;
+  }
+
   function filtered(): MemoryItem[] {
     const k = kindSel.value;
     const q = find.value.trim().toLowerCase();
@@ -203,10 +244,12 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       // An older brain (no timeline yet) answers something else: shown as empty, not as a crash.
       items = Array.isArray(r.items) ? r.items : [];
       state.patterns = Array.isArray(r.patterns) ? r.patterns : [];
+      forgotten = Array.isArray(r.forgotten) ? r.forgotten : [];
     } catch {
       p.setStatus('OFFLINE', 'off');
       return;
     }
+    paintForgotten();
     if (!editing) paint();
   }
   paint();

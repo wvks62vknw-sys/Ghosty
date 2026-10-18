@@ -130,6 +130,9 @@ export function sentences(t: string, max = 300): string[] {
 }
 
 let speakToken = 0;
+/** After a natural-voice error, ask for the plain voice until this time (a short break, not the rest of the day). */
+let auraBreakUntil = 0;
+const AURA_BREAK_MS = 2 * 60_000;
 /** After Ghosty's voice failed (no sound, a refusal) or its natural voice ran out, the phone's voice speaks until this time. */
 let phoneUntil = 0;
 /** Which voice is speaking now and why, for SETTINGS ("Now: …"). */
@@ -146,14 +149,19 @@ const chosen = (): Choice => ({ engine: settings.get().voiceEngine, brainVoice: 
 const ghostyVoice = (c: Choice): boolean => c.engine !== 'phone' && ui.get().connected === true && speechCaps.get().tts && Date.now() >= phoneUntil;
 
 /** How far the reply being spoken has got (for the "cut off" mark). */
-let progress = { parts: [] as string[], i: 0 };
+let progress = { parts: [] as string[], i: 0, owner: undefined as string | undefined };
 
-export function speak(text: string, choice: Choice = chosen()): Promise<void> {
+/**
+ * Read `text` aloud. `owner`: which chat entry this is (session.ts passes the reply's own tag), so
+ * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE).
+ */
+export function speak(text: string, opts: { choice?: Choice; owner?: string } = {}): Promise<void> {
+  const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
   const token = ++speakToken;
   const parts = sentences(t);
-  progress = { parts, i: 0 };
+  progress = { parts, i: 0, owner: opts.owner };
   // A clip still playing from the last reply stops now, so its handlers never touch the next clip.
   stopClip?.();
   // Ghosty's own voice first; whatever it could not say, the phone says. The reactor shows "speaking" at
@@ -168,7 +176,7 @@ export function speak(text: string, choice: Choice = chosen()): Promise<void> {
 /** SETTINGS → VOICE → SAMPLE: a line in the voice shown, whatever is saved. */
 export function speakSample(choice: Choice): Promise<void> {
   if (choice.engine !== 'phone') phoneUntil = 0;
-  return speak("Evening. This is how I'll sound. Say the word and I'll stop.", choice);
+  return speak("Evening. This is how I'll sound. Say the word and I'll stop.", { choice });
 }
 
 // Choosing a voice again in SETTINGS ends any wait on the phone's voice.
@@ -235,11 +243,12 @@ const nextUtcMidnight = () => {
  */
 async function speakGhosty(parts: string[], token: number, choice: Choice): Promise<number> {
   const el = audioEl();
-  const clips: Promise<(Blob & { voice?: string; note?: string }) | null>[] = [];
+  const clips: Promise<(Blob & { voice?: string; note?: string; reason?: string }) | null>[] = [];
   // The brain saying no (no Workers AI, the day's allowance) is what sends the next ten minutes to the
   // phone's voice; a lost request, or a clip refused before the first tap unlocked the element, is not.
   let refused = false;
-  const want = choice.engine === 'ghosty' ? choice.brainVoice : 'auto';
+  // After the natural voice failed just now, a short break from it (the plain voice answers faster than a failing one).
+  const want = Date.now() < auraBreakUntil ? 'melo' : choice.engine === 'ghosty' ? choice.brainVoice : 'auto';
   const fetchClip = (i: number) => {
     if (i < parts.length && !clips[i]) {
       clips[i] = brain.tts(parts[i]!, want).catch((e: { status?: number }) => {
@@ -259,11 +268,13 @@ async function speakGhosty(parts: string[], token: number, choice: Choice): Prom
     const blob = await clips[i]!;
     if (token !== speakToken) return parts.length;
     if (!blob) return giveUp(i);
-    if (choice.engine === 'auto' && blob.voice === 'melo' && want !== 'melo' && naturalPhoneVoice()) {
-      // The natural voice is used up for today: a natural voice on the phone beats the plain one.
+    if (blob.reason === 'error' || blob.reason === 'empty') auraBreakUntil = Date.now() + AURA_BREAK_MS;
+    if (blob.reason === 'share' && choice.engine === 'auto' && naturalPhoneVoice()) {
+      // Only when the natural voice's share is used up for today does a natural voice on the phone take over
+      // until midnight UTC — from this reply on if nothing of it was said yet, else from the next (no clip is wasted).
       phoneUntil = nextUtcMidnight();
       voiceNow.note = blob.note ?? '';
-      return i;
+      if (i === 0) return i;
     }
     Object.assign(voiceNow, { engine: 'ghosty', name: brainVoice(blob.voice ?? want).label.split(' — ')[0], note: blob.note ?? '' });
     progress.i = i;
@@ -331,6 +342,8 @@ export function stopSpeaking(): void {
 // ---------- interrupting ----------
 
 export interface CutOff {
+  /** The `owner` tag the interrupted speech was given (speak), if any. */
+  owner?: string;
   /** What had been said when Ghosty stopped (whole sentences). */
   said: string;
   how: 'tap' | 'voice';
@@ -347,7 +360,8 @@ export function interrupt(how: 'tap' | 'voice' = 'tap'): boolean {
   if (ui.get().voice !== 'speaking') return false;
   const said = progress.parts.slice(0, progress.i).join(' ');
   stopSpeaking();
-  for (const f of cutListeners) f({ said, how });
+  const owner = progress.owner;
+  for (const f of cutListeners) f({ said, how, owner });
   return true;
 }
 
@@ -451,10 +465,32 @@ export function closeMic(): void {
   mic = null;
 }
 addEventListener('pagehide', () => closeMic());
+// The microphone never stays open behind the app: hidden (another app, the lock screen, the Home Screen) ends it.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  keepMic = false;
+  stopListening();
+  closeMic();
+  for (const f of releaseListeners) f();
+});
+// Talking over Ghosty switched off: the microphone is no longer held between turns.
+settings.subscribe((s, prev) => {
+  if (prev.bargeIn && !s.bargeIn) {
+    keepMic = false;
+    if (ui.get().voice !== 'listening') closeMic();
+  }
+});
+const releaseListeners = new Set<() => void>();
+/** Called when the microphone was let go because the app was hidden (core/index.ts ends the voice conversation). */
+export function onMicReleased(f: () => void): () => void {
+  releaseListeners.add(f);
+  return () => releaseListeners.delete(f);
+}
 
 /** Keep the microphone open between utterances (a voice conversation), or not. Off closes it. */
 export function holdMic(on: boolean): void {
-  keepMic = on;
+  // Held only for barge-in: without it the microphone is open only while listening.
+  keepMic = on && settings.get().bargeIn;
   if (!on) closeMic();
 }
 

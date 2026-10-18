@@ -3,7 +3,7 @@
  */
 import { brain } from '../../api/brain';
 import { answerApproval, chat, send, type Entry } from '../../assistant/session';
-import { holdMic, interrupt, listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
+import { holdMic, interrupt, listen, micLevel, onMicReleased, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
@@ -153,6 +153,11 @@ export const coreTab: TabDef = {
       });
     });
     const mic = h('button#mic', { type: 'button', 'aria-label': 'Talk by voice' }, icon(MIC));
+    // The app hidden ends the voice conversation: the microphone is let go (voice.ts) and not taken again.
+    onMicReleased(() => {
+      conversation = false;
+      mic.classList.remove('on');
+    });
     mic.addEventListener('click', () => {
       // Ghosty is talking: the tap cuts in and it listens (a conversation's loop listens next by itself).
       if (interrupt('tap') && conversation) return;

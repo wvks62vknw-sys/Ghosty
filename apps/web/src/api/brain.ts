@@ -8,7 +8,7 @@ import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOut
 import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
-import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
+import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** One of the phones' daily backups as the brain lists it (apps/edge/src/backup.ts). */
 export interface BackupInfo {
@@ -287,9 +287,11 @@ export const brain = {
   /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
   reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
   /** The Memory tab's TIMELINE (everything remembered, newest first, with sources) and PATTERNS (memories.ts on the brain). */
-  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[] }>('GET', '/profile/timeline'),
+  memoryTimeline: () => req<{ items: MemoryItem[]; patterns: MemoryPattern[]; forgotten?: ForgottenItem[] }>('GET', '/profile/timeline'),
   /** Edit, forget, undo a forget (restore), lock or unlock one memory; the item as it now is (null once forgotten). */
   memoryChange: (id: string, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock', text?: string) => req<{ item: MemoryItem | null }>('POST', '/profile/item', { id, op, ...(text !== undefined ? { text } : {}) }),
+  /** CLEAR CONVERSATION: what was noticed from it goes too (the patterns' day log). */
+  clearPatterns: () => req<{ ok: boolean }>('POST', '/profile/patterns/clear', {}),
   dismissPattern: (id: string) => req<{ ok: boolean; patterns: MemoryPattern[] }>('POST', '/profile/patterns/dismiss', { id }),
   /** SETTINGS → CHARACTER (profile.ts): how dry, how brief, how warm Ghosty talks, and the words that makes. */
   persona: () => req<{ persona: PersonaSettings; character: string }>('GET', '/profile/persona'),
@@ -398,14 +400,14 @@ export const brain = {
    * the day's allowance). `voice`: one of packages/shared/src/voices.ts or 'auto'; the clip says
    * which voice spoke (`voice`) and, when it is not the one asked for, why (`note`).
    */
-  async tts(text: string, voice = 'auto'): Promise<Blob & { voice?: string; note?: string }> {
+  async tts(text: string, voice = 'auto'): Promise<Blob & { voice?: string; note?: string; reason?: string }> {
     // A stalled clip must not hold the reactor "speaking": 15 s, then the phone's voice takes over.
     const r = await fetch('/api/tts', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text, voice }), credentials: 'same-origin', signal: AbortSignal.timeout(15_000) });
     if (!r.ok) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
     }
-    return Object.assign(await r.blob(), { voice: r.headers.get('x-voice') ?? undefined, note: r.headers.get('x-voice-note') ?? undefined });
+    return Object.assign(await r.blob(), { voice: r.headers.get('x-voice') ?? undefined, note: r.headers.get('x-voice-note') ?? undefined, reason: r.headers.get('x-voice-reason') ?? undefined });
   },
 };
 

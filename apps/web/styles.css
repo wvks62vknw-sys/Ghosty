@@ -1169,6 +1169,11 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
 .pn.tl .mi textarea { width: 100%; margin: 4px 0; }
 button.srclink { padding: 0; border: 0; background: none; color: var(--c); font: inherit; text-transform: none; letter-spacing: 0; text-align: left; cursor: pointer; }
 .pn.tl .mia { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.pn.tl details.forgot { margin: 8px 12px 0; font-size: 12px; color: var(--mute); }
+.pn.tl details.forgot[hidden] { display: none; }
+.pn.tl details.forgot summary { cursor: pointer; font: 500 9.5px var(--d); letter-spacing: .14em; }
+.pn.tl .fgi { display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--line2); }
+.pn.tl .fgi .fgt { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--fg); }
 .pn.pats .pat { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line2); }
 .pn.pats .pt { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.4; }
 .pn.pats .pe { flex: none; font: 400 10px var(--m); color: var(--c); }
