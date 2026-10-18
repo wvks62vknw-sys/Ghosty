@@ -247,9 +247,6 @@ test('backup routes: owner only, store / list / fetch one, and the size refusal 
   assert.equal((await call('/api/backup', {}, 'wrong-key-0123456789abcdef')).status, 401, 'wrong key: refused');
   assert.equal((await call('/api/backup', { method: 'POST', body: JSON.stringify(sealed()) }, '')).status, 401);
   assert.equal(kv.m.size, 0);
-  // The route is wired in agent.ts (kernel): until the owner unlocks it, this waits.
-  if ((await call('/api/backup')).status === 404 && process.env.REQUIRE_WIRING !== '1') return t.skip('agent.ts does not route /backup yet (kernel change pending)');
-
   const put = await call('/api/backup', { method: 'POST', body: JSON.stringify(sealed(80)) });
   assert.equal(put.status, 200, await put.clone().text());
   const { backup } = await put.json();

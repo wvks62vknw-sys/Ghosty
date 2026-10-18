@@ -188,8 +188,6 @@ test('owner route /api/push/prefs, and a reminder with REMINDERS off reaches the
 
   assert.equal((await call('/api/push/prefs', {}, '')).status, 401, 'owner only');
   const r = await call('/api/push/prefs');
-  // The route and the gate in notify() are wired in agent.ts (kernel): until the owner unlocks it, this waits.
-  if (r.status === 404 && process.env.REQUIRE_WIRING !== '1') return t.skip('agent.ts does not route /push/prefs yet (kernel change pending)');
   assert.equal(r.status, 200, 'the route exists');
   const got = await r.json();
   assert.equal(got.prefs.reminders, true);

@@ -60,7 +60,9 @@ import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
-import { addSub, loadSubs, pushAll, removeSub, vapidKeys } from './push';
+import { addSub, loadSubs, removeSub, vapidKeys } from './push';
+import { notifyPrefsRoute, pushIfWanted, pushKindOf } from './notifyprefs';
+import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
 const MAX_STEPS = 40; // enough to read, change, wait for checks and fix several times in one go
@@ -387,6 +389,8 @@ export class GhostyAgent {
       if (path === '/learn' || path.startsWith('/learn/')) return await learnRoute(req, path, method, tutorDeps({ storage: this.storage, library: this.library, router: this.router }));
       // 3D STUDIO models made from pictures, kept in KV for a day (model3d.ts).
       if (path === '/design/plan') return await designRoute(req, method);
+      // The phone's daily encrypted backup, kept in KV (backup.ts): the brain only ever holds ciphertext.
+      if (path === '/backup' || path.startsWith('/backup/')) return await backupRoute(req, path, method, { kv: this.env.SITES });
       if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface') });
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);
@@ -459,6 +463,8 @@ export class GhostyAgent {
         }
       }
       if (path.startsWith('/reverse')) return await this.reverseRoute(req, path, method);
+      // Which kinds of notification the owner wants (notifyprefs.ts); every push checks them.
+      if (path === '/push/prefs') return await notifyPrefsRoute(req, method, this.storage);
       if (path.startsWith('/push')) return await this.pushRoute(req, path, method);
       if (path === '/email/status' && method === 'GET') {
         // Which account is linked (never the password), for the LINKS tab.
@@ -1313,7 +1319,8 @@ export class GhostyAgent {
   private async notify(item: Omit<InboxItem, 'id' | 'at'>): Promise<InboxItem> {
     const it = await addInbox(this.storage, item);
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-    this.state.waitUntil(pushAll(this.storage, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    // Pushed only when the owner wants this kind (LINKS → NOTIFICATIONS); the inbox keeps it either way.
+    this.state.waitUntil(pushIfWanted(this.storage, pushKindOf(item), { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
     // The owner's Telegram chat gets it too, once paired (telegram.ts).
     this.state.waitUntil(telegramNotify(this.telegramHost(), item).catch(() => false));
     return it;
@@ -1378,7 +1385,7 @@ export class GhostyAgent {
       return json({ ok: await removeSub(this.storage, String(b.endpoint ?? '')) });
     }
     if (path === '/push/test' && method === 'POST') {
-      const n = await pushAll(this.storage, { title: 'Ghosty', body: 'Notifications are working. I can reach you here now.', tag: 'test' }, this.contact());
+      const n = await pushIfWanted(this.storage, null, { title: 'Ghosty', body: 'Notifications are working. I can reach you here now.', tag: 'test' }, this.contact());
       return json({ sent: n });
     }
     return json({ error: 'not found' }, 404);
