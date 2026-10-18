@@ -9,11 +9,15 @@
  * within the budget. Levels scramble deeper, then move to the 15-puzzle.
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { TILES } from './meta';
 
 export const sizeFor = (level: number) => (lvl(level) <= 7 ? 3 : 4);
 /** Random moves used to scramble a puzzle at each level. */
 export const depthFor = (level: number) => [6, 10, 14, 18, 24, 32, 60, 24, 32, 40][lvl(level) - 1]!;
-const BUDGET = (n: number) => (n === 3 ? 3000 : 12000);
+/** Positions he may look at per puzzle in the test: a few for every move of the scramble, so blind search runs out. */
+export const budgetFor = (level: number) => depthFor(level) * (sizeFor(level) === 3 ? 12 : 30);
+/** Practice searches may look further (that is how he finds routes to learn from at first). */
+const PRACTICE = (n: number) => (n === 3 ? 3000 : 12000);
 const MOVES = 'UDLR';
 const DR = [-1, 1, 0, 0];
 const DC = [0, 0, -1, 1];
@@ -305,7 +309,7 @@ class TilesLearner implements Learner {
         walk.push([b, best]);
       }
       // Try to solve it with what he knows; a route found tightens the targets.
-      const sol = astar(b, n, this.h, BUDGET(n));
+      const sol = astar(b, n, this.h, PRACTICE(n));
       if (sol) {
         let cur = b;
         sol.moves.forEach((d, i) => {
@@ -325,7 +329,7 @@ class TilesLearner implements Learner {
     let sum = 0;
     let solvedN = 0;
     for (const t of set) {
-      const s = astar(t.board, this.n, this.h, BUDGET(this.n));
+      const s = astar(t.board, this.n, this.h, budgetFor(this.level));
       if (!s) continue;
       solvedN++;
       sum += t.opt / s.moves.length;
@@ -333,7 +337,7 @@ class TilesLearner implements Learner {
     const name = `${this.n * this.n - 1}-puzzle`;
     return {
       mastery: sum / set.length,
-      detail: `${name}, ${depthFor(this.level)}-move scrambles: he solves ${solvedN} of ${set.length} within ${BUDGET(this.n).toLocaleString('en-GB')} positions; his routes are ${Math.round((sum / Math.max(1, solvedN)) * 100)}% as short as the shortest (A* with Manhattan + linear conflict).`,
+      detail: `${name}, ${depthFor(this.level)}-move scrambles: he solves ${solvedN} of ${set.length} within ${budgetFor(this.level).toLocaleString('en-GB')} positions; his routes are ${Math.round((sum / Math.max(1, solvedN)) * 100)}% as short as the shortest (A* with Manhattan + linear conflict).`,
     };
   }
   save(): TilesSave {
@@ -347,7 +351,7 @@ class TilesLearner implements Learner {
   watch(seed: number): Frame[] {
     const n = this.n;
     const b = scramble(n, depthFor(this.level), rng(seed));
-    const s = astar(b, n, this.h, BUDGET(n) * 4);
+    const s = astar(b, n, this.h, PRACTICE(n));
     const frame = (x: Board, caption: string): Frame => ({
       grid: { w: n, h: n, cells: x.map((t, i): Cell => (t ? { t: String(t), c: t === i + 1 ? 'hit' : '' } : { c: 'dim' })) },
       caption,
@@ -386,12 +390,7 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const tiles: Game = {
-  id: 'tiles',
-  title: 'SLIDING TILES',
-  blurb: '8-puzzle → 15-puzzle',
-  learns: 'He learns to guess how many moves a scrambled puzzle needs, and uses that guess to search for short solutions.',
-  unit: 'puzzles',
-  bar: () => 0.9,
+  ...TILES,
   env: (level) => new TilesEnv(level),
   generate,
   check,

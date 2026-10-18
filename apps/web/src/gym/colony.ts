@@ -8,6 +8,7 @@
  * energy and, from Level 6, double the upkeep.
  */
 import { argmax, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { COLONY } from './meta';
 
 export const ACTIONS = ['MINE', 'BUILD PANEL', 'REST'];
 export const E_MAX = 20;
@@ -253,12 +254,7 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const colony: Game = {
-  id: 'colony',
-  title: 'COLONY',
-  blurb: 'mine · build · rest',
-  learns: 'He learns when to mine, when to build panels and when to rest so the colony makes the most energy without going dark.',
-  unit: 'runs',
-  bar: () => 0.95,
+  ...COLONY,
   env: (level) => new ColonyEnv(level),
   generate,
   check,

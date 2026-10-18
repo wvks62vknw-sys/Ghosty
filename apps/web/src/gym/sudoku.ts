@@ -5,13 +5,14 @@
  * pointing — and guesses (with backtracking) when none applies. What he learns is the order to try the
  * rules in and which cell to guess, by evolution on a set of practice puzzles: every rule tried counts as a
  * step, so a better order solves in fewer steps. Ground truth: every answer is checked against the puzzle's
- * unique solution; mastery = the share of a fixed set of puzzles he solves within the level's step budget
- * (and the status shows his steps beside plain backtracking's). Levels take out more clues (48 → 26).
+ * unique solution; mastery = the share of a fixed set of puzzles he solves in no more steps than plain
+ * backtracking needs and within the level's step budget. He starts with the costly rules first. Levels take out more clues (48 → 26).
  *
  * `generate` makes Sudoku problems for even seeds and logic-grid problems ("Ana keeps the cat…") for odd
  * seeds; `check` handles both.
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, shuffle, type Verdict } from './core';
+import { SUDOKU } from './meta';
 
 export const UNITS: number[][] = (() => {
   const u: number[][] = [];
@@ -288,6 +289,15 @@ function setOf(level: number, kind: 'bench' | 'practice', size: number) {
   return s;
 }
 export const benchSet = (level: number) => setOf(level, 'bench', 10);
+const baseCache = new Map<number, number[]>();
+/** Plain backtracking's steps on each benchmark puzzle (worked out once per level). */
+export function baselines(level: number): number[] {
+  let b = baseCache.get(lvl(level));
+  if (!b) baseCache.set(lvl(level), (b = benchSet(level).map((p) => baselineSteps(p.puzzle))));
+  return b;
+}
+/** Where an untrained learner starts. */
+export const START: Policy = { order: [2, 3, 1, 0], guess: 2 };
 const practiceSet = (level: number) => setOf(level, 'practice', 6);
 
 class SudokuEnv implements Env {
@@ -343,8 +353,9 @@ class SudokuLearner implements Learner {
     const s = savedFor<SudokuSave>(saved, 'sudoku');
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
-    // He starts with the rules in a random order and a random way of guessing.
-    this.pol = s?.pol ?? { order: shuffle(this.r, [0, 1, 2, 3]), guess: Math.floor(this.r() * 3) };
+    // He starts with no idea which rule pays: the costly pattern rules first, the singles last, and he
+    // guesses in the cell with the most candidates.
+    this.pol = s?.pol ?? { ...START };
     this.puzzles = s?.puzzles ?? 0;
     this.steps = s?.level === level ? s.steps : this.practice(this.pol);
   }
@@ -372,19 +383,21 @@ class SudokuLearner implements Learner {
   }
   measure() {
     const set = benchSet(this.level);
+    const bases = baselines(this.level);
     const budget = budgetFor(this.level);
     let ok = 0;
     let steps = 0;
-    let base = 0;
-    for (const p of set) {
-      const s = solveWith(p.puzzle, this.pol, budget);
-      if (s.solved && s.values.every((x, i) => x === p.solution[i])) ok++;
+    set.forEach((p, k) => {
+      // A pass: solved (checked against its one solution) in no more steps than plain backtracking, and within the budget.
+      const limit = Math.min(budget, bases[k]!);
+      const s = solveWith(p.puzzle, this.pol, limit);
+      if (s.solved && s.steps <= limit && s.values.every((x, i) => x === p.solution[i])) ok++;
       steps += s.steps;
-      base += baselineSteps(p.puzzle);
-    }
+    });
+    const base = bases.reduce((a, b) => a + b, 0);
     return {
       mastery: ok / set.length,
-      detail: `${cluesFor(this.level)}-clue sudokus: he solves ${ok} of ${set.length} within ${budget} steps (each checked against its one solution); ${Math.round(steps / set.length)} steps on average against ${Math.round(base / set.length)} for plain backtracking.`,
+      detail: `${cluesFor(this.level)}-clue sudokus: he solves ${ok} of ${set.length} in no more steps than plain backtracking and within ${budget} (each checked against its one solution); ${Math.round(steps / set.length)} steps on average against ${Math.round(base / set.length)} for plain backtracking.`,
     };
   }
   save(): SudokuSave {
@@ -542,12 +555,7 @@ function check(p: Problem, ans: string): Verdict {
 }
 
 export const sudoku: Game = {
-  id: 'sudoku',
-  title: 'SUDOKU',
-  blurb: 'deduction rules · logic grids',
-  learns: 'He learns which deduction to try first and where to guess, so he solves in fewer steps.',
-  unit: 'puzzles',
-  bar: (level) => (lvl(level) >= 8 ? 0.8 : 0.9),
+  ...SUDOKU,
   env: (level) => new SudokuEnv(level),
   generate,
   check,

@@ -7,6 +7,7 @@
  * Everything here is pure: no DOM, no timers, seeded randomness only, so the same seed always plays the
  * same games (the edge tests run these in node; the phone runs them in a Web Worker, gym/worker.ts).
  */
+import type { GameMeta } from './meta';
 
 /** What a move did. */
 export interface StepResult {
@@ -80,23 +81,12 @@ export interface Learner {
   move?(state: number[]): number;
 }
 
-export interface Game {
-  id: string;
-  title: string;
-  /** A few words under the name on the card. */
-  blurb: string;
-  /** One sentence on what he is learning. */
-  learns: string;
-  /** What one training unit is called in the status line ("games", "puzzles", "runs"). */
-  unit: string;
-  /** Mastery needed to move up from `level` (1–10). */
-  bar(level: number): number;
+/** A whole game: its page-side facts (meta.ts) plus the engine, the problem maker and the learner. */
+export interface Game extends GameMeta {
   env(level: number): Env;
   generate(level: number, seed: number): Problem;
   check(problem: Problem, answer: string): Verdict;
   learner(level: number, seed: number, saved?: unknown): Learner;
-  /** PLAY HIM: 'board' (take turns on the board), 'secret' (you pick what he must find), or none. */
-  play?: 'board' | 'secret';
 }
 
 export const LEVELS = 10;

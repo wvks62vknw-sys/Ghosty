@@ -5,16 +5,18 @@
  * codes — played exhaustively over every secret. For the classic game (4 pegs, 6 colours, Level 10) that
  * rule needs 4.476 guesses on average and never more than 5 (Knuth, 1977); the best possible average is
  * 4.340 (Koyama & Lai, 1993), so a learner can beat the yardstick on average and mastery is capped at 100%.
- * Mastery = the yardstick's average ÷ his average over all secrets.
+ * He starts naive (guess the first code that still fits). Mastery = how much of the gap between that naive
+ * start (0%) and the yardstick (100%) he has closed, by average guesses over all secrets.
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { GuessPolicy, type GuessSave, minimax, playAll, playOne, type Space, split, weighted } from './guess';
+import { CODEBREAKER } from './meta';
+import { closed, GuessPolicy, type GuessSave, minimax, naiveAvg, playAll, playOne, type Space, split, weighted } from './guess';
 
 /** [pegs, colours] for Levels 1–10; Level 10 is the classic game. */
 export const VARIANTS: [number, number][] = [
-  [2, 3],
   [2, 4],
   [3, 3],
+  [2, 5],
   [2, 6],
   [3, 4],
   [3, 5],
@@ -148,8 +150,8 @@ class CodeLearner implements Learner {
     const n = spaceFor(this.level).n;
     const known = lvl(this.level) === 10 ? ' (best possible: 4.340)' : '';
     return {
-      mastery: Math.min(1, y.avg / his),
-      detail: `${p} pegs, ${k} symbols: he needs ${his.toFixed(3)} guesses on average over all ${n.toLocaleString('en-GB')} codes; Knuth's minimax needs ${y.avg.toFixed(3)}, never more than ${y.worst}${known}.`,
+      mastery: closed(his, naiveAvg(spaceFor(this.level)), y.avg),
+      detail: `${p} pegs, ${k} symbols: he needs ${his.toFixed(3)} guesses on average over all ${n.toLocaleString('en-GB')} codes; Knuth's minimax needs ${y.avg.toFixed(3)}, never more than ${y.worst}${known}; guessing the first code that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(3)} (0%).`,
     };
   }
   save(): CodeSaveData {
@@ -217,15 +219,9 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const codebreaker: Game = {
-  id: 'codebreaker',
-  title: 'CODE BREAKER',
-  blurb: 'Mastermind · fewest guesses',
-  learns: 'He learns which guess narrows down a hidden code fastest, measured against Knuth’s minimax method.',
-  unit: 'games',
-  bar: (level) => (lvl(level) >= 8 ? 0.98 : 0.97),
+  ...CODEBREAKER,
   env: (level) => new CodeEnv(level),
   generate,
   check,
   learner: (level, seed, saved) => new CodeLearner(level, seed, saved),
-  play: 'secret',
 };

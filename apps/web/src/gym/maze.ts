@@ -7,6 +7,7 @@
  * Levels grow the grid (5×5 → 14×14) and the walls and mud.
  */
 import { argmax, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { MAZE } from './meta';
 
 export const WALL = 1;
 export const MUD = 2;
@@ -275,12 +276,7 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const maze: Game = {
-  id: 'maze',
-  title: 'MAZE',
-  blurb: 'walls · mud · gold',
-  learns: 'He learns which way to step from every cell to reach the gold for the least cost.',
-  unit: 'runs',
-  bar: () => 0.95,
+  ...MAZE,
   env: (level) => new MazeEnv(level),
   generate,
   check,

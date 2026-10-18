@@ -24,6 +24,22 @@ export interface Space {
 export type Chooser = (s: Space, cand: number[], depth: number) => number;
 
 export const FEATURES = 5;
+/** Where he starts: guess the first possibility that still fits (only "is it possible?" counts). */
+export const NAIVE = [0, 0, 0, 1, 0];
+
+const naiveCache = new WeakMap<Space, number>();
+/** The average guesses of that naive start, over every secret (the 0% end of the mastery scale). */
+export function naiveAvg(s: Space): number {
+  let v = naiveCache.get(s);
+  if (v == null) naiveCache.set(s, (v = playAll(s, weighted(NAIVE)).total / s.n));
+  return v;
+}
+
+/** Mastery between the naive start (0) and the yardstick (1): how much of the gap he has closed, capped at 1. */
+export function closed(his: number, naive: number, yard: number): number {
+  if (naive - yard < 1e-9) return his < yard - 1e-9 ? 1 : 0;
+  return Math.max(0, Math.min(1, (naive - his) / (naive - yard)));
+}
 
 /** How guess g splits the candidates: [biggest group, average group, information left, not a candidate, groups] — smaller is better. */
 export function features(s: Space, g: number, cand: number[], counts: Uint16Array): number[] {
@@ -174,8 +190,8 @@ export class GuessPolicy {
   ) {
     this.rand = saved?.rand ?? seed;
     this.r = rng(this.rand);
-    // He starts with weights picked at random: some of them reward bad guesses.
-    this.w = saved?.w?.length === FEATURES ? saved.w.slice() : Array.from({ length: FEATURES }, () => this.r() * 2 - 1);
+    // He starts naive: the first code (or word) that still fits.
+    this.w = saved?.w?.length === FEATURES ? saved.w.slice() : NAIVE.slice();
     this.sigma = saved?.sigma ?? 0.6;
     this.games = saved?.games ?? 0;
     this.avg = saved?.avg ?? this.score(this.w);

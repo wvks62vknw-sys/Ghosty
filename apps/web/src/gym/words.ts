@@ -3,10 +3,12 @@
  * place; yellow = in the word elsewhere; grey = not in it (repeated letters counted the way Wordle does).
  * Ghosty learns a guessing policy (guess.ts, the same learner as CODE BREAKER). The yardstick is the
  * information-gain guesser (the guess that is expected to tell the most), played exhaustively over every
- * secret word; mastery = the yardstick's average ÷ his average. Levels grow the word list (30 → all).
+ * secret word. He starts naive (the first word that still fits); mastery = how much of the gap between that
+ * start (0%) and the yardstick (100%) he has closed. Levels grow the word list (30 → all).
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { GuessPolicy, type GuessSave, infoGain, playAll, playOne, type Space, split, weighted } from './guess';
+import { WORDS as WORDS_META } from './meta';
+import { closed, GuessPolicy, type GuessSave, infoGain, naiveAvg, playAll, playOne, type Space, split, weighted } from './guess';
 
 /** Common five-letter words, most common first (duplicates and anything not five letters are dropped below). */
 const RAW = `about other which their there would these could first after where those being under never every while still great since
@@ -134,8 +136,8 @@ class WordLearner implements Learner {
     const y = yardstick(this.level);
     const his = this.pol.avg;
     return {
-      mastery: Math.min(1, y.avg / his),
-      detail: `${listSize(this.level)} words: he needs ${his.toFixed(2)} guesses on average over every word; the information-gain guesser needs ${y.avg.toFixed(2)} (worst ${y.worst}).`,
+      mastery: closed(his, naiveAvg(spaceFor(this.level)), y.avg),
+      detail: `${listSize(this.level)} words: he needs ${his.toFixed(2)} guesses on average over every word; the information-gain guesser needs ${y.avg.toFixed(2)} (worst ${y.worst}); guessing the first word that fits needs ${naiveAvg(spaceFor(this.level)).toFixed(2)} (0%).`,
     };
   }
   save(): WordSave {
@@ -195,15 +197,9 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const words: Game = {
-  id: 'words',
-  title: 'WORD GUESS',
-  blurb: 'five letters · fewest guesses',
-  learns: 'He learns which word to try so the colours tell him the most, measured against an information-gain guesser.',
-  unit: 'games',
-  bar: () => 0.97,
+  ...WORDS_META,
   env: (level) => new WordEnv(level),
   generate,
   check,
   learner: (level, seed, saved) => new WordLearner(level, seed, saved),
-  play: 'secret',
 };

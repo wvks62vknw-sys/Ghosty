@@ -5,6 +5,7 @@
  * directly. The record is what the phone keeps in IndexedDB (features/gym/store.ts).
  */
 import { type Game, type Learner, LEVELS, type Report } from './core';
+import type { GameMeta } from './meta';
 
 export interface Point {
   /** Units trained so far (all levels). */
@@ -94,7 +95,7 @@ const n = (x: number) => Math.round(x).toLocaleString('en-GB');
 const pc = (x: number) => `${Math.round(x * 100)}%`;
 
 /** The plain status line on a game. */
-export function statusLine(rec: GymRecord | null, game: Game, training: boolean): string {
+export function statusLine(rec: GymRecord | null, game: GameMeta, training: boolean): string {
   if (!rec || (!rec.units && !training)) return `Not started · Level 1 · tap TRAIN to begin.`;
   if (rec.mastered) return `Mastered all ${LEVELS} levels · ${n(rec.units)} ${game.unit} · ${pc(rec.mastery)}`;
   const move = `${pc(rec.start)} → ${pc(rec.mastery)}`;

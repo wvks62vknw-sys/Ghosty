@@ -2,39 +2,16 @@
  * TIC-TAC-TOE by self-play. Ghosty keeps a value for every position (+1 X wins … −1 O wins) and plays
  * himself, nudging each position's value toward the best value one move ahead (temporal-difference
  * learning with a one-move look-ahead), exploring with random moves now and then. Ground truth: exhaustive
- * minimax over all 4,520 reachable positions where someone is to move; mastery = the share of them where
- * his move is game-theoretically optimal. 100% is reachable. Levels raise the bar (50% → 100%).
+ * minimax over all 4,520 reachable positions where someone is to move; mastery = the share of those where
+ * the choice matters (not every move equally good) in which his move is game-theoretically optimal. 100% is
+ * reachable. Levels raise the bar (85% → 100%).
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { TICTACTOE } from './meta';
+import { boardText, frameOf, keyOf, toMove, winner } from './tttboard';
 
-const LINES = [
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-];
+export * from './tttboard';
 
-/** 1 X won, 2 O won, 3 draw, 0 still playing. */
-export function winner(b: ArrayLike<number>): number {
-  for (const [a, c, d] of LINES) if (b[a!] && b[a!] === b[c!] && b[a!] === b[d!]) return b[a!]!;
-  for (let i = 0; i < 9; i++) if (!b[i]) return 0;
-  return 3;
-}
-
-export const keyOf = (b: ArrayLike<number>) => {
-  let k = 0;
-  for (let i = 0; i < 9; i++) k = k * 3 + b[i]!;
-  return k;
-};
-export const toMove = (b: ArrayLike<number>) => {
-  let n = 0;
-  for (let i = 0; i < 9; i++) if (b[i]) n++;
-  return n % 2 === 0 ? 1 : 2;
-};
 const result = (w: number) => (w === 1 ? 1 : w === 2 ? -1 : 0);
 
 /** Exhaustive minimax: the value (X's view) of every reachable position, and the optimal moves where someone is to move. */
@@ -98,18 +75,21 @@ class TttEnv implements Env {
   }
 }
 
-export function boardText(b: ArrayLike<number>): string {
-  const rows = [0, 1, 2].map((r) => [0, 1, 2].map((c) => '.XO'[b[r * 3 + c]!]).join(' '));
-  const w = winner(b);
-  const state = w === 1 ? 'X has won.' : w === 2 ? 'O has won.' : w === 3 ? 'Draw.' : `${toMove(b) === 1 ? 'X' : 'O'} to move.`;
-  return `Tic-tac-toe (squares 1–9, left to right, top to bottom):\n${rows.join('\n')}\n${state}`;
-}
-
 interface TttSave {
   game: 'tictactoe';
   v: Float32Array;
   games: number;
   rand: number;
+}
+
+let choiceCache: number[][] | null = null;
+/** The positions where the choice matters: not every legal move is equally good. */
+export function choices(): number[][] {
+  if (!choiceCache) {
+    const S = solve();
+    choiceCache = S.positions.filter((b) => S.best.get(keyOf(b))!.length < b.filter((x) => !x).length);
+  }
+  return choiceCache;
 }
 
 class TttLearner implements Learner {
@@ -168,10 +148,11 @@ class TttLearner implements Learner {
   }
   measure() {
     const S = solve();
+    const set = choices();
     let good = 0;
-    for (const b of S.positions) if (S.best.get(keyOf(b))!.includes(this.choose(b.slice()).move)) good++;
-    const n = S.positions.length;
-    return { mastery: good / n, detail: `His move is perfect in ${good.toLocaleString('en-GB')} of all ${n.toLocaleString('en-GB')} positions (checked against exhaustive minimax).` };
+    for (const b of set) if (S.best.get(keyOf(b))!.includes(this.choose(b.slice()).move)) good++;
+    const n = set.length;
+    return { mastery: good / n, detail: `His move is perfect in ${good.toLocaleString('en-GB')} of the ${n.toLocaleString('en-GB')} positions where the choice matters (of all ${S.positions.length.toLocaleString('en-GB')}, checked against exhaustive minimax).` };
   }
   save(): TttSave {
     return { game: 'tictactoe', v: this.v, games: this.games, rand: this.rand };
@@ -204,10 +185,6 @@ class TttLearner implements Learner {
   }
 }
 
-export function frameOf(b: ArrayLike<number>, caption: string): Frame {
-  return { grid: { w: 3, h: 3, cells: [...Array(9)].map((_, i) => (b[i] === 1 ? { t: 'X', c: 'x' } : b[i] === 2 ? { t: 'O', c: 'o' } : {})) }, caption };
-}
-
 const EMPTIES = [2, 3, 4, 5, 5, 6, 6, 7, 7, 8];
 
 function generate(level: number, seed: number): Problem {
@@ -227,18 +204,11 @@ function check(p: Problem, answer: string): Verdict {
   return { correct: ok, score: ok ? 1 : 0, why: ok ? 'A perfect move.' : `The best square${d.best.length > 1 ? 's are' : ' is'} ${d.best.join(', ')}.` };
 }
 
-const BARS = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99, 1];
 
 export const tictactoe: Game = {
-  id: 'tictactoe',
-  title: 'TIC-TAC-TOE',
-  blurb: 'self-play · perfect play',
-  learns: 'He plays himself and learns how good every position is, until his move is perfect in all of them.',
-  unit: 'games',
-  bar: (level) => BARS[lvl(level) - 1]!,
+  ...TICTACTOE,
   env: () => new TttEnv(),
   generate,
   check,
   learner: (_level, seed, saved) => new TttLearner(seed, saved),
-  play: 'board',
 };

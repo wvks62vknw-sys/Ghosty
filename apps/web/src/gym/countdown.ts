@@ -7,9 +7,11 @@
  * a score from a few facts about each (how close the result gets, which operation, whether it is one step
  * from the target, a factor of it, uses a big number) — by evolution on a set of practice problems (a
  * nudge to the weights is kept when he solves at least as many in fewer tries). Mastery = the share of a
- * different, fixed set of problems he solves within the budget.
+ * different, fixed set of problems he solves within a third of the tries the plain order (no learning, every
+ * combination as it comes) needs — so where he starts, the plain order, is 0%.
  */
 import { type Env, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
+import { COUNTDOWN } from './meta';
 
 const OPS = ['+', '−', '×', '÷'];
 
@@ -46,16 +48,19 @@ export interface Step {
   r: number;
 }
 
-/** a op b, or −1 when the rules forbid it (not a whole number above zero). */
-export function apply(a: number, b: number, op: number): number {
+/** a op b, or −1 when the rules forbid it (not a whole number above zero). ÷1 only when `one` allows it. */
+export function apply(a: number, b: number, op: number, one = false): number {
   if (op === 0) return a + b;
   if (op === 1) return a > b ? a - b : -1;
   if (op === 2) return a * b;
-  return b > 1 && a % b === 0 ? a / b : -1;
+  return (b > 1 || (one && b === 1)) && a % b === 0 ? a / b : -1;
 }
 
-/** Every allowed combination of two of the numbers (bigger first; ×1 and ÷1 skipped as pointless). */
-export function moves(nums: number[]): { i: number; j: number; s: Step }[] {
+/**
+ * Every allowed combination of two of the numbers (bigger first). ×1 and ÷1 change nothing, so they are
+ * skipped — except when every number must be used (`exact`, the 24 game), where they are how a 1 is used up.
+ */
+export function moves(nums: number[], exact = false): { i: number; j: number; s: Step }[] {
   const out: { i: number; j: number; s: Step }[] = [];
   for (let i = 0; i < nums.length; i++)
     for (let j = 0; j < nums.length; j++) {
@@ -64,8 +69,8 @@ export function moves(nums: number[]): { i: number; j: number; s: Step }[] {
       const b = nums[j]!;
       if (a < b || (a === b && i > j)) continue;
       for (let op = 0; op < 4; op++) {
-        if (op === 2 && b === 1) continue;
-        const r = apply(a, b, op);
+        if (op === 2 && b === 1 && !exact) continue;
+        const r = apply(a, b, op, exact);
         if (r > 0) out.push({ i, j, s: { a, b, op, r } });
       }
     }
@@ -85,7 +90,7 @@ export function solve(nums: number[], target: number, exact: boolean): Step[] | 
     const k = keyOf(ns);
     if (seen.has(k)) return null;
     seen.add(k);
-    for (const m of moves(ns)) {
+    for (const m of moves(ns, exact)) {
       const rest = rec(after(ns, m.i, m.j, m.s.r));
       if (rest) return [m.s, ...rest];
     }
@@ -143,7 +148,7 @@ export function search(p: Puzzle, w: number[], budget: number): { route: Step[];
     const k = keyOf(ns);
     if (seen.has(k)) return null;
     seen.add(k);
-    const scored = moves(ns)
+    const scored = moves(ns, p.exact)
       .map((m, idx) => ({ m, idx, sc: dot(w, features(ns, m.i, m.j, m.s, p.target)) }))
       .sort((x, y) => y.sc - x.sc || x.idx - y.idx);
     for (const { m } of scored) {
@@ -160,11 +165,33 @@ export function search(p: Puzzle, w: number[], budget: number): { route: Step[];
 
 export const budgetFor = (level: number) => [40, 120, 200, 300, 2000, 3000, 3000, 5000, 6000, 8000][lvl(level) - 1]!;
 
-const benches = new Map<number, Puzzle[]>();
-export function bench(level: number): Puzzle[] {
+/** Tries the plain order (every combination as it comes, no learning) needs, counted up to 3 × the level's budget. */
+export function plainSteps(p: Puzzle, level: number): number {
+  const cap = 3 * budgetFor(level);
+  return search(p, new Array(FEATURES).fill(0), cap)?.steps ?? cap;
+}
+/** His allowance on a puzzle: a third of what the plain order needs (never more than the level's budget). */
+export const limitFor = (plain: number) => Math.floor(plain / 3);
+
+export interface Graded {
+  p: Puzzle;
+  limit: number;
+}
+/** A fixed set of problems, each with its allowance; problems the plain order solves in under 6 tries are left out. */
+function graded(level: number, from: number, size: number): Graded[] {
+  const out: Graded[] = [];
+  for (let seed = from; out.length < size; seed++) {
+    const p = makePuzzle(level, seed);
+    const plain = plainSteps(p, level);
+    if (plain >= 6) out.push({ p, limit: limitFor(plain) });
+  }
+  return out;
+}
+const benches = new Map<number, Graded[]>();
+export function bench(level: number): Graded[] {
   const L = lvl(level);
   let b = benches.get(L);
-  if (!b) benches.set(L, (b = Array.from({ length: 20 }, (_, i) => makePuzzle(L, 70000 + i))));
+  if (!b) benches.set(L, (b = graded(L, 70000, 20)));
   return b;
 }
 
@@ -181,10 +208,10 @@ class CountEnv implements Env {
   }
   /** Index into moves(nums) at this moment. */
   actions() {
-    return moves(this.nums).map((_, i) => i);
+    return moves(this.nums, this.p.exact).map((_, i) => i);
   }
   step(a: number) {
-    const m = moves(this.nums)[a];
+    const m = moves(this.nums, this.p.exact)[a];
     if (!m) return { reward: -1, done: true };
     this.nums = after(this.nums, m.i, m.j, m.s.r);
     const win = done(this.nums, this.p.target, this.p.exact);
@@ -205,11 +232,11 @@ interface CountSave {
   rand: number;
 }
 
-const practices = new Map<number, Puzzle[]>();
-function practiceSet(level: number): Puzzle[] {
+const practices = new Map<number, Graded[]>();
+function practiceSet(level: number): Graded[] {
   const L = lvl(level);
   let b = practices.get(L);
-  if (!b) practices.set(L, (b = Array.from({ length: 30 }, (_, i) => makePuzzle(L, 80000 + i))));
+  if (!b) practices.set(L, (b = graded(L, 80000, 30)));
   return b;
 }
 
@@ -236,11 +263,10 @@ class CountLearner implements Learner {
   }
   /** How he does on the practice problems with weights w: solved first, then fewer tries. */
   practice(w: number[]): number {
-    const budget = budgetFor(this.level);
     let sc = 0;
-    for (const p of practiceSet(this.level)) {
-      const s = search(p, w, budget);
-      sc += s ? 100_000 - s.steps : -budget;
+    for (const { p, limit } of practiceSet(this.level)) {
+      const s = search(p, w, limit);
+      sc += s ? 100_000 - s.steps : -limit;
     }
     return sc;
   }
@@ -264,13 +290,12 @@ class CountLearner implements Learner {
   }
   measure() {
     const set = bench(this.level);
-    const budget = budgetFor(this.level);
     let ok = 0;
-    for (const p of set) if (search(p, this.w, budget)) ok++;
+    for (const { p, limit } of set) if (search(p, this.w, limit)) ok++;
     const sp = specFor(this.level);
     return {
       mastery: ok / set.length,
-      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: he solves ${ok} of ${set.length} within ${budget} tries (every one is solvable — checked by exhaustive search).`,
+      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: he solves ${ok} of ${set.length} in a third of the tries the plain order needs (every one is solvable — checked by exhaustive search).`,
     };
   }
   save(): CountSave {
@@ -366,12 +391,7 @@ function check(prob: Problem, answer: string): Verdict {
 }
 
 export const countdown: Game = {
-  id: 'countdown',
-  title: 'COUNTDOWN',
-  blurb: '24 game · numbers round',
-  learns: 'He learns which sums to try first, so he reaches the target in fewer tries.',
-  unit: 'problems',
-  bar: (level) => [0.9, 0.9, 0.9, 0.85, 0.75, 0.75, 0.7, 0.7, 0.65, 0.65][lvl(level) - 1]!,
+  ...COUNTDOWN,
   env: (level) => new CountEnv(level),
   generate,
   check,

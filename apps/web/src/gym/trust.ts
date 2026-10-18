@@ -6,11 +6,13 @@
  * of them play each other and a fixed panel of classic strategies, the best half survive, and mutated copies
  * replace the rest. Moves go wrong by mistake with a small chance (noise, growing with the level).
  * The population starts as a world of defectors (everyone ALWAYS DEFECT). Matches are scored exactly
- * (expected payoffs over the noise, no dice). Ground truth: all 32 memory-1 strategies tried against a fixed
- * panel of classic strategies; mastery = where his champion's panel score sits between the worst of them (0%)
- * and the best (100%).
+ * (expected payoffs over the noise, no dice). Evolution sees only the population and a TRAINING panel; the
+ * test is a different, held-out panel of classics he never plays while evolving. Ground truth: all 32
+ * memory-1 strategies tried against that test panel; mastery = where his champion's score sits between
+ * ALWAYS DEFECT's (0%, where he starts) and the best memory-1 strategy's (100%).
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { TRUST } from './meta';
 
 /** Payoff to me for (my move, their move); 0 = C, 1 = D. */
 export const PAY = [
@@ -45,7 +47,9 @@ export const CLASSIC: Record<string, Strategy> = {
   'TIT FOR TWO TATS': { first: 1, second: [1, 1, 1, 1], table: Array.from({ length: 16 }, (_, i) => ((i >> 2) & 1 && i & 1 ? 0 : 1)) },
 };
 
-export const PANEL = ['ALWAYS COOPERATE', 'ALWAYS DEFECT', 'TIT FOR TAT', 'SUSPICIOUS TIT FOR TAT', 'GRUDGER', 'WIN-STAY LOSE-SHIFT', 'ALTERNATOR', 'RANDOM'];
+/** The held-out test panel (mastery) and the training panel evolution plays — no strategy is in both. */
+export const PANEL = ['GRUDGER', 'WIN-STAY LOSE-SHIFT', 'SUSPICIOUS TIT FOR TAT', 'ALTERNATOR', 'TIT FOR TWO TATS'];
+export const TRAIN_PANEL = ['ALWAYS COOPERATE', 'ALWAYS DEFECT', 'TIT FOR TAT', 'RANDOM'];
 
 export const DESCRIBE: Record<string, string> = {
   'ALWAYS COOPERATE': 'always cooperates',
@@ -65,7 +69,7 @@ export interface Rules {
 }
 export const rules = (level: number): Rules => {
   const L = lvl(level);
-  return { rounds: 50, noise: [0, 0, 0.01, 0.01, 0.02, 0, 0.01, 0.02, 0.03, 0.05][L - 1]!, memory: L >= 6 ? 2 : 1 };
+  return { rounds: 50, noise: [0, 0, 0.005, 0.01, 0.015, 0, 0.005, 0.01, 0.015, 0.02][L - 1]!, memory: L >= 6 ? 2 : 1 };
 };
 
 const noisy = (p: number, e: number) => p * (1 - e) + (1 - p) * e;
@@ -144,14 +148,14 @@ export function allMem1(): Strategy[] {
   return out;
 }
 
-const bestCache = new Map<number, { score: number; name: string; worst: number }>();
-/** Ground truth: the best (and worst) panel score of any memory-1 strategy (exhaustive). */
-export function bestMem1(level: number): { score: number; name: string; worst: number } {
+const bestCache = new Map<number, { score: number; name: string; worst: number; defect: number }>();
+/** Ground truth: the best (and worst) test-panel score of any memory-1 strategy (exhaustive), and ALWAYS DEFECT's. */
+export function bestMem1(level: number): { score: number; name: string; worst: number; defect: number } {
   const L = lvl(level);
   const hit = bestCache.get(L);
   if (hit) return hit;
   const R = rules(L);
-  let best = { score: -1, name: '', worst: Infinity };
+  let best = { score: -1, name: '', worst: Infinity, defect: panelScore(CLASSIC['ALWAYS DEFECT']!, R) };
   for (const s of allMem1()) {
     const sc = panelScore(s, R);
     if (sc > best.score) best = { ...best, score: sc, name: nameOf(s) };
@@ -271,7 +275,7 @@ class TrustLearner implements Learner {
     else c.table[k - 5] = 1 - c.table[k - 5]!;
     return c;
   }
-  /** Everyone plays everyone (and the panel): average points per round. */
+  /** Everyone plays everyone (and the training panel — never the test panel): average points per round. */
   score() {
     const { R } = this;
     const n = this.pop.length;
@@ -282,9 +286,9 @@ class TrustLearner implements Learner {
         tot[i] += a;
         tot[j] += b;
       }
-      for (const nm of PANEL) tot[i] += match(this.pop[i]!, CLASSIC[nm]!, R.rounds, R.noise)[0];
+      for (const nm of TRAIN_PANEL) tot[i] += match(this.pop[i]!, CLASSIC[nm]!, R.rounds, R.noise)[0];
     }
-    this.fit = tot.map((t) => t / (n - 1 + PANEL.length) / R.rounds);
+    this.fit = tot.map((t) => t / (n - 1 + TRAIN_PANEL.length) / R.rounds);
   }
   champion(): Strategy {
     let b = 0;
@@ -318,8 +322,8 @@ class TrustLearner implements Learner {
     const best = bestMem1(this.level);
     const nm = nameOf(c);
     return {
-      mastery: Math.max(0, Math.min(1, (his - best.worst) / (best.score - best.worst))),
-      detail: `His champion (${nm}${tftLike(c) ? ', Tit-for-Tat-like' : ''}) scores ${his.toFixed(2)} a round against the classic panel; the best memory-1 strategy (${best.name}, found by trying all 32) scores ${best.score.toFixed(2)}.`,
+      mastery: Math.max(0, Math.min(1, (his - best.defect) / (best.score - best.defect))),
+      detail: `His champion (${nm}${tftLike(c) ? ', Tit-for-Tat-like' : ''}) scores ${his.toFixed(2)} a round against the held-out panel of classics; the best memory-1 strategy (${best.name}, found by trying all 32) scores ${best.score.toFixed(2)}, ALWAYS DEFECT ${best.defect.toFixed(2)} (0%).`,
     };
   }
   save(): TrustSave {
@@ -385,12 +389,7 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const trust: Game = {
-  id: 'trust',
-  title: 'TRUST TOURNAMENT',
-  blurb: 'cooperate or defect · evolution',
-  learns: 'A population of strategies evolves by playing each other; he learns which kind of trust pays off.',
-  unit: 'generations',
-  bar: () => 0.9,
+  ...TRUST,
   env: (level) => new TrustEnv(level),
   generate,
   check,

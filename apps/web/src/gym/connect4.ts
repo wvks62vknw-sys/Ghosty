@@ -3,106 +3,23 @@
  * whose leaves are judged by a small learned evaluator — an n-tuple network: one weight table for each of
  * the 69 lines of four, indexed by what is in its cells — trained by temporal-difference learning in
  * self-play. Ground truth: a bounded exact solver (alpha-beta with a transposition table) on a fixed set of
- * mid/late-game positions; mastery = the share of those positions where his move keeps the best result
- * (win / draw / loss) with perfect play. Levels move the test positions earlier in the game (8 → 20 empty
+ * mid/late-game positions. Mastery = how much of the gap he closes between the same search with an
+ * untrained network (0%) and the perfect solver (100%), counting the positions where his move keeps the
+ * best result (win / draw / loss) with perfect play. Levels move the test positions earlier in the game (8 → 20 empty
  * squares), where they are harder to judge and to solve.
  *
  * Squares are numbered column by column from the bottom: square = column × 6 + row.
  */
+import { COLS, canPlay, copyPos, LINES, legal, newPos, play, type Pos, ROWS, turn, undo, wonAt, winsNow, winnerOf, boardText, frameOf, posFromBoard } from './c4board';
+import { C4_SETS } from './c4sets';
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { CONNECT4 } from './meta';
 
-export const COLS = 7;
-export const ROWS = 6;
+export * from './c4board';
+
 const N = COLS * ROWS;
-
-/** Every line of four, as squares. */
-export const LINES: number[][] = (() => {
-  const out: number[][] = [];
-  const sq = (c: number, r: number) => c * ROWS + r;
-  for (let c = 0; c < COLS; c++)
-    for (let r = 0; r < ROWS; r++)
-      for (const [dc, dr] of [
-        [1, 0],
-        [0, 1],
-        [1, 1],
-        [1, -1],
-      ] as const) {
-        const ec = c + 3 * dc;
-        const er = r + 3 * dr;
-        if (ec < 0 || ec >= COLS || er < 0 || er >= ROWS) continue;
-        out.push([0, 1, 2, 3].map((k) => sq(c + k * dc, r + k * dr)));
-      }
-  return out;
-})();
-const THROUGH: number[][] = Array.from({ length: N }, (_, s) => LINES.map((l, i) => (l.includes(s) ? i : -1)).filter((i) => i >= 0));
 const ORDER = [3, 2, 4, 1, 5, 0, 6];
-
-/** A position: squares (0 empty, 1 first player, 2 second), the height of each column, and the number of stones. */
-export interface Pos {
-  b: Int8Array;
-  h: Int8Array;
-  n: number;
-}
-
-export const newPos = (): Pos => ({ b: new Int8Array(N), h: new Int8Array(COLS), n: 0 });
-export const copyPos = (p: Pos): Pos => ({ b: p.b.slice(), h: p.h.slice(), n: p.n });
-export const turn = (p: Pos) => (p.n % 2 === 0 ? 1 : 2);
-export const canPlay = (p: Pos, c: number) => p.h[c]! < ROWS;
-export const legal = (p: Pos) => ORDER.filter((c) => canPlay(p, c));
-
-export function play(p: Pos, c: number): number {
-  const s = c * ROWS + p.h[c]!;
-  p.b[s] = turn(p);
-  p.h[c]!++;
-  p.n++;
-  return s;
-}
-export function undo(p: Pos, c: number): void {
-  p.h[c]!--;
-  p.b[c * ROWS + p.h[c]!] = 0;
-  p.n--;
-}
-
-/** Did the stone on square s make four in a row? */
-export function wonAt(p: Pos, s: number): boolean {
-  const me = p.b[s];
-  for (const li of THROUGH[s]!) {
-    const l = LINES[li]!;
-    if (p.b[l[0]!] === me && p.b[l[1]!] === me && p.b[l[2]!] === me && p.b[l[3]!] === me) return true;
-  }
-  return false;
-}
-
-/** Would the side to move win at once by playing column c? */
-function winsNow(p: Pos, c: number): boolean {
-  if (!canPlay(p, c)) return false;
-  const s = play(p, c);
-  const w = wonAt(p, s);
-  undo(p, c);
-  return w;
-}
-
-export function posFromBoard(board: ArrayLike<number>): Pos {
-  const p = newPos();
-  for (let c = 0; c < COLS; c++)
-    for (let r = 0; r < ROWS; r++) {
-      const x = board[c * ROWS + r]!;
-      if (!x) break;
-      p.b[c * ROWS + r] = x;
-      p.h[c]!++;
-      p.n++;
-    }
-  return p;
-}
-
-/** 1 or 2 if someone has four in a row, 3 for a full board, 0 otherwise. */
-export function winnerOf(p: Pos): number {
-  for (const l of LINES) {
-    const x = p.b[l[0]!];
-    if (x && x === p.b[l[1]!] && x === p.b[l[2]!] && x === p.b[l[3]!]) return x;
-  }
-  return p.n === N ? 3 : 0;
-}
+const THROUGH: number[][] = Array.from({ length: N }, (_, sq) => LINES.map((l, i) => (l.includes(sq) ? i : -1)).filter((i) => i >= 0));
 
 // ---- the exact solver (ground truth) --------------------------------------------------------------
 
@@ -223,17 +140,29 @@ function testPosition(r: () => number, empty: number): { pos: Pos; best: number[
 }
 
 const sets = new Map<number, { pos: Pos; best: number[] }[]>();
-/** The fixed test set for a level (always the same positions): 40 positions, solved exactly. */
-export function testSet(level: number, size = 40): { pos: Pos; best: number[] }[] {
+/**
+ * The fixed test set for a level (always the same 40 positions, solved exactly). They come from the stored
+ * list (c4sets.ts) so the phone never waits on the solver; `fresh` makes them again with the solver
+ * (that is how the list was made, and the tests check the two agree).
+ */
+export function testSet(level: number, size = 40, fresh = false): { pos: Pos; best: number[] }[] {
   const L = lvl(level);
-  const key = L * 1000 + size;
+  const key = L * 1000 + size + (fresh ? 500 : 0);
   const hit = sets.get(key);
   if (hit) return hit;
-  const r = rng(9001 + L);
-  const out: { pos: Pos; best: number[] }[] = [];
-  while (out.length < size) {
-    const t = testPosition(r, empties(L));
-    if (t) out.push(t);
+  let out: { pos: Pos; best: number[] }[] = [];
+  const stored = C4_SETS[L - 1];
+  if (!fresh && size === 40 && stored?.length === 40) {
+    out = stored.map((line) => {
+      const [sq, best] = line.split(':');
+      return { pos: posFromBoard(sq!.split('').map(Number)), best: best!.split('').map(Number) };
+    });
+  } else {
+    const r = rng(9001 + L);
+    while (out.length < size) {
+      const t = testPosition(r, empties(L));
+      if (t) out.push(t);
+    }
   }
   sets.set(key, out);
   return out;
@@ -379,23 +308,19 @@ class C4Env implements Env {
   }
 }
 
-export function boardText(p: Pos): string {
-  const rows: string[] = [];
-  for (let r = ROWS - 1; r >= 0; r--) rows.push([...Array(COLS).keys()].map((c) => '.XO'[p.b[c * ROWS + r]!]).join(' '));
-  const w = winnerOf(p);
-  const st = w === 1 ? 'X has won.' : w === 2 ? 'O has won.' : w === 3 ? 'Draw.' : `${turn(p) === 1 ? 'X' : 'O'} to move.`;
-  return `Connect 4 (columns 1–7, stones drop to the bottom row):\n${rows.join('\n')}\n1 2 3 4 5 6 7\n${st}`;
+/** How many test positions the search gets right with network weights w. */
+function agreement(w: Float32Array, set: { pos: Pos; best: number[] }[]): number {
+  let good = 0;
+  for (const t of set) if (t.best.includes(mcts(w, t.pos, SIMS))) good++;
+  return good;
 }
-
-export function frameOf(p: Pos, caption: string, mark = -1): Frame {
-  const cells: Cell[] = [];
-  for (let r = ROWS - 1; r >= 0; r--)
-    for (let c = 0; c < COLS; c++) {
-      const s = c * ROWS + r;
-      const x = p.b[s];
-      cells.push(x === 1 ? { t: '●', c: s === mark ? 'x new' : 'x' } : x === 2 ? { t: '●', c: s === mark ? 'o new' : 'o' } : {});
-    }
-  return { grid: { w: COLS, h: ROWS, cells }, caption };
+const alone = new Map<number, number>();
+/** The search on its own (an all-zero network): the 0% end of the scale, worked out once per level. */
+export function searchAlone(level: number): number {
+  const L = lvl(level);
+  let v = alone.get(L);
+  if (v == null) alone.set(L, (v = agreement(new Float32Array(LINES.length * 81), testSet(L))));
+  return v;
 }
 
 interface C4Save {
@@ -460,9 +385,12 @@ class C4Learner implements Learner {
   }
   measure() {
     const set = testSet(this.level);
-    let good = 0;
-    for (const t of set) if (t.best.includes(mcts(this.w, t.pos, SIMS))) good++;
-    return { mastery: good / set.length, detail: `His move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver).` };
+    const good = agreement(this.w, set);
+    const base = searchAlone(this.level);
+    return {
+      mastery: Math.max(0, Math.min(1, (good - base) / Math.max(1, set.length - base))),
+      detail: `His move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver); the same search with an untrained network gets ${base} (0%), the solver ${set.length} (100%).`,
+    };
   }
   save(): C4Save {
     return { game: 'connect4', w: this.w, games: this.games, rand: this.rand };
@@ -525,15 +453,9 @@ function check(p: Problem, answer: string): Verdict {
 }
 
 export const connect4: Game = {
-  id: 'connect4',
-  title: 'CONNECT 4',
-  blurb: 'search + learned instinct',
-  learns: 'He plays himself to learn which lines of four matter, then searches ahead with that instinct.',
-  unit: 'games',
-  bar: (level) => [0.8, 0.8, 0.78, 0.78, 0.76, 0.76, 0.74, 0.74, 0.72, 0.72][lvl(level) - 1]!,
+  ...CONNECT4,
   env: () => new C4Env(),
   generate,
   check,
   learner: (level, seed, saved) => new C4Learner(level, seed, saved),
-  play: 'board',
 };
