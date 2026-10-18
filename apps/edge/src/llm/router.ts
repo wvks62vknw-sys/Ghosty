@@ -7,9 +7,14 @@
 import type { Env } from '../env';
 import type { Vault } from '../kernel/vault';
 import type { ModelHealth } from '../../../../packages/shared/src/protocol';
-import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, visionScore, type Provider } from './providers';
+import type { AiCapacity, ProviderRoom } from '../../../../packages/shared/src/protocol';
+import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+import { quotaFor, type Priority, type Quota, type Room } from './quota';
+export { resetDelay } from './providers';
+export { quotaFor, CHAT_RESERVE } from './quota';
+export type { Priority } from './quota';
 export { hasImage, imagesIn, markPhotos, ownerWords, stripImages, textOf, withImages, type Content, type ContentPart } from './content';
 
 export interface ToolCall {
@@ -128,24 +133,53 @@ function classify(e: LlmError): { kind: 'cool' | 'dead' | 'key' | 'net'; ms: num
   return { kind: 'cool', ms: 30_000, why: 'error' };
 }
 
-/** Ms until a provider's allowance resets (its stated reset time), or null when it is a rolling window. */
-export function resetDelay(p: Provider, now = Date.now()): number | null {
-  if (p.reset === 'utc-midnight') return Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000 - now;
-  if (p.reset === 'pt-midnight') {
-    // Midnight in California is 07:00 or 08:00 UTC; the later one is the safe choice.
-    const day = Math.floor(now / 86_400_000) * 86_400_000;
-    const at = day + 8 * 3600_000;
-    return (at > now ? at : at + 86_400_000) - now;
-  }
-  return null;
+/**
+ * What a caller says about a call. `priority`: 'chat' (the owner is waiting; the default) or
+ * 'background' (Ghosty's own work: study, projects, scheduled jobs, tutor and upgrade writing, the
+ * cited-answer checks), which only uses room above the chat reserve and waits for it rather than
+ * failing. `tier`: 'small' for easy internal steps (summaries, extraction, titles, classification,
+ * claim checks: the fast, generously rationed models), 'big' (the default) for the best model.
+ * `onWait`: told "waiting for free AI room · 12 s" while every capable provider is full.
+ */
+export interface CallOptions {
+  code?: boolean;
+  /** Longest total wait for room or a cool-down (0: never wait). Default 45 s for chat, 90 s for background. */
+  maxWaitMs?: number;
+  /** The same as tier 'small' (older callers). */
+  cheap?: boolean;
+  tier?: 'small' | 'big';
+  priority?: Priority;
+  onWait?: (text: string) => void;
 }
 
+/** A reply leaves this many tokens counted before the provider says the real number. */
+const REPLY_TOKENS = 600;
+
+/** The two counters a call uses: the whole key, and the model (limited on its own when the provider limits models one by one; a wait a 429 asks for always holds just the model). */
+const keysOf = (p: Provider, model: string): [string, string] => [p.id, `${p.id}|${model}`];
+/** The counter the provider's limits (and its rate-limit headers) are about. */
+const limitKey = (p: Provider, model: string): string => (p.modelLimits ? `${p.id}|${model}` : p.id);
+
 export class Router {
+  private quota: Quota;
   constructor(
     private storage: DurableObjectStorage,
     private vault: Vault,
     private env: Env,
-  ) {}
+  ) {
+    this.quota = quotaFor(storage);
+  }
+
+  /** Is there room for `tokens` on this provider and model in this lane (both counters)? */
+  private room(p: Provider, model: string, tokens: number, lane: Priority): Room {
+    const a = this.quota.room(p.id, p.limits ?? {}, tokens, lane, p);
+    const b = this.quota.room(`${p.id}|${model}`, p.modelLimits?.(model) ?? {}, tokens, lane, p);
+    if (!a.ok || !b.ok) {
+      const worse = !a.ok && (b.ok || a.waitMs >= b.waitMs) ? a : b;
+      return { ok: false, waitMs: Math.max(a.ok ? 0 : a.waitMs, b.ok ? 0 : b.waitMs), load: Math.max(a.load, b.load), why: worse.why };
+    }
+    return { ok: true, waitMs: 0, load: Math.max(a.load, b.load) };
+  }
 
   /**
    * Storage that never stops the AI: values are mirrored in memory, and if the database is
@@ -189,7 +223,8 @@ export class Router {
     if (p.transport === 'workers-ai') return this.env.AI ? '' : null;
     // Open endpoints need nothing; KEYLESS_MODELS=0 switches them off (tests, or an owner who prefers only their own keys).
     if (p.keyless) return this.env.KEYLESS_MODELS === '0' ? null : '';
-    return (await this.vault.get(p.key)) || null;
+    // Google Gemma: its own key when the owner saved one, else the Gemini key (the same Google project allowance page).
+    return (await this.vault.get(p.key)) || (p.keyFallback ? (await this.vault.get(p.keyFallback)) || null : null);
   }
 
   async setOrder(ids: string[]): Promise<void> {
@@ -274,6 +309,7 @@ export class Router {
     const now = Date.now();
     for (const [k, v] of Object.entries(h)) if (k.startsWith('cool|') && (v.cool ?? 0) > now) kept[k] = v;
     this.mem.delete(H_KEY); // else a paused database would keep serving the old health
+    if (!keepLimits) this.quota.forget(); // RE-CHECK MODELS: limits learned from 429s and headers are asked afresh
     await this.storage.delete(H_KEY).catch(() => undefined);
     if (Object.keys(kept).length) await this.sput(H_KEY, kept);
   }
@@ -284,18 +320,93 @@ export class Router {
    * provider, keeping the owner's provider order within each group), with a lower
    * temperature and room for longer replies.
    */
-  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: { code?: boolean; maxWaitMs?: number; cheap?: boolean } = {}): Promise<{ message: Msg; model: string }> {
+  async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
     if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
-    // When every model is only briefly rate-limited, wait (up to ~45 s at a time, twice) and try
-    // again, instead of giving up halfway through a long task. maxWaitMs: 0 never waits at all.
-    const maxWait = opts.maxWaitMs ?? 45_000;
+    await this.quota.load();
+    const lane: Priority = opts.priority ?? 'chat';
+    const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;
+    // When every capable provider is full or only briefly rate-limited, wait for the soonest one (up to
+    // maxWait in all) and try again, instead of failing halfway through a long task. 0 never waits.
+    const maxWait = opts.maxWaitMs ?? (lane === 'background' ? 90_000 : 45_000);
+    const deadline = Date.now() + maxWait;
     for (let round = 0; ; round++) {
-      const r = await this.attempt(messages, tools, signal, !!opts.code, !!opts.cheap, Math.min(maxWait, SHORT_WAIT_MS));
+      const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane);
       if ('message' in r) return r;
-      if (round >= 2 || r.waitMs > maxWait || signal?.aborted) throw new RouterError(r.error, r.waitMs);
-      await sleep(r.waitMs + 500, signal);
+      const left = deadline - Date.now();
+      if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
+      // Counted full (no call was sent): the soonest window, with a countdown for the owner.
+      let ms = r.waitMs + (r.full ? 50 : 500);
+      while (ms > 0 && !signal?.aborted) {
+        if (r.full) opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
+        const step = Math.min(ms, 5000);
+        await sleep(step, signal);
+        ms -= step;
+      }
       if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
     }
+  }
+
+  /**
+   * The gauge for the SYSTEM tab: per usable provider, the room it has this minute, what it used
+   * today against its daily allowance, and when that resets; with one line for the whole lot.
+   */
+  async capacity(): Promise<AiCapacity> {
+    await this.quota.load();
+    const h = await this.health();
+    const now = Date.now();
+    const out: ProviderRoom[] = [];
+    for (const p of await this.order()) {
+      if ((await this.keyFor(p)) === null || (h[`key|${p.id}`]?.dead ?? 0) > now) continue;
+      const models = p.modelLimits ? await this.models(p) : [];
+      const kl = this.quota.limits(p.id, p.limits ?? {});
+      // Per minute: the key's own allowance, else the sum of its models' (a model each is a separate allowance).
+      let perMinute = kl.rpm ?? null;
+      let perDay = kl.rpd ?? null;
+      let roomNow = perMinute === null ? null : Math.max(0, perMinute - this.quota.minute(p.id).req);
+      let usedToday = this.quota.day(p.id, p).req;
+      if (p.modelLimits && models.length) {
+        let pm = 0;
+        let pd = 0;
+        let rn = 0;
+        for (const m of models) {
+          const ml = this.quota.limits(`${p.id}|${m}`, p.modelLimits(m));
+          pm += ml.rpm ?? 0;
+          pd += ml.rpd ?? 0;
+          rn += Math.max(0, (ml.rpm ?? 0) - this.quota.minute(`${p.id}|${m}`).req);
+        }
+        if (pm && perMinute === null) {
+          perMinute = pm;
+          roomNow = rn;
+        } else if (pm && roomNow !== null) roomNow = Math.min(roomNow, rn);
+        if (pd && perDay === null) perDay = pd;
+      }
+      const resetIn = resetDelay(p, now);
+      const day = h[`cool|${p.id}`];
+      const best = models[0] ?? p.seed[0] ?? '';
+      const r = this.room(p, best, 1000, 'chat');
+      let state: ProviderRoom['state'] = 'ready';
+      let backAt: number | undefined;
+      if ((day?.cool ?? 0) > now || (perDay !== null && usedToday >= perDay)) {
+        state = 'out';
+        backAt = Math.max(day?.cool ?? 0, resetIn !== null ? now + resetIn : 0) || undefined;
+      } else if (!r.ok || roomNow === 0) {
+        state = 'full';
+        backAt = now + (r.ok ? 60_000 : Math.min(r.waitMs, 24 * 3600_000));
+      } else if (perMinute && roomNow !== null && roomNow < perMinute / 2) state = 'busy';
+      out.push({ provider: p.name, state, roomNow, perMinute, usedToday, perDay, resetAt: resetIn === null ? null : now + resetIn, ...(backAt ? { backAt } : {}) });
+    }
+    const ready = out.filter((x) => x.state === 'ready' || x.state === 'busy').length;
+    const busy = out.filter((x) => x.state === 'busy').length;
+    const soonest = Math.min(...out.map((x) => x.backAt ?? Infinity));
+    const n = (k: number) => `${k} provider${k === 1 ? '' : 's'}`;
+    const summary = !out.length
+      ? 'No AI provider yet · add a free key below'
+      : !ready
+        ? `No room right now · ${Number.isFinite(soonest) ? `room again in ${Math.max(1, Math.ceil((soonest - now) / 1000))} s` : 'every provider is out for today'}`
+        : busy * 2 > ready || ready * 2 < out.length
+          ? `Getting busy · ${n(ready)} with room`
+          : `Plenty of room · ${n(ready)} ready`;
+    return { summary, providers: out };
   }
 
   /**
@@ -307,7 +418,8 @@ export class Router {
     const now = Date.now();
     let soonest: number | null = null;
     for (const p of await this.order()) {
-      if ((await this.keyFor(p)) === null || (h[`key|${p.id}`]?.dead ?? 0) > now) continue;
+      // For the owner's chat: a small-tier-only provider (Gemma) never answers it.
+      if (p.smallOnly || (await this.keyFor(p)) === null || (h[`key|${p.id}`]?.dead ?? 0) > now) continue;
       const provider = Math.max(0, (h[`net|${p.id}`]?.cool ?? 0) - now, (h[`cool|${p.id}`]?.cool ?? 0) - now);
       for (const m of await this.models(p)) {
         const s = h[`${p.id}|${m}`] ?? {};
@@ -324,7 +436,7 @@ export class Router {
    * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
    * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
    */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0): Promise<{ message: Msg; model: string } | { error: string; waitMs: number }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat'): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -334,10 +446,14 @@ export class Router {
     const candidates: { p: Provider; key: string; model: string }[] = [];
     // A picture in the conversation: only a model that can see it may answer (same order otherwise).
     const vision = hasImage(messages);
+    // What this call counts against each allowance before the provider says the real number.
+    const est = tokensOf(messages) + tokensOf(tools) + (code ? 3 * REPLY_TOKENS : REPLY_TOKENS);
     for (const p of await this.order()) {
       const key = await this.keyFor(p);
       if (key === null) continue;
       if (p.codeOnly && !opts.code) continue; // keep small free allowances for writing code
+      // Small-tier-only providers (Gemma) never take the owner's main chat; no-tool ones only tool-less requests.
+      if ((p.smallOnly && !cheap) || (p.noTools && tools.length)) continue;
       anyKey = true;
       // A picture never goes to an open endpoint (no account, shared cached answers): only the owner's own keys or Cloudflare's binding may see it.
       if (vision && p.keyless && p.transport !== 'workers-ai') continue;
@@ -357,11 +473,29 @@ export class Router {
     if (cheap) candidates.sort((a, b) => cheapScore(b.model, b.p) - cheapScore(a.model, a.p));
     else if (opts.code) candidates.sort((a, b) => codeScore(b.model) - codeScore(a.model)); // stable: provider order breaks ties
     else candidates.sort((a, b) => (a.p.tier ?? 0) - (b.p.tier ?? 0));
+    // Background work spreads: the next one tried is the one with the most room this minute (in quarters,
+    // so the order above still decides between ones about as free), chosen at the moment of trying so
+    // calls started together see each other's counts. The owner's chat keeps the best model first.
+    const level = (c: { p: Provider; model: string }) => Math.floor(this.room(c.p, c.model, est, lane).load * 4);
+    const queue = [...candidates];
+    const next = () => {
+      if (lane !== 'background' || queue.length < 2) return queue.shift()!;
+      let best = 0;
+      let bestLevel = level(queue[0]!);
+      for (let i = 1; i < queue.length && bestLevel > 0; i++) {
+        const l = level(queue[i]!);
+        if (l < bestLevel) [best, bestLevel] = [i, l];
+      }
+      return queue.splice(best, 1)[0]!;
+    };
     const skipProvider = new Set<string>();
     const tooBig = new Set<string>();
     let tried = 0;
     let waited = false;
-    for (const { p, key, model } of candidates) {
+    let roomWait = Infinity;
+    let fits = false;
+    while (queue.length) {
+      const { p, key, model } = next();
       if (skipProvider.has(p.id)) continue;
       const s = h[`${p.id}|${model}`] ?? {};
       if ((s.dead ?? 0) > now) continue;
@@ -377,24 +511,45 @@ export class Router {
           continue;
         }
       }
-      tried++;
       let retried = false;
       for (;;) {
+        // The counters first: a call they say would bounce is not sent. Checked and counted with no
+        // pause in between, so calls started together never all pick the same last free slot.
+        const room = this.room(p, model, est, lane);
+        if (!room.ok) {
+          if (Number.isFinite(room.waitMs)) {
+            fits = true;
+            roomWait = Math.min(roomWait, room.waitMs);
+          } else tooBig.add(`${p.id}|${model}`);
+          break;
+        }
+        fits = true;
+        const settle = this.quota.take(keysOf(p, model), est);
+        if (!retried) tried++;
         const t0 = Date.now();
         try {
-          const message = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+          settle(tokens);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
           return { message, model: `${p.name} · ${model}` };
         } catch (err) {
-          if ((err as Error)?.name === 'AbortError') throw err;
           const e = err as LlmError;
+          // A request that never reached the provider costs nothing; anything else keeps its count.
+          settle(e?.code === 'too-big' || e?.net ? 0 : undefined);
+          if ((err as Error)?.name === 'AbortError') throw err;
           if (e.code === 'too-big') {
             tooBig.add(`${p.id}|${model}`);
             break; // this model's free tier can't take a request this size; not its fault
           }
           // A per-second limit with a short stated wait: sit it out and ask the same model once more.
           const again = e.code === 429 ? statedWait(e) : 0;
+          if (e.code === 429) {
+            // The counters let this through, so the real limit is lower: learn it.
+            const c = classify(e);
+            const dayLimit = Number((e.message || '').match(/limit:\s*(\d+)/i)?.[1]) || undefined;
+            this.quota.learn429(limitKey(p, model), again, !!c.daily, dayLimit, `${p.id}|${model}`);
+          }
           // One short wait per pass (shared with the cooling wait above): several rate-limited models must not add up to a minute of silence.
           if (!retried && !waited && again > 0 && again <= shortWait && !signal?.aborted) {
             retried = true;
@@ -427,14 +582,23 @@ export class Router {
     for (const { p, model } of candidates) {
       const s = after[`${p.id}|${model}`] ?? {};
       if ((s.dead ?? 0) > t || (after[`key|${p.id}`]?.dead ?? 0) > t || tooBig.has(`${p.id}|${model}`)) continue;
-      soonest = Math.min(soonest, Math.max(0, (s.cool ?? 0) - t, (after[`net|${p.id}`]?.cool ?? 0) - t, (after[`cool|${p.id}`]?.cool ?? 0) - t));
+      const r = this.room(p, model, est, lane);
+      if (!Number.isFinite(r.waitMs)) continue;
+      soonest = Math.min(soonest, Math.max(r.ok ? 0 : r.waitMs, (s.cool ?? 0) - t, (after[`net|${p.id}`]?.cool ?? 0) - t, (after[`cool|${p.id}`]?.cool ?? 0) - t));
     }
     const wait = Number.isFinite(soonest) ? ` The first one frees up in about ${Math.ceil(soonest / 1000)} seconds.` : '';
+    // Nothing was sent because the counters say every capable provider is full: a wait for the soonest window.
+    if (!tried && !lastErr && Number.isFinite(roomWait)) {
+      const more = lane === 'background' ? ' (the room kept for your chat is not used by background work)' : '';
+      return { error: `Every model I can reach is full for now (free limits)${more}.${wait} Another free key in the System tab gives me more room.`, waitMs: Number.isFinite(soonest) ? soonest : roomWait, full: true };
+    }
+    if (!tried && !lastErr && !fits && tooBig.size) return { error: 'Every model I can reach is too small for a request this big on its free plan. Try a shorter message, or start a new chat.', waitMs: Infinity };
     if (!lastErr) return { error: `Every model I can reach is cooling down after rate limits.${wait} Another free key in the System tab gives me more room.`, waitMs: soonest };
     return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).${wait}`, waitMs: soonest };
   }
 
-  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<Msg> {
+  /** One request to one model: its reply, and the tokens the provider says it used (for the counters). */
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<{ message: Msg; tokens?: number }> {
     let messages = messagesIn;
     let tools = toolsIn;
     if (p.maxIn) {
@@ -442,7 +606,8 @@ export class Router {
       if (!slim) throw { code: 'too-big', message: 'request too large for this free tier' } satisfies LlmError;
       ({ messages, tools } = slim);
     }
-    if (p.transport === 'workers-ai') return this.callWorkersAi(model, messages, tools, code);
+    if (p.noSystem) messages = foldSystem(messages);
+    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code) };
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
     const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
@@ -473,18 +638,21 @@ export class Router {
       }
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
+      // What the provider says about its limits (both on answers and on refusals) tunes the counters.
+      // Headers describe the counter the provider limits by: the model's when it limits models one by one.
+      this.quota.learnHeaders(limitKey(p, model), r.headers);
       if (!r.ok) {
         const text = await r.text().catch(() => '');
         if (r.status === 400 && body === tuned && !/(not found|does not exist|decommission|tool)/i.test(text)) continue;
         throw { code: r.status, message: text.slice(0, 400), retryAfter: r.headers.get('retry-after') } satisfies LlmError;
       }
-      const j = (await r.json()) as { choices?: { message?: Msg }[]; error?: { message?: string } };
+      const j = (await r.json()) as { choices?: { message?: Msg }[]; error?: { message?: string }; usage?: { total_tokens?: number } };
       const msg = j.choices?.[0]?.message;
       if (!msg) throw { code: 500, message: j.error?.message ?? 'empty reply' } satisfies LlmError;
       const content = typeof msg.content === 'string' ? msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim() : null;
       const calls = (msg.tool_calls ?? []).filter((c) => c?.function?.name);
       if (!content && !calls.length) throw { code: 500, message: 'empty reply' } satisfies LlmError;
-      return {
+      const message: Msg = {
         role: 'assistant',
         content: content || null,
         ...(calls.length
@@ -497,6 +665,8 @@ export class Router {
             }
           : {}),
       };
+      const used = j.usage?.total_tokens;
+      return { message, ...(typeof used === 'number' && used > 0 ? { tokens: used } : {}) };
     }
     throw { code: 400, message: 'bad request' } satisfies LlmError;
   }
@@ -523,6 +693,18 @@ export class Router {
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
     return msg;
   }
+}
+
+/** For a model with no system instructions (Gemma): the system text goes in front of the first owner message. */
+export function foldSystem(messages: Msg[]): Msg[] {
+  if (messages[0]?.role !== 'system') return messages;
+  const sys = textOf(messages[0].content);
+  const rest = messages.slice(1);
+  const i = rest.findIndex((m) => m.role === 'user');
+  if (i < 0) return [{ role: 'user', content: sys }, ...rest];
+  const u = rest[i]!;
+  const content: Content = Array.isArray(u.content) ? [{ type: 'text', text: `${sys}\n\n` }, ...u.content] : `${sys}\n\n${textOf(u.content)}`;
+  return [...rest.slice(0, i), { ...u, content }, ...rest.slice(i + 1)];
 }
 
 /** Rough token count (≈3.6 characters per token for English, code and JSON); a picture counts as IMAGE_TOKENS, not as its data URL. */

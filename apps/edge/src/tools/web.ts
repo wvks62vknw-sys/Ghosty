@@ -62,8 +62,49 @@ export async function search(query: string, ctx: Pick<ToolContext, 'vault'>): Pr
   return formatSearch(await searchHits(query, ctx));
 }
 
-/** The search itself, as results (title, address, snippet). */
+/**
+ * A short memory of identical searches and page reads (10 minutes, newest 60 of each): a project
+ * step or a cited answer that asks the same thing twice reuses the first answer, which saves the
+ * search allowance and keeps the request the model reads the same. In memory only; never errors.
+ */
+const REUSE_MS = 10 * 60_000;
+const REUSE_MAX = 60;
+class Reuse<T> {
+  private m = new Map<string, { at: number; v: T }>();
+  get(k: string): T | undefined {
+    const e = this.m.get(k);
+    if (!e) return undefined;
+    if (Date.now() - e.at > REUSE_MS) return void this.m.delete(k);
+    return e.v;
+  }
+  set(k: string, v: T): void {
+    this.m.delete(k);
+    this.m.set(k, { at: Date.now(), v });
+    while (this.m.size > REUSE_MAX) this.m.delete(this.m.keys().next().value!);
+  }
+  clear(): void {
+    this.m.clear();
+  }
+}
+const searches = new Reuse<Hit[]>();
+const pages = new Reuse<{ json: boolean; title: string; text: string }>();
+/** Forget the reused searches and pages (tests). */
+export function forgetReuse(): void {
+  searches.clear();
+  pages.clear();
+}
+
+/** The search itself, as results (title, address, snippet); an identical search in the last 10 minutes is reused. */
 export async function searchHits(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<Hit[]> {
+  const k = query.trim().toLowerCase().replace(/\s+/g, ' ');
+  const had = searches.get(k);
+  if (had) return had;
+  const hits = await searchFresh(query, ctx);
+  searches.set(k, hits);
+  return hits;
+}
+
+async function searchFresh(query: string, ctx: Pick<ToolContext, 'vault'>): Promise<Hit[]> {
   // .catch: with the database paused, fall through to the keyless search.
   const brave = await ctx.vault.get('brave').catch(() => null);
   if (brave) {
@@ -197,18 +238,23 @@ export const webTools: Tool[] = [
       const url = arg.str(a, 'url');
       if (!/^https?:\/\//i.test(url)) throw new Error('url must start with http:// or https://');
       // (?. — tests call tools with a bare context)
-      ctx.progress?.(`fetching ${hostOf(url)}…`);
-      const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const type = r.headers.get('content-type') ?? '';
-      ctx.progress?.('reading…');
-      const raw = await readCapped(r);
-      if (/json|text\/plain|csv|xml/.test(type)) {
-        const text = clip(raw, 9000);
+      let page = pages.get(url);
+      if (!page) {
+        ctx.progress?.(`fetching ${hostOf(url)}…`);
+        const r = await fetch(url, { headers: { 'User-Agent': UA, Accept: 'text/html,application/json,text/plain;q=0.9,*/*;q=0.5' }, redirect: 'follow' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const type = r.headers.get('content-type') ?? '';
+        ctx.progress?.('reading…');
+        const raw = await readCapped(r);
+        page = /json|text\/plain|csv|xml/.test(type) ? { json: true, title: '', text: raw } : { json: false, ...htmlToText(raw) };
+        pages.set(url, page); // read again within 10 minutes: this copy
+      }
+      if (page.json) {
+        const text = clip(page.text, 9000);
         ctx.found?.({ kind: 'web', title: hostOf(url).replace(/^www\./, ''), url, text });
         return asData(url, text);
       }
-      const { title, text } = htmlToText(raw);
+      const { title, text } = page;
       const read = clip(`${title}\n\n${text}`, 9000);
       ctx.found?.({ kind: 'web', title: oneLine(title).slice(0, 200) || hostOf(url).replace(/^www\./, ''), url, text: read.slice(title.length).trim() });
       return asData(url, read);

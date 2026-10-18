@@ -279,6 +279,31 @@ export interface BrainStatus {
   meter?: DatabaseMeter;
   /** What the brain can do with sound: hear (a Groq key or Workers AI) and speak with its own voice (Workers AI). */
   speech?: { stt: boolean; tts: boolean };
+  /** How much free AI room each provider has (apps/edge/src/llm/quota.ts): the SYSTEM tab's gauge. */
+  capacity?: AiCapacity;
+}
+
+/** One provider's free allowance right now. */
+export interface ProviderRoom {
+  provider: string;
+  /** ready: plenty of room; busy: over half of this minute's room used; full: none this minute; out: none until the day resets. */
+  state: 'ready' | 'busy' | 'full' | 'out';
+  /** Calls it can take this minute, and its per-minute allowance (null: not limited per minute). */
+  roomNow: number | null;
+  perMinute: number | null;
+  /** Calls today, and the day's allowance (null: no daily cap). */
+  usedToday: number;
+  perDay: number | null;
+  /** When the day's allowance resets (ms since the epoch); null for a rolling 24 hours. */
+  resetAt: number | null;
+  /** When room comes back while full or out (ms since the epoch). */
+  backAt?: number;
+}
+
+export interface AiCapacity {
+  /** One line, e.g. "Plenty of room · 9 providers ready". */
+  summary: string;
+  providers: ProviderRoom[];
 }
 
 /** Today's use of the brain's database against Cloudflare's free daily allowance. */

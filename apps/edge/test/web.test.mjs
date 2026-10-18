@@ -37,6 +37,25 @@ test('with no search keys and DuckDuckGo blocked, search still finds results (ke
   assert.ok(asked.some((u) => u.startsWith('api.github.com') && /2048/.test(u)), 'retried with the key words');
 });
 
+test('an identical search or page read within a few minutes is reused, not asked again', async () => {
+  const before = asked.length;
+  const ctx = { vault: { get: async () => null } };
+  const a = await T.toolByName.get('web_search').run({ query: '2048 sliding game' }, ctx);
+  const used = asked.length - before;
+  assert.ok(used > 0, 'the first search asks the sources');
+  const b = await T.toolByName.get('web_search').run({ query: '  2048   Sliding game ' }, ctx);
+  assert.equal(b, a, 'same results');
+  assert.equal(asked.length - before, used, 'the second, identical search asked nothing');
+  // a page: read once, then reused (and still credited as read)
+  const found = [];
+  const p1 = await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/y' }, { ...ctx, found: (s) => found.push(s) });
+  const n = asked.length;
+  const p2 = await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/y' }, { ...ctx, found: (s) => found.push(s) });
+  assert.equal(p2, p1);
+  assert.equal(asked.length, n, 'not fetched again');
+  assert.equal(found.length, 2, 'both reads count as looked up');
+});
+
 test('a search key in the vault being unreadable falls through to keyless search', async () => {
   const out = await T.toolByName.get('web_search').run({ query: '2048 game' }, { vault: { get: async () => { throw new Error('Exceeded allowed rows read'); } } });
   assert.match(out, /2048/);

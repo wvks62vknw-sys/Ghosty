@@ -1,5 +1,5 @@
 /** SYSTEM tab: keys, AI models, connection status, keeping data on the phone and its daily backup. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
-import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
+import type { BrainStatus, KeyStatus, ProviderRoom } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
@@ -20,7 +20,8 @@ export const systemTab: TabDef = {
     const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'STATUS', leftLabel: 'KEYS & MODELS', stack: true });
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
-    P.left.append(kp.el, mp.el);
+    const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
+    P.left.append(kp.el, mp.el, rp.el);
     const sp = panel('STATUS');
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
@@ -108,6 +109,29 @@ export const systemTab: TabDef = {
       mp.setStatus(status.lastModel ? `LAST: ${status.lastModel}` : '', 'ok');
       if (!status.models.length) mp.body.append(h('div.note', 'Add at least one AI key above. Gemini is the strongest free option for building things; Groq is the fastest for chat.'));
       for (const m of status.models) mp.body.append(row(m.provider.toUpperCase(), m.model, m.info, { tone: m.state === 'ok' ? 'up' : m.state === 'cool' ? undefined : 'dn' }));
+    };
+    // The free AI allowances right now (the brain's quota engine): room this minute, used today, when it resets.
+    const paintRoom = () => {
+      clear(rp.body);
+      const cap = status?.capacity;
+      if (!cap) {
+        rp.setStatus('', 'off');
+        if (status) rp.body.append(h('div.note', 'The brain does not count its free AI room yet: it needs an update first.'));
+        return;
+      }
+      const ready = cap.providers.filter((x) => x.state === 'ready' || x.state === 'busy').length;
+      rp.setStatus(!cap.providers.length ? 'NONE' : !ready ? 'FULL' : /busy/i.test(cap.summary) ? 'BUSY' : 'PLENTY', !ready ? 'mid' : 'ok');
+      rp.body.append(h('div.note.roomsum', cap.summary));
+      const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const STATE: Record<ProviderRoom['state'], string> = { ready: 'READY', busy: 'BUSY', full: 'FULL', out: 'OUT TODAY' };
+      for (const p of cap.providers) {
+        const now = p.roomNow === null ? 'no minute limit' : `room now ${p.roomNow} of ${p.perMinute} a minute`;
+        const today = `used today ${fmt.n(p.usedToday)}${p.perDay ? ` of ${fmt.n(p.perDay)}` : ''}`;
+        const reset = p.state === 'full' || p.state === 'out' ? (p.backAt ? `back ${clock(p.backAt)}` : '') : p.resetAt ? `resets ${clock(p.resetAt)}` : 'rolling day';
+        const r = row(p.provider.toUpperCase(), [now, today, reset].filter(Boolean).join(' · '), STATE[p.state], { tone: p.state === 'ready' ? 'up' : p.state === 'busy' ? undefined : 'dn', wrap: true });
+        r.dataset.room = p.state;
+        rp.body.append(r);
+      }
     };
     mp.foot!.append(button('RE-CHECK MODELS', async () => {
       await brain.resetModels().catch(() => undefined);
@@ -268,6 +292,7 @@ export const systemTab: TabDef = {
       }
       paintKeys();
       paintModels();
+      paintRoom();
       paintStatus();
     };
     return {

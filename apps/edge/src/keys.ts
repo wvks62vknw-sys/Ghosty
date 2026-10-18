@@ -35,7 +35,6 @@ export function keyDefs(repo?: string): KeyDef[] {
       pull_requests: 'write',
       statuses: 'read',
       actions: 'read',
-      models: 'read',
     }).toString();
   return [
     {
@@ -58,11 +57,11 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with github_pat_…',
       link: ghLink,
       need: 'needed',
-      why: 'Lets Ghosty change its own code when you ask (new panels, features, fixes) — and gives it free GPT-4.1 for writing that code (GitHub Models).',
+      // (It no longer brings free GPT-4.1: GitHub retired GitHub Models on 30 July 2026.)
+      why: 'Lets Ghosty change its own code when you ask (new panels, features, fixes).',
       steps: [
         'Open the link (sign in to GitHub if asked). The name, permissions and a 1-year expiry are already filled in.',
         `Under "Repository access" choose "Only select repositories" and pick ${repo ?? 'your Ghosty repository'}.`,
-        'Under "Account permissions", check "Models" is "Read-only" (free GPT-4.1 for coding). Already have a token? Edit it on GitHub and add this permission.',
         'Scroll to the bottom and press "Generate token", then confirm.',
         'Copy the token (it starts with github_pat_). GitHub only shows it once.',
         'Paste it below and press SAVE.',
@@ -173,6 +172,19 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Open the link and sign up (Google or GitHub sign-in works).',
         'On the API keys page, copy the Trial key shown there (or press "New Trial key" and copy that).',
         'Paste it below and press SAVE.',
+      ],
+    },
+    {
+      name: 'gemma',
+      label: 'Google Gemma',
+      hint: 'starts with AIza… (leave empty to use the Gemini key)',
+      link: 'https://aistudio.google.com/apikey',
+      need: 'optional',
+      why: "Not needed: Ghosty already uses Google's free Gemma models through your Gemini key for small jobs; a key from a second Google project here gives them their own allowance.",
+      steps: [
+        'Open the link and sign in with your Google account.',
+        'Press "Create API key" and choose "Create new project" (a separate project has its own free allowance).',
+        'Copy the key (it starts with AIza), paste it below and press SAVE.',
       ],
     },
     {
@@ -324,6 +336,7 @@ export async function testKey(name: string, value: string, repo?: string): Promi
     let status: number;
     switch (name) {
       case 'gemini':
+      case 'gemma':
         status = await check('https://generativelanguage.googleapis.com/v1beta/openai/models', { headers: bearer });
         break;
       case 'groq':
@@ -366,14 +379,7 @@ export async function testKey(name: string, value: string, repo?: string): Promi
         if (!r.ok) return { ok: false, info: r.status === 401 ? 'GitHub says this token is not valid. Copy it again.' : `GitHub answered ${r.status}` };
         const j = (await r.json()) as { permissions?: { push?: boolean } };
         if (j.permissions && !j.permissions.push) return { ok: false, info: 'the token can read but not write. It needs "Contents: Read and write".' };
-        // Free GPT-4.1 for coding comes from GitHub Models with the same token.
-        const m = await fetch('https://models.github.ai/inference/chat/completions', {
-          method: 'POST',
-          headers: { ...bearer, 'Content-Type': 'application/json', 'User-Agent': 'Ghosty' },
-          body: JSON.stringify({ model: 'openai/gpt-4.1-mini', messages: [{ role: 'user', content: 'ok' }], max_tokens: 1 }),
-        }).catch(() => null);
-        const models = m?.ok || m?.status === 429 ? ' · free GPT-4.1 for coding: on' : ' · free GPT-4.1 for coding: off (edit the token on GitHub and set Account permissions → Models → Read to switch it on)';
-        return { ok: true, info: `works · can edit ${repo}${models}` };
+        return { ok: true, info: `works · can edit ${repo}` };
       }
       case 'tomtom':
         status = await check(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/12/json?point=51.5074,-0.1278&key=${encodeURIComponent(value)}`, {});

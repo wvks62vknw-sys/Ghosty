@@ -359,3 +359,155 @@ test('the three new free providers: after the existing keys and before Workers A
   await ordered.setOrder(['nvidia']);
   assert.match((await ordered.complete([{ role: 'user', content: 'hello' }], [])).model, /^NVIDIA NIM/);
 });
+
+// ── the quota engine (llm/quota.ts): spread the load, two lanes, wait for room, learn limits ──
+
+/** Fake providers that enforce their real free limits per minute: a call over the limit gets a 429, as the real ones do. */
+function limitedProviders(log, { delay = 5 } = {}) {
+  const per = new Map(); // counter → call times
+  const realLimit = (host, model) => (/googleapis/.test(host) ? [`${host}|${model}`, 10] : /groq/.test(host) ? [`${host}|${model}`, 30] : /cerebras/.test(host) ? [`${host}|${model}`, 30] : /nvidia/.test(host) ? [host, 40] : /cohere/.test(host) ? [host, 20] : [host, 1000]);
+  return async (url, init) => {
+    const body = JSON.parse(init.body);
+    const host = new URL(url).hostname;
+    const [k, limit] = realLimit(host, body.model);
+    const now = Date.now();
+    const list = (per.get(k) ?? []).filter((t) => t > now - 60_000);
+    list.push(now);
+    per.set(k, list);
+    await new Promise((r) => setTimeout(r, delay));
+    const over = list.length > limit;
+    log.push({ host, model: body.model, status: over ? 429 : 200, roles: body.messages.map((m) => m.role), auth: init.headers.Authorization, tools: (body.tools ?? []).length });
+    if (over) return new Response('{"error":{"message":"rate limit"}}', { status: 429 });
+    return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `hi from ${body.model}` } }], usage: { total_tokens: 120 } }), { headers: { 'content-type': 'application/json' } });
+  };
+}
+
+test('a burst of 40 background calls gets no 429 and is spread across providers (it used to hammer the first one)', async () => {
+  const log = [];
+  globalThis.fetch = limitedProviders(log);
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', groq: 'q', cerebras: 'c', nvidia: 'n' }), { KEYLESS_MODELS: '0' });
+  const outs = await Promise.all(Array.from({ length: 40 }, (_, i) => r.complete([{ role: 'user', content: `summarise note ${i}` }], [], undefined, { priority: 'background' })));
+  assert.equal(outs.length, 40, 'every call answered');
+  const bounced = log.filter((l) => l.status === 429);
+  assert.equal(bounced.length, 0, `no call was sent that bounced: ${bounced.map((b) => b.model).join(', ')}`);
+  const hosts = new Set(log.map((l) => l.host));
+  assert.ok(hosts.size >= 3, `spread over providers: ${[...hosts].join(', ')}`);
+  const perModel = {};
+  for (const l of log) perModel[`${l.host}|${l.model}`] = (perModel[`${l.host}|${l.model}`] ?? 0) + 1;
+  // background keeps its hands off the chat reserve: no Gemini model past 70 % of its 10 a minute
+  for (const [k, n] of Object.entries(perModel)) if (k.includes('googleapis')) assert.ok(n <= 7, `${k}: ${n}`);
+});
+
+test("the owner's chat still goes through when background work has used its whole share", async () => {
+  const log = [];
+  globalThis.fetch = limitedProviders(log, { delay: 0 });
+  const r = new R.Router(new MemStorage(), vaultWith({ cohere: 'c' }), { KEYLESS_MODELS: '0' });
+  // Cohere's trial key: 20 a minute, so background may use 14
+  for (let i = 0; i < 14; i++) await r.complete([{ role: 'user', content: `job ${i}` }], [], undefined, { priority: 'background', maxWaitMs: 0 });
+  await assert.rejects(r.complete([{ role: 'user', content: 'one more job' }], [], undefined, { priority: 'background', maxWaitMs: 0 }), /full for now.*kept for your chat/);
+  const chat = await r.complete([{ role: 'user', content: 'hello' }], []);
+  assert.equal(chat.model, 'Cohere · command-a-03-2025', 'chat uses the reserve');
+  assert.equal(log.filter((l) => l.status === 429).length, 0);
+  assert.equal(log.length, 15, 'the refused background call was never sent');
+});
+
+test('when every capable provider is full, a call waits for the soonest window (with a progress line) instead of failing', async () => {
+  const log = [];
+  globalThis.fetch = limitedProviders(log, { delay: 0 });
+  // Mistral's free plan: one request a second
+  const r = new R.Router(new MemStorage(), vaultWith({ mistral: 'm' }), { KEYLESS_MODELS: '0' });
+  await r.complete([{ role: 'user', content: 'first' }], []);
+  const said = [];
+  const t0 = Date.now();
+  const out = await r.complete([{ role: 'user', content: 'second' }], [], undefined, { onWait: (t) => said.push(t) });
+  assert.match(out.model, /^Mistral/);
+  assert.ok(Date.now() - t0 >= 900, `waited for the window: ${Date.now() - t0} ms`);
+  assert.match(said[0] ?? '', /^waiting for free AI room · 1 s$/);
+  assert.equal(log.length, 2, 'nothing was sent early');
+  // a call that may not wait fails at once with a clear reason
+  await assert.rejects(r.complete([{ role: 'user', content: 'third' }], [], undefined, { maxWaitMs: 0 }), /full for now/);
+});
+
+test('limits are learned from rate-limit headers: a lower stated limit, and "none left" holds that model until its reset', async () => {
+  const log = [];
+  let hdrs = { 'x-ratelimit-limit-requests': '500', 'x-ratelimit-limit-tokens': '6000', 'x-ratelimit-remaining-requests': '499', 'x-ratelimit-remaining-tokens': '5800', 'x-ratelimit-reset-requests': '2m52s', 'x-ratelimit-reset-tokens': '2s' };
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(init.body);
+    log.push(body.model);
+    return new Response(JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }), { headers: { 'content-type': 'application/json', ...hdrs } });
+  };
+  const storage = new MemStorage();
+  const r = new R.Router(storage, vaultWith({ groq: 'q' }), { KEYLESS_MODELS: '0' });
+  await r.complete([{ role: 'user', content: 'hello' }], []);
+  const q = R.quotaFor(storage);
+  assert.deepEqual(q.learned('groq|openai/gpt-oss-120b'), { rpd: 500, tpm: 6000 }, "Groq's requests are per day, its tokens per minute");
+  // Cerebras-style names, and nothing left: the model is not asked again until the stated reset
+  hdrs = { 'x-ratelimit-limit-requests-day': '14400', 'x-ratelimit-remaining-requests-day': '0', 'x-ratelimit-reset-requests-day': '30.5' };
+  await r.complete([{ role: 'user', content: 'again' }], []);
+  const held = q.learned('groq|openai/gpt-oss-120b');
+  assert.equal(held.rpd, 500, 'a higher stated limit never raises a learned one');
+  assert.ok(held.hold > Date.now() + 25_000 && held.hold < Date.now() + 35_000, String(held.hold - Date.now()));
+  log.length = 0;
+  hdrs = {};
+  assert.equal((await r.complete([{ role: 'user', content: 'third' }], [])).model, 'Groq · openai/gpt-oss-20b', 'the held model is skipped; the next answers');
+  assert.deepEqual(log, ['openai/gpt-oss-20b']);
+  // a 429 the counters did not see coming lowers the per-minute limit to what got through
+  const q2 = R.quotaFor(new MemStorage());
+  for (let i = 0; i < 4; i++) q2.take(['x'], 10);
+  q2.learn429('x', 0);
+  assert.equal(q2.learned('x').rpm, 3);
+  assert.equal(q2.room('x', { rpm: 30 }, 10, 'chat').ok, false, 'no more this minute');
+  // the counters reach the database (at most every few seconds)
+  assert.ok(storage.m.has('llm:quota'), 'saved to the database');
+});
+
+test('Google Gemma: its own key slot, else the Gemini key; only for small tool-less steps; no system message sent', async () => {
+  const log = [];
+  globalThis.fetch = limitedProviders(log, { delay: 0 });
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  const small = await r.complete([{ role: 'system', content: 'Write a title.' }, { role: 'user', content: 'a long note' }], [], undefined, { tier: 'small', priority: 'background' });
+  assert.equal(small.model, 'Google Gemma · gemma-3-27b-it');
+  assert.equal(log[0].auth, 'Bearer g', 'falls back to the Gemini key');
+  assert.deepEqual(log[0].roles, ['user'], 'the system text rides in the user message');
+  // the owner's chat never goes to Gemma, and neither does a request with tools
+  assert.match((await r.complete([{ role: 'user', content: 'hello' }], [])).model, /^Gemini ·/);
+  assert.match((await r.complete([{ role: 'user', content: 'hi' }], TOOLS, undefined, { tier: 'small' })).model, /^Gemini ·/);
+  // its own key wins when saved
+  log.length = 0;
+  const own = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', gemma: 'gm' }), { KEYLESS_MODELS: '0' });
+  await own.complete([{ role: 'user', content: 'title?' }], [], undefined, { tier: 'small' });
+  assert.equal(log[0].auth, 'Bearer gm');
+  const gemma = P.PROVIDERS.find((p) => p.id === 'gemma');
+  assert.equal(gemma.base, 'https://generativelanguage.googleapis.com/v1beta/openai');
+  assert.deepEqual(gemma.modelLimits('gemma-3-27b-it'), { rpm: 30, tpm: 15_000, rpd: 14_400 });
+  // the key slot: in System → Keys, optional, one plain line
+  const K = await import('./.build/keys.mjs');
+  const k = K.KEYS.find((x) => x.name === 'gemma');
+  assert.ok(k && k.need === 'optional' && /Gemini key/.test(k.why) && k.steps.length >= 2, 'gemma key slot');
+  // GitHub Models was retired on 30 July 2026: not a provider, and the GitHub token no longer promises it
+  assert.ok(!P.PROVIDERS.some((p) => /github/.test(p.id) || /models\.github\.ai/.test(p.base)));
+  assert.doesNotMatch(K.KEYS.find((x) => x.name === 'github').why, /GitHub Models|GPT-4\.1/);
+});
+
+test('every provider has its free limits; the capacity gauge says room now, used today and the reset', async () => {
+  for (const p of P.PROVIDERS) assert.ok(p.limits || p.modelLimits, `${p.id} has limits`);
+  globalThis.fetch = limitedProviders([], { delay: 0 });
+  const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', cohere: 'c' }), { KEYLESS_MODELS: '0' });
+  await r.complete([{ role: 'user', content: 'hello' }], []);
+  const cap = await r.capacity();
+  assert.match(cap.summary, /^Plenty of room · 3 providers ready$/, cap.summary);
+  const g = cap.providers.find((x) => x.provider === 'Gemini');
+  assert.equal(g.usedToday, 1);
+  assert.equal(g.perMinute, 60, 'five Gemini models: three Flash at 10 a minute, two Flash-Lite at 15');
+  assert.equal(g.roomNow, 59);
+  assert.ok(g.resetAt > Date.now() && g.resetAt <= Date.now() + 24 * 3600_000);
+  const c = cap.providers.find((x) => x.provider === 'Cohere');
+  assert.deepEqual([c.perMinute, c.perDay, c.resetAt], [20, 33, null]);
+  // used up for the minute: FULL, with when room comes back
+  const full = new R.Router(new MemStorage(), vaultWith({ cohere: 'c' }), { KEYLESS_MODELS: '0' });
+  for (let i = 0; i < 20; i++) await full.complete([{ role: 'user', content: `q${i}` }], []);
+  const fc = await full.capacity();
+  assert.equal(fc.providers[0].state, 'full');
+  assert.ok(fc.providers[0].backAt > Date.now());
+  assert.match(fc.summary, /^No room right now · room again in \d+ s$/);
+});

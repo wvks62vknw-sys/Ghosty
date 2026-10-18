@@ -79,7 +79,7 @@ export function tutorDeps(b: { storage: DurableObjectStorage; library: Library |
     storage: b.storage,
     library: b.library?.available ? b.library : null,
     ask: async (system, user) => {
-      const r = await b.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }] as Msg[], [], undefined, { cheap: true, maxWaitMs: 8000 });
+      const r = await b.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }] as Msg[], [], undefined, { tier: 'small', priority: 'background', maxWaitMs: 8000 });
       return textOf(r.message.content);
     },
     notify: b.notify,

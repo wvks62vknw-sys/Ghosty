@@ -11,6 +11,26 @@
  * best effort). They come after the owner's own keys for chat, and first for Ghosty's
  * own study drills (the cheap tier), so the owner's allowances are kept for the owner.
  */
+/**
+ * A free allowance (quota.ts counts against it). Every field is optional: what a provider does not
+ * limit is left out. The numbers are conservative copies of each provider's published free tier
+ * (source on each); rate-limit headers and 429s lower them further at run time, never raise them.
+ */
+export interface Limits {
+  /** Requests a minute. */
+  rpm?: number;
+  /** Tokens a minute (in + out). */
+  tpm?: number;
+  /** Requests a day (since its reset, or a rolling 24 hours). */
+  rpd?: number;
+  /** Tokens a day. */
+  tpd?: number;
+  /** At least this long between two requests (an open endpoint's pacing). */
+  gapMs?: number;
+  /** Requests at once. */
+  conc?: number;
+}
+
 export interface Provider {
   id: string;
   name: string;
@@ -40,6 +60,18 @@ export interface Provider {
   reset?: 'utc-midnight' | 'pt-midnight' | 'rolling';
   /** How good a fit for Ghosty's own small jobs (study digests and drills): higher first. */
   cheap?: number;
+  /** The allowance of the whole key (every model together). */
+  limits?: Limits;
+  /** The allowance of each model on its own (on top of `limits`). */
+  modelLimits?: (model: string) => Limits;
+  /** Vault key used when `key` is empty (Google Gemma: the Gemini key). */
+  keyFallback?: string;
+  /** Only for the small tier (short internal steps), never the owner's main chat. */
+  smallOnly?: boolean;
+  /** No tool calling: only for requests without tools. */
+  noTools?: boolean;
+  /** No system message: it is put in front of the first user message instead. */
+  noSystem?: boolean;
 }
 
 export const PROVIDERS: Provider[] = [
@@ -54,6 +86,9 @@ export const PROVIDERS: Provider[] = [
     maxOut: 16384,
     reset: 'pt-midnight',
     cheap: 6,
+    // Free tier per model per project (ai.google.dev/gemini-api/docs/rate-limits; AI Studio → Rate limits):
+    // Pro 5 RPM / 250K TPM / 100 RPD, Flash 10 / 250K / 250, Flash-Lite 15 / 250K / 1,000.
+    modelLimits: (m) => (/pro/.test(m) ? { rpm: 5, tpm: 250_000, rpd: 100 } : /lite/.test(m) ? { rpm: 15, tpm: 250_000, rpd: 1000 } : { rpm: 10, tpm: 250_000, rpd: 250 }),
   },
   {
     id: 'groq',
@@ -64,6 +99,9 @@ export const PROVIDERS: Provider[] = [
     seed: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'],
     reset: 'rolling',
     cheap: 6,
+    // Per model (console.groq.com/docs/rate-limits, 2026): gpt-oss-120b, gpt-oss-20b and qwen3.8-27b are
+    // each 30 RPM / 8K TPM / 1K RPD / 200K TPD; an unlisted model gets the same.
+    modelLimits: () => ({ rpm: 30, tpm: 8000, rpd: 1000, tpd: 200_000 }),
   },
   {
     id: 'cerebras',
@@ -73,6 +111,8 @@ export const PROVIDERS: Provider[] = [
     seed: ['gpt-oss-120b', 'qwen-3.8-27b', 'llama-3.3-70b'],
     reset: 'rolling',
     cheap: 4,
+    // Free tier per model (inference-docs.cerebras.ai/support/rate-limits): 30 RPM, 60K TPM, 14.4K RPD, 1M TPD.
+    modelLimits: () => ({ rpm: 30, tpm: 60_000, rpd: 14_400, tpd: 1_000_000 }),
   },
   {
     id: 'openrouter',
@@ -83,6 +123,8 @@ export const PROVIDERS: Provider[] = [
     accept: (id) => id.endsWith(':free') || id === 'openrouter/free',
     reset: 'utc-midnight',
     cheap: 5,
+    // ':free' models, the whole key (openrouter.ai/docs/api-reference/limits): 20 RPM, 50 a day without credits bought.
+    limits: { rpm: 20, rpd: 50 },
   },
   {
     id: 'mistral',
@@ -93,6 +135,9 @@ export const PROVIDERS: Provider[] = [
     maxOut: 16384,
     reset: 'rolling',
     cheap: 5,
+    // Free "Experiment" plan, the whole key (docs.mistral.ai/deployment/laplateforme/tier): 1 request a second,
+    // 500K tokens a minute, 1B tokens a month (about 33M a day; 30M kept).
+    limits: { rpm: 60, gapMs: 1000, tpm: 500_000, tpd: 30_000_000 },
   },
   {
     // NVIDIA's free tier: big open models at about 40 requests a minute, a rolling window.
@@ -106,6 +151,8 @@ export const PROVIDERS: Provider[] = [
     maxOut: 8192,
     reset: 'rolling',
     cheap: 3,
+    // Free API key on build.nvidia.com (docs.api.nvidia.com, "40 requests per minute" for trial keys): no daily cap.
+    limits: { rpm: 40 },
   },
   {
     // SambaNova's free tier: very fast DeepSeek and Llama, about 20 requests a day per model.
@@ -118,6 +165,8 @@ export const PROVIDERS: Provider[] = [
     accept: (id) => !/(e5-|embed|whisper)/i.test(id),
     reset: 'utc-midnight',
     cheap: 2,
+    // Free tier per model (docs.sambanova.ai/cloud/docs/get-started/rate-limits): about 20 requests a day, 10–20 a minute (10 kept).
+    modelLimits: () => ({ rpm: 10, rpd: 20 }),
   },
   {
     // Cohere's trial key: the Command models, 1,000 calls a month, through its OpenAI-compatible endpoint (fixed list).
@@ -130,6 +179,28 @@ export const PROVIDERS: Provider[] = [
     noDiscovery: true,
     reset: 'rolling',
     cheap: 3,
+    // Trial key (docs.cohere.com/docs/rate-limits): Chat 20 a minute, 1,000 calls a month (about 33 a day).
+    limits: { rpm: 20, rpd: 33 },
+  },
+  {
+    // Google's open Gemma 3 models through the Gemini API: a separate, much bigger daily allowance than
+    // Gemini (14,400 requests a day per model), but no tool calling and no system instructions — so only
+    // for Ghosty's small internal steps (summaries, titles, checks). Its own key slot, or the Gemini key.
+    id: 'gemma',
+    name: 'Google Gemma',
+    base: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    key: 'gemma',
+    keyFallback: 'gemini',
+    seed: ['gemma-3-27b-it', 'gemma-3-12b-it', 'gemma-3n-e4b-it'],
+    maxOut: 4096,
+    noDiscovery: true,
+    smallOnly: true,
+    noTools: true,
+    noSystem: true,
+    reset: 'pt-midnight',
+    cheap: 7,
+    // Free tier per model (ai.google.dev/gemini-api/docs/rate-limits, Gemma 3 and 3n): 30 RPM, 15K TPM, 14,400 RPD.
+    modelLimits: () => ({ rpm: 30, tpm: 15_000, rpd: 14_400 }),
   },
   {
     // Cloudflare Workers AI through the Worker's own AI binding: no key at all, a free
@@ -146,6 +217,9 @@ export const PROVIDERS: Provider[] = [
     tier: 1,
     reset: 'utc-midnight',
     cheap: 9,
+    // developers.cloudflare.com/workers-ai/platform/limits (text generation: 300 requests a minute) and
+    // /platform/pricing (10,000 neurons a day free, about 300K tokens on these models; 1,000 requests kept as a day cap).
+    limits: { rpm: 300, rpd: 1000, tpd: 300_000 },
   },
   {
     // Pollinations' free text API: no account, no key. One model (gpt-oss-20b, tool calling
@@ -165,6 +239,8 @@ export const PROVIDERS: Provider[] = [
     timeoutMs: 25_000,
     reset: 'rolling',
     cheap: 8,
+    // Anonymous tier (github.com/pollinations/pollinations APIDOCS.md: one request every 15–30 s per address; 30 s kept).
+    limits: { rpm: 2, gapMs: 30_000, conc: 1 },
   },
 ];
 
@@ -222,4 +298,16 @@ export function modelScore(id: string): number {
   if (/(lite|8b|nano|mini\b|small|1b|3b|tiny)/i.test(id)) s -= 1.5;
   if (/(preview|exp|beta)/i.test(id)) s -= 0.5;
   return s;
+}
+
+/** Ms until a provider's allowance resets (its stated reset time), or null when it is a rolling window. */
+export function resetDelay(p: Pick<Provider, 'reset'>, now = Date.now()): number | null {
+  if (p.reset === 'utc-midnight') return Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000 - now;
+  if (p.reset === 'pt-midnight') {
+    // Midnight in California is 07:00 or 08:00 UTC; the later one is the safe choice.
+    const day = Math.floor(now / 86_400_000) * 86_400_000;
+    const at = day + 8 * 3600_000;
+    return (at > now ? at : at + 86_400_000) - now;
+  }
+  return null;
 }
