@@ -35,6 +35,18 @@ await page.addInitScript(() => {
   document.addEventListener('visibilitychange', () => window.__vis.push(document.visibilityState));
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
+// A slow phone: when asked, reading the saved games takes 3 s (to tap TRAIN before they are in).
+await page.addInitScript(() => {
+  if (!sessionStorage.getItem('gymslow')) return;
+  const getAll = IDBObjectStore.prototype.getAll;
+  IDBObjectStore.prototype.getAll = function (...a) {
+    const r = getAll.apply(this, a);
+    const slow = { result: undefined, onsuccess: null, onerror: null };
+    r.onsuccess = () => setTimeout(() => ((slow.result = r.result), slow.onsuccess?.()), 3000);
+    r.onerror = () => slow.onerror?.();
+    return slow;
+  };
+});
 
 const boot = async () => {
   await page.goto(base);
@@ -124,6 +136,31 @@ if (!after?.mastered) {
   await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) > u + 500 || window.__ghosty.gym.recs.tictactoe?.mastered, 20000, 'training did not carry on after the reload', after?.units ?? 0);
   if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
   await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after the reload');
+}
+
+// ---- a TRAIN tapped before the saved games are read must not start him again from Level 1 ----
+{
+  const had = (await st()).recs.tictactoe;
+  await page.evaluate(() => sessionStorage.setItem('gymslow', '1'));
+  await boot();
+  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not show its cards while still loading');
+  await closeLog();
+  await card('tictactoe').click();
+  if (!had?.mastered) {
+    await G('button.gymtrain').click(); // within the 3 s the saved games take to arrive
+    await page.waitForTimeout(5000);
+    if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
+    await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after a slow load');
+    await page.waitForTimeout(800);
+  }
+  await page.evaluate(() => sessionStorage.removeItem('gymslow'));
+  await boot();
+  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after the slow-load check');
+  await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `an early TRAIN wiped his saved progress (had ${had?.units} games)`, had?.units ?? 1);
+  const now = (await st()).recs.tictactoe;
+  if (had && now && now.level < had.level) problems.push(`an early TRAIN sent him back from Level ${had.level} to Level ${now.level}`);
+  await closeLog();
+  await card('tictactoe').click();
 }
 
 // ---- PLAY HIM: tic-tac-toe ----
