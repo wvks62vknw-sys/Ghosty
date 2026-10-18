@@ -1,3 +1,4 @@
+// worker revision: 2 (src/offline/models.ts WORKER_REV: bump both when this file changes)
 // Ghosty's offline brain: the small language model runs here, in its own thread, so the 6 MB
 // WebLLM runtime and the model's GPU memory never touch the page. The page (src/offline/brain.ts)
 // talks to it with a few plain messages:

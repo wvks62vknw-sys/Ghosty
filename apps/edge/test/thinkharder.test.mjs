@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: [at('../../web/src/offline/think.ts'), at('../../web/src/offline/exact.ts'), at('../../web/src/offline/bench.ts'), at('../../web/src/gym/bench.ts'), at('../../web/src/gym/index.ts')],
+  entryPoints: [at('../../web/src/offline/think.ts'), at('../../web/src/offline/exact.ts'), at('../../web/src/offline/bench.ts'), at('../../web/src/offline/lock.ts'), at('../../web/src/gym/bench.ts'), at('../../web/src/gym/index.ts')],
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -73,15 +73,14 @@ test('think harder: the calculator works sums out (never eval) and checks an ans
   assert.equal(X.calc('42'), null, 'a number alone is not a sum');
   assert.equal(X.calc('alert(1)'), null);
   assert.equal(X.calc('process.exit()'), null);
-  assert.deepEqual(X.sumIn('What is 17 × 23?'), { expr: '17 × 23', value: 391 });
+  assert.deepEqual(X.sumIn('What is 17 × 23?'), { expr: '17 × 23', value: 391, exact: { n: 391n, d: 1n } });
   assert.equal(X.sumIn('work out (18+7)*4')?.value, 100);
   assert.equal(X.sumIn('what is 17 times 23')?.value, 391);
   assert.equal(X.sumIn('What is the capital of France?'), null);
   assert.equal(X.sumIn('I have 3 cats'), null);
-  assert.equal(X.sameNumber('17 × 23 = 391', 391), true);
+  assert.equal(X.sameNumber(X.answerOf('17 × 23 = 391'), 391), true, 'the answer is what it comes to');
+  assert.equal(X.sameNumber('17 × 23 = 391', 391), false, 'the first number in an answer is its answer');
   assert.equal(X.sameNumber('about 1,000', 1000), true);
-  assert.equal(X.sameNumber('0.3', 1 / 3), false);
-  assert.equal(X.sameNumber('0.33', 1 / 3), true, 'to the cent');
   assert.equal(X.sameNumber('0.33', 0.33), true);
   assert.equal(X.sameNumber('no idea', 4), false);
 });
@@ -104,8 +103,10 @@ test('think harder: "think harder" in a message — alone (the last question) or
   assert.equal(T.thinkAsk('Think harder!'), '');
   assert.equal(T.thinkAsk('think harder: what is 17 × 23?'), 'what is 17 × 23?');
   assert.equal(T.thinkAsk('please think harder about this: is 91 prime?'), 'is 91 prime?');
-  assert.equal(T.thinkAsk('is 91 prime? think harder'), 'is 91 prime?');
-  assert.equal(T.thinkAsk('try harder'), '');
+  assert.equal(T.thinkAsk('think harder about this'), '');
+  // Only the exact command: ordinary messages that happen to say it go to the brain as usual.
+  for (const m of ['is 91 prime? think harder', 'try harder', 'try harder to find me a cheaper flight', 'I need you to think harder', 'You should think harder.', 'Think hard about my calendar this week', 'think harder about my calendar', 'think hard'])
+    assert.equal(T.thinkAsk(m), null, m);
   assert.equal(T.thinkAsk('what should I think about today'), null);
   assert.equal(T.thinkAsk('I think hardware is fun'), null);
 });
@@ -329,14 +330,19 @@ test('think harder in the chat: the gym checks a Countdown sum it works out, and
   assert.equal(GB.gymCheck(q, 'ANSWER: (9 - 5) × (8 - 5)').verdict.correct, false, '4 × 3 = 12');
   assert.equal(GB.gymCheck(q, `ANSWER: ${solveSmall([5, 5, 9, 8], 24, true)}`).verdict.correct, true);
   assert.deepEqual(GB.factQuestion('What is the capital of Japan?'), { ent: 'Japan', field: 'capital', v: 'Tokyo' });
-  assert.deepEqual(GB.factQuestion('how many moons does mars have'), { ent: 'Mars', field: 'moons', v: 2 });
+  assert.deepEqual(GB.factQuestion('What is the number of known moons of Mars?'), { ent: 'Mars', field: 'moons', v: 2 });
   assert.equal(GB.factQuestion('What is the atomic number of Gold?').v, 79);
   assert.equal(GB.factQuestion('Which is bigger, France or Spain?'), null, 'two things: not a lookup');
   assert.equal(GB.factQuestion('What is the population of Peru?'), null, 'not recorded: no check');
   assert.equal(GB.factQuestion('What is the capital of Narnia?'), null);
   assert.deepEqual(GB.gymCheckable('What is the capital of Japan?'), { label: 'the fact book', kind: 'key' });
   assert.equal(GB.gymCheck('What is the capital of Japan?', 'ANSWER: Tokyo').verdict.correct, true);
-  assert.equal(GB.gymCheck('How many people live in India? (population)', 'About 1,430 million').verdict.correct, true, 'within 3%');
+  assert.equal(GB.gymCheck('What is the population of India?', 'About 1,430 million').verdict.correct, true, 'within 3%');
+  // Only "What is the <field> of <thing>?": a question about something else the book would answer wrongly.
+  for (const q of ['What was the capital of Japan before Tokyo?', 'What is the population density of Japan?', 'How many moons does Mars not have?', 'Is the capital of Peru Lima?', 'What was the former capital of Japan?', 'What is the second largest city of Japan?', 'What is the capital of Japan not?', 'how many moons does mars have'])
+    assert.equal(GB.gymCheck(q, 'ANSWER: Tokyo'), null, q);
+  // A Countdown puzzle only when the whole question is the puzzle.
+  assert.equal(GB.sumPuzzle('Last week I tried to reach 24 from 5, 5, 9, 8 and 3 times failed'), null);
   assert.equal(GB.gymCheck('Tell me a joke', 'x'), null);
   // Every question the report card asks of the book is one the book can check.
   for (const [ent, field] of GB.FACT_SET) assert.deepEqual(GB.factQuestion(GB.factAsk(ent, field))?.ent, ent);
@@ -365,7 +371,11 @@ test("report card: the phone's own questions and their strict scorers", () => {
   assert.equal(BN.scoreLocal('ins-4', 'down sat cat the'), true);
   assert.equal(BN.scoreLocal('ins-4', 'Down sat cat the.'), true);
   assert.equal(BN.scoreLocal('ins-4', 'Here it is: down sat cat the'), false);
+  assert.equal(BN.scoreLocal('tool-1', '<tool_call>\n{"name": "set_timer", "arguments": {"minutes": 5}}\n</tool_call>'), true, "Qwen's own format, as Stage 2 trains it");
+  assert.equal(BN.scoreLocal('tool-1', '<tool_call>{"name": "set_timer", "arguments": "{\\"minutes\\": 5}"}</tool_call>'), true, 'arguments as a JSON string');
+  assert.equal(BN.scoreLocal('tool-1', '```json\n{\n  "name": "set_timer",\n  "arguments": {"minutes": 5}\n}\n```'), true, 'a fenced, multi-line call');
   assert.equal(BN.scoreLocal('tool-1', '{"tool": "set_timer", "args": {"minutes": 5}}'), true);
+  assert.ok(/<tools>[\s\S]*"name":"set_timer"[\s\S]*<\/tools>[\s\S]*<tool_call>/.test(BN.LOCAL_ITEMS.find((x) => x.id === 'tool-1').text), "the tools are offered in Qwen's format");
   assert.equal(BN.scoreLocal('tool-1', 'Sure: {"tool": "set_timer", "args": {"minutes": "5"}}'), true);
   assert.equal(BN.scoreLocal('tool-1', '{"tool": "set_timer", "args": {"minutes": 10}}'), false);
   assert.equal(BN.scoreLocal('tool-1', "{'tool': 'set_timer'}"), false, 'not JSON');
@@ -390,7 +400,7 @@ function benchModel() {
     if (/YES or NO/.test(q)) return thinkMode ? 'ANSWER: YES' : 'Yes, it is.';
     if (/three fruits/.test(q)) return thinkMode ? 'ANSWER: apple, pear, plum' : 'Apple, pear and plum.';
     if (/reverse order/.test(q)) return thinkMode ? 'ANSWER: down sat cat the' : 'the cat sat down';
-    if (/set_timer\(/.test(q)) {
+    if (/<tools>/.test(q)) {
       if (/5 minutes/.test(q)) return '{"tool": "set_timer", "args": {"minutes": 5}}';
       if (/Leeds/.test(q)) return '{"tool": "weather", "args": {"place": "Leeds"}}';
       if (/Amy/.test(q)) return '{"tool": "remember", "args": {"text": "sister Amy"}}';
@@ -475,4 +485,160 @@ test('report card: STOP keeps a partial run (marked, and left out of the graph);
   assert.deepEqual(tr.slice(0, 2).map((p) => p.plain), [1, 0]);
   assert.equal(tr[0].think, null);
   assert.equal(BN.summarise({ ...run, items: [] }), 'No questions were answered: run the check again.');
+});
+
+// ---- the review of Stage 3: "checked exactly" must never be shown for an unchecked or wrong answer --------------
+const L = await import('./.build/think/offline/lock.mjs');
+const { readFileSync } = await import('node:fs');
+const calcCheck = (q, reply) => {
+  const c = X.sumCheck(q);
+  return c ? c.check(reply, X.answerOf(reply)).correct : 'no check';
+};
+
+test('review: the calculator checks only a question that is nothing but a sum, exactly, by the number after ANSWER:', () => {
+  // Whole numbers exactly (no 6-significant-figure slack).
+  assert.equal(calcCheck('What is 123456 × 654321?', 'ANSWER: 80779800000'), false);
+  assert.equal(calcCheck('What is 123456 × 654321?', 'ANSWER: 80779853376'), true);
+  assert.equal(calcCheck('What is 99999999 × 99999999?', 'ANSWER: 9999999800000001'), true, 'past what a float holds exactly');
+  assert.equal(calcCheck('What is 99999999 × 99999999?', 'ANSWER: 9999999800000000'), false);
+  // A question that is more than the sum gets no check at all.
+  for (const q of ['Is 17 × 23 bigger than 400?', 'What is 10 / 4 rounded down?', 'What is 3:45 + 2:30?', 'What day of the week is 25/12/2024?', 'What is 25/12/2024?', 'How many hours do I work if I work 9-5?', 'What is 2 + 3 in binary?', 'What is 2^0.5?', 'What is 5 km + 3 miles?', 'I think 2 + 2 = 5, what is it?'])
+    assert.equal(X.sumIn(q), null, q);
+  // Fractions read and worked out exactly.
+  assert.equal(calcCheck('What is 1/2 + 1/3?', 'ANSWER: 5/6'), true);
+  assert.equal(calcCheck('What is 1/2 + 1/3?', 'ANSWER: 0.83'), true, 'a decimal to two places');
+  assert.equal(calcCheck('What is 1/2 + 1/3?', 'ANSWER: 0.8'), false);
+  assert.equal(calcCheck('What is 1 ÷ 3?', 'ANSWER: 0.33'), true);
+  assert.equal(calcCheck('What is 1 ÷ 3?', 'ANSWER: 0.3'), false);
+  assert.equal(calcCheck('What is 0.1 + 0.2?', 'ANSWER: 0.3'), true, 'exact decimals: 0.1 + 0.2 is 0.3');
+  // The number right after ANSWER:, not the last number in the reply.
+  assert.equal(calcCheck('What is 17 × 23?', 'ANSWER: 391 (17 × 23)'), true);
+  assert.equal(calcCheck('What is 17 × 23?', 'ANSWER: 381, so 17 × 23 = 391'), false);
+  assert.equal(calcCheck('What is 17 × 23?', 'ANSWER: $\\boxed{391}$'), true);
+  assert.equal(calcCheck('What is 7 - 10?', 'ANSWER: −3'), true);
+  assert.equal(calcCheck('What is 1,000 + 250?', 'ANSWER: 1,250'), true);
+  assert.deepEqual(X.calcExact('2^3^2'), { n: 512n, d: 1n });
+  assert.equal(X.calc('9^9^9'), null, 'too big');
+  assert.equal(X.calc('('.repeat(20000) + '1' + ')'.repeat(20000)), null, 'too deep');
+  // Never slow, whatever is typed.
+  const t0 = Date.now();
+  for (const q of ['What is ' + '1 '.repeat(3000) + 'x', 'What is ' + '1 x '.repeat(2000) + 'q', 'What is ' + '1 times '.repeat(400) + '!']) X.sumIn(q);
+  assert.ok(Date.now() - t0 < 100, `${Date.now() - t0} ms`);
+});
+
+test('review: answers are read the way they are meant', () => {
+  assert.equal(X.answerOf('My answer: I think 7. Final Answer: 9'), '9');
+  assert.equal(X.answerOf('Final answer: 9\nAnswer: 7'), '9', 'a final answer wins');
+  assert.equal(X.answerOf('Answer: 12\nThe answer is 12, not 13.'), '12');
+  assert.equal(X.normAnswer('No, 12'), 'no');
+  assert.equal(X.normAnswer('Yes, it is'), 'yes');
+  assert.equal(X.normAnswer('1/2'), X.normAnswer('0.5'));
+  assert.equal(X.normAnswer('$12.00'), '12');
+  assert.equal(X.normAnswer('12, not 13'), '12, not 13', 'two numbers: not one answer');
+});
+
+test('review: tree paths that share a first step vote once, and tree paths alone never make "agree"', async () => {
+  const q = 'Sam has 12 apples and gives 5 to each of 2 friends. How many are left?';
+  let i = 0;
+  const { gen, calls } = fake((m) => {
+    if (isVerify(m)) return 'YES';
+    if (isStep(m)) return 'Each friend gets 5, so 5 × 2 = 12 given away.';
+    if (isRollout(m)) return '12 - 12 = 0\nANSWER: 0';
+    return `ANSWER: ${[2, 7, 3][i++ % 3]}`;
+  });
+  const r = await T.thinkHarder(q, { gen, steps: true });
+  assert.ok(r.attempts.filter((a) => a.key === '0').length >= 3, 'the tree kept finding 0');
+  assert.notEqual(r.confidence, 'agree', r.line);
+  assert.ok(calls.some((c) => isVerify(c.messages)), 'the YES/NO round still ran');
+  assert.doesNotMatch(r.line, /^[3-9] of/);
+  assert.equal(T.votes(r.attempts.filter((a) => a.key === '0')), 1);
+});
+
+test('review: a slow check is raced against the deadline, and the real token count is used', async () => {
+  const t0 = Date.now();
+  const r = await T.thinkHarder('What is 2+2?', { gen: async () => 'ANSWER: 5', steps: false, checker: { label: 'slow', kind: 'verifier', check: () => new Promise((res) => setTimeout(() => res({ correct: false, score: 0, why: '' }), 3000)) }, budget: { ms: 300 } });
+  assert.ok(Date.now() - t0 < 800, `took ${Date.now() - t0} ms`);
+  assert.equal(r.outOfTime, true);
+  assert.notEqual(r.confidence, 'checked');
+  // The model says each short reply cost 400 tokens: the budget of 1,000 allows three calls at most.
+  let n = 0;
+  const big = await T.thinkHarder('Pick a word', { gen: async () => (n++, { text: 'ANSWER: x' + n, tokens: 400 }), steps: false, budget: { tokens: 1000, attempts: 6 } });
+  assert.ok(n <= 3, `${n} calls`);
+  assert.equal(big.tokens, n * 400);
+});
+
+test("review: THINK HARDER is given what the phone knows (memory, agenda, library, recent turns) in every prompt", async () => {
+  const { gen, calls } = fake((m) => (isVerify(m) ? 'YES' : 'ANSWER: 3pm'));
+  await T.thinkHarder('When is my dentist?', { gen, steps: false, context: { system: "Boss's agenda:\n- today 15:00: Dentist", recent: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'Hello Boss.' }] }, budget: { attempts: 3 } });
+  for (const c of calls) {
+    assert.match(c.messages[0].content, /today 15:00: Dentist/);
+    assert.deepEqual(c.messages.slice(1, 3).map((x) => x.content), ['hi', 'Hello Boss.']);
+    assert.equal(c.messages.at(-1).role, 'user');
+  }
+});
+
+test('review: one job on the model at a time — THINK HARDER and the report card refuse, a reply waits its turn and is never cut short', async () => {
+  const order = [];
+  let release;
+  const think = L.withModel('think', () => new Promise((r) => (release = r)).then(() => order.push('think done')), { wait: false });
+  assert.equal(L.modelJob.get().job, '', 'it starts on the next turn');
+  await Promise.resolve();
+  await assert.rejects(L.withModel('bench', async () => 'never', { wait: false }), /thinking hard/);
+  const reply = L.withModel('chat', async () => {
+    order.push('chat runs');
+    return 'reply';
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(order, [], 'the reply waits while THINK HARDER has the model');
+  assert.equal(L.modelJob.get().job, 'think');
+  release();
+  assert.equal(await reply, 'reply');
+  await think;
+  assert.deepEqual(order, ['think done', 'chat runs']);
+  assert.equal(L.modelJob.get().job, '');
+  // Every job on the model goes through it: ordinary replies wait their turn; TEST, THINK HARDER and the report card refuse when it is taken.
+  const src = (f) => readFileSync(new URL(`../../web/src/${f}`, import.meta.url), 'utf8');
+  assert.match(src('offline/brain.ts'), /withModel\('chat', async \(\) => \{[\s\S]*?offlineReply\(await offlinePrompt/);
+  assert.match(src('offline/harder.ts'), /withModel\(\s*'think',[\s\S]*?\{ wait: false \}/);
+  assert.match(src('offline/harder.ts'), /withModel\('bench', \(\) => benchNow\(withThink\), \{ wait: false \}\)/);
+  assert.match(src('features/settings/offline.ts'), /withModel\(\s*'test',[\s\S]*?\{ wait: false \}/);
+  // A failing job lets the next one through.
+  await assert.rejects(L.withModel('think', async () => { throw new Error('boom'); }, { wait: false }), /boom/);
+  assert.equal(await L.withModel('chat', async () => 'ok'), 'ok');
+});
+
+test("review: the worker's address carries its revision, so a phone's cached old worker is replaced", async () => {
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  const models = readFileSync(new URL('../../web/src/offline/models.ts', import.meta.url), 'utf8');
+  const worker = readFileSync(new URL('../../web/public/vendor/webllm/worker.mjs', import.meta.url), 'utf8');
+  const rev = models.match(/WORKER_REV = '(\w+)'/)?.[1];
+  assert.ok(rev && rev !== '1', 'a new revision for the new worker');
+  assert.match(brain, /new Worker\(`\$\{VENDOR\}\/worker\.mjs\?v=\$\{WORKER_REV\}`/);
+  assert.equal(worker.split('\n')[0].match(/^\/\/ worker revision: (\w+)/)?.[1], rev, 'worker.mjs says the same revision');
+  assert.match(worker, /temperature: typeof m\.temperature === 'number'/);
+  // The service worker keeps vendored files cache-first by the whole address (query included).
+  const sw = readFileSync(new URL('../../web/public/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /c\.match\(req\)/);
+  assert.doesNotMatch(sw, /ignoreSearch/);
+});
+
+test("review: tool calls are judged on THINK HARDER's whole chosen reply, fenced or over several lines", async () => {
+  const items = BN.LOCAL_ITEMS.filter((x) => x.cat === 'tools').map(({ id, cat, text, steps, check }) => ({ id, cat, text, steps, check }));
+  const call = (q) => (/5 minutes/.test(q) ? 'set_timer", "arguments": {"minutes": 5}' : /Leeds/.test(q) ? 'weather", "arguments": {"place": "Leeds"}' : /Amy/.test(q) ? 'remember", "arguments": {"text": "sister Amy"}' : 'add_event", "arguments": {"title": "lunch", "day": "Friday", "time": "1pm"}');
+  const { gen } = fake((m) => {
+    const q = user(m);
+    return /ANSWER: <the answer only>/.test(m[0].content) ? `Here is the call.\nANSWER:\n\`\`\`json\n{\n  "name": "${call(q)}\n}\n\`\`\`` : `<tool_call>\n{"name": "${call(q)}}\n</tool_call>`;
+  });
+  const run = await BN.runBench({ gen, judge: async () => false, items, withThink: true, model: 'm', budget: { attempts: 3 } });
+  const s = BN.catScores(run).find((c) => c.cat === 'tools');
+  assert.deepEqual(s.plain, [4, 4]);
+  assert.deepEqual(s.think, [4, 4]);
+});
+
+test("review: the report card's questions are exported word for word, for the weekly training to leave out", () => {
+  const texts = GB.reportCardTexts();
+  assert.equal(texts.length, 20);
+  assert.equal(new Set(texts).size, 20);
+  assert.ok(texts.includes('What is 17 × 23?'));
+  assert.ok(texts.includes(GB.benchItems()[0].text));
 });

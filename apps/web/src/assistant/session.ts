@@ -9,7 +9,7 @@ import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
-import { stopThinking, thinkHere } from '../offline/harder';
+import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
 import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
@@ -332,8 +332,15 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
   ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking harder on your phone…' });
   const t0 = Date.now();
   let painted = 0;
+  // What the conversation was before this (as an ordinary offline answer sees it), without the "think harder" itself.
+  const turns = chat
+    .get()
+    .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => (e.kind === 'user' || e.kind === 'assistant') && e.at < at - 1 && !(e.kind === 'assistant' && e.think))
+    .filter((e) => !(e.kind === 'user' && thinkAsk(e.text) !== null))
+    .slice(-6)
+    .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   try {
-    const r = await thinkHere(q, (p) => {
+    const r = await thinkHere(q, turns, (p) => {
       // A few repaints a second at most: each redraws the log.
       if (Date.now() - painted < 150 && p.phase !== 'done') return;
       painted = Date.now();
@@ -348,6 +355,7 @@ export async function thinkHarderAbout(question: string, opts: { asked?: boolean
   } catch (e) {
     chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
     if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+    recheckThink(); // perhaps the model is not on this phone any more: the button goes
   } finally {
     ui.set({ busy: false, status: '' });
     if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
@@ -381,7 +389,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
-  const harder = opts.cloud ? null : thinkAsk(t);
+  // Never with the offline brain switched off: then it is an ordinary message for the brain.
+  const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
   if (harder !== null) return thinkHarderAbout(harder, { asked: true });
   const mode = settings.get().offlineBrain;
   if (mode === 'always' && !opts.cloud) {

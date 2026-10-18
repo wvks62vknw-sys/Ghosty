@@ -12,7 +12,7 @@
  * to pick), so its score is the model's own. Pure: the model and the judge are passed in
  * (apps/edge/test/thinkharder.test.mjs drives it with a fake model).
  */
-import { answerOf, calc, sameNumber } from './exact';
+import { answerOf, calcExact, numberMatches } from './exact';
 import type { OfflineMsg } from './prompt';
 import { thinkHarder, type Budget, type Checker, type Generate } from './think';
 
@@ -43,47 +43,97 @@ interface LocalItem extends BenchItem {
 
 const words = (s: string) => s.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
 const sum = (id: string, expr: string): LocalItem => {
-  const v = calc(expr)!;
-  return { id, cat: 'arithmetic', text: `What is ${expr}?`, steps: /[-+×÷*/].*[-+×÷*/]/.test(expr), check: 'key', right: (a) => sameNumber(answerOf(a), v) };
+  const v = calcExact(expr)!;
+  return { id, cat: 'arithmetic', text: `What is ${expr}?`, steps: /[-+×÷*/].*[-+×÷*/]/.test(expr), check: 'key', right: (a) => numberMatches(answerOf(a), v) };
 };
 
-/** The first {…} in a reply, read as JSON (null if none parses). */
-export function jsonIn(text: string): Record<string, unknown> | null {
-  const s = text.indexOf('{');
-  if (s < 0) return null;
-  let depth = 0;
-  let inStr = false;
-  for (let i = s; i < text.length; i++) {
-    const c = text[i];
-    if (inStr) {
-      if (c === '\\') i++;
-      else if (c === '"') inStr = false;
-    } else if (c === '"') inStr = true;
-    else if (c === '{') depth++;
-    else if (c === '}' && --depth === 0) {
-      try {
-        const v = JSON.parse(text.slice(s, i + 1)) as unknown;
-        return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-      } catch {
-        return null;
+/** Every {…} in a text that parses as a JSON object, in order (strings with braces in them understood). */
+export function jsonObjects(text: string): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  for (let s = text.indexOf('{'); s >= 0; s = text.indexOf('{', s + 1)) {
+    let depth = 0;
+    let inStr = false;
+    for (let i = s; i < text.length; i++) {
+      const c = text[i];
+      if (inStr) {
+        if (c === '\\') i++;
+        else if (c === '"') inStr = false;
+      } else if (c === '"') inStr = true;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) {
+        try {
+          const v = JSON.parse(text.slice(s, i + 1)) as unknown;
+          if (v && typeof v === 'object' && !Array.isArray(v)) {
+            out.push(v as Record<string, unknown>);
+            s = i; // the next object starts after this one
+          }
+        } catch {
+          /* not JSON from here */
+        }
+        break;
       }
     }
   }
-  return null;
+  return out;
 }
 
+/** The first {…} in a reply, read as JSON (null if none parses). */
+export function jsonIn(text: string): Record<string, unknown> | null {
+  return jsonObjects(text)[0] ?? null;
+}
+
+/** A tool call: which tool, with what. */
+export interface Call {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+/** One object as a call: Qwen's {"name", "arguments"} (arguments may be a JSON string) or the plain {"tool", "args"}. */
+function asCall(o: Record<string, unknown>): Call | null {
+  const name = typeof o.name === 'string' ? o.name : typeof o.tool === 'string' ? o.tool : '';
+  let args: unknown = o.arguments ?? o.args ?? {};
+  if (typeof args === 'string') {
+    try {
+      args = JSON.parse(args) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  return name && args && typeof args === 'object' && !Array.isArray(args) ? { name, args: args as Record<string, unknown> } : null;
+}
+
+/**
+ * The tool call a reply makes, read the way the weekly training teaches it (Qwen's own format, as in Stage
+ * 2's packages/shared/src/toolcall.ts): `<tool_call>{"name": …, "arguments": {…}}</tool_call>`, over several
+ * lines if need be; also a call in a ```json block or bare JSON, and the older {"tool", "args"} shape. The
+ * last call in the reply counts (THINK HARDER's working comes before its answer).
+ */
+export function toolCallIn(text: string): Call | null {
+  const tagged = [...text.matchAll(/<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g)].flatMap((m) => jsonObjects(m[1]!).slice(0, 1));
+  const objects = tagged.length ? tagged : jsonObjects(text.replace(/```(?:json)?/gi, ' '));
+  const calls = objects.map(asCall).filter((c): c is Call => !!c);
+  return calls.at(-1) ?? null;
+}
+
+/** The tools on offer, as Qwen3's chat template lists them (its "hermes" format, which Stage 2 trains on). */
+const TOOL_SPECS = [
+  { name: 'set_timer', description: 'Start a countdown timer.', parameters: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] } },
+  { name: 'weather', description: 'The weather forecast for a place.', parameters: { type: 'object', properties: { place: { type: 'string' } }, required: ['place'] } },
+  { name: 'remember', description: 'Keep a fact about the owner.', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+  { name: 'add_event', description: 'Put an event in the agenda.', parameters: { type: 'object', properties: { title: { type: 'string' }, day: { type: 'string' }, time: { type: 'string' } }, required: ['title', 'day'] } },
+];
 const TOOLS =
-  'You can use these tools: set_timer(minutes: number), weather(place: string), remember(text: string), add_event(title: string, day: string, time: string). ' +
-  'To use one, reply ONLY with JSON like {"tool": "set_timer", "args": {"minutes": 10}}.';
-const tool = (id: string, ask: string, ok: (call: { tool?: unknown; args?: Record<string, unknown> }) => boolean): LocalItem => ({
+  `You may call one function to help with the request. Function signatures are within <tools></tools>:\n<tools>\n${TOOL_SPECS.map((t) => JSON.stringify({ type: 'function', function: t })).join('\n')}\n</tools>\n` +
+  'Reply only with the call, a JSON object with the function name and arguments within <tool_call></tool_call> tags:\n<tool_call>\n{"name": <function-name>, "arguments": <args-json-object>}\n</tool_call>';
+const tool = (id: string, ask: string, ok: (call: Call) => boolean): LocalItem => ({
   id,
   cat: 'tools',
   text: `${TOOLS}\nRequest: ${ask}`,
   steps: false,
   check: 'key',
   right: (a) => {
-    const j = jsonIn(a);
-    return !!j && typeof j.args === 'object' && j.args !== null && ok(j as { tool?: unknown; args?: Record<string, unknown> });
+    const c = toolCallIn(a);
+    return !!c && ok(c);
   },
 });
 const str = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
@@ -126,10 +176,10 @@ export const LOCAL_ITEMS: LocalItem[] = [
     check: 'key',
     right: (a) => words(a).toLowerCase().replace(/["'.!]/g, '').replace(/\s+/g, ' ').trim() === 'down sat cat the',
   },
-  tool('tool-1', 'Set a timer for 5 minutes.', (c) => c.tool === 'set_timer' && Number(c.args!.minutes) === 5),
-  tool('tool-2', "What's the weather in Leeds?", (c) => c.tool === 'weather' && str(c.args!.place).includes('leeds')),
-  tool('tool-3', 'Remember that my sister is called Amy.', (c) => c.tool === 'remember' && str(c.args!.text).includes('amy')),
-  tool('tool-4', 'Put lunch with Sam on Friday at 1pm in my agenda.', (c) => c.tool === 'add_event' && /lunch|sam/.test(str(c.args!.title)) && str(c.args!.day).includes('fri') && /\b1\b|1\s*pm|13/.test(str(c.args!.time))),
+  tool('tool-1', 'Set a timer for 5 minutes.', (c) => c.name === 'set_timer' && Number(c.args.minutes) === 5),
+  tool('tool-2', "What's the weather in Leeds?", (c) => c.name === 'weather' && str(c.args.place).includes('leeds')),
+  tool('tool-3', 'Remember that my sister is called Amy.', (c) => c.name === 'remember' && str(c.args.text).includes('amy')),
+  tool('tool-4', 'Put lunch with Sam on Friday at 1pm in my agenda.', (c) => c.name === 'add_event' && /lunch|sam/.test(str(c.args.title)) && str(c.args.day).includes('fri') && /\b1\b|1\s*pm|13/.test(str(c.args.time))),
 ];
 
 /** Score a reply to a local item (null: not one of them). */
@@ -196,13 +246,14 @@ export async function runBench(d: BenchDeps): Promise<Run> {
     const a = now();
     let reply = '';
     try {
-      reply = await d.gen(
+      const out = await d.gen(
         [
           { role: 'system', content: PLAIN },
           { role: 'user', content: it.text },
         ] satisfies OfflineMsg[],
         { temperature: 0.7, max: 220, signal: d.signal ?? new AbortController().signal },
       );
+      reply = typeof out === 'string' ? out : out.text;
     } catch (e) {
       if ((e as Error)?.name === 'AbortError' || d.signal?.aborted) break;
       reply = '';
@@ -226,8 +277,9 @@ export async function runBench(d: BenchDeps): Promise<Run> {
           now,
           onProgress: (p) => tell(`THINK HARDER on ${label(it)}: ${p.line}`),
         });
-        // Instructions and tool calls are judged on the answer alone (the working would break "nothing else").
-        const judged = it.cat === 'instructions' || it.cat === 'tools' ? res.answer : res.text;
+        // Instructions are judged on the answer alone (the working would break "nothing else"); a tool call on the
+        // whole chosen reply, so a call written over several lines or in a ```json block still counts.
+        const judged = it.cat === 'instructions' ? res.answer : res.text;
         r.think = res.stopped ? null : await score(it, judged);
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') r.think = false;

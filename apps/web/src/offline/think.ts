@@ -29,8 +29,8 @@ export interface GenOpts {
   max: number;
   signal: AbortSignal;
 }
-/** The model: messages in, the whole reply out. */
-export type Generate = (messages: OfflineMsg[], opts: GenOpts) => Promise<string>;
+/** The model: messages in, the whole reply out — with the tokens it really wrote, when the model says (else they are estimated). */
+export type Generate = (messages: OfflineMsg[], opts: GenOpts) => Promise<string | { text: string; tokens?: number }>;
 
 export interface Check {
   correct: boolean;
@@ -77,6 +77,8 @@ export interface Attempt {
   key: string;
   /** Which way in: 'direct' | 'steps' | 'check' | 'restate' | 'tree'. */
   how: string;
+  /** A tree attempt's first step: tree paths that share one are not independent, so they vote once. */
+  first?: string;
   temperature: number;
   tokens: number;
   check?: Check | null;
@@ -126,6 +128,12 @@ export interface ThinkDeps {
   now?: () => number;
   /** A name for the system line ("Ghosty"). */
   name?: string;
+  /**
+   * What the phone knows that bears on the question, as the ordinary offline answer gets it (offline/prompt.ts:
+   * memory, agenda, library passages) and the recent turns: put into every prompt, so "when is my dentist?"
+   * is answered from the agenda, not guessed.
+   */
+  context?: { system?: string; recent?: OfflineMsg[] };
 }
 
 /** The ways in, in the order they are tried (each also at its own temperature). */
@@ -165,11 +173,22 @@ const WIDTH = 2;
 const DEPTH = 6;
 const UCT_C = 1.2;
 
-/** Group attempts by answer: [key, attempts] with the most first (ties: the earlier answer first). */
+/** Attempts made on their own (the ways in), as opposed to tree paths. */
+export const independent = (as: Attempt[]): number => as.filter((a) => a.how !== 'tree').length;
+
+/**
+ * The votes a group of attempts gives its answer: one per attempt made on its own, and one per distinct
+ * first step among tree paths (paths grown from the same step share its mistakes: they vote once).
+ */
+export function votes(as: Attempt[]): number {
+  return independent(as) + new Set(as.filter((a) => a.how === 'tree').map((a) => a.first ?? '')).size;
+}
+
+/** Group attempts by answer: [key, attempts] with the most votes first (ties: the earlier answer first). */
 export function tally(attempts: Attempt[]): [string, Attempt[]][] {
   const groups = new Map<string, Attempt[]>();
   for (const a of attempts) if (a.key) groups.set(a.key, [...(groups.get(a.key) ?? []), a]);
-  const weight = (as: Attempt[]) => as.length + as.reduce((s, a) => s + (a.verified === true ? 0.5 : a.verified === false ? -0.5 : 0), 0);
+  const weight = (as: Attempt[]) => votes(as) + as.reduce((s, a) => s + (a.verified === true ? 0.5 : a.verified === false ? -0.5 : 0), 0) / Math.max(1, as.length);
   return [...groups.entries()].sort((x, y) => weight(y[1]) - weight(x[1]));
 }
 
@@ -182,6 +201,13 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
   const checker = deps.checker ?? null;
   const stepwise = deps.steps ?? stepStructured(question);
   const sys = (say: string) => `You are ${deps.name ?? 'Ghosty'}, a careful assistant on a phone, offline. ${say} ${END}`;
+  /** A prompt: the instruction (with what the phone knows, when given), the recent turns, then the user's part. */
+  const ctx = deps.context ?? {};
+  const prompt = (system: string, user: string): OfflineMsg[] => [
+    { role: 'system', content: ctx.system ? `${system}\n\n${ctx.system}` : system },
+    ...(ctx.recent ?? []),
+    { role: 'user', content: user },
+  ];
   const attempts: Attempt[] = [];
   let tokens = 0;
   let outOfTime = false;
@@ -194,7 +220,10 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
   const onOwner = () => deadline.abort();
   owner?.addEventListener('abort', onOwner, { once: true });
 
-  const agreeing = () => tally(attempts)[0]?.[1].length ?? 0;
+  const agreeing = () => {
+    const g = tally(attempts)[0]?.[1];
+    return g ? votes(g) : 0;
+  };
   const report = (line?: string) => {
     const agree = agreeing();
     const n = attempts.length;
@@ -219,8 +248,10 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
     try {
       const out = await deps.gen(messages, { temperature, max: cap, signal: deadline.signal });
       if (deadline.signal.aborted) throw aborted();
-      const t = clean(out);
-      tokens += Math.min(cap, tokensIn(t));
+      const raw = typeof out === 'string' ? out : out.text;
+      const t = clean(raw);
+      // The model's own count when it gives one (offlineReply does); else a careful estimate.
+      tokens += typeof out === 'object' && typeof out.tokens === 'number' && Number.isFinite(out.tokens) ? out.tokens : Math.min(cap, tokensIn(t));
       return t;
     } catch (e) {
       if ((e as Error)?.name === 'AbortError' || deadline.signal.aborted) {
@@ -232,27 +263,38 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
       await pause();
     }
   };
+  /** The exact check, raced against the deadline: a slow check (code in the sandbox, the gym's worker) never overruns the budget. */
   const judge = async (a: Attempt): Promise<void> => {
-    if (!checker) return;
+    if (!checker || deadline.signal.aborted) return;
+    let off = () => undefined as void;
+    const late = new Promise<null>((res) => {
+      off = () => deadline.signal.removeEventListener('abort', done);
+      const done = () => res(null);
+      deadline.signal.addEventListener('abort', done, { once: true });
+    });
     try {
-      a.check = await checker.check(a.text, a.answer);
+      a.check = await Promise.race([Promise.resolve(checker.check(a.text, a.answer)), late]);
+      if (deadline.signal.aborted && !owner?.aborted) outOfTime = true;
     } catch {
       a.check = null;
+    } finally {
+      off();
     }
   };
   /** Settled already: an attempt passed the exact check, or enough agree and nothing else comes close. */
   const settled = (): boolean => {
     if (attempts.some((a) => a.check?.correct)) return true;
-    const t = tally(attempts);
-    const top = t[0]?.[1].length ?? 0;
-    const next = t[1]?.[1].length ?? 0;
     // With an exact check that has failed them all, agreement on a wrong answer is no reason to stop.
     if (checker && attempts.some((a) => a.check) && !attempts.some((a) => a.check?.correct)) return false;
-    return top >= B.agree && next * 2 < top;
+    const t = tally(attempts);
+    const top = t[0]?.[1] ?? [];
+    const next = t[1]?.[1] ?? [];
+    // Enough attempts made on their own must agree: tree paths alone never settle it.
+    return independent(top) >= B.agree && votes(next) * 2 < votes(top);
   };
-  const add = async (text: string, how: string, temperature: number): Promise<Attempt> => {
+  const add = async (text: string, how: string, temperature: number, first?: string): Promise<Attempt> => {
     const answer = answerOf(text);
-    const a: Attempt = { text, answer, key: normAnswer(answer), how, temperature, tokens: tokensIn(text) };
+    const a: Attempt = { text, answer, key: normAnswer(answer), how, temperature, tokens: tokensIn(text), ...(first !== undefined ? { first } : {}) };
     attempts.push(a);
     await judge(a);
     return a;
@@ -265,7 +307,7 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
     for (let i = 0; i < first && attempts.length < B.attempts; i++) {
       if (!room(B.answerTokens / 2)) break;
       const ap = APPROACHES[i % APPROACHES.length]!;
-      const text = await ask([{ role: 'system', content: sys(ap.say) }, { role: 'user', content: question }], ap.t, B.answerTokens);
+      const text = await ask(prompt(sys(ap.say), question), ap.t, B.answerTokens);
       if (text === null) break;
       await add(text, ap.how, ap.t);
       report();
@@ -286,8 +328,9 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
       const value = (a: Attempt): number => {
         if (a.check) return a.check.correct ? 1 : a.check.score * 0.8;
         if (!a.key) return 0;
-        const same = attempts.filter((x) => x.key === a.key).length - 1;
-        return Math.min(1, same / Math.max(1, attempts.length - 1));
+        // Agreement from attempts made on their own only: paths of this same tree don't count as support.
+        const same = independent(attempts.filter((x) => x.key === a.key));
+        return Math.min(1, same / Math.max(1, independent(attempts)));
       };
       let guard = 0;
       while (attempts.length < B.attempts && !settled() && guard++ < B.attempts * 4) {
@@ -307,7 +350,7 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
         // Expand: one more step under it.
         if (!room(48)) break;
         const stepText = await ask(
-          [{ role: 'system', content: stepSys }, { role: 'user', content: `${question}${listed(node.steps)}\nWrite only the next step, one line. If the answer is clear now, write the line ANSWER: <the answer only> instead.` }],
+          prompt(stepSys, `${question}${listed(node.steps)}\nWrite only the next step, one line. If the answer is clear now, write the line ANSWER: <the answer only> instead.`),
           0.9,
           48,
         );
@@ -322,14 +365,14 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
         else {
           if (!room(B.answerTokens / 2)) break;
           const rest = await ask(
-            [{ role: 'system', content: stepSys }, { role: 'user', content: `${question}${listed(child.steps)}\nContinue from these steps to the answer. ${END}` }],
+            prompt(stepSys, `${question}${listed(child.steps)}\nContinue from these steps to the answer. ${END}`),
             0.6,
             B.answerTokens,
           );
           if (rest === null) break;
           text = `${child.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n${rest}`;
         }
-        const a = await add(text, 'tree', 0.9);
+        const a = await add(text, 'tree', 0.9, (child.steps[0] ?? '').toLowerCase().replace(/\s+/g, ' ').trim());
         const v = value(a);
         // Back the score up the path.
         for (let x: Node | null = child; x; x = x.parent) {
@@ -351,10 +394,7 @@ export async function thinkHarder(question: string, deps: ThinkDeps): Promise<Th
         if (!room(6)) break;
         const a = group[0]!;
         const said = await ask(
-          [
-            { role: 'system', content: 'You check answers. Reply with one word: YES or NO.' },
-            { role: 'user', content: `Question: ${question}\nProposed answer: ${a.answer}\nIs the proposed answer correct?` },
-          ],
+          prompt('You check answers. Reply with one word: YES or NO.', `Question: ${question}\nProposed answer: ${a.answer}\nIs the proposed answer correct?`),
           0.1,
           6,
         );
@@ -387,13 +427,13 @@ export function pickBest(attempts: Attempt[], checker: Checker | null, run: { ms
   if (passed.length) {
     // The calmest attempt that passed (lowest temperature), its group's size as agreement.
     const a = [...passed].sort((x, y) => x.temperature - y.temperature)[0]!;
-    const agree = t.find(([k]) => k === a.key)?.[1].length ?? 1;
+    const agree = votes(t.find(([k]) => k === a.key)?.[1] ?? [a]);
     return { ...base, answer: a.answer, text: a.text, confidence: 'checked', line: `checked exactly (${checker?.label ?? 'an exact check'}) · ${passed.length} of ${tries(n)} passed${tail}`, agree, checkedBy: checker?.label };
   }
   if (checker && attempts.some((a) => a.check)) {
     // An exact check judged them and none passed: the closest, said plainly.
     const a = [...attempts].sort((x, y) => (y.check?.score ?? -1) - (x.check?.score ?? -1))[0]!;
-    const agree = t.find(([k]) => k === a.key)?.[1].length ?? 1;
+    const agree = votes(t.find(([k]) => k === a.key)?.[1] ?? [a]);
     return { ...base, answer: a.answer, text: a.text, confidence: 'failed-check', line: `none of ${tries(n)} passed the check (${checker.label}): best guess, don't trust it${tail}`, agree, checkedBy: checker.label };
   }
   if (!t.length) {
@@ -406,25 +446,34 @@ export function pickBest(attempts: Attempt[], checker: Checker | null, run: { ms
     const own = a.verified === true ? ' · it checked the answer and says yes' : a.verified === false ? ' · when asked, it doubted this answer' : '';
     return { ...base, answer: a.answer, text: a.text, confidence: 'split', line: `only 1 attempt: not enough to compare${own}${tail}`, agree: 1 };
   }
-  const second = t[1]?.[1].length ?? 0;
+  const second = votes(t[1]?.[1] ?? []);
   const a = [...group].sort((x, y) => x.temperature - y.temperature)[0]!;
-  const agree = group.length;
+  const agree = votes(group);
+  // Out of how many votes in all: tree paths sharing a first step count once (and an empty answer once each).
+  const total = t.reduce((s, [, g]) => s + votes(g), 0) + attempts.filter((x) => !x.key).length;
   const own = group[0]!.verified === true ? ' · it checked the answer and says yes' : group[0]!.verified === false ? ' · when asked, it doubted this answer' : '';
-  const clear = agree >= 2 && agree > second;
+  // "Agree" needs at least two attempts made on their own behind it: tree paths alone are not agreement.
+  const clear = independent(group) >= 2 && agree > second;
+  const word = attempts.some((x) => x.how === 'tree') ? (total === 1 ? 'independent try' : 'independent tries') : total === 1 ? 'attempt' : 'attempts';
   return {
     ...base,
     answer: a.answer,
     text: a.text,
     confidence: clear ? 'agree' : 'split',
-    line: `${agree} of ${tries(n)} agree${clear ? '' : ': no clear winner'}${own}${tail}`,
+    line: `${agree} of ${total} ${word} agree${clear ? '' : ': no clear winner'}${own}${tail}`,
     agree,
   };
 }
 
-/** "think harder" in a message: the question that follows it, '' for "think harder" alone (the last question), null if not asked. */
+/**
+ * "think harder" as a command: the whole message is "think harder" (or "think harder about this/that/it"),
+ * which means the last question ('' here), or "think harder: <question>" with a colon. Anything else is an
+ * ordinary message (null): "try harder to find me a cheaper flight", "I need you to think harder" and
+ * "Think hard about my calendar" go to the brain as usual.
+ */
 export function thinkAsk(text: string): string | null {
-  const m = text.trim().match(/^(?:please\s+)?(?:think\s+harder|think\s+hard(?:\s+about(?:\s+this)?)?|try\s+harder)\b[\s:,.!-]*(?:about|on)?\s*(?:this|that|it)?[\s:,.?!-]*(.*)$/is);
-  if (m) return m[1]!.trim();
-  const end = text.trim().match(/^(.+?)[\s,.;-]+(?:and\s+)?think\s+harder[.!]?$/is);
-  return end ? end[1]!.trim() : null;
+  const t = text.trim().replace(/\s+/g, ' ');
+  if (/^(?:please )?think harder(?: about (?:this|that|it))?(?: please)?[.!]*$/i.test(t)) return '';
+  const m = t.match(/^(?:please )?think harder(?: about (?:this|that|it))? ?: ?(\S.*)$/i);
+  return m ? m[1]!.trim() : null;
 }

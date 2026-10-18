@@ -12,8 +12,8 @@ import { createStore } from '../core/store';
 import type { GymOut } from '../gym/worker';
 import { MODELS } from './models';
 import { addRun, CATS, LOCAL_ITEMS, runBench, type BenchItem, type Run } from './bench';
-import { offlineBrain, offlineReady, offlineReply, currentModel } from './brain';
-import { asksForCode, codeOf, codeTests, sameNumber, sumIn } from './exact';
+import { currentModel, loadOffline, offlineBrain, offlinePrompt, offlineReady, offlineReply, withModel } from './brain';
+import { asksForCode, codeOf, codeTests, sumCheck } from './exact';
 import { PHONE_BUDGET, stepStructured, thinkHarder, type Checker, type Generate, type ThinkProgress, type ThinkResult } from './think';
 
 type Reply = Extract<GymOut, { gym: 'reply' }>;
@@ -64,16 +64,33 @@ function gym(m: Record<string, unknown>): Promise<Reply> {
 // The model, one call at a time
 // ---------------------------------------------------------------------------------------
 
-/** offlineReply as THINK HARDER's model: the whole reply, at the temperature and length asked. */
-const gen: Generate = async (messages, o) => (await offlineReply(messages, () => undefined, o.signal, { temperature: o.temperature, max: o.max })).text;
+/** offlineReply as THINK HARDER's model: the whole reply at the temperature and length asked, with the tokens it really wrote. */
+const gen: Generate = async (messages, o) => {
+  const r = await offlineReply(messages, () => undefined, o.signal, { temperature: o.temperature, max: o.max });
+  return { text: r.text, tokens: r.tokens };
+};
 
 /** What is using the model now ('' = nothing). */
 export const thinking = createStore({ busy: '' as '' | 'think' | 'bench' });
 
+/** Whether the offline brain is on this phone, so the chat offers THINK HARDER only where it can work. */
+export const canThink = createStore({ ready: false });
+/** Look again (after a download or delete, or when the chat opens). */
+export function recheckThink(): void {
+  void offlineReady()
+    .then((r) => {
+      if (canThink.get().ready !== r) canThink.set({ ready: r });
+    })
+    .catch(() => undefined);
+}
+offlineBrain.subscribe((st, prev) => {
+  if (st.downloaded !== prev.downloaded || st.model !== prev.model) recheckThink();
+});
+
 /** The exact check for a chat question, if there is one: a sum, code with examples, a Countdown sum or a fact-book question. */
 export async function exactFor(question: string): Promise<Checker | null> {
-  const s = sumIn(question);
-  if (s) return { label: 'a calculator', kind: 'key', check: (_r, answer) => (sameNumber(answer, s.value) ? { correct: true, score: 1, why: `${s.expr} = ${s.value}` } : { correct: false, score: 0, why: `${s.expr} = ${s.value}` }) };
+  const s = sumCheck(question);
+  if (s) return s;
   const tests = asksForCode(question) ? codeTests(question) : null;
   if (tests)
     return {
@@ -108,28 +125,42 @@ export function stopThinking(): void {
 
 const notReady = () => new Error("THINK HARDER uses the offline brain on this phone, and it isn't downloaded yet: Settings → Offline brain → DOWNLOAD (on Wi-Fi).");
 
-/** THINK HARDER on one question, with the phone's model only. */
-export async function thinkHere(question: string, onProgress: (p: ThinkProgress) => void): Promise<ThinkResult> {
-  if (thinking.get().busy) throw new Error(thinking.get().busy === 'bench' ? 'The report card is using the offline brain right now: wait for it, or STOP it.' : 'Already thinking hard about something: wait, or say "stop".');
+/** THINK HARDER's share of the prompt for what the phone knows (memory, agenda, library, recent turns): it is asked many times. */
+const CONTEXT_BUDGET = 700;
+
+/**
+ * THINK HARDER on one question, with the phone's model only, knowing what an ordinary offline answer knows
+ * (`recent`: the conversation before it). The model is loaded first, so the time budget is all thinking.
+ */
+export async function thinkHere(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onProgress: (p: ThinkProgress) => void): Promise<ThinkResult> {
   if (!(await offlineReady().catch(() => false))) throw notReady();
   const mine = new AbortController();
-  ctl = mine;
-  thinking.set({ busy: 'think' });
-  try {
-    const checker = await exactFor(question).catch(() => null);
-    const secs = Math.max(10, Math.min(300, offlineBrain.get().thinkSecs || 55));
-    return await thinkHarder(question, {
-      gen,
-      checker,
-      steps: stepStructured(question),
-      budget: { ...PHONE_BUDGET, ms: secs * 1000, tokens: Math.round((PHONE_BUDGET.tokens * secs) / 55) },
-      onProgress,
-      signal: mine.signal,
-    });
-  } finally {
-    if (ctl === mine) ctl = null;
-    thinking.set({ busy: '' });
-  }
+  return withModel(
+    'think',
+    async () => {
+      ctl = mine;
+      thinking.set({ busy: 'think' });
+      try {
+        onProgress({ phase: 'trying', attempts: 0, planned: PHONE_BUDGET.attempts, agree: 0, line: 'getting ready (loading the model, looking for a check)…', elapsed: 0 });
+        const [checker, msgs] = await Promise.all([exactFor(question).catch(() => null), offlinePrompt(question, recent, CONTEXT_BUDGET), loadOffline()]);
+        if (mine.signal.aborted) throw Object.assign(new Error('stopped'), { name: 'AbortError' });
+        const secs = Math.max(10, Math.min(300, offlineBrain.get().thinkSecs || 55));
+        return await thinkHarder(question, {
+          gen,
+          checker,
+          steps: stepStructured(question),
+          budget: { ...PHONE_BUDGET, ms: secs * 1000, tokens: Math.round((PHONE_BUDGET.tokens * secs) / 55) },
+          onProgress,
+          signal: mine.signal,
+          context: { system: msgs[0]?.content, recent: msgs.slice(1, -1) },
+        });
+      } finally {
+        if (ctl === mine) ctl = null;
+        thinking.set({ busy: '' });
+      }
+    },
+    { wait: false },
+  );
 }
 
 // ---------------------------------------------------------------------------------------
@@ -171,14 +202,18 @@ async function benchItems(): Promise<BenchItem[]> {
 
 /** Run the report card now (with THINK HARDER as well, or the quick check without). */
 export async function runReportCard(withThink: boolean): Promise<Run> {
-  if (thinking.get().busy) throw new Error('The offline brain is busy: wait for it to finish.');
   if (!(await offlineReady().catch(() => false))) throw notReady();
+  return withModel('bench', () => benchNow(withThink), { wait: false });
+}
+
+async function benchNow(withThink: boolean): Promise<Run> {
   const mine = new AbortController();
   ctl = mine;
   thinking.set({ busy: 'bench' });
   reportCard.set({ live: null, line: 'getting the questions ready…', done: 0, total: 0 });
   try {
-    const items = await benchItems();
+    // Loaded first: the first question's time is the model's answer, not the loading.
+    const [items] = await Promise.all([benchItems(), loadOffline()]);
     const run = await runBench({
       gen,
       judge: async (id, reply) => !!(await gym({ gym: 'judge', id, reply })).verdict?.correct,

@@ -5,7 +5,7 @@
  * may take on one question (offline/think.ts; 55 s unless changed).
  */
 import { clear, h } from '../../core/dom';
-import { deleteOffline, downloadOffline, offlineBrain, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel } from '../../offline/brain';
+import { deleteOffline, downloadOffline, offlineBrain, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, withModel } from '../../offline/brain';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { settings } from '../../state/app';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
@@ -63,15 +63,21 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (offlineBrain.get().busy) return;
     clear(out, 'Thinking on this phone…');
     let raw = '';
-    void offlineReply(
-      [
-        { role: 'system', content: 'You are Ghosty, a friendly assistant. Answer in one short line.' },
-        { role: 'user', content: 'Say hello in five words.' },
-      ],
-      (t) => {
-        raw += t;
-        out.textContent = cleanReply(raw) || 'Thinking on this phone…';
-      },
+    // Its turn on the model like any other job (never in the middle of a reply, THINK HARDER or the report card).
+    void withModel(
+      'test',
+      () =>
+        offlineReply(
+          [
+            { role: 'system', content: 'You are Ghosty, a friendly assistant. Answer in one short line.' },
+            { role: 'user', content: 'Say hello in five words.' },
+          ],
+          (t) => {
+            raw += t;
+            out.textContent = cleanReply(raw) || 'Thinking on this phone…';
+          },
+        ),
+      { wait: false },
     )
       .then((r) => clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} tokens · ${r.perSecond.toFixed(1)} tokens a second`))
       .catch((e) => clear(out, `The test failed: ${String((e as Error)?.message ?? e).slice(0, 200)}`))

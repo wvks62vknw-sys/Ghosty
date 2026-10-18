@@ -8,8 +8,9 @@
  */
 import { finalLine, type Problem, type Verdict } from './core';
 import { evaluate as sumOf } from './countdown';
-import { ENTITIES, factOf, type Entity, type Value } from './facts';
+import { ENTITIES, factOf, type Value } from './facts';
 import { gameById } from './index';
+import { LOCAL_ITEMS } from '../offline/bench';
 
 export type BenchCat = 'logic' | 'facts';
 
@@ -50,7 +51,7 @@ export function factAsk(ent: string, field: string): string {
     case 'capital':
       return `What is the capital of ${ent}?`;
     case 'continent':
-      return `Which continent is ${ent} in?`;
+      return `What is the continent of ${ent}?`;
     case 'population':
       return `About how many million people live in ${ent}?`;
     case 'area':
@@ -72,7 +73,7 @@ export function factAsk(ent: string, field: string): string {
     case 'diameter':
       return `About how many km across is ${ent}?`;
     case 'moons':
-      return `How many known moons does ${ent} have?`;
+      return `What is the number of known moons of ${ent}?`;
     case 'rings':
       return `Does ${ent} have rings? Answer yes or no.`;
   }
@@ -90,6 +91,15 @@ export function benchItems(): BenchItem[] {
 }
 
 /** Judge a reply to one of the report card's gym questions (null: not one of them). */
+/**
+ * Every question the report card asks, word for word (the phone's own and the gym's): the weekly training
+ * (Stage 2) leaves out any example that is a near copy of one, so the report card never measures what was
+ * trained on. The gym's generators can make the same puzzle from other seeds, so the filter must go by text.
+ */
+export function reportCardTexts(): string[] {
+  return [...LOCAL_ITEMS.map((x) => x.text), ...benchItems().map((x) => x.text)];
+}
+
 export function judgeItem(id: string, reply: string): Verdict | null {
   const s = LOGIC_SET.find((x) => `${x.game}-${x.level}-${x.seed}` === id);
   if (s) return gameById(s.game)!.check(problemOf(s), reply);
@@ -100,34 +110,39 @@ export function judgeItem(id: string, reply: string): Verdict | null {
 
 // ---- fact-book questions in the chat ------------------------------------------------------------------------
 
-const FIELD_WORDS: [string, RegExp][] = [
-  ['number', /\batomic number\b/],
-  ['symbol', /\bsymbol\b/],
-  ['capital', /\bcapital\b/],
-  ['continent', /\bcontinent\b/],
-  ['population', /\bpopulation\b|\bhow many (?:million )?people\b|\bmillion people\b/],
-  ['area', /\barea\b|\bhow big\b/],
-  ['mouth', /\bflows? into\b|\bmouth\b|\bempt(?:y|ies) into\b/],
-  ['melting', /\bmelt/],
-  ['moons', /\bmoons?\b/],
-  ['rings', /\brings?\b/],
-  ['order', /\bplanet (?:number|from the sun)\b|\bfrom the sun\b/],
-  ['diameter', /\bdiameter\b|\bkm across\b|\bhow wide\b/],
-  ['length', /\bhow long\b|\blength\b/],
-  ['state', /\bsolid\b|\bliquid\b|\bgas\b|\bstate of matter\b/],
-];
+/** The words for each field in "What is the <field> of <thing>?" (yes/no fields — rings, state — have none). */
+const FIELD_NAMES: Record<string, string[]> = {
+  capital: ['capital', 'capital city'],
+  continent: ['continent'],
+  population: ['population'],
+  area: ['area'],
+  length: ['length'],
+  mouth: ['mouth'],
+  symbol: ['chemical symbol', 'symbol'],
+  number: ['atomic number'],
+  melting: ['melting point'],
+  diameter: ['diameter'],
+  moons: ['number of moons', 'number of known moons'],
+};
 
-/** The thing and field a question asks about, when the fact book records it ("What is the capital of Japan?"). */
+/** "What is the capital of Japan?" → the fields asked, by their words. */
+const ASKED = new Map<string, string>(Object.entries(FIELD_NAMES).flatMap(([field, ws]) => ws.map((w) => [w, field] as [string, string])));
+
+/**
+ * The thing and field a question asks about, when it is exactly "What is the <field> of <thing>?" and the
+ * fact book records it. Anything else — before/after, "not", former, second, a yes/no question, two things —
+ * has no check (null): the book would be answering a different question.
+ */
 export function factQuestion(q: string): { ent: string; field: string; v: Value } | null {
-  const text = q.toLowerCase();
-  const names = (e: Entity) => [e.name, e.name.replace(/^the /, '')].map((n) => n.toLowerCase());
-  const found = ENTITIES.filter((e) => names(e).some((n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text)));
-  // One thing only (a question about two is a comparison: not for this check).
-  const ents = [...new Set(found.map((e) => e.name))];
-  if (ents.length !== 1) return null;
-  const e = found[0]!;
-  for (const [field, re] of FIELD_WORDS) {
-    if (!re.test(text) || !(field in e.f)) continue;
+  const m = q.trim().toLowerCase().replace(/\s+/g, ' ').match(/^what(?: is|'s) the ([a-z ]+ of [a-z ]+?)\s*\??$/);
+  if (!m) return null;
+  // "number of known moons of mars": try each " of " as the place the field ends and the thing begins.
+  const parts = m[1]!.split(' of ');
+  for (let k = 1; k < parts.length; k++) {
+    const field = ASKED.get(parts.slice(0, k).join(' of '));
+    const thing = parts.slice(k).join(' of ').replace(/^the /, '');
+    const e = ENTITIES.find((x) => x.name.toLowerCase().replace(/^the /, '') === thing);
+    if (!field || !e || !(field in e.f)) continue;
     const v = e.f[field];
     return v == null ? null : { ent: e.name, field, v };
   }
@@ -158,7 +173,8 @@ export function factVerdict(f: { ent: string; field: string; v: Value }, reply: 
 
 /** "Reach 24 from 5, 5, 9, 8 …" / "make 24 using 5 5 9 8": the target and numbers (every number once when it says so). */
 export function sumPuzzle(q: string): { target: number; nums: number[]; exact: boolean } | null {
-  const m = q.match(/\b(?:reach|make|get(?: to)?)\s+(\d+)\s+(?:from|using|with|out of)\s+(?:the numbers\s+)?((?:\d+\s*(?:,|and|\s)\s*){1,7}\d+)/i);
+  // The whole question is the puzzle: it starts with it, and what follows the numbers is only the rules (no more numbers).
+  const m = q.trim().match(/^(?:can you\s+)?(?:reach|make|get to)\s+(\d+)\s+(?:from|using|with|out of)\s+(?:the numbers\s+)?((?:\d+\s*(?:,|and|\s)\s*){1,7}\d+)([^\d]{0,120})$/i);
   if (!m) return null;
   const nums = (m[2]!.match(/\d+/g) ?? []).map(Number);
   if (nums.length < 2) return null;

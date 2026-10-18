@@ -30,3 +30,9 @@ export const MODELS: ModelDef[] = [
  * stores each file in its cache under this base, so the check that the download is whole uses it too.
  */
 export const modelBase = (m: Pick<ModelDef, 'repo' | 'rev'>): string => `https://huggingface.co/${m.repo}/resolve/${m.rev}/`;
+
+/**
+ * The revision of our own worker (public/vendor/webllm/worker.mjs, whose first line says the same): part of
+ * its address, so a phone whose service worker kept an older copy fetches the new one. Bump both together.
+ */
+export const WORKER_REV = '2';

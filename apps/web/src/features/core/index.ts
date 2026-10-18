@@ -3,7 +3,7 @@
  */
 import { brain } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
-import { stopThinking } from '../../offline/harder';
+import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -282,7 +282,9 @@ export const coreTab: TabDef = {
       const last = shown.findLastIndex((x) => x.kind === 'assistant');
       const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
       const lastReply = shown[last];
-      const q = lastReply?.kind === 'assistant' && !lastReply.think && asked?.kind === 'user' && !/^think harder\b/i.test(asked.text) ? asked.text : undefined;
+      // Only where it can work: the offline brain is on this phone and not switched off.
+      const offered = canThink.get().ready && settings.get().offlineBrain !== 'off';
+      const q = offered && lastReply?.kind === 'assistant' && !lastReply.think && asked?.kind === 'user' && !/^think harder\b/i.test(asked.text) ? asked.text : undefined;
       clear(log, ...shown.map((x, i) => renderEntry(x, i === last ? q : undefined)));
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
@@ -292,6 +294,9 @@ export const coreTab: TabDef = {
       stark.task(working?.progress ? progressText(working.progress) : null);
     };
     chat.subscribe(paintLog);
+    canThink.subscribe(paintLog);
+    settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
+    recheckThink();
     paintLog();
     // power-up sequence: the HUD draws itself in, then reports
     const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];

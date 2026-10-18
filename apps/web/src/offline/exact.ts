@@ -6,30 +6,86 @@
  * apps/edge/test/thinkharder.test.mjs tests it in node.
  */
 
-/** The answer a reply gives: what follows its last "ANSWER:", else its last non-empty line (markdown off). */
+/** Where a reply labels its answer: "ANSWER:", "Final answer:", "**Answer:**" (the label's start and end). */
+const LABEL = /\b(final\s+)?answer\s*(?:\*\*)?\s*[:：]\s*(?:\*\*)?/gi;
+
+/**
+ * The answer a reply gives: what follows its last "Final answer:" (or, with none, its last "Answer:") to the
+ * end of that line — "My answer: I think 7. Final Answer: 9" gives "9" —, else its last non-empty line
+ * (what follows its last "=", when it has one).
+ */
 export function answerOf(text: string): string {
   const t = text.replace(/<think>[\s\S]*?<\/think>/g, '');
-  const tagged = [...t.matchAll(/\b(?:final\s+)?answer\s*(?:\*\*)?\s*[:：]\s*(?:\*\*)?([^\n]+)/gi)].pop();
-  if (tagged) return tagged[1]!.replace(/\*\*|__|`/g, '').trim();
+  const marks = [...t.matchAll(LABEL)];
+  const finals = marks.filter((m) => m[1]);
+  const m = (finals.length ? finals : marks).at(-1);
+  if (m) return t.slice(m.index! + m[0].length).split('\n')[0]!.replace(/\*\*|__|`/g, '').trim();
   const lines = t
     .split('\n')
     .map((l) => l.replace(/\*\*|__|`/g, ' ').replace(/^[#>\s-]+/, '').trim())
     .filter(Boolean);
-  return lines.at(-1) ?? '';
+  // No label: a last line that works something out gives what it comes to ("17 × 23 = 391" → "391").
+  const last = lines.at(-1) ?? '';
+  return /=/.test(last) && /\S/.test(last.split('=').at(-1)!) ? last.split('=').at(-1)!.trim() : last;
 }
 
-/** A plain number in words like "1,250", "-3", "4.50" (null if the text is not one number). */
-function plainNumber(s: string): number | null {
-  const m = s.replace(/[−–]/g, '-').match(/-?\d[\d,]*(?:\.\d+)?/g);
-  if (!m || m.length !== 1) return null;
-  const n = Number(m[0].replace(/,(?=\d{3}\b)/g, ''));
-  return Number.isFinite(n) ? n : null;
+// ---- exact numbers -----------------------------------------------------------------------------------------
+
+/** An exact number: a fraction of two whole numbers (`d` > 0, lowest terms). */
+export interface Exact {
+  n: bigint;
+  d: bigint;
+}
+const gcd = (a: bigint, b: bigint): bigint => {
+  a = a < 0n ? -a : a;
+  b = b < 0n ? -b : b;
+  while (b) [a, b] = [b, a % b];
+  return a || 1n;
+};
+const frac = (n: bigint, d: bigint): Exact => {
+  if (d === 0n) throw new Error('zero');
+  if (d < 0n) [n, d] = [-n, -d];
+  const g = gcd(n, d);
+  return { n: n / g, d: d / g };
+};
+/** "12.50" → 25/2, exactly. */
+const decimal = (s: string): Exact => {
+  const [a, b = ''] = s.split('.');
+  return frac(BigInt(`${a}${b}` || '0'), 10n ** BigInt(b.length));
+};
+const same = (a: Exact, b: Exact) => a.n === b.n && a.d === b.d;
+/** As an ordinary number (for showing it, and for answers that are not exact). */
+export const toNumber = (x: Exact): number => Number(x.n) / Number(x.d);
+/** As words: "391", "-3", "5/6". */
+export const exactText = (x: Exact): string => (x.d === 1n ? String(x.n) : `${x.n}/${x.d}`);
+
+/** A number as written in an answer: thousands commas, a minus sign, a decimal point, or a fraction ("5/6"). */
+const NUMBER = /-?(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+)(?:\.\d+)?(?:\s*\/\s*\d+(?!\s*\/))?/g;
+
+/**
+ * The number an answer gives: the first one in it ("391 (17 × 23)" → 391); LaTeX's \boxed{} and $ signs
+ * are looked through.
+ */
+export function answerNumber(answer: string): { value: Exact; text: string } | null {
+  const t = answer.replace(/\\boxed\{([^{}]*)\}/g, '$1').replace(/\$/g, ' ').replace(/[−–]/g, '-');
+  const m = t.match(new RegExp(NUMBER.source));
+  if (!m) return null;
+  const raw = m[0].replace(/,/g, '').replace(/\s+/g, '');
+  try {
+    const [a, b] = raw.split('/');
+    const top = decimal(a!.replace(/^-/, ''));
+    const v = b ? frac(top.n, top.d * BigInt(b)) : top;
+    return { value: a!.startsWith('-') ? { n: -v.n, d: v.d } : v, text: raw };
+  } catch {
+    return null;
+  }
 }
 
 /**
  * One form for an answer, so two attempts that say the same thing count as agreeing: lower case,
- * markdown, quotes and the trailing full stop off, "the"/"a" at the start off; a short answer that is
- * one number becomes that number ("It is 391." → "391"); yes/true and no/false are one word each.
+ * markdown, quotes and the trailing full stop off, "the"/"a" at the start off; yes/true and no/false are
+ * one word each, also with more after a comma ("No, 12" is "no"); a short answer that is one number
+ * becomes that number exactly ("It is 391." → "391"; "1/2" and "0.5" → "1/2").
  */
 export function normAnswer(a: string): string {
   let t = a
@@ -39,12 +95,14 @@ export function normAnswer(a: string): string {
     .trim()
     .replace(/[.!;]+$/, '')
     .trim();
-  const words = t.split(' ');
-  const n = words.length <= 5 && !/[a-z]\d|\d[a-z]|[+×*÷/^()=]/.test(t) ? plainNumber(t) : null;
-  if (n !== null) return String(Math.round(n * 1e6) / 1e6);
   t = t.replace(/^(?:it is|it's|the answer is|answer is|that is)\s+/, '').replace(/^(?:the|a|an)\s+/, '');
-  if (/^(?:yes|true|correct)\b/.test(t) && t.split(' ').length <= 2) return 'yes';
-  if (/^(?:no|false|incorrect)\b/.test(t) && t.split(' ').length <= 2) return 'no';
+  const yn = t.match(/^(yes|true|correct|no|false|incorrect)\b(?:,|$|\s+\S+$)/);
+  if (yn) return /^(?:yes|true|correct)$/.test(yn[1]!) ? 'yes' : 'no';
+  const bare = t.replace(/\\boxed\{([^{}]*)\}/g, '$1').replace(/\$/g, ' ').replace(/[−–]/g, '-');
+  if (t.split(' ').length <= 5 && !/[a-z]\d|\d[a-z]|[+×*÷^()=]|\d\s*-\s*\d/.test(bare) && (bare.match(NUMBER) ?? []).length === 1) {
+    const n = answerNumber(bare);
+    if (n) return exactText(n.value);
+  }
   return t;
 }
 
@@ -56,98 +114,144 @@ function signsOf(s: string): string {
     .toLowerCase()
     .replace(/[−–]/g, '-')
     .replace(/×|\bx\b|\btimes\b|\bmultiplied by\b/g, '*')
-    .replace(/÷|\bdivided by\b|\bover\b/g, '/')
-    .replace(/\bplus\b|\badd\b/g, '+')
-    .replace(/\bminus\b|\btake away\b/g, '-')
+    .replace(/÷|\bdivided by\b/g, '/')
+    .replace(/\bplus\b/g, '+')
+    .replace(/\bminus\b/g, '-')
     .replace(/\bsquared\b/g, '^2')
     .replace(/\bcubed\b/g, '^3')
+    .replace(/(\d)\s*%\s*of\b/g, '$1/100*')
     .replace(/(\d),(?=\d{3}\b)/g, '$1');
 }
 
 /**
- * Work out a sum ("17 × 23", "(18 + 7) * 4", "144 ÷ 12 + 7", "2^10", "15% of 80"): + − × ÷ ^,
- * brackets and "n% of m". Null when it is not a sum, divides by zero or has no operator at all.
+ * Work out a sum exactly, as a fraction ("17 × 23", "(18 + 7) * 4", "1/2 + 1/3", "2^10", "15% of 80"):
+ * + − × ÷ ^ (whole powers up to 64) and brackets. Null when it is not a sum, divides by zero, has no
+ * operator, a fractional power, or is too long, too deep or too big to be worth it.
  */
-export function calc(expr: string): number | null {
-  let s = signsOf(expr).replace(/(\d+(?:\.\d+)?)\s*%\s*of\s*/g, '$1/100*');
-  s = s.replace(/\s+/g, '');
-  if (!/^[\d.+\-*/^()]+$/.test(s) || !/\d[+\-*/^]|\)[+\-*/^]|[+\-*/^][\d(]/.test(s.replace(/^-/, ''))) return null;
+export function calcExact(expr: string): Exact | null {
+  const s = signsOf(expr).replace(/\s+/g, '');
+  if (s.length > 200 || !/^[\d.+\-*/^()]+$/.test(s) || !/\d[+\-*/^]|\)[+\-*/^]|[+\-*/^][\d(]/.test(s.replace(/^-/, ''))) return null;
   let i = 0;
+  let depth = 0;
   const peek = () => s[i];
-  const num = (): number => {
+  const big = (x: Exact) => {
+    if (x.n.toString().length > 400 || x.d.toString().length > 400) throw new Error('too big');
+    return x;
+  };
+  const num = (): Exact => {
     if (peek() === '(') {
+      if (++depth > 40) throw new Error('too deep');
       i++;
       const v = add();
       if (peek() !== ')') throw new Error('bracket');
       i++;
+      depth--;
       return v;
     }
     if (peek() === '-') {
       i++;
-      return -pow();
+      const v = pow();
+      return { n: -v.n, d: v.d };
     }
     const m = s.slice(i).match(/^\d+(?:\.\d+)?/);
     if (!m) throw new Error('number');
     i += m[0].length;
-    return Number(m[0]);
+    return decimal(m[0]);
   };
-  const pow = (): number => {
+  const pow = (): Exact => {
     const b = num();
-    if (peek() === '^') {
-      i++;
-      return b ** pow();
-    }
-    return b;
+    if (peek() !== '^') return b;
+    i++;
+    const e = pow();
+    if (e.d !== 1n || e.n > 64n || e.n < -64n) throw new Error('power');
+    const k = e.n < 0n ? -e.n : e.n;
+    const r = big(frac(b.n ** k, b.d ** k));
+    return e.n < 0n ? frac(r.d, r.n) : r;
   };
-  const mul = (): number => {
+  const mul = (): Exact => {
     let v = pow();
     while (peek() === '*' || peek() === '/') {
       const op = s[i++];
       const r = pow();
-      if (op === '/' && r === 0) throw new Error('zero');
-      v = op === '*' ? v * r : v / r;
+      v = big(op === '*' ? frac(v.n * r.n, v.d * r.d) : frac(v.n * r.d, v.d * r.n));
     }
     return v;
   };
-  const add = (): number => {
+  const add = (): Exact => {
     let v = mul();
     while (peek() === '+' || peek() === '-') {
       const op = s[i++];
       const r = mul();
-      v = op === '+' ? v + r : v - r;
+      v = big(frac(op === '+' ? v.n * r.d + r.n * v.d : v.n * r.d - r.n * v.d, v.d * r.d));
     }
     return v;
   };
   try {
     const v = add();
-    return i === s.length && Number.isFinite(v) ? v : null;
+    return i === s.length ? v : null;
   } catch {
     return null;
   }
 }
 
-/** The sum a question asks for ("What is 17 × 23?", "work out (18+7)*4", "17 times 23"), worked out; else null. */
-export function sumIn(question: string): { expr: string; value: number } | null {
-  const q = question.replace(/[?=]+\s*$/, '').trim();
-  const asked = q.match(/(?:what(?:'s| is)|calculate|compute|work out|how much is|evaluate|solve)\s*:?\s*(.+)$/i)?.[1] ?? q;
-  // The longest stretch made only of numbers, signs, brackets and the words a sum is said with.
-  const stretches = asked.match(/[-−(]*\d[\d.,\s+\-−–*/×÷^()%]*(?:\s*(?:x|times|multiplied by|divided by|over|plus|minus|take away|squared|cubed|of)\s*[-−(]*\d*[\d.,\s+\-−–*/×÷^()%]*)*/gi) ?? [];
-  for (const st of stretches.sort((a, b) => b.length - a.length)) {
-    const v = calc(st.trim());
-    if (v !== null) return { expr: st.trim(), value: v };
-  }
-  return null;
+/** The sum worked out, as an ordinary number (null as calcExact). */
+export function calc(expr: string): number | null {
+  const v = calcExact(expr);
+  return v ? toNumber(v) : null;
 }
 
-/** The numbers an answer gives agree with a worked-out value (to 6 significant figures, or to the cent). */
+/**
+ * The sum a question asks for, when the question is nothing but the sum: "What is 17 × 23?", "work out
+ * (18+7)*4", "what's 17 times 23". Anything more — a comparison, rounding, a base, a time of day, a date,
+ * units — and there is no check (null): the calculator would be answering a different question.
+ */
+export function sumIn(question: string): { expr: string; value: number; exact: Exact } | null {
+  const m = question.trim().match(/^(?:what(?:'s| is)|calculate|compute|work out|how much is|evaluate)\s*:?\s*([^?=!]{1,200}?)\s*[?=.!]*$/i);
+  if (!m) return null;
+  const expr = m[1]!.trim();
+  // A date ("25/12/2024") or a time ("3:45") is not a sum; letters left after the sum words are something else.
+  if (/\d\s*\/\s*\d+\s*\/\s*\d/.test(expr) || /:/.test(expr)) return null;
+  if (/[a-z]/i.test(signsOf(expr))) return null;
+  const v = calcExact(expr);
+  return v ? { expr, value: toNumber(v), exact: v } : null;
+}
+
+/**
+ * Does an answer give this exact value? The first number in the answer is its answer. A whole-number result
+ * must match exactly; one that is not whole may be the fraction itself, or a decimal rounded to two or more
+ * places ("0.33" for 1/3).
+ */
+export function numberMatches(answer: string, value: Exact): boolean {
+  const a = answerNumber(answer);
+  if (!a) return false;
+  if (same(a.value, value)) return true;
+  if (value.d === 1n) return false;
+  const places = a.text.includes('.') && !a.text.includes('/') ? a.text.split('.')[1]!.length : 0;
+  if (places < 2) return false;
+  // The value rounded to that many places (half away from zero), compared exactly.
+  const scale = 10n ** BigInt(places);
+  const neg = value.n < 0n;
+  const absN = neg ? -value.n : value.n;
+  const r = (absN * scale * 2n + value.d) / (value.d * 2n);
+  return same(a.value, frac(neg ? -r : r, scale));
+}
+
+/** For a value worked out elsewhere as an ordinary number: exact when it is whole. */
 export function sameNumber(answer: string, value: number): boolean {
-  const nums = (answer.replace(/[−–]/g, '-').replace(/(\d),(?=\d{3}\b)/g, '$1').match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
-  if (!nums.length) return false;
-  // The last number given is the answer ("17 × 23 = 391": 391).
-  const n = nums.at(-1)!;
-  if (n === value) return true;
-  const tol = Math.max(1e-9, Math.abs(value) * 1e-6);
-  return Math.abs(n - value) <= tol || Math.abs(n - Math.round(value * 100) / 100) < 1e-9;
+  if (Number.isInteger(value)) return numberMatches(answer, { n: BigInt(value), d: 1n });
+  const a = answerNumber(answer);
+  return !!a && Math.abs(toNumber(a.value) - value) <= Math.max(1e-9, Math.abs(value) * 1e-9);
+}
+
+/**
+ * THINK HARDER's calculator check for a question that is nothing but a sum (sumIn), else null. It judges the
+ * reply's answer (the number right after "ANSWER:"), exactly.
+ */
+export function sumCheck(question: string): { label: string; kind: 'key'; check(reply: string, answer: string): { correct: boolean; score: number; why: string } } | null {
+  const s = sumIn(question);
+  if (!s) return null;
+  const why = `${s.expr} = ${exactText(s.exact)}`;
+  return { label: 'a calculator', kind: 'key', check: (_reply, answer) => ({ correct: numberMatches(answer, s.exact), score: numberMatches(answer, s.exact) ? 1 : 0, why }) };
 }
 
 // ---- code ------------------------------------------------------------------------------------------------
