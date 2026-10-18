@@ -87,7 +87,8 @@ export function findFloor(c: Cloud, tries = 300): Floor | null {
   for (let i = 0; i < c.p.length; i++) if (c.row[i]! > 0.4 && -c.n[i]![1] > Math.cos((40 * Math.PI) / 180)) cand.push(i);
   if (cand.length < 30) return null;
   const rand = rng(7);
-  let best: { n: P3; d: number; inl: number } | null = null;
+  // every plane tried is kept: a sofa's seat or a table top is flat and faces up too
+  const planes: { n: P3; d: number; inl: number }[] = [];
   for (let t = 0; t < tries; t++) {
     const a = c.p[cand[Math.floor(rand() * cand.length)]!]!;
     const b = c.p[cand[Math.floor(rand() * cand.length)]!]!;
@@ -103,24 +104,58 @@ export function findFloor(c: Cloud, tries = 300): Floor | null {
       const p = c.p[i]!;
       if (Math.abs(dot(n, p) + d) < 0.03 + 0.02 * p[2]) inl++;
     }
-    if (!best || inl > best.inl) best = { n, d, inl };
+    planes.push({ n, d, inl });
   }
-  if (!best || best.inl < 20) return null;
-  // refine: the average normal of the inliers and their mean height
-  let ns: P3 = [0, 0, 0];
-  const ins: P3[] = [];
-  for (const i of cand) {
-    const p = c.p[i]!;
-    if (Math.abs(dot(best.n, p) + best.d) < 0.03 + 0.02 * p[2]) {
-      ins.push(p);
-      ns = [ns[0] + c.n[i]![0], ns[1] + c.n[i]![1], ns[2] + c.n[i]![2]];
+  const top = planes.reduce<{ n: P3; d: number; inl: number } | null>((m, q) => (!m || q.inl > m.inl ? q : m), null);
+  if (!top) return null;
+  // floor, seats and table tops are level, so parallel to the best-supported plane (within 6°); the floor
+  // is the one with (almost) nothing under it — under a sofa's seat there is floor — and, of those, the best supported
+  const level = Math.cos((6 * Math.PI) / 180);
+  const below = (q: { n: P3; d: number }) => {
+    let n = 0;
+    for (const p of c.p) if (dot(q.n, p) + q.d < -(0.06 + 0.02 * p[2])) n++;
+    return n / c.p.length;
+  };
+  const best = planes
+    .filter((q) => q.inl >= Math.max(20, 0.1 * top.inl) && dot(q.n, top.n) >= level)
+    .sort((q1, q2) => q2.inl - q1.inl)
+    .slice(0, 40)
+    .find((q) => below(q) < 0.05) ?? null;
+  if (!best) return null;
+  // refine twice: a least-squares plane (camera y = a·x + b·z + c) through the points near it, the band narrowing
+  let n = best.n;
+  let d = best.d;
+  let ins: P3[] = [];
+  for (const tol of [[0.03, 0.02], [0.015, 0.01]] as const) {
+    ins = cand.map((i) => c.p[i]!).filter((p) => Math.abs(dot(n, p) + d) < tol[0] + tol[1] * p[2]);
+    if (ins.length < 10) break;
+    // normal equations for [a, b, c]
+    let sxx = 0, sxz = 0, sx = 0, szz = 0, sz = 0, sxy = 0, szy = 0, sy = 0;
+    for (const p of ins) {
+      sxx += p[0] * p[0];
+      sxz += p[0] * p[2];
+      sx += p[0];
+      szz += p[2] * p[2];
+      sz += p[2];
+      sxy += p[0] * p[1];
+      szy += p[2] * p[1];
+      sy += p[1];
     }
+    const N = ins.length;
+    const A = [[sxx, sxz, sx], [sxz, szz, sz], [sx, sz, N]];
+    const r = [sxy, szy, sy];
+    const det = (m: number[][]) => m[0]![0]! * (m[1]![1]! * m[2]![2]! - m[1]![2]! * m[2]![1]!) - m[0]![1]! * (m[1]![0]! * m[2]![2]! - m[1]![2]! * m[2]![0]!) + m[0]![2]! * (m[1]![0]! * m[2]![1]! - m[1]![1]! * m[2]![0]!);
+    const D0 = det(A);
+    if (Math.abs(D0) < 1e-9) break;
+    const col = (k: number) => A.map((row, i) => row.map((v, j) => (j === k ? r[i]! : v)));
+    const [pa, pb, pc] = [det(col(0)) / D0, det(col(1)) / D0, det(col(2)) / D0];
+    // y − a·x − b·z − c = 0 → normal (−a, 1, −b), turned to point up (camera y is down)
+    const len = Math.hypot(pa, 1, pb);
+    n = [pa / len, -1 / len, pb / len];
+    d = pc / len;
   }
-  const up0 = norm(ns);
-  const up = norm([(up0[0] + best.n[0]) / 2, (up0[1] + best.n[1]) / 2, (up0[2] + best.n[2]) / 2]);
-  // up points toward the camera's side: each floor point is that far below the camera
-  const hs = ins.map((p) => -dot(up, p)).sort((a, b) => a - b);
-  return { up, height: hs[hs.length >> 1] ?? 0, support: best.inl / cand.length };
+  // up points toward the camera's side; the camera is d above the plane
+  return { up: n, height: Math.abs(d), support: ins.length / cand.length };
 }
 
 export interface Seen {
@@ -174,7 +209,8 @@ export function roomFromCloud(c: Cloud): Seen | { error: string } {
     const p = c.p[i]!;
     const n = c.n[i]!;
     const hgt = dot(up, p) + floor.height;
-    if (Math.abs(dot(up, n)) > 0.3 || hgt < 0.25 || hgt > 2.2) continue;
+    // above the furniture (most stands under 1 m) and below the ceiling: walls, doors, windows
+    if (Math.abs(dot(up, n)) > 0.3 || hgt < 1.0 || hgt > 2.2) continue;
     const nx = dot(n, ex);
     const ny = dot(n, ey) * fwd;
     const l = Math.hypot(nx, ny) || 1;
@@ -205,8 +241,16 @@ export function roomFromCloud(c: Cloud): Seen | { error: string } {
   const st = Math.sin(t);
   const rot = walls.map((w) => ({ x: w.x * ct - w.y * st, y: w.x * st + w.y * ct, nx: w.nx * ct - w.ny * st, ny: w.nx * st + w.ny * ct }));
   // side walls face across (left wall's surface faces right, +x), the far wall faces back (−y)
-  const left = farPeak(rot.filter((w) => w.nx > 0.85 && w.x < 0).map((w) => w.x), -1);
-  const right = farPeak(rot.filter((w) => w.nx < -0.85 && w.x > 0).map((w) => w.x), 1);
+  // a side wall runs along the view: its points must stretch at least 35 cm away from the camera (a window's
+  // reveal or a cupboard's side faces across too, but is short)
+  const sideWall = (pts: { x: number; y: number }[], dir: 1 | -1) => {
+    const pk = farPeak(pts.map((w) => w.x), dir);
+    if (!pk) return null;
+    const ys = pts.filter((w) => Math.abs(w.x - pk.at) < 0.08).map((w) => w.y).sort((a, b) => a - b);
+    return ys.length > 10 && ys[Math.floor(ys.length * 0.9)]! - ys[Math.floor(ys.length * 0.1)]! >= 0.35 ? pk : null;
+  };
+  const left = sideWall(rot.filter((w) => w.nx > 0.85 && w.x < 0), -1);
+  const right = sideWall(rot.filter((w) => w.nx < -0.85 && w.x > 0), 1);
   const far = farPeak(rot.filter((w) => w.ny < -0.85 && w.y > 0).map((w) => w.y), 1);
   const notes: string[] = [];
   if (Math.abs(turn) > 20) notes.push(`the room was at ${Math.round(Math.abs(turn))}° to the camera: squarer to the far wall is more accurate`);
@@ -227,6 +271,17 @@ export function roomFromCloud(c: Cloud): Seen | { error: string } {
     height: floor.height,
     notes,
   };
+}
+
+/**
+ * The doubt the scale adds to what one photo showed: the depth's scale doubt (`sigma`, log) and
+ * the shape error the depth model makes even at the right scale — 8 %, from rendered rooms of known
+ * size (the B2 check: sides came out 7–10 % off at the median) — on top of where the walls were found.
+ */
+export const ROOM_SHAPE_SD = 0.08;
+export function withScaleDoubt(s: Seen, sigma: number): Seen {
+  const k = Math.hypot(sigma, ROOM_SHAPE_SD);
+  return { ...s, acrossSd: s.across != null ? Math.hypot(s.acrossSd, s.across * k) : s.acrossSd, alongSd: s.along != null ? Math.hypot(s.alongSd, s.along * k) : s.alongSd };
 }
 
 export interface RoomSize {

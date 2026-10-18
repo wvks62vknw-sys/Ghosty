@@ -524,7 +524,7 @@ test('a corrected wall rescales the whole plan; square polygons from patches; gr
 });
 
 /** A depth map of a box room W × D × H (metres) seen from `cam` (X right, Y up, Z into the room), turned `yaw`° and pitched down `pitch`°. */
-function roomDepth({ W, D, H = 2.4, cam, yaw = 0, pitch = 10 }, K, size) {
+function roomDepth({ W, D, H = 2.4, cam, yaw = 0, pitch = 10, boxes = [] }, K, size) {
   const yw = (yaw * Math.PI) / 180;
   const pt = (pitch * Math.PI) / 180;
   return render(size.w, size.h, K, (x, y) => {
@@ -545,15 +545,31 @@ function roomDepth({ W, D, H = 2.4, cam, yaw = 0, pitch = 10 }, K, size) {
     if (dx) (tryT(-cam[0] / dx), tryT((W - cam[0]) / dx));
     if (dy) (tryT(-cam[1] / dy), tryT((H - cam[1]) / dy));
     if (dz) (tryT(-cam[2] / dz), tryT((D - cam[2]) / dz));
+    // furniture: boxes [x0, x1, height, z0, z1] standing on the floor (the slab test)
+    for (const [x0, x1, bh, z0, z1] of boxes) {
+      let lo = -Infinity;
+      let hi = Infinity;
+      for (const [o, d, a, b] of [[cam[0], dx, x0, x1], [cam[1], dy, 0, bh], [cam[2], dz, z0, z1]]) {
+        if (Math.abs(d) < 1e-12) {
+          if (o < a || o > b) lo = Infinity;
+          continue;
+        }
+        const t1 = (a - o) / d;
+        const t2 = (b - o) / d;
+        lo = Math.max(lo, Math.min(t1, t2));
+        hi = Math.min(hi, Math.max(t1, t2));
+      }
+      if (lo <= hi && lo > 1e-6 && lo < best) best = lo;
+    }
     // the camera-space ray has z = 1, so t is the depth along the camera's axis
     return best;
   });
 }
 
 test('a room from photos: floor, walls squared up, width from the side walls, depth from the far wall and where the phone stood', () => {
-  // a 77° view across (the main camera's 69° cannot see both side walls of a wide room from close up)
+  // a 90° view across (the main camera’s 69° cannot see both side walls of a wide room from close up; the 0.5× lens sees 108°)
   const size = { w: 160, h: 120 };
-  const K = { f: 100, cx: 80, cy: 60 };
+  const K = { f: 80, cx: 80, cy: 60 };
   // 3.2 × 4.5 m; the phone 25 cm in front of the back wall, in the middle, 1.3 m up, 12° down
   const s1 = RP.roomFromCloud(RP.cloudOf(roomDepth({ W: 3.2, D: 4.5, cam: [1.6, 1.3, 0.25], pitch: 12 }, K, size), K, 2));
   assert.ok(!s1.error, s1.error);
@@ -579,6 +595,15 @@ test('a room from photos: floor, walls squared up, width from the side walls, de
   assert.ok(s4.acrossMin > 2.5 && s4.acrossMin < 5, `at least ${s4.acrossMin}`);
   const only = RP.joinRoom([s4]);
   assert.ok(only.w >= 250 && only.notes.some((n) => /at least/.test(n)), JSON.stringify(only));
+  // a sofa along the left wall and a table: their tops are flat and face up too, but the floor is the lowest plane
+  const furnished = RP.roomFromCloud(RP.cloudOf(roomDepth({ W: 3.2, D: 4.5, cam: [1.6, 1.3, 0.25], pitch: 12, boxes: [[0, 0.9, 0.45, 1.5, 3.5], [1.6, 2.4, 0.75, 1.9, 2.7]] }, K, size), K, 2));
+  assert.ok(!furnished.error, furnished.error);
+  near(furnished.height, 1.3, 0.06, 'the floor, not the sofa seat');
+  near(furnished.across, 3.2, 0.12, 'width with furniture in front');
+  // the scale's doubt and the depth model's shape error widen what a photo showed
+  const wider = RP.withScaleDoubt(s1, 0.1);
+  near(wider.acrossSd, Math.hypot(s1.acrossSd, s1.across * Math.hypot(0.1, RP.ROOM_SHAPE_SD)), 1e-9, 'widened across');
+  assert.ok(wider.alongSd > s1.alongSd);
   // no floor in view: said plainly
   assert.match(RP.roomFromCloud(RP.cloudOf(render(160, 120, K, () => 3), K, 2)).error, /No floor in view/);
 });

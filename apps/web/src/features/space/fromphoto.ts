@@ -23,7 +23,7 @@ import { loadImageFile } from '../../vision/camera';
 import { Reader } from '../../vision/ocr';
 import type { Plan } from '../../space/plan';
 import { linesFromWords, looksLikeDrawing, planFromDrawing, rescalePlan, type Gray, type PlanFromDrawing } from '../../space/planphoto';
-import { cloudOf, findFloor, joinRoom, roomFromCloud, STANCE, type RoomSize, type Seen } from '../../space/roomphoto';
+import { cloudOf, findFloor, joinRoom, roomFromCloud, STANCE, withScaleDoubt, type RoomSize, type Seen } from '../../space/roomphoto';
 import { space } from '../../space/store';
 import type { DepthMap } from '../../measure/depth3d';
 import type { Intrinsics } from '../../measure/exif';
@@ -224,9 +224,8 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
           toast(`Photo ${i + 1}: ${s.error}`, 'warn');
           continue;
         }
-        // the scale's own doubt widens every size
-        const k = got.fused.sigma;
-        seen.push({ ...s, acrossSd: s.across != null ? Math.hypot(s.acrossSd, s.across * k) : s.acrossSd, alongSd: s.along != null ? Math.hypot(s.alongSd, s.along * k) : s.alongSd });
+        // the scale's own doubt, and the depth model's shape error, widen every size
+        seen.push(withScaleDoubt(s, got.fused.sigma));
       }
     } finally {
       depthModel.release();
