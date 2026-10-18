@@ -181,3 +181,54 @@ test('the WAV helper: 16 kHz mono 16-bit PCM with a correct header, channels mix
   assert.equal(W.toMono16k([], 48_000).length, 0);
   assert.equal(S.audioExt('audio/wav'), 'wav', 'what the brain sees when the phone sends it');
 });
+
+test("POST /tts with a voice: Aura's natural British voices within the day's share, then the plain voice; a failing Aura falls back; the old request stays MeloTTS", async () => {
+  S._testing.reset();
+  const aura = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 9, 9, 9, 9]);
+  const ai = fakeAi({
+    '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }),
+    // the binding answers Aura with a stream of MP3 bytes
+    '@cf/deepgram/aura-2-en': () => new ReadableStream({ start(c) { c.enqueue(aura); c.close(); } }),
+    '@cf/deepgram/aura-1': () => new Response(aura),
+  });
+  const post = (body, env = { AI: ai }) => S.ttsRoute(env, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }));
+  // 'auto': the most natural British voice (Aura 2, Draco)
+  const r = await post({ text: 'Morning. Kettle is on.', voice: 'auto' });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('x-voice'), 'draco');
+  assert.equal(r.headers.get('x-voice-note'), null);
+  assert.deepEqual(new Uint8Array(await r.arrayBuffer()), aura);
+  assert.deepEqual(ai.calls.at(-1), { model: '@cf/deepgram/aura-2-en', inputs: { text: 'Morning. Kettle is on.', speaker: 'draco', encoding: 'mp3' } });
+  assert.equal(S._testing.auraToday(), 'Morning. Kettle is on.'.length * 2, 'Aura 2 counts double');
+  // a named voice, Aura 1
+  const h = await post({ text: 'Hello.', voice: 'helios' });
+  assert.equal(h.headers.get('x-voice'), 'helios');
+  assert.deepEqual(ai.calls.at(-1).inputs, { text: 'Hello.', speaker: 'helios', encoding: 'mp3' });
+  // the same sentence in the same voice comes from the cache; in another voice it does not
+  const n = ai.calls.length;
+  await post({ text: 'Hello.', voice: 'helios' });
+  assert.equal(ai.calls.length, n);
+  await post({ text: 'Hello.', voice: 'melo' });
+  assert.equal(ai.calls.length, n + 1);
+  assert.equal(ai.calls.at(-1).model, '@cf/myshell-ai/melotts');
+  // no voice at all (older copies of the app, Telegram): the plain voice, as before
+  assert.equal((await post({ text: 'Plain old voice.' })).headers.get('x-voice'), 'melo');
+  // the day's share for Aura used up: the plain voice speaks, and says why
+  const big = 'word '.repeat(110).trim();
+  let last;
+  for (let i = 0; i < 6; i++) last = await post({ text: `${i} ${big}`, voice: 'draco' });
+  assert.ok(S._testing.auraToday() <= S.AURA_UNITS_PER_DAY, `share kept: ${S._testing.auraToday()}`);
+  assert.equal(last.status, 200);
+  assert.equal(last.headers.get('x-voice'), 'melo');
+  assert.match(last.headers.get('x-voice-note'), /share for the natural voice is used up/);
+  // Aura failing: the plain voice says it instead, with a note
+  S._testing.reset();
+  const flaky = fakeAi({ '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }), '@cf/deepgram/aura-2-en': new Error('3040: capacity') });
+  const f = await post({ text: 'Still speaking.', voice: 'pandora' }, { AI: flaky });
+  assert.equal(f.status, 200);
+  assert.equal(f.headers.get('x-voice'), 'melo');
+  assert.match(f.headers.get('x-voice-note'), /did not answer \(3040: capacity\)/);
+  // an unknown voice name is the plain voice
+  assert.equal((await post({ text: 'Who?', voice: 'bogus' })).headers.get('x-voice'), 'melo');
+  S._testing.reset();
+});

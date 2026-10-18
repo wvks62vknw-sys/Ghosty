@@ -6,6 +6,7 @@
  * voice notes both come through here. In tests and previews env.AI is undefined, so every path
  * says plainly what is missing instead of failing oddly.
  */
+import { brainVoice, type BrainVoice } from '../../../packages/shared/src/voices';
 import type { Env } from './env';
 import type { Vault } from './kernel/vault';
 
@@ -18,6 +19,12 @@ export const MAX_AUDIO_BYTES = 8_000_000;
 export const MAX_TTS_CHARS = 600;
 /** Sentences spoken a day: Workers AI's free allowance also feeds the fallback brain, so the voice must not eat it. */
 export const TTS_PER_DAY = 2000;
+/**
+ * The daily share of Workers AI's free allowance the natural (Aura) voices may use, in Aura 1
+ * characters (an Aura 2 character counts twice): 2,500 is about 3,400 of the 10,000 free
+ * neurons, leaving the rest to the fallback brain. Past it the plain voice (MeloTTS) speaks.
+ */
+export const AURA_UNITS_PER_DAY = 2500;
 /** Recent sentences kept in memory, so a repeated line costs nothing. */
 const TTS_CACHE = 60;
 const WHISPER_TURBO = '@cf/openai/whisper-large-v3-turbo';
@@ -135,38 +142,97 @@ export function speakable(text: string): string {
 const cache = new Map<string, ArrayBuffer>();
 let day = '';
 let spoken = 0;
+let auraUnits = 0;
 /** Tests only: a fresh day and an empty cache. */
 export const _testing = {
   reset(): void {
     cache.clear();
     day = '';
     spoken = 0;
+    auraUnits = 0;
   },
   spokenToday: (): number => spoken,
+  auraToday: (): number => auraUnits,
 };
+
+const newDay = () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== day) {
+    day = today;
+    spoken = 0;
+    auraUnits = 0;
+  }
+};
+
+/** Bytes from whatever an Aura call hands back: a stream (the binding's usual answer), a Response, raw bytes or base64. */
+async function audioBytes(r: unknown): Promise<ArrayBuffer | null> {
+  if (!r) return null;
+  if (r instanceof ArrayBuffer) return r;
+  if (r instanceof Uint8Array) return r.slice().buffer;
+  if (r instanceof Response) return r.ok ? r.arrayBuffer() : null;
+  if (r instanceof ReadableStream) return new Response(r).arrayBuffer();
+  const audio = (r as { audio?: unknown }).audio;
+  return typeof audio === 'string' && audio ? fromBase64(audio) : null;
+}
 
 async function hash(text: string): Promise<string> {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return toBase64(d);
 }
 
-/** A sentence in Ghosty's own voice: MP3 bytes from MeloTTS (Workers AI). */
+/** A sentence in Ghosty's own voice: MP3 bytes from MeloTTS (Workers AI). Telegram's voice notes use this. */
 export async function synthesize(env: Ai, text: string): Promise<ArrayBuffer> {
+  return (await synthesizeAs(env, text, 'melo')).audio;
+}
+
+/**
+ * A sentence in the voice asked for (packages/shared/src/voices.ts: 'auto' is the most natural).
+ * A natural (Aura) voice speaks while the day's share lasts and when it answers; otherwise the
+ * plain voice (MeloTTS) says it, and `voice` and `note` say so. Repeats come from the cache.
+ */
+export async function synthesizeAs(env: Ai, text: string, want: unknown): Promise<{ audio: ArrayBuffer; voice: BrainVoice['id']; note?: string }> {
   const ai = env.AI;
   if (!ai) throw new SpeechError(404, "no voice: Ghosty's own voice needs Workers AI (there once Ghosty is on Cloudflare)");
-  const key = await hash(text);
-  const hit = cache.get(key);
-  if (hit) {
-    // Most recently used last, so the oldest is the one dropped.
-    cache.delete(key);
-    cache.set(key, hit);
-    return hit;
+  newDay();
+  const asked = brainVoice(want);
+  const melo = brainVoice('melo');
+  const cached = async (v: BrainVoice) => {
+    const key = await hash(`${v.id}|${text}`);
+    const hit = cache.get(key);
+    if (hit) {
+      // Most recently used last, so the oldest is the one dropped.
+      cache.delete(key);
+      cache.set(key, hit);
+    }
+    return { key, hit };
+  };
+  const keep = (key: string, bytes: ArrayBuffer) => {
+    cache.set(key, bytes);
+    while (cache.size > TTS_CACHE) cache.delete(cache.keys().next().value!);
+  };
+  let note: string | undefined;
+  if (asked.cost) {
+    const { key, hit } = await cached(asked);
+    if (hit) return { audio: hit, voice: asked.id };
+    const units = text.length * asked.cost;
+    if (auraUnits + units > AURA_UNITS_PER_DAY) note = "today's share for the natural voice is used up: the plain voice speaks until midnight UTC";
+    else if (spoken < TTS_PER_DAY) {
+      spoken++;
+      auraUnits += units;
+      try {
+        const bytes = await audioBytes(await ai.run(asked.model, { text, speaker: asked.speaker, encoding: 'mp3' }));
+        if (bytes && bytes.byteLength > 0) {
+          keep(key, bytes);
+          return { audio: bytes, voice: asked.id };
+        }
+        note = 'the natural voice returned no audio: the plain voice spoke instead';
+      } catch (e) {
+        note = `the natural voice did not answer (${String((e as Error)?.message ?? e).slice(0, 80)}): the plain voice spoke instead`;
+      }
+    }
   }
-  const today = new Date().toISOString().slice(0, 10);
-  if (today !== day) {
-    day = today;
-    spoken = 0;
-  }
+  const { key, hit } = await cached(melo);
+  if (hit) return { audio: hit, voice: 'melo', ...(note ? { note } : {}) };
   if (spoken >= TTS_PER_DAY) throw new SpeechError(429, 'voice allowance used up for today');
   spoken++;
   let r: { audio?: string } | null;
@@ -177,19 +243,25 @@ export async function synthesize(env: Ai, text: string): Promise<ArrayBuffer> {
   }
   if (!r?.audio || typeof r.audio !== 'string') throw new SpeechError(502, 'the voice returned no audio');
   const bytes = fromBase64(r.audio);
-  cache.set(key, bytes);
-  while (cache.size > TTS_CACHE) cache.delete(cache.keys().next().value!);
-  return bytes;
+  keep(key, bytes);
+  return { audio: bytes, voice: 'melo', ...(note ? { note } : {}) };
 }
 
-/** POST /tts { text } → audio/mpeg bytes (a day's cache on the phone; 404 with no Workers AI, 429 past the day's allowance). */
+/**
+ * POST /tts { text, voice? } → audio/mpeg bytes (a day's cache on the phone; 404 with no Workers
+ * AI, 429 past the day's allowance). `voice`: one of voices.ts, or 'auto' for the most natural;
+ * left out, the plain voice (what older copies of the app expect). `x-voice` says which voice
+ * spoke, `x-voice-note` why it was not the one asked for.
+ */
 export async function ttsRoute(env: Ai, req: Request): Promise<Response> {
-  const b = (await req.json().catch(() => ({}))) as { text?: unknown };
+  const b = (await req.json().catch(() => ({}))) as { text?: unknown; voice?: unknown };
   const text = speakable(typeof b.text === 'string' ? b.text : '').slice(0, MAX_TTS_CHARS);
   if (!text) return json({ error: 'nothing to say' }, 400);
   try {
-    const audio = await synthesize(env, text);
-    return new Response(audio, { headers: { 'content-type': 'audio/mpeg', 'content-length': String(audio.byteLength), 'cache-control': 'private, max-age=86400' } });
+    const { audio, voice, note } = await synthesizeAs(env, text, b.voice ?? 'melo');
+    const headers: Record<string, string> = { 'content-type': 'audio/mpeg', 'content-length': String(audio.byteLength), 'cache-control': 'private, max-age=86400', 'x-voice': voice };
+    if (note) headers['x-voice-note'] = note;
+    return new Response(audio, { headers });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, e instanceof SpeechError ? e.status : 502);
   }
