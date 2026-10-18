@@ -183,6 +183,9 @@ test('maze: the rules (−1 a step, −10 into a wall, mud costs more, +100 gold
 });
 
 test('maze: Q-learning — his greedy route becomes the cheapest from (nearly) every start cell', () => {
+  // Before any training WATCH still shows something: his start, then that he is stuck.
+  const fresh = MZ.maze.learner(5, 1).watch(3);
+  assert.ok(fresh.length >= 2 && /stuck/.test(fresh.at(-1).caption), fresh.map((f) => f.caption).join(' / '));
   const r = climb(MZ.maze.learner(5, 1), 0.95, 100, 5000);
   assert.ok(r.first < 0.5, `he should start knowing nothing (${r.first})`);
   assert.ok(r.last >= 0.95, `after ${r.units} runs: ${r.last}`);

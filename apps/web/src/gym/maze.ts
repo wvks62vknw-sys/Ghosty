@@ -236,12 +236,15 @@ class MazeLearner implements Learner {
     const start = this.starts[Math.floor(rng(seed)() * this.starts.length)]!;
     const { path, cost } = greedyCost(this.m, this.q, start);
     const best = this.opt[start]!;
-    return path.map((at, i) => {
-      const cells: Cell[] = [...this.m.cells].map((k, j) => (j === at ? { t: '●', c: 'me' } : k === WALL ? { c: 'wall' } : k === GOLD ? { t: '★', c: 'gold' } : path.slice(0, i).includes(j) ? { c: 'path' } : k === MUD ? { c: 'mud' } : {}));
-      const last = i === path.length - 1;
-      const caption = !last ? `Step ${i} of his route` : cost < 0 ? 'He got stuck — still learning this part of the maze.' : cost === best ? `Gold in ${cost} (the cheapest route).` : `Gold in ${cost}; the cheapest is ${best}.`;
-      return { grid: { w: this.m.w, h: this.m.h, cells }, caption };
+    const grid = (i: number) => ({
+      w: this.m.w,
+      h: this.m.h,
+      cells: [...this.m.cells].map((k, j): Cell => (j === path[i] ? { t: '●', c: 'me' } : k === WALL ? { c: 'wall' } : k === GOLD ? { t: '★', c: 'gold' } : path.slice(0, i).includes(j) ? { c: 'path' } : k === MUD ? { c: 'mud' } : {})),
     });
+    const frames: Frame[] = path.map((_, i) => ({ grid: grid(i), caption: i ? `Step ${i} of his route` : 'His start.' }));
+    // The last picture says how it went (a route that bumps a wall or goes round in circles is "stuck").
+    frames.push({ grid: grid(path.length - 1), caption: cost < 0 ? 'He got stuck — still learning this part of the maze.' : cost === best ? `Gold in ${cost} (the cheapest route).` : `Gold in ${cost}; the cheapest is ${best}.` });
+    return frames;
   }
 }
 
