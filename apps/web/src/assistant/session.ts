@@ -475,7 +475,8 @@ function followApproval(id: string): void {
     setTimeout(() => void poll(), 5000);
   };
   const forward = async () => {
-    if (sent || !waiting()) return;
+    if (!waiting()) return stop(); // answered in the app: stop following
+    if (sent) return;
     sent = true;
     const r = await brain.telegramAsk(id).catch(() => null);
     if (r?.sent || r?.already) void poll();
