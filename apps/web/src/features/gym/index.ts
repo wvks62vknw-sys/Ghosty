@@ -101,7 +101,10 @@ function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number)
   const fg = svgEl('circle', { cx: 50, cy: 50, r, class: 'rfg', 'stroke-dasharray': `0 ${C}`, transform: 'rotate(-90 50 50)' });
   const el = svgEl('svg', { viewBox: '0 0 100 100', class: cls, width: size, height: size, 'aria-hidden': 'true' });
   el.append(svgEl('circle', { cx: 50, cy: 50, r, class: 'rtrack' }), fg);
-  return { el, set: (f) => fg.setAttribute('stroke-dasharray', `${(Math.max(0, Math.min(1, f)) * C).toFixed(1)} ${C.toFixed(1)}`) };
+  return { el, set: (f) => {
+    fg.setAttribute('stroke-dasharray', `${(Math.max(0, Math.min(1, f)) * C).toFixed(1)} ${C.toFixed(1)}`);
+    fg.style.opacity = f > 0.005 ? '1' : '0'; // no dot for nothing yet (the round cap would draw one)
+  } };
 }
 
 let opener: ((id?: string) => void) | null = null;

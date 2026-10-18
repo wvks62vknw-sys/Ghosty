@@ -30,7 +30,7 @@ export const memoryTab: TabDef = {
         fp.setStatus('OFFLINE', 'off');
       }
       fg.set([...facts].reverse());
-      P.big.textContent = `${facts.length} FACTS`;
+      P.big.textContent = `${facts.length} ${facts.length === 1 ? 'FACT' : 'FACTS'}`;
     };
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });

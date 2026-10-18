@@ -22,7 +22,14 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
   const dot = h('i.light');
   const st = h('small', opts.status ?? '');
   const t = h('span.ptitle', title);
-  if (ACRONYM.test(title)) t.dataset.label = niceCase(title);
+  // The calm looks' wording for the title, kept up to date when the title changes ("WEATHER · LONDON").
+  const label = () => {
+    const s = t.textContent ?? '';
+    if (ACRONYM.test(s) || s.includes(' · ')) t.dataset.label = niceTitle(s);
+    else delete t.dataset.label;
+  };
+  label();
+  new MutationObserver(label).observe(t, { childList: true, characterData: true, subtree: true });
   const head = h('h3', dot, t, h('span.sp'), st);
   const body = h('div.bd');
   const el = h(`section.pn${opts.grow === false ? '.fx' : ''}${opts.cls ? `.${opts.cls}` : ''}` as 'section', head, body);
@@ -47,7 +54,7 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
 export function row(k: string | null, v: string | Node, n?: string | null, opts: { onClick?: () => void; sev?: number; tone?: 'up' | 'dn' | 'bad'; wrap?: boolean } = {}): HTMLElement {
   const r = h(`div.rw${opts.onClick ? '.link' : ''}${opts.wrap ? '.wrap' : ''}` as 'div');
   if (opts.sev != null) r.append(h('i.sev', { style: { background: SEV_COLORS[opts.sev] ?? SEV_COLORS[0] } }));
-  if (k != null) r.append(h('span.k', k));
+  if (k != null) r.append(h('span.k', ACRONYM.test(k) ? { dataset: { label: niceCase(k) } } : {}, k));
   r.append(typeof v === 'string' ? h('span.v', v) : h('span.v', v));
   if (n != null) r.append(h(`span.n${opts.tone ? `.${opts.tone}` : ''}` as 'span', n));
   if (opts.onClick) {
@@ -123,10 +130,17 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
 
 /** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
 const ABBR = ['I', '3D', 'GPS', 'AI', 'PDF', 'QR', 'PNG', 'JSON', 'CSV', 'URL', 'MOT', 'ISS', 'UK', 'BBC', 'CCTV', 'SMS', 'API', 'GLB', 'TV', 'FX', 'ID', 'GO', 'OK', 'AQI', 'UV', 'PM2.5'];
-export const ACRONYM = /\b(I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+export const ACRONYM = /\b(GHOSTY|UV|AQI|I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
 /** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the calm looks' wording). */
+/** A panel title: "WEATHER · LONDON" → "Weather · London" (after the dot comes a name: each word capitalised). */
+export function niceTitle(s: string): string {
+  const [head, ...rest] = s.split(' · ');
+  const name = (w: string) => w.toLowerCase().replace(/[a-z0-9.]+/g, (x) => (ABBR.includes(x.toUpperCase()) ? x.toUpperCase() : x.charAt(0).toUpperCase() + x.slice(1)));
+  return [niceCase(head ?? ''), ...rest.map(name)].join(' · ');
+}
+
 export function niceCase(s: string): string {
-  const out = s.toLowerCase().replace(/[a-z0-9.]+/g, (w) => (ABBR.includes(w.toUpperCase()) && w.toUpperCase() !== 'GO' && w.toUpperCase() !== 'OK' ? w.toUpperCase() : w));
+  const out = s.toLowerCase().replace(/[a-z0-9.]+/g, (w) => (w === 'ghosty' ? 'Ghosty' : ABBR.includes(w.toUpperCase()) && w.toUpperCase() !== 'GO' && w.toUpperCase() !== 'OK' ? w.toUpperCase() : w));
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
