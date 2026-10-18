@@ -2,17 +2,19 @@
  * The 3D STUDIO's catalogue and shelf on the phone (the search itself is shared with the brain:
  * packages/shared/src/models3d.ts).
  *  - `loadCatalog`: the Objaverse index (/data/models3d.json, a static file fetched only when the
- *    catalogue is first opened) and Poly Haven's list from the brain (/api/m3d/catalog), merged.
+ *    catalogue is first opened) and Poly Haven's list (/api/m3d/catalog: the brain passes Poly
+ *    Haven's answer through unread), read and merged here — the brain has too little CPU for it.
  *  - `thumbUrl`: a catalogue thumbnail through the brain (/api/m3d/thumb), as a blob: picture the
  *    app's security policy shows; at most a few at a time, remembered for the visit.
  *  - `fetchModel`: a model's GLB, only when opened — an Objaverse one straight from Hugging Face
- *    (connect-src allows huggingface.co and its *.hf.co download hosts), a Poly Haven one packed by
- *    the brain (/api/m3d/ph/<id>). Too-heavy files are refused before they fill the phone's memory.
+ *    (connect-src allows huggingface.co and its *.hf.co download hosts); a Poly Haven one's files
+ *    (its .gltf, .bin and 1k pictures) through the brain (/api/m3d/phfile), packed here into one GLB
+ *    (`packGlb`). Too-heavy models are refused before they fill the phone's memory.
  *  - the shelf: models made for the owner kept on this phone in IndexedDB `ghosty-studio` (the brain
  *    keeps them only 24 hours), the list apart from the files so listing never loads every model.
  */
 import { headers } from '../../api/brain';
-import { objaverseGlb, objaverseItems, type CatalogItem } from '../../../../../packages/shared/src/models3d';
+import { objaverseGlb, objaverseItems, packGlb, polyHavenItems, type CatalogItem, type Gltf } from '../../../../../packages/shared/src/models3d';
 
 /** The largest model file opened on a phone. */
 export const MAX_OPEN_BYTES = 25_000_000;
@@ -32,11 +34,11 @@ export function loadCatalog(): Promise<{ items: CatalogItem[]; note: string }> {
           return [] as CatalogItem[];
         }),
       fetch('/api/m3d/catalog', { headers: headers(), credentials: 'same-origin' })
-        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
-        .then((j: { items?: CatalogItem[]; stale?: boolean }) => {
-          if (j.stale) notes.push("Poly Haven's list is a few days old");
-          return Array.isArray(j.items) ? j.items.filter((i) => i && typeof i.id === 'string' && i.id.startsWith('ph:')) : [];
+        .then((r) => {
+          if (r.headers.get('x-catalog-stale')) notes.push("Poly Haven's list is a few days old");
+          return r.ok ? r.json() : Promise.reject(new Error(`${r.status}`));
         })
+        .then((j: unknown) => polyHavenItems(j))
         .catch(() => {
           notes.push("Poly Haven's models could not be listed just now");
           return [] as CatalogItem[];
@@ -121,13 +123,41 @@ async function readAll(r: Response, progress: (pct: number | null) => void): Pro
   return out.buffer;
 }
 
+/** A Poly Haven model packed larger than this is not opened on a phone. */
+export const MAX_PH_BYTES = 20_000_000;
+
+/** One Poly Haven file, passed through by the brain. */
+async function phFile(u: string): Promise<Response> {
+  const r = await fetch(`/api/m3d/phfile?u=${encodeURIComponent(u)}`, { headers: headers(), credentials: 'same-origin' });
+  if (!r.ok) throw new Error(((await r.clone().json().catch(() => ({}))) as { error?: string }).error ?? `the brain answered ${r.status}`);
+  return r;
+}
+
+/** A Poly Haven model: its file list, then its 1k glTF and every file it names, packed into one GLB here. */
+async function polyHavenModel(id: string, progress: (pct: number | null) => void): Promise<ArrayBuffer> {
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new Error('no such Poly Haven model');
+  const files = (await (await phFile(`https://api.polyhaven.com/files/${id}`)).json()) as { gltf?: Record<string, { gltf?: { url?: string; size?: number; include?: Record<string, { url?: string; size?: number }> } }> };
+  const g = files.gltf?.['1k']?.gltf ?? files.gltf?.['2k']?.gltf;
+  if (!g?.url) throw new Error('Poly Haven has no glTF copy of that model');
+  const include = Object.entries(g.include ?? {}).filter(([, v]) => typeof v.url === 'string');
+  const total = include.reduce((n, [, v]) => n + (typeof v.size === 'number' ? v.size : 0), 0);
+  if (total > MAX_PH_BYTES) throw new Error(`it is too heavy for the phone (${(total / 1e6).toFixed(0)} MB)`);
+  const gltf = (await (await phFile(g.url)).json()) as Gltf;
+  let done = 0;
+  const got = await Promise.all(
+    include.map(async ([name, v]) => {
+      const b = await (await phFile(v.url!)).arrayBuffer();
+      done += b.byteLength;
+      progress(total ? Math.min(99, Math.round((done / total) * 100)) : null);
+      return [name, b] as const;
+    }),
+  );
+  return packGlb(gltf, new Map(got));
+}
+
 /** A catalogue model's GLB. */
 export async function fetchModel(it: CatalogItem, progress: (pct: number | null) => void = () => undefined): Promise<ArrayBuffer> {
-  if (it.id.startsWith('ph:')) {
-    const r = await fetch(`/api/m3d/ph/${encodeURIComponent(it.id.slice(3))}`, { headers: headers(), credentials: 'same-origin' });
-    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `the brain answered ${r.status}`);
-    return readAll(r, progress);
-  }
+  if (it.id.startsWith('ph:')) return polyHavenModel(it.id.slice(3), progress);
   const url = objaverseGlb(it);
   if (!url) throw new Error('that model has no download address');
   const r = await fetch(url);
@@ -206,10 +236,13 @@ export async function listKept(): Promise<Kept[]> {
 
 /** Keep a model on this phone (the oldest go once there are MAX_KEPT). */
 export async function keep(k: Kept, glb: ArrayBuffer): Promise<void> {
-  memMeta.set(k.id, k);
-  memFiles.set(k.id, glb);
   const db = await idb();
-  if (!db) return;
+  if (!db) {
+    // No IndexedDB (a private window): kept in memory for this visit only.
+    memMeta.set(k.id, k);
+    memFiles.set(k.id, glb);
+    return;
+  }
   try {
     const tx = db.transaction(['models', 'files'], 'readwrite');
     tx.objectStore('models').put(k);
@@ -221,6 +254,9 @@ export async function keep(k: Kept, glb: ArrayBuffer): Promise<void> {
   const all = await listKept();
   for (const old of all.slice(MAX_KEPT)) await forget(old.id);
 }
+
+/** Models held in memory (only when this phone has no IndexedDB): what a test checks stays 0 otherwise. */
+export const keptInMemory = (): number => memFiles.size;
 
 /** A kept model's file, or null. */
 export async function keptFile(id: string): Promise<ArrayBuffer | null> {

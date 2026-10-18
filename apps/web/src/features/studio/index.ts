@@ -22,7 +22,7 @@ import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
 import { splineEmbedUrl } from '../../studio/spline';
 import { creditLine, goodMatch, GROUPS, searchCatalog, standIn, type CatalogItem, type SearchHit } from '../../../../../packages/shared/src/models3d';
-import { fetchModel, forget, keep, keptFile, listKept, loadCatalog, readLines, thumbUrl, type Kept } from './catalog';
+import { fetchModel, forget, keep, keptFile, keptInMemory, listKept, loadCatalog, readLines, thumbUrl, type Kept } from './catalog';
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
 import type { WalkState } from '../../studio/walk';
 
@@ -62,8 +62,10 @@ interface MadeModel {
 /** What open_studio asks for. */
 export interface StudioArgs {
   sample?: string;
-  /** A catalogue model's id ('ov:…' or 'ph:…'), from make_3d. */
+  /** A catalogue model's id ('ov:…' or 'ph:…'). */
   catalog?: string;
+  /** Words to MAKE IT from (make_3d): the catalogue first, then the brain's makers. */
+  make?: string;
   model?: string;
   title?: string;
   room?: unknown;
@@ -95,6 +97,47 @@ async function shrinkPhoto(file: File, max = 1024): Promise<Blob> {
 }
 
 const errText = (e: unknown) => String((e as Error)?.message ?? e).slice(0, 200);
+
+/** The licence's own page for a credit line, linked next to it (CC BY asks for that), or null. */
+export function licenceLink(credit: string): { label: string; href: string } | null {
+  if (/CC BY 4\.0/.test(credit)) return { label: 'CC BY 4.0', href: 'https://creativecommons.org/licenses/by/4.0/' };
+  if (/\bCC0\b/.test(credit)) return { label: 'CC0 1.0', href: 'https://creativecommons.org/publicdomain/zero/1.0/' };
+  if (/TRELLIS\.2/.test(credit)) return { label: 'MIT LICENCE', href: 'https://huggingface.co/microsoft/TRELLIS.2-4B' };
+  if (/Stable Fast 3D/.test(credit)) return { label: 'STABILITY COMMUNITY LICENCE', href: 'https://stability.ai/community-license-agreement' };
+  return null;
+}
+
+/** A SHOT with the model's credit burned into its foot (a CC BY model must stay credited when shared). */
+async function burnCredit(png: Blob, credit: string): Promise<Blob> {
+  if (!credit) return png;
+  const bmp = await createImageBitmap(png);
+  const c = h('canvas', { width: bmp.width, height: bmp.height });
+  const g = c.getContext('2d');
+  if (!g) return png;
+  g.drawImage(bmp, 0, 0);
+  bmp.close();
+  const size = Math.max(12, Math.round(c.width * 0.026));
+  g.font = `${size}px -apple-system, system-ui, sans-serif`;
+  // the credit in as many lines as it needs, never cut short
+  const lines: string[] = [];
+  let line = '';
+  for (const w of credit.split(/\s+/)) {
+    const t = line ? `${line} ${w}` : w;
+    if (g.measureText(t).width > c.width - size * 2 && line) {
+      lines.push(line);
+      line = w;
+    } else line = t;
+  }
+  if (line) lines.push(line);
+  const lh = Math.round(size * 1.35);
+  const band = lines.length * lh + size;
+  g.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  g.fillRect(0, c.height - band, c.width, band);
+  g.fillStyle = '#ffffff';
+  g.textBaseline = 'top';
+  lines.forEach((l, i) => g.fillText(l, size, c.height - band + size / 2 + i * lh));
+  return new Promise((res) => c.toBlob((b) => res(b ?? png), 'image/png'));
+}
 
 export const studioTab: TabDef = {
   id: 'studio',
@@ -251,8 +294,10 @@ export const studioTab: TabDef = {
       if (!catHits.length && q.trim()) clear(catMore, button('MAKE IT', () => ((describe.value = q.trim()), show('make'), void makeAnything(q.trim()))));
       return catHits.length;
     }
-    const showCredit = (it: CatalogItem | null) =>
-      clear(creditBox, ...(it ? [h('div.studioreadout', creditLine(it)), h('a.studiosource', { href: it.page, target: '_blank', rel: 'noopener noreferrer' }, `ITS PAGE ON ${it.source === 'Poly Haven' ? 'POLY HAVEN' : 'SKETCHFAB'} ›`)] : []));
+    const showCredit = (it: CatalogItem | null) => {
+      const lic = it ? licenceLink(creditLine(it)) : null;
+      clear(creditBox, ...(it ? [h('div.studioreadout', creditLine(it)), h('div.row.wrap', h('a.studiosource', { href: it.page, target: '_blank', rel: 'noopener noreferrer' }, `ITS PAGE ON ${it.source === 'Poly Haven' ? 'POLY HAVEN' : 'SKETCHFAB'} ›`), ...(lic ? [h('a.studiosource', { href: lic.href, target: '_blank', rel: 'noopener noreferrer license' }, `THE ${lic.label} LICENCE ›`.replace('LICENCE LICENCE', 'LICENCE'))] : []))] : []));
+    };
     async function openItem(it: CatalogItem): Promise<boolean> {
       asked = true;
       vstat.textContent = `fetching ${it.name}…`;
@@ -434,7 +479,7 @@ export const studioTab: TabDef = {
             return;
           }
         }
-        makeNote.textContent = 'Nothing real by that name — making one: a picture first, then 3-D (20 seconds to 2 minutes)…';
+        makeNote.textContent = 'Nothing real by that name — making one: a picture first, then 3-D. Usually under 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
         const r = await fetch('/api/m3d/generate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ prompt: t }), credentials: 'same-origin' });
         let model: MadeModel | null = null;
         let fail: { error?: string; code?: string } | null = null;
@@ -513,7 +558,7 @@ export const studioTab: TabDef = {
       making = true;
       makeBtn.disabled = true;
       makeStatus.classList.remove('bad');
-      makeStatus.textContent = 'Sending the photo… a textured model takes 10 seconds to 2 minutes.';
+      makeStatus.textContent = 'Sending the photo… usually 10 seconds to 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
       try {
         const r = await fetch('/api/m3d?stream=1', { method: 'POST', headers: headers({ 'content-type': 'image/jpeg', 'x-title': encodeURIComponent('From a photo') }), body: photo, credentials: 'same-origin' });
         let model: MadeModel | null = null;
@@ -546,13 +591,13 @@ export const studioTab: TabDef = {
       clear(
         makePane,
         h('div.lab', 'MAKE ANYTHING'),
-        h('div.note', 'Type one thing. Ghosty opens a real model from the catalogue when there is a good one; if not, a free generator draws it and makes it 3-D (a few a day; more with a free Hugging Face token in SYSTEM → KEYS); if the generators are busy you get a simple stand-in at once.'),
+        h('div.note', 'Type one thing. Ghosty opens a real model from the catalogue when there is a good one; if not, a free generator draws it and makes it 3-D (a few a day; more with a token from a FREE Hugging Face account in SYSTEM → KEYS — a token from an account that can pay is never used, so nothing is ever charged); if the generators are busy you get a simple stand-in at once.'),
         h('div.keyrow', describe, makeItBtn),
         makeNote,
         drawn,
         askBox,
         h('div.lab', 'PHOTO → TEXTURED 3D'),
-        h('div.note', 'A photo of ONE object works best. The background is removed and a model with its colours is made by free models on Hugging Face (TRELLIS.2 with a token, else Stable Fast 3D; Hunyuan3D-2’s plain shape when those are busy). Kept 24 hours on the brain, and on this phone.'),
+        h('div.note', 'A photo of ONE object works best. The background is removed and a model with its colours is made by free models on Hugging Face (TRELLIS.2 with a free account’s token, else Stable Fast 3D). If they are busy you are told why. Kept 24 hours on the brain, and on this phone.'),
         h('div.row.wrap', button('CHOOSE A PHOTO', () => photoIn.click()), makeBtn),
         photoIn,
         h('div.studiopics', preview, cutout),
@@ -688,7 +733,11 @@ export const studioTab: TabDef = {
     const paintState = () => {
       vtitle.textContent = V.info.title || '3D STUDIO';
       vstat.textContent = V.parts.length ? `${V.parts.length} PARTS · ${V.info.triangles.toLocaleString('en-GB')} TRIANGLES${V.selected !== null ? ` · ${V.parts[V.selected]?.name ?? ''}` : ''}` : V.error || 'no model';
-      credit.textContent = V.info.credit;
+      if (credit.dataset.text !== V.info.credit) {
+        credit.dataset.text = V.info.credit;
+        const lic = licenceLink(V.info.credit);
+        clear(credit, V.info.credit, ...(lic ? [' · ', h('a.studiolic', { href: lic.href, target: '_blank', rel: 'noopener noreferrer license' }, lic.label)] : []));
+      }
       const t = Math.round(V.explode * 100);
       slider.value = String(t);
       pct.textContent = `${t}%`;
@@ -770,13 +819,15 @@ export const studioTab: TabDef = {
       }
     };
     const screenshot = async () => {
-      const blob = await V.screenshot();
-      if (!blob) return void toast('Nothing to capture yet', 'warn');
+      const raw = await V.screenshot();
+      if (!raw) return void toast('Nothing to capture yet', 'warn');
+      const shotCredit = V.info.credit;
+      const blob = await burnCredit(raw, shotCredit).catch(() => raw);
       const name = `Ghosty 3D ${new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.')}.png`;
       const file = new File([blob], name, { type: 'image/png' });
-      S.lastShot = { bytes: blob.size, type: blob.type };
+      S.lastShot = { bytes: blob.size, type: blob.type, credit: shotCredit, burned: blob !== raw };
       if (navigator.canShare?.({ files: [file] })) {
-        navigator.share({ files: [file], title: name }).catch((e: unknown) => {
+        navigator.share({ files: [file], title: name, ...(shotCredit ? { text: shotCredit } : {}) }).catch((e: unknown) => {
           if ((e as Error)?.name !== 'AbortError') toast(`Could not share it: ${errText(e)}`, 'bad');
         });
       } else {
@@ -807,6 +858,11 @@ export const studioTab: TabDef = {
           toast(errText(e), 'warn');
         }
       } else if (a.catalog) void openCatalogId(a.catalog);
+      else if (a.make) {
+        show('make');
+        describe.value = a.make;
+        void makeAnything(a.make);
+      }
       else if (a.model) void loadMade(a.model, a.title);
       else if (a.sample) void loadSample(a.sample);
     };
@@ -814,7 +870,7 @@ export const studioTab: TabDef = {
     // ---- what a test can read and drive (window.__ghosty.studio)
     const S = {
       viewer: V,
-      lastShot: null as null | { bytes: number; type: string },
+      lastShot: null as null | { bytes: number; type: string; credit?: string; burned?: boolean },
       loadSample: (id: string) => loadSample(id),
       loadRoom: (plan: unknown) => showRoom(parseRoom(plan)),
       fromPlanner: () => fromPlanner(),
@@ -833,6 +889,7 @@ export const studioTab: TabDef = {
         makeNote: makeNote.textContent,
         photoNote: makeStatus.textContent,
         kept: keptList.map((k) => k.title),
+        keptInMemory: keptInMemory(),
         undo: history.length,
         standIn: current?.kind === 'parts',
         parts: V.parts.map((p) => ({ name: p.name, visible: p.obj.visible, pos: [p.obj.position.x, p.obj.position.y, p.obj.position.z] as [number, number, number], home: [p.home.x, p.home.y, p.home.z] as [number, number, number] })),
@@ -874,7 +931,7 @@ export const studioTab: TabDef = {
           V.start();
           const a = wanted;
           wanted = null;
-          if (a && (a.sample || a.catalog || a.model || a.room || a.spline)) apply(a);
+          if (a && (a.sample || a.catalog || a.make || a.model || a.room || a.spline)) apply(a);
           else if (first && !V.model && !asked) void loadSample('reactor');
           first = false;
           void refreshMade();

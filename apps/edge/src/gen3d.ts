@@ -2,20 +2,32 @@
  * Free 3-D generators on Hugging Face, for pictures with their colours (textured models) and for
  * "type anything": every one a public Gradio app asked like its own page (gradio.ts), never paid.
  *
- *  - Stable Fast 3D (stabilityai/stable-fast-3d): the picture's background removed, then a
- *    textured, UV-unwrapped model in a few seconds (tried for real in October 2026: ~3 s for a
- *    1.2 MB GLB with no account). It runs on ZeroGPU too, so a visitor without an account gets
- *    only a few a day per address (the next try from the same address was refused for the day's
- *    allowance); the owner's free Hugging Face token gives Ghosty its own. Its outputs are under
- *    the Stability AI Community Licence (free for people and small businesses).
- *  - TRELLIS.2 (microsoft/TRELLIS.2, the newest open image-to-3D model): textured, more detail,
- *    on ZeroGPU — only with the owner's free Hugging Face token, since a visitor without one gets
- *    about a minute of GPU a day, less than one model needs.
- *  - FLUX.1 schnell (black-forest-labs/FLUX.1-schnell, ZeroGPU): draws the object first when only
+ * NEVER BILLED: every Space here runs on ZeroGPU. A free Hugging Face account gets a small daily GPU
+ * allowance and is refused when it runs out; a PRO, Team or Enterprise account (or one that can
+ * pay) is charged pre-paid credits instead (huggingface.co/docs/hub/spaces-zerogpu). So the owner's
+ * token is sent to a Space only after `spaceToken` has asked Hugging Face (whoami-v2) that it
+ * belongs to a free account that cannot pay; otherwise the Spaces are asked without it.
+ *
+ * Licences (each checked for clauses that leave out the UK, where the owner lives):
+ *  - Stable Fast 3D (stabilityai/stable-fast-3d): background removed by rembg's default u2net
+ *    (Apache 2.0), then a textured model in a few seconds (tried for real in October 2026: ~3 s for
+ *    a 1.2 MB GLB with no account; the next try from the same address was refused for the day's
+ *    allowance). Stability AI Community Licence: worldwide, free for personal use and businesses
+ *    under US$1M a year; no territory left out.
+ *  - TRELLIS.2 (microsoft/TRELLIS.2-4B, the newest open image-to-3D model): weights MIT. It sees the
+ *    picture through Meta's DINOv3 (the DINOv3 Licence: worldwide, with export and military-use
+ *    limits; no territory left out). Its Space removes the background with BRIA RMBG-2.0, whose
+ *    weights are CC BY-NC 4.0 — non-commercial use only, which a personal assistant is. Only with
+ *    the owner's free token: a visitor without one gets less GPU a day than one model needs.
+ *  - FLUX.1 schnell (black-forest-labs/FLUX.1-schnell): Apache 2.0. Draws the object first when only
  *    words were given and Workers AI's own FLUX (make_picture) is not at hand.
- * The shape-only Hunyuan3D-2 maker stays in model3d.ts as the last free fallback.
+ *  - Hunyuan3D-2 (Tencent) is NOT used: its licence "does not apply in the European Union, United
+ *    Kingdom and South Korea" (the same for Hunyuan3D-2.1). When the free makers are busy the studio
+ *    shows a stand-in built from shapes instead.
  */
 import { fileData, GradioApp, isGlb, MAX_MODEL_BYTES, Model3dError, type GradioDeps } from './gradio';
+
+export { spaceToken } from './gradio';
 import { fromBase64 } from './speech';
 
 export const SF3D = 'https://stabilityai-stable-fast-3d.hf.space';

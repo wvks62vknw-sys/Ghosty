@@ -1180,6 +1180,9 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .studiosource { align-self: flex-start; font: 500 10px var(--d); letter-spacing: .12em; color: var(--c); text-decoration: none; }
 .studiopics { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .studiopics .studiothumb { max-width: calc(50% - 3px); }
+/* the scene's credit is never cut short: it wraps (two lines on a phone), with its licence linked */
+.studioview .studiocredit { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+.studiocredit a.studiolic { pointer-events: auto; color: var(--c); text-decoration: underline; }
 /* ---- SYSTEM → OFFLINE BRAIN REPORT CARD: scores per kind (as in chat / THINK HARDER / time), the verdict, the weeks ---- */
 .reportcard .bd { display: flex; flex-direction: column; gap: 6px; }
 .reportcard .keyrow { flex-wrap: wrap; }

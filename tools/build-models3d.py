@@ -18,6 +18,9 @@ MAX_MB = 12
 MAX_FACES = 200_000
 MAX_TEX = 2048
 LICENCES = {'cc0': 0, 'by': 1}
+# Brands and franchises are left out: a fan-made Pokémon or a modelled Gucci bag is licensed by its
+# modeller, not by the owner of the name (the same list as BRANDS in packages/shared/src/models3d.ts).
+BRANDS = re.compile(r"\b(?:lego|pok[eé]mon|pikachu|gucci|adidas|nike|fifa|minecraft|disney|pixar|marvel|star ?wars|nintendo|super ?mario|sonic the|batman|spider-?man|coca-?cola|pepsi|starbucks|mcdonald'?s|louis ?vuitton|chanel|rolex|ferrari|lamborghini|porsche|harley-?davidson|playstation|xbox|hello ?kitty|harry ?potter|fortnite|pubg|call of duty|zelda|transformers|barbie|hot ?wheels|balenciaga|yeezy|among ?us|roblox|overwatch|genshin|naruto|dragon ?ball|warhammer|iron ?man|avengers|mandalorian|simpsons|spongebob|peppa ?pig|paw ?patrol)\b", re.I)
 
 src, out = sys.argv[1], sys.argv[2]
 lvis = json.load(gzip.open(os.path.join(src, 'lvis.json.gz')))
@@ -73,6 +76,8 @@ for sh in shards:
         words = set(re.findall(r'[a-z]+', (str(m.get('name') or '') + ' ' + ' '.join(tags)).lower()))
         head = [w for w in re.findall(r'[a-z]+', cat.split('(')[0].lower()) if len(w) > 2]
         named = any(w in words or w.rstrip('s') in words or w + 's' in words for w in head)
+        if BRANDS.search(f"{m.get('name') or ''} {clean_cat(cat)} {' '.join(tags)}"):
+            continue
         cands.setdefault(cat, []).append(((1 if named else 0, score), [u, shard, clean_name(m.get('name')) or clean_cat(cat), lic, author, round(size / 1000), faces, t['url'][len(THUMB) + len(u) + 12:], ' '.join(tags)]))
 
 cats = []

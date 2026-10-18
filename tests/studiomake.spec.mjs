@@ -16,6 +16,17 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const chairGlb = readFileSync(new URL('../apps/web/public/models/SheenChair.glb', import.meta.url));
 const sofaGlb = readFileSync(new URL('../apps/web/public/models/GlamVelvetSofa.glb', import.meta.url));
+// Poly Haven sends a model as a .gltf, a .bin and its pictures: the sample sofa split that way, for the phone to pack.
+const sofaParts = (() => {
+  const v = new DataView(sofaGlb.buffer, sofaGlb.byteOffset, sofaGlb.byteLength);
+  const jl = v.getUint32(12, true);
+  const json = JSON.parse(sofaGlb.subarray(20, 20 + jl).toString('utf8'));
+  const bl = v.getUint32(20 + jl, true);
+  json.buffers = [{ uri: 'Sofa_01.bin', byteLength: bl }];
+  return { gltf: JSON.stringify(json), bin: sofaGlb.subarray(28 + jl, 28 + jl + bl) };
+})();
+const PH = 'https://dl.polyhaven.org/file/ph-assets/Models/';
+const phFiles = { gltf: { '1k': { gltf: { url: `${PH}gltf/1k/Sofa_01/Sofa_01_1k.gltf`, size: 100, include: { 'Sofa_01.bin': { url: `${PH}gltf/4k/Sofa_01/Sofa_01.bin`, size: sofaParts.bin.length } } } } } };
 const truckGlb = readFileSync(new URL('../apps/web/public/models/CesiumMilkTruck.glb', import.meta.url));
 // a 2×2 PNG for thumbnails, the drawing and the cut-out
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR4nGP4z8DwnwEJMDEQAwBEOAH/5HBxEwAAAABJRU5ErkJggg==', 'base64');
@@ -50,10 +61,20 @@ await page.route('https://huggingface.co/datasets/allenai/objaverse/**', (route)
 });
 // The brain: Poly Haven's list (one sofa), its GLB, thumbnails, the generator and the photo maker.
 const thumbsAsked = [];
+// Poly Haven's own list, passed through by the brain unread (the phone reads it)
 await page.route('**/api/m3d/catalog', (route) =>
-  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ at: Date.now(), items: [{ id: 'ph:Sofa_01', name: 'Sofa 01', cat: 'sofas', group: 'Furniture', tags: ['sofa', 'couch'], licence: 'CC0', author: 'Some Haven Artist', source: 'Poly Haven', kb: 0, faces: 30000, thumb: 'https://cdn.polyhaven.com/asset_img/thumbs/Sofa_01.png?width=256', page: 'https://polyhaven.com/a/Sofa_01' }] }) }),
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ Sofa_01: { name: 'Sofa 01', type: 2, categories: ['furniture', 'seating'], tags: ['sofa', 'couch'], authors: { 'Some Haven Artist': 'All' }, polycount: 30000, category: 'Furniture/Seating/Sofas', thumbnail_url: 'https://cdn.polyhaven.com/asset_img/thumbs/Sofa_01.png?width=256' } }) }),
 );
-await page.route('**/api/m3d/ph/Sofa_01', (route) => route.fulfill({ status: 200, contentType: 'model/gltf-binary', body: sofaGlb }));
+// and a model's files, one by one, for the phone to pack into one GLB
+const phAsked = [];
+await page.route('**/api/m3d/phfile?**', (route) => {
+  const u = new URL(route.request().url()).searchParams.get('u');
+  phAsked.push(u);
+  if (u === 'https://api.polyhaven.com/files/Sofa_01') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(phFiles) });
+  if (u.endsWith('.gltf')) return route.fulfill({ status: 200, contentType: 'application/json', body: sofaParts.gltf });
+  if (u.endsWith('.bin')) return route.fulfill({ status: 200, contentType: 'application/octet-stream', body: sofaParts.bin });
+  return route.fulfill({ status: 404, body: '{}' });
+});
 await page.route('**/api/m3d/thumb?**', (route) => {
   thumbsAsked.push(new URL(route.request().url()).searchParams.get('u'));
   return route.fulfill({ status: 200, contentType: 'image/png', body: PNG });
@@ -129,10 +150,22 @@ if (!/ by .+ · (CC0|CC BY 4\.0)/.test(st.credit)) problems.push(`the opened mod
 if (!(await page.locator('#pg-studio .studiocredit').textContent()).includes(st.credit)) problems.push('the credit is not shown on the scene');
 if (!(await page.locator('#pg-studio a.studiosource', { hasText: 'ITS PAGE ON' }).count())) problems.push('no link to the model\'s own page');
 if (!hfAsked.length) problems.push('the model was not fetched from Hugging Face');
+// the licence is linked next to the credit, on the scene and in the pane
+const lic = await page.evaluate(() => ({ scene: document.querySelector('#pg-studio .studiocredit a.studiolic')?.href ?? '', pane: [...document.querySelectorAll('#pg-studio .studiocredits a')].map((a) => a.href) }));
+if (!/^https:\/\/creativecommons\.org\/(licenses\/by\/4\.0|publicdomain\/zero\/1\.0)\/$/.test(lic.scene)) problems.push(`no licence link next to the scene's credit: ${JSON.stringify(lic)}`);
+if (!lic.pane.some((h) => h.startsWith('https://creativecommons.org/'))) problems.push(`no licence link in the pane: ${JSON.stringify(lic)}`);
+// the scene's credit is never cut short: it wraps
+const cut = await page.evaluate(() => { const c = document.querySelector('#pg-studio .studiocredit'); const cs = getComputedStyle(c); return { ws: cs.whiteSpace, over: c.scrollWidth > c.clientWidth + 1, to: cs.textOverflow }; });
+if (cut.ws === 'nowrap' || cut.over || cut.to === 'ellipsis') problems.push(`the scene's credit can be cut short: ${JSON.stringify(cut)}`);
+// SHOT carries the credit: burned into the picture and given as the share text
+await page.evaluate(() => (window.__ghosty.studio.lastShot = null));
+await btn('SHOT').click();
+await until(() => window.__ghosty.studio.lastShot?.burned === true && window.__ghosty.studio.lastShot.credit === window.__ghosty.studio.state().credit, 30000, `SHOT does not carry the credit: ${JSON.stringify(await page.evaluate(() => window.__ghosty.studio.lastShot))}`);
 await page.screenshot({ path: `${out}/studiomake-opened.png` });
 // a Poly Haven one, through the brain
 await page.evaluate(() => window.__ghosty.studio.openCatalog('ph:Sofa_01'));
 await until(() => window.__ghosty.studio.state().title === 'Sofa 01' && /Some Haven Artist · CC0/.test(window.__ghosty.studio.state().credit), 30000, `the Poly Haven model did not open with its credit: ${JSON.stringify((await S())?.credit)}`);
+if (!['https://api.polyhaven.com/files/Sofa_01', `${PH}gltf/1k/Sofa_01/Sofa_01_1k.gltf`, `${PH}gltf/4k/Sofa_01/Sofa_01.bin`].every((u) => phAsked.includes(u))) problems.push(`the Poly Haven files were not fetched through the brain: ${JSON.stringify(phAsked)}`);
 let wide = await sideways();
 if (wide.length) problems.push(`MODELS sticks out sideways: ${wide.join(', ')}`);
 
@@ -150,6 +183,7 @@ if (!/Stable Fast 3D/.test(st.credit)) problems.push(`the generated model is not
 if (!(await page.locator('#pg-studio img[alt="The picture it is being made from"]').isVisible())) problems.push('the drawing was not shown');
 if (generated[0]?.prompt !== 'a velvet couch') problems.push(`the generator was asked ${JSON.stringify(generated)}`);
 await until(() => window.__ghosty.studio.state().kept.includes('a velvet couch'), 5000, 'the made model was not kept on the phone');
+if ((await S()).keptInMemory !== 0) problems.push('a kept model is also held in memory although IndexedDB keeps it');
 await page.screenshot({ path: `${out}/studiomake-made.png` });
 // busy: a stand-in at once, the reason in words, TRY AGAIN; UNDO goes back
 genAnswer = 'busy';
@@ -196,6 +230,12 @@ if (!/Stable Fast 3D/.test((await S()).credit)) problems.push('the photo model i
 await page.screenshot({ path: `${out}/studiomake-photo.png` });
 wide = await sideways();
 if (wide.length) problems.push(`PHOTO sticks out sideways: ${wide.join(', ')}`);
+
+// ---- make_3d's words reach the studio (open_studio {make}): it looks in the catalogue first, on the phone ----
+const before = generated.length;
+await page.evaluate(() => window.__ghosty.run('open_studio', { make: 'a kettle' }));
+await until(() => /^Found a real model: “.+” by .+ · CC/.test(window.__ghosty.studio.state().makeNote), 30000, `open_studio {make} did not open a real kettle: ${JSON.stringify((await S())?.makeNote)}`);
+if (generated.length !== before) problems.push('the generator was asked for a kettle the catalogue has');
 
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);

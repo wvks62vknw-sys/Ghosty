@@ -43,6 +43,8 @@ export interface GradioEvent {
   progress_data?: { index?: number; length?: number | null; unit?: string; desc?: string | null }[] | null;
   success?: boolean;
   output?: { data?: unknown[]; error?: string | null; title?: string | null };
+  /** An unexpected_error's own words. */
+  message?: string | null;
 }
 
 /** Every `data:` message in an event-stream text (a partial last line is left out). */
@@ -103,7 +105,7 @@ export function retryIn(message: string): string | null {
 
 /** The owner-facing reason a queue run failed. */
 export function failureText(ev: GradioEvent | null, hasToken: boolean): { status: number; text: string; code: Model3dError['code'] } {
-  const raw = String(ev?.output?.error ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const raw = String(ev?.output?.error ?? ev?.message ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const title = String(ev?.output?.title ?? '');
   if (ev?.msg === 'queue_full') return { status: 503, text: 'the free 3-D model maker is full right now — try again in a few minutes', code: 'busy' };
   if (/quota|runn+ing out of daily/i.test(`${title} ${raw}`)) {
@@ -208,6 +210,14 @@ export class GradioApp {
 
   /** Read the app; throws in words when it is asleep or has changed. */
   async open(needs: string[]): Promise<void> {
+    // Never billed: the token goes to a ZeroGPU Space only from a free account that cannot pay.
+    if (this.d.token) {
+      const t = await spaceToken(this.d.token, this.d.fetch);
+      if (!t.token) {
+        this.d = { ...this.d, token: null };
+        this.d.progress?.(t.why);
+      }
+    }
     const r = await this.get(`${this.root}/config`);
     if (!r.ok) throw new Model3dError(503, `${this.label} is not running right now (${r.status}) — it sleeps when nobody uses it; try again in a few minutes`, 'busy');
     this.config = await r.json();
@@ -246,4 +256,36 @@ export class GradioApp {
   fileUrl(data: unknown[], ext = ''): string | null {
     return fileFrom(data, this.base, ext) ?? (this.base !== this.root ? fileFrom(data, this.root, ext) : null);
   }
+}
+
+/** Kept for an hour per token, so one model costs one look-up. */
+const checked = new Map<string, { at: number; free: boolean; why: string }>();
+
+/**
+ * The owner's Hugging Face token when it is safe to send to a ZeroGPU Space — a free account that
+ * cannot pay — else null and the reason. Fails closed: no answer, an unknown answer, PRO, a card on
+ * file (canPay) or any organisation on a paid plan all mean "do not send it".
+ */
+export async function spaceToken(token: string | null | undefined, f: typeof fetch, now = Date.now()): Promise<{ token: string | null; why: string }> {
+  if (!token) return { token: null, why: '' };
+  const memo = checked.get(token);
+  if (memo && now - memo.at < 3_600_000) return { token: memo.free ? token : null, why: memo.why };
+  let free = false;
+  let why = "Hugging Face could not say whether your token's account can be charged, so the free GPUs are asked without it";
+  try {
+    const r = await f('https://huggingface.co/api/whoami-v2', { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+    if (r.ok) {
+      const w = (await r.json()) as { type?: unknown; isPro?: unknown; canPay?: unknown; orgs?: unknown };
+      const orgs = Array.isArray(w.orgs) ? (w.orgs as { isEnterprise?: unknown; canPay?: unknown; plan?: unknown }[]) : null;
+      const paidOrg = !orgs || orgs.some((o) => !o || o.isEnterprise === true || o.canPay === true || (typeof o.plan === 'string' && o.plan !== 'free'));
+      if (w.type === 'user' && w.isPro === false && w.canPay !== true && !paidOrg) {
+        free = true;
+        why = '';
+      } else why = 'your Hugging Face token belongs to an account that can be charged for GPU time (PRO, a card on file, or a paid organisation), so Ghosty never sends it to the free GPUs — use a token from a free account with no card';
+    }
+  } catch {
+    // no answer: not sent
+  }
+  checked.set(token, { at: now, free, why });
+  return { token: free ? token : null, why };
 }

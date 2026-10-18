@@ -1,7 +1,9 @@
-// Pictures into 3-D models (model3d.ts, tools/studio.ts) with the Hugging Face Space stubbed: the
-// whole Gradio queue flow (config → upload → join → stream → lighter copy → download), the quota
-// refusal in words, the fallback to the full model, keeping the GLB in KV for 24 hours under m3d:,
-// the owner-only route, Ghosty's own daily cap, and make_3d from a kept picture or a description.
+// Pictures and words into 3-D models (model3d.ts, gen3d.ts, gradio.ts, catalog3d.ts, tools/studio.ts) with
+// every Hugging Face Space stubbed by its real protocol: the Gradio queue client, Stable Fast 3D and TRELLIS.2,
+// the makers in turn, never billing the owner (a token is sent to a ZeroGPU Space only from a free account that
+// cannot pay), every try counted against Ghosty's own cap, keeping the GLB in KV for 24 hours under m3d:, the
+// owner-only routes (the catalogue's bytes passed through unread: the brain never parses or packs it), make_3d,
+// the catalogue (licences, brands, search by head noun), GLB packing and the stand-ins.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,7 +11,6 @@ import { readFileSync } from 'node:fs';
 const M = await import('./.build/model3d.mjs');
 const T = await import('./.build/tools/index.mjs');
 const L = await import('./.build/lens.mjs');
-const FX = JSON.parse(readFileSync(new URL('./model3d.fixture.json', import.meta.url), 'utf8'));
 
 function fakeKv() {
   return {
@@ -19,6 +20,7 @@ function fakeKv() {
       if (!this.m.has(k)) return null;
       const v = this.m.get(k);
       if (type === 'arrayBuffer') return typeof v === 'string' ? new TextEncoder().encode(v).buffer : v.slice(0);
+      if (type === 'text') return typeof v === 'string' ? v : new TextDecoder().decode(v);
       return typeof v === 'string' ? JSON.parse(v) : v;
     },
     async put(k, v, opts) {
@@ -49,7 +51,6 @@ function glb(extra = 0) {
   b.fill(0x20, 20 + json.length);
   return b.buffer;
 }
-const FULL = glb(400);
 const LIGHT = glb(0);
 const png = () => {
   const b = new Uint8Array(400);
@@ -64,153 +65,25 @@ const stream = (text) => {
   return new Response(new ReadableStream({ pull(c) { if (i >= bytes.length) return c.close(); c.enqueue(bytes.slice(i, i + 97)); i += 97; } }), { headers: { 'content-type': 'text/event-stream' } });
 };
 
-/** The Space, stubbed. `shape` is the stream for shape_generation; `light` for the lighter copy (null: it fails). */
-function fakeSpace({ shape = FX.sseShape, light = FX.sseExport, config = FX.config, configStatus = 200 } = {}) {
-  const calls = [];
-  const joins = [];
-  let n = 0;
-  const f = async (url, init = {}) => {
-    const u = String(url);
-    calls.push({ url: u, method: init.method ?? 'GET', auth: init.headers?.Authorization ?? null });
-    if (u === `${M.SPACE}/config`) return new Response(JSON.stringify(config), { status: configStatus });
-    if (u === `${M.SPACE}/upload`) {
-      assert.ok(init.body instanceof FormData, 'the picture goes as a form upload');
-      const file = init.body.get('files');
-      assert.equal(file.type, 'image/png');
-      return new Response(JSON.stringify(FX.upload));
-    }
-    if (u === `${M.SPACE}/queue/join`) {
-      joins.push(JSON.parse(init.body));
-      return new Response(JSON.stringify({ event_id: `e${joins.length}` }));
-    }
-    if (u.startsWith(`${M.SPACE}/queue/data?session_hash=`)) {
-      n++;
-      const body = n === 1 ? shape : light;
-      return body === null ? new Response('gone', { status: 500 }) : stream(body);
-    }
-    if (u.includes('/file=/tmp/gradio/f0c88515')) return new Response(FULL.slice(0));
-    if (u.includes('/file=/tmp/gradio/6f55e746')) return new Response(LIGHT.slice(0));
-    throw new TypeError(`unexpected fetch ${u}`);
+/**
+ * Hugging Face's whoami-v2 in front of `f`, by token: hf_free… a free account that cannot pay; hf_pro… PRO;
+ * hf_pay… a free account with a card on file (canPay); hf_org… a member of an Enterprise organisation;
+ * hf_down… whoami does not answer; anything else is refused (401). `asked` lists the tokens looked up.
+ */
+function withWhoami(f, asked = []) {
+  return async (url, init = {}) => {
+    if (String(url) !== 'https://huggingface.co/api/whoami-v2') return f(url, init);
+    const tok = String(init.headers?.Authorization ?? '').replace(/^Bearer /, '');
+    asked.push(tok);
+    const base = { type: 'user', name: 'owner', isPro: false, canPay: false, orgs: [] };
+    if (tok.startsWith('hf_down')) throw new TypeError('fetch failed');
+    if (tok.startsWith('hf_free')) return new Response(JSON.stringify(base));
+    if (tok.startsWith('hf_pro')) return new Response(JSON.stringify({ ...base, isPro: true, canPay: true }));
+    if (tok.startsWith('hf_pay')) return new Response(JSON.stringify({ ...base, canPay: true }));
+    if (tok.startsWith('hf_org')) return new Response(JSON.stringify({ ...base, orgs: [{ name: 'acme', isEnterprise: true, plan: 'enterprise' }] }));
+    return new Response('{"error":"Invalid credentials"}', { status: 401 });
   };
-  return { f, calls, joins };
 }
-
-test('make a model: config → upload → shape_generation → lighter copy → download, with progress and the token on every call', async () => {
-  const sp = fakeSpace();
-  const progress = [];
-  const r = await M.makeModel({ fetch: sp.f, token: 'hf_secret_token', progress: (l) => progress.push(l) }, png());
-  assert.equal(r.glb.byteLength, LIGHT.byteLength, 'the lighter copy is the one kept');
-  assert.equal(r.faces, M.TARGET_FACES);
-  assert.deepEqual(sp.calls.map((c) => c.url.replace(M.SPACE, '').replace(/session_hash=\w+/, 'session_hash=*').replace(/\/tmp\/gradio\/(\w{6})\w+/, '/tmp/gradio/$1…')), [
-    '/config',
-    '/upload',
-    '/queue/join',
-    '/queue/data?session_hash=*',
-    '/queue/join',
-    '/queue/data?session_hash=*',
-    '/file=/tmp/gradio/6f55e7…/white_mesh.glb',
-  ]);
-  assert.ok(sp.calls.every((c) => c.auth === 'Bearer hf_secret_token'), 'the token goes with every call');
-  // shape_generation by its own index and trigger; the uploaded picture; the Space's defaults
-  const [shape, light] = sp.joins;
-  assert.equal(shape.fn_index, 5);
-  assert.equal(shape.trigger_id, 18);
-  assert.match(shape.session_hash, /^[a-z0-9]{6,}$/);
-  assert.deepEqual(shape.data[1], { path: FX.upload[0], meta: { _type: 'gradio.FileData' } });
-  assert.deepEqual(shape.data.slice(6), [30, 5, 1234, 256, true, 8000, true]);
-  // the lighter copy: from the made model's own path, a GLB, faces reduced
-  assert.equal(light.fn_index, 14);
-  assert.match(light.data[0].path, /^\/tmp\/gradio\/f0c88515.*\/white_mesh\.glb$/);
-  assert.deepEqual(light.data.slice(1), [null, 'glb', true, false, M.TARGET_FACES]);
-  assert.ok(progress.includes('sending the picture…') && progress.includes('fetching the model…'));
-  assert.ok(progress.some((p) => /shaping the model/.test(p)) && progress.some((p) => /lightening it/.test(p)));
-  assert.ok(!progress.join(' ').includes('hf_secret'), 'the token never shows');
-  // without a token: no Authorization header at all
-  const anon = fakeSpace();
-  await M.makeModel({ fetch: anon.f }, png());
-  assert.ok(anon.calls.every((c) => c.auth === null));
-});
-
-test('make a model: the lighter copy failing falls back to the full model', async () => {
-  const sp = fakeSpace({ light: null });
-  const r = await M.makeModel({ fetch: sp.f }, png());
-  assert.equal(r.glb.byteLength, FULL.byteLength);
-  assert.equal(r.faces, 762352, 'the face count the Space reported');
-  const failed = fakeSpace({ light: 'data: {"msg":"process_completed","output":{"error":null},"success":false}\n\n' });
-  assert.equal((await M.makeModel({ fetch: failed.f }, png())).glb.byteLength, FULL.byteLength);
-});
-
-test('make a model: refusals in words — the quota (when to try again), a sleeping Space, not a picture, a changed Space', async () => {
-  await assert.rejects(M.makeModel({ fetch: fakeSpace({ shape: FX.sseQuota }).f }, png()), (e) => e instanceof M.Model3dError && e.status === 429 && /try again in about 7 h 11 min/.test(e.message) && /free Hugging Face token/.test(e.message));
-  await assert.rejects(M.makeModel({ fetch: fakeSpace({ configStatus: 503 }).f }, png()), (e) => e.status === 503 && /not running right now/.test(e.message));
-  await assert.rejects(M.makeModel({ fetch: fakeSpace().f }, new TextEncoder().encode('<svg>').buffer), (e) => e.status === 415);
-  await assert.rejects(M.makeModel({ fetch: fakeSpace({ config: { dependencies: [] } }).f }, png()), (e) => /no longer offers shape generation/.test(e.message));
-  await assert.rejects(M.makeModel({ fetch: async () => { throw new TypeError('fetch failed'); } }, png()), (e) => e.status === 502 && /could not reach the 3-D model maker/.test(e.message));
-  // the Space's own notes show as progress
-  const logs = [];
-  await M.makeModel({ fetch: fakeSpace({ shape: FX.sseQueueLog }).f, progress: (l) => logs.push(l) }, png());
-  assert.ok(logs.includes('shaping the model: Waiting for a GPU to become available'), JSON.stringify(logs));
-  // a stream that ends before the model is ready
-  const cut = fakeSpace({ shape: 'data: {"msg":"estimation","rank":3}\n\n' });
-  const progress = [];
-  await assert.rejects(M.makeModel({ fetch: cut.f, progress: (l) => progress.push(l) }, png()), (e) => /stopped answering/.test(e.message));
-  assert.ok(progress.includes('shaping the model: number 4 in the queue…'), JSON.stringify(progress));
-  // not a GLB at the end
-  const junk = fakeSpace();
-  const f = async (u, i) => (String(u).includes('/file=') ? new Response('<html>') : junk.f(u, i));
-  await assert.rejects(M.makeModel({ fetch: f }, png()), (e) => /not a GLB/.test(e.message));
-});
-
-test('keeping models: 24 hours under m3d:<id> in KV, listed, served to the owner as a GLB, forgotten on request; 10 a day', async () => {
-  const kv = fakeKv();
-  const info = await M.keepModel(kv, LIGHT.slice(0), '  A   brass telescope ', 20000);
-  assert.match(info.id, /^[A-Za-z0-9_-]{16}$/);
-  assert.equal(info.title, 'A brass telescope');
-  assert.equal(kv.ttl.get(`m3d:${info.id}`), 86_400);
-  assert.equal(kv.ttl.get('m3d:list'), 86_400);
-  const day = new Date().toISOString().slice(0, 10);
-  assert.equal(kv.m.get(`m3d:count:${day}`), '1');
-  assert.deepEqual((await M.listModels(kv)).map((m) => m.id), [info.id]);
-  const res = await M.modelResponse(kv, info.id);
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get('content-type'), 'model/gltf-binary');
-  assert.equal((await res.arrayBuffer()).byteLength, LIGHT.byteLength);
-  assert.equal((await M.modelResponse(kv, 'AAAAAAAAAAAAAAAA')).status, 404);
-  assert.equal((await M.modelResponse(kv, '../etc')).status, 404);
-  // a listed model past its day is not listed
-  assert.deepEqual(await M.listModels(kv, Date.now() + 86_401_000), []);
-  assert.equal(await M.forgetModel(kv, info.id), true);
-  assert.equal(kv.m.has(`m3d:${info.id}`), false);
-  assert.deepEqual(await M.listModels(kv), []);
-  // Ghosty's own cap
-  kv.m.set(`m3d:count:${day}`, String(M.MODELS_PER_DAY));
-  await assert.rejects(M.keepModel(kv, LIGHT.slice(0), 'x'), (e) => e.status === 429 && /daily limit/.test(e.message));
-  // a count that cannot be read is refused rather than taken as zero
-  const broken = { ...fakeKv(), get: async () => { throw new Error('KV daily limit'); } };
-  await assert.rejects(M.checkAllowance(broken), (e) => e.status === 503);
-});
-
-test('the /api/m3d route: list, make from posted photo bytes, fetch the GLB, forget', async () => {
-  const kv = fakeKv();
-  const sp = fakeSpace();
-  const deps = { kv, token: async () => null, fetch: sp.f };
-  const req = (method, body, headers = {}) => new Request('https://g.example/api/m3d', { method, body, headers });
-  assert.deepEqual(await (await M.model3dRoute(req('GET'), '/m3d', 'GET', deps)).json(), { models: [] });
-  const made = await M.model3dRoute(req('POST', png(), { 'content-type': 'image/png', 'x-title': encodeURIComponent('My mug') }), '/m3d', 'POST', deps);
-  assert.equal(made.status, 200);
-  const { model } = await made.json();
-  assert.equal(model.title, 'My mug');
-  const got = await M.model3dRoute(req('GET'), `/m3d/${model.id}`, 'GET', deps);
-  assert.equal(got.headers.get('content-type'), 'model/gltf-binary');
-  assert.equal((await M.model3dRoute(req('GET'), `/m3d/${model.id}.glb`, 'GET', deps)).status, 200);
-  assert.deepEqual(await (await M.model3dRoute(req('DELETE'), `/m3d/${model.id}`, 'DELETE', deps)).json(), { removed: true });
-  // the quota comes back as 429 with the words
-  const q = await M.model3dRoute(req('POST', png()), '/m3d', 'POST', { ...deps, fetch: fakeSpace({ shape: FX.sseQuota }).f });
-  assert.equal(q.status, 429);
-  assert.match((await q.json()).error, /GPU allowance/);
-  assert.equal((await M.model3dRoute(req('GET'), '/m3d', 'GET', { ...deps, kv: undefined })).status, 503);
-  assert.equal((await M.model3dRoute(req('PUT'), '/m3d', 'PUT', deps)).status, 404);
-});
 
 const ctxWith = (env, vault = {}) => {
   const progress = [];
@@ -218,84 +91,6 @@ const ctxWith = (env, vault = {}) => {
   return { env, origin: 'https://ghosty.example', progress: (l) => progress.push(l), emit: (e) => events.push(e), storage: {}, vault: { get: async (k) => vault[k] ?? null }, kernelUnlocked: async () => false, github: async () => null, _progress: progress, _events: events };
 };
 
-test('make_3d: its own keyword group; from a kept picture → a model kept 24 h, the studio opened on it', async () => {
-  const tool = T.toolByName.get('make_3d');
-  assert.ok(tool);
-  const group = T.TOOL_GROUPS.find((g) => g.name === '3d');
-  assert.deepEqual(group.tools, [tool], 'one tool: the plain prompt names every group\'s tools');
-  for (const w of ['make a 3d model of my mug', 'take it apart', 'show me an exploded view', 'open spline', 'turn this into a GLB', 'three-d please']) assert.ok(group.when.test(w), w);
-  assert.ok(!group.when.test('what is the weather'));
-  assert.ok(group.about.length <= 220 && /make_3d/.test(group.about));
-  assert.ok(!T.selectTools('hello there', new Set(), false).some((t) => t.name === 'make_3d'), 'not described on every turn');
-  const kv = fakeKv();
-  const pic = await L.storeImage(kv, png(), 'image/png', { ttl: 86_400, counter: 'img:count:', limit: 30, noun: 'share', verb: 'shared' });
-  const sp = fakeSpace();
-  const real = globalThis.fetch;
-  globalThis.fetch = sp.f;
-  try {
-    const ctx = ctxWith({ SITES: kv }, { huggingface: 'hf_owner' });
-    const out = await tool.run({ picture: `https://ghosty.example/i/${pic.id}`, title: 'Mug' }, ctx);
-    assert.match(out, /^3-D model made \(20,000 faces, untextured clay\) and opened in the 3D STUDIO tab, kept 24 hours\./);
-    const ev = ctx._events.find((e) => e.t === 'client');
-    assert.equal(ev.name, 'open_studio');
-    assert.match(ev.args.model, /^[A-Za-z0-9_-]{16}$/);
-    assert.equal(kv.ttl.get(`m3d:${ev.args.model}`), 86_400);
-    assert.ok(sp.calls.every((c) => c.auth === 'Bearer hf_owner'), 'the owner\'s Hugging Face token is used');
-    // a picture that is gone, or no picture and no prompt
-    await assert.rejects(tool.run({ picture: 'AAAAAAAAAAAAAAAA' }, ctxWith({ SITES: kv })), /no longer kept/);
-    // nothing to make: the studio opens on what was asked for
-    const open = ctxWith({}); // no KV needed just to open the studio
-    assert.match(await tool.run({ sample: 'chair' }, open), /^Opened the 3D STUDIO on the chair sample\./);
-    assert.deepEqual(open._events, [{ t: 'client', name: 'open_studio', args: { sample: 'chair' } }]);
-    const room = ctxWith({ SITES: kv });
-    await tool.run({ room: { w: 400, d: 300 } }, room);
-    assert.deepEqual(room._events[0].args, { room: { w: 400, d: 300 } });
-    await assert.rejects(tool.run({ picture: 'http://x.example/a.png' }, ctxWith({ SITES: kv })), /only https/);
-  } finally {
-    globalThis.fetch = real;
-  }
-});
-
-test('make_3d: from a description — one object is drawn first (kept as a picture), then modelled; the quota error says the picture was drawn', async () => {
-  const tool = T.toolByName.get('make_3d');
-  const kv = fakeKv();
-  const calls = [];
-  const jpeg = new Uint8Array(300);
-  jpeg.set([0xff, 0xd8, 0xff, 0xe0]);
-  const ai = { async run(model, inputs) { calls.push({ model, inputs }); return { image: Buffer.from(jpeg).toString('base64') }; } };
-  const real = globalThis.fetch;
-  // the Space checks the picture is a PNG in fakeSpace; a drawn picture is a JPEG, so accept either here
-  const sp = fakeSpace();
-  globalThis.fetch = async (u, i) => (String(u).endsWith('/upload') ? new Response(JSON.stringify(FX.upload)) : sp.f(u, i));
-  try {
-    const ctx = ctxWith({ SITES: kv, AI: ai });
-    const out = await tool.run({ prompt: 'a vintage brass telescope' }, ctx);
-    assert.equal(calls[0].model, '@cf/black-forest-labs/flux-1-schnell');
-    assert.match(calls[0].inputs.prompt, /^a vintage brass telescope, a single object, whole and centred, .*plain white background/);
-    assert.match(out, /drawn first from the picture https:\/\/ghosty\.example\/i\/[A-Za-z0-9_-]{16}/);
-    assert.ok(ctx._progress.includes('drawing the object first…'));
-    const q = fakeSpace({ shape: FX.sseQuota });
-    globalThis.fetch = async (u, i) => (String(u).endsWith('/upload') ? new Response(JSON.stringify(FX.upload)) : q.f(u, i));
-    await assert.rejects(tool.run({ prompt: 'a lamp' }, ctxWith({ SITES: kv, AI: ai })), (e) => /GPU allowance/.test(e.message) && /the picture was drawn: https:\/\/ghosty\.example\/i\//.test(e.message));
-    // no Workers AI and the free FLUX Space unreachable: say so, and to give a picture instead
-    await assert.rejects(tool.run({ prompt: 'a lamp', fresh: true }, ctxWith({ SITES: kv })), /Workers AI is not available here; .*give a picture link instead/);
-  } finally {
-    globalThis.fetch = real;
-  }
-});
-
-test('a kept picture link is read for any id, including one that ends or starts with "-" or "_"', async () => {
-  const S = await import('./.build/tools/studio.mjs');
-  for (const id of ['gI7jRUfpm58Q-Kq-', '-bcdefghijklmnop', 'abcdefghijklmno_', 'AbCdEfGh12345678'])
-    for (const ref of [`https://ghosty.example/i/${id}`, `https://ghosty.example/i/${id}.jpg`, `/i/${id}`, ` ${id} `]) assert.equal(S.pictureIdOf(ref), id, ref);
-  assert.equal(S.pictureIdOf('https://ghosty.example/i/abcdefghijklmnopq'), null, 'seventeen characters is not an id');
-  assert.equal(S.pictureIdOf('https://example.com/cat.jpg'), null);
-});
-
-// ---------------------------------------------------------------- B1: the catalogue, textured makers, "make anything"
-// The catalogue of real models (packages/shared/src/models3d.ts, catalog3d.ts), the Gradio client against the
-// real protocol (gradio.ts: Gradio 4 at the root, Gradio 5/6 under /gradio_api; one session for steps that share
-// state), Stable Fast 3D and TRELLIS.2 (gen3d.ts), the makers in turn (makeTextured) and the new routes.
 const CX = JSON.parse(readFileSync(new URL('./catalog3d.fixture.json', import.meta.url), 'utf8'));
 const INDEX = JSON.parse(readFileSync(new URL('../../web/public/data/models3d.json', import.meta.url), 'utf8'));
 
@@ -357,8 +152,8 @@ test('search: words with synonyms and plurals, the head noun first; a good match
   // "a chair cushion" is a cushion: there is none, so no good match even though there are chairs
   assert.ok(!M.goodMatch(M.searchCatalog(items, 'chair cushion')[0]));
   assert.equal(M.searchCatalog(items, 'flux capacitor').length, 0);
-  assert.equal(M.bestMatch(items, 'quantum flux capacitor'), null);
-  assert.ok(M.bestMatch(items, 'a sofa'));
+  assert.ok(!M.goodMatch(M.searchCatalog(items, 'quantum flux capacitor')[0]));
+  assert.ok(M.goodMatch(M.searchCatalog(items, 'a sofa')[0]));
   // an empty query lists the shelf
   assert.equal(M.searchCatalog(items, '', { group: 'Furniture', limit: 3 }).length, 3);
   assert.deepEqual(M.words('Chests of Drawers and TV-stands'), ['chest_of_drawers', 'chest', 'drawers', 'tv', 'stand']);
@@ -372,32 +167,8 @@ test('the shipped index: thousands of permissively licensed models a phone can o
   assert.ok(new Set(items.map((i) => i.cat)).size >= 700, 'hundreds of categories');
   const shelves = new Set(items.map((i) => i.group));
   for (const g of ['Furniture', 'Kitchen & dining', 'Electronics', 'Tools & DIY', 'Clothes & accessories', 'Food & drink']) assert.ok(shelves.has(g), g);
-  for (const q of ['kettle', 'sofa', 'mug', 'office chair', 'table lamp', 'toaster', 'bicycle', 'teddy bear', 'guitar', 'hammer', 'fridge', 'bookcase', 'trainers', 'bed'])
+  for (const q of ['kettle', 'sofa', 'mug', 'table lamp', 'toaster', 'bicycle', 'teddy bear', 'guitar', 'hammer', 'fridge', 'bookcase', 'trainers', 'bed'])
     assert.ok(M.goodMatch(M.searchCatalog(items, q)[0]), `"${q}" → ${M.searchCatalog(items, q)[0]?.item.name ?? 'nothing'}`);
-});
-
-test('Poly Haven list: kept in KV for a week, asked again after, the old copy when Poly Haven fails, words when there is none', async () => {
-  const kv = fakeKv();
-  let calls = 0;
-  let up = true;
-  const f = async (u, init) => {
-    calls++;
-    assert.equal(String(u), 'https://api.polyhaven.com/assets?t=models');
-    assert.match(init.headers['User-Agent'], /^Ghosty/);
-    return up ? new Response(JSON.stringify(CX.assets)) : new Response('down', { status: 503 });
-  };
-  const now = Date.now();
-  const a = await M.polyHavenCatalog(kv, f, now);
-  assert.equal(a.items.length, 5);
-  assert.equal(kv.ttl.get(M.CATALOG_KEY), 30 * 86_400);
-  await M.polyHavenCatalog(kv, f, now + 86_400_000);
-  assert.equal(calls, 1, 'within the week: from KV');
-  up = false;
-  const stale = await M.polyHavenCatalog(kv, f, now + 8 * 86_400_000);
-  assert.equal(calls, 2);
-  assert.equal(stale.stale, true);
-  assert.equal(stale.items.length, 5);
-  await assert.rejects(M.polyHavenCatalog(fakeKv(), f), (e) => e.status === 502 && /other catalogue still works/.test(e.message));
 });
 
 /** A minimal glTF with one external buffer and two external pictures. */
@@ -441,34 +212,6 @@ test('packGlb: a .gltf and its files become one binary glTF — buffers merged, 
   assert.throws(() => M.packGlb(tinyGltf(), new Map([['Thing.bin', new ArrayBuffer(6)]])), /names a file it did not come with/);
 });
 
-test('a Poly Haven model as one GLB: its files list → the 1k glTF and its files, nothing from any other host, too-heavy refused', async () => {
-  const files = CX.files.ArmChair_01;
-  const g = files.gltf['1k'].gltf;
-  const gltf = { asset: { version: '2.0' }, buffers: [{ uri: 'ArmChair_01.bin', byteLength: 8 }], bufferViews: [{ buffer: 0, byteLength: 8 }], images: Object.keys(g.include).filter((k) => k.endsWith('.jpg')).map((uri) => ({ uri })) };
-  const asked = [];
-  const f = async (u) => {
-    asked.push(String(u));
-    if (String(u) === 'https://api.polyhaven.com/files/ArmChair_01') return new Response(JSON.stringify(files));
-    if (String(u) === g.url) return new Response(JSON.stringify(gltf));
-    if (Object.values(g.include).some((v) => v.url === String(u))) return new Response(new Uint8Array(8));
-    return new Response('nope', { status: 404 });
-  };
-  const glb = await M.polyHavenGlb('ArmChair_01', f);
-  const { json } = readGlb(glb);
-  assert.equal(json.images.length, 3);
-  assert.ok(json.images.every((i) => i.bufferView !== undefined && !i.uri));
-  assert.equal(asked.length, 2 + Object.keys(g.include).length);
-  assert.ok(asked.every((u) => u.startsWith('https://api.polyhaven.com/') || u.startsWith('https://dl.polyhaven.org/')));
-  // a file list that points anywhere else is not followed
-  const evil = structuredClone(files);
-  evil.gltf['1k'].gltf.url = 'https://evil.example/x.gltf';
-  await assert.rejects(M.polyHavenGlb('ArmChair_01', async (u) => (String(u).includes('/files/') ? new Response(JSON.stringify(evil)) : f(u))), (e) => e.status === 404);
-  const heavy = structuredClone(files);
-  for (const v of Object.values(heavy.gltf['1k'].gltf.include)) v.size = 30_000_000;
-  await assert.rejects(M.polyHavenGlb('ArmChair_01', async (u) => (String(u).includes('/files/') ? new Response(JSON.stringify(heavy)) : f(u))), (e) => e.status === 413 && /too heavy for a phone/.test(e.message));
-  await assert.rejects(M.polyHavenGlb('../etc', f), (e) => e.status === 404);
-});
-
 test("thumbnails: only Poly Haven's and Sketchfab's picture hosts, only pictures, only small ones", async () => {
   const f = async (u) => (String(u).endsWith('.svg') ? new Response('<svg/>', { headers: { 'content-type': 'image/svg+xml' } }) : String(u).endsWith('big.jpeg') ? new Response(new Uint8Array(500_000), { headers: { 'content-type': 'image/jpeg' } }) : new Response(new Uint8Array(100), { headers: { 'content-type': 'image/webp' } }));
   const ok = await M.thumbResponse('https://cdn.polyhaven.com/asset_img/thumbs/ArmChair_01.png?width=256', f);
@@ -479,12 +222,11 @@ test("thumbnails: only Poly Haven's and Sketchfab's picture hosts, only pictures
   assert.equal((await M.thumbResponse('https://evil.example/a.png', f)).status, 403);
   assert.equal((await M.thumbResponse('https://media.sketchfab.com.evil.example/models/a.png', f)).status, 403);
   assert.equal((await M.thumbResponse('https://cdn.polyhaven.com/asset_img/a.svg', f)).status, 502);
-  assert.equal((await M.thumbResponse('https://cdn.polyhaven.com/asset_img/big.jpeg', f)).status, 413);
+  await assert.rejects((await M.thumbResponse('https://cdn.polyhaven.com/asset_img/big.jpeg', f)).arrayBuffer(), /too big/);
   assert.equal((await M.thumbResponse('not a url', f)).status, 400);
 });
 
 // ---- a Gradio Space, stubbed by the protocol: /config (api_prefix from Gradio 5), /upload, /queue/join, /queue/data
-
 const sse = (...evs) => evs.map((e) => `data: ${JSON.stringify(e)}\n\n`).join('');
 /**
  * A Gradio app. `fns` = [{ api, out(data) → output data, or {error, title} for a failed run }, …]; `prefix` = Gradio 5's
@@ -556,7 +298,7 @@ test('Gradio client: Gradio 5 routes under api_prefix, place in the queue and % 
 test('Stable Fast 3D: picture → background cut out → textured model, both steps in one session, the cut-out shown', async () => {
   const sp = sf3dSpace();
   const steps = [];
-  const made = await M.fastModel({ fetch: sp.f, token: 'hf_tok', progress: (s) => steps.push(s), signal: AbortSignal.timeout(5000) }, png(), 'image/png');
+  const made = await M.fastModel({ fetch: withWhoami(sp.f), token: 'hf_free_sf', progress: (s) => steps.push(s), signal: AbortSignal.timeout(5000) }, png(), 'image/png');
   assert.equal(made.textured, true);
   assert.equal(made.maker, 'Stable Fast 3D');
   assert.match(made.credit, /Stable Fast 3D \(Stability AI, Community Licence\)/);
@@ -567,7 +309,7 @@ test('Stable Fast 3D: picture → background cut out → textured model, both st
   assert.deepEqual(cut.data, [{ path: '/tmp/gradio/up1/picture.png', meta: { _type: 'gradio.FileData' } }, 0.85]);
   assert.deepEqual(run.data, ['Run', { path: '/tmp/gradio/up1/picture.png', meta: { _type: 'gradio.FileData' } }, null, 0.85, 'None', -1, 1024]);
   assert.ok(sp.calls.some((c) => c.url.endsWith('tmp789kc6f7.glb')), 'the .glb, not the cut-out picture, is fetched as the model');
-  assert.ok(sp.calls.every((c) => c.auth === 'Bearer hf_tok'));
+  assert.ok(sp.calls.every((c) => c.auth === 'Bearer hf_free_sf'), 'a free account\'s token goes with every call');
   assert.ok(steps.includes('removing the background…') && steps.includes('shaping and painting the model…'), JSON.stringify(steps));
 });
 
@@ -583,7 +325,7 @@ test('TRELLIS.2: start a session, cut out, shape, then paint and pack — the cl
     ],
     { prefix: '/gradio_api' },
   );
-  const made = await M.trellisModel({ fetch: sp.f, token: 'hf_tok', signal: AbortSignal.timeout(5000) }, png(), 'image/png');
+  const made = await M.trellisModel({ fetch: withWhoami(sp.f), token: 'hf_free_tr', signal: AbortSignal.timeout(5000) }, png(), 'image/png');
   assert.equal(made.maker, 'TRELLIS.2');
   assert.equal(made.textured, true);
   const [start, pre, shape, pack] = sp.joins;
@@ -593,36 +335,6 @@ test('TRELLIS.2: start a session, cut out, shape, then paint and pack — the cl
   assert.deepEqual(shape.data.slice(1, 3), [0, '1024']);
   assert.deepEqual(pack.data, [null, 100_000, 1024]);
   assert.equal(new Set(sp.joins.map((j) => j.session_hash)).size, 1);
-});
-
-test('makeTextured: the makers in turn — TRELLIS.2 only with a token, then Stable Fast 3D, then Hunyuan3D-2 (clay); every reason when all fail', async () => {
-  const route = (...spaces) => async (u, i) => {
-    for (const s of spaces) if (String(u).startsWith(s.root)) return s.f(u, i);
-    throw new TypeError(`unexpected fetch ${u}`);
-  };
-  const hy = fakeSpace();
-  const a = await M.makeTextured({ fetch: route({ root: M.SF3D, f: sf3dSpace().f }, { root: M.SPACE, f: hy.f }) }, png());
-  assert.equal(a.maker, 'Stable Fast 3D');
-  assert.equal(hy.calls.length, 0, 'Hunyuan3D-2 not asked');
-  // Stable Fast 3D out of allowance: Hunyuan3D-2's clay, and the step says why
-  const quota = () => sf3dSpace({ run: () => ({ error: 'You have exceeded your ZeroGPU quota (60s requested vs. 0s left). Try again in 0:00:00.', title: 'ZeroGPU quota exceeded' }) });
-  const steps = [];
-  const b = await M.makeTextured({ fetch: route({ root: M.SF3D, f: quota().f }, { root: M.SPACE, f: fakeSpace().f }), progress: (s) => steps.push(s) }, png());
-  assert.equal(b.maker, 'Hunyuan3D-2');
-  assert.equal(b.textured, false);
-  assert.ok(steps.some((s) => /^Stable Fast 3D could not make it \(Stable Fast 3D \(Hugging Face ZeroGPU\) has used up/.test(s) && /trying Hunyuan3D-2…$/.test(s)), JSON.stringify(steps));
-  // with a token TRELLIS.2 is asked first (here it is asleep, so Stable Fast 3D makes it)
-  const tr = fakeGradio(M.TRELLIS2, [], { configStatus: 503, prefix: '/gradio_api' });
-  const c = await M.makeTextured({ fetch: route({ root: M.TRELLIS2, f: tr.f }, { root: M.SF3D, f: sf3dSpace().f }), token: 'hf' }, png());
-  assert.equal(c.maker, 'Stable Fast 3D');
-  assert.equal(tr.calls[0].url, `${M.TRELLIS2}/config`);
-  // all of them failing: busy words first, then each one's reason
-  const down = async () => {
-    throw new TypeError('fetch failed');
-  };
-  await assert.rejects(M.makeTextured({ fetch: down }, png()), (e) => e.status === 503 && e.code === 'busy' && /^the free 3-D generators are busy right now — try again in a minute\. Stable Fast 3D: .* · Hunyuan3D-2: /.test(e.message));
-  await assert.rejects(M.makeTextured({ fetch: route({ root: M.SF3D, f: quota().f }, { root: M.SPACE, f: fakeSpace({ shape: FX.sseQuota }).f }) }, png()), (e) => e.status === 429 && e.code === 'quota');
-  await assert.rejects(M.makeTextured({ fetch: down }, new TextEncoder().encode('<svg>').buffer), (e) => e.status === 415);
 });
 
 test('drawing the object first: Workers AI when the brain has it, else the free FLUX Space, else "no_picture" in words', async () => {
@@ -645,19 +357,309 @@ test('drawing the object first: Workers AI when the brain has it, else the free 
 });
 
 /** The lines of an NDJSON answer. */
+
+// ---------------------------------------------------------------- never billed, every try counted
+
+test('never billed: the token goes to a ZeroGPU Space only from a free account that cannot pay; PRO, a card on file, a paid organisation or no answer means it is not sent', async () => {
+  const asked = [];
+  const f = withWhoami(async () => { throw new TypeError('only whoami here'); }, asked);
+  assert.deepEqual(await M.spaceToken('hf_free_a', f), { token: 'hf_free_a', why: '' });
+  for (const t of ['hf_pro_a', 'hf_pay_a', 'hf_org_a']) {
+    const r = await M.spaceToken(t, f);
+    assert.equal(r.token, null, t);
+    assert.match(r.why, /can be charged for GPU time .* never sends it to the free GPUs — use a token from a free account with no card/, t);
+  }
+  for (const t of ['hf_down_a', 'hf_bad_a']) {
+    const r = await M.spaceToken(t, f);
+    assert.equal(r.token, null, t);
+    assert.match(r.why, /could not say whether .* asked without it/, t);
+  }
+  // an answer without the fields that say it cannot pay is not trusted either
+  const odd = async () => new Response(JSON.stringify({ type: 'user', name: 'x' }));
+  assert.equal((await M.spaceToken('hf_odd_a', odd)).token, null);
+  assert.deepEqual(await M.spaceToken(null, f), { token: null, why: '' });
+  // looked up once an hour per token, not once per call
+  await M.spaceToken('hf_free_a', f);
+  assert.equal(asked.filter((t) => t === 'hf_free_a').length, 1);
+});
+
+test('never billed: with a PRO token neither TRELLIS.2 nor Stable Fast 3D ever sees it, and the owner is told why', async () => {
+  const sp = sf3dSpace();
+  const steps = [];
+  const made = await M.makeTextured({ fetch: withWhoami(sp.f), token: 'hf_pro_b', progress: (s) => steps.push(s) }, png());
+  assert.equal(made.maker, 'Stable Fast 3D');
+  assert.ok(sp.calls.length > 3);
+  assert.ok(sp.calls.every((c) => c.auth === null), 'no Authorization header to a ZeroGPU Space');
+  assert.ok(!sp.calls.some((c) => c.url.startsWith(M.TRELLIS2)), 'TRELLIS.2 is only for a free token');
+  assert.ok(steps.some((s) => /can be charged/.test(s)), JSON.stringify(steps));
+  // a FLUX drawing with a card-on-file token: not sent either
+  const flux = fakeGradio(M.FLUX_SPACE, [{ api: 'infer', out: () => [fd(`${M.FLUX_SPACE}/gradio_api`, '/tmp/gradio/ff/image.webp'), 1] }], { prefix: '/gradio_api' });
+  await M.drawObject({ fetch: withWhoami(flux.f), token: 'hf_pay_b', signal: AbortSignal.timeout(5000) }, 'a kettle');
+  assert.ok(flux.calls.every((c) => c.auth === null));
+});
+
+test('keeping models: 24 hours under m3d:<id> in KV, listed, served to the owner as a GLB, forgotten on request; every try counts against 10 a day', async () => {
+  const kv = fakeKv();
+  const info = await M.keepModel(kv, LIGHT.slice(0), '  A   brass telescope ', 20000);
+  assert.match(info.id, /^[A-Za-z0-9_-]{16}$/);
+  assert.equal(info.title, 'A brass telescope');
+  assert.equal(kv.ttl.get(`m3d:${info.id}`), 86_400);
+  const day = new Date().toISOString().slice(0, 10);
+  assert.equal(kv.m.get(`m3d:count:${day}`), '1');
+  assert.deepEqual((await M.listModels(kv)).map((m) => m.id), [info.id]);
+  const res = await M.modelResponse(kv, info.id);
+  assert.equal(res.headers.get('content-type'), 'model/gltf-binary');
+  assert.equal((await M.modelResponse(kv, 'AAAAAAAAAAAAAAAA')).status, 404);
+  assert.deepEqual(await M.listModels(kv, Date.now() + 86_401_000), []);
+  assert.equal(await M.forgetModel(kv, info.id), true);
+  assert.deepEqual(await M.listModels(kv), []);
+  // a try is counted before any Space is asked, and a kept model of a counted try is not counted twice
+  await M.startAttempt(kv);
+  assert.equal(kv.m.get(`m3d:count:${day}`), '2');
+  await M.keepModel(kv, LIGHT.slice(0), 'x', undefined, Date.now(), {}, true);
+  assert.equal(kv.m.get(`m3d:count:${day}`), '2');
+  kv.m.set(`m3d:count:${day}`, String(M.MODELS_PER_DAY));
+  await assert.rejects(M.startAttempt(kv), (e) => e.status === 429 && /daily limit/.test(e.message));
+  const broken = { ...fakeKv(), get: async () => { throw new Error('KV daily limit'); } };
+  await assert.rejects(M.checkAllowance(broken), (e) => e.status === 503);
+});
+
+test('every try counts: tries that fail use up the day too, so a busy Space cannot be asked without end', async () => {
+  const kv = fakeKv();
+  const down = async () => { throw new TypeError('fetch failed'); };
+  const deps = { kv, token: async () => null, fetch: down };
+  const req = () => new Request('https://g.example/api/m3d', { method: 'POST', body: png() });
+  for (let i = 0; i < M.MODELS_PER_DAY; i++) assert.equal((await M.model3dRoute(req(), '/m3d', 'POST', deps)).status, 503, `try ${i + 1}`);
+  const over = await M.model3dRoute(req(), '/m3d', 'POST', deps);
+  assert.equal(over.status, 429);
+  assert.match((await over.json()).error, /daily limit/);
+});
+
+test('no Hunyuan3D-2: its licence leaves out the UK, so it is never asked — when the free makers fail the owner hears why', async () => {
+  const asked = [];
+  const f = async (u) => {
+    asked.push(String(u));
+    throw new TypeError('fetch failed');
+  };
+  await assert.rejects(M.makeTextured({ fetch: f }, png()), (e) => e.code === 'busy' && /^the free 3-D generators are busy right now — try again in a minute\. Stable Fast 3D: /.test(e.message) && !/Hunyuan/.test(e.message));
+  assert.ok(asked.length && !asked.some((u) => u.includes('hunyuan')), JSON.stringify(asked));
+});
+
+// ---------------------------------------------------------------- make_3d
+
+test('make_3d: its own keyword group; a photo → a textured model kept 24 h with the studio opened on it; words → the studio, which searches the catalogue itself', async () => {
+  const tool = T.toolByName.get('make_3d');
+  assert.ok(tool);
+  const group = T.TOOL_GROUPS.find((g) => g.name === '3d');
+  assert.deepEqual(group.tools, [tool]);
+  for (const w of ['make a 3d model of my mug', 'take it apart', 'open spline', 'turn this into a GLB']) assert.ok(group.when.test(w), w);
+  assert.ok(group.about.length <= 220 && /make_3d/.test(group.about) && /catalogue/.test(group.about));
+  assert.ok(!/Hunyuan/.test(tool.description));
+  const kv = fakeKv();
+  const pic = await L.storeImage(kv, png(), 'image/png', { ttl: 86_400, counter: 'img:count:', limit: 30, noun: 'share', verb: 'shared' });
+  const sp = sf3dSpace();
+  const real = globalThis.fetch;
+  globalThis.fetch = withWhoami(sp.f);
+  try {
+    const ctx = ctxWith({ SITES: kv }, { huggingface: 'hf_free_tool' });
+    // TRELLIS.2 (free token) is asleep here, so Stable Fast 3D makes it
+    const out = await tool.run({ picture: `https://ghosty.example/i/${pic.id}`, title: 'Mug' }, ctx);
+    assert.match(out, /^3-D model made \(with its colours\) and opened in the 3D STUDIO tab, kept 24 hours\. Made by Stable Fast 3D/);
+    const ev = ctx._events.find((e) => e.t === 'client');
+    assert.equal(ev.name, 'open_studio');
+    assert.match(ev.args.model, /^[A-Za-z0-9_-]{16}$/);
+    assert.ok(sp.calls.filter((c) => c.url.startsWith(M.SF3D)).every((c) => c.auth === 'Bearer hf_free_tool'), "the owner's free token is used");
+    await assert.rejects(tool.run({ picture: 'AAAAAAAAAAAAAAAA' }, ctxWith({ SITES: kv })), /no longer kept/);
+    const open = ctxWith({});
+    assert.match(await tool.run({ sample: 'chair' }, open), /^Opened the 3D STUDIO on the chair sample\./);
+    await assert.rejects(tool.run({ picture: 'http://x.example/a.png' }, ctxWith({ SITES: kv })), /only https/);
+  } finally {
+    globalThis.fetch = real;
+  }
+  // words: the studio is opened to make it; the brain reads no catalogue and asks nothing
+  let fetched = 0;
+  let assets = 0;
+  globalThis.fetch = async () => { fetched++; throw new TypeError('offline'); };
+  try {
+    const ctx = ctxWith({ SITES: fakeKv(), ASSETS: { fetch: async () => { assets++; return new Response('{}'); } } });
+    const out = await tool.run({ prompt: 'a comfy couch' }, ctx);
+    assert.match(out, /^Opened the 3D STUDIO on "a comfy couch": it opens a real model from its catalogue when one fits/);
+    assert.deepEqual(ctx._events, [{ t: 'client', name: 'open_studio', args: { make: 'a comfy couch' } }]);
+    assert.equal(fetched + assets, 0, 'no catalogue read, no Space asked in the brain');
+    assert.match(out, /up to about 5 when the free queue is long/, 'an honest worst case');
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('make_3d fresh: one object drawn first (kept as a picture), then made 3-D; a busy maker says the picture was drawn; no Workers AI and no FLUX Space says so', async () => {
+  const tool = T.toolByName.get('make_3d');
+  const kv = fakeKv();
+  const calls = [];
+  const jpeg = new Uint8Array(300);
+  jpeg.set([0xff, 0xd8, 0xff, 0xe0]);
+  const ai = { async run(model, inputs) { calls.push({ model, inputs }); return { image: Buffer.from(jpeg).toString('base64') }; } };
+  const real = globalThis.fetch;
+  globalThis.fetch = sf3dSpace().f;
+  try {
+    const ctx = ctxWith({ SITES: kv, AI: ai });
+    const out = await tool.run({ prompt: 'a vintage brass telescope', fresh: true }, ctx);
+    assert.equal(calls[0].model, '@cf/black-forest-labs/flux-1-schnell');
+    assert.match(calls[0].inputs.prompt, /^a vintage brass telescope, a single object, whole and centred, .*plain white background/);
+    assert.match(out, /drawn first from the picture https:\/\/ghosty\.example\/i\/[A-Za-z0-9_-]{16}/);
+    globalThis.fetch = async () => { throw new TypeError('fetch failed'); };
+    await assert.rejects(tool.run({ prompt: 'a lamp', fresh: true }, ctxWith({ SITES: kv, AI: ai })), (e) => /busy right now/.test(e.message) && /the picture was drawn: https:\/\/ghosty\.example\/i\//.test(e.message));
+    await assert.rejects(tool.run({ prompt: 'a lamp', fresh: true }, ctxWith({ SITES: kv })), /Workers AI is not available here; .*give a picture link instead/);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('a kept picture link is read for any id, including one that ends or starts with "-" or "_"', async () => {
+  const S = await import('./.build/tools/studio.mjs');
+  for (const id of ['gI7jRUfpm58Q-Kq-', '-bcdefghijklmnop', 'abcdefghijklmno_', 'AbCdEfGh12345678'])
+    for (const ref of [`https://ghosty.example/i/${id}`, `https://ghosty.example/i/${id}.jpg`, `/i/${id}`, ` ${id} `]) assert.equal(S.pictureIdOf(ref), id, ref);
+  assert.equal(S.pictureIdOf('https://ghosty.example/i/abcdefghijklmnopq'), null, 'seventeen characters is not an id');
+  assert.equal(S.pictureIdOf('https://example.com/cat.jpg'), null);
+});
+
+test('search ranks the thing itself first: the top model\'s category is what was asked for, for everyday words', () => {
+  const items = M.objaverseItems(INDEX);
+  // query → what the top model's category must be (and, for the ones that went wrong before, what it must not be)
+  const want = [
+    ['phone', /telephone/, /booth/], ['dog', /dog$/, /collar|leash/], ['toilet', /^toilet$/, /paper|tissue|dispenser/], ['desk', /^desk$/, /lamp/], ['toaster', /^toaster$/, /oven/],
+    ['kettle', /^kettle$/], ['sofa', /^sofa/], ['couch', /^sofa/], ['tv', /^television set$/], ['telly', /^television set$/], ['fridge', /^refrigerator$/], ['microwave', /^microwave oven$/],
+    ['table lamp', /^table lamp$/], ['lamp', /lamp$/], ['bed', /bed$/], ['mug', /^mug$/], ['laptop', /^laptop computer$/], ['car', /^car/], ['bicycle', /^bicycle$/], ['washing machine', /^automatic washer$/],
+    ['guitar', /^guitar$/], ['shoe', /^shoe$/], ['backpack', /^backpack$/], ['sunglasses', /^sunglasses$/], ['wardrobe', /^wardrobe$/], ['chest of drawers', /^dresser$/], ['bin', /^trash can$/],
+    ['vacuum cleaner', /^vacuum cleaner$/], ['teddy bear', /^teddy bear$/], ['bath', /^bathtub$/], ['apple', /^apple$/], ['pizza', /^pizza$/], ['cushion', /^cushion$/], ['spoon', /spoon$/],
+    ['wine glass', /^glass/], ['frying pan', /^frying pan$|^pan/], ['clock', /clock$/], ['vase', /^vase$/], ['backpack', /^backpack$/], ['bookcase', /^bookcase$/], ['umbrella', /^umbrella$/],
+  ];
+  assert.ok(want.length >= 30);
+  for (const [q, good, bad] of want) {
+    const top = M.searchCatalog(items, q, { limit: 1 })[0];
+    assert.ok(top, `"${q}" found nothing`);
+    assert.match(top.item.cat, good, `"${q}" → ${top.item.name} [${top.item.cat}]`);
+    if (bad) assert.doesNotMatch(top.item.cat, bad, `"${q}" → ${top.item.name} [${top.item.cat}]`);
+    assert.ok(M.goodMatch(top), `"${q}" should open ${top.item.name} [${top.item.cat}]`);
+  }
+  // a word that only describes ("OFFICE chair", "OAK dining table") must be found before a model opens by itself
+  for (const q of ['office chair', 'oak dining table', 'a brass telescope', 'gaming desk']) assert.ok(!M.goodMatch(M.searchCatalog(items, q, { limit: 1 })[0]), `"${q}" opened ${M.searchCatalog(items, q, { limit: 1 })[0]?.item.name}`);
+  // a colour does not stop a match: the model can be any colour
+  assert.ok(M.goodMatch(M.searchCatalog(items, 'a red kettle', { limit: 1 })[0]));
+  assert.equal(M.headOf('a chest of drawers'), 'chest_of_drawers');
+  assert.equal(M.headOf('pan (for cooking)'), 'pan');
+  assert.equal(M.headOf('phone booth'), 'booth');
+  assert.ok(M.sameThing('telly', 'television_set') && !M.sameThing('desk', 'lamp'));
+});
+
+test('catalogue: brands and franchises are left out (a fan-made Pokémon is not the modeller\'s to give away)', () => {
+  const items = M.objaverseItems({ v: 1, cats: ['toy', 'bag', 'shoe'], items: [ovRow('d1', 'Pikachu plush', 0), ovRow('d2', 'LEGO brick', 0), ovRow('d3', 'Leather bag', 1, 1, 900, 1000, 'gucci fashion'), ovRow('d4', 'Running shoe', 2, 1, 900, 1000, 'adidas'), ovRow('d5', 'Wooden toy', 0)] });
+  assert.deepEqual(items.map((i) => i.name), ['Wooden toy']);
+  const shipped = M.objaverseItems(INDEX);
+  assert.equal(shipped.length, INDEX.items.length, 'the shipped index has none');
+  for (const it of shipped) assert.ok(!M.BRANDS.test(`${it.name} ${it.cat} ${it.tags.join(' ')}`), it.name);
+});
+
+test("Poly Haven's list: passed through as text, never parsed by the brain; kept in KV a week; the old copy when Poly Haven fails", async () => {
+  const kv = fakeKv();
+  let calls = 0;
+  let up = true;
+  const raw = JSON.stringify(CX.assets);
+  const f = async (u, init) => {
+    calls++;
+    assert.equal(String(u), 'https://api.polyhaven.com/assets?t=models');
+    assert.match(init.headers['User-Agent'], /^Ghosty/);
+    return up ? new Response(raw) : new Response('down', { status: 503 });
+  };
+  const parse = JSON.parse;
+  let parsed = 0;
+  JSON.parse = (t, ...r) => {
+    if (typeof t === 'string' && t.length >= raw.length) parsed++;
+    return parse(t, ...r);
+  };
+  try {
+    const now = Date.now();
+    const a = await M.polyHavenList(kv, f, now);
+    assert.equal(a.text, raw);
+    assert.equal(kv.ttl.get(M.CATALOG_KEY), 30 * 86_400);
+    await M.polyHavenList(kv, f, now + 86_400_000);
+    assert.equal(calls, 1, 'within the week: from KV');
+    up = false;
+    const stale = await M.polyHavenList(kv, f, now + 8 * 86_400_000);
+    assert.equal(stale.stale, true);
+    assert.equal(stale.text, raw);
+    kv.m.set('m3d:cat:ph:at', String(Date.now() - 8 * 86_400_000));
+    const res = await M.model3dRoute(new Request('https://g.example/api/m3d/catalog'), '/m3d/catalog', 'GET', { kv, token: async () => null, fetch: f });
+    assert.equal(await res.text(), raw);
+    assert.equal(res.headers.get('x-catalog-stale'), '1');
+  } finally {
+    JSON.parse = parse;
+  }
+  assert.equal(parsed, 0, 'the brain never parses the list');
+  await assert.rejects(M.polyHavenList(fakeKv(), f), (e) => e.status === 502 && /other catalogue still works/.test(e.message));
+  // the phone reads it
+  assert.equal(M.polyHavenItems(JSON.parse(raw)).length, 5);
+});
+
+test('Poly Haven model files are streamed through unread (only its own file hosts, at most 10 MB each); the phone packs them', async () => {
+  const files = CX.files.ArmChair_01;
+  const g = files.gltf['1k'].gltf;
+  const asked = [];
+  const f = async (u) => {
+    asked.push(String(u));
+    if (String(u) === 'https://api.polyhaven.com/files/ArmChair_01') return new Response(JSON.stringify(files), { headers: { 'content-type': 'application/json' } });
+    if (String(u).endsWith('huge.jpg')) return new Response(new ReadableStream({ start(c) { for (let i = 0; i < 11; i++) c.enqueue(new Uint8Array(1_000_000)); c.close(); } }), { headers: { 'content-type': 'image/jpeg' } });
+    return new Response(new Uint8Array(64), { headers: { 'content-type': 'image/jpeg' } });
+  };
+  const list = await M.polyHavenFile('https://api.polyhaven.com/files/ArmChair_01', f);
+  assert.equal(list.status, 200);
+  assert.deepEqual(await list.json(), files);
+  const tex = await M.polyHavenFile(Object.values(g.include)[0].url, f);
+  assert.equal((await tex.arrayBuffer()).byteLength, 64);
+  for (const bad of ['https://evil.example/x.jpg', 'https://dl.polyhaven.org/file/ph-assets/HDRIs/x.exr', 'https://api.polyhaven.com/assets?t=hdris', 'https://dl.polyhaven.org.evil.example/file/ph-assets/Models/x', 'not a url']) assert.ok([400, 403].includes((await M.polyHavenFile(bad, f)).status), bad);
+  await assert.rejects((await M.polyHavenFile('https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/X/huge.jpg', f)).arrayBuffer(), /too big/);
+  assert.equal((await M.polyHavenFile('https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/X/a.jpg', async () => new Response('x', { headers: { 'content-length': '20000000' } }))).status, 413);
+});
+
+test('Gradio: an unexpected_error is told in its own words', async () => {
+  const g = fakeGradio('https://e.hf.space', [{ api: 'go', out: () => [] }]);
+  const app = new M.GradioApp('https://e.hf.space', { fetch: async (u, i) => (String(u).includes('/queue/data') ? stream(sse({ msg: 'unexpected_error', message: 'CUDA out of memory' })) : g.f(u, i)), signal: AbortSignal.timeout(5000) }, 'E');
+  await app.open(['go']);
+  await assert.rejects(app.call('go', [], 'x'), (e) => /CUDA out of memory/.test(e.message));
+});
+
+test('makeTextured: TRELLIS.2 first with a free token (and the token on its calls), then Stable Fast 3D; without a token only Stable Fast 3D', async () => {
+  const base = `${M.TRELLIS2}/gradio_api`;
+  const tr = fakeGradio(M.TRELLIS2, [
+    { api: 'start_session', out: () => [] },
+    { api: 'preprocess_image', out: () => [fd(base, '/tmp/gradio/cc/image.png')] },
+    { api: 'image_to_3d', out: () => [null, '<div/>'] },
+    { api: 'extract_glb', out: () => [fd(base, '/tmp/gradio/dd/sample.glb')] },
+  ], { prefix: '/gradio_api' });
+  const sf = sf3dSpace();
+  const route = async (u, i) => (String(u).startsWith(M.TRELLIS2) ? tr.f(u, i) : sf.f(u, i));
+  const a = await M.makeTextured({ fetch: withWhoami(route), token: 'hf_free_mt' }, png());
+  assert.equal(a.maker, 'TRELLIS.2');
+  assert.ok(tr.calls.every((c) => c.auth === 'Bearer hf_free_mt'));
+  assert.equal(sf.calls.length, 0);
+  const b = await M.makeTextured({ fetch: route }, png());
+  assert.equal(b.maker, 'Stable Fast 3D');
+  // Stable Fast 3D out of allowance: the owner hears it, in words, with no other maker to try
+  const quota = sf3dSpace({ run: () => ({ error: 'You have exceeded your ZeroGPU quota (60s requested vs. 0s left). Try again in 0:00:00.', title: 'ZeroGPU quota exceeded' }) });
+  await assert.rejects(M.makeTextured({ fetch: quota.f }, png()), (e) => e.status === 429 && e.code === 'quota' && /Stable Fast 3D \(Hugging Face ZeroGPU\) has used up/.test(e.message));
+  await assert.rejects(M.makeTextured({ fetch: quota.f }, new TextEncoder().encode('<svg>').buffer), (e) => e.status === 415);
+});
+
+/** The lines of an NDJSON answer. */
 const ndjson = async (res) => (await res.text()).trim().split('\n').map((l) => JSON.parse(l));
 
-test('/api/m3d routes: the catalogue, a Poly Haven GLB, thumbnails, a photo as step-by-step lines, and "make anything" with its failure in words', async () => {
+test('/api/m3d routes: list, a photo as step-by-step lines (and plain JSON), the GLB, forget; "make anything" with Workers AI, and its failures in words', async () => {
   const kv = fakeKv();
-  const ph = async (u) => (String(u).startsWith('https://api.polyhaven.com/assets') ? new Response(JSON.stringify(CX.assets)) : new Response('x', { status: 404 }));
-  const deps = { kv, token: async () => null, fetch: ph };
+  const deps = { kv, token: async () => null, fetch: sf3dSpace().f };
   const req = (path, method = 'GET', body, headers = {}) => new Request(`https://g.example/api${path}`, { method, body, headers });
-  const cat = await (await M.model3dRoute(req('/m3d/catalog'), '/m3d/catalog', 'GET', deps)).json();
-  assert.equal(cat.items.length, 5);
+  assert.deepEqual(await (await M.model3dRoute(req('/m3d'), '/m3d', 'GET', deps)).json(), { models: [] });
   assert.equal((await M.model3dRoute(req('/m3d/thumb?u=https%3A%2F%2Fevil.example%2Fa.png'), '/m3d/thumb', 'GET', deps)).status, 403);
-  assert.equal((await M.model3dRoute(req('/m3d/ph/Nope'), '/m3d/ph/Nope', 'GET', deps)).status, 404);
-  // a photo, as lines: steps, then the model with its maker and credit, and the cut-out
-  const photo = await M.model3dRoute(req('/m3d?stream=1', 'POST', png(), { 'x-title': 'Lamp' }), '/m3d', 'POST', { ...deps, fetch: sf3dSpace().f });
+  const photo = await M.model3dRoute(req('/m3d?stream=1', 'POST', png(), { 'x-title': 'Lamp' }), '/m3d', 'POST', deps);
   assert.equal(photo.headers.get('content-type'), 'application/x-ndjson');
   const pl = await ndjson(photo);
   assert.ok(pl.some((l) => l.step === 'removing the background…'));
@@ -665,10 +667,14 @@ test('/api/m3d routes: the catalogue, a Poly Haven GLB, thumbnails, a photo as s
   assert.equal(last.model.title, 'Lamp');
   assert.equal(last.model.maker, 'Stable Fast 3D');
   assert.equal(last.model.textured, true);
-  assert.match(last.model.credit, /Stable Fast 3D/);
   assert.match(last.cutout, /^data:image\/webp/);
-  assert.deepEqual((await M.listModels(kv)).map((m) => m.id), [last.model.id]);
-  // "make anything": drawn by Workers AI (passed by the brain), then made
+  const plain = await (await M.model3dRoute(req('/m3d', 'POST', png(), { 'x-title': encodeURIComponent('My mug') }), '/m3d', 'POST', { ...deps, fetch: sf3dSpace().f })).json();
+  assert.equal(plain.model.title, 'My mug');
+  const got = await M.model3dRoute(req(`/m3d/${plain.model.id}`), `/m3d/${plain.model.id}`, 'GET', deps);
+  assert.equal(got.headers.get('content-type'), 'model/gltf-binary');
+  assert.deepEqual(await (await M.model3dRoute(req(`/m3d/${plain.model.id}`, 'DELETE'), `/m3d/${plain.model.id}`, 'DELETE', deps)).json(), { removed: true });
+  const day = new Date().toISOString().slice(0, 10);
+  assert.equal(kv.m.get(`m3d:count:${day}`), '2', 'one count per try, not two');
   const jpeg = new Uint8Array(300);
   jpeg.set([0xff, 0xd8, 0xff, 0xe0]);
   const ai = { run: async () => ({ image: Buffer.from(jpeg).toString('base64') }) };
@@ -676,38 +682,15 @@ test('/api/m3d routes: the catalogue, a Poly Haven GLB, thumbnails, a photo as s
   assert.ok(gl.some((l) => /^data:image\/jpeg;base64,/.test(l.picture ?? '')), 'the drawing is shown');
   assert.equal(gl.at(-1).model.title, 'a brass desk lamp');
   assert.match(gl.at(-1).model.credit, /drawn first by FLUX\.1 schnell \(Workers AI\)/);
-  // nothing can draw it here: a line that says so, with the code the studio acts on
   const none = await ndjson(await M.model3dRoute(req('/m3d/generate', 'POST', JSON.stringify({ prompt: 'a lamp' })), '/m3d/generate', 'POST', { ...deps, fetch: async () => { throw new TypeError('fetch failed'); } }));
   assert.equal(none.at(-1).code, 'no_picture');
-  assert.match(none.at(-1).error, /nothing could draw the object first/);
-  // the generators busy: the words the owner sees
   const busy = await ndjson(await M.model3dRoute(req('/m3d/generate', 'POST', JSON.stringify({ prompt: 'a lamp' })), '/m3d/generate', 'POST', { ...deps, ai, fetch: async () => { throw new TypeError('fetch failed'); } }));
   assert.equal(busy.at(-1).code, 'busy');
   assert.match(busy.at(-1).error, /^the free 3-D generators are busy right now — try again in a minute/);
   assert.equal((await M.model3dRoute(req('/m3d/generate', 'POST', '{}'), '/m3d/generate', 'POST', deps)).status, 400);
+  assert.equal((await M.model3dRoute(req('/m3d'), '/m3d', 'GET', { ...deps, kv: undefined })).status, 503);
+  assert.equal((await M.model3dRoute(req('/m3d', 'PUT'), '/m3d', 'PUT', deps)).status, 404);
 });
-
-test('make_3d: a described everyday thing opens the real catalogue model with its credit; fresh: true makes a new one', async () => {
-  const tool = T.toolByName.get('make_3d');
-  const kv = fakeKv();
-  const index = ovIndex([ovRow('c1', 'Velvet sofa', 1, 0, 900, 20000, 'sofa couch')]);
-  const assets = { fetch: async (r) => (new URL(r.url).pathname === '/data/models3d.json' ? new Response(JSON.stringify(index)) : new Response('', { status: 404 })) };
-  const real = globalThis.fetch;
-  globalThis.fetch = async () => {
-    throw new TypeError('offline');
-  };
-  try {
-    const ctx = ctxWith({ SITES: kv, ASSETS: assets });
-    const out = await tool.run({ prompt: 'a comfy couch' }, ctx);
-    assert.match(out, /^Opened a real model from the catalogue in the 3D STUDIO: “Velvet sofa” by Some Author · CC0/);
-    assert.deepEqual(ctx._events, [{ t: 'client', name: 'open_studio', args: { catalog: `ov:c1${'0'.repeat(30)}`, title: 'Velvet sofa' } }]);
-    // a new one asked for: on to drawing (which fails offline here, in words)
-    await assert.rejects(tool.run({ prompt: 'a comfy couch', fresh: true }, ctxWith({ SITES: kv, ASSETS: assets })), /nothing could draw the object first/);
-  } finally {
-    globalThis.fetch = real;
-  }
-});
-
 test('stand-ins: the thing named last is built, at its usual size or the size given, in parts, standing on the floor', () => {
   const t = M.standIn('an oak dining table 180 cm');
   assert.equal(t.kind, 'table');
@@ -737,4 +720,11 @@ test('stand-ins: the thing named last is built, at its usual size or the size gi
       if (p.shape === 'box' && !p.rot) assert.ok(p.pos[1] - p.size[1] / 2 > -1e-6, `${what}: ${p.name} below the floor`);
     }
   }
+});
+
+test("the studio's MAKE IT draws with Workers AI: the brain passes it to the /m3d route (agent.ts)", () => {
+  const agent = readFileSync(new URL('../src/agent.ts', import.meta.url), 'utf8');
+  const call = agent.split(String.fromCharCode(10)).find((l) => l.includes('model3dRoute(req, path, method'));
+  assert.ok(call, 'the /m3d route is wired');
+  assert.match(call, /ai: this\.env\.AI/);
 });

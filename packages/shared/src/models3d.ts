@@ -111,6 +111,7 @@ export function objaverseItems(doc: unknown): CatalogItem[] {
     if (!licence || !author || kb > MAX_KB || faces > MAX_FACES) continue;
     if (typeof thumb !== 'string' || !/^[0-9a-f]{32}\/[\w.-]+\.(?:jpe?g|png|webp)$/i.test(thumb)) continue;
     const cat = String(d.cats[ci] ?? '');
+    if (BRANDS.test(`${name} ${cat} ${tags}`)) continue;
     out.push({ id: `ov:${uid}`, name: String(name || cat), cat, group: groupOf(cat, `${name} ${tags}`), tags: String(tags ?? '').split(/\s+/).filter(Boolean), licence, author: String(author), source: 'Objaverse', kb, faces, thumb: `${OV_THUMB}${uid}/thumbnails/${thumb}`, page: `https://sketchfab.com/3d-models/${uid}`, shard });
   }
   return out;
@@ -138,17 +139,30 @@ export function polyHavenItems(api: unknown): CatalogItem[] {
     const tags = Array.isArray(a.tags) ? a.tags.filter((t): t is string => typeof t === 'string').slice(0, 8) : [];
     const authors = a.authors && typeof a.authors === 'object' ? Object.keys(a.authors as object) : [];
     const name = typeof a.name === 'string' && a.name ? a.name : id.replace(/_/g, ' ');
+    if (BRANDS.test(`${name} ${tags.join(' ')}`)) continue;
     const thumb = typeof a.thumbnail_url === 'string' && a.thumbnail_url.startsWith('https://cdn.polyhaven.com/') ? a.thumbnail_url : `https://cdn.polyhaven.com/asset_img/thumbs/${id}.png?width=256&height=256`;
     out.push({ id: `ph:${id}`, name, cat, group: groupOf(`${path.replace(/\//g, ' ')} ${cats.join(' ')}`, `${name} ${tags.join(' ')}`), tags, licence: 'CC0', author: authors.join(', ') || 'Poly Haven', source: 'Poly Haven', kb: 0, faces, thumb, page: `https://polyhaven.com/a/${id}` });
   }
   return out;
 }
 
-/** The credit line shown under every opened model. */
+/** The credit line shown under every opened model (and burned into its SHOT pictures). */
 export function creditLine(it: Pick<CatalogItem, 'name' | 'author' | 'licence' | 'source'>): string {
   const via = it.source === 'Poly Haven' ? 'Poly Haven' : 'Sketchfab, via Objaverse';
   return `“${it.name}” by ${it.author} · ${it.licence}${it.licence === 'CC0' ? ' (public domain)' : ''} · ${via}`;
 }
+
+/** The licence's own page, linked next to every credit (CC BY asks for it). */
+export function licenceUrl(l: Licence): string {
+  return l === 'CC0' ? 'https://creativecommons.org/publicdomain/zero/1.0/' : 'https://creativecommons.org/licenses/by/4.0/';
+}
+
+/**
+ * Brands and franchises left out of the catalogue: a fan-made Pokémon or a modelled Gucci bag is
+ * licensed by its modeller, not by the owner of the name, so it is not ours to use freely.
+ * (tools/build-models3d.py leaves the same names out of the index.)
+ */
+export const BRANDS = /\b(?:lego|pok[eé]mon|pikachu|gucci|adidas|nike|fifa|minecraft|disney|pixar|marvel|star ?wars|nintendo|super ?mario|sonic the|batman|spider-?man|coca-?cola|pepsi|starbucks|mcdonald'?s|louis ?vuitton|chanel|rolex|ferrari|lamborghini|porsche|harley-?davidson|playstation|xbox|hello ?kitty|harry ?potter|fortnite|pubg|call of duty|zelda|transformers|barbie|hot ?wheels|balenciaga|yeezy|among ?us|roblox|overwatch|genshin|naruto|dragon ?ball|warhammer|iron ?man|avengers|mandalorian|simpsons|spongebob|peppa ?pig|paw ?patrol)\b/i;
 
 // ---------------------------------------------------------------- words, synonyms, search
 
@@ -179,7 +193,7 @@ const FAMILIES: string[][] = [
   ['kettle', 'teakettle', 'electric_kettle'],
   ['mug', 'cup', 'beer_mug', 'teacup', 'coffee_cup'],
   ['bin', 'trash_can', 'garbage_can', 'dustbin', 'wastebasket', 'rubbish_bin', 'waste_bin', 'trashcan'],
-  ['lamp', 'lantern', 'floor_lamp', 'table_lamp', 'desk_lamp'],
+  ['lamp', 'lantern'],
   ['lightbulb', 'light_bulb', 'bulb'],
   ['telephone', 'phone', 'mobile', 'cellphone', 'smartphone', 'cellular_telephone', 'mobile_phone', 'iphone'],
   ['laptop', 'laptop_computer', 'notebook_computer', 'macbook'],
@@ -205,7 +219,7 @@ const FAMILIES: string[][] = [
   ['courgette', 'zucchini'],
   ['tin', 'can', 'tin_can'],
   ['jug', 'pitcher'],
-  ['saucepan', 'pan', 'frying_pan', 'skillet', 'pot', 'cooking_pot'],
+  ['saucepan', 'pan', 'frying_pan', 'skillet'],
   ['desk', 'writing_desk', 'office_desk'],
   ['cot', 'crib'],
   ['rug', 'carpet', 'mat'],
@@ -246,10 +260,7 @@ const FAMILIES: string[][] = [
   ['mobile_home', 'caravan', 'camper'],
   ['ring', 'finger_ring'],
   ['hat', 'cap'],
-  ['dining_table', 'kitchen_table', 'table'],
-  ['coffee_table', 'table'],
-  ['chair', 'dining_chair', 'kitchen_chair', 'office_chair', 'folding_chair'],
-  ['bed', 'double_bed', 'single_bed', 'bunk_bed'],
+  ['teddy_bear', 'teddy'],
 ];
 
 /** Phrases written as one token ("chests of drawers" → "chest_of_drawers"), longest first; any word may be plural. */
@@ -286,17 +297,45 @@ export function synonyms(w: string): Set<string> {
   return FAMILY.get(w) ?? new Set([w]);
 }
 
+/** Colour words: a "red kettle" is still a kettle when the catalogue's kettle is green (the model can be any colour). */
+const COLOUR_WORDS = new Set(['red', 'blue', 'green', 'yellow', 'orange', 'pink', 'purple', 'violet', 'brown', 'black', 'white', 'grey', 'gray', 'cream', 'beige', 'gold', 'golden', 'silver', 'navy', 'teal', 'turquoise', 'light', 'dark', 'pale', 'bright', 'colourful', 'colorful']);
+
+/**
+ * The head noun of a name or a query — what the thing IS: its last word, or the phrase it ends with
+ * ("a chest of drawers" → chest_of_drawers, "phone booth" → booth, "toaster oven" → oven). Notes in
+ * brackets are left out ("pan (for cooking)" → pan).
+ */
+export function headOf(text: string): string {
+  const ws = words(String(text).replace(/\([^)]*\)/g, ' '));
+  // words() lists a phrase and then its parts: the head is the phrase when its parts end the list
+  for (let i = ws.length - 1; i >= 0; i--) {
+    const w = ws[i]!;
+    if (!w.includes('_')) continue;
+    const parts = w.split('_').filter((p) => p && !STOP.has(p)).length;
+    if (ws.length - 1 - i === parts) return w;
+    break;
+  }
+  return ws[ws.length - 1] ?? '';
+}
+
+/** Two head nouns name the same kind of thing (the same word, or synonyms). */
+export function sameThing(a: string, b: string): boolean {
+  return !!a && !!b && (a === b || synonyms(a).has(b) || synonyms(b).has(a));
+}
+
 interface Fields {
   name: Set<string>;
   cat: Set<string>;
   tags: Set<string>;
   group: Set<string>;
+  catHead: string;
+  nameHead: string;
 }
 const fieldCache = new WeakMap<CatalogItem, Fields>();
 function fieldsOf(it: CatalogItem): Fields {
   let f = fieldCache.get(it);
   if (!f) {
-    f = { name: new Set(words(it.name)), cat: new Set(words(it.cat)), tags: new Set(words(it.tags.join(' '))), group: new Set(words(it.group)) };
+    f = { name: new Set(words(it.name)), cat: new Set(words(it.cat)), tags: new Set(words(it.tags.join(' '))), group: new Set(words(it.group)), catHead: headOf(it.cat), nameHead: headOf(it.name) };
     fieldCache.set(it, f);
   }
   return f;
@@ -307,11 +346,15 @@ export interface SearchHit {
   score: number;
   /** Share of the query's words found (0–1). */
   quality: number;
-  /** The query's last word (its head noun, "oak dining CHAIR") was found in the name, category or tags. */
+  /** The query's head noun was found in the name, category or tags. */
   head: boolean;
+  /** The model's category is the thing asked for ("dog" → a dog, not a dog collar). */
+  catHead: boolean;
+  /** Every word that is not the head or a colour ("OFFICE chair", "OAK table") was found too. */
+  mods: boolean;
 }
 
-/** How well one word matches one model (0 = not at all). */
+/** How well one word matches one model (0 = not at all); strong = in its name, category or tags. */
 function wordScore(f: Fields, w: string): { s: number; strong: boolean } {
   const alts = synonyms(w);
   let best = 0;
@@ -336,46 +379,64 @@ function wordScore(f: Fields, w: string): { s: number; strong: boolean } {
   return { s: best, strong };
 }
 
+/** A query → its head noun and the other words that say which one (a phrase counts once, not also as its parts). */
+function queryWords(query: string): { head: string; mods: string[] } {
+  const head = headOf(query);
+  const ws = words(query.replace(/\([^)]*\)/g, ' '));
+  const skip = new Set(head.includes('_') ? head.split('_').map(stem) : []);
+  const mods: string[] = [];
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i]!;
+    if (w.includes('_')) {
+      if (w !== head) mods.push(w);
+      i += w.split('_').filter((p) => p && !STOP.has(p)).length;
+      continue;
+    }
+    if (w !== head && !skip.has(w) && !COLOUR_WORDS.has(w) && !mods.includes(w)) mods.push(w);
+  }
+  return { head, mods };
+}
+
 /**
- * The catalogue's best models for a query, best first. `group` keeps to one shelf; an empty query
- * lists the shelf (or everything) by name.
+ * The catalogue's best models for a query, best first. A model whose category is the thing asked
+ * for comes first; one whose category is something else that merely shares a word ("phone BOOTH",
+ * "dog COLLAR", "desk LAMP") is pushed down. `group` keeps to one shelf; an empty query lists the
+ * shelf (or everything) by name.
  */
 export function searchCatalog(items: CatalogItem[], query: string, opts: { limit?: number; group?: string } = {}): SearchHit[] {
   const limit = opts.limit ?? 40;
   const pool = opts.group ? items.filter((i) => i.group === opts.group) : items;
-  const q = [...new Set(words(query))];
-  if (!q.length) return pool.slice(0, limit).map((item) => ({ item, score: 0, quality: 0, head: false }));
-  const head = q[q.length - 1]!;
+  const { head, mods } = queryWords(query);
+  if (!head) return pool.slice(0, limit).map((item) => ({ item, score: 0, quality: 0, head: false, catHead: false, mods: false }));
   const hits: SearchHit[] = [];
   for (const item of pool) {
     const f = fieldsOf(item);
-    let score = 0;
-    let found = 0;
-    let headHit = false;
-    for (const w of q) {
-      const r = wordScore(f, w);
-      if (r.s > 0) {
-        score += r.s;
-        found++;
-      }
-      if (w === head && r.strong) headHit = true;
+    const h = wordScore(f, head);
+    let score = h.s;
+    let found = h.s > 0 ? 1 : 0;
+    let modsOk = true;
+    for (const m of mods) {
+      const r = wordScore(f, m);
+      score += r.s;
+      if (r.s > 0) found++;
+      if (!r.strong) modsOk = false;
     }
     if (!score) continue;
-    // the head noun matters most: "oak dining chair" is a chair before it is anything oak
-    if (headHit) score += 2;
-    // a model whose category IS the head noun comes before one that merely has it in its name ("table and chairs")
-    if (headHit && [...synonyms(head)].some((w) => f.cat.has(w))) score += 4;
+    const catHead = sameThing(head, f.catHead);
+    // the thing itself first: its category IS the head noun; a category with another head is something else
+    score += catHead ? 6 : -4;
+    if (sameThing(head, f.nameHead)) score += 1.5;
     // lighter models first among equals (they open sooner on a phone)
     score -= Math.min(0.5, item.kb / 24_000);
-    hits.push({ item, score, quality: found / q.length, head: headHit });
+    hits.push({ item, score, quality: found / (1 + mods.length), head: h.strong, catHead, mods: modsOk });
   }
   hits.sort((a, b) => b.score - a.score || a.item.name.localeCompare(b.item.name));
   return hits.slice(0, limit);
 }
 
-/** A hit good enough to open instead of generating something new. */
+/** A hit good enough to open instead of generating something new: the right kind of thing, and every non-colour word found. */
 export function goodMatch(h: SearchHit | undefined): boolean {
-  return !!h && h.head && h.quality >= 0.5 && h.score >= 4;
+  return !!h && h.catHead && h.mods;
 }
 
 // ---------------------------------------------------------------- the stand-in builder
@@ -482,3 +543,83 @@ export function standIn(text: string): StandIn {
   }
   return { title, kind: best.kind, parts: best.build({ c, s, t }) };
 }
+
+// ---------------------------------------------------------------- .gltf + files → one .glb
+
+export interface Gltf {
+  buffers?: { uri?: string; byteLength: number }[];
+  bufferViews?: { buffer: number; byteOffset?: number; byteLength: number }[];
+  images?: { uri?: string; bufferView?: number; mimeType?: string }[];
+  [k: string]: unknown;
+}
+
+const pad4 = (n: number) => (4 - (n % 4)) % 4;
+const MIME: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', ktx2: 'image/ktx2' };
+
+/**
+ * A glTF and the files it names → one binary glTF: every buffer and picture becomes part of the
+ * one binary chunk, each picture a buffer view with its type. Throws when a named file is missing.
+ */
+export function packGlb(gltf: Gltf, files: Map<string, ArrayBuffer>): ArrayBuffer {
+  const json = structuredClone(gltf) as Gltf;
+  const get = (uri: string): Uint8Array => {
+    const key = [uri, decodeURIComponent(uri)].find((k) => files.has(k));
+    if (!key) throw new Error(`the model names a file it did not come with (${uri.slice(0, 60)})`);
+    return new Uint8Array(files.get(key)!);
+  };
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  const add = (b: Uint8Array): number => {
+    const at = size;
+    parts.push(b);
+    size += b.byteLength;
+    const p = pad4(size);
+    if (p) {
+      parts.push(new Uint8Array(p));
+      size += p;
+    }
+    return at;
+  };
+  const base: number[] = [];
+  for (const b of json.buffers ?? []) {
+    if (!b.uri) throw new Error('the model has a buffer with no file');
+    base.push(add(get(b.uri)));
+  }
+  for (const v of json.bufferViews ?? []) {
+    v.byteOffset = (v.byteOffset ?? 0) + (base[v.buffer] ?? 0);
+    v.buffer = 0;
+  }
+  json.bufferViews ??= [];
+  for (const img of json.images ?? []) {
+    if (!img.uri) continue;
+    const bytes = get(img.uri);
+    const ext = img.uri.split('?')[0]!.split('.').pop()!.toLowerCase();
+    json.bufferViews.push({ buffer: 0, byteOffset: add(bytes), byteLength: bytes.byteLength });
+    img.bufferView = json.bufferViews.length - 1;
+    img.mimeType = img.mimeType ?? MIME[ext] ?? 'image/png';
+    delete img.uri;
+  }
+  json.buffers = [{ byteLength: size }];
+  const text = new TextEncoder().encode(JSON.stringify(json));
+  const jl = text.byteLength + pad4(text.byteLength);
+  const total = 12 + 8 + jl + 8 + size;
+  const out = new Uint8Array(total);
+  const v = new DataView(out.buffer);
+  v.setUint32(0, 0x46546c67, true);
+  v.setUint32(4, 2, true);
+  v.setUint32(8, total, true);
+  v.setUint32(12, jl, true);
+  v.setUint32(16, 0x4e4f534a, true);
+  out.set(text, 20);
+  out.fill(0x20, 20 + text.byteLength, 20 + jl);
+  let o = 20 + jl;
+  v.setUint32(o, size, true);
+  v.setUint32(o + 4, 0x004e4942, true);
+  o += 8;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.byteLength;
+  }
+  return out.buffer;
+}
+
