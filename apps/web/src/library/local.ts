@@ -448,10 +448,14 @@ export async function offlineAnswer(q: string): Promise<string | null> {
   return `I can't reach my brain right now (no connection), so here is what my library on this device says:\n\n${parts.join('\n\n')}`;
 }
 
-/** Ask the browser not to clear the library copy when space runs low. */
-export function keepForever(): void {
+/**
+ * Ask the browser not to clear the library copy when space runs low — only when it is not kept
+ * already and `quietly` (asking makes no pop-up: features/system/storage.ts persistAsksQuietly).
+ */
+export function keepForever(quietly: boolean): void {
   try {
-    void navigator.storage?.persist?.();
+    const s = navigator.storage;
+    if (quietly && s?.persist) void s.persisted?.().then((on) => on || s.persist()).catch(() => undefined);
   } catch {
     /* not supported */
   }

@@ -5,13 +5,20 @@
  */
 import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
+import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
-/** One of this phone's daily backups as the brain lists it (apps/edge/src/backup.ts). */
+/** One of the phones' daily backups as the brain lists it (apps/edge/src/backup.ts). */
 export interface BackupInfo {
-  /** The day it was kept (UTC, YYYY-MM-DD), also its name. */
+  /** Its name: `<device>:<day>`, or `<day>` for a copy kept in the older format. */
   id: string;
+  /** The day it was kept (UTC, YYYY-MM-DD). */
+  day: string;
+  /** The random id of the phone that made it ('' for the older format). */
+  device: string;
+  /** What that phone calls itself. */
+  label?: string;
   at: number;
   size: number;
 }
@@ -348,8 +355,8 @@ export const brain = {
   setPushPrefs: (patch: Record<string, boolean>) => req<{ prefs: Record<string, boolean> }>('POST', '/push/prefs', patch),
   /** This phone's encrypted daily backups, kept by the brain in KV (features/system/backup.ts seals and opens them). */
   backups: () => req<{ backups: BackupInfo[]; keep: number; max: number }>('GET', '/backup'),
-  putBackup: (sealed: SealedBackup) => req<{ backup: BackupInfo; removed: string[] }>('POST', '/backup', sealed),
-  getBackup: (id: string) => req<{ backup: SealedBackup }>('GET', `/backup/${encodeURIComponent(id)}`),
+  putBackup: (sealed: SealedBackup & { device: string; label: string }) => req<{ backup: BackupInfo; removed: string[] }>('POST', '/backup', sealed),
+  getBackup: (b: Pick<BackupInfo, 'device' | 'day'>) => req<{ backup: SealedBackup }>('GET', `/backup/${b.device ? `${encodeURIComponent(b.device)}/` : ''}${encodeURIComponent(b.day)}`),
   trafficStatus: () => req<{ ready: boolean }>('GET', '/traffic/status'),
   /** A public-transport journey for the GO panel: the brain asks Transitous and answers in the shape the map draws (`from`/`to`: "here", "lat,lon" or a name; `time`: local YYYY-MM-DDTHH:MM, else now). */
   journey: (p: { from: string; to: string; time?: string; arriveBy?: boolean }) =>
@@ -459,7 +466,7 @@ brain.library = async () => {
 let mirrorRun: Promise<void> | null = null;
 export function mirrorLibraryNow(): Promise<void> {
   mirrorRun ??= (async () => {
-    keepForever();
+    keepForever(persistAsksQuietly());
     try {
       for (let round = 0; round < 50; round++) {
         if (memoryPaused.get().on) break;

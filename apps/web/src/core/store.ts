@@ -11,6 +11,34 @@ export interface Store<T extends object> {
   subscribe(fn: Listener<T>): () => void;
 }
 
+let frozen = false;
+/**
+ * From now until the page reloads, nothing on this page writes to localStorage: no store saves,
+ * and direct writes are ignored. A restore (features/system/backup.ts) calls this the moment it has
+ * put a backup back, so a store still holding the old state in memory (the inbox check every 45 s,
+ * a save already waiting) cannot write it over what was just restored.
+ */
+export function freezeStorage(): void {
+  frozen = true;
+  try {
+    const ls = window.localStorage;
+    const proto = Storage.prototype;
+    const { setItem, removeItem, clear } = proto;
+    proto.setItem = function (this: Storage, k: string, v: string) {
+      if (this !== ls) setItem.call(this, k, v);
+    };
+    proto.removeItem = function (this: Storage, k: string) {
+      if (this !== ls) removeItem.call(this, k);
+    };
+    proto.clear = function (this: Storage) {
+      if (this !== ls) clear.call(this);
+    };
+  } catch {
+    /* no storage here: nothing to guard */
+  }
+}
+export const storageFrozen = () => frozen;
+
 /**
  * `persist`: kept in localStorage under this name; `keys`: only these fields; `save`: what is
  * written, worked out from the state each time (e.g. leaving out what must not be kept).
@@ -28,9 +56,10 @@ export function createStore<T extends object>(initial: T, opts: { persist?: stri
   const subs = new Set<Listener<T>>();
   let saveTimer = 0;
   const save = () => {
-    if (!opts.persist) return;
+    if (!opts.persist || frozen) return;
     clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => {
+      if (frozen) return;
       try {
         const out = opts.save ? opts.save(state) : opts.keys ? Object.fromEntries(opts.keys.map((k) => [k, state[k]])) : state;
         localStorage.setItem(opts.persist!, JSON.stringify(out));

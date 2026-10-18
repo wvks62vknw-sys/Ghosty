@@ -754,7 +754,7 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .map3d { flex: 1 1 auto; min-height: 220px; position: relative; z-index: 0; background: #02070d; }
 .map3d .maplibregl-canvas { outline: none; }
 .map3d .maplibregl-ctrl-group { background: rgba(var(--bgr), .9); border: 1px solid var(--line); border-radius: 4px; box-shadow: none; }
-.map3d .maplibregl-ctrl-group button { width: 30px; height: 30px; border-color: var(--line2); }
+.map3d .maplibregl-ctrl-group button { width: 30px; height: 30px; min-height: 0; padding: 0; border-color: var(--line2); }
 .map3d .maplibregl-ctrl-group button + button { border-top: 1px solid var(--line2); }
 .map3d .maplibregl-ctrl-attrib { background: rgba(var(--bgr), .8); color: var(--mute); font: 400 9px var(--b); max-width: 70%; text-align: right; }
 .map3d .maplibregl-ctrl-attrib a { color: var(--mute); }
@@ -1114,9 +1114,11 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
 /* ---------- touch screens (the owner's iPhone) ----------
    iPhone Safari zooms the whole page into any text box whose text is under 16px the moment it is tapped,
    and leaves it zoomed. And a finger needs about 40px: rules above that make buttons smaller for a mouse
-   (top bar, panel footers, chips, the globe's tools) give way here. Checked in WebKit by tests/safari.spec.mjs. */
+   (top bar, panel footers, chips, the globe's tools) give way here. Checked in WebKit by tests/safari.spec.mjs.
+   Not the buttons drawn at a fixed size inside something else: the × on a SCAN page thumbnail (pinned
+   to its corner) and the 3-D map's zoom/compass buttons (MapLibre's square stack) would only be stretched. */
 @media (hover: none) {
   input, textarea, select { font-size: 16px !important; }
   .vcform .vcinput { font-size: 20px !important; }
-  button { min-height: 40px !important; }
+  button:not(.scanthumb button):not(.maplibregl-ctrl button) { min-height: 40px !important; }
 }

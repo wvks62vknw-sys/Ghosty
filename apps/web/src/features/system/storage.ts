@@ -18,7 +18,14 @@ const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.
 /** Opened from the Home Screen (not a Safari tab). */
 export const homeScreenApp = () => matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
 
-/** Look (and, when `ask`, ask the browser to keep the data). Never throws. */
+/**
+ * Can Ghosty ask to keep its data without a pop-up? Safari and Chrome answer by themselves; Firefox
+ * shows a permission prompt (each time, until the owner decides), so there it waits for PROTECT —
+ * unless Ghosty is an installed app.
+ */
+export const persistAsksQuietly = () => homeScreenApp() || !/firefox|fxios/i.test(navigator.userAgent);
+
+/** Look (and, when `ask`, ask the browser to keep the data — only if it is not kept already). Never throws. */
 export async function checkStorage(ask: boolean): Promise<void> {
   const s = navigator.storage;
   if (!s?.persisted) return storageState.set({ supported: false, persisted: false });

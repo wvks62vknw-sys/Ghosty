@@ -7,7 +7,7 @@ import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
-import { backUpNow, lastBackup, listBackups, reportText, restore, sizeText } from './backup';
+import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 
 export const systemTab: TabDef = {
@@ -180,18 +180,33 @@ export const systemTab: TabDef = {
     storageState.subscribe(() => paintStorage());
 
     // ---- the daily backup (backup.ts): sealed on this phone, kept by the brain for 7 days
+    // What the last restore put back, shown once after its reload.
+    let restored = takeRestoreReport();
+    let painting = 0;
     const paintBackup = async () => {
+      const mine = ++painting;
       clear(bkp.body);
       const known = lastBackup.get();
       const last = known && known.at > 0 ? known : null;
       bkp.setStatus(!last ? 'NONE YET' : last.ok ? `LAST ${fmt.ago(last.at).toUpperCase()}` : 'LAST TRY FAILED', last?.ok ? 'ok' : 'mid');
       const msg = h('div.note.backupmsg', '');
+      if (restored) {
+        msg.textContent = restored;
+        msg.className = 'note backupmsg good';
+        restored = null;
+      }
       bkp.body.append(
-        h('div.note', 'Once a day Ghosty locks a copy of what lives only on this phone (courses, flashcards, chat, plans, settings) with your owner key and keeps it in your brain. Only this phone can open it.'),
+        h('div.note', 'Once a day Ghosty locks a copy of what lives only on this phone (courses, flashcards, plans, settings) with your owner key and keeps it in your brain. Only this phone can open it. Your chat, memory and agenda are kept by the brain itself.'),
         last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
         h('div.keyrow', button('BACK UP NOW', async (b) => {
+          // A phone with no backup record while the brain has copies may be a wiped one: ask first.
+          if (!phoneTrusted() && ownerKey.get()) {
+            const any = await listBackups().then((l) => l.length > 0).catch(() => false);
+            if (any && !confirm('This phone has no backup record. Backing up now could replace a good copy from today with an empty phone. Restore first?\n\nCancel: stop here and pick a backup to RESTORE below.\nOK: back up this phone anyway.')) return;
+          }
           b.disabled = true;
           msg.textContent = 'locking and sending…';
+          msg.className = 'note backupmsg';
           try {
             const text = await backUpNow();
             toast(text, 'ok');
@@ -207,24 +222,24 @@ export const systemTab: TabDef = {
       if (!ownerKey.get()) return;
       try {
         const list = await listBackups();
+        if (mine !== painting) return; // a newer paint has started: this one's list is stale
         bkp.body.append(h('div.lab', 'RESTORE FROM A BACKUP'));
         if (!list.length) bkp.body.append(h('div.note', 'No backups yet.'));
-        else if (!known) bkp.body.append(h('div.note.bad.wiped', 'This phone has no record of backing up, but your brain has backups. If Safari cleared Ghosty (or this is a new phone), RESTORE the newest one first. The daily backup waits until then, so it never puts an empty phone over your good copies.'));
+        else if (!phoneTrusted()) bkp.body.append(h('div.note.bad.wiped', 'This phone has no record of backing up, but your brain has backups. If Safari cleared Ghosty (or this is a new phone), RESTORE the newest one first. The daily backup waits until then, so it never puts an empty phone over your good copies.'));
         for (const b of list) {
           const day = new Date(b.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
           const time = new Date(b.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          const r = row(day, `${time} · ${sizeText(b.size)}`, null);
+          const name = backupName(b);
+          const r = row(day, `${name} · ${time} · ${sizeText(b.size)}`, null, { wrap: true });
           r.dataset.backup = b.id;
           r.append(button('RESTORE', async (btn) => {
-            if (!confirm(`Restore the backup from ${day}?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted.`)) return;
+            if (!confirm(`Restore the backup from ${day} (${name})?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted. Ghosty reloads straight after.`)) return;
             btn.disabled = true;
             msg.textContent = 'opening the backup…';
             msg.className = 'note backupmsg';
             try {
-              const report = await restore(b.id);
-              msg.textContent = `${reportText(report)} Ghosty reloads in a moment to use it.`;
+              msg.textContent = `${await restoreAndReload(b)} Reloading…`;
               msg.className = 'note backupmsg good';
-              setTimeout(() => location.reload(), 2500);
             } catch (e) {
               msg.textContent = String((e as Error).message);
               msg.className = 'note backupmsg bad';
@@ -234,8 +249,9 @@ export const systemTab: TabDef = {
           bkp.body.append(r);
         }
       } catch (e) {
-        const gone = (e as { status?: number }).status === 404;
-        bkp.body.append(h('div.note', gone ? 'The brain cannot keep backups yet: it needs an update first.' : 'The list of backups needs the brain; it is not reachable right now.'));
+        if (mine !== painting) return;
+        const st = (e as { status?: number }).status;
+        bkp.body.append(h('div.note', st === 404 ? 'The brain cannot keep backups yet: it needs an update first.' : st === 501 ? String((e as Error).message) : 'The list of backups needs the brain; it is not reachable right now.'));
       }
     };
 

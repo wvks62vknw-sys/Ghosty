@@ -69,7 +69,7 @@ export interface TutorDeps {
   /** Fetch for Wikipedia (tests pass a stub). */
   fetch?: typeof fetch;
   /** Tell the owner (inbox + push), for the daily cards note. */
-  notify?: (item: { kind: 'task'; title: string; text: string }) => Promise<unknown>;
+  notify?: (item: { kind: 'task'; title: string; text: string; pushKind?: 'flashcards' }) => Promise<unknown>;
   now?: number;
 }
 
@@ -827,7 +827,8 @@ export async function reviseNudge(deps: TutorDeps): Promise<string> {
   const general = st.cards.filter((c) => c.course === GENERAL && c.due <= now).length;
   const note = revisionNote(st.courses, general);
   if (!note) return 'nothing due';
-  await deps.notify?.({ kind: 'task', title: 'Cards to revise', text: note }).catch(() => undefined);
+  // Under the FLASHCARDS DUE switch (notifyprefs.ts).
+  await deps.notify?.({ kind: 'task', title: 'Cards to revise', text: note, pushKind: 'flashcards' }).catch(() => undefined);
   return note;
 }
 

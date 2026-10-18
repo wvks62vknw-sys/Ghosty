@@ -143,25 +143,19 @@ async function pushesDuring(fn) {
   return sent;
 }
 
-test('notification kinds: each sender falls under the right switch; asked-for, task results and errors always go', () => {
-  assert.equal(N.pushKindOf({ kind: 'reminder', title: 'call Mum' }), 'reminders');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Cards to revise' }), 'flashcards');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Upgrade idea' }), 'upgrades');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Morning briefing' }), 'brief');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Your 3D model is ready' }), 'model3d');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Price drop: kettle' }), 'prices');
-  assert.equal(N.pushKindOf({ kind: 'task', title: 'Check BTC' }), null);
-  assert.equal(N.pushKindOf({ kind: 'error', title: 'Morning briefing' }), null, 'something that went wrong is never silenced');
-  assert.deepEqual(N.NOTIFY_KINDS.map((k) => k.id), ['reminders', 'brief', 'flashcards', 'model3d', 'prices', 'upgrades']);
+test('notification kinds: only switches something sends today; nothing is classed by the words in a title', () => {
+  assert.deepEqual(N.NOTIFY_KINDS.map((k) => k.id), ['reminders', 'flashcards', 'upgrades']);
+  assert.equal(N.pushKindOf, undefined, 'no guessing a kind from a title (an owner task "Write a design brief" is not a morning brief)');
+  assert.deepEqual([...N.LATER_KINDS], ['brief', 'model3d', 'prices']);
 });
 
 test('the gate: off means no push for that kind only; a paused database never silences anything', async () => {
   const storage = new PrefStorage();
   const s = await fakeSub();
   await storage.put('push:subs', [{ id: 'a', endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, label: 'iPhone', at: 1 }]);
-  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, brief: true, flashcards: true, model3d: true, prices: true, upgrades: true }, 'everything is on until the owner says otherwise');
+  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, flashcards: true, upgrades: true }, 'everything is on until the owner says otherwise');
   await N.savePrefs(storage, { flashcards: false, bogus: false, reminders: 'no' });
-  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, brief: true, flashcards: false, model3d: true, prices: true, upgrades: true }, 'unknown kinds and non-booleans are ignored');
+  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, flashcards: false, upgrades: true }, 'unknown kinds and non-booleans are ignored');
   const msg = { title: 't', body: 'b' };
   let n;
   assert.deepEqual(await pushesDuring(async () => void (n = await N.pushIfWanted(storage, 'flashcards', msg))), []);
@@ -191,7 +185,7 @@ test('owner route /api/push/prefs, and a reminder with REMINDERS off reaches the
   assert.equal(r.status, 200, 'the route exists');
   const got = await r.json();
   assert.equal(got.prefs.reminders, true);
-  assert.equal(got.kinds.length, 6);
+  assert.equal(got.kinds.length, 3);
   assert.equal((await call('/api/push/subscribe', { method: 'POST', body: JSON.stringify(await fakeSub()) })).status, 200);
 
   const remind = async (text) => {
@@ -209,4 +203,45 @@ test('owner route /api/push/prefs, and a reminder with REMINDERS off reaches the
   assert.equal(items[0].text, 'drink water', 'the inbox still has it');
   const test1 = await pushesDuring(async () => assert.equal((await (await call('/api/push/test', { method: 'POST' })).json()).sent, 1));
   assert.equal(test1.length, 1, 'SEND A TEST always goes');
+});
+
+test('the sender declares the kind: owner tasks always push whatever their title; a reminder going off with REMINDERS off stays quiet', async () => {
+  const OWNER_KEY = 'push-owner-key-0123456789abcdef';
+  const pending = [];
+  const state = { storage: new PrefStorage(), waitUntil: (p) => pending.push(p) };
+  const env = { OWNER_KEY, MOCK_LLM: '1' };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brainMod.GhostyAgent(state, env)).fetch(r) }) };
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  const call = (path, init = {}) => brainMod.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, ctx);
+  assert.equal((await call('/api/push/subscribe', { method: 'POST', body: JSON.stringify(await fakeSub()) })).status, 200);
+  // An owner who switched off every switch there was (including the old MORNING BRIEF / PRICE DROPS / 3D MODEL READY ones).
+  await state.storage.put('notify:prefs', { reminders: false, brief: false, flashcards: false, model3d: false, prices: false, upgrades: false });
+
+  for (const title of ['Write a design brief · done', 'Find a cheaper energy tariff', 'Your 3D model is ready', 'Morning briefing']) {
+    const { job } = await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'task', title, text: 'say hello', at: Date.now() + 3_600_000 }) })).json();
+    const sent = await pushesDuring(async () => {
+      assert.equal((await call(`/api/jobs/${job.id}/run`, { method: 'POST' })).status, 200);
+      await Promise.allSettled(pending.splice(0));
+    });
+    assert.equal(sent.length, 1, `the owner's task "${title}" is always pushed`);
+  }
+  // Only the switches something sends are shown; a stored choice for a hidden one is kept as it was.
+  const prefs = await (await call('/api/push/prefs')).json();
+  assert.deepEqual(prefs.prefs, { reminders: false, flashcards: false, upgrades: false });
+  await call('/api/push/prefs', { method: 'POST', body: JSON.stringify({ flashcards: true }) });
+  assert.equal((await state.storage.get('notify:prefs')).brief, false, 'a stored choice for a hidden switch is kept');
+
+  // A reminder going off from the alarm, with REMINDERS off: in the inbox (marked quiet), not on the phone.
+  await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text: 'water the plants', at: Date.now() + 1000 }) })).json();
+  const rang = await pushesDuring(async () => {
+    await agent.alarm();
+    await Promise.allSettled(pending.splice(0));
+  });
+  assert.equal(rang.length, 0, 'REMINDERS off: not pushed');
+  const items = (await (await call('/api/inbox')).json()).items;
+  assert.equal(items[0].text, 'water the plants');
+  assert.equal(items[0].quiet, true, 'marked quiet, so the app does not alert either');
+  assert.equal(items[0].pushKind, 'reminders');
+  assert.ok(!items[1].quiet, 'a task is never quiet');
 });

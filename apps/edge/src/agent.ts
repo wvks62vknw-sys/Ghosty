@@ -61,7 +61,7 @@ import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
 import { addSub, loadSubs, removeSub, vapidKeys } from './push';
-import { notifyPrefsRoute, pushIfWanted, pushKindOf } from './notifyprefs';
+import { notifyPrefsRoute, pushIfWanted, pushWanted } from './notifyprefs';
 import { backupRoute } from './backup';
 import { fmtLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from './time';
 
@@ -1292,7 +1292,7 @@ export class GhostyAgent {
       if (job.kind === 'upgrade') return json(await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps())));
       if (job.kind === 'revise') return json({ result: await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router })) });
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
-      const item = await this.notify({ kind: job.kind, title: job.title, text: result });
+      const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
     }
     if (path === '/inbox' && method === 'GET') {
@@ -1316,11 +1316,14 @@ export class GhostyAgent {
   }
 
   /** Something for the owner's attention: kept in the inbox and pushed to their devices. */
-  private async notify(item: Omit<InboxItem, 'id' | 'at'>): Promise<InboxItem> {
-    const it = await addInbox(this.storage, item);
+  private async notify(item: Omit<InboxItem, 'id' | 'at' | 'quiet'>): Promise<InboxItem> {
+    // The sender says which switch it falls under (`pushKind`; none: always sent). Switched off in
+    // LINKS → NOTIFICATIONS: it goes in the inbox marked quiet, with no push, Telegram or alert in the app.
+    const wanted = await pushWanted(this.storage, item.pushKind ?? null);
+    const it = await addInbox(this.storage, wanted ? item : { ...item, quiet: true });
+    if (!wanted) return it;
     const title = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
-    // Pushed only when the owner wants this kind (LINKS → NOTIFICATIONS); the inbox keeps it either way.
-    this.state.waitUntil(pushIfWanted(this.storage, pushKindOf(item), { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
+    this.state.waitUntil(pushIfWanted(this.storage, null, { title, body: item.text, tag: it.id }, this.contact()).catch(() => 0));
     // The owner's Telegram chat gets it too, once paired (telegram.ts).
     this.state.waitUntil(telegramNotify(this.telegramHost(), item).catch(() => false));
     return it;
@@ -1400,7 +1403,7 @@ export class GhostyAgent {
     for (const job of due) {
       try {
         if (job.kind === 'reminder') {
-          await this.notify({ kind: 'reminder', title: job.title, text: job.text });
+          await this.notify({ kind: 'reminder', title: job.title, text: job.text, pushKind: 'reminders' });
           await finishJob(this.storage, job.id);
         } else if (job.kind === 'verify') {
           await this.verifyShip(job);
@@ -1524,7 +1527,7 @@ export class GhostyAgent {
       library: this.library,
       audit: () => toolByName.get('self_audit')!.run({}, this.toolContext(() => undefined)),
       ask: this.studyAi(),
-      notify: async (title, text) => void (await this.notify({ kind: 'task', title, text })),
+      notify: async (title, text) => void (await this.notify({ kind: 'task', title, text, pushKind: 'upgrades' })),
     };
   }
 

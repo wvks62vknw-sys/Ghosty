@@ -153,6 +153,12 @@ export interface OutboxApi {
 }
 
 let flushing = false;
+const flushedFns = new Set<(sent: number) => void>();
+/** Called after a flush that sent something (the daily backup then runs soon, so it carries the sent state). */
+export function onFlushed(fn: (sent: number) => void): () => void {
+  flushedFns.add(fn);
+  return () => flushedFns.delete(fn);
+}
 /**
  * Send queued changes in order. Stops at the first one the brain can't take yet (still
  * paused); a change the brain refuses outright is dropped so it can't block the rest.
@@ -192,6 +198,14 @@ export async function flushOutbox(api: OutboxApi, keepForLater: (e: unknown) => 
     flushing = false;
   }
   for (const op of offline.get().outbox) armLocalReminder(op);
+  if (sent)
+    for (const fn of flushedFns) {
+      try {
+        fn(sent);
+      } catch {
+        /* a listener's trouble is not the queue's */
+      }
+    }
   return sent;
 }
 

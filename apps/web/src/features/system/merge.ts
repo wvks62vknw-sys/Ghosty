@@ -1,5 +1,6 @@
 /**
- * Putting a backup back without wiping what the phone has now (features/system/backup.ts).
+ * Putting a backup back without wiping what the phone has now, and when the daily backup runs
+ * (features/system/backup.ts).
  * Pure functions, no browser: tested in apps/edge/test/offline.test.mjs.
  *
  * Lists of things with an id (flashcards, courses, quizzes, unsent changes, widgets…) are joined
@@ -74,3 +75,70 @@ export function mergeEntry(cur: string | null, bak: string, whole = false): { te
   const text = JSON.stringify(mergeValue(c, b));
   return text === JSON.stringify(c) ? { text: cur, result: 'same' } : { text, result: 'merged' };
 }
+
+/**
+ * What a backup must never put back, and what it is called in the restore report. Both are the
+ * brain's to keep, so a copy from days ago could only do harm:
+ *  - 'ghosty.offline': changes waiting to be sent (its outbox) may have been sent since the backup —
+ *    putting them back would send them again (a reminder twice, a memory twice) and ring old
+ *    reminders at once; the memory, agenda and inbox copies in it come back from the brain by themselves;
+ *  - 'ghosty.chat': the conversation is kept by the brain and loaded from it every time Ghosty starts.
+ * Backups made from now on leave them out; older ones may still carry them.
+ */
+export const NOT_RESTORED: Record<string, string> = {
+  'ghosty.offline': 'memory and agenda (your brain keeps them)',
+  'ghosty.chat': 'chat history (your brain keeps it)',
+};
+
+/**
+ * One entry of a backup going back on this phone: null when it is never put back (NOT_RESTORED —
+ * the phone's own entry, with its outbox of changes not sent yet, stays exactly as it is), otherwise
+ * joined with the phone's (mergeEntry).
+ */
+export function restoreEntry(key: string, cur: string | null, bak: string, whole = false): { text: string; result: MergeResult } | null {
+  if (Object.prototype.hasOwnProperty.call(NOT_RESTORED, key)) return null;
+  return mergeEntry(cur, bak, whole);
+}
+
+// ---------------------------------------------------------------------------------------
+// When the daily backup runs (features/system/backup.ts autoBackup).
+// ---------------------------------------------------------------------------------------
+
+/** What this phone remembers about its last backup (never itself backed up). */
+export interface LastBackup {
+  at: number;
+  ok: boolean;
+  size?: number;
+  error?: string;
+  /** A backup worked here, or one was restored here: what this phone holds is its owner's real data. */
+  known?: boolean;
+  /** Something changed since (waiting changes went to the brain): the next daily backup should not wait a day. */
+  due?: boolean;
+}
+
+/**
+ * Does this phone trust its own contents enough to back them up over the brain's copies? Only once a
+ * backup worked here or one was restored. A failed try proves nothing: a wiped phone whose first
+ * BACK UP NOW failed is still a wiped phone.
+ */
+export const backupTrusted = (last: LastBackup | null): boolean => !!last && (last.ok || !!last.known);
+
+/** The record after a try: a failure keeps what was known before. */
+export function afterTry(prev: LastBackup | null, now: number, r: { ok: true; size: number } | { ok: false; error: string }): LastBackup {
+  return r.ok ? { at: now, ok: true, size: r.size, known: true } : { at: now, ok: false, error: r.error, ...(backupTrusted(prev) ? { known: true } : {}) };
+}
+
+/**
+ * Should the daily backup run now? A good one waits 20 hours (about a day, whenever Ghosty is
+ * opened) unless marked due; a failed try waits 3 hours. Never while the phone has no trusted record
+ * but the brain has copies (`brainHasCopies`, asked only then): that is a wiped or new phone, and
+ * backing up would put an empty phone over the good copies.
+ */
+export async function backupDue(last: LastBackup | null, now: number, brainHasCopies: () => Promise<boolean>): Promise<boolean> {
+  if (last && !last.due && now - last.at < (last.ok ? 20 : 3) * 3_600_000) return false;
+  if (!backupTrusted(last) && (await brainHasCopies())) return false;
+  return true;
+}
+
+/** The record once waiting changes reached the brain: the next daily backup runs without waiting the day out. */
+export const markDue = (last: LastBackup | null): LastBackup | null => (last ? { ...last, due: true } : last);

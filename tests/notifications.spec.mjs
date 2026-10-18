@@ -1,7 +1,8 @@
-// LINKS → NOTIFICATIONS in a real browser: a switch per kind (reminders, morning brief, flashcards
-// due, 3D model ready, price drops, upgrade ideas), kept by the brain (it checks them before every
-// push) and still set after a reload; SEND A TEST; and on an iPhone in a Safari tab (not opened
-// from the Home Screen) the plain sentence saying notifications need the Home Screen.
+// LINKS → NOTIFICATIONS in a real browser: a switch per kind that something sends today (reminders,
+// flashcards due, upgrade ideas), kept by the brain (it checks them before every push) and still set
+// after a reload; each switch drawn once even when paints overlap; a kind switched off gives no alert
+// in the app either (the inbox item comes marked quiet); SEND A TEST; and on an iPhone in a Safari
+// tab (not opened from the Home Screen) the plain sentence saying notifications need the Home Screen.
 //   BASE=http://localhost:8852 node tests/notifications.spec.mjs [outDir]
 //   (the iPhone part runs in WebKit when PLAYWRIGHT_BROWSERS_PATH has it: /tmp/claude-0/wk/browsers)
 import { chromium, webkit } from 'playwright';
@@ -35,16 +36,18 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
 {
   const { page } = await open(chrome);
   const kinds = await page.$$eval('#pg-links button[data-kind]', (bs) => bs.map((b) => `${b.dataset.kind}:${b.textContent}`));
-  check(JSON.stringify(kinds) === JSON.stringify(['reminders:ON', 'brief:ON', 'flashcards:ON', 'model3d:ON', 'prices:ON', 'upgrades:ON']), `switches: ${kinds.join(', ')}`);
+  check(JSON.stringify(kinds) === JSON.stringify(['reminders:ON', 'flashcards:ON', 'upgrades:ON']), `switches: ${kinds.join(', ')}`);
   const labels = await page.$$eval('#pg-links .rw', (rs) => rs.map((r) => r.querySelector('.k')?.textContent ?? ''));
-  for (const l of ['REMINDERS', 'MORNING BRIEF', 'FLASHCARDS DUE', '3D MODEL READY', 'PRICE DROPS', 'UPGRADE IDEAS']) check(labels.includes(l), `no ${l} switch`);
+  for (const l of ['REMINDERS', 'FLASHCARDS DUE', 'UPGRADE IDEAS']) check(labels.includes(l), `no ${l} switch`);
+  for (const l of ['MORNING BRIEF', '3D MODEL READY', 'PRICE DROPS']) check(!labels.includes(l), `${l} is shown but nothing sends it`);
+  check(/no Telegram message, no alert or voice in the app/.test((await page.textContent('#pg-links .notifyscope').catch(() => '')) ?? ''), 'the panel does not say what OFF stops');
   check(!(await page.$('#pg-links .homeonly')), 'Home Screen sentence shown on a computer');
   await page.click('#pg-links button[data-kind="reminders"]');
   await page.waitForFunction(() => document.querySelector('#pg-links button[data-kind="reminders"]')?.textContent === 'OFF', null, { timeout: 8000 }).catch(() => problems.push('REMINDERS did not switch off'));
   await page.click('#pg-links button[data-kind="upgrades"]');
   await page.waitForFunction(() => document.querySelector('#pg-links button[data-kind="upgrades"]')?.textContent === 'OFF', null, { timeout: 8000 }).catch(() => problems.push('UPGRADE IDEAS did not switch off'));
   const p = await prefs(page);
-  check(p.reminders === false && p.upgrades === false && p.brief === true, `the brain did not keep the choices: ${JSON.stringify(p)}`);
+  check(p.reminders === false && p.upgrades === false && p.flashcards === true, `the brain did not keep the choices: ${JSON.stringify(p)}`);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pg-links button[data-kind="reminders"]', { timeout: 20000 });
   check((await page.textContent('#pg-links button[data-kind="reminders"]')) === 'OFF', 'REMINDERS came back ON after a reload');
@@ -56,6 +59,57 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
   await page.click('#pg-links button[data-kind="reminders"]');
   await page.click('#pg-links button[data-kind="upgrades"]');
   await page.waitForTimeout(800);
+}
+
+// ---- paints that overlap: Ghosty starts on LINKS, so the tab paints while the phone's notification state is
+// still being found out (each change paints again) and the brain answers slowly — each switch is drawn once.
+{
+  const ctx = await chrome.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addInitScript((key) => localStorage.setItem('ghosty.ownerKey', key), KEY);
+  await ctx.route('**/api/push/prefs', async (r) => {
+    if (r.request().method() !== 'GET') return r.continue();
+    await new Promise((ok) => setTimeout(ok, 1500));
+    return r.continue();
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  await page.goto(`${base}/#links`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pg-links button[data-kind]', { timeout: 20000 }).catch(() => problems.push('LINKS opened at start-up showed no switches'));
+  await page.waitForTimeout(3000);
+  const drawn = await page.$$eval('#pg-links button[data-kind]', (bs) => bs.map((b) => b.dataset.kind));
+  check(drawn.length > 0 && new Set(drawn).size === drawn.length, `switches drawn more than once: ${drawn.join(', ')}`);
+  await ctx.close();
+}
+
+// ---- a kind switched off: no toast or voice in the app (the brain marks its inbox item quiet)
+{
+  const ctx = await chrome.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+  const now = Date.now();
+  await page.route('**/api/inbox', (r) =>
+    r.request().method() !== 'GET'
+      ? r.continue()
+      : r.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            unread: 2,
+            items: [
+              { id: 'q1', at: now - 5000, kind: 'reminder', title: 'QUIETMARK', text: 'QUIETMARK water the plants', pushKind: 'reminders', quiet: true },
+              { id: 'l1', at: now - 4000, kind: 'task', title: 'Write a design brief · done', text: 'LOUDMARK the brief is ready' },
+            ],
+          }),
+        }),
+  );
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 20000 });
+  await page.fill('#pair input', KEY);
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await page.waitForSelector('#toasts :text("LOUDMARK")', { timeout: 10000 }).catch(() => problems.push('an ordinary inbox item gave no alert'));
+  await page.waitForTimeout(500);
+  check(!(await page.$('#toasts :text("QUIETMARK")')), 'an item whose kind is switched off still popped up in the app');
+  await ctx.close();
 }
 await chrome.close();
 
@@ -71,10 +125,10 @@ if (wk) {
   const { page } = await open(wk, { userAgent: ua });
   await page.waitForSelector('#pg-links .homeonly', { timeout: 8000 }).catch(() => problems.push('no Home Screen sentence on an iPhone in a Safari tab'));
   check((await page.textContent('#pg-links .homeonly').catch(() => '')) === HOME_ONLY, 'the Home Screen sentence is not word for word');
-  check((await page.$$('#pg-links button[data-kind]')).length === 6, 'the switches are missing on the iPhone');
+  check((await page.$$('#pg-links button[data-kind]')).length === 3, 'the switches are missing on the iPhone');
   await page.locator('#pg-links section.pn:has(button[data-kind])').screenshot({ path: `${out}/notifications-iphone.png` });
   await wk.close();
 }
 
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Notifications run clean: six switches kept by the brain, SEND A TEST, Home Screen sentence on iPhone.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Notifications run clean: three switches kept by the brain, drawn once, quiet items give no alert, SEND A TEST, Home Screen sentence on iPhone.');
 process.exit(problems.length ? 1 : 0);

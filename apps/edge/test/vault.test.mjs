@@ -156,8 +156,8 @@ test("a key removed during the pause stays removed after a restart: the device's
 });
 
 // ---------------------------------------------------------------------------------------
-// The phone's daily backup (backup.ts): ciphertext only, kept in KV under backup:<day>, the
-// newest 7 days, never more than KV's 25 MiB, and only for the owner.
+// The phone's daily backup (backup.ts): ciphertext only, kept in KV under backup:<device>:<day> (older copies
+// backup:<day>), each phone's newest 7 days, never more than KV's 25 MiB, and only for the owner.
 // ---------------------------------------------------------------------------------------
 import { build } from 'esbuild';
 
@@ -269,6 +269,53 @@ test('backup routes: owner only, store / list / fetch one, and the size refusal 
   delete env.SITES;
   agent = undefined;
   const none = await call('/api/backup');
-  assert.equal(none.status, 503);
-  assert.match((await none.json()).error, /SITES KV/);
+  assert.equal(none.status, 501, 'not 503: the phone reads 503 as "signed out"');
+  assert.match((await none.json()).error, /not set up on this brain yet/);
+});
+
+test('backup store: one copy per phone per day — two phones on the same day both kept, 7 each, older-format copies still listed and opened', async () => {
+  const kv = new SitesKv();
+  const t0 = Date.parse('2026-10-01T09:00:00Z');
+  // A copy kept before phones had names (backup:<day>).
+  await BK.storeBackup(kv, JSON.stringify(sealed(40)), t0 - DAY);
+  assert.ok(kv.m.has('backup:2026-09-30'));
+  const A = 'phoneAAAA1111';
+  const B = 'phoneBBBB2222';
+  const withDev = (device, n, label) => JSON.stringify({ ...sealed(n), device, ...(label ? { label } : {}) });
+  for (let d = 0; d < 9; d++) await BK.storeBackup(kv, withDev(A, 64 + d, 'iPhone'), t0 + d * DAY);
+  // The other phone backs up on the last day too: it must not replace phone A's copy.
+  const b = await BK.storeBackup(kv, withDev(B, 300, 'iPad <script>'), t0 + 8 * DAY + 60_000);
+  assert.equal(b.backup.id, `${B}:2026-10-09`);
+  assert.equal(b.backup.label, 'iPad script', 'the label is cut down to plain characters');
+  assert.ok(kv.m.has(`backup:${A}:2026-10-09`) && kv.m.has(`backup:${B}:2026-10-09`), 'both phones keep their copy of the same day');
+  const list = await BK.listBackups(kv);
+  assert.equal(list.filter((x) => x.device === A).length, 7, "phone A's newest 7");
+  assert.equal(list.filter((x) => x.device === B).length, 1);
+  assert.deepEqual(list.filter((x) => x.device === '').map((x) => x.id), ['2026-09-30'], 'the older-format copy is still listed');
+  assert.ok(!kv.m.has(`backup:${A}:2026-10-01`) && !kv.m.has(`backup:${A}:2026-10-02`), "phone A's oldest are deleted");
+  assert.equal((await BK.getBackup(kv, `${A}:2026-10-09`)).ct, b64(72));
+  assert.equal((await BK.getBackup(kv, `${B}:2026-10-09`)).ct, b64(300));
+  assert.equal((await BK.getBackup(kv, '2026-09-30')).ct, b64(40));
+  assert.equal(await BK.getBackup(kv, 'x:y:2026-09-30'), null);
+  // A device id that is not a plain random name is refused.
+  await assert.rejects(BK.storeBackup(kv, withDev('../index', 30)), /which phone it came from/);
+  await assert.rejects(BK.storeBackup(kv, JSON.stringify({ ...sealed(30), device: 42 })), /which phone it came from/);
+});
+
+test('backup routes: a phone fetches its own copy by device and day; the older format by day', async () => {
+  const OWNER_KEY = 'backup-owner-key-0123456789abcdef';
+  const kv = new SitesKv();
+  const state = { storage: new AgentStorage(), waitUntil: () => undefined };
+  const env = { OWNER_KEY, MOCK_LLM: '1', SITES: kv };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brainMod.GhostyAgent(state, env)).fetch(r) }) };
+  const call = (path, init = {}) => brainMod.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, { waitUntil: () => undefined });
+  await BK.storeBackup(kv, JSON.stringify(sealed(33)), Date.now() - DAY);
+  const put = await (await call('/api/backup', { method: 'POST', body: JSON.stringify({ ...sealed(81), device: 'dev_1234abcd', label: 'iPhone' }) })).json();
+  assert.equal(put.backup.device, 'dev_1234abcd');
+  const list = (await (await call('/api/backup')).json()).backups;
+  assert.equal(list.length, 2);
+  assert.equal((await (await call(`/api/backup/dev_1234abcd/${put.backup.day}`)).json()).backup.ct, b64(81));
+  const old = list.find((x) => !x.device);
+  assert.equal((await (await call(`/api/backup/${old.day}`)).json()).backup.ct, b64(33));
 });

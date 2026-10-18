@@ -17,7 +17,7 @@ import { startLoop } from './engine/scheduler';
 import { World } from './engine/world';
 import { TABS } from './features';
 import { autoBackup } from './features/system/backup';
-import { checkStorage } from './features/system/storage';
+import { checkStorage, persistAsksQuietly } from './features/system/storage';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
@@ -130,8 +130,9 @@ async function boot(): Promise<void> {
     await loadHistory();
     startNotices();
     void initApp();
-    // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps), and keep the daily backup going.
-    void checkStorage(true);
+    // Paired: ask the phone to keep Ghosty's data (Safari grants it to Home Screen apps) when asking
+    // makes no pop-up (Firefox would ask the owner on every start: there, PROTECT in SYSTEM asks); keep the daily backup going.
+    void checkStorage(persistAsksQuietly());
     setTimeout(() => void autoBackup(), 20_000);
     window.setInterval(() => void autoBackup(), 3_600_000);
     // Changes made while the brain was unreachable (memory, agenda) go to it now.

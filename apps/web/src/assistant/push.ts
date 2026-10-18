@@ -18,7 +18,8 @@ const standalone = () => matchMedia('(display-mode: standalone)').matches || (na
 /** An iPhone or iPad in a Safari tab: notifications only work once Ghosty is opened from the Home Screen. */
 export const needsHomeScreen = () => isIos() && !standalone();
 
-function deviceLabel(): string {
+/** What this device is called in lists ("iPhone · Safari (app)"). */
+export function deviceLabel(): string {
   const ua = navigator.userAgent;
   const os = /iphone/i.test(ua) ? 'iPhone' : /ipad/i.test(ua) ? 'iPad' : /android/i.test(ua) ? 'Android' : /mac/i.test(ua) ? 'Mac' : /windows/i.test(ua) ? 'Windows' : /linux/i.test(ua) ? 'Linux' : 'Device';
   const br = /edg\//i.test(ua) ? 'Edge' : /firefox/i.test(ua) ? 'Firefox' : /crios|chrome/i.test(ua) ? 'Chrome' : /safari/i.test(ua) ? 'Safari' : '';

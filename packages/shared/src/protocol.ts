@@ -405,6 +405,10 @@ export interface InboxEntry {
   title: string;
   text: string;
   read?: boolean;
+  /** Which NOTIFICATIONS switch it falls under (apps/edge/src/notifyprefs.ts), when its sender gave one. */
+  pushKind?: string;
+  /** That switch was off when it came: listed in the Agenda inbox, but no alert. */
+  quiet?: boolean;
 }
 
 export interface FeedInfo {

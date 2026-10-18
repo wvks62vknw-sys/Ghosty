@@ -1,21 +1,26 @@
 /**
  * Which phone notifications the owner wants, kind by kind (LINKS → NOTIFICATIONS). Every push the
  * brain sends goes through `pushIfWanted`, which looks at the owner's choice for that kind first.
- * Only the push is held back: the item still goes in the Agenda inbox.
+ * The item still goes in the Agenda inbox either way.
  *
- * Kinds the owner cannot switch off: what they asked for there and then (push_to_phone, SEND A TEST),
- * finished background tasks and projects, and things that went wrong.
+ * Each sender says which switch it falls under (agent.ts notify's `pushKind`): a reminder going off,
+ * the tutor's "cards to revise" (tutor.ts), an upgrade idea (upgrades.ts). Nothing is worked out from
+ * the words in a title. Everything else always goes: what the owner asked for there and then
+ * (push_to_phone, SEND A TEST), finished background tasks and projects, and things that went wrong.
+ * A switched-off kind is held back everywhere: no push, no Telegram message, no alert in the app.
  */
 import { pushAll } from './push';
 
 export const NOTIFY_KINDS = [
   { id: 'reminders', label: 'REMINDERS', hint: 'reminders you set ("remind me at 6 to call Mum")' },
-  { id: 'brief', label: 'MORNING BRIEF', hint: 'your scheduled morning briefing' },
   { id: 'flashcards', label: 'FLASHCARDS DUE', hint: 'when cards in LEARN are due for revision' },
-  { id: 'model3d', label: '3D MODEL READY', hint: 'when a 3D model from 3D STUDIO is ready' },
-  { id: 'prices', label: 'PRICE DROPS', hint: 'when something you watch gets cheaper (coming later)' },
   { id: 'upgrades', label: 'UPGRADE IDEAS', hint: "Ghosty's daily ideas for improving itself" },
 ] as const;
+/**
+ * Switches with nothing that sends them yet (a morning brief, a 3D model ready, price drops): not
+ * shown. A choice already stored for one is kept as it is, ready for when a sender comes.
+ */
+export const LATER_KINDS = ['brief', 'model3d', 'prices'] as const;
 
 export type NotifyKind = (typeof NOTIFY_KINDS)[number]['id'];
 export type NotifyPrefs = Record<NotifyKind, boolean>;
@@ -25,34 +30,19 @@ const isKind = (k: string): k is NotifyKind => NOTIFY_KINDS.some((x) => x.id ===
 const DEFAULTS = (): NotifyPrefs => Object.fromEntries(NOTIFY_KINDS.map((k) => [k.id, true])) as NotifyPrefs;
 
 export async function loadPrefs(storage: DurableObjectStorage): Promise<NotifyPrefs> {
-  const saved = (await storage.get<Partial<NotifyPrefs>>(PREFS)) ?? {};
+  const saved = (await storage.get<Record<string, unknown>>(PREFS)) ?? {};
   const out = DEFAULTS();
   for (const [k, v] of Object.entries(saved)) if (isKind(k) && typeof v === 'boolean') out[k] = v;
   return out;
 }
 
 export async function savePrefs(storage: DurableObjectStorage, patch: Record<string, unknown>): Promise<NotifyPrefs> {
-  const prefs = await loadPrefs(storage);
-  for (const [k, v] of Object.entries(patch ?? {})) if (isKind(k) && typeof v === 'boolean') prefs[k] = v;
-  await storage.put(PREFS, prefs);
-  return prefs;
-}
-
-/**
- * Which switch an inbox item (agent.ts notify) falls under, or null for those that always go out.
- * Reminders by their kind; the others by the titles their senders give them (tutor.ts "Cards to
- * revise", upgrades.ts "Upgrade idea", a scheduled task named like "Morning briefing").
- */
-export function pushKindOf(item: { kind: string; title: string }): NotifyKind | null {
-  if (item.kind === 'reminder') return 'reminders';
-  if (item.kind !== 'task') return null;
-  const t = item.title;
-  if (/^cards to revise\b/i.test(t)) return 'flashcards';
-  if (/^upgrade ideas?\b/i.test(t)) return 'upgrades';
-  if (/\b3-?d model\b.*\bready\b/i.test(t)) return 'model3d';
-  if (/\bprice (drop|alert)s?\b|\bcheaper\b/i.test(t)) return 'prices';
-  if (/\bbrief(ing)?\b/i.test(t)) return 'brief';
-  return null;
+  // Written over what is stored, so choices for kinds not shown today are kept.
+  const saved = (await storage.get<Record<string, unknown>>(PREFS)) ?? {};
+  const next: Record<string, unknown> = { ...(await loadPrefs(storage)), ...Object.fromEntries(Object.entries(saved).filter(([k, v]) => !isKind(k) && typeof v === 'boolean')) };
+  for (const [k, v] of Object.entries(patch ?? {})) if (isKind(k) && typeof v === 'boolean') next[k] = v;
+  await storage.put(PREFS, next);
+  return loadPrefs(storage);
 }
 
 /** Is a push of this kind wanted? A database that cannot be read (paused) never silences anything. */

@@ -183,6 +183,20 @@ if (await otherSide('agenda')) dates.push(...(await dateBoxes()).filter((d) => !
 if (dates.length < 2) problems.push(`AGENDA has ${dates.length} date and time boxes, expected the event's and the reminder's`);
 for (const d of dates) if (d.type !== 'datetime-local' || !d.value || d.w < 120 || d.h < 39.5) problems.push(`a date and time box does not render properly: ${JSON.stringify(d)}`);
 
+// Buttons drawn at a fixed size inside something else keep that size on a touch screen: the × pinned to a SCAN
+// page thumbnail's corner and the 3-D map's zoom buttons (MapLibre's square stack) are not stretched to 40 px.
+const fixedSize = await page.evaluate(() => {
+  const box = document.createElement('div');
+  box.innerHTML = '<div class="scanthumb"><img alt=""><button>×</button></div><div class="map3d"><div class="maplibregl-ctrl maplibregl-ctrl-group"><button></button><button></button></div></div>';
+  document.body.append(box);
+  const [x, zoom] = box.querySelectorAll('button');
+  const out = { thumb: Math.round(x.getBoundingClientRect().height), zoom: Math.round(zoom.getBoundingClientRect().height), other: Math.round(document.querySelector('#mic')?.getBoundingClientRect().height ?? 0) };
+  box.remove();
+  return out;
+});
+if (fixedSize.thumb !== 24) problems.push(`the × on a SCAN thumbnail is stretched to ${fixedSize.thumb} px (should stay 24)`);
+if (fixedSize.zoom !== 30) problems.push(`the 3-D map's zoom buttons are stretched to ${fixedSize.zoom} px (should stay 30)`);
+
 // The mic, with no speech recognition (and no Whisper key): an honest message, no crash.
 await page.evaluate(() => (location.hash = 'core'));
 await page.waitForTimeout(1000);
