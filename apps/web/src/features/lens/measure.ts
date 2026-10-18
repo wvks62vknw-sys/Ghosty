@@ -297,7 +297,16 @@ export function createMeasureMode(L: LensContext): Mode {
     cal = null;
     pts = [];
     if (r === 'auto') tool = 'thing';
-    else if (tool === 'thing') tool = 'length';
+    else {
+      if (tool === 'thing') tool = 'length';
+      // a reference chosen by hand: AUTO's work on this picture stops (it starts again on AUTO)
+      if (S.auto.state !== 'off') {
+        autoGen++;
+        depth = null;
+        fused = null;
+        S.auto.state = 'off';
+      }
+    }
     if (r === 'distance' && photo && parseLength(distIn.value, 'm')) setDistance();
     if (r === 'auto' && photo && S.auto.state === 'off') startAuto();
     paintState();
