@@ -241,7 +241,7 @@ test('think harder: STOP keeps the best answer so far; STOP before any answer is
   assert.equal(r.stopped, true);
   assert.equal(r.answer, '42');
   assert.ok(r.attempts.length <= 2);
-  assert.match(r.line, /\(stopped early by you: best so far\)$/);
+  assert.equal(r.line, 'only 1 attempt: not enough to compare (stopped early by you: best so far)');
   const early = new AbortController();
   early.abort();
   await assert.rejects(T.thinkHarder('anything', { gen, signal: early.signal }), (e) => e.name === 'AbortError');

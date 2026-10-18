@@ -75,14 +75,22 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
 }
 
+/**
+ * The STOP button of a THINK HARDER still running, kept from one repaint of the log to the next: the log is
+ * redrawn as progress comes in, and a tap that lands while its button is swapped for a new one would be lost.
+ */
+let stopBtn: { at: number; el: HTMLButtonElement } | null = null;
+
 /** A THINK HARDER answer: live progress and STOP while it works; then the answer, how sure it is, its working, and ASK THE BIG BRAIN. */
 function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   const t = e.think!;
   const box = h('div.msg.off.think', h('small', 'GHOSTY · THINK HARDER'));
   if (t.state === 'running') {
-    box.append(h('div.thinkline.live', h('i'), h('span', t.line)), h('div.row', button('STOP', () => stopThinking(), 'warn')));
+    if (stopBtn?.at !== e.at) stopBtn = { at: e.at, el: button('STOP', () => stopThinking(), 'warn') };
+    box.append(h('div.thinkline.live', h('i'), h('span', t.line)), h('div.row', stopBtn.el));
     return box;
   }
+  if (stopBtn?.at === e.at) stopBtn = null;
   box.append(
     h('b.thinkans', t.answer || '(no answer)'),
     h(`div.thinkconf.${t.confidence ?? 'none'}` as 'div', `${t.line}${t.secs != null ? ` · ${t.secs} s` : ''}`),

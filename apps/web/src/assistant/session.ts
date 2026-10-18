@@ -53,7 +53,10 @@ export type Entry =
 const checkedPlates = new Set<string>();
 let vehicleTurn = false;
 function kept(entries: Entry[]): Entry[] {
-  const out = entries.filter((e) => !(e.kind === 'assistant' && e.once));
+  const out = entries
+    .filter((e) => !(e.kind === 'assistant' && e.once))
+    // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
+    .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
   return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
 }

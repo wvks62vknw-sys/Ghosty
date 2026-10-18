@@ -401,6 +401,11 @@ export function pickBest(attempts: Attempt[], checker: Checker | null, run: { ms
     return { ...base, answer: a.answer, text: a.text, confidence: 'none', line: `no clear answer in ${tries(n)}${tail}`, agree: 0 };
   }
   const [, group] = t[0]!;
+  if (n === 1) {
+    const a = group[0]!;
+    const own = a.verified === true ? ' · it checked the answer and says yes' : a.verified === false ? ' · when asked, it doubted this answer' : '';
+    return { ...base, answer: a.answer, text: a.text, confidence: 'split', line: `only 1 attempt: not enough to compare${own}${tail}`, agree: 1 };
+  }
   const second = t[1]?.[1].length ?? 0;
   const a = [...group].sort((x, y) => x.temperature - y.temperature)[0]!;
   const agree = group.length;
