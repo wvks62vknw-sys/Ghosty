@@ -4,7 +4,7 @@
 //  2. 👍 / 👎 under a reply: the rating reaches the brain (its status counts it), tapping again takes it back,
 //     the choice shows again after a reload;
 //  3. the report card (the brain's answer stood in for with a finished week): this week vs last week by area,
-//     KEPT and why, what he trained on, how long, what was thrown away and why, the brains kept (IN USE);
+//     KEPT and why, what he trained on, how long, what was thrown away and why, the brains kept (RECOMMENDED);
 //     ROLLBACK goes one back; the offline brain's chooser in SETTINGS lists the trained weeks with the stock
 //     models as the fallback and says which one is new;
 //  4. nothing scrolls sideways at iPhone width.
@@ -40,7 +40,7 @@ let light = await page.evaluate(() => document.querySelector('#pg-system .selftr
 check(light === 'NEEDS 2 KEYS', `status light: "${light}"`);
 let text = await panelText();
 check(/Waiting for two keys: Kaggle and a Hugging Face write token/.test(text), `note: ${text.slice(0, 200)}`);
-check(/kaggle\.com → Settings → API → Create New Token/.test(text) && /huggingface\.co → Settings → Access Tokens → Create new token → Write/.test(text), 'the steps say where each key is made');
+check(/kaggle\.com → Settings → API Tokens → Generate New Token/.test(text) && /"Hugging Face token \(training\)"/.test(text) && /two private spaces/.test(text) && /only reach those two/.test(text), 'the steps say where each key is made (today\'s Kaggle page; a token for two private repos)');
 check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain button')].find((b) => b.textContent === 'TRAIN NOW')?.disabled === true), 'TRAIN NOW is off without the keys');
 check(await page.evaluate(() => [...document.querySelectorAll('#pg-system .selftrain button')].find((b) => b.textContent === 'ROLLBACK')?.disabled === true), 'ROLLBACK is off with nothing to go back to');
 await page.locator('#pg-system .selftrain').scrollIntoViewIfNeeded();
@@ -48,7 +48,7 @@ await page.screenshot({ path: `${out}/selftrain-${engine}-nokeys.png` });
 await page.evaluate(() => [...document.querySelectorAll('#pg-system button')].find((b) => /OPTIONAL KEYS/.test(b.textContent ?? ''))?.click());
 await page.waitForFunction(() => [...document.querySelectorAll('#pg-system .keyblock .lab')].some((l) => /Kaggle/.test(l.textContent ?? '')), null, { timeout: 5000 }).catch(() => undefined);
 const slots = await page.evaluate(() => [...document.querySelectorAll('#pg-system .keyblock')].map((b) => ({ lab: b.querySelector('.lab')?.textContent ?? '', steps: b.querySelectorAll('ol.steps li').length, help: !!b.querySelector('button') })));
-for (const want of ['Kaggle (free GPUs for training)', 'Hugging Face write token (training)']) {
+for (const want of ['Kaggle (free GPUs for training)', 'Hugging Face token (training)']) {
   const s = slots.find((x) => x.lab === want);
   check(!!s && s.steps >= 3 && s.help, `key slot "${want}": ${JSON.stringify(s)}`);
 }
@@ -108,7 +108,7 @@ const report = {
   published: { repo: 'owner/ghosty-offline-brain', commit: c('b') }, scale: 1,
 };
 const previous = { ...report, week: 1, before: { gym: 0.25, general: 0.5, library: 0.33, tools: 0.5, safety: 0.9 }, after: report.before, gate: { pass: true, why: '' } };
-const status = (active) => ({ keys: { kaggle: true, hf: true }, phase: 'idle', note: 'Next training Sat 24 Oct, 01:00.', week: 2, next: Date.UTC(2026, 9, 24, 1), gathered: {}, report, previous, models: [week(2, report.after, c('b')), week(1, report.before, c('a'))], active, privateData: true, ratings: { up: 0, down: 0 } });
+const status = (active) => ({ keys: { kaggle: true, hf: true }, phase: 'idle', note: 'Next training Sat 24 Oct, 01:00.', week: 2, next: Date.UTC(2026, 9, 24, 1), gathered: {}, report, previous, models: [week(2, report.after, c('b')), week(1, report.before, c('a'))], active, privateData: true, ratings: { up: 0, down: 0 }, weights: `/api/w/${'c'.repeat(48)}/` });
 await page.route('**/api/training', (r) => r.fulfill({ json: status(c('b')) }));
 await page.route('**/api/training/rollback', (r) => r.fulfill({ json: status(c('a')) }));
 await page.route('**/api/training/gym', (r) => r.fulfill({ json: { ok: true } }));
@@ -127,19 +127,21 @@ const area = (a) => card.rows.find((r) => r.area === a);
 check(area('gym')?.v === '31% → 38% (last week 31%) · 48 questions' && area('gym')?.n === '+7', `GYM row: ${JSON.stringify(area('gym'))}`);
 check(area('safety')?.n === '±0', `SAFETY row: ${JSON.stringify(area('safety'))}`);
 check(card.rows.some((r) => r.k === 'AVERAGE' && r.n === 'KEPT'), 'AVERAGE … KEPT');
-check(/Kept: 5\.6 points better on average, no area down more than 3 points\./.test(card.text), 'why it was kept');
-check(card.rows.some((r) => /GYM puzzles and drills he solved himself/.test(r.v) && r.n === '412'), 'what he trained on (STaR)');
-check(card.rows.some((r) => /your 👍 \/ 👎/.test(r.v) && r.n === '9'), 'what he trained on (ratings)');
+check(/Kept: 5\.6 points better on average, no area down more than 3 points\. \(Both brains were tested exactly as your phone would run them\.\)/.test(card.text), 'why it was kept');
+check(card.rows.some((r) => /puzzles he solved himself \(each answer checked\)/.test(r.v) && r.n === '412'), 'what he trained on (STaR), in plain words');
+check(card.rows.some((r) => /your 👍 and 👎/.test(r.v) && r.n === '9'), 'what he trained on (ratings)');
 check(/HOW LONG: 3 h 3 min ON KAGGLE/.test(card.text), `how long: ${card.text.match(/HOW LONG[^O]*/)?.[0]}`);
 check(card.rows.some((r) => r.v === 'STaR samples the checker failed' && r.n === '5,120'), 'what was thrown away, and why');
-check(card.rows.some((r) => r.model === c('b') && r.n === 'IN USE') && card.rows.some((r) => r.model === c('a') && !r.n), 'the brains kept, week 2 in use');
+check(card.rows.some((r) => r.model === c('b') && r.n === 'RECOMMENDED') && card.rows.some((r) => r.model === c('a') && !r.n), 'the brains kept, week 2 recommended');
+check(/This phone is set to: /.test(card.text) && !/The phone uses/.test(card.text), 'what the phone is set to, said apart from what is recommended');
+check(!/Not tried for real yet/.test(card.text), 'a finished week is not called untried');
 check(card.rows.some((r) => r.k === 'STOCK'), 'the stock model kept as the fallback');
 await page.locator('#pg-system .selftrain').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/selftrain-${engine}-report.png`, fullPage: false });
 const roll = page.locator('#pg-system .selftrain button', { hasText: 'ROLLBACK' });
 check(!(await roll.isDisabled()), 'ROLLBACK is on with an older brain to go back to');
 await roll.click();
-await page.waitForFunction((a) => document.querySelector(`#pg-system .selftrain .rw[data-model="${a}"] .n`)?.textContent === 'IN USE', c('a'), { timeout: 5000 }).catch(() => problems.push('ROLLBACK did not put week 1 in use'));
+await page.waitForFunction((a) => document.querySelector(`#pg-system .selftrain .rw[data-model="${a}"] .n`)?.textContent === 'RECOMMENDED', c('a'), { timeout: 5000 }).catch(() => problems.push('ROLLBACK did not make week 1 the recommended brain'));
 await page.waitForTimeout(600); // (stores save a moment after they change)
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.offlinebrain') ?? '{}'));
 check(stored.active === c('a') && stored.trained?.length === 2, `the phone keeps the trained list: ${JSON.stringify({ active: stored.active, n: stored.trained?.length })}`);
@@ -149,7 +151,7 @@ await page.evaluate(() => (location.hash = 'settings'));
 await page.waitForSelector('#pg-settings .offbrain', { timeout: 10000 });
 const chooser = await page.evaluate(() => ({ options: [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].map((o) => o.textContent), hidden: document.querySelector('#pg-settings .offbrain select.obmodel')?.hidden, news: document.querySelector('#pg-settings .offbrain .obnew')?.textContent ?? '' }));
 check(JSON.stringify(chooser.options) === JSON.stringify(['Ghosty (week 2)', 'Ghosty (week 1) · recommended', 'Qwen3 0.6B', 'Qwen2.5 0.5B']) && chooser.hidden === false, `the chooser: ${JSON.stringify(chooser)}`);
-check(/^NEW: Ghosty \(week 1\) passed its exam/.test(chooser.news), `the new-brain line: "${chooser.news}"`);
+check(/^NEW: Ghosty \(week 1\) is the recommended brain/.test(chooser.news) && !/better/.test(chooser.news.split('(')[0]), `the new-brain line: "${chooser.news}"`);
 await page.selectOption('#pg-settings .offbrain select.obmodel', { label: 'Ghosty (week 1) · recommended' });
 await page.waitForTimeout(600);
 const chosen = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.offlinebrain') ?? '{}'));
