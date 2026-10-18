@@ -114,7 +114,8 @@ export const coreTab: TabDef = {
     // quiet row under it instead (hidden on wide screens, where the call-outs show).
     const glance = h('div#glance');
     const glanceItems = new Map<string, { el: HTMLElement; v: HTMLElement }>();
-    const note = (c: { id: string; label: string; value: string; tone?: 'ok' | 'warn' | 'bad' }) => {
+    /** `glance`: the row's own wording when it must keep its case (a unit like °F; the calm looks show the row in sentence case). */
+    const note = (c: { id: string; label: string; value: string; glance?: string; tone?: 'ok' | 'warn' | 'bad' }) => {
       stark.set(c);
       let g = glanceItems.get(c.id);
       if (!g) {
@@ -125,7 +126,9 @@ export const coreTab: TabDef = {
         glanceItems.set(c.id, g);
       }
       (g.el.firstChild as HTMLElement).textContent = c.label;
-      g.v.textContent = c.value;
+      g.v.textContent = c.glance ?? c.value;
+      if (c.glance) g.v.dataset.case = 'keep';
+      else delete g.v.dataset.case;
       g.el.className = `gi${c.tone ? ` ${c.tone}` : ''}`;
     };
     const caption = h('div#ccap', h('span', ''));
@@ -293,7 +296,8 @@ export const coreTab: TabDef = {
       note({ id: 'ai', label: 'AI LINK', value: model ? model.replace(/ · /, ' ▸ ').slice(0, 30) : 'STANDING BY', tone: 'ok' });
       note({ id: 'uplink', label: 'UPLINK', value: ms === null ? 'OFFLINE' : `${navigator.onLine ? 'SECURE' : 'LOCAL'} · ${ms} MS`, tone: ms === null ? 'bad' : ms > 800 ? 'warn' : 'ok' });
       const w = weather.data;
-      note({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${WMO(w.current.weather_code).toUpperCase().slice(0, 14)}` : ''}` });
+      const sky = w ? WMO(w.current.weather_code).slice(0, 14) : '';
+      note({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${sky.toUpperCase()}` : ''}`, glance: w ? `${fmt.time(new Date())} · ${temp(w.current.temperature_2m)} ${sky}` : undefined });
       const lv = threatLevel(signals());
       note({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
       const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);

@@ -9,7 +9,7 @@ import { Emitter } from '../core/store';
  * (primary, accent, alert). No two are alike: earlier near-copies are mapped to the
  * closest one in ALIASES, so a saved choice still works.
  */
-export type Finish = 'glass' | 'carbon' | 'plate' | 'neon' | 'crt' | 'nano';
+export type Finish = 'glass' | 'carbon' | 'plate' | 'neon' | 'crt' | 'nano' | 'graphite' | 'reactor';
 
 export interface Theme {
   c: string;
@@ -22,9 +22,18 @@ export interface Theme {
   bg: string;
   /** Surface finish of the glass panes: what the interface is "made of". */
   finish: Finish;
+  /**
+   * The whole interface's design language. 'hud' (default): the Stark HUD — display font, wide caps,
+   * outlined panes. 'pro': calm Apple-style glass — system font, sentence case, rounded translucent
+   * cards, pill buttons, a quieter room and a refined reactor (styles.css `html[data-look="pro"]`).
+   */
+  look?: 'hud' | 'pro';
 }
 
 export const THEMES: Record<string, Theme> = {
+  // --- the calm looks: Apple-style glass around the arc reactor ---
+  graphite: { c: '#64d2ff', a: '#ffc861', r: '#ff6961', label: 'Graphite', tag: 'space-grey glass · reactor cyan', bg: '#060708', finish: 'graphite', look: 'pro' },
+  reactor: { c: '#7fe9ff', a: '#ffbd59', r: '#ff6b5e', label: 'Reactor', tag: 'warm glass · arc-reactor gold', bg: '#0a0806', finish: 'reactor', look: 'pro' },
   // --- the originals ---
   stark: { c: '#62e4ff', a: '#ffb23e', r: '#ff3b3b', label: 'JARVIS', tag: 'arc-reactor cyan · gold data', bg: '#02050a', finish: 'glass' },
   arc: { c: '#d8f6ff', a: '#4fc3ff', r: '#ff5470', label: 'ARC CORE', tag: 'white-hot palladium light', bg: '#030810', finish: 'neon' },
@@ -64,6 +73,9 @@ const ALIASES: Record<string, string> = {
 
 export const themeKey = (name: string): string => (THEMES[name] ? name : ALIASES[name] && THEMES[ALIASES[name]!] ? ALIASES[name]! : 'stark');
 
+/** True while a calm 'pro' look (Graphite, Reactor) is on: the reactor, its HUD and the room draw quieter. */
+export const proLook = (): boolean => document.documentElement.dataset.look === 'pro';
+
 export const themeEvents = new Emitter<{ change: string }>();
 
 const rgbTriplet = (hex: string) =>
@@ -83,6 +95,8 @@ export function applyTheme(name: string): void {
   s.setProperty('--bg', t.bg);
   s.setProperty('--bgr', rgbTriplet(t.bg));
   document.documentElement.dataset.finish = t.finish;
+  document.documentElement.dataset.look = t.look ?? 'hud';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.look === 'pro' ? t.bg : '#04070c');
   gfx.theme = { c: hex2rgb(t.c), a: hex2rgb(t.a), r: hex2rgb(t.r), bg: hex2rgb(t.bg) };
   if (settings.get().theme !== key) settings.set({ theme: key });
   themeEvents.emit('change', key);

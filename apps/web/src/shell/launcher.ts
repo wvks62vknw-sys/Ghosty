@@ -8,6 +8,7 @@ import { clear, h, icon, pad } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
+import { ACRONYM } from '../ui/components';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -25,7 +26,7 @@ export function buildLauncher(): Launcher {
   const quick = h('div.dquick');
   const box = h('div.deckin', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Systems' },
     h('div.dhead',
-      h('div.dtitle', h('small', 'GHOSTY // SYSTEMS'), h('span', `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`)),
+      h('div.dtitle', h('small', 'GHOSTY // SYSTEMS'), h('span', 'AT YOUR SERVICE, ', h('i.dname', settings.get().name))),
       h('span.sp'),
       h('div.dclock', time, date),
       h('button.dclose', { type: 'button', 'aria-label': 'Close systems', onclick: () => close() }, '✕'),
@@ -54,9 +55,9 @@ export function buildLauncher(): Launcher {
         close(true);
         go(t.id);
       },
-    }, icon(t.icon), h('b', t.title), h('small', t.blurb ?? ''))));
+    }, icon(t.icon), h('b', { dataset: ACRONYM.test(t.title) ? { case: 'keep' } : {} }, t.title), h('small', t.blurb ?? ''))));
     quick.hidden = true;
-    (box.querySelector('.dtitle span') as HTMLElement).textContent = `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`;
+    clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed (the classic look shows it in capitals)
   };
 
   const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();

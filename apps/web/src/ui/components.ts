@@ -120,8 +120,13 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   };
 }
 
+/** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
+export const ACRONYM = /\b(3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+
 export function button(label: string | Node, onClick: (b: HTMLButtonElement) => void, cls = ''): HTMLButtonElement {
   const b = h(`button${cls ? `.${cls.split(' ').join('.')}` : ''}` as 'button', { type: 'button' }, label);
+  // The calm looks show labels in sentence case; one with an abbreviation in it ("USE GPS", "3D") keeps its capitals.
+  if (typeof label === 'string' && ACRONYM.test(label)) b.dataset.case = 'keep';
   b.addEventListener('click', () => onClick(b));
   return b;
 }
