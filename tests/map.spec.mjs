@@ -5,7 +5,7 @@
 // and the security policy blocked nothing. Tiles need not load (their addresses are checked), so
 // this runs without the internet.
 //   node tests/map.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -14,9 +14,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 const ALLOWED = /^(tile\.openstreetmap\.org|[abc]\.tile\.opentopomap\.org|[abc]\.tile-cyclosm\.openstreetmap\.fr|[abc]\.tiles\.openrailwaymap\.org|tiles\.openseamap\.org|tilecache\.rainviewer\.com|server\.arcgisonline\.com|api\.mapbox\.com)$/;
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });
 await page.fill('#pair input', 'preview-owner-key-0123456789');

@@ -2,16 +2,16 @@
 // tests in the sandboxed runner, the failures go back, the second attempt passes; the runner
 // also survives code that never finishes.
 //   node tests/training.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });
 await page.fill('#pair input', 'preview-owner-key-0123456789');

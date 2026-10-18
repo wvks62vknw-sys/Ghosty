@@ -2,7 +2,7 @@
 // a live picture loads through the proxy, and the four-camera grid shows when nothing is selected.
 // Needs the internet (TfL's open camera feed); skips cleanly if the feed can't be reached.
 //   node tests/cameras.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -16,13 +16,13 @@ if (!reachable) {
   process.exit(0);
 }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const page = await browser.newPage({ viewport });
   // Errors thrown by Waze's own scripts inside the live-traffic frame (opened for a city with no
   // public cameras) surface here too; only Ghosty's own errors count.
-  page.on('pageerror', (e) => !/^\{"message"/.test(e.message) && problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || !/^\{"message"/.test(e.message) && problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#pair input', { timeout: 15000 });
   await page.fill('#pair input', 'preview-owner-key-0123456789');

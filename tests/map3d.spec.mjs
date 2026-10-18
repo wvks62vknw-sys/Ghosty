@@ -5,7 +5,7 @@
 // chat, and the security policy blocks nothing. When the tiles are reachable the map draws and the
 // RAIL overlay fetches its tiles; without the internet only the requests are checked.
 //   node tests/map3d.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -14,9 +14,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 const requests = [];
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('request', (r) => requests.push(r.url()));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });

@@ -3,13 +3,13 @@
 // brain) — then a real project started from chat, approved, and worked through by the preview
 // brain's alarm with the scripted model.
 //   node tests/projects.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 
 const projects = () => [
@@ -35,7 +35,7 @@ const projects = () => [
 async function run(name, viewport) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   const state = { list: projects(), actions: [] };
   const stub = async (route) => {
     const req = route.request();

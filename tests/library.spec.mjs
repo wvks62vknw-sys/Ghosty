@@ -3,6 +3,7 @@
 //  2. the Library tab: add files, see them on the shelf, search them (no AI)
 //   node tests/library.spec.mjs [outDir]
 import { chromium } from 'playwright';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { deflateRawSync, crc32 } from 'node:zlib';
@@ -60,10 +61,12 @@ const epub = zip({
   'OEBPS/two.xhtml': '<html><body><h1>Chapter Two</h1><p>A storm broke the great lens in the winter of 1887.</p></body></html>',
 });
 
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
 
-// A real-world PDF: Chromium prints it (compressed streams, embedded subset fonts, ToUnicode maps).
-const printer = await browser.newPage();
+// A real-world PDF: Chromium prints it (compressed streams, embedded subset fonts, ToUnicode maps). Only Chromium
+// prints to PDF, so a WebKit run borrows it for this one page (set CHROMIUM when it is installed elsewhere).
+const press = isWebKit ? await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined }) : browser;
+const printer = await press.newPage();
 await printer.setContent(`<html><body style="font-family: Georgia, serif">
   <h1>Volcano Field Notes</h1>
   <p>The quick brown fox jumps over the lazy dog near the crater rim.</p>
@@ -75,10 +78,11 @@ await printer.setContent(`<html><body style="font-family: Georgia, serif">
 </body></html>`);
 const pdf = await printer.pdf({ format: 'A4' });
 await printer.close();
+if (press !== browser) await press.close();
 
 // ---------- 1. the reader ----------
 const page = await browser.newPage();
-page.on('pageerror', (e) => problems.push(`reader pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`reader pageerror: ${e.message}`));
 await page.setContent('<html><body></body></html>');
 await page.addScriptTag({ content: reader });
 const read = (fn, bytes, title) => page.evaluate(async ([fn, b64, title]) => {
@@ -127,7 +131,7 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const ui = await ctx.newPage();
-  ui.on('pageerror', (er) => problems.push(`[${name}] pageerror: ${er.message}`));
+  ui.on('pageerror', (er) => webkitNoise(er) || problems.push(`[${name}] pageerror: ${er.message}`));
   ui.on('console', (m) => {
     if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) problems.push(`[${name}] console: ${m.text()}`);
   });

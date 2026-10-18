@@ -1,12 +1,12 @@
 // Satellite imagery and 3D buildings on the globe. The imagery and Overpass services are
 // replaced with test tiles (labelled z/x/y) and a few fake buildings near Trafalgar Square.
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 let tiles = 0;
@@ -30,7 +30,7 @@ await ctx.route('https://overpass-api.de/**', (route) => {
   route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify({ elements }) });
 });
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && /shader|WebGL|GL_/.test(m.text()) && problems.push(`console: ${m.text()}`));
 await page.goto(base);
 await page.fill('#pair input', 'preview-owner-key-0123456789');

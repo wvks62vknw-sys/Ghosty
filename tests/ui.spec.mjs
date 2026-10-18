@@ -1,12 +1,12 @@
 // Drives the built interface in Chromium against the preview server and saves screenshots.
 //   node tests/ui.spec.mjs [outDir]
-import { chromium } from 'playwright';
+import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 
 async function run(name, viewport) {
@@ -15,7 +15,7 @@ async function run(name, viewport) {
   page.on('console', (m) => {
     if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) problems.push(`[${name}] console: ${m.text()}`);
   });
-  page.on('pageerror', (e) => problems.push(`[${name}] pageerror: ${e.message}`));
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   // pairing screen (no Cloudflare Access locally)
   await page.waitForSelector('#pair input', { timeout: 15000 });

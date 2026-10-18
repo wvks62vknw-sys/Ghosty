@@ -5,13 +5,13 @@
 // three layouts with more open floor, one is tried and UNDO puts things back; EXPORT gives a real
 // PNG and a JSON plan, and IMPORT reads a plan back. Nothing sticks out sideways; the security
 // policy blocks nothing.
-import { chromium } from 'playwright';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -22,7 +22,7 @@ const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 });
 const page = await ctx.newPage();
-page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
+page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('console', (m) => {
   const t = m.text();
   if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
@@ -206,7 +206,8 @@ const closeLog = async () => {
 await closeLog();
 await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
 // A finger, not a mouse: taps and drags on the plan go through the touch path (pointer events of type touch).
-const cdp = await ctx.newCDPSession(page);
+// (Playwright's WebKit has no touch drag and no CDP: there the mouse stands in, through the same pointer events)
+const cdp = isWebKit ? null : await ctx.newCDPSession(page);
 const tap = async (xcm, ycm) => {
   await page.locator('#pg-space .spacecanvas').scrollIntoViewIfNeeded();
   const p = await at(xcm, ycm);
@@ -216,6 +217,14 @@ const tap = async (xcm, ycm) => {
 const touchDrag = async (from, to) => {
   const a = await at(...from);
   const b = await at(...to);
+  if (!cdp) {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 8, a.y + ((b.y - a.y) * i) / 8);
+    await page.mouse.up();
+    await page.waitForTimeout(150);
+    return;
+  }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] });
   for (let i = 1; i <= 8; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: a.x + ((b.x - a.x) * i) / 8, y: a.y + ((b.y - a.y) * i) / 8 }] });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
