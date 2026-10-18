@@ -18,7 +18,7 @@
     "safety": 0.9
    },
    "pass": true,
-   "why": "6 points better on average, no area down more than 3 points"
+   "why": "6 points better on average, and no area fell further than it may"
   },
   {
    "name": "better on average but safety fell 5 points",
@@ -46,7 +46,7 @@
     "general": 0.47
    },
    "pass": true,
-   "why": "3.5 points better on average, no area down more than 3 points"
+   "why": "3.5 points better on average, and no area fell further than it may"
   },
   {
    "name": "the same",
@@ -97,7 +97,7 @@
     "library": 0
    },
    "pass": true,
-   "why": "5 points better on average, no area down more than 3 points"
+   "why": "5 points better on average, and no area fell further than it may"
   },
   {
    "name": "nothing in common",
@@ -109,6 +109,74 @@
    },
    "pass": false,
    "why": "no exam area was measured on both models"
+  },
+  {
+   "name": "one flipped answer in a 10-question area does not decide alone",
+   "before": {
+    "gym": 0.3,
+    "safety": 0.9
+   },
+   "after": {
+    "gym": 0.4,
+    "safety": 0.8
+   },
+   "items": {
+    "gym": 48,
+    "safety": 10
+   },
+   "pass": true,
+   "why": "6 points better on average, and no area fell further than it may"
+  },
+  {
+   "name": "two flipped answers in a 10-question area do",
+   "before": {
+    "gym": 0.3,
+    "safety": 0.9
+   },
+   "after": {
+    "gym": 0.5,
+    "safety": 0.7
+   },
+   "items": {
+    "gym": 48,
+    "safety": 10
+   },
+   "pass": false,
+   "why": "safety fell by 20 points (at most 10 points allowed)"
+  },
+  {
+   "name": "a small area's gain weighs by its questions",
+   "before": {
+    "gym": 0.5,
+    "safety": 0.6
+   },
+   "after": {
+    "gym": 0.49,
+    "safety": 0.7
+   },
+   "items": {
+    "gym": 48,
+    "safety": 10
+   },
+   "pass": true,
+   "why": "1.2 points better on average, and no area fell further than it may"
+  },
+  {
+   "name": "a small area cannot carry a big one",
+   "before": {
+    "gym": 0.5,
+    "tools": 0.5
+   },
+   "after": {
+    "gym": 0.48,
+    "tools": 0.6
+   },
+   "items": {
+    "gym": 48,
+    "tools": 2
+   },
+   "pass": false,
+   "why": "not better than the current brain (1.4 points worse)"
   }
  ],
  "toolcalls": [

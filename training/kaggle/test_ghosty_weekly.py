@@ -42,7 +42,7 @@ class SharedRules(unittest.TestCase):
 
     def test_gate(self):
         for c in FIX['gate']:
-            v = G.gate_verdict(c['before'], c['after'])
+            v = G.gate_verdict(c['before'], c['after'], c.get('items'))
             self.assertEqual(v['pass'], c['pass'], c['name'])
             self.assertEqual(v['why'], c['why'], c['name'])
 

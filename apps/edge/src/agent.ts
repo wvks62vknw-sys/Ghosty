@@ -60,6 +60,7 @@ import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 // [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
 import { ensureTrainJob, hookRoute, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
 import { offlineToolSpecs } from './selftrain/factory';
+import { weightsRoute } from './selftrain/weights';
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
@@ -273,6 +274,8 @@ export class GhostyAgent {
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
       // [selftrain] The Kaggle notebook's hook: public like Telegram's — it is turned away without this week's ticket.
       if (path === '/training/hook') return await hookRoute(req, this.trainDeps());
+      // [selftrain] A trained brain's weights for the phone (selftrain/weights.ts): public like the hook, closed without the capability.
+      if (path.startsWith('/w/')) return await weightsRoute(req, path, { storage: this.storage, vault: this.vault });
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       if (!this.dailyChecked) this.state.waitUntil(this.ensureDailyJobs().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).

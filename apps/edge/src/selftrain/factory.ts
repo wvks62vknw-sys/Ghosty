@@ -160,7 +160,23 @@ export function overlap(a: string, b: string): number {
   return c / s.size;
 }
 
-const REFUSAL = /\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
+const STOP = new Set('a an the and or but if then of to in on at for from by with without about into over under is are was were be been being do does did have has had i me my you your he she it we they them this that these those what which who how why when where can could would should will shall may might must not no so as than too very just also please tell give make write let get got some any one'.split(' '));
+const content = (s: string) => new Set(words(s).filter((w) => w.length > 2 && !STOP.has(w)).map((w) => w.replace(/(ing|ed|es|s)$/, '')));
+/** How alike two texts are in what they are about: the shared content words over all of them (Jaccard, 0–1). */
+export function similar(a: string, b: string): number {
+  const x = content(a);
+  const y = content(b);
+  if (!x.size || !y.size) return 0;
+  let c = 0;
+  for (const w of x) if (y.has(w)) c++;
+  return c / (x.size + y.size - c);
+}
+/** At or above this, a training text counts as a rewording of an exam question and is dropped. */
+export const EXAM_NEAR = 0.45;
+/** The exam question a text is too close to ('' if none). */
+export const tooClose = (text: string, exam: string[], at = EXAM_NEAR): string => exam.find((q) => similar(text, q) >= at) ?? '';
+
+const REFUSAL =/\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
 
 // ---- Evol-Instruct ---------------------------------------------------------------------------------------------
 

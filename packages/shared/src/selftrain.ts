@@ -20,14 +20,33 @@ export const AREA_LABEL: Record<ExamArea, string> = { gym: 'GYM PUZZLES', genera
 
 /** A new model must beat the current one by this much on average… */
 export const GATE_MIN_GAIN = 0.01;
-/** …and may not lose more than this in any one area. */
+/** …and may not lose more than this in any one area (or one question's worth, in an area with few questions). */
 export const GATE_MAX_DROP = 0.03;
+/** An area counts in the average by its number of questions, up to this many (ten safety questions do not weigh like fifty puzzles). */
+export const GATE_AREA_CAP = 40;
 
 /** The plain mean over the areas that were measured (0 when none). */
 export function examMean(s: AreaScores): number {
   const v = EXAM_AREAS.map((a) => s[a]).filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
 }
+
+/** The mean with each area weighted by its questions (capped at GATE_AREA_CAP; an unknown count weighs the cap). */
+export function weightedMean(s: AreaScores, items: Partial<Record<ExamArea, number>> = {}): number {
+  let sum = 0;
+  let w = 0;
+  for (const a of EXAM_AREAS) {
+    const x = s[a];
+    if (typeof x !== 'number' || !Number.isFinite(x)) continue;
+    const k = Math.min(GATE_AREA_CAP, Math.max(1, items[a] ?? GATE_AREA_CAP));
+    sum += x * k;
+    w += k;
+  }
+  return w ? sum / w : 0;
+}
+
+/** How far one area may fall: 3 points, or one question's worth when it has fewer than 34 questions (one flipped answer never decides alone). */
+export const allowedDrop = (n?: number): number => Math.max(GATE_MAX_DROP, n && n > 0 ? 1 / n : 0);
 
 export interface GateVerdict {
   pass: boolean;
@@ -38,20 +57,21 @@ export interface GateVerdict {
 }
 
 /**
- * Publish only a model that beats the current one on the same exam: its mean over the areas both were
- * measured on is at least GATE_MIN_GAIN higher, and no area dropped by more than GATE_MAX_DROP.
+ * Publish only a model that beats the current one on the same exam (both as they ship: quantised): its average
+ * over the areas both were measured on, each weighted by its questions (`items`, capped at GATE_AREA_CAP), is at
+ * least GATE_MIN_GAIN higher, and no area fell by more than `allowedDrop` (3 points, or one question in a small area).
  */
-export function gateVerdict(before: AreaScores, after: AreaScores): GateVerdict {
+export function gateVerdict(before: AreaScores, after: AreaScores, items: Partial<Record<ExamArea, number>> = {}): GateVerdict {
   const areas = EXAM_AREAS.filter((a) => typeof before[a] === 'number' && typeof after[a] === 'number');
   if (!areas.length) return { pass: false, why: 'no exam area was measured on both models', drops: [] };
   const pick = (s: AreaScores) => Object.fromEntries(areas.map((a) => [a, s[a]])) as AreaScores;
-  const gain = examMean(pick(after)) - examMean(pick(before));
+  const gain = weightedMean(pick(after), items) - weightedMean(pick(before), items);
   const drops = areas.map((a) => ({ area: a, by: before[a]! - after[a]! })).filter((d) => d.by > 1e-9);
-  const worst = drops.reduce<{ area: ExamArea; by: number } | null>((w, d) => (!w || d.by > w.by ? d : w), null);
   const pts = (x: number) => `${Math.round(x * 1000) / 10} points`;
-  if (worst && worst.by > GATE_MAX_DROP + 1e-9) return { pass: false, why: `${AREA_LABEL[worst.area].toLowerCase()} fell by ${pts(worst.by)} (at most ${pts(GATE_MAX_DROP)} allowed)`, drops };
-  if (gain < GATE_MIN_GAIN - 1e-9) return { pass: false, why: gain <= 0 ? `not better than the current brain (${gain === 0 ? 'the same score' : `${pts(-gain)} worse`})` : `only ${pts(gain)} better (needs ${pts(GATE_MIN_GAIN)})`, drops };
-  return { pass: true, why: `${pts(gain)} better on average, no area down more than ${pts(GATE_MAX_DROP)}`, drops };
+  const over = drops.filter((d) => d.by > allowedDrop(items[d.area]) + 1e-9).sort((x, y) => y.by - x.by)[0];
+  if (over) return { pass: false, why: `${AREA_LABEL[over.area].toLowerCase()} fell by ${pts(over.by)} (at most ${pts(allowedDrop(items[over.area]))} allowed)`, drops };
+  if (gain < GATE_MIN_GAIN - 1e-9) return { pass: false, why: gain <= 0 ? `not better than the current brain (${Math.abs(gain) < 1e-12 ? 'the same score' : `${pts(-gain)} worse`})` : `only ${pts(gain)} better (needs ${pts(GATE_MIN_GAIN)})`, drops };
+  return { pass: true, why: `${pts(gain)} better on average, and no area fell further than it may`, drops };
 }
 
 // ---- the dataset -----------------------------------------------------------------------------------------
@@ -151,8 +171,13 @@ export interface TrainReport {
   finishedAt: number;
   /** The model it started from: 'stock' or a published week. */
   base: string;
+  /** The exam, as the brains ship (both quantised to q4f16_1): the current one, and the new one. */
   before: AreaScores;
   after: AreaScores;
+  /** The fixed core of the exam alone (the same questions every week, for week-to-week comparison). */
+  core?: { before: AreaScores; after: AreaScores };
+  /** The separate dev questions the LoRA scale was chosen on (never the exam). */
+  dev?: Record<string, number>;
   /** How many exam items each area had. */
   items: Partial<Record<ExamArea, number>>;
   gate: { pass: boolean; why: string };
@@ -178,6 +203,8 @@ export interface PublishedModel {
   commit: string;
   at: number;
   scores: AreaScores;
+  /** It learned from the owner's library, chats or ratings (this week or an earlier week in its chain). */
+  private?: boolean;
 }
 
 export type TrainPhase = 'idle' | 'collect' | 'upload' | 'push' | 'running' | 'failed';
@@ -204,10 +231,12 @@ export interface TrainStatus {
   privateData: boolean;
   /** Ratings waiting for this week's run. */
   ratings: { up: number; down: number };
+  /**
+   * Where this phone fetches a trained brain's files: `/api/w/<capability>/` on Ghosty's own site (the model repo
+   * is private; the brain fetches it with the owner's token: apps/edge/src/selftrain/weights.ts). Null with no models.
+   */
+  weights: string | null;
 }
 
-/** The two keys, in the owner's words (the KEYS panel has the full steps). */
-export const TRAIN_KEYS = [
-  { name: 'kaggle', label: 'Kaggle (free GPUs)', where: 'kaggle.com → your picture → Settings → API → "Create New Token"' },
-  { name: 'hf_write', label: 'Hugging Face write token', where: 'huggingface.co → Settings → Access Tokens → "Create new token" → Write' },
-] as const;
+/** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */
+export const weightsBase = (origin: string, weights: string, commit: string): string => `${origin.replace(/\/$/, '')}${weights}resolve/${commit}/`;

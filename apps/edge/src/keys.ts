@@ -325,29 +325,31 @@ export function keyDefs(repo?: string): KeyDef[] {
     {
       name: 'kaggle',
       label: 'Kaggle (free GPUs for training)',
-      hint: 'your Kaggle username, a space, then the API key (or the whole kaggle.json text)',
+      hint: 'the API token (starts with KGAT_) — or the whole kaggle.json text',
       link: 'https://www.kaggle.com/settings',
       need: 'optional',
-      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card). With the Hugging Face write token below, it runs on its own.",
+      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card). With the Hugging Face token below, it runs on its own.",
       steps: [
         'Open the link and sign up or sign in to Kaggle (Google sign-in works).',
         'Kaggle only lends GPUs to confirmed accounts: on the same Settings page, under "Phone verification", confirm your phone number (once).',
-        'Still on Settings, scroll to "API" and press "Create New Token". Your phone downloads a small file called kaggle.json.',
-        'Open kaggle.json (Files app → Downloads → tap it). It holds your username and key, like {"username":"you","key":"0123abcd…"}. Copy all of it.',
-        'Paste it below and press SAVE. (Typing your username, a space and the key works too.) Ghosty checks it once; nothing runs until both training keys are saved.',
+        'Still on Settings, find "API Tokens" and press "Generate New Token". Give it any name (e.g. Ghosty) and copy the token it shows (it starts with KGAT_). Kaggle shows it only once.',
+        'Paste it below and press SAVE. Ghosty asks Kaggle once whose token it is; nothing runs until both training keys are saved.',
+        'An older kaggle.json file (from "Create Legacy API Key") works too: paste its whole text.',
       ],
     },
     {
       name: 'hf_write',
-      label: 'Hugging Face write token (training)',
-      hint: 'starts with hf_… (a WRITE token)',
-      link: 'https://huggingface.co/settings/tokens/new?tokenType=write',
+      label: 'Hugging Face token (training)',
+      hint: 'starts with hf_… (fine-grained, write access to your two Ghosty repos)',
+      link: 'https://huggingface.co/new-dataset',
       need: 'optional',
-      why: "Where the trained offline brain is kept: Ghosty makes a private dataset for its training data and a model your phone downloads the new brain from. Free. (Anyone with the model's link can download it, and it learned from your library and the replies you rated.)",
+      why: 'Where the trained offline brain is kept: two PRIVATE spaces on your free Hugging Face account, one for the training lessons and one for the brain itself. Only Ghosty reaches them, with this token, which never leaves your brain; your phone gets the new brain through Ghosty.',
       steps: [
-        'Open the link and create a free Hugging Face account (confirm the email they send), then open the link again.',
-        'The token type is already "Write". Type any name (e.g. Ghosty training) and press "Create token".',
-        'Copy the token (it starts with hf_), paste it below and press SAVE. It is a different token from the read-only one above.',
+        'Make a free Hugging Face account at huggingface.co (confirm the email they send), then open the link.',
+        'Name the dataset ghosty-training, choose Private, and press "Create dataset".',
+        'Open huggingface.co/new, name the model ghosty-offline-brain, choose Private, and press "Create model".',
+        'Open huggingface.co/settings/tokens/new, choose "Fine-grained", type a name (e.g. Ghosty training). Under "Repositories permissions" search for ghosty-training and ghosty-offline-brain, add both, and tick "Write access to contents/settings of selected repos". Leave everything else off.',
+        'Press "Create token", copy it (it starts with hf_), paste it below and press SAVE. Ghosty checks it can write to both, and that both are private.',
       ],
     },
   ];
@@ -464,10 +466,9 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       // [selftrain]
       case 'kaggle': {
         const c = parseKaggleKey(value);
-        if (!c) return { ok: false, info: 'paste the whole kaggle.json text, or your username, a space, then the key' };
+        if (!c) return { ok: false, info: 'paste the API token (it starts with KGAT_), or the whole kaggle.json text' };
         try {
-          await kaggleWorks(fetch, c);
-          return { ok: true, info: `works ✓ · Kaggle account ${c.username}` };
+          return { ok: true, info: `works ✓ · Kaggle account ${await kaggleWorks(fetch, c)}` };
         } catch (e) {
           return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Kaggle (${String((e as Error)?.message ?? e).slice(0, 80)})` };
         }
@@ -475,7 +476,11 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       case 'hf_write': {
         try {
           const me = await hfWhoami(fetch, value.trim());
-          return me.write ? { ok: true, info: `works ✓ · can write as ${me.name}` } : { ok: false, info: 'this token can only read: make a "Write" token' };
+          const both = [`${me.name}/ghosty-training`, `${me.name}/ghosty-offline-brain`];
+          if (me.role === 'read') return { ok: false, info: 'this token can only read: make a fine-grained token with write access to your two Ghosty repos' };
+          const missing = both.filter((r) => !me.canWrite(r));
+          if (missing.length) return { ok: false, info: `saved, but this token may not write to ${missing.join(' and ')}: add ${missing.length > 1 ? 'them' : 'it'} under "Repositories permissions" with write access` };
+          return { ok: true, info: `works ✓ · can write to your two Ghosty repos as ${me.name}${me.role === 'write' ? ' (a full write token: a fine-grained one limited to those two repos is safer)' : ''}` };
         } catch (e) {
           return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Hugging Face (${String((e as Error)?.message ?? e).slice(0, 80)})` };
         }

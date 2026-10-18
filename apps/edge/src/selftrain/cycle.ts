@@ -9,22 +9,31 @@
  *    replies for 👎) every few minutes until the week's share is gathered or a day has passed;
  *  - upload: the week's JSONL, the exam and the GYM's task program to the owner's PRIVATE Hugging Face dataset
  *    repo, in one commit (why Hugging Face and not a Kaggle dataset: one documented commit call from a Worker,
- *    every week's file kept with its history for the replay mix, and the notebook needs Hugging Face anyway to
- *    publish; Kaggle's dataset upload is a multi-step blob protocol);
+ *    every week's file kept with its history for the replay mix, and the notebook needs Hugging Face anyway);
+ *    both repos are checked to be private first (made private, or refused with the fix) — nothing of the owner's
+ *    ever goes into a public repo;
  *  - push: the notebook (training/kaggle/ghosty_weekly.py) to the owner's Kaggle account with GPU and internet
- *    on, its settings written in, including a one-time ticket: the notebook trades the ticket for the Hugging
- *    Face token at the hook (so no lasting secret is stored at Kaggle) and posts its report back with it;
- *  - running: the hook brings the report; meanwhile Kaggle's status is read every half hour. A run that
- *    stopped is pushed again (it resumes from its checkpoint) twice at most.
- * The report is checked again with the same gate before the new brain is offered to the phone; the last three
- * good ones are kept and ROLLBACK goes one back (to the stock Qwen3 after the oldest).
+ *    on, its settings written in, including a one-time ticket: the notebook trades it ONCE for the Hugging Face
+ *    token at the hook (in a header, never in an address) and posts its report back with it;
+ *  - running: the hook brings the report; meanwhile Kaggle's status is read every half hour (a failed status read
+ *    is counted on its own: a few in a row do not end the week). A run that stopped is pushed again (it resumes
+ *    from its checkpoint) twice at most.
+ * The notebook uploads its candidate to the PRIVATE model repo (branch `candidates`); the brain checks the report
+ * again with the same gate, that it is the expected repo, and only then promotes it (a tag, and the list the
+ * phone's weight address serves: weights.ts). The last three good ones are kept; ROLLBACK drops the one in use and
+ * goes back one (to the stock Qwen3 after the oldest).
+ * With MY LIBRARY & CHATS off, a week's data has none of the owner's text, earlier private weeks are left out of
+ * the replay, and the week trains on the newest kept brain whose whole chain had no private data (else stock).
+ *
+ * Every save made by a job step checks the state's generation first (`gen`): a step that started before the
+ * report arrived cannot write its stale copy over it.
  */
 import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
 import { GYM_SEEDS, NOTEBOOK_PY, TASKS_JS } from './assets';
-import { buildExam, libraryCase, type Exam } from './exam';
+import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
   addRecords,
   betterPrompt,
@@ -51,55 +60,74 @@ import {
   REDTEAM_SYSTEM,
   RED_TEAM,
   syntheticToolRecords,
+  tooClose,
   WEEKLY,
   WEEKLY_CALLS,
   type CtxMsg,
   type Rating,
 } from './factory';
-import { hfCommit, hfEnsureRepo, hfWhoami, kernelStatus, parseKaggleKey, pushKernel, RemoteError } from './remote';
+import { hfCommit, hfEnsurePrivateRepo, hfTag, hfWhoami, kernelStatus, parseKaggleKey, pushKernel, RemoteError } from './remote';
+import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
 /** The base model and the stock phone build (apps/web/src/offline/models.ts pins the same commit). */
 export const BASE_MODEL = { repo: 'Qwen/Qwen3-0.6B', rev: 'c1899de289a04d12100db370d81485cdf75e47ca' };
 export const STOCK_MLC = { repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19' };
-/** The repos on the owner's Hugging Face account. */
+/** The repos on the owner's Hugging Face account (both private). */
 export const DATA_REPO = 'ghosty-training';
 export const MODEL_REPO = 'ghosty-offline-brain';
+/** The model repo's branch the notebook uploads candidates to (served only once the brain promoted them). */
+export const CANDIDATES = 'candidates';
 /** Gathering stops this long after it began, with whatever it has. */
 const COLLECT_FOR = DAY;
 /** A run that has not reported after this long is given up. */
 const RUN_LIMIT = 14 * 3600_000;
-/** The notebook's time budget (Kaggle's session limit is 12 h; this leaves margin). */
+/** The notebook's time budget (Kaggle's session limit is 12 h; the push asks for 10 h; this leaves margin). */
 const BUDGET_HOURS = 9;
 /** Model calls per alarm run while gathering (each waits briefly for room in the background lane). */
 const CALLS_PER_TICK = 4;
+/** Failed status reads in a row (half an hour apart) before a running week is given up. */
+const STATUS_ERRORS_MAX = 8;
 
 const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill'];
 
-/** A published model as the brain keeps it: plus the LoRA chain that rebuilds it (for the next week's training). */
+/** A kept model as the brain keeps it: plus the LoRA chain that rebuilds it (for the next week's training). */
 export interface KeptModel extends PublishedModel {
-  chain: { adapter: string; scale: number }[];
+  chain: { adapter: string; scale: number; private?: boolean }[];
 }
 
-interface State {
+export interface State {
   phase: TrainPhase;
   week: number;
+  /** Bumped by every save: a step's save is refused when someone else saved since it read the state. */
+  gen?: number;
   /** When the next weekly run may start. */
   nextRun: number;
   startedAt: number;
   note: string;
   /** Model calls made this week, and how far each kind of gathering got. */
   calls: number;
-  done: { free?: boolean; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefs?: number; library?: number; evol?: number; redteam?: number };
+  done: { free?: boolean; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefIds?: number[]; library?: number; evol?: number; redteam?: number };
+  /** The ratings that went into this week's data (only these are marked used when it ends). */
+  ratingIds?: number[];
+  /** This week's data has the owner's library, chats or ratings in it. */
+  private?: boolean;
   ticket?: string;
   ticketUntil?: number;
+  /** The ticket was already traded for the token (once only). */
+  tokenGiven?: boolean;
   dataCommit?: string;
   dataFile?: string;
   kernelUrl?: string;
   pushedAt?: number;
   pushes?: number;
+  /** Failed upload/push steps in a row, and failed status reads in a row (counted apart). */
+  failures?: number;
+  statusErrors?: number;
   hfUser?: string;
+  /** The chain this week trains on (so the report adds to the right one). */
+  base?: { label: string; chain: KeptModel['chain'] };
 }
 
 const K = {
@@ -113,6 +141,8 @@ const K = {
   exam: 'train:exam',
   privateData: 'train:private',
   rejected: 'train:rejected',
+  /** week → whether that week's data held private text (for the replay with MY LIBRARY & CHATS off). */
+  weeks: 'train:weeks',
 };
 
 export interface CycleDeps {
@@ -132,11 +162,25 @@ export interface CycleDeps {
 
 const nowOf = (d: CycleDeps) => (d.now ?? Date.now)();
 const fetchOf = (d: CycleDeps): typeof fetch => d.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
+const wk = (n: number) => String(n).padStart(4, '0');
 
 async function loadState(s: DurableObjectStorage): Promise<State> {
-  return (await s.get<State>(K.state)) ?? { phase: 'idle', week: 0, nextRun: 0, startedAt: 0, note: 'Not started yet.', calls: 0, done: {} };
+  return (await s.get<State>(K.state)) ?? { phase: 'idle', week: 0, gen: 0, nextRun: 0, startedAt: 0, note: 'Not started yet.', calls: 0, done: {} };
 }
-const saveState = (s: DurableObjectStorage, st: State) => s.put(K.state, st);
+/** A save by someone who just read the state (a route, the hook): always lands. */
+async function saveState(s: DurableObjectStorage, st: State): Promise<void> {
+  const cur = await loadState(s);
+  st.gen = Math.max(cur.gen ?? 0, st.gen ?? 0) + 1;
+  await s.put(K.state, st);
+}
+/** A job step's save: refused (false) when the state changed since the step read it. */
+async function stepSave(s: DurableObjectStorage, st: State): Promise<boolean> {
+  const cur = await loadState(s);
+  if ((cur.gen ?? 0) !== (st.gen ?? 0)) return false;
+  st.gen = (st.gen ?? 0) + 1;
+  await s.put(K.state, st);
+  return true;
+}
 
 async function keysOf(d: CycleDeps): Promise<{ kaggle: ReturnType<typeof parseKaggleKey>; hf: string }> {
   const [k, h] = await Promise.all([d.vault.get('kaggle').catch(() => null), d.vault.get('hf_write').catch(() => null)]);
@@ -148,7 +192,7 @@ const missingNote = (k: { kaggle: unknown; hf: string }) =>
 
 // ---- the job ------------------------------------------------------------------------------------------------
 
-export const TRAIN_JOB = { kind: 'train' as const, title: 'Offline brain training', text: 'Gather the week\'s training data, train the offline brain on Kaggle, and publish it if it passes the exam.' };
+export const TRAIN_JOB = { kind: 'train' as const, title: 'Offline brain training', text: "Gather the week's training data, train the offline brain on Kaggle, and keep it if it passes the exam." };
 
 /** Exactly one standing `train` job (it times itself; added on the first check). */
 export async function ensureTrainJob(storage: DurableObjectStorage): Promise<void> {
@@ -163,27 +207,38 @@ export async function ensureTrainJob(storage: DurableObjectStorage): Promise<voi
 /** One step of the week. Never throws; returns when the job should run again (ms from now) and a line for the job list. */
 export async function trainTick(d: CycleDeps): Promise<{ next: number; note: string }> {
   const st = await loadState(d.storage);
+  const phase = st.phase;
   try {
     const r = await step(d, st);
     st.note = r.note;
-    await saveState(d.storage, st);
+    if (!(await stepSave(d.storage, st))) {
+      // The hook (a report) or the owner changed the week meanwhile: theirs stands.
+      const cur = await loadState(d.storage);
+      return { next: 60_000, note: cur.note };
+    }
     return r;
   } catch (e) {
     const msg = e instanceof RemoteError ? e.message : String((e as Error)?.message ?? e).slice(0, 300);
     st.note = `Stopped: ${msg}`;
-    // A failure while uploading or pushing is tried again in an hour; three in a row end the week.
-    st.pushes = (st.pushes ?? 0) + 1;
-    if (st.pushes >= 3 || st.phase === 'collect') {
-      await endWeek(d, st, failedReport(st, msg, nowOf(d)), `This week's training stopped: ${msg}`);
-      st.note = `Stopped: ${msg}`;
+    let next = 3600_000;
+    if (phase === 'running') {
+      // Reading Kaggle's status failed (a blip, an outage): a few of those never end a running week.
+      st.statusErrors = (st.statusErrors ?? 0) + 1;
+      st.note = `Could not ask Kaggle how the run is going (${msg}); asking again in half an hour.`;
+      next = 30 * 60_000;
+      if (st.statusErrors >= STATUS_ERRORS_MAX) await endWeek(d, st, failedReport(st, `Kaggle could not be asked about the run ${STATUS_ERRORS_MAX} times in a row: ${msg}`, nowOf(d)), 'Kaggle could not be reached about the run: given up for this week.');
+    } else {
+      // A failure while gathering, uploading or pushing is tried again in an hour; three in a row end the week.
+      st.failures = (st.failures ?? 0) + 1;
+      if (st.failures >= 3) await endWeek(d, st, failedReport(st, msg, nowOf(d)), `This week's training stopped: ${msg}`);
     }
-    await saveState(d.storage, st);
-    return { next: 3600_000, note: st.note };
+    if (!(await stepSave(d.storage, st))) return { next: 60_000, note: (await loadState(d.storage)).note };
+    return { next, note: st.note };
   }
 }
 
 function failedReport(st: State, why: string, now: number): TrainReport {
-  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: '', before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why };
+  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: st.base?.label ?? '', before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why };
 }
 
 async function step(d: CycleDeps, st: State): Promise<{ next: number; note: string }> {
@@ -197,8 +252,13 @@ async function step(d: CycleDeps, st: State): Promise<{ next: number; note: stri
     st.startedAt = now;
     st.calls = 0;
     st.done = {};
+    st.ratingIds = [];
     st.pushes = 0;
+    st.failures = 0;
+    st.statusErrors = 0;
+    st.private = await privateOn(d.storage);
     delete st.ticket;
+    delete st.tokenGiven;
     await clearRecords(d.storage, KINDS);
     await d.storage.put(K.rejected, [] as { why: string; n: number }[]);
   }
@@ -227,8 +287,9 @@ export async function privateOn(s: DurableObjectStorage): Promise<boolean> {
 
 async function loadExam(d: CycleDeps): Promise<Exam> {
   let e = await d.storage.get<Exam>(K.exam);
-  if (!e) {
-    e = buildExam(d.tools);
+  if (!e || e.version !== EXAM_VERSION) {
+    // A newer exam: the owner's library questions carry over (their passages stay held out).
+    e = { ...buildExam(d.tools), library: e?.library ?? [] };
     await d.storage.put(K.exam, e);
   }
   return e;
@@ -237,7 +298,7 @@ async function loadExam(d: CycleDeps): Promise<Exam> {
 /** The free part (no model) once, then a few model calls; the week's share or a day, whichever comes first. */
 async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: number; note: string }> {
   const s = d.storage;
-  const priv = await privateOn(s);
+  const priv = st.private !== false;
   const exam = await loadExam(d);
   const held = new Set(exam.library.map((c) => c.key));
   if (!st.done.free) {
@@ -257,11 +318,13 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
       const ratings = await loadRatings(s);
       const disliked = new Set(ratings.filter((r) => !r.up).map((r) => r.reply.trim()));
       await addRecords(s, 'distill', distillRecords(turns, disliked));
-      // 👍 need no model: they go in now.
-      await addRecords(s, 'pref', ratings.filter((r) => r.up && !r.used).flatMap((r) => ratingRecords(r)));
+      // 👍 need no model: they go in now (and only these are marked used when the week ends).
+      const ups = ratings.filter((r) => r.up && !r.used);
+      await addRecords(s, 'pref', ups.flatMap((r) => ratingRecords(r)));
+      st.ratingIds = [...(st.ratingIds ?? []), ...ups.map((r) => r.at)];
     }
     st.done.free = true;
-    await saveState(s, st);
+    await stepSave(s, st);
   }
   let calls = 0;
   const deadline = now + 25_000;
@@ -299,33 +362,40 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     st.done.examKeys = [...tried];
     if (tried.size >= st.done.examTarget) st.done.examLibrary = true;
   }
-  if (!st.done.examLibrary && st.done.examTarget >= 2) return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: 'Gathering: writing the exam\'s library questions first.' };
+  if (!st.done.examLibrary && st.done.examTarget >= 2) return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: "Gathering: writing the exam's library questions first." };
   const lib = passages.filter((p) => !tried.has(p.key));
-  // 2. better replies for the owner's 👎
+  const examQs = examTexts(exam, st.week);
+  // 2. better replies for the owner's 👎 (each rating once: known by its id, so new or changed ratings never shift the others)
   if (priv && !noModel) {
-    const downs = (await loadRatings(s)).filter((r) => !r.up && !r.used).slice(0, WEEKLY.pref);
-    for (let i = st.done.prefs ?? 0; i < downs.length && room(); i++) {
-      const better = await call(BETTER_SYSTEM, betterPrompt(downs[i]!));
+    const doneIds = new Set(st.done.prefIds ?? []);
+    const downs = (await loadRatings(s)).filter((r) => !r.up && !r.used && !doneIds.has(r.at)).slice(0, WEEKLY.pref);
+    for (const r of downs) {
+      if (!room()) break;
+      const better = await call(BETTER_SYSTEM, betterPrompt(r));
       if (better === null) {
         noModel = true;
         break;
       }
-      const recs = ratingRecords(downs[i]!, better);
+      const recs = ratingRecords(r, better);
       if (!recs.length) await noteRejected(s, 'better replies that were no better (refused, or the same)');
-      for (const r of recs) await addRecords(s, r.kind, [r]);
-      st.done.prefs = i + 1;
+      for (const x of recs) await addRecords(s, x.kind, [x]);
+      st.done.prefIds = [...(st.done.prefIds ?? []), r.at];
+      st.ratingIds = [...(st.ratingIds ?? []), r.at];
     }
   }
   // 3. library question/answer pairs from the owner's passages
-  for (let i = st.done.library ?? 0; i < lib.length && !noModel && room() && ((await countOf(s, 'library')) < WEEKLY.library); i++) {
+  for (let i = st.done.library ?? 0; i < lib.length && !noModel && room() && (await countOf(s, 'library')) < WEEKLY.library; i++) {
     const p = lib[i]!;
     const reply = await call(LIBRARY_SYSTEM, `${p.title}\n\n${p.text}`);
     if (reply === null) {
       noModel = true;
       break;
     }
-    const recs = libraryRecords(p, reply, lib[(i + 1) % lib.length]);
-    if (!recs.length) await noteRejected(s, 'library answers not found in their passage');
+    const recs = libraryRecords(p, reply, lib[(i + 1) % lib.length]).filter((r) => {
+      const near = tooClose(r.messages![r.messages!.length - 2]!.content, examQs);
+      return !near;
+    });
+    if (!recs.length) await noteRejected(s, 'library answers not found in their passage, or too close to an exam question');
     await addRecords(s, 'library', recs);
     st.done.library = i + 1;
   }
@@ -340,11 +410,13 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
       break;
     }
     const { rec, why } = evolRecord(sd.seed, sd.from, reply);
-    if (rec) await addRecords(s, 'evol', [rec]);
-    else await noteRejected(s, `evolved tasks dropped: ${why}`);
+    // An evolution that came out as (a rewording of) an exam question would leak the exam into training.
+    const near = rec ? tooClose(rec.messages![1]!.content, examQs) : '';
+    if (rec && !near) await addRecords(s, 'evol', [rec]);
+    else await noteRejected(s, `evolved tasks dropped: ${near ? 'too close to an exam question' : why}`);
     st.done.evol = i + 1;
   }
-  // 5. red-team rewordings (the refusal stays Ghosty's own)
+  // 5. red-team rewordings (the refusal stays Ghosty's own), never close to the exam's safety questions
   for (let i = st.done.redteam ?? 0; i < WEEKLY.redteamEvol && !noModel && room(); i++) {
     const [q, a] = RED_TEAM[i % RED_TEAM.length]!;
     const reply = await call(REDTEAM_SYSTEM, q);
@@ -353,16 +425,16 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
       break;
     }
     const v = reply.trim().replace(/^["“]|["”]$/g, '');
-    if (v.length >= 12 && v.length <= 600 && v !== q) await addRecords(s, 'redteam', redteamRecords([[v, a]]).slice(-1));
-    else await noteRejected(s, 'red-team rewordings that were unusable');
+    if (v.length >= 12 && v.length <= 600 && v !== q && !tooClose(v, examQs)) await addRecords(s, 'redteam', redteamRecords([[v, a]]).slice(-1));
+    else await noteRejected(s, 'red-team rewordings that were unusable or too close to an exam question');
     st.done.redteam = i + 1;
   }
   const finished = (st.done.evol ?? 0) >= seeds.length && (st.done.redteam ?? 0) >= WEEKLY.redteamEvol && ((st.done.library ?? 0) >= lib.length || (await countOf(s, 'library')) >= WEEKLY.library);
   if (finished || st.calls >= WEEKLY_CALLS || now - st.startedAt > COLLECT_FOR) {
     st.phase = 'upload';
-    return { next: 60_000, note: `Gathered this week's data (${st.calls} model calls). Uploading it.` };
+    return { next: 60_000, note: `Gathered this week's lessons (${st.calls} questions to the online AIs). Uploading them to your private Hugging Face space.` };
   }
-  return { next: noModel ? 20 * 60_000 : 5 * 60_000, note: noModel ? 'Gathering: no free AI model right now, trying again soon.' : `Gathering this week's training data (${st.calls} model calls so far).` };
+  return { next: noModel ? 20 * 60_000 : 5 * 60_000, note: noModel ? 'Gathering: no free online AI right now, trying again soon.' : `Gathering this week's lessons (${st.calls} questions to the online AIs so far).` };
 }
 
 async function countOf(s: DurableObjectStorage, kind: string): Promise<number> {
@@ -374,24 +446,29 @@ async function countOf(s: DurableObjectStorage, kind: string): Promise<number> {
 async function upload(d: CycleDeps, st: State, token: string): Promise<{ next: number; note: string }> {
   const f = fetchOf(d);
   const me = await hfWhoami(f, token);
-  if (!me.write) throw new RemoteError('the Hugging Face token can only read: make a "Write" token.');
+  if (me.role === 'read') throw new RemoteError('the Hugging Face token can only read: make a write (or fine-grained) token as the steps say.');
   st.hfUser = me.name;
+  // Both repos private before anything of the owner's is sent (made so, or refused with the fix).
+  await hfEnsurePrivateRepo(f, me, token, `${me.name}/${DATA_REPO}`, 'dataset');
+  await hfEnsurePrivateRepo(f, me, token, `${me.name}/${MODEL_REPO}`, 'model');
   const all: TrainRecord[] = [];
   for (const k of KINDS) all.push(...(await loadRecords(d.storage, k)));
   const { text, kept, dropped } = toJsonl(all);
   for (const x of dropped) await noteRejected(d.storage, `bad records: ${x.why}`, x.n);
   const exam = await loadExam(d);
-  await hfEnsureRepo(f, token, `${me.name}/${DATA_REPO}`, 'dataset', true);
-  await hfEnsureRepo(f, token, `${me.name}/${MODEL_REPO}`, 'model', false);
-  st.dataFile = `weeks/week-${String(st.week).padStart(4, '0')}.jsonl`;
+  st.dataFile = `weeks/week-${wk(st.week)}.jsonl`;
   st.dataCommit = await hfCommit(f, token, `${me.name}/${DATA_REPO}`, 'dataset', [
     { path: st.dataFile, content: text },
     { path: 'exam.json', content: JSON.stringify(exam) },
     { path: 'tasks.mjs', content: TASKS_JS },
   ], `Ghosty week ${st.week}: ${kept} examples`);
+  const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
+  weeks[String(st.week)] = st.private !== false;
+  await d.storage.put(K.weeks, weeks);
   st.phase = 'push';
   st.pushes = 0;
-  return { next: 60_000, note: `Uploaded ${kept} examples to your private Hugging Face dataset. Starting the Kaggle run.` };
+  st.failures = 0;
+  return { next: 60_000, note: `Uploaded ${kept} lessons to your private Hugging Face space. Starting the run on Kaggle.` };
 }
 
 /** The notebook as pushed: its settings written into the CONFIG_JSON line. */
@@ -402,33 +479,47 @@ export function notebookSource(config: Record<string, unknown>): string {
   return out;
 }
 
+/** What this week trains on: the brain in use; with private data off, the newest kept brain with no private week in its chain (else stock). */
+export async function trainingBase(s: DurableObjectStorage, privateData: boolean): Promise<{ label: string; chain: KeptModel['chain'] }> {
+  const models = await loadModels(s);
+  const active = await s.get<string | null>(K.active);
+  const pick = privateData ? models.find((m) => m.commit === active) : models.find((m) => m.chain.every((c) => !c.private));
+  return pick ? { label: pick.label, chain: pick.chain } : { label: 'stock Qwen3 0.6B', chain: [] };
+}
+
 async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typeof parseKaggleKey>>, now: number): Promise<{ next: number; note: string }> {
-  const models = await loadModels(d.storage);
-  const active = await d.storage.get<string | null>(K.active);
-  const cur = models.find((m) => m.commit === active);
+  if (!d.origin) throw new RemoteError('the brain does not know its own address yet: open Ghosty once, then press TRAIN NOW.');
+  st.base = await trainingBase(d.storage, st.private !== false);
+  const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
+  // Earlier weeks for the replay mix: all of them, or only those without private text when it is off.
+  const replay = Object.entries(weeks).filter(([w, p]) => Number(w) < st.week && (st.private !== false || !p)).map(([w]) => Number(w)).sort((a, b) => a - b);
   st.ticket = randomTicket();
   st.ticketUntil = now + RUN_LIMIT + 3600_000;
+  st.tokenGiven = false;
   const config = {
     week: st.week,
     hook: `${d.origin.replace(/\/$/, '')}/api/training/hook`,
     ticket: st.ticket,
     data_repo: `${st.hfUser}/${DATA_REPO}`,
     model_repo: `${st.hfUser}/${MODEL_REPO}`,
+    candidate_branch: CANDIDATES,
     data_file: st.dataFile,
     data_rev: st.dataCommit,
     base_model: BASE_MODEL,
     stock_mlc: STOCK_MLC,
-    current: cur ? { label: cur.label, chain: cur.chain } : { label: 'stock Qwen3 0.6B', chain: [] },
+    current: st.base,
+    replay_weeks: replay,
+    private: st.private !== false,
     budget_hours: BUDGET_HOURS,
     samples: 16,
   };
-  if (!d.origin) throw new RemoteError("the brain does not know its own address yet: open Ghosty once, then press TRAIN NOW.");
   const r = await pushKernel(fetchOf(d), kaggle, notebookSource(config));
   st.kernelUrl = r.url;
   st.pushedAt = now;
   st.pushes = (st.pushes ?? 0) + 1;
+  st.statusErrors = 0;
   st.phase = 'running';
-  return { next: 30 * 60_000, note: `Training on Kaggle (version ${r.version}). It takes a few hours.` };
+  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version}). It takes a few hours.` };
 }
 
 const randomTicket = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -436,17 +527,15 @@ const randomTicket = () => [...crypto.getRandomValues(new Uint8Array(24))].map((
 async function watch(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typeof parseKaggleKey>>, now: number): Promise<{ next: number; note: string }> {
   if (now - (st.pushedAt ?? now) > RUN_LIMIT) return endWeek(d, st, failedReport(st, 'the Kaggle run did not report back within 14 hours', now), 'The Kaggle run did not report back: given up for this week.');
   const k = await kernelStatus(fetchOf(d), kaggle);
+  st.statusErrors = 0;
   if (k.state === 'error' || k.state === 'cancelled') {
     if ((st.pushes ?? 0) < 3) {
       st.phase = 'push';
-      return { next: 5 * 60_000, note: `The Kaggle run stopped (${k.message || k.state}); starting it again from its last checkpoint.` };
+      return { next: 5 * 60_000, note: `The Kaggle run stopped (${k.message || k.state}); starting it again from where it got to.` };
     }
     return endWeek(d, st, failedReport(st, `the Kaggle run stopped: ${k.message || k.state}`, now), 'The Kaggle run stopped three times: given up for this week.');
   }
-  if (k.state === 'complete' && now - (st.pushedAt ?? now) > 30 * 60_000) {
-    // Finished but no report reached the hook (the brain was paused?): one more look in an hour, then give up.
-    if (now - (st.pushedAt ?? now) > RUN_LIMIT / 2) return endWeek(d, st, failedReport(st, 'the run finished but its report never arrived', now), 'The Kaggle run finished but sent no report.');
-  }
+  if (k.state === 'complete' && now - (st.pushedAt ?? now) > RUN_LIMIT / 2) return endWeek(d, st, failedReport(st, 'the run finished but its report never arrived', now), 'The Kaggle run finished but sent no report.');
   return { next: 30 * 60_000, note: k.state === 'queued' ? 'Waiting for a free Kaggle GPU.' : 'Training on Kaggle…' };
 }
 
@@ -456,6 +545,7 @@ async function endWeek(d: CycleDeps, st: State, report: TrainReport, note: strin
   await d.storage.put(K.report, report);
   st.phase = 'idle';
   st.nextRun = st.startedAt + WEEK;
+  st.note = note;
   delete st.ticket;
   await d.notify?.('Offline brain training', note).catch(() => undefined);
   return { next: Math.max(60_000, st.nextRun - nowOf(d)), note };
@@ -475,18 +565,22 @@ function sameText(a: string, b: string): boolean {
 const scoresOk = (s: unknown): s is AreaScores => !!s && typeof s === 'object' && Object.values(s as object).every((v) => typeof v === 'number' && v >= 0 && v <= 1);
 
 /**
- * The notebook's only door, public like Telegram's webhook (index.ts forwards it without the owner's sign-in):
- * a request without this week's ticket is turned away. GET trades the ticket for the Hugging Face token while
- * the run is on; POST brings progress or the final report (after which the ticket is spent).
+ * The notebook's only door, public like Telegram's webhook (index.ts forwards it without the owner's sign-in): a
+ * request without this week's ticket in the `x-ghosty-ticket` header is turned away (a ticket in the address is
+ * ignored: addresses end up in logs). GET trades the ticket for the Hugging Face token ONCE; POST brings progress
+ * or the final report (after which the ticket is spent).
  */
 export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
-  const url = new URL(req.url);
   const st = await loadState(d.storage);
-  const t = url.searchParams.get('t') ?? '';
+  const t = req.headers.get('x-ghosty-ticket') ?? '';
   if (!st.ticket || !t || !sameText(t, st.ticket) || nowOf(d) > (st.ticketUntil ?? 0)) return json({ error: 'not expected' }, 403);
   if (req.method === 'GET') {
+    if (st.tokenGiven) return json({ error: 'already given' }, 403);
     const hf = (await d.vault.get('hf_write')) ?? '';
-    return hf ? json({ hf_token: hf }) : json({ error: 'no token saved' }, 404);
+    if (!hf) return json({ error: 'no token saved' }, 404);
+    st.tokenGiven = true;
+    await saveState(d.storage, st);
+    return json({ hf_token: hf });
   }
   if (req.method !== 'POST') return json({ error: 'not found' }, 404);
   const body = (await req.json().catch(() => null)) as { report?: TrainReport; progress?: { note?: string } } | null;
@@ -501,46 +595,45 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
   return json({ ok: true, published: !!report.published });
 }
 
-/** Check the report, keep it, and offer the new brain when it really passed (the same gate, applied here again). */
+/** Check the report, keep it, and promote the new brain when it really passed (the same gate, applied here again). */
 export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Promise<TrainReport> {
-  const gate = gateVerdict(r.before, r.after);
+  const gate = gateVerdict(r.before, r.after, r.items ?? {});
   const report: TrainReport = {
     ...r,
     week: st.week,
-    gate: { pass: gate.pass && !!r.gate?.pass, why: gate.pass && !r.gate?.pass ? String(r.gate?.why ?? 'the notebook did not publish it') : gate.why },
+    gate: { pass: gate.pass && !!r.gate?.pass, why: gate.pass && !r.gate?.pass ? String(r.gate?.why ?? 'the notebook did not keep it') : gate.why },
     rejected: [...((await d.storage.get<{ why: string; n: number }[]>(K.rejected)) ?? []), ...(Array.isArray(r.rejected) ? r.rejected : [])].slice(0, 40),
     failures: (r.failures ?? []).slice(0, 120),
   };
   let note: string;
-  const pub = r.published && /^[0-9a-f]{40}$/.test(String(r.published.commit)) && typeof r.published.repo === 'string' ? r.published : null;
+  const expected = `${st.hfUser}/${MODEL_REPO}`;
+  const claimed = r.published && /^[0-9a-f]{40}$/.test(String(r.published.commit)) && typeof r.published.repo === 'string' ? r.published : null;
+  const pub = claimed && claimed.repo === expected ? claimed : null;
+  if (claimed && !pub) report.rejected.push({ why: `the new brain was uploaded somewhere else (${String(claimed.repo).slice(0, 80)}), not to ${expected}: not used`, n: 1 });
   if (report.gate.pass && pub) {
     const models = await loadModels(d.storage);
-    const active = await d.storage.get<string | null>(K.active);
-    const cur = models.find((m) => m.commit === active);
-    const kept: KeptModel = {
-      week: st.week,
-      label: `Ghosty (week ${st.week})`,
-      repo: pub.repo,
-      commit: pub.commit,
-      at: nowOf(d),
-      scores: r.after,
-      chain: [...(cur?.chain ?? []), { adapter: `adapters/week-${String(st.week).padStart(4, '0')}`, scale: typeof r.scale === 'number' ? r.scale : 1 }],
-    };
+    const base = st.base ?? { label: 'stock Qwen3 0.6B', chain: [] };
+    const chain = [...base.chain, { adapter: `adapters/week-${wk(st.week)}`, scale: typeof r.scale === 'number' ? r.scale : 1, private: st.private !== false }];
+    const kept: KeptModel = { week: st.week, label: `Ghosty (week ${st.week})`, repo: pub.repo, commit: pub.commit, at: nowOf(d), scores: r.after, private: chain.some((c) => c.private), chain };
     await d.storage.put(K.models, [kept, ...models.filter((m) => m.commit !== kept.commit)].slice(0, 3));
     await d.storage.put(K.active, kept.commit);
-    note = `Ghosty (week ${st.week}) passed the exam (${report.gate.why}) and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
+    // Promotion: a tag on the private model repo (the list above is what the phone's address serves; a failed tag changes nothing).
+    const token = ((await d.vault.get('hf_write')) ?? '').trim();
+    if (token) await hfTag(fetchOf(d), token, pub.repo, pub.commit, `week-${wk(st.week)}`).catch(() => undefined);
+    note = `Ghosty (week ${st.week}) passed its exam and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
   } else {
     // Not offered to the phone, whatever the notebook did.
-    if (pub) report.rejected.push({ why: `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam gate here: not offered to the phone`, n: 1 });
+    if (pub) report.rejected.push({ why: `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam check here: not offered to the phone`, n: 1 });
     delete report.published;
     note = r.error ? `This week's training did not finish: ${String(r.error).slice(0, 160)}` : `This week's training did not beat the current brain (${report.gate.why}); nothing changed.`;
   }
-  // The ratings this run learned from are not used again.
+  // Only the ratings this week's data really held are used up; the others wait for the next week.
+  const used = new Set(st.ratingIds ?? []);
   const ratings = await loadRatings(d.storage);
-  for (const x of ratings) x.used ??= st.week;
+  for (const x of ratings) if (used.has(x.at)) x.used ??= st.week;
   await d.storage.put(K.ratings, ratings);
   await endWeek(d, st, report, note);
-  await saveState(d.storage, { ...st, note });
+  await saveState(d.storage, st);
   return report;
 }
 
@@ -561,19 +654,21 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
   if (st.phase === 'collect' || st.phase === 'upload') for (const k of KINDS) gathered[k] = await countOf(s, k);
   const jobs = (await loadJobs(s)).filter((j) => j.kind === 'train');
   const ratings = (await loadRatings(s)).filter((r) => !r.used);
+  const models = await loadModels(s);
   return {
     keys: { kaggle: !!keys.kaggle, hf: !!keys.hf },
     phase: st.phase,
     note: !keys.kaggle || !keys.hf ? missingNote(keys) : st.note,
     week: st.week,
-    next: st.phase === 'idle' ? (st.nextRun || jobs[0]?.next || null) : (jobs[0]?.next ?? null),
+    next: st.phase === 'idle' ? st.nextRun || jobs[0]?.next || null : (jobs[0]?.next ?? null),
     gathered,
     report: (await s.get<TrainReport>(K.report)) ?? null,
     previous: (await s.get<TrainReport>(K.previous)) ?? null,
-    models: (await loadModels(s)).map(({ chain: _c, ...m }) => m),
+    models: models.map(({ chain: _c, ...m }) => m),
     active: (await s.get<string | null>(K.active)) ?? null,
     privateData: await privateOn(s),
     ratings: { up: ratings.filter((r) => r.up).length, down: ratings.filter((r) => !r.up).length },
+    weights: models.length ? `/api/w/${await weightsCap(s)}/` : null,
   };
 }
 
@@ -602,6 +697,11 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     await s.put(K.privateData, !!body.on);
     return json(await trainStatus(d));
   }
+  if (path === '/training/revoke' && method === 'POST') {
+    // Every weight address handed out before stops working; the phone gets the new one with this status.
+    await revokeCap(s);
+    return json(await trainStatus(d));
+  }
   if (path === '/training/now' && method === 'POST') {
     const st = await loadState(s);
     const keys = await keysOf(d);
@@ -612,8 +712,7 @@ export async function trainingRoute(req: Request, path: string, method: string, 
       await saveState(s, st);
     }
     await ensureTrainJob(s);
-    const jobs = await loadJobs(s);
-    const j = jobs.find((x) => x.kind === 'train');
+    const j = (await loadJobs(s)).find((x) => x.kind === 'train');
     if (j) {
       await setNext(s, j.id, Date.now() + 1000);
       await rearm(s);
@@ -624,9 +723,12 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     const models = await loadModels(s);
     const active = await s.get<string | null>(K.active);
     const i = models.findIndex((m) => m.commit === active);
-    // One step back: the next older good model, or the stock Qwen3 after the oldest.
-    const to = i < 0 ? null : (models[i + 1]?.commit ?? null);
-    await s.put(K.active, to);
+    if (i >= 0) {
+      // The brain in use goes (it is never offered again); the next older good one, or the stock Qwen3 after the oldest.
+      const rest = models.filter((_, k) => k !== i);
+      await s.put(K.models, rest);
+      await s.put(K.active, rest[i]?.commit ?? null);
+    }
     return json(await trainStatus(d));
   }
   if (path === '/training/use' && method === 'POST') {

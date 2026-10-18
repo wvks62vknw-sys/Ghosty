@@ -56,7 +56,7 @@ class MemStorage {
 
 test('shared rules: the exam gate, tool calls, schema checks and the record checker give the fixtures\' verdicts word for word (the Python copy is held to the same)', () => {
   for (const c of FIX.gate) {
-    const v = S.gateVerdict(c.before, c.after);
+    const v = S.gateVerdict(c.before, c.after, c.items);
     assert.equal(v.pass, c.pass, c.name);
     assert.equal(v.why, c.why, c.name);
   }
