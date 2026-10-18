@@ -57,7 +57,10 @@ function contactPage(b: Brief, s: StockSet | undefined, o: { slug?: string; labe
     description: `${o.lead} ${addressLine(b)}`.trim().slice(0, 158),
     sections: [
       S('page-header', { eyebrow: o.label ?? 'Contact', title: o.title, lead: o.lead }, 'alt'),
-      S('contact-form', { kind: o.kind ?? 'contact', title: 'The quickest ways to reach us', lead: b.phone ? `Ring, message or fill in the form — we reply the same day where we can.` : 'Send a message and we will get back to you.', formTitle: o.formTitle ?? '' }),
+      // A booking page gets the booking form (service, day, time); everything else the contact or quote form.
+      (o.slug ?? 'contact') === 'book'
+        ? S('booking-form', { eyebrow: 'Book', title: 'Ask for a time', lead: `Choose what you would like and when suits you; we confirm every booking by message${b.phone ? ` — or ring ${b.phone}` : ''}.`, formTitle: o.formTitle ?? '' })
+        : S('contact-form', { kind: o.kind ?? 'contact', title: 'The quickest ways to reach us', lead: b.phone ? `Ring, message or fill in the form — we reply the same day where we can.` : 'Send a message and we will get back to you.', formTitle: o.formTitle ?? '' }),
       ...(b.kind === 'saas' || b.kind === 'portfolio' ? [] : [S('map', { eyebrow: 'Find us', title: b.town ? `In ${b.town}` : 'Where we are', note: '' }, 'alt')]),
     ],
   };

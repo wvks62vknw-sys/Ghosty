@@ -13,7 +13,9 @@ export const contentBlocks: BlockDef[] = [
     group: 'content',
     about: 'Three to six short cards, each an icon, a title and a sentence: services, reasons to choose you, what is included.',
     slots: { ...HEAD, items: LIST({ icon: ICON, title: T(48), text: T(180), link: LINK() }, 6, 2) },
-    css: `.b-features-grid .cards{display:grid;gap:var(--space-s);grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))}
+    css: `.b-features-grid .cards{display:grid;gap:var(--space-s);grid-template-columns:1fr}
+@media (min-width:600px){.b-features-grid .cards{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:900px){.b-features-grid .cards{grid-template-columns:repeat(var(--cols),1fr)}}
 .b-features-grid .card{display:grid;align-content:start;gap:var(--space-xs);padding:var(--space-m);transition:transform var(--t-mid) var(--ease),box-shadow var(--t-mid) var(--ease)}
 .b-features-grid .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-2)}
 .b-features-grid .ico{display:grid;place-items:center;width:52px;height:52px;border-radius:var(--r2);background:rgb(var(--rgb-primary) / .1);color:var(--primary);margin-bottom:var(--space-2xs)}
@@ -28,7 +30,9 @@ export const contentBlocks: BlockDef[] = [
         const l = linkOf(it, 'link');
         return `<article class="card reveal"><span class="ico">${icon(str(it, 'icon') || 'check')}</span><h3>${esc(str(it, 'title'))}</h3><p>${esc(str(it, 'text'))}</p>${l ? a(l.href, `${esc(l.label)}${icon('arrow')}`) : ''}</article>`;
       });
-      return sec('features-grid', x, `<div class="wrap">${head(d)}<div class="cards">${cards.join('')}</div></div>`);
+      // Rows that come out even on a laptop: 4 across for four, 3 for three or six, 2 for two.
+      const cols = items.length === 4 ? 4 : items.length === 2 ? 2 : 3;
+      return sec('features-grid', x, `<div class="wrap">${head(d)}<div class="cards" style="--cols:${cols}">${cards.join('')}</div></div>`);
     },
   },
   {
@@ -176,7 +180,7 @@ export const contentBlocks: BlockDef[] = [
 @media (min-width:900px){.b-cta-banner .box{grid-template-columns:1.3fr auto;align-items:center;padding:var(--space-2xl) var(--space-xl)}}`,
     render(d, x) {
       const p = linkOf(d, 'primary') ?? primaryAction(x.brief, x.plan);
-      const s = linkOf(d, 'secondary') ?? (x.brief.phone ? { label: x.brief.phone, href: `tel:${x.brief.phone.replace(/[^\d+]/g, '')}` } : undefined);
+      const s = linkOf(d, 'secondary') ?? (x.brief.phone && !p.href.startsWith('tel:') ? { label: x.brief.phone, href: `tel:${x.brief.phone.replace(/[^\d+]/g, '')}` } : undefined);
       return sec('cta-banner', x, `<div class="wrap"><div class="box reveal"><div><h2>${rich(str(d, 'title'))}</h2>${str(d, 'text') ? `<p style="margin-top:var(--space-s)">${esc(str(d, 'text'))}</p>` : ''}</div><div class="btns">${btn(p, 'btn-primary', 'arrow')}${s ? btn(s, 'btn-outline', s.href.startsWith('tel:') ? 'phone' : '') : ''}</div></div></div>`, { tight: true });
     },
   },

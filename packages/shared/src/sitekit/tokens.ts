@@ -246,6 +246,7 @@ p{margin:0;text-wrap:pretty}
 ul,ol{margin:0;padding:0}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--primary);outline-offset:3px;border-radius:2px}
+[tabindex="-1"]:focus{outline:none}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .skip{position:absolute;left:12px;top:-60px;z-index:100;padding:10px 16px;background:var(--primary);color:var(--on-primary);border-radius:var(--r1);text-decoration:none;font-weight:600}
 .skip:focus{top:12px}
