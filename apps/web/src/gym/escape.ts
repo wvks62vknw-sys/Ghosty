@@ -707,14 +707,14 @@ function generate(level: number, seed: number): Problem {
   const text = [
     'An escape room, with nothing hidden from you:',
     fullText(m),
-    'Commands (one per line): go <room>, go out, take <thing>, open <thing>, read <note>, unlock <thing> with <key>, enter <code> on <thing>, use <tool> on <thing>. A key opens the lock of its own colour; unlocking a box leaves it closed (open it next); a door opens once unlocked; you can only see inside a box once it is open, and only things in the room you are in.',
+    'Commands (one per line): go <room>, go out, take <thing>, open <thing>, read <note>, unlock <thing> with <key>, enter <code> on <thing>, use <tool> on <thing>, and for a hiding place push, lift, empty, turn, search or move <thing> (whichever its description says). A key opens the lock of its own colour; unlocking a box leaves it closed (open it next); a door opens once unlocked; you can only see inside a box once it is open, and only things in the room you are in.',
     'Every code written above is already known to you: you can enter it without reading its note first.',
     'Give the shortest list of commands that gets you out.',
   ].join('\n');
   return { game: 'escape', level: lvl(level), seed, text, data: { level: lvl(level), seed, best: best.length, solution: best } };
 }
 
-const VERBS = /^(go|take|get|pick up|open|read|unlock|enter|type|dial|use|escape|leave|exit|walk out)\b/;
+const VERBS = /^(go|take|get|pick up|open|read|unlock|enter|type|dial|use|escape|leave|exit|walk out|push|lift|empty|turn|search|move)\b/;
 /** The commands in a reply: every line (or part split by ; , "then") that starts with a command word; numbering and quotes off. */
 export function readCommands(answer: string): string[] {
   return answer

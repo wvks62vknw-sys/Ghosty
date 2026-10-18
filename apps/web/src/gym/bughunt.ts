@@ -20,6 +20,9 @@ import { ARITH, COMPARE, fmt, indent, KEYWORDS, parse, type Program, RULES, run,
 
 // ---- the programs (correct versions); {a} {b}… are variable names chosen per seed ----------------------
 
+/** A template's correct program with these variable names. */
+export const goodLines = (t: Template, names: Record<string, string>) => t.src.map((l) => fmt(tokens(l.replace(/\{(\w+)\}/g, (_, k: string) => names[k] ?? k))));
+
 interface Template {
   name: string;
   what: string;
@@ -35,7 +38,10 @@ interface Template {
 const list = (r: () => number, n: number, lo: number, hi: number) => Array.from({ length: n }, () => randInt(r, lo, hi));
 
 export const TEMPLATES: Template[] = [
-  { name: 'sum_to', what: 'adds up the whole numbers from 1 to n', level: 1, vars: { s: ['s', 'total', 'acc'], i: ['i', 'k'] }, src: ['fn sum_to(n)', '{s} = 0', 'for {i} = 1 to n do', '{s} = {s} + {i}', 'end', 'return {s}', 'end'], inputs: (r) => [randInt(r, 0, 12)] },
+  { name: 'sum_to', what: 'adds up the whole numbers from 1 to n', level: 1, vars: { s: ['s', 'total', 'acc', 'sum'], i: ['i', 'k', 'j'] }, src: ['fn sum_to(n)', '{s} = 0', 'for {i} = 1 to n do', '{s} = {s} + {i}', 'end', 'return {s}', 'end'], inputs: (r) => [randInt(r, 0, 12)] },
+  { name: 'sum_down', what: 'adds up n, n − 1, …, 1', level: 1, vars: { s: ['s', 'total', 'acc', 'sum'] }, src: ['fn sum_down(n)', '{s} = 0', 'while n > 0 do', '{s} = {s} + n', 'n = n - 1', 'end', 'return {s}', 'end'], inputs: (r) => [randInt(r, 0, 12)] },
+  { name: 'mix', what: 'works out a − b + c', level: 1, vars: { t: ['t', 'r', 'v', 'w'] }, src: ['fn mix(a, b, c)', '{t} = a - b', '{t} = {t} + c', 'return {t}', 'end'], inputs: (r) => [randInt(r, 0, 20), randInt(r, 0, 20), randInt(r, 0, 20)] },
+  { name: 'evens_to', what: 'adds up the even numbers 2, 4, …, 2n', level: 1, vars: { s: ['s', 'total', 'acc', 'sum'], i: ['i', 'k', 'j'] }, src: ['fn evens_to(n)', '{s} = 0', 'for {i} = 1 to n do', '{s} = {s} + {i} + {i}', 'end', 'return {s}', 'end'], inputs: (r) => [randInt(r, 0, 10)] },
   { name: 'factorial', what: 'multiplies 1 × 2 × … × n', level: 1, vars: { p: ['p', 'prod', 'f'], i: ['i', 'k'] }, src: ['fn factorial(n)', '{p} = 1', 'for {i} = 2 to n do', '{p} = {p} * {i}', 'end', 'return {p}', 'end'], inputs: (r) => [randInt(r, 0, 8)] },
   { name: 'power', what: 'works out b to the power e', level: 1, vars: { p: ['p', 'result'], i: ['i', 'k'] }, src: ['fn power(b, e)', '{p} = 1', 'for {i} = 1 to e do', '{p} = {p} * b', 'end', 'return {p}', 'end'], inputs: (r) => [randInt(r, 1, 5), randInt(r, 0, 5)] },
   { name: 'bigger', what: 'gives the bigger of a and b, or a when they are equal', level: 1, vars: {}, src: ['fn bigger(a, b)', 'if a >= b then', 'return a', 'else', 'return b', 'end', 'end'], inputs: (r) => [randInt(r, 0, 9), randInt(r, 0, 9)] },
@@ -167,10 +173,26 @@ export function runTests(lines: string[], tests: Test[]): { pass: boolean[]; got
   }
   return { pass, got, cover };
 }
+/** Does the program pass every test? (Stops at the first that fails: most changed programs fail at once.) */
+export function passesAll(lines: string[], tests: Test[]): boolean {
+  let p: Program;
+  try {
+    p = parse(lines);
+  } catch {
+    return false;
+  }
+  for (const t of tests) {
+    const o = run(p, t.args);
+    if (o.error != null || !same(o.value!, t.want)) return false;
+  }
+  return true;
+}
 const same = (a: Val, b: Val) => (Array.isArray(a) || Array.isArray(b) ? JSON.stringify(a) === JSON.stringify(b) : a === b);
 
 export interface Buggy {
   t: Template;
+  /** The variable names chosen for the template's placeholders. */
+  names: Record<string, string>;
   /** The correct program and the buggy one (same lines but one). */
   good: string[];
   lines: string[];
@@ -184,7 +206,7 @@ export interface Buggy {
  * Each level brings a new kind of slip (most of its bugs, seven in ten), the rest are kinds met before.
  * He only suspects kinds of slip he has met (practised with), so a new kind has to be learned.
  */
-export const NEW_SLIP: Slip[] = ['plusminus', 'number', 'strict', 'operand', 'muldiv', 'flip', 'target', 'equality', 'logic', 'swap'];
+export const NEW_SLIP: Slip[] = ['plusminus', 'number', 'operand', 'flip', 'muldiv', 'strict', 'target', 'equality', 'logic', 'swap'];
 export const slipsUpTo = (level: number) => NEW_SLIP.slice(0, lvl(level));
 
 /** A program with one bug that at least one test catches (and that the same kind of one-word change can undo). */
@@ -197,7 +219,7 @@ export function makeBuggy(level: number, seed: number): Buggy {
     const t = pick(r, TEMPLATES.filter((x) => x.level >= sp.from && x.level <= sp.to));
     const names: Record<string, string> = {};
     for (const [k, opts] of Object.entries(t.vars)) names[k] = pick(r, opts);
-    const good = t.src.map((l) => fmt(tokens(l.replace(/\{(\w+)\}/g, (_, k: string) => names[k] ?? k))));
+    const good = goodLines(t, names);
     const prog = parse(good);
     const seen = new Set<string>();
     const draw = (rr: () => number, n: number): Test[] => {
@@ -225,7 +247,12 @@ export function makeBuggy(level: number, seed: number): Buggy {
       // The fix must be a change of the same kinds (so his search can find it).
       const undo = changes(lines).find((c) => c.line === bug.line && apply(lines, c)[c.line - 1] === good[bug.line - 1]);
       if (!undo) continue;
-      return { t, good, lines, bug, tests, hidden };
+      // A bug of the level's new kind must need it: no change of a kind met at earlier levels may fix it too.
+      const before = new Set<string>(NEW_SLIP.slice(0, L - 1));
+      // (Only a line some failing test runs can hold such a fix.)
+      const ran = new Set(res.cover.filter((_, i) => !res.pass[i]).flatMap((c) => [...c]));
+      if (L > 1 && bug.slip === NEW_SLIP[L - 1] && changes(lines).some((c) => before.has(c.slip) && ran.has(c.line) && passesAll(apply(lines, c), tests))) continue;
+      return { t, names, good, lines, bug, tests, hidden };
     }
   }
 }
@@ -283,7 +310,7 @@ export function prepare(b: Buggy): Case {
       strict ? 1 : 0,
       (c.line - 1) / n,
       // Would the changed program even read? (Checked without running any test, like a spelling check.)
-      parses(apply(b.lines, c)) ? 0 : 1,
+      lineReads(apply(b.lines, c)[c.line - 1]!) ? 0 : 1,
       top > 0 && Math.abs(ochiai - top) < 1e-9 ? 1 : 0,
       c.kind === 'number' && (w === 'for' || w === 'while') ? 1 : 0,
       c.kind === 'variable' && w === 'return' ? 1 : 0,
@@ -306,6 +333,15 @@ function selfish(t: string[]): boolean {
   return false;
 }
 
+/**
+ * Would a changed line still read? A one-word change never touches the words that open or close blocks,
+ * so the line is checked on its own, inside a tiny program of its own (quick: no whole-program parse).
+ */
+function lineReads(line: string): boolean {
+  const w = tokens(line)[0];
+  return parses(['fn f()', line, ...(w === 'if' || w === 'while' || w === 'for' ? ['end'] : []), 'end']);
+}
+
 function parses(lines: string[]): boolean {
   try {
     parse(lines);
@@ -318,7 +354,7 @@ function parses(lines: string[]): boolean {
 export function fixes(cs: Case, i: number): boolean {
   let ok = cs.fixes.get(i);
   if (ok == null) {
-    ok = runTests(apply(cs.b.lines, cs.cands[i]!), cs.b.tests).pass.every(Boolean);
+    ok = passesAll(apply(cs.b.lines, cs.cands[i]!), cs.b.tests);
     cs.fixes.set(i, ok);
   }
   return ok;
@@ -387,10 +423,37 @@ export function bench(level: number, fresh = false): Graded[] {
   let b = benches.get(L);
   if (!b) {
     const st = BUG_SETS[L - 1];
-    b = st ? st.split(' ').map((x) => x.split(':').map(Number) as [number, number]).map(([seed, limit]) => ({ cs: prepare(makeBuggy(L, seed)), limit, seed })) : graded(L, 70000, 20);
+    b = st ? st.map((x) => ({ cs: prepare(rebuild(x)), limit: x.l, seed: x.s })) : graded(L, 70000, 20);
     benches.set(L, b);
   }
   return b;
+}
+
+/**
+ * A held-out program as stored: its seed and allowance, the template, the variable names, the bug (line,
+ * word, new word — and the second word of a swap), and the test inputs, shown and hidden (the answers are
+ * worked out again by running the correct program).
+ */
+export interface StoredBug {
+  s: number;
+  l: number;
+  t: string;
+  n: Record<string, string>;
+  b: (number | string)[];
+  a: Val[][];
+  h: Val[][];
+}
+export const storeBug = (g: Graded): StoredBug => {
+  const b = g.cs.b;
+  return { s: g.seed, l: g.limit, t: b.t.name, n: b.names, b: [b.bug.line, b.bug.tok, b.bug.to, ...(b.bug.tok2 != null ? [b.bug.tok2, b.bug.to2!] : [])], a: b.tests.map((x) => x.args), h: b.hidden.map((x) => x.args) };
+};
+export function rebuild(st: StoredBug): Buggy {
+  const t = TEMPLATES.find((x) => x.name === st.t)!;
+  const good = goodLines(t, st.n);
+  const bug = changes(good).find((c) => c.line === st.b[0] && c.tok === st.b[1] && c.to === st.b[2] && (c.tok2 ?? -1) === (st.b[3] ?? -1))!;
+  const prog = parse(good);
+  const test = (args: Val[]): Test => ({ args, want: run(prog, args).value! });
+  return { t, names: st.n, good, lines: apply(good, bug), bug, tests: st.a.map(test), hidden: st.h.map(test) };
 }
 
 // ---- words -------------------------------------------------------------------------------------------------

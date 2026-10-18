@@ -234,6 +234,9 @@ for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate'])
   await until(() => window.__ghosty.gym.frames >= 2, 20000, `WATCH did not play ${id}`);
   const text = await G('.gymboard').innerText();
   if (text.length < 60 || /undefined|NaN/.test(text)) problems.push(`${id}: WATCH shows "${text.slice(0, 120)}"`);
+  // Program listings and transcripts keep their indentation.
+  const ws = await page.evaluate(() => { const e = document.querySelector('#pg-gym .gymboard .gymlines'); return e ? getComputedStyle(e).whiteSpace : 'none'; });
+  if (ws !== 'pre-wrap') problems.push(`${id}: WATCH text does not keep its indentation (white-space: ${ws})`);
   await wideCheck(`watching ${id}`);
   await page.screenshot({ path: `${out}/gym-${id}.png` });
 }

@@ -12,7 +12,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['core', 'index', 'session', 'worker', 'logic', 'logicsets', 'brain', 'tiny', 'bughunt', 'bugsets', 'escape', 'facts', 'factcheck', 'debate'].map((f) => at(`../../web/src/gym/${f}.ts`)),
+  entryPoints: ['core', 'index', 'session', 'worker', 'answer', 'logic', 'logicsets', 'brain', 'tiny', 'bughunt', 'bugsets', 'escape', 'escapesets', 'facts', 'factcheck', 'debate'].map((f) => at(`../../web/src/gym/${f}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -396,9 +396,12 @@ test('bug hunt: check() runs the fixed program — any fix that passes every tes
   assert.ok(!BH.bughunt.check(p, `Line ${other}: ${p.data.lines[other - 1]}`).correct);
   assert.ok(!BH.bughunt.check(p, 'Line 1: fn x(y)').correct, 'the header is not a fix');
   for (let level = 1; level <= 10; level++) {
-    const st = BUG_SETS[level - 1].split(' ');
+    const st = BUG_SETS[level - 1];
     assert.equal(st.length, 20);
-    assert.deepEqual(BH.bench(level, true).map((g) => `${g.seed}:${g.limit}`), st, `L${level} stored programs`);
+    assert.deepEqual(JSON.parse(JSON.stringify(BH.bench(level, true).map(BH.storeBug))), st, `L${level} stored programs`);
+    // And a stored one is rebuilt exactly as the generator made it.
+    const b = BH.makeBuggy(level, st[0].s);
+    assert.deepEqual(BH.rebuild(st[0]).lines, b.lines);
   }
 });
 
