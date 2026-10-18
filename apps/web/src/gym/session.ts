@@ -101,3 +101,6 @@ export function statusLine(rec: GymRecord | null, game: GameMeta, training: bool
   const move = `${pc(rec.start)} → ${pc(rec.mastery)}`;
   return training ? `Learning… ${n(rec.units)} ${game.unit} · Level ${rec.level} · mastery ${move}` : `Paused · ${n(rec.units)} ${game.unit} · Level ${rec.level} · mastery ${move}`;
 }
+
+/** Is a worker message about game `id` from its current epoch? (Messages from before a RESET are older and dropped.) */
+export const current = (epochs: Record<string, number>, id: string, epoch: number | undefined): boolean => (epoch ?? 0) === (epochs[id] ?? 0);

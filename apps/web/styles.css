@@ -889,7 +889,7 @@ button.learnrate.again b { color: var(--r); } button.learnrate.hard b { color: v
 button.gymcard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; min-height: 76px; padding: 8px; text-align: left; white-space: normal; overflow: hidden; }
 .gymcard .gymname { font: 500 11px var(--d); letter-spacing: .1em; color: var(--c); overflow-wrap: anywhere; }
 .gymcard small { font-size: 11px; color: var(--mute); letter-spacing: .04em; text-transform: none; }
-.gymcard .spark { height: 18px; }
+.gymcard .gymspark { display: block; width: 100%; } .gymcard .spark { height: 18px; }
 .gymst { font: 500 9px var(--d); font-style: normal; letter-spacing: .14em; color: var(--mute); }
 .gymst.training { color: var(--ok); } .gymst.mastered { color: var(--a); } .gymst.paused { color: var(--c); }
 .gymlearns { font-size: 13.5px; line-height: 1.5; color: #e6f8ff; margin: 0 0 6px; overflow-wrap: anywhere; }

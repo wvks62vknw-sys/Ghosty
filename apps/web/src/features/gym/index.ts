@@ -7,15 +7,16 @@
  *
  * Training runs in a Web Worker (gym/worker.ts, inside an instance of the bundled textures worker), one
  * game at a time; it pauses while the app is hidden and its state is kept in IndexedDB (store.ts), so it
- * carries on next time. State for specs at window.__ghosty.gym.
+ * carries on next time. The page imports only the games' descriptions (gym/meta.ts) and the two board
+ * files: the engines live in the worker's bundle. State for specs at window.__ghosty.gym.
  */
 import { clear, h, svgEl } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
-import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/connect4';
-import type { Frame, Game } from '../../gym/core';
-import { GAMES, gameById } from '../../gym/index';
-import { type GymRecord, statusLine } from '../../gym/session';
-import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tictactoe';
+import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
+import type { Frame } from '../../gym/core';
+import { type GameMeta, META as GAMES, metaById as gameById } from '../../gym/meta';
+import { current, type GymRecord, statusLine } from '../../gym/session';
+import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, panel, spark, toast } from '../../ui/components';
@@ -73,7 +74,7 @@ export function renderFrame(f: Frame | null, onCell?: (i: number) => void): HTML
 }
 
 /** The mastery graph: one point per measurement, a dashed line where a level was passed, the bar to reach. */
-function graph(rec: GymRecord | null, game: Game): SVGSVGElement {
+function graph(rec: GymRecord | null, game: GameMeta): SVGSVGElement {
   const W = 300;
   const H = 96;
   const s = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'gymgraph', preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Mastery over time' });
@@ -112,7 +113,11 @@ export const gymTab: TabDef = {
     expose();
     const recs = new Map<string, GymRecord>();
     const views = new Map<string, Frame>();
-    let open: Game = GAMES[0]!;
+    let open: GameMeta = GAMES[0]!;
+    /** Bumped by RESET: worker messages about a game from before its reset are dropped. */
+    const epochs: Record<string, number> = {};
+    /** The game whose board shows a finished WATCH (kept until the owner does something else). */
+    let held = '';
     let training: string | null = null;
     let resumeOnShow = '';
     let worker: Worker | null = null;
@@ -144,7 +149,7 @@ export const gymTab: TabDef = {
       new Promise<Extract<GymOut, { gym: 'reply' }>>((resolve) => {
         const id = ++req;
         replies.set(id, resolve);
-        send({ ...m, req: id, rec: recs.get(String(m.id)) ?? null });
+        send({ ...m, req: id, rec: recs.get(String(m.id)) ?? null, epoch: epochs[String(m.id)] ?? 0 });
       });
     const onWorker = (m: GymOut) => {
       if (m.gym === 'reply') {
@@ -152,11 +157,13 @@ export const gymTab: TabDef = {
         replies.delete(m.req);
         return;
       }
+      // Anything about a game from before its RESET is stale.
+      if (!current(epochs, m.gym === 'error' ? m.id : m.rec.id, m.epoch)) return;
       if (m.gym === 'error') {
+        // Training itself failed in the worker (and stopped there).
         gymState.error = m.message;
         toast(`Training stopped: ${m.message}`, 'bad');
-        training = null;
-        gymState.training = '';
+        if (training === m.id) training = null;
         paint();
         return;
       }
@@ -177,10 +184,23 @@ export const gymTab: TabDef = {
       paint();
     };
 
-    // ======================= GAMES: the cards
+    // ======================= GAMES: the cards (made once, updated in place so a tap is never lost to a repaint)
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
     cardsP.body.append(cards);
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string }>();
+    for (const g of GAMES) {
+      const small = h('small');
+      const sp = h('span.gymspark');
+      const st = h('i.gymst');
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymname', g.title), small, sp, st);
+      b.addEventListener('click', () => {
+        select(g.id);
+        if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      cards.append(b);
+      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '' });
+    }
 
     // ======================= GAME: the open one
     const gameP = panel('GAME', { cls: 'gymgame' });
@@ -217,29 +237,24 @@ export const gymTab: TabDef = {
         ['MASTERED', mastered / GAMES.length, `${mastered}`],
       ]);
     };
-    const stateOf = (g: Game, r: GymRecord | undefined) => (r?.mastered ? 'MASTERED' : training === g.id ? 'TRAINING' : r?.units ? 'PAUSED' : 'NEW');
+    const stateOf = (g: GameMeta, r: GymRecord | undefined) => (r?.mastered ? 'MASTERED' : training === g.id ? 'TRAINING' : r?.units ? 'PAUSED' : 'NEW');
     const paintCards = () => {
-      clear(
-        cards,
-        ...GAMES.map((g) => {
-          const r = recs.get(g.id);
-          const st = stateOf(g, r);
-          const b = h(
-            'button.gymcard',
-            { type: 'button', 'aria-pressed': String(g.id === open.id), dataset: { game: g.id } },
-            h('span.gymname', g.title),
-            h('small', r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --'),
-            spark(r?.history.map((p) => p.m) ?? [], 70, 18),
-            h(`i.gymst.${st.toLowerCase()}` as 'i', st),
-          );
-          if (g.id === open.id) b.classList.add('on');
-          b.addEventListener('click', () => {
-            select(g.id);
-            if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-          return b;
-        }),
-      );
+      for (const g of GAMES) {
+        const c = cardParts.get(g.id)!;
+        const r = recs.get(g.id);
+        const st = stateOf(g, r);
+        c.b.classList.toggle('on', g.id === open.id);
+        c.b.setAttribute('aria-pressed', String(g.id === open.id));
+        c.small.textContent = r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
+        c.st.textContent = st;
+        c.st.className = `gymst ${st.toLowerCase()}`;
+        const pts = r?.history.map((p) => p.m) ?? [];
+        const key = pts.join(',');
+        if (key !== c.sparkKey) {
+          c.sparkKey = key;
+          clear(c.spark, spark(pts, 70, 18));
+        }
+      }
       gymState.cards = GAMES.length;
     };
     const paintGame = () => {
@@ -254,7 +269,8 @@ export const gymTab: TabDef = {
       clear(graphBox, graph(r, open));
       detail.textContent = r?.detail ? `${r.detail} Level ${r.level} needs ${Math.round(open.bar(r.level) * 100)}%.` : `Mastery is checked against ground truth, never his own say-so. Level 1 needs ${Math.round(open.bar(1) * 100)}%.`;
       secretRow.hidden = open.play !== 'secret' || gymState.play.game !== open.id;
-      if (!gymState.watching && gymState.play.game !== open.id) clear(board, renderFrame(views.get(open.id) ?? null));
+      // The board shows what he knows — unless a WATCH is playing or just finished, or the owner is playing him.
+      if (!gymState.watching && held !== open.id && gymState.play.game !== open.id) clear(board, renderFrame(views.get(open.id) ?? null));
     };
     const paint = () => {
       gymState.training = training ?? '';
@@ -269,6 +285,8 @@ export const gymTab: TabDef = {
       const g = gameById(id);
       if (!g) return;
       stopWatch();
+      held = '';
+      disarmReset();
       if (gymState.play.game && gymState.play.game !== id) gymState.play = { game: '', board: [], over: '', thinking: false };
       open = g;
       gymState.open = id;
@@ -281,22 +299,34 @@ export const gymTab: TabDef = {
         training = null;
       } else {
         stopWatch();
+        held = '';
         training = open.id;
-        send({ gym: 'train', id: open.id, rec: recs.get(open.id) ?? null });
+        send({ gym: 'train', id: open.id, rec: recs.get(open.id) ?? null, epoch: epochs[open.id] ?? 0 });
       }
       paint();
+    };
+    let disarmTimer = 0;
+    const disarmReset = () => {
+      resetArmed = 0;
+      clearTimeout(disarmTimer);
+      resetBtn.textContent = 'RESET';
     };
     const reset = () => {
       if (Date.now() - resetArmed > 3000) {
         resetArmed = Date.now();
         resetBtn.textContent = 'SURE? TAP AGAIN';
-        setTimeout(() => (resetBtn.textContent = 'RESET'), 3000);
+        clearTimeout(disarmTimer);
+        disarmTimer = window.setTimeout(disarmReset, 3000);
         return;
       }
-      resetArmed = 0;
-      resetBtn.textContent = 'RESET';
+      disarmReset();
       if (training === open.id) training = null;
-      send({ gym: 'reset', id: open.id });
+      // A new epoch: whatever the worker still sends about the old game is dropped.
+      epochs[open.id] = (epochs[open.id] ?? 0) + 1;
+      held = '';
+      gymState.play = { game: '', board: [], over: '', thinking: false };
+      stopWatch();
+      send({ gym: 'reset', id: open.id, epoch: epochs[open.id] });
       recs.delete(open.id);
       views.delete(open.id);
       delete gymState.recs[open.id];
@@ -321,9 +351,14 @@ export const gymTab: TabDef = {
       stopWatch();
       gymState.play = open.play === 'secret' && secret != null ? gymState.play : { game: '', board: [], over: '', thinking: false };
       const id = open.id;
+      held = id;
       clear(board, h('div.note', 'He is getting ready…'));
       const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
-      if (open.id !== id || !m.frames?.length) return;
+      if (m.error) {
+        clear(board, h('div.note.bad', `He could not play that: ${m.error}`));
+        return;
+      }
+      if (open.id !== id || held !== id || !m.frames?.length) return;
       const frames = m.frames;
       let i = 0;
       gymState.watching = true;
@@ -346,6 +381,7 @@ export const gymTab: TabDef = {
     // PLAY HIM: on the board (tic-tac-toe, Connect 4) you move first; or you pick his secret.
     const startPlay = () => {
       stopWatch();
+      held = '';
       if (open.play === 'secret') {
         gymState.play = { game: open.id, board: [], over: '', thinking: false };
         secretIn.value = '';
@@ -368,7 +404,7 @@ export const gymTab: TabDef = {
     const outcome = (): string => {
       const b = gymState.play.board;
       const w = open.id === 'tictactoe' ? tttWinner(b) : winnerOf(posFromBoard(b));
-      return w === 1 ? 'You win! He will remember this.' : w === 2 ? 'He wins.' : w === 3 ? 'A draw.' : '';
+      return w === 1 ? 'You win!' : w === 2 ? 'He wins.' : w === 3 ? 'A draw.' : '';
     };
     const humanMove = async (cell: number) => {
       const pl = gymState.play;
@@ -389,7 +425,8 @@ export const gymTab: TabDef = {
       paintPlay('He is thinking…');
       const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
       pl.thinking = false;
-      if (gymState.play !== pl || m.move == null || m.move < 0) return;
+      if (gymState.play !== pl) return;
+      if (m.error || m.move == null || m.move < 0) return paintPlay(m.error ? `He could not move: ${m.error}` : 'Your move.');
       if (open.id === 'tictactoe') pl.board[m.move] = 2;
       else {
         const p = posFromBoard(pl.board);
