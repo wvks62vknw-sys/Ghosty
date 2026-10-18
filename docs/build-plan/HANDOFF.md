@@ -11,8 +11,25 @@ maximum reasoning effort yourself, and launch EVERY subagent and workflow agent 
 thoroughness over speed: independent adversarial review on every feature, design critic loops until every screen
 scores 9+.
 
+## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
+By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
+- Check its real specs first (screen size in points, safe areas and Dynamic Island, RAM, Neural Engine/GPU, Safari
+  version and which WebGPU / WASM features it has). Don't guess.
+- Re-tune every layout and screenshot spec for its screen. The iPhone 13 (390 × 844) becomes a smaller-screen check that
+  must still work, not the main target. Add the new viewport to the browser specs.
+- Use the headroom: a much bigger offline brain and specialists (Wave F), larger on-device vision and depth models
+  (measure, Lens, NAME), faster GYM training, higher-quality 3D and visuals. 512 GB means storage is no longer the limit
+  for offline models, maps and Wikipedia, but downloads must still be asked for and stay on Wi-Fi.
+- ProMotion (120 Hz): animations, the reactor and scrolling should feel smooth at 120 Hz, still honouring "reduce motion".
+
+The owner's words: make everything "miles better, literally miles better, every single little thing ... every feature,
+everything". So the upgrade pass on what is already built is not optional polish. Go through every feature, screen and
+flow, and make each one clearly better: quality, speed, looks, accuracy, ease. Keep the same review discipline, keep
+everything free, and keep every one of his rules above.
+
 ## The owner and how he works
-- One non-technical owner, in the UK (Europe/London), using Ghosty on an iPhone 13 as a Safari Home Screen app.
+- One non-technical owner, in the UK (Europe/London), using Ghosty as a Safari Home Screen app: an iPhone 13 until now,
+  an iPhone 18 Pro Max (512 GB) from Friday (see above).
 - Everything must be FREE: free tiers and keyless free APIs only, never anything that can bill him (check account
   types before sending tokens anywhere that can charge, e.g. Hugging Face ZeroGPU with a PRO account).
 - He wants every feature to be a user-friendly mini-app: one main button, plain words, no setup, UNDO.
