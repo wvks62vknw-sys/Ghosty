@@ -24,7 +24,7 @@ const base = {
 test('the prompt: persona says offline, then memory, agenda, library as reference, recent turns and the question', () => {
   const m = P.buildOfflinePrompt(base);
   assert.equal(m[0].role, 'system');
-  assert.match(m[0].content, /You are Ghosty, Boss's personal assistant/);
+  assert.match(m[0].content, /You are Ghosty, Boss's personal AI\. CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\. Answer first/);
   assert.match(m[0].content, /offline: you have no tools and no internet/);
   assert.match(m[0].content, /- likes tea/);
   assert.match(m[0].content, /Dentist at High St/);
@@ -112,3 +112,16 @@ test('the models are pinned to one Hugging Face commit each, and the vendored We
   assert.match(brain, /model: modelBase\(m\)/);
   assert.match(brain, /const base = modelBase\(currentModel\(\)\)/);
 });
+
+test("the offline brain is the same character (the owner's dials too), and its replies are polished like the brain's", () => {
+  const m = P.buildOfflinePrompt(base);
+  assert.match(m[0].content, /CHARACTER: sharp, dry, quietly confident, warm underneath\./);
+  assert.match(m[0].content, /No chatbot phrases/);
+  const tuned = P.buildOfflinePrompt({ ...base, persona: { dry: 0, brief: 2, warm: 2 } });
+  assert.match(tuned[0].content, /CHARACTER: plain-spoken, quietly confident, openly warm\..*As short as it can be\./);
+  assert.equal(P.cleanReply('<think>\n</think>\nCertainly! Descale it with citric acid. I hope this helps!<|im_end|>'), 'Descale it with citric acid.');
+});
+
+// THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
+// because this one is in the test list (package.json is protected).
+await import('./thinkharder.test.mjs');

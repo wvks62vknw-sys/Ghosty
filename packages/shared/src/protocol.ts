@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { PersonaSettings } from './persona';
 
 /** Events streamed (one JSON object per line) from POST /api/chat and POST /api/approve. */
 export type ChatEvent =
@@ -160,6 +161,8 @@ export interface Profile {
   /** Short lines (at most 160 characters, 40 a section). */
   sections: Record<ProfileSection, string[]>;
   updatedAt: number;
+  /** How Ghosty talks (SETTINGS → CHARACTER: how dry, how brief, how warm; persona.ts). Missing: the default character. */
+  persona?: PersonaSettings;
 }
 
 /** One day's diary entry, written by the nightly reflection into the library (doc notes_diary). */
