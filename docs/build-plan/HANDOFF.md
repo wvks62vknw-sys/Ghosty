@@ -53,19 +53,31 @@ Merged and pushed on the branch (reviewed, tests green):
 - Stage 3: THINK HARDER (test-time search on the offline brain, honest confidence, exact checks only when they truly
   check) + the honest REPORT CARD, wired to Stage 2 (report-card questions never trained on).
 
-Finished by builders and being merged when this session ended (check `git log` on the branch; whatever is not on
-the branch must be redone or recovered):
-- GYM part 2a (checkers, chess, Go 9×9, poker, Sokoban, balance/lander). Known gap: Go's learner plateaus, so the
-  "frozen passer of level L−1 must fail level L" rule did not hold above Go level 2; checkers top levels marginal.
+Also merged and pushed on the branch (18 Oct, late):
 - Wave A voice + memory: barge-in (talk over Ghosty), better voices (Workers AI Aura within a shared neuron ledger,
   apps/edge/src/neurons.ts), memory timeline with sources, edit, forget+UNDO 24 h, lock, patterns (health excluded).
-- Wave B1 3D studio: catalogue of ~5,000 CC0/CC-BY models (public/data/models3d.json, Poly Haven), text-to-3D and
-  photo-to-3D via free Hugging Face Spaces (Gradio client), credits with licence links. Review fixes: never send the
-  HF token to ZeroGPU if the account can pay; Hunyuan3D-2 removed (its licence excludes the UK/EU); search ranking.
-- Wave B2 measuring: zero-setup measure from one photo (Depth Anything V2 metric indoor small, on the phone),
-  floor plan from a photo of a drawn plan or of the room. Accuracy is honest (~12% median, ~1 in 10 off by ~40%).
-- Wave C website builder: design system, ~40 blocks, templates, free images, quality gates, autonomous process.
-  Not yet adversarially reviewed when this session ended — review it first.
+- Wave B1 3D studio (reviewed, fixes merged): catalogue of ~4,700 CC0/CC-BY models (public/data/models3d.json, Poly
+  Haven), text-to-3D and photo-to-3D via free Hugging Face Spaces, licence links on every credit. A Hugging Face token
+  is only ever sent after whoami-v2 confirms a FREE account that cannot pay (fails closed). Hunyuan3D removed (licence
+  excludes UK/EU). Workers AI drawing goes through the shared neuron ledger (gen3d.ts drawObject).
+  OPEN: SYSTEM → KEYS text for the `huggingface` key lives in protected apps/edge/src/keys.ts and still needs this
+  wording: "Use a token from a FREE Hugging Face account with no payment card. Ghosty sends it to the free GPUs only
+  after Hugging Face confirms the account cannot be charged — PRO, Team and Enterprise accounts are billed for GPU time
+  once their daily allowance runs out — so a token from a paying account is simply not used."
+- Wave B2 measuring (reviewed, 13 fixes merged): zero-setup measure from one photo (Depth Anything V2 metric indoor
+  small, on the phone, one-tap 50 MB download), A4-sheet scale, floor plan from a photo. Honest accuracy: ~12–14%
+  median, about 1 in 10 off by ~40%; indoors 0.5–10 m only. Open: object outline can bleed into a same-colour floor.
+- Wave C website builder: design system (12 palettes, 9 font pairs), 47 blocks, 14 business templates, free photos
+  with credits, quality gates, six-step resumable `build_website` project, offline build on the phone. NOT YET
+  ADVERSARIALLY REVIEWED — review it first (focus: honesty gates, photo licences, PAGE_CSP openstreetmap frame,
+  screenshot services Microlink/thum.io never run for real, the prompt.ts wording trim). Forms open WhatsApp/email
+  (published pages are sandboxed; a real form route would need a kernel change).
+
+Being merged when this session ended (check `git log`; if it is not on the branch, recover it from branch
+`worktree-agent-ae70cc05370cd9297` or redo it):
+- GYM part 2a (checkers, chess, Go 9×9, poker, Sokoban, balance/lander). New learners: Go pattern instinct trained by
+  self-play search (gofast.ts board), checkers n-tuple network. Known gaps: Go's "frozen passer of level L−1 must fail
+  level L" only holds to level 3; checkers levels 9–10 gaps are within match noise (25–90k games to climb).
 - Redesign (rounds 1–5): new themes Graphite (default for new devices) and Reactor, five-tab floating bar
   (Ask/See/Make/Learn/Plan) + "Me", hubs, command bar, iOS lists. Independent critic scores were ~5.5/10 after round
   4; round 5 addressed its list. Continue until every screen scores ≥ 9 with the critic. The owner has not yet seen
