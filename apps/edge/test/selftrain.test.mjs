@@ -697,7 +697,7 @@ test('ratings: changing or adding ratings while a week gathers never makes a �
   // the first steps handle a few …
   await C.trainTick(d.deps);
   await C.trainTick(d.deps);
-  // … then the owner changes the first one (it moves to the end of the list) and adds another
+  // and then the owner changes the first one (it moves to the end of the list) and adds another
   await post({ at: 1, up: false, question: 'q1', reply: 'bad 1 again' });
   await post({ at: 7, up: false, question: 'q7', reply: 'bad 7' });
   await stepUntil(d, 'upload');
