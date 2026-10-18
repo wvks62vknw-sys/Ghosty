@@ -17,6 +17,7 @@ import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/co
 import { citedReply } from './cited';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
+import { rateable, rateRow, ratings } from './rate';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -69,12 +70,18 @@ function renderEntry(e: Entry): HTMLElement {
   switch (e.kind) {
     case 'user':
       return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
-    case 'assistant':
+    case 'assistant': {
       // Answered by the small model on the phone itself: one quiet chip says so.
-      if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
-      // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+      const el = e.offline
+        ? h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'))
+        : // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
+          e.cited
+          ? h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked))
+          : h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+      // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
+      if (rateable(e)) el.append(rateRow(e));
+      return el;
+    }
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -128,7 +135,9 @@ export const coreTab: TabDef = {
       g.v.textContent = c.value;
       g.el.className = `gi${c.tone ? ` ${c.tone}` : ''}`;
     };
-    const caption = h('div#ccap', h('span', ''));
+    // The caption: the latest words, and under a finished reply its 👍 / 👎 (rate.ts), so a phone can rate it without opening the LOG.
+    const capRate = h('div.caprate');
+    const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
@@ -240,12 +249,19 @@ export const coreTab: TabDef = {
       clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
+      paintCapRate();
       armFade();
       // The HUD says what the tool at work is doing right now (the latest report); nothing once it has finished.
       const working = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'activity' }> => e.kind === 'activity' && e.state === 'running' && !!e.progress);
       stark.task(working?.progress ? progressText(working.progress) : null);
     };
+    const paintCapRate = () => {
+      const last = chat.get().entries.at(-1);
+      clear(capRate, ...(chat.get().live && !ui.get().busy && last?.kind === 'assistant' && rateable(last) ? [rateRow(last)] : []));
+    };
+    ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
     chat.subscribe(paintLog);
+    ratings.subscribe(paintLog);
     paintLog();
     // power-up sequence: the HUD draws itself in, then reports
     const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];

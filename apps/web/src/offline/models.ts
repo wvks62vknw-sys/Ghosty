@@ -6,6 +6,8 @@
  * A new revision means a new download for the owner: change `rev` together with the libs.
  */
 
+import { weightsBase } from '../../../../packages/shared/src/selftrain';
+
 export interface ModelDef {
   id: string;
   label: string;
@@ -16,6 +18,8 @@ export interface ModelDef {
   lib: string;
   mb: number;
   vram: number;
+  /** Where its files are, when not on huggingface.co (a trained week: through Ghosty; see modelBase). */
+  base?: string;
 }
 
 /** The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it. Both Apache-2.0. */
@@ -28,5 +32,45 @@ export const MODELS: ModelDef[] = [
  * Where a model's files are, at its pinned commit, ending in "/". WebLLM keeps a URL that already
  * names `/resolve/<x>/` as it is (it adds `resolve/main/` only to a bare repository URL), and it
  * stores each file in its cache under this base, so the check that the download is whole uses it too.
+ * A trained week has its own `base`: Ghosty's weight address (`/api/w/<cap>/resolve/<commit>/`), since its
+ * Hugging Face repo is private and only the brain may fetch it.
  */
-export const modelBase = (m: Pick<ModelDef, 'repo' | 'rev'>): string => `https://huggingface.co/${m.repo}/resolve/${m.rev}/`;
+export const modelBase = (m: Pick<ModelDef, 'repo' | 'rev'> & { base?: string }): string => m.base ?? `https://huggingface.co/${m.repo}/resolve/${m.rev}/`;
+
+/** A model the weekly self-training kept (apps/edge/src/selftrain): the brain's list, as the phone keeps it. */
+export interface TrainedModel {
+  week: number;
+  label: string;
+  repo: string;
+  commit: string;
+}
+
+/**
+ * The trained models as model definitions: each is Qwen3-0.6B fine-tuned and quantised to q4f16_1 in exactly
+ * the stock build's layout (the notebook checks every tensor's name, shape and type against it), so it runs on
+ * the same compiled model library and needs the same memory. Its files come through Ghosty: `origin` + `weights`
+ * (`/api/w/<capability>/` from the brain) + `resolve/<commit>/`. A bad entry (not a full commit), or no weight
+ * address, leaves it out.
+ */
+export function trainedModels(list: TrainedModel[], origin = '', weights: string | null = null): ModelDef[] {
+  const stock = MODELS[0]!;
+  if (!weights || !/^\/api\/w\/[0-9a-f]{48}\/$/.test(weights)) return [];
+  return list
+    .filter((m) => /^[\w.-]+\/[\w.-]+$/.test(m.repo) && /^[0-9a-f]{40}$/.test(m.commit) && Number.isInteger(m.week))
+    .map((m) => ({ id: `Ghosty-week-${m.week}-${m.commit.slice(0, 7)}`, label: `Ghosty (week ${m.week})`, repo: m.repo, rev: m.commit, base: weightsBase(origin, weights, m.commit), lib: stock.lib, mb: stock.mb, vram: stock.vram }));
+}
+
+/**
+ * What a failed DOWNLOAD was: `network` (the connection dropped, a time-out, a server blip — what was fetched stays
+ * in the cache and DOWNLOAD carries on from there), `too-big` (the phone's memory or graphics gave out: try the
+ * smaller model), or `broken` (the files themselves are wrong or gone: only then is that model's download removed).
+ */
+export function downloadFailure(e: unknown): 'network' | 'too-big' | 'broken' {
+  const msg = String((e as Error)?.message ?? e);
+  if (/memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(msg)) return 'too-big';
+  if (e instanceof TypeError || /network|failed to fetch|load failed|fetch failed|connection|offline|timed? ?out|timeout|aborted|interrupted|\b50[0234]\b|ERR_/i.test(msg)) return 'network';
+  return 'broken';
+}
+
+/** Every model the phone can use: the trained ones first (newest first), then the stock models as the fallback. */
+export const allModels = (trained: TrainedModel[], origin = '', weights: string | null = null): ModelDef[] => [...trainedModels(trained, origin, weights), ...MODELS];

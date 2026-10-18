@@ -9,6 +9,7 @@ import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
+import { trainingPanel } from './training';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -21,7 +22,9 @@ export const systemTab: TabDef = {
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
-    P.left.append(kp.el, mp.el, rp.el);
+    // The offline brain's weekly self-training: its report card (training.ts).
+    const tp = trainingPanel();
+    P.left.append(kp.el, mp.el, rp.el, tp.el);
     const sp = panel('STATUS');
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
@@ -304,6 +307,7 @@ export const systemTab: TabDef = {
       enter() {
         void load();
         void checkVersion();
+        tp.refresh();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };
