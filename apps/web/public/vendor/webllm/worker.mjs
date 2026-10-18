@@ -1,8 +1,10 @@
+// worker revision: 2 (src/offline/models.ts WORKER_REV: bump both when this file changes)
 // Ghosty's offline brain: the small language model runs here, in its own thread, so the 6 MB
 // WebLLM runtime and the model's GPU memory never touch the page. The page (src/offline/brain.ts)
 // talks to it with a few plain messages:
 //   { id, op: 'load', model, appConfig }   download (first time) and load the model; 'progress' events
-//   { id, op: 'chat', messages, max }      stream a reply: 'token' events, then 'done' with usage
+//   { id, op: 'chat', messages, max, temperature? }  stream a reply: 'token' events, then 'done' with usage
+//                                          (temperature: THINK HARDER varies it between attempts; 0.7 otherwise)
 //   { id, op: 'stop' }                     stop the reply being written
 //   { id, op: 'unload' }                   free the model's memory (the download stays cached)
 // Every answer carries the request's id; failures come back as { id, t: 'error', message }.
@@ -32,7 +34,7 @@ self.onmessage = async (ev) => {
         stream: true,
         stream_options: { include_usage: true },
         max_tokens: m.max || 400,
-        temperature: 0.7,
+        temperature: typeof m.temperature === 'number' ? m.temperature : 0.7,
         top_p: 0.8,
         // A small model thinking out loud is slow and wordy: answers only.
         extra_body: { enable_thinking: false },

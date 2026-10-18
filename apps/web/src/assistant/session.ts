@@ -9,7 +9,9 @@ import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
+import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
 import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
+import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
 import { progressOf, type Progress } from '../features/core/progress';
@@ -18,11 +20,24 @@ import { home, settings, timeZone, ui } from '../state/app';
 import { toast } from '../ui/components';
 import { speak, stopListening, stopSpeaking } from './voice';
 
+/**
+ * A THINK HARDER answer (offline/think.ts): the question, how it is going (`line`, live), and once done
+ * the answer, how sure it is and how long it took.
+ */
+export interface ThinkInfo {
+  q: string;
+  state: 'running' | 'done' | 'stopped';
+  line: string;
+  answer?: string;
+  confidence?: ThinkResult['confidence'];
+  secs?: number;
+}
+
 export type Entry =
   | { kind: 'user'; text: string; at: number }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
-  /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo }
+  /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -38,7 +53,10 @@ export type Entry =
 const checkedPlates = new Set<string>();
 let vehicleTurn = false;
 function kept(entries: Entry[]): Entry[] {
-  const out = entries.filter((e) => !(e.kind === 'assistant' && e.once));
+  const out = entries
+    .filter((e) => !(e.kind === 'assistant' && e.once))
+    // A THINK HARDER still running when Ghosty closes would come back as running for ever: it is kept as stopped.
+    .map((e) => (e.kind === 'assistant' && e.think?.state === 'running' ? { ...e, think: { ...e.think, state: 'stopped' as const, line: 'stopped: Ghosty was closed while it was thinking' } } : e));
   if (!checkedPlates.size) return out;
   return out.map((e) => (e.kind === 'user' || e.kind === 'assistant' || e.kind === 'error' ? { ...e, text: redactPlates(e.text, checkedPlates) } : e.kind === 'activity' && e.detail ? { ...e, detail: redactPlates(e.detail, checkedPlates) } : e));
 }
@@ -278,14 +296,86 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
   }
 }
 
-/** Send a message to Ghosty. */
-export async function send(text: string, opts: { speak?: boolean; voice?: boolean } = {}): Promise<void> {
+const THINK_MODEL = 'On this phone · THINK HARDER';
+
+/** The owner's last real question (not a "think harder" or a "stop"), for "think harder" said on its own. */
+function lastQuestion(): string {
+  const users = chat.get().entries.filter((e): e is Extract<Entry, { kind: 'user' }> => e.kind === 'user');
+  for (const u of users.reverse()) {
+    const ask = thinkAsk(u.text);
+    if (ask) return ask;
+    if (ask === null && !/^(stop|cancel|quiet|be quiet|shut up)$/i.test(u.text.trim())) return u.text;
+  }
+  return '';
+}
+
+/**
+ * THINK HARDER: the offline brain on this phone spends up to about a minute on the question (several
+ * attempts, a search over reasoning steps, exact checks where there are any) and answers with how sure it
+ * is. Never a cloud model. `asked`: the owner's message is already in the log (they typed "think harder").
+ */
+export async function thinkHarderAbout(question: string, opts: { asked?: boolean } = {}): Promise<void> {
+  const q = question.trim() || lastQuestion();
+  if (!opts.asked) push({ kind: 'user', text: `Think harder: ${q || '(no question)'}`, at: Date.now() });
+  if (!q) {
+    push({ kind: 'error', text: 'Think harder about what? Ask the question first, or say "think harder: …" with it.' });
+    return;
+  }
+  const at = Date.now() + 1;
+  const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.think;
+  const update = (think: Partial<ThinkInfo>, text?: string) =>
+    patch(mine, (e) => {
+      const a = e as Extract<Entry, { kind: 'assistant' }>;
+      return { ...a, ...(text !== undefined ? { text } : {}), think: { ...a.think!, ...think } };
+    });
+  push({ kind: 'assistant', text: '', at, model: THINK_MODEL, offline: true, think: { q, state: 'running', line: 'starting…' } });
+  ui.set({ busy: true, voice: ui.get().voice === 'listening' ? 'listening' : 'thinking', status: 'thinking harder on your phone…' });
+  const t0 = Date.now();
+  let painted = 0;
+  // What the conversation was before this (as an ordinary offline answer sees it), without the "think harder" itself.
+  const turns = chat
+    .get()
+    .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => (e.kind === 'user' || e.kind === 'assistant') && e.at < at - 1 && !(e.kind === 'assistant' && e.think))
+    .filter((e) => !(e.kind === 'user' && thinkAsk(e.text) !== null))
+    .slice(-6)
+    .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
+  try {
+    const r = await thinkHere(q, turns, (p) => {
+      // A few repaints a second at most: each redraws the log.
+      if (Date.now() - painted < 150 && p.phase !== 'done') return;
+      painted = Date.now();
+      update({ line: p.line });
+      ui.set({ status: p.line });
+    });
+    const secs = Math.round((Date.now() - t0) / 1000);
+    update({ state: r.stopped ? 'stopped' : 'done', line: r.line, answer: r.answer, confidence: r.confidence, secs }, r.text || r.answer || '(no answer)');
+    const said = r.answer ? `${r.answer} (${r.line})` : r.line;
+    chat.set({ live: said });
+    if (speakReplies && settings.get().speak && r.answer) void speak(`${r.answer}. ${r.line.split(' (')[0]}.`);
+  } catch (e) {
+    chat.set((s) => ({ entries: s.entries.filter((x) => !mine(x)) }));
+    if ((e as Error)?.name !== 'AbortError') push({ kind: 'error', text: String((e as Error)?.message ?? e) });
+    recheckThink(); // perhaps the model is not on this phone any more: the button goes
+  } finally {
+    ui.set({ busy: false, status: '' });
+    if (ui.get().voice === 'thinking') ui.set({ voice: 'idle' });
+  }
+}
+
+/** ASK THE BIG BRAIN: the same question to the brain's own (cloud) models — the owner asked, so even in "always". */
+export function askBigBrain(question: string): Promise<void> {
+  return send(question, { speak: settings.get().speak, cloud: true });
+}
+
+/** Send a message to Ghosty. `cloud`: the owner asked for the brain's models (ASK THE BIG BRAIN), even with the offline brain on "always". */
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean; cloud?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
   if (/^(stop|cancel|quiet|be quiet|shut up)$/i.test(t)) {
     stopSpeaking();
     stopListening();
     stopOffline();
+    stopThinking();
     if (ui.get().busy) await brain.stop().catch(() => undefined);
     return;
   }
@@ -298,8 +388,12 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
+  // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
+  // Never with the offline brain switched off: then it is an ordinary message for the brain.
+  const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
+  if (harder !== null) return thinkHarderAbout(harder, { asked: true });
   const mode = settings.get().offlineBrain;
-  if (mode === 'always') {
+  if (mode === 'always' && !opts.cloud) {
     // The owner chose the phone's own brain: the cloud brain is never asked.
     await stream(async () => {
       // Never a 352 MB download on the first message (perhaps on mobile data): only DOWNLOAD in Settings fetches it.
