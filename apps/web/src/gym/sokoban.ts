@@ -14,6 +14,7 @@
  */
 import { SOKO_SETS } from './sokosets';
 import { finalLine, readMoves, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { sliceMs } from './match';
 import { SOKOBAN } from './meta';
 
 /** A puzzle: width, height, walls, goals, boxes (cell indices), the player's cell. */
@@ -599,25 +600,37 @@ class SokoLearner implements Learner {
     this.rand = (this.rand + k * 2654435761) >>> 0;
     return k;
   }
+  /** A pass over the held-out puzzles under way (played a slice at a time, like the board games' matches), and the last finished one. */
+  private pass: { i: number; brain: Brain; budget: number; score: number; solved: number; his: number; best: number } | null = null;
+  private last: { budget: number; score: number; solved: number; his: number; best: number } | null = null;
   measure() {
     const set = testSet(this.level);
-    let budget = 0;
-    let score = 0;
-    let solved = 0;
-    let his = 0;
-    let best = 0;
-    for (const t of set) {
-      budget += budgetFor(this.level, t.opt);
-      const s = search(this.brain, t.p, budgetFor(this.level, t.opt));
-      if (!s) continue;
-      solved++;
-      his += s.route.length;
-      best += t.opt;
-      score += t.opt / Math.max(1, s.route.length);
+    const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    // A frozen copy of what he knows, so one pass measures one fixed player.
+    this.pass ??= { i: 0, brain: { w: this.brain.w.slice(), live: this.brain.live.slice(), dead: this.brain.dead.slice() }, budget: 0, score: 0, solved: 0, his: 0, best: 0 };
+    const ps = this.pass;
+    while (ps.i < set.length) {
+      const t = set[ps.i++]!;
+      ps.budget += budgetFor(this.level, t.opt);
+      const r = search(ps.brain, t.p, budgetFor(this.level, t.opt));
+      if (r) {
+        ps.solved++;
+        ps.his += r.route.length;
+        ps.best += t.opt;
+        ps.score += t.opt / Math.max(1, r.route.length);
+      }
+      if (now() - t0 > sliceMs()) break;
     }
+    if (ps.i >= set.length) {
+      this.last = ps;
+      this.pass = null;
+    }
+    const L = this.last;
+    if (!L) return { mastery: 0, detail: `His first test on ${set.length} puzzles he has never practised on is under way (${ps.i} done).` };
     return {
-      mastery: score / set.length,
-      detail: `He solves ${solved} of ${set.length} puzzles he has never practised on, opening at most ${Math.round(budget / set.length)} positions each on average (${spec(this.level).budget}× the fewest pushes)${solved ? `, in ${his} pushes where the fewest possible is ${best} (exact solver)` : ''}.`,
+      mastery: L.score / set.length,
+      detail: `He solves ${L.solved} of ${set.length} puzzles he has never practised on, opening at most ${Math.round(L.budget / set.length)} positions each on average (${spec(this.level).budget}× the fewest pushes)${L.solved ? `, in ${L.his} pushes where the fewest possible is ${L.best} (exact solver)` : ''}.`,
     };
   }
   save(): SokoSave {

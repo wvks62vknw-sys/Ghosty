@@ -133,7 +133,7 @@ export const GO: GameMeta = {
   blurb: 'tree search · learned patterns',
   learns: 'He plays himself to learn which local shapes end up as whose territory, and searches with that instead of random play-outs.',
   unit: 'games',
-  bar: per([0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.6, 0.65]),
+  bar: per([0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.65, 0.7, 0.75]),
   play: 'board',
 };
 export const POKER: GameMeta = {

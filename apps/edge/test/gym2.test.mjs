@@ -500,6 +500,6 @@ test('gym 2 worker: PLAY HIM answers on all three boards; a measurement never ho
     const t = performance.now();
     l.measure();
     const ms = performance.now() - t;
-    assert.ok(ms < 400, `${id} L${level}: a measurement took ${Math.round(ms)} ms`);
+    assert.ok(ms < 300, `${id} L${level}: a measurement took ${Math.round(ms)} ms`);
   }
 });
