@@ -1,5 +1,6 @@
 /** Long-term memory about the owner. Facts are added to every conversation. */
 import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/protocol';
+import { clearPatterns, stashFacts } from '../memories';
 import { arg, type Tool } from './types';
 
 export const MEMORY_KEY = 'memory';
@@ -64,9 +65,15 @@ export const memoryTools: Tool[] = [
     parameters: { type: 'object', properties: {} },
     risk: 'confirm',
     async run(_a, ctx) {
-      const n = (await loadMemory(ctx.storage)).length;
-      await ctx.storage.put(MEMORY_KEY, []);
-      return `Erased ${n} fact(s).`;
+      const facts = await loadMemory(ctx.storage);
+      // Locked facts stay (the owner locked them in the Memory tab); the rest are kept a day for UNDO.
+      const kept = facts.filter((f) => f.locked);
+      const gone = facts.filter((f) => !f.locked);
+      await stashFacts(ctx.storage, gone);
+      await ctx.storage.put(MEMORY_KEY, kept);
+      // What was noticed from the conversation goes too.
+      await clearPatterns(ctx.storage);
+      return `Erased ${gone.length} fact(s).${kept.length ? ` Kept ${kept.length} locked one(s): the owner can forget those in the Memory tab.` : ''} For a day, the Memory tab's RECENTLY FORGOTTEN can bring them back.`;
     },
   },
   {

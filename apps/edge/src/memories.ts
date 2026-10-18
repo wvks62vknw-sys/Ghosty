@@ -15,7 +15,7 @@
  * `diary:locks`, `memory:forgotten` (the last forgotten things, for UNDO), `patterns:days`,
  * `patterns:filed` and `patterns:dismissed`. Facts and lessons carry their own source and lock.
  */
-import type { ChatTurn, Lesson, MemoryFact, MemoryItem, MemoryPattern, MemorySource, ProfileSection } from '../../../packages/shared/src/protocol';
+import type { ChatTurn, ForgottenItem, Lesson, MemoryFact, MemoryItem, MemoryKind, MemoryPattern, MemorySource, ProfileSection } from '../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
 import { LESSONS_KEY, loadLessons } from './knowledge';
 import type { Library } from './library/store';
@@ -32,9 +32,11 @@ export const FILED_KEY = 'patterns:filed';
 export const DISMISSED_KEY = 'patterns:dismissed';
 /** The chat history agent.ts keeps (its TURNS_KEY). */
 const TURNS_KEY = 'turns';
-/** Forgotten things kept for UNDO: the last few, for a day. */
-const UNDO_KEEP = 20;
-const UNDO_MS = 24 * 3600_000;
+/** Forgotten things kept for UNDO: for a day (then gone for good), at most this many. */
+const UNDO_KEEP = 100;
+export const UNDO_MS = 24 * 3600_000;
+/** The stash stays well under the storage's 128 KB a value. */
+const UNDO_BYTES = 100_000;
 /** Days of tallies kept for patterns. */
 const DAYS_KEEP = 120;
 
@@ -162,6 +164,8 @@ interface Forgotten {
   gone: number;
   profile?: { section: ProfileSection; text: string; meta?: LineMeta };
   fact?: MemoryFact;
+  /** FORGET EVERYTHING: the facts that went at once (the locked ones stay). */
+  facts?: MemoryFact[];
   lesson?: Lesson;
   diary?: { heading: string; text: string; locked: boolean };
 }
@@ -205,7 +209,7 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
   const kind = id.slice(0, 2);
   const key = id.slice(2);
   if (!key || !['p:', 'f:', 'd:', 'l:'].includes(kind)) throw new MemoryError(400, 'unknown memory');
-  if (op === 'restore') return restore(deps, id);
+  if (op === 'restore') return restore(deps, id, now);
   if (!['edit', 'forget', 'lock', 'unlock'].includes(op)) throw new MemoryError(400, 'unknown change');
   const lock = op === 'lock' ? true : op === 'unlock' ? false : undefined;
   let text = '';
@@ -285,16 +289,56 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
   return op === 'forget' ? null : find();
 }
 
-async function stash(storage: DurableObjectStorage, f: Forgotten): Promise<void> {
-  const list = ((await storage.get<Forgotten[]>(FORGOTTEN_KEY)) ?? []).filter((x) => x.id !== f.id && f.gone - x.gone < UNDO_MS);
-  list.push(f);
-  await storage.put(FORGOTTEN_KEY, list.slice(-UNDO_KEEP));
+/** The forgotten memories still within their day; anything older is dropped for good (and the drop saved). */
+async function loadForgotten(storage: DurableObjectStorage, now: number): Promise<Forgotten[]> {
+  const all = (await storage.get<Forgotten[]>(FORGOTTEN_KEY)) ?? [];
+  const live = all.filter((x) => now - x.gone < UNDO_MS && x.gone <= now + 60_000);
+  if (live.length !== all.length) await storage.put(FORGOTTEN_KEY, live);
+  return live;
 }
 
-/** UNDO: the forgotten memory back exactly as it was — its words, its section, its source and its lock. */
-async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: string): Promise<MemoryItem | null> {
+/** Drop what was forgotten more than a day ago (the nightly reflection calls this too). */
+export async function pruneForgotten(storage: DurableObjectStorage, now = Date.now()): Promise<number> {
+  const before = ((await storage.get<Forgotten[]>(FORGOTTEN_KEY)) ?? []).length;
+  return before - (await loadForgotten(storage, now)).length;
+}
+
+async function stash(storage: DurableObjectStorage, f: Forgotten): Promise<void> {
+  const list = (await loadForgotten(storage, f.gone)).filter((x) => x.id !== f.id);
+  list.push(f);
+  let keep = list.slice(-UNDO_KEEP);
+  // Never past the storage's size for one value: the oldest go first.
+  while (keep.length > 1 && JSON.stringify(keep).length > UNDO_BYTES) keep = keep.slice(1);
+  if (f.facts && JSON.stringify(keep).length > UNDO_BYTES) while (f.facts.length > 1 && JSON.stringify(keep).length > UNDO_BYTES) f.facts.shift();
+  await storage.put(FORGOTTEN_KEY, keep);
+}
+
+/** FORGET EVERYTHING (tools/memory.ts): the facts that went, kept a day for UNDO as one. */
+export async function stashFacts(storage: DurableObjectStorage, facts: MemoryFact[], now = Date.now()): Promise<string> {
+  const id = `f:*everything*${now}`;
+  if (facts.length) await stash(storage, { id, gone: now, facts: facts.map((f) => ({ ...f })) });
+  return id;
+}
+
+const kindOf = (f: Forgotten): MemoryKind => (f.profile ? 'profile' : f.fact || f.facts ? 'fact' : f.lesson ? 'lesson' : 'diary');
+
+/** RECENTLY FORGOTTEN: what UNDO can still bring back, newest first. */
+export async function recentlyForgotten(storage: DurableObjectStorage, now = Date.now()): Promise<ForgottenItem[]> {
+  return (await loadForgotten(storage, now))
+    .map((f): ForgottenItem => ({
+      id: f.id,
+      kind: kindOf(f),
+      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
+      gone: f.gone,
+      ...(f.facts ? { count: f.facts.length } : {}),
+    }))
+    .reverse();
+}
+
+/** UNDO: the forgotten memory back exactly as it was — its words, its section, its source and its lock. Refused once its day is up. */
+async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: string, now = Date.now()): Promise<MemoryItem | null> {
   const { storage, library } = deps;
-  const list = (await storage.get<Forgotten[]>(FORGOTTEN_KEY)) ?? [];
+  const list = await loadForgotten(storage, now);
   const f = [...list].reverse().find((x) => x.id === id);
   if (!f) throw new MemoryError(404, 'nothing to undo: it was forgotten too long ago');
   if (f.profile) {
@@ -309,6 +353,11 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
     if (!facts.some((x) => x.id === f.fact!.id)) facts.push(f.fact);
     facts.sort((a, b) => a.at - b.at);
     await storage.put(MEMORY_KEY, facts);
+  } else if (f.facts) {
+    const facts = await loadMemory(storage);
+    for (const x of f.facts) if (!facts.some((y) => y.id === x.id)) facts.push(x);
+    facts.sort((a, b) => a.at - b.at);
+    await storage.put(MEMORY_KEY, facts);
   } else if (f.lesson) {
     const lessons = await loadLessons(storage);
     if (!lessons.some((x) => x.id === f.lesson!.id)) lessons.push(f.lesson);
@@ -318,7 +367,8 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
     if (f.diary.locked) await storage.put(DIARY_LOCKS_KEY, [...new Set([...((await storage.get<string[]>(DIARY_LOCKS_KEY)) ?? []), f.diary.heading])]);
   }
   await storage.put(FORGOTTEN_KEY, list.filter((x) => x !== f));
-  return (await timeline(deps)).find((x) => x.id === id) ?? null;
+  if (f.facts) return null;
+  return (await timeline(deps)).find((x) => x.id === (f.profile ? `p:${lineKey(f.profile.text)}` : id)) ?? null;
 }
 
 // ---------- patterns ----------
@@ -343,6 +393,20 @@ const PARTS = ['in the morning', 'in the afternoon', 'in the evening', 'late at 
 const partOf = (h: number): 0 | 1 | 2 | 3 => (h >= 5 && h < 12 ? 0 : h >= 12 && h < 17 ? 1 : h >= 17 && h < 22 ? 2 : 3);
 const DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 
+/**
+ * Health and medicine: never a pattern, whatever the owner said (illnesses, treatments, medicines,
+ * the people and places of care, the body). Matched on the word and its plural.
+ */
+const HEALTH = new Set(
+  ('ill illness sick sickness poorly unwell disease cancer tumour tumor chemo chemotherapy radiotherapy oncologist oncology diabetes diabetic insulin asthma inhaler epilepsy seizure stroke heart attack angina blood pressure cholesterol ' +
+    'depression depressed anxiety disorder adhd autism autistic bipolar schizophrenia ptsd therapy therapist counsellor counselling psychiatrist psychologist mental ' +
+    'doctor doctors surgery surgeon operation hospital clinic nurse appointment prescription prescribed pharmacy pharmacist medication medicine medicines tablet tablets pills dose dosage antibiotics antidepressants painkillers paracetamol ibuprofen ' +
+    'pain painful migraine headache fever infection virus covid flu cough injury injured fracture broken sprain arthritis back knee hip pregnant pregnancy miscarriage fertility ivf period periods menopause ' +
+    'diagnosis diagnosed symptoms symptom treatment scan biopsy xray mri test results gp nhs a&e ward dementia alzheimers parkinsons hiv std sti vaccine vaccination jab allergy allergic eczema rash weight diet dieting ozempic')
+    .split(' '),
+);
+export const isHealthWord = (w: string): boolean => HEALTH.has(w) || (w.endsWith('s') && HEALTH.has(w.slice(0, -1)));
+
 /** Moods, only as the owner says them of themselves ("I'm knackered", "feeling a bit low"). Health is left out on purpose. */
 const MOODS: [string, string, RegExp][] = [
   ['tired', 'tired', /^(tired|exhausted|knackered|shattered|worn out)$/],
@@ -352,11 +416,24 @@ const MOODS: [string, string, RegExp][] = [
   ['annoyed', 'annoyed', /^(angry|annoyed|frustrated|cross|irritated)$/],
   ['bored', 'bored', /^bored$/],
 ];
-const MOOD_RE = /\b(?:i'?m|i am|i feel|i'?m feeling|feeling|i felt|i was|i'?ve been)\s+(?:so |really |very |a bit |a little |quite |pretty |totally |absolutely |bloody |rather |super )?(tired|exhausted|knackered|shattered|worn out|stressed|anxious|worried|nervous|overwhelmed|happy|great|excited|chuffed|brilliant|cheerful|sad|down|low|fed up|lonely|miserable|angry|annoyed|frustrated|cross|irritated|bored)\b/gi;
+const MOOD_WORD = '(tired|exhausted|knackered|shattered|worn out|stressed|anxious|worried|nervous|overwhelmed|happy|great|excited|chuffed|brilliant|cheerful|sad|down|low|fed up|lonely|miserable|angry|annoyed|frustrated|cross|irritated|bored)';
+const ADVERB = '(?:so |really |very |a bit |a little |quite |pretty |totally |absolutely |bloody |rather |super |properly |well )?';
+/** What may follow a mood word for it to be a mood: the end of a sentence, or words like "today", "about", "and". */
+const MOOD_END = "(?=\\s*(?:[.!?,;:)]|$)|\\s+(?:today|tonight|now|right now|at the moment|again|lately|recently|this (?:morning|afternoon|evening|week)|all day|and|but|so|because|about|after|from|since)\\b)";
+/**
+ * A mood the owner states of themselves. "I feel / I'm feeling / I felt …" is feeling language;
+ * plain "I'm / I was …" counts only when the mood word ends the thought — so "I'm low on milk",
+ * "I was down the pub", "I'm great at chess" and "I'm happy to help" are never moods.
+ */
+const MOOD_RES = [
+  new RegExp(`\\b(?:i feel|i'?m feeling|i am feeling|i was feeling|i'?ve been feeling|feeling|i felt)\\s+${ADVERB}${MOOD_WORD}${MOOD_END}`, 'gi'),
+  new RegExp(`\\b(?:i'?m|i am|i was|i'?ve been)\\s+${ADVERB}${MOOD_WORD}${MOOD_END}`, 'gi'),
+];
 
 export function moodsIn(text: string): string[] {
   const out = new Set<string>();
-  for (const m of text.replace(/[’]/g, "'").matchAll(MOOD_RE)) {
+  const said = text.replace(/[’]/g, "'");
+  for (const m of MOOD_RES.flatMap((re) => [...said.matchAll(re)])) {
     const word = m[1]!.toLowerCase();
     const kind = MOODS.find(([, , re]) => re.test(word));
     if (kind) out.add(kind[0]);
@@ -377,7 +454,8 @@ export function tallyDays(turns: { role: string; text: string; at: number }[], t
     day.h[partOf(z.h)]++;
     const moods = moodsIn(t.text);
     for (const m of moods) day.m[m] = (day.m[m] ?? 0) + 1;
-    for (const w of new Set(contentWords(t.text))) day.t[w] = (day.t[w] ?? 0) + 1;
+    // Nothing about the owner's health is tallied as a topic (moods leave it out too).
+    for (const w of new Set(contentWords(t.text))) if (!isHealthWord(w)) day.t[w] = (day.t[w] ?? 0) + 1;
   }
   for (const day of days.values()) day.t = Object.fromEntries(Object.entries(day.t).sort((a, b) => b[1] - a[1]).slice(0, 24));
   return [...days.values()];
@@ -461,10 +539,24 @@ export function findPatterns(days: DayTally[], memories: string[]): MemoryPatter
     out.push({ id: `mood:${kind}`, kind: 'mood', text: `You've said you were feeling ${words} on ${on.length} different days${when}.`, evidence: on.length, unit: 'days' });
   }
   const themes = new Map<string, number>();
-  for (const m of memories) for (const w of new Set(contentWords(m))) themes.set(w, (themes.get(w) ?? 0) + 1);
+  for (const m of memories) for (const w of new Set(contentWords(m))) if (!isHealthWord(w)) themes.set(w, (themes.get(w) ?? 0) + 1);
   const shared = [...themes].filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3);
   for (const [w, n] of shared) out.push({ id: `theme:${w}`, kind: 'theme', text: `${n} of the things I remember about you mention “${w}”.`, evidence: n, unit: 'memories' });
   return out;
+}
+
+/** A dismissed topic or mood also leaves the day log: the word (or mood) is no longer kept at all. */
+async function forgetTallied(storage: DurableObjectStorage, id: string): Promise<void> {
+  const [kind, what] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
+  if ((kind !== 'topic' && kind !== 'mood') || !what) return;
+  const days = (await storage.get<DayTally[]>(DAYS_KEY)) ?? [];
+  for (const d of days) delete (kind === 'topic' ? d.t : d.m)[what];
+  await storage.put(DAYS_KEY, days);
+}
+
+/** The day log gone (CLEAR CONVERSATION, forget_everything): no pattern is left from what was said. Dismissals stay. */
+export async function clearPatterns(storage: DurableObjectStorage): Promise<void> {
+  await storage.delete([DAYS_KEY, FILED_KEY]);
 }
 
 /** The patterns to show: the day log plus messages not yet filed, the stored memories, minus the dismissed. */
@@ -484,10 +576,11 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 /**
  * The Memory tab's TIMELINE and PATTERNS: GET /profile/timeline → { items, patterns },
  * POST /profile/item { id, op: edit|forget|restore|lock|unlock, text? } → { item },
- * POST /profile/patterns/dismiss { id }. Null when the path is not one of these.
+ * POST /profile/patterns/dismiss { id } (the topic or mood leaves the day log too), POST
+ * /profile/patterns/clear (CLEAR CONVERSATION). Null when the path is not one of these.
  */
 export async function memoryRoute(req: Request, path: string, method: string, deps: ProfileDeps): Promise<Response | null> {
-  if (path === '/profile/timeline' && method === 'GET') return json({ items: await timeline(deps), patterns: await patterns(deps) });
+  if (path === '/profile/timeline' && method === 'GET') return json({ items: await timeline(deps), patterns: await patterns(deps), forgotten: await recentlyForgotten(deps.storage) });
   if (path === '/profile/item' && method === 'POST') {
     const b = (await req.json().catch(() => ({}))) as { id?: unknown; op?: unknown; text?: unknown };
     try {
@@ -503,7 +596,12 @@ export async function memoryRoute(req: Request, path: string, method: string, de
     const list = new Set((await deps.storage.get<string[]>(DISMISSED_KEY)) ?? []);
     list.add(id);
     await deps.storage.put(DISMISSED_KEY, [...list].slice(-200));
+    await forgetTallied(deps.storage, id);
     return json({ ok: true, patterns: await patterns(deps) });
+  }
+  if (path === '/profile/patterns/clear' && method === 'POST') {
+    await clearPatterns(deps.storage);
+    return json({ ok: true });
   }
   return null;
 }

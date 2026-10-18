@@ -188,6 +188,17 @@ export interface MemoryItem {
   edited?: number;
 }
 
+/** A memory forgotten in the last day, which UNDO can still bring back (the Memory tab's RECENTLY FORGOTTEN). */
+export interface ForgottenItem {
+  id: string;
+  kind: MemoryKind;
+  text: string;
+  /** When it was forgotten; UNDO works until a day after. */
+  gone: number;
+  /** FORGET EVERYTHING: how many facts went at once. */
+  count?: number;
+}
+
 /** Something Ghosty noticed over time, worked out from what is stored (never made up), with how often it was seen. */
 export interface MemoryPattern {
   id: string;

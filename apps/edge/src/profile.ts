@@ -19,7 +19,7 @@ import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
 import { character, readPersona } from '../../../packages/shared/src/persona';
 import { asData } from './kernel/permissions';
 import type { Library } from './library/store';
-import { bestTurn, DIARY_LOCKS_KEY, lineKey, loadLineMeta, lockedLines, memoryRoute, noteDays, saveLineMeta } from './memories';
+import { bestTurn, changeMemory, DIARY_LOCKS_KEY, lineKey, loadLineMeta, lockedLines, memoryRoute, noteDays, pruneForgotten, saveLineMeta } from './memories';
 import { fmtLocal, safeTz, zoned } from './time';
 import { addFact, loadMemory, MEMORY_KEY } from './tools/memory';
 
@@ -182,8 +182,9 @@ const todayIn = (now: number, tz: string): string => {
  */
 export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<ReflectInfo> {
   const { storage, library } = deps;
-  // The day's tallies for PATTERNS (memories.ts) are filed first: they need no model.
+  // The day's tallies for PATTERNS (memories.ts) are filed first: they need no model. Forgotten memories past their day go for good.
   await noteDays(storage, now).catch(() => 0);
+  await pruneForgotten(storage, now).catch(() => 0);
   const profile = await loadProfile(storage);
   const none = (skipped: string): ReflectInfo => ({ ok: false, skipped, facts: [], lines: [], diary: '', summary: profile.summary, profile });
   const tz = safeTz(((await storage.get<{ tz?: string }>('owner:ctx')) ?? {}).tz);
@@ -282,8 +283,11 @@ export async function reflect(deps: ProfileDeps, now = Date.now()): Promise<Refl
   if (r.diary && library.available) {
     try {
       // A day's entry the owner locked stays as it is: a later reflection that day goes under a second heading.
-      const dayLocked = ((await storage.get<string[]>(DIARY_LOCKS_KEY)) ?? []).includes(todayIn(now, tz));
-      const heading = `${todayIn(now, tz)}${dayLocked ? ' (later)' : ''}`;
+      // "(later)", "(later 2)" …: the first heading of the day that is not locked.
+      const locks = new Set((await storage.get<string[]>(DIARY_LOCKS_KEY)) ?? []);
+      const day = todayIn(now, tz);
+      let heading = day;
+      for (let k = 1; locks.has(heading); k++) heading = `${day} (later${k > 1 ? ` ${k}` : ''})`;
       if (!library.doc(DIARY_DOC)) library.createDoc({ id: DIARY_DOC, title: 'Diary', source: 'written by Ghosty', kind: 'notes' });
       // A second reflection the same day (REFLECT NOW) carries on the day's entry rather than starting another.
       const prev = library.sectionText(DIARY_DOC, heading, 3000);
@@ -348,13 +352,10 @@ export async function profileRoute(req: Request, path: string, method: string, u
   if (path === '/profile' && method === 'DELETE') {
     const section = url.searchParams.get('section');
     if (!isSection(section)) return json({ error: 'unknown section' }, 400);
-    const profile = await loadProfile(storage);
-    const removed = removeProfileLine(profile, section, Number(url.searchParams.get('i')));
-    if (removed) {
-      await saveProfile(storage, profile);
-      await saveLineMeta(storage, await loadLineMeta(storage), PROFILE_SECTIONS.flatMap((s) => profile.sections[s]));
-    }
-    return json({ profile, removed });
+    // Through the timeline's FORGET, so it is kept a day for UNDO like any other forgotten memory.
+    const line = (await loadProfile(storage)).sections[section][Number(url.searchParams.get('i'))];
+    const removed = typeof line === 'string' && (await changeMemory(deps, `p:${lineKey(line)}`, 'forget').then(() => true, () => false));
+    return json({ profile: await loadProfile(storage), removed });
   }
   if (path === '/profile/reflect' && method === 'POST') return json(await reflect(deps));
   // TIMELINE, edit / forget / lock and PATTERNS (memories.ts).
@@ -369,4 +370,4 @@ export async function profileRoute(req: Request, path: string, method: string, u
 }
 
 // The TIMELINE, its edits and PATTERNS live in memories.ts; exported here too for the tests.
-export { bestTurn, changeMemory, findPatterns, lineKey, moodsIn, noteDays, patterns, tallyDays, timeline } from './memories';
+export { bestTurn, changeMemory, findPatterns, lineKey, moodsIn, noteDays, patterns, recentlyForgotten, tallyDays, timeline } from './memories';

@@ -480,3 +480,129 @@ test('the day log: messages sent in late (after a pause, with earlier times) are
   assert.ok(pats.some((p) => p.id === 'topic:allotment' && p.evidence === 3), JSON.stringify(pats));
   assert.equal(st.m.get('patterns:days').reduce((k, d) => k + d.n, 0), 3);
 });
+
+// ---------- review fixes: UNDO's day, recently forgotten, health, moods, diary headings, forget_everything ----------
+
+test('a forgotten memory can be undone for a day, never after: expired ones are dropped on every read and write and by the nightly reflection', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const deps = { storage: st, library: lib };
+  const DAY = 86_400_000;
+  const now = Date.now();
+  await st.put('memory', [{ id: 'old1', text: 'something I wanted gone', at: 1 }, { id: 'new1', text: 'something recent', at: 2 }]);
+  await P.changeMemory(deps, 'f:old1', 'forget', undefined, now - 30 * DAY);
+  await assert.rejects(P.changeMemory(deps, 'f:old1', 'restore', undefined, now), /too long ago/, 'thirty days on: no UNDO');
+  assert.deepEqual(st.m.get('memory:forgotten'), [], 'and the old copy is gone from storage');
+  // forgotten 23 hours ago: still there; 25 hours: gone, even if nobody tried to undo it
+  await P.changeMemory(deps, 'f:new1', 'forget', undefined, now - 23 * 3600_000);
+  assert.equal((await P.recentlyForgotten(st, now)).length, 1);
+  assert.equal((await P.recentlyForgotten(st, now + 2 * 3600_000)).length, 0);
+  assert.equal(st.m.get('memory:forgotten').length, 0, 'pruned on read');
+  // the nightly reflection prunes too
+  await st.put('memory:forgotten', [{ id: 'f:x', gone: now - 2 * DAY, fact: { id: 'x', text: 'stale', at: 1 } }]);
+  await P.reflect({ ...deps, ai: async () => '{}' }, now);
+  assert.deepEqual(st.m.get('memory:forgotten'), []);
+});
+
+test('RECENTLY FORGOTTEN: every way of forgetting (the timeline, ME ✕) lands in one list with UNDO; FORGET EVERYTHING keeps locked facts and can be undone', async () => {
+  const storage = new MemStorage();
+  const pending = [];
+  const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const agent = new brain.GhostyAgent(state, { VAULT_KEY: Buffer.alloc(32, 7).toString('base64'), MOCK_LLM: '1' });
+  const api = async (method, path, body) => {
+    const r = await agent.fetch(new Request(`https://ghosty.test/api${path}`, { method, ...(body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {}) }));
+    const text = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return { status: r.status, ...(text ? JSON.parse(text) : {}) };
+  };
+  const chat = async (message) => {
+    const r = await agent.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', body: JSON.stringify({ message }), headers: { 'content-type': 'application/json' } }));
+    const lines = (await r.text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    await Promise.allSettled(pending.splice(0));
+    return lines;
+  };
+  await api('POST', '/profile', { section: 'people', text: 'Ann is my sister' });
+  await api('POST', '/profile', { section: 'likes', text: 'jazz on Sundays' });
+  // the old ME ✕ (DELETE /profile) now forgets the same way: kept a day for UNDO
+  const del = await api('DELETE', '/profile?section=people&i=0');
+  assert.equal(del.removed, true);
+  assert.deepEqual(del.profile.sections.people, []);
+  let tl = await api('GET', '/profile/timeline');
+  assert.deepEqual(tl.forgotten.map((f) => [f.kind, f.text]), [['profile', 'Ann is my sister']]);
+  const back = await api('POST', '/profile/item', { id: tl.forgotten[0].id, op: 'restore' });
+  assert.equal(back.item.text, 'Ann is my sister');
+  // a second forget does not lose the first one's UNDO
+  const a = (await api('GET', '/profile/timeline')).items.find((x) => x.text === 'Ann is my sister');
+  const b = (await api('GET', '/profile/timeline')).items.find((x) => x.text === 'jazz on Sundays');
+  await api('POST', '/profile/item', { id: a.id, op: 'forget' });
+  await api('POST', '/profile/item', { id: b.id, op: 'forget' });
+  tl = await api('GET', '/profile/timeline');
+  assert.deepEqual(tl.forgotten.map((f) => f.text), ['jazz on Sundays', 'Ann is my sister'], 'newest first, both still undoable');
+  assert.equal((await api('POST', '/profile/item', { id: a.id, op: 'restore' })).item.text, 'Ann is my sister');
+  // FORGET EVERYTHING: the locked fact stays, the reply says so, the rest can come back for a day
+  await api('POST', '/memory', { text: 'my bike is green' });
+  await api('POST', '/memory', { text: 'my kettle is red' });
+  const bike = (await api('GET', '/profile/timeline')).items.find((x) => x.text === 'my bike is green');
+  await api('POST', '/profile/item', { id: bike.id, op: 'lock' });
+  const ap = (await chat('forget everything')).find((e) => e.t === 'approval');
+  const r = await agent.fetch(new Request('https://ghosty.test/api/approve', { method: 'POST', body: JSON.stringify({ id: ap.id, allow: true }), headers: { 'content-type': 'application/json' } }));
+  const done = (await r.text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  await Promise.allSettled(pending.splice(0));
+  assert.match(done.find((e) => e.t === 'tool_result').summary, /Erased \d+ fact\(s\)\. Kept 1 locked one/);
+  const facts = (await api('GET', '/memory')).facts;
+  assert.deepEqual(facts.map((f) => f.text), ['my bike is green'], 'only the locked fact is left');
+  tl = await api('GET', '/profile/timeline');
+  const all = tl.forgotten.find((f) => f.count);
+  assert.ok(all && all.count >= 1, JSON.stringify(tl.forgotten));
+  await api('POST', '/profile/item', { id: all.id, op: 'restore' });
+  assert.ok((await api('GET', '/memory')).facts.some((f) => f.text === 'my kettle is red'), 'UNDO brought them back');
+});
+
+test('patterns never mention health; moods only from feeling language; a dismissed topic leaves the day log; CLEAR clears it', async () => {
+  const tz = 'Europe/London';
+  const sick = ['2026-10-01', '2026-10-03', '2026-10-05'].map((d) => ({ role: 'user', text: 'My chemo is on Thursday and my insulin dose changed, the oncologist said', at: Date.parse(`${d}T10:00:00Z`) }));
+  const t = P.tallyDays(sick, tz);
+  for (const w of ['chemo', 'insulin', 'oncologist', 'dose']) assert.ok(!(w in t[0].t), `${w} is never tallied`);
+  assert.ok(!P.findPatterns(t, ['my insulin is in the fridge', 'insulin twice a day', 'my insulin pen']).some((p) => /chemo|insulin|oncolog/i.test(p.text)), 'nor a theme');
+  // not moods
+  for (const s of ["I'm low on milk", 'I was down the pub with Tom', "I'm down to my last tenner", 'I am great at chess', 'feeling cross-eyed', "I'm happy to help with that"]) assert.deepEqual(P.moodsIn(s), [], s);
+  // moods
+  assert.deepEqual(P.moodsIn("I'm knackered."), ['tired']);
+  assert.deepEqual(P.moodsIn('I feel a bit low today'), ['low']);
+  assert.deepEqual(P.moodsIn("I'm so stressed about work"), ['stressed']);
+  assert.deepEqual(P.moodsIn('feeling anxious'), ['stressed']);
+  assert.deepEqual(P.moodsIn("Honestly I'm fed up, and tired"), ['low']);
+  // dismissing a topic takes the word out of the stored tallies; CLEAR takes everything
+  const st = new MemStorage();
+  const now = Date.now();
+  await st.put('turns', [1, 2, 3].map((d) => ({ role: 'user', text: 'the allotment again', at: now - d * DAY })));
+  await P.noteDays(st, now);
+  assert.ok(st.m.get('patterns:days').some((d) => d.t.allotment));
+  const brainStorage = st;
+  const r = await P.profileRoute(new Request('https://x/api/profile/patterns/dismiss', { method: 'POST', body: JSON.stringify({ id: 'topic:allotment' }) }), '/profile/patterns/dismiss', 'POST', new URL('https://x'), { storage: brainStorage, library: new Library(st, {}), ai: async () => '' });
+  assert.equal(r.status, 200);
+  assert.ok(!st.m.get('patterns:days').some((d) => 'allotment' in d.t), 'the word is no longer kept');
+  await P.profileRoute(new Request('https://x/api/profile/patterns/clear', { method: 'POST' }), '/profile/patterns/clear', 'POST', new URL('https://x'), { storage: st, library: new Library(st, {}), ai: async () => '' });
+  assert.equal(st.m.get('patterns:days'), undefined);
+  assert.equal(st.m.get('patterns:filed'), undefined);
+});
+
+test('a locked "(later)" diary heading is never rewritten either: the next reflection steps on to "(later 2)"', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  await st.put('owner:ctx', { tz: 'Europe/London' });
+  const deps = { storage: st, library: lib };
+  const say = async (words, at, diary) => {
+    await st.put('turns', [...(st.m.get('turns') ?? []), ...turns(words.map((w) => ['user', w]), at)]);
+    await P.reflect({ ...deps, ai: async () => JSON.stringify({ diary }) }, at + 5 * 60_000);
+  };
+  await say(['I like tea', 'I like rain'], T0, 'Morning.');
+  await P.changeMemory(deps, 'd:2026-10-17', 'lock');
+  await say(['I like jazz', 'I like walks'], T0 + 3600_000, 'Afternoon.');
+  await P.changeMemory(deps, 'd:2026-10-17 (later)', 'lock');
+  await say(['I like toast', 'I like books'], T0 + 7200_000, 'Evening.');
+  const days = Object.fromEntries(P.diaryEntries(lib).map((d) => [d.heading, d.text]));
+  assert.equal(days['2026-10-17'], 'Morning.');
+  assert.equal(days['2026-10-17 (later)'], 'Afternoon.', 'the locked later entry is untouched');
+  assert.equal(days['2026-10-17 (later 2)'], 'Evening.');
+});
