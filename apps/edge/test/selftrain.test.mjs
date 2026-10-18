@@ -25,6 +25,8 @@ await build({
   outExtension: { '.js': '.mjs' },
   logLevel: 'warning',
 });
+// (assets.ts on its own too: what the brain hands to Kaggle, read back by the tests below)
+await build({ entryPoints: [at('../src/selftrain/assets.ts')], format: 'esm', platform: 'neutral', outfile: at('./.build/selftrain/assets-check.mjs'), logLevel: 'warning' });
 const load = (f) => import(`./.build/selftrain/${f}.mjs`);
 const C = await load('apps/edge/src/selftrain/cycle');
 const F = await load('apps/edge/src/selftrain/factory');
@@ -85,10 +87,7 @@ test('the dataset: exam seeds can never be trained on, bad rows are left out of 
 test('tasks.mjs (built into assets.ts): makes the same puzzle from the same seed and checks answers with the GYM\'s exact checkers; assets.ts is up to date with its sources', async () => {
   const { assetsSource } = await import(at('../../../training/kaggle/build.mjs'));
   assert.equal(await assetsSource(), readFileSync(at('../src/selftrain/assets.ts'), 'utf8'), 'assets.ts is stale: run node training/kaggle/build.mjs');
-  const { TASKS_JS, NOTEBOOK_PY, GYM_SEEDS } = await import('./.build/selftrain/assets-check.mjs').catch(async () => {
-    await build({ entryPoints: [at('../src/selftrain/assets.ts')], format: 'esm', platform: 'neutral', outfile: at('./.build/selftrain/assets-check.mjs'), logLevel: 'warning' });
-    return import('./.build/selftrain/assets-check.mjs');
-  });
+  const { TASKS_JS, NOTEBOOK_PY, GYM_SEEDS } = await import('./.build/selftrain/assets-check.mjs');
   assert.match(NOTEBOOK_PY, /^CONFIG_JSON = None {2}# GHOSTY-CONFIG/m);
   assert.ok(GYM_SEEDS.length >= 100 && GYM_SEEDS.every((g) => g.level >= 1 && g.level <= 10 && g.prompt.length > 20));
   const dir = mkdtempSync(join(tmpdir(), 'ghosty-tasks-'));
