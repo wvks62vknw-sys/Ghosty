@@ -164,7 +164,9 @@ function instinct(w: Float32Array | null, f: Fast, moves: number[], last: number
   for (const v of lg) if (v > mx) mx = v;
   let sum = 0;
   lg.forEach((v, k) => (sum += prior[k] = Math.exp(v - mx)));
-  for (let k = 0; k < prior.length; k++) prior[k] = (1 - mix) * (prior[k]! / sum) + mix / prior.length;
+  const keep = (1 - mix) / sum;
+  const even = mix / prior.length;
+  for (let k = 0; k < prior.length; k++) prior[k] = prior[k]! * keep + even;
   return { prior, feats };
 }
 
