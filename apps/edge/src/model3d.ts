@@ -16,7 +16,17 @@
  * stream, download), well under the Worker's 50.
  */
 import type { Env } from './env';
+import { failureText, fileFrom as fileOn, findFn, isGlb, MAX_MODEL_BYTES, Model3dError, readQueue, sessionHash, type GradioEvent } from './gradio';
 import { imageId, isImageId, sniffImage } from './lens';
+import { polyHavenCatalog, polyHavenGlb, thumbResponse } from './catalog3d';
+import { drawObject, fastModel, trellisModel, type Made, type PictureAi } from './gen3d';
+
+export { failureText, findFn, GradioApp, isGlb, MAX_MODEL_BYTES, Model3dError, parseSse, retryIn, type GradioEvent } from './gradio';
+export * from './catalog3d';
+export * from './gen3d';
+
+/** The first file in a Gradio answer, as an address on the Space (Hunyuan3D-2's, unless another is named). */
+export const fileFrom = (data: unknown, root = SPACE, ext = ''): string | null => fileOn(data, root, ext);
 
 /** The Space, its own address (it answers its Gradio API there). */
 export const SPACE = 'https://tencent-hunyuan3d-2.hf.space';
@@ -24,8 +34,6 @@ export const SPACE = 'https://tencent-hunyuan3d-2.hf.space';
 export const MODEL_TTL_S = 86_400;
 /** Our own cap per day — the Space's allowance runs out well before this. */
 export const MODELS_PER_DAY = 10;
-/** The largest model kept (KV takes 25 MiB a value; a lightened model is far smaller). */
-export const MAX_MODEL_BYTES = 20_000_000;
 /** The largest picture sent (the phone sends a downscaled JPEG well under this). */
 export const MAX_PICTURE_BYTES = 5_000_000;
 /** Faces in the lightened copy: plenty for a phone to explode, turn and section. */
@@ -45,102 +53,11 @@ export interface ModelInfo {
   bytes: number;
   /** Faces in the kept copy, when the Space said. */
   faces?: number;
+  /** Which free maker made it, whether it has its colours, and the credit the studio shows. */
+  maker?: string;
+  textured?: boolean;
+  credit?: string;
 }
-
-/** A refusal or failure with the status the route answers with, in words for the owner. */
-export class Model3dError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-// ---------------------------------------------------------------- the Gradio queue, as data
-
-/** One message from a Gradio queue stream (`data: {...}` lines). */
-export interface GradioEvent {
-  msg: string;
-  event_id?: string | null;
-  rank?: number;
-  queue_size?: number;
-  rank_eta?: number;
-  eta?: number;
-  /** A note from the Space while it works ("Waiting for a GPU to become available"). */
-  log?: string;
-  success?: boolean;
-  output?: { data?: unknown[]; error?: string | null; title?: string | null };
-}
-
-/** Every `data:` message in an event-stream text (a partial last line is left out). */
-export function parseSse(text: string): GradioEvent[] {
-  const out: GradioEvent[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    if (!line.startsWith('data:')) continue;
-    try {
-      const v = JSON.parse(line.slice(5).trim()) as unknown;
-      if (v && typeof v === 'object' && typeof (v as GradioEvent).msg === 'string') out.push(v as GradioEvent);
-    } catch {
-      // a line cut in half, or not JSON: skip it
-    }
-  }
-  return out;
-}
-
-/** A Gradio app's function by its API name: its index and the click that triggers it (from /config). */
-export function findFn(config: unknown, apiName: string): { fnIndex: number; triggerId: number | null } | null {
-  const deps = (config as { dependencies?: unknown })?.dependencies;
-  if (!Array.isArray(deps)) return null;
-  for (let i = 0; i < deps.length; i++) {
-    const d = deps[i] as { id?: unknown; api_name?: unknown; targets?: unknown };
-    if (d?.api_name !== apiName) continue;
-    const t = Array.isArray(d.targets) && Array.isArray(d.targets[0]) ? d.targets[0][0] : null;
-    return { fnIndex: typeof d.id === 'number' ? d.id : i, triggerId: typeof t === 'number' ? t : null };
-  }
-  return null;
-}
-
-/** The first file in a Gradio answer (a FileData, or an update wrapping one), as an address on the Space. */
-export function fileFrom(data: unknown, root = SPACE): string | null {
-  if (!Array.isArray(data)) return null;
-  for (const v of data) {
-    const f = (v && typeof v === 'object' && 'value' in v ? (v as { value: unknown }).value : v) as { url?: unknown; path?: unknown } | null;
-    if (!f || typeof f !== 'object') continue;
-    if (typeof f.url === 'string' && f.url.startsWith(`${root}/`)) return f.url;
-    if (typeof f.path === 'string' && f.path) return `${root}/file=${f.path}`;
-  }
-  return null;
-}
-
-/** "Try again in 13:46:29" → "about 13 h 46 min"; null when the message names no time. */
-export function retryIn(message: string): string | null {
-  const m = message.match(/try again in (\d+):(\d{2}):(\d{2})/i);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  // "0:00:00" is what the runs-a-day cap says (it has no clock of its own): no time to name.
-  if (!h && !min) return null;
-  return `about ${h ? `${h} h ` : ''}${min} min`.replace(/ 0 min$/, '');
-}
-
-/** The owner-facing reason a queue run failed. */
-export function failureText(ev: GradioEvent | null, hasToken: boolean): { status: number; text: string } {
-  const raw = String(ev?.output?.error ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  const title = String(ev?.output?.title ?? '');
-  if (ev?.msg === 'queue_full') return { status: 503, text: 'the free 3-D model maker is full right now — try again in a few minutes' };
-  if (/quota|runn+ing out of daily/i.test(`${title} ${raw}`)) {
-    const when = retryIn(raw);
-    const tip = hasToken
-      ? ''
-      : ' Without a Hugging Face account it allows only about 2–3 models a day, shared with everyone on the same network; a free Hugging Face token (SYSTEM → KEYS → Hugging Face) gives Ghosty its own daily allowance.';
-    return { status: 429, text: `the free 3-D model maker (Hugging Face ZeroGPU) has used up today's GPU allowance${when ? ` — try again in ${when}` : ' — try again later today or tomorrow'}.${tip}` };
-  }
-  if (raw) return { status: 502, text: `the 3-D model maker could not do it: ${raw.slice(0, 200)}` };
-  return { status: 502, text: 'the 3-D model maker failed on this picture without saying why — try a clear photo of one object on a plain background, or again in a few minutes' };
-}
-
-// ---------------------------------------------------------------- the run itself
 
 export interface MakeDeps {
   fetch: typeof fetch;
@@ -149,41 +66,6 @@ export interface MakeDeps {
   progress?: (label: string) => void;
   /** Gives up after this long in all (default 3 minutes). */
   timeoutMs?: number;
-}
-
-const sessionHash = () => imageId().replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 11) || 'ghosty';
-
-/** Read a queue stream until its function finishes; reports place in the queue on the way. */
-async function readQueue(res: Response, progress: (l: string) => void, what: string): Promise<GradioEvent> {
-  if (!res.ok || !res.body) throw new Model3dError(502, `the 3-D model maker did not answer (${res.status})`);
-  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-  let buf = '';
-  let last: GradioEvent | null = null;
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (value) buf += value;
-      // Whole messages only: everything up to the last blank line.
-      const cut = buf.lastIndexOf('\n\n');
-      if (cut >= 0) {
-        for (const ev of parseSse(buf.slice(0, cut))) {
-          last = ev;
-          if (ev.msg === 'estimation' && typeof ev.rank === 'number') progress(ev.rank > 0 ? `${what}: number ${ev.rank + 1} in the queue…` : `${what}: next in the queue…`);
-          else if (ev.msg === 'process_starts') progress(`${what}…`);
-          // The Space's own notes ("Waiting for a GPU to become available").
-          else if (ev.msg === 'log' && typeof ev.log === 'string') progress(`${what}: ${ev.log.slice(0, 80)}`);
-          else if (ev.msg === 'process_completed' || ev.msg === 'queue_full' || ev.msg === 'unexpected_error') return ev;
-        }
-        buf = buf.slice(cut + 2);
-      }
-      if (done) break;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  for (const ev of parseSse(buf)) last = ev;
-  if (last && (last.msg === 'process_completed' || last.msg === 'queue_full')) return last;
-  throw new Model3dError(502, 'the 3-D model maker stopped answering before the model was ready — try again in a few minutes');
 }
 
 /**
@@ -204,7 +86,7 @@ export async function makeModel(deps: MakeDeps, picture: ArrayBuffer): Promise<{
   const ask = async (fnIndex: number, triggerId: number | null, data: unknown[], what: string): Promise<GradioEvent> => {
     const session = sessionHash();
     const j = await post(`${SPACE}/queue/join`, JSON.stringify({ data, fn_index: fnIndex, trigger_id: triggerId, session_hash: session, event_data: null }), { 'content-type': 'application/json' });
-    if (j.status === 429) throw new Model3dError(429, 'the free 3-D model maker is turning visitors away right now — try again in a few minutes');
+    if (j.status === 429) throw new Model3dError(429, 'the free 3-D model maker is turning visitors away right now — try again in a few minutes', 'busy');
     if (!j.ok) throw new Model3dError(502, `the 3-D model maker did not take the job (${j.status})`);
     return readQueue(await get(`${SPACE}/queue/data?session_hash=${session}`), progress, what);
   };
@@ -212,7 +94,7 @@ export async function makeModel(deps: MakeDeps, picture: ArrayBuffer): Promise<{
   try {
     progress('reaching the 3-D model maker…');
     const cr = await get(`${SPACE}/config`);
-    if (!cr.ok) throw new Model3dError(503, `the 3-D model maker is not running right now (${cr.status}) — it sleeps when nobody uses it; try again in a few minutes`);
+    if (!cr.ok) throw new Model3dError(503, `the 3-D model maker is not running right now (${cr.status}) — it sleeps when nobody uses it; try again in a few minutes`, 'busy');
     const config = (await cr.json()) as unknown;
     const shape = findFn(config, 'shape_generation');
     if (!shape) throw new Model3dError(502, 'the 3-D model maker has changed and no longer offers shape generation');
@@ -233,7 +115,7 @@ export async function makeModel(deps: MakeDeps, picture: ArrayBuffer): Promise<{
     const made = await ask(shape.fnIndex, shape.triggerId, ['', file(path), null, null, null, null, 30, 5, 1234, 256, true, 8000, true], 'shaping the model');
     if (made.msg !== 'process_completed' || made.success === false) {
       const f = failureText(made, !!deps.token);
-      throw new Model3dError(f.status, f.text);
+      throw new Model3dError(f.status, f.text, f.code);
     }
     const out = made.output?.data ?? [];
     let url = fileFrom(out);
@@ -270,10 +152,48 @@ export async function makeModel(deps: MakeDeps, picture: ArrayBuffer): Promise<{
   }
 }
 
-/** A binary glTF starts with "glTF" and version 2. */
-export function isGlb(b: ArrayBuffer): boolean {
-  const v = new DataView(b);
-  return b.byteLength > 20 && v.getUint32(0, true) === 0x46546c67 && v.getUint32(4, true) === 2;
+
+// ---------------------------------------------------------------- the free makers in turn
+
+/** Hunyuan3D-2 (above) as one of the makers: shape only. */
+const HUNYUAN = { maker: 'Hunyuan3D-2', textured: false, credit: 'Made from a picture by Hunyuan3D-2 (Tencent), via Hugging Face — shape only' };
+
+/**
+ * A picture → the best model a free maker will make right now: TRELLIS.2 when the owner has a
+ * Hugging Face token (the newest, textured; ZeroGPU), then Stable Fast 3D (textured, seconds, no
+ * account needed), then Hunyuan3D-2 (shape only). Each failure is said and the next one tried;
+ * when every one fails the owner hears each reason.
+ */
+export async function makeTextured(deps: MakeDeps, picture: ArrayBuffer): Promise<Made> {
+  const type = sniffImage(picture);
+  if (!type) throw new Model3dError(415, 'that is not a JPEG, PNG or WebP picture');
+  if (picture.byteLength > MAX_PICTURE_BYTES) throw new Model3dError(413, 'the picture is too big (5 MB at most)');
+  const progress = deps.progress ?? (() => undefined);
+  const g = (ms: number) => ({ fetch: deps.fetch, token: deps.token, progress, signal: AbortSignal.timeout(ms) });
+  const makers: { name: string; run: () => Promise<Made> }[] = [
+    ...(deps.token ? [{ name: 'TRELLIS.2', run: () => trellisModel(g(150_000), picture, type) }] : []),
+    { name: 'Stable Fast 3D', run: () => fastModel(g(90_000), picture, type) },
+    { name: 'Hunyuan3D-2', run: async () => ({ ...(await makeModel({ ...deps, progress }, picture)), ...HUNYUAN }) },
+  ];
+  const failed: Model3dError[] = [];
+  for (const [i, m] of makers.entries()) {
+    try {
+      return await m.run();
+    } catch (e) {
+      const err =
+        e instanceof Model3dError
+          ? e
+          : e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError')
+            ? new Model3dError(504, `${m.name} took too long (its queue may be long)`, 'busy')
+            : new Model3dError(502, `${m.name} could not be reached (${String((e as Error)?.message ?? e).slice(0, 100)})`, 'busy');
+      failed.push(err);
+      if (i < makers.length - 1) progress(`${m.name} could not make it (${err.message.slice(0, 90)}) — trying ${makers[i + 1]!.name}…`);
+    }
+  }
+  const quota = failed.find((e) => e.code === 'quota');
+  const busy = failed.some((e) => e.code === 'busy' || e.code === 'quota');
+  const why = failed.map((e, i) => `${makers[i]!.name}: ${e.message}`).join(' · ');
+  throw new Model3dError(quota ? 429 : busy ? 503 : 502, `${busy ? 'the free 3-D generators are busy right now — try again in a minute' : 'none of the free 3-D generators could make it'}. ${why}`, quota ? 'quota' : busy ? 'busy' : 'failed');
 }
 
 // ---------------------------------------------------------------- keeping models (KV only)
@@ -300,9 +220,9 @@ export async function checkAllowance(kv: ModelKv, now = Date.now()): Promise<num
 }
 
 /** Keep a model for 24 hours and list it. */
-export async function keepModel(kv: ModelKv, glb: ArrayBuffer, title: string, faces: number | undefined, now = Date.now()): Promise<ModelInfo> {
+export async function keepModel(kv: ModelKv, glb: ArrayBuffer, title: string, faces: number | undefined, now = Date.now(), made: Partial<Pick<ModelInfo, 'maker' | 'textured' | 'credit'>> = {}): Promise<ModelInfo> {
   const count = await checkAllowance(kv, now);
-  const info: ModelInfo = { id: imageId(), title: title.replace(/\s+/g, ' ').trim().slice(0, 80) || '3-D model', at: now, bytes: glb.byteLength, ...(faces ? { faces } : {}) };
+  const info: ModelInfo = { id: imageId(), title: title.replace(/\s+/g, ' ').trim().slice(0, 80) || '3-D model', at: now, bytes: glb.byteLength, ...(faces ? { faces } : {}), ...(made.maker ? { maker: made.maker } : {}), ...(made.textured !== undefined ? { textured: made.textured } : {}), ...(made.credit ? { credit: made.credit.slice(0, 160) } : {}) };
   await kv.put(PREFIX + info.id, glb, { expirationTtl: MODEL_TTL_S });
   await kv.put(dayKey(now), String(count + 1), { expirationTtl: 2 * 86_400 });
   // The list is a convenience: a failed write never loses the model itself.
@@ -345,27 +265,106 @@ export interface Model3dRouteDeps {
   kv: ModelKv | undefined;
   token: () => Promise<string | null>;
   fetch?: typeof fetch;
+  /** Workers AI, when the brain passes it: draws the object for "make anything" (else a free Space does). */
+  ai?: PictureAi | null;
+}
+
+/** A small picture as a data: address for the studio (none when it is large). */
+function dataUrl(bytes: ArrayBuffer, type: string): string | undefined {
+  const b = new Uint8Array(bytes);
+  if (b.byteLength > 400_000) return undefined;
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return `data:${type};base64,${btoa(s)}`;
 }
 
 /**
+ * A long job as a stream of JSON lines, so the studio can show each step and place in the queue:
+ * `{"step": "…"}` lines, then `{"model": {...}}` or `{"error": "…", "status": n, "code": "busy"}`.
+ */
+function lines(run: (send: (o: Record<string, unknown>) => void) => Promise<void>): Response {
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const w = writable.getWriter();
+  const enc = new TextEncoder();
+  const send = (o: Record<string, unknown>) => void w.write(enc.encode(`${JSON.stringify(o)}\n`)).catch(() => undefined);
+  void (async () => {
+    try {
+      await run(send);
+    } catch (e) {
+      if (e instanceof Model3dError) send({ error: e.message, status: e.status, code: e.code });
+      else send({ error: `the model could not be made (${String((e as Error)?.message ?? e).slice(0, 120)})`, status: 500, code: 'failed' });
+    } finally {
+      await w.close().catch(() => undefined);
+    }
+  })();
+  return new Response(readable, { headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' } });
+}
+
+const GLB_HEADERS = { 'content-type': 'model/gltf-binary', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox" };
+
+type EdgeCache = { match(k: string): Promise<Response | undefined>; put(k: string, r: Response): Promise<void> };
+/** The Worker's own cache (free), when there is one. */
+const edgeCache = (): EdgeCache | null => (globalThis as { caches?: { default?: EdgeCache } }).caches?.default ?? null;
+
+/**
  * /api/m3d — GET: today's models; GET /<id>: the GLB; POST (a picture's bytes, `x-title` naming
- * it): make a model now (20 s to 2 min); DELETE /<id>: forget it.
+ * it; `?stream=1` for step-by-step lines): make a model now; DELETE /<id>: forget it.
+ * GET /catalog: Poly Haven's models; GET /ph/<id>: one as a GLB; GET /thumb?u=: a catalogue
+ * thumbnail; POST /generate {prompt, title}: words → a picture → a model, as lines.
  */
 export async function model3dRoute(req: Request, path: string, method: string, deps: Model3dRouteDeps): Promise<Response> {
   const kv = deps.kv;
   if (!kv) return json({ error: 'keeping 3-D models needs the SITES KV namespace (wrangler.jsonc)' }, 503);
   const id = path.match(/^\/m3d\/([A-Za-z0-9_-]{16})(?:\.glb)?$/)?.[1];
+  const f = deps.fetch ?? fetch;
   try {
     if (path === '/m3d' && method === 'GET') return json({ models: await listModels(kv) });
     if (id && method === 'GET') return await modelResponse(kv, id);
     if (id && method === 'DELETE') return json({ removed: await forgetModel(kv, id) });
+    if (path === '/m3d/catalog' && method === 'GET') return json(await polyHavenCatalog(kv, f));
+    if (path === '/m3d/thumb' && method === 'GET') return await thumbResponse(new URL(req.url).searchParams.get('u') ?? '', f);
+    const ph = path.match(/^\/m3d\/ph\/([A-Za-z0-9_-]{1,80})$/)?.[1];
+    if (ph && method === 'GET') {
+      const key = `https://ghosty-cache.invalid/m3d/ph/${ph}`;
+      const cache = edgeCache();
+      const hit = await cache?.match(key).catch(() => undefined);
+      if (hit) return hit;
+      const glb = await polyHavenGlb(ph, f);
+      await cache?.put(key, new Response(glb.slice(0), { headers: { ...GLB_HEADERS, 'cache-control': 'public, max-age=2592000' } })).catch(() => undefined);
+      return new Response(glb, { headers: { ...GLB_HEADERS, 'cache-control': 'private, max-age=86400', 'content-length': String(glb.byteLength) } });
+    }
     if (path === '/m3d' && method === 'POST') {
       await checkAllowance(kv);
       const bytes = await req.arrayBuffer();
       const title = decodeURIComponent(req.headers.get('x-title') ?? '').slice(0, 80) || 'From a picture';
       const token = await deps.token().catch(() => null);
-      const made = await makeModel({ fetch: deps.fetch ?? fetch, token }, bytes);
-      return json({ model: await keepModel(kv, made.glb, title, made.faces) });
+      const make = async (progress?: (l: string) => void) => {
+        const made = await makeTextured({ fetch: f, token, progress }, bytes);
+        return { made, model: await keepModel(kv, made.glb, title, made.faces, Date.now(), made) };
+      };
+      if (new URL(req.url).searchParams.get('stream') === '1')
+        return lines(async (send) => {
+          const { made, model } = await make((step) => send({ step }));
+          send({ model, ...(made.cutout ? { cutout: made.cutout } : {}) });
+        });
+      return json({ model: (await make()).model });
+    }
+    if (path === '/m3d/generate' && method === 'POST') {
+      const body = (await req.json().catch(() => ({}))) as { prompt?: unknown; title?: unknown };
+      const prompt = String(body.prompt ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (!prompt) return json({ error: 'say what to make' }, 400);
+      await checkAllowance(kv);
+      const token = await deps.token().catch(() => null);
+      const title = String(body.title ?? '').trim().slice(0, 80) || prompt.slice(0, 60);
+      return lines(async (send) => {
+        const progress = (step: string) => send({ step });
+        const pic = await drawObject({ fetch: f, token, progress, signal: AbortSignal.timeout(90_000), ai: deps.ai }, prompt);
+        const shown = dataUrl(pic.bytes, pic.type);
+        send({ step: `drawn by ${pic.by}; now making it 3-D…`, ...(shown ? { picture: shown } : {}) });
+        const made = await makeTextured({ fetch: f, token, progress }, pic.bytes);
+        const model = await keepModel(kv, made.glb, title, made.faces, Date.now(), { ...made, credit: `${made.credit}; drawn first by ${pic.by}` });
+        send({ model, ...(made.cutout ? { cutout: made.cutout } : {}) });
+      });
     }
   } catch (e) {
     if (e instanceof Model3dError) return json({ error: e.message }, e.status);
