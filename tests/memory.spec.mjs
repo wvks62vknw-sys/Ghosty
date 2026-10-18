@@ -30,6 +30,14 @@ async function run(name, viewport) {
     const req = route.request();
     const url = new URL(req.url());
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    // The timeline is the real brain's (checked below); ME ✕ forgets through it (POST /api/profile/item).
+    if (url.pathname.startsWith('/api/profile/patterns/')) return route.continue();
+    if (url.pathname === '/api/profile/timeline') return json({ items: [], patterns: [], forgotten: [] });
+    if (url.pathname === '/api/profile/item') {
+      const b = req.postDataJSON();
+      for (const s of Object.keys(state.profile.sections)) state.profile.sections[s] = state.profile.sections[s].filter((x) => `p:${x.toLowerCase()}` !== b.id);
+      return json({ item: null });
+    }
     if (url.pathname === '/api/profile/reflect') {
       state.reflected++;
       return json({ ok: true, facts: ['runs on Tuesdays'], lines: [{ section: 'routines', text: 'trains on Tuesdays' }], diary: 'x', summary: state.profile.summary, profile: state.profile });
@@ -51,6 +59,8 @@ async function run(name, viewport) {
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  // A run may follow another against the same preview brain: what an earlier run noticed is cleared first.
+  await page.evaluate(() => fetch('/api/profile/patterns/clear', { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: '{}' }));
   await page.evaluate(() => (location.hash = 'memory'));
   const me = page.locator('#pg-memory .pn.me');
   await me.waitFor({ state: 'attached', timeout: 10000 });
@@ -113,9 +123,10 @@ async function run(name, viewport) {
 
   // ---- TIMELINE and PATTERNS (features/memory/timeline.ts over the preview brain's memories.ts) ----
   // A fact said in a chat: the timeline shows it with that chat as its source, and the source opens it.
-  // (one each per screen and engine, so a second run against the same preview brain finds its own)
-  const thing = { desktop: 'my bike is green', phone: 'my kettle is red' }[name] + (isWebKit ? ' and shiny' : '');
-  const topic = isWebKit ? { desktop: 'greenhouse', phone: 'caravan' }[name] : { desktop: 'allotment', phone: 'marathon' }[name];
+  // Words of this run only (letters), so a run after another against the same preview brain finds its own.
+  const word = () => Array.from({ length: 7 }, () => 'bcdfghjklmnpqrstvwxz'[Math.floor(Math.random() * 20)]).join('');
+  const thing = `my ${name === 'desktop' ? 'bike' : 'kettle'} is ${word()}`;
+  const topic = word();
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
   await page.fill('#cin', `remember ${thing}`);
@@ -174,6 +185,23 @@ async function run(name, viewport) {
   await page.screenshot({ path: `${out}/${name}-memory-undo.png` });
   await undo.click().catch(() => undefined);
   await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring it back locked`));
+  // RECENTLY FORGOTTEN: forget it again, then a line under ME (its ✕): both stay undoable after the bar has gone
+  await item(edited).first().locator('button:has-text("FORGET")').click();
+  await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
+  const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
+  if (await meLine.count()) await meLine.locator('.del').click();
+  else problems.push(`[${name}] no ME line to forget`);
+  const fb = tlp.locator('details.forgot');
+  if (!(await fb.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false))) problems.push(`[${name}] no RECENTLY FORGOTTEN list`);
+  await fb.locator('summary').click();
+  await page.waitForFunction(() => document.querySelectorAll('#pg-memory .pn.tl details.forgot .fgi').length >= 2, null, { timeout: 8000 }).catch(() => undefined);
+  const fg = await fb.locator('.fgi .fgt').allTextContents();
+  if (!fg.some((t) => t.includes(edited)) || !fg.some((t) => /walks in Kings Heath/.test(t))) problems.push(`[${name}] RECENTLY FORGOTTEN lists ${JSON.stringify(fg)}`);
+  await page.screenshot({ path: `${out}/${name}-memory-forgotten.png` });
+  await fb.locator('.fgi', { hasText: edited }).locator('button:has-text("UNDO")').click().catch(() => problems.push(`[${name}] no UNDO in RECENTLY FORGOTTEN`));
+  await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO from RECENTLY FORGOTTEN did not bring it back locked`));
+  await fb.locator('.fgi', { hasText: 'walks in Kings Heath' }).locator('button:has-text("UNDO")').click().catch(() => undefined);
+  await page.waitForFunction(() => /walks in Kings Heath/.test(document.querySelector('#pg-memory .pn.me')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the ME line did not come back`));
   // the filter by kind and the search
   await tlp.locator('select[aria-label="Show which memories"]').selectOption('profile');
   const kinds2 = await tlp.locator('.mik').allTextContents();

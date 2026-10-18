@@ -88,9 +88,10 @@ export class BargeDetector {
     }
     const loud = v > this.threshold();
     if (loud) {
+      // A reading stands for the time since the one before it (so a slow timer does not slow the answer).
       if (this.onset < 0 || t - this.lastLoud > this.opts.gapMs) {
         this.onset = t;
-        this.voiced = 0;
+        this.voiced = Math.min(dt, 40);
       } else this.voiced += dt;
       this.lastLoud = t;
       if (this.voiced >= this.opts.minSpeechMs) {

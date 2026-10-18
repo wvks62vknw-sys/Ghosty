@@ -165,6 +165,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
       osc.connect(gain).connect(dest);
       osc.start();
       mic.set = (v) => gain.gain.setValueAtTime(v, ac.currentTime);
+      mic.stream = dest.stream;
       const echoOsc = ac.createOscillator();
       echoOsc.frequency.value = 330;
       const echoGain = ac.createGain();
@@ -248,7 +249,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
     // The brain says which voice spoke: the one asked for ('auto' is Draco) unless this test says otherwise.
     const asked = ttsBodies.at(-1).voice;
     const spoke = ttsAnswer.voice ?? (asked === 'auto' || !asked ? 'draco' : asked);
-    await route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'x-voice': spoke, ...(ttsAnswer.note ? { 'x-voice-note': ttsAnswer.note } : {}) }, body: wav(Math.round(16_000 * ttsAnswer.seconds)) });
+    await route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'x-voice': spoke, ...(ttsAnswer.note ? { 'x-voice-note': ttsAnswer.note } : {}), ...(ttsAnswer.reason ? { 'x-voice-reason': ttsAnswer.reason } : {}) }, body: wav(Math.round(16_000 * ttsAnswer.seconds)) });
   });
   await ctx.route('**/api/stt', async (route) => {
     const size = route.request().postDataBuffer()?.length ?? 0;
@@ -298,9 +299,17 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.waitForFunction(() => window.__said.some((s) => /how I'll sound/.test(s.text)), null, { timeout: 8000 }).catch(() => undefined);
   const sample = await page.evaluate(() => window.__said.find((s) => /how I'll sound/.test(s.text)));
   if (sample?.voice !== 'Serena (Premium)') problems.push(`[${name}] the phone sample spoke in ${JSON.stringify(sample)}`);
-  // back to automatic: when the brain's natural voice is used up for today, the phone's natural voice takes over
+  // back to automatic: a passing Aura error is not "used up": the plain clip the brain sent plays, the phone stays quiet
   await engineSel.selectOption('auto');
-  ttsAnswer = { voice: 'melo', note: "today's share for the natural voice is used up", status: 200, seconds: 0.1 };
+  ttsAnswer = { voice: 'melo', note: 'the natural voice did not answer', reason: 'error', status: 200, seconds: 0.1 };
+  const quiet = await page.evaluate(() => window.__said.length);
+  const asked = ttsBodies.length;
+  await page.click('button[aria-label="Hear a sample of this voice"]');
+  await page.waitForFunction(() => /Just spoke: Melo/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] after an Aura error the plain clip was not played`));
+  if ((await page.evaluate(() => window.__said.length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
+  if (ttsBodies.length === asked) problems.push(`[${name}] after an Aura error the brain was not asked`);
+  // when the natural voice's share is used up for today, the phone's natural voice takes over
+  ttsAnswer = { voice: 'melo', note: "today's share for the natural voice is used up", reason: 'share', status: 200, seconds: 0.1 };
   const before = await page.evaluate(() => window.__said.length);
   await page.click('button[aria-label="Hear a sample of this voice"]');
   await page.waitForFunction((n) => window.__said.length > n, before, { timeout: 8000 }).catch(() => problems.push(`[${name}] with the natural voice used up, the phone did not take over`));
@@ -383,6 +392,32 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.click('#mic');
   await page.waitForTimeout(500);
   if ((await voiceState()) === 'listening') problems.push(`[${name}] the mic button did not end the conversation`);
+  // 5. speech that is not a reply (an approval's question read out): an interruption marks no reply
+  const approval = `${JSON.stringify({ t: 'approval', id: 'ap1', name: 'forget_everything', reason: 'Shall I forget everything I know about you? Say yes or no when you are ready.', args: {} })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
+  await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: approval }));
+  await page.click('.logbtn');
+  await page.fill('#cin', 'forget everything');
+  await page.keyboard.press('Enter');
+  await page.click('.logbtn');
+  if (!(await waitVoice('speaking', 10000))) problems.push(`[${name}] the approval was not read out`);
+  await page.waitForTimeout(300);
+  const cutsBefore = await page.locator('#pg-core .log .msg .cutchip').count();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 3000 }).catch(() => problems.push(`[${name}] a tap did not stop the approval being read`));
+  await page.waitForTimeout(300);
+  if ((await page.locator('#pg-core .log .msg .cutchip').count()) !== cutsBefore) problems.push(`[${name}] interrupting the approval's question marked a reply as cut off`);
+  await ctx.unroute('**/api/chat');
+  // 6. the app hidden (another app, the lock screen): the microphone is let go and the conversation ends
+  await page.click('#mic');
+  if (!(await waitVoice('listening', 8000))) problems.push(`[${name}] the mic did not start listening again`);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(500);
+  const hidden = await page.evaluate(() => ({ voice: window.__ghosty.ui.get().voice, on: document.querySelector('#mic').classList.contains('on'), live: window.__mic.stream?.getTracks().some((t) => t.readyState === 'live') }));
+  if (hidden.voice === 'listening' || hidden.on || hidden.live) problems.push(`[${name}] hidden, the microphone is still held: ${JSON.stringify(hidden)}`);
   await ctx.close();
 }
 await browser.close();
