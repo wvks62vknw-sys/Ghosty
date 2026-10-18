@@ -59,6 +59,8 @@ export class Session {
   private note(r: Report) {
     this.rec.mastery = r.mastery;
     this.rec.detail = r.detail;
+    // A match played in slices reports every slice: only its finished score goes on the graph.
+    if (r.pending && this.rec.history.length) return;
     const h = this.rec.history;
     h.push({ u: this.rec.units, m: r.mastery, l: this.rec.level });
     // Keep the graph small: when full, keep every other older point (the newest stay exact).

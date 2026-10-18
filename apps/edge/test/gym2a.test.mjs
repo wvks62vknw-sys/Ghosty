@@ -749,3 +749,21 @@ test('gym 2 worker: PLAY HIM answers on all three boards; a measurement never ho
   W.gymMessage({ gym: 'watch', id: 'balance', req: 4, seed: 2 }, post);
   assert.ok(out.at(-1).frames[0].draw);
 });
+
+test('a match played in slices adds one graph point when it finishes, not one per slice', () => {
+  let slices = 0;
+  const game = {
+    ...gameById('checkers'),
+    learner: () => ({
+      train: (n) => n,
+      // 50 slices under way, then the finished score.
+      measure: () => (++slices <= 51 ? { mastery: 0, pending: slices > 1, detail: 'under way' } : { mastery: 0.2, detail: 'done' }),
+      save: () => null,
+    }),
+  };
+  const s = new S.Session(game);
+  const before = s.snapshot().history.length;
+  for (let i = 0; i < 51; i++) s.measure();
+  assert.equal(s.snapshot().history.length, before + 1, 'the slices under way added nothing; the finished match one point');
+  assert.equal(s.snapshot().history.at(-1).m, 0.2);
+});
