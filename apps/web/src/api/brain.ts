@@ -8,6 +8,26 @@ import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOut
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
+/** One of this phone's daily backups as the brain lists it (apps/edge/src/backup.ts). */
+export interface BackupInfo {
+  /** The day it was kept (UTC, YYYY-MM-DD), also its name. */
+  id: string;
+  at: number;
+  size: number;
+}
+/** A backup sealed on this phone (features/system/backup.ts): the brain only ever sees this. */
+export interface SealedBackup {
+  v: 1;
+  kdf: 'PBKDF2-SHA256';
+  iter: number;
+  salt: string;
+  iv: string;
+  ct: string;
+  at: number;
+  /** 'gzip' when the bundle was compressed before sealing. */
+  z?: 'gzip';
+}
+
 /** Ghosty's self-study (library/study.ts in the brain): its state, and a summary for the Library tab. */
 export interface StudySummary {
   topics: number;
@@ -106,7 +126,7 @@ export function headers(extra: Record<string, string> = {}): Record<string, stri
  * searches, the conversation history (kept by assistant/session.ts) or the key copy.
  */
 const READ_CACHE = 'ghosty.read:';
-const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages/.test(path);
+const cacheable = (path: string) => !/search|\/vault\/|^\/history|^\/status|^\/ships|^\/stt|^\/journey|^\/library$|\/passages|^\/backup/.test(path);
 function remember(path: string, j: unknown): void {
   // "Not known right now" (database paused, no copy of a key reachable) must not replace the last good answer.
   if (j && typeof j === 'object' && (j as { unknown?: boolean }).unknown) return;
@@ -323,6 +343,13 @@ export const brain = {
   pushDevices: () => req<{ devices: { id: string; label: string; at: number; endpoint: string }[] }>('GET', '/push/devices'),
   pushRemove: (id: string) => req('DELETE', `/push/devices/${encodeURIComponent(id)}`),
   pushTest: () => req<{ sent: number }>('POST', '/push/test'),
+  /** Which kinds of notification the owner wants (LINKS → NOTIFICATIONS); the brain checks them before every push. */
+  pushPrefs: () => req<{ prefs: Record<string, boolean>; kinds: { id: string; label: string; hint: string }[] }>('GET', '/push/prefs'),
+  setPushPrefs: (patch: Record<string, boolean>) => req<{ prefs: Record<string, boolean> }>('POST', '/push/prefs', patch),
+  /** This phone's encrypted daily backups, kept by the brain in KV (features/system/backup.ts seals and opens them). */
+  backups: () => req<{ backups: BackupInfo[]; keep: number; max: number }>('GET', '/backup'),
+  putBackup: (sealed: SealedBackup) => req<{ backup: BackupInfo; removed: string[] }>('POST', '/backup', sealed),
+  getBackup: (id: string) => req<{ backup: SealedBackup }>('GET', `/backup/${encodeURIComponent(id)}`),
   trafficStatus: () => req<{ ready: boolean }>('GET', '/traffic/status'),
   /** A public-transport journey for the GO panel: the brain asks Transitous and answers in the shape the map draws (`from`/`to`: "here", "lat,lon" or a name; `time`: local YYYY-MM-DDTHH:MM, else now). */
   journey: (p: { from: string; to: string; time?: string; arriveBy?: boolean }) =>

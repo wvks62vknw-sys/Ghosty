@@ -53,6 +53,19 @@ const env = {
   OWNER_EMAIL: 'owner@example.com',
   MOCK_LLM: '1',
 };
+// The SITES KV namespace, in memory (published pages, shared pictures, 3-D models, the phone's backups).
+const kvMem = new Map();
+env.SITES = {
+  async get(k, type) {
+    if (!kvMem.has(k)) return null;
+    const v = kvMem.get(k);
+    if (type === 'arrayBuffer') return typeof v === 'string' ? new TextEncoder().encode(v).buffer : v.slice(0);
+    if (type === 'json') return JSON.parse(typeof v === 'string' ? v : new TextDecoder().decode(v));
+    return typeof v === 'string' ? v : new TextDecoder().decode(v);
+  },
+  async put(k, v) { kvMem.set(k, typeof v === 'string' ? v : v.slice(0)); },
+  async delete(k) { kvMem.delete(k); },
+};
 // PREVIEW=1 behaves like a Worker Preview: no owner credential at all.
 if (process.env.PREVIEW === '1') {
   delete env.OWNER_KEY_HASH;

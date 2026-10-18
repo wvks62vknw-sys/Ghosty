@@ -1,4 +1,4 @@
-/** SYSTEM tab: keys, AI models and connection status. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
+/** SYSTEM tab: keys, AI models, connection status, keeping data on the phone and its daily backup. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
 import type { BrainStatus, KeyStatus } from '../../../../../packages/shared/src/protocol';
 import { brain, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
@@ -7,6 +7,8 @@ import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { backUpNow, lastBackup, listBackups, reportText, restore, sizeText } from './backup';
+import { checkStorage, storageLine, storageState } from './storage';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -20,7 +22,9 @@ export const systemTab: TabDef = {
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     P.left.append(kp.el, mp.el);
     const sp = panel('STATUS');
-    P.right.append(sp.el);
+    const stp = panel('STORAGE', { grow: false });
+    const bkp = panel('BACKUP & RESTORE', { grow: false });
+    P.right.append(sp.el, stp.el, bkp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -155,7 +159,89 @@ export const systemTab: TabDef = {
       if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
     };
 
+    // ---- keeping data on this phone (storage.ts)
+    const paintStorage = () => {
+      const line = storageLine();
+      clear(stp.body);
+      stp.setStatus(line.ok ? 'PROTECTED' : 'AT RISK', line.ok ? 'ok' : 'mid');
+      stp.body.append(h(`div.note.storageline${line.ok ? '.good' : '.bad'}` as 'div', line.text));
+      if (!line.ok) {
+        stp.body.append(
+          !storageState.get().supported ? '' : button('PROTECT', async (b) => {
+            b.disabled = true;
+            await checkStorage(true);
+            b.disabled = false;
+            if (!storageState.get().persisted) toast('iPhone said no. Add Ghosty to your Home Screen (Share → Add to Home Screen), open it from there, then press PROTECT again.', 'warn');
+          }, 'on'),
+          h('div.note', 'Without this, Safari deletes what Ghosty keeps on this phone after 7 days without use. Your daily backup (below) can bring it back.'),
+        );
+      }
+    };
+    storageState.subscribe(() => paintStorage());
+
+    // ---- the daily backup (backup.ts): sealed on this phone, kept by the brain for 7 days
+    const paintBackup = async () => {
+      clear(bkp.body);
+      const known = lastBackup.get();
+      const last = known && known.at > 0 ? known : null;
+      bkp.setStatus(!last ? 'NONE YET' : last.ok ? `LAST ${fmt.ago(last.at).toUpperCase()}` : 'LAST TRY FAILED', last?.ok ? 'ok' : 'mid');
+      const msg = h('div.note.backupmsg', '');
+      bkp.body.append(
+        h('div.note', 'Once a day Ghosty locks a copy of what lives only on this phone (courses, flashcards, chat, plans, settings) with your owner key and keeps it in your brain. Only this phone can open it.'),
+        last ? row('LAST BACKUP', last.ok ? `${fmt.ago(last.at)}${last.size ? ` · ${sizeText(last.size)}` : ''}` : `failed ${fmt.ago(last.at)}: ${last.error ?? ''}`, null, { tone: last.ok ? 'up' : 'dn', wrap: true }) : '',
+        h('div.keyrow', button('BACK UP NOW', async (b) => {
+          b.disabled = true;
+          msg.textContent = 'locking and sending…';
+          try {
+            const text = await backUpNow();
+            toast(text, 'ok');
+            void paintBackup();
+          } catch (e) {
+            msg.textContent = String((e as Error).message);
+            msg.className = 'note backupmsg bad';
+            b.disabled = false;
+          }
+        }, 'on')),
+        msg,
+      );
+      if (!ownerKey.get()) return;
+      try {
+        const list = await listBackups();
+        bkp.body.append(h('div.lab', 'RESTORE FROM A BACKUP'));
+        if (!list.length) bkp.body.append(h('div.note', 'No backups yet.'));
+        else if (!known) bkp.body.append(h('div.note.bad.wiped', 'This phone has no record of backing up, but your brain has backups. If Safari cleared Ghosty (or this is a new phone), RESTORE the newest one first. The daily backup waits until then, so it never puts an empty phone over your good copies.'));
+        for (const b of list) {
+          const day = new Date(b.at).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+          const time = new Date(b.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          const r = row(day, `${time} · ${sizeText(b.size)}`, null);
+          r.dataset.backup = b.id;
+          r.append(button('RESTORE', async (btn) => {
+            if (!confirm(`Restore the backup from ${day}?\n\nIt is joined with what is on this phone now: where both have the same thing, the newer one wins. Nothing here is deleted.`)) return;
+            btn.disabled = true;
+            msg.textContent = 'opening the backup…';
+            msg.className = 'note backupmsg';
+            try {
+              const report = await restore(b.id);
+              msg.textContent = `${reportText(report)} Ghosty reloads in a moment to use it.`;
+              msg.className = 'note backupmsg good';
+              setTimeout(() => location.reload(), 2500);
+            } catch (e) {
+              msg.textContent = String((e as Error).message);
+              msg.className = 'note backupmsg bad';
+              btn.disabled = false;
+            }
+          }));
+          bkp.body.append(r);
+        }
+      } catch (e) {
+        const gone = (e as { status?: number }).status === 404;
+        bkp.body.append(h('div.note', gone ? 'The brain cannot keep backups yet: it needs an update first.' : 'The list of backups needs the brain; it is not reachable right now.'));
+      }
+    };
+
     const load = async () => {
+      void checkStorage(false).then(paintStorage);
+      void paintBackup();
       try {
         status = await brain.status();
         P.big.textContent = status.models.some((m) => m.state === 'ok') ? 'ONLINE' : 'NO MODELS';

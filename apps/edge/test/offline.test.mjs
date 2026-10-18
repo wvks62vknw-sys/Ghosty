@@ -120,3 +120,39 @@ test("while paused, the brain's own reminders ring from the device, and one-offs
   O.armBrainReminders(false);
   O.offline.set({ outbox: [] });
 });
+
+// ---------------------------------------------------------------------------------------
+// RESTORE from the phone's backup (apps/web/src/features/system/merge.ts): joined with what is on
+// the phone, newer wins, nothing wiped.
+// ---------------------------------------------------------------------------------------
+import { build } from 'esbuild';
+
+await build({ entryPoints: [new URL('../../web/src/features/system/merge.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: new URL('./.build/backup-merge.mjs', import.meta.url).pathname, logLevel: 'warning' });
+const MG = await import('./.build/backup-merge.mjs');
+
+test('restore merge: an empty phone gets the backup; a phone with data keeps it and gains what it lacks, newer item winning', () => {
+  const bak = { cards: [{ id: 'a', front: 'old A', last: 100 }, { id: 'b', front: 'B', last: 50 }], courses: [{ id: 'c1', title: 'Bridges' }], streak: { days: 9 }, synced: 1 };
+  assert.deepEqual(MG.mergeEntry(null, JSON.stringify(bak)), { text: JSON.stringify(bak), result: 'restored' });
+  const cur = { cards: [{ id: 'a', front: 'new A', last: 200 }, { id: 'c', front: 'C', last: 10 }], courses: [], streak: { days: 2 }, synced: 5 };
+  const m = MG.mergeEntry(JSON.stringify(cur), JSON.stringify(bak));
+  assert.equal(m.result, 'merged');
+  const out = JSON.parse(m.text);
+  assert.deepEqual(out.cards.map((c) => `${c.id}:${c.front}`), ['a:new A', 'c:C', 'b:B'], 'the phone\'s newer card stays; the backup\'s missing card comes back');
+  assert.deepEqual(out.courses, bak.courses, 'an empty list on the phone takes the backup\'s');
+  assert.equal(out.streak.days, 2, 'plain values stay as the phone has them');
+  assert.equal(out.synced, 5);
+  // The backup's copy is newer: it wins.
+  const newer = JSON.parse(MG.mergeEntry(JSON.stringify({ cards: [{ id: 'a', front: 'A', last: 1 }] }), JSON.stringify({ cards: [{ id: 'a', front: 'A2', last: 9 }] })).text);
+  assert.equal(newer.cards[0].front, 'A2');
+});
+
+test('restore merge: whole entries (a room plan, settings) and plain text keep the phone\'s; timed lists join in time order', () => {
+  const plan = JSON.stringify({ plan: { items: [{ id: 'sofa' }] } });
+  assert.deepEqual(MG.mergeEntry(plan, JSON.stringify({ plan: { items: [{ id: 'bed' }] } }), true), { text: plan, result: 'same' });
+  assert.deepEqual(MG.mergeEntry(null, plan, true).result, 'restored');
+  assert.deepEqual(MG.mergeEntry('fr', 'de'), { text: 'fr', result: 'same' });
+  const chat = (xs) => JSON.stringify({ entries: xs.map(([at, text]) => ({ kind: 'user', text, at })) });
+  const joined = JSON.parse(MG.mergeEntry(chat([[3, 'three'], [4, 'four']]), chat([[1, 'one'], [3, 'three']])).text);
+  assert.deepEqual(joined.entries.map((e) => e.text), ['one', 'three', 'four'], 'once each, oldest first');
+  assert.equal(MG.mergeEntry(chat([[1, 'one']]), chat([[1, 'one']])).result, 'same');
+});
