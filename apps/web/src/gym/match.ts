@@ -28,6 +28,8 @@ export function setSlice(ms: number): void {
   slice = ms;
 }
 export const sliceMs = () => slice;
+/** How long one training call may run (30 ms; unbounded when the slice is, for tests that train an exact number of units). */
+export const trainMs = () => (slice === Infinity ? Infinity : 30);
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 

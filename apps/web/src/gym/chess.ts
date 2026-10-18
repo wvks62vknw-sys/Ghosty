@@ -53,7 +53,7 @@ import {
 } from './chessboard';
 import { CHESS_TACTICS } from './chesssets';
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
-import { Match, type MatchResult, record, share, type Stepper } from './match';
+import { Match, type MatchResult, record, share, type Stepper, trainMs } from './match';
 import { CHESS } from './meta';
 
 export * from './chessboard';
@@ -448,7 +448,7 @@ class ChessLearner implements Learner {
     const ev = learnedEval(this.w);
     let result: number | null = null;
     const t0 = clock();
-    for (let i = 0; i < k && (i === 0 || clock() - t0 < 30); i++) {
+    for (let i = 0; i < k && (i === 0 || clock() - t0 < trainMs()); i++) {
       const moves = legal(c.p);
       result = resultFor(c.p, c.plies, moves);
       if (result != null) break;

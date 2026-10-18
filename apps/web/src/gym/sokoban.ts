@@ -14,7 +14,7 @@
  */
 import { SOKO_SETS } from './sokosets';
 import { finalLine, readMoves, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
-import { sliceMs } from './match';
+import { sliceMs, trainMs } from './match';
 import { SOKOBAN } from './meta';
 
 /** A puzzle: width, height, walls, goals, boxes (cell indices), the player's cell. */
@@ -599,7 +599,7 @@ class SokoLearner implements Learner {
   train(n: number) {
     const t0 = clock();
     let k = 0;
-    while (k < n && (k === 0 || clock() - t0 < 30)) {
+    while (k < n && (k === 0 || clock() - t0 < trainMs())) {
       k++;
       // A practice puzzle from his own random numbers, at this level or below (the easier ones teach the guess best).
       const L = 1 + Math.floor(this.r() * this.level);

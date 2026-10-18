@@ -115,7 +115,7 @@ export const CHECKERS: GameMeta = {
   blurb: 'draughts · vs reference engines',
   learns: 'He plays himself to learn what a checkers position is worth, then searches ahead with it against fixed reference engines that look as far ahead.',
   unit: 'games',
-  bar: per([0.6, 0.7, 0.5, 0.45, 0.45, 0.45, 0.4, 0.35, 0.42, 0.5]),
+  bar: per([0.6, 0.7, 0.52, 0.45, 0.45, 0.4, 0.35, 0.42, 0.5, 0.55]),
   play: 'board',
 };
 export const CHESS: GameMeta = {
@@ -124,7 +124,7 @@ export const CHESS: GameMeta = {
   blurb: 'learned eval · vs reference engines',
   learns: 'He plays himself and tunes what each piece is worth on each square, then searches ahead with it against Ghosty’s own fixed reference engines (not Stockfish).',
   unit: 'games',
-  bar: per([0.6, 0.6, 0.6, 0.55, 0.55, 0.7, 0.6, 0.55, 0.5, 0.56]),
+  bar: per([0.6, 0.6, 0.6, 0.6, 0.55, 0.7, 0.6, 0.55, 0.5, 0.56]),
   play: 'board',
 };
 export const GO: GameMeta = {
@@ -159,7 +159,7 @@ export const BALANCE: GameMeta = {
   blurb: 'pole on a cart → moon lander',
   learns: 'He tries many small variations of his controller and keeps the best, until he balances the pole — and later lands softly on the pad — from starts he has never seen.',
   unit: 'trials',
-  bar: per([0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.9, 0.9, 0.85, 0.85]),
+  bar: per([0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.9, 0.9, 0.6, 0.45]),
 };
 
 /** In card order (the same order as GAMES in index.ts). */

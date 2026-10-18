@@ -40,7 +40,7 @@ export const TRACK = 2.4;
 /**
  * Each level is harder in a new way. 1: one pole. 2: wider starts, a longer run. 3: TWO poles on the same
  * cart, a long one and a short one (a new controller to learn: the short one falls fast, and one push has to
- * hold both). 4: the short pole twice as long, and a longer run — the closer the two lengths, the harder
+ * hold both). 4: the short pole three times as long, and a longer run — the closer the two lengths, the harder
  * they are to hold together. 5: closer still, with noisy sensors.
  * The reference controllers: level 1–2 gains picked by hand; for two poles, a linear-quadratic regulator
  * worked out for this cart (gym2.test.mjs checks they succeed).
@@ -51,14 +51,14 @@ export function poleRules(level: number): PoleRules {
     { poles: 1, steps: 200, angle: 0.05, pos: 0.05, gust: 0, half: 0.5, noise: 0, ref: [1, 2.2, 30, 6] },
     { poles: 1, steps: 600, angle: 0.15, pos: 1.2, gust: 0, half: 0.5, noise: 0, ref: [1, 2.2, 30, 6] },
     { poles: 2, steps: 600, angle: 0.05, pos: 0.1, gust: 0, half: 0.05, noise: 0, ref: DOUBLE_05 },
-    { poles: 2, steps: 1000, angle: 0.08, pos: 0.4, gust: 0, half: 0.1, noise: 0, ref: DOUBLE_10 },
-    { poles: 2, steps: 1000, angle: 0.06, pos: 0.3, gust: 0, half: 0.15, noise: 0.002, ref: DOUBLE_15 },
+    { poles: 2, steps: 1000, angle: 0.12, pos: 0.6, gust: 0, half: 0.15, noise: 0, ref: DOUBLE_15 },
+    { poles: 2, steps: 1000, angle: 0.12, pos: 0.6, gust: 0, half: 0.2, noise: 0.005, ref: DOUBLE_20 },
   ][Math.min(L, 5) - 1]! as PoleRules;
 }
-/** Linear-quadratic regulator gains for the double pole (short pole 0.05, 0.1 and 0.15 half-length), computed offline for this model. */
+/** Linear-quadratic regulator gains for the double pole (short pole 0.05, 0.15 and 0.2 half-length), computed offline for this model. */
 const DOUBLE_05 = [-2.8, -5.08, -88.8, -23.21, 55.97, 4.59];
-const DOUBLE_10 = [-3.16, -5.88, -127.76, -33.39, 86.8, 10.02];
 const DOUBLE_15 = [-3.32, -6.29, -168.87, -44.13, 123.17, 17.47];
+const DOUBLE_20 = [-3.4, -6.58, -219.76, -57.42, 170.48, 27.98];
 const DT = 0.02;
 const LIMIT_A = (12 * Math.PI) / 180;
 const LIMIT_2 = (36 * Math.PI) / 180;
@@ -134,19 +134,22 @@ export interface LanderRules {
   thrust: number;
   /** How slowly the engine follows the throttle (seconds; 0 = at once). */
   lag: number;
+  /** Whether he has a wind gauge (without one, the wind shows only in how he drifts). */
+  gauge: boolean;
 }
 /**
- * The lander gets harder in new ways: further away and a smaller pad, then wind, then gusts and a weaker
- * engine, then an engine that answers the throttle late, little fuel and a tiny pad.
+ * The lander gets harder in new ways: further away, a smaller pad and a steady wind; then gusts and a weaker
+ * engine; then no wind gauge (the wind shows only in his drift); then an engine that answers the throttle
+ * late and a smaller pad.
  */
 export function landerRules(level: number): LanderRules {
   const L = Math.max(6, lvl(level));
   return [
-    { spread: 15, pad: 10, fuel: 60, wind: 0, gust: 0, thrust: 4, lag: 0 },
-    { spread: 40, pad: 5, fuel: 50, wind: 0, gust: 0, thrust: 4, lag: 0 },
-    { spread: 40, pad: 5, fuel: 50, wind: 0.4, gust: 0, thrust: 4, lag: 0 },
-    { spread: 40, pad: 4, fuel: 45, wind: 0.4, gust: 0.6, thrust: 3, lag: 0 },
-    { spread: 40, pad: 2.5, fuel: 45, wind: 0.4, gust: 0.9, thrust: 2.6, lag: 1 },
+    { spread: 15, pad: 10, fuel: 60, wind: 0, gust: 0, thrust: 4, lag: 0, gauge: true },
+    { spread: 40, pad: 4, fuel: 50, wind: 0.4, gust: 0, thrust: 4, lag: 0, gauge: true },
+    { spread: 40, pad: 4, fuel: 45, wind: 0.4, gust: 0.6, thrust: 3, lag: 0, gauge: true },
+    { spread: 40, pad: 4, fuel: 45, wind: 0.4, gust: 0.6, thrust: 3, lag: 0, gauge: false },
+    { spread: 40, pad: 3, fuel: 45, wind: 0.4, gust: 0.6, thrust: 3, lag: 1, gauge: false },
   ][L - 6]!;
 }
 export const MOON = 1.62;
@@ -188,8 +191,8 @@ export type Policy = Float64Array;
 export const dims = (level: number) => (taskFor(level) === 'lander' ? 16 : poleRules(level).poles === 2 ? 7 : 5);
 
 const poleFeat = (s: number[]) => (s.length >= 6 ? [s[0]!, s[1]!, s[2]! * 10, s[3]!, s[4]! * 10, s[5]!] : [s[0]!, s[1]!, s[2]! * 10, s[3]!]);
-/** What the lander senses: across, height, drift, fall speed, lean, spin, and the wind (a wind gauge). */
-const landerFeat = (s: number[]) => [s[0]! / 20, s[1]! / 50, s[2]! / 5, s[3]! / 5, s[4]!, s[5]!, s[7]! * 2];
+/** What the lander senses: across, height, drift, fall speed, lean, spin, and the wind (when he has a wind gauge). */
+const landerFeat = (s: number[], gauge: boolean) => [s[0]! / 20, s[1]! / 50, s[2]! / 5, s[3]! / 5, s[4]!, s[5]!, gauge ? s[7]! * 2 : 0];
 
 function polePolicy(w: Policy, s: number[]): number {
   const f = poleFeat(s);
@@ -197,8 +200,8 @@ function polePolicy(w: Policy, s: number[]): number {
   for (let i = 0; i < f.length; i++) x += w[i]! * f[i]!;
   return Math.max(-FMAX, Math.min(FMAX, x * 10));
 }
-function landerPolicy(w: Policy, s: number[]): [number, number] {
-  const f = landerFeat(s);
+function landerPolicy(w: Policy, s: number[], gauge: boolean): [number, number] {
+  const f = landerFeat(s, gauge);
   let u = w[7]!;
   let t = w[15]!;
   for (let i = 0; i < 7; i++) (u += w[i]! * f[i]!), (t += w[8 + i]! * f[i]!);
@@ -216,8 +219,8 @@ export function referenceLander(s: number[], R: LanderRules = landerRules(6)): [
   // Sink at a speed that shrinks with height; lean to steer over the pad; straighten up near the ground.
   const want = -Math.max(0.8, Math.min(6, 0.1 * y));
   const u = (MOON + 2 * (want - vy)) / (R.thrust * Math.max(0.5, Math.cos(a)));
-  // (It reads the wind gauge too, and leans against the wind.)
-  const ax = -0.12 * x - 0.7 * vx - s[7]!;
+  // (It reads the wind gauge too, when there is one, and leans against the wind.)
+  const ax = -0.12 * x - 0.7 * vx - (R.gauge ? s[7]! : 0);
   const lean = y < 4 ? 0 : Math.max(-0.4, Math.min(0.4, ax / R.thrust));
   return [u, 4 * (lean - a) - 2.5 * w];
 }
@@ -360,7 +363,7 @@ class BalanceLearner implements Learner {
       } else {
         const R = landerRules(this.level);
         const s = starts[i]!.slice();
-        const run = runLander(R, s, (x) => landerPolicy(w, x), rr, 1e9);
+        const run = runLander(R, s, (x) => landerPolicy(w, x, R.gauge), rr, 1e9);
         const end = run.trace[run.trace.length - 1]!;
         // Shaped so that every bit better counts: a slower crash beats a faster one, nearer the pad beats further.
         if (Math.abs(end[4]!) > 1.2) f -= 9 - Math.min(2, (run.steps * LDT) / 20);
@@ -407,7 +410,7 @@ class BalanceLearner implements Learner {
     return POP * STARTS;
   }
   private result() {
-    return test(this.level, (s) => polePolicy(this.mean, s), (s) => landerPolicy(this.mean, s));
+    return test(this.level, (s) => polePolicy(this.mean, s), (s) => landerPolicy(this.mean, s, landerRules(this.level).gauge));
   }
   measure() {
     const his = this.result();
@@ -447,7 +450,7 @@ class BalanceLearner implements Learner {
       return run.trace.map((s, i) => poleFrame(s, R, i === run.trace.length - 1 ? `${run.ok ? 'Balanced' : 'Failed'}: ${run.why} after ${((run.steps * DT) | 0).toString()} s.` : `${(i * 4 * DT).toFixed(1)} s · push ${s[4]! >= 0 ? 'right' : 'left'} ${Math.abs(s[4]!).toFixed(1)} N`));
     }
     const R = landerRules(L);
-    const run = runLander(R, landerStart(R, r), (s) => landerPolicy(this.mean, s), r, 4);
+    const run = runLander(R, landerStart(R, r), (s) => landerPolicy(this.mean, s, R.gauge), r, 4);
     return run.trace.map((s, i) => landerFrame(s, R, i === run.trace.length - 1 ? `${run.ok ? 'Landed' : 'Failed'}: ${run.why} · fuel used ${(R.fuel - s[6]!).toFixed(1)} of ${R.fuel}.` : `${(i * 4 * LDT).toFixed(1)} s · height ${s[1]!.toFixed(0)} m · falling ${Math.max(0, -s[3]!).toFixed(1)} m/s · fuel ${s[6]!.toFixed(0)}`));
   }
 }

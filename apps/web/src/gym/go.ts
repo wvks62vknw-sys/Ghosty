@@ -18,7 +18,7 @@
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
 import { area, copyGo, type Go, goFrame, goFrom, goState, goText, group, inner, isEye, KOMI, legalAt, margin, newGo, outer, over, pass, playAt, ptName } from './goboard';
 import { GO_PUZZLES } from './gosets';
-import { Match, type MatchResult, record, share, sliceMs, type Stepper } from './match';
+import { Match, type MatchResult, record, share, sliceMs, type Stepper, trainMs } from './match';
 
 const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 import { GO } from './meta';
@@ -584,7 +584,7 @@ class GoLearner implements Learner {
     this.cur ??= { g: newGo(9), seen: [] };
     const { g, seen } = this.cur;
     const t0 = clock();
-    for (let i = 0; i < k && !over(g) && g.moves < 200 && (i === 0 || clock() - t0 < 30); i++) {
+    for (let i = 0; i < k && !over(g) && g.moves < 200 && (i === 0 || clock() - t0 < trainMs()); i++) {
       let m: number;
       const cand = candidates(g);
       if (g.moves < 4 || this.r() < 0.05) m = cand[Math.floor(this.r() * cand.length)]!;

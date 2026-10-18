@@ -10,6 +10,7 @@
  * exploitability of playing every option equally often (so 0% untrained, 100% unbeatable). Kuhn poker's
  * equilibrium value is −1/18 of a chip a hand for the first player (tested).
  */
+import { trainMs } from './match';
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
 import { POKER } from './meta';
 
@@ -431,7 +432,7 @@ class PokerLearner implements Learner {
     // As many rounds of CFR+ as fit in ~30 ms (a big game's round walks tens of thousands of positions).
     const t0 = clock();
     let k = 0;
-    while (k < n && (k === 0 || clock() - t0 < 30)) {
+    while (k < n && (k === 0 || clock() - t0 < trainMs())) {
       this.cfr.iterate();
       k++;
     }
