@@ -95,7 +95,8 @@ const reply = async (text) => {
   await page.fill('#cin', text);
   await page.press('#cin', 'Enter');
   await page.waitForFunction((n) => document.querySelectorAll('.log .msg:not(.me)').length > n, before, { timeout: 20000 }).catch(() => undefined);
-  return ((await page.locator('.log .msg:not(.me)').last().textContent()) ?? '').trim();
+  // the reply's own words, without its 👍 / 👎 buttons (features/core/rate.ts)
+  return ((await page.locator('.log .msg:not(.me)').last().evaluate((m) => { const c = m.cloneNode(true); c.querySelectorAll('.rateb').forEach((b) => b.remove()); return c.textContent; })) ?? '').trim();
 };
 const chatty = await reply('say something chatty');
 check(/The kettle is on\.$/.test(chatty) && !/Great question|hope this helps|Let me know/.test(chatty), `polished reply: "${chatty}"`);
