@@ -67,7 +67,7 @@ export async function saveLineMeta(storage: DurableObjectStorage, meta: LineMeta
 export const lockedLines = (meta: LineMetaMap): Set<string> => new Set(Object.entries(meta).filter(([, m]) => m.locked).map(([k]) => k));
 
 const STOP = new Set(
-  ('that this with from have what when where which there their they them then than your yours about would could should into just like really very much more some will been being were want need know think going make made does doing done thing things also only even well good okay yeah sure please thanks thank today tonight tomorrow yesterday morning evening night time week weekend year years day days last next ever never always still again here back over under after before because while every other another each most many such these those mine ours ghosty hello right maybe actually something anything nothing everything someone anyone tell said says say asked ask help remember forget look looking find found show give gave take took come came went getting have having know knew lets shall might must cannot cant dont didnt doesnt isnt wasnt arent wont youre theyre thats whats ive youve weve were heres hows whos whens wheres little quite pretty kind sort lot lots bit stuff yes'
+  ('that this with from have what when where which there their they them then than your yours about would could should into just like really very much more some will been being were want need know think going make made does doing done thing things also only even well good okay yeah sure please thanks thank today tonight tomorrow yesterday morning evening night time week weekend year years day days last next ever never always still again here back over under after before because while every other another each most many such these those mine ours ghosty hello right maybe actually something anything nothing everything someone anyone tell said says say asked ask help remember forget look looking find found show give gave take took come came went getting have having know knew lets shall might must cannot cant dont didnt doesnt isnt wasnt arent wont youre theyre thats whats ive youve weve were heres hows whos whens wheres little quite pretty kind sort lot lots bit stuff yes along coming goes gone keep kept keeps start started stop stopped tried trying used using went seen seem seems feel felt meant mean means told telling talk talking call called work works thought thinking getting gets give gives makes making takes taking looks looked anyway though although around through without within across later soon early first second third enough rather instead already almost often usually sometimes maybe perhaps okay alright cheers sorry hmm hey hiya morning afternoon evening'
   ).split(' '),
 );
 
@@ -437,7 +437,8 @@ export function findPatterns(days: DayTally[], memories: string[]): MemoryPatter
   if (total >= 12 && days.length >= 3) {
     const parts = [0, 1, 2, 3].map((i) => days.reduce((k, d) => k + d.h[i]!, 0));
     const top = parts.indexOf(Math.max(...parts));
-    if (parts[top]! * 2 >= total) out.push({ id: `time:${top}`, kind: 'time', text: `You mostly talk to me ${PARTS[top]} — ${parts[top]} of your last ${total} messages.`, evidence: parts[top]!, unit: 'messages' });
+    const share = parts[top] === total ? `all of your last ${total} messages` : `${parts[top]} of your last ${total} messages`;
+    if (parts[top]! * 2 >= total) out.push({ id: `time:${top}`, kind: 'time', text: `You mostly talk to me ${PARTS[top]} — ${share}.`, evidence: parts[top]!, unit: 'messages' });
   }
   const span = days.length ? (Date.parse(`${days.at(-1)!.d}T12:00:00Z`) - Date.parse(`${days[0]!.d}T12:00:00Z`)) / 86_400_000 : 0;
   if (span >= 14 && total >= 14) {

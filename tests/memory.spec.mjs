@@ -6,7 +6,7 @@
 // kind filter and search; and PATTERNS: four evenings on one topic show with their evidence, and
 // ✕ hides the pattern for good (still hidden after a reload).
 //   node tests/memory.spec.mjs [outDir]
-import { launch, webkitNoise } from './browser.mjs';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -113,8 +113,9 @@ async function run(name, viewport) {
 
   // ---- TIMELINE and PATTERNS (features/memory/timeline.ts over the preview brain's memories.ts) ----
   // A fact said in a chat: the timeline shows it with that chat as its source, and the source opens it.
-  const thing = name === 'desktop' ? 'my bike is green' : 'my kettle is red';
-  const topic = name === 'desktop' ? 'allotment' : 'marathon';
+  // (one each per screen and engine, so a second run against the same preview brain finds its own)
+  const thing = { desktop: 'my bike is green', phone: 'my kettle is red' }[name] + (isWebKit ? ' and shiny' : '');
+  const topic = isWebKit ? { desktop: 'greenhouse', phone: 'caravan' }[name] : { desktop: 'allotment', phone: 'marathon' }[name];
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
   await page.fill('#cin', `remember ${thing}`);
@@ -178,7 +179,7 @@ async function run(name, viewport) {
   const kinds2 = await tlp.locator('.mik').allTextContents();
   if (!kinds2.length || kinds2.some((k) => !/ABOUT YOU/.test(k))) problems.push(`[${name}] "About you" shows: ${kinds2.join(', ')}`);
   await tlp.locator('select[aria-label="Show which memories"]').selectOption('all');
-  await tlp.locator('input[aria-label="Find a memory"]').fill(name === 'desktop' ? 'bike' : 'kettle');
+  await tlp.locator('input[aria-label="Find a memory"]').fill(edited.toUpperCase());
   if ((await tlp.locator('.mi').count()) !== 1) problems.push(`[${name}] searching found ${await tlp.locator('.mi').count()} rows`);
   await tlp.locator('input[aria-label="Find a memory"]').fill('');
   // PATTERNS: the topic of four evenings, with its evidence; ✕ hides it for good
