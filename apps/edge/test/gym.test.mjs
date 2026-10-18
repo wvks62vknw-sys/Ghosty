@@ -1,5 +1,5 @@
-// The GYM (apps/web/src/gym): ten games Ghosty teaches himself on the phone. For each: the rules, the
-// problem maker and checker (generate / check: what a later part turns into reasoning problems), the
+// The GYM (apps/web/src/gym): the games Ghosty teaches himself on the phone — part 1's ten here (part 2's
+// are in gym2.test.mjs; the shared checks below run on all of them). For each: the rules, the problem maker and checker (generate / check: what a later part turns into reasoning problems), the
 // ground-truth measure, and that a short seeded training run really improves the mastery measure. Plus the
 // session that moves up a level by itself, and the worker's message protocol.
 // (Run from offline.test.mjs, which is in the test list; package.json is protected.)
@@ -46,9 +46,10 @@ function climb(learner, bar, step, cap) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-test('gym: ten games, one interface — every engine resets, lists moves, steps and describes itself', () => {
+test('gym: every game, one interface — every engine resets, lists moves, steps and describes itself', () => {
+  // Part 1's ten come first, in this order (part 2's games follow; gym2.test.mjs covers them).
   assert.deepEqual(
-    GAMES.map((g) => g.id),
+    GAMES.slice(0, 10).map((g) => g.id),
     ['maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words'],
   );
   for (const g of GAMES) {
@@ -208,7 +209,8 @@ const WRONG = {
 };
 
 test('gym: every game makes checkable problems at every level — same seed, same problem; the right answer passes, a wrong one fails', () => {
-  for (const g of GAMES) {
+  // (Part 2's games have their right answers and near misses in gym2.test.mjs.)
+  for (const g of GAMES.filter((x) => RIGHT[x.id])) {
     for (const level of [1, 4, 7, 10]) {
       for (const seed of [2, 3]) {
         const p = g.generate(level, seed);
@@ -722,7 +724,7 @@ test('bundle: the page imports only the games\' descriptions and the two boards 
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8');
   const gymImports = [...src.matchAll(/from '\.\.\/\.\.\/gym\/([a-z0-9]+)'/g)].map((m) => m[1]);
-  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets'];
+  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'logic', 'logicsets', 'brain', 'bughunt', 'bugsets', 'tiny', 'escape', 'escapesets', 'facts', 'factcheck', 'debate', 'answer'];
   assert.deepEqual(gymImports.filter((f) => engines.includes(f)), [], `the page imports ${gymImports.join(', ')}`);
   const typeOnly = [...src.matchAll(/^import (type )?\{[^}]*\} from '\.\.\/\.\.\/gym\/(worker|core)'/gm)];
   assert.ok(typeOnly.every((m) => m[1] === 'type '), 'worker and core are imported for their types only');
