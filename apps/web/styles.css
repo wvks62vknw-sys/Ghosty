@@ -765,6 +765,8 @@ html[data-finish="nano"] .pn::before { width: 14px; height: 14px; }
 .m3pin i { position: absolute; left: 3px; bottom: 0; width: 12px; height: 12px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--a); border: 2px solid #fff; box-shadow: 0 0 8px var(--a); }
 .m3pin.me i { background: var(--c); box-shadow: 0 0 10px var(--c); }
 .m3pin span { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 2px; padding: 2px 6px; white-space: nowrap; font: 500 9px var(--d); letter-spacing: .1em; color: var(--c); background: rgba(var(--bgr), .9); border: 1px solid var(--line); border-radius: 3px; }
+/* the pin popup above the map's own controls (its buttons can reach down to the scale bar on a phone) */
+.maplibregl-popup.m3popup { z-index: 3; }
 .m3popup .maplibregl-popup-content { background: rgba(var(--bgr), .96); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
 .m3popup .maplibregl-popup-tip { border-top-color: var(--line); }
 .m3popup .maplibregl-popup-close-button { color: var(--mute); font-size: 16px; padding: 2px 6px; }

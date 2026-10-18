@@ -5,6 +5,7 @@
 // Ghosty's /i/<id> picture links shows the picture itself as a card.
 //   node tests/voice.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -80,6 +81,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   // 2. SETTINGS → VOICE: the phone's voice instead — no more /api/tts calls
   if (narrow) await page.click('.logbtn');
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
   await page.waitForSelector('select[aria-label="Voice engine"]', { timeout: 10000 });
   const options = await page.evaluate(() => [...document.querySelectorAll('select[aria-label="Voice engine"] option')].map((o) => o.textContent));
   if (!options.some((o) => /Ghosty's own voice/.test(o)) || !options.some((o) => /This phone's voice/.test(o))) problems.push(`[${name}] voice engine options: ${options.join(' | ')}`);
@@ -97,6 +99,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   if (tts !== before) problems.push(`[${name}] the phone's voice was chosen but /api/tts was still asked (${tts - before} more calls)`);
   // and back: Ghosty's voice again (a fresh page, so an earlier playback hiccup cannot hold the phone's voice)
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
   await page.waitForSelector('select[aria-label="Voice engine"]', { timeout: 10000 });
   await page.selectOption('select[aria-label="Voice engine"]', 'ghosty');
   await page.waitForTimeout(400);

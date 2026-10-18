@@ -8,6 +8,7 @@
 // starts a download when the model isn't here, and "stop" while the model loads writes nothing.
 //   node tests/offlinebrain.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -94,6 +95,7 @@ async function run(name, viewport) {
   await page.evaluate(() => (location.hash = 'settings'));
   const pn = page.locator('#pg-settings .pn.offbrain');
   await pn.waitFor({ state: 'attached', timeout: 10000 });
+  await openPanel(page, 'settings', 'OFFLINE');
   await page.waitForFunction(() => /NOT DOWNLOADED/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel does not say NOT DOWNLOADED`));
   if (!/About 352 MB, once: use Wi-Fi/.test((await pn.textContent()) ?? '')) problems.push(`[${name}] no size and Wi-Fi advice`);
   if (!(await pn.locator('button:has-text("TEST")').isDisabled())) problems.push(`[${name}] TEST is enabled before a download`);
@@ -155,6 +157,7 @@ async function run(name, viewport) {
   // "Always": the brain is never asked.
   if (narrow) await page.click('.logbtn');
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'OFFLINE');
   await pn.locator('select[aria-label="Offline brain mode"]').selectOption('always');
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
