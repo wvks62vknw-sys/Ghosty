@@ -232,3 +232,49 @@ test("POST /tts with a voice: Aura's natural British voices within the day's sha
   assert.equal((await post({ text: 'Who?', voice: 'bogus' })).headers.get('x-voice'), 'melo');
   S._testing.reset();
 });
+
+// ---------- barge-in (apps/web/src/assistant/barge.ts): the owner talking over Ghosty, from a made-up microphone ----------
+
+const { BargeDetector } = await (async () => {
+  const { build } = await import('esbuild');
+  const out = await build({ entryPoints: [new URL('../../web/src/assistant/barge.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent' });
+  return import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+})();
+
+/** A fake microphone: readings every 20 ms from `level(t)`, with a little noise; the time the detector fired, or -1. */
+function run(level, ms = 4000, opts) {
+  const d = new BargeDetector(opts);
+  let seed = 7;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.004;
+  for (let t = 0; t <= ms; t += 20) if (d.feed(Math.max(0, level(t) + noise()), t, true)) return { at: t, d };
+  return { at: -1, d };
+}
+
+test("barge-in: Ghosty's own echo, however steady or bumpy, never counts; the owner's voice does, within 300 ms", () => {
+  // the echo left after cancellation: steady, then a loud syllable now and then (60 ms bursts)
+  const echo = (t) => 0.03 + (t % 700 < 60 ? 0.06 : 0) + 0.01 * Math.sin(t / 37);
+  assert.equal(run(echo).at, -1, 'Ghosty hearing itself must not stop itself');
+  // a cough or a tap on the table: short and loud
+  assert.equal(run((t) => echo(t) + (t > 1500 && t < 1600 ? 0.5 : 0)).at, -1, 'a click or a cough is not the owner talking');
+  // the owner starts talking at 1.5 s over the echo
+  const talk = run((t) => echo(t) + (t >= 1500 ? 0.2 : 0));
+  assert.ok(talk.at > 1500, 'not before they talk');
+  assert.ok(talk.at - 1500 <= 300, `heard within 300 ms (took ${talk.at - 1500} ms)`);
+  // and knows when the voice began, to keep the first words (an echo burst just before may be joined to it)
+  assert.ok(talk.d.speechStart >= 1400 && talk.d.speechStart <= 1500, `voice began at ${talk.d.speechStart}`);
+  // a quiet room with no echo: a soft voice is enough
+  const soft = run((t) => 0.004 + (t >= 1000 ? 0.05 : 0));
+  assert.ok(soft.at > 1000 && soft.at - 1000 <= 300, `soft voice heard (at ${soft.at})`);
+  // speech that breaks for a moment (between syllables) is still one voice
+  const choppy = run((t) => 0.005 + (t >= 1000 && (t - 1000) % 140 < 100 ? 0.15 : 0));
+  assert.ok(choppy.at > 1000 && choppy.at - 1000 <= 300, `syllables bridged (at ${choppy.at})`);
+  // nothing during the first moments, while it learns the echo
+  assert.equal(run((t) => 0.3, 280).at, -1);
+  // it fires once only
+  const d = new BargeDetector();
+  let fired = 0;
+  for (let t = 0; t < 3000; t += 20) if (d.feed(t > 500 ? 0.3 : 0.01, t)) fired++;
+  assert.equal(fired, 1);
+  // junk readings are treated as silence
+  assert.equal(run(() => NaN).at, -1);
+});

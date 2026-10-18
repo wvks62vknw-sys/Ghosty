@@ -16,13 +16,14 @@ import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
 import { toast } from '../ui/components';
-import { speak, stopListening, stopSpeaking } from './voice';
+import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 
 export type Entry =
   | { kind: 'user'; text: string; at: number }
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo }
+  /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; cut?: boolean }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -82,6 +83,13 @@ const label = (name: string, args: Record<string, unknown>) => {
 function push(e: Entry): void {
   chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 }
+
+// The owner cut Ghosty off mid-reply (voice.ts interrupt): the reply being read out is marked, so the
+// log shows it was not all said. (The approval question read out has no reply entry to mark.)
+onCutOff(() => {
+  const last = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant');
+  if (last) patch((e) => e === last, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), cut: true }));
+});
 
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {

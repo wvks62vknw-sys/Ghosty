@@ -3,7 +3,7 @@
  */
 import { brain } from '../../api/brain';
 import { answerApproval, chat, send, type Entry } from '../../assistant/session';
-import { listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
+import { holdMic, interrupt, listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
@@ -31,6 +31,8 @@ async function voiceTurn(): Promise<void> {
     conversation = false;
     return;
   }
+  // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
+  holdMic(true);
   try {
     const text = await listen(whisper, (t) => chat.set({ live: t }));
     if (!conversation) return;
@@ -44,6 +46,7 @@ async function voiceTurn(): Promise<void> {
     wait();
   } catch (e) {
     conversation = false;
+    holdMic(false);
     toast(String((e as Error)?.message ?? e), 'bad');
   }
 }
@@ -68,13 +71,15 @@ function linked(text: string): HTMLElement {
 function renderEntry(e: Entry): HTMLElement {
   switch (e.kind) {
     case 'user':
-      return h('div.msg.me', h('small', settings.get().name.toUpperCase()), h('span', e.text));
+      // data-at: the Memory tab's "from your chat" opens the conversation here.
+      return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant':
       // Answered by the small model on the phone itself: one quiet chip says so.
       if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
       // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
       if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+      // Cut off: the owner interrupted while it was read out.
+      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -149,8 +154,11 @@ export const coreTab: TabDef = {
     });
     const mic = h('button#mic', { type: 'button', 'aria-label': 'Talk by voice' }, icon(MIC));
     mic.addEventListener('click', () => {
+      // Ghosty is talking: the tap cuts in and it listens (a conversation's loop listens next by itself).
+      if (interrupt('tap') && conversation) return;
       if (conversation) {
         conversation = false;
+        holdMic(false);
         stopListening();
         mic.classList.remove('on');
         return;
@@ -196,7 +204,10 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
+    // A tap on the reactor while Ghosty is speaking stops it (in a voice conversation it then listens).
+    const rwrap = h('div.rwrap', reactor.el);
+    rwrap.addEventListener('click', () => void interrupt('tap'));
+    const center = h('div.ccenter', stark.el, rwrap, stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
 
