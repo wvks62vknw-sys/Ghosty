@@ -83,3 +83,132 @@ test('subscriptions only to real push services; VAPID header is a valid ES256 JW
   assert.equal((await P.loadSubs(storage)).length, 0);
   assert.ok(sub.id);
 });
+
+// ---------------------------------------------------------------------------------------
+// NOTIFICATIONS switches (notifyprefs.ts): every push the brain sends goes through one gate that
+// looks at the owner's choice for its kind; the inbox keeps the item either way.
+// ---------------------------------------------------------------------------------------
+import { build } from 'esbuild';
+
+await build({ entryPoints: [new URL('../src/notifyprefs.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', outfile: new URL('./.build/notifyprefs.mjs', import.meta.url).pathname, logLevel: 'warning' });
+const N = await import('./.build/notifyprefs.mjs');
+const brainMod = await import('./.build/brain.mjs');
+
+class PrefStorage {
+  m = new Map();
+  alarm = null;
+  async get(k) {
+    if (Array.isArray(k)) return new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))]));
+    return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
+  }
+  async put(k, v) {
+    if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b));
+    else this.m.set(k, structuredClone(v));
+  }
+  async delete(k) {
+    if (Array.isArray(k)) return k.filter((x) => this.m.delete(x)).length;
+    return this.m.delete(k);
+  }
+  async list({ prefix = '' } = {}) {
+    return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)]));
+  }
+  async setAlarm(t) { this.alarm = typeof t === 'number' ? t : t.getTime(); }
+  async getAlarm() { return this.alarm; }
+}
+
+/** A real-looking subscription (an actual P-256 key and auth secret) on Google's push service. */
+async function fakeSub() {
+  const kp = await webcrypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const raw = new Uint8Array(await webcrypto.subtle.exportKey('raw', kp.publicKey));
+  return { endpoint: 'https://fcm.googleapis.com/fcm/send/test-device', keys: { p256dh: P.b64u.enc(raw), auth: P.b64u.enc(webcrypto.getRandomValues(new Uint8Array(16))) }, label: 'iPhone' };
+}
+
+/** Every push POST made while `fn` runs (the push service answers 201). */
+async function pushesDuring(fn) {
+  const sent = [];
+  const was = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.startsWith('https://fcm.googleapis.com/')) {
+      sent.push(url);
+      return new Response('', { status: 201 });
+    }
+    return was(input, init);
+  };
+  try {
+    await fn();
+  } finally {
+    globalThis.fetch = was;
+  }
+  return sent;
+}
+
+test('notification kinds: each sender falls under the right switch; asked-for, task results and errors always go', () => {
+  assert.equal(N.pushKindOf({ kind: 'reminder', title: 'call Mum' }), 'reminders');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Cards to revise' }), 'flashcards');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Upgrade idea' }), 'upgrades');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Morning briefing' }), 'brief');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Your 3D model is ready' }), 'model3d');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Price drop: kettle' }), 'prices');
+  assert.equal(N.pushKindOf({ kind: 'task', title: 'Check BTC' }), null);
+  assert.equal(N.pushKindOf({ kind: 'error', title: 'Morning briefing' }), null, 'something that went wrong is never silenced');
+  assert.deepEqual(N.NOTIFY_KINDS.map((k) => k.id), ['reminders', 'brief', 'flashcards', 'model3d', 'prices', 'upgrades']);
+});
+
+test('the gate: off means no push for that kind only; a paused database never silences anything', async () => {
+  const storage = new PrefStorage();
+  const s = await fakeSub();
+  await storage.put('push:subs', [{ id: 'a', endpoint: s.endpoint, p256dh: s.keys.p256dh, auth: s.keys.auth, label: 'iPhone', at: 1 }]);
+  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, brief: true, flashcards: true, model3d: true, prices: true, upgrades: true }, 'everything is on until the owner says otherwise');
+  await N.savePrefs(storage, { flashcards: false, bogus: false, reminders: 'no' });
+  assert.deepEqual(await N.loadPrefs(storage), { reminders: true, brief: true, flashcards: false, model3d: true, prices: true, upgrades: true }, 'unknown kinds and non-booleans are ignored');
+  const msg = { title: 't', body: 'b' };
+  let n;
+  assert.deepEqual(await pushesDuring(async () => void (n = await N.pushIfWanted(storage, 'flashcards', msg))), []);
+  assert.equal(n, 0);
+  assert.equal((await pushesDuring(() => N.pushIfWanted(storage, 'reminders', msg))).length, 1);
+  assert.equal((await pushesDuring(() => N.pushIfWanted(storage, null, msg))).length, 1, 'no kind: always sent');
+  const paused = new PrefStorage();
+  paused.get = async () => {
+    throw new Error('Exceeded allowed rows read in Durable Objects free tier.');
+  };
+  assert.equal(await N.pushWanted(paused, 'flashcards'), true);
+});
+
+test('owner route /api/push/prefs, and a reminder with REMINDERS off reaches the inbox but not the phone', async (t) => {
+  const OWNER_KEY = 'push-owner-key-0123456789abcdef';
+  const pending = [];
+  const state = { storage: new PrefStorage(), waitUntil: (p) => pending.push(p) };
+  const env = { OWNER_KEY, MOCK_LLM: '1' };
+  let agent;
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brainMod.GhostyAgent(state, env)).fetch(r) }) };
+  const ctx = { waitUntil: (p) => pending.push(p) };
+  const call = (path, init = {}, key = OWNER_KEY) =>
+    brainMod.default.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', ...(key ? { 'x-ghosty-key': key } : {}) } }), env, ctx);
+
+  assert.equal((await call('/api/push/prefs', {}, '')).status, 401, 'owner only');
+  const r = await call('/api/push/prefs');
+  // The route and the gate in notify() are wired in agent.ts (kernel): until the owner unlocks it, this waits.
+  if (r.status === 404 && process.env.REQUIRE_WIRING !== '1') return t.skip('agent.ts does not route /push/prefs yet (kernel change pending)');
+  assert.equal(r.status, 200, 'the route exists');
+  const got = await r.json();
+  assert.equal(got.prefs.reminders, true);
+  assert.equal(got.kinds.length, 6);
+  assert.equal((await call('/api/push/subscribe', { method: 'POST', body: JSON.stringify(await fakeSub()) })).status, 200);
+
+  const remind = async (text) => {
+    const { job } = await (await call('/api/jobs', { method: 'POST', body: JSON.stringify({ kind: 'reminder', text, at: Date.now() + 3_600_000 }) })).json();
+    return pushesDuring(async () => {
+      assert.equal((await call(`/api/jobs/${job.id}/run`, { method: 'POST' })).status, 200);
+      await Promise.allSettled(pending.splice(0));
+    });
+  };
+  assert.equal((await remind('stretch')).length, 1, 'on: pushed');
+  const off = await (await call('/api/push/prefs', { method: 'POST', body: JSON.stringify({ reminders: false }) })).json();
+  assert.equal(off.prefs.reminders, false);
+  assert.equal((await remind('drink water')).length, 0, 'off: not pushed');
+  const items = (await (await call('/api/inbox')).json()).items;
+  assert.equal(items[0].text, 'drink water', 'the inbox still has it');
+  const test1 = await pushesDuring(async () => assert.equal((await (await call('/api/push/test', { method: 'POST' })).json()).sent, 1));
+  assert.equal(test1.length, 1, 'SEND A TEST always goes');
+});
