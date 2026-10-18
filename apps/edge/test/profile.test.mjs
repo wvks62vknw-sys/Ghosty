@@ -466,3 +466,17 @@ test('patterns in the brain: the day log filed by the reflection, dismissed patt
   // the day log never holds whole messages
   assert.ok(!JSON.stringify(storage.m.get('patterns:days')).includes('tell me about'));
 });
+
+test('the day log: messages sent in late (after a pause, with earlier times) are filed once, never twice', async () => {
+  const st = new MemStorage();
+  const now = Date.UTC(2026, 9, 10, 12);
+  await st.put('turns', [{ role: 'user', text: 'the allotment is muddy', at: now - 1000 }]);
+  assert.equal(await P.noteDays(st, now), 1);
+  assert.equal(await P.noteDays(st, now), 0, 'nothing new: nothing filed twice');
+  // two days' messages from a paused spell arrive afterwards, older than what was filed
+  await st.put('turns', [{ role: 'user', text: 'allotment again', at: now - 3 * DAY }, { role: 'user', text: 'allotment once more', at: now - 2 * DAY }, ...st.m.get('turns')]);
+  assert.equal(await P.noteDays(st, now), 2);
+  const pats = await P.patterns({ storage: st }, now);
+  assert.ok(pats.some((p) => p.id === 'topic:allotment' && p.evidence === 3), JSON.stringify(pats));
+  assert.equal(st.m.get('patterns:days').reduce((k, d) => k + d.n, 0), 3);
+});

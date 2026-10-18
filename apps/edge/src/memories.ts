@@ -13,7 +13,7 @@
  *
  * Storage: `profile:meta` (a line's source, lock and edit time, keyed by the line in lower case),
  * `diary:locks`, `memory:forgotten` (the last forgotten things, for UNDO), `patterns:days`,
- * `patterns:last` and `patterns:dismissed`. Facts and lessons carry their own source and lock.
+ * `patterns:filed` and `patterns:dismissed`. Facts and lessons carry their own source and lock.
  */
 import type { ChatTurn, Lesson, MemoryFact, MemoryItem, MemoryPattern, MemorySource, ProfileSection } from '../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
@@ -27,7 +27,8 @@ export const META_KEY = 'profile:meta';
 export const DIARY_LOCKS_KEY = 'diary:locks';
 export const FORGOTTEN_KEY = 'memory:forgotten';
 export const DAYS_KEY = 'patterns:days';
-export const DAYS_LAST_KEY = 'patterns:last';
+/** The times of the history's messages already in the day log (a message sent in late, after a pause, still counts once). */
+export const FILED_KEY = 'patterns:filed';
 export const DISMISSED_KEY = 'patterns:dismissed';
 /** The chat history agent.ts keeps (its TURNS_KEY). */
 const TURNS_KEY = 'turns';
@@ -397,21 +398,28 @@ function mergeDays(into: Map<string, DayTally>, add: DayTally[]): void {
   }
 }
 
+/** The owner's messages in the history not yet in the day log, and the times of those that are (still in the history). */
+async function unfiled(storage: DurableObjectStorage, now: number): Promise<{ turns: ChatTurn[]; filed: number[] }> {
+  const all = ((await storage.get<ChatTurn[]>(TURNS_KEY)) ?? []).filter((t) => t.role === 'user' && t.at <= now);
+  const done = new Set((await storage.get<number[]>(FILED_KEY)) ?? []);
+  return { turns: all.filter((t) => !done.has(t.at)), filed: all.filter((t) => done.has(t.at)).map((t) => t.at) };
+}
+
 /**
- * File the owner's messages since the last tally into the day log (the nightly reflection calls
- * this first, with or without a model). The chat history keeps only the latest messages; the
- * log keeps 120 days of counts, so patterns can span weeks.
+ * File the owner's messages not yet tallied into the day log (the nightly reflection calls this
+ * first, with or without a model). The chat history keeps only the latest messages; the log
+ * keeps 120 days of counts, so patterns can span weeks. Messages sent in late (after a pause,
+ * with their own earlier times) are filed when they arrive; none is counted twice.
  */
 export async function noteDays(storage: DurableObjectStorage, now = Date.now()): Promise<number> {
-  const last = (await storage.get<number>(DAYS_LAST_KEY)) ?? 0;
-  const turns = ((await storage.get<ChatTurn[]>(TURNS_KEY)) ?? []).filter((t) => t.at > last && t.at <= now);
+  const { turns, filed } = await unfiled(storage, now);
   if (!turns.length) return 0;
   const tz = safeTz(((await storage.get<{ tz?: string }>('owner:ctx')) ?? {}).tz);
   const days = new Map(((await storage.get<DayTally[]>(DAYS_KEY)) ?? []).map((d) => [d.d, d]));
   const fresh = tallyDays(turns, tz);
   mergeDays(days, fresh);
   await storage.put(DAYS_KEY, [...days.values()].sort((a, b) => a.d.localeCompare(b.d)).slice(-DAYS_KEEP));
-  await storage.put(DAYS_LAST_KEY, Math.max(...turns.map((t) => t.at)));
+  await storage.put(FILED_KEY, [...filed, ...turns.map((t) => t.at)]);
   return fresh.reduce((k, d) => k + d.n, 0);
 }
 
@@ -462,9 +470,8 @@ export function findPatterns(days: DayTally[], memories: string[]): MemoryPatter
 export async function patterns(deps: Pick<ProfileDeps, 'storage'>, now = Date.now()): Promise<MemoryPattern[]> {
   const { storage } = deps;
   const tz = safeTz(((await storage.get<{ tz?: string }>('owner:ctx')) ?? {}).tz);
-  const last = (await storage.get<number>(DAYS_LAST_KEY)) ?? 0;
   const days = new Map(((await storage.get<DayTally[]>(DAYS_KEY)) ?? []).map((d) => [d.d, structuredClone(d)]));
-  mergeDays(days, tallyDays(((await storage.get<ChatTurn[]>(TURNS_KEY)) ?? []).filter((t) => t.at > last && t.at <= now), tz));
+  mergeDays(days, tallyDays((await unfiled(storage, now)).turns, tz));
   const profile = await loadProfile(storage);
   const memories = [...PROFILE_SECTIONS.flatMap((s) => profile.sections[s]), ...(await loadMemory(storage)).map((f) => f.text)];
   const dismissed = new Set((await storage.get<string[]>(DISMISSED_KEY)) ?? []);

@@ -70,7 +70,7 @@ function sourceLine(m: MemoryItem): HTMLElement {
   if (s.kind === 'owner') return h('div.misrc', `You added it · ${day(s.at)}${edited}`);
   if (s.kind === 'ghosty') return h('div.misrc', `Ghosty learned it from its own work · ${day(s.at)}${edited}`);
   if (s.kind === 'unknown') return h('div.misrc', `Kept before sources were recorded · ${day(s.at)}${edited}`);
-  const label = s.kind === 'chat' ? `From your chat on ${when(s.turnAt ?? s.at)}` : s.turnAt ? `From the nightly reflection on your chat of ${when(s.turnAt)}` : `From the nightly reflection · ${day(s.at)}`;
+  const label = s.kind === 'chat' ? `From your chat on ${when(s.turnAt ?? s.at)}` : s.turnAt ? `From the reflection on your chat of ${when(s.turnAt)}` : `From the reflection · ${day(s.at)}`;
   if (s.kind === 'reflection' && !s.turnAt) return h('div.misrc', `${label}${edited}`);
   const b = h('button.srclink', { type: 'button', title: 'Open that chat' }, `${label} ›`);
   b.addEventListener('click', () => openChatAt(s.turnAt ?? s.at, s.quote));
@@ -200,8 +200,9 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   async function refresh(): Promise<void> {
     try {
       const r = await brain.memoryTimeline();
-      items = r.items;
-      state.patterns = r.patterns;
+      // An older brain (no timeline yet) answers something else: shown as empty, not as a crash.
+      items = Array.isArray(r.items) ? r.items : [];
+      state.patterns = Array.isArray(r.patterns) ? r.patterns : [];
     } catch {
       p.setStatus('OFFLINE', 'off');
       return;

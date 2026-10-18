@@ -1,6 +1,10 @@
 // The Memory tab's ME and DIARY panels: the profile drawn from the brain (stubbed first, exact
 // values), a line added and removed, a diary entry opened, REFLECT NOW's toast — then, through
-// the preview brain's scripted model, a real reflection over two things the owner said.
+// the preview brain's scripted model, a real reflection over two things the owner said. Then the
+// TIMELINE over the real brain: a fact said in chat shows with that chat as its source (which
+// opens it), EDIT, LOCK (and the "Locked only" filter), FORGET and UNDO (back still locked), the
+// kind filter and search; and PATTERNS: four evenings on one topic show with their evidence, and
+// ✕ hides the pattern for good (still hidden after a reload).
 //   node tests/memory.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
@@ -106,11 +110,97 @@ async function run(name, viewport) {
   const real = (await me.textContent()) ?? '';
   if (!/walks in Kings Heath/.test(real)) problems.push(`[${name}] the second thing said is missing from the profile: ${real.slice(0, 200)}`);
   await page.screenshot({ path: `${out}/${name}-memory-reflected.png` });
+
+  // ---- TIMELINE and PATTERNS (features/memory/timeline.ts over the preview brain's memories.ts) ----
+  // A fact said in a chat: the timeline shows it with that chat as its source, and the source opens it.
+  const thing = name === 'desktop' ? 'my bike is green' : 'my kettle is red';
+  const topic = name === 'desktop' ? 'allotment' : 'marathon';
+  await page.evaluate(() => (location.hash = 'core'));
+  if (narrow) await page.click('.logbtn');
+  await page.fill('#cin', `remember ${thing}`);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => /Saved \(id|Mock|remember/i.test(document.querySelector('#pg-core .log')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+  await page.waitForTimeout(800);
+  if (narrow) await page.click('.logbtn');
+  // Four evenings of talk about one topic, sent to the brain's history as the app does after a pause.
+  await page.evaluate(async ([topic]) => {
+    const day = 86_400_000;
+    const now = Date.now();
+    const turns = [1, 2, 3, 4].map((d) => ({ role: 'user', text: `how is the ${topic} coming along`, at: now - d * day }));
+    await fetch('/api/history', { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: JSON.stringify({ turns }) });
+  }, [topic]);
+  await page.evaluate(() => (location.hash = 'memory'));
+  const tlp = page.locator('#pg-memory .pn.tl');
+  await tlp.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push(`[${name}] no TIMELINE panel`));
+  const item = (text) => tlp.locator('.mi', { hasText: text });
+  await item(thing).first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push(`[${name}] the fact said in chat is not in the timeline`));
+  const src = (await item(thing).first().locator('.misrc').textContent().catch(() => '')) ?? '';
+  if (!/From your chat on/.test(src)) problems.push(`[${name}] the chat fact's source reads "${src}"`);
+  // everything is there: what reflection kept, newest first
+  const kinds = await tlp.locator('.mik').allTextContents();
+  if (!kinds.some((k) => /ABOUT YOU/.test(k)) || !kinds.some((k) => /SAVED FACT/.test(k))) problems.push(`[${name}] the timeline is missing kinds: ${kinds.join(', ')}`);
+  if (!kinds.some((k) => /DIARY/.test(k))) problems.push(`[${name}] the diary is not in the timeline`);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${out}/${name}-memory-timeline.png` });
+  // the source opens that chat (the CORE log, the message picked out), or what was said when the phone no longer has it
+  await item(thing).first().locator('button.srclink').click();
+  const opened = await page.waitForFunction(() => document.querySelector('#pg-core .msg.me.found') || document.querySelector('.modal .mbody'), null, { timeout: 6000 }).then(() => true, () => false);
+  if (!opened) problems.push(`[${name}] tapping the source did not open the chat`);
+  else if (!(await page.evaluate(() => location.hash === '#core' && !!document.querySelector('#pg-core .msg.me.found')))) problems.push(`[${name}] the chat is on this phone, but it showed a box instead of the conversation`);
+  await page.screenshot({ path: `${out}/${name}-memory-source.png` });
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => (location.hash = 'memory'));
+  await item(thing).first().waitFor({ state: 'visible', timeout: 8000 });
+  // EDIT
+  await item(thing).first().locator('button:has-text("EDIT")').click();
+  const edited = `${thing}, and old`;
+  await tlp.locator('.mi textarea').fill(edited);
+  await tlp.locator('.mi button:has-text("SAVE")').click();
+  await item(edited).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => problems.push(`[${name}] the edit did not show`));
+  if (!/edited/.test((await item(edited).first().locator('.misrc').textContent().catch(() => '')) ?? '')) problems.push(`[${name}] the edited memory is not marked edited`);
+  // LOCK
+  await item(edited).first().locator('button:has-text("LOCK")').click();
+  await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] LOCK did not lock it`));
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('locked');
+  const lockedOnly = await tlp.locator('.mi').count();
+  if (lockedOnly < 1 || (await tlp.locator('.mi:not(.locked)').count())) problems.push(`[${name}] "Locked only" shows ${lockedOnly} rows, some unlocked`);
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('all');
+  // FORGET, then UNDO: back, still locked
+  await item(edited).first().locator('button:has-text("FORGET")').click();
+  await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] FORGET did not remove it`));
+  const undo = tlp.locator('.undo button:has-text("UNDO")');
+  if (!(await undo.isVisible().catch(() => false))) problems.push(`[${name}] no UNDO after FORGET`);
+  await page.screenshot({ path: `${out}/${name}-memory-undo.png` });
+  await undo.click().catch(() => undefined);
+  await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring it back locked`));
+  // the filter by kind and the search
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('profile');
+  const kinds2 = await tlp.locator('.mik').allTextContents();
+  if (!kinds2.length || kinds2.some((k) => !/ABOUT YOU/.test(k))) problems.push(`[${name}] "About you" shows: ${kinds2.join(', ')}`);
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('all');
+  await tlp.locator('input[aria-label="Find a memory"]').fill(name === 'desktop' ? 'bike' : 'kettle');
+  if ((await tlp.locator('.mi').count()) !== 1) problems.push(`[${name}] searching found ${await tlp.locator('.mi').count()} rows`);
+  await tlp.locator('input[aria-label="Find a memory"]').fill('');
+  // PATTERNS: the topic of four evenings, with its evidence; ✕ hides it for good
+  const pp = page.locator('#pg-memory .pn.pats');
+  const pat = pp.locator('.pat', { hasText: topic });
+  if (!(await pat.first().waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false))) problems.push(`[${name}] no pattern about "${topic}": ${(await pp.textContent().catch(() => '')) ?? ''}`);
+  const evidence = (await pat.first().locator('.pe').textContent().catch(() => '')) ?? '';
+  if (!/^\d+ days$/.test(evidence.trim()) || Number.parseInt(evidence, 10) < 3) problems.push(`[${name}] the pattern's evidence reads "${evidence}"`);
+  await page.screenshot({ path: `${out}/${name}-memory-patterns.png` });
+  await pat.first().locator('button.del').click().catch(() => undefined);
+  await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.pats .pat')].some((x) => x.textContent.includes(t)), topic, { timeout: 8000 }).catch(() => problems.push(`[${name}] dismissing the pattern did not hide it`));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.evaluate(() => (location.hash = 'memory'));
+  await tlp.locator('.mi').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
+  await page.waitForTimeout(800);
+  if (await pp.locator('.pat', { hasText: topic }).count()) problems.push(`[${name}] the dismissed pattern came back after a reload`);
   await ctx.close();
 }
 
 await run('desktop', { width: 1440, height: 900 });
 await run('phone', { width: 390, height: 844 });
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME, DIARY and REFLECT NOW work.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME, DIARY, REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo, filters) and PATTERNS work.');
 process.exit(problems.length ? 1 : 0);

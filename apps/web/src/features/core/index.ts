@@ -204,9 +204,15 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    // A tap on the reactor while Ghosty is speaking stops it (in a voice conversation it then listens).
+    // A tap on the reactor — anywhere on this tab but a control or the log — while Ghosty is speaking stops it
+    // (in a voice conversation it then listens). The reactor itself lets taps through to the scene behind it.
+    document.addEventListener('pointerup', (e) => {
+      if (ui.get().tab !== 'core' || ui.get().voice !== 'speaking') return;
+      const t = e.target as Element | null;
+      if (t?.closest?.('button, input, select, textarea, a, .log, .cside, #cbar, #topbar, nav, .modal')) return;
+      interrupt('tap');
+    });
     const rwrap = h('div.rwrap', reactor.el);
-    rwrap.addEventListener('click', () => void interrupt('tap'));
     const center = h('div.ccenter', stark.el, rwrap, stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
     hud.append(left, center, right);
     root.append(hud);
