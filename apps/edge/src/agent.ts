@@ -403,7 +403,8 @@ export class GhostyAgent {
       if (path === '/design/plan') return await designRoute(req, method);
       // The phone's daily encrypted backup, kept in KV (backup.ts): the brain only ever holds ciphertext.
       if (path === '/backup' || path.startsWith('/backup/')) return await backupRoute(req, path, method, { kv: this.env.SITES });
-      if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface') });
+      // [B1, for review] ai: Workers AI's FLUX draws the object for the 3D STUDIO's MAKE IT (free allowance; the only change here).
+      if (path === '/m3d' || path.startsWith('/m3d/')) return await model3dRoute(req, path, method, { kv: this.env.SITES, token: () => this.vault.get('huggingface'), ai: this.env.AI });
       // A picture from the Lens, shared by public link for 24 hours so a reverse-image engine can fetch it (lens.ts).
       if (path === '/lens/share' && method === 'POST') return await this.shareLens(req);
       const li = path.match(/^\/lens\/share\/([A-Za-z0-9_-]{16})$/);
