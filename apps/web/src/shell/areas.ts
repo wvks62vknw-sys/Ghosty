@@ -228,7 +228,14 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   // a long press on the avatar opens every screen at once (the home-screen grid)
   let press = 0;
   you.addEventListener('pointerdown', () => (press = window.setTimeout(() => ((press = -1), openDeck()), 550)));
-  you.addEventListener('pointerup', () => press > 0 && clearTimeout(press));
+  // A touch that becomes a scroll (pointercancel) or slides off the avatar is not a long press either.
+  const letGo = () => {
+    if (press > 0) {
+      clearTimeout(press);
+      press = 0;
+    }
+  };
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) you.addEventListener(ev, letGo);
   clear(dock, h('div.tabblur', { 'aria-hidden': 'true' }), cap);
   document.querySelector('#top .cmd')?.after(you);
   const tap = (a: Area) => {
