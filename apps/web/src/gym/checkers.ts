@@ -326,14 +326,16 @@ class CkLearner implements Learner {
   }
   watch(seed: number): Frame[] {
     // He plays the reference engine (a shallower search than the match, so it is quick to show).
-    const d = Math.min(4, depthFor(this.level));
+    const d = Math.min(3, depthFor(this.level));
     const g = duel(seed % OPEN.length, seed % 2 === 0, d, learnedEval(this.w));
     const me = seed % 2 === 0 ? g.p.side : -g.p.side;
     const who = me === 1 ? 'Black (cyan)' : 'White (amber)';
     const frames: Frame[] = [{ ...ckFrame(g.p, `He is ${who}, against the depth-${d} reference engine.`), every: 0.35 }];
     for (let i = 0; i < 160; i++) {
       const before = Array.from(g.p.b);
-      const r = g.step();
+      // A step is a slice of a search: step until the move is made (or the game ends).
+      let r: number | null = null;
+      for (const s0 = g.p.side; r == null && g.p.side === s0; ) r = g.step();
       if (r != null) {
         frames.push({ ...ckFrame(g.p, r === 1 ? 'He wins.' : r === 0 ? 'The reference engine wins.' : 'A draw.'), every: 0.35 });
         break;

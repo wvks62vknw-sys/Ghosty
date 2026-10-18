@@ -606,14 +606,16 @@ class GoLearner implements Learner {
     return goFrame(g, `A random position: the small squares show who he expects to own each empty point (score estimate ${scoreEstimate(this.t, g).toFixed(1)} for Black, after komi).`, marks);
   }
   watch(seed: number): Frame[] {
-    const sims = Math.min(64, playoutsFor(this.level));
+    const sims = Math.min(24, playoutsFor(this.level));
     const d = duel(seed % OPENINGS.length, seed % 2 === 0, sims, this.t, seed);
     const who = d.me === 1 ? 'Black' : 'White';
     const frames: Frame[] = [{ ...goFrame(d.g, `He is ${who}, against the ${sims}-play-out reference engine.`), every: 0.3 }];
     for (let i = 0; i < 220; i++) {
       const mover = d.g.side;
       const before = d.g.b.slice();
-      const res = d.step();
+      // A step is a slice of a search: step until the move is made (or the game ends).
+      let res: number | null = null;
+      for (const m0 = d.g.moves; res == null && d.g.moves === m0; ) res = d.step();
       if (res != null) {
         const m = margin(d.g);
         frames.push({ ...goFrame(d.g, `${res === 1 ? 'He wins' : res === 0 ? 'The reference engine wins' : 'A draw'}: ${m > 0 ? 'Black' : 'White'} by ${Math.abs(m)} (area, komi ${KOMI}).`), every: 0.3 });

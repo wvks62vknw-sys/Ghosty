@@ -407,10 +407,12 @@ class ChessLearner implements Learner {
       return 1 / (1 + Math.pow(10, -v / 400));
     };
     const probs = seen.map(prob);
+    // Big steps at first, smaller as he settles (otherwise the last few games' luck swings his values about).
+    const rate = RATE * Math.max(0.25, 1 / Math.sqrt(1 + this.games / 2000));
     let G = z;
     for (let k = seen.length - 1; k >= 0; k--) {
       const b = seen[k]!;
-      const g = RATE * (G - probs[k]!);
+      const g = rate * (G - probs[k]!);
       for (let i = 0; i < 64; i++) {
         const x = b[((i >> 3) << 4) | (i & 7)]!;
         if (x > 0) (this.w[x - 1]! += g), (this.w[sqIndex(x, i)]! += g * PST_RATE);
@@ -481,14 +483,16 @@ class ChessLearner implements Learner {
     return { bars, caption: `What each piece is worth to him, learned from ${this.games.toLocaleString('en-GB')} games against himself (the textbook values are about 3, 3, 5 and 9 pawns).` };
   }
   watch(seed: number): Frame[] {
-    const d = Math.min(2, depthFor(this.level));
+    const d = 1;
     const g = duel(seed % OPENINGS.length, seed % 2 === 0, d, learnedEval(this.w));
     const who = g.me > 0 ? 'White' : 'Black';
     const frames: Frame[] = [{ ...chessFrame(g.p, `He is ${who}, against the depth-${d} reference engine.`), every: 0.6 }];
-    for (let i = 0; i < 160; i++) {
+    for (let i = 0; i < 120; i++) {
       const moving = g.p.side;
       const before = copyPos(g.p);
-      const r = g.step();
+      // A step is a slice of a search: step until the move is made (or the game ends).
+      let r: number | null = null;
+      for (const n0 = g.p.undo.length; r == null && g.p.undo.length === n0; ) r = g.step();
       if (r != null) {
         const st = status(g.p);
         frames.push({ ...chessFrame(g.p, `${r === 1 ? 'He wins' : r === 0 ? 'The reference engine wins' : 'A draw'}${st ? ` (${STATUS_WORDS[st]})` : ' (on material after 100 moves)'}.`), every: 0.6 });

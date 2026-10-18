@@ -1,14 +1,15 @@
 /**
  * GYM tab — Ghosty teaches himself by playing. GAMES: a card per game (level, mastery, a sparkline,
  * TRAINING / PAUSED / MASTERED). Tapping a card opens it in the GAME panel: what he is learning, the
- * status line, TRAIN (or PAUSE), WATCH (he plays, step by step), PLAY HIM (tic-tac-toe and Connect 4 on
- * the board; Code Breaker and Word Guess: you pick what he must find), RESET, the mastery graph (one line
+ * status line, TRAIN (or PAUSE), WATCH (he plays, step by step), PLAY HIM (tic-tac-toe, Connect 4, and —
+ * through play.ts — checkers, chess and Go on the board; Code Breaker and Word Guess: you pick what he must
+ * find), RESET, the mastery graph (one line
  * per level, measured against ground truth) and a picture of what he knows.
  *
  * Training runs in a Web Worker (gym/worker.ts, inside an instance of the bundled textures worker), one
  * game at a time; it pauses while the app is hidden and its state is kept in IndexedDB (store.ts), so it
- * carries on next time. The page imports only the games' descriptions (gym/meta.ts) and the two board
- * files: the engines live in the worker's bundle. State for specs at window.__ghosty.gym.
+ * carries on next time. The page imports only the games' descriptions (gym/meta.ts) and the board files
+ * (rules, no engines): the engines live in the worker's bundle. State for specs at window.__ghosty.gym.
  */
 import { clear, h, svgEl } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
