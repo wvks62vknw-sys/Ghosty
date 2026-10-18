@@ -133,7 +133,7 @@ ${HOURS_CSS}
 .b-map .card .head{margin:0}
 .b-map .note{color:var(--muted);font-size:var(--step--1)}
 .b-map .mapbox{position:relative;min-height:340px;border-radius:var(--r3);overflow:hidden;border:1px solid var(--border);background:var(--surface-2)}
-.b-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.b-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;filter:var(--map-filter)}
 .b-map .nomap{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:var(--space-s);text-align:center;padding:var(--space-l);background:repeating-linear-gradient(45deg,transparent 0 18px,rgb(var(--rgb-text) / .04) 18px 19px)}
 .b-map .nomap .ic{width:44px;height:44px;color:var(--primary)}
 .b-map .credit{position:absolute;right:0;bottom:0;padding:2px 8px;background:rgb(255 255 255 / .85);color:#222;font-size:11px;border-top-left-radius:6px}

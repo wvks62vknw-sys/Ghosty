@@ -20,6 +20,7 @@ export const contentBlocks: BlockDef[] = [
 .b-features-grid .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-2)}
 .b-features-grid .ico{display:grid;place-items:center;width:52px;height:52px;border-radius:var(--r2);background:rgb(var(--rgb-primary) / .1);color:var(--primary);margin-bottom:var(--space-2xs)}
 .b-features-grid .card p{color:var(--muted)}
+@media (max-width:599px){.b-features-grid .card{grid-template-columns:44px 1fr;column-gap:var(--space-s);padding:var(--space-s) var(--space-m)}.b-features-grid .ico{grid-row:span 3;width:44px;height:44px;margin:0}.b-features-grid .card>*:not(.ico){grid-column:2}}
 .b-features-grid .card a{font-weight:600;text-decoration:none;display:inline-flex;gap:.4em;align-items:center;margin-top:auto;min-height:44px}
 .b-features-grid .card a .ic{width:18px;height:18px}
 .tone-inverse.b-features-grid .card{background:rgb(var(--rgb-bg) / .06);border-color:rgb(var(--rgb-bg) / .14);color:inherit}

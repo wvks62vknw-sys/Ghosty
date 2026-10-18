@@ -34,11 +34,6 @@ const actions = (d: Record<string, unknown>, x: RenderCtx, outline = 'btn-outlin
 const words = (d: Record<string, unknown>, cls = 'lead') =>
   `${str(d, 'eyebrow') ? `<p class="eyebrow">${esc(str(d, 'eyebrow'))}</p>` : ''}<h1>${rich(str(d, 'title'))}</h1>${str(d, 'lead') ? `<p class="${cls}">${esc(str(d, 'lead'))}</p>` : ''}`;
 
-/** Opening today, from the hours the owner gave ("Open today 9:00–18:00"); the page's script keeps it current. */
-export function hoursToday(x: RenderCtx): string {
-  return x.brief.hours?.length ? `<span data-today>${esc(x.brief.hours[0]!.label)} ${x.brief.hours[0]!.closed ? 'closed' : `${esc(x.brief.hours[0]!.open ?? '')}–${esc(x.brief.hours[0]!.close ?? '')}`}</span>` : '';
-}
-
 export const heroBlocks: BlockDef[] = [
   {
     id: 'hero-split',

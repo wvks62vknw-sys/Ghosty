@@ -46,6 +46,20 @@ export const STOCK: Partial<Record<KindId, StockSet>> = {
       C('3/36/Latte_art_smile.jpg', 2592, 1944, 'A coffee with a smiling face in the foam, next to a pastry', 'קלאופטרה', 'CC BY-SA 3.0', 'Latte art smile'),
     ],
   },
+  trades: {
+    hero: C('7/7d/Bathroom_of_Khan_Pool_Suite_in_Amantaka_luxury_Resort_&_Hotel_in_Luang_Prabang_Laos.jpg', 5768, 3845, 'A finished bathroom with twin basins, mirrors and a tiled floor', 'Basile Morin', 'CC BY-SA 4.0', 'Bathroom of Khan Pool Suite', '30% 50%'),
+    story: [
+      C('5/58/Plumber_01.jpg', 5472, 3648, 'A plumber drilling into a wall to fit pipework', 'Amuzujoe', 'CC BY-SA 4.0', 'Plumber 01'),
+      C('a/ad/Rustic_tools_spread_across_a_weathered_wooden_workbench_showcasing_craftsmanship_and_utility.jpg', 4016, 6016, 'Spanners and hand tools on a workbench', 'Shixart1985', 'CC BY 2.0', 'Tools on a workbench'),
+    ],
+    gallery: [
+      C('a/a7/Small_Bathroom_Renovation_in_Wellington.jpg', 3024, 4032, 'A small bathroom after renovation, with a walk-in shower', 'Smtzzz', 'CC BY-SA 4.0', 'Small bathroom renovation'),
+      C('1/1a/Red_modern_bathroom_interior._(51528276166).jpg', 6016, 4016, 'A modern bathroom with a glass shower and a red feature wall', 'Nenad Stojkovic', 'CC BY 2.0', 'Red modern bathroom interior'),
+      C('3/37/Electrician_Working.jpg', 2048, 1536, 'An electrician working with his tools laid out', 'editor B', 'CC BY 2.0', 'Electrician working'),
+      C('b/b2/Haltern_am_See,_Sythen,_Werkzeughalle_der_Quarzwerke_--_2015_--_4990.jpg', 5245, 3497, 'A tidy workshop bench with tools on the wall', 'Dietmar Rabich', 'CC BY-SA 4.0', 'Werkzeughalle'),
+      C('e/e8/Electricians_working_on_systems_equipment_in_the_back_of_house_area_of_the_future_LIRR_concourse._10-03-2019_(48844065291).jpg', 3024, 4032, 'Electricians working on plant-room equipment', 'MTA Capital Construction', 'CC BY 2.0', 'Electricians working on systems equipment'),
+    ],
+  },
   gym: {
     hero: C('0/02/GymNation_gym_interior_2024.jpg', 2500, 1407, 'A long gym floor lined with benches and racks under blue light', 'GymNation', 'CC BY-SA 4.0', 'GymNation gym interior 2024', '50% 60%'),
     story: [

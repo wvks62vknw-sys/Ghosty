@@ -200,7 +200,7 @@ export function contrastProblems(theme: Theme): string[] {
 /** The footer: the text colour as a deep band on a light theme; on a dark theme a slightly raised surface. */
 const footOf = (c: Colours) => (luminance(c.bg) < 0.1 ? { bg: '#050505', fg: c.text } : { bg: c.text, fg: c.bg });
 const vars = (c: Colours) =>
-  `--foot-bg:${footOf(c).bg};--foot-fg:${footOf(c).fg};--rgb-foot-fg:${rgbOf(footOf(c).fg).join(' ')};--bg:${c.bg};--surface:${c.surface};--surface-2:${c.surface2};--text:${c.text};--muted:${c.muted};--border:${c.border};--primary:${c.primary};--on-primary:${c.onPrimary};--accent:${c.accent};--on-accent:${c.onAccent};--rgb-text:${rgbOf(c.text).join(' ')};--rgb-primary:${rgbOf(c.primary).join(' ')};--rgb-bg:${rgbOf(c.bg).join(' ')}`;
+  `--map-filter:${luminance(c.bg) < 0.1 ? 'invert(.92) hue-rotate(180deg) grayscale(.3) brightness(.95)' : 'none'};--foot-bg:${footOf(c).bg};--foot-fg:${footOf(c).fg};--rgb-foot-fg:${rgbOf(footOf(c).fg).join(' ')};--bg:${c.bg};--surface:${c.surface};--surface-2:${c.surface2};--text:${c.text};--muted:${c.muted};--border:${c.border};--primary:${c.primary};--on-primary:${c.onPrimary};--accent:${c.accent};--on-accent:${c.onAccent};--rgb-text:${rgbOf(c.text).join(' ')};--rgb-primary:${rgbOf(c.primary).join(' ')};--rgb-bg:${rgbOf(c.bg).join(' ')}`;
 
 /** The Google Fonts stylesheet for a pairing (display=swap), or '' for system fonts. */
 export function fontsHref(f: FontsId): string {

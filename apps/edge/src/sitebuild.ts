@@ -408,14 +408,21 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
   }
   const how = images.length ? 'screenshots' : 'layout';
   const pr = critiquePrompt(job.plan!, job.brief, layoutAnalysis(job.plan!, a, gates), how === 'screenshots');
-  const reply = await ask(deps, job, pr.system, how === 'screenshots' ? withImages(pr.user, images) : pr.user, { tier: 'big' });
+  let reply = await ask(deps, job, pr.system, how === 'screenshots' ? withImages(pr.user, images) : pr.user, { tier: 'big' });
+  let how2: 'screenshots' | 'layout' = how;
+  if (reply === null && how === 'screenshots') {
+    // No model that can see is free: the critique from the layout analysis instead.
+    const text = critiquePrompt(job.plan!, job.brief, layoutAnalysis(job.plan!, a, gates), false);
+    reply = await ask(deps, job, text.system, text.user, { tier: 'big' });
+    how2 = 'layout';
+  }
   if (reply === null) job.plain.push('critique');
   const answer = reply === null ? null : jsonIn(reply);
-  job.critique = { how, verdict: typeof answer?.verdict === 'string' ? answer.verdict.slice(0, 300) : '', applied: [], skipped: [], shots: sizes };
+  job.critique = { how: how2, verdict: typeof answer?.verdict === 'string' ? answer.verdict.slice(0, 300) : '', applied: [], skipped: [], shots: how2 === 'screenshots' ? sizes : [] };
   // The fixes are applied in the next step; kept as JSON so a resumed step does not ask again.
   await durablePut(deps.env, deps.storage, `${JOB(job.id)}:fixes`, answer ?? {});
   await saveJob(deps, job);
-  return `Published at ${link}. Critique from ${how === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : 'the layout analysis (no screenshot service answered)'}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
+  return `Published at ${link}. Critique from ${how2 === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : 'the layout analysis (no screenshot service answered)'}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
 }
 
 /** Step 6: the fixes, checked; republished only when it is no worse. */
