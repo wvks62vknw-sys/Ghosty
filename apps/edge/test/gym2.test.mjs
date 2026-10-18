@@ -40,7 +40,7 @@ const NEW = ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate'];
 
 // ---------------------------------------------------------------------------------------------------------
 test('gym part 2: six reasoning games follow the first ten, on cards in that order', () => {
-  assert.deepEqual(GAMES.slice(10).map((g) => g.id), NEW);
+  assert.deepEqual(GAMES.slice(10, 16).map((g) => g.id), NEW);
   for (const id of NEW) {
     const g = gameById(id);
     assert.ok(g.title && g.blurb && g.learns && g.unit, id);
@@ -493,7 +493,9 @@ test('gym part 2: every level needs something new — trained to pass level L−
       const lv = s.rec.level;
       const ev = s.measure();
       if (ev === 'level') {
-        // What he carried from Level lv, measured on Level lv + 1 before any training there.
+        // What he carried from Level lv, measured on Level lv + 1 before any training there (the session
+        // measures a new level at its next call, and that first measurement only records where he starts).
+        assert.equal(s.measure(), null);
         starts.push(`L${lv + 1} ${Math.round(s.rec.start * 100)}%`);
         assert.ok(s.rec.start < g.bar(lv + 1), `${id}: trained to pass Level ${lv}, he already passes Level ${lv + 1} (${s.rec.start} ≥ ${g.bar(lv + 1)})`);
       }
