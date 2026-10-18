@@ -57,6 +57,10 @@ import { deleteWidget, loadWidgets, saveWidget } from './tools/widgets';
 import { addEvent, addFeed, addInbox, addJob, agenda, deferJob, ensureJob, finishJob, loadFeeds, loadInbox, loadJobs, markRead, rearm, removeEvent, removeFeed, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { thinkUpgrades, UPGRADE_JOB, upgradesRoute, type UpgradeDeps } from './upgrades';
 import { learnRoute, reviseNudge, tutorDeps } from './tutor';
+// [selftrain] the offline brain's weekly self-training (selftrain/cycle.ts): its job, routes and hook
+import { ensureTrainJob, hookRoute, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
+import { offlineToolSpecs } from './selftrain/factory';
+import { weightsRoute } from './selftrain/weights';
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
@@ -268,6 +272,10 @@ export class GhostyAgent {
     try {
       // Telegram's webhook (telegram.ts): public — Telegram calls it with the secret the brain gave it; nothing here is the owner.
       if (path === '/telegram/hook' && method === 'POST') return await telegramHook(this.telegramHost(), req);
+      // [selftrain] The Kaggle notebook's hook: public like Telegram's — it is turned away without this week's ticket.
+      if (path === '/training/hook') return await hookRoute(req, this.trainDeps());
+      // [selftrain] A trained brain's weights for the phone (selftrain/weights.ts): public like the hook, closed without the capability.
+      if (path.startsWith('/w/')) return await weightsRoute(req, path, { storage: this.storage, vault: this.vault });
       if (!this.studyChecked) this.state.waitUntil(this.ensureStudyJob().catch(() => undefined));
       if (!this.dailyChecked) this.state.waitUntil(this.ensureDailyJobs().catch(() => undefined));
       // The device's encrypted copy of the owner's keys (sent while the database is paused).
@@ -344,6 +352,8 @@ export class GhostyAgent {
         return json({ ok: true });
       }
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
+      // [selftrain] SYSTEM → OFFLINE BRAIN TRAINING (before /train, the training ground, which would match it too)
+      if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
       if (path === '/keys/public' && method === 'GET') {
@@ -1294,6 +1304,7 @@ export class GhostyAgent {
       if (job.kind === 'project') return json(await runProjectStep(this.projectDeps(), job));
       if (job.kind === 'upgrade') return json(await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps())));
       if (job.kind === 'revise') return json({ result: await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router })) });
+      if (job.kind === 'train') return json(await trainTick(this.trainDeps())); // [selftrain]
       const result = job.kind === 'task' ? await this.runBackground(job) : job.text;
       const item = await this.notify({ kind: job.kind, title: job.title, text: result, ...(job.kind === 'reminder' ? { pushKind: 'reminders' as const } : {}) });
       return json({ item });
@@ -1424,6 +1435,11 @@ export class GhostyAgent {
         } else if (job.kind === 'upgrade') {
           // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
           await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);
+        } else if (job.kind === 'train') {
+          // [selftrain] Quiet, like study: one step of the week (gather, upload, push to Kaggle, watch); it times its next step itself.
+          const r = await this.meter.as('train', () => trainTick(this.trainDeps()));
+          await finishJob(this.storage, job.id, r.note);
+          await setNext(this.storage, job.id, Date.now() + r.next);
         } else if (job.kind === 'revise') {
           // The tutor's flashcards (tutor.ts): a note only when cards are due.
           await finishJob(this.storage, job.id, await reviseNudge(tutorDeps({ storage: this.storage, library: null, router: this.router, notify: (item) => this.notify(item) })));
@@ -1517,6 +1533,21 @@ export class GhostyAgent {
     await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
     await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
     await ensureJob(this.storage, UPGRADE_JOB);
+    await ensureTrainJob(this.storage); // [selftrain]
+  }
+
+  /** [selftrain] What the weekly self-training needs: the database, the library, the background lane, the vault and the brain's address. */
+  private trainDeps(): CycleDeps {
+    return {
+      storage: this.storage,
+      library: this.library,
+      vault: this.vault,
+      // The background lane (llm/quota.ts: only room above the chat reserve), the strong tier: evolved tasks and answers must be right.
+      ask: async (system, user) => textOf((await this.router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { tier: 'big', priority: 'background', maxWaitMs: this.bgWait(10_000), onWait: this.bgTick })).message.content),
+      tools: offlineToolSpecs(toolByName),
+      origin: this.env.PUBLIC_ORIGIN || this.origin || '',
+      notify: async (title, text) => void (await this.notify({ kind: 'task', title, text })),
+    };
   }
 
   /** What the reflection and the digest need: the database, the library and one cheap model call. */

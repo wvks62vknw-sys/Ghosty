@@ -10,6 +10,7 @@
  *   the plain voice (Melo)   leaves  800
  *   vectors, translation     leaves 1,500
  *   pictures                 leaves 2,500
+ *   background model work    leaves 3,500 (study, projects, the weekly self-training factory: the router's 'background' lane)
  *   the natural voice (Aura) leaves 4,000, and spends at most VOICE_SHARE a day
  *
  * Neurons are Cloudflare's billing unit; the numbers here are estimates from the published
@@ -23,10 +24,10 @@ export const FREE_NEURONS = 10_000;
 export const VOICE_SHARE = 3_000;
 export const NEURONS_KEY = 'ai:neurons';
 
-export type AiUse = 'stt' | 'chat' | 'plain-voice' | 'embed' | 'translate' | 'image' | 'voice';
+export type AiUse = 'stt' | 'chat' | 'plain-voice' | 'embed' | 'translate' | 'image' | 'background' | 'voice';
 
 /** What each use must leave free for the more important ones (see the file comment). */
-export const LEAVE: Record<AiUse, number> = { stt: 0, chat: 300, 'plain-voice': 800, embed: 1500, translate: 1500, image: 2500, voice: 4000 };
+export const LEAVE: Record<AiUse, number> = { stt: 0, chat: 300, 'plain-voice': 800, embed: 1500, translate: 1500, image: 2500, background: 3500, voice: 4000 };
 
 interface Day {
   d: string;

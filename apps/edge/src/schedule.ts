@@ -21,9 +21,9 @@ export interface Job {
    * study = self-study session (no AI); reflect = the nightly look back at the day's conversation
    * (profile.ts); digest = the morning gathering of fresh knowledge (library/digest.ts);
    * project = one step of a project that runs for days (projects.ts; `text` is the project's id);
-   * upgrade = the daily upgrade ideas (upgrades.ts)
+   * upgrade = the daily upgrade ideas (upgrades.ts); train = the offline brain's weekly self-training (selftrain/cycle.ts)
    */
-  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise';
+  kind: 'reminder' | 'task' | 'verify' | 'study' | 'reflect' | 'digest' | 'project' | 'upgrade' | 'revise' | 'train';
   title: string;
   /** Reminder text, or the task prompt Ghosty runs. */
   text: string;

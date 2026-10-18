@@ -2,7 +2,8 @@
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
 import { brain } from '../../api/brain';
-import { answerApproval, chat, send, type Entry } from '../../assistant/session';
+import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
+import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, stopListening, voiceSupport } from '../../assistant/voice';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
@@ -17,6 +18,7 @@ import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/co
 import { citedReply } from './cited';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
+import { rateable, rateRow, ratings } from './rate';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -68,18 +70,60 @@ function linked(text: string): HTMLElement {
   return out;
 }
 
-function renderEntry(e: Entry): HTMLElement {
+/** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
+function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+  // Answered by the small model on the phone itself: one quiet chip says so.
+  if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
+  // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
+  if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
+  // Cut off: the owner interrupted while it was read out.
+  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+}
+
+/**
+ * The STOP button of a THINK HARDER still running, kept from one repaint of the log to the next: the log is
+ * redrawn as progress comes in, and a tap that lands while its button is swapped for a new one would be lost.
+ */
+let stopBtn: { at: number; el: HTMLButtonElement } | null = null;
+
+/** A THINK HARDER answer: live progress and STOP while it works; then the answer, how sure it is, its working, and ASK THE BIG BRAIN. */
+function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+  const t = e.think!;
+  const box = h('div.msg.off.think', h('small', 'GHOSTY · THINK HARDER'));
+  if (t.state === 'running') {
+    if (stopBtn?.at !== e.at) stopBtn = { at: e.at, el: button('STOP', () => stopThinking(), 'warn') };
+    box.append(h('div.thinkline.live', h('i'), h('span', t.line)), h('div.row', stopBtn.el));
+    return box;
+  }
+  if (stopBtn?.at === e.at) stopBtn = null;
+  box.append(
+    h('b.thinkans', t.answer || '(no answer)'),
+    h(`div.thinkconf.${t.confidence ?? 'none'}` as 'div', `${t.line}${t.secs != null ? ` · ${t.secs} s` : ''}`),
+  );
+  if (e.text && e.text.trim() !== (t.answer ?? '').trim()) box.append(h('details.thinkwork', h('summary', 'HOW IT GOT THERE'), linked(e.text)));
+  // The big brain is a separate, owner-asked step: only offered while the brain is reachable.
+  const row2 = h('div.row');
+  if (ui.get().connected) row2.append(button('ASK THE BIG BRAIN', () => void askBigBrain(t.q), 'bigbrain'));
+  if (row2.childElementCount) box.append(row2);
+  box.append(h('span.offchip', 'Worked out on your phone (offline)'));
+  if (e.cut) box.append(h('span.cutchip', 'Cut off — you interrupted'));
+  return box;
+}
+
+/** `q`: the question this reply answers, when it is the latest answer (it gets THINK HARDER). */
+function renderEntry(e: Entry, q?: string): HTMLElement {
   switch (e.kind) {
     case 'user':
       // data-at: the Memory tab's "from your chat" opens the conversation here.
       return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
-    case 'assistant':
-      // Answered by the small model on the phone itself: one quiet chip says so.
-      if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
-      // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-      // Cut off: the owner interrupted while it was read out.
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+    case 'assistant': {
+      if (e.think) return renderThink(e);
+      const el = plainReply(e);
+      // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
+      if (rateable(e)) el.append(rateRow(e));
+      if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
+      return el;
+    }
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -133,7 +177,9 @@ export const coreTab: TabDef = {
       g.v.textContent = c.value;
       g.el.className = `gi${c.tone ? ` ${c.tone}` : ''}`;
     };
-    const caption = h('div#ccap', h('span', ''));
+    // The caption: the latest words, and under a finished reply its 👍 / 👎 (rate.ts), so a phone can rate it without opening the LOG.
+    const capRate = h('div.caprate');
+    const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
@@ -259,15 +305,33 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      clear(log, ...chat.get().entries.slice(-40).map(renderEntry));
+      const shown = chat.get().entries.slice(-40);
+      // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
+      const last = shown.findLastIndex((x) => x.kind === 'assistant');
+      const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
+      const lastReply = shown[last];
+      // Only where it can work: the offline brain is on this phone and not switched off.
+      const offered = canThink.get().ready && settings.get().offlineBrain !== 'off';
+      const q = offered && lastReply?.kind === 'assistant' && !lastReply.think && asked?.kind === 'user' && !/^think harder\b/i.test(asked.text) ? asked.text : undefined;
+      clear(log, ...shown.map((x, i) => renderEntry(x, i === last ? q : undefined)));
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
+      paintCapRate();
       armFade();
       // The HUD says what the tool at work is doing right now (the latest report); nothing once it has finished.
       const working = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'activity' }> => e.kind === 'activity' && e.state === 'running' && !!e.progress);
       stark.task(working?.progress ? progressText(working.progress) : null);
     };
+    const paintCapRate = () => {
+      const last = chat.get().entries.at(-1);
+      clear(capRate, ...(chat.get().live && !ui.get().busy && last?.kind === 'assistant' && rateable(last) ? [rateRow(last)] : []));
+    };
+    ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
     chat.subscribe(paintLog);
+    canThink.subscribe(paintLog);
+    settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
+    recheckThink();
+    ratings.subscribe(paintLog);
     paintLog();
     // power-up sequence: the HUD draws itself in, then reports
     const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];

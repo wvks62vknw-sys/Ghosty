@@ -273,6 +273,11 @@ test('the Workers AI ledger: one count for every use, kept in storage; hearing a
   const day = store.m.get('ai:neurons');
   assert.equal(day.by.stt, 600 + Math.ceil((32_000 / 32_000 / 60) * 47), 'a second of WAV is counted');
   assert.equal(day.used, 5500 + 600 + 3400 + day.by.stt - 600 + (day.by['plain-voice'] ?? 0));
+  // background model work (study, projects, the weekly self-training factory) gives way long before the owner's chat
+  const bg = new S.NeuronLedger(new Store());
+  await bg.charge('chat', 6600);
+  assert.equal(await bg.room('background', 50), false, 'background work leaves 3,500 for the rest');
+  assert.equal(await bg.room('chat', 50), true, 'the owner\'s chat still has room');
   // the count is per UTC day
   const fresh = new S.NeuronLedger(store);
   assert.equal(await fresh.room('voice', 100, Date.now() + 86_400_000), true, 'a new day starts empty');
