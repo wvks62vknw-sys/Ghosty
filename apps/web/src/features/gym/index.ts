@@ -21,6 +21,7 @@ import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, panel, spark, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { BOARDS, type Sel } from './play';
 import * as store from './store';
 
 /** What the tab shows, for tests and the console (window.__ghosty.gym). */
@@ -32,7 +33,7 @@ export const gymState = {
   progress: 0,
   watching: false,
   frames: 0,
-  play: { game: '', board: [] as number[], over: '', thinking: false },
+  play: { game: '', board: [] as number[], over: '', thinking: false } as { game: string; board: number[]; over: string; thinking: boolean; sel?: number[]; replies?: number },
   recs: {} as Record<string, { level: number; mastery: number; units: number; mastered: boolean }>,
   error: '',
   /** The last few things the owner (or the app) did here, newest last — for specs reading what happened. */
@@ -68,6 +69,17 @@ export function renderFrame(f: Frame | null, onCell?: (i: number) => void): HTML
       g.append(el);
     });
     box.append(g);
+  }
+  if (f.draw) {
+    const d = f.draw;
+    const s = svgEl('svg', { viewBox: `0 0 ${d.w} ${d.h}`, class: 'gymdraw', role: 'img', 'aria-label': f.caption });
+    for (const sh of d.shapes) {
+      if (sh.k === 'rect') s.append(svgEl('rect', { x: sh.x, y: sh.y, width: Math.max(0, sh.w), height: Math.max(0, sh.h), fill: sh.c }));
+      else if (sh.k === 'line') s.append(svgEl('line', { x1: sh.x1, y1: sh.y1, x2: sh.x2, y2: sh.y2, stroke: sh.c, 'stroke-width': sh.sw ?? 2, 'stroke-linecap': 'round' }));
+      else if (sh.k === 'circle') s.append(svgEl('circle', { cx: sh.cx, cy: sh.cy, r: sh.r, fill: sh.c }));
+      else s.append(svgEl('polygon', { points: sh.pts.map((v) => v.toFixed(1)).join(' '), fill: sh.c }));
+    }
+    box.append(s);
   }
   if (f.bars?.length) box.append(h('div.gymbars', ...f.bars.map(([k, frac, t]) => h('div.bar', h('span', k), h('div.gauge', h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%` } })), h('b', t)))));
   if (f.lines?.length) box.append(h('div.gymlines', ...f.lines.map((l) => h('div', l))));
@@ -109,7 +121,7 @@ export const gymTab: TabDef = {
   title: 'GYM',
   icon: '<path d="M2 9v6M5 7v10M19 7v10M22 9v6"/><path d="M5 12h14"/>',
   scene: 'backdrop',
-  blurb: 'he teaches himself · 10 games',
+  blurb: `he teaches himself · ${GAMES.length} games`,
   mount(root) {
     const P = page(root, { tag: 'GYM', sub: 'Ghosty teaches himself by playing · on this phone', leftLabel: 'GAMES', rightLabel: 'GAME', stack: true });
     expose();
@@ -391,7 +403,7 @@ export const gymTab: TabDef = {
           return;
         }
         show();
-      }, 0.45);
+      }, frames[0]!.every ?? 0.45);
     };
 
     // PLAY HIM: on the board (tic-tac-toe, Connect 4) you move first; or you pick his secret.
@@ -407,12 +419,78 @@ export const gymTab: TabDef = {
         secretIn.focus();
         return;
       }
-      gymState.play = { game: open.id, board: open.id === 'tictactoe' ? new Array(9).fill(0) : new Array(42).fill(0), over: '', thinking: false };
-      paintPlay('Your move: you are X.');
+      const big = BOARDS[open.id];
+      gymState.play = { game: open.id, board: big ? big.start() : open.id === 'tictactoe' ? new Array(9).fill(0) : new Array(42).fill(0), over: '', thinking: false };
+      sel = { path: [] };
+      last = [];
+      choices = null;
+      paintPlay(big ? big.hello : 'Your move: you are X.');
       paint();
       showBoard();
     };
+    // The bigger boards (checkers, chess, Go): what the owner has picked, his last move, a promotion choice.
+    let sel: Sel = { path: [] };
+    let last: number[] = [];
+    let choices: [string, number][] | null = null;
+    const paintBig = (caption: string) => {
+      const big = BOARDS[open.id]!;
+      const pl = gymState.play;
+      const mine = !pl.over && !pl.thinking;
+      const f = big.frame(pl.board, sel, caption, last);
+      const row = h('div.row.wrap.gymagain');
+      if (choices && mine) for (const [label, mv] of choices) row.append(button(label, () => void ownerMove(mv), 'on'));
+      if (big.extra && mine && !choices) row.append(button(big.extra.label, () => void ownerMove(big.extra!.move)));
+      row.append(button('NEW GAME', () => startPlay()));
+      clear(board, renderFrame(f, mine ? (i) => bigTap(i) : undefined), row);
+      gymState.play.sel = sel.path.slice();
+    };
+    const bigTap = (cell: number) => {
+      const big = BOARDS[open.id]!;
+      const pl = gymState.play;
+      if (pl.over || pl.thinking) return;
+      const t = big.tap(pl.board, sel, cell);
+      sel = t.sel;
+      choices = t.choices ?? null;
+      if (t.state) {
+        pl.board = t.state;
+        last = [];
+        void afterOwner(t.caption ?? '');
+      } else paintBig(t.caption ?? 'Your move.');
+    };
+    /** The owner chose a move by a button (a promotion, PASS). */
+    const ownerMove = async (mv: number) => {
+      const big = BOARDS[open.id]!;
+      const pl = gymState.play;
+      if (pl.over || pl.thinking) return;
+      const r = big.apply(pl.board, mv);
+      if (!r.said) return paintBig('That move is not possible now.');
+      pl.board = r.state;
+      sel = { path: [] };
+      choices = null;
+      last = [];
+      await afterOwner(`You played ${r.said}.`);
+    };
+    /** After the owner's move: is it over? If not, he answers. */
+    const afterOwner = async (said: string) => {
+      const big = BOARDS[open.id]!;
+      const pl = gymState.play;
+      pl.over = big.over(pl.board);
+      if (pl.over) return paintBig(pl.over);
+      pl.thinking = true;
+      paintBig(`${said} He is thinking…`);
+      const m = await ask({ gym: 'move', id: open.id, board: pl.board.slice() });
+      pl.thinking = false;
+      if (gymState.play !== pl) return;
+      if (m.error || m.move == null || m.move < -1) return paintBig(m.error ? `He could not move: ${m.error}` : 'Your move.');
+      const r = big.apply(pl.board, m.move);
+      pl.board = r.state;
+      last = r.cells;
+      pl.over = big.over(pl.board);
+      gymState.play.replies = (gymState.play.replies ?? 0) + 1;
+      paintBig(pl.over ? `He played ${r.said}. ${pl.over}` : `He played ${r.said}. Your move.`);
+    };
     const paintPlay = (caption: string) => {
+      if (BOARDS[open.id]) return paintBig(caption);
       const b = gymState.play.board;
       const f = open.id === 'tictactoe' ? tttFrame(b, caption) : c4Frame(posFromBoard(b), caption);
       clear(board, renderFrame(f, gymState.play.over || gymState.play.thinking ? undefined : (i) => void humanMove(i)), h('div.row.wrap.gymagain', button('NEW GAME', () => startPlay())));

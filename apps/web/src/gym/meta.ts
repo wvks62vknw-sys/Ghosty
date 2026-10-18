@@ -107,6 +107,60 @@ export const WORDS: GameMeta = {
   play: 'secret',
 };
 
+
+// ---- part 2: board games against fixed reference engines, poker, puzzles and control ----
+export const CHECKERS: GameMeta = {
+  id: 'checkers',
+  title: 'CHECKERS',
+  blurb: 'draughts · vs reference engines',
+  learns: 'He plays himself to learn what a checkers position is worth, then searches ahead with it against fixed reference engines that look as far ahead.',
+  unit: 'games',
+  bar: per([0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 0.5, 0.55]),
+  play: 'board',
+};
+export const CHESS: GameMeta = {
+  id: 'chess',
+  title: 'CHESS',
+  blurb: 'learned eval · vs reference engines',
+  learns: 'He plays himself and tunes what each piece is worth on each square, then searches ahead with it against Ghosty’s own fixed reference engines (not Stockfish).',
+  unit: 'games',
+  bar: per([0.25, 0.4, 0.25, 0.4, 0.25, 0.4, 0.25, 0.4, 0.5, 0.6]),
+  play: 'board',
+};
+export const GO: GameMeta = {
+  id: 'go',
+  title: 'GO 9×9',
+  blurb: 'tree search · learned patterns',
+  learns: 'He plays himself to learn which local shapes end up as whose territory, and searches with that instead of random play-outs.',
+  unit: 'games',
+  bar: per([0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.55, 0.6, 0.65]),
+  play: 'board',
+};
+export const POKER: GameMeta = {
+  id: 'poker',
+  title: 'SIMPLE POKER',
+  blurb: "Kuhn → Leduc hold'em",
+  learns: 'He plays every deal against himself and learns from regret how often to bet, call, fold and bluff, until no opponent can beat him.',
+  unit: 'rounds',
+  bar: per([0.9, 0.97, 0.99, 0.999, 0.9, 0.97, 0.99, 0.995, 0.997, 0.998]),
+};
+export const SOKOBAN: GameMeta = {
+  id: 'sokoban',
+  title: 'SOKOBAN',
+  blurb: 'push boxes · dead ends',
+  learns: 'He learns which squares are dead ends for a box and how far a position is from solved, so his search finds short solutions within a budget.',
+  unit: 'puzzles',
+  bar: per([0.8, 0.8, 0.8, 0.8, 0.8, 0.75, 0.75, 0.7, 0.7, 0.7]),
+};
+export const BALANCE: GameMeta = {
+  id: 'balance',
+  title: 'BALANCE & LANDER',
+  blurb: 'pole on a cart → moon lander',
+  learns: 'He tries many small variations of his controller and keeps the best, until he balances the pole — and later lands softly on the pad — from starts he has never seen.',
+  unit: 'trials',
+  bar: per([0.95, 0.95, 0.95, 0.95, 0.95, 0.9, 0.9, 0.9, 0.85, 0.85]),
+};
+
 /** In card order (the same order as GAMES in index.ts). */
-export const META: GameMeta[] = [MAZE, CODEBREAKER, COLONY, TRUST, TICTACTOE, CONNECT4, TILES, SUDOKU, COUNTDOWN, WORDS];
+export const META: GameMeta[] = [MAZE, CODEBREAKER, COLONY, TRUST, TICTACTOE, CONNECT4, TILES, SUDOKU, COUNTDOWN, WORDS, CHECKERS, CHESS, GO, POKER, SOKOBAN, BALANCE];
 export const metaById = (id: string): GameMeta | undefined => META.find((g) => g.id === id);

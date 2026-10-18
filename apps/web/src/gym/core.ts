@@ -49,9 +49,20 @@ export interface Cell {
   c?: string;
 }
 
+/** A shape in a drawn picture (the cart and pole, the lander): coordinates in the drawing's own units, y down. */
+export type Shape =
+  | { k: 'rect'; x: number; y: number; w: number; h: number; c: string }
+  | { k: 'line'; x1: number; y1: number; x2: number; y2: number; c: string; sw?: number }
+  | { k: 'circle'; cx: number; cy: number; r: number; c: string }
+  | { k: 'poly'; pts: number[]; c: string };
+
 /** One picture of a game: a grid and/or lines of text, with a caption. */
 export interface Frame {
   grid?: { w: number; h: number; cells: Cell[] };
+  /** A drawing (w × h units) — used where a grid can't show the game (the cart and pole, the lander). */
+  draw?: { w: number; h: number; shapes: Shape[] };
+  /** Seconds this frame stays up in a WATCH (default 0.45). */
+  every?: number;
   lines?: string[];
   /** Bars (label, share 0–1, text) — Colony's stores, Trust's population. */
   bars?: [string, number, string][];
