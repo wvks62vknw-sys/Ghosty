@@ -65,6 +65,11 @@ class SharedRules(unittest.TestCase):
         for c in FIX['similar']:
             self.assertAlmostEqual(G.similar(c['a'], c['b']), c['v'], places=12, msg=c)
 
+    def test_report_card_questions_are_never_trained_on(self):
+        rc = FIX['reportCard']
+        for c in rc['cases']:
+            self.assertEqual(G.near_report_card(c['text'], rc['texts']), c['near'], c['text'])
+
     def test_gate_weighs_small_areas_fairly(self):
         # one flipped answer in a 10-question area may not decide alone; a 2-question area cannot carry a 48-question one
         self.assertTrue(G.gate_verdict({'gym': 0.3, 'safety': 0.9}, {'gym': 0.4, 'safety': 0.8}, {'gym': 48, 'safety': 10})['pass'])
@@ -235,6 +240,14 @@ class TasksProgram(unittest.TestCase):
         self.assertFalse(bad['correct'])
         d = self.t.check([({'drill': 0, 'seed': 5}, '0')])[0]
         self.assertIn('The answer is', d['why'])
+        # The phone's report card questions come with the tasks, and the GYM's own puzzles from it are caught.
+        card = self.t.reportcard()
+        self.assertEqual(len(card), 20)
+        self.assertIn('What is 17 × 23?', card)
+        same = self.t.make([{'game': 'countdown', 'level': 1, 'seed': 1}])[0]
+        other = self.t.make([{'game': 'countdown', 'level': 1, 'seed': 7}])[0]
+        self.assertTrue(G.near_report_card(same, card))
+        self.assertFalse(G.near_report_card(other, card))
 
 
 @unittest.skipUnless(have('torch', 'transformers', 'peft'), 'torch, transformers and peft are not installed here')

@@ -121,3 +121,7 @@ test("the offline brain is the same character (the owner's dials too), and its r
   assert.match(tuned[0].content, /CHARACTER: plain-spoken, quietly confident, openly warm\..*As short as it can be\./);
   assert.equal(P.cleanReply('<think>\n</think>\nCertainly! Descale it with citric acid. I hope this helps!<|im_end|>'), 'Descale it with citric acid.');
 });
+
+// THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
+// because this one is in the test list (package.json is protected).
+await import('./thinkharder.test.mjs');

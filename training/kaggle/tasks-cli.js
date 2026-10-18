@@ -3,14 +3,18 @@
 //   {"id": 1, "op": "make",  "task": {"game": "maze", "level": 3, "seed": 42}}          → {"id": 1, "prompt": "…"}
 //   {"id": 2, "op": "check", "task": {"drill": 4, "seed": 7}, "answer": "…"}            → {"id": 2, "correct": true, "score": 1, "why": "…"}
 //   {"id": 3, "op": "games"}                                                           → {"id": 3, "games": [...], "drills": 40}
+//   {"id": 4, "op": "reportcard"}                                                      → {"id": 4, "texts": [...]}  (the phone's REPORT CARD
+//      questions, word for word: never trained on, so it measures the model's own skill — gym/bench.ts reportCardTexts)
 // A bad line gets {"id", "error"}; the process never stops on one.
 import { ANSWER_HINT, checkTask, makeTask, TASK_GAMES } from '../../apps/web/src/gym/tasks.ts';
 import { grade, makeDrill, SKILLS } from '../../apps/edge/src/library/drills.ts';
+import { reportCardTexts } from '../../apps/web/src/gym/bench.ts';
 
 export function handle(req) {
   const id = req?.id ?? null;
   try {
     if (req.op === 'games') return { id, games: TASK_GAMES(), drills: SKILLS.length };
+    if (req.op === 'reportcard') return { id, texts: reportCardTexts() };
     const t = req.task ?? {};
     if (typeof t.game === 'string') {
       if (req.op === 'make') return { id, prompt: makeTask(t.game, t.level, t.seed).prompt };

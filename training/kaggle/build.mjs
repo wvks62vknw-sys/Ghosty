@@ -35,6 +35,7 @@ export async function assetsSource() {
   const dir = mkdtempSync(join(tmpdir(), 'ghosty-tasks-'));
   writeFileSync(join(dir, 'tasks.mjs'), js);
   const { handle } = await import(join(dir, 'tasks.mjs'));
+  const reportCard = handle({ op: 'reportcard' }).texts;
   rmSync(dir, { recursive: true, force: true });
   const seeds = [];
   for (const game of handle({ op: 'games' }).games)
@@ -50,7 +51,9 @@ export async function assetsSource() {
     '/** The weekly Kaggle notebook (training/kaggle/ghosty_weekly.py). */\n' +
     `export const NOTEBOOK_PY = ${JSON.stringify(py)};\n` +
     '/** One GYM puzzle per game and level (seed 800000 + level), the seed texts Evol-Instruct rewrites. */\n' +
-    `export const GYM_SEEDS: { game: string; level: number; prompt: string }[] = ${JSON.stringify(seeds)};\n`
+    `export const GYM_SEEDS: { game: string; level: number; prompt: string }[] = ${JSON.stringify(seeds)};\n` +
+    "/** The phone's REPORT CARD questions word for word (apps/web/src/gym/bench.ts reportCardTexts): never trained on. */\n" +
+    `export const REPORT_CARD_TEXTS: string[] = ${JSON.stringify(reportCard)};\n`
   );
 }
 

@@ -327,6 +327,15 @@ def too_close(text, exam_texts, at=EXAM_NEAR):
     return any(similar(text, q) >= at for q in exam_texts)
 
 
+def near_report_card(text, texts):
+    """A near copy of a question on the phone's REPORT CARD (apps/edge/src/selftrain/factory.ts nearReportCard, the
+    same rule): the same words, or as alike as an exam rewording AND holding every number the question has (the GYM's
+    puzzles share their wording; the numbers make it the report card's one). Never trained on, so it measures skill."""
+    norm = lambda s: re.sub(r'\s+', ' ', (s or '').lower()).strip()
+    t, have = norm(text), set(re.findall(r'\d+', text or ''))
+    return any(norm(q) == t or (similar(text, q) >= EXAM_NEAR and set(re.findall(r'\d+', q)) <= have) for q in texts)
+
+
 # ---- STaR: which samples to keep ---------------------------------------------------------------------------
 
 def star_select(samples, keep=2):
@@ -611,6 +620,10 @@ class Tasks:
     def games(self):
         return self.ask([{'op': 'games'}])[0]
 
+    def reportcard(self):
+        """The phone's REPORT CARD questions, word for word ([] if this tasks.mjs is older than them)."""
+        return self.ask([{'op': 'reportcard'}])[0].get('texts') or []
+
 
 class Run:
     def __init__(self, cfg):
@@ -746,6 +759,8 @@ class Run:
     def drop_near_exam(self):
         """Training rows (and replayed ones) that are rewordings of an exam or dev question are dropped: no leak."""
         texts = self.exam_texts()
+        card = self.tasks.reportcard()
+        self.report_card = card
 
         def ask_of(r):
             m = r.get('messages') or []
@@ -755,12 +770,14 @@ class Run:
         for r in self.records:
             if r.get('messages') and too_close(ask_of(r), texts):
                 self.reject('training rows too close to an exam question')
+            elif r.get('messages') and near_report_card(ask_of(r), card):
+                self.reject("training rows that copy a question on the phone's report card")
             else:
                 keep.append(r)
         self.records = keep
         before = len(self.replay)
-        self.replay = [r for r in self.replay if not too_close(ask_of(r), texts)]
-        self.reject('replayed rows too close to an exam question', before - len(self.replay))
+        self.replay = [r for r in self.replay if not too_close(ask_of(r), texts) and not near_report_card(ask_of(r), card)]
+        self.reject('replayed rows too close to an exam (or report card) question', before - len(self.replay))
 
     def load_model(self):
         import torch
@@ -886,7 +903,11 @@ class Run:
         prompts_raw = self.tasks.make([r['task'] for r in recs])
         sys_msg = self.exam['tools']['system']
         prompts = [chat_prompt([{'role': 'system', 'content': sys_msg}, {'role': 'user', 'content': p}]) if p else None for p in prompts_raw]
-        todo = [(r, p) for r, p in zip(recs, prompts) if p]
+        # A puzzle that is one on the phone's report card (the same text can come from other seeds) is never trained on.
+        card = getattr(self, 'report_card', None) or self.tasks.reportcard()
+        on_card = [bool(raw) and near_report_card(raw, card) for raw in prompts_raw]
+        self.reject("puzzles that are on the phone's report card", sum(on_card))
+        todo = [(r, p) for r, p, c in zip(recs, prompts, on_card) if p and not c]
         budget = self.deadline.allow(0.30, reserve=3.5 * 3600)
         kept, pairs, misses = [], [], []
         t0, done = time.time(), 0

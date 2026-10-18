@@ -579,5 +579,55 @@
    "b": "a dog runs and jumps",
    "v": 0.5
   }
- ]
+ ],
+ "reportCard": {
+  "texts": [
+   "What is 17 × 23?",
+   "Reach 16 from the numbers 2, 6, 2 with + − × ÷ (use every number exactly once; every step must give a whole number above zero). Answer with one expression, e.g. (3 + 5) × 3.",
+   "What is the capital of Japan?",
+   "Name three fruits, separated by commas, with nothing else."
+  ],
+  "cases": [
+   {
+    "text": "What is 17 × 23?",
+    "near": true
+   },
+   {
+    "text": "  what is 17 ×  23? ",
+    "near": true
+   },
+   {
+    "text": "What is 18 × 24?",
+    "near": false
+   },
+   {
+    "text": "Reach 16 from the numbers 2, 6, 2 with + − × ÷ (use every number exactly once; every step must give a whole number above zero). Answer with one expression, e.g. (3 + 5) × 3.",
+    "near": true
+   },
+   {
+    "text": "Reach 16 from the numbers 2, 2, 6 using + − × ÷, each number exactly once, every step a whole number above zero. Answer with one expression, e.g. (3 + 5) × 3.",
+    "near": true
+   },
+   {
+    "text": "Reach 24 from the numbers 5, 5, 9, 8 with + − × ÷ (use every number exactly once; every step must give a whole number above zero). Answer with one expression, e.g. (3 + 5) × 3.",
+    "near": false
+   },
+   {
+    "text": "What is the capital of Japan, please?",
+    "near": true
+   },
+   {
+    "text": "What is the capital of France?",
+    "near": false
+   },
+   {
+    "text": "List three fruits separated by commas and nothing else.",
+    "near": true
+   },
+   {
+    "text": "Name three rivers in Europe.",
+    "near": false
+   }
+  ]
+ }
 }

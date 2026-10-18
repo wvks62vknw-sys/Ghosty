@@ -74,3 +74,9 @@ export function downloadFailure(e: unknown): 'network' | 'too-big' | 'broken' {
 
 /** Every model the phone can use: the trained ones first (newest first), then the stock models as the fallback. */
 export const allModels = (trained: TrainedModel[], origin = '', weights: string | null = null): ModelDef[] => [...trainedModels(trained, origin, weights), ...MODELS];
+
+/**
+ * The revision of our own worker (public/vendor/webllm/worker.mjs, whose first line says the same): part of
+ * its address, so a phone whose service worker kept an older copy fetches the new one. Bump both together.
+ */
+export const WORKER_REV = '2';

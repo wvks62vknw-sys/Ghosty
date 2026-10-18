@@ -176,6 +176,20 @@ export const EXAM_NEAR = 0.45;
 /** The exam question a text is too close to ('' if none). */
 export const tooClose = (text: string, exam: string[], at = EXAM_NEAR): string => exam.find((q) => similar(text, q) >= at) ?? '';
 
+const numbersIn = (s: string) => new Set(s.match(/\d+/g) ?? []);
+/**
+ * The phone's REPORT CARD question a training text is a near copy of ('' if none): the same words, or as alike as
+ * an exam rewording AND holding every number the question has. (The GYM's puzzles share their wording, so
+ * wording alone would drop every Countdown or logic puzzle; the numbers are what make it the report card's one.)
+ * The report card measures the model's own skill only while it is never trained on (gym/bench.ts reportCardTexts).
+ */
+export function nearReportCard(text: string, texts: string[]): string {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const t = norm(text);
+  const have = numbersIn(text);
+  return texts.find((q) => norm(q) === t || (similar(text, q) >= EXAM_NEAR && [...numbersIn(q)].every((n) => have.has(n)))) ?? '';
+}
+
 const REFUSAL =/\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
 
 // ---- Evol-Instruct ---------------------------------------------------------------------------------------------

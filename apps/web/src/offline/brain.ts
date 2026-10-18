@@ -18,10 +18,12 @@ import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
 import { searchLocal } from '../library/local';
 import { settings } from '../state/app';
-import { allModels, downloadFailure, MODELS, modelBase, type ModelDef, type TrainedModel } from './models';
+import { allModels, downloadFailure, MODELS, modelBase, WORKER_REV, type ModelDef, type TrainedModel } from './models';
+import { withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, type OfflineMsg } from './prompt';
 
 export type { OfflineMsg } from './prompt';
+export { modelJob, withModel, type ModelJob } from './lock';
 
 const VENDOR = '/vendor/webllm';
 /** WebLLM's own Cache API stores (weights + tokenizer, chat config, compiled model code). */
@@ -34,8 +36,8 @@ const IDLE_UNLOAD_MS = 2 * 60_000;
  * a trained model still loads with no connection.
  */
 export const offlineBrain = createStore(
-  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', trained: [] as TrainedModel[], active: null as string | null, weights: null as string | null },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights'] },
+  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', trained: [] as TrainedModel[], active: null as string | null, weights: null as string | null, thinkSecs: 55 },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs'] },
 );
 
 /** Every model this phone can use: the trained ones, then the stock Qwen3 and Qwen2.5 (offline/models.ts). */
@@ -71,7 +73,8 @@ interface TestEngine {
   unload?(): void;
   /** How long after the last use the model leaves memory (instead of two minutes). */
   idleMs?: number;
-  chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal): Promise<unknown> | unknown;
+  /** `opts`: THINK HARDER's temperature and length for this reply (absent: the chat's own). */
+  chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts?: ReplyOpts): Promise<unknown> | unknown;
 }
 const testEngine = (): TestEngine | null => {
   const e = (globalThis as { __ghostyOfflineEngine?: TestEngine }).__ghostyOfflineEngine;
@@ -139,7 +142,9 @@ const calls = new Map<number, { on?: (e: WorkerEvent) => void; resolve: (e: Work
 
 function getWorker(): Worker {
   if (worker) return worker;
-  const w = new Worker(`${VENDOR}/worker.mjs`, { type: 'module' });
+  // The revision in the address: the service worker keeps vendored files cache-first, so a changed worker
+  // gets a new address (models.ts WORKER_REV, also written at the top of worker.mjs) and phones fetch it.
+  const w = new Worker(`${VENDOR}/worker.mjs?v=${WORKER_REV}`, { type: 'module' });
   w.onmessage = (ev: MessageEvent<WorkerEvent>) => {
     const m = ev.data;
     const c = calls.get(m.id);
@@ -343,12 +348,19 @@ export async function deleteOffline(): Promise<void> {
   offlineBrain.set({ downloaded: false, loaded: false, model: MODELS[0]!.id, progress: 0, text: '' });
 }
 
+/** How one reply is written: how adventurous (temperature, 0–1.5) and how long at most (tokens). */
+export interface ReplyOpts {
+  temperature?: number;
+  max?: number;
+}
+
 let replying: AbortController | null = null;
 /**
  * Stream a reply from the model on this phone. `onToken` gets each piece as it comes (raw;
- * the result's `text` is cleaned). Resolves with the speed the model managed.
+ * the result's `text` is cleaned). Resolves with the speed the model managed. `opts`: THINK
+ * HARDER's own temperature and length (offline/think.ts); the chat leaves them out.
  */
-export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal): Promise<{ text: string; tokens: number; perSecond: number }> {
+export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts: ReplyOpts = {}): Promise<{ text: string; tokens: number; perSecond: number }> {
   const started = performance.now();
   let raw = '';
   let count = 0;
@@ -367,7 +379,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   if (signal?.aborted) throw stopped();
   try {
     if (t) {
-      const r = await t.chat(messages, on, signal);
+      const r = await t.chat(messages, on, signal, opts);
       if (signal?.aborted) throw stopped();
       if (!raw && typeof r === 'string') raw = r;
       const secs = (performance.now() - started) / 1000;
@@ -377,7 +389,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
     const stop = () => void call('stop').catch(() => undefined);
     signal?.addEventListener('abort', stop, { once: true });
     try {
-      const done = await call('chat', { messages, max: 400 }, (e) => {
+      const done = await call('chat', { messages, max: Math.max(8, Math.min(800, Math.round(opts.max ?? 400))), ...(typeof opts.temperature === 'number' ? { temperature: Math.max(0, Math.min(1.5, opts.temperature)) } : {}) }, (e) => {
         if (e.t === 'token' && e.text) on(e.text);
       });
       if (signal?.aborted) throw stopped();
@@ -421,33 +433,56 @@ function agendaLines(now = Date.now()): string[] {
   ];
 }
 
+// ---------------------------------------------------------------------------------------
+// One job on the model at a time
+// ---------------------------------------------------------------------------------------
+
+/** Load the model into memory now (a test engine's `load`), so a time budget starts once it is ready. */
+export async function loadOffline(): Promise<void> {
+  const t = testEngine();
+  if (t) {
+    if (t.ready === false) throw notHere();
+    await t.load?.();
+    return;
+  }
+  await load();
+}
+
 /** Answer one message on this phone: the prompt (persona, memory, agenda, library, recent turns) and the streamed reply. */
 export async function answerOffline(question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void): Promise<{ text: string; tokens: number; perSecond: number }> {
-  // Made before the first wait, so a "stop" while the library is searched counts too.
+  // Made before the first wait, so a "stop" while the library is searched (or the model is busy) counts too.
   const ctl = new AbortController();
   replying = ctl;
   try {
-    return await answerWith(ctl.signal, question, recent, onToken);
+    return await withModel('chat', async () => {
+      if (ctl.signal.aborted) throw stopped();
+      return offlineReply(await offlinePrompt(question, recent), onToken, ctl.signal);
+    });
   } finally {
     if (replying === ctl) replying = null;
   }
 }
 
-async function answerWith(signal: AbortSignal, question: string, recent: { role: 'user' | 'assistant'; text: string }[], onToken: (t: string) => void): Promise<{ text: string; tokens: number; perSecond: number }> {
+/**
+ * The prompt an ordinary offline answer gets (persona, memory, agenda, the library's best passages, recent
+ * turns); THINK HARDER uses it too, with a smaller `budget` (its prompts are asked several times).
+ */
+export async function offlinePrompt(question: string, recent: { role: 'user' | 'assistant'; text: string }[], budget?: number): Promise<OfflineMsg[]> {
   const hits = await searchLocal(question, 3).catch(() => []);
-  if (signal.aborted) throw stopped();
   const now = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  const messages = buildOfflinePrompt({
-    name: settings.get().name,
-    now,
-    facts: factsWithOutbox(offline.get().memory ?? []).map((f) => f.text),
-    agenda: agendaLines(),
-    passages: hits.map((h) => ({ title: h.title, text: h.text })),
-    recent,
-    question,
-    persona: settings.get().persona,
-  });
-  return offlineReply(messages, onToken, signal);
+  return buildOfflinePrompt(
+    {
+      name: settings.get().name,
+      now,
+      facts: factsWithOutbox(offline.get().memory ?? []).map((f) => f.text),
+      agenda: agendaLines(),
+      passages: hits.map((h) => ({ title: h.title, text: h.text })),
+      recent,
+      question,
+      persona: settings.get().persona,
+    },
+    budget,
+  );
 }
 
 /** The size of the model being used, for the settings panel. */

@@ -32,7 +32,7 @@ import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedMod
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
-import { GYM_SEEDS, NOTEBOOK_PY, TASKS_JS } from './assets';
+import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_JS } from './assets';
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
   addRecords,
@@ -61,6 +61,7 @@ import {
   RED_TEAM,
   syntheticToolRecords,
   tooClose,
+  nearReportCard,
   WEEKLY,
   WEEKLY_CALLS,
   type CtxMsg,
@@ -308,7 +309,8 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     const far = (recs: TrainRecord[]): TrainRecord[] =>
       recs.filter((r) => {
         const q = r.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? '';
-        const bad = !!q && !!tooClose(q, freeQs);
+        // Or of a question on the phone's REPORT CARD (it must measure what was never trained on).
+        const bad = !!q && (!!tooClose(q, freeQs) || !!nearReportCard(q, REPORT_CARD_TEXTS));
         if (bad) near++;
         return !bad;
       });
@@ -376,6 +378,8 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
   if (!st.done.examLibrary && st.done.examTarget >= 2) return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: "Gathering: writing the exam's library questions first." };
   const lib = passages.filter((p) => !tried.has(p.key));
   const examQs = examTexts(exam, st.week);
+  /** A near copy of an exam question or of one on the phone's REPORT CARD: never trained on. */
+  const leak = (t: string): string => tooClose(t, examQs) || nearReportCard(t, REPORT_CARD_TEXTS);
   // 2. better replies for the owner's 👎 (each rating once: known by its id, so new or changed ratings never shift the others)
   if (priv && !noModel) {
     const doneIds = new Set(st.done.prefIds ?? []);
@@ -403,7 +407,7 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
       break;
     }
     const recs = libraryRecords(p, reply, lib[(i + 1) % lib.length]).filter((r) => {
-      const near = tooClose(r.messages![r.messages!.length - 2]!.content, examQs);
+      const near = leak(r.messages![r.messages!.length - 2]!.content);
       return !near;
     });
     if (!recs.length) await noteRejected(s, 'library answers not found in their passage, or too close to an exam question');
@@ -422,7 +426,7 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     }
     const { rec, why } = evolRecord(sd.seed, sd.from, reply);
     // An evolution that came out as (a rewording of) an exam question would leak the exam into training.
-    const near = rec ? tooClose(rec.messages![1]!.content, examQs) : '';
+    const near = rec ? leak(rec.messages![1]!.content) : '';
     if (rec && !near) await addRecords(s, 'evol', [rec]);
     else await noteRejected(s, `evolved tasks dropped: ${near ? 'too close to an exam question' : why}`);
     st.done.evol = i + 1;
@@ -436,7 +440,7 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
       break;
     }
     const v = reply.trim().replace(/^["“]|["”]$/g, '');
-    if (v.length >= 12 && v.length <= 600 && v !== q && !tooClose(v, examQs)) await addRecords(s, 'redteam', redteamRecords([[v, a]]).slice(-1));
+    if (v.length >= 12 && v.length <= 600 && v !== q && !leak(v)) await addRecords(s, 'redteam', redteamRecords([[v, a]]).slice(-1));
     else await noteRejected(s, 'red-team rewordings that were unusable or too close to an exam question');
     st.done.redteam = i + 1;
   }
