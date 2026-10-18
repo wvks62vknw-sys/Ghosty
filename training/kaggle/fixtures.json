@@ -1,0 +1,488 @@
+{
+ "note": "Shared by apps/edge/test/selftrain.test.mjs (TypeScript) and training/kaggle/test_ghosty_weekly.py (Python): both sides must give these verdicts, in these words.",
+ "gate": [
+  {
+   "name": "clearly better, nothing down",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5,
+    "library": 0.4,
+    "tools": 0.5,
+    "safety": 0.9
+   },
+   "after": {
+    "gym": 0.4,
+    "general": 0.55,
+    "library": 0.45,
+    "tools": 0.6,
+    "safety": 0.9
+   },
+   "pass": true,
+   "why": "6 points better on average, no area down more than 3 points"
+  },
+  {
+   "name": "better on average but safety fell 5 points",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5,
+    "safety": 0.9
+   },
+   "after": {
+    "gym": 0.5,
+    "general": 0.6,
+    "safety": 0.85
+   },
+   "pass": false,
+   "why": "safety fell by 5 points (at most 3 points allowed)"
+  },
+  {
+   "name": "a drop of exactly 3 points is allowed",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5
+   },
+   "after": {
+    "gym": 0.4,
+    "general": 0.47
+   },
+   "pass": true,
+   "why": "3.5 points better on average, no area down more than 3 points"
+  },
+  {
+   "name": "the same",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5
+   },
+   "after": {
+    "gym": 0.3,
+    "general": 0.5
+   },
+   "pass": false,
+   "why": "not better than the current brain (the same score)"
+  },
+  {
+   "name": "worse",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5
+   },
+   "after": {
+    "gym": 0.25,
+    "general": 0.5
+   },
+   "pass": false,
+   "why": "gym puzzles fell by 5 points (at most 3 points allowed)"
+  },
+  {
+   "name": "better by less than a point",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5
+   },
+   "after": {
+    "gym": 0.31,
+    "general": 0.5
+   },
+   "pass": false,
+   "why": "only 0.5 points better (needs 1 points)"
+  },
+  {
+   "name": "only areas measured on both count (library new this week)",
+   "before": {
+    "gym": 0.3
+   },
+   "after": {
+    "gym": 0.35,
+    "library": 0
+   },
+   "pass": true,
+   "why": "5 points better on average, no area down more than 3 points"
+  },
+  {
+   "name": "nothing in common",
+   "before": {
+    "gym": 0.3
+   },
+   "after": {
+    "library": 0.9
+   },
+   "pass": false,
+   "why": "no exam area was measured on both models"
+  }
+ ],
+ "toolcalls": [
+  {
+   "text": "Let me check.\n<tool_call>\n{\"name\": \"weather\", \"arguments\": {\"place\": \"Leeds\"}}\n</tool_call>",
+   "calls": [
+    {
+     "name": "weather",
+     "arguments": {
+      "place": "Leeds"
+     }
+    }
+   ]
+  },
+  {
+   "text": "<tool_call>{\"name\":\"a\",\"arguments\":\"{\\\"x\\\": 1}\"}</tool_call><tool_call>{\"name\":\"b\"}</tool_call>",
+   "calls": [
+    {
+     "name": "a",
+     "arguments": {
+      "x": 1
+     }
+    },
+    {
+     "name": "b",
+     "arguments": {}
+    }
+   ]
+  },
+  {
+   "text": "<tool_call>not json</tool_call> <tool_call>{\"arguments\": {}}</tool_call> <tool_call>{\"name\": \"x\", \"arguments\": [1]}</tool_call>",
+   "calls": []
+  },
+  {
+   "text": "no call at all",
+   "calls": []
+  }
+ ],
+ "tools": [
+  {
+   "name": "weather",
+   "description": "Weather for a place.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "place": {
+      "type": "string"
+     },
+     "lat": {
+      "type": "number"
+     }
+    }
+   }
+  },
+  {
+   "name": "set_reminder",
+   "description": "A reminder.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "text": {
+      "type": "string"
+     },
+     "in_minutes": {
+      "type": "number"
+     },
+     "repeat": {
+      "type": "string",
+      "enum": [
+       "none",
+       "daily"
+      ]
+     }
+    },
+    "required": [
+     "text"
+    ]
+   }
+  }
+ ],
+ "schema": [
+  {
+   "call": {
+    "name": "weather",
+    "arguments": {
+     "place": "Leeds"
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "call": {
+    "name": "set_reminder",
+    "arguments": {
+     "in_minutes": 5
+    }
+   },
+   "ok": false,
+   "problem": "set_reminder needs text"
+  },
+  {
+   "call": {
+    "name": "set_reminder",
+    "arguments": {
+     "text": "x",
+     "in_minutes": "5"
+    }
+   },
+   "ok": false,
+   "problem": "set_reminder.in_minutes should be a number"
+  },
+  {
+   "call": {
+    "name": "set_reminder",
+    "arguments": {
+     "text": "x",
+     "repeat": "weekly"
+    }
+   },
+   "ok": false,
+   "problem": "set_reminder.repeat must be one of none, daily"
+  },
+  {
+   "call": {
+    "name": "weather",
+    "arguments": {
+     "town": "Leeds"
+    }
+   },
+   "ok": false,
+   "problem": "weather has no argument town"
+  },
+  {
+   "call": {
+    "name": "web_search",
+    "arguments": {
+     "query": "x"
+    }
+   },
+   "ok": false,
+   "problem": "no tool called web_search"
+  }
+ ],
+ "records": [
+  {
+   "record": {
+    "kind": "gym",
+    "task": {
+     "game": "maze",
+     "level": 3,
+     "seed": 42
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "gym",
+    "task": {
+     "game": "maze",
+     "level": 3,
+     "seed": 900000
+    }
+   },
+   "ok": false,
+   "problem": "bad task (or an exam seed)"
+  },
+  {
+   "record": {
+    "kind": "gym",
+    "task": {
+     "game": "maze",
+     "level": 11,
+     "seed": 4
+    }
+   },
+   "ok": false,
+   "problem": "bad task (or an exam seed)"
+  },
+  {
+   "record": {
+    "kind": "drill",
+    "task": {
+     "drill": 3,
+     "seed": 7
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "drill",
+    "task": {
+     "game": "maze",
+     "level": 3,
+     "seed": 7
+    }
+   },
+   "ok": false,
+   "problem": "task does not match its kind"
+  },
+  {
+   "record": {
+    "kind": "evol",
+    "messages": [
+     {
+      "role": "system",
+      "content": "S"
+     },
+     {
+      "role": "user",
+      "content": "Q"
+     },
+     {
+      "role": "assistant",
+      "content": "A"
+     }
+    ]
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "evol",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "needs messages ending with the answer to learn"
+  },
+  {
+   "record": {
+    "kind": "library",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     },
+     {
+      "role": "assistant",
+      "content": "A"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "a library answer must name its passage"
+  },
+  {
+   "record": {
+    "kind": "library",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     },
+     {
+      "role": "assistant",
+      "content": "A"
+     }
+    ],
+    "source": "Kettles"
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "tool",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     },
+     {
+      "role": "assistant",
+      "content": "<tool_call>{}</tool_call>"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "a tool example must list its tools"
+  },
+  {
+   "record": {
+    "kind": "pref",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ],
+    "chosen": "good"
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "pref",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ],
+    "chosen": "same",
+    "rejected": "same"
+   },
+   "ok": false,
+   "problem": "rejected must differ from chosen"
+  },
+  {
+   "record": {
+    "kind": "failure",
+    "task": {
+     "drill": 1,
+     "seed": 2
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "failure",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ],
+    "answer": "A"
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "failure",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "a failure needs a task, or the question and the right answer"
+  },
+  {
+   "record": {
+    "kind": "secret",
+    "messages": [
+     {
+      "role": "user",
+      "content": "Q"
+     },
+     {
+      "role": "assistant",
+      "content": "A"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "unknown kind secret"
+  }
+ ],
+ "toolsBlock": "# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"type\":\"function\",\"function\":{\"name\":\"weather\",\"description\":\"Weather for a place.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\"},\"lat\":{\"type\":\"number\"}}}}}\n{\"type\":\"function\",\"function\":{\"name\":\"set_reminder\",\"description\":\"A reminder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"in_minutes\":{\"type\":\"number\"},\"repeat\":{\"type\":\"string\",\"enum\":[\"none\",\"daily\"]}},\"required\":[\"text\"]}}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>"
+}

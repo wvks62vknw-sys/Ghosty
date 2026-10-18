@@ -54,7 +54,7 @@ def exam_mean(scores):
 
 
 def _pts(x):
-    r = round(x * 1000) / 10
+    r = math.floor(x * 1000 + 0.5) / 10  # JavaScript's Math.round, so both sides say the same words
     return f"{int(r) if r == int(r) else r} points"
 
 
@@ -495,6 +495,7 @@ class Run:
         self.state = {'done': []}
         self.wip = f"wip/week-{self.week:04d}"
         self.token = None
+        self.dev = 'cuda'
 
     # -- bookkeeping
     def phase(self, name, fn, skip_if=None):
@@ -559,6 +560,7 @@ class Run:
         import torch
         if not torch.cuda.is_available():
             raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
+        self.dev = 'cuda'
         self.token = http_json(f"{self.cfg['hook']}?t={self.cfg['ticket']}")['hf_token']
         from huggingface_hub import hf_hub_download, snapshot_download
         self.resume()
@@ -604,7 +606,7 @@ class Run:
         from peft import LoraConfig, PeftModel, get_peft_model
         self.tok = AutoTokenizer.from_pretrained(self.base_dir)
         self.tok.padding_side = 'left'
-        model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).cuda()
+        model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
         from huggingface_hub import snapshot_download
         # the current Ghosty: the stock model plus every published week's LoRA, each at the scale it was published with
         for link in self.cfg['current'].get('chain', []):
@@ -630,8 +632,8 @@ class Run:
         flat = [p for p in prompts for _ in range(n)]
         for i in range(0, len(flat), batch):
             chunk = [p + THINK_OFF for p in flat[i:i + batch]]
-            enc = self.tok(chunk, return_tensors='pt', padding=True, truncation=True, max_length=1536).to('cuda')
-            with torch.no_grad(), torch.autocast('cuda', dtype=torch.float16):
+            enc = self.tok(chunk, return_tensors='pt', padding=True, truncation=True, max_length=1536).to(self.dev)
+            with torch.no_grad(), torch.autocast('cuda', dtype=torch.float16, enabled=self.dev == 'cuda'):
                 g = self.model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=self.tok.pad_token_id, eos_token_id=[self.tok.convert_tokens_to_ids('<|im_end|>'), self.tok.eos_token_id])
             for row in g[:, enc['input_ids'].shape[1]:]:
                 outs.append(clean_reply(self.tok.decode(row, skip_special_tokens=False)))
@@ -847,6 +849,15 @@ class Run:
         labels = ([-100] * len(p) + a)[:max_len]
         return ids, labels
 
+    def tensors(self, batch):
+        """Left-padded ids, labels (−100 = not learned) and the attention mask for encoded (ids, labels) pairs."""
+        import torch
+        L = max(len(i) for i, _ in batch)
+        ids = torch.tensor([[self.tok.pad_token_id] * (L - len(i)) + i for i, _ in batch]).to(self.dev)
+        lab = torch.tensor([[-100] * (L - len(l)) + l for _, l in batch]).to(self.dev)
+        att = (torch.arange(L)[None, :] >= torch.tensor([L - len(i) for i, _ in batch])[:, None]).long().to(self.dev)
+        return ids, lab, att
+
     def sft(self):
         import torch
         ex = self.sft_examples()
@@ -864,11 +875,7 @@ class Run:
             if time.time() - t0 > budget:
                 self.reject('SFT examples not reached (time budget)', len(ex) - s * bs)
                 break
-            batch = [self.encode(p, a) for p, a, _ in ex[s * bs:(s + 1) * bs]]
-            L = max(len(i) for i, _ in batch)
-            ids = torch.tensor([[self.tok.pad_token_id] * (L - len(i)) + i for i, _ in batch]).cuda()
-            lab = torch.tensor([[-100] * (L - len(l)) + l for _, l in batch]).cuda()
-            att = (torch.arange(L)[None, :] >= torch.tensor([L - len(i) for i, _ in batch])[:, None]).long().cuda()
+            ids, lab, att = self.tensors([self.encode(p, a) for p, a, _ in ex[s * bs:(s + 1) * bs]])
             loss = model(input_ids=ids, attention_mask=att, labels=lab).loss / accum
             loss.backward()
             losses.append(loss.item() * accum)
@@ -881,16 +888,13 @@ class Run:
                 log(f'SFT step {s}/{steps} loss {sum(losses[-50:]) / len(losses[-50:]):.3f}')
                 self.save_adapter()
         model.gradient_checkpointing_disable()
+        model.config.use_cache = True
         self.save_adapter()
         log(f'SFT: {len(ex)} examples, final loss {sum(losses[-50:]) / max(1, len(losses[-50:])):.3f}')
 
     def seq_logp(self, prompts, answers):
         import torch
-        batch = [self.encode(p, a) for p, a in zip(prompts, answers)]
-        L = max(len(i) for i, _ in batch)
-        ids = torch.tensor([[self.tok.pad_token_id] * (L - len(i)) + i for i, _ in batch]).cuda()
-        lab = torch.tensor([[-100] * (L - len(l)) + l for _, l in batch]).cuda()
-        att = (torch.arange(L)[None, :] >= torch.tensor([L - len(i) for i, _ in batch])[:, None]).long().cuda()
+        ids, lab, att = self.tensors([self.encode(p, a) for p, a in zip(prompts, answers)])
         logits = self.model(input_ids=ids, attention_mask=att).logits[:, :-1].float()
         tgt = lab[:, 1:]
         lp = torch.log_softmax(logits, -1).gather(-1, tgt.clamp(min=0)[..., None])[..., 0]

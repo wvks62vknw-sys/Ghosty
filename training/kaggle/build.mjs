@@ -13,7 +13,8 @@ const at = (p) => new URL(p, import.meta.url).pathname;
 const require = createRequire(at('../../apps/edge/package.json'));
 const { build } = require('esbuild');
 
-export async function assetsSource() {
+/** The node program alone (training/kaggle/test_ghosty_weekly.py runs it): `node build.mjs --tasks <file>`. */
+export async function tasksJs() {
   const out = await build({
     entryPoints: [at('./tasks-cli.js')],
     bundle: true,
@@ -24,7 +25,11 @@ export async function assetsSource() {
     legalComments: 'none',
     logLevel: 'warning',
   });
-  const js = out.outputFiles[0].text;
+  return out.outputFiles[0].text;
+}
+
+export async function assetsSource() {
+  const js = await tasksJs();
   const py = readFileSync(at('./ghosty_weekly.py'), 'utf8');
   // One puzzle per game and level as seed text for Evol-Instruct (the brain cannot run the GYM itself).
   const dir = mkdtempSync(join(tmpdir(), 'ghosty-tasks-'));
@@ -50,7 +55,9 @@ export async function assetsSource() {
 }
 
 const target = at('../../apps/edge/src/selftrain/assets.ts');
-if (process.argv[1] && process.argv[1].endsWith('build.mjs')) {
+if (process.argv[1] && process.argv[1].endsWith('build.mjs') && process.argv.includes('--tasks')) {
+  writeFileSync(process.argv[process.argv.indexOf('--tasks') + 1], await tasksJs());
+} else if (process.argv[1] && process.argv[1].endsWith('build.mjs')) {
   const src = await assetsSource();
   if (process.argv.includes('--check')) {
     let now = '';
