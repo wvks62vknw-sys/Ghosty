@@ -23,6 +23,11 @@ import { fmtLocal, safeTz, zoned } from './time';
 import { addFact } from './tools/memory';
 
 export const PROFILE_KEY = 'profile';
+/**
+ * How Ghosty talks (SETTINGS → CHARACTER), under its own key: the nightly reflection loads the
+ * profile, waits on a model, then saves it — a dial changed meanwhile must not be undone by that.
+ */
+export const PERSONA_KEY = 'persona';
 export const REFLECT_KEY = 'reflect:last';
 export const DIARY_DOC = 'notes_diary';
 /** The chat history agent.ts keeps (its TURNS_KEY). */
@@ -63,13 +68,16 @@ export async function loadProfile(storage: DurableObjectStorage): Promise<Profil
     const lines = raw.sections?.[s];
     if (Array.isArray(lines)) p.sections[s] = lines.map(cleanLine).filter(Boolean).slice(-MAX_LINES);
   }
-  // How Ghosty talks (SETTINGS → CHARACTER): kept with the profile so every prompt that has the profile has it too.
-  if (raw.persona) p.persona = readPersona(raw.persona);
+  // How Ghosty talks (SETTINGS → CHARACTER): read with the profile so every prompt that has the profile has it too.
+  const persona = (await storage.get<unknown>(PERSONA_KEY)) ?? raw.persona;
+  if (persona) p.persona = readPersona(persona);
   return p;
 }
 
+/** The profile's lines and summary; the dials are never written from here (PERSONA_KEY, written only by SETTINGS). */
 export async function saveProfile(storage: DurableObjectStorage, p: Profile): Promise<void> {
-  await storage.put(PROFILE_KEY, p);
+  const { persona: _dials, ...rest } = p;
+  await storage.put(PROFILE_KEY, rest);
 }
 
 /** Add a line to a section unless it is already there (whatever its case); the oldest line goes when a section is full. */
@@ -257,12 +265,8 @@ export async function profileRoute(req: Request, path: string, method: string, u
   }
   if (path === '/profile/reflect' && method === 'POST') return json(await reflect(deps));
   if (path === '/profile/persona' && (method === 'GET' || method === 'POST')) {
-    const profile = await loadProfile(storage);
-    if (method === 'POST') {
-      profile.persona = readPersona(await req.json().catch(() => ({})));
-      await saveProfile(storage, profile);
-    }
-    const persona = readPersona(profile.persona);
+    if (method === 'POST') await storage.put(PERSONA_KEY, readPersona(await req.json().catch(() => ({}))));
+    const persona = readPersona((await loadProfile(storage)).persona);
     return json({ persona, character: character(persona) });
   }
   return json({ error: 'not found' }, 404);

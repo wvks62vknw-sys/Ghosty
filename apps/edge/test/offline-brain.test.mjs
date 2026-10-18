@@ -118,6 +118,6 @@ test("the offline brain is the same character (the owner's dials too), and its r
   assert.match(m[0].content, /CHARACTER: sharp, dry, quietly confident, warm underneath\./);
   assert.match(m[0].content, /No chatbot phrases/);
   const tuned = P.buildOfflinePrompt({ ...base, persona: { dry: 0, brief: 2, warm: 2 } });
-  assert.match(tuned[0].content, /CHARACTER: plain-spoken \(no wit\), quietly confident, openly warm and kind\..*As short as it can be/);
+  assert.match(tuned[0].content, /CHARACTER: plain-spoken, quietly confident, openly warm\..*As short as it can be\./);
   assert.equal(P.cleanReply('<think>\n</think>\nCertainly! Descale it with citric acid. I hope this helps!<|im_end|>'), 'Descale it with citric acid.');
 });

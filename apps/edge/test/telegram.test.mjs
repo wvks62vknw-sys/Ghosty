@@ -333,10 +333,12 @@ test('an approval becomes APPROVE / NOT NOW buttons; the callback answers it exa
   assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery']);
   assert.ok((await (await call('/api/history')).json()).pending, 'still waiting');
   tg.calls.length = 0;
-  // the old unsigned form, from the owner's own chat: refused all the same
+  // a button sent before buttons were signed ("ap:<id>:1"), pressed by the owner: treated as expired —
+  // its buttons come off and the owner is told to answer in the app; never acted on
   await hook({ update_id: ++n, callback_query: { id: 'cbx', from: { id: OWNER_CHAT }, message: { message_id: 1, chat: { id: OWNER_CHAT } }, data: `ap:${id}:1` } }, secret);
-  assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery']);
-  assert.equal(tg.calls[0].body.text, undefined);
+  assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery', 'editMessageReplyMarkup', 'sendMessage']);
+  assert.equal(tg.calls[0].body.text, 'That button has expired');
+  assert.deepEqual(texts(), ['That button is from before an update and no longer works. Answer it in the app.']);
   assert.ok((await (await call('/api/history')).json()).pending, 'still waiting');
   tg.calls.length = 0;
   // the owner presses APPROVE
@@ -606,6 +608,26 @@ test('a picture sent as a file goes the Lens way too (caption as the question); 
   await hook(msg(OWNER_CHAT, { document: { file_id: 'doc2', mime_type: 'application/pdf', file_name: 'a.pdf' } }), secret);
   assert.deepEqual(texts(), ['I can read photos and pictures sent as files here; other files go in the Library tab in the app.']);
   assert.equal(sent('download').length, 0);
+  tg.calls.length = 0;
+});
+
+test("an iPhone original sent as a file (4 MB, or HEIC) is read from Telegram's preview, never downloaded whole; with no preview the owner is told to send a photo", async () => {
+  tg.files.thumb1 = jpeg(400);
+  tg.calls.length = 0;
+  // 4 MB JPEG: over the limit, so the size is checked before any download and the preview is read instead
+  await hook(msg(OWNER_CHAT, { caption: 'Is this damp?', document: { file_id: 'bigdoc', mime_type: 'image/jpeg', file_name: 'IMG_0001.JPG', file_size: 4_000_000, thumbnail: { file_id: 'thumb1', width: 320, height: 240, file_size: 400 } } }), secret);
+  assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['thumb1'], 'the 4 MB file is never fetched');
+  assert.deepEqual(texts(), ['That file is too big or in a format I cannot read whole, so I am looking at its small preview. Send it as a photo, not a file, for more detail.', 'I can see a picture. Is this damp?']);
+  tg.calls.length = 0;
+  // HEIC: a format the models do not take — the preview again
+  await hook(msg(OWNER_CHAT, { document: { file_id: 'heic1', mime_type: 'image/heic', file_name: 'IMG_0002.HEIC', file_size: 900_000, thumbnail: { file_id: 'thumb1', width: 320, height: 240, file_size: 400 } } }), secret);
+  assert.deepEqual(sent('getFile').map((c) => c.body.file_id), ['thumb1']);
+  assert.equal(texts().at(-1), 'I can see a picture. What is in this picture?');
+  tg.calls.length = 0;
+  // no preview at all: nothing downloaded, and the plain way out
+  await hook(msg(OWNER_CHAT, { document: { file_id: 'heic2', mime_type: 'image/heic', file_name: 'IMG_0003.HEIC', file_size: 3_000_000 } }), secret);
+  assert.equal(sent('getFile').length, 0);
+  assert.deepEqual(texts(), ['I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.']);
   tg.calls.length = 0;
 });
 

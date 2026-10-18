@@ -37,7 +37,9 @@ export interface PromptGroups {
 
 /** Not tools the model calls, but things it should know: replies may be heard, and the library holds today's world. */
 const HEARING = 'You can hear (voice notes and the mic are transcribed) and speak in your own voice.';
-const TODAY = 'Your library\'s "Fresh knowledge" notebook holds today\'s news, papers and events: library_search it for anything about today.';
+const TODAY = 'Your library\'s "Fresh knowledge" notebook holds today\'s news and papers: library_search it for today.';
+/** The owner is on Telegram (telegram.ts): no screen there. */
+export const TELEGRAM = 'Channel: Telegram: plain text, no tables; screen actions do not show there, so describe them.';
 
 /**
  * WHAT YOU CAN DO NOW: one line per group that is on (its `about`, or its tool names for a
@@ -103,8 +105,13 @@ SELF-EDIT is not connected yet (no GitHub repo/token). If ${name} asks you to ch
   if (c.now) ctx.push(`Owner's local time: ${c.now}${c.tz ? ` (${c.tz})` : ''}`);
   if (validTz(c.tz)) ctx.push(`Local time as YYYY-MM-DDTHH:MM: ${isoLocal(Date.now(), c.tz)}`);
   if (c.location) ctx.push(`Owner's location: ${c.location.name} (${c.location.lat.toFixed(2)}, ${c.location.lon.toFixed(2)})`);
-  if (c.tab) ctx.push(`Interface tab open: ${c.tab}`);
-  if (c.screen) ctx.push(`On screen: ${c.screen.slice(0, 400)}`);
+  if (c.tab === 'telegram') {
+    // On Telegram there is no screen: one short line instead of the tab and agent.ts's longer screen note (the prompt budget).
+    ctx.push(TELEGRAM);
+  } else {
+    if (c.tab) ctx.push(`Interface tab open: ${c.tab}`);
+    if (c.screen) ctx.push(`On screen: ${c.screen.slice(0, 400)}`);
+  }
   if (ctx.length) lines.push(`\nCONTEXT:\n${ctx.join('\n')}`);
   // The owner in their own words (profile.ts: the nightly reflection), then the facts they told Ghosty to remember.
   const me = opts.profile ? profileLines(opts.profile) : [];

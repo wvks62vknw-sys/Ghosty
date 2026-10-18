@@ -128,7 +128,7 @@ interface TgMessage {
   caption?: string;
   photo?: TgPhotoSize[];
   /** A file: a picture sent "as a file" (full quality) is read like a photo. */
-  document?: TgFile & { file_name?: string };
+  document?: TgFile & { file_name?: string; thumbnail?: TgPhotoSize; thumb?: TgPhotoSize };
   voice?: TgFile;
   audio?: TgFile;
 }
@@ -648,14 +648,28 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   // A turn: text, a photo with its caption, or a voice note.
   const images: string[] = [];
   let heard = '';
-  const picture = m.photo?.length ? m.photo : m.document && /^image\//i.test(m.document.mime_type ?? '') ? [{ file_id: m.document.file_id, width: 1, height: 1, file_size: m.document.file_size }] : null;
-  if (picture) {
+  if (m.photo?.length) {
     // The Lens's way: the picture itself to a model that can see, the caption as the question.
     try {
-      images.push(await photoDataUrl(token, picture));
+      images.push(await photoDataUrl(token, m.photo));
     } catch (e) {
       return tgSend(token, chatId, `I couldn't get that photo: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
     }
+    if (!text) text = 'What is in this picture?';
+  } else if (m.document && /^image\//i.test(m.document.mime_type ?? '')) {
+    // A picture sent as a file: an iPhone original is often 2–5 MB or HEIC. Read whole when it can be
+    // (JPEG, PNG or WebP within the limit — the size checked before any download), else Telegram's preview of it.
+    const d = m.document;
+    const whole = /^image\/(jpeg|png|webp)$/i.test(d.mime_type ?? '') && (d.file_size ?? 0) <= MAX_IMAGE_BYTES;
+    const preview = d.thumbnail ?? d.thumb;
+    let got = '';
+    if (whole) got = await photoDataUrl(token, [{ file_id: d.file_id, width: 1, height: 1, file_size: d.file_size }]).catch(() => '');
+    if (!got && preview) {
+      got = await photoDataUrl(token, [preview]).catch(() => '');
+      if (got) await tgSend(token, chatId, 'That file is too big or in a format I cannot read whole, so I am looking at its small preview. Send it as a photo, not a file, for more detail.').catch(() => undefined);
+    }
+    if (!got) return tgSend(token, chatId, 'I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.');
+    images.push(got);
     if (!text) text = 'What is in this picture?';
   } else if (m.document) {
     return tgSend(token, chatId, 'I can read photos and pictures sent as files here; other files go in the Library tab in the app.');
@@ -711,14 +725,16 @@ async function handleCallback(host: TelegramHost, link: TelegramLink, token: str
   const ours = chatId !== undefined && chatId === link.chatId && q.from?.id === link.chatId;
   const press = ours ? await readButton(token, q.data ?? '') : null;
   const ok = press && !('refused' in press) ? press : null;
-  const expired = !!press && 'refused' in press && press.refused === 'expired';
+  // A button sent before buttons were signed ("ap:<id>:1"), pressed by the owner: treated as expired, never acted on.
+  const legacy = ours && /^ap:[\w-]{1,16}:[01]$/.test(q.data ?? '');
+  const expired = legacy || (!!press && 'refused' in press && press.refused === 'expired');
   const note = ok ? (ok.yes ? (ok.kind === 'u' ? 'Building it' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
   await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(note ? { text: note } : {}) }).catch(() => undefined);
   if (!ours || chatId === undefined) return;
   const unbutton = () => (q.message ? api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined) : Promise.resolve());
   if (expired) {
     await unbutton();
-    return tgSend(token, chatId, 'That button has expired. Ask me again, or answer it in the app.');
+    return tgSend(token, chatId, legacy ? 'That button is from before an update and no longer works. Answer it in the app.' : 'That button has expired. Ask me again, or answer it in the app.');
   }
   if (!ok) return;
   if (ok.kind === 'u' && !ok.yes) {

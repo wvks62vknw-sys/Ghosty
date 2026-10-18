@@ -43,9 +43,9 @@ export function readPersona(v: unknown): PersonaSettings {
   return { dry: dial(o.dry) ?? DEFAULT_PERSONA.dry, brief: dial(o.brief) ?? DEFAULT_PERSONA.brief, warm: dial(o.warm) ?? DEFAULT_PERSONA.warm };
 }
 
-const DRY = ['plain-spoken (no wit)', 'sharp, dry', 'sharp, very dry, deadpan'];
-const WARM = ['cool and businesslike', 'warm underneath', 'openly warm and kind'];
-const BRIEF = ['Short by default, fuller when it helps.', 'Short by default: a sentence or three.', 'As short as it can be: often one sentence.'];
+const DRY = ['plain-spoken', 'sharp, dry', 'very dry, deadpan'];
+const WARM = ['businesslike', 'warm underneath', 'openly warm'];
+const BRIEF = ['Short by default, fuller when it helps.', 'Short by default: a sentence or three.', 'As short as it can be.'];
 
 /**
  * The character for the prompt: one compact paragraph. `short`: the offline brain's version
@@ -67,76 +67,124 @@ export const SPOKEN = 'SPOKEN: this reply will be heard: one to three short sent
 
 // ---------------------------------------------------------------- the post-filter
 
-/** Openers that only ever stand at the start of a reply or a line. */
+//
+// Conservative by design: a lost fact is far worse than a stray "I hope this helps". So it only
+// ever takes (1) a filler opener off the very start of the reply, (2) pure-filler sign-off
+// sentences off the very end, (3) "delve" in lower case, and (4) decorative emoji trailing a
+// sentence when a reply is scattered with them. It never touches a sentence with a number, a
+// ";" or ":", or a link; nothing inside a list item; nothing in a letter or a long piece; and
+// nothing in code, quotes, block quotes or links. A reply nothing applies to comes back exactly
+// as it was, and running it twice changes nothing more.
+
+/** Words a filler "Sure," / "Of course," may stand before (and only these). */
+const FILLER_NEXT = String.raw`(?:here(?:'|’)?s|here (?:is|are)|i(?:'|’)ll|i will|let me|i can|i(?:'|’)ve|i have)\b`;
+
+/** Openers, tried at the very start of the reply only, again and again while one matches. */
 const OPENERS: RegExp[] = [
-  // "Great question!" / "What a good question." — the whole sentence goes
-  /^(?:(?:great|good|excellent|fantastic|brilliant|interesting|lovely) question|what an? (?:great|good|excellent|fantastic|interesting) question)\b(?:[^.!?\n]|[.!?](?=\S))*[.!?]+[ \t]*/gim,
+  // "Great question!" / "What a good question." — the whole sentence, when something follows
+  /^(?:(?:great|good|excellent|fantastic|brilliant|interesting|lovely) question|what an? (?:great|good|excellent|fantastic|interesting) question)[!.]+[ \t]+(?=\S)/i,
   // "I'd be happy to help with that!" — the whole sentence; "I'd be glad to explain: …" — up to the colon
-  /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to (?:help|assist)\b(?:[^.!?\n]|[.!?](?=\S))*[.!?:]+[ \t]*/gim,
-  /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to\b[^.!?:\n]*[!:][ \t]+(?=\S)/gim,
-  // "Certainly! …" / "Sure, …" / "Absolutely. …" — only when something follows
-  /^(?:certainly|absolutely|of course|sure thing|sure|definitely|gladly)(?:[!.]+|,)[ \t]+(?=\S)/gim,
+  /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to (?:help|assist)(?: you)?(?: with (?:that|this|it))?[!.]+[ \t]+(?=\S)/i,
+  /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to (?:explain|help|assist)(?: you)?(?: with (?:that|this|it))?[!:][ \t]+(?=\S)/i,
+  // "Certainly! …" / "Sure thing! …" — the stock exclamations, whatever follows
+  /^(?:certainly|sure thing)![ \t]+(?=\S)/i,
+  // "Sure, here's …" / "Of course! I'll …" — a yes-word only before filler ("Definitely. It is half price" keeps its yes)
+  // (or before another of these openers: "Of course, sure, certainly! The answer is 4" → "The answer is 4").
+  new RegExp(String.raw`^(?:certainly|absolutely|of course|sure|definitely|gladly)[!.,][ \t]+(?=${FILLER_NEXT}|(?:certainly|absolutely|of course|sure thing|sure|definitely|gladly)[!.,])`, 'i'),
   // "As an AI, I can't …" → "I can't …"
-  /^as (?:an ai(?: language model| assistant| model)?|a (?:large )?language model),[ \t]*/gim,
+  /^as (?:an ai(?: language model| assistant| model)?|a (?:large )?language model),[ \t]*(?=\S)/i,
 ];
 
-/** Sentences that go wherever they stand: the stock sign-offs and offers. */
-const SENTENCES = [
-  'i hope (?:this|that|it) (?:helps|was helpful|is helpful|answers)',
-  'hope (?:this|that) helps',
-  'let me know if',
-  'feel free to',
-  "(?:don'?t|do not) hesitate to",
-  '(?:is there )?anything else (?:i can|you(?:\'d| would) like|you need)',
-  'happy to help',
-  "i(?:'|’)?m (?:always )?here to help",
-  'if you have any (?:other |more |further )?questions',
-];
-const SENTENCE_RE = new RegExp(`(^|[.!?…][ \\t]+)(?:${SENTENCES.join('|')})\\b(?:[^.!?\\n]|[.!?](?=\\S))*(?:[.!?]+|$)[ \\t]*`, 'gim');
+/** Sign-offs that are filler from first word to last: only these whole sentences, only at the end. */
+const SIGNOFF = new RegExp(
+  '^(?:' +
+    [
+      "i hope (?:this|that|it) (?:helps|was helpful|is helpful)(?: you)?",
+      'hope (?:this|that) helps',
+      'let me know if you (?:have any (?:other |more |further )?questions|need anything else|need (?:any )?(?:more|further) help|need anything more)',
+      'feel free to (?:ask|reach out)(?: if you have any (?:other |more |further )?questions)?',
+      'if you have any (?:other |more |further )?questions,? (?:feel free to ask|let me know|just ask)',
+      "(?:don(?:'|’)?t|do not) hesitate to (?:ask|reach out)(?: if you need anything else)?",
+      '(?:is there )?anything else (?:i can help (?:you )?with|you(?:(?:\'|’)d| would) like(?: me to (?:help with|do|add))?|you need)',
+      'happy to help',
+      "i(?:'|’)?m (?:always )?here (?:to help|if you need (?:me|anything))",
+    ].join('|') +
+    ')[.!?…]*$',
+  'i',
+);
 
-/** "delve" and friends, with the case of the first letter kept. */
-const DELVE: Record<string, string> = { delve: 'dig', delves: 'digs', delved: 'dug', delving: 'digging' };
+/** A letter or a note to someone ("Dear …", "Hi Sam," … "Best, Sam"): its lines are the writer's. */
+const LETTER = /^(?:dear|hi|hello|hey)\b[^\n]{0,60}[,\n]|\n[ \t]*(?:best|regards|kind regards|best wishes|many thanks|thanks|cheers|yours(?: sincerely| faithfully)?|sincerely)\b[^\n]{0,40}$/i;
 
-/** Pictographic emoji (not ✓ ✗ or arrows, which Ghosty's own lines use). */
-const EMOJI = /(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2728}\u{2764}\u{2705}\u{274C}\u{2B50}])\u{FE0F}?(?:\u{200D}(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}\u{2764}])\u{FE0F}?)*/gu;
+/** Decorative emoji: pictographs shown as emoji — never the text symbols (U+2600–26FF: ★ ☐ ♯ ☀), nor flags. */
+const EMO = String.raw`(?:(?![☀-⛿\u{1F1E6}-\u{1F1FF}])(?:\p{Emoji_Presentation}|\p{Extended_Pictographic}️)(?:\p{Emoji_Modifier}|‍\p{Extended_Pictographic}️?)*)`;
+const EMO_ANY = new RegExp(EMO, 'gu');
+/** A run of them straight after a sentence's end, or at the end of a line. */
+const EMO_AFTER_STOP = new RegExp(String.raw`([.!?])[ \t]*(?:${EMO}[ \t]*)+`, 'gu');
+const EMO_BEFORE_STOP = new RegExp(String.raw`[ \t]*(?:${EMO}[ \t]*)+(?=[.!?])`, 'gu');
+const EMO_LINE_END = new RegExp(String.raw`(\S)[ \t]*(?:${EMO}[ \t]*)+$`, 'gmu');
 
-const capFirst = (s: string): string => s.replace(/^(\s*)([a-z])/, (_m, sp: string, c: string) => sp + c.toUpperCase());
+/** Capitalise the first letter of `s` — unless that word is not a plain lower-case word ("iPhone", "eBay", "npm…"). */
+function capitalise(s: string): string {
+  const w = /^[a-z]+(?:['’][a-z]+)?(?=[\s,.!?;:]|$)/.exec(s);
+  if (!w || /^(?:npm|git|ls|cd|pip|curl|sudo|yarn|node)$/.test(w[0])) return s;
+  return s[0]!.toUpperCase() + s.slice(1);
+}
 
 /**
- * A model's reply with the chatbot phrases taken out: the openers ("Great question!",
- * "Certainly!", "I'd be happy to help"), "As an AI", the sign-offs ("I hope this helps",
- * "Let me know if…", "Feel free to…"), "delve", and a scatter of emoji (two or more; a single
- * one stays). Code (fenced or inline), quoted words, block quotes and links are never touched.
- * A reply that would be left empty comes back as it was.
+ * A model's reply with the stock chatbot phrases taken out — conservatively (see above). Returns
+ * `text` itself, untouched, whenever nothing applies.
  */
 export function polish(text: string): string {
   if (!text || !text.trim()) return text;
   const kept: string[] = [];
   const hold = (s: string) => `\u0000${kept.push(s) - 1}\u0000`;
-  let t = text
+  const held = text
     .replace(/```[\s\S]*?(?:```|$)/g, hold)
     .replace(/`[^`\n]+`/g, hold)
     .replace(/^>.*$/gm, hold)
-    .replace(/"[^"\n]{1,400}"|“[^”\n]{1,400}”/g, hold)
-    .replace(/https?:\/\/[^\s)\]]*[^\s)\].,!?;:'"]/g, hold);
-  const before = t;
-  for (const re of OPENERS) t = t.replace(re, '');
-  // An opener taken off the start of a line leaves its next word to be capitalised.
-  if (t !== before) t = t.replace(/(^|\n)([ \t]*)([a-z])/g, (_m, nl: string, sp: string, c: string) => nl + sp + c.toUpperCase());
-  // Again until nothing changes: a removed sentence takes the boundary the next one needs.
-  for (let i = 0, was = ''; i < 4 && was !== t; i++) [was, t] = [t, t.replace(SENTENCE_RE, '$1')];
-  t = t.replace(/,[ \t]*as an ai(?: language model| assistant| model)?,/gi, ',');
-  t = t.replace(/\b([Dd])elv(e|es|ed|ing)\b/g, (_m, d: string, end: string) => {
-    const w = DELVE[`delv${end}`]!;
-    return d === 'D' ? w[0]!.toUpperCase() + w.slice(1) : w;
-  });
-  if ((t.match(EMOJI) ?? []).length >= 2) t = t.replace(EMOJI, '').replace(/[ \t]+([.,!?])/g, '$1');
-  t = t
-    .replace(/[ \t]{2,}/g, ' ')
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  t = capFirst(t);
-  const out = t.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => kept[Number(i)] ?? '');
-  return /[\p{L}\p{N}]/u.test(out) ? out : text.trim();
+    .replace(/https?:\/\/[^\s)\]]*[^\s)\].,!?;:'"]/g, hold)
+    .replace(/"[^"\n]*"|“[^”]*”/g, hold);
+  let t = held.trim();
+
+  // 1. openers, at the very start only; stacked ones all go.
+  let opened = false;
+  for (let again = true; again; ) {
+    again = false;
+    for (const re of OPENERS) {
+      const next = t.replace(re, '');
+      if (next !== t && /[\p{L}\p{N}]/u.test(next)) {
+        t = next;
+        opened = again = true;
+      }
+    }
+  }
+  if (opened) t = capitalise(t);
+
+  // 2. pure-filler sign-offs, at the very end only — never in a letter, a long piece or a list item.
+  const longForm = t.length > 1200 || t.split(/\n[ \t]*\n/).length > 4;
+  if (!LETTER.test(t) && !longForm) {
+    for (;;) {
+      // The last sentence: after the last stop on the last line.
+      const start = t.lastIndexOf('\n') + 1;
+      const line = t.slice(start);
+      if (/^[ \t]*(?:[-*•]|\d+[.)])[ \t]/.test(line)) break;
+      const m = /(^|[.!?…]["')\]]?[ \t]+)([^.!?…\n]*[.!?…]*)[ \t]*$/.exec(line);
+      const sentence = (m?.[2] ?? '').trim();
+      if (!m || !sentence || /[\d;:]|\u0000/.test(sentence) || !SIGNOFF.test(sentence)) break;
+      const rest = t.slice(0, start + m.index + m[1]!.length).trimEnd();
+      if (!/[\p{L}\p{N}]/u.test(rest.replace(/\u0000\d+\u0000/g, 'x'))) break;
+      t = rest;
+    }
+  }
+
+  // 3. "delve", lower case anywhere; capitalised only to start a sentence before a lower-case word (not "Delve Labs").
+  t = t.replace(/\bdelv(e|es|ed|ing)\b/g, (_m, end: string) => ({ e: 'dig', es: 'digs', ed: 'dug', ing: 'digging' })[end]!);
+  t = t.replace(/(^|[.!?][ \t]+|\n)Delv(e|es|ed|ing)\b(?=[ \t]+[a-z])/g, (_m, pre: string, end: string) => pre + ({ e: 'Dig', es: 'Digs', ed: 'Dug', ing: 'Digging' })[end]!);
+
+  // 4. a scatter of emoji (two or more): only the decorative ones trailing a sentence go.
+  if ((t.match(EMO_ANY) ?? []).length >= 2) t = t.replace(EMO_BEFORE_STOP, '').replace(EMO_AFTER_STOP, '$1 ').replace(EMO_LINE_END, '$1').replace(/[ \t]+$/gm, '').trim();
+
+  if (t === held.trim()) return text;
+  return t.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => kept[Number(i)] ?? '');
 }

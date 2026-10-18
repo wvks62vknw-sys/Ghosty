@@ -104,14 +104,66 @@ const PR = await import('./.build/profile.mjs');
 const GOLDEN = [
   ['Great question! The M6 is clear northbound right now; the usual 20-minute queue at J10 has gone.', 'The M6 is clear northbound right now; the usual 20-minute queue at J10 has gone.'],
   ["Certainly! Here's the forecast for Birmingham: rain from 3pm, clearing by 7.\n\nI hope this helps! Let me know if you need anything else.", "Here's the forecast for Birmingham: rain from 3pm, clearing by 7."],
-  ["I'd be happy to help with that! Your next train is the 17:42 from platform 4. Feel free to ask if you'd like a later one.", 'Your next train is the 17:42 from platform 4.'],
+  ["I'd be happy to help with that! Your next train is the 17:42 from platform 4.", 'Your next train is the 17:42 from platform 4.'],
   ["As an AI, I don't have opinions on football, but City have won their last four.", "I don't have opinions on football, but City have won their last four."],
   ["Let's delve into it. 🚀✨ The plan has three steps: measure, order, fit. 🎉", "Let's dig into it. The plan has three steps: measure, order, fit."],
-  ['Sure, 5pm works. I set the reminder.', '5pm works. I set the reminder.'],
-  ['The total is 7.5 litres (about 1.65 gallons). Let me know if you need it in pints too!', 'The total is 7.5 litres (about 1.65 gallons).'],
-  ["Absolutely! 1. Eggs\n2. Milk\n3. Bread\n\nIs there anything else you'd like me to add?", '1. Eggs\n2. Milk\n3. Bread'],
-  ['Published: https://ghosty.example/s/let-me-know-if. Let me know if you want any changes.', 'Published: https://ghosty.example/s/let-me-know-if.'],
-  ['Of course not. The shop shuts at 5, so you have an hour.', 'Of course not. The shop shuts at 5, so you have an hour.'],
+  ["Sure, here's the plan: leave at 8. I hope this helps!", "Here's the plan: leave at 8."],
+  ["Absolutely! 1. Eggs\n2. Milk\n3. Bread\n\nIs there anything else you'd like me to add?", "Absolutely! 1. Eggs\n2. Milk\n3. Bread"],
+  ['Published: https://ghosty.example/s/let-me-know-if. Feel free to ask if you have any questions.', 'Published: https://ghosty.example/s/let-me-know-if.'],
+  ['Of course, sure, certainly! The answer is 4.', 'The answer is 4.'],
+  ["I'd be happy to explain: the answer is 4.", 'The answer is 4.'],
+];
+
+/**
+ * The review's probes: replies whose meaning a filter must never change. Every one comes back
+ * exactly as it was (numbers, plans, codes, letters, list items, yes-words, symbols, names).
+ */
+const UNTOUCHED = [
+  'Your bill is £42. If you have any questions about it, call 0800 123 456.',
+  'Let me know if you want the 7:15 train; otherwise I will book the 7:45.',
+  'Two trains left tonight. Let me know if you want the 7:15; otherwise I will book the 7:45.',
+  'Feel free to park on the drive; the code is 4471.',
+  'The host replied. Feel free to park on the drive; the gate code is 4471.',
+  "Dear Mr Smith,\n\nThe flat is ready on Monday. Let me know if the 3rd works for you.\n\nDon't hesitate to call me on 07700 900123.\n\nBest, Sam",
+  "Hi Priya,\n\nThe keys are with the neighbour.\n\nLet me know if you need anything else.\n\nThanks,\nSam",
+  '1. Feel free to skip step 2.\n2. Step two.',
+  'Pack:\n- passport\n- Let me know if you need anything else',
+  'The total is 7.5 litres. Let me know if you need the 7.15 figure too.',
+  'Booked. Anything else you need for the trip is in the email: passport, tickets.',
+  'Use 5" pipe. Let me know if 6" is better. Done.',
+  'Definitely. It is half price until Sunday.',
+  'Absolutely. The battery alone is worth it.',
+  'Sure, but only if it is under £50.',
+  'Gladly, though it will take a day.',
+  'Sure, 5pm works.',
+  'Sure.',
+  'Certainly not before Monday.',
+  'Of course not. The shop shuts at 5, so you have an hour.',
+  'iPhone 13 batteries last about two days.',
+  'Sure, iOS 17 does that.\nnpm install\ngit push',
+  'eBay has it for £20.',
+  "Ratings: Pizza Express ★★★★☆, Franco's ★★★☆☆.",
+  'Flags: 🇬🇧 UK, 🇫🇷 France.',
+  'Week: Mon ☀️ 21°, Tue 🌧 15°.',
+  'Shopping list: ☐ milk ☐ eggs ☐ bread',
+  'Your chord is C♯ minor; play ♩ = 90, chorus ♪ repeats.',
+  'Your score: 9/10 ✅ ✅ for both parts.',
+  'Done ✅',
+  '✓ 3 of 4 claims found in the sources',
+  'He said I hope this helps, then left.',
+  'He said "I hope this helps", then left.',
+  `He said "${'Let me know if you need more. '.repeat(20)}" and left.`,
+  'Delve Labs makes software. The Delve Gallery opens at 10.',
+  '| col | val |\n|---|---|\n| a  | b |',
+  'Bonjour. Certainement! Je vais bien.',
+  'xxxxx Great question! Here it is.',
+  'Step 1: sure. Step 2: done.',
+  'Great question!',
+  'I hope this helps!',
+  'Is there anything else I can help you with?',
+  "```js\n// Great question!\nconsole.log('Let me know if you need anything');\n```\nThat prints one line.",
+  'Use `Certainly!` as the greeting string.',
+  '> Let me know if you can make it.\n\nThat was her text.',
 ];
 
 test('polish: the golden set — stock chatbot phrases out, the substance word for word', () => {
@@ -120,23 +172,32 @@ test('polish: the golden set — stock chatbot phrases out, the substance word f
   for (const [, after] of GOLDEN) assert.equal(P.polish(after), after);
 });
 
-test('polish never mangles code, quotes, block quotes or links, never empties a reply, and keeps a single emoji', () => {
-  const code = "```js\n// Great question!\nconsole.log('Let me know if you need anything');\n```\nThat prints one line.";
-  assert.equal(P.polish(code), code);
-  assert.equal(P.polish('Use `Certainly!` as the greeting string.'), 'Use `Certainly!` as the greeting string.');
-  assert.equal(P.polish('He said "I hope this helps, delve in" and left.'), 'He said "I hope this helps, delve in" and left.');
-  assert.equal(P.polish('> Let me know if you can make it.\n\nThat was her text.'), '> Let me know if you can make it.\n\nThat was her text.');
-  assert.equal(P.polish('Great question!'), 'Great question!', 'a reply that would be left empty stays as it was');
-  assert.equal(P.polish('Done ✅'), 'Done ✅');
-  assert.equal(P.polish('✓ 3 of 4 claims found in the sources'), '✓ 3 of 4 claims found in the sources');
+test("polish never changes a reply's meaning: the review's probes all come back exactly as they were", () => {
+  for (const t of UNTOUCHED) assert.equal(P.polish(t), t, t);
   assert.equal(P.polish(''), '');
+});
+
+test('polish: capitals, "delve", emoji and code are handled with care; running it twice changes nothing more', () => {
+  assert.equal(P.polish('Certainly! iPhone 13 batteries last two days.'), 'iPhone 13 batteries last two days.', 'no IPhone');
+  assert.equal(P.polish('Certainly! eBay has it for £20.'), 'eBay has it for £20.', 'no EBay');
+  assert.equal(P.polish('Certainly! Run these:\nnpm install\ngit push origin main'), 'Run these:\nnpm install\ngit push origin main', 'only the line the opener left is capitalised');
+  assert.equal(P.polish('As an AI, i cannot see your screen.'), 'I cannot see your screen.');
+  assert.equal(P.polish('Read https://example.com/delve-guide and `delve()` then delve in.'), 'Read https://example.com/delve-guide and `delve()` then dig in.');
+  assert.equal(P.polish('Great question! Delve into the menu first.'), 'Dig into the menu first.');
+  assert.equal(P.polish('Great work today 🎉🎉. The flat is booked. 🚀'), 'Great work today. The flat is booked.');
+  assert.equal(P.polish('Certainly! ```bash\nls\n``` then run it.'), '```bash\nls\n``` then run it.');
+  for (const t of [...GOLDEN.map((g) => g[0]), ...UNTOUCHED]) assert.equal(P.polish(P.polish(t)), P.polish(t), `idempotent: ${t}`);
 });
 
 const client2 = { name: 'Sam', now: 'Fri 17 Oct 14:05', tz: 'Europe/London', tab: 'core' };
 const hello = () => T.selectGroups('hello', new Set(), false);
+/** What agent.ts's telegramHost puts in the client context for a Telegram turn (copied word for word). */
+const TG_SCREEN = 'The owner is talking from the Telegram app, not from your interface: answer in plain text (no markdown tables or headings); screen actions (tabs, the globe, maps, the Lens, widgets) do not show there, so say what you would show instead, or tell them to open Ghosty on their phone.';
+const ALL_DIALS = [0, 1, 2].flatMap((dry) => [0, 1, 2].flatMap((brief) => [0, 1, 2].map((warm) => ({ dry, brief, warm }))));
+const withDials = (persona) => ({ summary: '', sections: { about: [], likes: [], dislikes: [], people: [], places: [], routines: [], goals: [], work: [], other: [] }, updatedAt: 0, persona });
 
 test('the character is in the prompt on every channel: app chat, coding, voice, Telegram, paused and background runs', () => {
-  const tg = { ...client2, tab: 'telegram', screen: 'The owner is talking from the Telegram app, not from your interface: answer in plain text.' };
+  const tg = { ...client2, tab: 'telegram', screen: TG_SCREEN };
   const prompts = {
     chat: P.systemPrompt(client2, [], true, [], { groups: hello() }),
     code: P.systemPrompt(client2, [], true, [], { code: true, groups: T.selectGroups('build me a snake game', new Set(), true) }),
@@ -152,26 +213,35 @@ test('the character is in the prompt on every channel: app chat, coding, voice, 
   }
   assert.ok(prompts.voice.includes(P.SPOKEN) && prompts.telegramVoice.includes(P.SPOKEN), 'a spoken turn gets the spoken style');
   assert.ok(!prompts.chat.includes(P.SPOKEN) && !prompts.telegram.includes(P.SPOKEN), 'a typed one does not');
+  assert.ok(prompts.telegram.includes(P.TELEGRAM) && !prompts.telegram.includes(TG_SCREEN), 'Telegram: one short channel line instead of the long screen note');
   for (const ban of ['Great question', "I'd be happy to", 'As an AI', 'Certainly!', 'I hope this helps', 'Let me know if', 'delve', 'emoji', 'No forced jokes or catchphrases', 'British English', 'Answer first', 'Unsure? Say so']) assert.ok(prompts.chat.includes(ban), ban);
 });
 
-test('the dials change the words (never the rules), stay compact, and the longest spoken turn keeps to the budget', () => {
+test('the dials change the words (never the rules) and stay compact', () => {
   const words = (persona) => P.character(persona);
   assert.match(words(P.DEFAULT_PERSONA), /^CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\. Answer first, no preamble\. Short by default: a sentence or three\./);
-  assert.match(words({ dry: 0, brief: 1, warm: 1 }), /plain-spoken \(no wit\)/);
-  assert.match(words({ dry: 2, brief: 2, warm: 0 }), /very dry, deadpan, quietly confident, cool and businesslike\..*As short as it can be/);
-  assert.match(words({ dry: 1, brief: 0, warm: 2 }), /openly warm and kind\..*fuller when it helps/);
-  for (const d of [0, 1, 2]) for (const b of [0, 1, 2]) for (const w of [0, 1, 2]) {
-    const t = words({ dry: d, brief: b, warm: w });
-    assert.ok(t.length <= 450, `${d}${b}${w}: ${t.length} characters`);
+  assert.match(words({ dry: 0, brief: 1, warm: 1 }), /CHARACTER: plain-spoken, quietly confident/);
+  assert.match(words({ dry: 2, brief: 2, warm: 0 }), /very dry, deadpan, quietly confident, businesslike\..*As short as it can be\./);
+  assert.match(words({ dry: 1, brief: 0, warm: 2 }), /openly warm\..*fuller when it helps/);
+  for (const dials of ALL_DIALS) {
+    const t = words(dials);
+    assert.ok(t.length <= 450, `${JSON.stringify(dials)}: ${t.length} characters`);
     assert.match(t, /Never chatbot filler/);
-    assert.ok(P.character({ dry: d, brief: b, warm: w }, { short: true }).length <= 300);
+    assert.ok(P.character(dials, { short: true }).length <= 300);
   }
   assert.deepEqual(P.readPersona({ dry: 9, brief: '2', warm: 2 }), { dry: 1, brief: 1, warm: 2 }, 'odd values fall back to the default');
-  const profile = { summary: '', sections: { about: [], likes: [], dislikes: [], people: [], places: [], routines: [], goals: [], work: [], other: [] }, updatedAt: 0, persona: { dry: 2, brief: 0, warm: 2 } };
-  const sys = P.systemPrompt({ ...client, voice: true }, [], true, [], { groups: hello(), profile });
-  assert.ok(sys.includes(P.character(profile.persona)));
-  assert.ok(sys.length <= 5500, `the longest spoken plain turn: ${sys.length} characters`);
+});
+
+test('the prompt budget holds for every dial setting on every channel: app, spoken, Telegram and a Telegram voice note', () => {
+  const channels = { plain: client, spoken: { ...client, voice: true }, telegram: { ...client, tab: 'telegram', screen: TG_SCREEN }, telegramVoice: { ...client, tab: 'telegram', screen: TG_SCREEN, voice: true } };
+  for (const [name, c] of Object.entries(channels)) {
+    let worst = { n: 0, dials: null };
+    for (const dials of ALL_DIALS) {
+      const n = P.systemPrompt(c, [], true, [], { groups: hello(), profile: withDials(dials) }).length;
+      if (n > worst.n) worst = { n, dials };
+    }
+    assert.ok(worst.n <= 5500, `${name}: the longest is ${worst.n} characters at ${JSON.stringify(worst.dials)}`);
+  }
 });
 
 class Mem {
@@ -181,21 +251,43 @@ class Mem {
   async delete(k) { return this.m.delete(k); }
 }
 
+const profileCall = (deps) => async (method, path, body) => (await PR.profileRoute(new Request(`https://g.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {}) }), path, method, new URL(`https://g.example/api${path}`), deps)).json();
+
 test('SETTINGS → CHARACTER round-trips through the brain and reaches the prompt; the profile keeps it', async () => {
   const storage = new Mem();
-  const deps = { storage, library: { available: false }, ai: async () => '{}' };
-  const call = async (method, path, body) => (await PR.profileRoute(new Request(`https://g.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {}) }), path, method, new URL(`https://g.example/api${path}`), deps)).json();
+  const call = profileCall({ storage, library: { available: false }, ai: async () => '{}' });
   const first = await call('GET', '/profile/persona');
   assert.deepEqual(first.persona, P.DEFAULT_PERSONA);
   assert.equal(first.character, P.character());
   const saved = await call('POST', '/profile/persona', { dry: 2, brief: 2, warm: 0, extra: 'ignored' });
   assert.deepEqual(saved.persona, { dry: 2, brief: 2, warm: 0 });
   assert.match(saved.character, /very dry, deadpan/);
-  // adding a profile line (and the nightly reflection, which saves the same record) keeps the dials
   await call('POST', '/profile', { section: 'likes', text: 'strong tea' });
   assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 2, brief: 2, warm: 0 });
   const profile = await PR.loadProfile(storage);
-  assert.ok(P.systemPrompt(client2, [], false, [], { groups: hello(), profile }).includes('CHARACTER: sharp, very dry, deadpan, quietly confident, cool and businesslike.'));
+  assert.ok(P.systemPrompt(client2, [], false, [], { groups: hello(), profile }).includes('CHARACTER: very dry, deadpan, quietly confident, businesslike.'));
+});
+
+test('a dial changed while the nightly reflection waits on its model is not undone when the reflection saves', async () => {
+  const storage = new Mem();
+  const now = Date.now();
+  await storage.put('turns', [{ role: 'user', text: 'I like tea', at: now - 2000 }, { role: 'user', text: 'I like walks', at: now - 1000 }]);
+  let call;
+  const deps = {
+    storage,
+    library: { available: false },
+    // The owner moves a dial in SETTINGS while the model is thinking.
+    ai: async () => {
+      await call('POST', '/profile/persona', { dry: 0, brief: 2, warm: 2 });
+      return JSON.stringify({ summary: 'Likes tea.', facts: [], sections: { likes: ['tea'] }, diary: '' });
+    },
+  };
+  call = profileCall(deps);
+  await call('POST', '/profile/persona', { dry: 2, brief: 1, warm: 1 });
+  const r = await PR.reflect(deps, now);
+  assert.equal(r.ok, true, r.skipped);
+  assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 0, brief: 2, warm: 2 }, 'the newer dials stand');
+  assert.deepEqual((await PR.loadProfile(storage)).sections.likes, ['tea'], 'and the reflection was saved');
 });
 
 test('the router polishes whatever free model answered when Ghosty speaks as himself, and nothing else', () => {
