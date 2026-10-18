@@ -1458,22 +1458,20 @@ export class GhostyAgent {
   private readonly bgTick = () => void this.fireDueReminders().catch(() => undefined);
 
   /** Every reminder that is due, now (one pass at a time): from the alarm, and from background work while it waits. */
-  private remindersBusy = false;
-  private async fireDueReminders(): Promise<void> {
-    if (this.remindersBusy) return;
-    this.remindersBusy = true;
-    try {
-      for (const job of (await loadJobs(this.storage)).filter((j) => j.kind === 'reminder' && j.next <= Date.now() + 1500)) {
-        try {
-          await this.notify({ kind: 'reminder', title: job.title, text: job.text, pushKind: 'reminders' });
-          await finishJob(this.storage, job.id);
-        } catch (e) {
-          await this.notify({ kind: 'error', title: job.title, text: `This did not run: ${String((e as Error)?.message ?? e).slice(0, 300)}` }).catch(() => undefined);
-          await finishJob(this.storage, job.id, 'failed').catch(() => undefined);
-        }
+  private remindersRun: Promise<void> | null = null;
+  private fireDueReminders(): Promise<void> {
+    // A pass already running (started by a wait tick) is shared, so the alarm awaits it before it re-arms and returns.
+    return (this.remindersRun ??= this.remindersPass().finally(() => (this.remindersRun = null)));
+  }
+  private async remindersPass(): Promise<void> {
+    for (const job of (await loadJobs(this.storage)).filter((j) => j.kind === 'reminder' && j.next <= Date.now() + 1500)) {
+      try {
+        await this.notify({ kind: 'reminder', title: job.title, text: job.text, pushKind: 'reminders' });
+        await finishJob(this.storage, job.id);
+      } catch (e) {
+        await this.notify({ kind: 'error', title: job.title, text: `This did not run: ${String((e as Error)?.message ?? e).slice(0, 300)}` }).catch(() => undefined);
+        await finishJob(this.storage, job.id, 'failed').catch(() => undefined);
       }
-    } finally {
-      this.remindersBusy = false;
     }
   }
 
