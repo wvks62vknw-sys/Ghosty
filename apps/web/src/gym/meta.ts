@@ -107,6 +107,56 @@ export const WORDS: GameMeta = {
   play: 'secret',
 };
 
+// ---- part 2: reasoning games (their problems will train the offline language model) ----
+export const LOGIC: GameMeta = {
+  id: 'logic',
+  title: 'LOGIC SANDBOX',
+  blurb: 'claims · proofs · truth tables',
+  learns: 'He learns which steps to try first when proving a claim; every claim is checked by machine, and a false one “proved” counts as a failure.',
+  unit: 'proofs',
+  bar: per([0.8, 0.8, 0.8, 0.75, 0.75, 0.8, 0.75, 0.7, 0.7, 0.7]),
+};
+export const BRAIN: GameMeta = {
+  id: 'brain',
+  title: 'MINI-BRAIN LAB',
+  blurb: 'tiny networks · shape search',
+  learns: 'He learns which shape of tiny network (layers, size, learning speed) learns a kind of pattern best, tested on data it never saw.',
+  unit: 'networks',
+  bar: () => 0.8,
+};
+export const BUGHUNT: GameMeta = {
+  id: 'bughunt',
+  title: 'BUG HUNT',
+  blurb: 'one bug · find it · fix it',
+  learns: 'He learns which lines and which kinds of slip to suspect first, so he finds and fixes the bug in fewer tries.',
+  unit: 'programs',
+  bar: () => 0.7,
+};
+export const ESCAPE: GameMeta = {
+  id: 'escape',
+  title: 'TEXT ESCAPE ROOMS',
+  blurb: 'keys · locks · codes · clues',
+  learns: 'He learns which commands to try first, so he escapes in nearly as few steps as the shortest way out.',
+  unit: 'rooms',
+  bar: () => 0.75,
+};
+export const FACTCHECK: GameMeta = {
+  id: 'factcheck',
+  title: 'FACT-CHECK DUEL',
+  blurb: 'true · false · can’t tell',
+  learns: 'He learns which facts to look up and how to combine them — and to say “can’t tell” when the facts do not settle it.',
+  unit: 'claims',
+  bar: () => 0.9,
+};
+export const DEBATE: GameMeta = {
+  id: 'debate',
+  title: 'DEBATE ARENA',
+  blurb: 'cite the facts · the judge checks',
+  learns: 'He learns which facts to cite so a strict judge agrees — winning from the true side and never from the false one.',
+  unit: 'debates',
+  bar: () => 0.85,
+};
+
 /** In card order (the same order as GAMES in index.ts). */
-export const META: GameMeta[] = [MAZE, CODEBREAKER, COLONY, TRUST, TICTACTOE, CONNECT4, TILES, SUDOKU, COUNTDOWN, WORDS];
+export const META: GameMeta[] = [MAZE, CODEBREAKER, COLONY, TRUST, TICTACTOE, CONNECT4, TILES, SUDOKU, COUNTDOWN, WORDS, LOGIC, BRAIN, BUGHUNT, ESCAPE, FACTCHECK, DEBATE];
 export const metaById = (id: string): GameMeta | undefined => META.find((g) => g.id === id);
