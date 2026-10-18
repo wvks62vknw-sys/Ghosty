@@ -9,6 +9,7 @@
 // the reply is marked cut off, what they said is heard and answered, a tap cuts in too.
 //   node tests/voice.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
+import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -85,6 +86,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   // 2. SETTINGS → VOICE: the phone's voice instead — no more /api/tts calls
   if (narrow) await page.click('.logbtn');
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
   await page.waitForSelector('select[aria-label="Voice engine"]', { timeout: 10000 });
   const options = await page.evaluate(() => [...document.querySelectorAll('select[aria-label="Voice engine"] option')].map((o) => o.textContent));
   if (!options.some((o) => /Ghosty's own voice/.test(o)) || !options.some((o) => /This phone's voice/.test(o))) problems.push(`[${name}] voice engine options: ${options.join(' | ')}`);
@@ -102,6 +104,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   if (tts !== before) problems.push(`[${name}] the phone's voice was chosen but /api/tts was still asked (${tts - before} more calls)`);
   // and back: Ghosty's voice again (a fresh page, so an earlier playback hiccup cannot hold the phone's voice)
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
   await page.waitForSelector('select[aria-label="Voice engine"]', { timeout: 10000 });
   await page.selectOption('select[aria-label="Voice engine"]', 'ghosty');
   await page.waitForTimeout(400);
@@ -274,6 +277,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
 
   // 1. SETTINGS → VOICE: automatic by default, naming the natural British voice this phone has; the brain's voices; SAMPLE
   await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
   const engineSel = page.locator('select[aria-label="Voice engine"]');
   await engineSel.waitFor({ timeout: 10000 });
   if ((await engineSel.inputValue()) !== 'auto') problems.push(`[${name}] the voice picker does not start on automatic`);
@@ -283,7 +287,12 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   const brainOpts = await page.locator('select[aria-label="Voice"] option').allTextContents();
   for (const v of ['Draco', 'Pandora', 'Helios', 'Athena', 'Melo']) if (!brainOpts.some((o) => o.startsWith(v))) problems.push(`[${name}] the brain's voices are missing ${v}: ${brainOpts.join(' | ')}`);
   await page.selectOption('select[aria-label="Voice"]', 'pandora');
-  await page.click('button[aria-label="Hear a sample of this voice"]');
+  // SAMPLE is STOP while a sample is still being said: a click then would only stop it, so wait for the last one to end.
+  const sampleNow = async () => {
+    await page.waitForFunction(() => document.querySelector('button[aria-label="Hear a sample of this voice"]')?.textContent === 'SAMPLE', null, { timeout: 10000 }).catch(() => undefined);
+    await page.click('button[aria-label="Hear a sample of this voice"]');
+  };
+  await sampleNow();
   await page.waitForFunction(() => /Just spoke: Pandora/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] SAMPLE did not say which voice spoke`));
   const sampled = ttsBodies.filter((b) => /how I'll sound|Say the word|This is how/.test(b.text ?? ''));
   if (!sampled.length || sampled.some((b) => b.voice !== 'pandora')) problems.push(`[${name}] SAMPLE asked the brain for ${JSON.stringify(ttsBodies)}`);
@@ -295,7 +304,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   if (!/Serena \(Premium\)/.test(phoneOpts[0] ?? '') || !/Serena \(Premium\).*natural/.test(phoneOpts[1] ?? '') || !/Daniel \(Enhanced\)/.test(phoneOpts[2] ?? '')) problems.push(`[${name}] the phone's voices are listed as ${phoneOpts.join(' | ')}`);
   if (phoneOpts.some((o) => /Amélie/.test(o))) problems.push(`[${name}] a French voice is offered`);
   if (/Fred/.test(phoneOpts[1] ?? '')) problems.push(`[${name}] a novelty voice is ranked first`);
-  await page.click('button[aria-label="Hear a sample of this voice"]');
+  await sampleNow();
   await page.waitForFunction(() => window.__said.some((s) => /how I'll sound/.test(s.text)), null, { timeout: 8000 }).catch(() => undefined);
   const sample = await page.evaluate(() => window.__said.find((s) => /how I'll sound/.test(s.text)));
   if (sample?.voice !== 'Serena (Premium)') problems.push(`[${name}] the phone sample spoke in ${JSON.stringify(sample)}`);
@@ -305,14 +314,14 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   // (only the sample line counts: anything else the phone may still be finishing is not this sample)
   const quiet = await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length);
   const asked = ttsBodies.length;
-  await page.click('button[aria-label="Hear a sample of this voice"]');
+  await sampleNow();
   await page.waitForFunction(() => /Just spoke: Melo/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] after an Aura error the plain clip was not played`));
   if ((await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
   if (ttsBodies.length === asked) problems.push(`[${name}] after an Aura error the brain was not asked`);
   // when the natural voice's share is used up for today, the phone's natural voice takes over
   ttsAnswer = { voice: 'melo', note: "today's share for the natural voice is used up", reason: 'share', status: 200, seconds: 0.1 };
   const before = await page.evaluate(() => window.__said.length);
-  await page.click('button[aria-label="Hear a sample of this voice"]');
+  await sampleNow();
   await page.waitForFunction((n) => window.__said.length > n, before, { timeout: 8000 }).catch(() => problems.push(`[${name}] with the natural voice used up, the phone did not take over`));
   const fallback = await page.evaluate(() => window.__said.at(-1));
   if (fallback && fallback.voice !== 'Serena (Premium)') problems.push(`[${name}] the fallback spoke in ${fallback.voice}`);
@@ -320,7 +329,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   ttsAnswer = { voice: null, note: null, status: 404, seconds: 0.1 };
   await engineSel.selectOption('ghosty');
   const before2 = await page.evaluate(() => window.__said.length);
-  await page.click('button[aria-label="Hear a sample of this voice"]');
+  await sampleNow();
   await page.waitForFunction((n) => window.__said.length > n, before2, { timeout: 8000 }).catch(() => problems.push(`[${name}] a brain without a voice left the sample silent`));
   // back to automatic, Ghosty's natural voice, a reply long enough to talk over
   ttsAnswer = { voice: null, note: null, status: 200, seconds: 4 };

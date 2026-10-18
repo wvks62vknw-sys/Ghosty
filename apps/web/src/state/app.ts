@@ -54,7 +54,7 @@ const tz = (() => {
 export const settings = createStore<Settings>(
   {
     name: 'Boss',
-    theme: 'stark',
+    theme: 'graphite',
     units: /^en-US/i.test(navigator.language) ? 'imperial' : 'metric',
     speak: true,
     voice: 'auto',

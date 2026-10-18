@@ -12,6 +12,7 @@
 import { gfx, LineSet, PointSet } from './gfx';
 import { M4, RAD, rng, type Vec3 } from './math';
 import { view } from './space';
+import { proLook } from '../state/theme';
 
 const FLOOR_Y = -3.4;
 
@@ -116,13 +117,17 @@ export class Backdrop {
     g.begin(g.theme.bg.map((v) => v * 0.55) as Vec3);
     g.cam(M4.look(eye, [0, 0.2, 0], [0, 1, 0]), M4.persp(46 * RAD, g.w / g.h, 0.05, 200), 0.05, eye);
     g.additive();
+    // The calm looks (Graphite, Reactor): only the far stars and a little dust, no grid, no rings, no scanlines.
+    const calm = proLook();
     this.stars.draw(M4.mul(M4.rotY(this.t * 0.01), M4.rotX(this.t * 0.006)));
-    this.buildFloor(now);
-    this.floor.draw(M4.rotY(this.t * 0.02), { px: 1 });
-    this.buildRings(now);
-    this.rings.draw(M4.id(), { px: 1 });
+    if (!calm) {
+      this.buildFloor(now);
+      this.floor.draw(M4.rotY(this.t * 0.02), { px: 1 });
+      this.buildRings(now);
+      this.rings.draw(M4.id(), { px: 1 });
+    }
     const P = this.dust.clear();
-    for (const m of this.motes) {
+    for (const m of calm ? this.motes.slice(0, 40) : this.motes) {
       const y = FLOOR_Y + (((m.y - FLOOR_Y) + this.t * 0.12 * m.s) % 9);
       const x = m.x + Math.sin(this.t * 0.3 + m.p) * 0.25;
       const z = m.z + Math.cos(this.t * 0.22 + m.p) * 0.25;
@@ -131,8 +136,8 @@ export class Backdrop {
     }
     P.draw(M4.id(), { px: 1 });
     g.post.mode = 0;
-    g.post.bloom = 0.55;
-    g.post.scan = 0.05;
+    g.post.bloom = calm ? 0.35 : 0.55;
+    g.post.scan = calm ? 0 : 0.05;
     g.present();
   }
 }

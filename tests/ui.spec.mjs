@@ -29,7 +29,7 @@ async function run(name, viewport) {
   if (narrow) await page.click('.logbtn');
   await page.fill('#cin', 'remember I like flat whites');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => /Done\. (Saved|Already known)/.test(document.body.innerText), null, { timeout: 10000 });
+  await page.waitForFunction(() => /I’ll remember that|I already know that/.test(document.body.innerText), null, { timeout: 10000 });
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${out}/${name}-chat.png` });
   // approval flow

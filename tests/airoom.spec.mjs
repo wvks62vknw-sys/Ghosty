@@ -8,6 +8,7 @@
 //  - nothing scrolls sideways at iPhone width.
 //   BASE=http://localhost:8871 node tests/airoom.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
+import { openPanel } from './nav.mjs';
 import { engine, launch, webkitNoise } from './browser.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -28,6 +29,7 @@ await page.fill('#pair input', KEY);
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 await page.evaluate(() => (location.hash = 'system'));
+await openPanel(page, 'system', 'AI ROOM');
 await page.waitForSelector('#pg-system .airoom .roomsum', { timeout: 15000 });
 
 const gauge = () =>
@@ -48,6 +50,7 @@ check(!!poll && /^room now 2 of 2 a minute · used today 0 · rolling day$/.test
 await page.screenshot({ path: `${out}/airoom-${engine}-empty.png`, fullPage: false });
 
 // ---- 2. the keys: the Google Gemma slot (optional, one plain line) and the GitHub token's honest line
+await openPanel(page, 'system', 'KEYS');
 await page.evaluate(() => [...document.querySelectorAll('#pg-system button')].find((b) => /OPTIONAL KEYS/.test(b.textContent ?? ''))?.click());
 await page.waitForFunction(() => [...document.querySelectorAll('#pg-system .keyblock .lab')].some((l) => l.textContent === 'Google Gemma'), null, { timeout: 5000 }).catch(() => undefined);
 const blocks = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pg-system .keyblock')].map((b) => [b.querySelector('.lab')?.textContent ?? '', b.querySelector(':scope > .note')?.textContent ?? ''])));
@@ -74,6 +77,7 @@ const fit = await page.evaluate(() => {
   return { doc: document.documentElement.scrollWidth, vw: innerWidth, over };
 });
 check(fit.doc <= fit.vw && fit.over === 0, `sideways: ${JSON.stringify(fit)}`);
+await openPanel(page, 'system', 'AI ROOM');
 await page.locator('#pg-system .airoom').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/airoom-${engine}.png`, fullPage: false });
 

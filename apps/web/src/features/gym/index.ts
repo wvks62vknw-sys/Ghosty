@@ -11,7 +11,7 @@
  * carries on next time. The page imports only the games' descriptions (gym/meta.ts) and the board files
  * (rules, no engines): the engines live in the worker's bundle. State for specs at window.__ghosty.gym.
  */
-import { clear, h, svgEl } from '../../core/dom';
+import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
 import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
 import type { Frame } from '../../gym/core';
@@ -20,7 +20,10 @@ import { current, type GymRecord, statusLine } from '../../gym/session';
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel, spark, toast } from '../../ui/components';
+import { button, niceCase, panel, spark, toast } from '../../ui/components';
+import { popScreen, pushScreen } from '../../ui/listmode';
+import { ui } from '../../state/app';
+import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
@@ -90,15 +93,24 @@ export function renderFrame(f: Frame | null, onCell?: (i: number) => void): HTML
   return box;
 }
 
+/** The chart's top: the pass mark or the best reading, with a little headroom, to the next 10% (the calm looks scale it). */
+export function chartTop(rec: GymRecord | null, game: GameMeta): number {
+  if (!proLook()) return 1;
+  const hi = Math.max(game.bar(rec?.level ?? 1), ...(rec?.history ?? []).map((p) => p.m));
+  return Math.min(1, Math.ceil((hi + 0.06) * 10) / 10);
+}
+
 /** The mastery graph: one point per measurement, a dashed line where a level was passed, the bar to reach. */
 function graph(rec: GymRecord | null, game: GameMeta): SVGSVGElement {
   const W = 300;
   const H = 96;
   const s = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'gymgraph', preserveAspectRatio: 'none', role: 'img', 'aria-label': 'Mastery over time' });
-  const y = (m: number) => H - 4 - m * (H - 10);
-  s.append(svgEl('line', { x1: 0, x2: W, y1: y(1), y2: y(1), class: 'gymgrid100' }));
+  const top = chartTop(rec, game);
+  const y = (m: number) => H - 4 - (m / top) * (H - 10);
+  s.append(svgEl('line', { x1: 0, x2: W, y1: y(top), y2: y(top), class: 'gymgrid100', 'vector-effect': 'non-scaling-stroke' }));
+  s.append(svgEl('line', { x1: 0, x2: W, y1: y(top / 2), y2: y(top / 2), class: 'gymgrid100', 'vector-effect': 'non-scaling-stroke' }));
   const pts = rec?.history ?? [];
-  if (rec) s.append(svgEl('line', { x1: 0, x2: W, y1: y(game.bar(rec.level)), y2: y(game.bar(rec.level)), class: 'gymgoal' }));
+  if (rec) s.append(svgEl('line', { x1: 0, x2: W, y1: y(game.bar(rec.level)), y2: y(game.bar(rec.level)), class: 'gymgoal', 'vector-effect': 'non-scaling-stroke' }));
   if (pts.length >= 1) {
     const x = (i: number) => (pts.length === 1 ? W / 2 : (i / (pts.length - 1)) * W);
     pts.forEach((p, i) => {
@@ -108,6 +120,46 @@ function graph(rec: GymRecord | null, game: GameMeta): SVGSVGElement {
   }
   return s;
 }
+
+/**
+ * An Activity-style ring (the calm looks): his mastery, 0–100%, with a tick at the pass mark of his
+ * level — the number in or beside it is the same mastery, so the ring and the words always agree.
+ */
+function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number, goal?: number): void } {
+  const r = 50 - 7;
+  const C = 2 * Math.PI * r;
+  const fg = svgEl('circle', { cx: 50, cy: 50, r, class: 'rfg', 'stroke-dasharray': `0 ${C}`, transform: 'rotate(-90 50 50)' });
+  const tick = svgEl('line', { x1: 50, x2: 50, y1: -1, y2: 15, class: 'rgoal' });
+  const el = svgEl('svg', { viewBox: '0 0 100 100', class: cls, width: size, height: size, 'aria-hidden': 'true' });
+  el.append(svgEl('circle', { cx: 50, cy: 50, r, class: 'rtrack' }), fg, tick);
+  return { el, set: (f, goal) => {
+    fg.setAttribute('stroke-dasharray', `${(Math.max(0, Math.min(1, f)) * C).toFixed(1)} ${C.toFixed(1)}`);
+    fg.style.opacity = f > 0.005 ? '1' : '0'; // no dot for nothing yet (the round cap would draw one)
+    tick.setAttribute('transform', `rotate(${((goal ?? 0) * 360).toFixed(1)} 50 50)`);
+    tick.style.display = goal ? '' : 'none';
+  } };
+}
+
+/** Each game's glyph and colour (the calm looks' cards): what kind of game it is, at a glance. */
+const GLYPH: Record<string, [string, string]> = {
+  maze: ['#30d158', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8.5 4v8h4M15.5 8.5V20M8.5 16h3.5"/>'],
+  codebreaker: ['#ff9f0a', '<circle cx="5.5" cy="12" r="2"/><circle cx="10.2" cy="12" r="2"/><circle cx="14.8" cy="12" r="2"/><circle cx="19.5" cy="12" r="2"/><path d="M5.5 17.5h14"/>'],
+  colony: ['#a2845e', '<path d="M12 3.5l7.4 4.25v8.5L12 20.5l-7.4-4.25v-8.5z"/><circle cx="12" cy="12" r="2.4"/>'],
+  trust: ['#5e5ce6', '<path d="M4 9h12.5l-3-3M20 15H7.5l3 3"/>'],
+  tictactoe: ['#0a84ff', '<path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/>'],
+  connect4: ['#ff453a', '<rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="8" cy="10" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/><circle cx="8" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="16" cy="14.5" r="1.6"/>'],
+  tiles: ['#ffd60a', '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/>'],
+  sudoku: ['#64d2ff', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/><path d="M6 6.6h1.4" />'],
+  countdown: ['#ff375f', '<circle cx="12" cy="13.5" r="7"/><path d="M12 13.5V9.5M10 3h4M12 3v3.5"/>'],
+  words: ['#30d158', '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16l3.5-8 3.5 8M9.8 13.2h4.4"/>'],
+  logic: ['#bf5af2', '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7.2 7.6l3.8 8.6M16.8 7.6L13 16.2"/>'],
+  brain: ['#ff6482', '<circle cx="5" cy="7" r="1.8"/><circle cx="5" cy="17" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="7" r="1.8"/><circle cx="19" cy="17" r="1.8"/><path d="M6.6 8l3.8 3M6.6 16l3.8-3M13.6 11l3.8-3M13.6 13l3.8 3"/>'],
+  bughunt: ['#00c7be', '<ellipse cx="12" cy="13.5" rx="4.5" ry="6"/><path d="M12 8v11.5M7.5 11H4M7.5 15.5H4M16.5 11H20M16.5 15.5H20M9.6 6.2L8 4M14.4 6.2L16 4"/>'],
+  escape: ['#ac8e68', '<path d="M6 20.5V4h10v16.5"/><path d="M16 5.5l3 1v13l-3 1"/><circle cx="13" cy="12.5" r=".9"/>'],
+  factcheck: ['#40c8e0', '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.8 10.6l1.9 1.9 3.5-3.6"/>'],
+  debate: ['#ff9f0a', '<path d="M3.5 5h10v7.5H8l-3 2.5v-2.5H3.5z"/><path d="M16.5 9h4v7.5H19V19l-3-2.5h-4.5v-1"/>'],
+};
+const glyphOf = (id: string) => GLYPH[id] ?? ['#8e8e93', '<circle cx="12" cy="12" r="7"/>'];
 
 let opener: ((id?: string) => void) | null = null;
 let waiting: string | null | undefined;
@@ -228,19 +280,58 @@ export const gymTab: TabDef = {
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
     cardsP.body.append(cards);
-    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string }>();
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string; ring: ReturnType<typeof ring>; lvl: HTMLElement }>();
     for (const g of GAMES) {
       const small = h('small');
       const sp = h('span.gymspark');
       const st = h('i.gymst');
-      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymname', g.title), small, sp, st);
+      const rg = ring(46, 'gymring');
+      const lvl = h('b.gymlvl');
+      const [tint, glyph] = glyphOf(g.id);
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymhead', h('span.sq.gymglyph', { style: `--tint:${tint}` }, icon(glyph)), h('span.gymtop', rg.el, lvl)), h('span.gymname', g.title), small, sp, st);
       b.addEventListener('click', () => {
         select(g.id);
-        if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // the calm looks on a phone: the game is its own screen, "‹ Gym" back; the classic looks scroll to it
+        if (pushes()) pushGame();
+        else if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       cards.append(b);
-      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '' });
+      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '', ring: rg, lvl });
     }
+    // What he is doing now, at the top of the list (the calm looks): the game in training, or the one trained last.
+    const nowRing = ring(44, 'gymring');
+    const nowTitle = h('b');
+    const nowSub = h('small');
+    const nowKick = h('span.gymkick');
+    const nowCard = h('button.gymnow', { type: 'button' }, h('span.gymtop', nowRing.el), h('span.gymnowtxt', nowKick, nowTitle, nowSub), h('i.chev', { 'aria-hidden': 'true' }));
+    let nowId = '';
+    nowCard.addEventListener('click', () => {
+      if (!nowId) return;
+      select(nowId);
+      if (pushes()) pushGame();
+    });
+    cardsP.body.prepend(nowCard);
+    // ======================= the game as a pushed screen (calm looks, phones)
+    const pushes = () => proLook() && matchMedia('(max-width: 899px)').matches;
+    let pushedGame = false;
+    let shownLabel = '';
+    const pushGame = () => {
+      pushedGame = true;
+      shownLabel = open.id;
+      root.classList.add('gympush');
+      const sc = root.querySelector<HTMLElement>('.hud');
+      if (sc) sc.scrollTop = 0;
+      pushScreen({ back: 'Gym', label: niceCase(open.title), pop: popGame });
+    };
+    const popGame = () => {
+      if (!pushedGame) return;
+      pushedGame = false;
+      menu.classList.remove('open');
+      root.classList.remove('gympush');
+      popScreen();
+      cardParts.get(open.id)?.b.scrollIntoView({ block: 'center' });
+    };
+    ui.subscribe((s, p) => s.tab !== p.tab && p.tab === 'gym' && popGame());
 
     // ======================= GAME: the open one
     const gameP = panel('GAME', { cls: 'gymgame' });
@@ -249,16 +340,45 @@ export const gymTab: TabDef = {
     const trainBtn = button('TRAIN', () => toggleTrain(), 'on gymtrain');
     const watchBtn = button('WATCH', () => void watch());
     const playBtn = button('PLAY HIM', () => startPlay());
+    playBtn.dataset.label = 'Play Ghosty'; // the calm looks' wording
     let resetArmed = 0;
     const resetBtn = button('RESET', () => reset(), 'warn');
+    // The calm looks: RESET lives in a "…" menu that is its own confirmation (iOS's destructive action in a menu).
+    const menuNote = h('p.gymmenunote');
+    const menu = h('div.gymmenu', { role: 'menu' }, menuNote, resetBtn);
+    const more = h('button.gymmore', { type: 'button', 'aria-label': 'More: reset this game', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, icon('<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>'));
+    more.addEventListener('click', () => {
+      const on = !menu.classList.contains('open');
+      menu.classList.toggle('open', on);
+      more.setAttribute('aria-expanded', String(on));
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (menu.classList.contains('open') && !menu.contains(e.target as Node) && !more.contains(e.target as Node)) {
+        menu.classList.remove('open');
+        more.setAttribute('aria-expanded', 'false');
+      }
+    });
     const graphBox = h('div.gymgraphbox');
+    // The open game at a glance (the calm looks): a big ring to the level's bar, the level, one word.
+    const bigRing = ring(132, 'gymbigring');
+    const heroLvl = h('b');
+    const heroPct = h('span.gympct');
+    const heroWord = h('span.gymword');
+    const hero = h('div.gymhero', h('div.gymringbox', bigRing.el, h('div.gymringtxt', heroLvl)), h('div.gymherotxt', heroWord, heroPct));
+    // The mastery chart as its own titled section: what the line is, and where he levels up.
+    const legend = h('span.gymlegend');
+    const axisTop = h('span', '100%');
+    const axisMid = h('span', '50%');
+    const xFrom = h('span');
+    const xTo = h('span');
+    const chart = h('section.gymchart', h('div.gymcharthead', h('b', 'Progress'), legend), h('div.gymplot', h('div.gymaxis', axisTop, axisMid, h('span', '0%')), graphBox, h('i'), h('div.gymxaxis', xFrom, xTo)));
     const detail = h('div.note.gymdetail');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, resetBtn), graphBox, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -268,7 +388,7 @@ export const gymTab: TabDef = {
       const mastered = all.filter((r) => r?.mastered).length;
       const avg = all.reduce((t, r) => t + (r?.mastery ?? 0), 0) / GAMES.length;
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
-      P.big.textContent = `${mastered} / ${GAMES.length} MASTERED`;
+      P.big.textContent = `${mastered} OF ${GAMES.length} MASTERED`;
       // A fixed line: text that changes length here would shift every button below it mid-tap.
       P.sub.textContent = 'Ghosty teaches himself by playing · on this phone';
       P.dials([
@@ -286,6 +406,13 @@ export const gymTab: TabDef = {
         c.b.classList.toggle('on', g.id === open.id);
         c.b.setAttribute('aria-pressed', String(g.id === open.id));
         c.small.textContent = r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
+        // the ring is his mastery, the tick the pass mark of his level; the words say the same numbers
+        const pct = r ? Math.floor(r.mastery * 100) : 0;
+        c.ring.set(r?.mastered ? 1 : r?.mastery ?? 0, r && !r.mastered ? g.bar(r.level) : 0);
+        c.lvl.textContent = String(r?.level ?? 1);
+        // nothing has happened yet: an empty ring and "Not started"
+        c.b.classList.toggle('fresh', !r?.units);
+        c.st.dataset.label = st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered · all 10 levels' : `${st === 'TRAINING' ? 'Learning' : 'Paused'} · Level ${r?.level ?? 1} · ${pct}%`;
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
         const pts = r?.history.map((p) => p.m) ?? [];
@@ -296,12 +423,48 @@ export const gymTab: TabDef = {
         }
       }
       gymState.cards = GAMES.length;
+      // "Training now" (or the game trained last), the same numbers as its card
+      const last = [...recs.values()].filter((r) => r.units).sort((a, b) => b.updated - a.updated)[0];
+      const g = training ? gameById(training) : last ? gameById(last.id) : undefined;
+      const r = g ? recs.get(g.id) : undefined;
+      nowId = g?.id ?? '';
+      nowCard.classList.toggle('idle', !g);
+      nowCard.classList.toggle('live', !!training);
+      nowKick.textContent = training ? 'Training now' : g ? 'Trained last' : 'Nothing in training';
+      nowTitle.textContent = g ? niceCase(g.title) : 'Pick a game, then Train';
+      nowSub.textContent = g && r ? (r.mastered ? 'Mastered · all 10 levels' : `Level ${r.level} · ${Math.floor(r.mastery * 100)}% · ${Math.floor(r.mastery * 100) >= Math.round(g.bar(r.level) * 100) ? `past the ${Math.round(g.bar(r.level) * 100)}% mark` : `passes at ${Math.round(g.bar(r.level) * 100)}%`}`) : 'He learns by playing, on this phone, even while you use other screens.';
+      nowRing.set(r?.mastered ? 1 : r?.mastery ?? 0, g && r && !r.mastered ? g.bar(r.level) : 0);
     };
     const paintGame = () => {
       const r = recs.get(open.id) ?? null;
       gameP.title.textContent = open.title;
       gameP.setStatus(r ? `LEVEL ${r.level}${r.mastered ? ' · MASTERED' : ''}` : 'LEVEL 1', training === open.id ? 'ok' : r?.mastered ? 'ok' : 'mid');
       learns.textContent = open.learns;
+      const word = stateOf(open, r ?? undefined);
+      // One ring (his mastery, a tick at the pass mark), the same number in it, one line saying it in words.
+      const bar = Math.round(open.bar(r?.level ?? 1) * 100);
+      const pct = r?.mastered ? 100 : r ? Math.floor(r.mastery * 100) : 0;
+      bigRing.set(pct / 100, r?.mastered ? 0 : open.bar(r?.level ?? 1));
+      hero.classList.toggle('fresh', !r?.units);
+      heroLvl.textContent = `${pct}%`;
+      heroWord.textContent = r?.mastered ? 'Mastered' : `Level ${r?.level ?? 1}`;
+      heroWord.className = `gymword ${word.toLowerCase()}`;
+      const doing = word === 'TRAINING' ? 'Learning' : word === 'PAUSED' ? 'Paused' : 'Not started';
+      // (past the mark between two measurements: the next measurement makes the next level)
+      heroPct.textContent = r?.mastered ? 'Every level passed' : pct >= bar && r?.units ? `${doing} · ${pct}% mastered · past the ${bar}% mark, Level ${r.level + 1} next` : `${doing} · ${pct}% mastered · passes at ${bar}%`;
+      clear(legend, h('i.sw'), 'Mastery', h('i.sw.dash'), `Pass mark ${bar}%`);
+      const top = chartTop(r, open);
+      axisTop.textContent = `${Math.round(top * 100)}%`;
+      axisMid.textContent = `${Math.round(top * 50)}%`;
+      const pts = r?.history ?? [];
+      xFrom.textContent = pts.length ? `${fmt.n(pts[0]!.u)}` : '';
+      xTo.textContent = pts.length ? `${fmt.n(pts.at(-1)!.u)} ${open.unit}` : `${open.unit} played`;
+      menuNote.textContent = `Reset ${niceCase(open.title)}? He forgets everything he learned in it.`;
+      resetBtn.dataset.label = `Reset ${niceCase(open.title)}`;
+      if (pushedGame && shownLabel !== open.id) {
+        shownLabel = open.id;
+        pushScreen({ back: 'Gym', label: niceCase(open.title), pop: popGame });
+      }
       status.textContent = statusLine(r, open, training === open.id);
       trainBtn.textContent = training === open.id ? 'PAUSE' : r?.mastered ? 'MASTERED' : 'TRAIN';
       trainBtn.disabled = !!r?.mastered;
@@ -332,6 +495,8 @@ export const gymTab: TabDef = {
       stopWatch();
       held = '';
       disarmReset();
+      menu.classList.remove('open');
+      more.setAttribute('aria-expanded', 'false');
       if (gymState.play.game && gymState.play.game !== id) gymState.play = { game: '', board: [], over: '', thinking: false };
       open = g;
       gymState.open = id;
@@ -359,7 +524,9 @@ export const gymTab: TabDef = {
       resetBtn.textContent = 'RESET';
     };
     const reset = () => {
-      if (Date.now() - resetArmed > 3000) {
+      // the calm looks' menu was the confirmation; the classic looks ask with a second tap
+      menu.classList.remove('open');
+      if (!proLook() && Date.now() - resetArmed > 3000) {
         resetArmed = Date.now();
         resetBtn.textContent = 'SURE? TAP AGAIN';
         clearTimeout(disarmTimer);

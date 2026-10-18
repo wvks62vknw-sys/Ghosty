@@ -9,7 +9,9 @@ import type { DiaryEntry, Lesson, MemoryFact, Profile, ProfileSection } from '..
 import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat, clearConversation } from '../../assistant/session';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, fmt, h, icon } from '../../core/dom';
+import { proLook } from '../../state/theme';
+import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -44,8 +46,15 @@ export const memoryTab: TabDef = {
         fp.setStatus('OFFLINE', 'off');
       }
       fg.set([...facts].reverse());
-      P.big.textContent = `${facts.length} FACTS`;
+      P.big.textContent = `${facts.length} ${facts.length === 1 ? 'FACT' : 'FACTS'}`;
+      paintSub();
     };
+    let messages = 0;
+    // one line under the title: what he knows, and how long this conversation is
+    const paintSub = () =>
+      (P.sub.textContent = proLook()
+        ? `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`
+        : `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -78,7 +87,7 @@ export const memoryTab: TabDef = {
     let profile: Profile | null = null;
     let diary: DiaryEntry[] = [];
     let lastReflect: number | null = null;
-    const sectionSel = h('select', { 'aria-label': 'Section of your profile' }, ...PROFILE_SECTIONS.map((s) => h('option', { value: s }, s.toUpperCase())));
+    const sectionSel = h('select', { 'aria-label': 'Section of your profile' }, ...PROFILE_SECTIONS.map((s) => h('option', { value: s }, s.charAt(0).toUpperCase() + s.slice(1))));
     const lineIn = h('input', { placeholder: 'Something about you, e.g. "I take my coffee black"', 'aria-label': 'New line about you' });
     const paintMe = () => {
       clear(mp.body);
@@ -89,7 +98,7 @@ export const memoryTab: TabDef = {
       }
       const n = PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0);
       mp.setStatus(n ? `${n} LINES` : 'EMPTY', n ? 'ok' : 'mid');
-      mp.body.append(h('div.note.summary', profile.summary || 'Every night Ghosty looks back over the day and keeps what you told it about yourself: your likes, your people, your places, your routines and plans — never what it read on the web, never a password. Add a line below, or tap ✕ to remove one.'));
+      mp.body.append(h('div.note.summary', profile.summary || 'Each night Ghosty keeps what you told him about yourself — never what he read online, never a password.'));
       for (const s of PROFILE_SECTIONS) {
         const lines = profile.sections[s];
         if (!lines.length) continue;
@@ -129,9 +138,29 @@ export const memoryTab: TabDef = {
       void refreshTimeline();
     };
     lineIn.addEventListener('keydown', (e) => e.key === 'Enter' && void addLine());
-    mp.el.insertBefore(h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine())), mp.body);
+    const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
+    mp.el.insertBefore(meForm, mp.body);
     paintMe();
-    P.left.append(tl.el, pats.el, mp.el);
+    // The calm looks: one "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
+    // (a row also swipes left to delete). The classic looks keep the form in the panel.
+    let sheet: { close(): void } | null = null;
+    const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
+    addRow.addEventListener('click', () => {
+      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. He keeps it in your profile.'), meForm), () => {
+        mp.el.insertBefore(meForm, mp.body);
+        sheet = null;
+      });
+      setTimeout(() => lineIn.focus(), 60);
+    });
+    const editBtn = h('button.editbtn', { type: 'button', 'aria-pressed': 'false' }, 'Edit');
+    editBtn.addEventListener('click', () => {
+      const on = root.classList.toggle('editing');
+      editBtn.textContent = on ? 'Done' : 'Edit';
+      editBtn.setAttribute('aria-pressed', String(on));
+    });
+    P.sub.after(editBtn);
+    swipeToDelete(root);
+    P.left.append(addRow, tl.el, pats.el, mp.el);
     P.right.append(fp.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
@@ -197,15 +226,21 @@ export const memoryTab: TabDef = {
     P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }));
-    cp.foot!.prepend(button('CLEAR CONVERSATION', async () => {
+    const clearNow = async () => {
       await clearConversation();
       toast('Conversation cleared');
+    };
+    cp.foot!.prepend(button('CLEAR CONVERSATION', () => {
+      // the calm looks confirm a destructive action first
+      if (!proLook()) return void clearNow();
+      const m = modal('Clear the conversation?', h('div.confirm', h('p.note', 'What was said is removed from this phone and the brain. What he remembers about you stays.'), h('div.row', button('CANCEL', () => m.close()), button('CLEAR', () => void clearNow().then(() => m.close()), 'warn'))));
     }, 'warn'));
     P.right.append(dp.el, cp.el);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
       cg.set(list.map((e) => ({ who: e.kind === 'user' ? 'YOU' : 'GHOSTY', text: e.text })).reverse());
-      P.sub.textContent = `${list.length} messages in this conversation`;
+      messages = list.length;
+      paintSub();
     };
     chat.subscribe(paintChat);
     paintChat();

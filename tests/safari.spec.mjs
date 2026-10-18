@@ -137,9 +137,14 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
         if (b.top < -1 || b.bottom > H + 1) out.bars.push(`${name(e)} (${cs.position}) is at ${Math.round(b.top)}–${Math.round(b.bottom)} of ${H}`);
       }
     }
+    // The calm looks' tab bar floats over the page, which scrolls up from under it (iOS): a button in that band
+    // is scrolled under the bar, not covered by it — it counts once it is scrolled above.
+    const bar = document.querySelector('#dock.areas .tabcap');
+    const barTop = bar && getComputedStyle(document.querySelector('#dock')).position === 'absolute' ? bar.getBoundingClientRect().top : H;
     for (const b of document.querySelectorAll('#app button, body > * button')) {
       if (!shown(b)) continue;
       const r = b.getBoundingClientRect();
+      if (!b.closest('#dock') && r.bottom > barTop) continue;
       const v = visible(b);
       // on the first screen: shown whole, not clipped by a scrolling box or the screen
       if (r.width < 1 || v.left > r.left + 0.5 || v.right < r.right - 0.5 || v.top > r.top + 0.5 || v.bottom < r.bottom - 0.5 || r.top < 0 || r.bottom > H || r.left < 0 || r.right > W) continue;

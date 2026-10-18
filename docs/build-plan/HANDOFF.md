@@ -11,8 +11,25 @@ maximum reasoning effort yourself, and launch EVERY subagent and workflow agent 
 thoroughness over speed: independent adversarial review on every feature, design critic loops until every screen
 scores 9+.
 
+## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
+By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
+- Check its real specs first (screen size in points, safe areas and Dynamic Island, RAM, Neural Engine/GPU, Safari
+  version and which WebGPU / WASM features it has). Don't guess.
+- Re-tune every layout and screenshot spec for its screen. The iPhone 13 (390 × 844) becomes a smaller-screen check that
+  must still work, not the main target. Add the new viewport to the browser specs.
+- Use the headroom: a much bigger offline brain and specialists (Wave F), larger on-device vision and depth models
+  (measure, Lens, NAME), faster GYM training, higher-quality 3D and visuals. 512 GB means storage is no longer the limit
+  for offline models, maps and Wikipedia, but downloads must still be asked for and stay on Wi-Fi.
+- ProMotion (120 Hz): animations, the reactor and scrolling should feel smooth at 120 Hz, still honouring "reduce motion".
+
+The owner's words: make everything "miles better, literally miles better, every single little thing ... every feature,
+everything". So the upgrade pass on what is already built is not optional polish. Go through every feature, screen and
+flow, and make each one clearly better: quality, speed, looks, accuracy, ease. Keep the same review discipline, keep
+everything free, and keep every one of his rules above.
+
 ## The owner and how he works
-- One non-technical owner, in the UK (Europe/London), using Ghosty on an iPhone 13 as a Safari Home Screen app.
+- One non-technical owner, in the UK (Europe/London), using Ghosty as a Safari Home Screen app: an iPhone 13 until now,
+  an iPhone 18 Pro Max (512 GB) from Friday (see above).
 - Everything must be FREE: free tiers and keyless free APIs only, never anything that can bill him (check account
   types before sending tokens anywhere that can charge, e.g. Hugging Face ZeroGPU with a PRO account).
 - He wants every feature to be a user-friendly mini-app: one main button, plain words, no setup, UNDO.
@@ -53,23 +70,38 @@ Merged and pushed on the branch (reviewed, tests green):
 - Stage 3: THINK HARDER (test-time search on the offline brain, honest confidence, exact checks only when they truly
   check) + the honest REPORT CARD, wired to Stage 2 (report-card questions never trained on).
 
-Finished by builders and being merged when this session ended (check `git log` on the branch; whatever is not on
-the branch must be redone or recovered):
-- GYM part 2a (checkers, chess, Go 9×9, poker, Sokoban, balance/lander). Known gap: Go's learner plateaus, so the
-  "frozen passer of level L−1 must fail level L" rule did not hold above Go level 2; checkers top levels marginal.
+Also merged and pushed on the branch (18 Oct, late):
 - Wave A voice + memory: barge-in (talk over Ghosty), better voices (Workers AI Aura within a shared neuron ledger,
   apps/edge/src/neurons.ts), memory timeline with sources, edit, forget+UNDO 24 h, lock, patterns (health excluded).
-- Wave B1 3D studio: catalogue of ~5,000 CC0/CC-BY models (public/data/models3d.json, Poly Haven), text-to-3D and
-  photo-to-3D via free Hugging Face Spaces (Gradio client), credits with licence links. Review fixes: never send the
-  HF token to ZeroGPU if the account can pay; Hunyuan3D-2 removed (its licence excludes the UK/EU); search ranking.
-- Wave B2 measuring: zero-setup measure from one photo (Depth Anything V2 metric indoor small, on the phone),
-  floor plan from a photo of a drawn plan or of the room. Accuracy is honest (~12% median, ~1 in 10 off by ~40%).
-- Wave C website builder: design system, ~40 blocks, templates, free images, quality gates, autonomous process.
-  Not yet adversarially reviewed when this session ended — review it first.
-- Redesign (rounds 1–5): new themes Graphite (default for new devices) and Reactor, five-tab floating bar
-  (Ask/See/Make/Learn/Plan) + "Me", hubs, command bar, iOS lists. Independent critic scores were ~5.5/10 after round
-  4; round 5 addressed its list. Continue until every screen scores ≥ 9 with the critic. The owner has not yet seen
-  rounds 4–5. Screenshot the real app and send them to him.
+- Wave B1 3D studio (reviewed, fixes merged): catalogue of ~4,700 CC0/CC-BY models (public/data/models3d.json, Poly
+  Haven), text-to-3D and photo-to-3D via free Hugging Face Spaces, licence links on every credit. A Hugging Face token
+  is only ever sent after whoami-v2 confirms a FREE account that cannot pay (fails closed). Hunyuan3D removed (licence
+  excludes UK/EU). Workers AI drawing goes through the shared neuron ledger (gen3d.ts drawObject).
+  OPEN: SYSTEM → KEYS text for the `huggingface` key lives in protected apps/edge/src/keys.ts and still needs this
+  wording: "Use a token from a FREE Hugging Face account with no payment card. Ghosty sends it to the free GPUs only
+  after Hugging Face confirms the account cannot be charged — PRO, Team and Enterprise accounts are billed for GPU time
+  once their daily allowance runs out — so a token from a paying account is simply not used."
+- Wave B2 measuring (reviewed, 13 fixes merged): zero-setup measure from one photo (Depth Anything V2 metric indoor
+  small, on the phone, one-tap 50 MB download), A4-sheet scale, floor plan from a photo. Honest accuracy: ~12–14%
+  median, about 1 in 10 off by ~40%; indoors 0.5–10 m only. Open: object outline can bleed into a same-colour floor.
+- Wave C website builder: design system (12 palettes, 9 font pairs), 47 blocks, 14 business templates, free photos
+  with credits, quality gates, six-step resumable `build_website` project, offline build on the phone. NOT YET
+  ADVERSARIALLY REVIEWED — review it first (focus: honesty gates, photo licences, PAGE_CSP openstreetmap frame,
+  screenshot services Microlink/thum.io never run for real, the prompt.ts wording trim). Forms open WhatsApp/email
+  (published pages are sandboxed; a real form route would need a kernel change).
+
+Being merged when this session ended (GYM part 2a only) (check `git log`; if it is not on the branch, recover it from branch
+`worktree-agent-ae70cc05370cd9297` or redo it):
+- GYM part 2a (checkers, chess, Go 9×9, poker, Sokoban, balance/lander). New learners: Go pattern instinct trained by
+  self-play search (gofast.ts board), checkers n-tuple network. Known gaps: Go's "frozen passer of level L−1 must fail
+  level L" only holds to level 3; checkers levels 9–10 gaps are within match noise (25–90k games to climb).
+Also merged (late 18 Oct): the redesign rounds 1–5 (3b520df). Themes Graphite (default for new devices) and Reactor,
+five floating tabs with progressive blur, large titles ("Good evening, Boss"), a Me sheet (Memory, Settings, System,
+Links, Every screen), one back style, one chat entry, reply card, tinted-glass icon tiles, breathing reactor. Specs
+use tests/nav.mjs (openDeck, openPanel). Critic score was ~5.5/10 after round 4; round 5 NOT yet scored — score it
+first with an independent critic and continue until every screen is ≥ 9. Known rough spots: level-up toasts pile up
+during fast training, empty rings on unstarted games look heavy, the God's eye chip starts off-screen, System's Status
+card comes after the Brain group. The owner was sent the round-5 contact sheets on 18 Oct.
 
 Still to build (in this order unless the owner says otherwise):
 - Wave A remainder: finish the redesign; make sure navigation is easy (six areas, command bar, recents, back).

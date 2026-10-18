@@ -211,10 +211,10 @@ test('a text from the paired chat runs a normal turn: the reply comes back as a 
   assert.equal(await r.text(), 'ok');
   assert.ok(sent('sendChatAction').some((c) => c.body.action === 'typing' && c.body.chat_id === OWNER_CHAT), 'typing…');
   assert.equal(texts().length, 1);
-  assert.match(texts()[0], /^Done\. Saved \(id \w+\)\.$/);
+  assert.match(texts()[0], /^Got it — I’ll remember that you like tea\.$/);
   const turns = (await (await call('/api/history')).json()).turns;
   assert.deepEqual(turns.slice(-2).map((t) => [t.role, t.text]), [['user', 'remember I like tea'], ['assistant', texts()[0]]]);
-  assert.equal((await (await call('/api/memory')).json()).facts[0].text, 'i like tea');
+  assert.equal((await (await call('/api/memory')).json()).facts[0].text, 'I like tea');
   // the model is told it is on Telegram (no screen) through the context, like the interface's tab
   const owner = await state.storage.get('owner:ctx');
   assert.ok(owner === undefined || owner.tab !== 'telegram', 'the Telegram context is for the model only, never remembered as the owner\'s screen');
@@ -289,7 +289,7 @@ test('a voice note is transcribed (Workers AI here) and answered, the reply star
     await hook(msg(OWNER_CHAT, { voice: { file_id: 'note1', mime_type: 'audio/ogg', duration: 3, file_size: 5000 } }), secret);
     assert.deepEqual(asked, [{ model: '@cf/openai/whisper-large-v3-turbo', bytes: 5000 }]);
     assert.equal(texts().length, 1);
-    assert.match(texts()[0], /^🎤 remember I like coffee\n\nDone\. Saved \(id \w+\)\.$/);
+    assert.match(texts()[0], /^🎤 remember I like coffee\n\nGot it — I’ll remember that you like coffee\.$/);
     assert.equal((await (await call('/api/history')).json()).turns.at(-2).text, 'remember I like coffee');
     tg.calls.length = 0;
     // silence

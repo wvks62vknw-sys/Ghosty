@@ -137,6 +137,9 @@ await page.evaluate(() => (window.__ghosty.lens.names = []));
 await page.locator('#pg-lens .lensmodes button', { hasText: 'NAME' }).click();
 await until(() => (window.__ghosty?.lens?.names?.length ?? 0) === 5 && /ms a look/.test(window.__ghosty?.lens?.status ?? ''), 180000, `the live picture was never named: ${JSON.stringify(await lens())}`);
 // a tap on the viewfinder names just that part
+// (the NAME tile sits low on a phone: bring the viewfinder back into view first, as a thumb would)
+await page.locator('#pg-lens .lensview').evaluate((v) => v.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(300);
 const box = await page.locator('#pg-lens .lensview').boundingBox();
 if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 await until(() => /tapped part/.test(document.querySelector('#pg-lens .lenscount')?.textContent ?? ''), 10000, 'a tap on the viewfinder did not name the tapped part');

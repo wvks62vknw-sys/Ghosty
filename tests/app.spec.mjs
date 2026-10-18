@@ -2,6 +2,7 @@
 // browser's own push pipeline (Chrome DevTools Protocol) becomes a notification.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
+import { openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -56,9 +57,9 @@ if (!isWebKit) {
   }
 }
 
-// The systems deck (logo) lists every screen; LINKS holds email, Spotify and notifications.
-await page.click('#top .logo');
-await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open from the logo'));
+// The systems deck (the logo, or the avatar's Me sheet in the calm looks) lists every screen; LINKS holds email, Spotify and notifications.
+await openDeck(page);
+await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open'));
 const tiles = await page.$$eval('#deck .dtile b', (n) => n.map((x) => x.textContent));
 if (tiles.length < 12 || !tiles.includes('LINKS') || !tiles.includes('LIBRARY')) problems.push(`systems deck tiles: ${tiles.join(', ')}`);
 await page.waitForTimeout(800);

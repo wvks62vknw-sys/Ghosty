@@ -54,6 +54,8 @@ await page.addInitScript(() => {
 
 const boot = async () => {
   await page.goto(base);
+  // (the pairing screen or the app, whichever comes first: a slow machine shows the pairing screen late)
+  await page.waitForFunction(() => !!document.querySelector('#pair input') || !document.querySelector('#boot'), null, { timeout: 20000 }).catch(() => undefined);
   if (await page.locator('#pair input').isVisible().catch(() => false)) {
     await page.fill('#pair input', 'preview-owner-key-0123456789');
     await page.click('#pair button.on');
@@ -76,6 +78,28 @@ const wideCheck = async (where) => {
   if (wide.page || wide.over.length) problems.push(`${where}: something sticks out sideways (${wide.over.join(', ') || 'page'})`);
 };
 const card = (id) => G(`.gymcard[data-game="${id}"]`);
+// The calm looks on a phone open a game as its own screen ("‹ Gym" back to the cards); the classic looks show both.
+const tap = async (id) => {
+  if (await page.locator('#pg-gym.gympush').count()) await page.click('#top .navback');
+  await card(id).click();
+};
+// The game's actions as the owner can reach them: the buttons shown, and RESET (in the calm looks, in the "…" menu).
+const actions = async () => {
+  const l = await G('.gymactions > button:visible').allInnerTexts();
+  if (await G('.gymmore').isVisible().catch(() => false)) l.push(...(await G('.gymmenu button.warn').allTextContents()));
+  else l.push(...(await G('.gymactions button.warn:visible').allInnerTexts()));
+  return [...new Set(l.map((b) => b.trim().toUpperCase()))];
+};
+/** RESET the open game: the calm looks' "…" menu is its own confirmation; the classic looks ask for a second tap. */
+const resetGame = async () => {
+  if (await G('.gymmore').isVisible().catch(() => false)) {
+    await G('.gymmore').click();
+    await G('.gymmenu button.warn').click();
+  } else {
+    await G('.gymactions button.warn').click();
+    await G('.gymactions button.warn').click();
+  }
+};
 // Part 1's ten games, then part 2's six reasoning games.
 const NAMES = ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS', 'LOGIC SANDBOX', 'MINI-BRAIN LAB', 'BUG HUNT', 'TEXT ESCAPE ROOMS', 'FACT-CHECK DUEL', 'DEBATE ARENA', 'CHECKERS', 'CHESS', 'GO 9×9', 'SIMPLE POKER', 'SOKOBAN', 'BALANCE & LANDER'];
 const CARDS = NAMES.length;
@@ -97,11 +121,11 @@ await wideCheck('the game cards');
 await page.screenshot({ path: `${out}/gym-cards.png` });
 
 // ---- tic-tac-toe: TRAIN in the worker while the page keeps ticking ----
-await card('tictactoe').click();
+await tap('tictactoe');
 await until(() => window.__ghosty?.gym?.open === 'tictactoe', 5000, 'tapping the tic-tac-toe card did not open it');
-const btns = await G('.gymactions button:visible').allInnerTexts();
+const btns = await actions(); // compared without case: the calm looks show labels in sentence case
 for (const want of ['TRAIN', 'WATCH', 'PLAY HIM', 'RESET']) if (!btns.some((b) => b.trim() === want)) problems.push(`tic-tac-toe has no ${want} button (has ${btns.join(', ')})`);
-const small = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymactions button')].filter((b) => b.offsetParent && b.getBoundingClientRect().height < 40).length);
+const small = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymactions > button')].filter((b) => b.offsetParent && b.getBoundingClientRect().height < 40).length);
 if (small) problems.push(`${small} GYM buttons are shorter than 40 px`);
 await page.evaluate(() => {
   window.__ticks = [];
@@ -137,7 +161,7 @@ await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 100
 const after = (await st()).recs.tictactoe;
 if (after && before && (after.level !== before.level || Math.abs(after.mastery - before.mastery) > 1e-9)) problems.push(`after the reload the record changed: ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
 await closeLog();
-await card('tictactoe').click();
+await tap('tictactoe');
 if (!after?.mastered) {
   await G('button.gymtrain').click();
   await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) > u + 500 || window.__ghosty.gym.recs.tictactoe?.mastered, 20000, 'training did not carry on after the reload', after?.units ?? 0);
@@ -152,7 +176,7 @@ if (!after?.mastered) {
   await boot();
   await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not show its cards while still loading', CARDS);
   await closeLog();
-  await card('tictactoe').click();
+  await tap('tictactoe');
   if (!had?.mastered) {
     await G('button.gymtrain').click(); // within the 3 s the saved games take to arrive
     await page.waitForTimeout(5000);
@@ -167,7 +191,7 @@ if (!after?.mastered) {
   const now = (await st()).recs.tictactoe;
   if (had && now && now.level < had.level) problems.push(`an early TRAIN sent him back from Level ${had.level} to Level ${now.level}`);
   await closeLog();
-  await card('tictactoe').click();
+  await tap('tictactoe');
 }
 
 // ---- PLAY HIM: tic-tac-toe ----
@@ -184,7 +208,7 @@ await wideCheck('playing tic-tac-toe');
 await page.screenshot({ path: `${out}/gym-ttt.png` });
 
 // ---- PLAY HIM: Connect 4 ----
-await card('connect4').click();
+await tap('connect4');
 await until(() => window.__ghosty?.gym?.open === 'connect4', 5000, 'the Connect 4 card did not open');
 await G('button', { hasText: 'PLAY HIM' }).click();
 await until(() => window.__ghosty?.gym?.play?.game === 'connect4', 5000, 'PLAY HIM did not start Connect 4');
@@ -204,7 +228,7 @@ for (const [id, pick, to, label] of [
   // Chess: the e2 pawn → e4.
   ['chess', 6 * 8 + 4, 4 * 8 + 4, 'chess'],
 ]) {
-  await card(id).click();
+  await tap(id);
   await until((x) => window.__ghosty?.gym?.open === x, 5000, `the ${id} card did not open`, id);
   await G('button', { hasText: 'PLAY HIM' }).click();
   await until((x) => window.__ghosty?.gym?.play?.game === x, 5000, `PLAY HIM did not start ${id}`, id);
@@ -224,7 +248,7 @@ for (const [id, pick, to, label] of [
   await page.screenshot({ path: `${out}/gym-${id}.png` });
 }
 // Go: legal points are marked; tap the centre; he answers; PASS is there.
-await card('go').click();
+await tap('go');
 await until(() => window.__ghosty?.gym?.open === 'go', 5000, 'the Go card did not open');
 await G('button', { hasText: 'PLAY HIM' }).click();
 await until(() => window.__ghosty?.gym?.play?.game === 'go', 5000, 'PLAY HIM did not start Go');
@@ -244,13 +268,13 @@ await wideCheck('playing Go');
 await page.screenshot({ path: `${out}/gym-go.png` });
 
 // ---- WATCH draws the balancing run ----
-await card('balance').click();
+await tap('balance');
 await G('button', { hasText: 'WATCH' }).click();
 await until(() => window.__ghosty?.gym?.frames >= 3 && !!document.querySelector('#pg-gym .gymboard svg.gymdraw'), 15000, 'WATCH did not draw the cart and pole');
 await wideCheck('watching the balance run');
 
 // ---- WATCH: a maze route, frame by frame ----
-await card('maze').click();
+await tap('maze');
 await page.evaluate(() => (window.__ghosty.gym.frames = 0)); // (the balance run before counted frames too)
 await G('button', { hasText: 'WATCH' }).click();
 await until(() => window.__ghosty?.gym?.frames >= 2, 15000, 'WATCH did not play his maze route');
@@ -258,7 +282,7 @@ if (!(await G('.gymboard .gymcell.me').count()) && !(await G('.gymboard .gymcell
 await wideCheck('watching the maze');
 
 // ---- PLAY HIM: Code Breaker cracks the owner's code ----
-await card('codebreaker').click();
+await tap('codebreaker');
 await G('button', { hasText: 'PLAY HIM' }).click();
 await G('.gymsecret input').fill('12');
 await G('.gymsecret button').click();
@@ -270,14 +294,14 @@ await page.screenshot({ path: `${out}/gym-code.png` });
 
 // ---- while training: card taps are never lost to a repaint, and a finished WATCH stays on the board ----
 // (Connect 4: it learns slowly, so it is still training throughout.)
-await card('connect4').click();
+await tap('connect4');
 await G('button.gymtrain').click();
 await until(() => window.__ghosty?.gym?.training === 'connect4', 5000, 'TRAIN did not start (second time)');
 const cardEl = await card('maze').elementHandle();
 await until((n) => window.__ghosty.gym.progress >= n + 2, 15000, 'no progress while training (second time)', (await st()).progress);
 if (!(await cardEl.evaluate((e) => e.isConnected))) problems.push('the game cards were rebuilt by a progress repaint (a tap in flight would be lost)');
 for (const id of ['maze', 'colony', 'tiles', 'connect4']) {
-  await card(id).click();
+  await tap(id);
   const ok = await until((x) => window.__ghosty.gym.open === x, 1500, `tapping the ${id} card while training did not open it`, id);
   if (!ok) break;
 }
@@ -294,22 +318,30 @@ if (capNow !== lastCap) problems.push(`the finished WATCH was replaced by a repa
 if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
 await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop (second time)');
 
-// ---- RESET: two taps; one tap does not carry over to another game ----
-await card('codebreaker').click();
-await G('button', { hasText: 'RESET' }).click();
-if (!/SURE/.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
-await card('maze').click();
-if ((await G('.gymactions button.warn').innerText()).trim() !== 'RESET') problems.push('the armed RESET carried over to another game');
+// ---- RESET: asks first (the calm looks: a "…" menu that says what will go; the classic looks: "SURE?"), and
+// an open question does not carry over to another game ----
+await tap('codebreaker');
+if (await G('.gymmore').isVisible().catch(() => false)) {
+  await G('.gymmore').click();
+  if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? He forgets/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
+  await tap('maze');
+  if (await G('.gymmenu').isVisible()) problems.push('the RESET menu carried over to another game');
+  if (!/maze/i.test(await G('.gymmenu .gymmenunote').textContent())) problems.push('the RESET menu does not name the open game');
+} else {
+  await G('button', { hasText: 'RESET' }).click();
+  if (!/SURE/i.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
+  await tap('maze');
+  if ((await G('.gymactions button.warn').innerText()).trim().toUpperCase() !== 'RESET') problems.push('the armed RESET carried over to another game');
+}
 
 // ---- RESET while training: the wiped game does not come back (messages in flight are dropped) ----
 await G('button.gymtrain').click();
 await until(() => (window.__ghosty?.gym?.recs?.maze?.units ?? 0) > 0, 15000, 'maze did not train');
-await G('.gymactions button.warn').click();
-await G('.gymactions button.warn').click();
+await resetGame();
 await page.waitForTimeout(3500);
 const afterReset = await st();
 if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
-if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
+if ((await card('maze').locator('.gymst').innerText()).trim().toUpperCase() !== 'NEW') problems.push('the reset maze card does not say NEW');
 await boot();
 await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the reset reload', CARDS);
 await page.waitForTimeout(1000);
@@ -318,9 +350,9 @@ await closeLog();
 
 // ---- part 2: the six reasoning games — WATCH shows his reasoning as text; nothing sideways ----
 for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate']) {
-  await card(id).click();
+  await tap(id);
   if (!(await until((x) => window.__ghosty.gym.open === x, 3000, `the ${id} card did not open`, id))) continue;
-  const acts = await G('.gymactions button:visible').allInnerTexts();
+  const acts = await actions();
   for (const want of ['TRAIN', 'WATCH', 'RESET']) if (!acts.some((b) => b.trim() === want)) problems.push(`${id} has no ${want} button`);
   if (acts.some((b) => b.trim() === 'PLAY HIM')) problems.push(`${id} shows PLAY HIM (not a board game)`);
   await page.evaluate(() => (window.__ghosty.gym.frames = 0));
@@ -335,7 +367,7 @@ for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate'])
   await page.screenshot({ path: `${out}/gym-${id}.png` });
 }
 // The heaviest one, the network lab, trains in the worker without freezing the page.
-await card('brain').click();
+await tap('brain');
 await page.evaluate(() => {
   window.__ticks2 = [];
   window.__tick2 = setInterval(() => window.__ticks2.push(performance.now()), 50);
