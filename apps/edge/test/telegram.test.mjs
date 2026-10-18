@@ -2,9 +2,10 @@
 // secret) and makes a pairing code; the public webhook refuses a wrong or missing secret; the
 // owner pairs with the code and strangers are turned away once an hour; a message from the
 // paired chat runs a normal brain turn whose reply comes back as sendMessage calls (split under
-// Telegram's limit), a photo reaches the model as a picture, a voice note is transcribed, an
-// approval becomes APPROVE / DECLINE buttons answered through a callback, notifications reach
-// the chat too, and the token never appears anywhere it could be read.
+// Telegram's limit), a photo reaches the model as a picture, a voice note is transcribed and
+// answered in text and in Ghosty's voice, an approval becomes APPROVE / NOT NOW buttons with
+// signed, expiring data answered through a callback (only the owner's chat; a forged or old one
+// is refused), notifications reach the chat too, and the token never appears anywhere it could be read.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
@@ -59,7 +60,10 @@ globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
   const api = url.match(/^https:\/\/api\.telegram\.org\/bot([^/]+)\/(\w+)$/);
   if (api) {
-    const body = init.body ? JSON.parse(init.body) : {};
+    // A file upload (sendVoice, sendAudio) is multipart: its fields, a file as { file, type, size }.
+    const body = init.body instanceof FormData
+      ? Object.fromEntries([...init.body.entries()].map(([k, v]) => [k, typeof v === 'string' ? v : { file: v.name, type: v.type, size: v.size }]))
+      : init.body ? JSON.parse(init.body) : {};
     tg.calls.push({ token: api[1], method: api[2], body });
     if (tg.fail) throw new TypeError(`fetch failed: ${url}`);
     const a = tg.answers[api[2]];
@@ -306,7 +310,7 @@ test('a voice note is transcribed (Workers AI here) and answered, the reply star
   tg.calls.length = 0;
 });
 
-test('an approval becomes APPROVE / DECLINE buttons; the callback answers it exactly as POST /approve does', async () => {
+test('an approval becomes APPROVE / NOT NOW buttons; the callback answers it exactly as POST /approve does', async () => {
   await call('/api/memory', { method: 'POST', body: JSON.stringify({ text: 'a fact to erase' }) });
   await hook(msg(OWNER_CHAT, { text: 'forget everything' }), secret);
   const ask = sent().find((c) => c.body.reply_markup);
@@ -314,20 +318,29 @@ test('an approval becomes APPROVE / DECLINE buttons; the callback answers it exa
   assert.match(ask.body.text, /^Needs your approval: /);
   const [approve, decline] = ask.body.reply_markup.inline_keyboard[0];
   assert.equal(approve.text, 'APPROVE');
-  assert.equal(decline.text, 'DECLINE');
-  const id = approve.callback_data.match(/^ap:([\w-]+):1$/)?.[1];
-  assert.ok(id);
-  assert.equal(decline.callback_data, `ap:${id}:0`);
+  assert.equal(decline.text, 'NOT NOW');
+  // signed and expiring: what it does, until when, Ghosty's signature — and under Telegram's 64 bytes
+  const id = approve.callback_data.match(/^a:([\w-]+):1:[0-9a-z]+:[\w-]{22}$/)?.[1];
+  assert.ok(id, approve.callback_data);
+  assert.match(decline.callback_data, new RegExp(`^a:${id}:0:[0-9a-z]+:[\\w-]{22}$`));
+  assert.ok(approve.callback_data.length <= 64 && decline.callback_data.length <= 64);
+  assert.ok(!approve.callback_data.includes(TOKEN.split(':')[1].slice(0, 8)), 'nothing of the token in the button');
   const waiting = (await (await call('/api/history')).json()).pending;
   assert.equal(waiting?.id, id, 'the same approval the interface would show');
   tg.calls.length = 0;
   // a stranger's callback does nothing (answered so the button stops spinning, never acted on)
-  await hook({ update_id: ++n, callback_query: { id: 'cb0', from: { id: STRANGER }, message: { message_id: 1, chat: { id: STRANGER } }, data: `ap:${id}:1` } }, secret);
+  await hook({ update_id: ++n, callback_query: { id: 'cb0', from: { id: STRANGER }, message: { message_id: 1, chat: { id: STRANGER } }, data: approve.callback_data } }, secret);
   assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery']);
   assert.ok((await (await call('/api/history')).json()).pending, 'still waiting');
   tg.calls.length = 0;
+  // the old unsigned form, from the owner's own chat: refused all the same
+  await hook({ update_id: ++n, callback_query: { id: 'cbx', from: { id: OWNER_CHAT }, message: { message_id: 1, chat: { id: OWNER_CHAT } }, data: `ap:${id}:1` } }, secret);
+  assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery']);
+  assert.equal(tg.calls[0].body.text, undefined);
+  assert.ok((await (await call('/api/history')).json()).pending, 'still waiting');
+  tg.calls.length = 0;
   // the owner presses APPROVE
-  await hook({ update_id: ++n, callback_query: { id: 'cb1', from: { id: OWNER_CHAT, first_name: 'Sam' }, message: { message_id: ask.body.message_id ?? 1, chat: { id: OWNER_CHAT } }, data: `ap:${id}:1` } }, secret);
+  await hook({ update_id: ++n, callback_query: { id: 'cb1', from: { id: OWNER_CHAT, first_name: 'Sam' }, message: { message_id: ask.body.message_id ?? 1, chat: { id: OWNER_CHAT } }, data: approve.callback_data } }, secret);
   const methods = tg.calls.map((c) => c.method);
   assert.equal(methods[0], 'answerCallbackQuery');
   assert.equal(tg.calls[0].body.text, 'Approved');
@@ -335,10 +348,13 @@ test('an approval becomes APPROVE / DECLINE buttons; the callback answers it exa
   assert.match(texts().at(-1), /Erased \d+ fact/);
   assert.equal((await (await call('/api/history')).json()).pending, null);
   assert.deepEqual((await (await call('/api/memory')).json()).facts, []);
+  // the app's approval card learns the answer
+  assert.deepEqual(Object.keys(await (await call(`/api/telegram/answer/${id}`)).json()).sort(), ['allow', 'answered', 'at']);
+  assert.equal((await (await call(`/api/telegram/answer/${id}`)).json()).allow, true);
   tg.calls.length = 0;
   // pressing it again: nothing is waiting any more
-  await hook({ update_id: ++n, callback_query: { id: 'cb2', from: { id: OWNER_CHAT }, message: { message_id: 1, chat: { id: OWNER_CHAT } }, data: `ap:${id}:1` } }, secret);
-  assert.deepEqual(texts(), ['nothing is waiting for approval']);
+  await hook({ update_id: ++n, callback_query: { id: 'cb2', from: { id: OWNER_CHAT }, message: { message_id: 1, chat: { id: OWNER_CHAT } }, data: approve.callback_data } }, secret);
+  assert.deepEqual(texts(), ['Already answered (here or in the app), or I have moved on since.']);
   tg.calls.length = 0;
 });
 
@@ -480,6 +496,191 @@ test('five wrong pairing codes lock a chat out until a new code: the right guess
   await hook(msg(OWNER_CHAT, { text: un.code }), live);
   assert.equal((await status()).paired, true);
   assert.equal(JSON.parse(kv.m.get('telegram:link')).chatId, OWNER_CHAT);
+  secret = live; // for the tests below
+  tg.calls.length = 0;
+});
+
+// ---- signed buttons, voice back, pictures as files, approvals from the app, upgrade ideas ----
+
+test('signButton / readButton: a press reads back; a changed field, another key or an old button is refused', async () => {
+  const now = Date.UTC(2026, 9, 18, 12);
+  const data = await TG.signButton(TOKEN, { kind: 'a', id: 'abc123def456', yes: true }, now);
+  assert.ok(data.length <= 64, `${data.length} bytes`);
+  assert.deepEqual(await TG.readButton(TOKEN, data, now + 60_000), { kind: 'a', id: 'abc123def456', yes: true });
+  const [k, id, yes, exp, sig] = data.split(':');
+  assert.deepEqual(await TG.readButton(TOKEN, [k, id, '0', exp, sig].join(':'), now), { refused: 'forged' }, 'APPROVE turned into NOT NOW');
+  assert.deepEqual(await TG.readButton(TOKEN, [k, 'zzz', yes, exp, sig].join(':'), now), { refused: 'forged' }, 'another approval');
+  assert.deepEqual(await TG.readButton(TOKEN, [k, id, yes, (parseInt(exp, 36) + 99999).toString(36), sig].join(':'), now), { refused: 'forged' }, 'a later expiry');
+  assert.deepEqual(await TG.readButton('987654321:AAAnotherBotTokenEntirely_xyzXYZ12345', data, now), { refused: 'forged' }, 'signed by another bot');
+  assert.deepEqual(await TG.readButton(TOKEN, data, now + TG.BUTTON_TTL_MS + 1000), { refused: 'expired' });
+  assert.deepEqual(await TG.readButton(TOKEN, 'ap:abc123def456:1', now), { refused: 'forged' });
+  assert.deepEqual(await TG.readButton(TOKEN, '', now), { refused: 'forged' });
+});
+
+test('the reason an app approval carries to Telegram is made from the waiting call itself; audio is recognised by its bytes', () => {
+  assert.equal(TG.pendingReason({ name: 'publish_site', arguments: JSON.stringify({ name: 'bakery', html: 'x'.repeat(500), public: true }) }), 'Allow publish site? name: bakery · public: true');
+  assert.equal(TG.pendingReason({ name: 'forget_all', arguments: 'not json' }), 'Allow forget all?');
+  assert.deepEqual(TG.audioKind(new Uint8Array([0x49, 0x44, 0x33, 4]).buffer), { mime: 'audio/mpeg', ext: 'mp3' });
+  assert.deepEqual(TG.audioKind(new Uint8Array([0xff, 0xfb, 0x90, 0]).buffer), { mime: 'audio/mpeg', ext: 'mp3' });
+  assert.deepEqual(TG.audioKind(new Uint8Array([0x4f, 0x67, 0x67, 0x53]).buffer), { mime: 'audio/ogg', ext: 'ogg' });
+  assert.equal(TG.audioKind(new Uint8Array([1, 2, 3, 4]).buffer), null);
+  const long = 'One sentence here. '.repeat(60);
+  const part = TG.spokenPart(long);
+  assert.ok(part.length <= 600 && part.endsWith('.'), part.slice(-20));
+  assert.equal(TG.spokenPart('See https://x.example/page **now**'), 'See link now');
+});
+
+/** Workers AI, faked: Whisper hears `heard`; MeloTTS answers an MP3 (ID3 tag first, as it does). */
+const MP3 = new Uint8Array([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 0, 0xff, 0xfb, 0x90, 0x64, ...new Array(200).fill(1)]);
+const fakeAi = (heard, spoken = []) => ({
+  async run(model, inputs) {
+    if (/whisper/.test(model)) return { text: heard };
+    if (/melotts/.test(model)) {
+      spoken.push(inputs.prompt);
+      return { audio: Buffer.from(MP3).toString('base64') };
+    }
+    throw new Error(`unexpected model ${model}`);
+  },
+});
+
+test('a voice note is answered in text AND as a voice note (MeloTTS MP3 by sendVoice), in the spoken style; a typed one is not', async () => {
+  tg.files.note2 = new Uint8Array(5000).fill(9);
+  const spoken = [];
+  env.AI = fakeAi('how will you answer?', spoken);
+  try {
+    tg.calls.length = 0;
+    await hook(msg(OWNER_CHAT, { voice: { file_id: 'note2', mime_type: 'audio/ogg', duration: 2, file_size: 5000 } }), secret);
+    assert.deepEqual(texts(), ['🎤 how will you answer?\n\nOut loud, briefly.'], 'the prompt had the spoken style');
+    const voice = sent('sendVoice');
+    assert.equal(voice.length, 1, 'one voice note back');
+    assert.equal(voice[0].body.chat_id, String(OWNER_CHAT));
+    assert.deepEqual(voice[0].body.voice, { file: 'ghosty.mp3', type: 'audio/mpeg', size: MP3.length });
+    assert.deepEqual(spoken, ['Out loud, briefly.'], 'the reply is spoken, not the echo of what was heard');
+    const order = tg.calls.map((c) => c.method).filter((m) => m === 'sendMessage' || m === 'sendVoice');
+    assert.deepEqual(order, ['sendMessage', 'sendVoice'], 'the text first, the voice after');
+    assert.ok(!JSON.stringify(tg.calls.map((c) => c.body)).includes(TOKEN), 'the token is in no body');
+    // a chat that refuses voice messages gets the same file as audio
+    tg.calls.length = 0;
+    tg.answers.sendVoice = () => new Response(JSON.stringify({ ok: false, error_code: 400, description: 'Bad Request: VOICE_MESSAGES_FORBIDDEN' }), { status: 400 });
+    await hook(msg(OWNER_CHAT, { voice: { file_id: 'note2', mime_type: 'audio/ogg', file_size: 5000 } }), secret);
+    assert.equal(sent('sendAudio').length, 1);
+    assert.deepEqual(sent('sendAudio')[0].body.audio, { file: 'ghosty.mp3', type: 'audio/mpeg', size: MP3.length });
+    assert.equal(sent('sendAudio')[0].body.title, 'Ghosty');
+    delete tg.answers.sendVoice;
+    // typed: written style, no voice note
+    tg.calls.length = 0;
+    await hook(msg(OWNER_CHAT, { text: 'how will you answer?' }), secret);
+    assert.deepEqual(texts(), ['In writing.']);
+    assert.equal(sent('sendVoice').length + sent('sendAudio').length, 0);
+  } finally {
+    delete env.AI;
+  }
+  // no voice to speak with (no Workers AI): the text alone, nothing broken
+  tg.calls.length = 0;
+  // (a reply never spoken before: a sentence already spoken would come from the voice's memory)
+  env.AI = { async run(model) { if (/whisper/.test(model)) return { text: 'say something chatty' }; throw new Error('no voice today'); } };
+  try {
+    await hook(msg(OWNER_CHAT, { voice: { file_id: 'note2', mime_type: 'audio/ogg', file_size: 5000 } }), secret);
+    assert.deepEqual(texts(), ['🎤 say something chatty\n\nThe kettle is on.']);
+    assert.equal(sent('sendVoice').length + sent('sendAudio').length, 0);
+  } finally {
+    delete env.AI;
+  }
+  tg.calls.length = 0;
+});
+
+test("a model's chatbot slip is polished on Telegram as in the app (the router's post-filter)", async () => {
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { text: 'say something chatty' }), secret);
+  assert.deepEqual(texts(), ['The kettle is on.']);
+  tg.calls.length = 0;
+});
+
+test('a picture sent as a file goes the Lens way too (caption as the question); another file is turned back politely', async () => {
+  tg.files.doc1 = jpeg(800);
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { caption: 'What breed is this?', document: { file_id: 'doc1', mime_type: 'image/jpeg', file_name: 'dog.jpg', file_size: 800 } }), secret);
+  assert.deepEqual(texts(), ['I can see a picture. What breed is this?']);
+  assert.equal((await (await call('/api/history')).json()).turns.at(-2).text, 'What breed is this? [photo]');
+  tg.calls.length = 0;
+  await hook(msg(OWNER_CHAT, { document: { file_id: 'doc2', mime_type: 'application/pdf', file_name: 'a.pdf' } }), secret);
+  assert.deepEqual(texts(), ['I can read photos and pictures sent as files here; other files go in the Library tab in the app.']);
+  assert.equal(sent('download').length, 0);
+  tg.calls.length = 0;
+});
+
+test('an approval asked in the app reaches Telegram once; a forged press from another chat, a tampered or an expired one is refused; NOT NOW declines and the app sees it', async () => {
+  // asked in the app
+  await call('/api/memory', { method: 'POST', body: JSON.stringify({ text: 'another fact' }) });
+  const r = await call('/api/chat', { method: 'POST', body: JSON.stringify({ message: 'forget everything' }) });
+  await r.text();
+  await settle();
+  const id = (await (await call('/api/history')).json()).pending?.id;
+  assert.ok(id, 'waiting in the app');
+  tg.calls.length = 0;
+  assert.equal((await call('/api/telegram/ask/nope123')).status, 404, 'a GET is not the route');
+  assert.equal((await call('/api/telegram/ask/nope123', { method: 'POST' })).status, 404, 'only the approval really waiting');
+  assert.deepEqual(await (await call(`/api/telegram/ask/${id}`, { method: 'POST' })).json(), { sent: true });
+  assert.deepEqual(await (await call(`/api/telegram/ask/${id}`, { method: 'POST' })).json(), { sent: false, already: true }, 'never twice');
+  const ask = sent().find((c) => c.body.reply_markup);
+  assert.match(ask.body.text, /^Needs your approval: Allow forget everything\? \(asked in the app\)$/);
+  const [yes, no] = ask.body.reply_markup.inline_keyboard[0];
+  assert.deepEqual([yes.text, no.text], ['APPROVE', 'NOT NOW']);
+  assert.deepEqual(await (await call(`/api/telegram/answer/${id}`)).json(), { answered: false });
+  // forged: Ghosty's real, signed APPROVE data — pressed in another chat
+  tg.calls.length = 0;
+  await hook({ update_id: ++n, callback_query: { id: 'f1', from: { id: STRANGER }, message: { message_id: 5, chat: { id: STRANGER } }, data: yes.callback_data } }, secret);
+  // forged: from another chat that claims the owner as the presser
+  await hook({ update_id: ++n, callback_query: { id: 'f2', from: { id: OWNER_CHAT }, message: { message_id: 5, chat: { id: STRANGER } }, data: yes.callback_data } }, secret);
+  // tampered: NOT NOW's data turned into APPROVE, from the owner's chat
+  const t = no.callback_data.split(':');
+  t[2] = '1';
+  await hook({ update_id: ++n, callback_query: { id: 'f3', from: { id: OWNER_CHAT }, message: { message_id: 5, chat: { id: OWNER_CHAT } }, data: t.join(':') } }, secret);
+  assert.deepEqual(tg.calls.map((c) => c.method), ['answerCallbackQuery', 'answerCallbackQuery', 'answerCallbackQuery'], 'answered so the button stops spinning, nothing more');
+  assert.ok(tg.calls.every((c) => c.body.text === undefined));
+  assert.equal((await (await call('/api/history')).json()).pending?.id, id, 'still waiting');
+  assert.equal((await (await call('/api/memory')).json()).facts.length, 1, 'nothing was erased');
+  // expired: a button signed two days ago, from the owner
+  tg.calls.length = 0;
+  const old = await TG.signButton(TOKEN, { kind: 'a', id, yes: true }, Date.now() - 2 * 86400_000);
+  await hook({ update_id: ++n, callback_query: { id: 'f4', from: { id: OWNER_CHAT }, message: { message_id: 5, chat: { id: OWNER_CHAT } }, data: old } }, secret);
+  assert.equal(tg.calls[0].body.text, 'That button has expired');
+  assert.deepEqual(texts(), ['That button has expired. Ask me again, or answer it in the app.']);
+  assert.equal((await (await call('/api/history')).json()).pending?.id, id, 'still waiting');
+  // NOT NOW from the owner: declined, exactly as DECLINE in the app; the app's card learns it
+  tg.calls.length = 0;
+  await hook({ update_id: ++n, callback_query: { id: 'ok1', from: { id: OWNER_CHAT }, message: { message_id: 5, chat: { id: OWNER_CHAT } }, data: no.callback_data } }, secret);
+  assert.equal(tg.calls[0].body.text, 'Not now');
+  assert.ok(sent('editMessageReplyMarkup').length === 1, 'the buttons come off');
+  assert.equal((await (await call('/api/history')).json()).pending, null);
+  assert.equal((await (await call('/api/memory')).json()).facts.length, 1, 'declined: nothing erased');
+  const ans = await (await call(`/api/telegram/answer/${id}`)).json();
+  assert.equal(ans.answered, true);
+  assert.equal(ans.allow, false);
+  tg.calls.length = 0;
+});
+
+test('a new upgrade idea comes with BUILD IT / NOT NOW: BUILD IT starts the Workshop chat for it, NOT NOW leaves it there', async () => {
+  const idea = { id: 'up1a2b', title: 'Dark mode toggle', why: 'Easier on the eyes at night', steps: ['Add a toggle in Settings', 'Save it'], at: Date.now() };
+  await state.storage.put('upgrades:ideas', [idea]);
+  tg.calls.length = 0;
+  const host = { env, storage: state.storage, vault: { get: async (n) => (n === 'telegram' ? TOKEN : null) }, origin: ORIGIN };
+  assert.equal(await TG.telegramNotify(host, { kind: 'task', title: 'Upgrade idea', text: 'I have an upgrade idea: Dark mode toggle — see Workshop' }), true);
+  const q = sent().find((c) => c.body.reply_markup);
+  assert.equal(q.body.text, 'Build it? Dark mode toggle — Easier on the eyes at night');
+  const [build, later] = q.body.reply_markup.inline_keyboard[0];
+  assert.deepEqual([build.text, later.text], ['BUILD IT', 'NOT NOW']);
+  assert.match(build.callback_data, /^u:up1a2b:1:/);
+  tg.calls.length = 0;
+  await hook({ update_id: ++n, callback_query: { id: 'u0', from: { id: OWNER_CHAT }, message: { message_id: 9, chat: { id: OWNER_CHAT } }, data: later.callback_data } }, secret);
+  assert.deepEqual(texts(), ['Left in Workshop → UPGRADE IDEAS for later.']);
+  assert.equal((await state.storage.get('upgrades:ideas')).length, 1);
+  tg.calls.length = 0;
+  await hook({ update_id: ++n, callback_query: { id: 'u1', from: { id: OWNER_CHAT }, message: { message_id: 9, chat: { id: OWNER_CHAT } }, data: build.callback_data } }, secret);
+  assert.equal(tg.calls[0].body.text, 'Building it');
+  const turns = (await (await call('/api/history')).json()).turns;
+  assert.equal(turns.findLast((x) => x.role === 'user').text, 'Build this upgrade: Dark mode toggle. Easier on the eyes at night. Steps: 1. Add a toggle in Settings. 2. Save it.');
+  assert.ok(texts().length >= 1, 'the turn answered in the chat');
   tg.calls.length = 0;
   globalThis.fetch = real;
 });

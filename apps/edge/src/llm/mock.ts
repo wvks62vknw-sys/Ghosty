@@ -35,6 +35,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
   }
   const system = String(messages[0]?.content ?? '');
+  // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
+  const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
+  if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);

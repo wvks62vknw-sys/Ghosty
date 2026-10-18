@@ -25,7 +25,8 @@ export type Entry =
   | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
-  | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined' }
+  /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
+  | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string }
   | { kind: 'link'; url: string; title: string };
 
@@ -152,6 +153,7 @@ function handle(ev: ChatEvent): void {
       break;
     case 'approval':
       push({ kind: 'approval', id: ev.id, name: ev.name, reason: ev.reason, args: ev.args, state: 'waiting' });
+      followApproval(ev.id);
       if (speakReplies && settings.get().speak) void speak(ev.reason);
       break;
     case 'text': {
@@ -342,6 +344,56 @@ export async function answerApproval(id: string, allow: boolean): Promise<void> 
   await stream((cb) => brain.approve(id, allow, cb));
 }
 
+/** Approvals being followed (one watcher each). */
+const following = new Set<string>();
+
+/**
+ * An approval left waiting here goes to the owner's Telegram too, once they have walked away
+ * (the app hidden, or a minute with no answer), as APPROVE / NOT NOW buttons; an answer given
+ * there then shows on this card, and the conversation is reloaded for what followed. Nothing
+ * happens when Telegram is not paired (the brain says so and the watch ends).
+ */
+function followApproval(id: string): void {
+  if (following.has(id)) return;
+  following.add(id);
+  const waiting = () => chat.get().entries.some((e) => e.kind === 'approval' && e.id === id && e.state === 'waiting');
+  let sent = false;
+  let polls = 0;
+  const stop = () => {
+    following.delete(id);
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', onHide);
+  };
+  const poll = async (): Promise<void> => {
+    if (!following.has(id)) return;
+    if (!waiting() || polls++ > 360) return stop();
+    const a = await brain.telegramAnswer(id).catch(() => null);
+    if (a?.answered) {
+      patch(
+        (e) => e.kind === 'approval' && e.id === id,
+        (e) => ({ ...(e as Extract<Entry, { kind: 'approval' }>), state: a.allow ? 'approved' : 'declined', via: 'telegram' }),
+      );
+      stop();
+      // What the brain did next (the reply went to Telegram as it happened) is in the history.
+      setTimeout(() => void loadHistory(), 4000);
+      return;
+    }
+    setTimeout(() => void poll(), 5000);
+  };
+  const forward = async () => {
+    if (sent || !waiting()) return;
+    sent = true;
+    const r = await brain.telegramAsk(id).catch(() => null);
+    if (r?.sent || r?.already) void poll();
+    else stop();
+  };
+  const onHide = () => {
+    if (document.hidden) void forward();
+  };
+  const timer = setTimeout(() => void forward(), 60_000);
+  document.addEventListener('visibilitychange', onHide);
+}
+
 /** Load recent conversation from the brain on start-up. */
 export async function loadHistory(): Promise<void> {
   try {
@@ -353,6 +405,7 @@ export async function loadHistory(): Promise<void> {
     });
     if (h.pending) entries.push({ kind: 'approval', id: h.pending.id, name: h.pending.name, reason: `Waiting for your approval: ${h.pending.name.replace(/_/g, ' ')}`, args: h.pending.args, state: 'waiting' });
     chat.set({ entries });
+    if (h.pending) followApproval(h.pending.id);
   } catch (e) {
     // Database paused or offline: the conversation kept on this device stays on screen.
     if (!(e instanceof AuthError) && !(unreachable(e) && chat.get().entries.length)) toast('Could not load conversation history', 'warn');

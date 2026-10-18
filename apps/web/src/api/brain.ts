@@ -374,6 +374,10 @@ export const brain = {
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
   telegramUnpair: () => req<TelegramStatus>('POST', '/telegram/unpair'),
   telegramTest: () => req<{ sent: boolean; error?: string }>('POST', '/telegram/test'),
+  /** An approval waiting here, sent to the owner's Telegram chat with APPROVE / NOT NOW (telegram.ts). */
+  telegramAsk: (id: string) => req<{ sent: boolean; already?: boolean; error?: string }>('POST', `/telegram/ask/${encodeURIComponent(id)}`, {}),
+  /** Whether that approval was answered on Telegram. */
+  telegramAnswer: (id: string) => req<{ answered: boolean; allow?: boolean; at?: number }>('GET', `/telegram/answer/${encodeURIComponent(id)}`),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
   reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),

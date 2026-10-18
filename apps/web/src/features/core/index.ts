@@ -92,7 +92,7 @@ function renderEntry(e: Entry): HTMLElement {
     case 'approval': {
       const box = h('div.approval', h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason));
       if (e.state === 'waiting') box.append(h('div.row', button('APPROVE', () => void answerApproval(e.id, true), 'on'), button('DECLINE', () => void answerApproval(e.id, false), 'warn')));
-      else box.append(h('span.note', e.state === 'approved' ? 'Approved.' : 'Declined.'));
+      else box.append(h('span.note', e.via === 'telegram' ? `${e.state === 'approved' ? 'Approved' : 'Not now'} on Telegram.` : e.state === 'approved' ? 'Approved.' : 'Declined.'));
       return box;
     }
   }
