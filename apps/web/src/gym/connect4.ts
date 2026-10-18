@@ -139,29 +139,41 @@ function testPosition(r: () => number, empty: number): { pos: Pos; best: number[
   }
 }
 
+/** Test positions per level: enough that one lucky or unlucky move hardly shows. */
+export const SET_SIZE = 120;
 const sets = new Map<number, { pos: Pos; best: number[] }[]>();
 /**
- * The fixed test set for a level (always the same 40 positions, solved exactly). They come from the stored
+ * The fixed test set for a level (always the same 120 positions, solved exactly). They come from the stored
  * list (c4sets.ts) so the phone never waits on the solver; `fresh` makes them again with the solver
  * (that is how the list was made, and the tests check the two agree).
  */
-export function testSet(level: number, size = 40, fresh = false): { pos: Pos; best: number[] }[] {
+export function testSet(level: number, size = SET_SIZE, fresh = false): { pos: Pos; best: number[] }[] {
   const L = lvl(level);
   const key = L * 1000 + size + (fresh ? 500 : 0);
   const hit = sets.get(key);
   if (hit) return hit;
   let out: { pos: Pos; best: number[] }[] = [];
   const stored = C4_SETS[L - 1];
-  if (!fresh && size === 40 && stored?.length === 40) {
+  if (!fresh && size === SET_SIZE && stored?.length === SET_SIZE) {
     out = stored.map((line) => {
       const [sq, best] = line.split(':');
       return { pos: posFromBoard(sq!.split('').map(Number)), best: best!.split('').map(Number) };
     });
   } else {
+    // Half the positions are ones the search alone (an untrained network) gets right, half ones it gets
+    // wrong — so every level leaves the same room to learn, instead of whatever random play happened to give.
     const r = rng(9001 + L);
+    const zero = new Float32Array(LINES.length * 81);
+    let right = 0;
+    let wrong = 0;
     while (out.length < size) {
       const t = testPosition(r, empties(L));
-      if (t) out.push(t);
+      if (!t) continue;
+      const ok = t.best.includes(mcts(zero, t.pos, SIMS));
+      if (ok ? right >= size / 2 : wrong >= size / 2) continue;
+      if (ok) right++;
+      else wrong++;
+      out.push(t);
     }
   }
   sets.set(key, out);
@@ -227,9 +239,9 @@ function expand(w: Float32Array, p: Pos, node: Node, temp: number): number {
  * proportion to how promising the network finds it and how well it has done in the search so far;
  * new positions are judged by the network instead of random play-outs. `sims` simulations.
  */
-export function mcts(w: Float32Array, p0: Pos, sims: number): number {
+export function mcts(w: Float32Array, p0: Pos, sims: number, allowed?: number[]): number {
   const p = copyPos(p0);
-  const moves = legal(p);
+  const moves = allowed ?? legal(p);
   for (const c of moves) if (winsNow(p, c)) return c;
   const root: Node = { n: 0, q: 0, kids: null, prior: null, done: null };
   expand(w, p, root, TEMP);
@@ -241,7 +253,7 @@ export function mcts(w: Float32Array, p0: Pos, sims: number): number {
       let bestU = -Infinity;
       const sq = Math.sqrt(node.n + 1);
       for (const c of ORDER) {
-        if (!canPlay(p, c)) continue;
+        if (!canPlay(p, c) || (node === root && !moves.includes(c))) continue;
         const k = node.kids[c];
         const u = (k && k.n ? k.q / k.n : 0) + 1.5 * node.prior![c]! * sq / (1 + (k?.n ?? 0));
         if (u > bestU) (bestU = u), (bestC = c);
@@ -282,7 +294,8 @@ function greedy(w: Float32Array, p: Pos): number {
   let bv = -Infinity;
   for (const c of legal(p)) {
     const s = play(p, c);
-    const v = wonAt(p, s) ? 2 : (me === 1 ? 1 : -1) * evaluate(w, p);
+    // A move that lets the other side win at once is judged as the loss it is (cleaner self-play to learn from).
+    const v = wonAt(p, s) ? 2 : legal(p).some((o) => winsNow(p, o)) ? -2 : (me === 1 ? 1 : -1) * evaluate(w, p);
     undo(p, c);
     if (v > bv) (bv = v), (best = c);
   }
@@ -357,7 +370,7 @@ class C4Learner implements Learner {
       let prev: Pos | null = null;
       let prevV = 0;
       // Each game opens with a few random moves, so he meets all kinds of positions.
-      let opening = Math.floor(r() * 21);
+      let opening = Math.floor(r() * 27);
       for (;;) {
         const ms = legal(p);
         const c = opening-- > 0 || r() < 0.1 ? ms[Math.floor(r() * ms.length)]! : greedy(w, p);

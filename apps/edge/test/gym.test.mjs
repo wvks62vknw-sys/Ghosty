@@ -452,13 +452,15 @@ test('connect 4: the exact solver — a win in one, consistent values, and a fix
   // The stored test positions are exactly what the solver makes (checked here for the quicker levels).
   for (const L of [1, 2, 3, 4, 5]) {
     const stored = C4.testSet(L);
-    const fresh = C4.testSet(L, 40, true);
+    const fresh = C4.testSet(L, 120, true);
     assert.deepEqual(stored.map((t) => [Array.from(t.pos.b).join(''), t.best]), fresh.map((t) => [Array.from(t.pos.b).join(''), t.best]), `L${L}`);
   }
   // A few of the hardest level's stored answers, solved again.
   for (const t of C4.testSet(10).slice(0, 2)) assert.deepEqual(C4.bestMoves(t.pos).best, t.best);
+  // Every level's set is half positions the search alone gets right and half it gets wrong: the same room to learn.
+  for (let L = 1; L <= 10; L++) assert.equal(C4.searchAlone(L), 60, `L${L}`);
   const set = C4.testSet(2);
-  assert.equal(set.length, 40);
+  assert.equal(set.length, 120);
   assert.deepEqual(C4.testSet(2), set, 'the same positions every time');
   for (const t of set.slice(0, 5)) {
     assert.equal(42 - t.pos.n, C4.empties(2));
@@ -478,6 +480,19 @@ test('connect 4: self-play training of the n-tuple evaluator raises agreement wi
   for (const c of [0, 6, 0, 6, 0]) C4.play(b, c);
   // O (to move) must block column 1.
   assert.equal(l.move(Array.from(b.b)), 0);
+});
+
+test('connect 4: a seeded run climbs the ladder — Levels 1 to 5 passed by training, none handed out', () => {
+  const s = new S.Session(gameById('connect4'));
+  const passed = [];
+  for (let i = 0; i < 60 && s.rec.level <= 5; i++) {
+    s.train(5000);
+    if (s.measure() === 'level') passed.push(`L${s.rec.level - 1} at ${s.rec.units}`);
+  }
+  assert.ok(s.rec.level >= 6, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+  // Every pass came after training (what he learned on one level carries to the next, so a later level can
+  // open already above its bar — earned, not handed out: an untrained network is below it, tested above).
+  for (const p of s.rec.history.filter((h, i, a) => i && h.l !== a[i - 1].l)) assert.ok(p.u > 0, `Level ${p.l} reached with no training`);
 });
 
 // ---------------------------------------------------------------------------------------------------------
@@ -565,6 +580,14 @@ test('countdown: the rules (whole numbers above zero), the exhaustive solver, an
   assert.ok(CD.countdown.check(p, '(100 + 4) × (9 − 2)').correct);
   assert.ok(!CD.countdown.check(p, '100 × 7 + 4 × 7').correct, '7 used twice');
   for (const L of [1, 5, 10]) for (const { p: q } of CD.bench(L).slice(0, 3)) assert.ok(CD.solve(q.nums, q.target, q.exact), 'only solvable problems are set');
+});
+
+test('countdown: a seeded run reaches the bar at every level', () => {
+  for (let L = 1; L <= 10; L++) {
+    const r = climb(CD.countdown.learner(L, 3), CD.countdown.bar(L), 60, 900);
+    assert.equal(r.first, 0, `L${L} starts at 0`);
+    assert.ok(r.last >= CD.countdown.bar(L), `L${L}: ${r.last} after ${r.units} problems`);
+  }
 });
 
 test('countdown: evolving the order he tries combinations in solves more within the budget', () => {

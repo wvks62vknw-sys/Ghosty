@@ -70,7 +70,7 @@ export const CONNECT4: GameMeta = {
   blurb: 'search + learned instinct',
   learns: 'He plays himself to learn which lines of four matter, then searches ahead with that instinct.',
   unit: 'games',
-  bar: () => 0.25,
+  bar: () => 0.3,
   play: 'board',
 };
 export const TILES: GameMeta = {
