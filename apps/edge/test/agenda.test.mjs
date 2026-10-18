@@ -265,9 +265,12 @@ test('job-list changes made at the same moment are all kept (a reminder firing w
   const rem = await S.addJob(st, { kind: 'reminder', title: 'Call mum', text: 'call', next: soon, tz: TZ });
   const task = await S.addJob(st, { kind: 'task', title: 'Study', text: 'study', next: soon, repeat: 'daily', tz: TZ });
   const later = soon + 7_200_000;
-  await Promise.all([S.finishJob(st, rem.id), S.setNext(st, task.id, later), S.addJob(st, { kind: 'reminder', title: 'Bins', text: 'bins', next: soon, tz: TZ })]);
+  const ev = await S.addEvent(st, { title: 'Dentist', start: soon + 86_400_000, end: soon + 90_000_000 });
+  await S.addJob(st, { kind: 'reminder', title: 'Dentist soon', text: 'dentist', next: soon, tz: TZ, eventId: ev.id });
+  await Promise.all([S.finishJob(st, rem.id), S.setNext(st, task.id, later), S.addJob(st, { kind: 'reminder', title: 'Bins', text: 'bins', next: soon, tz: TZ }), S.removeEvent(st, ev.id)]);
   const jobs = await S.loadJobs(st);
   assert.equal(jobs.find((j) => j.id === rem.id), undefined, 'the one-off reminder that fired is gone');
   assert.equal(jobs.find((j) => j.id === task.id)?.next, later, "the task's new time is kept");
   assert.ok(jobs.some((j) => j.title === 'Bins'), 'the reminder added meanwhile is kept');
+  assert.ok(!jobs.some((j) => j.eventId === ev.id), "the deleted event's reminder went with it");
 });

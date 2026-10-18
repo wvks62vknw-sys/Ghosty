@@ -289,8 +289,10 @@ export async function removeEvent(storage: DurableObjectStorage, id: string): Pr
   const ev = list.find((x) => x.id === id);
   if (!ev) return null;
   await storage.put(EVENTS, list.filter((x) => x.id !== id));
-  const jobs = await loadJobs(storage);
-  if (jobs.some((j) => j.eventId === id)) await saveJobs(storage, jobs.filter((j) => j.eventId !== id));
+  await withJobs(storage, async () => {
+    const jobs = await loadJobs(storage);
+    if (jobs.some((j) => j.eventId === id)) await saveJobs(storage, jobs.filter((j) => j.eventId !== id));
+  });
   return ev;
 }
 
