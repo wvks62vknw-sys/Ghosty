@@ -21,6 +21,13 @@ jobs:
         run: |
           npm run typecheck > tc.txt 2>&1 || { echo "::error title=brain typecheck::$(grep -E 'error TS' tc.txt | head -n 8 | cut -c1-220 | tr '\n' '|')"; cat tc.txt; exit 1; }
           npm test > t.txt 2>&1 || { echo "::error title=brain tests::$(grep -E 'not ok|Error|expected|actual' t.txt | head -n 12 | cut -c1-200 | tr '\n' '|')"; cat t.txt; exit 1; }
+      # The weekly training notebook's own checks (no GPU, no torch: the parts that need them are skipped),
+      # and the bundled notebook and gym program are up to date with their sources.
+      - name: Training notebook checks
+        working-directory: .
+        run: |
+          python3 training/kaggle/test_ghosty_weekly.py > py.txt 2>&1 || { echo "::error title=training notebook::$(tail -n 12 py.txt | cut -c1-200 | tr '\n' '|')"; cat py.txt; exit 1; }
+          node training/kaggle/build.mjs --check
   interface:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: apps/web } }
@@ -66,7 +73,7 @@ jobs:
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
           fail=0
-          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications airoom gym character; do
+          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications airoom gym character selftrain; do
             # Street View's dives follow the frames, which software rendering draws slowly: give each run up to 8 minutes.
             if ! timeout 480 node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
               fail=1

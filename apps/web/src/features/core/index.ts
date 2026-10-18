@@ -18,6 +18,7 @@ import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/co
 import { citedReply } from './cited';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
+import { rateable, rateRow, ratings } from './rate';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -112,6 +113,8 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
     case 'assistant': {
       if (e.think) return renderThink(e);
       const el = plainReply(e);
+      // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
+      if (rateable(e)) el.append(rateRow(e));
       if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
       return el;
     }
@@ -168,7 +171,9 @@ export const coreTab: TabDef = {
       g.v.textContent = c.value;
       g.el.className = `gi${c.tone ? ` ${c.tone}` : ''}`;
     };
-    const caption = h('div#ccap', h('span', ''));
+    // The caption: the latest words, and under a finished reply its 👍 / 👎 (rate.ts), so a phone can rate it without opening the LOG.
+    const capRate = h('div.caprate');
+    const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
@@ -288,15 +293,22 @@ export const coreTab: TabDef = {
       clear(log, ...shown.map((x, i) => renderEntry(x, i === last ? q : undefined)));
       log.scrollTop = log.scrollHeight;
       reveal(chat.get().live);
+      paintCapRate();
       armFade();
       // The HUD says what the tool at work is doing right now (the latest report); nothing once it has finished.
       const working = [...chat.get().entries].reverse().find((e): e is Extract<Entry, { kind: 'activity' }> => e.kind === 'activity' && e.state === 'running' && !!e.progress);
       stark.task(working?.progress ? progressText(working.progress) : null);
     };
+    const paintCapRate = () => {
+      const last = chat.get().entries.at(-1);
+      clear(capRate, ...(chat.get().live && !ui.get().busy && last?.kind === 'assistant' && rateable(last) ? [rateRow(last)] : []));
+    };
+    ui.subscribe((u, prev) => void (u.busy !== prev.busy && paintCapRate()));
     chat.subscribe(paintLog);
     canThink.subscribe(paintLog);
     settings.subscribe((st, prev) => st.offlineBrain !== prev.offlineBrain && paintLog());
     recheckThink();
+    ratings.subscribe(paintLog);
     paintLog();
     // power-up sequence: the HUD draws itself in, then reports
     const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];

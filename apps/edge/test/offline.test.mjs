@@ -220,3 +220,7 @@ test('daily backup: a failed try never turns off the wiped-phone guard; after wa
 // because the test list in package.json is protected).
 await import('./gym.test.mjs');
 await import('./gym2.test.mjs');
+
+// The offline brain's weekly self-training on Kaggle (apps/edge/src/selftrain): its tests live in
+// selftrain.test.mjs (run from here for the same reason).
+await import('./selftrain.test.mjs');

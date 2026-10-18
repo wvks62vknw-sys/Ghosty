@@ -12,6 +12,7 @@
  * to pick), so its score is the model's own. Pure: the model and the judge are passed in
  * (apps/edge/test/thinkharder.test.mjs drives it with a fake model).
  */
+import { readToolCalls } from '../../../../packages/shared/src/toolcall';
 import { answerOf, calcExact, numberMatches } from './exact';
 import type { OfflineMsg } from './prompt';
 import { thinkHarder, type Budget, type Checker, type Generate } from './think';
@@ -103,12 +104,16 @@ function asCall(o: Record<string, unknown>): Call | null {
 }
 
 /**
- * The tool call a reply makes, read the way the weekly training teaches it (Qwen's own format, as in Stage
- * 2's packages/shared/src/toolcall.ts): `<tool_call>{"name": …, "arguments": {…}}</tool_call>`, over several
+ * The tool call a reply makes, read the way the weekly training teaches it (Qwen's own format, by Stage 2's
+ * packages/shared/src/toolcall.ts readToolCalls): `<tool_call>{"name": …, "arguments": {…}}</tool_call>`, over several
  * lines if need be; also a call in a ```json block or bare JSON, and the older {"tool", "args"} shape. The
  * last call in the reply counts (THINK HARDER's working comes before its answer).
  */
 export function toolCallIn(text: string): Call | null {
+  // Qwen's own format, read exactly as the weekly training's exam reads it (Stage 2's readToolCalls).
+  const qwen = readToolCalls(text);
+  if (qwen.length) return { name: qwen.at(-1)!.name, args: qwen.at(-1)!.arguments };
+  // Otherwise a call inside the tags that is not quite one JSON object, in a ```json block or bare, or the older shape.
   const tagged = [...text.matchAll(/<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g)].flatMap((m) => jsonObjects(m[1]!).slice(0, 1));
   const objects = tagged.length ? tagged : jsonObjects(text.replace(/```(?:json)?/gi, ' '));
   const calls = objects.map(asCall).filter((c): c is Call => !!c);

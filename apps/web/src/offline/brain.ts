@@ -18,7 +18,7 @@ import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
 import { searchLocal } from '../library/local';
 import { settings } from '../state/app';
-import { MODELS, modelBase, WORKER_REV, type ModelDef } from './models';
+import { allModels, downloadFailure, MODELS, modelBase, WORKER_REV, type ModelDef, type TrainedModel } from './models';
 import { withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, type OfflineMsg } from './prompt';
 
@@ -30,11 +30,39 @@ const VENDOR = '/vendor/webllm';
 const WEBLLM_CACHES = ['webllm/model', 'webllm/config', 'webllm/wasm'];
 const IDLE_UNLOAD_MS = 2 * 60_000;
 
-/** What the settings panel shows. `model` and `downloaded` are kept on this device. */
+/**
+ * What the settings panel shows. `model` and `downloaded` are kept on this device, and so are `trained` (the
+ * models the weekly self-training published, from the brain) and `active` (the one the brain recommends), so
+ * a trained model still loads with no connection.
+ */
 export const offlineBrain = createStore(
-  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', thinkSecs: 55 },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'thinkSecs'] },
+  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', trained: [] as TrainedModel[], active: null as string | null, weights: null as string | null, thinkSecs: 55 },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs'] },
 );
+
+/** Every model this phone can use: the trained ones, then the stock Qwen3 and Qwen2.5 (offline/models.ts). */
+export const offlineModels = (): ModelDef[] => allModels(offlineBrain.get().trained ?? [], globalThis.location?.origin ?? '', offlineBrain.get().weights ?? null);
+
+/**
+ * The brain's list of trained brains, the recommended one (`active`) and this phone's weight address. Nothing is
+ * downloaded here. When this phone uses a trained brain and the brain's choice changed (a ROLLBACK, or the one in
+ * use was dropped), the phone follows: to the new choice, or back to the stock Qwen3 — and says so (the returned
+ * line, for a toast; '' when nothing changed). A phone on the stock model is only offered a new week (SETTINGS).
+ */
+export function setTrainedModels(trained: TrainedModel[], active: string | null, weights: string | null = offlineBrain.get().weights): string {
+  const was = offlineBrain.get();
+  offlineBrain.set({ trained: trained.map(({ week, label, repo, commit }) => ({ week, label, repo, commit })), active, weights });
+  const list = offlineModels();
+  const usingTrained = !MODELS.some((m) => m.id === was.model);
+  if (!usingTrained) return '';
+  const stillThere = list.some((m) => m.id === was.model);
+  if (stillThere && was.active === active) return '';
+  const to = (active && list.find((m) => m.rev === active)) || MODELS[0]!;
+  if (to.id === was.model) return '';
+  offlineBrain.set({ model: to.id, downloaded: false, loaded: false });
+  checkedAt = 0;
+  return `Ghosty changed the offline brain to ${to.label}${active ? '' : ' (the stock one)'}: press DOWNLOAD in SETTINGS → OFFLINE BRAIN, on Wi-Fi.`;
+}
 
 /** The test engine, when a browser test put one there. */
 interface TestEngine {
@@ -53,7 +81,7 @@ const testEngine = (): TestEngine | null => {
   return e && typeof e.chat === 'function' ? e : null;
 };
 
-export const currentModel = (): ModelDef => MODELS.find((m) => m.id === offlineBrain.get().model) ?? MODELS[0]!;
+export const currentModel = (): ModelDef => offlineModels().find((m) => m.id === offlineBrain.get().model) ?? MODELS[0]!;
 
 // ---------------------------------------------------------------------------------------
 // Can this phone run it?
@@ -156,7 +184,7 @@ function dropWorker(): void {
 }
 
 const appConfig = () => ({
-  model_list: MODELS.map((m) => ({
+  model_list: offlineModels().map((m) => ({
     // Pinned to one commit (offline/models.ts): WebLLM keeps a URL that names its revision.
     model: modelBase(m),
     model_id: m.id,
@@ -221,6 +249,23 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
   try {
     await load(onProgress, true);
   } catch (e) {
+    const kind = downloadFailure(e);
+    const trained = !MODELS.some((m) => m.id === currentModel().id);
+    if (kind === 'network') {
+      // The connection dropped: nothing is removed (the stock model's files, nor what this download already
+      // fetched — WebLLM keeps each finished file), so DOWNLOAD carries on from where it stopped.
+      dropWorker();
+      throw new Error('The download was interrupted (the connection dropped?). Press DOWNLOAD again on Wi-Fi: it carries on from where it stopped.');
+    }
+    if (trained && kind === 'broken') {
+      // A trained brain whose files are really wrong or gone: only ITS files go, and the phone goes back to the stock one.
+      const m = currentModel();
+      dropWorker();
+      await removeFilesOf(modelBase(m));
+      offlineBrain.set({ model: MODELS[0]!.id, downloaded: false });
+      checkedAt = 0;
+      throw new Error(`${m.label} would not load (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock Qwen3: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
+    }
     if (currentModel().id !== MODELS[1]!.id && tooBig(e)) {
       dropWorker();
       await clearCaches();
@@ -235,14 +280,30 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
   await pruneOtherRevisions();
 }
 
-/** Remove cached model files that are not the current model's pinned revision (an older download). */
+/** A model's weights and config kept by WebLLM: from Hugging Face, or a trained week's from Ghosty's weight address. */
+const isModelFile = (url: string) => url.startsWith('https://huggingface.co/') || new URL(url).pathname.startsWith('/api/w/');
+
+/** Remove cached model files that are not the current model's (an older download, another model) — only after a download finished. */
 async function pruneOtherRevisions(): Promise<void> {
   if (typeof caches === 'undefined') return;
   const keep = modelBase(currentModel());
   for (const name of ['webllm/model', 'webllm/config']) {
     try {
       const c = await caches.open(name);
-      for (const r of await c.keys()) if (r.url.startsWith('https://huggingface.co/') && !r.url.startsWith(keep)) await c.delete(r);
+      for (const r of await c.keys()) if (isModelFile(r.url) && !r.url.startsWith(keep)) await c.delete(r);
+    } catch {
+      /* no cache storage */
+    }
+  }
+}
+
+/** Remove one model's files only (everything else, the stock model's included, stays). */
+async function removeFilesOf(base: string): Promise<void> {
+  if (typeof caches === 'undefined') return;
+  for (const name of ['webllm/model', 'webllm/config']) {
+    try {
+      const c = await caches.open(name);
+      for (const r of await c.keys()) if (r.url.startsWith(base)) await c.delete(r);
     } catch {
       /* no cache storage */
     }

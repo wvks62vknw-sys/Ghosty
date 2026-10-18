@@ -10,7 +10,6 @@
  */
 import { createStore } from '../core/store';
 import type { GymOut } from '../gym/worker';
-import { MODELS } from './models';
 import { addRun, CATS, LOCAL_ITEMS, runBench, type BenchItem, type Run } from './bench';
 import { currentModel, loadOffline, offlineBrain, offlinePrompt, offlineReady, offlineReply, withModel } from './brain';
 import { asksForCode, codeOf, codeTests, sumCheck } from './exact';
@@ -85,6 +84,9 @@ export function recheckThink(): void {
 }
 offlineBrain.subscribe((st, prev) => {
   if (st.downloaded !== prev.downloaded || st.model !== prev.model) recheckThink();
+  // The phone switched model — a new trained week from the weekly self-training (its sync, a ROLLBACK, or the
+  // owner's choice in SETTINGS): the report card offers a re-check (NEW MODEL). Defined below; called later.
+  if (st.model !== prev.model) onNewModel();
 });
 
 /** The exact check for a chat question, if there is one: a sum, code with examples, a Countdown sum or a fact-book question. */
@@ -169,8 +171,9 @@ export async function thinkHere(question: string, recent: { role: 'user' | 'assi
 
 /** The model and the commit its files come from: a new one (Stage 2's weekly model) means a new check. */
 export const modelKey = (): string => {
+  // The model and the commit its files come from: a trained week's own (offline/models.ts trainedModels) or a stock pin.
   const m = currentModel();
-  return `${m.id}@${(MODELS.find((x) => x.id === m.id)?.rev ?? '').slice(0, 7)}`;
+  return `${m.id}@${m.rev.slice(0, 7)}`;
 };
 
 /** The report card's history on this phone, and whether the model changed since it was last checked. */

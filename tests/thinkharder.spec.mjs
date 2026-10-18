@@ -226,15 +226,31 @@ async function run(name, viewport) {
   const pw = await pn.evaluate((el) => el.scrollWidth - el.clientWidth);
   if (pw > 1) problems.push(`[${name}] the report card is ${pw}px wider than its panel`);
 
-  // A new model (Stage 2's weekly one) since the last check: NEW MODEL.
-  await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem('ghosty.reportcard') ?? '{}');
-    localStorage.setItem('ghosty.reportcard', JSON.stringify({ ...s, checked: 'Qwen3-0.6B-q4f16_1-MLC@0000000' }));
-  });
+  // Stage 2's weekly self-training: the phone syncs the trained weeks (/api/training) and switches to one.
+  // The report card was CHECKED for the stock model; the switch alone (no reload) makes it offer a re-check.
+  const c40 = (ch) => ch.repeat(40);
+  const trained = { keys: { kaggle: true, hf: true }, phase: 'idle', note: '', week: 2, next: 0, gathered: {}, report: null, previous: null, models: [{ week: 2, label: 'Ghosty (week 2)', repo: 'owner/ghosty-offline-brain', commit: c40('b'), at: 0, scores: {} }, { week: 1, label: 'Ghosty (week 1)', repo: 'owner/ghosty-offline-brain', commit: c40('a'), at: 0, scores: {} }], active: c40('b'), privateData: true, ratings: { up: 0, down: 0 }, weights: `/api/w/${'c'.repeat(48)}/` };
+  await page.route('**/api/training', (r) => r.fulfill({ json: trained }));
+  // A complete check of the model in use first (the stopped one above does not count).
+  await page.evaluate(() => (window.__ghostyOfflineEngine.delay = 2));
+  await pn.locator('button:has-text("QUICK CHECK")').click();
+  await page.waitForFunction(() => /CHECKED/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`[${name}] the quick check before the switch did not finish: ${await status()}`));
   await page.reload();
   await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
   await page.evaluate(() => (location.hash = 'system'));
-  await page.waitForFunction(() => /NEW MODEL/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => problems.push(`[${name}] a new model does not show as NEW MODEL: ${await status()}`));
+  await page.waitForFunction(() => /CHECKED/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => problems.push(`[${name}] after the sync, still the stock model: the report card should say CHECKED: ${await status()}`));
+  await page.evaluate(() => (location.hash = 'settings'));
+  await page.waitForFunction(() => [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].some((o) => /Ghosty \(week 2\)/.test(o.textContent ?? '')), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the trained weeks never reached the chooser`));
+  const week2 = await page.evaluate(() => [...document.querySelectorAll('#pg-settings .offbrain select.obmodel option')].find((o) => /Ghosty \(week 2\)/.test(o.textContent ?? ''))?.textContent ?? '');
+  if (week2) await page.selectOption('#pg-settings .offbrain select.obmodel', { label: week2 });
+  await page.evaluate(() => (location.hash = 'system'));
+  await page.waitForFunction(() => /NEW MODEL/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(async () => problems.push(`[${name}] switching to a trained week does not make the report card offer a re-check: ${await status()}`));
+  if (!/NEW MODEL since the last check/.test((await pn.locator('.rchead').textContent()) ?? '')) problems.push(`[${name}] the head does not say NEW MODEL`);
+  // A check now measures the trained week, under its own name and commit.
+  await pn.locator('button:has-text("QUICK CHECK")').click();
+  await page.waitForFunction(() => /CHECKED/.test(document.querySelector('#pg-system .pn.reportcard h3')?.textContent ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`[${name}] the trained week's check did not finish: ${await status()}`));
+  const lastKey = await page.evaluate(() => { const h = JSON.parse(localStorage.getItem('ghosty.reportcard') ?? '{}').history ?? []; return h.at(-1)?.model ?? ''; });
+  if (!/^Ghosty-week-2-bbbbbbb@bbbbbbb$/.test(lastKey)) problems.push(`[${name}] the check was not filed under the trained week: ${lastKey}`);
   await ctx.close();
 }
 

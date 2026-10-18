@@ -1188,3 +1188,19 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
 .reportcard .rcgraph circle.think { stroke-dasharray: none; }
 .reportcard .rclegend .k::before { content: ''; display: inline-block; width: 12px; height: 2px; margin-right: 4px; vertical-align: middle; background: var(--c); }
 .reportcard .rclegend .k.think::before { background: var(--ok); }
+/* 👍 / 👎 under a reply (features/core/rate.ts): quiet until tapped */
+.msg .rate { display: flex; gap: 6px; margin-top: 4px; white-space: normal; }
+.msg .rateb { min-width: 44px; min-height: 32px; padding: 0 8px; border: 1px solid rgba(var(--cr), .28); border-radius: 16px; background: transparent; font-size: 14px; line-height: 1; opacity: .55; cursor: pointer; -webkit-tap-highlight-color: transparent; filter: grayscale(.6); }
+.msg .rateb[aria-pressed="true"] { opacity: 1; filter: none; border-color: var(--c); background: rgba(var(--cr), .14); }
+.msg .rateb:active { transform: scale(.94); }
+#ccap .caprate:empty { display: none; }
+#ccap .rate { display: flex; gap: 6px; margin-top: 6px; }
+#ccap .rateb { min-width: 44px; min-height: 34px; padding: 0 8px; border: 1px solid rgba(var(--cr), .35); border-radius: 17px; background: rgba(0,0,0,.25); font-size: 15px; line-height: 1; opacity: .7; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#ccap .rateb[aria-pressed="true"] { opacity: 1; border-color: var(--c); background: rgba(var(--cr), .18); }
+/* SYSTEM → OFFLINE BRAIN TRAINING (features/system/training.ts) */
+.selftrain .keyrow { flex-wrap: wrap; margin-top: 8px; }
+.selftrain .lab { margin-top: 10px; }
+.selftrain .note.gate { margin: 4px 0 2px; }
+.selftrain .note.small { font-size: 11px; opacity: .8; }
+.selftrain .trainkeys ol.steps { margin: 6px 0 0 18px; padding: 0; }
+.selftrain .trainkeys li { margin-bottom: 6px; line-height: 1.45; }

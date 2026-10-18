@@ -642,3 +642,54 @@ test("review: the report card's questions are exported word for word, for the we
   assert.ok(texts.includes('What is 17 × 23?'));
   assert.ok(texts.includes(GB.benchItems()[0].text));
 });
+
+// ---- wired to Stage 2 (the weekly self-training) ------------------------------------------------------------------
+await build({
+  entryPoints: [at('../src/selftrain/factory.ts'), at('../src/selftrain/assets.ts'), at('../../../packages/shared/src/toolcall.ts')],
+  bundle: true,
+  format: 'esm',
+  platform: 'neutral',
+  outdir: at('./.build/think/stage2'),
+  outExtension: { '.js': '.mjs' },
+  logLevel: 'warning',
+});
+const SF = await import('./.build/think/stage2/apps/edge/src/selftrain/factory.mjs').catch(() => import('./.build/think/stage2/factory.mjs'));
+const SA = await import('./.build/think/stage2/apps/edge/src/selftrain/assets.mjs').catch(() => import('./.build/think/stage2/assets.mjs'));
+const TC = await import('./.build/think/stage2/packages/shared/src/toolcall.mjs').catch(() => import('./.build/think/stage2/toolcall.mjs'));
+
+test("Stage 2: the weekly training never trains on a report card question (brain side, the same rule as the notebook's)", () => {
+  // The brain's copy of the texts (assets.ts, written by training/kaggle/build.mjs) is the report card's, word for word.
+  assert.deepEqual(SA.REPORT_CARD_TEXTS, GB.reportCardTexts());
+  // The cases both sides must agree on (training/kaggle/fixtures.json; test_ghosty_weekly.py checks the Python side).
+  const FX = JSON.parse(readFileSync(new URL('../../../training/kaggle/fixtures.json', import.meta.url), 'utf8')).reportCard;
+  for (const c of FX.cases) assert.equal(!!SF.nearReportCard(c.text, FX.texts), c.near, c.text);
+  // The GYM's own puzzle text, made from any seed, is caught; a different puzzle of the same game is not.
+  const card = GB.reportCardTexts();
+  const p1 = GB.benchItems().find((x) => x.id === 'countdown-1-1').text;
+  assert.ok(SF.nearReportCard(p1, card));
+  assert.equal(SF.nearReportCard('Reach 31 from the numbers 4, 9, 3 with + − × ÷ (use every number exactly once; every step must give a whole number above zero). Answer with one expression, e.g. (3 + 5) × 3.', card), '');
+  // Every place the week's cycle filters for the exam also filters for the report card.
+  const cycle = readFileSync(new URL('../src/selftrain/cycle.ts', import.meta.url), 'utf8');
+  assert.match(cycle, /const leak = \(t: string\): string => tooClose\(t, examQs\) \|\| nearReportCard\(t, REPORT_CARD_TEXTS\)/);
+  assert.match(cycle, /!!tooClose\(q, freeQs\) \|\| !!nearReportCard\(q, REPORT_CARD_TEXTS\)/);
+  assert.doesNotMatch(cycle, /tooClose\([^)]*, examQs\)(?! \|\| nearReportCard)/, 'a filter left without the report card');
+  // ... and the notebook, for the rows it makes itself (the GYM's puzzles for STaR) and the rows it is sent.
+  const nb = readFileSync(new URL('../../../training/kaggle/ghosty_weekly.py', import.meta.url), 'utf8');
+  assert.match(nb, /near_report_card\(ask_of\(r\), card\)/);
+  assert.match(nb, /on_card = \[bool\(raw\) and near_report_card\(raw, card\)/);
+});
+
+test("Stage 2: the report card reads tool calls with the weekly training's own reader (readToolCall), and the older shape still", () => {
+  const qwen = '<tool_call>\n{"name": "set_timer", "arguments": {"minutes": 5}}\n</tool_call>';
+  assert.deepEqual(TC.readToolCall(qwen), { name: 'set_timer', arguments: { minutes: 5 } });
+  assert.deepEqual(BN.toolCallIn(qwen), { name: 'set_timer', args: { minutes: 5 } });
+  // Where the two readers both read a call, they agree; the report card also reads what readToolCall leaves out.
+  for (const text of [qwen, '<tool_call>{"name": "weather", "arguments": "{\\"place\\": \\"Leeds\\"}"}</tool_call>', 'first <tool_call>{"name":"remember","arguments":{"text":"a"}}</tool_call> then <tool_call>{"name":"remember","arguments":{"text":"b"}}</tool_call>']) {
+    const s2 = TC.readToolCalls(text).at(-1);
+    assert.deepEqual(BN.toolCallIn(text), { name: s2.name, args: s2.arguments }, text);
+  }
+  assert.equal(TC.readToolCall('{"tool": "set_timer", "args": {"minutes": 5}}'), null);
+  assert.deepEqual(BN.toolCallIn('{"tool": "set_timer", "args": {"minutes": 5}}'), { name: 'set_timer', args: { minutes: 5 } }, 'the older shape');
+  const src = readFileSync(new URL('../../web/src/offline/bench.ts', import.meta.url), 'utf8');
+  assert.match(src, /import \{ readToolCalls \} from '..\/..\/..\/..\/packages\/shared\/src\/toolcall'/);
+});
