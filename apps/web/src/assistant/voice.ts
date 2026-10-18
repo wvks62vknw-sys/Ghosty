@@ -199,8 +199,14 @@ function speakPhone(parts: string[], token: number, choice: Choice, offset = 0):
       Object.assign(voiceNow, { engine: 'phone', name: v?.name ?? "the phone's voice" });
       u.rate = 1;
       u.pitch = v && naturalBritish(v) ? 1 : 0.92;
-      u.onstart = () => armBargeIn();
-      u.onend = u.onerror = () => next(i + 1);
+      u.onstart = () => {
+        audible = true;
+        armBargeIn();
+      };
+      u.onend = u.onerror = () => {
+        audible = false;
+        next(i + 1);
+      };
       ui.set({ voice: 'speaking' });
       try {
         speechSynthesis.resume(); // iOS sometimes leaves the synthesiser paused
@@ -281,6 +287,7 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
     const finish = (ok: boolean) => {
       if (done) return;
       done = true;
+      audible = false;
       clearTimeout(timer);
       // Only this clip's own handlers and stop hook come off: a later clip may already own the element.
       if (el.onended === onEnded) el.onplaying = el.onended = el.onerror = null;
@@ -297,6 +304,7 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
     timer = window.setTimeout(() => finish(false), 4000);
     el.onplaying = () => {
       clearTimeout(timer);
+      audible = true;
       armBargeIn();
       // An end that never comes (a stalled clip) must not leave the reactor "speaking" for good.
       timer = window.setTimeout(() => finish(true), ((Number.isFinite(el.duration) ? el.duration : 30) + 2) * 1000);
@@ -473,6 +481,8 @@ function record(m: Mic): { rec: MediaRecorder; chunks: Blob[]; mime: string; at:
 
 /** A barge-in recording handed to the next listen: it began before the owner spoke; `from` is when their voice began. */
 let carry: (ReturnType<typeof record> & { from: number }) | null = null;
+/** Ghosty's voice is playing right now (a clip between `playing` and its end, or an utterance between start and end). */
+let audible = false;
 /** The barge-in watch while Ghosty speaks. */
 let watch: { stop(): void } | null = null;
 
@@ -497,9 +507,17 @@ function armBargeIn(): void {
     watch = null;
     if (!keep && r.rec.state === 'recording') r.rec.stop();
   };
+  let was = true;
   const timer = window.setInterval(() => {
     if (ui.get().voice !== 'speaking' || mic !== m) return end(false);
-    if (det.feed(readLevel(m), performance.now(), true)) {
+    // Only while a clip or an utterance is actually playing: between them the detector waits (barge.ts pause).
+    if (!audible) {
+      if (was) det.pause();
+      was = false;
+      return;
+    }
+    was = true;
+    if (det.feed(readLevel(m), performance.now())) {
       end(true);
       carry = { ...r, from: det.speechStart };
       interrupt('voice');

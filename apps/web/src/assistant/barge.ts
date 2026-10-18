@@ -1,14 +1,18 @@
 /**
  * Barge-in: hearing the owner start to talk while Ghosty is speaking, so Ghosty stops and
  * listens. Pure (no audio APIs here), so it can be tested with made-up mic levels:
- * `feed(level, time, speaking)` takes one reading of the microphone's loudness (RMS, 0–1) every
- * 20 ms or so and answers true once, the moment it is sure the owner is talking.
+ * `feed(level, time)` takes one reading of the microphone's loudness (RMS, 0–1) every 20 ms or
+ * so — only while Ghosty's voice is actually playing (voice.ts calls `pause()` between clips) —
+ * and answers true once, the moment it is sure the owner is talking.
  *
  * Ghosty's own voice comes back into the microphone a little even with the phone's echo
- * cancellation on. So the detector learns the level of what it hears while Ghosty speaks (the
- * echo left over, the room) during its first moments and keeps following it slowly; it only
- * fires on sound well above that floor that lasts — 180 ms of near-continuous voice — never on
- * a click, a cough or a loud syllable of Ghosty's own.
+ * cancellation on, and it comes and goes with Ghosty's words. So the detector first learns how
+ * loud that echo is (CALIBRATING: until it has heard 300 ms of it, or 800 ms have passed), and
+ * afterwards never lets its idea of the echo drop below what it learned — the quiet between
+ * words and sentences does not lower the bar, so the next word's echo can't clear it. It also
+ * remembers the echo's loudest recent moments. It only fires on sound well above all that which
+ * lasts — 180 ms of near-continuous voice — never on a click, a cough or a loud syllable of
+ * Ghosty's own.
  */
 
 export interface BargeOptions {
@@ -16,22 +20,32 @@ export interface BargeOptions {
   minSpeechMs: number;
   /** Gaps shorter than this inside the voice are bridged (ms). */
   gapMs: number;
-  /** Time at the start spent learning the echo and room level before anything can fire (ms). */
+  /** Echo heard (above `audible`) before anything can fire (ms of playing time), or `calibrateMaxMs` in all. */
   calibrateMs: number;
-  /** How far above the floor a reading must be, while Ghosty is speaking, and while it is quiet. */
-  ratioSpeaking: number;
-  ratioQuiet: number;
+  calibrateMaxMs: number;
+  /** A reading quieter than this is silence (the room, a gap between words). */
+  audible: number;
+  /** How far above the echo level a reading must be. */
+  ratio: number;
+  /** How far above the echo's loudest recent moment. */
+  peakRatio: number;
   /** The quietest reading that can ever count as the owner's voice. */
   minLevel: number;
 }
 
-export const BARGE_DEFAULTS: BargeOptions = { minSpeechMs: 180, gapMs: 90, calibrateMs: 300, ratioSpeaking: 3, ratioQuiet: 2.6, minLevel: 0.02 };
+export const BARGE_DEFAULTS: BargeOptions = { minSpeechMs: 180, gapMs: 90, calibrateMs: 300, calibrateMaxMs: 800, audible: 0.006, ratio: 2.5, peakRatio: 1.6, minLevel: 0.02 };
 
 export class BargeDetector {
   readonly opts: BargeOptions;
-  /** The level of what is heard when nobody is talking (echo + room). */
+  /** The level of what is heard when nobody is talking (Ghosty's echo + the room). */
   floor = 0;
-  private start = -1;
+  /** The echo level learned while calibrating: the floor never goes below it. */
+  learned = 0;
+  /** The echo's loudest recent moment (eases off over a few seconds). */
+  peak = 0;
+  private fed = 0;
+  private heard = 0;
+  private calibrated = false;
   private onset = -1;
   private lastLoud = -1;
   private voiced = 0;
@@ -43,23 +57,36 @@ export class BargeDetector {
   }
 
   /** The level a reading must pass to count as the owner's voice right now. */
-  threshold(speaking: boolean): number {
-    return Math.max(this.opts.minLevel, this.floor * (speaking ? this.opts.ratioSpeaking : this.opts.ratioQuiet));
+  threshold(): number {
+    return Math.max(this.opts.minLevel, Math.max(this.floor, this.learned) * this.opts.ratio, this.peak * this.opts.peakRatio);
   }
 
-  /** One reading. True exactly once: when the owner has been talking long enough to be sure. */
-  feed(level: number, t: number, speaking = true): boolean {
+  /** Ghosty's voice stopped for a moment (between clips): the next reading starts afresh, without counting the pause. */
+  pause(): void {
+    this.lastT = -1;
+    this.onset = -1;
+    this.voiced = 0;
+  }
+
+  /** One reading while Ghosty's voice plays. True exactly once: when the owner has been talking long enough to be sure. */
+  feed(level: number, t: number): boolean {
     if (this.fired) return false;
-    if (this.start < 0) this.start = t;
-    const dt = this.lastT < 0 ? 0 : Math.min(100, Math.max(0, t - this.lastT));
+    const dt = this.lastT < 0 ? 20 : Math.min(100, Math.max(0, t - this.lastT));
     this.lastT = t;
     const v = Number.isFinite(level) ? Math.max(0, level) : 0;
-    if (t - this.start < this.opts.calibrateMs) {
-      // Learning: the floor quickly climbs to the loudest steady level heard (the echo), and eases off slowly.
+    if (!this.calibrated) {
+      this.fed += dt;
+      if (v > this.opts.audible) this.heard += dt;
+      // Learning: the floor quickly climbs to the steady echo level, and eases off slowly; the peak follows the loudest.
       this.floor = v > this.floor ? this.floor + (v - this.floor) * 0.35 : this.floor + (v - this.floor) * 0.05;
+      this.peak = Math.max(this.peak * 0.995, v);
+      if (this.heard >= this.opts.calibrateMs || this.fed >= this.opts.calibrateMaxMs) {
+        this.calibrated = true;
+        this.learned = this.floor;
+      }
       return false;
     }
-    const loud = v > this.threshold(speaking);
+    const loud = v > this.threshold();
     if (loud) {
       if (this.onset < 0 || t - this.lastLoud > this.opts.gapMs) {
         this.onset = t;
@@ -76,8 +103,12 @@ export class BargeDetector {
       this.onset = -1;
       this.voiced = 0;
     }
-    // Following the floor between words: up slowly (a louder room, louder echo), down faster.
-    if (this.onset < 0) this.floor += (v - this.floor) * (v > this.floor ? 0.01 : 0.08);
+    if (this.onset < 0) {
+      // Following the echo between the owner's words: up slowly (a louder passage), down slowly, never below what was learned.
+      this.floor = Math.max(this.learned, this.floor + (v - this.floor) * (v > this.floor ? 0.01 : 0.02));
+      // The peak eases off with a half-life of about three seconds.
+      this.peak = Math.max(this.peak * 0.9954, v);
+    }
     return false;
   }
 

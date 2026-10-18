@@ -324,3 +324,26 @@ test("barge-in: Ghosty's own echo, however steady or bumpy, never counts; the ow
   // junk readings are treated as silence
   assert.equal(run(() => NaN).at, -1);
 });
+
+test("barge-in: echo with gaps between words and sentences (0.03, 0.05, 0.08 RMS) never fires; the owner over it still does, within 300 ms", () => {
+  for (const E of [0.03, 0.05, 0.08]) {
+    // speech-like echo: 300 ms of words, 120 ms of quiet room between them
+    const words = (t) => (t % 420 < 300 ? E * (0.7 + 0.3 * Math.sin(t / 13)) : 0.003);
+    assert.equal(run(words, 8000).at, -1, `echo ${E} with gaps between words`);
+    // a clip that starts with 200 ms of silence, then 2.2 s sentences with 0.8 s between them
+    const sentences = (t) => (t < 200 ? 0.002 : t % 3000 > 2200 ? 0.003 : E);
+    assert.equal(run(sentences, 8000).at, -1, `echo ${E} with silence first and gaps between sentences`);
+    // the owner starts talking at 4.1 s, over the echo (in a gap or not)
+    for (const gen of [words, sentences]) {
+      const talk = run((t) => gen(t) + (t >= 4100 ? 0.25 : 0), 8000);
+      assert.ok(talk.at >= 4100 && talk.at - 4100 <= 300, `echo ${E}: the owner heard at ${talk.at}`);
+    }
+  }
+  // between clips the detector is paused: the silence then does not count, and the next clip's echo does not fire it
+  const d = new BargeDetector();
+  let t = 0;
+  for (; t < 1000; t += 20) assert.equal(d.feed(0.05, t), false);
+  d.pause();
+  for (t = 3000; t < 4000; t += 20) assert.equal(d.feed(t < 3040 ? 0.06 : 0.05, t), false, 'the next clip begins');
+  assert.ok(d.floor >= d.learned && d.learned > 0.04, `floor ${d.floor}, learned ${d.learned}`);
+});
