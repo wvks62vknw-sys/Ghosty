@@ -38,7 +38,7 @@ async function voiceTurn(): Promise<void> {
       if (conversation) setTimeout(() => void voiceTurn(), 300);
       return;
     }
-    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true });
+    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true });
     // wait for speech to finish, then listen again
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
     wait();
@@ -92,7 +92,7 @@ function renderEntry(e: Entry): HTMLElement {
     case 'approval': {
       const box = h('div.approval', h('small', 'NEEDS YOUR APPROVAL'), h('b', e.reason));
       if (e.state === 'waiting') box.append(h('div.row', button('APPROVE', () => void answerApproval(e.id, true), 'on'), button('DECLINE', () => void answerApproval(e.id, false), 'warn')));
-      else box.append(h('span.note', e.state === 'approved' ? 'Approved.' : 'Declined.'));
+      else box.append(h('span.note', e.via === 'telegram' ? `${e.state === 'approved' ? 'Approved' : 'Not now'} on Telegram.` : e.state === 'approved' ? 'Approved.' : 'Declined.'));
       return box;
     }
   }

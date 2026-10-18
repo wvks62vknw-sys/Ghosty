@@ -4,6 +4,8 @@
  * phone instead. offline/brain.ts does the rest; apps/edge/test/offline-brain.test.mjs tests these.
  */
 
+import { character, polish, type PersonaSettings } from '../../../../packages/shared/src/persona';
+
 export type OfflineMsg = { role: 'system' | 'user' | 'assistant'; content: string };
 
 export interface OfflineContext {
@@ -20,6 +22,8 @@ export interface OfflineContext {
   /** The conversation so far (oldest first), without the question. */
   recent: { role: 'user' | 'assistant'; text: string }[];
   question: string;
+  /** How Ghosty talks (SETTINGS → CHARACTER); missing: the default character. */
+  persona?: PersonaSettings;
 }
 
 /** The whole prompt stays under this many tokens: a 0.6B model is quick and sharp only on a short one. */
@@ -42,11 +46,12 @@ const tokensOf = (msgs: OfflineMsg[]) => msgs.reduce((n, m) => n + estimateToken
  * then passages, then facts, then the agenda; the question is always kept (clipped if huge).
  */
 export function buildOfflinePrompt(c: OfflineContext, budget = PROMPT_BUDGET): OfflineMsg[] {
+  // The same character as the brain's (packages/shared/src/persona.ts), in its short form.
   const persona =
-    `You are Ghosty, ${c.name}'s personal assistant: warm, brief and plain-spoken. ` +
+    `You are Ghosty, ${c.name}'s personal AI. ${character(c.persona, { short: true })} ` +
     `Right now you are running on ${c.name}'s phone, offline: you have no tools and no internet, so you cannot look anything up, ` +
     `check live things (news, weather, prices, traffic) or change anything; if asked, say so in one line and help with what you know. ` +
-    `Answer in a few short sentences of plain text (no lists unless asked, no markdown). It is ${c.now}.`;
+    `Plain text, no lists unless asked, no markdown. It is ${c.now}.`;
   let facts = c.facts.map((f) => clip(f, 160)).slice(-20);
   let agenda = c.agenda.map((a) => clip(a, 140)).slice(0, 8);
   let passages = c.passages.slice(0, 3).map((p) => ({ title: clip(p.title, 80), text: clip(p.text, 600) }));
@@ -111,13 +116,14 @@ export function shouldFallBack(e: unknown): boolean {
   return noModelError(msg);
 }
 
-/** A reply as the owner should see it: no empty thinking block, no stray end-of-turn marks. */
+/** A reply as the owner should see it: no empty thinking block, no stray end-of-turn marks, no chatbot phrases (persona.ts `polish`). */
 export function cleanReply(text: string): string {
-  return text
+  const t = text
     .replace(/<think>[\s\S]*?<\/think>\s*/g, '')
     .replace(/^<think>[\s\S]*$/, '')
     .replace(/<\|im_end\|>|<\|endoftext\|>/g, '')
     .trimStart();
+  return t.trim() ? polish(t) : t;
 }
 
 /** "88 MB of 352 MB · 25%" for the download bar. */

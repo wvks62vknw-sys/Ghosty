@@ -7,6 +7,7 @@ import { createStore } from '../core/store';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
+import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, MemoryFact, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
 /** One of the phones' daily backups as the brain lists it (apps/edge/src/backup.ts). */
@@ -285,6 +286,9 @@ export const brain = {
   profileRemove: (section: ProfileSection, i: number) => req<{ profile: Profile; removed: boolean }>('DELETE', `/profile?section=${encodeURIComponent(section)}&i=${i}`),
   /** REFLECT NOW: the nightly reflection over today's conversation, right away. */
   reflectNow: () => req<ReflectInfo>('POST', '/profile/reflect', {}),
+  /** SETTINGS → CHARACTER (profile.ts): how dry, how brief, how warm Ghosty talks, and the words that makes. */
+  persona: () => req<{ persona: PersonaSettings; character: string }>('GET', '/profile/persona'),
+  setPersona: (p: PersonaSettings) => req<{ persona: PersonaSettings; character: string }>('POST', '/profile/persona', p),
   /** DIGEST NOW: today's fresh knowledge gathered into the library, right away (library/digest.ts). */
   digestNow: () => req<DigestInfo>('POST', '/library/digest', {}),
   /** Projects that run for days (projects.ts): the Workshop tab's PROJECTS panel. */
@@ -370,6 +374,10 @@ export const brain = {
   telegramCode: () => req<TelegramStatus>('POST', '/telegram/code'),
   telegramUnpair: () => req<TelegramStatus>('POST', '/telegram/unpair'),
   telegramTest: () => req<{ sent: boolean; error?: string }>('POST', '/telegram/test'),
+  /** An approval waiting here, sent to the owner's Telegram chat with APPROVE / NOT NOW (telegram.ts). */
+  telegramAsk: (id: string) => req<{ sent: boolean; already?: boolean; error?: string }>('POST', `/telegram/ask/${encodeURIComponent(id)}`, {}),
+  /** Whether that approval was answered on Telegram. */
+  telegramAnswer: (id: string) => req<{ answered: boolean; allow?: boolean; at?: number }>('GET', `/telegram/answer/${encodeURIComponent(id)}`),
   kernel: (minutes: number) => req<{ kernelUnlockedUntil: number }>('POST', '/kernel', { minutes }),
   reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
   reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),

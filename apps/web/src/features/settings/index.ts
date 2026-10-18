@@ -1,4 +1,4 @@
-/** SETTINGS tab: theme, your name, units, voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
+/** SETTINGS tab: theme, your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { listVoices } from '../../assistant/voice';
 import { clear, h } from '../../core/dom';
 import { World } from '../../engine/world';
@@ -7,6 +7,7 @@ import { home, settings } from '../../state/app';
 import { applyTheme, THEMES } from '../../state/theme';
 import { button, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { characterPanel } from './character';
 import { offlinePanel } from './offline';
 
 export const settingsTab: TabDef = {
@@ -14,13 +15,14 @@ export const settingsTab: TabDef = {
   title: 'SETTINGS',
   icon: '<path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/>',
   scene: 'backdrop',
-  blurb: 'theme · name · units · voice · sounds · tilt · home · offline brain',
+  blurb: 'theme · name · character · units · voice · sounds · tilt · home · offline brain',
   mount(root) {
     const P = page(root, { tag: 'SETTINGS', leftLabel: 'LOOK', rightLabel: 'VOICE & HOME', stack: true });
     const lp = panel('LOOK', { grow: false });
     lp.el.classList.add('look');
     const vp = panel('VOICE & HOME', { grow: false });
-    P.left.append(lp.el);
+    const cp = characterPanel();
+    P.left.append(lp.el, cp.el);
     P.right.append(vp.el);
     const op = offlinePanel();
     P.right.append(op.el);
@@ -110,6 +112,7 @@ export const settingsTab: TabDef = {
     return {
       enter() {
         op.refresh();
+        cp.refresh();
         paintThemes();
         paintHead();
       },

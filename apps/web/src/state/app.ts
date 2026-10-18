@@ -4,6 +4,7 @@
  *  ui       — what is on screen right now (tab, brain activity, voice state)
  */
 import { createStore } from '../core/store';
+import { DEFAULT_PERSONA, type PersonaSettings } from '../../../../packages/shared/src/persona';
 
 export interface Place {
   name: string;
@@ -29,6 +30,8 @@ export interface Settings {
   offlineBrain: 'auto' | 'always' | 'off';
   /** CITED in the chat: every answer looked up, with numbered sources and its claims checked. */
   cited: boolean;
+  /** How Ghosty talks (SETTINGS → CHARACTER): the brain's copy rules; this one is for the offline brain. */
+  persona: PersonaSettings;
 }
 
 const tz = (() => {
@@ -52,6 +55,7 @@ export const settings = createStore<Settings>(
     motion: false,
     offlineBrain: 'auto',
     cited: false,
+    persona: DEFAULT_PERSONA,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

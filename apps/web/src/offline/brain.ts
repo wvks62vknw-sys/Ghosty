@@ -384,6 +384,7 @@ async function answerWith(signal: AbortSignal, question: string, recent: { role:
     passages: hits.map((h) => ({ title: h.title, text: h.text })),
     recent,
     question,
+    persona: settings.get().persona,
   });
   return offlineReply(messages, onToken, signal);
 }
