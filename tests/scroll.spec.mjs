@@ -9,7 +9,7 @@ import { webkit } from 'playwright';
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await webkit.launch();
 const problems = [];
-const TABS = ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn'];
+const TABS = ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
 const viewport = { width: 390, height: 664 }; // an iPhone 13 in Safari, with its bars
 const ctx = await browser.newContext({ viewport });
 const page = await ctx.newPage();
