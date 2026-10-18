@@ -324,8 +324,18 @@ async function toWav(ctx: AudioContext, blob: Blob): Promise<Blob> {
 }
 
 async function listenWhisper(): Promise<string> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  // Made in the tap itself, before the microphone prompt: Safari starts a context made after that wait suspended,
+  // so the level meter would read silence and never hear the end of what was said.
   const ctx = new AudioContext();
+  void ctx.resume().catch(() => undefined);
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  } catch (e) {
+    void ctx.close();
+    throw e;
+  }
+  if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined); // (never awaited: Safari holds it until a tap)
   const an = ctx.createAnalyser();
   an.fftSize = 512;
   ctx.createMediaStreamSource(stream).connect(an);
@@ -383,7 +393,7 @@ async function listenWhisper(): Promise<string> {
   stream.getTracks().forEach((t) => t.stop());
   micLevel.level = 0;
   micLevel.spectrum = null;
-  const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+  const blob = new Blob(chunks, { type: rec.mimeType || mime }); // iPhones record audio/mp4, others webm
   // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats).
   const wav = blob.size >= 4000 ? await toWav(ctx, blob).catch(() => null) : null;
   void ctx.close();
