@@ -1196,6 +1196,22 @@ button.srclink { padding: 0; border: 0; background: none; color: var(--c); font:
 .note.vnow, .note.vlast { margin: 4px 0; }
 @media (hover: none) { button.srclink { min-height: 40px !important; } }
 
+/* ---- 3D STUDIO: the CATALOGUE grid and MAKE · PHOTO (features/studio/index.ts + catalog.ts) — its own block ---- */
+.studiogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; min-width: 0; }
+button.studiocard { display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; width: 100%; min-height: 44px; padding: 4px; text-align: left; text-transform: none; letter-spacing: 0; white-space: normal; overflow: hidden; }
+.studiocardimg { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 3px; background: radial-gradient(ellipse at 50% 60%, rgba(var(--cr), .14), #02070d 75%); }
+.studiocardimg.none { opacity: .4; }
+.studiocardname { font: 500 10px var(--d); letter-spacing: .04em; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studiocardby { font: 400 8.5px var(--m); color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studiopane > select { width: 100%; min-width: 0; }
+.studiocredits { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.studiocredits:empty { display: none; }
+.studiosource { align-self: flex-start; font: 500 10px var(--d); letter-spacing: .12em; color: var(--c); text-decoration: none; }
+.studiopics { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.studiopics .studiothumb { max-width: calc(50% - 3px); }
+/* the scene's credit is never cut short: it wraps (two lines on a phone), with its licence linked */
+.studioview .studiocredit { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+.studiocredit a.studiolic { pointer-events: auto; color: var(--c); text-decoration: underline; }
 /* ---- SYSTEM → OFFLINE BRAIN REPORT CARD: scores per kind (as in chat / THINK HARDER / time), the verdict, the weeks ---- */
 .reportcard .bd { display: flex; flex-direction: column; gap: 6px; }
 .reportcard .keyrow { flex-wrap: wrap; }

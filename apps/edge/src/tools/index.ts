@@ -265,7 +265,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: '3d',
     tools: studioTools,
     when: /\b(3-?d|three[- ]?d|models?|mesh|meshes|glb|gltf|spline|take (?:it |this |that )?apart|exploded view|explode|reconstruct|reassemble|studio|cad|sculpt\w*)\b/i,
-    about: 'You can turn a picture or a described object into a 3-D model (make_3d: free, best effort, ~2–3 a day, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link (make_3d with no picture).',
+    about: 'You can open a real catalogue model or make a 3-D model from words or a photo (make_3d: free, best effort, kept 24 h) or open the 3D STUDIO on a sample, a room in cm or a Spline link.',
   },
   // The tutor (tutor.ts, features/learn): courses, lessons, quizzes and flashcards. One tool, for the same reason as 3d.
   {
