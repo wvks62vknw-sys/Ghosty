@@ -729,7 +729,7 @@ test('bundle: the page imports only the games\' descriptions and the two boards 
   // The page and its PLAY HIM boards (features/gym/play.ts).
   const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8') + readFileSync(at('../../web/src/features/gym/play.ts'), 'utf8');
   const gymImports = [...src.matchAll(/from '\.\.\/\.\.\/gym\/([a-z0-9]+)'/g)].map((m) => m[1]);
-  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'checkers', 'chess', 'go', 'poker', 'sokoban', 'balance', 'match', 'chesssets', 'gosets', 'sokosets'];
+  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'checkers', 'chess', 'go', 'gofast', 'poker', 'sokoban', 'balance', 'match', 'chesssets', 'gosets', 'sokosets'];
   assert.deepEqual(gymImports.filter((f) => engines.includes(f)), [], `the page imports ${gymImports.join(', ')}`);
   const typeOnly = [...src.matchAll(/^import (type )?\{[^}]*\} from '\.\.\/\.\.\/gym\/(worker|core)'/gm)];
   assert.ok(typeOnly.every((m) => m[1] === 'type '), 'worker and core are imported for their types only');

@@ -9,7 +9,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['core', 'index', 'session', 'worker', 'checkers', 'chess', 'go', 'poker', 'sokoban', 'balance'].map((f) => at(`../../web/src/gym/${f}.ts`)),
+  entryPoints: ['core', 'index', 'session', 'worker', 'checkers', 'chess', 'go', 'gofast', 'poker', 'sokoban', 'balance'].map((f) => at(`../../web/src/gym/${f}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -25,6 +25,7 @@ const W = await load('worker');
 const CK = await load('checkers');
 const CH = await load('chess');
 const GO = await load('go');
+const FAST = await load('gofast');
 const PK = await load('poker');
 const SK = await load('sokoban');
 const BL = await load('balance');
@@ -42,7 +43,7 @@ function trainUnits(s, n) {
  * Each time a level is passed, the passer is frozen (a fresh learner from what it knew then) and measured
  * at the next level: it must be below that level's bar — every level asks for something new.
  */
-function climb(id, upto, step, cap) {
+function climb(id, upto, step, cap, grow = false) {
   I.setSlice(Infinity);
   const g = gameById(id);
   const s = new S.Session(g);
@@ -50,7 +51,9 @@ function climb(id, upto, step, cap) {
   const frozen = [];
   const t0 = performance.now();
   while (s.rec.level <= upto && s.rec.units < cap && !s.rec.mastered) {
-    trainUnits(s, step);
+    // (grow: steps of an eighth of what he has played so far, at least `step` — for games whose levels lie
+    // further and further apart in practice, like checkers: tens of games at first, thousands at the top.)
+    trainUnits(s, grow ? Math.max(step, Math.floor(s.rec.units / 8)) : step);
     const ev = s.measure();
     if (!ev) continue;
     const L = s.rec.level - (ev === 'level' ? 1 : 0);
@@ -342,8 +345,8 @@ test('checkers: the rules — perft counts from the start, compulsory captures, 
 });
 
 test('checkers: TD self-play climbs the odds ladder; a frozen passer never passes the next level', () => {
-  const { s, passed, frozen } = FULL ? climb('checkers', 10, 250, 80000) : climb('checkers', 4, 250, 15000);
-  assert.ok(s.rec.level >= 5, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+  const { s, passed, frozen } = FULL ? climb('checkers', 10, 50, 150000, true) : climb('checkers', 6, 50, 8000, true);
+  assert.ok(FULL ? s.rec.mastered : s.rec.level >= 7, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  checkers passed: ${passed.join('; ')}`);
   noFreeLevels('checkers', frozen);
   assert.doesNotMatch(s.rec.detail, /rating/);
@@ -492,7 +495,7 @@ test('go: the rules — captures, no suicide, ko, area scoring with komi 7; the 
   }
 });
 
-test('go: he passes when a settled game is his; his tables are kept small', () => {
+test('go: he passes when a settled game is his; what he keeps is small; the fast play-out board agrees with the plain one', () => {
   // A settled board: Black's wall down the middle, White owns the bigger side.
   const g = GO.newGo(9);
   for (let r = 0; r < 9; r++) {
@@ -515,21 +518,75 @@ test('go: he passes when a settled game is his; his tables are kept small', () =
   h.passes = 1;
   assert.ok(GO.margin(h) > 0);
   assert.notEqual(l.move(GO.goState(h)), -1);
-  // What is kept is a few tens of KB after training, and comes back the same.
-  for (let k = 0; k < 10; ) k += l.train(1);
+  // What is kept is 16 bits a weight (128 KB), and comes back the same (to 1/2048).
+  for (let k = 0; k < 3; ) k += l.train(1);
   const saved = l.save();
-  const bytes = saved.idx.byteLength + saved.val.byteLength + saved.line.byteLength;
-  assert.ok(bytes < 200_000, `${bytes} bytes saved`);
+  assert.ok(saved.q.byteLength < 200_000, `${saved.q.byteLength} bytes saved`);
   const back = GO.go.learner(1, 1, saved);
-  assert.deepEqual(Array.from(back.t.own), Array.from(l.t.own));
-  assert.deepEqual(Array.from(back.t.pol), Array.from(l.t.pol));
+  assert.ok(back.w.every((x, i) => Math.abs(x - l.w[i]) <= 1 / 4096 + 1e-9));
+  assert.ok(l.w.some((x) => x !== 0), 'he learned something');
+  // The fast board (play-outs only) keeps the same rules as the plain board: random games, every point compared.
+  const r = C.rng(11);
+  for (let game = 0; game < 40; game++) {
+    const p = GO.newGo(game % 2 ? 9 : 5);
+    const f = new FAST.Fast().load(p);
+    for (let mv = 0; mv < 300 && p.passes < 2; mv++) {
+      const W = p.n + 2;
+      const legal = [];
+      for (let i = 0; i < W * W; i++) {
+        const a = GO.legalAt(p, i);
+        assert.equal(p.b[i] === 0 ? f.legal(i) : false, a, `legal at ${i}`);
+        if (a && !GO.isEye(p, i, p.side)) legal.push(i);
+      }
+      if (!legal.length) (GO.pass(p), f.pass());
+      else {
+        const i = legal[Math.floor(r() * legal.length)];
+        GO.playAt(p, i);
+        f.play(i);
+      }
+      for (let i = 0; i < W * W; i++) assert.equal(f.col[i], p.b[i]);
+      assert.equal(f.ko, p.ko);
+    }
+  }
 });
 
-test('go: self-play of the pattern evaluator climbs the ladder; a frozen passer never passes the next level', () => {
-  // Measured after every self-play game, as the worker does. (His tables stop improving after a few tens of games:
-  // above Level 2 a frozen passer can pass the next level — GYM_FULL=1 shows it; reported, not hidden.)
-  const { s, passed, frozen } = FULL ? climb('go', 10, 1, 2000) : climb('go', 1, 1, 100);
-  assert.ok(s.rec.level >= 2, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+test('go: he keeps improving with practice — a few games make an instinct, hundreds sharpen it (GYM_FULL: 10 against 320 games)', () => {
+  I.setSlice(Infinity);
+  const vs = (w, rung, n = 32) => {
+    let sc = 0;
+    for (let o = 0; o < n / 2; o++)
+      for (const first of [true, false]) {
+        const d = GO.duel(o, first, rung, w, 1000 + o);
+        let r = null;
+        while (r == null) r = d.step();
+        sc += r;
+      }
+    return sc / n;
+  };
+  const l = GO.go.learner(1, 1);
+  const r128 = { me: 1, ref: 128, bonus: 0 };
+  const before = vs(l.w.slice(), r128);
+  for (let k = 0; k < 3; ) k += l.train(1);
+  const after = vs(l.w.slice(), r128);
+  console.log(`  go: by instinct against 128 play-outs: untrained ${before.toFixed(2)}, after 3 games ${after.toFixed(2)}`);
+  assert.ok(after >= before + 0.4, `${before} → ${after}`);
+  if (FULL) {
+    // The slow part: 10 games against 320, against the reference with 256 play-outs and a free stone (64 games each).
+    const hard = { me: 1, ref: 256, bonus: 0, stones: 1 };
+    while (l.games < 10) l.train(1);
+    const at10 = vs(l.w.slice(), hard, 64);
+    while (l.games < 320) l.train(1);
+    const at320 = vs(l.w.slice(), hard, 64);
+    console.log(`  go: against 256 play-outs and a free stone: after 10 games ${at10.toFixed(2)}, after 320 ${at320.toFixed(2)}`);
+    assert.ok(at320 >= at10 + 0.15, `${at10} → ${at320}`);
+  }
+  I.setSlice(60);
+});
+
+test('go: expert-iteration self-play climbs the ladder; a frozen passer never passes the next level', () => {
+  // Measured after every few self-play games (the worker measures between slices of training).
+  const { s, passed, frozen } = FULL ? climb('go', 10, 4, 2000) : climb('go', 2, 4, 200);
+  assert.ok(s.rec.level >= 3, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  go passed: ${passed.join('; ')}`);
   noFreeLevels('go', frozen);
   const mv = s.learner.move(GO.goState(GO.newGo(9)));

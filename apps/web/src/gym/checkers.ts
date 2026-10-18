@@ -15,7 +15,7 @@
  * called a draw for running long. No rating is shown: only what the matches measured. Every rung was
  * checked by climbing (a passer of the level below, frozen, stays under the next bar).
  */
-import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, startCk } from './ckboard';
+import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, sqAt, startCk } from './ckboard';
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
 import { Match, type MatchResult, record, share, type Stepper, trainMs } from './match';
 import { CHECKERS } from './meta';
@@ -174,6 +174,48 @@ export const referenceEval: CkEval = (p) => {
 /** 64 weights: a man on each square, then a king on each square, seen from the owner's side (White's squares mirrored). */
 export const NW = 64;
 const own = (i: number, x: number) => (x > 0 ? i : 31 - i) + (Math.abs(x) === 2 ? 32 : 0);
+/**
+ * Then an n-tuple network: every diamond of four neighbouring squares (18) and every diagonal line of four
+ * (25), each with a value for every way its four squares can be filled (empty, his man, his king, the other
+ * side's man or king: 5⁴ = 625), seen by the side to move (for White the board is turned round): 26,875
+ * numbers. What he knows about shapes keeps growing for tens of thousands of games (measured: his score
+ * against the 2-v-5 rung goes .30, .45, .51, .66 at 4, 16, 32 and 64 thousand games), where the 64 numbers
+ * alone stopped improving after a few thousand.
+ */
+export const TUPLES: number[][] = (() => {
+  const out: number[][] = [];
+  for (let r = 0; r + 2 < 8; r++)
+    for (let c = 1; c < 7; c++) {
+      if ((r + c) % 2 === 0) continue;
+      out.push([sqAt(r, c), sqAt(r + 1, c - 1), sqAt(r + 1, c + 1), sqAt(r + 2, c)]);
+    }
+  // Diagonal lines of four, both ways.
+  for (let r = 0; r + 3 < 8; r++)
+    for (let c = 0; c < 8; c++) {
+      if ((r + c) % 2 === 0) continue;
+      if (c + 3 < 8) out.push([sqAt(r, c), sqAt(r + 1, c + 1), sqAt(r + 2, c + 2), sqAt(r + 3, c + 3)]);
+      if (c - 3 >= 0) out.push([sqAt(r, c), sqAt(r + 1, c - 1), sqAt(r + 2, c - 2), sqAt(r + 3, c - 3)]);
+    }
+  return out;
+})();
+/** Where each tuple's values start in w. */
+const TBASE: number[] = [];
+export const NWT = TUPLES.reduce((at, q) => (TBASE.push(at), at + 5 ** q.length), NW);
+const PIECE = [4, 3, 0, 1, 2]; // index by x + 2: −2 other king, −1 other man, 0 empty, 1 own man, 2 own king
+/** The tuple entries (indices into w) a position lights up, for the side to move. */
+function tupleIdx(p: Ck, out: Int32Array): void {
+  const s = p.side;
+  for (let t = 0; t < TUPLES.length; t++) {
+    const q = TUPLES[t]!;
+    let k = 0;
+    for (let j = 0; j < q.length; j++) {
+      const a = s > 0 ? q[j]! : 31 - q[j]!;
+      k = k * 5 + PIECE[p.b[a]! * s + 2]!;
+    }
+    out[t] = TBASE[t]! + k;
+  }
+}
+const TI = new Int32Array(TUPLES.length);
 
 /** The raw learned value for the side to move. */
 export function learnedRaw(w: Float32Array, p: Ck): number {
@@ -183,6 +225,10 @@ export function learnedRaw(w: Float32Array, p: Ck): number {
     if (!x) continue;
     const v = w[own(i, x)]!;
     s += Math.sign(x) === p.side ? v : -v;
+  }
+  if (w.length >= NWT) {
+    tupleIdx(p, TI);
+    for (let t = 0; t < TUPLES.length; t++) s += w[TI[t]!]!;
   }
   return s;
 }
@@ -195,6 +241,10 @@ function tdUpdate(w: Float32Array, p: Ck, target: number, rate: number): void {
     const x = p.b[i]!;
     if (!x) continue;
     w[own(i, x)]! += Math.sign(x) === p.side ? g : -g;
+  }
+  if (w.length >= NWT) {
+    tupleIdx(p, TI);
+    for (let t = 0; t < TUPLES.length; t++) w[TI[t]!]! += g;
   }
 }
 
@@ -221,7 +271,7 @@ export function openings(n: number): CkMove[][] {
   }
   return out;
 }
-const OPEN = openings(8);
+const OPEN = openings(384);
 const MAX_PLIES = 160;
 /**
  * Match games are cut at 30 moves each and scored by material then (a king 1½; ahead by `lead` wins):
@@ -238,21 +288,28 @@ export interface Rung {
   odds: number;
 }
 export const RUNGS: Rung[] = [
+  { me: 4, ref: 4, rand: 0, odds: 4 },
+  { me: 4, ref: 4, rand: 0, odds: 3 },
   { me: 4, ref: 4, rand: 0, odds: 2 },
   { me: 4, ref: 4, rand: 0, odds: 1 },
+  // Even games, won more and more often.
   { me: 4, ref: 4, rand: 0, odds: 0 },
-  { me: 3, ref: 4, rand: 0, odds: 0 },
-  { me: 3, ref: 5, rand: 0, odds: 0 },
-  { me: 4, ref: 6, rand: 0, odds: 0 },
-  { me: 3, ref: 6, rand: 0, odds: 0 },
-  // The top: the same match, won more often.
-  { me: 3, ref: 6, rand: 0, odds: 0 },
-  { me: 3, ref: 6, rand: 0, odds: 0 },
-  { me: 3, ref: 6, rand: 0, odds: 0 },
+  { me: 4, ref: 4, rand: 0, odds: 0 },
+  { me: 4, ref: 4, rand: 0, odds: 0 },
+  // He looks one move ahead only: what he knows about positions has to do the work.
+  { me: 1, ref: 3, rand: 0, odds: 0 },
+  { me: 1, ref: 2, rand: 0, odds: 0 },
+  { me: 1, ref: 3, rand: 0, odds: 0 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
-export const gamesFor = (_level: number) => 24;
-const rungWords = (r: Rung) => `the reference engine looking ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.odds ? `, starting ${r.odds} m${r.odds > 1 ? 'en' : 'an'} down` : ''}${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''}; he looks ${r.me} ahead`;
+/**
+ * Games a match: 192 (96 openings, each both ways) — a score is then known to about ±0.04; 768 where he
+ * looks one move ahead (quick games, and the steps between those top levels are small: ±0.02).
+ */
+export const gamesFor = (level: number) => (rungFor(level).me === 1 ? 768 : 192);
+const men = (n: number) => `${n} m${n > 1 ? 'en' : 'an'}`;
+const rungWords = (r: Rung) =>
+  `the reference engine looking ${r.ref} move${r.ref > 1 ? 's' : ''} ahead${r.odds > 0 ? `, starting ${men(r.odds)} down` : ''}${r.rand ? ` (with ${Math.round(r.rand * 100)}% of its moves random)` : ''}; he looks ${r.me} ahead${r.odds < 0 ? `, starting ${men(-r.odds)} down himself` : ''}`;
 
 /** One game: him (evaluator `mine`) against the reference engine of a rung. */
 export function duel(opening: number, first: boolean, rung: Rung, mine: CkEval, seed = opening): Stepper & { p: Ck } {
@@ -260,10 +317,11 @@ export function duel(opening: number, first: boolean, rung: Rung, mine: CkEval, 
   for (const m of OPEN[opening % OPEN.length]!) playCk(p, m);
   // "First" = he plays the side to move after the opening.
   const me = first ? p.side : -p.side;
-  // The odds: the reference's men nearest its own edge come off.
-  for (let k = 0, left = rung.odds; left > 0 && k < 32; k++) {
-    const sq = -me > 0 ? k : 31 - k;
-    if (p.b[sq] === -me) (p.b[sq] = 0), left--;
+  // The odds: the men nearest their own edge come off — the reference's (odds > 0), or his own (odds < 0: he gives them).
+  const giver = rung.odds > 0 ? -me : me;
+  for (let k = 0, left = Math.abs(rung.odds); left > 0 && k < 32; k++) {
+    const sq = giver > 0 ? k : 31 - k;
+    if (p.b[sq] === giver) (p.b[sq] = 0), left--;
   }
   const r = rng(7919 * (seed + 1) + (first ? 1 : 2));
   let plies = 0;
@@ -320,7 +378,7 @@ class CkLearner implements Learner {
   ) {
     // The evaluator carries over between levels.
     const s = savedFor<CkSave>(saved, 'checkers');
-    this.w = s?.w?.length === NW ? s.w : new Float32Array(NW);
+    this.w = s?.w?.length === NWT ? s.w : new Float32Array(NWT);
     this.games = s?.games ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);

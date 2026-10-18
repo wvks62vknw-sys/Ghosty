@@ -1,166 +1,38 @@
 /**
- * GO 9×9 (area scoring, komi 7, simple ko, suicide illegal). Ghosty searches with Monte Carlo tree search
- * guided by two small learned pattern tables instead of random play-outs: one says, from the 3×3 shape
- * around a point (and how many liberties its stones have), who will own that point at the end — summed
- * over the board, that is his estimate of the score; the other says which moves look promising from the
- * shape around them (and whether they capture or save stones). Both are learned in self-play: after
- * each game every position learns who really ended up owning each point, and which moves his search
- * liked. Shapes are counted once for all their rotations and mirror images.
+ * GO 9×9 (area scoring, komi 7, simple ko, suicide illegal). Ghosty plays with a tree search (PUCT) whose
+ * move choices are led by a learned sense of shape: a value for each 3×3 and 5×5 pattern around a point
+ * (all rotations and mirror images alike, colours seen from the side to move), plus a few tactical signs
+ * (it captures, it saves a group in atari, it puts a group in atari, it is self-atari), the line from the
+ * edge and the distance from the last move. Positions are judged by quick play-outs.
  *
- * Ground truth: a fixed ladder of reference engines — Monte Carlo tree search whose play-outs save
- * stones in atari and take what they can (UCT, never filling its own eyes) — at 16 … 150 play-outs a move
- * (RUNGS); at the top he must also win while giving 10 … 40 points. He searches 24 times a move (each a
- * look-up in his tables instead of a play-out). Mastery = his share of the points from fixed openings
- * played both ways. No rating is shown: only what the matches measured. Second measure: capture
- * puzzles on small boards (Black to play and capture the marked stones, whatever White does), each
- * answer proved by exhaustive search.
+ * How he learns (expert iteration): he plays himself, and at every move searches with his own sense of
+ * shape (a quarter of it replaced by "every move alike", so he keeps looking at moves he would not play);
+ * then his sense of shape is nudged towards the moves the search preferred. A better sense of shape makes
+ * the search better, which teaches a better sense of shape: his play keeps improving for hundreds of games
+ * (measured, see the tests and MAP.md).
+ *
+ * Ground truth: a fixed ladder of reference engines — plain Monte Carlo tree search (UCT) with the same
+ * kind of play-outs, which first answer the last move (capture a group it left in atari, save one's own)
+ * and otherwise play at random, never filling their own eyes — at more and more play-outs a move (RUNGS).
+ * He plays by instinct (his sense of shape alone, or a very small search). Mastery = his share of the
+ * points from fixed openings played both ways. No rating is shown: only what the matches measured. Second
+ * measure: capture puzzles on small boards (Black to play and capture the marked stones, whatever White
+ * does), each answer proved by exhaustive search.
+ *
+ * Play-outs run on a separate fast board (gofast.ts: groups with pseudo-liberties, no flood fills), about
+ * thirty times quicker than the plain board, which is what makes this affordable on a phone.
  */
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
-import { area, copyGo, type Go, goFrame, goFrom, goState, goText, group, inner, isEye, KOMI, legalAt, margin, newGo, outer, over, pass, playAt, ptName } from './goboard';
+import { area, copyGo, type Go, goFrame, goFrom, goState, goText, inner, isEye, KOMI, legalAt, margin, newGo, outer, over, pass, playAt, ptName } from './goboard';
+import { Fast, fastPlayout } from './gofast';
 import { GO_PUZZLES } from './gosets';
 import { Match, type MatchResult, record, share, sliceMs, type Stepper, trainMs } from './match';
+import { GO } from './meta';
 
 const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-import { GO } from './meta';
 
 export * from './goboard';
 export { setSlice } from './match';
-
-
-// ---- shapes ---------------------------------------------------------------------------------------------------
-
-/** The 3×3 shape code around a point: its eight neighbours, each 0 empty, 1 Black, 2 White, 3 off the board. */
-function code(g: Go, i: number): number {
-  const W = g.n + 2;
-  const b = g.b;
-  return b[i - W - 1]! | (b[i - W]! << 2) | (b[i - W + 1]! << 4) | (b[i - 1]! << 6) | (b[i + 1]! << 8) | (b[i + W - 1]! << 10) | (b[i + W]! << 12) | (b[i + W + 1]! << 14);
-}
-/** The same shape with the colours swapped. */
-const SWAP = (() => {
-  const t = new Uint16Array(65536);
-  for (let c = 0; c < 65536; c++) {
-    let x = 0;
-    for (let k = 0; k < 8; k++) {
-      const v = (c >> (2 * k)) & 3;
-      x |= (v === 1 ? 2 : v === 2 ? 1 : v) << (2 * k);
-    }
-    t[c] = x;
-  }
-  return t;
-})();
-/** One class for a shape and all its rotations and mirror images. */
-const CANON = (() => {
-  // Neighbour k at (dr, dc); the eight symmetries of the square map positions to positions.
-  const pos = [
-    [-1, -1],
-    [-1, 0],
-    [-1, 1],
-    [0, -1],
-    [0, 1],
-    [1, -1],
-    [1, 0],
-    [1, 1],
-  ];
-  const syms: number[][] = [];
-  for (let s = 0; s < 8; s++) {
-    syms.push(
-      pos.map(([r, c]) => {
-        let [a, b] = [r!, c!];
-        if (s & 1) [a, b] = [b, a];
-        if (s & 2) a = -a;
-        if (s & 4) b = -b;
-        return pos.findIndex(([x, y]) => x === a && y === b);
-      }),
-    );
-  }
-  const cls = new Int32Array(65536).fill(-1);
-  let n = 0;
-  for (let c = 0; c < 65536; c++) {
-    if (cls[c]! >= 0) continue;
-    for (const sm of syms) {
-      let x = 0;
-      for (let k = 0; k < 8; k++) x |= ((c >> (2 * k)) & 3) << (2 * sm[k]!);
-      if (cls[x]! < 0) cls[x] = n;
-    }
-    n++;
-  }
-  return { cls, n };
-})();
-export const SHAPES = CANON.n;
-
-/** Liberties of every stone's group (1–4, 4 meaning four or more). */
-function libsAll(g: Go): Uint8Array {
-  const out = new Uint8Array(g.b.length);
-  const seen = new Uint8Array(g.b.length);
-  for (let i = 0; i < g.b.length; i++) {
-    const x = g.b[i]!;
-    if ((x !== 1 && x !== 2) || seen[i]) continue;
-    const gr = group(g, i, seen);
-    const l = Math.min(4, gr.libs);
-    for (const s of gr.stones) out[s] = l;
-  }
-  return out;
-}
-
-/** How far a point is from the edge (0 = on it, capped at 4). */
-const lineOf = (g: Go, i: number) => {
-  const W = g.n + 2;
-  const r = Math.floor(i / W) - 1;
-  const c = (i % W) - 1;
-  return Math.min(4, r, c, g.n - 1 - r, g.n - 1 - c);
-};
-
-// ---- the learned tables ------------------------------------------------------------------------------------------
-
-/** Ownership table: [centre 0–2][liberties 0–4][shape class], then [centre][line 0–4]. Policy table: [shape class seen by the mover], then 2 tactical bonuses. */
-export interface Tables {
-  own: Float32Array;
-  line: Float32Array;
-  pol: Float32Array;
-}
-export const newTables = (): Tables => ({ own: new Float32Array(3 * 5 * SHAPES), line: new Float32Array(15), pol: new Float32Array(SHAPES + 2) });
-const swapC = (x: number) => (x === 1 ? 2 : x === 2 ? 1 : 0);
-
-/** Who he thinks will own point i at the end: −1 White … +1 Black (the raw sum before the squash). */
-function ownRaw(t: Tables, g: Go, i: number, libs: Uint8Array): number {
-  const x = g.b[i]!;
-  const l = libs[i]!;
-  const c = code(g, i);
-  const a = t.own[(x * 5 + l) * SHAPES + CANON.cls[c]!]!;
-  const b = t.own[(swapC(x) * 5 + l) * SHAPES + CANON.cls[SWAP[c]!]!]!;
-  const ln = lineOf(g, i);
-  return a - b + t.line[x * 5 + ln]! - t.line[swapC(x) * 5 + ln]!;
-}
-
-/** His estimate of Black's final score (area, minus komi). */
-export function scoreEstimate(t: Tables, g: Go): number {
-  const libs = libsAll(g);
-  const W = g.n + 2;
-  let s = 0;
-  for (let r = 1; r <= g.n; r++) for (let c = 1; c <= g.n; c++) s += Math.tanh(ownRaw(t, g, r * W + c, libs));
-  return s - (g.n >= 9 ? KOMI : 0);
-}
-/** …as a chance of winning for the side to move. */
-const winChance = (t: Tables, g: Go) => {
-  const s = scoreEstimate(t, g);
-  const pb = 1 / (1 + Math.exp(-s / 2));
-  return g.side === 1 ? pb : 1 - pb;
-};
-
-/** The policy features of a move at i for the side to move: its shape (seen as the mover), and whether it captures or saves stones in atari. */
-function polFeatures(g: Go, i: number, libs: Uint8Array): [number, number, number] {
-  let c = code(g, i);
-  if (g.side === 2) c = SWAP[c]!;
-  const W = g.n + 2;
-  let capture = 0;
-  let save = 0;
-  for (const j of [i - 1, i + 1, i - W, i + W]) {
-    const x = g.b[j]!;
-    if (x === 3 - g.side && libs[j] === 1) capture = 1;
-    if (x === g.side && libs[j] === 1) save = 1;
-  }
-  return [CANON.cls[c]!, capture, save];
-}
 
 // ---- moves both engines consider -----------------------------------------------------------------------------------
 
@@ -177,122 +49,167 @@ export function candidates(g: Go): number[] {
 }
 const doMove = (g: Go, i: number) => (i < 0 ? (pass(g), true) : playAt(g, i));
 
-/** A random play-out to the end (no eye filling); the area result for Black (positive = Black wins, after komi). */
-/** The liberty of a group in atari (one liberty), or −1. */
-function lastLiberty(g: Go, i: number): number {
-  const W = g.n + 2;
-  const c = g.b[i]!;
-  const seen = new Uint8Array(g.b.length);
-  const stones = [i];
-  seen[i] = 1;
-  let lib = -1;
-  for (let k = 0; k < stones.length; k++) {
-    for (const j of [stones[k]! - 1, stones[k]! + 1, stones[k]! - W, stones[k]! + W]) {
-      const x = g.b[j]!;
-      if (x === 0) {
-        if (lib >= 0 && lib !== j) return -1;
-        lib = j;
-      } else if (x === c && !seen[j]) (seen[j] = 1), stones.push(j);
-    }
-  }
-  return lib;
+const FB = new Fast();
+/** A play-out to the end on the fast board (heavy: answer the last move's atari first); Black's margin, after komi. */
+export function playout(g: Go, r: () => number, heavy = true): number {
+  return fastPlayout(FB.load(g), r, heavy, g.n >= 9 ? KOMI : 0);
 }
 
-/**
- * A play-out to the end (no eye filling); the area result for Black (positive = Black wins, after komi).
- * Light: random moves. Heavy (the stronger reference engines): first answer the last move — capture a
- * group it left in atari, or save one's own group it put in atari — and only then play at random.
- */
-function playout(g: Go, r: () => number, heavy = false): number {
-  const W = g.n + 2;
-  const cap = g.n * g.n * 3;
-  const empties: number[] = [];
-  for (let k = 0; k < g.b.length; k++) if (g.b[k] === 0) empties.push(k);
-  let last = -1;
-  while (!over(g) && g.moves < cap) {
-    if (heavy && last >= 0) {
-      let urgent = -1;
-      for (const j of [last - 1, last + 1, last - W, last + W, last]) {
-        const x = g.b[j]!;
-        if (x !== 1 && x !== 2) continue;
-        const lib = lastLiberty(g, j);
-        if (lib >= 0 && !isEye(g, lib, g.side)) {
-          urgent = lib;
-          if (x !== g.side) break; // a capture first
-        }
-      }
-      if (urgent >= 0 && playAt(g, urgent)) {
-        last = urgent;
-        continue;
-      }
+// ---- his sense of shape ------------------------------------------------------------------------------------------
+
+/** Offsets of the 5×5 window (centre left out), and the eight symmetries of the square as index maps. */
+const OFF: [number, number][] = [];
+for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) if (dr || dc) OFF.push([dr, dc]);
+const SYM: number[][] = [];
+for (let s = 0; s < 8; s++)
+  SYM.push(
+    OFF.map(([r, c]) => {
+      let [a, b] = [r, c];
+      if (s & 1) [a, b] = [b, a];
+      if (s & 2) a = -a;
+      if (s & 4) b = -b;
+      return OFF.findIndex(([x, y]) => x === a && y === b);
+    }),
+  );
+const NEAR = OFF.map(([r, c]) => Math.max(Math.abs(r), Math.abs(c)) <= 1);
+const Z = (() => {
+  const r = rng(4242);
+  const z = new Uint32Array(24 * 4 * 2);
+  for (let k = 0; k < z.length; k++) z[k] = Math.floor(r() * 2 ** 32) >>> 0;
+  return z;
+})();
+/** Pattern values are kept in two hashed tables of 2^15 entries each (3×3, then 5×5). */
+const PBITS = 15;
+const PSIZE = 1 << PBITS;
+const PMASK = PSIZE - 1;
+/** The flags after the two pattern tables: captures, saves, ataris, self-atari, line 0–4, distance to the last move 1–6 (or none). */
+const FLAG = 2 * PSIZE;
+export const NWEIGHTS = FLAG + 24;
+const VALS = new Uint8Array(24);
+/** Hashes of the 3×3 and 5×5 pattern around i as seen by the side to move — the same for all 8 symmetries. */
+function patterns(f: Fast, i: number): [number, number] {
+  const W = f.W;
+  const me = f.side;
+  const r0 = Math.floor(i / W);
+  const c0 = i % W;
+  for (let k = 0; k < 24; k++) {
+    const r = r0 + OFF[k]![0];
+    const c = c0 + OFF[k]![1];
+    let v = 3;
+    if (r >= 0 && r < W && c >= 0 && c < W) {
+      const x = f.col[r * W + c]!;
+      v = x === 0 ? 0 : x === 3 ? 3 : x === me ? 1 : 2;
     }
-    // Try empty points in random order until one is legal and not an own eye.
-    let moved = false;
-    let n = empties.length;
-    while (n > 0) {
-      const k = Math.floor(r() * n);
-      const i = empties[k]!;
-      if (g.b[i] === 0 && !isEye(g, i, g.side) && playAt(g, i)) {
-        moved = true;
-        last = i;
-        break;
-      }
-      empties[k] = empties[n - 1]!;
-      empties[n - 1] = i;
-      n--;
-    }
-    if (!moved) (pass(g), (last = -1));
-    else if (g.moves % 8 === 0) {
-      // Captures free points: refresh the list now and then.
-      empties.length = 0;
-      for (let k = W; k < g.b.length - W; k++) if (g.b[k] === 0) empties.push(k);
-    }
+    VALS[k] = v;
   }
-  return margin(g);
+  let h3 = 0xffffffff;
+  let h5 = 0xffffffff;
+  for (let s = 0; s < 8; s++) {
+    const sm = SYM[s]!;
+    let a = 0;
+    let b = 0;
+    for (let k = 0; k < 24; k++) {
+      const v = VALS[sm[k]!]!;
+      b ^= Z[k * 4 + v]!;
+      if (NEAR[k]) a ^= Z[96 + k * 4 + v]!;
+    }
+    a >>>= 0;
+    b >>>= 0;
+    if (a < h3) h3 = a;
+    if (b < h5) h5 = b;
+  }
+  return [h3 & PMASK, h5 & PMASK];
 }
+/** The weights a move at i lights up for the side to move on fast board `f0`; `last` is the last move (−1 none). */
+function features(f0: Fast, i: number, last: number): number[] {
+  const W = f0.W;
+  const n = f0.n;
+  const [p3, p5] = patterns(f0, i);
+  const f = [p3, PSIZE + p5];
+  const me = f0.side;
+  let cap = 0;
+  let save = 0;
+  let atari = 0;
+  let emptyN = 0;
+  let safe = 0;
+  for (const j of [i - 1, i + 1, i - W, i + W]) {
+    const x = f0.col[j]!;
+    if (x === 0) emptyN++;
+    if (x !== 1 && x !== 2) continue;
+    const h = f0.head[j]!;
+    const lib = f0.atariLib(h);
+    if (x !== me && lib === i) cap = 1;
+    if (x === me && lib === i) save = 1;
+    if (x === me && lib !== i) safe = 1;
+    if (x !== me && lib < 0 && f0.pl[h]! <= 3) atari = 1;
+  }
+  if (cap) f.push(FLAG);
+  if (save) f.push(FLAG + 1);
+  if (atari) f.push(FLAG + 2);
+  if (!safe && emptyN + cap <= 1) f.push(FLAG + 3);
+  const r = Math.floor(i / W) - 1;
+  const c = (i % W) - 1;
+  f.push(FLAG + 5 + Math.min(4, r, c, n - 1 - r, n - 1 - c));
+  if (last >= 0) f.push(FLAG + 10 + Math.min(5, Math.abs(Math.floor(last / W) - Math.floor(i / W)) + Math.abs((last % W) - (i % W))));
+  else f.push(FLAG + 16);
+  return f;
+}
+/** His instinct for each candidate move on fast board `f`: the softmax of its weights' sum (mixed with `mix` of "all alike"); also the features used. */
+function instinct(w: Float32Array | null, f: Fast, moves: number[], last: number, mix = 0): { prior: Float32Array; feats: number[][] | null } {
+  const prior = new Float32Array(moves.length);
+  if (!w || moves[0]! < 0) return { prior: prior.fill(1 / moves.length), feats: null };
+  const feats = moves.map((m) => features(f, m, last));
+  const lg = feats.map((ft) => ft.reduce((s, k) => s + w[k]!, 0));
+  let mx = -Infinity;
+  for (const v of lg) if (v > mx) mx = v;
+  let sum = 0;
+  lg.forEach((v, k) => (sum += prior[k] = Math.exp(v - mx)));
+  for (let k = 0; k < prior.length; k++) prior[k] = (1 - mix) * (prior[k]! / sum) + mix / prior.length;
+  return { prior, feats };
+}
+
+// ---- search ------------------------------------------------------------------------------------------------------
 
 interface Node {
   moves: number[];
   prior: Float32Array;
+  feats: number[][] | null;
   n: Int32Array;
   w: Float64Array;
   kids: (Node | null)[];
   total: number;
 }
+/** How strongly his search follows his instinct (PUCT's constant); the reference uses plain UCT instead. */
+const CPUCT = 0.5;
+const SIM = new Fast();
 
 /**
- * One engine's search for a move, run a slice at a time (so a long search never holds up the worker).
- * `t` = his tables (PUCT, values from the tables); null = the reference (UCT with random play-outs).
+ * One engine's search for a move, run a slice at a time, on the fast board. `w` = his weights (PUCT led by
+ * his instinct, `mix` of it replaced by "all alike"); null = the reference (UCT: every move tried once,
+ * then the usual bound). Both judge a new position by one play-out.
  */
 export class Searcher {
   root: Node | null = null;
   only = -1;
   done = 0;
+  private f0: Fast;
+  private komi: number;
   constructor(
-    private g0: Go,
-    private t: Tables | null,
+    g0: Go,
+    private w: Float32Array | null,
     private r: () => number,
-    private heavy = false,
+    last = -1,
+    private mix = 0,
   ) {
-    const rootMoves = candidates(g0);
-    if (rootMoves.length === 1) this.only = rootMoves[0]!;
-    else this.root = this.open(g0, rootMoves);
+    this.f0 = new Fast().load(g0);
+    this.komi = g0.n >= 9 ? KOMI : 0;
+    const moves = this.f0.candidates();
+    if (moves.length === 1) this.only = moves[0]!;
+    else this.root = this.open(this.f0, moves, last);
   }
-  private open(g: Go, moves: number[]): Node {
-    const t = this.t;
-    const prior = new Float32Array(moves.length);
-    if (t) {
-      const libs = libsAll(g);
-      let sum = 0;
-      moves.forEach((m, k) => {
-        if (m < 0) return;
-        const [cl, cap, save] = polFeatures(g, m, libs);
-        prior[k] = Math.exp(Math.max(-20, Math.min(20, t.pol[cl]! + cap * t.pol[SHAPES]! + save * t.pol[SHAPES + 1]!)));
-        sum += prior[k]!;
-      });
-      for (let k = 0; k < moves.length; k++) prior[k] = sum > 0 ? prior[k]! / sum : 1 / moves.length;
-    } else prior.fill(1 / moves.length);
-    return { moves, prior, n: new Int32Array(moves.length), w: new Float64Array(moves.length), kids: new Array(moves.length).fill(null), total: 0 };
+  private open(f: Fast, moves: number[], last: number): Node {
+    const { prior, feats } = instinct(this.w, f, moves, last, this.mix);
+    return { moves, prior, feats, n: new Int32Array(moves.length), w: new Float64Array(moves.length), kids: new Array(moves.length).fill(null), total: 0 };
   }
   /** Run up to `sims` more simulations, stopping early after `ms` milliseconds. */
   runFor(sims: number, ms: number): void {
@@ -305,52 +222,46 @@ export class Searcher {
       if (clock() - t0 > ms) break;
     }
   }
-  /** Run `sims` more simulations. */
   run(sims: number): void {
     const root = this.root;
     if (!root) return;
-    const { t, r, g0 } = this;
+    const { w, r } = this;
+    const f = SIM;
+    const cap = this.f0.n * this.f0.n * 3;
     for (let s = 0; s < sims; s++) {
       this.done++;
-      const g = copyGo(g0);
+      f.copyFrom(this.f0);
       const path: [Node, number][] = [];
       let node = root;
       let value: number;
       for (;;) {
-        // Pick a child: PUCT (his) or UCT with every move tried once first (the reference).
         let best = 0;
         let bv = -Infinity;
         const sq = Math.sqrt(node.total + 1);
         const ln = Math.log(node.total + 1);
         for (let k = 0; k < node.moves.length; k++) {
           const n = node.n[k]!;
-          let u: number;
-          if (t) u = (n ? node.w[k]! / n : 0.5) + (1.2 * node.prior[k]! * sq) / (1 + n);
-          else u = n ? node.w[k]! / n + Math.sqrt((2 * ln) / n) : 1e9 + r();
+          const u = w ? (n ? node.w[k]! / n : 0.45) + (CPUCT * node.prior[k]! * sq) / (1 + n) : n ? node.w[k]! / n + Math.sqrt((2 * ln) / n) : 1e9 + r();
           if (u > bv) (bv = u), (best = k);
         }
-        const mover = g.side;
-        doMove(g, node.moves[best]!);
+        const mover = f.side;
+        const mv = node.moves[best]!;
+        f.move(mv);
         path.push([node, best]);
-        if (over(g) || g.moves > g.n * g.n * 3) {
-          const m = margin(g);
+        if (f.passes >= 2 || f.moves > cap) {
+          const m = f.score() - this.komi;
           value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
           break;
         }
         const kid = node.kids[best];
         if (!kid) {
-          node.kids[best] = this.open(g, candidates(g));
-          // The new position's value for the side that just moved.
-          if (t) value = 1 - winChance(t, g);
-          else {
-            const m = playout(g, r, this.heavy);
-            value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
-          }
+          node.kids[best] = this.open(f, f.candidates(), mv);
+          const m = fastPlayout(f, r, true, this.komi);
+          value = m === 0 ? 0.5 : (m > 0) === (mover === 1) ? 1 : 0;
           break;
         }
         node = kid;
       }
-      // Back up: value is for the player who made the last move on the path.
       for (let k = path.length - 1; k >= 0; k--) {
         const [nd, c] = path[k]!;
         nd.n[c]!++;
@@ -369,15 +280,28 @@ export class Searcher {
     return root.moves[best]!;
   }
 }
-
-/** A whole search at once: `sims` simulations, then the most visited move. */
-export function search(g0: Go, sims: number, t: Tables | null, r: () => number): number {
-  const s = new Searcher(g0, t, r);
+const FF = new Fast();
+/** His move by instinct alone: the candidate his sense of shape likes best (with a little random noise if asked). */
+export function instinctMove(w: Float32Array, g: Go, last: number, noise = 0, r: () => number = Math.random): number {
+  FF.load(g);
+  const moves = FF.candidates();
+  if (moves.length === 1) return moves[0]!;
+  const { prior } = instinct(w, FF, moves, last);
+  let best = 0;
+  let bv = -Infinity;
+  for (let k = 0; k < moves.length; k++) {
+    const v = prior[k]! * (noise ? 1 + noise * r() : 1);
+    if (v > bv) (bv = v), (best = k);
+  }
+  return moves[best]!;
+}
+/** A whole search at once: `sims` simulations (his when `w` is given), then the most visited move. */
+export function search(g0: Go, sims: number, w: Float32Array | null, r: () => number, last = -1): number {
+  if (w && sims <= 1) return instinctMove(w, g0, last);
+  const s = new Searcher(g0, w, r, last);
   s.run(sims);
-  lastRoot = s.root;
   return s.best();
 }
-let lastRoot: Node | null = null;
 
 // ---- matches -----------------------------------------------------------------------------------------------------
 
@@ -385,46 +309,54 @@ let lastRoot: Node | null = null;
 export const OPENINGS: [number, number][] = (() => {
   const r = rng(9090);
   const out: [number, number][] = [];
-  while (out.length < 8) {
+  while (out.length < 32) {
     const a = (2 + Math.floor(r() * 5)) * 9 + 2 + Math.floor(r() * 5);
     const b = (2 + Math.floor(r() * 5)) * 9 + 2 + Math.floor(r() * 5);
     if (a !== b && !out.some(([x, y]) => x === a && y === b)) out.push([a, b]);
   }
   return out;
 })();
-/** A rung of the ladder: his searches a move, and the reference engine (its play-outs a move, light or heavy, and how often it plays a random move instead). */
+/** A rung of the ladder: his searches a move (1 = by instinct alone), the reference's play-outs a move, and points added to his score (negative: he gives them). */
 export interface Rung {
   me: number;
   ref: number;
-  heavy: boolean;
-  rand: number;
-  /** Points added to his score at the end (on top of the usual komi): the odds the reference gives him. */
   bonus: number;
+  /** Handicap stones the reference gets after the opening (he gives them). */
+  stones?: number;
 }
+/** Where handicap stones go (outer points, in order): the 3-3 points, then the centre. */
+const HANDICAP = [20, 60, 24, 56, 40];
 export const RUNGS: Rung[] = [
-  { me: 24, ref: 16, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 32, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 48, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 64, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 100, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 150, heavy: true, rand: 0, bonus: 0 },
-  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -10 },
-  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -20 },
-  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -30 },
-  { me: 24, ref: 150, heavy: true, rand: 0, bonus: -40 },
+  { me: 1, ref: 8, bonus: 0 },
+  { me: 1, ref: 16, bonus: 0 },
+  { me: 1, ref: 32, bonus: 0 },
+  { me: 1, ref: 64, bonus: 0 },
+  { me: 1, ref: 128, bonus: 0 },
+  { me: 1, ref: 256, bonus: 0 },
+  { me: 1, ref: 256, bonus: 0 },
+  { me: 1, ref: 256, bonus: 0 },
+  { me: 1, ref: 256, bonus: 0 },
+  { me: 1, ref: 256, bonus: 0 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
-export const gamesFor = (_level: number) => 10;
-const rungWords = (r: Rung) => `the reference engine (tree search with ${r.ref} ${r.heavy ? 'smarter' : 'random'} play-outs a move${r.rand ? `, ${Math.round(r.rand * 100)}% of its moves random` : ''})${r.bonus > 0 ? `, giving him ${r.bonus} points` : r.bonus < 0 ? `, with him giving ${-r.bonus} points` : ''}; he searches ${r.me} times a move`;
+export const gamesFor = (_level: number) => 32;
+const rungWords = (r: Rung) =>
+  `the reference engine (tree search with ${r.ref} play-outs a move)${r.stones ? `, starting with ${r.stones} extra stone${r.stones > 1 ? 's' : ''}` : ''}${r.bonus > 0 ? `, giving him ${r.bonus} points` : r.bonus < 0 ? `, with him giving ${-r.bonus} points` : ''}; he plays ${r.me <= 1 ? 'by instinct (his sense of shape alone, no search)' : `with ${r.me} searches a move`}`;
 
-export function duel(opening: number, first: boolean, rung: Rung, mine: Tables, seed: number): Stepper & { g: Go; me: number } {
+/** One game against the reference of a rung: he is Black when he moves "first". */
+export function duel(opening: number, first: boolean, rung: Rung, mine: Float32Array, seed: number): Stepper & { g: Go; me: number } {
   const g = newGo(9);
   const [a, b] = OPENINGS[opening % OPENINGS.length]!;
   playAt(g, inner(g, a));
   playAt(g, inner(g, b));
-  // He is Black when he moves "first".
   const me = first ? 1 : 2;
+  // His handicap: the reference's free stones.
+  for (let k = 0, left = rung.stones ?? 0; left > 0 && k < HANDICAP.length; k++) {
+    const i = inner(g, HANDICAP[k]!);
+    if (g.b[i] === 0) (g.b[i] = 3 - me), left--;
+  }
   const r = rng(seed * 2 + (first ? 1 : 0));
+  let last = inner(g, b);
   let cur: Searcher | null = null;
   return {
     g,
@@ -432,20 +364,20 @@ export function duel(opening: number, first: boolean, rung: Rung, mine: Tables, 
     // One step = a slice of one move's search (about 30 ms at most), so the worker is never held up for long.
     step() {
       if (over(g) || g.moves > 200) {
-        // His margin (after the usual komi), plus the points the rung gives him.
         const m = (me === 1 ? margin(g) : -margin(g)) + rung.bonus;
         return m === 0 ? 0.5 : m > 0 ? 1 : 0;
       }
-      if (!cur && g.side !== me && rung.rand && r() < rung.rand) {
-        const c = candidates(g);
-        doMove(g, c[Math.floor(r() * c.length)]!);
+      if (g.side === me && rung.me <= 1) {
+        last = instinctMove(mine, g, last);
+        doMove(g, last);
         return null;
       }
       const sims = g.side === me ? rung.me : rung.ref;
-      cur ??= new Searcher(g, g.side === me ? mine : null, r, rung.heavy);
+      cur ??= new Searcher(g, g.side === me ? mine : null, r, last);
       cur.runFor(sims - cur.done, 30);
       if (cur.done >= sims || !cur.root) {
-        doMove(g, cur.best());
+        last = cur.best();
+        doMove(g, last);
         cur = null;
       }
       return null;
@@ -519,50 +451,57 @@ export function puzzles(): Puzzle[] {
 
 // ---- the learner -----------------------------------------------------------------------------------------------------
 
-/**
- * What is kept: the two big tables are mostly zeros (only shapes he has met are filled in), so only the
- * filled entries are stored — indices into ownership-then-policy, and their values — a few tens of KB
- * instead of half a megabyte.
- */
+/** Self-play: searches a move (doubled after 300 games), with a quarter of "every move alike" mixed into his instinct; his step size. */
+const TEACHER_SIMS = 32;
+const TMIX = 0.25;
+const RATE = 0.005;
+
+/** What is kept: every weight, rounded to 1/2048 (16 bits each, 128 KB). */
 interface GoSave {
   game: 'go';
-  idx: Uint32Array;
-  val: Float32Array;
-  line: Float32Array;
+  q: Int16Array;
   games: number;
   rand: number;
 }
-export function packTables(t: Tables): { idx: Uint32Array; val: Float32Array } {
-  const n = t.own.length;
-  const idx: number[] = [];
-  const val: number[] = [];
-  for (let i = 0; i < n; i++) if (t.own[i]) (idx.push(i), val.push(t.own[i]!));
-  for (let i = 0; i < t.pol.length; i++) if (t.pol[i]) (idx.push(n + i), val.push(t.pol[i]!));
-  return { idx: Uint32Array.from(idx), val: Float32Array.from(val) };
-}
-export function unpackTables(idx: Uint32Array, val: Float32Array, line: Float32Array): Tables {
-  const t = newTables();
-  const n = t.own.length;
-  for (let k = 0; k < idx.length; k++) {
-    const i = idx[k]!;
-    if (i < n) t.own[i] = val[k]!;
-    else if (i - n < t.pol.length) t.pol[i - n] = val[k]!;
-  }
-  if (line.length === t.line.length) t.line.set(line);
-  return t;
-}
+export const packWeights = (w: Float32Array) => Int16Array.from(w, (x) => Math.max(-32767, Math.min(32767, Math.round(x * 2048))));
+export const unpackWeights = (q: Int16Array) => Float32Array.from(q, (x) => x / 2048);
 
-const TRAIN_SIMS = 16;
+/** Black's margin expected from `n` play-outs from here (who owns what, as the play-outs finish it). */
+export function expectedMargin(g: Go, n: number, r: () => number): number {
+  let s = 0;
+  for (let k = 0; k < n; k++) s += playout(g, r);
+  return s / n;
+}
+/** How often each point ends up Black's (+1) or White's (−1) over `n` play-outs. */
+export function ownership(g: Go, n: number, r: () => number): Float32Array {
+  const out = new Float32Array(g.b.length);
+  for (let k = 0; k < n; k++) {
+    playout(g, r);
+    const f = FB;
+    for (let i = 0; i < g.b.length; i++) {
+      let x = f.col[i]!;
+      if (x === 0) {
+        // At the end of a play-out an empty point is an eye: it belongs to its neighbours' colour.
+        for (const d of f.dirs) {
+          const y = f.col[i + d]!;
+          if (y === 1 || y === 2) x = y;
+        }
+      }
+      out[i]! += x === 1 ? 1 / n : x === 2 ? -1 / n : 0;
+    }
+  }
+  return out;
+}
 
 class GoLearner implements Learner {
-  t: Tables;
+  w: Float32Array;
   games: number;
   rand: number;
   r: () => number;
   match: Match | null = null;
   last: MatchResult | null = null;
   /** The capture-puzzle test after each match (a slice at a time), and the last finished one. */
-  puzzling: { i: number; found: number; t: Tables } | null = null;
+  puzzling: { i: number; found: number; w: Float32Array } | null = null;
   puz: { found: number; of: number } | null = null;
   constructor(
     private level: number,
@@ -571,30 +510,50 @@ class GoLearner implements Learner {
   ) {
     // What he learned carries over between levels.
     const s = savedFor<GoSave>(saved, 'go');
-    this.t = s?.idx && s.val && s.line ? unpackTables(s.idx, s.val, s.line) : newTables();
+    this.w = s?.q?.length === NWEIGHTS ? unpackWeights(s.q) : new Float32Array(NWEIGHTS);
     this.games = s?.games ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
   }
-  /** One self-play game with a quick search, then every position learns who owned each point at the end, and which moves the search liked. */
+  /** Nudge his instinct at a searched position towards the share of the search's visits each move got. */
+  private learn(root: { feats: number[][] | null; moves: number[]; n: Int32Array; total: number }) {
+    if (!root.feats || root.total < 2) return;
+    const w = this.w;
+    const lg = root.feats.map((f) => f.reduce((s, k) => s + w[k]!, 0));
+    let mx = -Infinity;
+    for (const v of lg) if (v > mx) mx = v;
+    const ex = lg.map((v) => Math.exp(v - mx));
+    const sum = ex.reduce((a, b) => a + b, 0);
+    root.feats.forEach((f, k) => {
+      const gr = RATE * (root.n[k]! / root.total - ex[k]! / sum);
+      for (const j of f) w[j]! += gr;
+    });
+  }
   /** The self-play game under way (played a few moves per call, so the worker is never held up). */
-  private cur: { g: Go; seen: { g: Go; moves: number[]; visits: number[] }[] } | null = null;
-  /** Play up to `k` moves of the current self-play game; when it ends, learn from it. True when a game finished. */
-  private play(k: number): boolean {
-    this.cur ??= { g: newGo(9), seen: [] };
-    const { g, seen } = this.cur;
+  private cur: { g: Go; last: number } | null = null;
+  /** Play on in the current self-play game for up to the training slice; true when it finished. */
+  private play(): boolean {
+    this.cur ??= { g: newGo(9), last: -1 };
+    const c = this.cur;
+    const g = c.g;
     const t0 = clock();
-    for (let i = 0; i < k && !over(g) && g.moves < 200 && (i === 0 || clock() - t0 < trainMs()); i++) {
+    for (let i = 0; !over(g) && g.moves < 200 && (i === 0 || clock() - t0 < trainMs()); i++) {
       let m: number;
-      const cand = candidates(g);
-      if (g.moves < 4 || this.r() < 0.05) m = cand[Math.floor(this.r() * cand.length)]!;
-      else {
-        m = search(g, TRAIN_SIMS, this.t, this.r);
-        const root = lastRoot;
+      if (g.moves < 2) {
+        const cand = candidates(g);
+        m = cand[Math.floor(this.r() * cand.length)]!;
+      } else {
+        // At first his instinct is worth nothing, so the search starts out treating every move alike (he learns
+        // what a plain search prefers); his own instinct takes over over the first 60 games.
+        const s = new Searcher(g, this.w, this.r, c.last, Math.max(TMIX, 1 - this.games / 60));
+        // Once his instinct is good (300 games), he searches twice as hard in practice: a sharper teacher.
+        s.run(this.games < 300 ? TEACHER_SIMS : 2 * TEACHER_SIMS);
+        m = s.best();
+        const root = s.root;
         if (root) {
-          seen.push({ g: copyGo(g), moves: root.moves.slice(), visits: Array.from(root.n) });
+          this.learn(root);
           // Early on, follow the search's visits loosely (more variety).
-          if (g.moves < 12) {
+          if (g.moves < 10) {
             let x = this.r() * root.total;
             for (let j = 0; j < root.moves.length; j++)
               if ((x -= root.n[j]!) < 0) {
@@ -605,66 +564,27 @@ class GoLearner implements Learner {
         }
       }
       doMove(g, m);
+      c.last = m;
     }
     if (!over(g) && g.moves < 200) return false;
     this.cur = null;
-    this.learn(g, seen);
     return true;
-  }
-  private learn(g: Go, seen: { g: Go; moves: number[]; visits: number[] }[]) {
-    const owner = area(g).owner;
-    const t = this.t;
-    for (const s of seen) {
-      const p = s.g;
-      const libs = libsAll(p);
-      const W = p.n + 2;
-      // Ownership: each point towards who owned it at the end.
-      for (let rr = 1; rr <= p.n; rr++)
-        for (let c = 1; c <= p.n; c++) {
-          const i = rr * W + c;
-          const target = owner[i] === 1 ? 1 : owner[i] === 2 ? -1 : 0;
-          const y = Math.tanh(ownRaw(t, p, i, libs));
-          const gr = 0.02 * (target - y) * (1 - y * y);
-          const x = p.b[i]!;
-          const l = libs[i]!;
-          const cd = code(p, i);
-          const ln = lineOf(p, i);
-          t.own[(x * 5 + l) * SHAPES + CANON.cls[cd]!]! += gr;
-          t.own[(swapC(x) * 5 + l) * SHAPES + CANON.cls[SWAP[cd]!]!]! -= gr;
-          t.line[x * 5 + ln]! += gr;
-          t.line[swapC(x) * 5 + ln]! -= gr;
-        }
-      // Policy: towards the share of the search's visits each move got.
-      if (s.moves[0]! < 0) continue;
-      const feats = s.moves.map((m) => polFeatures(p, m, libs));
-      const logits = feats.map(([cl, cap, save]) => t.pol[cl]! + cap * t.pol[SHAPES]! + save * t.pol[SHAPES + 1]!);
-      const mx = Math.max(...logits);
-      const ex = logits.map((v) => Math.exp(v - mx));
-      const sum = ex.reduce((a, b) => a + b, 0);
-      const tot = s.visits.reduce((a, b) => a + b, 0) || 1;
-      feats.forEach(([cl, cap, save], k) => {
-        const gr = 0.05 * (s.visits[k]! / tot - ex[k]! / sum);
-        t.pol[cl]! += gr;
-        if (cap) t.pol[SHAPES]! += gr;
-        if (save) t.pol[SHAPES + 1]! += gr;
-      });
-    }
   }
   /** A unit is a whole self-play game; one call plays a slice of it (0 until a game is finished). */
   train(_n: number) {
-    if (!this.play(12)) return 0;
+    if (!this.play()) return 0;
     this.games++;
     this.rand = (this.rand + 2654435761) >>> 0;
     return 1;
   }
-  /** Capture puzzles, a slice at a time: his move (his search on the small board) is one that captures the stones by force. */
+  /** Capture puzzles, a slice at a time: his move (a small search led by his instinct) is one that captures by force. */
   private puzzleSlice(t0: number): boolean {
     const set = puzzles();
-    const c = (this.puzzling ??= { i: 0, found: 0, t: copyTables(this.t) });
+    const c = (this.puzzling ??= { i: 0, found: 0, w: this.w.slice() });
     const r = rng(77);
     while (c.i < set.length) {
       const p = set[c.i++]!;
-      const m = search(p.g, 60, c.t, r);
+      const m = search(p.g, 60, c.w, r);
       if (m >= 0 && p.best.includes(outer(p.g, m))) c.found++;
       if (clock() - t0 > sliceMs()) break;
     }
@@ -685,13 +605,13 @@ class GoLearner implements Learner {
     const n = gamesFor(this.level);
     // A match against the reference (in slices), then the capture puzzles (in slices).
     if (!this.match && !this.puzzling) {
-      const frozen = copyTables(this.t);
+      const frozen = this.w.slice();
       this.match = new Match(n, (o, first) => duel(o, first, rung, frozen, 1000 + o));
     }
     if (this.match && this.match.run()) {
       this.last = this.match.res;
       this.match = null;
-      this.puzzling = { i: 0, found: 0, t: copyTables(this.t) };
+      this.puzzling = { i: 0, found: 0, w: this.w.slice() };
     }
     if (!this.match && this.puzzling) this.puzzleSlice(t0);
     const pending = !!this.match || !!this.puzzling;
@@ -707,47 +627,39 @@ class GoLearner implements Learner {
     };
   }
   save(): GoSave {
-    return { game: 'go', ...packTables(this.t), line: this.t.line.slice(), games: this.games, rand: this.rand };
+    return { game: 'go', q: packWeights(this.w), games: this.games, rand: this.rand };
   }
   view(): Frame {
-    // A position from his last practice: who he thinks owns each point.
+    // A position from a quick game by instinct: who the play-outs say owns each point.
     const g = newGo(9);
     const r = rng(5);
-    for (let k = 0; k < 30; k++) {
-      const c = candidates(g);
-      doMove(g, c[Math.floor(r() * c.length)]!);
+    let last = -1;
+    for (let k = 0; k < 24 && !over(g); k++) {
+      last = instinctMove(this.w, g, last, 0.5, r);
+      doMove(g, last);
     }
-    const libs = libsAll(g);
+    const own = ownership(g, 24, r);
     const marks: Record<number, string> = {};
     for (let pt = 0; pt < 81; pt++) {
-      const v = Math.tanh(ownRaw(this.t, g, inner(g, pt), libs));
-      if (g.b[inner(g, pt)] === 0 && Math.abs(v) > 0.3) marks[pt] = v > 0 ? 'ownb' : 'ownw';
+      const v = own[inner(g, pt)]!;
+      if (g.b[inner(g, pt)] === 0 && Math.abs(v) > 0.5) marks[pt] = v > 0 ? 'ownb' : 'ownw';
     }
-    return goFrame(g, `A random position: the small squares show who he expects to own each empty point (score estimate ${scoreEstimate(this.t, g).toFixed(1)} for Black, after komi).`, marks);
+    return goFrame(g, `A game of his by instinct, 24 moves in: the small squares show who quick play-outs say will own each empty point (Black expects ${expectedMargin(g, 24, r).toFixed(1)}, after komi). His instinct comes from ${this.games.toLocaleString('en')} practice games.`, marks);
   }
-  /** He plays himself by instinct — his learned move patterns, no search — so the game is ready at once. */
+  /** He plays himself by instinct — his learned sense of shape, no search — so the game is ready at once. */
   watch(seed: number): Frame[] {
     const g = newGo(9);
     const r = rng(seed);
     const [a, b] = OPENINGS[seed % OPENINGS.length]!;
     playAt(g, inner(g, a));
     playAt(g, inner(g, b));
-    const frames: Frame[] = [{ ...goFrame(g, 'He plays himself by instinct (his learned move patterns, no search).'), every: 0.3 }];
+    let last = inner(g, b);
+    const frames: Frame[] = [{ ...goFrame(g, 'He plays himself by instinct (his learned sense of shape, no search).'), every: 0.3 }];
     while (!over(g) && g.moves < 160) {
-      const moves = candidates(g);
-      let m = moves[0]!;
-      if (m >= 0 && moves.length > 1) {
-        const libs = libsAll(g);
-        let best = -Infinity;
-        for (const c of moves) {
-          const [cl, cap, save] = polFeatures(g, c, libs);
-          // His instinct, with a little noise so games differ.
-          const v = this.t.pol[cl]! + cap * this.t.pol[SHAPES]! + save * this.t.pol[SHAPES + 1]! + r() * 0.3;
-          if (v > best) (best = v), (m = c);
-        }
-      }
+      const m = instinctMove(this.w, g, last, 0.3, r);
       const mover = g.side;
       doMove(g, m);
+      last = m;
       frames.push({ ...goFrame(g, `${mover === 1 ? 'Black' : 'White'} ${m >= 0 ? `plays ${ptName(g, outer(g, m))}` : 'passes'}.`, m >= 0 ? { [outer(g, m)]: 'new' } : {}), every: 0.3 });
     }
     const mg = margin(g);
@@ -755,40 +667,17 @@ class GoLearner implements Learner {
     return frames;
   }
   /**
-   * PLAY HIM. When the owner has just passed, he passes too unless he is behind — counting stones he
-   * expects to die (by his own ownership estimate) for the other side — so a settled game can end
-   * instead of him filling the owner's territory.
+   * PLAY HIM. When the owner has just passed, he passes too unless quick play-outs from here say he is
+   * behind — so a settled game can end instead of him filling the owner's territory.
    */
   move(state: number[]) {
     const g = goFrom(state);
     if (over(g)) return -2;
-    if (g.passes >= 1 && settledMargin(this.t, g) * (g.side === 1 ? 1 : -1) >= 0) return -1;
-    const m = search(g, rungFor(this.level).me * 2, this.t, this.r);
+    if (g.passes >= 1 && expectedMargin(g, 32, this.r) * (g.side === 1 ? 1 : -1) >= 0) return -1;
+    const m = search(g, 64, this.w, this.r);
     return m < 0 ? -1 : outer(g, m);
   }
 }
-
-/** Black's score (area, minus komi) if the game ended now, with stones he expects to die counted for the other side. */
-export function settledMargin(t: Tables, g: Go): number {
-  const libs = libsAll(g);
-  const { owner } = area(g);
-  const W = g.n + 2;
-  let s = 0;
-  for (let r = 1; r <= g.n; r++)
-    for (let c = 1; c <= g.n; c++) {
-      const i = r * W + c;
-      const x = g.b[i]!;
-      const v = Math.tanh(ownRaw(t, g, i, libs));
-      let o = owner[i]!;
-      // A stone he is sure will die belongs to the other side.
-      if ((x === 1 && v < -0.5) || (x === 2 && v > 0.5)) o = 3 - x;
-      // An empty point surrounded by stones that die goes the same way.
-      if (x === 0 && !o && Math.abs(v) > 0.5) o = v > 0 ? 1 : 2;
-      s += o === 1 ? 1 : o === 2 ? -1 : 0;
-    }
-  return s - (g.n >= 9 ? KOMI : 0);
-}
-const copyTables = (t: Tables): Tables => ({ own: t.own.slice(), line: t.line.slice(), pol: t.pol.slice() });
 
 // ---- problems --------------------------------------------------------------------------------------------------------
 
