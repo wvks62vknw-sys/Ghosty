@@ -298,6 +298,12 @@ export interface ProviderRoom {
   resetAt: number | null;
   /** When room comes back while full or out (ms since the epoch). */
   backAt?: number;
+  /** A provider limited model by model (each its own daily allowance): how many models, how many are out for today, and the most any one has left today. */
+  models?: number;
+  modelsOut?: number;
+  dayLeft?: number;
+  /** Only used for Ghosty's small jobs, never the owner's chat (Google Gemma). */
+  smallOnly?: boolean;
 }
 
 export interface AiCapacity {

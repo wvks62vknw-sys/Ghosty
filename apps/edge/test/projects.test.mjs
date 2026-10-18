@@ -256,6 +256,31 @@ test('a step that hits the free limits halfway carries on from where it stopped 
   assert.equal(ok.calls[1].messages.filter((m) => m.role === 'tool').length, 0, 'step 2 starts from its own prompt');
 });
 
+test('a reminder that falls due while background work waits for free AI room is delivered on time; the alarm waits only so long', async () => {
+  const storage = new MemStorage();
+  const state = { storage, waitUntil: () => undefined, blockConcurrencyWhile: (f) => f() };
+  // Every Workers AI model is rate-limited once, asking for 9 s: the scheduled task has to wait for room.
+  const tried = new Set();
+  const env = {
+    VAULT_KEY: Buffer.alloc(32, 7).toString('base64'),
+    KEYLESS_MODELS: '0',
+    AI: { run: async (model) => { if (!tried.has(model)) { tried.add(model); throw new Error('429 rate limited, try again in 9s'); } return { response: 'The roads are clear.' }; } },
+  };
+  const agent = new brain.GhostyAgent(state, env);
+  const t0 = Date.now();
+  await S.addJob(storage, { kind: 'task', title: 'Check the roads', text: 'Tell me the roads are clear.', next: t0 - 1000, repeat: 'none', tz: 'UTC' });
+  await S.addJob(storage, { kind: 'reminder', title: 'Take the bread out', text: 'Take the bread out', next: t0 + 3000, repeat: 'none', tz: 'UTC' });
+  await agent.alarm();
+  const took = Date.now() - t0;
+  const inbox = await S.loadInbox(storage);
+  const rem = inbox.find((i) => i.kind === 'reminder');
+  const task = inbox.find((i) => i.kind === 'task');
+  assert.ok(rem, 'the reminder was delivered in this alarm run, not after it');
+  assert.ok(rem.at >= t0 + 1400 && rem.at <= t0 + 4600, `on time: ${rem.at - t0} ms after the alarm began (due at 3000)`);
+  assert.ok(task && task.at > rem.at, 'while the task was still waiting');
+  assert.ok(took < 20_000, `the alarm's waiting is capped (${took} ms)`);
+});
+
 test('with KV bound, a project is kept and listed while the database is paused, and the newest is the one "carry on" means', async () => {
   const st = new MemStorage();
   const kv = fakeKv();

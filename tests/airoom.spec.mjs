@@ -39,7 +39,9 @@ const gauge = () =>
 
 // ---- 1. before any key: the open endpoint only (the preview has no Workers AI binding)
 let g = await gauge();
-check(/^Plenty of room · 1 provider ready$/.test(g.summary), `summary with no keys: "${g.summary}"`);
+// (In CI the specs share one brain: count from what is there, the open endpoint at least.)
+const readyBefore = Number(g.summary.match(/^Plenty of room · (\d+) providers? ready$/)?.[1] ?? NaN);
+check(readyBefore >= 1, `summary before the Gemini key: "${g.summary}"`);
 check(g.light === 'PLENTY', `panel status: ${g.light}`);
 const poll = g.rows.find((r) => r.k === 'POLLINATIONS');
 check(!!poll && /^room now 2 of 2 a minute · used today 0 · rolling day$/.test(poll.v) && poll.n === 'READY', `Pollinations row: ${JSON.stringify(poll)}`);
@@ -60,9 +62,9 @@ await page.waitForFunction(() => [...document.querySelectorAll('#pg-system .airo
 g = await gauge();
 const gemini = g.rows.find((r) => r.k === 'GEMINI');
 const gemma = g.rows.find((r) => r.k === 'GOOGLE GEMMA');
-check(!!gemini && /^room now \d+ of \d+ a minute · used today 0 of [\d,]+ · resets /.test(gemini.v), `Gemini row: ${JSON.stringify(gemini)}`);
-check(!!gemma && gemma.n === 'READY', `Google Gemma row (Gemini key): ${JSON.stringify(gemma)}`);
-check(/^Plenty of room · 3 providers ready$/.test(g.summary), `summary with a Gemini key: "${g.summary}"`);
+check(!!gemini && /^room now \d+ of \d+ a minute · used today 0 · best model [\d,]+ left today · resets /.test(gemini.v), `Gemini row: ${JSON.stringify(gemini)}`);
+check(!!gemma && gemma.n === 'READY' && /^small jobs only · /.test(gemma.v), `Google Gemma row (Gemini key): ${JSON.stringify(gemma)}`);
+check(g.summary === `Plenty of room · ${readyBefore + 1} providers ready`, `summary with a Gemini key (Gemma, small jobs only, not counted): "${g.summary}"`);
 
 // ---- 4. iPhone width: nothing scrolls sideways, every row inside the panel
 const fit = await page.evaluate(() => {

@@ -30,24 +30,30 @@ const LEARN_TTL = 6 * HOUR;
 export const Q_KEY = 'llm:quota';
 
 interface Counter {
-  /** The last minute: [when, tokens] per call, oldest first. */
-  m: [number, number][];
+  /** The last minute: [when, tokens, answered (1) or not (0)] per call, oldest first. */
+  m: [number, number, number][];
   /** The last day: [hour index, requests, tokens] per hour with calls, oldest first. */
   h: [number, number, number][];
-  /** Calls running now (not saved). */
+  /** Calls running now: memory only, never saved (a brain that restarts mid-call has none running). */
   run?: number;
 }
-interface Learned {
-  rpm?: number;
-  tpm?: number;
-  rpd?: number;
-  tpd?: number;
-  /** Nothing is sent before this (a header said 0 left, or a 429 said wait). */
-  hold?: number;
+type Field = 'rpm' | 'tpm' | 'rpd' | 'tpd';
+const FIELDS: Field[] = ['rpm', 'tpm', 'rpd', 'tpd'];
+/** One learned number and when it was learned (each field ages on its own). */
+interface Stated {
+  v: number;
   at: number;
 }
+interface Learned {
+  /** What the provider's own headers state: replaces the configured number while fresh. */
+  hdr?: Partial<Record<Field, Stated>>;
+  /** What a 429 showed: lowers the limit until LEARN_TTL after the 429 (a header never refreshes it). */
+  low?: Partial<Record<Field, Stated>>;
+  /** Nothing is sent before this (a header said 0 left, or a 429 said wait). */
+  hold?: number;
+}
 interface Saved {
-  c: Record<string, Counter>;
+  c: Record<string, Pick<Counter, 'm' | 'h'>>;
   l: Record<string, Learned>;
 }
 
@@ -99,7 +105,8 @@ export class Quota {
     this.loaded ??= (async () => {
       try {
         const s = await this.storage?.get<Saved>(Q_KEY);
-        if (s?.c) this.c = { ...s.c, ...this.c };
+        // (`run` is never saved; an older save may still carry it: a call from before a restart is not running now.)
+        if (s?.c) this.c = { ...Object.fromEntries(Object.entries(s.c).map(([k, c]) => [k, { m: c.m ?? [], h: c.h ?? [] }])), ...this.c };
         if (s?.l) this.l = { ...s.l, ...this.l };
       } catch {
         /* database paused: counting from now */
@@ -128,7 +135,8 @@ export class Quota {
     this.lastSave = this.now();
     this.prune();
     try {
-      await this.storage.put(Q_KEY, { c: this.c, l: this.l } satisfies Saved);
+      const c = Object.fromEntries(Object.entries(this.c).map(([k, x]) => [k, { m: x.m, h: x.h }]));
+      await this.storage.put(Q_KEY, { c, l: this.l } satisfies Saved);
     } catch {
       /* database paused: the counts live on in memory */
     }
@@ -141,7 +149,15 @@ export class Quota {
       c.h = c.h.filter((e) => e[0] > Math.floor((t - DAY) / HOUR));
       if (!c.m.length && !c.h.length && !c.run) delete this.c[k];
     }
-    for (const [k, l] of Object.entries(this.l)) if (l.at < t - LEARN_TTL && (l.hold ?? 0) < t) delete this.l[k];
+    for (const [k, l] of Object.entries(this.l)) {
+      for (const part of [l.hdr, l.low]) for (const f of FIELDS) if (part?.[f] && !this.fresh(part[f])) delete part[f];
+      if ((l.hold ?? 0) < t) delete l.hold;
+      if (!l.hold && !FIELDS.some((f) => l.hdr?.[f] || l.low?.[f])) delete this.l[k];
+    }
+  }
+
+  private fresh(s: Stated | undefined): s is Stated {
+    return !!s && s.at > this.now() - LEARN_TTL;
   }
 
   private counter(key: string): Counter {
@@ -151,12 +167,20 @@ export class Quota {
     return c;
   }
 
-  /** The limits in force: the configured ones, lowered by anything learned. */
+  /** The limits in force: what the provider's headers state (else the configured number), lowered by what a recent 429 showed. */
   limits(key: string, base: Limits): Limits {
     const l = this.l[key];
-    if (!l || (l.at < this.now() - LEARN_TTL && (l.hold ?? 0) < this.now())) return base;
-    const low = (a?: number, b?: number) => (a === undefined ? b : b === undefined ? a : Math.min(a, b));
-    return { ...base, rpm: low(base.rpm, l.rpm), tpm: low(base.tpm, l.tpm), rpd: low(base.rpd, l.rpd), tpd: low(base.tpd, l.tpd) };
+    if (!l) return base;
+    const out: Limits = { ...base };
+    for (const f of FIELDS) {
+      const hdr = l.hdr?.[f];
+      const low = l.low?.[f];
+      let v = this.fresh(hdr) ? hdr.v : base[f];
+      if (this.fresh(low)) v = v === undefined ? low.v : Math.min(v, low.v);
+      if (v === undefined) delete out[f];
+      else out[f] = v;
+    }
+    return out;
   }
 
   /** Requests and tokens since the day's reset (a rolling 24 hours when the provider has no fixed reset). */
@@ -188,8 +212,10 @@ export class Quota {
     const share = (n: number) => (lane === 'background' ? backgroundShare(n) : n);
     const hold = this.l[key]?.hold ?? 0;
     if (hold > t) return { ok: false, waitMs: hold - t, load: 1, why: 'told to wait' };
-    if (L.tpm && tokens > L.tpm) return { ok: false, waitMs: Infinity, load: 1, why: 'request bigger than a minute allows' };
-    if (L.tpd && tokens > L.tpd) return { ok: false, waitMs: Infinity, load: 1, why: 'request bigger than a day allows' };
+    // Bigger than this lane may ever send in a minute (or a day): never, not "later" — the router moves on.
+    // (Background work has only its share: a 6,000-token request never fits Groq's 5,600 background tokens.)
+    if (L.tpm && tokens > share(L.tpm)) return { ok: false, waitMs: Infinity, load: 1, why: 'request bigger than a minute allows' };
+    if (L.tpd && tokens > share(L.tpd)) return { ok: false, waitMs: Infinity, load: 1, why: 'request bigger than a day allows' };
     let wait = 0;
     let why = '';
     const later = (ms: number, w: string) => {
@@ -234,14 +260,18 @@ export class Quota {
     return wait > 0 ? { ok: false, waitMs: wait, load, why } : { ok: true, waitMs: 0, load };
   }
 
-  /** Count one call now (before it is sent, so calls started together see each other). Returns a settle function for the real token count. */
-  take(keys: string[], tokens: number): (realTokens?: number) => void {
+  /**
+   * Count one call now (before it is sent, so calls started together see each other). Returns a
+   * settle function: the real token count, and whether the provider answered (only answered calls
+   * count as "got through" when a 429 teaches a per-minute limit).
+   */
+  take(keys: string[], tokens: number): (realTokens?: number, answered?: boolean) => void {
     const t = this.now();
     const hr = Math.floor(t / HOUR);
-    const entries: { m: [number, number]; h: [number, number, number] }[] = [];
+    const entries: { m: [number, number, number]; h: [number, number, number] }[] = [];
     for (const key of keys) {
       const c = this.counter(key);
-      const m: [number, number] = [t, tokens];
+      const m: [number, number, number] = [t, tokens, 0];
       c.m.push(m);
       let h = c.h[c.h.length - 1];
       if (!h || h[0] !== hr) c.h.push((h = [hr, 0, 0]));
@@ -252,14 +282,15 @@ export class Quota {
     }
     this.touch();
     let done = false;
-    return (real) => {
+    return (real, answered = false) => {
       if (done) return;
       done = true;
       keys.forEach((key, i) => {
         const c = this.c[key];
         if (c) c.run = Math.max(0, (c.run ?? 1) - 1);
+        const e = entries[i]!;
+        if (answered) e.m[2] = 1;
         if (real !== undefined && Number.isFinite(real) && real >= 0) {
-          const e = entries[i]!;
           e.h[2] += real - e.m[1];
           e.m[1] = real;
         }
@@ -268,19 +299,20 @@ export class Quota {
     };
   }
 
-  private learn(key: string, patch: Partial<Learned>): void {
-    const cur = this.l[key];
-    const fresh = cur && cur.at > this.now() - LEARN_TTL ? cur : { at: 0 };
-    const low = (a?: number, b?: number) => (a === undefined ? b : b === undefined ? a : Math.min(a, b));
-    this.l[key] = {
-      rpm: low(fresh.rpm, patch.rpm),
-      tpm: low(fresh.tpm, patch.tpm),
-      rpd: low(fresh.rpd, patch.rpd),
-      tpd: low(fresh.tpd, patch.tpd),
-      hold: Math.max(cur?.hold ?? 0, patch.hold ?? 0) || undefined,
-      at: this.now(),
-    };
-    for (const k of ['rpm', 'tpm', 'rpd', 'tpd', 'hold'] as const) if (this.l[key]![k] === undefined) delete this.l[key]![k];
+  /** Record learned numbers: `hdr` (stated by headers) replaces the field; `low` (from a 429) only ever lowers a fresh one. */
+  private learn(key: string, patch: { hdr?: Partial<Record<Field, number>>; low?: Partial<Record<Field, number>>; hold?: number }): void {
+    const l = (this.l[key] ??= {});
+    const at = this.now();
+    for (const f of FIELDS) {
+      const h = patch.hdr?.[f];
+      if (h !== undefined) (l.hdr ??= {})[f] = { v: h, at };
+      const lo = patch.low?.[f];
+      if (lo !== undefined) {
+        const cur = l.low?.[f];
+        (l.low ??= {})[f] = { v: this.fresh(cur) ? Math.min(cur.v, lo) : lo, at };
+      }
+    }
+    if (patch.hold) l.hold = Math.max(l.hold ?? 0, patch.hold);
     this.touch();
   }
 
@@ -290,7 +322,8 @@ export class Quota {
    *   Cerebras    x-ratelimit-{limit,remaining,reset}-{requests,tokens}-{minute,day}
    *   OpenRouter  x-ratelimit-{limit,remaining,reset}                     (requests per minute; reset = epoch ms)
    *   Mistral     x-ratelimit-{limit,remaining}-{req,tokens}-minute, x-ratelimitbysize-*-minute
-   * A stated limit lowers ours; nothing left holds the counter until the stated reset.
+   * A stated limit is the provider's own word: it replaces ours (up or down) while fresh, but never
+   * refreshes what a 429 taught; nothing left holds the counter until the stated reset.
    */
   learnHeaders(key: string, headers: Headers | null | undefined): void {
     if (!headers || typeof headers.forEach !== 'function') return;
@@ -307,51 +340,58 @@ export class Quota {
       if (!Number.isFinite(v)) return;
       slot[m[1] as 'limit' | 'remaining' | 'reset'] = v;
     });
-    const patch: Partial<Learned> = {};
+    const hdr: Partial<Record<Field, number>> = {};
+    let hold = 0;
     for (const [slotName, s] of Object.entries(slots)) {
       const [what, win] = slotName.split('-') as ['requests' | 'tokens', 'minute' | 'day'];
-      const field = `${what === 'requests' ? 'r' : 't'}p${win === 'minute' ? 'm' : 'd'}` as 'rpm' | 'tpm' | 'rpd' | 'tpd';
-      if (s.limit && s.limit > 0) patch[field] = s.limit;
+      const field = `${what === 'requests' ? 'r' : 't'}p${win === 'minute' ? 'm' : 'd'}` as Field;
+      if (s.limit && s.limit > 0) hdr[field] = s.limit;
       // Nothing left (or not even a small request's tokens): wait for the stated reset.
       const empty = s.remaining !== undefined && (what === 'requests' ? s.remaining < 1 : s.remaining < 300);
-      if (empty) patch.hold = Math.max(patch.hold ?? 0, this.now() + Math.min(s.reset || (win === 'minute' ? MINUTE : HOUR), DAY));
+      if (empty) hold = Math.max(hold, this.now() + Math.min(s.reset || (win === 'minute' ? MINUTE : HOUR), DAY));
     }
-    if (Object.keys(patch).length) this.learn(key, patch);
+    if (Object.keys(hdr).length || hold) this.learn(key, { hdr, ...(hold ? { hold } : {}) });
   }
 
   /**
-   * A 429 the counters did not see coming: the provider's real per-minute limit is lower than
-   * ours, so it becomes what got through in the last minute; a stated wait holds the counter.
+   * A 429 the counters did not see coming. A stated wait holds the model that bounced (holdKey).
+   * `perMinute`: the 429 is about requests a minute (not tokens a minute, not an upstream model's own
+   * limit): then the per-minute limit of `key` becomes the calls that were ANSWERED in the last minute.
    * `daily`: the day's allowance is gone (its limit in the message, when it says one).
    */
-  learn429(key: string, waitMs: number, daily = false, dayLimit?: number, holdKey = key): void {
-    const patch: Partial<Learned> = {};
-    // The wait applies to the model that bounced (holdKey); a lower limit to the counter the provider limits by.
-    if (holdKey !== key && waitMs > 0) this.learn(holdKey, { hold: this.now() + Math.min(waitMs, DAY) });
-    else if (waitMs > 0) patch.hold = this.now() + Math.min(waitMs, DAY);
-    if (daily) {
-      if (dayLimit && dayLimit > 0) patch.rpd = dayLimit;
-    } else {
-      // What got through this minute (this call bounced). A first call bouncing, or a wait of a few
-      // seconds, is a per-second blip or another limit, not the per-minute one: only the hold applies.
-      const got = this.counter(key).m.length - 1;
-      if (got >= 1 && !(waitMs > 0 && waitMs <= 5000)) patch.rpm = got;
+  learn429(key: string, waitMs: number, opts: { daily?: boolean; dayLimit?: number; holdKey?: string; perMinute?: boolean } = {}): void {
+    const holdKey = opts.holdKey ?? key;
+    if (waitMs > 0) this.learn(holdKey, { hold: this.now() + Math.min(waitMs, DAY) });
+    const low: Partial<Record<Field, number>> = {};
+    if (opts.daily) {
+      if (opts.dayLimit && opts.dayLimit > 0) low.rpd = opts.dayLimit;
+    } else if (opts.perMinute !== false) {
+      // A first call bouncing, or a wait of a few seconds, is a per-second blip or another limit: only the hold applies.
+      const got = this.counter(key).m.filter((e) => e[2] === 1).length;
+      if (got >= 1 && !(waitMs > 0 && waitMs <= 5000)) low.rpm = got;
     }
-    if (Object.keys(patch).length) this.learn(key, patch);
+    if (Object.keys(low).length) this.learn(key, { low });
   }
 
-  /** What was learned for a counter (tests and the gauge). */
-  learned(key: string): Omit<Learned, 'at'> | undefined {
+  /** What is learned and still in force for a counter (tests and the gauge): each field's number, and any hold. */
+  learned(key: string): Partial<Record<Field | 'hold', number>> | undefined {
     const l = this.l[key];
     if (!l) return undefined;
-    const { at: _at, ...rest } = l;
-    void _at;
-    return rest;
+    const out: Partial<Record<Field | 'hold', number>> = {};
+    for (const f of FIELDS) {
+      const h = this.fresh(l.hdr?.[f]) ? l.hdr![f]!.v : undefined;
+      const lo = this.fresh(l.low?.[f]) ? l.low![f]!.v : undefined;
+      const v = lo === undefined ? h : h === undefined ? lo : Math.min(h, lo);
+      if (v !== undefined) out[f] = v;
+    }
+    if ((l.hold ?? 0) > this.now()) out.hold = l.hold!;
+    return out;
   }
 
-  /** Forget everything learned (RE-CHECK MODELS): the counts stay, they are facts. */
+  /** Forget everything learned and any call counted as running (RE-CHECK MODELS): the counts stay, they are facts. */
   forget(): void {
     this.l = {};
+    for (const c of Object.values(this.c)) c.run = 0;
     this.touch();
   }
 }

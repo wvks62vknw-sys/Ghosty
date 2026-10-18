@@ -46,14 +46,43 @@ test('an identical search or page read within a few minutes is reused, not asked
   const b = await T.toolByName.get('web_search').run({ query: '  2048   Sliding game ' }, ctx);
   assert.equal(b, a, 'same results');
   assert.equal(asked.length - before, used, 'the second, identical search asked nothing');
-  // a page: read once, then reused (and still credited as read)
+  // a page: read once, then reused for a few minutes, saying how old the copy is (and still credited as read)
   const found = [];
   const p1 = await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/y' }, { ...ctx, found: (s) => found.push(s) });
   const n = asked.length;
   const p2 = await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/y' }, { ...ctx, found: (s) => found.push(s) });
-  assert.equal(p2, p1);
+  assert.match(p2, /\(a copy read \d+ s ago; fresh: true reads it again\)/);
+  assert.equal(p2.replace(/\(a copy read[^)]*\)\n/, ''), p1, 'the same text');
   assert.equal(asked.length, n, 'not fetched again');
   assert.equal(found.length, 2, 'both reads count as looked up');
+  // asked to read it again: it is
+  await T.toolByName.get('web_fetch').run({ url: 'https://api.github.com/repos/x/y', fresh: true }, ctx);
+  assert.equal(asked.length, n + 1, 'fresh: true reads the page again');
+});
+
+test('a thin search (fewer than three results) or one where the search key failed is not reused', async () => {
+  const ctx = { vault: { get: async () => null } };
+  // only one result anywhere: shown, but not kept
+  const realFetch = globalThis.fetch;
+  let thin = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === 'string' ? input : input.url);
+    thin++;
+    if (url.hostname === 'en.wikipedia.org') return new Response(JSON.stringify(['q', ['Quokka'], ['A small marsupial'], ['https://en.wikipedia.org/wiki/Quokka']]), { headers: { 'content-type': 'application/json' } });
+    return new Response('{}', { status: 503 });
+  };
+  const one = await T.toolByName.get('web_search').run({ query: 'quokka' }, ctx);
+  assert.match(one, /Quokka/);
+  const before = thin;
+  await T.toolByName.get('web_search').run({ query: 'quokka' }, ctx);
+  assert.ok(thin > before, 'a one-result search is asked again next time');
+  globalThis.fetch = realFetch;
+  // a Brave key that fails: the keyless results stand in, and are not kept
+  const braveCtx = { vault: { get: async (n) => (n === 'brave' ? 'bad-key' : null) } };
+  await T.toolByName.get('web_search').run({ query: '2048 tiles' }, braveCtx);
+  const b2 = asked.length;
+  await T.toolByName.get('web_search').run({ query: '2048 tiles' }, braveCtx);
+  assert.ok(asked.length > b2 + 1, 'the failing key is tried again next time');
 });
 
 test('a search key in the vault being unreadable falls through to keyless search', async () => {

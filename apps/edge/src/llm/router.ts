@@ -157,6 +157,13 @@ const REPLY_TOKENS = 600;
 
 /** The two counters a call uses: the whole key, and the model (limited on its own when the provider limits models one by one; a wait a 429 asks for always holds just the model). */
 const keysOf = (p: Provider, model: string): [string, string] => [p.id, `${p.id}|${model}`];
+/**
+ * Is a 429 about the number of requests a minute? Not when it names tokens (Groq: "tokens per minute
+ * (TPM) … try again in 7.66s") or is an upstream model's own limit (OpenRouter: "temporarily
+ * rate-limited upstream"): those must not lower the requests-a-minute limit.
+ */
+export const perMinuteLimit = (msg: string | undefined): boolean => !/token|\btpm\b|upstream|provider returned error/i.test(msg ?? '');
+
 /** The counter the provider's limits (and its rate-limit headers) are about. */
 const limitKey = (p: Provider, model: string): string => (p.modelLimits ? `${p.id}|${model}` : p.id);
 
@@ -334,11 +341,12 @@ export class Router {
       if ('message' in r) return r;
       const left = deadline - Date.now();
       if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
-      // Counted full (no call was sent): the soonest window, with a countdown for the owner.
+      // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
+      // background work uses the tick to deliver reminders that fall due meanwhile.
       let ms = r.waitMs + (r.full ? 50 : 500);
       while (ms > 0 && !signal?.aborted) {
-        if (r.full) opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
-        const step = Math.min(ms, 5000);
+        opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
+        const step = Math.min(ms, 1000);
         await sleep(step, signal);
         ms -= step;
       }
@@ -357,53 +365,73 @@ export class Router {
     const out: ProviderRoom[] = [];
     for (const p of await this.order()) {
       if ((await this.keyFor(p)) === null || (h[`key|${p.id}`]?.dead ?? 0) > now) continue;
-      const models = p.modelLimits ? await this.models(p) : [];
       const kl = this.quota.limits(p.id, p.limits ?? {});
-      // Per minute: the key's own allowance, else the sum of its models' (a model each is a separate allowance).
+      // Models it can use now (not marked unavailable); for a provider limited model by model, each is its own allowance.
+      const models = (await this.models(p)).filter((m) => (h[`${p.id}|${m}`]?.dead ?? 0) <= now);
+      // Per minute: the key's own allowance, else the sum of its models'.
       let perMinute = kl.rpm ?? null;
-      let perDay = kl.rpd ?? null;
       let roomNow = perMinute === null ? null : Math.max(0, perMinute - this.quota.minute(p.id).req);
-      let usedToday = this.quota.day(p.id, p).req;
+      const usedToday = this.quota.day(p.id, p).req;
+      const perDay = kl.rpd ?? null;
+      let dayLeft: number | undefined;
+      let modelsOut = 0;
       if (p.modelLimits && models.length) {
         let pm = 0;
-        let pd = 0;
         let rn = 0;
         for (const m of models) {
           const ml = this.quota.limits(`${p.id}|${m}`, p.modelLimits(m));
           pm += ml.rpm ?? 0;
-          pd += ml.rpd ?? 0;
           rn += Math.max(0, (ml.rpm ?? 0) - this.quota.minute(`${p.id}|${m}`).req);
+          if (ml.rpd) {
+            const left = Math.max(0, ml.rpd - this.quota.day(`${p.id}|${m}`, p).req);
+            dayLeft = Math.max(dayLeft ?? 0, left);
+            if (!left) modelsOut++;
+          }
         }
         if (pm && perMinute === null) {
           perMinute = pm;
           roomNow = rn;
         } else if (pm && roomNow !== null) roomNow = Math.min(roomNow, rn);
-        if (pd && perDay === null) perDay = pd;
       }
       const resetIn = resetDelay(p, now);
       const day = h[`cool|${p.id}`];
-      const best = models[0] ?? p.seed[0] ?? '';
-      const r = this.room(p, best, 1000, 'chat');
+      // Full only when no model has room now (each checked with both its counters); back when the soonest one is.
+      const rooms = (models.length ? models : [p.seed[0] ?? '']).map((m) => this.room(p, m, 1000, 'chat'));
+      const anyRoom = rooms.some((r) => r.ok);
+      const soonestRoom = Math.min(...rooms.map((r) => (r.ok ? 0 : r.waitMs)));
       let state: ProviderRoom['state'] = 'ready';
       let backAt: number | undefined;
-      if ((day?.cool ?? 0) > now || (perDay !== null && usedToday >= perDay)) {
+      if ((day?.cool ?? 0) > now || (perDay !== null && usedToday >= perDay) || (models.length > 0 && modelsOut === models.length)) {
         state = 'out';
         backAt = Math.max(day?.cool ?? 0, resetIn !== null ? now + resetIn : 0) || undefined;
-      } else if (!r.ok || roomNow === 0) {
+      } else if (!anyRoom) {
         state = 'full';
-        backAt = now + (r.ok ? 60_000 : Math.min(r.waitMs, 24 * 3600_000));
+        backAt = now + (Number.isFinite(soonestRoom) ? Math.min(soonestRoom, 24 * 3600_000) : 60_000);
       } else if (perMinute && roomNow !== null && roomNow < perMinute / 2) state = 'busy';
-      out.push({ provider: p.name, state, roomNow, perMinute, usedToday, perDay, resetAt: resetIn === null ? null : now + resetIn, ...(backAt ? { backAt } : {}) });
+      out.push({
+        provider: p.name,
+        state,
+        roomNow,
+        perMinute,
+        usedToday,
+        perDay,
+        resetAt: resetIn === null ? null : now + resetIn,
+        ...(backAt ? { backAt } : {}),
+        ...(p.modelLimits && models.length ? { models: models.length, modelsOut, ...(dayLeft !== undefined ? { dayLeft } : {}) } : {}),
+        ...(p.smallOnly ? { smallOnly: true } : {}),
+      });
     }
-    const ready = out.filter((x) => x.state === 'ready' || x.state === 'busy').length;
-    const busy = out.filter((x) => x.state === 'busy').length;
-    const soonest = Math.min(...out.map((x) => x.backAt ?? Infinity));
+    // The summary is about the owner's chat: a provider only for small jobs (Gemma) is not counted as ready.
+    const main = out.filter((x) => !x.smallOnly);
+    const ready = main.filter((x) => x.state === 'ready' || x.state === 'busy').length;
+    const busy = main.filter((x) => x.state === 'busy').length;
+    const soonest = Math.min(...main.map((x) => x.backAt ?? Infinity));
     const n = (k: number) => `${k} provider${k === 1 ? '' : 's'}`;
-    const summary = !out.length
+    const summary = !main.length
       ? 'No AI provider yet · add a free key below'
       : !ready
         ? `No room right now · ${Number.isFinite(soonest) ? `room again in ${Math.max(1, Math.ceil((soonest - now) / 1000))} s` : 'every provider is out for today'}`
-        : busy * 2 > ready || ready * 2 < out.length
+        : busy * 2 > ready || ready * 2 < main.length
           ? `Getting busy · ${n(ready)} with room`
           : `Plenty of room · ${n(ready)} ready`;
     return { summary, providers: out };
@@ -529,7 +557,7 @@ export class Router {
         const t0 = Date.now();
         try {
           const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code);
-          settle(tokens);
+          settle(tokens, true);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
           return { message, model: `${p.name} · ${model}` };
@@ -548,7 +576,7 @@ export class Router {
             // The counters let this through, so the real limit is lower: learn it.
             const c = classify(e);
             const dayLimit = Number((e.message || '').match(/limit:\s*(\d+)/i)?.[1]) || undefined;
-            this.quota.learn429(limitKey(p, model), again, !!c.daily, dayLimit, `${p.id}|${model}`);
+            this.quota.learn429(limitKey(p, model), again, { daily: !!c.daily, dayLimit, holdKey: `${p.id}|${model}`, perMinute: perMinuteLimit(e.message) });
           }
           // One short wait per pass (shared with the cooling wait above): several rate-limited models must not add up to a minute of silence.
           if (!retried && !waited && again > 0 && again <= shortWait && !signal?.aborted) {

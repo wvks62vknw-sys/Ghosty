@@ -119,7 +119,7 @@ export const systemTab: TabDef = {
         if (status) rp.body.append(h('div.note', 'The brain does not count its free AI room yet: it needs an update first.'));
         return;
       }
-      const ready = cap.providers.filter((x) => x.state === 'ready' || x.state === 'busy').length;
+      const ready = cap.providers.filter((x) => !x.smallOnly && (x.state === 'ready' || x.state === 'busy')).length;
       rp.setStatus(!cap.providers.length ? 'NONE' : !ready ? 'FULL' : /busy/i.test(cap.summary) ? 'BUSY' : 'PLENTY', !ready ? 'mid' : 'ok');
       rp.body.append(h('div.note.roomsum', cap.summary));
       const clock = (t: number) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -127,8 +127,13 @@ export const systemTab: TabDef = {
       for (const p of cap.providers) {
         const now = p.roomNow === null ? 'no minute limit' : `room now ${p.roomNow} of ${p.perMinute} a minute`;
         const today = `used today ${fmt.n(p.usedToday)}${p.perDay ? ` of ${fmt.n(p.perDay)}` : ''}`;
+        // Each model its own daily allowance: the best one's room, and how many are out (never one summed number).
+        const best = p.dayLeft !== undefined ? `best model ${fmt.n(p.dayLeft)} left today` : '';
+        const out = p.modelsOut ? `${p.modelsOut} of ${p.models} models out` : '';
         const reset = p.state === 'full' || p.state === 'out' ? (p.backAt ? `back ${clock(p.backAt)}` : '') : p.resetAt ? `resets ${clock(p.resetAt)}` : 'rolling day';
-        const r = row(p.provider.toUpperCase(), [now, today, reset].filter(Boolean).join(' · '), STATE[p.state], { tone: p.state === 'ready' ? 'up' : p.state === 'busy' ? undefined : 'dn', wrap: true });
+        // (A long row is cut at three lines on a phone: what matters most goes first.)
+        const parts = [p.smallOnly ? 'small jobs only' : '', now, today, out, best, reset];
+        const r = row(p.provider.toUpperCase(), parts.filter(Boolean).join(' · '), STATE[p.state], { tone: p.state === 'ready' ? 'up' : p.state === 'busy' ? undefined : 'dn', wrap: true });
         r.dataset.room = p.state;
         rp.body.append(r);
       }

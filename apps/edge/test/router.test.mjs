@@ -445,17 +445,18 @@ test('limits are learned from rate-limit headers: a lower stated limit, and "non
   hdrs = { 'x-ratelimit-limit-requests-day': '14400', 'x-ratelimit-remaining-requests-day': '0', 'x-ratelimit-reset-requests-day': '30.5' };
   await r.complete([{ role: 'user', content: 'again' }], []);
   const held = q.learned('groq|openai/gpt-oss-120b');
-  assert.equal(held.rpd, 500, 'a higher stated limit never raises a learned one');
+  assert.equal(held.rpd, 14400, "the provider's latest stated limit is its own word: it replaces the earlier one");
   assert.ok(held.hold > Date.now() + 25_000 && held.hold < Date.now() + 35_000, String(held.hold - Date.now()));
   log.length = 0;
   hdrs = {};
   assert.equal((await r.complete([{ role: 'user', content: 'third' }], [])).model, 'Groq · openai/gpt-oss-20b', 'the held model is skipped; the next answers');
   assert.deepEqual(log, ['openai/gpt-oss-20b']);
-  // a 429 the counters did not see coming lowers the per-minute limit to what got through
+  // a 429 the counters did not see coming lowers the per-minute limit to the calls that were answered
   const q2 = R.quotaFor(new MemStorage());
-  for (let i = 0; i < 4; i++) q2.take(['x'], 10);
+  for (let i = 0; i < 4; i++) q2.take(['x'], 10)(10, true);
+  q2.take(['x'], 10)(); // the one that bounced
   q2.learn429('x', 0);
-  assert.equal(q2.learned('x').rpm, 3);
+  assert.equal(q2.learned('x').rpm, 4, 'the bounced call is not counted as got through');
   assert.equal(q2.room('x', { rpm: 30 }, 10, 'chat').ok, false, 'no more this minute');
   // the counters reach the database (at most every few seconds)
   assert.ok(storage.m.has('llm:quota'), 'saved to the database');
@@ -495,7 +496,7 @@ test('every provider has its free limits; the capacity gauge says room now, used
   const r = new R.Router(new MemStorage(), vaultWith({ gemini: 'g', cohere: 'c' }), { KEYLESS_MODELS: '0' });
   await r.complete([{ role: 'user', content: 'hello' }], []);
   const cap = await r.capacity();
-  assert.match(cap.summary, /^Plenty of room · 3 providers ready$/, cap.summary);
+  assert.match(cap.summary, /^Plenty of room · 2 providers ready$/, `Gemma (small jobs only) is not counted for chat: ${cap.summary}`);
   const g = cap.providers.find((x) => x.provider === 'Gemini');
   assert.equal(g.usedToday, 1);
   assert.equal(g.perMinute, 60, 'five Gemini models: three Flash at 10 a minute, two Flash-Lite at 15');
@@ -510,4 +511,91 @@ test('every provider has its free limits; the capacity gauge says room now, used
   assert.equal(fc.providers[0].state, 'full');
   assert.ok(fc.providers[0].backAt > Date.now());
   assert.match(fc.summary, /^No room right now · room again in \d+ s$/);
+});
+
+test('the gauge: one busy model is not a FULL provider; separate daily allowances are never summed; Gemma is marked small jobs only', async () => {
+  const storage = new MemStorage();
+  const r = new R.Router(storage, vaultWith({ gemini: 'g' }), { KEYLESS_MODELS: '0' });
+  const q = R.quotaFor(storage);
+  for (let i = 0; i < 10; i++) q.take(['gemini', 'gemini|gemini-3.8-flash'], 1000)(1000, true);
+  const cap = await r.capacity();
+  const g = cap.providers.find((x) => x.provider === 'Gemini');
+  assert.equal(g.state, 'ready', 'four other models have room');
+  assert.equal(g.roomNow, 50);
+  assert.equal(g.perDay, null, 'no single number for five separate daily allowances');
+  assert.equal(g.dayLeft, 1000, 'the best model (Flash-Lite) has 1,000 left today');
+  assert.deepEqual([g.models, g.modelsOut], [5, 0]);
+  const gm = cap.providers.find((x) => x.provider === 'Google Gemma');
+  assert.equal(gm.smallOnly, true);
+  assert.equal(cap.summary, 'Plenty of room · 1 provider ready');
+});
+
+test('learned limits age on their own: a header on every answer never keeps a 429-learned low alive; headers replace, not min', async () => {
+  const q = R.quotaFor(new MemStorage());
+  let T = 1_800_000_000_000;
+  q.now = () => T;
+  const k = 'groq|openai/gpt-oss-120b';
+  const base = { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200_000 };
+  for (let i = 0; i < 3; i++) q.take(['groq', k], 100)(100, true);
+  q.take(['groq', k], 100)();
+  q.learn429(k, 0);
+  assert.equal(q.limits(k, base).rpm, 3, 'lowered to the three answered calls');
+  const H = new Headers({ 'x-ratelimit-limit-requests': '1000', 'x-ratelimit-limit-tokens': '12000', 'x-ratelimit-remaining-requests': '990', 'x-ratelimit-remaining-tokens': '9000' });
+  for (let h = 1; h <= 7; h++) {
+    T += 3600_000;
+    q.learnHeaders(k, H);
+  }
+  const now = q.limits(k, base);
+  assert.equal(now.rpm, 30, 'six hours after the 429 the per-minute limit is back, though headers kept arriving');
+  assert.equal(now.tpm, 12000, "the header's own number is used as it is (higher than ours here)");
+  // a token-per-minute 429 and an upstream 429 are not about requests a minute
+  assert.equal(R.perMinuteLimit('Rate limit reached for model `openai/gpt-oss-120b` on tokens per minute (TPM): Limit 8000, Used 7000, Requested 2000. Please try again in 7.66s.'), false);
+  assert.equal(R.perMinuteLimit('openrouter/free is temporarily rate-limited upstream. Please retry shortly.'), false);
+  assert.equal(R.perMinuteLimit('rate limit exceeded: free-models-per-min'), true);
+  const q2 = R.quotaFor(new MemStorage());
+  for (let i = 0; i < 3; i++) q2.take(['openrouter'], 100)(100, true);
+  q2.learn429('openrouter', 0, { perMinute: false });
+  assert.equal(q2.learned('openrouter')?.rpm, undefined, 'an upstream limit leaves the key alone');
+  // in the router: OpenRouter's upstream 429 does not lower the whole key
+  const storage = new MemStorage();
+  let n = 0;
+  globalThis.fetch = async () => (++n === 2 ? new Response('{"error":{"message":"openrouter/free is temporarily rate-limited upstream. Please retry shortly."}}', { status: 429 }) : ok('openrouter/free'));
+  const r = new R.Router(storage, vaultWith({ openrouter: 'k' }), { KEYLESS_MODELS: '0' });
+  await r.complete([{ role: 'user', content: 'hi' }], [], undefined, { maxWaitMs: 0 });
+  await r.complete([{ role: 'user', content: 'again' }], [], undefined, { maxWaitMs: 0 }).catch(() => null);
+  assert.equal(R.quotaFor(storage).learned('openrouter')?.rpm, undefined);
+});
+
+test('a call running when the brain restarts is not "running" forever after (never saved); RE-CHECK clears it too', async () => {
+  const st = new MemStorage();
+  const q = R.quotaFor(st);
+  q.take(['pollinations', 'pollinations|openai'], 500); // never settled: the brain restarts
+  await q.flush();
+  assert.ok(!JSON.stringify(st.m.get('llm:quota')).includes('"run"'), 'run is not saved');
+  const st2 = new MemStorage();
+  st2.m = new Map([...st.m].map(([k, v]) => [k, structuredClone(v)]));
+  // an older save that still carries run
+  st2.m.get('llm:quota').c.pollinations.run = 1;
+  const q2 = R.quotaFor(st2);
+  q2.now = () => Date.now() + 3 * 3600_000;
+  await q2.load();
+  assert.equal(q2.room('pollinations', { rpm: 2, gapMs: 30_000, conc: 1 }, 500, 'chat').ok, true, 'Pollinations is free again');
+  q.forget();
+  assert.equal(q.room('pollinations', { conc: 1 }, 500, 'chat').ok, true, 'RE-CHECK MODELS clears calls counted as running');
+});
+
+test('background work never waits for room it can never have: a request bigger than its share of a minute moves on at once', async () => {
+  const q = R.quotaFor(new MemStorage());
+  const L = { rpm: 30, tpm: 8000, rpd: 1000, tpd: 200_000 };
+  assert.equal(q.room('groq|m', L, 6000, 'background').waitMs, Infinity, '6,000 tokens is over the background share (5,600)');
+  assert.equal(q.room('groq|m', L, 6000, 'chat').ok, true);
+  let calls = 0;
+  globalThis.fetch = async (url, init) => (calls++, ok(JSON.parse(init.body).model));
+  const r = new R.Router(new MemStorage(), vaultWith({ groq: 'g' }), { KEYLESS_MODELS: '0' });
+  const big = 'word '.repeat(4300);
+  const t0 = Date.now();
+  const err = await r.complete([{ role: 'system', content: big }, { role: 'user', content: 'go' }], [], undefined, { priority: 'background', maxWaitMs: 2000 }).then(() => null, (e) => e);
+  assert.ok(err && Date.now() - t0 < 500, `gave up at once, no sleeping (${Date.now() - t0} ms)`);
+  assert.equal(calls, 0);
+  assert.match((await r.complete([{ role: 'system', content: big }, { role: 'user', content: 'go' }], [], undefined, { maxWaitMs: 0 })).model, /^Groq/, 'the chat lane still fits');
 });
