@@ -73,15 +73,18 @@ Also merged and pushed on the branch (18 Oct, late):
   screenshot services Microlink/thum.io never run for real, the prompt.ts wording trim). Forms open WhatsApp/email
   (published pages are sandboxed; a real form route would need a kernel change).
 
-Being merged when this session ended (check `git log`; if it is not on the branch, recover it from branch
+Being merged when this session ended (GYM part 2a only) (check `git log`; if it is not on the branch, recover it from branch
 `worktree-agent-ae70cc05370cd9297` or redo it):
 - GYM part 2a (checkers, chess, Go 9×9, poker, Sokoban, balance/lander). New learners: Go pattern instinct trained by
   self-play search (gofast.ts board), checkers n-tuple network. Known gaps: Go's "frozen passer of level L−1 must fail
   level L" only holds to level 3; checkers levels 9–10 gaps are within match noise (25–90k games to climb).
-- Redesign (rounds 1–5): new themes Graphite (default for new devices) and Reactor, five-tab floating bar
-  (Ask/See/Make/Learn/Plan) + "Me", hubs, command bar, iOS lists. Independent critic scores were ~5.5/10 after round
-  4; round 5 addressed its list. Continue until every screen scores ≥ 9 with the critic. The owner has not yet seen
-  rounds 4–5. Screenshot the real app and send them to him.
+Also merged (late 18 Oct): the redesign rounds 1–5 (3b520df). Themes Graphite (default for new devices) and Reactor,
+five floating tabs with progressive blur, large titles ("Good evening, Boss"), a Me sheet (Memory, Settings, System,
+Links, Every screen), one back style, one chat entry, reply card, tinted-glass icon tiles, breathing reactor. Specs
+use tests/nav.mjs (openDeck, openPanel). Critic score was ~5.5/10 after round 4; round 5 NOT yet scored — score it
+first with an independent critic and continue until every screen is ≥ 9. Known rough spots: level-up toasts pile up
+during fast training, empty rings on unstarted games look heavy, the God's eye chip starts off-screen, System's Status
+card comes after the Brain group. The owner was sent the round-5 contact sheets on 18 Oct.
 
 Still to build (in this order unless the owner says otherwise):
 - Wave A remainder: finish the redesign; make sure navigation is easy (six areas, command bar, recents, back).
