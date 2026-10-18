@@ -138,7 +138,8 @@ export const ESCAPE: GameMeta = {
   blurb: 'keys · locks · codes · clues',
   learns: 'He learns which commands to try first, so he escapes in nearly as few steps as the shortest way out.',
   unit: 'rooms',
-  bar: () => 0.75,
+  // (He cannot see inside a box until he opens it; the shortest way is worked out knowing everything.)
+  bar: per([0.8, 0.8, 0.8, 0.75, 0.75, 0.75, 0.75, 0.7, 0.7, 0.7]),
 };
 export const FACTCHECK: GameMeta = {
   id: 'factcheck',

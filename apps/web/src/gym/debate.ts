@@ -237,7 +237,7 @@ class DebateLearner implements Learner {
       mastery: g.mastery,
       detail: g.falseWins
         ? `HARD FAILURE: he won ${g.falseWins} debate(s) from the false side — mastery 0.`
-        : `From the true side he wins ${g.wins} of ${g.of} held-out debates against the reference arguer (at most ${bench(this.level)[0]!.k} citations or so each); from the false side he won none — the judge checks every fact.`,
+        : `From the true side he wins ${g.wins} of ${g.of} held-out debates against the reference arguer (each side may cite the fewest facts that settle it${slack(this.level) ? ` plus ${slack(this.level)}` : ''}); from the false side he won none — the judge checks every fact.`,
     };
   }
   save(): DebateSave {

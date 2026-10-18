@@ -109,7 +109,7 @@ export const gymTab: TabDef = {
   title: 'GYM',
   icon: '<path d="M2 9v6M5 7v10M19 7v10M22 9v6"/><path d="M5 12h14"/>',
   scene: 'backdrop',
-  blurb: 'he teaches himself · 10 games',
+  blurb: `he teaches himself · ${GAMES.length} games`,
   mount(root) {
     const P = page(root, { tag: 'GYM', sub: 'Ghosty teaches himself by playing · on this phone', leftLabel: 'GAMES', rightLabel: 'GAME', stack: true });
     expose();

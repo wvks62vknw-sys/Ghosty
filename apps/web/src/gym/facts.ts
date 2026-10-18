@@ -366,18 +366,20 @@ export interface Plan {
 }
 
 export const planFor = (level: number): Plan =>
-  [
-    { kinds: ['eq'], unsure: false },
-    { kinds: ['eq', 'gt'], unsure: true },
-    { kinds: ['gt', 'cmp'], unsure: false },
-    { kinds: ['cmp', 'gt'], unsure: true },
-    { kinds: ['join', 'flows'], unsure: true },
-    { kinds: ['eq', 'gt', 'cmp', 'join', 'flows'], unsure: true },
-    { kinds: ['super', 'cmp'], unsure: false },
-    { kinds: ['super', 'join'], unsure: true },
-    { kinds: ['cmpjoin', 'flows', 'super'], unsure: true },
-    { kinds: ['eq', 'gt', 'cmp', 'super', 'flows', 'join', 'cmpjoin'], unsure: true },
-  ][Math.max(1, Math.min(10, Math.round(level) || 1)) - 1]!;
+  (
+    [
+      { kinds: ['eq'], unsure: false },
+      { kinds: ['eq', 'gt'], unsure: true },
+      { kinds: ['gt', 'cmp'], unsure: false },
+      { kinds: ['cmp', 'gt'], unsure: true },
+      { kinds: ['join', 'flows'], unsure: true },
+      { kinds: ['eq', 'gt', 'cmp', 'join', 'flows'], unsure: true },
+      { kinds: ['super', 'cmp'], unsure: false },
+      { kinds: ['super', 'join'], unsure: true },
+      { kinds: ['cmpjoin', 'flows', 'super'], unsure: true },
+      { kinds: ['eq', 'gt', 'cmp', 'super', 'flows', 'join', 'cmpjoin'], unsure: true },
+    ] as Plan[]
+  )[Math.max(1, Math.min(10, Math.round(level) || 1)) - 1]!;
 
 const KINDS: Kind[] = ['country', 'river', 'element', 'planet'];
 const ofKind = (k: Kind, unsure: boolean, r: () => number) => (unsure && r() < 0.25 ? [...ENTITIES, ...UNLISTED] : ENTITIES).filter((e) => e.kind === k);
