@@ -115,7 +115,7 @@ export const CHECKERS: GameMeta = {
   blurb: 'draughts · vs reference engines',
   learns: 'He plays himself to learn what a checkers position is worth, then searches ahead with it against fixed reference engines that look as far ahead.',
   unit: 'games',
-  bar: per([0.6, 0.6, 0.6, 0.6, 0.5, 0.45, 0.45, 0.4, 0.4, 0.35]),
+  bar: per([0.6, 0.7, 0.5, 0.45, 0.45, 0.45, 0.4, 0.35, 0.42, 0.5]),
   play: 'board',
 };
 export const CHESS: GameMeta = {

@@ -63,6 +63,11 @@ function climb(id, upto, step, cap) {
   I.setSlice(60);
   return { s, passed, frozen };
 }
+/**
+ * The board games' climbs here stop after a few levels (a whole ladder takes minutes); GYM_FULL=1 climbs
+ * every ladder to the top and checks the frozen passer at every level.
+ */
+const FULL = process.env.GYM_FULL === '1';
 /** The frozen passers were all below the next level's bar. */
 function noFreeLevels(id, frozen) {
   for (const f of frozen) assert.ok(f.m < f.bar, `${id}: the frozen passer of Level ${f.level - 1} reaches ${f.m.toFixed(3)} at Level ${f.level} (bar ${f.bar})`);
@@ -335,8 +340,8 @@ test('checkers: the rules — perft counts from the start, compulsory captures, 
 });
 
 test('checkers: TD self-play climbs the odds ladder; a frozen passer never passes the next level', () => {
-  const { s, passed, frozen } = climb('checkers', 4, 250, 12000);
-  assert.ok(s.rec.level >= 5, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
+  const { s, passed, frozen } = FULL ? climb('checkers', 10, 250, 80000) : climb('checkers', 4, 250, 6000);
+  assert.ok(FULL ? s.rec.mastered : s.rec.level >= 5, `stopped at Level ${s.rec.level} (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  checkers passed: ${passed.join('; ')}`);
   noFreeLevels('checkers', frozen);
   assert.doesNotMatch(s.rec.detail, /rating/);
@@ -432,8 +437,8 @@ test('chess: the tactics set — every forced mate is proved by exhaustive searc
 });
 
 test('chess: self-play tuning climbs the odds ladder from 0%; a frozen passer never passes the next level', () => {
-  const { s, passed, frozen } = climb('chess', 3, 50, 1500);
-  assert.ok(s.rec.level >= 4, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+  const { s, passed, frozen } = FULL ? climb('chess', 10, 50, 6000) : climb('chess', 3, 50, 1500);
+  assert.ok(FULL ? s.rec.mastered : s.rec.level >= 4, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  chess passed: ${passed.join('; ')}`);
   noFreeLevels('chess', frozen);
   assert.match(s.rec.detail, /not Stockfish/);
@@ -519,8 +524,8 @@ test('go: he passes when a settled game is his; his tables are kept small', () =
 });
 
 test('go: self-play of the pattern evaluator climbs the ladder; a frozen passer never passes the next level', () => {
-  const { s, passed, frozen } = climb('go', 2, 10, 300);
-  assert.ok(s.rec.level >= 3, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
+  const { s, passed, frozen } = FULL ? climb('go', 10, 5, 2000) : climb('go', 2, 5, 300);
+  assert.ok(FULL ? s.rec.mastered : s.rec.level >= 3, `stopped at Level ${s.rec.level} after ${s.rec.units} games (${s.rec.detail}); passed ${passed.join(', ')}`);
   console.log(`  go passed: ${passed.join('; ')}`);
   noFreeLevels('go', frozen);
   const mv = s.learner.move(GO.goState(GO.newGo(9)));

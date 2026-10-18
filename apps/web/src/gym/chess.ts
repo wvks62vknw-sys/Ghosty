@@ -7,11 +7,13 @@
  * testers cut long games short; that is the only chess knowledge he is given. He plays with an alpha-beta
  * search plus a capture search at the end (so he never stops in the middle of an exchange).
  *
- * Ground truth: a fixed ladder of reference engines — the SAME search at depths 1–4 with a hand-written
- * evaluator (material and the well-known "simplified evaluation" piece-square tables). At each level he
- * plays a match against the reference at the same depth, from fixed openings played both ways; mastery
- * = his share of the points. He is rated on Ghosty's own scale for this ladder (the depth-1 engine =
- * 1000) — NOT against Stockfish, which is not part of Ghosty (it is GPL and megabytes to download).
+ * Ground truth: a fixed ladder of Ghosty's own reference engines — the SAME search with a hand-written
+ * evaluator (material and the well-known "simplified evaluation" piece-square tables) — NOT Stockfish,
+ * which is not part of Ghosty (it is GPL and megabytes to download). Each level is one rung (RUNGS): he
+ * searches 2 moves ahead; Levels 1–6 face the 1-move reference giving odds (it starts without its queen,
+ * a rook, a knight, two pawns, one pawn, then nothing), Levels 7–10 the 2-move reference giving a rook,
+ * a knight, two pawns, then one pawn. Mastery = his share of the points from fixed openings played both
+ * ways. No rating is shown: only what the matches measured.
  * A second measure: a set of positions with a forced mate in 1, 2 or 3 (each checked by exhaustive
  * search), and how many he finds with his search.
  */

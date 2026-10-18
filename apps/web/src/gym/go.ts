@@ -7,10 +7,11 @@
  * each game every position learns who really ended up owning each point, and which moves his search
  * liked. Shapes are counted once for all their rotations and mirror images.
  *
- * Ground truth: a fixed ladder of reference engines — plain Monte Carlo tree search with random
- * play-outs (UCT, never filling its own eyes) — at 8 … 500 play-outs a move. At each level he plays a
- * match with the SAME number of searches per move (each of his is a look-up instead of a play-out),
- * from fixed openings played both ways; mastery = his share of the points. Second measure: capture
+ * Ground truth: a fixed ladder of reference engines — Monte Carlo tree search whose play-outs save
+ * stones in atari and take what they can (UCT, never filling its own eyes) — at 16 … 150 play-outs a move
+ * (RUNGS); at the top he must also win while giving 10 … 40 points. He searches 24 times a move (each a
+ * look-up in his tables instead of a play-out). Mastery = his share of the points from fixed openings
+ * played both ways. No rating is shown: only what the matches measured. Second measure: capture
  * puzzles on small boards (Black to play and capture the marked stones, whatever White does), each
  * answer proved by exhaustive search.
  */
@@ -401,10 +402,10 @@ export interface Rung {
   bonus: number;
 }
 export const RUNGS: Rung[] = [
-  { me: 24, ref: 16, heavy: false, rand: 0.3, bonus: 0 },
-  { me: 24, ref: 48, heavy: false, rand: 0, bonus: 0 },
   { me: 24, ref: 16, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 32, heavy: true, rand: 0, bonus: 0 },
   { me: 24, ref: 48, heavy: true, rand: 0, bonus: 0 },
+  { me: 24, ref: 64, heavy: true, rand: 0, bonus: 0 },
   { me: 24, ref: 100, heavy: true, rand: 0, bonus: 0 },
   { me: 24, ref: 150, heavy: true, rand: 0, bonus: 0 },
   { me: 24, ref: 150, heavy: true, rand: 0, bonus: -10 },

@@ -5,13 +5,15 @@
  * the last one towards the result. He plays with an alpha-beta search (captures searched to the end) and
  * that evaluator.
  *
- * Ground truth: a fixed ladder of reference engines — the SAME alpha-beta search at depths 1–8 with a
- * hand-written material + position evaluator (a man 100, a king 160, plus a little for advancing, the
- * centre and guarding the back row). At Level L he plays a match against the reference engine at the
- * same depth (Levels 9–10: depth 8 again, with a higher bar), so the only difference is what he has
- * learned about positions. Mastery = his match score (a win 1, a draw ½), from fixed openings played
- * both ways. His estimated rating is on Ghosty's own scale for this ladder (the depth-1 engine = 1000,
- * each step up measured by matches between the reference engines themselves).
+ * Ground truth: a fixed ladder of reference engines — the SAME alpha-beta search with a hand-written
+ * material + position evaluator (a man 100, a king 160, plus a little for advancing, the centre, guarding
+ * the back row, and in a won ending chasing the last pieces down). Each level is one rung (RUNGS): at
+ * first the reference gives odds (it starts 4, 3, 2, then 1 man down, both searching 4 moves ahead);
+ * then even games against a deeper reference while he looks less far ahead (4 v 4, 4 v 5, 3 v 4, 3 v 5,
+ * 3 v 6, and 3 v 6 won more often). Mastery = his match score (a win 1, a draw ½), from fixed openings
+ * played both ways. Match games are cut short at 60 plies and scored by material (a man up wins), never
+ * called a draw for running long. No rating is shown: only what the matches measured. Every rung was
+ * checked by climbing (a passer of the level below, frozen, stays under the next bar).
  */
 import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, startCk } from './ckboard';
 import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
@@ -236,16 +238,17 @@ export interface Rung {
   odds: number;
 }
 export const RUNGS: Rung[] = [
-  { me: 4, ref: 4, rand: 0, odds: 3 },
   { me: 4, ref: 4, rand: 0, odds: 2 },
   { me: 4, ref: 4, rand: 0, odds: 1 },
-  { me: 4, ref: 2, rand: 0, odds: 0 },
   { me: 4, ref: 4, rand: 0, odds: 0 },
   { me: 4, ref: 5, rand: 0, odds: 0 },
   { me: 3, ref: 4, rand: 0, odds: 0 },
   { me: 3, ref: 5, rand: 0, odds: 0 },
-  { me: 2, ref: 4, rand: 0, odds: 0 },
-  { me: 2, ref: 5, rand: 0, odds: 0 },
+  { me: 4, ref: 6, rand: 0, odds: 0 },
+  { me: 3, ref: 6, rand: 0, odds: 0 },
+  // The top: the same match, won more often.
+  { me: 3, ref: 6, rand: 0, odds: 0 },
+  { me: 3, ref: 6, rand: 0, odds: 0 },
 ];
 export const rungFor = (level: number) => RUNGS[lvl(level) - 1]!;
 export const gamesFor = (_level: number) => 24;
