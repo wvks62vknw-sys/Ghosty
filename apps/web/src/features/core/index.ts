@@ -38,7 +38,7 @@ async function voiceTurn(): Promise<void> {
       if (conversation) setTimeout(() => void voiceTurn(), 300);
       return;
     }
-    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true });
+    await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true });
     // wait for speech to finish, then listen again
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
     wait();

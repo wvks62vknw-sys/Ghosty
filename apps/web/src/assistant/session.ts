@@ -112,10 +112,14 @@ function context(): Record<string, unknown> {
     name: settings.get().name,
     location: home(),
     screen: currentTab()?.inst.describe?.() ?? '',
+    // Said into the microphone: the brain answers in its spoken style (persona.ts SPOKEN).
+    ...(spokenTurn ? { voice: true } : {}),
   };
 }
 
 let speakReplies = true;
+/** This message was spoken, not typed. */
+let spokenTurn = false;
 
 function handle(ev: ChatEvent): void {
   switch (ev.t) {
@@ -273,7 +277,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
 }
 
 /** Send a message to Ghosty. */
-export async function send(text: string, opts: { speak?: boolean } = {}): Promise<void> {
+export async function send(text: string, opts: { speak?: boolean; voice?: boolean } = {}): Promise<void> {
   const t = text.trim();
   if (!t) return;
   if (/^(stop|cancel|quiet|be quiet|shut up)$/i.test(t)) {
@@ -284,6 +288,7 @@ export async function send(text: string, opts: { speak?: boolean } = {}): Promis
     return;
   }
   speakReplies = opts.speak ?? true;
+  spokenTurn = opts.voice === true;
   const recent = chat
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')

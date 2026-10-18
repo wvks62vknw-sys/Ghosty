@@ -16,6 +16,7 @@
  */
 import type { ChatTurn, DiaryEntry, Profile, ProfileSection, ReflectInfo } from '../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../packages/shared/src/protocol';
+import { character, readPersona } from '../../../packages/shared/src/persona';
 import { asData } from './kernel/permissions';
 import type { Library } from './library/store';
 import { fmtLocal, safeTz, zoned } from './time';
@@ -62,6 +63,8 @@ export async function loadProfile(storage: DurableObjectStorage): Promise<Profil
     const lines = raw.sections?.[s];
     if (Array.isArray(lines)) p.sections[s] = lines.map(cleanLine).filter(Boolean).slice(-MAX_LINES);
   }
+  // How Ghosty talks (SETTINGS → CHARACTER): kept with the profile so every prompt that has the profile has it too.
+  if (raw.persona) p.persona = readPersona(raw.persona);
   return p;
 }
 
@@ -223,7 +226,11 @@ export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
   return all.slice(-n).reverse();
 }
 
-/** The Memory tab's ME and DIARY panels: GET /profile, POST /profile {section, text}, DELETE /profile?section=&i=, POST /profile/reflect. */
+/**
+ * The Memory tab's ME and DIARY panels: GET /profile, POST /profile {section, text}, DELETE /profile?section=&i=,
+ * POST /profile/reflect. SETTINGS → CHARACTER: GET /profile/persona, POST /profile/persona {dry, brief, warm}
+ * (each 0, 1 or 2; the answer carries the character text the prompt will use).
+ */
 export async function profileRoute(req: Request, path: string, method: string, url: URL, deps: ProfileDeps): Promise<Response> {
   const { storage, library } = deps;
   if (path === '/profile' && method === 'GET') {
@@ -249,5 +256,14 @@ export async function profileRoute(req: Request, path: string, method: string, u
     return json({ profile, removed });
   }
   if (path === '/profile/reflect' && method === 'POST') return json(await reflect(deps));
+  if (path === '/profile/persona' && (method === 'GET' || method === 'POST')) {
+    const profile = await loadProfile(storage);
+    if (method === 'POST') {
+      profile.persona = readPersona(await req.json().catch(() => ({})));
+      await saveProfile(storage, profile);
+    }
+    const persona = readPersona(profile.persona);
+    return json({ persona, character: character(persona) });
+  }
   return json({ error: 'not found' }, 404);
 }

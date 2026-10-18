@@ -12,6 +12,7 @@ import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, vis
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
+import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
 export { resetDelay } from './providers';
 export { quotaFor, CHAT_RESERVE } from './quota';
 export type { Priority } from './quota';
@@ -29,6 +30,18 @@ export interface Msg {
   content: Content;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+}
+
+/**
+ * Ghosty speaking as himself (the system prompt carries the CHARACTER, persona.ts): whichever
+ * free model answered, its words go through `polish`, so the stock chatbot phrases never reach
+ * the owner — in the app, on Telegram or in a notification. Calls with their own prompt (JSON
+ * plans, checks, grading) are left exactly as the model wrote them.
+ */
+export function inCharacter<T extends { message: Msg }>(messages: Msg[], r: T): T {
+  const sys = messages[0]?.role === 'system' ? textOf(messages[0].content) : '';
+  if (!sys.includes(CHARACTER_MARK) || typeof r.message.content !== 'string' || !r.message.content) return r;
+  return { ...r, message: { ...r.message, content: polish(r.message.content) } };
 }
 
 export interface ToolSpec {
@@ -328,7 +341,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await mockComplete(messages, tools));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;
@@ -338,7 +351,7 @@ export class Router {
     const deadline = Date.now() + maxWait;
     for (let round = 0; ; round++) {
       const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane);
-      if ('message' in r) return r;
+      if ('message' in r) return inCharacter(messages, r);
       const left = deadline - Date.now();
       if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
       // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
