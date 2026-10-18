@@ -414,3 +414,6 @@ test('publishing through the agent: the reply always carries the link, the histo
   assert.equal((await call('/sites/acme-bakery', { method: 'DELETE' })).json().removed, true, 'the Workshop button');
   assert.deepEqual((await call('/sites')).json().sites, []);
 });
+
+// The website kit and the website project (sitekit, sitebuild.ts).
+await import('./sitekit.test.mjs');

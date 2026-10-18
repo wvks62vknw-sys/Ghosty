@@ -1,0 +1,385 @@
+{
+ "assets": {
+  "ArmChair_01": {
+   "date_published": 1585605600,
+   "name": "Arm Chair 01",
+   "categories": [
+    "furniture",
+    "seating"
+   ],
+   "type": 2,
+   "tags": [
+    "gothic",
+    "vintage",
+    "chair",
+    "furniture",
+    "victorian",
+    "couch",
+    "wood",
+    "varnished",
+    "classic"
+   ],
+   "authors": {
+    "Kirill Sannikov": "All"
+   },
+   "sponsors": [
+    "66627515",
+    "4047949"
+   ],
+   "max_resolution": [
+    4096,
+    4096
+   ],
+   "polycount": 5626,
+   "texel_density": 1972.3631956341671,
+   "dimensions": [
+    848.4309017658234,
+    765.7602727413177,
+    1065.087635157397
+   ],
+   "files_hash": "8a04a102d4a1e1a480bc4288384d4a2dfd649608",
+   "description": "Free (CC0) vintage Victorian armchair 3D model - varnished carved wood frame, upholstered seat; gothic/classic styling ideal for interiors, period scenes, and renders.",
+   "category_id": "11261ec6-df2b-5150-9904-684d2558070d",
+   "category": "Furniture/Seating/Chairs",
+   "attributes": {
+    "condition": [
+     "worn"
+    ],
+    "material": [
+     "wood",
+     "fabric"
+    ]
+   },
+   "img_version": "abbc4732",
+   "download_count": 32410,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/ArmChair_01.png?width=256&height=256&format=webp&v=abbc4732"
+  },
+  "Television_01": {
+   "date_published": 1585605600,
+   "name": "Television 01",
+   "type": 2,
+   "authors": {
+    "Gabriel Radi\u0107": "All"
+   },
+   "sponsors": [
+    "11109006",
+    "26820710",
+    "3237733"
+   ],
+   "categories": [
+    "props",
+    "electronics",
+    "collection: the_shed"
+   ],
+   "tags": [
+    "vintage",
+    "prop",
+    "furniture",
+    "metal",
+    "wood",
+    "tv",
+    "television",
+    "video",
+    "audio"
+   ],
+   "max_resolution": [
+    4096,
+    4096
+   ],
+   "polycount": 1918,
+   "texel_density": 3077.7084023052357,
+   "dimensions": [
+    599.9999642372131,
+    470.8106815814972,
+    456.84892892313655
+   ],
+   "files_hash": "c00ac1c3a4f0cf9e01639ba242ce3748fb690ae7",
+   "description": "Free 4K model of a vintage tabletop CRT TV with wood casing, scratched metal bezel, worn knobs and speaker grille, smudged glass and realistic weathering.",
+   "category_id": "2dcd04f3-a4a8-52c8-9495-789fba825be7",
+   "category": "Electronics & Appliances/Audio & Video/Televisions",
+   "collections": [
+    "the_shed"
+   ],
+   "attributes": {
+    "condition": [
+     "worn"
+    ],
+    "material": [
+     "wood",
+     "metal",
+     "glass"
+    ]
+   },
+   "img_version": "fd00df78",
+   "download_count": 90719,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/Television_01.png?width=256&height=256&format=webp&v=fd00df78"
+  },
+  "brass_goblets": {
+   "donated": true,
+   "name": "Brass Goblets",
+   "categories": [
+    "props",
+    "dishes",
+    "decorative",
+    "containers"
+   ],
+   "type": 2,
+   "tags": [
+    "vintage",
+    "old",
+    "antique",
+    "fancy",
+    "brass",
+    "cup",
+    "chalice",
+    "goblet",
+    "engraved",
+    "ornate",
+    "container"
+   ],
+   "authors": {
+    "Tina": "All"
+   },
+   "info": null,
+   "date_published": 1702684800,
+   "max_resolution": [
+    4096,
+    4096
+   ],
+   "polycount": 9600,
+   "texel_density": 8079.6515249966915,
+   "dimensions": [
+    453.39466631412506,
+    297.6139709353447,
+    273.377850651741
+   ],
+   "files_hash": "5b9625f91aafb878f745d78543e395020b35b8ca",
+   "description": "Free 4K model of three ornate vintage brass goblets, engraved rims and bases, warm aged patina and polished golden interiors.",
+   "category_id": "c90b2e84-08ee-5258-8f59-b525a1db7022",
+   "category": "Food & Kitchen/Tableware/Cups & Goblets",
+   "attributes": {
+    "condition": [
+     "worn"
+    ],
+    "material": [
+     "brass"
+    ]
+   },
+   "img_version": "d186073b",
+   "download_count": 26872,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/brass_goblets.png?width=256&height=256&format=webp&v=d186073b"
+  },
+  "Sofa_01": {
+   "type": 2,
+   "tags": [
+    "wood",
+    "prop",
+    "furniture",
+    "vintage",
+    "gothic",
+    "chair",
+    "couch",
+    "victorian",
+    "decorative"
+   ],
+   "date_published": 1585605600,
+   "name": "Sofa 01",
+   "categories": [
+    "furniture",
+    "seating"
+   ],
+   "authors": {
+    "Kirill Sannikov": "All"
+   },
+   "max_resolution": [
+    4096,
+    4096
+   ],
+   "polycount": 4101,
+   "texel_density": 1881.557650237209,
+   "dimensions": [
+    1571.4675784111023,
+    658.0145359039307,
+    796.515051391907
+   ],
+   "files_hash": "06d253c13e53259a35bd5291b921bf959c4a025a",
+   "description": "Free 4K vintage Victorian wooden sofa - decorative gothic-style upholstered couch with carved frame, elegant seating prop for period interiors.",
+   "category_id": "a995f351-c031-54f6-b317-dc5928df17a3",
+   "category": "Furniture/Seating/Sofas & Couches",
+   "attributes": {
+    "condition": [
+     "worn"
+    ],
+    "material": [
+     "wood",
+     "fabric"
+    ]
+   },
+   "img_version": "4f8a0e72",
+   "download_count": 50271,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/Sofa_01.png?width=256&height=256&format=webp&v=4f8a0e72"
+  },
+  "vintage_electric_kettle": {
+   "type": 2,
+   "name": "Vintage Electric Kettle",
+   "categories": [
+    "collection: project_lighthouse",
+    "decorative",
+    "appliances"
+   ],
+   "tags": [
+    "old",
+    "vintage",
+    "antique",
+    "electric",
+    "gooseneck spout",
+    "metal",
+    "rusted",
+    "dirty",
+    "traditional"
+   ],
+   "description": "Free 4K vintage electric kettle with worn metal body, gooseneck spout, wood handle, and front thermometer gauge, detailed patina, dents, and brass fittings.",
+   "authors": {
+    "SV Garip": "All"
+   },
+   "donated": true,
+   "max_resolution": [
+    4096,
+    4096
+   ],
+   "polycount": 14838,
+   "files_hash": "6de2f0161fe1e0f8eb1138daf0985ee865511290",
+   "texel_density": 7291.063696812514,
+   "dimensions": [
+    320.89072465896606,
+    248.55303764343262,
+    304.7400116920471
+   ],
+   "date_published": 1781913600,
+   "category_id": "e157d952-f5d4-52d6-a421-68e7872445a0",
+   "category": "Electronics & Appliances/Home Appliances/Kettles",
+   "collections": [
+    "project_lighthouse"
+   ],
+   "attributes": {
+    "condition": [
+     "rusted"
+    ],
+    "material": [
+     "metal",
+     "wood",
+     "brass"
+    ]
+   },
+   "img_version": "612e4db1",
+   "download_count": 632,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/vintage_electric_kettle.png?width=256&height=256&format=webp&v=612e4db1"
+  },
+  "pine_tree_01": {
+   "date_published": 1687478400,
+   "name": "Pine Tree 01",
+   "type": 2,
+   "authors": {
+    "Rob Tuytel": "photography",
+    "Rico Cilliers": "modeling"
+   },
+   "info": null,
+   "sponsors": [
+    "11109006"
+   ],
+   "categories": [
+    "nature",
+    "plants",
+    "trees",
+    "collection: pine_forest"
+   ],
+   "geonodes": true,
+   "tags": [
+    "pine",
+    "tree",
+    "needles",
+    "branches",
+    "woodland",
+    "coniferous",
+    "plants",
+    "geometry nodes",
+    "foliage",
+    "natural",
+    "trunk",
+    "bark",
+    "environment",
+    "vegetation",
+    "evergreen",
+    "forest"
+   ],
+   "max_resolution": [
+    8192,
+    8192
+   ],
+   "polycount": 17427094,
+   "texel_density": 5861.203711242229,
+   "dimensions": [
+    26719.930171966553,
+    1300.55171251297,
+    17577.758572995663
+   ],
+   "files_hash": "98997b7406016d998742bd962473c5d63e14da21",
+   "lods": true,
+   "description": "Free 8K model of a tall, slender pine with layered branch clusters, dense needle foliage, and a realistic textured trunk and bark.",
+   "category_id": "889de586-d203-511a-b417-fac77b27a029",
+   "category": "Nature/Trees/Coniferous Trees",
+   "collections": [
+    "pine_forest"
+   ],
+   "attributes": {
+    "condition": [
+     "clean"
+    ],
+    "lods": true,
+    "geonodes": true,
+    "material": [
+     "wood"
+    ]
+   },
+   "img_version": "5a9763f6",
+   "download_count": 40053,
+   "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/pine_tree_01.png?width=256&height=256&format=webp&v=5a9763f6"
+  }
+ },
+ "files": {
+  "ArmChair_01": {
+   "gltf": {
+    "1k": {
+     "gltf": {
+      "include": {
+       "textures/Armchair_01_diff_1k.jpg": {
+        "size": 184246,
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/ArmChair_01/Armchair_01_diff_1k.jpg",
+        "md5": "9166f2c24f2114a5fa5513950ed9b9ae"
+       },
+       "ArmChair_01.bin": {
+        "size": 154012,
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/4k/ArmChair_01/ArmChair_01.bin",
+        "md5": "fbd842795fdec75d94f1335c28acfc0e"
+       },
+       "textures/Armchair_01_nor_gl_1k.jpg": {
+        "size": 289916,
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/ArmChair_01/Armchair_01_nor_gl_1k.jpg",
+        "md5": "8541821edd6dcb319b7f9841d849fbbe"
+       },
+       "textures/Armchair_01_arm_1k.jpg": {
+        "size": 138327,
+        "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/ArmChair_01/Armchair_01_arm_1k.jpg",
+        "md5": "2ea528244dd6fc0deb2af1a555c0a312"
+       }
+      },
+      "size": 2643,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/ArmChair_01/ArmChair_01_1k.gltf",
+      "md5": "39d1e4b0ffdde688c98335c9621e3aae"
+     }
+    }
+   }
+  }
+ },
+ "sf3d": {}
+}

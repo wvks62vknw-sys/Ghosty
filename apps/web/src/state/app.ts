@@ -4,6 +4,7 @@
  *  ui       — what is on screen right now (tab, brain activity, voice state)
  */
 import { createStore } from '../core/store';
+import { DEFAULT_PERSONA, type PersonaSettings } from '../../../../packages/shared/src/persona';
 
 export interface Place {
   name: string;
@@ -17,8 +18,17 @@ export interface Settings {
   units: 'metric' | 'imperial';
   speak: boolean;
   voice: string;
-  /** Whose voice reads replies: Ghosty's own (from the brain) or this phone's speech synthesis. */
-  voiceEngine: 'ghosty' | 'phone';
+  /**
+   * Whose voice reads replies: 'auto' — the most natural British voice there is (Ghosty's own
+   * natural voice from the brain while the day's share lasts, then a natural British voice on this
+   * phone if one is installed); 'ghosty' — the brain's voice picked in `brainVoice`; 'phone' —
+   * this phone's speech synthesis (`voice`).
+   */
+  voiceEngine: 'auto' | 'ghosty' | 'phone';
+  /** Which of the brain's voices (packages/shared/src/voices.ts), or 'auto'. */
+  brainVoice: string;
+  /** Talking while Ghosty speaks stops it and it listens (the microphone stays on during a voice conversation). */
+  bargeIn: boolean;
   home: Place | null;
   currency: 'gbp' | 'usd' | 'eur';
   /** Soft interface sounds (tab changes, the systems deck). */
@@ -29,6 +39,8 @@ export interface Settings {
   offlineBrain: 'auto' | 'always' | 'off';
   /** CITED in the chat: every answer looked up, with numbered sources and its claims checked. */
   cited: boolean;
+  /** How Ghosty talks (SETTINGS → CHARACTER): the brain's copy rules; this one is for the offline brain. */
+  persona: PersonaSettings;
 }
 
 const tz = (() => {
@@ -46,12 +58,15 @@ export const settings = createStore<Settings>(
     units: /^en-US/i.test(navigator.language) ? 'imperial' : 'metric',
     speak: true,
     voice: 'auto',
-    voiceEngine: 'ghosty',
+    voiceEngine: 'auto',
+    brainVoice: 'auto',
+    bargeIn: true,
     home: null,
     sounds: true,
     motion: false,
     offlineBrain: 'auto',
     cited: false,
+    persona: DEFAULT_PERSONA,
     currency: /London|Europe\/(Dublin|Belfast)/.test(tz) ? 'gbp' : /Europe\//.test(tz) ? 'eur' : 'usd',
   },
   { persist: 'ghosty.settings' },

@@ -43,20 +43,22 @@ if (isWebKit)
     window.__m3dBodies = [];
     const f = window.fetch;
     window.fetch = (u, o) => {
-      if (String(u).endsWith('/api/m3d') && o?.method === 'POST') window.__m3dBodies.push(o.body?.size ?? o.body?.byteLength ?? 0);
+      if (/\/api\/m3d(\?stream=1)?$/.test(String(u)) && o?.method === 'POST') window.__m3dBodies.push(o.body?.size ?? o.body?.byteLength ?? 0);
       return f(u, o);
     };
   });
 // The brain's 3-D maker, stubbed: the first photo is "made" (a real GLB comes back), the second hits the quota.
+// The studio asks for step-by-step lines (?stream=1): steps, then the model or the error.
 let makes = 0;
 const sentPhotos = [];
-await page.route('**/api/m3d', async (route) => {
+const lines = (...l) => l.map((x) => JSON.stringify(x)).join('\n') + '\n';
+await page.route(/\/api\/m3d(\?stream=1)?$/, async (route) => {
   const req = route.request();
   if (req.method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ models: makes ? [{ id: 'AAAAAAAAAAAAAAAA', title: 'From a photo', at: Date.now(), bytes: truck.length }] : [] }) });
   sentPhotos.push({ type: req.headers()['content-type'], bytes: (req.postDataBuffer() ?? Buffer.alloc(0)).length, title: req.headers()['x-title'] });
   makes++;
-  if (makes === 1) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ model: { id: 'AAAAAAAAAAAAAAAA', title: 'From a photo', at: Date.now(), bytes: truck.length } }) });
-  return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ error: "the free 3-D model maker (Hugging Face ZeroGPU) has used up today's GPU allowance — try again in about 13 h 46 min." }) });
+  if (makes === 1) return route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: lines({ step: 'removing the background…' }, { model: { id: 'AAAAAAAAAAAAAAAA', title: 'From a photo', at: Date.now(), bytes: truck.length, maker: 'Stable Fast 3D', textured: true, credit: 'Made from a picture by Stable Fast 3D (Stability AI, Community Licence), via Hugging Face' } }) });
+  return route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: lines({ step: 'shaping the model…' }, { error: "the free 3-D generators are busy right now — try again in a minute. Stable Fast 3D: Stable Fast 3D (Hugging Face ZeroGPU) has used up today's GPU allowance — try again in about 13 h 46 min.", status: 429, code: 'quota' }) });
 });
 await page.route('**/api/m3d/AAAAAAAAAAAAAAAA', (route) => route.fulfill({ status: 200, contentType: 'model/gltf-binary', body: truck }));
 // A Spline scene, stubbed so the test needs no network: only the frame's address matters here.
@@ -185,16 +187,16 @@ const photo = await page.evaluate(async () => {
   return btoa(s);
 });
 await page.locator('#pg-studio input[type=file][accept="image/*"]').setInputFiles({ name: 'mug.png', mimeType: 'image/png', buffer: Buffer.from(photo, 'base64') });
-await until(() => !document.querySelector('#pg-studio .studiothumb')?.hidden, 20000, 'the chosen photo is not shown');
+await until(() => !document.querySelector('#pg-studio img[alt="Your photo"]')?.hidden, 20000, 'the chosen photo is not shown');
 await btn('MAKE 3-D').click();
 await until(() => window.__ghosty.studio.state().title === 'From a photo' && window.__ghosty.studio.state().parts.length > 0, 30000, `the made model did not open: ${JSON.stringify(await S())}`);
 const sent = sentPhotos[0];
 if (isWebKit && sent && sent.bytes === 0) sent.bytes = (await page.evaluate(() => window.__m3dBodies[0])) ?? 0;
 if (!sent || sent.type !== 'image/jpeg' || !(sent.bytes > 1000)) problems.push(`the photo was not sent as a JPEG: ${JSON.stringify(sent)}`);
-const dims = await page.evaluate(() => new Promise((res) => { const i = new Image(); i.onload = () => res([i.naturalWidth, i.naturalHeight]); i.src = document.querySelector('#pg-studio .studiothumb').src; }));
+const dims = await page.evaluate(() => new Promise((res) => { const i = new Image(); i.onload = () => res([i.naturalWidth, i.naturalHeight]); i.src = document.querySelector('#pg-studio img[alt="Your photo"]').src; }));
 if (Math.max(...dims) > 1024) problems.push(`the photo was not shrunk before sending (${dims})`);
 await btn('MAKE 3-D').click();
-await until(() => /GPU allowance/.test(document.querySelector('#pg-studio .studiopane .studioreadout')?.textContent ?? ''), 10000, 'a quota refusal was not shown in words');
+await until(() => [...document.querySelectorAll('#pg-studio .studiopane .studioreadout')].some((r) => /GPU allowance/.test(r.textContent)), 10000, 'a quota refusal was not shown in words');
 await pane('MODELS');
 await until(() => [...document.querySelectorAll('#pg-studio .studiolist .rw')].some((r) => /From a photo/.test(r.textContent)), 5000, 'the made model is not listed under MADE FROM PICTURES');
 

@@ -599,3 +599,18 @@ test('background work never waits for room it can never have: a request bigger t
   assert.equal(calls, 0);
   assert.match((await r.complete([{ role: 'system', content: big }, { role: 'user', content: 'go' }], [], undefined, { maxWaitMs: 0 })).model, /^Groq/, 'the chat lane still fits');
 });
+
+test("background work out of free Workers AI room skips quietly: the owner's chat keeps the fallback brain", async () => {
+  // Every keyless web model is down, so Workers AI is the only brain left.
+  globalThis.fetch = async () => new Response('{"error":{"message":"down"}}', { status: 503 });
+  const storage = new MemStorage();
+  // Today's free Workers AI is mostly used: background work must leave 3,500, the owner's chat only 300.
+  await storage.put('ai:neurons', { d: new Date().toISOString().slice(0, 10), used: 6600, by: { chat: 6600 } });
+  const env = { AI: { run: async (model) => ({ response: `cf ${model}` }) } };
+  const r = new R.Router(storage, vaultWith({}), env);
+  const bg = await r.complete([{ role: 'user', content: 'study this' }], [], undefined, { priority: 'background', maxWaitMs: 0 }).then(() => null, (e) => e);
+  assert.ok(bg, 'background work gives way');
+  const chat = await r.complete([{ role: 'user', content: 'hello' }], [], undefined, { maxWaitMs: 0 }).catch((e) => ({ model: String(e?.message ?? e) }));
+  assert.match(chat.model, /^Workers AI/, `the owner's chat still reaches Workers AI (got ${chat.model})`);
+  assert.ok(!(await r.summary()).some((m) => m.provider === 'Workers AI' && m.state === 'cool'), 'no Workers AI model was cooled for an hour');
+});

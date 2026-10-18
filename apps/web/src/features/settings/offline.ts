@@ -1,10 +1,11 @@
 /**
  * SETTINGS → OFFLINE BRAIN: whether this phone can run the small model (offline/brain.ts),
  * DOWNLOAD it (≈352 MB, once, best on Wi-Fi) with a progress bar, DELETE it, when to use it
- * (only when needed / always / off), and a TEST that shows a reply and its speed.
+ * (only when needed / always / off), a TEST that shows a reply and its speed, and how long THINK HARDER
+ * may take on one question (offline/think.ts; 55 s unless changed).
  */
 import { clear, h } from '../../core/dom';
-import { deleteOffline, downloadOffline, offlineBrain, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel } from '../../offline/brain';
+import { deleteOffline, downloadOffline, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, withModel } from '../../offline/brain';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { settings } from '../../state/app';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
@@ -28,6 +29,29 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
     else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
   });
+  // THINK HARDER's time on one question: longer is better on hard ones, and warmer on the phone.
+  const think = h(
+    'select',
+    { 'aria-label': 'Think harder time' },
+    h('option', { value: '30' }, 'THINK HARDER: up to 30 s'),
+    h('option', { value: '55' }, 'THINK HARDER: up to a minute'),
+    h('option', { value: '120' }, 'THINK HARDER: up to 2 minutes'),
+  );
+  think.value = String(offlineBrain.get().thinkSecs || 55);
+  if (!think.value) think.value = '55';
+  think.addEventListener('change', () => {
+    offlineBrain.set({ thinkSecs: Number(think.value) || 55 });
+    toast(`THINK HARDER takes up to ${think.selectedOptions[0]?.textContent?.replace(/^THINK HARDER: up to /, '') ?? 'a minute'} a question`, 'ok');
+  });
+  // Which model: the stock Qwen3, or a week the self-training published (SYSTEM → OFFLINE BRAIN TRAINING).
+  const which = h('select.obmodel', { 'aria-label': 'Offline brain model' });
+  const news = h('div.note.obnew');
+  which.addEventListener('change', () => {
+    if (offlineBrain.get().busy || which.value === offlineBrain.get().model) return;
+    offlineBrain.set({ model: which.value, downloaded: false, loaded: false });
+    toast(`${currentModel().label}: press DOWNLOAD (about ${currentModel().mb} MB, on Wi-Fi)`, 'ok');
+    refresh();
+  });
   const out = h('div.note.obtest');
   let ok = false;
   let ready = false;
@@ -48,15 +72,21 @@ export function offlinePanel(): Panel & { refresh(): void } {
     if (offlineBrain.get().busy) return;
     clear(out, 'Thinking on this phone…');
     let raw = '';
-    void offlineReply(
-      [
-        { role: 'system', content: 'You are Ghosty, a friendly assistant. Answer in one short line.' },
-        { role: 'user', content: 'Say hello in five words.' },
-      ],
-      (t) => {
-        raw += t;
-        out.textContent = cleanReply(raw) || 'Thinking on this phone…';
-      },
+    // Its turn on the model like any other job (never in the middle of a reply, THINK HARDER or the report card).
+    void withModel(
+      'test',
+      () =>
+        offlineReply(
+          [
+            { role: 'system', content: 'You are Ghosty, a friendly assistant. Answer in one short line.' },
+            { role: 'user', content: 'Say hello in five words.' },
+          ],
+          (t) => {
+            raw += t;
+            out.textContent = cleanReply(raw) || 'Thinking on this phone…';
+          },
+        ),
+      { wait: false },
     )
       .then((r) => clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} tokens · ${r.perSecond.toFixed(1)} tokens a second`))
       .catch((e) => clear(out, `The test failed: ${String((e as Error)?.message ?? e).slice(0, 200)}`))
@@ -67,9 +97,21 @@ export function offlinePanel(): Panel & { refresh(): void } {
     clear(prog, bar('DOWNLOAD', frac, `${Math.round(frac * 100)}%`), h('div.note', progressLabel(frac, offlineSize())), text ? h('div.note.obtext', text.slice(0, 160)) : null);
   };
 
+  function paintModels(): void {
+    const s = offlineBrain.get();
+    const list = offlineModels();
+    clear(which, ...list.map((m) => h('option', { value: m.id }, m.id === list.find((x) => x.rev === s.active)?.id ? `${m.label} · recommended` : m.label)));
+    which.value = currentModel().id;
+    which.hidden = list.length <= 2;
+    const best = list.find((m) => m.rev === s.active);
+    news.textContent = best && best.id !== s.model ? `NEW: ${best.label} is the recommended brain (it did better in its test than the brain it was trained from). Choose it above, then DOWNLOAD (about ${best.mb} MB, on Wi-Fi).` : '';
+    news.hidden = !news.textContent;
+  }
+
   function paint(): void {
     const s = offlineBrain.get();
     const m = currentModel();
+    paintModels();
     if (!ok) state.textContent = state.textContent || 'Not available on this device.';
     else if (s.busy === 'download') state.textContent = `Downloading ${m.label} (about ${m.mb} MB)… keep Ghosty open, on Wi-Fi.`;
     else if (s.busy === 'load') state.textContent = `Loading ${m.label} into memory…`;
@@ -97,9 +139,12 @@ export function offlinePanel(): Panel & { refresh(): void } {
 
   p.body.append(
     state,
+    news,
+    which,
     prog,
     h('div.keyrow', download, test, del),
     mode,
+    think,
     out,
     h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
   );

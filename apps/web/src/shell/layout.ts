@@ -18,7 +18,7 @@ const LISTED: Record<string, string> = { settings: 'Settings', system: 'System',
 const GROUPS: Record<string, ListGroup[]> = {
   settings: [
     { title: 'Appearance', match: /^LOOK/ },
-    { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
+    { title: 'Voice and home', match: /^(VOICE|CHARACTER|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
     { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],

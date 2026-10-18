@@ -37,6 +37,7 @@ const G = {
 const MAP: [RegExp, keyof typeof G, string][] = [
   [/^LOOK/, 'brush', '#bf5af2'],
   [/^VOICE/, 'wave', '#ff375f'],
+  [/^CHARACTER/, 'spark', '#ff9f0a'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],
   [/^KEYS/, 'key', '#ffb340'],
   [/^AI ROOM/, 'room', '#ff9f0a'],

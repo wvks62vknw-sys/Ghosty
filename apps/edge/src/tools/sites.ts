@@ -15,6 +15,7 @@
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { durableDelete, durableGet, durablePut } from '../kv';
+import { siteApproval, startSiteBuild } from '../sitebuild';
 import { checkHtml, refusal } from './check';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
@@ -357,7 +358,7 @@ export function siteResponse(site: Site | undefined): Response {
  * scripts (nothing loaded from elsewhere), and it can't be shown outside Ghosty's frame.
  */
 export const PAGE_CSP =
-  `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
+  `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
   // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
@@ -370,6 +371,41 @@ const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
 const when = (t: number) => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
 
 export const siteTools: Tool[] = [
+  {
+    name: 'build_website',
+    description:
+      "Build a complete, professional multi-page website for a business, event, charity, app or person ON YOUR OWN from one request, and publish it — use this whenever the owner asks for a website for something (\"build a website for my friend's barber shop in Walsall\"); never write that page by hand. It plans the pages, finds free credited photos, writes the words, runs accessibility/SEO/phone-layout checks, takes screenshots, critiques and fixes them, then publishes and reports the link (a background project, 5–15 minutes). Pass the owner's words as request plus every fact they gave; leave out what they did not say (it uses sensible defaults and lists them). Never invent reviews.",
+    parameters: {
+      type: 'object',
+      properties: {
+        request: { type: 'string', description: "the owner's request, in their words" },
+        name: { type: 'string', description: 'the business name, if given' },
+        kind: { type: 'string', enum: ['cafe', 'restaurant', 'barber', 'salon', 'trades', 'gym', 'photographer', 'shop', 'clinic', 'estate', 'portfolio', 'event', 'charity', 'saas'] },
+        town: { type: 'string' },
+        address: { type: 'string' },
+        postcode: { type: 'string' },
+        phone: { type: 'string' },
+        email: { type: 'string' },
+        whatsapp: { type: 'string' },
+        hours: { type: 'string', description: 'e.g. "Mon-Fri 9-6, Sat 9-4, Sun closed"' },
+        services: { type: 'string', description: 'services with prices, e.g. "skin fade £20, beard trim £10"' },
+        about: { type: 'string', description: 'what makes it special, in the owner\'s words' },
+        reviews: { type: 'array', description: 'real reviews the owner passed on, only', items: { type: 'object', properties: { quote: { type: 'string' }, name: { type: 'string' }, detail: { type: 'string' }, rating: { type: 'number' } }, required: ['quote', 'name'] } },
+        accreditations: { type: 'string', description: 'only ones the owner named (e.g. "Gas Safe registered")' },
+        areas: { type: 'string', description: 'towns covered (trades)' },
+        instagram: { type: 'string' },
+        established: { type: 'number', description: 'year founded' },
+        booking_url: { type: 'string', description: 'an existing online booking page' },
+        link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
+      },
+      required: ['request'],
+    },
+    risk: 'confirm', // it ends on the public internet: the owner approves the whole build once
+    async approval(a, ctx) {
+      return { args: a, reason: siteApproval(a, ctx.origin, ctx.env) };
+    },
+    run: (a, ctx) => startSiteBuild(a, ctx),
+  },
   {
     name: 'study_site',
     description:

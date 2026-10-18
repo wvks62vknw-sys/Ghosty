@@ -72,17 +72,28 @@ for (const tab of TABS) {
         problems.push(`[${where}] a touch at ${s.x},${s.y} lands on ${s.what}, outside the page that should scroll ("${s.cls}")`);
         continue;
       }
-      await page.evaluate((i) => (document.querySelector(`[data-scroller="${i}"]`).scrollTop = 0), s.i);
-      await page.mouse.move(s.x, s.y);
-      await page.mouse.wheel(0, 240);
-      await page.waitForTimeout(350);
-      const moved = await page.evaluate((i) => document.querySelector(`[data-scroller="${i}"]`).scrollTop, s.i);
       // the page itself, or a list inside it that still had room to move, must have taken the swipe
-      const inner = await page.evaluate(({ x, y }) => {
-        for (let e = document.elementFromPoint(x, y); e; e = e.parentElement) if (e.scrollTop > 0 && !e.dataset.scroller) return true;
-        return false;
-      }, s);
-      if (!(moved > 0) && !inner) problems.push(`[${where}] a swipe starting on ${s.what} (${s.x},${s.y}) does not scroll "${s.cls}"`);
+      const swipe = async () => {
+        await page.evaluate((i) => (document.querySelector(`[data-scroller="${i}"]`).scrollTop = 0), s.i);
+        await page.mouse.move(s.x, s.y);
+        await page.mouse.wheel(0, 240);
+        await page.waitForTimeout(350);
+        const moved = await page.evaluate((i) => document.querySelector(`[data-scroller="${i}"]`)?.scrollTop ?? 0, s.i);
+        const inner = await page.evaluate(({ x, y }) => {
+          for (let e = document.elementFromPoint(x, y); e; e = e.parentElement) if (e.scrollTop > 0 && !e.dataset.scroller) return true;
+          return false;
+        }, s);
+        return moved > 0 || inner;
+      };
+      // (A live panel filling in under the finger can swallow one swipe on a slow machine: a page that really
+      // does not scroll fails the second swipe too, once what is loading has landed.)
+      let ok = await swipe();
+      if (!ok) {
+        await page.evaluate(() => document.querySelectorAll('*').forEach((e) => e.scrollTop && (e.scrollTop = 0)));
+        await page.waitForTimeout(1500);
+        ok = await swipe();
+      }
+      if (!ok) problems.push(`[${where}] a swipe starting on ${s.what} (${s.x},${s.y}) does not scroll "${s.cls}"`);
       await page.evaluate(() => document.querySelectorAll('*').forEach((e) => e.scrollTop && (e.scrollTop = 0)));
     }
     await page.evaluate(() => document.querySelectorAll('[data-scroller]').forEach((e) => delete e.dataset.scroller));

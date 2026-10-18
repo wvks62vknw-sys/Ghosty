@@ -2,9 +2,13 @@
 // is patched to say it can speak and /api/tts answers with a short real WAV: a reply must then
 // play through the shared audio element (its src becomes a blob address), the SETTINGS select
 // switches to the phone's voice (no more /api/tts calls) and back, and a reply carrying one of
-// Ghosty's /i/<id> picture links shows the picture itself as a card.
+// Ghosty's /i/<id> picture links shows the picture itself as a card. Then, on a phone-sized page
+// with a made-up microphone and made-up phone voices: SETTINGS → VOICE (automatic by default,
+// the brain's voices, the phone's natural British voices first, SAMPLE, the fallbacks), and
+// barge-in — Ghosty's own echo never stops it, the owner talking over it does within ~300 ms,
+// the reply is marked cut off, what they said is heard and answered, a tap cuts in too.
 //   node tests/voice.spec.mjs [outDir]
-import { launch, webkitNoise } from './browser.mjs';
+import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
@@ -63,8 +67,9 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   const clipSrc = () => page.evaluate(() => document.querySelector('audio#gvoice')?.src ?? '');
 
   // 1. a reply is spoken in Ghosty's own voice: /api/tts is asked and the audio element plays the clip
+  // the default: the best British voice available — the brain's own natural voice when it can speak
   const caps = await page.evaluate(() => window.__ghosty.settings.get().voiceEngine);
-  if (caps !== 'ghosty') problems.push(`[${name}] the default voice engine is ${caps}, not ghosty`);
+  if (caps !== 'auto') problems.push(`[${name}] the default voice engine is ${caps}, not auto`);
   // the first tap already played a moment of silence through the element: the reply must be a different clip
   const unlockSrc = await clipSrc();
   if (!unlockSrc.startsWith('blob:')) problems.push(`[${name}] the first tap did not unlock the audio element (src "${unlockSrc}")`);
@@ -133,6 +138,308 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.screenshot({ path: `${out}/${name}-voice-picture.png` });
   await ctx.close();
 }
+
+// ---- Barge-in and the voice picker, on the owner's phone size, with a made-up microphone and made-up phone voices ----
+// The microphone: an oscillator through a gain the test turns up and down (a stand-in for the owner's voice; WebKit has
+// no fake microphone of its own, and this works in both engines). The phone's voices: a few, as an iPhone lists them,
+// with speech that "plays" for a moment and records what it was asked to say and in which voice.
+{
+  const name = 'barge';
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript(() => {
+    // Two sounds reach the made-up microphone: the owner (`set`, turned up and down by the test) and Ghosty's own voice
+    // leaking back (`echo`: a level heard only while the voice element is playing, with a louder syllable every 0.7 s),
+    // as a phone's echo cancellation leaves a little of it.
+    const mic = (window.__mic = { calls: 0, constraints: null, echo: 0, set: () => undefined });
+    let playing = false;
+    for (const ev of ['playing', 'pause', 'ended', 'emptied']) document.addEventListener(ev, (e) => e.target?.id === 'gvoice' && (playing = ev === 'playing'), true);
+    // On the prototype: WebKit ignores a method set on navigator.mediaDevices itself.
+    const devices = window.MediaDevices?.prototype ?? navigator.mediaDevices;
+    devices.getUserMedia = async (c) => {
+      mic.calls++;
+      mic.constraints = c;
+      const ac = new AudioContext();
+      await ac.resume().catch(() => undefined);
+      const osc = ac.createOscillator();
+      osc.frequency.value = 220;
+      const gain = ac.createGain();
+      gain.gain.value = 0;
+      const dest = ac.createMediaStreamDestination();
+      osc.connect(gain).connect(dest);
+      osc.start();
+      mic.set = (v) => gain.gain.setValueAtTime(v, ac.currentTime);
+      mic.stream = dest.stream;
+      const echoOsc = ac.createOscillator();
+      echoOsc.frequency.value = 330;
+      const echoGain = ac.createGain();
+      echoGain.gain.value = 0;
+      echoOsc.connect(echoGain).connect(dest);
+      echoOsc.start();
+      setInterval(() => echoGain.gain.setValueAtTime(playing ? mic.echo * (performance.now() % 700 < 60 ? 1.8 : 1) : 0, ac.currentTime), 20);
+      return dest.stream;
+    };
+    // Playwright's WebKit on Linux has no MediaRecorder (Safari on the iPhone does): a stand-in that hands over a
+    // second of real silent WAV when stopped, so the rest of the path (decode, trim, send) runs as it would.
+    if (typeof MediaRecorder === 'undefined') {
+      window.MediaRecorder = class {
+        static isTypeSupported() {
+          return false;
+        }
+        constructor() {
+          this.state = 'inactive';
+          this.mimeType = 'audio/wav';
+        }
+        start() {
+          this.state = 'recording';
+        }
+        stop() {
+          if (this.state === 'inactive') return;
+          this.state = 'inactive';
+          const n = 16000;
+          const b = new DataView(new ArrayBuffer(44 + n * 2));
+          const w = (o, t) => [...t].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+          w(0, 'RIFF'); b.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+          b.setUint32(24, 16000, true); b.setUint32(28, 32000, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, 'data'); b.setUint32(40, n * 2, true);
+          setTimeout(() => {
+            this.ondataavailable?.({ data: new Blob([b.buffer], { type: 'audio/wav' }) });
+            this.onstop?.();
+          }, 10);
+        }
+      };
+    }
+    const voices = [
+      { name: 'Fred', lang: 'en-US' },
+      { name: 'Daniel', lang: 'en-GB' },
+      { name: 'Daniel (Enhanced)', lang: 'en-GB' },
+      { name: 'Serena (Premium)', lang: 'en-GB' },
+      { name: 'Samantha', lang: 'en-US' },
+      { name: 'Amélie', lang: 'fr-CA' },
+    ].map((v) => ({ ...v, voiceURI: v.name, localService: true, default: false }));
+    window.__said = [];
+    window.SpeechSynthesisUtterance = class {
+      constructor(text) {
+        Object.assign(this, { text, voice: null, lang: '', rate: 1, pitch: 1, volume: 1 });
+      }
+    };
+    // On the prototype: WebKit ignores methods set on the speechSynthesis object itself.
+    const synth = window.SpeechSynthesis?.prototype ?? window.speechSynthesis;
+    synth.getVoices = () => voices;
+    synth.speak = (u) => {
+      if (u.text.trim()) window.__said.push({ text: u.text, voice: u.voice?.name ?? null });
+      setTimeout(() => {
+        u.onstart?.();
+        setTimeout(() => u.onend?.(), 150);
+      }, 10);
+    };
+    synth.cancel = () => undefined;
+    synth.resume = () => undefined;
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  const ttsBodies = [];
+  let ttsAnswer = { voice: null, note: null, status: 200, seconds: 0.1 };
+  let stt = 0;
+  const heard = ['tell me about the weather', 'what about tomorrow', 'thanks'];
+  await ctx.route('**/api/status', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    j.speech = { stt: true, tts: true };
+    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+  });
+  await ctx.route('**/api/tts', async (route) => {
+    ttsBodies.push(JSON.parse(route.request().postData() ?? '{}'));
+    if (ttsAnswer.status !== 200) return route.fulfill({ status: ttsAnswer.status, contentType: 'application/json', body: JSON.stringify({ error: "no voice: Ghosty's own voice needs Workers AI" }) });
+    // The brain says which voice spoke: the one asked for ('auto' is Draco) unless this test says otherwise.
+    const asked = ttsBodies.at(-1).voice;
+    const spoke = ttsAnswer.voice ?? (asked === 'auto' || !asked ? 'draco' : asked);
+    await route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav', 'x-voice': spoke, ...(ttsAnswer.note ? { 'x-voice-note': ttsAnswer.note } : {}), ...(ttsAnswer.reason ? { 'x-voice-reason': ttsAnswer.reason } : {}) }, body: wav(Math.round(16_000 * ttsAnswer.seconds)) });
+  });
+  await ctx.route('**/api/stt', async (route) => {
+    const size = route.request().postDataBuffer()?.length ?? 0;
+    const type = route.request().headers()['content-type'];
+    stt++;
+    // (WebKit does not show a test the bytes of a Blob body: the size is checked in Chromium.)
+    if ((size < 1000 && !isWebKit) || !/^audio\//.test(type)) problems.push(`[${name}] recording ${stt} sent as ${type}, ${size} bytes`);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: heard[stt - 1] ?? '' }) });
+  });
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.waitForTimeout(800);
+  const voiceState = () => page.evaluate(() => window.__ghosty.ui.get().voice);
+  const waitVoice = (want, ms = 15000) => page.waitForFunction((w) => window.__ghosty.ui.get().voice === w, want, { timeout: ms }).then(() => true, () => false);
+  const say = async (level, ms) => {
+    await page.evaluate((v) => window.__mic.set(v), level);
+    if (ms) await page.waitForTimeout(ms);
+  };
+
+  // 1. SETTINGS → VOICE: automatic by default, naming the natural British voice this phone has; the brain's voices; SAMPLE
+  await page.evaluate(() => (location.hash = 'settings'));
+  await openPanel(page, 'settings', 'VOICE');
+  const engineSel = page.locator('select[aria-label="Voice engine"]');
+  await engineSel.waitFor({ timeout: 10000 });
+  if ((await engineSel.inputValue()) !== 'auto') problems.push(`[${name}] the voice picker does not start on automatic`);
+  const vnow = (await page.locator('.note.vnow').textContent()) ?? '';
+  if (!/Draco/.test(vnow) || !/Serena \(Premium\) on this phone/.test(vnow)) problems.push(`[${name}] the automatic voice is explained as "${vnow}"`);
+  await engineSel.selectOption('ghosty');
+  const brainOpts = await page.locator('select[aria-label="Voice"] option').allTextContents();
+  for (const v of ['Draco', 'Pandora', 'Helios', 'Athena', 'Melo']) if (!brainOpts.some((o) => o.startsWith(v))) problems.push(`[${name}] the brain's voices are missing ${v}: ${brainOpts.join(' | ')}`);
+  await page.selectOption('select[aria-label="Voice"]', 'pandora');
+  // SAMPLE is STOP while a sample is still being said: a click then would only stop it, so wait for the last one to end.
+  const sampleNow = async () => {
+    await page.waitForFunction(() => document.querySelector('button[aria-label="Hear a sample of this voice"]')?.textContent === 'SAMPLE', null, { timeout: 10000 }).catch(() => undefined);
+    await page.click('button[aria-label="Hear a sample of this voice"]');
+  };
+  await sampleNow();
+  await page.waitForFunction(() => /Just spoke: Pandora/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] SAMPLE did not say which voice spoke`));
+  const sampled = ttsBodies.filter((b) => /how I'll sound|Say the word|This is how/.test(b.text ?? ''));
+  if (!sampled.length || sampled.some((b) => b.voice !== 'pandora')) problems.push(`[${name}] SAMPLE asked the brain for ${JSON.stringify(ttsBodies)}`);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${out}/phone-voice-picker.png` });
+  // this phone's voices: natural British ones first, marked; novelty and non-English ones not first or not at all
+  await engineSel.selectOption('phone');
+  const phoneOpts = await page.locator('select[aria-label="Voice"] option').allTextContents();
+  if (!/Serena \(Premium\)/.test(phoneOpts[0] ?? '') || !/Serena \(Premium\).*natural/.test(phoneOpts[1] ?? '') || !/Daniel \(Enhanced\)/.test(phoneOpts[2] ?? '')) problems.push(`[${name}] the phone's voices are listed as ${phoneOpts.join(' | ')}`);
+  if (phoneOpts.some((o) => /Amélie/.test(o))) problems.push(`[${name}] a French voice is offered`);
+  if (/Fred/.test(phoneOpts[1] ?? '')) problems.push(`[${name}] a novelty voice is ranked first`);
+  await sampleNow();
+  await page.waitForFunction(() => window.__said.some((s) => /how I'll sound/.test(s.text)), null, { timeout: 8000 }).catch(() => undefined);
+  const sample = await page.evaluate(() => window.__said.find((s) => /how I'll sound/.test(s.text)));
+  if (sample?.voice !== 'Serena (Premium)') problems.push(`[${name}] the phone sample spoke in ${JSON.stringify(sample)}`);
+  // back to automatic: a passing Aura error is not "used up": the plain clip the brain sent plays, the phone stays quiet
+  await engineSel.selectOption('auto');
+  ttsAnswer = { voice: 'melo', note: 'the natural voice did not answer', reason: 'error', status: 200, seconds: 0.1 };
+  // (only the sample line counts: anything else the phone may still be finishing is not this sample)
+  const quiet = await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length);
+  const asked = ttsBodies.length;
+  await sampleNow();
+  await page.waitForFunction(() => /Just spoke: Melo/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] after an Aura error the plain clip was not played`));
+  if ((await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
+  if (ttsBodies.length === asked) problems.push(`[${name}] after an Aura error the brain was not asked`);
+  // when the natural voice's share is used up for today, the phone's natural voice takes over
+  ttsAnswer = { voice: 'melo', note: "today's share for the natural voice is used up", reason: 'share', status: 200, seconds: 0.1 };
+  const before = await page.evaluate(() => window.__said.length);
+  await sampleNow();
+  await page.waitForFunction((n) => window.__said.length > n, before, { timeout: 8000 }).catch(() => problems.push(`[${name}] with the natural voice used up, the phone did not take over`));
+  const fallback = await page.evaluate(() => window.__said.at(-1));
+  if (fallback && fallback.voice !== 'Serena (Premium)') problems.push(`[${name}] the fallback spoke in ${fallback.voice}`);
+  // no voice on the brain at all: the phone speaks (graceful)
+  ttsAnswer = { voice: null, note: null, status: 404, seconds: 0.1 };
+  await engineSel.selectOption('ghosty');
+  const before2 = await page.evaluate(() => window.__said.length);
+  await sampleNow();
+  await page.waitForFunction((n) => window.__said.length > n, before2, { timeout: 8000 }).catch(() => problems.push(`[${name}] a brain without a voice left the sample silent`));
+  // back to automatic, Ghosty's natural voice, a reply long enough to talk over
+  ttsAnswer = { voice: null, note: null, status: 200, seconds: 4 };
+  await engineSel.selectOption('auto');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(400);
+
+  // 2. A voice conversation: the mic asks once (echo cancellation on), the owner speaks, Ghosty answers aloud
+  await page.evaluate(() => (window.__mic.echo = 0.05));
+  await page.click('#mic');
+  if (!(await waitVoice('listening'))) problems.push(`[${name}] the mic did not start listening (${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? 'no toast')})`);
+  await page.waitForTimeout(400);
+  await say(0.3, 700);
+  await say(0, 0);
+  if (!(await waitVoice('speaking', 20000))) problems.push(`[${name}] Ghosty did not speak the reply (stt calls ${stt}, voice ${await voiceState()})`);
+  const cons = await page.evaluate(() => window.__mic.constraints);
+  if (!cons?.audio?.echoCancellation) problems.push(`[${name}] the microphone was opened without echo cancellation: ${JSON.stringify(cons)}`);
+  // Ghosty's own voice leaking back into the mic (steady, with louder syllables) must not stop it
+  await page.waitForFunction(() => !document.querySelector('audio#gvoice')?.paused, null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(1200);
+  if ((await voiceState()) !== 'speaking') problems.push(`[${name}] Ghosty stopped for its own echo (voice ${await voiceState()})`);
+  // 3. the owner talks over it: speech stops within about 300 ms, the reply is marked cut off, and what they say is heard
+  const took = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const t0 = performance.now();
+        const off = window.__ghosty.ui.subscribe((s) => {
+          if (s.voice !== 'speaking') {
+            off?.();
+            resolve(performance.now() - t0);
+          }
+        });
+        window.__mic.set(0.3);
+        setTimeout(() => resolve(-1), 3000);
+      }),
+  );
+  if (took < 0) problems.push(`[${name}] talking over Ghosty did not stop it`);
+  // Headless WebKit here runs the page's 20 ms timer every 50–70 ms, so it gets a little more room than Chromium.
+  else if (took > (isWebKit ? 500 : 400)) problems.push(`[${name}] talking over Ghosty took ${Math.round(took)} ms to stop it (want about 300)`);
+  else console.log(`[${name}] barge-in stopped Ghosty in ${Math.round(took)} ms`);
+  const paused = await page.evaluate(() => document.querySelector('audio#gvoice')?.paused);
+  if (!paused) problems.push(`[${name}] the audio still plays after the barge-in`);
+  await page.waitForTimeout(500);
+  await say(0, 0);
+  await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: what about tomorrow'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] what the owner said over Ghosty was not heard and answered (stt calls ${stt})`));
+  await page.click('.logbtn');
+  await page.waitForFunction(() => document.querySelectorAll('#pg-core .log .msg .cutchip').length >= 1, null, { timeout: 3000 }).catch(() => undefined);
+  const cut = await page.locator('#pg-core .log .msg .cutchip').count();
+  if (cut < 1) problems.push(`[${name}] the interrupted reply is not marked as cut off`);
+  await page.screenshot({ path: `${out}/phone-barge-cut.png` });
+  await page.click('.logbtn');
+  // 4. a tap on the reactor cuts in too
+  if (!(await waitVoice('speaking', 15000))) problems.push(`[${name}] the second reply was not spoken`);
+  await page.waitForTimeout(300);
+  const t0 = Date.now();
+  // (the reactor lets taps through to the scene behind it: the tap lands on the page, as a finger's would)
+  const box = await page.locator('#pg-core .rwrap').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 3000 }).catch(() => problems.push(`[${name}] a tap did not stop Ghosty`));
+  if (Date.now() - t0 > 1500) problems.push(`[${name}] a tap took ${Date.now() - t0} ms to stop Ghosty`);
+  await page.waitForFunction(() => document.querySelectorAll('#pg-core .log .msg .cutchip').length >= 2, null, { timeout: 3000 }).catch(() => undefined);
+  const cut2 = await page.locator('#pg-core .log .msg .cutchip').count();
+  if (cut2 < 2) problems.push(`[${name}] the tapped reply is not marked as cut off (${cut2} marked)`);
+  if ((await page.evaluate(() => window.__mic.calls)) !== 1) problems.push(`[${name}] the microphone was asked for ${await page.evaluate(() => window.__mic.calls)} times in one conversation`);
+  // the conversation goes on listening; the mic button ends it
+  await waitVoice('listening', 5000);
+  await page.click('#mic');
+  await page.waitForTimeout(500);
+  if ((await voiceState()) === 'listening') problems.push(`[${name}] the mic button did not end the conversation`);
+  // 5. speech that is not a reply (an approval's question read out): an interruption marks no reply — not even the
+  // reply before it, which was heard to the end
+  ttsAnswer = { voice: null, note: null, status: 200, seconds: 0.1 };
+  await page.click('.logbtn');
+  await page.fill('#cin', 'a short one please');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: a short one please'), null, { timeout: 10000 }).catch(() => undefined);
+  await page.click('.logbtn');
+  await waitVoice('idle', 10000);
+  await page.waitForTimeout(500);
+  ttsAnswer = { voice: null, note: null, status: 200, seconds: 4 };
+  const approval = `${JSON.stringify({ t: 'approval', id: 'ap1', name: 'forget_everything', reason: 'Shall I forget everything I know about you? Say yes or no when you are ready.', args: {} })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
+  await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: approval }));
+  await page.click('.logbtn');
+  await page.fill('#cin', 'forget everything');
+  await page.keyboard.press('Enter');
+  await page.click('.logbtn');
+  if (!(await waitVoice('speaking', 10000))) problems.push(`[${name}] the approval was not read out`);
+  await page.waitForTimeout(300);
+  const cutsBefore = await page.locator('#pg-core .log .msg .cutchip').count();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 3000 }).catch(() => problems.push(`[${name}] a tap did not stop the approval being read`));
+  await page.waitForTimeout(300);
+  if ((await page.locator('#pg-core .log .msg .cutchip').count()) !== cutsBefore) problems.push(`[${name}] interrupting the approval's question marked a reply as cut off`);
+  await ctx.unroute('**/api/chat');
+  // 6. the app hidden (another app, the lock screen): the microphone is let go and the conversation ends
+  await page.click('#mic');
+  if (!(await waitVoice('listening', 8000))) problems.push(`[${name}] the mic did not start listening again`);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(500);
+  const hidden = await page.evaluate(() => ({ voice: window.__ghosty.ui.get().voice, on: document.querySelector('#mic').classList.contains('on'), live: window.__mic.stream?.getTracks().some((t) => t.readyState === 'live') }));
+  if (hidden.voice === 'listening' || hidden.on || hidden.live) problems.push(`[${name}] hidden, the microphone is still held: ${JSON.stringify(hidden)}`);
+  await ctx.close();
+}
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch and the picture card.");
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in.");
 process.exit(problems.length ? 1 : 0);

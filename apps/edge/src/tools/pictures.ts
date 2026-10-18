@@ -7,6 +7,7 @@
 import { LensError, PICTURE_TTL_S, PICTURES_PER_DAY, storeImage } from '../lens';
 import { fromBase64 } from '../speech';
 import { arg, type Tool } from './types';
+import { cost, neurons } from '../neurons';
 
 const MODEL = '@cf/black-forest-labs/flux-1-schnell';
 /** Pictures made are counted apart from Lens shares (`img:count:`). */
@@ -36,6 +37,9 @@ export const picturesTools: Tool[] = [
       ctx.progress('drawing…');
       let r: { image?: unknown } | null;
       try {
+        const n = cost.image(steps);
+        if (!(await neurons().room('image', n))) throw new Error("today's free Workers AI is nearly used up (the rest is kept for hearing you and for answering): pictures are back at midnight UTC");
+        await neurons().charge('image', n);
         r = (await ai.run(MODEL, { prompt, steps })) as { image?: unknown } | null;
       } catch (e) {
         throw new Error(`the picture model did not answer: ${String((e as Error)?.message ?? e).slice(0, 160)}`);
