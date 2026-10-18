@@ -14,7 +14,7 @@
 import { clear, h } from '../../core/dom';
 import { cmText } from '../../measure/geom';
 import { scalePhoto } from '../../measure/autoscale';
-import { depthModel } from '../../measure/depth';
+import { allowDepthDownload, depthModel, depthNeedsAsking } from '../../measure/depth';
 import { readExif } from '../../measure/exif';
 import type { Cue } from '../../measure/cues';
 import { enhance, findPageIn, quadArea, toGray, warpPage, type Quad } from '../../scan/page';
@@ -113,6 +113,18 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
   const pickBtn = button('PICK PHOTOS', () => file.click(), 'on');
   const useBtn = button('USE THIS PLAN', () => use(), 'warn');
   const undoBtn = button('UNDO', () => undo());
+  // the room's photos need the 50 MB distance model: one tap before the first download
+  let waiting: File[] | null = null;
+  const getBtn = button('DOWNLOAD 50 MB, ONCE', () => {
+    allowDepthDownload();
+    const f = waiting;
+    waiting = null;
+    getBtn.hidden = true;
+    if (f) void run(f, true);
+  }, 'on');
+  getBtn.hidden = true;
+  /** Photos picked while others are still being worked on wait their turn. */
+  let queued: File[] | null = null;
   const preview = h('canvas.spacephotoview', { 'aria-label': 'What was found in the photo' });
   const notes = h('div.note.spacephotonotes');
   fp.body.append(
@@ -120,7 +132,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     kinds,
     preview,
     notes,
-    h('div.row.wrap', useBtn),
+    h('div.row.wrap', useBtn, getBtn),
     h('div.note', 'A photo of a drawn or printed plan with its sizes written on gives every room, door and window. Photos of the room itself: stand with your back to a wall, phone at chest height, and take the opposite wall with a strip of floor; a second photo a quarter turn round makes it surer (the 0.5× lens sees more of a wide room). A wrong length? Tap that wall on the plan and type its real length: everything rescales. Nothing leaves the phone.'),
     file,
   );
@@ -257,8 +269,13 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     status(`The room: ${cmText(size.w * 10)} × ${cmText(size.d * 10)} (±${size.wSd} × ±${size.dSd} cm) from ${seen.length} photo${seen.length === 1 ? '' : 's'}; scale from ${used.size ? [...used].join(', ') : 'the depth alone'}.${size.notes.length ? ` Note: ${size.notes.join('; ')}.` : ''} Doors and windows are not found from room photos: add them on the plan.`, 'ok');
   };
 
-  const run = async (files: File[]) => {
-    if (!files.length || S.busy) return;
+  const run = async (files: File[], asked = false): Promise<void> => {
+    if (!files.length) return;
+    if (S.busy) {
+      queued = files;
+      status('Still working on the last photos: these are next.', 'mid');
+      return;
+    }
     S.busy = true;
     result = null;
     paint();
@@ -274,12 +291,19 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         k = g && looksLikeDrawing({ w: c.width, h: c.height, g: toGray(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height) }) ? 'drawing' : 'room';
       }
       if (k === 'drawing') await fromDrawing(files[0]!);
-      else await fromRoom(files);
+      else if (!asked && (await depthNeedsAsking())) {
+        waiting = files;
+        getBtn.hidden = false;
+        status('Photos of the room need a 50 MB distance model, downloaded once and kept on the phone (Wi-Fi is best): DOWNLOAD to go on.', 'mid');
+      } else await fromRoom(files);
     } catch (e) {
       status(String((e as Error)?.message ?? e), 'off');
     } finally {
       S.busy = false;
       paint();
+      const next = queued;
+      queued = null;
+      if (next) void run(next);
     }
   };
 

@@ -22,10 +22,10 @@ import { button, toast } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
 import { hitBox, type Detection } from '../../vision/boxes';
 import { loadImageFile } from '../../vision/camera';
-import { scalePhoto } from '../../measure/autoscale';
+import { refuse, scalePhoto, type Scaled } from '../../measure/autoscale';
 import { cuesLine, type Fused } from '../../measure/cues';
-import { depthModel } from '../../measure/depth';
-import { band, lengthFromDepth, rectFromDepth, regionAt, regionSize, type DepthMap } from '../../measure/depth3d';
+import { allowDepthDownload, depthModel, depthNeedsAsking } from '../../measure/depth';
+import { band, SCENE_WORDS, lengthFromDepth, rectFromDepth, regionAt, regionSize, type DepthMap } from '../../measure/depth3d';
 import { intrinsicsFor, readExif, type Exif, type Intrinsics } from '../../measure/exif';
 import { bothText, calibrateDistance, calibrateHeight, calibrateRect, CARD_MM, A4_MM, cmText, confidence, describeMeasurements, DOOR_MM, ftInText, lengthMm, orderCorners, parseLength, rangeText, rectMm, type Calibration, type Measurement, type Pt, type RefKind } from '../../measure/geom';
 import { space } from '../../space/store';
@@ -46,10 +46,10 @@ export interface MeasureState {
   calibrated: boolean;
   tool: Tool;
   points: number;
-  results: { kind: Measurement['kind']; w: number; h?: number; d?: number; range?: number; name?: string; confidence: string; text: string }[];
+  results: { kind: Measurement['kind']; w: number; h?: number; d?: number; range?: number; name?: string; via: string; confidence: string; text: string }[];
   status: string;
   /** AUTO: where the depth work is, the camera it assumed, the cues used and set aside, the scale's doubt. */
-  auto: { state: 'off' | 'loading' | 'working' | 'ready' | 'failed'; camera: string; cues: string[]; ignored: string[]; scale: number; sigma: number; ms: number; error: string };
+  auto: { state: 'off' | 'ask' | 'loading' | 'working' | 'ready' | 'failed'; camera: string; cues: string[]; ignored: string[]; warnings: string[]; scale: number; sigma: number; ms: number; error: string; scene: string; sheet: 'none' | 'seen' | 'confirmed'; sheetWhy: string };
   /** The picture being measured (pixels), when there is one. */
   frame: { w: number; h: number } | null;
   /** Where a picture pixel is on the page (client pixels), for a test's taps. */
@@ -65,7 +65,7 @@ export const measureState: MeasureState = {
   results: [],
   status: '',
   frame: null,
-  auto: { state: 'off', camera: '', cues: [], ignored: [], scale: 1, sigma: 0, ms: 0, error: '' },
+  auto: { state: 'off', camera: '', cues: [], ignored: [], warnings: [], scale: 1, sigma: 0, ms: 0, error: '', scene: '', sheet: 'none', sheetWhy: '' },
 };
 
 /** On the console/test handle; main.ts makes __ghosty after the first tab opens (a reload landing here), so this retries. */
@@ -126,6 +126,10 @@ export function createMeasureMode(L: LensContext): Mode {
   let fused: Fused | null = null;
   let dets: Detection[] = [];
   let colours: Uint8ClampedArray | null = null;
+  let scaled: Scaled | null = null;
+  /** Where the main thing was found (shown-picture pixels), to measure it again at a new scale. */
+  let mainSeed: Pt | null = null;
+  let tick = 0;
   /** Bumped for every new picture: work for an older one is dropped when it finishes. */
   let autoGen = 0;
 
@@ -148,6 +152,13 @@ export function createMeasureMode(L: LensContext): Mode {
   const distRow = h('div.keyrow.measin', h('span.lab', 'TO THE WALL'), distIn, h('small.note', 'm'), button('SET', () => setDistance()));
   distIn.addEventListener('keydown', (e) => e.key === 'Enter' && setDistance());
   const autoNote = h('div.note.measauto');
+  // one tap before the first 50 MB download; a yes for a sheet AUTO found
+  const getBtn = button('DOWNLOAD 50 MB, ONCE', () => {
+    allowDepthDownload();
+    startAuto(true);
+  }, 'on');
+  const sheetBtn = button('YES, THAT IS AN A4 SHEET', () => confirmSheet(), 'warn');
+  const autoRow = h('div.row.wrap.measautorow', getBtn, sheetBtn);
 
   // ---- what to measure
   const thingBtn = button('THING · 1 TAP', () => setTool('thing'));
@@ -173,6 +184,7 @@ export function createMeasureMode(L: LensContext): Mode {
     h('div.lab', '1 · THE SCALE'),
     refRow,
     autoNote,
+    autoRow,
     doorRow,
     distRow,
     h('div.lab', '2 · MEASURE'),
@@ -180,7 +192,7 @@ export function createMeasureMode(L: LensContext): Mode {
     guide,
     list,
     h('div.row.wrap', undoBtn, clearBtn, saveBtn, askBtn),
-    h('div.note', 'AUTO needs nothing: the phone works out distances from the photo itself (a 50 MB model, downloaded once) and checks them against things of known size it can see; it gives a likely range. For exact sizes on one surface, use a bank card or A4 sheet on it. Nothing leaves the phone unless you press ASK GHOSTY.'),
+    h('div.note', 'AUTO needs nothing: for rooms indoors, things 0.5–10 m away, the phone works out distances from the photo itself (a 50 MB model, downloaded once; about half a minute a photo) and checks them against things of known size it can see. It gives a likely range: about 1 in 10 measurements is off by around 40 %, and only the main camera has been checked on real photos. For exact sizes on one surface, use a bank card or A4 sheet on it. Nothing leaves the phone unless you press ASK GHOSTY.'),
   );
 
   const refDef = () => REFS.find((r) => r.id === S.ref)!;
@@ -188,17 +200,17 @@ export function createMeasureMode(L: LensContext): Mode {
   const via = (): string => (S.ref === 'auto' ? autoVia() : S.ref === 'card' ? 'bank card' : S.ref === 'a4' ? 'A4 sheet' : S.ref === 'door' ? `door ${Math.round(parseLength(doorIn.value) ?? DOOR_MM)} mm` : `distance ${distIn.value.trim()} m`);
   const auto = () => S.ref === 'auto';
   /** Ready to measure: AUTO's depth worked out, or a reference set. */
-  const scaled = () => (auto() ? !!depth : !!cal);
+  const ready = () => (auto() ? !!depth : !!cal);
 
   const sizeText = (m: Measurement) => (m.kind === 'object' ? `${cmText(m.w)} × ${cmText(m.h ?? 0)}${m.d ? ` × ${cmText(m.d)}` : ''}` : m.kind === 'rect' ? `${cmText(m.w)} × ${cmText(m.h ?? 0)}` : cmText(m.w));
 
   const paintState = () => {
     S.refPoints = refPts.length;
-    S.calibrated = scaled();
+    S.calibrated = ready();
     S.tool = tool;
     S.points = pts.length;
     S.frame = photo ? { w: photo.width, h: photo.height } : null;
-    S.results = results.map((r) => ({ kind: r.m.kind, w: r.m.w, h: r.m.h, d: r.m.d, range: r.m.range, name: r.m.name, confidence: r.m.confidence, text: sizeText(r.m) }));
+    S.results = results.map((r) => ({ kind: r.m.kind, w: r.m.w, h: r.m.h, d: r.m.d, range: r.m.range, name: r.m.name, via: r.m.via, confidence: r.m.confidence, text: sizeText(r.m) }));
     for (const [id, b] of refBtns) b.classList.toggle('on', id === S.ref);
     doorRow.hidden = S.ref !== 'door';
     distRow.hidden = S.ref !== 'distance';
@@ -223,7 +235,18 @@ export function createMeasureMode(L: LensContext): Mode {
     else next = tool === 'thing' ? 'Tap a thing for its width × height × depth.' : tool === 'length' ? `Tap two points (${pts.length} of 2).` : `Tap the wall’s four corners (${pts.length} of 4).`;
     guide.textContent = next;
     const A = S.auto;
-    autoNote.textContent = A.state === 'ready' ? `${fused ? cuesLine(fused, A.camera) : ''}${A.ignored.length ? `. Not used: ${A.ignored.join('; ')}` : ''}.` : A.state === 'failed' ? `AUTO could not run: ${A.error}` : A.state === 'off' ? 'AUTO: pick or hold a photo; nothing to set.' : 'AUTO: working out distances…';
+    autoNote.textContent =
+      A.state === 'ready'
+        ? `${A.scene ? `${A.scene} ` : ''}${fused ? cuesLine(fused, A.camera) : ''}${A.ignored.length ? `. Not used: ${A.ignored.join('; ')}` : ''}.${A.warnings.length ? ` Careful: ${A.warnings.join('; ')}.` : ''}${A.sheet === 'seen' ? ' A light sheet was seen: if it is an A4 sheet, say so and it sets the scale.' : ''}`
+        : A.state === 'failed'
+          ? `AUTO could not run: ${A.error}`
+          : A.state === 'ask'
+            ? 'AUTO needs its 50 MB distance model, downloaded once and kept on the phone (Wi-Fi is best). Or pick a card, A4 sheet, door or distance.'
+            : A.state === 'off'
+              ? 'AUTO: pick or hold a photo; nothing to set.'
+              : 'AUTO: working out distances… (about half a minute)';
+    getBtn.hidden = !(auto() && A.state === 'ask');
+    sheetBtn.hidden = !(auto() && A.state === 'ready' && A.sheet === 'seen');
     draw();
   };
 
@@ -332,19 +355,34 @@ export function createMeasureMode(L: LensContext): Mode {
   const inSource = (p: Pt): Pt => ({ x: p.x - pad.x, y: p.y - pad.y });
   const outSource = (p: Pt): Pt => ({ x: p.x + pad.x, y: p.y + pad.y });
 
-  const startAuto = () => {
+  const startAuto = (asked = false) => {
     const c = source;
     if (!c) return;
     const gen = ++autoGen;
     depth = null;
     fused = null;
+    scaled = null;
     dets = [];
     const size = { w: c.width, h: c.height };
     K = intrinsicsFor(size, exif);
-    Object.assign(S.auto, { state: 'loading', camera: K.source, cues: [], ignored: [], scale: 1, sigma: 0, ms: 0, error: '' });
+    Object.assign(S.auto, { state: 'loading', camera: K.source, cues: [], ignored: [], warnings: [], scale: 1, sigma: 0, ms: 0, error: '', scene: '', sheet: 'none' });
     paintState();
     void (async () => {
+      const t0 = performance.now();
       try {
+        if (!asked && (await depthNeedsAsking())) {
+          if (gen !== autoGen) return;
+          S.auto.state = 'ask';
+          paintState();
+          if (auto()) status('AUTO needs a 50 MB model once: DOWNLOAD, or pick a card or sheet', 'mid');
+          return;
+        }
+        // the time so far, every second, while it works
+        window.clearInterval(tick);
+        tick = window.setInterval(() => {
+          if (gen !== autoGen || S.auto.state !== 'working') return void window.clearInterval(tick);
+          if (auto()) status(`working out distances… ${Math.round((performance.now() - t0) / 1000)} s (about half a minute)`, 'mid');
+        }, 1000);
         const got = await scalePhoto(c, exif, (t) => {
           if (gen !== autoGen) return;
           if (/working out/.test(t) && S.auto.state !== 'working') {
@@ -353,13 +391,16 @@ export function createMeasureMode(L: LensContext): Mode {
           }
           if (auto()) status(t, 'mid');
         }, { alive: () => gen === autoGen });
+        window.clearInterval(tick);
         if (gen !== autoGen) return;
+        scaled = got;
         K = got.K;
         fused = got.fused;
         dets = got.dets;
         colours = got.rgb;
         depth = got.D;
-        Object.assign(S.auto, { state: 'ready', cues: fused.used, ignored: fused.ignored, scale: fused.scale, sigma: fused.sigma, ms: Math.round(got.ms) });
+        const secs = Math.round((performance.now() - t0) / 1000);
+        Object.assign(S.auto, { state: 'ready', cues: fused.used, ignored: fused.ignored, warnings: fused.warnings, scale: fused.scale, sigma: fused.sigma, ms: Math.round(got.ms), scene: got.scene ? SCENE_WORDS[got.scene] : '', sheet: got.sheet ? 'seen' : 'none', sheetWhy: got.sheetWhy });
         // the main thing in view, measured straight away: the detector's biggest, most central box, else the middle of the picture
         const centre = { x: size.w / 2, y: size.h / 2 };
         const main = dets
@@ -367,16 +408,35 @@ export function createMeasureMode(L: LensContext): Mode {
           .map((d) => ({ d, s: (d.box.w * d.box.h) / (size.w * size.h) - Math.hypot(d.box.x + d.box.w / 2 - centre.x, d.box.y + d.box.h / 2 - centre.y) / Math.hypot(size.w, size.h) }))
           .sort((a2, b2) => b2.s - a2.s)[0]?.d;
         const seed = main ? { x: main.box.x + main.box.w / 2, y: main.box.y + main.box.h / 2 } : centre;
-        if (auto() && !results.length) measureThing(outSource(seed), 'the main thing in view');
+        mainSeed = outSource(seed);
+        if (auto() && !results.length) measureThing(mainSeed, 'the main thing in view');
         paintState();
-        if (auto()) status(`distances ready (${(got.ms / 1000).toFixed(1)} s) · tap a thing to measure it`, 'ok');
+        if (auto()) status(got.scene ? SCENE_WORDS[got.scene] : `distances ready (${secs} s) · tap a thing to measure it`, got.scene ? 'off' : 'ok');
       } catch (e) {
+        window.clearInterval(tick);
         if (gen !== autoGen) return;
         Object.assign(S.auto, { state: 'failed', error: String((e as Error)?.message ?? e) });
         paintState();
         if (auto()) status(`AUTO could not run: ${S.auto.error}`, 'off');
       }
     })();
+  };
+
+  /** The owner says the light sheet AUTO saw is an A4 sheet: it sets the scale (σ 4 %); the main thing is measured again. */
+  const confirmSheet = () => {
+    if (!scaled?.sheet) return;
+    const got = refuse(scaled, 'confirmed');
+    fused = got.fused;
+    depth = got.D;
+    Object.assign(S.auto, { cues: fused.used, ignored: fused.ignored, warnings: fused.warnings, scale: fused.scale, sigma: fused.sigma, sheet: 'confirmed' });
+    const first = results[0];
+    if (results.length === 1 && first?.m.kind === 'object' && first.note.startsWith('the main thing')) {
+      results = [];
+      const q = first.pts;
+      measureThing(mainSeed ?? { x: (q[0]!.x + q[2]!.x) / 2, y: (q[0]!.y + q[2]!.y) / 2 }, 'the main thing in view');
+    }
+    paintState();
+    status('scale set by the A4 sheet · tap a thing to measure it', 'ok');
   };
 
   /** AUTO: the thing under a tap (shown-picture pixels): its region in the depth map, its size in 3-D. */
@@ -387,14 +447,29 @@ export function createMeasureMode(L: LensContext): Mode {
     const hit = hitBox(dets, sp.x, sp.y);
     const det = hit >= 0 ? dets[hit]! : null;
     const within = det ? { x: det.box.x - det.box.w * 0.04, y: det.box.y - det.box.h * 0.04, w: det.box.w * 1.08, h: det.box.h * 1.08 } : undefined;
-    const region = regionAt(depth, size, sp, { within, ...(colours ? { rgb: colours } : {}) });
-    const sz = regionSize(depth, K, size, region);
+    let region = regionAt(depth, size, sp, { within, ...(colours ? { rgb: colours } : {}) });
+    // the thing measured is never its own cue: tapping the sheet measures it without the sheet's scale
+    let D = depth;
+    let f = fused;
+    const q = scaled?.sheet?.quad;
+    if (q && S.auto.sheet !== 'none' && f.used.some((u) => /sheet/.test(u))) {
+      const cxq = (q[0].x + q[1].x + q[2].x + q[3].x) / 4;
+      const cyq = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+      const bx0 = region.box;
+      if (cxq >= bx0.x && cxq <= bx0.x + bx0.w && cyq >= bx0.y && cyq <= bx0.y + bx0.h) {
+        const without = refuse(scaled!, 'out');
+        D = without.D;
+        f = without.fused;
+        region = regionAt(D, size, sp, { within, ...(colours ? { rgb: colours } : {}) });
+      }
+    }
+    const sz = regionSize(D, K, size, region);
     if (!(sz.w > 0 && sz.h > 0)) return void toast('Nothing to measure there: tap the middle of the thing', 'warn');
-    const b = band(Math.max(sz.w, sz.h), fused.sigma, Math.hypot(region.box.w, region.box.h));
+    const b = band(Math.max(sz.w, sz.h), f.sigma, Math.hypot(region.box.w, region.box.h));
     const bx = region.box;
     const corners: Pt[] = [{ x: bx.x, y: bx.y }, { x: bx.x + bx.w, y: bx.y }, { x: bx.x + bx.w, y: bx.y + bx.h }, { x: bx.x, y: bx.y + bx.h }].map(outSource);
     const d = sz.d >= 20 ? sz.d : undefined;
-    addResult({ kind: 'object', w: sz.w, h: sz.h, ...(d ? { d } : {}), confidence: b.level, via: autoVia(), range: b.sigma, ...(det ? { name: det.label } : {}) }, corners, `${note ? `${note}; ` : ''}likely ${cmText(sz.w * Math.exp(-b.sigma))}–${cmText(sz.w * Math.exp(b.sigma))} wide${d ? '; depth is the side the camera saw' : ''}`);
+    addResult({ kind: 'object', w: sz.w, h: sz.h, ...(d ? { d } : {}), confidence: b.level, via: f === fused ? autoVia() : f.used.length ? `depth + ${f.used.join(' + ')}` : 'depth from the photo', range: b.sigma, ...(det ? { name: det.label } : {}) }, corners, `${note ? `${note}; ` : ''}likely ${cmText(sz.w * Math.exp(-b.sigma))}–${cmText(sz.w * Math.exp(b.sigma))} wide${d ? '; depth is the side the camera saw' : ''}`);
   };
 
   const usePhoto = (c: HTMLCanvasElement, real: { w: number; h: number }, frozen: boolean, src?: { canvas: HTMLCanvasElement; pad: { x: number; y: number }; exif: Exif | null }) => {
@@ -576,6 +651,7 @@ export function createMeasureMode(L: LensContext): Mode {
       if (fromFreeze) reset(true);
       // the depth model's memory goes back (the next AUTO loads it again from the phone's cache)
       autoGen++;
+      window.clearInterval(tick);
       depthModel.release();
       S.auto.state = 'off';
       depth = null;

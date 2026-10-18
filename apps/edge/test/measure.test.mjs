@@ -275,6 +275,13 @@ test('EXIF: an iPhone photo’s lens, both byte orders; the focal length in pixe
   assert.match(EX.intrinsicsFor({ w: 2000, h: 2000 }, EX.readExif(jpegWithExif())).source, /cropped since/);
   // the telephoto (77 mm) is three times longer
   near(EX.intrinsicsFor({ w: 4032, h: 3024 }, EX.readExif(jpegWithExif('II', { focal35: 77 }))).f, 8969, 2, 'telephoto');
+  // a 16:9 photo from the phone is cut from the 4:3 frame: same focal in pixels as the 4:3 photo
+  near(EX.intrinsicsFor({ w: 4032, h: 2268 }, EX.readExif(jpegWithExif('II', { w: 4032, h: 2268 }))).f, 3028.4, 1, '16:9');
+  near(EX.intrinsicsFor({ w: 3024, h: 3024 }, EX.readExif(jpegWithExif('II', { w: 3024, h: 3024 }))).f, 3028.4, 1, 'square');
+  // no 35 mm equivalent: the real focal length over the sensor's width (FocalPlaneXResolution)
+  const K2 = EX.intrinsicsFor({ w: 4000, h: 3000 }, { make: 'Acme', focalMm: 5, width: 4000, height: 3000, planeXRes: 4000 / 0.25, planeUnitMm: 25.4 });
+  near(K2.f, (5 * 4000) / 6.35, 1e-6, 'focal from mm and sensor');
+  assert.equal(K2.kind, 'exif');
   // no EXIF: the iPhone 13 main camera's 69° assumed, and said
   const d = EX.intrinsicsFor({ w: 4032, h: 3024 }, null);
   assert.equal(d.kind, 'default');
@@ -343,8 +350,9 @@ test('AUTO: a tapped box in front of a wall is found by its depth and measured i
   });
   const reg = D3.regionAt(D, frame, { x: 200, y: 150 });
   const sz = D3.regionSize(D, { ...K, source: '', kind: 'default', longFov: 0 }, frame, reg);
-  near(sz.w, 600 * 0.94, 30, 'width (3rd–97th percentile)');
-  near(sz.h, 800 * 0.94, 40, 'height (3rd–97th percentile)');
+  // the trimmed spans are put right (÷ 0.94): not 6 % short
+  near(sz.w, 600, 20, 'width');
+  near(sz.h, 800, 25, 'height');
   assert.ok(sz.d < 50, `seen square on, only the front: ${sz.d}`);
   near(sz.z, 1.5, 0.01, 'distance');
   // the wall behind is not part of it
@@ -362,6 +370,11 @@ test('AUTO: a tapped box in front of a wall is found by its depth and measured i
   const withColour = D3.regionAt(flat, { w: 100, h: 100 }, { x: 30, y: 50 }, { rgb });
   assert.ok(noColour.box.w > 90, 'depth alone runs on across the flat surface');
   near(withColour.box.w, 60, 1, 'the colours stop it at the edge');
+  // the kind of picture AUTO is for: a room; not the sky, not a close-up
+  assert.equal(D3.sceneProblem(D), null);
+  assert.equal(D3.sceneProblem(render(40, 30, K, (x, y) => (y < 0 ? 20 : 3))), 'outdoors');
+  assert.equal(D3.sceneProblem(render(40, 30, K, () => 0.3)), 'close');
+  assert.match(D3.SCENE_WORDS.outdoors, /AUTO is for rooms, things 0\.5–10 m away: use a card or an A4 sheet/);
   // inside a detector box: cut to the box
   const cut = D3.regionAt(D, frame, { x: 200, y: 150 }, { within: { x: 150, y: 100, w: 100, h: 100 } });
   assert.ok(cut.box.w <= 104 && cut.box.h <= 104, `kept in the box: ${JSON.stringify(cut.box)}`);
@@ -379,14 +392,28 @@ test('AUTO cues: known sizes from the detector and a sheet of paper, joined with
   assert.equal(CU.cueFromBox('laptop', { x: 0, y: 300, w: 200, h: 100 }, 1, 700, frame), null, 'a laptop cut at the side says nothing of its width');
   // A4: its shape must be A4's (or Letter's)
   near(CU.cueFromSheet({ long: 330, short: 233 }).scale, 0.9, 0.003, 'A4 seen 10 % big');
+  // any light box of A4's shape passes the shape test: unconfirmed it is no surer than the depth itself
+  assert.equal(CU.cueFromSheet({ long: 330, short: 233 }).sigma, 0.15);
+  assert.equal(CU.cueFromSheet({ long: 330, short: 233 }, true).sigma, 0.04);
+  // a sheet is plain, near-white and small in the picture; a box lid, a wall, a printed poster are not
+  assert.equal(CU.sheetLooksPlain({ mean: 230, sd: 8, share: 0.03 }), true);
+  assert.equal(CU.sheetLooksPlain({ mean: 230, sd: 8, share: 0.4 }), false, 'too big: a wall or a door');
+  assert.equal(CU.sheetLooksPlain({ mean: 150, sd: 8, share: 0.03 }), false, 'grey: not paper');
+  assert.equal(CU.sheetLooksPlain({ mean: 220, sd: 45, share: 0.03 }), false, 'printed or patterned');
+  // a phone lying sideways: its box's longer side is the phone's length
+  const flat = CU.cueFromBox('cell phone', { x: 100, y: 100, w: 147, h: 72 }, 1, 1000, frame);
+  near(flat.scale, 1, 1e-9, 'a phone lying landscape');
   assert.equal(CU.cueFromSheet({ long: 330, short: 233 }).name, 'an A4 sheet');
   assert.equal(CU.cueFromSheet({ long: 279, short: 216 }).name, 'a US Letter sheet');
   assert.equal(CU.cueFromSheet({ long: 600, short: 300 }), null, 'a 2:1 white rectangle is not a sheet');
   // nothing: the depth model alone
   const none = CU.fuseScale([]);
   assert.deepEqual([none.scale, none.sigma, none.used], [1, D3.DEPTH_STATS.logSd, []]);
-  // an A4 sheet says 0.9: it wins (σ 0.04 against the depth's 0.15), the doubt shrinks below 4 %
-  const a4 = CU.fuseScale([{ name: 'an A4 sheet', scale: 0.9, sigma: 0.04 }]);
+  // one cue on its own counts no more than the depth itself (σ at least the prior),
+  const lone = CU.fuseScale([{ name: 'a phone', scale: 0.9, sigma: 0.08 }]);
+  near(lone.scale, Math.exp(Math.log(0.9) / 2), 1e-9, 'a lone cue meets the depth half way');
+  // unless the owner confirmed it: an A4 sheet says 0.9 and wins, the doubt shrinks below 4 %
+  const a4 = CU.fuseScale([{ name: 'an A4 sheet', scale: 0.9, sigma: 0.04, confirmed: true }]);
   const w1 = 1 / 0.04 ** 2;
   const w0 = 1 / D3.DEPTH_STATS.logSd ** 2;
   near(a4.scale, Math.exp((Math.log(0.9) * w1) / (w0 + w1)), 1e-9, 'inverse-variance in log space');
@@ -403,6 +430,14 @@ test('AUTO cues: known sizes from the detector and a sheet of paper, joined with
   assert.deepEqual(mixed.used, ['an A4 sheet', 'a phone']);
   assert.equal(mixed.ignored.length, 3);
   assert.ok(mixed.ignored.some((t) => /car.*wrong size/.test(t)) && mixed.ignored.some((t) => /person.*not needed/.test(t)) && mixed.ignored.some((t) => /mug.*disagrees/.test(t)), mixed.ignored.join(' | '));
+  // a confident cue more than twice off is not dropped in silence: the owner is warned
+  assert.equal(mixed.warnings.length, 1);
+  assert.match(mixed.warnings[0], /^a car looks 3\.1× smaller than usual/);
+  assert.deepEqual(CU.fuseScale([{ name: 'a laptop', scale: 0.45, sigma: 0.13 }]).warnings.length, 1);
+  // a confirmed sheet is used even far from the depth's guess, and that is said
+  const far = CU.fuseScale([{ name: 'an A4 sheet', scale: 0.2, sigma: 0.04, confirmed: true }]);
+  assert.deepEqual(far.used, ['an A4 sheet']);
+  assert.ok(far.scale < 0.25 && /5\.0× long by an A4 sheet/.test(far.warnings[0]), JSON.stringify(far));
   // weak cues alone are used
   assert.deepEqual(CU.fuseScale([{ name: 'a person', scale: 1.1, sigma: 0.11, weak: true }]).used, ['a person']);
   assert.equal(CU.cuesLine({ used: [] }, 'X'), 'depth from the photo (no known-size things seen: an estimate); camera: X');
@@ -515,6 +550,11 @@ test('a corrected wall rescales the whole plan; square polygons from patches; gr
   assert.deepEqual([r.plan.items[0].w, r.plan.items[0].x], [210, 125], 'furniture keeps its size, its place scales');
   assert.equal(r.plan.h, 240, 'the ceiling is not a plan length');
   assert.equal(PP.rescalePlan(plan, 'nope', 0, 500), null);
+  // two rooms meeting on a shared wall's middle line: the top wall of the left room runs half a wall (5 cm)
+  // past its inside face at the shared end, so a typed inside length of 400 scales by 400 / (405 − 5)
+  const two = { ...plan, items: [], openings: [], rooms: [{ id: 'a', name: 'A', poly: [[0, 0], [405, 0], [405, 300], [0, 300]] }, { id: 'b', name: 'B', poly: [[405, 0], [700, 0], [700, 300], [405, 300]] }], room: { w: 700, d: 300 } };
+  near(PP.rescalePlan(two, 'a', 0, 400).factor, 1, 1e-9, 'inside length allowed for');
+  near(PP.rescalePlan(two, 'a', 1, 300).factor, 1, 1e-9, 'the shared wall itself: no shared ends');
   // an L-shaped patch → six square corners
   const w = 60;
   const h = 50;

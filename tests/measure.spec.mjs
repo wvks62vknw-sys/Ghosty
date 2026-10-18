@@ -105,10 +105,10 @@ const roomJpeg = await page.evaluate(async () => {
   c.width = 900;
   c.height = 1200;
   const g = c.getContext('2d');
-  // the far wall, the floor in perspective (boards converging), a cabinet, a sheet of paper on the floor
+  // the far wall (mid grey), the floor in perspective (boards converging), a cabinet, an A4 sheet taped to the wall
   const wall = g.createLinearGradient(0, 0, 0, 640);
-  wall.addColorStop(0, '#cfc7b8');
-  wall.addColorStop(1, '#b9b09f');
+  wall.addColorStop(0, '#8d8a84');
+  wall.addColorStop(1, '#7c7972');
   g.fillStyle = wall;
   g.fillRect(0, 0, 900, 640);
   const floor = g.createLinearGradient(0, 640, 0, 1200);
@@ -123,9 +123,9 @@ const roomJpeg = await page.evaluate(async () => {
     g.lineTo(450 + k * 160, 1200);
     g.stroke();
   }
-  g.fillStyle = '#6b6f78';
+  g.fillStyle = '#1f3a6b';
   g.fillRect(300, 380, 300, 330);
-  g.fillStyle = '#8a8f99';
+  g.fillStyle = '#2c4a80';
   g.beginPath();
   g.moveTo(300, 380);
   g.lineTo(600, 380);
@@ -135,14 +135,9 @@ const roomJpeg = await page.evaluate(async () => {
   g.fill();
   g.fillStyle = '#2d3036';
   g.fillRect(440, 420, 20, 60);
-  g.fillStyle = '#f4f4f0';
-  g.beginPath();
-  g.moveTo(150, 900);
-  g.lineTo(330, 905);
-  g.lineTo(350, 1050);
-  g.lineTo(120, 1040);
-  g.closePath();
-  g.fill();
+  // the sheet: 150 × 212 px (A4's shape) on the wall beside the cabinet; at its scale the cabinet's 300 px front is about 42 cm
+  g.fillStyle = '#f6f6f2';
+  g.fillRect(640, 300, 150, 212);
   const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
   const buf = new Uint8Array(await blob.arrayBuffer());
   let s = '';
@@ -182,7 +177,10 @@ const exifApp1 = () => {
 const jpg = Buffer.from(roomJpeg, 'base64');
 const withExif = Buffer.concat([jpg.subarray(0, 2), exifApp1(), jpg.subarray(2)]);
 await page.locator('#pg-lens input[type=file]').setInputFiles({ name: 'room.jpg', mimeType: 'image/jpeg', buffer: withExif });
-await until(() => ['loading', 'working'].includes(window.__ghosty?.measure?.auto?.state), 15000, 'AUTO did not start on the picked photo');
+// the first time, one tap allows the 50 MB download
+await until(() => window.__ghosty?.measure?.auto?.state === 'ask', 15000, `AUTO did not ask before the first download: ${JSON.stringify((await ms())?.auto)}`);
+await page.locator('#pg-lens button', { hasText: 'DOWNLOAD 50 MB, ONCE' }).click();
+await until(() => ['loading', 'working', 'ready'].includes(window.__ghosty?.measure?.auto?.state), 15000, 'AUTO did not start after DOWNLOAD');
 const t0 = Date.now();
 await until(() => window.__ghosty?.measure?.auto?.state === 'ready' || window.__ghosty?.measure?.auto?.state === 'failed', 240000, `AUTO did not finish: ${JSON.stringify((await ms())?.auto)}`);
 const autoSecs = ((Date.now() - t0) / 1000).toFixed(1);
@@ -191,15 +189,29 @@ if (sa?.auto?.state !== 'ready') problems.push(`AUTO failed: ${sa?.auto?.error}`
 if (!/Apple iPhone 13, 26 mm lens \(from the photo\)/.test(sa?.auto?.camera ?? '')) problems.push(`the camera was not read from the EXIF: "${sa?.auto?.camera}"`);
 const main = sa?.results?.[0];
 if (!main || main.kind !== 'object' || !(main.w > 0) || !(main.h > 0) || !(main.range > 0)) problems.push(`the main thing was not measured by itself: ${JSON.stringify(main)}`);
+// the sheet is found, and once the owner says it is an A4 sheet it sets the scale: the cabinet comes out about 42 cm wide
+if (sa?.auto?.sheet !== 'seen') problems.push(`the A4 sheet on the wall was not found: ${JSON.stringify(sa?.auto)}`);
+else {
+  await page.locator('#pg-lens button', { hasText: 'YES, THAT IS AN A4 SHEET' }).click();
+  await until(() => window.__ghosty.measure.auto.sheet === 'confirmed', 5000, 'YES did not confirm the sheet');
+  sa = await ms();
+  if (!sa.auto.cues.includes('an A4 sheet')) problems.push(`the confirmed sheet is not used: ${JSON.stringify(sa.auto.cues)}`);
+  const cab = sa.results[0];
+  if (!cab || cab.kind !== 'object' || cab.w < 250 || cab.w > 650) problems.push(`the cabinet at the sheet's scale: ${JSON.stringify(cab)} (want 25–65 cm wide)`);
+}
 const autoNote = (await page.locator('#pg-lens .measauto').textContent().catch(() => '')) ?? '';
 if (!/depth from the photo/.test(autoNote) || !/camera: Apple iPhone 13/.test(autoNote)) problems.push(`the cues line reads "${autoNote}"`);
 const autoRow = (await page.locator('#pg-lens .measrow').first().textContent().catch(() => '')) ?? '';
 if (!/W × H/.test(autoRow) || !/±\d+ %/.test(autoRow) || !/likely/.test(autoRow) || !/ft/.test(autoRow)) problems.push(`the AUTO result row reads "${autoRow}"`);
 await page.screenshot({ path: `${out}/measure-auto.png` });
-// THING: one tap on the sheet of paper; LENGTH: two taps along the floor
+await page.evaluate(() => document.querySelector('#pg-lens .lensview').scrollIntoView({ block: 'nearest' }));
+await page.locator('#pg-lens .lensview').screenshot({ path: `${out}/measure-auto-view.png` }).catch(() => undefined);
+// THING: one tap on the sheet itself (it is never its own scale); LENGTH: two taps along the floor
 const padA = sa?.frame ? { x: (sa.frame.w - 900) / 2, y: (sa.frame.h - 1200) / 2 } : { x: 0, y: 0 };
-await tapAt(235 + padA.x, 975 + padA.y);
+await tapAt(715 + padA.x, 406 + padA.y);
 await until(() => window.__ghosty.measure.results.length === 2, 5000, 'a THING tap measured nothing');
+const sheetTap = (await ms())?.results?.[1];
+if (sheetTap && /sheet/.test(sheetTap.via)) problems.push(`the sheet was measured with its own scale: ${JSON.stringify(sheetTap)}`);
 await page.locator('#pg-lens button', { hasText: 'LENGTH · 2 TAPS' }).click();
 await tapAt(200 + padA.x, 1100 + padA.y);
 await tapAt(700 + padA.x, 1100 + padA.y);
@@ -208,7 +220,7 @@ sa = await ms();
 if (sa?.results?.[2]?.kind !== 'length' || !(sa.results[2].w > 100) || !(sa.results[2].range > 0)) problems.push(`the AUTO length: ${JSON.stringify(sa?.results?.[2])}`);
 await page.locator('#pg-lens button', { hasText: 'UNDO' }).click();
 if ((await ms())?.results.length !== 2) problems.push('UNDO did not take the AUTO length back');
-console.log(`AUTO: ready in ${autoSecs} s (model ${sa?.auto?.ms} ms); main thing ${main?.text} (±${Math.round((Math.exp(main?.range ?? 0) - 1) * 100)} %, ${main?.confidence}); cues ${JSON.stringify(sa?.auto?.cues)} ignored ${JSON.stringify(sa?.auto?.ignored)}; sheet tap ${sa?.results?.[1]?.text}`);
+console.log(`AUTO: ready in ${autoSecs} s (model ${sa?.auto?.ms} ms); main thing ${main?.text} → ${sa?.results?.[0]?.text} (±${Math.round((Math.exp(main?.range ?? 0) - 1) * 100)} %, ${main?.confidence}); cues ${JSON.stringify(sa?.auto?.cues)} ignored ${JSON.stringify(sa?.auto?.ignored)}; sheet tap ${sa?.results?.[1]?.text}`);
 if (offsite.length) problems.push(`AUTO fetched from off the site: ${offsite.slice(0, 3).join(' ')}`);
 await page.locator('#pg-lens button', { hasText: 'CLEAR' }).click();
 

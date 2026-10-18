@@ -25,6 +25,9 @@ export interface Exif {
   height?: number;
   /** 1 = upright; 6/8 = turned a quarter (the browser shows it turned already). */
   orientation?: number;
+  /** The sensor's pixels per unit across (FocalPlaneXResolution) and the unit, mm per unit (25.4 inch, 10 cm). */
+  planeXRes?: number;
+  planeUnitMm?: number;
 }
 
 /** The diagonal of a 36 × 24 mm frame, mm. */
@@ -112,6 +115,8 @@ function readTiff(b: Uint8Array, start: number, end: number): Exif | null {
       else if (tag === 0xa002 && typeof v === 'number' && v > 0) out.width = v;
       else if (tag === 0xa003 && typeof v === 'number' && v > 0) out.height = v;
       else if (tag === 0xa434 && typeof v === 'string') out.lens = v;
+      else if (tag === 0xa20e && typeof v === 'number' && v > 0) out.planeXRes = v;
+      else if (tag === 0xa210 && typeof v === 'number') out.planeUnitMm = v === 3 ? 10 : v === 4 ? 1 : 25.4;
     });
   }
   for (const k of Object.keys(out) as (keyof Exif)[]) if (out[k] === undefined) delete out[k];
@@ -142,24 +147,48 @@ export function intrinsicsFor(frame: { w: number; h: number }, exif: Exif | null
   const cx = frame.w / 2;
   const cy = frame.h / 2;
   const long = Math.max(frame.w, frame.h);
+  const short = Math.min(frame.w, frame.h);
   const fov = (f: number) => (2 * Math.atan(long / 2 / f) * 180) / Math.PI;
+  const camera = [exif?.make, exif?.model].filter(Boolean).join(' ').replace(/^(\w+) \1/i, '$1');
+  const ew = exif?.width;
+  const eh = exif?.height;
   const f35 = exif?.focal35;
   if (f35 && f35 >= 8 && f35 <= 400) {
-    let f = (f35 * Math.hypot(frame.w, frame.h)) / FULL_FRAME_DIAGONAL;
-    const camera = [exif?.make, exif?.model].filter(Boolean).join(' ').replace(/^(\w+) \1/i, '$1');
+    // the 35 mm equivalent describes the camera's whole 4:3 frame. A phone's 16:9 or 1:1 photo is
+    // cut from that frame in the camera (16:9 keeps the long side, 1:1 the short one), so its
+    // diagonal is the 4:3 frame's, not the picture's own.
+    const aspect = long / short;
+    const phone = /apple|iphone|samsung|google|pixel/i.test(camera);
+    let diag = Math.hypot(frame.w, frame.h);
     let source = `${camera || 'the camera'}, ${Math.round(f35)} mm lens (from the photo)`;
-    const ew = exif?.width;
-    const eh = exif?.height;
+    if (phone && Math.abs(aspect - 16 / 9) < 0.03) {
+      diag = Math.hypot(long, long * 0.75);
+      source += ', 16:9';
+    } else if (phone && Math.abs(aspect - 1) < 0.02) {
+      diag = Math.hypot(short, short * (4 / 3));
+      source += ', square';
+    }
+    let f = (f35 * diag) / FULL_FRAME_DIAGONAL;
     if (ew && eh) {
       const a = Math.max(ew, eh) / Math.min(ew, eh);
-      const b = long / Math.min(frame.w, frame.h);
-      if (Math.abs(a - b) / a > 0.02) {
-        // cropped after it was taken: the pixels kept their scale, so use the camera's own diagonal, scaled to this picture's long side
-        f = ((f35 * Math.hypot(ew, eh)) / FULL_FRAME_DIAGONAL) * (long / Math.max(ew, eh));
+      if (Math.abs(a - aspect) / a > 0.02) {
+        // cropped after it was taken: the pixels kept their scale, so use the camera's own picture, scaled to this one's long side
+        const ea = Math.max(ew, eh) / Math.min(ew, eh);
+        const ediag = phone && Math.abs(ea - 16 / 9) < 0.03 ? Math.hypot(Math.max(ew, eh), Math.max(ew, eh) * 0.75) : phone && Math.abs(ea - 1) < 0.02 ? Math.hypot(ew, ew * (4 / 3)) : Math.hypot(ew, eh);
+        f = ((f35 * ediag) / FULL_FRAME_DIAGONAL) * (long / Math.max(ew, eh));
         source += ', cropped since: a little less sure';
       }
     }
     return { f, cx, cy, source, kind: 'exif', longFov: fov(f) };
+  }
+  // no 35 mm equivalent: the real focal length over the sensor's size, when the photo says that
+  const fmm = exif?.focalMm;
+  if (fmm && exif?.planeXRes && ew) {
+    const sensorW = (ew / exif.planeXRes) * (exif.planeUnitMm ?? 25.4);
+    if (sensorW > 1 && sensorW < 60) {
+      const f = ((fmm * ew) / sensorW) * (frame.w / ew);
+      return { f, cx, cy, source: `${camera || 'the camera'}, ${fmm} mm lens on a ${sensorW.toFixed(1)} mm sensor (from the photo)`, kind: 'exif', longFov: fov(f) };
+    }
   }
   const f = long / 2 / Math.tan(((DEFAULT_LONG_FOV / 2) * Math.PI) / 180);
   return { f, cx, cy, source: 'no camera details in the picture: an iPhone main camera assumed', kind: 'default', longFov: DEFAULT_LONG_FOV };

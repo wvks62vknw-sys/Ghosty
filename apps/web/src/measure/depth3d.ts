@@ -47,12 +47,14 @@ export const MODEL_STD = [0.229, 0.224, 0.225] as const;
 /**
  * What the check on real photos found (NYU Depth v2 validation, 60 photos, 40 random pairs of
  * points 20 cm or more apart in each, true lengths from the Kinect's depth; the model run exactly
- * as the phone runs it, ONNX Runtime Web in a worker, 392 px on the short side): `realFactor`
- * takes the focal-corrected lengths to the truth (0.837 fitted on the even photos; on the odd
- * ones the median length error is then 12.3 %, 90 % within 38 %); `logSd` is how much the scale
- * wanders from photo to photo (0.14 measured, 0.15 used); `shapeLogSd` is the error left when the
- * scale is exactly right (median about 8 %, a robust log spread of about 0.12). With those, 70 %
- * of the held-out lengths fell inside the range MEASURE shows (one sigma: 68 % expected).
+ * as the phone runs it, ONNX Runtime Web in a worker, 392 px on the short side). Split by scene
+ * (NYU numbers its photos room by room: the first 30 and the last 30 share no room), the factor
+ * fitted on one half and checked on the other, both ways: `realFactor` 0.84 (0.82–0.85 each way);
+ * median length error 12–14 %, but 1 in 10 off by 36–41 % (about 1 in 6 by more than 30 %);
+ * 66 % of lengths inside the range MEASURE shows (68 % would be a true one-sigma). `logSd` is how
+ * much the scale wanders from photo to photo (0.14 measured, 0.15 used); `shapeLogSd` the error
+ * left with the scale exactly right (median about 8 %). Only an indoor Kinect camera was checked:
+ * other lenses (the 0.5× and 3× on an iPhone) have not been tried on real photos.
  */
 export const DEPTH_STATS = { realFactor: 0.84, logSd: 0.15, shapeLogSd: 0.12 } as const;
 export const REAL_FACTOR = DEPTH_STATS.realFactor;
@@ -216,10 +218,15 @@ export function regionAt(D: DepthMap, frame: { w: number; h: number }, seed: P2,
 
 const quantile = (sorted: number[], q: number) => sorted[Math.max(0, Math.min(sorted.length - 1, Math.round(q * (sorted.length - 1))))] ?? 0;
 
+/** The share of a uniform spread the 3rd–97th percentile covers: trimmed spans are divided by it. */
+export const TRIM = 0.94;
+
 /**
- * A region's size in 3-D, millimetres: across (camera x), up (camera y) and front-to-back (the
- * depth it spans, only the side the camera sees), from the 3rd to the 97th percentile of its
- * points so a few stray pixels at the edges do not stretch it.
+ * A region's size in 3-D, millimetres: across, up and front-to-back (the depth it spans, only the
+ * side the camera sees). Across and up are measured along the thing's own main axes when it is
+ * clearly longer one way and turned in the picture (a tilted shelf), else along the camera's; each
+ * span runs from the 3rd to the 97th percentile of the points (so stray edge pixels do not stretch
+ * it) and is divided by 0.94, the share of an even spread those percentiles cover, so it is not short.
  */
 export function regionSize(D: DepthMap, K: Intrinsics, frame: { w: number; h: number }, r: Region): { w: number; h: number; d: number; z: number } {
   const xs: number[] = [];
@@ -235,10 +242,56 @@ export function regionSize(D: DepthMap, K: Intrinsics, frame: { w: number; h: nu
     ys.push(P[1]);
     zs.push(P[2]);
   }
-  for (const a of [xs, ys, zs]) a.sort((p, q) => p - q);
-  const span = (a: number[]) => (quantile(a, 0.97) - quantile(a, 0.03)) * 1000;
-  return { w: span(xs), h: span(ys), d: span(zs), z: quantile(zs, 0.5) };
+  // the main axes across the view (2-D principal axes of x, y)
+  const n = xs.length || 1;
+  const mx = xs.reduce((p, q) => p + q, 0) / n;
+  const my = ys.reduce((p, q) => p + q, 0) / n;
+  let cxx = 0;
+  let cyy = 0;
+  let cxy = 0;
+  for (let i = 0; i < xs.length; i++) {
+    const dx = xs[i]! - mx;
+    const dy = ys[i]! - my;
+    cxx += dx * dx;
+    cyy += dy * dy;
+    cxy += dx * dy;
+  }
+  const tr = cxx + cyy;
+  const det = cxx * cyy - cxy * cxy;
+  const l1 = tr / 2 + Math.sqrt(Math.max(0, (tr * tr) / 4 - det));
+  const l2 = tr - l1;
+  let ang = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
+  // fold to the axis nearest the horizontal (that one is "across")
+  if (ang > Math.PI / 4) ang -= Math.PI / 2;
+  if (ang < -Math.PI / 4) ang += Math.PI / 2;
+  const turned = l2 > 0 && l1 / l2 > 1.3 && Math.abs(ang) > (8 * Math.PI) / 180;
+  const c = Math.cos(turned ? ang : 0);
+  const sn = Math.sin(turned ? ang : 0);
+  const us = xs.map((x, i) => (x - mx) * c + (ys[i]! - my) * sn);
+  const vs = xs.map((x, i) => -(x - mx) * sn + (ys[i]! - my) * c);
+  for (const arr of [us, vs, zs]) arr.sort((p, q) => p - q);
+  const span = (arr: number[]) => ((quantile(arr, 0.97) - quantile(arr, 0.03)) * 1000) / TRIM;
+  return { w: span(us), h: span(vs), d: span(zs), z: quantile(zs, 0.5) };
 }
+
+/**
+ * Is the picture the kind AUTO is for — indoors, things 0.5 to 10 m away? A quarter or more of it
+ * beyond 12 m (sky, a street, a view) is outdoors; half of it nearer than 0.5 m is a close-up.
+ * Null when it is fine; else the reason in plain words.
+ */
+export function sceneProblem(D: DepthMap): 'outdoors' | 'close' | null {
+  const zs = Array.from(D.z).sort((p, q) => p - q);
+  if (!zs.length) return null;
+  const far = zs.filter((z) => z > 12).length / zs.length;
+  if (far >= 0.25 || quantile(zs, 0.5) > 10) return 'outdoors';
+  if (quantile(zs, 0.5) < 0.5) return 'close';
+  return null;
+}
+
+export const SCENE_WORDS = {
+  outdoors: 'This looks outdoors (or far away). AUTO is for rooms, things 0.5–10 m away: use a card or an A4 sheet for a scale.',
+  close: 'This looks too close. AUTO is for rooms, things 0.5–10 m away: use a card or an A4 sheet for a scale.',
+} as const;
 
 /** How many depth-map pixels make a picture-pixel distance (for the tap's own error). */
 export const mapScale = (D: DepthMap, frame: { w: number; h: number }) => D.w / frame.w;

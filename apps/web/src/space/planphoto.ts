@@ -21,7 +21,7 @@
  *    only thin lines across it is a window (40 cm – 3 m).
  */
 import { otsu } from '../scan/page';
-import { DEFAULTS, LIMITS, type Opening, type Pt, type RoomShape } from '../../../../packages/shared/src/design';
+import { DEFAULTS, LIMITS, edgeOf, pointInPoly, type Opening, type Pt, type RoomShape } from '../../../../packages/shared/src/design';
 import { readPlan, type Plan } from './plan';
 
 // ---------------------------------------------------------------- written sizes
@@ -991,12 +991,21 @@ export function planFromDrawing(img: Gray, text: TextLine[]): PlanFromDrawing | 
     const ea = poly[o.wall]!;
     const eb = poly[(o.wall + 1) % poly.length]!;
     const along = Math.abs(eb[0] - ea[0]) >= Math.abs(eb[1] - ea[1]) ? cmX : cmY;
+    // found on the walls' inner faces; placed on the final outline (a shared wall's corners moved to its middle):
+    // the opening's middle, measured from the final edge's own first corner
+    const len0 = Math.hypot(eb[0] - ea[0], eb[1] - ea[1]) || 1;
+    const mid: Pt = [ea[0] + ((eb[0] - ea[0]) * (o.at + o.w / 2)) / len0, ea[1] + ((eb[1] - ea[1]) * (o.at + o.w / 2)) / len0];
+    const fin = rooms[o.room]!;
+    const fa = fin[o.wall]!;
+    const fb = fin[(o.wall + 1) % fin.length]!;
+    const flen = Math.hypot(fb[0] - fa[0], fb[1] - fa[1]) || 1;
+    const midAlong = ((mid[0] - fa[0]) * (fb[0] - fa[0]) + (mid[1] - fa[1]) * (fb[1] - fa[1])) / flen;
     return {
       id: `${door ? 'd' : 'w'}${k + 1}`,
       type: o.type,
       room: shapes[o.room]!.id,
       wall: o.wall,
-      at: Math.round(along(o.at)),
+      at: Math.round(along(midAlong - o.w / 2)),
       w: Math.max(30, Math.round(along(o.w))),
       h: door ? DEFAULTS.door.h : DEFAULTS.window.h,
       sill: door ? 0 : DEFAULTS.window.sill,
@@ -1011,6 +1020,7 @@ export function planFromDrawing(img: Gray, text: TextLine[]): PlanFromDrawing | 
   if (!plan) return { error: 'The plan found could not be made into rooms the planner can hold' };
   const doors = (plan.openings ?? []).filter((o) => o.type === 'door').length;
   const windows = (plan.openings ?? []).length - doors;
+  if (shapes.length > 1) notes.push('Rooms that share a wall reach to its middle line, where the planner builds a shared wall once: on the plan they are about half a wall bigger than inside. A wall’s real inside length typed on the plan allows for that.');
   notes.unshift(`Found ${shapes.length} room${shapes.length === 1 ? '' : 's'}, ${doors} door${doors === 1 ? '' : 's'} and ${windows} window${windows === 1 ? '' : 's'}; walls ${wallCm} cm.`);
   if ((plan.rooms?.length ?? 0) < shapes.length) notes.push(`${shapes.length - (plan.rooms?.length ?? 0)} room shape(s) could not be used.`);
   return { plan, mmPerPx, sigma, guessed, notes, angle, outlines: rooms };
@@ -1019,7 +1029,7 @@ export function planFromDrawing(img: Gray, text: TextLine[]): PlanFromDrawing | 
 // ---------------------------------------------------------------- correcting it
 
 /**
- * The owner says one wall is really `cm` long: every room, door and window is scaled by the same
+ * The owner says one wall is really `cm` long inside: every room, door and window is scaled by the same
  * factor (the walls' thickness too, not the ceiling; furniture keeps its size and its place
  * scales). Returns the new plan and the factor; null when that wall does not exist.
  */
@@ -1031,7 +1041,18 @@ export function rescalePlan(plan: Plan, roomId: string, wall: number, cm: number
   if (!a || !b) return null;
   const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (!(len > 0)) return null;
-  const k = cm / len;
+  // the typed length is the inside one: an end of this wall that meets a wall shared with another room
+  // runs on to that wall's middle line, half a wall further than inside
+  const t = plan.wall ?? DEFAULTS.wall;
+  const others = plan.rooms!.filter((r) => r.id !== roomId);
+  const shared = (i: number) => {
+    const e = edgeOf(room.poly, ((i % room.poly.length) + room.poly.length) % room.poly.length);
+    const probe: Pt = [(e.a[0] + e.b[0]) / 2 + e.nx * (t / 2 + 1), (e.a[1] + e.b[1]) / 2 + e.ny * (t / 2 + 1)];
+    return others.some((r) => pointInPoly(probe, r.poly));
+  };
+  const inside = len - (shared(wall - 1) ? t / 2 : 0) - (shared(wall + 1) ? t / 2 : 0);
+  if (!(inside > 0)) return null;
+  const k = cm / inside;
   const rooms = plan.rooms!.map((r) => ({ ...r, poly: r.poly.map((p): Pt => [Math.round(p[0] * k * 10) / 10, Math.round(p[1] * k * 10) / 10]) }));
   const openings = (plan.openings ?? []).map((o) => ({ ...o, at: Math.round(o.at * k), w: Math.max(30, Math.round(o.w * k)) }));
   const items = plan.items.map((it) => ({ ...it, x: Math.round(it.x * k), y: Math.round(it.y * k) }));

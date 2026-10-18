@@ -1,5 +1,5 @@
 /**
- * The depth model, on the phone: Depth Anything V2 Metric Indoor Small (Apache-2.0; ONNX with
+ * The depth model, on the phone: Depth Anything V2 Metric Indoor Small (code and Small model Apache-2.0; this metric checkpoint has no licence tag and was tuned on CC BY-SA Hypersim, see the README; ONNX with
  * int8 weights made from depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf, see
  * public/vendor/depth/README.md) under ONNX Runtime Web (WebAssembly, one thread), in its own
  * worker (public/vendor/depth/worker.mjs). For every pixel of a photo it says how far away it
@@ -16,7 +16,8 @@ import { inputSize, toInput } from './depth3d';
 const BASE = '/vendor/depth';
 export const DEPTH_FILES = {
   worker: `${BASE}/worker.mjs`,
-  parts: [`${BASE}/dav2-metric-indoor-small.int8.onnx.part1`, `${BASE}/dav2-metric-indoor-small.int8.onnx.part2`],
+  // the version is in the names: the service worker keeps files by address, so a new model gets new names to reach phones
+  parts: [`${BASE}/dav2-metric-indoor-small.v1.int8.onnx.part1`, `${BASE}/dav2-metric-indoor-small.v1.int8.onnx.part2`],
 } as const;
 /** What the first load costs, in words (the model 36 MB; the runtime 14 MB is shared with NAME). */
 export const DEPTH_SIZE = '50 MB';
@@ -32,8 +33,40 @@ export function depthSupport(): { ok: true } | { ok: false; why: string } {
   return { ok: true };
 }
 
-async function fetchPart(url: string, onBytes: (n: number) => void): Promise<ArrayBuffer> {
-  const r = await fetch(url);
+const OK_KEY = 'ghosty.depth.ok';
+
+/**
+ * Must the owner be asked before the first download? Yes unless the parts are in the service
+ * worker's cache already, or the owner said yes before on this phone.
+ */
+export async function depthNeedsAsking(): Promise<boolean> {
+  try {
+    if (localStorage.getItem(OK_KEY) === '1') return false;
+  } catch {
+    /* no storage: ask */
+  }
+  try {
+    if (typeof caches === 'object') {
+      const hits = await Promise.all(DEPTH_FILES.parts.map((u) => caches.match(u)));
+      if (hits.every(Boolean)) return false;
+    }
+  } catch {
+    /* no cache: ask */
+  }
+  return true;
+}
+
+/** The owner said yes to the download (remembered on this phone). */
+export function allowDepthDownload(): void {
+  try {
+    localStorage.setItem(OK_KEY, '1');
+  } catch {
+    /* fine: asked again next time */
+  }
+}
+
+async function fetchPart(url: string, onBytes: (n: number) => void, signal: AbortSignal): Promise<ArrayBuffer> {
+  const r = await fetch(url, { signal });
   if (!r.ok) throw new Error(`Could not load the depth model (HTTP ${r.status})`);
   if (!r.body) {
     const b = await r.arrayBuffer();
@@ -72,6 +105,9 @@ export class DepthModel {
   private seq = 0;
   private calls = new Map<number, { resolve: (r: Reply) => void; reject: (e: Error) => void }>();
   private loading: Promise<void> | null = null;
+  private abort: AbortController | null = null;
+  /** Runs wait their turn (a second photo picked while the first is worked on). */
+  private queue: Promise<unknown> = Promise.resolve();
   private gen = 0;
   busy = false;
 
@@ -96,7 +132,10 @@ export class DepthModel {
 
   load(progress: Progress): Promise<void> {
     if (this.w && !this.loading) return Promise.resolve();
-    this.loading ??= (async () => {
+    if (this.loading) return this.loading;
+    const ac = new AbortController();
+    this.abort = ac;
+    const p: Promise<void> = (async () => {
       const s = depthSupport();
       if (!s.ok) throw new Error(s.why);
       const gen = this.gen;
@@ -112,7 +151,7 @@ export class DepthModel {
               said = got;
               progress(`loading the depth model ${Math.min(99, Math.round((got / total) * 100))}% (once)`, Math.min(1, got / total));
             }
-          }),
+          }, ac.signal),
         ),
       );
       if (gen !== this.gen) throw new Error('The depth model was put away while it loaded');
@@ -138,15 +177,26 @@ export class DepthModel {
       }
       if (gen !== this.gen) throw new Error('The depth model was put away while it loaded');
     })().finally(() => {
-      this.loading = null;
+      // only this load's own promise is cleared: a newer load (after a release) keeps its own
+      if (this.loading === p) this.loading = null;
+      if (this.abort === ac) this.abort = null;
     });
-    return this.loading;
+    this.loading = p;
+    return p;
   }
 
-  /** The depth of a picture (any size: it is scaled to the model's 518-px short side here). */
-  async run(src: CanvasImageSource, size: { w: number; h: number }): Promise<RawDepth> {
+  /** The depth of a picture (any size: it is scaled to the model's 392-px short side here). A second picture waits for the first. */
+  run(src: CanvasImageSource, size: { w: number; h: number }): Promise<RawDepth> {
+    const next = this.queue.then(
+      () => this.runNow(src, size),
+      () => this.runNow(src, size),
+    );
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  private async runNow(src: CanvasImageSource, size: { w: number; h: number }): Promise<RawDepth> {
     if (!this.w) throw new Error('The depth model is not loaded');
-    if (this.busy) throw new Error('Still working out the last picture');
     this.busy = true;
     try {
       const inp = inputSize(size.w, size.h);
@@ -175,6 +225,9 @@ export class DepthModel {
     const w = this.w;
     this.w = null;
     this.loading = null;
+    // downloads in flight stop too
+    this.abort?.abort();
+    this.abort = null;
     this.busy = false;
     w?.terminate();
     this.fail(new Error('The depth model was put away'));
