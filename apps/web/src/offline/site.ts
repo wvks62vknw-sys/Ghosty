@@ -12,6 +12,8 @@ import type { SiteOut } from './sitework';
 const PENDING = 'ghosty.offlineSite';
 const SAVED = 'ghosty.offlineSites';
 const KEEP = 3;
+/** How long the phone's questions wait for their answers. */
+const ANSWER_WINDOW_MS = 30 * 60_000;
 
 export interface SavedSite {
   key: string;
@@ -42,16 +44,27 @@ const write = (k: string, v: unknown) => {
   }
 };
 
-/** Questions asked less than a day ago and not yet answered. */
+/** Questions asked in the last half hour and not yet answered: only the very next message is read as the answers. */
 export function pendingSite(): Pending | null {
   const p = read<Pending>(PENDING);
-  return p && Date.now() - p.at < 86_400_000 ? p : null;
+  return p && Date.now() - p.at < ANSWER_WINDOW_MS ? p : null;
 }
 export const cancelPendingSite = () => write(PENDING, null);
 export const savedSite = (key: string): SavedSite | null => (read<SavedSite[]>(SAVED) ?? []).find((s) => s.key === key) ?? null;
 
-/** Is this turn for the offline website builder: a website request, or the answers it is waiting for? */
-export const offlineSiteTurn = (text: string): boolean => siteAsk(text) || (!!pendingSite() && !/^(stop|cancel|never ?mind|forget it)$/i.test(text.trim()));
+/**
+ * Is this turn for the offline website builder: a website request, or the answers it is waiting for?
+ * "cancel" (or stop, never mind, forget it) drops the questions, so the next message is an ordinary one.
+ */
+export function offlineSiteTurn(text: string): boolean {
+  if (siteAsk(text)) return true;
+  if (!pendingSite()) return false;
+  if (/^(stop|cancel|never ?mind|forget it|no thanks?)\b/i.test(text.trim())) {
+    cancelPendingSite();
+    return false;
+  }
+  return true;
+}
 
 /** Questions worth asking before building (the rest gets sensible defaults, listed to confirm). */
 const ASK: (keyof Brief)[] = ['name', 'town', 'phone', 'hours', 'services'];

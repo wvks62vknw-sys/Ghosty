@@ -27,6 +27,7 @@ export { siteMessage } from '../web/src/offline/sitework.ts';`,
   outfile: at('./.build/sitekit.mjs'),
   logLevel: 'warning',
 });
+await build({ entryPoints: [at('../../web/src/offline/site.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/offline-site.mjs'), logLevel: 'warning' });
 const K = await import('./.build/sitekit.mjs');
 const { SB, PJ } = K;
 
@@ -475,4 +476,19 @@ test('offline: a website request is recognised, the answers are folded into the 
   assert.match(out.html, /8:00–16:00/);
   assert.match(out.html, /href="tel:\+441902000512"/);
   assert.deepEqual(K.checkHtml(out.html).errors, []);
+});
+
+test("the phone's site questions: \"cancel\" drops them, and they never wait more than half an hour", async () => {
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const O = await import('./.build/offline-site.mjs');
+  const ask = (at) => store.set('ghosty.offlineSite', JSON.stringify({ brief: { request: 'a website for my café' }, asked: ['name'], at }));
+  ask(Date.now());
+  assert.equal(O.offlineSiteTurn('Little Fern, Bilston'), true, 'the next message answers the questions');
+  assert.equal(O.offlineSiteTurn('cancel that'), false, 'cancel is not an answer');
+  assert.equal(O.pendingSite(), null, 'and it drops the questions');
+  assert.equal(O.offlineSiteTurn("what's the weather?"), false, 'so the message after is an ordinary one');
+  ask(Date.now() - 31 * 60_000);
+  assert.equal(O.offlineSiteTurn("what's the weather?"), false, 'questions from over half an hour ago no longer take a message over');
+  delete globalThis.localStorage;
 });
