@@ -302,27 +302,38 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
   const exam = await loadExam(d);
   const held = new Set(exam.library.map((c) => c.key));
   if (!st.done.free) {
+    // Every record whose question is a near-copy of an exam question is left out (counted), whatever made it.
+    const freeQs = examTexts(exam, st.week);
+    let near = 0;
+    const far = (recs: TrainRecord[]): TrainRecord[] =>
+      recs.filter((r) => {
+        const q = r.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? '';
+        const bad = !!q && !!tooClose(q, freeQs);
+        if (bad) near++;
+        return !bad;
+      });
     const levels = (await s.get<Record<string, number>>(K.gym)) ?? {};
     const games = [...new Set(GYM_SEEDS.map((g) => g.game))];
     await addRecords(s, 'gym', gymTasks(levels, games, st.week));
     await addRecords(s, 'drill', drillTasks(st.week));
     const syn = syntheticToolRecords(d.tools, st.week);
-    await addRecords(s, 'tool', syn.recs);
+    await addRecords(s, 'tool', far(syn.recs));
     await noteRejected(s, 'synthetic tool calls that failed the schema check', syn.rejected);
-    await addRecords(s, 'redteam', redteamRecords());
-    await addRecords(s, 'failure', failureRecords((await s.get<TrainReport>(K.report)) ?? null));
+    await addRecords(s, 'redteam', far(redteamRecords()));
+    await addRecords(s, 'failure', far(failureRecords((await s.get<TrainReport>(K.report)) ?? null)));
     if (priv) {
       const ctx = (await s.get<CtxMsg[]>('ctx')) ?? []; // agent.ts CTX_KEY: the conversation the model reads
-      await addRecords(s, 'tool', chatToolRecords(ctx, d.tools));
+      await addRecords(s, 'tool', far(chatToolRecords(ctx, d.tools)));
       const turns = (await s.get<{ role: 'user' | 'assistant'; text: string; model?: string }[]>('turns')) ?? []; // agent.ts TURNS_KEY
       const ratings = await loadRatings(s);
       const disliked = new Set(ratings.filter((r) => !r.up).map((r) => r.reply.trim()));
-      await addRecords(s, 'distill', distillRecords(turns, disliked));
+      await addRecords(s, 'distill', far(distillRecords(turns, disliked)));
       // 👍 need no model: they go in now (and only these are marked used when the week ends).
       const ups = ratings.filter((r) => r.up && !r.used);
-      await addRecords(s, 'pref', ups.flatMap((r) => ratingRecords(r)));
+      await addRecords(s, 'pref', far(ups.flatMap((r) => ratingRecords(r))));
       st.ratingIds = [...(st.ratingIds ?? []), ...ups.map((r) => r.at)];
     }
+    await noteRejected(s, 'records too close to an exam question', near);
     st.done.free = true;
     await stepSave(s, st);
   }

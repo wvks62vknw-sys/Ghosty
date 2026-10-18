@@ -345,6 +345,10 @@ class CpuSmoke(unittest.TestCase):
         G.set_lora_scale(self.r.model, 1.0)
         keys = [k for k in self.r.model.state_dict() if 'lora_' not in k]
         before_sd = {k: v.clone() for k, v in self.r.model.state_dict().items()}
+        down = self.r.model.base_model.model.model.layers[0].mlp.down_proj
+        with torch.no_grad():
+            # what ships for this layer: (base + LoRA) as float16, quantised to q4f16_1 and read back
+            want = G.fake_quant((down.base_layer.weight + down.get_delta_weight('default')).float().numpy().astype(np.float16))
         with torch.no_grad():
             plain = self.r.model(input_ids=ids).logits
             with G.quantised_weights(self.r.model):
@@ -357,8 +361,10 @@ class CpuSmoke(unittest.TestCase):
         self.assertTrue(torch.allclose(plain, again, atol=1e-5), 'and everything is put back')
         after_sd = self.r.model.state_dict()
         self.assertTrue(all(torch.allclose(before_sd[k], after_sd[k], atol=1e-6) for k in keys))
-        x = merged_now.numpy().astype(np.float16)
-        self.assertTrue(np.array_equal(G.fake_quant(x).view(np.uint16), x.view(np.uint16)), 'already a q4f16_1 round-trip')
+        got = merged_now.numpy().astype(np.float16)
+        # the same values (a rare element may round the other way: PEFT adds in its own order)
+        self.assertGreater(float(np.mean(got == want)), 0.995, 'inside: the merged weight as it ships, in q4f16_1')
+        self.assertFalse(np.array_equal(want, down.base_layer.weight.detach().numpy().astype(np.float16)), 'not the plain weight')
 
     def test_7_scale_chosen_on_dev_then_gate(self):
         self.r.exam_after()
