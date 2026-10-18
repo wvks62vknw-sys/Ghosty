@@ -309,7 +309,7 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     const far = (recs: TrainRecord[]): TrainRecord[] =>
       recs.filter((r) => {
         const q = r.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? '';
-        // ... or of a question on the phone's REPORT CARD (it must measure what was never trained on).
+        // Or of a question on the phone's REPORT CARD (it must measure what was never trained on).
         const bad = !!q && (!!tooClose(q, freeQs) || !!nearReportCard(q, REPORT_CARD_TEXTS));
         if (bad) near++;
         return !bad;

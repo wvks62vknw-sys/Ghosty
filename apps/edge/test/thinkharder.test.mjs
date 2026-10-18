@@ -673,7 +673,7 @@ test("Stage 2: the weekly training never trains on a report card question (brain
   assert.match(cycle, /const leak = \(t: string\): string => tooClose\(t, examQs\) \|\| nearReportCard\(t, REPORT_CARD_TEXTS\)/);
   assert.match(cycle, /!!tooClose\(q, freeQs\) \|\| !!nearReportCard\(q, REPORT_CARD_TEXTS\)/);
   assert.doesNotMatch(cycle, /tooClose\([^)]*, examQs\)(?! \|\| nearReportCard)/, 'a filter left without the report card');
-  // ... and the notebook, for the rows it makes itself (the GYM's puzzles for STaR) and the rows it is sent.
+  // The notebook too, for the rows it makes itself (the GYM's puzzles for STaR) and the rows it is sent.
   const nb = readFileSync(new URL('../../../training/kaggle/ghosty_weekly.py', import.meta.url), 'utf8');
   assert.match(nb, /near_report_card\(ask_of\(r\), card\)/);
   assert.match(nb, /on_card = \[bool\(raw\) and near_report_card\(raw, card\)/);
