@@ -47,7 +47,7 @@ function load(): SpaceData {
     const raw = localStorage.getItem(KEY);
     const j = raw ? (JSON.parse(raw) as { plan?: unknown; measures?: unknown }) : null;
     const plan = j ? readPlan(j.plan) : null;
-    const measures = Array.isArray(j?.measures) ? (j!.measures as SpaceData['measures']).filter((m) => m && (m.kind === 'length' || m.kind === 'rect') && m.w > 0).slice(-MAX_MEASURES) : [];
+    const measures = Array.isArray(j?.measures) ? (j!.measures as SpaceData['measures']).filter((m) => m && (m.kind === 'length' || m.kind === 'rect' || m.kind === 'object') && m.w > 0).slice(-MAX_MEASURES) : [];
     data = plan ? { plan, measures } : structuredClone(DEFAULT);
   } catch {
     data = structuredClone(DEFAULT);

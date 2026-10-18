@@ -2,10 +2,12 @@
  * 3D STUDIO tab: Tony Stark's lab bench on the phone. A holographic three.js scene (studio/viewer.ts)
  * where any model can be turned, TAKEN APART (each part flies out from the centre, a slider from
  * 0 to 100 %), REASSEMBLED, isolated part by part, cut open with a SECTION plane and MEASURED
- * between two taps — plus screenshots, built-in samples, models made from a picture (make_3d in
- * the brain, best effort), any .glb/.gltf from Files (nothing uploaded), a ROOM built from its
+ * between two taps — plus screenshots, built-in samples, a CATALOGUE of thousands of real, freely
+ * licensed models (catalog.ts; each opened with its credit), MAKE ANYTHING from words (the
+ * catalogue first, then the brain's free generators, a stand-in from shapes when they are busy),
+ * textured models from a photo, any .glb/.gltf from Files (nothing uploaded), a ROOM built from its
  * measurements (the SPACE PLANNER's JSON), and the owner's own Spline scenes (iframe, "Powered by
- * Spline" under it — Spline itself has no API for making models).
+ * Spline" under it — Spline itself has no API for making models). UNDO goes back to the model before.
  *
  * three.js is loaded only when this tab first opens, and stops drawing when the tab is left.
  * A test reads and drives it through window.__ghosty.studio.
@@ -19,6 +21,8 @@ import { planToRoom } from '../../space/roomjson';
 import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
 import { splineEmbedUrl } from '../../studio/spline';
+import { creditLine, goodMatch, GROUPS, searchCatalog, standIn, type CatalogItem, type SearchHit } from '../../../../../packages/shared/src/models3d';
+import { fetchModel, forget, keep, keptFile, keptInMemory, listKept, loadCatalog, readLines, thumbUrl, type Kept } from './catalog';
 import { Viewer, type Axis, type ModelSource, type ViewMode } from '../../studio/viewer';
 import type { WalkState } from '../../studio/walk';
 
@@ -37,7 +41,7 @@ const PANES: { id: Pane; label: string }[] = [
   { id: 'models', label: 'MODELS' },
   { id: 'parts', label: 'PARTS' },
   { id: 'tools', label: 'CUT · MEASURE' },
-  { id: 'make', label: 'PHOTO → 3D' },
+  { id: 'make', label: 'MAKE · PHOTO' },
   { id: 'room', label: 'ROOM' },
   { id: 'spline', label: 'SPLINE' },
 ];
@@ -49,11 +53,19 @@ interface MadeModel {
   at: number;
   bytes: number;
   faces?: number;
+  /** Which free maker made it, whether it has its colours, and its credit (the brain says). */
+  maker?: string;
+  textured?: boolean;
+  credit?: string;
 }
 
 /** What open_studio asks for. */
 export interface StudioArgs {
   sample?: string;
+  /** A catalogue model's id ('ov:…' or 'ph:…'). */
+  catalog?: string;
+  /** Words to MAKE IT from (make_3d): the catalogue first, then the brain's makers. */
+  make?: string;
   model?: string;
   title?: string;
   room?: unknown;
@@ -85,6 +97,47 @@ async function shrinkPhoto(file: File, max = 1024): Promise<Blob> {
 }
 
 const errText = (e: unknown) => String((e as Error)?.message ?? e).slice(0, 200);
+
+/** The licence's own page for a credit line, linked next to it (CC BY asks for that), or null. */
+export function licenceLink(credit: string): { label: string; href: string } | null {
+  if (/CC BY 4\.0/.test(credit)) return { label: 'CC BY 4.0', href: 'https://creativecommons.org/licenses/by/4.0/' };
+  if (/\bCC0\b/.test(credit)) return { label: 'CC0 1.0', href: 'https://creativecommons.org/publicdomain/zero/1.0/' };
+  if (/TRELLIS\.2/.test(credit)) return { label: 'MIT LICENCE', href: 'https://huggingface.co/microsoft/TRELLIS.2-4B' };
+  if (/Stable Fast 3D/.test(credit)) return { label: 'STABILITY COMMUNITY LICENCE', href: 'https://stability.ai/community-license-agreement' };
+  return null;
+}
+
+/** A SHOT with the model's credit burned into its foot (a CC BY model must stay credited when shared). */
+async function burnCredit(png: Blob, credit: string): Promise<Blob> {
+  if (!credit) return png;
+  const bmp = await createImageBitmap(png);
+  const c = h('canvas', { width: bmp.width, height: bmp.height });
+  const g = c.getContext('2d');
+  if (!g) return png;
+  g.drawImage(bmp, 0, 0);
+  bmp.close();
+  const size = Math.max(12, Math.round(c.width * 0.026));
+  g.font = `${size}px -apple-system, system-ui, sans-serif`;
+  // the credit in as many lines as it needs, never cut short
+  const lines: string[] = [];
+  let line = '';
+  for (const w of credit.split(/\s+/)) {
+    const t = line ? `${line} ${w}` : w;
+    if (g.measureText(t).width > c.width - size * 2 && line) {
+      lines.push(line);
+      line = w;
+    } else line = t;
+  }
+  if (line) lines.push(line);
+  const lh = Math.round(size * 1.35);
+  const band = lines.length * lh + size;
+  g.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  g.fillRect(0, c.height - band, c.width, band);
+  g.fillStyle = '#ffffff';
+  g.textBaseline = 'top';
+  lines.forEach((l, i) => g.fillText(l, size, c.height - band + size / 2 + i * lh));
+  return new Promise((res) => c.toBlob((b) => res(b ?? png), 'image/png'));
+}
 
 export const studioTab: TabDef = {
   id: 'studio',
@@ -159,8 +212,10 @@ export const studioTab: TabDef = {
     const turn = button('TURNTABLE', () => V.setTurntable(!V.controls?.autoRotate));
     const shot = button('SHOT', () => void screenshot());
     const fit = button('FRAME', () => V.frame());
+    const undo = button('UNDO', () => void undoLoad());
+    undo.disabled = true;
     slider.addEventListener('input', () => V.setExplode(Number(slider.value) / 100));
-    const bar = h('div.studiobar', apart, h('label.studiorange', slider, pct), h('div.studiobtns', turn, fit, shot));
+    const bar = h('div.studiobar', apart, h('label.studiorange', slider, pct), h('div.studiobtns', turn, fit, shot, undo));
 
     const seg = h('div.studioseg');
     const panel = h('div.studiopanel');
@@ -175,27 +230,154 @@ export const studioTab: TabDef = {
     });
     seg.append(...segBtns);
 
-    // ---- MODELS
+    // ---- MODELS: the catalogue of real models first, then the samples, your files and your models
     const modelsPane = h('div.studiopane');
     const fileIn = h('input', { type: 'file', accept: '.glb,.gltf,model/gltf-binary,model/gltf+json', hidden: true, 'aria-label': 'Open a 3-D model file' });
     const made: MadeModel[] = [];
     const madeBox = h('div.studiolist');
+    const keptBox = h('div.studiolist');
+    let keptList: Kept[] = [];
+    const findIn = h('input', { type: 'search', placeholder: 'Search: “oak dining chair”, “kettle”…', 'aria-label': 'Search the catalogue', enterKeyHint: 'search' });
+    const shelfSel = h('select', { 'aria-label': 'Shelf' }, h('option', { value: '' }, 'EVERY SHELF'), ...GROUPS.map((g) => h('option', { value: g }, g.toUpperCase())));
+    const catNote = h('div.note', 'Thousands of real models — furniture and everyday things — free to use (CC0 or CC BY 4.0), each shown with its maker’s credit. Nothing is downloaded until you open one.');
+    const catGrid = h('div.studiogrid');
+    const catMore = h('div.row.wrap');
+    const creditBox = h('div.studiocredits');
+    let catItems: CatalogItem[] = [];
+    let catHits: SearchHit[] = [];
+    let shown = 0;
+    const findBtn = button('FIND', () => void runSearch(findIn.value), 'on');
+    findIn.addEventListener('keydown', (e) => e.key === 'Enter' && void runSearch(findIn.value));
+    shelfSel.addEventListener('change', () => void runSearch(findIn.value));
+    // Thumbnails are fetched only when their card scrolls into view.
+    const seen = typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver((es) => {
+          for (const e of es) {
+            if (!e.isIntersecting) continue;
+            seen?.unobserve(e.target);
+            const img = e.target as HTMLImageElement;
+            void thumbUrl(img.dataset.src ?? '').then((u) => (u ? (img.src = u) : img.classList.add('none')));
+          }
+        }, { rootMargin: '200px' })
+      : null;
+    const card = (it: CatalogItem) => {
+      const img = h('img.studiocardimg', { alt: '', loading: 'lazy', decoding: 'async' });
+      img.dataset.src = it.thumb;
+      if (seen) seen.observe(img);
+      else void thumbUrl(it.thumb).then((u) => (u ? (img.src = u) : img.classList.add('none')));
+      const c = h('button.studiocard', { type: 'button', title: creditLine(it) }, img, h('span.studiocardname', it.name), h('span.studiocardby', `${it.licence} · ${it.author}`));
+      c.dataset.id = it.id;
+      c.addEventListener('click', () => void openItem(it));
+      return c;
+    };
+    const paintGrid = () => {
+      const next = catHits.slice(shown, shown + 24);
+      catGrid.append(...next.map((x) => card(x.item)));
+      shown += next.length;
+      clear(catMore, ...(shown < catHits.length ? [button(`SHOW MORE (${catHits.length - shown})`, paintGrid)] : []));
+    };
+    async function runSearch(q: string, group = shelfSel.value): Promise<number> {
+      shelfSel.value = group;
+      catNote.textContent = catItems.length ? 'searching…' : 'opening the catalogue…';
+      const { items, note } = await loadCatalog();
+      catItems = items;
+      catHits = searchCatalog(items, q, { group, limit: 240 });
+      shown = 0;
+      clear(catGrid);
+      paintGrid();
+      const shelf = group ? ` on the ${group} shelf` : '';
+      catNote.textContent = !items.length
+        ? `The catalogue could not be opened${note ? ` (${note})` : ''}.`
+        : catHits.length
+          ? `${q.trim() ? `${catHits.length >= 240 ? '240+' : catHits.length} found${shelf}` : `${catHits.length >= 240 ? 'The first 240' : catHits.length} models${shelf}`} of ${items.length.toLocaleString('en-GB')} · tap one to open it${note ? ` · ${note}` : ''}`
+          : `Nothing called that${shelf} — MAKE · PHOTO can make one.`;
+      if (!catHits.length && q.trim()) clear(catMore, button('MAKE IT', () => ((describe.value = q.trim()), show('make'), void makeAnything(q.trim()))));
+      return catHits.length;
+    }
+    const showCredit = (it: CatalogItem | null) => {
+      const lic = it ? licenceLink(creditLine(it)) : null;
+      clear(creditBox, ...(it ? [h('div.studioreadout', creditLine(it)), h('div.row.wrap', h('a.studiosource', { href: it.page, target: '_blank', rel: 'noopener noreferrer' }, `ITS PAGE ON ${it.source === 'Poly Haven' ? 'POLY HAVEN' : 'SKETCHFAB'} ›`), ...(lic ? [h('a.studiosource', { href: lic.href, target: '_blank', rel: 'noopener noreferrer license' }, `THE ${lic.label} LICENCE ›`.replace('LICENCE LICENCE', 'LICENCE'))] : []))] : []));
+    };
+    async function openItem(it: CatalogItem): Promise<boolean> {
+      asked = true;
+      vstat.textContent = `fetching ${it.name}…`;
+      try {
+        const data = await fetchModel(it, (pct) => (vstat.textContent = `fetching ${it.name}…${pct !== null ? ` ${pct}%` : ''}`));
+        // Poly Haven's models are measured in real metres; Sketchfab's are in whatever units their maker used.
+        const ok = await loadAny({ kind: 'glb', data, title: it.name, metres: it.source === 'Poly Haven', credit: creditLine(it) });
+        showCredit(ok ? it : null);
+        return ok;
+      } catch (e) {
+        vstat.textContent = `Could not open ${it.name}: ${errText(e)}`;
+        toast(`Could not open ${it.name}: ${errText(e)}`, 'bad');
+        return false;
+      }
+    }
+    async function openCatalogId(id: string): Promise<boolean> {
+      const { items } = await loadCatalog();
+      catItems = items;
+      const it = items.find((i) => i.id === id);
+      if (!it) {
+        toast('That catalogue model is not in the list any more', 'warn');
+        return false;
+      }
+      show('models');
+      return openItem(it);
+    }
     const paintModels = () => {
       clear(
         modelsPane,
+        h('div.lab', 'CATALOGUE · REAL MODELS'),
+        h('div.keyrow', findIn, findBtn),
+        shelfSel,
+        catNote,
+        catGrid,
+        catMore,
+        creditBox,
         h('div.lab', 'SAMPLES'),
         ...SAMPLES.map((s) => row(s.title, s.note, '›', { onClick: () => void loadSample(s.id) })),
         h('div.lab', 'FROM YOUR PHONE'),
         h('div.note', 'Any .glb (or a self-contained .gltf) from Files — it opens here and is never uploaded.'),
         h('div.row.wrap', button('OPEN A FILE…', () => fileIn.click())),
         fileIn,
-        h('div.lab', 'MADE FROM PICTURES · KEPT 24 H'),
+        h('div.lab', 'YOUR MODELS · KEPT ON THIS PHONE'),
+        keptBox,
+        h('div.lab', 'MADE TODAY · ON THE BRAIN 24 H'),
         madeBox,
       );
-      clear(madeBox, ...(made.length ? made.map((m) => madeRow(m)) : [h('div.note', 'None today. PHOTO → 3D turns a picture into a model (free, a few a day).')]));
+      paintKept();
+      clear(madeBox, ...(made.length ? made.map((m) => madeRow(m)) : [h('div.note', 'None today. MAKE · PHOTO makes one from words or a photo (free, a few a day).')]));
+    };
+    const paintKept = () =>
+      clear(
+        keptBox,
+        ...(keptList.length
+          ? keptList.map((k) => {
+              const r = row(new Date(k.at).toLocaleDateString([], { day: 'numeric', month: 'short' }), k.title, '✕', {
+                onClick: async () => {
+                  const data = await keptFile(k.id);
+                  if (!data) return void toast('That model is no longer on this phone', 'warn');
+                  await loadAny({ kind: 'glb', data, title: k.title, metres: k.metres, credit: k.credit });
+                },
+              });
+              const x = r.lastChild as HTMLElement;
+              x.classList.add('del');
+              x.title = 'Remove it from this phone';
+              x.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await forget(k.id);
+                void refreshKept();
+              });
+              return r;
+            })
+          : [h('div.note', 'Models made for you are kept here, on this phone, after the brain’s day is up.')]),
+      );
+    const refreshKept = async () => {
+      keptList = await listKept();
+      if (pane === 'models') paintKept();
     };
     const madeRow = (m: MadeModel) => {
-      const r = row(new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), m.title, '✕', { onClick: () => void loadMade(m.id, m.title) });
+      const r = row(new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), m.title, '✕', { onClick: () => void loadMade(m.id, m.title, m) });
       const x = r.lastChild as HTMLElement;
       x.classList.add('del');
       x.title = 'Forget this model';
@@ -265,68 +447,161 @@ export const studioTab: TabDef = {
       );
     };
 
-    // ---- PHOTO → 3D
+    // ---- MAKE · PHOTO: make anything from words, and a textured model from a photo
     const makePane = h('div.studiopane');
+    const describe = h('input', { placeholder: 'Type anything: “a brass telescope”, “a red armchair”', 'aria-label': 'What to make', enterKeyHint: 'go' });
+    const makeNote = h('div.studioreadout', '');
+    const drawn = h('img.studiothumb', { alt: 'The picture it is being made from' });
+    drawn.hidden = true;
+    const askBox = h('div.row.wrap');
+    let makingAny = false;
+    const makeItBtn = button('MAKE IT', () => void makeAnything(describe.value), 'on');
+    describe.addEventListener('keydown', (e) => e.key === 'Enter' && void makeAnything(describe.value));
+    /** Words → the catalogue's real model when there is a good one, else a generated one, else a stand-in at once. */
+    async function makeAnything(text: string, fresh = false): Promise<void> {
+      const t = text.replace(/\s+/g, ' ').trim().slice(0, 200);
+      if (!t) return void toast('Type one thing to make', 'warn');
+      if (makingAny) return;
+      makingAny = true;
+      makeItBtn.disabled = true;
+      clear(askBox);
+      drawn.hidden = true;
+      makeNote.classList.remove('bad');
+      try {
+        if (!fresh) {
+          makeNote.textContent = 'looking in the catalogue…';
+          const { items } = await loadCatalog();
+          catItems = items;
+          const hit = searchCatalog(items, t, { limit: 1 })[0];
+          if (goodMatch(hit) && (await openItem(hit!.item))) {
+            makeNote.textContent = `Found a real model: ${creditLine(hit!.item)}.`;
+            clear(askBox, button('MAKE A NEW ONE INSTEAD', () => void makeAnything(t, true)));
+            return;
+          }
+        }
+        makeNote.textContent = 'Nothing real by that name — making one: a picture first, then 3-D. Usually under 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
+        const r = await fetch('/api/m3d/generate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ prompt: t }), credentials: 'same-origin' });
+        let model: MadeModel | null = null;
+        let fail: { error?: string; code?: string } | null = null;
+        if (!(r.headers.get('content-type') ?? '').includes('ndjson')) {
+          const j = (await r.json().catch(() => ({}))) as { error?: string };
+          fail = { error: j.error ?? `the brain answered ${r.status}` };
+        } else
+          await readLines(r, (l) => {
+            if (typeof l.step === 'string') makeNote.textContent = l.step;
+            if (typeof l.picture === 'string' && l.picture.startsWith('data:image/')) {
+              drawn.src = l.picture;
+              drawn.hidden = false;
+            }
+            if (l.model && typeof l.model === 'object') model = l.model as MadeModel;
+            if (typeof l.error === 'string') fail = { error: l.error, code: typeof l.code === 'string' ? l.code : undefined };
+          });
+        const m = model as MadeModel | null;
+        if (m) {
+          await loadMade(m.id, m.title, m);
+          makeNote.textContent = `Made by ${m.maker ?? 'a free generator'}${m.textured === false ? ' (shape only, no colours)' : m.textured ? ', with its colours' : ''}. Kept on this phone; it has no real size, so MEASURE reads in its own units.`;
+          void refreshMade();
+          return;
+        }
+        const f = (fail ?? { error: 'the brain stopped answering before the model was ready' }) as { error?: string; code?: string };
+        await standInFor(t, f.error ?? 'it could not be made', f.code);
+      } catch (e) {
+        await standInFor(t, errText(e), undefined);
+      } finally {
+        makingAny = false;
+        makeItBtn.disabled = false;
+      }
+    }
+    /** The honest fallback: say why, and show a simple model built from shapes straight away. */
+    const standInFor = async (t: string, why: string, code: string | undefined) => {
+      const s = standIn(t);
+      await loadAny({ kind: 'parts', parts: s.parts, title: `${s.title} — stand-in`, credit: 'A simple stand-in built by Ghosty from shapes, at the usual size — not a real model' });
+      makeNote.textContent = `Not made: ${why.replace(/\.$/, '')}. Showing a simple stand-in built from shapes instead (real size, in parts).`;
+      makeNote.classList.add('bad');
+      clear(
+        askBox,
+        button('TRY AGAIN', () => void makeAnything(t, true)),
+        // The brain's chat can draw it with its own free picture maker when the studio's route cannot.
+        ...(code === 'no_picture' ? [button('ASK GHOSTY', () => (void send(`Make a new 3D model of ${t}`), toast('Asked Ghosty — it draws the object, then models it (watch the chat)', 'ok')))] : []),
+      );
+    };
+
     const photoIn = h('input', { type: 'file', accept: 'image/*', hidden: true, 'aria-label': 'Choose a photo to turn into 3-D' });
-    const preview = h('img.studiothumb', { alt: '' });
+    const preview = h('img.studiothumb', { alt: 'Your photo' });
     preview.hidden = true;
+    const cutout = h('img.studiothumb', { alt: 'Your photo with the background removed' });
+    cutout.hidden = true;
     const makeStatus = h('div.studioreadout', '');
-    const describe = h('input', { placeholder: 'Or describe one object, e.g. "a vintage brass telescope"', 'aria-label': 'Describe an object to model' });
     let photo: Blob | null = null;
     let making = false;
     const makeBtn = button('MAKE 3-D', () => void makeFromPhoto(), 'on');
-    photoIn.addEventListener('change', async () => {
-      const f = photoIn.files?.[0];
-      photoIn.value = '';
-      if (!f) return;
+    const takePhoto = async (f: File) => {
       try {
         photo = await shrinkPhoto(f);
         if (preview.src) URL.revokeObjectURL(preview.src);
         preview.src = URL.createObjectURL(photo);
         preview.hidden = false;
+        cutout.hidden = true;
         makeStatus.textContent = 'Ready: press MAKE 3-D.';
       } catch (e) {
         toast(`Could not read that photo: ${errText(e)}`, 'bad');
       }
+    };
+    photoIn.addEventListener('change', async () => {
+      const f = photoIn.files?.[0];
+      photoIn.value = '';
+      if (f) await takePhoto(f);
     });
-    const makeFromPhoto = async () => {
+    async function makeFromPhoto(): Promise<void> {
       if (making) return;
       if (!photo) return void photoIn.click();
       making = true;
       makeBtn.disabled = true;
-      makeStatus.textContent = 'Making the model… this takes 20 seconds to 2 minutes.';
+      makeStatus.classList.remove('bad');
+      makeStatus.textContent = 'Sending the photo… usually 10 seconds to 2 minutes, up to about 5 when the free queue is long; keep Ghosty open (leaving the app may stop it).';
       try {
-        const r = await fetch('/api/m3d', { method: 'POST', headers: headers({ 'content-type': 'image/jpeg', 'x-title': encodeURIComponent('From a photo') }), body: photo, credentials: 'same-origin' });
-        const j = (await r.json().catch(() => ({}))) as { model?: MadeModel; error?: string };
-        if (!r.ok || !j.model) throw new Error(j.error ?? `the brain answered ${r.status}`);
-        makeStatus.textContent = 'Made. Opening it…';
-        await loadMade(j.model.id, j.model.title);
+        const r = await fetch('/api/m3d?stream=1', { method: 'POST', headers: headers({ 'content-type': 'image/jpeg', 'x-title': encodeURIComponent('From a photo') }), body: photo, credentials: 'same-origin' });
+        let model: MadeModel | null = null;
+        let fail = '';
+        if (!(r.headers.get('content-type') ?? '').includes('ndjson')) fail = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? `the brain answered ${r.status}`;
+        else
+          await readLines(r, (l) => {
+            if (typeof l.step === 'string') makeStatus.textContent = l.step;
+            if (typeof l.cutout === 'string' && l.cutout.startsWith('data:image/')) {
+              cutout.src = l.cutout;
+              cutout.hidden = false;
+            }
+            if (l.model && typeof l.model === 'object') model = l.model as MadeModel;
+            if (typeof l.error === 'string') fail = l.error;
+          });
+        const m = model as MadeModel | null;
+        if (!m) throw new Error(fail || 'the brain stopped answering before the model was ready');
+        makeStatus.textContent = `Made by ${m.maker ?? 'a free generator'}${m.textured === false ? ' — shape only: the free makers that paint it were busy' : ', with its colours'}. Opening it…`;
+        await loadMade(m.id, m.title, m);
         void refreshMade();
       } catch (e) {
         makeStatus.textContent = `Not made: ${errText(e)}`;
+        makeStatus.classList.add('bad');
       } finally {
         making = false;
         makeBtn.disabled = false;
       }
-    };
-    const askGhosty = () => {
-      const t = describe.value.trim();
-      if (!t) return void toast('Describe one object first', 'warn');
-      describe.value = '';
-      void send(`Make a 3D model of ${t}`);
-      toast('Asked Ghosty — it draws the object, then models it (watch the chat)', 'ok');
-    };
-    describe.addEventListener('keydown', (e) => e.key === 'Enter' && askGhosty());
+    }
     const paintMake = () =>
       clear(
         makePane,
-        h('div.note', 'A photo of ONE object on a plain background works best. The model is made by the free Hunyuan3D-2 demo on Hugging Face: shape only (clay, no colours), 20 s to 2 min, and only about 2–3 a day without a free Hugging Face token (SYSTEM → KEYS). Kept 24 hours.'),
+        h('div.lab', 'MAKE ANYTHING'),
+        h('div.note', 'Type one thing. Ghosty opens a real model from the catalogue when there is a good one; if not, a free generator draws it and makes it 3-D (a few a day; more with a token from a FREE Hugging Face account in SYSTEM → KEYS — a token from an account that can pay is never used, so nothing is ever charged); if the generators are busy you get a simple stand-in at once.'),
+        h('div.keyrow', describe, makeItBtn),
+        makeNote,
+        drawn,
+        askBox,
+        h('div.lab', 'PHOTO → TEXTURED 3D'),
+        h('div.note', 'A photo of ONE object works best. The background is removed and a model with its colours is made by free models on Hugging Face (TRELLIS.2 with a free account’s token, else Stable Fast 3D). If they are busy you are told why. Kept 24 hours on the brain, and on this phone.'),
         h('div.row.wrap', button('CHOOSE A PHOTO', () => photoIn.click()), makeBtn),
         photoIn,
-        preview,
+        h('div.studiopics', preview, cutout),
         makeStatus,
-        h('div.lab', 'NO PHOTO?'),
-        h('div.keyrow', describe, button('ASK GHOSTY', askGhosty)),
       );
 
     // ---- ROOM
@@ -458,7 +733,11 @@ export const studioTab: TabDef = {
     const paintState = () => {
       vtitle.textContent = V.info.title || '3D STUDIO';
       vstat.textContent = V.parts.length ? `${V.parts.length} PARTS · ${V.info.triangles.toLocaleString('en-GB')} TRIANGLES${V.selected !== null ? ` · ${V.parts[V.selected]?.name ?? ''}` : ''}` : V.error || 'no model';
-      credit.textContent = V.info.credit;
+      if (credit.dataset.text !== V.info.credit) {
+        credit.dataset.text = V.info.credit;
+        const lic = licenceLink(V.info.credit);
+        clear(credit, V.info.credit, ...(lic ? [' · ', h('a.studiolic', { href: lic.href, target: '_blank', rel: 'noopener noreferrer license' }, lic.label)] : []));
+      }
       const t = Math.round(V.explode * 100);
       slider.value = String(t);
       pct.textContent = `${t}%`;
@@ -478,16 +757,32 @@ export const studioTab: TabDef = {
     // the first visit's default reactor does not replace it.
     let active = false;
     let asked = false;
-    const loadAny = async (src: ModelSource) => {
+    // UNDO: the models shown before this one (a few, newest last), to go back to.
+    const history: ModelSource[] = [];
+    let current: ModelSource | null = null;
+    const loadAny = async (src: ModelSource, back = false): Promise<boolean> => {
       asked = true;
       vstat.textContent = 'loading…';
       try {
         await V.load(src);
         if (active) V.start();
+        if (current && !back) history.push(current);
+        if (history.length > 3) history.shift();
+        current = src;
+        undo.disabled = !history.length;
+        return true;
       } catch (e) {
         vstat.textContent = `Could not open it: ${errText(e)}`;
         toast(`Could not open the model: ${errText(e)}`, 'bad');
+        return false;
       }
+    };
+    const undoLoad = async () => {
+      const prev = history.pop();
+      if (!prev) return;
+      await loadAny(prev, true);
+      undo.disabled = !history.length;
+      toast(`Back to ${V.info.title || 'the model before'}`, 'ok');
     };
     const loadSample = async (id: SampleId | string) => {
       const s = SAMPLES.find((x) => x.id === id);
@@ -504,25 +799,35 @@ export const studioTab: TabDef = {
         vstat.textContent = `Could not fetch the sample: ${errText(e)}`;
       }
     };
-    const loadMade = async (id: string, title = 'From a picture') => {
+    const loadMade = async (id: string, title = 'From a picture', info?: Partial<MadeModel>) => {
       asked = true;
       vstat.textContent = 'fetching your model…';
       try {
         const r = await fetch(`/api/m3d/${encodeURIComponent(id)}`, { headers: headers(), credentials: 'same-origin' });
         if (!r.ok) throw new Error(r.status === 404 ? 'that model is gone (models are kept 24 hours)' : `the brain answered ${r.status}`);
-        await loadAny({ kind: 'glb', data: await r.arrayBuffer(), title, metres: false, credit: 'Made from a picture by Hunyuan3D-2 (Tencent), via Hugging Face' });
+        const data = await r.arrayBuffer();
+        // Opened by Ghosty from the chat: the brain's list says which free maker made it.
+        if (!info?.credit && !made.some((m) => m.id === id)) await refreshMade();
+        const credit = info?.credit || made.find((m) => m.id === id)?.credit || 'Made from a picture by a free 3-D maker on Hugging Face';
+        if (await loadAny({ kind: 'glb', data: data.slice(0), title, metres: false, credit })) {
+          // The brain keeps it a day; this phone keeps it until it is removed.
+          await keep({ id: `m3d:${id}`, title, credit, at: Date.now(), bytes: data.byteLength, metres: false }, data);
+          void refreshKept();
+        }
       } catch (e) {
         vstat.textContent = `Could not open it: ${errText(e)}`;
       }
     };
     const screenshot = async () => {
-      const blob = await V.screenshot();
-      if (!blob) return void toast('Nothing to capture yet', 'warn');
+      const raw = await V.screenshot();
+      if (!raw) return void toast('Nothing to capture yet', 'warn');
+      const shotCredit = V.info.credit;
+      const blob = await burnCredit(raw, shotCredit).catch(() => raw);
       const name = `Ghosty 3D ${new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.')}.png`;
       const file = new File([blob], name, { type: 'image/png' });
-      S.lastShot = { bytes: blob.size, type: blob.type };
+      S.lastShot = { bytes: blob.size, type: blob.type, credit: shotCredit, burned: blob !== raw };
       if (navigator.canShare?.({ files: [file] })) {
-        navigator.share({ files: [file], title: name }).catch((e: unknown) => {
+        navigator.share({ files: [file], title: name, ...(shotCredit ? { text: shotCredit } : {}) }).catch((e: unknown) => {
           if ((e as Error)?.name !== 'AbortError') toast(`Could not share it: ${errText(e)}`, 'bad');
         });
       } else {
@@ -552,22 +857,41 @@ export const studioTab: TabDef = {
         } catch (e) {
           toast(errText(e), 'warn');
         }
-      } else if (a.model) void loadMade(a.model, a.title);
+      } else if (a.catalog) void openCatalogId(a.catalog);
+      else if (a.make) {
+        show('make');
+        describe.value = a.make;
+        void makeAnything(a.make);
+      }
+      else if (a.model) void loadMade(a.model, a.title);
       else if (a.sample) void loadSample(a.sample);
     };
 
     // ---- what a test can read and drive (window.__ghosty.studio)
     const S = {
       viewer: V,
-      lastShot: null as null | { bytes: number; type: string },
+      lastShot: null as null | { bytes: number; type: string; credit?: string; burned?: boolean },
       loadSample: (id: string) => loadSample(id),
       loadRoom: (plan: unknown) => showRoom(parseRoom(plan)),
       fromPlanner: () => fromPlanner(),
       setMode: (m: ViewMode) => setMode(m),
       setCeiling: (on: boolean) => on !== ceiling && ceilBtn.click(),
       show: (p: Pane) => show(p),
+      search: (q: string, group = '') => runSearch(q, group),
+      openCatalog: (id: string) => openCatalogId(id),
+      makeAnything: (t: string, fresh = false) => makeAnything(t, fresh),
+      undo: () => undoLoad(),
       state: () => ({
         title: V.info.title,
+        credit: V.info.credit,
+        hits: catHits.slice(0, 24).map((x) => ({ id: x.item.id, name: x.item.name, licence: x.item.licence })),
+        catalogue: catItems.length,
+        makeNote: makeNote.textContent,
+        photoNote: makeStatus.textContent,
+        kept: keptList.map((k) => k.title),
+        keptInMemory: keptInMemory(),
+        undo: history.length,
+        standIn: current?.kind === 'parts',
         parts: V.parts.map((p) => ({ name: p.name, visible: p.obj.visible, pos: [p.obj.position.x, p.obj.position.y, p.obj.position.z] as [number, number, number], home: [p.home.x, p.home.y, p.home.z] as [number, number, number] })),
         explode: V.explode,
         selected: V.selected,
@@ -607,10 +931,11 @@ export const studioTab: TabDef = {
           V.start();
           const a = wanted;
           wanted = null;
-          if (a && (a.sample || a.model || a.room || a.spline)) apply(a);
+          if (a && (a.sample || a.catalog || a.make || a.model || a.room || a.spline)) apply(a);
           else if (first && !V.model && !asked) void loadSample('reactor');
           first = false;
           void refreshMade();
+          void refreshKept();
         })();
       },
       leave() {

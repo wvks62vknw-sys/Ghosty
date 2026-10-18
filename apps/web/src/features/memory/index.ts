@@ -1,7 +1,9 @@
 /**
- * MEMORY tab: what Ghosty knows about you — ME (your profile, in your own words, built by the
- * nightly reflection and editable here), the facts it remembers, the lessons it learned, the
- * DIARY it writes (one entry a day; REFLECT NOW writes today's) — and the conversation history.
+ * MEMORY tab: what Ghosty knows about you — the TIMELINE (everything, newest first, each with
+ * where it came from; EDIT, FORGET with UNDO, LOCK — timeline.ts), PATTERNS it noticed, ME
+ * (your profile, in your own words, built by the nightly reflection and editable here), the facts
+ * it remembers, the lessons it learned, the DIARY it writes (one entry a day; REFLECT NOW writes
+ * today's) — and the conversation history.
  */
 import type { DiaryEntry, Lesson, MemoryFact, Profile, ProfileSection } from '../../../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
@@ -11,6 +13,7 @@ import { clear, fmt, h } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { lineId, patternsPanel, timelinePanel } from './timeline';
 
 export const memoryTab: TabDef = {
   id: 'memory',
@@ -20,6 +23,17 @@ export const memoryTab: TabDef = {
   blurb: 'what Ghosty knows about you',
   mount(root) {
     const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
+    // A change in the TIMELINE shows in the panels below it, and theirs in it.
+    const tl = timelinePanel(() => {
+      void refresh();
+      void refreshLessons();
+      void refreshProfile(false);
+    });
+    const pats = patternsPanel();
+    const refreshTimeline = async () => {
+      await tl.refresh();
+      pats.set(tl.patterns);
+    };
     const fp = panel('WHAT I REMEMBER', { footer: true });
     let facts: MemoryFact[] = [];
     const refresh = async () => {
@@ -38,8 +52,10 @@ export const memoryTab: TabDef = {
       x.classList.add('del');
       x.title = 'Forget this';
       x.addEventListener('click', async () => {
-        await brain.forget(f.id);
+        // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
+        await brain.memoryChange(`f:${f.id}`, 'forget').catch((e) => toast(`Could not forget it: ${(e as Error).message}`, 'bad'));
         void refresh();
+        void refreshTimeline();
       });
       return r;
     });
@@ -50,6 +66,7 @@ export const memoryTab: TabDef = {
       input.value = '';
       await brain.addMemory(t).catch(() => toast('Could not save', 'bad'));
       void refresh();
+      void refreshTimeline();
     };
     input.addEventListener('keydown', (e) => e.key === 'Enter' && void add());
     fp.el.insertBefore(h('div.keyrow', input, button('SAVE', () => void add())), fp.body);
@@ -77,18 +94,21 @@ export const memoryTab: TabDef = {
         const lines = profile.sections[s];
         if (!lines.length) continue;
         mp.body.append(h('div.lab', s));
-        lines.forEach((text, i) => {
+        lines.forEach((text) => {
           const r = row(null, text, '✕', { wrap: true });
           const x = r.lastChild as HTMLElement;
           x.classList.add('del');
           x.title = 'Remove this line';
           x.addEventListener('click', async () => {
+            // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
             try {
-              profile = (await brain.profileRemove(s, i)).profile;
+              await brain.memoryChange(lineId(text), 'forget');
+              profile = (await brain.profile()).profile;
             } catch (e) {
               toast(`Could not remove it: ${(e as Error).message}`, 'bad');
             }
             paintMe();
+            void refreshTimeline();
           });
           mp.body.append(r);
         });
@@ -106,11 +126,13 @@ export const memoryTab: TabDef = {
         toast(`Could not save it: ${(e as Error).message}`, 'bad');
       }
       paintMe();
+      void refreshTimeline();
     };
     lineIn.addEventListener('keydown', (e) => e.key === 'Enter' && void addLine());
     mp.el.insertBefore(h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine())), mp.body);
     paintMe();
-    P.left.append(mp.el, fp.el);
+    P.left.append(tl.el, pats.el, mp.el);
+    P.right.append(fp.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -119,7 +141,8 @@ export const memoryTab: TabDef = {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);
     };
-    const refreshProfile = async () => {
+    const refreshProfile = async (andTimeline = true) => {
+      if (andTimeline) void refreshTimeline();
       try {
         const r = await brain.profile();
         profile = r.profile;
@@ -155,8 +178,10 @@ export const memoryTab: TabDef = {
       x.classList.add('del');
       x.title = 'Forget this lesson';
       x.addEventListener('click', async () => {
-        await brain.forgetLesson(l.id);
+        // Through the timeline's FORGET, so a locked lesson goes too when the owner asks (forget_lesson keeps it).
+        await brain.memoryChange(`l:${l.id}`, 'forget').catch(() => brain.forgetLesson(l.id));
         void refreshLessons();
+        void refreshTimeline();
       });
       return r;
     }, () => 'NONE YET');
@@ -169,7 +194,7 @@ export const memoryTab: TabDef = {
       }
       lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
     };
-    P.left.append(lp.el);
+    P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }));
     cp.foot!.prepend(button('CLEAR CONVERSATION', async () => {

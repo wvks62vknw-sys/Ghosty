@@ -11,7 +11,9 @@ import type { AiCapacity, ProviderRoom } from '../../../../packages/shared/src/p
 import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+import { cost, neurons } from '../neurons';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
+import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
 export { resetDelay } from './providers';
 export { quotaFor, CHAT_RESERVE } from './quota';
 export type { Priority } from './quota';
@@ -31,6 +33,18 @@ export interface Msg {
   tool_call_id?: string;
 }
 
+/**
+ * Ghosty speaking as himself (the system prompt carries the CHARACTER, persona.ts): whichever
+ * free model answered, its words go through `polish`, so the stock chatbot phrases never reach
+ * the owner — in the app, on Telegram or in a notification. Calls with their own prompt (JSON
+ * plans, checks, grading) are left exactly as the model wrote them.
+ */
+export function inCharacter<T extends { message: Msg }>(messages: Msg[], r: T): T {
+  const sys = messages[0]?.role === 'system' ? textOf(messages[0].content) : '';
+  if (!sys.includes(CHARACTER_MARK) || typeof r.message.content !== 'string' || !r.message.content) return r;
+  return { ...r, message: { ...r.message, content: polish(r.message.content) } };
+}
+
 export interface ToolSpec {
   type: 'function';
   function: { name: string; description: string; parameters: unknown };
@@ -44,7 +58,7 @@ interface Health {
 }
 
 interface LlmError {
-  /** HTTP status, or 'too-big' when a request can't be slimmed to a provider's limit. */
+  /** HTTP status; 'too-big' when a request can't be slimmed to a provider's limit; 'no-room' when today's free Workers AI share for this lane is spent. */
   code?: number | string;
   message: string;
   retryAfter?: string | null;
@@ -328,7 +342,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return mockComplete(messages, tools);
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await mockComplete(messages, tools));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;
@@ -338,7 +352,7 @@ export class Router {
     const deadline = Date.now() + maxWait;
     for (let round = 0; ; round++) {
       const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane);
-      if ('message' in r) return r;
+      if ('message' in r) return inCharacter(messages, r);
       const left = deadline - Date.now();
       if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
       // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
@@ -556,7 +570,7 @@ export class Router {
         if (!retried) tried++;
         const t0 = Date.now();
         try {
-          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code);
+          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane);
           settle(tokens, true);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
@@ -564,8 +578,14 @@ export class Router {
         } catch (err) {
           const e = err as LlmError;
           // A request that never reached the provider costs nothing; anything else keeps its count.
-          settle(e?.code === 'too-big' || e?.net ? 0 : undefined);
+          settle(e?.code === 'too-big' || e?.code === 'no-room' || e?.net ? 0 : undefined);
           if ((err as Error)?.name === 'AbortError') throw err;
+          // The day's free Workers AI share for this lane is spent (neurons.ts): skip the model for this call only.
+          // Not a provider limit, so nothing is learned or cooled: the owner's chat keeps its own, larger share.
+          if (e.code === 'no-room') {
+            lastErr = e;
+            break;
+          }
           if (e.code === 'too-big') {
             tooBig.add(`${p.id}|${model}`);
             break; // this model's free tier can't take a request this size; not its fault
@@ -626,7 +646,7 @@ export class Router {
   }
 
   /** One request to one model: its reply, and the tokens the provider says it used (for the counters). */
-  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false): Promise<{ message: Msg; tokens?: number }> {
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat'): Promise<{ message: Msg; tokens?: number }> {
     let messages = messagesIn;
     let tools = toolsIn;
     if (p.maxIn) {
@@ -635,7 +655,7 @@ export class Router {
       ({ messages, tools } = slim);
     }
     if (p.noSystem) messages = foldSystem(messages);
-    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code) };
+    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code, lane) };
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
     const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
@@ -700,9 +720,14 @@ export class Router {
   }
 
   /** Cloudflare Workers AI through the AI binding. Replies come in a few shapes; all are normalised. */
-  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean): Promise<Msg> {
+  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean, lane: Priority = 'chat'): Promise<Msg> {
     const ai = this.env.AI;
     if (!ai) throw { code: 401, message: 'no AI binding' } satisfies LlmError;
+    // The day's Workers AI allowance is shared (neurons.ts): this call must leave hearing its reserve.
+    // Background work (study, projects, the weekly self-training factory) leaves more: the owner's chat, hearing and the voices come first.
+    const use = lane === 'background' ? 'background' : 'chat';
+    const asked = tokensOf(messages) + (code ? 2000 : 600);
+    if (!(await neurons().room(use, cost.chat(asked)))) throw { code: 'no-room', message: "today's free Workers AI is nearly used up (the rest is kept for hearing the owner)" } satisfies LlmError;
     let res: unknown;
     try {
       res = await ai.run(model, {
@@ -718,6 +743,7 @@ export class Router {
       throw { code: rate ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
     }
     const msg = normaliseWorkersAi(res, new Set(tools.map((t) => t.function.name)));
+    await neurons().charge(use, cost.chat(tokensOf(messages) + (msg ? tokensOf(msg) : 0)));
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
     return msg;
   }

@@ -12,11 +12,14 @@
  *
  * In:  { gym: 'train', id, rec, epoch } · { gym: 'pause' } · { gym: 'reset', id, epoch }
  *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board? }
+ *      { gym: 'bench', req } (the report card's gym questions) · { gym: 'judge', req, id, reply } (one judged)
+ *      { gym: 'exact', req, question, reply? } (the exact check THINK HARDER can use for a chat question; with a reply, its verdict)
  * Out: { gym: 'progress', rec, view, training, epoch } (rec without the learner's state)
- *      { gym: 'save', rec, epoch } (with it) · { gym: 'reply', req, frames | move | view | error }
+ *      { gym: 'save', rec, epoch } (with it) · { gym: 'reply', req, frames | move | view | items | verdict | exact | error }
  *      { gym: 'error', id, message, epoch } (training itself failed and stopped)
  */
-import type { Frame } from './core';
+import { benchItems, gymCheck, gymCheckable, judgeItem, type BenchItem } from './bench';
+import type { Frame, Verdict } from './core';
 import { gameById } from './index';
 import { type GymRecord, Session } from './session';
 
@@ -24,12 +27,15 @@ export type GymIn =
   | { gym: 'train'; id: string; rec?: GymRecord | null; epoch?: number }
   | { gym: 'pause' }
   | { gym: 'reset'; id: string; epoch?: number }
-  | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[] };
+  | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[] }
+  | { gym: 'bench'; req: number }
+  | { gym: 'judge'; req: number; id: string; reply: string }
+  | { gym: 'exact'; req: number; question: string; reply?: string };
 
 export type GymOut =
   | { gym: 'progress'; rec: GymRecord; view: Frame; training: boolean; epoch: number; event?: 'level' | 'mastered' | null }
   | { gym: 'save'; rec: GymRecord; epoch: number }
-  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; view?: Frame; error?: string }
+  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
   | { gym: 'error'; id: string; message: string; epoch: number };
 
 interface Live {
@@ -120,6 +126,21 @@ function tick(post: (m: GymOut) => void) {
 }
 
 export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
+  // The offline brain's report card and THINK HARDER (gym/bench.ts): quick, answered at once.
+  if (m.gym === 'bench' || m.gym === 'judge' || m.gym === 'exact') {
+    try {
+      if (m.gym === 'bench') post({ gym: 'reply', req: m.req, items: benchItems() });
+      else if (m.gym === 'judge') post({ gym: 'reply', req: m.req, verdict: judgeItem(m.id, m.reply) });
+      else if (m.reply == null) post({ gym: 'reply', req: m.req, exact: gymCheckable(m.question) });
+      else {
+        const g = gymCheck(m.question, m.reply);
+        post({ gym: 'reply', req: m.req, exact: g && { label: g.label, kind: g.kind }, verdict: g?.verdict ?? null });
+      }
+    } catch (e) {
+      post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
+    }
+    return;
+  }
   if (m.gym === 'watch' || m.gym === 'move' || m.gym === 'view') {
     try {
       const l = live(m.id, m.rec, m.epoch);

@@ -16,6 +16,7 @@ import { digitsOf, gtinValid, isIsbn, langCode, langName, LANGUAGES, type Lookup
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import type { Msg } from '../llm/router';
+import { cost, neurons } from '../neurons';
 
 const UA = 'Ghosty/2.0 (personal assistant; single user)';
 const HEADERS = { Accept: 'application/json', 'User-Agent': UA };
@@ -349,7 +350,9 @@ export async function translate(rawText: string, rawTo: string, deps: { ai?: Env
     if (out) return { text: out, from: '', to, engine: 'model' };
   }
   let aiError = '';
-  if (deps.ai) {
+  const tn = cost.translate(text.length);
+  if (deps.ai && (await neurons().room('translate', tn))) {
+    await neurons().charge('translate', tn);
     try {
       const r = (await deps.ai.run(TRANSLATE_MODEL, { text, source_lang: from || 'en', target_lang: to })) as { translated_text?: unknown } | null;
       const out = typeof r?.translated_text === 'string' ? r.translated_text.trim() : '';

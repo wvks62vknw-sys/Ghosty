@@ -1,5 +1,5 @@
-// The GYM (apps/web/src/gym): ten games Ghosty teaches himself on the phone. For each: the rules, the
-// problem maker and checker (generate / check: what a later part turns into reasoning problems), the
+// The GYM (apps/web/src/gym): the games Ghosty teaches himself on the phone — part 1's ten here (part 2's
+// are in gym2.test.mjs; the shared checks below run on all of them). For each: the rules, the problem maker and checker (generate / check: what a later part turns into reasoning problems), the
 // ground-truth measure, and that a short seeded training run really improves the mastery measure. Plus the
 // session that moves up a level by itself, and the worker's message protocol.
 // (Run from offline.test.mjs, which is in the test list; package.json is protected.)
@@ -46,8 +46,8 @@ function climb(learner, bar, step, cap) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-test('gym: ten games, one interface — every engine resets, lists moves, steps and describes itself', () => {
-  // Part 1's ten come first (later parts add theirs after them; gym2.test.mjs checks those).
+test('gym: every game, one interface — every engine resets, lists moves, steps and describes itself', () => {
+  // Part 1's ten come first, in this order (part 2's games follow; gym2.test.mjs and gym2a.test.mjs cover them).
   assert.deepEqual(
     GAMES.slice(0, 10).map((g) => g.id),
     ['maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words'],
@@ -209,7 +209,7 @@ const WRONG = {
 };
 
 test('gym: every game makes checkable problems at every level — same seed, same problem; the right answer passes, a wrong one fails', () => {
-  // (Part 2's games have their right and wrong answers in gym2.test.mjs.)
+  // (Part 2's games have their right answers and near misses in gym2.test.mjs and gym2a.test.mjs.)
   for (const g of GAMES.filter((x) => RIGHT[x.id])) {
     for (const level of [1, 4, 7, 10]) {
       for (const seed of [2, 3]) {
@@ -709,17 +709,16 @@ test('worker: TRAIN posts progress and saves, PAUSE saves, WATCH / PLAY HIM / th
 
 test('worker speed: stored test sets, cached baselines, nothing slow on the way to PAUSE / PLAY HIM / WATCH', () => {
   // Connect 4's hardest test set and the 15-puzzle benchmark come from the stored lists (no solving).
-  let t = performance.now();
-  C4.testSet(10);
-  TI.bench(10);
-  assert.ok(performance.now() - t < 100, `stored sets took ${performance.now() - t} ms`);
+  // (Timings are the best of three: a machine busy with other work must not fail a speed check that a quiet one passes.)
+  const best = (fn) => Math.min(...[0, 1, 2].map(() => { const t = performance.now(); fn(); return performance.now() - t; }));
+  const sets = best(() => (C4.testSet(10), TI.bench(10)));
+  assert.ok(sets < 100, `stored sets took ${sets} ms`);
   // The stored tile benchmarks are what the solvers make.
   for (let L = 1; L <= 10; L++) assert.deepEqual(TI.bench(L), TI.bench(L, true), `tiles L${L}`);
   // A 15-puzzle measurement is quick now (a budget per level instead of thousands of positions).
   const l = TI.tiles.learner(10, 1);
-  t = performance.now();
-  l.measure();
-  assert.ok(performance.now() - t < 200, `15-puzzle measure took ${performance.now() - t} ms`);
+  const ms = best(() => l.measure());
+  assert.ok(ms < 200, `15-puzzle measure took ${ms} ms`);
   // Sudoku's plain-backtracking baseline is worked out once per level.
   assert.equal(SU.baselines(4), SU.baselines(4));
 });
@@ -729,7 +728,7 @@ test('bundle: the page imports only the games\' descriptions and the two boards 
   // The page and its PLAY HIM boards (features/gym/play.ts).
   const src = readFileSync(at('../../web/src/features/gym/index.ts'), 'utf8') + readFileSync(at('../../web/src/features/gym/play.ts'), 'utf8');
   const gymImports = [...src.matchAll(/from '\.\.\/\.\.\/gym\/([a-z0-9]+)'/g)].map((m) => m[1]);
-  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'checkers', 'chess', 'go', 'gofast', 'poker', 'sokoban', 'balance', 'match', 'chesssets', 'gosets', 'sokosets'];
+  const engines = ['index', 'maze', 'codebreaker', 'colony', 'trust', 'tictactoe', 'connect4', 'tiles', 'sudoku', 'countdown', 'words', 'guess', 'c4sets', 'tilesets', 'logic', 'logicsets', 'brain', 'bughunt', 'bugsets', 'tiny', 'escape', 'escapesets', 'facts', 'factcheck', 'debate', 'answer', 'checkers', 'chess', 'go', 'gofast', 'poker', 'sokoban', 'balance', 'match', 'chesssets', 'gosets', 'sokosets'];
   assert.deepEqual(gymImports.filter((f) => engines.includes(f)), [], `the page imports ${gymImports.join(', ')}`);
   const typeOnly = [...src.matchAll(/^import (type )?\{[^}]*\} from '\.\.\/\.\.\/gym\/(worker|core)'/gm)];
   assert.ok(typeOnly.every((m) => m[1] === 'type '), 'worker and core are imported for their types only');

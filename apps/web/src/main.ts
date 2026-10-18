@@ -9,6 +9,7 @@ import { onLocalReminder } from './api/offline';
 import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
+import { syncTrained } from './offline/trained';
 import { finishSpotifyLink } from './assistant/spotify';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
@@ -142,6 +143,9 @@ async function boot(): Promise<void> {
     void mirrorLibraryNow();
     window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
     window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
+    // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
+    void syncTrained();
+    window.setInterval(() => void (navigator.onLine && syncTrained()), 3 * 3600_000);
   }
   // Back from Spotify's sign-in page (?code=…&state=…): finish linking, then show Links.
   const spotify = await finishSpotifyLink().catch(() => null);

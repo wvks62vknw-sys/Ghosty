@@ -10,6 +10,7 @@
  */
 import { explodeOffsets, ease, fmtLength, thinnestAxis, type V3 } from './explode';
 import { triangulate } from '../../../../packages/shared/src/design';
+import type { StandInPart } from '../../../../packages/shared/src/models3d';
 import { roomBoxes, type RoomPlan } from './room';
 import { EYE, lookBy, resumeWalk, walkStep, type WalkState } from './walk';
 import { splitPieces, subsetIndex } from './split';
@@ -29,7 +30,9 @@ export interface StudioPart {
 export type ModelSource =
   | { kind: 'glb'; data: ArrayBuffer; title: string; metres: boolean; credit?: string; split?: boolean }
   | { kind: 'reactor' }
-  | { kind: 'room'; plan: RoomPlan; ceiling?: boolean };
+  | { kind: 'room'; plan: RoomPlan; ceiling?: boolean }
+  /** A stand-in built from simple shapes (models3d.ts `standIn`), in metres. */
+  | { kind: 'parts'; parts: StandInPart[]; title: string; credit: string };
 
 export interface ModelInfo {
   title: string;
@@ -269,6 +272,9 @@ export class Viewer {
     } else if (src.kind === 'reactor') {
       root = this.reactor();
       info = { title: 'Arc reactor (built in)', credit: 'Made for Ghosty from simple shapes', metres: true, room: false, warnings: [] };
+    } else if (src.kind === 'parts') {
+      root = this.standIn(src.parts);
+      info = { title: src.title, credit: src.credit, metres: true, room: false, warnings: [] };
     } else {
       const r = this.room(src.plan, !!src.ceiling);
       root = r.root;
@@ -745,6 +751,31 @@ export class Viewer {
     g.position.y = 0.065;
     stand.add(g);
     return stand;
+  }
+
+  /** A stand-in from its parts: boxes, cylinders, cones, spheres and rings, each a part that comes apart. */
+  private standIn(parts: StandInPart[]): TObject3D {
+    const { THREE } = this.lib!;
+    const g = new THREE.Group();
+    for (const p of parts.slice(0, 80)) {
+      const [a, b, c] = p.size;
+      const geo =
+        p.shape === 'box'
+          ? new THREE.BoxGeometry(a, b, c)
+          : p.shape === 'cyl' || p.shape === 'cone'
+            ? new THREE.CylinderGeometry(a / 2, c / 2, b, 32)
+            : p.shape === 'torus'
+              ? new THREE.TorusGeometry(a / 2, Math.max(0.002, b), 12, 48)
+              : new THREE.SphereGeometry(0.5, 32, 16);
+      const see = p.opacity !== undefined && p.opacity < 1;
+      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: p.color, metalness: p.metal ?? 0.05, roughness: p.rough ?? 0.6, ...(see ? { transparent: true, opacity: p.opacity } : {}) }));
+      m.name = p.name;
+      if (p.shape === 'sphere') m.scale.set(a, b, c);
+      m.position.set(p.pos[0], p.pos[1], p.pos[2]);
+      if (p.rot) m.rotation.set(p.rot[0], p.rot[1], p.rot[2], 'XYZ');
+      g.add(m);
+    }
+    return g;
   }
 
   /** A room from measurements: floors, glass walls cut round doors and windows, and every item as a box. */

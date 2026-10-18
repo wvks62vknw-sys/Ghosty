@@ -35,6 +35,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
   }
   const system = String(messages[0]?.content ?? '');
+  // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
+  const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
+  if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);
@@ -43,6 +47,20 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   }
   // The morning digest's "in three levels" note (library/digest.ts).
   if (/"In one line:"/.test(system)) return { message: { role: 'assistant', content: 'In one line: the mock read the day\'s headlines.\n\nIn more detail: the mock gathered the news, technology and science of the day and found them interesting.\n\nFor an expert: the mock has no paper to single out.' }, model };
+  // A website built on its own (sitebuild.ts): the planner keeps the look and drops nothing, the writer keeps
+  // every word but the first (shown with a mark, so a test can see the writer's words reach the page), the critic is content.
+  if (/^SITE PLANNER/.test(system)) return { message: { role: 'assistant', content: '```json\n{"palette":"barber","fonts":"condensed","shape":"sharp","scheme":"dark","tone":"sharp, friendly, local","drop":[],"why":"The mock likes the trade\'s own look."}\n```' }, model };
+  if (/^SITE WRITER/.test(system)) {
+    const asked = textOf(last.content).split('TEXT TO IMPROVE (JSON):\n')[1] ?? '{}';
+    let first = '';
+    try {
+      first = String((JSON.parse(asked) as Record<string, string>)['0'] ?? '');
+    } catch {
+      /* nothing to keep */
+    }
+    return { message: { role: 'assistant', content: JSON.stringify(first && first.length < 40 ? { '0': `${first} ✓` } : {}) }, model };
+  }
+  if (/^SITE CRITIC/.test(system)) return { message: { role: 'assistant', content: JSON.stringify({ verdict: 'Clear, confident and easy to use on a phone; the mock found nothing to change.', score: 8, fixes: [] }) }, model };
   // One step of a project that runs for days (projects.ts): the result itself, with a source.
   if (/PROJECT STEP/.test(system)) {
     const step = textOf(messages[messages.length - 1]?.content).match(/^Step (\d+): ([^\n—]+) — /m);
@@ -159,6 +177,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];

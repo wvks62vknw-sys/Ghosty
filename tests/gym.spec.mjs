@@ -1,4 +1,4 @@
-// The GYM tab on an iPhone 13. The tab opens with a card for each game (part 1's ten, part 2's six and any added later); tic-tac-toe opens and
+// The GYM tab on an iPhone 13. The tab opens with a card for each of the twenty-two games; tic-tac-toe opens and
 // TRAIN runs in the Web Worker while a timer on the page keeps ticking (no frozen screen); progress is
 // measured, saved to IndexedDB, survives a reload and training carries on from it; PLAY HIM works on the
 // tic-tac-toe and Connect 4 boards (he answers each move), and on the checkers, chess and Go boards with taps
@@ -6,8 +6,10 @@
 // route frame by frame and draws the balancing run;
 // Code Breaker cracks a code the owner picks. While a game trains, card taps still land and a finished
 // WATCH stays on the board; an armed RESET does not carry over to another game; a game RESET while it
-// trains does not come back (in the page or after a reload). Nothing sticks out sideways at 390 px; the security policy
-// blocks nothing (the worker is the app's own bundled worker file).
+// trains does not come back (in the page or after a reload). The six reasoning games of part 2 open, have no
+// PLAY HIM, and WATCH shows his reasoning as text; the network lab (the heaviest) trains without freezing
+// the page. Nothing sticks out sideways at 390 px; the security policy blocks nothing (the worker is the
+// app's own bundled worker file).
 //   BASE=http://localhost:8872 node tests/gym.spec.mjs /tmp/gym-shots          (Chromium)
 //   PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers BROWSER=webkit BASE=… node tests/gym.spec.mjs …   (WebKit)
 import { launch, webkitNoise, engine } from './browser.mjs';
@@ -37,6 +39,18 @@ await page.addInitScript(() => {
   document.addEventListener('visibilitychange', () => window.__vis.push(document.visibilityState));
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
+// A slow phone: when asked, reading the saved games takes 3 s (to tap TRAIN before they are in).
+await page.addInitScript(() => {
+  if (!sessionStorage.getItem('gymslow')) return;
+  const getAll = IDBObjectStore.prototype.getAll;
+  IDBObjectStore.prototype.getAll = function (...a) {
+    const r = getAll.apply(this, a);
+    const slow = { result: undefined, onsuccess: null, onerror: null };
+    r.onsuccess = () => setTimeout(() => ((slow.result = r.result), slow.onsuccess?.()), 3000);
+    r.onerror = () => slow.onerror?.();
+    return slow;
+  };
+});
 
 const boot = async () => {
   await page.goto(base);
@@ -62,6 +76,9 @@ const wideCheck = async (where) => {
   if (wide.page || wide.over.length) problems.push(`${where}: something sticks out sideways (${wide.over.join(', ') || 'page'})`);
 };
 const card = (id) => G(`.gymcard[data-game="${id}"]`);
+// Part 1's ten games, then part 2's six reasoning games.
+const NAMES = ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS', 'LOGIC SANDBOX', 'MINI-BRAIN LAB', 'BUG HUNT', 'TEXT ESCAPE ROOMS', 'FACT-CHECK DUEL', 'DEBATE ARENA', 'CHECKERS', 'CHESS', 'GO 9×9', 'SIMPLE POKER', 'SOKOBAN', 'BALANCE & LANDER'];
+const CARDS = NAMES.length;
 /** The chat log is an overlay on phones: close it if it is open. */
 const closeLog = async () => {
   if (await page.locator('#log.open, .log.open').count().catch(() => 0)) await page.click('.logbtn').catch(() => undefined);
@@ -69,12 +86,11 @@ const closeLog = async () => {
 
 // ---- the tab and its cards ----
 await boot();
-const CARDS = 16;
-await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM tab did not open with its game cards', CARDS);
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM tab did not open with its game cards', CARDS);
 await closeLog();
 const n = await G('.gymcard').count();
-if (n < CARDS) problems.push(`the GYM shows ${n} game cards (want at least ${CARDS})`);
-for (const name of ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS', 'CHECKERS', 'CHESS', 'GO 9×9', 'SIMPLE POKER', 'SOKOBAN', 'BALANCE & LANDER']) {
+if (n !== CARDS) problems.push(`the GYM shows ${n} game cards (want ${CARDS})`);
+for (const name of NAMES) {
   if (!(await G('.gymcard .gymname', { hasText: name }).count()) && !(await page.locator(`#pg-gym .gymcard:has-text("${name}")`).count())) problems.push(`no card for ${name}`);
 }
 await wideCheck('the game cards');
@@ -116,7 +132,7 @@ await page.waitForTimeout(500);
 
 // ---- reload: what he learned is still there, and training carries on from it ----
 await boot();
-await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM did not come back after a reload', CARDS);
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after a reload', CARDS);
 await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `progress did not survive the reload (had ${before?.units} games)`, before?.units ?? 1);
 const after = (await st()).recs.tictactoe;
 if (after && before && (after.level !== before.level || Math.abs(after.mastery - before.mastery) > 1e-9)) problems.push(`after the reload the record changed: ${JSON.stringify(before)} → ${JSON.stringify(after)}`);
@@ -127,6 +143,31 @@ if (!after?.mastered) {
   await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) > u + 500 || window.__ghosty.gym.recs.tictactoe?.mastered, 20000, 'training did not carry on after the reload', after?.units ?? 0);
   if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
   await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after the reload');
+}
+
+// ---- a TRAIN tapped before the saved games are read must not start him again from Level 1 ----
+{
+  const had = (await st()).recs.tictactoe;
+  await page.evaluate(() => sessionStorage.setItem('gymslow', '1'));
+  await boot();
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not show its cards while still loading', CARDS);
+  await closeLog();
+  await card('tictactoe').click();
+  if (!had?.mastered) {
+    await G('button.gymtrain').click(); // within the 3 s the saved games take to arrive
+    await page.waitForTimeout(5000);
+    if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
+    await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop training after a slow load');
+    await page.waitForTimeout(800);
+  }
+  await page.evaluate(() => sessionStorage.removeItem('gymslow'));
+  await boot();
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the slow-load check', CARDS);
+  await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `an early TRAIN wiped his saved progress (had ${had?.units} games)`, had?.units ?? 1);
+  const now = (await st()).recs.tictactoe;
+  if (had && now && now.level < had.level) problems.push(`an early TRAIN sent him back from Level ${had.level} to Level ${now.level}`);
+  await closeLog();
+  await card('tictactoe').click();
 }
 
 // ---- PLAY HIM: tic-tac-toe ----
@@ -270,14 +311,55 @@ const afterReset = await st();
 if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
 if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
 await boot();
-await until((k) => (window.__ghosty?.gym?.cards ?? 0) >= k, 15000, 'the GYM did not come back after the reset reload', CARDS);
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the reset reload', CARDS);
 await page.waitForTimeout(1000);
 if ((await st()).recs.maze) problems.push('the reset maze came back after a reload');
 await closeLog();
+
+// ---- part 2: the six reasoning games — WATCH shows his reasoning as text; nothing sideways ----
+for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate']) {
+  await card(id).click();
+  if (!(await until((x) => window.__ghosty.gym.open === x, 3000, `the ${id} card did not open`, id))) continue;
+  const acts = await G('.gymactions button:visible').allInnerTexts();
+  for (const want of ['TRAIN', 'WATCH', 'RESET']) if (!acts.some((b) => b.trim() === want)) problems.push(`${id} has no ${want} button`);
+  if (acts.some((b) => b.trim() === 'PLAY HIM')) problems.push(`${id} shows PLAY HIM (not a board game)`);
+  await page.evaluate(() => (window.__ghosty.gym.frames = 0));
+  await G('button', { hasText: 'WATCH' }).click();
+  await until(() => window.__ghosty.gym.frames >= 2, 20000, `WATCH did not play ${id}`);
+  const text = await G('.gymboard').innerText();
+  if (text.length < 60 || /undefined|NaN/.test(text)) problems.push(`${id}: WATCH shows "${text.slice(0, 120)}"`);
+  // Program listings and transcripts keep their indentation.
+  const ws = await page.evaluate(() => { const e = document.querySelector('#pg-gym .gymboard .gymlines'); return e ? getComputedStyle(e).whiteSpace : 'none'; });
+  if (ws !== 'pre-wrap') problems.push(`${id}: WATCH text does not keep its indentation (white-space: ${ws})`);
+  await wideCheck(`watching ${id}`);
+  await page.screenshot({ path: `${out}/gym-${id}.png` });
+}
+// The heaviest one, the network lab, trains in the worker without freezing the page.
+await card('brain').click();
+await page.evaluate(() => {
+  window.__ticks2 = [];
+  window.__tick2 = setInterval(() => window.__ticks2.push(performance.now()), 50);
+});
+await G('button.gymtrain').click();
+await until(() => window.__ghosty?.gym?.training === 'brain', 5000, 'TRAIN did not start the network lab');
+await until(() => (window.__ghosty?.gym?.recs?.brain?.units ?? 0) > 20, 30000, 'the network lab made no progress in the worker');
+const gap2 = await page.evaluate(() => {
+  const t = window.__ticks2;
+  clearInterval(window.__tick2);
+  let worst = 0;
+  for (let i = 1; i < t.length; i++) worst = Math.max(worst, t[i] - t[i - 1]);
+  return { worst: Math.round(worst), n: t.length };
+});
+if (gap2.n < 20 || gap2.worst > 500) problems.push(`the page froze while the network lab trained: ${gap2.n} ticks, longest gap ${gap2.worst} ms`);
+const st2 = await G('.gymstatus').innerText();
+if (!/^(Learning… [\d,]+ networks · Level \d+ · mastery \d+% → \d+%|Mastered all 10 levels.*)$/.test(st2)) problems.push(`the network lab's status line reads "${st2}"`);
+await wideCheck('training the network lab');
+if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
+await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop the network lab');
 
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.evaluate(() => clearInterval(window.__tick));
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${n} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${CARDS} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; WATCH as text for the six reasoning games and the network lab trained without a freeze (longest pause ${gap2.worst} ms); card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
 process.exit(problems.length ? 1 : 0);

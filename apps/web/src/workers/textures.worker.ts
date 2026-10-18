@@ -5,10 +5,16 @@
 import { buildTextures } from '../engine/textures';
 import { WORLD_URL, type WorldPack } from '../engine/world';
 import { gymMessage, type GymIn } from '../gym/worker';
+import { siteMessage, type SiteIn } from '../offline/sitework';
 
 self.onmessage = async (e: MessageEvent) => {
   if (e.data && typeof e.data === 'object' && 'gym' in e.data) {
     gymMessage(e.data as GymIn, (m) => (self as unknown as Worker).postMessage(m));
+    return;
+  }
+  // The offline website builder (offline/sitework.ts): a message carrying `site`.
+  if (e.data && typeof e.data === 'object' && 'site' in e.data) {
+    siteMessage(e.data as SiteIn, (m) => (self as unknown as Worker).postMessage(m));
     return;
   }
   try {
