@@ -581,7 +581,10 @@ export interface TextLine {
 }
 
 export interface ScaleFit {
-  /** Millimetres per pixel. */
+  /** Millimetres per pixel, across (x) and down (y) the picture: a page flattened to the wrong shape stretches one way. */
+  sx: number;
+  sy: number;
+  /** The two together (their geometric mean). */
   mmPerPx: number;
   /** Log-scale spread of the matches that agreed (0.02 ≈ ±2 %). */
   sigma: number;
@@ -589,16 +592,20 @@ export interface ScaleFit {
   used: string[];
   /** Written sizes that did not agree with the rest. */
   ignored: string[];
+  /** Only one direction had written sizes: the other is assumed the same. */
+  oneWay: boolean;
 }
 
 /**
- * The scale from the written sizes: a pair inside a room against that room's width and depth
- * (the way round that agrees best, if the two sides agree within 12 %); a single length against
- * the nearest wall running the same way as the text (within 30 % of the wall's length of it).
- * The median of the matches; matches more than 12 % from it are set aside. Null with no matches.
+ * The scale from the written sizes, each way: a pair inside a room against that room's width and
+ * depth (the way round whose two scales agree best, within 20 %: the page may be stretched a
+ * little one way), a single length against the nearest wall running the same way as the text
+ * (within 30 % of the wall's length of it). Each way, the median of its matches; matches more than
+ * 12 % from it are set aside. A direction with no sizes takes the other's scale; two directions
+ * more than 20 % apart are not trusted apart, and their mean is used both ways. Null with no matches.
  */
 export function fitScale(lines: TextLine[], rooms: Pt[][]): ScaleFit | null {
-  const est: { s: number; why: string }[] = [];
+  const est: { s: number; axis: 'x' | 'y'; why: string }[] = [];
   for (const line of lines) {
     const dims = parseDims(line.text);
     if (!dims.length) continue;
@@ -610,11 +617,14 @@ export function fitScale(lines: TextLine[], rooms: Pt[][]): ScaleFit | null {
         if (!room) continue;
         const b = bbox(room);
         const opts = [
-          [d.a / b.w, d.b / b.h],
-          [d.a / b.h, d.b / b.w],
-        ].map(([p, q]) => ({ s: Math.sqrt(p! * q!), off: Math.abs(Math.log(p! / q!)) }));
+          { x: d.a / b.w, y: d.b / b.h },
+          { x: d.b / b.w, y: d.a / b.h },
+        ].map((o) => ({ ...o, off: Math.abs(Math.log(o.x / o.y)) }));
         const best = opts[0]!.off <= opts[1]!.off ? opts[0]! : opts[1]!;
-        if (best.off <= 0.12) est.push({ s: best.s, why: `"${d.text}" (a room's width × depth)` });
+        if (best.off <= 0.2) {
+          const why = `"${d.text}" (a room's width × depth)`;
+          est.push({ s: best.x, axis: 'x', why }, { s: best.y, axis: 'y', why });
+        }
         break;
       }
       // a single length: the nearest wall edge running the same way as the text
@@ -635,18 +645,35 @@ export function fitScale(lines: TextLine[], rooms: Pt[][]): ScaleFit | null {
           if (!bestE || dd < bestE.d) bestE = { len, d: dd };
         });
       }
-      if (bestE) est.push({ s: d.a / (bestE as { len: number }).len, why: `"${d.text}" (a wall)` });
+      if (bestE) est.push({ s: d.a / (bestE as { len: number }).len, axis: horizontal ? 'x' : 'y', why: `"${d.text}" (a wall)` });
     }
   }
   if (!est.length) return null;
-  const sorted = [...est].sort((a, b) => a.s - b.s);
-  const mid = sorted[sorted.length >> 1]!.s;
-  const keep = est.filter((e) => Math.abs(Math.log(e.s / mid)) <= 0.12);
-  const ignored = est.filter((e) => Math.abs(Math.log(e.s / mid)) > 0.12).map((e) => e.why);
-  const logs = keep.map((e) => Math.log(e.s));
-  const mean = logs.reduce((a, b) => a + b, 0) / logs.length;
-  const sd = logs.length > 1 ? Math.sqrt(logs.reduce((a, b) => a + (b - mean) ** 2, 0) / (logs.length - 1)) : 0.03;
-  return { mmPerPx: Math.exp(mean), sigma: Math.max(0.01, sd / Math.sqrt(logs.length)), used: keep.map((e) => e.why), ignored };
+  const used = new Set<string>();
+  const ignored = new Set<string>();
+  const axisFit = (axis: 'x' | 'y') => {
+    const mine = est.filter((e) => e.axis === axis);
+    if (!mine.length) return null;
+    const sorted = mine.map((e) => e.s).sort((p, q) => p - q);
+    const mid = sorted[sorted.length >> 1]!;
+    const keep = mine.filter((e) => Math.abs(Math.log(e.s / mid)) <= 0.12);
+    for (const e of mine) (keep.includes(e) ? used : ignored).add(e.why);
+    const logs = keep.map((e) => Math.log(e.s));
+    const mean = logs.reduce((p, q) => p + q, 0) / logs.length;
+    const sd = logs.length > 1 ? Math.sqrt(logs.reduce((p, q) => p + (q - mean) ** 2, 0) / (logs.length - 1)) : 0.03;
+    return { s: Math.exp(mean), sigma: Math.max(0.01, sd / Math.sqrt(logs.length)) };
+  };
+  let X = axisFit('x');
+  let Y = axisFit('y');
+  const oneWay = !X || !Y;
+  if (!X) X = Y;
+  if (!Y) Y = X;
+  if (Math.abs(Math.log(X!.s / Y!.s)) > 0.2) {
+    const m = Math.sqrt(X!.s * Y!.s);
+    X = Y = { s: m, sigma: Math.max(X!.sigma, Y!.sigma, Math.abs(Math.log(X!.s / Y!.s)) / 2) };
+  }
+  for (const u of used) ignored.delete(u);
+  return { sx: X!.s, sy: Y!.s, mmPerPx: Math.sqrt(X!.s * Y!.s), sigma: Math.max(X!.sigma, Y!.sigma) + (oneWay ? 0.03 : 0), used: [...used], ignored: [...ignored], oneWay };
 }
 
 /** The share of a room's outline (sampled just outside its edges, half a wall out) that is wall. */
@@ -718,18 +745,47 @@ export function findOpenings(rooms: Pt[][], walls: Uint8Array, dark: Uint8Array,
       const uy = (b[1] - a[1]) / len;
       const nx = uy * sgn;
       const ny = -ux * sgn;
-      // eight samples across the wall's thickness: mostly wall, only thin lines (glazing), or nothing
+      // eight samples across the wall's thickness: mostly wall, thin lines only, or nothing;
+      // which of the eight were dark is kept, to tell glazing (lines all along) from a door's swing (a crossing)
       const kinds: ('W' | 'T' | 'O')[] = [];
+      const lanes: number[] = [];
       for (let s = 0; s < len; s++) {
         let W = 0;
         let T = 0;
-        for (let f = 0.1; f < 1; f += 0.115) {
+        let lane = 0;
+        for (let k = 0; k < 8; k++) {
+          const f = 0.1 + k * 0.115;
           const x = a[0] + ux * s + nx * t * f;
           const y = a[1] + uy * s + ny * t * f;
           if (at(x, y, walls)) W++;
-          else if (at(x, y, dark)) T++;
+          else if (at(x, y, dark)) {
+            T++;
+            lane |= 1 << k;
+          }
         }
         kinds.push(W >= 4 ? 'W' : T >= 1 ? 'T' : W >= 1 ? 'W' : 'O');
+        lanes.push(lane);
+      }
+      // a stretch of thin lines is glazing only when one line runs along most of it; otherwise it is a gap something crosses (a door's swing)
+      for (let s = 0; s < kinds.length; ) {
+        if (kinds[s] === 'W') {
+          s++;
+          continue;
+        }
+        let e = s;
+        while (e < kinds.length && kinds[e] !== 'W') e++;
+        const n = e - s;
+        let best = 0;
+        for (let k = 0; k < 8; k++) {
+          let c = 0;
+          // a line may wander one lane either way
+          const mask = (1 << k) | (k > 0 ? 1 << (k - 1) : 0) | (k < 7 ? 1 << (k + 1) : 0);
+          for (let q = s; q < e; q++) if (lanes[q]! & mask) c++;
+          best = Math.max(best, c / n);
+        }
+        const glazing = best >= 0.7;
+        for (let q = s; q < e; q++) kinds[q] = glazing ? 'T' : 'O';
+        s = e;
       }
       // a speck of one or two pixels does not split a run
       for (let s = 1; s < kinds.length - 1; s++) {
@@ -893,26 +949,32 @@ export function planFromDrawing(img: Gray, text: TextLine[]): PlanFromDrawing | 
   // the scale and the openings from the rooms' inner faces (what plans write); then shared walls meet
   const fit = fitScale(lines, inner);
   const notes: string[] = [];
-  let mmPerPx: number;
+  let sx: number;
+  let sy: number;
   let sigma: number;
   const guessed = !fit;
   if (fit) {
-    mmPerPx = fit.mmPerPx;
+    sx = fit.sx;
+    sy = fit.sy;
     sigma = fit.sigma;
     notes.push(`Scale from ${fit.used.length} written size${fit.used.length === 1 ? '' : 's'}: ${fit.used.slice(0, 3).join(', ')}${fit.used.length > 3 ? '…' : ''}`);
+    if (fit.oneWay) notes.push('Sizes were written one way only: the other way is assumed to match (check one wall that way).');
     if (fit.ignored.length) notes.push(`Did not agree, so not used: ${fit.ignored.slice(0, 3).join(', ')}`);
   } else {
     // no sizes to read: guess from the walls (100 mm is a usual inside wall), and say so
-    mmPerPx = 100 / t;
+    sx = sy = 100 / t;
     sigma = 0.35;
     notes.push('No written sizes could be read, so the scale is a guess (walls assumed 10 cm thick). Tap a wall and type its real length: everything rescales.');
   }
+  const mmPerPx = Math.sqrt(sx * sy);
   const found = findOpenings(inner, walls, thin, w, h, t, {
     door: [600 / mmPerPx, 1300 / mmPerPx],
     window: [400 / mmPerPx, 3000 / mmPerPx],
   });
   const rooms = meetShared(inner, t * 1.8);
   const cm = (px: number) => (px * mmPerPx) / 10;
+  const cmX = (px: number) => (px * sx) / 10;
+  const cmY = (px: number) => (px * sy) / 10;
   // room names: words inside a room that are not sizes
   const names = rooms.map((poly, i) => {
     const words = lines.filter((l) => insidePoly([l.box.x + l.box.w / 2, l.box.y + l.box.h / 2], poly) && !parseDims(l.text).length && /[a-z]{3,}/i.test(l.text));
@@ -921,16 +983,21 @@ export function planFromDrawing(img: Gray, text: TextLine[]): PlanFromDrawing | 
   });
   const minX = Math.min(...rooms.flat().map((p) => p[0]));
   const minY = Math.min(...rooms.flat().map((p) => p[1]));
-  const shapes: RoomShape[] = rooms.map((poly, i) => ({ id: `r${i + 1}`, name: names[i]!, poly: poly.map((p): Pt => [Math.round(cm(p[0] - minX)), Math.round(cm(p[1] - minY))]) }));
+  const shapes: RoomShape[] = rooms.map((poly, i) => ({ id: `r${i + 1}`, name: names[i]!, poly: poly.map((p): Pt => [Math.round(cmX(p[0] - minX)), Math.round(cmY(p[1] - minY))]) }));
   const openings: Opening[] = found.map((o, k) => {
     const door = o.type === 'door';
+    // along a wall that runs across the picture the across scale applies, down it the down scale
+    const poly = inner[o.room]!;
+    const ea = poly[o.wall]!;
+    const eb = poly[(o.wall + 1) % poly.length]!;
+    const along = Math.abs(eb[0] - ea[0]) >= Math.abs(eb[1] - ea[1]) ? cmX : cmY;
     return {
       id: `${door ? 'd' : 'w'}${k + 1}`,
       type: o.type,
       room: shapes[o.room]!.id,
       wall: o.wall,
-      at: Math.round(cm(o.at)),
-      w: Math.max(30, Math.round(cm(o.w))),
+      at: Math.round(along(o.at)),
+      w: Math.max(30, Math.round(along(o.w))),
       h: door ? DEFAULTS.door.h : DEFAULTS.window.h,
       sill: door ? 0 : DEFAULTS.window.sill,
       hinge: 'start',

@@ -17,7 +17,7 @@ import { scalePhoto } from '../../measure/autoscale';
 import { depthModel } from '../../measure/depth';
 import { readExif } from '../../measure/exif';
 import type { Cue } from '../../measure/cues';
-import { findPageIn, quadArea, straighten, toGray } from '../../scan/page';
+import { enhance, findPageIn, quadArea, toGray, warpPage, type Quad } from '../../scan/page';
 import { button, panel, toast } from '../../ui/components';
 import { loadImageFile } from '../../vision/camera';
 import { Reader } from '../../vision/ocr';
@@ -36,7 +36,7 @@ export interface FromPhotoState {
   kind: 'drawing' | 'room' | '';
   status: string;
   /** A drawn plan: rooms, doors, windows found, mm per picture pixel, the scale's doubt, whether it was guessed. */
-  drawing: { rooms: number; doors: number; windows: number; mmPerPx: number; sigma: number; guessed: boolean; notes: string[] } | null;
+  drawing: { rooms: number; doors: number; windows: number; mmPerPx: number; sigma: number; guessed: boolean; notes: string[]; read: string[] } | null;
   /** Photos of the room: its width and depth (cm) and their doubt. */
   room: (RoomSize & { photos: number; cues: string[] }) | null;
   applied: number;
@@ -64,6 +64,30 @@ export function rescaleWall(roomId: string, wall: number, cm: number): number | 
   rememberPlan();
   space.setPlan(got.plan);
   return got.factor;
+}
+
+/**
+ * The page flattened to its own shape: the shape its corners show in the photo, snapped to A4's or
+ * US Letter's when within 5 % of one (a photo from a little off straight above shortens one side;
+ * plans are mostly printed on those). The written sizes put right what is left, each way.
+ */
+function flatten(c: HTMLCanvasElement, q: Quad, long: number, clean = true): HTMLCanvasElement {
+  const d = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  const wide = (d(q[0], q[1]) + d(q[3], q[2])) / 2;
+  const tall = (d(q[0], q[3]) + d(q[1], q[2])) / 2;
+  let ratio = Math.max(wide, tall) / Math.min(wide, tall);
+  for (const paper of [297 / 210, 279.4 / 215.9]) if (Math.abs(ratio / paper - 1) <= 0.05) ratio = paper;
+  const short = Math.round(long / ratio);
+  const size = wide >= tall ? { w: long, h: short } : { w: short, h: long };
+  const g = c.getContext('2d', { willReadFrequently: true });
+  if (!g) throw new Error('The picture could not be read');
+  const px = warpPage(g.getImageData(0, 0, c.width, c.height), q, size.w, size.h);
+  if (clean) enhance(px);
+  const out = document.createElement('canvas');
+  out.width = size.w;
+  out.height = size.h;
+  out.getContext('2d')?.putImageData(new ImageData(px as Uint8ClampedArray<ArrayBuffer>, size.w, size.h), 0, 0);
+  return out;
 }
 
 /** The camera's focal length etc. in the depth map's own pixels. */
@@ -136,7 +160,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
     // a photo of a page: find it and flatten it; a scan or screenshot is used as it is
     const q = findPageIn(c);
     const share = q ? quadArea(q) / (c.width * c.height) : 0;
-    const page = q && share > 0.2 && share < 0.97 ? straighten(c, q, { enhance: true, long: 1800 }) : c;
+    const page = q && share > 0.2 && share < 0.97 ? flatten(c, q, 1800) : c;
     const g2 = page.getContext('2d', { willReadFrequently: true });
     if (!g2) throw new Error('The picture could not be read');
     const img: Gray = { w: page.width, h: page.height, g: toGray(g2.getImageData(0, 0, page.width, page.height).data, page.width, page.height) };
@@ -152,12 +176,14 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
       reader.terminate();
     }
     status('finding the walls, rooms, doors and windows…', 'mid');
-    const res = planFromDrawing(img, linesFromWords(words));
+    // written sizes in feet and inches read with low confidence (the ' and " marks): keep words down to 30 %
+    const lines = linesFromWords(words, 30);
+    const res = planFromDrawing(img, lines);
     if ('error' in res) throw new Error(res.error);
     const r = res as PlanFromDrawing;
     const doors = (r.plan.openings ?? []).filter((o) => o.type === 'door').length;
     S.kind = 'drawing';
-    S.drawing = { rooms: r.plan.rooms?.length ?? 0, doors, windows: (r.plan.openings?.length ?? 0) - doors, mmPerPx: r.mmPerPx, sigma: r.sigma, guessed: r.guessed, notes: r.notes };
+    S.drawing = { rooms: r.plan.rooms?.length ?? 0, doors, windows: (r.plan.openings?.length ?? 0) - doors, mmPerPx: r.mmPerPx, sigma: r.sigma, guessed: r.guessed, notes: r.notes, read: lines.map((l) => l.text) };
     S.room = null;
     result = { plan: r.plan };
     // the outlines are in the straightened picture's pixels: the picture is shown turned the same way
@@ -244,7 +270,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
         const c0 = await loadImageFile(files[0]!, 800);
         const q = findPageIn(c0);
         const share = q ? quadArea(q) / (c0.width * c0.height) : 0;
-        const c = q && share > 0.2 && share < 0.97 ? straighten(c0, q, { long: 600 }) : c0;
+        const c = q && share > 0.2 && share < 0.97 ? flatten(c0, q, 600, false) : c0;
         const g = c.getContext('2d', { willReadFrequently: true });
         k = g && looksLikeDrawing({ w: c.width, h: c.height, g: toGray(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height) }) ? 'drawing' : 'room';
       }
