@@ -182,8 +182,17 @@ test('the WAV helper: 16 kHz mono 16-bit PCM with a correct header, channels mix
   assert.equal(S.audioExt('audio/wav'), 'wav', 'what the brain sees when the phone sends it');
 });
 
-test("POST /tts with a voice: Aura's natural British voices within the day's share, then the plain voice; a failing Aura falls back; the old request stays MeloTTS", async () => {
+/** Durable Object storage, in memory, for the ledger tests. */
+class Store {
+  m = new Map();
+  async get(k) { return structuredClone(this.m.get(k)); }
+  async put(k, v) { this.m.set(k, structuredClone(v)); }
+}
+
+test("POST /tts with a voice: Aura's natural British voices within the day's share of the shared Workers AI ledger, then the plain voice; the reason said; the old request stays MeloTTS", async () => {
   S._testing.reset();
+  const store = new Store();
+  const ledger = new S.NeuronLedger(store);
   const aura = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 9, 9, 9, 9]);
   const ai = fakeAi({
     '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }),
@@ -191,15 +200,16 @@ test("POST /tts with a voice: Aura's natural British voices within the day's sha
     '@cf/deepgram/aura-2-en': () => new ReadableStream({ start(c) { c.enqueue(aura); c.close(); } }),
     '@cf/deepgram/aura-1': () => new Response(aura),
   });
-  const post = (body, env = { AI: ai }) => S.ttsRoute(env, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }));
-  // 'auto': the most natural British voice (Aura 2, Draco)
+  const post = (body, env = { AI: ai }, l = ledger) => S.ttsRoute(env, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), l);
+  // 'auto': the most natural British voice (Aura 2, Draco), charged to the ledger and kept in storage
   const r = await post({ text: 'Morning. Kettle is on.', voice: 'auto' });
   assert.equal(r.status, 200);
   assert.equal(r.headers.get('x-voice'), 'draco');
   assert.equal(r.headers.get('x-voice-note'), null);
+  assert.equal(r.headers.get('x-voice-reason'), null);
   assert.deepEqual(new Uint8Array(await r.arrayBuffer()), aura);
   assert.deepEqual(ai.calls.at(-1), { model: '@cf/deepgram/aura-2-en', inputs: { text: 'Morning. Kettle is on.', speaker: 'draco', encoding: 'mp3' } });
-  assert.equal(S._testing.auraToday(), 'Morning. Kettle is on.'.length * 2, 'Aura 2 counts double');
+  assert.equal(store.m.get('ai:neurons').by.voice, Math.ceil('Morning. Kettle is on.'.length * 1.37 * 2), 'Aura 2 counts double, and the count is in storage');
   // a named voice, Aura 1
   const h = await post({ text: 'Hello.', voice: 'helios' });
   assert.equal(h.headers.get('x-voice'), 'helios');
@@ -213,23 +223,59 @@ test("POST /tts with a voice: Aura's natural British voices within the day's sha
   assert.equal(ai.calls.at(-1).model, '@cf/myshell-ai/melotts');
   // no voice at all (older copies of the app, Telegram): the plain voice, as before
   assert.equal((await post({ text: 'Plain old voice.' })).headers.get('x-voice'), 'melo');
-  // the day's share for Aura used up: the plain voice speaks, and says why
+  // the share used up: the plain voice speaks, and the reason says "not again today"
   const big = 'word '.repeat(110).trim();
   let last;
   for (let i = 0; i < 6; i++) last = await post({ text: `${i} ${big}`, voice: 'draco' });
-  assert.ok(S._testing.auraToday() <= S.AURA_UNITS_PER_DAY, `share kept: ${S._testing.auraToday()}`);
+  assert.ok(store.m.get('ai:neurons').by.voice <= S.VOICE_SHARE, `share kept: ${store.m.get('ai:neurons').by.voice}`);
   assert.equal(last.status, 200);
   assert.equal(last.headers.get('x-voice'), 'melo');
+  assert.equal(last.headers.get('x-voice-reason'), 'share');
   assert.match(last.headers.get('x-voice-note'), /share for the natural voice is used up/);
-  // Aura failing: the plain voice says it instead, with a note
+  // an eviction (a new brain, a new ledger on the same storage) still knows: no natural voice
+  S._testing.reset();
+  const after = await post({ text: `after a restart ${big}`, voice: 'draco' }, { AI: ai }, new S.NeuronLedger(store));
+  assert.equal(after.headers.get('x-voice'), 'melo', 'the share is not forgotten by a restart');
+  assert.equal(after.headers.get('x-voice-reason'), 'share');
+  // Aura failing: the plain voice says it, and the reason is a passing error (try again soon), not the share
   S._testing.reset();
   const flaky = fakeAi({ '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }), '@cf/deepgram/aura-2-en': new Error('3040: capacity') });
-  const f = await post({ text: 'Still speaking.', voice: 'pandora' }, { AI: flaky });
+  const f = await post({ text: 'Still speaking.', voice: 'pandora' }, { AI: flaky }, new S.NeuronLedger(new Store()));
   assert.equal(f.status, 200);
   assert.equal(f.headers.get('x-voice'), 'melo');
+  assert.equal(f.headers.get('x-voice-reason'), 'error');
   assert.match(f.headers.get('x-voice-note'), /did not answer \(3040: capacity\)/);
   // an unknown voice name is the plain voice
-  assert.equal((await post({ text: 'Who?', voice: 'bogus' })).headers.get('x-voice'), 'melo');
+  assert.equal((await post({ text: 'Who?', voice: 'bogus' }, { AI: ai }, new S.NeuronLedger(new Store()))).headers.get('x-voice'), 'melo');
+  S._testing.reset();
+});
+
+test('the Workers AI ledger: one count for every use, kept in storage; hearing always has room, nicer voices give way first', async () => {
+  S._testing.reset();
+  const store = new Store();
+  const ledger = new S.NeuronLedger(store);
+  // the fallback brain and hearing have used most of the day: the natural voice must leave its reserve
+  await ledger.charge('chat', 5500);
+  await ledger.charge('stt', 600);
+  const aura = fakeAi({ '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }), '@cf/deepgram/aura-2-en': () => new Response(new Uint8Array([1, 2, 3])) });
+  const tts = (body, l = ledger) => S.ttsRoute({ AI: aura }, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), l);
+  const r = await tts({ text: 'A short line.', voice: 'draco' });
+  assert.equal(r.headers.get('x-voice'), 'melo', 'with 6,100 of 10,000 gone the natural voice gives way');
+  assert.equal(r.headers.get('x-voice-reason'), 'share');
+  assert.ok(!aura.calls.some((c) => c.model.includes('aura')), 'Aura was never asked');
+  // nearly everything gone: even the plain voice gives way, hearing still works
+  await ledger.charge('chat', 3400);
+  const plain = await tts({ text: 'Another line here.', voice: 'melo' });
+  assert.equal(plain.status, 429);
+  assert.match((await plain.json()).error, /kept for hearing you/);
+  const ear = fakeAi({ '@cf/openai/whisper-large-v3-turbo': () => ({ text: 'still hearing you' }) });
+  assert.equal(await S.transcribe({ AI: ear }, vaultWith({}), bytes(32_044), 'audio/wav', ledger), 'still hearing you');
+  const day = store.m.get('ai:neurons');
+  assert.equal(day.by.stt, 600 + Math.ceil((32_000 / 32_000 / 60) * 47), 'a second of WAV is counted');
+  assert.equal(day.used, 5500 + 600 + 3400 + day.by.stt - 600 + (day.by['plain-voice'] ?? 0));
+  // the count is per UTC day
+  const fresh = new S.NeuronLedger(store);
+  assert.equal(await fresh.room('voice', 100, Date.now() + 86_400_000), true, 'a new day starts empty');
   S._testing.reset();
 });
 

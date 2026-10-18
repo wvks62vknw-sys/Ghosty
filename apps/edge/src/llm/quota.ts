@@ -14,6 +14,7 @@
  * - Learning: rate-limit headers (Groq, Cerebras, OpenRouter, Mistral…) lower a limit or hold a
  *   counter until its stated reset; a 429 lowers the per-minute limit to what got through.
  */
+import { bindNeurons } from '../neurons';
 import { resetDelay, type Limits, type Provider } from './providers';
 
 export type Priority = 'chat' | 'background';
@@ -401,5 +402,7 @@ const engines = new WeakMap<object, Quota>();
 export function quotaFor(storage: DurableObjectStorage): Quota {
   let q = engines.get(storage);
   if (!q) engines.set(storage, (q = new Quota(storage)));
+  // The same storage keeps the day's Workers AI neurons (neurons.ts): bound here, in the brain's constructor.
+  bindNeurons(storage);
   return q;
 }

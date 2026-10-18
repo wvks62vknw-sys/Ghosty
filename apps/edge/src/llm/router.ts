@@ -11,6 +11,7 @@ import type { AiCapacity, ProviderRoom } from '../../../../packages/shared/src/p
 import { PROVIDERS, NOT_CHAT, cheapScore, codeScore, modelScore, resetDelay, visionScore, type Provider } from './providers';
 import { mockComplete } from './mock';
 import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
+import { cost, neurons } from '../neurons';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
 import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
 export { resetDelay } from './providers';
@@ -716,6 +717,9 @@ export class Router {
   private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean): Promise<Msg> {
     const ai = this.env.AI;
     if (!ai) throw { code: 401, message: 'no AI binding' } satisfies LlmError;
+    // The day's Workers AI allowance is shared (neurons.ts): this call must leave hearing its reserve.
+    const asked = tokensOf(messages) + (code ? 2000 : 600);
+    if (!(await neurons().room('chat', cost.chat(asked)))) throw { code: 429, message: "today's free Workers AI is nearly used up (the rest is kept for hearing the owner)", retryAfter: '3600' } satisfies LlmError;
     let res: unknown;
     try {
       res = await ai.run(model, {
@@ -731,6 +735,7 @@ export class Router {
       throw { code: rate ? 429 : /not found|no such model|invalid model/i.test(msg) ? 404 : 500, message: msg.slice(0, 300), retryAfter: daily ? '3600' : null } satisfies LlmError;
     }
     const msg = normaliseWorkersAi(res, new Set(tools.map((t) => t.function.name)));
+    await neurons().charge('chat', cost.chat(tokensOf(messages) + (msg ? tokensOf(msg) : 0)));
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
     return msg;
   }

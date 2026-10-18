@@ -11,6 +11,7 @@ import { checkAllowance, keepModel, makeModel, Model3dError } from '../model3d';
 import { fromBase64 } from '../speech';
 import { PICTURE_COUNT } from './pictures';
 import { arg, type Tool } from './types';
+import { cost, neurons } from '../neurons';
 
 const FLUX = '@cf/black-forest-labs/flux-1-schnell';
 /** The picture prompt that gives the 3-D maker what it works best from: one whole object, nothing behind it. */
@@ -84,7 +85,10 @@ export const studioTools: Tool[] = [
         ctx.progress('drawing the object first…');
         let r: { image?: unknown } | null;
         try {
-          r = (await ai.run(FLUX, { prompt: objectPrompt(prompt), steps: 4 })) as { image?: unknown } | null;
+          const n = cost.image(4);
+        if (!(await neurons().room('image', n))) throw new Error("today's free Workers AI is nearly used up (the rest is kept for hearing you and for answering): pictures are back at midnight UTC");
+        await neurons().charge('image', n);
+        r = (await ai.run(FLUX, { prompt: objectPrompt(prompt), steps: 4 })) as { image?: unknown } | null;
         } catch (e) {
           throw new Error(`the picture model did not answer: ${String((e as Error)?.message ?? e).slice(0, 160)}`);
         }
