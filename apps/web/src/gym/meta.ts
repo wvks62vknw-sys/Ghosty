@@ -95,7 +95,7 @@ export const COUNTDOWN: GameMeta = {
   blurb: '24 game · numbers round',
   learns: 'He learns which sums to try first, so he reaches the target in fewer tries.',
   unit: 'problems',
-  bar: () => 0.5,
+  bar: () => 0.35,
 };
 export const WORDS: GameMeta = {
   id: 'words',

@@ -7,7 +7,7 @@
  * a score from a few facts about each (how close the result gets, which operation, whether it is one step
  * from the target, a factor of it, uses a big number) — by evolution on a set of practice problems (a
  * nudge to the weights is kept when he solves at least as many in fewer tries). Mastery = the share of a
- * different, fixed set of problems he solves within a third of the tries the plain order (no learning, every
+ * different, fixed set of problems he solves within half the tries the plain order (no learning, every
  * combination as it comes) needs — so where he starts, the plain order, is 0%.
  */
 import { type Env, finalLine, type Frame, type Game, type Learner, lvl, type Problem, randInt, rng, savedFor, shuffle, type Verdict } from './core';
@@ -170,20 +170,20 @@ export function plainSteps(p: Puzzle, level: number): number {
   const cap = 3 * budgetFor(level);
   return search(p, new Array(FEATURES).fill(0), cap)?.steps ?? cap;
 }
-/** His allowance on a puzzle: a third of what the plain order needs (never more than the level's budget). */
-export const limitFor = (plain: number) => Math.floor(plain / 3);
+/** His allowance on a puzzle: half of what the plain order needs (never more than 1.5 × the level's budget). */
+export const limitFor = (plain: number) => Math.floor(plain / 2);
 
 export interface Graded {
   p: Puzzle;
   limit: number;
 }
-/** A fixed set of problems, each with its allowance; problems the plain order solves in under 6 tries are left out. */
+/** A fixed set of problems, each with its allowance; problems the plain order solves in under 4 tries are left out. */
 function graded(level: number, from: number, size: number): Graded[] {
   const out: Graded[] = [];
   for (let seed = from; out.length < size; seed++) {
     const p = makePuzzle(level, seed);
     const plain = plainSteps(p, level);
-    if (plain >= 6) out.push({ p, limit: limitFor(plain) });
+    if (plain >= 4) out.push({ p, limit: limitFor(plain) });
   }
   return out;
 }
@@ -295,7 +295,7 @@ class CountLearner implements Learner {
     const sp = specFor(this.level);
     return {
       mastery: ok / set.length,
-      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: he solves ${ok} of ${set.length} in a third of the tries the plain order needs (every one is solvable — checked by exhaustive search).`,
+      detail: `${sp.count} numbers, ${sp.exact ? 'all used' : 'each at most once'}: he solves ${ok} of ${set.length} in half the tries the plain order needs (every one is solvable — checked by exhaustive search).`,
     };
   }
   save(): CountSave {

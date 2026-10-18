@@ -8,6 +8,7 @@
  * mastery = average (shortest length ÷ his length) over a fixed set of puzzles, 0 for one he can't solve
  * within the budget. Levels scramble deeper, then move to the 15-puzzle.
  */
+import { TILE_SETS } from './tilesets';
 import { type Cell, finalLine, readMoves, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { TILES } from './meta';
 
@@ -209,21 +210,34 @@ export function optimal(b: Board, n: number): number {
   return idaStar(b, n);
 }
 
-const benches = new Map<number, { board: Board; opt: number }[]>();
-/** The fixed benchmark for a level: 12 puzzles with their shortest solutions. */
-export function bench(level: number): { board: Board; opt: number }[] {
+const benches = new Map<string, { board: Board; opt: number }[]>();
+/**
+ * The fixed benchmark for a level: 12 puzzles with their shortest solutions. They come from the stored list
+ * (tilesets.ts) so the phone never waits on IDA* (the 15-puzzle levels take a second or more); `fresh` makes
+ * them again with the solvers — how the list was made, and the tests check the two agree.
+ */
+export function bench(level: number, fresh = false): { board: Board; opt: number }[] {
   const L = lvl(level);
-  const hit = benches.get(L);
+  const key = `${L}${fresh ? 'f' : ''}`;
+  const hit = benches.get(key);
   if (hit) return hit;
-  const n = sizeFor(L);
-  const r = rng(5150 + L);
-  const out: { board: Board; opt: number }[] = [];
-  while (out.length < 12) {
-    const b = scramble(n, depthFor(L), r);
-    const opt = optimal(b, n);
-    if (opt > 0) out.push({ board: b, opt });
+  let out: { board: Board; opt: number }[] = [];
+  const stored = TILE_SETS[L - 1];
+  if (!fresh && stored?.length === 12) {
+    out = stored.map((line) => {
+      const [b, opt] = line.split(':');
+      return { board: b!.split(',').map(Number), opt: Number(opt) };
+    });
+  } else {
+    const n = sizeFor(L);
+    const r = rng(5150 + L);
+    while (out.length < 12) {
+      const b = scramble(n, depthFor(L), r);
+      const opt = optimal(b, n);
+      if (opt > 0) out.push({ board: b, opt });
+    }
   }
-  benches.set(L, out);
+  benches.set(key, out);
   return out;
 }
 
