@@ -392,7 +392,17 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.click('#mic');
   await page.waitForTimeout(500);
   if ((await voiceState()) === 'listening') problems.push(`[${name}] the mic button did not end the conversation`);
-  // 5. speech that is not a reply (an approval's question read out): an interruption marks no reply
+  // 5. speech that is not a reply (an approval's question read out): an interruption marks no reply — not even the
+  // reply before it, which was heard to the end
+  ttsAnswer = { voice: null, note: null, status: 200, seconds: 0.1 };
+  await page.click('.logbtn');
+  await page.fill('#cin', 'a short one please');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: a short one please'), null, { timeout: 10000 }).catch(() => undefined);
+  await page.click('.logbtn');
+  await waitVoice('idle', 10000);
+  await page.waitForTimeout(500);
+  ttsAnswer = { voice: null, note: null, status: 200, seconds: 4 };
   const approval = `${JSON.stringify({ t: 'approval', id: 'ap1', name: 'forget_everything', reason: 'Shall I forget everything I know about you? Say yes or no when you are ready.', args: {} })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
   await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: approval }));
   await page.click('.logbtn');
