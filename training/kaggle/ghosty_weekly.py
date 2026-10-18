@@ -421,7 +421,9 @@ def quantised_weights(model):
     """Inside: the model's linear layers and embedding hold their q4f16_1 round-trip (what ships); a PEFT model's
     LoRA is merged in first (at its current scale), so this is the merged model as it would be uploaded. Restored after."""
     import torch
-    merged = hasattr(model, 'peft_config') and hasattr(model, 'merge_adapter') and not getattr(model, 'disable_adapters', False) and _lora_on(model)
+    # (Not `model.disable_adapters`: on a PeftModel that name reaches transformers' own disable_adapters METHOD,
+    # always truthy, and the LoRA was never merged. _lora_on reads the LoRA layers themselves.)
+    merged = hasattr(model, 'peft_config') and hasattr(model, 'merge_adapter') and _lora_on(model)
     if merged:
         model.merge_adapter()
     saved = []
