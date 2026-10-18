@@ -28,6 +28,8 @@ export interface TabDef {
   scene: 'globe' | 'backdrop';
   /** A few words under the tab's name in the systems deck. */
   blurb?: string;
+  /** An area's hub (shell/areas.ts, the calm looks): left out of the systems deck. */
+  hub?: boolean;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
   mount(root: HTMLElement): TabInstance;

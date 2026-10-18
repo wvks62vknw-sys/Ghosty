@@ -22,5 +22,6 @@ import { memoryTab } from './memory';
 import { systemTab } from './system';
 import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
+import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, studioTab, reverseTab, spaceTab, linksTab, settingsTab, systemTab];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, studioTab, reverseTab, spaceTab, linksTab, settingsTab, systemTab, ...HUB_TABS];

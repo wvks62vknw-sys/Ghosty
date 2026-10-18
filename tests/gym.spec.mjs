@@ -97,7 +97,7 @@ await page.screenshot({ path: `${out}/gym-cards.png` });
 // ---- tic-tac-toe: TRAIN in the worker while the page keeps ticking ----
 await card('tictactoe').click();
 await until(() => window.__ghosty?.gym?.open === 'tictactoe', 5000, 'tapping the tic-tac-toe card did not open it');
-const btns = await G('.gymactions button:visible').allInnerTexts();
+const btns = await G('.gymactions button:visible').allInnerTexts().then((l) => l.map((b) => b.toUpperCase())); // compared without case: the calm looks show labels in sentence case
 for (const want of ['TRAIN', 'WATCH', 'PLAY HIM', 'RESET']) if (!btns.some((b) => b.trim() === want)) problems.push(`tic-tac-toe has no ${want} button (has ${btns.join(', ')})`);
 const small = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymactions button')].filter((b) => b.offsetParent && b.getBoundingClientRect().height < 40).length);
 if (small) problems.push(`${small} GYM buttons are shorter than 40 px`);
@@ -148,7 +148,7 @@ if (!after?.mastered) {
   const had = (await st()).recs.tictactoe;
   await page.evaluate(() => sessionStorage.setItem('gymslow', '1'));
   await boot();
-  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not show its cards while still loading');
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not show its cards while still loading', CARDS);
   await closeLog();
   await card('tictactoe').click();
   if (!had?.mastered) {
@@ -160,7 +160,7 @@ if (!after?.mastered) {
   }
   await page.evaluate(() => sessionStorage.removeItem('gymslow'));
   await boot();
-  await until(() => window.__ghosty?.gym?.cards === 10, 15000, 'the GYM did not come back after the slow-load check');
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the slow-load check', CARDS);
   await until((u) => (window.__ghosty?.gym?.recs?.tictactoe?.units ?? 0) >= u, 10000, `an early TRAIN wiped his saved progress (had ${had?.units} games)`, had?.units ?? 1);
   const now = (await st()).recs.tictactoe;
   if (had && now && now.level < had.level) problems.push(`an early TRAIN sent him back from Level ${had.level} to Level ${now.level}`);
@@ -240,9 +240,9 @@ await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not st
 // ---- RESET: two taps; one tap does not carry over to another game ----
 await card('codebreaker').click();
 await G('button', { hasText: 'RESET' }).click();
-if (!/SURE/.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
+if (!/SURE/i.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
 await card('maze').click();
-if ((await G('.gymactions button.warn').innerText()).trim() !== 'RESET') problems.push('the armed RESET carried over to another game');
+if ((await G('.gymactions button.warn').innerText()).trim().toUpperCase() !== 'RESET') problems.push('the armed RESET carried over to another game');
 
 // ---- RESET while training: the wiped game does not come back (messages in flight are dropped) ----
 await G('button.gymtrain').click();
@@ -252,7 +252,7 @@ await G('.gymactions button.warn').click();
 await page.waitForTimeout(3500);
 const afterReset = await st();
 if (afterReset.recs.maze) problems.push(`the reset maze came back: ${JSON.stringify(afterReset.recs.maze)}`);
-if ((await card('maze').locator('.gymst').innerText()).trim() !== 'NEW') problems.push('the reset maze card does not say NEW');
+if ((await card('maze').locator('.gymst').innerText()).trim().toUpperCase() !== 'NEW') problems.push('the reset maze card does not say NEW');
 await boot();
 await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'the GYM did not come back after the reset reload', CARDS);
 await page.waitForTimeout(1000);
@@ -263,7 +263,7 @@ await closeLog();
 for (const id of ['logic', 'brain', 'bughunt', 'escape', 'factcheck', 'debate']) {
   await card(id).click();
   if (!(await until((x) => window.__ghosty.gym.open === x, 3000, `the ${id} card did not open`, id))) continue;
-  const acts = await G('.gymactions button:visible').allInnerTexts();
+  const acts = await G('.gymactions button:visible').allInnerTexts().then((l) => l.map((b) => b.toUpperCase()));
   for (const want of ['TRAIN', 'WATCH', 'RESET']) if (!acts.some((b) => b.trim() === want)) problems.push(`${id} has no ${want} button`);
   if (acts.some((b) => b.trim() === 'PLAY HIM')) problems.push(`${id} shows PLAY HIM (not a board game)`);
   await page.evaluate(() => (window.__ghosty.gym.frames = 0));

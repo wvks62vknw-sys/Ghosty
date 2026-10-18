@@ -3,7 +3,8 @@
  */
 import { brain } from '../../api/brain';
 import { answerApproval, chat, send, type Entry } from '../../assistant/session';
-import { listen, micLevel, stopListening, voiceSupport } from '../../assistant/voice';
+import { listen, micLevel, speak, stopListening, voiceSupport } from '../../assistant/voice';
+import { proLook, themeEvents } from '../../state/theme';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
@@ -65,6 +66,18 @@ function linked(text: string): HTMLElement {
   return out;
 }
 
+const COPY = '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5a2 2 0 002 2h2.5"/>';
+const LISTEN = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>';
+
+/** Under a reply (the calm looks show them): copy it, or hear it read aloud. */
+function replyActs(text: string): HTMLElement {
+  const copy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
+  copy.addEventListener('click', () => void navigator.clipboard?.writeText(text).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
+  const hear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
+  hear.addEventListener('click', () => void speak(text).catch(() => undefined));
+  return h('div.msgacts', copy, hear);
+}
+
 function renderEntry(e: Entry): HTMLElement {
   switch (e.kind) {
     case 'user':
@@ -73,8 +86,8 @@ function renderEntry(e: Entry): HTMLElement {
       // Answered by the small model on the phone itself: one quiet chip says so.
       if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
       // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
-      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text));
+      if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked), replyActs(e.text));
+      return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.text ? replyActs(e.text) : null);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -134,6 +147,10 @@ export const coreTab: TabDef = {
     const caption = h('div#ccap', h('span', ''));
     const log = h('div.log');
     const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
+    // The calm looks' field is narrower (its buttons sit inside it): a shorter invitation.
+    const placeholder = () => (input.placeholder = proLook() ? 'Ask anything' : `Talk to me, ${settings.get().name}…`);
+    placeholder();
+    themeEvents.on('change', placeholder);
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -199,7 +216,38 @@ export const coreTab: TabDef = {
 
     const left = h('div.cside.l', convo.el, wx.el);
     const right = h('div.cside.r', th.el, mk.el, nw.el);
-    const center = h('div.ccenter', stark.el, h('div.rwrap', reactor.el), stateLabel, glance, caption, h('div#cbar', logBtn, input, button('SEND', submit), citedBtn, voiceBtn, lensBtn, mic));
+    // The calm looks: a lock-screen glance (date and time above the reactor; the weather and what is next
+    // under it) and a "+" that holds voice replies and the camera. The classic looks never show them.
+    const lockDate = h('span.ldate');
+    const lockTime = h('b.ltime');
+    const lock = h('div#lock', lockDate, lockTime);
+    const lockWx = h('span.lwx');
+    const lockNext = h('span.lnext');
+    const lockLine = h('div#lockline', lockWx, lockNext);
+    const paintLock = () => {
+      const d = new Date();
+      lockDate.textContent = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+      lockTime.textContent = fmt.time(d);
+      const w = weather.data;
+      lockWx.textContent = w ? `${temp(w.current.temperature_2m)}  ${WMO(w.current.weather_code)}` : '';
+      lockNext.textContent = nextUp;
+      lockNext.hidden = !nextUp;
+    };
+    let nextUp = '';
+    const plus = h('button.plusbtn', { type: 'button', 'aria-label': 'More: voice replies and the camera', 'aria-expanded': 'false' }, icon('<path d="M12 5v14M5 12h14"/>'));
+    const plusMenu = h('div.plusmenu', voiceBtn, lensBtn);
+    plus.addEventListener('click', () => {
+      const open = !plusMenu.classList.contains('open');
+      plusMenu.classList.toggle('open', open);
+      plus.setAttribute('aria-expanded', String(open));
+    });
+    plusMenu.addEventListener('click', () => {
+      plusMenu.classList.remove('open');
+      plus.setAttribute('aria-expanded', 'false');
+    });
+    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, h('div#cbar', plus, logBtn, input, button('SEND', submit), citedBtn, plusMenu, mic));
+    // Touch the reactor: it answers with a pulse.
+    reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
     hud.append(left, center, right);
     root.append(hud);
 
@@ -269,6 +317,7 @@ export const coreTab: TabDef = {
     };
     ui.subscribe(paintState);
     paintState();
+    let glowTick = 0;
     onFrame((dt) => {
       if (ui.get().tab !== 'core') return;
       reactor.level = ui.get().voice === 'listening' ? micLevel.level : 0;
@@ -278,7 +327,13 @@ export const coreTab: TabDef = {
       const rr = reactor.el.getBoundingClientRect();
       const lr = stark.el.getBoundingClientRect();
       const half = Math.min(rr.width, rr.height) / 2;
-      stark.frame(dt, reactor.state, reactor.level, { x: rr.left - lr.left + rr.width / 2, y: rr.top - lr.top + rr.height / 2 }, (half / 1.45) * 1.22);
+      stark.frame(dt, reactor.state, reactor.level, { x: rr.left - lr.left + rr.width / 2, y: rr.top - lr.top + rr.height / 2 }, (half / reactor.extent()) * 1.22);
+      // The reactor's light tints the glass around it (styles.css --glow), a few times a second.
+      if ((glowTick += dt) > 0.12) {
+        glowTick = 0;
+        hud.style.setProperty('--glow', reactor.light().toFixed(2));
+        paintLock();
+      }
     });
 
     // live call-outs around the reactor
@@ -289,6 +344,7 @@ export const coreTab: TabDef = {
     };
     let libAt = 0;
     let libText = '…';
+    let nextAt = 0;
     const paintCallouts = async () => {
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
@@ -309,6 +365,14 @@ export const coreTab: TabDef = {
         libText = lib ? `${fmt.n(lib.stats.passages)} PASSAGES` : 'OFFLINE';
       }
       stark.set({ id: 'library', label: 'LIBRARY', value: libText });
+      // What is next today, for the glance under the reactor (asked every 5 minutes, like the library).
+      if (Date.now() - nextAt > 300_000) {
+        nextAt = Date.now();
+        const ag = await brain.agenda(2).catch(() => null);
+        const now = Date.now();
+        const ev = ag?.events.filter((x) => (x.end ?? x.start) > now).sort((a, b) => a.start - b.start)[0];
+        nextUp = ev ? `${ev.title}${ev.allDay ? '' : ` · ${new Date(ev.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}` : '';
+      }
     };
     let calloutTimer = 0;
 

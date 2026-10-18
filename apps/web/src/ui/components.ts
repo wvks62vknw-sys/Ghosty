@@ -22,6 +22,7 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
   const dot = h('i.light');
   const st = h('small', opts.status ?? '');
   const t = h('span.ptitle', title);
+  if (ACRONYM.test(title)) t.dataset.label = niceCase(title);
   const head = h('h3', dot, t, h('span.sp'), st);
   const body = h('div.bd');
   const el = h(`section.pn${opts.grow === false ? '.fx' : ''}${opts.cls ? `.${opts.cls}` : ''}` as 'section', head, body);
@@ -121,12 +122,18 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
 }
 
 /** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
-export const ACRONYM = /\b(3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+const ABBR = ['I', '3D', 'GPS', 'AI', 'PDF', 'QR', 'PNG', 'JSON', 'CSV', 'URL', 'MOT', 'ISS', 'UK', 'BBC', 'CCTV', 'SMS', 'API', 'GLB', 'TV', 'FX', 'ID', 'GO', 'OK', 'AQI', 'UV', 'PM2.5'];
+export const ACRONYM = /\b(I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+/** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the calm looks' wording). */
+export function niceCase(s: string): string {
+  const out = s.toLowerCase().replace(/[a-z0-9.]+/g, (w) => (ABBR.includes(w.toUpperCase()) && w.toUpperCase() !== 'GO' && w.toUpperCase() !== 'OK' ? w.toUpperCase() : w));
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
 
 export function button(label: string | Node, onClick: (b: HTMLButtonElement) => void, cls = ''): HTMLButtonElement {
   const b = h(`button${cls ? `.${cls.split(' ').join('.')}` : ''}` as 'button', { type: 'button' }, label);
-  // The calm looks show labels in sentence case; one with an abbreviation in it ("USE GPS", "3D") keeps its capitals.
-  if (typeof label === 'string' && ACRONYM.test(label)) b.dataset.case = 'keep';
+  // The calm looks show labels in sentence case; one with an abbreviation in it ("USE GPS") shows "Use GPS".
+  if (typeof label === 'string' && ACRONYM.test(label)) b.dataset.label = niceCase(label);
   b.addEventListener('click', () => onClick(b));
   return b;
 }

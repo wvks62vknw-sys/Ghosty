@@ -8,7 +8,8 @@ import { clear, h, icon, pad } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
-import { ACRONYM } from '../ui/components';
+import { ACRONYM, niceCase } from '../ui/components';
+import { areaOf } from './areas';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -47,15 +48,15 @@ export function buildLauncher(): Launcher {
 
   const paint = () => {
     const cur = ui.get().tab;
-    clear(tiles, ...tabs().map((t, i) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
+    clear(tiles, ...tabs().filter((t) => !t.hub).map((t, i) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
       type: 'button',
-      dataset: { id: t.id },
-      style: { animationDelay: `${i * 28}ms` },
+      dataset: { id: t.id, area: areaOf(t.id)?.id ?? '' },
+      style: `animation-delay:${i * 28}ms;--tint:${areaOf(t.id)?.tint ?? '#8e8e93'}`,
       onclick: () => {
         close(true);
         go(t.id);
       },
-    }, icon(t.icon), h('b', { dataset: ACRONYM.test(t.title) ? { case: 'keep' } : {} }, t.title), h('small', t.blurb ?? ''))));
+    }, icon(t.icon), h('b', { dataset: ACRONYM.test(t.title) ? { label: niceCase(t.title) } : {} }, t.title), h('small', t.blurb ?? ''))));
     quick.hidden = true;
     clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed (the classic look shows it in capitals)
   };

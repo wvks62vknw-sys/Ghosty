@@ -7,7 +7,13 @@ import { ui } from '../state/app';
 import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
 import { go, tabs } from './tabs';
+import { buildTabBar, navInfo, navTo } from './areas';
+import { proLook, themeEvents } from '../state/theme';
+import { niceCase } from '../ui/components';
+import { listMode } from '../ui/listmode';
 
+/** The pages shown as an iOS Settings list in the calm looks, and their names for the back button. */
+const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
 const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
 const LOGO = '<path d="M12 3c-4 0-7 3-7 7v11l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10c0-4-3-7-7-7z"/><circle cx="9.5" cy="10.5" r="1.1"/><circle cx="14.5" cy="10.5" r="1.1"/>';
 
@@ -37,15 +43,52 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   }, 'MEMORY PAUSED');
   pausedTag.hidden = true;
   memoryPaused.subscribe((m) => (pausedTag.hidden = !m.on));
-  const top = h('header#top', h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot);
+  // The calm looks' navigation bar: "‹ Learn" back to the area, and where you are as a large title.
+  const back = h('button.navback', { type: 'button', 'aria-label': 'Back' }, icon('<path d="M15 4.5L7.5 12l7.5 7.5"/>'), h('span'));
+  back.addEventListener('click', () => {
+    if (pushed) return pushed.pop();
+    const n = navInfo(ui.get().tab);
+    if (n?.backTo) navTo(n.backTo, 'pop');
+  });
+  const navTitle = h('h1.navtitle');
+  // A panel pushed in as its own screen (ui/listmode.ts, Settings · System · Links): the bar says where it came from.
+  let pushed: { back: string; title: string; label: string; pop: () => void } | null = null;
+  addEventListener('ghosty:push', (e) => {
+    pushed = (e as CustomEvent).detail;
+    paintNav();
+  });
+  const paintNav = () => {
+    const tab = ui.get().tab;
+    if (pushed && LISTED[tab]) {
+      document.body.dataset.depth = 'inner';
+      (back.lastChild as HTMLElement).textContent = pushed.back;
+      back.hidden = false;
+      navTitle.textContent = pushed.label || niceCase(pushed.title.split(' · ')[0]!);
+      return;
+    }
+    pushed = null;
+    const n = navInfo(tab);
+    const pg = document.getElementById(`pg-${tab}`);
+    if (pg && LISTED[tab] && proLook()) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null);
+    document.body.dataset.tab = ui.get().tab;
+    document.body.dataset.depth = !n ? 'home' : n.back ? 'inner' : 'hub';
+    (back.lastChild as HTMLElement).textContent = n?.back ?? '';
+    back.hidden = !n?.back;
+    navTitle.textContent = niceCase(n?.title ?? '');
+  };
+  const top = h('header#top', back, h('button.logo', { type: 'button', onclick: () => deck.toggle(), title: 'Systems — every screen (M)', 'aria-label': 'Open systems' }, icon(LOGO), h('span.lname', 'GHOSTY'), h('i.caret')), status, h('span.sp'), pausedTag, np, npStop, h('button.cmd', { type: 'button', onclick: togglePalette, title: 'Command palette (Ctrl/Cmd+K or /)' }, 'CMD'), clock, dot, navTitle);
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();
   document.getElementById('app')!.append(top, stage, dock);
 
+  let paintTabBar: (() => void) | null = null;
   const buildDock = () => {
+    dock.classList.toggle('areas', proLook());
+    paintTabBar = proLook() ? buildTabBar(dock, () => deck.open()) : null;
+    if (paintTabBar) return paintNav();
     const wide = innerWidth >= 900;
-    const list = tabs();
+    const list = tabs().filter((t) => !t.hub);
     const shown = wide ? list : list.filter((t) => t.primary).slice(0, 5);
     clear(dock);
     for (const t of shown) {
@@ -60,11 +103,23 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     }
     paintDock();
   };
-  const paintDock = () => [...dock.children].forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.id === ui.get().tab));
+  const paintDock = () => {
+    paintNav();
+    if (paintTabBar) return paintTabBar();
+    [...dock.children].forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.id === ui.get().tab));
+  };
+  // Switching between a classic look and a calm one swaps the dock for the tab bar (and back).
+  let wasPro = proLook();
+  themeEvents.on('change', () => {
+    if (proLook() !== wasPro) {
+      wasPro = proLook();
+      buildDock();
+    }
+  });
   let wasWide = innerWidth >= 900;
   addEventListener('resize', () => {
     const wide = innerWidth >= 900;
-    if (wide !== wasWide) {
+    if (wide !== wasWide && !paintTabBar) {
       wasWide = wide;
       buildDock();
     }

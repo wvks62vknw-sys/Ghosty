@@ -23,6 +23,8 @@ import type { VoiceState } from '../../state/app';
 import { proLook } from '../../state/theme';
 
 const TAU = Math.PI * 2;
+/** The calm look draws the housing bigger in the same canvas: ±PX units instead of ±1.45. */
+const PX = 1.24;
 type C2D = CanvasRenderingContext2D;
 const rgba = (c: number[], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${Math.max(0, Math.min(1, a))})`;
 const to255 = (v: ArrayLike<number>) => [Math.round(v[0]! * 255), Math.round(v[1]! * 255), Math.round(v[2]! * 255)];
@@ -70,6 +72,25 @@ export class Reactor {
   private proOver = document.createElement('canvas');
   private proGlass = document.createElement('canvas');
   private proKey = '';
+  /** A touch: 1 at the tap, fading (the calm looks answer a tap with a pulse and a ripple). */
+  private kick = 0;
+  private lastGlow = 0.5;
+
+  /** Half the drawing's span in housing radii (the HUD rings around it scale by this). */
+  extent(): number {
+    return proLook() ? PX : 1.45;
+  }
+
+  /** How bright the core is right now, 0..1.5 (tints the glass around it). */
+  light(): number {
+    return this.lastGlow;
+  }
+
+  /** The owner touched the reactor: a pulse, a ripple and a few motes. */
+  poke(_e?: PointerEvent): void {
+    this.kick = 1;
+    for (let i = 0; i < 14; i++) this.sparks.push({ a: Math.random() * TAU, r: 0.32, v: 0.4 + Math.random() * 0.5, life: 0, max: 0.6 + Math.random() * 0.6, s: 0.006 + Math.random() * 0.008 });
+  }
 
   constructor() {
     this.el = document.createElement('canvas');
@@ -243,7 +264,7 @@ export class Reactor {
     }
     for (const a of this.arcs) a.life += dt;
     this.arcs = this.arcs.filter((a) => a.life < a.max);
-    if (proLook()) return this.drawPro(glow, lub);
+    if (proLook()) return this.drawPro(glow, lub, dt);
 
     const x = this.ctx;
     const W = this.el.width;
@@ -489,7 +510,7 @@ export class Reactor {
   }
   // ------------------------------------------------------------------ the calm look
 
-  /** Paint the calm look's static layers (same units as the classic one: housing radius 1, canvas ±1.45). */
+  /** Paint the calm look's static layers (same units as the classic one: housing radius 1, canvas ±PX: larger than the classic ±1.45). */
   private buildPro(): void {
     const S = Math.round(this.size * this.dpr);
     const warm = document.documentElement.dataset.finish === 'reactor';
@@ -501,7 +522,7 @@ export class Reactor {
     const prep = (cv: HTMLCanvasElement) => {
       cv.width = cv.height = S;
       const x = cv.getContext('2d')!;
-      x.setTransform(S / 2 / 1.45, 0, 0, S / 2 / 1.45, S / 2, S / 2);
+      x.setTransform(S / 2 / PX, 0, 0, S / 2 / PX, S / 2, S / 2);
       return x;
     };
     const conic = (x: C2D, off: number, cols: string[]) => {
@@ -535,7 +556,7 @@ export class Reactor {
     g.addColorStop(0, 'rgba(0,0,0,.65)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = g;
-    x.fillRect(-1.45, -1.45, 2.9, 2.9);
+    x.fillRect(-PX, -PX, 2 * PX, 2 * PX);
     ring(x, 0.84, 1);
     x.fillStyle = conic(x, -1.9, metal);
     x.fill();
@@ -682,7 +703,7 @@ export class Reactor {
   }
 
   /** One frame of the calm look. */
-  private drawPro(glow: number, lub: number): void {
+  private drawPro(glow: number, lub: number, dt: number): void {
     const S0 = Math.round(this.size * this.dpr);
     const warm = document.documentElement.dataset.finish === 'reactor';
     if (this.proKey !== `${S0}|${to255(gfx.theme.c).join()}|${warm}`) this.buildPro();
@@ -695,12 +716,14 @@ export class Reactor {
     x.setTransform(1, 0, 0, 1, 0, 0);
     x.clearRect(0, 0, W, H);
     const S = this.proUnder.width;
-    x.setTransform(S / 2 / 1.45, 0, 0, S / 2 / 1.45, W / 2, H / 2);
+    x.setTransform(S / 2 / PX, 0, 0, S / 2 / PX, W / 2, H / 2);
     const base = to255(gfx.theme.c);
     const th = st === 'thinking' ? to255(gfx.theme.a) : st === 'listening' ? mix(base, [120, 255, 200], 0.6) : base;
     const hot = mix(th, [255, 255, 255], 0.72);
     const ac = to255(gfx.theme.a);
-    const gl = Math.min(1.6, glow * 0.85 + 0.15) * (warm ? 1.15 : 1);
+    this.kick = Math.max(0, this.kick - dt * 1.6);
+    const gl = (Math.min(1.6, glow * 0.85 + 0.15) + this.kick * 0.7) * (warm ? 1.15 : 1);
+    this.lastGlow = gl;
 
     // ---- soft bloom into the room (wide, gentle falloffs instead of shockwave rings)
     x.globalCompositeOperation = 'lighter';
@@ -719,6 +742,16 @@ export class Reactor {
       x.fillRect(-1.45, -1.45, 2.9, 2.9);
     }
 
+    // ---- a touch's ripple, leaving the housing
+    if (this.kick > 0.01) {
+      const k = 1 - this.kick;
+      x.strokeStyle = rgba(hot, this.kick * 0.5);
+      x.lineWidth = 0.02 * this.kick + 0.003;
+      x.beginPath();
+      x.arc(0, 0, 1.0 + k * 0.26, 0, TAU);
+      x.stroke();
+    }
+
     // ---- gyros, far side (thin and slow)
     const gyro = (tilt: number, spin: number, r: number, col: number[], front: boolean) => {
       x.save();
@@ -733,12 +766,12 @@ export class Reactor {
     };
     const tiltA = 1.2 + Math.sin(t * 0.13) * 0.2;
     const tiltB = 1.32 + Math.cos(t * 0.11) * 0.22;
-    gyro(tiltA, t * 0.18, 1.33, th, false);
-    gyro(tiltB, -t * 0.14 + 1, 1.39, ac, false);
+    gyro(tiltA, t * 0.18, 1.185, th, false);
+    gyro(tiltB, -t * 0.14 + 1, 1.215, ac, false);
 
     // ---- housing
     x.globalCompositeOperation = 'source-over';
-    x.drawImage(this.proUnder, -1.45, -1.45, 2.9, 2.9);
+    x.drawImage(this.proUnder, -PX, -PX, 2 * PX, 2 * PX);
 
     // ---- cells: one gradient, each segment its own brightness as the charge goes round
     x.globalCompositeOperation = 'lighter';
@@ -765,7 +798,7 @@ export class Reactor {
 
     // ---- coils, struts and collar over the light
     x.globalCompositeOperation = 'source-over';
-    x.drawImage(this.proOver, -1.45, -1.45, 2.9, 2.9);
+    x.drawImage(this.proOver, -PX, -PX, 2 * PX, 2 * PX);
     x.globalCompositeOperation = 'lighter';
     // the cells' light glowing through and over the windings
     g = x.createRadialGradient(0, 0, 0.47, 0, 0, 0.84);
@@ -867,12 +900,12 @@ export class Reactor {
 
     // ---- glass over the core and the face
     x.globalCompositeOperation = 'source-over';
-    x.drawImage(this.proGlass, -1.45, -1.45, 2.9, 2.9);
+    x.drawImage(this.proGlass, -PX, -PX, 2 * PX, 2 * PX);
     x.globalCompositeOperation = 'lighter';
 
     // ---- gyros, near side
-    gyro(tiltA, t * 0.18, 1.33, th, true);
-    gyro(tiltB, -t * 0.14 + 1, 1.39, ac, true);
+    gyro(tiltA, t * 0.18, 1.185, th, true);
+    gyro(tiltB, -t * 0.14 + 1, 1.215, ac, true);
 
     // ---- the clock as two Activity-style rings, hour (accent) and minute (theme colour), and a seconds bead
     const d = new Date();
@@ -895,17 +928,17 @@ export class Reactor {
       x.arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, v) * TAU);
       x.stroke();
     };
-    activity(1.12, hr, ac);
-    activity(1.175, mn, th);
+    activity(1.07, hr, ac);
+    activity(1.115, mn, th);
     const sa = -Math.PI / 2 + sec * TAU;
     x.strokeStyle = 'rgba(255,255,255,.08)';
     x.lineWidth = 0.003;
     x.beginPath();
-    x.arc(0, 0, 1.225, 0, TAU);
+    x.arc(0, 0, 1.155, 0, TAU);
     x.stroke();
     x.fillStyle = 'rgba(255,255,255,.85)';
     x.beginPath();
-    x.arc(Math.cos(sa) * 1.225, Math.sin(sa) * 1.225, 0.011 + lub * 0.004, 0, TAU);
+    x.arc(Math.cos(sa) * 1.155, Math.sin(sa) * 1.155, 0.011 + lub * 0.004, 0, TAU);
     x.fill();
   }
 }

@@ -94,6 +94,16 @@ function graph(rec: GymRecord | null, game: GameMeta): SVGSVGElement {
   return s;
 }
 
+/** An Activity-style ring: how far he is towards passing his current level (the calm looks show it). */
+function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number): void } {
+  const r = 50 - 7;
+  const C = 2 * Math.PI * r;
+  const fg = svgEl('circle', { cx: 50, cy: 50, r, class: 'rfg', 'stroke-dasharray': `0 ${C}`, transform: 'rotate(-90 50 50)' });
+  const el = svgEl('svg', { viewBox: '0 0 100 100', class: cls, width: size, height: size, 'aria-hidden': 'true' });
+  el.append(svgEl('circle', { cx: 50, cy: 50, r, class: 'rtrack' }), fg);
+  return { el, set: (f) => fg.setAttribute('stroke-dasharray', `${(Math.max(0, Math.min(1, f)) * C).toFixed(1)} ${C.toFixed(1)}`) };
+}
+
 let opener: ((id?: string) => void) | null = null;
 let waiting: string | null | undefined;
 
@@ -200,18 +210,20 @@ export const gymTab: TabDef = {
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
     cardsP.body.append(cards);
-    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string }>();
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string; ring: ReturnType<typeof ring>; lvl: HTMLElement }>();
     for (const g of GAMES) {
       const small = h('small');
       const sp = h('span.gymspark');
       const st = h('i.gymst');
-      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymname', g.title), small, sp, st);
+      const rg = ring(46, 'gymring');
+      const lvl = h('b.gymlvl');
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymtop', rg.el, lvl), h('span.gymname', g.title), small, sp, st);
       b.addEventListener('click', () => {
         select(g.id);
         if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       cards.append(b);
-      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '' });
+      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '', ring: rg, lvl });
     }
 
     // ======================= GAME: the open one
@@ -224,13 +236,19 @@ export const gymTab: TabDef = {
     let resetArmed = 0;
     const resetBtn = button('RESET', () => reset(), 'warn');
     const graphBox = h('div.gymgraphbox');
+    // The open game at a glance (the calm looks): a big ring to the level's bar, the level, one word.
+    const bigRing = ring(132, 'gymbigring');
+    const heroLvl = h('b');
+    const heroPct = h('span.gympct');
+    const heroWord = h('span.gymword');
+    const hero = h('div.gymhero', h('div.gymringbox', bigRing.el, h('div.gymringtxt', h('small', 'LEVEL'), heroLvl)), h('div.gymherotxt', heroWord, heroPct));
     const detail = h('div.note.gymdetail');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, resetBtn), graphBox, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, resetBtn), graphBox, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -258,6 +276,8 @@ export const gymTab: TabDef = {
         c.b.classList.toggle('on', g.id === open.id);
         c.b.setAttribute('aria-pressed', String(g.id === open.id));
         c.small.textContent = r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
+        c.ring.set(r?.mastered ? 1 : r ? r.mastery / g.bar(r.level) : 0);
+        c.lvl.textContent = String(r?.level ?? 1);
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
         const pts = r?.history.map((p) => p.m) ?? [];
@@ -274,6 +294,12 @@ export const gymTab: TabDef = {
       gameP.title.textContent = open.title;
       gameP.setStatus(r ? `LEVEL ${r.level}${r.mastered ? ' · MASTERED' : ''}` : 'LEVEL 1', training === open.id ? 'ok' : r?.mastered ? 'ok' : 'mid');
       learns.textContent = open.learns;
+      const word = stateOf(open, r ?? undefined);
+      bigRing.set(r?.mastered ? 1 : r ? r.mastery / open.bar(r.level) : 0);
+      heroLvl.textContent = String(r?.level ?? 1);
+      heroWord.textContent = word.charAt(0) + word.slice(1).toLowerCase();
+      heroWord.className = `gymword ${word.toLowerCase()}`;
+      heroPct.textContent = r ? `${Math.round(r.mastery * 100)}% mastery · needs ${Math.round(open.bar(r.level) * 100)}%` : `Needs ${Math.round(open.bar(1) * 100)}% to pass level 1`;
       status.textContent = statusLine(r, open, training === open.id);
       trainBtn.textContent = training === open.id ? 'PAUSE' : r?.mastered ? 'MASTERED' : 'TRAIN';
       trainBtn.disabled = !!r?.mastered;
