@@ -268,7 +268,8 @@ for (const f of FAMILIES) {
 /** Text → its words: lower case, phrases joined, plurals made singular, filler words dropped. */
 export function words(text: string): string[] {
   let t = ` ${String(text).toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9_\s-]+/g, ' ')} `;
-  for (const [re, p] of PHRASES) t = t.replace(re, ` ${p} `);
+  // (a quick look for each phrase's first word first: thousands of names are read when the catalogue is first searched)
+  for (const [re, p] of PHRASES) if (t.includes(p.slice(0, p.indexOf('_')))) t = t.replace(re, ` ${p} `);
   const out: string[] = [];
   for (const w of t.split(/[\s-]+/)) {
     if (!w || STOP.has(w) || /^\d+$/.test(w)) continue;
@@ -362,6 +363,8 @@ export function searchCatalog(items: CatalogItem[], query: string, opts: { limit
     if (!score) continue;
     // the head noun matters most: "oak dining chair" is a chair before it is anything oak
     if (headHit) score += 2;
+    // …and a model whose category IS the head noun before one that merely has it in its name ("table and chairs")
+    if (headHit && [...synonyms(head)].some((w) => f.cat.has(w))) score += 4;
     // lighter models first among equals (they open sooner on a phone)
     score -= Math.min(0.5, item.kb / 24_000);
     hits.push({ item, score, quality: found / q.length, head: headHit });
