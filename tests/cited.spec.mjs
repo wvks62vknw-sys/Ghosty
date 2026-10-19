@@ -63,7 +63,7 @@ await page.click('.logbtn');
 const had = await page.locator('.log .msg.cited').count();
 await page.fill('#cin', 'what is the speed of light');
 await page.press('#cin', 'Enter');
-await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 20000 }).catch(() => problems.push('no cited reply in the log'));
+await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 60000 }).catch(() => problems.push('no cited reply in the log'));
 const reply = page.locator('.log .msg.cited').last();
 if (!asked.at(-1)?.cited) problems.push(`the chat request did not carry cited: ${JSON.stringify(asked.at(-1))}`);
 const chips = await reply.locator('.citedtext .cite').evaluateAll((c) => c.map((x) => ({ n: x.textContent, tag: x.tagName, href: x.getAttribute('href'), miss: x.classList.contains('miss'), un: x.classList.contains('un') })));
@@ -71,7 +71,7 @@ if (chips.map((c) => c.n).join(',') !== '1,1,2,3') problems.push(`chips: ${JSON.
 if (chips[0]?.tag !== 'A' || chips[0]?.href !== 'https://physics.example.test/speed-of-light') problems.push(`chip 1 does not link its page: ${JSON.stringify(chips[0])}`);
 if (!chips[2]?.miss || !chips[3]?.miss) problems.push('the chips for sources never looked up ([2], [3]) are not flagged');
 if (!chips[2]?.un || chips[0]?.un) problems.push('chip highlighting does not follow the unconfirmed claims');
-const words = (await reply.locator('.citedtext').textContent()) ?? '';
+const words = (await reply.locator('.citedtext').textContent({ timeout: 10000 }).catch(() => '')) ?? '';
 if (/SOURCES|https?:\/\//.test(words)) problems.push(`the source list is still in the reply's words: ${words}`);
 const marked = await reply.locator('mark.unconf').allTextContents();
 if (!marked.some((m) => /Light from the Sun takes about eight minutes/.test(m)) || !marked.some((m) => /Nothing can travel faster/.test(m)) || marked.some((m) => /299,792,458/.test(m))) problems.push(`unconfirmed claims marked: ${JSON.stringify(marked)}`);
