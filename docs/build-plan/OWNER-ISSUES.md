@@ -61,3 +61,13 @@ Add to it any time; tick items off only when he agrees they are fixed.
     exam-style papers and grade boundaries). See HANDOFF.md, "Raising Ghosty".
 15. **UI/HUD: "really good quality UI in every sense, very very very good UI HUD everywhere, every small detail."**
     Every screen, every state (empty, loading, error), every animation, every word.
+16. **Design direction (19 Oct): "either the Jarvis style entire theme can go and we can work on the iPhone theme and
+    make it miles better, or we're gonna have to design something new and different to both, miles better entirely,
+    UI and HUD wise."** He is now open to dropping the Jarvis HUD look. Present both routes properly (real mock-ups
+    on the iPhone 18 Pro Max screen, not words):
+    A) the iPhone-style look, made miles better;
+    B) a brand-new design language, different from both.
+    Let him pick before building. Ask him whether the arc reactor stays in either route (he loved it before; don't
+    drop it without asking).
+17. **Official exam papers are fine** (personal, non-commercial, free of charge). **Books and textbooks** for his stage,
+    and **reading ahead** with proof he can handle it. See HANDOFF.md, "Raising Ghosty".

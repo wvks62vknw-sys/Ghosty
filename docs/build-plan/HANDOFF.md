@@ -100,8 +100,11 @@ What is and isn't possible, so you can plan it honestly with him:
     schemes of UK SATs, GCSE and A-level papers per subject, then university modules), held out and never trained on,
     marked against real grade boundaries (GCSE 9–1, A-level A*–E, degree classes). Marking must be exact where
     possible; written answers are marked by a stronger model against the mark scheme and spot-checked. He needs top
-    grades to move up. Show the grades as a proper report card, not a single score. Use only freely licensed or
-    self-written papers; never copy copyrighted exam papers.
+    grades to move up. Show the grades as a proper report card, not a single score. The owner wants OFFICIAL
+    past papers where possible (19 Oct): it's personal and non-commercial, never sold, and must cost nothing. Use only
+    papers the exam boards and the Standards and Testing Agency publish free on their own sites. Keep them private:
+    never put them in a public repo or public dataset, and never redistribute them. Keep the source and licence noted
+    for each. Fill gaps with self-written papers in the same format.
   - WHERE THE TECHNIQUES GO (the owner asked "before or after?"): neither. Recursive self-improvement, RLAIF,
     self-play loops and self-guided self-play are HOW he studies inside every stage. At each stage he:
     1. self-plays and invents his own practice at that level;
@@ -111,6 +114,17 @@ What is and isn't possible, so you can plan it honestly with him:
     5. finds his weak spots, and his training improves itself (recursive self-improvement);
     6. repeats until he passes the real stage exam.
     The GYM runs alongside at matching difficulty.
+- EVERYTHING FEEDS SCHOOL (owner, 19 Oct): the GYM games, drills, Night School and every other loop count towards his
+  schooling. Match the GYM's difficulty to his stage, and let reasoning, maths and logic practice there raise his marks.
+- READING: give him a proper reading library for each stage:
+  - age-appropriate books (public-domain children's and young adult classics from Project Gutenberg, and other free
+    books);
+  - free official textbooks and lessons (open textbooks such as OpenStax, Oak National Academy and other free UK
+    curriculum resources), tagged by year group and subject.
+  He can pick books to read at his stage, like a real pupil.
+- READING AHEAD (the owner's own experience: in Year 2 he borrowed books from the Year 6 class): Ghosty may borrow
+  BOOKS from a higher year if he proves he can handle them, by passing a short reading check at that level. This
+  only unlocks reading; exams and stage progress still go strictly in order.
 - Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
