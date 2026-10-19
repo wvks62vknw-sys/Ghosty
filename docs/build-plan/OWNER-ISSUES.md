@@ -77,3 +77,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     look. Still mock up A and B for comparison, but put the most work into C. Look at the very best real-world
     references (Apple's own apps, top-tier HUD and film-UI work, premium dashboards) and aim clearly above what Ghosty
     has now. Mock-ups on the iPhone 18 Pro Max screen first; no building until he picks.
+19. **Small chunks, no long runs (19 Oct):** "surely there's a way around doing things for even close to an hour."
+    Split ALL work into short chunks (about 15–30 minutes each), each one finishing with something checked and saved.
+    No single run longer than that without his say-so. The credit-saving rules are applied automatically; he should
+    never have to manage them. Claude can't see his usage meter, so at each check-in ask him to glance at his usage %,
+    and plan the remaining work to fit, stopping cleanly with everything saved well before the limit.
