@@ -135,6 +135,15 @@ What is and isn't possible, so you can plan it honestly with him:
     level, never seen before);
   - he can borrow at most two years ahead;
   - borrowed reading never counts towards passing a stage.
+- SPEED (the owner asked to speed everything up massively without losing quality):
+  - placement tests: he may sit any stage's exam straight away; a top-grade pass completes that stage at once. The
+    early stages he already knows should take minutes, not weeks. Training time goes only where he actually fails.
+  - distillation: strong free online models write worked answers and explanations for his weak spots, and he trains
+    on those that check out (this is also the RLAIF part).
+  - efficient training (LoRA/QLoRA adapters, short focused runs) so each free GPU hour does more.
+  - more free GPU time: Kaggle (~30 h/week) plus any other free sources, ONLY after checking each one can never bill
+    him (no card on file, no paid tier).
+  - where his phone can do useful work overnight (evaluation, retrieval indexing, small adapter updates), use it.
 - Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
