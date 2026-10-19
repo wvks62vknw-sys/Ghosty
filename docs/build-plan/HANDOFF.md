@@ -22,6 +22,29 @@ The owner says loads of things are really bad right now. Before building anythin
    iPhone 18 Pro Max work, then Waves D–F and the upgrades. Show it to him and get his yes before you start.
 4. Then build in that order. Report progress against his list.
 
+## THE OWNER'S BAR FOR THIS BUILD (19 Oct, his words)
+"Every small thing that I'm not mentioning should be literally hundreds of times better than it is right now. I
+genuinely expect massive heaps of improvements everywhere." Go through EVERY feature, screen, flow, message and
+default, not only the ones he names, and make each clearly, visibly better: quality, accuracy, speed, looks, ease and
+depth. Keep a running list (docs/build-plan/UPGRADES.md) of what was improved and how much, with before/after evidence
+(screenshots, measured numbers), so he can see the scale of it.
+
+He also wants self-improvement and self-play reinforcement loops at a far more advanced level. Directions to research
+and build (all free, all measured, all with his rules):
+- GYM: AlphaZero-style self-play (search + a learned policy/value guiding it) wherever it fits, curriculum that
+  generates its own harder problems, league play against frozen past versions, and honest ground-truth measurement.
+- The language brain: verifier-based RL on free Kaggle GPUs (rejection sampling / STaR / GRPO-style training on tasks
+  with exact checkers: GYM puzzles, drills, code tests, tool-use replays), self-generated curricula, and more weeks per
+  month if the free quota allows.
+- Night School: study, self-quiz, find weak spots from the report card, then generate targeted practice for them.
+- Tools and skills: learn from his 👍/👎 and from failed tool calls; propose better prompts, playbooks and checks, and
+  keep only what beats the old version on a held-out test set.
+- One dashboard (in the REPORT CARD) showing every loop: what it practised, what improved, and what was rejected.
+SAFETY RAILS (non-negotiable): every self-made change must beat the current version on held-out tests it never trained
+on before it is kept, can be rolled back with one tap, never touches the kernel (protected files, keys, billing,
+permissions), never spends money, never sends his private data anywhere he hasn't approved, and any change to Ghosty's
+own code still goes through the normal approval + review + CI. Improvement must be measured, never just claimed.
+
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
 By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
 - Check its real specs first (screen size in points, safe areas and Dynamic Island, RAM, Neural Engine/GPU, Safari
