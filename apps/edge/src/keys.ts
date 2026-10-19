@@ -6,6 +6,7 @@
 import { MailError, parseEmailKey, testLogin } from './integrations/mail';
 import { parseTfwmKey } from './integrations/transit';
 import { dropTokens, motToken, parseMotKey, VES_API, VehicleError } from './integrations/vehicle';
+import { hfWhoami, kaggleWorks, parseKaggleKey, RemoteError } from './selftrain/remote'; // [selftrain]
 
 export interface KeyDef {
   name: string;
@@ -320,6 +321,37 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Copy the token (it starts with hf_), paste it below and press SAVE.',
       ],
     },
+    // [selftrain] The two keys the offline brain's weekly self-training needs (selftrain/cycle.ts).
+    {
+      name: 'kaggle',
+      label: 'Kaggle (free GPUs for training)',
+      hint: 'the API token (starts with KGAT_) — or the whole kaggle.json text',
+      link: 'https://www.kaggle.com/settings',
+      need: 'optional',
+      why: "Lets Ghosty train its offline brain (the small AI on your phone) once a week on Kaggle's free GPUs (about 30 hours a week, no card). With the Hugging Face token below, it runs on its own.",
+      steps: [
+        'Open the link and sign up or sign in to Kaggle (Google sign-in works).',
+        'Kaggle only lends GPUs to confirmed accounts: on the same Settings page, under "Phone verification", confirm your phone number (once).',
+        'Still on Settings, find "API Tokens" and press "Generate New Token". Give it any name (e.g. Ghosty) and copy the token it shows (it starts with KGAT_). Kaggle shows it only once.',
+        'Paste it below and press SAVE. Ghosty asks Kaggle once whose token it is; nothing runs until both training keys are saved.',
+        'An older kaggle.json file (from "Create Legacy API Key") works too: paste its whole text.',
+      ],
+    },
+    {
+      name: 'hf_write',
+      label: 'Hugging Face token (training)',
+      hint: 'starts with hf_… (fine-grained, write access to your two Ghosty repos)',
+      link: 'https://huggingface.co/new-dataset',
+      need: 'optional',
+      why: 'Where the trained offline brain is kept: two PRIVATE spaces on your free Hugging Face account, one for the training lessons and one for the brain itself. Only Ghosty reaches them, with this token, which never leaves your brain; your phone gets the new brain through Ghosty.',
+      steps: [
+        'Make a free Hugging Face account at huggingface.co (confirm the email they send), then open the link.',
+        'Name the dataset ghosty-training, choose Private, and press "Create dataset".',
+        'Open huggingface.co/new, name the model ghosty-offline-brain, choose Private, and press "Create model".',
+        'Open huggingface.co/settings/tokens/new, choose "Fine-grained", type a name (e.g. Ghosty training). Under "Repositories permissions" search for ghosty-training and ghosty-offline-brain, add both, and tick "Write access to contents/settings of selected repos". Leave everything else off.',
+        'Press "Create token", copy it (it starts with hf_), paste it below and press SAVE. Ghosty checks it can write to both, and that both are private.',
+      ],
+    },
   ];
 }
 
@@ -431,6 +463,28 @@ export async function testKey(name: string, value: string, repo?: string): Promi
       case 'huggingface':
         status = await check('https://huggingface.co/api/whoami-v2', { headers: bearer });
         break;
+      // [selftrain]
+      case 'kaggle': {
+        const c = parseKaggleKey(value);
+        if (!c) return { ok: false, info: 'paste the API token (it starts with KGAT_), or the whole kaggle.json text' };
+        try {
+          return { ok: true, info: `works ✓ · Kaggle account ${await kaggleWorks(fetch, c)}` };
+        } catch (e) {
+          return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Kaggle (${String((e as Error)?.message ?? e).slice(0, 80)})` };
+        }
+      }
+      case 'hf_write': {
+        try {
+          const me = await hfWhoami(fetch, value.trim());
+          const both = [`${me.name}/ghosty-training`, `${me.name}/ghosty-offline-brain`];
+          if (me.role === 'read') return { ok: false, info: 'this token can only read: make a fine-grained token with write access to your two Ghosty repos' };
+          const missing = both.filter((r) => !me.canWrite(r));
+          if (missing.length) return { ok: false, info: `saved, but this token may not write to ${missing.join(' and ')}: add ${missing.length > 1 ? 'them' : 'it'} under "Repositories permissions" with write access` };
+          return { ok: true, info: `works ✓ · can write to your two Ghosty repos as ${me.name}${me.role === 'write' ? ' (a full write token: a fine-grained one limited to those two repos is safer)' : ''}` };
+        } catch (e) {
+          return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Hugging Face (${String((e as Error)?.message ?? e).slice(0, 80)})` };
+        }
+      }
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);

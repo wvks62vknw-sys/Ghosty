@@ -8,6 +8,18 @@ import { clear, h, icon, pad } from '../core/dom';
 import { sfx } from '../assistant/sfx';
 import { settings, ui } from '../state/app';
 import { go, tabs } from './tabs';
+import { ACRONYM, niceCase } from '../ui/components';
+import { areaOf, tintOf } from './areas';
+
+/** The calm looks' home screen: four sections that fill whole rows of four (Learn and Plan share one). */
+const SECTIONS: [string, string[]][] = [
+  ['Ask and see', ['core', 'brief', 'eye', 'lens']],
+  ['Make', ['studio', 'workshop', 'reverse', 'space']],
+  ['Learn and plan', ['learn', 'gym', 'library', 'agenda', 'markets', 'threats', 'radio']],
+  ['Me', ['memory', 'settings', 'system', 'links']],
+];
+import { proLook } from '../state/theme';
+import type { TabDef } from './tabs';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -25,7 +37,7 @@ export function buildLauncher(): Launcher {
   const quick = h('div.dquick');
   const box = h('div.deckin', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Systems' },
     h('div.dhead',
-      h('div.dtitle', h('small', 'GHOSTY // SYSTEMS'), h('span', `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`)),
+      h('div.dtitle', h('small', 'GHOSTY // SYSTEMS'), h('span', 'AT YOUR SERVICE, ', h('i.dname', settings.get().name))),
       h('span.sp'),
       h('div.dclock', time, date),
       h('button.dclose', { type: 'button', 'aria-label': 'Close systems', onclick: () => close() }, '✕'),
@@ -46,17 +58,24 @@ export function buildLauncher(): Launcher {
 
   const paint = () => {
     const cur = ui.get().tab;
-    clear(tiles, ...tabs().map((t, i) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
+    const tile = (t: TabDef, i: number) => h(`button.dtile${t.id === cur ? '.on' : ''}` as 'button', {
       type: 'button',
-      dataset: { id: t.id },
-      style: { animationDelay: `${i * 28}ms` },
+      dataset: { id: t.id, area: areaOf(t.id)?.id ?? '' },
+      style: `animation-delay:${i * 22}ms;--tint:${tintOf(t.id)}`,
       onclick: () => {
         close(true);
         go(t.id);
       },
-    }, icon(t.icon), h('b', t.title), h('small', t.blurb ?? ''))));
+    }, icon(t.icon), h('b', { dataset: ACRONYM.test(t.title) ? { label: niceCase(t.title) } : {} }, t.title), h('small', t.blurb ?? ''));
+    const all = tabs().filter((t) => !t.hub);
+    // The calm looks group the screens by area under small headings (a home screen with folders' names);
+    // the classic looks keep the plain list.
+    if (proLook()) {
+      let i = 0;
+      clear(tiles, ...SECTIONS.flatMap(([name, ids]) => [h('h4.dsec', name), ...ids.map((id) => all.find((t) => t.id === id)).filter((t): t is TabDef => !!t).map((t) => tile(t, i++))]));
+    } else clear(tiles, ...all.map(tile));
     quick.hidden = true;
-    (box.querySelector('.dtitle span') as HTMLElement).textContent = `AT YOUR SERVICE, ${settings.get().name.toUpperCase()}`;
+    clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed (the classic look shows it in capitals)
   };
 
   const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();

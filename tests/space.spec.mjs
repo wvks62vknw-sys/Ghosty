@@ -4,7 +4,10 @@
 // is added from the catalogue and turned; WILL IT FIT? answers yes / no; MAKE SPACE offers up to
 // three layouts with more open floor, one is tried and UNDO puts things back; EXPORT gives a real
 // PNG and a JSON plan, and IMPORT reads a plan back. Nothing sticks out sideways; the security
-// policy blocks nothing.
+// policy blocks nothing. FROM PHOTO: a photo of a printed plan (a page lying turned on a table: two
+// rooms, a door, a window, the sizes written on) becomes the plan — walls, rooms, door, window,
+// the scale read from the writing — USE THIS PLAN puts it in; a wall's real length typed rescales
+// everything; UNDO puts the plan back.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
@@ -342,6 +345,133 @@ await until(() => window.__ghosty?.studio?.state?.().rooms === 2 && window.__gho
 const st = await page.evaluate(() => { const x = window.__ghosty?.studio?.state?.(); return x && { rooms: x.rooms, openings: x.openings, title: x.title, error: x.error, tab: window.__ghosty.ui.get().tab, warnings: x.warnings }; });
 if (!st || st.rooms !== 2 || st.openings !== 3) problems.push(`studio: ${JSON.stringify(st)} vs plan openings ${JSON.stringify((await sp()).openings.map((o) => o.id))}`);
 
+// ---- FROM PHOTO: a photo of a printed plan (the page lying turned on a table) ----
+await page.evaluate(() => window.__ghosty.run('open_space', {}));
+await until(() => window.__ghosty?.ui?.get?.().tab === 'space', 10000, 'the planner did not come back');
+await closeLog();
+const planPhoto = await page.evaluate(async () => {
+  // the plan at 1.2 px a cm: living room 4.00 × 3.00 m, bedroom 2.90 × 3.00 m, walls 10 cm, a door 80 cm between, a window 120 cm
+  const k = 1.2;
+  const page = document.createElement('canvas');
+  page.width = 980;
+  page.height = 700;
+  const p = page.getContext('2d');
+  p.fillStyle = '#fbfbf8';
+  p.fillRect(0, 0, page.width, page.height);
+  p.fillStyle = '#111';
+  const X = 120;
+  const Y = 160;
+  const t = 10 * k;
+  const A = 400 * k;
+  const B = 290 * k;
+  const D = 300 * k;
+  const R = (x, y, w, h) => p.fillRect(x, y, w, h);
+  R(X - t, Y - t, A + t + B + 2 * t, t); // top
+  R(X - t, Y + D, A + t + B + 2 * t, t); // bottom
+  R(X - t, Y - t, t, D + 2 * t); // left
+  R(X + A + t + B, Y - t, t, D + 2 * t); // right
+  R(X + A, Y - t, t, D + 2 * t); // between
+  // the door between: a gap with its leaf and swing drawn thin
+  p.fillStyle = '#fbfbf8';
+  R(X + A, Y + 110 * k, t, 80 * k);
+  p.strokeStyle = '#111';
+  p.lineWidth = 1.5;
+  p.beginPath();
+  p.moveTo(X + A + t, Y + 110 * k);
+  p.lineTo(X + A + t + 80 * k, Y + 110 * k);
+  p.arc(X + A + t, Y + 110 * k, 80 * k, 0, Math.PI / 2);
+  p.stroke();
+  // a window in the living room's top wall: the wall cleared, two glazing lines
+  p.fillStyle = '#fbfbf8';
+  R(X + 100 * k, Y - t, 120 * k, t);
+  p.fillStyle = '#111';
+  R(X + 100 * k, Y - t + 2, 120 * k, 1.5);
+  R(X + 100 * k, Y - 3.5, 120 * k, 1.5);
+  // the writing
+  p.font = 'bold 26px Arial, Helvetica, sans-serif';
+  p.textAlign = 'center';
+  p.fillText('LIVING ROOM', X + A / 2, Y + D / 2 - 14);
+  p.fillText('4.00 x 3.00 m', X + A / 2, Y + D / 2 + 22);
+  p.fillText('BEDROOM', X + A + t + B / 2, Y + D / 2 - 14);
+  p.fillText('2.90 x 3.00 m', X + A + t + B / 2, Y + D / 2 + 22);
+  // the photo: the page turned 4° on a darker table
+  const c = document.createElement('canvas');
+  c.width = 1400;
+  c.height = 1100;
+  const g = c.getContext('2d');
+  g.fillStyle = '#5e4630';
+  g.fillRect(0, 0, c.width, c.height);
+  g.translate(700, 550);
+  g.rotate((4 * Math.PI) / 180);
+  g.drawImage(page, -page.width / 2, -page.height / 2);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.92));
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let str = '';
+  for (const b of buf) str += String.fromCharCode(b);
+  return btoa(str);
+});
+const plansBefore = await saved();
+await page.locator('#pg-space .spacefromphoto input[type=file]').setInputFiles({ name: 'plan.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(planPhoto, 'base64') });
+await until(() => window.__ghosty.space.fromPhoto.busy === true || !!window.__ghosty.space.fromPhoto.drawing, 10000, 'FROM PHOTO did not start');
+await until(() => window.__ghosty.space.fromPhoto.busy === false, 180000, 'FROM PHOTO did not finish');
+let fpS = (await sp()).fromPhoto;
+await page.screenshot({ path: `${out}/space-fromphoto.png` });
+if (fpS.kind !== 'drawing' || !fpS.drawing) problems.push(`FROM PHOTO did not read it as a drawn plan: ${JSON.stringify(fpS)}`);
+else {
+  const d = fpS.drawing;
+  if (d.rooms !== 2 || d.doors < 1 || d.windows < 1) problems.push(`FROM PHOTO found ${d.rooms} rooms, ${d.doors} doors, ${d.windows} windows (want 2, 1, 1): ${d.notes.join(' ')}`);
+  if (d.guessed) problems.push(`the scale was not read from the written sizes: ${d.notes.join(' ')}`);
+}
+if (!(await page.locator('#pg-space .spacefromphoto button', { hasText: 'USE THIS PLAN' }).isVisible())) problems.push('no USE THIS PLAN after the photo');
+await page.locator('#pg-space .spacefromphoto button', { hasText: 'USE THIS PLAN' }).click();
+await page.waitForTimeout(300);
+const fromPlan = await saved();
+const boxOf = (poly) => [Math.max(...poly.map((q) => q[0])) - Math.min(...poly.map((q) => q[0])), Math.max(...poly.map((q) => q[1])) - Math.min(...poly.map((q) => q[1]))];
+const living = fromPlan.rooms?.find((r) => /living/i.test(r.name));
+const bed = fromPlan.rooms?.find((r) => /bed/i.test(r.name));
+if (!living || !bed) problems.push(`the rooms are not named from the writing: ${JSON.stringify(fromPlan.rooms?.map((r) => r.name))}`);
+else {
+  // each room meets the other on the middle of the wall between: 5 cm wider than inside; 3 % allowed
+  const [lw, ld] = boxOf(living.poly);
+  const [bw, bd] = boxOf(bed.poly);
+  const off = (a, b) => Math.abs(a / b - 1);
+  if (off(lw, 405) > 0.03 || off(ld, 300) > 0.03 || off(bw, 295) > 0.03 || off(bd, 300) > 0.03) problems.push(`the plan from the photo: living ${lw} × ${ld}, bedroom ${bw} × ${bd} cm (want 405 × 300, 295 × 300)`);
+  console.log(`FROM PHOTO: living ${lw} × ${ld} cm, bedroom ${bw} × ${bd} cm, openings ${JSON.stringify(fromPlan.openings?.map((o) => `${o.type} ${o.w}`))}; ${fpS.drawing?.notes.join(' ')}`);
+}
+// a wall's real length typed: everything rescales; UNDO puts the plan back
+if (living) {
+  // the bottom wall: no door or window on it
+  const ys = living.poly.map((q, i) => (q[1] + living.poly[(i + 1) % living.poly.length][1]) / 2);
+  const wi = ys.indexOf(Math.max(...ys));
+  const [a, b] = [living.poly[wi], living.poly[(wi + 1) % living.poly.length]];
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  // just outside the wall: the side away from the room's middle
+  const cx = living.poly.reduce((q, v) => q + v[0], 0) / living.poly.length;
+  const cy = living.poly.reduce((q, v) => q + v[1], 0) / living.poly.length;
+  const nx = mid[0] - cx;
+  const ny = mid[1] - cy;
+  const nl = Math.hypot(nx, ny) || 1;
+  await tap(mid[0] + (nx / nl) * 6, mid[1] + (ny / nl) * 6);
+  const sel = (await sp()).selected;
+  if (sel !== `wall:${living.id}:${wi}`) problems.push(`tapping the living room's wall ${wi} chose "${sel}"`);
+  else {
+    await page.fill('#pg-space .spacelen input', String(Math.round(len * 1.1)));
+    await page.locator('#pg-space .spacelen button', { hasText: 'SET LENGTH' }).click();
+    await page.waitForTimeout(300);
+    const scaled = await saved();
+    const bed2 = scaled.rooms.find((r) => r.id === bed.id);
+    const ratio = boxOf(bed2.poly)[0] / boxOf(bed.poly)[0];
+    if (Math.abs(ratio - 1.1) > 0.02) problems.push(`SET LENGTH did not rescale the other room: ×${ratio.toFixed(3)}`);
+    await page.locator('#pg-space .spacefromphoto button', { hasText: 'UNDO' }).click();
+    await page.waitForTimeout(300);
+    if (JSON.stringify((await saved()).rooms) !== JSON.stringify(fromPlan.rooms)) problems.push('UNDO did not undo the rescale');
+  }
+}
+await page.locator('#pg-space .spacefromphoto button', { hasText: 'UNDO' }).click();
+await page.waitForTimeout(300);
+if (JSON.stringify((await saved()).rooms) !== JSON.stringify(plansBefore.rooms)) problems.push('UNDO did not put back the plan from before the photo');
+
 const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 if (wide) problems.push('the planner is wider than the phone screen');
 const csp = await page.evaluate(() => window.__csp);
@@ -349,5 +479,5 @@ if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.screenshot({ path: `${out}/space-final.png`, fullPage: false });
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'SPACE PLANNER run clean on an iPhone 13: opened from the chat with a 420 × 360 cm room, a piece dragged and snapped to the wall, a sub-70 cm walkway flagged, a desk added and turned, WILL IT FIT? answered both ways, MAKE SPACE offered layouts with more open floor and UNDO restored the room, PNG and JSON exported, a plan imported and kept on the phone; a door and a window put on tapped walls (area in m² and ft²), the window slid along its wall, the room made an L, a second room added with a door between; DESIGN REVIEW sent the plan, the changes came back BEFORE / AFTER, one applied and undone; SEE IN 3-D built it in the studio.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'SPACE PLANNER run clean on an iPhone 13: opened from the chat with a 420 × 360 cm room, a piece dragged and snapped to the wall, a sub-70 cm walkway flagged, a desk added and turned, WILL IT FIT? answered both ways, MAKE SPACE offered layouts with more open floor and UNDO restored the room, PNG and JSON exported, a plan imported and kept on the phone; a door and a window put on tapped walls (area in m² and ft²), the window slid along its wall, the room made an L, a second room added with a door between; DESIGN REVIEW sent the plan, the changes came back BEFORE / AFTER, one applied and undone; SEE IN 3-D built it in the studio; FROM PHOTO read a photo of a printed plan into two rooms with their door and window at the written sizes, a wall\'s typed length rescaled everything, and UNDO put it all back.');
 process.exit(problems.length ? 1 : 0);

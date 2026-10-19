@@ -181,3 +181,174 @@ test('the WAV helper: 16 kHz mono 16-bit PCM with a correct header, channels mix
   assert.equal(W.toMono16k([], 48_000).length, 0);
   assert.equal(S.audioExt('audio/wav'), 'wav', 'what the brain sees when the phone sends it');
 });
+
+/** Durable Object storage, in memory, for the ledger tests. */
+class Store {
+  m = new Map();
+  async get(k) { return structuredClone(this.m.get(k)); }
+  async put(k, v) { this.m.set(k, structuredClone(v)); }
+}
+
+test("POST /tts with a voice: Aura's natural British voices within the day's share of the shared Workers AI ledger, then the plain voice; the reason said; the old request stays MeloTTS", async () => {
+  S._testing.reset();
+  const store = new Store();
+  const ledger = new S.NeuronLedger(store);
+  const aura = new Uint8Array([0xff, 0xfb, 0x90, 0x64, 9, 9, 9, 9]);
+  const ai = fakeAi({
+    '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }),
+    // the binding answers Aura with a stream of MP3 bytes
+    '@cf/deepgram/aura-2-en': () => new ReadableStream({ start(c) { c.enqueue(aura); c.close(); } }),
+    '@cf/deepgram/aura-1': () => new Response(aura),
+  });
+  const post = (body, env = { AI: ai }, l = ledger) => S.ttsRoute(env, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), l);
+  // 'auto': the most natural British voice (Aura 2, Draco), charged to the ledger and kept in storage
+  const r = await post({ text: 'Morning. Kettle is on.', voice: 'auto' });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('x-voice'), 'draco');
+  assert.equal(r.headers.get('x-voice-note'), null);
+  assert.equal(r.headers.get('x-voice-reason'), null);
+  assert.deepEqual(new Uint8Array(await r.arrayBuffer()), aura);
+  assert.deepEqual(ai.calls.at(-1), { model: '@cf/deepgram/aura-2-en', inputs: { text: 'Morning. Kettle is on.', speaker: 'draco', encoding: 'mp3' } });
+  assert.equal(store.m.get('ai:neurons').by.voice, Math.ceil('Morning. Kettle is on.'.length * 1.37 * 2), 'Aura 2 counts double, and the count is in storage');
+  // a named voice, Aura 1
+  const h = await post({ text: 'Hello.', voice: 'helios' });
+  assert.equal(h.headers.get('x-voice'), 'helios');
+  assert.deepEqual(ai.calls.at(-1).inputs, { text: 'Hello.', speaker: 'helios', encoding: 'mp3' });
+  // the same sentence in the same voice comes from the cache; in another voice it does not
+  const n = ai.calls.length;
+  await post({ text: 'Hello.', voice: 'helios' });
+  assert.equal(ai.calls.length, n);
+  await post({ text: 'Hello.', voice: 'melo' });
+  assert.equal(ai.calls.length, n + 1);
+  assert.equal(ai.calls.at(-1).model, '@cf/myshell-ai/melotts');
+  // no voice at all (older copies of the app, Telegram): the plain voice, as before
+  assert.equal((await post({ text: 'Plain old voice.' })).headers.get('x-voice'), 'melo');
+  // the share used up: the plain voice speaks, and the reason says "not again today"
+  const big = 'word '.repeat(110).trim();
+  let last;
+  for (let i = 0; i < 6; i++) last = await post({ text: `${i} ${big}`, voice: 'draco' });
+  assert.ok(store.m.get('ai:neurons').by.voice <= S.VOICE_SHARE, `share kept: ${store.m.get('ai:neurons').by.voice}`);
+  assert.equal(last.status, 200);
+  assert.equal(last.headers.get('x-voice'), 'melo');
+  assert.equal(last.headers.get('x-voice-reason'), 'share');
+  assert.match(last.headers.get('x-voice-note'), /share for the natural voice is used up/);
+  // an eviction (a new brain, a new ledger on the same storage) still knows: no natural voice
+  S._testing.reset();
+  const after = await post({ text: `after a restart ${big}`, voice: 'draco' }, { AI: ai }, new S.NeuronLedger(store));
+  assert.equal(after.headers.get('x-voice'), 'melo', 'the share is not forgotten by a restart');
+  assert.equal(after.headers.get('x-voice-reason'), 'share');
+  // Aura failing: the plain voice says it, and the reason is a passing error (try again soon), not the share
+  S._testing.reset();
+  const flaky = fakeAi({ '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }), '@cf/deepgram/aura-2-en': new Error('3040: capacity') });
+  const f = await post({ text: 'Still speaking.', voice: 'pandora' }, { AI: flaky }, new S.NeuronLedger(new Store()));
+  assert.equal(f.status, 200);
+  assert.equal(f.headers.get('x-voice'), 'melo');
+  assert.equal(f.headers.get('x-voice-reason'), 'error');
+  assert.match(f.headers.get('x-voice-note'), /did not answer \(3040: capacity\)/);
+  // an unknown voice name is the plain voice
+  assert.equal((await post({ text: 'Who?', voice: 'bogus' }, { AI: ai }, new S.NeuronLedger(new Store()))).headers.get('x-voice'), 'melo');
+  S._testing.reset();
+});
+
+test('the Workers AI ledger: one count for every use, kept in storage; hearing always has room, nicer voices give way first', async () => {
+  S._testing.reset();
+  const store = new Store();
+  const ledger = new S.NeuronLedger(store);
+  // the fallback brain and hearing have used most of the day: the natural voice must leave its reserve
+  await ledger.charge('chat', 5500);
+  await ledger.charge('stt', 600);
+  const aura = fakeAi({ '@cf/myshell-ai/melotts': () => ({ audio: mp3.toString('base64') }), '@cf/deepgram/aura-2-en': () => new Response(new Uint8Array([1, 2, 3])) });
+  const tts = (body, l = ledger) => S.ttsRoute({ AI: aura }, new Request('https://ghosty.test/api/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), l);
+  const r = await tts({ text: 'A short line.', voice: 'draco' });
+  assert.equal(r.headers.get('x-voice'), 'melo', 'with 6,100 of 10,000 gone the natural voice gives way');
+  assert.equal(r.headers.get('x-voice-reason'), 'share');
+  assert.ok(!aura.calls.some((c) => c.model.includes('aura')), 'Aura was never asked');
+  // nearly everything gone: even the plain voice gives way, hearing still works
+  await ledger.charge('chat', 3400);
+  const plain = await tts({ text: 'Another line here.', voice: 'melo' });
+  assert.equal(plain.status, 429);
+  assert.match((await plain.json()).error, /kept for hearing you/);
+  const ear = fakeAi({ '@cf/openai/whisper-large-v3-turbo': () => ({ text: 'still hearing you' }) });
+  assert.equal(await S.transcribe({ AI: ear }, vaultWith({}), bytes(32_044), 'audio/wav', ledger), 'still hearing you');
+  const day = store.m.get('ai:neurons');
+  assert.equal(day.by.stt, 600 + Math.ceil((32_000 / 32_000 / 60) * 47), 'a second of WAV is counted');
+  assert.equal(day.used, 5500 + 600 + 3400 + day.by.stt - 600 + (day.by['plain-voice'] ?? 0));
+  // background model work (study, projects, the weekly self-training factory) gives way long before the owner's chat
+  const bg = new S.NeuronLedger(new Store());
+  await bg.charge('chat', 6600);
+  assert.equal(await bg.room('background', 50), false, 'background work leaves 3,500 for the rest');
+  assert.equal(await bg.room('chat', 50), true, 'the owner\'s chat still has room');
+  // the count is per UTC day
+  const fresh = new S.NeuronLedger(store);
+  assert.equal(await fresh.room('voice', 100, Date.now() + 86_400_000), true, 'a new day starts empty');
+  S._testing.reset();
+});
+
+// ---------- barge-in (apps/web/src/assistant/barge.ts): the owner talking over Ghosty, from a made-up microphone ----------
+
+const { BargeDetector } = await (async () => {
+  const { build } = await import('esbuild');
+  const out = await build({ entryPoints: [new URL('../../web/src/assistant/barge.ts', import.meta.url).pathname], bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent' });
+  return import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+})();
+
+/** A fake microphone: readings every 20 ms from `level(t)`, with a little noise; the time the detector fired, or -1. */
+function run(level, ms = 4000, opts) {
+  const d = new BargeDetector(opts);
+  let seed = 7;
+  const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.004;
+  for (let t = 0; t <= ms; t += 20) if (d.feed(Math.max(0, level(t) + noise()), t, true)) return { at: t, d };
+  return { at: -1, d };
+}
+
+test("barge-in: Ghosty's own echo, however steady or bumpy, never counts; the owner's voice does, within 300 ms", () => {
+  // the echo left after cancellation: steady, then a loud syllable now and then (60 ms bursts)
+  const echo = (t) => 0.03 + (t % 700 < 60 ? 0.06 : 0) + 0.01 * Math.sin(t / 37);
+  assert.equal(run(echo).at, -1, 'Ghosty hearing itself must not stop itself');
+  // a cough or a tap on the table: short and loud
+  assert.equal(run((t) => echo(t) + (t > 1500 && t < 1600 ? 0.5 : 0)).at, -1, 'a click or a cough is not the owner talking');
+  // the owner starts talking at 1.5 s over the echo
+  const talk = run((t) => echo(t) + (t >= 1500 ? 0.2 : 0));
+  assert.ok(talk.at > 1500, 'not before they talk');
+  assert.ok(talk.at - 1500 <= 300, `heard within 300 ms (took ${talk.at - 1500} ms)`);
+  // and knows when the voice began, to keep the first words (an echo burst just before may be joined to it)
+  assert.ok(talk.d.speechStart >= 1400 && talk.d.speechStart <= 1500, `voice began at ${talk.d.speechStart}`);
+  // a quiet room with no echo: a soft voice is enough
+  const soft = run((t) => 0.004 + (t >= 1000 ? 0.05 : 0));
+  assert.ok(soft.at > 1000 && soft.at - 1000 <= 300, `soft voice heard (at ${soft.at})`);
+  // speech that breaks for a moment (between syllables) is still one voice
+  const choppy = run((t) => 0.005 + (t >= 1000 && (t - 1000) % 140 < 100 ? 0.15 : 0));
+  assert.ok(choppy.at > 1000 && choppy.at - 1000 <= 300, `syllables bridged (at ${choppy.at})`);
+  // nothing during the first moments, while it learns the echo
+  assert.equal(run((t) => 0.3, 280).at, -1);
+  // it fires once only
+  const d = new BargeDetector();
+  let fired = 0;
+  for (let t = 0; t < 3000; t += 20) if (d.feed(t > 500 ? 0.3 : 0.01, t)) fired++;
+  assert.equal(fired, 1);
+  // junk readings are treated as silence
+  assert.equal(run(() => NaN).at, -1);
+});
+
+test("barge-in: echo with gaps between words and sentences (0.03, 0.05, 0.08 RMS) never fires; the owner over it still does, within 300 ms", () => {
+  for (const E of [0.03, 0.05, 0.08]) {
+    // speech-like echo: 300 ms of words, 120 ms of quiet room between them
+    const words = (t) => (t % 420 < 300 ? E * (0.7 + 0.3 * Math.sin(t / 13)) : 0.003);
+    assert.equal(run(words, 8000).at, -1, `echo ${E} with gaps between words`);
+    // a clip that starts with 200 ms of silence, then 2.2 s sentences with 0.8 s between them
+    const sentences = (t) => (t < 200 ? 0.002 : t % 3000 > 2200 ? 0.003 : E);
+    assert.equal(run(sentences, 8000).at, -1, `echo ${E} with silence first and gaps between sentences`);
+    // the owner starts talking at 4.1 s, over the echo (in a gap or not)
+    for (const gen of [words, sentences]) {
+      const talk = run((t) => gen(t) + (t >= 4100 ? 0.25 : 0), 8000);
+      assert.ok(talk.at >= 4100 && talk.at - 4100 <= 300, `echo ${E}: the owner heard at ${talk.at}`);
+    }
+  }
+  // between clips the detector is paused: the silence then does not count, and the next clip's echo does not fire it
+  const d = new BargeDetector();
+  let t = 0;
+  for (; t < 1000; t += 20) assert.equal(d.feed(0.05, t), false);
+  d.pause();
+  for (t = 3000; t < 4000; t += 20) assert.equal(d.feed(t < 3040 ? 0.06 : 0.05, t), false, 'the next clip begins');
+  assert.ok(d.floor >= d.learned && d.learned > 0.04, `floor ${d.floor}, learned ${d.learned}`);
+});

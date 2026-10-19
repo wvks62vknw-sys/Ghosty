@@ -8,6 +8,7 @@
 // Afterwards nothing in localStorage or IndexedDB holds a plate or the record, nothing sticks out
 // sideways and the security policy blocked nothing.
 import { chromium } from 'playwright';
+import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -177,6 +178,7 @@ await page.waitForTimeout(800); // the device copy is written 200 ms after a cha
 // ---- System → Keys: the DVSA key is pasted as five lines into a box that keeps them ----
 await page.evaluate(() => window.__ghosty.run('open_tab', { tab: 'system' }));
 await until(() => [...document.querySelectorAll('#pg-system button')].some((b) => /OPTIONAL KEYS/.test(b.textContent)), 10000, 'no SHOW OPTIONAL KEYS button');
+await openPanel(page, 'system', 'KEYS');
 await page.locator('#pg-system button', { hasText: /OPTIONAL KEYS/ }).click();
 await until(() => !!document.querySelector('textarea.keylines[aria-label^="DVSA MOT history"]'), 10000, 'no five-line box for the DVSA key in System → Keys');
 if ((await page.locator('textarea.keylines').getAttribute('rows')) !== '5') problems.push('the DVSA key box is not five lines tall');

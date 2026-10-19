@@ -12,6 +12,7 @@
 //   BASE=http://localhost:8852 node tests/backup.spec.mjs [outDir]
 //   ENGINE=webkit PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers … (Safari's engine)
 import { chromium, webkit } from 'playwright';
+import { openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -42,7 +43,8 @@ const pair = async () => {
 };
 const toSystem = async () => {
   await page.evaluate(() => (location.hash = 'system'));
-  await page.waitForSelector('#pg-system .storageline', { timeout: 10000 });
+  await page.waitForSelector('#pg-system .storageline', { state: 'attached', timeout: 10000 });
+  await openPanel(page, 'system', 'BACKUP');
 };
 
 // ---- 1. the pairing form

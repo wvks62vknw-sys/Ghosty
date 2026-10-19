@@ -2,6 +2,7 @@
  * The contract between Ghosty's brain (apps/edge) and its interface (apps/web).
  * Both sides import this file, so a change here must be made on both sides.
  */
+import type { PersonaSettings } from './persona';
 
 /** Events streamed (one JSON object per line) from POST /api/chat and POST /api/approve. */
 export type ChatEvent =
@@ -128,6 +129,8 @@ export interface Lesson {
   at: number;
   /** How many times the same lesson was learned again. */
   hits: number;
+  /** Locked in the Memory tab: never reworded, merged away or dropped (memories.ts). */
+  locked?: boolean;
 }
 
 export interface ChatTurn {
@@ -147,6 +150,63 @@ export interface MemoryFact {
   id: string;
   text: string;
   at: number;
+  /** Where it came from (missing on facts kept before sources were recorded). */
+  src?: MemorySource;
+  /** Locked in the Memory tab: the nightly reflection never rewrites or drops it. */
+  locked?: boolean;
+  /** When the owner last edited its words. */
+  edited?: number;
+}
+
+/**
+ * Where a memory came from (apps/edge/src/memories.ts). `owner`: typed in the Memory tab;
+ * `chat`: saved during a conversation; `reflection`: the nightly look back over the day;
+ * `ghosty`: a lesson from Ghosty's own work; `unknown`: kept before sources were recorded.
+ */
+export interface MemorySource {
+  kind: 'owner' | 'chat' | 'reflection' | 'ghosty' | 'unknown';
+  /** When it was saved. */
+  at: number;
+  /** The owner's message it came from, when known (its time in the conversation history). */
+  turnAt?: number;
+  /** That message, cut short — only in the timeline, and only while it is still in the history. */
+  quote?: string;
+}
+
+export type MemoryKind = 'profile' | 'fact' | 'diary' | 'lesson';
+
+/** One thing Ghosty remembers about the owner, as the MEMORY tab's TIMELINE shows it. */
+export interface MemoryItem {
+  /** `p:<line, lower case>`, `f:<fact id>`, `d:<YYYY-MM-DD>`, `l:<lesson id>`. */
+  id: string;
+  kind: MemoryKind;
+  section?: ProfileSection;
+  text: string;
+  at: number;
+  src: MemorySource;
+  locked: boolean;
+  edited?: number;
+}
+
+/** A memory forgotten in the last day, which UNDO can still bring back (the Memory tab's RECENTLY FORGOTTEN). */
+export interface ForgottenItem {
+  id: string;
+  kind: MemoryKind;
+  text: string;
+  /** When it was forgotten; UNDO works until a day after. */
+  gone: number;
+  /** FORGET EVERYTHING: how many facts went at once. */
+  count?: number;
+}
+
+/** Something Ghosty noticed over time, worked out from what is stored (never made up), with how often it was seen. */
+export interface MemoryPattern {
+  id: string;
+  kind: 'time' | 'day' | 'topic' | 'mood' | 'theme';
+  text: string;
+  /** How many times (messages, days or memories: `unit`) back it up. */
+  evidence: number;
+  unit: string;
 }
 
 /** The parts of the owner's profile (apps/edge/src/profile.ts): short lines in the owner's own words, shown in the Memory tab's ME panel. */
@@ -160,6 +220,8 @@ export interface Profile {
   /** Short lines (at most 160 characters, 40 a section). */
   sections: Record<ProfileSection, string[]>;
   updatedAt: number;
+  /** How Ghosty talks (SETTINGS → CHARACTER: how dry, how brief, how warm; persona.ts). Missing: the default character. */
+  persona?: PersonaSettings;
 }
 
 /** One day's diary entry, written by the nightly reflection into the library (doc notes_diary). */
@@ -177,6 +239,11 @@ export interface ReflectInfo {
   skipped?: string;
   facts: string[];
   lines: { section: ProfileSection; text: string }[];
+  /** Out-of-date lines and facts the reflection reworded or dropped (never a locked one). */
+  revised?: { from: string; to: string }[];
+  dropped?: string[];
+  /** Changes the reflection asked for on locked memories, refused. */
+  refused?: number;
   diary: string;
   summary: string;
   profile: Profile;
@@ -220,6 +287,8 @@ export interface Project {
   docId: string;
   /** The last thing worth knowing: waiting for a free model, why a step failed. */
   note?: string;
+  /** 'site': a website built on Ghosty's own (sitebuild.ts runs its fixed steps); absent: steps run by the model with tools. */
+  kind?: 'site';
 }
 
 export interface Widget {

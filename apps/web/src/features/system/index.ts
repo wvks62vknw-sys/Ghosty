@@ -7,8 +7,10 @@ import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
+import { trainingPanel } from './training';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -21,7 +23,10 @@ export const systemTab: TabDef = {
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
-    P.left.append(kp.el, mp.el, rp.el);
+    // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
+    const rc = reportCardPanel();
+    const tp = trainingPanel();
+    P.left.append(kp.el, mp.el, rp.el, rc.el, tp.el);
     const sp = panel('STATUS');
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
@@ -173,17 +178,24 @@ export const systemTab: TabDef = {
     };
     const paintStatus = () => {
       clear(sp.body);
+      // What the owner needs at a glance; the engineering details fold away under Advanced.
+      const ver = `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`;
       sp.body.append(
-        row('BRAIN', status ? 'CONNECTED' : 'UNREACHABLE', null, { tone: status ? 'up' : 'dn' }),
-        row('OWNER', status?.owner ?? '—'),
-        row('SELF-EDIT', status?.repoReady ? `ON · ${status.repo}` : 'OFF — needs GitHub token', null, { tone: status?.repoReady ? 'up' : undefined }),
-        row('PREVIEWS', status?.previews ?? 'unknown'),
-        row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
-        ...meterRows(),
-        row('THIS DEVICE', ownerKey.get() ? 'paired with owner key' : 'signed in via Cloudflare Access'),
-        row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`, newer ? 'NEWER SHIPPED' : null, { tone: newer ? 'bad' : undefined }),
+        row('GHOSTY', status ? 'Connected' : 'Can’t be reached right now', null, { tone: status ? 'up' : 'dn' }),
+        row('SELF-EDIT', status?.repoReady ? `On · ${status.repo}` : 'Off — add a GitHub key to turn it on', null, { tone: status?.repoReady ? 'up' : undefined, wrap: true }),
+        row('THIS PHONE', ownerKey.get() ? 'Paired with your owner key' : 'Signed in with Cloudflare Access', null, { wrap: true }),
+        row('VERSION', newer ? 'A newer version is ready' : 'Up to date', newer ? 'NEWER SHIPPED' : null, { tone: newer ? 'bad' : undefined }),
+        h('details.adv', h('summary', 'Advanced'),
+          row('OWNER', status?.owner ?? '—'),
+          row('PREVIEWS', status?.previews ?? 'not reported'),
+          row('FRAME RATE', `${Math.round(stats.fps)} fps @ ${Math.round(stats.scale * 100)}%`),
+          ...meterRows(),
+          row('BUILD', ver),
+        ),
       );
-      sp.body.append(h('div.keyrow', button('EMAIL · SPOTIFY · PHONE → LINKS', () => go('links'))));
+      const linksBtn = button('EMAIL · SPOTIFY · PHONE → LINKS', () => go('links'));
+      linksBtn.dataset.label = 'Email, Spotify and phone';
+      sp.body.append(h('div.keyrow', linksBtn));
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
       if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
     };
@@ -290,7 +302,9 @@ export const systemTab: TabDef = {
       try {
         status = await brain.status();
         P.big.textContent = status.models.some((m) => m.state === 'ok') ? 'ONLINE' : 'NO MODELS';
-        P.sub.textContent = `${status.models.filter((m) => m.state === 'ok').length} models ready · ${status.keys.filter((k) => k.set).length} keys set`;
+        const nm = status.models.filter((m) => m.state === 'ok').length;
+        const nk = status.keys.filter((k) => k.set).length;
+        P.sub.textContent = `${nm ? `${nm} model${nm === 1 ? '' : 's'} ready` : 'No model ready yet'} · ${nk ? `${nk} key${nk === 1 ? '' : 's'} added` : 'no keys added yet'}`;
       } catch {
         status = null;
         P.big.textContent = 'OFFLINE';
@@ -304,6 +318,7 @@ export const systemTab: TabDef = {
       enter() {
         void load();
         void checkVersion();
+        tp.refresh();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };

@@ -336,6 +336,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // The GYM tab: Ghosty's self-play games; optionally open on one game (maze, codebreaker, colony, trust, tictactoe, connect4, tiles, sudoku, countdown, words).
+      id: 'open_gym',
+      title: 'Gym: Ghosty trains himself',
+      group: 'GO',
+      run: async (a) => {
+        const { openGym } = await import('../features/gym');
+        openGym(typeof a?.game === 'string' ? a.game : undefined);
+      },
+    },
+    {
       // DESIGN REVIEW (brain tools/design.ts): up to three changes to the owner's plan, each a whole Room JSON;
       // SPACE checks each against the plan the owner has and shows BEFORE and AFTER to APPLY or not.
       id: 'design_changes',
@@ -347,7 +357,7 @@ export function registerBuiltins(): void {
       },
     },
     {
-      // The 3D STUDIO: a sample, a model made from a picture (make_3d), a room in cm, or a Spline link.
+      // The 3D STUDIO: a sample, a model made from a picture (make_3d), words to make (catalogue first), a catalogue model, a room in cm, or a Spline link.
       id: 'open_studio',
       title: 'Open the 3D Studio',
       hidden: true,
@@ -356,6 +366,8 @@ export function registerBuiltins(): void {
         openStudio({
           sample: typeof a?.sample === 'string' ? a.sample : undefined,
           model: typeof a?.model === 'string' ? a.model : undefined,
+          make: typeof a?.make === 'string' ? a.make.slice(0, 200) : undefined,
+          catalog: typeof a?.catalog === 'string' && /^(?:ov:[0-9a-f]{32}|ph:[A-Za-z0-9_-]{1,80})$/.test(a.catalog) ? a.catalog : undefined,
           title: typeof a?.title === 'string' ? a.title.slice(0, 80) : undefined,
           room: a?.room && typeof a.room === 'object' ? a.room : undefined,
           spline: typeof a?.spline === 'string' ? a.spline : undefined,

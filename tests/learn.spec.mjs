@@ -87,7 +87,7 @@ await page.locator('#pg-learn button:has-text("NEXT LESSON")').click();
 await until(() => window.__ghosty?.learn?.view === 'lesson' && window.__ghosty?.learn?.lesson === 2 && !!document.querySelector('#pg-learn .learntext'), 15000, 'NEXT did not go on to lesson 2');
 await until(() => window.__ghosty?.learn?.streak?.current >= 1 && window.__ghosty?.learn?.streak?.today === true, 5000, `the streak did not start: ${JSON.stringify((await st())?.streak)}`);
 const big = await page.locator('#pg-learn .bigv').innerText();
-if (!/1 DAY STREAK/.test(big)) problems.push(`the hero says "${big}"`);
+if (!/1 DAY STREAK/i.test(big)) problems.push(`the hero says "${big}"`);
 
 // ---- a quiz: wrong, right, a right short answer; the score ----
 await page.locator('#pg-learn button:has-text("BACK TO COURSE")').click();

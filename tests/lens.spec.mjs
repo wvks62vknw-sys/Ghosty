@@ -6,6 +6,7 @@
 // "I can see a picture"), and the security policy lets the vendored WebAssembly run.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -128,8 +129,8 @@ await page.waitForTimeout(600);
 if (await page.locator('#pg-lens').isVisible()) problems.push('the CORE tab did not replace the Lens');
 const away = await lens();
 if (away?.camera !== 'off') problems.push(`leaving the Lens did not stop the camera: ${JSON.stringify(away)}`);
-await page.click('#top .logo');
-await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open from the logo'));
+await openDeck(page);
+await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open'));
 await page.click('#deck .dtile[data-id="lens"]');
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `a tap on the Lens tile did not open the camera again: ${JSON.stringify(await lens())}`);
 if ((await lens())?.mode !== 'read') problems.push(`the Lens came back in ${(await lens())?.mode}, not READ`);

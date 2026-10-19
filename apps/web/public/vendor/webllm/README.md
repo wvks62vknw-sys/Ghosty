@@ -33,3 +33,15 @@ removed, since the 7 MB source map is not shipped. Every file is far under Cloud
 
 Needs WebGPU with 16-bit shaders (`shader-f16`): on iPhone, iOS 26 or newer. Elsewhere the panel says why
 it can't run, and Ghosty answers as before (the cloud brain, then the library copy on the phone).
+
+Trained weeks (`src/offline/models.ts` `trainedModels`): the weekly self-training (apps/edge/src/selftrain,
+training/kaggle) publishes Qwen3-0.6B fine-tuned for the owner as q4f16_1 weights in exactly the stock files'
+layout (every tensor's name, shape and type from the stock `tensor-cache.json`; the writer reproduces mlc-ai's
+own shards bit for bit from the base weights), with the stock `mlc-chat-config.json` and tokenizer files, to the
+owner's own PRIVATE Hugging Face model repo. So `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` runs them unchanged
+and no new compiled code is vendored. Because the repo is private (the brain learned from the owner's library
+and chats), the phone never fetches it directly: WebLLM is given `https://<ghosty>/api/w/<capability>/resolve/<commit>/`
+(same origin: `connect-src 'self'`), the brain fetches each file with the owner's token, streams the small ones
+and answers the large ones with Hugging Face's short-lived signed CDN address (`*.hf.co`, already in
+`connect-src`). No new host in the security policy. `pruneOtherRevisions` treats `/api/w/…` files like
+huggingface.co ones, and only after a download has finished; an interrupted download keeps every file.

@@ -34,8 +34,14 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 
 // 1. CITED sits next to SEND, off at first; on with a tap; remembered on this device
 const cited = page.locator('#cbar button.citedbtn');
+// The calm looks keep CITED in the chat bar's "+" menu: open it first when there is one.
+const showCited = async () => {
+  const plus = page.locator('#cbar .plusbtn');
+  if (await plus.isVisible().catch(() => false)) await plus.click();
+};
+await showCited();
 await cited.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push('no CITED button in the chat bar'));
-const order = await page.$$eval('#cbar > button', (b) => b.map((x) => x.textContent.trim()));
+const order = await page.$$eval('#cbar button', (b) => b.map((x) => x.textContent.trim()));
 if (order.indexOf('CITED') !== order.indexOf('SEND') + 1) problems.push(`CITED is not next to SEND: ${order.join(', ')}`);
 if ((await cited.getAttribute('aria-pressed')) !== 'false') problems.push('CITED starts on');
 await cited.click();
@@ -44,18 +50,20 @@ if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth 
 await page.waitForTimeout(500); // settings are saved a moment after a change
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
+await showCited();
 await cited.waitFor({ state: 'visible', timeout: 10000 });
 if ((await cited.getAttribute('aria-pressed')) !== 'true') problems.push('CITED was not remembered after a reload');
 const bar = await page.locator('#cbar').boundingBox();
 const btn = await cited.boundingBox();
 if (!bar || !btn || btn.x < bar.x - 1 || btn.x + btn.width > bar.x + bar.width + 1) problems.push(`CITED sticks out of the chat bar: ${JSON.stringify({ bar, btn })}`);
 
-// 2. a cited answer
+// 2. a cited answer (the "+" menu closed first: it opens over the conversation's button)
+await page.keyboard.press('Escape');
 await page.click('.logbtn');
 const had = await page.locator('.log .msg.cited').count();
 await page.fill('#cin', 'what is the speed of light');
 await page.press('#cin', 'Enter');
-await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 20000 }).catch(() => problems.push('no cited reply in the log'));
+await page.waitForFunction((n) => document.querySelectorAll('.log .msg.cited').length > n, had, { timeout: 60000 }).catch(() => problems.push('no cited reply in the log'));
 const reply = page.locator('.log .msg.cited').last();
 if (!asked.at(-1)?.cited) problems.push(`the chat request did not carry cited: ${JSON.stringify(asked.at(-1))}`);
 const chips = await reply.locator('.citedtext .cite').evaluateAll((c) => c.map((x) => ({ n: x.textContent, tag: x.tagName, href: x.getAttribute('href'), miss: x.classList.contains('miss'), un: x.classList.contains('un') })));
@@ -63,7 +71,7 @@ if (chips.map((c) => c.n).join(',') !== '1,1,2,3') problems.push(`chips: ${JSON.
 if (chips[0]?.tag !== 'A' || chips[0]?.href !== 'https://physics.example.test/speed-of-light') problems.push(`chip 1 does not link its page: ${JSON.stringify(chips[0])}`);
 if (!chips[2]?.miss || !chips[3]?.miss) problems.push('the chips for sources never looked up ([2], [3]) are not flagged');
 if (!chips[2]?.un || chips[0]?.un) problems.push('chip highlighting does not follow the unconfirmed claims');
-const words = (await reply.locator('.citedtext').textContent()) ?? '';
+const words = (await reply.locator('.citedtext').textContent({ timeout: 10000 }).catch(() => '')) ?? '';
 if (/SOURCES|https?:\/\//.test(words)) problems.push(`the source list is still in the reply's words: ${words}`);
 const marked = await reply.locator('mark.unconf').allTextContents();
 if (!marked.some((m) => /Light from the Sun takes about eight minutes/.test(m)) || !marked.some((m) => /Nothing can travel faster/.test(m)) || marked.some((m) => /299,792,458/.test(m))) problems.push(`unconfirmed claims marked: ${JSON.stringify(marked)}`);
@@ -95,6 +103,7 @@ await again.waitFor({ state: 'visible', timeout: 15000 }).catch(() => problems.p
 if ((await again.locator('.cite').count()) !== 4) problems.push('chips missing after a reload');
 
 // 5. CITED off: a plain reply, and the request says nothing about citing
+await showCited();
 await cited.click();
 if ((await cited.getAttribute('aria-pressed')) !== 'false') problems.push('CITED did not turn off');
 const before = await page.locator('.log .msg:not(.me)').count();

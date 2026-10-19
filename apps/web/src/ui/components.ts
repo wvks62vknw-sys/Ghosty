@@ -20,8 +20,16 @@ export interface Panel {
 
 export function panel(title: string, opts: { status?: string; footer?: boolean; grow?: boolean; cls?: string } = {}): Panel {
   const dot = h('i.light');
-  const st = h('small', opts.status ?? '');
+  const st = h('small', opts.status ? { dataset: { label: /[a-z]/.test(opts.status) ? opts.status : niceCase(opts.status) } } : {}, opts.status ?? '');
   const t = h('span.ptitle', title);
+  // The calm looks' wording for the title, kept up to date when the title changes ("WEATHER · LONDON").
+  const label = () => {
+    const s = t.textContent ?? '';
+    if (ACRONYM.test(s) || s.includes(' · ')) t.dataset.label = niceTitle(s);
+    else delete t.dataset.label;
+  };
+  label();
+  new MutationObserver(label).observe(t, { childList: true, characterData: true, subtree: true });
   const head = h('h3', dot, t, h('span.sp'), st);
   const body = h('div.bd');
   const el = h(`section.pn${opts.grow === false ? '.fx' : ''}${opts.cls ? `.${opts.cls}` : ''}` as 'section', head, body);
@@ -38,6 +46,8 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
     title: t,
     setStatus(text, light) {
       st.textContent = text;
+      // the calm looks show the status in sentence case, abbreviations kept ("LIVE" → "Live", "BBC")
+      st.dataset.label = /[a-z]/.test(text) ? text : niceCase(text);
       dot.className = `light ${light ?? ''}`;
     },
   };
@@ -46,7 +56,7 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
 export function row(k: string | null, v: string | Node, n?: string | null, opts: { onClick?: () => void; sev?: number; tone?: 'up' | 'dn' | 'bad'; wrap?: boolean } = {}): HTMLElement {
   const r = h(`div.rw${opts.onClick ? '.link' : ''}${opts.wrap ? '.wrap' : ''}` as 'div');
   if (opts.sev != null) r.append(h('i.sev', { style: { background: SEV_COLORS[opts.sev] ?? SEV_COLORS[0] } }));
-  if (k != null) r.append(h('span.k', k));
+  if (k != null) r.append(h('span.k', ACRONYM.test(k) ? { dataset: { label: niceCase(k) } } : {}, k));
   r.append(typeof v === 'string' ? h('span.v', v) : h('span.v', v));
   if (n != null) r.append(h(`span.n${opts.tone ? `.${opts.tone}` : ''}` as 'span', n));
   if (opts.onClick) {
@@ -120,8 +130,26 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   };
 }
 
+/** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
+const ABBR = ['I', '3D', 'GPS', 'AI', 'PDF', 'QR', 'PNG', 'JSON', 'CSV', 'URL', 'MOT', 'ISS', 'UK', 'BBC', 'CCTV', 'SMS', 'API', 'GLB', 'TV', 'FX', 'ID', 'GO', 'OK', 'AQI', 'UV', 'PM2.5'];
+export const ACRONYM = /\b(GHOSTY|UV|AQI|I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+/** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the calm looks' wording). */
+/** A panel title: "WEATHER · LONDON" → "Weather · London" (after the dot comes a name: each word capitalised). */
+export function niceTitle(s: string): string {
+  const [head, ...rest] = s.split(' · ');
+  const name = (w: string) => w.toLowerCase().replace(/[a-z0-9.]+/g, (x) => (ABBR.includes(x.toUpperCase()) ? x.toUpperCase() : x.charAt(0).toUpperCase() + x.slice(1)));
+  return [niceCase(head ?? ''), ...rest.map(name)].join(' · ');
+}
+
+export function niceCase(s: string): string {
+  const out = s.toLowerCase().replace(/[a-z0-9.]+/g, (w) => (w === 'ghosty' ? 'Ghosty' : ABBR.includes(w.toUpperCase()) && w.toUpperCase() !== 'GO' && w.toUpperCase() !== 'OK' ? w.toUpperCase() : w));
+  return out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 export function button(label: string | Node, onClick: (b: HTMLButtonElement) => void, cls = ''): HTMLButtonElement {
   const b = h(`button${cls ? `.${cls.split(' ').join('.')}` : ''}` as 'button', { type: 'button' }, label);
+  // The calm looks show labels in sentence case; one with an abbreviation in it ("USE GPS") shows "Use GPS".
+  if (typeof label === 'string' && ACRONYM.test(label)) b.dataset.label = niceCase(label);
   b.addEventListener('click', () => onClick(b));
   return b;
 }
@@ -165,7 +193,9 @@ export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void 
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
     document.body.append(toastBox);
   }
-  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', msg);
+  // The calm looks: a pill with the reactor's glyph, in sentence case (a word in capitals is shown in small letters, abbreviations kept).
+  const words = msg.replace(/\b[A-Z][A-Z'’-]+\b/g, (w) => (w === 'GHOSTY' ? 'Ghosty' : ACRONYM.test(w) ? w : w.toLowerCase()));
+  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', h('i.tglyph'), h('span', { dataset: words !== msg ? { label: words.charAt(0).toUpperCase() + words.slice(1) } : {} }, msg));
   toastBox.append(t);
   while (toastBox.children.length > 3) toastBox.firstChild!.remove();
   setTimeout(() => t.classList.add('out'), 3600);

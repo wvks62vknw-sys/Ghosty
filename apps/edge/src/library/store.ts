@@ -21,6 +21,7 @@ import { chunkText, joinPassages, type Passage } from '../../../../packages/shar
 export { chunkText, joinPassages } from '../../../../packages/shared/src/chunk';
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
 import { STARTER, type StarterDoc } from './starter';
+import { cost, neurons } from '../neurons';
 
 export type { LibraryDoc, LibraryHit };
 
@@ -294,6 +295,10 @@ export class Library {
   /** Meaning vectors through Workers AI (free, no key). Null when unavailable — search then uses keywords only. */
   private async embed(texts: string[]): Promise<Float32Array[] | null> {
     if (!this.env.AI || !texts.length) return null;
+    // Optional: skipped when the day's shared Workers AI allowance runs low (neurons.ts); search then uses keywords.
+    const n = cost.embed(texts.reduce((k, t) => k + Math.min(1800, t.length), 0));
+    if (!(await neurons().room('embed', n))) return null;
+    await neurons().charge('embed', n);
     try {
       const r = (await this.env.AI.run(EMBED_MODEL, { text: texts.map((t) => t.slice(0, 1800)), pooling: 'cls' })) as { data?: number[][] };
       if (!Array.isArray(r?.data) || r.data.length !== texts.length) return null;

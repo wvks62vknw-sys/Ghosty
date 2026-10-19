@@ -15,7 +15,17 @@
  * A message from the paired chat runs the same turn as the interface's chat (the same tools,
  * the same history), with the streamed events turned into Telegram messages: the reply as
  * text (split under Telegram's limit), a picture link as a photo, an approval as APPROVE /
- * DECLINE buttons answered through a callback.
+ * NOT NOW buttons answered through a callback. A voice note is answered in text AND in Ghosty's
+ * own voice (MeloTTS gives MP3, which sendVoice takes as it is; sendAudio if a chat refuses
+ * voice messages). A photo (or a picture sent as a file) goes the Lens's way: the picture itself
+ * to a model that can see, the caption as the question.
+ *
+ * Buttons carry signed, expiring data (an HMAC keyed by the bot token, which never leaves the
+ * vault): a press is acted on only from the owner's chat, by the owner, within a day, with a
+ * signature only Ghosty can make. An approval asked in the app reaches Telegram too when the
+ * owner has walked away (the app asks POST /telegram/ask/<id>), and an answer given here is
+ * recorded for the app (GET /telegram/answer/<id>). New upgrade ideas come with BUILD IT /
+ * NOT NOW: BUILD IT starts the same chat the Workshop's BUILD does.
  */
 import type { ChatEvent, TelegramStatus } from '../../../packages/shared/src/protocol';
 import type { Env } from './env';
@@ -23,7 +33,9 @@ import type { Vault } from './kernel/vault';
 import { durableDelete, durableGet, durablePut, storageError } from './kv';
 import { MAX_IMAGE_BYTES, sniffImage } from './lens';
 import type { ClientContext } from './prompt';
-import { MAX_AUDIO_BYTES, SpeechError, toBase64, transcribe } from './speech';
+import { MAX_AUDIO_BYTES, MAX_TTS_CHARS, SpeechError, speakable, synthesize, toBase64, transcribe } from './speech';
+import { loadIdeas } from './upgrades';
+import type { UpgradeIdea } from '../../../packages/shared/src/protocol';
 
 export const LINK_KEY = 'telegram:link';
 /** One line for the prompt (second person), for the integrator to place: what Telegram means for the model. */
@@ -37,6 +49,14 @@ const CAPTION = 1024;
 /** How long a Telegram message waits for a turn the interface started before saying the brain is busy. */
 const WAIT_FOR_TURN_MS = 60_000;
 const API = 'https://api.telegram.org';
+/** A button press counts for this long after the message was sent. */
+export const BUTTON_TTL_MS = 24 * 3600_000;
+/** Answers given on Telegram, kept for the app to show (the newest few). */
+export const ANSWERS_KEY = 'telegram:answers';
+/** Approvals from the app already sent here (each once). */
+const ASKED_KEY = 'telegram:asked';
+/** agent.ts keeps the approval waiting for the owner under this key ({ id, calls }). */
+const PENDING_KEY = 'pending';
 
 export interface TelegramLink {
   /**
@@ -107,6 +127,8 @@ interface TgMessage {
   text?: string;
   caption?: string;
   photo?: TgPhotoSize[];
+  /** A file: a picture sent "as a file" (full quality) is read like a photo. */
+  document?: TgFile & { file_name?: string; thumbnail?: TgPhotoSize; thumb?: TgPhotoSize };
   voice?: TgFile;
   audio?: TgFile;
 }
@@ -176,6 +198,51 @@ async function api<T = unknown>(token: string, method: string, body: Record<stri
   }
 }
 
+/** A method that uploads a file (multipart): same answers and errors as `api`, the token kept out of both. */
+async function apiForm<T = unknown>(token: string, method: string, form: FormData): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(`${API}/bot${token}/${method}`, { method: 'POST', body: form });
+  } catch (e) {
+    throw new Error(`Telegram ${method}: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
+  }
+  const j = (await r.json().catch(() => ({}))) as { ok?: boolean; result?: T; description?: string };
+  if (j.ok) return j.result as T;
+  throw new Error(`Telegram ${method} answered ${r.status}: ${scrub(String(j.description ?? ''), token).slice(0, 200)}`);
+}
+
+// ---- signed buttons ----
+
+const b64url = (b: ArrayBuffer): string => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+async function buttonSig(token: string, body: string): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(`ghosty-telegram-buttons|${token}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return b64url(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))).slice(0, 22);
+}
+
+/** What a button does: `a` an approval waiting in the brain, `u` an upgrade idea; `yes` APPROVE / BUILD IT, else NOT NOW. */
+export interface ButtonPress {
+  kind: 'a' | 'u';
+  id: string;
+  yes: boolean;
+}
+
+/** A button's callback data: what it does, until when (seconds, base 36), and a signature over both (≤ 64 bytes, Telegram's limit). */
+export async function signButton(token: string, press: ButtonPress, now = Date.now()): Promise<string> {
+  const body = `${press.kind}:${press.id}:${press.yes ? 1 : 0}:${Math.floor((now + BUTTON_TTL_MS) / 1000).toString(36)}`;
+  return `${body}:${await buttonSig(token, body)}`;
+}
+
+/** A pressed button's data, checked: the press, or why it is refused (made elsewhere or changed: `forged`; too old: `expired`). */
+export async function readButton(token: string, data: string, now = Date.now()): Promise<ButtonPress | { refused: 'forged' | 'expired' }> {
+  const m = /^([au]):([\w-]{1,16}):([01]):([0-9a-z]{1,9}):([\w-]{22})$/.exec(data);
+  if (!m) return { refused: 'forged' };
+  const body = `${m[1]}:${m[2]}:${m[3]}:${m[4]}`;
+  if (!sameSecret(await buttonSig(token, body), m[5]!)) return { refused: 'forged' };
+  if (parseInt(m[4]!, 36) * 1000 < now) return { refused: 'expired' };
+  return { kind: m[1] as 'a' | 'u', id: m[2]!, yes: m[3] === '1' };
+}
+
 /** A reply cut into messages Telegram accepts: at a paragraph break, else a sentence end, else a space. */
 export function splitMessage(text: string, max = CHUNK): string[] {
   const out: string[] = [];
@@ -221,12 +288,72 @@ export async function tgReply(token: string, chatId: number, text: string, origi
   }
 }
 
-async function tgApproval(token: string, chatId: number, reason: string, id: string): Promise<void> {
+/** A question with two signed buttons. */
+async function tgAsk(token: string, chatId: number, text: string, kind: ButtonPress['kind'], id: string, yes = 'APPROVE'): Promise<void> {
   await api(token, 'sendMessage', {
     chat_id: chatId,
-    text: `Needs your approval: ${reason}`,
-    reply_markup: { inline_keyboard: [[{ text: 'APPROVE', callback_data: `ap:${id}:1` }, { text: 'DECLINE', callback_data: `ap:${id}:0` }]] },
+    text,
+    reply_markup: { inline_keyboard: [[{ text: yes, callback_data: await signButton(token, { kind, id, yes: true }) }, { text: 'NOT NOW', callback_data: await signButton(token, { kind, id, yes: false }) }]] },
   });
+}
+
+const tgApproval = (token: string, chatId: number, reason: string, id: string): Promise<void> => tgAsk(token, chatId, `Needs your approval: ${reason}`, 'a', id);
+
+// ---- Ghosty's voice, back ----
+
+/** What an audio file is, from its first bytes: MeloTTS answers MP3; an OGG would be Opus already. */
+export function audioKind(bytes: ArrayBuffer): { mime: string; ext: string } | null {
+  const b = new Uint8Array(bytes.slice(0, 4));
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) return { mime: 'audio/mpeg', ext: 'mp3' }; // ID3 tag
+  if (b[0] === 0xff && ((b[1] ?? 0) & 0xe0) === 0xe0) return { mime: 'audio/mpeg', ext: 'mp3' }; // frame sync
+  if (b[0] === 0x4f && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53) return { mime: 'audio/ogg', ext: 'ogg' }; // OggS
+  return null;
+}
+
+/** The reply as it should be heard: plain words, cut at a sentence end within what the voice reads at once. */
+export function spokenPart(text: string, max = MAX_TTS_CHARS): string {
+  const t = speakable(text);
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  if (end > max / 3) return cut.slice(0, end + 1);
+  const space = cut.lastIndexOf(' ');
+  return `${cut.slice(0, space > 0 ? space : max - 1)}…`;
+}
+
+/**
+ * The reply as a voice note, after the text. Telegram's sendVoice takes MP3 (and OGG/Opus, M4A),
+ * so MeloTTS's MP3 goes as it is — no converting; a chat that refuses voice messages gets the
+ * same file by sendAudio. No voice (no Workers AI, the day's allowance spent): the text stands.
+ */
+async function voiceOut(env: Pick<Env, 'AI'>, token: string, chatId: number, text: string): Promise<'voice' | 'audio' | null> {
+  const words = spokenPart(text);
+  if (!words) return null;
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await synthesize(env, words);
+  } catch {
+    return null;
+  }
+  const kind = audioKind(bytes) ?? { mime: 'audio/mpeg', ext: 'mp3' };
+  const form = (field: string) => {
+    const f = new FormData();
+    f.append('chat_id', String(chatId));
+    f.append(field, new Blob([bytes], { type: kind.mime }), `ghosty.${kind.ext}`);
+    if (field === 'audio') f.append('title', 'Ghosty');
+    return f;
+  };
+  try {
+    await apiForm(token, 'sendVoice', form('voice'));
+    return 'voice';
+  } catch {
+    try {
+      await apiForm(token, 'sendAudio', form('audio'));
+      return 'audio';
+    } catch {
+      return null;
+    }
+  }
 }
 
 /** "typing…" in the chat while a turn runs (Telegram shows it for five seconds at a time). */
@@ -244,22 +371,65 @@ const SCREEN_ACTIONS = new Set(['open_tab', 'fly_to', 'show_map', 'show_route', 
  * The turn's events as Telegram messages, sent in order: the reply (with a heard voice note
  * echoed first), an approval with its buttons, a screen action as a note, an error as it is.
  */
-function collector(token: string, chatId: number, origin: string, prefix = ''): { emit: (ev: ChatEvent) => void; flush: () => Promise<void> } {
+function collector(token: string, chatId: number, origin: string, prefix = '', onAsk?: (id: string) => Promise<void>): { emit: (ev: ChatEvent) => void; flush: () => Promise<void>; said: () => string } {
   let chain: Promise<void> = Promise.resolve();
   const queue = (fn: () => Promise<void>) => void (chain = chain.then(fn).catch(() => undefined));
   let first = true;
+  const replies: string[] = [];
   return {
     emit(ev) {
       if (ev.t === 'text') {
         const text = `${first ? prefix : ''}${ev.text}`;
         first = false;
+        replies.push(ev.text);
         queue(() => tgReply(token, chatId, text, origin));
-      } else if (ev.t === 'approval') queue(() => tgApproval(token, chatId, ev.reason, ev.id));
+      } else if (ev.t === 'approval') {
+        queue(async () => {
+          await tgApproval(token, chatId, ev.reason, ev.id);
+          await onAsk?.(ev.id);
+        });
+      }
       else if (ev.t === 'client' && SCREEN_ACTIONS.has(ev.name)) queue(() => tgSend(token, chatId, `(a screen action — ${ev.name.replace(/_/g, ' ')} — which only shows in the Ghosty app on your phone)`));
       else if (ev.t === 'error') queue(() => tgSend(token, chatId, ev.message));
     },
     flush: () => chain,
+    said: () => replies.join('\n\n'),
   };
+}
+
+// ---- answers given here, for the app ----
+
+/** An approval answered on Telegram. */
+export interface TelegramAnswer {
+  id: string;
+  allow: boolean;
+  at: number;
+}
+
+async function recordAnswer(storage: DurableObjectStorage, id: string, allow: boolean): Promise<void> {
+  const list = ((await storage.get<TelegramAnswer[]>(ANSWERS_KEY).catch(() => undefined)) ?? []).filter((a) => a.id !== id);
+  await storage.put(ANSWERS_KEY, [...list, { id, allow, at: Date.now() }].slice(-20)).catch(() => undefined);
+}
+
+/** "Allow publish site? name: bakery" — what a waiting tool call asks, from the call itself (short values only). */
+export function pendingReason(fn: { name: string; arguments: string }): string {
+  let args: Record<string, unknown> = {};
+  try {
+    const v = JSON.parse(fn.arguments || '{}') as unknown;
+    if (v && typeof v === 'object' && !Array.isArray(v)) args = v as Record<string, unknown>;
+  } catch {
+    /* no readable arguments: the name alone */
+  }
+  const bits = Object.entries(args)
+    .filter(([, v]) => (typeof v === 'string' && v.length <= 80) || typeof v === 'number' || typeof v === 'boolean')
+    .slice(0, 3)
+    .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${String(v)}`);
+  return `Allow ${fn.name.replace(/_/g, ' ')}?${bits.length ? ` ${bits.join(' · ')}` : ''}`;
+}
+
+/** The chat the Workshop's BUILD starts for an upgrade idea (features/workshop/index.ts words it the same way). */
+export function upgradeAsk(i: UpgradeIdea): string {
+  return `Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.`;
 }
 
 // ---- the link record ----
@@ -349,6 +519,29 @@ export async function telegramRoute(host: TelegramHost, path: string, method: st
     await durablePut(host.env, host.storage, LINK_KEY, link);
     return json(statusOf(link, !!token));
   }
+  // An approval waiting in the app, sent here too (the app does this once the owner has walked away from it).
+  const ask = path.match(/^\/telegram\/ask\/([\w-]{1,16})$/);
+  if (ask && method === 'POST') {
+    if (!link?.chatId || !token) return json({ sent: false, error: 'Telegram is not paired' }, 400);
+    const pending = await host.storage.get<{ id: string; calls: { function: { name: string; arguments: string } }[] }>(PENDING_KEY).catch(() => undefined);
+    // Only the approval really waiting, under that id: nothing a request makes up is ever put to the owner.
+    if (!pending || pending.id !== ask[1] || !pending.calls[0]) return json({ sent: false, error: 'nothing is waiting for approval' }, 404);
+    const asked = (await host.storage.get<string[]>(ASKED_KEY).catch(() => undefined)) ?? [];
+    if (asked.includes(pending.id)) return json({ sent: false, already: true });
+    try {
+      await tgApproval(token, link.chatId, `${pendingReason(pending.calls[0].function)} (asked in the app)`, pending.id);
+    } catch (e) {
+      return json({ sent: false, error: scrub(String((e as Error)?.message ?? e), token).slice(0, 200) }, 502);
+    }
+    await host.storage.put(ASKED_KEY, [...asked, pending.id].slice(-20)).catch(() => undefined);
+    return json({ sent: true });
+  }
+  // Whether an approval was answered on Telegram, for the app's approval card.
+  const ans = path.match(/^\/telegram\/answer\/([\w-]{1,16})$/);
+  if (ans && method === 'GET') {
+    const a = ((await host.storage.get<TelegramAnswer[]>(ANSWERS_KEY).catch(() => undefined)) ?? []).find((x) => x.id === ans[1]);
+    return json(a ? { answered: true, allow: a.allow, at: a.at } : { answered: false });
+  }
   if (path === '/telegram/test' && method === 'POST') {
     if (!link?.chatId) return json({ sent: false, error: 'no chat is paired yet' }, 400);
     if (!token) return json({ sent: false, error: 'the bot token is not saved' }, 400);
@@ -370,6 +563,11 @@ export async function telegramNotify(host: Pick<TelegramHost, 'env' | 'storage' 
   if (!token) return false;
   const head = item.kind === 'reminder' ? '⏰ Reminder' : item.kind === 'task' ? `✦ ${item.title}` : `⚠ ${item.title}`;
   await tgReply(token, link.chatId, `${head}\n${item.text}`, host.origin);
+  // New upgrade ideas (upgrades.ts names them in the text): each with BUILD IT / NOT NOW.
+  if (item.title === 'Upgrade idea') {
+    const ideas = (await loadIdeas(host.storage).catch(() => [])).filter((i) => item.text.includes(i.title)).slice(0, 3);
+    for (const i of ideas) await tgAsk(token, link.chatId, `Build it? ${i.title}${i.why ? ` — ${i.why}` : ''}`.slice(0, 900), 'u', i.id, 'BUILD IT').catch(() => undefined);
+  }
   return true;
 }
 
@@ -451,12 +649,30 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   const images: string[] = [];
   let heard = '';
   if (m.photo?.length) {
+    // The Lens's way: the picture itself to a model that can see, the caption as the question.
     try {
       images.push(await photoDataUrl(token, m.photo));
     } catch (e) {
       return tgSend(token, chatId, `I couldn't get that photo: ${scrub(String((e as Error)?.message ?? e), token).slice(0, 160)}`);
     }
     if (!text) text = 'What is in this picture?';
+  } else if (m.document && /^image\//i.test(m.document.mime_type ?? '')) {
+    // A picture sent as a file: an iPhone original is often 2–5 MB or HEIC. Read whole when it can be
+    // (JPEG, PNG or WebP within the limit — the size checked before any download), else Telegram's preview of it.
+    const d = m.document;
+    const whole = /^image\/(jpeg|png|webp)$/i.test(d.mime_type ?? '') && (d.file_size ?? 0) <= MAX_IMAGE_BYTES;
+    const preview = d.thumbnail ?? d.thumb;
+    let got = '';
+    if (whole) got = await photoDataUrl(token, [{ file_id: d.file_id, width: 1, height: 1, file_size: d.file_size }]).catch(() => '');
+    if (!got && preview) {
+      got = await photoDataUrl(token, [preview]).catch(() => '');
+      if (got) await tgSend(token, chatId, 'That file is too big or in a format I cannot read whole, so I am looking at its small preview. Send it as a photo, not a file, for more detail.').catch(() => undefined);
+    }
+    if (!got) return tgSend(token, chatId, 'I could not read that picture file (too big, or a format like HEIC). Send it as a photo, not a file.');
+    images.push(got);
+    if (!text) text = 'What is in this picture?';
+  } else if (m.document) {
+    return tgSend(token, chatId, 'I can read photos and pictures sent as files here; other files go in the Library tab in the app.');
   } else if (m.voice || m.audio) {
     const f = (m.voice ?? m.audio)!;
     if ((f.file_size ?? 0) > MAX_AUDIO_BYTES) return tgSend(token, chatId, `I couldn't hear that: the recording is too big (${(MAX_AUDIO_BYTES / 1e6).toFixed(0)} MB at most).`);
@@ -474,9 +690,12 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, or try again in a minute.");
   const busy = typing(token, chatId);
-  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : '');
+  const out = collector(token, chatId, host.origin, heard ? `🎤 ${heard}\n\n` : '', (id) => noteAsked(host.storage, id));
   try {
-    await host.runTurn(text, images, await host.client(), out.emit, slot.signal);
+    const client = await host.client();
+    // Spoken to: answered in the spoken style (persona.ts SPOKEN), and in Ghosty's voice below.
+    if (heard) client.voice = true;
+    await host.runTurn(text, images, client, out.emit, slot.signal);
   } catch (e) {
     out.emit({ t: 'error', message: storageError(e) ?? scrub(String((e as Error)?.message ?? e), token).slice(0, 300) });
   } finally {
@@ -484,28 +703,65 @@ async function handleUpdate(host: TelegramHost, link: TelegramLink, u: TgUpdate)
     slot.done();
     await out.flush();
   }
+  // A voice note gets a voice note back, after the text (which always goes).
+  if (heard && out.said()) await voiceOut(host.env, token, chatId, out.said());
 }
 
-/** APPROVE / DECLINE pressed under a question: the same answer POST /approve gives. */
+/** An approval sent to Telegram (from a turn here, or from the app): never sent twice. */
+async function noteAsked(storage: DurableObjectStorage, id: string): Promise<void> {
+  const asked = (await storage.get<string[]>(ASKED_KEY).catch(() => undefined)) ?? [];
+  if (!asked.includes(id)) await storage.put(ASKED_KEY, [...asked, id].slice(-20)).catch(() => undefined);
+}
+
+/**
+ * A button pressed: APPROVE / NOT NOW under an approval (the same answer POST /approve gives), or
+ * BUILD IT / NOT NOW under an upgrade idea. Acted on only when it was pressed in the owner's chat,
+ * by the owner, and its data carries Ghosty's own signature and has not expired; anything else
+ * is answered (so the button stops spinning) and otherwise ignored.
+ */
 async function handleCallback(host: TelegramHost, link: TelegramLink, token: string, q: NonNullable<TgUpdate['callback_query']>): Promise<void> {
   const chatId = q.message?.chat.id;
-  const m = /^ap:([\w-]+):([01])$/.exec(q.data ?? '');
   // The owner's chat, pressed by the owner (the chat id alone would let anyone in a group answer).
-  const ours = !!m && chatId !== undefined && chatId === link.chatId && q.from?.id === link.chatId;
-  await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(ours ? { text: m![2] === '1' ? 'Approved' : 'Declined' } : {}) }).catch(() => undefined);
-  if (!ours || !m || chatId === undefined) return;
-  const allow = m[2] === '1';
+  const ours = chatId !== undefined && chatId === link.chatId && q.from?.id === link.chatId;
+  const press = ours ? await readButton(token, q.data ?? '') : null;
+  const ok = press && !('refused' in press) ? press : null;
+  // A button sent before buttons were signed ("ap:<id>:1"), pressed by the owner: treated as expired, never acted on.
+  const legacy = ours && /^ap:[\w-]{1,16}:[01]$/.test(q.data ?? '');
+  const expired = legacy || (!!press && 'refused' in press && press.refused === 'expired');
+  const note = ok ? (ok.yes ? (ok.kind === 'u' ? 'Building it' : 'Approved') : 'Not now') : expired ? 'That button has expired' : undefined;
+  await api(token, 'answerCallbackQuery', { callback_query_id: q.id, ...(note ? { text: note } : {}) }).catch(() => undefined);
+  if (!ours || chatId === undefined) return;
+  const unbutton = () => (q.message ? api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined) : Promise.resolve());
+  if (expired) {
+    await unbutton();
+    return tgSend(token, chatId, legacy ? 'That button is from before an update and no longer works. Answer it in the app.' : 'That button has expired. Ask me again, or answer it in the app.');
+  }
+  if (!ok) return;
+  if (ok.kind === 'u' && !ok.yes) {
+    await unbutton();
+    return tgSend(token, chatId, 'Left in Workshop → UPGRADE IDEAS for later.');
+  }
   const slot = await host.claimTurn(WAIT_FOR_TURN_MS);
   // The buttons stay while the brain is busy, so the answer can be given again later.
   if (!slot) return tgSend(token, chatId, "I'm still busy with something from your phone. Send /stop to stop it, then press the button again.");
   // The buttons come off the question, so it cannot be answered twice.
-  if (q.message) await api(token, 'editMessageReplyMarkup', { chat_id: chatId, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
-  const out = collector(token, chatId, host.origin);
+  await unbutton();
+  const out = collector(token, chatId, host.origin, '', (id) => noteAsked(host.storage, id));
   const busy = typing(token, chatId);
   try {
-    const a = await host.takeApproval(m[1]!, allow);
-    if ('error' in a) out.emit({ t: 'error', message: a.error });
-    else await a.run(out.emit, slot.signal);
+    if (ok.kind === 'u') {
+      const idea = (await loadIdeas(host.storage)).find((i) => i.id === ok.id);
+      if (!idea) out.emit({ t: 'error', message: 'That idea is gone from the Workshop (dismissed or replaced).' });
+      else await host.runTurn(upgradeAsk(idea), [], await host.client(), out.emit, slot.signal);
+    } else {
+      const a = await host.takeApproval(ok.id, ok.yes);
+      if ('error' in a) out.emit({ t: 'error', message: /nothing is waiting/i.test(a.error) ? 'Already answered (here or in the app), or I have moved on since.' : a.error });
+      else {
+        // The app's approval card shows the answer (GET /telegram/answer/<id>).
+        await recordAnswer(host.storage, ok.id, ok.yes);
+        await a.run(out.emit, slot.signal);
+      }
+    }
   } catch (e) {
     out.emit({ t: 'error', message: storageError(e) ?? scrub(String((e as Error)?.message ?? e), token).slice(0, 300) });
   } finally {

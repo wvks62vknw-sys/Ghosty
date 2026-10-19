@@ -35,6 +35,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     throw Object.assign(new Error('Every model I can reach is cooling down after rate limits. The first one frees up in about 40 seconds.'), { waitMs: 40_000 });
   }
   const system = String(messages[0]?.content ?? '');
+  // Ghosty's character (persona.ts): which style the prompt asked for, and a slip the router's post-filter must catch.
+  const owner = last.role === 'user' ? ownerWords(textOf(last.content)).trim().toLowerCase() : '';
+  if (owner === 'how will you answer?') return { message: { role: 'assistant', content: system.includes('SPOKEN:') ? 'Out loud, briefly.' : 'In writing.' }, model };
+  if (owner === 'say something chatty') return { message: { role: 'assistant', content: 'Great question! The kettle is on. I hope this helps! Let me know if you need anything else.' }, model };
   // The nightly reflection (profile.ts): what the owner said they like becomes a fact and a profile line, and the day gets a diary entry.
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);
@@ -43,6 +47,20 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   }
   // The morning digest's "in three levels" note (library/digest.ts).
   if (/"In one line:"/.test(system)) return { message: { role: 'assistant', content: 'In one line: the mock read the day\'s headlines.\n\nIn more detail: the mock gathered the news, technology and science of the day and found them interesting.\n\nFor an expert: the mock has no paper to single out.' }, model };
+  // A website built on its own (sitebuild.ts): the planner keeps the look and drops nothing, the writer keeps
+  // every word but the first (shown with a mark, so a test can see the writer's words reach the page), the critic is content.
+  if (/^SITE PLANNER/.test(system)) return { message: { role: 'assistant', content: '```json\n{"palette":"barber","fonts":"condensed","shape":"sharp","scheme":"dark","tone":"sharp, friendly, local","drop":[],"why":"The mock likes the trade\'s own look."}\n```' }, model };
+  if (/^SITE WRITER/.test(system)) {
+    const asked = textOf(last.content).split('TEXT TO IMPROVE (JSON):\n')[1] ?? '{}';
+    let first = '';
+    try {
+      first = String((JSON.parse(asked) as Record<string, string>)['0'] ?? '');
+    } catch {
+      /* nothing to keep */
+    }
+    return { message: { role: 'assistant', content: JSON.stringify(first && first.length < 40 ? { '0': `${first} ✓` } : {}) }, model };
+  }
+  if (/^SITE CRITIC/.test(system)) return { message: { role: 'assistant', content: JSON.stringify({ verdict: 'Clear, confident and easy to use on a phone; the mock found nothing to change.', score: 8, fixes: [] }) }, model };
   // One step of a project that runs for days (projects.ts): the result itself, with a source.
   if (/PROJECT STEP/.test(system)) {
     const step = textOf(messages[messages.length - 1]?.content).match(/^Step (\d+): ([^\n—]+) — /m);
@@ -114,6 +132,18 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
     if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
+    // After remember: say it as a person would, not the tool's record ("Saved (id …)").
+    const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
+    const tc = prev?.tool_calls?.[0]?.function;
+    if (tc?.name === 'remember' && prev!.tool_calls!.length === 1) {
+      const said = textOf(last.content);
+      const fact = String((JSON.parse(tc.arguments || '{}') as { text?: string }).text ?? '')
+        .replace(/\bI am\b/gi, 'you are')
+        .replace(/\bmy\b/gi, 'your')
+        .replace(/\bme\b/gi, 'you')
+        .replace(/\bi\b/gi, 'you');
+      return { message: { role: 'assistant', content: /^Saved/.test(said) ? `Got it — I’ll remember that ${fact}.` : 'I already know that.' }, model };
+    }
     return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
   }
   // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived (the owner's words only, not the phone's data note).
@@ -121,7 +151,10 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
   let m: RegExpMatchArray | null;
-  if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: m[1] }), model };
+  // the fact keeps the owner's own capitals ("Aisha", "I")
+  if ((m = text.match(/^remember (.+)$/)) && has('remember')) return { message: call('remember', { text: textOf(last.content).replace(/^scheduled task "[^"]*": /i, '').replace(/^remember /i, '') }), model };
+  // A day-at-a-glance answer for the preview's screenshots (MOCK_LLM only).
+  if (/^what should i know (about )?today\??$/.test(text)) return { message: { role: 'assistant', content: 'It’s 11° and overcast in London, with rain likely after 4 pm — take a light jacket. Your diary is clear until dinner with Sam at 7, and the trains into town are running normally.' }, model };
   if ((m = text.match(/^learn (.+)$/)) && has('learn_lesson')) return { message: call('learn_lesson', { text: m[1], tags: ['test'] }), model };
   if ((m = text.match(/^study ?(.*)$/)) && has('study')) return { message: call('study', m[1] ? { topic: m[1] } : {}), model };
   if (text === 'audit yourself' && has('self_audit')) return { message: call('self_audit', {}), model };
@@ -159,6 +192,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];

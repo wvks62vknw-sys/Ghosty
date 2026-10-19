@@ -221,4 +221,14 @@ Under prefers-reduced-motion: no parallax, no autoplay loops, no tilt — the pa
 
 SIZES AND LIMITS: blur radius ≤ 16 px and never on a scrolling area; images ≤ 1600 px wide; the page ≤ 350 KB; Low Power Mode halves rAF to 30 fps, so tie motion to dt, never to frame counts.`,
   },
+  {
+    id: 'website-kit',
+    title: 'Websites for businesses: build_website and the website kit (design system, ~47 blocks, 14 trade templates, gates, credited photos)',
+    tags: ['website kit', 'build website', 'build_website', 'business website', 'small business', 'barber', 'cafe', 'restaurant', 'plumber', 'salon', 'gym', 'dentist', 'estate agent', 'charity', 'portfolio', 'landing page', 'agency', 'professional website', 'blocks', 'templates'],
+    body: `WHEN: the owner wants a website for a business, event, charity, app or person → call build_website with their words as request and every fact they gave (name, town, phone, hours, prices, real reviews). Do not hand-write the page: the kit does it better and checks it.
+WHAT HAPPENS (sitebuild.ts, a project of kind 'site', six steps in the background lane): 1 brief, map (Nominatim) and pictures (the vetted Commons library, else Openverse/Commons search, the owner's Unsplash/Pexels key, else flux) · 2 plan: the trade's template (packages/shared/src/sitekit/templates.ts), art-directed by a model (palette, fonts, shape, scheme, voice) · 3 words: each page rewritten (write.ts refuses new numbers, links, clichés, over-length) · 4 build + gates (gates.ts: a11y, contrast, links, SEO/OG/JSON-LD, budgets, phone layout, clichés, honesty, credits) + check_html · 5 publish, screenshots (Microlink, thum.io; keyless) → vision critique, or the layout analysis when no screenshot · 6 safe fixes, recheck, republish, report with the link and what to confirm. No model: the template's words and look — a decent site still ships.
+HONESTY: reviews, team, accreditations, listings, products and projects only from the owner (BlockDef.needs); typical prices/hours/FAQ answers are listed in plan.confirm. Forms send by opening the visitor's WhatsApp or email (the sandbox allows no server); a phone link always beside them.
+ADD A BLOCK: blocks/<group>.ts — {id, group, about, slots (typed), css scoped to .b-<id>, js behaviours, needs, render(d, x)}; escape every word (esc/rich), one h1 only in heroes/page headers, images via img() (srcset, sizes, width/height, lazy). The test in sitekit.test.mjs draws every block through the gates.
+ADD A TRADE: TEMPLATES in templates.ts (theme, nav, defaults, pages from the blocks, meta, blurb), words in KINDS (brief.ts), queries in KIND_QUERIES (images.ts), vetted photos in stock-data.ts with their credits.`,
+  },
 ];
