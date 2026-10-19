@@ -37,3 +37,22 @@ Add to it any time; tick items off only when he agrees they are fixed.
    - the report card measures the offline brain against the online models on the same held-out tests, so the owner
      can watch the gap close week by week, with honest numbers.
    Be honest with him about what a phone-sized model can reach, and push it as far as it can go.
+10. **Techniques he wants looked at:** recursive self-improvement, Reinforcement Learning from AI Feedback (RLAIF),
+    self-play reinforcement loops, self-guided self-play. Fable must still bring ALL its own ideas and opinions on
+    everything.
+11. **Credits: "I can't have that happen under any circumstances."** The iPhone UI work on 18 Oct took a very long
+    time, wasn't good quality, and used a lot. Last time Fable also ran out fast. HARD RULES:
+    - Before any piece of work bigger than an hour, tell him what it is, roughly how big, and get his OK.
+    - Work in small checked steps, and show him the result after each (screenshots for design).
+    - Never run open-ended loops (design rounds, training sweeps, re-runs) without a stopping point he agreed to.
+    - Check in at least every hour of work with what was done and what's next.
+    - If the week's limit is getting close, stop, save everything, and tell him.
+12. **The offline brain must not talk like an AI. Ever.** He had to tell Ghosty "stop talking like an AI" and hates it.
+    It must sound truly human, like a real person, but not cringe: no "Great question!", no "As an AI…", no lists and
+    headings in casual chat, no over-apologising or padding. Build this into the offline brain's training (style
+    fine-tuning plus preference training from his 👍/👎 and from rewrites of AI-sounding replies), and into the persona
+    filter for the online models too. Test it with a blind "does this sound like a person?" check.
+13. **"Raise him from a baby" (his idea):** start Ghosty as a literal baby who can't form sentences, then nursery,
+    reception, SATs, GCSEs, college, university, then everything in the library and beyond, all in the offline brain
+    on the 18 Pro Max, in the best teaching order. See HANDOFF.md, "Raising Ghosty", for the honest version and how to
+    build it. Discuss it with him in the planning chat.

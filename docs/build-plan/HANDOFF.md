@@ -4,7 +4,7 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
-## QUALITY SETTING AND CREDITS (the owner's request, updated 19 Oct)
+## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him (the owner's request, updated 19 Oct)
 He wants the best possible quality WITHOUT burning through his weekly usage limit (last week ran out at 89%). So:
 - Think at maximum effort where judgement matters: the planning chat with him, architecture, design and design
   critique, hard bugs, adversarial review, and the final check of every merge.
@@ -66,6 +66,27 @@ SAFETY RAILS (non-negotiable): every self-made change must beat the current vers
 on before it is kept, can be rolled back with one tap, never touches the kernel (protected files, keys, billing,
 permissions), never spends money, never sends his private data anywhere he hasn't approved, and any change to Ghosty's
 own code still goes through the normal approval + review + CI. Improvement must be measured, never just claimed.
+
+## RAISING GHOSTY (the owner's idea, 19 Oct): baby → nursery → school → SATs → GCSEs → college → university
+What is and isn't possible, so you can plan it honestly with him:
+- A brain that knows GCSE/university material cannot be grown from a literal baby on free GPUs: training a capable
+  language model from zero takes huge amounts of computing and text. The offline brain therefore has to start from the
+  best open model that fits the phone (it arrives already "grown up").
+- But the school journey is a very good idea for how we TEACH, TEST and SHOW his growth (curriculum learning):
+  - the real offline brain goes through Key Stages → SATs → GCSE → A-level/college → university → the whole library,
+    in the best order (foundations first, each stage building on the last, revision of old stages so nothing is
+    forgotten);
+  - each stage ends in real exam-style papers he has never seen (with exact marking where possible, otherwise marked
+    by a stronger model and spot-checked), and he must pass with top grades before the next stage;
+  - after each stage, verified practice from that stage feeds the weekly training;
+  - a "school report" screen shows his grades growing, subject by subject.
+- "Little Ghosty", the literal baby, CAN be done as a separate, real thing: a tiny model trained from nothing on free
+  Kaggle GPUs. Research such as TinyStories shows very small models can learn to babble, then form simple sentences,
+  then tell short stories. The owner could watch him learn to talk for real and chat with him at each stage. Be honest
+  that this little one won't reach GCSE level; the big brain is the one that sits the exams.
+- Recommend the combined version to him: Little Ghosty for the real "from a baby" experience, and the big brain's
+  school journey for the real smarts. Then let him decide.
+- Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
 By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
