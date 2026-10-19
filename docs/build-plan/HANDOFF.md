@@ -86,6 +86,12 @@ What is and isn't possible, so you can plan it honestly with him:
   that this little one won't reach GCSE level; the big brain is the one that sits the exams.
 - Recommend the combined version to him: Little Ghosty for the real "from a baby" experience, and the big brain's
   school journey for the real smarts. Then let him decide.
+- The owner then asked: "could we replicate it in the big brain?" Answer given (19 Oct): not literally. Wiping the
+  big brain to a real baby would lose everything it knows, and free GPUs can't re-grow it. Options put to him:
+  (1) the school journey on the big brain as real exams plus real training per stage (the real growth);
+  (2) a "baby mode" where the big brain only acts like a baby (pretend; not recommended on its own);
+  (3) Little Ghosty, the separate tiny model that really learns to talk from nothing.
+  He decides in the planning chat.
 - Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
