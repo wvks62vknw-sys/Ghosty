@@ -11,6 +11,17 @@ maximum reasoning effort yourself, and launch EVERY subagent and workflow agent 
 thoroughness over speed: independent adversarial review on every feature, design critic loops until every screen
 scores 9+.
 
+## FIRST THING ON FRIDAY: STOP AND PLAN WITH THE OWNER (his request, 19 Oct)
+The owner says loads of things are really bad right now. Before building anything:
+1. Talk to him first. Ask him to walk through what is broken or bad, screen by screen. Write every point down in
+   `docs/build-plan/OWNER-ISSUES.md`, which may already hold points he gave before Friday. Ask for screenshots or
+   screen recordings where words aren't enough.
+2. Check each point yourself on the live app and the preview, in his phone's size. Add anything else you find broken:
+   run every browser spec and open every screen.
+3. Build ONE plan together, in plain words, ordered: fix what is broken first, then the redesign to 9/10, then the
+   iPhone 18 Pro Max work, then Waves D–F and the upgrades. Show it to him and get his yes before you start.
+4. Then build in that order. Report progress against his list.
+
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
 By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
 - Check its real specs first (screen size in points, safe areas and Dynamic Island, RAM, Neural Engine/GPU, Safari
