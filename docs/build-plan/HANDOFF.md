@@ -39,8 +39,9 @@ everything free, and keep every one of his rules above.
 - Owner's taste: he wants to feel like Iron Man (Jarvis), but sleek, iPhone/MacBook-like, calm, premium — not
   "hacker". He loves his arc reactor (keep it detailed and make it better, never flatten it). Keep "Boss", every
   theme and the feature names he knows (God's eye, Threats, Reverse, Workshop…).
-- He does NOT want anything merged until the whole plan is built. All work goes on branch
-  `claude/ghosty-ai-training-idwhp9`, PR #31 grows into the one PR he merges at the end. Keep it green.
+- PR #31 (everything up to 19 Oct: GYM 1+2, Stage 2, Stage 3, Waves A/B/C, redesign rounds 1–5) was MERGED by the
+  owner on 19 Oct. Work on branch `claude/ghosty-ai-training-idwhp9` (restarted from main); open ONE new PR for all the
+  remaining work below and drive it to green. He is happy to merge when it is done and green.
 
 ## Process that works (keep doing it)
 1. Builders in isolated worktrees, one feature area each, with a brief like the BRIEF files here.
@@ -49,11 +50,17 @@ everything free, and keep every one of his rules above.
 3. Fixes back to the original builder, each with a test that fails on the old code.
 4. Merge into the branch, run edge `npm test`, `npx tsc --noEmit -p tsconfig.json`, web `npm run check`, and the
    browser specs listed in `.github/workflows/check.yml` (loop them against `node tests/preview-server.mjs <port>`;
-   WebKit at PLAYWRIGHT_BROWSERS_PATH where installed). Push. Watch CI and Gitar on PR #31 and fix what they find.
+   WebKit at PLAYWRIGHT_BROWSERS_PATH where installed). Push. Watch CI and Gitar on the PR and fix what they find.
 5. For design, an independent critic agent scores screenshots 1–10 ("would Apple ship this?"); iterate to ≥ 9.
 Protected kernel files (agent.ts, keys.ts, index.ts, env.ts, tools/index.ts, .github, _headers, build scripts,
 package.json) are edited only minimally, clearly marked, and reviewed. Prompt budgets in apps/edge/test/prompt.test.mjs
 are never raised.
+
+## CI notes (learned 19 Oct)
+- The browser run (smoke) takes ~50 min; the brain suite ~10 min. If the brain suite suddenly runs for hours, something
+  hangs: on 19 Oct it was a Sokoban problem generator looping for ever (fixed, with a test that every game makes every
+  level's problem quickly). Speed the gym climbs up if CI keeps growing.
+- Specs run late in the smoke loop see a slow, loaded runner: give replies generous waits (cited.spec waits 60 s).
 
 ## The plan and where it stands (as of 18 Oct 2026, end of day)
 
