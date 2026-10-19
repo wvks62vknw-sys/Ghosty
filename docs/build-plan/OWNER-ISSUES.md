@@ -71,3 +71,9 @@ Add to it any time; tick items off only when he agrees they are fixed.
     drop it without asking).
 17. **Official exam papers are fine** (personal, non-commercial, free of charge). **Books and textbooks** for his stage,
     and **reading ahead** with proof he can handle it. See HANDOFF.md, "Raising Ghosty".
+18. **Design direction, his preference (19 Oct): "I like the idea of something in the middle, but I feel like it could
+    look a lot, lot better."** So the leading route is C: a blend of the Jarvis HUD and the calm iPhone style
+    (premium, sleek and Apple-quality, with a tasteful Iron-Man/Jarvis character), done far better than either current
+    look. Still mock up A and B for comparison, but put the most work into C. Look at the very best real-world
+    references (Apple's own apps, top-tier HUD and film-UI work, premium dashboards) and aim clearly above what Ghosty
+    has now. Mock-ups on the iPhone 18 Pro Max screen first; no building until he picks.
