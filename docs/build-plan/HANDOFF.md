@@ -92,6 +92,25 @@ What is and isn't possible, so you can plan it honestly with him:
   (2) a "baby mode" where the big brain only acts like a baby (pretend; not recommended on its own);
   (3) Little Ghosty, the separate tiny model that really learns to talk from nothing.
   He decides in the planning chat.
+- DECIDED by the owner (19 Oct): OPTION 1, the school journey on the big brain, with these rules:
+  - STRICT LOCKING: only nursery is open at the start. Every later stage, and every library topic above his current
+    stage, is locked until he passes the stage below. The library's "absorb everything" (OWNER-ISSUES 3) therefore
+    absorbs only what his stage has unlocked. Tag every library item with its level.
+  - PROPER EXAM RESULTS: real exam-style papers for each stage (the real structure, timing, question types and mark
+    schemes of UK SATs, GCSE and A-level papers per subject, then university modules), held out and never trained on,
+    marked against real grade boundaries (GCSE 9–1, A-level A*–E, degree classes). Marking must be exact where
+    possible; written answers are marked by a stronger model against the mark scheme and spot-checked. He needs top
+    grades to move up. Show the grades as a proper report card, not a single score. Use only freely licensed or
+    self-written papers; never copy copyrighted exam papers.
+  - WHERE THE TECHNIQUES GO (the owner asked "before or after?"): neither. Recursive self-improvement, RLAIF,
+    self-play loops and self-guided self-play are HOW he studies inside every stage. At each stage he:
+    1. self-plays and invents his own practice at that level;
+    2. gets AI feedback on his open answers (RLAIF);
+    3. trains on what checked out;
+    4. sits mock exams;
+    5. finds his weak spots, and his training improves itself (recursive self-improvement);
+    6. repeats until he passes the real stage exam.
+    The GYM runs alongside at matching difficulty.
 - Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB

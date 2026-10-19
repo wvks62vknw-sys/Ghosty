@@ -56,3 +56,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     reception, SATs, GCSEs, college, university, then everything in the library and beyond, all in the offline brain
     on the 18 Pro Max, in the best teaching order. See HANDOFF.md, "Raising Ghosty", for the honest version and how to
     build it. Discuss it with him in the planning chat.
+14. **Decided: the school journey on the big brain (option 1).** Strict locks: nursery first, each stage unlocked only by
+    passing the one below; library topics locked to his stage. The exam results must be proper and really good (real
+    exam-style papers and grade boundaries). See HANDOFF.md, "Raising Ghosty".
+15. **UI/HUD: "really good quality UI in every sense, very very very good UI HUD everywhere, every small detail."**
+    Every screen, every state (empty, loading, error), every animation, every word.
