@@ -4,7 +4,10 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
-## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him (the owner's request, updated 19 Oct)
+## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
+EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
+planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
+to get the same result?", and take it. (the owner's request, updated 19 Oct)
 He wants the best possible quality WITHOUT burning through his weekly usage limit (last week ran out at 89%). So:
 - Think at maximum effort where judgement matters: the planning chat with him, architecture, design and design
   critique, hard bugs, adversarial review, and the final check of every merge.
@@ -125,6 +128,13 @@ What is and isn't possible, so you can plan it honestly with him:
 - READING AHEAD (the owner's own experience: in Year 2 he borrowed books from the Year 6 class): Ghosty may borrow
   BOOKS from a higher year if he proves he can handle them, by passing a short reading check at that level. This
   only unlocks reading; exams and stage progress still go strictly in order.
+  The owner pointed out that he will probably pass any reading check, since the base model can already read. So make
+  borrowing earned and limited, not a formality:
+  - he can borrow only once he has top marks in his CURRENT year's reading and comprehension;
+  - the check at the higher level is a real comprehension test with a high pass mark (questions about that book's
+    level, never seen before);
+  - he can borrow at most two years ahead;
+  - borrowed reading never counts towards passing a stage.
 - Keep the human, non-AI way of talking (OWNER-ISSUES 12) part of every stage.
 
 ## NEW TARGET PHONE (the owner, 18 Oct): iPhone 18 Pro Max, 512 GB
