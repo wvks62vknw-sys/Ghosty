@@ -4,12 +4,24 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
-## QUALITY SETTING (the owner's explicit request)
-The owner asked for "Fable max — best possible quality" from the session that continues this build. So: work at
-maximum reasoning effort yourself, and launch EVERY subagent and workflow agent with model "fable" and effort "max"
-(the Agent tool's `model` and `effort` parameters; `opts.model` / `opts.effort` in workflow scripts). Prefer
-thoroughness over speed: independent adversarial review on every feature, design critic loops until every screen
-scores 9+.
+## QUALITY SETTING AND CREDITS (the owner's request, updated 19 Oct)
+He wants the best possible quality WITHOUT burning through his weekly usage limit (last week ran out at 89%). So:
+- Think at maximum effort where judgement matters: the planning chat with him, architecture, design and design
+  critique, hard bugs, adversarial review, and the final check of every merge.
+- Subagents doing routine, well-specified building from a clear brief: model "fable", effort "high". Reviewers,
+  critics, design and planning agents: "fable", effort "max".
+- Spend credits on thinking, not on repetition. Last week's waste came from: several builders in parallel on separate
+  branches that then conflicted (each re-merge cost a whole agent run); full test suites re-run many times (one bug made
+  the suite hang for hours); browser checks re-run after every small push; design rounds before the owner had seen a
+  screenshot. So:
+  - Build in fewer, well-planned slices: at most 2–3 builders at once, on areas that don't share files, and merge each
+    into the branch as soon as it is reviewed. A builder starts from the latest branch.
+  - Run only the tests a change touches while working; run the full suite and the browser checks once before each push.
+    Push in batches, not after every small fix.
+  - Show the owner screenshots early (after the first pass of a screen), not after five rounds.
+  - Give every agent a tight brief plus MAP.md, so it doesn't read the whole codebase.
+  - If a run will clearly take hours, say so and ask the owner first.
+- Before the week's limit gets close, stop, push, update this file, and tell the owner what's done and what's next.
 
 ## FIRST THING ON FRIDAY: STOP AND PLAN WITH THE OWNER (his request, 19 Oct)
 The owner says loads of things are really bad right now. Before building anything:
@@ -29,8 +41,11 @@ default, not only the ones he names, and make each clearly, visibly better: qual
 depth. Keep a running list (docs/build-plan/UPGRADES.md) of what was improved and how much, with before/after evidence
 (screenshots, measured numbers), so he can see the scale of it.
 
-He also wants self-improvement and self-play reinforcement loops at a far more advanced level. Directions to research
-and build (all free, all measured, all with his rules):
+IDEAS ARE YOURS TOO: the plan you make with him should include your own best, most advanced ideas for EVERY feature,
+and for the GYM and self-improvement especially — he wants ideas "miles better than me and you could even fathom".
+Research the current state of the art first, and propose freely. The list below is only a starting point.
+
+He also wants self-improvement and self-play reinforcement loops at a far more advanced level. Starting directions (all free, all measured, all with his rules):
 - GYM: AlphaZero-style self-play (search + a learned policy/value guiding it) wherever it fits, curriculum that
   generates its own harder problems, league play against frozen past versions, and honest ground-truth measurement.
 - The language brain: verifier-based RL on free Kaggle GPUs (rejection sampling / STaR / GRPO-style training on tasks
