@@ -33,6 +33,19 @@ He wants the best possible quality WITHOUT burning through his weekly usage limi
   - If a run will clearly take hours, say so and ask the owner first.
 - Before the week's limit gets close, stop, push, update this file, and tell the owner what's done and what's next.
 
+## DEADLINE (owner, 19 Oct): his Claude Max 20x plan ends on 14 November
+That leaves about three weekly usage windows (the limit resets on Fridays at 19:00 UK): roughly 23–30 Oct,
+30 Oct–6 Nov and 6–13 Nov. Plan the whole build to fit inside them, with the most important things first:
+- Week 1: the planning chat; fix what's broken; quick wins (GYM auto-advance, STUDY at scale by topic, speed); pick the
+  design and build the first screens; the school system and the learning loops, with nursery started.
+- Week 2: the design across every screen; apps, courses, the home designer and the library pipeline into the offline
+  brain; the upgrades of the biggest features.
+- Week 3: iPhone 18 Pro Max tuning; upgrades everywhere else; polish, final reviews, docs. Keep a safety margin.
+Merge into main at the end of EACH week (green CI, his OK), so nothing is left stranded on a branch when the plan ends.
+Everything must keep working after 14 Nov with NO Claude subscription: Ghosty runs on free providers, and the school
+training runs on free Kaggle GPUs. Write a plain-words guide for him on what runs on its own and what (if anything) he
+needs to do.
+
 ## FIRST THING ON FRIDAY: STOP AND PLAN WITH THE OWNER (his request, 19 Oct)
 The owner says loads of things are really bad right now. Before building anything:
 1. Talk to him first. Ask him to walk through what is broken or bad, screen by screen. Write every point down in
@@ -175,8 +188,8 @@ everything free, and keep every one of his rules above.
   "hacker". He loves his arc reactor (keep it detailed and make it better, never flatten it). Keep "Boss", every
   theme and the feature names he knows (God's eye, Threats, Reverse, Workshop…).
 - PR #31 (everything up to 19 Oct: GYM 1+2, Stage 2, Stage 3, Waves A/B/C, redesign rounds 1–5) was MERGED by the
-  owner on 19 Oct. Work on branch `claude/ghosty-ai-training-idwhp9` (restarted from main); open ONE new PR for all the
-  remaining work below and drive it to green. He is happy to merge when it is done and green.
+  owner on 19 Oct. Work on branch `claude/ghosty-ai-training-idwhp9` (restarted from main); open a PR for the remaining
+  work, drive it to green, and merge at the end of each week (see DEADLINE).
 
 ## Process that works (keep doing it)
 1. Builders in isolated worktrees, one feature area each, with a brief like the BRIEF files here.
