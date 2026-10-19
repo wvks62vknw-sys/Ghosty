@@ -33,6 +33,32 @@ He wants the best possible quality WITHOUT burning through his weekly usage limi
   - If a run will clearly take hours, say so and ask the owner first.
 - Before the week's limit gets close, stop, push, update this file, and tell the owner what's done and what's next.
 
+## EVERY CREDIT-SAVING TECHNIQUE (the owner, 19 Oct: "every single thing out there"), without lowering quality
+Context (every turn re-reads the whole conversation, so a big context makes every step cost more):
+- Keep the main session's context small. Do exploration, log-reading and big searches inside subagents and keep only
+  their conclusions. Compact or start a fresh session between big phases, with notes saved to files first.
+- Never dump big outputs: grep and tail logs, read only the needed lines of a file, and never read generated files
+  (assets.ts, bundles, models3d.json). Use MAP.md to go straight to the right file.
+- Write the plan, decisions and briefs to files once, and point agents at them instead of repeating them.
+Notifications (each one wakes the session and costs a turn; on 18–19 Oct dozens of Cloudflare and Gitar comment
+edits each cost one):
+- Don't subscribe to PR activity while building. Check CI and review comments once at the end of each chunk, in one
+  look.
+- Treat bot comment edits and preview-deploy updates as noise.
+Work:
+- Decide once and build once: settle the design from mock-ups before building screens; agree each feature's behaviour
+  before coding it.
+- Reuse what exists (the components, kits and tests already in the repo) instead of rewriting.
+- Make independent tool calls in parallel, in one step.
+- Give agents tight, complete briefs, so they don't explore or ask.
+- Make the slow tests fast: gate the long GYM climbs behind GYM_FULL (the default run checks a short climb), so a
+  full edge run takes minutes. Run only the affected tests while working.
+- Push in batches; one CI run per chunk, not per fix.
+- Take few, small screenshots; never re-shoot screens that haven't changed.
+- Free disk space before it runs out (a full disk wasted several runs on 18 Oct).
+- No polling loops or sleeps; wait for completion notices.
+- Workflows with many agents only where they truly pay off. Prefer 1–3 well-briefed agents.
+
 ## DEADLINE (owner, 19 Oct): his Claude Max 20x plan ends on 14 November
 That leaves about three weekly usage windows (the limit resets on Fridays at 19:00 UK): roughly 23–30 Oct,
 30 Oct–6 Nov and 6–13 Nov. Plan the whole build to fit inside them, with the most important things first:
