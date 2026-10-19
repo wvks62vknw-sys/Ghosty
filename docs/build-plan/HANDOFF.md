@@ -8,8 +8,15 @@ folder that no longer exists; ignore those paths).
 He wants the best possible quality WITHOUT burning through his weekly usage limit (last week ran out at 89%). So:
 - Think at maximum effort where judgement matters: the planning chat with him, architecture, design and design
   critique, hard bugs, adversarial review, and the final check of every merge.
-- Subagents doing routine, well-specified building from a clear brief: model "fable", effort "high". Reviewers,
-  critics, design and planning agents: "fable", effort "max".
+- Use Fable only where it is truly needed; pick the cheapest model that gives the SAME result for everything else:
+  - Fable, max: the planning chat with the owner, architecture, ideas, design and design critique, hard bugs,
+    adversarial reviews, the final check before any merge.
+  - Opus, medium (or high for trickier code): building from a tight, already-decided brief; applying a fix whose
+    cause is known; writing tests and specs to a clear description; merging branches; restyling to an agreed design.
+  - Haiku: purely mechanical jobs, like finding files, summarising long CI logs, running a list of checks and
+    reporting results.
+  - Every cheaper-model build is reviewed by a Fable reviewer before it is merged. If a cheaper model's work needs
+    redoing twice, give that kind of task to Fable instead: rework costs more than it saves.
 - Spend credits on thinking, not on repetition. Last week's waste came from: several builders in parallel on separate
   branches that then conflicted (each re-merge cost a whole agent run); full test suites re-run many times (one bug made
   the suite hang for hours); browser checks re-run after every small push; design rounds before the owner had seen a
