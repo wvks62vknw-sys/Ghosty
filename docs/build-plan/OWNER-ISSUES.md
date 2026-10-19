@@ -94,3 +94,10 @@ Add to it any time; tick items off only when he agrees they are fixed.
     SIMPLE jobs: text tweaks, small fixes, extra tests. Fable reviews every change. Measure honestly whether this saved
     Claude usage and time compared with Fable doing it. Keep using it for that kind of job only if it did; otherwise
     drop it. Never use it for complex or risky work. Tell the owner the result.
+22. **Use ALL of every week's usage (19 Oct).** "Fable needs to use its whole weekly usage every week, and even the
+    weekly usage for all models." Plan each week so the full allowance is used on approved work, ending just short of
+    the limit with the last chunk finished and pushed. If his plan has separate weekly allowances (an overall one, and
+    a separate one for the top models), use both fully. Fable's allowance goes on judgement work: planning, design,
+    hard bugs, reviews. The other models' allowance goes on routine building, tests and mechanical jobs, so neither is
+    left unused while the other runs out. Keep a queue of approved work ready, so usage never sits idle before the
+    reset.
