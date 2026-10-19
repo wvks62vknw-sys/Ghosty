@@ -782,14 +782,18 @@ function generate(level: number, seed: number): Problem {
   const L = lvl(level);
   const r = rng(seed * 6007 + L * 13);
   const S = problemSpec(L);
-  for (;;) {
+  // A small room may never reach minPush (level 3: one box in 6 × 6 never needs more than 5 pushes): after enough
+  // tries the hardest one found is used, so making a problem always ends. The first puzzle that reaches minPush is
+  // always the hardest so far, so every seed that worked before still gives the same problem.
+  let best: { p: Soko; o: { pushes: number; route: Push[] } } | null = null;
+  for (let tries = 0; !best || (best.o.pushes < S.minPush && tries < 2000); tries++) {
     const m = makePuzzle(L, r, S);
-    if (!m) continue;
-    const o = optimal(m.p, 150_000);
-    if (!o || o.pushes < S.minPush) continue;
-    const text = `Sokoban. Map (# wall, $ box, . goal, * box already on a goal, @ you, + you standing on a goal, rows top to bottom):\n${mapText(m.p)}\nYou walk up, down, left or right; walking into a box pushes it one square if the square beyond is free. Boxes cannot be pulled. Get every box onto a goal using as few pushes as you can. Answer with your moves as letters U D L R (walking included), e.g. "LLUR".`;
-    return { game: 'sokoban', level: L, seed, text, data: { map: encode(m.p, o.pushes), opt: o.pushes, moves: spell(m.p, o.route) } };
+    const o = m && optimal(m.p, 150_000);
+    if (m && o && (!best || o.pushes > best.o.pushes)) best = { p: m.p, o };
   }
+  const { p, o } = best;
+  const text = `Sokoban. Map (# wall, $ box, . goal, * box already on a goal, @ you, + you standing on a goal, rows top to bottom):\n${mapText(p)}\nYou walk up, down, left or right; walking into a box pushes it one square if the square beyond is free. Boxes cannot be pulled. Get every box onto a goal using as few pushes as you can. Answer with your moves as letters U D L R (walking included), e.g. "LLUR".`;
+  return { game: 'sokoban', level: L, seed, text, data: { map: encode(p, o.pushes), opt: o.pushes, moves: spell(p, o.route) } };
 }
 
 function check(pr: Problem, answer: string): Verdict {

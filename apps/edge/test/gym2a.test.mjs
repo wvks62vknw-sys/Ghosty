@@ -767,3 +767,15 @@ test('a match played in slices adds one graph point when it finishes, not one pe
   assert.equal(s.snapshot().history.length, before + 1, 'the slices under way added nothing; the finished match one point');
   assert.equal(s.snapshot().history.at(-1).m, 0.2);
 });
+
+test('making a problem always ends: every game, every level, the seeds the training notebook uses', () => {
+  // Sokoban level 3 once looped for ever on seed 800003 (one box in a 6 × 6 room never needs 6 pushes).
+  for (const g of GAMES)
+    for (let level = 1; level <= 10; level++)
+      for (const seed of [800_000 + level, 1, 2]) {
+        const t0 = Date.now();
+        const p = g.generate(level, seed);
+        assert.ok(p.text, `${g.id} level ${level} seed ${seed} made a problem`);
+        assert.ok(Date.now() - t0 < 20_000, `${g.id} level ${level} seed ${seed} took ${Date.now() - t0} ms`);
+      }
+});

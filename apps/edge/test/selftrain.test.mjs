@@ -98,7 +98,7 @@ test('tasks.mjs (built into assets.ts): makes the same puzzle from the same seed
   writeFileSync(join(dir, 'tasks.mjs'), TASKS_JS);
   const ask = (reqs) => execFileSync('node', [join(dir, 'tasks.mjs')], { input: reqs.map((r, i) => JSON.stringify({ ...r, id: i })).join('\n') + '\n' }).toString().trim().split('\n').map((l) => JSON.parse(l));
   const [games] = ask([{ op: 'games' }]);
-  assert.equal(games.games.length, 16);
+  assert.equal(games.games.length, 22, 'every GYM game: part 1, the reasoning games and the board and control games');
   const task = { game: 'codebreaker', level: 3, seed: 77 };
   const [a, b, wrong] = ask([{ op: 'make', task }, { op: 'make', task }, { op: 'check', task, answer: '0000' }]);
   assert.equal(a.prompt, b.prompt);
