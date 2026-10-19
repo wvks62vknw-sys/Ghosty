@@ -82,3 +82,11 @@ Add to it any time; tick items off only when he agrees they are fixed.
     No single run longer than that without his say-so. The credit-saving rules are applied automatically; he should
     never have to manage them. Claude can't see his usage meter, so at each check-in ask him to glance at his usage %,
     and plan the remaining work to fit, stopping cleanly with everything saved well before the limit.
+20. **Working mode, decided (19 Oct): option 2, autonomous.** He approves each day's or week's list in advance in the
+    planning chat, and Fable then works through it on its own without waiting for him, reporting back at the end.
+    Design picks and anything not on the approved list still wait for him.
+    **Using the full weekly limit is fine:** "I have no other projects going on, so I don't mind it hitting its
+    limits every week if it can get more work done", as long as every credit gives the most output (all the
+    efficiency rules still apply). So use the week's usage up to near the limit. Leave only a small margin, so that
+    each chunk always finishes, is saved and is pushed before usage runs out. Never stop mid-change.
+    This replaces the earlier "check in every hour" and "stop well before the limit" rules from items 11 and 19.
