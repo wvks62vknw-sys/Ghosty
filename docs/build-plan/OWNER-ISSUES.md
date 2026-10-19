@@ -90,3 +90,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     efficiency rules still apply). So use the week's usage up to near the limit. Leave only a small margin, so that
     each chunk always finishes, is saved and is pushed before usage runs out. Never stop mid-change.
     This replaces the earlier "check in every hour" and "stop well before the limit" rules from items 11 and 19.
+21. **Trial: Ghosty helps build himself (19 Oct).** In week 1, hand Ghosty's self-edit (free models) a small batch of
+    SIMPLE jobs: text tweaks, small fixes, extra tests. Fable reviews every change. Measure honestly whether this saved
+    Claude usage and time compared with Fable doing it. Keep using it for that kind of job only if it did; otherwise
+    drop it. Never use it for complex or risky work. Tell the owner the result.
