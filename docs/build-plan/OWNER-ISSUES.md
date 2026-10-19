@@ -27,3 +27,13 @@ Add to it any time; tick items off only when he agrees they are fixed.
    3D. That means room sizes in feet, metres or cm (any unit), the furniture, the items, and other rooms (kitchen,
    bathroom etc.).
 8. **And still:** "every single little thing looked over and made better in every single way it can."
+9. **What the library is FOR (the owner's vision, 19 Oct):** "the library is literally intended for his offline brain."
+   The library exists to make the offline brain (the model on his phone) much smarter, alongside the recursive
+   self-improvement and the self-play reinforcement learning, so that it eventually outperforms the online models
+   Ghosty uses now. So design the library, studying, Night School, the weekly training and the GYM as ONE pipeline
+   that feeds the offline brain. That means:
+   - what he reads becomes training data and retrieval memory for the offline brain;
+   - what he practises in the GYM and drills becomes verified reasoning practice;
+   - the report card measures the offline brain against the online models on the same held-out tests, so the owner
+     can watch the gap close week by week, with honest numbers.
+   Be honest with him about what a phone-sized model can reach, and push it as far as it can go.
