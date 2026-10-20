@@ -101,3 +101,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     hard bugs, reviews. The other models' allowance goes on routine building, tests and mechanical jobs, so neither is
     left unused while the other runs out. Keep a queue of approved work ready, so usage never sits idle before the
     reset.
+23. **The iPhone 18 Pro Max may not arrive by Friday (20 Oct).** Carry on regardless. Design and build for the 18 Pro
+    Max from its published specs (screen size, safe areas), check on its viewport in the browser specs, and keep
+    everything working on his iPhone 13 meanwhile. Leave anything that needs the real phone (on-device model sizes
+    and speed, ProMotion feel, overnight training) until it arrives, then check on the real device. Ask him each
+    week whether it has arrived.
