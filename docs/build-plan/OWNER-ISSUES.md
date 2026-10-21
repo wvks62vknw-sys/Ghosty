@@ -106,3 +106,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     everything working on his iPhone 13 meanwhile. Leave anything that needs the real phone (on-device model sizes
     and speed, ProMotion feel, overnight training) until it arrives, then check on the real device. Ask him each
     week whether it has arrived.
+    **Update 21 Oct: the iPhone 18 Pro Max has arrived; he is using it now.** Do the real-phone checks during the
+    build (on-device model sizes and speed, ProMotion feel, overnight training) instead of waiting. The iPhone 13
+    no longer needs to be kept in mind for layouts beyond not breaking.
