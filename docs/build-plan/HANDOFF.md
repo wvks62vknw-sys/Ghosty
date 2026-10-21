@@ -189,8 +189,8 @@ What is and isn't possible, so you can plan it honestly with him:
 By Friday the owner will be on an iPhone 18 Pro Max with 512 GB. Optimise everything for it as the main device:
 - Check its real specs first (screen size in points, safe areas and Dynamic Island, RAM, Neural Engine/GPU, Safari
   version and which WebGPU / WASM features it has). Don't guess.
-- Re-tune every layout and screenshot spec for its screen. The iPhone 13 (390 × 844) becomes a smaller-screen check that
-  must still work, not the main target. Add the new viewport to the browser specs.
+- Re-tune every layout and screenshot spec for its screen. The iPhone 13 does not matter any more (owner, 21 Oct):
+  build and test for the 18 Pro Max only and spend nothing on the 13. Make its viewport the browser specs' main one.
 - Use the headroom: a much bigger offline brain and specialists (Wave F), larger on-device vision and depth models
   (measure, Lens, NAME), faster GYM training, higher-quality 3D and visuals. 512 GB means storage is no longer the limit
   for offline models, maps and Wikipedia, but downloads must still be asked for and stay on Wi-Fi.
@@ -202,8 +202,8 @@ flow, and make each one clearly better: quality, speed, looks, accuracy, ease. K
 everything free, and keep every one of his rules above.
 
 ## The owner and how he works
-- One non-technical owner, in the UK (Europe/London), using Ghosty as a Safari Home Screen app: an iPhone 13 until now,
-  an iPhone 18 Pro Max (512 GB) from Friday (see above).
+- One non-technical owner, in the UK (Europe/London), using Ghosty as a Safari Home Screen app: an iPhone 18 Pro Max (512 GB),
+  in his hands since 21 Oct (see above).
 - Everything must be FREE: free tiers and keyless free APIs only, never anything that can bill him (check account
   types before sending tokens anywhere that can charge, e.g. Hugging Face ZeroGPU with a PRO account).
 - He wants every feature to be a user-friendly mini-app: one main button, plain words, no setup, UNDO.

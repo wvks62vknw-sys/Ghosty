@@ -108,4 +108,4 @@ Add to it any time; tick items off only when he agrees they are fixed.
     week whether it has arrived.
     **Update 21 Oct: the iPhone 18 Pro Max has arrived; he is using it now.** Do the real-phone checks during the
     build (on-device model sizes and speed, ProMotion feel, overnight training) instead of waiting. The iPhone 13
-    no longer needs to be kept in mind for layouts beyond not breaking.
+    is not important at all any more (his words): build and test for the 18 Pro Max only; spend nothing on the 13.
