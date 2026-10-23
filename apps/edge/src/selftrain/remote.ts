@@ -87,16 +87,19 @@ export async function kaggleUser(f: Fetch, c: KaggleCreds): Promise<KaggleCreds>
 
 /** The notebook's slug on the owner's account. */
 export const KERNEL_SLUG = 'ghosty-weekly-training';
+/** The same notebook in exam mode (a SCHOOL paper sat on the free GPU): its own slug, so it never touches the weekly run. */
+export const EXAM_SLUG = 'ghosty-exam';
 /** Kaggle's free T4 GPU (the CLI's `--accelerator` value), and the longest a run may take (Kaggle's limit is 12 h). */
 export const MACHINE_SHAPE = 'NvidiaTeslaT4';
 export const SESSION_TIMEOUT_S = 10 * 3600;
 
 /** Push (and so start) the notebook: private, a GPU, the internet on. Returns the version and its address. */
-export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string): Promise<{ ref: string; url: string; version: number }> {
+export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string, o: { slug?: string; timeoutS?: number } = {}): Promise<{ ref: string; url: string; version: number }> {
   const c = await kaggleUser(f, c0);
+  const slug = o.slug ?? KERNEL_SLUG;
   const j = await kaggleRpc<{ ref?: string; url?: string; versionNumber?: number; error?: string }>(f, c, 'kernels.KernelsApiService', 'SaveKernel', {
-    slug: `${c.username}/${KERNEL_SLUG}`,
-    newTitle: KERNEL_SLUG,
+    slug: `${c.username}/${slug}`,
+    newTitle: slug,
     text: source,
     language: 'python',
     kernelType: 'script',
@@ -110,18 +113,18 @@ export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string): Pro
     modelDataSources: [],
     categoryIds: [],
     machineShape: MACHINE_SHAPE,
-    sessionTimeoutSeconds: SESSION_TIMEOUT_S,
+    sessionTimeoutSeconds: o.timeoutS ?? SESSION_TIMEOUT_S,
   });
   if (j.error) throw new RemoteError(`Kaggle would not start the notebook: ${String(j.error).slice(0, 200)}`);
-  return { ref: j.ref ?? `${c.username}/${KERNEL_SLUG}`, url: j.url ?? `https://www.kaggle.com/code/${c.username}/${KERNEL_SLUG}`, version: j.versionNumber ?? 0 };
+  return { ref: j.ref ?? `${c.username}/${slug}`, url: j.url ?? `https://www.kaggle.com/code/${c.username}/${slug}`, version: j.versionNumber ?? 0 };
 }
 
 export type KernelState = 'queued' | 'running' | 'complete' | 'error' | 'cancelled' | 'unknown';
 
 /** How the notebook's latest run is going (Kaggle's KernelWorkerStatus names). */
-export async function kernelStatus(f: Fetch, c0: KaggleCreds): Promise<{ state: KernelState; message: string }> {
+export async function kernelStatus(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ state: KernelState; message: string }> {
   const c = await kaggleUser(f, c0);
-  const j = await kaggleRpc<{ status?: string; failureMessage?: string }>(f, c, 'kernels.KernelsApiService', 'GetKernelSessionStatus', { userName: c.username, kernelSlug: KERNEL_SLUG });
+  const j = await kaggleRpc<{ status?: string; failureMessage?: string }>(f, c, 'kernels.KernelsApiService', 'GetKernelSessionStatus', { userName: c.username, kernelSlug: slug });
   const s = String(j.status ?? '').toUpperCase();
   const state: KernelState = s === 'QUEUED' || s === 'NEW_SCRIPT' ? 'queued' : s === 'RUNNING' ? 'running' : s === 'COMPLETE' ? 'complete' : s === 'ERROR' ? 'error' : /CANCEL/.test(s) ? 'cancelled' : 'unknown';
   return { state, message: String(j.failureMessage ?? '').slice(0, 300) };
@@ -160,9 +163,9 @@ export async function kaggleQuota(f: Fetch, c0: KaggleCreds): Promise<GpuQuota> 
  * `kaggle kernels output`): the end of its log, and its saved report (`ghosty_report.json`, fetched from the signed
  * address Kaggle gives, without the Kaggle key). Either may be missing.
  */
-export async function kernelOutput(f: Fetch, c0: KaggleCreds): Promise<{ logTail: string; report: { error?: unknown } | null }> {
+export async function kernelOutput(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ logTail: string; report: { error?: unknown } | null }> {
   const c = await kaggleUser(f, c0);
-  const j = await kaggleRpc<{ files?: { url?: string; fileName?: string }[]; log?: string }>(f, c, 'kernels.KernelsApiService', 'ListKernelSessionOutput', { userName: c.username, kernelSlug: KERNEL_SLUG });
+  const j = await kaggleRpc<{ files?: { url?: string; fileName?: string }[]; log?: string }>(f, c, 'kernels.KernelsApiService', 'ListKernelSessionOutput', { userName: c.username, kernelSlug: slug });
   let report: { error?: unknown } | null = null;
   const file = (j.files ?? []).find((x) => x.fileName === 'ghosty_report.json' && /^https:\/\//.test(String(x.url)));
   if (file) {
