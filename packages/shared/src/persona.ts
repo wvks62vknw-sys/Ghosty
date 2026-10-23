@@ -57,32 +57,38 @@ export function character(s: PersonaSettings = DEFAULT_PERSONA, opts: { short?: 
   if (opts.short) return `${CHARACTER_MARK} ${who}. Plain British English. Answer first, no preamble. ${BRIEF[p.brief]} No chatbot phrases ("Great question", "I hope this helps"), no emoji, no forced jokes. Unsure? Say so plainly.`;
   return (
     `${CHARACTER_MARK} ${who}. Plain British English. Answer first, no preamble. ${BRIEF[p.brief]} ` +
-    `Never chatbot filler ("Great question", "I'd be happy to", "As an AI", "Certainly!", "I hope this helps", "Let me know if…", "delve"), emoji, or bullet lists for a simple answer. ` +
-    `No forced jokes or catchphrases. Unsure? Say so, plainly.`
+    // The owner's rule (OWNER-ISSUES 12) in one line; voice.ts is the detector that holds the training and polish to it.
+    `Sound like a person, not an AI. Never chatbot filler ("Great question", "I'd be happy to", "As an AI", "Certainly!", "I hope this helps", "Let me know if", "delve"), emoji, padding, over-apologising, or unasked lists, tables or headings. ` +
+    `No forced jokes or catchphrases. Unsure? Say so.`
   );
 }
 
 /** A turn that will be heard, not read (the app's microphone, a Telegram voice note). */
-export const SPOKEN = 'SPOKEN: this reply will be heard: one to three short sentences, no lists, links or markdown.';
+export const SPOKEN = 'SPOKEN: heard, not read: 1–3 short sentences, no lists, links or markdown.';
 
 // ---------------------------------------------------------------- the post-filter
 
 //
 // Conservative by design: a lost fact is far worse than a stray "I hope this helps". So it only
 // ever takes (1) a filler opener off the very start of the reply, (2) pure-filler sign-off
-// sentences off the very end, (3) "delve" in lower case, and (4) decorative emoji trailing a
-// sentence when a reply is scattered with them. It never touches a sentence with a number, a
-// ";" or ":", or a link; nothing inside a list item; nothing in a letter or a long piece; and
-// nothing in code, quotes, block quotes or links. A reply nothing applies to comes back exactly
-// as it was, and running it twice changes nothing more.
+// sentences off the very end, (3) "delve" in lower case, (4) decorative emoji trailing a
+// sentence when a reply is scattered with them, and (5) the AI-sounding detector's lead-ins
+// (voice.ts: "It's important to note that", "In conclusion,") off the front of a sentence, the
+// sentence itself kept word for word. It never touches a sentence with a number, a ";" or ":",
+// or a link (except to take a lead-in off it); nothing inside a list item; nothing in a letter or
+// a long piece (a lead-in goes only outside them too); and nothing in code, quotes, block quotes
+// or links. A reply nothing applies to comes back exactly as it was, and running it twice changes
+// nothing more.
 
 /** Words a filler "Sure," / "Of course," may stand before (and only these). */
 const FILLER_NEXT = String.raw`(?:here(?:'|’)?s|here (?:is|are)|i(?:'|’)ll|i will|let me|i can|i(?:'|’)ve|i have)\b`;
 
 /** Openers, tried at the very start of the reply only, again and again while one matches. */
 const OPENERS: RegExp[] = [
-  // "Great question!" / "What a good question." — the whole sentence, when something follows
-  /^(?:(?:great|good|excellent|fantastic|brilliant|interesting|lovely) question|what an? (?:great|good|excellent|fantastic|interesting) question)[!.]+[ \t]+(?=\S)/i,
+  // "Great question!" / "What a good question." / "That's a really good question." — the whole sentence, when something follows
+  /^(?:(?:that(?:'|’)?s|that is) (?:a )?(?:really |very )?)?(?:(?:great|good|excellent|fantastic|brilliant|interesting|lovely) question|what an? (?:great|good|excellent|fantastic|interesting) question)[!.]+[ \t]+(?=\S)/i,
+  // "Sorry for the confusion." / "I apologise for any inconvenience!" — the stock apology, as a whole first sentence
+  /^(?:(?:i(?:'|’)?m |i am )?(?:so |very )?sorry|i apologi[sz]e|my apologies|apologies) for (?:the|any) (?:confusion|inconvenience|misunderstanding|oversight)(?: (?:earlier|caused))?[!.]+[ \t]+(?=\S)/i,
   // "I'd be happy to help with that!" — the whole sentence; "I'd be glad to explain: …" — up to the colon
   /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to (?:help|assist)(?: you)?(?: with (?:that|this|it))?[!.]+[ \t]+(?=\S)/i,
   /^I(?:'|’| woul)d be (?:happy|glad|delighted|more than happy) to (?:explain|help|assist)(?: you)?(?: with (?:that|this|it))?[!:][ \t]+(?=\S)/i,
@@ -108,6 +114,12 @@ const SIGNOFF = new RegExp(
       '(?:is there )?anything else (?:i can help (?:you )?with|you(?:(?:\'|’)d| would) like(?: me to (?:help with|do|add))?|you need)',
       'happy to help',
       "i(?:'|’)?m (?:always )?here (?:to help|if you need (?:me|anything))",
+      // the detector's closers (voice.ts) that are filler from first word to last
+      "i hope (?:this|that|the above|my answer) (?:information )?(?:answers your question|clears (?:things|it|that) up)",
+      "let me know if (?:there(?:'|’)?s|there is) anything else(?: i can (?:do|help with)(?: for you)?)?",
+      "let me know if you(?:(?:'|’)d| would) like (?:any )?(?:more|further) (?:details|help|information|ideas)",
+      'have a (?:great|wonderful|fantastic) day',
+      "you(?:'|’)?ve got this",
     ].join('|') +
     ')[.!?…]*$',
   'i',
@@ -123,6 +135,16 @@ const EMO_ANY = new RegExp(EMO, 'gu');
 const EMO_AFTER_STOP = new RegExp(String.raw`([.!?])[ \t]*(?:${EMO}[ \t]*)+`, 'gu');
 const EMO_BEFORE_STOP = new RegExp(String.raw`[ \t]*(?:${EMO}[ \t]*)+(?=[.!?])`, 'gu');
 const EMO_LINE_END = new RegExp(String.raw`(\S)[ \t]*(?:${EMO}[ \t]*)+$`, 'gmu');
+
+/**
+ * The AI-sounding detector's lead-ins (packages/shared/src/voice.ts), at the start of the reply, a line or a sentence:
+ * filler from first word to last, whatever the sentence after them says (and that is kept).
+ */
+const LEAD_IN = new RegExp(
+  String.raw`(^|[.!?]["')\]]?[ \t]+|\n)(?:(?:it(?:'|’)?s|it is) (?:important|worth|crucial|essential) (?:to note|noting|to remember|to mention|to keep in mind) that|please note that|keep in mind that|in conclusion,|in summary,|to summari[sz]e,|to sum up,)[ \t]+([\p{L}\p{N}]\S*)`,
+  'giu',
+);
+const lead = (_m: string, pre: string, word: string): string => pre + capitalise(word);
 
 /** Capitalise the first letter of `s` — unless that word is not a plain lower-case word ("iPhone", "eBay", "npm…"). */
 function capitalise(s: string): string {
@@ -184,6 +206,10 @@ export function polish(text: string): string {
 
   // 4. a scatter of emoji (two or more): only the decorative ones trailing a sentence go.
   if ((t.match(EMO_ANY) ?? []).length >= 2) t = t.replace(EMO_BEFORE_STOP, '').replace(EMO_AFTER_STOP, '$1 ').replace(EMO_LINE_END, '$1').replace(/[ \t]+$/gm, '').trim();
+
+  // 5. the detector's lead-ins off the front of a sentence, its first word capitalised; the sentence itself stays word
+  // for word. Never in a letter or a long piece, never in a list item (the lead-in must start the reply, a line or a sentence).
+  if (!LETTER.test(t) && !longForm) for (let next = t.replace(LEAD_IN, lead); next !== t; next = t.replace(LEAD_IN, lead)) t = next;
 
   if (t === held.trim()) return text;
   return t.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => kept[Number(i)] ?? '');

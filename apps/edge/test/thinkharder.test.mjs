@@ -693,3 +693,34 @@ test("Stage 2: the report card reads tool calls with the weekly training's own r
   const src = readFileSync(new URL('../../web/src/offline/bench.ts', import.meta.url), 'utf8');
   assert.match(src, /import \{ readToolCalls \} from '..\/..\/..\/..\/packages\/shared\/src\/toolcall'/);
 });
+
+test('voice: the report card\'s run also records whether each of its own answers sounds like a person (packages/shared/src/voice.ts), for "sounds like a person: 13 of 16"; tool calls are not talk', async () => {
+  const items = [...BN.LOCAL_ITEMS.map(({ id, cat, text, steps, check }) => ({ id, cat, text, steps, check })), ...GB.benchItems()];
+  const run = await BN.runBench({
+    gen: async (m) => {
+      const q = m.at(-1).content;
+      if (/Function signatures/.test(q)) return '<tool_call>\n{"name": "weather", "arguments": {"place": "Leeds"}}\n</tool_call>';
+      if (/17 × 23|capital of/.test(q)) return 'Great question! As an AI, I can tell you the answer. I hope this helps!';
+      if (/three fruits/.test(q)) return '';
+      return 'ANSWER: 391';
+    },
+    judge: async () => false,
+    items,
+    withThink: false,
+    model: 'm',
+  });
+  const judged = run.items.filter((x) => typeof x.human === 'boolean');
+  assert.ok(run.items.filter((x) => x.cat === 'tools').every((x) => x.human === undefined), 'a tool call is not talk');
+  assert.equal(run.items.find((x) => x.id === 'ins-3').human, undefined, 'no answer, nothing to judge');
+  const ai = run.items.filter((x) => x.human === false).map((x) => x.id);
+  assert.ok(ai.includes('sum-1') && ai.some((id) => /capital/.test(id)), ai.join(', '));
+  const [n, of] = BN.voiceCount(run);
+  assert.equal(of, judged.length);
+  assert.equal(of, 20 - 4 - 1);
+  assert.equal(n, of - ai.length);
+  assert.equal(BN.voiceLine(run), `sounds like a person: ${n} of ${of}`);
+  // a run from before it was measured: nothing to say
+  assert.equal(BN.voiceLine({ ...run, items: run.items.map(({ human: _h, ...x }) => x) }), '');
+  assert.equal(BN.voiceOf(items[0], 'It is 391.'), true);
+  assert.equal(BN.voiceOf(items[0], '<think>As an AI…</think>Certainly! It is 391. I hope this helps!'), false);
+});
