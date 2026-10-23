@@ -907,13 +907,17 @@ test('gathering: the free part (no model) is spread over several job steps of a 
   assert.ok(cpu.length >= 4, `the free part took ${cpu.length} steps`);
   assert.ok(Math.max(...cpu.slice(1)) < 25, `CPU per step (ms): ${cpu.map((x) => x.toFixed(1)).join(', ')}`);
   for (const k of ['gym', 'drill', 'tool', 'redteam', 'distill']) assert.ok((await F.loadRecords(s, k)).length > 0, `has ${k}`);
-  // the quick near-copy check gives exactly the old verdicts
+  // the quicker near-copy checks give exactly the verdicts of the rule as written (similar() against every question)
   const { REPORT_CARD_TEXTS } = await import('./.build/selftrain/assets-check.mjs');
-  const exam = E.buildExam(TOOLS);
-  const qs = E.examTexts(exam, 3);
-  const near = F.nearCheck(qs, REPORT_CARD_TEXTS);
+  const qs = E.examTexts(E.buildExam(TOOLS), 3);
+  const norm = (x) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+  const nums = (x) => new Set(x.match(/\d+/g) ?? []);
+  const card = (x) => REPORT_CARD_TEXTS.find((q) => norm(q) === norm(x) || (F.similar(x, q) >= F.EXAM_NEAR && [...nums(q)].every((n) => nums(x).has(n)))) ?? '';
   const texts = [...qs, ...REPORT_CARD_TEXTS, ...qs.map((q) => `Please, ${q.toLowerCase()} Thanks!`), ...turns.slice(0, 60).map((t) => t.text), 'What is 17 × 24?', 'What is 17 × 23?', '', 'hello'];
-  for (const x of texts) assert.equal(near(x), F.tooClose(x, qs) || F.nearReportCard(x, REPORT_CARD_TEXTS), x);
+  for (const x of texts) {
+    assert.equal(F.tooClose(x, qs), qs.find((q) => F.similar(x, q) >= F.EXAM_NEAR) ?? '', x);
+    assert.equal(F.nearReportCard(x, REPORT_CARD_TEXTS), card(x), x);
+  }
 });
 
 test('gathering never sticks on the exam\'s library questions: past its day, or out of model calls, it moves on to the upload', async () => {

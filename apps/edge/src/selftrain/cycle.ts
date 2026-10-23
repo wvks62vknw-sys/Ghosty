@@ -58,7 +58,6 @@ import {
   libraryRecords,
   LIBRARY_SYSTEM,
   loadRecords,
-  nearCheck,
   overlap,
   ownerPassages,
   ratingRecords,
@@ -66,6 +65,8 @@ import {
   REDTEAM_SYSTEM,
   RED_TEAM,
   syntheticToolRecords,
+  tooClose,
+  nearReportCard,
   WEEKLY,
   WEEKLY_CALLS,
   type CtxMsg,
@@ -313,10 +314,10 @@ async function loadExam(d: CycleDeps): Promise<Exam> {
 type Far = (recs: TrainRecord[]) => TrainRecord[];
 
 /**
- * The free part of gathering (no model), one piece per job step: each is a few milliseconds of CPU (the near-copy
- * checks were most of it, and a single step that did them all took over 100 ms). Every record whose question is a
- * near copy of an exam question, or of one on the phone's REPORT CARD (it must measure what was never trained on),
- * is left out by `far` (counted), whatever made it.
+ * The free part of gathering (no model), one piece per job step: each is a few milliseconds of CPU (a single step
+ * that did it all took over 100 ms, most of it the near-copy checks, now quicker in factory.ts). Every record whose
+ * question is a near copy of an exam question, or of one on the phone's REPORT CARD (it must measure what was never
+ * trained on), is left out by `far` (counted), whatever made it.
  */
 const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
   async (d, st) => {
@@ -363,12 +364,12 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
   const exam = await loadExam(d);
   const held = new Set(exam.library.map((c) => c.key));
   if (!st.done.free) {
-    const near = nearCheck(examTexts(exam, st.week), REPORT_CARD_TEXTS);
+    const freeQs = examTexts(exam, st.week);
     let n = 0;
     const far: Far = (recs) =>
       recs.filter((r) => {
         const q = r.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? '';
-        const bad = !!q && !!near(q);
+        const bad = !!q && (!!tooClose(q, freeQs) || !!nearReportCard(q, REPORT_CARD_TEXTS));
         if (bad) n++;
         return !bad;
       });
@@ -423,7 +424,8 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
   }
   const lib = passages.filter((p) => !tried.has(p.key));
   /** A near copy of an exam question or of one on the phone's REPORT CARD: never trained on. */
-  const leak = nearCheck(examTexts(exam, st.week), REPORT_CARD_TEXTS);
+  const examQs = examTexts(exam, st.week);
+  const leak = (t: string): string => tooClose(t, examQs) || nearReportCard(t, REPORT_CARD_TEXTS);
   // 2. better replies for the owner's 👎 (each rating once: known by its id, so new or changed ratings never shift the others)
   if (priv && !noModel) {
     const doneIds = new Set(st.done.prefIds ?? []);

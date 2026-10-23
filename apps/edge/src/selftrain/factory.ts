@@ -173,10 +173,36 @@ export function similar(a: string, b: string): number {
 }
 /** At or above this, a training text counts as a rewording of an exam question and is dropped. */
 export const EXAM_NEAR = 0.45;
-/** The exam question a text is too close to ('' if none). */
-export const tooClose = (text: string, exam: string[], at = EXAM_NEAR): string => exam.find((q) => similar(text, q) >= at) ?? '';
-
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 const numbersIn = (s: string) => new Set(s.match(/\d+/g) ?? []);
+/**
+ * An exam or report card question's content words, normalised text and numbers, worked out once: gathering checks
+ * a few hundred records against the same hundred-odd questions, and working them out again every time was most of
+ * a job step's CPU.
+ */
+const listed = new Map<string, { words: Set<string>; norm: string; nums: string[] }>();
+function listedOf(q: string): { words: Set<string>; norm: string; nums: string[] } {
+  let x = listed.get(q);
+  if (!x) {
+    if (listed.size >= 4000) listed.clear();
+    x = { words: content(q), norm: norm(q), nums: [...numbersIn(q)] };
+    listed.set(q, x);
+  }
+  return x;
+}
+/** similar() for a text's words worked out once and a listed question's (the same value). */
+function alike(x: Set<string>, y: Set<string>): number {
+  if (!x.size || !y.size) return 0;
+  let c = 0;
+  for (const w of x) if (y.has(w)) c++;
+  return c / (x.size + y.size - c);
+}
+/** The exam question a text is too close to ('' if none). */
+export function tooClose(text: string, exam: string[], at = EXAM_NEAR): string {
+  const x = content(text);
+  return exam.find((q) => alike(x, listedOf(q).words) >= at) ?? '';
+}
+
 /**
  * The phone's REPORT CARD question a training text is a near copy of ('' if none): the same words, or as alike as
  * an exam rewording AND holding every number the question has. (The GYM's puzzles share their wording, so
@@ -184,36 +210,17 @@ const numbersIn = (s: string) => new Set(s.match(/\d+/g) ?? []);
  * The report card measures the model's own skill only while it is never trained on (gym/bench.ts reportCardTexts).
  */
 export function nearReportCard(text: string, texts: string[]): string {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const t = norm(text);
+  const x = content(text);
   const have = numbersIn(text);
-  return texts.find((q) => norm(q) === t || (similar(text, q) >= EXAM_NEAR && [...numbersIn(q)].every((n) => have.has(n)))) ?? '';
+  return (
+    texts.find((q) => {
+      const l = listedOf(q);
+      return l.norm === t || (alike(x, l.words) >= EXAM_NEAR && l.nums.every((n) => have.has(n)));
+    }) ?? ''
+  );
 }
 
-/**
- * `tooClose(text, exam) || nearReportCard(text, card)` with each exam and report card question's words worked out
- * once instead of for every record: the same verdicts for a small part of the CPU (gathering checks a few hundred
- * records against about a hundred questions, and the brain's job steps must stay short).
- */
-export function nearCheck(exam: string[], card: string[], at = EXAM_NEAR): (text: string) => string {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-  const ex = exam.map((q) => ({ q, c: content(q) }));
-  const cd = card.map((q) => ({ q, c: content(q), n: norm(q), nums: [...numbersIn(q)] }));
-  const alike = (x: Set<string>, y: Set<string>): number => {
-    if (!x.size || !y.size) return 0;
-    let c = 0;
-    for (const w of x) if (y.has(w)) c++;
-    return c / (x.size + y.size - c);
-  };
-  return (text) => {
-    const x = content(text);
-    const e = ex.find((q) => alike(x, q.c) >= at);
-    if (e) return e.q;
-    const t = norm(text);
-    const have = numbersIn(text);
-    return cd.find((q) => q.n === t || (alike(x, q.c) >= EXAM_NEAR && q.nums.every((n) => have.has(n))))?.q ?? '';
-  };
-}
 
 const REFUSAL =/\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
 
