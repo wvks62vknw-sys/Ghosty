@@ -125,3 +125,5 @@ Add to it any time; tick items off only when he agrees they are fixed.
     just something that could fit there and play that kind of role, and is like 3D and just cool, and fits the
     aesthetic." One round of three real-3D options in C's Home (BRIEF-DESIGN-HERO.md); he picks; the rest of C is built
     meanwhile.
+27. **The hero: MIND** ("Mind but a little bit better too", 23 Oct). The hologram of Ghosty's mind becomes Home's
+    centrepiece, built into the app (BRIEF-DESIGN-HERO-BUILD.md) with the improvements listed there.

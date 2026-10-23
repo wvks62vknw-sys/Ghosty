@@ -15,7 +15,7 @@ import { areaOf, tintOf } from './areas';
 const SECTIONS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
   ['Make', ['studio', 'workshop', 'reverse', 'space']],
-  ['Learn and plan', ['learn', 'gym', 'library', 'agenda', 'markets', 'threats', 'radio']],
+  ['Learn and plan', ['learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
   ['Me', ['memory', 'settings', 'system', 'links']],
 ];
 import { proLook } from '../state/theme';

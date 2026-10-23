@@ -61,6 +61,7 @@ import { learnRoute, reviseNudge, tutorDeps } from './tutor';
 import { ensureTrainJob, hookRoute, trainingRoute as selfTrainingRoute, trainTick, type CycleDeps } from './selftrain/cycle';
 import { offlineToolSpecs } from './selftrain/factory';
 import { weightsRoute } from './selftrain/weights';
+import { schoolDaily, schoolRoute } from './school'; // [school] the offline brain's school journey (school/index.ts)
 import { model3dRoute } from './model3d';
 import { CITED_PROMPT, citeAnswer, citedAsked, type Read } from './cited';
 import { designRoute } from './tools/design';
@@ -354,6 +355,7 @@ export class GhostyAgent {
       if (path.startsWith('/library')) return await this.libraryRoute(req, path, method, url);
       // [selftrain] SYSTEM → OFFLINE BRAIN TRAINING (before /train, the training ground, which would match it too)
       if (path === '/training' || path.startsWith('/training/')) return await selfTrainingRoute(req, path, method, this.trainDeps());
+      if (path === '/school' || path.startsWith('/school/')) return await schoolRoute(req, path, method, { env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] SCHOOL (school/routes.ts)
       if (path.startsWith('/train')) return await trainingRoute(req, path, method, { storage: this.storage, router: this.router, library: this.library });
       if (path === '/status' && method === 'GET') return json(await this.status(req.headers.get('x-ghosty-owner') ?? 'owner'));
       if (path === '/keys/public' && method === 'GET') {
@@ -1433,6 +1435,7 @@ export class GhostyAgent {
         } else if (job.kind === 'reflect' || job.kind === 'digest') {
           // Quiet too: what the nightly reflection and the morning digest found is in the profile, the diary and the library.
           await finishJob(this.storage, job.id, await this.runDaily(job.kind));
+          if (job.kind === 'digest') await schoolDaily({ env: this.env, storage: this.storage, router: this.router, contact: this.contact() }); // [school] pending marks again + the school report, with the morning digest (never a buzz at night)
         } else if (job.kind === 'upgrade') {
           // The owner hears of it only when an idea is new (thinkUpgrades says so itself); no model → tomorrow.
           await finishJob(this.storage, job.id, (await this.meter.as('upgrade', () => thinkUpgrades(this.upgradeDeps()))).note);

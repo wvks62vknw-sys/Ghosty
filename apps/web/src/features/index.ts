@@ -15,6 +15,7 @@ import { linksTab } from './links';
 import { marketsTab } from './markets';
 import { radioTab } from './radio';
 import { reverseTab } from './reverse';
+import { schoolTab } from './school';
 import { settingsTab } from './settings';
 import { spaceTab } from './space';
 import { studioTab } from './studio';
@@ -24,4 +25,4 @@ import { threatsTab } from './threats';
 import { workshopTab } from './workshop';
 import { HUB_TABS } from '../shell/areas';
 
-export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, studioTab, reverseTab, spaceTab, linksTab, settingsTab, systemTab, ...HUB_TABS];
+export const TABS: TabDef[] = [coreTab, eyeTab, lensTab, briefTab, agendaTab, threatsTab, marketsTab, radioTab, memoryTab, libraryTab, workshopTab, learnTab, gymTab, schoolTab, studioTab, reverseTab, spaceTab, linksTab, settingsTab, systemTab, ...HUB_TABS];
