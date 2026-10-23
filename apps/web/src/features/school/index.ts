@@ -50,6 +50,8 @@ export const schoolTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'SCHOOL', sub: 'the offline brain on this phone, from nursery up · top grades to move on', leftLabel: 'STAGE', rightLabel: 'REPORT', stack: true });
     expose();
+    // The stage's name as written ("Key Stage 2", "GCSE"), not re-cased by the calm looks.
+    P.big.dataset.case = 'keep';
     let view: StageView | null = null;
     /** The phone can run the offline brain / has it downloaded (null: not looked yet). */
     let can: boolean | null = null;
@@ -157,7 +159,7 @@ export const schoolTab: TabDef = {
       clear(
         stageP.body,
         h('div.schhead', h('b', short(cur.label)), h('small', `${row?.years ?? ''} · his stage now`)),
-        h('div.note.schpass', `To move up: ${cur.pass}. ${done} of ${cur.subjects.length} subjects at top grades.`),
+        h('div.note.schpass', `To move up: ${cur.pass}.${row && /scaled score|grade|A\*/.test(cur.pass) ? ' Until the official papers come, the papers Ghosty writes count with their top band (85%+).' : ''} ${done} of ${cur.subjects.length} subjects at top grades.`),
         h('div.schsubs', ...rows),
         live,
         why ? h('div.note.schwhy', why) : null,
