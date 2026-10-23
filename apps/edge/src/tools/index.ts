@@ -9,7 +9,7 @@ import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
-import { extraTools } from './extra';
+import { extraTools, schoolTools } from './extra';
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
@@ -42,7 +42,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -90,7 +90,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i,
     about: 'You can install instant widgets (create_widget: one HTML document on the GK kit — games, tools, trackers; list_widgets, delete_widget); a tool for the owner alone is a widget, not a published page.',
   },
-  { name: 'extra', tools: extras, when: 'always', about: 'You can also use the abilities in tools/extra.ts (always described in full).' },
+  { name: 'school', tools: schoolTools, when: /\b(school|exams?|sats|placement test|key stage|gcses?|a-levels?)\b/i, about: "You can report the offline brain's school journey: stage, grades, weak spots (school_status), and tell the owner how to start an exam on the phone (sit_exam)." },
+  { name: 'extra', tools: extras, when: 'always', about: 'You can also use the extras (tools/extra.ts).' },
   {
     name: 'sites',
     tools: siteTools,
