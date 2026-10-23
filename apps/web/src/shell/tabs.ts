@@ -7,6 +7,7 @@
  */
 import { sfx } from '../assistant/sfx';
 import { h } from '../core/dom';
+import { stopwatch } from '../core/stopwatch';
 import { backdrop } from '../engine/backdrop';
 import { globe } from '../engine/globe';
 import { setScene } from '../engine/scheduler';
@@ -59,6 +60,8 @@ export function go(id: string): boolean {
   const prev = ui.get().tab;
   if (prev === def.id && mounted.has(def.id)) return true;
   const switching = mounted.has(prev);
+  // The stopwatch (core/stopwatch.ts): from here to the first paint after the tab is on screen.
+  const timed = stopwatch.tab(def.id, def.title, !mounted.has(def.id));
   mounted.get(prev)?.inst.leave?.();
   let m = mounted.get(def.id);
   if (!m) {
@@ -85,5 +88,6 @@ export function go(id: string): boolean {
     /* ignore */
   }
   m.inst.enter?.();
+  timed();
   return true;
 }

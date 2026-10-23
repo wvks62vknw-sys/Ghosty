@@ -14,6 +14,8 @@ import { hasImage, IMAGE_TOKENS, textOf, type Content } from './content';
 import { cost, neurons } from '../neurons';
 import { quotaFor, type Priority, type Quota, type Room } from './quota';
 import { CHARACTER_MARK, polish } from '../../../../packages/shared/src/persona';
+import { speedFor, type Stopwatch } from '../speed';
+export { speedFor, speedSummary } from '../speed';
 export { resetDelay } from './providers';
 export { quotaFor, CHAT_RESERVE } from './quota';
 export type { Priority } from './quota';
@@ -85,6 +87,12 @@ export class RouterError extends Error {
     super(message);
     this.name = 'RouterError';
   }
+}
+
+/** What one completion spent (speed.ts): waiting for room or a cool-down, and in model calls. */
+interface Clock {
+  wait: number;
+  model: number;
 }
 
 /** A pause that ends early when the turn is stopped. */
@@ -183,12 +191,15 @@ const limitKey = (p: Provider, model: string): string => (p.modelLimits ? `${p.i
 
 export class Router {
   private quota: Quota;
+  /** Times every call (speed.ts), shared like the quota by every Router on the Durable Object. */
+  private speed: Stopwatch;
   constructor(
     private storage: DurableObjectStorage,
     private vault: Vault,
     private env: Env,
   ) {
     this.quota = quotaFor(storage);
+    this.speed = speedFor(storage);
   }
 
   /** Is there room for `tokens` on this provider and model in this lane (both counters)? */
@@ -350,21 +361,34 @@ export class Router {
     // maxWait in all) and try again, instead of failing halfway through a long task. 0 never waits.
     const maxWait = opts.maxWaitMs ?? (lane === 'background' ? 90_000 : 45_000);
     const deadline = Date.now() + maxWait;
-    for (let round = 0; ; round++) {
-      const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane);
-      if ('message' in r) return inCharacter(messages, r);
-      const left = deadline - Date.now();
-      if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
-      // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
-      // background work uses the tick to deliver reminders that fall due meanwhile.
-      let ms = r.waitMs + (r.full ? 50 : 500);
-      while (ms > 0 && !signal?.aborted) {
-        opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
-        const step = Math.min(ms, 1000);
-        await sleep(step, signal);
-        ms -= step;
+    // The stopwatch: this completion's waits and model time, and the turn it belongs to (its signal).
+    const clock: Clock = { wait: 0, model: 0 };
+    this.speed.callStart(signal);
+    try {
+      for (let round = 0; ; round++) {
+        const r = await this.attempt(messages, tools, signal, !!opts.code, small, Math.min(maxWait, SHORT_WAIT_MS), lane, clock);
+        if ('message' in r) {
+          this.speed.callEnd(signal, { ...clock, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
+          return inCharacter(messages, r);
+        }
+        const left = deadline - Date.now();
+        if (round >= 12 || r.waitMs > left || signal?.aborted) throw new RouterError(r.error, r.waitMs);
+        // The soonest window (or cool-down), with a countdown each second: the owner sees it in chat, and
+        // background work uses the tick to deliver reminders that fall due meanwhile.
+        let ms = r.waitMs + (r.full ? 50 : 500);
+        const t = Date.now();
+        while (ms > 0 && !signal?.aborted) {
+          opts.onWait?.(`waiting for free AI room · ${Math.max(1, Math.round(ms / 1000))} s`);
+          const step = Math.min(ms, 1000);
+          await sleep(step, signal);
+          ms -= step;
+        }
+        clock.wait += Date.now() - t;
+        if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
       }
-      if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
+    } catch (e) {
+      this.speed.fail(signal); // no answer: nothing to time this turn by
+      throw e;
     }
   }
 
@@ -478,7 +502,7 @@ export class Router {
    * up. `shortWait`: a model this close to free is waited for (once per pass) rather than skipped for
    * a worse one, and a 429 asking for a wait this short gets one retry of the same model.
    */
-  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat'): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
+  private async attempt(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, code: boolean, cheap = false, shortWait = 0, lane: Priority = 'chat', clock: Clock = { wait: 0, model: 0 }): Promise<{ message: Msg; model: string } | { error: string; waitMs: number; full?: boolean }> {
     const opts = { code };
     let lastErr: LlmError | null = null;
     let anyKey = false;
@@ -546,7 +570,9 @@ export class Router {
         // The best model left is nearly free: wait for it (once per pass) rather than take a worse one.
         if (left <= shortWait && !waited && !signal?.aborted) {
           waited = true;
+          const t = Date.now();
           await sleep(left + 200, signal);
+          clock.wait += Date.now() - t;
           if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
         } else {
           soonest = Math.min(soonest, left);
@@ -569,14 +595,23 @@ export class Router {
         const settle = this.quota.take(keysOf(p, model), est);
         if (!retried) tried++;
         const t0 = Date.now();
+        // The stopwatch (speed.ts): when the reply started to arrive is set by call().
+        const lap = { first: 0 };
+        const timed = (ok: boolean, out?: number) => {
+          const ms = Date.now() - t0;
+          clock.model += ms;
+          this.speed.model({ provider: p.name, model, first: lap.first || ms, ms, wait: clock.wait, tokens: out, ok, chat: lane === 'chat' });
+        };
         try {
-          const { message, tokens } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane);
+          const { message, tokens, out } = await this.call(p, key, model, messages, tools, signal, !!opts.code, lane, lap);
+          timed(true, out);
           settle(tokens, true);
           await this.mark(`${p.id}|${model}`, { cool: 0, dead: 0, why: '', ms: Date.now() - t0 });
           await this.sput('llm:last', `${p.name} · ${model}`);
           return { message, model: `${p.name} · ${model}` };
         } catch (err) {
           const e = err as LlmError;
+          if (e?.code !== 'too-big' && e?.code !== 'no-room') timed(false); // (those two never reached the provider)
           // A request that never reached the provider costs nothing; anything else keeps its count.
           settle(e?.code === 'too-big' || e?.code === 'no-room' || e?.net ? 0 : undefined);
           if ((err as Error)?.name === 'AbortError') throw err;
@@ -602,7 +637,9 @@ export class Router {
           if (!retried && !waited && again > 0 && again <= shortWait && !signal?.aborted) {
             retried = true;
             waited = true;
+            const t = Date.now();
             await sleep(again + 200, signal);
+            clock.wait += Date.now() - t;
             if (signal?.aborted) throw Object.assign(new Error('Stopped.'), { name: 'AbortError' });
             continue;
           }
@@ -645,8 +682,12 @@ export class Router {
     return { error: `Every model I can reach is busy or failing right now (last error: ${lastErr.code ?? ''} ${lastErr.message.slice(0, 160)}).${wait}`, waitMs: soonest };
   }
 
-  /** One request to one model: its reply, and the tokens the provider says it used (for the counters). */
-  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat'): Promise<{ message: Msg; tokens?: number }> {
+  /**
+   * One request to one model: its reply, the tokens the provider says it used (for the counters) and
+   * how many it wrote (`out`, for the stopwatch). `lap.first`: when the reply started to arrive.
+   */
+  private async call(p: Provider, key: string, model: string, messagesIn: Msg[], toolsIn: ToolSpec[], signal?: AbortSignal, code = false, lane: Priority = 'chat', lap: { first: number } = { first: 0 }): Promise<{ message: Msg; tokens?: number; out?: number }> {
+    const t0 = Date.now();
     let messages = messagesIn;
     let tools = toolsIn;
     if (p.maxIn) {
@@ -655,7 +696,11 @@ export class Router {
       ({ messages, tools } = slim);
     }
     if (p.noSystem) messages = foldSystem(messages);
-    if (p.transport === 'workers-ai') return { message: await this.callWorkersAi(model, messages, tools, code, lane) };
+    if (p.transport === 'workers-ai') {
+      const r = await this.callWorkersAi(model, messages, tools, code, lane);
+      lap.first = Date.now() - t0; // the binding answers all at once
+      return { message: r.message, ...(r.out ? { out: r.out } : {}) };
+    }
     const minimal: Record<string, unknown> = { model, messages, ...(tools.length ? { tools, tool_choice: 'auto' } : {}) };
     const tuned: Record<string, unknown> = { ...minimal, temperature: code ? 0.2 : 0.4 };
     // Code needs room: a reply cut off mid-edit breaks the tool call's arguments.
@@ -686,6 +731,7 @@ export class Router {
       }
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
+      lap.first = Date.now() - t0;
       // What the provider says about its limits (both on answers and on refusals) tunes the counters.
       // Headers describe the counter the provider limits by: the model's when it limits models one by one.
       this.quota.learnHeaders(limitKey(p, model), r.headers);
@@ -694,7 +740,7 @@ export class Router {
         if (r.status === 400 && body === tuned && !/(not found|does not exist|decommission|tool)/i.test(text)) continue;
         throw { code: r.status, message: text.slice(0, 400), retryAfter: r.headers.get('retry-after') } satisfies LlmError;
       }
-      const j = (await r.json()) as { choices?: { message?: Msg }[]; error?: { message?: string }; usage?: { total_tokens?: number } };
+      const j = (await r.json()) as { choices?: { message?: Msg }[]; error?: { message?: string }; usage?: { total_tokens?: number; completion_tokens?: number } };
       const msg = j.choices?.[0]?.message;
       if (!msg) throw { code: 500, message: j.error?.message ?? 'empty reply' } satisfies LlmError;
       const content = typeof msg.content === 'string' ? msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim() : null;
@@ -714,13 +760,14 @@ export class Router {
           : {}),
       };
       const used = j.usage?.total_tokens;
-      return { message, ...(typeof used === 'number' && used > 0 ? { tokens: used } : {}) };
+      const out = j.usage?.completion_tokens;
+      return { message, ...(typeof used === 'number' && used > 0 ? { tokens: used } : {}), ...(typeof out === 'number' && out > 0 ? { out } : {}) };
     }
     throw { code: 400, message: 'bad request' } satisfies LlmError;
   }
 
   /** Cloudflare Workers AI through the AI binding. Replies come in a few shapes; all are normalised. */
-  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean, lane: Priority = 'chat'): Promise<Msg> {
+  private async callWorkersAi(model: string, messages: Msg[], tools: ToolSpec[], code: boolean, lane: Priority = 'chat'): Promise<{ message: Msg; out?: number }> {
     const ai = this.env.AI;
     if (!ai) throw { code: 401, message: 'no AI binding' } satisfies LlmError;
     // The day's Workers AI allowance is shared (neurons.ts): this call must leave hearing its reserve.
@@ -745,7 +792,8 @@ export class Router {
     const msg = normaliseWorkersAi(res, new Set(tools.map((t) => t.function.name)));
     await neurons().charge(use, cost.chat(tokensOf(messages) + (msg ? tokensOf(msg) : 0)));
     if (!msg) throw { code: 500, message: 'empty reply' } satisfies LlmError;
-    return msg;
+    const out = (res as { usage?: { completion_tokens?: unknown } } | null)?.usage?.completion_tokens;
+    return { message: msg, ...(typeof out === 'number' && out > 0 ? { out } : {}) };
   }
 }
 

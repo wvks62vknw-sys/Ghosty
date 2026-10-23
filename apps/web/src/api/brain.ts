@@ -4,6 +4,7 @@
  * up, the owner key saved on this device is sent as `x-ghosty-key`.
  */
 import { createStore } from '../core/store';
+import { stopwatch } from '../core/stopwatch';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
@@ -169,6 +170,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const t0 = stopwatch.now();
   const r = await fetch(`/api${path}`, {
     method,
     headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -176,6 +178,8 @@ async function send<T>(method: string, path: string, body?: unknown): Promise<T>
     credentials: 'same-origin',
   });
   const text = await r.text();
+  // The brain's round trip, as this phone sees it (core/stopwatch.ts).
+  stopwatch.trip(path, stopwatch.now() - t0);
   let j: unknown = null;
   try {
     j = text ? JSON.parse(text) : null;

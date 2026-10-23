@@ -614,3 +614,6 @@ test("background work out of free Workers AI room skips quietly: the owner's cha
   assert.match(chat.model, /^Workers AI/, `the owner's chat still reaches Workers AI (got ${chat.model})`);
   assert.ok(!(await r.summary()).some((m) => m.provider === 'Workers AI' && m.state === 'cool'), 'no Workers AI model was cooled for an hour');
 });
+
+// The stopwatch's tests (speed.ts and the phone's core/stopwatch.ts) run with these.
+await import('./speed.test.mjs');
