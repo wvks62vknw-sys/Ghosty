@@ -4,6 +4,20 @@ This file is how one build session hands over to the next. Read it all before do
 next to it are the briefs earlier builders worked from (paths inside them that start with /tmp/… pointed at a scratch
 folder that no longer exists; ignore those paths).
 
+## 23 Oct (Friday): this session, so far
+- Branch state: `main` is PR #31's merge (ccd4fd0); this branch starts there and held only the 19–21 Oct notes. Local
+  checkout fast-forwarded to 6d90d98. No PR is open yet: it is opened with the first code chunk after the owner's yes.
+- Set up and checked: `apps/edge` installed (its postinstall builds the interface), both typechecks clean, Playwright
+  installed at the repo root the way CI does (`npm install --no-save playwright@1.56.1`; Chromium only, no WebKit here).
+- Facts looked up, not guessed: iPhone 18 Pro Max = 6.9-inch, 2868 × 1320 at 460 ppi → **440 × 956 CSS points**, ProMotion
+  120 Hz, Dynamic Island, A20 Pro, 12 GB (GSMArena), iOS 27. WebLLM's prebuilt list (modelVersion v0_2_86) has
+  Qwen3.5-0.8B/2B/4B, Qwen3-1.7B/4B, gemma-4-E2B, Phi-4-mini (memory 1.6 / 2.2 / 3.9 / 2.0 / 3.4 / 3.4 / 3.4 GB). Kaggle:
+  ~30 GPU-h/week, 12 h/run (user-reported; phone-verified account needed).
+- The ordered plan the owner asked for is `docs/build-plan/PLAN.md` (weeks 1–3, chunk sizes, what only he can do, my
+  own ideas). The planning chat with him started on 23 Oct; nothing is built until he says yes to the Week 1 list.
+- The browser specs hardcode 390 × 844 (29 of them); making 440 × 956 the main viewport is chunk A3 of the plan.
+- Baseline audit (brain suite + all 51 browser specs on a preview server): results are appended here when the run ends.
+
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:
 planning, research, design, building, testing, reviews and reporting. Before each step, ask: "is there a cheaper way
