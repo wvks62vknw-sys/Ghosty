@@ -93,7 +93,8 @@ const bbc = (stage: StageId, id: string, words: string): ShelfEntry => link(stag
  * Every shelf, nursery to university (the whole library is its own shelf: everything in it). Each Gutenberg number
  * was checked against Project Gutenberg's catalogue and its text file fetched on 23 Oct 2026; each textbook page too.
  * Left out on purpose: Peter Pan (Great Ormond Street keeps a perpetual right in the UK), Pinocchio in Carol Della
- * Chiesa's translation (she died in 1972), Einstein (died 1955), Russell (1970), Milne, Tolkien and C. S. Lewis.
+ * Chiesa's translation (she died in 1972), Einstein (died 1955), Russell (1970), Milne, Tolkien and C. S. Lewis;
+ * and Calculus Made Easy (#33283): public domain, but Gutenberg has no plain-text edition of it for the importer.
  */
 export const SHELVES: ShelfEntry[] = [
   // ---- nursery: rhymes and first picture books
@@ -189,7 +190,6 @@ export const SHELVES: ShelfEntry[] = [
   pg('university', 34901, 'On Liberty', 'John Stuart Mill', 1873),
   pg('university', 1497, 'The Republic', 'Plato, translated by Benjamin Jowett', 1893, 'its translator died in 1893'),
   pg('university', 2680, 'Meditations', 'Marcus Aurelius, translated by Meric Casaubon', 1671, 'its translator died in 1671'),
-  pg('university', 33283, 'Calculus Made Easy', 'Silvanus P. Thompson', 1916),
   pg('university', 15776, 'The Economic Consequences of the Peace', 'John Maynard Keynes', 1946),
   os('university', 'calculus-volume-1', 'Calculus Volume 1', 'maths'),
   os('university', 'university-physics-volume-1', 'University Physics Volume 1', 'physics'),
