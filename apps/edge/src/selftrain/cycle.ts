@@ -27,6 +27,11 @@
  * again with the same gate, that it is the expected repo, and only then promotes it (a tag, and the list the
  * phone's weight address serves: weights.ts). The last three good ones are kept; ROLLBACK drops the one in use and
  * goes back one (to the stock Qwen3 after the oldest).
+ * SCHOOL (school/practice.ts, school/remote.ts) rides on the same job: a paper sat on Kaggle's free GPU by the same
+ * weights (the notebook in exam mode under its own slug, `ghosty-exam`, one at a time, never while the week's run is
+ * on Kaggle; its answers come back through the same hook with their own one-time ticket), the online model sitting
+ * the same papers (the honest gap) and practice for his weak spots, a few model calls a step each; that practice goes
+ * into the week's data as `school` records, and the GYM puzzles follow his school stage. None of it touches the gate.
  * With MY LIBRARY & CHATS off, a week's data has none of the owner's text, earlier private weeks are left out of
  * the replay, and the week trains on the newest kept brain whose whole chain had no private data (else stock).
  *
@@ -34,7 +39,11 @@
  * report arrived cannot write its stale copy over it.
  */
 import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
+import { heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
+import { acceptRemoteReport, EXAM_GPU_HOURS, EXAM_LIMIT, gapTick, loadRemote, paperLines, paperName, saveRemote, stepSaveRemote, type RemoteState } from '../school/remote';
+import { loadPaper, loadState as loadSchool, STATE_KEY as SCHOOL_STATE } from '../school/state';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
 import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from './assets';
@@ -72,7 +81,7 @@ import {
   type CtxMsg,
   type Rating,
 } from './factory';
-import { hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
+import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -100,7 +109,7 @@ const REPORT_GRACE = 45 * 60_000;
 /** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
 const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
 
-const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill'];
+const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school'];
 
 /** A kept model as the brain keeps it: plus the LoRA chain that rebuilds it (for the next week's training). */
 export interface KeptModel extends PublishedModel {
@@ -220,8 +229,14 @@ export async function ensureTrainJob(storage: DurableObjectStorage): Promise<voi
   }
 }
 
-/** One step of the week. Never throws; returns when the job should run again (ms from now) and a line for the job list. */
+/** One step of the week, then SCHOOL's (schoolStep). Never throws; returns when the job should run again (ms from now) and a line for the job list. */
 export async function trainTick(d: CycleDeps): Promise<{ next: number; note: string }> {
+  const r = await weekTick(d);
+  const more = await schoolStep(d);
+  return more === null ? r : { next: Math.max(1000, Math.min(r.next, more)), note: r.note };
+}
+
+async function weekTick(d: CycleDeps): Promise<{ next: number; note: string }> {
   const st = await loadState(d.storage);
   const phase = st.phase;
   try {
@@ -323,7 +338,9 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
   async (d, st) => {
     const levels = (await d.storage.get<Record<string, number>>(K.gym)) ?? {};
     const games = [...new Set(GYM_SEEDS.map((g) => g.game))];
-    await addRecords(d.storage, 'gym', gymTasks(levels, games, st.week));
+    // While he is at school (SCHOOL has a record), the puzzles are at his stage's GYM levels: the GYM follows his schooling.
+    const stage = (await d.storage.get(SCHOOL_STATE)) ? stageById((await loadSchool({ storage: d.storage })).stage)?.gym : undefined;
+    await addRecords(d.storage, 'gym', gymTasks(levels, games, st.week, WEEKLY.gymPerLevel, stage));
     await addRecords(d.storage, 'drill', drillTasks(st.week));
   },
   // The synthetic tool calls (each with its tools' schemas: the biggest records) in two halves; the same every time for a week.
@@ -354,6 +371,14 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
     const ups = (await loadRatings(d.storage)).filter((r) => r.up && !r.used);
     await addRecords(d.storage, 'pref', far(ups.flatMap((r) => ratingRecords(r))));
     st.ratingIds = [...(st.ratingIds ?? []), ...ups.map((r) => r.at)];
+  },
+  async (d, _st, far) => {
+    // SCHOOL practice for his weak spots at his stage (school/practice.ts; no owner's text in it), at most WEEKLY.school,
+    // each checked once more against every question that is or may be on a paper (never a paper's item).
+    const stage = (await loadSchool({ storage: d.storage })).stage;
+    const { recs, near } = practiceRecords(await loadPractice(d.storage, stage), await heldQuestions(d.storage, stage), WEEKLY.school);
+    await noteRejected(d.storage, 'school practice too close to a question on a paper', near);
+    await addRecords(d.storage, 'school', far(recs));
   },
 ];
 
@@ -568,6 +593,9 @@ export function quotaProblem(q: GpuQuota): string {
 
 async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typeof parseKaggleKey>>, now: number): Promise<{ next: number; note: string }> {
   if (!d.origin) throw new RemoteError('the brain does not know its own address yet: open Ghosty once, then press TRAIN NOW.');
+  // A SCHOOL paper being sat on Kaggle (a few minutes): the week's run goes after it, never beside it.
+  const exam = await loadRemote(d.storage);
+  if (exam.phase === 'running') return { next: 15 * 60_000, note: `Waiting: ${paperName(exam)} is being sat on the free GPU; the training starts after it.` };
   // Kaggle's GPU hours first: never a run that could be charged, or one without the hours to finish. It waits
   // (asking again later, or at TRAIN NOW) rather than failing; after a week of waiting that week is given up.
   const q = await kaggleQuota(fetchOf(d), kaggle);
@@ -656,6 +684,165 @@ async function endWeek(d: CycleDeps, st: State, report: TrainReport, note: strin
   return { next: Math.max(60_000, st.nextRun - nowOf(d)), note };
 }
 
+// ---- SCHOOL: a paper on the free GPU, the honest gap, practice ------------------------------------------------
+
+/** How long an exam run may wait for the week's run to leave Kaggle, and Kaggle's COMPLETE without its answers. */
+const EXAM_WAIT_MAX = 16 * 3600_000;
+const EXAM_GRACE = 20 * 60_000;
+const EXAM_STATUS_ERRORS_MAX = 6;
+
+/** Why Kaggle's GPU quota rules out sitting a paper there now, in plain words ('' when it does not). Refused, not waited for. */
+export function examQuotaProblem(q: GpuQuota): string {
+  if (q.payToScale) return "Kaggle's pay-to-scale is switched on for this account, so the free GPU could be charged: Ghosty will not use it. Turn it off on kaggle.com (Settings), or sit the paper on the phone.";
+  if (q.total <= 0) return 'Kaggle gives this account no GPU time: verify your phone number on kaggle.com (Settings → Phone verification), or sit the paper on the phone.';
+  if (q.left < EXAM_GPU_HOURS)
+    return `Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (a paper needs ${EXAM_GPU_HOURS}): sit it on the phone, or again when they come back${q.refreshAt ? `, ${new Date(q.refreshAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : ''}.`;
+  return '';
+}
+
+/**
+ * SCHOOL's part of a job step, after the week's: the exam run (examStep), then the online model's sitting of a paper
+ * (the gap) or practice for his weak spots, a few model calls each (none while the week is gathering: its own calls
+ * come first). Never throws; returns when it wants the job back (ms), or null with nothing to do.
+ */
+async function schoolStep(d: CycleDeps): Promise<number | null> {
+  let next: number | null = null;
+  const want = (ms: number) => (next = next === null ? ms : Math.min(next, ms));
+  try {
+    const e = await examStep(d, nowOf(d));
+    if (e !== null) want(e);
+  } catch {
+    /* examStep keeps its own errors */
+  }
+  if ((await loadState(d.storage)).phase === 'collect') return next;
+  const sd = { storage: d.storage, ask: d.ask, now: d.now };
+  try {
+    const g = await gapTick(sd);
+    if (g.more) want(g.noModel ? 20 * 60_000 : 5 * 60_000);
+    if (g.calls || g.noModel) return next;
+    const p = await practiceTick(sd);
+    if (p.more) want(p.noModel ? 20 * 60_000 : 10 * 60_000);
+  } catch {
+    /* a model or storage blip: tried again at the next step */
+  }
+  return next;
+}
+
+/**
+ * One step of a SCHOOL paper sat on Kaggle (asked for by POST /school/sit-remote, school/remote.ts):
+ *   queued ──(keys, the week's run not on Kaggle, the GPU quota, the questions uploaded)──▶ running ──(the hook)──▶ idle
+ * The quota is checked first and a run refused (not waited for) with fewer than EXAM_GPU_HOURS left or pay-to-scale on.
+ * The paper's questions (never its answers) go to the PRIVATE dataset repo; the notebook is pushed in exam mode under
+ * its own slug with a one-time ticket. A run that stops, or that Kaggle calls COMPLETE without its answers coming,
+ * ends with the reason and the end of its log; nothing is pushed twice. Returns when to come back, or null.
+ */
+async function examStep(d: CycleDeps, now: number): Promise<number | null> {
+  const s = d.storage;
+  const r = await loadRemote(s);
+  if (r.phase === 'idle') return null;
+  const end = async (why: string): Promise<null> => {
+    r.phase = 'idle';
+    r.note = why;
+    r.last = { paperId: r.paperId ?? '', title: r.title ?? '', at: now, error: why };
+    delete r.ticket;
+    delete r.completeAt;
+    await stepSaveRemote(s, r);
+    await d.notify?.('School', why).catch(() => undefined);
+    return null;
+  };
+  const name = paperName(r);
+  const keys = await keysOf(d);
+  const f = fetchOf(d);
+  if (r.phase === 'queued') {
+    if (!keys.kaggle || !keys.hf) return end(`${name} could not be sat on the free GPU. ${missingNote(keys)}`);
+    if (!d.origin) return end(`${name} could not be sat on the free GPU: the brain does not know its own address yet (open Ghosty once, then try again).`);
+    const week = await loadState(s);
+    if (week.phase === 'push' || week.phase === 'running') {
+      if (now - (r.requestedAt ?? now) > EXAM_WAIT_MAX) return end(`${name} was not sat on the free GPU: the weekly training used it all this time. Sit it on the phone, or try again.`);
+      r.note = `Waiting: the weekly training is on the free GPU; ${name} goes after it.`;
+      await stepSaveRemote(s, r);
+      return 30 * 60_000;
+    }
+    try {
+      const no = examQuotaProblem(await kaggleQuota(f, keys.kaggle));
+      if (no) return end(no);
+      const rec = await loadPaper({ storage: s }, r.paperId ?? '');
+      if (!rec) return end(`${name} could not be sat on the free GPU: the paper is not known any more.`);
+      if (rec.result) return end(`${name} was handed in on the phone meanwhile; nothing was sat on the free GPU.`);
+      const me = await hfWhoami(f, keys.hf);
+      if (me.role === 'read') return end(`${name} could not be sat on the free GPU: the Hugging Face token can only read (make a write or fine-grained token as the steps in SYSTEM → KEYS say).`);
+      const repo = `${me.name}/${DATA_REPO}`;
+      await hfEnsurePrivateRepo(f, me, keys.hf, repo, 'dataset');
+      // The questions only (school_paper.jsonl: id, q, type, options, marks, passage) — never the answers or mark schemes.
+      const commit = await hfCommit(f, keys.hf, repo, 'dataset', [{ path: 'school_paper.jsonl', content: paperLines(rec.paper) }], `Ghosty: ${name} to sit (questions only)`);
+      // The brain in use, as the phone has it: the stock Qwen3, or the trained week it was switched to.
+      const base = await trainingBase(s, true);
+      const active = await s.get<string | null>(K.active);
+      r.model = `${base.label}${base.chain.length && active ? `@${active.slice(0, 7)}` : ''}`;
+      r.ticket = randomTicket();
+      r.ticketUntil = now + EXAM_LIMIT + 3600_000;
+      r.tokenGiven = false;
+      const config = {
+        mode: 'exam',
+        week: (await loadState(s)).week,
+        hook: `${d.origin.replace(/\/$/, '')}/api/training/hook`,
+        ticket: r.ticket,
+        data_repo: repo,
+        model_repo: `${me.name}/${MODEL_REPO}`,
+        data_file: 'school_paper.jsonl',
+        data_rev: commit,
+        paper_id: r.paperId,
+        model_label: r.model,
+        base_model: BASE_MODEL,
+        stock_mlc: STOCK_MLC,
+        current: base,
+        budget_hours: 1.5,
+      };
+      const k = await pushKernel(f, keys.kaggle, notebookSource(config), { slug: EXAM_SLUG, timeoutS: EXAM_GPU_HOURS * 3600 });
+      r.phase = 'running';
+      r.kernelUrl = k.url;
+      r.pushedAt = now;
+      r.statusErrors = 0;
+      r.note = `Sitting ${name} on the free GPU`;
+      await stepSaveRemote(s, r);
+      return 5 * 60_000;
+    } catch (e) {
+      return end(`${name} could not be sat on the free GPU: ${e instanceof RemoteError ? e.message : String((e as Error)?.message ?? e).slice(0, 200)}`);
+    }
+  }
+  // running
+  if (now - (r.pushedAt ?? now) > EXAM_LIMIT) return end(`${name} on the free GPU did not send its answers back within ${EXAM_LIMIT / 3600_000} hours: given up.`);
+  if (!keys.kaggle) return end(`${name} on the free GPU: the Kaggle key was taken away, so the run cannot be followed.`);
+  try {
+    const k = await kernelStatus(f, keys.kaggle, EXAM_SLUG);
+    r.statusErrors = 0;
+    if (k.state === 'error' || k.state === 'cancelled') {
+      const tail = (await kernelOutput(f, keys.kaggle, EXAM_SLUG).catch(() => null))?.logTail;
+      return end(`${name} on the free GPU stopped (${k.message || k.state}).${tail ? ` The end of its log: ${tail}` : ''}`);
+    }
+    if (k.state === 'complete') {
+      r.completeAt ??= now;
+      if (now - r.completeAt < EXAM_GRACE) {
+        r.note = `Kaggle: ${name} is finished; waiting for its answers.`;
+        await stepSaveRemote(s, r);
+        return 5 * 60_000;
+      }
+      const out = await kernelOutput(f, keys.kaggle, EXAM_SLUG).catch(() => null);
+      const err = out?.report?.error ? String(out.report.error).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…').slice(0, 200) : '';
+      return end(`${name} on the free GPU finished without sending its answers: ${err ? `the notebook stopped: ${err}` : 'they never reached Ghosty (no internet on Kaggle, or Ghosty could not be reached)'}.${out?.logTail ? ` The end of its log: ${out.logTail}` : ''}`);
+    }
+    delete r.completeAt;
+    r.note = k.state === 'queued' ? `Waiting for a free Kaggle GPU for ${name}.` : `Sitting ${name} on the free GPU`;
+    await stepSaveRemote(s, r);
+    return 5 * 60_000;
+  } catch (e) {
+    r.statusErrors = (r.statusErrors ?? 0) + 1;
+    if (r.statusErrors >= EXAM_STATUS_ERRORS_MAX) return end(`${name} on the free GPU: Kaggle could not be asked about the run ${EXAM_STATUS_ERRORS_MAX} times in a row (${e instanceof RemoteError ? e.message : 'no answer'}).`);
+    await stepSaveRemote(s, r);
+    return 10 * 60_000;
+  }
+}
+
 // ---- the report comes back (the hook) ----------------------------------------------------------------------
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
@@ -676,8 +863,11 @@ const scoresOk = (s: unknown): s is AreaScores => !!s && typeof s === 'object' &
  * or the final report (after which the ticket is spent).
  */
 export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
-  const st = await loadState(d.storage);
   const t = req.headers.get('x-ghosty-ticket') ?? '';
+  // A SCHOOL paper sat on Kaggle has its own one-time ticket (examHook); the week's is checked below as ever.
+  const exam = await loadRemote(d.storage);
+  if (exam.ticket && t && sameText(t, exam.ticket) && nowOf(d) <= (exam.ticketUntil ?? 0)) return examHook(req, d, exam);
+  const st = await loadState(d.storage);
   if (!st.ticket || !t || !sameText(t, st.ticket) || nowOf(d) > (st.ticketUntil ?? 0)) return json({ error: 'not expected' }, 403);
   if (req.method === 'GET') {
     if (st.tokenGiven) return json({ error: 'already given' }, 403);
@@ -708,6 +898,29 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
   }
   const report = await acceptReport(d, st, r);
   return json({ ok: true, published: !!report.published });
+}
+
+/**
+ * The exam run's side of the hook: GET trades its ticket for the Hugging Face token ONCE (to load the brain in use from
+ * the private repos); POST brings progress, or the school report `{ kind: 'school', paperId, model, answers }`, which is
+ * marked as a phone-sat paper is (school/remote.ts) and spends the ticket. Anything else is turned away.
+ */
+async function examHook(req: Request, d: CycleDeps, exam: RemoteState): Promise<Response> {
+  if (req.method === 'GET') {
+    if (exam.tokenGiven) return json({ error: 'already given' }, 403);
+    const hf = (await d.vault.get('hf_write')) ?? '';
+    if (!hf) return json({ error: 'no token saved' }, 404);
+    exam.tokenGiven = true;
+    await saveRemote(d.storage, exam);
+    return json({ hf_token: hf });
+  }
+  if (req.method !== 'POST') return json({ error: 'not found' }, 404);
+  const body = (await req.json().catch(() => null)) as { report?: { kind?: unknown; paperId?: unknown; answers?: unknown; error?: unknown }; progress?: { note?: string } } | null;
+  if (body?.progress && !body.report) return json({ ok: true });
+  const r = body?.report;
+  if (!r || r.kind !== 'school') return json({ error: 'not a school report' }, 400);
+  const got = await acceptRemoteReport({ storage: d.storage, ask: d.ask, now: d.now }, exam, r);
+  return got.ok ? json({ ok: true }) : json({ error: got.error }, 400);
 }
 
 /** Check the report, keep it, and promote the new brain when it really passed (the same gate, applied here again). */
@@ -776,6 +989,7 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
   const jobs = (await loadJobs(s)).filter((j) => j.kind === 'train');
   const ratings = (await loadRatings(s)).filter((r) => !r.used);
   const models = await loadModels(s);
+  const school = await practiceSummary(s).catch(() => null);
   return {
     keys: { kaggle: !!keys.kaggle, hf: !!keys.hf },
     phase: st.phase,
@@ -790,6 +1004,7 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
     privateData: await privateOn(s),
     ratings: { up: ratings.filter((r) => r.up).length, down: ratings.filter((r) => !r.up).length },
     weights: models.length ? `/api/w/${await weightsCap(s)}/` : null,
+    ...(school ? { school } : {}),
   };
 }
 
