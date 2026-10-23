@@ -2461,7 +2461,6 @@ html[data-look="pro"] {
   /* springs for taps and sheets: response 0.35 s, damping 0.85 */
   --spring: cubic-bezier(.32,.72,0,1); --rcsp: .35s;
   --t1: 700 34px/41px var(--sfd); --t2: 600 17px/22px var(--sf); --t3: 400 17px/24px var(--sf); --t4: 400 15px/20px var(--sf); --t5: 400 13px/18px var(--sf);
-  --tabh: 64px;
 }
 /* Reactor: the same glass, a warm hairline, the gold reactor as the accent */
 html[data-look="pro"][data-finish="reactor"] { --hair: rgba(255,236,214,.09); --ink2: rgba(245,238,230,.64); --ink3: rgba(245,238,230,.42); }
