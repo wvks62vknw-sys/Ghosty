@@ -22,8 +22,8 @@
  * Never in the library, never exported, never trained on. A sat official paper is marked and graded exactly like
  * any other, against its real boundaries; its result says "official" and names the year and the board.
  */
-import { boundaryBands, normaliseText, parseNumber, scaleBands, scaledBands, SUBJECT_LABEL, type GradeBand, type StageId } from '../../../../packages/shared/src/school';
-import { CALLS_PER_TICK, checkDrafts, cleanDraft, jsonArray, nextBatch, numberedLines, type Draft } from './banks';
+import { boundaryBands, normaliseText, parseNumber, scaleBands, scaledBands, type GradeBand, type StageId } from '../../../../packages/shared/src/school';
+import { CALLS_PER_TICK, checkDrafts, cleanDraft, jsonArray, nextBatch, numberedLines, subjectWords, type Draft } from './banks';
 import type { Ask } from './mark';
 import type { Passage, SchoolItem, SchoolPaper } from './papers';
 
@@ -402,7 +402,7 @@ export const qKey = (n: unknown): string => String(n ?? '').toLowerCase().replac
 
 const stageWords: Record<string, string> = { ks2: 'Key Stage 2', gcse: 'GCSE', alevel: 'A-level' };
 /** "the 2024 Key Stage 2 maths papers". */
-export const officialName = (e: OfficialEntry): string => `the ${e.year} ${stageWords[e.stage] ?? e.stage} ${(SUBJECT_LABEL[e.subject] ?? e.subject).toLowerCase()} ${e.board === 'Standards and Testing Agency' ? 'SATs paper' : `paper (${e.board} ${e.code})`}`;
+export const officialName = (e: OfficialEntry): string => `the ${e.year} ${stageWords[e.stage] ?? e.stage} ${subjectWords(e.subject)} ${e.board === 'Standards and Testing Agency' ? 'SATs paper' : `paper (${e.board} ${e.code})`}`;
 
 /** The line the owner sees for an official paper. */
 export function officialLine(e: OfficialEntry, r: OfficialRecord | undefined, used: boolean): string {
@@ -411,8 +411,7 @@ export function officialLine(e: OfficialEntry, r: OfficialRecord | undefined, us
   if (r.status === 'failed') return `Could not be read: ${r.error ?? 'unknown problem'}`;
   if (r.status === 'reading') return `Reading ${officialName(e)} · step ${Math.min(r.steps, r.plan)} of ${Math.max(r.plan, r.steps)}${r.note ? ` · ${r.note}` : ''}`;
   const p = r.paper!;
-  const out = (p.leftOut ?? []).reduce((a, x) => a + x.marks, 0);
-  return `${used ? 'Sat' : 'Ready'}: ${p.items.length} questions, ${p.maxMarks} marks${out ? ` (${out} of ${e.fullMarks} left out)` : ''}`;
+  return `${used ? 'Sat' : 'Ready'}: ${p.items.length} questions, ${p.maxMarks === e.fullMarks ? `${p.maxMarks} marks` : `${p.maxMarks} of the paper's ${e.fullMarks} marks`}`;
 }
 
 // ---- one slice of reading ----------------------------------------------------------------------------------------
@@ -580,6 +579,9 @@ export async function officialTick(s: OfficialStore, id: string, write: Ask | un
       }
       r.note = '';
     } catch {
+      // No model free: nothing is lost; the next slice carries on. (A call that failed is not counted.)
+      calls--;
+      r.steps--;
       r.note = 'waiting for a free model';
       break;
     }
@@ -707,6 +709,8 @@ export function officialRow(e: OfficialEntry, r: OfficialRecord | undefined, use
     fullMarks: e.fullMarks,
     source: e.source,
     licence: e.licence,
+    /** The licence in a few words, for the list. */
+    licenceShort: e.board === 'Standards and Testing Agency' ? 'Crown copyright · Open Government Licence v3.0' : `© ${e.board === 'Pearson Edexcel' ? 'Pearson' : e.board} · free for personal use`,
     boundaries: e.boundaries,
     note: e.note ?? null,
     status: (r?.status ?? 'available') as OfficialStatus | 'available',

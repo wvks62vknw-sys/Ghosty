@@ -31,10 +31,22 @@ export interface StageRow {
   papers: boolean;
   pass: string;
 }
+/** Where a subject's next paper comes from (part 2): an official paper, the generators, a checked bank, or none yet. */
+export type Source = 'official' | 'written' | 'bank' | null;
+export interface SourceInfo {
+  source: Source;
+  line: string;
+  official?: { id: string; year: number; board: string };
+  bank?: { kept: number; target: number; done: boolean; line: string };
+}
 export interface StageView {
   state: { stage: StageId; passed: Partial<Record<StageId, PassedStage>>; results: PaperResult[]; nightly: boolean; open: { id: string; stage: StageId; subject: string; at: number }[] };
   stages: StageRow[];
-  current: { stage: StageId; label: string; papers: boolean; pass: string; subjects: { id: string; label: string; latest: PaperResult | null; top: boolean }[] };
+  current: { stage: StageId; label: string; papers: boolean; bank: boolean; pass: string; subjects: { id: string; label: string; latest: PaperResult | null; top: boolean; source: Source; from: string }[] };
+  /** Every stage's subjects: where their papers come from. */
+  sources: Record<string, Record<string, SourceInfo>>;
+  work: { busy: boolean; banks: string[]; official: string[] };
+  bankStages: StageId[];
   weak: { topic: string; stage: StageId; subject: string; lost: number; of: number }[];
   pending: { paperId: string; title: string; items: number }[];
   next: string | null;
@@ -75,9 +87,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 
 export const school = {
   view: () => call<StageView>('GET', '/school'),
-  sit: (stage: string, subject: string) => call<{ paper: SitPaper; done: string[]; resumed: boolean }>('POST', '/school/sit', { stage, subject }),
+  sit: (stage: string, subject: string) => call<{ paper: SitPaper; done: string[]; resumed: boolean; from?: Source }>('POST', '/school/sit', { stage, subject }),
   answers: (paperId: string, answers: { id: string; given: string }[], final: boolean) => call<{ result?: PaperResult; changed?: { passed: string[]; stage: string | null }; stage?: string; next?: string | null; saved?: number }>('POST', '/school/answers', { paperId, answers, final, model: modelKey() }),
-  paper: (id: string) => call<{ paper: { items: (SitItem & { answer?: string; rubric?: string; also?: string[] })[]; passages?: SitPaper['passages']; title: string; official: boolean; source?: string; licence?: string }; result: PaperResult; given: Record<string, string> }>('GET', `/school/paper/${encodeURIComponent(id)}`),
+  paper: (id: string) => call<{ paper: { items: (SitItem & { answer?: string; rubric?: string; also?: string[] })[]; passages?: SitPaper['passages']; title: string; official: boolean; source?: string; licence?: string; boundaries?: string; leftOut?: { what: string; marks: number; why: string }[]; from?: 'bank' | 'official' }; from?: 'written' | 'official' | 'bank'; result: PaperResult; given: Record<string, string> }>('GET', `/school/paper/${encodeURIComponent(id)}`),
   settings: (nightly: boolean) => call<StageView>('POST', '/school/settings', { nightly }),
 };
 

@@ -5,9 +5,31 @@
 // marked it; RESULTS opens the paper with every question, his answer and the marks; the placement picker lists
 // every stage; without the download it says so and offers DOWNLOAD IT IN SETTINGS. Nothing scrolls sideways and
 // every button is at least 44 px tall.
+// Part 2: each subject says where its next paper comes from; OFFICIAL PAPERS lists the real papers with their
+// source and licence, and FETCH reads one on the phone (the file is a stand-in PDF served here, never the real
+// site) and the mock brain makes it into a paper ("Ready", the diagram question left out); WRITE THE PAPERS for
+// Key Stage 3 writes its banks through the mock brain until the stage can be sat.
 //   BASE=http://localhost:8803 node tests/school.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
+
+/** A one-page PDF with these lines of text (Helvetica), as an exam paper's stand-in. */
+function makePdf(lines) {
+  const esc = (t) => t.replace(/[\\()]/g, (c) => `\\${c}`);
+  const content = `BT /F1 12 Tf 50 800 Td ${lines.map((l, i) => `${i ? '0 -20 Td ' : ''}(${esc(l)}) Tj`).join(' ')} ET`;
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>', `<< /Length ${content.length} >>\nstream\n${content}\nendstream`];
+  let out = '%PDF-1.4\n';
+  const offs = [];
+  objs.forEach((o, i) => {
+    offs.push(out.length);
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const x = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+const GPS_QUESTIONS = makePdf(['KEY STAGE 2 ENGLISH GRAMMAR, PUNCTUATION AND SPELLING PAPER 1', '1 What is 12 + 30? [1 mark]', '2 What is 7 + 8? [1 mark]', '3 Use the diagram to find angle x [2 marks]', '4 Explain why 9 is not a prime number [2 marks]']);
+const GPS_MARKS = makePdf(['MARK SCHEMES', '1 Answer: 42', '2 Answer: 15', '3 Answer: 40', '4 Answer: it has the factor 3']);
 import { openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -137,9 +159,10 @@ await page.waitForTimeout(300);
 // ---- the placement picker lists every stage -------------------------------------------------------------------------
 await page.locator('#pg-school .schplace button', { hasText: /placement test/i }).click();
 await page.waitForFunction(() => document.querySelectorAll('#pg-school .schpick button').length === 9, null, { timeout: 5000 }).catch(() => problems.push('the placement picker does not list nine stages'));
-const picks = await page.$$eval('#pg-school .schpick button', (b) => b.map((x) => ({ id: x.dataset.stage, off: x.disabled })));
+const picks = await page.$$eval('#pg-school .schpick button', (b) => b.map((x) => ({ id: x.dataset.stage, off: x.disabled, papers: x.dataset.papers })));
+if (picks.slice(0, 4).some((p) => p.papers !== 'true')) problems.push(`placement: nursery to Key Stage 2 have papers: ${JSON.stringify(picks)}`);
 if (picks.map((p) => p.id).join(',') !== STAGES.join(',')) problems.push(`placement stages: ${picks.map((p) => p.id).join(', ')}`);
-if (picks.slice(0, 4).some((p) => p.off) || picks.slice(4).some((p) => !p.off)) problems.push(`placement: nursery to Key Stage 2 can be sat, the rest have no papers yet: ${JSON.stringify(picks)}`);
+if (picks.slice(0, 8).some((p) => p.off) || !picks[8].off) problems.push(`placement: nursery to university can be picked (Key Stage 3 up to write their papers), the library cannot: ${JSON.stringify(picks)}`);
 await page.locator('#pg-school .schpick button[data-stage="ks2"]').click();
 const goText = (await page.locator('#pg-school .schgo').textContent().catch(() => '')) ?? '';
 if (!/If he gets top grades, that stage and everything below it is done at once/.test(goText)) problems.push(`the placement does not say what it does: ${goText}`);
@@ -148,6 +171,70 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/school-placement.png` });
 await noSideways(page, 'the placement picker');
 await smallTargets(page, 'the placement picker');
+
+// ---- each subject says where its paper comes from ----------------------------------------------------------------
+const froms = await page.$$eval('#pg-school .schsub .schfrom', (n) => n.map((x) => x.textContent));
+if (froms.length !== 4 || froms.some((f) => !/^Next paper: written by Ghosty$/.test(f))) problems.push(`the subjects do not say who writes their papers: ${JSON.stringify(froms)}`);
+
+// ---- OFFICIAL PAPERS: the list with source and licence; FETCH reads one on the phone and the brain makes it a paper ----
+await page.waitForFunction(() => document.querySelectorAll('#pg-school .schofficial .schoff').length >= 25, null, { timeout: 10000 }).catch(() => problems.push('OFFICIAL PAPERS does not list the official papers'));
+const offs = await page.$$eval('#pg-school .schofficial .schoff', (n) => n.map((x) => ({ id: x.dataset.id, text: x.textContent })));
+if (!offs.some((o) => o.id === 'ks2-2024-gps') || !offs.some((o) => o.id === 'gcse-aqa-8300-1h-2023') || !offs.some((o) => o.id === 'gcse-ocr-j277-01-2023') || !offs.some((o) => o.id === 'alevel-aqa-7357-1-2023')) problems.push(`official papers missing: ${offs.map((o) => o.id).join(', ')}`);
+for (const o of offs) if (!/Source: /.test(o.text) || !/(Open Government Licence|copyright stays with)/.test(o.text) || !/never shared/.test(o.text)) problems.push(`${o.id}: no source or licence line`);
+const groups = await page.$$eval('#pg-school .schofficial details.schoffgrp > summary', (n) => n.map((x) => x.textContent));
+if (groups.length !== 3 || !/^Key Stage 2 SATs · 9 papers/.test(groups[0]) || !/^GCSE · 11 papers/.test(groups[1]) || !/^A-level · 9 papers/.test(groups[2])) problems.push(`official paper groups: ${JSON.stringify(groups)}`);
+// The files: stand-ins served here (the spec never reaches the real sites).
+const fileAsks = [];
+await page.route('**/api/school/official/file?**', (route) => {
+  const u = new URL(route.request().url());
+  fileAsks.push(`${u.searchParams.get('id')}#${u.searchParams.get('part')}`);
+  route.fulfill({ status: 200, contentType: 'application/pdf', body: u.searchParams.get('part') === '0' ? GPS_QUESTIONS : GPS_MARKS });
+});
+const gpsRow = page.locator('#pg-school .schoff[data-id="ks2-2024-gps"]');
+if (!(await gpsRow.isVisible())) await page.locator('#pg-school .schofficial details.schoffgrp > summary').first().click();
+const alreadyFetched = !(await gpsRow.locator('button', { hasText: /^FETCH/ }).count());
+if (!alreadyFetched) {
+  await gpsRow.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/school-official.png` });
+  await gpsRow.locator('button', { hasText: /^FETCH/ }).click();
+  await page.waitForFunction(() => (window.__ghosty?.school?.official ?? []).find((o) => o.id === 'ks2-2024-gps')?.status === 'ready', null, { timeout: 30000 }).catch(async () => problems.push(`FETCH did not make the paper ready: ${JSON.stringify(await page.evaluate(() => (window.__ghosty?.school?.official ?? []).find((o) => o.id === 'ks2-2024-gps')))}`));
+  if (fileAsks.join(',') !== 'ks2-2024-gps#0,ks2-2024-gps#1') problems.push(`the parts were not fetched through the brain in order: ${fileAsks.join(',')}`);
+}
+await page.waitForFunction(() => /^(Ready|Sat): 3 questions, 4 of the paper's 70 marks$/.test(document.querySelector('#pg-school .schoff[data-id="ks2-2024-gps"] .schoffline')?.textContent ?? ''), null, { timeout: 15000 }).catch(async () => problems.push(`the fetched paper's line: "${await gpsRow.locator('.schoffline').textContent().catch(() => '')}"`));
+await gpsRow.scrollIntoViewIfNeeded();
+await page.waitForFunction(() => !document.querySelector('.toast'), null, { timeout: 8000 }).catch(() => undefined);
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/school-official-ready.png` });
+await noSideways(page, 'OFFICIAL PAPERS');
+await smallTargets(page, 'OFFICIAL PAPERS');
+// Key Stage 2's grammar paper is official now (picked for a placement, it says so).
+await page.locator('#pg-school .schpick button[data-stage="ks2"]').click().catch(() => undefined);
+const ks2Go = (await page.locator('#pg-school .schgo').textContent().catch(() => '')) ?? '';
+if (!/Grammar, punctuation and spelling — official/.test(ks2Go) && !alreadyFetched) problems.push(`Key Stage 2 grammar is not marked official: ${ks2Go}`);
+
+// ---- WRITE THE PAPERS: Key Stage 3's banks written through the mock brain until the stage can be sat ---------------
+await page.locator('#pg-school .schpick button[data-stage="ks3"]').click();
+const ks3Ready = async () => (await page.locator('#pg-school .schpick button[data-stage="ks3"]').getAttribute('data-papers')) === 'true';
+if (!(await ks3Ready())) {
+  const writeBtn = page.locator('#pg-school .schgo button.schwrite');
+  if (!/WRITE THE PAPERS/.test((await writeBtn.textContent().catch(() => '')) ?? '')) problems.push('Key Stage 3 without papers does not offer WRITE THE PAPERS');
+  const why = (await page.locator('#pg-school .schgo .note').first().textContent().catch(() => '')) ?? '';
+  if (!/no Key Stage 3 papers yet[\s\S]*second check/.test(why)) problems.push(`WRITE THE PAPERS does not say what it does: ${why}`);
+  await writeBtn.click();
+  await page.waitForFunction(() => (window.__ghosty?.school?.banks ?? []).some((b) => /^Writing the Key Stage 3 [\w ]+ bank · \d+ of \d+/.test(b.line)), null, { timeout: 15000 }).catch(() => problems.push('no honest progress line while the banks are written'));
+  await page.locator('#pg-school .schplace').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-writing.png` });
+  await page.waitForFunction(() => (window.__ghosty?.school?.stages ?? []).find((s) => s.id === 'ks3')?.papers === true, null, { timeout: 150000 }).catch(async () => problems.push(`Key Stage 3 never became sittable: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.school?.banks))}`));
+}
+await page.waitForFunction(() => document.querySelector('#pg-school .schpick button[data-stage="ks3"]')?.dataset.papers === 'true', null, { timeout: 10000 }).catch(() => problems.push('the placement picker does not offer Key Stage 3 to sit'));
+await page.locator('#pg-school .schpick button[data-stage="ks3"]').click().catch(() => undefined);
+const ks3Go = (await page.locator('#pg-school .schgo').textContent().catch(() => '')) ?? '';
+if (!/Key Stage 3: 6 papers/.test(ks3Go) || !(await page.locator('#pg-school .schgo button', { hasText: 'SIT KEY STAGE 3' }).count())) problems.push(`Key Stage 3 cannot be sat after its banks: ${ks3Go}`);
+await page.locator('#pg-school .schplace').scrollIntoViewIfNeeded();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/school-ks3-ready.png` });
+await noSideways(page, 'Key Stage 3 written');
 await ctx.close();
 
 // ---- not downloaded: it says so and offers DOWNLOAD IT IN SETTINGS ----------------------------------------------

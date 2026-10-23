@@ -111,7 +111,7 @@ export async function sourcesFor(d: Store, st: SchoolState): Promise<Record<stri
       const off = nextOfficial(id, sub, recs, st.officialUsed);
       const bank = isBankStage(id) && shapeOf(id, sub) ? banks.get(bankKey(id, sub)) : undefined;
       if (off?.paper) row[sub] = { source: 'official', line: `official: ${off.paper.board === 'Standards and Testing Agency' ? `${off.paper.year} SATs (Standards and Testing Agency)` : `${off.paper.board}, ${off.paper.year}`}`, official: { id: off.id, year: off.paper.year ?? 0, board: off.paper.board ?? '' } };
-      else if (hasPapers(id)) row[sub] = { source: 'written', line: 'written by Ghosty in the same style' };
+      else if (hasPapers(id)) row[sub] = { source: 'written', line: 'written by Ghosty' };
       else if (bankReady(bank)) row[sub] = { source: 'bank', line: `written by Ghosty from his checked bank (${bank!.kept} questions)`, bank: bankRow(bank!) };
       else if (bank) row[sub] = { source: null, line: bankRow(bank).line, bank: bankRow(bank) };
       else row[sub] = { source: null, line: isBankStage(id) && shapeOf(id, sub) ? 'no paper yet: WRITE THE PAPERS writes its question bank' : 'no paper yet' };

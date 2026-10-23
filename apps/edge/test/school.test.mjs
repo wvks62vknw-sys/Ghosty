@@ -10,11 +10,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { existsSync } from 'node:fs';
 import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/tools/extra.ts', '../../../packages/shared/src/school.ts'].map(at),
+  // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -26,7 +28,7 @@ await build({
 });
 // The whole brain too, so the routes and the daily step are checked through agent.ts.
 await build({ entryPoints: [at('../src/index.ts')], bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outfile: at('./.build/school/brain.mjs'), logLevel: 'warning' });
-const load = (f) => import(`./.build/school/${f}.mjs`);
+const load = (f) => import(`./.build/school/${f}.mjs`).catch(() => ({}));
 const P = await load('apps/edge/src/school/papers');
 const ST = await load('apps/edge/src/school/state');
 const MK = await load('apps/edge/src/school/mark');
@@ -34,6 +36,11 @@ const R = await load('apps/edge/src/school/routes');
 const IX = await load('apps/edge/src/school/index');
 const X = await load('apps/edge/src/tools/extra');
 const S = await load('packages/shared/src/school');
+const B = await load('apps/edge/src/school/banks');
+const O = await load('apps/edge/src/school/official');
+const MOCK = await load('apps/edge/src/school/mock');
+const LIB = await load('apps/edge/src/library/store');
+const F = await load('apps/edge/src/selftrain/factory');
 
 class MemStorage {
   m = new Map();
@@ -409,4 +416,409 @@ test('through the brain: /api/school for the owner only, a paper sat and handed 
   const st = await ST.loadState({ storage });
   assert.deepEqual(st.news, [], 'the report went (no phone subscribed here: nothing to deliver, nothing left waiting)');
   assert.ok(st.reportedDay);
+});
+
+// ---- part 2: question banks, checked twice ----------------------------------------------------------------------
+
+/**
+ * A scripted stronger model for the banks. It writes what it is asked for in the format asked, with bad ones on
+ * purpose (a wrong answer every `wrongEvery`, an unsound mark scheme every `unsoundEvery`, and in every batch one
+ * with too many marks, one that needs a diagram and one repeat), and as the checker it really works the sums out
+ * from the question alone. `busy` makes every call throw (no model free).
+ */
+function bankModel({ wrongEvery = 7, unsoundEvery = 9 } = {}) {
+  const m = { calls: 0, k: 0, busy: false, wrong: new Set(), unsound: new Set() };
+  m.ask = async (system, user) => {
+    if (m.busy) throw new Error('every model is busy');
+    m.calls++;
+    if (system === B.WRITER_SYSTEM) {
+      const n = Number(user.match(/Write (\d+) NEW questions/)[1]);
+      const [min, max] = user.match(/carries (\d+) to (\d+) marks/).slice(1).map(Number);
+      const topics = user.match(/as written for "topic"\): ([^\n]+)\./)[1].split('; ');
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const k = ++m.k;
+        const topic = topics[i % topics.length];
+        const marks = min + (k % (max - min + 1));
+        const [a, b] = [10 + k, 3 + (k % 11)];
+        if (k % unsoundEvery === 0) (m.unsound.add(k), out.push({ topic, type: 'short', marks, q: `Item ${k}: explain why ${a} is bigger than ${b}.`, answer: 'Because it is.', rubric: 'UNSOUND-ME' }));
+        else if (k % 4 === 0) out.push({ topic, type: 'short', marks, q: `Item ${k}: explain why ${a} is bigger than ${b}.`, answer: `${a} has more tens than ${b}.`, rubric: `${marks} marks: compares the tens (1); says which is bigger (1).` });
+        else if (k % 5 === 0) out.push({ topic, type: 'mcq', marks, q: `Item ${k}: which is ${a} + ${b}?`, options: [String(a + b + 1), String(a + b), String(a + b - 1), String(a + b + 10)], answer: 'b' });
+        else {
+          const wrong = k % wrongEvery === 0;
+          if (wrong) m.wrong.add(k);
+          out.push({ topic, type: 'number', marks, q: `Item ${k}: what is ${a} + ${b}?`, answer: String(wrong ? a + b + 1 : a + b) });
+        }
+      }
+      out.push({ topic: topics[0], type: 'number', marks: max + 5, q: `Item x${m.k}: too many marks, what is 1 + 1?`, answer: '2' });
+      out.push({ topic: topics[0], type: 'number', marks: min, q: `Item y${m.k}: look at the diagram below. What is angle x?`, answer: '40' });
+      out.push({ ...out[0] });
+      return 'Here they are:\n```json\n' + JSON.stringify(out) + '\n```';
+    }
+    const blocks = user.split('\n\n');
+    if (system === B.CHECK_EXACT_SYSTEM) {
+      return blocks.map((bl, i) => {
+        const [, a, b] = bl.match(/(\d+) \+ (\d+)\?/) ?? [];
+        const v = Number(a) + Number(b);
+        const opt = bl.match(/\n([A-D])\) (-?\d+)/g)?.map((l) => l.trim().split(') ')).find(([, x]) => Number(x) === v)?.[0];
+        return `${i + 1}: ${/\nA\) /.test(bl) ? opt : v}`;
+      }).join('\n');
+    }
+    if (system === B.CHECK_SCHEME_SYSTEM) return blocks.map((bl, i) => `${i + 1}: ${bl.includes('UNSOUND-ME') ? 'UNSOUND - the model answer gives no reason' : 'SOUND'}`).join('\n');
+    throw new Error(`unexpected prompt: ${system.slice(0, 40)}`);
+  };
+  return m;
+}
+
+test('banks: a slice writes questions and checks them twice — only checked ones are kept, rejections counted by reason, a few model calls a slice', async () => {
+  const s = { storage: new MemStorage() };
+  const model = bankModel();
+  const first = await B.bankTick(s, 'gcse', 'maths', model.ask, 1000);
+  assert.ok(first.calls >= 1 && first.calls <= B.CALLS_PER_TICK, `${first.calls} calls in a slice`);
+  assert.equal(first.calls, model.calls);
+  assert.ok(first.meta.kept > 0, 'the first slice already keeps checked questions');
+  assert.ok(first.meta.rejected.malformed >= 1 && first.meta.rejected.picture >= 1 && first.meta.rejected.repeat >= 1, JSON.stringify(first.meta.rejected));
+  let meta = first.meta;
+  for (let i = 0; i < 200 && !meta.done; i++) {
+    const before = model.calls;
+    const r = await B.bankTick(s, 'gcse', 'maths', model.ask, 2000 + i);
+    assert.ok(model.calls - before <= B.CALLS_PER_TICK, `slice ${i}: ${model.calls - before} calls`);
+    meta = r.meta;
+  }
+  assert.ok(meta.done, 'the bank is finished');
+  assert.equal(meta.kept, B.shapeOf('gcse', 'maths').target);
+  const items = await B.bankItems(s, meta);
+  assert.equal(items.length, meta.kept);
+  assert.equal(new Set(items.map((i) => i.id)).size, items.length);
+  // Only checked ones: every exact answer right, no unsound mark scheme, nothing that needs a picture, no repeats.
+  for (const it of items) {
+    const k = Number(it.q.match(/^Item (\d+):/)?.[1]);
+    assert.ok(k, it.q);
+    assert.ok(!model.wrong.has(k), `item ${k}: its wrong answer was caught`);
+    assert.ok(!model.unsound.has(k) && it.rubric !== 'UNSOUND-ME', `item ${k}: its unsound scheme was caught`);
+    assert.ok(!/diagram/.test(it.q) && it.marks >= 1 && it.marks <= 5);
+    if (it.type === 'number') assert.equal(S.markExact(it, `Answer: ${Number(it.q.match(/(\d+) \+/)[1]) + Number(it.q.match(/\+ (\d+)/)[1])}`), it.marks);
+    if (it.type === 'short') assert.ok(it.rubric && it.answer);
+  }
+  assert.equal(new Set(items.map((i) => S.normaliseText(i.q))).size, items.length, 'no repeats');
+  assert.ok(meta.rejected.wrong > 0 && meta.rejected.unsound > 0, JSON.stringify(meta.rejected));
+  assert.ok(new Set(items.map((i) => i.topic)).size >= 8, 'the bank covers the topics');
+  assert.ok(B.shapeOf('gcse', 'maths').topics.includes(items[0].topic));
+  assert.match(B.bankLine(meta), /^The GCSE maths bank: 120 checked questions \(\d+ rejected\)$/);
+  // Chunks stay well under the 128 KB record limit; nothing outside SCHOOL's own keys.
+  for (const [k, v] of s.storage.m) {
+    assert.match(k, /^school:bank:gcse:maths(:\d+)?$/);
+    assert.ok(JSON.stringify(v).length < 128_000, `${k} is ${JSON.stringify(v).length} characters`);
+  }
+});
+
+test('banks: a busy model ends a slice without losing anything, and the next slice carries on (resumable); the progress line is honest', async () => {
+  const s = { storage: new MemStorage() };
+  const model = bankModel();
+  await B.bankTick(s, 'ks3', 'science', model.ask, 1);
+  const saved = await B.loadBank(s, 'ks3', 'science');
+  assert.match(B.bankLine(saved), /^Writing the Key Stage 3 science bank · \d+ of 65( · \d+ rejected)?( · \d+ being checked)?$/);
+  model.busy = true;
+  const idle = await B.bankTick(s, 'ks3', 'science', model.ask, 2);
+  assert.equal(idle.calls, 0);
+  assert.equal(idle.meta.note, 'waiting for a free model');
+  assert.equal(idle.meta.kept, saved.kept);
+  assert.deepEqual(idle.meta.drafts, saved.drafts, 'what waits for its check is kept');
+  assert.match(B.bankLine(idle.meta), /waiting for a free model$/);
+  // No writer at all (no model configured): the same.
+  assert.equal((await B.bankTick(s, 'ks3', 'science', undefined, 3)).calls, 0);
+  model.busy = false;
+  const next = await B.bankTick(s, 'ks3', 'science', model.ask, 4);
+  assert.ok(next.calls > 0 && next.meta.kept >= saved.kept && next.meta.note === '');
+  // A model that throws half-way through a slice: what the slice did before it is saved.
+  let n = 0;
+  const flaky = async (sys, user) => (++n === 2 ? Promise.reject(new Error('rate limited')) : model.ask(sys, user));
+  const half = await B.bankTick(s, 'ks3', 'science', flaky, 5);
+  assert.equal(half.calls, 1, 'the call that failed is not counted');
+  assert.deepEqual(await B.loadBank(s, 'ks3', 'science'), half.meta);
+});
+
+test('banks: a paper drawn from a bank has the stage\'s real structure — GCSE maths 80 marks of 1–5-mark questions across the topics, A-level 100 — and is the same for the same seed', async () => {
+  const s = { storage: new MemStorage() };
+  const model = bankModel();
+  for (const [stage, subject] of [['gcse', 'maths'], ['alevel', 'physics'], ['university', 'uni-maths']]) {
+    let meta;
+    for (let i = 0; i < 300 && !meta?.done; i++) meta = (await B.bankTick(s, stage, subject, model.ask, i)).meta;
+    assert.ok(meta.done, `${stage} ${subject} finished`);
+    const items = await B.bankItems(s, meta);
+    const shape = B.shapeOf(stage, subject);
+    for (const seed of [1_000_001, 1_234_567, 1_999_999]) {
+      const p = B.bankPaper(stage, subject, items, seed, `${stage}-${subject}-${seed}`);
+      assert.equal(p.maxMarks, shape.marks, `${p.id}: ${p.maxMarks} marks`);
+      assert.equal(p.items.reduce((a, i) => a + i.marks, 0), p.maxMarks);
+      assert.ok(p.items.every((i) => i.marks >= shape.min && i.marks <= shape.max));
+      assert.ok(new Set(p.items.map((i) => i.marks)).size >= 3, 'a mix of marks');
+      assert.ok(new Set(p.items.map((i) => i.topic)).size >= Math.min(6, shape.topics.length), 'across the topics');
+      assert.equal(new Set(p.items.map((i) => i.id)).size, p.items.length);
+      assert.equal(new Set(p.items.map((i) => i.q)).size, p.items.length, 'no question twice');
+      assert.ok(p.items.length <= B.MAX_PAPER_ITEMS);
+      assert.deepEqual(p.bands, S.bandsFor(stage, p.maxMarks));
+      assert.equal(p.official, false);
+      assert.match(p.title, /written by Ghosty from his checked question bank/);
+      assert.equal(JSON.stringify(B.bankPaper(stage, subject, items, seed, p.id)), JSON.stringify(p), 'same seed, same paper');
+    }
+    assert.notEqual(JSON.stringify(B.bankPaper(stage, subject, items, 1_000_001, 'x').items), JSON.stringify(B.bankPaper(stage, subject, items, 1_000_002, 'x').items));
+  }
+  assert.equal(S.gradeFor({ bands: S.bandsFor('gcse', 80) }, 80).grade, '9');
+  assert.equal(S.gradeFor({ bands: S.bandsFor('alevel', 100) }, 80).grade, 'A');
+});
+
+test('banks through the routes: WRITE THE PAPERS queues the stage, slices finish it, the stage becomes sittable from its bank, and /school/sit still hands out no answers', async () => {
+  const model = bankModel();
+  const h = host({ write: model.ask });
+  let g = (await route(h, '/school', 'GET')).body;
+  assert.equal(g.stages.find((x) => x.id === 'ks3').papers, false, 'no bank yet: Key Stage 3 cannot be sat');
+  assert.match(g.sources.ks3.maths.line, /WRITE THE PAPERS/);
+  assert.match((await route(h, '/school/sit', 'POST', { stage: 'ks3', subject: 'maths' })).body.error, /not written yet: WRITE THE PAPERS/);
+  assert.equal((await route(h, '/school/bank/write', 'POST', { stage: 'ks1' })).status, 400, 'nursery to Key Stage 2 need no bank');
+  const w = await route(h, '/school/bank/write', 'POST', { stage: 'ks3' });
+  assert.equal(w.status, 200);
+  assert.equal(w.body.busy, true);
+  assert.equal(w.body.banks.length, 6);
+  assert.ok(w.body.calls <= B.CALLS_PER_TICK);
+  assert.match(w.body.banks[0].line, /^Writing the Key Stage 3 (\w+ )+bank · \d+ of \d+/);
+  let work = w.body;
+  for (let i = 0; i < 400 && work.busy; i++) {
+    const before = model.calls;
+    work = (await route(h, '/school/work', 'POST')).body;
+    assert.ok(model.calls - before <= B.CALLS_PER_TICK);
+  }
+  assert.equal(work.busy, false, 'every Key Stage 3 bank finished');
+  g = (await route(h, '/school', 'GET')).body;
+  assert.equal(g.stages.find((x) => x.id === 'ks3').papers, true, 'Key Stage 3 can be sat now');
+  assert.equal(g.stages.find((x) => x.id === 'gcse').papers, false);
+  assert.ok(Object.values(g.sources.ks3).every((x) => x.source === 'bank' && /checked bank/.test(x.line)));
+  assert.ok((await ST.loadState({ storage: h.storage })).news.some((n) => /^wrote the Key Stage 3 maths bank \(70 checked questions\)$/.test(n)));
+  // Sat from the bank: no answers or mark schemes handed out; marked and graded like any other paper.
+  const s = await route(h, '/school/sit', 'POST', { stage: 'ks3', subject: 'maths' });
+  assert.equal(s.status, 200);
+  assert.equal(s.body.from, 'bank');
+  assert.equal(s.body.paper.maxMarks, 60);
+  for (const it of s.body.paper.items) assert.deepEqual(Object.keys(it).filter((k) => !['id', 'q', 'type', 'marks', 'options', 'passage', 'unit'].includes(k)), []);
+  const rec = await ST.loadPaper({ storage: h.storage }, s.body.paper.id);
+  assert.equal(rec.from, 'bank');
+  const a = await route(h, '/school/answers', 'POST', { paperId: s.body.paper.id, answers: rec.paper.items.map((it) => ({ id: it.id, given: rightReply(it) })) });
+  assert.equal(a.body.result.raw, 60);
+  assert.equal(a.body.result.grade, 'Top band');
+  assert.match(a.body.result.boundary, /^Top band from 51\/60 · the highest there is$/);
+  assert.equal(a.body.result.official, false);
+});
+
+// ---- part 2: the official papers -------------------------------------------------------------------------------
+
+test('the official papers list: every entry has its source, its licence, real boundaries and addresses on the official sites only', () => {
+  assert.ok(O.OFFICIAL.length >= 25);
+  const ids = new Set();
+  for (const e of O.OFFICIAL) {
+    assert.ok(!ids.has(e.id), `${e.id} once`), ids.add(e.id);
+    assert.match(e.id, /^[a-z0-9-]{1,60}$/);
+    assert.ok(S.stageById(e.stage).subjects.includes(e.subject), `${e.id}: ${e.subject} is a ${e.stage} subject`);
+    assert.ok(e.source.length > 10 && e.licence.length > 20, `${e.id}: source and licence`);
+    assert.match(e.licence, e.board === 'Standards and Testing Agency' ? /Open Government Licence v3\.0/ : /personal.*use; copyright stays with (AQA|Pearson|OCR)/);
+    assert.match(e.licence, /never shared/);
+    assert.ok(e.parts.some((p) => p.role === 'questions') && e.parts.some((p) => p.role === 'marks'), `${e.id}: questions and a mark scheme`);
+    for (const p of e.parts) {
+      const u = new URL(p.url);
+      assert.equal(u.protocol, 'https:');
+      assert.ok(O.OFFICIAL_HOSTS.includes(u.hostname), `${p.url} on an official host`);
+      assert.match(u.pathname, /\.pdf$/i);
+    }
+    assert.match(e.boundariesUrl, /^https:\/\/(www\.gov\.uk|filestore\.aqa\.org\.uk|qualifications\.pearson\.com|www\.ocr\.org\.uk)\//);
+    if (e.bands.kind === 'scaled') {
+      assert.equal(e.bands.table.length, e.fullMarks + 1, `${e.id}: a scaled score for every raw mark`);
+      assert.ok(e.bands.table.every((x, i) => i === 0 || x >= e.bands.table[i - 1]), 'scaled scores never go down');
+      assert.equal(e.bands.table.at(-1), 120);
+    } else {
+      const marks = e.bands.grades.map(([, m]) => m);
+      assert.ok(marks.every((m, i) => m <= e.fullMarks && (i === 0 || m < marks[i - 1])), `${e.id}: boundaries fall from the top grade`);
+      assert.deepEqual(e.bands.top, e.stage === 'alevel' ? ['A*', 'A'] : ['9', '8']);
+    }
+  }
+  // The three most recent years of SATs (reading, grammar and maths each), and every GCSE and A-level subject asked for.
+  for (const y of [2024, 2025, 2026]) for (const sub of ['reading', 'gps', 'maths']) assert.ok(ids.has(`ks2-${y}-${sub}`), `${y} ${sub}`);
+  for (const sub of ['maths', 'biology', 'chemistry', 'physics', 'english-language', 'english-literature', 'history', 'geography', 'computer-science']) assert.ok(O.OFFICIAL.some((e) => e.stage === 'gcse' && e.subject === sub), `GCSE ${sub}`);
+  for (const sub of ['maths', 'physics', 'chemistry', 'biology', 'computer-science', 'english-literature', 'history']) assert.ok(O.OFFICIAL.some((e) => e.stage === 'alevel' && e.subject === sub), `A-level ${sub}`);
+  assert.deepEqual([...new Set(O.OFFICIAL.map((e) => e.board))].sort(), ['AQA', 'OCR', 'Pearson Edexcel', 'Standards and Testing Agency']);
+  // Real boundaries: the 2024 maths SATs give 110 at 93 raw marks; AQA 8300/1H grade 7 at 49 of 80.
+  const sats = O.officialById('ks2-2024-maths');
+  assert.equal(S.gradeFor({ bands: O.entryBands(sats, 110) }, 93).grade, '110');
+  assert.equal(S.gradeFor({ bands: O.entryBands(sats, 110) }, 92).grade, '109');
+  assert.ok(S.gradeFor({ bands: O.entryBands(sats, 110) }, 93).top && !S.gradeFor({ bands: O.entryBands(sats, 110) }, 92).top);
+  assert.equal(S.gradeFor({ bands: O.entryBands(sats, 110) }, 2).grade, 'No scaled score');
+  const aqa = O.officialById('gcse-aqa-8300-1h-2023');
+  assert.equal(S.gradeFor({ bands: O.entryBands(aqa, 80) }, 49).grade, '7');
+  assert.equal(S.gradeFor({ bands: O.entryBands(aqa, 80) }, 15).grade, 'U');
+  assert.equal(S.boundaryLine({ bands: O.entryBands(aqa, 80), maxMarks: 80 }, 50), 'Grade 7 from 49/80 · grade 8 from 59');
+  assert.equal(S.boundaryLine({ bands: O.entryBands(sats, 110), maxMarks: 110 }, 77), 'Scaled score 105 from 76/110 · 106 from 80');
+});
+
+/** An official paper's checker that knows the right answers (by a bit of each question); the readers are SCHOOL's stand-in. */
+const officialModel = (key) => async (system, user) =>
+  system === B.CHECK_EXACT_SYSTEM ? user.split('\n\n').map((bl, i) => `${i + 1}: ${key.find(([k]) => bl.includes(k))?.[1] ?? 'not sure'}`).join('\n') : MOCK.schoolMock(system, user);
+const MATHS_QP = ['GCSE MATHEMATICS 8300/1H\nAnswer all questions in the spaces provided.', '1 Work out 12 + 30 [1 mark]\nAnswer ……\n2 Work out 7 × 8 [2 marks]\n3 Use the diagram to find angle x [3 marks]', '4 Explain why 9 is not a prime number [2 marks]\n5 Work out 100 − 1 [1 mark]\n6 Work out 5 + 5 [2 marks]'];
+const MATHS_MS = ['MARK SCHEME – GCSE MATHEMATICS – 8300/1H – JUNE 2023\n1 Answer: 42\n2 Answer: 56\n3 Answer: 40\n4 Answer: it has the factor 3\n5 Answer: 98'];
+
+test('official import: the phone\'s text becomes a paper with the real boundaries; a diagram question, one with no mark-scheme entry and one that fails the second check are left out honestly', async () => {
+  const h = host({ write: officialModel([['12 + 30', '42'], ['7 × 8', '56'], ['100 − 1', '99']]) });
+  const id = 'gcse-aqa-8300-1h-2023';
+  const one = await route(h, '/school/official/text', 'POST', { id, part: 0, pages: MATHS_QP });
+  assert.equal(one.status, 200);
+  assert.equal(one.body.paper.status, 'fetching', 'one part of two in');
+  assert.match(one.body.paper.line, /^Fetching on the phone · 1 of 2 parts read on the phone$/);
+  const two = await route(h, '/school/official/text', 'POST', { id, part: 1, pages: MATHS_MS });
+  assert.equal(two.body.paper.status, 'reading');
+  let work;
+  for (let i = 0; i < 20 && (work?.busy ?? true); i++) work = (await route(h, '/school/work', 'POST')).body;
+  assert.equal(work.busy, false);
+  const rec = await O.loadOfficial({ storage: h.storage }, id);
+  assert.equal(rec.status, 'ready');
+  const p = rec.paper;
+  assert.equal(p.official, true);
+  assert.deepEqual(p.items.map((i) => [i.q, i.type, i.marks, i.answer]), [['Work out 12 + 30', 'number', 1, '42'], ['Work out 7 × 8', 'number', 2, '56'], ['Explain why 9 is not a prime number', 'short', 2, 'it has the factor 3']]);
+  assert.ok(p.items[2].rubric, 'the written one keeps its mark scheme');
+  assert.equal(p.maxMarks, 5);
+  assert.deepEqual(p.leftOut.map((x) => [x.what, x.marks, x.why]).sort(), [
+    ['Question 3', 3, 'needs the picture'],
+    ['Question 5', 1, "a second check did not reach the mark scheme's answer"],
+    ['Question 6', 2, 'no mark scheme entry was found for it'],
+  ]);
+  // The board's real boundaries, scaled to the 5 marks he can sit.
+  assert.deepEqual(p.bands, S.scaleBands(S.boundaryBands([['9', 70], ['8', 59], ['7', 49], ['6', 39], ['5', 30], ['4', 21], ['3', 16]], ['9', '8']), 80, 5));
+  assert.match(p.boundaries, /^AQA's June 2023 notional boundaries for 8300\/1H .*, scaled to the 5 of 80 marks he can sit$/);
+  assert.equal(p.title, 'GCSE mathematics, Paper 1 Higher (non-calculator) · official AQA 8300/1H, June 2023');
+  assert.match(p.licence, /copyright stays with AQA/);
+  assert.equal(p.year, 2023);
+  assert.equal(p.board, 'AQA');
+  assert.ok(![...h.storage.m.keys()].some((k) => k.includes(':text:') || k.endsWith(':wip')), 'the text and the work in progress are dropped once the paper is ready');
+  assert.ok((await ST.loadState({ storage: h.storage })).news.some((n) => /^read the 2023 GCSE maths paper \(AQA 8300\/1H\) \(official, kept private\)$/.test(n)));
+  const list = (await route(h, '/school/official', 'GET')).body.papers.find((x) => x.id === id);
+  assert.equal(list.status, 'ready');
+  assert.equal(list.line, "Ready: 3 questions, 5 of the paper's 80 marks");
+  // Sat: handed out once, without answers; marked and graded against its real boundaries; the result says so.
+  assert.equal((await route(h, '/school', 'GET')).body.sources.gcse.maths.source, 'official');
+  const s = await route(h, '/school/sit', 'POST', { stage: 'gcse', subject: 'maths' });
+  assert.equal(s.body.from, 'official');
+  assert.equal(s.body.paper.official, true);
+  const text = JSON.stringify(s.body);
+  assert.ok(!text.includes('factor 3') && !text.includes('"answer"') && !text.includes('rubric'), 'no answers or mark schemes');
+  const prec = await ST.loadPaper({ storage: h.storage }, s.body.paper.id);
+  const a = await route(h, '/school/answers', 'POST', { paperId: s.body.paper.id, answers: [{ id: 'q1', given: 'Answer: 42' }, { id: 'q2', given: 'Answer: 56' }, { id: 'q3', given: 'Answer: it has the factor 3' }] });
+  assert.equal(prec.from, 'official');
+  assert.equal(a.body.result.official, true);
+  assert.match(a.body.result.title, /official AQA 8300\/1H, June 2023/);
+  assert.equal(a.body.result.raw, 5);
+  assert.equal(a.body.result.grade, '9');
+  assert.equal(a.body.result.boundary, 'Grade 9 from 5/5 · the highest there is');
+  // He has seen it now: the next GCSE maths paper is not this one (no bank yet: nothing to sit).
+  assert.match((await route(h, '/school/sit', 'POST', { stage: 'gcse', subject: 'maths' })).body.error, /not written yet/);
+  assert.equal((await route(h, '/school/official', 'GET')).body.papers.find((x) => x.id === id).line, "Sat: 3 questions, 5 of the paper's 80 marks");
+  const view = (await route(h, `/school/paper/${s.body.paper.id}`, 'GET')).body;
+  assert.equal(view.from, 'official');
+  assert.equal(view.paper.leftOut.length, 3, 'the spot check shows what was left out');
+});
+
+test('official import: a SATs reading paper keeps its texts with the questions about them and the STA\'s scaled scores; the spelling test read aloud is left out of grammar', async () => {
+  const h = host({ write: officialModel([['Where did the fox run', 'across the frozen field']]) });
+  const id = 'ks2-2024-reading';
+  const booklet = ['Reading booklet\nContents', 'Title: The Fox\nThe fox ran quickly across the frozen field at dawn, looking for food.\nShe was hungry.', 'Title: The Owl\nThe owl sat very still in the old oak tree and waited for a mouse.'];
+  const qs = ['1 Where did the fox run (text: The Fox) [1 mark]\n2 Explain why the owl sat still (text: The Owl) [2 marks]'];
+  const msr = ['1 Answer: across the frozen field\n2 Answer: it was waiting to catch a mouse'];
+  for (const [part, pages] of [booklet, qs, msr].entries()) assert.equal((await route(h, '/school/official/text', 'POST', { id, part, pages })).status, 200);
+  for (let i = 0, busy = true; i < 20 && busy; i++) busy = (await route(h, '/school/work', 'POST')).body.busy;
+  const p = (await O.loadOfficial({ storage: h.storage }, id)).paper;
+  assert.deepEqual(p.passages.map((x) => x.title), ['The Fox', 'The Owl']);
+  assert.match(p.passages[0].text, /^The fox ran quickly across the frozen field/);
+  assert.ok(!p.passages[0].text.includes('owl'), 'each text on its own');
+  assert.equal(p.items.find((i) => /fox/.test(i.q)).passage, p.passages[0].id);
+  assert.equal(p.items.find((i) => /owl/.test(i.q)).passage, p.passages[1].id);
+  assert.equal(p.items.find((i) => /fox/.test(i.q)).type, 'exact');
+  assert.deepEqual(p.bands, S.scaleBands(S.scaledBands(O.officialById(id).bands.table), 50, 3));
+  assert.ok(p.bands.some((b) => b.grade === '110' && b.top));
+  // Sitting it: the texts go to the phone with the questions (they are what he reads).
+  const s = await route(h, '/school/sit', 'POST', { stage: 'ks2', subject: 'reading' });
+  assert.equal(s.body.from, 'official', 'an official paper first, where there is one');
+  assert.equal(s.body.paper.passages.length, 2);
+  // Grammar: the spelling paper (20 marks, read aloud) is noted as left out of the real 70.
+  const gps = O.officialById('ks2-2024-gps');
+  assert.deepEqual(gps.leftOut, { what: 'Paper 2: spelling', marks: 20, why: 'it is read aloud by a teacher, so it cannot be sat in writing' });
+});
+
+test('official files come through the brain from the listed addresses only, as a download, and nothing else is fetched', async () => {
+  const asked = [];
+  /** A fetch answer as the brain sees it (Response's own url cannot be set, so a look-alike). */
+  const reply = (url, body, type) => ({ ok: true, status: 200, url, headers: new Headers({ 'content-type': type }), body: new Response(body).body });
+  const pdf = async (url, init) => (asked.push([url, init?.headers?.['User-Agent']]), reply(url, '%PDF-1.7 test', 'application/pdf'));
+  const h = host({ fetcher: pdf });
+  const e = O.officialById('gcse-ocr-j277-01-2023');
+  const res = await IX.schoolRoute(req('/school/official/file?id=gcse-ocr-j277-01-2023&part=1'), '/school/official/file', 'GET', h);
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), '%PDF-1.7 test');
+  assert.deepEqual(asked, [[e.parts[1].url, 'Ghosty/2.0 (personal assistant; single user)']]);
+  assert.equal(res.headers.get('content-disposition'), 'attachment');
+  assert.match(res.headers.get('content-security-policy'), /sandbox/);
+  const get = async (q, fetcher) => IX.schoolRoute(req(`/school/official/file?${q}`), '/school/official/file', 'GET', host({ fetcher }));
+  assert.equal((await get('id=not-a-paper&part=0', pdf)).status, 404);
+  assert.equal((await get('id=gcse-ocr-j277-01-2023&part=9', pdf)).status, 404);
+  assert.equal((await get('id=ks2-2024-maths&part=0', async () => reply('https://evil.example/x.pdf', 'x', 'application/pdf'))).status, 403, 'a redirect off the official sites is refused');
+  assert.equal((await get('id=ks2-2024-maths&part=0', async (u) => reply(u, '<html>sign in</html>', 'text/html'))).status, 502, 'a page instead of the paper is refused');
+  assert.equal((await get('id=ks2-2024-maths&part=0', async () => { throw new Error('offline'); })).status, 502);
+});
+
+test('nothing banked or official ever reaches the library, or the owner\'s passages the weekly training reads', async () => {
+  const storage = new MemStorage();
+  const lib = new LIB.Library(storage, {});
+  lib.createDoc({ id: 'd-owner', title: 'My notes', source: 'upload', kind: 'notes' });
+  await lib.addPassages('d-owner', [{ text: `The owner's own notes about gardening. ${'Roses like sun. '.repeat(20)}`, heading: 'Garden' }]);
+  lib.finish('d-owner');
+  const model = bankModel();
+  const reader = officialModel([['12 + 30', '42'], ['7 × 8', '56'], ['100 − 1', '99']]);
+  const h = host({ storage, write: (s, u) => (s === B.WRITER_SYSTEM || s === B.CHECK_SCHEME_SYSTEM || (s === B.CHECK_EXACT_SYSTEM && /Item \d+/.test(u)) ? model.ask(s, u) : reader(s, u)) });
+  await route(h, '/school/bank/write', 'POST', { stage: 'gcse', subject: 'physics' });
+  await route(h, '/school/official/text', 'POST', { id: 'gcse-aqa-8300-1h-2023', part: 0, pages: MATHS_QP });
+  await route(h, '/school/official/text', 'POST', { id: 'gcse-aqa-8300-1h-2023', part: 1, pages: MATHS_MS });
+  for (let i = 0, busy = true; i < 200 && busy; i++) busy = (await route(h, '/school/work', 'POST')).body.busy;
+  assert.equal((await O.loadOfficial({ storage }, 'gcse-aqa-8300-1h-2023')).status, 'ready');
+  assert.ok((await B.loadBank({ storage }, 'gcse', 'physics')).done);
+  await route(h, '/school/sit', 'POST', { stage: 'gcse', subject: 'maths' });
+  const again = new LIB.Library(storage, {});
+  assert.deepEqual(again.list().map((d) => d.id), ['d-owner'], 'the library holds only the owner\'s own document');
+  const passages = F.ownerPassages(again, 1, 999, new Set());
+  assert.ok(passages.length > 0 && passages.every((p) => p.key.startsWith('d-owner#')));
+  assert.ok(!JSON.stringify(passages).match(/Item \d+|Work out|prime number/), 'no bank or official question in what training reads');
+  // Everything SCHOOL wrote is under its own keys (never KV here, never the library's tables).
+  const school = [...storage.m.keys()].filter((k) => /bank|official/.test(k));
+  assert.ok(school.length >= 3 && school.every((k) => k.startsWith('school:')), school.join(', '));
+});
+
+test('through the brain with the scripted model: WRITE THE PAPERS for one subject, the slices, and the official list for the owner only', async () => {
+  const brain = await import('./.build/school/brain.mjs');
+  const storage = new MemStorage();
+  const env = { OWNER_KEY: 'owner-key-for-tests-0123456789', MOCK_LLM: '1', VAULT_KEY: Buffer.alloc(32, 7).toString('base64') };
+  let agent;
+  const pending = [];
+  env.AGENT = { idFromName: (n) => n, get: () => ({ fetch: (r) => (agent ??= new brain.GhostyAgent({ storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() }, env)).fetch(r) }) };
+  const ctx = { waitUntil: (p) => pending.push(p), passThroughOnException() {} };
+  const call = async (path, init = {}, key = env.OWNER_KEY) => {
+    const r = await brain.default.fetch(new Request(`https://ghosty.test/api${path}`, { ...init, headers: { 'content-type': 'application/json', 'x-ghosty': '1', ...(key ? { 'x-ghosty-key': key } : {}) } }), env, ctx);
+    const t = await r.text();
+    await Promise.allSettled(pending.splice(0));
+    return { status: r.status, body: JSON.parse(t) };
+  };
+  assert.equal((await call('/school/official', {}, null)).status, 401);
+  const list = await call('/school/official');
+  assert.equal(list.status, 200);
+  assert.equal(list.body.papers.length, O.OFFICIAL.length);
+  assert.ok(list.body.papers.every((p) => p.status === 'available' && p.licence && p.source));
+  let w = await call('/school/bank/write', { method: 'POST', body: JSON.stringify({ stage: 'ks3', subject: 'computing' }) });
+  assert.equal(w.status, 200);
+  for (let i = 0; i < 100 && w.body.busy; i++) w = await call('/school/work', { method: 'POST' });
+  assert.equal(w.body.busy, false);
+  const g = (await call('/school')).body;
+  assert.equal(g.sources.ks3.computing.source, 'bank');
+  assert.equal(g.sources.ks3.maths.source, null);
 });

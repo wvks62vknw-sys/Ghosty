@@ -102,7 +102,8 @@ export const SHAPES: Record<string, Record<string, Shape>> = {
 export const shapeOf = (stage: StageId, subject: string): Shape | undefined => SHAPES[stage]?.[subject];
 
 const STAGE_WORDS: Record<string, string> = { ks3: 'Key Stage 3', gcse: 'GCSE', alevel: 'A-level', university: 'university' };
-const subjectWords = (subject: string) => (SUBJECT_LABEL[subject] ?? subject).toLowerCase();
+/** "maths", "English literature" (lower case, but English keeps its capital). */
+export const subjectWords = (subject: string) => (SUBJECT_LABEL[subject] ?? subject).toLowerCase().replace(/\benglish\b/g, 'English');
 /** "the GCSE maths bank". */
 export const bankName = (stage: StageId, subject: string): string => `the ${STAGE_WORDS[stage] ?? stage} ${subjectWords(subject)} bank`;
 
@@ -349,6 +350,8 @@ async function addKept(s: BankStore, m: BankMeta, ds: Draft[]): Promise<void> {
   let chunk = m.chunks ? ((await s.storage.get<{ items: SchoolItem[] }>(chunkKey(m.stage, m.subject, n)))?.items ?? []) : [];
   for (const d of ds) {
     const { tries: _t, ...item } = d;
+    // Already there (a slice that stopped after saving its questions but before its progress): not twice.
+    if (chunk.some((x) => x.id === item.id)) continue;
     if (chunk.length && JSON.stringify(chunk).length + JSON.stringify(item).length > CHUNK_CHARS) {
       await s.storage.put(chunkKey(m.stage, m.subject, n), { items: chunk });
       n++;
@@ -419,7 +422,9 @@ export async function bankTick(s: BankStore, stage: StageId, subject: string, wr
         m.drafts = [];
       }
     } catch {
-      // No model free (or it failed): what is saved stays; the next slice carries on.
+      // No model free (or it failed): what is saved stays; the next slice carries on. (A call that failed is not counted.)
+      calls--;
+      m.calls--;
       m.note = 'waiting for a free model';
       break;
     }
@@ -487,6 +492,19 @@ export function bankPaper(stage: StageId, subject: string, items: SchoolItem[], 
   for (const it of [...items].filter((x) => !used.has(x)).sort((a, b) => a.marks - b.marks)) {
     if (total >= shape.marks || chosen.length >= MAX_PAPER_ITEMS) break;
     if (total + it.marks <= shape.marks) (chosen.push(it), (total += it.marks));
+  }
+  // Still short: swap one question for a bigger one that closes the gap exactly.
+  const gap = shape.marks - total;
+  if (gap > 0) {
+    const pool = items.filter((x) => !chosen.includes(x));
+    for (const [i, c] of chosen.entries()) {
+      const u = pool.find((x) => x.marks === c.marks + gap && x.topic === c.topic) ?? pool.find((x) => x.marks === c.marks + gap);
+      if (u) {
+        chosen[i] = u;
+        total += gap;
+        break;
+      }
+    }
   }
   const ordered = chosen.map((it, i) => ({ it, i })).sort((a, b) => a.it.marks - b.it.marks || a.i - b.i).map((x) => x.it);
   const paperItems: SchoolItem[] = ordered.map((it, i) => ({ ...it, id: `q${i + 1}` }));

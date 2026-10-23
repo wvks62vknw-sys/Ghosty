@@ -10,6 +10,11 @@
  *  - SIT A PLACEMENT TEST: any stage; top grades in every subject pass it and everything below it at once;
  *  - WEAK SPOTS, RESULTS (tap one: every question, his answer, the marks, the marker's note, and whether the paper
  *    is official or written by Ghosty), the NIGHTLY REPORT switch and how marking works.
+ *  - Part 2: each subject row says where its next paper comes from (official, written by Ghosty, his checked
+ *    question bank, or none yet); a stage with no papers offers WRITE THE PAPERS (a stronger model writes its
+ *    question banks, checked twice, a slice at a time: "Writing the GCSE maths bank · 48 of 120"); OFFICIAL PAPERS
+ *    lists the real papers (SATs, GCSE, A-level) with their source and licence, FETCH reads one on this phone and
+ *    the brain makes it into a paper (school/official.ts); the result and the paper show the real boundary reached.
  * Papers are set and marked by the brain (/api/school, apps/edge/src/school); they are sat here, on the phone's
  * own model (school/sit.ts). State for specs at window.__ghosty.school.
  */
@@ -17,6 +22,7 @@ import type { PaperResult, StageId, StageRow, StageView } from '../../school/sit
 import { SUBJECT_LABEL } from '../../../../../packages/shared/src/school';
 import { clear, h, icon } from '../../core/dom';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
+import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
 import { notDownloaded, school, sitSubjects, sitting, stopSitting } from '../../school/sit';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, modal, panel, toast } from '../../ui/components';
@@ -30,7 +36,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { stage: '', stages: [] as { id: string; status: string }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '' };
+export const schoolState = { stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -58,6 +64,11 @@ export const schoolTab: TabDef = {
     let ready: boolean | null = null;
     let placementOpen = false;
     let placementPick: StageId | null = null;
+    /** The official papers (null: not looked yet), and why they could not be listed. */
+    let official: OfficialRow[] | null = null;
+    let officialError = '';
+    /** The tab is on screen (the work loop runs only then). */
+    let shown = false;
 
     // ======================= panels
     const ladderP = panel('THE LADDER', { cls: 'school.schladder' });
@@ -66,8 +77,9 @@ export const schoolTab: TabDef = {
     const weakP = panel('WEAK SPOTS', { cls: 'school.schweak', grow: false });
     const resultsP = panel('RESULTS', { cls: 'school.schresults' });
     const setP = panel('NIGHTLY REPORT', { cls: 'school.schset', grow: false });
+    const offP = panel('OFFICIAL PAPERS', { cls: 'school.schofficial' });
     P.left.append(ladderP.el, stageP.el, placeP.el);
-    P.right.append(resultsP.el, weakP.el, setP.el);
+    P.right.append(resultsP.el, offP.el, weakP.el, setP.el);
 
     // ======================= sitting
     const start = (stage: StageId, subjects: string[]) => {
@@ -86,6 +98,40 @@ export const schoolTab: TabDef = {
     const stageLabel = (id: string) => short(view?.stages.find((s) => s.id === id)?.label ?? id);
     /** A button whose words are a name ("Key Stage 2", "GCSE"): the calm looks show them as written, not re-cased. */
     const named = (b: HTMLButtonElement, words: string) => ((b.dataset.label = words), b);
+    const isBankStage = (id: string) => !!view?.bankStages.includes(id as StageId);
+
+    // ======================= writing the papers (question banks)
+    /** WRITE THE PAPERS for a stage: its banks queued; the slices run while SCHOOL is open (and a little each night). */
+    const write = (stage: StageId, b?: HTMLButtonElement) => {
+      if (b) b.disabled = true;
+      void writePapers(stage)
+        .then(() => toast(`Writing the ${stageLabel(stage)} papers: a little at a time while SCHOOL is open, and a little each night`, 'ok'))
+        .catch((e) => toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad'))
+        .finally(() => void refresh());
+    };
+    /** The banks of a stage as the brain last reported them (the live slices first). */
+    const banksOf = (stage: StageId) => {
+      const live = work.get().banks.filter((b) => b.stage === stage);
+      return (view?.stages.find((s) => s.id === stage)?.subjects ?? []).map((sub) => live.find((b) => b.subject === sub) ?? view?.sources[stage]?.[sub]?.bank ?? null);
+    };
+    /** "3 of 6 banks written · Writing the GCSE maths bank · 48 of 120" (or null: nothing started). */
+    function bankSummary(stage: StageId): { done: number; of: number; lines: string[] } | null {
+      const rows = banksOf(stage);
+      if (!rows.some(Boolean)) return null;
+      return { done: rows.filter((r) => r?.done).length, of: rows.length, lines: rows.filter((r): r is NonNullable<typeof r> => !!r && !r.done).map((r) => r.line) };
+    }
+    function writeBlock(stage: StageId): HTMLElement {
+      const sum = bankSummary(stage);
+      const queued = (view?.work.banks ?? []).some((k) => k.startsWith(`${stage}:`)) || work.get().banks.some((b) => b.stage === stage && !b.done);
+      const btn = named(button(queued ? 'WRITING THE PAPERS…' : 'WRITE THE PAPERS', (b) => write(stage, b), queued ? '' : 'on'), queued ? 'Writing the papers…' : 'Write the papers');
+      btn.disabled = queued && work.get().running;
+      btn.classList.add('schwrite');
+      return h('div.schbank',
+        h('div.note', `Ghosty has no ${stageLabel(stage)} papers yet. WRITE THE PAPERS has a stronger online model write a question bank for each subject in the real exam style — every exact answer worked out again by a second check, every mark scheme judged by one — and papers are drawn from it. It runs a few questions at a time while SCHOOL is open, and a little each night.`),
+        sum ? h('div.schbanklines', h('b', `${sum.done} of ${sum.of} subjects written${work.get().waiting ? ' · waiting for a free model' : ''}`), ...sum.lines.slice(0, 4).map((l) => h('small', l)), sum.lines.length > 4 ? h('small', `and ${sum.lines.length - 4} more`) : null) : null,
+        h('div.keyrow', btn),
+      );
+    }
 
     // ======================= the ladder
     function paintLadder(v: StageView): void {
@@ -117,6 +163,8 @@ export const schoolTab: TabDef = {
         resultCard,
         h('div.schgrade', h('b', pending ? '…' : r.grade), h('span', `${r.raw}/${r.max} · ${pct(r)}%`)),
         h('div.schresline', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()} · ${pending ? `${pending} written answer${pending === 1 ? '' : 's'} waiting for a marker: no final grade yet` : r.top ? 'top grades ✓' : 'not top grades yet'}`),
+        r.boundary && !pending ? h('div.schbound', r.boundary) : null,
+        h('div.schresfrom', r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : 'Written by Ghosty in the same style'),
         button('SEE THE PAPER', () => openPaper(r)),
       );
       resultCard.classList.toggle('top', r.top);
@@ -134,7 +182,8 @@ export const schoolTab: TabDef = {
         sitOne.disabled = busy || !ready || !cur.papers;
         sitOne.setAttribute('aria-label', `Sit ${s.label}`);
         const now = busy && st.stage === cur.stage && st.subject === s.id;
-        return h(`div.schsub${s.top ? '.top' : ''}${now ? '.live' : ''}` as 'div', h('span.schsubname', h('b', s.label), h('small', grade)), h(`span.schtop${s.top ? '.ok' : ''}` as 'span', s.top ? 'Top ✓' : r ? 'Not yet' : '—'), sitOne);
+        sitOne.disabled = sitOne.disabled || !s.source;
+        return h(`div.schsub${s.top ? '.top' : ''}${now ? '.live' : ''}` as 'div', h('span.schsubname', h('b', s.label), h('small', grade), h(`small.schfrom${s.source === 'official' ? '.off' : ''}` as 'small', s.source ? `Next paper: ${s.from}` : s.from)), h(`span.schtop${s.top ? '.ok' : ''}` as 'span', s.top ? 'Top ✓' : r ? 'Not yet' : '—'), sitOne);
       });
       const done = cur.subjects.filter((s) => s.top).length;
       const live = busy
@@ -152,8 +201,8 @@ export const schoolTab: TabDef = {
           ? 'This phone cannot run the offline brain, so he cannot sit exams on it.'
           : ready === false
             ? notDownloaded
-            : !cur.papers
-              ? `Papers for ${short(cur.label)} are not written yet: they come with the official papers. Earlier stages can still be sat for revision.`
+            : !cur.papers && !cur.bank
+              ? `There are no papers for ${short(cur.label)} yet, so it cannot be sat. Earlier stages can still be sat for revision.`
               : '';
       const row = v.stages.find((s) => s.id === cur.stage);
       clear(
@@ -163,6 +212,7 @@ export const schoolTab: TabDef = {
         h('div.schsubs', ...rows),
         live,
         why ? h('div.note.schwhy', why) : null,
+        !cur.papers && cur.bank ? writeBlock(cur.stage) : null,
         h('div.keyrow.schbtns', sitAll, stop, toSettings),
         resultCard,
       );
@@ -184,20 +234,26 @@ export const schoolTab: TabDef = {
         ? h('div.schpicks', { role: 'group', 'aria-label': 'Pick a stage' },
             ...v.stages.map((s) => {
               const b = named(button(short(s.label).toUpperCase(), () => ((placementPick = s.id), paint()), s.id === placementPick ? 'on' : ''), short(s.label));
-              b.disabled = !s.papers || busy;
+              const bank = isBankStage(s.id);
+              b.disabled = (!s.papers && !bank) || busy;
               b.dataset.stage = s.id;
-              if (!s.papers) b.title = 'Papers for this stage are not written yet';
-              return h('div.schpick', b, h('small', s.papers ? `${s.years}${s.status === 'passed' ? ' · passed' : s.status === 'now' ? ' · now' : ''}` : 'papers not written yet'));
+              b.dataset.papers = String(s.papers);
+              if (!s.papers) b.title = bank ? 'Its papers are not written yet: pick it to write them' : 'There are no papers for this stage yet';
+              const sum = !s.papers && bank ? bankSummary(s.id) : null;
+              return h('div.schpick', b, h('small', s.papers ? `${s.years}${s.status === 'passed' ? ' · passed' : s.status === 'now' ? ' · now' : ''}` : sum ? `writing its papers · ${sum.done} of ${sum.of}` : bank ? 'papers not written yet' : 'no papers yet'));
             }))
         : null;
+      const from = (id: StageId, sub: string) => v.sources[id]?.[sub]?.source;
       const go2 = pick
-        ? h('div.schgo',
-            h('div.note', `${short(pick.label)}: ${pick.subjects.length} papers (${pick.subjects.map((x) => subjectName(x)).join(', ')}). If he gets top grades, that stage and everything below it is done at once.`),
-            named(button(`SIT ${short(pick.label).toUpperCase()}`, () => {
-              placementOpen = false;
-              start(pick.id, pick.subjects);
-            }, 'on'), `Sit ${short(pick.label)}`),
-          )
+        ? pick.papers
+          ? h('div.schgo',
+              h('div.note', `${short(pick.label)}: ${pick.subjects.length} papers (${pick.subjects.map((x) => `${subjectName(x)}${from(pick.id, x) === 'official' ? ' — official' : ''}`).join(', ')}). If he gets top grades, that stage and everything below it is done at once.`),
+              named(button(`SIT ${short(pick.label).toUpperCase()}`, () => {
+                placementOpen = false;
+                start(pick.id, pick.subjects);
+              }, 'on'), `Sit ${short(pick.label)}`),
+            )
+          : h('div.schgo', writeBlock(pick.id))
         : null;
       clear(placeP.body, h('div.note', 'He may sit any stage straight away. If he gets top grades, that stage and everything below it is done at once — training time goes only where he fails. Moving up still needs every subject.'), h('div.keyrow', placeBtn), list, go2);
       schoolState.placement = placementOpen ? v.stages.map((s) => s.id) : [];
@@ -234,7 +290,12 @@ export const schoolTab: TabDef = {
           const passages = d.paper.passages ?? [];
           clear(
             body,
-            h('div.schpaperhd', h('b', `${res.grade} · ${res.raw}/${res.max}`), h('small', `${d.paper.official ? 'Official paper' : 'Written by Ghosty in the same style'} · sat ${day(res.at)} on ${res.where === 'phone' ? 'this phone' : 'the free GPU'} · ${res.model.split('@')[0]}`)),
+            h('div.schpaperhd', h('b', `${res.grade} · ${res.raw}/${res.max}`), h('small', `${d.paper.official ? `Official paper: ${d.paper.title.split(' · official ')[1] ?? d.paper.title}` : d.from === 'bank' ? 'Written by Ghosty from his checked question bank' : 'Written by Ghosty in the same style'} · sat ${day(res.at)} on ${res.where === 'phone' ? 'this phone' : 'the free GPU'} · ${res.model.split('@')[0]}`)),
+            res.boundary ? h('div.schbound', res.boundary) : null,
+            d.paper.boundaries ? h('div.note', `Boundaries: ${d.paper.boundaries}.`) : null,
+            d.paper.leftOut?.length
+              ? h('details.schpassage', h('summary', `Left out: ${d.paper.leftOut.length} question${d.paper.leftOut.length === 1 ? '' : 's'} (${d.paper.leftOut.reduce((a, x) => a + x.marks, 0)} marks)`), ...d.paper.leftOut.map((x) => h('p', `${x.what} (${x.marks} mark${x.marks === 1 ? '' : 's'}): ${x.why}`)))
+              : null,
             ...passages.map((p) => h('details.schpassage', h('summary', `Passage: ${p.title}`), h('p', p.text), h('small', p.source))),
             ...d.paper.items.map((it, i) => {
               const a = byId.get(it.id);
@@ -254,6 +315,65 @@ export const schoolTab: TabDef = {
         },
         (e) => clear(body, h('div.note', String((e as Error)?.message ?? e))),
       );
+    }
+
+    // ======================= official papers
+    const STAGE_GROUPS: [StageId, string][] = [['ks2', 'Key Stage 2 SATs'], ['gcse', 'GCSE'], ['alevel', 'A-level']];
+    /** Groups the owner opened or closed stay that way between repaints. */
+    const groupOpen = new Map<string, boolean>();
+    function officialRow(o: OfficialRow): HTMLElement {
+      const here = work.get().fetching[o.id];
+      const live = work.get().official.find((x) => x.id === o.id) ?? o;
+      const canFetch = live.status === 'available' || live.status === 'failed';
+      const b = named(button(live.status === 'failed' ? 'FETCH AGAIN' : 'FETCH', async (btn) => {
+        btn.disabled = true;
+        try {
+          await fetchOfficial(o);
+          toast(`${o.title}: read on this phone; Ghosty is making it into a paper`, 'ok');
+        } catch (e) {
+          toast(String((e as Error)?.message ?? e).slice(0, 200), 'bad');
+        }
+        void loadOfficial();
+      }), live.status === 'failed' ? 'Fetch again' : 'Fetch');
+      b.disabled = !!here;
+      b.setAttribute('aria-label', `Fetch ${o.title}, ${o.series}`);
+      return h(`div.schoff.st-${here ? 'fetching' : live.status}` as 'div', { 'data-id': o.id },
+        h('div.schoffh', h('b', o.title), h('small', `${o.board}${o.code ? ` ${o.code}` : ''} · ${o.series}`)),
+        h('div.schoffline', here ? `Fetching: ${here}` : live.line),
+        o.note ? h('small.schoffnote', o.note) : null,
+        h('small.schlicence', `${o.licenceShort} · kept private, never shared`),
+        h('details.schabout', h('summary', 'Source, licence and boundaries'), h('p', `Licence: ${o.licence}`), h('p', `Source: ${o.source}.`), h('p', `Boundaries: ${o.boundaries}.`), h('p', `Parts: ${o.parts.map((x) => x.label).join(', ')}.`)),
+        canFetch && !here ? h('div.keyrow', b) : null,
+      );
+    }
+    function paintOfficial(): void {
+      if (!official) return void clear(offP.body, h('div.note', officialError ? `The list of official papers could not be shown: ${officialError}` : 'Looking up the official papers…'));
+      const now = view?.current.stage;
+      const groups = STAGE_GROUPS.map(([id, words]) => {
+        const rows = official!.filter((o) => o.stage === id);
+        const ready = rows.filter((o) => o.status === 'ready').length;
+        const busy = rows.some((o) => o.status === 'reading' || o.status === 'fetching' || !!work.get().fetching[o.id]);
+        const d = h('details.schoffgrp', { open: groupOpen.get(id) ?? (id === now || busy) },
+          h('summary', `${words} · ${rows.length} papers${ready ? ` · ${ready} fetched` : ''}`),
+          ...rows.map(officialRow));
+        d.addEventListener('toggle', () => groupOpen.set(id, d.open));
+        return d;
+      });
+      clear(offP.body,
+        h('div.note', 'The real papers, from the Standards and Testing Agency and the exam boards’ own sites: free, with their mark schemes and real boundaries. FETCH reads one on this phone; Ghosty turns it into a paper he sits once. They stay private: never shared, never put in the library, never used for training. Questions that need a picture are left out, with their marks, and the boundaries scaled to match.'),
+        ...groups);
+      const fetched = official.filter((o) => o.status === 'ready').length;
+      offP.setStatus(Object.keys(work.get().fetching).length || official.some((o) => o.status === 'reading') ? 'READING' : `${fetched}/${official.length} FETCHED`, fetched ? 'ok' : 'off');
+      schoolState.official = official.map((o) => ({ id: o.id, status: work.get().official.find((x) => x.id === o.id)?.status ?? o.status, line: o.line }));
+    }
+    async function loadOfficial(): Promise<void> {
+      try {
+        official = (await officialApi.list()).papers;
+        officialError = '';
+      } catch (e) {
+        officialError = String((e as Error)?.message ?? e).slice(0, 160);
+      }
+      paintOfficial();
     }
 
     // ======================= nightly report + how marking works
@@ -277,7 +397,7 @@ export const schoolTab: TabDef = {
         setP.body,
         h('div.keyrow', nightly, h('span.note', v.state.nightly ? 'One notification in the morning when something happened: a paper sat, a stage passed, marks in.' : 'No school notifications.')),
         h('div.lab', 'HOW MARKING WORKS'),
-        h('div.note.schhow', 'Exact answers (numbers, letters, multiple choice) are marked by the code. Written answers are marked by a stronger model against the mark scheme — you can spot-check every one under RESULTS. A paper still waiting for a marker has no final grade, so it cannot pass a stage. Papers are never used to train him.'),
+        h('div.note.schhow', 'Exact answers (numbers, letters, multiple choice) are marked by the code. Written answers are marked by a stronger model against the mark scheme — you can spot-check every one under RESULTS. A paper still waiting for a marker has no final grade, so it cannot pass a stage. Official papers are graded against their real boundaries (the STA’s scaled scores, the boards’ grade boundaries); papers Ghosty writes use the same grade scale. Papers are never used to train him.'),
       );
     }
 
@@ -302,8 +422,11 @@ export const schoolTab: TabDef = {
       paintWeak(v);
       paintResults(v);
       paintSettings(v);
+      paintOfficial();
       schoolState.stage = v.state.stage;
-      schoolState.stages = v.stages.map((s: StageRow) => ({ id: s.id, status: s.status }));
+      schoolState.stages = v.stages.map((s: StageRow) => ({ id: s.id, status: s.status, papers: s.papers }));
+      schoolState.banks = work.get().banks.map((b) => ({ stage: b.stage, subject: b.subject, kept: b.kept, target: b.target, done: b.done, line: b.line }));
+      schoolState.working = work.get().running;
       schoolState.results = v.state.results.length;
       schoolState.last = st.last ? { grade: st.last.grade, raw: st.last.raw, max: st.last.max } : null;
     }
@@ -315,6 +438,8 @@ export const schoolTab: TabDef = {
         can = sup.ok;
         ready = sup.ok && rd;
         schoolState.error = '';
+        // Something is being written or read: carry on with it while SCHOOL is on screen.
+        if (shown && v.work.busy) startWork();
       } catch (e) {
         schoolState.error = String((e as Error)?.message ?? e).slice(0, 160);
       }
@@ -322,6 +447,12 @@ export const schoolTab: TabDef = {
     }
 
     sitting.subscribe(paint);
+    work.subscribe((s, p) => {
+      paint();
+      // A bank or paper finished: what can be sat has changed.
+      if ((p.busy && !s.busy) || s.banks.filter((b) => b.done).length !== p.banks.filter((b) => b.done).length) void refresh();
+      if (s.official.some((o) => o.status === 'ready' && p.official.find((x) => x.id === o.id)?.status !== 'ready') || (p.running && !s.running)) void loadOfficial();
+    });
     // Downloaded or deleted in SETTINGS meanwhile: look again.
     offlineBrain.subscribe((s, p) => {
       if (s.downloaded !== p.downloaded || s.model !== p.model) void refresh();
@@ -329,7 +460,13 @@ export const schoolTab: TabDef = {
     paint();
     return {
       enter() {
+        shown = true;
         void refresh();
+        void loadOfficial();
+      },
+      leave() {
+        shown = false;
+        stopWork();
       },
       describe() {
         return view ? `School: the offline brain is at ${view.current.label}; ${view.current.subjects.map((s) => `${s.label} ${s.latest ? s.latest.grade : 'not sat'}`).join(', ')}.` : 'School.';
