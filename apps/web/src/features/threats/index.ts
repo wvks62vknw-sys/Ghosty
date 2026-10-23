@@ -7,7 +7,7 @@ import { air } from '../../engine/layers/air';
 import { sats } from '../../engine/layers/sats';
 import type { TabDef } from '../../shell/tabs';
 import { home } from '../../state/app';
-import { bar, pager, panel, row, SEV_COLORS } from '../../ui/components';
+import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
 import { reconPanel } from './recon';
 
@@ -18,14 +18,14 @@ export const threatsTab: TabDef = {
   scene: 'backdrop',
   blurb: 'quakes · storms · cyber alerts',
   mount(root) {
-    const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS' });
-    const sp = panel('ACTIVE SIGNALS', { footer: true });
+    const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stackInPro: true });
+    const sp = panel('ACTIVE SIGNALS', { footer: true, cls: 'signals' });
     const sg = pager(sp, 50, (s: Signal) => row(s.kind, s.text, s.tag || fmt.ago(s.at), { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) }), () => quakes.status);
     P.left.append(sp.el);
-    const near = panel('NEAR YOU', { grow: false });
-    const space = panel('SPACE WEATHER', { grow: false });
-    const lp = panel('LAUNCH WINDOW', { footer: true, status: 'LL2' });
-    const lg = pager(lp, 46, (l: Launch) => row(l.status || 'NET', l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status);
+    const near = panel('NEAR YOU', { grow: false, cls: 'near' });
+    const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
+    const lp = panel('LAUNCH WINDOW', { footer: true, status: 'LL2', cls: 'launches' });
+    const lg = pager(lp, 46, (l: Launch) => row(l.status || 'NET', l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
     P.right.append(near.el, space.el, lp.el, reconPanel());
 
     const paint = () => {
@@ -47,11 +47,11 @@ export const threatsTab: TabDef = {
       const pass = iss ? sats.nextPass(iss, L.lat, L.lon) : null;
       near.body.append(row('ISS', pass ? `rises ${fmt.time(new Date(pass.rise))} · max ${Math.round(pass.max)}°` : iss ? 'no pass in 24h' : 'open God\'s Eye once'));
       clear(space.body);
-      const k = kp.data;
+      const k = kp.data && Number.isFinite(kp.data.v) ? kp.data : null;
       if (k) {
         space.body.append(bar('KP INDEX', k.v / 9, k.v.toFixed(1), k.v >= 5 ? '#ff4d6a' : k.v >= 4 ? '#ffd24d' : undefined));
         space.body.append(h('div.note', k.v >= 5 ? 'Geomagnetic storm: aurora likely at high latitudes, GPS may wobble.' : k.v >= 4 ? 'Active conditions. Aurora possible far north.' : 'Quiet. No disturbance expected.'));
-      } else space.body.append(h('div.note', 'Fetching NOAA space weather…'));
+      } else space.body.append(empty(kp.status === 'NO FEED' || kp.data ? 'NO FEED' : 'LOADING')); // (a reading that is not a number is no reading)
       lg.set(launches.data ?? []);
       P.dials([
         ['SIGNALS', list.length / 60, String(list.length)],

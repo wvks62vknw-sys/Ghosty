@@ -82,7 +82,7 @@ export function empty(status: string, next?: string, title?: string): HTMLElemen
   const wait = /SYNC|LOAD/.test(s) || (!next && (/IDLE/.test(s) || !s));
   const off = typeof navigator !== 'undefined' && navigator.onLine === false;
   const head = off ? 'You’re offline' : bad ? 'Can’t reach this feed' : wait ? 'Loading' : title ?? 'Nothing here yet';
-  const line = off ? 'It fills in again when the phone is back online.' : bad ? 'It tries again by itself; nothing you need to do.' : wait ? 'One moment, it’s on its way.' : next ?? 'It fills in by itself as things happen.';
+  const line = off ? 'It fills in again when the phone is back online.' : bad ? 'It tries again by itself in a minute.' : wait ? 'One moment, it’s on its way.' : next ?? 'It fills in by itself as things happen.';
   return h(`div.empty${bad || off ? '.bad' : wait ? '.wait' : ''}` as 'div', { dataset: { case: 'keep' } },
     h('b', { dataset: { label: head } }, bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'),
     h('span', { dataset: { label: line } }, bad ? 'feed unreachable right now' : wait ? 'establishing link…' : next ?? 'nothing to show yet'));
