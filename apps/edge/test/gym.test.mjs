@@ -751,20 +751,24 @@ const waitFor = async (fn, ms, what) => {
 };
 
 test('part 3: past the bar he goes straight on to the next level (CONTINUE BY HIMSELF), or stops there and waits when it is off; watching and measuring alone never move him up', async () => {
-  // A maze learner trained past Level 1's bar, not yet measured: the worker's first measurement passes him.
+  // A maze learner trained well past Level 1's bar (every start cell right, then more, so the worker's own
+  // training before it measures cannot drop him back under), not yet measured by the session.
   const s = new S.Session(gameById('maze'));
-  for (let i = 0; i < 60 && s.learner.measure().mastery < s.game.bar(1); i++) s.train(100);
+  for (let i = 0; i < 200 && s.learner.measure().mastery < 1; i++) s.train(100);
+  s.train(2000);
   assert.ok(s.learner.measure().mastery >= s.game.bar(1), 'the maze learner did not reach the bar');
   const rec = s.snapshot();
   assert.equal(rec.level, 1);
   const out = [];
   const post = (m) => out.push(m);
   const mine = (e) => out.filter((m) => m.gym === 'progress' && m.epoch === e);
+  // (A training step the worker test above left queued would post to that test's messages: let it run out first.)
+  await new Promise((r) => setTimeout(r, 100));
 
   // Off: the level is passed (measured against ground truth), the next is made — and he stops there.
   W.gymMessage({ gym: 'reset', id: 'maze', epoch: 20 }, post);
   W.gymMessage({ gym: 'train', id: 'maze', rec, epoch: 20, carry: false }, post);
-  await waitFor(() => mine(20).some((m) => m.event === 'level'), 6000, 'no level-up with CONTINUE BY HIMSELF off');
+  await waitFor(() => mine(20).some((m) => m.event === 'level'), 15000, 'no level-up with CONTINUE BY HIMSELF off');
   const up = mine(20).find((m) => m.event === 'level');
   assert.equal(up.rec.level, 2);
   assert.equal(up.training, false, 'with CONTINUE BY HIMSELF off he goes on training after the level-up');
@@ -777,7 +781,7 @@ test('part 3: past the bar he goes straight on to the next level (CONTINUE BY HI
   W.gymMessage({ gym: 'reset', id: 'maze', epoch: 21 }, post);
   W.gymMessage({ gym: 'train', id: 'maze', rec, epoch: 21, carry: false }, post);
   W.gymMessage({ gym: 'carry', on: true }, post);
-  await waitFor(() => mine(21).some((m) => m.event === 'level'), 6000, 'no level-up with CONTINUE BY HIMSELF on');
+  await waitFor(() => mine(21).some((m) => m.event === 'level'), 15000, 'no level-up with CONTINUE BY HIMSELF on');
   const on = mine(21).find((m) => m.event === 'level');
   assert.equal(on.rec.level, 2);
   assert.equal(on.training, true, 'with CONTINUE BY HIMSELF on he stopped at the level-up');

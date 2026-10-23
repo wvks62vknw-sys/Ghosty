@@ -462,7 +462,7 @@ const toList = async () => {
     // (Each toast replaces the last: a quick Level 3 turns "Level 1 passed" into "Levels 1–2 passed", still one on screen.)
     if (!said.length || !said.every((t) => /^MAZE: Levels? 1(–\d+)? passed · on to level \d+$/.test(t))) problems.push(`part 3: reaching Level 2 should show one toast, showed ${JSON.stringify(said)}`);
     if (at.watchOn !== 'maze' || at.training !== 'maze') problems.push(`part 3: after the level-up he stopped (watching "${at.watchOn}", training "${at.training}")`);
-    // ...and the watching carries on at the new level: another round comes, no tap.
+    // The watching carries on at the new level too: another round comes, no tap.
     await until((n) => window.__ghosty.gym.rounds > n, 40000, 'part 3: no new round of WATCH after the level-up', at.rounds);
     await page.screenshot({ path: `${out}/gym3-watch.png` });
   }
