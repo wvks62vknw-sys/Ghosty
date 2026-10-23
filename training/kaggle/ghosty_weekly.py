@@ -19,6 +19,13 @@
 #      tensor-cache.json as the template, so the phone's compiled model library fits unchanged) to the owner's
 #      PRIVATE model repo, branch `candidates`; the brain checks the report and only then promotes it;
 #   7. reports back to the brain (the hook), which shows it in SYSTEM → OFFLINE BRAIN TRAINING.
+# SCHOOL practice (`school` records: his weak spots at school, never a paper's item) is trained like the puzzles: an
+# exact one is sampled and only attempts SCHOOL's own marking passes are kept (`school_star`); a written one is learned
+# from the stronger model's worked answer.
+# EXAM MODE (CONFIG_JSON "mode": "exam", pushed under its own slug `ghosty-exam`): no training at all. It loads the
+# brain in use (stock, or the trained week the brain names), sits one SCHOOL paper (school_paper.jsonl: the questions,
+# never the answers) with the phone's exam prompt on the weights as they ship, and posts the answers to the hook as
+# {kind: 'school', paperId, model, answers}; the brain marks them (`ExamRun`).
 # Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5) and P100 (6.0)
 # everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
 # about 4x slower.) Never fp16: the training loops have no loss scaling and Qwen3's activations can overflow it.
@@ -170,7 +177,7 @@ def schema_problem(call, tools):
 
 
 # ---- the dataset's records (packages/shared/src/selftrain.ts recordProblem) -----------------------------------
-TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill']
+TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school']
 
 
 def _msgs_ok(m):
@@ -216,6 +223,18 @@ def record_problem(r):
         if not last or last['role'] != 'user' or not isinstance(r.get('answer'), str) or not r['answer'].strip():
             return 'a failure needs a task, or the question and the right answer'
         return ''
+    if kind == 'school':
+        if 'answer' not in r:
+            if not last or last['role'] != 'assistant' or not last['content'].strip():
+                return 'a school item needs its exact answer, or a worked answer to learn'
+            return ''
+        if not last or last['role'] != 'user' or not isinstance(r.get('answer'), str) or not r['answer'].strip():
+            return 'a school question needs the question and its exact answer'
+        if not isinstance(r.get('check'), dict) or r['check'].get('type') not in ('exact', 'number', 'mcq'):
+            return 'a school question needs how its answer is checked'
+        if r['check']['type'] == 'mcq' and not re.fullmatch(r'[a-dA-D]', r['answer'].strip()):
+            return 'a multiple-choice answer must be a letter A–D'
+        return ''
     if not last or last['role'] != 'assistant' or not last['content'].strip():
         return 'needs messages ending with the answer to learn'
     if kind == 'library' and not (isinstance(r.get('source'), str) and r['source']):
@@ -223,6 +242,100 @@ def record_problem(r):
     if kind == 'tool' and not (isinstance(r.get('tools'), list) and r['tools']):
         return 'a tool example must list its tools'
     return ''
+
+
+# ---- SCHOOL's marking and exam prompt (packages/shared/src/school.ts; the same cases in fixtures.json) -----------
+
+def answer_line(reply):
+    """The answer a reply gives: the last "Answer:" / "Final answer:" line when there is one, else the last line."""
+    lines = [l.strip() for l in (reply or '').split('\n') if l.strip()]
+    for l in reversed(lines):
+        m = re.match(r'^\**\s*(?:final\s+)?answer\s*[:=]\s*\**\s*(.+?)\s*\**$', l, re.I)
+        if m:
+            return m.group(1)
+    return lines[-1] if lines else (reply or '').strip()
+
+
+def normalise_text(s):
+    """Lower case, no punctuation, no leading article, single spaces."""
+    s = re.sub(r'[“”"\'’`]', '', (s or '').lower())
+    s = re.sub(r'[^\w\s./-]|_', ' ', s)
+    s = re.sub(r'^\s*(the|a|an)\s+', '', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _div(n, d):
+    return n / d if d else (math.copysign(math.inf, n) if n else math.nan)
+
+
+def parse_number(s):
+    """The first number in a text: commas, fractions ("3/4", "1 1/2"), percentages and a leading minus allowed."""
+    t = re.sub(r'[£$€]', '', (s or '').replace(',', ''))
+    m = re.search(r'(-?\d+)\s+(\d+)\s*/\s*(\d+)', t)
+    if m:
+        w = int(m.group(1))
+        return w + (-1 if w < 0 else 1) * _div(int(m.group(2)), int(m.group(3)))
+    m = re.search(r'(-?\d+)\s*/\s*(\d+)', t)
+    if m and int(m.group(2)) != 0:
+        return int(m.group(1)) / int(m.group(2))
+    m = re.search(r'-?\d+(?:\.\d+)?', t)
+    return float(m.group(0)) if m else None
+
+
+def mark_exact(item, given):
+    """An exact, number or mcq item's marks for a reply (all or none), as SCHOOL marks a paper; None for written ones."""
+    t = item.get('type')
+    if t in ('short', 'extended'):
+        return None
+    marks = item.get('marks', 1)
+    a = answer_line(given)
+    if t == 'number':
+        want = parse_number(item.get('answer') or '')
+        unit = item.get('unit')
+        got = parse_number(re.sub(re.escape(unit), '', a, flags=re.I) if unit else a)
+        if want is None or got is None:
+            return 0
+        tol = item.get('tolerance')
+        return marks if abs(got - want) <= (1e-9 if tol is None else tol) else 0
+    if t == 'mcq':
+        m = re.match(r'^\(?([a-h])\)?(?:[.):\s]|$)', a, re.I)
+        want = (item.get('answer') or '').strip().lower()
+        if m:
+            return marks if m.group(1).lower() == want else 0
+        idx = 'abcdefgh'.find(want)
+        opts = item.get('options') or []
+        text = opts[idx] if 0 <= idx < len(opts) else None
+        return marks if text and normalise_text(a) == normalise_text(text) else 0
+    ok = [x for x in (normalise_text(v) for v in [item.get('answer') or '', *(item.get('also') or [])]) if x]
+    return marks if normalise_text(a) in ok else 0
+
+
+def school_correct(record, reply):
+    """Whether an attempt at an exact `school` record is right (its `check` says how it is marked)."""
+    return bool(mark_exact({**(record.get('check') or {}), 'answer': record.get('answer'), 'marks': 1}, reply))
+
+
+EXAM_SYSTEM = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+EXAM_TOKENS = {'item': 200, 'writing': 350}
+
+
+def exam_prompt(item):
+    """The phone's exam prompt for one question (apps/web/src/school/sit.ts examPrompt; school.ts examMessages):
+    the passage first when it has one ({title, text}), the choices A–D for multiple choice."""
+    parts = []
+    p = item.get('passage')
+    if isinstance(p, dict):
+        parts.append(f'Read this: "{p["title"]}"\n\n{p["text"]}')
+    parts.append(item['q'])
+    if item['type'] == 'mcq' and item.get('options'):
+        parts.append('\n'.join(f"{('ABCD'[i] if i < 4 else 'undefined')}) {o}" for i, o in enumerate(item['options'])) + '\nAnswer with the letter.')
+    marks = item.get('marks', 1)
+    if item['type'] == 'short':
+        parts.append(f"({marks} mark{'' if marks == 1 else 's'}: explain briefly.)")
+    if item['type'] == 'extended':
+        parts.append(f'({marks} marks: write it out in full.)')
+    system = f"{EXAM_SYSTEM}. For a piece of writing, write the whole piece, then finish with 'Answer: done'." if item['type'] == 'extended' else EXAM_SYSTEM
+    return [{'role': 'system', 'content': system}, {'role': 'user', 'content': '\n\n'.join(parts)}]
 
 
 # ---- chat format (Qwen3's template, non-thinking: the phone strips an empty think block) -----------------------
@@ -992,6 +1105,34 @@ class Run:
         self.report['trained']['star'] = len(kept)
         log(f'STaR: {len(kept)} right answers kept from {done} puzzles, {len(pairs)} pairs, {len(misses)} never solved')
 
+    def school_star(self):
+        """SCHOOL practice with an exact answer, like STaR: several attempts each, only the ones SCHOOL's own marking
+        passes are kept (a right attempt and a wrong one make a preference pair); never a paper's item (the brain
+        checked that, and `drop_near_exam` checked it against this week's exam)."""
+        recs = [r for r in self.records if r['kind'] == 'school' and 'answer' in r]
+        K = int(self.cfg.get('samples', 16))
+        budget = self.deadline.allow(0.10, reserve=3.5 * 3600)
+        kept, pairs, t0, done = [], [], time.time(), 0
+        for i in range(0, len(recs), 8):
+            if done and (time.time() - t0) / done * (done + 8) > budget:
+                self.reject('school practice not tried this week (time budget)', len(recs) - done)
+                break
+            batch = [(r, chat_prompt(r['messages'])) for r in recs[i:i + 8]]
+            outs = self.generate([p for _, p in batch], n=K, temperature=0.8)
+            for (r, p), ans in zip(batch, outs):
+                vs = [{'correct': school_correct(r, a), 'score': 0} for a in ans]
+                good, pair = star_select(list(zip(ans, vs)))
+                self.reject('school practice attempts that were wrong', sum(1 for v in vs if not v['correct']))
+                kept += [{'prompt': p, 'answer': a, 'from': 'school'} for a in good]
+                if pair:
+                    pairs.append({'prompt': p, 'chosen': pair[0], 'rejected': pair[1], 'from': 'school'})
+                if not good:
+                    self.reject('school practice he never got right this week')
+            done += len(batch)
+        self.save_jsonl('school_star.jsonl', kept)
+        self.save_jsonl('school_pairs.jsonl', pairs)
+        log(f'school practice: {len(kept)} right answers kept from {done} questions, {len(pairs)} pairs')
+
     def critique(self):
         """Self-critique: each unsolved puzzle again, with his best wrong answer and the checker's reason; a right retry is kept."""
         misses = self.load_jsonl('misses.jsonl')
@@ -1046,10 +1187,10 @@ class Run:
     # -- training data
     def sft_examples(self):
         ex = []
-        for name in ('star.jsonl', 'critique.jsonl'):
+        for name in ('star.jsonl', 'critique.jsonl', 'school_star.jsonl'):
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
         for r in self.records:
-            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill'):
+            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill') or (r['kind'] == 'school' and 'answer' not in r):
                 ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], r['kind']))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
@@ -1084,7 +1225,7 @@ class Run:
             return []
 
     def pref_pairs(self):
-        pairs = self.load_jsonl('star_pairs.jsonl') + self.load_jsonl('judge_pairs.jsonl')
+        pairs = self.load_jsonl('star_pairs.jsonl') + self.load_jsonl('judge_pairs.jsonl') + self.load_jsonl('school_pairs.jsonl')
         need = []
         for r in self.records:
             if r['kind'] != 'pref':
@@ -1302,7 +1443,7 @@ class Run:
         from huggingface_hub import HfApi
         api = HfApi(token=self.token)
         wk = f'week-{self.week:04d}'
-        self.save_jsonl('star_replay.jsonl', self.load_jsonl('star.jsonl') + self.load_jsonl('critique.jsonl'))
+        self.save_jsonl('star_replay.jsonl', self.load_jsonl('star.jsonl') + self.load_jsonl('critique.jsonl') + self.load_jsonl('school_star.jsonl'))
         try:
             api.upload_file(path_or_fileobj=f'{WORK}/wip/star_replay.jsonl', path_in_repo=f'star/{wk}.jsonl', repo_id=self.cfg['data_repo'], repo_type='dataset', commit_message=f'week {self.week}: STaR answers')
         except Exception as e:
@@ -1314,6 +1455,7 @@ class Run:
             self.phase_setup()
             self.phase('exam_before', self.exam_before)
             self.phase('star', self.star)
+            self.phase('school', self.school_star, skip_if=None if any(r['kind'] == 'school' and 'answer' in r for r in self.records) else 'no school practice with an exact answer this week')
             short = self.deadline.left() < 4 * 3600
             self.phase('critique', self.critique, skip_if='not enough time left' if short else None)
             self.phase('judge', self.judge, skip_if='not enough time left' if short else None)
@@ -1357,7 +1499,7 @@ def replay_pair(r):
         return None
     if isinstance(r.get('prompt'), str) and isinstance(r.get('answer'), str) and r['answer'].strip():
         return (r['prompt'], r['answer'])
-    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill') and not record_problem(r):
+    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
         return (chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'])
     return None
 
@@ -1383,5 +1525,69 @@ def tools_block(tools):
             '<tool_call>\n{"name": <function-name>, "arguments": <args-json-object>}\n</tool_call>')
 
 
+class ExamRun(Run):
+    """EXAM MODE: one SCHOOL paper sat by the brain in use, on the weights as they ship (q4f16_1, round-tripped), with
+    the phone's exam prompt and token budgets. Nothing is trained, uploaded or published: the answers go to the hook
+    (with this run's one-time ticket) and the brain marks them. Kaggle's saved output gets only a line saying how it
+    went, never the questions or the answers."""
+
+    def __init__(self, cfg):
+        super().__init__({**cfg, 'week': cfg.get('week', 0)})
+        self.report = {'kind': 'school', 'paperId': cfg.get('paper_id'), 'model': cfg.get('model_label') or cfg['current']['label'], 'answers': []}
+        self.items = []
+
+    def setup(self):
+        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
+        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
+        import torch
+        if not torch.cuda.is_available():
+            raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
+        self.amp = torch.bfloat16 if amp_for(torch.cuda.get_device_capability()) == 'bf16' else None
+        # The token, once, for this run's one-time ticket (the brain in use may be a trained week in the private repos).
+        self.token = retry(lambda: http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token'], 'asking Ghosty for the token')
+        from huggingface_hub import hf_hub_download, snapshot_download
+        c = self.cfg
+        path = retry(lambda: hf_hub_download(c['data_repo'], c['data_file'], repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), 'downloading the paper')
+        with open(path) as f:
+            self.items = [json.loads(l) for l in f if l.strip()]
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
+        self.load_model()
+
+    def sit(self):
+        """Every question, as the phone asks it: about 200 tokens a question, 350 for a piece of writing; temperature 0.3."""
+        prompts = [chat_prompt(exam_prompt(it)) for it in self.items]
+        answers = [''] * len(self.items)
+        with quantised_weights(self.model):
+            for longer in (False, True):
+                idx = [i for i, it in enumerate(self.items) if (it['type'] == 'extended') == longer]
+                if not idx:
+                    continue
+                outs = self.generate([prompts[i] for i in idx], temperature=0.3, max_new=EXAM_TOKENS['writing' if longer else 'item'])
+                for i, o in zip(idx, outs):
+                    answers[i] = o[0]
+        self.report['answers'] = [{'id': it['id'], 'given': a} for it, a in zip(self.items, answers)]
+        log(f"sat {len(self.items)} questions of {self.report['paperId']}")
+
+    def main(self):
+        try:
+            self.setup()
+            self.sit()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.report['error'] = f'{type(e).__name__}: {str(e)[:400]}'
+        with open(f'{OUT}/ghosty_report.json', 'w') as f:
+            json.dump({'kind': 'school', 'paperId': self.report['paperId'], 'answered': len(self.report['answers']), **({'error': self.report['error']} if 'error' in self.report else {})}, f)
+        self.hook({'report': self.report})
+        log('done:', json.dumps({'answered': len(self.report['answers']), 'error': self.report.get('error')}))
+        import shutil
+        shutil.rmtree(WORK, ignore_errors=True)
+
+
+def run_for(cfg):
+    """The weekly training, or (mode 'exam') one SCHOOL paper sat with no training at all."""
+    return ExamRun(cfg) if cfg.get('mode') == 'exam' else Run(cfg)
+
+
 if __name__ == '__main__' and CONFIG_JSON:
-    Run(json.loads(CONFIG_JSON)).main()
+    run_for(json.loads(CONFIG_JSON)).main()
