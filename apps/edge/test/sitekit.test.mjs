@@ -595,3 +595,26 @@ test('review 4: after a model wait the confirm list survives, and the writer get
   assert.match(K.rejectRewrite('Book your chair', 'Cuts from £18', 60, job.facts), /adds numbers/);
   assert.ok(plan.confirm.length);
 });
+
+test('review 5: the build looks up its link first — never a silent overwrite — and names a link cannot spell never share one', async () => {
+  const tool = K.siteTools.find((t) => t.name === 'build_website');
+  const st = new MemStorage();
+  const ctx = { env: { PUBLIC_ORIGIN: 'https://ghosty.example' }, storage: st, origin: 'https://ghosty.example' };
+  await K.siteStore(undefined, st).put({ name: 'fade-co', title: 'Fade & Co — barbers in Walsall', html: '<!doctype html><html><body>old</body></html>', source: '', at: 1 });
+  await K.siteStore(undefined, st).put({ name: 'walsall-barber', title: "Aunt May's knitting", html: '<!doctype html><html><body>other</body></html>', source: '', at: 1 });
+  const same = await tool.approval({ request: 'build a website for my barber shop in Walsall', name: 'Fade & Co' }, ctx);
+  assert.match(same.reason, /replaces "Fade & Co — barbers in Walsall"/, same.reason);
+  assert.equal(same.args.link_name, 'fade-co');
+  const other = await tool.approval({ request: 'build a website for my barber shop in Walsall' }, ctx);
+  assert.ok(/replac/.test(other.reason) || other.args.link_name !== 'walsall-barber', other.reason);
+  assert.equal(other.args.link_name, 'walsall-barber-2', 'another business moves to the next free link');
+  assert.ok(!/replac/.test(other.reason));
+  // The run uses exactly the link that was approved.
+  assert.match(await tool.run(other.args, ctx), /\/s\/walsall-barber-2\b/);
+  // Arabic, Chinese and emoji names: three different links (all used to be "site-barber").
+  const names = ['مقص الذهب', '金剪刀理发店', '🔥💈'].map((name) => SB.siteNameOf({ name }, SB.briefOf({ request: 'build a website for my barber shop', name })));
+  assert.equal(new Set(names).size, 3, names.join(' '));
+  for (const n of names) assert.match(n, /^[a-z0-9-]{3,48}$/);
+  assert.equal(SB.siteNameOf({ name: 'مقص الذهب' }, SB.briefOf({ request: 'build a website for my barber shop', name: 'مقص الذهب' })), names[0], 'the same name always gives the same link');
+  assert.equal(SB.siteNameOf({ name: 'Fade & Co' }, SB.briefOf({ request: 'x', name: 'Fade & Co' })), 'fade-co');
+});

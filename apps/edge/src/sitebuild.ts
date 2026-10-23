@@ -77,6 +77,8 @@ export interface SiteJob {
   geocoded?: boolean;
 }
 const JOB = (id: string) => `sitejob:${id}`;
+/** A site built and waiting for the owner to confirm it (finding 10): its title and project, by link name. */
+const DRAFT_AT = (name: string) => `sitedraft:${name}`;
 type Store = { env: ToolContext['env']; storage: DurableObjectStorage };
 export const loadSiteJob = (s: Store, id: string) => durableGet<SiteJob>(s.env, s.storage, JOB(id));
 const saveJob = (s: Store, j: SiteJob) => durablePut(s.env, s.storage, JOB(j.id), j);
@@ -121,16 +123,52 @@ export function briefOf(a: Record<string, unknown>): Brief {
   return b;
 }
 
-/** The link name: what the owner asked for, else from the business name, else the town and the trade. */
-export const siteNameOf = (a: Record<string, unknown>, b: Brief) => siteSlug(arg.str(a, 'link_name', false) || b.name || `${b.town ?? ''} ${b.kind}`) || `site-${b.kind}`;
+/** A short, stable tag from words: the same name always gives the same link, two names almost never one. */
+const tagOf = (s: string) => ([...s].reduce((h, c) => (Math.imul(h, 31) + c.codePointAt(0)!) | 0, 7) >>> 0).toString(36).slice(-4);
 
-/** What the owner approves: what will be built, where it will go live, and what will be assumed. */
-export function siteApproval(a: Record<string, unknown>, origin: string | undefined, env: ToolContext['env']): string {
+/**
+ * The link name: what the owner asked for, else from the business name, else the town and the trade. A name
+ * a link cannot spell (Arabic, Chinese, emoji: almost nothing of it survives as a-z, 0-9) gets the trade and a
+ * short tag made from the name, so two such businesses never share — and overwrite — one link.
+ */
+export const siteNameOf = (a: Record<string, unknown>, b: Brief): string => {
+  const from = arg.str(a, 'link_name', false) || b.name || `${b.town ?? ''} ${b.kind}`;
+  const plain = from.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  const slug = siteSlug(plain);
+  const latin = (plain.match(/[a-z0-9]/gi) ?? []).length;
+  const all = (plain.match(/[\p{L}\p{N}\p{Extended_Pictographic}]/gu) ?? []).length;
+  if (slug && latin * 2 >= all) return slug;
+  return `${(slug || siteSlug(`${b.town ?? ''} ${b.kind}`) || 'site').slice(0, 40)}-${tagOf(from || b.request)}`;
+};
+
+/**
+ * The link the build will use, looked up first: a page already there from another business moves this one
+ * to the next free number (-2, -3…); the same business (or a link the owner named) replaces it, and the
+ * approval says so. Never a silent overwrite.
+ */
+export async function siteNameFor(a: Record<string, unknown>, b: Brief, ctx: Pick<ToolContext, 'env' | 'storage'>): Promise<{ name: string; replaces?: string }> {
+  const base = siteNameOf(a, b);
+  const store = siteStore(ctx.env, ctx.storage);
+  const at = async (n: string) => (await store.get(n).catch(() => undefined))?.title ?? (await durableGet<{ title: string }>(ctx.env, ctx.storage, DRAFT_AT(n)).catch(() => undefined))?.title;
+  const had = await at(base);
+  if (!had) return { name: base };
+  const same = !!b.name && had.toLowerCase().includes(b.name.toLowerCase());
+  if (arg.str(a, 'link_name', false) || same) return { name: base, replaces: had };
+  for (let i = 2; i < 10; i++) {
+    const n = `${base.slice(0, 45)}-${i}`;
+    if (!(await at(n))) return { name: n };
+  }
+  return { name: base, replaces: had };
+}
+
+/** What the owner approves: what will be built, where it will go, what will be assumed, and what it replaces. The link is fixed in the arguments. */
+export async function siteApproval(a: Record<string, unknown>, ctx: ToolContext): Promise<{ args: Record<string, unknown>; reason: string }> {
   const b = briefOf(a);
-  const name = siteNameOf(a, b);
+  const { name, replaces } = await siteNameFor(a, b, ctx);
   const t = TEMPLATES[b.kind];
   const gaps = missing(b).map((m) => m.key);
-  return `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(origin, env, name)}? Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.`;
+  const reason = `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(ctx.origin, ctx.env, name)}?${replaces ? ` This replaces "${replaces}", which is at that link now.` : ''} Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.`;
+  return { args: { ...a, link_name: name }, reason };
 }
 
 /** Start the website project: the brief is kept with the job, the six steps go into a project of kind 'site'. */

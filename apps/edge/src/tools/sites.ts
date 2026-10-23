@@ -401,9 +401,7 @@ export const siteTools: Tool[] = [
       required: ['request'],
     },
     risk: 'confirm', // it ends on the public internet: the owner approves the whole build once
-    async approval(a, ctx) {
-      return { args: a, reason: siteApproval(a, ctx.origin, ctx.env) };
-    },
+    approval: (a, ctx) => siteApproval(a, ctx),
     run: (a, ctx) => startSiteBuild(a, ctx),
   },
   {
