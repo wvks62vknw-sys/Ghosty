@@ -29,6 +29,7 @@ import { boundaryLine, scorePaper, stageById, STAGE_IDS, SUBJECT_LABEL, weakSpot
 import { durableDelete } from '../kv';
 import { BANK_STAGES, bankItems, bankKey, bankName, bankPaper, bankReady, bankRow, bankTick, isBankStage, loadBank, shapeOf, type BankMeta } from './banks';
 import { keepGiven, markPaper, retryPending, type Ask } from './mark';
+import { remoteStatus, sitRemote } from './remote';
 import { fileResponse, loadAllOfficial, loadOfficial, officialById, officialKey, officialName, officialRow, officialTick, OFFICIAL, OFFICIAL_HOSTS, saveText, type OfficialRecord } from './official';
 import { hasPapers, makePaper, paperId, PAPER_SEED_FLOOR, PAPER_STAGES, stageName, type SchoolPaper } from './papers';
 import { addNews, applyResult, ladder, latestFor, loadPaper, loadState, newsFor, nextUp, PAPER_PREFIX, reportLine, saveState, savePaper, type PaperRecord, type SchoolState, type Store } from './state';
@@ -409,6 +410,11 @@ export async function handleSchool(req: Request, path: string, method: string, d
     });
     return json(await view(d, st));
   }
+
+  // [school 2b] A paper sat on Kaggle's free GPU by the same weights (school/remote.ts; selftrain/cycle.ts runs it): set
+  // through POST /school/sit above, so it is the paper the phone would get; then its status, and the gap per subject.
+  if (path === '/school/sit-remote' && method === 'POST') return sitRemote(d, body, (stage, subject) => handleSchool(new Request(req.url, { method: 'POST', body: JSON.stringify({ stage, subject }) }), '/school/sit', 'POST', d), (fn) => serial(d, fn));
+  if (path === '/school/remote' && method === 'GET') return remoteStatus(d, (fn) => serial(d, fn));
 
   return bad('not found', 404);
 }

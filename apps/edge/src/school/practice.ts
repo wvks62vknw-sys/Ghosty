@@ -16,7 +16,7 @@
  */
 import { examMessages, markExact, stageById, SUBJECT_LABEL, weakSpots, type ItemType, type PaperItem, type StageId } from '../../../../packages/shared/src/school';
 import { recordProblem, type TrainRecord } from '../../../../packages/shared/src/selftrain';
-import { jsonIn, tooClose } from '../selftrain/factory';
+import { jsonIn, tooClose, WEEKLY } from '../selftrain/factory';
 import { stageName } from './papers';
 import { loadState, PAPER_PREFIX } from './state';
 
@@ -33,7 +33,7 @@ const PER_CALL = 3;
 export const CALLS_PER_STEP = 3;
 export const CALLS_PER_DAY = 40;
 /** At most this many school records go into one week's data. */
-export const WEEKLY_SCHOOL = 150;
+export const WEEKLY_SCHOOL = WEEKLY.school;
 
 export interface PracticeItem {
   type: Exclude<ItemType, 'extended'>;
