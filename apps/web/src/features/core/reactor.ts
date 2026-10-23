@@ -21,6 +21,7 @@
 import { gfx } from '../../engine/gfx';
 import type { VoiceState } from '../../state/app';
 import { proLook } from '../../state/theme';
+import { exposeHero, heroState, Mind } from './mind';
 
 const TAU = Math.PI * 2;
 /** The calm look draws the housing bigger in the same canvas: ±PX units instead of ±1.45. */
@@ -75,6 +76,9 @@ export class Reactor {
   /** A touch: 1 at the tap, fading (the calm looks answer a tap with a pulse and a ripple). */
   private kick = 0;
   private lastGlow = 0.5;
+  /** The calm looks' centrepiece (mind.ts): a 3-D hologram of his mind over this canvas once three.js is in. */
+  private mind: Mind | null = null;
+  private mindTried = false;
 
   /** Half the drawing's span in housing radii (the HUD rings around it scale by this). */
   extent(): number {
@@ -88,6 +92,7 @@ export class Reactor {
 
   /** The owner touched the reactor: a pulse, a ripple and a few motes. */
   poke(_e?: PointerEvent): void {
+    this.mind?.poke();
     this.kick = 1;
     for (let i = 0; i < 14; i++) this.sparks.push({ a: Math.random() * TAU, r: 0.32, v: 0.4 + Math.random() * 0.5, life: 0, max: 0.6 + Math.random() * 0.6, s: 0.006 + Math.random() * 0.008 });
   }
@@ -223,6 +228,26 @@ export class Reactor {
 
   frame(dt: number): void {
     if (!this.el.isConnected) return;
+    // The calm looks: MIND draws instead (the first frame on Home loads it); if it cannot run, this reactor stays.
+    if (proLook()) {
+      if (!this.mindTried) {
+        this.mindTried = true;
+        exposeHero();
+        const m = new Mind(this.el);
+        this.mind = m;
+        void m.start().then((ok) => {
+          if (!ok && this.mind === m) this.mind = null;
+        });
+      }
+      if (this.mind?.active) {
+        this.mind.frame(dt, this.state, this.level);
+        this.lastGlow = this.mind.light();
+        return;
+      }
+    } else if (this.mind?.active) {
+      this.mind.hide();
+      heroState.reason = 'a classic look';
+    }
     this.resize();
     const th0 = to255(gfx.theme.c);
     if (this.key !== `${Math.round(this.size * this.dpr)}|${th0.join()}`) this.buildStatic();

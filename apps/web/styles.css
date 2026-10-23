@@ -2528,3 +2528,10 @@ button.schnightly[aria-checked="false"] { color: var(--mute); }
 [data-look="pro"] .schq { border-radius: 14px; background: var(--thin); }
 [data-look="pro"] .pn.school button[data-label]::before { font-weight: 600; }
 /* end SCHOOL */
+
+/* hero: mind — Home's 3-D centrepiece in the calm looks (features/core/mind.ts). Its WebGL canvas lies exactly over
+   the 2-D reactor's canvas, which keeps its place in the layout (and its taps) but is not drawn while Mind runs. */
+.rwrap:has(> canvas.mindhero) { position: relative; }
+canvas.mindhero { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
+canvas.reactor.mindon { opacity: 0; }
+/* end hero: mind */
