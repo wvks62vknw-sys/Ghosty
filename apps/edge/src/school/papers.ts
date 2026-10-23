@@ -38,6 +38,16 @@ export interface SchoolItem extends PaperItem {
 export interface SchoolPaper extends Paper {
   items: SchoolItem[];
   passages?: Passage[];
+  /** Where it came from when not from the generators here: a checked question bank (banks.ts) or an official paper (official.ts). */
+  from?: 'bank' | 'official';
+  /** Official papers: the board (or the Standards and Testing Agency), the year, the paper's real total, and what its boundaries are. */
+  board?: string;
+  year?: number;
+  fullMarks?: number;
+  /** In plain words, e.g. "AQA's June 2023 boundaries for 8300/1H, scaled to the 74 marks he could sit". */
+  boundaries?: string;
+  /** Questions left out of the paper (and its total): a picture he cannot see, a part read aloud, a check that failed. */
+  leftOut?: { what: string; marks: number; why: string }[];
 }
 
 // ---- seeded choices ------------------------------------------------------------------------------------------

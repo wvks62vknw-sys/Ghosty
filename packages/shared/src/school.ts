@@ -149,6 +149,8 @@ export interface PaperResult {
   topics: Record<string, { got: number; max: number }>;
   marked: { exact: number; model: number; pending: number };
   answers: ItemResult[];
+  /** The boundary he reached and the next one up, in words (`boundaryLine`; part 2). */
+  boundary?: string;
 }
 
 /** The default bands for a self-written paper: a plain percentage scale where the top band starts at 85%. */
@@ -288,4 +290,56 @@ export function weakSpots(results: PaperResult[], max = 5): { topic: string; sta
     }
   }
   return [...acc.values()].filter((a) => a.of > 0 && a.lost > 0).sort((a, b) => b.lost / b.of - a.lost / a.of || b.lost - a.lost).slice(0, max);
+}
+
+// ---- real boundaries (part 2: official papers) ------------------------------------------------------------------
+
+/**
+ * Boundaries scaled to the marks he can actually sit: an official paper whose diagram questions (or a part read
+ * aloud) are left out keeps each boundary at the same share of the marks (`from × sittable / full`, rounded up).
+ * With nothing left out (`sittable === full`) the boundaries are the board's own.
+ */
+export function scaleBands(bands: GradeBand[], full: number, sittable: number): GradeBand[] {
+  if (!(full > 0) || sittable === full) return bands.map((b) => ({ ...b }));
+  const k = Math.max(0, sittable) / full;
+  return bands.map((b) => ({ ...b, from: Math.ceil(b.from * k - 1e-9) }));
+}
+
+/**
+ * A board's grade boundaries as bands: `grades` from the best down ([['9', 70], ['8', 59], …]), the raw mark each
+ * starts at; below the last, `bottom` ('U'). The grades in `top` count as top grades for moving up.
+ */
+export function boundaryBands(grades: [string, number][], top: string[], bottom = 'U'): GradeBand[] {
+  return [...grades.map(([grade, from]) => ({ from, grade, ...(top.includes(grade) ? { top: true } : {}) })), { from: 0, grade: bottom }];
+}
+
+/**
+ * The Standards and Testing Agency's raw-score to scaled-score table as bands: `table[raw]` is the scaled score
+ * for that raw mark (0: no scaled score). The grade is the scaled score ("104"); 110 and above is the higher
+ * standard (top grades for moving up, the owner's rule for Key Stage 2).
+ */
+export function scaledBands(table: number[], higher = 110): GradeBand[] {
+  const out: GradeBand[] = [];
+  for (let raw = 0; raw < table.length; raw++) {
+    const s = table[raw]!;
+    if (!s || out.some((b) => b.grade === String(s))) continue;
+    out.push({ from: raw, grade: String(s), ...(s >= higher ? { top: true } : {}) });
+  }
+  if (!out.some((b) => b.from === 0)) out.push({ from: 0, grade: 'No scaled score' });
+  return out.sort((a, b) => b.from - a.from);
+}
+
+/**
+ * The boundary a raw mark reached and the next one up, in plain words: "Grade 7 from 49/80 · grade 8 from 59",
+ * "Scaled score 104 from 72/110 · 105 from 76", "Top band from 68/80 · the highest there is".
+ */
+export function boundaryLine(paper: Pick<Paper, 'bands' | 'maxMarks'>, raw: number): string {
+  const bands = [...paper.bands].sort((a, b) => b.from - a.from);
+  const i = Math.max(0, bands.findIndex((b) => raw >= b.from));
+  const b = bands[i] ?? bands.at(-1);
+  if (!b) return '';
+  const name = (g: string, first: boolean) => (/^\d+$/.test(g) && Number(g) >= 80 ? `${first ? 'Scaled score ' : ''}${g}` : /^[1-9]$|^U$/.test(g) ? `${first ? 'Grade' : 'grade'} ${g}` : /^(A\*|[A-E])$/.test(g) ? `${first ? 'Grade' : 'grade'} ${g}` : g);
+  // Bands that start at the same mark (after scaling) are one step: the next one up starts higher.
+  const up = bands.slice(0, i).reverse().find((x) => x.from > b.from);
+  return `${name(b.grade, true)} from ${b.from}/${paper.maxMarks}${up ? ` · ${name(up.grade, false)} from ${up.from}` : ' · the highest there is'}`;
 }

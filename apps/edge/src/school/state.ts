@@ -48,12 +48,15 @@ export interface SchoolState {
   /** What happened since the last school report (plain words), and the day that report went. */
   news: string[];
   reportedDay?: string;
+  /** Official papers already handed out (each is sat once: after that he has seen it). */
+  officialUsed: string[];
 }
 
 /** A paper as kept: the paper itself (written by Ghosty, or an official one in part 2), his answers and the result. */
 export interface PaperRecord {
   paper: SchoolPaper;
-  from: 'written' | 'official';
+  /** Written by the generators here, drawn from a checked question bank (banks.ts), or an official paper (official.ts). */
+  from: 'written' | 'official' | 'bank';
   issuedAt: number;
   /** His replies by item id (as the phone sent them). */
   given: Record<string, string>;
@@ -68,7 +71,7 @@ export interface Store {
   env?: Pick<Env, 'SITES'>;
 }
 
-export const freshState = (): SchoolState => ({ stage: 'nursery', passed: {}, results: [], nightly: true, open: [], news: [] });
+export const freshState = (): SchoolState => ({ stage: 'nursery', passed: {}, results: [], nightly: true, open: [], news: [], officialUsed: [] });
 
 export async function loadState(s: Store): Promise<SchoolState> {
   const v = await durableGet<Partial<SchoolState>>(s.env, s.storage, STATE_KEY);
@@ -81,6 +84,7 @@ export async function loadState(s: Store): Promise<SchoolState> {
     nightly: typeof v.nightly === 'boolean' ? v.nightly : base.nightly,
     open: Array.isArray(v.open) ? v.open : [],
     news: Array.isArray(v.news) ? v.news.slice(-MAX_NEWS) : [],
+    officialUsed: Array.isArray(v.officialUsed) ? v.officialUsed.filter((x) => typeof x === 'string') : [],
     ...(typeof v.reportedDay === 'string' ? { reportedDay: v.reportedDay } : {}),
   };
 }
@@ -107,17 +111,18 @@ export interface StageRow {
   status: 'passed' | 'now' | 'locked';
   passedAt?: number;
   placement?: StageId;
-  /** Ghosty can set papers for it yet (part 1: nursery to Key Stage 2). */
+  /** Every subject of it can be sat now: Ghosty writes its papers, its question banks are finished, or official papers are in. */
   papers: boolean;
   pass: string;
 }
-export function ladder(st: SchoolState): StageRow[] {
+/** The ladder; `sittable` says whether every subject of a stage has a paper to sit (default: the generators' stages). */
+export function ladder(st: SchoolState, sittable: (id: StageId) => boolean = hasPapers): StageRow[] {
   return STAGE_IDS.map((id) => {
     const s = stageById(id)!;
     const p = st.passed[id];
     // The library is "always open once university is passed": it never shows a tick of its own.
     const status: StageRow['status'] = p ? 'passed' : id === st.stage ? 'now' : stageIndex(id) < stageIndex(st.stage) ? 'passed' : 'locked';
-    return { id, label: s.label, years: s.years, subjects: s.subjects, status, ...(p ? { passedAt: p.at } : {}), ...(p?.placement ? { placement: p.placement } : {}), papers: hasPapers(id), pass: s.pass };
+    return { id, label: s.label, years: s.years, subjects: s.subjects, status, ...(p ? { passedAt: p.at } : {}), ...(p?.placement ? { placement: p.placement } : {}), papers: sittable(id), pass: s.pass };
   });
 }
 
