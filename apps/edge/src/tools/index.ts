@@ -97,7 +97,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     tools: siteTools,
     when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i,
     // The rule the owner cares about most, so it stays forceful: a page is delivered by its link.
-    about: "You can PUBLISH websites: any site, page, portfolio, CV, shop or invitation the owner asks for, or a site to clone or rebuild — DO IT, never reply that you can't host or publish: study_site a link first, write ONE complete HTML document, publish_site, and ALWAYS give the exact live link. For a business, event, charity or app website use build_website instead (never hand-write it): its site waits as a DRAFT until the owner confirms what was assumed; when they do (or say \"publish it\"), call build_website again with confirm true and the same link_name.",
+    about: "You can PUBLISH websites: any page, CV, shop or invitation — DO IT, never say you can't host: study_site a link, write ONE HTML document, publish_site, give the live link. Business, event, charity or app sites: build_website (never by hand), a DRAFT until the owner confirms (confirm: true).",
   },
   // The quality gate: also on for every coding turn (selectTools), since every page, app and widget goes through it.
   {
