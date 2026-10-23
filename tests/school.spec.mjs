@@ -9,6 +9,9 @@
 // source and licence, and FETCH reads one on the phone (the file is a stand-in PDF served here, never the real
 // site) and the mock brain makes it into a paper ("Ready", the diagram question left out); WRITE THE PAPERS for
 // Key Stage 3 writes its banks through the mock brain until the stage can be sat.
+// Part 3: READING lists his stage's shelf with each book's source and licence; READ runs through the mock brain until
+// the book is read (the preview brain fetches the small real Gutenberg text); the reading check is sat on the stand-in
+// model with the book's words and its score kept; BORROW shows the rule and why a higher book cannot be borrowed yet.
 //   BASE=http://localhost:8803 node tests/school.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
@@ -239,6 +242,66 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/school-ks3-ready.png` });
 await noSideways(page, 'Key Stage 3 written');
 await ctx.close();
+
+// ---- READING (part 3): the shelf with source and licence, READ through the mock brain, the reading check, BORROW's rule ----
+{
+  const { ctx, page } = await signIn(true);
+  await page.evaluate(() => (location.hash = 'school'));
+  await page.waitForFunction(() => document.querySelectorAll('#pg-school .schreading .schbook').length >= 6, null, { timeout: 20000 }).catch(() => problems.push('READING does not list his shelf'));
+  const rows = await page.$$eval('#pg-school .schreading .schbook', (n) => n.map((x) => ({ id: x.dataset.id, text: x.textContent })));
+  const shelf = (await page.evaluate(() => window.__ghosty?.school?.reading?.shelf)) ?? [];
+  if (!shelf.some((r) => r.id === 'pg-14838') || shelf.length < 6) problems.push(`READING: the nursery shelf: ${JSON.stringify(shelf)}`);
+  for (const r of rows.filter((x) => shelf.some((s) => s.id === x.id))) if (!/Project Gutenberg #\d+ · Public domain in the UK: .* died .* before 1955/.test(r.text)) problems.push(`READING: ${r.id} has no source and licence line`);
+  const readTxt = (await page.locator('#pg-school .schreading').textContent().catch(() => '')) ?? '';
+  if (!/SIT THE READING CHECK/.test(readTxt) || !/80% passes/.test(readTxt)) problems.push('READING does not offer the reading check with its pass mark');
+  await page.locator('#pg-school .schreading').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-reading.png` });
+  await noSideways(page, 'READING');
+  await smallTargets(page, 'READING');
+  // READ: the brain imports the book through the library's importers, a part at a time, until it is read.
+  const peter = page.locator('#pg-school .schreading .schbook[data-id="pg-14838"]');
+  if ((await peter.locator('button', { hasText: /^(READ|CARRY ON READING)$/ }).count())) await peter.locator('button', { hasText: /^(READ|CARRY ON READING)$/ }).click();
+  await page.waitForFunction(() => (window.__ghosty?.school?.reading?.shelf ?? []).find((r) => r.id === 'pg-14838')?.status === 'read', null, { timeout: 90000 }).catch(async () => problems.push(`READ did not finish The Tale of Peter Rabbit: ${await peter.textContent().catch(() => '')}`));
+  await page.waitForFunction(() => /Read ✓/.test(document.querySelector('#pg-school .schreading .schbook[data-id="pg-14838"] .schbookst')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('a book he has read is not listed as read with the day'));
+  // The reading check, sat on the stand-in model like a paper: "Question x of 10", then the score with the book.
+  const jemima = page.locator('#pg-school .schreading .schbook[data-id="pg-14814"]');
+  const before = (await page.evaluate(() => window.__ghostyOfflineEngine.calls.length)) ?? 0;
+  if ((await jemima.locator('button', { hasText: 'SIT THE READING CHECK' }).count())) {
+    await jemima.locator('button', { hasText: 'SIT THE READING CHECK' }).click();
+    await page.waitForFunction(() => /^Question \d+ of 10$/.test(window.__ghosty?.school?.reading?.live ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`no "Question x of 10" while he sits the reading check: "${await page.evaluate(() => window.__ghosty?.school?.reading?.live)}"`));
+    await page.locator('#pg-school .schreading .schcheck').evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => undefined);
+    await page.screenshot({ path: `${out}/school-reading-check.png` });
+    await smallTargets(page, 'the reading check');
+    await page.waitForFunction(() => /\d+\/10 \(\d+%\) — (passed|not passed) \(80% passes\)/.test(window.__ghosty?.school?.reading?.last ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`the reading check was not marked: "${await page.evaluate(() => window.__ghosty?.school?.reading?.last)}"`));
+    const asked = await page.evaluate((n) => window.__ghostyOfflineEngine.calls.slice(n).map((c) => c.messages.at(-1).content), before);
+    if (asked.length !== 10 || !asked.every((q) => /^Read this: "/.test(q))) problems.push(`the check's questions did not reach the model with the book's words: ${asked.length} asked`);
+  }
+  await page.waitForFunction(() => /^\d+\/10$/.test((window.__ghosty?.school?.reading?.shelf ?? []).find((r) => r.id === 'pg-14814')?.check ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the check’s score is not kept with the book'));
+  // BORROW: the rule in one line; without top grades in his reading, every higher book says why and cannot be borrowed.
+  const rule = (await page.locator('#pg-school .schreading .schrule').textContent().catch(() => '')) ?? '';
+  if (!/two stages above/.test(rule) || !/80%/.test(rule) || !/never count towards passing a stage/.test(rule)) problems.push(`BORROW's rule: "${rule}"`);
+  const borrowLine = (await page.locator('#pg-school .schreading .schborrowline').textContent().catch(() => '')) ?? '';
+  if (!/must be at top grades/.test(borrowLine)) problems.push(`BORROW does not say it is not earned yet: "${borrowLine}"`);
+  const aheads = await page.$$eval('#pg-school .schreading details.schahead', (n) => n.map((x) => x.dataset.stage));
+  if (aheads.join(',') !== 'reception,ks1') problems.push(`the higher shelves: ${aheads.join(',')}`);
+  await page.locator('#pg-school .schreading details.schahead[data-stage="reception"] > summary').click();
+  const bunny = page.locator('#pg-school .schreading details.schahead[data-stage="reception"] .schbook[data-id="pg-14407"]');
+  if (!(await bunny.locator('button', { hasText: 'BORROW' }).isDisabled().catch(() => false))) problems.push('BORROW is open before it is earned');
+  if (!/top grades/.test((await bunny.locator('.schborrowwhy').textContent().catch(() => '')) ?? '')) problems.push('a higher book does not say why it cannot be borrowed');
+  const locks = (await page.locator('#pg-school .schreading .schlocks').textContent().catch(() => '')) ?? '';
+  if (!/locked until GCSE/.test(locks)) problems.push(`WHAT IS LOCKED: "${locks}"`);
+  await bunny.scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.waitForFunction(() => !document.querySelector('.toast'), null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-reading-borrow.png` });
+  await page.locator('#pg-school .schreading .schbook[data-id="pg-14814"]').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${out}/school-reading-done.png` });
+  await noSideways(page, 'READING after a check');
+  await smallTargets(page, 'READING after a check');
+  await ctx.close();
+}
 
 // ---- not downloaded: it says so and offers DOWNLOAD IT IN SETTINGS ----------------------------------------------
 {

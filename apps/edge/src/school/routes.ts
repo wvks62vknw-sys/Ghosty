@@ -416,6 +416,12 @@ export async function handleSchool(req: Request, path: string, method: string, d
   if (path === '/school/sit-remote' && method === 'POST') return sitRemote(d, body, (stage, subject) => handleSchool(new Request(req.url, { method: 'POST', body: JSON.stringify({ stage, subject }) }), '/school/sit', 'POST', d), (fn) => serial(d, fn));
   if (path === '/school/remote' && method === 'GET') return remoteStatus(d, (fn) => serial(d, fn));
 
+  // ---- part 3: the reading library (school/reading.ts): the shelves, READ, the reading check and BORROW ----
+  if (path === '/school/reading' || path.startsWith('/school/reading/')) {
+    const r = await (await import('./reading')).readingRoute(path, method, body, d);
+    if (r) return r;
+  }
+
   return bad('not found', 404);
 }
 
