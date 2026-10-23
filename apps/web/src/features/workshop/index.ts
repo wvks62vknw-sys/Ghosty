@@ -19,6 +19,7 @@ import { bar, button, modal, panel, row, sandboxFrame, toast, type Light } from 
 import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
+import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
@@ -218,6 +219,18 @@ export const workshopTab: TabDef = {
     const pp = panel('PUBLISHED PAGES', { status: '' });
     // kernel
     const kp = panel('KERNEL LOCK', { grow: false });
+    // WHAT'S NEW: this week's merges, once per build (state/whatsnew.ts), above everything else until GOT IT
+    if (whatsNewDue()) {
+      const wn = panel("WHAT'S NEW", { grow: false, cls: 'whatsnew', status: `${WHATS_NEW.length} THIS WEEK` });
+      wn.body.append(
+        ...WHATS_NEW.map((n) => h('div.wnrow', { dataset: { case: 'keep' } }, h('b', n.title), h('span', n.line))),
+        h('div.row', button('GOT IT', () => {
+          whatsNewSeen();
+          wn.el.remove();
+        }, 'on')),
+      );
+      P.left.append(wn.el);
+    }
     P.left.append(ask.el, rp.el, jp.el, ip.el, cp.el);
     // training ground
     const tp = panel('TRAINING GROUND', { footer: true, grow: false });
