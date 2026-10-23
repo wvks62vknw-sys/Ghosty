@@ -2380,3 +2380,102 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 [data-look="pro"] .pn.tl .mi { border-bottom: .5px solid var(--line); }
 [data-look="pro"] .sitepreview-wrap iframe.sandbox.sitepreview { border-radius: 14px; }
 [data-look="pro"] #pg-memory .pn.tl > .keyrow { display: flex; }
+
+/* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */
+.pn.school button { min-height: 44px; }
+.pn.school .note { overflow-wrap: anywhere; }
+.schrungs { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.schrung { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 6px; border-radius: 8px; }
+.schrung.s-now { background: rgba(var(--cr), .1); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35); }
+.schrung.s-locked { opacity: .55; }
+.schmark { flex: 0 0 26px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(var(--cr), .35); }
+.schmark .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schmark.ok { color: var(--ok); border-color: var(--ok); }
+.schmark.lock { color: var(--mute); border-color: transparent; }
+.schmark.now i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.schname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.schname b { font: 500 13px var(--b); overflow-wrap: anywhere; }
+.schname small, .schsubname small, .schrowt small, .schpick small { font-size: 11.5px; color: var(--mute); }
+.schstate { flex: 0 1 auto; font: 500 10.5px var(--m); letter-spacing: .1em; color: var(--mute); text-align: right; }
+.schstate.now { color: var(--c); }
+.schhead { display: flex; flex-direction: column; margin-bottom: 4px; }
+.schhead b { font: 500 18px var(--d); letter-spacing: .04em; color: var(--c); }
+.schhead small { color: var(--mute); font-size: 12px; }
+.schstate, .schtop { text-transform: uppercase; }
+.schpass { margin-bottom: 4px; }
+.schsubs { display: flex; flex-direction: column; gap: 4px; }
+.schsub { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.schsub.live { background: rgba(var(--cr), .06); }
+.schsubname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.schsubname b { font: 500 13px var(--b); overflow-wrap: anywhere; }
+.schtop { flex: 0 0 auto; font: 500 10.5px var(--m); letter-spacing: .08em; color: var(--mute); }
+.schtop.ok { color: var(--ok); }
+.schsub button { flex: 0 0 auto; min-width: 64px; }
+.schlive { margin: 8px 0 2px; padding: 10px; border-radius: 8px; border: 1px solid rgba(var(--cr), .35); background: rgba(var(--cr), .05); display: flex; flex-direction: column; gap: 4px; }
+.schliveh { display: flex; flex-direction: column; }
+.schliveh b { font: 600 15px var(--b); }
+.schliveh small { color: var(--mute); }
+.schbtns { flex-wrap: wrap; margin-top: 8px; gap: 8px; }
+.schbtns > button { flex: 1 1 140px; }
+.schwhy { margin-top: 6px; }
+.schresult:empty { display: none; }
+.schresult { margin-top: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.schresult.top { border-color: var(--ok); }
+.schgrade { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.schgrade b { font: 600 24px var(--d); color: var(--c); }
+.schresult.top .schgrade b { color: var(--ok); }
+.schgrade span { color: var(--mute); }
+.schresline { font-size: 13px; overflow-wrap: anywhere; }
+.schpicks { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; margin-top: 8px; }
+.schpick { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.schpick button { width: 100%; white-space: normal; }
+.schgo { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.schlist { display: flex; flex-direction: column; gap: 4px; }
+button.schrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 6px 8px; text-align: left; white-space: normal; text-transform: none; letter-spacing: 0; }
+.schrowt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.schrowt b { font: 500 13px var(--b); overflow-wrap: anywhere; }
+.schrowg { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; }
+.schrowg b { font: 600 13px var(--b); color: var(--c); }
+button.schrow.top .schrowg b { color: var(--ok); }
+.schset .keyrow { flex-wrap: wrap; gap: 8px; }
+.schset .keyrow .note { flex: 1 1 180px; min-width: 0; }
+button.schnightly { min-width: 190px; }
+button.schnightly[aria-checked="false"] { color: var(--mute); }
+.schhow { line-height: 1.5; }
+.schpaper { display: flex; flex-direction: column; gap: 10px; max-width: min(92vw, 620px); max-height: 74dvh; overflow: auto; -webkit-overflow-scrolling: touch; padding-right: 2px; }
+.schpaperhd { display: flex; flex-direction: column; gap: 2px; }
+.schpaperhd b { font: 600 18px var(--d); }
+.schpaperhd small { color: var(--mute); }
+.schpassage summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.schpassage p { white-space: pre-wrap; line-height: 1.5; margin: 4px 0; }
+.schq { padding: 10px; border-radius: 8px; border-left: 3px solid var(--mute); background: rgba(var(--cr), .04); display: flex; flex-direction: column; gap: 4px; }
+.schq.ok { border-left-color: var(--ok); }
+.schq.part { border-left-color: #ffd24d; }
+.schq.no { border-left-color: var(--r); }
+.schqh { display: flex; gap: 6px; align-items: baseline; }
+.schqh span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.schqh em { font-style: normal; font-weight: 600; white-space: nowrap; }
+.schopts { font-size: 12px; color: var(--mute); overflow-wrap: anywhere; }
+.schans small { font: 500 10px var(--m); letter-spacing: .1em; color: var(--mute); }
+.schans p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.45; }
+.schnote { font-size: 12px; color: var(--mute); font-style: italic; overflow-wrap: anywhere; }
+[data-look="pro"] .schrung { border-radius: 14px; padding: 6px 10px; }
+[data-look="pro"] .schrung.s-now { background: rgba(var(--accr), .14); box-shadow: none; }
+[data-look="pro"] .schname b, [data-look="pro"] .schsubname b, [data-look="pro"] .schrowt b { font: 600 16px var(--sf); letter-spacing: -.01em; }
+[data-look="pro"] .schname small, [data-look="pro"] .schsubname small, [data-look="pro"] .schrowt small, [data-look="pro"] .schpick small { font: 400 13px var(--sf); color: var(--l2); }
+[data-look="pro"] .schstate, [data-look="pro"] .schtop { font: 600 13px var(--sf); letter-spacing: -.005em; color: var(--l2); text-transform: none; }
+[data-look="pro"] .schhead b { font: 700 26px var(--sfd); letter-spacing: -.02em; color: var(--fg); }
+[data-look="pro"] .schhead small { font: 400 15px var(--sf); color: var(--l2); }
+[data-look="pro"] .schstate.now { color: var(--acc); }
+[data-look="pro"] .schtop.ok, [data-look="pro"] .schmark.ok { color: var(--ok); }
+[data-look="pro"] .schmark.now i { background: var(--acc); box-shadow: 0 0 10px var(--acc); }
+[data-look="pro"] .schsub { border-bottom: .5px solid var(--line); min-height: 56px; }
+[data-look="pro"] .schlive, [data-look="pro"] .schresult { border-radius: 18px; border: 0; background: var(--thin); }
+[data-look="pro"] .schresult.top { box-shadow: inset 0 0 0 1.5px var(--ok); }
+[data-look="pro"] .schgrade b { font: 700 30px var(--sfd); letter-spacing: -.02em; color: var(--fg); }
+[data-look="pro"] .schliveh b { font: 600 17px var(--sf); }
+[data-look="pro"] button.schrow { border-radius: 16px; background: var(--thin); padding: 8px 14px; min-height: 56px; }
+[data-look="pro"] .schrowg b { font: 600 16px var(--sf); color: var(--fg); }
+[data-look="pro"] .schq { border-radius: 14px; background: var(--thin); }
+[data-look="pro"] .pn.school button[data-label]::before { font-weight: 600; }
+/* end SCHOOL */
