@@ -36,6 +36,8 @@ import { OUTLINES } from './curriculum/outlines';
 import { grade, makeDrill, SKILLS, type Drill } from './drills';
 import type { Library } from './store';
 import { loadJobs, setNext } from '../schedule';
+import { topicUnlocked } from '../../../../packages/shared/src/school';
+import { lockOpen, studyLock, type StudyLock } from '../school/reading';
 
 export interface StudyState {
   on: boolean;
@@ -78,6 +80,13 @@ export interface StudyState {
   pending: [string, string, string][];
   /** Per unanswered question: how many sessions it failed in (given up after three). */
   gapFails: Record<string, number>;
+  /**
+   * [school] The library's locks (school/reading.ts `studyLock`, read once a session): the school stage he is at;
+   * absent until SCHOOL is first opened. A topic above his stage is passed over and kept in `held` ([index, level])
+   * — read first once its level opens, never lost; a field with only held topics left waits, unfinished.
+   */
+  lock?: StudyLock | null;
+  held?: Record<string, [number, 1 | 2 | 3][]>;
 }
 const MAX_GAP_FAILS = 3;
 
@@ -166,7 +175,7 @@ export async function loadStudy(storage: DurableObjectStorage): Promise<StudySta
  * never stay queued. Pure and repeatable, so every reader of the state sees the same queue.
  */
 function planQueue(st: StudyState): void {
-  const open = (id: string) => !!domainById(id) && !st.finished[id];
+  const open = (id: string) => !!domainById(id) && !st.finished[id] && !waits(st, id);
   for (const id of st.focus) {
     if (domainById(id) && !st.asked.includes(id) && st.finished[id]) {
       delete st.finished[id];
@@ -179,6 +188,14 @@ function planQueue(st: StudyState): void {
     const next = DOMAINS.find((d) => open(d.id));
     if (next) st.queue = [next.id];
   }
+}
+
+/** [school] A field that has only topics above his school stage left (held): it waits for his stage, unfinished. */
+function waits(st: StudyState, id: string): boolean {
+  const held = st.held?.[id];
+  if (!st.lock || !held?.length || st.focus.includes(id)) return false;
+  const total = (domainById(id)?.topics.length ?? 0) + (st.grown[id]?.n ?? 0);
+  return (st.cursor[id] ?? 0) >= total && !held.some(([, l]) => topicUnlocked(st.lock!.stage, l));
 }
 
 /** The topics a field's Wikipedia outline added (growField), in the order they are read. */
@@ -329,7 +346,7 @@ function growDue(st: StudyState, domain: string, now: number): boolean {
  * curriculum first, then what its outline added). A field read to the end is finished and the next
  * one starts — unless its weekly outline look is due, which comes first (`null`: the next session).
  */
-async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: number, more: Map<string, Topic[]>): Promise<{ domain: string; topic: Topic; index: number } | null> {
+async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: number, more: Map<string, Topic[]>): Promise<{ domain: string; topic: Topic; index: number; held?: boolean } | null> {
   while (st.queue.length) {
     const id = st.queue[0]!;
     const d = domainById(id);
@@ -340,7 +357,27 @@ async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: num
     if (!more.has(id)) more.set(id, await grownTopics(storage, id));
     const extra = more.get(id)!;
     const i = st.cursor[id] ?? 0;
-    if (i < d.topics.length + extra.length) return { domain: id, topic: i < d.topics.length ? d.topics[i]! : extra[i - d.topics.length]!, index: i };
+    // [school] The library's locks: only the levels his school stage has unlocked (and the books on his open
+    // shelves); a FOCUS the owner typed is read whole. Topics passed over are held, read once their level opens.
+    const at = (k: number) => (k < d.topics.length ? d.topics[k]! : extra[k - d.topics.length]!);
+    const total = d.topics.length + extra.length;
+    const free = (k: number) => !st.lock || st.focus.includes(id) || lockOpen(st.lock, at(k));
+    const held = st.held?.[id] ?? [];
+    const back = held.find(([k]) => k < total && free(k));
+    if (back) return { domain: id, topic: at(back[0]), index: back[0], held: true };
+    if (st.lock && !st.focus.includes(id)) {
+      if (![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !(i < total && free(i))) return null; // nothing open at his stage: the queue waits
+      let j = i;
+      for (; j < total && !free(j); j++) held.push([j, at(j).l]);
+      if (j > i) ((st.held ??= {})[id] = held), (st.cursor[id] = j);
+      if (j < total) return { domain: id, topic: at(j), index: j };
+      if (held.length) {
+        st.queue.shift();
+        planQueue(st);
+        continue;
+      }
+    }
+    if (i < total) return { domain: id, topic: at(i), index: i };
     if (growDue(st, id, now)) return null;
     st.finished[id] = now;
     st.today.finished++;
@@ -523,6 +560,9 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     return { state: st, did, next: Math.max(HOUR, untilMidnight(now) + 5 * 60_000) };
   }
   st.sessions++;
+  // [school] His school stage, once a session: what the curriculum may read now (null: SCHOOL never opened).
+  st.lock = await studyLock(storage).catch(() => st.lock ?? null);
+  planQueue(st);
   let aiLeft = caps.ai;
   const useAi = async (system: string, user: string): Promise<string | null> => {
     if (!opts.ai || aiLeft <= 0 || st.today.ai >= caps.dailyAi) return null;
@@ -569,7 +609,8 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     const topic = gap ?? pickd!.topic.t;
     const kind: SourceKind = gap ? (/\b(js|javascript|css|html|dom|browser|web api|canvas|webgl)\b/i.test(gap) ? 'mdn' : 'wiki') : pickd!.topic.k;
     const domain = gap ? 'questions' : pickd!.domain;
-    if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
+    if (pickd?.held) st.held![pickd.domain] = st.held![pickd.domain]!.filter(([k]) => k !== pickd.index);
+    else if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
     try {
       let title = topic;
       let url = '';
@@ -769,7 +810,7 @@ export function studySummary(st: StudyState, now = Date.now()): {
   const domains: FieldRow[] = DOMAINS.map((d) => {
     const grown = st.grown[d.id]?.n ?? 0;
     const topics = d.topics.length + grown;
-    return { id: d.id, name: d.name, topics, read: Math.min(topics, st.cursor[d.id] ?? 0), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
+    return { id: d.id, name: d.name, topics, read: Math.max(0, Math.min(topics, st.cursor[d.id] ?? 0) - (st.held?.[d.id]?.length ?? 0)), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
   });
   const levels = LEVELS.map((level) => ({ level, topics: 0, read: 0 }));
   for (const d of DOMAINS) {
@@ -777,7 +818,7 @@ export function studySummary(st: StudyState, now = Date.now()): {
     for (let i = 0; i < d.topics.length; i++) {
       const row = levels[LEVELS.indexOf(topicLevel(i, d.topics.length))]!;
       row.topics++;
-      if (i < read) row.read++;
+      if (i < read && !st.held?.[d.id]?.some(([k]) => k === i)) row.read++;
     }
   }
   const skills = Object.entries(st.skills)
@@ -797,6 +838,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
         : st.all
           ? 'Choosing the next field'
           : 'Nothing queued · pick a field and press STUDY';
+  // [school] What is locked and why ("Level 2 topics unlock at A-level"), whenever SCHOOL keeps him to his stage.
+  const lockNote = st.on && st.lock ? st.lock.line : '';
   const grownAll = domains.reduce((n, d) => n + d.grown, 0);
   return {
     topics: TOPIC_COUNT + grownAll,
@@ -809,7 +852,7 @@ export function studySummary(st: StudyState, now = Date.now()): {
     pending: st.pending.length,
     queue: queue.slice(0, 8),
     current,
-    status,
+    status: !lockNote ? status : (st.lock && ![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !head?.focus) || !current ? lockNote : `${status} · ${lockNote}`,
     all: st.all,
     finished,
     grown: { topics: grownAll, latest: Object.values(st.grown).reduce((n, g) => n + (g.added ?? 0), 0) },

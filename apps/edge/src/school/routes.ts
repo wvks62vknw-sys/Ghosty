@@ -410,6 +410,12 @@ export async function handleSchool(req: Request, path: string, method: string, d
     return json(await view(d, st));
   }
 
+  // ---- part 3: the reading library (school/reading.ts): the shelves, READ, the reading check and BORROW ----
+  if (path === '/school/reading' || path.startsWith('/school/reading/')) {
+    const r = await (await import('./reading')).readingRoute(path, method, body, d);
+    if (r) return r;
+  }
+
   return bad('not found', 404);
 }
 
