@@ -12,8 +12,10 @@
  * Every session (a background job, a "tick"; a bounded handful of page reads and model calls):
  *   1. READ — the next pieces of the field being read (the questions the library couldn't
  *      answer before anything), each fetched from a free source (Wikipedia, Wikibooks,
- *      Wikiversity, MDN, arXiv, the Swift book, OpenStax) and filed, without any AI, in that
- *      field's reading notebook (one document per field, one heading per piece).
+ *      Wikiversity, MDN, arXiv, the Swift book) and filed, without any AI, in that field's reading
+ *      notebook (one document per field, one heading per piece). OpenStax pages are link-only now
+ *      (its licence forbids ingestion into AI models): passed over, never counted as failures, the
+ *      reason logged once and the number skipped in the status line (`OPENSTAX_REASON`).
  *   2. DIGEST — with a model (the cheap tier: keyless or small), a study note on what it just
  *      read: summary, key facts, a worked example or pitfall, self-test questions. Filed in
  *      the domain's digest notebook — the part that also goes to the owner's phone.
@@ -87,8 +89,14 @@ export interface StudyState {
    */
   lock?: StudyLock | null;
   held?: Record<string, [number, 1 | 2 | 3][]>;
+  /** Per field: topics passed over because their source's licence forbids feeding it to an AI (OpenStax); when the reason was logged. */
+  licence?: { skipped: Record<string, number>; notedAt?: number };
 }
+/** Why OpenStax pages are not read any more (logged once in the study log; the LEARN tab links them instead). */
+export const OPENSTAX_REASON = 'OpenStax: licence allows reading, not ingestion; linked in LEARN';
 const MAX_GAP_FAILS = 3;
+/** Link-only topics passed over in one session without using up its reads (a field's whole run of them, at most). */
+const MAX_SKIPS = 400;
 
 export const STUDY_KEY = 'study:state';
 const UA = 'Ghosty/2.0 (personal assistant; https://github.com/wvks62vknw-sys/Ghosty)';
@@ -180,6 +188,7 @@ function planQueue(st: StudyState): void {
     if (domainById(id) && !st.asked.includes(id) && st.finished[id]) {
       delete st.finished[id];
       st.cursor[id] = 0;
+      if (st.licence?.skipped[id]) delete st.licence.skipped[id]; // passed over again as it is read again
     }
   }
   st.asked = st.focus.filter((id) => !!domainById(id));
@@ -230,7 +239,8 @@ export async function findSource(topic: string, kind: SourceKind): Promise<strin
   if (kind === 'swift') return `https://docs.swift.org/swift-book/documentation/the-swift-programming-language/${swiftSlug(topic)}/`;
   // a classic text: "2680 Meditations" — the number is the book's Project Gutenberg id
   if (kind === 'gutenberg') return /^\d{1,6}\b/.test(topic.trim()) ? gutenbergTextUrl(Number(topic.trim().match(/^\d{1,6}/)![0])) : null;
-  if (kind === 'openstax') return `https://openstax.org${topic.startsWith('/') ? topic : `/${topic}`}`;
+  // OpenStax's licence now forbids ingestion into AI models: link-only (studySession passes these over, OPENSTAX_REASON).
+  if (kind === 'openstax') return null;
   // an exact article title (from a field's outline): read straight away, no search needed
   if (kind === 'wikipage') return `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(topic.replace(/ /g, '_'))}`;
   const host = WIKI_HOSTS[kind] ?? 'en.wikipedia.org';
@@ -602,6 +612,7 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
   // the curriculum still moves), and given up after a few sessions.
   const retry: string[] = [];
   const more = new Map<string, Topic[]>();
+  let skips = 0;
   for (let n = 0; n < caps.reads && st.today.reads < caps.dailyReads; n++) {
     const gap = st.gaps.shift();
     const pickd = gap ? null : await nextPiece(storage, st, now, more);
@@ -611,6 +622,18 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     const domain = gap ? 'questions' : pickd!.domain;
     if (pickd?.held) st.held![pickd.domain] = st.held![pickd.domain]!.filter(([k]) => k !== pickd.index);
     else if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
+    if (pickd && kind === 'openstax') {
+      // Link-only (its licence forbids ingestion): passed over like a piece already read, never a failure, and it
+      // does not use up one of the session's reads. The reason goes in the study log once.
+      const lic = (st.licence ??= { skipped: {} });
+      lic.skipped[pickd.domain] = (lic.skipped[pickd.domain] ?? 0) + 1;
+      if (!lic.notedAt) {
+        lic.notedAt = now;
+        await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: 'Skipped for licence: OpenStax', text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — ${OPENSTAX_REASON}. Its pages in the curriculum are passed over.` }).catch(() => undefined);
+      }
+      if (skips++ < MAX_SKIPS) n--;
+      continue;
+    }
     try {
       let title = topic;
       let url = '';
@@ -806,11 +829,13 @@ export function studySummary(st: StudyState, now = Date.now()): {
   finished: number;
   /** Topics the fields' Wikipedia outlines added, in all and in their latest looks. */
   grown: { topics: number; latest: number };
+  /** Link-only topics passed over for their licence (OpenStax). */
+  licenceSkipped: number;
 } {
   const domains: FieldRow[] = DOMAINS.map((d) => {
     const grown = st.grown[d.id]?.n ?? 0;
     const topics = d.topics.length + grown;
-    return { id: d.id, name: d.name, topics, read: Math.max(0, Math.min(topics, st.cursor[d.id] ?? 0) - (st.held?.[d.id]?.length ?? 0)), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
+    return { id: d.id, name: d.name, topics, read: Math.max(0, Math.min(topics, st.cursor[d.id] ?? 0) - (st.held?.[d.id]?.length ?? 0) - (st.licence?.skipped[d.id] ?? 0)), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
   });
   const levels = LEVELS.map((level) => ({ level, topics: 0, read: 0 }));
   for (const d of DOMAINS) {
@@ -818,7 +843,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
     for (let i = 0; i < d.topics.length; i++) {
       const row = levels[LEVELS.indexOf(topicLevel(i, d.topics.length))]!;
       row.topics++;
-      if (i < read && !st.held?.[d.id]?.some(([k]) => k === i)) row.read++;
+      // (an OpenStax page passed over is link-only: not counted as read)
+      if (i < read && d.topics[i]!.k !== 'openstax' && !st.held?.[d.id]?.some(([k]) => k === i)) row.read++;
     }
   }
   const skills = Object.entries(st.skills)
@@ -840,6 +866,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
           : 'Nothing queued · pick a field and press STUDY';
   // [school] What is locked and why ("Level 2 topics unlock at A-level"), whenever SCHOOL keeps him to his stage.
   const lockNote = st.on && st.lock ? st.lock.line : '';
+  const skipped = Object.values(st.licence?.skipped ?? {}).reduce((a, n) => a + n, 0);
+  const licenceNote = skipped ? `${skipped} OpenStax page${skipped === 1 ? '' : 's'} skipped for licence (linked in LEARN)` : '';
   const grownAll = domains.reduce((n, d) => n + d.grown, 0);
   return {
     topics: TOPIC_COUNT + grownAll,
@@ -852,7 +880,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
     pending: st.pending.length,
     queue: queue.slice(0, 8),
     current,
-    status: !lockNote ? status : (st.lock && ![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !head?.focus) || !current ? lockNote : `${status} · ${lockNote}`,
+    status: [!lockNote ? status : (st.lock && ![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !head?.focus) || !current ? lockNote : `${status} · ${lockNote}`, licenceNote].filter(Boolean).join(' · '),
+    licenceSkipped: skipped,
     all: st.all,
     finished,
     grown: { topics: grownAll, latest: Object.values(st.grown).reduce((n, g) => n + (g.added ?? 0), 0) },

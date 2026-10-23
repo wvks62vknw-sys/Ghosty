@@ -254,3 +254,15 @@ export async function practiceSummary(storage: DurableObjectStorage): Promise<{ 
   const weak = topics.filter((t) => t.items.length).map((t) => t.topic).slice(0, 3);
   return { practice: Math.min(n, WEEKLY_SCHOOL), note: `school practice: ${Math.min(n, WEEKLY_SCHOOL)}${weak.length ? ` (${stageName(st.stage)}: ${weak.join(', ')})` : ''}` };
 }
+
+/**
+ * For the SCHOOL tab's WEAK SPOTS: what is being practised at his stage ("practising: 3 weak spots · 24 items checked
+ * this week"): the weak topics with practice kept or being checked, and the checked items of the topics worked on in
+ * the last seven days. Null with nothing practised yet.
+ */
+export async function practiceView(storage: DurableObjectStorage, stage: StageId, now = Date.now()): Promise<{ spots: number; checked: number; line: string } | null> {
+  const topics = (await loadPractice(storage, stage)).filter((t) => t.items.length || t.checking?.length);
+  if (!topics.length) return null;
+  const checked = topics.filter((t) => now - (t.updatedAt ?? 0) < 7 * 86_400_000).reduce((a, t) => a + t.items.length, 0);
+  return { spots: topics.length, checked, line: `practising: ${topics.length} weak spot${topics.length === 1 ? '' : 's'} · ${checked} item${checked === 1 ? '' : 's'} checked this week` };
+}
