@@ -1220,6 +1220,7 @@ button.vcchip { color: #111; background: #f5c518; border-color: #b08a00; font-we
   button:not(.scanthumb button):not(.maplibregl-ctrl button) { min-height: 40px !important; }
 }
 
+/* =====================================================================
    THE CALM LOOKS — Graphite and Reactor (themes with look: 'pro', state/theme.ts)
    Apple building Jarvis. The arc reactor is the hero and its light tints the
    glass around it (--glow, set by features/core). Navigation is six areas
