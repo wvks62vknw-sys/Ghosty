@@ -147,7 +147,7 @@ async function fixesA2(viewport) {
     const heads = await page.$$eval(`#pg-${tab} .lgrp > .lgt`, (hs) => hs.map((x) => x.textContent));
     for (const t of new Set(heads)) if (heads.filter((x) => x === t).length > 1) problems.push(`[${name} ${tab}] the group "${t}" is drawn ${heads.filter((x) => x === t).length} times`);
     if (tab === 'system') {
-      // the rest of the list, scrolled to its end
+      // the lower rows, after scrolling the list to its end
       await page.evaluate(() => document.querySelector('#pg-system .hud')?.scrollTo(0, 1e6));
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${out}/a2-${viewport.width}-system-end.png` });
