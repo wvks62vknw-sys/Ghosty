@@ -118,3 +118,10 @@ Add to it any time; tick items off only when he agrees they are fixed.
     want to feel like Tony Stark or Iron Man navigating Ghosty." One more round (BRIEF-DESIGN-C2.md: presence, holographic
     layering, real instruments, the systems ring around the reactor, Jarvis working in the open, boot-up, listening),
     then he approves and the build starts. The arc reactor stays as the hero.
+26. **Design, final pick (23 Oct, later): the ORIGINAL route C**, not C2 ("Nah, I like the original route C instead, let's just
+    go with that"). Build route C as mocked (`docs/build-plan/mockups/c/`). C2's extras (the Jarvis line, the systems
+    ring, boot-up, listening, parallax) are NOT wanted unless he asks again.
+    **The hero on Home changes:** "make the arc reactor a lot better, like it doesn't even have to be an arc reactor,
+    just something that could fit there and play that kind of role, and is like 3D and just cool, and fits the
+    aesthetic." One round of three real-3D options in C's Home (BRIEF-DESIGN-HERO.md); he picks; the rest of C is built
+    meanwhile.
