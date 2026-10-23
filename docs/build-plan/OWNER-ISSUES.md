@@ -109,3 +109,12 @@ Add to it any time; tick items off only when he agrees they are fixed.
     **Update 21 Oct: the iPhone 18 Pro Max has arrived; he is using it now.** Do the real-phone checks during the
     build (on-device model sizes and speed, ProMotion feel, overnight training) instead of waiting. The iPhone 13
     is not important at all any more (his words): build and test for the 18 Pro Max only; spend nothing on the 13.
+
+## From 23 Oct (the planning chat, Friday evening)
+24. **Week 1 approved** ("yes for week 1"), with: "if any of us have missed anything else that could be added to it which
+    fits, add it and make it the best it can possibly be … add every single good idea you have in every single way."
+    The additions are in PLAN.md, section 3. **The two training keys are added.**
+25. **Design pick: route C** ("I like Route C the most"), but: "I still feel like it could be better, like I genuinely
+    want to feel like Tony Stark or Iron Man navigating Ghosty." One more round (BRIEF-DESIGN-C2.md: presence, holographic
+    layering, real instruments, the systems ring around the reactor, Jarvis working in the open, boot-up, listening),
+    then he approves and the build starts. The arc reactor stays as the hero.
