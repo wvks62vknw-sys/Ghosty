@@ -492,3 +492,51 @@ test("the phone's site questions: \"cancel\" drops them, and they never wait mor
   assert.equal(O.offlineSiteTurn("what's the weather?"), false, 'questions from over half an hour ago no longer take a message over');
   delete globalThis.localStorage;
 });
+
+// ── the adversarial review's fixes (docs/build-plan/BRIEF-WEBSITES-FIX.md) ─────────────
+
+const KIND_IDS = ['cafe', 'restaurant', 'barber', 'salon', 'trades', 'gym', 'photographer', 'shop', 'clinic', 'estate', 'portfolio', 'event', 'charity', 'saas'];
+const CLAIMS_1 = /insur|guarantee|registered|CP12|Gas Safe|NHS|refund|encrypted|walk-ins|recommend|repeat customers|referral/i;
+
+test('review 1: no template makes a trust or legal claim the owner did not make; each appears once the owner says it', () => {
+  for (const kind of KIND_IDS) {
+    for (const words of ['build a website for my business', 'build a website for my plumbing and heating business', 'build a website for my physio clinic', 'build a website for my electrician business']) {
+      const { plan, brief } = K.planFrom(K.briefFrom(words, { kind }));
+      const html = K.assemble(plan, brief).html;
+      const hit = html.match(CLAIMS_1);
+      assert.equal(hit, null, `${kind} (${words}): "${hit && html.slice(Math.max(0, hit.index - 60), hit.index + 40)}"`);
+      for (const p of ['no card needed', 'card and cash', 'no joining fee', 'public beta']) assert.ok(!html.toLowerCase().includes(p), `${kind}: ${p}`);
+      assert.ok(plan.confirm.length >= 1, `${kind}: the typical promises are listed to confirm`);
+    }
+  }
+  // The owner's own words bring the claim in.
+  const barber = K.planFrom(K.briefFrom('build a website for my barber shop, walk-ins welcome, card and cash'));
+  assert.match(K.assemble(barber.plan, barber.brief).html, /Walk-ins welcome/);
+  const trades = K.planFrom(K.briefFrom('build a website for my plumbing business, fully insured and every job guaranteed', { kind: 'trades' }));
+  const th = K.assemble(trades.plan, trades.brief).html;
+  assert.match(th, /Are you insured\?/);
+  assert.match(th, /Work guaranteed/);
+  assert.ok(trades.plan.confirm.some((c) => /free written quotes/.test(c)), 'the remaining typical promises are listed');
+});
+
+test('review 2: the writer and the critic cannot add a claim without digits; the honesty gate flags a claim the owner did not make', () => {
+  const b0 = SB.briefOf({ request: 'build a website for my plumbing business in Walsall', name: 'Pipe Pros', phone: '07700 900461' });
+  const { plan, brief } = K.planFrom(b0);
+  const old = 'Local plumbing and heating in Walsall — clear quotes, tidy work, and we answer the phone.';
+  assert.notEqual(K.rejectRewrite(old, 'Gas Safe registered, award-winning', 240, brief), '');
+  for (const c of ['Fully insured engineers', 'Voted the best plumber in Walsall', 'Rated five stars by over a thousand customers', 'NHS approved and a Which? Trusted Trader', 'Twenty years of experience', 'Verified and certified on Checkatrade']) assert.match(K.rejectRewrite(old, c, 240, brief), /claim the owner did not make/, c);
+  assert.equal(K.rejectRewrite(old, 'Plumbing and heating across Walsall, with clear quotes and tidy work.', 240, brief), '', 'plain words still pass');
+  // A claim the owner made may be used.
+  const said = { ...brief, accreditations: ['Gas Safe registered'] };
+  assert.equal(K.rejectRewrite(old, 'Gas Safe registered plumbing in Walsall.', 240, said), '');
+  // The critic's text fixes go through the same check.
+  const home = plan.pages[0];
+  const i = home.sections.findIndex((s) => s.block === 'cta-banner');
+  const fx = K.applyFixes(plan, brief, { fixes: [{ page: 'home', section: i, kind: 'text', key: 'title', value: 'Award-winning plumbers', why: 'trust' }] });
+  assert.match(fx.skipped.join(' '), /claim the owner did not make/);
+  // The gate reads the page for the same claims, against what the owner gave.
+  const html = K.assemble(plan, brief).html.replace('</main>', '<p>Gas Safe registered and fully insured.</p></main>');
+  const g = K.runGates(html, plan, brief, b0);
+  assert.ok(g.findings.some((f) => f.gate === 'honesty' && /claim the owner did not make/.test(f.text)), K.formatGates(g));
+  assert.equal(K.runGates(K.assemble(plan, brief).html, plan, brief, b0).findings.filter((f) => f.gate === 'honesty').length, 0, 'the template alone makes none');
+});

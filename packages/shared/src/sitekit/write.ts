@@ -7,7 +7,7 @@
  * and by the phone's offline brain alike.
  */
 import { BLOCKS } from './blocks';
-import { CLICHES } from './gates';
+import { CLICHES, unsupportedClaims } from './gates';
 import { FONTS, PALETTES, SHAPES } from './tokens';
 import type { Brief, FontsId, PaletteId, Plan, Scheme, ShapeId, Slot } from './types';
 
@@ -134,6 +134,9 @@ export function rejectRewrite(old: string, next: unknown, max: number, b: Brief)
   const fresh = digits(n).filter((d) => !ok.has(d.replace(/,/g, '')));
   if (fresh.length) return `adds numbers not in the facts (${fresh.join(', ')})`;
   const low = n.toLowerCase();
+  // A claim (registered, insured, award-winning, rated, thousands of…) only when the owner made it.
+  const claims = unsupportedClaims(n, `${factLines(b)}\n${old}`);
+  if (claims.length) return `adds a claim the owner did not make (${claims.join(', ')})`;
   const c = CLICHES.find((x) => low.includes(x) && !old.toLowerCase().includes(x));
   if (c) return `stock phrase "${c}"`;
   if (/!/.test(n) && !/!/.test(old)) return 'exclamation mark';

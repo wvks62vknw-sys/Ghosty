@@ -33,6 +33,45 @@ export interface GateReport {
 export const CLICHES = [
   'welcome to our website', 'look no further', 'nestled in the heart', 'we pride ourselves', 'second to none', 'one-stop shop', 'state-of-the-art', 'cutting-edge', 'elevate your', 'unleash', 'in today\'s fast-paced', 'tailored solutions', 'your satisfaction is our', 'passionate about', 'take it to the next level', 'world-class', 'unparalleled', 'seamless experience', 'delve', 'embark on a journey', 'look forward to welcoming you', 'we strive to', 'top-notch', 'game-changer', 'lorem ipsum',
 ];
+/**
+ * Claims a visitor takes as fact (trust, rank, accreditation, scale, policies): only ever in the owner's own
+ * words. Each is a name and the words that make it; a claim counts as the owner's when the same pattern is
+ * found in what they gave (the writers' facts, or the text being replaced).
+ */
+export const CLAIMS: [string, RegExp][] = [
+  ['registered', /\bregist(?:ered|ration)\b/i],
+  ['insured', /\binsur(?:ed|ance|er)\b/i],
+  ['accredited', /\baccredit(?:ed|ation)\b/i],
+  ['award', /\baward(?:s|ed|-winning)?\b/i],
+  ['rated', /\b(?:top[- ])?rated\b/i],
+  ['stars', /\bstars?\b/i],
+  ['verified', /\bverified\b/i],
+  ['certified', /\bcertified\b/i],
+  ['approved', /\bapproved\b/i],
+  ['guarantee', /\bguarantee(?:d|s)?\b/i],
+  ['qualified', /\bqualified\b/i],
+  ['licensed', /\blicensed\b/i],
+  ['NHS', /\bNHS\b/i],
+  ['Which?', /\bWhich\?/],
+  ['review site', /\b(?:checkatrade|trustpilot|trustatrader|rated people|mybuilder)\b/i],
+  ['trade scheme', /\b(?:gas safe|niceic|napit|fensa|cp12|trustmark|safecontractor)\b/i],
+  ['best', /\b(?:the|voted|rated|our)\s+best\b|\bbest[- ](?:in|rated|reviewed)\b/i],
+  ['leading', /\b(?:leading|number one|no\.? ?1)\b|#1\b/i],
+  ['trusted', /\btrusted\b/i],
+  ['experience', /\byears['’]? (?:of )?experience\b|\bexperienced\b/i],
+  ['big number', /\b(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundreds?|thousands?|millions?|dozens)\b/i],
+  ['walk-ins', /\bwalk[- ]?ins?\b/i],
+  ['refunds', /\brefund(?:s|ed|able)?\b/i],
+  ['encrypted', /\bencrypt(?:ed|ion)\b/i],
+];
+/** The claims in a text (their names). */
+export const claimsIn = (text: string): string[] => CLAIMS.filter(([, re]) => re.test(text)).map(([k]) => k);
+/** The claims in `text` that `support` (the owner's facts, the text being replaced) does not make. */
+export const unsupportedClaims = (text: string, support: string): string[] => {
+  const ok = new Set(claimsIn(support));
+  return claimsIn(text).filter((k) => !ok.has(k));
+};
+
 const PLACEHOLDER = /lorem ipsum|\bTODO\b|\{\{|\}\}|\[(?:your|business|insert|name|phone|email)[^\]]*\]|xxx+|placeholder/i;
 
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
@@ -45,7 +84,11 @@ const GLYPH_EM: Record<string, number> = { condensed: 0.47, luxe: 0.5, classic: 
 /** The smallest (phone) size of each heading, in px (tokens.ts clamp minimums × 16). */
 const MIN_PX: Record<string, number> = { h1: 39.8, h2: 33.1, h3: 23 };
 
-export function runGates(html: string, plan: Plan, brief: Brief): GateReport {
+/**
+ * `facts` is what the owner actually gave (the brief before typical hours, prices and services were filled
+ * in); claims on the page are checked against it. Without it, the brief stands in.
+ */
+export function runGates(html: string, plan: Plan, brief: Brief, facts: Brief = brief): GateReport {
   const f: GateFinding[] = [];
   const add = (gate: GateFinding['gate'], level: GateFinding['level'], text: string, page?: string) => f.push({ gate, level, text, ...(page !== undefined ? { page } : {}) });
   const head = html.match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
@@ -177,6 +220,9 @@ export function runGates(html: string, plan: Plan, brief: Brief): GateReport {
     const q = strip(m[1]!).replace(/^[“"]/, '');
     if (!quoted.some((x) => q.startsWith(x.replace(/^[“"]/, '').slice(0, 30)))) add('honesty', 'error', `a quoted review is not one the owner gave: "${q.slice(0, 50)}"`);
   }
+  // Trust claims (insured, registered, award-winning, rated, thousands of customers…) only from the owner.
+  const said = JSON.stringify(facts);
+  for (const k of unsupportedClaims(strip(body.replace(/<details class="credits"[\s\S]*?<\/details>/gi, ' ')), said)) add('honesty', 'error', `a claim the owner did not make (${k}) — say it only if they did`);
   for (const m of body.matchAll(/<img\b[^>]*\ssrc="(https:[^"]+)"/gi)) {
     const src = m[1]!.replace(/&amp;/g, '&');
     if (/wikimedia|staticflickr|openverse|unsplash|pexels/.test(src) && !/id="credits"/.test(body)) {
