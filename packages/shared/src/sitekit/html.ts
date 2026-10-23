@@ -73,7 +73,9 @@ export function intlPhone(p: string): string {
 }
 export const telHref = (p: string) => `tel:${intlPhone(p)}`;
 export const waHref = (p: string, text = '') => `https://wa.me/${intlPhone(p).replace('+', '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
-export const mailHref = (e: string, subject = '', body = '') => `mailto:${e}${subject || body ? `?${[subject ? `subject=${encodeURIComponent(subject)}` : '', body ? `body=${encodeURIComponent(body)}` : ''].filter(Boolean).join('&')}` : ''}`;
+/** The address only when it is exactly one email address (no "?bcc=…", no second address): else ''. */
+export const cleanEmail = (e: unknown): string => (typeof e === 'string' && /^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(e.trim()) ? e.trim() : '');
+export const mailHref = (e: string, subject = '', body = '') => `mailto:${encodeURIComponent(cleanEmail(e)).replace(/%40/g, '@')}${subject || body ? `?${[subject ? `subject=${encodeURIComponent(subject)}` : '', body ? `body=${encodeURIComponent(body)}` : ''].filter(Boolean).join('&')}` : ''}`;
 export const mapsHref = (b: Brief) => (b.lat !== undefined && b.lon !== undefined ? `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=17/${b.lat}/${b.lon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent([b.address, b.postcode, b.town].filter(Boolean).join(', '))}`);
 export const directionsHref = (b: Brief) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b.lat !== undefined && b.lon !== undefined ? `${b.lat},${b.lon}` : [b.name, b.address, b.postcode, b.town].filter(Boolean).join(', '))}`;
 

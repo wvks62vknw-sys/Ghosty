@@ -7,7 +7,7 @@
  * used. Works without JavaScript too: every page is then shown one after another.
  */
 import { BLOCKS } from './blocks';
-import { esc, isImage, route } from './html';
+import { cleanEmail, esc, isImage, route } from './html';
 import { iconSprite } from './icons';
 import { fontsHref, PALETTES, themeCss } from './tokens';
 import type { Brief, ImageRef, Page, Plan, RenderCtx, Section } from './types';
@@ -124,7 +124,9 @@ function draw(s: Section, x: Omit<RenderCtx, 'tone' | 'index'>, index: number, d
   }
 }
 
-export function assemble(plan: Plan, brief: Brief): Assembled {
+export function assemble(plan: Plan, briefIn: Brief): Assembled {
+  // An email that is not exactly one address ("owner@x.example?bcc=…") never reaches a link, a form or the data.
+  const brief: Brief = { ...briefIn, email: cleanEmail(briefIn.email) || undefined };
   const dropped: string[] = [];
   const used: string[] = [];
   const images = imagesIn([plan.header, plan.pages, plan.footer]);
@@ -262,9 +264,9 @@ function go(viaAsked){var bad=null,lines=[];
 [].forEach.call(f.querySelectorAll('input,select,textarea'),function(el){var v=String(el.value||'').trim();var miss=el.required&&!v;var wrong=el.type==='email'&&v&&!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(v);el.setAttribute('aria-invalid',miss||wrong?'true':'false');if((miss||wrong)&&!bad)bad=el;if(v&&el.name)lines.push(el.name+': '+v)});
 if(bad){bad.focus();if(note){note.className='form-note bad';note.textContent='Please fill in '+((bad.labels&&bad.labels[0]&&bad.labels[0].textContent)||'the highlighted field').replace(/\\(optional\\)/,'').trim()+'.'}return}
 var via=viaAsked||(f.getAttribute('data-to-wa')?'whatsapp':'email'),subject=f.getAttribute('data-subject')||'Enquiry',text=subject+'\\n\\n'+lines.join('\\n');
-var waTo=f.getAttribute('data-to-wa'),mailTo=f.getAttribute('data-to-mail'),url='';
+var waTo=f.getAttribute('data-to-wa'),mailTo=f.getAttribute('data-to-mail')||'',url='';if(!/^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$/.test(mailTo))mailTo='';
 if(via==='whatsapp'&&waTo)url='https://wa.me/'+wa(waTo)+'?text='+encodeURIComponent(text);
-else if(mailTo)url='mailto:'+mailTo+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(lines.join('\\n'));
+else if(mailTo)url='mailto:'+encodeURIComponent(mailTo).replace(/%40/g,'@')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(lines.join('\\n'));
 if(!url){if(note){note.className='form-note bad';note.textContent='This form cannot send yet — please call us instead.'}return}
 var a=d.createElement('a');a.href=url;a.rel='noopener';a.target=url.indexOf('mailto:')===0?'_top':'_blank';d.body.appendChild(a);a.click();a.remove();
 if(note){note.className='form-note ok';note.textContent=(url.indexOf('mailto:')===0?'Your email app should open with the message ready — press send.':'WhatsApp should open with the message ready — press send.')+(mailTo?' Nothing opened? Email '+mailTo+'.':'');setTimeout(function(){note.className='form-note';note.innerHTML=idle},20000)}}

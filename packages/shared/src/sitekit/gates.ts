@@ -173,7 +173,8 @@ export function runGates(html: string, plan: Plan, brief: Brief, facts: Brief = 
     } else if (h.startsWith('tel:')) {
       if (h.replace(/\D/g, '').length < 10) add('links', 'error', `a phone link looks wrong: ${h}`);
     } else if (h.startsWith('mailto:')) {
-      if (!/^mailto:([^@?\s]+@[^@?\s]+\.[^@?\s]+)?(\?|$)/.test(h)) add('links', 'error', `an email link looks wrong: ${h.slice(0, 60)}`);
+      // one address, then only a subject and a body (never cc/bcc or a second address)
+      if (!/^mailto:([\w.+%-]+@[\w-]+(?:\.[\w-]+)+)?(?:\?(?:subject|body)=[^&=]*(?:&(?:subject|body)=[^&=]*)?)?$/i.test(h)) add('links', 'error', `an email link looks wrong: ${h.slice(0, 60)}`);
     } else if (/^https:\/\/fonts\.g/.test(h) || /^data:image\//.test(h)) continue;
     else if (!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/|$|\?|#)/i.test(h)) add('links', 'error', `a link is not a full https address: ${h.slice(0, 60)}`);
   }

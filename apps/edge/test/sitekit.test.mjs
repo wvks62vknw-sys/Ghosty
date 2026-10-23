@@ -692,3 +692,26 @@ test('review 8: the phone\'s website questions never take over a message that is
   assert.equal(O.offlineSiteTurn('just build it'), true);
   delete globalThis.localStorage;
 });
+
+test('review 9: an email with anything after the address never reaches the page, its links or its form', () => {
+  const evil = 'owner@fade.example?bcc=spy@evil.example';
+  const b = SB.briefOf({ request: 'build a website for my barber shop in Walsall', name: 'Fade', email: evil, phone: '01922 000000' });
+  assert.equal(b.email, undefined, 'refused at the brief');
+  const { plan, brief } = K.planFrom(b);
+  assert.ok(!/bcc/i.test(K.assemble(plan, brief).html));
+  // Even a brief that carries one (the phone, an old job) is cleaned when the page is assembled.
+  const dirty = K.planFrom({ ...K.briefFrom('build a website for my barber shop in Walsall'), name: 'Fade', email: evil });
+  const html = K.assemble(dirty.plan, dirty.brief).html;
+  assert.ok(!/bcc|evil\.example/i.test(html), 'no bcc anywhere in the html');
+  assert.equal(K.mailHref(evil), 'mailto:');
+  assert.equal(K.mailHref('hello@fadeandco.example', 'Hi there'), 'mailto:hello@fadeandco.example?subject=Hi%20there');
+  // The form script checks the address itself before making a mailto: link.
+  assert.match(K.BEHAVIOURS.form, /test\(mailTo\)\)mailTo=''/);
+  // And the gate refuses a mailto: that carries more than a subject and a body.
+  const good = K.assemble(K.planFrom({ ...FULL }).plan, FULL).html;
+  const g = K.runGates(good.replace(/href="mailto:[^"]*"/, 'href="mailto:a@b.example?bcc=c@d.example"'), K.planFrom({ ...FULL }).plan, FULL);
+  assert.ok(g.findings.some((f) => /email link looks wrong/.test(f.text)));
+  // A clean address still works everywhere.
+  const ok = K.planFrom({ ...FULL });
+  assert.match(K.assemble(ok.plan, ok.brief).html, /data-to-mail="hello@fadeandco\.example"/);
+});

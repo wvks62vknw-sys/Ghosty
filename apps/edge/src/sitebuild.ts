@@ -19,7 +19,7 @@
  */
 import type { Project, ProjectStep } from '../../../packages/shared/src/protocol';
 import { assemble, type Assembled } from '../../../packages/shared/src/sitekit/assemble';
-import { briefFrom, missing } from '../../../packages/shared/src/sitekit/brief';
+import { briefFrom, emailOf, missing } from '../../../packages/shared/src/sitekit/brief';
 import { formatGates, runGates, type GateReport } from '../../../packages/shared/src/sitekit/gates';
 import { fromCommons, fromOpenverse, fromPexels, fromUnsplash, KIND_QUERIES, type OpenverseHit } from '../../../packages/shared/src/sitekit/images';
 import { STOCK, stockFor, type StockSet } from '../../../packages/shared/src/sitekit/stock-data';
@@ -105,7 +105,8 @@ export function briefOf(a: Record<string, unknown>): Brief {
     ...(s('address') ? { address: s('address') } : {}),
     ...(s('postcode') ? { postcode: s('postcode')!.toUpperCase() } : {}),
     ...(s('phone') ? { phone: s('phone') } : {}),
-    ...(s('email') ? { email: s('email') } : {}),
+    // exactly one address, nothing after it ("owner@x.example?bcc=…" is refused)
+    ...(s('email') && emailOf(s('email')!) === s('email') ? { email: s('email') } : {}),
     ...(s('whatsapp') ? { whatsapp: s('whatsapp') } : {}),
     ...(s('about') ? { about: s('about') } : {}),
     ...(s('extras') ? { extras: s('extras') } : {}),
