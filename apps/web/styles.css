@@ -2271,7 +2271,6 @@ html[data-look="pro"], html[data-look="pro"] body { font: 400 16px/1.4 var(--b);
 [data-look="pro"] .gymgoal { stroke: rgba(255,255,255,.6); stroke-width: 1.5; stroke-dasharray: 5 4; }
 [data-look="pro"] .gymgrid100 { stroke: rgba(255,255,255,.08); stroke-width: 1; }
 [data-look="pro"] .gymline { stroke-width: 2.4; }
-=======
 /* ---------- memory timeline, patterns, barge-in, voice picker (Wave A: features/memory/timeline.ts,
    features/settings/voice.ts, assistant/voice.ts). Kept to this block, in the existing tokens. ---------- */
 .pn.tl .undo { display: flex; gap: 8px; align-items: center; margin: 8px 12px 0; padding: 6px 8px; border: 1px solid rgba(var(--ar), .45); border-radius: 3px; font-size: 12px; color: var(--fg); }
