@@ -2431,3 +2431,153 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
       shorthand names the missing --sf, so it was 0 px). */
 [data-look="pro"] #suggest { flex-wrap: wrap; justify-content: center; overflow-x: visible; row-gap: 8px; }
 [data-look="pro"] #suggest .logbtn::before { font-size: 16px; font-weight: 400; }
+
+/* =====================================================================
+   route C — the blend (docs/build-plan/BRIEF-DESIGN-BUILD-1.md; the mock-ups in docs/build-plan/mockups/c).
+   The owner's pick (23 Oct). Apple-quality calm is the base: a graphite-black canvas with one soft glow
+   behind the reactor, glass cards (20 pt radius, a 1 px white-8 % hairline, a soft shadow), one type
+   scale (large title 34/41 −0.4, title 22, body 17, caption 13, small-caps tracked labels, tabular
+   figures for live numbers), an 8 pt grid and five floating tabs in a glass pill. One accent — the
+   reactor's colour (cyan in Graphite, gold in Reactor) — only for what is live or active; amber only
+   for warnings; neutral glass for icons and tiles. The character comes only from instruments that show
+   something true (ui/components.ts: gauge, progressRing, segRing, sparkline, pill, listRow).
+   Scoped to html[data-look="pro"]: one more element than the rounds above, so it wins without
+   !important. Everything up to "end route C" is this layer.
+   ===================================================================== */
+html[data-look="pro"] {
+  --ink: #f4f6f8; --ink2: rgba(235,240,245,.64); --ink3: rgba(235,240,245,.4); --ink4: rgba(235,240,245,.2);
+  --hair: rgba(255,255,255,.08); --hair2: rgba(255,255,255,.13);
+  --amber: #ffb340; --amberr: 255,179,64;
+  --rcglass: linear-gradient(180deg, rgba(255,255,255,.072), rgba(255,255,255,.034));
+  --rcshadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 40px rgba(0,0,0,.42);
+  --rcpill: rgba(30,33,37,.58);
+  --fg: var(--ink); --l2: var(--ink2); --l3: var(--ink3); --mute: var(--ink2);
+  --line: var(--hair); --line2: rgba(255,255,255,.06);
+  --thin: rgba(255,255,255,.06); --thin2: rgba(255,255,255,.11);
+  --regular: rgba(24,26,29,.62); --thick: rgba(30,33,37,.62);
+  --edge: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.055);
+  --lift: 0 18px 40px rgba(0,0,0,.42);
+  --card: 20px; --rad: 12px;
+  /* springs for taps and sheets: response 0.35 s, damping 0.85 */
+  --spring: cubic-bezier(.32,.72,0,1); --rcsp: .35s;
+  --t1: 700 34px/41px var(--sfd); --t2: 600 17px/22px var(--sf); --t3: 400 17px/24px var(--sf); --t4: 400 15px/20px var(--sf); --t5: 400 13px/18px var(--sf);
+  --tabh: 64px;
+}
+/* Reactor: the same glass, a warm hairline, the gold reactor as the accent */
+html[data-look="pro"][data-finish="reactor"] { --hair: rgba(255,236,214,.09); --ink2: rgba(245,238,230,.64); --ink3: rgba(245,238,230,.42); }
+html[data-look="pro"], html[data-look="pro"] body { background: #050607; }
+html[data-look="pro"][data-finish="reactor"], html[data-look="pro"][data-finish="reactor"] body { background: #070605; }
+html[data-look="pro"] body { font-feature-settings: 'cv05', 'calt'; }
+
+/* ---------- type: one scale ---------- */
+html[data-look="pro"] .rc-large { font: 700 34px/41px var(--sfd); letter-spacing: -.4px; }
+html[data-look="pro"] .rc-title { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; }
+html[data-look="pro"] .rc-head { font: 600 17px/22px var(--sf); letter-spacing: -.25px; }
+html[data-look="pro"] .rc-body { font: 400 17px/24px var(--sf); letter-spacing: -.25px; }
+html[data-look="pro"] .rc-sub { font: 400 15px/20px var(--sf); letter-spacing: -.12px; }
+html[data-look="pro"] .rc-cap { font: 400 13px/18px var(--sf); letter-spacing: -.04px; }
+html[data-look="pro"] .rc-kick { font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; }
+html[data-look="pro"] :is(.rc-num, .rcgauge b, .rcring b, .rcsegr b, .rcco .v, .rcreadout) { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum', 'cv05'; }
+html[data-look="pro"] .pn > h3 { font: 600 17px/22px var(--sf); letter-spacing: -.25px; padding: 14px 16px 6px; }
+html[data-look="pro"] .pn > .bd { padding: 6px 16px 14px; }
+html[data-look="pro"] .note { font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink2); }
+
+/* ---------- glass: cards, chips, round buttons ---------- */
+html[data-look="pro"] .pn, html[data-look="pro"] .rccard {
+  background: var(--rcglass); border-radius: var(--card); box-shadow: var(--edge), var(--lift);
+  -webkit-backdrop-filter: blur(28px) saturate(1.6); backdrop-filter: blur(28px) saturate(1.6);
+}
+html[data-look="pro"] .rccard { position: relative; display: block; border: 0; padding: 14px 16px; color: var(--ink); text-align: left; white-space: normal; }
+html[data-look="pro"] button.rccard { min-height: 0 !important; font: inherit; transition: transform var(--rcsp) var(--spring), background .3s; }
+html[data-look="pro"] button.rccard:active { transform: scale(.975); }
+html[data-look="pro"] button:not(.on, .warn, .primary, .rcprimary, .gymtrain) { background-color: rgba(255,255,255,.06); }
+html[data-look="pro"] .chip { background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); }
+/* the one filled primary per screen: reactor-coloured glass with dark words */
+html[data-look="pro"] :is(.rcprimary, button.gymtrain, #pair button.on, button.gymallbtn:not(:disabled)) { color: #03141b; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25); }
+html[data-look="pro"] button.on:not(.rcprimary, .gymtrain, .gymallbtn) { background: rgba(var(--cr), .13); color: var(--c); box-shadow: inset 0 0 0 1px rgba(var(--cr), .32); }
+/* a small capsule that says a live state (ui/components.ts pill) */
+html[data-look="pro"] .rcpill { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 12px; border-radius: 12px; font: 600 11px/1 var(--sf); letter-spacing: .14em; text-transform: uppercase; color: color-mix(in srgb, var(--c) 60%, #fff); background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); white-space: nowrap; }
+html[data-look="pro"] .rcpill i { width: 6px; height: 6px; border-radius: 3px; background: var(--c); box-shadow: 0 0 8px var(--c); flex: none; }
+html[data-look="pro"] .rcpill[data-tone="warn"] { color: var(--amber); background: rgba(var(--amberr), .08); box-shadow: inset 0 0 0 1px rgba(var(--amberr), .22); }
+html[data-look="pro"] .rcpill[data-tone="warn"] i { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+html[data-look="pro"] .rcpill[data-tone="idle"] { color: var(--ink2); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .rcpill[data-tone="idle"] i { background: var(--ink3); box-shadow: none; }
+
+/* ---------- instruments (ui/components.ts) ---------- */
+html[data-look="pro"] .rcgauge { position: relative; flex: none; }
+html[data-look="pro"] .rcgauge svg { position: absolute; inset: 0; overflow: visible; }
+html[data-look="pro"] .rcgtrack { fill: none; stroke: rgba(255,255,255,.1); stroke-width: 4.5; stroke-linecap: round; }
+html[data-look="pro"] .rcgfg { fill: none; stroke: var(--c); stroke-width: 4.5; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(var(--cr), .45)); transition: stroke-dasharray .6s var(--spring), opacity .3s; }
+html[data-look="pro"] .rcgtick { stroke: rgba(255,255,255,.22); stroke-width: 1; }
+html[data-look="pro"] .rcgauge[data-tone="warn"] .rcgfg { stroke: var(--amber); filter: none; }
+html[data-look="pro"] .rcgauge[data-tone="idle"] .rcgfg { stroke: var(--ink3); filter: none; }
+html[data-look="pro"] .rcgauge b { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-62%); text-align: center; font: 600 18px/22px var(--sf); letter-spacing: -.2px; color: var(--ink); white-space: nowrap; }
+html[data-look="pro"] .rcgauge b small { font: 500 11px var(--sf); color: var(--ink2); margin-left: 1px; }
+html[data-look="pro"] .rcgauge em { position: absolute; left: 0; right: 0; top: 61%; text-align: center; font: 600 9.5px/11px var(--sf); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); }
+html[data-look="pro"] .rcring, html[data-look="pro"] .rcsegr { position: relative; display: inline-grid; flex: none; }
+html[data-look="pro"] :is(.rcring, .rcsegr) svg { position: absolute; inset: 0; overflow: visible; }
+html[data-look="pro"] :is(.rcring, .rcsegr) b { position: absolute; inset: 0; display: grid; place-items: center; font: 700 14px/1 var(--sf); color: var(--ink); }
+html[data-look="pro"] .rcrtrack { fill: none; stroke: rgba(255,255,255,.12); stroke-width: 7; }
+html[data-look="pro"] .rcrfg { fill: none; stroke: #e6eaee; stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .6s var(--spring); }
+html[data-look="pro"] .rcrmark { fill: #050607; stroke: #e6eaee; stroke-width: 2.4; }
+html[data-look="pro"] .rcring.done .rcrfg { stroke: var(--c); filter: drop-shadow(0 0 5px rgba(var(--cr), .5)); }
+html[data-look="pro"] .rcring.done .rcrtrack { stroke: rgba(var(--cr), .25); }
+html[data-look="pro"] .rcseg { fill: none; stroke: rgba(255,255,255,.2); stroke-width: 8; stroke-dasharray: 2.2 2.2; }
+html[data-look="pro"] .rcseg.on { stroke: var(--c); stroke-dasharray: none; filter: drop-shadow(0 0 3px rgba(var(--cr), .5)); }
+html[data-look="pro"] .rcsegr b { font-size: 22px; letter-spacing: -.3px; }
+html[data-look="pro"] .rcspark { display: block; width: 100%; height: 26px; overflow: visible; }
+html[data-look="pro"] .rcspark .rcsl { fill: none; stroke: rgba(235,240,245,.45); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] .rcspark .rcsd { fill: #050607; stroke: rgba(235,240,245,.7); stroke-width: 1.4; }
+html[data-look="pro"] .rcspark.live .rcsl { stroke: var(--c); }
+html[data-look="pro"] .rcspark.live .rcsd { fill: var(--c); stroke: var(--c); }
+
+/* ---------- grouped lists (ui/components.ts listRow): a glass icon tile, a title, one line, a chevron ---------- */
+html[data-look="pro"] .rcgroup { border-radius: 20px; overflow: hidden; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .rcrow { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-height: 60px !important; padding: 0 14px 0 12px; border-radius: 0; background: none !important; box-shadow: none !important; text-align: left; color: var(--ink); font: inherit; text-transform: none; }
+html[data-look="pro"] .rcrow + .rcrow::before { content: ''; position: absolute; left: 62px; right: 0; top: 0; height: 1px; background: var(--hair); }
+html[data-look="pro"] .rcrow:active { background: rgba(255,255,255,.05) !important; transform: none; }
+html[data-look="pro"] .rctile { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; color: var(--ink); background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .rctile .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] .rctx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+html[data-look="pro"] .rctx b { font: 500 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); text-transform: none; }
+html[data-look="pro"] .rctx small { font: 400 13px/17px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
+html[data-look="pro"] .rcval { font: 400 15px var(--sf); color: var(--ink3); white-space: nowrap; }
+html[data-look="pro"] .rcchev { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--ink4); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- the navigation bar: round glass buttons (search, back, you) ---------- */
+html[data-look="pro"] #top { padding: 6px 20px 0; }
+html[data-look="pro"] #top .cmd { width: 40px; height: 40px; min-height: 40px !important; background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.06); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+html[data-look="pro"] #top .cmd::before { width: 20px; height: 20px; }
+html[data-look="pro"] #top .you { width: 44px; height: 44px; min-height: 44px !important; margin-right: -2px; }
+html[data-look="pro"] #top .you .av { width: 40px; height: 40px; font: 600 16px/1 var(--sf); color: var(--ink); background: radial-gradient(circle at 35% 30%, #3a4148, #1a1e22 70%); box-shadow: inset 0 0 0 1px var(--hair2), inset 0 1px 0 rgba(255,255,255,.1); }
+html[data-look="pro"] #top .you.on .av { color: var(--ink); background: radial-gradient(circle at 35% 30%, #3a4148, #1a1e22 70%); box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), 0 0 0 3px rgba(var(--cr), .14); }
+html[data-look="pro"] body[data-depth="inner"] #top .you { display: grid; margin-left: auto; }
+/* back: a round glass button with the chevron (the screen it goes back to stays its label for VoiceOver) */
+html[data-look="pro"] #top .navback, html[data-look="pro"] #top .logbtn { width: 44px; height: 44px; min-height: 44px !important; padding: 0; margin: 0; justify-content: center; border-radius: 22px; background: rgba(255,255,255,.075) !important; box-shadow: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.06) !important; -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+html[data-look="pro"] #top .navback .ic { width: 22px; height: 22px; stroke: var(--ink); stroke-width: 2.2; }
+html[data-look="pro"] #top .navback span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html[data-look="pro"] #top .logbtn::before { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+html[data-look="pro"] #top .logbtn::after { width: 22px; height: 22px; background: var(--ink); }
+/* a pushed screen's large title, and the conversation's centred one */
+html[data-look="pro"] body[data-depth="inner"]:not(.ownback) #top .navtitle { margin: 14px 0 0; font: 700 34px/41px var(--sfd); letter-spacing: -.4px; }
+html[data-look="pro"] body.ownback #top .navtitle { font: 600 17px/22px var(--sf); letter-spacing: -.25px; }
+
+/* ---------- the tab bar: five areas in a floating glass pill, the active one lit ---------- */
+html[data-look="pro"] #dock .tabcap { height: 64px; padding: 4px; border-radius: 32px; background: var(--rcpill); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.08), 0 20px 50px rgba(0,0,0,.55); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+html[data-look="pro"] #dock .tabcap button { gap: 3px; min-height: 56px !important; border-radius: 28px; font: 600 10.5px/12px var(--sf) !important; letter-spacing: .01em !important; color: rgba(235,240,245,.62); }
+html[data-look="pro"] #dock .tabcap button .ic { width: 25px; height: 25px; stroke-width: 1.65; transition: transform var(--rcsp) var(--spring); }
+html[data-look="pro"] #dock .tabcap button.on { color: var(--c); background: rgba(255,255,255,.075); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+@media (max-width: 899px) {
+  html[data-look="pro"] body.tabbar #dock.areas { padding: 0 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  html[data-look="pro"] body.tabbar #dock .tabblur { top: -28px; background: linear-gradient(to top, rgba(5,6,7,.96), rgba(5,6,7,.82) 45%, rgba(5,6,7,0)); }
+}
+
+/* ---------- motion: springs for taps, nothing moves when the phone asks for less ---------- */
+html[data-look="pro"] :is(.rcrow, .rccard, #dock .tabcap button, #top :is(.cmd, .you, .navback)) { -webkit-tap-highlight-color: transparent; }
+html[data-look="pro"] #top :is(.cmd, .you, .navback):active { transform: scale(.92); transition: transform var(--rcsp) var(--spring); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-look="pro"] *, html[data-look="pro"] *::before, html[data-look="pro"] *::after { animation: none !important; transition-duration: .01ms !important; }
+  html[data-look="pro"] :is(.rccard, #top :is(.cmd, .you, .navback)):active { transform: none; }
+}
+
+/* end route C */
