@@ -191,9 +191,10 @@ await page.route('**/api/school/official/file?**', (route) => {
   route.fulfill({ status: 200, contentType: 'application/pdf', body: u.searchParams.get('part') === '0' ? GPS_QUESTIONS : GPS_MARKS });
 });
 const gpsRow = page.locator('#pg-school .schoff[data-id="ks2-2024-gps"]');
-if (!(await gpsRow.isVisible())) await page.locator('#pg-school .schofficial details.schoffgrp > summary').first().click();
-const alreadyFetched = !(await gpsRow.locator('button', { hasText: /^FETCH/ }).count());
-if (!alreadyFetched) {
+if (!(await gpsRow.count())) problems.push('OFFICIAL PAPERS has no 2024 grammar paper to FETCH');
+else if (!(await gpsRow.isVisible())) await page.locator('#pg-school .schofficial details.schoffgrp > summary').first().click({ timeout: 5000 }).catch(() => problems.push('the SATs group does not open'));
+const alreadyFetched = (await gpsRow.count()) > 0 && !(await gpsRow.locator('button', { hasText: /^FETCH/ }).count());
+if ((await gpsRow.count()) && !alreadyFetched) {
   await gpsRow.scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/school-official.png` });
   await gpsRow.locator('button', { hasText: /^FETCH/ }).click();
@@ -201,7 +202,7 @@ if (!alreadyFetched) {
   if (fileAsks.join(',') !== 'ks2-2024-gps#0,ks2-2024-gps#1') problems.push(`the parts were not fetched through the brain in order: ${fileAsks.join(',')}`);
 }
 await page.waitForFunction(() => /^(Ready|Sat): 3 questions, 4 of the paper's 70 marks$/.test(document.querySelector('#pg-school .schoff[data-id="ks2-2024-gps"] .schoffline')?.textContent ?? ''), null, { timeout: 15000 }).catch(async () => problems.push(`the fetched paper's line: "${await gpsRow.locator('.schoffline').textContent().catch(() => '')}"`));
-await gpsRow.scrollIntoViewIfNeeded();
+await gpsRow.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => undefined);
 await page.waitForFunction(() => !document.querySelector('.toast'), null, { timeout: 8000 }).catch(() => undefined);
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/school-official-ready.png` });
@@ -213,18 +214,19 @@ const ks2Go = (await page.locator('#pg-school .schgo').textContent().catch(() =>
 if (!/Grammar, punctuation and spelling — official/.test(ks2Go) && !alreadyFetched) problems.push(`Key Stage 2 grammar is not marked official: ${ks2Go}`);
 
 // ---- WRITE THE PAPERS: Key Stage 3's banks written through the mock brain until the stage can be sat ---------------
-await page.locator('#pg-school .schpick button[data-stage="ks3"]').click();
+await page.locator('#pg-school .schpick button[data-stage="ks3"]').click({ timeout: 5000 }).catch(() => problems.push('Key Stage 3 cannot be picked to write its papers'));
 const ks3Ready = async () => (await page.locator('#pg-school .schpick button[data-stage="ks3"]').getAttribute('data-papers')) === 'true';
 if (!(await ks3Ready())) {
   const writeBtn = page.locator('#pg-school .schgo button.schwrite');
   if (!/WRITE THE PAPERS/.test((await writeBtn.textContent().catch(() => '')) ?? '')) problems.push('Key Stage 3 without papers does not offer WRITE THE PAPERS');
   const why = (await page.locator('#pg-school .schgo .note').first().textContent().catch(() => '')) ?? '';
   if (!/no Key Stage 3 papers yet[\s\S]*second check/.test(why)) problems.push(`WRITE THE PAPERS does not say what it does: ${why}`);
-  await writeBtn.click();
+  await writeBtn.click({ timeout: 5000 }).catch(() => undefined);
   await page.waitForFunction(() => (window.__ghosty?.school?.banks ?? []).some((b) => /^Writing the Key Stage 3 [\w ]+ bank · \d+ of \d+/.test(b.line)), null, { timeout: 15000 }).catch(() => problems.push('no honest progress line while the banks are written'));
   await page.locator('#pg-school .schplace').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/school-writing.png` });
+  if (problems.length) await bail();
   await page.waitForFunction(() => (window.__ghosty?.school?.stages ?? []).find((s) => s.id === 'ks3')?.papers === true, null, { timeout: 150000 }).catch(async () => problems.push(`Key Stage 3 never became sittable: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.school?.banks))}`));
 }
 await page.waitForFunction(() => document.querySelector('#pg-school .schpick button[data-stage="ks3"]')?.dataset.papers === 'true', null, { timeout: 10000 }).catch(() => problems.push('the placement picker does not offer Key Stage 3 to sit'));

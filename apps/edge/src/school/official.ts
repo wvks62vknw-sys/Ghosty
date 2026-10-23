@@ -669,18 +669,27 @@ export const MAX_FILE_BYTES = 30 * 1024 * 1024;
  * exact addresses on the list, redirects only to the same official hosts, a PDF only, served as a download with
  * no scripts — the same guards as the feed proxy (index.ts `/api/proxy`).
  */
-export async function fileResponse(id: string, part: number, fetcher: typeof fetch = fetch): Promise<Response> {
+export async function fileResponse(id: string, part: number, fetcher: typeof fetch = (u, i) => fetch(u, i)): Promise<Response> {
   const json = (v: unknown, status: number) => new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
   const e = officialById(id);
   const p = e?.parts[part];
   if (!e || !p) return json({ error: 'That paper is not on the list.' }, 404);
+  // Redirects are followed by hand, and only to the official hosts: nothing else is ever asked for.
   let r: Response;
+  let at = p.url;
   try {
-    r = await fetcher(p.url, { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/pdf,*/*' }, redirect: 'follow' });
+    for (let hop = 0; ; hop++) {
+      r = await fetcher(at, { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/pdf,*/*' }, redirect: 'manual' });
+      const next = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
+      if (!next) break;
+      const u = new URL(next, at);
+      if (u.protocol !== 'https:' || !OFFICIAL_HOSTS.includes(u.hostname) || hop >= 3) return json({ error: 'The file moved to a site that is not on the list, so it was not fetched.' }, 403);
+      at = u.toString();
+    }
   } catch {
     return json({ error: `${e.board}'s site could not be reached just now. Try again later.` }, 502);
   }
-  const final = new URL(r.url || p.url);
+  const final = new URL(r.url || at);
   if (final.protocol !== 'https:' || !OFFICIAL_HOSTS.includes(final.hostname)) return json({ error: 'The file moved to a site that is not on the list, so it was not fetched.' }, 403);
   if (!r.ok) return json({ error: `${e.board}'s site answered ${r.status}: the file may have moved. It was checked when it was added to the list.` }, 502);
   const type = r.headers.get('content-type') ?? '';

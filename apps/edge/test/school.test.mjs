@@ -764,7 +764,14 @@ test('official files come through the brain from the listed addresses only, as a
   const get = async (q, fetcher) => IX.schoolRoute(req(`/school/official/file?${q}`), '/school/official/file', 'GET', host({ fetcher }));
   assert.equal((await get('id=not-a-paper&part=0', pdf)).status, 404);
   assert.equal((await get('id=gcse-ocr-j277-01-2023&part=9', pdf)).status, 404);
-  assert.equal((await get('id=ks2-2024-maths&part=0', async () => reply('https://evil.example/x.pdf', 'x', 'application/pdf'))).status, 403, 'a redirect off the official sites is refused');
+  const hops = [];
+  const away = async (u) => (hops.push(u), u.includes('evil') ? reply(u, 'x', 'application/pdf') : { ok: false, status: 302, url: u, headers: new Headers({ location: 'https://evil.example/x.pdf' }), body: null });
+  assert.equal((await get('id=ks2-2024-maths&part=0', away)).status, 403, 'a redirect off the official sites is refused');
+  assert.equal(hops.length, 1, 'and never followed');
+  const moved = async (u) => (u.endsWith('/moved.pdf') ? reply(u, '%PDF-1.7 moved', 'application/pdf') : { ok: false, status: 301, url: u, headers: new Headers({ location: '/media/moved.pdf' }), body: null });
+  const m = await get('id=ks2-2024-maths&part=0', moved);
+  assert.equal(m.status, 200, 'a move within the official site is followed');
+  assert.equal(await m.text(), '%PDF-1.7 moved');
   assert.equal((await get('id=ks2-2024-maths&part=0', async (u) => reply(u, '<html>sign in</html>', 'text/html'))).status, 502, 'a page instead of the paper is refused');
   assert.equal((await get('id=ks2-2024-maths&part=0', async () => { throw new Error('offline'); })).status, 502);
 });

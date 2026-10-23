@@ -93,6 +93,8 @@ async function allBanks(d: Store): Promise<Map<string, BankMeta>> {
   const got = await d.storage.get<BankMeta>(keys);
   return new Map([...got].filter(([, v]) => !!v));
 }
+/** Read without failing the whole page: while the database is paused, SCHOOL still shows his record (from KV). */
+const orEmpty = <T>(p: Promise<Map<string, T>>): Promise<Map<string, T>> => p.catch(() => new Map<string, T>());
 
 /** The official paper to hand out next for a subject: fetched, read, not yet handed out (newest year first). */
 function nextOfficial(stage: StageId, subject: string, recs: Map<string, OfficialRecord>, used: string[]): OfficialRecord | undefined {
@@ -103,7 +105,7 @@ function nextOfficial(stage: StageId, subject: string, recs: Map<string, Officia
 
 /** Where every stage's subjects get their papers now. */
 export async function sourcesFor(d: Store, st: SchoolState): Promise<Record<string, Record<string, SourceInfo>>> {
-  const [banks, recs] = await Promise.all([allBanks(d), loadAllOfficial(d)]);
+  const [banks, recs] = await Promise.all([orEmpty(allBanks(d)), orEmpty(loadAllOfficial(d))]);
   const out: Record<string, Record<string, SourceInfo>> = {};
   for (const id of STAGE_IDS) {
     const row: Record<string, SourceInfo> = {};
@@ -132,7 +134,7 @@ interface Work {
   turn: number;
 }
 const loadWork = async (d: Store): Promise<Work> => {
-  const w = await d.storage.get<Work>(WORK_KEY);
+  const w = await d.storage.get<Work>(WORK_KEY).catch(() => undefined);
   return { banks: Array.isArray(w?.banks) ? w!.banks : [], official: Array.isArray(w?.official) ? w!.official : [], turn: Number(w?.turn) || 0 };
 };
 /** One slice at a time (they are long: a few model calls); separate from the record's own queue so reads stay quick. */
