@@ -478,11 +478,11 @@ test('one field at a time: every piece of the field being read before the next, 
   assert.equal(r.state.today.finished, 1);
   assert.deepEqual(r.state.queue, [first.id], 'and the next field in the curriculum is being read');
   assert.equal(r.state.cursor[first.id], 2);
-  // the finished field is not read again, though it is still the focus…
+  // the finished field is not read again, though it is still the focus,
   const r2 = await S.studySession(st, lib, { reads: 3 });
   assert.deepEqual(studied(lib).slice(5), first.topics.slice(2, 5).map((t) => t.t));
   assert.equal(r2.state.cursor[second.id], n);
-  // …unless the owner puts it first again (out of the focus, then back in)
+  // unless the owner puts it first again (out of the focus, then back in)
   const again = await S.loadStudy(st);
   again.focus = [];
   await st.put(S.STUDY_KEY, again);
