@@ -40,17 +40,19 @@ function priceGroups(services: Service[], fallback = 'Prices'): Record<string, u
   return [...groups].map(([name, items]) => ({ name: groups.size > 1 ? name : '', items: items.map((s) => ({ name: s.name, price: s.price ?? 'Ask', note: s.description ?? '', time: s.duration ?? '' })) }));
 }
 
+/** A review's stars only when the reviewer gave a rating. */
+const rated = (r: { rating?: number }) => (typeof r.rating === 'number' && Number.isFinite(r.rating) ? { rating: r.rating } : {});
 function reviewsBlock(b: Brief, title = 'What people say', tone?: Tone): Section[] {
   if (!b.reviews?.length) return [];
   if (b.reviews.length === 1) {
     const r = b.reviews[0]!;
-    return [S('testimonial-feature', { quote: r.quote, name: r.name, detail: r.detail ?? '', rating: r.rating ?? 5 }, tone)];
+    return [S('testimonial-feature', { quote: r.quote, name: r.name, detail: r.detail ?? '', ...rated(r) }, tone)];
   }
-  return [S('testimonials-grid', { eyebrow: 'Reviews', title, items: b.reviews.slice(0, 6).map((r) => ({ quote: r.quote, name: r.name, detail: r.detail ?? '', rating: r.rating ?? 5 })) }, tone)];
+  return [S('testimonials-grid', { eyebrow: 'Reviews', title, items: b.reviews.slice(0, 6).map((r) => ({ quote: r.quote, name: r.name, detail: r.detail ?? '', ...rated(r) })) }, tone)];
 }
 const teamBlock = (b: Brief, title: string, tone?: Tone): Section[] => (b.team?.length ? [S('team', { eyebrow: 'The team', title, people: b.team.map((p) => ({ name: p.name, role: p.role, bio: p.bio ?? '', ...(p.photo ? { photo: p.photo } : {}) })) }, tone)] : []);
 const statsBlock = (b: Brief, extra: { value: string; label: string }[] = []): Section[] => {
-  const items = [...(b.established ? [{ value: String(new Date().getFullYear() - b.established), label: `years${inTown(b) ? inTown(b) : ' in business'}` }] : []), ...(b.reviews?.length ? [{ value: `${(b.reviews.reduce((n, r) => n + (r.rating ?? 5), 0) / b.reviews.length).toFixed(1)}★`, label: 'average from the reviews here' }] : []), ...extra];
+  const items = [...(b.established ? [{ value: String(new Date().getFullYear() - b.established), label: `years${inTown(b) ? inTown(b) : ' in business'}` }] : []), ...(b.reviews?.length && b.reviews.every((r) => typeof r.rating === 'number' && Number.isFinite(r.rating)) ? [{ value: `${(b.reviews.reduce((n, r) => n + r.rating!, 0) / b.reviews.length).toFixed(1)}★`, label: 'average from the reviews here' }] : []), ...extra];
   return items.length >= 2 ? [S('stats', { items })] : [];
 };
 const logosBlock = (b: Brief, title: string): Section[] => (b.accreditations?.length ? [S('logos', { title, items: b.accreditations })] : []);

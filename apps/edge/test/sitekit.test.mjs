@@ -540,3 +540,21 @@ test('review 2: the writer and the critic cannot add a claim without digits; the
   assert.ok(g.findings.some((f) => f.gate === 'honesty' && /claim the owner did not make/.test(f.text)), K.formatGates(g));
   assert.equal(K.runGates(K.assemble(plan, brief).html, plan, brief, b0).findings.filter((f) => f.gate === 'honesty').length, 0, 'the template alone makes none');
 });
+
+test('review 3: no stars without a real rating, and no average unless every review was rated', () => {
+  const unrated = { ...FULL, reviews: [{ quote: 'Decent cut, a bit slow.', name: 'Jo' }, { quote: 'Okay.', name: 'Sam' }] };
+  const { plan, brief } = K.planFrom(unrated);
+  const html = K.assemble(plan, brief).html;
+  assert.ok(!/out of 5 stars/.test(html), 'no stars on unrated reviews');
+  assert.ok(!/★/.test(html), 'no made-up average');
+  const one = K.planFrom({ ...FULL, reviews: [{ quote: 'Fine.', name: 'Jo' }] });
+  assert.ok(!/out of 5 stars/.test(K.assemble(one.plan, one.brief).html), 'a single unrated review has no stars either');
+  const mixed = K.planFrom({ ...FULL, reviews: [{ quote: 'Great.', name: 'A', rating: 5 }, { quote: 'Fine.', name: 'B' }] });
+  const mh = K.assemble(mixed.plan, mixed.brief).html;
+  const figs = [...mh.matchAll(/<figure class="reveal">([\s\S]*?)<\/figure>/g)].map((m) => m[1]);
+  assert.ok(figs.some((f) => /Great\./.test(f) && /out of 5 stars/.test(f)), 'the rated review has its stars');
+  assert.ok(figs.filter((f) => /Fine\./.test(f)).every((f) => !/out of 5 stars/.test(f)), 'the unrated one has none');
+  assert.ok(!/★/.test(mh), 'no average from a partly rated set');
+  const rated = K.planFrom({ ...FULL });
+  assert.match(K.assemble(rated.plan, rated.brief).html, /5\.0★/, 'real ratings still give an average');
+});
