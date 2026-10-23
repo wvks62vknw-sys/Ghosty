@@ -1,9 +1,12 @@
 // Builds what the brain hands to Kaggle each week into apps/edge/src/selftrain/assets.ts:
 //   TASKS_JS    — the GYM's puzzles and the drills as one node program (tasks-cli.js bundled), so the
 //                 notebook makes and checks puzzles with exactly the code the phone uses;
+//   TASKS_FILE  — its base64, size and SHA-256, worked out here so the brain spends no CPU on them when it
+//                 uploads it (and knows from the hash whether it changed since the last upload);
 //   NOTEBOOK_PY — training/kaggle/ghosty_weekly.py, the notebook the brain pushes to Kaggle.
 // Run after changing either (or the games/drills):  node training/kaggle/build.mjs
 // `--check` only says whether assets.ts is up to date (the edge tests run it that way).
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +51,8 @@ export async function assetsSource() {
     '// training/kaggle/ghosty_weekly.py, training/kaggle/tasks-cli.js, the GYM games or the drills.\n' +
     '/** The GYM puzzles and drills as a node program for the notebook (tasks-cli.js, bundled). */\n' +
     `export const TASKS_JS = ${JSON.stringify(js)};\n` +
+    '/** TASKS_JS as uploaded: its UTF-8 bytes in base64, their number and their SHA-256 (hex). */\n' +
+    `export const TASKS_FILE = ${JSON.stringify({ b64: Buffer.from(js, 'utf8').toString('base64'), size: Buffer.byteLength(js, 'utf8'), sha256: createHash('sha256').update(js, 'utf8').digest('hex') })};\n` +
     '/** The weekly Kaggle notebook (training/kaggle/ghosty_weekly.py). */\n' +
     `export const NOTEBOOK_PY = ${JSON.stringify(py)};\n` +
     '/** One GYM puzzle per game and level (seed 800000 + level), the seed texts Evol-Instruct rewrites. */\n' +

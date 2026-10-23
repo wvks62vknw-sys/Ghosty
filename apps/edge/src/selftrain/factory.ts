@@ -190,6 +190,31 @@ export function nearReportCard(text: string, texts: string[]): string {
   return texts.find((q) => norm(q) === t || (similar(text, q) >= EXAM_NEAR && [...numbersIn(q)].every((n) => have.has(n)))) ?? '';
 }
 
+/**
+ * `tooClose(text, exam) || nearReportCard(text, card)` with each exam and report card question's words worked out
+ * once instead of for every record: the same verdicts for a small part of the CPU (gathering checks a few hundred
+ * records against about a hundred questions, and the brain's job steps must stay short).
+ */
+export function nearCheck(exam: string[], card: string[], at = EXAM_NEAR): (text: string) => string {
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const ex = exam.map((q) => ({ q, c: content(q) }));
+  const cd = card.map((q) => ({ q, c: content(q), n: norm(q), nums: [...numbersIn(q)] }));
+  const alike = (x: Set<string>, y: Set<string>): number => {
+    if (!x.size || !y.size) return 0;
+    let c = 0;
+    for (const w of x) if (y.has(w)) c++;
+    return c / (x.size + y.size - c);
+  };
+  return (text) => {
+    const x = content(text);
+    const e = ex.find((q) => alike(x, q.c) >= at);
+    if (e) return e.q;
+    const t = norm(text);
+    const have = numbersIn(text);
+    return cd.find((q) => q.n === t || (alike(x, q.c) >= EXAM_NEAR && q.nums.every((n) => have.has(n))))?.q ?? '';
+  };
+}
+
 const REFUSAL =/\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
 
 // ---- Evol-Instruct ---------------------------------------------------------------------------------------------

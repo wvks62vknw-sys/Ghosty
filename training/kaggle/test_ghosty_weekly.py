@@ -368,8 +368,12 @@ class PreFlight(unittest.TestCase):
         r = G.Run({'week': 3, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
         r.token = 'TOKEN'
         f = FakeModules(fail={G.GENERAL_DATA['file']: 1})
-        with f:
-            self.assertEqual(r.general_data(5), [])
+        work, G.WORK = G.WORK, tempfile.mkdtemp()
+        try:
+            with f:
+                self.assertEqual(r.general_data(5), [])
+        finally:
+            G.WORK = work
         self.assertEqual([c[3] for c in f.calls if c[1] == 'OpenAssistant/oasst1'], ['TOKEN'])
 
     def test_the_adapter_is_kept_before_the_candidate_is_uploaded(self):
