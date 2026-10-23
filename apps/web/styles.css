@@ -2877,4 +2877,66 @@ html[data-look="pro"] .eyebot .bgroup + .bgroup button.on { background: rgba(var
 @media (max-width: 409px) { html[data-look="pro"] .lchip:not(.ico) .ic { display: none; } html[data-look="pro"] .lchip:not(.ico) { padding: 0 12px; } }
 @media (max-width: 400px) { html[data-look="pro"] .eyebot .bgroup + .bgroup .bcap { display: none; } html[data-look="pro"] .eyebot .bgroup:first-child button[data-label]::before { --lfs: 10px; } }
 
+/* ---------- GYM (features/gym/index.ts; mockups/c/gym.png) ---------- */
+.gymlvhd, .gymlvls, .gymsec, .gymswitch .bic { display: none; }
+html[data-look="pro"] #pg-gym .two > .hero .bigv { display: none; }
+html[data-look="pro"] #pg-gym .two > .hero .sub { margin-top: 2px; font: 400 17px/24px var(--sf); letter-spacing: -.25px; color: var(--ink2); }
+html[data-look="pro"] #pg-gym .gymnow { display: none; }
+html[data-look="pro"] #pg-gym .pn.gymgames { background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 0; }
+html[data-look="pro"] #pg-gym .pn.gymgames > h3 { display: none; }
+html[data-look="pro"] #pg-gym .pn.gymgames > .bd { padding: 0; gap: 0; }
+/* LEVELS BY GAME, TRAIN ALL and KEEP AWAKE: one glass card */
+html[data-look="pro"] #pg-gym .gymall { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 10px; margin: 6px 0 0; padding: 16px; border-radius: 20px; background: var(--rcglass); box-shadow: var(--edge), var(--lift); -webkit-backdrop-filter: blur(28px) saturate(1.6); backdrop-filter: blur(28px) saturate(1.6); }
+html[data-look="pro"] #pg-gym .gymlvhd { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 10px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); white-space: nowrap; }
+html[data-look="pro"] #pg-gym .gymlvhd b { color: var(--ink); font-weight: 600; }
+html[data-look="pro"] #pg-gym .gymlvhd .k { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] #pg-gym .gymlvls { grid-column: 1 / -1; position: relative; display: flex; align-items: flex-end; gap: 4px; height: 62px; margin-top: 12px; }
+html[data-look="pro"] #pg-gym .gymlvls .b { flex: 1 1 0; min-width: 0; border-radius: 2px; background: rgba(235,240,245,.28); transition: height .6s var(--spring); }
+html[data-look="pro"] #pg-gym .gymlvls .b.m { background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .45); }
+html[data-look="pro"] #pg-gym .gymlvls .b.z { background: rgba(235,240,245,.12); }
+html[data-look="pro"] #pg-gym .gymlvls .g { position: absolute; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,.1), rgba(255,255,255,.02)); }
+html[data-look="pro"] #pg-gym button.gymallbtn { grid-column: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 50px; min-height: 50px !important; margin-top: 16px; padding: 0 18px; border-radius: 25px; font-weight: 600; letter-spacing: -.2px; }
+html[data-look="pro"] #pg-gym button.gymallbtn::after { content: ''; order: -1; width: 16px; height: 16px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5v15l12.5-7.5z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5v15l12.5-7.5z'/%3E%3C/svg%3E") center / contain no-repeat; }
+html[data-look="pro"] #pg-gym button.gymallbtn[data-label]::before { --lfs: 17px; font-weight: 600; letter-spacing: -.2px; }
+html[data-look="pro"] #pg-gym .gymall button.gymswitch { grid-column: 2; display: inline-flex; align-items: center; gap: 10px; width: auto; height: 50px; min-height: 50px !important; margin-top: 16px; padding: 0 10px 0 14px; border-radius: 25px; background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-gym .gymall .gymswitch .bic { display: block; line-height: 0; }
+html[data-look="pro"] #pg-gym .gymall .gymswitch .bic .ic { width: 18px; height: 18px; fill: none; stroke: var(--ink2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] #pg-gym .gymall .gymswtxt { display: block; }
+html[data-look="pro"] #pg-gym .gymall .gymswtxt b[data-label]::before { --lfs: 15px; font-weight: 500; white-space: nowrap; }
+/* (its hint stays for VoiceOver, out of sight: the pill is one line) */
+html[data-look="pro"] #pg-gym .gymall .gymswtxt small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html[data-look="pro"] #pg-gym .gymall .gymswitch:disabled .gymswtxt small { position: static; width: auto; height: auto; clip-path: none; white-space: normal; display: block; font: 400 12px/15px var(--sf); color: var(--ink3); }
+html[data-look="pro"] #pg-gym .gymall .gymswitch[aria-checked="true"] .knob { background: var(--c); }
+html[data-look="pro"] #pg-gym .gymall .gymswitch:disabled { opacity: .55; }
+html[data-look="pro"] #pg-gym .gymallst { grid-column: 1 / -1; position: relative; margin-top: 12px; padding-left: 15px; font: 400 13px/18px var(--sf); color: var(--ink2); }
+html[data-look="pro"] #pg-gym .gymallst::before { content: ''; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 4px; background: var(--ink3); }
+html[data-look="pro"] #pg-gym .gymall:has(.gymallbtn[data-label="Stop"]) .gymallst::before { background: var(--c); box-shadow: 0 0 8px var(--c); }
+@media (max-width: 400px) { html[data-look="pro"] #pg-gym .gymall { grid-template-columns: minmax(0, 1fr); } html[data-look="pro"] #pg-gym .gymall button.gymswitch { grid-column: 1; justify-content: space-between; margin-top: 10px; } }
+/* Games: a heading, then a card each — glyph tile, level ring, name, level line, sparkline, a state pill */
+html[data-look="pro"] #pg-gym .gymsec { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 34px 0 10px; }
+html[data-look="pro"] #pg-gym .gymsec b { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; color: var(--ink); }
+html[data-look="pro"] #pg-gym .gymsec span { font: 400 13px var(--sf); color: var(--ink3); white-space: nowrap; }
+html[data-look="pro"] #pg-gym .gymcards { gap: 12px; }
+html[data-look="pro"] #pg-gym button.gymcard { position: relative; display: flex; flex-direction: column; align-items: stretch; height: 168px; min-height: 0; padding: 14px 14px 12px; overflow: hidden; border-radius: 20px; background: var(--rcglass) !important; box-shadow: var(--edge), var(--lift) !important; text-align: left; }
+html[data-look="pro"] #pg-gym button.gymcard.on { box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), var(--lift) !important; }
+html[data-look="pro"] #pg-gym .gymcard .gymhead { display: flex; justify-content: space-between; align-items: flex-start; }
+html[data-look="pro"] #pg-gym .gymcard .gymglyph { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-gym .gymcard .gymglyph .ic { width: 21px; height: 21px; stroke: var(--ink) !important; stroke-width: 1.7; }
+html[data-look="pro"] #pg-gym .gymcard .gymtop { position: relative; width: 46px; height: 46px; display: grid; place-items: center; }
+html[data-look="pro"] #pg-gym .gymcard .gymtop svg { position: absolute; inset: 0; width: 46px; height: 46px; }
+html[data-look="pro"] #pg-gym .gymcard .gymtop .rtrack { stroke: rgba(255,255,255,.12); stroke-width: 7; }
+html[data-look="pro"] #pg-gym .gymcard .gymtop .rfg { stroke: #e6eaee; stroke-width: 7; }
+html[data-look="pro"] #pg-gym .gymcard .gymtop .rgoal { stroke: #e6eaee; stroke-width: 3; }
+html[data-look="pro"] #pg-gym .gymcard.mastered .gymtop .rfg { stroke: var(--c); filter: drop-shadow(0 0 4px rgba(var(--cr), .55)); }
+html[data-look="pro"] #pg-gym .gymcard .gymlvl { position: relative; font: 700 14px/1 var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; }
+html[data-look="pro"] #pg-gym .gymcard .gymname { margin-top: 12px; font: 600 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] #pg-gym .gymcard > small { margin-top: 1px; font: 400 13px/17px var(--sf); color: var(--ink2); }
+html[data-look="pro"] #pg-gym .gymcard .gymspark { position: absolute; left: 14px; right: 14px; bottom: 34px; height: 26px; display: block; }
+html[data-look="pro"] #pg-gym .gymcard .gymspark svg { width: 100%; height: 26px; }
+html[data-look="pro"] #pg-gym .gymcard .gymst { position: absolute; left: 14px; bottom: 11px; display: inline-flex; align-items: center; gap: 6px; font-style: normal; color: var(--ink3); }
+html[data-look="pro"] #pg-gym .gymcard .gymst::after { content: ''; order: -1; width: 6px; height: 6px; border-radius: 3px; background: var(--ink3); }
+html[data-look="pro"] #pg-gym .gymcard .gymst[data-label]::before { --lfs: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 13px; }
+html[data-look="pro"] #pg-gym .gymcard .gymst.mastered, html[data-look="pro"] #pg-gym .gymcard .gymst.training { color: color-mix(in srgb, var(--c) 60%, #fff); }
+html[data-look="pro"] #pg-gym .gymcard .gymst.mastered::after, html[data-look="pro"] #pg-gym .gymcard .gymst.training::after { background: var(--c); }
+
 /* end route C */
