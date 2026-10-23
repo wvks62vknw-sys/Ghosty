@@ -27,9 +27,10 @@ import { planFrom, TEMPLATES } from '../../../packages/shared/src/sitekit/templa
 import type { Brief, ImageRef, Plan, Review } from '../../../packages/shared/src/sitekit/types';
 import { applyFixes, applyPlan, applyWrites, critiquePrompt, jsonIn, planPrompt, writePrompt } from '../../../packages/shared/src/sitekit/write';
 import { durableGet, durablePut } from './kv';
-import { LensError, storeImage } from './lens';
+import { countToday, LensError, PICTURES_PER_DAY, storeImage } from './lens';
 import { textOf, withImages } from './llm/content';
 import type { Msg } from './llm/router';
+import { cost, neurons } from './neurons';
 import { modelUnavailable, startProject, type ProjectDeps } from './projects';
 import { toBase64, fromBase64 } from './speech';
 import { checkHtml } from './tools/check';
@@ -246,19 +247,28 @@ export async function findPictures(kind: Brief['kind'], want: number, keys: { un
   return { images: out, from };
 }
 
-/** A picture made with Workers AI's flux (make_picture's model), kept for good: a published site must not lose it. */
-async function makePicture(ctx: ToolContext, prompt: string): Promise<ImageRef | null> {
+/**
+ * A picture made with Workers AI's flux (make_picture's model), kept for good: a published site must not lose
+ * it. It goes through the shared free-AI ledger like make_picture (the reserve for hearing and answering the
+ * owner is never touched), and nothing is spent unless the picture can be kept and shown: an https address
+ * and room in today's picture count are checked before the model runs.
+ */
+export async function makePicture(ctx: Pick<ToolContext, 'env' | 'origin'>, prompt: string): Promise<ImageRef | null> {
   const ai = ctx.env.AI;
   const kv = ctx.env.SITES;
-  if (!ai || !kv) return null;
+  const origin = ctx.origin || ctx.env.PUBLIC_ORIGIN || '';
+  if (!ai || !kv || !/^https:/.test(origin)) return null;
   try {
+    if ((await countToday(kv, PICTURE_COUNT, 'picture')) >= PICTURES_PER_DAY) return null;
+    const n = cost.image(6);
+    if (!(await neurons().room('image', n))) return null;
+    await neurons().charge('image', n);
     const r = (await ai.run('@cf/black-forest-labs/flux-1-schnell', { prompt: prompt.slice(0, 600), steps: 6 })) as { image?: unknown } | null;
     if (!r || typeof r.image !== 'string') return null;
-    const kept = await storeImage(kv, fromBase64(r.image), 'image/jpeg', { ttl: 10 * 365 * 86_400, counter: PICTURE_COUNT, limit: 40, noun: 'picture', verb: 'made' });
-    const origin = ctx.origin || ctx.env.PUBLIC_ORIGIN || '';
-    return /^https:/.test(origin) ? { src: `${origin}/i/${kept.id}`, width: 1024, height: 1024, alt: prompt.split('.')[0]!.slice(0, 120), generated: true } : null;
+    const kept = await storeImage(kv, fromBase64(r.image), 'image/jpeg', { ttl: 10 * 365 * 86_400, counter: PICTURE_COUNT, limit: PICTURES_PER_DAY, noun: 'picture', verb: 'made' });
+    return { src: `${origin}/i/${kept.id}`, width: 1024, height: 1024, alt: prompt.split('.')[0]!.slice(0, 120), generated: true };
   } catch (e) {
-    if (e instanceof LensError) return null;
+    if (e instanceof LensError) return null; // the store could not keep it (or count it): the site goes ahead without
     return null;
   }
 }

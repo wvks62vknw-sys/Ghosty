@@ -16,7 +16,8 @@ export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
 export { siteTools, siteStore, PAGE_CSP } from './src/tools/sites.ts';
-export { siteMessage } from '../web/src/offline/sitework.ts';`,
+export { siteMessage } from '../web/src/offline/sitework.ts';
+export { neurons, cost, FREE_NEURONS } from './src/neurons.ts';`,
     resolveDir: at('..'),
     loader: 'ts',
   },
@@ -617,4 +618,33 @@ test('review 5: the build looks up its link first — never a silent overwrite �
   for (const n of names) assert.match(n, /^[a-z0-9-]{3,48}$/);
   assert.equal(SB.siteNameOf({ name: 'مقص الذهب' }, SB.briefOf({ request: 'build a website for my barber shop', name: 'مقص الذهب' })), names[0], 'the same name always gives the same link');
   assert.equal(SB.siteNameOf({ name: 'Fade & Co' }, SB.briefOf({ request: 'x', name: 'Fade & Co' })), 'fade-co');
+});
+
+test('review 6: a picture for the site is charged to the shared free-AI ledger first; no room, no https address or no count left means no model call', async () => {
+  let ran = 0;
+  const kvm = new Map();
+  const kv = { get: async (k, t) => (kvm.has(k) ? (t === 'json' ? JSON.parse(kvm.get(k)) : kvm.get(k)) : null), put: async (k, v) => void kvm.set(k, typeof v === 'string' ? v : v) };
+  const jpeg = Buffer.from(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...new Array(200).fill(1)])).toString('base64');
+  const AI = { run: async () => { ran++; return { image: jpeg }; } };
+  const ctx = { env: { AI, SITES: kv }, origin: 'https://ghosty.example' };
+  // Plain http: nothing a published page could show, so nothing is spent.
+  assert.equal(await SB.makePicture({ ...ctx, origin: 'http://localhost:8787' }, 'A cafe'), null);
+  assert.equal(ran, 0);
+  // Today's picture count used up: checked before the model.
+  const day = new Date().toISOString().slice(0, 10);
+  kvm.set(`pic:count:${day}`, '40');
+  assert.equal(await SB.makePicture(ctx, 'A cafe'), null);
+  assert.equal(ran, 0, 'the daily count is read before the model runs');
+  kvm.delete(`pic:count:${day}`);
+  // With room: charged to the ledger, made, kept at an https address.
+  const before = (await K.neurons().today()).by.image ?? 0;
+  const made = await SB.makePicture(ctx, 'A cafe counter. Morning light');
+  assert.match(made?.src ?? '', /^https:\/\/ghosty\.example\/i\//);
+  assert.equal(ran, 1);
+  assert.equal(((await K.neurons().today()).by.image ?? 0) - before, K.cost.image(6), 'charged before it ran');
+  // The shared ledger full: no call.
+  const used = (await K.neurons().today()).used;
+  await K.neurons().charge('chat', K.FREE_NEURONS - used);
+  assert.equal(await SB.makePicture(ctx, 'A cafe'), null);
+  assert.equal(ran, 1, 'ai.run is never called when the free allowance is used up');
 });
