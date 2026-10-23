@@ -19,6 +19,12 @@
  *    licence; READ puts one in his library chapter by chapter; SIT THE READING CHECK: ten questions on the book's own
  *    words, sat here like a paper, 80% passes), BORROW from up to two stages ahead (earned: top grades in his
  *    reading first, then that book's check), and what self-study may not read yet (apps/edge/src/school/reading.ts).
+ *  - The free GPU (part 2b, wired here): FREE GPU beside each subject's SIT and SIT ON THE FREE GPU beside SIT THE
+ *    EXAM (and a placement's SIT) have the same brain sit the paper on Kaggle's free GPU (POST /school/sit-remote):
+ *    while it runs, its honest note shows and /school/remote is asked every 20 s; one paper at a time (a 409 shows
+ *    the run already going); the result is filed like any other, "sat on the free GPU". Hidden, with one line why,
+ *    until the Kaggle and Hugging Face keys are saved (the training status's `keys`). Each subject sat shows the
+ *    honest gap ("offline 14/40 · online 36/40") and WEAK SPOTS what is being practised — both from GET /school.
  * Papers are set and marked by the brain (/api/school, apps/edge/src/school); they are sat here, on the phone's
  * own model (school/sit.ts). State for specs at window.__ghosty.school.
  */
@@ -28,7 +34,7 @@ import { clear, h, icon } from '../../core/dom';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
 import { notDownloaded, runPaper, school, sitSubjects, sitting, stopSitting, type Gen, type SitPaper } from '../../school/sit';
-import { headers } from '../../api/brain';
+import { brain, headers } from '../../api/brain';
 import { loadOffline, offlineReply, withModel } from '../../offline/brain';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, modal, panel, toast } from '../../ui/components';
@@ -42,7 +48,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
+export const schoolState = { gpu: { shown: false, phase: '', note: '', why: '' }, gap: {} as Record<string, string>, practice: '', stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -64,7 +70,7 @@ export const schoolTab: TabDef = {
     expose();
     // The stage's name as written ("Key Stage 2", "GCSE"), not re-cased by the calm looks.
     P.big.dataset.case = 'keep';
-    let view: StageView | null = null;
+    let view: WiredView | null = null;
     /** The phone can run the offline brain / has it downloaded (null: not looked yet). */
     let can: boolean | null = null;
     let ready: boolean | null = null;
@@ -139,6 +145,82 @@ export const schoolTab: TabDef = {
       );
     }
 
+    // ======================= the free GPU (a paper sat on Kaggle by the same brain: school/remote.ts on the brain)
+    /** The run as the brain last reported it, the keys it needs (null: not known yet) and subjects still to send. */
+    let remote: RemoteView | null = null;
+    let keys: { kaggle: boolean; hf: boolean } | null = null;
+    let gpuQueue: { stage: StageId; subjects: string[] } | null = null;
+    /** The paper the last run sat, for the result card once it is filed. */
+    let gpuPaper: string | null = null;
+    let pollTimer = 0;
+    const gpuBusy = () => !!remote && remote.phase !== 'idle';
+    const gpuOk = () => !!keys?.kaggle && !!keys?.hf;
+    /** Why the free GPU buttons are not there (one line), or '' when they are (or the keys are not known yet). */
+    const gpuWhy = () => {
+      if (!keys || gpuOk()) return '';
+      const need = [!keys.kaggle ? 'the Kaggle key' : '', !keys.hf ? 'the Hugging Face write token' : ''].filter(Boolean).join(' and ');
+      return `SIT ON THE FREE GPU (the same brain sits a paper on Kaggle's free computers in about 10 minutes, no phone time) needs ${need}: save ${need.includes(' and ') ? 'them' : 'it'} in SYSTEM → KEYS.`;
+    };
+    /** Sit these subjects on the free GPU, one after another (the next is sent when the last is filed, while SCHOOL is open). */
+    async function sitGpu(stage: StageId, subjects: string[], b?: HTMLButtonElement): Promise<void> {
+      const [first, ...rest] = subjects;
+      if (!first) return;
+      if (b) b.disabled = true;
+      try {
+        const r = await gcall<{ remote?: RemoteView; error?: string }>('POST', '/sit-remote', { stage, subject: first });
+        if (r.body.remote) remote = r.body.remote;
+        if (r.status === 409) {
+          gpuQueue = null;
+          toast(r.body.error ?? 'Another paper is being sat on the free GPU: one at a time.', 'warn');
+        } else if (r.status !== 200) toast(r.body.error ?? `Ghosty could not be reached (${r.status}).`, 'bad');
+        else {
+          gpuQueue = rest.length ? { stage, subjects: rest } : null;
+          gpuPaper = remote?.paperId ?? null;
+          toast(`${stageLabel(stage)} ${subjectName(first).toLowerCase()}: sent to the free GPU · about 10 minutes`, 'ok');
+        }
+      } catch (e) {
+        toast(String((e as Error)?.message ?? e).slice(0, 180), 'bad');
+      }
+      ensurePoll();
+      paint();
+    }
+    /** How the run is going (every 20 s while one is on): a finished one is filed by the brain, then shown. */
+    async function pollGpu(): Promise<void> {
+      const was = gpuBusy();
+      try {
+        const r = await gcall<{ remote?: RemoteView; gap?: WiredView['gap'] }>('GET', '/remote');
+        if (r.status !== 200 || !r.body.remote) return;
+        remote = r.body.remote;
+        if (view && r.body.gap) view = { ...view, gap: r.body.gap };
+      } catch {
+        return; // not reached this time: asked again in 20 s
+      }
+      if (was && !gpuBusy()) {
+        toast(remote!.note, remote!.last?.error ? 'bad' : 'ok');
+        await refresh();
+        const q = gpuQueue;
+        gpuQueue = null;
+        if (q && shown && !remote!.last?.error) void sitGpu(q.stage, q.subjects);
+      }
+      ensurePoll();
+      paint();
+    }
+    function ensurePoll(): void {
+      const want = shown && gpuBusy();
+      if (want && !pollTimer) pollTimer = window.setInterval(() => void pollGpu(), 20_000);
+      if (!want && pollTimer) (clearInterval(pollTimer), (pollTimer = 0));
+    }
+    async function loadKeys(): Promise<void> {
+      try {
+        keys = (await brain.selftrain.status()).keys ?? null;
+      } catch {
+        keys = null; // not known: the buttons stay hidden, without a line
+      }
+      paint();
+    }
+    /** The live note under the buttons: the run going on, or the last one's outcome. */
+    const gpuLine = () => (remote && (gpuBusy() || remote.last) ? h(`div.note.schgpunote${gpuBusy() ? '.live' : ''}` as 'div', gpuBusy() ? `${remote.note}${gpuQueue ? ` · then ${gpuQueue.subjects.length} more while SCHOOL is open` : ''}` : `Last on the free GPU: ${remote.note}`) : null);
+
     // ======================= the ladder
     function paintLadder(v: StageView): void {
       const rows = v.stages.map((s) => {
@@ -159,6 +241,9 @@ export const schoolTab: TabDef = {
     const sitAll = button('SIT THE EXAM', () => view && start(view.current.stage, view.current.subjects.map((s) => s.id)), 'on');
     sitAll.title = 'Every subject of this stage, one after another, on the offline brain';
     const stop = button('STOP', () => stopSitting(), 'warn');
+    const gpuAll = named(button('SIT ON THE FREE GPU', (b) => view && void sitGpu(view.current.stage, view.current.subjects.filter((s) => s.source).map((s) => s.id), b)), 'Sit on the free GPU');
+    gpuAll.classList.add('schgpuall');
+    gpuAll.title = 'Every subject of this stage on the free GPU, one after another · about 10 minutes each, no phone time';
     const toSettings = button('DOWNLOAD IT IN SETTINGS', () => go('settings'));
     const resultCard = h('div.schresult');
 
@@ -170,14 +255,14 @@ export const schoolTab: TabDef = {
         h('div.schgrade', h('b', pending ? '…' : r.grade), h('span', `${r.raw}/${r.max} · ${pct(r)}%`)),
         h('div.schresline', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()} · ${pending ? `${pending} written answer${pending === 1 ? '' : 's'} waiting for a marker: no final grade yet` : r.top ? 'top grades ✓' : 'not top grades yet'}`),
         r.boundary && !pending ? h('div.schbound', r.boundary) : null,
-        h('div.schresfrom', r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : 'Written by Ghosty in the same style'),
+        h('div.schresfrom', `${r.official ? `Official paper: ${r.title.split(' · official ')[1] ?? r.title}` : 'Written by Ghosty in the same style'}${r.where === 'kaggle' ? ' · sat on the free GPU' : ''}`),
         button('SEE THE PAPER', () => openPaper(r)),
       );
       resultCard.classList.toggle('top', r.top);
       resultCard.classList.toggle('pending', !!pending);
     }
 
-    function paintStage(v: StageView): void {
+    function paintStage(v: WiredView): void {
       const st = sitting.get();
       const cur = v.current;
       const busy = st.busy;
@@ -189,7 +274,17 @@ export const schoolTab: TabDef = {
         sitOne.setAttribute('aria-label', `Sit ${s.label}`);
         const now = busy && st.stage === cur.stage && st.subject === s.id;
         sitOne.disabled = sitOne.disabled || !s.source;
-        return h(`div.schsub${s.top ? '.top' : ''}${now ? '.live' : ''}` as 'div', h('span.schsubname', h('b', s.label), h('small', grade), h(`small.schfrom${s.source === 'official' ? '.off' : ''}` as 'small', s.source ? `Next paper: ${s.from}` : s.from)), h(`span.schtop${s.top ? '.ok' : ''}` as 'span', s.top ? 'Top ✓' : r ? 'Not yet' : '—'), sitOne);
+        const onGpu = gpuBusy() && remote?.stage === cur.stage && remote?.subject === s.id;
+        const gpuOne = named(button('FREE GPU', (b) => void sitGpu(cur.stage, [s.id], b), 'schgpu'), 'Free GPU');
+        gpuOne.setAttribute('aria-label', `Sit ${s.label} on the free GPU`);
+        gpuOne.title = 'Sit on the free GPU · about 10 minutes, no phone time';
+        gpuOne.disabled = gpuBusy() || !s.source || now;
+        gpuOne.hidden = !gpuOk();
+        const gap = v.gap?.[s.id]?.line;
+        return h(`div.schsub${s.top ? '.top' : ''}${now || onGpu ? '.live' : ''}` as 'div', { dataset: { subject: s.id } },
+          h('span.schsubname', h('b', s.label), h('small', `${grade}${r?.where === 'kaggle' ? ' · sat on the free GPU' : ''}`), gap ? h('small.schgap', gap) : null, onGpu ? h('small.schgpunote', remote!.note) : null, h(`small.schfrom${s.source === 'official' ? '.off' : ''}` as 'small', s.source ? `Next paper: ${s.from}` : s.from)),
+          h(`span.schtop${s.top ? '.ok' : ''}` as 'span', s.top ? 'Top ✓' : r ? 'Not yet' : '—'),
+          h('span.schsubbtns', sitOne, gpuOne));
       });
       const done = cur.subjects.filter((s) => s.top).length;
       const live = busy
@@ -200,6 +295,8 @@ export const schoolTab: TabDef = {
           )
         : null;
       sitAll.disabled = busy || !ready || !cur.papers;
+      gpuAll.disabled = gpuBusy() || !cur.papers;
+      gpuAll.hidden = !gpuOk();
       stop.hidden = !busy;
       toSettings.hidden = ready !== false || can === false;
       const why =
@@ -219,7 +316,9 @@ export const schoolTab: TabDef = {
         live,
         why ? h('div.note.schwhy', why) : null,
         !cur.papers && cur.bank ? writeBlock(cur.stage) : null,
-        h('div.keyrow.schbtns', sitAll, stop, toSettings),
+        h('div.keyrow.schbtns', sitAll, gpuAll, stop, toSettings),
+        gpuOk() ? (gpuLine() ?? h('div.note.schgpunote', 'Sit on the free GPU · about 10 minutes a paper, no phone time: the same brain sits it on Kaggle’s free GPU, one subject after another.')) : null,
+        gpuWhy() ? h('div.note.schgpuwhy', gpuWhy()) : null,
         resultCard,
       );
       stageP.setStatus(busy ? 'SITTING' : v.pending.length ? 'MARKS PENDING' : `${done}/${cur.subjects.length} TOP`, busy ? 'mid' : v.pending.length ? 'mid' : done === cur.subjects.length ? 'ok' : 'off');
@@ -258,6 +357,16 @@ export const schoolTab: TabDef = {
                 placementOpen = false;
                 start(pick.id, pick.subjects);
               }, 'on'), `Sit ${short(pick.label)}`),
+              gpuOk()
+                ? (() => {
+                    const b = named(button(`SIT ${short(pick.label).toUpperCase()} ON THE FREE GPU`, (btn) => {
+                      placementOpen = false;
+                      void sitGpu(pick.id, pick.subjects.filter((x) => from(pick.id, x)), btn);
+                    }), `Sit ${short(pick.label)} on the free GPU`);
+                    b.disabled = gpuBusy();
+                    return b;
+                  })()
+                : null,
             )
           : h('div.schgo', writeBlock(pick.id))
         : null;
@@ -266,9 +375,11 @@ export const schoolTab: TabDef = {
     }
 
     // ======================= weak spots
-    function paintWeak(v: StageView): void {
-      if (!v.weak.length) return void clear(weakP.body, h('div.note', v.state.results.length ? 'No weak spots: every topic so far got full marks.' : 'Weak spots show after his first papers: the topics where he lost the most marks.'));
-      clear(weakP.body, ...v.weak.map((w) => bar(w.topic.toUpperCase(), (w.of - w.lost) / Math.max(1, w.of), `${w.of - w.lost}/${w.of}`)), h('div.note', 'Share of marks he got in each topic, worst first, across his recent papers.'));
+    function paintWeak(v: WiredView): void {
+      // What the weekly training practises for them (school/practice.ts on the brain): "practising: 3 weak spots · 24 items checked this week".
+      const practice = v.practice ? h('div.schpractice', v.practice.line) : null;
+      if (!v.weak.length) return void clear(weakP.body, h('div.note', v.state.results.length ? 'No weak spots: every topic so far got full marks.' : 'Weak spots show after his first papers: the topics where he lost the most marks.'), practice);
+      clear(weakP.body, ...v.weak.map((w) => bar(w.topic.toUpperCase(), (w.of - w.lost) / Math.max(1, w.of), `${w.of - w.lost}/${w.of}`)), practice, h('div.note', `Share of marks he got in each topic, worst first, across his recent papers.${v.practice ? ' The weekly training practises his weak spots with checked questions (never a paper’s own).' : ''}`));
     }
 
     // ======================= results
@@ -279,7 +390,7 @@ export const schoolTab: TabDef = {
         resultsP.body,
         h('div.schlist', ...rs.slice(0, 20).map((r) =>
           h(`button.schrow${r.top ? '.top' : ''}` as 'button', { type: 'button', onclick: () => openPaper(r), 'aria-label': `${r.title}: ${r.grade}, ${r.raw} out of ${r.max}` },
-            h('span.schrowt', h('b', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()}`), h('small', `${day(r.at)} · ${r.official ? 'official paper' : 'written by Ghosty'}${r.marked.pending ? ' · marks pending' : ''}`)),
+            h('span.schrowt', h('b', `${stageLabel(r.stage)} ${subjectName(r.subject).toLowerCase()}`), h('small', `${day(r.at)} · ${r.official ? 'official paper' : 'written by Ghosty'}${r.where === 'kaggle' ? ' · sat on the free GPU' : ''}${r.marked.pending ? ' · marks pending' : ''}`)),
             h('span.schrowg', h('b', r.marked.pending ? '…' : r.grade), h('small', `${r.raw}/${r.max}`)),
           ))),
       );
@@ -387,7 +498,7 @@ export const schoolTab: TabDef = {
       if (!view) return;
       b.disabled = true;
       try {
-        view = await school.settings(!view.state.nightly);
+        view = { ...(await school.settings(!view.state.nightly)), remote: view.remote, gap: view.gap, practice: view.practice } as WiredView;
       } catch (e) {
         toast(String((e as Error)?.message ?? e).slice(0, 160), 'bad');
       }
@@ -424,7 +535,8 @@ export const schoolTab: TabDef = {
       P.sub.textContent = `${v.stages.find((s) => s.id === v.current.stage)?.years ?? ''} · ${v.state.results.length ? `${v.state.results.length} paper${v.state.results.length === 1 ? '' : 's'} sat` : 'nothing sat yet'}${v.next ? ` · ${v.next} next` : ''}`;
       paintLadder(v);
       paintStage(v);
-      paintResult(st.last);
+      // The phone's last paper, else the one the free GPU last sat (once it is filed).
+      paintResult(st.last ?? (gpuPaper ? v.state.results.find((r) => r.paperId === gpuPaper) ?? null : null));
       paintPlacement(v);
       paintWeak(v);
       paintResults(v);
@@ -435,13 +547,19 @@ export const schoolTab: TabDef = {
       schoolState.banks = work.get().banks.map((b) => ({ stage: b.stage, subject: b.subject, kept: b.kept, target: b.target, done: b.done, line: b.line }));
       schoolState.working = work.get().running;
       schoolState.results = v.state.results.length;
+      schoolState.gpu = { shown: gpuOk(), phase: remote?.phase ?? '', note: remote?.note ?? '', why: gpuWhy() };
+      schoolState.gap = Object.fromEntries(Object.entries(v.gap ?? {}).map(([k, g]) => [k, g.line]));
+      schoolState.practice = v.practice?.line ?? '';
       schoolState.last = st.last ? { grade: st.last.grade, raw: st.last.raw, max: st.last.max } : null;
     }
 
     async function refresh(): Promise<void> {
       try {
-        const [v, sup, rd] = await Promise.all([school.view(), offlineSupport().catch(() => ({ ok: false, reason: '' })), offlineReady().catch(() => false)]);
+        const [v, sup, rd] = await Promise.all([school.view() as Promise<WiredView>, offlineSupport().catch(() => ({ ok: false, reason: '' })), offlineReady().catch(() => false)]);
         view = v;
+        // The run on the free GPU comes with the record (the brain files a finished one first).
+        if (v.remote) remote = v.remote;
+        ensurePoll();
         can = sup.ok;
         ready = sup.ok && rd;
         schoolState.error = '';
@@ -644,12 +762,14 @@ export const schoolTab: TabDef = {
       enter() {
         shown = true;
         void refresh();
+        void loadKeys();
         void loadOfficial();
         void loadReading();
       },
       leave() {
         shown = false;
         stopWork();
+        ensurePoll();
       },
       describe() {
         return view ? `School: the offline brain is at ${view.current.label}; ${view.current.subjects.map((s) => `${s.label} ${s.latest ? s.latest.grade : 'not sat'}`).join(', ')}.` : 'School.';
@@ -704,4 +824,34 @@ async function rcall<T>(method: 'GET' | 'POST', path: string, body?: unknown): P
   const j = (await r.json().catch(() => null)) as { error?: string } | null;
   if (!r.ok) throw new Error(j?.error ?? (r.status === 401 ? 'Not signed in.' : `Ghosty could not be reached (${r.status}).`));
   return j as T;
+}
+
+// ---------------------------------------------------------------------------------------
+// The free GPU (part 2b): /api/school/sit-remote and /api/school/remote (apps/edge/src/school/remote.ts)
+// ---------------------------------------------------------------------------------------
+
+/** The run as the brain shows it (`remoteView`). */
+interface RemoteView {
+  phase: 'idle' | 'queued' | 'running';
+  note: string;
+  paperId: string | null;
+  stage: StageId | null;
+  subject: string | null;
+  title: string | null;
+  startedAt: number | null;
+  last: { paperId: string; title: string; at: number; raw?: number; max?: number; grade?: string; error?: string } | null;
+}
+/** GET /school with what this wiring added: the run, the gap per subject and the practice (older brains: absent). */
+type WiredView = StageView & {
+  remote?: RemoteView | null;
+  gap?: Record<string, { stage: StageId; subject: string; line: string; paperId: string; at: number }>;
+  practice?: { spots: number; checked: number; line: string } | null;
+};
+
+/** One call that keeps the status: a 409 ("one paper at a time") carries the run already going. */
+async function gcall<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<{ status: number; body: T }> {
+  const r = await fetch(`/api/school${path}`, { method, headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}), body: body !== undefined ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const j = ((await r.json().catch(() => null)) ?? {}) as T & { error?: string };
+  if (r.status === 401) throw new Error(j.error ?? 'Not signed in.');
+  return { status: r.status, body: j };
 }
