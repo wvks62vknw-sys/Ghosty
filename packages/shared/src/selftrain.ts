@@ -10,13 +10,16 @@
  */
 import type { ToolSpec } from './toolcall';
 
-/** What the exam measures. `general` = drills (maths, facts, computing) with exact checkers. */
-export const EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety'] as const;
+/**
+ * What the exam measures. `general` = drills (maths, facts, computing) with exact checkers; `voice` = the share of
+ * the GENERAL and LIBRARY replies that sound like a person, not an AI (voice.ts `human`, exact, no model).
+ */
+export const EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety', 'voice'] as const;
 export type ExamArea = (typeof EXAM_AREAS)[number];
 /** Each area's score, 0–1 (the share of its exam items passed, partial credit where the checker gives it). */
 export type AreaScores = Partial<Record<ExamArea, number>>;
 
-export const AREA_LABEL: Record<ExamArea, string> = { gym: 'GYM PUZZLES', general: 'GENERAL', library: 'YOUR LIBRARY', tools: 'TOOLS', safety: 'SAFETY' };
+export const AREA_LABEL: Record<ExamArea, string> = { gym: 'GYM PUZZLES', general: 'GENERAL', library: 'YOUR LIBRARY', tools: 'TOOLS', safety: 'SAFETY', voice: 'SOUNDS LIKE A PERSON' };
 
 /** A new model must beat the current one by this much on average… */
 export const GATE_MIN_GAIN = 0.01;
