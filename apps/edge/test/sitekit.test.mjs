@@ -366,7 +366,7 @@ test('build_website asks once, naming the link and the defaults it will use, and
   assert.equal(job.brief.town, 'Walsall');
 });
 
-test('a website from one request: six steps with a model — planned, written, built, gated, published, critiqued from the layout (no screenshot service), reported with the link', async () => {
+test('a website from one request: six steps with a model — planned, written, built, gated, critiqued from the layout, kept as a draft with what to confirm, then published once confirmed', async () => {
   const st = new MemStorage();
   const calls = [];
   const d = deps(st, async (messages) => {
@@ -383,17 +383,23 @@ test('a website from one request: six steps with a model — planned, written, b
   const p = await runAll(d, p0.id);
   assert.equal(p.status, 'done', p.note);
   assert.deepEqual(calls.map((c) => c.slice(0, 11)).filter((c, i, a) => a.indexOf(c) === i), ['SITE PLANNE', 'SITE WRITER', 'SITE CRITIC']);
-  const site = await K.siteStore(undefined, st).get('fade-co');
-  assert.ok(site, 'published');
-  assert.match(site.html, /Barbers in the heart of Walsall/, 'the writer\'s words reached the page');
-  assert.deepEqual(K.checkHtml(site.html).errors, []);
+  assert.equal(await K.siteStore(undefined, st).get('fade-co'), undefined, 'typical hours and prices: not public until the owner confirms');
   const report = p.steps[5].result;
-  assert.match(report, /Live: https:\/\/ghosty\.example\/s\/fade-co/);
+  assert.match(report, /Draft — not public yet\. It goes live at https:\/\/ghosty\.example\/s\/fade-co once you confirm/);
   assert.match(report, /layout analysis \(no screenshots were possible\)/);
   assert.match(report, /Please confirm: .*opening hours/);
   assert.match(report, /Fixed: .*alt background/);
   assert.equal(d.notes.length, 1, 'one notification, at the end');
-  assert.match(d.notes[0].text, /Live: https:\/\/ghosty\.example\/s\/fade-co/);
+  assert.match(d.notes[0].text, /Draft — not public yet/);
+  // The owner confirms: the approval names the list, and the run puts the checked draft live.
+  const tool = K.siteTools.find((t) => t.name === 'build_website');
+  const ap = await tool.approval({ request: 'those are right, publish it', link_name: 'fade-co' }, ctx);
+  assert.match(ap.reason, /Publish the website ".*Fade & Co.*" at https:\/\/ghosty\.example\/s\/fade-co\? You are confirming what I assumed: .*opening hours/);
+  assert.match(await tool.run(ap.args, ctx), /live now at https:\/\/ghosty\.example\/s\/fade-co/);
+  const site = await K.siteStore(undefined, st).get('fade-co');
+  assert.ok(site, 'published');
+  assert.match(site.html, /Barbers in the heart of Walsall/, 'the writer\'s words reached the page');
+  assert.deepEqual(K.checkHtml(site.html).errors, []);
 });
 
 test('with no model free, the project waits once, then builds and publishes from the templates alone and says so', async () => {
@@ -409,9 +415,11 @@ test('with no model free, the project waits once, then builds and publishes from
   const p = await runAll(d, p0.id);
   assert.equal(p.status, 'done', p.note);
   assert.ok(asked >= 2, 'it asked for a model, waited once, then went ahead');
-  const site = await K.siteStore(undefined, st).get('little-fern');
-  assert.match(site.html, /Little Fern/);
+  assert.equal(await K.siteStore(undefined, st).get('little-fern'), undefined, 'a draft until confirmed');
   assert.match(p.steps[5].result, /Done without an AI model/);
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  await SB.confirmSite(job, ctx);
+  assert.match((await K.siteStore(undefined, st).get('little-fern')).html, /Little Fern/);
 });
 
 test('screenshots: the free keyless service\'s picture is used; a "generating" placeholder or a failure gives null', async () => {
@@ -714,4 +722,43 @@ test('review 9: an email with anything after the address never reaches the page,
   // A clean address still works everywhere.
   const ok = K.planFrom({ ...FULL });
   assert.match(K.assemble(ok.plan, ok.brief).html, /data-to-mail="hello@fadeandco\.example"/);
+});
+
+test('review 10: a build with unconfirmed defaults ends as a draft (not public); confirming publishes it; with nothing to confirm it goes live', async () => {
+  const st = new MemStorage();
+  const d = deps(st, async () => { throw new Error('model not available'); });
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: 'build a website for my gym in Dudley', name: 'Iron Works' }, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  const p = await runAll(d, p0.id);
+  assert.equal(p.status, 'done', p.note);
+  assert.equal(await K.siteStore(undefined, st).get('iron-works'), undefined, 'nothing public');
+  assert.deepEqual(await K.siteStore(undefined, st).list(), []);
+  const report = p.steps[5].result;
+  assert.match(report, /^Draft — not public yet/);
+  assert.match(report, /Please confirm: .*opening hours/);
+  assert.ok(!/^Live:/m.test(report));
+  const tool = K.siteTools.find((t) => t.name === 'build_website');
+  // Confirming from the approval: it names what the owner is confirming, then publishes.
+  const ap = await tool.approval({ request: 'build a website for my gym', name: 'Iron Works', confirm: true }, ctx);
+  assert.match(ap.reason, /You are confirming what I assumed: .*opening hours/);
+  assert.equal(ap.args.confirm, true);
+  assert.match(await tool.run(ap.args, ctx), /live now at https:\/\/ghosty\.example\/s\/iron-works/);
+  assert.match((await K.siteStore(undefined, st).get('iron-works')).html, /Iron Works/);
+  await assert.rejects(tool.approval({ request: 'x', link_name: 'iron-works', confirm: true }, ctx), /no draft website is waiting/, 'the draft is gone once live');
+  // A site with nothing left to confirm goes live at step 5, as before.
+  const st2 = new MemStorage();
+  const d2 = deps(st2, async () => { throw new Error('model not available'); });
+  const ctx2 = { env: d2.env, storage: st2, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: 'build a website for my gym in Dudley', name: 'Iron Works' }, ctx2);
+  const [q] = await PJ.listProjects(ctx2);
+  for (let i = 0; i < 12; i++) {
+    const job = await SB.loadSiteJob(ctx2, q.id);
+    if (job.plan?.confirm.length) await st2.put(`sitejob:${q.id}`, { ...job, plan: { ...job.plan, confirm: [] } });
+    const pj = (await PJ.loadProject(d2, q.id));
+    if (pj.status !== 'active') break;
+    await PJ.runProjectStep(d2, ((await st2.get('jobs')) ?? []).find((j) => j.kind === 'project' && j.text === q.id) ?? { id: 'j', kind: 'project', text: q.id });
+  }
+  assert.ok(await K.siteStore(undefined, st2).get('iron-works'), 'live with nothing to confirm');
+  assert.match((await PJ.loadProject(d2, q.id)).steps[5].result, /^Live: https:\/\/ghosty\.example\/s\/iron-works/);
 });

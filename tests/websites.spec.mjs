@@ -1,7 +1,9 @@
 // Websites on Ghosty's own, on an iPhone 13 (the brain's model is the scripted mock):
 //  1. From chat to a published site: "build a website for my friend's barber shop in walsall" → one
-//     approval naming the link → a six-step project in the Workshop → the live site under Ghosty's bar:
-//     several pages that route, the writer's words, a booking form, the map, photo credits, phone-width.
+//     approval naming the link → a six-step project in the Workshop → a DRAFT that is not public (typical
+//     hours and prices were assumed) → the owner confirms ("those are right, publish it") on an approval
+//     naming the list → the live site under Ghosty's bar: several pages that route, the writer's words, a
+//     booking form, the map, photo credits, phone-width.
 //  2. With no connection to the brain: the phone asks a few questions, builds the site from the website
 //     kit itself, and PREVIEW shows it in a locked frame.
 //   node tests/websites.spec.mjs [outDir]
@@ -44,17 +46,9 @@ async function pair(ctx) {
     await approve.tap();
     const said = await ui.waitForFunction(() => /Started building the website/.test(document.querySelector('#pg-core')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => null);
     if (!said) problems.push('no word that the build started');
-    // The project runs on its own (a step every 15 s in the alarm); the page appears when step 5 publishes it.
-    let live = false;
-    for (let i = 0; i < 80 && !live; i++) {
-      await ui.waitForTimeout(3000);
-      const r = await ctx.request.get(`${base}/s/fade-co-barbers`, { headers: { 'cache-control': 'no-cache' } });
-      live = r.status() === 200;
-    }
-    if (!live) problems.push('the site was never published');
-    // Then the project finishes with the report.
+    // The project runs on its own (a step every 15 s in the alarm) and finishes with the report.
     let done = false;
-    for (let i = 0; i < 40 && !done; i++) {
+    for (let i = 0; i < 100 && !done; i++) {
       await ui.evaluate(() => (location.hash = 'workshop'));
       await ui.waitForTimeout(3000);
       done = await ui.evaluate(() => [...document.querySelectorAll('#pg-workshop .project')].some((p) => /Website: Fade & Co\. Barbers/.test(p.textContent ?? '') && /DONE/.test(p.textContent ?? '')));
@@ -65,6 +59,28 @@ async function pair(ctx) {
       for (const s of ['Brief, map and pictures', 'Plan and look', 'Words', 'Build and check', 'Publish and look', 'Polish and report']) if (!steps.includes(s)) problems.push(`the Workshop does not show the step "${s}"`);
       await ui.screenshot({ path: `${out}/websites-workshop.png` });
     }
+    // Typical hours and prices were assumed: a draft, not public, until the owner confirms them.
+    const early = await ctx.request.get(`${base}/s/fade-co-barbers`, { headers: { 'cache-control': 'no-cache' } });
+    if (early.status() === 200) problems.push('the site went public before the owner confirmed what was assumed');
+    await ui.evaluate(() => (location.hash = 'core'));
+    await ui.waitForTimeout(800);
+    await ui.fill('#cin', "build a website for my friend's barber shop in walsall — those are right, publish it");
+    await ui.keyboard.press('Enter');
+    const confirm = await ui.waitForSelector('.approval button.on', { timeout: 20000 }).catch(() => null);
+    let live = false;
+    if (!confirm) problems.push('confirming the draft did not ask for approval');
+    else {
+      const why = (await ui.$$eval('.approval b', (bs) => bs.map((b) => b.textContent).join(' | '))) ?? '';
+      if (!/Publish the website .*\/s\/fade-co-barbers\? You are confirming what I assumed: .*opening hours/.test(why)) problems.push(`the confirm approval says: ${why}`);
+      await ui.screenshot({ path: `${out}/websites-confirm.png` });
+      await confirm.tap();
+      for (let i = 0; i < 20 && !live; i++) {
+        await ui.waitForTimeout(1000);
+        const r = await ctx.request.get(`${base}/s/fade-co-barbers`, { headers: { 'cache-control': 'no-cache' } });
+        live = r.status() === 200;
+      }
+    }
+    if (!live) problems.push('the site was never published after the owner confirmed');
     if (live) {
       const site = await ctx.newPage();
       site.on('pageerror', (er) => webkitNoise(er) || problems.push(`site pageerror: ${er.message}`));

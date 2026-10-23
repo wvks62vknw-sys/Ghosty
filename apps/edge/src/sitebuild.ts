@@ -9,11 +9,14 @@
  *   3. Words — every page rewritten in the business's voice, checked so no fact is invented
  *   4. Build and check — assembled from the blocks, then the quality gates (sitekit/gates.ts) and
  *      check_html (the publish gate)
- *   5. Publish and look — published at /s/<name>, screenshots taken by a free keyless service at phone and
- *      laptop widths and critiqued by a vision model; when no screenshot can be had, the critique is done
- *      from the layout analysis instead, and the report says so
- *   6. Polish and report — the safe fixes applied, checked again, republished, and a short report with
- *      the live link and what the owner should confirm
+ *   5. Publish and look — published at /s/<name> when nothing is left to confirm (screenshots taken by a
+ *      free keyless service at phone and laptop widths and critiqued by a vision model; else the critique
+ *      is done from the layout analysis, and the report says so); with typical hours, prices or promises
+ *      the owner has not confirmed, kept as a DRAFT that is not public, critiqued from the layout analysis
+ *   6. Polish and report — the safe fixes applied, checked again, republished (or kept as the draft), and a
+ *      short report: the live link, or the draft and the list the owner confirms to put it live
+ * Nothing goes public without the owner's word: a draft goes live only when the owner confirms its list
+ * (build_website again with confirm, which asks for approval naming the list: `confirmSite`).
  * With no model free (or after waiting once), every step has a plain fallback: the template's own words
  * and look, the gates, and the layout analysis — so a decent site always arrives.
  */
@@ -26,7 +29,7 @@ import { STOCK, stockFor, type StockSet } from '../../../packages/shared/src/sit
 import { planFrom, TEMPLATES } from '../../../packages/shared/src/sitekit/templates';
 import type { Brief, ImageRef, Plan, Review } from '../../../packages/shared/src/sitekit/types';
 import { applyFixes, applyPlan, applyWrites, critiquePrompt, jsonIn, planPrompt, writePrompt } from '../../../packages/shared/src/sitekit/write';
-import { durableGet, durablePut } from './kv';
+import { durableDelete, durableGet, durablePut } from './kv';
 import { countToday, LensError, PICTURES_PER_DAY, storeImage } from './lens';
 import { textOf, withImages } from './llm/content';
 import type { Msg } from './llm/router';
@@ -72,6 +75,10 @@ export interface SiteJob {
   waits: number;
   /** Steps that went ahead without a model (said in the report). */
   plain: string[];
+  /** Public at its link (false or missing: a draft, built and checked but not public). */
+  live?: boolean;
+  /** The owner confirmed the plan's "please confirm" list (or there was nothing on it). */
+  confirmed?: boolean;
   gates?: { score: number; errors: number; warnings: number; text: string };
   critique?: { how: 'screenshots' | 'layout'; verdict: string; applied: string[]; skipped: string[]; shots: string[] };
   pictures?: string;
@@ -165,6 +172,12 @@ export async function siteNameFor(a: Record<string, unknown>, b: Brief, ctx: Pic
 
 /** What the owner approves: what will be built, where it will go, what will be assumed, and what it replaces. The link is fixed in the arguments. */
 export async function siteApproval(a: Record<string, unknown>, ctx: ToolContext): Promise<{ args: Record<string, unknown>; reason: string }> {
+  const draft = await confirmingDraft(a, ctx);
+  if (draft) {
+    const confirm = draft.plan!.confirm;
+    return { args: { ...a, link_name: draft.name, confirm: true }, reason: `Publish the website "${draft.plan!.pages[0]!.title || draft.brief.name}" at ${siteLink(ctx.origin, ctx.env, draft.name)}?${confirm.length ? ` You are confirming what I assumed: ${confirm.join('; ')}.` : ''} Anyone with the link can open it.` };
+  }
+  if (a.confirm === true) throw new Error(`no draft website is waiting at ${siteLink(ctx.origin, ctx.env, siteNameOf(a, briefOf(a)))} — build one first`);
   const b = briefOf(a);
   const { name, replaces } = await siteNameFor(a, b, ctx);
   const t = TEMPLATES[b.kind];
@@ -175,11 +188,45 @@ export async function siteApproval(a: Record<string, unknown>, ctx: ToolContext)
 
 /** Start the website project: the brief is kept with the job, the six steps go into a project of kind 'site'. */
 export async function startSiteBuild(a: Record<string, unknown>, ctx: ToolContext): Promise<string> {
+  // The owner confirmed a waiting draft (the approval named its list and fixed confirm and the link): put it live.
+  if (a.confirm === true) {
+    const draft = await draftAt(ctx, siteNameOf(a, briefOf(a)));
+    if (!draft) throw new Error(`no draft website is waiting at ${siteLink(ctx.origin, ctx.env, siteNameOf(a, briefOf(a)))} — build one first`);
+    return confirmSite(draft, ctx);
+  }
   const brief = briefOf(a);
   const name = siteNameOf(a, brief);
   const p = await startProject(ctx, { title: `Website: ${brief.name || name}`, goal: `A professional website for ${brief.name || `a ${brief.kind}`}${brief.town ? ` in ${brief.town}` : ''}, published at ${siteLink(ctx.origin, ctx.env, name)}. Request: ${brief.request}`.slice(0, 1900), steps: SITE_STEPS, pace: 'fast', kind: 'site' });
   await saveJob(ctx, { id: p.id, name, brief, facts: structuredClone(brief), waits: 0, plain: [] });
-  return `Started building the website (project ${p.id}): ${SITE_STEPS.length} steps — ${SITE_STEPS.map((s) => s.title.toLowerCase()).join(', ')}. It will be live at ${siteLink(ctx.origin, ctx.env, name)} when it is done (about 5–15 minutes, longer if the free AI room is busy); I will send a notification with the link and a short report. Tell the owner this, and that the Workshop's PROJECTS panel shows progress.`;
+  return `Started building the website (project ${p.id}): ${SITE_STEPS.length} steps — ${SITE_STEPS.map((s) => s.title.toLowerCase()).join(', ')}. It goes live at ${siteLink(ctx.origin, ctx.env, name)} when it is done (about 5–15 minutes, longer if the free AI room is busy) — or, if I had to assume hours, prices or other details, it waits as a draft (not public) until the owner confirms them; I will send a notification with a short report. Tell the owner this, and that the Workshop's PROJECTS panel shows progress.`;
+}
+
+/** The owner's words confirm a waiting draft ("those are right, publish it"). */
+const CONFIRM_WORDS = /\b(?:publish (?:it|my|the)|put it live|go live|those are (?:right|correct|fine)|that'?s (?:right|correct|fine)|all correct|confirm(?:ed)?)\b/i;
+
+/** The draft waiting at a link, if any. */
+async function draftAt(ctx: Pick<ToolContext, 'env' | 'storage'>, name: string): Promise<SiteJob | undefined> {
+  const d = await durableGet<{ id: string; title: string }>(ctx.env, ctx.storage, DRAFT_AT(name)).catch(() => undefined);
+  const job = d ? await loadSiteJob(ctx, d.id).catch(() => undefined) : undefined;
+  return job && !job.live && job.plan ? job : undefined;
+}
+
+/** Is this call the owner confirming a waiting draft (confirm true, or their words), and which one? */
+export async function confirmingDraft(a: Record<string, unknown>, ctx: Pick<ToolContext, 'env' | 'storage'>): Promise<SiteJob | undefined> {
+  if (a.confirm !== true && !CONFIRM_WORDS.test(arg.str(a, 'request', false))) return undefined;
+  return draftAt(ctx, siteNameOf(a, briefOf(a)));
+}
+
+/** Put a confirmed draft live: built and checked again from its plan, published, and the draft cleared. */
+export async function confirmSite(job: SiteJob, ctx: ToolContext): Promise<string> {
+  const { a, gates, publishErrors } = buildAndCheck(job.plan!, job.brief, factsOf(job));
+  if (publishErrors.length) throw new Error(`the draft failed the publish check: ${publishErrors.slice(0, 3).join(' | ')}`);
+  job.confirmed = true;
+  await publish({ env: ctx.env, storage: ctx.storage, origin: ctx.origin }, job, a.html);
+  job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
+  await saveJob(ctx, job);
+  await durableDelete(ctx.env, ctx.storage, DRAFT_AT(job.name)).catch(() => undefined);
+  return `Published "${job.plan!.pages[0]!.title || job.brief.name}" — live now at ${job.link}, with the details the owner confirmed (${job.plan!.confirm.join('; ') || 'nothing was assumed'}). Give the owner this exact link.`;
 }
 
 /** The owner's own facts (never the typical ones filled in for the plan). */
@@ -397,15 +444,26 @@ async function stepBuild(deps: ProjectDeps, job: SiteJob): Promise<string> {
 }
 
 /** Publish (or update) the site. */
-async function publish(deps: ProjectDeps, job: SiteJob, html: string): Promise<string> {
+async function publish(s: Store & { origin?: string }, job: SiteJob, html: string): Promise<string> {
+  if (!job.confirmed) throw new Error('not published — the owner has not confirmed what was assumed');
   const { html: ready } = prepareSite(html, '');
   const errors = checkHtml(ready).errors;
   if (errors.length) throw new Error(`not published — ${errors.slice(0, 3).join(' | ')}`);
   const title = job.plan!.pages[0]!.title || job.brief.name;
-  await siteStore(deps.env, deps.storage).put({ name: job.name, title, html: ready, source: '', at: Date.now() });
-  job.link = siteLink(deps.tctx.origin, deps.env, job.name);
+  await siteStore(s.env, s.storage).put({ name: job.name, title, html: ready, source: '', at: Date.now() });
+  job.link = siteLink(s.origin, s.env, job.name);
+  job.live = true;
   return job.link;
 }
+
+/** Keep the site as a draft: checked, not public; the pointer lets the owner's "publish it" find it. */
+async function keepDraft(deps: ProjectDeps, job: SiteJob): Promise<string> {
+  job.live = false;
+  job.link = siteLink(deps.tctx.origin, deps.env, job.name);
+  await durablePut(deps.env, deps.storage, DRAFT_AT(job.name), { id: job.id, title: job.plan!.pages[0]!.title || job.brief.name, at: Date.now() });
+  return job.link;
+}
+const pub = (deps: ProjectDeps) => ({ env: deps.env, storage: deps.storage, origin: deps.tctx.origin });
 
 // ── screenshots ─────────────────────────────────────────────────────────────────────
 
@@ -452,10 +510,12 @@ export function layoutAnalysis(plan: Plan, a: Assembled, gates: GateReport): str
 /** Step 5: publish, then look at it. */
 async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const { a, gates } = buildAndCheck(job.plan!, job.brief, factsOf(job));
-  const link = await publish(deps, job, a.html);
+  // Live only with nothing left to confirm; otherwise a draft, not public, until the owner confirms the list.
+  if (!job.plan!.confirm.length) job.confirmed = true;
+  const link = job.confirmed ? await publish(pub(deps), job, a.html) : await keepDraft(deps, job);
   const sizes: string[] = [];
   const images: string[] = [];
-  if (/^https:\/\//.test(link)) {
+  if (job.live && /^https:\/\//.test(link)) {
     for (const [w, h] of [
       [390, 844],
       [1280, 900],
@@ -483,7 +543,7 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
   // The fixes are applied in the next step; kept as JSON so a resumed step does not ask again.
   await durablePut(deps.env, deps.storage, `${JOB(job.id)}:fixes`, answer ?? {});
   await saveJob(deps, job);
-  return `Published at ${link}. Critique from ${how2 === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : 'the layout analysis (no screenshot service answered)'}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
+  return `${job.live ? `Published at ${link}` : `Kept as a draft (not public) for ${link} until the owner confirms: ${job.plan!.confirm.join('; ')}`}. Critique from ${how2 === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : 'the layout analysis (no screenshot service answered)'}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
 }
 
 /** Step 6: the fixes, checked; republished only when it is no worse. */
@@ -496,9 +556,12 @@ async function stepPolish(deps: ProjectDeps, job: SiteJob): Promise<string> {
   let kept = false;
   if (fx.applied.length && !after.publishErrors.length && after.gates.errors <= before.gates.errors) {
     job.plan = trial;
-    await publish(deps, job, after.a.html);
+    if (job.live) await publish(pub(deps), job, after.a.html);
     kept = true;
-  } else if (!job.link) await publish(deps, job, before.a.html);
+  } else if (!job.link) {
+    if (job.confirmed) await publish(pub(deps), job, before.a.html);
+    else await keepDraft(deps, job);
+  }
   const final = kept ? after.gates : before.gates;
   job.gates = { score: final.score, errors: final.errors, warnings: final.warnings, text: formatGates(final).slice(0, 3000) };
   job.critique = { ...(job.critique ?? { how: 'layout', verdict: '', shots: [] }), applied: kept ? fx.applied : [], skipped: fx.skipped };
@@ -511,7 +574,7 @@ export function siteReport(job: SiteJob): string {
   const plan = job.plan!;
   const c = job.critique;
   const lines = [
-    `Live: ${job.link}`,
+    job.live ? `Live: ${job.link}` : `Draft — not public yet. It goes live at ${job.link} once you confirm what I had to assume (listed below): say "publish my website" (or tell me what to change).`,
     `${plan.pages.length} pages (${plan.pages.map((p) => p.label).join(', ')}), ${plan.theme.palette} look with ${plan.theme.fonts} fonts.`,
     `Quality checks: ${job.gates?.score ?? '?'}/100 (${job.gates?.errors ?? 0} problems, ${job.gates?.warnings ?? 0} small things).`,
     c ? `Design review from ${c.how === 'screenshots' ? 'screenshots on a phone and a laptop' : 'a layout analysis (no screenshots were possible)'}${c.verdict ? `: ${c.verdict}` : ''}${c.applied.length ? ` Fixed: ${c.applied.slice(0, 4).join('; ')}.` : ''}` : '',

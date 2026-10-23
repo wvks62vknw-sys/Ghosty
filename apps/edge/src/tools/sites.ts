@@ -374,7 +374,7 @@ export const siteTools: Tool[] = [
   {
     name: 'build_website',
     description:
-      "Build a complete, professional multi-page website for a business, event, charity, app or person ON YOUR OWN from one request, and publish it — use this whenever the owner asks for a website for something (\"build a website for my friend's barber shop in Walsall\"); never write that page by hand. It plans the pages, finds free credited photos, writes the words, runs accessibility/SEO/phone-layout checks, takes screenshots, critiques and fixes them, then publishes and reports the link (a background project, 5–15 minutes). Pass the owner's words as request plus every fact they gave; leave out what they did not say (it uses sensible defaults and lists them). Never invent reviews.",
+      "Build a complete, professional multi-page website for a business, event, charity, app or person ON YOUR OWN from one request, and publish it — use this whenever the owner asks for a website for something (\"build a website for my friend's barber shop in Walsall\"); never write that page by hand. It plans the pages, finds free credited photos, writes the words, runs accessibility/SEO/phone-layout checks, takes screenshots, critiques and fixes them, then publishes and reports the link (a background project, 5–15 minutes). Pass the owner's words as request plus every fact they gave; leave out what they did not say (it uses sensible defaults and lists them). Never invent reviews. A site built with assumed details waits as a draft: when the owner confirms the list (or says publish it), call this again with confirm true and the same link_name.",
     parameters: {
       type: 'object',
       properties: {
@@ -397,6 +397,7 @@ export const siteTools: Tool[] = [
         established: { type: 'number', description: 'year founded' },
         booking_url: { type: 'string', description: 'an existing online booking page' },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
+        confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
       required: ['request'],
     },
