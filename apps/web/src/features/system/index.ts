@@ -19,18 +19,19 @@ export const systemTab: TabDef = {
   scene: 'backdrop',
   blurb: 'AI keys · models · status',
   mount(root) {
-    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'STATUS', leftLabel: 'KEYS & MODELS', stack: true });
+    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'DATA', leftLabel: 'STATUS & KEYS', stack: true });
+    // Status first (online, Ghosty connected, self-edit, this phone, version), then the brain's keys and models.
+    const sp = panel('STATUS');
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
     const tp = trainingPanel();
-    P.left.append(kp.el, mp.el, rp.el, rc.el, tp.el);
-    const sp = panel('STATUS');
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, tp.el);
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
-    P.right.append(sp.el, stp.el, bkp.el);
+    P.right.append(stp.el, bkp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -38,7 +39,7 @@ export const systemTab: TabDef = {
     const paintKeys = () => {
       clear(kp.body);
       if (!status) {
-        kp.body.append(h('div.note', 'Brain not reachable. Check the connection on the right.'));
+        kp.body.append(h('div.note', 'Brain not reachable. Check the connection in STATUS.'));
         return;
       }
       const missing = status.keys.filter((k) => k.need === 'needed' && !k.set);

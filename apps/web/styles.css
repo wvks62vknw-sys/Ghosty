@@ -2403,3 +2403,30 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 [data-look="pro"] .pn.tl .mi { border-bottom: .5px solid var(--line); }
 [data-look="pro"] .sitepreview-wrap iframe.sandbox.sitepreview { border-radius: 14px; }
 [data-look="pro"] #pg-memory .pn.tl > .keyrow { display: flex; }
+
+/* fixes A2 ---------------------------------------------------------------
+   Behaviour and layout fixes in the current look (no restyle). Note: the calm looks' token block
+   ("[data-look="pro"] { --sf: …; --fg: …; --thin: … }" under THE CALM LOOKS) has lost its comment opener,
+   so browsers drop it and every `font: … var(--sf)` here is ignored; left as it is (the look is being
+   redone), so the rules below give sizes on their own.
+   1. Grouped lists (Settings, System, Links): a row's name and value wrap at word breaks instead of
+      being cut ("Unsupport", "Offline brain report…"); a value never gets narrower than its longest word. */
+[data-look="pro"] .listmode .pn[data-row] > h3 { padding-top: 8px; padding-bottom: 8px; }
+[data-look="pro"] .listmode .pn[data-row] > h3 :is(.ptitle, small) { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+[data-look="pro"] .listmode .pn[data-row] > h3 small { flex: 0 1 auto; min-width: min-content; text-align: right; }
+/* The Status card: a long value goes onto its own line under its name, whole, instead of wrapping beside it. */
+[data-look="pro"] .listmode .keepcard .rw.wrap { flex-wrap: wrap; row-gap: 2px; }
+[data-look="pro"] .listmode .keepcard .rw.wrap .v { flex: 1 0 auto; max-width: 100%; display: block; }
+/* 2. Toasts: three lines at most (a longer one is tapped to read it all, ui/components.ts). */
+.toast > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; min-width: 0; overflow-wrap: break-word; }
+/* the calm looks draw the words in sentence case as the span's ::before: the cut and its ellipsis go there */
+[data-look="pro"] .toast > span[data-label] { display: block; }
+[data-look="pro"] .toast > span[data-label]::before { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.toast.measure > span, .toast.measure > span::before { -webkit-line-clamp: none; line-clamp: none; }
+.toast.more { pointer-events: auto; cursor: pointer; }
+.toastfull { white-space: pre-wrap; overflow-wrap: break-word; font-size: 15px; line-height: 1.45; }
+/* 4. Home's suggestions: all four chips on screen (they wrap onto a second line) rather than God's eye
+      starting past the right edge; the Chat chip shows its word, the same size as its neighbours (its font
+      shorthand names the missing --sf, so it was 0 px). */
+[data-look="pro"] #suggest { flex-wrap: wrap; justify-content: center; overflow-x: visible; row-gap: 8px; }
+[data-look="pro"] #suggest .logbtn::before { font-size: 16px; font-weight: 400; }

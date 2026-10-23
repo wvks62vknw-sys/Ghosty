@@ -91,8 +91,75 @@ async function run(name, viewport) {
   return fps;
 }
 
+// fixes A2, at the specs' 390 × 844 and the owner's iPhone 18 Pro Max (440 × 956):
+// - the God's eye chip (Home's suggestions) and God's Eye's own bar and LOOK chips start inside the screen;
+// - System opens on its Status card, before the Brain group;
+// - grouped lists (Settings, System, Links): no row's name or value is cut ("Unsupport", "Offline brain report…").
+async function fixesA2(viewport) {
+  const name = `a2 ${viewport.width}`;
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  await ctx.addInitScript((k) => localStorage.setItem('ghosty.ownerKey', k), 'preview-owner-key-0123456789');
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await page.waitForTimeout(1200);
+  const outside = (sel) => page.$$eval(sel, (els) => els.filter((e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => {
+    const r = e.getBoundingClientRect();
+    return r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1 ? `"${(e.dataset.label || e.textContent || '').trim().slice(0, 30)}" at ${Math.round(r.left)}–${Math.round(r.right)} × ${Math.round(r.top)}–${Math.round(r.bottom)}` : '';
+  }).filter(Boolean));
+  // Home: every suggestion chip, God's eye included, on screen without scrolling the strip
+  const chips = await page.$$eval('#suggest > button', (bs) => bs.map((b) => b.dataset.label || b.textContent.trim()));
+  if (!chips.some((c) => /God/.test(c))) problems.push(`[${name}] no God's eye chip on Home (${chips.join(', ')})`);
+  for (const o of await outside('#suggest > button')) problems.push(`[${name}] a Home chip starts off-screen: ${o}`);
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-home.png` });
+  // God's Eye: THIS SPOT and VIEW, and the LOOK menu's chips
+  await page.evaluate(() => (location.hash = 'eye'));
+  await page.waitForSelector('#pg-eye .bgroup', { timeout: 15000 }).catch(() => undefined);
+  await page.waitForTimeout(2500);
+  for (const o of await outside('#pg-eye .bgroup, #pg-eye .bgroup > *')) problems.push(`[${name}] God's Eye bar starts off-screen: ${o}`);
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-eye.png` });
+  await page.locator('#pg-eye .bgroup button', { hasText: /^look$/i }).click().catch(() => problems.push(`[${name}] no LOOK on God's Eye`));
+  await page.waitForTimeout(400);
+  for (const o of await outside('#pg-eye .lookmenu .chips button')) problems.push(`[${name}] a LOOK chip starts off-screen: ${o}`);
+  await page.keyboard.press('Escape');
+  // System: Status first
+  await page.evaluate(() => (location.hash = 'system'));
+  await page.waitForFunction(() => document.querySelector('#pg-system.listmode .pn.keepcard') || (document.documentElement.dataset.look !== 'pro' && document.querySelector('#pg-system .pn')), null, { timeout: 15000 }).catch(() => undefined);
+  await page.waitForTimeout(1500);
+  const order = await page.$$eval('#pg-system .pn', (ps) => ps.map((p) => ({ t: p.querySelector('.ptitle')?.textContent ?? '', top: p.getBoundingClientRect().top })));
+  if (order[0]?.t !== 'STATUS') problems.push(`[${name}] System opens on ${order[0]?.t}, not STATUS (${order.map((o) => o.t).join(', ')})`);
+  const st = order.find((o) => o.t === 'STATUS');
+  const keys = order.find((o) => o.t === 'KEYS');
+  if (st && keys && !(st.top < keys.top)) problems.push(`[${name}] the Status card is drawn below the Brain group`);
+  await page.screenshot({ path: `${out}/a2-${viewport.width}-system.png` });
+  // grouped lists: a row's name and value, and the Status card's values, are whole
+  for (const tab of ['settings', 'system', 'links']) {
+    await page.evaluate((t) => (location.hash = t), tab);
+    await page.waitForSelector(`#pg-${tab} .pn[data-row]`, { timeout: 15000 }).catch(() => undefined);
+    await page.waitForTimeout(1500);
+    const cut = await page.$$eval(`#pg-${tab} :is(.pn[data-row] > h3 :is(.ptitle, small), .keepcard .rw .v)`, (els) => els.filter((e) => e.getClientRects().length && e.getBoundingClientRect().width).map((e) => {
+      const what = (e.dataset.label || e.textContent || '').trim();
+      return what && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) ? `"${what.slice(0, 40)}" (${e.scrollWidth}×${e.scrollHeight} in ${e.clientWidth}×${e.clientHeight})` : '';
+    }).filter(Boolean));
+    for (const c of cut) problems.push(`[${name} ${tab}] a grouped-list row is cut off: ${c}`);
+    // each group's title (and footer) once: a group's rows share one card
+    const heads = await page.$$eval(`#pg-${tab} .lgrp > .lgt`, (hs) => hs.map((x) => x.textContent));
+    for (const t of new Set(heads)) if (heads.filter((x) => x === t).length > 1) problems.push(`[${name} ${tab}] the group "${t}" is drawn ${heads.filter((x) => x === t).length} times`);
+    if (tab === 'system') {
+      // the rest of the list, scrolled to its end
+      await page.evaluate(() => document.querySelector('#pg-system .hud')?.scrollTo(0, 1e6));
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `${out}/a2-${viewport.width}-system-end.png` });
+    } else await page.screenshot({ path: `${out}/a2-${viewport.width}-${tab}.png` });
+  }
+  await ctx.close();
+}
+
 await run('desktop', { width: 1440, height: 900 });
 await run('phone', { width: 390, height: 844 });
+await fixesA2({ width: 390, height: 844 });
+await fixesA2({ width: 440, height: 956 });
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'UI run clean: no page errors.');
 process.exit(problems.length ? 1 : 0);

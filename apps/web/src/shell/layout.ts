@@ -14,11 +14,13 @@ import { listMode, type ListGroup } from '../ui/listmode';
 
 /** The pages shown as an iOS Settings list in the calm looks, and their names for the back button. */
 const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
-/** Their groups: a small title above each card, a footer under it where a line explains something. */
+/** Their groups: a small title above each card, a footer under it where a line explains something.
+ *  A group's panels must follow each other in one column, or its title and footer are drawn twice
+ *  (CHARACTER sits in the other column from VOICE and OFFLINE, so it has no group of its own). */
 const GROUPS: Record<string, ListGroup[]> = {
   settings: [
     { title: 'Appearance', match: /^LOOK/ },
-    { title: 'Voice and home', match: /^(VOICE|CHARACTER|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
+    { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
     { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],
@@ -27,8 +29,9 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'Data', match: /^(STORAGE|BACKUP)/ },
   ],
   links: [
-    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM|GITHUB|LIVE)/ },
+    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM)/ },
     { title: 'This phone', match: /^(PHONE|NOTIF)/ },
+    { title: 'Services', match: /^(LIVE|AI|GITHUB)/ },
   ],
 };
 const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
