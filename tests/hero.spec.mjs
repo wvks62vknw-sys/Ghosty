@@ -51,6 +51,7 @@ async function open({ reducedMotion = 'no-preference', noWebGL = false } = {}) {
     if (m.type() === 'error' && !/favicon|net::ERR|40[134]|Failed to load resource|^[WI]\d{4} |^INFO:|GPU stall|WebGL/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
   });
   await page.addInitScript((off) => {
+    window.__ghostyHero = true; // this check wants Mind (every other check keeps the 2-D reactor: mind.ts)
     window.__csp = [];
     window.__threeLoads = [];
     document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));

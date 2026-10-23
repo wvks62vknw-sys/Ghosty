@@ -160,6 +160,9 @@ export class Mind {
   /** Load three.js and build the scene. False when it cannot run here: the 2-D reactor stays. */
   async start(): Promise<boolean> {
     heroState.mode = 'loading';
+    // Automated checks (Playwright) draw WebGL in software at a few frames a second, which would starve every other
+    // check that passes through Home: there the 2-D reactor stands in unless a check asks for Mind (tests/hero.spec.mjs).
+    if (navigator.webdriver && !(globalThis as { __ghostyHero?: boolean }).__ghostyHero) return this.fail('automation: the 2-D reactor stands in');
     if (!webglWorks()) return this.fail('no WebGL');
     let lib: Awaited<ReturnType<typeof loadThree>>;
     try {
