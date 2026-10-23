@@ -16,6 +16,10 @@ folder that no longer exists; ignore those paths).
 - The ordered plan the owner asked for is `docs/build-plan/PLAN.md` (weeks 1–3, chunk sizes, what only he can do, my
   own ideas). The planning chat with him started on 23 Oct; nothing is built until he says yes to the Week 1 list.
 - The browser specs hardcode 390 × 844 (29 of them); making 440 × 956 the main viewport is chunk A3 of the plan.
+- The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
+  Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
+  mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
+  (BRIEF-DESIGN-BUILD-1.md) once the owner says yes to C2.
 - Baseline audit, 23 Oct 18:30–19:20 UTC, on this branch at 6d90d98 (same code as main): brain suite 925/925 passed in
   821 s; browser specs 49 of 51 PASSED against `node tests/preview-server.mjs` (Chromium 1194); `scroll` and `safari`
   could not run here because WebKit is not installed (they always launch WebKit; CI installs it). Nothing the automated
