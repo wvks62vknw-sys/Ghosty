@@ -648,3 +648,30 @@ test('review 6: a picture for the site is charged to the shared free-AI ledger f
   assert.equal(await SB.makePicture(ctx, 'A cafe'), null);
   assert.equal(ran, 1, 'ai.run is never called when the free allowance is used up');
 });
+
+test('review 7: free library photos are never shown as the business\'s own work; photographer and portfolio galleries come only from the owner; no GymNation photo', () => {
+  for (const kind of ['photographer', 'portfolio']) {
+    const { plan, brief } = K.planFrom(K.briefFrom('build a website for my photography business in Leeds', { kind }));
+    const work = plan.pages.find((p) => p.slug === 'work');
+    assert.ok(!work || !work.sections.some((s) => s.block === 'gallery-grid'), `${kind}: no stock gallery on the work page`);
+    assert.ok(!plan.pages.flatMap((p) => p.sections).some((s) => s.block === 'gallery-grid'), `${kind}: no stock gallery at all`);
+    const html = K.assemble(plan, brief).html;
+    assert.ok(!/href="#\/work"/.test(html) || work, `${kind}: no link to a missing work page`);
+    assert.ok(plan.confirm.some((c) => /no gallery of your work yet/.test(c)));
+    // With the owner's own pictures, the work page shows them (and only them).
+    const own = { ...PHOTO, src: 'https://owner.example/wedding-1.jpg', srcset: undefined, credit: undefined };
+    const withOwn = K.planFrom({ ...K.briefFrom('build a website for my photography business', { kind }), photos: [own, { ...own, src: 'https://owner.example/wedding-2.jpg' }] });
+    const grid = withOwn.plan.pages.find((p) => p.slug === 'work').sections.find((s) => s.block === 'gallery-grid');
+    assert.deepEqual(grid.data.images.map((i) => i.image.src), ['https://owner.example/wedding-1.jpg', 'https://owner.example/wedding-2.jpg']);
+  }
+  const ownWork = /\b(our work|selected work|portfolio|from the salon|what is cooking|from the pass|last time|the craft|inside)\b/i;
+  for (const kind of KIND_IDS) {
+    const { plan } = K.planFrom(K.briefFrom('build a website for my business', { kind }));
+    for (const p of plan.pages) for (const s of p.sections) {
+      const pics = K.imagesIn(s.data).filter((i) => i.credit);
+      if (pics.length && /gallery|social|services-cards/.test(s.block)) assert.ok(!ownWork.test(`${s.data.eyebrow ?? ''} ${s.data.title ?? ''}`), `${kind}/${p.slug || 'home'}: ${s.block} "${s.data.eyebrow} ${s.data.title}"`);
+      if (s.block === 'services-cards') assert.equal(pics.length, 0, `${kind}: no library photos as the services`);
+    }
+  }
+  for (const set of Object.values(K.STOCK)) for (const i of [set.hero, ...set.story, ...set.gallery]) assert.ok(!/GymNation/i.test(i.src + JSON.stringify(i.credit)), i.src);
+});

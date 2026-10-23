@@ -56,7 +56,10 @@ const statsBlock = (b: Brief, extra: { value: string; label: string }[] = []): S
   return items.length >= 2 ? [S('stats', { items })] : [];
 };
 const logosBlock = (b: Brief, title: string): Section[] => (b.accreditations?.length ? [S('logos', { title, items: b.accreditations })] : []);
+/** Free library pictures that set a scene: never under a heading that says they are the business's own work. */
 const galleryOf = (s: StockSet | undefined, n: number, from = 0) => (s ? s.gallery.slice(from, from + n).map((image) => ({ image })) : []);
+/** The owner's own pictures (their work, their place): the only pictures a work or portfolio gallery shows. */
+const ownGallery = (b: Brief, n: number) => (b.photos ?? []).slice(0, n).map((image) => ({ image }));
 
 function contactPage(b: Brief, s: StockSet | undefined, o: { slug?: string; label?: string; title: string; lead: string; kind?: 'contact' | 'quote'; formTitle?: string }): Page {
   return {
@@ -186,7 +189,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
             }),
             S('price-list', { eyebrow: 'Prices', title: 'Straightforward *prices*', lead: `No upsell, no surprises.${said(b, /\bcard\b|\bcash\b/i) ? ' Card and cash welcome.' : ''}`, groups: priceGroups(top) }),
             S('media-text', { rows: [{ eyebrow: 'The chair', title: pick(b, ['Every cut gets *the time it needs*', 'Precision you can *see* from the back'], 'mt'), text: 'We take a minute to talk through what you want, then get it right — clean fades, sharp line-ups and a finish that grows out well.\nHot towels, a proper neck shave and a mirror at the end so you can see the back.', points: ['Clean, tidy shop', 'Time taken over every cut', 'A mirror check at the end'], image: s?.story[0], link: { label: 'Book your slot', href: route('book') } }] }, 'alt'),
-            S('gallery-grid', { eyebrow: 'The craft', title: 'Sharp work, *every time*', images: galleryOf(s, 5) }),
+            S('gallery-grid', { eyebrow: 'Barbering', title: 'Fades, scissors and *hot towels*', images: b.photos?.length ? ownGallery(b, 5) : galleryOf(s, 5) }),
             ...reviewsBlock(b, 'Straight from the chair', 'alt'),
             closing(b, 'Your chair is ready.', said(b, WALK_INS) ? 'Book ahead in a minute, or just walk in.' : 'Book ahead in a minute.'),
             S('map', { eyebrow: 'Find us', title: b.town ? `In ${b.town}` : 'Find the shop', note: '' }, 'alt'),
@@ -231,10 +234,10 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         description: '',
         sections: [
           S('hero-centered', { eyebrow: b.town ? `Hair & beauty · ${b.town}` : 'Hair & beauty', title: pick(b, ['Hair you will *love* for weeks', 'Colour, cut and *calm*', 'Leave feeling like *you*, only better']), lead: 'A relaxed salon with time for a proper consultation, honest advice and a finish you can recreate at home.', primary: { label: 'Book an appointment', href: route('book') }, secondary: { label: 'Treatments & prices', href: route('treatments') }, images: [s?.gallery[0], s?.hero, s?.gallery[1]].filter(Boolean).map((image) => ({ image })) }),
-          S('services-cards', { eyebrow: 'Treatments', title: 'What we do *best*', lead: 'Every appointment starts with a chat about what you want and what will suit you.', items: (b.services ?? []).slice(0, 3).map((x, i) => ({ name: x.name, text: x.description ?? ['Shaped to your face and how you wear it day to day.', 'Rich, even colour with care for the condition of your hair.', 'Neat, long-lasting results from a steady hand.'][i % 3], price: x.price ?? '', time: x.duration ?? '', image: s?.gallery[i + 2] })), link: { label: 'All treatments', href: route('treatments') } }, 'alt'),
+          S('services-cards', { eyebrow: 'Treatments', title: 'What we do *best*', lead: 'Every appointment starts with a chat about what you want and what will suit you.', items: (b.services ?? []).slice(0, 3).map((x, i) => ({ name: x.name, text: x.description ?? ['Shaped to your face and how you wear it day to day.', 'Rich, even colour with care for the condition of your hair.', 'Neat, long-lasting results from a steady hand.'][i % 3], price: x.price ?? '', time: x.duration ?? '', })), link: { label: 'All treatments', href: route('treatments') } }, 'alt'),
           S('media-text', { rows: [{ eyebrow: 'The salon', title: 'Time for you, *not a conveyor belt*', text: 'We book enough time for every client, so nobody is rushed and the coffee is still hot.\nAsk us anything — which products suit your hair, how often to come back, or whether that colour will really work.', image: s?.story[0], link: { label: 'Meet us', href: route('about') } }] }),
           ...reviewsBlock(b, 'Kind words', 'alt'),
-          S('social-grid', { eyebrow: 'Latest', title: 'From the salon', images: galleryOf(s, 6) }),
+          S('social-grid', { eyebrow: 'Inspiration', title: 'Ideas for your *next visit*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }),
           S('cta-split', { eyebrow: 'Appointments', title: 'Book your next visit', text: 'Tell us what you would like and when suits; we will confirm by message.', image: s?.story[1] ?? s?.hero }),
         ],
       },
@@ -248,7 +251,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
     theme: { palette: 'espresso', fonts: 'editorial', shape: 'soft', scheme: 'light' },
     nav: 'nav-classic',
     tone: 'warm, local, unfussy',
-    assumes: () => ['the menu and its prices (a sample menu is shown)', 'vegan and gluten-free choices, other milks at no extra charge, dogs and laptops welcome (typical promises)'],
+    assumes: () => ['the menu and its prices (a sample menu is shown)', 'cakes baked on site, vegan and gluten-free choices, other milks at no extra charge, dogs and laptops welcome (typical promises)'],
     defaults: () => ({ hours: DAYS7('7:30', '16:00', ['8:30', '16:00'], ['9:30', '14:30']) }),
     meta: (b) => ({ title: `${b.name} — café${inTown(b)}`, description: `Good coffee, breakfast, lunch and cake${inTown(b)}. See the menu and opening times for ${b.name}.` }),
     blurb: (b) => `Coffee, breakfast and lunch${inTown(b)}.`,
@@ -262,7 +265,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
           S('hero-split', { eyebrow: b.town ? `Café · ${b.town}` : 'Neighbourhood café', title: pick(b, ['Good coffee, *slow* mornings', 'Your new *favourite* table', 'Coffee worth *crossing town* for']), lead: 'Freshly roasted coffee, breakfasts made to order and cakes baked here every morning.', primary: { label: 'See the menu', href: route('menu') }, secondary: { label: 'Find us', href: route('visit') }, image: s?.hero, card: b.hours?.length && !b.hours[0]!.closed ? `Open ${b.hours[0]!.label} · ${b.hours[0]!.open}–${b.hours[0]!.close}` : 'Dogs and laptops welcome', points: ['Made here every morning', 'Vegan & gluten-free options', 'Take away or stay a while'] }),
           S('features-grid', { eyebrow: 'Why people come back', title: 'Small things, *done well*', items: [{ icon: 'coffee', title: 'Proper coffee', text: 'Espresso pulled with care, oat and other milks at no extra charge.' }, { icon: 'wheat', title: 'Baked here', text: 'Cakes, bakes and sourdough toast from our own kitchen.' }, { icon: 'leaf', title: 'Something for everyone', text: 'Vegan, vegetarian and gluten-free choices every day — just ask.' }] }, 'alt'),
           S('media-text', { rows: [{ eyebrow: 'Breakfast & lunch', title: 'Made to order, *never rushed*', text: 'From a bacon bap on the way to work to a long brunch with friends, everything is cooked when you order it.', image: s?.story[0], link: { label: 'Full menu', href: route('menu') } }, { eyebrow: 'The space', title: 'Stay as long as *you like*', text: 'Big windows, comfy corners and wifi that works. Bring a book, a laptop or the dog.', image: s?.story[1] }] }),
-          S('gallery-strip', { eyebrow: 'Around the café', title: 'A taste of the place', images: galleryOf(s, 6) }, 'alt'),
+          S('gallery-strip', { eyebrow: 'Coffee & cake', title: 'Made for *slow mornings*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }, 'alt'),
           ...reviewsBlock(b),
           S('map', { eyebrow: 'Visit', title: b.town ? `Find us in ${b.town}` : 'Find us', note: '' }, 'alt'),
         ],
@@ -290,7 +293,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         sections: [
           S('hero-editorial', { eyebrow: b.town ? `Restaurant · ${b.town}` : 'Restaurant', title: pick(b, ['Cooked with *care*, served with *warmth*', 'Seasonal plates, *proper* hospitality', 'An evening worth *slowing down* for']), lead: 'A short menu that changes with the seasons, cooked from scratch and served without fuss.', primary: { label: 'Book a table', href: route('book') }, secondary: { label: 'View the menu', href: route('menu') }, image: s?.hero }),
           S('features-list', { eyebrow: 'The kitchen', title: 'Simple food, done *really well*', lead: 'We cook what is good this week and let it taste of itself.', items: [{ title: 'Seasonal menu', text: 'Changes as the produce does.' }, { title: 'Local suppliers', text: 'Meat, vegetables and bread from people we know.' }, { title: 'Made in house', text: 'Stocks, sauces, bread and puddings.' }, { title: 'Every diet considered', text: 'Tell us when you book and the kitchen will look after you.' }], link: { label: 'See the menu', href: route('menu') } }, 'alt'),
-          S('gallery-grid', { eyebrow: 'From the pass', title: 'What is cooking', images: galleryOf(s, 5) }),
+          S('gallery-grid', { eyebrow: 'Seasonal cooking', title: 'Good food, *simply served*', images: b.photos?.length ? ownGallery(b, 5) : galleryOf(s, 5) }),
           ...reviewsBlock(b, 'Guests say', 'alt'),
           S('cta-split', { eyebrow: 'Private dining', title: 'Celebrating something?', text: 'Birthdays, family meals and work dinners — ask us about larger tables and set menus.', image: s?.story[0] }),
           S('map', { eyebrow: 'Find us', title: b.town ? `In ${b.town}` : 'Where we are', note: '' }, 'alt'),
@@ -332,7 +335,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
             closing(b, 'Need a hand?', 'Tell us about the job and get a free, fixed quote.'),
           ],
         },
-        { slug: 'services', label: 'Services', title: 'Services', description: `${t.noun} services from ${b.name}${inTown(b)}.`, sections: [S('page-header', { eyebrow: 'Services', title: 'Everything we *do*', lead: 'Prices are a guide; every job gets a fixed written quote before we start.' }, 'alt'), S('services-cards', { title: 'Services & guide prices', items: (b.services ?? []).map((x, i) => ({ name: x.name, text: x.description ?? '', price: x.price ?? '', image: i < 3 ? s?.gallery[i] : undefined })) }), S('process-steps', { eyebrow: 'How it works', title: 'What happens *next*', steps: [{ title: 'Tell us', text: 'Ring, message or use the quote form.' }, { title: 'Fixed quote', text: 'In writing, before any work starts.' }, said(b, GUARANTEE) ? { title: 'Done & guaranteed', text: 'Tidy work, and we stand behind it.' } : { title: 'Done & tidied', text: 'Tidy work, explained when we finish.' }] }, 'alt'), closing(b, 'Get your free quote', '')] },
+        { slug: 'services', label: 'Services', title: 'Services', description: `${t.noun} services from ${b.name}${inTown(b)}.`, sections: [S('page-header', { eyebrow: 'Services', title: 'Everything we *do*', lead: 'Prices are a guide; every job gets a fixed written quote before we start.' }, 'alt'), S('services-cards', { title: 'Services & guide prices', items: (b.services ?? []).map((x, i) => ({ name: x.name, text: x.description ?? '', price: x.price ?? '' })) }), S('process-steps', { eyebrow: 'How it works', title: 'What happens *next*', steps: [{ title: 'Tell us', text: 'Ring, message or use the quote form.' }, { title: 'Fixed quote', text: 'In writing, before any work starts.' }, said(b, GUARANTEE) ? { title: 'Done & guaranteed', text: 'Tidy work, and we stand behind it.' } : { title: 'Done & tidied', text: 'Tidy work, explained when we finish.' }] }, 'alt'), closing(b, 'Get your free quote', '')] },
         aboutPage(b, s, { title: 'Local, reliable, *honest*', lead: `About ${b.name}.`, intro: `${b.name} does ${t.noun} for homes and businesses${inTown(b)}.`, body: 'We turn up when we say, explain what needs doing and why, and leave the place as we found it.\nAsk us anything before you decide — a straight answer costs nothing.' }),
         contactPage(b, s, { slug: 'quote', label: 'Free quote', title: 'Get a free *quote*', lead: 'Tell us about the job. A photo helps — send it by WhatsApp.', kind: 'quote', formTitle: 'Quote request' }),
       ];
@@ -360,7 +363,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
             S('features-grid', { eyebrow: 'Why train here', title: 'Everything you need, *nothing you don\'t*', items: [{ icon: 'dumbbell', title: 'Proper equipment', text: 'Racks, platforms, dumbbells and machines — no queueing at peak.' }, { icon: 'users', title: 'Coached classes', text: 'Small groups so the coach actually watches your form.' }, { icon: 'pulse', title: 'A plan that fits', text: 'A free induction and a programme for your goals.' }] }),
             S('pricing-cards', { eyebrow: 'Memberships', title: 'Simple *pricing*', lead: said(b, /joining fee/i) ? 'No joining fee. Cancel with a month\'s notice.' : 'Pick the plan that suits how you train.', plans: sv.slice(0, 3).map((p, i) => ({ name: p.name, price: p.price ?? '', per: i < 2 ? '/month' : '/session', text: p.description ?? '', features: i === 0 ? ['Gym floor access', 'Free induction', 'App programme'] : i === 1 ? ['Unlimited access', 'All classes included', 'Free induction', 'Monthly check-in'] : ['Your own coach', 'Nutrition guidance', 'Progress tracking'], cta: { label: 'Get started', href: route('join') } })) }, 'alt'),
             S('media-text', { rows: [{ eyebrow: 'New to the gym?', title: 'Nobody starts *fit*', text: 'Your first session is free and with a coach. We show you around, set up a simple plan and stay on hand while you find your feet.', image: s?.story[0], points: ['Free first session', 'Beginner-friendly classes', 'Friendly, not intimidating'] }] }),
-            S('gallery-strip', { eyebrow: 'Inside', title: 'The gym', images: galleryOf(s, 6) }, 'alt'),
+            S('gallery-strip', { eyebrow: 'Training', title: 'Strength, *your way*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }, 'alt'),
             ...reviewsBlock(b, 'Members say'),
             closing(b, 'Your first session is on us.', 'Book a free session and see if we are right for you.'),
           ],
@@ -387,14 +390,14 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         title: '',
         description: '',
         sections: [
-          S('hero-editorial', { eyebrow: 'Photography', title: pick(b, ['Real moments, *beautifully* kept', 'Photographs that feel like *the day*', 'Quietly there for the moments *that matter*']), lead: 'Natural, unposed photography for weddings, families and brands — calm on the day, honest in the edit.', primary: { label: 'Check my dates', href: route('contact') }, secondary: { label: 'See the work', href: route('work') }, image: s?.hero }),
-          S('gallery-grid', { eyebrow: 'Selected work', title: 'Recent *stories*', images: galleryOf(s, 5) }),
+          S('hero-editorial', { eyebrow: 'Photography', title: pick(b, ['Real moments, *beautifully* kept', 'Photographs that feel like *the day*', 'Quietly there for the moments *that matter*']), lead: 'Natural, unposed photography for weddings, families and brands — calm on the day, honest in the edit.', primary: { label: 'Check my dates', href: route('contact') }, secondary: b.photos?.length ? { label: 'See the work', href: route('work') } : { label: 'Packages', href: route('packages') }, image: s?.hero }),
+          ...(b.photos?.length ? [S('gallery-grid', { eyebrow: 'Selected work', title: 'Recent *stories*', images: ownGallery(b, 5) })] : []),
           S('features-list', { eyebrow: 'What to expect', title: 'Easy from the *first hello*', items: [{ title: 'A proper chat first', text: 'We talk through your plans, the light and the timings.' }, { title: 'Relaxed on the day', text: 'Mostly unposed, with a little gentle direction when it helps.' }, { title: 'Carefully edited', text: 'Every photo edited by hand, delivered in an online gallery.' }, { title: 'Yours to keep', text: 'Full-resolution files and a print licence included.' }], link: { label: 'Packages', href: route('packages') } }, 'alt'),
           ...reviewsBlock(b, 'Kind words'),
           S('cta-split', { eyebrow: 'Dates', title: 'Is your date *free*?', text: 'Tell me when and where and I will reply within a day.', image: s?.story[0] }),
         ],
       },
-      { slug: 'work', label: 'Work', title: 'Work', description: `Photography by ${b.name}.`, sections: [S('page-header', { eyebrow: 'Portfolio', title: 'Selected *work*', lead: 'A few favourites from recent shoots.' }, 'alt'), S('gallery-grid', { title: 'Portfolio', images: galleryOf(s, 10) })] },
+      ...(b.photos?.length ? [{ slug: 'work', label: 'Work', title: 'Work', description: `Photography by ${b.name}.`, sections: [S('page-header', { eyebrow: 'Portfolio', title: 'Selected *work*', lead: 'A few favourites from recent shoots.' }, 'alt'), S('gallery-grid', { title: 'Portfolio', images: ownGallery(b, 12) })] }] : []),
       { slug: 'packages', label: 'Packages', title: 'Packages', description: `Photography packages and prices from ${b.name}.`, sections: [S('page-header', { eyebrow: 'Packages', title: 'Packages & *prices*', lead: 'Every package includes an online gallery and full-resolution files.' }, 'alt'), S('pricing-cards', { title: 'Packages', plans: (b.services ?? []).slice(0, 3).map((p) => ({ name: p.name, price: p.price ?? '', text: p.description ?? '', features: ['Online gallery', 'Full-resolution files', 'Print licence'], cta: { label: 'Check dates', href: route('contact') } })) }), S('process-steps', { eyebrow: 'How it works', title: 'From hello to *gallery*', steps: [{ title: 'Say hello', text: 'Tell me your date and plans.' }, { title: 'Book', text: 'A short contract and a deposit secure the date.' }, { title: 'The day', text: 'I will be there early and quiet.' }, { title: 'Your gallery', text: 'Edited photos delivered within six weeks.' }] }, 'alt'), S('faq', { eyebrow: 'FAQ', title: 'Questions', items: [{ q: 'Do you travel?', a: 'Yes, anywhere in the UK; travel costs are agreed up front.' }, { q: 'How long until we get the photos?', a: 'Usually four to six weeks, with a preview within a week.' }, { q: 'How do we secure our date?', a: 'With a signed agreement and a deposit.' }] })] },
       aboutPage(b, s, { title: 'Hello, *I\'m the photographer*', lead: 'A little about me and how I work.', intro: `I photograph people as they are — not as a list of poses.`, body: 'I work quietly, notice the small things and keep the day moving gently.\nIf that sounds like you, I would love to hear about your plans.' }),
       contactPage(b, s, { title: 'Let\'s *talk*', lead: 'Tell me about your date and what you have in mind.', formTitle: 'Enquiry' }),
@@ -482,7 +485,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
           S('hero-split', { eyebrow: b.town ? `Independent shop · ${b.town}` : 'Independent shop', title: pick(b, ['Lovely things, *chosen with care*', 'Small shop, *big heart*']), lead: 'Hand-picked and often hand-made — come and browse, or message us to order.', primary: { label: b.shopUrl ? 'Shop online' : 'Visit the shop', href: b.shopUrl || route('visit') }, secondary: { label: 'About us', href: route('about') }, image: s?.hero, card: 'Gift wrapping on request' }),
           ...(b.products?.length ? [S('product-cards', { eyebrow: 'In the shop', title: 'New *in*', items: b.products, link: b.shopUrl ? { label: 'Shop online', href: b.shopUrl } : undefined }, 'alt')] : [S('features-grid', { eyebrow: 'In the shop', title: 'What you will *find*', items: [{ icon: 'gift', title: 'Gifts', text: 'Thoughtful presents for people who have everything.' }, { icon: 'sparkle', title: 'Made locally', text: 'Work by makers from round here.' }, { icon: 'bag', title: 'Order by message', text: 'See something you like? Message us and we will put it aside.' }] }, 'alt')]),
           S('media-text', { rows: [{ eyebrow: 'Our shop', title: 'Come in and *browse*', text: 'No pressure, just good things on the shelves and someone happy to help you find the right one.', image: s?.story[0], link: { label: 'Find us', href: route('visit') } }] }),
-          S('social-grid', { eyebrow: 'Follow along', title: 'Fresh on the shelves', images: galleryOf(s, 6) }, 'alt'),
+          S('social-grid', { eyebrow: 'Gift ideas', title: 'Little things, *chosen well*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }, 'alt'),
           ...reviewsBlock(b),
           S('map', { eyebrow: 'Visit', title: 'Find the *shop*', note: '' }),
         ],
@@ -507,14 +510,14 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
         title: '',
         description: '',
         sections: [
-          S('hero-editorial', { eyebrow: b.tagline ?? 'Independent studio', title: pick(b, ['Thoughtful work for *people who care*', 'Clear ideas, *carefully made*']), lead: b.about ? b.about.slice(0, 200) : 'I help small businesses and people with big ideas look as good as they are.', primary: { label: 'Start a project', href: route('contact') }, secondary: { label: 'See the work', href: route('work') }, image: s?.hero }),
-          ...(b.projects?.length ? [S('case-studies', { eyebrow: 'Selected work', title: 'Recent *projects*', items: b.projects })] : [S('gallery-grid', { eyebrow: 'Selected work', title: 'Recent *work*', images: galleryOf(s, 5) })]),
+          S('hero-editorial', { eyebrow: b.tagline ?? 'Independent studio', title: pick(b, ['Thoughtful work for *people who care*', 'Clear ideas, *carefully made*']), lead: b.about ? b.about.slice(0, 200) : 'I help small businesses and people with big ideas look as good as they are.', primary: { label: 'Start a project', href: route('contact') }, secondary: b.projects?.length || b.photos?.length ? { label: 'See the work', href: route('work') } : { label: 'About me', href: route('about') }, image: s?.hero }),
+          ...(b.projects?.length ? [S('case-studies', { eyebrow: 'Selected work', title: 'Recent *projects*', items: b.projects })] : b.photos?.length ? [S('gallery-grid', { eyebrow: 'Selected work', title: 'Recent *work*', images: ownGallery(b, 5) })] : []),
           S('features-list', { eyebrow: 'Services', title: 'How I can *help*', items: (b.services ?? []).map((x) => ({ title: x.name, text: x.description ?? '' })), link: { label: 'Get in touch', href: route('contact') } }, 'alt'),
           ...reviewsBlock(b, 'Clients say'),
           closing(b, 'Have a project in mind?', 'Tell me about it — I reply within a day.'),
         ],
       },
-      { slug: 'work', label: 'Work', title: 'Work', description: `Selected work by ${b.name}.`, sections: [S('page-header', { eyebrow: 'Work', title: 'Selected *work*', lead: '' }, 'alt'), ...(b.projects?.length ? [S('case-studies', { title: 'Projects', items: b.projects })] : [S('gallery-grid', { title: 'Work', images: galleryOf(s, 10) })])] },
+      ...(b.projects?.length || b.photos?.length ? [{ slug: 'work', label: 'Work', title: 'Work', description: `Selected work by ${b.name}.`, sections: [S('page-header', { eyebrow: 'Work', title: 'Selected *work*', lead: '' }, 'alt'), ...(b.projects?.length ? [S('case-studies', { title: 'Projects', items: b.projects })] : [S('gallery-grid', { title: 'Work', images: ownGallery(b, 12) })])] }] : []),
       aboutPage(b, s, { title: 'About *me*', lead: 'A little background.', intro: 'I make things that are clear, useful and good to look at.', body: 'I work directly with every client, from the first call to the final file.\nYou will always know what is happening and what it costs.' }),
       contactPage(b, s, { title: 'Let\'s *work together*', lead: 'Tell me about your project, timeline and budget.', formTitle: 'Project enquiry' }),
     ],
@@ -538,7 +541,7 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
           S('hero-image', { eyebrow: [b.date, b.venue || b.town].filter(Boolean).join(' · ') || 'Save the date', title: pick(b, ['One night. *Be there.*', 'You will *want* to be there']), lead: b.about ? b.about.slice(0, 200) : 'Good people, great sounds and a night to remember.', primary: { label: 'Get tickets', href: b.bookingUrl || route('info') }, secondary: { label: 'What\'s on', href: route('info') }, image: s?.hero, facts: [...(b.date ? [{ icon: 'calendar', label: 'When', value: b.date }] : []), ...(b.venue || b.town ? [{ icon: 'pin', label: 'Where', value: [b.venue, b.town].filter(Boolean).join(', ') }] : []), ...(b.bookingUrl ? [{ icon: 'ticket', label: 'Tickets', value: 'On sale now' }] : [])] }),
           S('features-grid', { eyebrow: 'What to expect', title: 'The *night*', items: [{ icon: 'music', title: 'Live music', text: 'Acts all evening on the main stage.' }, { icon: 'utensils', title: 'Food & drink', text: 'Street food and a proper bar.' }, { icon: 'users', title: 'Good company', text: 'Bring friends, make new ones.' }] }),
           ...(b.schedule?.length ? [S('event-schedule', { eyebrow: 'Running order', title: 'The *timings*', items: b.schedule }, 'alt')] : []),
-          S('gallery-strip', { eyebrow: 'Last time', title: 'Moments', images: galleryOf(s, 6) }),
+          S('gallery-strip', { eyebrow: 'The feel', title: 'Nights *to remember*', images: b.photos?.length ? ownGallery(b, 6) : galleryOf(s, 6) }),
           closing(b, 'Get your tickets', 'Do not leave it to the last minute.'),
           S('map', { eyebrow: 'Getting there', title: 'Find the *venue*', note: '' }, 'alt'),
         ],
@@ -644,8 +647,9 @@ export function planFrom(input: Brief, o: { url?: string; theme?: Partial<Theme>
   home.description = meta.description.slice(0, 160);
   for (const p of pages.slice(1)) if (!p.description || p.description.length < 50) p.description = `${p.description ? `${p.description} ` : `${p.label}: `}${home.description}`.slice(0, 160);
   const pageWords = [...(pages.some((p) => p.sections.some((x) => x.block === 'faq')) ? ['FAQ answers (typical ones are shown)'] : []), ...(t.assumes?.(b) ?? [])];
-  // Free library photos set the scene; they are not the owner's own work, and a portfolio must show the real thing.
-  if (s) pageWords.push(b.kind === 'photographer' || b.kind === 'portfolio' ? 'the gallery photos are free stand-ins from Wikimedia Commons — send me your own work to put in' : 'the photos are free, credited stock pictures — send me your own to swap them in');
+  // Free library photos set the scene and are credited; they are never shown as the owner's own work.
+  if ((b.kind === 'photographer' || b.kind === 'portfolio') && !b.photos?.length && !b.projects?.length) pageWords.push('there is no gallery of your work yet — send me your own photos to show it');
+  else if (s) pageWords.push('the photos are free, credited library pictures, not your own — send me yours to swap them in');
   const announce = t.announce?.(b);
   const plan: Plan = {
     kind: b.kind,
