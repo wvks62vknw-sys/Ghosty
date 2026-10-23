@@ -135,3 +135,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
 29. **A GitHub token IS set** in SYSTEM (24 Oct), so the self-edit trial (item 21) can run after the merge to main.
     The new look has not reached his phone only because PR #32 is not merged yet.
 30. **Usage check-in, 24 Oct ~00:30 UK:** all models weekly 14 %, Fable weekly 9 %.
+31. **Merging (24 Oct ~00:30 UK):** "don't ask me to merge when it's ready, just do it." Fable merges a batch into main
+    itself when CI is green on it, every piece in it is complete and it has been reviewed; after each coherent step
+    rather than one big merge at the end (his question; the reasons are in the chat of 24 Oct).

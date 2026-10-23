@@ -132,7 +132,7 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
 
 /** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
 const ABBR = ['I', '3D', 'GPS', 'AI', 'PDF', 'QR', 'PNG', 'JSON', 'CSV', 'URL', 'MOT', 'ISS', 'UK', 'BBC', 'CCTV', 'SMS', 'API', 'GLB', 'TV', 'FX', 'ID', 'GO', 'OK', 'AQI', 'UV', 'PM2.5'];
-export const ACRONYM = /\b(GHOSTY|UV|AQI|I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID)\b/;
+export const ACRONYM = /\b(GHOSTY|UV|AQI|I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID|GPU)\b/;
 /** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the calm looks' wording). */
 /** A panel title: "WEATHER · LONDON" → "Weather · London" (after the dot comes a name: each word capitalised). */
 export function niceTitle(s: string): string {
