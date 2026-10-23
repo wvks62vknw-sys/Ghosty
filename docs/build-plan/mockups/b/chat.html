@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Ghosty B · Chat</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+</style><div class="screen chat"><div class="sb" aria-hidden="true">
+  <span class="sb-time">18:42</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div>
+<div class="bar"><span class="back"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5L7.5 12l7.5 7.5"/></svg>Ask</span><span class="oc">B</span></div>
+<div class="kick sc">Conversation · Today, 18:31</div>
+<div class="tx">
+  <div class="turn me"><div class="sc"><span>Boss</span></div><p>What’s on tonight?</p></div>
+  <div class="turn gh"><div class="sc"><span>Ghosty</span><span style="letter-spacing:.06em">Llama 4 Scout</span></div><p>Call Mum at half seven, then the bins go out at nine. Nothing else in the diary.</p></div>
+  <div class="turn me"><div class="sc"><span>Boss</span></div><p>Is the M6 bad tonight, and will it rain on the way to Mum’s?</p></div>
+  <div class="turn gh"><div class="sc"><span>Ghosty · cited</span><span style="letter-spacing:.06em">Gemini 2.5 Flash</span></div>
+    <div class="steps sc"><i></i>Web · weather · 2 pages read</div>
+    <p>Not great. There’s a queue on the M6 northbound between junctions 6 and 7, adding about 12 minutes<span class="fn">1</span>, and it should clear by about 19:40<span class="fn">1</span>. Light rain until around nine, so the roads will be wet<span class="fn">2</span>. Leave after half seven and you’ll miss most of it.</p>
+    <div class="notes2">
+      <div class="note"><span class="n">1</span><span class="s">M6 northbound J6 to J7 · queue<em>nationalhighways.co.uk</em></span></div>
+      <div class="note"><span class="n">2</span><span class="s">Birmingham forecast, tonight<em>metoffice.gov.uk</em></span></div>
+    </div>
+    <div class="verdict"><b>3 of 3</b> claims found in the sources</div>
+    <div class="racts"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5V20H5a1.5 1.5 0 01-1.5-1.5V12A1.5 1.5 0 015 10.5zM7.5 10.5L11 3.5a2.4 2.4 0 012.4 2.6l-.5 3.9h5.4a2 2 0 012 2.3l-1.2 6.4a2 2 0 01-2 1.8H7.5"/></svg><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 13.5V4H5a1.5 1.5 0 00-1.5 1.5V12A1.5 1.5 0 005 13.5zM7.5 13.5l3.5 7a2.4 2.4 0 002.4-2.6l-.5-3.9h5.4a2 2 0 002-2.3l-1.2-6.4a2 2 0 00-2-1.8H7.5"/></svg><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5a2 2 0 002 2h2.5"/></svg><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/></svg><span class="th sc">Think harder</span></div>
+  </div>
+</div>
+<div class="compose"><span class="plus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="ph">Ask anything…</span><span class="cbox sc"><i><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>Cited</span><span class="oc"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span></div>
+<div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>
