@@ -71,15 +71,25 @@ export function row(k: string | null, v: string | Node, n?: string | null, opts:
 
 export const SEV_COLORS = ['#52f2b5', '#ffd24d', '#ff9a3c', '#ff4d6a'];
 
-export function empty(status: string): HTMLElement {
+/**
+ * An empty list's state. The classic looks keep their words (NO SIGNAL, ACQUIRING, STANDING BY); route C says
+ * it plainly with one sentence on what to do next (`next`, the screen's own; a fitting default otherwise).
+ */
+export function empty(status: string, next?: string): HTMLElement {
   const s = status.toUpperCase();
   const bad = /NO FEED|ERROR|UNAVAIL|OFFLINE/.test(s);
-  const wait = /SYNC|LOAD|IDLE/.test(s) || !s;
-  return h(`div.empty${bad ? '.bad' : ''}` as 'div', h('b', bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'), h('span', bad ? 'feed unreachable right now' : wait ? 'establishing link…' : 'nothing to show yet'));
+  // (a list that has its own sentence is really empty when idle, not still on its way)
+  const wait = /SYNC|LOAD/.test(s) || (!next && (/IDLE/.test(s) || !s));
+  const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const head = off ? 'You’re offline' : bad ? 'Can’t reach this feed' : wait ? 'Loading' : 'Nothing here yet';
+  const line = off ? 'It fills in again when the phone is back online.' : bad ? 'It tries again by itself; nothing you need to do.' : wait ? 'One moment, it’s on its way.' : next ?? 'It fills in by itself as things happen.';
+  return h(`div.empty${bad || off ? '.bad' : wait ? '.wait' : ''}` as 'div', { dataset: { case: 'keep' } },
+    h('b', { dataset: { label: head } }, bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'),
+    h('span', { dataset: { label: line } }, bad ? 'feed unreachable right now' : wait ? 'establishing link…' : 'nothing to show yet'));
 }
 
 /** Paged list: no scrolling. Re-fits the number of rows to the panel height. */
-export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE'): { set(items: T[]): void } {
+export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE', emptyNext?: string): { set(items: T[]): void } {
   let items: T[] = [];
   let page = 0;
   const prev = button('‹', () => {
@@ -100,7 +110,7 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.max(0, Math.min(page, pages - 1));
     clear(p.body);
-    if (!items.length) p.body.append(empty(emptyText()));
+    if (!items.length) p.body.append(empty(emptyText(), emptyNext));
     for (const it of items.slice(page * per, page * per + per)) {
       const r = render(it);
       r.style.minHeight = `${rowHeight - 4}px`;

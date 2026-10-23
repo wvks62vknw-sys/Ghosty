@@ -3145,3 +3145,91 @@ button.schnightly[aria-checked="false"] { color: var(--mute); }
 canvas.mindhero { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
 canvas.reactor.mindon { opacity: 0; }
 /* end hero: mind */
+
+/* =====================================================================
+   route C part 2 — every other screen (docs/build-plan/BRIEF-DESIGN-BUILD-2.md; the mock-ups in
+   docs/build-plan/mockups/c). The same language as part 1's layer above: a graphite canvas, glass cards with a
+   1 px white-8 % hairline, one type scale, the reactor's colour only for what is live, amber only for warnings,
+   neutral glass for icons and controls, 44 pt targets. Scoped to html[data-look="pro"] like part 1; the classic
+   looks never see it. Everything up to "end route C part 2" is this layer.
+   ===================================================================== */
+#rcoffline { display: none; }
+.gymlvnone, .wnall { display: none; }
+
+/* ---------- a screen's head: the large title in the bar, then the state as a title and one line ---------- */
+html[data-look="pro"] .two > .hero { align-items: flex-start; text-align: left; gap: 0; padding: 0 2px 2px; }
+html[data-look="pro"] .two .bigv { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; color: var(--ink); }
+html[data-look="pro"] .two .bigv:empty { display: none; }
+html[data-look="pro"] .two .sub { margin-top: 3px; font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink2); }
+html[data-look="pro"] .two .sub:empty { display: none; }
+html[data-look="pro"] .listmode .two > .hero { align-items: flex-start; text-align: left; padding: 0 4px 6px; }
+html[data-look="pro"] .listmode .two .bigv { font-size: 22px; }
+
+/* ---------- the segmented control (a page's two sides): one glass track, the chosen side lit ---------- */
+html[data-look="pro"] .two:not(.stack) .swap { height: 44px; min-height: 44px !important; margin: 14px 0 2px; padding: 4px; gap: 0; border-radius: 14px; background: rgba(255,255,255,.055) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] .two .swap::before, html[data-look="pro"] .two .swap::after { height: 36px; border-radius: 10px !important; font: 600 14px/1 var(--sf); letter-spacing: -.1px; color: var(--ink2); background: transparent !important; box-shadow: none !important; transition: background var(--rcsp) var(--spring), color .2s, box-shadow var(--rcsp) var(--spring); }
+html[data-look="pro"] .two:not(.alt) .swap::before, html[data-look="pro"] .two.alt .swap::after { color: var(--ink); background: rgba(255,255,255,.13) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07), 0 2px 8px rgba(0,0,0,.35) !important; }
+
+/* ---------- glass cards: the panel's head (title 17, its state at the right) ---------- */
+html[data-look="pro"] .pn > h3 small, html[data-look="pro"] .pn > h3 small[data-label] { --lfs: 13px; font: 400 13px/18px var(--sf); color: var(--ink3); white-space: nowrap; }
+html[data-look="pro"] .pn > h3 .ptitle[data-label] { --lfs: 17px; }
+html[data-look="pro"] .pn .note { font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink2); }
+html[data-look="pro"] .pn .rw { border-bottom-color: var(--hair); }
+html[data-look="pro"] .pn .rw .k { color: var(--ink2); }
+html[data-look="pro"] .pn .rw .v { color: var(--ink); }
+html[data-look="pro"] .pn .rw .n { color: var(--ink3); font-variant-numeric: tabular-nums; }
+
+/* ---------- fields: route C inputs — glass, a hairline, the accent ring when typing ---------- */
+html[data-look="pro"] :is(.pn, .modal) :is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color]), select, textarea) { min-height: 44px; border-radius: 14px; background-color: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); font: 400 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] :is(.pn, .modal) :is(input, select, textarea)::placeholder { color: var(--ink3); }
+html[data-look="pro"] :is(.pn, .modal) :is(input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=color]), select, textarea):focus { background-color: rgba(255,255,255,.085); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), 0 0 0 4px rgba(var(--cr), .13) !important; }
+html[data-look="pro"] :is(.pn, .modal) select { background-image: linear-gradient(45deg, transparent 50%, var(--ink3) 50%), linear-gradient(135deg, var(--ink3) 50%, transparent 50%); }
+
+/* ---------- an empty list: what it is, and one sentence on what to do next ---------- */
+html[data-look="pro"] .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 104px; padding: 20px 16px; text-align: center; }
+html[data-look="pro"] .empty b { --lfs: 17px; display: block; font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] .empty b[data-label]::before { font-weight: 600; line-height: 22px; }
+html[data-look="pro"] .empty span { --lfs: 15px; display: block; max-width: 300px; font: 400 15px/20px var(--sf); color: var(--ink3); }
+html[data-look="pro"] .empty span[data-label]::before { line-height: 20px; }
+html[data-look="pro"] .empty.bad b { color: var(--amber); }
+html[data-look="pro"] .empty.wait b::after { content: ''; display: block; width: 44px; height: 3px; margin: 10px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent) 0 0 / 200% 100%; animation: rcload 1.2s linear infinite; }
+@keyframes rcload { to { background-position: -200% 0; } }
+
+/* ---------- offline: one quiet amber line above the tab bar (Home has its own pill) ---------- */
+html[data-look="pro"] body.offline:not([data-tab="core"]) #rcoffline { display: flex; align-items: center; gap: 8px; position: fixed; z-index: 40; left: 50%; bottom: calc(64px + 24px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))); transform: translateX(-50%); max-width: calc(100% - 32px); width: max-content; min-height: 36px; padding: 8px 14px; border-radius: 18px; font: 400 13px/18px var(--sf); color: var(--ink2); background: rgba(30,27,22,.82); box-shadow: inset 0 0 0 1px rgba(var(--amberr), .28), 0 12px 30px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); pointer-events: none; animation: rcrise var(--rcsp) var(--spring) both; }
+html[data-look="pro"] body.offline.ownback #rcoffline { bottom: calc(76px + max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px))); }
+html[data-look="pro"] #rcoffline i { width: 7px; height: 7px; flex: none; border-radius: 4px; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+html[data-look="pro"] #rcoffline b { flex: none; font-weight: 600; color: var(--amber); }
+html[data-look="pro"] #rcoffline span { min-width: 0; }
+@keyframes rcrise { from { opacity: 0; transform: translate(-50%, 8px); } }
+
+/* ---------- polish of part 1 ---------- */
+/* GYM: the line under the title (the mock-up's), and LEVELS BY GAME before anything is trained */
+html[data-look="pro"] #pg-gym .two > .hero .sub { display: block; }
+html[data-look="pro"] #pg-gym .gymlvls.none .b { background: rgba(235,240,245,.07); box-shadow: none; }
+html[data-look="pro"] #pg-gym .gymlvls.none .g { display: none; }
+html[data-look="pro"] #pg-gym .gymlvls .gymlvnone { display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: calc(100% - 8px); padding: 6px 12px; border-radius: 14px; font: 400 13px/18px var(--sf); color: var(--ink2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(10,12,14,.72); box-shadow: inset 0 0 0 1px var(--hair); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+html[data-look="pro"] #pg-gym .gymlvls .gymlvnone b { font-weight: 600; color: var(--ink); }
+/* WHAT'S NEW: a card — the newest three, Show all for the rest, GOT IT as a small pill in its corner */
+html[data-look="pro"] .pn.whatsnew > h3 { align-items: center; }
+html[data-look="pro"] .pn.whatsnew > h3 small { margin-left: 8px; }
+html[data-look="pro"] .pn.whatsnew .wngot { position: relative; flex: none; height: 30px; min-height: 30px !important; margin-left: 12px; padding: 0 14px; border-radius: 15px; color: var(--c) !important; background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
+html[data-look="pro"] .pn.whatsnew .wngot::after { content: ''; position: absolute; inset: -7px -4px; }
+html[data-look="pro"] .pn.whatsnew .wngot[data-label]::before { --lfs: 13px; font-weight: 600; letter-spacing: -.04px; }
+html[data-look="pro"] .whatsnew .wnrow { position: relative; padding: 11px 0 11px 18px; border-bottom: 1px solid var(--hair); }
+html[data-look="pro"] .whatsnew .wnrow::before { content: ''; position: absolute; left: 1px; top: 19px; width: 7px; height: 7px; border-radius: 4px; background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .6); }
+html[data-look="pro"] .whatsnew .wnrow ~ .wnrow::before { background: var(--ink4); box-shadow: none; }
+html[data-look="pro"] .whatsnew .wnrow span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html[data-look="pro"] .whatsnew:not(.wnopen) .wnrow.more { display: none; }
+html[data-look="pro"] .whatsnew .wnall { display: block; position: relative; text-transform: none !important; letter-spacing: -.12px !important; width: 100%; height: 44px; min-height: 44px !important; margin: 2px 0 -6px; padding: 0; border-radius: 0; font: 400 15px var(--sf) !important; color: var(--c) !important; background: none !important; box-shadow: none !important; text-align: left; }
+html[data-look="pro"] .whatsnew .wnall[hidden] { display: none; }
+/* Settings: the profile avatar in route C's glass (as the Me sheet's) */
+html[data-look="pro"] #pg-settings .two > .hero { background: var(--rcglass); box-shadow: var(--edge), var(--lift); border-radius: 20px; }
+html[data-look="pro"] #pg-settings .two > .hero .bigv::before { color: var(--ink); background: radial-gradient(circle at 35% 30%, #3d454d, #15191c 75%); box-shadow: inset 0 0 0 1px var(--hair2), inset 0 1px 0 rgba(255,255,255,.12), 0 0 0 4px rgba(var(--cr), .06); }
+html[data-look="pro"] #pg-settings .two > .hero .bigv { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; }
+/* Home: the ask bar's chat button as a neutral glass button */
+html[data-look="pro"] .hud.core:not(.logopen) #cbar .logbtn { margin-left: 0; background: radial-gradient(circle closest-side, rgba(255,255,255,.085) 0 calc(100% - 4px), rgba(255,255,255,.13) calc(100% - 4px) calc(100% - 3px), transparent calc(100% - 2.5px)) !important; box-shadow: none !important; }
+html[data-look="pro"] .hud.core:not(.logopen) #cbar .logbtn::before { width: 19px; height: 19px; background: var(--ink); }
+html[data-look="pro"] .hud.core:not(.logopen) #cbar .logbtn:active { transform: scale(.92); }
+html[data-look="pro"] .hud.core:not(.logopen) #cbar #cin { padding-left: 6px; }
+/* end route C part 2 */

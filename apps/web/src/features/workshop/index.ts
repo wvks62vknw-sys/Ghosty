@@ -222,13 +222,23 @@ export const workshopTab: TabDef = {
     // WHAT'S NEW: this week's merges, once per build (state/whatsnew.ts), above everything else until GOT IT
     if (whatsNewDue()) {
       const wn = panel("WHAT'S NEW", { grow: false, cls: 'whatsnew', status: `${WHATS_NEW.length} THIS WEEK` });
-      wn.body.append(
-        ...WHATS_NEW.map((n) => h('div.wnrow', { dataset: { case: 'keep' } }, h('b', n.title), h('span', n.line))),
-        h('div.row', button('GOT IT', () => {
-          whatsNewSeen();
-          wn.el.remove();
-        }, 'on')),
-      );
+      // Route C: a card — the newest three, "Show all" for the rest, GOT IT as a small pill in its corner.
+      const rows = WHATS_NEW.map((n, i) => h(`div.wnrow${i >= 3 ? '.more' : ''}` as 'div', { dataset: { case: 'keep' } }, h('b', n.title), h('span', n.line)));
+      const all = h('button.wnall', { type: 'button', dataset: { case: 'keep' }, 'aria-expanded': 'false' }, `Show all ${WHATS_NEW.length}`);
+      all.hidden = WHATS_NEW.length <= 3;
+      all.addEventListener('click', () => {
+        const open = !wn.el.classList.contains('wnopen');
+        wn.el.classList.toggle('wnopen', open);
+        all.setAttribute('aria-expanded', String(open));
+        all.textContent = open ? 'Show fewer' : `Show all ${WHATS_NEW.length}`;
+      });
+      const got = button('GOT IT', () => {
+        whatsNewSeen();
+        wn.el.remove();
+      }, 'on wngot');
+      got.dataset.label = 'Got it';
+      wn.el.querySelector('h3')?.append(got);
+      wn.body.append(...rows, all);
       P.left.append(wn.el);
     }
     P.left.append(ask.el, rp.el, jp.el, ip.el, cp.el);
