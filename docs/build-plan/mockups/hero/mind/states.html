@@ -1,0 +1,13 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>Hero · Mind · states</title>
+<link rel="stylesheet" href="../../fonts.css"><style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1000px; background: #000; color: #f4f6f8; font-family: 'Inter Mock', sans-serif; -webkit-font-smoothing: antialiased; padding: 30px 30px 34px; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin: 0 4px 20px; }
+h1 span { color: rgba(235,240,245,.55); font-weight: 500; }
+.row { display: flex; gap: 20px; }
+figure { width: 300px; }
+canvas { display: block; width: 300px; height: 300px; border-radius: 24px; background: radial-gradient(closest-side, rgba(100,210,255,.1), rgba(100,210,255,0) 80%), #000; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+figcaption { margin-top: 12px; text-align: center; }
+figcaption b { display: block; font-size: 16px; font-weight: 600; }
+figcaption span { font-size: 13px; color: rgba(235,240,245,.55); }
+</style></head><body><h1>Mind <span>· idle, listening, thinking</span></h1><div class="row"><figure><canvas data-hero="mind" data-state="idle" data-t="12.5" data-fill="0.6"></canvas><figcaption><b>Idle</b><span>slow breathing</span></figcaption></figure><figure><canvas data-hero="mind" data-state="listen" data-t="12.5" data-fill="0.6"></canvas><figcaption><b>Listening</b><span>opens and brightens</span></figcaption></figure><figure><canvas data-hero="mind" data-state="think" data-t="12.9" data-fill="0.6"></canvas><figcaption><b>Thinking</b><span>ripples and pulses</span></figcaption></figure></div><script type="module">import { mountAll } from '../kit.js'; mountAll();</script></body></html>
