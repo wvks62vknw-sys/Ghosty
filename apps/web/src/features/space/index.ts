@@ -531,7 +531,11 @@ export const spaceTab: TabDef = {
     const dp = panel('DESIGN REVIEW', { status: 'UK guidance', cls: 'spacereview' });
     const goalIn = h('input', { placeholder: 'your goal, e.g. make it feel bigger', 'aria-label': 'What you want from the room', maxlength: '200' });
     const goalChips = h('div.lenschips.spacegoals');
-    for (const gl of ['Make it feel bigger', 'A home office', 'More light', 'Safer and easier to get around']) goalChips.append(button(gl.toUpperCase(), () => (goalIn.value = gl)));
+    for (const gl of ['Make it feel bigger', 'A home office', 'More light', 'Safer and easier to get around']) {
+      const b = button(gl.toUpperCase(), () => (goalIn.value = gl));
+      b.dataset.label = gl; // route C: the words as written
+      goalChips.append(b);
+    }
     const reviewBtn = button('REVIEW MY PLAN', () => void askReview(), 'on');
     const viewRow = h('div.row.wrap.spacebeforeafter');
     const changeList = h('div.stackf.spacechanges');
