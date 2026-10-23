@@ -13,5 +13,5 @@ iPhone uses the system font (SF Pro) through `-apple-system`; nothing here ships
 - Source Serif 4 is route B's display serif (titles only); everything else in B is Inter.
 - The OFL lets these files be used, studied, copied and redistributed with the licence kept beside them, which
   it is. Neither font is sold or renamed here.
-- "Monospaced" readouts in route C use Inter with tabular, slashed-zero figures (`tnum`, `zero`) as the stand-in
-  for SF Mono, so no third font was downloaded.
+- "Monospaced" readouts in route C use Inter with tabular figures (`tnum`) and wide tracking as the stand-in for
+  SF Mono, so no third font was downloaded.

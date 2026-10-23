@@ -41,7 +41,7 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .t-cap { font-size: 13px; line-height: 18px; font-weight: 400; letter-spacing: -0.04px; }
 .t-kick { font-size: 11px; line-height: 13px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; }
 .num { font-feature-settings: 'tnum', 'cv05'; }
-.mono { font-feature-settings: 'tnum', 'zero', 'case', 'cv05'; letter-spacing: 0.04em; }
+.mono { font-feature-settings: 'tnum', 'case', 'cv05'; letter-spacing: 0.04em; }
 .ink2 { color: var(--ink2); } .ink3 { color: var(--ink3); } .cyan { color: var(--cyan); } .amber { color: var(--amber); }
 
 /* ---------- glass */
@@ -80,7 +80,7 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .state span { display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; height: 24px; border-radius: 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: var(--cyan-ink); background: rgba(100, 210, 255, 0.07); border: 1px solid rgba(100, 210, 255, 0.16); }
 .state span i { width: 6px; height: 6px; border-radius: 3px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
 
-.agenda { position: absolute; left: 20px; right: 20px; top: 470px; height: 112px; padding: 14px 16px 0; }
+.agenda { position: absolute; left: 20px; right: 20px; top: 468px; height: 118px; padding: 14px 16px 0; }
 .thead { display: flex; align-items: center; gap: 7px; color: var(--ink2); }
 .thead svg.i { width: 17px; height: 17px; stroke-width: 1.9; }
 .thead b { font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: -0.04px; flex: 1; }
@@ -95,7 +95,7 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .ev .in { font-size: 13px; font-weight: 600; color: var(--cyan); }
 .agenda .evs { margin-top: 5px; }
 
-.pair { position: absolute; left: 20px; right: 20px; top: 594px; height: 136px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pair { position: absolute; left: 20px; right: 20px; top: 598px; height: 136px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .tile { position: relative; padding: 14px 16px; overflow: hidden; }
 .road .rd { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
 .road .rd i { width: 8px; height: 8px; border-radius: 4px; background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); flex: none; }
@@ -112,7 +112,8 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .segr b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
 .gymt .clr { position: absolute; left: 16px; right: 12px; bottom: 13px; font-size: 11px; line-height: 13px; color: var(--ink3); }
 
-.chips { position: absolute; left: 20px; right: 20px; top: 744px; display: flex; gap: 8px; }
+.chips { position: absolute; left: 20px; right: 20px; top: 746px; display: flex; gap: 8px; }
+.chips .chip { flex: 1 1 auto; justify-content: center; }
 .chip { height: 36px; padding: 0 13px 0 11px; border-radius: 18px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; letter-spacing: -0.1px; color: var(--ink); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--hair); white-space: nowrap; }
 .chip svg.i { width: 17px; height: 17px; stroke-width: 1.8; color: var(--ink2); }
 .ask { position: absolute; z-index: 35; left: 20px; right: 20px; top: 792px; height: 52px; border-radius: 26px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 18px; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--hair2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); backdrop-filter: blur(24px); }
@@ -193,10 +194,10 @@ svg.i { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-widt
 .rail div { width: 44px; height: 44px; display: grid; place-items: center; color: var(--ink); }
 .rail div svg.i { width: 20px; height: 20px; stroke-width: 2; }
 .rail .zl { height: auto; padding: 4px 0; font-size: 10px; line-height: 12px; font-weight: 600; text-align: center; color: var(--ink2); border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
-.readout { position: absolute; z-index: 20; left: 20px; top: 576px; font-size: 11px; line-height: 16px; font-weight: 500; color: rgba(235, 240, 245, 0.78); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+.readout { position: absolute; z-index: 20; left: 20px; top: 598px; font-size: 11px; line-height: 16px; font-weight: 500; color: rgba(235, 240, 245, 0.78); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
 .readout b { color: var(--cyan-ink); font-weight: 600; }
 .readout .hl { color: var(--ink); }
-.spot { position: absolute; z-index: 20; left: 16px; right: 16px; top: 638px; padding: 12px 12px 12px; border-radius: 26px; background: rgba(24, 27, 31, 0.62); border: 1px solid rgba(255, 255, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 20px 50px rgba(0, 0, 0, 0.5); backdrop-filter: blur(30px) saturate(180%); }
+.spot { position: absolute; z-index: 20; left: 16px; right: 16px; top: 664px; padding: 12px 12px 12px; border-radius: 26px; background: rgba(24, 27, 31, 0.62); border: 1px solid rgba(255, 255, 255, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 20px 50px rgba(0, 0, 0, 0.5); backdrop-filter: blur(30px) saturate(180%); }
 .spot .cap { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font-size: 11px; line-height: 13px; font-weight: 600; letter-spacing: 0.09em; color: var(--ink3); }
 .spot .cap em { font-style: normal; letter-spacing: 0.02em; text-transform: none; font-weight: 500; color: var(--ink2); }
 .sbtns { margin-top: 10px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }

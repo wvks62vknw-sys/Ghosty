@@ -293,8 +293,8 @@ def globe_svg(g, style='c'):
          f'<path d="{g["borders"]}" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="0.6"/>',
          '<rect width="440" height="956" fill="url(#term)"/>',
          '<rect width="440" height="956" fill="url(#haze)"/>',
-         '<g filter="url(#lights)">' + ''.join(f'<circle cx="{x}" cy="{y}" r="{r * 2.2:.2f}" fill="#ffcf8a" opacity="{a * 0.45:.2f}"/>' for x, y, r, a, n in g['lights']) + '</g>',
-         ''.join(f'<circle cx="{x}" cy="{y}" r="{r * 0.6:.2f}" fill="#fff1d6" opacity="{a * 0.9:.2f}"/>' for x, y, r, a, n in g['lights']),
+         '<g filter="url(#lights)">' + ''.join(f'<circle cx="{x}" cy="{y}" r="{r * 2.2:.2f}" fill="#ffcf8a" opacity="{a * 0.45:.2f}"/>' for x, y, r, a, n in g['lights'] if not (x < 330 and 588 < y < 660)) + '</g>',
+         ''.join(f'<circle cx="{x}" cy="{y}" r="{r * 0.6:.2f}" fill="#fff1d6" opacity="{a * 0.9:.2f}"/>' for x, y, r, a, n in g['lights'] if not (x < 330 and 588 < y < 660)),
          '</g>',
          f'<path d="{limb}" fill="none" stroke="#bfefff" stroke-opacity="0.5" stroke-width="1"/>']
     # aircraft
@@ -498,7 +498,7 @@ def language():
         ('Kicker', '11/13 · Semibold · +9 % caps', 't-kick', 'Free AI · School · Library'),
     ]
     trows = ''.join(f'<div class="ty"><div class="tm"><b>{n}</b><em>{d}</em></div><div class="{c}">{t}</div></div>' for n, d, c, t in types)
-    trows += '<div class="ty"><div class="tm"><b>Readout</b><em>11/16 · tabular, slashed zero</em></div><div class="mono" style="font-size:12px;line-height:16px;color:rgba(235,240,245,.78)">52.477° −1.922° · ALT 3,050 KM</div></div>'
+    trows += '<div class="ty"><div class="tm"><b>Readout</b><em>11/16 · tabular, tracked +4 %</em></div><div class="mono" style="font-size:12px;line-height:16px;color:rgba(235,240,245,.78)">52.477° −1.922° · ALT 3,050 KM</div></div>'
     body = f'''
 <div class="lang">
   <header><div><div class="eyebrow">Route C · the blend</div><h1>Calm like an iPhone. Alive like Jarvis.</h1>
