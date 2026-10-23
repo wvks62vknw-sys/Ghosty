@@ -96,6 +96,10 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   const school = await brainGet('/school');
   if (!school && !co.tr?.hidden) problems.push(`[${W}] the SCHOOL gauge shows with no /api/school: "${co.tr?.v}"`);
   if (school?.state?.stage && co.tr?.hidden) problems.push(`[${W}] the SCHOOL gauge is hidden although /api/school answers`);
+  if (school?.current?.subjects && !co.tr?.hidden) {
+    const want = `${school.current.subjects.filter((x) => x.top).length} of ${school.current.subjects.length} passed`;
+    if (co.tr?.v !== school.current.label || co.tr?.s !== want) problems.push(`[${W}] SCHOOL reads "${co.tr?.v}" "${co.tr?.s}"; the school says ${school.current.label}, ${want}`);
+  }
   await page.waitForFunction(() => document.querySelector('#cstate')?.textContent === 'ONLINE', null, { timeout: 10000 }).catch(() => undefined);
   const pill = (await page.textContent('#cstate'))?.trim();
   if (pill !== 'ONLINE') problems.push(`[${W}] the live-state pill reads "${pill}"`);

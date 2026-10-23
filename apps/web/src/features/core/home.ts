@@ -271,13 +271,14 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
       setArc(inn, null);
       return;
     }
-    const stages = Array.isArray(j.stages) ? (j.stages as { id?: string; label?: string; name?: string }[]) : [];
-    const here = stages.find((x) => x.id === st.stage);
-    const name = here?.label ?? here?.name ?? niceCase(String(st.stage).replace(/[-_]/g, ' '));
-    const latest = j.latest && typeof j.latest === 'object' ? Object.values(j.latest as Record<string, unknown>) : [];
-    const subjects = latest.filter((x) => x && typeof x === 'object') as { top?: boolean; topGrade?: boolean }[];
-    const passed = subjects.filter((x) => x.top || x.topGrade).length;
-    setCo(school, name, '', subjects.length ? `${passed} of ${subjects.length} passed` : 'no papers sat yet');
+    // GET /school (apps/edge/src/school/routes.ts): `current` has the stage's name and each subject with `top`
+    // (top grades in its latest paper); the ladder (`stages`) names the stage when `current` is missing.
+    const cur = j.current as { label?: string; subjects?: { top?: boolean }[] } | undefined;
+    const stages = Array.isArray(j.stages) ? (j.stages as { id?: string; label?: string }[]) : [];
+    const name = cur?.label ?? stages.find((x) => x.id === st.stage)?.label ?? niceCase(String(st.stage).replace(/[-_]/g, ' '));
+    const subjects = Array.isArray(cur?.subjects) ? cur!.subjects! : [];
+    const passed = subjects.filter((x) => x.top).length;
+    setCo(school, name, '', subjects.length ? `${passed} of ${subjects.length} passed` : 'no subjects yet');
     school.el.hidden = false;
     inn.track.style.display = '';
     setArc(inn, subjects.length ? passed / subjects.length : 0);
