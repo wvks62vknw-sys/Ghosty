@@ -180,7 +180,8 @@ export function checkHtml(html: string, opts: { kind?: CheckKind } = {}): CheckR
     const u = raw.trim();
     if (w === 'http') return resource(line, 'error', `${what} ${u.slice(0, 80)} is insecure (http:) — the browser blocks it on an https page; use an https:// address`);
     if (opts2.frame) {
-      if (page && w !== 'anchor' && !FRAME_HOSTS.includes(hostOf(u))) resource(line, 'error', `${what} ${u.slice(0, 80)} won't show — a published page may only frame YouTube (www.youtube-nocookie.com), Vimeo (player.vimeo.com) and OpenStreetMap (www.openstreetmap.org) embeds; link to it instead`);
+      // (OpenStreetMap only through its embed page: the published pages' frame policy allows nothing else there.)
+      if (page && w !== 'anchor' && (!FRAME_HOSTS.includes(hostOf(u)) || (hostOf(u) === 'www.openstreetmap.org' && !/^https:\/\/www\.openstreetmap\.org\/export\/embed\.html/i.test(u)))) resource(line, 'error', `${what} ${u.slice(0, 80)} won't show — a published page may only frame YouTube (www.youtube-nocookie.com), Vimeo (player.vimeo.com) and OpenStreetMap's embed page (www.openstreetmap.org/export/embed.html); link to it instead`);
       return;
     }
     if (opts2.stylesheet) {
