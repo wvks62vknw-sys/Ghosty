@@ -19,6 +19,7 @@ import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { citedReply } from './cited';
+import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
@@ -182,7 +183,8 @@ export const coreTab: TabDef = {
     const reactor = new Reactor();
     const stark = new StarkHud();
     const hud = h('div.hud.core');
-    const stateLabel = h('div#cstate', 'ONLINE');
+    // (route C shows it as a pill in tracked capitals: its case is kept)
+    const stateLabel = h('div#cstate', { dataset: { case: 'keep', tone: 'live' } }, 'ONLINE');
     // On phones the call-outs around the reactor have no room: the same readings sit in one
     // quiet row under it instead (hidden on wide screens, where the call-outs show).
     const glance = h('div#glance');
@@ -258,7 +260,6 @@ export const coreTab: TabDef = {
     }, `citedbtn${settings.get().cited ? ' on' : ''}`);
     citedBtn.setAttribute('aria-pressed', String(settings.get().cited));
     citedBtn.title = 'Answers with numbered sources, each claim checked';
-    citedBtn.dataset.label = 'Answers with sources'; // its line in the calm looks' "+" menu
     const voiceBtn = button(settings.get().speak ? 'VOICE ON' : 'VOICE OFF', (b) => {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
@@ -335,7 +336,8 @@ export const coreTab: TabDef = {
     );
     const capActs = h('div.capacts');
     const plus = h('button.plusbtn', { type: 'button', 'aria-label': 'More: voice replies and the camera', 'aria-expanded': 'false' }, icon('<path d="M12 5v14M5 12h14"/>'));
-    const plusMenu = h('div.plusmenu', citedBtn, voiceBtn, lensBtn);
+    // (CITED sits in the bar itself: route C's composer shows it as a toggle beside the field; the classic looks, in a row)
+    const plusMenu = h('div.plusmenu', voiceBtn, lensBtn);
     plus.addEventListener('click', () => {
       const open = !plusMenu.classList.contains('open');
       plusMenu.classList.toggle('open', open);
@@ -356,7 +358,13 @@ export const coreTab: TabDef = {
       plusMenu.classList.remove('open');
       plus.setAttribute('aria-expanded', 'false');
     });
-    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, mic));
+    // Route C's Home (home.ts): the date and weather lines, the reactor framed by its four instruments, the
+    // Today card and the two tiles. The classic looks see only the reactor of it (styles.css).
+    const rwrap = h('div.rwrap', reactor.el);
+    const rc = routeCHome(rwrap);
+    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, mic));
+    // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
+    setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
     // Where the conversation button is (one at a time): the classic looks' chat bar; in the calm looks "‹ Ask" in the
     // navigation bar while the conversation is open, "Continue in chat" on a reply, else the "Chat" chip.
@@ -377,15 +385,16 @@ export const coreTab: TabDef = {
         logBtn.dataset.label = 'Continue in chat';
         if (logBtn.parentElement !== capActs) capActs.append(logBtn);
       } else {
+        // route C: the way into the conversation is the ask bar's own chat button (left in the field)
         logBtn.dataset.label = 'Chat';
-        if (logBtn.parentElement !== suggest) suggest.prepend(logBtn);
+        if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
       }
     };
     setTimeout(placeChat, 0);
     themeEvents.on('change', placeChat);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
-    hud.append(left, center, right);
+    hud.append(rc.glow, left, center, right);
     root.append(hud);
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
@@ -499,7 +508,9 @@ export const coreTab: TabDef = {
       if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
-      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : conversation ? 'READY' : 'ONLINE';
+      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      // route C draws it as a pill: the accent while live, amber when the brain can't be reached
+      stateLabel.dataset.tone = s.connected === false && !s.busy && s.voice !== 'speaking' ? 'warn' : 'live';
     };
     ui.subscribe(paintState);
     paintState();
@@ -532,6 +543,9 @@ export const coreTab: TabDef = {
     let libText = '…';
     let nextAt = 0;
     const paintCallouts = async () => {
+      // route C's instruments and cards (each refreshes only what is stale)
+      rc.tick();
+      rc.enter();
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
       const ms = await latency().catch(() => null);
