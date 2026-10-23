@@ -88,6 +88,32 @@ export function empty(status: string, next?: string, title?: string): HTMLElemen
     h('span', { dataset: { label: line } }, bad ? 'feed unreachable right now' : wait ? 'establishing link…' : next ?? 'nothing to show yet'));
 }
 
+/**
+ * UNDO after something was removed: one bar with what changed and an UNDO button; it goes by itself after
+ * `ms`. `fn` puts it back (and says so); the bar hides as soon as it is tapped.
+ */
+export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: () => Promise<unknown>): void } {
+  const el = h('div.undo.rcundo', { role: 'status', hidden: true });
+  let timer = 0;
+  return {
+    el,
+    show(text, fn) {
+      clearTimeout(timer);
+      clear(el, h('span', text), button('UNDO', async (b) => {
+        b.disabled = true;
+        el.hidden = true;
+        try {
+          await fn();
+        } catch (e) {
+          toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+        }
+      }, 'on'));
+      el.hidden = false;
+      timer = window.setTimeout(() => (el.hidden = true), ms);
+    },
+  };
+}
+
 /** Paged list: no scrolling. Re-fits the number of rows to the panel height. */
 export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE', emptyNext?: string): { set(items: T[]): void } {
   let items: T[] = [];
