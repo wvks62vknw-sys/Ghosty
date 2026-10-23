@@ -675,3 +675,20 @@ test('review 7: free library photos are never shown as the business\'s own work;
   }
   for (const set of Object.values(K.STOCK)) for (const i of [set.hero, ...set.story, ...set.gallery]) assert.ok(!/GymNation/i.test(i.src + JSON.stringify(i.credit)), i.src);
 });
+
+test('review 8: the phone\'s website questions never take over a message that is not their answers; only a website FOR something is an ask', async () => {
+  for (const t of ['do you know the website for the council tax?', 'I need to check the NHS website for my prescription', 'can you make sure the site visit is booked', 'I want to go back to that site we found yesterday', 'set up the home page widget']) assert.equal(K.siteAsk(t), false, t);
+  for (const t of ['build me a website for my cafe', 'can you make a site for my plumbing business', 'I need a landing page for my app', "build a website for my friend's barber shop in walsall", 'I want a new website for my gym', 'build me a website']) assert.ok(K.siteAsk(t), t);
+  const store = new Map();
+  globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+  const O = await import('./.build/offline-site.mjs');
+  store.set('ghosty.offlineSite', JSON.stringify({ brief: K.briefFrom('build me a website for my cafe'), asked: ['name', 'town', 'phone', 'hours', 'about'], at: Date.now() }));
+  assert.equal(O.offlineSiteTurn('remind me to ring Dr Patel at 4pm about my blood test results, my NHS number is 943 476 5919, and pick up Amira from school'), false);
+  assert.equal(O.offlineSiteTurn("what's the weather tomorrow?"), false);
+  assert.equal(O.offlineSiteTurn('play some jazz'), false);
+  assert.ok(O.pendingSite(), 'the questions keep waiting for their answers');
+  assert.equal(O.offlineSiteTurn('Little Fern, Bilston'), true);
+  assert.equal(O.offlineSiteTurn('01902 000512, Mon-Fri 8-4'), true);
+  assert.equal(O.offlineSiteTurn('just build it'), true);
+  delete globalThis.localStorage;
+});
