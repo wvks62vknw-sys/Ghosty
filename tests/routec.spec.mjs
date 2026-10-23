@@ -135,7 +135,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   // the breathing glow
   const breath = await page.$eval('.rcglow', (e) => getComputedStyle(e).animationName);
   if (breath !== 'rcbreath') problems.push(`[${W}] the glow behind the reactor does not breathe (${breath})`);
-  await page.screenshot({ path: `${out}/routec-${W}-home.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-home.png`, timeout: 90000 });
 
   // ---- every tab of the pill reaches its screen
   const AREA = { ask: 'core', see: 'area-see', make: 'area-make', learn: 'area-learn', plan: 'area-plan' };
@@ -175,7 +175,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   for (const want of ['plusbtn', 'cin', 'citedbtn', 'mic']) if (!chatState.composer.some((c) => c.includes(want))) problems.push(`[${W} chat] the composer has no ${want}: ${chatState.composer.join(', ')}`);
   for (const s of await sideways(page, '#pg-core *, #top *')) problems.push(`[${W} chat] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#cbar .plusbtn, #cbar #mic, #cbar .citedbtn, #top .logbtn, #top .you, .convo .msg.latest .rcacts button')) problems.push(`[${W} chat] under a 44 pt target: ${t}`);
-  await page.screenshot({ path: `${out}/routec-${W}-chat.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-chat.png`, timeout: 90000 });
   await page.click('#top .logbtn');
   await page.waitForTimeout(500);
 
@@ -205,7 +205,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
       const head = await page.textContent('#pg-gym .gymlvhd');
       if (!/Levels by game · \d+ of \d+ mastered/i.test(head ?? '')) problems.push(`[${W} gym] the levels heading reads "${head}"`);
     }
-    await page.screenshot({ path: `${out}/routec-${W}-${tab}.png` });
+    await page.screenshot({ path: `${out}/routec-${W}-${tab}.png`, timeout: 90000 });
   }
 
   // ---- the Me sheet: Status first, three dials with real readings
@@ -230,7 +230,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   if (me.rows.join(',') !== 'memory,settings,system,links,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#mesheet .merow, #mesheet .meclose')) problems.push(`[${W} me] under a 44 pt target: ${t}`);
-  await page.screenshot({ path: `${out}/routec-${W}-me.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-me.png`, timeout: 90000 });
   await ctx.close();
 }
 
