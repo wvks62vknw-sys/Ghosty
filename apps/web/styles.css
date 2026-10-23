@@ -2430,3 +2430,10 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
       shorthand names the missing --sf, so it was 0 px). */
 [data-look="pro"] #suggest { flex-wrap: wrap; justify-content: center; overflow-x: visible; row-gap: 8px; }
 [data-look="pro"] #suggest .logbtn::before { font-size: 16px; font-weight: 400; }
+
+/* hero: mind — Home's 3-D centrepiece in the calm looks (features/core/mind.ts). Its WebGL canvas lies exactly over
+   the 2-D reactor's canvas, which keeps its place in the layout (and its taps) but is not drawn while Mind runs. */
+.rwrap:has(> canvas.mindhero) { position: relative; }
+canvas.mindhero { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
+canvas.reactor.mindon { opacity: 0; }
+/* end hero: mind */
