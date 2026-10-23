@@ -39,6 +39,13 @@ const engine = (ready) => {
   };
 };
 
+/** Stop here: what went wrong so far is reported, and the run fails. */
+async function bail() {
+  await browser.close();
+  console.error(`SCHOOL: ${problems.length} problem(s)\n - ${problems.join('\n - ')}`);
+  process.exit(1);
+}
+
 const noSideways = async (page, where) => {
   const o = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth - innerWidth, body: document.body.scrollWidth - innerWidth }));
   if (o.doc > 1 || o.body > 1) problems.push(`${where}: the page scrolls sideways (${o.doc}px / ${o.body}px)`);
@@ -64,9 +71,15 @@ async function signIn(ready) {
 const { ctx, page } = await signIn(true);
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open'));
-if (!(await page.locator('#deck .dtile[data-id="school"]').count())) problems.push('SCHOOL is not in the systems deck');
+if (!(await page.locator('#deck .dtile[data-id="school"]').count())) {
+  problems.push('SCHOOL is not in the systems deck');
+  await bail();
+}
 await page.click('#deck .dtile[data-id="school"]');
-await page.waitForFunction(() => document.querySelectorAll('#pg-school .schrung').length === 9, null, { timeout: 15000 }).catch(() => problems.push('the ladder did not show nine stages'));
+if (!(await page.waitForFunction(() => document.querySelectorAll('#pg-school .schrung').length === 9, null, { timeout: 15000 }).then(() => true, () => false))) {
+  problems.push('the ladder did not show nine stages');
+  await bail();
+}
 const rungs = await page.$$eval('#pg-school .schrung', (r) => r.map((x) => ({ cls: x.className, name: x.querySelector('.schname b')?.textContent, state: x.querySelector('.schstate')?.textContent })));
 if (!/s-now/.test(rungs[0]?.cls ?? '') || rungs[0]?.name !== 'Nursery' || !/^now$/i.test(rungs[0]?.state ?? '')) problems.push(`Nursery is not "now": ${JSON.stringify(rungs[0])}`);
 if (rungs.slice(1).some((r) => !/s-locked/.test(r.cls) || !/^locked$/i.test(r.state ?? ''))) problems.push(`stages after nursery are not all locked: ${JSON.stringify(rungs.slice(1))}`);
