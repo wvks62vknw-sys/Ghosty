@@ -32,7 +32,8 @@ function chip(n: number, info: CitedInfo, unconfirmed: boolean): HTMLElement {
 
 /** One row of the SOURCES list. */
 function sourceRow(c: Citation): HTMLElement {
-  const label = h('b', `[${c.n}]`);
+  // "[1]": route C shows the number alone in a small square (the brackets are hidden there, styles.css)
+  const label = h('b', h('i.br', '['), String(c.n), h('i.br', ']'));
   const where = c.url ? c.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : c.doc ? 'your library' : '';
   const inner = [label, h('span', c.title), where ? h('em', where) : null, c.missing ? h('i', 'never looked up — not a checked source') : null];
   if (c.url && !c.missing) return h('a.csrc', { href: c.url, target: '_blank', rel: 'noopener noreferrer' }, ...inner);

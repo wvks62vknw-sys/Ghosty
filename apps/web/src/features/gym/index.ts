@@ -25,7 +25,7 @@ import { ALL_BUDGET, allLine, current, type GymRecord, joinLevels, type LevelNot
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, niceCase, panel, spark, toast } from '../../ui/components';
+import { button, niceCase, panel, spark, sparkline, toast } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
 import { proLook } from '../../state/theme';
@@ -389,7 +389,14 @@ export const gymTab: TabDef = {
       savePrefs();
       paint();
     });
-    nowCard.after(h('div.gymall', allBtn, awakeSw.el, allStatus));
+    // Route C: the card opens with LEVELS BY GAME — a bar per game, highest level first, the mastered ones lit —
+    // and TRAIN ALL with KEEP AWAKE in one row under it; then the games under their own heading.
+    const lvlHead = h('div.gymlvhd', { dataset: { case: 'keep' } }, h('span.k'), h('span.lv', 'Lv 1–10'));
+    const lvlBars = h('div.gymlvls', { 'aria-hidden': 'true' });
+    awakeSw.el.prepend(h('span.bic', icon('<path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z"/>')));
+    nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus));
+    const gamesHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Games'), h('span'));
+    cards.before(gamesHead);
     // ======================= the game as a pushed screen (calm looks, phones)
     const pushes = () => proLook() && matchMedia('(max-width: 899px)').matches;
     let pushedGame = false;
@@ -477,7 +484,7 @@ export const gymTab: TabDef = {
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
       P.big.textContent = `${mastered} OF ${GAMES.length} MASTERED`;
       // A fixed line: text that changes length here would shift every button below it mid-tap.
-      P.sub.textContent = 'Ghosty teaches himself by playing · on this phone';
+      P.sub.textContent = proLook() ? 'Ghosty teaches himself by playing, on this phone.' : 'Ghosty teaches himself by playing · on this phone';
       P.dials([
         ['MASTERY', avg, `${Math.round(avg * 100)}%`],
         ['LEVELS', levels / (GAMES.length * 10), `${levels}`],
@@ -492,21 +499,23 @@ export const gymTab: TabDef = {
         const st = stateOf(g, r);
         c.b.classList.toggle('on', g.id === open.id);
         c.b.setAttribute('aria-pressed', String(g.id === open.id));
-        c.small.textContent = r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
+        c.small.textContent = r?.mastered ? 'ALL 10 LEVELS' : r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
         // the ring is his mastery, the tick the pass mark of his level; the words say the same numbers
         const pct = r ? Math.floor(r.mastery * 100) : 0;
         c.ring.set(r?.mastered ? 1 : r?.mastery ?? 0, r && !r.mastered ? g.bar(r.level) : 0);
         c.lvl.textContent = String(r?.level ?? 1);
         // nothing has happened yet: an empty ring and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
-        c.st.dataset.label = st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered · all 10 levels' : `${st === 'TRAINING' ? 'Learning' : 'Paused'} · Level ${r?.level ?? 1} · ${pct}%`;
+        c.b.classList.toggle('mastered', !!r?.mastered);
+        // route C: the pill says the state in one word (the level line above says the numbers)
+        c.st.dataset.label = proLook() ? (st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered' : st === 'TRAINING' ? 'Training' : 'Paused') : st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered · all 10 levels' : `${st === 'TRAINING' ? 'Learning' : 'Paused'} · Level ${r?.level ?? 1} · ${pct}%`;
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
         const pts = r?.history.map((p) => p.m) ?? [];
-        const key = pts.join(',');
+        const key = `${proLook()}${st}${pts.join(',')}`;
         if (key !== c.sparkKey) {
           c.sparkKey = key;
-          clear(c.spark, spark(pts, 70, 18));
+          clear(c.spark, proLook() ? sparkline(pts, 140, 26, st === 'MASTERED' || st === 'TRAINING') : spark(pts, 70, 18));
         }
       }
       gymState.cards = GAMES.length;
@@ -570,10 +579,21 @@ export const gymTab: TabDef = {
       const mastered = GAMES.filter((x) => recs.get(x.id)?.mastered).length;
       allStatus.textContent = allLine(run, allOn, g ? niceCase(g.title) : '', recs.get(run?.current ?? '')?.level ?? 1, mastered, GAMES.length);
       allBtn.textContent = allOn ? 'STOP' : 'TRAIN ALL';
+      // route C: the words as a label (its glyph sits beside them, so the button's own text is not sentence-cased)
+      allBtn.dataset.label = allOn ? 'Stop' : 'Train all';
       allBtn.disabled = !allOn && mastered >= GAMES.length;
       const can = !!wakeLock();
       awakeSw.set(prefs.awake, can, can ? undefined : 'This phone’s browser cannot keep the screen on');
       gymState.all = { on: allOn, current: run?.current ?? '', line: allStatus.textContent };
+      // LEVELS BY GAME: each game's level (a level passed counts whole; Level 10 passed is mastered), highest first
+      const levels = GAMES.map((x) => {
+        const r = recs.get(x.id);
+        return { id: x.id, lv: !r?.units ? 0 : r.mastered ? 10 : Math.max(1, r.level - 1 + r.mastery), done: !!r?.mastered };
+      }).sort((a, b) => b.lv - a.lv);
+      clear(lvlHead.firstChild as HTMLElement, 'Levels by game · ', h('b', `${mastered} of ${GAMES.length}`), ' mastered');
+      clear(lvlBars, h('i.g', { style: { bottom: '50%' } }), ...levels.map((x) => h(`i.b${x.done ? '.m' : x.lv ? '' : '.z'}` as 'i', { style: { height: `${Math.max(8, (x.lv / 10) * 100)}%` }, dataset: { game: x.id } })));
+      const fresh = GAMES.filter((x) => !recs.get(x.id)?.units).length;
+      (gamesHead.lastChild as HTMLElement).textContent = `${GAMES.length} games${fresh ? ` · ${fresh} not started` : ''}`;
       gymState.awake.on = prefs.awake;
       gymState.awake.can = can;
     };

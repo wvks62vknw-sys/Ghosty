@@ -32,7 +32,7 @@ export interface Theme {
 
 export const THEMES: Record<string, Theme> = {
   // --- the calm looks: Apple-style glass around the arc reactor ---
-  graphite: { c: '#64d2ff', a: '#ffb340', r: '#ff6961', label: 'Graphite', tag: 'space grey, a cyan reactor', bg: '#060708', finish: 'graphite', look: 'pro' },
+  graphite: { c: '#64d2ff', a: '#ffb340', r: '#ff6961', label: 'Graphite', tag: 'space grey, a cyan reactor', bg: '#050607', finish: 'graphite', look: 'pro' },
   reactor: { c: '#ffc56e', a: '#ff9f0a', r: '#ff6b5e', label: 'Reactor', tag: 'warm glass, a gold reactor', bg: '#0a0806', finish: 'reactor', look: 'pro' },
   // --- the originals ---
   stark: { c: '#62e4ff', a: '#ffb23e', r: '#ff3b3b', label: 'JARVIS', tag: 'arc-reactor cyan · gold data', bg: '#02050a', finish: 'glass' },
