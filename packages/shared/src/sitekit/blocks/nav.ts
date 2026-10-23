@@ -82,7 +82,7 @@ export const navBlocks: BlockDef[] = [
   {
     id: 'announce',
     group: 'nav',
-    about: 'A thin bar above the header for one short line: walk-ins welcome, 24-hour call-outs, a date, a new menu.',
+    about: 'A thin bar above the header for one short line: opening news, a date, a new menu.',
     slots: { text: T(90, 'one short line'), link: LINK('optional link'), icon: OT(24, 'icon name') },
     css: `.b-announce{background:var(--text);color:var(--bg);font-size:var(--step--1);font-weight:500}
 .b-announce .wrap{display:flex;align-items:center;justify-content:center;gap:.6em;min-height:40px;text-align:center;flex-wrap:wrap;padding-block:.35em}

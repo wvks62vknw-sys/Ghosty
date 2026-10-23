@@ -127,3 +127,11 @@ Add to it any time; tick items off only when he agrees they are fixed.
     meanwhile.
 27. **The hero: MIND** ("Mind but a little bit better too", 23 Oct). The hologram of Ghosty's mind becomes Home's
     centrepiece, built into the app (BRIEF-DESIGN-HERO-BUILD.md) with the improvements listed there.
+28. **One look (24 Oct):** "I want the new look to be the only look, with just different themes like colours and maybe
+    some other cool things we could add, we can brainstorm on." So route C becomes the only design; the classic looks
+    are removed; themes are colour variants of it (Reactor cyan default; ideas offered: a Stark red-and-gold "Mark",
+    emerald, violet, white-hot; a warm-paper daytime theme switching with the sun; Mind following the accent;
+    backdrops: hex grid / stars / plain; a sound set per theme; a living accent). He picks which to build.
+29. **A GitHub token IS set** in SYSTEM (24 Oct), so the self-edit trial (item 21) can run after the merge to main.
+    The new look has not reached his phone only because PR #32 is not merged yet.
+30. **Usage check-in, 24 Oct ~00:30 UK:** all models weekly 14 %, Fable weekly 9 %.

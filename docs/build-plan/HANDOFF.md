@@ -24,6 +24,15 @@ folder that no longer exists; ignore those paths).
   website builder's fixes (BRIEF-WEBSITES-FIX.md, from its adversarial review: must land before the next merge to main).
   Next: the specs' viewport switch to 440 × 956 (A3, a cheap model), the design polish pass (GYM's empty LEVELS card,
   WHAT'S NEW), the stopwatch (B3), the human voice (D6), the first real training run (E1) after the merge to main.
+- Owner, 24 Oct ~00:30 UK: usage all models 14 %, Fable 9 %; route C becomes the ONLY look with colour themes
+  (BRIEF-ONE-LOOK.md, after route C part 2 lands); a GitHub token is set (the self-edit trial can run after the merge
+  to main); the new look reaches his phone only when PR #32 merges: ask for his "merge" as soon as CI is green.
+- Merged 24 Oct early: SCHOOL 2b (exams on the free GPU, practice into training, the gap), SCHOOL 3 (reading), the
+  website builder's 17 fixes (sites wait as a DRAFT until the owner confirms), the human voice. Small follow-ups still
+  open: the training panel's KIND label for "voice" and the report card's `voiceLine(run)` (features/system, after the
+  route C part 2 restyle lands); the Commons/Openverse user-agent contact address; cancel-after-publish and the 10-year
+  /i/ pictures; the 60-reply voice fixture wants the owner's own blind check. Running: route C part 2 (every other
+  screen), the school wiring (free-GPU button, the gap on the tab, OpenStax out of self-study).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

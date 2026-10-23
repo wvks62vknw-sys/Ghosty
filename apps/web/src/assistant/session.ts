@@ -10,7 +10,7 @@ import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
-import { offlineSiteReply, offlineSiteTurn, pendingSite } from '../offline/site';
+import { offlineSiteReply, offlineSiteTurn } from '../offline/site';
 import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
@@ -425,8 +425,9 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
   if (harder !== null) return thinkHarderAbout(harder, { asked: true });
   const mode = settings.get().offlineBrain;
-  // A website with no brain to ask (offline mode 'always', no connection, or the answers to the phone's own questions): built here from the website kit.
-  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false || pendingSite())) {
+  // A website with no brain to ask (offline mode 'always', or no connection): built here from the website kit. Never a
+  // message taken over while the brain can be asked (the answers to the phone's questions then go to the brain too).
+  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false)) {
     await stream(async () => siteHere(t));
     return;
   }

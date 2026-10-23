@@ -130,8 +130,30 @@ export function missing(b: Brief): { key: keyof Brief; ask: string }[] {
   return out;
 }
 
-/** Is this a request for a website ("build me a website for…", "make a site for my café")? */
-export const siteAsk = (text: string): boolean => /\b(build|make|create|design|do|set up|need|want)\b[^.?!]{0,40}\b(web ?site|site|web ?page|landing page|home ?page)\b/i.test(text) && !/\b(unpublish|take (it|.{0,20}) down|list (my )?sites)\b/i.test(text);
+/**
+ * Is this a request for a website FOR something ("build me a website for…", "make a site for my café", "I
+ * need a landing page for my app")? A site somebody else has ("the NHS website", "that site we found"), a
+ * site visit or a home page widget is not: the site must be asked for (a, my, new…) and be for something.
+ */
+export const siteAsk = (text: string): boolean =>
+  /\b(?:build|make|create|design|set up|do|need|needs|want|get|start)\b(?:\s+(?:me|us|him|her|them|you))?(?:\s+(?:a|an|my|our|their|his|her|new|simple|proper|small|nice|quick|one-page|business))+\s+(?:web ?site|site|web ?page|landing page|home ?page)\b(?=\s+(?:for|about|that|where|with|to (?:sell|show|promote))\b|\s*[:.!]|\s*(?:please)?\s*$)/i.test(text) &&
+  !/\b(unpublish|take (it|.{0,20}) down|list (my )?sites)\b/i.test(text);
+
+/**
+ * Does a message read as the answers to the phone's website questions? Only when it gives a fact (a phone,
+ * an email, a postcode, hours, prices, "name: …"), says to go ahead, or is short with no question and no
+ * request of its own — never "remind me to ring Dr Patel at 4pm…", which is a message for the brain.
+ */
+export function looksLikeAnswers(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\b(just build( it)?|go ahead|use (the )?defaults|don'?t ask)\b/i.test(t)) return true;
+  const f = briefFrom(t);
+  if (f.phone || f.email || f.postcode || f.hours || f.services || /\b(?:name|called|town|area)\s*[:=]/i.test(t)) return true;
+  if (t.length > 160 || t.split(/\s+/).length > 24) return false;
+  if (/\?/.test(t)) return false;
+  return !/^(?:please\s+|can you\s+|could you\s+|will you\s+|hey\s+|ok(?:ay)?\s+)?(?:remind|set|tell|what|when|where|who|why|how|play|call|ring|text|message|send|email|show|open|find|search|look|turn|add|book|delete|remove|check|navigate|take|translate|read|start|stop|cancel|pause|make|build|write|give|get|is|are|do|does|did|should|would|could|can|will)\b/i.test(t);
+}
 
 /**
  * The owner's answers to the questions `missing` asked, folded into the brief: anything recognisable

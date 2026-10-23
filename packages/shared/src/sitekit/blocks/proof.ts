@@ -7,8 +7,10 @@ import { a, esc, icon, img, imgOf, isImage, linkOf, list, str } from '../html';
 import type { BlockDef, ImageRef } from '../types';
 import { HEAD, IMG, LINK, LIST, OT, T, head, initials, sec } from './common';
 
-const stars = (n: number) => {
-  const k = Math.max(0, Math.min(5, Math.round(n)));
+/** Stars only for a rating the reviewer really gave (none when there is no rating: never a made-up five). */
+const stars = (v: unknown) => {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '';
+  const k = Math.max(0, Math.min(5, Math.round(v)));
   return k ? `<span class="stars" role="img" aria-label="${k} out of 5 stars">${icon('star').repeat(k)}</span>` : '';
 };
 
@@ -49,7 +51,7 @@ export const proofBlocks: BlockDef[] = [
     render(d, x) {
       const items = list<Record<string, unknown>>(d, 'items').slice(0, 6);
       const l = linkOf(d, 'link');
-      return sec('testimonials-grid', x, `<div class="wrap">${head(d, { center: true })}<div class="cards">${items.map((r) => `<figure class="reveal">${stars(Number(r.rating ?? 5))}<blockquote><p>“${esc(str(r, 'quote'))}”</p></blockquote><figcaption><span class="av" aria-hidden="true">${esc(initials(str(r, 'name')))}</span><span><b>${esc(str(r, 'name'))}</b>${str(r, 'detail') ? `<small>${esc(str(r, 'detail'))}</small>` : ''}</span></figcaption></figure>`).join('')}</div>${l ? `<p class="more">${a(l.href, `${esc(l.label)} ${icon('external')}`, 'btn btn-outline btn-sm')}</p>` : ''}</div>`);
+      return sec('testimonials-grid', x, `<div class="wrap">${head(d, { center: true })}<div class="cards">${items.map((r) => `<figure class="reveal">${stars(r.rating)}<blockquote><p>“${esc(str(r, 'quote'))}”</p></blockquote><figcaption><span class="av" aria-hidden="true">${esc(initials(str(r, 'name')))}</span><span><b>${esc(str(r, 'name'))}</b>${str(r, 'detail') ? `<small>${esc(str(r, 'detail'))}</small>` : ''}</span></figcaption></figure>`).join('')}</div>${l ? `<p class="more">${a(l.href, `${esc(l.label)} ${icon('external')}`, 'btn btn-outline btn-sm')}</p>` : ''}</div>`);
     },
   },
   {
@@ -67,7 +69,7 @@ export const proofBlocks: BlockDef[] = [
 .b-testimonial-feature figcaption small{display:block;color:var(--muted)}`,
     render(d, x) {
       const image = imgOf(d, 'image');
-      return sec('testimonial-feature', x, `<div class="wrap"><figure class="reveal">${icon('quote').replace('class="ic"', 'class="ic q"')}${stars(Number(d.rating ?? 5))}<blockquote><p>${esc(str(d, 'quote'))}</p></blockquote><figcaption>${image ? img(image, { sizes: '52px' }) : ''}<span><b>${esc(str(d, 'name'))}</b>${str(d, 'detail') ? `<small>${esc(str(d, 'detail'))}</small>` : ''}</span></figcaption></figure></div>`);
+      return sec('testimonial-feature', x, `<div class="wrap"><figure class="reveal">${icon('quote').replace('class="ic"', 'class="ic q"')}${stars(d.rating)}<blockquote><p>${esc(str(d, 'quote'))}</p></blockquote><figcaption>${image ? img(image, { sizes: '52px' }) : ''}<span><b>${esc(str(d, 'name'))}</b>${str(d, 'detail') ? `<small>${esc(str(d, 'detail'))}</small>` : ''}</span></figcaption></figure></div>`);
     },
   },
   {

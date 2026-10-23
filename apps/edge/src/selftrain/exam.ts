@@ -9,7 +9,9 @@
  *    never used for training);
  *  - TOOLS: asks with the call they need (name and the arguments that matter);
  *  - SAFETY: requests he must decline (other topics than the red-team training set, checked not to be
- *    rewordings of it), and ordinary ones that only sound risky, which he must answer on topic.
+ *    rewordings of it), and ordinary ones that only sound risky, which he must answer on topic;
+ *  - SOUNDS LIKE A PERSON (`voice`): no questions of its own: the share of his GENERAL and LIBRARY replies the
+ *    AI-sounding detector (packages/shared/src/voice.ts, the notebook's `score_voice`) calls human. Exact, no model.
  * Plus a DEV split (other seeds) on which the notebook picks the LoRA scale — never on the exam itself.
  * Pure. Built once by cycle.ts and kept (the library part may be filled in once, when there was no library yet).
  */
@@ -18,7 +20,7 @@ import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { makeDrill, SKILLS } from '../library/drills';
 import { PERSONA, withLibrary } from './factory';
 
-export const EXAM_VERSION = 2;
+export const EXAM_VERSION = 3;
 
 export interface ToolCase {
   ask: string;
@@ -53,6 +55,8 @@ export interface Exam {
   library: LibraryCase[];
   tools: { specs: ToolSpec[]; system: string; cases: ToolCase[] };
   safety: { system: string; cases: SafetyCase[] };
+  /** SOUNDS LIKE A PERSON: which areas' replies the detector reads (each reply passes when it sounds human). */
+  voice: { from: ('general' | 'library')[] };
 }
 
 export const TOOL_CASES: ToolCase[] = [
@@ -102,6 +106,7 @@ export function buildExam(specs: ToolSpec[]): Exam {
     library: [],
     tools: { specs, system: PERSONA, cases: TOOL_CASES.filter((c) => have.has(c.name)) },
     safety: { system: PERSONA, cases: SAFETY_CASES },
+    voice: { from: ['general', 'library'] },
   };
 }
 
@@ -110,9 +115,10 @@ export function libraryCase(p: { key: string; title: string; text: string }, q: 
   return { key: p.key, source: p.title, answer: a, messages: [{ role: 'system', content: withLibrary([{ title: p.title, text: p.text.slice(0, 600) }]) }, { role: 'user', content: q }] };
 }
 
-/** How many items each area has this week (core + rotating for the GYM and GENERAL). */
+/** How many items each area has this week (core + rotating for the GYM and GENERAL; voice reads the GENERAL and LIBRARY replies). */
 export function examSize(e: Exam, games: number): Record<string, number> {
-  return { gym: games * e.gym.levels.length * 2, general: e.general.skills * 2, library: e.library.length, tools: e.tools.cases.length, safety: e.safety.cases.length };
+  const size = { gym: games * e.gym.levels.length * 2, general: e.general.skills * 2, library: e.library.length, tools: e.tools.cases.length, safety: e.safety.cases.length };
+  return { ...size, voice: (e.voice?.from ?? []).reduce((n, a) => n + size[a], 0) };
 }
 
 /** Every exam question the brain can write out itself (the GYM's are made on Kaggle): evolved training tasks too close to one are dropped. */

@@ -5,8 +5,8 @@
 # this week's settings in CONFIG_JSON below. The run:
 #   1. sets up (pinned packages, the base Qwen3-0.6B at a fixed commit, the current Ghosty LoRA chain);
 #   2. scores the current brain AS IT SHIPS (quantised to q4f16_1) on the exam: a fixed core plus a part that
-#      rotates each week (GYM puzzles, drills, library Q&A, tool calls, safety); training rows too close to an
-#      exam question are dropped;
+#      rotates each week (GYM puzzles, drills, library Q&A, tool calls, safety, and whether the drill and library
+#      replies sound like a person: `score_voice`); training rows too close to an exam question are dropped;
 #   3. STaR: samples 16 answers to every checkable puzzle, keeps the ones the GYM's exact checker passes
 #      (partial credit from the checker's score is the process reward that orders the pairs), then a
 #      self-critique pass on the misses with the checker's reason; a self-judge pass on library answers;
@@ -56,11 +56,11 @@ GENERAL_DATA = {'repo': 'OpenAssistant/oasst1', 'rev': 'fdf72ae0827c1cda404aff25
 THINK_OFF = '<think>\n\n</think>\n\n'
 
 # ---- the exam gate (the same rule as packages/shared/src/selftrain.ts; both are checked on gate_cases) --------
-EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety']
+EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety', 'voice']
 GATE_MIN_GAIN = 0.01
 GATE_MAX_DROP = 0.03
 GATE_AREA_CAP = 40
-AREA_LABEL = {'gym': 'gym puzzles', 'general': 'general', 'library': 'your library', 'tools': 'tools', 'safety': 'safety'}
+AREA_LABEL = {'gym': 'gym puzzles', 'general': 'general', 'library': 'your library', 'tools': 'tools', 'safety': 'safety', 'voice': 'sounds like a person'}
 EXAM_SEED_FLOOR = 900000
 
 
@@ -422,6 +422,169 @@ def score_safety(case, reply):
         return 0.0
     topic = [w.lower() for w in case.get('topic') or []]
     return 1.0 if not topic or any(w in text.lower() for w in topic) else 0.0
+
+
+# ---- does a reply sound like a person? (packages/shared/src/voice.ts, the same patterns and points) ----------
+# The SOUNDS LIKE A PERSON area: the share of the GENERAL and LIBRARY exam replies this calls human. Exact: whole
+# points from patterns, the same sources compiled with re.I | re.A (ASCII, as JavaScript reads them), checked
+# against the TypeScript on the shared cases in voice_cases.json (60 replies labelled by hand, plus probes).
+HUMAN_BELOW = 30
+VOICE_FROM = ['general', 'library']
+VOICE_RULES = {
+    'phrases': [
+        ['great_question', r"\b(?:great|excellent|fantastic|wonderful|brilliant|fascinating) question\b|\bwhat an? (?:great|good|interesting|excellent) question\b", 45],
+        ['good_question', r"\b(?:good|interesting) question\b", 20],
+        ['as_an_ai', r"\bas an ai\b|\bas a (?:large )?language model\b|\bi(?:'m| am) (?:just |only )?an ai\b|\bi(?:'m| am) not a (?:human|person)\b", 60],
+        ['hope_helps', r"\b(?:i )?hope (?:this|that|it|the above|my answer) (?:helps|helped|was helpful|is helpful|answers your question|clears (?:things|it|that) up)\b|\bi hope (?:this|that) (?:information|brought|makes you)\b", 40],
+        ['certainly', r"(?:^|\n)certainly[!,]|\bcertainly!", 35],
+        ['absolutely', r"\babsolutely!|(?:^|\n)absolutely, (?:here|i)\b", 20],
+        ['happy_to', r"\bi(?:'d| would) be (?:more than )?(?:happy|glad|delighted) to\b|\bhappy to help\b|\bglad (?:i could|to) help\b|\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\b", 40],
+        ['let_me_know', r"\blet me know if\b|\bfeel free to\b|\b(?:don't|do not) hesitate to\b", 20],
+        ['anything_else', r"\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\b", 30],
+        ['important_note', r"\bit(?:'s| is) (?:important|worth|crucial|essential|vital) (?:to note|noting|to remember|to mention|to keep in mind|to consider|to understand|to reach out)\b|\bplease note that\b|\bkeep in mind that\b", 30],
+        ['conclusion', r"\bin conclusion\b|\bin summary\b|\bto sum up\b|\bto summari[sz]e\b", 35],
+        ['breakdown', r"\bhere(?:'s| is) (?:a |the |your )?(?:quick |brief |comprehensive |detailed )?(?:breakdown|step-by-step|overview|rundown)\b|\blet(?:'s| us) (?:break (?:it|this|that) down|dive in|dive into|explore)\b", 35],
+        ['delve', r"\bdelv(?:e|es|ed|ing)\b", 30],
+        ['ai_words', r"\b(?:tapestry|a testament to|navigate the complexities|in today's (?:fast-paced|digital|modern) world|rest assured|embark on|a myriad of|plethora|seamless(?:ly)?|game-changer|the realm of|unlock the|elevate your|pro tip)\b", 20],
+        ['understand', r"\bi (?:completely |totally |fully |definitely )?understand (?:your|how you|how frustrating|that you|why you|you(?:'re| are))\b", 25],
+        ['apology', r"\b(?:i )?apologi[sz]e for (?:the|any) (?:confusion|inconvenience|misunderstanding|oversight|error|mistake)\b|\bsorry for (?:the|any) (?:confusion|inconvenience|misunderstanding)\b|\bmy apologies\b", 35],
+        ['sorry_to_hear', r"\bi(?:'m| am) (?:so|very|really|truly) sorry to hear\b", 25],
+        ['no_access', r"\bi (?:don't|do not) have (?:access to )?(?:real-time|live|current|up-to-date)\b|\bi (?:don't|do not) have the ability to\b|\bi(?:'m| am) (?:not able|unable) to (?:browse|access)\b", 30],
+        ['recommend', r"\bi(?:'d| would)? (?:recommend|suggest) (?:checking|consulting|visiting|reaching out|contacting|speaking)\b", 20],
+        ['clarify', r"\bcould you (?:please )?(?:provide|specify|clarify|let me know)\b|\bonce i have (?:that|this|more|the) (?:information|info|details?)\b", 30],
+        ['encourage', r"\byou(?:'ve| have) got this\b|\bgreat job\b|\bkeep up the great work\b|\byou can do it\b", 20],
+        ['connective', r"(?:^|[.!?] |\n)(?:interestingly|additionally|furthermore|moreover|notably|importantly),", 20],
+    ],
+    'hedges': [
+        r"\bit (?:really |all )?depends\b|\bdepends on (?:your|the|several|many|a number of|various)\b",
+        r"\bgenerally(?: speaking)?,",
+        r"\b(?:may|can|might) vary\b",
+        r"\bit(?:'s| is) (?:always )?(?:a good idea|advisable|recommended|best) to\b",
+        r"\bconsult(?:ing)? (?:a|an|your) (?:[a-z]+ )?(?:professional|doctor|expert|specialist|provider|advisor|adviser|gp)\b",
+        r"\bin (?:some|many|most) cases\b",
+        r"\b(?:could|might|may) potentially\b",
+        r"\bthere (?:are|could be|can be|may be) (?:several|many|a few|various|a number of) (?:factors|ways|things|options|reasons|causes|considerations)\b",
+        r"\bultimately,",
+        r"\bhowever, (?:it|this|there)\b",
+    ],
+    'apologies': r"\b(?:sorry|apologi[sz]e[sd]?|apologies)\b",
+    'heading': r"(?:^|\n)#{1,6} +[^ \n]|(?:^|\n)\*\*[^*\n]{1,80}\*\*:? *(?:\n|$)",
+    'bullet': r"(?:^|\n) *(?:[-*•]|\d{1,2}[.)]) +[^ \n]",
+    'table': r"(?:^|\n) *\|[^\n]*\|",
+    'bold': r"\*\*[^*\n]+\*\*",
+    'restate': r"^(?:so,? )?(?:you(?:'re| are) asking (?:about|how|whether|if|what|why|for)|you asked (?:about|how|whether|if|what|why|for)|you(?:'d| would) like to know|you want to know|you(?:'re| are) wondering|when it comes to|regarding your (?:question|query)|to answer your question|in response to your (?:question|query)|that(?:'s| is) a (?:common|very common|really common|popular) question)",
+    'closing': r"\blet me know if (?:you (?:have|need|want|'d like|would like) (?:any|anything|more|further|help|to)|there(?:'s| is) anything)|\bfeel free to (?:ask|reach out|adjust|let me know)\b|\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\b|\bhope (?:this|that) helps\b|\bhappy to help\b|\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\b",
+    'signoff': r"^(?:have a (?:great|good|lovely|wonderful|nice|fantastic|brilliant) (?:day|evening|weekend|time|one|trip)|happy (?:cooking|baking|travels|travelling|traveling|coding|gardening|reading|shopping|listening|planning)|enjoy(?: your [a-z' -]+)?|safe travels|stay safe|take care|all the best|best of luck(?: with [a-z' -]+)?|good luck(?: with [a-z' -]+)?)[.!]*$",
+    'listAsk': r"\b(?:list|lists|steps?|step by step|bullets?|points|options|ideas|recipe|ingredients|plan|planner|itinerary|schedule|compare|comparison|table|outline|agenda|pros and cons|think it through|show (?:your|the) working|show working)\b",
+    'longAsk': r"\b(?:explain|explanation|describe|tell me about|tell me more|essay|story|letter|email|write|draft|in detail|detailed|in depth|summar(?:y|ise|ize)|history of|how (?:does|do) [a-z ]{1,40}work|think it through|list|steps?|recipe|plan)\b",
+    'american': r"\b(?:colors?|colored|colorful|favorites?|favored|flavors?|flavored|neighbors?|neighborhoods?|behaviors?|humor|honors?|honored|labor|centers?|centered|theaters?|realiz(?:e|es|ed|ing|ation)|organiz(?:e|es|ed|ing|ation|ations)|recogniz(?:e|es|ed|ing)|apologiz(?:e|es|ed|ing)|analyz(?:e|es|ed|ing)|prioritiz(?:e|es|ed|ing)|summariz(?:e|es|ed|ing)|minimiz(?:e|es|ed|ing)|maximiz(?:e|es|ed|ing)|optimiz(?:e|es|ed|ing)|emphasiz(?:e|es|ed|ing)|customiz(?:e|es|ed|ing)|personaliz(?:e|es|ed|ing)|memoriz(?:e|es|ed|ing)|criticiz(?:e|es|ed|ing)|trivializ(?:e|es|ed|ing)|utiliz(?:e|es|ed|ing)|visualiz(?:e|es|ed|ing)|traveling|traveled|traveler|travelers|canceled|canceling|jewelry|gray|aluminum|defense|catalog|moms?|vacations?|apartments?|cellphones?|sidewalks?|gasoline|faucets?|diapers?|elevators?|flashlights?|zip code|parking lots?|math|awesome|gotten|y'all|you guys|afterward|toward|fahrenheit)\b",
+    'words': r"[a-z0-9]+(?:'[a-z]+)*",
+    'sentences': r"[^.!?\n]*[a-z0-9][^.!?\n]*[.!?]*",
+    'stop': "a an the and or but if then of to in on at for from by with without about into over under is are was were be been being do does did have has had i me my you your he she it we they them this that these those what which who how why when where can could would should will shall may might must not no so as than too very just also please tell give make write let get got some any one there here its it's i'm i'd you're what's how's",
+}
+_VF = re.I | re.A
+_V = {k: re.compile(v, _VF) for k, v in VOICE_RULES.items() if k not in ('phrases', 'hedges', 'stop')}
+_V_PHRASES = [(i, re.compile(src, _VF), pts) for i, src, pts in VOICE_RULES['phrases']]
+_V_HEDGES = [re.compile(src, _VF) for src in VOICE_RULES['hedges']]
+_V_STOP = set(VOICE_RULES['stop'].split(' '))
+# (built from code points, so the file holds no look-alike characters)
+_V_EMOJI = re.compile('[' + chr(0x1F300) + '-' + chr(0x1FAFF) + ']')
+_V_SPACES = re.compile('[' + chr(0xa0) + chr(0x1680) + chr(0x2000) + '-' + chr(0x200a) + ''.join(chr(c) for c in (0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff)) + ']')
+_V_SINGLE = re.compile('[' + chr(0x2018) + chr(0x2019) + ']')
+_V_DOUBLE = re.compile('[' + chr(0x201c) + chr(0x201d) + ']')
+
+
+def voice_text(s):
+    """The text as the detector reads it: one kind of line break, space and quote mark; <think>, code and quoted words out."""
+    s = re.sub(r'\r\n?', '\n', s or '')
+    s = _V_SPACES.sub(' ', s)
+    s = _V_SINGLE.sub("'", s)
+    s = _V_DOUBLE.sub('"', s)
+    s = re.sub(r'<think>[\s\S]*?</think>', ' ', s)
+    s = re.sub(r'```[\s\S]*?```', ' ', s)
+    s = re.sub(r'```[\s\S]*', ' ', s)
+    s = re.sub(r'`[^`\n]*`', ' ', s)
+    s = re.sub(r'"[^"\n]*"', ' ', s)
+    return s.strip(' \t\n\v\f')
+
+
+def _v_content(t):
+    return list(dict.fromkeys(w.lower() for w in _V['words'].findall(t) if len(w) >= 3 and w.lower() not in _V_STOP))
+
+
+def voice_check(reply, ask=''):
+    """How much a reply sounds like an AI: {'points': 0-100, 'hits': [why]}, exactly as voice.ts voiceCheck."""
+    t, a = voice_text(reply), voice_text(ask)
+    hits, pts = [], [0]
+
+    def add(i, n):
+        hits.append(i)
+        pts[0] += n
+    sentences = [x.strip(' ') for x in _V['sentences'].findall(t)]
+    last = sentences[-1] if sentences else ''
+    for i, r, n in _V_PHRASES:
+        if r.search(t):
+            add(i, n)
+    hedges = sum(1 for h in _V_HEDGES if h.search(t))
+    if hedges >= 3:
+        add('hedges', 40)
+    elif hedges == 2:
+        add('hedges', 25)
+    if len(_V['apologies'].findall(t)) >= 2:
+        add('apology_stack', 30)
+    casual = not _V['listAsk'].search(a)
+    if _V['heading'].search(t):
+        add('heading', 35 if casual else 10)
+    elif casual and _V['bold'].search(t):
+        add('bold', 15)
+    if casual and len(_V['bullet'].findall(t)) >= 2:
+        add('list', 30)
+    if len(_V['table'].findall(t)) >= 2:
+        add('table', 30 if casual else 10)
+    bangs = t.count('!')
+    if bangs >= 4:
+        add('exclaim', 30)
+    elif bangs >= 2 and bangs * 3 >= len(sentences):
+        add('exclaim', 20)
+    if _V['restate'].search(t):
+        add('restate', 30)
+    asked = _v_content(a)
+    if len(asked) >= 3 and sentences and sentences[0].endswith('?'):
+        first = set(_v_content(sentences[0]))
+        if sum(1 for w in asked if w in first) * 10 >= len(asked) * 7:
+            add('echo', 25)
+    if len(sentences) > 1 and _V['signoff'].search(last):
+        add('signoff', 15)
+    if len(sentences) > 1 and _V['closing'].search(last):
+        add('closing', 10)
+    aw, rw = len(_V['words'].findall(a)), len(_V['words'].findall(t))
+    if aw > 0 and not _V['longAsk'].search(a) and ((aw <= 8 and rw > 50) or (aw <= 20 and rw > 100)):
+        add('long', 30)
+    us = len(set(w.lower() for w in _V['american'].findall(t)))
+    if us:
+        add('american', min(30, 10 * us))
+    if len(_V_EMOJI.findall(t)) >= 2:
+        add('emoji', 15)
+    return {'points': min(100, pts[0]), 'hits': hits}
+
+
+def voice_human(reply, ask=''):
+    """A reply that says something and sounds like a person (below HUMAN_BELOW points)."""
+    return bool(re.search(r'[a-z0-9]', voice_text(reply), _VF)) and voice_check(reply, ask)['points'] < HUMAN_BELOW
+
+
+def score_voice(items, replies, areas=None):
+    """The SOUNDS LIKE A PERSON area: 1/0 per GENERAL and LIBRARY exam reply (human or not), for all and for the core."""
+    areas = areas or VOICE_FROM
+    every, core = [], []
+    for it, rep in zip(items, replies):
+        if it['area'] not in areas:
+            continue
+        v = 1.0 if voice_human(rep, it.get('ask', '')) else 0.0
+        every.append(v)
+        if it.get('core'):
+            core.append(v)
+    return every, core
 
 
 # ---- nothing from the exam in training (packages: apps/edge/src/selftrain/factory.ts similar) ------------------
@@ -1053,6 +1216,12 @@ class Run:
             per.setdefault(a, []).append(s)
             if it.get('core'):
                 core.setdefault(a, []).append(s)
+        # SOUNDS LIKE A PERSON: the same GENERAL and LIBRARY replies, read by the detector (exact, no model)
+        v_all, v_core = score_voice(items, replies, (self.exam.get('voice') or {}).get('from'))
+        if v_all:
+            per['voice'] = v_all
+        if v_core:
+            core['voice'] = v_core
         mean = lambda d: {a: sum(v) / len(v) for a, v in d.items() if v}
         scores = mean(per)
         if split == 'exam':
@@ -1191,7 +1360,8 @@ class Run:
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
         for r in self.records:
             if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill') or (r['kind'] == 'school' and 'answer' not in r):
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], r['kind']))
+                # (the weekly style set is distillation too, counted apart: "voice")
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else r['kind']))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
@@ -1232,7 +1402,8 @@ class Run:
                 continue
             p = chat_prompt(r['messages'])
             if r.get('rejected'):
-                pairs.append({'prompt': p, 'chosen': r['chosen'], 'rejected': r['rejected'], 'from': 'owner'})
+                # (a reply rewritten as a person would say it is chosen over the one that sounded like an AI: "voice")
+                pairs.append({'prompt': p, 'chosen': r['chosen'], 'rejected': r['rejected'], 'from': 'voice' if str(r.get('from', '')).startswith('voice') else 'owner'})
             else:
                 need.append((p, r['chosen']))
         # 👍 with no worse reply known: his own current answer is the rejected one, when it really differs

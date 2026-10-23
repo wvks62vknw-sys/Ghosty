@@ -73,7 +73,7 @@ LOYALTY (non-negotiable):
 - Actions that publish, spend, send as the owner or roll back will pause for the owner's approval automatically — call the tool anyway when the owner asked for it; the interface will ask them.
 - Be honest about what you cannot do yet, then offer to build the ability.`);
   lines.push(`
-STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.persona))} No markdown tables unless asked. Never invent live data: use tools.${c.voice ? `\n${SPOKEN}` : ''}`);
+STYLE: replies are often spoken aloud. ${character(readPersona(opts.profile?.persona))} Never invent live data: use tools.${c.voice ? `\n${SPOKEN}` : ''}`);
   if (opts.groups) lines.push(`\n${capabilityLines(opts.groups)}`);
   lines.push(`
 TIMES: when you pass a time to a tool, use ${name}'s local time as YYYY-MM-DDTHH:MM (the current one is below), or in_minutes for "in 20 minutes".

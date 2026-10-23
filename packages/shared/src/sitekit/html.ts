@@ -50,6 +50,13 @@ export function a(href: string, inner: string, cls = '', extra = ''): string {
 }
 export const btn = (l: Link | undefined, kind = 'btn-primary', ic = ''): string => (l ? a(l.href, `${esc(l.label)}${ic ? icon(ic) : ''}`, `btn ${kind}`) : '');
 
+/** width and height as whole numbers (a picture's size from outside is never written as given). */
+const dims = (ref: ImageRef): string => {
+  const w = Math.round(Number(ref.width));
+  const h = Math.round(Number(ref.height));
+  return w > 0 && h > 0 && w < 100_000 && h < 100_000 ? ` width="${w}" height="${h}"` : '';
+};
+
 /**
  * A responsive picture: srcset when there are sizes to pick from, its real width and height (no layout
  * jump), lazy unless it is the first thing on the page, and the focus point kept when it is cropped.
@@ -58,7 +65,7 @@ export function img(ref: ImageRef | undefined, o: { sizes?: string; eager?: bool
   if (!ref) return '';
   const set = (ref.srcset ?? []).filter(([u, w]) => /^https:/.test(u) && w > 0).sort((x, y) => x[1] - y[1]);
   const alt = o.alt ?? ref.alt ?? '';
-  return `<img src="${esc(ref.src)}"${set.length > 1 ? ` srcset="${esc(set.map(([u, w]) => `${u} ${w}w`).join(', '))}" sizes="${esc(o.sizes ?? '100vw')}"` : ''}${ref.width && ref.height ? ` width="${ref.width}" height="${ref.height}"` : ''} alt="${esc(alt)}"${o.eager ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"'} decoding="async"${ref.focus ? ` style="object-position:${esc(ref.focus)}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}>`;
+  return `<img src="${esc(ref.src)}"${set.length > 1 ? ` srcset="${esc(set.map(([u, w]) => `${u} ${w}w`).join(', '))}" sizes="${esc(o.sizes ?? '100vw')}"` : ''}${dims(ref)} alt="${esc(alt)}"${o.eager ? ' loading="eager" fetchpriority="high"' : ' loading="lazy"'} decoding="async"${ref.focus ? ` style="object-position:${esc(ref.focus)}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}>`;
 }
 
 // ── contact links ───────────────────────────────────────────────────────────────────
@@ -73,7 +80,9 @@ export function intlPhone(p: string): string {
 }
 export const telHref = (p: string) => `tel:${intlPhone(p)}`;
 export const waHref = (p: string, text = '') => `https://wa.me/${intlPhone(p).replace('+', '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
-export const mailHref = (e: string, subject = '', body = '') => `mailto:${e}${subject || body ? `?${[subject ? `subject=${encodeURIComponent(subject)}` : '', body ? `body=${encodeURIComponent(body)}` : ''].filter(Boolean).join('&')}` : ''}`;
+/** The address only when it is exactly one email address (no "?bcc=…", no second address): else ''. */
+export const cleanEmail = (e: unknown): string => (typeof e === 'string' && /^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(e.trim()) ? e.trim() : '');
+export const mailHref = (e: string, subject = '', body = '') => `mailto:${encodeURIComponent(cleanEmail(e)).replace(/%40/g, '@')}${subject || body ? `?${[subject ? `subject=${encodeURIComponent(subject)}` : '', body ? `body=${encodeURIComponent(body)}` : ''].filter(Boolean).join('&')}` : ''}`;
 export const mapsHref = (b: Brief) => (b.lat !== undefined && b.lon !== undefined ? `https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lon}#map=17/${b.lat}/${b.lon}` : `https://www.openstreetmap.org/search?query=${encodeURIComponent([b.address, b.postcode, b.town].filter(Boolean).join(', '))}`);
 export const directionsHref = (b: Brief) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b.lat !== undefined && b.lon !== undefined ? `${b.lat},${b.lon}` : [b.name, b.address, b.postcode, b.town].filter(Boolean).join(', '))}`;
 

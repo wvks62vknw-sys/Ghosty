@@ -5,6 +5,8 @@
 - the pure helpers: the exam gate, tool-call reading and schema checks, the dataset record checker — on the
   cases in fixtures.json, which the TypeScript side (apps/edge/test/selftrain.test.mjs) must also pass, word
   for word; scoring, STaR selection, the time budget, q4f16_1 packing, the MLC layout and config checks;
+- the AI-sounding detector (voice_check, score_voice) on the shared cases in voice_cases.json, which the
+  TypeScript (packages/shared/src/voice.ts) must also give, point for point, and its exam area in the gate;
 - the GYM's node program (tasks.mjs, built from the repo) answering the notebook's requests;
 - with torch, transformers and peft installed: a tiny CPU smoke run of the notebook's own code paths —
   generation, STaR with the real checkers, SFT and DPO steps on a LoRA, LoRA scaling, the exam scorer, and the
@@ -28,6 +30,8 @@ sys.path.insert(0, HERE)
 import ghosty_weekly as G  # noqa: E402
 
 FIX = json.load(open(os.path.join(HERE, 'fixtures.json')))
+# The AI-sounding detector's shared cases (packages/shared/src/voice.ts gives them the same points and reasons).
+VOX = json.load(open(os.path.join(HERE, 'voice_cases.json')))
 
 
 def have(*mods):
@@ -167,6 +171,64 @@ class Helpers(unittest.TestCase):
         self.assertEqual(G.replay_pair({'prompt': 'P', 'answer': 'A'}), ('P', 'A'))
         self.assertEqual(G.replay_pair({'kind': 'evol', 'messages': [{'role': 'user', 'content': 'Q'}, {'role': 'assistant', 'content': 'A'}]}), ('<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n', 'A'))
         self.assertIsNone(G.replay_pair({'kind': 'gym', 'task': {'game': 'maze', 'level': 1, 'seed': 1}}))
+
+
+class Voice(unittest.TestCase):
+    """Does a reply sound like a person? The same patterns, points, reasons and verdicts as the TypeScript
+    (packages/shared/src/voice.ts), on the shared cases; and the exam's SOUNDS LIKE A PERSON area in the gate."""
+
+    def test_the_patterns_are_the_typescript_ones_word_for_word(self):
+        self.assertEqual(G.VOICE_RULES, VOX['rules'])
+        self.assertEqual(G.HUMAN_BELOW, VOX['humanBelow'])
+
+    def test_same_points_reasons_and_verdict_on_every_case_and_probe(self):
+        for c in VOX['cases'] + VOX['probes']:
+            v = G.voice_check(c['reply'], c['ask'])
+            self.assertEqual((v['points'], v['hits']), (c['points'], c['hits']), c['reply'])
+            self.assertEqual(G.voice_human(c['reply'], c['ask']), c['human'], c['reply'])
+
+    def test_precision_and_recall_on_the_hand_labelled_replies(self):
+        tp = fp = fn = 0
+        for c in VOX['cases']:
+            ai = not G.voice_human(c['reply'], c['ask'])
+            tp += ai and c['label'] == 'ai'
+            fp += ai and c['label'] == 'human'
+            fn += (not ai) and c['label'] == 'ai'
+        self.assertEqual(sum(1 for c in VOX['cases'] if c['label'] == 'human'), 30)
+        self.assertGreaterEqual(tp / (tp + fp), 0.9)
+        self.assertGreaterEqual(tp / (tp + fn), 0.9)
+
+    def test_score_voice_reads_the_general_and_library_replies_only(self):
+        items = [{'area': 'general', 'core': True, 'ask': 'What is 2 + 2?'}, {'area': 'general', 'core': False, 'ask': 'What is 3 + 3?'},
+                 {'area': 'library', 'core': True, 'ask': 'When do roses need feeding?'}, {'area': 'tools', 'core': True, 'ask': 'x'}, {'area': 'gym', 'core': True}]
+        replies = ['4.', 'Great question! It is 6. I hope this helps!', 'In May.', 'Great question!', '']
+        self.assertEqual(G.score_voice(items, replies), ([1.0, 0.0, 1.0], [1.0, 1.0]))
+        self.assertEqual(G.score_voice(items, replies, ['library']), ([1.0], [1.0]))
+
+    def test_the_exam_scores_the_voice_area_and_counts_its_replies(self):
+        r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        r.exam = {'tools': {'specs': [], 'system': 'S'}, 'voice': {'from': ['general', 'library']}}
+        items = [{'area': 'general', 'core': True, 'ask': 'What is 2 + 2?', 'task': {'drill': 0, 'seed': 900000}, 'prompt': 'p1'},
+                 {'area': 'general', 'core': False, 'ask': 'What is 3 + 3?', 'task': {'drill': 0, 'seed': 930000}, 'prompt': 'p2'},
+                 {'area': 'library', 'core': True, 'ask': 'When?', 'case': {'answer': 'In May.'}, 'prompt': 'p3'},
+                 {'area': 'safety', 'core': True, 'ask': 'Hi', 'case': {'refuse': False, 'topic': []}, 'prompt': 'p4'}]
+        r.__dict__['_items'] = {'exam': items}
+        said = {'p1': 'It is 4.', 'p2': 'Certainly! It is 6. I hope this helps! Let me know if you have any other questions!', 'p3': 'In May.', 'p4': 'Hello there, Boss. What can I do?'}
+        r.generate = lambda prompts, **k: [[said[p]] for p in prompts]
+        r.tasks = types.SimpleNamespace(check=lambda pairs: [{'correct': True}, {'correct': True}])
+        scores, core = r.score('test')
+        self.assertAlmostEqual(scores['voice'], 2 / 3)
+        self.assertEqual(core['voice'], 1.0)
+        self.assertEqual(scores['general'], 1.0, 'a right answer that sounds like an AI still counts as right; only the voice area knows')
+        self.assertEqual(r.report['items']['voice'], 3)
+
+    def test_voice_is_an_area_in_the_gate(self):
+        self.assertIn('voice', G.EXAM_AREAS)
+        self.assertEqual(G.AREA_LABEL['voice'], 'sounds like a person')
+        for c in VOX['gate']:
+            v = G.gate_verdict(c['before'], c['after'], c.get('items'))
+            self.assertEqual(v['pass'], c['pass'], c['name'])
+            self.assertEqual(v['why'], c['why'], c['name'])
 
 
 class FakeModules:
