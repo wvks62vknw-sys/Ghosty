@@ -945,6 +945,30 @@ button.gymcell { min-height: 0; padding: 0; }
 .gymcell.bs::after { background: #0a0a0a; box-shadow: inset 0 0 0 1px #6d6d6d; } .gymcell.ws::after { background: #f2f2f2; }
 .gymcell.ownb, .gymcell.ownw { background-image: linear-gradient(var(--own), var(--own)); background-size: 32% 32%; background-repeat: no-repeat; background-position: center; }
 .gymcell.ownb { --own: #000; } .gymcell.ownw { --own: #f2f2f2; }
+/* GYM part 3: TRAIN ALL with KEEP AWAKE beside it and its status line; the on/off switches (KEEP AWAKE, CONTINUE BY HIMSELF) */
+.gymall { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0 0 10px; }
+button.gymallbtn { width: 100%; min-height: 52px; font-size: 12px; letter-spacing: .2em; }
+#pg-gym button.gymallbtn { min-height: 52px !important; } #pg-gym button.gymswitch { min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px) */
+.gymallst { font: 400 12px/1.4 var(--m); color: var(--c); overflow-wrap: anywhere; min-height: 2.8em; }
+button.gymswitch { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; text-align: left; text-transform: none; letter-spacing: 0; white-space: normal; }
+.gymactions + button.gymswitch { margin: 0 0 8px; }
+.gymswtxt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gymswtxt b { font: 500 11px var(--d); letter-spacing: .12em; color: var(--c); }
+.gymswtxt small { font-size: 12px; line-height: 1.35; color: var(--mute); overflow-wrap: anywhere; }
+.gymswitch .knob { position: relative; flex: none; width: 44px; height: 26px; border-radius: 13px; background: rgba(var(--cr), .12); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); transition: background .2s; }
+.gymswitch .knob::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--mute); transition: transform .2s, background .2s; }
+.gymswitch[aria-checked="true"] .knob { background: rgba(79, 227, 168, .35); }
+.gymswitch[aria-checked="true"] .knob::after { transform: translateX(18px); background: var(--ok); }
+[data-look="pro"] button.gymswitch { min-height: 56px; padding: 10px 14px; border-radius: 14px; background: var(--thin); box-shadow: none; }
+[data-look="pro"] .gymswtxt b { font: 600 16px/1.25 var(--sf); letter-spacing: -.01em; color: var(--fg); text-transform: none; --lfs: 16px; }
+[data-look="pro"] .gymswtxt small { font-weight: 400; font-size: 14px; line-height: 1.3; color: var(--l2); text-transform: none; }
+[data-look="pro"] .gymswitch .knob { width: 51px; height: 31px; border-radius: 16px; background: rgba(120, 120, 128, .32); box-shadow: none; }
+[data-look="pro"] .gymswitch .knob::after { top: 2px; left: 2px; width: 27px; height: 27px; background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .25); }
+[data-look="pro"] .gymswitch[aria-checked="true"] .knob { background: var(--ok); }
+[data-look="pro"] .gymswitch[aria-checked="true"] .knob::after { transform: translateX(20px); background: #fff; }
+[data-look="pro"] .gymall { gap: 10px; margin-bottom: 16px; }
+[data-look="pro"] #pg-gym button.gymallbtn { min-height: 54px !important; }
+[data-look="pro"] .gymallst { font: 500 15px/1.4 var(--sf); color: var(--l2); min-height: 0; }
 /* SPACE: rooms, walls, doors and windows; DESIGN REVIEW with BEFORE / AFTER */
 .spacearch[hidden] { display: none; }
 .spacearch button { min-height: 40px; }

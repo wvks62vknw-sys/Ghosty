@@ -117,3 +117,87 @@ export function statusLine(rec: GymRecord | null, game: GameMeta, training: bool
 
 /** Is a worker message about game `id` from its current epoch? (Messages from before a RESET are older and dropped.) */
 export const current = (epochs: Record<string, number>, id: string, epoch: number | undefined): boolean => (epoch ?? 0) === (epochs[id] ?? 0);
+
+// ======================= GYM part 3: he carries on by himself (TRAIN ALL; one toast for a run of level-ups)
+
+/** TRAIN ALL gives each game this much training time a round, then the next game has its turn. */
+export const ALL_BUDGET = 20 * 60_000;
+
+/** TRAIN ALL's progress, kept with the GYM's settings (features/gym/store.ts) so a reload shows where it got to. */
+export interface AllRun {
+  /** Training time each game has had this round (ms). */
+  spent: Record<string, number>;
+  /** Training time in all, every round (ms). */
+  total: number;
+  /** The game it is training ('' before the first). */
+  current: string;
+  round: number;
+}
+
+export const newAllRun = (): AllRun => ({ spent: {}, total: 0, current: '', round: 1 });
+
+type Standing = Pick<GymRecord, 'level' | 'mastery' | 'mastered'>;
+
+/** How far a game has got, 0–10: the levels passed plus the mastery measured at the one under way. */
+export const standing = (r: Standing | undefined): number => (!r ? 0 : r.mastered ? LEVELS : r.level - 1 + Math.max(0, Math.min(1, r.mastery)));
+
+/**
+ * TRAIN ALL's next game: of the games not mastered yet that still have time this round, the least
+ * mastered (a tie goes to the GYM's own order). When every game left has had its time, a new round
+ * starts (`newRound`: the page clears `spent`). null when every game is mastered.
+ */
+export function nextForAll(ids: string[], recs: ReadonlyMap<string, Standing>, spent: Record<string, number>, budget = ALL_BUDGET): { id: string; newRound: boolean } | null {
+  const left = ids.filter((id) => !recs.get(id)?.mastered);
+  if (!left.length) return null;
+  const fresh = left.filter((id) => (spent[id] ?? 0) < budget);
+  const pool = fresh.length ? fresh : left;
+  let best = pool[0]!;
+  for (const id of pool) if (standing(recs.get(id)) < standing(recs.get(best))) best = id;
+  return { id: best, newRound: !fresh.length };
+}
+
+/** "1 h 12 min", "7 min", "under a minute". */
+export function span(ms: number): string {
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return 'under a minute';
+  return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;
+}
+
+/** TRAIN ALL's status line: "Training all · Sudoku level 6 · 3 of 22 games mastered · 1 h 12 min". */
+export function allLine(run: AllRun | null, on: boolean, name: string, level: number, mastered: number, games: number): string {
+  const tally = `${mastered} of ${games} games mastered`;
+  if (mastered >= games) return `Every game mastered · ${tally}${run?.total ? ` · ${span(run.total)}` : ''}`;
+  if (!run?.current) return `Trains every game in turn, the least learned first · ${tally}`;
+  const where = `${name} level ${level} · ${tally} · ${span(run.total)}`;
+  return on ? `Training all · ${where}` : `Stopped · ${where} · tap TRAIN ALL to carry on`;
+}
+
+/** The level-ups one toast tells of: one game, Levels `from`–`to` passed, the last at `at` (ms). */
+export interface LevelNote {
+  id: string;
+  from: number;
+  to: number;
+  at: number;
+  /** He passed Level 10: every level is mastered. */
+  done: boolean;
+}
+
+/** Level-ups this close together (ms) share one toast. */
+export const TOGETHER = 5000;
+
+/**
+ * One toast for a run of level-ups: Level `passed` of game `id`, at `at`. Straight after the last one
+ * (the same game, the next level, within a few seconds) it joins that toast ("Levels 4–6 passed");
+ * otherwise it starts a new one.
+ */
+export function joinLevels(prev: LevelNote | null, id: string, passed: number, at: number, done = false): LevelNote {
+  if (prev && prev.id === id && !prev.done && passed === prev.to + 1 && at - prev.at <= TOGETHER) return { id, from: prev.from, to: passed, at, done };
+  return { id, from: passed, to: passed, at, done };
+}
+
+/** The toast's words: "Level 4 passed · on to level 5", "Levels 4–6 passed · on to level 7", "Mastered every level". */
+export function levelText(n: LevelNote, carry = true): string {
+  const passed = n.from === n.to ? `Level ${n.to} passed` : `Levels ${n.from}–${n.to} passed`;
+  if (n.done) return n.from === n.to ? 'Mastered every level' : `${passed} · Mastered every level`;
+  return `${passed} · ${carry ? 'on to' : 'he waits for you at'} level ${n.to + 1}`;
+}
