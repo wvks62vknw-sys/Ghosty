@@ -186,20 +186,50 @@ export function dial(label: string, frac: number, text: string, color = 'var(--c
 }
 
 let toastBox: HTMLElement | null = null;
-export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
+/** When each message last popped up: the same words twice within a minute show once. */
+const toastSeen = new Map<string, number>();
+/**
+ * A pop-up line. At most two are on screen (the oldest goes when a third arrives), each at most three
+ * lines (styles.css, fixes A2); a longer one can be tapped to read all of it (`full`: the whole text when
+ * `msg` is already shortened, `title` for the sheet). They sit above the tab bar and the chat bar.
+ */
+export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = '', opts: { title?: string; full?: string } = {}): void {
   // The paused database has one quiet tag in the top bar; no pop-ups about it.
   if (/memory paused until|free daily allowance/i.test(msg)) return;
+  const now = Date.now();
+  for (const [m, at] of toastSeen) if (now - at >= 60_000) toastSeen.delete(m);
+  if (toastSeen.has(msg)) return;
+  toastSeen.set(msg, now);
   if (!toastBox) {
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
     document.body.append(toastBox);
   }
   // The calm looks: a pill with the reactor's glyph, in sentence case (a word in capitals is shown in small letters, abbreviations kept).
   const words = msg.replace(/\b[A-Z][A-Z'’-]+\b/g, (w) => (w === 'GHOSTY' ? 'Ghosty' : ACRONYM.test(w) ? w : w.toLowerCase()));
-  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', h('i.tglyph'), h('span', { dataset: words !== msg ? { label: words.charAt(0).toUpperCase() + words.slice(1) } : {} }, msg));
+  const text = h('span', { dataset: words !== msg ? { label: words.charAt(0).toUpperCase() + words.slice(1) } : {} }, msg);
+  const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', h('i.tglyph'), text);
   toastBox.append(t);
-  while (toastBox.children.length > 3) toastBox.firstChild!.remove();
-  setTimeout(() => t.classList.add('out'), 3600);
-  setTimeout(() => t.remove(), 4100);
+  while (toastBox.children.length > 2) toastBox.firstChild!.remove();
+  // Cut at three lines (or already shortened by the caller): a tap opens the whole text, and it stays a little longer to be tapped.
+  // (Measured with the cut lifted for a moment: the calm looks draw the words in the span's ::before.)
+  const cutH = t.offsetHeight;
+  t.classList.add('measure');
+  const fullH = t.offsetHeight;
+  t.classList.remove('measure');
+  const long = fullH > cutH + 1 || (opts.full != null && opts.full !== msg);
+  if (long) {
+    t.classList.add('more');
+    t.tabIndex = 0;
+    const open = () => {
+      t.remove();
+      modal(opts.title ?? 'MESSAGE', h('div.note.toastfull', opts.full ?? msg));
+    };
+    t.addEventListener('click', open);
+    t.addEventListener('keydown', (e) => e.key === 'Enter' && open());
+  }
+  const life = long ? 7000 : 3600;
+  setTimeout(() => t.classList.add('out'), life);
+  setTimeout(() => t.remove(), life + 500);
 }
 
 export function modal(title: string, content: Node, onClose?: () => void): { close(): void } {
