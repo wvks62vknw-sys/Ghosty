@@ -51,7 +51,8 @@ async function pair(ctx) {
     for (let i = 0; i < 100 && !done; i++) {
       await ui.evaluate(() => (location.hash = 'workshop'));
       await ui.waitForTimeout(3000);
-      done = await ui.evaluate(() => [...document.querySelectorAll('#pg-workshop .project')].some((p) => /Website: Fade & Co\. Barbers/.test(p.textContent ?? '') && /DONE/.test(p.textContent ?? '')));
+      // (.passed: the whole project is done — a step's own DONE shows long before that)
+      done = await ui.evaluate(() => [...document.querySelectorAll('#pg-workshop .project.passed')].some((p) => /Website: Fade & Co\. Barbers/.test(p.textContent ?? '')));
     }
     if (!done) problems.push('the website project did not finish in the Workshop');
     else {
@@ -173,5 +174,5 @@ async function pair(ctx) {
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Websites run clean: from one chat message to a published multi-page site (approval naming the link, six steps in the Workshop, routing, the writer\'s words, form, map, credits, phone width, business data); with no connection the phone asked its questions, built the site itself and previewed it.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Websites run clean: from one chat message to a multi-page site (approval naming the link, six steps in the Workshop, a draft kept off the web until the owner confirmed what was assumed, then published; routing, the writer\'s words, form, map, credits, phone width, business data); with no connection the phone asked its questions, built the site itself and previewed it.');
 process.exit(problems.length ? 1 : 0);

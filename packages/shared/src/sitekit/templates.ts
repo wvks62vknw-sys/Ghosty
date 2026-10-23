@@ -624,7 +624,7 @@ export function withDefaults(b: Brief): { brief: Brief; confirm: string[] } {
   }
   if (!out.services?.length && d.services) {
     out.services = d.services;
-    confirm.push('services and prices (typical ones for the area are shown)');
+    confirm.push('services and prices (typical ones are shown)');
   }
   if (!out.hours?.length && d.hours) {
     out.hours = d.hours;
