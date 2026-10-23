@@ -447,6 +447,10 @@ export const schoolTab: TabDef = {
     }
 
     sitting.subscribe(paint);
+    // Back on screen after the phone slept: carry on writing or reading.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && shown && (view?.work.busy || work.get().busy)) startWork();
+    });
     work.subscribe((s, p) => {
       paint();
       // A bank or paper finished: what can be sat has changed.

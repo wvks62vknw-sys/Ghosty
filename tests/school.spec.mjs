@@ -223,7 +223,8 @@ if (!(await ks3Ready())) {
   if (!/no Key Stage 3 papers yet[\s\S]*second check/.test(why)) problems.push(`WRITE THE PAPERS does not say what it does: ${why}`);
   await writeBtn.click({ timeout: 5000 }).catch(() => undefined);
   await page.waitForFunction(() => (window.__ghosty?.school?.banks ?? []).some((b) => /^Writing the Key Stage 3 [\w ]+ bank · \d+ of \d+/.test(b.line)), null, { timeout: 15000 }).catch(() => problems.push('no honest progress line while the banks are written'));
-  await page.locator('#pg-school .schplace').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => !document.querySelector('.toast'), null, { timeout: 8000 }).catch(() => undefined);
+  await page.locator('#pg-school .schgo .schbanklines').evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => undefined);
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/school-writing.png` });
   if (problems.length) await bail();
