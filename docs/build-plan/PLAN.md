@@ -42,6 +42,11 @@ rails, small chunks, the credit rules).
    SYSTEM (needed for the self-edit trial)? Is Cloudflare Access switched on in front of Ghosty? (If yes, five paths
    need a Bypass policy: `/s/*`, `/i/*`, `/api/telegram/hook`, `/api/training/hook`, `/api/w/*`.)
 
+**Answered on 23 Oct:** the owner said YES to Week 1 ("add anything missed and every good idea that fits"), and the two
+keys are in. Checked from outside the same day: Cloudflare Access is **off** (the live address answers with no login
+redirect and the hook paths answer directly), so no Bypass policies are needed. Still to hear: whether the new look
+appeared after Settings → Look, and whether a GitHub token is set in SYSTEM (the self-edit trial will say if not).
+
 ## 2. Baseline audit, 23 October
 
 Filled in from today's run of the brain suite and every browser check, plus a look at every screen at 440 x 956.
@@ -122,6 +127,35 @@ M = two to four, L = five to ten. The order is the order.
 **G. End of week 1**
 - G1 (S): the full suite and all browser checks once, the pull request green, your OK, merge into `main`. HANDOFF.md,
   UPGRADES.md and this plan updated. Your usage % checked and the next week's queue ready.
+
+**Added on 23 Oct, after the owner's yes ("add anything missed and every good idea that fits")**
+- A0 (S): the week's pull request is opened with the first code chunk and kept green; UPGRADES.md starts today, and
+  Workshop gets a WHAT'S NEW card after each merge so the improvements are visible on the phone, not only in a file.
+- A2 also covers the redesign's known rough spots: level-up toasts piling up during fast training, heavy empty rings on
+  unstarted games, the God's Eye chip starting off-screen, System's Status card sitting after the Brain group; and the
+  one open kernel line from Wave B1: the SYSTEM → KEYS wording for the Hugging Face key (one marked edit in
+  `apps/edge/src/keys.ts`, reviewed).
+- A5 (M, moved up from week 3): the website builder has been live since 19 Oct without an adversarial review. Review it
+  now (honesty gates, photo licences, the page's content-security policy, the screenshot services that must never run
+  for real, the prompt wording), and fix what it finds, each fix with a test.
+- B1 also gets **TRAIN ALL**: every game in turn, the least-mastered first, until all are mastered or he taps STOP, with
+  **KEEP AWAKE** (the screen stays on, dimmed, through the browser's wake lock) for a plugged-in phone overnight. Honest
+  about iOS: Safari cannot train with the screen off, so the phone must stay on and plugged in.
+- B2 also gets a **curriculum that grows itself** (each field's Wikipedia outline and index pages add the topics it does
+  not have yet, tagged with the field and a rough level, capped per week so it cannot run away), a per-topic progress
+  line with the time left at the measured pace, a STUDY ALL switch for the continuous mode, and a "what he learned
+  today" line.
+- B3 also publishes the **stopwatch** in SYSTEM → STATUS: Ghosty's own speed numbers, week by week.
+- D: **exams run wherever the weights are**: short placement tests and spot checks on the phone; full papers inside the
+  weekly Kaggle run on the very same weights (it already runs an exam there), so a GCSE paper takes minutes, not an
+  evening of phone time; both feed one report card. A nightly **school report** notification ("Passed Reception maths,
+  94%; Year 1 reading tomorrow") by push or Telegram. Official papers are kept out of every export (the `library`
+  branch included).
+- E0 (S, new, before E1): a **pre-flight review** of the first real training run against Kaggle's and Hugging Face's
+  current APIs and the Cloudflare limits, since the pipeline has never run for real; then the owner presses TRAIN NOW
+  (SYSTEM → REPORT CARD) or the weekly alarm starts it, and E1 is watching that run through to the report card.
+- Facts checked for these: the interface's phone layout holds up to 899 px wide, so 440 pt is laid out as a phone;
+  Cloudflare Access is off, so the training hook and the weights paths are reachable.
 
 ## 4. Week 2 (30 October to 6 November): the design everywhere, apps, courses, the home designer, the brain grows
 
