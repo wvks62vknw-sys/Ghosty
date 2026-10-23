@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Ghosty C2 · Chat</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="c2.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+</style><div class="screen chat"><svg class="hexgrid" data-bleed width="440" height="956" viewBox="0 0 440 956"><defs><pattern id="hx" width="22.517" height="39.000" patternUnits="userSpaceOnUse"><path d="M11.26 0L22.52 6.50L22.52 19.50L11.26 26.00L0 19.50L0 6.50Z" fill="none" stroke="#64d2ff" stroke-width="0.6"/><path d="M11.26 0L22.52 6.50L22.52 19.50L11.26 26.00L0 19.50L0 6.50Z" transform="translate(11.258 19.500)" fill="none" stroke="#64d2ff" stroke-width="0.6"/></pattern><radialGradient id="hxm" cx="220" cy="330" r="460" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="0.55" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="hxk"><rect width="440" height="956" fill="url(#hxm)"/></mask></defs><rect width="440" height="956" fill="url(#hx)" opacity="0.06" mask="url(#hxk)"/></svg><div class="sb" aria-hidden="true">
+  <span class="sb-time">18:42</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div>
+<div class="navfade"></div>
+<div class="nav"><span class="gbtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5L7.5 12l7.5 7.5"/></svg></span><div class="ttl">Chat<small class="mk" style="color:var(--cyan-ink);font-size:9.5px">● ONLINE</small></div><span class="avatar">B</span></div>
+<div class="log">
+  <div class="daysep mk" style="font-size:10px">TODAY · 18:31</div>
+  <div class="me"><span>Is the M6 bad tonight?</span></div>
+  <div class="steps" style="margin-bottom:10px"><span class="ck"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="n3 num">3 steps</span><span class="sep"></span>Web search, motorways, 2 pages read<svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg></div>
+  <div class="reply holo" style="padding-bottom:14px">
+    <div class="who"><span class="dot"></span>Ghosty <em>· Gemini 2.5 Flash</em><span class="cited"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>CITED</span></div>
+    <p>It is. There’s a queue northbound between junctions 6 and 7, adding about 12 minutes<span class="cite">1</span>, and it should clear by about 19:40<span class="cite">1</span>. Light rain until around nine<span class="cite">2</span>.</p>
+    <div class="check"><span class="ck"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span>3 of 3 claims found in the sources</span></div>
+    <div class="srcrow"><span class="srcchip"><span class="cite">1</span>nationalhighways.co.uk</span><span class="srcchip"><span class="cite">2</span>metoffice.gov.uk</span></div>
+  </div>
+  <div class="me" style="margin-top:14px"><span>Email Mum I’ll call at eight instead.</span></div>
+  <div class="work">
+    <div class="scan"></div>
+    <div class="wstep"><span class="ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Found Mum’s address in your email</div>
+    <div class="wstep"><span class="ok"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Wrote the email</div>
+    <div class="wstep live"><span class="spin"></span>Waiting for your OK<span class="cur"></span></div>
+  </div>
+  <div class="approve holo lit">
+    <div class="kq"><i></i><span class="mk">Needs your approval</span></div>
+    <div class="q">Send this email to Mum?</div>
+    <div class="mail"><div class="h mk" style="font-size:9.5px"><span>TO MUM</span><span>SUBJECT · TONIGHT</span></div><p>Hi Mum, I’ll ring at eight instead of half seven tonight. Speak soon x</p></div>
+    <div class="abtns"><span class="hbtn yes"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>APPROVE</span><span class="hbtn no">NOT NOW</span></div>
+  </div>
+</div>
+<div class="fadebot" style="height:120px"></div>
+<div class="composer holo" style="border-radius:30px"><span class="plus"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="ph">Ask anything</span><span class="citedtog"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>CITED</span><span class="micb"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span></div>
+<div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>

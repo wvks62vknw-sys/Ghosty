@@ -15,3 +15,7 @@ iPhone uses the system font (SF Pro) through `-apple-system`; nothing here ships
   it is. Neither font is sold or renamed here.
 - "Monospaced" readouts in route C use Inter with tabular figures (`tnum`) and wide tracking as the stand-in for
   SF Mono, so no third font was downloaded.
+- Route C2 asks for real monospaced readouts (`ui-monospace`, SF Mono on the iPhone). On this Linux machine that stack
+  falls back to DejaVu Sans Mono, which was already installed with the system (Bitstream Vera / DejaVu licence,
+  free); it was not downloaded and is not copied here. SF Mono is a little narrower, so phone readouts will be
+  slightly tighter than in the pictures.
