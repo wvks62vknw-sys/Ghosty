@@ -69,7 +69,8 @@ async function open({ reducedMotion = 'no-preference', noWebGL = false } = {}) {
   await page.goto(base);
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');
-  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  // Home starts Mind and its four gauges during boot: on a loaded machine with software WebGL this takes a while.
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 60000 });
   return { ctx, page, three };
 }
 const hero = (page) => page.evaluate(() => ({ ...(window.__ghosty?.hero ?? {}) }));
