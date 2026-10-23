@@ -2,8 +2,10 @@
  * LIBRARY tab: Ghosty's offline brain. Add books, PDFs, Word files, e-books, notes, web
  * pages, arXiv papers, CVEs and GitHub repositories; Ghosty keeps them forever and looks
  * things up in them before answering. Searching here uses no AI at all. SELF-STUDY shows
- * what Ghosty is learning on its own (what it read, the notes it wrote, how its drills go),
- * takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
+ * what Ghosty is learning on its own, one field at a time (the field he is reading, how far, the
+ * time left at his pace, the fields after it), STUDY for a field picked from the list, the STUDY
+ * ALL switch (go on to the next field by himself), what he learned today, the notes he wrote and
+ * how his drills go; it takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
  * opens in a reader. FRESH TODAY is the day's digest (the news, papers and events Ghosty
  * gathered this morning — DIGEST NOW gathers again).
  */
@@ -18,6 +20,34 @@ import { bar, button, modal, pager, panel, row, toast } from '../../ui/component
 import { page } from '../../ui/page';
 
 const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT' };
+/** A field in the brain's study summary (library/study.ts `studySummary`), with what STUDY at scale adds. */
+interface FieldRow {
+  id: string;
+  name: string;
+  topics: number;
+  read: number;
+  digested: number;
+  focus: boolean;
+  finished?: boolean;
+  grown?: number;
+}
+/** The study state as the brain sends it now: the queue (one field at a time), its status line, STUDY ALL, what the outlines added. */
+type StudyNow = StudyInfo & {
+  all?: boolean;
+  summary: StudyInfo['summary'] & {
+    domains: FieldRow[];
+    queue?: FieldRow[];
+    current?: (FieldRow & { minutesLeft: number | null }) | null;
+    status?: string;
+    all?: boolean;
+    finished?: number;
+    grown?: { topics: number; latest: number };
+    today: StudyInfo['summary']['today'] & { finished?: number };
+  };
+};
+/** The STUDY ALL switch travels as FOCUS words (the brain's library/study.ts ALL_ON / ALL_OFF). */
+const ALL_ON = 'study-all-on';
+const ALL_OFF = 'study-all-off';
 /** One passage of the day's digest (library/digest.ts in the brain): "YYYY-MM-DD · source". */
 interface FreshItem {
   heading: string;
@@ -231,39 +261,74 @@ export const libraryTab: TabDef = {
       void load();
     };
 
-    // ---- self-study: Ghosty studies on its own, around the clock, within the free plan
+    // ---- self-study: Ghosty studies on its own, around the clock, within the free plan — one field at a time
     const study = panel('SELF-STUDY', { grow: false, cls: 'study' });
     let allFields = false;
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
-    const paintStudy = (st: StudyInfo | null) => {
+    const pick = h('select', { 'aria-label': 'Field to study' });
+    const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
       if (!st) {
         study.setStatus('OFFLINE', 'off');
         return;
       }
       const sum = st.summary;
+      const doms = sum.domains as FieldRow[];
       const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
       study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
       const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
       const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
-      const fields = [...sum.domains].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
+      const fields = [...doms].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
       const shown = allFields ? fields : fields.slice(0, 5);
-      const focusNames = st.focus.map((id) => sum.domains.find((d) => d.id === id)?.name ?? id);
+      const focusNames = st.focus.map((id) => doms.find((d) => d.id === id)?.name ?? id);
+      const all = sum.all ?? st.all ?? true;
+      const cur = sum.current ?? null;
+      const later = (sum.queue ?? []).slice(1, 5);
+      // the topic picker: every field in the curriculum's order, its progress, ✓ once read to the end
+      clear(pick, ...doms.map((d) => h('option', { value: d.id }, `${d.name} · ${d.read} of ${d.topics}${d.finished ? ' ✓' : ''}`)));
+      pick.value = cur?.id ?? doms[0]?.id ?? '';
+      const studyNow = async (b: HTMLButtonElement) => {
+        const id = pick.value;
+        const row = doms.find((d) => d.id === id);
+        if (!row) return;
+        b.disabled = true;
+        study.setStatus('STUDYING…', 'mid');
+        const others = st.focus.filter((f) => f !== id);
+        // A finished field that is already first: take it out and put it back, so the brain reads it again (he asked).
+        if (row.finished && st.focus.includes(id)) await brain.study({ focus: others.length ? others.join(', ') : 'none' }).catch(() => null);
+        const r = await brain.study({ focus: [id, ...others].slice(0, 5).join(', '), now: true }).catch(() => null);
+        if (r?.did) toast(`${row.name}: ${r.did.reads} read just now · the rest follows on its own`, 'ok');
+        else toast('Ghosty could not be reached — try again in a moment', 'bad');
+        paintStudy(((await brain.studyStatus().catch(() => r)) as StudyNow | null) ?? null);
+        void refresh();
+      };
+      const allSwitch = button(`STUDY ALL: ${all ? 'ON' : 'OFF'}`, async (b) => {
+        b.disabled = true;
+        // the switch, then the focus as it is (FOCUS words carry both)
+        await brain.study({ focus: [all ? ALL_OFF : ALL_ON, ...st.focus.slice(0, 5)].join(', ') }).catch(() => null);
+        paintStudy(((await brain.studyStatus().catch(() => null)) as StudyNow | null) ?? null);
+      }, `studyall${all ? ' on' : ''}`);
+      allSwitch.setAttribute('role', 'switch');
+      allSwitch.setAttribute('aria-checked', String(all));
+      const today = sum.today;
       study.body.append(
-        h('div.note', st.on
-          ? `Around the clock, on its own: Ghosty reads a curriculum of ${fmt.n(sum.topics)} topics across ${sum.domains.length} fields (Wikipedia, MDN, arXiv, OpenStax, the Swift book), writes study notes on each with a free model, and sets itself drills it marks without any AI. Everything is filed in this library — open any notebook on the shelf, or export it all to GitHub.`
-          : 'Switched off. Turn it on and Ghosty reads, takes notes and drills itself around the clock, free, filing everything here.'),
+        // what he is reading now, honestly: "Reading Algebra · 212 of 480 · about 40 minutes left at this pace"
+        h('div.studynow', h('b', sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
+        later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
+        h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
+        h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
+        row('LEARNED TODAY', `${fmt.n(today.reads)} pieces read · ${today.finished ?? 0} topics finished · ${fmt.n(today.digests)} notes written`, null, { wrap: true }),
         bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),
         bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, '#52f2b5'),
+        sum.grown?.topics ? row('MORE TO READ', `${fmt.n(sum.grown.topics)} topics found in Wikipedia's outlines`, `+${fmt.n(sum.grown.latest)}`, { wrap: true }) : '',
         // from the basics up: each field is read beginner → intermediate → advanced
         sum.levels ? row('LEVELS', sum.levels.map((l) => `${l.level} ${pct(l.read, l.topics)}%`).join(' · '), null, { wrap: true }) : '',
-        row('TODAY', `${sum.today.reads} read · ${sum.today.digests} notes · ${sum.today.drills} drills`, `${sum.today.ai} AI calls`),
         row('DRILLS', sum.drills.asked ? `${sum.drills.right} of ${sum.drills.asked} right · ${pct(sum.drills.right, sum.drills.asked)}%` : 'none yet', weakest ? `weakest: ${weakest}` : null, { wrap: true, tone: sum.drills.asked && pct(sum.drills.right, sum.drills.asked) < 60 ? 'dn' : 'up' }),
         st.last ? row('LAST', lastText, fmt.ago(st.last.at), { wrap: true, ...(st.last.error ? { tone: 'bad' as const } : {}) }) : '',
         st.gaps.length ? row('YOUR QUESTIONS', st.gaps.slice(-3).join(' · '), String(st.gaps.length), { wrap: true }) : '',
         st.on && st.next ? row('NEXT', new Date(st.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), `${st.sessions} sessions`) : row('SESSIONS', String(st.sessions)),
         h('div.lab', 'FIELDS'),
-        ...shown.map((d) => bar(d.focus ? `★ ${d.name}` : d.name, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined)),
+        h('div.studyfields', ...shown.map((d) => bar(`${d.focus ? '★ ' : ''}${d.finished ? '✓ ' : ''}${d.name}`, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined))),
         fields.length > 5
           ? h('div.keyrow', button(allFields ? 'FEWER' : `ALL ${fields.length} FIELDS`, () => {
             allFields = !allFields;
@@ -277,18 +342,10 @@ export const libraryTab: TabDef = {
           focusIn.value = '';
           const r = await brain.study({ focus: words }).catch(() => null);
           if (r && !r.focus.length && !/^(none|off|clear|-)$/i.test(words)) toast('No field by that name — the FIELDS list has them all', 'warn');
-          paintStudy(r ? await brain.studyStatus().catch(() => r) : null);
+          paintStudy(r ? ((await brain.studyStatus().catch(() => r)) as StudyNow) : null);
         })),
-        h('div.keyrow',
-          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy(await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)), st.on ? 'warn' : 'on'),
-          st.on ? button('STUDY NOW', async (b) => {
-            b.disabled = true;
-            study.setStatus('STUDYING…', 'mid');
-            const r = await brain.study({ now: true }).catch(() => null);
-            if (r?.did) toast(`Studied: ${r.did.reads} read, ${r.did.digests} notes, ${r.did.drills} drills`, 'ok');
-            paintStudy(await brain.studyStatus().catch(() => r));
-            void refresh();
-          }) : '',
+        h('div.keyrow.wrapit',
+          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy((await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)) as StudyNow | null), st.on ? 'warn' : 'on'),
           button('EXPORT TO GITHUB', async (b) => {
             // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
             b.disabled = true;
@@ -395,7 +452,7 @@ export const libraryTab: TabDef = {
     return {
       enter() {
         void refresh();
-        void brain.studyStatus().then(paintStudy, () => paintStudy(null));
+        void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
         void paintFresh();
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,

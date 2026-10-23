@@ -1,18 +1,28 @@
 /**
  * Self-study: Ghosty keeps learning on its own, around the clock, within the free plan.
  *
- * Every session (a background job; every 15 minutes while there is room, hourly otherwise):
- *   1. READ — the next topics of the curriculum (curriculum/), round-robin across its domains
- *      (the owner's focus domains first, and questions the library couldn't answer before
- *      anything), each fetched from a free source (Wikipedia, Wikibooks, Wikiversity, MDN,
- *      arXiv, the Swift book, OpenStax) and filed, without any AI, in that domain's reading
- *      notebook (one document per domain, one heading per topic: the library stays small).
+ * ONE FIELD AT A TIME. The job works through a queue of fields (domains of curriculum/): the
+ * owner's focus first, then the curriculum's own order (foundations first). It reads every
+ * piece of the field at the head of the queue before it starts the next — never a mix — and a
+ * field read to the end is marked finished and not read again unless the owner asks (puts it
+ * first again). With nothing queued and STUDY ALL on (the default), it queues the next
+ * unfinished field itself. Each field grows once a week from its Wikipedia outline
+ * (curriculum/outlines.ts, `growField`): the articles it links that the curriculum lacks.
+ *
+ * Every session (a background job, a "tick"; a bounded handful of page reads and model calls):
+ *   1. READ — the next pieces of the field being read (the questions the library couldn't
+ *      answer before anything), each fetched from a free source (Wikipedia, Wikibooks,
+ *      Wikiversity, MDN, arXiv, the Swift book, OpenStax) and filed, without any AI, in that
+ *      field's reading notebook (one document per field, one heading per piece).
  *   2. DIGEST — with a model (the cheap tier: keyless or small), a study note on what it just
  *      read: summary, key facts, a worked example or pitfall, self-test questions. Filed in
  *      the domain's digest notebook — the part that also goes to the owner's phone.
  *   3. DRILL — a question it sets itself (drills.ts: maths, computing, logic, facts; endless,
  *      checked without AI), answered by the model and graded. Right and wrong go in the quiz
  *      log with the correct answer; the per-skill scores show where it is reliable.
+ * Cadence: while there is reading to do and room, the next session comes almost at once
+ * (QUICK_TICK), up to QUICK_TICKS a day — every alarm writes the day's meter to KV, whose free
+ * plan allows 1,000 writes a day — then every quarter of an hour; hourly with nothing to do.
  * Caps per session and per day keep the brain's database allowance (meter.ts) and the free
  * model allowances safe; above 70% of the day's database allowance it waits for the reset.
  * Never throws: a failed source is logged and the next session carries on.
@@ -21,9 +31,11 @@ import { chunkText } from '../../../../packages/shared/src/chunk';
 import { mentionsPlate } from '../../../../packages/shared/src/plates';
 import { gutenbergText, gutenbergTextUrl } from './importers';
 import { htmlToText } from '../tools/web';
-import { DOMAINS, TOPIC_COUNT, domainById, type SourceKind, type Topic } from './curriculum';
+import { DOMAINS, TOPIC_COUNT, domainById, parseTopics, type SourceKind, type Topic } from './curriculum';
+import { OUTLINES } from './curriculum/outlines';
 import { grade, makeDrill, SKILLS, type Drill } from './drills';
 import type { Library } from './store';
+import { loadJobs, setNext } from '../schedule';
 
 export interface StudyState {
   on: boolean;
@@ -39,7 +51,22 @@ export interface StudyState {
   domains: Record<string, { read: number; digested: number; failed: number }>;
   /** The UTC day the counts below are for. */
   day: string;
-  today: { reads: number; digests: number; drills: number; ai: number };
+  /** Today: pieces read, notes written, drills, model calls, fields finished, quick sessions used (QUICK_TICKS). */
+  today: { reads: number; digests: number; drills: number; ai: number; finished: number; quick: number };
+  /** The fields to read, in order: the first is the one being read now (one at a time, every piece of it first). */
+  queue: string[];
+  /** Fields read to the end, and when: not read again unless the owner puts them first again. */
+  finished: Record<string, number>;
+  /** STUDY ALL: with nothing queued, queue the next unfinished field on its own. */
+  all: boolean;
+  /** The focus the queue was last planned from (a field newly put first that was finished is read again). */
+  asked: string[];
+  /** Per field: the topics its Wikipedia outline added (n), the week it was last looked at, the last look's numbers. */
+  grown: Record<string, { n: number; wk: string; added: number; found: number; at: number; fail?: number }>;
+  /** The measured pace: [when, pieces read] for the latest sessions that read something. */
+  pace: [number, number][];
+  /** When the last drill was set (drills stay about a quarter of an hour apart while reading runs fast). */
+  drilledAt?: number;
   /** Per drill skill: asked, right, the current run of right answers. */
   skills: Record<string, { n: number; right: number; streak: number }>;
   /** Drills asked in all (also the seed of the next one). */
@@ -59,7 +86,19 @@ const UA = 'Ghosty/2.0 (personal assistant; https://github.com/wvks62vknw-sys/Gh
 /** Characters of a source kept per topic (the gist, not the whole book). */
 const MAX_READ = 30_000;
 const MAX_BYTES = 600_000;
-const MAX_PENDING = 60;
+/** Readings waiting for a model (no cheap model free): digested later, oldest first. */
+const MAX_PENDING = 240;
+/** The next session while there is reading to do and room: almost at once. */
+export const QUICK_TICK = 10_000;
+/** Quick sessions a day: each alarm writes the day's meter to KV (1,000 free writes a day, shared). */
+export const QUICK_TICKS = 200;
+/** Topics a field's Wikipedia outline may add in a week, and in all (its stored list stays small). */
+export const WEEKLY_GROWTH = 200;
+export const MAX_GROWN = 1500;
+/** The STUDY ALL switch, as FOCUS words (the route takes only on, now and focus): see matchDomains. */
+export const ALL_ON = 'study-all-on';
+export const ALL_OFF = 'study-all-off';
+const moreKey = (domain: string) => `study:more:${domain}`;
 
 /** The first domain's topics as [title, kind] pairs (the shape older code and tests know). */
 export const CURRICULUM: [string, SourceKind][] = (DOMAINS[0]?.topics ?? []).map((t) => [t.t, t.k]);
@@ -70,7 +109,7 @@ export interface StudyOptions {
   ai?: (system: string, user: string) => Promise<string>;
   /** Room left in the day's database allowance (meter.spare()); false: nothing is written this session. */
   spare?: boolean;
-  /** Caps for this session and for the day. */
+  /** Caps for this session and for the day (a field's weekly outline look adds at most three page reads to its session). */
   reads?: number;
   aiCalls?: number;
   dailyReads?: number;
@@ -86,6 +125,8 @@ export interface StudyReport {
 
 const QUARTER = 15 * 60_000;
 const HOUR = 3600_000;
+const WEEK = 7 * 86_400_000;
+const weekOf = (now: number) => String(Math.floor(now / WEEK));
 const todayUtc = (now: number) => new Date(now).toISOString().slice(0, 10);
 const untilMidnight = (now: number) => Math.floor(now / 86_400_000) * 86_400_000 + 86_400_000 - now;
 
@@ -105,10 +146,45 @@ export async function noteGap(storage: DurableObjectStorage, question: string): 
 
 export async function loadStudy(storage: DurableObjectStorage): Promise<StudyState> {
   const raw = (await storage.get<Partial<StudyState>>(STUDY_KEY)) ?? {};
-  const base: StudyState = { on: true, i: 0, gaps: [], sessions: 0, cursor: {}, domains: {}, day: '', today: { reads: 0, digests: 0, drills: 0, ai: 0 }, skills: {}, drills: 0, right: 0, focus: [], pending: [], gapFails: {} };
+  const base: StudyState = {
+    on: true, i: 0, gaps: [], sessions: 0, cursor: {}, domains: {}, day: '', today: { reads: 0, digests: 0, drills: 0, ai: 0, finished: 0, quick: 0 }, skills: {}, drills: 0, right: 0, focus: [], pending: [], gapFails: {},
+    queue: [], finished: {}, all: true, asked: [], grown: {}, pace: [],
+  };
   const st: StudyState = { ...base, ...raw } as StudyState;
   st.today = { ...base.today, ...(raw.today ?? {}) };
+  // The STUDY ALL switch arrives as FOCUS words (matchDomains): it is a setting, not a field.
+  for (const f of st.focus) if (f === ALL_ON || f === ALL_OFF) st.all = f === ALL_ON;
+  st.focus = st.focus.filter((f) => f !== ALL_ON && f !== ALL_OFF);
+  planQueue(st);
   return st;
+}
+
+/**
+ * The queue, from the owner's focus and STUDY ALL: the focus fields first (a finished one newly put
+ * first is read again from its start — the owner asked), then the fields already queued, in order;
+ * with nothing queued and STUDY ALL on, the next unfinished field of the curriculum. Finished fields
+ * never stay queued. Pure and repeatable, so every reader of the state sees the same queue.
+ */
+function planQueue(st: StudyState): void {
+  const open = (id: string) => !!domainById(id) && !st.finished[id];
+  for (const id of st.focus) {
+    if (domainById(id) && !st.asked.includes(id) && st.finished[id]) {
+      delete st.finished[id];
+      st.cursor[id] = 0;
+    }
+  }
+  st.asked = st.focus.filter((id) => !!domainById(id));
+  st.queue = [...new Set([...st.focus.filter(open), ...st.queue.filter(open)])];
+  if (!st.queue.length && st.all && st.on) {
+    const next = DOMAINS.find((d) => open(d.id));
+    if (next) st.queue = [next.id];
+  }
+}
+
+/** The topics a field's Wikipedia outline added (growField), in the order they are read. */
+export async function grownTopics(storage: DurableObjectStorage, domain: string): Promise<Topic[]> {
+  const text = await storage.get<string>(moreKey(domain)).catch(() => undefined);
+  return typeof text === 'string' ? parseTopics(text) : [];
 }
 
 async function getJson<T>(url: string): Promise<T> {
@@ -138,6 +214,8 @@ export async function findSource(topic: string, kind: SourceKind): Promise<strin
   // a classic text: "2680 Meditations" — the number is the book's Project Gutenberg id
   if (kind === 'gutenberg') return /^\d{1,6}\b/.test(topic.trim()) ? gutenbergTextUrl(Number(topic.trim().match(/^\d{1,6}/)![0])) : null;
   if (kind === 'openstax') return `https://openstax.org${topic.startsWith('/') ? topic : `/${topic}`}`;
+  // an exact article title (from a field's outline): read straight away, no search needed
+  if (kind === 'wikipage') return `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(topic.replace(/ /g, '_'))}`;
   const host = WIKI_HOSTS[kind] ?? 'en.wikipedia.org';
   const j = await getJson<{ query?: { search?: { title: string }[] } }>(`https://${host}/w/api.php?action=query&list=search&format=json&srlimit=1&srsearch=${encodeURIComponent(topic)}`);
   const t = j.query?.search?.[0]?.title;
@@ -239,21 +317,163 @@ const digestDoc = (domain: string) => `digest_${domain}`;
 export const QUIZ_DOC = 'study_quiz';
 export const LOG_DOC = 'notes_study';
 
-/** The next topic to read: the owner's focus domains first, then every domain in turn. */
-function nextTopic(st: StudyState): { domain: string; topic: Topic; index: number } | null {
-  const order = [...st.focus.filter((f) => domainById(f)), ...DOMAINS.map((d) => d.id).filter((id) => !st.focus.includes(id))];
-  if (!order.length) return null;
-  // Round-robin by what has been read least (focus domains count double).
-  let best: { domain: string; topic: Topic; index: number; score: number } | null = null;
-  for (const id of order) {
+/** Is a field's weekly look at its Wikipedia outline due? (A failed look is tried again after six hours.) */
+function growDue(st: StudyState, domain: string, now: number): boolean {
+  const g = st.grown[domain];
+  if (!OUTLINES[domain]?.length || (g && (g.wk === weekOf(now) || g.n >= MAX_GROWN))) return false;
+  return !(g?.fail && now - g.fail < 6 * HOUR);
+}
+
+/**
+ * The next piece to read: the field at the head of the queue, from where its cursor stands (its own
+ * curriculum first, then what its outline added). A field read to the end is finished and the next
+ * one starts — unless its weekly outline look is due, which comes first (`null`: the next session).
+ */
+async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: number, more: Map<string, Topic[]>): Promise<{ domain: string; topic: Topic; index: number } | null> {
+  while (st.queue.length) {
+    const id = st.queue[0]!;
     const d = domainById(id);
-    if (!d) continue;
+    if (!d) {
+      st.queue.shift();
+      continue;
+    }
+    if (!more.has(id)) more.set(id, await grownTopics(storage, id));
+    const extra = more.get(id)!;
     const i = st.cursor[id] ?? 0;
-    if (i >= d.topics.length) continue;
-    const score = i / d.topics.length - (st.focus.includes(id) ? 1 : 0);
-    if (!best || score < best.score) best = { domain: id, topic: d.topics[i]!, index: i, score };
+    if (i < d.topics.length + extra.length) return { domain: id, topic: i < d.topics.length ? d.topics[i]! : extra[i - d.topics.length]!, index: i };
+    if (growDue(st, id, now)) return null;
+    st.finished[id] = now;
+    st.today.finished++;
+    st.queue.shift();
+    planQueue(st);
   }
-  return best;
+  return null;
+}
+
+/** What every outline opens with ("physics is an academic discipline, a science…"): not study material. */
+const GENERIC = new Set(['academic discipline', 'science', 'natural science', 'physical science', 'biological science', 'social science', 'formal science', 'applied science', 'branch of science', 'field of study', 'discipline (academia)', 'knowledge', 'humanities']);
+
+/** Outline sections about people, places and bodies rather than ideas ("Influential physicists", "Chemistry organizations"). */
+const NOISE = /\b(people|persons|personalities|scientists|physicists|chemists|mathematicians|biologists|economists|philosophers|engineers|figures|pioneers|organi[sz]ations|institutions|institutes|societies|associations|journals|publications|awards|prizes|universities|colleges|companies|museums)\b/i;
+
+/**
+ * The articles an outline page links, with a rough level from where each sits: the first link of
+ * every list item (the item's subject; the links in its description are left alone), its depth the
+ * section's (h2 1, h3 2, h4 3) plus how deep the list is nested — 1 basic, 2 intermediate, 3 or more
+ * advanced. Navigation boxes, sidebars, notes and the See also / References / External links
+ * sections are skipped, and so are other lists, outlines and indexes. Works on Wikipedia's rendered
+ * HTML (links "/wiki/X", "./X" or "https://en.wikipedia.org/wiki/X"); no DOM needed.
+ */
+export function outlineLinks(html: string, self = ''): { t: string; l: 1 | 2 | 3 }[] {
+  const out: { t: string; l: 1 | 2 | 3 }[] = [];
+  const seen = new Set<string>([self.toLowerCase()]);
+  const clean = html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(style|script)\b[\s\S]*?<\/\1>/gi, '');
+  const tags = /<(\/?)(h[2-6]|ul|ol|li|a|table|div)\b([^>]*)>/gi;
+  let skip: { tag: string; depth: number } | null = null;
+  let heading = 2;
+  /** The heading level of a section being left out (notes, links, people and institutions), 0 when none. */
+  let muted = 0;
+  let lists = 0;
+  const items: boolean[] = [];
+  for (let m = tags.exec(clean); m; m = tags.exec(clean)) {
+    const close = m[1] === '/';
+    const tag = m[2]!.toLowerCase();
+    const attrs = m[3] ?? '';
+    if (skip) {
+      if (tag === skip.tag) skip.depth += close ? -1 : 1;
+      if (skip.depth <= 0) skip = null;
+      continue;
+    }
+    if (!close && (tag === 'table' || tag === 'div') && /class="[^"]*\b(navbox|sidebar|infobox|hatnote|reflist|refbegin|references|metadata|ambox|portal|toc|noprint|thumb|side-box)/i.test(attrs)) {
+      skip = { tag, depth: 1 };
+      continue;
+    }
+    if (tag[0] === 'h') {
+      if (close) continue;
+      heading = Number(tag[1]);
+      const end = clean.indexOf('</h', tags.lastIndex);
+      const text = clean.slice(tags.lastIndex, end < 0 ? tags.lastIndex : end).replace(/<[^>]*>/g, '').trim();
+      if (muted && heading <= muted) muted = 0;
+      if (!muted && (/^(see also|references|notes|external links|further reading|bibliography|sources|citations|footnotes|notes and references|works cited)$/i.test(text) || NOISE.test(text))) muted = heading;
+      continue;
+    }
+    if (tag === 'ul' || tag === 'ol') lists = Math.max(0, lists + (close ? -1 : 1));
+    else if (tag === 'li') {
+      if (close) items.pop();
+      else items.push(false);
+    } else if (tag === 'a' && !close) {
+      if (muted || !lists || !items.length || items[items.length - 1]) continue;
+      const href = attrs.match(/href="([^"]*)"/)?.[1] ?? '';
+      const path = href.match(/^(?:\.\/|\/wiki\/|(?:https?:)?\/\/en\.wikipedia\.org\/wiki\/)([^#?]+)/)?.[1];
+      if (!path) continue;
+      items[items.length - 1] = true;
+      let t = path;
+      try {
+        t = decodeURIComponent(path);
+      } catch {
+        /* a stray % in a title: keep it as written */
+      }
+      t = t.replace(/_/g, ' ').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+      if (!t || t.length > 120 || /^(File|Image|Category|Wikipedia|Help|Portal|Template|Template talk|Special|Talk|User|Module|Draft|MediaWiki|Wiktionary|wikt|Book|TimedText):/i.test(t)) continue;
+      if (/^(Outline|Index|Lists?|Glossary|Bibliography|Timeline) of\b/i.test(t) || /\(data page\)$/i.test(t) || GENERIC.has(t.toLowerCase())) continue;
+      const key = t.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const depth = heading - 1 + Math.max(0, lists - 1);
+      out.push({ t, l: depth <= 1 ? 1 : depth === 2 ? 2 : 3 });
+    }
+  }
+  return out;
+}
+
+/**
+ * A field's curriculum grows: its Wikipedia outline pages (outlines.ts) are read and the articles
+ * they link that the curriculum does not have yet (in any field, or already added) are added to
+ * the end of the field, basics first — at most WEEKLY_GROWTH a week and MAX_GROWN in all; the rest
+ * wait for next week's look. At most three page reads, once a week per field. Never throws.
+ */
+export async function growField(storage: DurableObjectStorage, st: StudyState, domain: string, now = Date.now(), lib?: Library): Promise<{ added: number; found: number; fetched: number }> {
+  const titles = OUTLINES[domain] ?? [];
+  const d = domainById(domain);
+  if (!d || !titles.length) return { added: 0, found: 0, fetched: 0 };
+  const have = new Set<string>();
+  for (const x of DOMAINS) for (const t of x.topics) have.add(t.t.trim().toLowerCase());
+  const old = await grownTopics(storage, domain);
+  for (const t of old) have.add(t.t.toLowerCase());
+  const fresh: { t: string; l: 1 | 2 | 3 }[] = [];
+  let fetched = 0;
+  let failed = 0;
+  for (const title of titles.slice(0, 3)) {
+    fetched++;
+    try {
+      const r = await fetch(`https://en.wikipedia.org/w/index.php?title=${encodeURIComponent(title.replace(/ /g, '_'))}&action=render`, { headers: { 'User-Agent': UA, Accept: 'text/html' } });
+      if (!r.ok) throw new Error(`en.wikipedia.org answered ${r.status}`);
+      for (const x of outlineLinks(await readCapped(r), title)) {
+        const key = x.t.toLowerCase();
+        if (have.has(key)) continue;
+        have.add(key);
+        fresh.push(x);
+      }
+    } catch {
+      failed++;
+    }
+  }
+  const g = (st.grown[domain] ??= { n: old.length, wk: '', added: 0, found: 0, at: 0 });
+  if (failed === fetched) {
+    g.fail = now; // Wikipedia unreachable: another look in a few hours
+    return { added: 0, found: 0, fetched };
+  }
+  const room = Math.max(0, Math.min(WEEKLY_GROWTH, MAX_GROWN - old.length));
+  const take = fresh.map((x, i) => ({ ...x, i })).sort((a, b) => a.l - b.l || a.i - b.i).slice(0, room);
+  if (take.length) {
+    const lines = take.map((x) => `${x.l}|wikipage|${x.t.replace(/\n/g, ' ')}`).join('\n');
+    const text = await storage.get<string>(moreKey(domain)).catch(() => undefined);
+    await storage.put(moreKey(domain), typeof text === 'string' && text ? `${text}\n${lines}` : lines);
+  }
+  Object.assign(g, { n: old.length + take.length, wk: weekOf(now), added: take.length, found: fresh.length, at: now });
+  delete g.fail;
+  if (lib && take.length) await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: `More to read: ${d.name}`.slice(0, 180), text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — Wikipedia's outline added ${take.length} new topics to ${d.name}${fresh.length > take.length ? ` (${fresh.length - take.length} more wait for next week)` : ''}.` }).catch(() => undefined);
+  return { added: take.length, found: fresh.length, fetched };
 }
 
 function bump(st: StudyState, domain: string, field: 'read' | 'digested' | 'failed'): void {
@@ -291,10 +511,11 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
   if (!st.on || !lib.available) return { state: st, did, next: HOUR };
   if (st.day !== todayUtc(now)) {
     st.day = todayUtc(now);
-    st.today = { reads: 0, digests: 0, drills: 0, ai: 0 };
+    st.today = { reads: 0, digests: 0, drills: 0, ai: 0, finished: 0, quick: 0 };
   }
   const spare = opts.spare !== false;
-  const caps = { reads: opts.reads ?? 3, ai: opts.aiCalls ?? 2, dailyReads: opts.dailyReads ?? 120, dailyAi: opts.dailyAi ?? 100 };
+  // A tick is a handful of page reads and model calls (the Worker's CPU time per run is small); the day's caps are ceilings — the meter decides first.
+  const caps = { reads: opts.reads ?? 5, ai: opts.aiCalls ?? 6, dailyReads: opts.dailyReads ?? 1000, dailyAi: opts.dailyAi ?? 600 };
   if (!spare) {
     // The day's database allowance is nearly used up: nothing is written until the reset.
     st.last = { at: now, topic: 'waiting', error: "most of today's database allowance is used; studying again after midnight UTC", kind: 'read' };
@@ -315,14 +536,36 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     }
   };
 
+  // ---------- 0. QUEUE and GROW ----------
+  // Everything read and STUDY ALL on: a finished field whose weekly outline look is due is opened
+  // again for what its outline adds (its cursor stays: nothing is read twice).
+  if (!st.queue.length && st.all) {
+    const again = DOMAINS.find((d) => st.finished[d.id] && growDue(st, d.id, now));
+    if (again) {
+      delete st.finished[again.id];
+      st.queue = [again.id];
+    }
+  }
+  // The field being read looks at its outline once a week (at most three page reads, besides the session's reads).
+  let grew = 0;
+  const head = st.queue[0];
+  if (head && growDue(st, head, now) && st.today.reads < caps.dailyReads) {
+    try {
+      grew = (await growField(storage, st, head, now, lib)).added;
+    } catch {
+      (st.grown[head] ??= { n: 0, wk: '', added: 0, found: 0, at: 0 }).fail = now; // its list could not be saved: another look later
+    }
+  }
+
   // ---------- 1. READ ----------
   // A question whose source fails is held aside until the session ends (tried once a session, so
   // the curriculum still moves), and given up after a few sessions.
   const retry: string[] = [];
+  const more = new Map<string, Topic[]>();
   for (let n = 0; n < caps.reads && st.today.reads < caps.dailyReads; n++) {
     const gap = st.gaps.shift();
-    const pickd = gap ? null : nextTopic(st);
-    if (!gap && !pickd) break; // the whole curriculum is read: digests and drills carry on
+    const pickd = gap ? null : await nextPiece(storage, st, now, more);
+    if (!gap && !pickd) break; // nothing queued (or an outline look comes first): digests and drills carry on
     const topic = gap ?? pickd!.topic.t;
     const kind: SourceKind = gap ? (/\b(js|javascript|css|html|dom|browser|web api|canvas|webgl)\b/i.test(gap) ? 'mdn' : 'wiki') : pickd!.topic.k;
     const domain = gap ? 'questions' : pickd!.domain;
@@ -417,7 +660,9 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
   }
 
   // ---------- 3. DRILL ----------
-  if (opts.ai && aiLeft > 0 && st.today.ai < caps.dailyAi) {
+  // One a session — about a quarter of an hour apart while reading runs fast, so the model allowance goes on the notes.
+  if (opts.ai && aiLeft > 0 && st.today.ai < caps.dailyAi && (!did.reads || now - (st.drilledAt ?? 0) >= QUARTER)) {
+    st.drilledAt = now;
     const drill: Drill = makeDrill(pickSkill(st), st.drills + 1);
     const reply = await useAi(DRILL_SYSTEM, drill.q);
     if (reply !== null) {
@@ -441,12 +686,35 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     }
   }
 
-  await storage.put(STUDY_KEY, st).catch(() => undefined);
-  // Cadence: a quarter of an hour while there is work and room; otherwise an hour; the day's caps reached: the reset.
-  const workLeft = !!nextTopic(st) || st.gaps.length > 0 || st.pending.length > 0 || !!opts.ai;
+  if (did.reads) st.pace = [...st.pace, [now, did.reads] as [number, number]].slice(-12);
+  // Cadence: almost at once while there is reading to do and room (QUICK_TICKS a day), then a quarter
+  // of an hour while there is work; otherwise an hour; the day's caps reached: the reset.
+  const reading = st.queue.length > 0 || st.gaps.length > 0;
+  const workLeft = reading || st.pending.length > 0 || !!opts.ai;
   const capped = st.today.reads >= caps.dailyReads && (!opts.ai || st.today.ai >= caps.dailyAi);
-  const next = capped ? Math.max(HOUR, untilMidnight(now) + 5 * 60_000) : workLeft && (did.reads || did.digests || did.drills) ? QUARTER : HOUR;
+  let next = HOUR;
+  if (capped) next = Math.max(HOUR, untilMidnight(now) + 5 * 60_000);
+  else if (reading && (did.reads || grew) && st.today.reads < caps.dailyReads && st.today.quick < QUICK_TICKS) {
+    st.today.quick++;
+    next = QUICK_TICK;
+  } else if (workLeft && (did.reads || did.digests || did.drills || grew)) next = QUARTER;
+  await storage.put(STUDY_KEY, st).catch(() => undefined);
+  await hurryJob(storage, next);
   return { state: st, did, next };
+}
+
+/**
+ * Bring the study job forward when this session wants the next one sooner than it is due (STUDY
+ * pressed in the Library tab runs a session outside the alarm: the rest of the field follows at once,
+ * not at the job's old time). From the alarm the job is already due, so this changes nothing there.
+ */
+async function hurryJob(storage: DurableObjectStorage, next: number): Promise<void> {
+  try {
+    const job = (await loadJobs(storage)).find((j) => j.kind === 'study');
+    if (job && job.next > Date.now() + next + 5000) await setNext(storage, job.id, Date.now() + next);
+  } catch {
+    /* no jobs here (a test's storage): nothing to bring forward */
+  }
 }
 
 async function fileDigest(lib: Library, domain: string, dname: string, topic: string, url: string, note: string): Promise<void> {
@@ -458,31 +726,94 @@ async function fileDigest(lib: Library, domain: string, dname: string, topic: st
   lib.finish(docId);
 }
 
-/** A summary for the Library tab: progress by domain, the day's counts, drill accuracy. */
-export function studySummary(st: StudyState): {
+/** Pieces a minute at the measured pace (the latest sessions that read, within the last two hours), or null while it is not known. */
+export function paceOf(st: StudyState, now = Date.now()): number | null {
+  const p = st.pace.filter(([at]) => now - at < 2 * HOUR);
+  if (p.length < 2) return null;
+  const span = p[p.length - 1]![0] - p[0]![0];
+  const read = p.slice(1).reduce((n, [, r]) => n + r, 0);
+  return span > 0 && read > 0 ? (read / span) * 60_000 : null;
+}
+
+/** "about 40 minutes", "about 3 hours", "about 2 days". */
+export function timeLeftText(minutes: number): string {
+  if (minutes < 1.5) return 'about a minute';
+  if (minutes < 90) return `about ${Math.round(minutes)} minutes`;
+  if (minutes < 36 * 60) return `about ${Math.round(minutes / 60)} hours`;
+  return `about ${Math.round(minutes / 1440)} days`;
+}
+
+type FieldRow = { id: string; name: string; topics: number; read: number; digested: number; focus: boolean; finished: boolean; grown: number };
+
+/** A summary for the Library tab: the queue and its honest status line, progress by field, the day's counts, drill accuracy. */
+export function studySummary(st: StudyState, now = Date.now()): {
   topics: number;
   read: number;
   digested: number;
-  domains: { id: string; name: string; topics: number; read: number; digested: number; focus: boolean }[];
-  /** Per level across every field: how many topics there are and how many are read ("beginner 40% · intermediate 12% · advanced 0%"). */
+  domains: FieldRow[];
+  /** Per level across every field's own curriculum: how many topics there are and how many are read ("beginner 40% · intermediate 12% · advanced 0%"). */
   levels: { level: Level; topics: number; read: number }[];
   today: StudyState['today'];
   drills: { asked: number; right: number; skills: { skill: string; n: number; right: number }[] };
   pending: number;
+  /** The field being read now and the ones after it (the first is the current one). */
+  queue: FieldRow[];
+  current: (FieldRow & { minutesLeft: number | null }) | null;
+  /** One honest line: "Reading Algebra & number theory · 212 of 480 · about 40 minutes left at this pace". */
+  status: string;
+  all: boolean;
+  finished: number;
+  /** Topics the fields' Wikipedia outlines added, in all and in their latest looks. */
+  grown: { topics: number; latest: number };
 } {
-  const domains = DOMAINS.map((d) => ({ id: d.id, name: d.name, topics: d.topics.length, read: Math.min(d.topics.length, st.cursor[d.id] ?? 0), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id) }));
+  const domains: FieldRow[] = DOMAINS.map((d) => {
+    const grown = st.grown[d.id]?.n ?? 0;
+    const topics = d.topics.length + grown;
+    return { id: d.id, name: d.name, topics, read: Math.min(topics, st.cursor[d.id] ?? 0), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
+  });
   const levels = LEVELS.map((level) => ({ level, topics: 0, read: 0 }));
-  for (const d of domains) {
-    for (let i = 0; i < d.topics; i++) {
-      const row = levels[LEVELS.indexOf(topicLevel(i, d.topics))]!;
+  for (const d of DOMAINS) {
+    const read = Math.min(d.topics.length, st.cursor[d.id] ?? 0);
+    for (let i = 0; i < d.topics.length; i++) {
+      const row = levels[LEVELS.indexOf(topicLevel(i, d.topics.length))]!;
       row.topics++;
-      if (i < d.read) row.read++;
+      if (i < read) row.read++;
     }
   }
   const skills = Object.entries(st.skills)
     .map(([skill, s]) => ({ skill, n: s.n, right: s.right }))
     .sort((a, b) => a.right / Math.max(1, a.n) - b.right / Math.max(1, b.n));
-  return { topics: TOPIC_COUNT, read: domains.reduce((n, d) => n + d.read, 0), digested: domains.reduce((n, d) => n + d.digested, 0), domains, levels, today: st.today, drills: { asked: st.drills, right: st.right, skills }, pending: st.pending.length };
+  const queue = st.queue.map((id) => domains.find((d) => d.id === id)).filter((d): d is FieldRow => !!d);
+  const head = queue[0];
+  const pace = paceOf(st, now);
+  const current = head ? { ...head, minutesLeft: pace ? (head.topics - head.read) / pace : null } : null;
+  const finished = domains.filter((d) => d.finished).length;
+  const status = !st.on
+    ? 'Self-study is switched off'
+    : current
+      ? `Reading ${current.name} · ${current.read} of ${current.topics} · ${current.minutesLeft === null ? 'working out the pace' : `${timeLeftText(current.minutesLeft)} left at this pace`}`
+      : finished === domains.length
+        ? `Every field is read: ${finished} of ${domains.length}`
+        : st.all
+          ? 'Choosing the next field'
+          : 'Nothing queued · pick a field and press STUDY';
+  const grownAll = domains.reduce((n, d) => n + d.grown, 0);
+  return {
+    topics: TOPIC_COUNT + grownAll,
+    read: domains.reduce((n, d) => n + d.read, 0),
+    digested: domains.reduce((n, d) => n + d.digested, 0),
+    domains,
+    levels,
+    today: st.today,
+    drills: { asked: st.drills, right: st.right, skills },
+    pending: st.pending.length,
+    queue: queue.slice(0, 8),
+    current,
+    status,
+    all: st.all,
+    finished,
+    grown: { topics: grownAll, latest: Object.values(st.grown).reduce((n, g) => n + (g.added ?? 0), 0) },
+  };
 }
 
 /**
@@ -491,6 +822,11 @@ export function studySummary(st: StudyState): {
  * so "data structures" is algorithms, not databases.
  */
 export function matchDomains(words: string): string[] {
+  // A list of exact field ids, in order ("algebra-number-theory, physics-classical-modern": the Library
+  // tab's STUDY), may carry the STUDY ALL switch ("study all off"): kept in the focus until loadStudy
+  // turns it into the setting, because the Library route stores only on, now and focus.
+  const parts = words.split(',').map((p) => p.trim().toLowerCase().replace(/\s+/g, '-')).filter(Boolean);
+  if (parts.length && parts.every((p) => domainById(p) || p === ALL_ON || p === ALL_OFF)) return [...new Set(parts)];
   const q = new Set(words.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 2 && !STOP.has(w)));
   if (!q.size) return [];
   const hits = DOMAINS.map((d) => {

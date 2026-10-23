@@ -7,11 +7,13 @@
  *
  * Format of a domain's `t` string: one topic per line, `level|kind|title`, where kind is one
  * of wiki, wikibooks, wikiversity, mdn, arxiv, swift, openstax (openstax titles are the book
- * page path, e.g. /books/psychology-2e/pages/2-1-why-is-research-important).
+ * page path, e.g. /books/psychology-2e/pages/2-1-why-is-research-important), or wikipage (an
+ * exact Wikipedia article title, read without a search: the topics a field's Wikipedia outline
+ * adds, outlines.ts and study.ts `growField`, kept in the brain's storage in this same format).
  */
 import { DOMAIN_TEXT } from './domains';
 
-export type SourceKind = 'wiki' | 'wikibooks' | 'wikiversity' | 'mdn' | 'arxiv' | 'swift' | 'openstax' | 'gutenberg';
+export type SourceKind = 'wiki' | 'wikibooks' | 'wikiversity' | 'mdn' | 'arxiv' | 'swift' | 'openstax' | 'gutenberg' | 'wikipage';
 export interface Topic {
   /** The source title (an article title, an MDN page, a search phrase for arXiv, a Swift book page, an OpenStax page path, a Gutenberg book number then its title). */
   t: string;
@@ -27,9 +29,10 @@ export interface Domain {
   topics: Topic[];
 }
 
-const KINDS = new Set<string>(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax', 'gutenberg']);
+const KINDS = new Set<string>(['wiki', 'wikibooks', 'wikiversity', 'mdn', 'arxiv', 'swift', 'openstax', 'gutenberg', 'wikipage']);
 
-function parse(text: string): Topic[] {
+/** `level|kind|title` lines → topics (bad lines are skipped). */
+export function parseTopics(text: string): Topic[] {
   const out: Topic[] = [];
   for (const line of text.split('\n')) {
     const s = line.trim();
@@ -42,7 +45,7 @@ function parse(text: string): Topic[] {
 }
 
 /** Every domain, in the order they are studied round-robin. */
-export const DOMAINS: Domain[] = DOMAIN_TEXT.map((d) => ({ id: d.id, name: d.name, why: d.why, topics: parse(d.t) }));
+export const DOMAINS: Domain[] = DOMAIN_TEXT.map((d) => ({ id: d.id, name: d.name, why: d.why, topics: parseTopics(d.t) }));
 
 export const TOPIC_COUNT = DOMAINS.reduce((n, d) => n + d.topics.length, 0);
 
