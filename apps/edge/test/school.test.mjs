@@ -10,13 +10,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -43,6 +43,9 @@ const LIB = await load('apps/edge/src/library/store');
 const F = await load('apps/edge/src/selftrain/factory');
 const RD = await load('apps/edge/src/school/reading');
 const STUDY = await load('apps/edge/src/library/study');
+const PR = await load('apps/edge/src/school/practice');
+const RM = await load('apps/edge/src/school/remote');
+const SCH = await load('apps/edge/src/schedule');
 
 class MemStorage {
   m = new Map();
@@ -1094,4 +1097,216 @@ test('the library’s locks: self-study holds back topics above his school stage
     const o = await STUDY.studySession(s3, new LIB.Library(s3, {}), { reads: 2 });
     assert.equal(o.state.last.topic, d.topics[5].t);
   });
+});
+
+// ---- part 2b: practice for weak spots, the honest gap, a paper on the free GPU ---------------------------------
+
+/** A paper sat with every exact answer wrong, so its topics are weak spots (written ones marked fairly). */
+async function weakAt(h, stage, subject) {
+  const r = await sit(h, stage, subject, wrongReply);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  return r.body.result;
+}
+
+/** A stronger model writing practice (PRACTICE_SYSTEM), and answering a question alone (the exam prompt). */
+function practiceModel(paperQ) {
+  const m = { calls: 0, busy: false, k: 0, writes: 0, checks: [] };
+  m.ask = async (system, user) => {
+    if (m.busy) throw new Error('every model is busy');
+    m.calls++;
+    if (system === PR.PRACTICE_SYSTEM) {
+      m.writes++;
+      const k = (m.k += 10);
+      const topic = user.match(/Topic: (.+)/)[1];
+      return JSON.stringify({ items: [
+        { type: 'number', q: `Practice ${k} on ${topic}: a jar holds ${k} sweets and ${k + 3} more are added. How many sweets now?`, answer: String(2 * k + 3), worked: `${k} + ${k + 3} = ${2 * k + 3}\nAnswer: ${2 * k + 3}` },
+        { type: 'number', q: `Practice ${k + 1} on ${topic}: a train has ${k} seats and ${k + 5} people board it; how many stand?`, answer: '999', worked: 'Answer: 999' },
+        { type: 'mcq', q: `Practice ${k + 2} on ${topic}: which colour is the sky on a clear day at noon?`, options: ['green', 'blue', 'red', 'black'], answer: 'B', worked: 'The sky looks blue.\nAnswer: B' },
+        { type: 'written', q: `Practice ${k + 3} on ${topic}: explain why the ${k}th kite flew higher in the wind.`, answer: 'More wind lifts it.', worked: 'Stronger wind pushes more air under the kite.\nAnswer: more wind lifts it' },
+        { type: 'number', q: paperQ, answer: '1', worked: 'Answer: 1' },
+        { type: 'mcq', q: 'broken', options: ['a'], answer: 'Z', worked: 'x' },
+      ] });
+    }
+    if (system === S.EXAM_SYSTEM) {
+      m.checks.push(user);
+      if (/a jar holds (\d+) sweets and (\d+) more/.test(user)) {
+        const [, a, b] = user.match(/a jar holds (\d+) sweets and (\d+) more/);
+        return `Adding them up.\nAnswer: ${Number(a) + Number(b)}`;
+      }
+      if (/train has (\d+) seats and (\d+) people/.test(user)) return 'Answer: 5'; // disagrees with the writer's 999
+      if (/which colour is the sky/.test(user)) return 'Answer: B';
+      return 'Answer: no idea';
+    }
+    return fairMarker(system, user);
+  };
+  return m;
+}
+
+test('practice for weak spots: only checked items are kept (a second call must agree), written ones as distillation, never a sat paper\'s item, a few calls a step, and it resumes', async () => {
+  const h = host();
+  await weakAt(h, 'nursery', 'numbers');
+  const sat = await h.storage.list({ prefix: 'school:paper:' });
+  const paperQ = [...sat.values()][0].paper.items[0].q;
+  assert.ok((await PR.heldQuestions(h.storage, 'nursery')).includes(paperQ), 'every sat question is held back');
+  const model = practiceModel(paperQ);
+  const d = { storage: h.storage, ask: model.ask, now: () => Date.UTC(2026, 9, 20, 9) };
+  // a busy model in the middle of a step: what was done is kept, and the next step carries on (resumable)
+  let r = await PR.practiceTick(d);
+  assert.ok(r.calls <= PR.CALLS_PER_STEP, `${r.calls} calls in one step`);
+  assert.equal(r.more, true);
+  const writes = model.writes;
+  model.busy = true;
+  r = await PR.practiceTick(d);
+  assert.equal(r.noModel, true);
+  model.busy = false;
+  for (let i = 0; i < 40 && r.more; i++) {
+    const before = model.calls;
+    r = await PR.practiceTick(d);
+    assert.ok(model.calls - before <= PR.CALLS_PER_STEP);
+  }
+  const topics = await PR.loadPractice(h.storage, 'nursery');
+  assert.ok(topics.length >= 1);
+  const all = topics.flatMap((t) => t.items);
+  assert.ok(all.length > 0);
+  for (const it of all) {
+    assert.notEqual(it.q, paperQ, 'never a sat paper\'s item');
+    assert.ok(!F.tooClose(it.q, [paperQ]));
+    if (it.type !== 'short') assert.ok(PR.agrees(it, `Answer: ${it.answer}`) && !/train has/.test(it.q), `${it.q}: kept only when the second answer agreed`);
+  }
+  assert.ok(all.some((it) => it.type === 'short'), 'written ones kept as distillation');
+  assert.ok(all.some((it) => it.type === 'mcq') && all.some((it) => it.type === 'number'));
+  const t0 = topics[0];
+  assert.ok(t0.rejected.disagree > 0 && t0.rejected.nearPaper > 0 && t0.rejected.malformed > 0, JSON.stringify(t0.rejected));
+  assert.ok(t0.items.length + t0.checking.length <= PR.PER_TOPIC + 3);
+  assert.ok(model.writes > writes, 'carried on after the busy step');
+  // the second call is asked as the exam asks: the question alone, never the writer's answer or working
+  assert.ok(model.checks.every((u) => !/Answer: \d/.test(u) && !/worked/.test(u)));
+  // into the week: school records, at most the cap, every one checked against the papers again
+  const held = [paperQ, all[0].q];
+  const { recs, near } = PR.practiceRecords(topics, held, 5);
+  assert.equal(recs.length, 5);
+  assert.ok(near >= 1, 'an item the papers now hold (and any rewording of it) is dropped here too');
+  assert.ok(recs.every((x) => !F.tooClose(x.messages.find((m) => m.role === 'user').content.split('\n\n')[0], held)));
+  assert.ok(recs.every((x) => x.kind === 'school' && x.messages[0].content.startsWith(S.EXAM_SYSTEM)));
+  const every = PR.practiceRecords(topics, [paperQ]).recs;
+  assert.ok(every.length <= PR.WEEKLY_SCHOOL && every.length === all.length, 'every kept item, within the weekly cap');
+  assert.ok(every.some((x) => x.answer && x.check) && every.some((x) => x.messages.at(-1).role === 'assistant'), 'exact ones with their answer and check, written ones with the worked answer');
+  // and the daily cap: no more calls once the day's are used
+  await h.storage.put('school:practice', { day: '2026-10-20', calls: PR.CALLS_PER_DAY });
+  const c = model.calls;
+  await PR.practiceTick(d);
+  assert.equal(model.calls, c);
+});
+
+test('the honest gap: the online model sits the same paper once (cached), a few calls a step, asked as the exam asks, marked the same way; filed on the result; its answers are never practice', async () => {
+  const h = host();
+  const res = await weakAt(h, 'ks1', 'maths');
+  const rec = await ST.loadPaper({ storage: h.storage }, res.paperId);
+  const asked = [];
+  const online = async (system, user) => {
+    if (system === MK.MARKER_SYSTEM) return fairMarker(system, user);
+    asked.push({ system, user });
+    const it = rec.paper.items.find((x) => user.includes(x.q));
+    return `ONLINE-REPLY ${it ? rightReply(it) : 'Answer: ?'}`;
+  };
+  const d = { storage: h.storage, ask: online, now: () => Date.UTC(2026, 9, 20, 9) };
+  let steps = 0;
+  for (let r = { more: true }; r.more && steps < 60; steps++) {
+    const before = asked.length;
+    r = await RM.gapTick(d);
+    assert.ok(r.calls <= RM.GAP_PER_STEP, `${r.calls} calls`);
+    assert.ok(asked.length - before <= RM.GAP_PER_STEP);
+  }
+  assert.ok(steps > 1, 'spread over steps');
+  assert.equal(asked.length, rec.paper.items.length, 'each question once');
+  const it0 = rec.paper.items[0];
+  assert.deepEqual([asked[0].system, asked[0].user], S.examMessages(it0, it0.passage ? rec.paper.passages.find((p) => p.id === it0.passage) : undefined).map((m) => m.content), 'asked exactly as the exam asks');
+  // filed on the paper's result by SCHOOL (with its KV mirror), and shown as the gap per subject
+  const g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.status, 200);
+  const st = await ST.loadState({ storage: h.storage });
+  const filed = st.results.find((x) => x.paperId === res.paperId);
+  assert.equal(filed.online.raw, rec.result.max, 'the online model got every mark here');
+  assert.equal(filed.online.model, RM.ONLINE_LABEL);
+  assert.equal(S.gapLine(filed), `offline ${filed.raw}/${filed.max} · online ${filed.max}/${filed.max}`);
+  assert.equal(g.body.gaps[0].line, S.gapLine(filed));
+  assert.equal((await ST.loadPaper({ storage: h.storage }, res.paperId)).result.online.raw, filed.online.raw);
+  assert.equal((await route(h, '/school', 'GET')).body.state.results[0].online.raw, filed.online.raw, 'GET /school has it on the result');
+  // cached: never asked again
+  for (let i = 0; i < 3; i++) await RM.gapTick(d);
+  assert.equal(asked.length, rec.paper.items.length);
+  // its answers are not kept once its marks are filed, and nothing of them reaches practice or the week's data
+  const kept = await h.storage.list({ prefix: RM.ONLINE_PREFIX });
+  assert.ok([...kept.values()].every((v) => !JSON.stringify(v).includes('ONLINE-REPLY')));
+  const { recs } = PR.practiceRecords(await PR.loadPractice(h.storage, 'ks1'), await PR.heldQuestions(h.storage, 'ks1'));
+  assert.ok(recs.every((x) => !JSON.stringify(x).includes('ONLINE-REPLY')));
+  // bounded by the day too
+  const h2 = host();
+  await weakAt(h2, 'ks1', 'maths');
+  await h2.storage.put('school:gap-day', { day: '2026-10-20', calls: RM.GAP_PER_DAY });
+  const n = asked.length;
+  const r2 = await RM.gapTick({ storage: h2.storage, ask: online, now: () => Date.UTC(2026, 9, 20, 9) });
+  assert.equal(r2.calls, 0);
+  assert.equal(asked.length, n);
+});
+
+test('the two routes: POST /school/sit-remote sets the paper through /school/sit (a bank paper where the stage has one), asks for one run at a time and wakes the training job; GET /school/remote says how it is going', async () => {
+  const model = bankModel();
+  const h = host({ write: model.ask, now: () => Date.UTC(2026, 9, 20, 9) });
+  await SCH.addJob(h.storage, { kind: 'train', title: 'Offline brain training', text: 'x', next: Date.UTC(2026, 9, 21), repeat: 'hourly', tz: 'UTC' });
+  // validation is /school/sit's own
+  assert.equal((await route(h, '/school/sit-remote', 'POST', { stage: 'nowhere', subject: 'maths' })).status, 400);
+  assert.match((await route(h, '/school/sit-remote', 'POST', { stage: 'ks3', subject: 'maths' })).body.error, /not written yet/);
+  // a stage with a finished bank: the paper is drawn from it, as on the phone
+  let w = await route(h, '/school/bank/write', 'POST', { stage: 'ks3', subject: 'maths' });
+  for (let i = 0; i < 200 && w.body.busy; i++) w = await route(h, '/school/work', 'POST');
+  const r = await route(h, '/school/sit-remote', 'POST', { stage: 'ks3', subject: 'maths' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.remote.phase, 'queued');
+  assert.match(r.body.remote.note, /^Starting Key Stage 3 maths on the free GPU/);
+  const rec = await ST.loadPaper({ storage: h.storage }, r.body.remote.paperId);
+  assert.equal(rec.from, 'bank', 'the same paper the phone would get');
+  assert.ok(!('answer' in r.body.remote) && !JSON.stringify(r.body).includes('"rubric"'));
+  const job = (await SCH.loadJobs(h.storage)).find((j) => j.kind === 'train');
+  assert.ok(job.next <= Date.now() + 2000, 'the training job (which runs it) is woken now');
+  // one at a time
+  const again = await route(h, '/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  assert.equal(again.status, 409);
+  assert.match(again.body.error, /^Already sitting Key Stage 3 maths on the free GPU: one paper at a time\.$/);
+  // the status, and a running one's note worked out when asked
+  let g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.body.remote.phase, 'queued');
+  assert.equal(g.body.remote.paperId, rec.paper.id);
+  const st = await RM.loadRemote(h.storage);
+  await RM.saveRemote(h.storage, { ...st, phase: 'running', pushedAt: Date.UTC(2026, 9, 20, 9) - 2 * 60_000, note: 'Sitting Key Stage 3 maths on the free GPU' });
+  g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.body.remote.note, `Sitting Key Stage 3 maths on the free GPU · started 2 min ago · about ${RM.aboutMinutes(rec.paper.items.length)} minutes`);
+  assert.deepEqual(g.body.gap, {});
+});
+
+test('the exam prompt: the shared one (sent to Kaggle and to the online model) is the phone\'s own, word for word', async () => {
+  // sit.ts with its browser-only imports stubbed: only examPrompt is used
+  await build({
+    entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
+    plugins: [{ name: 'stub', setup(b) {
+      b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
+      b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"";' }));
+    } }],
+  });
+  const SIT = await import('./.build/school/sit.mjs');
+  const FIXT = JSON.parse(readFileSync(at('../../../training/kaggle/fixtures.json'), 'utf8'));
+  assert.ok(FIXT.examPrompts.length >= 5);
+  for (const c of FIXT.examPrompts) {
+    const passages = c.item.passage ? [{ id: 'p1', ...c.item.passage, source: '' }] : [];
+    const item = { id: 'x', ...c.item, passage: c.item.passage ? 'p1' : undefined };
+    assert.deepEqual(SIT.examPrompt(item, passages), c.messages, c.item.q);
+    assert.deepEqual(S.examMessages(c.item, c.item.passage), c.messages, c.item.q);
+  }
+  assert.equal(S.EXAM_SYSTEM, SIT.EXAM_SYSTEM);
+  assert.deepEqual(S.EXAM_TOKENS, SIT.TOKENS);
+  // and every item of real papers
+  for (const stage of FOUR) for (const subject of subjectsOf(stage)) {
+    const p = P.makePaper(stage, subject, P.PAPER_SEED_FLOOR + 7);
+    for (const it of p.items) assert.deepEqual(S.examMessages(it, it.passage ? p.passages.find((x) => x.id === it.passage) : undefined), SIT.examPrompt(it, p.passages ?? []));
+  }
 });

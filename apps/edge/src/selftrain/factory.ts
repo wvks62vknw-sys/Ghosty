@@ -16,6 +16,8 @@
  *  - DISTILLATION: the online models' replies to the owner's own questions (not disliked, no tools).
  *  - RED TEAM: prompts he must decline, with Ghosty's kind refusal, plus evolved rewordings.
  *  - FAILURES: what he got wrong last week (the notebook's report) and offline replies the owner disliked.
+ *  - SCHOOL: practice for his weak spots at school (school/practice.ts: checked twice, never a paper's item), at most
+ *    `WEEKLY.school` a week; while he is at school the GYM puzzles are at his stage's levels (`STAGES[].gym`).
  * The no-forgetting replay mix (earlier weeks' files and Apache-2.0 general chat data) is added by the notebook.
  *
  * Everything the models write is checked before it is kept; prompts wrap the owner's text with `asData`.
@@ -29,7 +31,7 @@ import type { Library } from '../library/store';
 // ---- limits per week ----------------------------------------------------------------------------------------
 
 /** How many of each the factory gathers in a week (model calls are the scarce part: about 120 in all). */
-export const WEEKLY = { gymPerLevel: 6, drills: 80, evol: 60, library: 40, toolChat: 40, toolSynth: 48, pref: 30, distill: 80, redteamEvol: 12, failures: 120 };
+export const WEEKLY = { gymPerLevel: 6, drills: 80, evol: 60, library: 40, toolChat: 40, toolSynth: 48, pref: 30, distill: 80, redteamEvol: 12, failures: 120, school: 150 };
 
 /** Model calls the factory may make each week, in all. */
 export const WEEKLY_CALLS = 140;
@@ -100,15 +102,20 @@ export const trainSeed = (week: number, i: number) => ((week * 7919 + i * 104_72
 
 /**
  * Puzzles at the levels reached and just beyond: for each game at level L, levels L−1, L and L+1 (within
- * 1–10), `per` seeds each. A game never played counts as level 1.
+ * 1–10), `per` seeds each. A game never played counts as level 1. With `stage` (his school stage's GYM levels,
+ * `STAGES[].gym`, while he is at school) every game is at those levels instead, with about as many puzzles in all.
  */
-export function gymTasks(levels: Record<string, number>, games: string[], week: number, per = WEEKLY.gymPerLevel): TrainRecord[] {
+export function gymTasks(levels: Record<string, number>, games: string[], week: number, per = WEEKLY.gymPerLevel, stage?: [number, number]): TrainRecord[] {
   const out: TrainRecord[] = [];
   let i = 0;
+  const lo = stage ? Math.min(10, Math.max(1, stage[0])) : 0;
+  const hi = stage ? Math.min(10, Math.max(lo, stage[1])) : 0;
+  const atStage = stage ? Array.from({ length: hi - lo + 1 }, (_, k) => lo + k) : null;
+  const n = atStage ? Math.max(1, Math.round((per * 3) / atStage.length)) : per;
   for (const game of games) {
     const L = Math.min(10, Math.max(1, Math.round(levels[game] ?? 1)));
-    for (const level of [L - 1, L, L + 1].filter((l) => l >= 1 && l <= 10))
-      for (let k = 0; k < per; k++) out.push({ kind: 'gym', task: { game, level, seed: trainSeed(week, i++) }, from: `GYM ${game} level ${level}` });
+    for (const level of atStage ?? [L - 1, L, L + 1].filter((l) => l >= 1 && l <= 10))
+      for (let k = 0; k < n; k++) out.push({ kind: 'gym', task: { game, level, seed: trainSeed(week, i++) }, from: `GYM ${game} level ${level}${atStage ? ' (his school stage)' : ''}` });
   }
   return out;
 }

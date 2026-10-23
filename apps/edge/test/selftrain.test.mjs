@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -17,7 +17,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts'].map((f) => at(`../${f}`)),
+  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -28,7 +28,8 @@ await build({
 });
 // (assets.ts on its own too: what the brain hands to Kaggle, read back by the tests below)
 await build({ entryPoints: [at('../src/selftrain/assets.ts')], format: 'esm', platform: 'neutral', outfile: at('./.build/selftrain/assets-check.mjs'), logLevel: 'warning' });
-const load = (f) => import(`./.build/selftrain/${f}.mjs`);
+// (Only the files that exist, and a missing one as empty: SCHOOL's tests then fail one by one on older code.)
+const load = (f) => import(`./.build/selftrain/${f}.mjs`).catch(() => ({}));
 const C = await load('apps/edge/src/selftrain/cycle');
 const F = await load('apps/edge/src/selftrain/factory');
 const E = await load('apps/edge/src/selftrain/exam');
@@ -38,6 +39,11 @@ const T = await load('packages/shared/src/toolcall');
 const W = await load('apps/edge/src/selftrain/weights');
 const M = await load('apps/web/src/offline/models');
 const RL = await load('apps/web/src/features/core/ratelist');
+const SIX = await load('apps/edge/src/school/index');
+const SST = await load('apps/edge/src/school/state');
+const SPR = await load('apps/edge/src/school/practice');
+const SRM = await load('apps/edge/src/school/remote');
+const SS = await load('packages/shared/src/school');
 const { toolByName } = await import('./.build/tools/index.mjs');
 const { Library } = await import('./.build/library/store.mjs');
 const Sched = await import('./.build/schedule.mjs');
@@ -1016,4 +1022,184 @@ test('the phone: its list of ratings keeps the NEWEST 300 (not the smallest ids)
   assert.ok(!list.some(([x]) => x === 1_000_000 - 10));
   assert.equal(RL.replyId('Hello Boss!'), RL.replyId('Hello Boss!'));
   assert.notEqual(RL.replyId('Hello Boss!'), RL.replyId('Hello Boss?'));
+});
+
+// ---- SCHOOL in the weekly training (part 2b) ---------------------------------------------------------------------
+
+test('school records: an exact one (the question, its answer and how it is checked) and a written one (the worked answer) validate; a paper\'s question is refused by tooClose', () => {
+  assert.ok(S.TRAIN_KINDS.includes('school'));
+  const sys = { role: 'system', content: SS.EXAM_SYSTEM };
+  assert.equal(S.recordProblem({ kind: 'school', messages: [sys, { role: 'user', content: 'What is 7 × 8?' }], answer: '56', check: { type: 'number' } }), '');
+  assert.equal(S.recordProblem({ kind: 'school', messages: [sys, { role: 'user', content: 'Why?' }, { role: 'assistant', content: 'Because.\nAnswer: because' }] }), '');
+  assert.equal(S.recordProblem({ kind: 'school', messages: [sys, { role: 'user', content: 'Why?' }] }), 'a school item needs its exact answer, or a worked answer to learn');
+  assert.equal(S.recordProblem({ kind: 'school', messages: [sys, { role: 'user', content: 'Pick one' }], answer: 'table', check: { type: 'mcq' } }), 'a multiple-choice answer must be a letter A–D');
+  // the shared cases, word for word with the notebook (SCHOOL's marking too)
+  for (const c of FIX.schoolMarks) assert.equal(SS.markExact(c.item, c.given), c.got, JSON.stringify(c));
+  const paperQ = 'Sam has 24 marbles and gives away 9. How many marbles does Sam have left?';
+  assert.equal(F.tooClose('Sam has 24 marbles and gives 9 away: how many marbles are left with Sam?', [paperQ]), paperQ);
+  assert.equal(F.tooClose('Which colour is the sky on a clear day?', [paperQ]), '');
+});
+
+/** A school record with weak spots at ks2 (a paper sat with every exact answer wrong) and practice for them. */
+async function schoolAt(s, stage = 'ks2', subject = 'maths') {
+  const h = { storage: s, ask: async () => 'MARKS: 0 | no', push: async () => 1, random: (() => { let i = 0; return () => ((i++ * 0.6180339887) % 1); })() };
+  const call = async (path, method, body) => {
+    const r = await SIX.schoolRoute(new Request(`https://ghosty.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }), path, method, h);
+    return { status: r.status, body: await r.json() };
+  };
+  const sat = await call('/school/sit', 'POST', { stage, subject });
+  const rec = await SST.loadPaper({ storage: s }, sat.body.paper.id);
+  await call('/school/answers', 'POST', { paperId: rec.paper.id, answers: rec.paper.items.map((it) => ({ id: it.id, given: 'Answer: 987654321' })) });
+  // he is at that stage now (as if the ones below were passed)
+  await SST.saveState({ storage: s }, { ...(await SST.loadState({ storage: s })), stage });
+  return { h, call, paper: rec.paper };
+}
+
+test('the factory: school practice goes into the week\'s data within its weekly cap (never a paper\'s item, counted in the status); while he is at school the GYM puzzles are at his stage\'s levels', async () => {
+  // GYM levels: his stage's, about as many puzzles in all
+  const plain = F.gymTasks({ maze: 7 }, ['maze', 'logic'], 3);
+  assert.deepEqual([...new Set(plain.map((r) => r.task.level))].sort((a, b) => a - b), [1, 2, 6, 7, 8]);
+  const staged = F.gymTasks({ maze: 7 }, ['maze', 'logic'], 3, F.WEEKLY.gymPerLevel, [3, 4]);
+  assert.deepEqual([...new Set(staged.map((r) => r.task.level))].sort(), [3, 4]);
+  assert.equal(staged.length, 2 * 2 * 9);
+  assert.ok(staged.every((r) => S.recordProblem(r) === ''));
+
+  const s = new MemStorage();
+  const { paper } = await schoolAt(s, 'ks2', 'maths');
+  // 200 practice items for one weak topic, one of them a copy of the paper's own question
+  const topic = paper.items[0].topic;
+  const items = Array.from({ length: 200 }, (_, i) => ({ type: 'number', q: `Practice ${i}: a baker made ${i + 11} loaves and sold ${i + 2} before lunch; how many were left for the afternoon?`, answer: '9', worked: 'Answer: 9' }));
+  items[3] = { type: 'number', q: paper.items[0].q, answer: '1', worked: 'Answer: 1' };
+  await s.put(SPR.practiceKey('ks2', 'maths', topic), { stage: 'ks2', subject: 'maths', topic, items, checking: [], asked: 3, rejected: { disagree: 0, malformed: 0, nearPaper: 0 }, updatedAt: 1 });
+  const d = cycleDeps(s);
+  await stepUntil(d, 'upload');
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.gathered.school, F.WEEKLY.school, 'the week\'s cap');
+  assert.equal(st.school.note.startsWith(`school practice: ${F.WEEKLY.school}`), true, st.school.note);
+  const recs = await F.loadRecords(s, 'school');
+  assert.ok(recs.every((r) => r.kind === 'school' && S.recordProblem(r) === ''));
+  const qs = paper.items.map((it) => it.q);
+  assert.deepEqual(recs.filter((r) => F.tooClose(r.messages[1].content, qs)).map((r) => r.messages[1].content), [], 'never a paper\'s item');
+  assert.ok((await s.get('train:rejected')).some((x) => x.why === 'school practice too close to a question on a paper' && x.n >= 1));
+  const gym = await F.loadRecords(s, 'gym');
+  assert.deepEqual([...new Set(gym.map((r) => r.task.level))].sort(), SS.stageById('ks2').gym, 'the GYM follows his school stage');
+  // and they go up in the week's file
+  await stepUntil(d, 'running');
+  const lines = d.svc.state.commits[0].lines;
+  const jsonl = unb64(lines.find((l) => l.value.path === 'weeks/week-0001.jsonl').value.content).trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(jsonl.filter((r) => r.kind === 'school').length, F.WEEKLY.school);
+});
+
+test('a SCHOOL paper on the free GPU: the quota first, the questions (never the answers) to the private dataset, the notebook in exam mode under its own slug with its own ticket; the hook takes the school report, it is marked and kept with where: kaggle; one run at a time', async () => {
+  const s = new MemStorage();
+  await C.ensureTrainJob(s);
+  const { call, paper } = await schoolAt(s, 'ks1', 'maths');
+  // the week is not due: only the paper runs
+  await s.put('train:state', { phase: 'idle', week: 0, gen: 0, nextRun: Date.UTC(2027, 0, 1), startedAt: 0, note: '', calls: 0, done: {} });
+  const d = cycleDeps(s);
+  // the owner asks (the SCHOOL tab's button)
+  const asked = await call('/school/sit-remote', 'POST', { stage: 'ks2', subject: 'maths' });
+  assert.equal(asked.status, 200, JSON.stringify(asked.body));
+  const paperId = asked.body.remote.paperId;
+  assert.equal((await call('/school/sit-remote', 'POST', { stage: 'ks1', subject: 'reading' })).status, 409, 'one at a time');
+  const rec = await SST.loadPaper({ storage: s }, paperId);
+  await C.trainTick(d.deps);
+  assert.ok(d.svc.calls.some((c) => c.url.endsWith('/GetAcceleratorQuotaStatistics')), 'the quota first');
+  const push = d.svc.state.pushes.at(-1);
+  assert.equal(push.slug, 'kag/ghosty-exam', 'its own slug: never the weekly run');
+  assert.deepEqual([push.sessionTimeoutSeconds, push.enableGpu, push.enableInternet, push.isPrivate], [SRM.EXAM_GPU_HOURS * 3600, true, true, true]);
+  const cfg = configOf(push);
+  assert.equal(cfg.mode, 'exam');
+  assert.equal(cfg.paper_id, paperId);
+  assert.equal(cfg.data_file, 'school_paper.jsonl');
+  assert.deepEqual(cfg.current, { label: 'stock Qwen3 0.6B', chain: [] });
+  const file = d.svc.state.commits.at(-1).lines.find((l) => l.value?.path === 'school_paper.jsonl');
+  const lines = unb64(file.value.content).trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => l.id), rec.paper.items.map((it) => it.id));
+  for (const l of lines) assert.deepEqual(Object.keys(l).filter((k) => !['id', 'q', 'type', 'marks', 'options', 'passage'].includes(k)), [], 'questions only: never answers or mark schemes');
+  assert.equal(d.svc.state.commits.at(-1).repo, 'owner/ghosty-training');
+  assert.equal(d.svc.state.repos.get('owner/ghosty-training'), true, 'the private dataset');
+  assert.equal((await C.trainStatus(d.deps)).phase, 'idle', 'the weekly run is not touched');
+  // its status is asked by its own slug
+  await C.trainTick(d.deps);
+  assert.equal(JSON.parse(d.svc.calls.filter((c) => c.url.endsWith('/GetKernelSessionStatus')).at(-1).body).kernelSlug, 'ghosty-exam');
+  let g = await call('/school/remote', 'GET');
+  assert.match(g.body.remote.note, /^Sitting Key Stage 2 maths on the free GPU · started (just now|\d+ min ago) · about \d+ minutes$/);
+  // the hook: the token once with this run's ticket; a weekly report is not taken with it
+  assert.deepEqual(await (await hookReq(d, cfg.ticket)).json(), { hf_token: 'hf_writeTOKEN123' });
+  assert.equal((await hookReq(d, cfg.ticket)).status, 403);
+  assert.equal((await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { week: 1, before: {}, after: {} } }) })).status, 400);
+  assert.equal((await hookReq(d, 'f'.repeat(48), { method: 'POST', body: JSON.stringify({ report: { kind: 'school', paperId, answers: [] } }) })).status, 403, 'not without the ticket');
+  // the school report: every answer right
+  const right = (it) => (it.type === 'mcq' ? `Answer: ${it.answer.toUpperCase()}` : `Answer: ${it.answer}`);
+  const answers = rec.paper.items.map((it) => ({ id: it.id, given: right(it) }));
+  d.deps.ask = async (system, user) => (system === SS.EXAM_SYSTEM ? 'Answer: ?' : `MARKS: ${Number(user.match(/Most marks possible: (\d+)/)[1])} | fine`);
+  const ok = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { kind: 'school', paperId, model: 'whatever', answers } }) });
+  assert.deepEqual(await ok.json(), { ok: true });
+  const remote = await SRM.loadRemote(s);
+  assert.equal(remote.phase, 'idle');
+  assert.equal(remote.unfiled.result.where, 'kaggle', 'marked in the hook, kept with where: kaggle');
+  assert.equal(remote.unfiled.result.raw, rec.paper.maxMarks);
+  assert.equal(remote.unfiled.result.model, 'stock Qwen3 0.6B', 'the brain that sat it, as the brain knows it');
+  assert.match(remote.note, new RegExp(`^Sat Key Stage 2 maths on the free GPU: ${rec.paper.maxMarks}/${rec.paper.maxMarks} \\(Top band\\)\\.$`));
+  assert.equal((await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { kind: 'school', paperId, answers } }) })).status, 403, 'the ticket is spent');
+  // filed into the record by SCHOOL (GET /school/remote, with its KV mirror): the stage passes like any paper
+  g = await call('/school/remote', 'GET');
+  assert.equal(g.body.remote.last.raw, rec.paper.maxMarks);
+  const st = await SST.loadState({ storage: s });
+  const res = st.results.find((r) => r.paperId === paperId);
+  assert.equal(res.where, 'kaggle');
+  assert.equal(res.top, true);
+  const kept = await SST.loadPaper({ storage: s }, paperId);
+  assert.equal(kept.result.where, 'kaggle');
+  assert.equal(kept.given[answers[0].id], answers[0].given);
+  assert.equal((await SRM.loadRemote(s)).unfiled, undefined);
+  // and the next one may start
+  assert.equal((await call('/school/sit-remote', 'POST', { stage: 'ks1', subject: 'maths' })).status, 200);
+  void paper;
+});
+
+test('a SCHOOL paper on the free GPU is refused, with a plain note, below 2 free GPU hours, with pay-to-scale on, or with no GPU time; nothing is uploaded or pushed; a run that stops ends with the reason', async () => {
+  const cases = [
+    [{ gpuQuota: { timeUsed: '100000s', totalTimeAllowed: '108000s' } }, /^Only 2\.2 of Kaggle's 30 free GPU hours|^Only 1\.\d of Kaggle's 30 free GPU hours are left this week \(a paper needs 2\): sit it on the phone/],
+    [{ gpuQuota: { timeUsed: '0s', totalTimeAllowed: '108000s', isPayToScaleEnabled: true } }, /pay-to-scale is switched on/],
+    [{ gpuQuota: {} }, /no GPU time: verify your phone number/],
+  ];
+  cases[0][0].gpuQuota.timeUsed = '102000s'; // 1.6 h left
+  for (const [quota, want] of cases) {
+    const s = new MemStorage();
+    const { call } = await schoolAt(s, 'nursery', 'numbers');
+    const d = cycleDeps(s, { svc: { quota } });
+    assert.equal((await call('/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' })).status, 200);
+    await C.trainTick(d.deps);
+    const r = await SRM.loadRemote(s);
+    assert.equal(r.phase, 'idle');
+    assert.match(r.note, want);
+    assert.match(r.last.error, want);
+    assert.equal(d.svc.state.pushes.length, 0);
+    assert.equal(d.svc.state.commits.length, 0);
+    assert.equal(SRM.remoteView(r, Date.now()).note, r.note);
+  }
+  assert.equal(C.examQuotaProblem({ total: 30, left: 2, payToScale: false, refreshAt: null }), '', 'two hours are enough');
+  // a run Kaggle stops: ended with the reason and its log, never pushed twice
+  const s = new MemStorage();
+  const { call } = await schoolAt(s, 'nursery', 'numbers');
+  const d = cycleDeps(s, { svc: { output: { files: [], log: '[{"stream_name":"stderr","data":"RuntimeError: CUDA out of memory\\n"}]' } } });
+  await call('/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  await C.trainTick(d.deps);
+  d.svc.state.kernel = 'ERROR';
+  await C.trainTick(d.deps);
+  const r = await SRM.loadRemote(s);
+  assert.equal(r.phase, 'idle');
+  assert.match(r.note, /^Nursery talking and listening on the free GPU stopped \(CUDA out of memory\)\. The end of its log: RuntimeError: CUDA out of memory$/);
+  assert.equal(d.svc.state.pushes.length, 1);
+  // while the week's run is on Kaggle a paper waits for it; while a paper is on Kaggle the week's push waits
+  const s2 = new MemStorage();
+  const x = await schoolAt(s2, 'nursery', 'numbers');
+  const d2 = cycleDeps(s2);
+  await stepUntil(d2, 'running');
+  await x.call('/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  await C.trainTick(d2.deps);
+  assert.match((await SRM.loadRemote(s2)).note, /^Waiting: the weekly training is on the free GPU/);
+  assert.equal(d2.svc.state.pushes.length, 1);
 });
