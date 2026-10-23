@@ -83,6 +83,8 @@ export function fromOpenverse(h: OpenverseHit, alt: string): ImageRef | undefine
   const set = flickrSet(h.url) ?? commonsSet(h.url, w);
   const src = set ? set.find(([, x]) => x >= 800)?.[0] ?? set[set.length - 1]![0] : h.url;
   const license = licenseName(h.license!, h.license_version);
+  // CC BY and BY-SA ask for the author's name: without one the credit cannot be given, so the picture is not used.
+  if (/^by/i.test(h.license!) && !(h.creator ?? '').trim()) return undefined;
   return {
     src,
     ...(set ? { srcset: set } : {}),
@@ -103,6 +105,8 @@ export function fromCommons(p: { title?: string; imageinfo?: { url?: string; wid
   if ((ii.width ?? 0) < 1200 || (ii.height ?? 0) < 700) return undefined;
   const set = commonsSet(ii.url.split('?')[0]!, ii.width!);
   const author = (md.Artist?.value ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'unknown';
+  // CC BY and BY-SA ask for the author's name: without one the credit cannot be given, so the picture is not used.
+  if (/^CC BY/i.test(lic) && /^(unknown|unknown author|anonymous)$/i.test(author)) return undefined;
   return {
     src: set?.find(([, x]) => x >= 960)?.[0] ?? ii.url.split('?')[0]!,
     ...(set ? { srcset: set } : {}),

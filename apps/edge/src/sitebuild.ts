@@ -23,8 +23,10 @@
 import type { Project, ProjectStep } from '../../../packages/shared/src/protocol';
 import { assemble, type Assembled } from '../../../packages/shared/src/sitekit/assemble';
 import { briefFrom, emailOf, missing } from '../../../packages/shared/src/sitekit/brief';
+import { whatsappOf } from '../../../packages/shared/src/sitekit/blocks/hero';
 import { formatGates, runGates, type GateReport } from '../../../packages/shared/src/sitekit/gates';
-import { fromCommons, fromOpenverse, fromPexels, fromUnsplash, KIND_QUERIES, type OpenverseHit } from '../../../packages/shared/src/sitekit/images';
+import { addressLine } from '../../../packages/shared/src/sitekit/html';
+import { fromCommons, fromOpenverse, fromPexels, fromUnsplash, KIND_QUERIES, uncredited, type OpenverseHit } from '../../../packages/shared/src/sitekit/images';
 import { STOCK, stockFor, type StockSet } from '../../../packages/shared/src/sitekit/stock-data';
 import { planFrom, TEMPLATES } from '../../../packages/shared/src/sitekit/templates';
 import type { Brief, ImageRef, Plan, Review } from '../../../packages/shared/src/sitekit/types';
@@ -47,13 +49,13 @@ export const SITE_STEPS = [
   { title: 'Brief, map and pictures', instruction: 'Read the request into facts, find the address on the map, and choose free, credited photos (or make some).' },
   { title: 'Plan and look', instruction: 'Pick the template for the trade, the pages and sections, the colours, fonts and voice.' },
   { title: 'Words', instruction: 'Write every page in the business’s own voice, without inventing prices, reviews or awards.' },
-  { title: 'Build and check', instruction: 'Assemble the pages from the blocks and run the quality gates: accessibility, contrast, links, size, SEO, phone layout.' },
+  { title: 'Build and check', instruction: 'Assemble the pages from the blocks and run the quality gates: accessibility, contrast, links, size, link previews, phone layout.' },
   { title: 'Publish and look', instruction: 'Publish the site, take screenshots on a phone and a laptop, and critique them like a designer.' },
   { title: 'Polish and report', instruction: 'Apply the fixes, check again, republish, and report with the live link.' },
 ];
 /** Steps follow each other quickly: the slow part is waiting for free model room, which the quota engine handles. */
 export const SITE_STEP_MS = 15_000;
-/** How often a step waits for a model before it carries on without one. */
+/** How often each step waits for a model before it carries on without one. */
 const MAX_WAITS = 1;
 const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; website builder)' };
 
@@ -72,7 +74,15 @@ export interface SiteJob {
   stock?: StockSet;
   plan?: Plan;
   link?: string;
+  /** Model waits so far, in all; `waited` counts them per step (each step may wait once). */
   waits: number;
+  waited?: Record<string, number>;
+  /** Pages the writer has finished (a resumed step 3 starts after them). */
+  wrote?: number;
+  /** Screenshots were tried for this build (a resumed step 5 does not take them again). */
+  shotsTried?: boolean;
+  /** Problems the checks found that keep the site from going public (made-up claims, placeholder text, uncredited photos). */
+  blocked?: string[];
   /** Steps that went ahead without a model (said in the report). */
   plain: string[];
   /** Public at its link (false or missing: a draft, built and checked but not public). */
@@ -170,19 +180,27 @@ export async function siteNameFor(a: Record<string, unknown>, b: Brief, ctx: Pic
   return { name: base, replaces: had };
 }
 
+/** The owner's personal details the page will show to anyone, said plainly before anything is built or published. */
+export function publicDetails(b: Brief): string {
+  const shown = [b.phone && `phone ${b.phone}`, b.email && `email ${b.email}`, addressLine(b) && `address ${addressLine(b)}`].filter(Boolean);
+  const wa = whatsappOf(b);
+  const forms = [wa && `WhatsApp ${wa}`, b.email && `email ${b.email}`].filter(Boolean);
+  return `${shown.length ? ` Public on the page: ${shown.join(', ')}.` : ''}${forms.length ? ` Its forms send to ${forms.join(' or ')}.` : ''}`;
+}
+
 /** What the owner approves: what will be built, where it will go, what will be assumed, and what it replaces. The link is fixed in the arguments. */
 export async function siteApproval(a: Record<string, unknown>, ctx: ToolContext): Promise<{ args: Record<string, unknown>; reason: string }> {
   const draft = await confirmingDraft(a, ctx);
   if (draft) {
     const confirm = draft.plan!.confirm;
-    return { args: { ...a, link_name: draft.name, confirm: true }, reason: `Publish the website "${draft.plan!.pages[0]!.title || draft.brief.name}" at ${siteLink(ctx.origin, ctx.env, draft.name)}?${confirm.length ? ` You are confirming what I assumed: ${confirm.join('; ')}.` : ''} Anyone with the link can open it.` };
+    return { args: { ...a, link_name: draft.name, confirm: true }, reason: `Publish the website "${draft.plan!.pages[0]!.title || draft.brief.name}" at ${siteLink(ctx.origin, ctx.env, draft.name)}?${confirm.length ? ` You are confirming what I assumed: ${confirm.join('; ')}.` : ''} Anyone with the link can open it.${publicDetails(draft.brief)}` };
   }
   if (a.confirm === true) throw new Error(`no draft website is waiting at ${siteLink(ctx.origin, ctx.env, siteNameOf(a, briefOf(a)))} — build one first`);
   const b = briefOf(a);
   const { name, replaces } = await siteNameFor(a, b, ctx);
   const t = TEMPLATES[b.kind];
   const gaps = missing(b).map((m) => m.key);
-  const reason = `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(ctx.origin, ctx.env, name)}?${replaces ? ` This replaces "${replaces}", which is at that link now.` : ''} Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.`;
+  const reason = `Build a website for ${b.name || `a ${b.kind}${b.town ? ` in ${b.town}` : ''}`} on my own and publish it at ${siteLink(ctx.origin, ctx.env, name)}?${replaces ? ` This replaces "${replaces}", which is at that link now.` : ''} Six background steps over about ${Math.round((SITE_STEPS.length * SITE_STEP_MS) / 60_000) + 2}–15 minutes: pictures, plan (${t.theme.palette} look to start), words, quality checks, screenshots and a designer's critique, then the link.${gaps.length ? ` I will use sensible defaults for: ${gaps.join(', ')} — and list them for you to confirm.` : ''} Reviews, team and awards appear only if you gave them.${publicDetails(b)}${arg.str(a, 'request').length > 2000 ? ' Your message was long: I read its first 2,000 characters.' : ''}`;
   return { args: { ...a, link_name: name }, reason };
 }
 
@@ -221,6 +239,8 @@ export async function confirmingDraft(a: Record<string, unknown>, ctx: Pick<Tool
 export async function confirmSite(job: SiteJob, ctx: ToolContext): Promise<string> {
   const { a, gates, publishErrors } = buildAndCheck(job.plan!, job.brief, factsOf(job));
   if (publishErrors.length) throw new Error(`the draft failed the publish check: ${publishErrors.slice(0, 3).join(' | ')}`);
+  const stop = blocking(gates);
+  if (stop.length) throw new Error(`not published — the checks found what must be fixed first: ${stop.slice(0, 3).join(' | ')}`);
   job.confirmed = true;
   await publish({ env: ctx.env, storage: ctx.storage, origin: ctx.origin }, job, a.html);
   job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
@@ -235,14 +255,16 @@ const factsOf = (job: SiteJob): Brief => job.facts ?? job.brief;
 // ── models ──────────────────────────────────────────────────────────────────────────
 
 /** Ask a model; null when none is free and this step has waited enough (it then goes ahead without). */
-async function ask(deps: ProjectDeps, job: SiteJob, system: string, user: string | Msg['content'], opts: { code?: boolean; tier?: 'small' | 'big' } = {}): Promise<string | null> {
+async function ask(deps: ProjectDeps, job: SiteJob, step: string, system: string, user: string | Msg['content'], opts: { code?: boolean; tier?: 'small' | 'big' } = {}): Promise<string | null> {
   try {
     const { message } = await deps.complete([{ role: 'system', content: system }, { role: 'user', content: user as Msg['content'] }], [], { priority: 'background', ...opts });
     return textOf(message.content);
   } catch (e) {
     const msg = String((e as Error)?.message ?? e);
     if (modelUnavailable(msg) || (e as { waitMs?: number })?.waitMs !== undefined) {
-      if (job.waits < MAX_WAITS) {
+      job.waited ??= {};
+      if ((job.waited[step] ?? 0) < MAX_WAITS) {
+        job.waited[step] = (job.waited[step] ?? 0) + 1;
         job.waits++;
         await saveJob(deps, job);
         throw e; // the project waits a quarter of an hour, then this step runs again
@@ -388,7 +410,7 @@ async function stepPlan(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const { plan, brief } = planFrom(factsOf(job), { url: /^https:/.test(url) ? url : undefined, stock: () => job.stock });
   job.brief = brief;
   const pr = planPrompt(plan, factsOf(job));
-  const reply = await ask(deps, job, pr.system, pr.user, { tier: 'small' });
+  const reply = await ask(deps, job, 'plan', pr.system, pr.user, { tier: 'small' });
   let notes: string[] = [];
   if (reply === null) job.plain.push('plan');
   else notes = applyPlan(plan, jsonIn(reply));
@@ -403,18 +425,20 @@ async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
   let changed = 0;
   let refused = 0;
   let asked = 0;
-  for (let i = 0; i < plan.pages.length; i++) {
+  for (let i = job.wrote ?? 0; i < plan.pages.length; i++) {
     const w = writePrompt(plan, factsOf(job), i);
     if (!w.pieces.length) continue;
-    const reply = await ask(deps, job, w.system, w.user, { tier: 'big' });
+    const reply = await ask(deps, job, 'words', w.system, w.user, { tier: 'big' });
     if (reply === null) {
       job.plain.push('words');
+      await saveJob(deps, job);
       break;
     }
     asked++;
     const r = applyWrites(plan, w.pieces, jsonIn(reply), factsOf(job));
     changed += r.changed;
     refused += r.refused.length;
+    job.wrote = i + 1;
     await saveJob(deps, job);
   }
   return asked ? `Words: ${changed} pieces rewritten across ${asked} pages${refused ? `; ${refused} rewrites refused (too long, new numbers or stock phrases)` : ''}.` : "Words: the template's own copy (no model was free).";
@@ -424,6 +448,13 @@ async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
 export function buildAndCheck(plan: Plan, brief: Brief, facts: Brief = brief): { a: Assembled; gates: GateReport; publishErrors: string[] } {
   const a = assemble(plan, brief);
   const gates = runGates(a.html, plan, brief, facts);
+  // Every picture credited, unless it is the owner's own or made by Ghosty.
+  const bare = uncredited(a.images, (facts.photos ?? []).map((i) => i.src));
+  if (bare.length) {
+    gates.findings.push({ gate: 'honesty', level: 'error', text: `${bare.length} picture${bare.length === 1 ? ' has' : 's have'} no credit: ${bare[0]!.slice(0, 60)}` });
+    gates.errors++;
+    gates.score = Math.max(0, gates.score - 12);
+  }
   let publishErrors: string[] = [];
   try {
     const prepared = prepareSite(a.html, '');
@@ -433,6 +464,9 @@ export function buildAndCheck(plan: Plan, brief: Brief, facts: Brief = brief): {
   }
   return { a, gates, publishErrors };
 }
+
+/** The problems that keep a site from going public: made-up claims or reviews, placeholder text, uncredited photos. */
+export const blocking = (g: GateReport): string[] => g.findings.filter((f) => f.level === 'error' && (f.gate === 'honesty' || /placeholder/.test(f.text))).map((f) => f.text);
 
 /** Step 4. */
 async function stepBuild(deps: ProjectDeps, job: SiteJob): Promise<string> {
@@ -466,6 +500,9 @@ async function keepDraft(deps: ProjectDeps, job: SiteJob): Promise<string> {
 const pub = (deps: ProjectDeps) => ({ env: deps.env, storage: deps.storage, origin: deps.tctx.origin });
 
 // ── screenshots ─────────────────────────────────────────────────────────────────────
+
+/** Screenshots go to free outside services: never from the preview, with the scripted model, or when switched off (NO_SCREENSHOTS=1). */
+export const noShots = (env: ToolContext['env']): boolean => env.IS_PREVIEW === '1' || env.MOCK_LLM === '1' || (env as { NO_SCREENSHOTS?: string }).NO_SCREENSHOTS === '1';
 
 /**
  * Screenshots of the live page from free, keyless services (Microlink: 50 a day; thum.io as a second try).
@@ -510,12 +547,20 @@ export function layoutAnalysis(plan: Plan, a: Assembled, gates: GateReport): str
 /** Step 5: publish, then look at it. */
 async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const { a, gates } = buildAndCheck(job.plan!, job.brief, factsOf(job));
-  // Live only with nothing left to confirm; otherwise a draft, not public, until the owner confirms the list.
-  if (!job.plan!.confirm.length) job.confirmed = true;
-  const link = job.confirmed ? await publish(pub(deps), job, a.html) : await keepDraft(deps, job);
+  // Live only with nothing left to confirm and nothing the checks must stop; otherwise a draft, not public.
+  job.blocked = blocking(gates);
+  if (!job.plan!.confirm.length && !job.blocked.length) job.confirmed = true;
+  const link = job.confirmed && !job.blocked.length ? await publish(pub(deps), job, a.html) : await keepDraft(deps, job);
   const sizes: string[] = [];
   const images: string[] = [];
-  if (job.live && /^https:\/\//.test(link)) {
+  const SHOTS = `${JOB(job.id)}:shots`;
+  let why = job.live ? 'no screenshot service answered' : 'a draft is not public, so no screenshots';
+  if (job.live && noShots(deps.env)) why = 'screenshots are switched off here';
+  else if (job.live && job.shotsTried) {
+    // A resumed step: the screenshots already taken (if they could be kept), never a second round of requests.
+    const kept = await durableGet<{ sizes: string[]; images: string[] }>(deps.env, deps.storage, SHOTS).catch(() => undefined);
+    if (kept) sizes.push(...kept.sizes), images.push(...kept.images);
+  } else if (job.live && /^https:\/\//.test(link)) {
     for (const [w, h] of [
       [390, 844],
       [1280, 900],
@@ -526,15 +571,18 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
         images.push(shot);
       }
     }
+    job.shotsTried = true;
+    await durablePut(deps.env, deps.storage, SHOTS, { sizes, images }).catch(() => undefined);
+    await saveJob(deps, job);
   }
   const how = images.length ? 'screenshots' : 'layout';
   const pr = critiquePrompt(job.plan!, factsOf(job), layoutAnalysis(job.plan!, a, gates), how === 'screenshots');
-  let reply = await ask(deps, job, pr.system, how === 'screenshots' ? withImages(pr.user, images) : pr.user, { tier: 'big' });
+  let reply = await ask(deps, job, 'critique', pr.system, how === 'screenshots' ? withImages(pr.user, images) : pr.user, { tier: 'big' });
   let how2: 'screenshots' | 'layout' = how;
   if (reply === null && how === 'screenshots') {
     // No model that can see is free: the critique from the layout analysis instead.
     const text = critiquePrompt(job.plan!, factsOf(job), layoutAnalysis(job.plan!, a, gates), false);
-    reply = await ask(deps, job, text.system, text.user, { tier: 'big' });
+    reply = await ask(deps, job, 'critique', text.system, text.user, { tier: 'big' });
     how2 = 'layout';
   }
   if (reply === null) job.plain.push('critique');
@@ -543,7 +591,7 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
   // The fixes are applied in the next step; kept as JSON so a resumed step does not ask again.
   await durablePut(deps.env, deps.storage, `${JOB(job.id)}:fixes`, answer ?? {});
   await saveJob(deps, job);
-  return `${job.live ? `Published at ${link}` : `Kept as a draft (not public) for ${link} until the owner confirms: ${job.plan!.confirm.join('; ')}`}. Critique from ${how2 === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : 'the layout analysis (no screenshot service answered)'}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
+  return `${job.live ? `Published at ${link}` : `Kept as a draft (not public) for ${link} until the owner confirms: ${job.plan!.confirm.join('; ')}`}. Critique from ${how2 === 'screenshots' ? `screenshots at ${job.critique.shots.join(' and ')} px` : `the layout analysis (${why})`}${job.critique.verdict ? `: ${job.critique.verdict}` : reply === null ? ': no model free, the quality gates stand in.' : '.'}`;
 }
 
 /** Step 6: the fixes, checked; republished only when it is no worse. */
@@ -563,6 +611,7 @@ async function stepPolish(deps: ProjectDeps, job: SiteJob): Promise<string> {
     else await keepDraft(deps, job);
   }
   const final = kept ? after.gates : before.gates;
+  job.blocked = blocking(final);
   job.gates = { score: final.score, errors: final.errors, warnings: final.warnings, text: formatGates(final).slice(0, 3000) };
   job.critique = { ...(job.critique ?? { how: 'layout', verdict: '', shots: [] }), applied: kept ? fx.applied : [], skipped: fx.skipped };
   await saveJob(deps, job);
@@ -574,7 +623,11 @@ export function siteReport(job: SiteJob): string {
   const plan = job.plan!;
   const c = job.critique;
   const lines = [
-    job.live ? `Live: ${job.link}` : `Draft — not public yet. It goes live at ${job.link} once you confirm what I had to assume (listed below): say "publish my website" (or tell me what to change).`,
+    job.live
+      ? `Live: ${job.link}${job.gates?.errors ? ` — published with ${job.gates.errors} problem${job.gates.errors === 1 ? '' : 's'} the checks found (in the Workshop)` : ''}`
+      : job.blocked?.length
+        ? `Draft — not public. The checks found what must be fixed before it can go live at ${job.link}: ${job.blocked.slice(0, 3).join('; ')}.`
+        : `Draft — not public yet. It goes live at ${job.link} once you confirm what I had to assume (listed below): say "publish my website" (or tell me what to change).`,
     `${plan.pages.length} pages (${plan.pages.map((p) => p.label).join(', ')}), ${plan.theme.palette} look with ${plan.theme.fonts} fonts.`,
     `Quality checks: ${job.gates?.score ?? '?'}/100 (${job.gates?.errors ?? 0} problems, ${job.gates?.warnings ?? 0} small things).`,
     c ? `Design review from ${c.how === 'screenshots' ? 'screenshots on a phone and a laptop' : 'a layout analysis (no screenshots were possible)'}${c.verdict ? `: ${c.verdict}` : ''}${c.applied.length ? ` Fixed: ${c.applied.slice(0, 4).join('; ')}.` : ''}` : '',

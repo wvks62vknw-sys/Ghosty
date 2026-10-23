@@ -247,7 +247,9 @@ function close(){box.hidden=true;d.documentElement.style.overflow='';if(back)bac
 [].forEach.call(d.querySelectorAll('[data-gallery]'),function(g){var items=[].slice.call(g.querySelectorAll('button[data-full]'));items.forEach(function(b,i){b.addEventListener('click',function(){if(!box)build();list=items;at=i;back=b;set();box.hidden=false;d.documentElement.style.overflow='hidden';box.querySelector('.x').focus()})})});
 })();`,
   carousel: `(function(){[].forEach.call(document.querySelectorAll('[data-carousel]'),function(tr){var sec=tr.closest('section');if(!sec)return;[].forEach.call(sec.querySelectorAll('[data-dir]'),function(b){b.addEventListener('click',function(){tr.scrollBy({left:Number(b.getAttribute('data-dir'))*tr.clientWidth*.8,behavior:'smooth'})})})})})();`,
+  // "Open now" by the shop's clock (UK time), not the visitor's phone's.
   hours: `(function(){var now=new Date(),day=now.getDay(),mins=now.getHours()*60+now.getMinutes();
+try{var p=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now),g=function(t){for(var i=0;i<p.length;i++)if(p[i].type===t)return p[i].value;return ''};var wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(g('weekday'));if(wd>=0){day=wd;mins=(+g('hour')%24)*60+(+g('minute'))}}catch(e){}
 function m(t){var x=String(t).trim().toLowerCase().match(/^(\\d{1,2})(?:[:.](\\d{2}))?\\s*(am|pm)?$/);if(!x)return null;var h=+x[1];if(x[3]==='pm'&&h<12)h+=12;if(x[3]==='am'&&h===12)h=0;return h*60+(+(x[2]||0))}
 [].forEach.call(document.querySelectorAll('table.hours'),function(t){var rows;try{rows=JSON.parse(t.getAttribute('data-hours')||'[]')}catch(e){rows=[]}
 var open=null;rows.forEach(function(r,i){if(r.d.indexOf(day)>=0){var tr=t.querySelectorAll('tr')[i];if(tr)tr.classList.add('today');if(r.x)open=false;else{var o=m(r.o),c=m(r.c);if(o!==null&&c!==null)open={yes:mins>=o&&mins<c,until:r.c,from:r.o,later:mins<o}}}});

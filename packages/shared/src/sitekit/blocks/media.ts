@@ -142,7 +142,7 @@ ${HOURS_CSS}
       const b = x.brief;
       const map =
         b.lat !== undefined && b.lon !== undefined
-          ? `<iframe src="${esc(osmEmbed(b.lat, b.lon))}" title="Map showing ${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`
+          ? `<iframe src="${esc(osmEmbed(b.lat, b.lon))}" title="Map showing ${esc(b.name)}" loading="lazy" referrerpolicy="no-referrer"></iframe>`
           : `<div class="nomap">${icon('pin')}<p><b>${esc(addressLine(b) || b.town || b.name)}</b></p>${btn({ label: 'Open the map', href: mapsHref(b) }, 'btn-outline btn-sm')}</div>`;
       const card = `<div class="card reveal">${head(d, { level: 2 })}${contactList(b)}${b.hours?.length ? `<div><p class="open-now" data-open-now>Opening hours</p>${hoursTable(b.hours)}</div>` : ''}${str(d, 'note') ? `<p class="note">${esc(str(d, 'note'))}</p>` : ''}<div class="btns">${btn({ label: 'Get directions', href: directionsHref(b) }, 'btn-primary', 'directions')}</div></div>`;
       return sec('map', x, `<div class="wrap">${card}<div class="mapbox reveal">${map}</div></div>`, { anchor: 'find-us' });

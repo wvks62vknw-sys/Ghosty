@@ -237,11 +237,17 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
   const skipped: string[] = [];
   if (!answer) return { applied, skipped: ['no JSON in the reply'], verdict: '' };
   const fixes = Array.isArray(answer.fixes) ? (answer.fixes as Record<string, unknown>[]).slice(0, 6) : [];
-  for (const f of fixes) {
+  // Every fix's section is found first, by the critic's numbering of the page as it saw it; sections to drop
+  // are taken out at the end, so dropping one never moves the next fix onto the wrong section.
+  const targets = fixes.map((f) => {
     const slug = String(f.page ?? 'home').replace(/^home$/i, '').replace(/^#?\/?/, '');
     const page = plan.pages.find((p) => p.slug === slug);
     const idx = Number(f.section);
-    const s = page && Number.isInteger(idx) ? page.sections[idx] : undefined;
+    return { page, s: page && Number.isInteger(idx) ? page.sections[idx] : undefined };
+  });
+  const drop = new Set<unknown>();
+  fixes.forEach((f, k) => {
+    const { page, s } = targets[k]!;
     const why = String(f.why ?? '').slice(0, 120);
     const kind = String(f.kind ?? '');
     if (kind === 'theme') {
@@ -252,20 +258,20 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
       else if (key === 'scheme' && ['light', 'dark', 'auto'].includes(v)) plan.theme.scheme = v as Scheme;
       else {
         skipped.push(`theme ${key}=${v}`);
-        continue;
+        return;
       }
       applied.push(`look: ${key} → ${v} (${why})`);
-      continue;
+      return;
     }
     if (!page || !s) {
       skipped.push(`no section ${f.page}/${f.section}`);
-      continue;
+      return;
     }
     const def = BLOCKS[s.block];
     if (kind === 'drop') {
       if (!def || def.group === 'hero' || s.block === 'contact-form' || s.block === 'booking-form' || s.block === 'map') skipped.push(`kept ${s.block}`);
-      else {
-        page.sections.splice(idx, 1);
+      else if (!drop.has(s)) {
+        drop.add(s);
         applied.push(`removed ${s.block} from ${page.label} (${why})`);
       }
     } else if (kind === 'tone') {
@@ -279,7 +285,7 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
       const slot = def?.slots[key];
       if (!def || !EDITABLE.has(key) || !slot || slot.t !== 'text' || typeof s.data[key] !== 'string') {
         skipped.push(`text ${s.block}.${key}`);
-        continue;
+        return;
       }
       const why2 = rejectRewrite(s.data[key] as string, f.value, slot.max, b);
       if (why2) skipped.push(`${s.block}.${key}: ${why2}`);
@@ -288,6 +294,7 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
         applied.push(`${s.block}.${key} on ${page.label} rewritten (${why})`);
       }
     } else skipped.push(`unknown fix ${kind}`);
-  }
+  });
+  if (drop.size) for (const p of plan.pages) p.sections = p.sections.filter((x) => !drop.has(x));
   return { applied, skipped, verdict: String(answer.verdict ?? '').slice(0, 300), ...(typeof answer.score === 'number' ? { score: answer.score } : {}) };
 }

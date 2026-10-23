@@ -334,11 +334,30 @@ const FRAME_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox
  * What a visitor opens (/s/<name>): a page Ghosty writes, with a bar the rebuilt page can't
  * touch saying where it came from, and the rebuilt page in a locked frame below it.
  */
+/**
+ * The page's link-preview tags (og:title, og:description, og:image, the description), copied onto the outer
+ * page: WhatsApp and the social apps read the address that was shared, never the framed page inside it. (Both
+ * pages stay out of search engines.)
+ */
+export function previewTags(html: string): string {
+  const head = html.match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
+  const un = (v: string) => v.replace(/&(amp|quot|lt|gt|#39);/g, (_, k: string) => ({ amp: '&', quot: '"', lt: '<', gt: '>', '#39': "'" })[k]!);
+  const out: string[] = [];
+  for (const [attr, key] of [['property', 'og:title'], ['property', 'og:description'], ['property', 'og:image'], ['name', 'description']] as const) {
+    const tag = head.match(new RegExp(`<meta\\b[^>]*\\s${attr}="${key}"[^>]*>`, 'i'))?.[0];
+    const v = tag?.match(/\scontent="([^"]*)"/i)?.[1];
+    if (!v || (key === 'og:image' && !/^https:\/\//.test(un(v)))) continue;
+    out.push(`<meta ${attr}="${key}" content="${esc(un(v).slice(0, 300))}">`);
+  }
+  if (out.length) out.push(`<meta property="og:type" content="website">`);
+  return out.join('');
+}
+
 export function siteResponse(site: Site | undefined): Response {
   if (!site) return notFound();
   const host = hostOf(site.source);
   const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
-  const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>
+  const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>${previewTags(site.html)}
 <style>html,body{margin:0;height:100%;background:#02070d;overflow:hidden}#bar{position:fixed;top:0;left:0;right:0;z-index:2;box-sizing:border-box;height:calc(28px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;display:flex;align-items:center;justify-content:center;gap:6px;font:600 11px/1 -apple-system,system-ui,sans-serif;letter-spacing:.02em;color:#cfefff;background:#02070d;border-bottom:1px solid rgba(92,225,255,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#bar i{width:6px;height:6px;border-radius:50%;background:#5ce1ff;flex:none}iframe{position:fixed;left:0;right:0;bottom:0;top:calc(28px + env(safe-area-inset-top));width:100%;height:calc(100% - 28px - env(safe-area-inset-top));border:0;background:#fff}</style></head>
 <body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="${FRAME_SANDBOX}"></iframe></body></html>`;
   return new Response(page, {
@@ -358,7 +377,7 @@ export function siteResponse(site: Site | undefined): Response {
  * scripts (nothing loaded from elsewhere), and it can't be shown outside Ghosty's frame.
  */
 export const PAGE_CSP =
-  `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
+  `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org/export/embed.html; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
   // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
@@ -374,7 +393,7 @@ export const siteTools: Tool[] = [
   {
     name: 'build_website',
     description:
-      "Build a complete, professional multi-page website for a business, event, charity, app or person ON YOUR OWN from one request, and publish it — use this whenever the owner asks for a website for something (\"build a website for my friend's barber shop in Walsall\"); never write that page by hand. It plans the pages, finds free credited photos, writes the words, runs accessibility/SEO/phone-layout checks, takes screenshots, critiques and fixes them, then publishes and reports the link (a background project, 5–15 minutes). Pass the owner's words as request plus every fact they gave; leave out what they did not say (it uses sensible defaults and lists them). Never invent reviews. A site built with assumed details waits as a draft: when the owner confirms the list (or says publish it), call this again with confirm true and the same link_name.",
+      "Build a complete, professional multi-page website for a business, event, charity, app or person ON YOUR OWN from one request, and publish it — use this whenever the owner asks for a website for something (\"build a website for my friend's barber shop in Walsall\"); never write that page by hand. It plans the pages, finds free credited photos, writes the words, runs accessibility/link-preview/phone-layout checks, takes screenshots, critiques and fixes them, then publishes and reports the link (a background project, 5–15 minutes). Pass the owner's words as request plus every fact they gave; leave out what they did not say (it uses sensible defaults and lists them). Never invent reviews. A site built with assumed details waits as a draft: when the owner confirms the list (or says publish it), call this again with confirm true and the same link_name.",
     parameters: {
       type: 'object',
       properties: {

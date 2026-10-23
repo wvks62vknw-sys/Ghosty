@@ -15,7 +15,7 @@ export { BEHAVIOURS } from '../../packages/shared/src/sitekit/assemble.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
-export { siteTools, siteStore, PAGE_CSP } from './src/tools/sites.ts';
+export { siteTools, siteStore, PAGE_CSP, siteResponse, previewTags } from './src/tools/sites.ts';
 export { siteMessage } from '../web/src/offline/sitework.ts';
 export { neurons, cost, FREE_NEURONS } from './src/neurons.ts';`,
     resolveDir: at('..'),
@@ -749,6 +749,7 @@ test('review 10: a build with unconfirmed defaults ends as a draft (not public);
   // A site with nothing left to confirm goes live at step 5, as before.
   const st2 = new MemStorage();
   const d2 = deps(st2, async () => { throw new Error('model not available'); });
+  d2.env.NO_SCREENSHOTS = '1'; // (the no-network guard would refuse them anyway; this skips the retries' waits)
   const ctx2 = { env: d2.env, storage: st2, origin: 'https://ghosty.example' };
   await SB.startSiteBuild({ request: 'build a website for my gym in Dudley', name: 'Iron Works' }, ctx2);
   const [q] = await PJ.listProjects(ctx2);
@@ -761,4 +762,116 @@ test('review 10: a build with unconfirmed defaults ends as a draft (not public);
   }
   assert.ok(await K.siteStore(undefined, st2).get('iron-works'), 'live with nothing to confirm');
   assert.match((await PJ.loadProject(d2, q.id)).steps[5].result, /^Live: https:\/\/ghosty\.example\/s\/iron-works/);
+});
+
+test('review 11: problems that must not go public stop the publish — made-up claims, uncredited photos — and BY photos need a named author', async () => {
+  const bare = { ...PHOTO, credit: undefined };
+  const { plan, brief } = K.planFrom({ ...FULL }, { stock: () => ({ hero: bare, story: [], gallery: [] }) });
+  const r = SB.buildAndCheck(plan, brief);
+  assert.ok(r.gates.findings.some((f) => f.gate === 'honesty' && /no credit/.test(f.text)), 'uncredited() is called');
+  assert.ok(SB.blocking(r.gates).length);
+  // A draft with a blocking problem is never put live, even when the owner confirms.
+  const st = new MemStorage();
+  const ctx = { env: { PUBLIC_ORIGIN: 'https://ghosty.example' }, storage: st, origin: 'https://ghosty.example' };
+  await assert.rejects(SB.confirmSite({ id: 'x', name: 'fade', brief, facts: FULL, plan, waits: 0, plain: [] }, ctx), /must be fixed first/);
+  assert.equal(await K.siteStore(undefined, st).get('fade'), undefined);
+  // CC BY / BY-SA need the author's name for the credit.
+  assert.equal(K.fromOpenverse({ url: 'https://x.example/a.jpg', width: 3000, height: 2000, license: 'by', license_version: '2.0', creator: '' }, 'x'), undefined);
+  assert.ok(K.fromOpenverse({ url: 'https://x.example/a.jpg', width: 3000, height: 2000, license: 'cc0', creator: '' }, 'x'), 'CC0 needs no name');
+  const ii = (lic, artist) => ({ title: 'File:S.jpg', imageinfo: [{ url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/S.jpg', width: 3000, height: 2000, mime: 'image/jpeg', extmetadata: { LicenseShortName: { value: lic }, ...(artist ? { Artist: { value: artist } } : {}) } }] });
+  assert.equal(K.fromCommons(ii('CC BY-SA 4.0', ''), 'x'), undefined);
+  assert.ok(K.fromCommons(ii('CC BY-SA 4.0', 'Ann'), 'x'));
+});
+
+test('review 12: the approval says which personal details go public and where the forms send', async () => {
+  const tool = K.siteTools.find((t) => t.name === 'build_website');
+  const ctx = { env: { PUBLIC_ORIGIN: 'https://ghosty.example' }, storage: new MemStorage(), origin: 'https://ghosty.example' };
+  const ap = await tool.approval({ request: 'build a website for my barber shop in Walsall', name: 'Fade & Co', phone: '07700 900461', email: 'hello@fade.example', address: '27 Park Street', postcode: 'WS1 1LY' }, ctx);
+  assert.match(ap.reason, /Public on the page: phone 07700 900461, email hello@fade\.example, address 27 Park Street, Walsall, WS1 1LY\./);
+  assert.match(ap.reason, /Its forms send to WhatsApp 07700 900461 or email hello@fade\.example\./);
+  const long = await tool.approval({ request: `build a website for my cafe ${'and more words '.repeat(200)}` }, ctx);
+  assert.match(long.reason, /I read its first 2,000 characters/);
+});
+
+test('review 13: each step may wait for a model once (a wait in the plan does not cost the writer its turn); the writer resumes after the pages it finished', async () => {
+  const st = new MemStorage();
+  const seen = { plan: 0, words: 0 };
+  const d = deps(st, async (messages) => {
+    const sys = messages[0].content;
+    if (/^SITE PLANNER/.test(sys) && seen.plan++ === 0) throw Object.assign(new Error('cooling down'), { waitMs: 40_000 });
+    if (/^SITE WRITER/.test(sys) && seen.words++ === 1) throw Object.assign(new Error('cooling down'), { waitMs: 40_000 });
+    if (/^SITE WRITER/.test(sys)) return { message: { role: 'assistant', content: '{}' } };
+    return { message: { role: 'assistant', content: '{"verdict":"Fine.","fixes":[]}' } };
+  });
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: 'build a website for my barber shop in Walsall', name: 'Fade & Co', phone: '07700 900461' }, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  const p = await runAll(d, p0.id);
+  assert.equal(p.status, 'done', p.note);
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  assert.deepEqual(job.waited, { plan: 1, words: 1 });
+  assert.equal(job.wrote, job.plan.pages.length, 'every page written');
+  assert.equal(seen.words, job.plan.pages.length + 1, 'page 1 was not asked twice after the wait');
+  assert.ok(!job.plain.includes('words'), 'the writer was not skipped');
+});
+
+test('review 14: the critic\'s drops remove exactly the sections it named', () => {
+  const { plan, brief } = K.planFrom({ ...FULL });
+  const before = plan.pages[0].sections.map((s) => s.block);
+  assert.deepEqual(before.slice(1, 3), ['price-list', 'media-text']);
+  const fx = K.applyFixes(plan, brief, { fixes: [{ page: 'home', section: 1, kind: 'drop', why: 'a' }, { page: 'home', section: 2, kind: 'drop', why: 'b' }, { page: 'home', section: 3, kind: 'tone', value: 'inverse', why: 'c' }] });
+  assert.equal(fx.applied.length, 3);
+  assert.deepEqual(plan.pages[0].sections.map((s) => s.block), before.filter((_, i) => i !== 1 && i !== 2));
+  assert.equal(plan.pages[0].sections.find((s) => s.block === before[3]).tone, 'inverse', 'the tone fix reached the section it named');
+});
+
+test('review 15: the shared link shows the page\'s own preview (og tags on the outer /s/<name> page)', async () => {
+  const { plan, brief } = K.planFrom({ ...FULL }, { url: 'https://ghosty.example/s/fade' });
+  const html = K.assemble(plan, brief).html;
+  const res = K.siteResponse({ name: 'fade', title: 'Fade', html, source: '', at: 1 });
+  const outer = await res.text();
+  assert.match(outer, /<meta property="og:title" content="Fade &#38; Co\. Barbers[^"]*">/);
+  assert.match(outer, /<meta property="og:image" content="https:\/\/upload\.wikimedia\.org\//);
+  assert.match(outer, /<meta name="description" content="[^"]{50,}">/);
+  assert.match(outer, /noindex/);
+  assert.equal(K.previewTags('<head><meta property="og:image" content="javascript:alert(1)"><meta property="og:title" content="&quot;&gt;&lt;script&gt;"></head>'), '<meta property="og:title" content="&#34;&#62;&#60;script&#62;"><meta property="og:type" content="website">');
+});
+
+test('review 16: no screenshot service is ever asked from the preview, with the scripted model, or when switched off', async () => {
+  assert.ok(SB.noShots({ IS_PREVIEW: '1' }) && SB.noShots({ MOCK_LLM: '1' }) && SB.noShots({ NO_SCREENSHOTS: '1' }));
+  assert.ok(!SB.noShots({}));
+  const st = new MemStorage();
+  const d = deps(st, async () => { throw new Error('model not available'); });
+  d.env.MOCK_LLM = '1';
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  const asked = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (u) => { asked.push(String(u)); throw new TypeError('offline'); };
+  try {
+    await SB.startSiteBuild({ request: 'build a website for my gym in Dudley', name: 'Iron Works' }, ctx);
+    const [q] = await PJ.listProjects(ctx);
+    for (let i = 0; i < 12; i++) {
+      const job = await SB.loadSiteJob(ctx, q.id);
+      if (job.plan?.confirm.length) await st.put(`sitejob:${q.id}`, { ...job, plan: { ...job.plan, confirm: [] } });
+      if ((await PJ.loadProject(d, q.id)).status !== 'active') break;
+      await PJ.runProjectStep(d, ((await st.get('jobs')) ?? []).find((j) => j.kind === 'project' && j.text === q.id) ?? { id: 'j', kind: 'project', text: q.id });
+    }
+    assert.ok(await K.siteStore(undefined, st).get('iron-works'), 'published');
+    assert.deepEqual(asked.filter((u) => /microlink|thum\.io/.test(u)), []);
+    assert.match((await PJ.loadProject(d, q.id)).steps[4].result, /screenshots are switched off here/);
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test('review 17: the map sends no referrer and only the embed may be framed; "open now" by UK time; picture sizes are numbers', () => {
+  const { plan, brief } = K.planFrom({ ...FULL });
+  const html = K.assemble(plan, brief).html;
+  assert.match(html, /<iframe src="https:\/\/www\.openstreetmap\.org\/export\/embed\.html[^"]*"[^>]*referrerpolicy="no-referrer"/);
+  assert.match(K.PAGE_CSP, /frame-src[^;]*https:\/\/www\.openstreetmap\.org\/export\/embed\.html[ ;]/);
+  assert.match(K.BEHAVIOURS.hours, /timeZone:'Europe\/London'/);
+  assert.doesNotThrow(() => new Function(K.BEHAVIOURS.hours));
+  const tag = K.img({ src: 'https://x.example/a.jpg', alt: 'A', width: '100" onerror="alert(1)', height: 50 });
+  assert.ok(!/onerror/.test(tag), tag);
+  assert.match(K.img({ src: 'https://x.example/a.jpg', alt: 'A', width: 800, height: 600 }), / width="800" height="600"/);
 });
