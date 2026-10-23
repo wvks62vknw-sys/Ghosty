@@ -1,0 +1,23 @@
+/* The mock-ups' fonts, loaded from ./fonts (see fonts/README.md for licences).
+   On the iPhone the app uses the system font (SF Pro) through -apple-system; Inter stands in for it here. */
+@font-face {
+  font-family: 'Inter Mock';
+  src: url('fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Serif Mock';
+  src: url('fonts/SourceSerif4-Variable.woff2') format('woff2');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Serif Mock';
+  src: url('fonts/SourceSerif4-Variable-Italic.woff2') format('woff2');
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: block;
+}
