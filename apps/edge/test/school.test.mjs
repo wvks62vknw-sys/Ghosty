@@ -16,7 +16,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -41,6 +41,8 @@ const O = await load('apps/edge/src/school/official');
 const MOCK = await load('apps/edge/src/school/mock');
 const LIB = await load('apps/edge/src/library/store');
 const F = await load('apps/edge/src/selftrain/factory');
+const RD = await load('apps/edge/src/school/reading');
+const STUDY = await load('apps/edge/src/library/study');
 const PR = await load('apps/edge/src/school/practice');
 const RM = await load('apps/edge/src/school/remote');
 const SCH = await load('apps/edge/src/schedule');
@@ -831,6 +833,270 @@ test('through the brain with the scripted model: WRITE THE PAPERS for one subjec
   const g = (await call('/school')).body;
   assert.equal(g.sources.ks3.computing.source, 'bank');
   assert.equal(g.sources.ks3.maths.source, null);
+});
+
+// ================================================================================================================
+// Part 3: the reading library (school/reading.ts): the shelves, READ through the importers, the reading check, the
+// owner's rule for reading ahead, and the library's locks for self-study (library/study.ts).
+// ================================================================================================================
+
+const VOCAB = ['apple', 'badger', 'candle', 'dragon', 'engine', 'forest', 'garden', 'harbour', 'island', 'jacket', 'kettle', 'lantern', 'meadow', 'needle', 'orchard', 'pebble', 'quarry', 'river', 'saddle', 'thimble', 'umbrella', 'velvet', 'window', 'yellow'];
+/** A Project Gutenberg plain-text edition, as the site serves it: three chapters of `size` characters each. */
+const gutenbergBook = (n, size = 3000) => {
+  const para = (c) => Array.from({ length: Math.ceil(size / 70) }, (_, i) => `The ${VOCAB[(i + c) % 24]} sat beside the ${VOCAB[(i * 7 + 3 + c) % 24]} while a ${VOCAB[(i * 5 + 1) % 24]} watched.`).join(' ').replace(/(.{600}[^.]*\.) /g, '$1\n\n');
+  return `Title: Book ${n}\nAuthor: An Author\n\n*** START OF THE PROJECT GUTENBERG EBOOK BOOK ${n} ***\n\n${['I', 'II', 'III'].map((r, c) => `CHAPTER ${r}\n\n${para(c)}`).join('\n\n')}\n\n*** END OF THE PROJECT GUTENBERG EBOOK BOOK ${n} ***\n\nThe licence.`;
+};
+const lorem = (title) => `${title} is explained here in detail. ${Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1} about ${title}: it matters for a builder because of what it lets you do, with examples, pitfalls and the words people use for it.`).join(' ')}`;
+/** The web for these tests: Gutenberg books (big ones in several parts) and every source self-study reads. */
+async function withWeb(fn, { big = [] } = {}) {
+  const before = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === 'string' ? input : input.url);
+    asked.push(url.href);
+    const html = (t, b) => new Response(`<html><head><title>${t}</title></head><body><p>${b}</p></body></html>`, { headers: { 'content-type': 'text/html' } });
+    if (url.hostname === 'www.gutenberg.org') {
+      const n = Number(url.pathname.match(/pg(\d+)\.txt$/)?.[1] ?? 0);
+      return new Response(gutenbergBook(n, big.includes(n) ? 50_000 : 3000), { headers: { 'content-type': 'text/plain' } });
+    }
+    const q = url.searchParams.get('q') ?? url.searchParams.get('srsearch') ?? '';
+    if (url.hostname === 'developer.mozilla.org' && url.pathname === '/api/v1/search') return new Response(JSON.stringify({ documents: [{ mdn_url: `/en-US/docs/Web/${encodeURIComponent(q.replace(/\s+/g, '_'))}` }] }), { headers: { 'content-type': 'application/json' } });
+    if (/wiki(pedia|books|versity)\.org$/.test(url.hostname) && url.pathname === '/w/api.php') return new Response(JSON.stringify({ query: { search: [{ title: q }] } }), { headers: { 'content-type': 'application/json' } });
+    const t = decodeURIComponent(url.pathname.split('/').pop() ?? '').replace(/_/g, ' ');
+    return html(t, lorem(t));
+  };
+  try {
+    return await fn(asked);
+  } finally {
+    globalThis.fetch = before;
+  }
+}
+/** The stand-in writer, counting its calls (the check is written by a stronger model: never the one sitting it). */
+const countingWriter = (extra = () => []) => {
+  const w = async (system, user) => {
+    w.calls++;
+    // (A real writer words each new check afresh: so does this one, so a check after moving up is new too.)
+    return JSON.stringify([...extra(user), ...JSON.parse(await RD.readingMock(system, user)).map((x) => ({ ...x, q: `${x.q} [check ${w.calls}]` }))]);
+  };
+  w.calls = 0;
+  return w;
+};
+const checkRec = (h, id) => h.storage.get(`school:readcheck:${id}`);
+/** Hand in a check: the first `right` answers right, the rest wrong. */
+async function handIn(h, id, right) {
+  const c = await checkRec(h, id);
+  const answers = c.items.map((it, i) => ({ id: it.id, given: i < right ? rightReply(it) : wrongReply(it) }));
+  return route(h, '/school/reading/answers', 'POST', { id, checkId: c.id, answers });
+}
+
+test('the reading shelves: a shelf for every stage, each book with a source, a licence and a stage; Gutenberg by number; public domain in the UK only (died before 1955); © and AI-barred texts linked, never imported', () => {
+  assert.ok(Array.isArray(RD.SHELVES) && RD.SHELVES.length >= 60, 'the curated shelves exist');
+  const ids = new Set();
+  for (const e of RD.SHELVES) {
+    assert.ok(!ids.has(e.id), `${e.id} twice`);
+    ids.add(e.id);
+    assert.ok(e.source && e.licence && e.title && e.author, `${e.id}: a source and a licence`);
+    assert.ok(S.STAGE_IDS.includes(e.stage) && e.stage !== 'library', `${e.id}: a stage`);
+    assert.match(e.url, /^https:\/\//);
+    if (e.gutenberg) {
+      assert.equal(e.id, `pg-${e.gutenberg}`);
+      assert.equal(e.url, `https://www.gutenberg.org/ebooks/${e.gutenberg}`);
+      assert.ok(Number.isInteger(e.gutenberg) && e.gutenberg > 0);
+      assert.ok(e.died < S.PUBLIC_DOMAIN_BEFORE && e.died < 1955, `${e.title}: its makers died before 1955 (${e.died})`);
+      assert.ok(e.ingest && /^Public domain in the UK/.test(e.licence), e.licence);
+    }
+    if (e.ingest) assert.match(e.licence, /Public domain|\(CC BY\)|Open Government Licence/, `${e.id}: imported only with an open licence`);
+    else assert.ok(/^Linked only/.test(e.why ?? '') && !e.gutenberg, `${e.id}: linked only, and says why`);
+  }
+  assert.equal(new Set(RD.SHELVES.filter((e) => e.gutenberg).map((e) => e.gutenberg)).size, RD.SHELVES.filter((e) => e.gutenberg).length);
+  for (const st of S.STAGE_IDS.filter((x) => x !== 'library')) assert.ok(RD.shelfFor(st).filter((e) => e.kind === 'book').length >= 6, `${st}: at least six books`);
+  // Nobody who died in 1955 or later (Milne, Tolkien, C. S. Lewis, Einstein, Russell), no Peter Pan, no Della Chiesa's Pinocchio.
+  assert.ok(!RD.SHELVES.some((e) => /Milne|Tolkien|C\. S\. Lewis|Einstein|Russell|Peter Pan|Pinocchio/.test(`${e.title} ${e.author}`)));
+  // © (BBC Bitesize) and OpenStax (its licence now bars feeding it to an AI): linked only.
+  assert.ok(RD.SHELVES.filter((e) => /^(bbc|os)-/.test(e.id)).every((e) => !e.ingest) && RD.SHELVES.some((e) => e.id.startsWith('os-')));
+  // Textbooks are tagged by year and subject.
+  for (const e of RD.SHELVES.filter((x) => x.kind === 'textbook')) assert.ok(e.years && e.subject, `${e.id}: years and subject`);
+});
+
+test('READ: a book on his shelf goes into the library through the importers, chapter by chapter, tagged school:reading:<docId> with its stage, and is listed as read with the day; a book above his stage or a linked one is refused', async () => {
+  const h = host({ now: () => 1_800_000_000_000 });
+  await withWeb(async (asked) => {
+    const v = await route(h, '/school/reading', 'GET');
+    assert.equal(v.status, 200);
+    assert.equal(v.body.stage, 'nursery');
+    assert.ok(v.body.shelf.length >= 6 && v.body.shelf.every((r) => r.open && r.status === 'none' && r.licence && r.source));
+    assert.deepEqual(v.body.ahead.map((a) => a.stage), ['reception', 'ks1']);
+    let r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14838' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.book.status, 'reading');
+    assert.equal(r.body.book.part, 1);
+    assert.ok(r.body.book.parts >= 2, 'a long book comes in parts');
+    for (let i = 0; i < 6 && !r.body.done; i++) r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14838' });
+    assert.equal(r.body.book.status, 'read');
+    assert.equal(r.body.book.readAt, 1_800_000_000_000);
+    assert.ok(asked.every((u) => u === 'https://www.gutenberg.org/cache/epub/14838/pg14838.txt'), 'the importer’s own address');
+    const lib = new LIB.Library(h.storage, {});
+    const docs = lib.list().filter((d) => d.source === 'https://www.gutenberg.org/ebooks/14838');
+    assert.equal(docs.length, 1, 'one document, every part added to it');
+    assert.ok(docs[0].passages > 10);
+    const t = await h.storage.get(`school:reading:${docs[0].id}`);
+    assert.equal(t.stage, 'nursery');
+    assert.equal(t.entry, 'pg-14838');
+    assert.equal(t.borrowed, false);
+    const v2 = (await route(h, '/school/reading', 'GET')).body;
+    assert.deepEqual(v2.read.map((x) => [x.id, x.readAt]), [['pg-14838', 1_800_000_000_000]]);
+    // Above his stage: only by borrowing. Linked only: never copied in.
+    const up = await route(h, '/school/reading/read', 'POST', { id: 'pg-11' });
+    assert.equal(up.status, 403);
+    assert.match(up.body.error, /BORROWING/);
+    const bbc = await route(h, '/school/reading/read', 'POST', { id: 'bbc-ks1' });
+    assert.equal(bbc.status, 403);
+    assert.match(bbc.body.error, /linked only/);
+    assert.equal(await h.storage.get('school:state'), undefined, 'reading never writes his school record');
+  }, { big: [14838] });
+});
+
+test('the reading check: written once from the book’s own words and cached per book, never an exam item, marked exactly, and 80% passes (kept with the book, never with his exam results)', async () => {
+  let examQ = '';
+  const writer = countingWriter((user) => {
+    // An exam question slipped in, with real words from extract A: it must never be kept.
+    const a = S.normaliseText(user.match(/<extract id="A"[^>]*>\n([\s\S]*?)\n<\/extract>/)[1]).split(' ').filter((w) => /^[a-z]+$/.test(w));
+    return [{ passage: 'A', type: 'exact', q: examQ, answer: a[1], evidence: a.slice(0, 3).join(' ') }];
+  });
+  const h = host({ write: writer });
+  await withWeb(async () => {
+    await sit(h, 'nursery', 'talk');
+    const st = await ST.loadState({ storage: h.storage });
+    examQ = (await ST.loadPaper({ storage: h.storage }, st.results[0].paperId)).paper.items[0].q;
+    const c1 = await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' });
+    assert.equal(c1.status, 200, JSON.stringify(c1.body));
+    assert.equal(c1.body.paper.items.length, 10);
+    assert.ok(c1.body.paper.items.every((it) => (it.type === 'mcq' || it.type === 'exact') && it.passage && it.answer === undefined), 'no answers handed out');
+    assert.equal(c1.body.paper.passages.length, 3, 'the three extracts, to read with the questions');
+    assert.ok(!c1.body.paper.items.some((it) => S.normaliseText(it.q) === S.normaliseText(examQ)), 'never an exam item');
+    const calls = writer.calls;
+    const c2 = await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' });
+    assert.equal(c2.body.paper.id, c1.body.paper.id, 'cached per book');
+    assert.equal(writer.calls, calls, 'not written again');
+    const rec = await checkRec(h, 'pg-14838');
+    assert.ok(rec.rejected >= 1, 'the exam item was counted as not kept');
+    for (const it of rec.items.filter((x) => x.type === 'exact')) assert.ok(` ${S.normaliseText(rec.passages.find((p) => p.id === it.passage).text)} `.includes(` ${S.normaliseText(it.answer)} `), 'an exact answer is in the book’s own words');
+    // 8 of 10 right: passed (80%).
+    const r = await handIn(h, 'pg-14838', 8);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual([r.body.result.raw, r.body.result.max, r.body.result.pct, r.body.result.passed], [8, 10, 80, true]);
+    assert.ok(r.body.result.answers.every((a) => a.how === 'exact'), 'marked exactly by the code');
+    assert.equal((await route(h, '/school/reading/answers', 'POST', { id: 'pg-14838', checkId: rec.id, answers: [] })).status, 409);
+    // 7 of 10: not passed.
+    await route(h, '/school/reading/check', 'POST', { id: 'pg-14837' });
+    const r7 = await handIn(h, 'pg-14837', 7);
+    assert.deepEqual([r7.body.result.raw, r7.body.result.passed], [7, false]);
+    assert.match(r7.body.line, /not passed \(80% passes\)/);
+    const v = (await route(h, '/school/reading', 'GET')).body;
+    assert.deepEqual([v.shelf.find((x) => x.id === 'pg-14838').check.passed, v.shelf.find((x) => x.id === 'pg-14837').check.passed], [true, false]);
+    const after = await ST.loadState({ storage: h.storage });
+    assert.equal(after.results.length, 1, 'checks never join his exam results');
+    assert.equal(await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' }).then((x) => x.status), 409, 'one sitting per book at a stage');
+  });
+});
+
+test('BORROW is earned: refused without top grades in his reading, beyond two stages, for his own shelf and the library, after a failed check (until he moves up); allowed when earned; borrowed reading never passes a stage', async () => {
+  // The rule itself.
+  assert.equal(S.borrowVerdict('university', 'library', true, false).ok, false);
+  assert.equal(S.borrowVerdict('alevel', 'library', true, false).ok, false);
+  assert.equal(S.borrowVerdict('ks1', 'ks2', true, false).ok, true);
+  assert.equal(S.borrowVerdict('ks1', 'gcse', true, false).ok, false);
+  const h = host({ write: countingWriter() });
+  await withWeb(async () => {
+    let b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14407' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /reading at Nursery must be at top grades/);
+    await sit(h, 'nursery', 'talk'); // his reading at nursery (talking and listening) at top grades
+    const v = (await route(h, '/school/reading', 'GET')).body;
+    assert.equal(v.borrow.top, true);
+    assert.equal(v.ahead.find((a) => a.stage === 'reception').books.find((x) => x.id === 'pg-14407').borrow.ok, true);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-11' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /at most two stages ahead/);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14838' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /own shelf/);
+    // Key Stage 1 (two ahead): its check failed → locked until he moves up.
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.equal(b.body.purpose, 'borrow');
+    const failed = await handIn(h, 'pg-2781', 6);
+    assert.equal(failed.body.borrowed, false);
+    assert.match(failed.body.line, /stays locked until he moves up from Nursery/);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /did not pass/);
+    assert.equal((await route(h, '/school/reading/read', 'POST', { id: 'pg-2781' })).status, 403);
+    // Reception (one ahead): earned with 9 of 10.
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14407' });
+    assert.equal(b.status, 200);
+    const ok = await handIn(h, 'pg-14407', 9);
+    assert.equal(ok.body.borrowed, true);
+    assert.match(ok.body.line, /never counts towards passing a stage/);
+    const r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14407' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.book.borrowed, true);
+    const doc = new LIB.Library(h.storage, {}).list().find((d) => d.source === 'https://www.gutenberg.org/ebooks/14407');
+    assert.equal((await h.storage.get(`school:reading:${doc.id}`)).borrowed, true);
+    // Borrowed reading never counts: still nursery, nothing passed, only the one paper in his record.
+    const st = await ST.loadState({ storage: h.storage });
+    assert.equal(st.stage, 'nursery');
+    assert.deepEqual(st.passed, {});
+    assert.equal(st.results.length, 1);
+    // Moved up (and top grades in reading there): the book he failed may be tried again, with a new check.
+    const before = (await checkRec(h, 'pg-2781')).id;
+    st.stage = 'reception';
+    st.results = [{ ...st.results[0], paperId: 'reception-reading-x', stage: 'reception', subject: 'reading', top: true }, ...st.results];
+    await ST.saveState({ storage: h.storage }, st);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.notEqual(b.body.paper.id, before);
+  });
+});
+
+test('the library’s locks: self-study holds back topics above his school stage (read once their level opens, never lost), says what is locked and why, keeps a typed FOCUS and the chat’s questions', async () => {
+  const d = STUDY.DOMAINS.find((x) => x.id === 'foundations');
+  assert.deepEqual(d.topics.slice(4, 9).map((t) => t.l), [1, 2, 2, 2, 1], 'the field mixes levels');
+  await withWeb(async () => {
+    // At GCSE only level 1 is open: topics 5–7 (level 2) are held, 4 and 8 read.
+    const storage = new MemStorage();
+    const lib = new LIB.Library(storage, {});
+    await ST.saveState({ storage }, { ...ST.freshState(), stage: 'gcse' });
+    await storage.put('study:state', { queue: [d.id], all: false, focus: [], asked: [], cursor: { [d.id]: 4 } });
+    const r = await STUDY.studySession(storage, lib, { reads: 2 });
+    assert.equal(r.did.reads, 2);
+    assert.equal(r.state.last.topic, d.topics[8].t);
+    assert.deepEqual(r.state.held[d.id], [[5, 2], [6, 2], [7, 2]]);
+    assert.equal(r.state.cursor[d.id], 9);
+    const sum = STUDY.studySummary(r.state);
+    assert.match(sum.status, /Level 2 topics unlock at A-level/);
+    assert.equal(sum.domains.find((x) => x.id === d.id).read, 6, 'held topics are not counted as read');
+    // The owner types FOCUS on that field: it is read whole, held topics first.
+    r.state.focus = [d.id];
+    await storage.put('study:state', r.state);
+    const f = await STUDY.studySession(storage, lib, { reads: 1 });
+    assert.equal(f.state.last.topic, d.topics[5].t);
+    assert.deepEqual(f.state.held[d.id], [[6, 2], [7, 2]]);
+    // At nursery nothing in the curriculum is open: nothing is read but the chat's question; it says why.
+    const s2 = new MemStorage();
+    await ST.saveState({ storage: s2 }, ST.freshState());
+    await s2.put('study:state', { queue: [d.id], all: true, focus: [], asked: [], gaps: ['what is a badger?'] });
+    const n = await STUDY.studySession(s2, new LIB.Library(s2, {}), { reads: 3 });
+    assert.equal(n.did.reads, 1);
+    assert.equal(n.state.last.topic, 'what is a badger?');
+    assert.equal(n.state.cursor[d.id] ?? 0, 0, 'nothing passed over, nothing lost');
+    assert.match(STUDY.studySummary(n.state).status, /locked until GCSE/);
+    // No SCHOOL yet (no record): self-study reads as it always did.
+    const s3 = new MemStorage();
+    await s3.put('study:state', { queue: [d.id], all: false, focus: [], asked: [], cursor: { [d.id]: 4 } });
+    const o = await STUDY.studySession(s3, new LIB.Library(s3, {}), { reads: 2 });
+    assert.equal(o.state.last.topic, d.topics[5].t);
+  });
 });
 
 // ---- part 2b: practice for weak spots, the honest gap, a paper on the free GPU ---------------------------------

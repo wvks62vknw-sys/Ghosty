@@ -15,6 +15,10 @@
  *    question banks, checked twice, a slice at a time: "Writing the GCSE maths bank · 48 of 120"); OFFICIAL PAPERS
  *    lists the real papers (SATs, GCSE, A-level) with their source and licence, FETCH reads one on this phone and
  *    the brain makes it into a paper (school/official.ts); the result and the paper show the real boundary reached.
+ *  - Part 3: READING — his stage's shelf (public-domain classics and open textbooks, each with its source and
+ *    licence; READ puts one in his library chapter by chapter; SIT THE READING CHECK: ten questions on the book's own
+ *    words, sat here like a paper, 80% passes), BORROW from up to two stages ahead (earned: top grades in his
+ *    reading first, then that book's check), and what self-study may not read yet (apps/edge/src/school/reading.ts).
  * Papers are set and marked by the brain (/api/school, apps/edge/src/school); they are sat here, on the phone's
  * own model (school/sit.ts). State for specs at window.__ghosty.school.
  */
@@ -23,7 +27,9 @@ import { SUBJECT_LABEL } from '../../../../../packages/shared/src/school';
 import { clear, h, icon } from '../../core/dom';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { fetchOfficial, officialApi, startWork, stopWork, work, writePapers, type OfficialRow } from '../../school/official';
-import { notDownloaded, school, sitSubjects, sitting, stopSitting } from '../../school/sit';
+import { notDownloaded, runPaper, school, sitSubjects, sitting, stopSitting, type Gen, type SitPaper } from '../../school/sit';
+import { headers } from '../../api/brain';
+import { loadOffline, offlineReply, withModel } from '../../offline/brain';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, modal, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -36,7 +42,7 @@ const short = (label: string) => label.replace(/\s*\(.*\)$/, '');
 const pct = (r: Pick<PaperResult, 'raw' | 'max'>) => Math.round((r.raw / Math.max(1, r.max)) * 100);
 
 /** What the tab shows, for tests and the console (window.__ghosty.school). */
-export const schoolState = { stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false };
+export const schoolState = { stage: '', stages: [] as { id: string; status: string; papers?: boolean }[], results: 0, sitting: false, line: '', last: null as null | { grade: string; raw: number; max: number }, placement: [] as string[], error: '', official: [] as { id: string; status: string; line: string }[], banks: [] as { stage: string; subject: string; kept: number; target: number; done: boolean; line: string }[], working: false, reading: null as null | { stage: string; shelf: { id: string; status: string; check: string }[]; ahead: string[]; rule: string; borrow: string; locks: string; live: string; last: string } };
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
   const attach = () => !!w.__ghosty && ((w.__ghosty.school = schoolState), true);
@@ -403,6 +409,7 @@ export const schoolTab: TabDef = {
 
     // ======================= paint everything
     function paint(): void {
+      paintReading();
       const st = sitting.get();
       schoolState.sitting = st.busy;
       schoolState.line = st.line;
@@ -446,6 +453,177 @@ export const schoolTab: TabDef = {
       paint();
     }
 
+    // ======================= reading (part 3): the shelf, READ, the reading check, BORROW, the locks
+    const readP = panel('READING', { cls: 'school.schreading' });
+    P.right.append(readP.el);
+    let reading: ReadView | null = null;
+    let readingError = '';
+    /** Books being read in now (READ runs a part at a time while SCHOOL is open): their progress line. */
+    const readingNow: Record<string, string> = {};
+    /** The reading check being sat now, and the last one handed in. */
+    let checkLive: { id: string; title: string; borrow: boolean; n: number; of: number; line: string } | null = null;
+    let checkCtl: AbortController | null = null;
+    let lastCheck: { line: string; passed: boolean } | null = null;
+    const genOffline: Gen = async (messages, o) => (await offlineReply(messages, () => undefined, o.signal, { temperature: o.temperature, max: o.max })).text;
+
+    async function loadReading(): Promise<void> {
+      try {
+        reading = await rcall<ReadView>('GET', '');
+        readingError = '';
+      } catch (e) {
+        readingError = String((e as Error)?.message ?? e).slice(0, 160);
+      }
+      paintReading();
+    }
+    /** A book's row replaced by the brain's newer copy of it, wherever it is listed. */
+    const patchRow = (r: ReadRow) => {
+      if (!reading) return;
+      const fix = (list: ReadRow[]) => list.map((x) => (x.id === r.id ? r : x));
+      reading = { ...reading, shelf: fix(reading.shelf), borrowed: fix(reading.borrowed), ahead: reading.ahead.map((a) => ({ ...a, books: fix(a.books) })) };
+    };
+
+    /** READ: the next part, again and again until the book is in his library (leaving SCHOOL pauses it; READ carries on). */
+    async function readBook(r: ReadRow): Promise<void> {
+      if (readingNow[r.id] !== undefined) return;
+      readingNow[r.id] = 'starting…';
+      paintReading();
+      try {
+        for (let i = 0; i < 400; i++) {
+          const res = await rcall<{ book: ReadRow; done: boolean }>('POST', '/read', { id: r.id });
+          patchRow(res.book);
+          readingNow[r.id] = res.book.parts ? `${r.kind === 'book' ? 'part' : 'section'} ${res.book.part} of ${res.book.parts}` : '…';
+          paintReading();
+          if (res.done) {
+            toast(`${r.title}: read ✓ — it is in his library now`, 'ok');
+            break;
+          }
+          if (!shown) break;
+        }
+      } catch (e) {
+        toast(String((e as Error)?.message ?? e).slice(0, 200), 'bad');
+      } finally {
+        delete readingNow[r.id];
+        void loadReading();
+      }
+    }
+
+    /** A reading check (or a BORROW's check), sat on the offline brain like a paper: one question at a time, STOP keeps the answers. */
+    async function sitCheck(r: ReadRow, borrow: boolean): Promise<void> {
+      if (sitting.get().busy || checkLive) return;
+      if (!ready) return void toast(notDownloaded, 'bad');
+      const ctl = new AbortController();
+      checkCtl = ctl;
+      checkLive = { id: r.id, title: r.title, borrow, n: 0, of: 0, line: 'getting the check (the first time, a stronger model writes it from the book)…' };
+      paintReading();
+      const set = (o: Partial<NonNullable<typeof checkLive>>) => ((checkLive = checkLive ? { ...checkLive, ...o } : null), paintReading());
+      try {
+        await withModel('bench', async () => {
+          const got = await rcall<{ paper: SitPaper; done: string[] }>('POST', borrow ? '/borrow' : '/check', { id: r.id });
+          set({ line: 'getting ready (loading the model)…', of: got.paper.items.length, n: got.done.length });
+          await loadOffline();
+          const save = (answers: { id: string; given: string }[], final: boolean) => rcall<{ result?: { raw: number; max: number; pct: number; passed: boolean }; line?: string }>('POST', '/answers', { id: r.id, checkId: got.paper.id, answers, final });
+          const { rest, stopped } = await runPaper(got.paper, { gen: genOffline, save: (a) => save(a, false), done: new Set(got.done), signal: ctl.signal, onProgress: (n, of) => set({ n, of, line: `Question ${n} of ${of}` }) });
+          if (stopped) {
+            await save(rest, false).catch(() => undefined);
+            toast('Stopped: the answers so far are kept — SIT THE READING CHECK carries on', 'warn');
+            return;
+          }
+          set({ line: 'handing it in for marking…' });
+          const res = await save(rest, true);
+          lastCheck = { line: res.line ?? '', passed: !!res.result?.passed };
+          toast(res.line ?? 'Marked', res.result?.passed ? 'ok' : 'warn');
+        }, { wait: false });
+      } catch (e) {
+        toast(String((e as Error)?.message ?? e).slice(0, 220), 'bad');
+      } finally {
+        if (checkCtl === ctl) checkCtl = null;
+        checkLive = null;
+        void loadReading();
+      }
+    }
+
+    function bookRow(r: ReadRow, ahead: boolean): HTMLElement {
+      const live = readingNow[r.id];
+      const state = r.status === 'read' ? `Read ✓ ${r.readAt ? day(r.readAt) : ''}`.trim() : live !== undefined ? `Reading · ${live}` : r.status === 'reading' ? `Reading · ${r.kind === 'book' ? 'part' : 'section'} ${r.part} of ${r.parts || '?'}` : r.borrowed ? 'Borrowed · not read yet' : '';
+      const c = r.check;
+      const checkLine = c ? `Reading check: ${c.raw}/${c.max} (${c.pct}%) · ${c.passed ? 'passed ✓' : 'not passed'}${c.purpose === 'borrow' ? (c.passed ? ' · borrowed' : ' · locked until he moves up') : ''}` : '';
+      const busy = sitting.get().busy || !!checkLive;
+      const btns: HTMLElement[] = [];
+      if (!r.ingest) btns.push(h('a.schlink', { href: r.url, target: '_blank', rel: 'noopener noreferrer' }, 'OPEN THE LINK'));
+      else if (r.open) {
+        if (r.status !== 'read') {
+          const b = button(r.status === 'reading' ? 'CARRY ON READING' : 'READ', () => void readBook(r), r.status === 'none' || r.status === 'unread' ? 'on' : '');
+          b.disabled = live !== undefined;
+          b.setAttribute('aria-label', `Read ${r.title}`);
+          btns.push(b);
+        }
+        if (!c) {
+          const b = button('SIT THE READING CHECK', () => void sitCheck(r, false));
+          b.disabled = busy || !ready;
+          b.setAttribute('aria-label', `Sit the reading check for ${r.title}`);
+          btns.push(b);
+        }
+      } else if (ahead && r.borrow) {
+        const b = button('BORROW', () => void sitCheck(r, true), r.borrow.ok ? 'on' : '');
+        b.disabled = !r.borrow.ok || busy || !ready;
+        b.setAttribute('aria-label', `Borrow ${r.title}`);
+        btns.push(b);
+      }
+      return h(`div.schbook${r.status === 'read' ? '.read' : ''}${r.borrowed ? '.borrowed' : ''}` as 'div', { dataset: { id: r.id } },
+        h('div.schoffh', h('b', r.title), h('small', `${r.author}${r.years ? ` · ${r.years}` : ''}${r.subject ? ` · ${r.subject}` : ''}`)),
+        h('small.schlicence', `${r.source} · ${r.licence}`),
+        r.why ? h('small.schoffnote', r.why) : null,
+        state ? h('div.schbookst', state) : null,
+        checkLine ? h(`div.schbookck${c?.passed ? '.ok' : '.no'}` as 'div', checkLine) : null,
+        r.error && r.status !== 'read' ? h('small.schoffnote', `Last try: ${r.error}`) : null,
+        ahead && r.borrow && !r.borrowed ? h('small.schborrowwhy', r.borrow.why) : null,
+        btns.length ? h('div.keyrow', ...btns) : null,
+      );
+    }
+
+    function paintReading(): void {
+      if (!reading) {
+        clear(readP.body, h('div.note', readingError ? `The reading shelf could not be shown: ${readingError}` : 'Looking up his reading…'));
+        schoolStateReading(null);
+        return;
+      }
+      const v = reading;
+      const stop = button('STOP', () => checkCtl?.abort(), 'warn');
+      const live = checkLive
+        ? h('div.schlive.schcheck',
+            h('div.schliveh', h('b', checkLive.line), h('small', `${checkLive.borrow ? 'Borrowing check' : 'Reading check'} · ${checkLive.title}`)),
+            checkLive.of ? bar('CHECK', checkLive.n / checkLive.of, `${checkLive.n}/${checkLive.of}`) : null,
+            h('div.keyrow', stop),
+          )
+        : null;
+      const readCount = v.read.length;
+      clear(
+        readP.body,
+        h('div.note', `His shelf at ${v.label}: books to read now, like a real pupil — public-domain classics (in the UK, their authors died before ${v.publicDomainBefore}) and open textbooks. READ puts one in his library, chapter by chapter. SIT THE READING CHECK: ten questions on the book’s own words, sat on this phone and marked exactly; ${Math.round(v.pass * 100)}% passes. Checks never count towards passing a stage.`),
+        live,
+        lastCheck && !checkLive ? h(`div.schbookck.schlast${lastCheck.passed ? '.ok' : '.no'}` as 'div', lastCheck.line) : null,
+        h('div.schbooks', ...v.shelf.map((r) => bookRow(r, false))),
+        v.borrowed.length ? h('div.lab', 'BORROWED') : null,
+        v.borrowed.length ? h('div.schbooks', ...v.borrowed.map((r) => bookRow(r, false))) : null,
+        h('div.lab', 'BORROW FROM A HIGHER CLASS'),
+        h('div.note.schrule', v.borrow.rule),
+        h(`div.note.schborrowline${v.borrow.top ? '.ok' : ''}` as 'div', v.borrow.line),
+        ...v.ahead.map((a) => h('details.schoffgrp.schahead', { dataset: { stage: a.stage } }, h('summary', `${a.label} shelf · ${a.years} · ${a.books.length} books`), h('div.schbooks', ...a.books.map((r) => bookRow(r, true))))),
+        h('div.lab', 'WHAT IS LOCKED'),
+        h('div.note.schlocks', v.locks.line),
+        h('div.note', v.locks.never),
+        readCount ? h('div.lab', 'READ') : null,
+        readCount ? h('div.schreadlist', ...v.read.slice(0, 30).map((x) => h('small', `${x.title} · ${day(x.readAt)}${x.borrowed ? ' · borrowed' : ''}`))) : null,
+      );
+      readP.setStatus(checkLive ? 'CHECK' : Object.keys(readingNow).length ? 'READING' : `${readCount} READ`, checkLive || Object.keys(readingNow).length ? 'mid' : readCount ? 'ok' : 'off');
+      schoolStateReading(v);
+    }
+    function schoolStateReading(v: ReadView | null): void {
+      schoolState.reading = v
+        ? { stage: v.stage, shelf: v.shelf.map((r) => ({ id: r.id, status: r.status, check: r.check ? `${r.check.raw}/${r.check.max}` : '' })), ahead: v.ahead.map((a) => a.stage), rule: v.borrow.rule, borrow: v.borrow.line, locks: v.locks.line, live: checkLive?.line ?? '', last: lastCheck?.line ?? '' }
+        : null;
+    }
+
     sitting.subscribe(paint);
     // Back on screen after the phone slept: carry on writing or reading.
     document.addEventListener('visibilitychange', () => {
@@ -467,6 +645,7 @@ export const schoolTab: TabDef = {
         shown = true;
         void refresh();
         void loadOfficial();
+        void loadReading();
       },
       leave() {
         shown = false;
@@ -478,3 +657,51 @@ export const schoolTab: TabDef = {
     };
   },
 };
+
+// ---------------------------------------------------------------------------------------
+// Reading (part 3): the brain's /api/school/reading routes (apps/edge/src/school/reading.ts)
+// ---------------------------------------------------------------------------------------
+
+/** A book on a shelf, as the brain lists it. */
+interface ReadRow {
+  id: string;
+  stage: StageId;
+  kind: 'book' | 'textbook';
+  title: string;
+  author: string;
+  source: string;
+  licence: string;
+  url: string;
+  ingest: boolean;
+  why?: string;
+  years?: string;
+  subject?: string;
+  status: 'none' | 'unread' | 'reading' | 'read';
+  part: number;
+  parts: number;
+  readAt?: number;
+  borrowed?: boolean;
+  error?: string;
+  check: { raw: number; max: number; pct: number; passed: boolean; purpose: 'read' | 'borrow'; at: number } | null;
+  open: boolean;
+  borrow?: { ok: boolean; why: string };
+}
+interface ReadView {
+  stage: StageId;
+  label: string;
+  shelf: ReadRow[];
+  ahead: { stage: StageId; label: string; years: string; books: ReadRow[] }[];
+  borrowed: ReadRow[];
+  read: { id: string; title: string; stage: StageId; readAt: number; borrowed: boolean }[];
+  borrow: { rule: string; top: boolean; reading: string[]; line: string };
+  locks: { line: string; levels: { level: number; open: boolean; opensAt: string | null }[]; never: string };
+  pass: number;
+  publicDomainBefore: number;
+}
+
+async function rcall<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  const r = await fetch(`/api/school/reading${path}`, { method, headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}), body: body !== undefined ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const j = (await r.json().catch(() => null)) as { error?: string } | null;
+  if (!r.ok) throw new Error(j?.error ?? (r.status === 401 ? 'Not signed in.' : `Ghosty could not be reached (${r.status}).`));
+  return j as T;
+}

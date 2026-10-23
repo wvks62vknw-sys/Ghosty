@@ -7,7 +7,7 @@
  * and by the phone's offline brain alike.
  */
 import { BLOCKS } from './blocks';
-import { CLICHES } from './gates';
+import { CLICHES, unsupportedClaims } from './gates';
 import { FONTS, PALETTES, SHAPES } from './tokens';
 import type { Brief, FontsId, PaletteId, Plan, Scheme, ShapeId, Slot } from './types';
 
@@ -59,8 +59,11 @@ export function editables(plan: Plan, page: number): Editable[] {
   return out;
 }
 
-/** The facts the owner gave, as plain lines (what the writers may build on). */
-export function factLines(b: Brief): string {
+/**
+ * The facts the owner gave, as plain lines (what the writers may build on). `typical`: what the plan filled
+ * in without the owner's word (plan.confirm), named so a writer never repeats it as a fact.
+ */
+export function factLines(b: Brief, typical: string[] = []): string {
   const l: string[] = [`Business: ${b.name} (${b.kind})`];
   if (b.town) l.push(`Town: ${b.town}`);
   if (b.address || b.postcode) l.push(`Address: ${[b.address, b.postcode].filter(Boolean).join(', ')}`);
@@ -72,6 +75,7 @@ export function factLines(b: Brief): string {
   if (b.accreditations?.length) l.push(`Accreditations: ${b.accreditations.join(', ')}`);
   if (b.areas?.length) l.push(`Areas: ${b.areas.join(', ')}`);
   if (b.request) l.push(`The request: ${b.request}`);
+  if (typical.length) l.push(`NOT confirmed by the owner (typical stand-ins on the page; never state them as facts or add to them): ${typical.join('; ')}`);
   return l.join('\n');
 }
 
@@ -86,7 +90,7 @@ export function writePrompt(plan: Plan, b: Brief, page: number): { system: strin
   return {
     pieces,
     system: `SITE WRITER. You improve the words of one page of a small business website. ${STYLE_RULES} Reply with ONLY a JSON object with the same keys and your new text for each (keep a key's text when it is already good). Character limits per key: ${limits}.`,
-    user: `FACTS (the only facts you may use):\n${factLines(b)}\n\nVOICE: ${plan.tone}\nPAGE: ${p?.label ?? 'Footer'}\n\nTEXT TO IMPROVE (JSON):\n${JSON.stringify(obj)}`,
+    user: `FACTS (the only facts you may use):\n${factLines(b, plan.confirm)}\n\nVOICE: ${plan.tone}\nPAGE: ${p?.label ?? 'Footer'}\n\nTEXT TO IMPROVE (JSON):\n${JSON.stringify(obj)}`,
   };
 }
 
@@ -134,6 +138,9 @@ export function rejectRewrite(old: string, next: unknown, max: number, b: Brief)
   const fresh = digits(n).filter((d) => !ok.has(d.replace(/,/g, '')));
   if (fresh.length) return `adds numbers not in the facts (${fresh.join(', ')})`;
   const low = n.toLowerCase();
+  // A claim (registered, insured, award-winning, rated, thousands of…) only when the owner made it.
+  const claims = unsupportedClaims(n, `${factLines(b)}\n${old}`);
+  if (claims.length) return `adds a claim the owner did not make (${claims.join(', ')})`;
   const c = CLICHES.find((x) => low.includes(x) && !old.toLowerCase().includes(x));
   if (c) return `stock phrase "${c}"`;
   if (/!/.test(n) && !/!/.test(old)) return 'exclamation mark';
@@ -170,7 +177,7 @@ export function planPrompt(plan: Plan, b: Brief): { system: string; user: string
   const pages = plan.pages.map((p) => `${p.label || 'Home'}: ${p.sections.map((s) => s.block).join(', ')}`).join('\n');
   return {
     system: `SITE PLANNER. You art-direct a small business website. Choose the look and trim the plan. Reply with ONLY JSON: {"palette": one of ${Object.keys(PALETTES).join('|')}, "fonts": one of ${Object.keys(FONTS).join('|')}, "shape": one of ${Object.keys(SHAPES).join('|')}, "scheme": "light"|"dark"|"auto", "tone": "three words for the voice", "drop": ["block ids to remove from the home page, at most 2"], "why": "one sentence"}. Palettes: ${Object.values(PALETTES).map((p) => `${p.id} (${p.label.split(':')[1]?.trim()})`).join('; ')}. Fonts: ${Object.values(FONTS).map((f) => `${f.id} (${f.label.split(':')[1]?.trim()})`).join('; ')}.`,
-    user: `FACTS:\n${factLines(b)}\n\nCURRENT LOOK: ${plan.theme.palette}, ${plan.theme.fonts}, ${plan.theme.shape}, ${plan.theme.scheme}; voice "${plan.tone}"\nPAGES AND SECTIONS:\n${pages}`,
+    user: `FACTS:\n${factLines(b, plan.confirm)}\n\nCURRENT LOOK: ${plan.theme.palette}, ${plan.theme.fonts}, ${plan.theme.shape}, ${plan.theme.scheme}; voice "${plan.tone}"\nPAGES AND SECTIONS:\n${pages}`,
   };
 }
 
@@ -220,7 +227,7 @@ export function critiquePrompt(plan: Plan, b: Brief, analysis: string, screensho
   const map = plan.pages.map((p) => `${p.slug || 'home'}: ${p.sections.map((s, i) => `${i}=${s.block}`).join(' ')}`).join('\n');
   return {
     system: `SITE CRITIC. You are a senior web designer reviewing a small business website before launch${screenshots ? ' from screenshots of it on a phone (390 px) and a laptop (1280 px)' : ' from an analysis of its layout (no screenshots were possible)'}. Be specific and only flag what a visitor would notice: crowding, weak headlines, text over busy pictures, repetition, too many sections, missing trust or contact, anything broken. Reply with ONLY JSON: {"verdict": "one sentence", "score": 0-10, "fixes": [{"page": "home or a page slug", "section": index, "kind": "text"|"drop"|"tone"|"theme", "key": "the slot (for text) or palette/fonts/scheme (for theme)", "value": "new text, or base|alt|inverse for tone, or the new value for theme", "why": "short"}]} with at most 6 fixes. ${STYLE_RULES}`,
-    user: `FACTS:\n${factLines(b)}\n\nLOOK: ${plan.theme.palette} palette, ${plan.theme.fonts} fonts, ${plan.theme.scheme} scheme\nSECTIONS:\n${map}\n\nCHECKS:\n${analysis}`,
+    user: `FACTS:\n${factLines(b, plan.confirm)}\n\nLOOK: ${plan.theme.palette} palette, ${plan.theme.fonts} fonts, ${plan.theme.scheme} scheme\nSECTIONS:\n${map}\n\nCHECKS:\n${analysis}`,
   };
 }
 
@@ -230,11 +237,17 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
   const skipped: string[] = [];
   if (!answer) return { applied, skipped: ['no JSON in the reply'], verdict: '' };
   const fixes = Array.isArray(answer.fixes) ? (answer.fixes as Record<string, unknown>[]).slice(0, 6) : [];
-  for (const f of fixes) {
+  // Every fix's section is found first, by the critic's numbering of the page as it saw it; sections to drop
+  // are taken out at the end, so dropping one never moves the next fix onto the wrong section.
+  const targets = fixes.map((f) => {
     const slug = String(f.page ?? 'home').replace(/^home$/i, '').replace(/^#?\/?/, '');
     const page = plan.pages.find((p) => p.slug === slug);
     const idx = Number(f.section);
-    const s = page && Number.isInteger(idx) ? page.sections[idx] : undefined;
+    return { page, s: page && Number.isInteger(idx) ? page.sections[idx] : undefined };
+  });
+  const drop = new Set<unknown>();
+  fixes.forEach((f, k) => {
+    const { page, s } = targets[k]!;
     const why = String(f.why ?? '').slice(0, 120);
     const kind = String(f.kind ?? '');
     if (kind === 'theme') {
@@ -245,20 +258,20 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
       else if (key === 'scheme' && ['light', 'dark', 'auto'].includes(v)) plan.theme.scheme = v as Scheme;
       else {
         skipped.push(`theme ${key}=${v}`);
-        continue;
+        return;
       }
       applied.push(`look: ${key} → ${v} (${why})`);
-      continue;
+      return;
     }
     if (!page || !s) {
       skipped.push(`no section ${f.page}/${f.section}`);
-      continue;
+      return;
     }
     const def = BLOCKS[s.block];
     if (kind === 'drop') {
       if (!def || def.group === 'hero' || s.block === 'contact-form' || s.block === 'booking-form' || s.block === 'map') skipped.push(`kept ${s.block}`);
-      else {
-        page.sections.splice(idx, 1);
+      else if (!drop.has(s)) {
+        drop.add(s);
         applied.push(`removed ${s.block} from ${page.label} (${why})`);
       }
     } else if (kind === 'tone') {
@@ -272,7 +285,7 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
       const slot = def?.slots[key];
       if (!def || !EDITABLE.has(key) || !slot || slot.t !== 'text' || typeof s.data[key] !== 'string') {
         skipped.push(`text ${s.block}.${key}`);
-        continue;
+        return;
       }
       const why2 = rejectRewrite(s.data[key] as string, f.value, slot.max, b);
       if (why2) skipped.push(`${s.block}.${key}: ${why2}`);
@@ -281,6 +294,7 @@ export function applyFixes(plan: Plan, b: Brief, answer: Record<string, unknown>
         applied.push(`${s.block}.${key} on ${page.label} rewritten (${why})`);
       }
     } else skipped.push(`unknown fix ${kind}`);
-  }
+  });
+  if (drop.size) for (const p of plan.pages) p.sections = p.sections.filter((x) => !drop.has(x));
   return { applied, skipped, verdict: String(answer.verdict ?? '').slice(0, 300), ...(typeof answer.score === 'number' ? { score: answer.score } : {}) };
 }
