@@ -15,7 +15,8 @@ import { brain, isPaused } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { bar, button, modal, panel, row, sandboxFrame, toast, type Light } from '../../ui/components';
+import { bar, button, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, type Light } from '../../ui/components';
+import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
@@ -112,15 +113,21 @@ export const workshopTab: TabDef = {
       const running = projects.filter((p) => p.status === 'active').length;
       jp.setStatus(projects.length ? (running ? `${running} RUNNING` : `${projects.length}`) : '', running ? 'ok' : projects.some((p) => p.status === 'paused') ? 'mid' : 'ok');
       if (!projects.length) {
-        jp.body.append(h('div.note', 'Nothing running. Ask Ghosty for something that takes days — "research the options over the next few days, then build it" — and it works through a plan step by step on its own, a step every few minutes, without burning through a day\'s free models.'));
+        jp.body.append(empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running'));
         return;
       }
       for (const p of projects) {
         const done = p.steps.filter((s) => s.status === 'done').length;
         const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min'} · ${fmt.ago(p.updated)}`)));
+        // route C: a progress ring with the steps done, beside the title
+        const ring = progressRing(46);
+        ring.set(done / Math.max(1, p.steps.length), 0, `${done}/${p.steps.length}`, p.status === 'done');
+        ring.el.classList.add('projring');
+        card.prepend(ring.el);
         card.append(bar('STEPS', done / Math.max(1, p.steps.length), `${done}/${p.steps.length}`, p.status === 'paused' ? '#ffd24d' : undefined));
         for (const s of p.steps) {
           const r = row(`${s.n}`, s.title, s.status.toUpperCase(), { wrap: true, tone: PSTEP_TONE[s.status] });
+          r.classList.add(`st-${s.status}`);
           if (s.result) {
             // a done step opens what it produced (its own class, not .link: the widgets list is the tab's .rw.link)
             r.classList.add('open');
@@ -162,7 +169,7 @@ export const workshopTab: TabDef = {
       clear(ip.body);
       ip.setStatus(ideas.length ? `${ideas.length}` : 'NONE YET', ideas.length ? 'ok' : 'off');
       nextNote.textContent = ideasNext ? `next look ${new Date(ideasNext).toLocaleDateString([], { weekday: 'short' })} ${fmt.time(new Date(ideasNext))}` : 'every morning';
-      if (!ideas.length) ip.body.append(h('div.note', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. They appear here; BUILD starts one.'));
+      if (!ideas.length) ip.body.append(empty('NONE', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. THINK NOW asks him now.', 'No ideas yet'));
       for (const i of ideas) {
         const card = h('div.idea', h('b', i.title), i.why ? h('div.note', i.why) : null, h('ol', ...i.steps.map((s) => h('li', s))));
         card.append(
@@ -341,7 +348,7 @@ export const workshopTab: TabDef = {
       clear(pp.body);
       pp.setStatus(sites.length ? `${sites.length} LIVE` : '', 'ok');
       if (!sites.length) {
-        pp.body.append(h('div.note', 'Nothing published yet. Ask Ghosty to "make me a website for…" or to rebuild one from a link: it goes live at a public link here.'));
+        pp.body.append(empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
         return;
       }
       for (const s of sites) {
@@ -375,14 +382,18 @@ export const workshopTab: TabDef = {
       clear(cp.body);
       if (!ready) {
         cp.setStatus('NOT CONNECTED', 'off');
-        cp.body.append(h('div.note', 'Self-editing needs GITHUB_REPO on the brain and a GitHub token in the System tab. See SETUP.md.'));
+        cp.body.append(h('div.note.rcwarn', 'Self-editing needs GITHUB_REPO on the brain and a GitHub token in the System tab. See SETUP.md.'));
       } else {
         cp.setStatus(`${changes.length} OPEN`, changes.length ? 'mid' : 'ok');
-        if (!changes.length) cp.body.append(h('div.note', 'No open changes. Ask Ghosty to build something.'));
+        if (!changes.length) cp.body.append(empty('NONE', 'Ask Ghosty to build something: what he changes waits here for you to SHIP IT.', 'No open changes'));
         for (const c of changes) {
-          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), h('small', `${CHECK_LABEL[c.checks]} · ${PREVIEW_LABEL[c.preview ?? 'none']} · ${fmt.ago(Date.parse(c.createdAt))}`)));
+          const meta = h('small', `${CHECK_LABEL[c.checks]} · ${PREVIEW_LABEL[c.preview ?? 'none']} · ${fmt.ago(Date.parse(c.createdAt))}`);
+          // route C: the checks as a pill, the rest of the line in words
+          meta.dataset.label = `${PREVIEW_LABEL[c.preview ?? 'none'].replace(/^./, (x) => x.toUpperCase())} · ${fmt.ago(Date.parse(c.createdAt))}`;
+          const checks = pill(c.checks === 'passed' ? 'Checks passed' : c.checks === 'failed' ? 'Checks failed' : c.checks === 'pending' ? 'Checking' : 'No checks yet', c.checks === 'passed' ? 'live' : c.checks === 'failed' ? 'warn' : 'idle', 'chk');
+          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), checks, meta));
           const actions = h('div.row.wrap');
-          if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener')), h('small.note', 'view only — previews never ask for your password'));
+          if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener'), 'prev'), h('small.note.prevnote', 'view only — previews never ask for your password'));
           actions.append(
             button('SHIP IT', async (b) => {
               if (c.checks === 'failed' && !confirm(`The code checks FAILED for #${c.number}: shipping it could break Ghosty.\n\nAsk Ghosty to "fix change #${c.number}" instead.\n\nShip anyway?`)) return;
@@ -394,16 +405,16 @@ export const workshopTab: TabDef = {
                 toast(String((e as Error).message), 'bad');
               }
               void load();
-            }, 'on'),
+            }, 'on ship'),
             button('ASK TO FIX', () => {
               go('core');
               void send(`Check change #${c.number} with change_status and fix anything that failed.`);
-            }),
+            }, 'quiet'),
             button('DISCARD', async () => {
               await brain.discard(c.number).catch((e) => toast(String(e.message), 'bad'));
               void load();
-            }, 'warn'),
-            button('GITHUB ↗', () => window.open(c.url, '_blank', 'noopener')),
+            }, 'warn quiet'),
+            button('GITHUB ↗', () => window.open(c.url, '_blank', 'noopener'), 'quiet'),
           );
           card.append(actions);
           cp.body.append(card);
@@ -413,6 +424,9 @@ export const workshopTab: TabDef = {
       vp.setStatus(versions.length ? `${versions.length}` : '', 'ok');
       versions.slice(0, 10).forEach((v, i) => {
         const r = row(v.sha.slice(0, 7), v.message, i === 0 ? 'LIVE' : '↶', { wrap: true });
+        (r.querySelector('.k') as HTMLElement).dataset.case = 'keep';
+        r.classList.add(i === 0 ? 'live' : 'old');
+        if (i > 0) (r.lastChild as HTMLElement).setAttribute('aria-label', `Restore "${v.message}"`);
         if (i > 0) {
           const back = r.lastChild as HTMLElement;
           back.classList.add('del');
@@ -431,7 +445,7 @@ export const workshopTab: TabDef = {
       });
       clear(wp.body);
       wp.setStatus(`${widgets.length}`, 'ok');
-      if (!widgets.length) wp.body.append(h('div.note', 'No widgets yet. Try "make me a pomodoro timer widget".'));
+      if (!widgets.length) wp.body.append(empty('NONE', 'Try “make me a pomodoro timer widget”: it installs here at once.', 'No widgets yet'));
       for (const w of widgets) {
         const r = row(fmt.ago(w.at), w.title, '✕');
         r.classList.add('link');
@@ -460,6 +474,9 @@ export const workshopTab: TabDef = {
         open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', () => confirm('Let Ghosty edit its protected kernel for 15 minutes?') && void setKernel(15), 'warn'),
       );
       P.big.textContent = ready ? `v${versions.length ? versions[0]!.sha.slice(0, 7) : '—'}` : 'OFFLINE';
+      // route C: the version that is live, its id kept as it is
+      P.big.dataset.case = 'keep';
+      if (proLook()) P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],

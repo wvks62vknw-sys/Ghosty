@@ -3407,4 +3407,69 @@ html[data-look="pro"] #pg-memory .pn.me .rw .v { font: 400 17px/23px var(--sf); 
   html[data-look="pro"] .two.rcflow > .col > .pn { flex: none; min-height: 0; }
   html[data-look="pro"] .two.rcflow > .col > .pn > .bd { flex: none; min-height: 0; overflow: visible; }
 }
+/* ---------- Workshop (features/workshop): changes with SHIP IT, PROJECTS with rings, UPGRADE IDEAS, VERSIONS, widgets, the kernel lock ---------- */
+.change .rcpill.chk, .projring { display: none; }
+html[data-look="pro"] #pg-workshop .note.rcwarn { padding: 12px 14px; border-radius: 14px; color: var(--ink); background: rgba(var(--amberr), .08); box-shadow: inset 0 0 0 1px rgba(var(--amberr), .22); }
+/* a change: a glass card — the title, the checks as a pill, then SHIP IT (the screen's one filled button) and Preview */
+html[data-look="pro"] #pg-workshop .change { position: relative; gap: 10px; margin: 0 0 10px; padding: 14px 14px 12px; border: 0; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] #pg-workshop .change:last-child { margin-bottom: 0; }
+html[data-look="pro"] #pg-workshop .change .ct { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+html[data-look="pro"] #pg-workshop .change .ct b { flex: 1 1 100%; font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] #pg-workshop .change .ct small { --lfs: 13px; font: 400 13px/18px var(--sf); letter-spacing: 0; color: var(--ink3) !important; text-transform: none; }
+html[data-look="pro"] #pg-workshop .change .rcpill.chk { display: inline-flex; height: 22px; padding: 0 10px; font-size: 10.5px; }
+html[data-look="pro"] #pg-workshop .change > .row.wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html[data-look="pro"] #pg-workshop .change button.ship { order: 1; flex: 1 1 140px; height: 48px; min-height: 48px !important; border-radius: 24px; font: 600 17px var(--sf) !important; letter-spacing: -.2px; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
+html[data-look="pro"] #pg-workshop .change.failed button.ship { color: var(--ink) !important; background: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .4) !important; }
+html[data-look="pro"] #pg-workshop .change button.prev { order: 2; flex: 0 0 auto; height: 48px; min-height: 48px !important; padding: 0 18px; border-radius: 24px; font: 600 15px var(--sf) !important; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
+html[data-look="pro"] #pg-workshop .change .prevnote { order: 3; flex: 1 1 100%; margin: -2px 0 0; font: 400 12px/16px var(--sf); color: var(--ink3); }
+html[data-look="pro"] #pg-workshop .change button.quiet { order: 4; position: relative; height: 36px; min-height: 36px !important; padding: 0 10px; margin: 0 0 -4px; border-radius: 10px; font: 500 15px var(--sf) !important; color: var(--ink2) !important; background: none !important; box-shadow: none !important; }
+html[data-look="pro"] #pg-workshop .change button.quiet::after { content: ''; position: absolute; inset: -4px 0; }
+html[data-look="pro"] #pg-workshop .change button.quiet:first-of-type { margin-left: -10px; }
+html[data-look="pro"] #pg-workshop .change > .row.wrap > button.quiet:nth-last-child(3) { margin-left: -10px; }
+html[data-look="pro"] #pg-workshop .change button.warn.quiet { color: #ff8a80 !important; }
+html[data-look="pro"] #pg-workshop .change > .row.wrap:not(:has(.prev)) button.ship { flex-basis: 100%; }
+html[data-look="pro"] #pg-workshop :is(.rw.live, .rw.old) .k::first-letter { text-transform: none; }
+/* a project: its ring, the title and pace, the steps as a list with a mark each */
+html[data-look="pro"] #pg-workshop .change.project { display: grid; grid-template-columns: minmax(0, 1fr) 46px; column-gap: 12px; row-gap: 0; }
+html[data-look="pro"] #pg-workshop .change.project > * { grid-column: 1 / -1; }
+html[data-look="pro"] #pg-workshop .change.project > .projring { display: inline-grid; grid-column: 2; grid-row: 1; align-self: start; }
+html[data-look="pro"] #pg-workshop .change.project > .projring b { font-size: 12px; letter-spacing: -.2px; }
+html[data-look="pro"] #pg-workshop .change.project > .ct { grid-column: 1; grid-row: 1; align-self: center; }
+html[data-look="pro"] #pg-workshop .change.project > .ct small { --lfs: 13px; }
+html[data-look="pro"] #pg-workshop .change.project > .bar { display: none; }
+html[data-look="pro"] #pg-workshop .change.project > .rw { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; min-height: 44px; padding: 8px 0; margin: 0; border-bottom: 0; border-top: 1px solid var(--hair); }
+html[data-look="pro"] #pg-workshop .change.project > .ct + .rw { margin-top: 12px; }
+html[data-look="pro"] #pg-workshop .change.project > .rw .k { display: grid; place-items: center; width: 22px; height: 22px; min-width: 0; border-radius: 11px; font: 600 11px/1 var(--sf); color: var(--ink3); box-shadow: inset 0 0 0 1.5px var(--ink4); letter-spacing: 0; }
+html[data-look="pro"] #pg-workshop .change.project > .rw.st-done .k { color: transparent; background: rgba(235,240,245,.85) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23050607' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4L18 8'/%3E%3C/svg%3E") center / 13px no-repeat; box-shadow: none; }
+html[data-look="pro"] #pg-workshop .change.project > .rw.st-doing .k { color: var(--c); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 8px rgba(var(--cr), .45); }
+html[data-look="pro"] #pg-workshop .change.project > .rw.st-failed .k { color: var(--amber); box-shadow: inset 0 0 0 1.5px var(--amber); }
+html[data-look="pro"] #pg-workshop .change.project > .rw .v { font: 400 16px/21px var(--sf); color: var(--ink); }
+html[data-look="pro"] #pg-workshop .change.project > .rw.st-todo .v { color: var(--ink2); }
+html[data-look="pro"] #pg-workshop .change.project > .rw .n { font: 500 11px var(--sf); letter-spacing: .06em; color: var(--ink3); }
+html[data-look="pro"] #pg-workshop .change.project > .rw.st-doing .n { color: var(--c); }
+html[data-look="pro"] #pg-workshop .change.project > .rw.open::after { content: ''; position: absolute; right: -4px; top: 50%; width: 0; height: 0; }
+html[data-look="pro"] #pg-workshop .change.project > small.note { margin-top: 6px; font-size: 13px; color: var(--ink3); }
+html[data-look="pro"] #pg-workshop .change.project > .row.wrap { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+html[data-look="pro"] #pg-workshop .change.project > .row.wrap button { height: 40px; min-height: 40px !important; padding: 0 16px; }
+/* an upgrade idea: a glass card, its steps numbered, BUILD and DISMISS */
+html[data-look="pro"] #pg-workshop .idea { gap: 8px; margin: 0 0 10px; padding: 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] #pg-workshop .idea b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] #pg-workshop .idea .note { font-size: 15px; line-height: 20px; }
+html[data-look="pro"] #pg-workshop .idea ol { padding-left: 20px; gap: 4px; font: 400 14px/19px var(--sf); color: var(--ink2); }
+html[data-look="pro"] #pg-workshop .idea ol li::marker { color: var(--ink3); font-variant-numeric: tabular-nums; }
+html[data-look="pro"] #pg-workshop .idea .row { gap: 8px; margin-top: 4px; }
+html[data-look="pro"] #pg-workshop .idea .row button { height: 40px; min-height: 40px !important; padding: 0 18px; }
+html[data-look="pro"] #pg-workshop .idea .row small { color: var(--ink3); font-size: 13px; }
+html[data-look="pro"] #pg-workshop .pn > .ft { gap: 12px; }
+html[data-look="pro"] #pg-workshop .pn > .ft .note { font-size: 13px; color: var(--ink3); }
+/* VERSIONS: the id as a small chip, the words, LIVE lit or a round restore button */
+html[data-look="pro"] #pg-workshop .rw.live, html[data-look="pro"] #pg-workshop .rw.old { display: grid; grid-template-columns: auto minmax(0, 1fr) 44px; column-gap: 12px; align-items: center; min-height: 56px; padding: 6px 0; }
+html[data-look="pro"] #pg-workshop :is(.rw.live, .rw.old) .k { min-width: 0; padding: 3px 7px; border-radius: 7px; font: 500 12px/1 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0; color: var(--ink2); background: rgba(255,255,255,.06); text-transform: none; }
+html[data-look="pro"] #pg-workshop :is(.rw.live, .rw.old) .v { font: 400 16px/21px var(--sf); color: var(--ink); }
+html[data-look="pro"] #pg-workshop .rw.live .n { justify-self: end; height: 20px; padding: 0 7px; border-radius: 10px; font: 700 10px/20px var(--sf); letter-spacing: .1em; color: var(--c); background: rgba(var(--cr), .13); }
+html[data-look="pro"] #pg-workshop .rw.old .n.del { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 22px; font: 400 18px/1 var(--sf); color: var(--ink2); background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+/* the kernel lock: one quiet card; unlocking is amber, the warning colour */
+html[data-look="pro"] #pg-workshop .pn:has(> .bd > button.warn) > .bd > button.warn { align-self: flex-start; height: 44px; min-height: 44px !important; padding: 0 18px; color: var(--amber) !important; background: rgba(var(--amberr), .1) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .28) !important; }
+html[data-look="pro"] #pg-workshop .site { gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--hair); }
+html[data-look="pro"] #pg-workshop .site .keyrow button { height: 40px; min-height: 40px !important; }
 /* end route C part 2 */
