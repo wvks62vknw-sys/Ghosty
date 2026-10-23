@@ -422,14 +422,18 @@ class PreFlight(unittest.TestCase):
             G.WORK = work
 
 
+SYS = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+
+
 class SchoolPractice(unittest.TestCase):
     """SCHOOL practice as `school` records in the week's training."""
 
-    exact = {'kind': 'school', 'messages': [{'role': 'system', 'content': G.EXAM_SYSTEM}, {'role': 'user', 'content': 'What is 7 × 8?'}], 'answer': '56', 'check': {'type': 'number'}}
-    written = {'kind': 'school', 'messages': [{'role': 'system', 'content': G.EXAM_SYSTEM}, {'role': 'user', 'content': 'Why do leaves fall?'}, {'role': 'assistant', 'content': 'To save water over winter.\nAnswer: to save water'}]}
+    exact = {'kind': 'school', 'messages': [{'role': 'system', 'content': SYS}, {'role': 'user', 'content': 'What is 7 × 8?'}], 'answer': '56', 'check': {'type': 'number'}}
+    written = {'kind': 'school', 'messages': [{'role': 'system', 'content': SYS}, {'role': 'user', 'content': 'Why do leaves fall?'}, {'role': 'assistant', 'content': 'To save water over winter.\nAnswer: to save water'}]}
 
     def test_record_problem_accepts_the_kind(self):
         self.assertIn('school', G.TRAIN_KINDS)
+        self.assertEqual(G.EXAM_SYSTEM, SYS)
         self.assertEqual(G.record_problem(self.exact), '')
         self.assertEqual(G.record_problem(self.written), '')
         self.assertEqual(G.record_problem({**self.exact, 'check': None}), 'a school question needs how its answer is checked')
@@ -492,11 +496,11 @@ class ExamMode(unittest.TestCase):
         def http(url, data=None, method=None, timeout=60, headers=None):
             posts.append({'url': url, 'data': data, 'headers': headers})
             return {'hf_token': 'TOKEN'} if data is None else {'ok': True}
+        run = G.run_for(self.CFG)
         real = (G.subprocess.run, G.http_json, G.quantised_weights)
         G.subprocess.run = lambda cmd, **k: pip.append(cmd) or subprocess.CompletedProcess(cmd, 0)
         G.http_json = http
         G.quantised_weights = lambda m: contextlib.nullcontext(gens.append('quantised'))
-        run = G.run_for(self.CFG)
         trained = []
         for name in ('star', 'school_star', 'critique', 'judge', 'sft', 'dpo', 'exam_before', 'exam_after', 'publish', 'upload_candidate', 'checkpoint', 'keep_for_later', 'resume', 'drop_near_exam'):
             setattr(run, name, (lambda n: lambda *a, **k: trained.append(n))(name))
