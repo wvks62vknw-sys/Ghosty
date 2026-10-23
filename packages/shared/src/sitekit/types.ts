@@ -74,6 +74,8 @@ export interface Brief {
   schedule?: { time: string; title: string; detail?: string }[];
   /** Products for a small shop (name, price, a line). */
   products?: { name: string; price?: string; description?: string; badge?: string; image?: ImageRef }[];
+  /** The owner's own pictures (their work, their place): the only ones a work or portfolio gallery may show. */
+  photos?: ImageRef[];
   /** Accreditations and memberships the owner named (Gas Safe, NICEIC, GDC…): never assumed. */
   accreditations?: string[];
   /** Towns or areas covered (trades). */
