@@ -3673,4 +3673,92 @@ html[data-look="pro"] .pn.recon .reconout .rw .n.bad { color: var(--amber); }
 html[data-look="pro"] .pn.recon > .ft { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--hair); }
 html[data-look="pro"] .pn.recon > .ft button { height: 44px; min-height: 44px !important; padding: 0 16px; }
 html[data-look="pro"] .pn.recon > .ft button.warn:not(:disabled) { color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; }
+/* ---------- Lens (features/lens): the viewfinder, the mode bar and the sheet over the camera — glass, legible, 44 pt ---------- */
+html[data-look="pro"] .hud.lens { gap: 10px; padding: 4px 16px 8px; }
+html[data-look="pro"] .lensview { border-radius: 22px; box-shadow: inset 0 0 0 1px var(--hair), 0 18px 40px rgba(0,0,0,.45); }
+html[data-look="pro"] .lensstatus { left: 10px; top: 10px; max-width: calc(100% - 20px); height: 28px; padding: 0 12px 0 10px; gap: 7px; border-radius: 14px; font: 500 12px/1 var(--sf); letter-spacing: 0; color: var(--ink); text-shadow: none; background: rgba(20,22,25,.55); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); -webkit-backdrop-filter: blur(20px) saturate(1.6); backdrop-filter: blur(20px) saturate(1.6); }
+html[data-look="pro"] .lensstatus i { width: 6px; height: 6px; }
+html[data-look="pro"] .lensstatus i.ok { background: var(--c); box-shadow: 0 0 6px var(--c); }
+html[data-look="pro"] .lensstatus i.mid { background: var(--amber); }
+/* the modes: one glass track that scrolls sideways, the chosen one lit; the hint stays for VoiceOver */
+html[data-look="pro"] .lensmodes { display: flex; gap: 4px; padding: 4px; border-radius: 26px; background: rgba(30,33,37,.6); box-shadow: inset 0 0 0 1px rgba(255,255,255,.09); -webkit-backdrop-filter: blur(26px) saturate(1.7); backdrop-filter: blur(26px) saturate(1.7); scroll-snap-type: x proximity; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+html[data-look="pro"] .lensmodes button { flex: none; display: grid; place-items: center; height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; font: 600 15px var(--sf) !important; letter-spacing: -.12px; color: var(--ink2); background: transparent !important; box-shadow: none !important; scroll-snap-align: start; }
+html[data-look="pro"] .lensmodes button small { display: none; }
+html[data-look="pro"] .lensmodes button > span { display: block; }
+html[data-look="pro"] .lensmodes button > span::first-letter { text-transform: uppercase; }
+html[data-look="pro"] .lensmodes button.on { color: var(--c); background: rgba(255,255,255,.1) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .3) !important; }
+html[data-look="pro"] .lensmodes button:last-child { margin-right: 24px; }
+/* the sheet: route C glass with readable type */
+html[data-look="pro"] .lenspanel { gap: 10px; padding: 14px 16px; border-radius: 20px; background: var(--rcglass); box-shadow: var(--edge), var(--lift); font: 400 15px/20px var(--sf); color: var(--ink); }
+html[data-look="pro"] .lenspanel .note { font-size: 15px; line-height: 21px; color: var(--ink2); }
+html[data-look="pro"] .lenspanel :is(.lenssel, .lensreply) { border: 0; border-radius: 16px; padding: 12px 14px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); font: 400 16px/23px var(--sf); }
+html[data-look="pro"] .lenspanel .lensreply small, html[data-look="pro"] .lenspanel .lenssel b { font: 600 11px/13px var(--sf); letter-spacing: .09em; color: var(--ink3); }
+html[data-look="pro"] .lenspanel .lenschips { gap: 8px; }
+html[data-look="pro"] .lenspanel .lenschips button { position: relative; height: 36px; min-height: 36px !important; padding: 0 14px; border-radius: 18px; font: 500 14px var(--sf) !important; color: var(--ink); background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] .lenspanel .lenschips button::after { content: ''; position: absolute; inset: -4px 0; }
+html[data-look="pro"] .lenspanel .lenschips button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
+html[data-look="pro"] .lenspanel .row button, html[data-look="pro"] .lenspanel .row.wrap button { min-height: 44px !important; }
+/* the bar under the thumb: START is the filled one; FLIP, FREEZE, TORCH glass */
+html[data-look="pro"] .lensbar { gap: 8px; }
+html[data-look="pro"] .lensbar button { height: 50px; min-height: 50px !important; border-radius: 25px; font: 600 16px var(--sf) !important; color: var(--ink); background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
+html[data-look="pro"] .lensbar button:first-child { color: #03141b; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
+html[data-look="pro"] .lensbar button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
+html[data-look="pro"] .lensprivacy { font: 400 12px/16px var(--sf); color: var(--ink3); }
+
+/* ---------- Learn (features/learn): courses as cards with their ring, the course map, the lesson, the quiz, revise ---------- */
+html[data-look="pro"] #pg-learn button.learnbig { position: relative; min-height: 64px; margin: 0 0 10px; padding: 12px 44px 12px 16px; border-radius: 18px; background: rgba(var(--cr), .08) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .22) !important; }
+html[data-look="pro"] #pg-learn button.learnbig::after { content: '›'; position: absolute; right: 16px; top: 50%; transform: translateY(-52%); font: 300 26px/1 var(--sf); color: var(--ink3); }
+html[data-look="pro"] #pg-learn .learnbig b { font: 600 11px/13px var(--sf); letter-spacing: .09em; color: color-mix(in srgb, var(--c) 60%, #fff); }
+html[data-look="pro"] #pg-learn .learnbig small { margin-top: 3px; font: 500 16px/21px var(--sf); color: var(--ink); }
+html[data-look="pro"] #pg-learn button.learncourse { min-height: 72px; margin: 0 0 10px; padding: 12px 14px; gap: 14px; border-radius: 18px; background: rgba(255,255,255,.05) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-learn button.learncourse:last-child { margin-bottom: 0; }
+html[data-look="pro"] #pg-learn .learnring { width: 46px; height: 46px; flex: 0 0 46px; }
+html[data-look="pro"] #pg-learn .learnring .track { stroke: rgba(255,255,255,.12); stroke-width: 3.4; }
+html[data-look="pro"] #pg-learn .learnring .fg { stroke: var(--c); stroke-width: 3.4; filter: drop-shadow(0 0 3px rgba(var(--cr), .5)); }
+html[data-look="pro"] #pg-learn .learnring text { font: 600 10px var(--sf); fill: var(--ink); }
+html[data-look="pro"] #pg-learn :is(.learncinfo, .learnhead > span, .learnlesson > span) b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] #pg-learn :is(.learncinfo, .learnhead > span, .learnlesson > span) small { font: 400 13px/18px var(--sf); color: var(--ink3); }
+html[data-look="pro"] #pg-learn .learnhead { gap: 14px; margin: 0 0 10px; }
+html[data-look="pro"] #pg-learn .learnhead .learnring { width: 56px; height: 56px; flex-basis: 56px; }
+html[data-look="pro"] #pg-learn .learnhead > span b { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; }
+/* the course map: the lessons as stops on a line — done ticked, the next one lit */
+html[data-look="pro"] #pg-learn .learnlessons { position: relative; margin: 8px 0 4px; }
+html[data-look="pro"] #pg-learn button.learnlesson { position: relative; min-height: 60px; margin: 0; padding: 8px 4px; gap: 14px; border-radius: 12px; background: none !important; box-shadow: none !important; }
+html[data-look="pro"] #pg-learn button.learnlesson:not(:last-child)::before { content: ''; position: absolute; left: 17px; top: 40px; bottom: -12px; width: 2px; border-radius: 1px; background: var(--hair2); }
+html[data-look="pro"] #pg-learn button.learnlesson.done:not(:last-child)::before { background: rgba(235,240,245,.4); }
+html[data-look="pro"] #pg-learn button.learnlesson > i { position: relative; z-index: 1; flex: 0 0 28px; width: 28px; height: 28px; border: 0; border-radius: 14px; font: 600 12px/28px var(--sf); font-style: normal; text-align: center; color: var(--ink3); background: #121518; box-shadow: inset 0 0 0 1.5px var(--ink4); }
+html[data-look="pro"] #pg-learn button.learnlesson.done > i { color: #050607; background: rgba(235,240,245,.85); box-shadow: none; }
+html[data-look="pro"] #pg-learn button.learnlesson.next > i { color: var(--c); background: #0c1418; box-shadow: inset 0 0 0 2px var(--c), 0 0 10px rgba(var(--cr), .5); }
+html[data-look="pro"] #pg-learn button.learnlesson.next > span b { color: var(--c); }
+html[data-look="pro"] #pg-learn button.learnlesson.done > span b { color: var(--ink2); }
+html[data-look="pro"] #pg-learn .learnbar { gap: 8px; margin: 12px 0 4px; }
+html[data-look="pro"] #pg-learn .learnbar button { height: 44px; min-height: 44px !important; padding: 0 18px; }
+/* the lesson: comfortable reading, its sources as chips, the check question */
+html[data-look="pro"] #pg-learn .learntext { font: 400 17px/27px var(--sf); letter-spacing: -.2px; color: rgba(244,246,248,.92); }
+html[data-look="pro"] #pg-learn .learntext p { margin: 0 0 14px; }
+html[data-look="pro"] #pg-learn .learnsources { gap: 6px; margin: 4px 0 12px; }
+html[data-look="pro"] #pg-learn .learnsrc { display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 14px; font: 500 13px/1 var(--sf); color: color-mix(in srgb, var(--c) 70%, #fff); background: rgba(var(--cr), .1); box-shadow: inset 0 0 0 1px rgba(var(--cr), .24); text-decoration: none; }
+html[data-look="pro"] #pg-learn .learncheck { margin-top: 10px; padding: 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] #pg-learn .learnq { font: 600 17px/23px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] #pg-learn button.learnchoice { min-height: 50px; margin: 0 0 8px; padding: 12px 16px; border-radius: 14px; font: 400 16px/21px var(--sf) !important; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-learn button.learnchoice.good { color: var(--ink); background: rgba(48,209,88,.14) !important; box-shadow: inset 0 0 0 1.5px rgba(48,209,88,.6) !important; }
+html[data-look="pro"] #pg-learn button.learnchoice.bad { color: var(--ink); background: rgba(var(--amberr), .12) !important; box-shadow: inset 0 0 0 1.5px rgba(var(--amberr), .55) !important; }
+html[data-look="pro"] #pg-learn .learnfeed { font-size: 15px; line-height: 20px; }
+html[data-look="pro"] #pg-learn .learnfeed.good { color: #30d158; } html[data-look="pro"] #pg-learn .learnfeed.bad { color: var(--amber); }
+/* the score, the flashcard and its four answers */
+html[data-look="pro"] #pg-learn .learnscore b { font: 200 56px/60px var(--sfd); letter-spacing: -1px; color: var(--ink); text-shadow: none; font-variant-numeric: tabular-nums; }
+html[data-look="pro"] #pg-learn .learnscore small { font: 400 15px/20px var(--sf); color: var(--ink2); }
+html[data-look="pro"] #pg-learn .learncard { min-height: 180px; padding: 18px; border: 0; border-radius: 22px; background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); box-shadow: inset 0 0 0 1px var(--hair2), var(--lift); }
+html[data-look="pro"] #pg-learn .learncard > small { font: 600 11px/13px var(--sf); letter-spacing: .09em; color: var(--ink3); }
+html[data-look="pro"] #pg-learn :is(.learnfront, .learnback) { font: 400 19px/27px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html[data-look="pro"] #pg-learn .learnback { border-top: 1px solid var(--hair); color: color-mix(in srgb, var(--c) 70%, #fff); }
+html[data-look="pro"] #pg-learn .learnrates { gap: 8px; }
+html[data-look="pro"] #pg-learn button.learnrate { min-height: 56px; border-radius: 14px; background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-learn .learnrate b { font: 600 15px var(--sf); }
+html[data-look="pro"] #pg-learn .learnrate small { font: 400 11px var(--sf); color: var(--ink3); }
+html[data-look="pro"] #pg-learn button.learnrate.again b { color: var(--amber); } html[data-look="pro"] #pg-learn button.learnrate.good b { color: var(--c); }
+html[data-look="pro"] #pg-learn .learnchips { gap: 8px; margin: 12px 0 0; }
+html[data-look="pro"] #pg-learn .learnchips .lab { margin: 0 4px 0 0; }
+html[data-look="pro"] #pg-learn .learnchips button { position: relative; height: 36px; min-height: 36px !important; padding: 0 14px; border-radius: 18px; }
+html[data-look="pro"] #pg-learn .learnchips button::after { content: ''; position: absolute; inset: -4px 0; }
 /* end route C part 2 */

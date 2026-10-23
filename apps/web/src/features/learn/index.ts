@@ -14,7 +14,7 @@ import { nextText, streakOf, type Rating } from '../../../../../packages/shared/
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h, svgEl } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel, toast } from '../../ui/components';
+import { button, empty, panel, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import * as L from './store';
 
@@ -198,7 +198,7 @@ export const learnTab: TabDef = {
       cp.setStatus(s.synced ? `${s.courses.length}` : 'ON THIS PHONE', s.synced ? 'ok' : 'mid');
       clear(cp.body);
       if (!s.courses.length) {
-        cp.body.append(h('div.note', 'No courses yet. Start one, or say "teach me photosynthesis".'));
+        cp.body.append(empty('NONE', 'Start one below, or just say “teach me photosynthesis”.', 'No courses yet'));
         return;
       }
       for (const c of [...s.courses].sort((a, b) => b.updated - a.updated)) {
@@ -250,6 +250,8 @@ export const learnTab: TabDef = {
         list.append(b);
       }
       const next = c.lessons.find((l) => !l.done);
+      // the course map: the next lesson is lit (route C)
+      if (next) list.children[c.lessons.indexOf(next)]?.classList.add('next');
       let sure = false;
       const del = button('REMOVE', async (btn) => {
         if (!sure) {
