@@ -180,12 +180,16 @@ export interface State {
 /** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
 type Queued = { ask: string; reply: string; item?: RewriteItem };
 
-/** How far the voice got this week: its model calls, writer batches, the judge's queue, and the replies rewritten (ids). */
+/**
+ * How far the voice got this week: its model calls, writer batches, the judge's queue, the replies rewritten (ids), and
+ * the chat replies the detector already found to sound like a person (`fine`: each is read once a week, not every step).
+ */
 interface VoiceDone {
   calls: number;
   batches: number;
   queue: Queued[];
   ids: string[];
+  fine?: string[];
   finished?: boolean;
 }
 
@@ -599,7 +603,13 @@ async function voiceStep(d: CycleDeps, st: State, priv: boolean, leak: (t: strin
   const asks = new Set([...kept.map((r) => askKey(r.messages?.[1]?.content ?? '')), ...v.queue.map((q) => askKey(q.ask))]);
   const since = st.startedAt - WEEK;
   const turns = priv ? ((await s.get<{ role: 'user' | 'assistant'; text: string; at?: number; vehicle?: boolean }[]>('turns')) ?? []) : [];
-  const todo = priv ? rewriteItems(await loadRatings(s), turns, since).filter((x) => !v.ids.includes(x.id)) : [];
+  const skip = new Set([...v.ids, ...(v.fine ?? [])]);
+  const todo = priv ? rewriteItems(await loadRatings(s), turns, since, skip) : [];
+  if (priv) {
+    // The replies of this week the detector passed: remembered, so the next step does not read them again.
+    const ai = new Set(todo.map((x) => x.id));
+    v.fine = [...(v.fine ?? []), ...turns.filter((t) => t.role === 'assistant' && (t.at ?? 0) >= since && !skip.has(`t${t.at}`) && !ai.has(`t${t.at}`)).map((t) => `t${t.at}`)].slice(-300);
+  }
   // Only the shapes of his asks this week (a few words each, and how many) reach the writer: never what he wrote.
   const shapes = askShapes(turns.filter((t) => t.role === 'user' && (t.at ?? 0) >= since).map((t) => t.text));
   let noModel = false;

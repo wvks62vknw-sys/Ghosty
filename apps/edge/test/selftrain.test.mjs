@@ -1146,6 +1146,7 @@ test('voice: replies he 👎 and this week\'s replies that sounded like an AI ar
   assert.ok(rejected.some((r) => r.why === 'voice: rewrites left out (the rewrite lost a number)'), 'the plumber\'s prices were lost: left out');
   assert.ok(rejected.some((r) => r.why === 'voice: replies the blind judge took for an AI'), 'the tip\'s rewrite was judged an AI: left out');
   assert.ok((await s.get('train:state')).ratingIds.includes(21), 'the 👎 whose pair went in is used up at the end of the week');
+  assert.ok((await s.get('train:state')).done.voice.fine.includes(`t${VOICE_WEEK + 9}`), 'a reply that sounds like a person is read once a week, not every step');
 
   // at most 80 a week
   const s2 = new MemStorage();

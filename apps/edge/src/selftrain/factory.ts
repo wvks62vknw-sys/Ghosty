@@ -626,20 +626,23 @@ export interface RewriteItem {
   rating?: number;
 }
 
-/** What needs rewriting: 👎 first (not yet used), then this week's replies the detector calls AI-sounding. */
-export function rewriteItems(ratings: Rating[], turns: { role: string; text: string; at?: number; vehicle?: boolean }[], since: number): RewriteItem[] {
+/**
+ * What needs rewriting: 👎 first (not yet used), then this week's replies the detector calls AI-sounding. `skip`: ids
+ * already rewritten or already found to sound like a person (each reply is read by the detector once a week).
+ */
+export function rewriteItems(ratings: Rating[], turns: { role: string; text: string; at?: number; vehicle?: boolean }[], since: number, skip: Set<string> = new Set()): RewriteItem[] {
   const out: RewriteItem[] = [];
   const seen = new Set<string>();
   const fits = (q: string, a: string) => q.trim().length >= 2 && a.trim().length >= 2 && a.length <= 1500 && !LIVE.test(a) && !seen.has(a.trim());
   for (const r of ratings) {
-    if (r.up || r.used || !fits(r.question, r.reply)) continue;
+    if (r.up || r.used || skip.has(`r${r.at}`) || !fits(r.question, r.reply)) continue;
     seen.add(r.reply.trim());
     out.push({ id: `r${r.at}`, question: clip(r.question, 1500), reply: r.reply.trim(), why: 'disliked', rating: r.at });
   }
   for (let i = 1; i < turns.length; i++) {
     const q = turns[i - 1]!;
     const a = turns[i]!;
-    if (q.role !== 'user' || a.role !== 'assistant' || q.vehicle || a.vehicle || (a.at ?? 0) < since || !fits(q.text, a.text) || human(a.text, q.text)) continue;
+    if (q.role !== 'user' || a.role !== 'assistant' || q.vehicle || a.vehicle || (a.at ?? 0) < since || skip.has(`t${a.at ?? i}`) || !fits(q.text, a.text) || human(a.text, q.text)) continue;
     seen.add(a.text.trim());
     out.push({ id: `t${a.at ?? i}`, question: clip(q.text, 1500), reply: a.text.trim(), why: 'sounded like an AI' });
   }
