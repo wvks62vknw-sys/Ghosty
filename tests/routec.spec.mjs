@@ -42,7 +42,18 @@ async function open(viewport, opts = {}) {
   await page.route('**/api/highways/events', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(INCIDENT) }));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
-  const libAtBoot = await brainGet('/library').catch(() => null);
+  // A fresh preview brain is still seeding its starter library during the first boot: wait for it to settle, then
+  // open Home again so the gauges read the settled count (the app itself looks again after 15 s in that case).
+  let libAtBoot = null;
+  for (let i = 0; i < 30; i++) {
+    const l = await brainGet('/library').catch(() => null);
+    if (l?.starterReady && libAtBoot && l.stats.passages === libAtBoot.stats.passages) break;
+    libAtBoot = l;
+    await page.waitForTimeout(1000);
+  }
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  libAtBoot = await brainGet('/library').catch(() => libAtBoot);
   return { ctx, page, libAtBoot };
 }
 
