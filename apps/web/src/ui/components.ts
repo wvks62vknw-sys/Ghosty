@@ -316,7 +316,8 @@ export function gauge(size = 74, word = ''): Gauge {
       fg.style.opacity = frac == null || f <= 0.004 ? '0' : '1';
       el.dataset.tone = tone;
       clear(v, value, unit ? h('small', unit) : null);
-      w.hidden = !word;
+      // the small word under the number (LEFT, USED) only under a number
+      w.hidden = !word || !/\d/.test(value);
     },
   };
 }
