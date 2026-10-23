@@ -13,12 +13,14 @@
   every one of the 339 tensors the notebook writes, compared bit for bit with mlc-ai's own.
 Each part that cannot run here says so (skipped) rather than passing quietly.
 """
+import contextlib
 import json
 import os
 import random
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +156,255 @@ class Helpers(unittest.TestCase):
         self.assertEqual(G.replay_pair({'prompt': 'P', 'answer': 'A'}), ('P', 'A'))
         self.assertEqual(G.replay_pair({'kind': 'evol', 'messages': [{'role': 'user', 'content': 'Q'}, {'role': 'assistant', 'content': 'A'}]}), ('<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n', 'A'))
         self.assertIsNone(G.replay_pair({'kind': 'gym', 'task': {'game': 'maze', 'level': 1, 'seed': 1}}))
+
+
+class FakeModules:
+    """Stand-ins for torch and huggingface_hub (neither is installed here, and the real ones must not be reached):
+    put into sys.modules for the length of a `with`, then taken out again."""
+
+    def __init__(self, capability=(7, 5), fail=None):
+        self.calls = []
+        self.fail = dict(fail or {})
+        me = self
+
+        class Cuda:
+            @staticmethod
+            def is_available():
+                return True
+
+            @staticmethod
+            def is_bf16_supported():
+                return True  # what a T4 says: it counts emulation
+
+            @staticmethod
+            def get_device_capability(dev=None):
+                return capability
+        self.torch = types.SimpleNamespace(cuda=Cuda, bfloat16='bf16', float16='fp16', float32='fp32', no_grad=contextlib.nullcontext, autocast=lambda *a, **k: contextlib.nullcontext())
+
+        def flaky(name):
+            if me.fail.get(name, 0) > 0:
+                me.fail[name] -= 1
+                raise OSError(f'503 from Hugging Face ({name})')
+
+        def hf_hub_download(repo_id, filename, repo_type=None, revision=None, token=None, local_dir=None, **k):
+            me.calls.append(('download', repo_id, filename, token))
+            flaky(filename)
+            p = os.path.join(local_dir, filename)
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            if not os.path.exists(p):
+                with open(p, 'w') as fh:
+                    fh.write(me.files.get(filename, '{}'))
+            return p
+
+        def snapshot_download(repo_id, revision=None, repo_type=None, local_dir=None, token=None, **k):
+            me.calls.append(('snapshot', repo_id, None, token))
+            flaky(repo_id)
+            os.makedirs(local_dir, exist_ok=True)
+            with open(os.path.join(local_dir, 'config.json'), 'w') as fh:
+                fh.write('{}')
+            return local_dir
+
+        class HfApi:
+            def __init__(self, token=None):
+                pass
+
+            def repo_info(self, repo, repo_type=None):
+                me.calls.append(('info', repo))
+                return types.SimpleNamespace(private=True)
+
+            def create_branch(self, repo, repo_type=None, branch=None, exist_ok=False):
+                me.calls.append(('branch', repo, branch))
+
+            def upload_folder(self, repo_id=None, repo_type=None, revision=None, folder_path=None, path_in_repo=None, commit_message=None, **k):
+                me.calls.append(('upload', repo_id, path_in_repo or revision))
+                flaky(path_in_repo or revision)
+                return types.SimpleNamespace(oid='e' * 40)
+
+            def upload_file(self, path_or_fileobj=None, path_in_repo=None, repo_id=None, repo_type=None, commit_message=None, **k):
+                me.calls.append(('upload', repo_id, path_in_repo))
+                flaky(path_in_repo)
+        self.hub = types.SimpleNamespace(hf_hub_download=hf_hub_download, snapshot_download=snapshot_download, HfApi=HfApi)
+        self.files = {}
+
+    def __enter__(self):
+        self.saved = {m: sys.modules.get(m) for m in ('torch', 'huggingface_hub')}
+        sys.modules['torch'] = self.torch
+        sys.modules['huggingface_hub'] = self.hub
+        return self
+
+    def __exit__(self, *a):
+        for m, v in self.saved.items():
+            if v is None:
+                sys.modules.pop(m, None)
+            else:
+                sys.modules[m] = v
+
+
+class PreFlight(unittest.TestCase):
+    """The fixes from the pre-flight review of 23 Oct, on the notebook's own code with stand-ins for the GPU,
+    pip and Hugging Face (nothing is installed or downloaded)."""
+
+    def run_setup(self, capability=(7, 5), fail=None):
+        """Run.setup() as on Kaggle, every outside thing faked; returns (run, fakes, pip commands, pauses)."""
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        fakes = FakeModules(capability, fail)
+        fakes.files = {'exam.json': '{}', 'weeks/week-0003.jsonl': '{"kind": "drill", "task": {"drill": 1, "seed": 3}}\n'}
+        pip, pauses = [], []
+        real = (G.subprocess.run, G.http_json, G.config_problem, G.time.sleep)
+        G.subprocess.run = lambda cmd, **k: pip.append(cmd) or subprocess.CompletedProcess(cmd, 0)
+        G.http_json = lambda url, data=None, method=None, timeout=60, headers=None: {'hf_token': 'TOKEN'}
+        G.config_problem = lambda a, b: ''
+        G.time.sleep = pauses.append
+        r = G.Run({'week': 3, 'current': {'label': 'stock', 'chain': []}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain', 'data_file': 'weeks/week-0003.jsonl', 'data_rev': 'd' * 40,
+                   'base_model': {'repo': 'Qwen/Qwen3-0.6B', 'rev': 'c' * 40}, 'stock_mlc': {'repo': 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', 'rev': '8' * 40}})
+        r.resume = lambda: None
+        r.load_model = lambda: None
+        r.drop_near_exam = lambda: None
+        try:
+            with fakes:
+                r.setup()
+        finally:
+            G.subprocess.run, G.http_json, G.config_problem, G.time.sleep = real
+            G.WORK = work
+        return r, fakes, pip, pauses
+
+    def test_t4_trains_in_fp32_not_emulated_bf16(self):
+        # torch.cuda.is_bf16_supported() is True on a T4 (emulation, about 4x slower): the compute capability decides
+        self.assertIsNone(G.amp_for((7, 5)), 'T4: fp32')
+        self.assertIsNone(G.amp_for((6, 0)), 'P100: fp32')
+        self.assertEqual(G.amp_for((8, 0)), 'bf16')
+        self.assertEqual(G.amp_for((9, 0)), 'bf16')
+        self.assertIsNone(self.run_setup((7, 5))[0].amp)
+        self.assertEqual(self.run_setup((8, 6))[0].amp, 'bf16')
+
+    def test_generation_batches_group_by_length_and_fit_the_t4(self):
+        lens = [2048, 120, 1990, 300, 2040, 90] + [1500] * 20 + [200] * 70
+        groups = G.length_batches(lens, 384)
+        self.assertEqual(sorted(i for g in groups for i in g), list(range(len(lens))), 'every row once')
+        for g in groups:
+            longest = max(lens[i] for i in g)
+            self.assertLessEqual(len(g) * (longest + 384), G.GEN_TOKENS, 'the cache fits')
+            self.assertLessEqual(len(g), 32)
+        self.assertEqual(lens[groups[0][0]], 2048, 'longest first: a batch too big fails at once, not hours in')
+        self.assertEqual(len(groups[0]), 8, 'about 8 rows for the longest prompts')
+        self.assertEqual(len(groups[-2]), 32, 'short prompts still go 32 at a time')
+        # fp32 cache of Qwen3-0.6B (28 layers, 8 KV heads of 128, K and V): what one batch may hold, well inside a 15 GB T4
+        self.assertLess(G.GEN_TOKENS * 28 * 2 * 8 * 128 * 4 / 1e9, 5.0)
+
+    def test_generate_keeps_the_whole_tools_prompt_and_answers_in_order(self):
+        """The exam's TOOLS prompts (~1.6k tokens) are no longer cut at 1536; batches by length; answers map back to their prompts."""
+        seen = []
+
+        class Enc(dict):
+            def to(self, dev):
+                return self
+
+        class Tok:
+            pad_token_id = 0
+            eos_token_id = 1
+
+            def __call__(self, texts, return_tensors=None, padding=False, truncation=False, max_length=None, add_special_tokens=True):
+                ids = [[ord(c) for c in t][-max_length:] if truncation else [ord(c) for c in t] for t in texts]
+                if return_tensors:
+                    seen.append((max_length, len(texts)))
+                    L = max(len(x) for x in ids)
+                    import numpy as np
+                    return Enc(input_ids=np.array([[0] * (L - len(x)) + x for x in ids]))
+                return {'input_ids': ids}
+
+            def convert_tokens_to_ids(self, t):
+                return 2
+
+            def decode(self, row, skip_special_tokens=False):
+                return ''.join(chr(int(c)) for c in row)
+
+        class Model:
+            def eval(self):
+                pass
+
+            def generate(self, input_ids=None, max_new_tokens=None, **k):
+                import numpy as np
+                # the answer: the prompt's length, so each answer says which prompt it was for
+                ans = np.array([[ord(c) for c in f'n{int((row != 0).sum()):05d}'] for row in input_ids])
+                return np.concatenate([input_ids, ans], axis=1)
+        r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        r.tok, r.model = Tok(), Model()
+        prompts = ['x' * 1900, 'y' * 50, 'v' * 2100, 'z' * 2000, 'w' * 60, 'u' * 1950, 't' * 1980, 's' * 70]
+        with FakeModules():
+            out = r.generate(prompts, n=2)
+        want = [f'n{min(2048, len(p) + len(G.THINK_OFF)):05d}' for p in prompts]
+        self.assertEqual(out, [[w, w] for w in want], 'every answer with its own prompt, n each')
+        self.assertEqual(want[2], 'n02048', 'only a prompt longer than 2048 tokens is cut (from the left)')
+        self.assertTrue(all(m == 2048 for m, _ in seen), seen)
+        self.assertEqual(G.PROMPT_TOKENS, 2048)
+        self.assertEqual([b for _, b in seen], [8, 8], 'the ten long rows: 8 at a time, never 16 in one batch')
+
+    def test_setup_retries_downloads_with_a_pause(self):
+        r, fakes, pip, pauses = self.run_setup(fail={'tasks.mjs': 2, 'Qwen/Qwen3-0.6B': 1, 'tokenizer.json': 3})
+        self.assertEqual([c[2] for c in fakes.calls if c[0] == 'download'].count('tasks.mjs'), 3)
+        self.assertEqual(len(pauses), 6)
+        self.assertTrue(all(p > 0 for p in pauses))
+        self.assertEqual(len(r.records), 1)
+        # it gives up in the end (the error goes in the report; the brain starts the run again)
+        with self.assertRaises(OSError):
+            self.run_setup(fail={'exam.json': 99})
+        self.assertEqual(G.retry(lambda: 5, sleep=None), 5)
+        n = []
+        with self.assertRaises(ValueError):
+            G.retry(lambda: n.append(1) or (_ for _ in ()).throw(ValueError('x')), tries=3, pause=1, sleep=lambda s: None)
+        self.assertEqual(len(n), 3)
+
+    def test_setup_drops_hf_xet_after_the_pins(self):
+        _, _, pip, _ = self.run_setup()
+        i = next(k for k, c in enumerate(pip) if 'install' in c and 'transformers==4.51.3' in c)
+        self.assertEqual(pip[i + 1][-4:], ['pip', 'uninstall', '-y', 'hf_xet'])
+
+    def test_public_downloads_are_signed_in(self):
+        _, fakes, _, _ = self.run_setup()
+        base = [c for c in fakes.calls if c[1] in ('Qwen/Qwen3-0.6B', 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC')]
+        self.assertEqual(len(base), 7)
+        self.assertTrue(all(c[3] == 'TOKEN' for c in base), base)
+        r = G.Run({'week': 3, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        r.token = 'TOKEN'
+        f = FakeModules(fail={G.GENERAL_DATA['file']: 1})
+        with f:
+            self.assertEqual(r.general_data(5), [])
+        self.assertEqual([c[3] for c in f.calls if c[1] == 'OpenAssistant/oasst1'], ['TOKEN'])
+
+    def test_the_adapter_is_kept_before_the_candidate_is_uploaded(self):
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        try:
+            os.makedirs(f'{tmp}/wip/adapter')
+            with open(f'{tmp}/wip/adapter/adapter_config.json', 'w') as fh:
+                fh.write('{}')
+            r = G.Run({'week': 3, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain', 'candidate_branch': 'candidates'})
+            f = FakeModules()
+            with f:
+                r.upload_candidate(f.hub.HfApi(), f'{tmp}/mlc')
+            self.assertEqual([c for c in f.calls if c[0] != 'info'], [('upload', 'o/ghosty-training', 'adapters/week-0003'), ('branch', 'o/ghosty-offline-brain', 'candidates'), ('upload', 'o/ghosty-offline-brain', 'candidates')])
+            self.assertEqual(r.report['published'], {'repo': 'o/ghosty-offline-brain', 'commit': 'e' * 40})
+            # the adapter does not reach Hugging Face: no candidate, nothing published
+            r = G.Run(dict(r.cfg))
+            f = FakeModules(fail={'adapters/week-0003': 99})
+            sleep, G.time.sleep = G.time.sleep, lambda s: None
+            try:
+                with f, self.assertRaises(OSError):
+                    r.upload_candidate(f.hub.HfApi(), f'{tmp}/mlc')
+            finally:
+                G.time.sleep = sleep
+            self.assertFalse(any(c[0] == 'upload' and c[2] == 'candidates' for c in f.calls))
+            self.assertNotIn('published', r.report)
+            # afterwards only the STaR answers are kept; a failure there is noted and does not spoil a published week
+            r.report['published'] = {'repo': 'o/ghosty-offline-brain', 'commit': 'e' * 40}
+            f = FakeModules(fail={'star/week-0003.jsonl': 1})
+            with f:
+                r.keep_for_later()
+            self.assertEqual([c[2] for c in f.calls if c[0] == 'upload'], ['star/week-0003.jsonl'])
+            self.assertTrue(any('STaR' in x['why'] for x in r.report['rejected']))
+        finally:
+            G.WORK = work
 
 
 @unittest.skipUnless(have('numpy'), 'numpy is not installed here')
@@ -436,7 +687,9 @@ class CpuSmoke(unittest.TestCase):
             r.publish()
         finally:
             huggingface_hub.HfApi = real
-        up = [c for c in calls if c[0] == 'upload'][0]
+        ups = [c for c in calls if c[0] == 'upload']
+        self.assertEqual(ups[0][1], 'x/y', "this week's adapter goes to the dataset repo first")
+        up = ups[1]
         self.assertEqual(up[1:3], ('x/z', 'candidates'))
         self.assertIn('tensor-cache.json', up[3])
         self.assertEqual(r.report['published'], {'repo': 'x/z', 'commit': 'e' * 40})
