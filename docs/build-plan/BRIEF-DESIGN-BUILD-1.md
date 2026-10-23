@@ -15,6 +15,14 @@ Reverse, Workshop, "Boss"); route C becomes what the calm looks render, Graphite
 
 ## Build, in this order (commit after each step; each step leaves the app working and the specs green)
 
+0. **Bring the calm looks' tokens back to life.** In `apps/web/styles.css` the header comment "THE CALM LOOKS — Graphite
+   and Reactor" (around line 1218, just before `[data-look="pro"] {` with `--sf`, `--sfd`, `--fg`, `--thin`, `--acc` …)
+   lost its opening `/* =====` line in commit e1181b8, so the browser parses that prose as a broken selector and DROPS
+   the whole token block: no rule defines `--sf`, every `font: … var(--sf)` in the calm looks is ignored, and the owner
+   has only ever seen the redesign without its fonts, weights and colours. Restore the opener (one line), then re-run
+   every spec in this brief at 390 and 440: things that silently relied on the missing tokens will change (sizes,
+   weights, the 44 px targets); fix each one the route C way. Say in your report what visibly changed.
+
 1. **Tokens and components** (`apps/web/styles.css` in one marked `/* route C */ … /* end route C */` layer for the
    calm looks; `apps/web/src/ui/components.ts` for new components): the palette (graphite-black canvas with one soft
    radial glow behind the hero, reactor cyan as the one accent for live/active, amber only for warnings, neutral glass
