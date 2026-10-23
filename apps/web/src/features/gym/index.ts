@@ -10,13 +10,18 @@
  * game at a time; it pauses while the app is hidden and its state is kept in IndexedDB (store.ts), so it
  * carries on next time. The page imports only the games' descriptions (gym/meta.ts) and the board files
  * (rules, no engines): the engines live in the worker's bundle. State for specs at window.__ghosty.gym.
+ *
+ * He carries on by himself (part 3): WATCH trains him and plays round after round, on through the levels
+ * with no tap (CONTINUE BY HIMSELF, on unless turned off); TRAIN ALL trains every game in turn, the least
+ * learned first, 20 minutes each a round; KEEP AWAKE holds a screen wake lock while he trains. A run of
+ * level-ups is one toast, and there is never more than one GYM toast on screen.
  */
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';
 import { onFrame } from '../../engine/scheduler';
 import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
 import type { Frame } from '../../gym/core';
 import { type GameMeta, META as GAMES, metaById as gameById } from '../../gym/meta';
-import { current, type GymRecord, statusLine } from '../../gym/session';
+import { ALL_BUDGET, allLine, current, type GymRecord, joinLevels, type LevelNote, levelText, newAllRun, nextForAll, statusLine } from '../../gym/session';
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
@@ -44,7 +49,51 @@ export const gymState = {
   log: [] as string[],
   /** Per game: how many messages to the worker carried his whole record (once per game, then none). */
   handed: {} as Record<string, number>,
+  /** The game in WATCH (he trains and plays round after round), and how many rounds it has shown. */
+  watchOn: '',
+  rounds: 0,
+  carry: true,
+  /** TRAIN ALL: running, the game it trains, its status line. */
+  all: { on: false, current: '', line: '' },
+  /** KEEP AWAKE: switched on, the phone can, a wake lock held now, how many were asked for. */
+  awake: { on: false, can: false, held: false, requests: 0 },
+  /** The GYM toasts shown, newest last. */
+  toasts: [] as string[],
 };
+
+/** One GYM toast on screen at a time: a new one takes the place of the last. */
+function gymToast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
+  for (const t of document.querySelectorAll('#toasts > .toast[data-gym]')) t.remove();
+  toast(msg, kind);
+  const t = document.querySelector<HTMLElement>('#toasts > .toast:last-child');
+  if (t) t.dataset.gym = '1';
+  gymState.toasts.push(msg);
+  if (gymState.toasts.length > 20) gymState.toasts.shift();
+}
+
+/** An on/off switch: its label and a line saying what it does, the knob on the right. */
+function toggle(label: string, hint: string, onChange: (on: boolean) => void): { el: HTMLButtonElement; set(on: boolean, can?: boolean, why?: string): void } {
+  const say = h('small', hint);
+  // (the calm looks show the label in sentence case: "Keep awake")
+  const el = h('button.gymswitch', { type: 'button', role: 'switch', 'aria-checked': 'false' }, h('span.gymswtxt', h('b', { dataset: { label: niceCase(label) } }, label), say), h('i.knob', { 'aria-hidden': 'true' }));
+  el.addEventListener('click', () => onChange(el.getAttribute('aria-checked') !== 'true'));
+  return {
+    el,
+    set(on, can = true, why) {
+      el.setAttribute('aria-checked', String(on && can));
+      el.disabled = !can;
+      say.textContent = why ?? hint;
+    },
+  };
+}
+
+/** A screen wake lock, as far as the page needs one (not every browser has them). */
+interface Lock {
+  release(): Promise<void>;
+  addEventListener(type: 'release', f: () => void): void;
+}
+const wakeLock = () => (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<Lock> } }).wakeLock;
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function expose(): void {
   const w = window as unknown as { __ghosty?: Record<string, unknown> };
@@ -194,6 +243,15 @@ export const gymTab: TabDef = {
     /** Settles once the saved records are read: nothing goes to the worker before, or a fresh Level 1 would be saved over them. */
     let ready: Promise<unknown> = Promise.resolve();
     const replies = new Map<number, (m: Extract<GymOut, { gym: 'reply' }>) => void>();
+    /** CONTINUE BY HIMSELF, KEEP AWAKE and how far TRAIN ALL got (kept in the store; read with the games). */
+    let prefs: store.GymPrefs = { carry: true, awake: false, all: null };
+    const savePrefs = () => void store.putPrefs({ ...prefs, all: prefs.all && { ...prefs.all, spent: { ...prefs.all.spent } } });
+    /** TRAIN ALL is running (prefs.all says how far it has got). */
+    let allOn = false;
+    /** The run of level-ups the GYM toast on screen tells of. */
+    let levelNote: LevelNote | null = null;
+    /** Past a level he goes straight on (TRAIN ALL always does). */
+    const carryNow = () => allOn || prefs.carry;
 
     // ======================= the worker
     const send = (m: unknown) => {
@@ -204,14 +262,15 @@ export const gymTab: TabDef = {
           worker.onerror = (e) => {
             gymState.error = e.message || 'worker error';
             gymState.log.push(`worker error ${gymState.error}`);
-            toast('The gym stopped: training could not run on this phone', 'bad');
+            gymToast('The gym stopped: training could not run on this phone', 'bad');
+            stopAll(false);
             training = null;
             gymState.training = '';
             paint();
           };
         } catch (e) {
           gymState.error = String(e);
-          toast('Training cannot run on this phone', 'bad');
+          gymToast('Training cannot run on this phone', 'bad');
           return;
         }
       }
@@ -238,6 +297,8 @@ export const gymTab: TabDef = {
           send({ ...m, req: id, rec: recFor(String(m.id)), epoch: epochs[String(m.id)] ?? 0 });
         });
       });
+    /** Train game `id` in the worker (once the saved games are in, and if it is still the one to train). */
+    const sendTrain = (id: string) => void ready.then(() => training === id && send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0, carry: carryNow() }));
     const onWorker = (m: GymOut) => {
       if (m.gym === 'reply') {
         replies.get(m.req)?.(m);
@@ -250,8 +311,11 @@ export const gymTab: TabDef = {
         // Training itself failed in the worker (and stopped there).
         gymState.error = m.message || 'training failed';
         gymState.log.push(`training error ${m.id}: ${gymState.error}`);
-        toast(`Training stopped: ${m.message}`, 'bad');
-        if (training === m.id) training = null;
+        gymToast(`Training stopped: ${m.message}`, 'bad');
+        if (training === m.id) {
+          stopAll(false);
+          training = null;
+        }
         paint();
         return;
       }
@@ -265,13 +329,18 @@ export const gymTab: TabDef = {
       } else {
         gymState.progress++;
         views.set(rec.id, m.view);
+        if (m.event) {
+          // A run of level-ups close together is one toast ("Levels 4–6 passed"), the one GYM toast on screen.
+          levelNote = joinLevels(levelNote, rec.id, m.event === 'mastered' ? rec.level : rec.level - 1, Date.now(), m.event === 'mastered');
+          gymToast(`${gameById(rec.id)?.title}: ${levelText(levelNote, carryNow())}`, 'ok');
+        }
         if (!m.training && training === rec.id) {
-          // The worker stopped (all levels mastered): the page follows.
+          // The worker stopped (all levels mastered, or a level passed with CONTINUE BY HIMSELF off): the page follows.
           gymState.log.push(`stopped ${rec.id}${rec.mastered ? ' (mastered)' : ''}`);
           training = null;
+          // TRAIN ALL goes on to the next game.
+          if (allOn && prefs.all?.current === rec.id) allNext();
         }
-        if (m.event === 'level') toast(`${gameById(rec.id)?.title}: Level ${rec.level - 1} passed — on to Level ${rec.level}`, 'ok');
-        if (m.event === 'mastered') toast(`${gameById(rec.id)?.title}: mastered all 10 levels!`, 'ok');
       }
       paint();
     };
@@ -311,6 +380,16 @@ export const gymTab: TabDef = {
       if (pushes()) pushGame();
     });
     cardsP.body.prepend(nowCard);
+    // TRAIN ALL (every game in turn, the least learned first) and KEEP AWAKE beside it.
+    const allBtn = button('TRAIN ALL', () => (allOn ? stopAll(true) : startAll()), 'on gymallbtn');
+    const allStatus = h('div.gymallst', { role: 'status', 'aria-live': 'polite' });
+    const awakeSw = toggle('KEEP AWAKE', 'Keeps the screen on while he trains (plug the phone in)', (on) => {
+      note(`keep awake ${on ? 'on' : 'off'}`);
+      prefs.awake = on;
+      savePrefs();
+      paint();
+    });
+    nowCard.after(h('div.gymall', allBtn, awakeSw.el, allStatus));
     // ======================= the game as a pushed screen (calm looks, phones)
     const pushes = () => proLook() && matchMedia('(max-width: 899px)').matches;
     let pushedGame = false;
@@ -338,7 +417,15 @@ export const gymTab: TabDef = {
     const learns = h('div.gymlearns');
     const status = h('div.gymstatus', { role: 'status', 'aria-live': 'polite' });
     const trainBtn = button('TRAIN', () => toggleTrain(), 'on gymtrain');
-    const watchBtn = button('WATCH', () => void watch());
+    // WATCH: he trains and plays round after round while you watch; STOP ends it (the last picture stays).
+    const watchBtn = button('WATCH', () => (watchOn === open.id ? stopWatching() : void watch()), 'gymwatch');
+    const carrySw = toggle('CONTINUE BY HIMSELF', 'When he passes a level he goes straight on to the next. Off: he stops there and waits for you.', (on) => {
+      note(`continue by himself ${on ? 'on' : 'off'}`);
+      prefs.carry = on;
+      savePrefs();
+      if (training) send({ gym: 'carry', on: carryNow() });
+      paint();
+    });
     const playBtn = button('PLAY HIM', () => startPlay());
     playBtn.dataset.label = 'Play Ghosty'; // the calm looks' wording
     let resetArmed = 0;
@@ -378,7 +465,7 @@ export const gymTab: TabDef = {
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), chart, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -468,6 +555,8 @@ export const gymTab: TabDef = {
       status.textContent = statusLine(r, open, training === open.id);
       trainBtn.textContent = training === open.id ? 'PAUSE' : r?.mastered ? 'MASTERED' : 'TRAIN';
       trainBtn.disabled = !!r?.mastered;
+      watchBtn.textContent = watchOn === open.id ? 'STOP' : 'WATCH';
+      carrySw.set(prefs.carry);
       playBtn.hidden = !open.play;
       clear(graphBox, graph(r, open));
       detail.textContent = r?.detail ? `${r.detail} Level ${r.level} needs ${Math.round(open.bar(r.level) * 100)}%.` : `Mastery is checked against ground truth, never his own say-so. Level 1 needs ${Math.round(open.bar(1) * 100)}%.`;
@@ -475,12 +564,135 @@ export const gymTab: TabDef = {
       // The board shows what he knows — unless a WATCH is playing or just finished, or the owner is playing him.
       if (!gymState.watching && held !== open.id && gymState.play.game !== open.id) clear(board, renderFrame(views.get(open.id) ?? null));
     };
+    const paintAll = () => {
+      const run = prefs.all;
+      const g = run?.current ? gameById(run.current) : undefined;
+      const mastered = GAMES.filter((x) => recs.get(x.id)?.mastered).length;
+      allStatus.textContent = allLine(run, allOn, g ? niceCase(g.title) : '', recs.get(run?.current ?? '')?.level ?? 1, mastered, GAMES.length);
+      allBtn.textContent = allOn ? 'STOP' : 'TRAIN ALL';
+      allBtn.disabled = !allOn && mastered >= GAMES.length;
+      const can = !!wakeLock();
+      awakeSw.set(prefs.awake, can, can ? undefined : 'This phone’s browser cannot keep the screen on');
+      gymState.all = { on: allOn, current: run?.current ?? '', line: allStatus.textContent };
+      gymState.awake.on = prefs.awake;
+      gymState.awake.can = can;
+    };
     const paint = () => {
       gymState.training = training ?? '';
+      gymState.watchOn = watchOn;
+      gymState.carry = prefs.carry;
       for (const [id, r] of recs) gymState.recs[id] = { level: r.level, mastery: r.mastery, units: r.units, mastered: r.mastered };
       paintHero();
       paintCards();
       paintGame();
+      paintAll();
+      syncLock();
+    };
+
+    // ======================= KEEP AWAKE: a screen wake lock while he trains (the phone lets go of it when hidden)
+    let lock: Lock | null = null;
+    let locking = false;
+    const wantAwake = () => prefs.awake && !document.hidden && (allOn || !!training);
+    const syncLock = () => {
+      const api = wakeLock();
+      if (!api) return;
+      if (wantAwake() && !lock && !locking) {
+        locking = true;
+        gymState.awake.requests++;
+        api.request('screen').then(
+          (l) => {
+            locking = false;
+            lock = l;
+            gymState.awake.held = true;
+            l.addEventListener('release', () => {
+              if (lock === l) lock = null;
+              gymState.awake.held = !!lock;
+            });
+            // (training may have stopped while it was being asked for)
+            if (!wantAwake()) syncLock();
+          },
+          (e: unknown) => {
+            locking = false;
+            note(`keep awake refused: ${String((e as Error)?.message ?? e)}`);
+          },
+        );
+      } else if (!wantAwake() && lock) {
+        const l = lock;
+        lock = null;
+        gymState.awake.held = false;
+        void l.release().catch(() => undefined);
+      }
+    };
+
+    // ======================= TRAIN ALL: every game in turn, the least learned first, 20 minutes each a round
+    let allTimer = 0;
+    let allTick = 0;
+    let allSaved = 0;
+    /** On to TRAIN ALL's next game (or done: every game mastered). */
+    const allNext = () => {
+      const run = (prefs.all ??= newAllRun());
+      const pick = nextForAll(GAMES.map((g) => g.id), recs, run.spent);
+      if (!pick) {
+        note('all mastered');
+        stopAll(true);
+        gymToast('Every game mastered', 'ok');
+        return;
+      }
+      if (pick.newRound) {
+        run.spent = {};
+        run.round++;
+      }
+      run.current = pick.id;
+      note(`all ${pick.id}`);
+      training = pick.id;
+      allTick = Date.now();
+      sendTrain(pick.id);
+      savePrefs();
+      paint();
+    };
+    /** Once a second: count his training time, move on when this game's time is up, keep the line live. */
+    const allClock = () => {
+      const run = prefs.all;
+      if (!allOn || !run || document.hidden) return;
+      const t = Date.now();
+      // (only time he really trains counts: not while the app was away, nor a timer that slept)
+      if (training === run.current) {
+        const dt = Math.max(0, Math.min(5000, t - allTick));
+        run.spent[run.current] = (run.spent[run.current] ?? 0) + dt;
+        run.total += dt;
+      }
+      allTick = t;
+      if ((run.spent[run.current] ?? 0) >= ALL_BUDGET) return allNext();
+      if (t - allSaved > 15000) {
+        allSaved = t;
+        savePrefs();
+      }
+      paintAll();
+    };
+    const startAll = () => {
+      note('train all');
+      stopWatch();
+      held = '';
+      allOn = true;
+      allSaved = Date.now();
+      clearInterval(allTimer);
+      allTimer = window.setInterval(allClock, 1000);
+      allNext();
+    };
+    /** TRAIN ALL stops (STOP, PAUSE, or the owner chose one game); `pause` stops the training too. */
+    const stopAll = (pause: boolean) => {
+      if (!allOn) return;
+      note(pause ? 'stop all' : 'all ended');
+      allOn = false;
+      clearInterval(allTimer);
+      if (pause && training) {
+        send({ gym: 'pause' });
+        training = null;
+        stopWatch();
+      }
+      if (pause) resumeOnShow = '';
+      savePrefs();
+      paint();
     };
 
     // ======================= actions
@@ -506,14 +718,19 @@ export const gymTab: TabDef = {
     const toggleTrain = () => {
       note(training === open.id ? `pause ${open.id}` : `train ${open.id}`);
       if (training === open.id) {
-        send({ gym: 'pause' });
+        // PAUSE stops everything here: the training, WATCH (its last picture stays) and TRAIN ALL.
+        stopAll(true);
+        if (training) send({ gym: 'pause' });
         training = null;
+        stopWatch();
       } else {
+        // The owner picked one game: TRAIN ALL (if it was running) hands over to it.
+        stopAll(false);
         stopWatch();
         held = '';
         const id = open.id;
         training = id;
-        void ready.then(() => training === id && send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0 }));
+        sendTrain(id);
       }
       paint();
     };
@@ -535,7 +752,10 @@ export const gymTab: TabDef = {
       }
       disarmReset();
       gymState.log.push(`reset ${open.id}`);
-      if (training === open.id) training = null;
+      if (training === open.id) {
+        stopAll(false);
+        training = null;
+      }
       // A new epoch: whatever the worker still sends about the old game is dropped.
       epochs[open.id] = (epochs[open.id] ?? 0) + 1;
       held = '';
@@ -547,21 +767,89 @@ export const gymTab: TabDef = {
       views.delete(open.id);
       delete gymState.recs[open.id];
       void store.remove(open.id);
-      toast(`${open.title}: back to the start`, 'warn');
+      gymToast(`${open.title}: back to the start`, 'warn');
       paint();
     };
 
     /** On a phone the board is below the buttons: bring it into view. */
     const showBoard = () => {
-      if (matchMedia('(max-width: 899px)').matches) board.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (matchMedia('(max-width: 899px)').matches) board.scrollIntoView({ behavior: calm() ? 'auto' : 'smooth', block: 'center' });
     };
 
-    // WATCH: his frames, one every 0.45 s on the app's one animation loop.
+    // WATCH: his frames, one every 0.45 s on the app's one animation loop. He trains meanwhile, and plays
+    // round after round — on through the levels by himself — until STOP, PAUSE, Level 10 mastered (or a level
+    // passed with CONTINUE BY HIMSELF off), or another game.
     let stopAnim: (() => void) | null = null;
-    const stopWatch = () => {
+    /** The game in WATCH. */
+    let watchOn = '';
+    /** WATCH started his training (so STOP stops it too). */
+    let watchTrains = false;
+    let watchGap = 0;
+    let resumeWatch = '';
+    const endFrames = () => {
       stopAnim?.();
       stopAnim = null;
       gymState.watching = false;
+    };
+    const stopWatch = () => {
+      endFrames();
+      clearTimeout(watchGap);
+      watchOn = '';
+      gymState.watchOn = '';
+    };
+    /** STOP: the watching ends (its last picture stays), and the training if WATCH started it. */
+    const stopWatching = () => {
+      note(`stop ${open.id}`);
+      const id = watchOn;
+      stopWatch();
+      if (watchTrains && training === id) {
+        stopAll(true);
+        if (training) send({ gym: 'pause' });
+        training = null;
+      }
+      paint();
+    };
+    /**
+     * One round of his play, shown frame by frame; with `loop`, then the next, while WATCH is on and he still
+     * trains this game. (A secret the owner picked, or a game already mastered, is one round.)
+     */
+    const round = async (id: string, loop: boolean, secret?: string) => {
+      const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
+      if (m.error) {
+        clear(board, h('div.note.bad', `He could not play that: ${m.error}`));
+        if (watchOn === id) stopWatch();
+        paint();
+        return;
+      }
+      if (open.id !== id || held !== id || !m.frames?.length) return;
+      if (loop && watchOn !== id) return;
+      const frames = m.frames;
+      let i = 0;
+      endFrames();
+      gymState.watching = true;
+      gymState.frames = 0;
+      gymState.rounds++;
+      const show = () => {
+        clear(board, renderFrame(frames[i]!));
+        gymState.frames = i + 1;
+      };
+      show();
+      if (gymState.rounds === 1) showBoard();
+      stopAnim = onFrame(() => {
+        if (++i >= frames.length) {
+          endFrames();
+          if (!loop || watchOn !== id) return;
+          // The end of the round stays a moment; then the next one, at whatever level he has reached.
+          if (training === id && open.id === id) watchGap = window.setTimeout(() => watchOn === id && training === id && void round(id, true), 1200);
+          else {
+            // He stopped training (Level 10 mastered, a level passed with CONTINUE BY HIMSELF off, PAUSE): so does WATCH.
+            stopWatch();
+            paint();
+          }
+          return;
+        }
+        show();
+      }, frames[0]!.every ?? 0.45);
     };
     const watch = async (secret?: string) => {
       note(`watch ${open.id}`);
@@ -569,30 +857,22 @@ export const gymTab: TabDef = {
       gymState.play = open.play === 'secret' && secret != null ? gymState.play : { game: '', board: [], over: '', thinking: false };
       const id = open.id;
       held = id;
-      clear(board, h('div.note', 'He is getting ready…'));
-      const m = await ask({ gym: 'watch', id, seed: Math.floor(Math.random() * 1e6), secret });
-      if (m.error) {
-        clear(board, h('div.note.bad', `He could not play that: ${m.error}`));
-        return;
-      }
-      if (open.id !== id || held !== id || !m.frames?.length) return;
-      const frames = m.frames;
-      let i = 0;
-      gymState.watching = true;
-      gymState.frames = 0;
-      const show = () => {
-        clear(board, renderFrame(frames[i]!));
-        gymState.frames = i + 1;
-      };
-      show();
-      showBoard();
-      stopAnim = onFrame(() => {
-        if (++i >= frames.length) {
-          stopWatch();
-          return;
+      gymState.rounds = 0;
+      // A secret the owner picked is one game; otherwise WATCH trains him too (unless every level is mastered).
+      const loop = secret == null && !recs.get(id)?.mastered;
+      if (loop) {
+        watchOn = id;
+        gymState.watchOn = id;
+        watchTrains = training !== id;
+        if (training !== id) {
+          stopAll(false);
+          training = id;
+          sendTrain(id);
         }
-        show();
-      }, frames[0]!.every ?? 0.45);
+        paint();
+      }
+      clear(board, h('div.note', 'He is getting ready…'));
+      await round(id, loop, secret);
     };
 
     // PLAY HIM: on the board (tic-tac-toe, Connect 4) you move first; or you pick his secret.
@@ -726,16 +1006,26 @@ export const gymTab: TabDef = {
       note(`visibility ${document.visibilityState}`);
       if (document.hidden && training) {
         resumeOnShow = training;
+        resumeWatch = watchOn;
         send({ gym: 'pause' });
         training = null;
+        stopWatch();
         paint();
       } else if (!document.hidden && resumeOnShow) {
         const id = resumeOnShow;
         resumeOnShow = '';
         training = id;
-        void ready.then(() => training === id && send({ gym: 'train', id, rec: recFor(id), epoch: epochs[id] ?? 0 }));
+        sendTrain(id);
+        // (TRAIN ALL counts from now: the time away was not training)
+        allTick = Date.now();
+        if (resumeWatch === id && open.id === id) {
+          watchOn = id;
+          held = id;
+          void round(id, true);
+        }
+        resumeWatch = '';
         paint();
-      }
+      } else if (!document.hidden) syncLock(); // the phone let go of the wake lock while hidden: ask again
     };
     document.addEventListener('visibilitychange', onVisible);
     addEventListener('pagehide', () => training && send({ gym: 'pause' }));
@@ -743,7 +1033,10 @@ export const gymTab: TabDef = {
     opener = (id) => id && select(id);
     gymState.open = open.id;
     paint();
-    ready = store.loadAll().then((all) => {
+    // (Switches touched before the settings are read keep the owner's choice.)
+    const fresh = { ...prefs };
+    ready = Promise.all([store.loadAll(), store.loadPrefs()]).then(([all, kept]) => {
+      prefs = { carry: prefs.carry !== fresh.carry ? prefs.carry : kept.carry, awake: prefs.awake !== fresh.awake ? prefs.awake : kept.awake, all: prefs.all ?? kept.all };
       // (A game RESET while this was loading stays reset.)
       for (const [id, r] of all) if (!recs.has(id) && !epochs[id]) recs.set(id, r);
       paint();
@@ -757,7 +1050,7 @@ export const gymTab: TabDef = {
     return {
       describe() {
         const r = recs.get(open.id);
-        return `GYM tab: ${open.title} open (${statusLine(r ?? null, open, training === open.id)}). ${GAMES.filter((g) => recs.get(g.id)?.mastered).length} of ${GAMES.length} games mastered.`;
+        return `GYM tab: ${open.title} open (${statusLine(r ?? null, open, training === open.id)}). ${allOn ? `${allStatus.textContent}.` : `${GAMES.filter((g) => recs.get(g.id)?.mastered).length} of ${GAMES.length} games mastered.`}`;
       },
     };
   },

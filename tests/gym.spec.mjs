@@ -10,6 +10,10 @@
 // PLAY HIM, and WATCH shows his reasoning as text; the network lab (the heaviest) trains without freezing
 // the page. Nothing sticks out sideways at 390 px; the security policy blocks nothing (the worker is the
 // app's own bundled worker file).
+// Part 3, on the iPhone 18 Pro Max (440 × 956): WATCH on the maze at Level 1 reaches Level 2 by itself and
+// goes on watching, with one GYM toast on screen; STOP ends it; TRAIN ALL starts with the least learned game
+// and its line names it; KEEP AWAKE (a mocked wake lock) is asked for, asked for again after the app is
+// hidden and shown, and let go on STOP; a reload shows where TRAIN ALL got to; nothing sticks out at 440 px.
 //   BASE=http://localhost:8872 node tests/gym.spec.mjs /tmp/gym-shots          (Chromium)
 //   PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers BROWSER=webkit BASE=… node tests/gym.spec.mjs …   (WebKit)
 import { launch, webkitNoise, engine } from './browser.mjs';
@@ -307,7 +311,11 @@ for (const id of ['maze', 'colony', 'tiles', 'connect4']) {
 }
 await G('button', { hasText: 'WATCH' }).click();
 await until(() => window.__ghosty.gym.watching, 20000, 'WATCH during training did not start');
-await until(() => !window.__ghosty.gym.watching, 45000, 'WATCH during training did not finish'); // up to 42 moves at 0.45 s each
+await until(() => window.__ghosty.gym.frames >= 3, 20000, 'WATCH during training showed no moves');
+// WATCH goes on round after round now: STOP ends it (it did not start the training, so that carries on).
+await G('button.gymwatch').dispatchEvent('click');
+await until(() => !window.__ghosty.gym.watching && !window.__ghosty.gym.watchOn, 5000, 'STOP did not end WATCH');
+if ((await st()).training !== 'connect4') problems.push('STOP on a WATCH started while training stopped the training too');
 const lastCap = await G('.gymboard .gymcap').innerText();
 const progressThen = (await st()).progress;
 // (If he masters the last level meanwhile, training ends by itself and no more repaints come — nothing to check.)
@@ -372,9 +380,11 @@ await page.evaluate(() => {
   window.__ticks2 = [];
   window.__tick2 = setInterval(() => window.__ticks2.push(performance.now()), 50);
 });
+// (its WATCH above trained it a little already: count from here)
+const brain0 = (await st()).recs.brain?.units ?? 0;
 await G('button.gymtrain').click();
 await until(() => window.__ghosty?.gym?.training === 'brain', 5000, 'TRAIN did not start the network lab');
-await until(() => (window.__ghosty?.gym?.recs?.brain?.units ?? 0) > 20, 30000, 'the network lab made no progress in the worker');
+await until((u) => (window.__ghosty?.gym?.recs?.brain?.units ?? 0) > u + 20, 30000, 'the network lab made no progress in the worker', brain0);
 const gap2 = await page.evaluate(() => {
   const t = window.__ticks2;
   clearInterval(window.__tick2);
@@ -389,9 +399,131 @@ await wideCheck('training the network lab');
 if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
 await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop the network lab');
 
+// ---- part 3, on the iPhone 18 Pro Max (440 × 956): he carries on by himself ----
+// A wake lock the page can be checked against (the phone lets go of it when the app is hidden), and an app
+// that can be hidden and shown again.
+await page.addInitScript(() => {
+  const w = (window.__wake = { requests: 0, releases: 0, live: 0 });
+  const live = new Set();
+  const drop = (s) => {
+    if (s.released) return;
+    s.released = true;
+    live.delete(s);
+    w.releases++;
+    w.live = live.size;
+    for (const f of s.fns) f();
+  };
+  Object.defineProperty(navigator, 'wakeLock', {
+    configurable: true,
+    value: {
+      request: async (type) => {
+        w.requests++;
+        const s = { type, released: false, fns: [], addEventListener: (t, f) => t === 'release' && s.fns.push(f), release: async () => drop(s) };
+        live.add(s);
+        w.live = live.size;
+        return s;
+      },
+    },
+  });
+  let hid = false;
+  Object.defineProperty(document, 'hidden', { configurable: true, get: () => hid });
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hid ? 'hidden' : 'visible') });
+  document.addEventListener('visibilitychange', () => hid && [...live].forEach(drop));
+  window.__setHidden = (v) => {
+    hid = v;
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+});
+await page.setViewportSize({ width: 440, height: 956 });
+await boot();
+await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'part 3: the GYM did not open at 440 px', CARDS);
+await closeLog();
+const toList = async () => {
+  if (await page.locator('#pg-gym.gympush').count()) await page.click('#top .navback');
+};
+// WATCH + a fast game at Level 1 (the maze, reset above): he reaches Level 2 by himself and goes on, one toast.
+{
+  const m0 = (await st()).recs.maze;
+  if (m0 && m0.level !== 1) problems.push(`part 3: the maze should be at Level 1 after its reset (is at ${m0.level})`);
+  await tap('maze');
+  await until(() => window.__ghosty.gym.open === 'maze', 5000, 'part 3: the maze did not open');
+  if (!(await G('button.gymswitch[role="switch"]', { hasText: /continue by himself/i }).count())) problems.push('part 3: no CONTINUE BY HIMSELF switch in the game view');
+  if ((await G('button.gymswitch', { hasText: /continue by himself/i }).getAttribute('aria-checked')) !== 'true') problems.push('part 3: CONTINUE BY HIMSELF is not on by default');
+  await page.evaluate(() => {
+    window.__maxGymToasts = 0;
+    window.__toasts0 = window.__ghosty.gym.toasts.length;
+    new MutationObserver(() => (window.__maxGymToasts = Math.max(window.__maxGymToasts, document.querySelectorAll('#toasts > .toast[data-gym]').length))).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-gym'] });
+  });
+  await G('button.gymwatch').click();
+  await until(() => window.__ghosty.gym.watchOn === 'maze' && window.__ghosty.gym.training === 'maze', 5000, 'part 3: WATCH did not start him training while you watch');
+  if (await until(() => (window.__ghosty.gym.recs.maze?.level ?? 1) >= 2, 60000, 'part 3: WATCH on the maze did not reach Level 2 by itself')) {
+    const at = await st();
+    const said = at.toasts.slice(await page.evaluate(() => window.__toasts0)).filter((t) => /passed/.test(t));
+    // (Each toast replaces the last: a quick Level 3 turns "Level 1 passed" into "Levels 1–2 passed", still one on screen.)
+    if (!said.length || !said.every((t) => /^MAZE: Levels? 1(–\d+)? passed · on to level \d+$/.test(t))) problems.push(`part 3: reaching Level 2 should show one toast, showed ${JSON.stringify(said)}`);
+    if (at.watchOn !== 'maze' || at.training !== 'maze') problems.push(`part 3: after the level-up he stopped (watching "${at.watchOn}", training "${at.training}")`);
+    // The watching carries on at the new level too: another round comes, no tap.
+    await until((n) => window.__ghosty.gym.rounds > n, 40000, 'part 3: no new round of WATCH after the level-up', at.rounds);
+    await page.screenshot({ path: `${out}/gym3-watch.png` });
+  }
+  const most = await page.evaluate(() => window.__maxGymToasts);
+  if (most > 1) problems.push(`part 3: ${most} GYM toasts were on screen at once`);
+  await wideCheck('part 3: watching the maze at 440 px');
+  // STOP: watching and the training WATCH started both stop; the last picture stays.
+  await G('button.gymwatch').dispatchEvent('click');
+  await until(() => !window.__ghosty.gym.watchOn && window.__ghosty.gym.training === '', 5000, 'part 3: STOP did not stop WATCH and its training');
+  if (!(await G('.gymboard .gymframe').count())) problems.push('part 3: STOP cleared his last picture');
+}
+// TRAIN ALL with KEEP AWAKE: the least learned game first, an honest live line; the wake lock is asked for,
+// asked for again after the app was hidden and shown, and let go on STOP.
+{
+  await toList();
+  const sw = G('.gymall button.gymswitch');
+  if (!/keep awake/i.test(await sw.innerText()) || !/plug the phone in/i.test(await sw.innerText())) problems.push(`part 3: the KEEP AWAKE switch reads "${await sw.innerText()}"`);
+  if (await sw.isDisabled()) problems.push('part 3: KEEP AWAKE is disabled although the phone has a wake lock');
+  await sw.click();
+  await until(() => window.__ghosty.gym.awake.on, 3000, 'part 3: KEEP AWAKE did not switch on');
+  const tall = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymall button')].filter((b) => b.getBoundingClientRect().height < 44).length);
+  if (tall) problems.push(`part 3: ${tall} TRAIN ALL / KEEP AWAKE targets are under 44 px`);
+  await G('button.gymallbtn').click();
+  await until(() => window.__ghosty.gym.all.on && !!window.__ghosty.gym.training, 5000, 'part 3: TRAIN ALL did not start');
+  const line = await G('.gymallst').innerText();
+  if (!/^Training all · .+ level \d+ · \d+ of 22 games mastered · /.test(line)) problems.push(`part 3: the TRAIN ALL line reads "${line}"`);
+  const pick = await page.evaluate(() => {
+    const g = window.__ghosty.gym;
+    const sd = (r) => (!r ? 0 : r.mastered ? 10 : r.level - 1 + Math.min(1, r.mastery));
+    const ids = [...document.querySelectorAll('#pg-gym .gymcard')].map((c) => c.dataset.game).filter((id) => !g.recs[id]?.mastered);
+    return { cur: g.all.current, ok: ids.every((id) => sd(g.recs[id]) >= sd(g.recs[g.all.current])) };
+  });
+  if (!pick.ok) problems.push(`part 3: TRAIN ALL started with ${pick.cur}, not the least learned game`);
+  await until(() => window.__wake.requests >= 1 && window.__wake.live === 1, 5000, 'part 3: KEEP AWAKE did not ask for a wake lock');
+  await wideCheck('part 3: TRAIN ALL at 440 px');
+  await page.screenshot({ path: `${out}/gym3-trainall.png` });
+  await page.evaluate(() => window.__setHidden(true));
+  await until(() => window.__ghosty.gym.training === '' && window.__wake.live === 0, 5000, 'part 3: hiding the app did not pause training');
+  const asked = await page.evaluate(() => window.__wake.requests);
+  await page.evaluate(() => window.__setHidden(false));
+  await until((n) => window.__wake.requests > n && window.__wake.live === 1 && !!window.__ghosty.gym.training, 5000, 'part 3: the wake lock was not asked for again when the app came back', asked);
+  const released = await page.evaluate(() => window.__wake.releases);
+  await G('button.gymallbtn').dispatchEvent('click'); // STOP
+  await until((n) => !window.__ghosty.gym.all.on && window.__ghosty.gym.training === '' && window.__wake.live === 0 && window.__wake.releases > n, 5000, 'part 3: STOP did not stop TRAIN ALL and let go of the wake lock', released);
+  // A reload shows where it got to (and remembers the switches).
+  await page.waitForTimeout(800);
+  await boot();
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'part 3: the GYM did not come back after a reload', CARDS);
+  await until(() => /^Stopped · .+ level \d+ · \d+ of 22 games mastered · .+ · tap TRAIN ALL to carry on$/.test(document.querySelector('#pg-gym .gymallst')?.textContent ?? ''), 5000, `part 3: after a reload TRAIN ALL does not say where it got to ("${await G('.gymallst').innerText().catch(() => '')}")`);
+  await until(() => window.__ghosty.gym.awake.on && window.__ghosty.gym.carry, 3000, 'part 3: KEEP AWAKE / CONTINUE BY HIMSELF were not remembered');
+  await closeLog();
+  await wideCheck('part 3: the game cards at 440 px');
+  await page.screenshot({ path: `${out}/gym3-reload.png` });
+  await tap('tictactoe');
+  await wideCheck('part 3: a game at 440 px');
+  await page.screenshot({ path: `${out}/gym3-game.png`, fullPage: true });
+}
+
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.evaluate(() => clearInterval(window.__tick));
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${CARDS} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; WATCH as text for the six reasoning games and the network lab trained without a freeze (longest pause ${gap2.worst} ms); card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${CARDS} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; WATCH as text for the six reasoning games and the network lab trained without a freeze (longest pause ${gap2.worst} ms); card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset; part 3 at 440 px: WATCH went on to Level 2 by itself with one toast, TRAIN ALL started on the least learned game, KEEP AWAKE asked, asked again after hide/show and let go on STOP, and a reload shows where TRAIN ALL got to.`);
 process.exit(problems.length ? 1 : 0);
