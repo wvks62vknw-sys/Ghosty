@@ -55,7 +55,9 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `library/extract.ts` | reads documents in the browser, no libraries or AI: PDF (incl. ToUnicode fonts, object streams), Word .docx, .epub, HTML, text, code |
 | `library/upload.ts` | file/text → passages (`packages/shared/src/chunk.ts`) → brain in batches of 30; scanned/unreadable files go to `/api/library/convert` (Workers AI) |
 | `features/core/reactor.ts`, `features/core/mind.ts` | the arc reactor drawing (2D canvas): the classic looks, and the fallback. In the calm looks Home's centrepiece is **MIND** (`mind.ts`): a 3-D hologram of his library, made with three.js loaded the way the studio loads it (`studio/three.ts`, only when Home shows). Its WebGL canvas (`canvas.mindhero`) lies over the 2-D one (`.mindon`, CSS block `/* hero: mind */`). Clusters are the study summary's fields (`brain.studyStatus()`). There is one node per 20 passages (`brain.library()`), up to 600, and a node is lit when that much of its field has been read. States: idle, listening (mic level), thinking (a reply in flight), speaking, busy (STUDY ran in the last 15 min or the GYM is training) and offline (grey). It draws at 30 fps when idle, 60 for a second after a change, and nothing while hidden or out of view; DPR is capped at 2; with reduce motion it draws one still per change. With no WebGL, or if three.js fails, the 2-D reactor stays. Test state is at `window.__ghosty.hero`; spec `tests/hero.spec.mjs` |
+| `features/core/home.ts`, `state/status.ts`, `ui/statusdials.ts` | **route C's Home** (the calm looks; `docs/build-plan/mockups/c`): the date and weather lines, the reactor's hero box (440 × 292, the reactor 218 pt across) with three arcs and four instruments — FREE AI (`state/status.ts` `freeAiToday` from `/api/status` capacity), SCHOOL (`/api/school` `current`, hidden without a school), LIBRARY (passages, topics studied), UPLINK (the measured round trip) — the breathing glow, the Today card (agenda), Roads near you (`/api/highways/events` within 30 km of home) and the Gym tile (`features/gym/store.ts`); `ui/statusdials.ts`: the three Status dials (free AI, database meter, offline brain) of the Me sheet and System. Spec `tests/routec.spec.mjs` |
 | `ui/components.ts` | **design system**: `panel`, `pager`, `row`, `button`, `spark`, `bar`, `dial`, `toast`, `modal`, `empty` |
+| `styles.css` "route C" layer | the calm looks' one design language (tokens, glass cards, type scale, the floating tab pill, the instruments) and every route C screen (Home, Chat, God's Eye bar, GYM, the Me sheet, Settings/System/Links), scoped to `html[data-look="pro"]`, between `/* route C */` and `/* end route C */`; `ui/components.ts` has its instruments: `gauge`, `progressRing`, `segRing`, `sparkline`, `pill`, `listRow` |
 | `ui/page.ts` | standard tab layout: hero (big value + dials) with left/right panel columns; phones swap the columns, or with `stack: true` show both in one scrolling page |
 | `ui/mapsheet.ts` | the maps sheet over God's Eye: MAP (flat), 3D, SATELLITE (Google, framed), LIVE TRAFFIC (Waze, framed); `openMapSheet(view, spot, opts)` |
 | `ui/flatmap.ts` | the flat map: Leaflet (vendored under `public/vendor/leaflet`) over OpenStreetMap / OpenTopoMap / CyclOSM / Esri tiles, overlays, tap-for-address, routes (OSRM), measuring; Mapbox styles with the owner's `pk.` token |
@@ -67,6 +69,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `core/store.ts` | `createStore` (get/set/subscribe) and `Emitter` |
 | `state/app.ts` | `settings` (saved on device) and `ui` (tab, busy, voice) stores; `home()` location |
 | `state/theme.ts` | colour themes (`THEMES`, `applyTheme`) |
+| `state/lookonce.ts` | a phone on a classic look moves to Graphite once (`ghosty.lookC`), with BACK TO … in Settings → Look |
 | `data/*.ts` | live data feeds as `Feed` objects: `weather`, `news`, `hazards` (quakes, events, launches, kp), `markets` |
 | `api/feed.ts` | `Feed` class (polling + LIVE/STALE/NO FEED status), `fetchJson`, `fetchText` (via proxy) |
 | `api/brain.ts` | client for the brain's `/api` endpoints |
@@ -101,6 +104,7 @@ only through `/api/*`. Public data feeds go through `/api/proxy?url=…` (brain 
 | `../public/widget-host.js` | runs a widget inside its sandbox (Cloudflare serves the page at `/widget-host` — its `_headers` rule must name that path); adds safe storage/alert stand-ins, on-screen error banners, and the kit when a widget uses `GK` |
 | `../public/widget-kit.js` | **GK, the widget kit** for games and mini-apps: canvas fitting, loop, scenes, keyboard/touch/pointer input, on-screen controls, collisions, particles, sound, grid, saving, app UI. Documented in the `game-kit` playbook |
 | `state/build.ts` | which version this interface is (commit + build time, set by `build.mjs`); System tab shows it and offers RELOAD when a newer version shipped |
+| `state/whatsnew.ts` | WHAT'S NEW: this week's merges in plain words, shown once per build at the top of the Workshop (`ghosty.whatsNew`); add a line with every merge worth telling the owner about |
 
 ## Brain map (`apps/edge/src/`)
 

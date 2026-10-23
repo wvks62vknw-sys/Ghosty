@@ -19,6 +19,11 @@ folder that no longer exists; ignore those paths).
 - Usage check-in, 23 Oct ~21:30 UK (the owner's numbers): session 31 %, all models weekly 9 %, Fable weekly 6 %. Plenty
   of room: the pipeline was widened to four builders. Every builder, designer and reviewer runs on Opus (high); Fable
   only plans, briefs, reviews and merges; Haiku is for the mechanical jobs (the first: the specs' viewport switch, A3).
+- Merged 23 Oct late: route C built into the app (design-1), SCHOOL part 2a (banks + official papers), Mind as Home's
+  centrepiece, fixes A2, the training pre-flight fixes. Running: SCHOOL 2b (training side), SCHOOL 3 (reading), the
+  website builder's fixes (BRIEF-WEBSITES-FIX.md, from its adversarial review: must land before the next merge to main).
+  Next: the specs' viewport switch to 440 × 956 (A3, a cheap model), the design polish pass (GYM's empty LEVELS card,
+  WHAT'S NEW), the stopwatch (B3), the human voice (D6), the first real training run (E1) after the merge to main.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

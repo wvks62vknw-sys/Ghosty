@@ -5,6 +5,7 @@ import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
 import { applyTheme, proLook, THEMES } from '../../state/theme';
+import { backToLook, lookBefore } from '../../state/lookonce';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { characterPanel } from './character';
@@ -74,6 +75,15 @@ export const settingsTab: TabDef = {
     };
     const paintThemes = () => {
       clear(themes);
+      // Route C moved this phone from a classic look once: the way back, first in the list.
+      const before = lookBefore();
+      if (before) {
+        themes.append(h('div.lookback', h('div.note', `Ghosty moved to Graphite. Your old look, ${THEMES[before]!.label}, is one tap away.`), button(`BACK TO ${THEMES[before]!.label.toUpperCase()}`, () => {
+          backToLook();
+          paintThemes();
+          paintHead();
+        })));
+      }
       const cur = settings.get().theme;
       let more = false;
       for (const [k, t] of Object.entries(THEMES)) {
