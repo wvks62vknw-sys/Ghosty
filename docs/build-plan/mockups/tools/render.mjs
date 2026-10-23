@@ -19,17 +19,27 @@ const browser = await chromium.launch();
 try {
   for (const name of pages) {
     const screen = !['language', 'contact'].includes(name);
-    const ctx = await browser.newContext({
+    let ctx = await browser.newContext({
       viewport: { width: 440, height: 956 },
       deviceScaleFactor: 2,
       colorScheme: name.endsWith('-light') ? 'light' : 'dark',
     });
-    const page = await ctx.newPage();
+    let page = await ctx.newPage();
     await page.goto(pathToFileURL(join(dir, `${name}.html`)).href);
     await page.evaluate(() => document.fonts.ready);
     await page.waitForLoadState('networkidle');
     if (!screen) {
       const size = await page.evaluate(() => ({ width: Math.ceil(document.body.scrollWidth), height: Math.ceil(document.body.scrollHeight) }));
+      // A sheet may ask for a lower scale (<meta name="mock-scale">) to stay under 1.5 MB.
+      const scale = await page.evaluate(() => Number(document.querySelector('meta[name="mock-scale"]')?.getAttribute('content') || 2));
+      if (scale !== 2) {
+        await ctx.close();
+        ctx = await browser.newContext({ viewport: size, deviceScaleFactor: scale, colorScheme: 'dark' });
+        page = await ctx.newPage();
+        await page.goto(pathToFileURL(join(dir, `${name}.html`)).href);
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForLoadState('networkidle');
+      }
       await page.setViewportSize(size);
     }
     const problems = await page.evaluate((isScreen) => {
