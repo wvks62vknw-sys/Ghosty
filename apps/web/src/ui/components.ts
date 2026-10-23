@@ -177,7 +177,8 @@ export function spark(values: number[], w = 70, hgt = 22): SVGSVGElement {
 
 export function bar(label: string, frac: number, text: string, color?: string): HTMLElement {
   const i = h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, ...(color ? { background: color } : {}) } });
-  return h('div.bar', h('span', label), h('div.gauge', i), h('b', text));
+  // the calm looks show a label in capitals in sentence case ("READ" → "Read"), abbreviations kept
+  return h('div.bar', h('span', /[a-z]/.test(label) ? {} : { dataset: { label: niceCase(label) } }, label), h('div.gauge', i), h('b', text));
 }
 
 export function dial(label: string, frac: number, text: string, color = 'var(--c)'): HTMLElement {
