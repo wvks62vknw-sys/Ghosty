@@ -16,7 +16,11 @@ folder that no longer exists; ignore those paths).
 - The ordered plan the owner asked for is `docs/build-plan/PLAN.md` (weeks 1–3, chunk sizes, what only he can do, my
   own ideas). The planning chat with him started on 23 Oct; nothing is built until he says yes to the Week 1 list.
 - The browser specs hardcode 390 × 844 (29 of them); making 440 × 956 the main viewport is chunk A3 of the plan.
-- Baseline audit (brain suite + all 51 browser specs on a preview server): results are appended here when the run ends.
+- Baseline audit, 23 Oct 18:30–19:20 UTC, on this branch at 6d90d98 (same code as main): brain suite 925/925 passed in
+  821 s; browser specs 49 of 51 PASSED against `node tests/preview-server.mjs` (Chromium 1194); `scroll` and `safari`
+  could not run here because WebKit is not installed (they always launch WebKit; CI installs it). Nothing the automated
+  checks cover is broken. The owner's "really bad" points are therefore design and behaviour, not crashes: they are the
+  Week 1 list. Per-spec timings and 218 screenshots are in the scratchpad (not kept).
 
 ## QUALITY SETTING AND CREDITS — read OWNER-ISSUES.md item 11 too: running out is NOT acceptable to him
 EVERYTHING on Friday, without exception, is to be optimised for the best possible result for the fewest credits:

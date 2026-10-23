@@ -49,8 +49,10 @@ appeared after Settings → Look, and whether a GitHub token is set in SYSTEM (t
 
 ## 2. Baseline audit, 23 October
 
-Filled in from today's run of the brain suite and every browser check, plus a look at every screen at 440 x 956.
-See HANDOFF.md, "23 Oct (Friday)", for the result and the list of what was found broken.
+Run on 23 Oct against the code that is live on `main`: the brain's suite passed in full (925 tests), and 49 of the 51
+browser checks passed; the other two could not run on this machine (they need Safari's engine, which CI has). So
+nothing the automated checks cover is broken. What is "really bad" is design and behaviour, which is exactly the
+Week 1 list. A look at the screens at the phone's size follows in HANDOFF.md as the design work starts.
 
 ## 3. Week 1 (23 to 30 October): fix, quick wins, the design pick, school started
 
