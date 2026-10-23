@@ -87,15 +87,48 @@ function replyActs(text: string): HTMLElement {
   return h('div.msgacts', copy, hear);
 }
 
+const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+/**
+ * Route C's line over a reply: Ghosty's glyph, his name and the model that answered (as the brain named it),
+ * and CITED when the answer is sourced. The classic looks keep their small capitals line instead (styles.css).
+ */
+function whoLine(model: string | undefined, cited: boolean, where = ''): HTMLElement {
+  return h('div.rcwho', { dataset: { case: 'keep' } }, h('i.dot'), h('b', 'Ghosty'), model || where ? h('em', ` · ${model || where}`) : null,
+    cited ? h('span.rccited', icon(TICK), 'CITED') : null);
+}
+
 /** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
 function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   // Answered by the small model on the phone itself: one quiet chip says so.
-  if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
+  if (e.offline) return h('div.msg.off', whoLine(undefined, false, 'on your phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-  if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
+  if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
 }
+
+/**
+ * Route C: a run of tool steps before a reply as one line — "✓ 3 steps · Searching the web, weather, reading a
+ * page" — that opens to the steps themselves (open while one is still working, so its progress shows).
+ */
+function stepsLine(acts: Extract<Entry, { kind: 'activity' }>[], rows: HTMLElement[], open: Set<string>): HTMLElement {
+  const running = acts.some((a) => a.state === 'running');
+  const failed = acts.some((a) => a.state === 'fail');
+  const seen = new Map<string, number>();
+  for (const a of acts) {
+    const l = a.state === 'ok' ? a.label.replace(/^Saving to /, 'Saved to ') : a.label;
+    seen.set(l, (seen.get(l) ?? 0) + 1);
+  }
+  const words = [...seen].map(([l, n], i) => `${i ? l.charAt(0).toLowerCase() + l.slice(1) : l}${n > 1 ? ` ×${n}` : ''}`).join(', ');
+  const key = acts[0]!.id;
+  const d = h(`details.rcsteps${running ? '.live' : failed ? '.bad' : ''}` as 'details',
+    h('summary', { dataset: { case: 'keep' } }, h('span.ck', icon(running ? '<circle cx="12" cy="12" r="6"/>' : failed ? '<path d="M7 7l10 10M17 7L7 17"/>' : TICK)), h('b', running ? 'Working' : `${acts.length} step${acts.length === 1 ? '' : 's'}`), h('i.sep'), h('span.w', words), icon('<path d="M6 9.5l6 6 6-6"/>', 'ic chv')),
+    ...rows);
+  d.open = running || open.has(key);
+  d.addEventListener('toggle', () => (d.open ? open.add(key) : open.delete(key)));
+  return d;
+}
+const openSteps = new Set<string>();
 
 /**
  * The STOP button of a THINK HARDER still running, kept from one repaint of the log to the next: the log is
@@ -138,11 +171,15 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
       const el = plainReply(e);
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
+      // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.
+      const acts = proLook() ? h('div.rcacts') : el;
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
-      if (rateable(e)) el.append(rateRow(e));
-      if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
+      if (rateable(e)) acts.append(rateRow(e));
+      if (proLook() && e.text && !e.offline) acts.append(replyActs(e.text));
+      if (q) acts.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
       // copy / listen (the calm looks show them under the latest reply)
-      if (e.text && !e.offline) el.append(replyActs(e.text));
+      if (!proLook() && e.text && !e.offline) el.append(replyActs(e.text));
+      if (acts !== el && acts.childElementCount) el.append(acts);
       return el;
     }
     case 'link':
@@ -451,25 +488,41 @@ export const coreTab: TabDef = {
       // a day line where the day changes ("Today", "Yesterday", "Friday 16 October")
       let day = '';
       const els: HTMLElement[] = [];
+      // route C: a run of tool rows becomes one "N steps" line that opens to them
+      let run: { acts: Extract<Entry, { kind: 'activity' }>[]; rows: HTMLElement[] } | null = null;
+      const flush = () => {
+        if (run) els.push(stepsLine(run.acts, run.rows, openSteps));
+        run = null;
+      };
       shown.forEach((e, i) => {
         const at = 'at' in e ? e.at : 0;
         if (at) {
           const d = new Date(at);
           const k = d.toDateString();
           if (k !== day) {
+            flush();
             day = k;
             const ago = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 864e5);
-            els.push(h('div.daysep', ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })));
+            // "Today 18:31": the day, and the time of its first message
+            els.push(h('div.daysep', `${ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} ${fmt.time(d)}`));
           }
         }
+        if (proLook() && e.kind === 'activity') {
+          run ??= { acts: [], rows: [] };
+          run.acts.push(e);
+          run.rows.push(renderEntry(e));
+          return;
+        }
+        flush();
         els.push(renderEntry(e, i === last ? q : undefined));
       });
+      flush();
       clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');
       // "Remembered ✓" on the reply that follows a save to memory
       for (const a of log.querySelectorAll('.act.memact.ok')) {
-        let n = a.nextElementSibling;
+        let n = (a.closest('.rcsteps') ?? a).nextElementSibling;
         while (n && !n.matches('.msg:not(.me)') && n.matches('.act')) n = n.nextElementSibling;
         if (n?.matches('.msg:not(.me)')) n.append(h('span.memchip', 'Remembered'));
       }

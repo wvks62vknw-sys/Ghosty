@@ -2713,4 +2713,94 @@ html[data-look="pro"] .hud.core #cbar:has(#cin:not(:placeholder-shown)) .logbtn 
 
 @media (max-width: 409px) { html[data-look="pro"] .rcgrow { gap: 10px; } html[data-look="pro"] .rcgrow .rcsegr { width: 50px !important; height: 50px !important; } html[data-look="pro"] .rcgrow .rcsegr svg { width: 50px; height: 50px; } html[data-look="pro"] .rcof b { font-size: 14px; } html[data-look="pro"] .rcsegr b { font-size: 19px; } }
 
+/* ---------- Chat (features/core/index.ts; mockups/c/chat.png): a pushed screen without the tab bar ---------- */
+.rcwho, .rcacts, .rcsteps > summary .ck { display: none; }
+.rcsteps > summary { list-style: none; cursor: pointer; }
+.rcsteps > summary::-webkit-details-marker { display: none; }
+.rateb .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.rateb .ic.down { transform: rotate(180deg) scaleX(-1); }
+html[data-look="pro"] body.ownback #dock.areas { display: none; }
+html[data-look="pro"] body.ownback #top .cmd { display: none; }
+html[data-look="pro"] body.ownback #top .navtitle { order: 1; flex: 1 1 0; margin: 0; text-align: center; }
+html[data-look="pro"] body.ownback #top .you { order: 2; margin-left: 0; }
+html[data-look="pro"] body.tabbar .hud.core.logopen { padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px)); }
+html[data-look="pro"] .hud.core.logopen > .ccenter { pointer-events: none; overflow: visible; padding: 0 12px; }
+html[data-look="pro"] .hud.core.logopen > .ccenter > :not(#cbar) { display: none !important; }
+html[data-look="pro"] .hud.core.logopen .cside.l { inset: 0 0 calc(76px + max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px))) 0; padding: 0; }
+html[data-look="pro"] .hud.core .convo .bd { padding: 0 20px; }
+html[data-look="pro"] .hud.core .convo .log { gap: 0; padding: 8px 0 18px; }
+/* the composer: [+] Ask anything [✓ CITED] (mic) */
+html[data-look="pro"] .hud.core.logopen #cbar { margin-top: auto; height: 60px; padding: 0 8px; gap: 8px; border-radius: 30px; pointer-events: auto; background: rgba(30,33,37,.62); box-shadow: inset 0 0 0 1px rgba(255,255,255,.11), inset 0 1px 0 rgba(255,255,255,.07), 0 18px 40px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+html[data-look="pro"] .hud.core.logopen #cbar .plusbtn { display: grid; place-items: center; flex: none; width: 44px; height: 44px; min-height: 44px !important; border-radius: 22px; background: rgba(255,255,255,.08); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-look="pro"] .hud.core.logopen #cbar .plusbtn .ic { width: 21px; height: 21px; stroke: var(--ink); stroke-width: 2; }
+html[data-look="pro"] .hud.core.logopen #cbar #cin { padding-left: 2px; }
+html[data-look="pro"] .hud.core.logopen #cbar #mic { width: 44px; height: 44px; min-height: 44px !important; border-radius: 22px; }
+html[data-look="pro"] .hud.core.logopen #cbar .citedbtn { display: inline-flex; align-items: center; gap: 5px; flex: none; position: relative; width: auto; height: 32px; min-height: 32px !important; padding: 0 11px 0 11px; border-radius: 16px; font: 700 12px/1 var(--sf) !important; letter-spacing: .07em !important; text-transform: uppercase !important; color: var(--ink2); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .hud.core.logopen #cbar .citedbtn::after { content: ''; position: absolute; inset: -6px 0; }
+html[data-look="pro"] .hud.core.logopen #cbar .citedbtn::before { display: none; position: static; inset: auto; margin: 0; width: 13px; height: 13px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat; }
+html[data-look="pro"] .hud.core.logopen #cbar .citedbtn.on { color: var(--c); background: rgba(var(--cr), .14); box-shadow: inset 0 0 0 1px rgba(var(--cr), .32); }
+html[data-look="pro"] .hud.core.logopen #cbar .citedbtn.on::before { display: block; }
+html[data-look="pro"] .hud.core.logopen #cbar:has(#cin:not(:placeholder-shown)) .citedbtn { display: none; }
+@media (max-width: 400px) { html[data-look="pro"] .hud.core.logopen #cbar .citedbtn { padding: 0 9px; } }
+/* the day, and the bubbles: yours in neutral glass on the right; his words open on the page */
+html[data-look="pro"] .hud.core .convo .daysep { align-self: center; margin: 4px 0 14px; font: 600 12px/16px var(--sf); letter-spacing: .02em; color: var(--ink3); }
+html[data-look="pro"] .hud.core .convo .msg { margin: 0 0 16px; max-width: 100%; }
+html[data-look="pro"] .hud.core .convo .msg.me { align-self: flex-end; max-width: min(300px, 78%); margin: 0 0 14px; padding: 10px 15px 11px; border-radius: 21px 21px 6px 21px; font: 400 17px/23px var(--sf); letter-spacing: -.25px; color: var(--ink); background: rgba(255,255,255,.11); box-shadow: inset 0 0 0 1px var(--hair); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-look="pro"] .hud.core .convo .msg:not(.me) { align-self: stretch; padding: 0 26px 0 0; border-radius: 0; font: 400 17px/24px var(--sf); letter-spacing: -.25px; color: var(--ink); background: none; box-shadow: none; outline: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-look="pro"] .hud.core .convo .msg:not(.me)::before { display: none !important; }
+html[data-look="pro"] .hud.core .convo .msg:not(.me) > small { display: none; }
+html[data-look="pro"] .rcwho { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font: 600 12px/16px var(--sf); letter-spacing: .02em; color: var(--ink3); }
+html[data-look="pro"] .rcwho .dot { width: 14px; height: 14px; flex: none; border-radius: 7px; background: radial-gradient(circle, #fff 0 18%, color-mix(in srgb, var(--c) 50%, #fff) 30%, color-mix(in srgb, var(--c) 75%, #000) 62%, color-mix(in srgb, var(--c) 20%, #000) 100%); box-shadow: 0 0 6px rgba(var(--cr), .6); }
+html[data-look="pro"] .rcwho b { font-weight: 600; } html[data-look="pro"] .rcwho em { font-style: normal; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+html[data-look="pro"] .rccited { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-left: auto; height: 20px; padding: 0 8px; border-radius: 10px; font: 700 10.5px/1 var(--sf); letter-spacing: .08em; color: var(--c); background: rgba(var(--cr), .14); }
+html[data-look="pro"] .rccited .ic { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+/* the latest reply is the reply card: glass, the who line, his words, sources, one row of actions */
+html[data-look="pro"] .hud.core .convo .msg.latest:not(.me) { display: flex; flex-direction: column; padding: 14px 16px 12px; border-radius: 20px; background: var(--rcglass); box-shadow: var(--edge), var(--lift); }
+html[data-look="pro"] .hud.core .convo .msg.latest:not(.me) .rcwho { margin-bottom: 8px; }
+html[data-look="pro"] .hud.core .convo .msg.off { outline: 0; }
+html[data-look="pro"] .hud.core .convo .msg .offchip, html[data-look="pro"] .hud.core .convo .msg .cutchip { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 10px; font: 500 12px var(--sf); color: var(--ink2); background: rgba(255,255,255,.06); }
+html[data-look="pro"] .rcacts { display: none; }
+html[data-look="pro"] .hud.core .convo .msg.latest .rcacts { display: flex; align-items: center; gap: 4px; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--hair); }
+html[data-look="pro"] .rcacts :is(.rate, .msgacts) { display: flex; gap: 4px; margin: 0; }
+html[data-look="pro"] .rcacts :is(.rateb, .msgact) { width: 44px; height: 44px; min-height: 44px !important; padding: 0; display: grid; place-items: center; border: 0; border-radius: 12px; color: var(--ink2); background: none !important; box-shadow: none; opacity: 1; filter: none; }
+html[data-look="pro"] .rcacts .rateb[aria-pressed="true"] { color: var(--c); background: rgba(var(--cr), .12) !important; }
+html[data-look="pro"] .rcacts :is(.rateb, .msgact) .ic { width: 19px; height: 19px; stroke: currentColor; stroke-width: 1.7; }
+html[data-look="pro"] .rcacts .thinkrow { margin: 0 0 0 auto; padding: 0; }
+html[data-look="pro"] .rcacts .thinkbtn { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 32px; min-height: 32px !important; padding: 0 12px 0 10px; border-radius: 16px; font: 600 13px var(--sf) !important; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] .rcacts .thinkbtn::after { content: ''; position: absolute; inset: -6px 0; }
+/* the tool steps: one line that opens to them */
+html[data-look="pro"] .rcsteps { align-self: flex-start; max-width: 100%; margin: 0 0 10px; }
+html[data-look="pro"] .rcsteps > summary { display: flex; align-items: center; gap: 8px; height: 30px; max-width: 100%; padding: 0 12px 0 10px; border-radius: 15px; font: 400 13px/1 var(--sf); color: var(--ink2); background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px var(--hair); position: relative; }
+html[data-look="pro"] .rcsteps > summary::after { content: ''; position: absolute; inset: -7px 0; }
+html[data-look="pro"] .rcsteps > summary .ck { display: grid; place-items: center; flex: none; width: 16px; height: 16px; border-radius: 8px; color: var(--c); background: rgba(var(--cr), .14); }
+html[data-look="pro"] .rcsteps > summary .ck .ic { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] .rcsteps.live > summary .ck .ic { stroke-width: 2.4; stroke-dasharray: 20 18; animation: rcspin 1s linear infinite; transform-origin: 50% 50%; }
+@keyframes rcspin { to { transform: rotate(360deg); } }
+html[data-look="pro"] .rcsteps.bad > summary .ck { color: var(--amber); background: rgba(var(--amberr), .14); }
+html[data-look="pro"] .rcsteps > summary b { flex: none; font-weight: 600; color: var(--ink); }
+html[data-look="pro"] .rcsteps > summary .sep { width: 3px; height: 3px; flex: none; border-radius: 2px; background: var(--ink4); }
+html[data-look="pro"] .rcsteps > summary .w { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] .rcsteps > summary .chv { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--ink3); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--rcsp) var(--spring); }
+html[data-look="pro"] .rcsteps[open] > summary .chv { transform: rotate(180deg); }
+html[data-look="pro"] .rcsteps > .act { display: flex; align-self: flex-start; margin: 6px 0 0 12px; padding: 2px 0; }
+html[data-look="pro"] .rcsteps > .act.memact.ok { display: flex; }
+/* a cited answer: numbered chips, the claims line, the sources as rows */
+html[data-look="pro"] .hud.core .convo .msg .cite { display: inline-grid; place-items: center; width: 19px; height: 19px; margin: 0 1px 0 2px; padding: 0; vertical-align: 2px; border-radius: 10px; font: 700 11px/1 var(--sf); color: var(--c); background: rgba(var(--cr), .12); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35); text-decoration: none; min-height: 0 !important; position: relative; }
+html[data-look="pro"] .hud.core .convo .msg .cite::after { content: ''; position: absolute; inset: -12px -6px; }
+html[data-look="pro"] .hud.core .convo .msg .cite.miss { color: var(--amber); background: rgba(var(--amberr), .12); box-shadow: inset 0 0 0 1px rgba(var(--amberr), .35); }
+html[data-look="pro"] .hud.core .convo .msg .citecheck { display: flex; align-items: center; gap: 8px; margin-top: 12px; font: 400 13px/18px var(--sf); color: var(--ink2); text-transform: none; }
+html[data-look="pro"] .hud.core .convo .msg .citecheck.warn { color: var(--amber); }
+html[data-look="pro"] .hud.core .convo .msg .citesrc { order: 9; margin-top: 12px; border-top: 1px solid var(--hair); display: flex; flex-direction: column; }
+html[data-look="pro"] .hud.core .convo .msg .citesrc > small { display: none; }
+html[data-look="pro"] .hud.core .convo .msg .csrc { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px; grid-template-rows: auto auto; column-gap: 12px; align-items: center; min-height: 56px; padding: 10px 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; color: var(--ink); text-decoration: none; font: inherit; }
+html[data-look="pro"] .hud.core .convo .msg .csrc + .csrc { border-top: 1px solid var(--hair); }
+html[data-look="pro"] .hud.core .convo .msg .csrc > b { grid-row: 1 / 3; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; font: 700 12px/1 var(--sf); color: var(--c); background: rgba(var(--cr), .1); box-shadow: inset 0 0 0 1px rgba(var(--cr), .25); }
+html[data-look="pro"] .hud.core .convo .msg .csrc > b .br { display: none; }
+html[data-look="pro"] .hud.core .convo .msg .csrc > span { grid-column: 2; font: 500 15px/20px var(--sf); letter-spacing: -.12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] .hud.core .convo .msg .csrc > em { grid-column: 2; font: 400 12px/16px var(--sf); font-style: normal; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] .hud.core .convo .msg .csrc > i { grid-column: 2; font: 400 12px/16px var(--sf); font-style: normal; color: var(--amber); }
+html[data-look="pro"] .hud.core .convo .msg .csrc::after { content: ''; grid-column: 3; grid-row: 1 / 3; width: 16px; height: 16px; background: var(--ink3); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; }
+html[data-look="pro"] .hud.core .convo .msg.cited { display: flex; flex-direction: column; }
+html[data-look="pro"] .hud.core .convo .msg > .rcacts { order: 10; }
+
 /* end route C */
