@@ -558,3 +558,40 @@ test('review 3: no stars without a real rating, and no average unless every revi
   const rated = K.planFrom({ ...FULL });
   assert.match(K.assemble(rated.plan, rated.brief).html, /5\.0★/, 'real ratings still give an average');
 });
+
+test('review 4: after a model wait the confirm list survives, and the writer gets only the owner\'s facts with the typical ones marked', async () => {
+  const st = new MemStorage();
+  let planner = 0;
+  const writerAsked = [];
+  const d = deps(st, async (messages) => {
+    const sys = messages[0].content;
+    if (/^SITE PLANNER/.test(sys) && planner++ === 0) throw Object.assign(new Error('Every model I can reach is cooling down after rate limits.'), { waitMs: 40_000 });
+    if (/^SITE PLANNER/.test(sys)) return { message: { role: 'assistant', content: '{"palette":"barber"}' } };
+    if (/^SITE WRITER/.test(sys)) {
+      writerAsked.push(messages[1].content);
+      return { message: { role: 'assistant', content: '{}' } };
+    }
+    return { message: { role: 'assistant', content: '{"verdict":"Fine.","fixes":[]}' } };
+  });
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: "build a website for my friend's barber shop in Walsall", name: 'Fade & Co', phone: '07700 900461' }, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  const p = await runAll(d, p0.id);
+  assert.equal(planner, 2, 'the planner waited once, then answered');
+  const report = p.steps.map((s) => s.result ?? '').join('\n');
+  assert.match(report, /opening hours \(typical ones are shown\)/);
+  assert.match(report, /services and prices \(typical ones/);
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  assert.equal(job.facts.hours, undefined, 'the owner\'s facts are never filled in');
+  assert.ok(job.brief.hours?.length, 'the page is still drawn with typical hours');
+  assert.ok(writerAsked.length, 'the writer was asked');
+  for (const u of writerAsked) {
+    const facts = u.split('\n\n')[0];
+    assert.ok(!/^Services:|^Hours:/m.test(facts), `typical prices or hours handed over as facts:\n${facts}`);
+    assert.match(facts, /NOT confirmed by the owner.*opening hours/);
+  }
+  // Numbers from the typical prices are not the owner's: the writer may not move them into other words.
+  const { plan } = K.planFrom(job.facts);
+  assert.match(K.rejectRewrite('Book your chair', 'Cuts from £18', 60, job.facts), /adds numbers/);
+  assert.ok(plan.confirm.length);
+});

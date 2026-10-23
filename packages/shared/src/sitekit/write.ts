@@ -59,8 +59,11 @@ export function editables(plan: Plan, page: number): Editable[] {
   return out;
 }
 
-/** The facts the owner gave, as plain lines (what the writers may build on). */
-export function factLines(b: Brief): string {
+/**
+ * The facts the owner gave, as plain lines (what the writers may build on). `typical`: what the plan filled
+ * in without the owner's word (plan.confirm), named so a writer never repeats it as a fact.
+ */
+export function factLines(b: Brief, typical: string[] = []): string {
   const l: string[] = [`Business: ${b.name} (${b.kind})`];
   if (b.town) l.push(`Town: ${b.town}`);
   if (b.address || b.postcode) l.push(`Address: ${[b.address, b.postcode].filter(Boolean).join(', ')}`);
@@ -72,6 +75,7 @@ export function factLines(b: Brief): string {
   if (b.accreditations?.length) l.push(`Accreditations: ${b.accreditations.join(', ')}`);
   if (b.areas?.length) l.push(`Areas: ${b.areas.join(', ')}`);
   if (b.request) l.push(`The request: ${b.request}`);
+  if (typical.length) l.push(`NOT confirmed by the owner (typical stand-ins on the page; never state them as facts or add to them): ${typical.join('; ')}`);
   return l.join('\n');
 }
 
@@ -86,7 +90,7 @@ export function writePrompt(plan: Plan, b: Brief, page: number): { system: strin
   return {
     pieces,
     system: `SITE WRITER. You improve the words of one page of a small business website. ${STYLE_RULES} Reply with ONLY a JSON object with the same keys and your new text for each (keep a key's text when it is already good). Character limits per key: ${limits}.`,
-    user: `FACTS (the only facts you may use):\n${factLines(b)}\n\nVOICE: ${plan.tone}\nPAGE: ${p?.label ?? 'Footer'}\n\nTEXT TO IMPROVE (JSON):\n${JSON.stringify(obj)}`,
+    user: `FACTS (the only facts you may use):\n${factLines(b, plan.confirm)}\n\nVOICE: ${plan.tone}\nPAGE: ${p?.label ?? 'Footer'}\n\nTEXT TO IMPROVE (JSON):\n${JSON.stringify(obj)}`,
   };
 }
 
@@ -173,7 +177,7 @@ export function planPrompt(plan: Plan, b: Brief): { system: string; user: string
   const pages = plan.pages.map((p) => `${p.label || 'Home'}: ${p.sections.map((s) => s.block).join(', ')}`).join('\n');
   return {
     system: `SITE PLANNER. You art-direct a small business website. Choose the look and trim the plan. Reply with ONLY JSON: {"palette": one of ${Object.keys(PALETTES).join('|')}, "fonts": one of ${Object.keys(FONTS).join('|')}, "shape": one of ${Object.keys(SHAPES).join('|')}, "scheme": "light"|"dark"|"auto", "tone": "three words for the voice", "drop": ["block ids to remove from the home page, at most 2"], "why": "one sentence"}. Palettes: ${Object.values(PALETTES).map((p) => `${p.id} (${p.label.split(':')[1]?.trim()})`).join('; ')}. Fonts: ${Object.values(FONTS).map((f) => `${f.id} (${f.label.split(':')[1]?.trim()})`).join('; ')}.`,
-    user: `FACTS:\n${factLines(b)}\n\nCURRENT LOOK: ${plan.theme.palette}, ${plan.theme.fonts}, ${plan.theme.shape}, ${plan.theme.scheme}; voice "${plan.tone}"\nPAGES AND SECTIONS:\n${pages}`,
+    user: `FACTS:\n${factLines(b, plan.confirm)}\n\nCURRENT LOOK: ${plan.theme.palette}, ${plan.theme.fonts}, ${plan.theme.shape}, ${plan.theme.scheme}; voice "${plan.tone}"\nPAGES AND SECTIONS:\n${pages}`,
   };
 }
 
@@ -223,7 +227,7 @@ export function critiquePrompt(plan: Plan, b: Brief, analysis: string, screensho
   const map = plan.pages.map((p) => `${p.slug || 'home'}: ${p.sections.map((s, i) => `${i}=${s.block}`).join(' ')}`).join('\n');
   return {
     system: `SITE CRITIC. You are a senior web designer reviewing a small business website before launch${screenshots ? ' from screenshots of it on a phone (390 px) and a laptop (1280 px)' : ' from an analysis of its layout (no screenshots were possible)'}. Be specific and only flag what a visitor would notice: crowding, weak headlines, text over busy pictures, repetition, too many sections, missing trust or contact, anything broken. Reply with ONLY JSON: {"verdict": "one sentence", "score": 0-10, "fixes": [{"page": "home or a page slug", "section": index, "kind": "text"|"drop"|"tone"|"theme", "key": "the slot (for text) or palette/fonts/scheme (for theme)", "value": "new text, or base|alt|inverse for tone, or the new value for theme", "why": "short"}]} with at most 6 fixes. ${STYLE_RULES}`,
-    user: `FACTS:\n${factLines(b)}\n\nLOOK: ${plan.theme.palette} palette, ${plan.theme.fonts} fonts, ${plan.theme.scheme} scheme\nSECTIONS:\n${map}\n\nCHECKS:\n${analysis}`,
+    user: `FACTS:\n${factLines(b, plan.confirm)}\n\nLOOK: ${plan.theme.palette} palette, ${plan.theme.fonts} fonts, ${plan.theme.scheme} scheme\nSECTIONS:\n${map}\n\nCHECKS:\n${analysis}`,
   };
 }
 

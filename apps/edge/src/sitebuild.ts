@@ -57,7 +57,14 @@ const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; website builder)' };
 export interface SiteJob {
   id: string;
   name: string;
+  /** The brief the site is drawn from: after step 2, with the typical hours, prices and services filled in. */
   brief: Brief;
+  /**
+   * What the owner actually gave, never filled in: the plan (and its "please confirm" list) is made from it
+   * again whenever step 2 runs, the writers and the critic are given only these facts, and the gates check
+   * the page's claims against it. (Jobs started before it existed: the brief stands in.)
+   */
+  facts?: Brief;
   stock?: StockSet;
   plan?: Plan;
   link?: string;
@@ -131,9 +138,12 @@ export async function startSiteBuild(a: Record<string, unknown>, ctx: ToolContex
   const brief = briefOf(a);
   const name = siteNameOf(a, brief);
   const p = await startProject(ctx, { title: `Website: ${brief.name || name}`, goal: `A professional website for ${brief.name || `a ${brief.kind}`}${brief.town ? ` in ${brief.town}` : ''}, published at ${siteLink(ctx.origin, ctx.env, name)}. Request: ${brief.request}`.slice(0, 1900), steps: SITE_STEPS, pace: 'fast', kind: 'site' });
-  await saveJob(ctx, { id: p.id, name, brief, waits: 0, plain: [] });
+  await saveJob(ctx, { id: p.id, name, brief, facts: structuredClone(brief), waits: 0, plain: [] });
   return `Started building the website (project ${p.id}): ${SITE_STEPS.length} steps — ${SITE_STEPS.map((s) => s.title.toLowerCase()).join(', ')}. It will be live at ${siteLink(ctx.origin, ctx.env, name)} when it is done (about 5–15 minutes, longer if the free AI room is busy); I will send a notification with the link and a short report. Tell the owner this, and that the Workshop's PROJECTS panel shows progress.`;
 }
+
+/** The owner's own facts (never the typical ones filled in for the plan). */
+const factsOf = (job: SiteJob): Brief => job.facts ?? job.brief;
 
 // ── models ──────────────────────────────────────────────────────────────────────────
 
@@ -242,6 +252,7 @@ async function stepBrief(deps: ProjectDeps, job: SiteJob): Promise<string> {
     if (g) {
       b.lat = Math.round(g.lat * 1e5) / 1e5;
       b.lon = Math.round(g.lon * 1e5) / 1e5;
+      if (job.facts) Object.assign(job.facts, { lat: b.lat, lon: b.lon });
       job.geocoded = true;
       notes.push(`found it on the map (${b.lat}, ${b.lon})`);
     } else notes.push('could not place the address on the map — the map shows an "open the map" button instead');
@@ -277,9 +288,10 @@ async function stepBrief(deps: ProjectDeps, job: SiteJob): Promise<string> {
 /** Step 2: the template, art-directed. */
 async function stepPlan(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const url = siteLink(deps.tctx.origin, deps.env, job.name);
-  const { plan, brief } = planFrom(job.brief, { url: /^https:/.test(url) ? url : undefined, stock: () => job.stock });
+  // Always from the owner's own facts: a step that waited for a model and runs again still knows what was assumed.
+  const { plan, brief } = planFrom(factsOf(job), { url: /^https:/.test(url) ? url : undefined, stock: () => job.stock });
   job.brief = brief;
-  const pr = planPrompt(plan, brief);
+  const pr = planPrompt(plan, factsOf(job));
   const reply = await ask(deps, job, pr.system, pr.user, { tier: 'small' });
   let notes: string[] = [];
   if (reply === null) job.plain.push('plan');
@@ -296,7 +308,7 @@ async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
   let refused = 0;
   let asked = 0;
   for (let i = 0; i < plan.pages.length; i++) {
-    const w = writePrompt(plan, job.brief, i);
+    const w = writePrompt(plan, factsOf(job), i);
     if (!w.pieces.length) continue;
     const reply = await ask(deps, job, w.system, w.user, { tier: 'big' });
     if (reply === null) {
@@ -304,7 +316,7 @@ async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
       break;
     }
     asked++;
-    const r = applyWrites(plan, w.pieces, jsonIn(reply), job.brief);
+    const r = applyWrites(plan, w.pieces, jsonIn(reply), factsOf(job));
     changed += r.changed;
     refused += r.refused.length;
     await saveJob(deps, job);
@@ -313,9 +325,9 @@ async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
 }
 
 /** Assemble and check: the kit's gates and the publish gate (check_html). */
-export function buildAndCheck(plan: Plan, brief: Brief): { a: Assembled; gates: GateReport; publishErrors: string[] } {
+export function buildAndCheck(plan: Plan, brief: Brief, facts: Brief = brief): { a: Assembled; gates: GateReport; publishErrors: string[] } {
   const a = assemble(plan, brief);
-  const gates = runGates(a.html, plan, brief);
+  const gates = runGates(a.html, plan, brief, facts);
   let publishErrors: string[] = [];
   try {
     const prepared = prepareSite(a.html, '');
@@ -328,7 +340,7 @@ export function buildAndCheck(plan: Plan, brief: Brief): { a: Assembled; gates: 
 
 /** Step 4. */
 async function stepBuild(deps: ProjectDeps, job: SiteJob): Promise<string> {
-  const { a, gates, publishErrors } = buildAndCheck(job.plan!, job.brief);
+  const { a, gates, publishErrors } = buildAndCheck(job.plan!, job.brief, factsOf(job));
   job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
   await saveJob(deps, job);
   if (publishErrors.length) throw new Error(`the page failed the publish check: ${publishErrors.slice(0, 3).join(' | ')}`);
@@ -390,7 +402,7 @@ export function layoutAnalysis(plan: Plan, a: Assembled, gates: GateReport): str
 
 /** Step 5: publish, then look at it. */
 async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
-  const { a, gates } = buildAndCheck(job.plan!, job.brief);
+  const { a, gates } = buildAndCheck(job.plan!, job.brief, factsOf(job));
   const link = await publish(deps, job, a.html);
   const sizes: string[] = [];
   const images: string[] = [];
@@ -407,12 +419,12 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
     }
   }
   const how = images.length ? 'screenshots' : 'layout';
-  const pr = critiquePrompt(job.plan!, job.brief, layoutAnalysis(job.plan!, a, gates), how === 'screenshots');
+  const pr = critiquePrompt(job.plan!, factsOf(job), layoutAnalysis(job.plan!, a, gates), how === 'screenshots');
   let reply = await ask(deps, job, pr.system, how === 'screenshots' ? withImages(pr.user, images) : pr.user, { tier: 'big' });
   let how2: 'screenshots' | 'layout' = how;
   if (reply === null && how === 'screenshots') {
     // No model that can see is free: the critique from the layout analysis instead.
-    const text = critiquePrompt(job.plan!, job.brief, layoutAnalysis(job.plan!, a, gates), false);
+    const text = critiquePrompt(job.plan!, factsOf(job), layoutAnalysis(job.plan!, a, gates), false);
     reply = await ask(deps, job, text.system, text.user, { tier: 'big' });
     how2 = 'layout';
   }
@@ -428,10 +440,10 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
 /** Step 6: the fixes, checked; republished only when it is no worse. */
 async function stepPolish(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const answer = (await durableGet<Record<string, unknown>>(deps.env, deps.storage, `${JOB(job.id)}:fixes`)) ?? null;
-  const before = buildAndCheck(job.plan!, job.brief);
+  const before = buildAndCheck(job.plan!, job.brief, factsOf(job));
   const trial = structuredClone(job.plan!);
-  const fx = applyFixes(trial, job.brief, answer && Object.keys(answer).length ? answer : null);
-  const after = buildAndCheck(trial, job.brief);
+  const fx = applyFixes(trial, factsOf(job), answer && Object.keys(answer).length ? answer : null);
+  const after = buildAndCheck(trial, job.brief, factsOf(job));
   let kept = false;
   if (fx.applied.length && !after.publishErrors.length && after.gates.errors <= before.gates.errors) {
     job.plan = trial;
