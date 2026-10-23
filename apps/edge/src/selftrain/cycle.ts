@@ -4,20 +4,25 @@
  *
  *   idle ──(the week is due, or TRAIN NOW)──▶ collect ──▶ upload ──▶ push ──▶ running ──(the report)──▶ idle
  *
- *  - collect: the data factory (factory.ts) — puzzle references, tool calls, chat distillation and red team at
- *    once (no model), then a few model calls at a time in the background lane (Evol-Instruct, library Q&A, better
- *    replies for 👎) every few minutes until the week's share is gathered or a day has passed;
- *  - upload: the week's JSONL, the exam and the GYM's task program to the owner's PRIVATE Hugging Face dataset
- *    repo, in one commit (why Hugging Face and not a Kaggle dataset: one documented commit call from a Worker,
- *    every week's file kept with its history for the replay mix, and the notebook needs Hugging Face anyway);
+ *  - collect: the data factory (factory.ts) — puzzle references, tool calls, chat distillation and red team (no
+ *    model; one piece per job step, so no step uses more than a few milliseconds of CPU), then a few model calls
+ *    at a time in the background lane (Evol-Instruct, library Q&A, better replies for 👎) every few minutes until
+ *    the week's share is gathered or a day has passed;
+ *  - upload: the week's JSONL, the exam and the GYM's task program (only when it changed since the last upload)
+ *    to the owner's PRIVATE Hugging Face dataset repo, in one commit (why Hugging Face and not a Kaggle dataset:
+ *    one documented commit call from a Worker, every week's file kept with its history for the replay mix, and
+ *    the notebook needs Hugging Face anyway);
  *    both repos are checked to be private first (made private, or refused with the fix) — nothing of the owner's
  *    ever goes into a public repo;
- *  - push: the notebook (training/kaggle/ghosty_weekly.py) to the owner's Kaggle account with GPU and internet
- *    on, its settings written in, including a one-time ticket: the notebook trades it ONCE for the Hugging Face
- *    token at the hook (in a header, never in an address) and posts its report back with it;
+ *  - push: first Kaggle's GPU quota (no run without the free hours it needs, none at all with pay-to-scale on: it
+ *    waits, saying why), then the notebook (training/kaggle/ghosty_weekly.py) to the owner's Kaggle account with
+ *    GPU and internet on, its settings written in, including a one-time ticket: the notebook trades it ONCE for
+ *    the Hugging Face token at the hook (in a header, never in an address) and posts its report back with it;
  *  - running: the hook brings the report; meanwhile Kaggle's status is read every half hour (a failed status read
- *    is counted on its own: a few in a row do not end the week). A run that stopped is pushed again (it resumes
- *    from its checkpoint) twice at most.
+ *    is counted on its own: a few in a row do not end the week). A run that stopped, or that reported an error
+ *    before its exam, is pushed again (it resumes from its checkpoint) twice at most. A run Kaggle calls COMPLETE
+ *    that sent no report within about 45 minutes ends the week, with the reason and the end of its log read
+ *    from Kaggle's output.
  * The notebook uploads its candidate to the PRIVATE model repo (branch `candidates`); the brain checks the report
  * again with the same gate, that it is the expected repo, and only then promotes it (a tag, and the list the
  * phone's weight address serves: weights.ts). The last three good ones are kept; ROLLBACK drops the one in use and
@@ -32,7 +37,7 @@ import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedMod
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
-import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_JS } from './assets';
+import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from './assets';
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
   addRecords,
@@ -67,7 +72,7 @@ import {
   type CtxMsg,
   type Rating,
 } from './factory';
-import { hfCommit, hfEnsurePrivateRepo, hfTag, hfWhoami, kernelStatus, parseKaggleKey, pushKernel, RemoteError } from './remote';
+import { hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -90,6 +95,10 @@ const BUDGET_HOURS = 9;
 const CALLS_PER_TICK = 4;
 /** Failed status reads in a row (half an hour apart) before a running week is given up. */
 const STATUS_ERRORS_MAX = 8;
+/** A run Kaggle calls COMPLETE whose report has not come this long after is given up (the notebook posts it just before it ends). */
+const REPORT_GRACE = 45 * 60_000;
+/** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
+const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
 
 const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill'];
 
@@ -109,7 +118,7 @@ export interface State {
   note: string;
   /** Model calls made this week, and how far each kind of gathering got. */
   calls: number;
-  done: { free?: boolean; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefIds?: number[]; library?: number; evol?: number; redteam?: number };
+  done: { free?: boolean; freePart?: number; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefIds?: number[]; library?: number; evol?: number; redteam?: number };
   /** The ratings that went into this week's data (only these are marked used when it ends). */
   ratingIds?: number[];
   /** This week's data has the owner's library, chats or ratings in it. */
@@ -123,6 +132,10 @@ export interface State {
   kernelUrl?: string;
   pushedAt?: number;
   pushes?: number;
+  /** When Kaggle first said COMPLETE with no report in yet. */
+  completeAt?: number;
+  /** Kaggle's free GPU hours this week, as they were before the last push. */
+  gpu?: { left: number; total: number };
   /** Failed upload/push steps in a row, and failed status reads in a row (counted apart). */
   failures?: number;
   statusErrors?: number;
@@ -144,6 +157,8 @@ const K = {
   rejected: 'train:rejected',
   /** week → whether that week's data held private text (for the replay with MY LIBRARY & CHATS off). */
   weeks: 'train:weeks',
+  /** The tasks.mjs last uploaded: which repo, and its SHA-256 (sent again only when either changed). */
+  tasks: 'train:tasks',
 };
 
 export interface CycleDeps {
@@ -296,48 +311,74 @@ async function loadExam(d: CycleDeps): Promise<Exam> {
   return e;
 }
 
-/** The free part (no model) once, then a few model calls; the week's share or a day, whichever comes first. */
+type Far = (recs: TrainRecord[]) => TrainRecord[];
+
+/**
+ * The free part of gathering (no model), one piece per job step: each is a few milliseconds of CPU (a single step
+ * that did it all took over 100 ms, most of it the near-copy checks, now quicker in factory.ts). Every record whose
+ * question is a near copy of an exam question, or of one on the phone's REPORT CARD (it must measure what was never
+ * trained on), is left out by `far` (counted), whatever made it.
+ */
+const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
+  async (d, st) => {
+    const levels = (await d.storage.get<Record<string, number>>(K.gym)) ?? {};
+    const games = [...new Set(GYM_SEEDS.map((g) => g.game))];
+    await addRecords(d.storage, 'gym', gymTasks(levels, games, st.week));
+    await addRecords(d.storage, 'drill', drillTasks(st.week));
+  },
+  // The synthetic tool calls (each with its tools' schemas: the biggest records) in two halves; the same every time for a week.
+  ...[0, 1].map((half) => async (d: CycleDeps, st: State, far: Far) => {
+    const syn = syntheticToolRecords(d.tools, st.week);
+    const n = Math.ceil(syn.recs.length / 2);
+    await addRecords(d.storage, 'tool', far(syn.recs.slice(half * n, (half + 1) * n)));
+    if (!half) await noteRejected(d.storage, 'synthetic tool calls that failed the schema check', syn.rejected);
+  }),
+  async (d, _st, far) => {
+    await addRecords(d.storage, 'redteam', far(redteamRecords()));
+    await addRecords(d.storage, 'failure', far(failureRecords((await d.storage.get<TrainReport>(K.report)) ?? null)));
+  },
+  async (d, st, far) => {
+    if (st.private === false) return;
+    const ctx = (await d.storage.get<CtxMsg[]>('ctx')) ?? []; // agent.ts CTX_KEY: the conversation the model reads
+    await addRecords(d.storage, 'tool', far(chatToolRecords(ctx, d.tools)));
+  },
+  async (d, st, far) => {
+    if (st.private === false) return;
+    const turns = (await d.storage.get<{ role: 'user' | 'assistant'; text: string; model?: string }[]>('turns')) ?? []; // agent.ts TURNS_KEY
+    const disliked = new Set((await loadRatings(d.storage)).filter((r) => !r.up).map((r) => r.reply.trim()));
+    await addRecords(d.storage, 'distill', far(distillRecords(turns, disliked)));
+  },
+  async (d, st, far) => {
+    if (st.private === false) return;
+    // 👍 need no model: they go in now (and only these are marked used when the week ends).
+    const ups = (await loadRatings(d.storage)).filter((r) => r.up && !r.used);
+    await addRecords(d.storage, 'pref', far(ups.flatMap((r) => ratingRecords(r))));
+    st.ratingIds = [...(st.ratingIds ?? []), ...ups.map((r) => r.at)];
+  },
+];
+
+/** The free part (no model) a piece per step, then a few model calls; the week's share or a day, whichever comes first. */
 async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: number; note: string }> {
   const s = d.storage;
   const priv = st.private !== false;
   const exam = await loadExam(d);
   const held = new Set(exam.library.map((c) => c.key));
   if (!st.done.free) {
-    // Every record whose question is a near-copy of an exam question is left out (counted), whatever made it.
     const freeQs = examTexts(exam, st.week);
-    let near = 0;
-    const far = (recs: TrainRecord[]): TrainRecord[] =>
+    let n = 0;
+    const far: Far = (recs) =>
       recs.filter((r) => {
         const q = r.messages?.filter((m) => m.role === 'user').at(-1)?.content ?? '';
-        // Or of a question on the phone's REPORT CARD (it must measure what was never trained on).
         const bad = !!q && (!!tooClose(q, freeQs) || !!nearReportCard(q, REPORT_CARD_TEXTS));
-        if (bad) near++;
+        if (bad) n++;
         return !bad;
       });
-    const levels = (await s.get<Record<string, number>>(K.gym)) ?? {};
-    const games = [...new Set(GYM_SEEDS.map((g) => g.game))];
-    await addRecords(s, 'gym', gymTasks(levels, games, st.week));
-    await addRecords(s, 'drill', drillTasks(st.week));
-    const syn = syntheticToolRecords(d.tools, st.week);
-    await addRecords(s, 'tool', far(syn.recs));
-    await noteRejected(s, 'synthetic tool calls that failed the schema check', syn.rejected);
-    await addRecords(s, 'redteam', far(redteamRecords()));
-    await addRecords(s, 'failure', far(failureRecords((await s.get<TrainReport>(K.report)) ?? null)));
-    if (priv) {
-      const ctx = (await s.get<CtxMsg[]>('ctx')) ?? []; // agent.ts CTX_KEY: the conversation the model reads
-      await addRecords(s, 'tool', far(chatToolRecords(ctx, d.tools)));
-      const turns = (await s.get<{ role: 'user' | 'assistant'; text: string; model?: string }[]>('turns')) ?? []; // agent.ts TURNS_KEY
-      const ratings = await loadRatings(s);
-      const disliked = new Set(ratings.filter((r) => !r.up).map((r) => r.reply.trim()));
-      await addRecords(s, 'distill', far(distillRecords(turns, disliked)));
-      // 👍 need no model: they go in now (and only these are marked used when the week ends).
-      const ups = ratings.filter((r) => r.up && !r.used);
-      await addRecords(s, 'pref', far(ups.flatMap((r) => ratingRecords(r))));
-      st.ratingIds = [...(st.ratingIds ?? []), ...ups.map((r) => r.at)];
-    }
-    await noteRejected(s, 'records too close to an exam question', near);
-    st.done.free = true;
-    await stepSave(s, st);
+    const part = st.done.freePart ?? 0;
+    await FREE_PARTS[part]!(d, st, far);
+    await noteRejected(s, 'records too close to an exam question', n);
+    st.done.freePart = part + 1;
+    st.done.free = st.done.freePart >= FREE_PARTS.length;
+    return { next: 1000, note: "Gathering this week's lessons: puzzles, tool calls and chats first." };
   }
   let calls = 0;
   const deadline = now + 25_000;
@@ -375,10 +416,15 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     st.done.examKeys = [...tried];
     if (tried.size >= st.done.examTarget) st.done.examLibrary = true;
   }
-  if (!st.done.examLibrary && st.done.examTarget >= 2) return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: "Gathering: writing the exam's library questions first." };
+  if (!st.done.examLibrary && st.done.examTarget >= 2) {
+    // Never stuck here: past the day of gathering, or with the week's model calls used up (failed ones count too),
+    // the exam keeps the library questions it has and gathering goes on to its end.
+    if (now - st.startedAt > COLLECT_FOR || st.calls >= WEEKLY_CALLS) st.done.examLibrary = true;
+    else return { next: noModel ? 20 * 60_000 : 2 * 60_000, note: "Gathering: writing the exam's library questions first." };
+  }
   const lib = passages.filter((p) => !tried.has(p.key));
-  const examQs = examTexts(exam, st.week);
   /** A near copy of an exam question or of one on the phone's REPORT CARD: never trained on. */
+  const examQs = examTexts(exam, st.week);
   const leak = (t: string): string => tooClose(t, examQs) || nearReportCard(t, REPORT_CARD_TEXTS);
   // 2. better replies for the owner's 👎 (each rating once: known by its id, so new or changed ratings never shift the others)
   if (priv && !noModel) {
@@ -463,8 +509,9 @@ async function upload(d: CycleDeps, st: State, token: string): Promise<{ next: n
   const me = await hfWhoami(f, token);
   if (me.role === 'read') throw new RemoteError('the Hugging Face token can only read: make a write (or fine-grained) token as the steps say.');
   st.hfUser = me.name;
+  const repo = `${me.name}/${DATA_REPO}`;
   // Both repos private before anything of the owner's is sent (made so, or refused with the fix).
-  await hfEnsurePrivateRepo(f, me, token, `${me.name}/${DATA_REPO}`, 'dataset');
+  await hfEnsurePrivateRepo(f, me, token, repo, 'dataset');
   await hfEnsurePrivateRepo(f, me, token, `${me.name}/${MODEL_REPO}`, 'model');
   const all: TrainRecord[] = [];
   for (const k of KINDS) all.push(...(await loadRecords(d.storage, k)));
@@ -472,11 +519,16 @@ async function upload(d: CycleDeps, st: State, token: string): Promise<{ next: n
   for (const x of dropped) await noteRejected(d.storage, `bad records: ${x.why}`, x.n);
   const exam = await loadExam(d);
   st.dataFile = `weeks/week-${wk(st.week)}.jsonl`;
-  st.dataCommit = await hfCommit(f, token, `${me.name}/${DATA_REPO}`, 'dataset', [
+  // tasks.mjs (535 KB) only when it changed since it was last sent, or is not in the repo any more: the commit
+  // keeps the one already there. Its base64 and hash come from build.mjs (no CPU spent on them here).
+  const last = await d.storage.get<{ repo: string; sha256: string }>(K.tasks);
+  const sendTasks = !(last?.repo === repo && last.sha256 === TASKS_FILE.sha256 && (await hfHasFile(f, token, repo, 'dataset', 'tasks.mjs').catch(() => false)));
+  st.dataCommit = await hfCommit(f, token, repo, 'dataset', [
     { path: st.dataFile, content: text },
     { path: 'exam.json', content: JSON.stringify(exam) },
-    { path: 'tasks.mjs', content: TASKS_JS },
+    ...(sendTasks ? [{ path: 'tasks.mjs', content: TASKS_JS, pre: TASKS_FILE }] : []),
   ], `Ghosty week ${st.week}: ${kept} examples`);
+  if (sendTasks) await d.storage.put(K.tasks, { repo, sha256: TASKS_FILE.sha256 });
   const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
   weeks[String(st.week)] = st.private !== false;
   await d.storage.put(K.weeks, weeks);
@@ -502,8 +554,30 @@ export async function trainingBase(s: DurableObjectStorage, privateData: boolean
   return pick ? { label: pick.label, chain: pick.chain } : { label: 'stock Qwen3 0.6B', chain: [] };
 }
 
+const hours = (h: number) => String(Math.floor(h * 10) / 10);
+const gpuNote = (g: State['gpu']) => (g ? `${hours(g.left)} of ${hours(g.total)} free GPU hours were left this week` : '');
+
+/** Why Kaggle's GPU quota rules a run out now, in plain words ('' when it does not). */
+export function quotaProblem(q: GpuQuota): string {
+  if (q.payToScale) return "Kaggle's pay-to-scale is switched on for this account, so a run past the free hours could be charged: Ghosty will not start one. Turn it off on kaggle.com (Settings), then press TRAIN NOW.";
+  if (q.total <= 0) return 'Kaggle gives this account no GPU time: verify your phone number on kaggle.com (Settings → Phone verification), then press TRAIN NOW.';
+  if (q.left < RUN_GPU_HOURS)
+    return `Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (a run needs ${RUN_GPU_HOURS}): it starts when they come back${q.refreshAt ? `, ${new Date(q.refreshAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : ''}.`;
+  return '';
+}
+
 async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typeof parseKaggleKey>>, now: number): Promise<{ next: number; note: string }> {
   if (!d.origin) throw new RemoteError('the brain does not know its own address yet: open Ghosty once, then press TRAIN NOW.');
+  // Kaggle's GPU hours first: never a run that could be charged, or one without the hours to finish. It waits
+  // (asking again later, or at TRAIN NOW) rather than failing; after a week of waiting that week is given up.
+  const q = await kaggleQuota(fetchOf(d), kaggle);
+  const no = quotaProblem(q);
+  if (no) {
+    if (now - st.startedAt > WEEK) return endWeek(d, st, failedReport(st, no, now), `This week's training did not start: ${no}`);
+    const wait = !q.payToScale && q.total > 0 && q.refreshAt ? Math.min(DAY, Math.max(30 * 60_000, q.refreshAt - now + 10 * 60_000)) : 6 * 3600_000;
+    return { next: wait, note: no };
+  }
+  st.gpu = { left: q.left, total: q.total };
   st.base = await trainingBase(d.storage, st.private !== false);
   const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
   // Earlier weeks for the replay mix: all of them, or only those without private text when it is off.
@@ -533,8 +607,9 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
   st.pushedAt = now;
   st.pushes = (st.pushes ?? 0) + 1;
   st.statusErrors = 0;
+  delete st.completeAt;
   st.phase = 'running';
-  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version}). It takes a few hours.` };
+  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version}). It takes a few hours; ${gpuNote(st.gpu)}.` };
 }
 
 const randomTicket = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -544,14 +619,29 @@ async function watch(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typ
   const k = await kernelStatus(fetchOf(d), kaggle);
   st.statusErrors = 0;
   if (k.state === 'error' || k.state === 'cancelled') {
+    delete st.completeAt;
     if ((st.pushes ?? 0) < 3) {
       st.phase = 'push';
       return { next: 5 * 60_000, note: `The Kaggle run stopped (${k.message || k.state}); starting it again from where it got to.` };
     }
-    return endWeek(d, st, failedReport(st, `the Kaggle run stopped: ${k.message || k.state}`, now), 'The Kaggle run stopped three times: given up for this week.');
+    const tail = (await kernelOutput(fetchOf(d), kaggle).catch(() => null))?.logTail;
+    const log = tail ? ` The end of its log: ${tail}` : '';
+    return endWeek(d, st, failedReport(st, `the Kaggle run stopped: ${k.message || k.state}.${log}`, now), `The Kaggle run stopped three times: given up for this week.${log}`);
   }
-  if (k.state === 'complete' && now - (st.pushedAt ?? now) > RUN_LIMIT / 2) return endWeek(d, st, failedReport(st, 'the run finished but its report never arrived', now), 'The Kaggle run finished but sent no report.');
-  return { next: 30 * 60_000, note: k.state === 'queued' ? 'Waiting for a free Kaggle GPU.' : 'Training on Kaggle…' };
+  if (k.state === 'complete') {
+    // The notebook posts its report just before it ends: COMPLETE with no report for a while means it never got
+    // through (no internet on Kaggle, the brain unreachable) or it failed before it could. Its saved output says which.
+    st.completeAt ??= now;
+    if (now - st.completeAt < REPORT_GRACE) return { next: 15 * 60_000, note: 'The Kaggle run has finished; waiting for its report.' };
+    const out = await kernelOutput(fetchOf(d), kaggle).catch(() => null);
+    const err = out?.report?.error ? String(out.report.error).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…').slice(0, 300) : '';
+    const why = err ? `the notebook stopped: ${err}` : 'its report never reached Ghosty (no internet on Kaggle, or Ghosty could not be reached)';
+    const log = out?.logTail ? ` The end of its log: ${out.logTail}` : '';
+    return endWeek(d, st, failedReport(st, `the Kaggle run finished without reporting back: ${why}.${log}`, now), `The Kaggle run finished without reporting back: ${why}.${log}`);
+  }
+  delete st.completeAt;
+  const g = st.gpu ? ` (${gpuNote(st.gpu)} when it started.)` : '';
+  return { next: 30 * 60_000, note: k.state === 'queued' ? `Waiting for a free Kaggle GPU.${g}` : `Training on Kaggle…${g}` };
 }
 
 async function endWeek(d: CycleDeps, st: State, report: TrainReport, note: string): Promise<{ next: number; note: string }> {
@@ -606,6 +696,16 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
   }
   const r = body?.report;
   if (!r || typeof r !== 'object' || !scoresOk(r.before) || !scoresOk(r.after)) return json({ error: 'not a report' }, 400);
+  if (r.error && !Object.keys(r.after).length && (st.pushes ?? 0) < 3) {
+    // It hit a problem before its exam (a Hugging Face 5xx, pip or node during set-up): pushed again by the next
+    // job step, resuming from its checkpoint, like a run Kaggle stopped (three runs at most). Its ticket is spent.
+    st.phase = 'push';
+    delete st.ticket;
+    delete st.completeAt;
+    st.note = `The Kaggle run hit a problem (${String(r.error).slice(0, 160)}); starting it again from where it got to.`;
+    await saveState(d.storage, st);
+    return json({ ok: true, published: false });
+  }
   const report = await acceptReport(d, st, r);
   return json({ ok: true, published: !!report.published });
 }
@@ -613,10 +713,16 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
 /** Check the report, keep it, and promote the new brain when it really passed (the same gate, applied here again). */
 export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Promise<TrainReport> {
   const gate = gateVerdict(r.before, r.after, r.items ?? {});
+  // A run that reported an error is never kept, whatever its exam said: its adapter (which every later week
+  // rebuilds this brain from) may never have reached Hugging Face.
+  const err = r.error ? String(r.error).slice(0, 300) : '';
   const report: TrainReport = {
     ...r,
     week: st.week,
-    gate: { pass: gate.pass && !!r.gate?.pass, why: gate.pass && !r.gate?.pass ? String(r.gate?.why ?? 'the notebook did not keep it') : gate.why },
+    gate: {
+      pass: gate.pass && !!r.gate?.pass && !err,
+      why: gate.pass && !r.gate?.pass ? String(r.gate?.why ?? 'the notebook did not keep it') : gate.pass && err ? `the run reported a problem after its exam (${err.slice(0, 160)})` : gate.why,
+    },
     rejected: [...((await d.storage.get<{ why: string; n: number }[]>(K.rejected)) ?? []), ...(Array.isArray(r.rejected) ? r.rejected : [])].slice(0, 40),
     failures: (r.failures ?? []).slice(0, 120),
   };
@@ -638,7 +744,7 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     note = `Ghosty (week ${st.week}) passed its exam and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
   } else {
     // Not offered to the phone, whatever the notebook did.
-    if (pub) report.rejected.push({ why: `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam check here: not offered to the phone`, n: 1 });
+    if (pub) report.rejected.push({ why: err ? `the new brain was uploaded (${pub.commit.slice(0, 7)}) but the run reported a problem: not offered to the phone` : `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam check here: not offered to the phone`, n: 1 });
     delete report.published;
     note = r.error ? `This week's training did not finish: ${String(r.error).slice(0, 160)}` : `This week's training did not beat the current brain (${report.gate.why}); nothing changed.`;
   }

@@ -19,10 +19,12 @@
 #      tensor-cache.json as the template, so the phone's compiled model library fits unchanged) to the owner's
 #      PRIVATE model repo, branch `candidates`; the brain checks the report and only then promotes it;
 #   7. reports back to the brain (the hook), which shows it in SYSTEM → OFFLINE BRAIN TRAINING.
-# Precision: bf16 on GPUs that have it; on Kaggle's T4/P100 (no bf16) everything runs in fp32 — slower, but no
-# fp16 overflow. The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run
-# keeps is under /kaggle/temp (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at
-# the end; checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
+# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5) and P100 (6.0)
+# everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
+# about 4x slower.) Never fp16: the training loops have no loss scaling and Qwen3's activations can overflow it.
+# The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run keeps is under
+# /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end;
+# checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
 # The pure helpers at the top are tested on a CPU by training/kaggle/test_ghosty_weekly.py.
 
 CONFIG_JSON = None  # GHOSTY-CONFIG: the brain writes this week's settings here when it pushes the notebook
@@ -38,6 +40,10 @@ import time
 
 # ---- pins ---------------------------------------------------------------------------------------------------
 PIP_PINS = ['transformers==4.51.3', 'peft==0.15.2', 'accelerate==1.6.0', 'huggingface_hub==0.30.2', 'safetensors==0.5.3']
+# Kaggle's image has a newer hf_xet, which huggingface_hub 0.30.2 would pick up for transfers: taken out after the
+# pins, so uploads go the plain way this huggingface_hub was released with (downloads were seen to work either way;
+# uploads could not be tried without the owner's token, so the conservative choice).
+PIP_DROP = ['hf_xet']
 # General instruction data for the no-forgetting mix: OpenAssistant oasst1, Apache-2.0, at a fixed commit.
 GENERAL_DATA = {'repo': 'OpenAssistant/oasst1', 'rev': 'fdf72ae0827c1cda404aff25b6603abec9e3399b', 'file': 'data/train-00000-of-00001-b42a775f407cee45.parquet'}
 THINK_OFF = '<think>\n\n</think>\n\n'
@@ -378,6 +384,47 @@ def fit_count(n_wanted, sec_per_item, seconds):
     return max(0, min(n_wanted, int(seconds / sec_per_item)))
 
 
+def retry(fn, what='', tries=4, pause=20, sleep=None):
+    """fn(), tried again after a pause (20 s, 40 s, 60 s) when it fails: a Hugging Face 5xx or a pip hiccup during
+    set-up should not cost the week. The last failure is raised."""
+    for i in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if i == tries - 1:
+                raise
+            log(f'{what or "a download"} failed ({type(e).__name__}: {str(e)[:200]}); trying again')
+            (sleep or time.sleep)(pause * (i + 1))
+
+
+# ---- precision and generation batches (Kaggle's T4: 15 GB, no native bf16) -----------------------------------
+
+def amp_for(capability):
+    """'bf16' where the GPU has it natively (compute capability 8.0 and up: A100, L4, H100); None (fp32) below it,
+    as on Kaggle's T4 (7.5) and P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
+    return 'bf16' if capability and capability[0] >= 8 else None
+
+
+# A prompt keeps at most this many tokens (cut from the left: the end, with the assistant tag, always stays). The
+# exam's tools prompts (all ten tools, the persona and the header: ~1.6k tokens) fit whole.
+PROMPT_TOKENS = 2048
+# Rows x (prompt + new tokens) in one generation batch. In fp32 Qwen3-0.6B's cache takes 28 layers x K and V x
+# 8 heads x 128 x 4 bytes = 229 KB a token, so this is about 4.6 GB: 8 rows of the longest prompts, 32 short ones.
+GEN_TOKENS = 20000
+
+
+def length_batches(lengths, max_new, budget=GEN_TOKENS, cap=32):
+    """Generation batches of row indices grouped by prompt length, longest first (a batch too big for the GPU
+    fails at once, not hours in): each holds as many rows as fit `budget` tokens at its longest, at most `cap`."""
+    order = sorted(range(len(lengths)), key=lambda i: -lengths[i])
+    out, i = [], 0
+    while i < len(order):
+        rows = max(1, min(cap, budget // (lengths[order[i]] + max_new)))
+        out.append(order[i:i + rows])
+        i += rows
+    return out
+
+
 # ---- q4f16_1 in MLC's layout (checked bit for bit against mlc-ai's published Qwen3-0.6B shards) ---------------
 
 def q4f16_1(w):
@@ -635,7 +682,7 @@ class Run:
         self.wip = f"wip/week-{self.week:04d}"
         self.token = None
         self.dev = 'cuda'
-        # bf16 where the GPU has it; else fp32 (no fp16 anywhere: Qwen3's activations can overflow it)
+        # bf16 where the GPU has it natively (amp_for); else fp32 (no fp16 anywhere: Qwen3's activations can overflow it)
         self.amp = None
         self.scale = 1.0
 
@@ -705,20 +752,22 @@ class Run:
 
     # -- set-up
     def setup(self):
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True)
+        # Every download here is tried a few times with a pause (retry): one 5xx or pip hiccup must not end the week.
+        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
+        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
         import torch
         if not torch.cuda.is_available():
             raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
         self.dev = 'cuda'
-        self.amp = torch.bfloat16 if torch.cuda.is_bf16_supported() else None
-        log('precision:', 'bf16' if self.amp else 'fp32 (this GPU has no bf16)')
+        self.amp = torch.bfloat16 if amp_for(torch.cuda.get_device_capability()) == 'bf16' else None
+        log('precision:', 'bf16' if self.amp else 'fp32 (this GPU has no native bf16)')
         # The token, once, for this week's one-time ticket (in a header: never in an address that could be logged).
-        self.token = http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token']
+        self.token = retry(lambda: http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token'], 'asking Ghosty for the token')
         from huggingface_hub import hf_hub_download, snapshot_download
         self.resume()
         c = self.cfg
-        dl = lambda f: hf_hub_download(c['data_repo'], f, repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data')
-        self.tasks = Tasks(dl('tasks.mjs'), node_cmd())
+        dl = lambda f: retry(lambda: hf_hub_download(c['data_repo'], f, repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), f'downloading {f}')
+        self.tasks = Tasks(dl('tasks.mjs'), retry(node_cmd, 'installing node'))
         with open(dl('exam.json')) as f:
             self.exam = json.load(f)
         with open(dl(c['data_file'])) as f:
@@ -741,10 +790,12 @@ class Run:
                     self.replay += [r for r in (json.loads(l) for l in fh if l.strip()) if replay_pair(r)]
             except Exception as e:
                 log(f'no {f} for replay:', e)
-        self.base_dir = snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], local_dir=f'{WORK}/base')
+        # The public base model and stock MLC files are fetched signed in too: Kaggle's machines share their
+        # addresses with many users, and anonymous downloads from them can be rate-limited.
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
         self.stock_dir = f'{WORK}/stock'
         for f in ['mlc-chat-config.json', 'tensor-cache.json', 'tokenizer.json', 'vocab.json', 'merges.txt', 'tokenizer_config.json']:
-            hf_hub_download(c['stock_mlc']['repo'], f, revision=c['stock_mlc']['rev'], local_dir=self.stock_dir)
+            retry(lambda: hf_hub_download(c['stock_mlc']['repo'], f, revision=c['stock_mlc']['rev'], token=self.token, local_dir=self.stock_dir), f'downloading {f}')
         with open(f'{self.base_dir}/config.json') as f:
             problem = config_problem(json.load(open(f'{self.stock_dir}/mlc-chat-config.json')), json.load(f))
         if problem:
@@ -788,7 +839,7 @@ class Run:
         from huggingface_hub import snapshot_download
         # the current Ghosty: the stock model plus every published week's LoRA, each at the scale it was published with
         for link in self.cfg['current'].get('chain', []):
-            p = snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain')
+            p = retry(lambda: snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain'), f"downloading {link['adapter']}")
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
             set_lora_scale(pm, float(link.get('scale', 1.0)))
             model = pm.merge_and_unload()
@@ -810,18 +861,19 @@ class Run:
 
     # -- generation
     def generate(self, prompts, n=1, temperature=0.0, max_new=384, batch=32):
-        """Answers for chat prompts (text up to the assistant turn); n samples each."""
+        """Answers for chat prompts (text up to the assistant turn); n samples each. Batches are grouped by length
+        (length_batches) so the long prompts go a few at a time and the cache fits the T4 in fp32."""
         import torch
-        outs = []
         self.model.eval()
-        flat = [p for p in prompts for _ in range(n)]
-        for i in range(0, len(flat), batch):
-            chunk = [p + THINK_OFF for p in flat[i:i + batch]]
-            enc = self.tok(chunk, return_tensors='pt', padding=True, truncation=True, max_length=1536).to(self.dev)
+        flat = [p + THINK_OFF for p in prompts for _ in range(n)]
+        lens = [len(x) for x in self.tok(flat, truncation=True, max_length=PROMPT_TOKENS)['input_ids']]
+        outs = [None] * len(flat)
+        for idx in length_batches(lens, max_new, cap=batch):
+            enc = self.tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=PROMPT_TOKENS).to(self.dev)
             with torch.no_grad(), self.autocast():
                 g = self.model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=self.tok.pad_token_id, eos_token_id=[self.tok.convert_tokens_to_ids('<|im_end|>'), self.tok.eos_token_id])
-            for row in g[:, enc['input_ids'].shape[1]:]:
-                outs.append(clean_reply(self.tok.decode(row, skip_special_tokens=False)))
+            for i, row in zip(idx, g[:, enc['input_ids'].shape[1]:]):
+                outs[i] = clean_reply(self.tok.decode(row, skip_special_tokens=False))
         return [outs[i * n:(i + 1) * n] for i in range(len(prompts))]
 
     # -- the exam
@@ -1019,7 +1071,7 @@ class Run:
         try:
             import pandas as pd
             from huggingface_hub import hf_hub_download
-            df = pd.read_parquet(hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], local_dir=f'{WORK}/general'))
+            df = pd.read_parquet(hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], token=self.token, local_dir=f'{WORK}/general'))
             df = df[df['lang'] == 'en']
             prompts = df[(df['role'] == 'prompter') & (df['parent_id'].isna())].set_index('message_id')['text']
             best = df[(df['role'] == 'assistant') & (df['rank'] == 0) & (df['parent_id'].isin(prompts.index))]
@@ -1209,10 +1261,17 @@ class Run:
         import shutil
         for f in ['mlc-chat-config.json', 'tokenizer.json', 'vocab.json', 'merges.txt', 'tokenizer_config.json']:
             shutil.copy(f'{self.stock_dir}/{f}', f'{out}/{f}')
-        api = HfApi(token=self.token)
+        self.upload_candidate(HfApi(token=self.token), out)
+
+    def upload_candidate(self, api, out):
+        """This week's adapter to the dataset repo FIRST (every later week rebuilds this brain from it), then the
+        weights to the private model repo's `candidates` branch. If the adapter does not get there, nothing is
+        published: a brain whose adapter is missing would break every later week's training."""
         repo = self.cfg['model_repo']
         if not api.repo_info(repo, repo_type='model').private:
             raise RuntimeError(f'{repo} is not private: nothing uploaded')
+        wk = f'week-{self.week:04d}'
+        retry(lambda: api.upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', folder_path=f'{WORK}/wip/adapter', path_in_repo=f'adapters/{wk}', commit_message=f'week {self.week}: adapter'), 'keeping the adapter')
         branch = self.cfg.get('candidate_branch', 'candidates')
         api.create_branch(repo, repo_type='model', branch=branch, exist_ok=True)
         info = api.upload_folder(repo_id=repo, repo_type='model', revision=branch, folder_path=out, commit_message=f'Ghosty (week {self.week}) candidate: q4f16_1 for the phone (LoRA × {self.scale})')
@@ -1238,14 +1297,17 @@ class Run:
             return [json.loads(l) for l in f if l.strip()]
 
     def keep_for_later(self):
-        """This week's adapter (for the chain) and the STaR answers (for replay) stay in the dataset repo."""
+        """The STaR answers (for replay) stay in the dataset repo (the adapter went with publish()). A failure here is
+        noted, not an error: it must not cost a brain that passed and was published."""
         from huggingface_hub import HfApi
         api = HfApi(token=self.token)
         wk = f'week-{self.week:04d}'
-        if self.report.get('published'):
-            api.upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', folder_path=f'{WORK}/wip/adapter', path_in_repo=f'adapters/{wk}', commit_message=f'week {self.week}: adapter')
         self.save_jsonl('star_replay.jsonl', self.load_jsonl('star.jsonl') + self.load_jsonl('critique.jsonl'))
-        api.upload_file(path_or_fileobj=f'{WORK}/wip/star_replay.jsonl', path_in_repo=f'star/{wk}.jsonl', repo_id=self.cfg['data_repo'], repo_type='dataset', commit_message=f'week {self.week}: STaR answers')
+        try:
+            api.upload_file(path_or_fileobj=f'{WORK}/wip/star_replay.jsonl', path_in_repo=f'star/{wk}.jsonl', repo_id=self.cfg['data_repo'], repo_type='dataset', commit_message=f'week {self.week}: STaR answers')
+        except Exception as e:
+            log('keeping the STaR answers failed:', e)
+            self.reject("this week's STaR answers could not be kept for replay")
 
     def main(self):
         try:

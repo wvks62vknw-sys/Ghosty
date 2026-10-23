@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -274,7 +275,10 @@ const KAG = 'https://api.kaggle.com/v1';
 /** Stand-ins for Kaggle's RPC API and Hugging Face's Hub API, recording every call. */
 function fakeServices(opts = {}) {
   const calls = [];
-  const state = { kernel: opts.kernel ?? 'RUNNING', statusFails: opts.statusFails ?? 0, repos: new Map(Object.entries(opts.repos ?? {})), commits: [], lfs: new Map(), pushes: [], tags: [], lfsHeaders: null, lfsBody: null };
+  const state = { kernel: opts.kernel ?? 'RUNNING', statusFails: opts.statusFails ?? 0, repos: new Map(Object.entries(opts.repos ?? {})), commits: [], lfs: new Map(), pushes: [], tags: [], lfsHeaders: null, lfsBody: null,
+    // Kaggle's weekly GPU quota (durations as Kaggle writes them), and what a finished run left behind
+    quota: opts.quota ?? { quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '7200s', totalTimeAllowed: '108000s' } },
+    output: opts.output ?? { files: [], log: '' }, outputFiles: opts.outputFiles ?? {}, tasksThere: true };
   const res = (status, body, headers = {}) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
   const role = opts.role ?? 'write';
   const f = async (input, init = {}) => {
@@ -315,6 +319,7 @@ function fakeServices(opts = {}) {
       return res(200, '');
     }
     if (url === 'https://lfs.example/verify') return res(200, {});
+    if (url === 'https://huggingface.co/datasets/owner/ghosty-training/resolve/main/tasks.mjs' && method === 'HEAD') return res(state.tasksThere && state.commits.some((c) => c.lines.some((l) => l.value?.path === 'tasks.mjs')) ? 200 : 404, '');
     m = url.match(/^https:\/\/huggingface\.co\/api\/datasets\/(.+)\/commit\/main$/);
     if (m) {
       state.commits.push({ repo: m[1], lines: String(body).split('\n').map((l) => JSON.parse(l)) });
@@ -338,6 +343,9 @@ function fakeServices(opts = {}) {
       }
       return res(200, { status: state.kernel, failureMessage: state.kernel === 'ERROR' ? 'CUDA out of memory' : '' });
     }
+    if (url === `${KAG}/kernels.KernelsApiService/GetAcceleratorQuotaStatistics`) return res(200, state.quota);
+    if (url === `${KAG}/kernels.KernelsApiService/ListKernelSessionOutput`) return state.output ? res(200, state.output) : res(500, { code: 500, message: 'output not available' });
+    if (url in state.outputFiles) return res(200, state.outputFiles[url]);
     throw new TypeError(`no network in tests: ${url}`);
   };
   return { f, calls, state };
@@ -651,7 +659,7 @@ test('Kaggle status: a few failed reads never end a running week; a run that sto
     assert.equal((await s.get('train:state')).phase, 'running', `still running after ${i + 1} failed reads`);
   }
   const ok = await C.trainTick(d.deps);
-  assert.equal(ok.note, 'Training on Kaggle…');
+  assert.match(ok.note, /^Training on Kaggle…/);
   assert.equal((await s.get('train:state')).statusErrors, 0);
   // stopped runs
   const e = cycleDeps(new MemStorage(), { svc: { kernel: 'ERROR' } });
@@ -704,6 +712,234 @@ test('ratings: changing or adding ratings while a week gathers never makes a �
   const better = d.model.asked.filter((a) => a.system === F.BETTER_SYSTEM).map((a) => a.user.match(/bad \d( again)?/)[0]);
   assert.equal(new Set(better).size, better.length, 'none asked twice');
   for (const n of [2, 3, 4, 5, 6, 7]) assert.ok(better.includes(`bad ${n}`), `bad ${n} handled`);
+});
+
+// ---- the pre-flight review's fixes (23 Oct) -------------------------------------------------------------------
+
+test('a Kaggle run that ends without a report: the week ends about 45 minutes after Kaggle says COMPLETE (not 7 hours after the push), with the reason and the end of its log from Kaggle\'s output API', async () => {
+  const s = new MemStorage();
+  const log = JSON.stringify([{ stream_name: 'stdout', time: 1, data: '19:01:02 precision: fp32 (this GPU has no native bf16)\n' }, { stream_name: 'stderr', time: 2, data: 'Traceback (most recent call last):\n' }, { stream_name: 'stderr', time: 3, data: 'urllib.error.URLError: <urlopen error [Errno -3] Temporary failure in name resolution>\n' }]);
+  const url = 'https://kaggle-output.example/ghosty_report.json?sig=1';
+  const d = cycleDeps(s, { svc: { output: { files: [{ fileName: 'ghosty_report.json', url }], log }, outputFiles: { [url]: { week: 1, before: {}, after: {}, error: 'URLError: <urlopen error [Errno -3] Temporary failure in name resolution>' } } } });
+  await stepUntil(d, 'running');
+  const pushedAt = (await s.get('train:state')).pushedAt;
+  d.svc.state.kernel = 'COMPLETE';
+  let r = await C.trainTick(d.deps);
+  assert.equal((await s.get('train:state')).phase, 'running', 'its report may still be on the way');
+  assert.ok(r.next <= 20 * 60_000, 'asked again soon');
+  for (let i = 0; i < 8 && (await s.get('train:state')).phase === 'running'; i++) {
+    d.tick(r.next);
+    r = await C.trainTick(d.deps);
+  }
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.phase, 'idle');
+  assert.ok(d.deps.now() - pushedAt <= 2 * 3600_000, `given up ${Math.round((d.deps.now() - pushedAt) / 60_000)} minutes after the push`);
+  assert.match(st.note, /finished without reporting back/);
+  assert.match(st.note, /Temporary failure in name resolution/, 'the end of its log is in the note');
+  assert.match(st.report.error, /URLError/, "the notebook's own error, from its saved report");
+  const out = d.svc.calls.find((c) => c.url.endsWith('/ListKernelSessionOutput'));
+  assert.deepEqual(JSON.parse(out.body), { userName: 'kag', kernelSlug: 'ghosty-weekly-training' });
+  const file = d.svc.calls.find((c) => c.url === url);
+  assert.equal(file.headers.Authorization, undefined, "the Kaggle key never goes to the output file's own address");
+  assert.equal(R.logTail(JSON.stringify([{ data: 'a\nb\n' }, { data: 'token hf_abcdefgh12345678 used\n' }])), 'a / b / token hf_… used', 'its lines, and never a token');
+  assert.equal(R.logTail('x'.repeat(500)).length, 301);
+  // the output cannot be read at all: the week still ends, with a plain reason
+  const e = cycleDeps(new MemStorage(), { svc: { kernel: 'COMPLETE', output: null } });
+  await stepUntil(e, 'running');
+  for (let i = 0; i < 6 && (await e.deps.storage.get('train:state')).phase === 'running'; i++) e.tick((await C.trainTick(e.deps)).next);
+  const st2 = await C.trainStatus(e.deps);
+  assert.equal(st2.phase, 'idle');
+  assert.match(st2.note, /finished without reporting back/);
+  // a COMPLETE that turns back into RUNNING (a new run started) starts the wait again
+  const f = cycleDeps(new MemStorage(), { svc: { kernel: 'COMPLETE' } });
+  await stepUntil(f, 'running');
+  await C.trainTick(f.deps);
+  f.svc.state.kernel = 'RUNNING';
+  f.tick(40 * 60_000);
+  await C.trainTick(f.deps);
+  f.svc.state.kernel = 'COMPLETE';
+  f.tick(30 * 60_000);
+  await C.trainTick(f.deps);
+  assert.equal((await f.deps.storage.get('train:state')).phase, 'running');
+});
+
+test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (phone not verified), under 10 hours left, or pay-to-scale on; the notes say how many GPU hours are left', async () => {
+  const cases = [
+    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { hasEverRun: false } }, /no GPU time.*phone number/],
+    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '75600s', totalTimeAllowed: '108000s' } }, /Only 9 of Kaggle's 30 free GPU hours are left this week \(a run needs 10\)/],
+    [{ gpuQuota: { timeUsed: '3600s', timeReserved: '68400.500s', totalTimeAllowed: '108000s' } }, /Only 9\.9 of Kaggle's 30 free GPU hours/],
+    [{ gpuQuota: { timeUsed: '0s', totalTimeAllowed: '108000s', isPayToScaleEnabled: true } }, /pay-to-scale/],
+  ];
+  for (const [quota, why] of cases) {
+    const s = new MemStorage();
+    const d = cycleDeps(s, { svc: { quota } });
+    await stepUntil(d, 'push');
+    const r = await C.trainTick(d.deps);
+    assert.match(r.note, why);
+    const st = await s.get('train:state');
+    assert.equal(st.phase, 'push', 'waiting, not given up');
+    assert.equal(st.failures ?? 0, 0, 'not counted as a failure');
+    assert.equal(d.svc.state.pushes.length, 0, 'nothing pushed');
+    assert.ok(r.next >= 30 * 60_000);
+  }
+  // once the owner has fixed it (or the hours came back): pushed
+  const s = new MemStorage();
+  const d = cycleDeps(s, { svc: { quota: { gpuQuota: {} } } });
+  await stepUntil(d, 'push');
+  await C.trainTick(d.deps);
+  d.svc.state.quota = { gpuQuota: { timeUsed: '7200s', totalTimeAllowed: '108000s' } };
+  await C.trainTick(d.deps);
+  assert.equal(d.svc.state.pushes.length, 1);
+  assert.match((await C.trainStatus(d.deps)).note, /28 of 30 free GPU hours were left this week/);
+  const q = d.svc.calls.findLast((c) => c.url.endsWith('/GetAcceleratorQuotaStatistics'));
+  assert.deepEqual(JSON.parse(q.body), {});
+  assert.ok(d.svc.calls.indexOf(q) < d.svc.calls.findIndex((c) => c.url.endsWith('/SaveKernel')), 'asked before the push');
+  d.tick(30 * 60_000);
+  assert.match((await C.trainTick(d.deps)).note, /^Training on Kaggle….*28 of 30 free GPU hours/);
+  // a refusal that lasts more than a week ends that week (the next one starts afresh)
+  const w = cycleDeps(new MemStorage(), { svc: { quota: { gpuQuota: {} } } });
+  await stepUntil(w, 'push');
+  w.tick(8 * 86_400_000);
+  await C.trainTick(w.deps);
+  const st = await C.trainStatus(w.deps);
+  assert.equal(st.phase, 'idle');
+  assert.match(st.report.error, /no GPU time/);
+});
+
+test('a run that hit a problem before its exam (a Hugging Face 5xx, pip, node) is pushed again from its checkpoint, three runs at most; then the week ends with the reason', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  const err = { before: { gym: 0.2 }, after: {}, items: {}, gate: { pass: false, why: 'not finished' }, trained: {}, rejected: [], phases: [], error: 'HfHubHTTPError: 503 Server Error: Service Unavailable' };
+  for (let run = 1; run <= 2; run++) {
+    const cfg = configOf(d.svc.state.pushes.at(-1));
+    const res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: err }) });
+    assert.equal(res.status, 200);
+    const st = await s.get('train:state');
+    assert.equal(st.phase, 'push', `run ${run}: to be started again`);
+    assert.match(st.note, /503 Server Error.*starting it again/);
+    assert.equal(await s.get('train:report'), undefined, 'the week goes on: no report kept yet');
+    assert.equal((await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: err }) })).status, 403, "that run's ticket is spent");
+    await stepUntil(d, 'running');
+    assert.notEqual(configOf(d.svc.state.pushes.at(-1)).ticket, cfg.ticket, 'a new ticket for the new run');
+  }
+  assert.equal(d.svc.state.pushes.length, 3);
+  await hookReq(d, configOf(d.svc.state.pushes.at(-1)).ticket, { method: 'POST', body: JSON.stringify({ report: err }) });
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.phase, 'idle', "the third run's error ends the week");
+  assert.match(st.report.error, /503 Server Error/);
+  assert.match(st.note, /did not finish/);
+  // an error AFTER the exam is not run again: the week ends (and nothing is promoted)
+  const e = cycleDeps(new MemStorage());
+  await stepUntil(e, 'running');
+  await hookReq(e, configOf(e.svc.state.pushes[0]).ticket, { method: 'POST', body: JSON.stringify({ report: { ...err, after: { gym: 0.3 } } }) });
+  assert.equal((await C.trainStatus(e.deps)).phase, 'idle');
+  assert.equal(e.svc.state.pushes.length, 1);
+});
+
+test('a run that reports an error is never promoted, even with a passing exam and a candidate uploaded (its adapter may never have reached Hugging Face)', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  const cfg = configOf(d.svc.state.pushes[0]);
+  const report = { before: { gym: 0.2, safety: 0.9 }, after: { gym: 0.4, safety: 0.9 }, items: { gym: 96, safety: 17 }, gate: { pass: true, why: 'better' }, trained: {}, rejected: [], phases: [], published: { repo: 'owner/ghosty-offline-brain', commit: 'a'.repeat(40) }, scale: 1, error: 'HfHubHTTPError: 500 Server Error uploading adapters/week-0001' };
+  const res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) });
+  assert.deepEqual(await res.json(), { ok: true, published: false });
+  const st = await C.trainStatus(d.deps);
+  assert.deepEqual(st.models, []);
+  assert.equal(st.active, null);
+  assert.deepEqual(d.svc.state.tags, [], 'not tagged');
+  assert.equal(st.report.gate.pass, false, 'shown as NOT KEPT');
+  assert.equal(st.report.published, undefined);
+  assert.match(st.note, /did not finish: HfHubHTTPError/);
+  assert.ok(st.report.rejected.some((r) => /reported a problem/.test(r.why)), JSON.stringify(st.report.rejected));
+});
+
+test('tasks.mjs (535 KB) goes up only when it changed since the last upload; its base64, size and hash are worked out by build.mjs, not by the brain', async () => {
+  const { TASKS_JS, TASKS_FILE } = await import('./.build/selftrain/assets-check.mjs');
+  assert.equal(TASKS_FILE.b64, Buffer.from(TASKS_JS, 'utf8').toString('base64'));
+  assert.equal(TASKS_FILE.size, Buffer.byteLength(TASKS_JS, 'utf8'));
+  assert.equal(TASKS_FILE.sha256, createHash('sha256').update(TASKS_JS, 'utf8').digest('hex'));
+  // a regular (non-LFS) file sent with its base64 worked out ahead: that base64 is what goes, and the preupload sample is its first 512 bytes
+  const svc = fakeServices();
+  await R.hfCommit(svc.f, 'tok', 'owner/ghosty-training', 'dataset', [{ path: 'big/tasks.js', content: TASKS_JS, pre: { ...TASKS_FILE, b64: TASKS_FILE.b64 } }], 'x');
+  const pre = JSON.parse(svc.calls.find((c) => c.url.endsWith('/preupload/main')).body).files[0];
+  assert.deepEqual(pre, { path: 'big/tasks.js', size: TASKS_FILE.size, sample: Buffer.from(TASKS_JS, 'utf8').subarray(0, 512).toString('base64') });
+  assert.equal(svc.state.commits[0].lines[1].value.content, TASKS_FILE.b64);
+  // the weeks
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const has = (c) => c.lines.some((l) => l.value?.path === 'tasks.mjs');
+  const nextWeek = async () => {
+    await s.put('train:state', { ...(await s.get('train:state')), phase: 'idle', nextRun: 0 });
+    await stepUntil(d, 'running');
+    return d.svc.state.commits.at(-1);
+  };
+  await stepUntil(d, 'running');
+  assert.ok(has(d.svc.state.commits[0]), 'the first week sends it');
+  let c = await nextWeek();
+  assert.ok(c.lines.some((l) => l.value?.path === 'weeks/week-0002.jsonl'));
+  assert.ok(!has(c), 'the same tasks.mjs is not sent again');
+  d.svc.state.tasksThere = false;
+  assert.ok(has(await nextWeek()), 'not in the repo any more (made again by hand?): sent');
+  d.svc.state.tasksThere = true;
+  await s.put('train:tasks', { repo: 'owner/ghosty-training', sha256: '0'.repeat(64) });
+  assert.ok(has(await nextWeek()), 'a new build of it: sent');
+  assert.ok(!has(await nextWeek()));
+});
+
+test('gathering: the free part (no model) is spread over several job steps of a few milliseconds of CPU each, with the same leak checks', async () => {
+  const s = new MemStorage();
+  const turns = [];
+  for (let i = 0; i < 200; i++) turns.push({ role: 'user', text: `How do I fix problem number ${i} with the garden hose and the outside tap?`, at: 2 * i }, { role: 'assistant', text: 'Try tightening the washer first, then replace it if it still drips. '.repeat(3), model: 'groq/llama', at: 2 * i + 1 });
+  await s.put('turns', turns);
+  const d = cycleDeps(s);
+  const cpu = [];
+  for (let i = 0; i < 20; i++) {
+    const t0 = process.cpuUsage();
+    const r = await C.trainTick(d.deps);
+    const t = process.cpuUsage(t0);
+    const st = await s.get('train:state');
+    cpu.push((t.user + t.system) / 1000);
+    d.tick(r.next);
+    if (st.done.free) break;
+  }
+  assert.ok(cpu.length >= 4, `the free part took ${cpu.length} steps`);
+  assert.ok(Math.max(...cpu.slice(1)) < 25, `CPU per step (ms): ${cpu.map((x) => x.toFixed(1)).join(', ')}`);
+  for (const k of ['gym', 'drill', 'tool', 'redteam', 'distill']) assert.ok((await F.loadRecords(s, k)).length > 0, `has ${k}`);
+  // the quicker near-copy checks give exactly the verdicts of the rule as written (similar() against every question)
+  const { REPORT_CARD_TEXTS } = await import('./.build/selftrain/assets-check.mjs');
+  const qs = E.examTexts(E.buildExam(TOOLS), 3);
+  const norm = (x) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+  const nums = (x) => new Set(x.match(/\d+/g) ?? []);
+  const card = (x) => REPORT_CARD_TEXTS.find((q) => norm(q) === norm(x) || (F.similar(x, q) >= F.EXAM_NEAR && [...nums(q)].every((n) => nums(x).has(n)))) ?? '';
+  const texts = [...qs, ...REPORT_CARD_TEXTS, ...qs.map((q) => `Please, ${q.toLowerCase()} Thanks!`), ...turns.slice(0, 60).map((t) => t.text), 'What is 17 × 24?', 'What is 17 × 23?', '', 'hello'];
+  for (const x of texts) {
+    assert.equal(F.tooClose(x, qs), qs.find((q) => F.similar(x, q) >= F.EXAM_NEAR) ?? '', x);
+    assert.equal(F.nearReportCard(x, REPORT_CARD_TEXTS), card(x), x);
+  }
+});
+
+test('gathering never sticks on the exam\'s library questions: past its day, or out of model calls, it moves on to the upload', async () => {
+  // no free model at all, a day and more
+  const s = new MemStorage();
+  const library = await ownerLibrary(s);
+  const d = cycleDeps(s, { library });
+  d.deps.ask = async () => {
+    throw new Error('no room in the background lane');
+  };
+  for (let i = 0; i < 10; i++) d.tick((await C.trainTick(d.deps)).next);
+  assert.equal((await s.get('train:state')).phase, 'collect');
+  d.tick(25 * 3600_000);
+  await stepUntil(d, 'upload', 4);
+  assert.equal((await s.get('train:state')).done.examLibrary, true);
+  // the week's model calls used up (failed calls count too)
+  const s2 = new MemStorage();
+  const e = cycleDeps(s2, { library: await ownerLibrary(s2) });
+  e.deps.ask = d.deps.ask;
+  await C.trainTick(e.deps);
+  await s2.put('train:state', { ...(await s2.get('train:state')), calls: F.WEEKLY_CALLS });
+  await stepUntil(e, 'upload', 12);
 });
 
 // ---- through the bundled brain ----------------------------------------------------------------------------------
