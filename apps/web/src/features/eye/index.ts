@@ -6,7 +6,7 @@
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { flyTo } from '../../commands/builtin';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, fmt, h, icon } from '../../core/dom';
 import { events, launches, quakes, type Launch, type NaturalEvent, type Quake } from '../../data/hazards';
 import { GEO } from '../../engine/geo';
 import { gfx } from '../../engine/gfx';
@@ -146,7 +146,7 @@ export const eyeTab: TabDef = {
     let shipTimer = 0;
 
     // ---------- top: search + sensor modes ----------
-    const q = h('input', { placeholder: 'Search place, flight, ship, satellite…', autocomplete: 'off', 'aria-label': 'Search the globe' });
+    const q = h('input', { placeholder: 'Search place, flight, ship, satellite…', autocomplete: 'off', enterKeyHint: 'search', 'aria-label': 'Search the globe' });
     const search = async () => {
       const s = q.value.trim();
       if (!s) return;
@@ -658,6 +658,10 @@ export const eyeTab: TabDef = {
     // in place and rewritten every frame (an empty line hides itself, styles.css: .readout span:empty).
     const readout = h('div.readout');
     const rLines = [h('span.r1'), h('span.r2'), h('span.r3'), h('span.r4')] as const;
+    // line 1: the numbers, then the place in the accent (route C); one text node each, rewritten in place
+    const r1n = document.createTextNode('');
+    const r1p = h('b');
+    rLines[0].append(r1n, r1p);
     readout.append(...rLines);
     /** The spot under the crosshair (named by the nearest city) for Street View and the live traffic map. */
     const centre = () => {
@@ -729,33 +733,54 @@ export const eyeTab: TabDef = {
 
     // ---------- the bar: what to open about this spot, and how to move the view ----------
     const tiltBtn = button('TILT', () => (globe.cam.target.tilt = globe.cam.target.tilt > 5 ? 0 : 55));
+    // Route C: THIS SPOT names the place under the crosshair, each button wears a glyph over its label.
+    const spotName = h('em.bplace');
+    const G: Record<string, string> = {
+      MAP: '<path d="M3.5 6.5l5-2 7 2.5 5-2v13l-5 2-7-2.5-5 2z"/><path d="M8.5 4.5V17M15.5 7v12.5"/>',
+      '3D': '<path d="M12 3.5l7.5 4.2v8.6L12 20.5l-7.5-4.2V7.7z"/><path d="M4.5 7.7L12 12l7.5-4.3M12 12v8.5"/>',
+      'STREET VIEW': '<circle cx="12" cy="4.8" r="1.8"/><path d="M9.5 10.2a2.5 2.5 0 015 0V14h-1.3l-.7 6h-1l-.7-6H9.5z"/>',
+      TRAFFIC: '<rect x="8" y="2.5" width="8" height="19" rx="4"/><circle cx="12" cy="7" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="17" r="1.6"/>',
+      GO: '<circle cx="6.5" cy="6.5" r="2.2"/><circle cx="17.5" cy="17.5" r="2.2"/><path d="M8.7 6.5h7.3a3 3 0 010 6H8a3 3 0 000 6h7.3"/>',
+      'ROAD AHEAD': '<path d="M12 3.5l7 16.5-7-4-7 4z"/>',
+      LOOK: '<circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>',
+      HOME: '<path d="M4.5 11L12 4.5l7.5 6.5V19a1.5 1.5 0 01-1.5 1.5h-3.5V15h-5v5.5H6A1.5 1.5 0 014.5 19z"/>',
+      NORTH: '<circle cx="12" cy="12" r="8.5"/><path d="M12 6.5l2.6 7H9.4z"/><path d="M9.4 13.5L12 17.5l2.6-4" opacity=".5"/>',
+      TILT: '<path d="M3.5 18.5h17L16 8H8z"/><path d="M9.5 13.5h5"/>',
+    };
+    const glyphed = (b: HTMLButtonElement) => {
+      const t = (b.textContent ?? '').trim();
+      if (!G[t]) return b;
+      b.prepend(h('span.bic', icon(G[t]!)));
+      b.dataset.label = t === '3D' ? '3D' : t === 'GO' ? 'Go' : t.charAt(0) + t.slice(1).toLowerCase().replace('view', 'View');
+      return b;
+    };
     const btns = h(
       'div.btns',
       h(
         'div.bgroup',
-        h('small.bcap', 'THIS SPOT'),
-        button('MAP', () => openMapSheet('map', centre())),
-        button('3D', () => openMapSheet('3d', centre())),
-        button('STREET VIEW', () => void openStreetView(centre())),
-        button('TRAFFIC', () => openMapSheet('traffic', centre())),
-        button('GO', () => {
+        h('small.bcap', h('span', 'THIS SPOT'), spotName),
+        glyphed(button('MAP', () => openMapSheet('map', centre()))),
+        glyphed(button('3D', () => openMapSheet('3d', centre()))),
+        glyphed(button('STREET VIEW', () => void openStreetView(centre()))),
+        glyphed(button('TRAFFIC', () => openMapSheet('traffic', centre()))),
+        glyphed(button('GO', () => {
           // The journey planner; the spot under the crosshair is the destination when the view is close enough to mean one.
           const c = centre();
           const close = globe.cam.range <= 12;
           void import('../../ui/journeysheet').then((m) => m.openJourneyPlanner(close ? { to: `${c.lat.toFixed(5)},${c.lon.toFixed(5)}`, toName: 'the spot under the crosshair' } : {}));
-        }),
-        raBtn,
+        })),
+        glyphed(raBtn),
       ),
       h(
         'div.bgroup',
         h('small.bcap', 'VIEW'),
-        lookBtn,
-        button('HOME', () => {
+        glyphed(lookBtn),
+        glyphed(button('HOME', () => {
           const L = home();
           globe.cam.flyTo({ lat: L.lat, lon: L.lon, range: 300, tilt: 0, hd: 0 });
-        }),
-        button('NORTH', () => (globe.cam.target.hd = 0)),
-        tiltBtn,
+        })),
+        glyphed(button('NORTH', () => (globe.cam.target.hd = 0))),
+        glyphed(tiltBtn),
       ),
     );
 
@@ -773,8 +798,44 @@ export const eyeTab: TabDef = {
     const zLabel = h('small');
     const rail = h('div.zoomrail', zIn, zLabel, zOut);
 
+    // ---------- route C: the layers button and three quick layers with their live counts ----------
+    const LAYERS_GLYPH = '<path d="M12 3.5l8.5 4.5L12 12.5 3.5 8z"/><path d="M3.5 12L12 16.5 20.5 12M3.5 16L12 20.5 20.5 16"/>';
+    const layBtn = h('button.lchip.ico', { type: 'button', 'aria-label': 'All layers', 'aria-expanded': 'false', dataset: { case: 'keep' } }, icon(LAYERS_GLYPH));
+    layBtn.addEventListener('click', () => {
+      lay.el.classList.toggle('min');
+      layBtn.setAttribute('aria-expanded', String(!lay.el.classList.contains('min')));
+    });
+    const QUICK: [keyof LayerVisibility, string, string, () => string, boolean][] = [
+      ['air', 'Aircraft', '<path d="M12 3c.9 0 1.4.8 1.4 1.9v5.2l7.1 4.2v1.8l-7.1-2.1v4.4l2 1.6v1.5L12 20.6l-3.4.9V20l2-1.6V14l-7.1 2.1v-1.8l7.1-4.2V4.9C10.6 3.8 11.1 3 12 3z"/>', () => (air.list.size ? fmt.n(air.list.size) : ''), false],
+      ['incidents', 'Incidents', '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.2v.1"/>', () => (incidents.list.size ? fmt.n(incidents.list.size) : ''), true],
+      ['radar', 'Radar', '<path d="M7 15.5h10a4 4 0 00.6-7.95A5.5 5.5 0 006.9 7.2 4.2 4.2 0 007 15.5z"/><path d="M8.5 18.5l-1 2M12.5 18.5l-1 2M16.5 18.5l-1 2"/>', () => '', false],
+    ];
+    const quick = QUICK.map(([k, label, glyph, count, warn]) => {
+      const c = h('span.c');
+      const b = h(`button.lchip${warn ? '.warn' : ''}` as 'button', { type: 'button', 'aria-pressed': 'false', dataset: { case: 'keep', layer: k } }, icon(glyph), h('span', label), c);
+      // the same switch as the layer's tile in LAYERS (so both always agree)
+      b.addEventListener('click', () => {
+        tiles[tileFor.get(k)!]?.click();
+        paintChips();
+      });
+      return { k, b, c, count };
+    });
+    const paintChips = () => {
+      for (const x of quick) {
+        const on = globe.vis[x.k];
+        if (x.b.classList.contains('on') !== on) {
+          x.b.classList.toggle('on', on);
+          x.b.setAttribute('aria-pressed', String(on));
+        }
+        const n = on ? x.count() : '';
+        if (x.c.textContent !== n) x.c.textContent = n;
+      }
+      layBtn.setAttribute('aria-expanded', String(!lay.el.classList.contains('min')));
+    };
+    const eyeChips = h('div.eyechips', layBtn, ...quick.map((x) => x.b));
+
     const labels = h('div.labels');
-    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())));
+    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips);
     root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
 
     // ---------- gestures on the 3D canvas ----------
@@ -999,13 +1060,19 @@ export const eyeTab: TabDef = {
       const near = World.near(g.lat, g.lon, 2e5);
       const alt = c.cs?.alt ?? c.range;
       const mk = (n: number) => (n < 1 ? `${(n * 1000).toFixed(0)} m` : n < 100 ? `${n.toFixed(1)} km` : `${fmt.n(n)} km`);
+      const place = near && near.km < 400 ? near.city.name.toUpperCase() : '';
+      const nums = `${g.lat.toFixed(3)}° ${g.lon.toFixed(3).replace('-', '−')}°  `;
+      if (r1n.data !== nums) r1n.data = nums;
+      if (r1p.textContent !== place) r1p.textContent = place;
+      if (spotName.textContent !== (near && near.km < 400 ? near.city.name : '')) spotName.textContent = near && near.km < 400 ? near.city.name : '';
+      paintChips();
       const lines = [
-        `${g.lat.toFixed(3)}° ${g.lon.toFixed(3)}°  ${near && near.km < 400 ? near.city.name.toUpperCase() : ''}`,
+        '',
         `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
         `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM${transit.list.size ? ` · ${transit.list.size} BUS` : ''}${incidents.list.size ? ` · ${incidents.list.size} INC` : ''} · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
         imagery.credit,
       ];
-      rLines.forEach((el, i) => el.textContent !== lines[i] && (el.textContent = lines[i]!));
+      rLines.forEach((el, i) => i && el.textContent !== lines[i] && (el.textContent = lines[i]!));
       tiltBtn.classList.toggle('on', c.tilt > 5);
       // Start a feed only once its layer is switched on (big downloads stay optional).
       const want: [keyof LayerVisibility, { start(): unknown }][] = [['radar', radarFrames], ['alerts', alerts], ['disasters', disasters], ['aurora', aurora], ['dispatch', dispatch], ['buoys', buoys], ['cables', cables]];

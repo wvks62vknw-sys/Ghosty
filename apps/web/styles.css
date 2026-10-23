@@ -2803,4 +2803,78 @@ html[data-look="pro"] .hud.core .convo .msg .csrc::after { content: ''; grid-col
 html[data-look="pro"] .hud.core .convo .msg.cited { display: flex; flex-direction: column; }
 html[data-look="pro"] .hud.core .convo .msg > .rcacts { order: 10; }
 
+/* ---------- God's Eye bar (features/eye/index.ts; mockups/c/eye.png). The globe itself is untouched. ---------- */
+.eyechips, .bic, .bplace { display: none; }
+/* the navigation bar steps aside: the back button sits beside the search field over the globe */
+html[data-look="pro"] body[data-tab="eye"] #top { position: absolute; z-index: 12; left: 0; top: env(safe-area-inset-top, 0px); padding: 8px 0 0 16px; min-height: 0; }
+html[data-look="pro"] body[data-tab="eye"] #top :is(.navtitle, .cmd, .you, .sp) { display: none !important; }
+html[data-look="pro"] body[data-tab="eye"] #top .navback { background: rgba(28,31,35,.6) !important; }
+html[data-look="pro"] .hud.eye { padding: 8px 16px 6px; gap: 0; }
+html[data-look="pro"] body[data-depth="inner"] .hud.eye .eyetop { padding-left: 54px; }
+html[data-look="pro"] .eyetop { gap: 10px; }
+html[data-look="pro"] .eyetop .search { position: relative; width: 100%; height: 44px; padding: 0 16px 0 42px; border-radius: 22px; background: rgba(28,31,35,.6); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.07); -webkit-backdrop-filter: blur(26px) saturate(1.7); backdrop-filter: blur(26px) saturate(1.7); }
+html[data-look="pro"] .eyetop .search::before { content: ''; position: absolute; left: 14px; top: 12.5px; width: 19px; height: 19px; background: var(--ink3); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L21 21'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5L21 21'/%3E%3C/svg%3E") center / contain no-repeat; }
+html[data-look="pro"] .eyetop .search input { flex: 1; min-width: 0; height: 44px; min-height: 44px; padding: 0; font: 400 16px var(--sf); letter-spacing: -.2px; color: var(--ink); background: none !important; box-shadow: none !important; }
+html[data-look="pro"] .eyetop .search input::placeholder { color: var(--ink3); }
+html[data-look="pro"] .eyetop .search > button { display: none; }
+html[data-look="pro"] .eyetop .search:focus-within > button { display: block; align-self: center; height: 32px; min-height: 32px !important; padding: 0 12px; margin-right: -8px; font-size: 14px; }
+/* the layers button and three quick layers: live in the accent, warnings in amber */
+html[data-look="pro"] .eyechips { display: flex; gap: 8px; margin: -4px 0 -4px -54px; overflow-x: auto; scrollbar-width: none; padding: 6px 0 6px; pointer-events: auto; }
+html[data-look="pro"] .eyechips::-webkit-scrollbar { display: none; }
+html[data-look="pro"] .lchip { text-transform: none; position: relative; display: inline-flex; align-items: center; gap: 6px; flex: none; height: 34px; min-height: 34px !important; padding: 0 12px 0 10px; border-radius: 17px; font: 600 13px var(--sf) !important; letter-spacing: -.04px; white-space: nowrap; color: var(--ink2); background: rgba(28,31,35,.58) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.09) !important; -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+html[data-look="pro"] .lchip::after { content: ''; position: absolute; inset: -5px 0; }
+html[data-look="pro"] .lchip .ic { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] .lchip .c { font-weight: 500; color: var(--ink3); font-variant-numeric: tabular-nums; }
+html[data-look="pro"] .lchip .c:empty { display: none; }
+html[data-look="pro"] .lchip.ico { width: 44px; justify-content: center; padding: 0; }
+html[data-look="pro"] .lchip.on { color: var(--ink); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .34) !important; }
+html[data-look="pro"] .lchip.on .ic { color: var(--c); } html[data-look="pro"] .lchip.on .c { color: color-mix(in srgb, var(--c) 60%, #fff); }
+html[data-look="pro"] .lchip.warn.on { background: rgba(var(--amberr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--amberr), .34) !important; }
+html[data-look="pro"] .lchip.warn.on :is(.ic, .c) { color: var(--amber); }
+html[data-look="pro"] .lchip.ico[aria-expanded="true"] { color: var(--c); background: rgba(var(--cr), .13) !important; }
+/* the full list of layers opens from that button; folded away it takes no room */
+/* on a phone the folded url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l8.5 4.5L12 12.5 3.5 8z'/%3E%3Cpath d='M3.5 12L12 16.5 20.5 12M3.5 16L12 20.5 20.5 16'/%3E%3C/svg%3E") center / contain no-repeat panel is the layers button itself, first in the chip row (it opens the sheet of every layer) */
+@media (max-width: 899px) {
+  html[data-look="pro"] .eyechips .lchip.ico { visibility: hidden; }
+  html[data-look="pro"] .eyelay.min { display: block; position: absolute; z-index: 5; left: 0; top: -36px; right: auto; bottom: auto; width: 44px; height: 34px; padding: 0; overflow: visible; border-radius: 17px; background: rgba(28,31,35,.58); box-shadow: inset 0 0 0 1px rgba(255,255,255,.09); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+  html[data-look="pro"] .eyelay.min > h3 { position: relative; display: flex; align-items: center; justify-content: center; width: 44px; height: 34px; min-height: 0; padding: 0; font-size: 0; cursor: pointer; }
+  html[data-look="pro"] .eyelay.min > h3 > * { display: none; }
+  html[data-look="pro"] .eyelay.min > h3::after { content: ''; width: 18px; height: 18px; font-size: 0; background: var(--ink2); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l8.5 4.5L12 12.5 3.5 8z'/%3E%3Cpath d='M3.5 12L12 16.5 20.5 12M3.5 16L12 20.5 20.5 16'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l8.5 4.5L12 12.5 3.5 8z'/%3E%3Cpath d='M3.5 12L12 16.5 20.5 12M3.5 16L12 20.5 20.5 16'/%3E%3C/svg%3E") center / contain no-repeat; }
+  html[data-look="pro"] .eyelay.min > h3::before { display: block; content: ''; position: absolute; inset: -5px 0; background: none; height: auto; }
+}
+/* zoom: a glass rail with the range between + and − */
+html[data-look="pro"] .zoomrail { right: 0; gap: 0; width: 44px; border-radius: 22px; background: rgba(28,31,35,.58); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px); }
+html[data-look="pro"] .zoomrail button { width: 44px; height: 44px; min-height: 44px !important; border-radius: 22px; font: 300 26px/1 var(--sf); color: var(--ink); background: none !important; box-shadow: none; }
+html[data-look="pro"] .zoomrail small { width: 100%; padding: 5px 2px; border-radius: 0; font: 600 10px/12px var(--sf); color: var(--ink2); background: none; border-top: 1px solid var(--hair); border-bottom: 1px solid var(--hair); white-space: normal; word-spacing: 100vw; font-variant-numeric: tabular-nums; }
+/* the readout: tracked tabular capitals, the place in the accent */
+html[data-look="pro"] .eyebot { gap: 12px; z-index: 6; }
+html[data-look="pro"] .eyebot .readout span { overflow: hidden; text-overflow: ellipsis; }
+html[data-look="pro"] .eyebot .readout { padding: 0 4px; font: 500 11px/16px var(--sf); letter-spacing: .04em; text-transform: uppercase; color: rgba(235,240,245,.78); background: none; border-radius: 0; text-shadow: 0 1px 6px rgba(0,0,0,.9); white-space: nowrap; font-variant-numeric: tabular-nums; }
+html[data-look="pro"] .eyebot .readout .r1 b { color: color-mix(in srgb, var(--c) 60%, #fff); font-weight: 600; }
+html[data-look="pro"] .eyebot .readout .r3 { display: block; }
+html[data-look="pro"] .eyebot .readout .r3:empty, html[data-look="pro"] .eyebot .readout .r4:empty { display: none; }
+html[data-look="pro"] .eyebot .readout .r4 { font-size: 9.5px; color: var(--ink3); text-transform: none; letter-spacing: 0; }
+/* THIS SPOT and VIEW: one glass card */
+html[data-look="pro"] .eyebot .btns { display: block; padding: 12px; border-radius: 26px; background: rgba(24,27,31,.62); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.07), 0 20px 50px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+html[data-look="pro"] .eyebot .bgroup { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html[data-look="pro"] .eyebot .bgroup .bcap { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
+html[data-look="pro"] .eyebot .bgroup .bcap .bplace { display: block; font: 500 11px/13px var(--sf); font-style: normal; letter-spacing: .02em; text-transform: none; color: var(--ink2); }
+html[data-look="pro"] .eyebot .bgroup:first-child .bcap { margin-bottom: 10px; }
+html[data-look="pro"] .eyebot .bgroup:first-child button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; height: auto; min-height: 66px !important; padding: 0; border-radius: 14px; background: none !important; box-shadow: none !important; color: var(--ink); }
+html[data-look="pro"] .eyebot .bgroup:first-child button .bic { display: grid; place-items: center; order: -1; width: 46px; height: 46px; border-radius: 23px; background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--hair); transition: transform var(--rcsp) var(--spring); }
+html[data-look="pro"] .eyebot .bgroup:first-child button:active .bic { transform: scale(.92); }
+html[data-look="pro"] .eyebot .bgroup:first-child button.on .bic { color: var(--c); background: rgba(var(--cr), .14); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); }
+html[data-look="pro"] .eyebot .bgroup:first-child button[data-label]::before { --lfs: 11px; font-weight: 500; line-height: 13px; white-space: nowrap; letter-spacing: 0; }
+html[data-look="pro"] .eyebot .bic .ic { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+html[data-look="pro"] .eyebot .bgroup + .bgroup { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); }
+html[data-look="pro"] .eyebot .bgroup + .bgroup .bcap { flex: none; width: 54px; padding: 0 6px; }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button { position: relative; flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; height: 32px; min-height: 32px !important; padding: 0 6px; border-radius: 16px; background: rgba(255,255,255,.06) !important; box-shadow: none !important; color: var(--ink); }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button::after { content: ''; position: absolute; inset: -6px 0; }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button .bic { display: block; order: -1; line-height: 0; }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button .bic .ic { width: 15px; height: 15px; color: var(--ink2); }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button[data-label]::before { --lfs: 13px; font-weight: 500; white-space: nowrap; }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button.on { background: rgba(var(--cr), .14) !important; color: var(--c); }
+@media (max-width: 409px) { html[data-look="pro"] .lchip:not(.ico) .ic { display: none; } html[data-look="pro"] .lchip:not(.ico) { padding: 0 12px; } }
+@media (max-width: 400px) { html[data-look="pro"] .eyebot .bgroup + .bgroup .bcap { display: none; } html[data-look="pro"] .eyebot .bgroup:first-child button[data-label]::before { --lfs: 10px; } }
+
 /* end route C */
