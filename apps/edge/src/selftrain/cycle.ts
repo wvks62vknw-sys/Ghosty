@@ -7,7 +7,9 @@
  *  - collect: the data factory (factory.ts) — puzzle references, tool calls, chat distillation and red team (no
  *    model; one piece per job step, so no step uses more than a few milliseconds of CPU), then a few model calls
  *    at a time in the background lane (Evol-Instruct, library Q&A, better replies for 👎) every few minutes until
- *    the week's share is gathered or a day has passed;
+ *    the week's share is gathered or a day has passed; beside them, with calls of their own (VOICE_CALLS), the
+ *    voice: the style set and the rewrites of AI-sounding replies, each kept only when the detector and a blind
+ *    judge both say it sounds like a person (voiceStep; its queue waiting for the judge is kept, so it resumes);
  *  - upload: the week's JSONL, the exam and the GYM's task program (only when it changed since the last upload)
  *    to the owner's PRIVATE Hugging Face dataset repo, in one commit (why Hugging Face and not a Kaggle dataset:
  *    one documented commit call from a Worker, every week's file kept with its history for the replay mix, and
@@ -50,6 +52,7 @@ import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from 
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
   addRecords,
+  askShapes,
   betterPrompt,
   BETTER_SYSTEM,
   chatToolRecords,
@@ -64,6 +67,8 @@ import {
   failureRecords,
   gymTasks,
   jsonIn,
+  judgePrompt,
+  judgeVerdicts,
   libraryRecords,
   LIBRARY_SYSTEM,
   loadRecords,
@@ -73,13 +78,26 @@ import {
   redteamRecords,
   REDTEAM_SYSTEM,
   RED_TEAM,
+  REWRITE_SYSTEM,
+  rewriteItems,
+  rewritePrompt,
+  rewriteProblem,
+  rewriteRecord,
+  rewritesIn,
+  styleCandidates,
+  styleRecord,
   syntheticToolRecords,
   tooClose,
   nearReportCard,
+  VOICE_CALLS,
+  VOICE_JUDGE_SYSTEM,
+  VOICE_SYSTEM,
+  voicePrompt,
   WEEKLY,
   WEEKLY_CALLS,
   type CtxMsg,
   type Rating,
+  type RewriteItem,
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { revokeCap, weightsCap } from './weights';
@@ -109,7 +127,13 @@ const REPORT_GRACE = 45 * 60_000;
 /** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
 const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
 
-const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school'];
+/** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs). */
+const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite'];
+/** The voice's model calls per job step (its own, besides CALLS_PER_TICK), and how many go in one writer, rewriter or judge call. */
+const VOICE_PER_TICK = 4;
+const VOICE_BATCH = 8;
+const REWRITE_BATCH = 4;
+const JUDGE_BATCH = 8;
 
 /** A kept model as the brain keeps it: plus the LoRA chain that rebuilds it (for the next week's training). */
 export interface KeptModel extends PublishedModel {
@@ -127,7 +151,7 @@ export interface State {
   note: string;
   /** Model calls made this week, and how far each kind of gathering got. */
   calls: number;
-  done: { free?: boolean; freePart?: number; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefIds?: number[]; library?: number; evol?: number; redteam?: number };
+  done: { free?: boolean; freePart?: number; examLibrary?: boolean; examTarget?: number; examKeys?: string[]; prefIds?: number[]; library?: number; evol?: number; redteam?: number; voice?: VoiceDone };
   /** The ratings that went into this week's data (only these are marked used when it ends). */
   ratingIds?: number[];
   /** This week's data has the owner's library, chats or ratings in it. */
@@ -151,6 +175,22 @@ export interface State {
   hfUser?: string;
   /** The chain this week trains on (so the report adds to the right one). */
   base?: { label: string; chain: KeptModel['chain'] };
+}
+
+/** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
+type Queued = { ask: string; reply: string; item?: RewriteItem };
+
+/**
+ * How far the voice got this week: its model calls, writer batches, the judge's queue, the replies rewritten (ids), and
+ * the chat replies the detector already found to sound like a person (`fine`: each is read once a week, not every step).
+ */
+interface VoiceDone {
+  calls: number;
+  batches: number;
+  queue: Queued[];
+  ids: string[];
+  fine?: string[];
+  finished?: boolean;
 }
 
 const K = {
@@ -515,8 +555,12 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
     else await noteRejected(s, 'red-team rewordings that were unusable or too close to an exam question');
     st.done.redteam = i + 1;
   }
+  // 6. the voice (its own calls): rewrites of AI-sounding replies and the style set, both through the blind judge
+  if (!noModel) noModel = await voiceStep(d, st, priv, leak, deadline);
   const finished = (st.done.evol ?? 0) >= seeds.length && (st.done.redteam ?? 0) >= WEEKLY.redteamEvol && ((st.done.library ?? 0) >= lib.length || (await countOf(s, 'library')) >= WEEKLY.library);
-  if (finished || st.calls >= WEEKLY_CALLS || now - st.startedAt > COLLECT_FOR) {
+  // (the voice is waited for too, unless the week's other calls ran out or the day is over: then it goes with what it has)
+  if ((finished && st.done.voice?.finished) || st.calls >= WEEKLY_CALLS || now - st.startedAt > COLLECT_FOR) {
+    await noteRejected(s, 'voice: left unjudged when gathering ended', st.done.voice?.queue.length ?? 0);
     st.phase = 'upload';
     return { next: 60_000, note: `Gathered this week's lessons (${st.calls} questions to the online AIs). Uploading them to your private Hugging Face space.` };
   }
@@ -525,6 +569,122 @@ async function collect(d: CycleDeps, st: State, now: number): Promise<{ next: nu
 
 async function countOf(s: DurableObjectStorage, kind: string): Promise<number> {
   return (await loadRecords(s, kind)).length;
+}
+
+const askKey = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * The voice's part of a gathering step (OWNER-ISSUES 12), with model calls of its own (VOICE_PER_TICK a step,
+ * VOICE_CALLS a week): first the rewrites (the owner's 👎, then this week's replies the detector calls AI-sounding;
+ * only with MY LIBRARY & CHATS on), then the style set (written for the shapes of this week's asks, never their
+ * words), every candidate the detector passed queued for the blind judge, a batch at a time. A PERSON verdict keeps
+ * it (at most WEEKLY.voice style examples and WEEKLY.voicePref pairs); anything else is counted as left out. The
+ * queue, the batches and the replies already rewritten are in the state, so the next step carries on. Returns
+ * true when no model answered.
+ */
+async function voiceStep(d: CycleDeps, st: State, priv: boolean, leak: (t: string) => string, deadline: number): Promise<boolean> {
+  const s = d.storage;
+  const v = (st.done.voice ??= { calls: 0, batches: 0, queue: [], ids: [] });
+  if (v.finished) return false;
+  let calls = 0;
+  const room = () => calls < VOICE_PER_TICK && v.calls < VOICE_CALLS && nowOf(d) < deadline;
+  const call = async (system: string, user: string): Promise<string | null> => {
+    calls++;
+    v.calls++;
+    try {
+      return await d.ask(system, user);
+    } catch {
+      return null;
+    }
+  };
+  const kept = await loadRecords(s, 'voice');
+  let style = kept.length;
+  let prefs = await countOf(s, 'rewrite');
+  const asks = new Set([...kept.map((r) => askKey(r.messages?.[1]?.content ?? '')), ...v.queue.map((q) => askKey(q.ask))]);
+  const since = st.startedAt - WEEK;
+  const turns = priv ? ((await s.get<{ role: 'user' | 'assistant'; text: string; at?: number; vehicle?: boolean }[]>('turns')) ?? []) : [];
+  const skip = new Set([...v.ids, ...(v.fine ?? [])]);
+  const todo = priv ? rewriteItems(await loadRatings(s), turns, since, skip) : [];
+  if (priv) {
+    // The replies of this week the detector passed: remembered, so the next step does not read them again.
+    const ai = new Set(todo.map((x) => x.id));
+    v.fine = [...(v.fine ?? []), ...turns.filter((t) => t.role === 'assistant' && (t.at ?? 0) >= since && !skip.has(`t${t.at}`) && !ai.has(`t${t.at}`)).map((t) => `t${t.at}`)].slice(-300);
+  }
+  // Only the shapes of his asks this week (a few words each, and how many) reach the writer: never what he wrote.
+  const shapes = askShapes(turns.filter((t) => t.role === 'user' && (t.at ?? 0) >= since).map((t) => t.text));
+  let noModel = false;
+  while (room()) {
+    const wantPref = todo.length > 0 && prefs + v.queue.filter((q) => q.item).length < WEEKLY.voicePref;
+    const wantStyle = style + v.queue.filter((q) => !q.item).length < WEEKLY.voice;
+    const lastCall = VOICE_CALLS - v.calls <= 1;
+    if (v.queue.length && (v.queue.length >= JUDGE_BATCH || lastCall || (!wantPref && !wantStyle))) {
+      const batch = v.queue.slice(0, JUDGE_BATCH);
+      const reply = await call(VOICE_JUDGE_SYSTEM, judgePrompt(batch.map((x) => ({ ask: x.ask, reply: x.reply }))));
+      if (reply === null) {
+        noModel = true;
+        break;
+      }
+      const person = judgeVerdicts(reply, batch.length);
+      v.queue = v.queue.slice(batch.length);
+      let ai = 0;
+      for (const [i, x] of batch.entries()) {
+        if (!person[i]) ai++;
+        else if (x.item && prefs < WEEKLY.voicePref) {
+          prefs += await addRecords(s, 'rewrite', [rewriteRecord(x.item, x.reply)]);
+          // a 👎 whose pair went into the week is used up when it ends, like one the better reply used
+          if (x.item.rating !== undefined) st.ratingIds = [...(st.ratingIds ?? []), x.item.rating];
+        } else if (!x.item && style < WEEKLY.voice) style += await addRecords(s, 'voice', [styleRecord(x)]);
+      }
+      await noteRejected(s, 'voice: replies the blind judge took for an AI', ai);
+      continue;
+    }
+    if (wantPref && !lastCall) {
+      const batch = todo.splice(0, REWRITE_BATCH);
+      const reply = await call(REWRITE_SYSTEM, rewritePrompt(batch));
+      if (reply === null) {
+        noModel = true;
+        break;
+      }
+      v.ids.push(...batch.map((x) => x.id));
+      const got = rewritesIn(reply, batch.length);
+      for (const [i, it] of batch.entries()) {
+        const why = leak(it.question) ? 'too close to an exam question' : rewriteProblem(it, got[i]!);
+        if (why) await noteRejected(s, `voice: rewrites left out (${why})`);
+        else v.queue.push({ ask: it.question, reply: got[i]!, item: it });
+      }
+      continue;
+    }
+    if (wantStyle && !lastCall) {
+      const reply = await call(VOICE_SYSTEM, voicePrompt(shapes, VOICE_BATCH, v.batches++));
+      if (reply === null) {
+        noModel = true;
+        break;
+      }
+      const { ok, dropped } = styleCandidates(reply);
+      let near = 0;
+      for (const x of ok) {
+        const k = askKey(x.ask);
+        if (asks.has(k) || leak(x.ask)) near++;
+        else {
+          asks.add(k);
+          v.queue.push(x);
+        }
+      }
+      await noteRejected(s, 'voice: style examples that sounded like an AI', dropped);
+      await noteRejected(s, 'voice: style examples repeated, or too close to an exam question', near);
+      continue;
+    }
+    break;
+  }
+  if (v.calls >= VOICE_CALLS) {
+    // The week's voice calls are used up: what still waits for the judge is left out.
+    await noteRejected(s, "voice: left unjudged (the week's calls ran out)", v.queue.length);
+    v.queue = [];
+  }
+  // Done: nothing waits for the judge, and the calls are used up (one left is no use with nothing to judge) or both are full.
+  const spent = VOICE_CALLS - v.calls <= (v.queue.length ? 0 : 1);
+  v.finished = !v.queue.length && (spent || ((!todo.length || prefs >= WEEKLY.voicePref) && style >= WEEKLY.voice));
+  return noModel;
 }
 
 // ---- upload and push ----------------------------------------------------------------------------------------
