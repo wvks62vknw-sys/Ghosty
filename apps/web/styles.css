@@ -2996,4 +2996,15 @@ html[data-look="pro"] .listmode .keepcard .rw .k { color: var(--ink2); }
 html[data-look="pro"] .listmode .keepcard .rw .v { color: var(--ink); }
 html[data-look="pro"] .listmode .keepcard .rw .k[data-label] { --lfs: 15px; }
 
+/* ---------- WHAT'S NEW (features/workshop, state/whatsnew.ts) and the way back to an old look (Settings → Look) ---------- */
+.wnrow { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--line2); }
+.wnrow:last-of-type { border-bottom: 0; }
+.wnrow b { font-weight: 600; }
+.wnrow span { color: var(--mute); }
+html[data-look="pro"] .whatsnew .wnrow { padding: 10px 0; border-bottom: 1px solid var(--hair); }
+html[data-look="pro"] .whatsnew .wnrow b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html[data-look="pro"] .whatsnew .wnrow span { font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink2); }
+.lookback { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--cr), .08); }
+html[data-look="pro"] .lookback { border-radius: 20px; background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); }
+html[data-look="pro"] .lookback button { align-self: flex-start; }
 /* end route C */
