@@ -1284,6 +1284,81 @@ test('the two routes: POST /school/sit-remote sets the paper through /school/sit
   assert.deepEqual(g.body.gap, {});
 });
 
+test('GET /school carries the paper on the free GPU, files a finished one on its own (no second call), and shows the gap per subject and what is being practised', async () => {
+  const now = Date.UTC(2026, 9, 20, 9);
+  const h = host({ now: () => now });
+  let v = await route(h, '/school', 'GET');
+  assert.equal(v.status, 200);
+  assert.equal(v.body.remote?.phase, 'idle', 'the run is on the page from the start');
+  assert.deepEqual(v.body.gap, {});
+  assert.equal(v.body.practice, null, 'nothing practised yet');
+  const r = await route(h, '/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.remote.phase, 'queued');
+  assert.match(v.body.remote.note, /^Starting Nursery talking and listening on the free GPU/);
+  // the notebook reports (the hook): marked there, waiting to be filed; only GET /school is asked afterwards
+  const rec = await ST.loadPaper({ storage: h.storage }, r.body.remote.paperId);
+  const answers = rec.paper.items.map((it) => ({ id: it.id, given: rightReply(it) }));
+  assert.deepEqual(await RM.acceptRemoteReport({ storage: h.storage, ask: fairMarker, now: () => now }, await RM.loadRemote(h.storage), { paperId: rec.paper.id, answers }), { ok: true });
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.remote.phase, 'idle');
+  assert.match(v.body.remote.note, /^Sat Nursery talking and listening on the free GPU: \d+\/\d+/);
+  assert.equal(v.body.remote.last.paperId, rec.paper.id);
+  const filed = v.body.state.results.find((x) => x.paperId === rec.paper.id);
+  assert.ok(filed, 'filed into the record by GET /school itself');
+  assert.equal(filed.where, 'kaggle');
+  assert.equal(v.body.current.subjects.find((s) => s.id === 'talk').latest.paperId, rec.paper.id);
+  assert.equal((await RM.loadRemote(h.storage)).unfiled, undefined, 'filed once');
+  // the honest gap: the online model sits it; GET /school files its marks and shows the line per subject
+  const online = async (system, user) => (system === MK.MARKER_SYSTEM ? fairMarker(system, user) : 'Answer: zzzz');
+  for (let i = 0, g = { more: true }; g.more && i < 60; i++) g = await RM.gapTick({ storage: h.storage, ask: online, now: () => now });
+  v = await route(h, '/school', 'GET');
+  const res = v.body.state.results.find((x) => x.paperId === rec.paper.id);
+  assert.ok(res.online, 'the online model\'s marks are filed');
+  assert.equal(v.body.gap.talk.line, S.gapLine(res));
+  assert.match(v.body.gap.talk.line, /^offline \d+\/\d+ · online \d+\/\d+$/);
+  // what is being practised, from the practice the brain keeps
+  const item = { type: 'number', q: 'What is 2 + 2?', answer: '4', worked: 'Answer: 4' };
+  await h.storage.put(PR.practiceKey('nursery', 'numbers', 'counting'), { stage: 'nursery', subject: 'numbers', topic: 'counting', items: [item, item, item], checking: [], asked: 1, rejected: { disagree: 0, malformed: 0, nearPaper: 0 }, updatedAt: now - 3600_000 });
+  await h.storage.put(PR.practiceKey('nursery', 'letters', 'sounds'), { stage: 'nursery', subject: 'letters', topic: 'sounds', items: [item], checking: [], asked: 1, rejected: { disagree: 0, malformed: 0, nearPaper: 0 }, updatedAt: now - 10 * 86_400_000 });
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.practice.line, 'practising: 2 weak spots · 3 items checked this week');
+});
+
+test('the tools know the banks and official papers: school_status says where each paper comes from and the gap, never "not written yet" for a stage that can be sat; sit_exam names the free GPU', async () => {
+  const model = bankModel();
+  const h = host({ write: model.ask, now: () => Date.UTC(2026, 9, 20, 9) });
+  const [status, sitExam] = X.schoolTools;
+  const ctx = { storage: h.storage, env: {} };
+  // Key Stage 3 maths from its finished bank: sittable; the other Key Stage 3 subjects are not written yet
+  assert.match(await sitExam.run({ stage: 'ks3', subject: 'maths' }, ctx), /not written yet: on the SCHOOL tab, WRITE THE PAPERS/);
+  let w = await route(h, '/school/bank/write', 'POST', { stage: 'ks3', subject: 'maths' });
+  for (let i = 0; i < 200 && w.body.busy; i++) w = await route(h, '/school/work', 'POST');
+  const one = await sitExam.run({ stage: 'ks3', subject: 'maths' }, ctx);
+  assert.doesNotMatch(one, /not written yet/);
+  assert.match(one, /SIT next to Maths for Key Stage 3/);
+  assert.match(one, /SIT ON THE FREE GPU.*Kaggle's free GPU in about 10 minutes, with no phone time/);
+  assert.match(await sitExam.run({ stage: 'ks3' }, ctx), /Not written yet: english, science/);
+  assert.match(await sitExam.run({ stage: 'nursery' }, ctx), /SIT ON THE FREE GPU/);
+  // his stage is Key Stage 3 now, with a maths paper sat and the online model's marks on it
+  const sat = await sit(h, 'ks3', 'maths', wrongReply);
+  assert.equal(sat.status, 200);
+  const st = await ST.loadState({ storage: h.storage });
+  st.stage = 'ks3';
+  st.results[0].online = { raw: st.results[0].max - 1, grade: 'x', model: RM.ONLINE_LABEL, at: Date.UTC(2026, 9, 20, 9) };
+  await ST.saveState({ storage: h.storage }, st);
+  const text = await status.run({}, ctx);
+  assert.doesNotMatch(text, /Papers for this stage are not written yet/);
+  assert.match(text, /Not written yet: english, science/);
+  assert.match(text, new RegExp(`The gap with the strongest free online model on the same paper: Maths offline ${st.results[0].raw}/${st.results[0].max} · online ${st.results[0].max - 1}/${st.results[0].max}\\.`));
+  // every subject from somewhere: each one's source, and nothing "not written yet"
+  const h2 = host();
+  const text2 = await status.run({}, { storage: h2.storage, env: {} });
+  assert.match(text2, /Papers: every subject written by Ghosty\./);
+  assert.doesNotMatch(text2, /not written yet/);
+});
+
 test('the exam prompt: the shared one (sent to Kaggle and to the online model) is the phone\'s own, word for word', async () => {
   // sit.ts with its browser-only imports stubbed: only examPrompt is used
   await build({

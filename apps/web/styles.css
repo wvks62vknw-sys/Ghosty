@@ -3161,6 +3161,17 @@ a.schlink { display: inline-flex; align-items: center; justify-content: center; 
 [data-look="pro"] .schborrowwhy, [data-look="pro"] .schreadlist small { font-size: 12.5px; color: var(--l2); }
 [data-look="pro"] a.schlink { border-radius: 14px; font: 600 15px var(--sf); letter-spacing: -.01em; text-transform: none; color: var(--acc); }
 [data-look="pro"] .schlast { border-radius: 14px; background: var(--thin); }
+/* the free GPU (FREE GPU / SIT ON THE FREE GPU), the honest gap, the practice line */
+.schsubbtns { flex: 0 0 auto; display: flex; gap: 6px; }
+.schsubbtns button[hidden] { display: none; }
+.schgap { font-size: 11.5px; color: var(--c); overflow-wrap: anywhere; }
+.schgpunote { font-size: 12px; overflow-wrap: anywhere; }
+small.schgpunote { color: var(--c); }
+.schgpunote.live { color: var(--c); }
+.schgpuwhy { margin-top: 6px; }
+.schpractice { margin: 6px 0 2px; font: 500 13px var(--b); color: var(--c); overflow-wrap: anywhere; }
+[data-look="pro"] .schgap, [data-look="pro"] small.schgpunote { font-size: 12.5px; color: var(--acc); }
+[data-look="pro"] .schpractice { font-size: 15px; font-weight: 600; color: var(--fg); }
 /* end SCHOOL */
 
 /* hero: mind — Home's 3-D centrepiece in the calm looks (features/core/mind.ts). Its WebGL canvas lies exactly over

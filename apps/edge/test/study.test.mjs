@@ -67,6 +67,8 @@ globalThis.fetch = async (input) => {
 
 const first = S.DOMAINS[0];
 const second = S.DOMAINS[1] ?? S.DOMAINS[0];
+/** A field's first topic that is read (OpenStax pages are link-only: passed over). */
+const firstRead = (d) => d.topics.find((t) => t.k !== 'openstax');
 
 test("a study session reads the next topics into the domain's notebook and logs them; re-reading replaces, not duplicates", async () => {
   const st = new MemStorage();
@@ -325,7 +327,7 @@ test("the owner's focus domains come first; matchDomains understands plain words
   const lib = new Library(st, {});
   st.m.set(S.STUDY_KEY, { focus: [second.id] });
   const r = await S.studySession(st, lib, { reads: 1 });
-  assert.equal(r.state.last.topic, second.topics[0].t);
+  assert.equal(r.state.last.topic, firstRead(second).t);
   const sum = S.studySummary(r.state);
   const row = sum.domains.find((d) => d.id === second.id);
   assert.equal(row.read, 1);
@@ -490,7 +492,7 @@ test('one field at a time: every piece of the field being read before the next, 
   back.focus = [second.id];
   await st.put(S.STUDY_KEY, back);
   const r3 = await S.studySession(st, lib, { reads: 1 });
-  assert.equal(r3.state.last.topic, second.topics[0].t, 'asked again: read again from its start');
+  assert.equal(r3.state.last.topic, firstRead(second).t, 'asked again: read again from its start');
   assert.equal(r3.state.finished[second.id], undefined);
 });
 
@@ -570,7 +572,7 @@ test('STUDY ALL: with nothing queued it queues the next unfinished field itself;
   await st.put(S.STUDY_KEY, prior);
   assert.deepEqual((await S.loadStudy(st)).queue, [second.id], 'the next unfinished field');
   const r = await S.studySession(st, lib, { reads: 1 });
-  assert.equal(r.state.last.topic, second.topics[0].t);
+  assert.equal(r.state.last.topic, firstRead(second).t);
   // off: the Library tab sends the switch as FOCUS words, as the route stores them
   assert.deepEqual(S.matchDomains(`${S.ALL_OFF}, ${second.id}`), [S.ALL_OFF, second.id]);
   assert.deepEqual(S.matchDomains('study all off'), [S.ALL_OFF]);
@@ -715,4 +717,39 @@ test('the status line is honest: "Reading <field> · x of y · about … left at
   const r = await S.studySession(st, lib, { reads: 3, now });
   assert.match(S.studySummary(r.state, now).status, / · 215 of 480 · /);
   assert.equal(S.studySummary({ ...r.state, on: false }, now).status, 'Self-study is switched off');
+});
+
+test('OpenStax is link-only now (its licence forbids ingestion into AI models): its topics are skipped with the reason logged once, never counted as failures, and a field with only OpenStax left finishes', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const now = Date.UTC(2026, 9, 20, 9);
+  assert.equal(await S.findSource('/books/introduction-computer-science/pages/3-1-introduction', 'openstax'), null, 'no source to read');
+  // a field read to the end of its own list, with only OpenStax pages left (its outline's topics, looked at this week)
+  const d = S.DOMAINS.find((x) => x.topics.some((t) => t.k === 'openstax'));
+  assert.ok(d, 'the curriculum names OpenStax pages');
+  await st.put(`study:more:${d.id}`, '1|openstax|/books/introduction-computer-science/pages/3-1-a\n2|openstax|/books/introduction-computer-science/pages/3-2-b\n');
+  const week = String(Math.floor(now / (7 * 86_400_000)));
+  st.m.set(S.STUDY_KEY, { ...(await S.loadStudy(st)), queue: [d.id], focus: [d.id], asked: [d.id], all: false, cursor: { [d.id]: d.topics.length }, grown: { [d.id]: { n: 2, wk: week, added: 2, found: 2, at: now } } });
+  const n0 = seen.length;
+  const r = await S.studySession(st, lib, { reads: 1, now });
+  assert.ok(!seen.slice(n0).some((h) => h.startsWith('openstax.org')), 'nothing fetched from OpenStax');
+  assert.equal(r.did.reads, 0);
+  assert.ok(r.state.finished[d.id], 'the field finished: link-only topics never hold it back');
+  assert.equal(r.state.domains[d.id]?.failed ?? 0, 0, 'not counted as failures');
+  assert.deepEqual(r.state.licence.skipped, { [d.id]: 2 });
+  assert.ok(!lib.doc(`read_${d.id}`), 'nothing of OpenStax in the library');
+  const logged = () => lib.passagesOf('notes_study').passages.filter((p) => /^Skipped for licence: OpenStax/.test(p.heading));
+  assert.equal(logged().length, 1);
+  assert.match(logged()[0].text, /OpenStax: licence allows reading, not ingestion; linked in LEARN/);
+  assert.match(S.studySummary(r.state, now).status, /2 OpenStax pages skipped for licence \(linked in LEARN\)/);
+  // the curriculum's own OpenStax pages: skipped too (they use none of the session's reads), the reason not logged again
+  const k = d.topics.findIndex((t, i) => t.k === 'openstax' && d.topics.slice(i).some((x) => x.k !== 'openstax'));
+  let run = 0;
+  while (d.topics[k + run].k === 'openstax') run++;
+  st.m.set(S.STUDY_KEY, { ...(await S.loadStudy(st)), queue: [d.id], focus: [d.id], asked: [d.id], finished: {}, cursor: { [d.id]: k } });
+  const r2 = await S.studySession(st, lib, { reads: 1, now });
+  assert.equal(r2.state.licence.skipped[d.id], 2 + run);
+  assert.equal(r2.did.reads, 1, 'the session\'s one read went on the next readable topic');
+  assert.equal(r2.state.last.topic, d.topics[k + run].t);
+  assert.equal(logged().length, 1, 'the reason is logged once');
 });

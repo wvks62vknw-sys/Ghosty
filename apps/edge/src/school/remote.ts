@@ -208,10 +208,14 @@ export async function remoteStatus(d: Store & { now?: () => number }, lock: Lock
   await fileRemote(d, lock);
   const r = await loadRemote(d.storage);
   const st = await loadState(d);
-  const bySubject: Record<string, { stage: StageId; subject: string; line: string; paperId: string; at: number }> = {};
   const gaps = st.results.filter((x) => x.online);
-  for (const x of gaps) if (x.stage === st.stage && !bySubject[x.subject]) bySubject[x.subject] = { stage: x.stage, subject: x.subject, line: gapOf(x), paperId: x.paperId, at: x.at };
-  return json({ remote: remoteView(r, now), gap: bySubject, gaps: gaps.slice(0, 20).map((x) => ({ paperId: x.paperId, title: x.title, stage: x.stage, subject: x.subject, at: x.at, where: x.where, line: gapOf(x) })) });
+  return json({ remote: remoteView(r, now), gap: gapBySubject(st), gaps: gaps.slice(0, 20).map((x) => ({ paperId: x.paperId, title: x.title, stage: x.stage, subject: x.subject, at: x.at, where: x.where, line: gapOf(x) })) });
+}
+/** The gap per subject of his current stage: the newest paper the online model has sat too (GET /school and /school/remote). */
+export function gapBySubject(st: { stage: StageId; results: PaperResult[] }): Record<string, { stage: StageId; subject: string; line: string; paperId: string; at: number }> {
+  const out: Record<string, { stage: StageId; subject: string; line: string; paperId: string; at: number }> = {};
+  for (const x of st.results) if (x.online && x.stage === st.stage && !out[x.subject]) out[x.subject] = { stage: x.stage, subject: x.subject, line: gapOf(x), paperId: x.paperId, at: x.at };
+  return out;
 }
 const gapOf = (x: PaperResult) => `offline ${x.raw}/${x.max} · online ${x.online!.raw}/${x.max}`;
 
