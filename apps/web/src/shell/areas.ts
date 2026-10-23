@@ -7,11 +7,14 @@
  * The classic looks keep the old dock and never see any of this.
  */
 import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
-import { clear, h, icon } from '../core/dom';
+import { clear, fmt, h, icon } from '../core/dom';
+import { brain, ownerKey } from '../api/brain';
+import { BUILD } from '../state/build';
+import { statusDials } from '../ui/statusdials';
 import { settings, ui } from '../state/app';
 import { THEMES } from '../state/theme';
 import { go, tabs, type TabDef } from './tabs';
-import { niceCase } from '../ui/components';
+import { listRow, niceCase } from '../ui/components';
 
 export interface Area {
   id: string;
@@ -168,14 +171,23 @@ addPaletteDecor({
     recents.slice(0, 4).map(def).filter((t): t is TabDef => !!t && !t.hub).map((t) => ({ id: `tab_${t.id}`, title: toolName(t), group: 'RECENT', run: () => void navTo(t.id, 'push') })),
 });
 
-// ---------- the "Me" sheet: the avatar's menu (iOS's account sheet)
+// ---------- the "Me" sheet: the avatar's menu (iOS's account sheet); route C (mockups/c/settings.png):
+// you, then the Status card first (three dials and four lines, all read from the brain and this phone),
+// then the screens as grouped rows, then which build this is.
 const ME_ROWS: [string, string, string][] = [
   ['memory', 'Memory', 'What I know about you'],
   ['settings', 'Settings', 'Look, voice, home and about'],
   ['system', 'System', 'Keys, models, storage and backups'],
 ];
 const DECK_GLYPH = '<rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/>';
+const MEMORY_GLYPH = '<path d="M12 4.5c-1.2-1.3-3.6-1.4-4.8.1-1.3-.1-2.6 1-2.5 2.5C3.4 7.8 3 9.6 4 10.8c-.9 1.2-.6 3 .7 3.7-.2 1.6 1 3 2.6 2.9.6 1.5 2.6 2.1 3.9 1.1.3.1.5.1.8 0V4.5z"/><path d="M12 4.5c1.2-1.3 3.6-1.4 4.8.1 1.3-.1 2.6 1 2.5 2.5 1.3.7 1.7 2.5.7 3.7.9 1.2.6 3-.7 3.7.2 1.6-1 3-2.6 2.9-.6 1.5-2.6 2.1-3.9 1.1"/>';
+const SETTINGS_GLYPH = '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>';
+const SYSTEM_GLYPH = '<rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/><path d="M9.5 3.5v3M14.5 3.5v3M9.5 17.5v3M14.5 17.5v3M3.5 9.5h3M3.5 14.5h3M17.5 9.5h3M17.5 14.5h3"/>';
+const LINKS_GLYPH = '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1.2-1.2"/>';
+const GLYPHS: Record<string, string> = { memory: MEMORY_GLYPH, settings: SETTINGS_GLYPH, system: SYSTEM_GLYPH, links: LINKS_GLYPH, deck: DECK_GLYPH };
 let sheet: HTMLElement | null = null;
+/** What the Me sheet shows, for specs (window.__ghosty.me): the order of its parts and the dials' readings. */
+export const meState = { parts: [] as string[], dials: {} as Record<string, string>, ok: '' };
 export function openMe(openDeck: () => void): void {
   sheet?.remove();
   const s = settings.get();
@@ -188,27 +200,70 @@ export function openMe(openDeck: () => void): void {
     removeEventListener('keydown', esc);
   };
   const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();
-  const row = (id: string, label: string, sub: string, glyph: string, run: () => void) =>
-    h('button.merow', { type: 'button', dataset: { id }, onclick: () => {
+  const row = (id: string, label: string, sub: string, run: () => void) => {
+    const r = listRow({ id, glyph: GLYPHS[id] ?? def(id)?.icon ?? '', title: label, sub, onClick: () => {
       close();
       run();
-    } }, squircle(id, glyph), h('span.mertxt', h('b', label), h('small', sub)), h('i.chev', { 'aria-hidden': 'true' }));
+    } });
+    r.classList.add('merow');
+    return r;
+  };
+  // ---- Status: three dials (free AI today, the database today, the offline brain) and four lines
+  const okLine = h('span.meok', { dataset: { tone: 'idle' } }, h('i'), h('span', 'Checking…'));
+  const dials = statusDials();
+  const lines = { ghosty: h('span.v', '…'), self: h('span.v', '…'), phone: h('span.v', ownerKey.get() ? 'Paired with your owner key' : 'Signed in with Cloudflare Access'), version: h('span.v', '…') };
+  const status = h('section.rccard.mestatus', { dataset: { part: 'status' } },
+    h('div.mesth', h('b', 'Status'), okLine),
+    dials.el,
+    h('div.merows',
+      h('div.mer', h('span.k', 'Ghosty'), lines.ghosty),
+      h('div.mer', h('span.k', 'Self-edit'), lines.self),
+      h('div.mer', h('span.k', 'This phone'), lines.phone),
+      h('div.mer', h('span.k', 'Version'), lines.version),
+    ),
+  );
+  const build = h('p.mebuild', `Ghosty ${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at)).replace(/^(\d+)m ago$/, '$1 minutes ago').replace(/^(\d+)h ago$/, '$1 hours ago').replace(/^(\d+)d ago$/, '$1 days ago')}` : ''}`);
   const box = h('div.mebox', { role: 'dialog', 'aria-label': 'Me' },
-    h('div.mehead',
+    h('i.megrab', { 'aria-hidden': 'true' }),
+    h('div.mehead', { dataset: { part: 'head' } },
       h('span.meav', (s.name.trim()[0] ?? 'B').toUpperCase()),
       h('span.mertxt', h('b', { dataset: { case: 'keep' } }, s.name), h('small', `${THEMES[s.theme]?.label ?? 'Ghosty'} · ${s.units === 'metric' ? '°C, km' : '°F, miles'}`)),
       h('button.meclose', { type: 'button', 'aria-label': 'Close', onclick: close }, icon('<path d="M7 7l10 10M17 7L7 17"/>')),
     ),
-    h('div.megroup', ...ME_ROWS.map(([id, label, sub]) => row(id, label, sub, def(id)?.icon ?? '', () => navTo(id, 'push')))),
-    h('div.megroup',
-      row('links', 'Links', 'Email, Spotify and your phone', def('links')?.icon ?? '', () => navTo('links', 'push')),
-      row('deck', 'Every screen', 'All of Ghosty at once', DECK_GLYPH, openDeck),
+    status,
+    h('div.megroup.rcgroup', { dataset: { part: 'screens' } }, ...ME_ROWS.map(([id, label, sub]) => row(id, label, sub, () => navTo(id, 'push')))),
+    h('div.megroup.rcgroup', { dataset: { part: 'more' } },
+      row('links', 'Links', 'Email, Spotify and your phone', () => navTo('links', 'push')),
+      row('deck', 'Every screen', 'All of Ghosty at once', openDeck),
     ),
+    build,
   );
   sheet = h('div#mesheet', box);
   sheet.addEventListener('click', (e) => e.target === sheet && close());
   addEventListener('keydown', esc);
   document.body.append(sheet);
+  meState.parts = [...box.querySelectorAll<HTMLElement>('[data-part]')].map((x) => x.dataset.part!);
+  meState.dials = {};
+  // ---- the readings (each says when it has none)
+  void (async () => {
+    const st = await brain.status().catch(() => null);
+    const tones = await dials.paint(st);
+    meState.dials = dials.read();
+    lines.ghosty.replaceChildren(...(st ? [h('i'), 'Connected'] : ['Can’t be reached right now']));
+    lines.ghosty.dataset.tone = st ? 'live' : 'warn';
+    lines.self.textContent = st?.repoReady ? 'On' : st ? 'Off' : '—';
+    let newer = false;
+    if (st && /^[0-9a-f]{40}$/.test(BUILD.sha)) {
+      const c = await brain.changes().catch(() => null);
+      const latest = c?.versions[0];
+      newer = !!latest && latest.sha !== BUILD.sha && Date.parse(latest.date) > Date.parse(BUILD.at || '0');
+      lines.version.textContent = !c ? 'Can’t check now' : newer ? 'A newer version is ready' : 'Up to date';
+    } else lines.version.textContent = /^[0-9a-f]{7,40}$/.test(BUILD.sha) ? 'Can’t check now' : 'Local build';
+    const ok = !!st && !tones.includes('warn') && !newer;
+    okLine.dataset.tone = ok ? 'live' : 'warn';
+    (okLine.lastChild as HTMLElement).textContent = !st ? 'Brain offline' : ok ? 'All good' : 'Needs a look';
+    meState.ok = (okLine.lastChild as HTMLElement).textContent ?? '';
+  })();
 }
 
 /** The calm looks' tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */

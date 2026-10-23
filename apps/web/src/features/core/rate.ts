@@ -9,7 +9,7 @@
 import { brain } from '../../api/brain';
 import { chat, type Entry } from '../../assistant/session';
 import { createStore } from '../../core/store';
-import { h } from '../../core/dom';
+import { h, icon } from '../../core/dom';
 import { toast } from '../../ui/components';
 import { replyId, withRating } from './ratelist';
 
@@ -42,6 +42,9 @@ function setRated(id: number, v: 1 | -1 | undefined): void {
   ratings.set({ list: withRating(Array.isArray(ratings.get().list) ? ratings.get().list : [], id, v) });
 }
 
+/** 👍 as a line glyph (👎 is the same glyph turned over, styles.css .rateb .down). */
+const THUMB = '<path d="M7.5 10.5v9H4.5v-9z"/><path d="M7.5 10.5l3.6-6.3a1.6 1.6 0 012.9 1.1l-.6 4.2h5a1.8 1.8 0 011.8 2.1l-1.1 6.2a2.2 2.2 0 01-2.2 1.7H7.5"/>';
+
 export function rateRow(e: Reply): HTMLElement {
   const id = replyId(e.text.trim());
   const now = ratedOf(e);
@@ -59,8 +62,9 @@ export function rateRow(e: Reply): HTMLElement {
         toast("Couldn't send that rating (no connection to the brain). Try again later.", 'warn');
       });
   };
-  const up = h('button.rateb', { type: 'button', 'aria-label': 'Good reply', 'aria-pressed': String(now === 1) }, '👍');
-  const down = h('button.rateb', { type: 'button', 'aria-label': 'Bad reply', 'aria-pressed': String(now === -1) }, '👎');
+  // line glyphs (route C's reply card), the same buttons in every look
+  const up = h('button.rateb', { type: 'button', 'aria-label': 'Good reply', title: 'Good reply', 'aria-pressed': String(now === 1) }, icon(THUMB));
+  const down = h('button.rateb', { type: 'button', 'aria-label': 'Bad reply', title: 'Bad reply', 'aria-pressed': String(now === -1) }, icon(THUMB, 'ic down'));
   // (In the caption a tap anywhere else dismisses it: these taps are the buttons' own.)
   up.addEventListener('click', (ev) => {
     ev.stopPropagation();
