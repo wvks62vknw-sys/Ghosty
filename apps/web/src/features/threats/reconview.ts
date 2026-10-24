@@ -28,13 +28,16 @@ const none = (a: string[], max?: number): string => (a.length ? join(a, max) : '
 const isIp = (s: string): boolean => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) || (s.includes(':') && /^[0-9a-f:]+$/i.test(s));
 const day = (ts: string): string => (ts.length >= 8 ? `${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}` : ts || 'unknown');
 
+/** A null MX ("0 ."): the domain takes no email. (A report from before `noMail` was kept has one empty exchanger.) */
+const takesNoMail = (e: DnsInfo['email']): boolean => e.noMail ?? (e.mx.length > 0 && e.mx.every((m) => !m.trim()));
+
 function dnsRows(d: DnsInfo): ViewRow[] {
   const of = (t: string) => d.records.filter((r) => r.type === t).map((r) => r.data);
   const rows: ViewRow[] = [];
   if (isIp(d.name)) return [{ k: 'PTR', v: none(of('PTR')) }];
   for (const t of ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'CAA'] as const) {
     const v = of(t);
-    if (v.length || t === 'A') rows.push({ k: t, v: d.failed.includes(t) ? 'not answered' : none(v, 6) });
+    if (v.length || t === 'A') rows.push({ k: t, v: d.failed.includes(t) ? 'not answered' : t === 'MX' && takesNoMail(d.email) ? 'none: it takes no email (null MX)' : none(v, 6) });
   }
   const txt = of('TXT');
   if (txt.length) rows.push({ k: 'TXT', v: join(txt.map((x) => `"${x}"`), 3) });
@@ -42,8 +45,8 @@ function dnsRows(d: DnsInfo): ViewRow[] {
   const weak = !e.spf || !e.dmarc || e.dmarcPolicy === 'none';
   rows.push({
     k: 'EMAIL',
-    v: `${e.mx.length ? `mail via ${join(e.mx, 3)}` : 'no mail exchangers'} · ${e.spf ? 'SPF present' : 'no SPF'} · ${e.dmarc ? `DMARC p=${e.dmarcPolicy ?? 'not set'}` : d.failed.includes('DMARC') ? 'DMARC not answered' : 'no DMARC'}`,
-    ...(e.mx.length && weak ? { n: 'WEAK', tone: 'bad' as const } : {}),
+    v: `${takesNoMail(e) ? 'takes no email' : e.mx.length ? `mail via ${join(e.mx, 3)}` : 'no mail exchangers'} · ${e.spf ? 'SPF present' : 'no SPF'} · ${e.dmarc ? `DMARC p=${e.dmarcPolicy ?? 'not set'}` : d.failed.includes('DMARC') ? 'DMARC not answered' : 'no DMARC'}`,
+    ...(e.mx.length && weak && !takesNoMail(e) ? { n: 'WEAK', tone: 'bad' as const } : {}),
   });
   return rows;
 }

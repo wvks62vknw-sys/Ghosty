@@ -12,4 +12,5 @@
 
 `threats-recon.json`: the brain's real answer to `GET /api/recon?target=example.com` on 24 Oct 2026 (public DNS,
 RDAP, certificate, archive and hosting records of IANA's example domain), served instead of a live run to
-`tests/threats.spec.mjs`. It keeps example.com's null MX ("0 ."), its six missing headers and its 13 open ports.
+`tests/threats.spec.mjs`. It keeps example.com's null MX ("0 .", `noMail: true`), its six missing headers and its 13
+open ports.
