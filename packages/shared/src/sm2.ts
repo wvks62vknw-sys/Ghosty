@@ -61,6 +61,33 @@ export function nextText(s: Sm2State, r: Rating, at: number): string {
   return `${Math.round((d / 365) * 10) / 10} yr`;
 }
 
+/**
+ * The confidence meter (SURE / THINK SO / GUESSING, tapped before an answer is revealed) as an SM-2
+ * quality: right and sure 5, right and thought so 4, right but guessed 3; wrong when sure 1 (a
+ * confident mistake is the one to fix first), wrong otherwise 2.
+ */
+export type Confidence = 'sure' | 'think' | 'guess';
+export function confidenceGrade(correct: boolean, conf: Confidence): number {
+  if (correct) return conf === 'sure' ? 5 : conf === 'think' ? 4 : 3;
+  return conf === 'sure' ? 1 : 2;
+}
+
+/**
+ * The card an answer makes, as SM-2 state, or null when none is wanted. Wrong: a card to revise
+ * now, its ease set by the confidence's quality (sure and wrong, quality 1, lowers it most, so every
+ * later interval is shorter: due sooner); with no confidence given, a fresh card as before. Right
+ * but guessed: still a card, reviewed once at quality 3 (back tomorrow). Right and sure or
+ * thought so: no card.
+ */
+export function answerCard(correct: boolean, conf: Confidence | undefined, now: number): Sm2State | null {
+  if (!conf) return correct ? null : freshCard(now);
+  const q = confidenceGrade(correct, conf);
+  if (correct && q > 3) return null;
+  const s = sm2(freshCard(now), q, now);
+  // A wrong answer's card is there to revise straight away, not in 10 minutes; nothing was forgotten yet.
+  return q < 3 ? { ...s, due: now, lapses: 0 } : s;
+}
+
 export const isDue = (s: Pick<Sm2State, 'due'>, now: number) => s.due <= now;
 
 /** The calendar day of a moment in a time zone, as YYYY-MM-DD (the streak counts days, not 24-hour spans). */
