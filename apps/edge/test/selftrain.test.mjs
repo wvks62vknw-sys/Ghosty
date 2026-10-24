@@ -1426,3 +1426,110 @@ test('a SCHOOL paper on the free GPU is refused, with a plain note, below 2 free
   assert.match((await SRM.loadRemote(s2)).note, /^Waiting: the weekly training is on the free GPU/);
   assert.equal(d2.svc.state.pushes.length, 1);
 });
+
+// ---- a bigger brain: the training follows the base chosen on the phone ---------------------------------------
+
+test('the base chosen on the phone: the week\'s settings carry it (the original, the MLC build and its quantisation, the exam\'s budgets by its context) exactly as the notebook\'s shared cases read them; Qwen3.5 4B waits, saying why', async () => {
+  // the shared cases (training/kaggle/fixtures.json `bases`): the notebook's base_of and budgets_for read these very settings
+  for (const b of S.BRAIN_BASES) assert.deepEqual(C.baseConfig(b), FIX.bases.find((x) => x.id === b.id).config, b.id);
+  assert.deepEqual(S.BRAIN_BASES.map((b) => [b.id, S.examBudgets(b)]), [['qwen3-0.6b', { prompt: 2048, gen: 20000 }], ['qwen3.5-2b', { prompt: 4096, gen: 40000 }], ['qwen3.5-4b', { prompt: 4096, gen: 40000 }]]);
+  assert.deepEqual(S.BRAIN_BASES.map((b) => b.trainable), FIX.bases.map((x) => x.trainsOnT4), 'trainable as the notebook works it out from the parameters');
+  // the phone pins the same builds (apps/web/src/offline/models.ts)
+  for (const b of S.BRAIN_BASES) {
+    const m = M.stockOf(b.id);
+    assert.equal(`${m.repo}@${m.rev}`, `${b.mlc.repo}@${b.mlc.rev}`, b.id);
+  }
+  // a week with the 2B chosen: the notebook is told to train the 2B, with its budgets
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const post = (path, body = {}) => C.trainingRoute(new Request('https://x/api' + path, { method: 'POST', body: JSON.stringify(body) }), path, 'POST', d.deps);
+  assert.equal((await post('/training/base', { base: 'llama-70b' })).status, 400);
+  const st = await (await post('/training/base', { base: 'qwen3.5-2b' })).json();
+  assert.equal(st.base, 'qwen3.5-2b');
+  await stepUntil(d, 'running');
+  const cfg = configOf(d.svc.state.pushes[0]);
+  assert.deepEqual({ base: cfg.base, base_model: cfg.base_model, stock_mlc: cfg.stock_mlc, budgets: cfg.budgets }, FIX.bases[1].config);
+  assert.deepEqual(cfg.current, { label: 'stock Qwen3.5 2B', chain: [] }, 'a fresh chain from the stock 2B');
+  assert.equal((await s.get('train:state')).baseId, 'qwen3.5-2b');
+  // the 4B: too big to train on the free T4 — the week waits with the reason and what to choose (nothing pushed)
+  const s4 = new MemStorage();
+  const d4 = cycleDeps(s4);
+  await C.trainingRoute(new Request('https://x/api/training/base', { method: 'POST', body: '{"base":"qwen3.5-4b"}' }), '/training/base', 'POST', d4.deps);
+  await stepUntil(d4, 'push');
+  const r = await C.trainTick(d4.deps);
+  assert.match(r.note, /^The weekly training is waiting: Qwen3\.5 4B is the brain chosen in SETTINGS → OFFLINE BRAIN, and it is too big to train on Kaggle's free GPU \(about 17 GB in full precision; the free card has 15 GB\)\. Choose Qwen3\.5 2B or Qwen3 0\.6B there and the training carries on\.$/);
+  assert.equal(d4.svc.state.pushes.length, 0);
+  assert.equal((await s4.get('train:state')).phase, 'push');
+  // nor can it sit a SCHOOL paper on the free GPU: refused before anything is uploaded, the phone named instead
+  const s5 = new MemStorage();
+  const d5 = cycleDeps(s5);
+  await C.trainingRoute(new Request('https://x/api/training/base', { method: 'POST', body: '{"base":"qwen3.5-4b"}' }), '/training/base', 'POST', d5.deps);
+  const { call } = await schoolAt(s5, 'nursery', 'numbers');
+  await call('/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  await C.trainTick(d5.deps);
+  assert.match((await SRM.loadRemote(s5)).note, /could not be sat on the free GPU: Qwen3\.5 4B is the brain in use, and it is too big to train on Kaggle's free GPU \(about 17 GB in full precision; the free card has 15 GB\)\. Sit it on the phone\.$/);
+  assert.equal(d5.svc.state.commits.length + d5.svc.state.pushes.length, 0);
+});
+
+test('a base switch starts a fresh chain and keeps the old one: the 2B\'s weeks build on the 2B, a report of another base is never kept, three a base are kept, and ROLLBACK goes back through the 2B to the old 0.6B chain', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const post = (path, body = {}) => C.trainingRoute(new Request('https://x/api' + path, { method: 'POST', body: JSON.stringify(body) }), path, 'POST', d.deps).then((r) => r.json());
+  const m = (w, base) => ({ week: w, label: `Ghosty (week ${w})`, repo: 'owner/ghosty-offline-brain', commit: String(w).repeat(40).slice(0, 40), at: w, scores: {}, chain: [{ adapter: `adapters/week-000${w}`, scale: 1, private: true }], ...(base ? { base } : {}) });
+  await s.put('train:models', [m(2), m(1)]);
+  await s.put('train:active', m(2).commit);
+  assert.equal((await C.trainingBase(s, true)).label, 'Ghosty (week 2)');
+  let st = await post('/training/base', { base: 'qwen3.5-2b' });
+  assert.equal(st.base, 'qwen3.5-2b');
+  assert.equal(st.switchedFrom, 'qwen3-0.6b');
+  assert.equal(st.active, null, 'the stock 2B is recommended until a 2B week passes');
+  assert.deepEqual(st.models.map((x) => x.week), [2, 1], 'the old chain is kept');
+  assert.deepEqual(await C.trainingBase(s, true), { label: 'stock Qwen3.5 2B', chain: [] });
+  // week 3 trains the 2B; a report that says it trained another base is not kept
+  const week = async (n, baseId, reportBase, commit) => {
+    await s.put('train:state', { phase: 'running', week: n, gen: 0, nextRun: 0, startedAt: 0, note: '', calls: 0, done: {}, ticket: 'f'.repeat(48), ticketUntil: Date.UTC(2030, 0), hfUser: 'owner', private: true, base: await C.trainingBase(s, true), baseId });
+    const rep = { baseId: reportBase, before: { gym: 0.1 }, after: { gym: 0.5 }, items: { gym: 96 }, gate: { pass: true, why: '' }, published: { repo: 'owner/ghosty-offline-brain', commit }, trained: {}, rejected: [], phases: [] };
+    return (await hookReq(d, 'f'.repeat(48), { method: 'POST', body: JSON.stringify({ report: rep }) })).json();
+  };
+  assert.deepEqual(await week(3, 'qwen3.5-2b', 'qwen3-0.6b', '3'.repeat(40)), { ok: true, published: false });
+  assert.match((await C.trainStatus(d.deps)).report.gate.why, /^the run trained Qwen3 0\.6B, not Qwen3\.5 2B as this week asked$/);
+  assert.deepEqual(await week(3, 'qwen3.5-2b', 'qwen3.5-2b', '3'.repeat(40)), { ok: true, published: true });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.active, '3'.repeat(40));
+  assert.equal(st.models[0].base, 'qwen3.5-2b');
+  assert.deepEqual((await C.loadModels(s))[0].chain, [{ adapter: 'adapters/week-0003', scale: 1, private: true }], 'the 2B chain starts with week 3 alone');
+  // more 2B weeks: three 2B brains kept, and the 0.6B chain is never pushed out
+  for (const n of [4, 5, 6]) await week(n, 'qwen3.5-2b', 'qwen3.5-2b', String(n).repeat(40));
+  st = await C.trainStatus(d.deps);
+  assert.deepEqual(st.models.map((x) => `${x.week}:${x.base ?? '0.6b'}`), ['6:qwen3.5-2b', '5:qwen3.5-2b', '4:qwen3.5-2b', '2:0.6b', '1:0.6b']);
+  assert.deepEqual((await C.loadModels(s))[0].chain.map((c) => c.adapter), ['adapters/week-0003', 'adapters/week-0004', 'adapters/week-0005', 'adapters/week-0006']);
+  // ROLLBACK: the 2B weeks one by one, then the stock 2B, then back to the 0.6B chain (its newest brain)
+  assert.equal((await post('/training/rollback')).active, '5'.repeat(40));
+  assert.equal((await post('/training/rollback')).active, '4'.repeat(40));
+  st = await post('/training/rollback');
+  assert.equal(st.active, null);
+  assert.equal(st.base, 'qwen3.5-2b', 'the stock 2B first');
+  st = await post('/training/rollback');
+  assert.equal(st.base, 'qwen3-0.6b', 'then the old chain');
+  assert.equal(st.active, m(2).commit);
+  assert.equal(st.switchedFrom, undefined);
+  assert.equal((await C.trainingBase(s, true)).label, 'Ghosty (week 2)', 'and the training carries the old chain on');
+  // a week finished for a base the owner has since left is kept with its base, but not recommended
+  await post('/training/base', { base: 'qwen3.5-2b' });
+  await post('/training/base', { base: 'qwen3-0.6b' });
+  assert.equal((await C.trainStatus(d.deps)).active, m(2).commit, 'switching back carries on the chain it had');
+  assert.equal((await C.trainStatus(d.deps)).switchedFrom, undefined, 'and leaves nothing to roll back to');
+  await week(7, 'qwen3.5-2b', 'qwen3.5-2b', '7'.repeat(40));
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.active, m(2).commit);
+  assert.equal(st.models[0].week, 7);
+});
+
+test('the phone: a trained week of a bigger base runs on that base\'s library, context and memory; a choice made offline reaches the brain later', () => {
+  const weights = `/api/w/${'e'.repeat(48)}/`;
+  const [t] = M.trainedModels([{ week: 9, label: 'x', repo: 'owner/ghosty-offline-brain', commit: 'c'.repeat(40), base: 'qwen3.5-2b' }], 'https://g', weights);
+  assert.deepEqual({ lib: t.lib, mb: t.mb, vram: t.vram, brain: t.brain, ctx: t.ctx, history: t.history }, { lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm', mb: 1082, vram: 2245.44, brain: 'qwen3.5-2b', ctx: 4096, history: 1 });
+  assert.equal(M.brainModels([], 'https://g', weights).map((m) => m.id).join(), 'Qwen3-0.6B-q4f16_1-MLC,Qwen2.5-0.5B-Instruct-q4f16_1-MLC,Qwen3.5-2B-q4f16_1-MLC,Qwen3.5-4B-q4f16_1-MLC');
+  assert.equal(M.stockOf('qwen3.5-4b').id, 'Qwen3.5-4B-q4f16_1-MLC');
+  assert.equal(M.stockOf(undefined).id, 'Qwen3-0.6B-q4f16_1-MLC');
+});

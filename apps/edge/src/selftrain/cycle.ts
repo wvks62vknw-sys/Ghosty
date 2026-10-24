@@ -40,7 +40,7 @@
  * Every save made by a job step checks the state's generation first (`gen`): a step that started before the
  * report arrived cannot write its stale copy over it.
  */
-import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
+import { baseById, BRAIN_BASES, DEFAULT_BASE, examBudgets, gateVerdict, recordProblem, toJsonl, type AreaScores, type BaseId, type BrainBase, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
@@ -104,9 +104,12 @@ import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
 const WEEK = 7 * DAY;
-/** The base model and the stock phone build (apps/web/src/offline/models.ts pins the same commit). */
-export const BASE_MODEL = { repo: 'Qwen/Qwen3-0.6B', rev: 'c1899de289a04d12100db370d81485cdf75e47ca' };
-export const STOCK_MLC = { repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19' };
+/**
+ * The first base model and its stock phone build (apps/web/src/offline/models.ts pins the same commit). The base the
+ * week trains is the one chosen in SETTINGS → OFFLINE BRAIN (`POST /training/base`; BRAIN_BASES in the shared contract).
+ */
+export const BASE_MODEL = BRAIN_BASES[0]!.hf;
+export const STOCK_MLC = BRAIN_BASES[0]!.mlc;
 /** The repos on the owner's Hugging Face account (both private). */
 export const DATA_REPO = 'ghosty-training';
 export const MODEL_REPO = 'ghosty-offline-brain';
@@ -175,6 +178,8 @@ export interface State {
   hfUser?: string;
   /** The chain this week trains on (so the report adds to the right one). */
   base?: { label: string; chain: KeptModel['chain'] };
+  /** The base model this week trains (fixed when it is pushed): the new brain is kept with it. */
+  baseId?: BaseId;
 }
 
 /** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
@@ -208,7 +213,35 @@ const K = {
   weeks: 'train:weeks',
   /** The tasks.mjs last uploaded: which repo, and its SHA-256 (sent again only when either changed). */
   tasks: 'train:tasks',
+  /** The base the weekly training follows (a BaseId; absent: Qwen3 0.6B), and the one it followed before the last switch. */
+  base: 'train:base',
+  switchedFrom: 'train:switched',
 };
+
+/** The base the weekly training follows: the one chosen in SETTINGS → OFFLINE BRAIN. */
+export async function loadBase(s: DurableObjectStorage): Promise<BrainBase> {
+  return baseById(await s.get<string>(K.base));
+}
+/** The base a kept brain was trained on (one kept before there was a choice: Qwen3 0.6B). */
+const baseOfModel = (m: { base?: BaseId }): BaseId => m.base ?? DEFAULT_BASE;
+
+/** At most this many kept brains a base: a long chain of a new base never pushes the old chain out (ROLLBACK goes back to it). */
+const KEEP_PER_BASE = 3;
+const keepPerBase = (list: KeptModel[]): KeptModel[] => {
+  const n = new Map<BaseId, number>();
+  return list.filter((m) => {
+    const k = (n.get(baseOfModel(m)) ?? 0) + 1;
+    n.set(baseOfModel(m), k);
+    return k <= KEEP_PER_BASE;
+  });
+};
+
+/** Why the chosen base cannot be trained on Kaggle's free GPU, in plain words ('' when it can). */
+export function baseProblem(b: BrainBase): string {
+  if (b.trainable) return '';
+  const other = BRAIN_BASES.filter((x) => x.trainable).map((x) => x.label).reverse().join(' or ');
+  return `The weekly training is waiting: ${b.label} is the brain chosen in SETTINGS → OFFLINE BRAIN, and ${b.why}. Choose ${other} there and the training carries on.`;
+}
 
 export interface CycleDeps {
   storage: DurableObjectStorage;
@@ -309,7 +342,7 @@ async function weekTick(d: CycleDeps): Promise<{ next: number; note: string }> {
 }
 
 function failedReport(st: State, why: string, now: number): TrainReport {
-  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: st.base?.label ?? '', before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why };
+  return { week: st.week, startedAt: st.startedAt, finishedAt: now, base: st.base?.label ?? '', ...(st.baseId ? { baseId: st.baseId } : {}), before: {}, after: {}, items: {}, gate: { pass: false, why: 'the run did not finish' }, trained: {}, rejected: [], phases: [], error: why };
 }
 
 async function step(d: CycleDeps, st: State): Promise<{ next: number; note: string }> {
@@ -731,12 +764,22 @@ export function notebookSource(config: Record<string, unknown>): string {
   return out;
 }
 
-/** What this week trains on: the brain in use; with private data off, the newest kept brain with no private week in its chain (else stock). */
+/**
+ * What this week trains on: the brain in use; with private data off, the newest kept brain with no private week in its
+ * chain (else stock). Only brains of the chosen base count: after a base switch the chain starts afresh from that base's
+ * stock build, and the exam's "before" is that same base (the gate compares like with like).
+ */
 export async function trainingBase(s: DurableObjectStorage, privateData: boolean): Promise<{ label: string; chain: KeptModel['chain'] }> {
-  const models = await loadModels(s);
+  const base = await loadBase(s);
+  const models = (await loadModels(s)).filter((m) => baseOfModel(m) === base.id);
   const active = await s.get<string | null>(K.active);
   const pick = privateData ? models.find((m) => m.commit === active) : models.find((m) => m.chain.every((c) => !c.private));
-  return pick ? { label: pick.label, chain: pick.chain } : { label: 'stock Qwen3 0.6B', chain: [] };
+  return pick ? { label: pick.label, chain: pick.chain } : { label: `stock ${base.label}`, chain: [] };
+}
+
+/** The base model as the notebook reads it from its settings: which one, how to train and write it, and the exam's budgets. */
+export function baseConfig(b: BrainBase): Record<string, unknown> {
+  return { base: { id: b.id, label: b.label, family: b.family, context: b.context }, base_model: b.hf, stock_mlc: b.mlc, budgets: examBudgets(b) };
 }
 
 const hours = (h: number) => String(Math.floor(h * 10) / 10);
@@ -765,8 +808,16 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     const wait = !q.payToScale && q.total > 0 && q.refreshAt ? Math.min(DAY, Math.max(30 * 60_000, q.refreshAt - now + 10 * 60_000)) : 6 * 3600_000;
     return { next: wait, note: no };
   }
+  // The chosen base must fit Kaggle's free GPU (Qwen3.5 4B does not): the week waits, saying why and what to choose.
+  const chosen = await loadBase(d.storage);
+  const nob = baseProblem(chosen);
+  if (nob) {
+    if (now - st.startedAt > WEEK) return endWeek(d, st, failedReport(st, nob, now), `This week's training did not start: ${nob}`);
+    return { next: 6 * 3600_000, note: nob };
+  }
   st.gpu = { left: q.left, total: q.total };
   st.base = await trainingBase(d.storage, st.private !== false);
+  st.baseId = chosen.id;
   const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
   // Earlier weeks for the replay mix: all of them, or only those without private text when it is off.
   const replay = Object.entries(weeks).filter(([w, p]) => Number(w) < st.week && (st.private !== false || !p)).map(([w]) => Number(w)).sort((a, b) => a - b);
@@ -782,8 +833,7 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     candidate_branch: CANDIDATES,
     data_file: st.dataFile,
     data_rev: st.dataCommit,
-    base_model: BASE_MODEL,
-    stock_mlc: STOCK_MLC,
+    ...baseConfig(chosen),
     current: st.base,
     replay_weeks: replay,
     private: st.private !== false,
@@ -924,6 +974,9 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       return 30 * 60_000;
     }
     try {
+      // (a brain too big for the free GPU cannot sit a paper there either: the phone can)
+      const big = await loadBase(s);
+      if (!big.trainable) return end(`${name} could not be sat on the free GPU: ${big.label} is the brain in use, and ${big.why}. Sit it on the phone.`);
       const no = examQuotaProblem(await kaggleQuota(f, keys.kaggle));
       if (no) return end(no);
       const rec = await loadPaper({ storage: s }, r.paperId ?? '');
@@ -935,7 +988,8 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       await hfEnsurePrivateRepo(f, me, keys.hf, repo, 'dataset');
       // The questions only (school_paper.jsonl: id, q, type, options, marks, passage) — never the answers or mark schemes.
       const commit = await hfCommit(f, keys.hf, repo, 'dataset', [{ path: 'school_paper.jsonl', content: paperLines(rec.paper) }], `Ghosty: ${name} to sit (questions only)`);
-      // The brain in use, as the phone has it: the stock Qwen3, or the trained week it was switched to.
+      // The brain in use, as the phone has it: the stock build of the chosen base, or the trained week it was switched to.
+      const chosen = await loadBase(s);
       const base = await trainingBase(s, true);
       const active = await s.get<string | null>(K.active);
       r.model = `${base.label}${base.chain.length && active ? `@${active.slice(0, 7)}` : ''}`;
@@ -953,8 +1007,7 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
         data_rev: commit,
         paper_id: r.paperId,
         model_label: r.model,
-        base_model: BASE_MODEL,
-        stock_mlc: STOCK_MLC,
+        ...baseConfig(chosen),
         current: base,
         budget_hours: 1.5,
       };
@@ -1104,13 +1157,19 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
   const claimed = r.published && /^[0-9a-f]{40}$/.test(String(r.published.commit)) && typeof r.published.repo === 'string' ? r.published : null;
   const pub = claimed && claimed.repo === expected ? claimed : null;
   if (claimed && !pub) report.rejected.push({ why: `the new brain was uploaded somewhere else (${String(claimed.repo).slice(0, 80)}), not to ${expected}: not used`, n: 1 });
+  // The notebook says which base it trained (its settings): another one than this week's is never kept.
+  const trainedOn = st.baseId ?? DEFAULT_BASE;
+  if (report.gate.pass && r.baseId && r.baseId !== trainedOn) {
+    report.gate = { pass: false, why: `the run trained ${baseById(r.baseId).label}, not ${baseById(trainedOn).label} as this week asked` };
+  }
   if (report.gate.pass && pub) {
     const models = await loadModels(d.storage);
     const base = st.base ?? { label: 'stock Qwen3 0.6B', chain: [] };
     const chain = [...base.chain, { adapter: `adapters/week-${wk(st.week)}`, scale: typeof r.scale === 'number' ? r.scale : 1, private: st.private !== false }];
-    const kept: KeptModel = { week: st.week, label: `Ghosty (week ${st.week})`, repo: pub.repo, commit: pub.commit, at: nowOf(d), scores: r.after, private: chain.some((c) => c.private), chain };
-    await d.storage.put(K.models, [kept, ...models.filter((m) => m.commit !== kept.commit)].slice(0, 3));
-    await d.storage.put(K.active, kept.commit);
+    const kept: KeptModel = { week: st.week, label: `Ghosty (week ${st.week})`, repo: pub.repo, commit: pub.commit, at: nowOf(d), scores: r.after, private: chain.some((c) => c.private), chain, base: trainedOn };
+    await d.storage.put(K.models, keepPerBase([kept, ...models.filter((m) => m.commit !== kept.commit)]));
+    // Recommended to the phone only while its base is still the chosen one (the owner may have switched meanwhile).
+    if ((await loadBase(d.storage)).id === trainedOn) await d.storage.put(K.active, kept.commit);
     // Promotion: a tag on the private model repo (the list above is what the phone's address serves; a failed tag changes nothing).
     const token = ((await d.vault.get('hf_write')) ?? '').trim();
     if (token) await hfTag(fetchOf(d), token, pub.repo, pub.commit, `week-${wk(st.week)}`).catch(() => undefined);
@@ -1161,6 +1220,8 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
     previous: (await s.get<TrainReport>(K.previous)) ?? null,
     models: models.map(({ chain: _c, ...m }) => m),
     active: (await s.get<string | null>(K.active)) ?? null,
+    base: (await loadBase(s)).id,
+    ...((await s.get<BaseId>(K.switchedFrom)) ? { switchedFrom: await s.get<BaseId>(K.switchedFrom) } : {}),
     privateData: await privateOn(s),
     ratings: { up: ratings.filter((r) => r.up).length, down: ratings.filter((r) => !r.up).length },
     weights: models.length ? `/api/w/${await weightsCap(s)}/` : null,
@@ -1220,16 +1281,47 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     const active = await s.get<string | null>(K.active);
     const i = models.findIndex((m) => m.commit === active);
     if (i >= 0) {
-      // The brain in use goes (it is never offered again); the next older good one, or the stock Qwen3 after the oldest.
-      const rest = models.filter((_, k) => k !== i);
-      await s.put(K.models, rest);
-      await s.put(K.active, rest[i]?.commit ?? null);
+      // The brain in use goes (it is never offered again); the next older good one of the same base, or that base's
+      // stock build after the oldest.
+      const gone = models[i]!;
+      const older = models.slice(i + 1).find((m) => baseOfModel(m) === baseOfModel(gone));
+      await s.put(K.models, models.filter((_, k) => k !== i));
+      await s.put(K.active, older?.commit ?? null);
+    } else if (active === null) {
+      // Already on the stock build of a base chosen since: back to the old chain (its newest kept brain, or its stock).
+      const from = await s.get<BaseId>(K.switchedFrom);
+      if (from && from !== (await loadBase(s)).id) {
+        await s.put(K.base, from);
+        await s.put(K.active, models.find((m) => baseOfModel(m) === from)?.commit ?? null);
+        await s.delete(K.switchedFrom);
+      }
+    }
+    return json(await trainStatus(d));
+  }
+  if (path === '/training/base' && method === 'POST') {
+    // The brain chosen on the phone: the training follows its base. A new base starts a fresh chain from its stock build
+    // (or carries on the chain it had, going back to it); the chain it leaves is kept, and ROLLBACK goes back to it.
+    const want = BRAIN_BASES.find((b) => b.id === body.base);
+    if (!want) return json({ error: 'no such base model' }, 400);
+    const cur = await loadBase(s);
+    if (want.id !== cur.id) {
+      // (going back to the base it came from: nothing is left to roll back to)
+      if (want.id === (await s.get<BaseId>(K.switchedFrom))) await s.delete(K.switchedFrom);
+      else await s.put(K.switchedFrom, cur.id);
+      await s.put(K.base, want.id);
+      await s.put(K.active, (await loadModels(s)).find((m) => baseOfModel(m) === want.id)?.commit ?? null);
     }
     return json(await trainStatus(d));
   }
   if (path === '/training/use' && method === 'POST') {
     const want = body.commit === null ? null : String(body.commit ?? '');
-    if (want !== null && !(await loadModels(s)).some((m) => m.commit === want)) return json({ error: 'no such model' }, 404);
+    const m = want === null ? null : (await loadModels(s)).find((x) => x.commit === want);
+    if (want !== null && !m) return json({ error: 'no such model' }, 404);
+    // (a kept brain of another base: the training follows it, as when it is chosen on the phone)
+    if (m && baseOfModel(m) !== (await loadBase(s)).id) {
+      await s.put(K.switchedFrom, (await loadBase(s)).id);
+      await s.put(K.base, baseOfModel(m));
+    }
     await s.put(K.active, want);
     return json(await trainStatus(d));
   }

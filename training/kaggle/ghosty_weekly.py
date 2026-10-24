@@ -3,7 +3,8 @@
 # The brain (apps/edge/src/selftrain/cycle.ts) gathers the week's data, puts it in the owner's private Hugging
 # Face dataset repo, and pushes this notebook to the owner's Kaggle account with GPU and internet on, with
 # this week's settings in CONFIG_JSON below. The run:
-#   1. sets up (pinned packages, the base Qwen3-0.6B at a fixed commit, the current Ghosty LoRA chain);
+#   1. sets up (pinned packages, the base model chosen on the phone at a fixed commit — Qwen3-0.6B, or Qwen3.5-2B:
+#      CONFIG_JSON's `base`, `base_model`, `stock_mlc` and `budgets` — and the current Ghosty LoRA chain on it);
 #   2. scores the current brain AS IT SHIPS (quantised to q4f16_1) on the exam: a fixed core plus a part that
 #      rotates each week (GYM puzzles, drills, library Q&A, tool calls, safety, and whether the drill and library
 #      replies sound like a person: `score_voice`); training rows too close to an exam question are dropped;
@@ -32,6 +33,10 @@
 # The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run keeps is under
 # /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end;
 # checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
+# BASES: the phone can run Qwen3 0.6B or a bigger Qwen3.5 (SETTINGS → OFFLINE BRAIN); the run trains the one the brain
+# names (`base`: id, family, context). Each family has its own packages (Qwen3.5 needs transformers 5), LoRA targets
+# and layout in MLC's files (`mlc_plan`); the exam's prompts are cut to the base's context (`budgets`); a base whose
+# full-precision weights would not leave room on the GPU is refused before anything is loaded (`train_fits`).
 # The pure helpers at the top are tested on a CPU by training/kaggle/test_ghosty_weekly.py.
 
 CONFIG_JSON = None  # GHOSTY-CONFIG: the brain writes this week's settings here when it pushes the notebook
@@ -51,6 +56,15 @@ PIP_PINS = ['transformers==4.51.3', 'peft==0.15.2', 'accelerate==1.6.0', 'huggin
 # pins, so uploads go the plain way this huggingface_hub was released with (downloads were seen to work either way;
 # uploads could not be tried without the owner's token, so the conservative choice).
 PIP_DROP = ['hf_xet']
+# Qwen3.5 (the bigger brains) needs transformers 5 (its models arrived in 5.2.0); these are each other's stated
+# requirements (PyPI, checked 24 Oct 2026: transformers 5.5.4 wants huggingface_hub >=1.5,<2; peft 0.19.1 and
+# accelerate 1.13.0 take it). huggingface_hub 1.x requires hf_xet itself, so nothing is uninstalled for this family.
+PIP_PINS_QWEN3_5 = ['transformers==5.5.4', 'peft==0.19.1', 'accelerate==1.13.0', 'huggingface_hub==1.10.1', 'safetensors==0.5.3']
+FAMILIES = {
+    'qwen3': {'pins': PIP_PINS, 'drop': PIP_DROP, 'lora': ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']},
+    # Qwen3.5: attention in one layer of four, a linear-attention mixer (in_proj_qkv, in_proj_z, out_proj) in the others
+    'qwen3_5': {'pins': PIP_PINS_QWEN3_5, 'drop': [], 'lora': ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj', 'in_proj_qkv', 'in_proj_z', 'out_proj']},
+}
 # General instruction data for the no-forgetting mix: OpenAssistant oasst1, Apache-2.0, at a fixed commit.
 GENERAL_DATA = {'repo': 'OpenAssistant/oasst1', 'rev': 'fdf72ae0827c1cda404aff25b6603abec9e3399b', 'file': 'data/train-00000-of-00001-b42a775f407cee45.parquet'}
 THINK_OFF = '<think>\n\n</think>\n\n'
@@ -682,11 +696,65 @@ def amp_for(capability):
 
 
 # A prompt keeps at most this many tokens (cut from the left: the end, with the assistant tag, always stays). The
-# exam's tools prompts (all ten tools, the persona and the header: ~1.6k tokens) fit whole.
+# exam's tools prompts (all ten tools, the persona and the header: ~1.6k tokens) fit whole. This is Qwen3 0.6B's
+# context on the phone; a base with a longer one (CONFIG_JSON `budgets`) gets its own (budgets_for).
 PROMPT_TOKENS = 2048
 # Rows x (prompt + new tokens) in one generation batch. In fp32 Qwen3-0.6B's cache takes 28 layers x K and V x
 # 8 heads x 128 x 4 bytes = 229 KB a token, so this is about 4.6 GB: 8 rows of the longest prompts, 32 short ones.
 GEN_TOKENS = 20000
+
+
+def base_of(cfg):
+    """The base model this run trains, from its settings: id, label, family, the phone's context, and the Hugging Face
+    original and MLC build it comes from. Settings from before there was a choice name no `base`: Qwen3 0.6B."""
+    b = dict(cfg.get('base') or {})
+    fam = b.get('family') or 'qwen3'
+    if fam not in FAMILIES:
+        raise ValueError(f'unknown model family {fam!r}')
+    return {'id': b.get('id') or 'qwen3-0.6b', 'label': b.get('label') or 'Qwen3 0.6B', 'family': fam, 'context': int(b.get('context') or PROMPT_TOKENS),
+            'hf': cfg.get('base_model'), 'mlc': cfg.get('stock_mlc')}
+
+
+def budgets_for(cfg):
+    """(prompt tokens, generation batch tokens) for this run: the base's own from the settings, else Qwen3 0.6B's."""
+    b = cfg.get('budgets') or {}
+    return int(b.get('prompt') or PROMPT_TOKENS), int(b.get('gen') or GEN_TOKENS)
+
+
+def text_params(headers):
+    """How many parameters the text model has, from safetensors headers ({name: {shape}}): the vision tower and the
+    multi-token-prediction head of a Qwen3.5 checkpoint are not loaded, so they do not count."""
+    n = 0
+    for name, t in headers.items():
+        if name == '__metadata__' or '.visual.' in name or name.startswith(('mtp.', 'model.visual')):
+            continue
+        k = 1
+        for d in t['shape']:
+            k *= int(d)
+        n += k
+    return n
+
+
+def train_fits(n_params, gpu_bytes, share=0.62):
+    """'' when the model's weights in full precision (4 bytes each: no bf16 on a T4, no fp16 for Qwen) leave room on the
+    GPU for the LoRA, its optimiser, the activations and generation; else why not, in plain words."""
+    need = n_params * 4
+    if need <= gpu_bytes * share:
+        return ''
+    return f'the base model needs {need / 1e9:.1f} GB in full precision, too much for this {gpu_bytes / 1e9:.0f} GB GPU'
+
+
+def safetensors_headers(folder):
+    """Every tensor's header in a downloaded model folder (read from the files' first bytes; nothing is loaded)."""
+    import struct
+    out = {}
+    for f in sorted(os.listdir(folder)):
+        if f.endswith('.safetensors'):
+            with open(os.path.join(folder, f), 'rb') as fh:
+                n = struct.unpack('<Q', fh.read(8))[0]
+                out.update(json.loads(fh.read(n)))
+    out.pop('__metadata__', None)
+    return out
 
 
 def length_batches(lengths, max_new, budget=GEN_TOKENS, cap=32):
@@ -703,11 +771,12 @@ def length_batches(lengths, max_new, budget=GEN_TOKENS, cap=32):
 
 # ---- q4f16_1 in MLC's layout (checked bit for bit against mlc-ai's published Qwen3-0.6B shards) ---------------
 
-def q4f16_1(w):
+def q4f16_1(w, empty=7):
     """Group quantisation as mlc-llm's GroupQuantize does it for q4f16_1: groups of 32 along the input axis,
     scale = max|w| × fp16(1/7) in fp16, q = round_half_away(w / scale + 7) in fp16, clipped to 0–14, eight
     4-bit values per uint32 (value i at bits 4i). `w` is [out, in] float16. Returns (q_weight uint32
-    [out, in/8], q_scale float16 [out, in/32])."""
+    [out, in/8], q_scale float16 [out, in/32]). A group of zeros (scale 0) reads back as 0 whatever its values;
+    they are written as `empty` (7 as mlc-ai's Qwen3 build has them, 0 in its Qwen3.5 builds)."""
     import numpy as np
     w = np.asarray(w, dtype=np.float16)
     out_dim, k = w.shape
@@ -716,7 +785,7 @@ def q4f16_1(w):
     scale = (np.abs(g).max(axis=2) * np.float16(1 / 7)).astype(np.float16)
     with np.errstate(divide='ignore', invalid='ignore'):
         s = (g / scale[:, :, None]).astype(np.float16) + np.float16(7)
-    s = np.nan_to_num(s.astype(np.float32), nan=7.0)
+    s = np.nan_to_num(s.astype(np.float32), nan=float(empty))
     r = np.floor(np.abs(s) + 0.5) * np.sign(s)
     q = np.clip(r, 0, 14).astype(np.uint32).reshape(out_dim, k // 8, 8)
     packed = np.zeros((out_dim, k // 8), dtype=np.uint32)
@@ -786,29 +855,69 @@ def _lora_on(model):
     return False
 
 
-def mlc_params(get, n_layers):
-    """The MLC parameters of a Qwen3 model, by MLC name, from `get(hf_name)` → float16 numpy: q/k/v fused into
-    c_attn and gate/up into gate_up_proj (as mlc-llm's qwen3 loader does), linear layers and the (tied)
-    embedding quantised, norms as float16."""
-    import numpy as np
-    out = {}
-
-    def quant(name, w):
-        qw, qs = q4f16_1(w)
-        out[f'{name}.q_weight'] = qw
-        out[f'{name}.q_scale'] = qs
-
-    quant('model.embed_tokens', get('model.embed_tokens.weight'))
+def mlc_plan(n_layers, family='qwen3', layer_types=None):
+    """How MLC's files hold a model, as a list of (MLC name, how, [the text model's own weight names]): 'quant' = the
+    sources stacked (q/k/v into c_attn, gate/up into gate_up_proj, as mlc-llm's loaders do) and quantised to q4f16_1
+    (two records: .q_weight and .q_scale); 'f16' / 'f32' = kept as one array of that type ('f16+1': plus one, for
+    Qwen3.5's norms). Qwen3: attention in every
+    layer. Qwen3.5 (`layer_types`): attention where it says 'full_attention', else the linear-attention mixer (its
+    projections quantised, the short convolution as float16 under MLC's own name, A_log and dt_bias as float32)."""
+    plan = [('model.embed_tokens', 'quant', ['model.embed_tokens.weight'])]
     for i in range(n_layers):
         L = f'model.layers.{i}'
-        quant(f'{L}.self_attn.c_attn', np.concatenate([get(f'{L}.self_attn.q_proj.weight'), get(f'{L}.self_attn.k_proj.weight'), get(f'{L}.self_attn.v_proj.weight')], 0))
-        quant(f'{L}.self_attn.o_proj', get(f'{L}.self_attn.o_proj.weight'))
-        quant(f'{L}.mlp.gate_up_proj', np.concatenate([get(f'{L}.mlp.gate_proj.weight'), get(f'{L}.mlp.up_proj.weight')], 0))
-        quant(f'{L}.mlp.down_proj', get(f'{L}.mlp.down_proj.weight'))
-        for n in ['input_layernorm.weight', 'post_attention_layernorm.weight', 'self_attn.q_norm.weight', 'self_attn.k_norm.weight']:
-            out[f'{L}.{n}'] = np.asarray(get(f'{L}.{n}'), dtype=np.float16)
-    out['model.norm.weight'] = np.asarray(get('model.norm.weight'), dtype=np.float16)
+        full = family == 'qwen3' or (layer_types or ['full_attention'] * n_layers)[i] == 'full_attention'
+        if full:
+            plan += [(f'{L}.self_attn.c_attn', 'quant', [f'{L}.self_attn.q_proj.weight', f'{L}.self_attn.k_proj.weight', f'{L}.self_attn.v_proj.weight']),
+                     (f'{L}.self_attn.o_proj', 'quant', [f'{L}.self_attn.o_proj.weight'])]
+        else:
+            A = f'{L}.linear_attn'
+            plan += [(f'{A}.{n}', 'quant', [f'{A}.{n}.weight']) for n in ('in_proj_qkv', 'in_proj_z', 'in_proj_b', 'in_proj_a', 'out_proj')]
+            plan += [(f'{A}.conv1d_weight', 'f16', [f'{A}.conv1d.weight']), (f'{A}.norm.weight', 'f16', [f'{A}.norm.weight']),
+                     (f'{A}.A_log', 'f32', [f'{A}.A_log']), (f'{A}.dt_bias', 'f32', [f'{A}.dt_bias'])]
+        plan += [(f'{L}.mlp.gate_up_proj', 'quant', [f'{L}.mlp.gate_proj.weight', f'{L}.mlp.up_proj.weight']),
+                 (f'{L}.mlp.down_proj', 'quant', [f'{L}.mlp.down_proj.weight'])]
+        norms = ['input_layernorm.weight', 'post_attention_layernorm.weight'] + (['self_attn.q_norm.weight', 'self_attn.k_norm.weight'] if full else [])
+        plan += [(f'{L}.{n}', 'f16', [f'{L}.{n}']) for n in norms]
+    plan.append(('model.norm.weight', 'f16', ['model.norm.weight']))
+    if family == 'qwen3_5':
+        # Qwen3.5's RMSNorms multiply by (1 + weight); MLC's build stores 1 + weight (the gated norm of the linear
+        # mixer multiplies by its weight as it is, and is stored as it is) — checked against mlc-ai's own files.
+        plan = [(n, 'f16+1' if how == 'f16' and n.endswith('norm.weight') and '.linear_attn.' not in n else how, src) for n, how, src in plan]
+    return plan
+
+
+def mlc_entry(how, arrays, empty=7):
+    """One plan entry's MLC arrays, by suffix: {'.q_weight', '.q_scale'} for 'quant', {'': array} otherwise."""
+    import numpy as np
+    if how == 'quant':
+        w = arrays[0] if len(arrays) == 1 else np.concatenate(arrays, 0)
+        qw, qs = q4f16_1(w, empty)
+        return {'.q_weight': qw, '.q_scale': qs}
+    if how == 'f16+1':
+        return {'': (np.asarray(arrays[0], dtype=np.float32) + np.float32(1)).astype(np.float16)}
+    return {'': np.asarray(arrays[0], dtype=np.float16 if how == 'f16' else np.float32)}
+
+
+def mlc_params(get, n_layers, family='qwen3', layer_types=None):
+    """The MLC parameters of a model, by MLC name, from `get(name)` → numpy (float16 for the weights; A_log and
+    dt_bias as they are, for float32): every entry of mlc_plan."""
+    out = {}
+    for name, how, srcs in mlc_plan(n_layers, family, layer_types):
+        for suffix, a in mlc_entry(how, [get(x) for x in srcs], 0 if family == 'qwen3_5' else 7).items():
+            out[name + suffix] = a
     return out
+
+
+def packed_f32(rec):
+    """A float32 record MLC keeps as bfloat16 bytes (format f32-to-bf16; the phone's runtime widens it on load)."""
+    return rec.get('format') == 'f32-to-bf16' and rec.get('dtype') == 'float32'
+
+
+def to_bf16_bytes(a):
+    """float32 → bfloat16 bytes, rounded to nearest even (as TVM packs f32-to-bf16)."""
+    import numpy as np
+    u = np.ascontiguousarray(a, dtype=np.float32).view(np.uint32)
+    return ((u + np.uint32(0x7FFF) + ((u >> np.uint32(16)) & np.uint32(1))) >> np.uint32(16)).astype(np.uint16).tobytes()
 
 
 def layout_problem(params, cache):
@@ -825,7 +934,10 @@ def layout_problem(params, cache):
                 return f"{r['name']} is {list(a.shape)}, the library expects {r['shape']}"
             if str(a.dtype) != r['dtype']:
                 return f"{r['name']} is {a.dtype}, the library expects {r['dtype']}"
-            if a.nbytes != r['nbytes']:
+            if packed_f32(r):
+                if a.size * 2 != r['nbytes']:
+                    return f"{r['name']} has {a.size * 2} bytes as bfloat16, expected {r['nbytes']}"
+            elif a.nbytes != r['nbytes']:
                 return f"{r['name']} has {a.nbytes} bytes, expected {r['nbytes']}"
             seen.add(r['name'])
     extra = set(params) - seen
@@ -841,7 +953,7 @@ def write_mlc(params, cache, outdir):
     for shard in new['records']:
         buf = bytearray(shard['nbytes'])
         for r in shard['records']:
-            b = np.ascontiguousarray(params[r['name']]).tobytes()
+            b = to_bf16_bytes(params[r['name']]) if packed_f32(r) else np.ascontiguousarray(params[r['name']]).tobytes()
             buf[r['byteOffset']:r['byteOffset'] + r['nbytes']] = b
         with open(os.path.join(outdir, shard['dataPath']), 'wb') as f:
             f.write(buf)
@@ -853,7 +965,18 @@ def write_mlc(params, cache, outdir):
     return new
 
 
-CONFIG_KEYS = ['hidden_size', 'intermediate_size', 'num_attention_heads', 'num_hidden_layers', 'num_key_value_heads', 'head_dim', 'vocab_size', 'rms_norm_eps', 'rope_theta', 'tie_word_embeddings', 'hidden_act']
+CONFIG_KEYS = ['hidden_size', 'intermediate_size', 'num_attention_heads', 'num_hidden_layers', 'num_key_value_heads', 'head_dim', 'vocab_size', 'rms_norm_eps', 'rope_theta', 'tie_word_embeddings', 'hidden_act',
+               'linear_key_head_dim', 'linear_value_head_dim', 'linear_num_key_heads', 'linear_num_value_heads', 'linear_conv_kernel_dim', 'full_attention_interval', 'partial_rotary_factor']
+
+
+def text_config(hf_config):
+    """The language model's settings: Qwen3.5's config.json keeps them under `text_config` (beside its vision tower)."""
+    tc = hf_config.get('text_config')
+    out = {**hf_config, **tc} if isinstance(tc, dict) else dict(hf_config)
+    # (newer configs keep the rotary settings together: rope_parameters.rope_theta, partial_rotary_factor)
+    for k, v in (out.get('rope_parameters') or {}).items():
+        out.setdefault(k, v)
+    return out
 
 
 def config_problem(stock_mlc_config, hf_config):
@@ -863,9 +986,10 @@ def config_problem(stock_mlc_config, hf_config):
         return f"the stock build is {stock_mlc_config.get('quantization')}, not q4f16_1"
     if stock_mlc_config.get('model_type') != hf_config.get('model_type'):
         return f"model type {hf_config.get('model_type')} ≠ {stock_mlc_config.get('model_type')}"
+    tc = text_config(hf_config)
     for k in CONFIG_KEYS:
-        if k in mc and mc[k] != hf_config.get(k):
-            return f"{k} is {hf_config.get(k)}, the library was built for {mc[k]}"
+        if k in mc and mc[k] != tc.get(k):
+            return f"{k} is {tc.get(k)}, the library was built for {mc[k]}"
     return ''
 
 
@@ -953,7 +1077,11 @@ class Run:
         self.cfg = cfg
         self.week = int(cfg['week'])
         self.deadline = Deadline(float(cfg.get('budget_hours', 9)))
-        self.report = {'week': self.week, 'startedAt': int(time.time() * 1000), 'finishedAt': 0, 'base': cfg['current']['label'], 'before': {}, 'after': {}, 'items': {}, 'gate': {'pass': False, 'why': 'not finished'}, 'trained': {}, 'rejected': [], 'phases': [], 'failures': []}
+        # The base model the brain chose (its family decides the packages, the LoRA's targets and the phone's layout),
+        # and the exam's budgets for it; the report says which base it trained, so the brain keeps it with that one.
+        self.base = base_of(cfg)
+        self.prompt_tokens, self.gen_tokens = budgets_for(cfg)
+        self.report = {'week': self.week, 'startedAt': int(time.time() * 1000), 'finishedAt': 0, 'base': cfg['current']['label'], 'baseId': self.base['id'], 'before': {}, 'after': {}, 'items': {}, 'gate': {'pass': False, 'why': 'not finished'}, 'trained': {}, 'rejected': [], 'phases': [], 'failures': []}
         self.state = {'done': []}
         self.wip = f"wip/week-{self.week:04d}"
         self.token = None
@@ -1027,10 +1155,23 @@ class Run:
         self.scale = float(self.state.get('scale', self.report.get('scale', 1.0)) or 1.0)
 
     # -- set-up
+    def install(self):
+        """The pinned packages for this base's family (Qwen3.5 needs transformers 5), and nothing it must not have."""
+        fam = FAMILIES[self.base['family']]
+        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *fam['pins']], check=True), 'installing the packages')
+        if fam['drop']:
+            subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *fam['drop']], check=False)
+
+    def check_fits(self):
+        """Refuse, before loading anything, a base whose full-precision weights would not leave room on this GPU."""
+        import torch
+        problem = train_fits(text_params(safetensors_headers(self.base_dir)), torch.cuda.get_device_properties(0).total_memory)
+        if problem:
+            raise RuntimeError(f"{self.base['label']}: {problem}")
+
     def setup(self):
         # Every download here is tried a few times with a pause (retry): one 5xx or pip hiccup must not end the week.
-        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
-        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
+        self.install()
         import torch
         if not torch.cuda.is_available():
             raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
@@ -1068,7 +1209,8 @@ class Run:
                 log(f'no {f} for replay:', e)
         # The public base model and stock MLC files are fetched signed in too: Kaggle's machines share their
         # addresses with many users, and anonymous downloads from them can be rate-limited.
-        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), f"downloading {self.base['label']}")
+        self.check_fits()
         self.stock_dir = f'{WORK}/stock'
         for f in ['mlc-chat-config.json', 'tensor-cache.json', 'tokenizer.json', 'vocab.json', 'merges.txt', 'tokenizer_config.json']:
             retry(lambda: hf_hub_download(c['stock_mlc']['repo'], f, revision=c['stock_mlc']['rev'], token=self.token, local_dir=self.stock_dir), f'downloading {f}')
@@ -1111,7 +1253,13 @@ class Run:
         from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import LoraConfig, PeftModel, get_peft_model
         self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
-        model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
+        if self.base['family'] == 'qwen3_5':
+            # The checkpoint is Qwen3.5's whole model (a vision tower beside the language model): only the language model
+            # is loaded, from its own settings (transformers 5 maps model.language_model.* to it; the rest is skipped).
+            from transformers import AutoConfig, Qwen3_5ForCausalLM
+            model = Qwen3_5ForCausalLM.from_pretrained(self.base_dir, config=AutoConfig.from_pretrained(self.base_dir).get_text_config(), dtype=torch.float32).to(self.dev)
+        else:
+            model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
         from huggingface_hub import snapshot_download
         # the current Ghosty: the stock model plus every published week's LoRA, each at the scale it was published with
         for link in self.cfg['current'].get('chain', []):
@@ -1119,7 +1267,7 @@ class Run:
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
             set_lora_scale(pm, float(link.get('scale', 1.0)))
             model = pm.merge_and_unload()
-        self.lora_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, target_modules=['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj'], task_type='CAUSAL_LM')
+        self.lora_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, target_modules=FAMILIES[self.base['family']]['lora'], task_type='CAUSAL_LM')
         self.model = get_peft_model(model, self.lora_cfg)
         if os.path.exists(f'{WORK}/wip/adapter/adapter_config.json'):
             from peft import set_peft_model_state_dict
@@ -1142,10 +1290,10 @@ class Run:
         import torch
         self.model.eval()
         flat = [p + THINK_OFF for p in prompts for _ in range(n)]
-        lens = [len(x) for x in self.tok(flat, truncation=True, max_length=PROMPT_TOKENS)['input_ids']]
+        lens = [len(x) for x in self.tok(flat, truncation=True, max_length=self.prompt_tokens)['input_ids']]
         outs = [None] * len(flat)
-        for idx in length_batches(lens, max_new, cap=batch):
-            enc = self.tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=PROMPT_TOKENS).to(self.dev)
+        for idx in length_batches(lens, max_new, budget=self.gen_tokens, cap=batch):
+            enc = self.tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=self.prompt_tokens).to(self.dev)
             with torch.no_grad(), self.autocast():
                 g = self.model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=self.tok.pad_token_id, eos_token_id=[self.tok.convert_tokens_to_ids('<|im_end|>'), self.tok.eos_token_id])
             for i, row in zip(idx, g[:, enc['input_ids'].shape[1]:]):
@@ -1558,14 +1706,17 @@ class Run:
         from huggingface_hub import HfApi
         merged = self.model.merge_and_unload()
         self.model = merged
-        sd = {k: v.detach().to(torch.float16).cpu().numpy() for k, v in merged.state_dict().items()}
+        # (float32 as trained: mlc_entry makes each float16, and keeps Qwen3.5's A_log and dt_bias float32)
+        sd = {k: v.detach().to(torch.float32).cpu().numpy() for k, v in merged.state_dict().items()}
         cache = json.load(open(f'{self.stock_dir}/tensor-cache.json'))
-        params = mlc_params(lambda n: sd[n], merged.config.num_hidden_layers)
+        layer_types = getattr(merged.config, 'layer_types', None)
+        params = mlc_params(lambda n: sd[n], merged.config.num_hidden_layers, self.base['family'], layer_types)
         problem = layout_problem(params, cache)
         if problem:
             raise RuntimeError(f'the new weights do not fit the phone build: {problem}')
         # What ships is what was scored: the files' weights, read back, equal the quantised weights the exam used.
-        for name in ('model.layers.0.self_attn.o_proj', 'model.layers.0.mlp.down_proj'):
+        first_attn = (layer_types or ['full_attention']).index('full_attention') if self.base['family'] == 'qwen3_5' else 0
+        for name in (f'model.layers.{first_attn}.self_attn.o_proj', 'model.layers.0.mlp.down_proj'):
             shipped = dequant_q4f16_1(params[name + '.q_weight'], params[name + '.q_scale'])
             scored = fake_quant(sd[name + '.weight'])
             if not np.array_equal(shipped.view(np.uint16), scored.view(np.uint16)):
@@ -1710,8 +1861,7 @@ class ExamRun(Run):
         self.items = []
 
     def setup(self):
-        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
-        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
+        self.install()
         import torch
         if not torch.cuda.is_available():
             raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
@@ -1723,7 +1873,8 @@ class ExamRun(Run):
         path = retry(lambda: hf_hub_download(c['data_repo'], c['data_file'], repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), 'downloading the paper')
         with open(path) as f:
             self.items = [json.loads(l) for l in f if l.strip()]
-        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), f"downloading {self.base['label']}")
+        self.check_fits()
         self.load_model()
 
     def sit(self):
