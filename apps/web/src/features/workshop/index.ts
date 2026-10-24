@@ -121,7 +121,13 @@ export const workshopTab: TabDef = {
       }
       for (const p of projects) {
         const done = p.steps.filter((s) => s.status === 'done').length;
-        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min'} · ${fmt.ago(p.updated)}`)));
+        // a mini-app (build_app) runs its five steps in one go; anything else at its pace
+        const pace = p.kind === 'app' ? 'a mini-app, built in one go' : p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min';
+        const ct = h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${pace} · ${fmt.ago(p.updated)}`));
+        // the live step: the one running, else the next one
+        const now = p.status === 'active' ? (p.steps.find((s) => s.status === 'doing') ?? p.steps.find((s) => s.status === 'todo')) : undefined;
+        if (now) ct.append(h('small.pnow', `NOW: step ${now.n} · ${now.title}`));
+        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', ct);
         // route C: a progress ring with the steps done, beside the title
         const ring = progressRing(46);
         ring.set(done / Math.max(1, p.steps.length), 0, `${done}/${p.steps.length}`, p.status === 'done');
@@ -142,7 +148,28 @@ export const workshopTab: TabDef = {
           card.append(r);
         }
         if (p.note) card.append(h('small.note', p.note));
+        // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself
+        const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result : undefined;
+        if (report) card.append(h('div.preport', ...report.split(/\n+/).map((line) => h('p', line))));
         const actions = h('div.row.wrap');
+        const link = p.link;
+        if (report && link) {
+          actions.append(
+            button('OPEN', () => void window.open(link, '_blank', 'noopener'), 'on'),
+            button('UNDO', async (b) => {
+              if (!confirm(`Take "${p.title.replace(/^App: /, '')}" down? Its link stops working.`)) return;
+              b.disabled = true;
+              try {
+                await brain.unpublishSite(link.replace(/\/$/, '').split('/').pop()!);
+                toast('Taken down: the link no longer works', 'ok');
+                void load();
+              } catch (e) {
+                b.disabled = false;
+                toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+              }
+            }, 'warn'),
+          );
+        }
         if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
         if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
         if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `Cancel "${p.title}"? What it already produced stays in the library.`), 'warn'));
