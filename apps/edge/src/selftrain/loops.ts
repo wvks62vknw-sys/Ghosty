@@ -163,6 +163,8 @@ export async function brainLoops(s: DurableObjectStorage, status: TrainStatus | 
           rejected: (r?.rejected ?? []).filter((x) => !/^voice:/.test(x.why)),
           active: status.active,
           activeLabel: models.find((m) => m.commit === status.active)?.label ?? 'the stock Qwen3',
+          // a smaller run (Kaggle's hours were short): the run under way, else the one reported
+          economy: status.phase !== 'idle' && status.plan ? (status.plan.mode === 'economy' ? status.plan.why : null) : r?.plan?.mode === 'economy' ? r.plan.why : null,
         }
       : null,
     voice: r ? { trained: r.trained?.voice ?? 0, before: r.before?.voice ?? null, after: r.after?.voice ?? null, rejected: voiceRejected } : null,

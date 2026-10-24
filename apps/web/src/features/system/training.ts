@@ -3,7 +3,9 @@
  * (apps/edge/src/selftrain on the brain, the notebook on Kaggle's free GPUs). What is happening now; this
  * week's exam score against last week's, area by area; what he trained on; how long it took; what was thrown
  * away and why; the last good models; TRAIN NOW, TRAIN FROM SCRATCH and ROLLBACK; which kind the next run is (weekly, or
- * the monthly retrain from the stock model on every week kept) and why. With a key missing it says which, and where to
+ * the monthly retrain from the stock model on every week kept) and why; GPU HOURS: Kaggle's free hours left, when they
+ * come back, what the next run needs and whether it will be a full run, a smaller one or a wait (the brain's words);
+ * what ran on which of Kaggle's two cards, and in how many sessions. With a key missing it says which, and where to
  * get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
  * made at and just beyond them) and gives the offline brain the list of trained models to choose from.
  */
@@ -37,7 +39,7 @@ const KIND: Record<string, string> = {
 };
 
 /** The parts of a Kaggle run, in plain words. */
-const STEP: Record<string, string> = { setup: 'getting ready', exam_before: 'test of the current brain', star: 'practising puzzles', critique: 'fixing mistakes', judge: 'checking library answers', sft: 'learning', dpo: 'learning what is better', exam_after: 'test of the new brain', publish: 'saving the new brain' };
+const STEP: Record<string, string> = { setup: 'getting ready', exam_before: 'test of the current brain', star: 'practising puzzles', school: 'school practice', critique: 'fixing mistakes', judge: 'checking library answers', sft_known: 'learning (first part)', sft: 'learning', dpo: 'learning what is better', exam_after: 'test of the new brain', publish: 'saving the new brain' };
 
 const PHASE: Record<TrainStatus['phase'], string> = { idle: 'IDLE', collect: 'GATHERING', upload: 'UPLOADING', push: 'STARTING', running: 'TRAINING', failed: 'STOPPED' };
 
@@ -114,6 +116,11 @@ export function trainingPanel(): Panel & { refresh(): void } {
     if (r.phases?.length) {
       box.append(h('div.lab', `HOW LONG: ${minutes(total)} ON KAGGLE`));
       box.append(h('div.note', r.phases.map((x) => (x.skipped ? `${STEP[x.name] ?? x.name} skipped (${x.skipped})` : `${STEP[x.name] ?? x.name} ${minutes(x.minutes)}`)).join(' · ')));
+      // Kaggle's two cards: practice on the second beside the learning on the first, and what that saved
+      const c = r.cards;
+      const both = c && c.count >= 2;
+      const where = [both ? `Two GPUs: practice and tests on the second while he learned on the first${c.saved_minutes ? `, ${minutes(c.saved_minutes)} saved` : ''}.` : c?.count === 1 ? 'One GPU: each part in turn.' : '', (r.sessions ?? 1) > 1 ? `Done in ${r.sessions} sessions: each saved its place and the next carried on.` : '', r.plan?.mode === 'economy' ? r.plan.why : ''].filter(Boolean);
+      if (where.length) box.append(h('div.note.small.traincards', where.join(' ')));
     }
     if (r.rejected?.length) {
       box.append(h('div.lab', 'LEFT OUT, AND WHY'));
@@ -136,6 +143,14 @@ export function trainingPanel(): Panel & { refresh(): void } {
     p.body.append(h('div.note.trainnote', s.note));
     if (!keysOk) p.body.append(keySteps(s));
     if (keysOk && s.phase === 'idle' && s.next) p.body.append(row('NEXT RUN', `${when(s.next)}${s.kind ? ` · ${s.kind.scratch ? 'retrain from scratch' : 'weekly'}` : ''}`, null, { wrap: true }));
+    // Kaggle's free hours: left, back when, what the next run needs and which mode (the brain's words)
+    if (keysOk && s.gpu) {
+      const g = row('GPU HOURS', s.gpu.line, s.gpu.mode === 'full' ? 'FULL RUN' : s.gpu.mode === 'economy' ? 'SMALLER RUN' : 'WAITING', { tone: s.gpu.mode === 'full' ? 'up' : s.gpu.mode === 'wait' ? 'dn' : undefined, wrap: true });
+      g.dataset.mode = s.gpu.mode;
+      g.classList.add('trainquota');
+      p.body.append(g);
+    }
+    if (keysOk && s.plan?.mode === 'economy') p.body.append(h('div.note.small.traineconomy', `This run: ${s.plan.why} Fewer earlier weeks are replayed and fewer practice answers tried; the test is the same.`));
     // Weekly (adds the week to the brain in use) or the monthly retrain from scratch, and why: the brain decides as a run starts.
     if (keysOk && s.kind?.why) {
       const k = row(s.kind.now ? 'THIS RUN' : 'NEXT KIND', s.kind.scratch ? `Retrain from scratch: the stock ${baseById(s.base).label}, every week kept` : 'Weekly: adds this week to the brain in use', null, { wrap: true });

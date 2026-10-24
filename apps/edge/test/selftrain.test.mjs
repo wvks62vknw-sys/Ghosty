@@ -899,11 +899,11 @@ test('a Kaggle run that ends without a report: the week ends about 45 minutes af
   assert.equal((await f.deps.storage.get('train:state')).phase, 'running');
 });
 
-test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (phone not verified), under 10 hours left, or pay-to-scale on; the notes say how many GPU hours are left', async () => {
+test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (phone not verified), under 4 hours left (even a smaller run), or pay-to-scale on; the notes say how many GPU hours are left', async () => {
   const cases = [
     [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { hasEverRun: false } }, /no GPU time.*phone number/],
-    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '75600s', totalTimeAllowed: '108000s' } }, /Only 9 of Kaggle's 30 free GPU hours are left this week \(a run needs 10\)/],
-    [{ gpuQuota: { timeUsed: '3600s', timeReserved: '68400.500s', totalTimeAllowed: '108000s' } }, /Only 9\.9 of Kaggle's 30 free GPU hours/],
+    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '97200s', totalTimeAllowed: '108000s' } }, /Only 3 of Kaggle's 30 free GPU hours are left this week \(a full run needs 10, even a smaller one 4\): it starts when they come back, 2026-10-24 00:00 UTC/],
+    [{ gpuQuota: { timeUsed: '3600s', timeReserved: '90000.500s', totalTimeAllowed: '108000s' } }, /Only 3\.9 of Kaggle's 30 free GPU hours/],
     [{ gpuQuota: { timeUsed: '0s', totalTimeAllowed: '108000s', isPayToScaleEnabled: true } }, /pay-to-scale/],
   ];
   for (const [quota, why] of cases) {
@@ -940,6 +940,155 @@ test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (
   const st = await C.trainStatus(w.deps);
   assert.equal(st.phase, 'idle');
   assert.match(st.report.error, /no GPU time/);
+});
+
+// ---- training that survives Kaggle's hours running out (BRIEF-TRAINING-RESILIENCE) ---------------------------------
+
+const quotaLeft = (h, extra = {}) => ({ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: `${(30 - h) * 3600}s`, totalTimeAllowed: '108000s', ...extra } });
+
+test('economy mode: the plan for the hours Kaggle has left — a full run from 10, a smaller one from 4 (its budget fitted, fewer weeks replayed, fewer STaR samples, the exam on the phone), else a wait; a run carrying on needs only what it has left', () => {
+  const q = (left, more = {}) => ({ total: 30, left, payToScale: false, refreshAt: Date.parse('2026-10-24T00:00:00Z'), ...more });
+  assert.deepEqual(C.runPlan(q(28)), { mode: 'full', timeoutHours: 10, budgetHours: 9, samples: 16, replayWeeks: 8, examOnPhone: false, why: '' });
+  assert.deepEqual(C.runPlan(q(10)).mode, 'full');
+  assert.deepEqual(C.runPlan(q(6)), { mode: 'economy', timeoutHours: 5.5, budgetHours: 4.5, samples: 8, replayWeeks: 4, examOnPhone: true, why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  assert.deepEqual([C.runPlan(q(9.9)).timeoutHours, C.runPlan(q(9.9)).budgetHours], [9, 8]);
+  assert.deepEqual([C.runPlan(q(4)).mode, C.runPlan(q(4)).timeoutHours, C.runPlan(q(4)).budgetHours], ['economy', 3.5, 2.5]);
+  assert.equal(C.runPlan(q(3.9)).mode, 'wait');
+  assert.match(C.runPlan(q(3.9)).why, /even a smaller one 4/);
+  assert.equal(C.runPlan(q(28, { payToScale: true })).mode, 'wait', 'never with pay-to-scale on');
+  assert.equal(C.runPlan(q(0, { total: 0 })).mode, 'wait');
+  // carrying on after a session ran out: what is left of the run plus an hour, in half hours, at most a full session
+  assert.deepEqual([C.runPlan(q(5), { resumeHours: 2.2 }).mode, C.runPlan(q(5), { resumeHours: 2.2 }).timeoutHours], ['full', 3.5]);
+  assert.match(C.runPlan(q(3), { resumeHours: 2.2 }).why, /the rest of the run needs 3\.5\): it carries on when they come back/);
+  assert.equal(C.runPlan(q(28), { resumeHours: 20 }).timeoutHours, 10);
+});
+
+test('economy mode on a push: with 6 hours left a smaller run starts instead of waiting — its budget, fewer earlier weeks, fewer STaR samples — and the status, the report and the LOOPS card say so in plain words', async () => {
+  const s = new MemStorage();
+  // six kept weeks, so "fewer earlier weeks" shows
+  await s.put('train:weeks', Object.fromEntries([1, 2, 3, 4, 5, 6].map((w) => [String(w), false])));
+  // (this month's retrain already done: a weekly run)
+  await s.put('train:state', { phase: 'idle', week: 6, gen: 1, nextRun: 0, startedAt: 0, note: '', calls: 0, done: {}, scratchAt: Date.UTC(2026, 9, 3) });
+  const d = cycleDeps(s, { svc: { quota: quotaLeft(6) } });
+  await stepUntil(d, 'running');
+  const push = d.svc.state.pushes[0];
+  const cfg = configOf(push);
+  assert.equal(cfg.host, 'kaggle');
+  assert.equal(cfg.budget_hours, 4.5);
+  assert.equal(cfg.week_hours, 4.5);
+  assert.equal(cfg.samples, 8, 'fewer STaR samples (16 in a full run)');
+  assert.deepEqual(cfg.replay_weeks, [3, 4, 5, 6], 'the last four earlier weeks (eight in a full run)');
+  assert.equal(push.sessionTimeoutSeconds, 5.5 * 3600, 'Kaggle is asked for the hours left less half an hour');
+  assert.equal(cfg.resume, undefined, 'a first push');
+  let st = await C.trainStatus(d.deps);
+  assert.match(st.note, /Only 6 h left this week: a smaller run, the exam on the phone/);
+  assert.deepEqual(st.plan, { mode: 'economy', why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  const loops = await route(d, '/training/loops');
+  assert.equal(loops.week.economy, 'Only 6 h left this week: a smaller run, the exam on the phone.');
+  // the report keeps it (the LOOPS card and the panel read it after the week)
+  const report = { before: { gym: 0.4 }, after: { gym: 0.3 }, items: { gym: 96 }, gate: { pass: false, why: 'x' }, trained: {}, rejected: [], phases: [] };
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) });
+  st = await C.trainStatus(d.deps);
+  assert.deepEqual(st.report.plan, { mode: 'economy', why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  assert.equal(st.plan, undefined, 'no run under way');
+  assert.equal((await route(d, '/training/loops')).week.economy, 'Only 6 h left this week: a smaller run, the exam on the phone.');
+  // a full week: the full run as before
+  const f = cycleDeps(new MemStorage());
+  await stepUntil(f, 'running');
+  const full = configOf(f.svc.state.pushes[0]);
+  assert.deepEqual([full.budget_hours, full.week_hours, full.samples, f.svc.state.pushes[0].sessionTimeoutSeconds], [9, 9, 16, 36000]);
+  assert.deepEqual((await C.trainStatus(f.deps)).plan, { mode: 'full', why: '' });
+});
+
+test('economy mode: a SCHOOL paper is sat on the phone, not on Kaggle, when its two hours would leave the coming week\'s training short of a full run', () => {
+  const q = (left) => ({ total: 30, left, payToScale: false, refreshAt: null });
+  assert.equal(C.examQuotaProblem(q(11), false), '', 'nothing to come: the paper may use them');
+  assert.equal(C.examQuotaProblem(q(11), true), "Kaggle's free GPU hours are short this week (11 left) and the weekly training needs them: sit the paper on the phone.");
+  assert.equal(C.examQuotaProblem(q(12), true), '', 'twelve: the paper and a full run both fit');
+});
+
+test('a week over several sessions: a run whose session ran out reports {paused}, is pushed again with resume (its week\'s time unchanged, Kaggle asked only for what is left), and that is never counted as a failure; the gate judges the finished run only', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  let cfg = configOf(d.svc.state.pushes[0]);
+  // the notebook's session ran out after STaR: it saved its place and says so
+  let res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ paused: { week: 1, phase: 'sft', done: ['exam_before', 'star'], left_hours: 2.2, session: 1, host: 'kaggle' } }) });
+  assert.deepEqual(await res.json(), { ok: true });
+  let st = await s.get('train:state');
+  assert.equal(st.phase, 'push');
+  assert.equal(st.sessions, 1);
+  assert.match(st.note, /used this session's time on Kaggle and saved its place \(in learning\); it carries on in a new session/);
+  assert.equal(await s.get('train:report'), undefined, 'no report, nothing judged');
+  assert.equal((await hookReq(d, cfg.ticket, { method: 'POST', body: '{}' })).status, 403, "that session's ticket is spent");
+  assert.equal((await C.trainStatus(d.deps)).gpu.line.includes('carries on where it stopped'), true, 'the forecast: the rest of the run');
+  await stepUntil(d, 'running');
+  const again = configOf(d.svc.state.pushes[1]);
+  assert.equal(again.resume, true);
+  assert.equal(again.session, 2);
+  assert.equal(again.week_hours, cfg.week_hours, "the week's time is the same: the notebook goes on from what it used");
+  assert.equal(d.svc.state.pushes[1].sessionTimeoutSeconds, 3.5 * 3600, 'Kaggle asked for what is left plus an hour');
+  assert.match((await C.trainStatus(d.deps)).note, /carrying on from where it stopped/);
+  // three more pauses and then an error before the exam: the error is still pushed again (pauses are not failures)
+  for (let i = 0; i < 3; i++) {
+    cfg = configOf(d.svc.state.pushes.at(-1));
+    await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ paused: { phase: 'dpo', left_hours: 1 } }) });
+    await stepUntil(d, 'running');
+  }
+  cfg = configOf(d.svc.state.pushes.at(-1));
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { before: { gym: 0.2 }, after: {}, items: {}, gate: { pass: false, why: '' }, trained: {}, rejected: [], phases: [], error: 'OSError: 503' } }) });
+  st = await s.get('train:state');
+  assert.equal(st.phase, 'push', 'an error after four pauses: still one of its three tries');
+  // the finished run reports: judged and kept as ever
+  await stepUntil(d, 'running');
+  cfg = configOf(d.svc.state.pushes.at(-1));
+  const report = { before: { gym: 0.2, safety: 0.9 }, after: { gym: 0.4, safety: 0.9 }, items: { gym: 96, safety: 17 }, gate: { pass: true, why: 'better' }, trained: {}, rejected: [], phases: [], published: { repo: 'owner/ghosty-offline-brain', commit: 'c'.repeat(40) }, scale: 1, sessions: 6 };
+  res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) });
+  assert.deepEqual(await res.json(), { ok: true, published: true });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.report.sessions, 6);
+  assert.equal(st.models.length, 1);
+  // a run that needs more sessions than SESSIONS_MAX ends the week with the reason
+  const e = cycleDeps(new MemStorage());
+  await stepUntil(e, 'running');
+  for (let i = 0; i < 6; i++) {
+    if (i) await stepUntil(e, 'running');
+    await hookReq(e, configOf(e.svc.state.pushes.at(-1)).ticket, { method: 'POST', body: JSON.stringify({ paused: { phase: 'sft', left_hours: 5 } }) });
+  }
+  const end = await C.trainStatus(e.deps);
+  assert.equal(end.phase, 'idle');
+  assert.match(end.report.error, /more than 6 sessions/);
+});
+
+test('the quota forecast in the status: hours left, when they come back, what the next run needs and its mode — read at each push and again every few hours while idle', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.parse('2026-10-21T12:00:00Z') });
+  assert.equal((await C.trainStatus(d.deps)).gpu, undefined, 'nothing read yet: nothing said');
+  await C.trainTick(d.deps); // idle → collect: the hours are read on the way
+  let st = await C.trainStatus(d.deps);
+  assert.equal(st.gpu.line, 'Kaggle: 28 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00. The next run needs 10 h: a full run.');
+  assert.deepEqual([st.gpu.mode, st.gpu.needs, st.gpu.left, st.gpu.total], ['full', 10, 28, 30]);
+  const reads = () => d.svc.calls.filter((c) => c.url.endsWith('/GetAcceleratorQuotaStatistics')).length;
+  // economy and wait, as the forecast says them
+  const at = Date.parse('2026-10-21T12:00:00Z');
+  const seen = (left) => ({ total: 30, left, payToScale: false, refreshAt: Date.parse('2026-10-24T00:00:00Z'), at });
+  assert.equal(C.quotaForecast(seen(6), at).line, 'Kaggle: 6 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00. Only 6 h left this week: a smaller run, the exam on the phone. (A full run needs 10 h.)');
+  assert.equal(C.quotaForecast(seen(6), at).mode, 'economy');
+  assert.match(C.quotaForecast(seen(2), at).line, /^Kaggle: 2 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00\. Only 2 of Kaggle's 30 free GPU hours are left this week \(a full run needs 10, even a smaller one 4\)/);
+  assert.equal(C.quotaForecast(seen(2), at).needs, 4);
+  assert.match(C.quotaForecast(seen(28), at + 2 * 86_400_000).line, /\(read Wed 21 Oct, 13:00\)/, 'an old reading says when it was taken');
+  // idle: read again after six hours, not before
+  await s.put('train:state', { ...(await s.get('train:state')), phase: 'idle', nextRun: Date.parse('2026-10-28T12:00:00Z') });
+  const n = reads();
+  d.tick(3600_000);
+  await C.trainTick(d.deps);
+  assert.equal(reads(), n, 'an hour later: the last reading stands');
+  d.tick(6 * 3600_000);
+  d.svc.state.quota = quotaLeft(20);
+  await C.trainTick(d.deps);
+  assert.equal(reads(), n + 1);
+  st = await C.trainStatus(d.deps);
+  assert.match(st.gpu.line, /^Kaggle: 20 of 30 free GPU hours left this week/);
 });
 
 test('a run that hit a problem before its exam (a Hugging Face 5xx, pip, node) is pushed again from its checkpoint, three runs at most; then the week ends with the reason', async () => {

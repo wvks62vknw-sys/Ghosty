@@ -5,7 +5,9 @@
 //     the choice shows again after a reload;
 //  3. the report card (the brain's answer stood in for with a finished week): this week vs last week by area,
 //     KEPT and why, what he trained on, how long, what was thrown away and why, the brains kept (RECOMMENDED);
-//     ROLLBACK goes one back; the offline brain's chooser in SETTINGS lists the trained weeks with the stock
+//     ROLLBACK goes one back; GPU HOURS (Kaggle's hours left, when they come back, what the next run needs and its
+//     mode, a smaller run said in plain words); what ran on which of Kaggle's two cards, in how many sessions;
+//     the offline brain's chooser in SETTINGS lists the trained weeks with the stock
 //     models as the fallback and says which one is new;
 //  4. nothing scrolls sideways at iPhone width.
 //   BASE=http://localhost:8875 node tests/selftrain.spec.mjs [outDir]
@@ -109,9 +111,11 @@ const report = {
   rejected: [{ why: 'STaR samples the checker failed', n: 5120 }, { why: 'evolved tasks dropped: not changed', n: 4 }, { why: 'bad dataset row: bad task (or an exam seed)', n: 1 }],
   phases: [{ name: 'setup', minutes: 14 }, { name: 'exam_before', minutes: 6 }, { name: 'star', minutes: 71 }, { name: 'critique', minutes: 12 }, { name: 'judge', minutes: 4 }, { name: 'sft', minutes: 38 }, { name: 'dpo', minutes: 9 }, { name: 'exam_after', minutes: 12 }, { name: 'publish', minutes: 17 }],
   published: { repo: 'owner/ghosty-offline-brain', commit: c('b') }, scale: 1,
+  cards: { count: 2, train: 'cuda:0', sample: 'cuda:1', names: ['Tesla T4', 'Tesla T4'], saved_minutes: 52 }, sessions: 2,
 };
+const gpuLine = 'Kaggle: 6 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00. Only 6 h left this week: a smaller run, the exam on the phone. (A full run needs 10 h.)';
 const previous = { ...report, week: 1, before: { gym: 0.25, general: 0.5, library: 0.33, tools: 0.5, safety: 0.9 }, after: report.before, gate: { pass: true, why: '' } };
-const status = (active) => ({ keys: { kaggle: true, hf: true }, phase: 'idle', note: 'Next training Sat 24 Oct, 01:00.', week: 2, next: Date.UTC(2026, 9, 24, 1), gathered: {}, report, previous, models: [week(2, report.after, c('b')), week(1, report.before, c('a'))], active, privateData: true, ratings: { up: 0, down: 0 }, weights: `/api/w/${'c'.repeat(48)}/` });
+const status = (active) => ({ keys: { kaggle: true, hf: true }, phase: 'idle', note: 'Next training Sat 24 Oct, 01:00.', week: 2, next: Date.UTC(2026, 9, 24, 1), gathered: {}, report, previous, models: [week(2, report.after, c('b')), week(1, report.before, c('a'))], active, privateData: true, ratings: { up: 0, down: 0 }, weights: `/api/w/${'c'.repeat(48)}/`, gpu: { left: 6, total: 30, refreshAt: Date.UTC(2026, 9, 24), at: Date.UTC(2026, 9, 20), needs: 5.5, mode: 'economy', line: gpuLine } });
 await page.route('**/api/training', (r) => r.fulfill({ json: status(c('b')) }));
 await page.route('**/api/training/rollback', (r) => r.fulfill({ json: status(c('a')) }));
 await page.route('**/api/training/gym', (r) => r.fulfill({ json: { ok: true } }));
@@ -140,6 +144,8 @@ check(card.rows.some((r) => r.model === c('b') && r.n === 'RECOMMENDED') && card
 check(/This phone is set to: /.test(card.text) && !/The phone uses/.test(card.text), 'what the phone is set to, said apart from what is recommended');
 check(!/Not tried for real yet/.test(card.text), 'a finished week is not called untried');
 check(card.rows.some((r) => r.k === 'STOCK'), 'the stock model kept as the fallback');
+check(card.rows.some((r) => r.k === 'GPU HOURS' && r.v === gpuLine && r.n === 'SMALLER RUN'), `the quota line: ${JSON.stringify(card.rows.find((r) => r.k === 'GPU HOURS'))}`);
+check(/Two GPUs: practice and tests on the second while he learned on the first, 52 min saved\. Done in 2 sessions: each saved its place and the next carried on\./.test(card.text), 'what ran where, and in how many sessions');
 await page.locator('#pg-system .selftrain').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/selftrain-${engine}-report.png`, fullPage: false });
 const roll = page.locator('#pg-system .selftrain button', { hasText: 'ROLLBACK' });
