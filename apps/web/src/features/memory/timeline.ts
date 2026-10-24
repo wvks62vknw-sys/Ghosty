@@ -13,7 +13,7 @@ import { brain } from '../../api/brain';
 import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
-import { button, empty, modal, panel, toast, undoBar, type Panel } from '../../ui/components';
+import { button, empty, modal, panel, toast, undo, undoBar, type Panel } from '../../ui/components';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -84,10 +84,11 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   const p: Panel = panel('TIMELINE', { cls: 'tl', status: '' });
   const kindSel = h('select', { 'aria-label': 'Show which memories' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
   const find = h('input', { type: 'search', placeholder: 'Find a memory…', 'aria-label': 'Find a memory' });
-  // UNDO after a FORGET or an EDIT (12 s; a forgotten one stays under RECENTLY FORGOTTEN for a day after)
-  const bar = undoBar();
+  // UNDO after a FORGET or an EDIT (12 s; a forgotten one stays under RECENTLY FORGOTTEN for a day after): the bar
+  // that floats above the tab bar, so it is on screen wherever the row was (the panel's own sat at its top, off screen
+  // for a row further down)
+  const bar = { show: undo };
   p.el.insertBefore(h('div.keyrow.wrapit', kindSel, find), p.body);
-  p.el.insertBefore(bar.el, p.body);
   // RECENTLY FORGOTTEN: everything forgotten in the last day (here, under ME, in WHAT I REMEMBER, or FORGET EVERYTHING), each with UNDO.
   const forgotBox = h('details.forgot', { hidden: true });
   p.el.insertBefore(forgotBox, p.body);

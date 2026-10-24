@@ -189,7 +189,8 @@ async function run(name, viewport) {
   // FORGET, then UNDO: back, still locked
   await item(edited).first().locator('button:has-text("FORGET")').click();
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] FORGET did not remove it`));
-  const undo = tlp.locator('.undo button:has-text("UNDO")');
+  // the UNDO bar floats above the tab bar (on screen wherever the row was)
+  const undo = page.locator('.undo.undofloat:not([hidden]) button:has-text("UNDO")');
   if (!(await undo.isVisible().catch(() => false))) problems.push(`[${name}] no UNDO after FORGET`);
   await page.screenshot({ path: `${out}/${name}-memory-undo.png` });
   await undo.click().catch(() => undefined);
@@ -218,6 +219,27 @@ async function run(name, viewport) {
   await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO from RECENTLY FORGOTTEN did not bring it back locked`));
   await fb.locator('.fgi', { hasText: 'walks in Kings Heath' }).locator('button:has-text("UNDO")').click().catch(() => undefined);
   await page.waitForFunction(() => /walks in Kings Heath/.test(document.querySelector('#pg-memory .pn.me')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the ME line did not come back`));
+  // A row far down the timeline: its FORGET's UNDO is on screen (it sat at the top of the panel, thousands of points up).
+  const deepWord = word();
+  await page.evaluate(async (w) => {
+    for (let i = 1; i <= 26; i++) await fetch('/api/memory', { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789', 'content-type': 'application/json' }, body: JSON.stringify({ text: `deep ${w} number ${i}` }) });
+  }, deepWord);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => (location.hash = 'memory'));
+  // the oldest of the 26: about the 26th row, newest first
+  const deepText = `deep ${deepWord} number 1`;
+  const deep = tlp.locator('.mi').filter({ has: page.locator('.mit', { hasText: new RegExp(`^${deepText}$`) }) });
+  if (await deep.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false)) {
+    await deep.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    const rowIndex = await deep.evaluate((e) => [...e.parentElement.querySelectorAll('.mi')].indexOf(e));
+    await deep.locator('button:has-text("FORGET")').click();
+    await page.waitForTimeout(500);
+    const seen = await page.evaluate(() => [...document.querySelectorAll('.undo:not([hidden])')].some((u) => { const b = u.getBoundingClientRect(); return b.height > 0 && b.top >= 0 && b.bottom <= innerHeight && /deep/.test(u.textContent); }));
+    if (!seen) problems.push(`[${name}] FORGET on row ${rowIndex + 1} of the timeline: its UNDO is not on screen`);
+    await undo.click().catch(() => problems.push(`[${name}] no UNDO to tap after forgetting row ${rowIndex + 1}`));
+    await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi .mit')].some((x) => x.textContent === t), deepText, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring the deep row back`));
+  } else problems.push(`[${name}] the 26 seeded memories are not in the timeline`);
   // the filter by kind and the search
   await tlp.locator('select[aria-label="Show which memories"]').selectOption('profile');
   const kinds2 = await tlp.locator('.mik').allTextContents();
