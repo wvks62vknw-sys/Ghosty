@@ -243,3 +243,9 @@ Add to it any time; tick items off only when he agrees they are fixed.
     not scroll for ever (each tool its own screen, the hub a compact instrument grid); a boot cinematic; nothing generic.
     Briefs: BRIEF-IRON-BUILD.md (the look, shared work first), BRIEF-NAV-BOOT.md (navigation + boot cinematic mock-ups
     for his yes).
+
+44. **Bug on the 18 Pro Max (24 Oct ~21:30 UK):** "whenever i go to download one of the big brains Ghosty just crashes and
+    closes" (SETTINGS → OFFLINE BRAIN → WHICH BRAIN → GET on Qwen3.5 2B or 4B). Most likely iOS killing the tab for
+    memory when GET loads the model into graphics memory after the download, or during it. Fix in flight: GET fills the
+    cache only; USE/TEST load, after a limits check and a warning; a crash-safe progress log that reports on the next
+    open. Asked of him: does it close at once on GET, or after the count has moved?
