@@ -13,9 +13,11 @@
  *     async run() { const r = await fetch('https://icanhazdadjoke.com/', { headers: { Accept: 'text/plain' } }); return r.text(); },
  *   }];
  */
-import type { Tool } from './types';
+import { arg, type Tool } from './types';
 
 import { detect_crime } from './detect_crime';
+import { summariseVideo } from '../integrations/youtube';
+import { tutorDepsFor } from '../tutor';
 import { stageById, STAGE_IDS, SUBJECT_LABEL, weakSpots, type StageId } from '../../../../packages/shared/src/school';
 import { stageName } from '../school/papers';
 import { gapBySubject, loadRemote, ONLINE_LABEL, remoteView } from '../school/remote';
@@ -96,6 +98,18 @@ const sit_exam: Tool = {
   },
 };
 
+/** A YouTube link → a plain summary with timestamped moments, filed in the library; quiz: 5 LEARN cards (integrations/youtube.ts). */
+const summarise_video: Tool = {
+  name: 'summarise_video',
+  description: 'A YouTube link: title, length, plain summary, timestamped moments linking back. quiz: true ("quiz me on this") adds 5 LEARN cards. transcript: what the owner pasted when YouTube refused.',
+  parameters: { type: 'object', properties: { url: { type: 'string' }, quiz: { type: 'boolean' }, transcript: { type: 'string' } }, required: ['url'] },
+  risk: 'auto',
+  async run(a, ctx) {
+    const deps = await tutorDepsFor(ctx);
+    return summariseVideo({ ...deps, progress: ctx.progress }, { url: arg.str(a, 'url'), quiz: arg.bool(a, 'quiz'), transcript: arg.str(a, 'transcript', false) });
+  },
+};
+
 // The transit, motorway, recon and reverse-image tools live in tools/index.ts as their own
 // keyword-gated groups (their descriptions on every turn would cost more than a free model's
 // per-minute allowance is worth). Tools here are described on every turn.
@@ -107,3 +121,10 @@ export const extraTools: Tool[] = [detect_crime];
  * own keyword-gated group in tools/index.ts (protected), like the transit and recon groups.
  */
 export const schoolTools: Tool[] = [school_status, sit_exam];
+
+/**
+ * The YouTube tool, kept out of `extraTools` for the same reason (a plain turn's tool descriptions are within 100
+ * characters of their 6,500 budget). It goes live as its own keyword-gated group in tools/index.ts (protected):
+ * `{ name: 'video', tools: videoTools, when: /\b(youtube|youtu\.be|videos?|transcripts?)\b/i, about: … }`.
+ */
+export const videoTools: Tool[] = [summarise_video];
