@@ -273,6 +273,13 @@ folder that no longer exists; ignore those paths).
   files); playback volume and routing with the mic open and Safari's recogniser offline need the real iPhone; barge-in
   false stops with a loud TV (2 of 40 in a simulation; real recordings before retuning); a SPOKEN line about misheard
   words would cost 47 prompt characters (about 25 spare); the stale `SPEECH_ABOUT`; "until midnight UTC" is 1 am in BST.
+- 24 Oct ~22:30 UK: merged after review: the WORKSHOP upgrade pass (10 fixes; no brain code; no kernel line). Leftovers the
+  builder ranked: the change list itself is slow (GitHub requests one after another in `github.ts`, protected: parallel or
+  cached would need a kernel edit); the app report's jargon comes from the brain's text in `appbuild.ts` (a prompt check
+  before changing a tool result); the deck line for the Workshop could say "1 project running · 2 changes to ship";
+  widget rows do not show that the title opens the widget; the training ground's wording; the desktop hero mostly empty;
+  real GitHub timings and the Safari install flow need the real thing. The ui spec opens whichever widget is listed
+  first, so after the undo spec on the same preview it can fail (a spec assumption, not a bug).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
