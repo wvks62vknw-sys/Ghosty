@@ -57,6 +57,14 @@ async function run(name, viewport) {
     await page.waitForTimeout(tab === 'eye' ? 4000 : 900);
     await page.screenshot({ path: `${out}/${name}-${tab}.png` });
   }
+  // the stopwatch (core/stopwatch.ts) has the replies above and the tabs just opened, in plain words
+  const speed = await page.evaluate(() => window.__ghosty?.stopwatch?.summary()).catch((e) => ({ error: String(e) }));
+  const screens = new Set((speed?.screens ?? []).map((s) => s.id));
+  // (today's, or last week's when the run crossed midnight)
+  const timed = (k) => (speed?.replies?.today?.[k]?.n ?? 0) + (speed?.replies?.week?.[k]?.n ?? 0);
+  if (!timed('first') || !timed('done')) problems.push(`[${name}] the stopwatch has no reply timed: ${String(JSON.stringify(speed)).slice(0, 300)}`);
+  else if (!screens.has('eye') || !screens.has('brief')) problems.push(`[${name}] the stopwatch has no tab times for God's Eye and Brief: ${[...screens].join(', ')}`);
+  else if (!speed.lines.some((l) => /^Replies: (first word in |none timed yet today · last week )/.test(l)) || !speed.lines.some((l) => /^Screens: /.test(l)) || !speed.lines.some((l) => /^Brain round trip /.test(l))) problems.push(`[${name}] the stopwatch's lines are missing: ${speed.lines.join(' | ')}`);
   // open the widget from the workshop
   await page.evaluate(() => (location.hash = 'workshop'));
   await page.waitForTimeout(800);
