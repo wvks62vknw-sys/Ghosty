@@ -3915,6 +3915,9 @@ html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px 
   /* the Home Screen app: the safe area over the home indicator is counted once, by the tab bar and the pages' ends
      (#app padded by it too, so pages ended 78 px above the bar instead of 26 and stopped 34 px above the bottom) */
   html body.tabbar #app { padding-bottom: 0; }
+  /* offline, every screen but Home shows one line above the tab bar (#rcoffline, 36 px from 88 px over the bar's
+     bottom edge): a page ends above it, not under it, and God's eye's bar sits above it */
+  html body.tabbar.offline:not([data-tab="core"]) :is(.two.stack, .hub, .two:not(.stack) > .col, .listmode .pn.pushed > .bd, .hud:not(.two):not(.core)) { padding-bottom: calc(140px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))) !important; }
 }
 /* the keyboard up (shell/layout.ts): the app, a sheet and the deck fit the part of the screen it leaves; the tab bar
    steps aside and Home's ask bar comes down to the keyboard */

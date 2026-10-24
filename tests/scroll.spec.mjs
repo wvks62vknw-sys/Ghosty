@@ -202,6 +202,56 @@ for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief',
   await kctx.close();
   felt++;
 }
+// Every page scrolled to its end: the lowest thing it draws (clipped by the boxes it sits in), the floating tab bar's
+// top, and — offline, when every screen but Home shows one line above the tab bar — that line's top.
+const endOf = (p, tab, offline = false) =>
+  p.evaluate(({ t, offline }) => {
+    document.body.classList.toggle('offline', offline);
+    const root = document.getElementById(`pg-${t}`);
+    const all = [root, ...root.querySelectorAll('*')];
+    const ys = all.filter((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 2 && e.getBoundingClientRect().height > 160);
+    const sc = ys.find((e) => !ys.some((o) => o !== e && o.contains(e))) ?? root;
+    sc.scrollTop = sc.scrollHeight;
+    let low = -1e9;
+    let what = '';
+    for (const el of sc.querySelectorAll('*')) {
+      if (el.closest('details:not([open]) > :not(summary)')) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || +cs.opacity === 0 || cs.position === 'fixed') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      if (el.children.length && cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.borderBottomWidth === '0px' && cs.boxShadow === 'none' && !/^(BUTTON|INPUT|TEXTAREA|SELECT|CANVAS|VIDEO|IMG)$/.test(el.tagName)) continue;
+      let b = r.bottom;
+      for (let a = el.parentElement; a && a !== sc; a = a.parentElement) if (getComputedStyle(a).overflowY !== 'visible') b = Math.min(b, a.getBoundingClientRect().bottom);
+      if (b > low) [low, what] = [b, `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}`];
+    }
+    const line = document.getElementById('rcoffline');
+    const res = { lowest: Math.round(low), what, bar: Math.round(document.querySelector('#dock .tabcap').getBoundingClientRect().top), line: offline && line && getComputedStyle(line).display !== 'none' ? Math.round(line.getBoundingClientRect().top) : null };
+    document.body.classList.remove('offline');
+    sc.scrollTop = 0;
+    return res;
+  }, { t: tab, offline });
+const ENDS = ['brief', 'threats', 'markets', 'radio', 'library', 'gym', 'school', 'space', 'learn', 'reverse', 'settings', 'system', 'links', 'agenda', 'workshop', 'memory', 'lens', 'studio'];
+
+// 3. Offline, the line above the tab bar ("Offline · showing what's saved on this phone") no longer covers the end of
+//    every page [it covered the last 34 px: pages ended at 661, the line began at 627]; God's eye's bar sits above it.
+for (const tab of ENDS) {
+  await show(feel, tab);
+  const e = await endOf(feel, tab, true);
+  if (e.line == null) problems.push(`[offline · ${tab}] no offline line was shown`);
+  else if (e.lowest > e.line - 8) problems.push(`[offline · ${tab}] the end of the page (${e.what} at ${e.lowest}) is under the offline line (from ${e.line})`);
+}
+{
+  await show(feel, 'eye', 2500);
+  const e = await feel.evaluate(() => {
+    document.body.classList.add('offline');
+    const r = { bar: Math.round(document.querySelector('#pg-eye .eyebot').getBoundingClientRect().bottom), line: Math.round(document.getElementById('rcoffline').getBoundingClientRect().top) };
+    document.body.classList.remove('offline');
+    return r;
+  });
+  if (e.bar > e.line - 4) problems.push(`[offline · eye] God's eye's bar (to ${e.bar}) is under the offline line (from ${e.line})`);
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
