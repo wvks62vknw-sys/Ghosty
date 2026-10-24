@@ -5,9 +5,9 @@ import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, fmt, h } from '../../core/dom';
 import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
-import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
+import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
-import { dayName, diarySentence, greeting, hhmm, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
+import { dayName, diarySentence, greeting, hhmm, isoDay, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -29,8 +29,31 @@ export const briefTab: TabDef = {
     P.big.before(dateEl);
     P.sub.after(say);
     let commuteWords = '';
+    // The last weather is kept on the phone (today's only): opened offline, or with Open-Meteo down, the Brief
+    // still shows the morning's forecast, marked with when it was fetched, instead of a blank top.
+    const KEPT = 'ghosty.brief.wx';
+    let keptAt = 0;
+    const keep = () => {
+      if (weather.status !== 'LIVE' || !weather.data || weather.at === keptAt) return;
+      keptAt = weather.at;
+      try {
+        localStorage.setItem(KEPT, JSON.stringify({ at: weather.at, w: weather.data }));
+      } catch {
+        /* storage full or blocked: nothing kept */
+      }
+    };
+    const wxNow = (): { w: WeatherData | null; asOf: number } => {
+      if (weather.data) return { w: weather.data, asOf: weather.status === 'STALE' ? weather.at : 0 };
+      try {
+        const k = JSON.parse(localStorage.getItem(KEPT) ?? 'null') as { at: number; w: WeatherData } | null;
+        if (k?.w && isoDay(new Date(k.at)) === isoDay(new Date())) return { w: k.w, asOf: k.at };
+      } catch {
+        /* nothing kept */
+      }
+      return { w: null, asOf: 0 };
+    };
     const facts = (spokenToo = false): Facts => {
-      const w = weather.data;
+      const { w } = wxNow();
       const f: Facts = {};
       if (w) {
         const d = w.daily;
@@ -129,18 +152,24 @@ export const briefTab: TabDef = {
     P.right.append(np.el);
 
     const paintWeather = () => {
+      keep();
       paintSay();
-      const w = weather.data;
+      const { w, asOf } = wxNow();
       wp.title.textContent = `WEATHER · ${home().name.toUpperCase()}`;
       clear(wp.body);
+      const offline = navigator.onLine === false;
       if (!w) {
-        wp.body.append(empty(weather.status === 'NO FEED' ? 'NO FEED' : 'LOADING'));
+        const down = weather.status === 'NO FEED';
+        wp.setStatus(down ? (offline ? 'OFFLINE' : 'CAN’T REACH') : '…', down ? 'off' : 'mid');
+        wp.body.append(empty(down ? 'NO FEED' : 'LOADING'));
         return;
       }
       const c = w.current;
       const d = w.daily;
+      const when = asOf ? ` · as of ${hhmm(asOf)}` : '';
+      wp.setStatus(asOf ? `${offline ? 'OFFLINE' : 'NOT UPDATING'} · ${hhmm(asOf)}` : 'LIVE', asOf ? 'mid' : 'ok');
       P.big.textContent = temp(c.temperature_2m);
-      P.sub.textContent = `${WMO(c.weather_code)} · feels ${temp(c.apparent_temperature)}`;
+      P.sub.textContent = `${WMO(c.weather_code)} · feels ${temp(c.apparent_temperature)}${when}`;
       wp.body.append(
         row('WIND', `${speed(c.wind_speed_10m)} ${GEO.card(c.wind_direction_10m)}`),
         row('HUMIDITY', `${c.relative_humidity_2m}%`),
@@ -169,6 +198,8 @@ export const briefTab: TabDef = {
       np.setStatus(news.status, news.status === 'LIVE' ? 'ok' : 'off');
     };
     weather.onChange(paintWeather);
+    addEventListener('online', paintWeather);
+    addEventListener('offline', paintWeather);
     air.onChange(paintWeather);
     news.onChange(paintNews);
     paintWeather();
