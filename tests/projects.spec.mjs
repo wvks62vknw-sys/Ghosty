@@ -391,6 +391,11 @@ async function workshop() {
     await page.click('#pg-workshop button.swap');
     await page.waitForTimeout(500);
     const right = await short();
+    // 10. The second column starts with what he made (pages, then widgets), and the switch names both columns
+    const order = await page.$$eval('#pg-workshop .cR .pn h3 .ptitle', (hs) => hs.map((x) => x.textContent?.trim() ?? ''));
+    if (!/^PUBLISHED PAGES/.test(order[0] ?? '') || !/^WIDGETS/.test(order[1] ?? '')) problems.push(`[workshop 10] the second column starts with ${order.slice(0, 2).join(', ')}`);
+    const sw = await page.$eval('#pg-workshop button.swap', (b) => `${b.dataset.left} | ${b.dataset.right}`);
+    if (sw !== 'Build | Pages & widgets') problems.push(`[workshop 10] the column switch reads "${sw}"`);
     const small = [...left, ...right];
     if (small.length) problems.push(`[workshop 8] buttons under 44 pt: ${[...new Set(small.map((b) => `${b.t} ${b.h}px`))].join(', ')}`);
     await ctx.close();

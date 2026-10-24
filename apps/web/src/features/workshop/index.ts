@@ -84,7 +84,7 @@ export const workshopTab: TabDef = {
   },
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });
+    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'PAGES & WIDGETS', leftLabel: 'BUILD' });
 
     // ask box
     const ask = panel('TELL GHOSTY WHAT TO BUILD', { grow: false });
@@ -481,7 +481,8 @@ export const workshopTab: TabDef = {
     }, 'on');
     tp.body.append(tStats, tNow, tLog);
     tp.foot!.append(tLevel, startBtn);
-    P.right.append(tp.el, pp.el, wp.el, vp.el, kp.el);
+    // what he made first (his pages and apps, his widgets), then the versions; the coding practice and the lock last
+    P.right.append(pp.el, wp.el, vp.el, tp.el, kp.el);
 
     let changes: ChangeSummary[] = [];
     let versions: VersionSummary[] = [];
