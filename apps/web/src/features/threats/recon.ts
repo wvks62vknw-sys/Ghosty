@@ -3,8 +3,8 @@
  * web address through the brain (GET /api/recon: dns.google, rdap.org, crt.sh, archive.org,
  * ipwho.is, Shodan's InternetDB, hackertarget and one ordinary page request). The report
  * shows as sections with the source named; SAVE TO LIBRARY files its Markdown, ASK GHOSTY opens
- * the chat with a prepared question. Infrastructure only — the brain refuses a person's name
- * or an email address and says why.
+ * the chat with a prepared question.
+ * Infrastructure only — the brain refuses a person's name or an email address and says why.
  */
 import type { ReconReport } from '../../../../../packages/shared/src/recon';
 import { headers } from '../../api/brain';
@@ -12,8 +12,9 @@ import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, panel, row, toast } from '../../ui/components';
-import { askPrompt, failedCount, reconTitle, reportRows, runningText, summaryLine } from './reconview';
+import { askPrompt, failedCount, reconTitle, reportRows, runningText, summaryLine, type ViewRow } from './reconview';
 
+const RECORD = /^(A|AAAA|CNAME|MX|NS|TXT|CAA|PTR|HTTP|DNS)$/;
 const IDLE = 'Passive lookups of public records: DNS, registration, certificates, subdomains, the Wayback Machine, hosting and one page request. Infrastructure only — Ghosty refuses names and email addresses.';
 
 export function reconPanel(): HTMLElement {
@@ -31,6 +32,13 @@ export function reconPanel(): HTMLElement {
   let current: { report: ReconReport; markdown: string } | null = null;
   let running = false;
 
+  const rowOf = (x: ViewRow): HTMLElement => {
+    const r = row(x.k, x.v, x.n ?? null, { wrap: true, ...(x.tone ? { tone: x.tone } : {}) });
+    // DNS record types (AAAA, MX) and source names (crt.sh) keep their own case; plain words are cased as usual
+    const k = r.querySelector<HTMLElement>('.k');
+    if (k && (RECORD.test(x.k) || /[a-z]/.test(x.k))) k.dataset.case = 'keep';
+    return r;
+  };
   const paint = (r: ReconReport) => {
     clear(out);
     for (const s of reportRows(r)) {
@@ -39,7 +47,7 @@ export function reconPanel(): HTMLElement {
         out.append(h(`div.note${s.skipped ? '' : '.bad'}` as 'div', s.error));
         continue;
       }
-      for (const x of s.rows) out.append(row(x.k, x.v, x.n ?? null, { wrap: true, ...(x.tone ? { tone: x.tone } : {}) }));
+      for (const x of s.rows) out.append(rowOf(x));
     }
   };
 
