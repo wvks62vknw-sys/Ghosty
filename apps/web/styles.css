@@ -2596,7 +2596,7 @@ html .hud.core .convo .msg:not(.me) { align-self: stretch; padding: 0 26px 0 0; 
 html .hud.core .convo .msg:not(.me)::before { display: none !important; }
 html .hud.core .convo .msg:not(.me) > small { display: none; }
 html .rcwho { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font: 600 12px/16px var(--sf); letter-spacing: .02em; color: var(--ink3); }
-html .rcwho .dot { width: 14px; height: 14px; flex: none; border-radius: 7px; background: radial-gradient(circle, #fff 0 18%, color-mix(in srgb, var(--c) 50%, #fff) 30%, color-mix(in srgb, var(--c) 75%, #000) 62%, color-mix(in srgb, var(--c) 20%, #000) 100%); box-shadow: 0 0 6px rgba(var(--cr), .6); }
+html .rcwho .glyph { width: 20px; height: 20px; flex: none; overflow: visible; }
 html .rcwho b { font-weight: 600; } html .rcwho em { font-style: normal; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 html .rccited { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-left: auto; height: 20px; padding: 0 8px; border-radius: 10px; font: 700 10.5px/1 var(--sf); letter-spacing: .08em; color: var(--c); background: rgba(var(--cr), .14); }
 html .rccited .ic { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
@@ -2836,36 +2836,12 @@ html #pg-gym .gymallst { grid-column: 1 / -1; position: relative; margin-top: 12
 html #pg-gym .gymallst::before { content: ''; position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 4px; background: var(--ink3); }
 html #pg-gym .gymall:has(.gymallbtn[data-label="Stop"]) .gymallst::before { background: var(--c); box-shadow: 0 0 8px var(--c); }
 @media (max-width: 400px) { html #pg-gym .gymall { grid-template-columns: minmax(0, 1fr); } html #pg-gym .gymall button.gymswitch { grid-column: 1; justify-content: space-between; margin-top: 10px; } }
-/* Games: a heading, then a card each — glyph tile, level ring, name, level line, sparkline, a state pill */
+/* Games: a heading, then a card each — the game's picture (features/gym/art.ts), its state, name and level, the mastery meter with the pass mark, his rating or the next level's mark (styled in "Iron Man" below) */
 html #pg-gym .gymsec { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 34px 0 10px; }
 html #pg-gym .gymsec b { font: 700 22px/28px var(--sfd); letter-spacing: -.3px; color: var(--ink); }
 html #pg-gym .gymsec span { font: 400 13px var(--sf); color: var(--ink3); white-space: nowrap; }
 html #pg-gym .gymcards { gap: 12px; }
-html #pg-gym button.gymcard { position: relative; display: flex; flex-direction: column; align-items: stretch; height: 168px; min-height: 0; padding: 14px 14px 12px; overflow: hidden; border-radius: 20px; background: var(--rcglass) !important; box-shadow: var(--edge), var(--lift) !important; text-align: left; }
-html #pg-gym button.gymcard.on { box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), var(--lift) !important; }
-html #pg-gym .gymcard .gymhead { display: flex; justify-content: space-between; align-items: flex-start; }
-html #pg-gym .gymcard .gymglyph { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.08) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
-html #pg-gym .gymcard .gymglyph .ic { width: 21px; height: 21px; stroke: var(--ink) !important; stroke-width: 1.7; }
-html #pg-gym .gymcard .gymtop { position: relative; width: 46px; height: 46px; display: grid; place-items: center; }
-html #pg-gym .gymcard .gymtop svg { position: absolute; inset: 0; width: 46px; height: 46px; }
-html #pg-gym .gymcard .gymtop .rtrack { stroke: rgba(255,255,255,.12); stroke-width: 7; }
-html #pg-gym .gymcard .gymtop .rfg { stroke: #e6eaee; stroke-width: 7; }
-html #pg-gym .gymcard .gymtop .rgoal { stroke: #e6eaee; stroke-width: 3; }
-html #pg-gym .gymcard.mastered .gymtop .rfg { stroke: var(--c); filter: drop-shadow(0 0 4px rgba(var(--cr), .55)); }
-html #pg-gym .gymcard .gymlvl { position: relative; font: 700 14px/1 var(--sf); color: var(--ink); font-variant-numeric: tabular-nums; }
-html #pg-gym .gymcard .gymname { margin-top: 12px; font: 600 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html #pg-gym .gymcard > small { margin-top: 1px; font: 400 13px/17px var(--sf); color: var(--ink2); }
-html #pg-gym .gymcard .gymspark { position: absolute; left: 14px; right: 14px; bottom: 34px; height: 26px; display: block; }
-html #pg-gym .gymcard .gymspark svg { width: 100%; height: 26px; }
-html #pg-gym .gymcard .gymst { position: absolute; left: 14px; bottom: 11px; display: inline-flex; align-items: center; gap: 6px; font-style: normal; color: var(--ink3); }
-html #pg-gym .gymcard .gymst::after { content: ''; order: -1; width: 6px; height: 6px; border-radius: 3px; background: var(--ink3); }
-html #pg-gym .gymcard .gymst[data-label]::before { --lfs: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 13px; }
-html #pg-gym .gymcard .gymst.mastered, html #pg-gym .gymcard .gymst.training { color: color-mix(in srgb, var(--c) 60%, #fff); }
-html #pg-gym .gymcard .gymst.mastered::after, html #pg-gym .gymcard .gymst.training::after { background: var(--c); }
-/* GYM ideas (features/gym/index.ts): his league rating on a board game's card; on the game, the league of his past selves and puzzles at his edge */
-html #pg-gym .gymcard .gymrate { display: block; margin-top: 2px; font: 400 13px/17px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html #pg-gym .gymcard.rated .gymspark { display: none; } /* the rating takes the sparkline's place */
-html #pg-gym .gymcard .gymrate[hidden] { display: none; }
+html #pg-gym .gymcard .gymrate[hidden], html #pg-gym .gymcard .gymnext[hidden] { display: none; }
 .gymideas { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 14px; }
 .gymideas[hidden] { display: none; }
 .gymidea { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow-wrap: anywhere; }
@@ -2902,6 +2878,185 @@ html .listmode .keepcard .rw .k[data-label] { --lfs: 15px; }
 html .whatsnew .wnrow { padding: 10px 0; border-bottom: 1px solid var(--hair); }
 html .whatsnew .wnrow b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
 html .whatsnew .wnrow span { font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink2); }
+/* ---------- Iron Man (BRIEF-IRON-BUILD; the owner's pick, OWNER-ISSUES 41 and 43): A's reactor instruments with C's
+   restraint. The arc reactor's light in every card: a lit top edge, the instruments in thin glowing line (ui/
+   instruments.ts, features/gym/art.ts), readouts in an instrument face, one thin scan line that crosses an instrument
+   once as its hub opens; no corner brackets, no grid backdrop, labels 11 px or more. Every colour is the theme's
+   (--c, --cr, --c2), so Graphite draws the same shapes in steel. Nothing moves when the phone asks for less (the
+   reduced-motion rule above stops every animation and transition). ---------- */
+html { --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace; --hud: rgba(var(--cr), .22); --hud2: rgba(var(--cr), .1); }
+html :is(.tnum, .hubtile .rd b, .rcmeta b, .gymcard .gymrl, .gymcard .gymlvl) { font-variant-numeric: tabular-nums slashed-zero; }
+
+/* the instrument card: dark glass lit from its top edge, a soft reactor glow round it */
+html .hubtile.inst, html #pg-gym button.gymcard, html .hud.core .convo .msg.latest:not(.me) {
+  background: linear-gradient(180deg, rgba(var(--cr), .085), rgba(var(--cr), .018) 38%, rgba(6,10,13,.82) 100%), rgba(8,12,15,.7) !important;
+  box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .38), 0 0 30px -12px rgba(var(--cr), .4), 0 18px 40px rgba(0,0,0,.55) !important;
+}
+html .hubgrid { gap: 12px; }
+html .hubtile.inst { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 0; min-height: 44px; padding: 12px 13px 12px; overflow: hidden; isolation: isolate; text-align: left; border-radius: var(--card); transition: transform var(--rcsp) var(--spring), box-shadow .3s; }
+html .hubtile.inst > * { position: relative; z-index: 2; }
+html .hubtile.inst:active { transform: scale(.975); box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), inset 0 1px 0 rgba(var(--cr), .6), 0 0 40px -8px rgba(var(--cr), .6), 0 18px 40px rgba(0,0,0,.55) !important; }
+html .hubtile.inst:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+html .hubsec.tools > h2 { display: flex; align-items: baseline; justify-content: space-between; }
+html .hubsec.tools > h2 small { font: 600 11px/13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+/* the kicker: bare glyph, the name, the live dot and one word */
+html .hubtile .kick { order: 2; display: flex; align-items: center; gap: 6px; margin-top: 2px; font: 600 11px/14px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .85); white-space: nowrap; }
+html .hubtile .kick .ic { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+html .hubtile .kick .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+html .hubtile .kick .st { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-style: normal; color: var(--c2); text-shadow: 0 0 8px rgba(var(--cr), .8); }
+html .hubtile .kick .st .dot { width: 6px; height: 6px; border-radius: 3px; background: currentColor; flex: none; }
+html .hubtile:is([data-status="ready"], [data-status="off"]) .kick .st { color: rgba(var(--cr), .5); text-shadow: none; }
+html .hubtile[data-status="off"] .kick .st .dot { background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+html .hubtile .dot.pulse { box-shadow: 0 0 0 3px rgba(var(--cr), .18), 0 0 8px var(--c); animation: ironbreathe 2.4s ease-in-out infinite; }
+@keyframes ironbreathe { 50% { box-shadow: 0 0 0 5px rgba(var(--cr), .06), 0 0 12px var(--c); } }
+html .hubtile .t { order: 3; margin-top: 5px; font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: #fff; }
+html .hubtile .s { order: 4; margin-top: 1px; font: 400 13px/18px var(--sf); color: var(--ink2); }
+/* the readouts: an instrument face */
+html .hubtile .reads { order: 5; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; margin-top: 9px; padding-top: 9px; border-top: 1px dashed rgba(var(--cr), .18); }
+html .hubtile .rd { display: flex; flex-direction: column; min-width: 0; }
+html .hubtile .rd em { font: 600 11px/13px var(--mono); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: rgba(var(--cr), .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .hubtile .rd b { margin-top: 2px; font: 500 17px/22px var(--mono); letter-spacing: -.3px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .hubtile .rd b small { display: inline; margin-left: 4px; font: 500 11px/1 var(--sf); letter-spacing: 0; color: var(--ink2); }
+html .hubtile .rd.lv b { color: var(--c2); text-shadow: 0 0 10px rgba(var(--cr), .55); }
+html .hubtile .rd.none b { font: 500 14px/22px var(--sf); color: var(--ink3); }
+html .hubtile .why { order: 6; margin-top: 6px; font: 400 12px/16px var(--sf); color: var(--ink3); }
+html .hubtile .why[hidden] { display: none; }
+/* the instrument: across the top of a half card, at the left of a wide one; a thin scan line crosses it once */
+html .hubtile .ins { order: 1; position: relative; display: grid; place-items: center; height: 84px; margin: -2px -3px 6px; border-radius: 12px; background: radial-gradient(ellipse 60% 70% at 50% 50%, rgba(var(--cr), .12), transparent 70%); overflow: hidden; }
+html .hubtile .ins[hidden] { display: none; }
+html .hubtile .ins > svg, html .hubtile .ins > .insc > svg { width: 100%; height: 84px; }
+html .hubtile .ins svg.i-trace, html .hubtile .ins svg.i-count, html .hubtile .ins svg.i-day { width: 70%; height: 60px; }
+html .hubtile .ins::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; z-index: 3; pointer-events: none; opacity: 0; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent); box-shadow: 0 0 10px rgba(var(--cr), .6); }
+html .pg.on .hubtile .ins::after { animation: ironscan 1.6s var(--spring) .15s 1 both; }
+@keyframes ironscan { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: 1; } 88% { opacity: .8; } 100% { opacity: 0; transform: translateY(84px); } }
+html .hubtile .insc, html .hubtile .ctr { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+html .hubtile .ctr { position: absolute; inset: 0; text-align: center; }
+html .hubtile .ctr b { display: block; font: 500 22px/24px var(--mono); letter-spacing: -.4px; color: #fff; text-shadow: 0 0 12px rgba(var(--cr), .7); }
+html .hubtile .ctr .of { font-size: 13px; color: rgba(var(--cr), .7); text-shadow: none; }
+html .hubtile .ctr small { display: block; font: 600 11px/13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+html .hubtile .coursemap { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 100%; padding: 0 8px; }
+html .hubtile .coursemap .cmk { font: 600 11px/13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+html .hubtile .coursemap .cm { max-width: 100%; font: 600 15px/18px var(--sf); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .segs { display: grid; gap: 4px; width: 150px; max-width: 100%; }
+html .segs i { height: 5px; border-radius: 1px; background: rgba(var(--cr), .14); }
+html .segs i.on { background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .8); }
+html .segs i.live { background: var(--c2); box-shadow: 0 0 10px var(--c); }
+html .hubtile .lensvf { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+html .hubtile .lensvf .vfcap { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font: 600 11px/13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .6); }
+/* the wide card (two tools, or the first of an odd number): the instrument large at the left */
+html .hubtile.inst.wide { grid-column: 1 / -1; display: grid; grid-template-columns: 124px minmax(0, 1fr); column-gap: 14px; align-content: center; min-height: 176px; padding: 14px; }
+html .hubtile.inst.wide > :not(.ins) { grid-column: 2; }
+html .hubtile.inst.wide .ins { grid-column: 1; grid-row: 1 / span 6; align-self: center; width: 124px; height: 124px; margin: 0; }
+html .hubtile.inst.wide .ins > svg { width: 124px; height: 124px; }
+html .hubtile.inst.wide .ins svg:is(.i-trace, .i-count, .i-day) { width: 108px; height: 60px; }
+html .hubtile.inst.wide .ins::after { animation-name: ironscanw; }
+@keyframes ironscanw { 0% { opacity: 0; transform: translateY(0); } 12% { opacity: 1; } 88% { opacity: .8; } 100% { opacity: 0; transform: translateY(124px); } }
+html .hubgrid.two { grid-template-columns: minmax(0, 1fr); }
+
+/* ---------- the instruments' line work (scoped to svg.inst: nothing else in the app is touched) ---------- */
+html svg.inst { display: block; overflow: visible; }
+html svg.inst :is(.ln, .ln2, .lit, .path, .mv, .tgt, .tgt2, .win, .trail) { fill: none; }
+html svg.inst .ln { stroke: rgba(var(--cr), .62); stroke-width: .8; }
+html svg.inst .ln2 { stroke: rgba(var(--cr), .22); stroke-width: .6; }
+html svg.inst .lit { stroke: var(--c2); stroke-width: 1.2; stroke-linecap: round; filter: url(#ig-glow); }
+html svg.inst .fl { fill: var(--c2); filter: url(#ig-glow); }
+html svg.inst .fl2 { fill: rgba(var(--cr), .08); }
+html svg.inst .g-sph { fill: url(#ig-sph); }
+html svg.inst :is(.g-mer, .g-mer ellipse) { fill: none; stroke: rgba(var(--cr), .2); stroke-width: .5; }
+html svg.inst .g-eq { fill: none; stroke: rgba(var(--cr), .5); stroke-width: .7; }
+html svg.inst .g-orbit :is(ellipse, path) { fill: none; stroke: rgba(var(--cr), .5); stroke-width: .55; }
+html svg.inst .g-dot { fill: var(--c2); }
+html svg.inst .g-dots { filter: url(#ig-glow); }
+html svg.inst :is(.g-sat, .m-core, .gold, .gy-core) { fill: #fff; filter: url(#ig-glow2); }
+html svg.inst .g-rim { fill: none; stroke: var(--c); stroke-width: 1.3; filter: url(#ig-glow2); }
+html svg.inst .g-you circle:first-child { fill: none; stroke: #fff; stroke-width: .8; }
+html svg.inst .gl { opacity: .7; }
+html svg.inst .vf-brk { fill: none; stroke: var(--c); stroke-width: 1.6; stroke-linecap: round; filter: url(#ig-glow); }
+html svg.inst .m-l { fill: none; stroke: rgba(var(--cr), .2); stroke-width: .5; }
+html svg.inst .m-l.lit { stroke: rgba(var(--cr), .6); stroke-width: .6; filter: none; }
+html svg.inst .m-n { fill: rgba(var(--cr), .4); }
+html svg.inst .m-n.on { fill: var(--c2); filter: url(#ig-glow); }
+html svg.inst .sg { fill: none; stroke: rgba(var(--cr), .15); stroke-width: 5; }
+html svg.inst .sg.on { stroke: var(--c); filter: url(#ig-glow); }
+html svg.inst .sg.live { stroke: var(--c2); stroke-dasharray: 2 1.4; filter: url(#ig-glow); }
+html svg.inst.i-count .sg { stroke-width: 3; }
+html svg.inst.i-trace.dn .lit { stroke: var(--amber); } html svg.inst.i-trace.dn .fl { fill: var(--amber); }
+html svg.inst .ctx { font: 600 9px var(--mono); fill: var(--c2); text-anchor: middle; }
+html svg.inst .gy-rim { fill: rgba(var(--cr), .16); stroke: var(--c); stroke-width: 1.1; filter: url(#ig-glow); }
+html svg.inst .gy-eq { fill: none; stroke: var(--c2); stroke-width: .6; }
+/* the GYM's pictures */
+html svg.inst .mv { stroke: var(--c2); stroke-width: 1; stroke-dasharray: 2.5 2; filter: url(#ig-glow); }
+html svg.inst .tgt { stroke: var(--c2); stroke-width: .9; filter: url(#ig-glow); }
+html svg.inst .path { stroke: var(--c); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: url(#ig-glow); opacity: .95; }
+html svg.inst .dg { font: 500 5.6px var(--mono); fill: rgba(var(--cr), .55); text-anchor: middle; }
+html svg.inst .dg.his { fill: var(--c2); font-weight: 700; filter: url(#ig-glow); }
+html svg.inst .dg.big { font-size: 11px; }
+html svg.inst .hl { fill: rgba(var(--cr), .06); }
+html svg.inst .cur { fill: rgba(var(--cr), .22); stroke: var(--c2); stroke-width: .8; filter: url(#ig-glow); }
+html svg.inst .edge { stroke: rgba(var(--cr), .5); stroke-width: .6; }
+html svg.inst :is(.disc.his, .stone.his) { fill: var(--c); filter: url(#ig-glow); }
+html svg.inst .disc.opp { fill: none; stroke: rgba(var(--cr), .7); stroke-width: .9; }
+html svg.inst .hole { fill: none; stroke: rgba(var(--cr), .16); stroke-width: .6; }
+html svg.inst .win { stroke: #fff; stroke-width: 1; filter: url(#ig-glow); }
+html svg.inst .trail { stroke: rgba(var(--cr), .5); stroke-width: 1.4; stroke-linecap: round; }
+html svg.inst .stone.opp { fill: rgba(5,8,10,.8); stroke: var(--c2); stroke-width: .8; }
+html svg.inst .stone.next { fill: none; stroke: #fff; stroke-width: .8; stroke-dasharray: 1.5 1.2; filter: url(#ig-glow); }
+html svg.inst .tgt2 { stroke: var(--c2); stroke-width: .8; stroke-dasharray: 1.5 1.2; }
+html svg.inst .box { fill: rgba(var(--cr), .12); stroke: var(--c2); stroke-width: .9; filter: url(#ig-glow); }
+
+/* ---------- the GYM's cards: the picture, the state, name and level, the meter with the pass mark, the readouts ---------- */
+html #pg-gym button.gymcard { position: relative; display: flex; flex-direction: column; align-items: stretch; height: auto; min-height: 44px; padding: 8px 12px 10px; overflow: hidden; border-radius: 20px; text-align: left; transition: transform var(--rcsp) var(--spring); }
+html #pg-gym button.gymcard:active { transform: scale(.975); }
+html #pg-gym button.gymcard.on { box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), inset 0 1px 0 rgba(var(--cr), .6), 0 0 36px -10px rgba(var(--cr), .6), 0 18px 40px rgba(0,0,0,.55) !important; }
+html #pg-gym .gymcard svg.gymart { width: 100%; height: 78px; margin: 0 0 5px; border-radius: 10px; background: radial-gradient(ellipse 70% 60% at 50% 100%, rgba(var(--cr), .2), transparent 75%); }
+html #pg-gym .gymcard.fresh svg.gymart { opacity: .62; }
+html #pg-gym .gymcard .gymst { position: absolute; right: 10px; top: 9px; display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px 2px 6px; border-radius: 6px; font-style: normal; color: rgba(var(--cr), .55); background: rgba(5,8,10,.7); }
+html #pg-gym .gymcard .gymst::after { content: ''; order: -1; width: 5px; height: 5px; border-radius: 3px; background: currentColor; }
+html #pg-gym .gymcard .gymst[data-label]::before { --lfs: 11px; font: 600 11px/13px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+html #pg-gym .gymcard .gymst:is(.training, .mastered) { color: var(--c2); text-shadow: 0 0 8px rgba(var(--cr), .7); }
+html #pg-gym .gymcard .gymst.training::after { box-shadow: 0 0 8px var(--c); animation: ironbreathe 2.4s ease-in-out infinite; }
+/* only training and mastered show over the picture; not started and paused are said by the meter (and kept for VoiceOver) */
+html #pg-gym .gymcard .gymst:is(.new, .paused) { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html #pg-gym .gymcard .gymnm { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+html #pg-gym .gymcard .gymname { display: block; min-width: 0; font: 600 16px/20px var(--sf); letter-spacing: -.25px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-gym .gymcard .gymlvl { display: block; flex: none; font: 600 11px/14px var(--mono); letter-spacing: .12em; color: rgba(var(--cr), .75); }
+html #pg-gym .gymcard .meter { position: relative; height: 5px; margin-top: 7px; border-radius: 1px; background: rgba(var(--cr), .12); }
+html #pg-gym .gymcard .meter i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 1px; background: linear-gradient(90deg, rgba(var(--cr), .45), var(--c)); box-shadow: 0 0 8px rgba(var(--cr), .7); transition: width .6s var(--spring); }
+html #pg-gym .gymcard .meter u { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: #fff; box-shadow: 0 0 6px #fff; }
+html #pg-gym .gymcard .meter u[hidden] { display: none; }
+html #pg-gym .gymcard.mastered .meter i { background: var(--c2); }
+html #pg-gym .gymcard .gymrl { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-top: 6px; font: 500 11px/14px var(--mono); color: rgba(var(--cr), .6); white-space: nowrap; }
+html #pg-gym .gymcard .gymrl :is(.gymrate, .gymnext) { display: block; min-width: 0; margin: 0; font: 500 11px/14px var(--mono); letter-spacing: 0; color: rgba(var(--cr), .6); overflow: hidden; text-overflow: ellipsis; }
+html #pg-gym .gymcard .gymrl .gymrate { font: 500 12px/14px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); }
+html #pg-gym .gymcard .gymrl .gympct { flex: none; font-weight: 500; color: var(--c2); }
+
+/* ---------- the reply card: Ghosty's glyph, the meta line, the claims readout ---------- */
+html .rcwho b { font: 600 11px/16px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: #fff; }
+html .rcwho em { font: 500 11px/16px var(--mono); color: rgba(var(--cr), .6); }
+html .rccited { font-family: var(--mono); border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); color: var(--c2); }
+html .rcmeta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 2px; padding-bottom: 7px; border-bottom: 1px dashed rgba(var(--cr), .16); font: 500 11px/14px var(--mono); letter-spacing: .04em; color: rgba(var(--cr), .5); }
+html .rcmeta b { font-weight: 500; letter-spacing: 0; color: var(--c2); }
+html .rcclaims { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; border-radius: 14px; background: rgba(var(--cr), .05); box-shadow: inset 0 0 0 1px var(--hud2); }
+html .rcclaims svg.i-claims { width: 30px; height: 30px; flex: none; }
+html .rcclaims .citecheck { margin: 0; }
+html .rcclaims.warn svg.i-claims .sg:not(.on) { stroke: rgba(var(--amberr), .45); }
+
+/* ---------- the floating tab bar: the lit tab in a small reactor ring, the live dot, the badge as an alert ring ---------- */
+html #dock .tabcap { background: rgba(7,11,14,.78); box-shadow: inset 0 0 0 1px var(--hud), 0 0 34px -12px rgba(var(--cr), .55), 0 20px 50px rgba(0,0,0,.6); }
+html #dock .tabcap::before { content: ''; position: absolute; left: 30px; right: 30px; top: 0; height: 1px; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(var(--cr), .7), transparent); }
+html body #dock .tabcap button { font: 600 11px/13px var(--sf) !important; color: rgba(235,240,245,.6); }
+html #dock .tabcap button.on { color: var(--c2); background: none; box-shadow: none; }
+html #dock .tabcap .gi { position: relative; display: grid; place-items: center; width: 30px; height: 28px; font-style: normal; }
+html #dock .tabcap .gi .halo { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%; opacity: 0; transform: scale(.8); transition: opacity .3s, transform var(--rcsp) var(--spring); }
+html #dock .tabcap button.on .gi .halo { opacity: 1; transform: none; background: radial-gradient(circle, rgba(var(--cr), .28), transparent 62%); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35), 0 0 0 4px rgba(var(--cr), .05), 0 0 0 5px rgba(var(--cr), .18); }
+html #dock .tabcap button.on .ic { filter: drop-shadow(0 0 5px rgba(var(--cr), .9)); }
+html #dock .tabcap button.on .gi::before { content: ''; position: absolute; top: -11px; left: 50%; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+html #dock .tabcap button:active .gi .halo { opacity: 1; transform: scale(1.08); background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); }
+html #dock .tabcap button:active { color: #fff; }
+html #dock .tabcap .gi .live { position: absolute; top: 1px; right: 0; width: 8px; height: 8px; border-radius: 4px; display: none; background: var(--c); box-shadow: 0 0 0 2.5px rgba(7,11,14,1), 0 0 0 3.5px rgba(var(--cr), .5), 0 0 10px var(--c); }
+html #dock .tabcap button.live .gi .live { display: block; animation: ironbreathe 2.4s ease-in-out infinite; }
+html #dock .tabcap button[data-badge]:not([data-badge=""])::after { top: 3px; right: calc(50% - 26px); left: auto; width: auto; min-width: 20px; height: 18px; margin: 0; padding: 0 5px; border-radius: 5px; font: 600 11px/18px var(--mono); color: #ffd9d6; background: rgba(255,105,97,.22); box-shadow: inset 0 0 0 1.5px var(--r), 0 0 10px rgba(255,105,97,.55); }
+html #top .you.live .av { box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), 0 0 0 3px rgba(var(--cr), .14), 0 0 12px rgba(var(--cr), .6); }
 /* end route C */
 
 /* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */
