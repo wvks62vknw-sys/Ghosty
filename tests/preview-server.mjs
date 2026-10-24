@@ -18,9 +18,14 @@ const mod = await import(pathToFileURL(brainPath).href);
 class MemStorage {
   m = new Map();
   async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
-  async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
+  async put(k, v) {
+    if (typeof k === 'string' && this.blips.delete(k)) throw new Error('storage blip');
+    if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v));
+  }
   async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
   async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])); }
+  // Test only (/__test/blip?key=…): the next write of that key fails once, as a database blip would.
+  blips = new Set();
   // Durable Object alarm, emulated with a timer.
   alarmAt = null;
   timer = null;
@@ -109,6 +114,13 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' });
       res.write(lines);
       setTimeout(() => res.end(), hold);
+      return;
+    }
+    // Test only: the next write of one database key fails once (tests/apps.spec.mjs stops a mini-app's publish part-way).
+    if (url.pathname === '/__test/blip') {
+      state.storage.blips.add(url.searchParams.get('key') ?? '');
+      res.writeHead(204);
+      res.end();
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

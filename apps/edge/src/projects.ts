@@ -17,6 +17,7 @@ import type { Library } from './library/store';
 import { textOf } from './llm/content';
 import type { Msg, ToolSpec } from './llm/router';
 import { addJob, deferJob, loadJobs, removeJob, setNext, type InboxItem, type Job } from './schedule';
+import { resumeAppBuild } from './appbuild';
 import { runSiteStep, SITE_STEP_MS } from './sitebuild';
 import { arg, clip, type Tool, type ToolContext } from './tools/types';
 
@@ -121,6 +122,7 @@ export function stepsArg(raw: unknown): { title: string; instruction: string }[]
 
 const paceArg = (raw: unknown): Project['pace'] => (String(raw ?? 'steady').toLowerCase() === 'fast' ? 'fast' : 'steady');
 const paceText = (pace: Project['pace']) => (pace === 'fast' ? 'fast: a step every 3 minutes' : 'steady: a step every 20 minutes');
+const paceOf = (p: Project) => (p.kind === 'app' ? 'a mini-app, built in one go' : paceText(p.pace));
 
 export function describePlan(title: string, goal: string, steps: { title: string; instruction: string }[], pace: Project['pace']): string {
   return `Start the project "${title}" and work through it on my own (${paceText(pace)}, each step filed in the library, progress sent as notifications)?\nGoal: ${goal}\n${steps.map((s, i) => `${i + 1}. ${s.title} — ${s.instruction.slice(0, 160)}${s.instruction.length > 160 ? '…' : ''}`).join('\n')}`;
@@ -129,7 +131,7 @@ export function describePlan(title: string, goal: string, steps: { title: string
 export function describeProject(p: Project, full = false): string {
   const done = p.steps.filter((s) => s.status === 'done').length;
   const next = p.steps.find((s) => s.status === 'todo' || s.status === 'doing');
-  const head = `${p.id} · "${p.title}" · ${p.status.toUpperCase()} · ${done}/${p.steps.length} steps done · ${paceText(p.pace)}${p.note ? ` · ${p.note}` : ''}`;
+  const head = `${p.id} · "${p.title}" · ${p.status.toUpperCase()} · ${done}/${p.steps.length} steps done · ${paceOf(p)}${p.note ? ` · ${p.note}` : ''}`;
   if (!full) return `${head}${next && p.status === 'active' ? ` · next: step ${next.n} ${next.title}` : ''}`;
   const steps = p.steps.map((s) => `${s.n}. [${s.status.toUpperCase()}] ${s.title}${s.result ? `\n   ${s.result.replace(/\s+/g, ' ').slice(0, 400)}` : ''}`);
   return `${head}\nGoal: ${p.goal}\n${steps.join('\n')}\nEverything it produced is in the library under "Project: ${p.title}" (library_search finds it).`;
@@ -154,7 +156,8 @@ export async function startProject(s: Store, a: { title: string; goal: string; s
     ...(a.kind ? { kind: a.kind } : {}),
   };
   await saveProject(s, p);
-  await armJob(s.storage, p, FIRST_STEP_DELAY);
+  // A mini-app's steps run inside its build_app call (appbuild.ts); the alarm only carries on one that stopped.
+  if (p.kind !== 'app') await armJob(s.storage, p, FIRST_STEP_DELAY);
   return p;
 }
 
@@ -351,6 +354,14 @@ export async function runProjectStep(deps: ProjectDeps, job: Job): Promise<{ did
   if (!p || p.status !== 'active') {
     await removeJob(storage, job.id).catch(() => undefined);
     return { did: 'nothing' };
+  }
+  // A mini-app that stopped part-way (appbuild.ts): it carries on from its record to the end, in one go.
+  if (p.kind === 'app') {
+    await removeJob(storage, job.id).catch(() => undefined);
+    const after = await resumeAppBuild(deps, p);
+    if (after.status !== 'done') return { did: 'paused', project: after };
+    await deps.notify({ kind: 'task', title: `${after.title} · done`, text: after.steps[after.steps.length - 1]?.result ?? finalReport(after) });
+    return { did: 'done', project: after };
   }
   const step = p.steps.find((s) => s.status === 'todo' || s.status === 'doing');
   if (!step) return finish(deps, job, p);

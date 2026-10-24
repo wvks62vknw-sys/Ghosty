@@ -3227,6 +3227,10 @@ html #pg-workshop .change.project > .projring { display: inline-grid; grid-colum
 html #pg-workshop .change.project > .projring b { font-size: 12px; letter-spacing: -.2px; }
 html #pg-workshop .change.project > .ct { grid-column: 1; grid-row: 1; align-self: center; }
 html #pg-workshop .change.project > .ct small { --lfs: 13px; }
+html #pg-workshop .change.project > .ct small.pnow { flex: 1 1 100%; color: var(--c) !important; }
+/* a finished mini-app's report: the link, what it does and saves, INSTALL and UNDO, readable on the card */
+html #pg-workshop .change.project > .preport { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--thin); font: 400 14px/20px var(--sf); color: var(--ink2); overflow-wrap: anywhere; }
+html #pg-workshop .change.project > .preport p { margin: 0 0 8px; } html #pg-workshop .change.project > .preport p:first-child { color: var(--ink); font-weight: 600; } html #pg-workshop .change.project > .preport p:last-child { margin: 0; }
 html #pg-workshop .change.project > .bar { display: none; }
 html #pg-workshop .change.project > .rw { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; min-height: 44px; padding: 8px 0; margin: 0; border-bottom: 0; border-top: 1px solid var(--hair); }
 html #pg-workshop .change.project > .ct + .rw { margin-top: 12px; }
