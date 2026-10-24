@@ -34,12 +34,24 @@
 # brain in use (stock, or the trained week the brain names), sits one SCHOOL paper (school_paper.jsonl: the questions,
 # never the answers) with the phone's exam prompt on the weights as they ship, and posts the answers to the hook as
 # {kind: 'school', paperId, model, answers}; the brain marks them (`ExamRun`).
-# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5) and P100 (6.0)
-# everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
+# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5; Kaggle retired the P100
+# on 15 Sep 2026, and its free GPU is now two T4s) everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
 # about 4x slower.) Never fp16: the training loops have no loss scaling and Qwen3's activations can overflow it.
 # The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run keeps is under
-# /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end;
-# checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
+# /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end.
+# SURVIVING THE HOURS RUNNING OUT (docs/build-plan/BRIEF-TRAINING-RESILIENCE.md):
+#  - checkpoints go to the PRIVATE dataset repo after every phase AND every CHECKPOINT_MINUTES inside the long ones (the
+#    adapter, the optimiser and its schedule, the random state, how far the phase got, the samples and exam answers so
+#    far), on a branch of their own (`wip-week-NNNN`, deleted with its history once the week is decided); a run cut off
+#    anywhere loses at most that much, and the next session carries on mid-phase (`resume`, `state['at']`);
+#  - a time budget set by the host (`host`, HOSTS; Kaggle 9 h as before, less in the brain's economy mode) for the
+#    session, and a week's time (`week_hours`) that may span several sessions: when the session's time is up the run
+#    saves its place, posts {paused} to the hook and stops; the brain pushes it again with `resume` until it reports;
+#  - the device chosen at start (`device_plan`): Kaggle's free GPU is TWO T4s, and the run used only the first. Now the
+#    sampling (the exam, STaR, school practice, the self-critique and self-judge) runs on cuda:1 with its own copy of
+#    the brain while SFT's first part (the records, the replay, the general data) trains on cuda:0; SFT's second part
+#    takes what the sampling made; the gate's two dev scorings run one on each card. The report says what ran where
+#    and the minutes it saved. One card: everything on it in turn, as before.
 # BASES: the phone can run Qwen3 0.6B or a bigger Qwen3.5 (SETTINGS → OFFLINE BRAIN); the run trains the one the brain
 # names (`base`: id, family, context). Each family has its own packages (Qwen3.5 needs transformers 5), LoRA targets
 # and layout in MLC's files (`mlc_plan`); the exam's prompts are cut to the base's context (`budgets`); a base whose
@@ -55,6 +67,7 @@ import random
 import re
 import subprocess
 import sys
+import threading
 import time
 
 # ---- pins ---------------------------------------------------------------------------------------------------
@@ -696,11 +709,92 @@ def retry(fn, what='', tries=4, pause=20, sleep=None):
             (sleep or time.sleep)(pause * (i + 1))
 
 
+# ---- hosts, cards and time: training that survives a host's hours running out ---------------------------------
+# Where a run can go, and how long ONE session may work there before it saves its place and stops (hours, with room
+# to save and report before the host itself stops it). Kaggle is the one in use (12-hour sessions: the brain asks for
+# 10 and budgets 9, or less in economy mode); the others are designed (docs/build-plan/HANDOFF.md, RESEARCH-FREE-GPU.md)
+# and have their budgets here so that nothing assumes Kaggle's. `cpu`: a host with no GPU at all (no STaR, no DPO).
+HOSTS = {
+    'kaggle': {'label': "Kaggle's free GPU", 'budget_hours': 9.0, 'cpu': False},
+    'colab': {'label': 'Google Colab (free T4)', 'budget_hours': 1.75, 'cpu': False},
+    'lightning': {'label': 'Lightning AI', 'budget_hours': 3.5, 'cpu': False},
+    'github': {'label': 'GitHub Actions (no GPU)', 'budget_hours': 5.5, 'cpu': True},
+    'zerogpu': {'label': "Hugging Face's daily GPU", 'budget_hours': 4.5 / 60, 'cpu': False},
+}
+# A long phase saves its place this often (the adapter, the optimiser and schedule, the random state, how far it got,
+# the samples and exam answers so far) to the PRIVATE dataset repo: a run cut off at any point loses at most this much
+# plus the batch it was in.
+CHECKPOINT_MINUTES = 15
+
+
+def host_of(cfg):
+    host = cfg.get('host') or 'kaggle'
+    if host not in HOSTS:
+        raise ValueError(f'unknown host {host!r}')
+    return host
+
+
+def session_hours(cfg):
+    """How long this session may work: the brain's budget (smaller in economy mode), never more than its host allows."""
+    cap = HOSTS[host_of(cfg)]['budget_hours']
+    want = cfg.get('budget_hours')
+    return min(cap, float(want)) if _num(want) and want > 0 else cap
+
+
+def week_hours(cfg):
+    """The time the whole week's run is planned for (each phase's share comes out of it): one session's, unless the
+    brain spreads the week over several (`week_hours`; a host with short sessions, or a run carried on after a cut)."""
+    w = cfg.get('week_hours')
+    return max(session_hours(cfg), float(w)) if _num(w) and w > 0 else session_hours(cfg)
+
+
+def device_plan(n_gpus, host='kaggle'):
+    """Where the run works. Two cards: training on cuda:0 while sampling (the exam, STaR, school practice, the
+    self-critique and self-judge, the gate's scoring) runs on cuda:1 at the same time. One card: everything on it, in
+    turn. None: the CPU, only on a host that has no GPU (fp32, no STaR or DPO: far too slow there); elsewhere a missing
+    GPU is a mistake in the set-up, said in `problem`."""
+    if n_gpus >= 2:
+        return {'kind': 'cuda', 'train': 'cuda:0', 'sample': 'cuda:1', 'cards': 2, 'problem': ''}
+    if n_gpus == 1:
+        return {'kind': 'cuda', 'train': 'cuda:0', 'sample': 'cuda:0', 'cards': 1, 'problem': ''}
+    ok = HOSTS[host]['cpu']
+    return {'kind': 'cpu', 'train': 'cpu', 'sample': 'cpu', 'cards': 0, 'problem': '' if ok else 'no GPU: turn on a GPU accelerator for this notebook'}
+
+
+class SessionOver(Exception):
+    """This session's time is up: the run has saved its place and stops; the brain starts it again where it left off."""
+
+
+class Every:
+    """A timer for the checkpoints inside a phase: due every `minutes`."""
+
+    def __init__(self, minutes, clock=time.time):
+        self.clock = clock
+        self.seconds = minutes * 60
+        self.last = clock()
+
+    def due(self):
+        return self.clock() - self.last >= self.seconds
+
+    def reset(self):
+        self.last = self.clock()
+
+
+def lr_factor(step, total, start=0, warmup=10):
+    """The learning rate's factor at optimiser step `step`: warm up over `warmup` steps, then fall in a straight line
+    to a tenth by `total`, from `start` on (steps before `start` stay at full rate: on two cards the first part of
+    SFT runs while the samples are still being made, and the fall is over the part after it)."""
+    w = min(1.0, (step + 1) / warmup)
+    if step < start:
+        return w
+    return w * max(0.1, 1 - (step - start) / max(1, total - start))
+
+
 # ---- precision and generation batches (Kaggle's T4: 15 GB, no native bf16) -----------------------------------
 
 def amp_for(capability):
     """'bf16' where the GPU has it natively (compute capability 8.0 and up: A100, L4, H100); None (fp32) below it,
-    as on Kaggle's T4 (7.5) and P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
+    as on Kaggle's T4 (7.5) and the retired P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
     return 'bf16' if capability and capability[0] >= 8 else None
 
 
@@ -1081,11 +1175,52 @@ class Tasks:
         return self.ask([{'op': 'reportcard'}])[0].get('texts') or []
 
 
+class Card:
+    """A GPU (or the CPU) and the model and tokenizer that work on it. With two cards the sampling one has its own
+    model copy (the brain as the week started) and its own tokenizer (a fast tokenizer is not safe to share between
+    threads)."""
+
+    def __init__(self, dev, model, tok):
+        self._dev = dev
+        self._model = model
+        self._tok = tok
+
+    @property
+    def dev(self):
+        return self._dev() if callable(self._dev) else self._dev
+
+    @property
+    def model(self):
+        return self._model()
+
+    @property
+    def tok(self):
+        return self._tok()
+
+
+def _on(dev):
+    """Make `dev` this thread's current CUDA device while it works (nothing to do for 'cuda' or the CPU)."""
+    import contextlib
+    if not str(dev).startswith('cuda:'):
+        return contextlib.nullcontext()
+    import torch
+    return torch.cuda.device(dev)
+
+
 class Run:
     def __init__(self, cfg):
         self.cfg = cfg
         self.week = int(cfg['week'])
-        self.deadline = Deadline(float(cfg.get('budget_hours', 9)))
+        # Two clocks: this session's (the host stops it; the run saves its place and stops first) and the week's (the
+        # whole run, perhaps over several sessions: each phase's share comes out of what is left of it).
+        self.host = host_of(cfg)
+        self.week_hours = week_hours(cfg)
+        self.session = Deadline(session_hours(cfg))
+        self.session_start = time.time()
+        self.deadline = Deadline(self.week_hours)
+        self.saver = Every(CHECKPOINT_MINUTES)
+        self.lock = threading.RLock()
+        self.stop = threading.Event()
         # The base model the brain chose (its family decides the packages, the LoRA's targets and the phone's layout),
         # and the exam's budgets for it; the report says which base it trained, so the brain keeps it with that one.
         self.base = base_of(cfg)
@@ -1095,36 +1230,108 @@ class Run:
             # the monthly retrain: trained on the chosen base's stock model, tested against the brain in use (`base`)
             # like every week
             self.report['scratch'] = True
-        self.state = {'done': []}
+        self.report['host'] = self.host
+        # `at`: how far each long phase got (its checkpoint inside the phase); `spent`: seconds of the week's time used
+        # by earlier sessions; `sessions`: how many sessions this week's run has had.
+        self.state = {'done': [], 'at': {}, 'spent': 0.0, 'sessions': 1}
         self.wip = f"wip/week-{self.week:04d}"
+        # Checkpoints go to a branch of their own, deleted (history squashed first, so their storage is freed) once the
+        # week is decided: the owner's free 100 GB of private storage never fills up with old checkpoints.
+        self.wip_branch = f"wip-week-{self.week:04d}"
         self.token = None
         self.dev = 'cuda'
+        self.plan = device_plan(1, self.host)
+        self.train_card = Card(lambda: self.dev, lambda: self.model, lambda: self.tok)
+        self.sampling = self.train_card
+        self.sampler = None
         # bf16 where the GPU has it natively (amp_for); else fp32 (no fp16 anywhere: Qwen3's activations can overflow it)
         self.amp = None
         self.scale = 1.0
 
     # -- bookkeeping
-    def phase(self, name, fn, skip_if=None):
+    def phase(self, name, fn, skip_if=None, card=None):
+        """One part of the run, once: skipped when an earlier session finished it; its minutes and the card it ran on
+        (`card`: 'cuda:1' when it ran beside the training) go in the report. A part cut off in the middle carries on
+        from its own checkpoint (`state['at'][name]`)."""
         if name in self.state['done']:
             log(f'{name}: done in an earlier run (resumed)')
             return
         if skip_if:
-            self.report['phases'].append({'name': name, 'minutes': 0, 'skipped': skip_if})
+            with self.lock:
+                self.report['phases'].append({'name': name, 'minutes': 0, 'skipped': skip_if})
             log(f'{name}: skipped — {skip_if}')
             return
         t = time.time()
-        log(f'{name}: start ({self.deadline.left() / 60:.0f} min left)')
+        log(f'{name}: start ({self.deadline.left() / 60:.0f} min left{f", on {card}" if card else ""})')
         fn()
-        self.report['phases'].append({'name': name, 'minutes': round((time.time() - t) / 60, 1)})
-        self.state['done'].append(name)
+        with self.lock:
+            done = {'name': name, 'minutes': round((time.time() - t) / 60, 1), **({'card': card} if card else {})}
+            # a phase carried on from a checkpoint counts the minutes of the sessions before too
+            done['minutes'] = round(done['minutes'] + float((self.state.get('at', {}).get(name) or {}).get('seconds', 0)) / 60, 1)
+            self.report['phases'].append(done)
+            self.state['done'].append(name)
+            self.state.get('at', {}).pop(name, None)
         self.checkpoint()
 
     def reject(self, why, n=1):
-        for r in self.report['rejected']:
-            if r['why'] == why:
-                r['n'] += n
-                return
-        self.report['rejected'].append({'why': why, 'n': n})
+        with self.lock:
+            for r in self.report['rejected']:
+                if r['why'] == why:
+                    r['n'] += n
+                    return
+            self.report['rejected'].append({'why': why, 'n': n})
+
+    # -- checkpoints inside a phase, and the session's end
+    def at(self, name):
+        """How far a long phase got before (its own checkpoint), or {} when it starts afresh."""
+        return dict(self.state.setdefault('at', {}).get(name) or {})
+
+    def pause_due(self):
+        """This session must stop soon (its host would stop it), or the other card's thread stopped for it."""
+        margin = min(600.0, 0.1 * session_hours(self.cfg) * 3600)
+        return self.stop.is_set() or self.session.left() < margin
+
+    def tick(self, name, save):
+        """After each batch of a long phase: its place is saved every CHECKPOINT_MINUTES (`save` writes the phase's
+        files and `state['at'][name]`, then everything goes up), and when the session's time is up it is saved and
+        the run stops (SessionOver): the brain starts it again and the phase carries on from here."""
+        over = self.pause_due()
+        if over or self.saver.due():
+            with self.lock:
+                save()
+            self.checkpoint()
+        if over:
+            self.stop.set()
+            raise SessionOver(name)
+
+    def save_blob(self, name, obj):
+        """Optimiser and schedule state, and the random generators, as torch saves them."""
+        import torch
+        os.makedirs(f'{WORK}/wip', exist_ok=True)
+        torch.save(obj, f'{WORK}/wip/{name}')
+
+    def load_blob(self, name):
+        p = f'{WORK}/wip/{name}'
+        if not os.path.exists(p):
+            return None
+        import torch
+        return torch.load(p, weights_only=False)
+
+    def rng_state(self):
+        import torch
+        out = {'py': random.getstate(), 'torch': torch.get_rng_state()}
+        if torch.cuda.is_available():
+            out['cuda'] = torch.cuda.get_rng_state_all()
+        return out
+
+    def set_rng_state(self, st):
+        import torch
+        if not st:
+            return
+        random.setstate(st['py'])
+        torch.set_rng_state(st['torch'])
+        if st.get('cuda') is not None and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(st['cuda'])
 
     def hook(self, payload):
         try:
@@ -1134,38 +1341,71 @@ class Run:
             return None
 
     def checkpoint(self):
+        """Everything so far up to the PRIVATE dataset repo, on the week's checkpoint branch (one thread at a time: the
+        other card may be saving too). A failed upload is noted and the run carries on."""
         from huggingface_hub import HfApi
-        os.makedirs(f'{WORK}/wip', exist_ok=True)
-        self.state['scale'] = self.scale
-        with open(f'{WORK}/wip/state.json', 'w') as f:
-            json.dump({'state': self.state, 'report': self.report}, f)
-        try:
-            HfApi(token=self.token).upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', folder_path=f'{WORK}/wip', path_in_repo=self.wip, commit_message=f'week {self.week}: checkpoint')
-        except Exception as e:
-            log('checkpoint upload failed (carrying on):', e)
+        with self.lock:
+            os.makedirs(f'{WORK}/wip', exist_ok=True)
+            self.state['scale'] = self.scale
+            self.state['spent'] = self.spent_before() + (time.time() - self.session_start)
+            with open(f'{WORK}/wip/state.json', 'w') as f:
+                json.dump({'state': self.state, 'report': self.report}, f)
+            try:
+                api = HfApi(token=self.token)
+                if not self.__dict__.get('_branch_made'):
+                    api.create_branch(self.cfg['data_repo'], repo_type='dataset', branch=self.wip_branch, exist_ok=True)
+                    self._branch_made = True
+                api.upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', revision=self.wip_branch, folder_path=f'{WORK}/wip', path_in_repo=self.wip, commit_message=f'week {self.week}: checkpoint')
+            except Exception as e:
+                log('checkpoint upload failed (carrying on):', e)
+            self.saver.reset()
+
+    def spent_before(self):
+        return float(self.__dict__.get('_spent_before', 0.0))
 
     def resume(self):
+        """The checkpoint of an earlier session of this week's run, if there is one (its branch; an older notebook kept
+        it on the main branch)."""
         from huggingface_hub import snapshot_download
-        try:
-            p = snapshot_download(repo_id=self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f'{self.wip}/*', f'{self.wip}/**'], token=self.token, local_dir=f'{WORK}/resume')
-            src = os.path.join(p, self.wip)
-            if os.path.exists(os.path.join(src, 'state.json')):
-                import shutil
-                shutil.copytree(src, f'{WORK}/wip', dirs_exist_ok=True)
-                with open(f'{WORK}/wip/state.json') as f:
-                    saved = json.load(f)
-                self.restore(saved)
-                log('resuming after', self.state['done'])
-        except Exception as e:
-            log('no checkpoint to resume from:', e)
+        for rev in (self.wip_branch, None):
+            try:
+                p = snapshot_download(repo_id=self.cfg['data_repo'], repo_type='dataset', revision=rev, allow_patterns=[f'{self.wip}/*', f'{self.wip}/**'], token=self.token, local_dir=f'{WORK}/resume')
+                src = os.path.join(p, self.wip)
+                if os.path.exists(os.path.join(src, 'state.json')):
+                    import shutil
+                    shutil.copytree(src, f'{WORK}/wip', dirs_exist_ok=True)
+                    with open(f'{WORK}/wip/state.json') as f:
+                        saved = json.load(f)
+                    self.restore(saved)
+                    log('resuming after', self.state['done'], 'inside', list(self.state.get('at', {})))
+                    return
+            except Exception as e:
+                log('no checkpoint to resume from:', e)
 
-    RESUMED = ('before', 'after', 'core', 'dev', 'items', 'gate', 'scale', 'published', 'trained', 'rejected', 'phases', 'failures', 'quantised')
+    RESUMED = ('before', 'after', 'core', 'dev', 'items', 'gate', 'scale', 'published', 'trained', 'rejected', 'phases', 'failures', 'quantised', 'cards')
 
     def restore(self, saved):
-        """Everything a cut-off run had decided (scores, the gate, the chosen LoRA scale, an upload) comes back with it."""
-        self.state = saved['state']
+        """Everything a cut-off run had decided (scores, the gate, the chosen LoRA scale, an upload, how far each phase
+        got) comes back with it; the week's clock goes on from the time earlier sessions used."""
+        self.state = {'done': [], 'at': {}, 'spent': 0.0, 'sessions': 1, **saved['state']}
+        self.state['sessions'] = int(self.state.get('sessions', 1)) + 1
         self.report.update({k: saved['report'][k] for k in self.RESUMED if k in saved['report']})
+        self.report['sessions'] = self.state['sessions']
         self.scale = float(self.state.get('scale', self.report.get('scale', 1.0)) or 1.0)
+        self._spent_before = float(self.state.get('spent', 0.0))
+        self.deadline = Deadline(max(0.0, self.week_hours - self._spent_before / 3600))
+
+    def clean_wip(self):
+        """The week is decided: its checkpoint branch goes (files deleted, history squashed so the storage is freed,
+        then the branch). A failure here is only noted: the next week's branch is a new one."""
+        from huggingface_hub import HfApi
+        api = HfApi(token=self.token)
+        try:
+            api.delete_folder(path_in_repo=self.wip, repo_id=self.cfg['data_repo'], repo_type='dataset', revision=self.wip_branch, commit_message=f'week {self.week}: decided, checkpoints deleted')
+            api.super_squash_history(repo_id=self.cfg['data_repo'], repo_type='dataset', branch=self.wip_branch)
+            api.delete_branch(self.cfg['data_repo'], repo_type='dataset', branch=self.wip_branch)
+        except Exception as e:
+            log('the checkpoint branch could not be cleared (carrying on):', e)
 
     # -- set-up
     def install(self):
@@ -1182,15 +1422,25 @@ class Run:
         if problem:
             raise RuntimeError(f"{self.base['label']}: {problem}")
 
+    def choose_devices(self):
+        """The cards this machine has (Kaggle's free GPU is two T4s): training on the first, sampling on the second
+        beside it; with one card everything on it; with none, the CPU only where the host has no GPU."""
+        import torch
+        n = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        self.plan = device_plan(n, self.host)
+        if self.plan['problem']:
+            raise RuntimeError(self.plan['problem'])
+        self.dev = self.plan['train']
+        cap = torch.cuda.get_device_capability(0) if n else None
+        self.amp = torch.bfloat16 if amp_for(cap) == 'bf16' else None
+        names = [torch.cuda.get_device_name(i) for i in range(n)] if hasattr(torch.cuda, 'get_device_name') else []
+        self.report['cards'] = {'count': n, 'train': self.plan['train'], 'sample': self.plan['sample'], 'names': names}
+        log('devices:', json.dumps(self.report['cards']), '· precision:', 'bf16' if self.amp else 'fp32 (no native bf16 here)')
+
     def setup(self):
         # Every download here is tried a few times with a pause (retry): one 5xx or pip hiccup must not end the week.
         self.install()
-        import torch
-        if not torch.cuda.is_available():
-            raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
-        self.dev = 'cuda'
-        self.amp = torch.bfloat16 if amp_for(torch.cuda.get_device_capability()) == 'bf16' else None
-        log('precision:', 'bf16' if self.amp else 'fp32 (this GPU has no native bf16)')
+        self.choose_devices()
         # The token, once, for this week's one-time ticket (in a header: never in an address that could be logged).
         self.token = retry(lambda: http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token'], 'asking Ghosty for the token')
         from huggingface_hub import hf_hub_download, snapshot_download
@@ -1232,7 +1482,20 @@ class Run:
         if problem:
             raise RuntimeError(f'the base model does not fit the phone build: {problem}')
         self.load_model()
+        self.load_sampler()
         self.drop_near_exam()
+
+    def load_sampler(self):
+        """With two cards: a second copy of the brain as the week starts (the model STaR samples from, the exam's
+        "before" when it is the brain in use) on the second card, with its own tokenizer."""
+        if self.plan['cards'] < 2:
+            self.sampling = self.train_card
+            return
+        from transformers import AutoTokenizer
+        self.sample_tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
+        self.sampler = self.merged_base(training_chain(self.cfg), dev=self.plan['sample'])
+        self.sampler.config.use_cache = True
+        self.sampling = Card(self.plan['sample'], lambda: self.sampler, lambda: self.sample_tok)
 
     def exam_texts(self):
         """Every question of this week's exam and dev split, in words."""
@@ -1261,9 +1524,9 @@ class Run:
         self.replay = [r for r in self.replay if not too_close(ask_of(r), texts) and not near_report_card(ask_of(r), card)]
         self.reject('replayed rows too close to an exam (or report card) question', before - len(self.replay))
 
-    def merged_base(self, chain):
+    def merged_base(self, chain, dev=None):
         """The chosen base's stock model (loaded as its family needs) plus these published weeks' LoRAs merged in, each at
-        the scale it was published with."""
+        the scale it was published with, on `dev` (the training card unless said)."""
         import torch
         from transformers import AutoModelForCausalLM
         from peft import PeftModel
@@ -1272,9 +1535,9 @@ class Run:
             # The checkpoint is Qwen3.5's whole model (a vision tower beside the language model): only the language model
             # is loaded, from its own settings (transformers 5 maps model.language_model.* to it; the rest is skipped).
             from transformers import AutoConfig, Qwen3_5ForCausalLM
-            model = Qwen3_5ForCausalLM.from_pretrained(self.base_dir, config=AutoConfig.from_pretrained(self.base_dir).get_text_config(), dtype=torch.float32).to(self.dev)
+            model = Qwen3_5ForCausalLM.from_pretrained(self.base_dir, config=AutoConfig.from_pretrained(self.base_dir).get_text_config(), dtype=torch.float32).to(dev or self.dev)
         else:
-            model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
+            model = AutoModelForCausalLM.from_pretrained(self.base_dir, **_dtype_kw(torch.float32)).to(dev or self.dev)
         for link in chain:
             p = retry(lambda: snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain'), f"downloading {link['adapter']}")
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
@@ -1303,23 +1566,27 @@ class Run:
     def autocast(self):
         import contextlib
         import torch
-        return torch.autocast('cuda', dtype=self.amp) if self.amp is not None and self.dev == 'cuda' else contextlib.nullcontext()
+        return torch.autocast('cuda', dtype=self.amp) if self.amp is not None and str(self.dev).startswith('cuda') else contextlib.nullcontext()
 
     # -- generation
-    def generate(self, prompts, n=1, temperature=0.0, max_new=384, batch=32):
-        """Answers for chat prompts (text up to the assistant turn); n samples each. Batches are grouped by length
-        (length_batches) so the long prompts go a few at a time and the cache fits the T4 in fp32."""
+    def generate(self, prompts, n=1, temperature=0.0, max_new=384, batch=32, card=None):
+        """Answers for chat prompts (text up to the assistant turn); n samples each, on `card` (the training card unless
+        said). Batches are grouped by length (length_batches) so the long prompts go a few at a time and the cache fits
+        the T4 in fp32."""
         import torch
-        self.model.eval()
+        card = card or self.train_card
+        model, tok, dev = card.model, card.tok, card.dev
+        model.eval()
         flat = [p + THINK_OFF for p in prompts for _ in range(n)]
-        lens = [len(x) for x in self.tok(flat, truncation=True, max_length=self.prompt_tokens)['input_ids']]
+        lens = [len(x) for x in tok(flat, truncation=True, max_length=self.prompt_tokens)['input_ids']]
         outs = [None] * len(flat)
-        for idx in length_batches(lens, max_new, budget=self.gen_tokens, cap=batch):
-            enc = self.tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=self.prompt_tokens).to(self.dev)
-            with torch.no_grad(), self.autocast():
-                g = self.model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=self.tok.pad_token_id, eos_token_id=[self.tok.convert_tokens_to_ids('<|im_end|>'), self.tok.eos_token_id])
-            for i, row in zip(idx, g[:, enc['input_ids'].shape[1]:]):
-                outs[i] = clean_reply(self.tok.decode(row, skip_special_tokens=False))
+        with _on(dev):
+            for idx in length_batches(lens, max_new, budget=self.gen_tokens, cap=batch):
+                enc = tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=self.prompt_tokens).to(dev)
+                with torch.no_grad(), self.autocast():
+                    g = model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=tok.pad_token_id, eos_token_id=[tok.convert_tokens_to_ids('<|im_end|>'), tok.eos_token_id])
+                for i, row in zip(idx, g[:, enc['input_ids'].shape[1]:]):
+                    outs[i] = clean_reply(tok.decode(row, skip_special_tokens=False))
         return [outs[i * n:(i + 1) * n] for i in range(len(prompts))]
 
     # -- the exam
@@ -1364,11 +1631,37 @@ class Run:
         cache[split] = items
         return items
 
-    def score(self, label, split='exam', quantised=False):
-        """Scores by area; with `quantised`, the weights as they ship (q4f16_1, round-tripped). Returns (all, core)."""
+    EXAM_CHUNK = 64
+
+    def score(self, label, split='exam', quantised=False, card=None):
+        """Scores by area; with `quantised`, the weights as they ship (q4f16_1, round-tripped). Returns (all, core).
+        The answers are made a chunk at a time and kept (`answers-<key>.json`, its place in `state['at']`): a run cut off
+        in the middle of the exam carries on from the answers it had, and an exam finished in an earlier session is not
+        sat again."""
+        card = card or self.train_card
         items = self.exam_items(split)
-        with (quantised_weights(self.model) if quantised else _null()):
-            replies = [r[0] for r in self.generate([it['prompt'] for it in items])]
+        key = 'answers-' + re.sub(r'[^a-z0-9.]+', '-', f'{split} {label}'.lower()).strip('-')
+        path = f'{WORK}/wip/{key}.json'
+        replies = []
+        if self.at(key) and os.path.exists(path):
+            with open(path) as f:
+                replies = json.load(f)[:len(items)]
+        if len(replies) < len(items):
+            with (quantised_weights(card.model) if quantised else _null()):
+                for i in range(len(replies), len(items), self.EXAM_CHUNK):
+                    replies += [r[0] for r in self.generate([it['prompt'] for it in items[i:i + self.EXAM_CHUNK]], card=card)]
+
+                    def save(done=len(replies)):
+                        os.makedirs(f'{WORK}/wip', exist_ok=True)
+                        with open(path, 'w') as f:
+                            json.dump(replies[:done], f)
+                        self.state['at'][key] = {'done': done}
+                    self.tick(key, save)
+            with self.lock:
+                os.makedirs(f'{WORK}/wip', exist_ok=True)
+                with open(path, 'w') as f:
+                    json.dump(replies, f)
+                self.state.setdefault('at', {})[key] = {'done': len(replies)}
         checks = self.tasks.check([(it['task'], rep) for it, rep in zip(items, replies) if 'task' in it])
         ci = iter(checks)
         per, core = {}, {}
@@ -1410,20 +1703,24 @@ class Run:
         # A puzzle that is one on the phone's report card (the same text can come from other seeds) is never trained on.
         card = getattr(self, 'report_card', None) or self.tasks.reportcard()
         on_card = [bool(raw) and near_report_card(raw, card) for raw in prompts_raw]
-        self.reject("puzzles that are on the phone's report card", sum(on_card))
+        at = self.at('star')
+        if not at:
+            self.reject("puzzles that are on the phone's report card", sum(on_card))
         todo = [(r, p) for r, p, c in zip(recs, prompts, on_card) if p and not c]
         budget = self.deadline.allow(0.30, reserve=3.5 * 3600)
-        kept, pairs, misses = [], [], []
-        t0, done = time.time(), 0
+        # carried on from a checkpoint inside this phase: the puzzles done and what they gave come back
+        done = int(at.get('done', 0))
+        kept, pairs, misses = (self.load_jsonl('star.jsonl'), self.load_jsonl('star_pairs.jsonl'), self.load_jsonl('misses.jsonl')) if done else ([], [], [])
+        t0 = time.time() - float(at.get('seconds', 0))
         step = 8
-        for i in range(0, len(todo), step):
+        for i in range(done, len(todo), step):
             spent = time.time() - t0
             if done and spent / done * (done + step) > budget:
                 log(f'STaR: stopping at {done} of {len(todo)} puzzles (time budget)')
                 self.reject('puzzles not tried this week (time budget)', len(todo) - done)
                 break
             batch = todo[i:i + step]
-            samples = self.generate([p for _, p in batch], n=K, temperature=0.8)
+            samples = self.generate([p for _, p in batch], n=K, temperature=0.8, card=self.sampling)
             verdicts = self.tasks.check([(r['task'], a) for (r, _), ans in zip(batch, samples) for a in ans])
             vi = iter(verdicts)
             for (r, p), ans in zip(batch, samples):
@@ -1438,6 +1735,13 @@ class Run:
                     best = max(zip(ans, vs), key=lambda av: av[1].get('score', 0))
                     misses.append({'task': r['task'], 'prompt': p, 'answer': best[0], 'why': best[1].get('why', '')})
             done += len(batch)
+
+            def save():
+                self.save_jsonl('star.jsonl', kept)
+                self.save_jsonl('star_pairs.jsonl', pairs)
+                self.save_jsonl('misses.jsonl', misses)
+                self.state['at']['star'] = {'done': done, 'seconds': time.time() - t0}
+            self.tick('star', save)
         self.save_jsonl('star.jsonl', kept)
         self.save_jsonl('star_pairs.jsonl', pairs)
         self.save_jsonl('misses.jsonl', misses)
@@ -1451,13 +1755,16 @@ class Run:
         recs = [r for r in self.records if r['kind'] == 'school' and 'answer' in r]
         K = int(self.cfg.get('samples', 16))
         budget = self.deadline.allow(0.10, reserve=3.5 * 3600)
-        kept, pairs, t0, done = [], [], time.time(), 0
-        for i in range(0, len(recs), 8):
+        at = self.at('school')
+        done = int(at.get('done', 0))
+        kept, pairs = (self.load_jsonl('school_star.jsonl'), self.load_jsonl('school_pairs.jsonl')) if done else ([], [])
+        t0 = time.time() - float(at.get('seconds', 0))
+        for i in range(done, len(recs), 8):
             if done and (time.time() - t0) / done * (done + 8) > budget:
                 self.reject('school practice not tried this week (time budget)', len(recs) - done)
                 break
             batch = [(r, chat_prompt(r['messages'])) for r in recs[i:i + 8]]
-            outs = self.generate([p for _, p in batch], n=K, temperature=0.8)
+            outs = self.generate([p for _, p in batch], n=K, temperature=0.8, card=self.sampling)
             for (r, p), ans in zip(batch, outs):
                 vs = [{'correct': school_correct(r, a), 'score': 0} for a in ans]
                 good, pair = star_select(list(zip(ans, vs)))
@@ -1468,6 +1775,12 @@ class Run:
                 if not good:
                     self.reject('school practice he never got right this week')
             done += len(batch)
+
+            def save():
+                self.save_jsonl('school_star.jsonl', kept)
+                self.save_jsonl('school_pairs.jsonl', pairs)
+                self.state['at']['school'] = {'done': done, 'seconds': time.time() - t0}
+            self.tick('school', save)
         self.save_jsonl('school_star.jsonl', kept)
         self.save_jsonl('school_pairs.jsonl', pairs)
         log(f'school practice: {len(kept)} right answers kept from {done} questions, {len(pairs)} pairs')
@@ -1476,14 +1789,17 @@ class Run:
         """Self-critique: each unsolved puzzle again, with his best wrong answer and the checker's reason; a right retry is kept."""
         misses = self.load_jsonl('misses.jsonl')
         budget = self.deadline.allow(0.10, reserve=3 * 3600)
-        t0, fixed, still = time.time(), [], []
-        for i in range(0, len(misses), 8):
+        at = self.at('critique')
+        start = int(at.get('done', 0))
+        t0 = time.time() - float(at.get('seconds', 0))
+        fixed, still = (self.load_jsonl('critique.jsonl'), self.load_jsonl('critique_still.jsonl')) if start else ([], [])
+        for i in range(start, len(misses), 8):
             if time.time() - t0 > budget:
                 still += misses[i:]
                 break
             batch = misses[i:i + 8]
             prompts = [m['prompt'].rsplit('<|im_start|>assistant\n', 1)[0] + f"<|im_start|>assistant\n{THINK_OFF}{m['answer']}<|im_end|>\n<|im_start|>user\nThat is not right: {m['why']} Look at your answer again, find the mistake, and solve it again. End with the final answer alone on the last line.<|im_end|>\n<|im_start|>assistant\n" for m in batch]
-            outs = self.generate(prompts, n=4, temperature=0.7)
+            outs = self.generate(prompts, n=4, temperature=0.7, card=self.sampling)
             verdicts = self.tasks.check([(m['task'], a) for m, ans in zip(batch, outs) for a in ans])
             vi = iter(verdicts)
             for m, ans in zip(batch, outs):
@@ -1494,6 +1810,13 @@ class Run:
                     fixed.append({'prompt': m['prompt'], 'answer': min(good, key=len), 'from': 'critique'})
                 else:
                     still.append(m)
+
+            def save(done=i + len(batch)):
+                # (misses.jsonl stays as it was until the phase ends: a cut-off retry starts from the same list)
+                self.save_jsonl('critique.jsonl', fixed)
+                self.save_jsonl('critique_still.jsonl', still)
+                self.state['at']['critique'] = {'done': done, 'seconds': time.time() - t0}
+            self.tick('critique', save)
         self.save_jsonl('critique.jsonl', fixed)
         self.save_jsonl('misses.jsonl', still)
         self.report['trained']['critique'] = len(fixed)
@@ -1502,11 +1825,14 @@ class Run:
     def judge(self):
         """Self-judge on library answers: 4 samples each; a pair is kept only when his own judgement agrees with the reference (token F1)."""
         lib = [r for r in self.records if r['kind'] == 'library'][:40]
-        pairs = []
-        for i in range(0, len(lib), 8):
+        at = self.at('judge')
+        start = int(at.get('done', 0))
+        t0 = time.time() - float(at.get('seconds', 0))
+        pairs = self.load_jsonl('judge_pairs.jsonl') if start else []
+        for i in range(start, len(lib), 8):
             batch = lib[i:i + 8]
             prompts = [chat_prompt(r['messages'][:-1]) for r in batch]
-            outs = self.generate(prompts, n=4, temperature=0.8)
+            outs = self.generate(prompts, n=4, temperature=0.8, card=self.sampling)
             for r, p, ans in zip(batch, prompts, outs):
                 ref = r['messages'][-1]['content']
                 ranked = sorted(ans, key=lambda a: token_f1(a, ref))
@@ -1515,37 +1841,82 @@ class Run:
                     continue
                 q = r['messages'][-2]['content']
                 jp = chat_prompt([{'role': 'system', 'content': r['messages'][0]['content']}, {'role': 'user', 'content': f'Question: {q}\n\nAnswer A: {lo}\n\nAnswer B: {hi}\n\nWhich answer is more correct and better supported by the library text? Reply with A or B only.'}])
-                verdict = self.generate([jp])[0][0].strip().upper()[:1]
+                verdict = self.generate([jp], card=self.sampling)[0][0].strip().upper()[:1]
                 if verdict == 'B':
                     pairs.append({'prompt': p, 'chosen': hi, 'rejected': lo, 'from': 'judge'})
                 else:
                     self.reject('self-judge disagreed with the reference')
+
+            def save(done=i + len(batch)):
+                self.save_jsonl('judge_pairs.jsonl', pairs)
+                self.state['at']['judge'] = {'done': done, 'seconds': time.time() - t0}
+            self.tick('judge', save)
         self.save_jsonl('judge_pairs.jsonl', pairs)
         self.report['trained']['judged'] = len(pairs)
 
     # -- training data
-    def sft_examples(self):
+    def sampled_examples(self):
+        """What this week's sampling made: STaR's checked answers, the self-critique's fixes, SCHOOL's checked attempts."""
         ex = []
         for name in ('star.jsonl', 'critique.jsonl', 'school_star.jsonl'):
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
+        return ex
+
+    def record_examples(self):
+        """The brain's records of the week as (prompt, answer, kind): known before any sampling."""
+        ex = []
         for r in self.records:
             if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill', 'star') or (r['kind'] == 'school' and 'answer' not in r):
                 # (the weekly style set is distillation too, counted apart: "voice"; the phone's checked work is "checked")
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else 'checked' if r['kind'] == 'star' else r['kind']))
+                # ("daily": checked samples from the daily GPU, a Space on the owner's Hugging Face account)
+                kind = 'voice' if r.get('from') == 'voice' else ('daily' if str(r.get('from', '')).startswith('daily GPU') else 'checked') if r['kind'] == 'star' else r['kind']
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], kind))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
                 ex.append((chat_prompt(r['messages']), r['answer'], 'failure'))
-        rnd = random.Random(self.week)
-        # no forgetting: a fixed share of earlier weeks, and general chat data under a licence that allows it
+        return ex
+
+    def with_replay(self, ex, rnd):
+        """No forgetting: a fixed share of earlier weeks, and general chat data under a licence that allows it."""
         replay = rnd.sample(self.replay, replay_count(self.cfg, len(self.replay), len(ex)))
-        ex += [replay_pair(r) + ('replay',) for r in replay]
-        ex += [(chat_prompt([{'role': 'user', 'content': q}]), a, 'general') for q, a in self.general_data(400)]
+        return ex + [replay_pair(r) + ('replay',) for r in replay] + [(chat_prompt([{'role': 'user', 'content': q}]), a, 'general') for q, a in self.general_data(400)]
+
+    def count_trained(self, ex, part):
+        """What each part of SFT learned, by kind, added up into the report (a part run again counts once)."""
         counts = {}
         for _, _, k in ex:
             counts[k] = counts.get(k, 0) + 1
-        self.report['trained'].update(counts)
+        with self.lock:
+            parts = self.state.setdefault('counts', {})
+            parts[part] = counts
+            total = {}
+            for c in parts.values():
+                for k, n in c.items():
+                    total[k] = total.get(k, 0) + n
+            self.report['trained'].update(total)
+
+    def sft_examples(self):
+        """One card: everything in one shuffled list (the samples are made before SFT starts)."""
+        rnd = random.Random(self.week)
+        ex = self.with_replay(self.sampled_examples() + self.record_examples(), rnd)
+        self.count_trained(ex, 'sft')
         rnd.shuffle(ex)
+        return ex
+
+    def known_examples(self):
+        """Two cards, the first part of SFT (beside the sampling): the records, the replay and the general data."""
+        rnd = random.Random(self.week)
+        ex = self.with_replay(self.record_examples(), rnd)
+        self.count_trained(ex, 'sft_known')
+        rnd.shuffle(ex)
+        return ex
+
+    def later_examples(self):
+        """Two cards, the second part of SFT: what the sampling card made meanwhile."""
+        ex = self.sampled_examples()
+        self.count_trained(ex, 'sft')
+        random.Random(self.week + 2).shuffle(ex)
         return ex
 
     def general_data(self, n):
@@ -1605,40 +1976,78 @@ class Run:
         att = (torch.arange(L)[None, :] >= torch.tensor([L - len(i) for i, _ in batch])[:, None]).long().to(self.dev)
         return ids, lab, att
 
+    SFT_BATCH, SFT_ACCUM = 4, 4
+
     def sft(self):
+        """SFT on everything (one card); on two cards the second part, on what the sampling card made while the first
+        part (`sft_known`) trained beside it. The rate falls over this part."""
+        self.train_sft(self.later_examples() if self.plan['cards'] >= 2 else self.sft_examples(), 'sft', decay=True)
+
+    def sft_known(self):
+        """Two cards, the first part of SFT (on cuda:0, while cuda:1 samples): the records, the replay, the general data."""
+        self.train_sft(self.known_examples(), 'sft_known', decay=False)
+
+    def sft_optimiser(self):
+        """The optimiser and its schedule (one for both parts of SFT), back from the checkpoint when a session carries on."""
         import torch
-        ex = self.sft_examples()
+        if self.__dict__.get('_sft_opt') is None:
+            self._sft_opt = torch.optim.AdamW([p for p in self.model.parameters() if p.requires_grad], lr=1e-4, weight_decay=0.0)
+            self._lr = {'start': 0, 'total': 1}
+            self._sft_sched = torch.optim.lr_scheduler.LambdaLR(self._sft_opt, lambda k: lr_factor(k, self._lr['total'], self._lr['start']))
+            saved = self.load_blob('sft_state.pt')
+            if saved:
+                self._sft_opt.load_state_dict(saved['opt'])
+                self._sft_sched.load_state_dict(saved['sched'])
+                self.set_rng_state(saved.get('rng'))
+                log('SFT: optimiser, schedule and random state restored from the checkpoint')
+        return self._sft_opt, self._sft_sched
+
+    def train_sft(self, ex, name, decay=True):
+        import torch
         budget = self.deadline.allow(0.45, reserve=2.5 * 3600)
         model = self.model
         model.train()
         model.gradient_checkpointing_enable()
         model.enable_input_require_grads()
-        opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4, weight_decay=0.0)
-        bs, accum = 4, 4
+        bs, accum = self.SFT_BATCH, self.SFT_ACCUM
         steps = math.ceil(len(ex) / bs)
-        sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda s: min(1.0, (s + 1) / 10) * max(0.1, 1 - s / max(1, steps / accum)))
-        t0, losses = time.time(), []
-        for s in range(steps):
-            if time.time() - t0 > budget:
-                self.reject('SFT examples not reached (time budget)', len(ex) - s * bs)
-                break
-            ids, lab, att = self.tensors([self.encode(p, a) for p, a, _ in ex[s * bs:(s + 1) * bs]])
-            with self.autocast():
-                loss = model(input_ids=ids, attention_mask=att, labels=lab).loss / accum
-            loss.backward()
-            losses.append(loss.item() * accum)
-            if (s + 1) % accum == 0 or s == steps - 1:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                opt.step()
-                sched.step()
-                opt.zero_grad()
-            if s and s % 200 == 0:
-                log(f'SFT step {s}/{steps} loss {sum(losses[-50:]) / len(losses[-50:]):.3f}')
-                self.save_adapter()
+        at = self.at(name)
+        first = int(at.get('step', 0))
+        opt, sched = self.sft_optimiser()
+        # the rate's fall: over this part, from the optimiser step it starts at (none in the first of two parts)
+        begun = int(at.get('from', sched.last_epoch))
+        self._lr = {'start': begun, 'total': begun + math.ceil(steps / accum)} if decay else {'start': 10 ** 9, 'total': 10 ** 9}
+        t0, losses = time.time() - float(at.get('seconds', 0)), list(at.get('losses', []))
+        with _on(self.dev):
+            for s in range(first, steps):
+                if time.time() - t0 > budget:
+                    self.reject('SFT examples not reached (time budget)', len(ex) - s * bs)
+                    break
+                ids, lab, att = self.tensors([self.encode(p, a) for p, a, _ in ex[s * bs:(s + 1) * bs]])
+                with self.autocast():
+                    loss = model(input_ids=ids, attention_mask=att, labels=lab).loss / accum
+                loss.backward()
+                losses.append(loss.item() * accum)
+                if (s + 1) % accum == 0 or s == steps - 1:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    opt.step()
+                    sched.step()
+                    opt.zero_grad()
+
+                    # (saved only here, between optimiser steps: no half-added gradients are ever lost)
+                    def save(done=s + 1):
+                        self.save_adapter()
+                        self.save_blob('sft_state.pt', {'opt': opt.state_dict(), 'sched': sched.state_dict(), 'rng': self.rng_state()})
+                        self.state['at'][name] = {'step': done, 'from': begun, 'seconds': time.time() - t0, 'losses': losses[-50:]}
+                    self.tick(name, save)
+                if s and s % 200 == 0:
+                    log(f'{name} step {s}/{steps} loss {sum(losses[-50:]) / len(losses[-50:]):.3f}')
         model.gradient_checkpointing_disable()
         model.config.use_cache = True
-        self.save_adapter()
-        log(f'SFT: {len(ex)} examples, final loss {sum(losses[-50:]) / max(1, len(losses[-50:])):.3f}')
+        with self.lock:
+            self.save_adapter()
+            self.save_blob('sft_state.pt', {'opt': opt.state_dict(), 'sched': sched.state_dict(), 'rng': self.rng_state()})
+        log(f'{name}: {len(ex)} examples, final loss {sum(losses[-50:]) / max(1, len(losses[-50:])):.3f}')
 
     def seq_logp(self, prompts, answers):
         import torch
@@ -1651,26 +2060,39 @@ class Run:
 
     def dpo(self):
         import torch
-        pairs = self.pref_pairs()
-        if not pairs:
-            log('DPO: no pairs this week')
-            return
+        at = self.at('dpo')
         budget = self.deadline.allow(0.5, reserve=2 * 3600)
-        random.Random(self.week + 1).shuffle(pairs)
-        # The reference is the model as SFT left it (the usual DPO set-up), not the old brain: its log-probabilities
-        # are worked out once, before any DPO step changes the LoRA.
-        self.model.eval()
-        with torch.no_grad():
-            for i in range(0, len(pairs), 4):
-                b = pairs[i:i + 4]
-                P = [x['prompt'] for x in b]
-                rc, rr = self.seq_logp(P, [x['chosen'] for x in b]), self.seq_logp(P, [x['rejected'] for x in b])
-                for x, c, r in zip(b, rc.tolist(), rr.tolist()):
-                    x['ref'] = (c, r)
+        if at.get('refs'):
+            # carried on from a checkpoint: the pairs with their reference scores were kept
+            pairs = self.load_jsonl('dpo_pairs.jsonl')
+        else:
+            pairs = self.pref_pairs()
+            if not pairs:
+                log('DPO: no pairs this week')
+                return
+            random.Random(self.week + 1).shuffle(pairs)
+            # The reference is the model as SFT left it (the usual DPO set-up), not the old brain: its log-probabilities
+            # are worked out once, before any DPO step changes the LoRA.
+            self.model.eval()
+            with torch.no_grad():
+                for i in range(0, len(pairs), 4):
+                    b = pairs[i:i + 4]
+                    P = [x['prompt'] for x in b]
+                    rc, rr = self.seq_logp(P, [x['chosen'] for x in b]), self.seq_logp(P, [x['rejected'] for x in b])
+                    for x, c, r in zip(b, rc.tolist(), rr.tolist()):
+                        x['ref'] = (c, r)
+            with self.lock:
+                self.save_jsonl('dpo_pairs.jsonl', pairs)
+                self.state['at']['dpo'] = {'refs': True, 'i': 0}
         opt = torch.optim.AdamW([p for p in self.model.parameters() if p.requires_grad], lr=2e-5)
+        first = int(at.get('i', 0))
+        saved = self.load_blob('dpo_state.pt') if first else None
+        if saved:
+            opt.load_state_dict(saved['opt'])
+            self.set_rng_state(saved.get('rng'))
         self.model.train()
-        t0 = time.time()
-        for i in range(0, len(pairs), 2):
+        t0 = time.time() - float(at.get('seconds', 0))
+        for i in range(first, len(pairs), 2):
             if time.time() - t0 > budget:
                 self.reject('preference pairs not reached (time budget)', len(pairs) - i)
                 break
@@ -1684,6 +2106,12 @@ class Run:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             opt.step()
             opt.zero_grad()
+
+            def save(done=i + 2):
+                self.save_adapter()
+                self.save_blob('dpo_state.pt', {'opt': opt.state_dict(), 'rng': self.rng_state()})
+                self.state['at']['dpo'] = {'refs': True, 'i': done, 'seconds': time.time() - t0}
+            self.tick('dpo', save)
         self.save_adapter()
 
     # -- after
@@ -1692,17 +2120,22 @@ class Run:
         model, so the brain in use (its whole chain) is built apart for this test, then let go. Two full-precision copies
         of a bigger base (Qwen3.5 2B: 7.5 GB each) do not fit a 15 GB GPU together, so the model being trained waits in
         the machine's memory meanwhile, and goes back to the GPU after."""
+        card = self.sampling
         if from_scratch(self.cfg):
-            training = self.model
-            training.to('cpu')
+            # (on two cards it is the sampling card's model, the stock one STaR samples from, that waits meanwhile)
+            resident = card.model
+            resident.to('cpu')
             free_memory()
-            self.model = self.merged_base(self.cfg['current'].get('chain', []))
+            current = [self.merged_base(self.cfg['current'].get('chain', []), dev=card.dev)]
             try:
-                before, core = self.score('current, quantised', quantised=True)
+                before, core = self.score('current, quantised', quantised=True, card=Card(card.dev, lambda: current[0], lambda: card.tok))
             finally:
-                self.model = training
+                current.clear()
                 free_memory()
-                training.to(self.dev)
+                resident.to(card.dev)
+        elif card is not self.train_card:
+            # two cards: the second card's model IS the brain in use (the week starts from it)
+            before, core = self.score('current, quantised', quantised=True, card=card)
         else:
             with self.model.disable_adapter():
                 before, core = self.score('current, quantised', quantised=True)
@@ -1710,19 +2143,55 @@ class Run:
         self.report['core'] = {'before': core, 'after': {}}
 
     def pick_scale(self):
-        """The LoRA scale (1 = as trained, 0.5 = halfway with the old brain) chosen on the DEV split, never the exam."""
-        best = None
-        dev = {}
-        for scale in (1.0, 0.5):
-            set_lora_scale(self.model, scale)
-            s, _ = self.score(f'new, LoRA × {scale}', split='dev')
-            dev[str(scale)] = round(exam_mean(s), 4)
-            if best is None or exam_mean(s) > best[1]:
-                best = (scale, exam_mean(s))
-        self.scale = best[0]
+        """The LoRA scale (1 = as trained, 0.5 = halfway with the old brain) chosen on the DEV split, never the exam. On
+        two cards both are scored at once: ×1 on the training card, ×0.5 on the second with a copy of this week's LoRA."""
+        scores = {}
+
+        def on(scale, card, model):
+            set_lora_scale(model, scale)
+            scores[scale] = self.score(f'new, LoRA × {scale}', split='dev', card=card)[0]
+        if self.plan['cards'] >= 2 and self.sampler is not None:
+            other = self.adapter_copy()
+            self.exam_items('dev')
+            self.side_by_side_calls([lambda: on(1.0, self.train_card, self.model), lambda: on(0.5, other, other.model)])
+        else:
+            for scale in (1.0, 0.5):
+                on(scale, self.train_card, self.model)
+        # (a tie keeps the LoRA as trained)
+        self.scale = max((1.0, 0.5), key=lambda sc: (exam_mean(scores[sc]), sc == 1.0))
         set_lora_scale(self.model, self.scale)
         self.report['scale'] = self.scale
-        self.report['dev'] = dev
+        self.report['dev'] = {str(sc): round(exam_mean(scores[sc]), 4) for sc in (1.0, 0.5)}
+
+    def adapter_copy(self):
+        """This week's LoRA, as trained so far, on the second card's model (the same base: the brain the week started
+        from), so the gate's scoring can use both cards."""
+        from peft import get_peft_model, get_peft_model_state_dict, set_peft_model_state_dict
+        if self.__dict__.get('_sampler_lora') is None:
+            self._sampler_lora = get_peft_model(self.sampler, self.lora_cfg)
+        set_peft_model_state_dict(self._sampler_lora, {k: v.to(self.plan['sample']) for k, v in get_peft_model_state_dict(self.model).items()})
+        return Card(self.plan['sample'], lambda: self._sampler_lora, lambda: self.sample_tok)
+
+    def side_by_side_calls(self, fns):
+        """These at once, one thread each (each on its own card; the GPU work lets go of Python's lock, so they really
+        overlap). The first real failure is raised once all have stopped; a session running out in one stops the other
+        too, after it saved its place."""
+        errors = []
+
+        def run(fn):
+            try:
+                fn()
+            except BaseException as e:  # noqa: B902 (passed on below, after the other thread stopped)
+                errors.append(e)
+                self.stop.set()
+        threads = [threading.Thread(target=run, args=(f,), daemon=True) for f in fns[1:]]
+        for t in threads:
+            t.start()
+        run(fns[0])
+        for t in threads:
+            t.join()
+        if errors:
+            raise next((e for e in errors if not isinstance(e, SessionOver)), errors[0])
 
     def exam_after(self):
         self.pick_scale()
@@ -1741,6 +2210,9 @@ class Run:
         import numpy as np
         import torch
         from huggingface_hub import HfApi
+        # (the second card's copy is no use any more: its memory back before the weights are written)
+        self.sampler = self._sampler_lora = None
+        free_memory()
         merged = self.model.merge_and_unload()
         self.model = merged
         # (float32 as trained: mlc_entry makes each float16, and keeps Qwen3.5's A_log and dt_bias float32)
@@ -1811,22 +2283,46 @@ class Run:
             log('keeping the STaR answers failed:', e)
             self.reject("this week's STaR answers could not be kept for replay")
 
+    def sampling_phases(self, card=None):
+        """The parts that only sample from the brain the week started with (on the second card when there is one)."""
+        cpu = 'no GPU on this host' if self.plan['kind'] == 'cpu' else None
+        self.phase('exam_before', self.exam_before, card=card)
+        self.phase('star', self.star, skip_if=cpu, card=card)
+        self.phase('school', self.school_star, skip_if=cpu or (None if any(r['kind'] == 'school' and 'answer' in r for r in self.records) else 'no school practice with an exact answer this week'), card=card)
+        short = self.deadline.left() < 4 * 3600
+        self.phase('critique', self.critique, skip_if=cpu or ('not enough time left' if short else None), card=card)
+        self.phase('judge', self.judge, skip_if=cpu or ('not enough time left' if short else None), card=card)
+
+    def side_by_side(self):
+        """Two cards: SFT's first part on cuda:0 while cuda:1 does every sampling part; the minutes this saved go in the
+        report (the two parts' minutes added up, less the time the pair took)."""
+        t = time.time()
+        n = len(self.report['phases'])
+        self.side_by_side_calls([lambda: self.phase('sft_known', self.sft_known, card=self.plan['train']), lambda: self.sampling_phases(self.plan['sample'])])
+        both = sum(x['minutes'] for x in self.report['phases'][n:] if x.get('card'))
+        self.report.setdefault('cards', {})['saved_minutes'] = round(max(0.0, both - (time.time() - t) / 60), 1)
+
     def main(self):
+        paused = None
         try:
             self.phase_setup()
-            self.phase('exam_before', self.exam_before)
-            self.phase('star', self.star)
-            self.phase('school', self.school_star, skip_if=None if any(r['kind'] == 'school' and 'answer' in r for r in self.records) else 'no school practice with an exact answer this week')
-            short = self.deadline.left() < 4 * 3600
-            self.phase('critique', self.critique, skip_if='not enough time left' if short else None)
-            self.phase('judge', self.judge, skip_if='not enough time left' if short else None)
+            if self.plan['cards'] >= 2:
+                self.side_by_side()
+            else:
+                self.sampling_phases()
             self.phase('sft', self.sft)
-            self.phase('dpo', self.dpo, skip_if='not enough time left' if self.deadline.left() < 1.5 * 3600 else None)
+            self.phase('dpo', self.dpo, skip_if='no GPU on this host' if self.plan['kind'] == 'cpu' else 'not enough time left' if self.deadline.left() < 1.5 * 3600 else None)
             self.phase('exam_after', self.exam_after)
             if self.report['gate']['pass']:
                 self.phase('publish', self.publish)
             self.report['failures'] = [{'prompt': m['prompt'][-1500:], 'task': m['task'], 'why': m['why'][:200]} for m in self.load_jsonl('misses.jsonl')[:120]]
             self.keep_for_later()
+        except SessionOver as e:
+            # This session's time is up and its place is saved: the brain pushes the run again with `resume` and it
+            # carries on from here (the gate judges only a finished run).
+            paused = {'week': self.week, 'phase': str(e), 'done': list(self.state['done']), 'left_hours': round(self.deadline.left() / 3600, 2), 'session': self.state.get('sessions', 1), 'host': self.host}
+            self.report['paused'] = paused
+            log('this session is over; the run carries on in the next one from', str(e))
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -1834,8 +2330,15 @@ class Run:
         self.report['finishedAt'] = int(time.time() * 1000)
         with open(f'{OUT}/ghosty_report.json', 'w') as f:
             json.dump(self.report, f)
-        self.hook({'report': self.report})
-        log('done:', json.dumps({k: self.report.get(k) for k in ('gate', 'published', 'error')}))
+        if paused:
+            self.hook({'paused': paused})
+        else:
+            # A week decided (the exam after training ran, or the run finished without an error) needs no checkpoint any
+            # more; one that failed before its exam keeps it, for the brain's next push to carry on from.
+            if self.report.get('after') or not self.report.get('error'):
+                self.clean_wip()
+            self.hook({'report': self.report})
+        log('done:', json.dumps({k: self.report.get(k) for k in ('gate', 'published', 'error', 'paused')}))
         # Nothing of the owner's stays on Kaggle's machine (the private dataset repo keeps the checkpoints).
         import shutil
         shutil.rmtree(WORK, ignore_errors=True)
@@ -1844,6 +2347,17 @@ class Run:
         t = time.time()
         self.setup()
         self.report['phases'].append({'name': 'setup', 'minutes': round((time.time() - t) / 60, 1)})
+
+
+def _dtype_kw(dtype):
+    """How from_pretrained is told the precision: `torch_dtype` in transformers 4 (Kaggle's pins for Qwen3), `dtype` from
+    transformers 5 on (the daily GPU's Space, Qwen3.5)."""
+    try:
+        import transformers
+        major = int(transformers.__version__.split('.')[0])
+    except Exception:
+        major = 4
+    return {'dtype': dtype} if major >= 5 else {'torch_dtype': dtype}
 
 
 def prepare_tokenizer(tok):
@@ -1978,6 +2492,170 @@ class ExamRun(Run):
         log('done:', json.dumps({'answered': len(self.report['answers']), 'error': self.report.get('error')}))
         import shutil
         shutil.rmtree(WORK, ignore_errors=True)
+
+
+# ---- the daily GPU: Hugging Face ZeroGPU, in a Space on the owner's own account (training/space/app.py) -----------
+# A free Hugging Face account gets about 5 GPU-minutes a day (a big Blackwell card, lent per call) and cannot buy more:
+# the brain checks the account is free with no card before it makes the Space, and calls it once a day. It is extra,
+# never counted on: Kaggle stays where the week trains, and a day with no minutes is skipped and said. The Space runs
+# this very file (uploaded beside app.py), so its helpers are tested here.
+POOL_SECONDS = int(round(HOSTS['zerogpu']['budget_hours'] * 3600))
+POOL_PUZZLES = 24
+POOL_SAMPLES = 8
+
+
+def pool_allowed(given, key):
+    """Only the brain may use the Space (it holds the key as a secret, and the brain sends it): never an empty key."""
+    import hmac
+    return bool(key) and isinstance(given, str) and hmac.compare_digest(given.encode(), key.encode())
+
+
+def pool_seconds(asked):
+    """The GPU seconds one call may ask for: what the brain asked, from 30 to POOL_SECONDS (4.5 of the 5 minutes)."""
+    return max(30, min(POOL_SECONDS, int(asked))) if _num(asked) else POOL_SECONDS
+
+
+def pool_pick(records, n, day):
+    """Today's puzzles from the week's data: its checkable ones (GYM and drills, references the GYM's code makes and
+    checks), a different slice each day (`day`: days since 1970), so a week of days goes round them."""
+    ok = [r for r in records if r.get('kind') in ('gym', 'drill') and isinstance(r.get('task'), dict)]
+    if not ok or n <= 0:
+        return []
+    start = (int(day) * n) % len(ok)
+    return [ok[(start + i) % len(ok)] for i in range(min(n, len(ok)))]
+
+
+def pool_records(samples, verdicts, system):
+    """Checked samples as `star` records for the brain (the shape `record_problem` takes: the question, the answer that
+    passed, and the check that passed it): at most two different right answers a puzzle (star_select)."""
+    out, vi = [], iter(verdicts)
+    for smp in samples:
+        vs = [next(vi) for _ in smp['answers']]
+        good, _ = star_select(list(zip(smp['answers'], vs)))
+        t = smp['task']
+        what = f"gym {t['game']} level {t.get('level')}" if 'game' in t else f"drill {t.get('drill')}"
+        for a in good:
+            out.append({'kind': 'star', 'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': smp['ask']}, {'role': 'assistant', 'content': a}], 'checked': "the GYM's own checker", 'from': f'daily GPU · {what}'})
+    return out
+
+
+class DailyPool(Run):
+    """The Space's side of the daily GPU. It loads the brain in use (the chosen base and its chain, from the owner's
+    private repos with the token in the Space's secrets) and the week's data the brain names, and answers three calls,
+    each refused without the key the brain set as another secret:
+      sample — STaR candidates from the current brain on today's slice of the week's puzzles (on the GPU);
+      score  — the GYM's exact checkers on those samples (on the CPU: no GPU time), the right ones as star records;
+      exam   — a chunk of a SCHOOL paper's questions (never its answers) with the phone's exam prompt, on the weights as
+               they ship (on the GPU), when Kaggle's hours are short.
+    `gpu` is app.py's @spaces.GPU function, which calls `generate_now` with the GPU lent for those seconds."""
+
+    def __init__(self, token, key, clock=time.time):
+        super().__init__({'week': 0, 'current': {'label': 'stock', 'chain': []}, 'hook': '', 'ticket': '', 'data_repo': '', 'model_repo': '', 'host': 'zerogpu'})
+        self.token = token
+        self.key = key
+        self.clock = clock
+        self.loaded = None
+        self.data_at = None
+
+    def call(self, kind, args_json, gpu=None):
+        """One call from the brain: the arguments as JSON (with the key); an answer as a dict, or {'error': …}."""
+        try:
+            a = json.loads(args_json or '{}')
+        except ValueError:
+            return {'error': 'the arguments are not JSON'}
+        if not isinstance(a, dict) or not pool_allowed(a.get('key'), self.key):
+            return {'error': 'not allowed'}
+        if kind not in ('sample', 'score', 'exam'):
+            return {'error': f'no call {kind!r}'}
+        try:
+            return getattr(self, f'do_{kind}')(a, gpu)
+        except Exception as e:
+            return {'error': f'{type(e).__name__}: {str(e)[:300]}'.replace(self.token or '\0', 'hf_…')}
+
+    # -- loading (outside the GPU: ZeroGPU lends the card only inside each call)
+    def prepare_data(self, a):
+        """The week's data file, the exam (its system prompt) and the GYM's program, at the commit the brain names."""
+        from huggingface_hub import hf_hub_download
+        at = (a['data_repo'], a.get('data_file'), a.get('data_rev'))
+        if self.data_at == at:
+            return
+        self.cfg.update({'data_repo': a['data_repo'], 'data_file': a.get('data_file'), 'data_rev': a.get('data_rev')})
+        dl = lambda f: retry(lambda: hf_hub_download(a['data_repo'], f, repo_type='dataset', revision=a.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), f'downloading {f}')
+        self.tasks = Tasks(dl('tasks.mjs'), retry(node_cmd, 'installing node'))
+        self.report_card = self.tasks.reportcard()
+        if a.get('data_file'):
+            with open(dl('exam.json')) as f:
+                self.exam = json.load(f)
+            with open(dl(a['data_file'])) as f:
+                self.records = [r for r in (json.loads(l) for l in f if l.strip()) if not record_problem(r)]
+        self.data_at = at
+
+    def prepare_model(self, a):
+        """The brain in use (the chosen base and its chain), loaded once and kept while it stays the one in use."""
+        from huggingface_hub import snapshot_download
+        from transformers import AutoTokenizer
+        want = json.dumps([a.get('base'), a.get('base_model'), (a.get('current') or {}).get('chain')], sort_keys=True)
+        if self.loaded == want:
+            return
+        self.cfg.update({k: a[k] for k in ('base', 'base_model', 'stock_mlc', 'budgets', 'current') if k in a})
+        self.cfg['data_repo'] = a['data_repo']
+        self.base = base_of(self.cfg)
+        self.prompt_tokens, self.gen_tokens = budgets_for(self.cfg)
+        self.dev, self.amp = 'cuda', None
+        self.base_dir = retry(lambda: snapshot_download(a['base_model']['repo'], revision=a['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading the base model')
+        self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
+        self.model = self.merged_base(list((a.get('current') or {}).get('chain') or []))
+        self.model.config.use_cache = True
+        self.loaded = want
+
+    def generate_now(self, prompts, n, temperature, max_new, seconds, quantised=False):
+        """Inside the GPU call: batches of 8 until the lent seconds are nearly used (ZeroGPU stops a call that overruns);
+        None for the prompts not reached."""
+        stop = self.clock() + seconds * 0.85
+        out = [None] * len(prompts)
+        with (quantised_weights(self.model) if quantised else _null()):
+            for i in range(0, len(prompts), 8):
+                if self.clock() > stop:
+                    break
+                out[i:i + 8] = self.generate(prompts[i:i + 8], n=n, temperature=temperature, max_new=max_new)
+        return out
+
+    # -- the three calls
+    def do_sample(self, a, gpu):
+        self.prepare_data(a)
+        self.prepare_model(a)
+        picked = pool_pick(self.records, int(a.get('n') or POOL_PUZZLES), int(a.get('day') or 0))
+        raws = self.tasks.make([r['task'] for r in picked]) if picked else []
+        # (a puzzle on the phone's report card is never trained on, wherever it came from)
+        keep = [(r, raw) for r, raw in zip(picked, raws) if raw and not near_report_card(raw, self.report_card)]
+        system = self.exam['tools']['system']
+        prompts = [chat_prompt([{'role': 'system', 'content': system}, {'role': 'user', 'content': raw}]) for _, raw in keep]
+        t = self.clock()
+        outs = gpu(prompts, int(a.get('k') or POOL_SAMPLES), 0.8, 384, pool_seconds(a.get('seconds'))) if prompts else []
+        samples = [{'task': r['task'], 'ask': raw, 'answers': ans} for (r, raw), ans in zip(keep, outs) if ans]
+        return {'samples': samples, 'system': system, 'seconds': round(self.clock() - t, 1), 'asked': len(prompts)}
+
+    def do_score(self, a, gpu=None):
+        # (the GYM's program is already here after today's sample; a Space woken afresh fetches it)
+        if getattr(self, 'tasks', None) is None:
+            self.prepare_data({**a, 'data_file': None})
+        samples = [s for s in a.get('samples') or [] if isinstance(s, dict) and isinstance(s.get('task'), dict) and isinstance(s.get('answers'), list)]
+        verdicts = self.tasks.check([(s['task'], str(ans)) for s in samples for ans in s['answers']])
+        records = pool_records(samples, verdicts, str(a.get('system') or ''))
+        return {'records': records, 'checked': len(verdicts), 'right': sum(1 for v in verdicts if v.get('correct'))}
+
+    def do_exam(self, a, gpu):
+        from huggingface_hub import hf_hub_download
+        self.prepare_model(a)
+        path = retry(lambda: hf_hub_download(a['data_repo'], a['paper_file'], repo_type='dataset', revision=a.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), 'downloading the paper')
+        with open(path) as f:
+            items = [json.loads(l) for l in f if l.strip()]
+        lo, hi = (a.get('chunk') or [0, len(items)])[:2]
+        items = items[int(lo):int(hi)]
+        prompts = [chat_prompt(exam_prompt(it)) for it in items]
+        longest = EXAM_TOKENS['writing' if any(it.get('type') == 'extended' for it in items) else 'item']
+        outs = gpu(prompts, 1, 0.3, longest, pool_seconds(a.get('seconds')), True) if prompts else []
+        return {'answers': [{'id': it['id'], 'given': o[0]} for it, o in zip(items, outs) if o], 'asked': len(items)}
 
 
 def run_for(cfg):

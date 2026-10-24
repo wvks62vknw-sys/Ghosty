@@ -17,7 +17,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
+  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', 'src/selftrain/pool.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -38,6 +38,7 @@ const S = await load('packages/shared/src/selftrain');
 const T = await load('packages/shared/src/toolcall');
 const W = await load('apps/edge/src/selftrain/weights');
 const LO = await load('apps/edge/src/selftrain/loops');
+const P = await load('apps/edge/src/selftrain/pool');
 const M = await load('apps/web/src/offline/models');
 const RL = await load('apps/web/src/features/core/ratelist');
 const SIX = await load('apps/edge/src/school/index');
@@ -380,7 +381,9 @@ function fakeServices(opts = {}) {
   const state = { kernel: opts.kernel ?? 'RUNNING', statusFails: opts.statusFails ?? 0, repos: new Map(Object.entries(opts.repos ?? {})), commits: [], lfs: new Map(), pushes: [], tags: [], lfsHeaders: null, lfsBody: null,
     // Kaggle's weekly GPU quota (durations as Kaggle writes them), and what a finished run left behind
     quota: opts.quota ?? { quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '7200s', totalTimeAllowed: '108000s' } },
-    output: opts.output ?? { files: [], log: '' }, outputFiles: opts.outputFiles ?? {}, tasksThere: true };
+    output: opts.output ?? { files: [], log: '' }, outputFiles: opts.outputFiles ?? {}, tasksThere: true,
+    // the daily GPU: Spaces made, their hardware and secrets, and its Gradio calls (with what each answers)
+    spaceCreates: [], spaceCalls: [], gradioCalls: [], gradio: opts.gradio ?? {} };
   const res = (status, body, headers = {}) => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
   const role = opts.role ?? 'write';
   const f = async (input, init = {}) => {
@@ -390,9 +393,11 @@ function fakeServices(opts = {}) {
     calls.push({ url, method, headers: init.headers ?? {}, body });
     if (url === 'https://huggingface.co/api/whoami-v2') {
       const scoped = role === 'fineGrained' ? (opts.scoped ?? ['owner/ghosty-training', 'owner/ghosty-offline-brain']).map((name) => ({ entity: { type: name.includes('training') ? 'dataset' : 'model', name }, permissions: ['repo.content.read', 'repo.write'] })) : undefined;
-      return res(200, { name: 'owner', auth: { accessToken: { role, ...(scoped ? { fineGrained: { scoped, global: [] } } : {}) } } });
+      // (a free account with no card, unless a test says otherwise: the daily GPU checks both)
+      const plan = opts.plan ?? { isPro: false, canPay: false };
+      return res(200, { name: 'owner', ...plan, auth: { accessToken: { role, ...(scoped ? { fineGrained: { scoped, global: [] } } : {}) } } });
     }
-    let m = url.match(/^https:\/\/huggingface\.co\/api\/(models|datasets)\/([^/]+\/[^/]+)$/);
+    let m = url.match(/^https:\/\/huggingface\.co\/api\/(models|datasets|spaces)\/([^/]+\/[^/]+)$/);
     if (m && method === 'GET') return state.repos.has(m[2]) ? res(200, { id: m[2], private: state.repos.get(m[2]) }) : res(404, { error: 'not found' });
     m = url.match(/^https:\/\/huggingface\.co\/api\/(models|datasets)\/([^/]+\/[^/]+)\/settings$/);
     if (m && method === 'PUT') {
@@ -403,12 +408,21 @@ function fakeServices(opts = {}) {
     if (url === 'https://huggingface.co/api/repos/create') {
       if (role !== 'write') return res(403, { error: 'no rights' });
       const j = JSON.parse(body);
+      if (j.type === 'space') {
+        state.spaceCreates.push(j);
+        if (opts.noPrivateSpace && j.private) return res(400, { error: 'Private ZeroGPU Spaces are not available on a free account' });
+      }
       const id = `${j.organization}/${j.name}`;
       if (state.repos.has(id)) return res(409, { error: 'exists' });
       state.repos.set(id, j.private);
       return res(200, { url: `https://huggingface.co/${id}` });
     }
-    m = url.match(/^https:\/\/huggingface\.co\/api\/datasets\/(.+)\/preupload\/main$/);
+    m = url.match(/^https:\/\/huggingface\.co\/api\/spaces\/(.+)\/(hardware|secrets)$/);
+    if (m && method === 'POST') {
+      state.spaceCalls.push({ what: m[2], repo: m[1], body: JSON.parse(body) });
+      return res(200, {});
+    }
+    m = url.match(/^https:\/\/huggingface\.co\/api\/(?:datasets|spaces)\/(.+)\/preupload\/main$/);
     if (m) return res(200, { files: JSON.parse(body).files.map((x) => ({ path: x.path, uploadMode: x.path.endsWith('.mjs') ? 'lfs' : 'regular' })) });
     if (url === 'https://huggingface.co/datasets/owner/ghosty-training.git/info/lfs/objects/batch') {
       state.lfsHeaders = init.headers;
@@ -422,7 +436,7 @@ function fakeServices(opts = {}) {
     }
     if (url === 'https://lfs.example/verify') return res(200, {});
     if (url === 'https://huggingface.co/datasets/owner/ghosty-training/resolve/main/tasks.mjs' && method === 'HEAD') return res(state.tasksThere && state.commits.some((c) => c.lines.some((l) => l.value?.path === 'tasks.mjs')) ? 200 : 404, '');
-    m = url.match(/^https:\/\/huggingface\.co\/api\/datasets\/(.+)\/commit\/main$/);
+    m = url.match(/^https:\/\/huggingface\.co\/api\/(?:datasets|spaces)\/(.+)\/commit\/main$/);
     if (m) {
       state.commits.push({ repo: m[1], lines: String(body).split('\n').map((l) => JSON.parse(l)) });
       return res(200, { commitOid: 'd'.repeat(40) });
@@ -448,6 +462,18 @@ function fakeServices(opts = {}) {
     if (url === `${KAG}/kernels.KernelsApiService/GetAcceleratorQuotaStatistics`) return res(200, state.quota);
     if (url === `${KAG}/kernels.KernelsApiService/ListKernelSessionOutput`) return state.output ? res(200, state.output) : res(500, { code: 500, message: 'output not available' });
     if (url in state.outputFiles) return res(200, state.outputFiles[url]);
+    // the daily GPU's Gradio API: POST the call, then its event stream
+    m = url.match(/^https:\/\/owner-ghosty-daily-gpu\.hf\.space\/gradio_api\/call\/(\w+)(?:\/(\w+))?$/);
+    if (m && method === 'POST') {
+      state.gradioCalls.push({ fn: m[1], args: JSON.parse(JSON.parse(body).data[0]), auth: init.headers?.Authorization });
+      return res(200, { event_id: `ev${state.gradioCalls.length}` });
+    }
+    if (m && m[2]) {
+      const call = state.gradioCalls[Number(m[2].slice(2)) - 1];
+      const out = (state.gradio[call.fn] ?? (() => ({ error: 'no such call' })))(call.args);
+      if (out instanceof Error) return new Response(`event: error\ndata: ${JSON.stringify(out.message)}\n\n`, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+      return new Response(`event: generating\ndata: null\n\nevent: complete\ndata: ${JSON.stringify([JSON.stringify(out)])}\n\n`, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    }
     throw new TypeError(`no network in tests: ${url}`);
   };
   return { f, calls, state };
@@ -899,11 +925,11 @@ test('a Kaggle run that ends without a report: the week ends about 45 minutes af
   assert.equal((await f.deps.storage.get('train:state')).phase, 'running');
 });
 
-test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (phone not verified), under 10 hours left, or pay-to-scale on; the notes say how many GPU hours are left', async () => {
+test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (phone not verified), under 4 hours left (even a smaller run), or pay-to-scale on; the notes say how many GPU hours are left', async () => {
   const cases = [
     [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { hasEverRun: false } }, /no GPU time.*phone number/],
-    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '75600s', totalTimeAllowed: '108000s' } }, /Only 9 of Kaggle's 30 free GPU hours are left this week \(a run needs 10\)/],
-    [{ gpuQuota: { timeUsed: '3600s', timeReserved: '68400.500s', totalTimeAllowed: '108000s' } }, /Only 9\.9 of Kaggle's 30 free GPU hours/],
+    [{ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: '97200s', totalTimeAllowed: '108000s' } }, /Only 3 of Kaggle's 30 free GPU hours are left this week \(a full run needs 10, even a smaller one 4\): it starts when they come back, 2026-10-24 00:00 UTC/],
+    [{ gpuQuota: { timeUsed: '3600s', timeReserved: '90000.500s', totalTimeAllowed: '108000s' } }, /Only 3\.9 of Kaggle's 30 free GPU hours/],
     [{ gpuQuota: { timeUsed: '0s', totalTimeAllowed: '108000s', isPayToScaleEnabled: true } }, /pay-to-scale/],
   ];
   for (const [quota, why] of cases) {
@@ -940,6 +966,155 @@ test('before every push Kaggle\'s GPU quota is asked: no push with no GPU time (
   const st = await C.trainStatus(w.deps);
   assert.equal(st.phase, 'idle');
   assert.match(st.report.error, /no GPU time/);
+});
+
+// ---- training that survives Kaggle's hours running out (BRIEF-TRAINING-RESILIENCE) ---------------------------------
+
+const quotaLeft = (h, extra = {}) => ({ quotaRefreshTime: '2026-10-24T00:00:00Z', gpuQuota: { timeUsed: `${(30 - h) * 3600}s`, totalTimeAllowed: '108000s', ...extra } });
+
+test('economy mode: the plan for the hours Kaggle has left — a full run from 10, a smaller one from 4 (its budget fitted, fewer weeks replayed, fewer STaR samples, the exam on the phone), else a wait; a run carrying on needs only what it has left', () => {
+  const q = (left, more = {}) => ({ total: 30, left, payToScale: false, refreshAt: Date.parse('2026-10-24T00:00:00Z'), ...more });
+  assert.deepEqual(C.runPlan(q(28)), { mode: 'full', timeoutHours: 10, budgetHours: 9, samples: 16, replayWeeks: 8, examOnPhone: false, why: '' });
+  assert.deepEqual(C.runPlan(q(10)).mode, 'full');
+  assert.deepEqual(C.runPlan(q(6)), { mode: 'economy', timeoutHours: 5.5, budgetHours: 4.5, samples: 8, replayWeeks: 4, examOnPhone: true, why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  assert.deepEqual([C.runPlan(q(9.9)).timeoutHours, C.runPlan(q(9.9)).budgetHours], [9, 8]);
+  assert.deepEqual([C.runPlan(q(4)).mode, C.runPlan(q(4)).timeoutHours, C.runPlan(q(4)).budgetHours], ['economy', 3.5, 2.5]);
+  assert.equal(C.runPlan(q(3.9)).mode, 'wait');
+  assert.match(C.runPlan(q(3.9)).why, /even a smaller one 4/);
+  assert.equal(C.runPlan(q(28, { payToScale: true })).mode, 'wait', 'never with pay-to-scale on');
+  assert.equal(C.runPlan(q(0, { total: 0 })).mode, 'wait');
+  // carrying on after a session ran out: what is left of the run plus an hour, in half hours, at most a full session
+  assert.deepEqual([C.runPlan(q(5), { resumeHours: 2.2 }).mode, C.runPlan(q(5), { resumeHours: 2.2 }).timeoutHours], ['full', 3.5]);
+  assert.match(C.runPlan(q(3), { resumeHours: 2.2 }).why, /the rest of the run needs 3\.5\): it carries on when they come back/);
+  assert.equal(C.runPlan(q(28), { resumeHours: 20 }).timeoutHours, 10);
+});
+
+test('economy mode on a push: with 6 hours left a smaller run starts instead of waiting — its budget, fewer earlier weeks, fewer STaR samples — and the status, the report and the LOOPS card say so in plain words', async () => {
+  const s = new MemStorage();
+  // six kept weeks, so "fewer earlier weeks" shows
+  await s.put('train:weeks', Object.fromEntries([1, 2, 3, 4, 5, 6].map((w) => [String(w), false])));
+  // (this month's retrain already done: a weekly run)
+  await s.put('train:state', { phase: 'idle', week: 6, gen: 1, nextRun: 0, startedAt: 0, note: '', calls: 0, done: {}, scratchAt: Date.UTC(2026, 9, 3) });
+  const d = cycleDeps(s, { svc: { quota: quotaLeft(6) } });
+  await stepUntil(d, 'running');
+  const push = d.svc.state.pushes[0];
+  const cfg = configOf(push);
+  assert.equal(cfg.host, 'kaggle');
+  assert.equal(cfg.budget_hours, 4.5);
+  assert.equal(cfg.week_hours, 4.5);
+  assert.equal(cfg.samples, 8, 'fewer STaR samples (16 in a full run)');
+  assert.deepEqual(cfg.replay_weeks, [3, 4, 5, 6], 'the last four earlier weeks (eight in a full run)');
+  assert.equal(push.sessionTimeoutSeconds, 5.5 * 3600, 'Kaggle is asked for the hours left less half an hour');
+  assert.equal(cfg.resume, undefined, 'a first push');
+  let st = await C.trainStatus(d.deps);
+  assert.match(st.note, /Only 6 h left this week: a smaller run, the exam on the phone/);
+  assert.deepEqual(st.plan, { mode: 'economy', why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  const loops = await route(d, '/training/loops');
+  assert.equal(loops.week.economy, 'Only 6 h left this week: a smaller run, the exam on the phone.');
+  // the report keeps it (the LOOPS card and the panel read it after the week)
+  const report = { before: { gym: 0.4 }, after: { gym: 0.3 }, items: { gym: 96 }, gate: { pass: false, why: 'x' }, trained: {}, rejected: [], phases: [] };
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) });
+  st = await C.trainStatus(d.deps);
+  assert.deepEqual(st.report.plan, { mode: 'economy', why: 'Only 6 h left this week: a smaller run, the exam on the phone.' });
+  assert.equal(st.plan, undefined, 'no run under way');
+  assert.equal((await route(d, '/training/loops')).week.economy, 'Only 6 h left this week: a smaller run, the exam on the phone.');
+  // a full week: the full run as before
+  const f = cycleDeps(new MemStorage());
+  await stepUntil(f, 'running');
+  const full = configOf(f.svc.state.pushes[0]);
+  assert.deepEqual([full.budget_hours, full.week_hours, full.samples, f.svc.state.pushes[0].sessionTimeoutSeconds], [9, 9, 16, 36000]);
+  assert.deepEqual((await C.trainStatus(f.deps)).plan, { mode: 'full', why: '' });
+});
+
+test('economy mode: a SCHOOL paper is sat on the phone, not on Kaggle, when its two hours would leave the coming week\'s training short of a full run', () => {
+  const q = (left) => ({ total: 30, left, payToScale: false, refreshAt: null });
+  assert.equal(C.examQuotaProblem(q(11), false), '', 'nothing to come: the paper may use them');
+  assert.equal(C.examQuotaProblem(q(11), true), "Kaggle's free GPU hours are short this week (11 left) and the weekly training needs them: sit the paper on the phone.");
+  assert.equal(C.examQuotaProblem(q(12), true), '', 'twelve: the paper and a full run both fit');
+});
+
+test('a week over several sessions: a run whose session ran out reports {paused}, is pushed again with resume (its week\'s time unchanged, Kaggle asked only for what is left), and that is never counted as a failure; the gate judges the finished run only', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await stepUntil(d, 'running');
+  let cfg = configOf(d.svc.state.pushes[0]);
+  // the notebook's session ran out after STaR: it saved its place and says so
+  let res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ paused: { week: 1, phase: 'sft', done: ['exam_before', 'star'], left_hours: 2.2, session: 1, host: 'kaggle' } }) });
+  assert.deepEqual(await res.json(), { ok: true });
+  let st = await s.get('train:state');
+  assert.equal(st.phase, 'push');
+  assert.equal(st.sessions, 1);
+  assert.match(st.note, /used this session's time on Kaggle and saved its place \(in learning\); it carries on in a new session/);
+  assert.equal(await s.get('train:report'), undefined, 'no report, nothing judged');
+  assert.equal((await hookReq(d, cfg.ticket, { method: 'POST', body: '{}' })).status, 403, "that session's ticket is spent");
+  assert.equal((await C.trainStatus(d.deps)).gpu.line.includes('carries on where it stopped'), true, 'the forecast: the rest of the run');
+  await stepUntil(d, 'running');
+  const again = configOf(d.svc.state.pushes[1]);
+  assert.equal(again.resume, true);
+  assert.equal(again.session, 2);
+  assert.equal(again.week_hours, cfg.week_hours, "the week's time is the same: the notebook goes on from what it used");
+  assert.equal(d.svc.state.pushes[1].sessionTimeoutSeconds, 3.5 * 3600, 'Kaggle asked for what is left plus an hour');
+  assert.match((await C.trainStatus(d.deps)).note, /carrying on from where it stopped/);
+  // three more pauses and then an error before the exam: the error is still pushed again (pauses are not failures)
+  for (let i = 0; i < 3; i++) {
+    cfg = configOf(d.svc.state.pushes.at(-1));
+    await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ paused: { phase: 'dpo', left_hours: 1 } }) });
+    await stepUntil(d, 'running');
+  }
+  cfg = configOf(d.svc.state.pushes.at(-1));
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { before: { gym: 0.2 }, after: {}, items: {}, gate: { pass: false, why: '' }, trained: {}, rejected: [], phases: [], error: 'OSError: 503' } }) });
+  st = await s.get('train:state');
+  assert.equal(st.phase, 'push', 'an error after four pauses: still one of its three tries');
+  // the finished run reports: judged and kept as ever
+  await stepUntil(d, 'running');
+  cfg = configOf(d.svc.state.pushes.at(-1));
+  const report = { before: { gym: 0.2, safety: 0.9 }, after: { gym: 0.4, safety: 0.9 }, items: { gym: 96, safety: 17 }, gate: { pass: true, why: 'better' }, trained: {}, rejected: [], phases: [], published: { repo: 'owner/ghosty-offline-brain', commit: 'c'.repeat(40) }, scale: 1, sessions: 6 };
+  res = await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report }) });
+  assert.deepEqual(await res.json(), { ok: true, published: true });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.report.sessions, 6);
+  assert.equal(st.models.length, 1);
+  // a run that needs more sessions than SESSIONS_MAX ends the week with the reason
+  const e = cycleDeps(new MemStorage());
+  await stepUntil(e, 'running');
+  for (let i = 0; i < 6; i++) {
+    if (i) await stepUntil(e, 'running');
+    await hookReq(e, configOf(e.svc.state.pushes.at(-1)).ticket, { method: 'POST', body: JSON.stringify({ paused: { phase: 'sft', left_hours: 5 } }) });
+  }
+  const end = await C.trainStatus(e.deps);
+  assert.equal(end.phase, 'idle');
+  assert.match(end.report.error, /more than 6 sessions/);
+});
+
+test('the quota forecast in the status: hours left, when they come back, what the next run needs and its mode — read at each push and again every few hours while idle', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s, { now: Date.parse('2026-10-21T12:00:00Z') });
+  assert.equal((await C.trainStatus(d.deps)).gpu, undefined, 'nothing read yet: nothing said');
+  await C.trainTick(d.deps); // idle → collect: the hours are read on the way
+  let st = await C.trainStatus(d.deps);
+  assert.equal(st.gpu.line, 'Kaggle: 28 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00. The next run needs 10 h: a full run.');
+  assert.deepEqual([st.gpu.mode, st.gpu.needs, st.gpu.left, st.gpu.total], ['full', 10, 28, 30]);
+  const reads = () => d.svc.calls.filter((c) => c.url.endsWith('/GetAcceleratorQuotaStatistics')).length;
+  // economy and wait, as the forecast says them
+  const at = Date.parse('2026-10-21T12:00:00Z');
+  const seen = (left) => ({ total: 30, left, payToScale: false, refreshAt: Date.parse('2026-10-24T00:00:00Z'), at });
+  assert.equal(C.quotaForecast(seen(6), at).line, 'Kaggle: 6 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00. Only 6 h left this week: a smaller run, the exam on the phone. (A full run needs 10 h.)');
+  assert.equal(C.quotaForecast(seen(6), at).mode, 'economy');
+  assert.match(C.quotaForecast(seen(2), at).line, /^Kaggle: 2 of 30 free GPU hours left this week; they come back Sat 24 Oct, 01:00\. Only 2 of Kaggle's 30 free GPU hours are left this week \(a full run needs 10, even a smaller one 4\)/);
+  assert.equal(C.quotaForecast(seen(2), at).needs, 4);
+  assert.match(C.quotaForecast(seen(28), at + 2 * 86_400_000).line, /\(read Wed 21 Oct, 13:00\)/, 'an old reading says when it was taken');
+  // idle: read again after six hours, not before
+  await s.put('train:state', { ...(await s.get('train:state')), phase: 'idle', nextRun: Date.parse('2026-10-28T12:00:00Z') });
+  const n = reads();
+  d.tick(3600_000);
+  await C.trainTick(d.deps);
+  assert.equal(reads(), n, 'an hour later: the last reading stands');
+  d.tick(6 * 3600_000);
+  d.svc.state.quota = quotaLeft(20);
+  await C.trainTick(d.deps);
+  assert.equal(reads(), n + 1);
+  st = await C.trainStatus(d.deps);
+  assert.match(st.gpu.line, /^Kaggle: 20 of 30 free GPU hours left this week/);
 });
 
 test('a run that hit a problem before its exam (a Hugging Face 5xx, pip, node) is pushed again from its checkpoint, three runs at most; then the week ends with the reason', async () => {
@@ -1777,4 +1952,179 @@ test('star records with MY LIBRARY & CHATS off: THINK HARDER\'s (the owner\'s ow
   const kept = await F.loadRecords(s, 'star');
   assert.deepEqual(kept.map((x) => x.from), ['gym maze level 3']);
   assert.ok((await s.get('train:rejected')).some((x) => x.why === "THINK HARDER's answers left out: MY LIBRARY & CHATS is off" && x.n === 1));
+});
+
+// ---- the daily GPU: a Space on the owner's Hugging Face account, ZeroGPU's free minutes (pool.ts) --------------------
+
+const POOL_HOST = 'https://owner-ghosty-daily-gpu.hf.space';
+const dailyRec = (q, a = '42', extra = {}) => ({ kind: 'star', messages: [{ role: 'system', content: 'You are Ghosty.' }, { role: 'user', content: q }, { role: 'assistant', content: a }], checked: "the GYM's own checker", from: 'daily GPU · gym maze level 2', ...extra });
+const dailyGpu = () => ({
+  sample: (a) => ({ samples: [{ task: { game: 'maze', level: 2, seed: a.day }, ask: 'Maze puzzle number 17: the route from S to G?', answers: ['RRDD', 'RDRD'] }], system: 'You are Ghosty.', seconds: 61.5, asked: 24 }),
+  score: () => ({
+    checked: 16,
+    right: 5,
+    records: [
+      dailyRec('Maze puzzle number 17: the route from S to G?', 'RRDD'),
+      dailyRec('Maze puzzle number 18: the route from S to G?', 'DDRR'),
+      dailyRec('Maze puzzle number 17: the route from S to G?', 'RRDD'), // the same one twice: once
+      dailyRec('Maze puzzle number 19: the route from S to G?', 'RR', { checked: '' }), // no check that passed it
+      dailyRec('How far is Leeds from York?', '25 miles', { from: 'think harder' }), // not the daily GPU's
+    ],
+  }),
+});
+
+test('the daily GPU: asked once; with his yes the brain makes ONE Space on his Hugging Face account (private, Gradio on ZeroGPU and nothing else), with its code and two secrets; NO THANKS is never asked again', async () => {
+  const s = new MemStorage();
+  await s.put('train:state', { phase: 'idle', week: 0, gen: 0, nextRun: Date.UTC(2027, 0, 1), startedAt: 0, note: '', calls: 0, done: {} });
+  const d = cycleDeps(s, { now: Date.parse('2026-10-20T10:00:00Z') });
+  let st = await C.trainStatus(d.deps);
+  assert.deepEqual(st.pool, { phase: 'off', note: 'Not set up.', offer: true, week: 0, waiting: 0 }, 'offered, once both keys are there');
+  assert.equal((await route(d, '/training/pool', 'POST', { allow: 'maybe' })).error, 'allow must be true or false');
+  st = await route(d, '/training/pool', 'POST', { allow: false });
+  assert.equal(st.pool.offer, false, 'no thanks: never asked again');
+  assert.match(st.pool.note, /^Not used: you said no thanks/);
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.spaceCreates, [], 'nothing made without his yes');
+  // he changes his mind
+  st = await route(d, '/training/pool', 'POST', { allow: true });
+  assert.equal(st.pool.phase, 'setup');
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.spaceCreates, [{ type: 'space', name: 'ghosty-daily-gpu', organization: 'owner', private: true, sdk: 'gradio', hardware: 'zero-a10g' }]);
+  const hw = d.svc.state.spaceCalls.filter((c) => c.what === 'hardware');
+  assert.deepEqual(hw.map((c) => c.body), [{ flavor: 'zero-a10g' }], 'the free GPU, and never any other hardware');
+  const secrets = Object.fromEntries(d.svc.state.spaceCalls.filter((c) => c.what === 'secrets').map((c) => [c.body.key, c.body.value]));
+  assert.equal(secrets.HF_TOKEN, 'hf_writeTOKEN123', 'to read his private repos at call time (nothing of his kept in the Space)');
+  assert.match(secrets.GHOSTY_KEY, /^[0-9a-f]{48}$/);
+  const commit = d.svc.state.commits.at(-1);
+  assert.equal(commit.repo, 'owner/ghosty-daily-gpu');
+  const files = Object.fromEntries(commit.lines.filter((l) => l.key === 'file').map((l) => [l.value.path, unb64(l.value.content)]));
+  assert.deepEqual(Object.keys(files).sort(), ['README.md', 'app.py', 'ghosty_weekly.py', 'packages.txt', 'requirements.txt']);
+  assert.equal(files['app.py'], readFileSync(at('../../../training/space/app.py'), 'utf8'));
+  assert.equal(files['ghosty_weekly.py'], readFileSync(at('../../../training/kaggle/ghosty_weekly.py'), 'utf8'), 'the Space runs the notebook\'s own code');
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.pool.phase, 'ready');
+  assert.equal(st.pool.private, true);
+  assert.match(st.pool.note, /^Ready: owner\/ghosty-daily-gpu on your Hugging Face account \(private\)\. Hugging Face is building it; the first practice is tomorrow/);
+  // the first practice is tomorrow: nothing today
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.gradioCalls, []);
+  // TURN OFF: no more calls; the Space stays his
+  st = await route(d, '/training/pool', 'POST', { allow: false });
+  assert.match(st.pool.note, /Turned off: Ghosty no longer uses the daily GPU\. The Space owner\/ghosty-daily-gpu stays on your Hugging Face account/);
+  d.tick(86_400_000);
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.gradioCalls, []);
+});
+
+test('the daily GPU can never bill him: a PRO account, one with a card on it, or one Hugging Face does not say about is refused before anything is made; a free account that may not have a private Space gets a public one holding none of his data', async () => {
+  for (const [plan, why] of [[{ isPro: true, canPay: true }, /is PRO/], [{ isPro: false, canPay: true }, /has a payment card on it/], [{}, /did not say whether your account is a free one/]]) {
+    const s = new MemStorage();
+    await s.put('train:state', { phase: 'idle', week: 0, gen: 0, nextRun: Date.UTC(2027, 0, 1), startedAt: 0, note: '', calls: 0, done: {} });
+    const d = cycleDeps(s, { svc: { plan } });
+    await route(d, '/training/pool', 'POST', { allow: true });
+    await C.trainTick(d.deps);
+    const st = await C.trainStatus(d.deps);
+    assert.equal(st.pool.phase, 'failed');
+    assert.match(st.pool.note, why);
+    assert.match(st.pool.note, /never be able to cost you money/);
+    assert.deepEqual(d.svc.state.spaceCreates, [], 'nothing made');
+    assert.deepEqual(d.svc.state.spaceCalls, []);
+  }
+  assert.equal(P.billingProblem({ isPro: false, canPay: false }), '');
+  // private refused for a free account: a public Space (no data of his in it; only Ghosty's key opens its calls)
+  const s = new MemStorage();
+  await s.put('train:state', { phase: 'idle', week: 0, gen: 0, nextRun: Date.UTC(2027, 0, 1), startedAt: 0, note: '', calls: 0, done: {} });
+  const d = cycleDeps(s, { svc: { noPrivateSpace: true } });
+  await route(d, '/training/pool', 'POST', { allow: true });
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.spaceCreates.map((c) => c.private), [true, false]);
+  const st = await C.trainStatus(d.deps);
+  assert.equal(st.pool.private, false);
+  assert.match(st.pool.note, /\(public, holding none of your data, and it answers only Ghosty\)/);
+});
+
+test('the daily GPU once a day: STaR samples from the brain in use on the latest week\'s puzzles (4.5 GPU minutes at most), checked by the GYM\'s checker; the right ones join the next week\'s data, the LOOPS card and the report say how many; a day with no minutes is skipped and said', async () => {
+  const s = new MemStorage();
+  await s.put('train:state', { phase: 'idle', week: 0, gen: 0, nextRun: Date.UTC(2027, 0, 1), startedAt: 0, note: '', calls: 0, done: {} });
+  const d = cycleDeps(s, { svc: { gradio: dailyGpu() }, now: Date.parse('2026-10-20T10:00:00Z') });
+  await route(d, '/training/pool', 'POST', { allow: true });
+  await C.trainTick(d.deps);
+  const key = d.svc.state.spaceCalls.find((c) => c.body.key === 'GHOSTY_KEY').body.value;
+  // the next day: no week uploaded yet, nothing to practise
+  d.tick(86_400_000);
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.gradioCalls, []);
+  assert.match((await C.trainStatus(d.deps)).pool.note, /nothing to practise yet/);
+  // a week's lessons are in his private dataset
+  await s.put('train:state', { ...(await s.get('train:state')), week: 1, dataFile: 'weeks/week-0001.jsonl', dataCommit: 'd'.repeat(40), hfUser: 'owner' });
+  await C.trainTick(d.deps);
+  assert.deepEqual(d.svc.state.gradioCalls.map((c) => c.fn), ['sample', 'score']);
+  const [sample, score] = d.svc.state.gradioCalls;
+  assert.equal(sample.auth, 'Bearer hf_writeTOKEN123', 'his token: his own daily minutes, his private Space');
+  assert.equal(sample.args.key, key);
+  assert.deepEqual([sample.args.data_repo, sample.args.data_file, sample.args.data_rev], ['owner/ghosty-training', 'weeks/week-0001.jsonl', 'd'.repeat(40)]);
+  assert.deepEqual([sample.args.n, sample.args.k, sample.args.seconds], [24, 8, 270], '4.5 of the free 5 minutes');
+  assert.deepEqual(sample.args.current, { label: 'stock Qwen3 0.6B', chain: [] }, 'the brain in use');
+  assert.equal(sample.args.base_model.repo, 'Qwen/Qwen3-0.6B');
+  assert.deepEqual(score.args.samples, dailyGpu().sample(sample.args).samples, 'the samples, checked by the GYM\'s own checker');
+  let st = await C.trainStatus(d.deps);
+  assert.equal(st.pool.week, 2, 'two right answers kept (the same one twice once; one without its check and one not the daily GPU\'s refused)');
+  assert.equal(st.pool.waiting, 2);
+  assert.equal(st.pool.note, "Today on the daily GPU: 16 practice answers checked, 2 right ones kept for next week's training.");
+  assert.equal((await route(d, '/training/loops')).week.daily, 2);
+  // once a day
+  d.tick(3600_000);
+  await C.trainTick(d.deps);
+  assert.equal(d.svc.state.gradioCalls.length, 2);
+  // a day with no minutes left: skipped and said; nothing else changes
+  d.svc.state.gradio.sample = () => new Error('You have exceeded your free GPU quota (0s left). Try again in 23:59:00');
+  d.tick(86_400_000);
+  await C.trainTick(d.deps);
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.pool.note, "Today was skipped (no free GPU minutes left today on Hugging Face); tried again tomorrow. Kaggle's weekly run does not depend on it.");
+  assert.equal(st.pool.phase, 'ready');
+  assert.equal(st.pool.waiting, 2);
+  // the next week gathers them (through the same near-exam filter) and the report says how many
+  await s.put('train:state', { ...(await s.get('train:state')), nextRun: 0 });
+  await stepUntil(d, 'upload');
+  const star = await F.loadRecords(s, 'star');
+  assert.deepEqual(star.filter((r) => /^daily GPU/.test(r.from)).map((r) => r.messages[2].content).sort(), ['DDRR', 'RRDD']);
+  assert.equal((await C.trainStatus(d.deps)).pool.waiting, 0);
+  await stepUntil(d, 'running');
+  const cfg = configOf(d.svc.state.pushes.at(-1));
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: { before: { gym: 0.4 }, after: { gym: 0.3 }, items: { gym: 96 }, gate: { pass: false, why: 'x' }, trained: { daily: 2 }, rejected: [], phases: [] } }) });
+  assert.equal((await C.trainStatus(d.deps)).report.daily, 2);
+});
+
+test('the daily GPU sits a SCHOOL paper when Kaggle\'s hours are short for it (the questions only, the phone\'s exam prompt, 90 of the day\'s seconds), marked as a paper on the free GPU is; without it the paper goes on the phone', async () => {
+  for (const ready of [true, false]) {
+    const s = new MemStorage();
+    await C.ensureTrainJob(s);
+    const { call } = await schoolAt(s, 'ks1', 'maths');
+    // the week is gathering, with 11 of Kaggle's hours left: a paper's two would leave the training short
+    await s.put('train:state', { phase: 'collect', week: 1, gen: 0, nextRun: 0, startedAt: Date.parse('2026-10-18T12:00:00Z'), note: '', calls: 0, done: { free: true, examLibrary: true, voice: { finished: true, calls: 0, batches: 0, queue: [], ids: [] } } });
+    if (ready) await s.put('pool:state', { phase: 'ready', host: POOL_HOST, key: 'k'.repeat(48), space: 'owner/ghosty-daily-gpu', private: true, note: '', days: [], waiting: [] });
+    const d = cycleDeps(s, { svc: { quota: quotaLeft(11) } });
+    const asked = await call('/school/sit-remote', 'POST', { stage: 'ks2', subject: 'maths' });
+    const paperId = asked.body.remote.paperId;
+    const rec = await SST.loadPaper({ storage: s }, paperId);
+    const right = (it) => (it.type === 'mcq' ? `Answer: ${it.answer.toUpperCase()}` : `Answer: ${it.answer}`);
+    d.svc.state.gradio.exam = () => ({ answers: rec.paper.items.map((it) => ({ id: it.id, given: right(it) })), asked: rec.paper.items.length });
+    d.deps.ask = async (system, user) => (system === SS.EXAM_SYSTEM ? 'Answer: ?' : `MARKS: ${Number(user.match(/Most marks possible: (\d+)/)[1])} | fine`);
+    await C.trainTick(d.deps);
+    const remote = await SRM.loadRemote(s);
+    assert.equal(d.svc.state.pushes.length, 0, 'never on Kaggle');
+    if (ready) {
+      const ex = d.svc.state.gradioCalls.find((c) => c.fn === 'exam');
+      assert.deepEqual([ex.args.paper_file, ex.args.seconds, ex.args.chunk], ['school_paper.jsonl', 90, [0, rec.paper.items.length]]);
+      assert.equal(ex.args.data_rev, 'd'.repeat(40), 'the questions just uploaded to his private dataset');
+      assert.equal(remote.phase, 'idle');
+      assert.equal(remote.unfiled.result.raw, rec.paper.maxMarks);
+      assert.equal(remote.unfiled.result.where, 'kaggle', 'shown as sat on the free GPU, as a Kaggle paper is');
+      assert.equal((await s.get('pool:state')).used.seconds, 90, "from the day's minutes");
+    } else {
+      assert.deepEqual(d.svc.state.gradioCalls, []);
+      assert.equal(remote.last.error, "Kaggle's free GPU hours are short this week (11 left) and the weekly training needs them: sit the paper on the phone.");
+    }
+  }
 });

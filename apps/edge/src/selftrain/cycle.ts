@@ -16,13 +16,20 @@
  *    the notebook needs Hugging Face anyway);
  *    both repos are checked to be private first (made private, or refused with the fix) — nothing of the owner's
  *    ever goes into a public repo;
- *  - push: first Kaggle's GPU quota (no run without the free hours it needs, none at all with pay-to-scale on: it
- *    waits, saying why), then the notebook (training/kaggle/ghosty_weekly.py) to the owner's Kaggle account with
- *    GPU and internet on, its settings written in, including a one-time ticket: the notebook trades it ONCE for
- *    the Hugging Face token at the hook (in a header, never in an address) and posts its report back with it;
+ *  - push: first Kaggle's GPU quota (`runPlan`: a full run with 10 hours left; with fewer, but at least 4, a smaller
+ *    run — ECONOMY: the notebook's budget fitted to the hours left, the last 4 weeks replayed not 8, 8 STaR samples
+ *    not 16, SCHOOL papers sat on the phone, not on Kaggle — instead of waiting; under 4, or none at all with
+ *    pay-to-scale on, it waits, saying why), then the notebook (training/kaggle/ghosty_weekly.py) to the owner's
+ *    Kaggle account with GPU and internet on, its settings written in, including a one-time ticket: the notebook
+ *    trades it ONCE for the Hugging Face token at the hook (in a header, never in an address) and posts its report
+ *    back with it;
  *  - running: the hook brings the report; meanwhile Kaggle's status is read every half hour (a failed status read
  *    is counted on its own: a few in a row do not end the week). A run that stopped, or that reported an error
- *    before its exam, is pushed again (it resumes from its checkpoint) twice at most. A run Kaggle calls COMPLETE
+ *    before its exam, is pushed again (it resumes from its checkpoint, inside the phase it was in) twice at most. A
+ *    run whose SESSION ran out ({paused} at the hook: it saved its place) is pushed again with `resume`, its week's
+ *    time unchanged, until it reports (SESSIONS_MAX sessions at most); the gate judges the finished run only. The
+ *    status carries the quota forecast (`gpu`: hours left, when they come back, what the next run needs, its mode),
+ *    from the last reading (`train:quota`, read again while idle every few hours). A run Kaggle calls COMPLETE
  *    that sent no report within about 45 minutes ends the week, with the reason and the end of its log read
  *    from Kaggle's output.
  * The notebook uploads its candidate to the PRIVATE model repo (branch `candidates`); the brain checks the report
@@ -111,6 +118,7 @@ import {
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { brainLoops, drainStars, noteDays, takeStars } from './loops';
+import { drainPool, loadPool, poolAnswer, poolReady, poolSit, poolStep, poolView, type PoolWeek } from './pool';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -138,8 +146,14 @@ const CALLS_PER_TICK = 4;
 const STATUS_ERRORS_MAX = 8;
 /** A run Kaggle calls COMPLETE whose report has not come this long after is given up (the notebook posts it just before it ends). */
 const REPORT_GRACE = 45 * 60_000;
-/** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
+/** GPU hours a full run may take (the push asks Kaggle for this much). */
 const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
+/** The least a smaller run (economy) is started with: set-up, the two exams and a short SFT. Under it the week waits. */
+export const ECONOMY_MIN_HOURS = 4;
+/** Sessions a week's run may be spread over (each saves its place; the next carries on): then the week is given up. */
+const SESSIONS_MAX = 6;
+/** How often Kaggle's quota is read while nothing runs (for the forecast in the status). */
+const QUOTA_EVERY = 6 * 3600_000;
 
 /** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs; `star`: the phone's checked work). */
 const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite', 'star'];
@@ -198,6 +212,15 @@ export interface State {
   force?: boolean;
   /** When the last retrain from scratch started. */
   scratchAt?: number;
+  /** This week's plan, fixed at its first push: full or smaller (economy), why, STaR samples, earlier weeks replayed at most. */
+  plan?: { mode: 'full' | 'economy'; why: string; samples: number; replayWeeks: number };
+  /** The week's time the notebook plans in (hours, fixed at the first push: a run carried on keeps it). */
+  weekHours?: number;
+  /** Sessions that ran out and saved their place ({paused}), and the week's hours the run said were left. */
+  sessions?: number;
+  resumeHours?: number;
+  /** Checked samples from the daily GPU that went into this week's data. */
+  daily?: number;
 }
 
 /** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
@@ -236,6 +259,8 @@ const K = {
   switchedFrom: 'train:switched',
   /** week → the base its run trained (absent: Qwen3 0.6B): the monthly retrain replays the kept weeks of the base in use. */
   weekBase: 'train:weekbase',
+  /** Kaggle's GPU quota as last read, and when (for the forecast in the status). */
+  quota: 'train:quota',
 };
 
 /** The base the weekly training follows: the one chosen in SETTINGS → OFFLINE BRAIN. */
@@ -376,7 +401,9 @@ export async function trainTick(d: CycleDeps): Promise<{ next: number; note: str
   const r = await weekTick(d);
   const night = await nightStep(d);
   const more = await schoolStep(d, !!night?.inside);
-  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity);
+  // the daily GPU (pool.ts): set up after his yes, then once a day; never in the week's way
+  const pool = await poolStep(d, () => poolWeek(d)).catch(() => null);
+  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity, pool ?? Infinity);
   return next === r.next ? r : { next: Math.max(1000, next), note: r.note };
 }
 
@@ -421,6 +448,8 @@ async function step(d: CycleDeps, st: State): Promise<{ next: number; note: stri
   const keys = await keysOf(d);
   if (st.phase === 'idle') {
     if (!keys.kaggle || !keys.hf) return { next: DAY, note: missingNote(keys) };
+    // (the forecast in the status: Kaggle's hours read again every few hours while nothing runs; a failure is no matter)
+    if (now - ((await d.storage.get<QuotaSeen>(K.quota))?.at ?? 0) > QUOTA_EVERY) await noteQuota(d.storage, await kaggleQuota(fetchOf(d), keys.kaggle), now).catch(() => undefined);
     if (now < st.nextRun) return { next: Math.min(st.nextRun - now, 6 * 3600_000), note: `Next training ${new Date(st.nextRun).toISOString().slice(0, 16).replace('T', ' ')} UTC.` };
     st.week += 1;
     st.phase = 'collect';
@@ -431,6 +460,11 @@ async function step(d: CycleDeps, st: State): Promise<{ next: number; note: stri
     st.pushes = 0;
     st.failures = 0;
     st.statusErrors = 0;
+    delete st.plan;
+    delete st.weekHours;
+    delete st.sessions;
+    delete st.resumeHours;
+    delete st.daily;
     st.private = await privateOn(d.storage);
     // Weekly, or the monthly retrain from scratch (decided as the run starts; TRAIN FROM SCRATCH is used up by it).
     const kind = runKind(now, st, await keptWeeks(d.storage));
@@ -538,6 +572,10 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
     const ok = st.private === false ? all.filter((r) => /^gym /.test(r.from ?? '')) : all;
     await noteRejected(d.storage, "THINK HARDER's answers left out: MY LIBRARY & CHATS is off", all.length - ok.length);
     await addRecords(d.storage, 'star', far(ok));
+    // The daily GPU's checked samples (pool.ts: GYM puzzles, none of his text), through the same filter; counted for the report.
+    const daily = far(await drainPool(d.storage));
+    await addRecords(d.storage, 'star', daily);
+    st.daily = (st.daily ?? 0) + daily.length;
   },
 ];
 
@@ -869,16 +907,92 @@ export function baseConfig(b: BrainBase): Record<string, unknown> {
   return { base: { id: b.id, label: b.label, family: b.family, context: b.context }, base_model: b.hf, stock_mlc: b.mlc, budgets: examBudgets(b) };
 }
 
+/** What the daily GPU practises on (pool.ts): the latest uploaded week's data, and the brain in use. */
+async function poolWeek(d: CycleDeps): Promise<PoolWeek | null> {
+  const st = await loadState(d.storage);
+  if (!st.dataFile || !st.dataCommit || !st.hfUser) return null;
+  return { dataRepo: `${st.hfUser}/${DATA_REPO}`, dataFile: st.dataFile, dataRev: st.dataCommit, config: { ...baseConfig(await loadBase(d.storage)), current: await trainingBase(d.storage, st.private !== false) } };
+}
+
 const hours = (h: number) => String(Math.floor(h * 10) / 10);
 const gpuNote = (g: State['gpu']) => (g ? `${hours(g.left)} of ${hours(g.total)} free GPU hours were left this week` : '');
 
-/** Why Kaggle's GPU quota rules a run out now, in plain words ('' when it does not). */
+const backAt = (q: GpuQuota) => (q.refreshAt ? `, ${new Date(q.refreshAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : '');
+
+/** Why Kaggle's GPU quota rules even a smaller run out now, in plain words ('' when it does not). */
 export function quotaProblem(q: GpuQuota): string {
   if (q.payToScale) return "Kaggle's pay-to-scale is switched on for this account, so a run past the free hours could be charged: Ghosty will not start one. Turn it off on kaggle.com (Settings), then press TRAIN NOW.";
   if (q.total <= 0) return 'Kaggle gives this account no GPU time: verify your phone number on kaggle.com (Settings → Phone verification), then press TRAIN NOW.';
-  if (q.left < RUN_GPU_HOURS)
-    return `Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (a run needs ${RUN_GPU_HOURS}): it starts when they come back${q.refreshAt ? `, ${new Date(q.refreshAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : ''}.`;
+  if (q.left < ECONOMY_MIN_HOURS)
+    return `Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (a full run needs ${RUN_GPU_HOURS}, even a smaller one ${ECONOMY_MIN_HOURS}): it starts when they come back${backAt(q)}.`;
   return '';
+}
+
+export interface RunPlan {
+  mode: 'full' | 'economy' | 'wait';
+  /** Hours the push asks Kaggle for, and the notebook's budget inside them (an hour less: set-up and the report). */
+  timeoutHours: number;
+  budgetHours: number;
+  /** STaR samples a puzzle, and earlier weeks replayed at most (a weekly run; the monthly retrain replays every one). */
+  samples: number;
+  replayWeeks: number;
+  /** SCHOOL papers are sat on the phone this week, not on Kaggle: its hours go to the training. */
+  examOnPhone: boolean;
+  /** In plain words ('' for a full run). */
+  why: string;
+}
+
+/**
+ * What the next push can be with the hours Kaggle has left (pure). FULL: 10 hours or more (the push asks for 10, the
+ * notebook budgets 9). ECONOMY, from ECONOMY_MIN_HOURS up: a smaller run instead of waiting — asked for the hours left
+ * less half an hour, budgeted an hour less, the last 4 weeks replayed (not 8), 8 STaR samples (not 16), SCHOOL papers
+ * on the phone. WAIT: fewer than that, pay-to-scale on, or no GPU time. `resumeHours`: a run carrying on after its
+ * session ran out needs only what it has left (plus an hour), whatever the mode it started in.
+ */
+export function runPlan(q: GpuQuota, o: { resumeHours?: number } = {}): RunPlan {
+  const full: RunPlan = { mode: 'full', timeoutHours: RUN_GPU_HOURS, budgetHours: BUDGET_HOURS, samples: 16, replayWeeks: 8, examOnPhone: false, why: '' };
+  const wait = (why: string): RunPlan => ({ ...full, mode: 'wait', timeoutHours: 0, budgetHours: 0, why });
+  if (q.payToScale || q.total <= 0) return wait(quotaProblem(q));
+  if (o.resumeHours !== undefined) {
+    const need = Math.min(RUN_GPU_HOURS, Math.ceil((Math.max(0, o.resumeHours) + 1) * 2) / 2);
+    if (q.left >= need) return { ...full, timeoutHours: need, budgetHours: Math.min(BUDGET_HOURS, need - 0.5), why: `carrying on: about ${hours(o.resumeHours)} h of the run are left` };
+    return wait(`Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (the rest of the run needs ${need}): it carries on when they come back${backAt(q)}.`);
+  }
+  if (q.left >= RUN_GPU_HOURS) return full;
+  if (q.left >= ECONOMY_MIN_HOURS) {
+    const timeout = Math.floor((q.left - 0.5) * 2) / 2;
+    return { mode: 'economy', timeoutHours: timeout, budgetHours: timeout - 1, samples: 8, replayWeeks: 4, examOnPhone: true, why: `Only ${Math.floor(q.left)} h left this week: a smaller run, the exam on the phone.` };
+  }
+  return wait(quotaProblem(q));
+}
+
+/** Kaggle's quota as the brain last read it. */
+type QuotaSeen = GpuQuota & { at: number };
+async function noteQuota(s: DurableObjectStorage, q: GpuQuota, now: number): Promise<GpuQuota> {
+  await s.put(K.quota, { ...q, at: now } satisfies QuotaSeen);
+  return q;
+}
+const ukTime = (t: number) => new Intl.DateTimeFormat('en-GB', { timeZone: MONTH_TZ, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(t);
+
+/**
+ * The forecast line for SYSTEM → OFFLINE BRAIN TRAINING (pure): Kaggle's hours left, when they come back, what the next
+ * run needs and which mode it will be ("Only 6 h left this week: a smaller run, the exam on the phone"). A reading over
+ * a day old says when it was taken.
+ */
+export function quotaForecast(q: QuotaSeen | null | undefined, now: number, o: { resumeHours?: number } = {}): NonNullable<TrainStatus['gpu']> | undefined {
+  if (!q) return undefined;
+  const plan = runPlan(q, o);
+  const back = q.refreshAt && q.refreshAt > now ? `; they come back ${ukTime(q.refreshAt)}` : '';
+  const old = now - q.at > DAY ? ` (read ${ukTime(q.at)})` : '';
+  const head = q.payToScale || q.total <= 0 ? '' : `Kaggle: ${hours(q.left)} of ${hours(q.total)} free GPU hours left this week${back}${old}. `;
+  const needs = plan.mode === 'wait' ? (o.resumeHours !== undefined ? Math.min(RUN_GPU_HOURS, Math.ceil((o.resumeHours + 1) * 2) / 2) : ECONOMY_MIN_HOURS) : plan.timeoutHours;
+  const words =
+    plan.mode === 'full'
+      ? `The next run needs ${plan.timeoutHours} h: ${o.resumeHours !== undefined ? 'it carries on where it stopped' : 'a full run'}.`
+      : plan.mode === 'economy'
+        ? `${plan.why} (A full run needs ${RUN_GPU_HOURS} h.)`
+        : plan.why;
+  return { left: q.left, total: q.total, refreshAt: q.refreshAt, at: q.at, needs, mode: plan.mode, line: `${head}${words}` };
 }
 
 async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typeof parseKaggleKey>>, now: number): Promise<{ next: number; note: string }> {
@@ -888,9 +1002,12 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
   if (exam.phase === 'running') return { next: 15 * 60_000, note: `Waiting: ${paperName(exam)} is being sat on the free GPU; the training starts after it.` };
   // Kaggle's GPU hours first: never a run that could be charged, or one without the hours to finish. It waits
   // (asking again later, or at TRAIN NOW) rather than failing; after a week of waiting that week is given up.
-  const q = await kaggleQuota(fetchOf(d), kaggle);
-  const no = quotaProblem(q);
-  if (no) {
+  const q = await noteQuota(d.storage, await kaggleQuota(fetchOf(d), kaggle), now);
+  // A full run, a smaller one (economy) when the hours are short, or a wait; a run carrying on after its session ran
+  // out needs only what it has left.
+  const plan = runPlan(q, st.resumeHours !== undefined ? { resumeHours: st.resumeHours } : {});
+  if (plan.mode === 'wait') {
+    const no = plan.why;
     if (now - st.startedAt > WEEK) return endWeek(d, st, failedReport(st, no, now), `This week's training did not start: ${no}`);
     const wait = !q.payToScale && q.total > 0 && q.refreshAt ? Math.min(DAY, Math.max(30 * 60_000, q.refreshAt - now + 10 * 60_000)) : 6 * 3600_000;
     return { next: wait, note: no };
@@ -913,7 +1030,13 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
   // replays a share of the last eight, whichever base they trained; the retrain from scratch every row of every week
   // kept of the base in use: a base switch starts afresh).
   const weeks = st.scratch ? await weeksOf(d.storage, chosen.id) : ((await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {});
-  const replay = Object.entries(weeks).filter(([w, p]) => Number(w) < st.week && (st.private !== false || !p)).map(([w]) => Number(w)).sort((a, b) => a - b);
+  // The week's plan is fixed at its first push (a run carried on keeps its samples, replay and time); economy replays
+  // fewer earlier weeks in a weekly run (the monthly retrain replays every one: its SFT share of the time cuts it).
+  st.plan ??= { mode: plan.mode === 'economy' ? 'economy' : 'full', why: plan.why, samples: plan.samples, replayWeeks: plan.replayWeeks };
+  st.weekHours ??= plan.budgetHours;
+  const allowed = Object.entries(weeks).filter(([w, p]) => Number(w) < st.week && (st.private !== false || !p)).map(([w]) => Number(w)).sort((a, b) => a - b);
+  const replay = st.scratch ? allowed : allowed.slice(-st.plan.replayWeeks);
+  const resume = (st.pushes ?? 0) > 0;
   st.ticket = randomTicket();
   st.ticketUntil = now + RUN_LIMIT + 3600_000;
   st.tokenGiven = false;
@@ -930,19 +1053,27 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     current,
     replay_weeks: replay,
     private: st.private !== false,
-    budget_hours: BUDGET_HOURS,
-    samples: 16,
+    host: 'kaggle',
+    budget_hours: plan.budgetHours,
+    week_hours: st.weekHours,
+    samples: st.plan.samples,
     ...(st.scratch ? { from_scratch: true, train_from: st.base } : {}),
+    // a run carried on (its session ran out, or Kaggle stopped it): the notebook finds its checkpoint and goes on
+    ...(resume ? { resume: true, session: (st.pushes ?? 0) + 1 } : {}),
   };
-  const r = await pushKernel(fetchOf(d), kaggle, notebookSource(config));
+  const r = await pushKernel(fetchOf(d), kaggle, notebookSource(config), { timeoutS: Math.round(plan.timeoutHours * 3600) });
   st.kernelUrl = r.url;
   st.pushedAt = now;
   st.pushes = (st.pushes ?? 0) + 1;
   st.statusErrors = 0;
   delete st.completeAt;
   st.phase = 'running';
-  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version})${st.scratch ? ': the monthly retrain from scratch, on every week kept' : ''}. It takes a few hours; ${gpuNote(st.gpu)}.` };
+  const how = resume ? `, carrying on from where it stopped` : st.plan.mode === 'economy' ? `: ${st.plan.why.replace(/\.$/, '')}` : '';
+  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version})${st.scratch ? ': the monthly retrain from scratch, on every week kept' : ''}${how}. It takes a few hours; ${gpuNote(st.gpu)}.` };
 }
+
+/** Pushes that were not a session carrying on after it ran out (those are not failures). */
+const restarts = (st: State) => (st.pushes ?? 0) - (st.sessions ?? 0);
 
 const randomTicket = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
@@ -952,7 +1083,7 @@ async function watch(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<typ
   st.statusErrors = 0;
   if (k.state === 'error' || k.state === 'cancelled') {
     delete st.completeAt;
-    if ((st.pushes ?? 0) < 3) {
+    if (restarts(st) < 3) {
       st.phase = 'push';
       return { next: 5 * 60_000, note: `The Kaggle run stopped (${k.message || k.state}); starting it again from where it got to.` };
     }
@@ -995,12 +1126,18 @@ const EXAM_WAIT_MAX = 16 * 3600_000;
 const EXAM_GRACE = 20 * 60_000;
 const EXAM_STATUS_ERRORS_MAX = 6;
 
-/** Why Kaggle's GPU quota rules out sitting a paper there now, in plain words ('' when it does not). Refused, not waited for. */
-export function examQuotaProblem(q: GpuQuota): string {
+/**
+ * Why Kaggle's GPU quota rules out sitting a paper there now, in plain words ('' when it does not). Refused, not waited
+ * for. `weekToCome`: the week's training is still being gathered or uploaded (a paper never sits beside a run): a paper then
+ * goes on the phone whenever its two hours would leave the training short of a full run.
+ */
+export function examQuotaProblem(q: GpuQuota, weekToCome = false): string {
   if (q.payToScale) return "Kaggle's pay-to-scale is switched on for this account, so the free GPU could be charged: Ghosty will not use it. Turn it off on kaggle.com (Settings), or sit the paper on the phone.";
   if (q.total <= 0) return 'Kaggle gives this account no GPU time: verify your phone number on kaggle.com (Settings → Phone verification), or sit the paper on the phone.';
   if (q.left < EXAM_GPU_HOURS)
     return `Only ${hours(q.left)} of Kaggle's ${hours(q.total)} free GPU hours are left this week (a paper needs ${EXAM_GPU_HOURS}): sit it on the phone, or again when they come back${q.refreshAt ? `, ${new Date(q.refreshAt).toISOString().slice(0, 16).replace('T', ' ')} UTC` : ''}.`;
+  if (weekToCome && q.left < RUN_GPU_HOURS + EXAM_GPU_HOURS)
+    return `Kaggle's free GPU hours are short this week (${hours(q.left)} left) and the weekly training needs them: sit the paper on the phone.`;
   return '';
 }
 
@@ -1072,8 +1209,12 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       // (a brain too big for the free GPU cannot sit a paper there either: the phone can)
       const big = await loadBase(s);
       if (!big.trainable) return end(`${name} could not be sat on the free GPU: ${big.label} is the brain in use, and ${big.why}. Sit it on the phone.`);
-      const no = examQuotaProblem(await kaggleQuota(f, keys.kaggle));
-      if (no) return end(no);
+      // (a run on Kaggle already waited above; one still being gathered or uploaded is to come)
+      const toCome = week.phase === 'collect' || week.phase === 'upload';
+      const no = examQuotaProblem(await noteQuota(s, await kaggleQuota(f, keys.kaggle), now), toCome);
+      // Kaggle's hours are short for it: the daily GPU sits it, when it is set up (else the phone, as the words say)
+      const pool = no ? await poolReady(s) : null;
+      if (no && !pool) return end(no);
       const rec = await loadPaper({ storage: s }, r.paperId ?? '');
       if (!rec) return end(`${name} could not be sat on the free GPU: the paper is not known any more.`);
       if (rec.result) return end(`${name} was handed in on the phone meanwhile; nothing was sat on the free GPU.`);
@@ -1088,6 +1229,16 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       const base = await trainingBase(s, true);
       const active = await s.get<string | null>(K.active);
       r.model = `${base.label}${base.chain.length && active ? `@${active.slice(0, 7)}` : ''}`;
+      if (pool) {
+        try {
+          const answers = await poolSit(d, pool, { dataRepo: repo, paperFile: 'school_paper.jsonl', dataRev: commit, items: rec.paper.items.length, config: { ...baseConfig(chosen), current: base } });
+          // marked as a paper sat on Kaggle is (where: the free GPU), and filed by SCHOOL's routes
+          await acceptRemoteReport({ storage: s, ask: d.ask, now: d.now }, r, { paperId: r.paperId, answers });
+          return null;
+        } catch (e) {
+          return end(`${name} could not be sat on the daily GPU either (${e instanceof RemoteError ? e.message : String((e as Error)?.message ?? e).slice(0, 160)}). ${no}`);
+        }
+      }
       r.ticket = randomTicket();
       r.ticketUntil = now + EXAM_LIMIT + 3600_000;
       r.tokenGiven = false;
@@ -1186,15 +1337,34 @@ export async function hookRoute(req: Request, d: CycleDeps): Promise<Response> {
     return json({ hf_token: hf });
   }
   if (req.method !== 'POST') return json({ error: 'not found' }, 404);
-  const body = (await req.json().catch(() => null)) as { report?: TrainReport; progress?: { note?: string } } | null;
+  const body = (await req.json().catch(() => null)) as { report?: TrainReport; progress?: { note?: string }; paused?: { phase?: unknown; left_hours?: unknown } } | null;
   if (body?.progress && !body.report) {
     st.note = `Training on Kaggle: ${String(body.progress.note ?? '').slice(0, 160)}`;
     await saveState(d.storage, st);
     return json({ ok: true });
   }
+  if (body?.paused && !body.report) {
+    // The session's time ran out and the run saved its place: pushed again with `resume` by the next job step (not a
+    // failure; SESSIONS_MAX at most). Its ticket is spent; the gate waits for the finished run.
+    st.sessions = (st.sessions ?? 0) + 1;
+    delete st.ticket;
+    delete st.completeAt;
+    const left = Number(body.paused.left_hours);
+    st.resumeHours = Number.isFinite(left) ? Math.min(12, Math.max(0, left)) : 1;
+    const where = STEP_WORDS[String(body.paused.phase ?? '')] ?? 'its work';
+    if (st.sessions >= SESSIONS_MAX) {
+      await endWeek(d, st, failedReport(st, `the run needed more than ${SESSIONS_MAX} sessions on Kaggle`, nowOf(d)), `This week's training was given up: it needed more than ${SESSIONS_MAX} sessions on Kaggle.`);
+      await saveState(d.storage, st);
+      return json({ ok: true });
+    }
+    st.phase = 'push';
+    st.note = `The run used this session's time on Kaggle and saved its place (in ${where}); it carries on in a new session.`;
+    await saveState(d.storage, st);
+    return json({ ok: true });
+  }
   const r = body?.report;
   if (!r || typeof r !== 'object' || !scoresOk(r.before) || !scoresOk(r.after)) return json({ error: 'not a report' }, 400);
-  if (r.error && !Object.keys(r.after).length && (st.pushes ?? 0) < 3) {
+  if (r.error && !Object.keys(r.after).length && restarts(st) < 3) {
     // It hit a problem before its exam (a Hugging Face 5xx, pip or node during set-up): pushed again by the next
     // job step, resuming from its checkpoint, like a run Kaggle stopped (three runs at most). Its ticket is spent.
     st.phase = 'push';
@@ -1231,6 +1401,9 @@ async function examHook(req: Request, d: CycleDeps, exam: RemoteState): Promise<
   return got.ok ? json({ ok: true }) : json({ error: got.error }, 400);
 }
 
+/** The notebook's parts, as the paused note names them. */
+const STEP_WORDS: Record<string, string> = { setup: 'getting ready', exam_before: 'the test of the current brain', star: 'practising puzzles', school: 'school practice', critique: 'fixing mistakes', judge: 'checking library answers', sft_known: 'learning', sft: 'learning', dpo: 'learning what is better', exam_after: 'the test of the new brain', publish: 'saving the new brain' };
+
 /** Check the report, keep it, and promote the new brain when it really passed (the same gate, applied here again). */
 export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Promise<TrainReport> {
   const gate = gateVerdict(r.before, r.after, r.items ?? {});
@@ -1247,6 +1420,9 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     rejected: [...((await d.storage.get<{ why: string; n: number }[]>(K.rejected)) ?? []), ...(Array.isArray(r.rejected) ? r.rejected : [])].slice(0, 40),
     failures: (r.failures ?? []).slice(0, 120),
     ...(st.scratch ? { scratch: true } : {}),
+    // (the brain's plan for the week: a smaller run when Kaggle's hours were short)
+    ...(st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
+    ...(st.daily ? { daily: st.daily } : {}),
   };
   let note: string;
   const expected = `${st.hfUser}/${MODEL_REPO}`;
@@ -1326,6 +1502,13 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
     ...(school ? { school } : {}),
     // this run's kind while one is under way; else the next run's, as it would be decided when it starts
     kind: st.phase === 'idle' ? { ...runKind(Math.max(nowOf(d), st.nextRun || 0), st, await keptWeeks(s)), now: false } : { scratch: !!st.scratch, why: st.kindWhy ?? '', now: true },
+    // Kaggle's hours, when they come back, what the next run needs and which mode it will be (from the last reading)
+    ...(await (async () => {
+      const gpu = quotaForecast(await s.get<QuotaSeen>(K.quota), nowOf(d), st.phase === 'push' && st.resumeHours !== undefined ? { resumeHours: st.resumeHours } : {});
+      return gpu ? { gpu } : {};
+    })()),
+    ...(st.phase !== 'idle' && st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
+    pool: poolView(await loadPool(s), nowOf(d), !!keys.kaggle && !!keys.hf),
   };
 }
 
@@ -1357,6 +1540,21 @@ export async function trainingRoute(req: Request, path: string, method: string, 
   if (path === '/training/loops' && method === 'GET') {
     // The REPORT CARD's LOOPS card (GYM ideas, part 4): this week's numbers for the brain's loops.
     return json(await brainLoops(s, await trainStatus(d), nowOf(d)));
+  }
+  if (path === '/training/pool' && method === 'POST') {
+    // The daily GPU: his answer (asked once). Yes makes the Space on his Hugging Face account at the next step.
+    if (typeof body.allow !== 'boolean') return json({ error: 'allow must be true or false' }, 400);
+    if (body.allow && !(await keysOf(d)).hf) return json({ error: 'The daily GPU needs the Hugging Face token first (SYSTEM → KEYS).' }, 400);
+    await poolAnswer(s, body.allow, nowOf(d));
+    if (body.allow) {
+      await ensureTrainJob(s);
+      const j = (await loadJobs(s)).find((x) => x.kind === 'train');
+      if (j) {
+        await setNext(s, j.id, Date.now() + 1000);
+        await rearm(s);
+      }
+    }
+    return json(await trainStatus(d));
   }
   if (path === '/training/private' && method === 'POST') {
     await s.put(K.privateData, !!body.on);

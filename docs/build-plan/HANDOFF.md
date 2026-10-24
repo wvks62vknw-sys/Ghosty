@@ -559,3 +559,62 @@ Still to build (in this order unless the owner says otherwise):
 The owner asked that the next session (a more capable model) also goes back over everything already built and
 upgrades it where it can be made genuinely better — with the same review discipline, and without changing his
 choices above.
+
+## TRAINING BEYOND KAGGLE'S HOURS — design notes (BRIEF-TRAINING-RESILIENCE part C, 24 Oct; no code yet)
+Built already (parts A and B, branch `worktree-trainres`): checkpoints inside phases with a mid-phase resume, a session
+budget per host (`HOSTS` in the notebook: Kaggle 9 h, Colab 1.75 h, Lightning 3.5 h, GitHub 5.5 h, ZeroGPU 4.5 min) and
+a week spread over several sessions ({paused} at the hook → pushed again with `resume`), the second T4, economy mode, the
+quota line, and the daily GPU on Hugging Face. What follows needs the owner at a computer to sign in once.
+
+### C1. Colab's free T4 through the official Colab CLI: a second full-run pool
+- **What it adds**: a full week's run when Kaggle's hours are gone, in short sessions (`host: 'colab'`, 1.75 h each; a
+  9-hour week is about 5–6 sessions, each carrying on from the last checkpoint — the mechanism is built and tested).
+- **The driver (outside Cloudflare)**: a Worker cannot run a CLI or hold a Google login. A PRIVATE GitHub repo of his
+  (`ghosty-colab-driver`; never Ghosty's own `.github/*`, which is kernel) with one `workflow_dispatch` workflow: install
+  the Colab CLI (pinned), write the notebook with the run's settings, `colab run --gpu T4` with a 1 h 45 min limit, end.
+  The brain starts it through GitHub's REST API (`POST /repos/{owner}/{repo}/actions/workflows/colab.yml/dispatches`)
+  with the GitHub token he already set, sending only the hook address and a one-time ticket (never the Hugging Face
+  token: the notebook trades the ticket for it at the hook, as on Kaggle). How the run goes comes back the same way as
+  Kaggle's ({paused} / the report at the hook); the workflow run's own status from `GET …/actions/runs` for a run that
+  never reached the hook.
+- **The token as a secret**: `colab auth login` (Google's own OAuth) once on his computer; the token goes into the
+  driver repo's Actions secrets by his hand (Settings → Secrets → Actions), never through Ghosty or a chat.
+- **Actions minutes** [unverified]: if the CLI waits for the notebook, each session holds a runner ~1 h 50 min, so 5–6
+  sessions a week are ~2,200–2,600 min a month, over a private repo's free 2,000. Either the CLI can start a run and
+  return (then the job is ~2 min and the brain polls), or the sessions are capped at 4 a week. Checked in the first run.
+  Nothing can bill: on a free GitHub account with no card the minutes simply stop at the limit (spending limit $0).
+- **The supervised first run**: Fable watching, the owner at a computer: sign in, set the secret, press RUN once. Check
+  (1) the CLI gets a T4 on the free tier; (2) the notebook trades its ticket and posts {paused} after its 1.75 h; (3) the
+  second session carries on mid-phase; (4) the Actions minutes one session used; (5) no warning on his Colab account.
+- **The free-tier rules risk**: Colab's free-tier FAQ says it is for interactive use and forbids "bypassing the notebook
+  UI" and long unattended runs; the CLI is Google's own, but a scheduled bot using it may still be read as unattended
+  use, and the cost could be his Colab access. So: his explicit choice, after reading that sentence; Kaggle stays
+  primary (Colab only when Kaggle waits); at most a few sessions a week; stop at the first warning or odd disconnects;
+  never Colab Pro or pay-as-you-go (he confirms no payment method on his Google account's Colab billing: there is no API
+  to check it).
+- **What changes in Ghosty**: `cycle.ts` push picks a host (Kaggle first; Colab when Kaggle waits and the driver is set
+  up), `remote.ts` a `githubDispatch` and a run-status read, the panel's GPU HOURS line names where the next run goes; the
+  notebook needs nothing more than its `HOSTS['colab']` budget and per-host pins (Colab's image has its own torch: the
+  pins install over it, to be checked in the first run). Tests: the dispatch with a fake GitHub, the host choice.
+
+### C2. Kaggle's TPU v5e-8: what a torch_xla port of the LoRA training would take
+- **Why**: a separate 20 hours a week on the same account (9-hour sessions), bf16 native, 8 cores × 16 GB.
+- **The device**: `device_plan` gains `xla` (`torch_xla.core.xla_model.xla_device()`), `HOSTS['kaggle-tpu']` ~8 h; the
+  push asks Kaggle for a TPU (`enableTpu`, its machine shape) under its own slug.
+- **Packages**: Kaggle's TPU image's own torch and torch_xla (they must match: never pip a torch over them), and
+  transformers/peft pins that suit that torch; checked in the image before anything else.
+- **Precision**: the base in bf16, the LoRA weights and AdamW's state in fp32 (`amp_for` gives bf16 on xla).
+- **The training loops**: XLA compiles a graph per tensor shape, so every new sequence length recompiles. Batches are
+  padded to a few fixed lengths (256 / 512 / 1024 / 2048) and a fixed batch size; `xm.mark_step()` after each step,
+  `xm.optimizer_step(opt)`; data over the 8 cores (SPMD sharding or `xmp.spawn`), the LoRA replicated. SFT and DPO move
+  over almost unchanged otherwise.
+- **Generation (STaR, the exams)**: the hard part. HF `generate` on XLA recompiles as the cache grows; it needs the
+  static cache (`cache_implementation="static"`), prompts in fixed buckets and fixed new-token lengths, or it is slower
+  than a T4. The honest first step is a split week: TRAINING on the TPU (the bulk of the hours), SAMPLING and the EXAMS
+  on Kaggle's T4s, which then need far fewer hours; the checkpoint branch carries the adapter between the two runs.
+- **What stays**: the q4f16_1 export (numpy, on the CPU), the gate (before and after both scored on the same hardware in
+  a given week: like with like), the checkpoints (tensors moved to the CPU before saving; XLA's own RNG state).
+- **Tests**: the bucket padding and the step functions on a CPU with `PJRT_DEVICE=CPU`; the split week's hand-over with
+  fakes, as `Resilience` does now.
+- **Size**: about a week's work for SFT/DPO on the TPU plus two or three supervised real runs to tune; generation on the
+  TPU after that, only if the split week leaves the T4 hours short.

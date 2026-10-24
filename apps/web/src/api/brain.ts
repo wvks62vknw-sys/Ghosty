@@ -457,6 +457,8 @@ export const brain = {
     /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
     base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),
     privateData: (on: boolean) => req<TrainStatus>('POST', '/training/private', { on }),
+    /** The daily GPU (a Space on his Hugging Face account, its free minutes): his yes (it is made at the next step) or no. */
+    pool: (allow: boolean) => req<TrainStatus>('POST', '/training/pool', { allow }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */

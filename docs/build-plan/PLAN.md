@@ -20,8 +20,9 @@ rails, small chunks, the credit rules).
     when running), Qwen3.5-2B (2.2 GB), Qwen3.5-4B (3.9 GB), Qwen3-1.7B (2.0 GB), Gemma 4 E2B (3.4 GB), Phi-4-mini
     (3.4 GB). Today's brain is Qwen3-0.6B (1.4 GB). On a 12 GB phone the 2B class is the safe step up; the 4B class
     is worth one measured try on the real phone.
-  - **Kaggle's free GPUs**: about 30 GPU-hours a week, 12 hours per run, T4 or P100 (a user-reported figure; Kaggle
-    does not publish it; the account must be phone-verified to get GPUs and internet in a notebook).
+  - **Kaggle's free GPUs**: about 30 GPU-hours a week, 12 hours per run, two T4s of 16 GB (Kaggle retired the P100
+    on 15 Sep 2026: RESEARCH-FREE-GPU.md; the hours are a user-reported figure, Kaggle does not publish them; the
+    account must be phone-verified to get GPUs and internet in a notebook).
   - **Deadline**: Claude Max ends 14 Nov; usage resets Fridays at 19:00 UK. Three windows: 23 to 30 Oct, 30 Oct to
     6 Nov, 6 to 13 Nov. Merge to `main` at the end of each week.
 

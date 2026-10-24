@@ -27,7 +27,7 @@ pasted into chat).
    Write the week's dataset as JSONL to a private Kaggle dataset via the Kaggle API (or Hugging Face dataset repo if
    Kaggle datasets are impractical; say which and why).
 2. The Kaggle notebook (in the repo, e.g. `training/kaggle/ghosty_weekly.ipynb` or .py, pushed by the brain through the
-   Kaggle kernels API on a schedule, GPU on, internet on): free tier (T4/P100, ~30 GPU h/week, 12 h per run).
+   Kaggle kernels API on a schedule, GPU on, internet on): free tier (two T4s since Kaggle retired the P100 on 15 Sep 2026; ~30 GPU h/week, 12 h per run).
    - LoRA fine-tune of Qwen3-0.6B (Unsloth or PEFT+TRL; pin versions).
    - STaR / rejection sampling: for checkable problems, sample 16–32 attempts, keep the ones the exact checker passes
      (process rewards: reward checked intermediate steps where the game exposes them), train on those; self-critique and

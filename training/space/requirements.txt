@@ -1,0 +1,9 @@
+# Ghosty's daily GPU (ZeroGPU: torch 2.8 to 2.13). Gradio 6 needs huggingface_hub 1.16 or later, so every base runs
+# on the Qwen3.5 stack of the weekly notebook (transformers 5.5.4, peft 0.19.1, accelerate 1.13.0); Qwen3 loads there too.
+torch==2.12.1
+transformers==5.5.4
+peft==0.19.1
+accelerate==1.13.0
+huggingface_hub==1.33.0
+safetensors==0.5.3
+spaces==0.51.3
