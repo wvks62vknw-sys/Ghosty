@@ -98,7 +98,7 @@ const toSpace = async () => {
 };
 
 // ---- SPACE: the DESIGN MY HOME card on top ----
-if ((await page.evaluate(() => document.documentElement.dataset.look)) !== 'pro') problems.push('not in route C (a calm look is the default)');
+if (!(await page.evaluate(() => document.documentElement.dataset.theme))) problems.push('not in route C (no theme applied)');
 await toSpace();
 const card = await page.evaluate(() => {
   const pg = document.getElementById('pg-space');

@@ -1,13 +1,13 @@
 /** AGENDA tab: your diary, connected calendars, reminders, Ghosty's scheduled tasks and its notifications. */
 import type { AgendaEventInfo, FeedInfo, InboxEntry, JobInfo } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
+import { offline } from '../../api/offline';
 import { inbox, pollInbox } from '../../assistant/notices';
 import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undoBar } from '../../ui/components';
-import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -54,6 +54,14 @@ export const agendaTab: TabDef = {
   icon: '<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h3M13.5 13h3M7.5 16.5h3"/>',
   scene: 'backdrop',
   blurb: 'calendar · reminders · scheduled tasks',
+  // the next timed event this phone was last given (api/offline.ts keeps it): "Dentist · in 54 min"
+  now() {
+    const t = Date.now();
+    const next = offline.get().agenda?.events.filter((e) => !e.allDay && e.start > t).sort((a, b) => a.start - b.start)[0];
+    if (!next) return '';
+    const day = dayLabel(next.start);
+    return `${next.title} · ${next.start - t < 12 * 3600_000 ? until(next.start) : `${day === 'TOMORROW' ? 'tomorrow' : new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' })} ${hm(next.start)}`}`;
+  },
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY' });
@@ -284,18 +292,14 @@ export const agendaTab: TabDef = {
       const now = Date.now();
       const next = events.find((e) => !e.allDay && (e.end ?? e.start) > now);
       const today = events.filter((e) => dayKey(e.start) === dayKey(now)).length;
-      P.big.textContent = next ? `${dayLabel(next.start) === 'TODAY' ? '' : `${dayLabel(next.start)} `}${hm(next.start)}` : 'CLEAR';
-      P.sub.textContent = next ? `next: ${next.title} · ${today} today · ${jobs.length} reminders & tasks` : `${today} events today · ${jobs.length} reminders & tasks`;
       // route C: what is next as the title, when and how long until under it
-      if (proLook()) {
-        const day = next ? dayLabel(next.start) : '';
-        const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
-        P.big.dataset.case = 'keep';
-        P.big.textContent = next ? next.title : 'All clear';
-        P.sub.textContent = next
-          ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
-          : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
-      } else delete P.big.dataset.case;
+      const day = next ? dayLabel(next.start) : '';
+      const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
+      P.big.dataset.case = 'keep';
+      P.big.textContent = next ? next.title : 'All clear';
+      P.sub.textContent = next
+        ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
+        : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
     };
 
     const load = async () => {

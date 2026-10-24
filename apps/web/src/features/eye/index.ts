@@ -137,6 +137,7 @@ export const eyeTab: TabDef = {
   icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
   scene: 'globe',
   blurb: 'live globe · aircraft · satellites · CCTV',
+  now: () => (air.list.size || sats.list.length ? `${fmt.n(air.list.size)} aircraft · ${fmt.n(sats.list.length)} satellites` : ''),
   primary: true,
   mount(root) {
     globe.init();

@@ -11,12 +11,11 @@
  *  - Upgrade ideas: what Ghosty proposed for itself this morning; BUILD starts one in the chat
  */
 import type { ChangeSummary, Project, ProjectStep, PublishedSite, Roadmap, RoadmapStep, UpgradeIdea, VersionSummary, Widget } from '../../../../../packages/shared/src/protocol';
-import { brain, isPaused } from '../../api/brain';
+import { brain, isPaused, lastSeen } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, type Light } from '../../ui/components';
-import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
@@ -31,6 +30,10 @@ export const workshopTab: TabDef = {
   icon: '<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
   scene: 'backdrop',
   blurb: 'self-edits · training ground · widgets',
+  now() {
+    const st = lastSeen.get().status;
+    return st ? `Self-edit ${st.repoReady ? 'on' : 'off'}` : '';
+  },
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: 'Ghosty changes its own code. You decide what goes live.', rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });
@@ -473,10 +476,9 @@ export const workshopTab: TabDef = {
         h('div.note', open ? `Ghosty may edit its own security and self-edit code until ${fmt.time(new Date(kernelUntil))}.` : 'Ghosty cannot change its login lock, permission rules or self-edit pipeline. Only you can unlock this, for a short time.'),
         open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', () => confirm('Let Ghosty edit its protected kernel for 15 minutes?') && void setKernel(15), 'warn'),
       );
-      P.big.textContent = ready ? `v${versions.length ? versions[0]!.sha.slice(0, 7) : '—'}` : 'OFFLINE';
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';
-      if (proLook()) P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
+      P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],

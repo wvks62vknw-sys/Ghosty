@@ -1,10 +1,9 @@
 /**
- * The areas of the calm looks (Graphite, Reactor): ASK · SEE · MAKE · LEARN · PLAN, and ME.
+ * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
  * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
  * its hub: a large title, a hero "continue" card, its tools and the recent screens.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
- * The classic looks keep the old dock and never see any of this.
  */
 import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
 import { clear, fmt, h, icon } from '../core/dom';
@@ -38,8 +37,9 @@ export const AREAS: Area[] = [
 ];
 
 /**
- * One icon language: a tinted-glass squircle with a coloured glyph, the colour saying what the
- * tool does (not which area it sits in) — the same in the hubs, the deck, Search and Recent.
+ * The old per-tool colours. The one icon language (OWNER-ISSUES 32) no longer draws them: every glyph is a bare
+ * thin line in the secondary ink, the accent only for the live or selected one (styles.css "icon language").
+ * Kept for the callers that still pass a colour along (Search's decor).
  */
 export const TINT: Record<string, string> = {
   core: '#64d2ff', brief: '#5e5ce6', eye: '#0a84ff', lens: '#bf5af2',
@@ -90,8 +90,8 @@ const def = (id: string) => tabs().find((t) => t.id === id);
 const ALIAS: Record<string, string> = { learn: 'Courses' };
 export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 
-/** The glyph square every tool is drawn with. */
-export const squircle = (id: string, glyph: string, cls = 'sq') => h(`span.${cls}` as 'span', { style: `--tint:${tintOf(id)}` }, icon(glyph));
+/** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */
+export const squircle = (_id: string, glyph: string, cls = 'sq') => h(`span.${cls}` as 'span', icon(glyph));
 
 /** A tool's tile: its glyph square, its name and what it is for. */
 function tile(t: TabDef, cls = 'hubtile', note = ''): HTMLElement {
@@ -266,7 +266,7 @@ export function openMe(openDeck: () => void): void {
   })();
 }
 
-/** The calm looks' tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
+/** The tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
 export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void {
   const cap = h('div.tabcap', { role: 'tablist' });
   for (const a of AREAS.slice(0, 5)) {
@@ -319,7 +319,7 @@ export function greeting(d = new Date()): string {
 }
 
 /**
- * The calm looks' navigation bar for a tab. Roots (the reactor, the hubs, Memory and Settings
+ * The navigation bar for a tab. Roots (the reactor, the hubs, Memory and Settings
  * from the Me sheet) have a large title and no back button; every other screen has
  * "‹ <where it came from>" and its name.
  */

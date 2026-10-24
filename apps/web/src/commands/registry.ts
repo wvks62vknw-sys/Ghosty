@@ -21,7 +21,7 @@ const GROUPS: Record<string, { name: string; icon: string }> = {
 const GROUP_NAMES: Record<string, string> = { RECENT: 'Recent' };
 const groupOf = (g?: string) => GROUPS[g ?? ''] ?? { name: GROUP_NAMES[g ?? ''] ?? (g ? g.charAt(0) + g.slice(1).toLowerCase() : 'More'), icon: GROUPS.TOOLS!.icon };
 
-/** How the calm looks dress a result (shell/areas.ts): its colour and glyph, and the recent screens shown before anything is typed. */
+/** How a result is dressed (shell/areas.ts): its colour and glyph, and the recent screens shown before anything is typed. */
 interface Decor {
   look(c: Command): { tint: string; glyph: string | null };
   recents(): Command[];

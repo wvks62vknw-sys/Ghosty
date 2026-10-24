@@ -301,4 +301,13 @@ export const stopwatch = {
 
   /** performance.now(), for the hooks' start times. */
   now: clock,
+
+  /** The newest round trip to the brain timed on this phone, in ms (null before the first): the deck's Core line. */
+  lastTrip(): number | null {
+    for (let i = samples.length - 1; i >= 0; i--) {
+      const s = samples[i]!;
+      if (s.k === 'trip') return s.ms;
+    }
+    return null;
+  },
 };

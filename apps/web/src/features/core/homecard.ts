@@ -15,7 +15,7 @@ export { homeAfterReply } from '../../space/homeplan';
 
 type HomeEntry = Extract<Entry, { kind: 'home' }>;
 
-/** Route C's wording for a button (the calm looks show labels in sentence case; "3-D" and SPACE keep theirs). */
+/** Route C's wording for a button (labels show in sentence case; "3-D" and SPACE keep theirs). */
 const named = (b: HTMLButtonElement, label: string) => ((b.dataset.label = label), b);
 
 export function homeCard(e: HomeEntry): HTMLElement {

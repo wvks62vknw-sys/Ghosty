@@ -175,7 +175,7 @@ for (const [w, hgt] of [[390, 844], [440, 956]]) {
   });
   check(m.toasts.length > 0 && m.toasts.length <= 2, `${tag} ${m.toasts.length} toasts visible`);
   for (const [i, t] of m.toasts.entries()) {
-    // three lines of text (the clamp); the measure may carry a little of the glyph row's height in the calm look
+    // three lines of text (the clamp); the measure may carry a little of the glyph row's height
     check(t.lines <= 3.5, `${tag} toast ${i + 1} is ${t.lines.toFixed(1)} lines tall (at most 3)`);
     check(t.chars > 200, `${tag} toast ${i + 1} is not a long one (${t.chars} characters): the test proves nothing`);
     if (m.bar) check(t.bottom <= m.bar.top + 1 || t.top >= m.bar.bottom - 1, `${tag} toast ${i + 1} covers the chat bar`);

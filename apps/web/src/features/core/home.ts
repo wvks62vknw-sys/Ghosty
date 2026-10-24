@@ -1,5 +1,5 @@
 /**
- * Route C's Home (the calm looks, Graphite and Reactor; docs/build-plan/mockups/c/home.png): the date line,
+ * Route C's Home (docs/build-plan/mockups/c/home.png): the date line,
  * the greeting (the navigation bar's large title), the weather line, the reactor with four instruments
  * around it, the live-state pill, the Today card, the Roads near you and Gym tiles. The chips and the ask
  * bar are the reactor screen's own (features/core/index.ts).
@@ -12,7 +12,6 @@
  *   TODAY     the agenda (`/api/agenda`), what is left of today
  *   ROADS     National Highways' live incidents (`/api/highways/events`) within 30 km of home
  *   GYM       the games' records on this phone (features/gym/store.ts)
- * The classic looks never show any of it (styles.css hides these parts outside html[data-look="pro"]).
  */
 import { brain, headers } from '../../api/brain';
 import { clear, fmt, h, icon, svgEl } from '../../core/dom';

@@ -10,7 +10,7 @@
  * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
@@ -76,6 +76,7 @@ export const libraryTab: TabDef = {
   icon: '<path d="M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z"/>',
   scene: 'backdrop',
   blurb: 'ask the offline brain · add books & PDFs',
+  now: () => (lastSeen.get().passages != null ? `${fmt.n(lastSeen.get().passages)} passages` : ''),
   mount(root) {
     const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
     let docs: LibraryDoc[] = [];
@@ -296,7 +297,6 @@ export const libraryTab: TabDef = {
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
     const pick = h('select', { 'aria-label': 'Field to study' });
     pick.addEventListener('change', () => study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value)));
-    const learned = (r: HTMLElement) => (r.classList.add('learned'), r);
     const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
       if (!st) {
@@ -340,7 +340,7 @@ export const libraryTab: TabDef = {
         paintStudy(((await brain.studyStatus().catch(() => null)) as StudyNow | null) ?? null);
       }, `studyall${all ? ' on' : ''}`);
       allSwitch.setAttribute('role', 'switch');
-      allSwitch.dataset.label = 'Study all'; // route C: the words beside a switch (the classic looks keep STUDY ALL: ON)
+      allSwitch.dataset.label = 'Study all'; // route C: the words beside a switch
       allSwitch.setAttribute('aria-checked', String(all));
       const today = sum.today;
       study.body.append(
@@ -349,8 +349,7 @@ export const libraryTab: TabDef = {
         later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
         h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
         h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
-        learned(row('LEARNED TODAY', `${fmt.n(today.reads)} pieces read · ${today.finished ?? 0} topics finished · ${fmt.n(today.digests)} notes written`, null, { wrap: true })),
-        // route C: the same three numbers, large (the row above is the classic looks')
+        // what he learned today: three numbers, large
         h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
           h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
         bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),

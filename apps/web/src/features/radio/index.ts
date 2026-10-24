@@ -40,8 +40,12 @@ export const radioTab: TabDef = {
   icon: '<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M7 8l10-5"/><circle cx="15.5" cy="14" r="3"/><path d="M6 12h4M6 15h4"/>',
   scene: 'backdrop',
   blurb: 'internet radio stations',
+  now() {
+    const p = player.get();
+    return p.state === 'playing' && p.now ? `Playing ${p.now.name}` : 'Off air';
+  },
   mount(root) {
-    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS', stackInPro: true });
+    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS', stack: true });
     const sp = panel('STATIONS', { cls: 'scroll.stations' });
     P.left.append(sp.el);
     const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });

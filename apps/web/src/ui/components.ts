@@ -22,7 +22,7 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
   const dot = h('i.light');
   const st = h('small', opts.status ? { dataset: { label: /[a-z]/.test(opts.status) ? opts.status : niceCase(opts.status) } } : {}, opts.status ?? '');
   const t = h('span.ptitle', title);
-  // The calm looks' wording for the title, kept up to date when the title changes ("WEATHER · LONDON").
+  // The title's wording in sentence case, kept up to date when the title changes ("WEATHER · LONDON").
   const label = () => {
     const s = t.textContent ?? '';
     if (ACRONYM.test(s) || s.includes(' · ')) t.dataset.label = niceTitle(s);
@@ -46,7 +46,7 @@ export function panel(title: string, opts: { status?: string; footer?: boolean; 
     title: t,
     setStatus(text, light) {
       st.textContent = text;
-      // the calm looks show the status in sentence case, abbreviations kept ("LIVE" → "Live", "BBC")
+      // the status in sentence case, abbreviations kept ("LIVE" → "Live", "BBC")
       st.dataset.label = /[a-z]/.test(text) ? text : niceCase(text);
       dot.className = `light ${light ?? ''}`;
     },
@@ -72,8 +72,7 @@ export function row(k: string | null, v: string | Node, n?: string | null, opts:
 export const SEV_COLORS = ['#52f2b5', '#ffd24d', '#ff9a3c', '#ff4d6a'];
 
 /**
- * An empty list's state. The classic looks keep their words (NO SIGNAL, ACQUIRING, STANDING BY); route C says
- * it plainly with one sentence on what to do next (`next`, the screen's own; a fitting default otherwise).
+ * An empty list's state, said plainly with one sentence on what to do next (`next`, the screen's own; a fitting default otherwise).
  */
 export function empty(status: string, next?: string, title?: string): HTMLElement {
   const s = status.toUpperCase();
@@ -131,8 +130,8 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   const draw = () => {
     // In a one-scrolling-page layout (phones, page({ stack: true })) the panel grows with its
     // rows, so measuring its height would feed back on itself: show a fixed page instead.
-    // (route C lets some two-sided pages flow the same way: .rcflow, styles.css)
-    const stacked = !!p.el.closest(document.documentElement.dataset.look === 'pro' ? '.two.stack, .two.rcflow' : '.two.stack') && matchMedia('(max-width: 899px)').matches;
+    // (some two-sided pages flow the same way: .rcflow, styles.css)
+    const stacked = !!p.el.closest('.two.stack, .two.rcflow') && matchMedia('(max-width: 899px)').matches;
     const per = stacked ? 8 : Math.max(1, Math.floor((p.body.clientHeight - 12) / rowHeight) || 6);
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.max(0, Math.min(page, pages - 1));
@@ -167,10 +166,10 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   };
 }
 
-/** Labels with an abbreviation in them keep their capitals in the calm looks (which show labels in sentence case). */
+/** Labels with an abbreviation in them keep their capitals (labels show in sentence case). */
 const ABBR = ['I', '3D', 'GPS', 'AI', 'PDF', 'QR', 'PNG', 'JSON', 'CSV', 'URL', 'MOT', 'ISS', 'UK', 'BBC', 'CCTV', 'SMS', 'API', 'GLB', 'TV', 'FX', 'ID', 'GO', 'OK', 'AQI', 'UV', 'PM2.5'];
 export const ACRONYM = /\b(GHOSTY|UV|AQI|I|3D|GPS|AI|PDF|QR|PNG|JSON|CSV|URL|MOT|ISS|UK|BBC|CCTV|SMS|API|GLB|TV|FX|ID|GPU)\b/;
-/** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the calm looks' wording). */
+/** "USE GPS" → "Use GPS", "AI BRAIN" → "AI brain": sentence case that keeps abbreviations (the interface's wording). */
 /** A panel title: "WEATHER · LONDON" → "Weather · London" (after the dot comes a name: each word capitalised). */
 export function niceTitle(s: string): string {
   const [head, ...rest] = s.split(' · ');
@@ -185,7 +184,7 @@ export function niceCase(s: string): string {
 
 export function button(label: string | Node, onClick: (b: HTMLButtonElement) => void, cls = ''): HTMLButtonElement {
   const b = h(`button${cls ? `.${cls.split(' ').join('.')}` : ''}` as 'button', { type: 'button' }, label);
-  // The calm looks show labels in sentence case; one with an abbreviation in it ("USE GPS") shows "Use GPS".
+  // Labels show in sentence case; one with an abbreviation in it ("USE GPS") shows "Use GPS".
   if (typeof label === 'string' && ACRONYM.test(label)) b.dataset.label = niceCase(label);
   b.addEventListener('click', () => onClick(b));
   return b;
@@ -204,7 +203,7 @@ export function spark(values: number[], w = 70, hgt = 22): SVGSVGElement {
 
 export function bar(label: string, frac: number, text: string, color?: string): HTMLElement {
   const i = h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, ...(color ? { background: color } : {}) } });
-  // the calm looks show a label in capitals in sentence case ("READ" → "Read"), abbreviations kept
+  // a label in capitals shows in sentence case ("READ" → "Read"), abbreviations kept
   return h('div.bar', h('span', /[a-z]/.test(label) ? {} : { dataset: { label: niceCase(label) } }, label), h('div.gauge', i), h('b', text));
 }
 
@@ -242,14 +241,14 @@ export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = '', opts: 
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
     document.body.append(toastBox);
   }
-  // The calm looks: a pill with the reactor's glyph, in sentence case (a word in capitals is shown in small letters, abbreviations kept).
+  // A pill with the reactor's glyph, in sentence case (a word in capitals is shown in small letters, abbreviations kept).
   const words = msg.replace(/\b[A-Z][A-Z'’-]+\b/g, (w) => (w === 'GHOSTY' ? 'Ghosty' : ACRONYM.test(w) ? w : w.toLowerCase()));
   const text = h('span', { dataset: words !== msg ? { label: words.charAt(0).toUpperCase() + words.slice(1) } : {} }, msg);
   const t = h(`div.toast${kind ? `.${kind}` : ''}` as 'div', h('i.tglyph'), text);
   toastBox.append(t);
   while (toastBox.children.length > 2) toastBox.firstChild!.remove();
   // Cut at three lines (or already shortened by the caller): a tap opens the whole text, and it stays a little longer to be tapped.
-  // (Measured with the cut lifted for a moment: the calm looks draw the words in the span's ::before.)
+  // (Measured with the cut lifted for a moment: the words are drawn in the span's ::before.)
   const cutH = t.offsetHeight;
   t.classList.add('measure');
   const fullH = t.offsetHeight;
@@ -304,7 +303,7 @@ export function sandboxFrame(html: string): HTMLIFrameElement {
 }
 
 // ============================================================================================
-// Route C (the calm looks, Graphite and Reactor): the instruments. Calm glass is the base; the
+// Route C: the instruments. Calm glass is the base; the
 // character comes only from instruments that show something true — a dial with tick marks, a
 // progress ring with its pass mark, a sparkline ending in a live dot, a segment per game, a pill
 // that says the live state. Each is drawn from the value it is given, never from a made-up one.

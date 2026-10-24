@@ -1,5 +1,5 @@
 /**
- * MIND: Home's centrepiece in the calm looks (the owner's pick, 23 Oct). A hologram of Ghosty's mind: a sphere of
+ * MIND: Home's centrepiece (the owner's pick, 23 Oct). A hologram of Ghosty's mind: a sphere of
  * light holding a slowly turning constellation of his library. Each cluster is one field of the library, from the
  * brain's study summary. Each node stands for about 20 passages of the library (the total from brain.library()),
  * shared out across the fields by their topics. A node is lit when its share of that field has been read.
@@ -11,12 +11,16 @@
  * It draws at 30 fps when idle and 60 fps for a second after a change, and not at all while the tab is hidden or the
  * hero is scrolled out of view. The pixel ratio is capped at 2. With "reduce motion" it draws one still frame for
  * each change and runs no loop. reactor.ts keeps today's 2-D reactor whenever this cannot run.
+ *
+ * Its light is the theme's accent (state/theme.ts writes it as --c, and a pale tint of it as --c2): the sphere's rim,
+ * the lit nodes, their links and the pulses running along them all take it, and change with the theme at once.
  */
 import { brain } from '../../api/brain';
 import type { VoiceState } from '../../state/app';
 import { ui } from '../../state/app';
 import { loadThree } from '../../studio/three';
 import { gymState } from '../gym/index';
+import { themeEvents } from '../../state/theme';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // three.js is typed by hand for the studio (studio/three.ts) and only for what the studio calls; the hero uses a few
@@ -44,7 +48,7 @@ export const MAX_NODES = 600;
 /** What the hero is doing, readable by a test (and the console) at window.__ghosty.hero. */
 export const heroState = {
   mode: 'off' as 'off' | 'loading' | 'mind' | '2d',
-  /** Why the 2-D reactor is showing instead (no WebGL, three.js failed, a classic look). */
+  /** Why the 2-D reactor is showing instead (no WebGL, three.js failed). */
   reason: '',
   state: 'idle' as MindState,
   passages: 0,
@@ -57,6 +61,8 @@ export const heroState = {
   loop: false,
   /** Average time to draw one frame, in milliseconds. */
   frameMs: 0,
+  /** The accent it is drawn in: the theme's --c (state/theme.ts). */
+  accent: '',
 };
 
 /** Share out the nodes: about one per 20 passages, split across the fields by their topics, lit by what is read. */
@@ -118,8 +124,16 @@ const TARGET: Record<MindState, { open: number; rim: number; bright: number; spi
 };
 type Params = (typeof TARGET)['idle'];
 
+/** Reactor's cyan and its pale tint: what Mind is drawn in until the theme's tokens are read. */
 const CYAN = 0x64d2ff;
+const PALE = 0xbff0ff;
 const GREY = 0x8a949a;
+
+/** The theme's accent and its pale tint, from the page's tokens (--c, --c2). */
+export function accentTokens(): { c: string; pale: string } {
+  const cs = getComputedStyle(document.documentElement);
+  return { c: cs.getPropertyValue('--c').trim() || '#64d2ff', pale: cs.getPropertyValue('--c2').trim() || '#bff0ff' };
+}
 
 export class Mind {
   /** The WebGL canvas, laid exactly over the 2-D reactor's canvas (which stays in the layout, hidden). */
@@ -150,6 +164,8 @@ export class Mind {
   private fetchedAt = 0;
   private kick = 0;
   private studyBusy = false;
+  /** The accent and the tints made from it (see colours()). */
+  private col: Record<'c' | 'pale' | 'soft' | 'dimLink' | 'dimNode', Any> = {} as never;
   active = false;
 
   constructor(private readonly anchor: HTMLCanvasElement) {
@@ -180,6 +196,12 @@ export class Mind {
       if (this.inView) this.dirty = true;
     });
     this.io.observe(this.anchor);
+    // a new theme recolours the light at once (one still frame with reduce motion)
+    themeEvents.on('change', () => {
+      if (!this.T) return;
+      this.colours();
+      this.dirty = true;
+    });
     this.active = true;
     heroState.mode = 'mind';
     heroState.reason = '';
@@ -227,12 +249,6 @@ export class Mind {
   /** How bright the core is (0..1.5): Home tints its glass with it (--glow). */
   light(): number {
     return (0.55 + 0.35 * this.p.bright + 0.3 * this.kick) * (1 - 0.4 * this.p.grey);
-  }
-
-  /** Hide the WebGL canvas (a classic look is on); it comes back with the next frame in a calm look. */
-  hide(): void {
-    this.canvas.style.display = 'none';
-    this.anchor.classList.remove('mindon');
   }
 
   /**
@@ -300,9 +316,21 @@ export class Mind {
     this.dirty = true;
   }
 
+  /** The accent from the theme's tokens, and its tints: pale (the crisp rim, the listening ring), soft (the
+   *  equator and its ticks), and the near-white the unlit nodes and links are drawn in, faintly tinted. */
+  private colours(): void {
+    const T = this.T;
+    const a = accentTokens();
+    const c = new T.Color(a.c);
+    const pale = new T.Color(a.pale);
+    heroState.accent = a.c;
+    this.col = { c, pale, soft: c.clone().lerp(pale, 0.55), dimLink: c.clone().lerp(new T.Color(0xd2dbe1), 0.6), dimNode: c.clone().lerp(new T.Color(0xe8ecef), 0.85) };
+  }
+
   // ---------------------------------------------------------------- the scene
   private build(T: Any): void {
     this.T = T;
+    this.colours();
     const r = new T.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true, premultipliedAlpha: true, powerPreference: 'low-power' });
     r.setClearColor(0x000000, 0);
     r.toneMapping = T.NeutralToneMapping ?? T.ACESFilmicToneMapping;
@@ -320,10 +348,10 @@ export class Mind {
 
     // the sphere: a crisp rim, a softer one, a faint inner haze, faint meridians, the equator scale, a tilted ring
     P.rimSoft = new T.Mesh(new T.SphereGeometry(1, 96, 64), this.fresnel(CYAN, 2.4, 0.5, T.DoubleSide));
-    P.rimCrisp = new T.Mesh(new T.SphereGeometry(1.002, 96, 64), this.fresnel(0xbff0ff, 7, 0.95, T.FrontSide));
+    P.rimCrisp = new T.Mesh(new T.SphereGeometry(1.002, 96, 64), this.fresnel(PALE, 7, 0.95, T.FrontSide));
     P.haze = new T.Mesh(new T.SphereGeometry(0.96, 48, 32), this.haze());
     this.root.add(P.haze, P.rimSoft, P.rimCrisp);
-    const lineMat = new T.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.05, blending: T.AdditiveBlending, depthWrite: false });
+    const lineMat = (P.lineMat = new T.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.05, blending: T.AdditiveBlending, depthWrite: false }));
     const circle = (rad: number, n = 128) => new T.BufferGeometry().setFromPoints(Array.from({ length: n + 1 }, (_, i) => new T.Vector3(Math.cos((i / n) * Math.PI * 2) * rad, Math.sin((i / n) * Math.PI * 2) * rad, 0)));
     for (let i = 0; i < 6; i++) {
       const m = new T.Line(circle(1), lineMat);
@@ -355,7 +383,7 @@ export class Mind {
     P.tilt.rotation.set(1.15, 0.5, 0);
     this.root.add(P.tilt);
     // listening: a soft ring that grows with his voice
-    P.ear = new T.Mesh(new T.TorusGeometry(1.0, 0.006, 8, 200), new T.MeshBasicMaterial({ color: 0xbff0ff, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
+    P.ear = new T.Mesh(new T.TorusGeometry(1.0, 0.006, 8, 200), new T.MeshBasicMaterial({ color: PALE, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
     this.root.add(P.ear);
 
     // the nucleus and its light
@@ -529,7 +557,8 @@ export class Mind {
     const p = this.p;
     const breath = 1 + 0.06 * Math.sin(t * 1.6) + 0.25 * this.kick;
     // offline: everything drifts to grey
-    const tint = (c: number) => new T.Color(c).lerp(new T.Color(GREY), p.grey);
+    const C = this.col;
+    const tint = (c: Any) => (typeof c === 'number' ? new T.Color(c) : c.clone()).lerp(new T.Color(GREY), p.grey);
     this.spin.rotation.y = t * p.spin;
     this.spin.rotation.x = 0.28;
     this.root.rotation.z = 0.08;
@@ -537,12 +566,15 @@ export class Mind {
     P.tilt.rotation.z = t * 0.03;
     this.spin.scale.setScalar(1 + 0.08 * p.open);
     P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath;
-    P.rimSoft.material.uniforms.uColor.value.copy(tint(CYAN));
+    P.rimSoft.material.uniforms.uColor.value.copy(tint(C.c));
     P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim);
-    P.rimCrisp.material.uniforms.uColor.value.copy(tint(0xbff0ff));
-    P.haze.material.uniforms.uColor.value.copy(tint(CYAN));
-    P.eqMat.color.copy(tint(0x9fe4ff));
-    P.tickMat.color.copy(tint(0x9fe4ff));
+    P.rimCrisp.material.uniforms.uColor.value.copy(tint(C.pale));
+    P.haze.material.uniforms.uColor.value.copy(tint(C.c));
+    P.eqMat.color.copy(tint(C.soft));
+    P.tickMat.color.copy(tint(C.soft));
+    P.ear.material.color.copy(tint(C.pale));
+    P.tilt.material.color.copy(tint(C.c));
+    P.lineMat.color.copy(tint(C.c));
     // the listening ring grows with his voice
     const lv = this.st === 'listening' ? Math.min(1, this.level * 1.6) : 0;
     P.ear.scale.setScalar(1.02 + 0.22 * lv + 0.04 * p.open * Math.sin(t * 2.4));
@@ -551,8 +583,8 @@ export class Mind {
     P.h1.scale.setScalar(0.3 * (1 + 0.6 * p.open) * breath);
     P.h2.scale.setScalar(0.95 * (1 + 0.3 * p.open) * breath);
     P.h1.material.color.copy(tint(0xffffff));
-    P.h2.material.color.copy(tint(CYAN));
-    P.h3.material.color.copy(tint(CYAN));
+    P.h2.material.color.copy(tint(C.c));
+    P.h3.material.color.copy(tint(C.c));
     P.h2.material.opacity = 0.45 * p.bright;
     P.h3.material.opacity = 0.12 * p.bright;
     P.nucleus.material.color.copy(tint(0xffffff));
@@ -561,17 +593,19 @@ export class Mind {
     if (P.lit) {
       P.lit.material.size = 0.15 * (1 + 0.2 * p.open) * beat;
       P.lit.material.opacity = Math.min(1, 0.85 * p.bright);
-      P.lit.material.color.copy(tint(CYAN));
+      P.lit.material.color.copy(tint(C.c));
       P.halo.material.opacity = 0.16 * p.bright * beat;
-      P.halo.material.color.copy(tint(CYAN));
+      P.halo.material.color.copy(tint(C.c));
       P.linkLit.opacity = 0.34 * p.bright;
-      P.linkLit.color.copy(tint(CYAN));
+      P.linkLit.color.copy(tint(C.c));
       P.dim.material.opacity = 0.5 * (1 - 0.3 * p.grey);
+      P.dim.material.color.copy(tint(C.dimNode));
+      P.linkDim?.color.copy(tint(C.dimLink));
     }
     for (const c of this.stars?.children ?? []) {
       if (c.isSprite && c.userData.base !== undefined) {
         c.material.opacity = c.userData.base * (c.userData.lit ? p.bright * beat : 1);
-        if (c.userData.lit) c.material.color.copy(tint(CYAN));
+        c.material.color.copy(tint(c.userData.lit ? C.c : C.dimNode));
       }
     }
     // pulses along the links: a few slow ones always, many fast ones while he thinks
@@ -580,6 +614,7 @@ export class Mind {
       const f = (q.off + t * q.sp * p.pace) % 1;
       q.s.position.copy(q.link[0]).lerp(q.link[1], f);
       q.s.material.opacity = i < shown ? Math.sin(f * Math.PI) * (1 - p.grey) : 0;
+      q.s.material.color.copy(tint(C.pale));
     });
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);

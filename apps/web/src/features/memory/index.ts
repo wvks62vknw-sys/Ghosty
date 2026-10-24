@@ -8,9 +8,9 @@
 import type { DiaryEntry, Lesson, MemoryFact, Profile, ProfileSection } from '../../../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
+import { offline } from '../../api/offline';
 import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
-import { proLook } from '../../state/theme';
 import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast } from '../../ui/components';
@@ -23,6 +23,11 @@ export const memoryTab: TabDef = {
   icon: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7l8 1M7 8l2 8M17 10l-6 7"/>',
   scene: 'backdrop',
   blurb: 'what Ghosty knows about you',
+  // the facts this phone was last given (api/offline.ts keeps a copy)
+  now() {
+    const n = offline.get().memory?.length;
+    return n == null ? '' : n === 1 ? '1 thing remembered' : `${fmt.n(n)} things remembered`;
+  },
   mount(root) {
     const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
     root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards
@@ -53,9 +58,7 @@ export const memoryTab: TabDef = {
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
     const paintSub = () =>
-      (P.sub.textContent = proLook()
-        ? `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`
-        : `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
+      (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`);
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -142,8 +145,8 @@ export const memoryTab: TabDef = {
     const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
     mp.el.insertBefore(meForm, mp.body);
     paintMe();
-    // The calm looks: one "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
-    // (a row also swipes left to delete). The classic looks keep the form in the panel.
+    // One "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
+    // (a row also swipes left to delete).
     let sheet: { close(): void } | null = null;
     const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
     addRow.addEventListener('click', () => {
@@ -232,8 +235,7 @@ export const memoryTab: TabDef = {
       toast('Conversation cleared');
     };
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => {
-      // the calm looks confirm a destructive action first
-      if (!proLook()) return void clearNow();
+      // a destructive action is confirmed first
       const m = modal('Clear the conversation?', h('div.confirm', h('p.note', 'What was said is removed from this phone and the brain. What he remembers about you stays.'), h('div.row', button('CANCEL', () => m.close()), button('CLEAR', () => void clearNow().then(() => m.close()), 'warn'))));
     }, 'warn'));
     P.right.append(dp.el, cp.el);

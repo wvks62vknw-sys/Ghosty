@@ -1,6 +1,5 @@
 /**
- * The HUD around the arc reactor: a few thin rings, one slow segmented arc, a faint radar
- * sweep, a handful of orbiting motes, state-reactive waves, a power-up sequence on boot, and
+ * The HUD around the arc reactor: one hairline ring, state-reactive waves, a power-up sequence on boot, and
  * live call-outs (AI link, library, conditions, threat, power, uplink) joined to the rings by
  * leader lines. Quiet when idle; it brightens and speeds up as Ghosty listens, thinks and
  * speaks. Drawn on one canvas behind the controls; call-outs are DOM text.
@@ -8,7 +7,6 @@
 import { h } from '../../core/dom';
 import { gfx } from '../../engine/gfx';
 import type { VoiceState } from '../../state/app';
-import { proLook } from '../../state/theme';
 
 const TAU = Math.PI * 2;
 const rgba = (c: ArrayLike<number>, a: number) => `rgba(${Math.round(c[0]! * 255)},${Math.round(c[1]! * 255)},${Math.round(c[2]! * 255)},${Math.max(0, Math.min(1, a))})`;
@@ -46,7 +44,6 @@ export class StarkHud {
   private w = 0;
   private hgt = 0;
   private dpr = 1;
-  private particles = Array.from({ length: 14 }, (_, i) => ({ a: (i / 14) * TAU, r: 1.08 + (i % 4) * 0.035, s: 0.25 + (i % 5) * 0.08 }));
 
   /** What the tool at work is doing right now, on the ring band under the reactor. */
   private taskEl: HTMLElement;
@@ -113,7 +110,6 @@ export class StarkHud {
     const x = this.ctx;
     const t = this.t;
     const th = state === 'thinking' ? gfx.theme.a : state === 'listening' ? GREEN : gfx.theme.c;
-    const ac = gfx.theme.a;
     const boot = easeOut(this.boot);
     x.setTransform(1, 0, 0, 1, 0, 0);
     x.clearRect(0, 0, this.cv.width, this.cv.height);
@@ -128,68 +124,10 @@ export class StarkHud {
       x.arc(0, 0, rad, a0, a1);
       x.stroke();
     };
-    const spin = 1 + this.energy * 2.5;
 
-    // The calm looks (Graphite, Reactor) keep the room quiet: no scale, sweep or orbiting motes, only one
-    // hairline ring and the voice. The reactor itself carries the clock there.
-    if (proLook()) ring(R * 1.04, 0, TAU * boot, th, 0.08 + this.energy * 0.12, 1);
-    else {
-      // 1. thin full circles (drawn in by the boot sweep)
-      for (const [k, al] of [[1.04, 0.28], [1.32, 0.1], [1.45, 0.07]] as const) ring(R * k, -Math.PI / 2, -Math.PI / 2 + TAU * boot, th, al + this.energy * 0.12, 1);
-
-      // 2. segmented arcs, counter-rotating
-      const segs = (rad: number, n: number, gap: number, speed: number, al: number, w: number, col: ArrayLike<number>) => {
-        const off = t * speed * spin;
-        for (let i = 0; i < n; i++) {
-          const a0 = off + (i / n) * TAU;
-          ring(rad, a0, a0 + (TAU / n) * (1 - gap) * boot, col, al, w);
-        }
-      };
-      segs(R * 1.1, 3, 0.35, 0.12, 0.3 + this.energy * 0.4, 2, th);
-      segs(R * 1.38, 5, 0.7, 0.05, 0.18 + this.energy * 0.3, 1.5, th);
-
-      // 3. degree scale with numbers
-      x.save();
-      x.rotate(-t * 0.03 * spin);
-      const ticks = Math.round(120 * boot);
-      for (let i = 0; i < ticks; i++) {
-        const a = (i / 120) * TAU;
-        const big = i % 10 === 0;
-        const r0 = R * 1.22;
-        x.strokeStyle = rgba(th, big ? 0.5 : 0.18);
-        x.lineWidth = 1;
-        x.beginPath();
-        x.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
-        x.lineTo(Math.cos(a) * (r0 + (big ? R * 0.04 : R * 0.018)), Math.sin(a) * (r0 + (big ? R * 0.04 : R * 0.018)));
-        x.stroke();
-      }
-      x.restore();
-
-      // 5. radar sweep
-      const sweepA = t * (0.8 + this.energy * 1.6);
-      const g = x.createConicGradient?.(sweepA, 0, 0);
-      if (g) {
-        g.addColorStop(0, rgba(th, 0.0));
-        g.addColorStop(0.9, rgba(th, 0.0));
-        g.addColorStop(1, rgba(th, (0.06 + this.energy * 0.1) * boot));
-        x.fillStyle = g;
-        x.beginPath();
-        x.arc(0, 0, R * 1.45, 0, TAU);
-        x.arc(0, 0, R * 1.04, 0, TAU, true);
-        x.fill();
-      }
-
-      // 6. orbiting particles (fast while thinking)
-      for (const p of this.particles) {
-        p.a += p.s * (0.02 + this.energy * 0.05);
-        const pr = R * p.r;
-        x.fillStyle = rgba(state === 'thinking' ? ac : th, (0.18 + this.energy * 0.6) * boot);
-        x.beginPath();
-        x.arc(Math.cos(p.a) * pr, Math.sin(p.a) * pr, 1.2 + this.energy * 1.4, 0, TAU);
-        x.fill();
-      }
-
-    }
+    // The room stays quiet: no scale, sweep or orbiting motes, only one hairline ring and the voice.
+    // The reactor itself carries the clock.
+    ring(R * 1.04, 0, TAU * boot, th, 0.08 + this.energy * 0.12, 1);
 
     // 7. voice: waveform ring while listening, expanding pulses while speaking
     if (state === 'listening' || this.lv > 0.02) {

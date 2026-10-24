@@ -34,7 +34,7 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
 
 // 1. CITED sits next to SEND, off at first; on with a tap; remembered on this device
 const cited = page.locator('#cbar button.citedbtn');
-// The calm looks keep CITED in the chat bar's "+" menu: open it first when there is one.
+// CITED is in the chat bar's "+" menu: open it first when there is one.
 // Route C keeps the conversation's buttons for the conversation: Home's ask bar is bare, so open it first.
 const openLog = async () => {
   if (!(await page.locator('.hud.core.logopen').count())) await page.click('.logbtn');
@@ -46,9 +46,7 @@ const showCited = async () => {
 };
 await showCited();
 await cited.waitFor({ state: 'visible', timeout: 10000 }).catch(() => problems.push('no CITED button in the chat bar'));
-const order = await page.$$eval('#cbar button', (b) => b.map((x) => x.textContent.trim()));
-// (the classic looks put CITED right after SEND in the bar; route C draws it as a pill by the microphone)
-if (!(await page.evaluate(() => document.documentElement.dataset.look === 'pro')) && order.indexOf('CITED') !== order.indexOf('SEND') + 1) problems.push(`CITED is not next to SEND: ${order.join(', ')}`);
+// (route C draws CITED as a pill by the microphone)
 if ((await cited.getAttribute('aria-pressed')) !== 'false') problems.push('CITED starts on');
 await cited.click();
 if ((await cited.getAttribute('aria-pressed')) !== 'true' || !(await cited.evaluate((b) => b.classList.contains('on')))) problems.push('CITED did not turn on');

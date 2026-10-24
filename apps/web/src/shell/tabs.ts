@@ -29,10 +29,16 @@ export interface TabDef {
   scene: 'globe' | 'backdrop';
   /** A few words under the tab's name in the systems deck. */
   blurb?: string;
-  /** An area's hub (shell/areas.ts, the calm looks): left out of the systems deck. */
+  /** An area's hub (shell/areas.ts): left out of the systems deck. */
   hub?: boolean;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
+  /**
+   * One live line for the Every screen deck ("8°C · partly cloudy"), read from what this phone already holds
+   * (a feed, a store, the last answer it had); '' when it holds nothing yet. Never fetches. A line ending
+   * "in N min" is due within the hour and lights in the accent.
+   */
+  now?(): string;
   mount(root: HTMLElement): TabInstance;
 }
 

@@ -71,7 +71,7 @@ async function run(name, viewport) {
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
-  // add a line under ROUTINES (the calm looks: the "Add a memory…" row opens the form in a sheet)
+  // add a line under ROUTINES (the "Add a memory…" row opens the form in a sheet)
   const addRow = page.locator('#pg-memory .addrow');
   const sheet = (await addRow.isVisible().catch(() => false)) ? (await addRow.click(), page.locator('.modal .memadd')) : me;
   await sheet.locator('select').selectOption('routines');
@@ -81,7 +81,7 @@ async function run(name, viewport) {
   await page.waitForTimeout(300);
   if (await page.locator('.modal .memadd').count()) problems.push(`[${name}] the Add a memory sheet stayed open after ADD`);
   if (!/ROUTINES/i.test((await me.textContent()) ?? '')) problems.push(`[${name}] the ROUTINES section did not appear`);
-  // remove it again (the ✕ on its row; the calm looks show it after Edit)
+  // remove it again (the ✕ on its row, shown after Edit)
   const added = me.locator('.rw', { hasText: 'I run on Tuesdays' });
   const edit = page.locator('#pg-memory .editbtn');
   const editing = await edit.isVisible().catch(() => false);
@@ -198,7 +198,7 @@ async function run(name, viewport) {
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
   const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
   if (await meLine.count()) {
-    // (the calm looks show the delete buttons in Edit mode)
+    // (the delete buttons show in Edit mode)
     const ed = page.locator('#pg-memory .editbtn');
     const on = await ed.isVisible().catch(() => false);
     if (on) await ed.click();
