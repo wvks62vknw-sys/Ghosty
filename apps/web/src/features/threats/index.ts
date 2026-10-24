@@ -35,7 +35,7 @@ export const threatsTab: TabDef = {
     const near = panel('NEAR YOU', { grow: false, cls: 'near' });
     const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
     const lp = panel('LAUNCH WINDOW', { footer: true, cls: 'launches' });
-    const lg = pager(lp, 46, (l: Launch) => row(launchStatus(l.status), l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
+    const lg = pager(lp, 46, (l: Launch) => row(launchStatus(l.status), l.name.replace(/\s*\|\s*/g, ' · '), new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { wrap: true, onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
     P.right.append(near.el, space.el, lp.el, reconPanel());
 
     const paint = () => {

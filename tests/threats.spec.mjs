@@ -109,6 +109,9 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   if (lrows.length < 2) problems.push(`[440] the launch window lists ${lrows.length} launches (2 stood in)`);
   if (lrows.some((r) => /\b(Success|TBD|TBC|NET)\b/.test(r))) problems.push(`[440] launch statuses are not in plain words: ${lrows.join(' | ')}`);
   if (/LL2/i.test(await text(page, '#pg-threats .pn.launches > h3'))) problems.push('[440] the launch window still shows "LL2" in its corner');
+  const cut = await page.$$eval('#pg-threats .pn.launches .rw .v', (els) => els.filter((v) => v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1).map((v) => v.textContent));
+  if (cut.length) problems.push(`[440] launch names are cut off: ${cut.join(' | ')}`);
+  if (lrows.some((r) => / \| /.test(r))) problems.push(`[440] launch names keep Launch Library's " | ": ${lrows.join(' | ')}`);
   // NEAR YOU: plain kilometres, where it measures from, tiles that open God's Eye
   const near = await text(page, '#pg-threats .pn.near');
   if (/\dk km/.test(near)) problems.push(`[440] NEAR YOU writes distances as "k km": ${near.replace(/\s+/g, ' ')}`);

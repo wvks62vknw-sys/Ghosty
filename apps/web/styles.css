@@ -3553,7 +3553,7 @@ html #pg-threats .pn.near .rw.link:active { background: rgba(255,255,255,.09); }
 html #pg-threats .pn.near .nearfrom { grid-column: 1 / -1; margin: 2px 2px 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-threats .pn.spacewx .bar { margin-bottom: 8px; }
 html #pg-threats .pn.launches .rw.link { margin: 0; padding: 10px 0; border-radius: 0; }
-html #pg-threats .pn.launches .rw .k { --lfs: 11px; font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase !important; color: var(--ink3); min-width: 56px; }
+html #pg-threats .pn.launches .rw .k { --lfs: 11px; font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase !important; color: var(--ink3); min-width: 96px; width: 96px; white-space: normal; }
 html #pg-threats .pn.launches .rw .v { font: 500 16px/21px var(--sf); color: var(--ink); }
 html #pg-threats .pn.launches .rw .n { font: 400 13px var(--sf); color: var(--ink2); }
 /* RECON: the target field and RUN, a status line, the report as sections with their source */
