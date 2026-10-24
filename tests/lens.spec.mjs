@@ -273,7 +273,12 @@ await page.screenshot({ path: `${out}/lens-meal.png`, timeout: 90000 }).catch((e
 
 // ---- SOUND, the last tile: the mode in use is in sight in the tile row, not off its right edge ----
 await page.evaluate(() => window.__ghosty.lens.setMode('sound'));
-await page.waitForTimeout(1200);
+// the row scrolls smoothly: give it time on a busy machine
+await page.waitForFunction(() => {
+  const row = document.querySelector('#pg-lens .lensmodes').getBoundingClientRect();
+  const r = document.querySelector('#pg-lens .lensmodes button.on')?.getBoundingClientRect();
+  return !!r && r.right <= row.right - 27;
+}, null, { timeout: 6000 }).catch(() => undefined);
 const tile = await page.evaluate(() => {
   const row = document.querySelector('#pg-lens .lensmodes').getBoundingClientRect();
   const on = document.querySelector('#pg-lens .lensmodes button.on');
