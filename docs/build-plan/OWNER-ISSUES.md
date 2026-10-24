@@ -216,3 +216,11 @@ Add to it any time; tick items off only when he agrees they are fixed.
     "i want the gym to be much much better like a lot more and a lot more things we can brainstorm on". A GYM menu of
     twelve ideas was put to him for picks; a research builder is checking free GPU sources that need no card and have an
     API (report: scratchpad/gpu-fallbacks/REPORT.md, then here).
+
+41. **The look, on the real phone (24 Oct 20:00 UK, screenshot mockups/owner-see-tab-24oct.png):** "i still think it could
+    use some work in a lot of ways like small details i don't like the little tabs like these you have to click on they
+    could be way better on every tab and the gym pics could be better and there's a few scroll issues which could be fixed
+    and also i like the iphone look but i don't want it like too much like an iphone like i still wanna feel like Iron Man
+    this is nothing like that". Answer: three Iron-Man-inside-route-C directions as mock-ups for his pick
+    (BRIEF-IRONMAN.md), a scroll audit on his phone size with fixes (BRIEF-SCROLL-AUDIT.md), the GYM pictures in the
+    mock-ups. Asked of him: which screens scroll badly, and which feel most "iPhone".
