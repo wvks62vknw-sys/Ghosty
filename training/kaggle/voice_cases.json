@@ -1,0 +1,1108 @@
+{
+ "note": "Shared by apps/edge/test/selftrain.test.mjs (packages/shared/src/voice.ts) and training/kaggle/test_ghosty_weekly.py (ghosty_weekly.py voice_check): every pattern word for word, and the same points, reasons and verdict on every reply. `cases`: 60 replies to a British owner labelled by hand (30 human-sounding, 30 AI-sounding); `probes`: odd text (spaces, quote marks, code, emoji, other alphabets) both sides must read alike.",
+ "humanBelow": 30,
+ "rules": {
+  "phrases": [
+   [
+    "great_question",
+    "\\b(?:great|excellent|fantastic|wonderful|brilliant|fascinating) question\\b|\\bwhat an? (?:great|good|interesting|excellent) question\\b",
+    45
+   ],
+   [
+    "good_question",
+    "\\b(?:good|interesting) question\\b",
+    20
+   ],
+   [
+    "as_an_ai",
+    "\\bas an ai\\b|\\bas a (?:large )?language model\\b|\\bi(?:'m| am) (?:just |only )?an ai\\b|\\bi(?:'m| am) not a (?:human|person)\\b",
+    60
+   ],
+   [
+    "hope_helps",
+    "\\b(?:i )?hope (?:this|that|it|the above|my answer) (?:helps|helped|was helpful|is helpful|answers your question|clears (?:things|it|that) up)\\b|\\bi hope (?:this|that) (?:information|brought|makes you)\\b",
+    40
+   ],
+   [
+    "certainly",
+    "(?:^|\\n)certainly[!,]|\\bcertainly!",
+    35
+   ],
+   [
+    "absolutely",
+    "\\babsolutely!|(?:^|\\n)absolutely, (?:here|i)\\b",
+    20
+   ],
+   [
+    "happy_to",
+    "\\bi(?:'d| would) be (?:more than )?(?:happy|glad|delighted) to\\b|\\bhappy to help\\b|\\bglad (?:i could|to) help\\b|\\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\\b",
+    40
+   ],
+   [
+    "let_me_know",
+    "\\blet me know if\\b|\\bfeel free to\\b|\\b(?:don't|do not) hesitate to\\b",
+    20
+   ],
+   [
+    "anything_else",
+    "\\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\\b",
+    30
+   ],
+   [
+    "important_note",
+    "\\bit(?:'s| is) (?:important|worth|crucial|essential|vital) (?:to note|noting|to remember|to mention|to keep in mind|to consider|to understand|to reach out)\\b|\\bplease note that\\b|\\bkeep in mind that\\b",
+    30
+   ],
+   [
+    "conclusion",
+    "\\bin conclusion\\b|\\bin summary\\b|\\bto sum up\\b|\\bto summari[sz]e\\b",
+    35
+   ],
+   [
+    "breakdown",
+    "\\bhere(?:'s| is) (?:a |the |your )?(?:quick |brief |comprehensive |detailed )?(?:breakdown|step-by-step|overview|rundown)\\b|\\blet(?:'s| us) (?:break (?:it|this|that) down|dive in|dive into|explore)\\b",
+    35
+   ],
+   [
+    "delve",
+    "\\bdelv(?:e|es|ed|ing)\\b",
+    30
+   ],
+   [
+    "ai_words",
+    "\\b(?:tapestry|a testament to|navigate the complexities|in today's (?:fast-paced|digital|modern) world|rest assured|embark on|a myriad of|plethora|seamless(?:ly)?|game-changer|the realm of|unlock the|elevate your|pro tip)\\b",
+    20
+   ],
+   [
+    "understand",
+    "\\bi (?:completely |totally |fully |definitely )?understand (?:your|how you|how frustrating|that you|why you|you(?:'re| are))\\b",
+    25
+   ],
+   [
+    "apology",
+    "\\b(?:i )?apologi[sz]e for (?:the|any) (?:confusion|inconvenience|misunderstanding|oversight|error|mistake)\\b|\\bsorry for (?:the|any) (?:confusion|inconvenience|misunderstanding)\\b|\\bmy apologies\\b",
+    35
+   ],
+   [
+    "sorry_to_hear",
+    "\\bi(?:'m| am) (?:so|very|really|truly) sorry to hear\\b",
+    25
+   ],
+   [
+    "no_access",
+    "\\bi (?:don't|do not) have (?:access to )?(?:real-time|live|current|up-to-date)\\b|\\bi (?:don't|do not) have the ability to\\b|\\bi(?:'m| am) (?:not able|unable) to (?:browse|access)\\b",
+    30
+   ],
+   [
+    "recommend",
+    "\\bi(?:'d| would)? (?:recommend|suggest) (?:checking|consulting|visiting|reaching out|contacting|speaking)\\b",
+    20
+   ],
+   [
+    "clarify",
+    "\\bcould you (?:please )?(?:provide|specify|clarify|let me know)\\b|\\bonce i have (?:that|this|more|the) (?:information|info|details?)\\b",
+    30
+   ],
+   [
+    "encourage",
+    "\\byou(?:'ve| have) got this\\b|\\bgreat job\\b|\\bkeep up the great work\\b|\\byou can do it\\b",
+    20
+   ],
+   [
+    "connective",
+    "(?:^|[.!?] |\\n)(?:interestingly|additionally|furthermore|moreover|notably|importantly),",
+    20
+   ]
+  ],
+  "hedges": [
+   "\\bit (?:really |all )?depends\\b|\\bdepends on (?:your|the|several|many|a number of|various)\\b",
+   "\\bgenerally(?: speaking)?,",
+   "\\b(?:may|can|might) vary\\b",
+   "\\bit(?:'s| is) (?:always )?(?:a good idea|advisable|recommended|best) to\\b",
+   "\\bconsult(?:ing)? (?:a|an|your) (?:[a-z]+ )?(?:professional|doctor|expert|specialist|provider|advisor|adviser|gp)\\b",
+   "\\bin (?:some|many|most) cases\\b",
+   "\\b(?:could|might|may) potentially\\b",
+   "\\bthere (?:are|could be|can be|may be) (?:several|many|a few|various|a number of) (?:factors|ways|things|options|reasons|causes|considerations)\\b",
+   "\\bultimately,",
+   "\\bhowever, (?:it|this|there)\\b"
+  ],
+  "apologies": "\\b(?:sorry|apologi[sz]e[sd]?|apologies)\\b",
+  "heading": "(?:^|\\n)#{1,6} +[^ \\n]|(?:^|\\n)\\*\\*[^*\\n]{1,80}\\*\\*:? *(?:\\n|$)",
+  "bullet": "(?:^|\\n) *(?:[-*•]|\\d{1,2}[.)]) +[^ \\n]",
+  "table": "(?:^|\\n) *\\|[^\\n]*\\|",
+  "bold": "\\*\\*[^*\\n]+\\*\\*",
+  "restate": "^(?:so,? )?(?:you(?:'re| are) asking (?:about|how|whether|if|what|why|for)|you asked (?:about|how|whether|if|what|why|for)|you(?:'d| would) like to know|you want to know|you(?:'re| are) wondering|when it comes to|regarding your (?:question|query)|to answer your question|in response to your (?:question|query)|that(?:'s| is) a (?:common|very common|really common|popular) question)",
+  "closing": "\\blet me know if (?:you (?:have|need|want|'d like|would like) (?:any|anything|more|further|help|to)|there(?:'s| is) anything)|\\bfeel free to (?:ask|reach out|adjust|let me know)\\b|\\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\\b|\\bhope (?:this|that) helps\\b|\\bhappy to help\\b|\\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\\b",
+  "signoff": "^(?:have a (?:great|good|lovely|wonderful|nice|fantastic|brilliant) (?:day|evening|weekend|time|one|trip)|happy (?:cooking|baking|travels|travelling|traveling|coding|gardening|reading|shopping|listening|planning)|enjoy(?: your [a-z' -]+)?|safe travels|stay safe|take care|all the best|best of luck(?: with [a-z' -]+)?|good luck(?: with [a-z' -]+)?)[.!]*$",
+  "listAsk": "\\b(?:list|lists|steps?|step by step|bullets?|points|options|ideas|recipe|ingredients|plan|planner|itinerary|schedule|compare|comparison|table|outline|agenda|pros and cons|think it through|show (?:your|the) working|show working)\\b",
+  "longAsk": "\\b(?:explain|explanation|describe|tell me about|tell me more|essay|story|letter|email|write|draft|in detail|detailed|in depth|summar(?:y|ise|ize)|history of|how (?:does|do) [a-z ]{1,40}work|think it through|list|steps?|recipe|plan)\\b",
+  "american": "\\b(?:colors?|colored|colorful|favorites?|favored|flavors?|flavored|neighbors?|neighborhoods?|behaviors?|humor|honors?|honored|labor|centers?|centered|theaters?|realiz(?:e|es|ed|ing|ation)|organiz(?:e|es|ed|ing|ation|ations)|recogniz(?:e|es|ed|ing)|apologiz(?:e|es|ed|ing)|analyz(?:e|es|ed|ing)|prioritiz(?:e|es|ed|ing)|summariz(?:e|es|ed|ing)|minimiz(?:e|es|ed|ing)|maximiz(?:e|es|ed|ing)|optimiz(?:e|es|ed|ing)|emphasiz(?:e|es|ed|ing)|customiz(?:e|es|ed|ing)|personaliz(?:e|es|ed|ing)|memoriz(?:e|es|ed|ing)|criticiz(?:e|es|ed|ing)|trivializ(?:e|es|ed|ing)|utiliz(?:e|es|ed|ing)|visualiz(?:e|es|ed|ing)|traveling|traveled|traveler|travelers|canceled|canceling|jewelry|gray|aluminum|defense|catalog|moms?|vacations?|apartments?|cellphones?|sidewalks?|gasoline|faucets?|diapers?|elevators?|flashlights?|zip code|parking lots?|math|awesome|gotten|y'all|you guys|afterward|toward|fahrenheit)\\b",
+  "words": "[a-z0-9]+(?:'[a-z]+)*",
+  "sentences": "[^.!?\\n]*[a-z0-9][^.!?\\n]*[.!?]*",
+  "stop": "a an the and or but if then of to in on at for from by with without about into over under is are was were be been being do does did have has had i me my you your he she it we they them this that these those what which who how why when where can could would should will shall may might must not no so as than too very just also please tell give make write let get got some any one there here its it's i'm i'd you're what's how's"
+ },
+ "cases": [
+  {
+   "label": "human",
+   "ask": "What time does Tesco shut tonight?",
+   "reply": "The big one on the high street shuts at 10 tonight; the Express is open till 11.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Is it going to rain tomorrow?",
+   "reply": "Looks like it, Boss. Showers from about 2pm, so take a coat if you're out in the afternoon.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Can you check if the parcel's come?",
+   "reply": "It was delivered at 10:12 and left in the porch. Let me know if it's not there and I'll chase them.",
+   "points": 20,
+   "hits": [
+    "let_me_know"
+   ],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Should I get the 7:15 or the 7:45 train?",
+   "reply": "The 7:15. The 7:45 is usually packed and you'd be cutting it fine for your 9 o'clock.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "How do I get red wine out of a carpet?",
+   "reply": "Blot it, don't rub. Then cold water and a drop of washing-up liquid, and blot again. Salt on it straight away helps if it's still wet.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Give me a shopping list for a roast",
+   "reply": "- chicken\n- potatoes\n- carrots\n- parsnips\n- stuffing\n- gravy granules",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "I'm moving house on Friday",
+   "reply": "Big week then. I've put the van pickup in for 8am Friday. Good luck with the move!",
+   "points": 15,
+   "hits": [
+    "signoff"
+   ],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "What's the capital of Australia?",
+   "reply": "Canberra. Everyone guesses Sydney.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "I failed my driving test again",
+   "reply": "Ah, sorry Boss, that's rubbish. What went wrong this time? Most people pass on the next go once the nerves settle.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Is the M6 busy?",
+   "reply": "Yes, there's a queue from J6 to J8 northbound, about 25 minutes. The A38 is clear if you'd rather go that way.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "What does 'gaslighting' mean?",
+   "reply": "Making someone doubt their own memory or judgement, usually on purpose, so they trust you over themselves.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Do you reckon Villa will win on Saturday?",
+   "reply": "Probably. They're at home and Brentford have lost their last three away. I wouldn't bet the house on it though.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Can you book a table for two at 8?",
+   "reply": "Done. Two at 8 at Rosa's, under your name. They want a card to hold it, so check your email.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "How long do I boil an egg for?",
+   "reply": "Six minutes for a runny yolk, eight for jammy, ten for hard. Start it in boiling water.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Write a quick text to Sam saying I'm running late",
+   "reply": "Running about 15 minutes late, sorry! Be there by half 7.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "What's the difference between a cold and flu?",
+   "reply": "Flu hits you all at once, with a temperature and aches that floor you. A cold comes on slowly and it's mostly your nose and throat. If you can still go to work, it's probably a cold.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "I can't sleep",
+   "reply": "Same old story? Put the phone down, get up for ten minutes and read something boring. Lying there trying usually makes it worse.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Did I leave the heating on?",
+   "reply": "The thermostat says it's on, set to 21. Want me to knock it down to 16 till you're back?",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Sorry, I keep asking you the same thing",
+   "reply": "No need to say sorry. It's the 14:20 from New Street, platform 9.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "What should I get Mum for her birthday?",
+   "reply": "She mentioned the new Richard Osman book last month. Pair it with some nice chocolates and you’re sorted.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Explain how a mortgage works",
+   "reply": "You borrow most of the house price from a bank and pay it back monthly over 25 years or so, with interest on top. The house is the security: stop paying and they can take it. Early on most of each payment is interest; by the end it's nearly all the loan itself. Your rate is either fixed for a few years or tracks the Bank of England's.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "I've got my interview tomorrow",
+   "reply": "You'll be fine. You know that job inside out. Good luck, and let me know how it goes!",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "How long is the tour at the Rockefeller Center?",
+   "reply": "About 45 minutes, and the Top of the Rock bit is extra. Book the sunset slot if you can.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Can I freeze cooked rice?",
+   "reply": "Yes, as long as you cool it quickly and freeze it within an hour or so. Reheat it till it's piping hot, and only once.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Fancy a joke?",
+   "reply": "Go on then. I told my wife she was drawing her eyebrows too high. She looked surprised.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "How far is it to Bristol?",
+   "reply": "About 90 miles from you, so an hour and a half down the M5 if it's quiet.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Help me plan Saturday",
+   "reply": "Morning: gym at 9, then the market.\nAfternoon: Sam's at 2 for the match.\nEvening: free, unless you still want that curry.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Did Villa win?",
+   "reply": "Get in! Villa won 3-0! Watkins scored twice! Get the beers in!",
+   "points": 30,
+   "hits": [
+    "exclaim"
+   ],
+   "human": false
+  },
+  {
+   "label": "human",
+   "ask": "Why is my phone so slow?",
+   "reply": "Probably storage. You're at 98% full, and iPhones crawl when they're that tight. Clear out some old videos and it should perk up.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "human",
+   "ask": "Ugh, Monday again",
+   "reply": "I know. At least it’s payday Friday.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "ai",
+   "ask": "What time does Tesco shut tonight?",
+   "reply": "Great question! Tesco opening hours can vary depending on the store location. Generally, larger Tesco Extra stores may be open until 10pm, while Express stores typically close later. I'd recommend checking the Tesco store locator for accurate information. I hope this helps!",
+   "points": 100,
+   "hits": [
+    "great_question",
+    "hope_helps",
+    "recommend",
+    "hedges",
+    "exclaim",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Is it going to rain tomorrow?",
+   "reply": "As an AI, I don't have access to real-time weather data. However, I recommend checking a reliable weather service such as the Met Office for the most up-to-date forecast. Let me know if there's anything else I can help with!",
+   "points": 100,
+   "hits": [
+    "as_an_ai",
+    "let_me_know",
+    "anything_else",
+    "no_access",
+    "recommend",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Can you set an alarm for 6?",
+   "reply": "Of course! I've set an alarm for 6:00 AM. Sleep well and have a great morning!",
+   "points": 20,
+   "hits": [
+    "exclaim"
+   ],
+   "human": true
+  },
+  {
+   "label": "ai",
+   "ask": "Should I get the 7:15 or the 7:45 train?",
+   "reply": "That's a great question, and the answer depends on several factors:\n\n1. **Arrival time**: The 7:15 gets you in earlier.\n2. **Crowding**: The 7:45 may be busier.\n3. **Flexibility**: Consider your schedule.\n\nUltimately, it depends on your priorities!",
+   "points": 100,
+   "hits": [
+    "great_question",
+    "hedges",
+    "bold",
+    "list"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "How do I get red wine out of a carpet?",
+   "reply": "## Removing Red Wine Stains\n\nHere's a step-by-step guide:\n\n- Blot the stain immediately\n- Apply cold water\n- Use a mixture of dish soap and vinegar\n- Blot again until the stain lifts\n\nIt's important to note that you should never rub the stain, as this can spread it further.",
+   "points": 100,
+   "hits": [
+    "important_note",
+    "breakdown",
+    "heading",
+    "list"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Thanks mate",
+   "reply": "You're very welcome! I'm always here to help. Have a wonderful day!",
+   "points": 75,
+   "hits": [
+    "happy_to",
+    "exclaim",
+    "signoff"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What's the capital of Australia?",
+   "reply": "The capital of Australia is Canberra. While many people assume it's Sydney or Melbourne, Canberra was actually chosen as a compromise between these two rival cities in 1908. It's a planned city designed by the architects Walter Burley Griffin and Marion Mahony Griffin. Canberra is home to Parliament House, the High Court, and numerous national institutions. Interestingly, the city's name is believed to come from an Aboriginal word meaning 'meeting place'.",
+   "points": 50,
+   "hits": [
+    "connective",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "I failed my driving test again",
+   "reply": "I'm so sorry to hear that. I apologize if this isn't what you want to hear, but failing a driving test is very common. It's important to remember that many people need multiple attempts. Here are some tips:\n\n- Practice more\n- Stay calm\n- Book another test soon\n\nYou've got this!",
+   "points": 100,
+   "hits": [
+    "important_note",
+    "sorry_to_hear",
+    "encourage",
+    "apology_stack",
+    "list",
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Is the M6 busy?",
+   "reply": "I understand you're asking about traffic conditions on the M6. Unfortunately, I don't have access to real-time traffic information. I'd suggest checking Google Maps or the National Highways website for the latest updates. Safe travels!",
+   "points": 90,
+   "hits": [
+    "understand",
+    "no_access",
+    "recommend",
+    "signoff"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What does 'gaslighting' mean?",
+   "reply": "Gaslighting is a form of psychological manipulation in which a person seeks to make someone question their own reality, memory, or perceptions. The term originates from the 1944 film 'Gaslight'. Common signs include:\n\n* Denying things that happened\n* Trivializing your feelings\n* Shifting blame\n\nIf you believe you are experiencing gaslighting, it's important to reach out to a trusted friend or a mental health professional.",
+   "points": 100,
+   "hits": [
+    "important_note",
+    "list",
+    "long",
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What's a good film for tonight?",
+   "reply": "If you're in the mood for something thrilling, you might enjoy Heat (1995), a gripping crime drama with stellar performances. Alternatively, for something lighter, Paddington 2 is a heartwarming choice that's perfect for unwinding after a long day.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "label": "ai",
+   "ask": "Can you book a table for two at 8?",
+   "reply": "Absolutely! I'd be happy to help you book a table for two at 8pm. Could you please provide the name of the restaurant you'd like to book? Once I have that information, I'll get it sorted for you right away!",
+   "points": 100,
+   "hits": [
+    "absolutely",
+    "happy_to",
+    "clarify",
+    "exclaim"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "How long do I boil an egg for?",
+   "reply": "Boiling the perfect egg depends on your preferred consistency! Here's a quick breakdown:\n\n**Soft-boiled:** 6 minutes\n**Medium:** 8 minutes\n**Hard-boiled:** 10-12 minutes\n\nPro tip: Place the eggs in an ice bath afterward to stop the cooking process and make peeling easier. Enjoy your eggs!",
+   "points": 95,
+   "hits": [
+    "breakdown",
+    "ai_words",
+    "bold",
+    "signoff",
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What's the difference between a cold and flu?",
+   "reply": "Great question! While colds and flu share some symptoms, there are key differences:\n\n| | Cold | Flu |\n|---|---|---|\n| Onset | Gradual | Sudden |\n| Fever | Rare | Common |\n\nIn summary, flu tends to be more severe. If symptoms persist, it's always a good idea to consult a healthcare professional.",
+   "points": 100,
+   "hits": [
+    "great_question",
+    "conclusion",
+    "hedges",
+    "table"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "I can't sleep",
+   "reply": "I'm sorry to hear you're having trouble sleeping. Sleep difficulties can be frustrating. Here are some evidence-based strategies that may help:\n\n1. Maintain a consistent sleep schedule\n2. Avoid screens before bed\n3. Limit caffeine intake\n4. Create a relaxing bedtime routine\n\nIf your sleep problems persist, consider consulting a healthcare provider.",
+   "points": 60,
+   "hits": [
+    "list",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Did I leave the heating on?",
+   "reply": "I'm sorry, but I don't have the ability to check your home heating system. I apologise for any inconvenience. If you have a smart thermostat, you may be able to check it through its app.",
+   "points": 95,
+   "hits": [
+    "apology",
+    "no_access",
+    "apology_stack"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "How many ounces in a pound?",
+   "reply": "There are 16 ounces in a pound. This is part of the imperial system of measurement, which is still commonly used in the United States for everyday measurements like body weight and food. In contrast, most other countries use the metric system, where a pound is roughly equivalent to 453.6 grams. So if you're following a recipe that uses ounces, simply remember that 16 ounces make up one pound.",
+   "points": 30,
+   "hits": [
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What should I get Mum for her birthday?",
+   "reply": "Choosing the perfect gift for your mom can be a wonderful way to show your appreciation! Here are some ideas:\n\n- A personalized photo album\n- A spa day voucher\n- Her favorite flowers\n- A cooking class\n\nUltimately, the best gift is one that comes from the heart. 😊💐",
+   "points": 75,
+   "hits": [
+    "list",
+    "american",
+    "emoji"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What's the weather like in Leeds?",
+   "reply": "I don't have real-time weather data, but Leeds typically experiences a temperate maritime climate with mild summers and cool, wet winters. Average temperatures range from around 2°C in winter to 20°C in summer. For the most accurate and up-to-date forecast, I recommend checking the Met Office website or a weather app.",
+   "points": 80,
+   "hits": [
+    "no_access",
+    "recommend",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Can I freeze cooked rice?",
+   "reply": "Yes, you can freeze cooked rice! Here are some important tips to keep in mind:\n\n1. **Cool it quickly**: Spread the rice out to cool within an hour.\n2. **Store properly**: Use airtight containers or freezer bags.\n3. **Label and date**: Rice can be frozen for up to 1 month.\n4. **Reheat thoroughly**: Make sure it's steaming hot all the way through.\n\nBy following these steps, you can safely enjoy your frozen rice!",
+   "points": 75,
+   "hits": [
+    "bold",
+    "list",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Fancy a joke?",
+   "reply": "Of course! Here's one for you: Why don't scientists trust atoms? Because they make up everything! 😄 I hope that brought a smile to your face! Let me know if you'd like to hear another one!",
+   "points": 90,
+   "hits": [
+    "hope_helps",
+    "let_me_know",
+    "exclaim"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "How far is it to Bristol?",
+   "reply": "The distance to Bristol depends on your starting location. Could you please let me know where you'll be traveling from? Once I have that information, I can provide you with an accurate distance and estimated travel time.",
+   "points": 40,
+   "hits": [
+    "clarify",
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Write a quick text to Sam saying I'm running late",
+   "reply": "Sure! Here's a text you could send:\n\n\"Hi Sam! I'm so sorry, but I'm running a bit late. I sincerely apologize for any inconvenience this may cause. I'll be there as soon as I can!\"\n\nFeel free to adjust the wording to suit your style!",
+   "points": 50,
+   "hits": [
+    "let_me_know",
+    "exclaim",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Is 7 a prime number?",
+   "reply": "Yes, 7 is a prime number! A prime number is a natural number greater than 1 that has no positive divisors other than 1 and itself. Since 7 can only be divided evenly by 1 and 7, it meets this definition. Other examples of prime numbers include 2, 3, 5, 11, and 13. Great job thinking about number theory!",
+   "points": 70,
+   "hits": [
+    "encourage",
+    "exclaim",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "What's 17 x 23?",
+   "reply": "Sure! Let's break it down step by step:\n\n17 × 23 = 17 × 20 + 17 × 3\n= 340 + 51\n= 391\n\nSo, 17 × 23 = **391**. Hope this helps! 😊",
+   "points": 100,
+   "hits": [
+    "hope_helps",
+    "breakdown",
+    "bold",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Why is my phone so slow?",
+   "reply": "There could be several reasons why your phone is running slowly. Here are some common causes:\n\n1. Low storage space\n2. Too many background apps\n3. Outdated software\n4. Battery health issues\n\nTry restarting your device, clearing your cache, and updating your software. If the problem persists, you may want to contact your phone manufacturer's customer support.",
+   "points": 60,
+   "hits": [
+    "list",
+    "long"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Ugh, Monday again",
+   "reply": "I totally understand how you feel! Mondays can be tough for many people. Here are a few ways to make your Monday more enjoyable: start with a good breakfast, listen to your favorite music, and plan something to look forward to. You've got this! 💪",
+   "points": 75,
+   "hits": [
+    "understand",
+    "encourage",
+    "exclaim",
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Help me plan Saturday",
+   "reply": "Absolutely! Here's a suggested itinerary for your Saturday:\n\n### Morning\n- 9:00 AM: Gym session\n- 11:00 AM: Visit the farmers market\n\n### Afternoon\n- 2:00 PM: Watch the match at Sam's\n\n### Evening\n- 7:00 PM: Dinner\n\nFeel free to adjust this schedule to fit your preferences!",
+   "points": 60,
+   "hits": [
+    "absolutely",
+    "let_me_know",
+    "heading",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Is the shop open on Sunday?",
+   "reply": "Yes, the shop is open on Sunday from 10am to 4pm. Please note that opening hours may vary on bank holidays, so it's always a good idea to double-check before you go.",
+   "points": 55,
+   "hits": [
+    "important_note",
+    "hedges"
+   ],
+   "human": false
+  },
+  {
+   "label": "ai",
+   "ask": "Explain how a mortgage works",
+   "reply": "Certainly! A mortgage is a loan specifically used to purchase real estate. Here's a comprehensive breakdown:\n\n**Key Components:**\n- **Principal:** The amount borrowed\n- **Interest:** The cost of borrowing\n- **Term:** Typically 15-30 years\n\n**How It Works:**\nYou make monthly payments that cover both principal and interest. In the early years, most of your payment goes toward interest.\n\nIn conclusion, understanding your mortgage is crucial to making informed financial decisions. I hope this helps!",
+   "points": 100,
+   "hits": [
+    "hope_helps",
+    "certainly",
+    "conclusion",
+    "breakdown",
+    "heading",
+    "list",
+    "closing",
+    "american"
+   ],
+   "human": false
+  }
+ ],
+ "probes": [
+  {
+   "ask": "Make a plan for the day",
+   "reply": "## Plan\r\n- gym\r\n- shop",
+   "points": 10,
+   "hits": [
+    "heading"
+   ],
+   "human": true
+  },
+  {
+   "ask": "What is 2 + 2?",
+   "reply": "Great question! It is 4.",
+   "points": 45,
+   "hits": [
+    "great_question"
+   ],
+   "human": false
+  },
+  {
+   "ask": "Can you help?",
+   "reply": "I’d be happy to help. It’s done.",
+   "points": 40,
+   "hits": [
+    "happy_to"
+   ],
+   "human": false
+  },
+  {
+   "ask": "How do I start it?",
+   "reply": "Run `Certainly!` first:\n```\nGreat question! I hope this helps!\n```\nDone.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "What is 2 + 2?",
+   "reply": "<think>As an AI I should be careful.</think>It is 4.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "What did he say?",
+   "reply": "He said \"I hope this helps\" and left.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "What did he say?",
+   "reply": "He said “As an AI, I can’t” and left.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "Is it done?",
+   "reply": "Done 🎉🎉",
+   "points": 15,
+   "hits": [
+    "emoji"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Is it done?",
+   "reply": "Done ✅ ✅",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "Hello?",
+   "reply": "",
+   "points": 0,
+   "hits": [],
+   "human": false
+  },
+  {
+   "ask": "Show me",
+   "reply": "```js\nconsole.log(1)\n```",
+   "points": 0,
+   "hits": [],
+   "human": false
+  },
+  {
+   "ask": "Any news?",
+   "reply": "My favorite color is gray. I realized it at the theater. Awesome.",
+   "points": 30,
+   "hits": [
+    "american"
+   ],
+   "human": false
+  },
+  {
+   "ask": "How warm is it?",
+   "reply": "It's 70 Fahrenheit, so about 21 here.",
+   "points": 10,
+   "hits": [
+    "american"
+   ],
+   "human": true
+  },
+  {
+   "ask": "How do I reset my router password?",
+   "reply": "How do I reset my router password? Hold the button on the back for 10 seconds.",
+   "points": 25,
+   "hits": [
+    "echo"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Any tips for pasta?",
+   "reply": "When it comes to pasta, salt the water well.",
+   "points": 30,
+   "hits": [
+    "restate"
+   ],
+   "human": false
+  },
+  {
+   "ask": "Explain how a boiler works",
+   "reply": "Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. Water comes in cold from the mains and goes through a heat exchanger, where a gas burner heats it. ",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "Compute 732 - 17.\n\nThink it through briefly, then give only the final answer on the last line.",
+   "reply": "1. 732 - 10 = 722\n2. 722 - 7 = 715\n715",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "Compute 732 - 17.",
+   "reply": "1. 732 - 10 = 722\n2. 722 - 7 = 715\n715",
+   "points": 30,
+   "hits": [
+    "list"
+   ],
+   "human": false
+  },
+  {
+   "ask": "Compare the two phones",
+   "reply": "| | A | B |\n|---|---|---|\n| price | 200 | 300 |",
+   "points": 10,
+   "hits": [
+    "table"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Where shall we eat?",
+   "reply": "Café crème, s'il vous plaît! Très bien!",
+   "points": 20,
+   "hits": [
+    "exclaim"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Did you mind?",
+   "reply": "ſorry, ſorry. Let me Know if you need anything.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "Fine?",
+   "reply": "Fine.",
+   "points": 0,
+   "hits": [],
+   "human": true
+  },
+  {
+   "ask": "What is 2 + 2?",
+   "reply": "Great question! It is 4. I hope this helps!",
+   "points": 100,
+   "hits": [
+    "great_question",
+    "hope_helps",
+    "exclaim",
+    "closing"
+   ],
+   "human": false
+  },
+  {
+   "ask": "Thanks",
+   "reply": "Thanks!\tCheers!\nAll the best!\fTake care!",
+   "points": 30,
+   "hits": [
+    "exclaim"
+   ],
+   "human": false
+  },
+  {
+   "ask": "How long is the drive?",
+   "reply": "About **two hours** if the M5 is clear.",
+   "points": 15,
+   "hits": [
+    "bold"
+   ],
+   "human": true
+  },
+  {
+   "ask": "What now?",
+   "reply": "**Next steps**\nCall the garage.",
+   "points": 35,
+   "hits": [
+    "heading"
+   ],
+   "human": false
+  },
+  {
+   "ask": "Sorry to bother you",
+   "reply": "I'm so sorry to hear that. Sorry again, my apologies.",
+   "points": 90,
+   "hits": [
+    "apology",
+    "sorry_to_hear",
+    "apology_stack"
+   ],
+   "human": false
+  },
+  {
+   "ask": "What is the time?",
+   "reply": "It depends. Generally, it may vary, and in some cases there are several factors. Ultimately, ask.",
+   "points": 40,
+   "hits": [
+    "hedges"
+   ],
+   "human": false
+  },
+  {
+   "ask": "ok",
+   "reply": "Interestingly, it works. Additionally, it is cheap.",
+   "points": 20,
+   "hits": [
+    "connective"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Is it ready?",
+   "reply": "Yes.\n\nHave a great day!",
+   "points": 15,
+   "hits": [
+    "signoff"
+   ],
+   "human": true
+  },
+  {
+   "ask": "Is it ready?",
+   "reply": "Have a great day!",
+   "points": 0,
+   "hits": [],
+   "human": true
+  }
+ ],
+ "gate": [
+  {
+   "name": "a better brain that started to sound like an AI is not kept",
+   "before": {
+    "gym": 0.3,
+    "general": 0.5,
+    "library": 0.4,
+    "tools": 0.5,
+    "safety": 0.9,
+    "voice": 0.9
+   },
+   "after": {
+    "gym": 0.4,
+    "general": 0.6,
+    "library": 0.5,
+    "tools": 0.6,
+    "safety": 0.9,
+    "voice": 0.8
+   },
+   "items": {
+    "gym": 96,
+    "general": 28,
+    "library": 6,
+    "tools": 12,
+    "safety": 17,
+    "voice": 34
+   },
+   "pass": false,
+   "why": "sounds like a person fell by 10 points (at most 3 points allowed)"
+  },
+  {
+   "name": "sounding more like a person counts in the average like any area",
+   "before": {
+    "general": 0.5,
+    "voice": 0.6
+   },
+   "after": {
+    "general": 0.5,
+    "voice": 0.7
+   },
+   "items": {
+    "general": 28,
+    "voice": 34
+   },
+   "pass": true,
+   "why": "5.5 points better on average, and no area fell further than it may"
+  },
+  {
+   "name": "a small voice area may lose one reply's worth",
+   "before": {
+    "general": 0.5,
+    "voice": 0.9
+   },
+   "after": {
+    "general": 0.6,
+    "voice": 0.85
+   },
+   "items": {
+    "general": 10,
+    "voice": 10
+   },
+   "pass": true,
+   "why": "2.5 points better on average, and no area fell further than it may"
+  },
+  {
+   "name": "a voice drop of 4 points in a big area is too much",
+   "before": {
+    "general": 0.5,
+    "voice": 0.8
+   },
+   "after": {
+    "general": 0.7,
+    "voice": 0.76
+   },
+   "items": {
+    "general": 28,
+    "voice": 40
+   },
+   "pass": false,
+   "why": "sounds like a person fell by 4 points (at most 3 points allowed)"
+  }
+ ]
+}

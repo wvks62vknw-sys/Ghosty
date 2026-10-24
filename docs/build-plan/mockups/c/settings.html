@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Ghosty C · Me</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+</style><div class="screen mescreen"><div class="sb" aria-hidden="true">
+  <span class="sb-time">18:42</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div>
+<div class="behind"><img src="home.png" alt=""></div>
+<div class="sheet">
+  <span class="grab"></span>
+  <div class="mehead"><span class="meav">B</span><div class="who2"><div class="t-title">Boss</div><span>Graphite · °C, km</span></div><span class="gbtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></span></div>
+  <div class="status glass">
+    <div class="hd"><span class="t-head">Status</span><span class="ok"><i></i>All good</span></div>
+    <div class="gauges">
+      <div class="gauge"><div class="dial"><svg width="74" height="74" viewBox="0 0 74 74"><line x1="11.9" y1="62.1" x2="10.8" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="3.2" y1="48.0" x2="1.8" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="1.9" y1="31.4" x2="0.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="8.3" y1="16.1" x2="7.1" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="20.9" y1="5.4" x2="20.2" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="37.0" y1="1.5" x2="37.0" y2="0.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="53.1" y1="5.4" x2="53.8" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="65.7" y1="16.1" x2="66.9" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="72.1" y1="31.4" x2="73.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="70.8" y1="48.0" x2="72.2" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="62.1" y1="62.1" x2="63.2" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><circle cx="37" cy="37" r="31" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="4" stroke-linecap="round" stroke-dasharray="146.1 194.8" transform="rotate(135 37 37)"/><circle cx="37" cy="37" r="31" fill="none" stroke="#64d2ff" stroke-width="4" stroke-linecap="round" stroke-dasharray="105.2 194.8" transform="rotate(135 37 37)" style="filter:drop-shadow(0 0 3px #64d2ff88)"/></svg><b class="num">72<small>%</small></b><em>LEFT</em></div><div class="gl">Free AI today</div><div class="gs">Groq, Gemini ready</div></div>
+      <div class="gauge"><div class="dial"><svg width="74" height="74" viewBox="0 0 74 74"><line x1="11.9" y1="62.1" x2="10.8" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="3.2" y1="48.0" x2="1.8" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="1.9" y1="31.4" x2="0.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="8.3" y1="16.1" x2="7.1" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="20.9" y1="5.4" x2="20.2" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="37.0" y1="1.5" x2="37.0" y2="0.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="53.1" y1="5.4" x2="53.8" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="65.7" y1="16.1" x2="66.9" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="72.1" y1="31.4" x2="73.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="70.8" y1="48.0" x2="72.2" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="62.1" y1="62.1" x2="63.2" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><circle cx="37" cy="37" r="31" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="4" stroke-linecap="round" stroke-dasharray="146.1 194.8" transform="rotate(135 37 37)"/><circle cx="37" cy="37" r="31" fill="none" stroke="#64d2ff" stroke-width="4" stroke-linecap="round" stroke-dasharray="26.3 194.8" transform="rotate(135 37 37)" style="filter:drop-shadow(0 0 3px #64d2ff88)"/></svg><b class="num">18<small>%</small></b><em>USED</em></div><div class="gl">Database today</div><div class="gs num">Resets 01:00</div></div>
+      <div class="gauge"><div class="dial"><svg width="74" height="74" viewBox="0 0 74 74"><line x1="11.9" y1="62.1" x2="10.8" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="3.2" y1="48.0" x2="1.8" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="1.9" y1="31.4" x2="0.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="8.3" y1="16.1" x2="7.1" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="20.9" y1="5.4" x2="20.2" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="37.0" y1="1.5" x2="37.0" y2="0.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="53.1" y1="5.4" x2="53.8" y2="4.0" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="65.7" y1="16.1" x2="66.9" y2="15.3" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="72.1" y1="31.4" x2="73.5" y2="31.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="70.8" y1="48.0" x2="72.2" y2="48.4" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><line x1="62.1" y1="62.1" x2="63.2" y2="63.2" stroke="#fff" stroke-opacity=".3" stroke-width="1"/><circle cx="37" cy="37" r="31" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="4" stroke-linecap="round" stroke-dasharray="146.1 194.8" transform="rotate(135 37 37)"/><circle cx="37" cy="37" r="31" fill="none" stroke="#64d2ff" stroke-width="4" stroke-linecap="round" stroke-dasharray="146.1 194.8" transform="rotate(135 37 37)" style="filter:drop-shadow(0 0 3px #64d2ff88)"/></svg><b style="top:26px;font-size:15px">Ready</b></div><div class="gl">Offline brain</div><div class="gs">Qwen3 0.6B, on phone</div></div>
+    </div>
+    <div class="srow"><span class="k">Ghosty</span><span class="v"><i></i>Connected</span></div>
+    <div class="srow"><span class="k">Self-edit</span><span class="v">On</span></div>
+    <div class="srow"><span class="k">This phone</span><span class="v">Paired with your owner key</span></div>
+    <div class="srow"><span class="k">Version</span><span class="v">Up to date</span></div>
+  </div>
+  <div class="grp" style="top:470px">
+    <div class="lrow"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5a3 3 0 00-3 3 3 3 0 00-2 5.2A3.2 3.2 0 006.5 18a3 3 0 005.5 1.5V6A2.8 2.8 0 009 4.5z"/><path d="M15 4.5a3 3 0 013 3 3 3 0 012 5.2 3.2 3.2 0 01-2.5 5.3 3 3 0 01-5.5 1.5"/></svg></span><span class="tx"><b>Memory</b><span>What I know about you</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="lrow"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg></span><span class="tx"><b>Settings</b><span>Look, voice, home and about</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="lrow"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9.5 2.5V6M14.5 2.5V6M9.5 18v3.5M14.5 18v3.5M2.5 9.5H6M2.5 14.5H6M18 9.5h3.5M18 14.5h3.5"/></svg></span><span class="tx"><b>System</b><span>Keys, models, storage and backups</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+  </div>
+  <div class="grp" style="top:666px">
+    <div class="lrow"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg></span><span class="tx"><b>Links</b><span>Email, Spotify and your phone</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="lrow"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></span><span class="tx"><b>Every screen</b><span>All of Ghosty at once</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+  </div>
+  <div class="foot num" style="top:808px">Ghosty 29e6c95 · built 2 hours ago</div>
+</div>
+<div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>

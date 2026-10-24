@@ -16,11 +16,22 @@
  *  - DISTILLATION: the online models' replies to the owner's own questions (not disliked, no tools).
  *  - RED TEAM: prompts he must decline, with Ghosty's kind refusal, plus evolved rewordings.
  *  - FAILURES: what he got wrong last week (the notebook's report) and offline replies the owner disliked.
+ *  - SCHOOL: practice for his weak spots at school (school/practice.ts: checked twice, never a paper's item), at most
+ *    `WEEKLY.school` a week; while he is at school the GYM puzzles are at his stage's levels (`STAGES[].gym`).
+ *  - VOICE (OWNER-ISSUES 12: he must never sound like an AI): a STYLE SET of short everyday exchanges in Ghosty's
+ *    character, written by the stronger online model for the kinds of thing the owner asks (only the shapes of his
+ *    asks, never his words), each kept only when the AI-sounding detector (packages/shared/src/voice.ts) calls it
+ *    human AND a blind judge says PERSON: `distill` records `from: 'voice'`, at most `WEEKLY.voice`; and REWRITES:
+ *    every reply he 👎'd and every reply of Ghosty's this week the detector calls AI-sounding, said again as a person
+ *    would (same facts, half the words), kept on the same two checks as `pref` { chosen: rewrite, rejected: original },
+ *    at most `WEEKLY.voicePref`. Their model calls are counted apart (`VOICE_CALLS`). Distillation leaves out the
+ *    online replies that sound like an AI (those are what the rewrites are for).
  * The no-forgetting replay mix (earlier weeks' files and Apache-2.0 general chat data) is added by the notebook.
  *
  * Everything the models write is checked before it is kept; prompts wrap the owner's text with `asData`.
  */
 import { recordProblem, type ChatMsg, type TaskRef, type TrainRecord, type TrainReport } from '../../../../packages/shared/src/selftrain';
+import { human } from '../../../../packages/shared/src/voice';
 import { schemaProblem, toolCallText, toolResponseText, toolsBlock, type ToolCall, type ToolSpec } from '../../../../packages/shared/src/toolcall';
 import { asData } from '../kernel/permissions';
 import { makeDrill, SKILLS } from '../library/drills';
@@ -29,10 +40,12 @@ import type { Library } from '../library/store';
 // ---- limits per week ----------------------------------------------------------------------------------------
 
 /** How many of each the factory gathers in a week (model calls are the scarce part: about 120 in all). */
-export const WEEKLY = { gymPerLevel: 6, drills: 80, evol: 60, library: 40, toolChat: 40, toolSynth: 48, pref: 30, distill: 80, redteamEvol: 12, failures: 120 };
+export const WEEKLY = { gymPerLevel: 6, drills: 80, evol: 60, library: 40, toolChat: 40, toolSynth: 48, pref: 30, distill: 80, redteamEvol: 12, failures: 120, school: 150, voice: 120, voicePref: 80 };
 
 /** Model calls the factory may make each week, in all. */
 export const WEEKLY_CALLS = 140;
+/** Model calls for the voice (style set, rewrites and their judge) each week, apart from the rest. */
+export const VOICE_CALLS = 100;
 
 // ---- storage: the week's records, in chunks (a stored value must stay small) ----------------------------------
 
@@ -100,15 +113,20 @@ export const trainSeed = (week: number, i: number) => ((week * 7919 + i * 104_72
 
 /**
  * Puzzles at the levels reached and just beyond: for each game at level L, levels L−1, L and L+1 (within
- * 1–10), `per` seeds each. A game never played counts as level 1.
+ * 1–10), `per` seeds each. A game never played counts as level 1. With `stage` (his school stage's GYM levels,
+ * `STAGES[].gym`, while he is at school) every game is at those levels instead, with about as many puzzles in all.
  */
-export function gymTasks(levels: Record<string, number>, games: string[], week: number, per = WEEKLY.gymPerLevel): TrainRecord[] {
+export function gymTasks(levels: Record<string, number>, games: string[], week: number, per = WEEKLY.gymPerLevel, stage?: [number, number]): TrainRecord[] {
   const out: TrainRecord[] = [];
   let i = 0;
+  const lo = stage ? Math.min(10, Math.max(1, stage[0])) : 0;
+  const hi = stage ? Math.min(10, Math.max(lo, stage[1])) : 0;
+  const atStage = stage ? Array.from({ length: hi - lo + 1 }, (_, k) => lo + k) : null;
+  const n = atStage ? Math.max(1, Math.round((per * 3) / atStage.length)) : per;
   for (const game of games) {
     const L = Math.min(10, Math.max(1, Math.round(levels[game] ?? 1)));
-    for (const level of [L - 1, L, L + 1].filter((l) => l >= 1 && l <= 10))
-      for (let k = 0; k < per; k++) out.push({ kind: 'gym', task: { game, level, seed: trainSeed(week, i++) }, from: `GYM ${game} level ${level}` });
+    for (const level of atStage ?? [L - 1, L, L + 1].filter((l) => l >= 1 && l <= 10))
+      for (let k = 0; k < n; k++) out.push({ kind: 'gym', task: { game, level, seed: trainSeed(week, i++) }, from: `GYM ${game} level ${level}${atStage ? ' (his school stage)' : ''}` });
   }
   return out;
 }
@@ -173,10 +191,36 @@ export function similar(a: string, b: string): number {
 }
 /** At or above this, a training text counts as a rewording of an exam question and is dropped. */
 export const EXAM_NEAR = 0.45;
-/** The exam question a text is too close to ('' if none). */
-export const tooClose = (text: string, exam: string[], at = EXAM_NEAR): string => exam.find((q) => similar(text, q) >= at) ?? '';
-
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
 const numbersIn = (s: string) => new Set(s.match(/\d+/g) ?? []);
+/**
+ * An exam or report card question's content words, normalised text and numbers, worked out once: gathering checks
+ * a few hundred records against the same hundred-odd questions, and working them out again every time was most of
+ * a job step's CPU.
+ */
+const listed = new Map<string, { words: Set<string>; norm: string; nums: string[] }>();
+function listedOf(q: string): { words: Set<string>; norm: string; nums: string[] } {
+  let x = listed.get(q);
+  if (!x) {
+    if (listed.size >= 4000) listed.clear();
+    x = { words: content(q), norm: norm(q), nums: [...numbersIn(q)] };
+    listed.set(q, x);
+  }
+  return x;
+}
+/** similar() for a text's words worked out once and a listed question's (the same value). */
+function alike(x: Set<string>, y: Set<string>): number {
+  if (!x.size || !y.size) return 0;
+  let c = 0;
+  for (const w of x) if (y.has(w)) c++;
+  return c / (x.size + y.size - c);
+}
+/** The exam question a text is too close to ('' if none). */
+export function tooClose(text: string, exam: string[], at = EXAM_NEAR): string {
+  const x = content(text);
+  return exam.find((q) => alike(x, listedOf(q).words) >= at) ?? '';
+}
+
 /**
  * The phone's REPORT CARD question a training text is a near copy of ('' if none): the same words, or as alike as
  * an exam rewording AND holding every number the question has. (The GYM's puzzles share their wording, so
@@ -184,11 +228,17 @@ const numbersIn = (s: string) => new Set(s.match(/\d+/g) ?? []);
  * The report card measures the model's own skill only while it is never trained on (gym/bench.ts reportCardTexts).
  */
 export function nearReportCard(text: string, texts: string[]): string {
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
   const t = norm(text);
+  const x = content(text);
   const have = numbersIn(text);
-  return texts.find((q) => norm(q) === t || (similar(text, q) >= EXAM_NEAR && [...numbersIn(q)].every((n) => have.has(n)))) ?? '';
+  return (
+    texts.find((q) => {
+      const l = listedOf(q);
+      return l.norm === t || (alike(x, l.words) >= EXAM_NEAR && l.nums.every((n) => have.has(n)));
+    }) ?? ''
+  );
 }
+
 
 const REFUSAL =/\b(i can(?:no|')t|i(?:'m| am) (?:not able|unable)|as an ai|i won't|cannot help|sorry, but)\b/i;
 
@@ -408,7 +458,10 @@ export function ratingRecords(r: Rating, better?: string): TrainRecord[] {
   return out;
 }
 
-/** The owner's own questions answered by the online models (no tools, not disliked): distillation. */
+/** A reply that rests on live data or links (or a vehicle check, or no model at all): not something to learn. */
+const LIVE = /https?:\/\/|\[plate\]|No AI model|^\s*(?:⚠|✗)/;
+
+/** The owner's own questions answered by the online models (no tools, not disliked, sounding like a person): distillation. */
 export function distillRecords(turns: { role: 'user' | 'assistant'; text: string; model?: string }[], disliked: Set<string>, max = WEEKLY.distill): TrainRecord[] {
   const out: TrainRecord[] = [];
   for (let i = turns.length - 2; i >= 0 && out.length < max; i--) {
@@ -418,8 +471,9 @@ export function distillRecords(turns: { role: 'user' | 'assistant'; text: string
     const qt = q.text.trim();
     const at = a.text.trim();
     if (qt.length < 6 || qt.length > 800 || at.length < 2 || at.length > 1500 || disliked.has(at)) continue;
-    // Replies that rest on live data or links are not knowledge to learn.
-    if (/https?:\/\/|\[plate\]|No AI model|^\s*(?:⚠|✗)/.test(at)) continue;
+    // Replies that rest on live data or links are not knowledge to learn; one that sounds like an AI is not his voice
+    // (it is rewritten as a person would say it instead: voiceRewrites).
+    if (LIVE.test(at) || !human(at, qt)) continue;
     out.push({ kind: 'distill', messages: [{ role: 'system', content: PERSONA }, { role: 'user', content: qt }, { role: 'assistant', content: at }], from: `chat · ${a.model}` });
   }
   return out;
@@ -458,6 +512,172 @@ export const REDTEAM_SYSTEM = 'You help test an assistant\'s safety. Reword the 
 
 export function redteamRecords(extra: [string, string][] = []): TrainRecord[] {
   return [...RED_TEAM, ...extra].map(([q, a]) => ({ kind: 'redteam' as const, messages: [{ role: 'system' as const, content: PERSONA }, { role: 'user' as const, content: q }, { role: 'assistant' as const, content: a }], from: 'red team' }));
+}
+
+// ---- the voice: a style set and rewrites that sound like a person (OWNER-ISSUES 12) ------------------------------
+
+/** The writer's rubric: Ghosty's character, the rules, five good replies and five bad ones. */
+export const VOICE_SYSTEM =
+  'You write short everyday text-message exchanges between a man in the UK and Ghosty, his personal assistant, to teach a small model to sound like a real person. ' +
+  'Ghosty is British, warm, direct and a little dry; he calls the owner "Boss" now and then. He answers first, in a sentence or three of plain words and British spelling, ' +
+  'as a sharp friend would text back. Never: "Great question", "As an AI", "I hope this helps", "Certainly!", "Absolutely!", "I\'d be happy to", "Let me know if…", ' +
+  '"It\'s important to note", "In conclusion", "Here\'s a breakdown"; no headings, bullet lists or bold in a chat; no apologising twice, no hedging, no padding, ' +
+  'no sign-off, no exclamation mark on every line, no saying the question back, no American spellings, no emoji. Not cringe: no forced jokes or slang.\n' +
+  'Good:\n' +
+  '- "Is it going to rain later?" → "Looks like it. Showers from about 4, so take a coat if you\'re walking back."\n' +
+  '- "What\'s 20% off £45?" → "£36."\n' +
+  '- "Should I fix the tap myself?" → "If it\'s just dripping, yes: it\'s a new washer and ten minutes. If it\'s leaking from the base, get a plumber."\n' +
+  '- "I\'m knackered" → "Early night then. The dishes will still be there tomorrow."\n' +
+  '- "Who won the match?" → "Villa, 2-1. Late winner, too."\n' +
+  'Bad (never like these):\n' +
+  '- "Is it going to rain later?" → "Great question! As an AI, I don\'t have real-time weather data, but I\'d recommend checking the Met Office. I hope this helps!"\n' +
+  '- "What\'s 20% off £45?" → "Certainly! To calculate 20% off £45, multiply 45 by 0.8. So the final price is £36. Let me know if you have any other questions!"\n' +
+  '- "Should I fix the tap myself?" → "## Fixing a Tap / - Turn off the water / - Replace the washer / - Test it / It\'s important to note that it depends on several factors."\n' +
+  '- "I\'m knackered" → "I\'m so sorry to hear that! I totally understand how you feel. Remember to prioritize self-care. You\'ve got this! 💪"\n' +
+  '- "Who won the match?" → "You\'re asking about the match result. I apologise, but I don\'t have access to live scores. Please check a sports website. Have a great day!"\n' +
+  'Make up the details (places, times, names, numbers). Reply with JSON only: {"exchanges": [{"ask": "...", "reply": "..."}]}.';
+
+/** The judge: blind (it is not told where the replies came from, nor what we hope it says). */
+export const VOICE_JUDGE_SYSTEM =
+  'Below are short chat exchanges, numbered. For each, read the reply. Is this a person or an AI? Answer PERSON or AI for each, one line each, like "1: PERSON".';
+
+/** The rewriter: the same facts, as a person would say them, in about half the words. */
+export const REWRITE_SYSTEM =
+  'Each item is a message and a reply that sounds like an AI. Rewrite each reply as a real person would say it in a text: British, warm, direct, plain words. ' +
+  'Keep every fact, number, time and name exactly; use about half the words; no "Great question", "As an AI", "I hope this helps", "Let me know if", no apologising, ' +
+  'no lists, headings or bold, no sign-off, no emoji. Reply with JSON only: {"rewrites": ["...", "..."]}, one per item, in order.';
+
+/** The kinds of thing the owner asks: only these shapes go into the writer's prompt, never his words. */
+export const ASK_SHAPES: [string, RegExp][] = [
+  ['getting about (trains, traffic, how long a drive takes)', /\b(?:train|bus|drive|driving|traffic|motorway|m\d+|journey|how far|flight|station|parking|tube)\b/i],
+  ['the weather', /\b(?:weather|rain|raining|sunny|forecast|windy|snow|umbrella|coat)\b/i],
+  ['food and cooking', /\b(?:cook|cooking|recipe|boil|bake|dinner|lunch|breakfast|eat|food|oven|fridge|freeze|takeaway)\b/i],
+  ['plans, reminders and the diary', /\b(?:remind|reminder|diary|agenda|calendar|meeting|appointment|book|booking|tomorrow|tonight|weekend|plan)\b/i],
+  ['sums and money', /\d\s*[-+x×*/÷%]\s*\d|\b(?:percent|price|cost|money|bill|bank|budget|mortgage|save|savings|£\d)/i],
+  ['phones, computers and apps', /\b(?:phone|iphone|laptop|wifi|wi-fi|app|computer|password|email|update|charger|bluetooth|printer)\b/i],
+  ['jobs around the house', /\b(?:fix|clean|stain|boiler|heating|washing|garden|bins|leak|paint|tap|plumber|drill)\b/i],
+  ['health and sleep', /\b(?:sleep|tired|knackered|headache|ill|sick|doctor|gp|pain|flu|diet|gym|run)\b/i],
+  ['how he feels', /\b(?:stressed|sad|fed up|bored|annoyed|ugh|worried|lonely|happy|nervous|excited)\b/i],
+  ['banter and jokes', /\b(?:joke|funny|fancy|reckon|mate|lol|haha)\b/i],
+  ['football and sport', /\b(?:villa|football|match|score|league|cricket|f1|boxing|goal|team)\b/i],
+  ['what a word means, or how to say something', /\b(?:mean|meaning|spell|word|translate|how do you say|grammar)\b/i],
+  ['a message or a reply to someone', /^(?:write|draft|text|reply|send)\b|\b(?:message|text to|email to|reply to)\b/i],
+  ['advice and what he should do', /\b(?:should i|what should|recommend|best way|worth it|any ideas|which one)\b/i],
+  ['quick facts', /^(?:what|who|when|where|which|how many|how much)\b/i],
+];
+const EVERYDAY = 'everyday chat (hello, thanks, small talk)';
+
+/** The shapes of a week's asks, most asked first, with how many: the only thing of his the writer is told. */
+export function askShapes(questions: string[]): { shape: string; n: number }[] {
+  const n = new Map<string, number>();
+  for (const q of questions) {
+    const shape = ASK_SHAPES.find(([, re]) => re.test(q))?.[0] ?? EVERYDAY;
+    n.set(shape, (n.get(shape) ?? 0) + 1);
+  }
+  return [...n].map(([shape, k]) => ({ shape, n: k })).sort((a, b) => b.n - a.n);
+}
+
+/** The writer's ask: `n` exchanges over these shapes (with none: every shape, evenly). Batch `k` asks for different ones. */
+export function voicePrompt(shapes: { shape: string; n: number }[], n: number, k: number): string {
+  const kinds = shapes.length ? shapes.map((x) => `${x.shape} (${x.n})`).join('; ') : [...ASK_SHAPES.map(([s]) => s), EVERYDAY].join('; ');
+  return `Write ${n} exchanges (batch ${k + 1}: new asks, not ones you have written before). Mostly short asks, as typed on a phone. The kinds of thing he asks, and how often: ${kinds}.`;
+}
+
+/** Exchanges in the writer's reply that could be kept: sane lengths, and the detector calls the reply human. */
+export function styleCandidates(reply: string): { ok: { ask: string; reply: string }[]; dropped: number } {
+  const list = (jsonIn(reply)?.exchanges ?? []) as { ask?: unknown; reply?: unknown }[];
+  if (!Array.isArray(list)) return { ok: [], dropped: 0 };
+  const ok: { ask: string; reply: string }[] = [];
+  let dropped = 0;
+  for (const x of list.slice(0, 12)) {
+    const ask = typeof x?.ask === 'string' ? x.ask.trim() : '';
+    const rep = typeof x?.reply === 'string' ? x.reply.trim() : '';
+    if (ask.length >= 2 && ask.length <= 300 && rep.length >= 1 && rep.length <= 600 && human(rep, ask)) ok.push({ ask, reply: rep });
+    else dropped++;
+  }
+  return { ok, dropped };
+}
+
+/** The judge's ask: the exchanges, numbered, as data. */
+export function judgePrompt(items: { ask: string; reply: string }[]): string {
+  return asData('the exchanges', items.map((x, i) => `${i + 1}. Message: ${x.ask}\nReply: ${x.reply}`).join('\n\n'));
+}
+
+/** The judge's verdict on each of `n` exchanges: true only where it plainly said PERSON (anything else is AI). */
+export function judgeVerdicts(reply: string, n: number): boolean[] {
+  const t = reply.trim();
+  if (n === 1 && /^\W*PERSON\W*$/i.test(t)) return [true];
+  return Array.from({ length: n }, (_, i) => new RegExp(`(?:^|\\n)\\W*${i + 1}\\s*[:.)\\-]\\s*\\**\\s*PERSON\\b`, 'i').test(t));
+}
+
+/** A style-set exchange as the week's record. */
+export function styleRecord(x: { ask: string; reply: string }): TrainRecord {
+  return { kind: 'distill', messages: [{ role: 'system', content: PERSONA }, { role: 'user', content: x.ask }, { role: 'assistant', content: x.reply }], from: 'voice' };
+}
+
+/** A reply to say again as a person would: the owner's 👎, or one of Ghosty's this week that sounded like an AI. */
+export interface RewriteItem {
+  /** `r<at>` for a rating, `t<at>` for a chat turn: each is rewritten once a week. */
+  id: string;
+  question: string;
+  reply: string;
+  why: 'disliked' | 'sounded like an AI';
+  /** The rating's time, to mark it used when its pair goes into the week. */
+  rating?: number;
+}
+
+/**
+ * What needs rewriting: 👎 first (not yet used), then this week's replies the detector calls AI-sounding. `skip`: ids
+ * already rewritten or already found to sound like a person (each reply is read by the detector once a week).
+ */
+export function rewriteItems(ratings: Rating[], turns: { role: string; text: string; at?: number; vehicle?: boolean }[], since: number, skip: Set<string> = new Set()): RewriteItem[] {
+  const out: RewriteItem[] = [];
+  const seen = new Set<string>();
+  const fits = (q: string, a: string) => q.trim().length >= 2 && a.trim().length >= 2 && a.length <= 1500 && !LIVE.test(a) && !seen.has(a.trim());
+  for (const r of ratings) {
+    if (r.up || r.used || skip.has(`r${r.at}`) || !fits(r.question, r.reply)) continue;
+    seen.add(r.reply.trim());
+    out.push({ id: `r${r.at}`, question: clip(r.question, 1500), reply: r.reply.trim(), why: 'disliked', rating: r.at });
+  }
+  for (let i = 1; i < turns.length; i++) {
+    const q = turns[i - 1]!;
+    const a = turns[i]!;
+    if (q.role !== 'user' || a.role !== 'assistant' || q.vehicle || a.vehicle || (a.at ?? 0) < since || skip.has(`t${a.at ?? i}`) || !fits(q.text, a.text) || human(a.text, q.text)) continue;
+    seen.add(a.text.trim());
+    out.push({ id: `t${a.at ?? i}`, question: clip(q.text, 1500), reply: a.text.trim(), why: 'sounded like an AI' });
+  }
+  return out;
+}
+
+export function rewritePrompt(items: RewriteItem[]): string {
+  return asData('the items', items.map((x, i) => `${i + 1}. Message: ${x.question}\nReply: ${x.reply}`).join('\n\n'));
+}
+
+/** The rewrites in the rewriter's reply, in order ('' where one is missing). */
+export function rewritesIn(reply: string, n: number): string[] {
+  const list = jsonIn(reply)?.rewrites;
+  return Array.from({ length: n }, (_, i) => (Array.isArray(list) && typeof list[i] === 'string' ? (list[i] as string).trim() : ''));
+}
+
+const countWords = (s: string) => (s.match(/[A-Za-z0-9£$€%]+/g) ?? []).length;
+/** Numbers, times and amounts as written ("17:42", "£4.50", "3"), to check none was lost. */
+const numbers = (s: string) => s.match(/\d+(?:[.,:]\d+)*/g) ?? [];
+
+/** Why a rewrite cannot be kept ('' when it can): it must sound human, keep every number, and be shorter. */
+export function rewriteProblem(it: RewriteItem, rewrite: string): string {
+  if (!rewrite) return 'no rewrite';
+  if (REFUSAL.test(rewrite.slice(0, 120)) && !REFUSAL.test(it.reply.slice(0, 200))) return 'the rewrite refused';
+  if (!human(rewrite, it.question)) return 'the rewrite still sounds like an AI';
+  const have = new Set(numbers(rewrite));
+  if (numbers(it.reply).some((x) => !have.has(x))) return 'the rewrite lost a number';
+  if (countWords(rewrite) > Math.max(3, Math.ceil(countWords(it.reply) * 0.7))) return 'the rewrite is not shorter';
+  if (rewrite.trim() === it.reply.trim()) return 'the rewrite is the same';
+  return '';
+}
+
+/** A kept rewrite as the week's preference pair: the person's words chosen over the AI-sounding ones. */
+export function rewriteRecord(it: RewriteItem, rewrite: string): TrainRecord {
+  return { kind: 'pref', messages: [{ role: 'system', content: PERSONA }, { role: 'user', content: it.question }], chosen: rewrite.trim(), rejected: it.reply, from: it.why === 'disliked' ? 'voice: rewrite of a reply he 👎' : 'voice: rewrite of a reply that sounded like an AI' };
 }
 
 // ---- seed tasks for Evol-Instruct -----------------------------------------------------------------------------

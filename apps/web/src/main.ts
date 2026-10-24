@@ -22,7 +22,7 @@ import { checkStorage, persistAsksQuietly } from './features/system/storage';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
-import { applyTheme } from './state/theme';
+import { applyTheme, settleTheme } from './state/theme';
 import { button, toast } from './ui/components';
 
 const bootEl = document.getElementById('boot')!;
@@ -117,7 +117,7 @@ onLocalReminder((title, text) => {
 });
 
 async function boot(): Promise<void> {
-  applyTheme(settings.get().theme);
+  applyTheme(settleTheme());
   const cv = document.getElementById('gl') as HTMLCanvasElement;
   bootLog('RENDER CORE', gfx.init(cv) ? 'WEBGL2' : 'NO WEBGL2');
   addEventListener('resize', () => gfx.resize());

@@ -1,6 +1,6 @@
 /** SYSTEM tab: keys, AI models, connection status, keeping data on the phone and its daily backup. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
 import type { BrainStatus, KeyStatus, ProviderRoom } from '../../../../../packages/shared/src/protocol';
-import { brain, ownerKey, pauseEndsText } from '../../api/brain';
+import { brain, lastSeen, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
@@ -11,6 +11,7 @@ import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
+import { statusDials } from '../../ui/statusdials';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -18,19 +19,24 @@ export const systemTab: TabDef = {
   icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>',
   scene: 'backdrop',
   blurb: 'AI keys · models · status',
+  now() {
+    const m = lastSeen.get().status?.meter;
+    return m ? `Database ${Math.min(100, Math.round(Math.max(0, m.level) * 100))}% used today` : '';
+  },
   mount(root) {
-    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'STATUS', leftLabel: 'KEYS & MODELS', stack: true });
+    const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'DATA', leftLabel: 'STATUS & KEYS', stack: true });
+    // Status first (online, Ghosty connected, self-edit, this phone, version), then the brain's keys and models.
+    const sp = panel('STATUS');
     const kp = panel('KEYS', { cls: 'scroll' });
     const mp = panel('AI MODELS', { footer: true, grow: false, cls: 'models' });
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
     const tp = trainingPanel();
-    P.left.append(kp.el, mp.el, rp.el, rc.el, tp.el);
-    const sp = panel('STATUS');
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, tp.el);
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
-    P.right.append(sp.el, stp.el, bkp.el);
+    P.right.append(stp.el, bkp.el);
     let status: BrainStatus | null = null;
 
     let showOptional = false;
@@ -38,7 +44,7 @@ export const systemTab: TabDef = {
     const paintKeys = () => {
       clear(kp.body);
       if (!status) {
-        kp.body.append(h('div.note', 'Brain not reachable. Check the connection on the right.'));
+        kp.body.append(h('div.note', 'Brain not reachable. Check the connection in STATUS.'));
         return;
       }
       const missing = status.keys.filter((k) => k.need === 'needed' && !k.set);
@@ -176,8 +182,12 @@ export const systemTab: TabDef = {
         ...(status?.waiting ? [row('KEYS WAITING', `${status.waiting} saved while memory was paused · in use now, written to the vault at ${resets}`, null, { wrap: true })] : []),
       ];
     };
+    // route C: the three dials head the Status card (free AI today, the database today, the offline brain)
+    const dials = statusDials();
     const paintStatus = () => {
       clear(sp.body);
+      sp.body.append(dials.el);
+      void dials.paint(status);
       // What the owner needs at a glance; the engineering details fold away under Advanced.
       const ver = `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`;
       sp.body.append(

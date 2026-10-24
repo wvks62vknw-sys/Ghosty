@@ -5,13 +5,13 @@ import { brain } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, stopListening, voiceSupport } from '../../assistant/voice';
-import { proLook, themeEvents } from '../../state/theme';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
 import { news } from '../../data/news';
 import { air, airBand, WMO, temp, weather } from '../../data/weather';
 import { onFrame } from '../../engine/scheduler';
+import { stopwatch } from '../../core/stopwatch';
 import { run } from '../../commands/registry';
 import { go, type TabDef } from '../../shell/tabs';
 import { navTo } from '../../shell/areas';
@@ -19,10 +19,13 @@ import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { citedReply } from './cited';
+import { homeAfterReply, homeCard } from './homecard';
+import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { siteRow } from './sitecard';
+import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -77,7 +80,7 @@ function linked(text: string): HTMLElement {
 const COPY = '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5a2 2 0 002 2h2.5"/>';
 const LISTEN = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>';
 
-/** Under a reply (the calm looks show them): copy it, or hear it read aloud. */
+/** Under a reply: copy it, or hear it read aloud. */
 function replyActs(text: string): HTMLElement {
   const copy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
   copy.addEventListener('click', () => void navigator.clipboard?.writeText(text).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
@@ -86,15 +89,48 @@ function replyActs(text: string): HTMLElement {
   return h('div.msgacts', copy, hear);
 }
 
+const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
+/**
+ * Route C's line over a reply: Ghosty's glyph, his name and the model that answered (as the brain named it),
+ * and CITED when the answer is sourced.
+ */
+function whoLine(model: string | undefined, cited: boolean, where = ''): HTMLElement {
+  return h('div.rcwho', { dataset: { case: 'keep' } }, h('i.dot'), h('b', 'Ghosty'), model || where ? h('em', ` · ${model || where}`) : null,
+    cited ? h('span.rccited', icon(TICK), 'CITED') : null);
+}
+
 /** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
 function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   // Answered by the small model on the phone itself: one quiet chip says so.
-  if (e.offline) return h('div.msg.off', h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
+  if (e.offline) return h('div.msg.off', whoLine(undefined, false, 'on your phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-  if (e.cited) return h('div.msg.cited', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
+  if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
 }
+
+/**
+ * Route C: a run of tool steps before a reply as one line — "✓ 3 steps · Searching the web, weather, reading a
+ * page" — that opens to the steps themselves (open while one is still working, so its progress shows).
+ */
+function stepsLine(acts: Extract<Entry, { kind: 'activity' }>[], rows: HTMLElement[], open: Set<string>): HTMLElement {
+  const running = acts.some((a) => a.state === 'running');
+  const failed = acts.some((a) => a.state === 'fail');
+  const seen = new Map<string, number>();
+  for (const a of acts) {
+    const l = a.state === 'ok' ? a.label.replace(/^Saving to /, 'Saved to ') : a.label;
+    seen.set(l, (seen.get(l) ?? 0) + 1);
+  }
+  const words = [...seen].map(([l, n], i) => `${i ? l.charAt(0).toLowerCase() + l.slice(1) : l}${n > 1 ? ` ×${n}` : ''}`).join(', ');
+  const key = acts[0]!.id;
+  const d = h(`details.rcsteps${running ? '.live' : failed ? '.bad' : ''}` as 'details',
+    h('summary', { dataset: { case: 'keep' } }, h('span.ck', icon(running ? '<circle cx="12" cy="12" r="6"/>' : failed ? '<path d="M7 7l10 10M17 7L7 17"/>' : TICK)), h('b', running ? 'Working' : `${acts.length} step${acts.length === 1 ? '' : 's'}`), h('i.sep'), h('span.w', words), icon('<path d="M6 9.5l6 6 6-6"/>', 'ic chv')),
+    ...rows);
+  d.open = running || open.has(key);
+  d.addEventListener('toggle', () => (d.open ? open.add(key) : open.delete(key)));
+  return d;
+}
+const openSteps = new Set<string>();
 
 /**
  * The STOP button of a THINK HARDER still running, kept from one repaint of the log to the next: the log is
@@ -137,20 +173,25 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
       const el = plainReply(e);
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
+      // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.
+      const acts = h('div.rcacts');
       // 👍 / 👎: what the offline brain's weekly training learns from (rate.ts).
-      if (rateable(e)) el.append(rateRow(e));
-      if (q) el.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
-      // copy / listen (the calm looks show them under the latest reply)
-      if (e.text && !e.offline) el.append(replyActs(e.text));
+      if (rateable(e)) acts.append(rateRow(e));
+      if (e.text && !e.offline) acts.append(replyActs(e.text));
+      if (q) acts.append(h('div.row.thinkrow', button('THINK HARDER', () => void thinkHarderAbout(q), 'thinkbtn')));
+      if (acts.childElementCount) el.append(acts);
       return el;
     }
+    case 'home':
+      // a plan drawn from the owner's words: OPEN IN SPACE / SEE IN 3-D (homecard.ts)
+      return homeCard(e);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
       // done: "Saving to memory" reads "Saved to memory"
       const label = e.state === 'ok' ? e.label.replace(/^Saving to /, 'Saved to ') : e.label;
       const el = h(`div.act.${e.state}` as 'div', h('i'), h('span', label), e.detail ? h('em', e.detail) : null);
-      // saved to memory: the calm looks say "Remembered ✓" on the reply instead of a row of its own
+      // saved to memory: the reply says "Remembered ✓" instead of a row of its own
       if (/ to memory$/.test(label)) el.classList.add('memact');
       // What the tool is doing right now, under its line, with a thin bar when it knows how far it is.
       if (e.progress && e.state === 'running') {
@@ -177,17 +218,23 @@ export const coreTab: TabDef = {
   icon: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   scene: 'backdrop',
   blurb: 'talk to Ghosty · arc reactor HUD',
+  now() {
+    const c = ui.get().connected;
+    const ms = stopwatch.lastTrip();
+    return c == null ? '' : c ? `Online${ms != null ? ` · ${ms} ms` : ''}` : 'Offline';
+  },
   primary: true,
   mount(root) {
     const reactor = new Reactor();
     const stark = new StarkHud();
     const hud = h('div.hud.core');
-    const stateLabel = h('div#cstate', 'ONLINE');
+    // (route C shows it as a pill in tracked capitals: its case is kept)
+    const stateLabel = h('div#cstate', { dataset: { case: 'keep', tone: 'live' } }, 'ONLINE');
     // On phones the call-outs around the reactor have no room: the same readings sit in one
     // quiet row under it instead (hidden on wide screens, where the call-outs show).
     const glance = h('div#glance');
     const glanceItems = new Map<string, { el: HTMLElement; v: HTMLElement }>();
-    /** `glance`: the row's own wording when it must keep its case (a unit like °F; the calm looks show the row in sentence case). */
+    /** `glance`: the row's own wording when it must keep its case (a unit like °F; the row shows in sentence case). */
     const note = (c: { id: string; label: string; value: string; glance?: string; tone?: 'ok' | 'warn' | 'bad' }) => {
       stark.set(c);
       let g = glanceItems.get(c.id);
@@ -208,11 +255,8 @@ export const coreTab: TabDef = {
     const capRate = h('div.caprate');
     const caption = h('div#ccap', h('span', ''), capRate);
     const log = h('div.log');
-    const input = h('input#cin', { placeholder: `Talk to me, ${settings.get().name}…`, autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
-    // The calm looks' field is narrower (its buttons sit inside it): a shorter invitation.
-    const placeholder = () => (input.placeholder = proLook() ? 'Ask anything' : `Talk to me, ${settings.get().name}…`);
-    placeholder();
-    themeEvents.on('change', placeholder);
+    // The field is narrow (its buttons sit inside it): a short invitation.
+    const input = h('input#cin', { placeholder: 'Ask anything', autocomplete: 'off', enterKeyHint: 'send', 'aria-label': 'Message Ghosty' });
     const submit = () => {
       const t = input.value.trim();
       if (!t) return input.focus(); // nothing typed yet: open the keyboard rather than doing nothing
@@ -258,7 +302,6 @@ export const coreTab: TabDef = {
     }, `citedbtn${settings.get().cited ? ' on' : ''}`);
     citedBtn.setAttribute('aria-pressed', String(settings.get().cited));
     citedBtn.title = 'Answers with numbered sources, each claim checked';
-    citedBtn.dataset.label = 'Answers with sources'; // its line in the calm looks' "+" menu
     const voiceBtn = button(settings.get().speak ? 'VOICE ON' : 'VOICE OFF', (b) => {
       settings.set({ speak: !settings.get().speak });
       b.textContent = settings.get().speak ? 'VOICE ON' : 'VOICE OFF';
@@ -266,17 +309,15 @@ export const coreTab: TabDef = {
     const convo = panel('CONVERSATION', { status: '' });
     convo.body.append(log);
     convo.el.classList.add('convo');
-    // The conversation's one way in and out (the calm looks: a "Chat" chip under the reactor, "Continue in chat" on a
-    // reply, and "‹ Ask" once open; the classic looks: LOG in the chat bar). Tests know it as .logbtn.
+    // The conversation's one way in and out: the ask bar's chat button, "Continue in chat" on a reply, and "‹ Ask"
+    // once open. Tests know it as .logbtn.
     const logBtn = button('LOG', () => setChat(!hud.classList.contains('logopen')), 'logbtn');
     const setChat = (open: boolean) => {
       hud.classList.toggle('logopen', open);
       logBtn.classList.toggle('on', open);
       if (open) log.scrollTop = log.scrollHeight;
-      if (proLook()) {
-        if (open) pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) });
-        else popScreen();
-      }
+      if (open) pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) });
+      else popScreen();
       placeChat();
     };
 
@@ -303,8 +344,8 @@ export const coreTab: TabDef = {
       if (t?.closest?.('button, input, select, textarea, a, .log, .cside, #cbar, #topbar, nav, .modal')) return;
       interrupt('tap');
     });
-    // The calm looks: a lock-screen glance (date and time above the reactor; the weather and what is next
-    // under it) and a "+" that holds voice replies and the camera. The classic looks never show them.
+    // A lock-screen glance (date and time above the reactor; the weather and what is next under it) and a "+"
+    // that holds voice replies and the camera.
     // Under the greeting (the navigation bar's large title): the time and the weather in one small line, then what is next.
     const lockDate = h('span.ldate');
     const lockTime = h('b.ltime');
@@ -322,7 +363,7 @@ export const coreTab: TabDef = {
       lockNext.hidden = !nextUp;
     };
     let nextUp = '';
-    // Two or three things to ask for, under the reactor (the calm looks); the first is the way into the conversation.
+    // Two or three things to ask for, under the reactor.
     const chip = (label: string, tint: string, glyph: string, run: () => void) => {
       const b = h('button.sugg', { type: 'button', style: `--tint:${tint}` }, icon(glyph), h('span', label));
       b.addEventListener('click', run);
@@ -335,7 +376,8 @@ export const coreTab: TabDef = {
     );
     const capActs = h('div.capacts');
     const plus = h('button.plusbtn', { type: 'button', 'aria-label': 'More: voice replies and the camera', 'aria-expanded': 'false' }, icon('<path d="M12 5v14M5 12h14"/>'));
-    const plusMenu = h('div.plusmenu', citedBtn, voiceBtn, lensBtn);
+    // (CITED sits in the bar itself: the composer shows it as a toggle beside the field)
+    const plusMenu = h('div.plusmenu', voiceBtn, lensBtn);
     plus.addEventListener('click', () => {
       const open = !plusMenu.classList.contains('open');
       plusMenu.classList.toggle('open', open);
@@ -356,20 +398,21 @@ export const coreTab: TabDef = {
       plusMenu.classList.remove('open');
       plus.setAttribute('aria-expanded', 'false');
     });
-    const center = h('div.ccenter', stark.el, lock, h('div.rwrap', reactor.el), lockLine, stateLabel, glance, caption, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, mic));
+    // Route C's Home (home.ts): the date and weather lines, the reactor framed by its four instruments, the
+    // Today card and the two tiles.
+    const rwrap = h('div.rwrap', reactor.el);
+    const rc = routeCHome(rwrap);
+    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, mic));
+    // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
+    setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
-    // Where the conversation button is (one at a time): the classic looks' chat bar; in the calm looks "‹ Ask" in the
-    // navigation bar while the conversation is open, "Continue in chat" on a reply, else the "Chat" chip.
+    // Where the conversation button is (one at a time): "‹ Ask" in the navigation bar while the conversation is open,
+    // "Continue in chat" on a reply, else the ask bar's chat button.
     const cbar = center.querySelector('#cbar')!;
     const placeChat = () => {
       const top = document.querySelector('#top');
       const replying = !!chat.get().live && !caption.classList.contains('fade');
-      center.classList.toggle('replying', proLook() && replying && !hud.classList.contains('logopen'));
-      if (!proLook()) {
-        delete logBtn.dataset.label;
-        if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
-        return;
-      }
+      center.classList.toggle('replying', replying && !hud.classList.contains('logopen'));
       if (hud.classList.contains('logopen') && top) {
         logBtn.dataset.label = 'Ask';
         if (logBtn.parentElement !== top) top.prepend(logBtn);
@@ -377,15 +420,15 @@ export const coreTab: TabDef = {
         logBtn.dataset.label = 'Continue in chat';
         if (logBtn.parentElement !== capActs) capActs.append(logBtn);
       } else {
+        // route C: the way into the conversation is the ask bar's own chat button (left in the field)
         logBtn.dataset.label = 'Chat';
-        if (logBtn.parentElement !== suggest) suggest.prepend(logBtn);
+        if (logBtn.parentElement !== cbar) cbar.insertBefore(logBtn, input);
       }
     };
     setTimeout(placeChat, 0);
-    themeEvents.on('change', placeChat);
     // Touch the reactor: it answers with a pulse.
-    reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
-    hud.append(left, center, right);
+    reactor.el.addEventListener('pointerdown', (e) => reactor.poke(e));
+    hud.append(rc.glowBox, left, center, right);
     root.append(hud);
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
@@ -431,7 +474,8 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      const shown = chat.get().entries.slice(-40);
+      // a plan card goes under the reply it came with (homecard.ts)
+      const shown = homeAfterReply(chat.get().entries.slice(-40));
       // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
       const last = shown.findLastIndex((x) => x.kind === 'assistant');
       const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
@@ -442,25 +486,41 @@ export const coreTab: TabDef = {
       // a day line where the day changes ("Today", "Yesterday", "Friday 16 October")
       let day = '';
       const els: HTMLElement[] = [];
+      // route C: a run of tool rows becomes one "N steps" line that opens to them
+      let run: { acts: Extract<Entry, { kind: 'activity' }>[]; rows: HTMLElement[] } | null = null;
+      const flush = () => {
+        if (run) els.push(stepsLine(run.acts, run.rows, openSteps));
+        run = null;
+      };
       shown.forEach((e, i) => {
         const at = 'at' in e ? e.at : 0;
         if (at) {
           const d = new Date(at);
           const k = d.toDateString();
           if (k !== day) {
+            flush();
             day = k;
             const ago = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(at).setHours(0, 0, 0, 0)) / 864e5);
-            els.push(h('div.daysep', ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })));
+            // "Today 18:31": the day, and the time of its first message
+            els.push(h('div.daysep', `${ago === 0 ? 'Today' : ago === 1 ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })} ${fmt.time(d)}`));
           }
         }
+        if (e.kind === 'activity') {
+          run ??= { acts: [], rows: [] };
+          run.acts.push(e);
+          run.rows.push(renderEntry(e));
+          return;
+        }
+        flush();
         els.push(renderEntry(e, i === last ? q : undefined));
       });
+      flush();
       clear(log, ...els);
       // copy / listen only under the latest reply
       [...log.querySelectorAll('.msg:not(.me)')].at(-1)?.classList.add('latest');
       // "Remembered ✓" on the reply that follows a save to memory
       for (const a of log.querySelectorAll('.act.memact.ok')) {
-        let n = a.nextElementSibling;
+        let n = (a.closest('.rcsteps') ?? a).nextElementSibling;
         while (n && !n.matches('.msg:not(.me)') && n.matches('.act')) n = n.nextElementSibling;
         if (n?.matches('.msg:not(.me)')) n.append(h('span.memchip', 'Remembered'));
       }
@@ -499,7 +559,9 @@ export const coreTab: TabDef = {
       if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
-      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : conversation ? 'READY' : 'ONLINE';
+      stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';
+      // route C draws it as a pill: the accent while live, amber when the brain can't be reached
+      stateLabel.dataset.tone = s.connected === false && !s.busy && s.voice !== 'speaking' ? 'warn' : 'live';
     };
     ui.subscribe(paintState);
     paintState();
@@ -532,6 +594,9 @@ export const coreTab: TabDef = {
     let libText = '…';
     let nextAt = 0;
     const paintCallouts = async () => {
+      // route C's instruments and cards (each refreshes only what is stale)
+      rc.tick();
+      rc.enter();
       const lastModel = [...chat.get().entries].reverse().find((e) => e.kind === 'assistant' && e.model);
       const model = lastModel && lastModel.kind === 'assistant' ? lastModel.model ?? '' : '';
       const ms = await latency().catch(() => null);
@@ -591,7 +656,7 @@ export const coreTab: TabDef = {
     return {
       enter() {
         // back on the reactor with the conversation still open: the bar says so again
-        if (proLook() && hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
+        if (hud.classList.contains('logopen')) setTimeout(() => pushScreen({ back: 'Ask', label: 'Chat', ownBack: true, pop: () => setChat(false) }), 0);
         void paintCallouts();
         clearInterval(calloutTimer);
         calloutTimer = window.setInterval(() => void paintCallouts(), 15000);

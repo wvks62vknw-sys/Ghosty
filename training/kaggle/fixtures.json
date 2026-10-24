@@ -550,6 +550,152 @@
    },
    "ok": false,
    "problem": "unknown kind secret"
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "What is 7 × 8?"
+     }
+    ],
+    "answer": "56",
+    "check": {
+     "type": "number"
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "Which is a noun?\n\nA) run\nB) table\nC) quickly\nD) blue\nAnswer with the letter."
+     }
+    ],
+    "answer": "b",
+    "check": {
+     "type": "mcq",
+     "options": [
+      "run",
+      "table",
+      "quickly",
+      "blue"
+     ]
+    }
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "Which is a noun?"
+     }
+    ],
+    "answer": "table",
+    "check": {
+     "type": "mcq"
+    }
+   },
+   "ok": false,
+   "problem": "a multiple-choice answer must be a letter A–D"
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "What is 7 × 8?"
+     }
+    ],
+    "answer": "56"
+   },
+   "ok": false,
+   "problem": "a school question needs how its answer is checked"
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "Why do leaves fall in autumn?\n\n(2 marks: explain briefly.)"
+     },
+     {
+      "role": "assistant",
+      "content": "Trees save water and energy over winter. Answer: to save water"
+     }
+    ]
+   },
+   "ok": true,
+   "problem": ""
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "Why do leaves fall in autumn?"
+     }
+    ]
+   },
+   "ok": false,
+   "problem": "a school item needs its exact answer, or a worked answer to learn"
+  },
+  {
+   "record": {
+    "kind": "school",
+    "messages": [
+     {
+      "role": "system",
+      "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+     },
+     {
+      "role": "user",
+      "content": "Q"
+     }
+    ],
+    "answer": "  ",
+    "check": {
+     "type": "exact"
+    }
+   },
+   "ok": false,
+   "problem": "a school question needs the question and its exact answer"
   }
  ],
  "toolsBlock": "# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"type\":\"function\",\"function\":{\"name\":\"weather\",\"description\":\"Weather for a place.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\"},\"lat\":{\"type\":\"number\"}}}}}\n{\"type\":\"function\",\"function\":{\"name\":\"set_reminder\",\"description\":\"A reminder.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"},\"in_minutes\":{\"type\":\"number\"},\"repeat\":{\"type\":\"string\",\"enum\":[\"none\",\"daily\"]}},\"required\":[\"text\"]}}}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>",
@@ -629,5 +775,326 @@
     "near": false
    }
   ]
- }
+ },
+ "schoolMarks": [
+  {
+   "item": {
+    "type": "number",
+    "answer": "56",
+    "marks": 1
+   },
+   "given": "Seven eights are 56.\nAnswer: 56",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "56",
+    "marks": 1
+   },
+   "given": "Answer: 57",
+   "got": 0
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "0.75",
+    "marks": 1
+   },
+   "given": "Answer: 3/4",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "1.5",
+    "marks": 2
+   },
+   "given": "Final answer: 1 1/2",
+   "got": 2
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "1250",
+    "marks": 1
+   },
+   "given": "**Answer:** £1,250",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "12",
+    "unit": "cm",
+    "marks": 1
+   },
+   "given": "Answer: 12cm",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "3.14",
+    "tolerance": 0.01,
+    "marks": 1
+   },
+   "given": "Answer: 3.141",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "-4",
+    "marks": 1
+   },
+   "given": "Answer: -4",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "number",
+    "answer": "5",
+    "marks": 1
+   },
+   "given": "I do not know",
+   "got": 0
+  },
+  {
+   "item": {
+    "type": "mcq",
+    "answer": "b",
+    "options": [
+     "run",
+     "table",
+     "quickly",
+     "blue"
+    ],
+    "marks": 1
+   },
+   "given": "Answer: B",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "mcq",
+    "answer": "b",
+    "options": [
+     "run",
+     "table",
+     "quickly",
+     "blue"
+    ],
+    "marks": 1
+   },
+   "given": "Answer: (b) table",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "mcq",
+    "answer": "b",
+    "options": [
+     "run",
+     "table",
+     "quickly",
+     "blue"
+    ],
+    "marks": 1
+   },
+   "given": "Answer: C",
+   "got": 0
+  },
+  {
+   "item": {
+    "type": "mcq",
+    "answer": "b",
+    "options": [
+     "run",
+     "table",
+     "quickly",
+     "blue"
+    ],
+    "marks": 1
+   },
+   "given": "Answer: Table.",
+   "got": 0
+  },
+  {
+   "item": {
+    "type": "exact",
+    "answer": "photosynthesis",
+    "marks": 1
+   },
+   "given": "Answer: Photosynthesis!",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "exact",
+    "answer": "the Thames",
+    "also": [
+     "River Thames"
+    ],
+    "marks": 1
+   },
+   "given": "Answer: river thames",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "exact",
+    "answer": "o'clock",
+    "marks": 1
+   },
+   "given": "Answer: oclock",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "exact",
+    "answer": "snake_case",
+    "marks": 1
+   },
+   "given": "Answer: snake case",
+   "got": 1
+  },
+  {
+   "item": {
+    "type": "exact",
+    "answer": "cat",
+    "marks": 1
+   },
+   "given": "dog",
+   "got": 0
+  },
+  {
+   "item": {
+    "type": "short",
+    "answer": "x",
+    "marks": 2
+   },
+   "given": "Answer: x",
+   "got": null
+  }
+ ],
+ "examPrompts": [
+  {
+   "item": {
+    "q": "What is 7 × 8?",
+    "type": "number",
+    "marks": 1
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+    },
+    {
+     "role": "user",
+     "content": "What is 7 × 8?"
+    }
+   ]
+  },
+  {
+   "item": {
+    "q": "Which word is a noun?",
+    "type": "mcq",
+    "marks": 1,
+    "options": [
+     "run",
+     "table",
+     "quickly",
+     "blue"
+    ]
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+    },
+    {
+     "role": "user",
+     "content": "Which word is a noun?\n\nA) run\nB) table\nC) quickly\nD) blue\nAnswer with the letter."
+    }
+   ]
+  },
+  {
+   "item": {
+    "q": "Why did the fox leave the grapes?",
+    "type": "short",
+    "marks": 2,
+    "passage": {
+     "title": "The Fox and the Grapes",
+     "text": "A hungry fox saw some grapes hanging high on a vine."
+    }
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+    },
+    {
+     "role": "user",
+     "content": "Read this: \"The Fox and the Grapes\"\n\nA hungry fox saw some grapes hanging high on a vine.\n\nWhy did the fox leave the grapes?\n\n(2 marks: explain briefly.)"
+    }
+   ]
+  },
+  {
+   "item": {
+    "q": "What did the fox say?",
+    "type": "short",
+    "marks": 1,
+    "passage": {
+     "title": "The Fox and the Grapes",
+     "text": "A hungry fox saw some grapes."
+    }
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+    },
+    {
+     "role": "user",
+     "content": "Read this: \"The Fox and the Grapes\"\n\nA hungry fox saw some grapes.\n\nWhat did the fox say?\n\n(1 mark: explain briefly.)"
+    }
+   ]
+  },
+  {
+   "item": {
+    "q": "Write a short story about a lost dog.",
+    "type": "extended",
+    "marks": 8
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'. For a piece of writing, write the whole piece, then finish with 'Answer: done'."
+    },
+    {
+     "role": "user",
+     "content": "Write a short story about a lost dog.\n\n(8 marks: write it out in full.)"
+    }
+   ]
+  },
+  {
+   "item": {
+    "q": "Spell the word.",
+    "type": "exact",
+    "marks": 1
+   },
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+    },
+    {
+     "role": "user",
+     "content": "Spell the word."
+    }
+   ]
+  }
+ ],
+ "note2": "schoolMarks and examPrompts: SCHOOL marking (school.ts markExact / the notebook mark_exact) and the exam prompt (school.ts examMessages, apps/web/src/school/sit.ts examPrompt / the notebook exam_prompt), computed from the TypeScript side."
 }

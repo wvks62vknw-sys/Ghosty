@@ -722,6 +722,7 @@ export function createScanMode(L: LensContext): Mode {
       document.addEventListener('click', wakeBeeper, true);
       clear(L.panel);
       L.panel.append(root, file);
+      if (opts?.sub) sub = opts.sub;
       setSub(sub);
       if (opts?.still) {
         if (sub === 'code') void scanPhoto(opts.still);

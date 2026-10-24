@@ -115,6 +115,85 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
   check(!(await page.$('#toasts :text("QUIETMARK")')), 'an item whose kind is switched off still popped up in the app');
   await ctx.close();
 }
+// ---- fixes A2: toasts never pile up over the screen. Four long project notifications (and one of them twice)
+// arrive at once: at most two are on screen, each cut at three lines, the same one twice shows once, they keep
+// off the chat bar and the tab bar (the composer stays usable), a tap on a long one opens all of its words, and
+// the box still announces them (aria-live). At the specs' 390 × 844 and the owner's 440 × 956.
+for (const [w, hgt] of [[390, 844], [440, 956]]) {
+  const tag = `[toasts ${w}]`;
+  const ctx = await chrome.newContext({ viewport: { width: w, height: hgt } });
+  await ctx.addInitScript((key) => {
+    localStorage.setItem('ghosty.ownerKey', key);
+    // every toast ever put up (seen as it is added, before any is taken away), and the most on screen at once
+    window.__a2 = { made: [], most: 0 };
+    const append = Element.prototype.append;
+    Element.prototype.append = function (...nodes) {
+      if (this.id === 'toasts') for (const n of nodes) if (n.classList?.contains('toast')) window.__a2.made.push(n.textContent);
+      return append.apply(this, nodes);
+    };
+    new MutationObserver(() => {
+      const box = document.getElementById('toasts');
+      if (box) window.__a2.most = Math.max(window.__a2.most, box.querySelectorAll('.toast:not(.out)').length);
+    }).observe(document, { childList: true, subtree: true });
+  }, KEY);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push(`${tag} pageerror: ${e.message}`));
+  const now = Date.now();
+  const long = (n) => `PILEMARK${n} All 3 steps are done: the weekend site has a home page, a gallery and a contact form, each checked on a phone and on a computer. ${'It is published at the address in the report, with a short note on what to change next and what each page costs to keep running. '.repeat(3)}ENDMARK${n}`;
+  const items = [1, 2, 3, 4].map((n) => ({ id: `p${n}`, at: now - 9000 + n * 1000, kind: 'task', title: `weekend site ${n} · done`, text: long(n) }));
+  items.push({ ...items[0], id: 'p1again', at: now - 3000 });
+  await page.route('**/api/inbox', (r) => (r.request().method() !== 'GET' ? r.continue() : r.fulfill({ contentType: 'application/json', body: JSON.stringify({ unread: items.length, items: [...items].reverse() }) })));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await page.waitForSelector('#toasts .toast', { timeout: 10000 }).catch(() => problems.push(`${tag} no toast for the project notifications`));
+  await page.waitForTimeout(300);
+  const seen = await page.evaluate(() => window.__a2);
+  check(seen.most <= 2, `${tag} ${seen.most} toasts on screen at once (at most two)`);
+  check(seen.made.filter((t) => t.includes('PILEMARK1')).length === 1, `${tag} the same notification twice within a minute popped up ${seen.made.filter((t) => t.includes('PILEMARK1')).length} times`);
+  check(seen.made.filter((t) => t.includes('PILEMARK')).length === 4, `${tag} expected the 4 different notifications to pop up once each, got ${seen.made.length}`);
+  check((await page.getAttribute('#toasts', 'aria-live')) === 'polite', `${tag} the toasts are no longer announced (aria-live)`);
+  const m = await page.evaluate(() => {
+    const box = (s) => document.querySelector(s)?.getBoundingClientRect();
+    const toasts = [...document.querySelectorAll('#toasts .toast:not(.out)')].map((t) => {
+      const span = t.querySelector('span');
+      // one line of the same text style, measured with a one-word copy
+      const one = t.cloneNode(true);
+      const s1 = one.querySelector('span');
+      s1.textContent = 'x';
+      if (s1.dataset.label) s1.dataset.label = 'x';
+      one.style.position = 'absolute';
+      one.style.visibility = 'hidden';
+      t.parentElement.append(one);
+      const line = s1.getBoundingClientRect().height;
+      one.remove();
+      const r = t.getBoundingClientRect();
+      return { lines: span.getBoundingClientRect().height / line, chars: span.textContent.length, top: r.top, bottom: r.bottom, left: r.left, right: r.right };
+    });
+    const bar = box('#cbar');
+    const tabs = box('#dock .tabcap') ?? box('#dock');
+    return { toasts, bar: bar && { top: bar.top, bottom: bar.bottom }, tabs: tabs && { top: tabs.top } };
+  });
+  check(m.toasts.length > 0 && m.toasts.length <= 2, `${tag} ${m.toasts.length} toasts visible`);
+  for (const [i, t] of m.toasts.entries()) {
+    // three lines of text (the clamp); the measure may carry a little of the glyph row's height
+    check(t.lines <= 3.5, `${tag} toast ${i + 1} is ${t.lines.toFixed(1)} lines tall (at most 3)`);
+    check(t.chars > 200, `${tag} toast ${i + 1} is not a long one (${t.chars} characters): the test proves nothing`);
+    if (m.bar) check(t.bottom <= m.bar.top + 1 || t.top >= m.bar.bottom - 1, `${tag} toast ${i + 1} covers the chat bar`);
+    if (m.tabs) check(t.bottom <= m.tabs.top + 1, `${tag} toast ${i + 1} covers the tab bar`);
+    check(t.left >= 0 && t.right <= w, `${tag} toast ${i + 1} runs off the side`);
+  }
+  // the composer stays usable with the toasts up
+  const typed = await page.fill('#cin', 'still typing', { timeout: 3000 }).then(() => page.inputValue('#cin')).catch((e) => `blocked: ${e.message.split('\n')[0]}`);
+  check(typed === 'still typing', `${tag} the chat box could not be used with toasts up (${typed})`);
+  await page.fill('#cin', '').catch(() => undefined);
+  await page.screenshot({ path: `${out}/a2-toasts-${w}.png` });
+  // a tap on a long one opens all of it
+  await page.locator('#toasts .toast:not(.out)').last().click({ timeout: 3000 }).catch((e) => problems.push(`${tag} a long toast cannot be tapped: ${e.message.split('\n')[0]}`));
+  const sheet = await page.waitForSelector('.modal .mbody', { timeout: 3000 }).then((el) => el.textContent()).catch(() => '');
+  check(/ENDMARK4/.test(sheet ?? ''), `${tag} tapping a long toast did not open its whole text`);
+  await page.screenshot({ path: `${out}/a2-toast-opened-${w}.png` });
+  await ctx.close();
+}
 await chrome.close();
 
 // ---- an iPhone in a Safari tab (WebKit, iPhone user agent, not opened from the Home Screen)
@@ -135,5 +214,5 @@ if (wk) {
   await wk.close();
 }
 
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Notifications run clean: three switches kept by the brain, drawn once, quiet items give no alert, SEND A TEST, Home Screen sentence on iPhone.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Notifications run clean: three switches kept by the brain, drawn once, quiet items give no alert, SEND A TEST, toasts kept to two short ones that open in full, Home Screen sentence on iPhone.');
 process.exit(problems.length ? 1 : 0);

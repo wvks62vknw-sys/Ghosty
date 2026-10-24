@@ -80,7 +80,8 @@ const FEED_HOSTS = new Set([
   'router.project-osrm.org',
   'en.wikipedia.org',
   'api.postcodes.io',
-]);
+  'i.ytimg.com',
+]); // [video] i.ytimg.com: a YouTube thumbnail for the reply's video card (features/core/ytcard.ts)
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 

@@ -7,6 +7,7 @@
  */
 import { sfx } from '../assistant/sfx';
 import { h } from '../core/dom';
+import { stopwatch } from '../core/stopwatch';
 import { backdrop } from '../engine/backdrop';
 import { globe } from '../engine/globe';
 import { setScene } from '../engine/scheduler';
@@ -28,10 +29,16 @@ export interface TabDef {
   scene: 'globe' | 'backdrop';
   /** A few words under the tab's name in the systems deck. */
   blurb?: string;
-  /** An area's hub (shell/areas.ts, the calm looks): left out of the systems deck. */
+  /** An area's hub (shell/areas.ts): left out of the systems deck. */
   hub?: boolean;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
+  /**
+   * One live line for the Every screen deck ("8°C · partly cloudy"), read from what this phone already holds
+   * (a feed, a store, the last answer it had); '' when it holds nothing yet. Never fetches. A line ending
+   * "in N min" is due within the hour and lights in the accent.
+   */
+  now?(): string;
   mount(root: HTMLElement): TabInstance;
 }
 
@@ -59,6 +66,8 @@ export function go(id: string): boolean {
   const prev = ui.get().tab;
   if (prev === def.id && mounted.has(def.id)) return true;
   const switching = mounted.has(prev);
+  // The stopwatch (core/stopwatch.ts): from here to the first paint after the tab is on screen.
+  const timed = stopwatch.tab(def.id, def.title, !mounted.has(def.id));
   mounted.get(prev)?.inst.leave?.();
   let m = mounted.get(def.id);
   if (!m) {
@@ -85,5 +94,6 @@ export function go(id: string): boolean {
     /* ignore */
   }
   m.inst.enter?.();
+  timed();
   return true;
 }

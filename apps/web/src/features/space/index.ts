@@ -10,7 +10,8 @@
  * on this phone (space/store.ts); what is on screen goes along with a chat message as context
  * (describe()). DESIGN REVIEW sends the plan to Ghosty with the owner's goal; the changes Ghosty
  * suggests come back as whole plans (the `design_changes` command), checked here, shown BEFORE and
- * AFTER and applied only on APPLY. SEE IN 3-D builds the plan in the 3D STUDIO. The pure parts are
+ * AFTER and applied only on APPLY. SEE IN 3-D builds the plan in the 3D STUDIO. DESIGN MY HOME (home.ts),
+ * on top, draws a home from the owner's words through the brain's design_home into this plan. The pure parts are
  * in space/plan.ts, space/rooms.ts and packages/shared/src/design.ts. The state a test reads is at
  * window.__ghosty.space.
  */
@@ -27,6 +28,7 @@ import { addOpening, addRoom, removeOpening, removeRoom, renameRoom, reshapeRoom
 import { space } from '../../space/store';
 import { wallRuns } from '../../studio/room';
 import { createFromPhotoPanel, fromPhotoState, rescaleWall, type FromPhotoState } from './fromphoto';
+import { createHomePanel, type HomeState } from './home';
 
 /** What the planner shows, for tests and the console (window.__ghosty.space). */
 export interface SpaceState {
@@ -50,9 +52,11 @@ export interface SpaceState {
   view: { pad: number; k: number };
   /** FROM PHOTO (fromphoto.ts): what the last photos gave. */
   fromPhoto: FromPhotoState;
+  /** DESIGN MY HOME (home.ts): the drawn plan's line, its floors, which is shown, DESIGN in progress. */
+  home: HomeState;
 }
 
-export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState };
+export const spaceState: SpaceState = { room: { w: 0, d: 0 }, items: [], selected: '', gaps: [], clashes: [], open: { x: 0, y: 0, w: 0, h: 0, area: 0 }, options: [], fit: '', exported: { png: 0, json: 0 }, rooms: [], openings: [], area: '', swing: [], review: { goal: '', options: [], rejected: 0, view: 'before', chosen: -1, applied: 0 }, view: { pad: 34, k: 1 }, fromPhoto: fromPhotoState, home: { id: '', line: '', storeys: [], shown: 0, assumed: 0, drawing: false, outcome: '', offline: false } };
 
 /** A change Ghosty suggested: a whole plan, checked against the owner's. */
 interface DesignOption {
@@ -402,6 +406,7 @@ export const spaceTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'SPACE PLANNER', sub: 'your room in real sizes · kept on this phone', leftLabel: 'PLAN', rightLabel: 'TOOLS', stack: true });
     let selected = '';
+    let lastHome: string | null = null;
     let undoItems: Item[] | null = null;
     let preview: Rect | null = null;
     let options: Arrangement[] = [];
@@ -531,7 +536,11 @@ export const spaceTab: TabDef = {
     const dp = panel('DESIGN REVIEW', { status: 'UK guidance', cls: 'spacereview' });
     const goalIn = h('input', { placeholder: 'your goal, e.g. make it feel bigger', 'aria-label': 'What you want from the room', maxlength: '200' });
     const goalChips = h('div.lenschips.spacegoals');
-    for (const gl of ['Make it feel bigger', 'A home office', 'More light', 'Safer and easier to get around']) goalChips.append(button(gl.toUpperCase(), () => (goalIn.value = gl)));
+    for (const gl of ['Make it feel bigger', 'A home office', 'More light', 'Safer and easier to get around']) {
+      const b = button(gl.toUpperCase(), () => (goalIn.value = gl));
+      b.dataset.label = gl; // route C: the words as written
+      goalChips.append(b);
+    }
     const reviewBtn = button('REVIEW MY PLAN', () => void askReview(), 'on');
     const viewRow = h('div.row.wrap.spacebeforeafter');
     const changeList = h('div.stackf.spacechanges');
@@ -779,7 +788,20 @@ export const spaceTab: TabDef = {
       selected = '';
     });
 
-    P.left.append(pp.el);
+    // DESIGN MY HOME (home.ts) on top: a home described in words, drawn into the plan below.
+    const homePanel = createHomePanel((st) => {
+      spaceState.home = st;
+      // a plan just drawn (or another of its floors) replaces the room on screen: what was chosen or offered for the old one goes
+      const key = `${st.id}:${st.shown}`;
+      if (key !== lastHome) {
+        if (lastHome !== null) {
+          resetMake();
+          selected = '';
+        }
+        lastHome = key;
+      }
+    });
+    P.left.append(homePanel.el, pp.el);
     P.right.append(rp.el, photoPanel.el, dp.el, ap.el, fp.el, mp.el, msp.el, xp.el);
 
     // ======================= drawing and dragging

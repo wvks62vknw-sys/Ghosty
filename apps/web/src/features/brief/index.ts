@@ -6,7 +6,7 @@ import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '.
 import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
 import { home } from '../../state/app';
-import { button, pager, panel, row, spark } from '../../ui/components';
+import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
 
 export const briefTab: TabDef = {
@@ -15,18 +15,19 @@ export const briefTab: TabDef = {
   icon: '<rect x="3" y="4" width="18" height="14" rx="1"/><path d="M7 9h10M7 13h6M8 21h8"/>',
   scene: 'backdrop',
   blurb: 'news · weather · your day at a glance',
+  now: () => (weather.data ? `${temp(weather.data.current.temperature_2m)} · ${WMO(weather.data.current.weather_code).toLowerCase()}` : ''),
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER' });
-    const wp = panel('WEATHER');
+    const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stack: true });
+    const wp = panel('WEATHER', { cls: 'wx' });
     P.left.append(wp.el);
-    const np = panel('HEADLINES', { footer: true, status: 'BBC' });
+    const np = panel('HEADLINES', { footer: true, status: 'BBC', cls: 'news' });
     const sections = h('div.tabs', ...Object.entries(NEWS_FEEDS).map(([id, [label]]) => button(label, (b) => {
       setNewsFeed(id);
       [...sections.children].forEach((x) => x.classList.toggle('on', x === b));
     }, id === currentNewsFeed() ? 'on' : '')));
     np.el.insertBefore(sections, np.body);
-    const ng = pager(np, 62, (x: Headline) => row(null, x.title, x.at ? fmt.ago(x.at) : '', { wrap: true, onClick: () => { go('core'); void send(`Explain this headline in plain terms and why it matters: "${x.title}". ${x.desc}`); } }), () => news.status);
+    const ng = pager(np, 62, (x: Headline) => row(null, x.title, x.at ? fmt.ago(x.at) : '', { wrap: true, onClick: () => { go('core'); void send(`Explain this headline in plain terms and why it matters: "${x.title}". ${x.desc}`); } }), () => news.status, 'Headlines come in by themselves; pick another section above meanwhile.');
     np.foot!.prepend(button('BRIEF ME', () => {
       go('core');
       void send(`Give me a sharp spoken briefing in about 90 words: weather, then the most important headlines, flagging anything that needs my attention. HEADLINES: ${(news.data ?? []).slice(0, 6).map((x) => x.title).join(' | ')}`);
@@ -38,7 +39,7 @@ export const briefTab: TabDef = {
       wp.title.textContent = `WEATHER · ${home().name.toUpperCase()}`;
       clear(wp.body);
       if (!w) {
-        wp.body.append(h('div.note', weather.status === 'NO FEED' ? 'Weather unavailable right now.' : 'Fetching forecast…'));
+        wp.body.append(empty(weather.status === 'NO FEED' ? 'NO FEED' : 'LOADING'));
         return;
       }
       const c = w.current;
@@ -59,7 +60,9 @@ export const briefTab: TabDef = {
         wp.body.append(row('AIR', `${band.label} · AQI ${Math.round(q.european_aqi)}`, `PM2.5 ${Math.round(q.pm2_5)} · NO₂ ${Math.round(q.nitrogen_dioxide)}`, { tone: band.tone === 'bad' ? 'bad' : band.tone === 'ok' ? 'up' : undefined }));
       }
       const h0 = new Date().getHours();
-      wp.body.append(h('div.lab', 'NEXT 24H TEMPERATURE'), spark(w.hourly.temperature_2m.slice(h0, h0 + 24), 300, 38), h('div.lab', 'RAIN CHANCE'), spark(w.hourly.precipitation_probability.slice(h0, h0 + 24), 300, 26));
+      const t24 = w.hourly.temperature_2m.slice(h0, h0 + 24);
+      const r24 = w.hourly.precipitation_probability.slice(h0, h0 + 24);
+      wp.body.append(h('div.lab', 'NEXT 24H TEMPERATURE'), h('div.wxspark.t', { dataset: { case: 'keep', lo: temp(Math.min(...t24)), hi: temp(Math.max(...t24)) } }, spark(t24, 300, 38)), h('div.lab', 'RAIN CHANCE'), h('div.wxspark.r', { dataset: { case: 'keep', lo: `${Math.min(...r24)}%`, hi: `${Math.max(...r24)}%` } }, spark(r24, 300, 26)));
       P.dials([
         ['RAIN', (d.precipitation_probability_max[0] ?? 0) / 100, `${d.precipitation_probability_max[0]}%`, '#5ce1ff'],
         ['UV', (d.uv_index_max[0] ?? 0) / 11, (d.uv_index_max[0] ?? 0).toFixed(0), '#ffd24d'],

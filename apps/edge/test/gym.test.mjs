@@ -739,3 +739,119 @@ test('bundle: the page imports only the games\' descriptions and the two boards 
     assert.deepEqual(deps.filter((d) => engines.includes(d)), [], `${f} imports ${deps.join(', ')}`);
   }
 });
+
+// ---------------------------------------------------------------------------------------------------------
+// Part 3: he carries on by himself — CONTINUE BY HIMSELF in the worker, TRAIN ALL's order and time, one toast.
+const waitFor = async (fn, ms, what) => {
+  const t = Date.now();
+  while (!fn()) {
+    if (Date.now() - t > ms) assert.fail(what);
+    await new Promise((r) => setTimeout(r, 50));
+  }
+};
+
+test('part 3: past the bar he goes straight on to the next level (CONTINUE BY HIMSELF), or stops there and waits when it is off; watching and measuring alone never move him up', async () => {
+  // A maze learner trained well past Level 1's bar (every start cell right, then more, so the worker's own
+  // training before it measures cannot drop him back under), not yet measured by the session.
+  const s = new S.Session(gameById('maze'));
+  for (let i = 0; i < 200 && s.learner.measure().mastery < 1; i++) s.train(100);
+  s.train(2000);
+  assert.ok(s.learner.measure().mastery >= s.game.bar(1), 'the maze learner did not reach the bar');
+  const rec = s.snapshot();
+  assert.equal(rec.level, 1);
+  const out = [];
+  const post = (m) => out.push(m);
+  const mine = (e) => out.filter((m) => m.gym === 'progress' && m.epoch === e);
+  // (A training step the worker test above left queued would post to that test's messages: let it run out first.)
+  await new Promise((r) => setTimeout(r, 100));
+
+  // Off: the level is passed (measured against ground truth), the next is made — and he stops there.
+  W.gymMessage({ gym: 'reset', id: 'maze', epoch: 20 }, post);
+  W.gymMessage({ gym: 'train', id: 'maze', rec, epoch: 20, carry: false }, post);
+  await waitFor(() => mine(20).some((m) => m.event === 'level'), 15000, 'no level-up with CONTINUE BY HIMSELF off');
+  const up = mine(20).find((m) => m.event === 'level');
+  assert.equal(up.rec.level, 2);
+  assert.equal(up.training, false, 'with CONTINUE BY HIMSELF off he goes on training after the level-up');
+  const units = up.rec.units;
+  await new Promise((r) => setTimeout(r, 1700));
+  assert.equal(mine(20).at(-1).rec.units, units, 'he trained on at the new level');
+  assert.ok(out.some((m) => m.gym === 'save' && m.epoch === 20 && m.rec.level === 2), 'the new level was not saved');
+
+  // On (switched on while he trains, by the `carry` message): the next level starts and he carries on, no tap.
+  W.gymMessage({ gym: 'reset', id: 'maze', epoch: 21 }, post);
+  W.gymMessage({ gym: 'train', id: 'maze', rec, epoch: 21, carry: false }, post);
+  W.gymMessage({ gym: 'carry', on: true }, post);
+  await waitFor(() => mine(21).some((m) => m.event === 'level'), 15000, 'no level-up with CONTINUE BY HIMSELF on');
+  const on = mine(21).find((m) => m.event === 'level');
+  assert.equal(on.rec.level, 2);
+  assert.equal(on.training, true, 'with CONTINUE BY HIMSELF on he stopped at the level-up');
+  await waitFor(() => (mine(21).at(-1).rec.units ?? 0) > on.rec.units && mine(21).at(-1).rec.level >= 2, 6000, 'he did not carry on training at Level 2');
+  W.gymMessage({ gym: 'pause' }, post);
+
+  // Watching him (round after round) and measuring never move him up: only training past the bar does.
+  W.gymMessage({ gym: 'reset', id: 'tictactoe', epoch: 20 }, post);
+  for (let k = 0; k < 20; k++) W.gymMessage({ gym: 'watch', id: 'tictactoe', epoch: 20, req: 100 + k, seed: k }, post);
+  W.gymMessage({ gym: 'view', id: 'tictactoe', epoch: 20, req: 200 }, post);
+  assert.ok(out.filter((m) => m.gym === 'reply' && m.req >= 100 && m.req < 120).every((m) => m.frames?.length), 'WATCH did not answer every round');
+  const looked = new S.Session(gameById('tictactoe'));
+  for (let k = 0; k < 20; k++) assert.equal(looked.measure(), null, 'measuring alone passed a level');
+  assert.equal(looked.rec.level, 1);
+  assert.ok(!out.some((m) => m.gym === 'progress' && m.rec.id === 'tictactoe'), 'watching made progress');
+});
+
+test('part 3: TRAIN ALL trains the least-mastered game first, 20 minutes each a round, round after round until all are mastered; its status line', () => {
+  assert.equal(S.ALL_BUDGET, 20 * 60_000);
+  const ids = ['maze', 'sudoku', 'chess', 'go'];
+  const recs = new Map([
+    ['maze', { level: 10, mastery: 1, mastered: true }],
+    ['sudoku', { level: 6, mastery: 0.5, mastered: false }],
+    ['chess', { level: 2, mastery: 0.9, mastered: false }],
+    // go: never trained
+  ]);
+  const B = S.ALL_BUDGET;
+  // Least mastered first (never trained = nothing yet); a mastered game is never picked.
+  assert.deepEqual(S.nextForAll(ids, recs, {}), { id: 'go', newRound: false });
+  // Its 20 minutes used: the next least mastered.
+  assert.deepEqual(S.nextForAll(ids, recs, { go: B }), { id: 'chess', newRound: false });
+  assert.deepEqual(S.nextForAll(ids, recs, { go: B, chess: B + 5 }), { id: 'sudoku', newRound: false });
+  assert.deepEqual(S.nextForAll(ids, recs, { go: B - 1, chess: B }), { id: 'go', newRound: false }, 'a minute left is still time');
+  // Every game left has had its time: a new round, least mastered first again.
+  assert.deepEqual(S.nextForAll(ids, recs, { go: B, chess: B, sudoku: B }), { id: 'go', newRound: true });
+  // Levels count before mastery: Level 2 at 90% is behind Level 6 at 50%; a tie goes to the GYM's order.
+  assert.ok(S.standing(recs.get('chess')) < S.standing(recs.get('sudoku')));
+  assert.equal(S.nextForAll(['sudoku', 'chess'], new Map([['sudoku', { level: 3, mastery: 0.2, mastered: false }], ['chess', { level: 3, mastery: 0.2, mastered: false }]]), {}).id, 'sudoku');
+  // A shorter budget, and the end: every game mastered.
+  assert.equal(S.nextForAll(ids, recs, { go: 10 }, 10).id, 'chess');
+  assert.equal(S.nextForAll(['maze'], recs, {}), null);
+  // The status line, honest and live.
+  const run = { spent: {}, total: 72 * 60_000, current: 'sudoku', round: 1 };
+  assert.equal(S.allLine(run, true, 'Sudoku', 6, 3, 22), 'Training all · Sudoku level 6 · 3 of 22 games mastered · 1 h 12 min');
+  assert.equal(S.allLine(run, false, 'Sudoku', 6, 3, 22), 'Stopped · Sudoku level 6 · 3 of 22 games mastered · 1 h 12 min · tap TRAIN ALL to carry on');
+  assert.match(S.allLine(null, false, '', 1, 0, 22), /^Trains every game in turn/);
+  assert.equal(S.allLine(run, false, 'Sudoku', 10, 22, 22), 'Every game mastered · 22 of 22 games mastered · 1 h 12 min');
+  assert.deepEqual([S.span(20_000), S.span(7 * 60_000 + 5), S.span(60 * 60_000)], ['under a minute', '7 min', '1 h 0 min']);
+});
+
+test('part 3: level-ups close together are one toast ("Levels 4–6 passed"); another game or a pause starts a new one', () => {
+  const T = S.TOGETHER;
+  let n = S.joinLevels(null, 'sudoku', 4, 1000);
+  assert.equal(S.levelText(n), 'Level 4 passed · on to level 5');
+  n = S.joinLevels(n, 'sudoku', 5, 3000);
+  n = S.joinLevels(n, 'sudoku', 6, 3000 + T);
+  assert.deepEqual([n.from, n.to], [4, 6]);
+  assert.equal(S.levelText(n), 'Levels 4–6 passed · on to level 7');
+  // Too long after: a new toast.
+  assert.deepEqual([S.joinLevels(n, 'sudoku', 7, 3000 + 2 * T + 1).from, S.joinLevels(n, 'sudoku', 7, 3000 + 2 * T + 1).to], [7, 7]);
+  // Another game (TRAIN ALL moving on): a new toast.
+  assert.equal(S.levelText(S.joinLevels(n, 'chess', 2, 3001 + T)), 'Level 2 passed · on to level 3');
+  // Not the next level (a RESET between): a new toast.
+  assert.equal(S.joinLevels(n, 'sudoku', 2, 3001 + T).from, 2);
+  // Level 10: every level mastered — and the run before it says so too.
+  const top = S.joinLevels(S.joinLevels(S.joinLevels(null, 'tictactoe', 8, 0), 'tictactoe', 9, 10), 'tictactoe', 10, 20, true);
+  assert.equal(S.levelText(top), 'Levels 8–10 passed · Mastered every level');
+  assert.equal(S.levelText(S.joinLevels(null, 'tictactoe', 10, 0, true)), 'Mastered every level');
+  // Nothing joins a finished run.
+  assert.equal(S.joinLevels(top, 'tictactoe', 11, 25).from, 11);
+  // CONTINUE BY HIMSELF off: he waits.
+  assert.equal(S.levelText(S.joinLevels(null, 'maze', 1, 0), false), 'Level 1 passed · he waits for you at level 2');
+});

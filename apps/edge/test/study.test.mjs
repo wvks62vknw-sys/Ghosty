@@ -67,6 +67,8 @@ globalThis.fetch = async (input) => {
 
 const first = S.DOMAINS[0];
 const second = S.DOMAINS[1] ?? S.DOMAINS[0];
+/** A field's first topic that is read (OpenStax pages are link-only: passed over). */
+const firstRead = (d) => d.topics.find((t) => t.k !== 'openstax');
 
 test("a study session reads the next topics into the domain's notebook and logs them; re-reading replaces, not duplicates", async () => {
   const st = new MemStorage();
@@ -75,23 +77,22 @@ test("a study session reads the next topics into the domain's notebook and logs 
   assert.deepEqual(r1.did, { reads: 2, digests: 0, drills: 0 });
   assert.equal(r1.state.i, 2);
   assert.equal(r1.state.sessions, 1);
-  // round-robin across the fields: one topic from each of the first two, not two from one
-  assert.equal(r1.state.cursor[first.id], 1);
-  assert.equal(r1.state.cursor[second.id], 1);
-  assert.equal(r1.state.last.topic, second.topics[0].t);
+  // one field at a time: the first field's first two topics, nothing from the second
+  assert.equal(r1.state.cursor[first.id], 2);
+  assert.equal(r1.state.cursor[second.id], undefined);
+  assert.equal(r1.state.last.topic, first.topics[1].t);
   assert.equal(r1.state.last.kind, 'read');
   assert.ok(r1.state.last.passages >= 1);
-  assert.equal(r1.next, QUARTER, 'more to read: back in a quarter of an hour');
+  assert.equal(r1.next, S.QUICK_TICK, 'more to read and room: the next session almost at once');
   const doc = lib.doc(`read_${first.id}`);
-  assert.ok(doc && lib.doc(`read_${second.id}`), 'one notebook per field');
+  assert.ok(doc && !lib.doc(`read_${second.id}`), 'one notebook per field, and only the field being read');
   assert.equal(doc.kind, 'study');
   assert.equal(doc.status, 'ready');
   assert.match(doc.title, new RegExp(`^Reading: ${first.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   const hits = await lib.search(first.topics[0].t);
   assert.ok(hits.some((h) => h.title === doc.title), 'what it read is searchable');
   assert.equal(lib.doc('notes_study').passages, 2, 'the study log has one entry per reading');
-  assert.equal(r1.state.domains[first.id].read, 1);
-  assert.equal(r1.state.domains[second.id].read, 1);
+  assert.equal(r1.state.domains[first.id].read, 2);
   // the same topic again (the cursor moved back) replaces its section
   const before = lib.doc(doc.id).passages;
   st.m.set(S.STUDY_KEY, { ...(await S.loadStudy(st)), cursor: { [first.id]: 0 } });
@@ -165,6 +166,7 @@ test('a source already read in another field is copied, not fetched again; the f
   prior.cursor[a.id] = i + 1;
   prior.cursor[b.id] = j; // field B is about to read the same title
   prior.focus = [b.id];
+  prior.grown[b.id] = { n: 0, wk: String(Math.floor(Date.now() / (7 * 86_400_000))), added: 0, found: 0, at: Date.now() }; // this week's outline look is done
   await st.put(S.STUDY_KEY, prior);
   lib.createDoc({ id: `read_${a.id}`, title: `Reading: ${a.name}`, source: 'self-study', kind: 'study' });
   const heading = a.topics[i].t.slice(0, 180);
@@ -248,7 +250,7 @@ test("with a model: each reading is digested into the domain's study notes, and 
   assert.equal(digest.passages, 1);
   assert.match(lib.sectionText(digest.id, first.topics[0].t.slice(0, 180)), /SUMMARY[\s\S]*SELF-TEST/);
   assert.equal(r.state.domains[first.id].digested, 1);
-  assert.deepEqual(r.state.today, { reads: 1, digests: 1, drills: 1, ai: 2 });
+  assert.deepEqual(r.state.today, { reads: 1, digests: 1, drills: 1, ai: 2, finished: 0, quick: 1 });
   assert.equal(r.state.drills, 1);
   assert.equal(r.state.right, 1);
   const [skill, score] = Object.entries(r.state.skills)[0];
@@ -289,8 +291,7 @@ test('no model reachable: readings wait as pending digests, and are digested whe
   assert.equal(r2.did.digests, 2, 'the pending readings were digested from the notebooks');
   assert.equal(r2.did.drills, 1);
   assert.equal(r2.state.pending.length, 0);
-  assert.equal(lib.doc(`digest_${first.id}`).passages, 1);
-  assert.equal(lib.doc(`digest_${second.id}`).passages, 1);
+  assert.equal(lib.doc(`digest_${first.id}`).passages, 2, 'both readings were from the field being read');
 });
 
 test("while the day's database allowance is running low, nothing is written and it waits for the reset", async () => {
@@ -326,7 +327,7 @@ test("the owner's focus domains come first; matchDomains understands plain words
   const lib = new Library(st, {});
   st.m.set(S.STUDY_KEY, { focus: [second.id] });
   const r = await S.studySession(st, lib, { reads: 1 });
-  assert.equal(r.state.last.topic, second.topics[0].t);
+  assert.equal(r.state.last.topic, firstRead(second).t);
   const sum = S.studySummary(r.state);
   const row = sum.domains.find((d) => d.id === second.id);
   assert.equal(row.read, 1);
@@ -361,7 +362,7 @@ test('the curriculum is real: every domain has topics at every level, from a kno
   }
 });
 
-test('in the brain: the Library tab turns it on, STUDY NOW studies at once, the job runs from the alarm and re-arms on its own cadence, focus and off work', async () => {
+test('in the brain: the Library tab turns it on, STUDY studies at once and brings the job forward, the job runs from the alarm and re-arms on its own cadence, focus and off work', async () => {
   const storage = new MemStorage();
   const pending = [];
   const state = { storage, waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
@@ -379,15 +380,19 @@ test('in the brain: the Library tab turns it on, STUDY NOW studies at once, the 
   assert.equal(st1.summary.topics, S.TOPIC_COUNT);
   assert.equal(st1.summary.read, 0);
   const now = await api('POST', '/library/study', { now: true });
-  assert.equal(now.did.reads, 3, 'STUDY NOW reads at once');
+  assert.equal(now.did.reads, 5, 'STUDY reads a handful at once');
   assert.equal(now.did.digests, 0);
-  assert.equal(now.pending.length, 3, 'digests wait for a model');
-  assert.ok(now.next > Date.now() + 14 * 60_000, 'back in a quarter of an hour');
+  assert.equal(now.pending.length, 5, 'digests wait for a model');
+  assert.ok(now.next <= Date.now() + S.QUICK_TICK + 1000, 'the rest of the field follows almost at once');
+  const hurried = storage.m.get('jobs').find((j) => j.kind === 'study');
+  assert.ok(hurried.next <= Date.now() + S.QUICK_TICK + 1000, `STUDY ran outside the alarm, and the job was brought forward: ${hurried.next - Date.now()} ms`);
   const lib = await api('GET', '/library');
   const notebook = lib.docs.find((d) => d.id === `read_${first.id}`);
   assert.equal(notebook?.kind, 'study');
   assert.ok(notebook.passages >= 1);
-  assert.equal(lib.docs.filter((d) => d.id.startsWith('read_')).length, Math.min(3, S.DOMAINS.length), 'one topic from each field in turn');
+  assert.equal(lib.docs.filter((d) => d.id.startsWith('read_')).length, 1, 'one field at a time: every piece from the same field');
+  assert.equal(now.summary.current.id, first.id);
+  assert.match(now.summary.status, new RegExp(`^Reading .* · 5 of ${first.topics.length} · `));
   // the alarm runs the job and the engine sets the next run
   const jobs = storage.m.get('jobs');
   assert.equal(jobs.filter((j) => j.kind === 'study').length, 1);
@@ -396,8 +401,8 @@ test('in the brain: the Library tab turns it on, STUDY NOW studies at once, the 
   await agent.alarm();
   const st2 = await api('GET', '/library/study');
   assert.equal(st2.sessions, 2);
-  assert.equal(st2.summary.read, 6);
-  assert.ok(st2.next > Date.now() + 14 * 60_000 && st2.next < Date.now() + 16 * 60_000, `re-armed by the engine: ${st2.next - Date.now()} ms`);
+  assert.equal(st2.summary.read, 10);
+  assert.ok(st2.next > Date.now() && st2.next <= Date.now() + S.QUICK_TICK + 1000, `re-armed by the engine, at once: ${st2.next - Date.now()} ms`);
   assert.equal((await api('GET', '/inbox')).items.length, 0, 'quiet: no notification per session');
   // focus, in the owner's words
   const f = await api('POST', '/library/study', { focus: `${second.name} please` });
@@ -438,4 +443,313 @@ test("levels: a topic's level comes from its place in the field (first third beg
   const all = S.studySummary({ ...r.state, cursor: { [first.id]: n } });
   assert.equal(all.levels.reduce((k, l) => k + l.read, 0), n);
   assert.ok(all.levels[2].read > 0);
+});
+
+// ---------- STUDY at scale: one field at a time, hundreds at once, on his own, a curriculum that grows ----------
+
+/** Outline pages served for the growth tests: title → HTML (Wikipedia's rendered page); others answer 404. */
+let outlinePages = null;
+const plainFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = new URL(typeof input === 'string' ? input : input.url);
+  if (outlinePages && url.hostname === 'en.wikipedia.org' && url.pathname === '/w/index.php') {
+    seen.push(url.hostname + url.pathname);
+    const page = outlinePages[url.searchParams.get('title').replace(/_/g, ' ')];
+    return page ? new Response(page, { headers: { 'content-type': 'text/html' } }) : new Response('no such page', { status: 404 });
+  }
+  return plainFetch(input, init);
+};
+const WEEK = 7 * 86_400_000;
+const thisWeek = (now = Date.now()) => String(Math.floor(now / WEEK));
+/** The study log's headings, oldest first: what was read, in order. */
+const studied = (lib) => lib.passagesOf('notes_study', 0, 500).passages.map((p) => p.heading).filter((h) => h.startsWith('Studied: ')).map((h) => h.slice(9));
+
+test('one field at a time: every piece of the field being read before the next, the focus first, a finished field marked and not read again', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const n = second.topics.length;
+  const prior = await S.loadStudy(st);
+  prior.focus = [second.id];
+  prior.cursor[second.id] = n - 3; // three pieces left in the focus field
+  prior.grown[second.id] = { n: 0, wk: thisWeek(), added: 0, found: 0, at: Date.now() };
+  await st.put(S.STUDY_KEY, prior);
+  assert.deepEqual((await S.loadStudy(st)).queue, [second.id, first.id], 'the focus field heads the queue, the field already queued waits behind it');
+  const r = await S.studySession(st, lib, { reads: 5 });
+  assert.deepEqual(studied(lib), [...second.topics.slice(n - 3).map((t) => t.t), ...first.topics.slice(0, 2).map((t) => t.t)], 'the rest of the focus field, then the curriculum from its first field: never a mix');
+  assert.ok(r.state.finished[second.id], 'the field read to the end is marked finished');
+  assert.equal(r.state.today.finished, 1);
+  assert.deepEqual(r.state.queue, [first.id], 'and the next field in the curriculum is being read');
+  assert.equal(r.state.cursor[first.id], 2);
+  // the finished field is not read again, though it is still the focus,
+  const r2 = await S.studySession(st, lib, { reads: 3 });
+  assert.deepEqual(studied(lib).slice(5), first.topics.slice(2, 5).map((t) => t.t));
+  assert.equal(r2.state.cursor[second.id], n);
+  // unless the owner puts it first again (out of the focus, then back in)
+  const again = await S.loadStudy(st);
+  again.focus = [];
+  await st.put(S.STUDY_KEY, again);
+  const back = await S.loadStudy(st);
+  back.focus = [second.id];
+  await st.put(S.STUDY_KEY, back);
+  const r3 = await S.studySession(st, lib, { reads: 1 });
+  assert.equal(r3.state.last.topic, firstRead(second).t, 'asked again: read again from its start');
+  assert.equal(r3.state.finished[second.id], undefined);
+});
+
+test('a session does many pieces but stays within its caps; drills stay a quarter of an hour apart while reading runs fast', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const t0 = Date.UTC(2026, 9, 23, 12, 0);
+  const prior = await S.loadStudy(st);
+  prior.grown[first.id] = { n: 0, wk: thisWeek(t0), added: 0, found: 0, at: t0 };
+  await st.put(S.STUDY_KEY, prior);
+  const calls = [];
+  const before = seen.length;
+  const r = await S.studySession(st, lib, { ai: fakeAi(calls), now: t0 });
+  assert.equal(r.did.reads, 5, 'a handful of pieces a session by default');
+  assert.equal(r.did.digests, 5, 'each one digested while the text is in hand');
+  assert.equal(r.did.drills, 1);
+  assert.equal(calls.length, 6, 'model calls a session are capped');
+  assert.ok(seen.length - before <= 5 * 2, `page reads stay bounded: ${seen.length - before}`);
+  const r2 = await S.studySession(st, lib, { ai: fakeAi(calls), now: t0 + 20_000 });
+  assert.equal(r2.did.reads, 5);
+  assert.equal(r2.did.drills, 0, 'no drill twenty seconds after the last one');
+  const r3 = await S.studySession(st, lib, { ai: fakeAi(calls), now: t0 + 16 * 60_000 });
+  assert.equal(r3.did.drills, 1, 'a quarter of an hour later, the next drill');
+  // the day's caps still hold
+  const r4 = await S.studySession(st, lib, { now: t0 + 17 * 60_000, dailyReads: 17 });
+  assert.equal(r4.did.reads, 2);
+  assert.equal(r4.state.today.reads, 17);
+});
+
+test('the next session is almost at once while there is reading and room; it backs off when the meter says no, and after the quick sessions of the day', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const t0 = Date.UTC(2026, 9, 23, 15, 0);
+  const prior = await S.loadStudy(st);
+  prior.grown[first.id] = { n: 0, wk: thisWeek(t0), added: 0, found: 0, at: t0 };
+  await st.put(S.STUDY_KEY, prior);
+  const r1 = await S.studySession(st, lib, { reads: 2, now: t0 });
+  assert.equal(r1.next, S.QUICK_TICK);
+  assert.ok(S.QUICK_TICK <= 30_000, 'at once, not a quarter of an hour later');
+  assert.equal(r1.state.today.quick, 1);
+  // the database allowance running low: nothing is read, and it waits for the reset
+  const n = seen.length;
+  const low = await S.studySession(st, lib, { reads: 2, now: t0 + 60_000, spare: false });
+  assert.equal(low.did.reads, 0);
+  assert.equal(seen.length, n);
+  assert.equal(low.next, 9 * HOUR + 4 * 60_000, 'five minutes after midnight UTC');
+  // the day's quick sessions used up (each alarm writes to KV): every quarter of an hour instead
+  const used = await S.loadStudy(st);
+  used.today.quick = S.QUICK_TICKS;
+  await st.put(S.STUDY_KEY, used);
+  const slow = await S.studySession(st, lib, { reads: 2, now: t0 + 2 * 60_000 });
+  assert.equal(slow.did.reads, 2);
+  assert.equal(slow.next, QUARTER);
+  // a source down: nothing read, so no hurry
+  wikiDown = true;
+  const fresh = await S.loadStudy(st);
+  fresh.today.quick = 0;
+  fresh.queue = [];
+  fresh.focus = ['algebra-number-theory'];
+  fresh.grown['algebra-number-theory'] = { n: 0, wk: thisWeek(t0), added: 0, found: 0, at: t0 };
+  await st.put(S.STUDY_KEY, fresh);
+  const down = await S.studySession(st, lib, { reads: 2, now: t0 + 3 * 60_000 });
+  wikiDown = false;
+  assert.equal(down.did.reads, 0);
+  assert.equal(down.next, HOUR);
+});
+
+test('STUDY ALL: with nothing queued it queues the next unfinished field itself; switched off it waits for STUDY; the switch is FOCUS words, remembered', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const prior = await S.loadStudy(st);
+  assert.equal(prior.all, true, 'on by default');
+  assert.deepEqual(prior.queue, [first.id], 'the curriculum from its first field');
+  prior.finished[first.id] = Date.now();
+  prior.grown[first.id] = { n: 0, wk: thisWeek(), added: 0, found: 0, at: Date.now() };
+  prior.grown[second.id] = { n: 0, wk: thisWeek(), added: 0, found: 0, at: Date.now() };
+  await st.put(S.STUDY_KEY, prior);
+  assert.deepEqual((await S.loadStudy(st)).queue, [second.id], 'the next unfinished field');
+  const r = await S.studySession(st, lib, { reads: 1 });
+  assert.equal(r.state.last.topic, firstRead(second).t);
+  // off: the Library tab sends the switch as FOCUS words, as the route stores them
+  assert.deepEqual(S.matchDomains(`${S.ALL_OFF}, ${second.id}`), [S.ALL_OFF, second.id]);
+  assert.deepEqual(S.matchDomains('study all off'), [S.ALL_OFF]);
+  const off = await S.loadStudy(st);
+  off.focus = S.matchDomains(S.ALL_OFF);
+  off.queue = [];
+  await st.put(S.STUDY_KEY, off);
+  const quiet = await S.loadStudy(st);
+  assert.equal(quiet.all, false);
+  assert.deepEqual(quiet.focus, [], 'a setting, not a field');
+  assert.deepEqual(quiet.queue, []);
+  const idle = await S.studySession(st, lib, { reads: 3 });
+  assert.equal(idle.did.reads, 0, 'nothing queued and STUDY ALL off: nothing read');
+  assert.equal(idle.next, HOUR);
+  assert.equal((await S.loadStudy(st)).all, false, 'remembered');
+  // STUDY on a field queues it even with STUDY ALL off
+  const pick = await S.loadStudy(st);
+  pick.focus = S.matchDomains(second.id);
+  await st.put(S.STUDY_KEY, pick);
+  const sent = await S.studySession(st, lib, { reads: 1 });
+  assert.equal(sent.did.reads, 1);
+  assert.equal(sent.state.all, false);
+  // and on again
+  const on = await S.loadStudy(st);
+  on.focus = S.matchDomains(`study all on, ${second.id}`);
+  await st.put(S.STUDY_KEY, on);
+  const back = await S.loadStudy(st);
+  assert.equal(back.all, true);
+  assert.deepEqual(back.focus, [second.id]);
+  assert.equal(S.studySummary(back).all, true);
+});
+
+/** A rendered outline page: links in nested lists under h2/h3, plus what must be left out. */
+function outlinePage(items) {
+  const li = (t, desc = '') => `<li><a rel="mw:WikiLink" href="./${encodeURIComponent(t.replace(/ /g, '_'))}" title="${t}">${t}</a>${desc}</li>`;
+  const basic = items.filter((x) => x.l === 1).map((x) => li(x.t, ' – about it, see <a href="/wiki/Description_link">description link</a>')).join('');
+  const mid = items.filter((x) => x.l === 2).map((x) => li(x.t)).join('');
+  const adv = items.filter((x) => x.l === 3).map((x) => li(x.t)).join('');
+  return `<div class="mw-parser-output"><table class="sidebar"><tr><td><ul>${li('Sidebar link')}</ul></td></tr></table>
+<p>The following outline is a guide to <a href="/wiki/Algebra">algebra</a>:</p>
+<div class="mw-heading mw-heading2"><h2 id="Branches">Branches</h2></div>
+<ul>${basic}<li><a href="/wiki/Topics_in_general">Topics in general</a><ul>${mid}</ul></li></ul>
+<div class="mw-heading mw-heading3"><h3 id="Advanced">Advanced</h3></div>
+<ul><li><a href="/wiki/Advanced_matters">Advanced matters</a><ul>${adv}</ul></li></ul>
+<h2 id="Algebraists">Influential mathematicians</h2><ul>${li('A Famous Mathematician')}</ul>
+<h2 id="See_also">See also</h2><ul>${li('See also link')}${li('List of algebra topics')}</ul>
+<div class="navbox"><ul>${li('Nav link')}</ul></div></div>`;
+}
+
+test('the curriculum grows from Wikipedia outlines: new, deduplicated topics with a rough level, basics first, capped at 200 a field a week, counted in the status', async () => {
+  const field = S.DOMAINS.find((d) => d.id === 'algebra-number-theory');
+  assert.ok(field, 'the algebra field');
+  const own = field.topics.find((t) => t.k === 'wiki').t; // already in this field's curriculum
+  const elsewhere = S.DOMAINS.find((d) => d.id !== field.id).topics.find((t) => t.k === 'wiki').t; // in another field's
+  const items = [];
+  for (let i = 0; i < 250; i++) items.push({ t: `Algebra topic ${i}`, l: i < 100 ? 1 : i < 200 ? 2 : 3 });
+  const page2 = [...Array.from({ length: 60 }, (_, i) => ({ t: `Algebra topic ${240 + i}`, l: 1 })), { t: own, l: 1 }, { t: elsewhere, l: 1 }, { t: 'algebra topic 3', l: 1 }];
+  outlinePages = { 'Outline of algebra': outlinePage(items), 'Outline of algebraic structures': outlinePage(page2) }; // the third page answers 404
+  try {
+    const links = S.outlineLinks(outlinePage(items), 'Outline of algebra');
+    assert.equal(links.length, 252, "every list item's subject (the 250 and their two parent items), nothing else");
+    for (const bad of ['Sidebar link', 'Description link', 'See also link', 'List of algebra topics', 'Nav link', 'A Famous Mathematician', 'Algebra']) assert.ok(!links.some((x) => x.t === bad), `left out: ${bad}`);
+    assert.deepEqual(links.find((x) => x.t === 'Algebra topic 0'), { t: 'Algebra topic 0', l: 1 }, 'a top-level item under an h2: basic');
+    assert.equal(links.find((x) => x.t === 'Algebra topic 150').l, 2, 'nested once: intermediate');
+    assert.equal(links.find((x) => x.t === 'Algebra topic 220').l, 3, 'nested under an h3: advanced');
+
+    const st = new MemStorage();
+    const lib = new Library(st, {});
+    const t0 = Date.UTC(2026, 9, 23, 9, 0);
+    const prior = await S.loadStudy(st);
+    prior.focus = [field.id];
+    prior.cursor[field.id] = field.topics.length; // its own curriculum is read
+    await st.put(S.STUDY_KEY, prior);
+    const r1 = await S.studySession(st, lib, { reads: 2, now: t0 });
+    const g = r1.state.grown[field.id];
+    assert.equal(g.found, 302, "found: the 252 of the first page and 50 new on the second (its repeats and the curriculum's own topics left out)");
+    assert.equal(g.added, 200, 'capped at 200 this week');
+    assert.equal(g.n, 200);
+    const more = await S.grownTopics(st, field.id);
+    assert.equal(more.length, 200);
+    assert.ok(more.every((t) => t.k === 'wikipage'), 'read by exact title');
+    assert.equal(new Set(more.map((t) => t.t.toLowerCase())).size, 200, 'no duplicates');
+    assert.ok(!more.some((t) => [own, elsewhere].includes(t.t)), 'nothing the curriculum already has');
+    assert.deepEqual(more.map((t) => t.l), [...more.map((t) => t.l)].sort(), 'basics first');
+    assert.equal(more.filter((t) => t.l === 1).length, 151, 'the 100 + 1 basics of the first page and the 50 new of the second');
+    assert.equal(r1.did.reads, 2, 'and reading carried on into what was added');
+    assert.equal(r1.state.last.topic, more[1].t);
+    const sum = S.studySummary(r1.state);
+    assert.equal(sum.topics, S.TOPIC_COUNT + 200);
+    assert.equal(sum.grown.topics, 200);
+    assert.equal(sum.current.topics, field.topics.length + 200);
+    assert.ok(lib.passagesOf('notes_study').passages.some((p) => /^More to read: /.test(p.heading) && /added 200 new topics .*102 more wait for next week/.test(p.text)), 'and said so in the study log');
+    // the same week: no second look
+    const looks = seen.filter((h) => h.endsWith('/w/index.php')).length;
+    await S.studySession(st, lib, { reads: 1, now: t0 + HOUR });
+    assert.equal(seen.filter((h) => h.endsWith('/w/index.php')).length, looks, 'one look a week');
+    // the next week: the rest, then nothing new
+    const r3 = await S.studySession(st, lib, { reads: 1, now: t0 + WEEK });
+    assert.equal(r3.state.grown[field.id].added, 102);
+    assert.equal(r3.state.grown[field.id].n, 302);
+    const r4 = await S.studySession(st, lib, { reads: 1, now: t0 + 2 * WEEK });
+    assert.equal(r4.state.grown[field.id].added, 0);
+    assert.equal((await S.grownTopics(st, field.id)).length, 302);
+    // Wikipedia unreachable: no look counted, tried again later
+    outlinePages = {};
+    const st2 = new MemStorage();
+    const p2 = await S.loadStudy(st2);
+    p2.focus = [field.id];
+    await st2.put(S.STUDY_KEY, p2);
+    const failed = await S.studySession(st2, new Library(st2, {}), { reads: 1, now: t0 });
+    assert.equal(failed.state.grown[field.id].fail, t0);
+    assert.equal(failed.state.grown[field.id].wk, '');
+    assert.equal(failed.did.reads, 1, 'its own curriculum is read meanwhile');
+  } finally {
+    outlinePages = null;
+  }
+});
+
+test('the status line is honest: "Reading <field> · x of y · about … left at this pace", from the measured pace', async () => {
+  const st = new MemStorage();
+  const now = Date.UTC(2026, 9, 23, 18, 0);
+  const s0 = await S.loadStudy(st);
+  s0.grown[first.id] = { n: 480 - first.topics.length, wk: thisWeek(now), added: 0, found: 0, at: now };
+  s0.cursor[first.id] = 212;
+  const fresh = S.studySummary(s0, now);
+  assert.equal(fresh.status, `Reading ${first.name} · 212 of 480 · working out the pace`, 'no pace measured yet: no guess');
+  assert.equal(fresh.current.read, 212);
+  assert.equal(fresh.current.topics, 480);
+  // four sessions over half an hour, five pieces each: 15 pieces in the 30 minutes after the first
+  s0.pace = [[now - 30 * 60_000, 5], [now - 20 * 60_000, 5], [now - 10 * 60_000, 5], [now, 5]];
+  const timed = S.studySummary(s0, now);
+  assert.equal(Math.round(timed.current.minutesLeft), 536);
+  assert.equal(timed.status, `Reading ${first.name} · 212 of 480 · about 9 hours left at this pace`);
+  // a pace measured hours ago is not this pace
+  assert.match(S.studySummary(s0, now + 3 * HOUR).status, /· working out the pace$/);
+  assert.equal(S.timeLeftText(40), 'about 40 minutes');
+  assert.equal(S.timeLeftText(3000), 'about 2 days');
+  // the line counts what the sessions really read
+  const lib = new Library(st, {});
+  await st.put(`study:more:${first.id}`, Array.from({ length: 480 - first.topics.length }, (_, i) => `1|wikipage|Grown topic ${i}`).join('\n'));
+  await st.put(S.STUDY_KEY, { ...s0, pace: [] });
+  const r = await S.studySession(st, lib, { reads: 3, now });
+  assert.match(S.studySummary(r.state, now).status, / · 215 of 480 · /);
+  assert.equal(S.studySummary({ ...r.state, on: false }, now).status, 'Self-study is switched off');
+});
+
+test('OpenStax is link-only now (its licence forbids ingestion into AI models): its topics are skipped with the reason logged once, never counted as failures, and a field with only OpenStax left finishes', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const now = Date.UTC(2026, 9, 20, 9);
+  assert.equal(await S.findSource('/books/introduction-computer-science/pages/3-1-introduction', 'openstax'), null, 'no source to read');
+  // a field read to the end of its own list, with only OpenStax pages left (its outline's topics, looked at this week)
+  const d = S.DOMAINS.find((x) => x.topics.some((t) => t.k === 'openstax'));
+  assert.ok(d, 'the curriculum names OpenStax pages');
+  await st.put(`study:more:${d.id}`, '1|openstax|/books/introduction-computer-science/pages/3-1-a\n2|openstax|/books/introduction-computer-science/pages/3-2-b\n');
+  const week = String(Math.floor(now / (7 * 86_400_000)));
+  st.m.set(S.STUDY_KEY, { ...(await S.loadStudy(st)), queue: [d.id], focus: [d.id], asked: [d.id], all: false, cursor: { [d.id]: d.topics.length }, grown: { [d.id]: { n: 2, wk: week, added: 2, found: 2, at: now } } });
+  const n0 = seen.length;
+  const r = await S.studySession(st, lib, { reads: 1, now });
+  assert.ok(!seen.slice(n0).some((h) => h.startsWith('openstax.org')), 'nothing fetched from OpenStax');
+  assert.equal(r.did.reads, 0);
+  assert.ok(r.state.finished[d.id], 'the field finished: link-only topics never hold it back');
+  assert.equal(r.state.domains[d.id]?.failed ?? 0, 0, 'not counted as failures');
+  assert.deepEqual(r.state.licence.skipped, { [d.id]: 2 });
+  assert.ok(!lib.doc(`read_${d.id}`), 'nothing of OpenStax in the library');
+  const logged = () => lib.passagesOf('notes_study').passages.filter((p) => /^Skipped for licence: OpenStax/.test(p.heading));
+  assert.equal(logged().length, 1);
+  assert.match(logged()[0].text, /OpenStax: licence allows reading, not ingestion; linked in LEARN/);
+  assert.match(S.studySummary(r.state, now).status, /2 OpenStax pages skipped for licence \(linked in LEARN\)/);
+  // the curriculum's own OpenStax pages: skipped too (they use none of the session's reads), the reason not logged again
+  const k = d.topics.findIndex((t, i) => t.k === 'openstax' && d.topics.slice(i).some((x) => x.k !== 'openstax'));
+  let run = 0;
+  while (d.topics[k + run].k === 'openstax') run++;
+  st.m.set(S.STUDY_KEY, { ...(await S.loadStudy(st)), queue: [d.id], focus: [d.id], asked: [d.id], finished: {}, cursor: { [d.id]: k } });
+  const r2 = await S.studySession(st, lib, { reads: 1, now });
+  assert.equal(r2.state.licence.skipped[d.id], 2 + run);
+  assert.equal(r2.did.reads, 1, 'the session\'s one read went on the next readable topic');
+  assert.equal(r2.state.last.topic, d.topics[k + run].t);
+  assert.equal(logged().length, 1, 'the reason is logged once');
 });

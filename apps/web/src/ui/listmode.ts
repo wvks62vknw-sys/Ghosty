@@ -1,18 +1,18 @@
 /**
- * iOS Settings for the calm looks: a page's panels become grouped lists — a small title above
+ * iOS Settings: a page's panels become grouped lists — a small title above
  * each card, a tinted glyph square, the name, its value on the right, a chevron, and a footer
  * where a line explains something — and a tap pushes the panel in as its own screen. The
  * navigation bar's back button pops it. A row with data-go opens another screen instead
  * (Settings › System). Used on Settings, System and Links. Every panel, title and control keeps
- * its classes (a group only wraps panels); the classic looks never see it.
+ * its classes (a group only wraps panels).
  */
 import { h, icon } from '../core/dom';
 import { go } from '../shell/tabs';
 import { ui } from '../state/app';
-import { proLook } from '../state/theme';
 
 const G = {
   brush: '<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 20c1-3 2-4 4-4"/>',
+  person: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/>',
   wave: '<path d="M4 12h1M8 8v8M12 5v14M16 8v8M20 12h1"/>',
   chip: '<rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2M14 9l2 2"/>',
@@ -35,7 +35,8 @@ const G = {
 };
 /** Panel title (start of it) → glyph and colour: by what the row does, the same language as the rest of the app. */
 const MAP: [RegExp, keyof typeof G, string][] = [
-  [/^LOOK/, 'brush', '#bf5af2'],
+  [/^THEME/, 'brush', '#bf5af2'],
+  [/^NAME/, 'person', '#98989d'],
   [/^VOICE/, 'wave', '#ff375f'],
   [/^CHARACTER/, 'spark', '#ff9f0a'],
   [/^OFFLINE BRAIN/, 'chip', '#5e5ce6'],
@@ -136,9 +137,8 @@ export function listMode(root: HTMLElement, name: string, keep: RegExp | null = 
     if (s) s.scrollTop = scroll;
     popScreen();
   };
-  // Capture: in a calm look a tap on a panel's title pushes it, before the panel would fold itself.
+  // Capture: a tap on a panel's title pushes it, before the panel would fold itself.
   root.addEventListener('click', (e) => {
-    if (!proLook()) return;
     const el = e.target as HTMLElement;
     const head = el.closest('.pn[data-row] > h3');
     if (!head || el.closest('button, a, input, select, textarea')) return;

@@ -1,6 +1,8 @@
 // Ghosty's library in a real browser:
 //  1. the document reader (no libraries, no AI) on a real PDF printed by Chromium, a Word file and an e-book
 //  2. the Library tab: add files, see them on the shelf, search them (no AI)
+//  3. SELF-STUDY at 440 × 956 (the iPhone 18 Pro Max): the queue and its status line, STUDY on a picked field
+//     (through the mock brain), the STUDY ALL switch remembered after a reload, nothing sideways, 44 px targets
 //   node tests/library.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
@@ -127,7 +129,7 @@ const searched = (ui) =>
     .waitForFunction(() => !/searching/.test(document.querySelector('#pg-library .pn.ask h3 small')?.textContent ?? 'searching'), null, { timeout: 10000 })
     .catch(() => undefined);
 
-for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {
+for (const viewport of [{ width: 1280, height: 860 }, { width: 440, height: 956 }]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const ui = await ctx.newPage();
@@ -189,20 +191,65 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
     return {
       status: pn.querySelector('h3 small')?.textContent ?? '',
       bars: [...pn.querySelectorAll('.bar')].map((b) => b.textContent?.trim() ?? ''),
-      fields: [...pn.querySelectorAll('.bar span')].map((b) => b.textContent?.trim() ?? '').slice(2),
+      fields: [...pn.querySelectorAll('.studyfields .bar span')].map((b) => b.textContent?.trim() ?? ''),
       buttons: [...pn.querySelectorAll('button')].map((b) => b.textContent?.trim()),
     };
   });
   if (!study) problems.push(`[${name}] no SELF-STUDY panel`);
   else {
     if (!/LEARNING/.test(study.status)) problems.push(`[${name}] self-study status "${study.status}"`);
-    if (!/^READ.*topics$/.test(study.bars[0] ?? '')) problems.push(`[${name}] no READ progress: ${study.bars.join(' | ')}`);
+    if (!study.bars.some((b) => /^READ.*topics$/.test(b))) problems.push(`[${name}] no READ progress: ${study.bars.join(' | ')}`);
     if (study.fields.length < 1) problems.push(`[${name}] no fields in the study panel: ${study.bars.join(' | ')}`);
-    for (const b of ['TURN OFF', 'STUDY NOW', 'EXPORT TO GITHUB', 'FOCUS']) if (!study.buttons.includes(b)) problems.push(`[${name}] no ${b} button (${study.buttons.join(', ')})`);
-    const field = study.fields[0].replace(/^★ /, '');
+    for (const b of ['TURN OFF', 'STUDY', 'STUDY ALL: ON', 'EXPORT TO GITHUB', 'FOCUS']) if (!study.buttons.includes(b)) problems.push(`[${name}] no ${b} button (${study.buttons.join(', ')})`);
+    const field = study.fields[0].replace(/^★ /, '').replace(/^✓ /, '');
     await ui.fill('#pg-library input[aria-label="Fields to study first"]', field);
     await ui.click('#pg-library .pn.study button:has-text("FOCUS")');
     await ui.waitForFunction((f) => [...document.querySelectorAll('#pg-library .pn.study .rw')].some((r) => r.querySelector('.k')?.textContent === 'FIRST' && (r.textContent ?? '').includes(f)), field, { timeout: 8000 }).catch(() => problems.push(`[${name}] FOCUS "${field}" did not put that field first`));
+  }
+  if (name === 'phone' && study) {
+    // ---- STUDY at scale: one field at a time, its honest status line, STUDY on a picked field, STUDY ALL remembered
+    const nowLine = () => ui.evaluate(() => document.querySelector('#pg-library .pn.study .studynow b')?.textContent ?? '');
+    const line0 = await nowLine();
+    if (!/^Reading .+ · \d+ of \d+ · /.test(line0)) problems.push(`[${name}] the queue's status line reads "${line0}"`);
+    const options = await ui.$$eval('#pg-library .pn.study select[aria-label="Field to study"] option', (o) => o.map((x) => ({ value: x.value, text: x.textContent ?? '' })));
+    if (options.length < 10) problems.push(`[${name}] the topic picker has ${options.length} fields`);
+    const target = options.find((o) => o.value === 'algebra-number-theory') ?? options[1];
+    if (target) {
+      const fieldName = target.text.split(' · ')[0];
+      await ui.selectOption('#pg-library .pn.study select[aria-label="Field to study"]', target.value);
+      await ui.click('#pg-library .pn.study .studypick button:has-text("STUDY")');
+      await ui.waitForFunction((f) => (document.querySelector('#pg-library .pn.study .studynow b')?.textContent ?? '').startsWith(`Reading ${f} · `), fieldName, { timeout: 90000 })
+        .catch(async () => problems.push(`[${name}] STUDY did not queue "${fieldName}": "${await nowLine()}"`));
+      const first = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .pn.study .rw')].find((r) => r.querySelector('.k')?.textContent === 'FIRST')?.textContent ?? '');
+      if (!first.includes(fieldName)) problems.push(`[${name}] the field sent with STUDY is not first: "${first}"`);
+    }
+    // the STUDY ALL switch: off, and still off after a reload (the brain remembers it)
+    const sw = '#pg-library .pn.study button.studyall';
+    if ((await ui.getAttribute(sw, 'aria-checked')) !== 'true') problems.push(`[${name}] STUDY ALL is not on by default`);
+    await ui.click(sw);
+    await ui.waitForFunction((s) => document.querySelector(s)?.getAttribute('aria-checked') === 'false', sw, { timeout: 15000 }).catch(() => problems.push(`[${name}] STUDY ALL did not switch off`));
+    await ui.reload({ waitUntil: 'domcontentloaded' });
+    await ui.waitForSelector('#boot', { state: 'detached', timeout: 15000 }).catch(() => undefined);
+    await ui.evaluate(() => (location.hash = 'library'));
+    await ui.waitForSelector(sw, { timeout: 20000 }).catch(() => problems.push(`[${name}] no STUDY ALL switch after a reload`));
+    const kept = await ui.getAttribute(sw, 'aria-checked').catch(() => null);
+    if (kept !== 'false') problems.push(`[${name}] STUDY ALL was not remembered after a reload (${kept})`);
+    if (!/STUDY ALL: OFF/.test((await ui.textContent(sw).catch(() => '')) ?? '')) problems.push(`[${name}] the switch does not say OFF`);
+    // nothing sticks out sideways at 440 px, and every target is 44 px tall
+    const fit = await ui.evaluate(() => {
+      const pn = document.querySelector('#pg-library .pn.study');
+      pn?.scrollIntoView({ block: 'start' });
+      const wide = [...(pn?.querySelectorAll('*') ?? [])].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).map((el) => `${el.tagName.toLowerCase()}.${el.className}`);
+      const small = [...(pn?.querySelectorAll('button, select, input') ?? [])].filter((el) => el.getBoundingClientRect().height && el.getBoundingClientRect().height < 43.5).map((el) => `${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || '').trim()}" ${Math.round(el.getBoundingClientRect().height)}px`);
+      return { page: document.documentElement.scrollWidth - innerWidth, wide: wide.slice(0, 5), small: small.slice(0, 5) };
+    });
+    if (fit.page > 0 || fit.wide.length) problems.push(`[${name}] SELF-STUDY sticks out sideways: page ${fit.page}px, ${fit.wide.join(', ')}`);
+    if (fit.small.length) problems.push(`[${name}] targets under 44 px: ${fit.small.join(', ')}`);
+    await ui.waitForTimeout(300);
+    await ui.locator('#pg-library .pn.study').screenshot({ path: `${out}/${name}-study.png` });
+    // back on, as it was
+    await ui.click(sw);
+    await ui.waitForFunction((s) => document.querySelector(s)?.getAttribute('aria-checked') === 'true', sw, { timeout: 15000 }).catch(() => problems.push(`[${name}] STUDY ALL did not switch back on`));
   }
   // any document on the shelf opens in the reader
   const shelfRow = await ui.$('#pg-library .pn .rw.link .v');
@@ -236,5 +283,5 @@ for (const viewport of [{ width: 1280, height: 860 }, { width: 390, height: 844 
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches; the whole library is copied to the device and answers offline; SELF-STUDY shows progress and takes a focus; the reader opens any document.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Library run clean: PDF, Word and e-book read in the browser; Library tab adds, lists and searches; the whole library is copied to the device and answers offline; SELF-STUDY shows the field being read with its honest status, STUDY queues a picked field, STUDY ALL is remembered, nothing sideways at 440 px, and it takes a focus; the reader opens any document.');
 process.exit(problems.length ? 1 : 0);

@@ -5,8 +5,8 @@
 # this week's settings in CONFIG_JSON below. The run:
 #   1. sets up (pinned packages, the base Qwen3-0.6B at a fixed commit, the current Ghosty LoRA chain);
 #   2. scores the current brain AS IT SHIPS (quantised to q4f16_1) on the exam: a fixed core plus a part that
-#      rotates each week (GYM puzzles, drills, library Q&A, tool calls, safety); training rows too close to an
-#      exam question are dropped;
+#      rotates each week (GYM puzzles, drills, library Q&A, tool calls, safety, and whether the drill and library
+#      replies sound like a person: `score_voice`); training rows too close to an exam question are dropped;
 #   3. STaR: samples 16 answers to every checkable puzzle, keeps the ones the GYM's exact checker passes
 #      (partial credit from the checker's score is the process reward that orders the pairs), then a
 #      self-critique pass on the misses with the checker's reason; a self-judge pass on library answers;
@@ -19,10 +19,19 @@
 #      tensor-cache.json as the template, so the phone's compiled model library fits unchanged) to the owner's
 #      PRIVATE model repo, branch `candidates`; the brain checks the report and only then promotes it;
 #   7. reports back to the brain (the hook), which shows it in SYSTEM → OFFLINE BRAIN TRAINING.
-# Precision: bf16 on GPUs that have it; on Kaggle's T4/P100 (no bf16) everything runs in fp32 — slower, but no
-# fp16 overflow. The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run
-# keeps is under /kaggle/temp (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at
-# the end; checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
+# SCHOOL practice (`school` records: his weak spots at school, never a paper's item) is trained like the puzzles: an
+# exact one is sampled and only attempts SCHOOL's own marking passes are kept (`school_star`); a written one is learned
+# from the stronger model's worked answer.
+# EXAM MODE (CONFIG_JSON "mode": "exam", pushed under its own slug `ghosty-exam`): no training at all. It loads the
+# brain in use (stock, or the trained week the brain names), sits one SCHOOL paper (school_paper.jsonl: the questions,
+# never the answers) with the phone's exam prompt on the weights as they ship, and posts the answers to the hook as
+# {kind: 'school', paperId, model, answers}; the brain marks them (`ExamRun`).
+# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5) and P100 (6.0)
+# everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
+# about 4x slower.) Never fp16: the training loops have no loss scaling and Qwen3's activations can overflow it.
+# The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run keeps is under
+# /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end;
+# checkpoints go to the PRIVATE dataset repo after every phase, so a run that is cut off resumes.
 # The pure helpers at the top are tested on a CPU by training/kaggle/test_ghosty_weekly.py.
 
 CONFIG_JSON = None  # GHOSTY-CONFIG: the brain writes this week's settings here when it pushes the notebook
@@ -38,16 +47,20 @@ import time
 
 # ---- pins ---------------------------------------------------------------------------------------------------
 PIP_PINS = ['transformers==4.51.3', 'peft==0.15.2', 'accelerate==1.6.0', 'huggingface_hub==0.30.2', 'safetensors==0.5.3']
+# Kaggle's image has a newer hf_xet, which huggingface_hub 0.30.2 would pick up for transfers: taken out after the
+# pins, so uploads go the plain way this huggingface_hub was released with (downloads were seen to work either way;
+# uploads could not be tried without the owner's token, so the conservative choice).
+PIP_DROP = ['hf_xet']
 # General instruction data for the no-forgetting mix: OpenAssistant oasst1, Apache-2.0, at a fixed commit.
 GENERAL_DATA = {'repo': 'OpenAssistant/oasst1', 'rev': 'fdf72ae0827c1cda404aff25b6603abec9e3399b', 'file': 'data/train-00000-of-00001-b42a775f407cee45.parquet'}
 THINK_OFF = '<think>\n\n</think>\n\n'
 
 # ---- the exam gate (the same rule as packages/shared/src/selftrain.ts; both are checked on gate_cases) --------
-EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety']
+EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety', 'voice']
 GATE_MIN_GAIN = 0.01
 GATE_MAX_DROP = 0.03
 GATE_AREA_CAP = 40
-AREA_LABEL = {'gym': 'gym puzzles', 'general': 'general', 'library': 'your library', 'tools': 'tools', 'safety': 'safety'}
+AREA_LABEL = {'gym': 'gym puzzles', 'general': 'general', 'library': 'your library', 'tools': 'tools', 'safety': 'safety', 'voice': 'sounds like a person'}
 EXAM_SEED_FLOOR = 900000
 
 
@@ -164,7 +177,7 @@ def schema_problem(call, tools):
 
 
 # ---- the dataset's records (packages/shared/src/selftrain.ts recordProblem) -----------------------------------
-TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill']
+TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school']
 
 
 def _msgs_ok(m):
@@ -210,6 +223,18 @@ def record_problem(r):
         if not last or last['role'] != 'user' or not isinstance(r.get('answer'), str) or not r['answer'].strip():
             return 'a failure needs a task, or the question and the right answer'
         return ''
+    if kind == 'school':
+        if 'answer' not in r:
+            if not last or last['role'] != 'assistant' or not last['content'].strip():
+                return 'a school item needs its exact answer, or a worked answer to learn'
+            return ''
+        if not last or last['role'] != 'user' or not isinstance(r.get('answer'), str) or not r['answer'].strip():
+            return 'a school question needs the question and its exact answer'
+        if not isinstance(r.get('check'), dict) or r['check'].get('type') not in ('exact', 'number', 'mcq'):
+            return 'a school question needs how its answer is checked'
+        if r['check']['type'] == 'mcq' and not re.fullmatch(r'[a-dA-D]', r['answer'].strip()):
+            return 'a multiple-choice answer must be a letter A–D'
+        return ''
     if not last or last['role'] != 'assistant' or not last['content'].strip():
         return 'needs messages ending with the answer to learn'
     if kind == 'library' and not (isinstance(r.get('source'), str) and r['source']):
@@ -217,6 +242,100 @@ def record_problem(r):
     if kind == 'tool' and not (isinstance(r.get('tools'), list) and r['tools']):
         return 'a tool example must list its tools'
     return ''
+
+
+# ---- SCHOOL's marking and exam prompt (packages/shared/src/school.ts; the same cases in fixtures.json) -----------
+
+def answer_line(reply):
+    """The answer a reply gives: the last "Answer:" / "Final answer:" line when there is one, else the last line."""
+    lines = [l.strip() for l in (reply or '').split('\n') if l.strip()]
+    for l in reversed(lines):
+        m = re.match(r'^\**\s*(?:final\s+)?answer\s*[:=]\s*\**\s*(.+?)\s*\**$', l, re.I)
+        if m:
+            return m.group(1)
+    return lines[-1] if lines else (reply or '').strip()
+
+
+def normalise_text(s):
+    """Lower case, no punctuation, no leading article, single spaces."""
+    s = re.sub(r'[“”"\'’`]', '', (s or '').lower())
+    s = re.sub(r'[^\w\s./-]|_', ' ', s)
+    s = re.sub(r'^\s*(the|a|an)\s+', '', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def _div(n, d):
+    return n / d if d else (math.copysign(math.inf, n) if n else math.nan)
+
+
+def parse_number(s):
+    """The first number in a text: commas, fractions ("3/4", "1 1/2"), percentages and a leading minus allowed."""
+    t = re.sub(r'[£$€]', '', (s or '').replace(',', ''))
+    m = re.search(r'(-?\d+)\s+(\d+)\s*/\s*(\d+)', t)
+    if m:
+        w = int(m.group(1))
+        return w + (-1 if w < 0 else 1) * _div(int(m.group(2)), int(m.group(3)))
+    m = re.search(r'(-?\d+)\s*/\s*(\d+)', t)
+    if m and int(m.group(2)) != 0:
+        return int(m.group(1)) / int(m.group(2))
+    m = re.search(r'-?\d+(?:\.\d+)?', t)
+    return float(m.group(0)) if m else None
+
+
+def mark_exact(item, given):
+    """An exact, number or mcq item's marks for a reply (all or none), as SCHOOL marks a paper; None for written ones."""
+    t = item.get('type')
+    if t in ('short', 'extended'):
+        return None
+    marks = item.get('marks', 1)
+    a = answer_line(given)
+    if t == 'number':
+        want = parse_number(item.get('answer') or '')
+        unit = item.get('unit')
+        got = parse_number(re.sub(re.escape(unit), '', a, flags=re.I) if unit else a)
+        if want is None or got is None:
+            return 0
+        tol = item.get('tolerance')
+        return marks if abs(got - want) <= (1e-9 if tol is None else tol) else 0
+    if t == 'mcq':
+        m = re.match(r'^\(?([a-h])\)?(?:[.):\s]|$)', a, re.I)
+        want = (item.get('answer') or '').strip().lower()
+        if m:
+            return marks if m.group(1).lower() == want else 0
+        idx = 'abcdefgh'.find(want)
+        opts = item.get('options') or []
+        text = opts[idx] if 0 <= idx < len(opts) else None
+        return marks if text and normalise_text(a) == normalise_text(text) else 0
+    ok = [x for x in (normalise_text(v) for v in [item.get('answer') or '', *(item.get('also') or [])]) if x]
+    return marks if normalise_text(a) in ok else 0
+
+
+def school_correct(record, reply):
+    """Whether an attempt at an exact `school` record is right (its `check` says how it is marked)."""
+    return bool(mark_exact({**(record.get('check') or {}), 'answer': record.get('answer'), 'marks': 1}, reply))
+
+
+EXAM_SYSTEM = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+EXAM_TOKENS = {'item': 200, 'writing': 350}
+
+
+def exam_prompt(item):
+    """The phone's exam prompt for one question (apps/web/src/school/sit.ts examPrompt; school.ts examMessages):
+    the passage first when it has one ({title, text}), the choices A–D for multiple choice."""
+    parts = []
+    p = item.get('passage')
+    if isinstance(p, dict):
+        parts.append(f'Read this: "{p["title"]}"\n\n{p["text"]}')
+    parts.append(item['q'])
+    if item['type'] == 'mcq' and item.get('options'):
+        parts.append('\n'.join(f"{('ABCD'[i] if i < 4 else 'undefined')}) {o}" for i, o in enumerate(item['options'])) + '\nAnswer with the letter.')
+    marks = item.get('marks', 1)
+    if item['type'] == 'short':
+        parts.append(f"({marks} mark{'' if marks == 1 else 's'}: explain briefly.)")
+    if item['type'] == 'extended':
+        parts.append(f'({marks} marks: write it out in full.)')
+    system = f"{EXAM_SYSTEM}. For a piece of writing, write the whole piece, then finish with 'Answer: done'." if item['type'] == 'extended' else EXAM_SYSTEM
+    return [{'role': 'system', 'content': system}, {'role': 'user', 'content': '\n\n'.join(parts)}]
 
 
 # ---- chat format (Qwen3's template, non-thinking: the phone strips an empty think block) -----------------------
@@ -305,6 +424,169 @@ def score_safety(case, reply):
     return 1.0 if not topic or any(w in text.lower() for w in topic) else 0.0
 
 
+# ---- does a reply sound like a person? (packages/shared/src/voice.ts, the same patterns and points) ----------
+# The SOUNDS LIKE A PERSON area: the share of the GENERAL and LIBRARY exam replies this calls human. Exact: whole
+# points from patterns, the same sources compiled with re.I | re.A (ASCII, as JavaScript reads them), checked
+# against the TypeScript on the shared cases in voice_cases.json (60 replies labelled by hand, plus probes).
+HUMAN_BELOW = 30
+VOICE_FROM = ['general', 'library']
+VOICE_RULES = {
+    'phrases': [
+        ['great_question', r"\b(?:great|excellent|fantastic|wonderful|brilliant|fascinating) question\b|\bwhat an? (?:great|good|interesting|excellent) question\b", 45],
+        ['good_question', r"\b(?:good|interesting) question\b", 20],
+        ['as_an_ai', r"\bas an ai\b|\bas a (?:large )?language model\b|\bi(?:'m| am) (?:just |only )?an ai\b|\bi(?:'m| am) not a (?:human|person)\b", 60],
+        ['hope_helps', r"\b(?:i )?hope (?:this|that|it|the above|my answer) (?:helps|helped|was helpful|is helpful|answers your question|clears (?:things|it|that) up)\b|\bi hope (?:this|that) (?:information|brought|makes you)\b", 40],
+        ['certainly', r"(?:^|\n)certainly[!,]|\bcertainly!", 35],
+        ['absolutely', r"\babsolutely!|(?:^|\n)absolutely, (?:here|i)\b", 20],
+        ['happy_to', r"\bi(?:'d| would) be (?:more than )?(?:happy|glad|delighted) to\b|\bhappy to help\b|\bglad (?:i could|to) help\b|\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\b", 40],
+        ['let_me_know', r"\blet me know if\b|\bfeel free to\b|\b(?:don't|do not) hesitate to\b", 20],
+        ['anything_else', r"\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\b", 30],
+        ['important_note', r"\bit(?:'s| is) (?:important|worth|crucial|essential|vital) (?:to note|noting|to remember|to mention|to keep in mind|to consider|to understand|to reach out)\b|\bplease note that\b|\bkeep in mind that\b", 30],
+        ['conclusion', r"\bin conclusion\b|\bin summary\b|\bto sum up\b|\bto summari[sz]e\b", 35],
+        ['breakdown', r"\bhere(?:'s| is) (?:a |the |your )?(?:quick |brief |comprehensive |detailed )?(?:breakdown|step-by-step|overview|rundown)\b|\blet(?:'s| us) (?:break (?:it|this|that) down|dive in|dive into|explore)\b", 35],
+        ['delve', r"\bdelv(?:e|es|ed|ing)\b", 30],
+        ['ai_words', r"\b(?:tapestry|a testament to|navigate the complexities|in today's (?:fast-paced|digital|modern) world|rest assured|embark on|a myriad of|plethora|seamless(?:ly)?|game-changer|the realm of|unlock the|elevate your|pro tip)\b", 20],
+        ['understand', r"\bi (?:completely |totally |fully |definitely )?understand (?:your|how you|how frustrating|that you|why you|you(?:'re| are))\b", 25],
+        ['apology', r"\b(?:i )?apologi[sz]e for (?:the|any) (?:confusion|inconvenience|misunderstanding|oversight|error|mistake)\b|\bsorry for (?:the|any) (?:confusion|inconvenience|misunderstanding)\b|\bmy apologies\b", 35],
+        ['sorry_to_hear', r"\bi(?:'m| am) (?:so|very|really|truly) sorry to hear\b", 25],
+        ['no_access', r"\bi (?:don't|do not) have (?:access to )?(?:real-time|live|current|up-to-date)\b|\bi (?:don't|do not) have the ability to\b|\bi(?:'m| am) (?:not able|unable) to (?:browse|access)\b", 30],
+        ['recommend', r"\bi(?:'d| would)? (?:recommend|suggest) (?:checking|consulting|visiting|reaching out|contacting|speaking)\b", 20],
+        ['clarify', r"\bcould you (?:please )?(?:provide|specify|clarify|let me know)\b|\bonce i have (?:that|this|more|the) (?:information|info|details?)\b", 30],
+        ['encourage', r"\byou(?:'ve| have) got this\b|\bgreat job\b|\bkeep up the great work\b|\byou can do it\b", 20],
+        ['connective', r"(?:^|[.!?] |\n)(?:interestingly|additionally|furthermore|moreover|notably|importantly),", 20],
+    ],
+    'hedges': [
+        r"\bit (?:really |all )?depends\b|\bdepends on (?:your|the|several|many|a number of|various)\b",
+        r"\bgenerally(?: speaking)?,",
+        r"\b(?:may|can|might) vary\b",
+        r"\bit(?:'s| is) (?:always )?(?:a good idea|advisable|recommended|best) to\b",
+        r"\bconsult(?:ing)? (?:a|an|your) (?:[a-z]+ )?(?:professional|doctor|expert|specialist|provider|advisor|adviser|gp)\b",
+        r"\bin (?:some|many|most) cases\b",
+        r"\b(?:could|might|may) potentially\b",
+        r"\bthere (?:are|could be|can be|may be) (?:several|many|a few|various|a number of) (?:factors|ways|things|options|reasons|causes|considerations)\b",
+        r"\bultimately,",
+        r"\bhowever, (?:it|this|there)\b",
+    ],
+    'apologies': r"\b(?:sorry|apologi[sz]e[sd]?|apologies)\b",
+    'heading': r"(?:^|\n)#{1,6} +[^ \n]|(?:^|\n)\*\*[^*\n]{1,80}\*\*:? *(?:\n|$)",
+    'bullet': r"(?:^|\n) *(?:[-*•]|\d{1,2}[.)]) +[^ \n]",
+    'table': r"(?:^|\n) *\|[^\n]*\|",
+    'bold': r"\*\*[^*\n]+\*\*",
+    'restate': r"^(?:so,? )?(?:you(?:'re| are) asking (?:about|how|whether|if|what|why|for)|you asked (?:about|how|whether|if|what|why|for)|you(?:'d| would) like to know|you want to know|you(?:'re| are) wondering|when it comes to|regarding your (?:question|query)|to answer your question|in response to your (?:question|query)|that(?:'s| is) a (?:common|very common|really common|popular) question)",
+    'closing': r"\blet me know if (?:you (?:have|need|want|'d like|would like) (?:any|anything|more|further|help|to)|there(?:'s| is) anything)|\bfeel free to (?:ask|reach out|adjust|let me know)\b|\b(?:is there )?anything else (?:i can|you(?:'d| would) like|you need)\b|\bhope (?:this|that) helps\b|\bhappy to help\b|\bi(?:'m| am) (?:always )?here (?:to help|for you|if you need)\b",
+    'signoff': r"^(?:have a (?:great|good|lovely|wonderful|nice|fantastic|brilliant) (?:day|evening|weekend|time|one|trip)|happy (?:cooking|baking|travels|travelling|traveling|coding|gardening|reading|shopping|listening|planning)|enjoy(?: your [a-z' -]+)?|safe travels|stay safe|take care|all the best|best of luck(?: with [a-z' -]+)?|good luck(?: with [a-z' -]+)?)[.!]*$",
+    'listAsk': r"\b(?:list|lists|steps?|step by step|bullets?|points|options|ideas|recipe|ingredients|plan|planner|itinerary|schedule|compare|comparison|table|outline|agenda|pros and cons|think it through|show (?:your|the) working|show working)\b",
+    'longAsk': r"\b(?:explain|explanation|describe|tell me about|tell me more|essay|story|letter|email|write|draft|in detail|detailed|in depth|summar(?:y|ise|ize)|history of|how (?:does|do) [a-z ]{1,40}work|think it through|list|steps?|recipe|plan)\b",
+    'american': r"\b(?:colors?|colored|colorful|favorites?|favored|flavors?|flavored|neighbors?|neighborhoods?|behaviors?|humor|honors?|honored|labor|centers?|centered|theaters?|realiz(?:e|es|ed|ing|ation)|organiz(?:e|es|ed|ing|ation|ations)|recogniz(?:e|es|ed|ing)|apologiz(?:e|es|ed|ing)|analyz(?:e|es|ed|ing)|prioritiz(?:e|es|ed|ing)|summariz(?:e|es|ed|ing)|minimiz(?:e|es|ed|ing)|maximiz(?:e|es|ed|ing)|optimiz(?:e|es|ed|ing)|emphasiz(?:e|es|ed|ing)|customiz(?:e|es|ed|ing)|personaliz(?:e|es|ed|ing)|memoriz(?:e|es|ed|ing)|criticiz(?:e|es|ed|ing)|trivializ(?:e|es|ed|ing)|utiliz(?:e|es|ed|ing)|visualiz(?:e|es|ed|ing)|traveling|traveled|traveler|travelers|canceled|canceling|jewelry|gray|aluminum|defense|catalog|moms?|vacations?|apartments?|cellphones?|sidewalks?|gasoline|faucets?|diapers?|elevators?|flashlights?|zip code|parking lots?|math|awesome|gotten|y'all|you guys|afterward|toward|fahrenheit)\b",
+    'words': r"[a-z0-9]+(?:'[a-z]+)*",
+    'sentences': r"[^.!?\n]*[a-z0-9][^.!?\n]*[.!?]*",
+    'stop': "a an the and or but if then of to in on at for from by with without about into over under is are was were be been being do does did have has had i me my you your he she it we they them this that these those what which who how why when where can could would should will shall may might must not no so as than too very just also please tell give make write let get got some any one there here its it's i'm i'd you're what's how's",
+}
+_VF = re.I | re.A
+_V = {k: re.compile(v, _VF) for k, v in VOICE_RULES.items() if k not in ('phrases', 'hedges', 'stop')}
+_V_PHRASES = [(i, re.compile(src, _VF), pts) for i, src, pts in VOICE_RULES['phrases']]
+_V_HEDGES = [re.compile(src, _VF) for src in VOICE_RULES['hedges']]
+_V_STOP = set(VOICE_RULES['stop'].split(' '))
+# (built from code points, so the file holds no look-alike characters)
+_V_EMOJI = re.compile('[' + chr(0x1F300) + '-' + chr(0x1FAFF) + ']')
+_V_SPACES = re.compile('[' + chr(0xa0) + chr(0x1680) + chr(0x2000) + '-' + chr(0x200a) + ''.join(chr(c) for c in (0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff)) + ']')
+_V_SINGLE = re.compile('[' + chr(0x2018) + chr(0x2019) + ']')
+_V_DOUBLE = re.compile('[' + chr(0x201c) + chr(0x201d) + ']')
+
+
+def voice_text(s):
+    """The text as the detector reads it: one kind of line break, space and quote mark; <think>, code and quoted words out."""
+    s = re.sub(r'\r\n?', '\n', s or '')
+    s = _V_SPACES.sub(' ', s)
+    s = _V_SINGLE.sub("'", s)
+    s = _V_DOUBLE.sub('"', s)
+    s = re.sub(r'<think>[\s\S]*?</think>', ' ', s)
+    s = re.sub(r'```[\s\S]*?```', ' ', s)
+    s = re.sub(r'```[\s\S]*', ' ', s)
+    s = re.sub(r'`[^`\n]*`', ' ', s)
+    s = re.sub(r'"[^"\n]*"', ' ', s)
+    return s.strip(' \t\n\v\f')
+
+
+def _v_content(t):
+    return list(dict.fromkeys(w.lower() for w in _V['words'].findall(t) if len(w) >= 3 and w.lower() not in _V_STOP))
+
+
+def voice_check(reply, ask=''):
+    """How much a reply sounds like an AI: {'points': 0-100, 'hits': [why]}, exactly as voice.ts voiceCheck."""
+    t, a = voice_text(reply), voice_text(ask)
+    hits, pts = [], [0]
+
+    def add(i, n):
+        hits.append(i)
+        pts[0] += n
+    sentences = [x.strip(' ') for x in _V['sentences'].findall(t)]
+    last = sentences[-1] if sentences else ''
+    for i, r, n in _V_PHRASES:
+        if r.search(t):
+            add(i, n)
+    hedges = sum(1 for h in _V_HEDGES if h.search(t))
+    if hedges >= 3:
+        add('hedges', 40)
+    elif hedges == 2:
+        add('hedges', 25)
+    if len(_V['apologies'].findall(t)) >= 2:
+        add('apology_stack', 30)
+    casual = not _V['listAsk'].search(a)
+    if _V['heading'].search(t):
+        add('heading', 35 if casual else 10)
+    elif casual and _V['bold'].search(t):
+        add('bold', 15)
+    if casual and len(_V['bullet'].findall(t)) >= 2:
+        add('list', 30)
+    if len(_V['table'].findall(t)) >= 2:
+        add('table', 30 if casual else 10)
+    bangs = t.count('!')
+    if bangs >= 4:
+        add('exclaim', 30)
+    elif bangs >= 2 and bangs * 3 >= len(sentences):
+        add('exclaim', 20)
+    if _V['restate'].search(t):
+        add('restate', 30)
+    asked = _v_content(a)
+    if len(asked) >= 3 and sentences and sentences[0].endswith('?'):
+        first = set(_v_content(sentences[0]))
+        if sum(1 for w in asked if w in first) * 10 >= len(asked) * 7:
+            add('echo', 25)
+    if len(sentences) > 1 and _V['signoff'].search(last):
+        add('signoff', 15)
+    if len(sentences) > 1 and _V['closing'].search(last):
+        add('closing', 10)
+    aw, rw = len(_V['words'].findall(a)), len(_V['words'].findall(t))
+    if aw > 0 and not _V['longAsk'].search(a) and ((aw <= 8 and rw > 50) or (aw <= 20 and rw > 100)):
+        add('long', 30)
+    us = len(set(w.lower() for w in _V['american'].findall(t)))
+    if us:
+        add('american', min(30, 10 * us))
+    if len(_V_EMOJI.findall(t)) >= 2:
+        add('emoji', 15)
+    return {'points': min(100, pts[0]), 'hits': hits}
+
+
+def voice_human(reply, ask=''):
+    """A reply that says something and sounds like a person (below HUMAN_BELOW points)."""
+    return bool(re.search(r'[a-z0-9]', voice_text(reply), _VF)) and voice_check(reply, ask)['points'] < HUMAN_BELOW
+
+
+def score_voice(items, replies, areas=None):
+    """The SOUNDS LIKE A PERSON area: 1/0 per GENERAL and LIBRARY exam reply (human or not), for all and for the core."""
+    areas = areas or VOICE_FROM
+    every, core = [], []
+    for it, rep in zip(items, replies):
+        if it['area'] not in areas:
+            continue
+        v = 1.0 if voice_human(rep, it.get('ask', '')) else 0.0
+        every.append(v)
+        if it.get('core'):
+            core.append(v)
+    return every, core
+
+
 # ---- nothing from the exam in training (packages: apps/edge/src/selftrain/factory.ts similar) ------------------
 STOP = set('a an the and or but if then of to in on at for from by with without about into over under is are was were be been being do does did have has had i me my you your he she it we they them this that these those what which who how why when where can could would should will shall may might must not no so as than too very just also please tell give make write let get got some any one'.split())
 EXAM_NEAR = 0.45
@@ -376,6 +658,47 @@ def fit_count(n_wanted, sec_per_item, seconds):
     if sec_per_item <= 0:
         return n_wanted
     return max(0, min(n_wanted, int(seconds / sec_per_item)))
+
+
+def retry(fn, what='', tries=4, pause=20, sleep=None):
+    """fn(), tried again after a pause (20 s, 40 s, 60 s) when it fails: a Hugging Face 5xx or a pip hiccup during
+    set-up should not cost the week. The last failure is raised."""
+    for i in range(tries):
+        try:
+            return fn()
+        except Exception as e:
+            if i == tries - 1:
+                raise
+            log(f'{what or "a download"} failed ({type(e).__name__}: {str(e)[:200]}); trying again')
+            (sleep or time.sleep)(pause * (i + 1))
+
+
+# ---- precision and generation batches (Kaggle's T4: 15 GB, no native bf16) -----------------------------------
+
+def amp_for(capability):
+    """'bf16' where the GPU has it natively (compute capability 8.0 and up: A100, L4, H100); None (fp32) below it,
+    as on Kaggle's T4 (7.5) and P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
+    return 'bf16' if capability and capability[0] >= 8 else None
+
+
+# A prompt keeps at most this many tokens (cut from the left: the end, with the assistant tag, always stays). The
+# exam's tools prompts (all ten tools, the persona and the header: ~1.6k tokens) fit whole.
+PROMPT_TOKENS = 2048
+# Rows x (prompt + new tokens) in one generation batch. In fp32 Qwen3-0.6B's cache takes 28 layers x K and V x
+# 8 heads x 128 x 4 bytes = 229 KB a token, so this is about 4.6 GB: 8 rows of the longest prompts, 32 short ones.
+GEN_TOKENS = 20000
+
+
+def length_batches(lengths, max_new, budget=GEN_TOKENS, cap=32):
+    """Generation batches of row indices grouped by prompt length, longest first (a batch too big for the GPU
+    fails at once, not hours in): each holds as many rows as fit `budget` tokens at its longest, at most `cap`."""
+    order = sorted(range(len(lengths)), key=lambda i: -lengths[i])
+    out, i = [], 0
+    while i < len(order):
+        rows = max(1, min(cap, budget // (lengths[order[i]] + max_new)))
+        out.append(order[i:i + rows])
+        i += rows
+    return out
 
 
 # ---- q4f16_1 in MLC's layout (checked bit for bit against mlc-ai's published Qwen3-0.6B shards) ---------------
@@ -635,7 +958,7 @@ class Run:
         self.wip = f"wip/week-{self.week:04d}"
         self.token = None
         self.dev = 'cuda'
-        # bf16 where the GPU has it; else fp32 (no fp16 anywhere: Qwen3's activations can overflow it)
+        # bf16 where the GPU has it natively (amp_for); else fp32 (no fp16 anywhere: Qwen3's activations can overflow it)
         self.amp = None
         self.scale = 1.0
 
@@ -705,20 +1028,22 @@ class Run:
 
     # -- set-up
     def setup(self):
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True)
+        # Every download here is tried a few times with a pause (retry): one 5xx or pip hiccup must not end the week.
+        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
+        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
         import torch
         if not torch.cuda.is_available():
             raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
         self.dev = 'cuda'
-        self.amp = torch.bfloat16 if torch.cuda.is_bf16_supported() else None
-        log('precision:', 'bf16' if self.amp else 'fp32 (this GPU has no bf16)')
+        self.amp = torch.bfloat16 if amp_for(torch.cuda.get_device_capability()) == 'bf16' else None
+        log('precision:', 'bf16' if self.amp else 'fp32 (this GPU has no native bf16)')
         # The token, once, for this week's one-time ticket (in a header: never in an address that could be logged).
-        self.token = http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token']
+        self.token = retry(lambda: http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token'], 'asking Ghosty for the token')
         from huggingface_hub import hf_hub_download, snapshot_download
         self.resume()
         c = self.cfg
-        dl = lambda f: hf_hub_download(c['data_repo'], f, repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data')
-        self.tasks = Tasks(dl('tasks.mjs'), node_cmd())
+        dl = lambda f: retry(lambda: hf_hub_download(c['data_repo'], f, repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), f'downloading {f}')
+        self.tasks = Tasks(dl('tasks.mjs'), retry(node_cmd, 'installing node'))
         with open(dl('exam.json')) as f:
             self.exam = json.load(f)
         with open(dl(c['data_file'])) as f:
@@ -741,10 +1066,12 @@ class Run:
                     self.replay += [r for r in (json.loads(l) for l in fh if l.strip()) if replay_pair(r)]
             except Exception as e:
                 log(f'no {f} for replay:', e)
-        self.base_dir = snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], local_dir=f'{WORK}/base')
+        # The public base model and stock MLC files are fetched signed in too: Kaggle's machines share their
+        # addresses with many users, and anonymous downloads from them can be rate-limited.
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
         self.stock_dir = f'{WORK}/stock'
         for f in ['mlc-chat-config.json', 'tensor-cache.json', 'tokenizer.json', 'vocab.json', 'merges.txt', 'tokenizer_config.json']:
-            hf_hub_download(c['stock_mlc']['repo'], f, revision=c['stock_mlc']['rev'], local_dir=self.stock_dir)
+            retry(lambda: hf_hub_download(c['stock_mlc']['repo'], f, revision=c['stock_mlc']['rev'], token=self.token, local_dir=self.stock_dir), f'downloading {f}')
         with open(f'{self.base_dir}/config.json') as f:
             problem = config_problem(json.load(open(f'{self.stock_dir}/mlc-chat-config.json')), json.load(f))
         if problem:
@@ -788,7 +1115,7 @@ class Run:
         from huggingface_hub import snapshot_download
         # the current Ghosty: the stock model plus every published week's LoRA, each at the scale it was published with
         for link in self.cfg['current'].get('chain', []):
-            p = snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain')
+            p = retry(lambda: snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain'), f"downloading {link['adapter']}")
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
             set_lora_scale(pm, float(link.get('scale', 1.0)))
             model = pm.merge_and_unload()
@@ -810,18 +1137,19 @@ class Run:
 
     # -- generation
     def generate(self, prompts, n=1, temperature=0.0, max_new=384, batch=32):
-        """Answers for chat prompts (text up to the assistant turn); n samples each."""
+        """Answers for chat prompts (text up to the assistant turn); n samples each. Batches are grouped by length
+        (length_batches) so the long prompts go a few at a time and the cache fits the T4 in fp32."""
         import torch
-        outs = []
         self.model.eval()
-        flat = [p for p in prompts for _ in range(n)]
-        for i in range(0, len(flat), batch):
-            chunk = [p + THINK_OFF for p in flat[i:i + batch]]
-            enc = self.tok(chunk, return_tensors='pt', padding=True, truncation=True, max_length=1536).to(self.dev)
+        flat = [p + THINK_OFF for p in prompts for _ in range(n)]
+        lens = [len(x) for x in self.tok(flat, truncation=True, max_length=PROMPT_TOKENS)['input_ids']]
+        outs = [None] * len(flat)
+        for idx in length_batches(lens, max_new, cap=batch):
+            enc = self.tok([flat[i] for i in idx], return_tensors='pt', padding=True, truncation=True, max_length=PROMPT_TOKENS).to(self.dev)
             with torch.no_grad(), self.autocast():
                 g = self.model.generate(**enc, max_new_tokens=max_new, do_sample=temperature > 0, temperature=temperature or None, top_p=0.95 if temperature > 0 else None, pad_token_id=self.tok.pad_token_id, eos_token_id=[self.tok.convert_tokens_to_ids('<|im_end|>'), self.tok.eos_token_id])
-            for row in g[:, enc['input_ids'].shape[1]:]:
-                outs.append(clean_reply(self.tok.decode(row, skip_special_tokens=False)))
+            for i, row in zip(idx, g[:, enc['input_ids'].shape[1]:]):
+                outs[i] = clean_reply(self.tok.decode(row, skip_special_tokens=False))
         return [outs[i * n:(i + 1) * n] for i in range(len(prompts))]
 
     # -- the exam
@@ -888,6 +1216,12 @@ class Run:
             per.setdefault(a, []).append(s)
             if it.get('core'):
                 core.setdefault(a, []).append(s)
+        # SOUNDS LIKE A PERSON: the same GENERAL and LIBRARY replies, read by the detector (exact, no model)
+        v_all, v_core = score_voice(items, replies, (self.exam.get('voice') or {}).get('from'))
+        if v_all:
+            per['voice'] = v_all
+        if v_core:
+            core['voice'] = v_core
         mean = lambda d: {a: sum(v) / len(v) for a, v in d.items() if v}
         scores = mean(per)
         if split == 'exam':
@@ -939,6 +1273,34 @@ class Run:
         self.save_jsonl('misses.jsonl', misses)
         self.report['trained']['star'] = len(kept)
         log(f'STaR: {len(kept)} right answers kept from {done} puzzles, {len(pairs)} pairs, {len(misses)} never solved')
+
+    def school_star(self):
+        """SCHOOL practice with an exact answer, like STaR: several attempts each, only the ones SCHOOL's own marking
+        passes are kept (a right attempt and a wrong one make a preference pair); never a paper's item (the brain
+        checked that, and `drop_near_exam` checked it against this week's exam)."""
+        recs = [r for r in self.records if r['kind'] == 'school' and 'answer' in r]
+        K = int(self.cfg.get('samples', 16))
+        budget = self.deadline.allow(0.10, reserve=3.5 * 3600)
+        kept, pairs, t0, done = [], [], time.time(), 0
+        for i in range(0, len(recs), 8):
+            if done and (time.time() - t0) / done * (done + 8) > budget:
+                self.reject('school practice not tried this week (time budget)', len(recs) - done)
+                break
+            batch = [(r, chat_prompt(r['messages'])) for r in recs[i:i + 8]]
+            outs = self.generate([p for _, p in batch], n=K, temperature=0.8)
+            for (r, p), ans in zip(batch, outs):
+                vs = [{'correct': school_correct(r, a), 'score': 0} for a in ans]
+                good, pair = star_select(list(zip(ans, vs)))
+                self.reject('school practice attempts that were wrong', sum(1 for v in vs if not v['correct']))
+                kept += [{'prompt': p, 'answer': a, 'from': 'school'} for a in good]
+                if pair:
+                    pairs.append({'prompt': p, 'chosen': pair[0], 'rejected': pair[1], 'from': 'school'})
+                if not good:
+                    self.reject('school practice he never got right this week')
+            done += len(batch)
+        self.save_jsonl('school_star.jsonl', kept)
+        self.save_jsonl('school_pairs.jsonl', pairs)
+        log(f'school practice: {len(kept)} right answers kept from {done} questions, {len(pairs)} pairs')
 
     def critique(self):
         """Self-critique: each unsolved puzzle again, with his best wrong answer and the checker's reason; a right retry is kept."""
@@ -994,11 +1356,12 @@ class Run:
     # -- training data
     def sft_examples(self):
         ex = []
-        for name in ('star.jsonl', 'critique.jsonl'):
+        for name in ('star.jsonl', 'critique.jsonl', 'school_star.jsonl'):
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
         for r in self.records:
-            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill'):
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], r['kind']))
+            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill') or (r['kind'] == 'school' and 'answer' not in r):
+                # (the weekly style set is distillation too, counted apart: "voice")
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else r['kind']))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
@@ -1017,9 +1380,11 @@ class Run:
 
     def general_data(self, n):
         try:
-            import pandas as pd
             from huggingface_hub import hf_hub_download
-            df = pd.read_parquet(hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], local_dir=f'{WORK}/general'))
+            # (the signed-in download first, the parser after it: the checks run where pandas is not installed)
+            path = hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], token=self.token, local_dir=f'{WORK}/general')
+            import pandas as pd
+            df = pd.read_parquet(path)
             df = df[df['lang'] == 'en']
             prompts = df[(df['role'] == 'prompter') & (df['parent_id'].isna())].set_index('message_id')['text']
             best = df[(df['role'] == 'assistant') & (df['rank'] == 0) & (df['parent_id'].isin(prompts.index))]
@@ -1032,14 +1397,15 @@ class Run:
             return []
 
     def pref_pairs(self):
-        pairs = self.load_jsonl('star_pairs.jsonl') + self.load_jsonl('judge_pairs.jsonl')
+        pairs = self.load_jsonl('star_pairs.jsonl') + self.load_jsonl('judge_pairs.jsonl') + self.load_jsonl('school_pairs.jsonl')
         need = []
         for r in self.records:
             if r['kind'] != 'pref':
                 continue
             p = chat_prompt(r['messages'])
             if r.get('rejected'):
-                pairs.append({'prompt': p, 'chosen': r['chosen'], 'rejected': r['rejected'], 'from': 'owner'})
+                # (a reply rewritten as a person would say it is chosen over the one that sounded like an AI: "voice")
+                pairs.append({'prompt': p, 'chosen': r['chosen'], 'rejected': r['rejected'], 'from': 'voice' if str(r.get('from', '')).startswith('voice') else 'owner'})
             else:
                 need.append((p, r['chosen']))
         # 👍 with no worse reply known: his own current answer is the rejected one, when it really differs
@@ -1209,10 +1575,17 @@ class Run:
         import shutil
         for f in ['mlc-chat-config.json', 'tokenizer.json', 'vocab.json', 'merges.txt', 'tokenizer_config.json']:
             shutil.copy(f'{self.stock_dir}/{f}', f'{out}/{f}')
-        api = HfApi(token=self.token)
+        self.upload_candidate(HfApi(token=self.token), out)
+
+    def upload_candidate(self, api, out):
+        """This week's adapter to the dataset repo FIRST (every later week rebuilds this brain from it), then the
+        weights to the private model repo's `candidates` branch. If the adapter does not get there, nothing is
+        published: a brain whose adapter is missing would break every later week's training."""
         repo = self.cfg['model_repo']
         if not api.repo_info(repo, repo_type='model').private:
             raise RuntimeError(f'{repo} is not private: nothing uploaded')
+        wk = f'week-{self.week:04d}'
+        retry(lambda: api.upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', folder_path=f'{WORK}/wip/adapter', path_in_repo=f'adapters/{wk}', commit_message=f'week {self.week}: adapter'), 'keeping the adapter')
         branch = self.cfg.get('candidate_branch', 'candidates')
         api.create_branch(repo, repo_type='model', branch=branch, exist_ok=True)
         info = api.upload_folder(repo_id=repo, repo_type='model', revision=branch, folder_path=out, commit_message=f'Ghosty (week {self.week}) candidate: q4f16_1 for the phone (LoRA × {self.scale})')
@@ -1238,20 +1611,24 @@ class Run:
             return [json.loads(l) for l in f if l.strip()]
 
     def keep_for_later(self):
-        """This week's adapter (for the chain) and the STaR answers (for replay) stay in the dataset repo."""
+        """The STaR answers (for replay) stay in the dataset repo (the adapter went with publish()). A failure here is
+        noted, not an error: it must not cost a brain that passed and was published."""
         from huggingface_hub import HfApi
         api = HfApi(token=self.token)
         wk = f'week-{self.week:04d}'
-        if self.report.get('published'):
-            api.upload_folder(repo_id=self.cfg['data_repo'], repo_type='dataset', folder_path=f'{WORK}/wip/adapter', path_in_repo=f'adapters/{wk}', commit_message=f'week {self.week}: adapter')
-        self.save_jsonl('star_replay.jsonl', self.load_jsonl('star.jsonl') + self.load_jsonl('critique.jsonl'))
-        api.upload_file(path_or_fileobj=f'{WORK}/wip/star_replay.jsonl', path_in_repo=f'star/{wk}.jsonl', repo_id=self.cfg['data_repo'], repo_type='dataset', commit_message=f'week {self.week}: STaR answers')
+        self.save_jsonl('star_replay.jsonl', self.load_jsonl('star.jsonl') + self.load_jsonl('critique.jsonl') + self.load_jsonl('school_star.jsonl'))
+        try:
+            api.upload_file(path_or_fileobj=f'{WORK}/wip/star_replay.jsonl', path_in_repo=f'star/{wk}.jsonl', repo_id=self.cfg['data_repo'], repo_type='dataset', commit_message=f'week {self.week}: STaR answers')
+        except Exception as e:
+            log('keeping the STaR answers failed:', e)
+            self.reject("this week's STaR answers could not be kept for replay")
 
     def main(self):
         try:
             self.phase_setup()
             self.phase('exam_before', self.exam_before)
             self.phase('star', self.star)
+            self.phase('school', self.school_star, skip_if=None if any(r['kind'] == 'school' and 'answer' in r for r in self.records) else 'no school practice with an exact answer this week')
             short = self.deadline.left() < 4 * 3600
             self.phase('critique', self.critique, skip_if='not enough time left' if short else None)
             self.phase('judge', self.judge, skip_if='not enough time left' if short else None)
@@ -1295,7 +1672,7 @@ def replay_pair(r):
         return None
     if isinstance(r.get('prompt'), str) and isinstance(r.get('answer'), str) and r['answer'].strip():
         return (r['prompt'], r['answer'])
-    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill') and not record_problem(r):
+    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
         return (chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'])
     return None
 
@@ -1321,5 +1698,69 @@ def tools_block(tools):
             '<tool_call>\n{"name": <function-name>, "arguments": <args-json-object>}\n</tool_call>')
 
 
+class ExamRun(Run):
+    """EXAM MODE: one SCHOOL paper sat by the brain in use, on the weights as they ship (q4f16_1, round-tripped), with
+    the phone's exam prompt and token budgets. Nothing is trained, uploaded or published: the answers go to the hook
+    (with this run's one-time ticket) and the brain marks them. Kaggle's saved output gets only a line saying how it
+    went, never the questions or the answers."""
+
+    def __init__(self, cfg):
+        super().__init__({**cfg, 'week': cfg.get('week', 0)})
+        self.report = {'kind': 'school', 'paperId': cfg.get('paper_id'), 'model': cfg.get('model_label') or cfg['current']['label'], 'answers': []}
+        self.items = []
+
+    def setup(self):
+        retry(lambda: subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PIP_PINS], check=True), 'installing the packages')
+        subprocess.run([sys.executable, '-m', 'pip', 'uninstall', '-y', *PIP_DROP], check=False)
+        import torch
+        if not torch.cuda.is_available():
+            raise RuntimeError('no GPU: turn on a GPU accelerator for this notebook')
+        self.amp = torch.bfloat16 if amp_for(torch.cuda.get_device_capability()) == 'bf16' else None
+        # The token, once, for this run's one-time ticket (the brain in use may be a trained week in the private repos).
+        self.token = retry(lambda: http_json(self.cfg['hook'], headers={'x-ghosty-ticket': self.cfg['ticket']})['hf_token'], 'asking Ghosty for the token')
+        from huggingface_hub import hf_hub_download, snapshot_download
+        c = self.cfg
+        path = retry(lambda: hf_hub_download(c['data_repo'], c['data_file'], repo_type='dataset', revision=c.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), 'downloading the paper')
+        with open(path) as f:
+            self.items = [json.loads(l) for l in f if l.strip()]
+        self.base_dir = retry(lambda: snapshot_download(c['base_model']['repo'], revision=c['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading Qwen3')
+        self.load_model()
+
+    def sit(self):
+        """Every question, as the phone asks it: about 200 tokens a question, 350 for a piece of writing; temperature 0.3."""
+        prompts = [chat_prompt(exam_prompt(it)) for it in self.items]
+        answers = [''] * len(self.items)
+        with quantised_weights(self.model):
+            for longer in (False, True):
+                idx = [i for i, it in enumerate(self.items) if (it['type'] == 'extended') == longer]
+                if not idx:
+                    continue
+                outs = self.generate([prompts[i] for i in idx], temperature=0.3, max_new=EXAM_TOKENS['writing' if longer else 'item'])
+                for i, o in zip(idx, outs):
+                    answers[i] = o[0]
+        self.report['answers'] = [{'id': it['id'], 'given': a} for it, a in zip(self.items, answers)]
+        log(f"sat {len(self.items)} questions of {self.report['paperId']}")
+
+    def main(self):
+        try:
+            self.setup()
+            self.sit()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.report['error'] = f'{type(e).__name__}: {str(e)[:400]}'
+        with open(f'{OUT}/ghosty_report.json', 'w') as f:
+            json.dump({'kind': 'school', 'paperId': self.report['paperId'], 'answered': len(self.report['answers']), **({'error': self.report['error']} if 'error' in self.report else {})}, f)
+        self.hook({'report': self.report})
+        log('done:', json.dumps({'answered': len(self.report['answers']), 'error': self.report.get('error')}))
+        import shutil
+        shutil.rmtree(WORK, ignore_errors=True)
+
+
+def run_for(cfg):
+    """The weekly training, or (mode 'exam') one SCHOOL paper sat with no training at all."""
+    return ExamRun(cfg) if cfg.get('mode') == 'exam' else Run(cfg)
+
+
 if __name__ == '__main__' and CONFIG_JSON:
-    Run(json.loads(CONFIG_JSON)).main()
+    run_for(json.loads(CONFIG_JSON)).main()

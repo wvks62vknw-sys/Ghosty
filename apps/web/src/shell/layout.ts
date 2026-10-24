@@ -1,24 +1,26 @@
 /** The frame around every tab: top bar, stage, dock, HUD frame and the systems deck. */
 import { togglePalette } from '../commands/registry';
-import { clear, h, icon, pad } from '../core/dom';
+import { h, icon, pad } from '../core/dom';
 import { memoryPaused, pauseEndsAt } from '../api/brain';
 import { player, stopAudio } from '../assistant/media';
 import { ui } from '../state/app';
 import { buildLauncher } from './launcher';
 import { modal } from '../ui/components';
-import { go, tabs } from './tabs';
+import { go } from './tabs';
 import { buildTabBar, navInfo, navTo } from './areas';
-import { proLook, themeEvents } from '../state/theme';
 import { niceCase } from '../ui/components';
 import { listMode, type ListGroup } from '../ui/listmode';
 
-/** The pages shown as an iOS Settings list in the calm looks, and their names for the back button. */
+/** The pages shown as an iOS Settings list, and their names for the back button. */
 const LISTED: Record<string, string> = { settings: 'Settings', system: 'System', links: 'Links' };
-/** Their groups: a small title above each card, a footer under it where a line explains something. */
+/** Their groups: a small title above each card, a footer under it where a line explains something.
+ *  A group's panels must follow each other in one column, or its title and footer are drawn twice
+ *  (CHARACTER sits in the other column from VOICE and OFFLINE, so it has no group of its own). */
 const GROUPS: Record<string, ListGroup[]> = {
   settings: [
-    { title: 'Appearance', match: /^LOOK/ },
-    { title: 'Voice and home', match: /^(VOICE|CHARACTER|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
+    { title: 'Appearance', match: /^THEME/, foot: 'Reactor or Graphite: the same screens in another colour.' },
+    { title: 'You', match: /^NAME/ },
+    { title: 'Voice and home', match: /^(VOICE|OFFLINE)/, foot: 'The offline brain answers on this phone when there is no signal.' },
     { title: 'Ghosty', match: /^(SYSTEM|LINKS)$/ },
     { title: 'About', match: /^(ABOUT|PRIVACY|HELP)$/ },
   ],
@@ -27,11 +29,11 @@ const GROUPS: Record<string, ListGroup[]> = {
     { title: 'Data', match: /^(STORAGE|BACKUP)/ },
   ],
   links: [
-    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM|GITHUB|LIVE)/ },
+    { title: 'Accounts', match: /^(EMAIL|SPOTIFY|TELEGRAM)/ },
     { title: 'This phone', match: /^(PHONE|NOTIF)/ },
+    { title: 'Services', match: /^(LIVE|AI|GITHUB)/ },
   ],
 };
-const DECK = '<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/>';
 const LOGO = '<path d="M12 3c-4 0-7 3-7 7v11l2.5-2 2 2 2.5-2 2.5 2 2-2 2.5 2V10c0-4-3-7-7-7z"/><circle cx="9.5" cy="10.5" r="1.1"/><circle cx="14.5" cy="10.5" r="1.1"/>';
 
 export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
@@ -60,7 +62,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   }, 'MEMORY PAUSED');
   pausedTag.hidden = true;
   memoryPaused.subscribe((m) => (pausedTag.hidden = !m.on));
-  // The calm looks' navigation bar: "‹ Learn" back to the area, and where you are as a large title.
+  // The navigation bar: "‹ Learn" back to the area, and where you are as a large title.
   const back = h('button.navback', { type: 'button', 'aria-label': 'Back' }, icon('<path d="M15 4.5L7.5 12l7.5 7.5"/>'), h('span'));
   back.addEventListener('click', () => {
     if (pushed) return pushed.pop();
@@ -69,7 +71,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   });
   const navTitle = h('h1.navtitle');
   // A screen pushed inside a tab (a Settings row, a Gym game, the conversation): the bar says where it came from.
-  // ownBack: the screen brings its own back button (the conversation's, known to tests and the classic looks as .logbtn).
+  // ownBack: the screen brings its own back button (the conversation's, known to tests as .logbtn).
   let pushed: { back: string; title: string; label: string; pop: () => void; ownBack?: boolean; tab: string } | null = null;
   addEventListener('ghosty:push', (e) => {
     const d = (e as CustomEvent).detail;
@@ -86,19 +88,23 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
       back.hidden = !!pushed.ownBack;
       navTitle.textContent = pushed.label || niceCase(pushed.title.split(' · ')[0]!);
       navTitle.dataset.case = 'keep';
+      // route C: a long name steps down a size rather than being cut ("Phone · App & Notifications")
+      const n = navTitle.textContent.length;
+      navTitle.dataset.len = n > 24 ? 'xl' : n > 17 ? 'l' : '';
       return;
     }
     pushed = null;
     document.body.classList.remove('ownback');
     const n = navInfo(tab);
     const pg = document.getElementById(`pg-${tab}`);
-    if (pg && LISTED[tab] && proLook()) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null, GROUPS[tab]);
+    if (pg && LISTED[tab]) listMode(pg, LISTED[tab]!, tab === 'system' ? /^STATUS/ : null, GROUPS[tab]);
     document.body.dataset.depth = !n || tab === 'core' ? 'home' : n.back ? 'inner' : 'hub';
     (back.lastChild as HTMLElement).textContent = n?.back ?? '';
     back.hidden = !n?.back;
     // the reactor's greeting keeps the name as typed
     navTitle.textContent = tab === 'core' ? n?.title ?? '' : niceCase(n?.title ?? '');
     navTitle.dataset.case = 'keep';
+    navTitle.dataset.len = '';
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);
@@ -106,52 +112,23 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const stage = h('main#stage');
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();
-  document.getElementById('app')!.append(top, stage, dock);
+  // Route C: offline, every screen but Home (its own pill says so) shows one quiet line above the tab bar.
+  const offline = h('div#rcoffline', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } }, h('i'), h('b', 'Offline'), h('span', ' · showing what’s saved on this phone'));
+  document.getElementById('app')!.append(top, stage, dock, offline);
 
   let paintTabBar: (() => void) | null = null;
+  // The five areas in a floating glass pill, and the round "you" in the navigation bar (shell/areas.ts).
   const buildDock = () => {
-    dock.classList.toggle('areas', proLook());
+    dock.classList.add('areas');
     document.querySelector('#top .you')?.remove();
-    paintTabBar = proLook() ? buildTabBar(dock, () => deck.open()) : null;
-    document.body.classList.toggle('tabbar', !!paintTabBar);
-    if (paintTabBar) return paintNav();
-    const wide = innerWidth >= 900;
-    const list = tabs().filter((t) => !t.hub);
-    const shown = wide ? list : list.filter((t) => t.primary).slice(0, 5);
-    clear(dock);
-    for (const t of shown) {
-      const b = h('button', { type: 'button', dataset: { id: t.id }, title: t.title }, icon(t.icon), h('span', t.title.replace("GOD'S ", '')));
-      b.addEventListener('click', () => go(t.id));
-      dock.append(b);
-    }
-    if (!wide) {
-      const b = h('button', { type: 'button', dataset: { id: 'deck' } }, icon(DECK), h('span', 'SYSTEMS'));
-      b.addEventListener('click', () => deck.open());
-      dock.append(b);
-    }
-    paintDock();
+    paintTabBar = buildTabBar(dock, () => deck.open());
+    document.body.classList.add('tabbar');
+    paintNav();
   };
   const paintDock = () => {
     paintNav();
-    if (paintTabBar) return paintTabBar();
-    [...dock.children].forEach((b) => b.classList.toggle('on', (b as HTMLElement).dataset.id === ui.get().tab));
+    paintTabBar?.();
   };
-  // Switching between a classic look and a calm one swaps the dock for the tab bar (and back).
-  let wasPro = proLook();
-  themeEvents.on('change', () => {
-    if (proLook() !== wasPro) {
-      wasPro = proLook();
-      buildDock();
-    }
-  });
-  let wasWide = innerWidth >= 900;
-  addEventListener('resize', () => {
-    const wide = innerWidth >= 900;
-    if (wide !== wasWide && !paintTabBar) {
-      wasWide = wide;
-      buildDock();
-    }
-  });
   ui.subscribe((s, p) => {
     if (s.tab !== p.tab) paintDock();
     status.textContent = s.busy ? (s.status || 'thinking…') : '';

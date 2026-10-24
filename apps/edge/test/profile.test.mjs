@@ -155,7 +155,8 @@ test('ensureJob: exactly one job of a kind, due at the wall-clock time in the gi
   assert.equal(j1.id, j2.id);
   assert.equal((await S.loadJobs(st)).length, 1);
   assert.equal(j1.repeat, 'daily');
-  assert.ok(j1.next > Date.now() && j1.next <= Date.now() + 86_400_000, 'within a day');
+  // (25 hours on the day the clocks go back: the next 03:20 London is a wall-clock day away, not 24 hours)
+  assert.ok(j1.next > Date.now() && j1.next <= Date.now() + 86_400_000 + 3_600_000, 'within a day');
   const d = new Date(j1.next).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' });
   assert.equal(d, '03:20');
   // a stray second job of the kind is removed; the first is kept

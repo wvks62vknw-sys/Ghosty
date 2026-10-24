@@ -5,7 +5,7 @@
  * page is kept on this phone (localStorage `ghosty.offlineSites`, the last three) to PREVIEW, SAVE as a
  * file, or PUBLISH when the brain is back (which sends the request with the answers to build_website).
  */
-import { briefFrom, mergeAnswers, missing, siteAsk } from '../../../../packages/shared/src/sitekit/brief';
+import { briefFrom, looksLikeAnswers, mergeAnswers, missing, siteAsk } from '../../../../packages/shared/src/sitekit/brief';
 import type { Brief } from '../../../../packages/shared/src/sitekit/types';
 import type { SiteOut } from './sitework';
 
@@ -53,8 +53,9 @@ export const cancelPendingSite = () => write(PENDING, null);
 export const savedSite = (key: string): SavedSite | null => (read<SavedSite[]>(SAVED) ?? []).find((s) => s.key === key) ?? null;
 
 /**
- * Is this turn for the offline website builder: a website request, or the answers it is waiting for?
- * "cancel" (or stop, never mind, forget it) drops the questions, so the next message is an ordinary one.
+ * Is this turn for the offline website builder: a website request, or the answers it is waiting for? A
+ * message counts as the answers only when it reads like them (looksLikeAnswers): anything else is an
+ * ordinary message and the questions keep waiting. "cancel" (or stop, never mind, forget it) drops them.
  */
 export function offlineSiteTurn(text: string): boolean {
   if (siteAsk(text)) return true;
@@ -63,7 +64,7 @@ export function offlineSiteTurn(text: string): boolean {
     cancelPendingSite();
     return false;
   }
-  return true;
+  return looksLikeAnswers(text);
 }
 
 /** Questions worth asking before building (the rest gets sensible defaults, listed to confirm). */

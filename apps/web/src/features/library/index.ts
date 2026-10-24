@@ -2,22 +2,68 @@
  * LIBRARY tab: Ghosty's offline brain. Add books, PDFs, Word files, e-books, notes, web
  * pages, arXiv papers, CVEs and GitHub repositories; Ghosty keeps them forever and looks
  * things up in them before answering. Searching here uses no AI at all. SELF-STUDY shows
- * what Ghosty is learning on its own (what it read, the notes it wrote, how its drills go),
- * takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
+ * what Ghosty is learning on its own, one field at a time (the field he is reading, how far, the
+ * time left at his pace, the fields after it), STUDY for a field picked from the list, the STUDY
+ * ALL switch (go on to the next field by himself), what he learned today, the notes he wrote and
+ * how his drills go; it takes the owner's focus, and exports every notebook to GitHub; any document on the shelf
  * opens in a reader. FRESH TODAY is the day's digest (the news, papers and events Ghosty
  * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
+/** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
+const PAGE = '<path d="M7 3.5h6.5l4 4V20a.5.5 0 01-.5.5H7a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/><path d="M13.5 3.5V8h4M9.5 12.5h5M9.5 16h5"/>';
+const GLYPH: Record<string, string> = {
+  pdf: PAGE, document: PAGE, text: PAGE, note: PAGE, notes: PAGE,
+  book: '<path d="M4.5 5h5.5a2 2 0 012 2v12.5a1.6 1.6 0 00-1.6-1.6H4.5z"/><path d="M19.5 5H14a2 2 0 00-2 2v12.5a1.6 1.6 0 011.6-1.6h5.9z"/>',
+  web: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>',
+  paper: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2"/>',
+  cve: '<path d="M12 3.5l7 2.8v5.4c0 4.3-3 7.4-7 8.8-4-1.4-7-4.5-7-8.8V6.3z"/><path d="M12 8.5v4M12 15.5v.01"/>',
+  code: '<path d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5"/>',
+  starter: '<path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/>',
+  study: '<circle cx="7" cy="14.5" r="3.5"/><circle cx="17" cy="14.5" r="3.5"/><path d="M10.5 14c1-.8 2-.8 3 0M3.5 14l1.8-6M20.5 14l-1.8-6"/>',
+  digest: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/>',
+  scan: '<path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M4 12h16"/>',
+  recon: '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
+  project: '<path d="M3.5 7a1.5 1.5 0 011.5-1.5h4.2l2 2.2H19a1.5 1.5 0 011.5 1.5v8.3A1.5 1.5 0 0119 19H5a1.5 1.5 0 01-1.5-1.5z"/>',
+};
 const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT' };
+/** A field in the brain's study summary (library/study.ts `studySummary`), with what STUDY at scale adds. */
+interface FieldRow {
+  id: string;
+  name: string;
+  topics: number;
+  read: number;
+  digested: number;
+  focus: boolean;
+  finished?: boolean;
+  grown?: number;
+}
+/** The study state as the brain sends it now: the queue (one field at a time), its status line, STUDY ALL, what the outlines added. */
+type StudyNow = StudyInfo & {
+  all?: boolean;
+  summary: StudyInfo['summary'] & {
+    domains: FieldRow[];
+    queue?: FieldRow[];
+    current?: (FieldRow & { minutesLeft: number | null }) | null;
+    status?: string;
+    all?: boolean;
+    finished?: number;
+    grown?: { topics: number; latest: number };
+    today: StudyInfo['summary']['today'] & { finished?: number };
+  };
+};
+/** The STUDY ALL switch travels as FOCUS words (the brain's library/study.ts ALL_ON / ALL_OFF). */
+const ALL_ON = 'study-all-on';
+const ALL_OFF = 'study-all-off';
 /** One passage of the day's digest (library/digest.ts in the brain): "YYYY-MM-DD · source". */
 interface FreshItem {
   heading: string;
@@ -30,6 +76,7 @@ export const libraryTab: TabDef = {
   icon: '<path d="M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z"/>',
   scene: 'backdrop',
   blurb: 'ask the offline brain · add books & PDFs',
+  now: () => (lastSeen.get().passages != null ? `${fmt.n(lastSeen.get().passages)} passages` : ''),
   mount(root) {
     const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
     let docs: LibraryDoc[] = [];
@@ -37,7 +84,11 @@ export const libraryTab: TabDef = {
     // ---- add knowledge
     const ap = panel('ADD KNOWLEDGE', { grow: false, cls: 'libadd' });
     const fileInput = h('input', { type: 'file', multiple: true, accept: ACCEPT, style: { display: 'none' }, 'aria-label': 'Choose files for the library' });
-    const drop = h('div.drop', { tabIndex: 0, role: 'button', 'aria-label': 'Add files to the library' }, h('b', 'DROP BOOKS, PDFS & FILES HERE'), h('span', 'or tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV/JSON, code'));
+    // (route C words it for a phone, where nothing is dropped: the tile is tapped)
+    const drop = h('div.drop', { tabIndex: 0, role: 'button', 'aria-label': 'Add files to the library' },
+      h('i.dropic', icon('<path d="M12 15.5V4.5M7.5 9L12 4.5 16.5 9"/><path d="M4.5 14.5v3a2 2 0 002 2h11a2 2 0 002-2v-3"/>')),
+      h('b', { dataset: { label: 'Add books, PDFs and files' } }, 'DROP BOOKS, PDFS & FILES HERE'),
+      h('span', { dataset: { label: 'Tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV, JSON, code' } }, 'or tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV/JSON, code'));
     const log = h('div.liblog');
     const busy = { n: 0 };
     const note = (text: string, kind: '' | 'ok' | 'bad' = '') => {
@@ -184,22 +235,15 @@ export const libraryTab: TabDef = {
     P.left.append(sp.el);
 
     // ---- shelf
-    const shelf = panel('SHELF', { footer: true });
+    const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
+    // A row each: the kind's glyph on a glass tile, the title with its kind under it, how many passages, a chevron.
+    // (Removing a document is in its reader: REMOVE FROM LIBRARY.)
     const shelfList = pager(shelf, 46, (d: LibraryDoc) => {
-      const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, d.builtin ? `${d.passages}` : '✕', { wrap: true, onClick: () => openDoc(d) });
-      if (!d.builtin) {
-        const x = r.lastChild as HTMLElement;
-        x.classList.add('del');
-        x.title = `Remove "${d.title}" from the library`;
-        x.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (!confirm(`Remove "${d.title}" from Ghosty's library?`)) return;
-          await brain.libraryRemove(d.id).catch(() => toast('Could not remove it', 'bad'));
-          void refresh();
-        });
-      }
+      const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
+      r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
+      (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
-    }, () => 'SYNC');
+    }, () => 'SYNC', 'Add a book or a file above, or import a page from the web: it is on the shelf in seconds.');
     // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
     const openDoc = (d: LibraryDoc) => {
       const body = h('div.reader');
@@ -227,43 +271,113 @@ export const libraryTab: TabDef = {
           more.remove();
         }
       };
-      modal(d.title, h('div.readwrap', h('div.note', `${KIND[d.kind] ?? d.kind.toUpperCase()} · ${d.source || 'no source'} · ${fmt.n(d.passages)} passages`), body, h('div.keyrow', more)));
+      // what it is as chips (kind, where from, how many passages), then the passages to read; REMOVE for his own
+      const kind = KIND[d.kind] ?? d.kind.toUpperCase();
+      const meta = h('div.readmeta', { dataset: { case: 'keep' } },
+        h('span.chip', { dataset: { case: 'keep' } }, /[a-z]/.test(kind) ? kind : kind.charAt(0) + kind.slice(1).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase())),
+        h('span.chip.src', { dataset: { case: 'keep' } }, d.source || 'no source'),
+        h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`));
+      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', async (b) => {
+        if (!confirm(`Remove "${d.title}" from Ghosty's library?`)) return;
+        b.disabled = true;
+        await brain.libraryRemove(d.id).then(() => {
+          toast(`Removed "${d.title}"`, 'ok');
+          m.close();
+        }, () => toast('Could not remove it', 'bad'));
+        b.disabled = false;
+        void refresh();
+      }, 'warn readrm');
+      const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
       void load();
     };
 
-    // ---- self-study: Ghosty studies on its own, around the clock, within the free plan
+    // ---- self-study: Ghosty studies on its own, around the clock, within the free plan — one field at a time
     const study = panel('SELF-STUDY', { grow: false, cls: 'study' });
     let allFields = false;
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
-    const paintStudy = (st: StudyInfo | null) => {
+    const pick = h('select', { 'aria-label': 'Field to study' });
+    pick.addEventListener('change', () => study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value)));
+    const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
       if (!st) {
         study.setStatus('OFFLINE', 'off');
         return;
       }
       const sum = st.summary;
+      const doms = sum.domains as FieldRow[];
       const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
       study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
       const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
       const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
-      const fields = [...sum.domains].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
+      const fields = [...doms].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
       const shown = allFields ? fields : fields.slice(0, 5);
-      const focusNames = st.focus.map((id) => sum.domains.find((d) => d.id === id)?.name ?? id);
+      const focusNames = st.focus.map((id) => doms.find((d) => d.id === id)?.name ?? id);
+      const all = sum.all ?? st.all ?? true;
+      const cur = sum.current ?? null;
+      const later = (sum.queue ?? []).slice(1, 5);
+      // the topic picker: every field in the curriculum's order, its progress, ✓ once read to the end
+      clear(pick, ...doms.map((d) => h('option', { value: d.id }, `${d.name} · ${d.read} of ${d.topics}${d.finished ? ' ✓' : ''}`)));
+      pick.value = cur?.id ?? doms[0]?.id ?? '';
+      const studyNow = async (b: HTMLButtonElement) => {
+        const id = pick.value;
+        const row = doms.find((d) => d.id === id);
+        if (!row) return;
+        b.disabled = true;
+        study.setStatus('STUDYING…', 'mid');
+        const others = st.focus.filter((f) => f !== id);
+        // A finished field that is already first: take it out and put it back, so the brain reads it again (he asked).
+        if (row.finished && st.focus.includes(id)) await brain.study({ focus: others.length ? others.join(', ') : 'none' }).catch(() => null);
+        const r = await brain.study({ focus: [id, ...others].slice(0, 5).join(', '), now: true }).catch(() => null);
+        if (r?.did) toast(`${row.name}: ${r.did.reads} read just now · the rest follows on its own`, 'ok');
+        else toast('Ghosty could not be reached — try again in a moment', 'bad');
+        paintStudy(((await brain.studyStatus().catch(() => r)) as StudyNow | null) ?? null);
+        void refresh();
+      };
+      const allSwitch = button(`STUDY ALL: ${all ? 'ON' : 'OFF'}`, async (b) => {
+        b.disabled = true;
+        // the switch, then the focus as it is (FOCUS words carry both)
+        await brain.study({ focus: [all ? ALL_OFF : ALL_ON, ...st.focus.slice(0, 5)].join(', ') }).catch(() => null);
+        paintStudy(((await brain.studyStatus().catch(() => null)) as StudyNow | null) ?? null);
+      }, `studyall${all ? ' on' : ''}`);
+      allSwitch.setAttribute('role', 'switch');
+      allSwitch.dataset.label = 'Study all'; // route C: the words beside a switch
+      allSwitch.setAttribute('aria-checked', String(all));
+      const today = sum.today;
       study.body.append(
-        h('div.note', st.on
-          ? `Around the clock, on its own: Ghosty reads a curriculum of ${fmt.n(sum.topics)} topics across ${sum.domains.length} fields (Wikipedia, MDN, arXiv, OpenStax, the Swift book), writes study notes on each with a free model, and sets itself drills it marks without any AI. Everything is filed in this library — open any notebook on the shelf, or export it all to GitHub.`
-          : 'Switched off. Turn it on and Ghosty reads, takes notes and drills itself around the clock, free, filing everything here.'),
+        // what he is reading now, honestly: "Reading Algebra · 212 of 480 · about 40 minutes left at this pace"
+        h('div.studynow', h('b', sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
+        later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
+        h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
+        h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
+        // what he learned today: three numbers, large
+        h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
+          h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
         bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),
         bar('NOTES', sum.digested / Math.max(1, sum.topics), `${fmt.n(sum.digested)} written${sum.pending ? ` · ${sum.pending} waiting for a model` : ''}`, '#52f2b5'),
+        sum.grown?.topics ? row('MORE TO READ', `${fmt.n(sum.grown.topics)} topics found in Wikipedia's outlines`, `+${fmt.n(sum.grown.latest)}`, { wrap: true }) : '',
         // from the basics up: each field is read beginner → intermediate → advanced
         sum.levels ? row('LEVELS', sum.levels.map((l) => `${l.level} ${pct(l.read, l.topics)}%`).join(' · '), null, { wrap: true }) : '',
-        row('TODAY', `${sum.today.reads} read · ${sum.today.digests} notes · ${sum.today.drills} drills`, `${sum.today.ai} AI calls`),
         row('DRILLS', sum.drills.asked ? `${sum.drills.right} of ${sum.drills.asked} right · ${pct(sum.drills.right, sum.drills.asked)}%` : 'none yet', weakest ? `weakest: ${weakest}` : null, { wrap: true, tone: sum.drills.asked && pct(sum.drills.right, sum.drills.asked) < 60 ? 'dn' : 'up' }),
         st.last ? row('LAST', lastText, fmt.ago(st.last.at), { wrap: true, ...(st.last.error ? { tone: 'bad' as const } : {}) }) : '',
         st.gaps.length ? row('YOUR QUESTIONS', st.gaps.slice(-3).join(' · '), String(st.gaps.length), { wrap: true }) : '',
         st.on && st.next ? row('NEXT', new Date(st.next).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), `${st.sessions} sessions`) : row('SESSIONS', String(st.sessions)),
         h('div.lab', 'FIELDS'),
-        ...shown.map((d) => bar(d.focus ? `★ ${d.name}` : d.name, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined)),
+        // the fields as a list that picks: a tap chooses the field STUDY sends (the picker above follows)
+        h('div.studyfields', ...shown.map((d) => {
+          const b = bar(`${d.focus ? '★ ' : ''}${d.finished ? '✓ ' : ''}${d.name}`, d.read / Math.max(1, d.topics), `${d.read}/${d.topics}`, d.focus ? '#ffd24d' : undefined);
+          b.dataset.id = d.id;
+          b.tabIndex = 0;
+          b.setAttribute('role', 'button');
+          b.setAttribute('aria-label', `Pick ${d.name}: ${d.read} of ${d.topics} read`);
+          b.classList.toggle('picked', d.id === pick.value);
+          const choose = () => {
+            pick.value = d.id;
+            study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === d.id));
+          };
+          b.addEventListener('click', choose);
+          b.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && choose());
+          return b;
+        })),
         fields.length > 5
           ? h('div.keyrow', button(allFields ? 'FEWER' : `ALL ${fields.length} FIELDS`, () => {
             allFields = !allFields;
@@ -277,18 +391,10 @@ export const libraryTab: TabDef = {
           focusIn.value = '';
           const r = await brain.study({ focus: words }).catch(() => null);
           if (r && !r.focus.length && !/^(none|off|clear|-)$/i.test(words)) toast('No field by that name — the FIELDS list has them all', 'warn');
-          paintStudy(r ? await brain.studyStatus().catch(() => r) : null);
+          paintStudy(r ? ((await brain.studyStatus().catch(() => r)) as StudyNow) : null);
         })),
-        h('div.keyrow',
-          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy(await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)), st.on ? 'warn' : 'on'),
-          st.on ? button('STUDY NOW', async (b) => {
-            b.disabled = true;
-            study.setStatus('STUDYING…', 'mid');
-            const r = await brain.study({ now: true }).catch(() => null);
-            if (r?.did) toast(`Studied: ${r.did.reads} read, ${r.did.digests} notes, ${r.did.drills} drills`, 'ok');
-            paintStudy(await brain.studyStatus().catch(() => r));
-            void refresh();
-          }) : '',
+        h('div.keyrow.wrapit',
+          button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy((await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)) as StudyNow | null), st.on ? 'warn' : 'on'),
           button('EXPORT TO GITHUB', async (b) => {
             // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
             b.disabled = true;
@@ -324,7 +430,7 @@ export const libraryTab: TabDef = {
       const body = p.text.split('\n').slice(1).join(' ').replace(/\s+/g, ' ');
       return row(source, body, '›', { wrap: true, onClick: () => modal(p.heading, h('div.readwrap', h('div.reader', ...p.text.split('\n').map((line) => h('p', line))))) });
     };
-    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET');
+    const freshList = pager(fresh, 46, freshRow, () => 'NONE YET', 'Tap Digest now and he gathers today’s news, papers and events.');
     const paintFresh = async () => {
       try {
         const all: FreshItem[] = [];
@@ -395,7 +501,7 @@ export const libraryTab: TabDef = {
     return {
       enter() {
         void refresh();
-        void brain.studyStatus().then(paintStudy, () => paintStudy(null));
+        void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
         void paintFresh();
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,

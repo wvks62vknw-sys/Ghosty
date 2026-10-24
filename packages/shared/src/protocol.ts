@@ -3,6 +3,7 @@
  * Both sides import this file, so a change here must be made on both sides.
  */
 import type { PersonaSettings } from './persona';
+import type { SpeedSummary } from './speed';
 
 /** Events streamed (one JSON object per line) from POST /api/chat and POST /api/approve. */
 export type ChatEvent =
@@ -42,6 +43,21 @@ export interface CitedInfo {
   checks: ClaimCheck[];
 }
 
+/**
+ * A home drawn from the owner's words (the brain's design_home → the `home_plan` command): every storey's
+ * whole plan as Room JSON v2 (packages/shared/src/design.ts; never cut, it does not go to the model), the
+ * words it was drawn from and everything that was assumed or could not be done. The phone keeps the last one
+ * (SPACE → DESIGN MY HOME and the plan card in the chat).
+ */
+export interface HomePlanEvent {
+  words: string;
+  unit: 'metric' | 'imperial';
+  /** Ground floor first. */
+  storeys: { name: string; plan: Record<string, unknown> }[];
+  assumed: string[];
+  cannot: string[];
+}
+
 /** Commands the brain may ask the interface to run (tools with `side: 'client'`). */
 export const CLIENT_COMMANDS = [
   'open_tab',
@@ -72,6 +88,7 @@ export const CLIENT_COMMANDS = [
   'open_studio',
   'open_learn',
   'design_changes',
+  'home_plan',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -350,6 +367,8 @@ export interface BrainStatus {
   speech?: { stt: boolean; tts: boolean };
   /** How much free AI room each provider has (apps/edge/src/llm/quota.ts): the SYSTEM tab's gauge. */
   capacity?: AiCapacity;
+  /** The brain's stopwatch (apps/edge/src/speed.ts): today's and last week's medians, in numbers and plain words, for the SPEED card. */
+  speed?: SpeedSummary;
 }
 
 /** One provider's free allowance right now. */

@@ -129,7 +129,7 @@ if (!st.hits.some((h) => /kettle/i.test(h.name))) problems.push(`"kettle" found 
 if (!st.hits.every((h) => h.licence === 'CC0' || h.licence === 'CC BY 4.0')) problems.push('a model without a permissive licence is listed');
 const cards = page.locator('#pg-studio .studiocard');
 if (!(await cards.count())) problems.push('no cards for the hits');
-// thumbnails load as the cards come into view (the calm looks' taller controls push them below the fold on a phone)
+// thumbnails load as the cards come into view (the taller controls push them below the fold on a phone)
 await cards.first().scrollIntoViewIfNeeded().catch(() => undefined);
 await until(() => [...document.querySelectorAll('#pg-studio .studiocardimg')].some((i) => i.src.startsWith('blob:') && i.complete && i.naturalWidth > 0), 10000, 'no thumbnail showed');
 if (!thumbsAsked.every((u) => /^https:\/\/(media\.sketchfab\.com|cdn\.polyhaven\.com)\//.test(u))) problems.push(`thumbnails asked from elsewhere: ${thumbsAsked.slice(0, 3)}`);

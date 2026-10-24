@@ -1,10 +1,10 @@
-/** SETTINGS tab: theme, your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
+/** SETTINGS tab: theme (Reactor, Graphite), your name, units, how Ghosty talks (CHARACTER), voice, sounds, tilt-to-look, home location and the offline brain. (Keys, models and status are in SYSTEM; email, Spotify and phone notifications in LINKS.) */
 import { clear, fmt, h } from '../../core/dom';
 import { BUILD } from '../../state/build';
 import { World } from '../../engine/world';
 import type { TabDef } from '../../shell/tabs';
 import { home, settings } from '../../state/app';
-import { applyTheme, proLook, THEMES } from '../../state/theme';
+import { applyTheme, themeKey, THEMES } from '../../state/theme';
 import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { characterPanel } from './character';
@@ -18,16 +18,18 @@ export const settingsTab: TabDef = {
   scene: 'backdrop',
   blurb: 'theme · name · character · units · voice · sounds · tilt · home · offline brain',
   mount(root) {
-    const P = page(root, { tag: 'SETTINGS', leftLabel: 'LOOK', rightLabel: 'VOICE & HOME', stack: true });
-    const lp = panel('LOOK', { grow: false });
-    lp.el.classList.add('look');
+    const P = page(root, { tag: 'SETTINGS', leftLabel: 'THEME', rightLabel: 'VOICE & HOME', stack: true });
+    // THEME: the one design in a colour (state/theme.ts); NAME & UNITS: what he calls you, and how he measures.
+    const lp = panel('THEME', { grow: false, status: THEMES[themeKey(settings.get().theme)]!.label });
+    lp.el.classList.add('themepn');
+    const np = panel('NAME & UNITS', { grow: false, status: settings.get().name });
     const vp = panel('VOICE & HOME', { grow: false });
     const cp = characterPanel();
-    P.left.append(lp.el, cp.el);
+    P.left.append(lp.el, np.el, cp.el);
     P.right.append(vp.el);
     const op = offlinePanel();
     P.right.append(op.el);
-    // The calm looks: System and Links are rows of Settings (they open their own screens), then About, Privacy and Help.
+    // System and Links are rows of Settings (they open their own screens), then About, Privacy and Help.
     const goRow = (title: string, to: string, status: string) => {
       const p = panel(title, { grow: false, status });
       p.el.dataset.go = to;
@@ -38,7 +40,7 @@ export const settingsTab: TabDef = {
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
       row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`),
-      row('THEMES', `${Object.keys(THEMES).length} looks, from Graphite to the classic HUDs`),
+      row('THEMES', `${Object.values(THEMES).map((t) => t.label).join(' and ')}: colours of the one design`, null, { wrap: true }),
     );
     const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
     privacy.body.append(
@@ -54,50 +56,36 @@ export const settingsTab: TabDef = {
     );
     P.right.append(goRow('SYSTEM', 'system', 'Keys, models, backups'), goRow('LINKS', 'links', 'Email, Spotify, phone'), about.el, privacy.el, help.el);
 
-    // Theme picker: one card per theme, drawn in that theme's own colours and finish, so the
-    // choice is made by looking rather than by name.
-    const themes = h('div.themes');
+    // Theme: one live swatch per theme, drawn in its own accent (a little Home: the glow, the reactor, the lit
+    // tab). A tap applies it at once, everywhere, and this phone remembers it.
+    const themes = h('div.swatches', { role: 'radiogroup', 'aria-label': 'Theme' });
     const paintHead = () => {
-      const look = THEMES[settings.get().theme]?.label ?? 'Settings';
+      const t = THEMES[themeKey(settings.get().theme)]!;
       const units = settings.get().units === 'metric' ? '°C · km' : '°F · miles';
-      // The calm looks open Settings on a profile row (iOS): your name, then the look and units.
-      if (proLook()) {
-        P.big.textContent = settings.get().name;
-        P.big.dataset.initial = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
-        P.big.dataset.case = 'keep';
-        P.sub.textContent = `${look} · ${units}`;
-      } else {
-        P.big.textContent = look.toUpperCase();
-        delete P.big.dataset.case;
-        P.sub.textContent = `${settings.get().name} · ${units}`;
-      }
+      // Settings opens on a profile row (iOS): your name, then the theme and units.
+      P.big.textContent = settings.get().name;
+      P.big.dataset.initial = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
+      P.big.dataset.case = 'keep';
+      P.sub.textContent = `${t.label} · ${units}`;
+      lp.setStatus(t.label);
+      np.setStatus(settings.get().name);
     };
     const paintThemes = () => {
-      clear(themes);
-      const cur = settings.get().theme;
-      let more = false;
-      for (const [k, t] of Object.entries(THEMES)) {
-        // the calm looks first, then every classic style under one label
-        if (t.look !== 'pro' && !more) {
-          more = true;
-          themes.append(h('div.lab.morestyles', 'MORE STYLES'));
-        }
-        const b = h('button.tcard', { type: 'button', 'data-finish': t.finish, 'aria-pressed': String(cur === k), style: `--tc:${t.c};--ta:${t.a};--tr:${t.r};--tb:${t.bg}` },
-          h('span.tprev', h('i.tp1'), h('i.tp2'), h('i.tp3'), h('i.tglow')),
-          h('span.tname', t.label),
-          h('span.ttag', t.tag),
+      const cur = themeKey(settings.get().theme);
+      clear(themes, ...Object.entries(THEMES).map(([k, t]) => {
+        const b = h('button.swatch', { type: 'button', role: 'radio', 'aria-checked': String(cur === k), dataset: { theme: k, case: 'keep' }, style: `--sw:${t.c};--sw2:${t.pale};--swk:${t.glow}` },
+          h('span.swprev', { 'aria-hidden': 'true' }, h('i.swglow'), h('i.swcore'), h('i.swbar', h('i'), h('i'), h('i'))),
+          h('span.swtxt', h('b', { dataset: { case: 'keep' } }, t.label), h('small', { dataset: { case: 'keep' } }, t.tag)),
+          h('i.swtick', { 'aria-hidden': 'true' }),
         );
         b.classList.toggle('on', cur === k);
         b.addEventListener('click', () => {
+          if (themeKey(settings.get().theme) === k) return;
           applyTheme(k);
-          [...themes.children].forEach((x) => {
-            x.classList.toggle('on', x === b);
-            x.setAttribute('aria-pressed', String(x === b));
-          });
-          paintHead();
+          toast(`Theme: ${t.label}`, 'ok');
         });
-        themes.append(b);
-      }
+        return b;
+      }));
     };
     paintThemes();
     const name = h('input', { value: settings.get().name, placeholder: 'What should I call you?', 'aria-label': 'Your name' });
@@ -105,7 +93,8 @@ export const settingsTab: TabDef = {
     const units = h('select', { 'aria-label': 'Units' }, h('option', { value: 'metric' }, 'Units: °C · km'), h('option', { value: 'imperial' }, 'Units: °F · miles'));
     units.value = settings.get().units;
     units.addEventListener('change', () => settings.set({ units: units.value as 'metric' | 'imperial' }));
-    lp.body.append(h('div.lab', 'THEME'), themes, h('div.lab', 'YOUR NAME'), name, units);
+    lp.body.append(themes, h('p.note.swnote', 'A theme changes Ghosty’s colour and nothing else: every screen keeps its layout.'));
+    np.body.append(h('div.lab', 'YOUR NAME'), name, units);
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.
     const vc = voiceControls();
@@ -137,8 +126,8 @@ export const settingsTab: TabDef = {
     vp.body.append(...vc.nodes, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     paintHead();
-    // The name top-left is the theme in use: it follows every change, whether a card was tapped
-    // here, the name or units were edited, or Ghosty switched the theme from chat.
+    // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
+    // or Ghosty switched the theme from chat.
     settings.subscribe((s, p) => {
       if (s.theme !== p.theme || s.name !== p.name || s.units !== p.units) paintHead();
       if (s.theme !== p.theme) paintThemes();

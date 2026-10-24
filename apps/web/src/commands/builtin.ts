@@ -357,6 +357,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // A home drawn from the owner's words (design_home): kept, put in SPACE's planner, its card in the chat.
+      id: 'home_plan',
+      title: 'Home plan',
+      hidden: true,
+      run: async (a) => {
+        const { receiveHomePlan } = await import('../features/space/home');
+        receiveHomePlan(a);
+      },
+    },
+    {
       // The 3D STUDIO: a sample, a model made from a picture (make_3d), words to make (catalogue first), a catalogue model, a room in cm, or a Spline link.
       id: 'open_studio',
       title: 'Open the 3D Studio',
@@ -389,8 +399,8 @@ export function registerBuiltins(): void {
       title: 'Set theme',
       hidden: true,
       run: (a) => {
-        // accept a key ("mark3") or a label ("Mark III", "war machine")
-        const want = String(a?.theme ?? 'stark').toLowerCase().replace(/[^a-z0-9]/g, '');
+        // accept a key ("graphite") or a label ("Reactor"); any other name (an old look's) gives Reactor
+        const want = String(a?.theme ?? 'reactor').toLowerCase().replace(/[^a-z0-9]/g, '');
         const hit = Object.entries(THEMES).find(([k, t]) => k === want || t.label.toLowerCase().replace(/[^a-z0-9]/g, '') === want);
         applyTheme(hit ? hit[0] : want);
       },

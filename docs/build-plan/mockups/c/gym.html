@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Ghosty C · Gym</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+</style><div class="screen gym"><div class="sb" aria-hidden="true">
+  <span class="sb-time">18:42</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div>
+<div class="navfade"></div>
+<div class="nav"><span class="gbtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4.5L7.5 12l7.5 7.5"/></svg></span><span class="avatar">B</span></div>
+<div class="ltitle"><div class="t-large">Gym</div><div class="sub t-sub">Ghosty teaches himself by playing, on this phone.</div></div>
+<div class="trainall glass">
+  <div class="hd"><span class="t-kick">Levels by game · <b class="num">3 of 22</b> mastered</span><span class="t-kick num">LV 1–10</span></div>
+  <div class="lvls"><span class="g" style="bottom:34px"></span><span class="g" style="bottom:62px"></span><i class="m" style="height:62px"></i><i class="m" style="height:62px"></i><i class="m" style="height:62px"></i><i class="" style="height:51px"></i><i class="" style="height:45px"></i><i class="" style="height:40px"></i><i class="" style="height:40px"></i><i class="" style="height:34px"></i><i class="" style="height:34px"></i><i class="" style="height:28px"></i><i class="" style="height:28px"></i><i class="" style="height:23px"></i><i class="" style="height:23px"></i><i class="" style="height:23px"></i><i class="" style="height:17px"></i><i class="" style="height:17px"></i><i class="" style="height:17px"></i><i class="" style="height:12px"></i><i class="z" style="height:12px"></i><i class="z" style="height:12px"></i><i class="z" style="height:12px"></i><i class="z" style="height:12px"></i></div>
+  <div class="trow"><span class="primary"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4.5v15l12-7.5z"/></svg>Train all</span><span class="awake"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z"/></svg>Keep awake<span class="sw"></span></span></div>
+  <div class="stline"><i></i><span>Not running · least mastered first, starting with Debate Arena · runs until all 22 are mastered or you tap Stop</span></div>
+</div>
+<div class="sechd"><span class="t-title">Games</span><span class="num">22 games · 4 not started</span></div>
+<div class="ggrid"><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:none"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#e8eef3" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="184.3 279.2" transform="rotate(-90 50 50)"/><circle cx="7.7" cy="63.7" r="5.7" fill="#0b0d0f" stroke="#fff" stroke-width="2"/></svg><b class="num">6</b></span></div>
+  <div class="nm">Sudoku</div>
+  <div class="lv num">Level 6 · 66%</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,21.8 15.5,20.0 29.0,19.2 42.5,17.2 56.0,16.1 69.5,15.0 83.0,13.7 96.5,12.6 110.0,11.9 123.5,10.8 137.0,10.4 150.5,9.9 164.0,9.5" fill="none" stroke="rgba(235,240,245,.75)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="9.5" r="2.4" fill="rgba(235,240,245,.75)"/></svg>
+  <div class="st"><i></i>Paused</div>
+</div><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:drop-shadow(0 0 3px rgba(100,210,255,.55))"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#64d2ff" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="279.2 279.2" transform="rotate(-90 50 50)"/></svg><b class="num">10</b></span></div>
+  <div class="nm">Tic-tac-toe</div>
+  <div class="lv num">All 10 levels</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,19.6 18.2,14.8 34.4,11.9 50.6,9.0 66.8,7.1 83.0,5.3 99.2,4.2 115.4,3.3 131.6,2.7 147.8,2.0 164.0,2.0" fill="none" stroke="#64d2ff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="2.0" r="2.4" fill="#64d2ff"/></svg>
+  <div class="st done"><i></i>Mastered</div>
+</div><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="8" cy="10" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/><circle cx="8" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="16" cy="14.5" r="1.6"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:none"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#e8eef3" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="231.7 279.2" transform="rotate(-90 50 50)"/><circle cx="14.1" cy="23.9" r="5.7" fill="#0b0d0f" stroke="#fff" stroke-width="2"/></svg><b class="num">8</b></span></div>
+  <div class="nm">Connect 4</div>
+  <div class="lv num">Level 8 · 83%</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,20.7 18.2,17.4 34.4,15.0 50.6,13.0 66.8,11.2 83.0,9.5 99.2,8.6 115.4,7.5 131.6,6.6 147.8,6.2 164.0,5.7" fill="none" stroke="rgba(235,240,245,.75)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="5.7" r="2.4" fill="rgba(235,240,245,.75)"/></svg>
+  <div class="st"><i></i>Paused</div>
+</div><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20.5h8M9 17.5h6l-.6-6h-4.8zM10 11.5L8.5 8.5h7L14 11.5M12 8.5V4.5M10.5 5.5h3"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:none"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#e8eef3" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="122.8 279.2" transform="rotate(-90 50 50)"/><circle cx="36.3" cy="92.3" r="5.7" fill="#0b0d0f" stroke="#fff" stroke-width="2"/></svg><b class="num">3</b></span></div>
+  <div class="nm">Chess</div>
+  <div class="lv num">Level 3 · 44%</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,22.2 20.0,20.9 38.0,19.6 56.0,18.7 74.0,17.6 92.0,17.2 110.0,16.1 128.0,15.6 146.0,15.0 164.0,14.3" fill="none" stroke="rgba(235,240,245,.75)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="14.3" r="2.4" fill="rgba(235,240,245,.75)"/></svg>
+  <div class="st"><i></i>Paused</div>
+</div><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8.5 4v8h4M15.5 8.5V20M8.5 16h3.5"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:drop-shadow(0 0 3px rgba(100,210,255,.55))"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#64d2ff" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="279.2 279.2" transform="rotate(-90 50 50)"/></svg><b class="num">10</b></span></div>
+  <div class="nm">Maze</div>
+  <div class="lv num">All 10 levels</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,17.4 25.1,13.0 48.3,9.5 71.4,6.4 94.6,4.2 117.7,2.9 140.9,2.0 164.0,2.0" fill="none" stroke="#64d2ff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="2.0" r="2.4" fill="#64d2ff"/></svg>
+  <div class="st done"><i></i>Mastered</div>
+</div><div class="gcard glass">
+  <div class="top"><span class="sq"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16l3.5-8 3.5 8M9.8 13.2h4.4"/></svg></span><span class="ring"><svg width="46" height="46" viewBox="0 0 100 100" style="flex:none;filter:none"><circle cx="50" cy="50" r="44.4" fill="none" stroke="#fff" stroke-opacity="0.1" stroke-width="9.1"/><circle cx="50" cy="50" r="44.4" fill="none" stroke="#e8eef3" stroke-width="9.1" stroke-linecap="round" stroke-dasharray="161.9 279.2" transform="rotate(-90 50 50)"/><circle cx="14.1" cy="76.1" r="5.7" fill="#0b0d0f" stroke="#fff" stroke-width="2"/></svg><b class="num">5</b></span></div>
+  <div class="nm">Word Guess</div>
+  <div class="lv num">Level 5 · 58%</div>
+  <svg class="spk" viewBox="0 0 166 26" preserveAspectRatio="none"><polyline points="2.0,21.4 25.1,19.6 48.3,17.4 71.4,15.9 94.6,14.3 117.7,13.2 140.9,12.3 164.0,11.2" fill="none" stroke="rgba(235,240,245,.75)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="164.0" cy="11.2" r="2.4" fill="rgba(235,240,245,.75)"/></svg>
+  <div class="st"><i></i>Paused</div>
+</div></div>
+<div class="fadebot"></div><nav class="tabs"><div class="tab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/></svg><span>Ask</span></div><div class="tab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/></svg><span>See</span></div><div class="tab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/></svg><span>Make</span></div><div class="tab on"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/></svg><span>Learn</span></div><div class="tab"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/></svg><span>Plan</span></div></nav><div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>

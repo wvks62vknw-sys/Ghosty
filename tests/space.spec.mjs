@@ -39,6 +39,10 @@ await page.goto(base);
 await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+// (on a shared server an earlier check's notification pops up at load: it must not sit under a tap, nor open its full text)
+const clearToasts = () => page.evaluate(() => { document.querySelectorAll('#toasts .toast, .modal').forEach((t) => t.remove()); });
+await page.waitForTimeout(600);
+await clearToasts();
 
 const sp = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__ghosty?.space ?? null)));
 const until = (fn, ms, what, arg = null) => page.waitForFunction(fn, arg, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
@@ -99,6 +103,7 @@ if (!(await page.locator('#pg-space .spaceinfo', { hasText: 'under 70 cm' }).cou
 await page.screenshot({ path: `${out}/space-gap.png` });
 
 // ---- add a desk from the catalogue and turn it ----
+await clearToasts();
 await page.locator('#pg-space .spacecat button', { hasText: 'Desk' }).click();
 s = await sp();
 const desk = s.items.find((i) => i.kind === 'desk');

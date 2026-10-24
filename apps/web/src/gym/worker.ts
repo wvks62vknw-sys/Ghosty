@@ -10,7 +10,10 @@
  * Every message names the game's `epoch`: the page bumps it when the owner RESETs a game, and drops any
  * message still in flight from before (so a wiped game can't come back).
  *
- * In:  { gym: 'train', id, rec, epoch } · { gym: 'pause' } · { gym: 'reset', id, epoch }
+ * After a level is passed he carries straight on with the next (CONTINUE BY HIMSELF, the default). With
+ * `carry: false` he stops there instead, the new level made and waiting for the owner.
+ *
+ * In:  { gym: 'train', id, rec, epoch, carry? } · { gym: 'carry', on } · { gym: 'pause' } · { gym: 'reset', id, epoch }
  *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board? }
  *      { gym: 'bench', req } (the report card's gym questions) · { gym: 'judge', req, id, reply } (one judged)
  *      { gym: 'exact', req, question, reply? } (the exact check THINK HARDER can use for a chat question; with a reply, its verdict)
@@ -24,7 +27,8 @@ import { gameById } from './index';
 import { type GymRecord, Session } from './session';
 
 export type GymIn =
-  | { gym: 'train'; id: string; rec?: GymRecord | null; epoch?: number }
+  | { gym: 'train'; id: string; rec?: GymRecord | null; epoch?: number; carry?: boolean }
+  | { gym: 'carry'; on: boolean }
   | { gym: 'pause' }
   | { gym: 'reset'; id: string; epoch?: number }
   | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[] }
@@ -50,6 +54,8 @@ let perUnit = 1;
 let lastMeasure = 0;
 let measureGap = 1500;
 let lastSave = 0;
+/** Past a level, go straight on to the next (false: stop there). */
+let carry = true;
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -102,7 +108,7 @@ function tick(post: (m: GymOut) => void) {
     if (now() - lastMeasure > measureGap) {
       const ev = measure(l);
       if (ev) perUnit = 1;
-      if (l.s.rec.mastered) active = null;
+      if (l.s.rec.mastered || (ev === 'level' && !carry)) active = null;
       // (Slices of a match come quickly: the page hears about them every 1½ s.)
       if (ev || !l.s.pending || now() - lastProgress > 1500 || !active) {
         lastProgress = now();
@@ -165,6 +171,7 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       if (prev) post({ gym: 'save', rec: prev.s.snapshot(), epoch: prev.epoch });
     }
     active = l.s.rec.mastered ? null : m.id;
+    if (m.carry != null) carry = m.carry;
     perUnit = 1;
     lastMeasure = now();
     measureGap = 1500;
@@ -179,6 +186,9 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       progress(post, l);
       post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
     }
+  } else if (m.gym === 'carry') {
+    // CONTINUE BY HIMSELF switched while he trains: from his next level-up on.
+    carry = m.on;
   } else if (m.gym === 'reset') {
     if (active === m.id) active = null;
     sessions.delete(m.id);

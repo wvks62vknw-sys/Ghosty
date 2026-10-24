@@ -13,9 +13,13 @@ export const marketsTab: TabDef = {
   icon: '<path d="M3 20h18M6 16v-5M11 16V7M16 16v-8M21 16V4"/>',
   scene: 'backdrop',
   blurb: 'stocks · crypto · currencies',
+  now() {
+    const btc = coins.data?.find((c) => c.sym === 'BTC');
+    return btc ? `BTC ${btc.change >= 0 ? '+' : '−'}${Math.abs(btc.change).toFixed(2)}% today` : '';
+  },
   mount(root) {
-    const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · indices · commodities · currencies', rightLabel: 'INDICES / FX', leftLabel: 'CRYPTO' });
-    const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO' });
+    const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · indices · commodities · currencies', rightLabel: 'INDICES / FX', leftLabel: 'CRYPTO', stack: true });
+    const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO', cls: 'coins' });
     const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const cg = pager(cp, 52, (c: Coin) => {
       const r = row(c.sym, h('span', c.name, h('br'), h('small.mono', `${sym()}${fmt.n(c.price, c.price < 10 ? 3 : 0)}`)), `${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)}%`, {
@@ -45,6 +49,7 @@ export const marketsTab: TabDef = {
       const up = list.filter((c) => c.change > 0).length;
       P.big.textContent = list.length ? (up > list.length / 2 ? 'RISK ON' : 'RISK OFF') : '--';
       P.big.style.color = up > list.length / 2 ? '#52f2b5' : '#ff4d6a';
+      P.big.dataset.tone = !list.length ? '' : up > list.length / 2 ? 'up' : 'dn'; // route C colours it (amber when risk is off)
       P.sub.textContent = list[0] ? `${coins.status} · ${list[0].sym} ${sym()}${fmt.n(list[0].price)}` : coins.status;
       cg.set(list);
       ig.set(indices.data ?? []);

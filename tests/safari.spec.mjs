@@ -137,7 +137,7 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
         if (b.top < -1 || b.bottom > H + 1) out.bars.push(`${name(e)} (${cs.position}) is at ${Math.round(b.top)}–${Math.round(b.bottom)} of ${H}`);
       }
     }
-    // The calm looks' tab bar floats over the page, which scrolls up from under it (iOS): a button in that band
+    // The tab bar floats over the page, which scrolls up from under it (iOS): a button in that band
     // is scrolled under the bar, not covered by it — it counts once it is scrolled above.
     const bar = document.querySelector('#dock.areas .tabcap');
     const barTop = bar && getComputedStyle(document.querySelector('#dock')).position === 'absolute' ? bar.getBoundingClientRect().top : H;
@@ -151,7 +151,8 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
       out.nButtons++;
       if (r.height < 39.5) out.small.push(`${name(b)} is ${Math.round(r.height)} px tall`);
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      if (!hit || !(hit === b || b.contains(hit))) out.covered.push(`${name(b)} is under ${hit ? name(hit) : 'nothing'}`);
+      // (a toast passing over a button is not a cover: it goes by itself in a few seconds; on a shared server an earlier check's notification can pop up at any moment)
+      if (!hit || !(hit === b || b.contains(hit) || hit.closest('#toasts'))) out.covered.push(`${name(b)} is under ${hit ? name(hit) : 'nothing'}`);
     }
     for (const i of document.querySelectorAll('input, textarea, select')) {
       if (!shown(i) || /^(checkbox|radio|range|color|file|hidden|button|submit|image)$/.test(i.type)) continue;

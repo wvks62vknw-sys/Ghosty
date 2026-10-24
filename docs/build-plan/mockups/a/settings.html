@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Ghosty A · Me</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+</style><div class="screen mescreen"><div class="sb" aria-hidden="true">
+  <span class="sb-time">18:42</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div>
+<div class="behind"><img src="home.png" alt=""></div>
+<div class="sheet">
+  <span class="grabber"></span>
+  <div class="shead"><span class="circ" style="visibility:hidden"></span><span class="t">Me</span><span class="done">Done</span></div>
+  <div class="sect" style="top:76px;left:16px;right:16px"><div class="group"><div class="prof"><span class="pav">B</span><span class="tx" style="flex:1"><b>Boss</b><span>Graphite · °C, km</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div></div></div>
+  <div class="sect" style="top:172px;left:16px;right:16px"><div class="hdr">STATUS</div><div class="group">
+    <div class="row" style="min-height:46px"><span class="ic" style="background:var(--green)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="tx"><b>Ghosty</b></span><span class="val g">Connected</span></div>
+    <div class="row" style="min-height:46px"><span class="ic" style="background:var(--blue)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="tx"><b>Free AI today</b></span><span class="val num">72% left</span></div>
+    <div class="row" style="min-height:46px"><span class="ic" style="background:var(--orange)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5a4.5 4.5 0 01-.6-9A6 6 0 0117.8 11 3.8 3.8 0 0117 18.5z"/></svg></span><span class="tx"><b>Database today</b></span><span class="val num">18% used</span></div>
+    <div class="row" style="min-height:46px"><span class="ic" style="background:var(--indigo)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5a3 3 0 00-3 3 3 3 0 00-2 5.2A3.2 3.2 0 006.5 18a3 3 0 005.5 1.5V6A2.8 2.8 0 009 4.5z"/><path d="M15 4.5a3 3 0 013 3 3 3 0 012 5.2 3.2 3.2 0 01-2.5 5.3 3 3 0 01-5.5 1.5"/></svg></span><span class="tx"><b>Offline brain</b></span><span class="val">Ready</span></div>
+    <div class="row" style="min-height:46px"><span class="ic" style="background:var(--gray)"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 3v5.5c0 4.5-3.2 8-7.5 9.5-4.3-1.5-7.5-5-7.5-9.5V6z"/></svg></span><span class="tx"><b>Version</b></span><span class="val">Up to date</span></div>
+  </div></div>
+  <div class="sect" style="top:452px;left:16px;right:16px"><div class="group">
+    <div class="row"><span class="ic" style="background:#ff375f"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5a3 3 0 00-3 3 3 3 0 00-2 5.2A3.2 3.2 0 006.5 18a3 3 0 005.5 1.5V6A2.8 2.8 0 009 4.5z"/><path d="M15 4.5a3 3 0 013 3 3 3 0 012 5.2 3.2 3.2 0 01-2.5 5.3 3 3 0 01-5.5 1.5"/></svg></span><span class="tx"><b>Memory</b><span>What I know about you</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="row"><span class="ic" style="background:#8e8e93"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg></span><span class="tx"><b>Settings</b><span>Look, voice, home and about</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="row"><span class="ic" style="background:#5e5ce6"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9.5 2.5V6M14.5 2.5V6M9.5 18v3.5M14.5 18v3.5M2.5 9.5H6M2.5 14.5H6M18 9.5h3.5M18 14.5h3.5"/></svg></span><span class="tx"><b>System</b><span>Keys, models, storage and backups</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+  </div></div>
+  <div class="sect" style="top:640px;left:16px;right:16px"><div class="group">
+    <div class="row"><span class="ic" style="background:#0a84ff"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg></span><span class="tx"><b>Links</b><span>Email, Spotify and your phone</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+    <div class="row"><span class="ic" style="background:#30d158"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.6"/><rect x="14" y="4" width="6" height="6" rx="1.6"/><rect x="4" y="14" width="6" height="6" rx="1.6"/><rect x="14" y="14" width="6" height="6" rx="1.6"/></svg></span><span class="tx"><b>Every screen</b><span>All of Ghosty at once</span></span><svg class="i chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></div>
+  </div><div class="ftr num">Ghosty 29e6c95 · built 2 hours ago</div></div>
+</div>
+<div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>

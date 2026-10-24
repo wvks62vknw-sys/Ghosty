@@ -3,6 +3,8 @@
 // so any tool can still be called; the code section only on a coding turn; LOYALTY verbatim.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { build } from 'esbuild';
 
 const P = await import('./.build/prompt.mjs');
 const T = await import('./.build/tools/index.mjs');
@@ -42,7 +44,7 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.match(sys, /show_cameras: the West Midlands motorways/, 'the traffic group is on: its about line is there');
   assert.match(sys, /say so plainly and show the nearest motorway camera/);
   assert.match(sys, /ALSO \(call by name; described next turn\):\n/);
-  assert.match(sys, /^sites: build_website, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
+  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
   assert.ok(!/DO IT, never reply/.test(sys), 'the website rule comes only with the sites group');
   assert.ok(!/TOOLS: only the tools that look relevant/.test(sys) && !/WHAT YOU CAN DO:/.test(sys), 'the old paragraph and name list are gone');
   const site = P.systemPrompt(client, [], false, [], { groups: T.selectGroups('make me a website for my bakery', new Set(), false) });
@@ -288,6 +290,66 @@ test('a dial changed while the nightly reflection waits on its model is not undo
   assert.equal(r.ok, true, r.skipped);
   assert.deepEqual((await call('GET', '/profile/persona')).persona, { dry: 0, brief: 2, warm: 2 }, 'the newer dials stand');
   assert.deepEqual((await PR.loadProfile(storage)).sections.likes, ['tea'], 'and the reflection was saved');
+});
+
+// ---- the AI-sounding detector's phrases go too (packages/shared/src/voice.ts; OWNER-ISSUES 12) -------------------
+
+// (voice.ts bundled on its own here; on a tree without it every check below fails one by one)
+const voiceSrc = new URL('../../../packages/shared/src/voice.ts', import.meta.url).pathname;
+if (existsSync(voiceSrc)) await build({ entryPoints: [voiceSrc], bundle: true, format: 'esm', platform: 'neutral', outfile: new URL('./.build/voice.mjs', import.meta.url).pathname, logLevel: 'warning' });
+const V = existsSync(voiceSrc) ? await import('./.build/voice.mjs') : { voiceCheck: () => ({ points: 0 }) };
+
+/** The detector's stock lead-ins, apologies and closers the online models write, and what the owner gets instead. */
+const VOICE_GOLDEN = [
+  ["That's a great question! The bins go out on Tuesday.", 'The bins go out on Tuesday.'],
+  ['Sorry for the confusion. The 17:42 leaves from platform 4.', 'The 17:42 leaves from platform 4.'],
+  ['I apologise for any inconvenience! Your parcel comes on Monday.', 'Your parcel comes on Monday.'],
+  ["The shop shuts at 5. It's important to note that it's closed on Sundays.", "The shop shuts at 5. It's closed on Sundays."],
+  ['It is worth noting that the M6 is shut at J10 tonight.', 'The M6 is shut at J10 tonight.'],
+  ['Rain from 3pm, clearing by 7. In conclusion, take a coat.', 'Rain from 3pm, clearing by 7. Take a coat.'],
+  ['Your train is the 17:42. I hope this answers your question.', 'Your train is the 17:42.'],
+  ["Booked for Friday at 8. Let me know if there's anything else I can do for you.", 'Booked for Friday at 8.'],
+  ["Done, the heating's off. Have a great day!", "Done, the heating's off."],
+  ['Please note that the code is 4471 and the gate sticks.', 'The code is 4471 and the gate sticks.'],
+  ['Great question! In summary, iPhones keep two days of charge.', 'iPhones keep two days of charge.'],
+];
+
+/** Where those words are someone's own, or carry meaning: left exactly as they are. */
+const VOICE_UNTOUCHED = [
+  'Dear Sam,\n\nIn conclusion, the flat is yours from Monday.\n\nBest, Ghosty',
+  "Pack:\n- It's important to note that the gate sticks\n- keys",
+  'He said "It is worth noting that it rained" and left.',
+  "Sorry, I'm late. The train was cancelled.",
+  "I understand. I'll cancel it.",
+  'Have a great day at the match, and wrap up warm.',
+  'Keep in mind the code changes on Monday.',
+  "It's important to note the time.",
+  "The report's in conclusion section is short.",
+  'Sorry for the confusion.',
+];
+
+test('polish: the AI-sounding detector\'s phrases go too (lead-ins, stock apologies, closers), never the facts: every number stays, and the reply sounds less like an AI', () => {
+  const nums = (t) => (t.match(/\d+(?:[.,:]\d+)*/g) ?? []).sort();
+  for (const [before, after] of VOICE_GOLDEN) {
+    assert.equal(P.polish(before), after, before);
+    assert.deepEqual(nums(after), nums(before), `the numbers in "${before}"`);
+    assert.ok(V.voiceCheck(after).points <= V.voiceCheck(before).points, `"${after}" sounds no more like an AI`);
+    assert.equal(P.polish(after), after, 'already clean: unchanged');
+  }
+  assert.ok(VOICE_GOLDEN.some(([b, a]) => V.voiceCheck(a).points < V.voiceCheck(b).points), 'the detector hears the difference');
+  for (const t of VOICE_UNTOUCHED) assert.equal(P.polish(t), t, t);
+  for (const t of [...VOICE_GOLDEN.map((g) => g[0]), ...VOICE_UNTOUCHED]) assert.equal(P.polish(P.polish(t)), P.polish(t), `idempotent: ${t}`);
+});
+
+test('the persona says the rule in one line, on every channel and every dial, within the budgets', () => {
+  for (const dials of ALL_DIALS) {
+    const c = P.character(dials);
+    assert.match(c, /Sound like a person, not an AI\. Never chatbot filler/);
+    for (const w of ['padding', 'over-apologising', 'unasked lists, tables or headings']) assert.ok(c.includes(w), w);
+  }
+  const sys = P.systemPrompt(client2, [], true, [], { groups: hello() });
+  assert.equal(sys.split('Sound like a person, not an AI.').length, 2, 'once');
+  assert.ok(!/No markdown tables unless asked/.test(sys), 'tables are in the rule now, not a line of their own');
 });
 
 test('the router polishes whatever free model answered when Ghosty speaks as himself, and nothing else', () => {

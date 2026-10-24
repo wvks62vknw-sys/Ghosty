@@ -6,10 +6,11 @@
  * fetches only through the brain: weights.ts). Plain fetch; `fetch` is injectable so tests stand in for both.
  * Errors come back as `RemoteError` with a plain message.
  *
- * Kaggle: the RPC API the current `kaggle` CLI uses (kaggle 2.2.4 / kagglesdk 0.1.37): `POST
- * https://api.kaggle.com/v1/<service>/<method>` with a JSON body in camelCase; a legacy key signs in with HTTP
- * Basic (username:key), a new API token (KGAT_…) as a Bearer token, and its username comes from
- * `security.OAuthService/IntrospectToken` like the CLI's `_introspect_token`. Errors come back as `{code, message}`.
+ * Kaggle: the RPC API the current `kaggle` CLI uses (kaggle 2.2.4 / kagglesdk 0.1.37; the quota and output calls
+ * read from kagglesdk 0.1.38): `POST https://api.kaggle.com/v1/<service>/<method>` with a JSON body in camelCase; a
+ * legacy key signs in with HTTP Basic (username:key), a new API token (KGAT_…) as a Bearer token, and its username
+ * comes from `security.OAuthService/IntrospectToken` like the CLI's `_introspect_token`. Errors come back as
+ * `{code, message}`; durations as protobuf JSON strings ("108000s", "151.500s"), a zero one left out.
  * Hugging Face: whoami-v2, the repo info and settings endpoints, repos/create, the commit endpoint (NDJSON), preupload,
  * the Git LFS batch API, tags, and `resolve/<commit>/<file>`.
  */
@@ -86,16 +87,19 @@ export async function kaggleUser(f: Fetch, c: KaggleCreds): Promise<KaggleCreds>
 
 /** The notebook's slug on the owner's account. */
 export const KERNEL_SLUG = 'ghosty-weekly-training';
+/** The same notebook in exam mode (a SCHOOL paper sat on the free GPU): its own slug, so it never touches the weekly run. */
+export const EXAM_SLUG = 'ghosty-exam';
 /** Kaggle's free T4 GPU (the CLI's `--accelerator` value), and the longest a run may take (Kaggle's limit is 12 h). */
 export const MACHINE_SHAPE = 'NvidiaTeslaT4';
 export const SESSION_TIMEOUT_S = 10 * 3600;
 
 /** Push (and so start) the notebook: private, a GPU, the internet on. Returns the version and its address. */
-export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string): Promise<{ ref: string; url: string; version: number }> {
+export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string, o: { slug?: string; timeoutS?: number } = {}): Promise<{ ref: string; url: string; version: number }> {
   const c = await kaggleUser(f, c0);
+  const slug = o.slug ?? KERNEL_SLUG;
   const j = await kaggleRpc<{ ref?: string; url?: string; versionNumber?: number; error?: string }>(f, c, 'kernels.KernelsApiService', 'SaveKernel', {
-    slug: `${c.username}/${KERNEL_SLUG}`,
-    newTitle: KERNEL_SLUG,
+    slug: `${c.username}/${slug}`,
+    newTitle: slug,
     text: source,
     language: 'python',
     kernelType: 'script',
@@ -109,21 +113,87 @@ export async function pushKernel(f: Fetch, c0: KaggleCreds, source: string): Pro
     modelDataSources: [],
     categoryIds: [],
     machineShape: MACHINE_SHAPE,
-    sessionTimeoutSeconds: SESSION_TIMEOUT_S,
+    sessionTimeoutSeconds: o.timeoutS ?? SESSION_TIMEOUT_S,
   });
   if (j.error) throw new RemoteError(`Kaggle would not start the notebook: ${String(j.error).slice(0, 200)}`);
-  return { ref: j.ref ?? `${c.username}/${KERNEL_SLUG}`, url: j.url ?? `https://www.kaggle.com/code/${c.username}/${KERNEL_SLUG}`, version: j.versionNumber ?? 0 };
+  return { ref: j.ref ?? `${c.username}/${slug}`, url: j.url ?? `https://www.kaggle.com/code/${c.username}/${slug}`, version: j.versionNumber ?? 0 };
 }
 
 export type KernelState = 'queued' | 'running' | 'complete' | 'error' | 'cancelled' | 'unknown';
 
 /** How the notebook's latest run is going (Kaggle's KernelWorkerStatus names). */
-export async function kernelStatus(f: Fetch, c0: KaggleCreds): Promise<{ state: KernelState; message: string }> {
+export async function kernelStatus(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ state: KernelState; message: string }> {
   const c = await kaggleUser(f, c0);
-  const j = await kaggleRpc<{ status?: string; failureMessage?: string }>(f, c, 'kernels.KernelsApiService', 'GetKernelSessionStatus', { userName: c.username, kernelSlug: KERNEL_SLUG });
+  const j = await kaggleRpc<{ status?: string; failureMessage?: string }>(f, c, 'kernels.KernelsApiService', 'GetKernelSessionStatus', { userName: c.username, kernelSlug: slug });
   const s = String(j.status ?? '').toUpperCase();
   const state: KernelState = s === 'QUEUED' || s === 'NEW_SCRIPT' ? 'queued' : s === 'RUNNING' ? 'running' : s === 'COMPLETE' ? 'complete' : s === 'ERROR' ? 'error' : /CANCEL/.test(s) ? 'cancelled' : 'unknown';
   return { state, message: String(j.failureMessage ?? '').slice(0, 300) };
+}
+
+/** A protobuf JSON duration ("108000s", "151.500s"; left out when zero) in hours. */
+export function durationHours(v: unknown): number {
+  const m = typeof v === 'string' ? v.match(/^(-?\d+(?:\.\d+)?)s$/) : null;
+  const s = m ? Number(m[1]) : typeof v === 'number' ? v : 0;
+  return Number.isFinite(s) ? s / 3600 : 0;
+}
+
+export interface GpuQuota {
+  /** Hours Kaggle allows this week (0: the account has no GPU time, e.g. its phone number is not verified). */
+  total: number;
+  /** Hours left: allowed − used − reserved by sessions running now. */
+  left: number;
+  /** Pay-to-scale: past the free hours Kaggle would charge. */
+  payToScale: boolean;
+  /** When the weekly hours come back (ms), if Kaggle said. */
+  refreshAt: number | null;
+}
+
+/** This week's GPU hours (`kernels.KernelsApiService/GetAcceleratorQuotaStatistics`, the CLI's `kaggle kernels quota`). */
+export async function kaggleQuota(f: Fetch, c0: KaggleCreds): Promise<GpuQuota> {
+  const c = await kaggleUser(f, c0);
+  const j = await kaggleRpc<{ quotaRefreshTime?: string; gpuQuota?: { timeUsed?: string; timeReserved?: string; totalTimeAllowed?: string; isPayToScaleEnabled?: boolean } }>(f, c, 'kernels.KernelsApiService', 'GetAcceleratorQuotaStatistics', {});
+  const g = j.gpuQuota ?? {};
+  const total = durationHours(g.totalTimeAllowed);
+  const refresh = j.quotaRefreshTime ? Date.parse(j.quotaRefreshTime) : NaN;
+  return { total, left: Math.max(0, total - durationHours(g.timeUsed) - durationHours(g.timeReserved)), payToScale: g.isPayToScaleEnabled === true, refreshAt: Number.isFinite(refresh) ? refresh : null };
+}
+
+/**
+ * What the notebook's latest run left behind (`kernels.KernelsApiService/ListKernelSessionOutput`, as the CLI's
+ * `kaggle kernels output`): the end of its log, and its saved report (`ghosty_report.json`, fetched from the signed
+ * address Kaggle gives, without the Kaggle key). Either may be missing.
+ */
+export async function kernelOutput(f: Fetch, c0: KaggleCreds, slug = KERNEL_SLUG): Promise<{ logTail: string; report: { error?: unknown } | null }> {
+  const c = await kaggleUser(f, c0);
+  const j = await kaggleRpc<{ files?: { url?: string; fileName?: string }[]; log?: string }>(f, c, 'kernels.KernelsApiService', 'ListKernelSessionOutput', { userName: c.username, kernelSlug: slug });
+  let report: { error?: unknown } | null = null;
+  const file = (j.files ?? []).find((x) => x.fileName === 'ghosty_report.json' && /^https:\/\//.test(String(x.url)));
+  if (file) {
+    try {
+      const r = await f(String(file.url));
+      const text = r.ok ? await r.text() : '';
+      if (text.length < 4_000_000) report = JSON.parse(text) as { error?: unknown };
+    } catch {
+      report = null;
+    }
+  }
+  return { logTail: logTail(String(j.log ?? '')), report: report && typeof report === 'object' ? report : null };
+}
+
+/** The last lines of a Kaggle run's log (its JSON list of {stream_name, data}, or plain text), at most `n` characters. */
+export function logTail(log: string, n = 300): string {
+  let text = log;
+  try {
+    const items = JSON.parse(log) as { data?: unknown }[];
+    if (Array.isArray(items)) text = items.map((x) => String(x?.data ?? '')).join('');
+  } catch {
+    /* plain text */
+  }
+  const lines = text.split('\n').map((l) => l.replace(/[\u0000-\u001f\u007f]/g, ' ').trim()).filter(Boolean);
+  let out = '';
+  for (let i = lines.length - 1; i >= 0 && out.length < n; i--) out = out ? `${lines[i]} / ${out}` : lines[i]!;
+  // A Hugging Face token never shows, wherever it came from.
+  return (out.length > n ? `…${out.slice(-n)}` : out).replace(/hf_[A-Za-z0-9]{8,}/g, 'hf_…');
 }
 
 /** A light check that the key works (lists one of the owner's notebooks); returns the username. */
@@ -211,6 +281,8 @@ export async function hfEnsurePrivateRepo(f: Fetch, me: HfMe, token: string, rep
 export interface HfFile {
   path: string;
   content: string;
+  /** Worked out ahead (build.mjs does it for the 535 KB tasks.mjs): the bytes' base64, size and SHA-256, so the brain spends no CPU on them. */
+  pre?: { b64: string; size: number; sha256: string };
 }
 
 const bytesOf = (s: string): Uint8Array<ArrayBuffer> => new TextEncoder().encode(s) as Uint8Array<ArrayBuffer>;
@@ -219,6 +291,8 @@ function b64(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 }
+/** The base64 of the first 512 bytes, from a whole file's base64 (684 characters hold bytes 0–512). */
+const b64Head = (whole: string): string => btoa(atob(whole.slice(0, 684)).slice(0, 512));
 async function sha256Hex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
   return [...d].map((x) => x.toString(16).padStart(2, '0')).join('');
@@ -232,27 +306,31 @@ const LFS = 'application/vnd.git-lfs+json';
  */
 export async function hfCommit(f: Fetch, token: string, repo: string, type: 'model' | 'dataset', files: HfFile[], summary: string): Promise<string> {
   const base = `${HF}/api/${type}s/${repo}`;
-  const enc = files.map((x) => ({ ...x, bytes: bytesOf(x.content) }));
-  const pre = await hfCall(f, token, 'POST', `${base}/preupload/main`, JSON.stringify({ files: enc.map((x) => ({ path: x.path, size: x.bytes.length, sample: b64(x.bytes.subarray(0, 512)) })) }));
+  // A file worked out ahead (x.pre) is never encoded here; the others are, once.
+  const enc = files.map((x) => {
+    const bytes = x.pre ? null : bytesOf(x.content);
+    return { ...x, size: x.pre?.size ?? bytes!.length, bytes: () => bytes ?? bytesOf(x.content), b64: () => x.pre?.b64 ?? b64(bytes!), sample: x.pre ? b64Head(x.pre.b64) : b64(bytes!.subarray(0, 512)) };
+  });
+  const pre = await hfCall(f, token, 'POST', `${base}/preupload/main`, JSON.stringify({ files: enc.map((x) => ({ path: x.path, size: x.size, sample: x.sample })) }));
   if (!pre.ok) throw new RemoteError(`Hugging Face preupload failed (${pre.status}): ${(await pre.text()).slice(0, 200)}`, pre.status);
   const modes = new Map(((await pre.json()) as { files?: { path: string; uploadMode: string }[] }).files?.map((x) => [x.path, x.uploadMode]) ?? []);
   const lfs = [];
-  for (const x of enc) if (modes.get(x.path) === 'lfs') lfs.push({ ...x, oid: await sha256Hex(x.bytes) });
+  for (const x of enc) if (modes.get(x.path) === 'lfs') lfs.push({ ...x, oid: x.pre?.sha256 ?? (await sha256Hex(x.bytes())) });
   if (lfs.length) {
     const gitBase = `${HF}/${type === 'dataset' ? 'datasets/' : ''}${repo}.git/info/lfs/objects/batch`;
-    const r = await hfCall(f, token, 'POST', gitBase, JSON.stringify({ operation: 'upload', transfers: ['basic'], objects: lfs.map((x) => ({ oid: x.oid, size: x.bytes.length })), hash_algo: 'sha256', ref: { name: 'main' } }), LFS, { Accept: LFS });
+    const r = await hfCall(f, token, 'POST', gitBase, JSON.stringify({ operation: 'upload', transfers: ['basic'], objects: lfs.map((x) => ({ oid: x.oid, size: x.size })), hash_algo: 'sha256', ref: { name: 'main' } }), LFS, { Accept: LFS });
     if (!r.ok) throw new RemoteError(`Hugging Face LFS refused the upload (${r.status})`, r.status);
     const objs = ((await r.json()) as { objects?: { oid: string; actions?: { upload?: { href: string; header?: Record<string, string> }; verify?: { href: string; header?: Record<string, string> } } }[] }).objects ?? [];
     for (const o of objs) {
       const x = lfs.find((y) => y.oid === o.oid)!;
       const up = o.actions?.upload;
       if (up) {
-        const put = await f(up.href, { method: 'PUT', headers: { ...(up.header ?? {}) }, body: x.bytes });
+        const put = await f(up.href, { method: 'PUT', headers: { ...(up.header ?? {}) }, body: x.bytes() });
         if (!put.ok) throw new RemoteError(`uploading ${x.path} failed (${put.status})`, put.status);
       }
       const ver = o.actions?.verify;
       if (ver) {
-        const v = await f(ver.href, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'content-type': LFS, Accept: LFS, ...(ver.header ?? {}) }, body: JSON.stringify({ oid: x.oid, size: x.bytes.length }) });
+        const v = await f(ver.href, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'content-type': LFS, Accept: LFS, ...(ver.header ?? {}) }, body: JSON.stringify({ oid: x.oid, size: x.size }) });
         if (!v.ok) throw new RemoteError(`Hugging Face could not verify ${x.path} (${v.status})`, v.status);
       }
     }
@@ -260,12 +338,18 @@ export async function hfCommit(f: Fetch, token: string, repo: string, type: 'mod
   const lines = [JSON.stringify({ key: 'header', value: { summary, description: '' } })];
   for (const x of enc) {
     const l = lfs.find((y) => y.path === x.path);
-    lines.push(l ? JSON.stringify({ key: 'lfsFile', value: { path: x.path, algo: 'sha256', oid: l.oid, size: x.bytes.length } }) : JSON.stringify({ key: 'file', value: { path: x.path, content: b64(x.bytes), encoding: 'base64' } }));
+    lines.push(l ? JSON.stringify({ key: 'lfsFile', value: { path: x.path, algo: 'sha256', oid: l.oid, size: x.size } }) : JSON.stringify({ key: 'file', value: { path: x.path, content: x.b64(), encoding: 'base64' } }));
   }
   const r = await hfCall(f, token, 'POST', `${base}/commit/main`, lines.join('\n'), 'application/x-ndjson');
   if (!r.ok) throw new RemoteError(`Hugging Face would not take the commit (${r.status}): ${(await r.text()).slice(0, 200)}`, r.status);
   const j = (await r.json()) as { commitOid?: string; commitUrl?: string };
   return j.commitOid ?? String(j.commitUrl ?? '').split('/').pop() ?? '';
+}
+
+/** Whether a file is on a repo's main branch (a HEAD of its address; redirects not followed). */
+export async function hfHasFile(f: Fetch, token: string, repo: string, type: 'model' | 'dataset', path: string): Promise<boolean> {
+  const r = await f(`${HF}/${type === 'dataset' ? 'datasets/' : ''}${repo}/resolve/main/${path}`, { method: 'HEAD', redirect: 'manual', headers: { Authorization: `Bearer ${token}` } });
+  return r.status === 200 || (r.status >= 300 && r.status < 400);
 }
 
 /** Mark a commit of the model repo as a promoted week (a tag; the brain serves only commits it promoted). */

@@ -10,11 +10,12 @@ import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
 import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
-import { offlineSiteReply, offlineSiteTurn, pendingSite } from '../offline/site';
+import { offlineSiteReply, offlineSiteTurn } from '../offline/site';
 import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
+import { stopwatch } from '../core/stopwatch';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
@@ -46,7 +47,9 @@ export type Entry =
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string }
-  | { kind: 'link'; url: string; title: string };
+  | { kind: 'link'; url: string; title: string }
+  /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
+  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number };
 
 /**
  * A vehicle check from the chat is shown once (integrations/vehicle.ts on the brain): the plates
@@ -122,6 +125,11 @@ onCutOff((c) => {
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {
   push({ kind: 'link', url, title });
+}
+
+/** A plan drawn from the owner's words: its card (rooms, floor area, OPEN IN SPACE, SEE IN 3-D) goes under the reply. */
+export function addHomeCard(card: Omit<Extract<Entry, { kind: 'home' }>, 'kind'>): void {
+  push({ kind: 'home', ...card });
 }
 
 function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void {
@@ -420,13 +428,16 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
+  // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
+  const lap = stopwatch.reply();
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
   // Never with the offline brain switched off: then it is an ordinary message for the brain.
   const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
   if (harder !== null) return thinkHarderAbout(harder, { asked: true });
   const mode = settings.get().offlineBrain;
-  // A website with no brain to ask (offline mode 'always', no connection, or the answers to the phone's own questions): built here from the website kit.
-  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false || pendingSite())) {
+  // A website with no brain to ask (offline mode 'always', or no connection): built here from the website kit. Never a
+  // message taken over while the brain can be asked (the answers to the phone's questions then go to the brain too).
+  if (!opts.cloud && offlineSiteTurn(t) && (mode === 'always' || navigator.onLine === false)) {
     await stream(async () => siteHere(t));
     return;
   }
@@ -450,6 +461,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await stream(
     async (cb) => {
       await brain.chat(t, context(), (ev) => {
+        lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
         if (here && !acted && ev.t === 'error' && noModelError(ev.message)) {
@@ -463,6 +475,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t)),
     rescue,
   );
+  lap.end();
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }
