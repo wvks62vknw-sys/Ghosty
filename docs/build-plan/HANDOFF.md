@@ -90,6 +90,12 @@ folder that no longer exists; ignore those paths).
 - 24 Oct ~13:00 UK: merged into the branch after review: FULL COURSES (item 6; BRIEF-COURSES.md; tutor.ts, the LEARN
   tab, `packages/shared/src/learn.ts` pure helpers shared by both halves; 24 tutor tests, the learn spec). No kernel
   line was needed. Goes up with the next pull request once PR #33 has merged.
+- 24 Oct ~13:00 UK: merged after review: SEARCH BY MEANING on the phone (OWNER-ISSUES 9; BRIEF-MEANING.md): the
+  vendored WebLLM 0.2.85 can embed (no new package), snowflake-arctic-embed-s pinned to one commit, its 3.7 MB
+  compiled code vendored under public/vendor/webllm/libs; one departure from the brief, on purpose: searches go by
+  meaning from 98 % indexed (the newest few by their words, said in the small print) because a strict fallback flipped
+  nearly every search to keywords while study notes kept arriving. Kernel line: `meaning` in the CI loop. Unmeasured:
+  indexing speed and memory on the real iPhone (about 240 MB of graphics memory beside the brain, freed before it loads).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
