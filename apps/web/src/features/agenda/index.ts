@@ -7,8 +7,9 @@ import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
-import { button, empty, panel, row, toast, undoBar } from '../../ui/components';
+import { button, empty, panel, row, toast, undo, undoBar } from '../../ui/components';
 import { page } from '../../ui/page';
+import { spendingPanel } from './spending';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -67,7 +68,9 @@ export const agendaTab: TabDef = {
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY' });
     const ep = panel('DIARY · NEXT 14 DAYS', { cls: 'scroll' });
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
-    P.left.append(ep.el, cp.el);
+    // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
+    const sp = spendingPanel();
+    P.left.append(ep.el, cp.el, sp.el);
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
@@ -252,16 +255,33 @@ export const agendaTab: TabDef = {
       h('li', 'Paste it above with a name and press CONNECT. Ghosty can only read it, and the link is stored encrypted.'),
     );
     help.hidden = true;
+    // A calendar disconnected with the UNDO bar still up: off the list, still connected on the brain (its
+    // link is kept there, encrypted, and never comes back to this phone — so it waits for the bar to go).
+    const feedsGoing = new Set<string>();
     const paintFeeds = () => {
       clear(cp.body);
-      for (const f of feeds) {
+      for (const f of feeds.filter((x) => !feedsGoing.has(x.id))) {
         const r = row('📅', f.name, '✕');
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.title = 'Disconnect';
-        x.addEventListener('click', async () => {
-          await brain.deleteFeed(f.id);
-          void load();
+        x.setAttribute('aria-label', `Disconnect ${f.name}`);
+        x.addEventListener('click', () => {
+          feedsGoing.add(f.id);
+          paintFeeds();
+          undo(
+            `Disconnected: ${f.name}`,
+            () => {
+              feedsGoing.delete(f.id);
+              paintFeeds();
+              toast(`Still connected: ${f.name}`, 'ok');
+            },
+            async () => {
+              await brain.deleteFeed(f.id).catch((e) => toast(`Could not disconnect it: ${(e as Error).message}`, 'bad'));
+              feedsGoing.delete(f.id);
+              void load();
+            },
+          );
         });
         cp.body.append(r);
       }
@@ -337,6 +357,7 @@ export const agendaTab: TabDef = {
     return {
       enter() {
         void load();
+        void sp.refresh();
         void pollInbox();
         timer = window.setInterval(() => void load(), 60_000);
       },

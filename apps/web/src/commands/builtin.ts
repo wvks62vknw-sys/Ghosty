@@ -385,6 +385,21 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // PHOTO TOOLS (brain tools/photo.ts photo_tool): a job on one of Ghosty's own pictures, with its result when made.
+      id: 'open_photo_tools',
+      title: 'Photo tools: remove the background, sharper, erase',
+      group: 'TOOLS',
+      run: async (a) => {
+        const { openPhotoTools } = await import('../features/lens/photo');
+        openPhotoTools({
+          job: typeof a?.job === 'string' ? a.job : undefined,
+          picture: typeof a?.picture === 'string' ? a.picture : undefined,
+          result: typeof a?.result === 'string' ? a.result : undefined,
+          by: typeof a?.by === 'string' ? a.by.slice(0, 60) : undefined,
+        });
+      },
+    },
+    {
       id: 'set_layer',
       title: 'Set globe layer',
       hidden: true,

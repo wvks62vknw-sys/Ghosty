@@ -15,6 +15,10 @@
  *   GET  /school/paper/<id>     → the paper with its answers and mark schemes, his answers, marks and the marker's
  *                                 notes: only once it has been sat (the owner's spot check)
  *   POST /school/settings       { nightly } → the nightly school report on or off
+ *   POST /school/markwork       { subject, level, answers, scheme? } → the OWNER's own work (a page read in the Lens,
+ *                                 corrected by him) marked once (markwork.ts): marks per question, the total, a band
+ *                                 "as this marking scheme sees it", a line per miss and the misses as LEARN cards.
+ *                                 Never kept: it is not a school record.
  *
  * Part 2 (question banks and official papers):
  *   POST /school/bank/write     { stage, subject? } → that stage's banks (or one) queued for writing; one slice runs
@@ -31,6 +35,7 @@ import { boundaryLine, scorePaper, stageById, STAGE_IDS, SUBJECT_LABEL, weakSpot
 import { durableDelete } from '../kv';
 import { BANK_STAGES, bankItems, bankKey, bankName, bankPaper, bankReady, bankRow, bankTick, isBankStage, loadBank, shapeOf, type BankMeta } from './banks';
 import { keepGiven, markPaper, retryPending, type Ask } from './mark';
+import { markWork, workCards } from './markwork';
 import { practiceView } from './practice';
 import { fileRemote, gapBySubject, loadRemote, remoteStatus, remoteView, sitRemote } from './remote';
 import { fileResponse, loadAllOfficial, loadOfficial, officialById, officialKey, officialName, officialRow, officialTick, OFFICIAL, OFFICIAL_HOSTS, saveText, type OfficialRecord } from './official';
@@ -40,6 +45,8 @@ import { addNews, applyResult, ladder, latestFor, loadPaper, loadState, newsFor,
 export interface SchoolDeps extends Store {
   /** The marker (a stronger model, background lane, never waiting); absent: written answers wait as pending. */
   ask?: Ask;
+  /** MARK MY WORK's marker: the owner is waiting, so the cheap model in his own lane, waiting a few seconds for room. */
+  askNow?: Ask;
   /** The writer and checker of banks and the reader of official papers (the best model, background lane, never waiting). */
   write?: Ask;
   /** How the brain fetches an official paper's file (tests pass a stand-in). */
@@ -295,6 +302,16 @@ export async function handleSchool(req: Request, path: string, method: string, d
 
   const body = method === 'POST' ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
+  // MARK MY WORK (the Lens): the owner's own answers, marked once and never kept.
+  if (path === '/school/markwork' && method === 'POST') {
+    try {
+      const r = await markWork(body, d.askNow ?? d.ask);
+      return json({ ...r, cards: workCards(r) });
+    } catch (e) {
+      return bad(String((e as Error)?.message ?? e).slice(0, 200));
+    }
+  }
+
   if (path === '/school/sit' && method === 'POST') {
     const stage = String(body.stage ?? '') as StageId;
     const s = stageById(stage);
@@ -427,6 +444,9 @@ export async function handleSchool(req: Request, path: string, method: string, d
   if (path === '/school/sit-remote' && method === 'POST') return sitRemote(d, body, (stage, subject) => handleSchool(new Request(req.url, { method: 'POST', body: JSON.stringify({ stage, subject }) }), '/school/sit', 'POST', d), (fn) => serial(d, fn));
   if (path === '/school/remote' && method === 'GET') return remoteStatus(d, (fn) => serial(d, fn));
 
+  // ---- NIGHT SCHOOL (school/night.ts): the switch and window, tonight's practice and its marks, the morning report ----
+  if (path === '/school/night' || path.startsWith('/school/night/')) return (await import('./night')).nightRoute(path, method, body, d, serial);
+
   // ---- part 3: the reading library (school/reading.ts): the shelves, READ, the reading check and BORROW ----
   if (path === '/school/reading' || path.startsWith('/school/reading/')) {
     const r = await (await import('./reading')).readingRoute(path, method, body, d);
@@ -450,6 +470,8 @@ export async function dailyReport(d: SchoolDeps): Promise<{ sent: boolean; text:
     const w = await workTick(d).catch(() => null);
     if (!w?.busy || !w.calls) break;
   }
+  // NIGHT SCHOOL: when the phone sent no morning report for a night that is over, the brain files its own part's.
+  await (await import('./night')).nightMorning(d, serial).catch(() => null);
   return serial(d, async () => {
     const now = (d.now ?? Date.now)();
     const st = await loadState(d);

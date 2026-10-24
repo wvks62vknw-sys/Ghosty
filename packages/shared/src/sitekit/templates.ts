@@ -10,7 +10,8 @@
  * other typical promises the owner did not give are filled with typical ones and listed in plan.confirm
  * for the owner to check.
  */
-import { addressLine, route, telHref } from './html';
+import { PLACELESS } from './brief';
+import { addressLine, directionsHref, route, telHref, waHref } from './html';
 import { stockFor, type StockSet } from './stock-data';
 import type { Brief, Hours, ImageRef, KindId, Page, Plan, Section, Service, Theme, Tone } from './types';
 
@@ -73,7 +74,7 @@ function contactPage(b: Brief, s: StockSet | undefined, o: { slug?: string; labe
       (o.slug ?? 'contact') === 'book'
         ? S('booking-form', { eyebrow: 'Book', title: 'Ask for a time', lead: `Choose what you would like and when suits you; we confirm every booking by message${b.phone ? ` — or ring ${b.phone}` : ''}.`, formTitle: o.formTitle ?? '' })
         : S('contact-form', { kind: o.kind ?? 'contact', title: 'The quickest ways to reach us', lead: b.phone ? `Ring, message or fill in the form — we reply the same day where we can.` : 'Send a message and we will get back to you.', formTitle: o.formTitle ?? '' }),
-      ...(b.kind === 'saas' || b.kind === 'portfolio' ? [] : [S('map', { eyebrow: 'Find us', title: b.town ? `In ${b.town}` : 'Where we are', note: '' }, 'alt')]),
+      ...(PLACELESS.includes(b.kind) ? [] : [S('map', { eyebrow: 'Find us', title: b.town ? `In ${b.town}` : 'Where we are', note: '' }, 'alt')]),
     ],
   };
 }
@@ -139,6 +140,31 @@ const TRADE: Record<ReturnType<typeof tradeOf>, { noun: string; services: [strin
 };
 
 const CLINIC = (b: Brief) => (/physio|osteo|chiro|sports/i.test(`${b.request} ${b.name}`) ? 'physio' : /dent/i.test(`${b.request} ${b.name}`) ? 'dentist' : /optic|eye/i.test(`${b.request} ${b.name}`) ? 'optician' : 'dentist');
+
+/** A one-person trade: what to call it, from the words. */
+const soloNoun = (b: Brief): string => (/van|removal/i.test(`${b.request} ${b.name}`) ? 'man and van' : /garden/i.test(`${b.request} ${b.name}`) ? 'gardener' : /clean/i.test(`${b.request} ${b.name}`) ? 'cleaner' : 'handyman');
+const HANDY: [string, string, string][] = [['Flat-pack assembly', 'Wardrobes, beds and desks put together properly and the boxes taken away.', 'From £30'], ['Shelves, pictures & curtain poles', 'Up straight, fixed into the wall properly.', 'From £40'], ['Doors & handles', 'Sticking doors eased, new handles and hinges fitted.', 'From £45'], ['Tiling & sealant', 'Small tiling jobs and tired bath and shower seals redone.', 'From £50'], ['Small repairs', 'The jobs on the list that never get done.', 'Ask me'], ['Garden jobs', 'Fence panels, gates and tidy-ups.', 'Ask me']];
+
+/** A takeaway's food, from the words: what it is called and a sample menu (shown only until the owner sends theirs). */
+type Cuisine = 'pizza' | 'curry' | 'chippy' | 'grill';
+const cuisineOf = (b: Brief): Cuisine => {
+  const t = `${b.request} ${b.name} ${b.extras ?? ''}`.toLowerCase();
+  return /pizz/.test(t) ? 'pizza' : /curry|indian|balti|tandoori|biryani|bangladeshi|nepal/.test(t) ? 'curry' : /chip|fish/.test(t) ? 'chippy' : 'grill';
+};
+type Dish = { name: string; text?: string; price: string; tags?: string[] };
+const CUISINE: Record<Cuisine, { noun: string; line: string; lead: string; titles: string[]; menu: { name: string; items: Dish[] }[] }> = {
+  pizza: { noun: 'pizza', line: 'stone-baked pizzas, sides and dips.', lead: 'Stone-baked pizzas made to order, with proper dough and good toppings. Ring, collect, enjoy.', titles: ['Proper pizza, *made to order*', 'Hot, fresh and *ready to collect*'], menu: [{ name: 'Pizzas', items: [{ name: 'Margherita', text: 'Tomato, mozzarella, basil.', price: '£9', tags: ['V'] }, { name: 'Pepperoni', text: 'Tomato, mozzarella, pepperoni.', price: '£11' }, { name: 'Garden', text: 'Peppers, onion, mushroom, olives.', price: '£10.50', tags: ['V'] }, { name: 'BBQ chicken', text: 'BBQ base, chicken, red onion.', price: '£12' }] }, { name: 'Sides', items: [{ name: 'Garlic bread', price: '£4', tags: ['V'] }, { name: 'Wedges', price: '£3.50', tags: ['VG'] }, { name: 'Wings (6)', price: '£5.50' }] }, { name: 'Drinks', items: [{ name: 'Cans', price: '£1.50' }, { name: 'Bottled water', price: '£1.20' }] }] },
+  curry: { noun: 'Indian takeaway', line: 'curries, grills, rice and breads.', lead: 'Curries cooked fresh to order, from mild and creamy to properly hot. Ring, collect, enjoy.', titles: ['Curry, *cooked fresh*', 'Your Friday night, *sorted*'], menu: [{ name: 'Starters', items: [{ name: 'Onion bhaji', price: '£3.95', tags: ['VG'] }, { name: 'Vegetable samosa', price: '£3.95', tags: ['VG'] }, { name: 'Chicken tikka', price: '£4.95', tags: ['GF'] }] }, { name: 'Mains', items: [{ name: 'Chicken tikka masala', text: 'Creamy, mild, a little sweet.', price: '£9.95' }, { name: 'Lamb rogan josh', text: 'Tomato, paprika, medium.', price: '£10.95' }, { name: 'Chana masala', text: 'Chickpeas, tomato, spice.', price: '£7.95', tags: ['VG'] }, { name: 'Chicken jalfrezi', text: 'Peppers, green chilli, hot.', price: '£9.95' }] }, { name: 'Rice & breads', items: [{ name: 'Pilau rice', price: '£2.95', tags: ['VG'] }, { name: 'Naan', price: '£2.50', tags: ['V'] }, { name: 'Garlic naan', price: '£2.95', tags: ['V'] }] }] },
+  chippy: { noun: 'fish and chips', line: 'fish and chips, pies and sides.', lead: 'Fish fried to order in crisp batter, chips done properly. Ring ahead and collect it hot.', titles: ['Fish and chips, *done right*', 'Crisp batter, *proper chips*'], menu: [{ name: 'Fish', items: [{ name: 'Cod', text: 'In our own batter.', price: '£8.50' }, { name: 'Haddock', text: 'In our own batter.', price: '£8.90' }, { name: 'Fishcake', price: '£2.50' }] }, { name: 'Chips & sides', items: [{ name: 'Chips', price: '£3', tags: ['VG'] }, { name: 'Mushy peas', price: '£1.80', tags: ['VG'] }, { name: 'Curry sauce', price: '£1.80', tags: ['VG'] }, { name: 'Gravy', price: '£1.80' }] }, { name: 'Pies & more', items: [{ name: 'Steak pie', price: '£4' }, { name: 'Battered sausage', price: '£2.50' }] }] },
+  grill: { noun: 'takeaway', line: 'burgers, wraps, grills and sides.', lead: 'Burgers, wraps and grills cooked to order. Ring, collect and eat it hot.', titles: ['Cooked to order, *ready to collect*', 'Hungry? *We’ve got you*'], menu: [{ name: 'Burgers', items: [{ name: 'Classic', text: 'Beef, cheese, pickles, house sauce.', price: '£8.50' }, { name: 'Crispy chicken', text: 'Slaw, mayo.', price: '£8' }, { name: 'Halloumi', text: 'Peppers, chilli jam.', price: '£8', tags: ['V'] }] }, { name: 'Wraps & grills', items: [{ name: 'Chicken wrap', price: '£7' }, { name: 'Mixed grill', text: 'Chicken, lamb, salad, chips.', price: '£12.50' }] }, { name: 'Sides', items: [{ name: 'Fries', price: '£3', tags: ['VG'] }, { name: 'Onion rings', price: '£3.50', tags: ['V'] }, { name: 'Slaw', price: '£2', tags: ['V'] }] }] },
+};
+/** The owner's own dishes and prices when they gave them (grouped as they said), else the sample menu. */
+const menuOf = (b: Brief): { name: string; items: Dish[] }[] => {
+  if (!b.services?.length) return CUISINE[cuisineOf(b)].menu;
+  const groups = new Map<string, Dish[]>();
+  for (const s of b.services.slice(0, 40)) groups.set(s.group || 'Menu', [...(groups.get(s.group || 'Menu') ?? []), { name: s.name, price: s.price ?? 'Ask', ...(s.description ? { text: s.description } : {}) }]);
+  return [...groups].map(([name, items]) => ({ name, items }));
+};
 
 export const TEMPLATES: Record<KindId, KindTemplate> = {
   barber: {
@@ -608,6 +634,189 @@ export const TEMPLATES: Record<KindId, KindTemplate> = {
       contactPage(b, s, { title: 'Talk to *us*', lead: 'Questions, demos or partnerships.' }),
     ],
   },
+
+  // ── the lift: six kinds the owner asks for ──────────────────────────────────────────
+
+  tradesperson: {
+    theme: { palette: 'trades', fonts: 'geometric', shape: 'soft', scheme: 'light' },
+    nav: 'nav-classic',
+    tone: 'friendly, straight, first person',
+    assumes: () => ['the jobs I take on and their guide prices, and small jobs being welcome (typical ones are shown)'],
+    defaults: () => ({ services: HANDY.map(([name, description, price]) => ({ name, description, price })), hours: DAYS7('8:00', '18:00', ['9:00', '13:00'], null) }),
+    announce: (b) => (b.phone ? `Call or message ${b.phone}` : ''),
+    meta: (b) => ({ title: `${b.name} — ${soloNoun(b)}${inTown(b)}`, description: `${soloNoun(b)[0]!.toUpperCase()}${soloNoun(b).slice(1)}${inTown(b)}: clear prices before I start, tidy work. Call or message ${b.name}.` }),
+    blurb: (b) => `${soloNoun(b)[0]!.toUpperCase()}${soloNoun(b).slice(1)}${inTown(b)}.`,
+    pages: (b, s) => {
+      const svc = (b.services ?? []).slice(0, 6);
+      const wa = b.whatsapp || (b.phone && /^(\+44\s?\(?0?\)?\s?7|07)/.test(b.phone.trim()) ? b.phone : '');
+      return [
+        {
+          slug: '',
+          label: 'Home',
+          title: '',
+          description: '',
+          sections: [
+            S('hero-split', { eyebrow: b.town ? `${soloNoun(b)} · ${b.town}` : soloNoun(b), title: pick(b, ['Small jobs, *done properly*', 'One call and *it’s sorted*', 'The jobs on your list, *done*']), lead: `I’m a local ${soloNoun(b)}${inTown(b)}. Send me a photo of the job, get a clear price, and I turn up when I say.`, primary: b.phone ? { label: `Call ${b.phone}`, href: telHref(b.phone) } : { label: 'Ask for a price', href: route('contact') }, secondary: wa ? { label: 'WhatsApp a photo', href: waHref(wa) } : { label: 'Jobs & prices', href: route('prices') }, image: s?.hero, card: 'A clear price before I start', points: ['Clear price first', 'Tidy, careful work', 'Small jobs welcome'] }),
+            S('features-grid', { eyebrow: 'What I do', title: 'Jobs I *take on*', lead: 'Not on the list? Send me a photo and ask.', items: svc.map((x, i) => ({ icon: ['hammer', 'wrench', 'home', 'paint', 'plug', 'leaf'][i % 6], title: x.name, text: x.description ?? '' })) }, 'alt'),
+            S('process-steps', { eyebrow: 'How it works', title: 'From photo to *done*', steps: [{ title: 'Send a photo', text: 'Ring, message or use the form — a photo of the job helps me price it.' }, { title: 'Get a clear price', text: 'You know what it costs before I start.' }, { title: 'Job done', text: 'On the day we agree, and I clear up after myself.' }] }),
+            ...(b.areas?.length ? [S('areas-served', { eyebrow: 'Where I work', title: 'Areas I *cover*', areas: b.areas, note: 'Just outside? Ask anyway.' }, 'alt')] : []),
+            ...reviewsBlock(b, 'From people I have helped', b.areas?.length ? undefined : 'alt'),
+            S('faq', { eyebrow: 'Questions', title: 'Good to *know*', items: [{ q: 'Do you do small jobs?', a: 'Yes — a shelf, a sticking door or a dripping tap is worth a call.' }, { q: 'How do you price a job?', a: 'From a photo or a quick look, and you get the price before I start.' }, { q: 'When can you come?', a: 'Ask and I will give you a day; I keep to it or ring ahead.' }] }),
+            closing(b, 'Got a job that needs doing?', 'Send me a photo and I will give you a price.'),
+          ],
+        },
+        { slug: 'prices', label: 'Jobs & prices', title: 'Jobs & prices', description: `Jobs and guide prices from ${b.name}${inTown(b)}.`, sections: [S('page-header', { eyebrow: 'Prices', title: 'Jobs & *guide prices*', lead: 'A guide only — every job gets a clear price before I start.' }, 'alt'), S('price-list', { title: 'Guide prices', groups: priceGroups(b.services ?? [], 'Jobs'), note: 'Materials are extra unless the price says otherwise.' }), closing(b, 'Ask for a price', '')] },
+        aboutPage(b, s, { title: 'About *me*', lead: `Who you get when you call ${b.name}.`, intro: `I’m the person who answers the phone and the person who turns up to do the job.`, body: 'No call centre and no surprise subcontractors: you deal with me from the first message to the last screw.\nI would rather do a small job well than rush a big one.', label: 'About me' }),
+        contactPage(b, s, { title: 'Ask for a *price*', lead: 'Tell me about the job — a photo by WhatsApp is the quickest way.', kind: 'quote', formTitle: 'Price request' }),
+      ];
+    },
+  },
+
+  takeaway: {
+    theme: { palette: 'paprika', fonts: 'condensed', shape: 'soft', scheme: 'light' },
+    nav: 'nav-classic',
+    tone: 'hungry, generous, quick',
+    assumes: (b) => [b.services?.length ? '' : 'the menu and its prices (a sample menu is shown)', 'collection and ordering by phone (typical)'].filter(Boolean),
+    defaults: () => ({ hours: [{ label: 'Mon–Thu', open: '16:30', close: '22:30', days: [1, 2, 3, 4] }, { label: 'Fri–Sat', open: '16:30', close: '23:30', days: [5, 6] }, { label: 'Sunday', open: '16:30', close: '22:00', days: [0] }] }),
+    announce: (b) => (b.phone ? `Order on ${b.phone}` : ''),
+    meta: (b) => ({ title: `${b.name} — ${CUISINE[cuisineOf(b)].noun}${inTown(b)}`, description: `The menu at ${b.name}${inTown(b)}: ${CUISINE[cuisineOf(b)].line} Order by phone and collect.` }),
+    blurb: (b) => `${CUISINE[cuisineOf(b)].noun[0]!.toUpperCase()}${CUISINE[cuisineOf(b)].noun.slice(1)}${inTown(b)}.`,
+    pages: (b, s) => {
+      const c = CUISINE[cuisineOf(b)];
+      const menu = menuOf(b);
+      const order = b.phone ? { label: `Order: ${b.phone}`, href: telHref(b.phone) } : { label: 'How to order', href: route('order') };
+      return [
+        {
+          slug: '',
+          label: 'Home',
+          title: '',
+          description: '',
+          sections: [
+            s?.hero
+              ? S('hero-image', { eyebrow: b.town ? `${c.noun} · ${b.town}` : c.noun, title: pick(b, c.titles), lead: c.lead, primary: order, secondary: { label: 'The full menu', href: route('menu') }, image: s.hero, facts: [...(b.hours?.length ? [{ icon: 'clock', label: 'Open', value: `${b.hours[0]!.label} ${b.hours[0]!.closed ? 'closed' : `${b.hours[0]!.open}–${b.hours[0]!.close}`}` }] : []), ...(addressLine(b) ? [{ icon: 'pin', label: 'Collect from', value: addressLine(b) }] : []), ...(b.phone ? [{ icon: 'phone', label: 'Order', value: b.phone }] : [])] })
+              : S('hero-split', { eyebrow: b.town ? `${c.noun} · ${b.town}` : c.noun, title: pick(b, c.titles), lead: c.lead, primary: order, secondary: { label: 'The full menu', href: route('menu') } }),
+            S('menu', { eyebrow: 'Menu', title: 'Tonight’s *favourites*', sections: menu.slice(0, 2), note: 'Tap “The full menu” for everything, with prices.' }, 'alt'),
+            S('process-steps', { eyebrow: 'Ordering', title: 'Hungry? *Easy.*', steps: [{ title: 'Pick from the menu', text: 'Everything is on the menu page, with prices.' }, { title: b.phone ? `Ring ${b.phone}` : 'Ring or message us', text: 'Tell us what you would like and when you will collect.' }, { title: 'Collect it hot', text: 'We tell you when it will be ready.' }] }),
+            ...reviewsBlock(b, 'Customers say', 'alt'),
+            S('map', { eyebrow: 'Collect', title: b.town ? `Find us in ${b.town}` : 'Find us', note: '' }, 'alt'),
+          ],
+        },
+        { slug: 'menu', label: 'Menu', title: 'Menu', description: `The full menu at ${b.name}${inTown(b)}, with prices.`, sections: [S('page-header', { eyebrow: 'Menu', title: 'The full *menu*', lead: b.services?.length ? 'Prices as they are today.' : 'A sample menu — dishes and prices to be confirmed.' }, 'alt'), S('menu', { title: 'Menu', sections: menu, note: 'Please tell us about any allergies when you order; we can tell you what is in every dish.' })] },
+        aboutPage(b, s, { title: 'About *us*', lead: `The kitchen behind ${b.name}.`, intro: `${b.name} cooks ${c.noun}${inTown(b)}, fresh when you order.`, body: 'Everything is cooked when you order it, so it is hot when you collect.\nTell us how you like it — milder, hotter, no onions — and we will cook it that way.' }),
+        contactPage(b, s, { slug: 'order', label: 'Order', title: 'How to *order*', lead: b.phone ? `Ring ${b.phone} to order and collect, or send a message.` : 'Send us a message to order.', formTitle: 'Order or question' }),
+      ];
+    },
+  },
+
+  cv: {
+    theme: { palette: 'mono', fonts: 'geometric', shape: 'sharp', scheme: 'light' },
+    nav: 'nav-classic',
+    tone: 'clear, modest, specific',
+    assumes: (b) => [b.experience?.length ? '' : 'your jobs and dates (none are shown until you send them)', b.services?.length ? '' : 'your skills (none are shown until you send them)', b.experience?.length || b.about ? '' : 'the About words (general ones are shown until you send yours)'].filter(Boolean),
+    defaults: () => ({}),
+    meta: (b) => ({ title: `${b.name}${b.tagline ? ` — ${b.tagline}` : ' — CV'}`, description: `${b.name}${b.tagline ? `, ${b.tagline}` : ''}${inTown(b)}: experience, skills and how to get in touch.`.slice(0, 160) }),
+    blurb: (b) => b.tagline ?? 'CV',
+    pages: (b) => [
+      {
+        slug: '',
+        label: 'Home',
+        title: '',
+        description: '',
+        sections: [
+          S('hero-split', { eyebrow: b.tagline ?? 'Curriculum vitae', title: b.name, lead: b.about ? b.about.slice(0, 220) : `${b.tagline ? `${b.tagline}${inTown(b)}. ` : b.town ? `Based in ${b.town}. ` : ''}Experience, skills and how to reach me.`, primary: { label: 'Get in touch', href: route('contact') }, secondary: b.experience?.length ? { label: 'Experience', href: route('experience') } : undefined }),
+          ...(b.services?.length ? [S('features-list', { eyebrow: 'Skills', title: 'What I *bring*', items: b.services.slice(0, 8).map((x) => ({ title: x.name, text: x.description ?? '' })) }, 'alt')] : []),
+          ...(b.experience?.length ? [S('timeline', { eyebrow: 'Experience', title: 'Recent *roles*', items: b.experience.slice(0, 4).map((e) => ({ when: e.when, title: e.title, text: e.text ?? '' })) })] : []),
+          ...reviewsBlock(b, 'What people say', 'alt'),
+          closing(b, 'Let’s talk', 'The quickest way to reach me is below.'),
+        ],
+      },
+      ...(b.experience?.length
+        ? [{ slug: 'experience', label: 'Experience', title: 'Experience', description: `Work history of ${b.name}.`, sections: [S('page-header', { eyebrow: 'Experience', title: 'Work *history*', lead: 'Most recent first.' }, 'alt'), S('timeline', { title: 'Roles and courses', items: b.experience.slice(0, 8).map((e) => ({ when: e.when, title: e.title, text: e.text ?? '' })) })] }]
+        : [aboutPage(b, undefined, { title: 'About *me*', lead: b.tagline ?? 'A little more about me.', intro: 'Thanks for stopping by.', body: 'I like work I can be proud of and people I can learn from.\nFor references, dates or anything else, get in touch.' })]),
+      contactPage(b, undefined, { title: 'Get in *touch*', lead: 'For roles, references or a chat.', formTitle: 'Message' }),
+    ],
+  },
+
+  invite: {
+    theme: { palette: 'blush', fonts: 'classic', shape: 'soft', scheme: 'light' },
+    nav: 'nav-centered',
+    tone: 'warm, clear, welcoming',
+    assumes: (b) => ['the timings and the practical details (typical ones are shown)', ...(b.lat === undefined ? ['the exact address for the map (the directions use the place name)'] : [])],
+    defaults: () => ({}),
+    meta: (b) => ({ title: `${b.name}${b.date ? ` — ${b.date}` : ''}`, description: `${b.name}${b.date ? `, ${b.date}` : ''}${b.venue ? ` at ${b.venue}` : inTown(b)}. Timings, directions and RSVP.` }),
+    blurb: (b) => [b.date, b.venue || b.town].filter(Boolean).join(' · ') || b.name,
+    pages: (b) => [
+      {
+        slug: '',
+        label: 'Home',
+        title: '',
+        description: '',
+        sections: [
+          S('hero-centered', { eyebrow: [b.date, b.venue || b.town].filter(Boolean).join(' · ') || 'Save the date', title: b.name, lead: b.about ? b.about.slice(0, 220) : 'We would love you to be there. Everything you need — when, where and how to get there — is here.', primary: { label: 'RSVP', href: route('rsvp') }, secondary: { label: 'Get directions', href: directionsHref(b) } }),
+          ...(b.schedule?.length ? [S('event-schedule', { eyebrow: 'On the day', title: 'The *timings*', items: b.schedule }, 'alt')] : [S('process-steps', { eyebrow: 'On the day', title: 'How it *goes*', steps: [{ title: 'Arrive', text: 'Come a little early to find a spot and say hello.' }, { title: 'Celebrate', text: 'The main part of the day.' }, { title: 'Carry on', text: 'Food, drink and good company.' }] }, 'alt')]),
+          S('map', { eyebrow: 'Getting there', title: 'Find *the place*', note: b.venue ? `Look for ${b.venue}.` : '' }),
+          closing(b, 'Will you be there?', 'Let us know by sending your RSVP.'),
+        ],
+      },
+      { slug: 'details', label: 'Details', title: 'Details', description: `Timings and practical details for ${b.name}.`, sections: [S('page-header', { eyebrow: 'Details', title: 'Good to *know*', lead: 'Timings, getting there and the practical bits.' }, 'alt'), ...(b.schedule?.length ? [S('event-schedule', { title: 'Timings', items: b.schedule })] : []), S('faq', { title: 'Questions', items: [{ q: 'How do I get there?', a: 'Tap “Get directions” for the route from wherever you are.' }, { q: 'Can I bring someone?', a: 'Say so in your RSVP and we will let you know.' }, { q: 'Is there parking?', a: 'Ask us when you RSVP and we will tell you the nearest.' }] }, 'alt')] },
+      { slug: 'rsvp', label: 'RSVP', title: 'RSVP', description: `Reply to ${b.name}.`, sections: [S('page-header', { eyebrow: 'RSVP', title: 'Let us *know*', lead: 'Your name, how many of you, and anything we should know.' }, 'alt'), S('contact-form', { kind: 'contact', title: 'Reply', lead: 'One message is all it takes: your name, how many of you are coming, and anything we should know, such as food you cannot eat or help getting there.', formTitle: 'RSVP' })] },
+    ],
+  },
+
+  club: {
+    theme: { palette: 'sage', fonts: 'friendly', shape: 'round', scheme: 'light' },
+    nav: 'nav-classic',
+    tone: 'friendly, inclusive, practical',
+    assumes: (b) => [b.hours?.length ? '' : 'when and where you meet (not shown until you tell me)', b.services?.length ? '' : 'what it costs to join (not shown until you tell me)', 'beginners being welcome and a free first visit (typical promises)'].filter(Boolean),
+    defaults: () => ({}),
+    meta: (b) => ({ title: `${b.name}${inTown(b)}`, description: `${b.name}${inTown(b)}: when we meet, how to join and how to get in touch.` }),
+    blurb: (b) => `A local club${inTown(b)}.`,
+    pages: (b, s) => [
+      {
+        slug: '',
+        label: 'Home',
+        title: '',
+        description: '',
+        sections: [
+          S('hero-centered', { eyebrow: b.town ? `Club · ${b.town}` : 'Local club', title: pick(b, ['Come and *join us*', 'Your new *favourite* evening', 'Good people, *good fun*']), lead: b.about ? b.about.slice(0, 220) : 'A friendly local club. Come along, meet everyone and see if it is for you — beginners are welcome.', primary: { label: 'Join us', href: route('join') }, secondary: { label: b.hours?.length ? 'When we meet' : 'About the club', href: route('about') }, images: [s?.gallery[0], s?.hero, s?.gallery[1]].filter(Boolean).map((image) => ({ image })) }),
+          ...(b.hours?.length ? [S('hours', { eyebrow: 'When we meet', title: 'Sessions', lead: 'Come to any of these.', note: '' }, 'alt')] : []),
+          S('process-steps', { eyebrow: 'Joining', title: 'Easy to *start*', steps: [{ title: 'Say hello', text: 'Send a message so we know to expect you.' }, { title: 'Come along', text: 'Your first visit is free — just turn up and meet everyone.' }, { title: 'Join', text: 'If you like it, we will sort your membership.' }] }),
+          ...(b.services?.length ? [S('pricing-cards', { eyebrow: 'Membership', title: 'What it *costs*', plans: b.services.slice(0, 3).map((p) => ({ name: p.name, price: p.price ?? 'Ask', text: p.description ?? '', features: [], cta: { label: 'Join', href: route('join') } })) }, 'alt')] : []),
+          ...reviewsBlock(b, 'Members say'),
+          S('faq', { eyebrow: 'Questions', title: 'Before you *come*', items: [{ q: 'Do I need any experience?', a: 'No — beginners are welcome and someone will show you the ropes.' }, { q: 'What should I bring?', a: 'Just yourself; ask us if you are not sure.' }, { q: 'How do I join?', a: 'Send a message from the Join page and we will reply.' }] }, 'alt'),
+          closing(b, 'See you there?', 'Send a message and come along.'),
+        ],
+      },
+      aboutPage(b, s, { title: 'About *the club*', lead: `Who we are and what we do${inTown(b)}.`, intro: `${b.name} is a club run by its members, for its members.`, body: 'We meet, we enjoy it and we look out for each other.\nNew faces are what keeps a club going — come and be one.' }),
+      contactPage(b, s, { slug: 'join', label: 'Join', title: 'Join *us*', lead: 'Tell us a little about yourself and we will reply.', formTitle: 'I would like to join' }),
+    ],
+  },
+
+  launch: {
+    theme: { palette: 'neon', fonts: 'geometric', shape: 'round', scheme: 'dark' },
+    nav: 'nav-classic',
+    tone: 'confident, plain, exciting',
+    assumes: (b) => [b.date ? '' : 'the launch date (not shown until you tell me)', 'what it does (general lines are shown until you describe it)'].filter(Boolean),
+    defaults: () => ({}),
+    meta: (b) => ({ title: `${b.name}${b.tagline ? ` — ${b.tagline}` : ' — coming soon'}`.slice(0, 65), description: `${b.name}${b.tagline ? `: ${b.tagline}` : ' is nearly here'}.${b.date ? ` Launching ${b.date}.` : ''} What it is, when it launches and how to be the first to hear.`.slice(0, 160) }),
+    blurb: (b) => b.tagline ?? (b.date ? `Launching ${b.date}.` : 'Coming soon.'),
+    pages: (b) => [
+      {
+        slug: '',
+        label: 'Home',
+        title: '',
+        description: '',
+        sections: [
+          S('hero-app', { eyebrow: b.date ? `Launching ${b.date}` : 'Coming soon', title: b.tagline ? b.tagline : pick(b, ['Something new is *on its way*', 'Be the *first* to have it']), lead: b.about ? b.about.slice(0, 220) : `${b.name} is nearly here. Leave your details and you will hear the moment it launches.`, primary: { label: 'Tell me when it launches', href: route('notify') }, secondary: { label: 'What it is', href: route('details') }, note: '', window: false }),
+          ...(b.products?.length ? [S('product-cards', { eyebrow: 'The range', title: 'First *look*', items: b.products }, 'alt')] : [S('features-grid', { eyebrow: 'What it is', title: 'Made to *be used*', items: (b.services?.length ? b.services.slice(0, 3).map((x) => ({ icon: 'sparkle', title: x.name, text: x.description ?? '' })) : [{ icon: 'sparkle', title: 'Thought through', text: 'Every detail chosen on purpose.' }, { icon: 'heart', title: 'Made with care', text: 'Built by people who use it themselves.' }, { icon: 'rocket', title: 'Nearly here', text: 'Leave your details to hear first.' }]) }, 'alt')]),
+          S('process-steps', { eyebrow: 'Launch day', title: 'How to get *yours*', steps: [{ title: 'Leave your details', text: 'One short message — no account needed.' }, { title: 'Hear first', text: 'You get a message the day it launches.' }, { title: 'Get it', text: 'Order it before everyone else hears.' }] }),
+          closing(b, 'Be the first to know', 'Leave your details and we will tell you on launch day.'),
+        ],
+      },
+      { slug: 'details', label: 'Details', title: 'Details', description: `What ${b.name} is and when it launches.`, sections: [S('page-header', { eyebrow: 'Details', title: `About *${b.name.length <= 28 ? b.name : 'the launch'}*`, lead: b.date ? `Launching ${b.date}.` : 'The date is coming soon.' }, 'alt'), S('faq', { title: 'Questions', items: [{ q: 'When does it launch?', a: b.date ? `${b.date}.` : 'Soon — leave your details to hear the day.' }, { q: 'How will I hear?', a: 'By the email or phone number you leave on the notify page, once.' }, { q: 'What does it cost?', a: 'The price is announced at launch.' }] })] },
+      contactPage(b, undefined, { slug: 'notify', label: 'Notify me', title: 'Tell me *when*', lead: 'Leave your name and an email or phone number, and we will tell you once, on launch day. Nothing else.', formTitle: 'Notify me' }),
+    ],
+  },
 };
 
 // ── the plan ────────────────────────────────────────────────────────────────────────
@@ -619,7 +828,7 @@ export function withDefaults(b: Brief): { brief: Brief; confirm: string[] } {
   const out: Brief = { ...b };
   const confirm: string[] = [];
   if (!out.name) {
-    out.name = `${b.town ? `${b.town} ` : ''}${({ barber: 'Barbers', salon: 'Salon', cafe: 'Café', restaurant: 'Kitchen', trades: 'Services', gym: 'Gym', photographer: 'Photography', clinic: 'Clinic', estate: 'Estates', shop: 'Shop', portfolio: 'Studio', event: 'Live', charity: 'Community Trust', saas: 'App' } as Record<KindId, string>)[b.kind]}`;
+    out.name = `${b.town ? `${b.town} ` : ''}${({ barber: 'Barbers', salon: 'Salon', cafe: 'Café', restaurant: 'Kitchen', trades: 'Services', gym: 'Gym', photographer: 'Photography', clinic: 'Clinic', estate: 'Estates', shop: 'Shop', portfolio: 'Studio', event: 'Live', charity: 'Community Trust', saas: 'App', tradesperson: 'Handyman', takeaway: 'Takeaway', cv: 'CV', invite: 'Celebration', club: 'Club', launch: 'Launch' } as Record<KindId, string>)[b.kind]}`;
     confirm.push(`the business name (I used "${out.name}")`);
   }
   if (!out.services?.length && d.services) {
@@ -631,7 +840,7 @@ export function withDefaults(b: Brief): { brief: Brief; confirm: string[] } {
     confirm.push('opening hours (typical ones are shown)');
   }
   if (!out.phone && !out.email) confirm.push('a phone number or email (the forms need one to reach you)');
-  if (!out.address && !out.postcode && b.kind !== 'saas' && b.kind !== 'portfolio') confirm.push('the street address (the map shows the town only)');
+  if (!out.address && !out.postcode && !PLACELESS.includes(b.kind)) confirm.push('the street address (the map shows the town only)');
   return { brief: out, confirm };
 }
 

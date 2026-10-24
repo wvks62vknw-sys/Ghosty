@@ -12,6 +12,7 @@
  */
 import type { Journey, JourneyAnswer, JourneyLeg, JourneyMode, JourneyPlace } from '../../../../packages/shared/src/protocol';
 import { fromZoned, parseWhen, safeTz, zoned } from '../time';
+import { notSavedYet, savedPlace } from '../places';
 import { ownerPlace } from '../tools/travel';
 import type { ToolContext } from '../tools/types';
 
@@ -160,16 +161,21 @@ export async function geocode(text: string, near?: { lat: number; lon: number } 
 
 export const _testing = { resetCache: () => geoCache.clear() };
 
-const HERE = /^(here|my (?:location|position|place)|where i am|current location|home|my home)$/i;
+// "home" is the saved home (places.ts), never "where the phone is": "take me home" from the office is not a trip to here.
+const HERE = /^(here|my (?:location|position)|where i am|current location)$/i;
 const COORDS = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 /**
- * The owner's words for a place → one place: "here" (or nothing) is where they are, "lat,lon"
- * is that point, anything else is looked up (nearest the owner, or `near`, first). Plain words
- * when it cannot be done.
+ * The owner's words for a place → one place: "here" (or nothing) is where they are, a place he saved
+ * ("home", "work", "Nan's": places.ts) is that place, "lat,lon" is that point, anything else is looked up
+ * (nearest the owner, or `near`, first). Plain words when it cannot be done ("home" not saved yet says how).
  */
 export async function resolvePlace(text: string, ctx: Pick<ToolContext, 'storage'>, near?: { lat: number; lon: number } | null): Promise<Place> {
   const q = text.trim();
+  const mine = await savedPlace(ctx.storage, q);
+  if (mine) return { type: 'PLACE', area: '', name: mine.label, lat: mine.lat, lon: mine.lon };
+  const unsaved = notSavedYet(q);
+  if (unsaved) throw new JourneyError(unsaved);
   if (!q || HERE.test(q)) {
     const me = await ownerPlace(ctx);
     if (!me) throw new JourneyError("I don't know where you are yet: open God's Eye once so I know where you are, or name the place.");

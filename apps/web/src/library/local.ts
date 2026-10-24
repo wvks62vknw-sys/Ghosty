@@ -4,10 +4,14 @@
  * (mirrorLibrary), plus documents added here that the brain doesn't have yet. It is searched —
  * by the Library tab, by Ghosty in chat, and to answer with no connection at all — whenever the
  * brain's database is paused or unreachable; documents added meanwhile are sent to the brain
- * afterwards (syncLocalDocs). Search is the same keyword match the brain uses when its database
- * is unavailable; no AI.
+ * afterwards (syncLocalDocs). Search is the keyword match the brain uses when its database is
+ * unavailable — and, once SEARCH BY MEANING is on this phone (library/meaning.ts, offline/embed.ts), by meaning:
+ * every passage gets a meaning vector, kept here beside it ("vec", int8 with a scale: 388 bytes a passage), and
+ * a question's vector ranks them (packages/shared/src/meaning.ts), blended with the keyword score. The vectors
+ * are worked out on this phone and never leave it.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
+import { cosine, exactTitle, meaningCovers, prunePool, quantise, rank, spreadOf, wordMatcher, type SearchHow, type Signals } from '../../../../packages/shared/src/meaning';
 
 export interface LocalPassage {
   text: string;
@@ -43,24 +47,51 @@ interface StoredPassage extends LocalPassage {
 
 // ---------------------------------------------------------------------------------------
 // Storage: IndexedDB in the browser — document details in "docs" (kept in memory, small),
-// passages in "pass" keyed [doc, n] (read in batches, never all held at once). Plain maps
-// where there is no IndexedDB (tests, old browsers).
+// passages in "pass" keyed [doc, n] (read in batches, never all held at once), their meaning
+// vectors in "vec" under the same keys ({ q: Int8Array, s }). Plain maps where there is no
+// IndexedDB (tests, old browsers).
 // ---------------------------------------------------------------------------------------
 
 const DB = 'ghosty-library';
 let cache: Map<string, LocalDoc> | null = null;
 let memPass = new Map<string, LocalPassage[]>();
+/** A passage's meaning vector, as kept: int8 numbers and their scale. */
+export interface KeptVector {
+  q: Int8Array;
+  s: number;
+}
+interface StoredVector extends KeptVector {
+  doc: string;
+  n: number;
+}
+let memVec = new Map<string, KeptVector>();
+const vk = (doc: string, n: number) => `${doc}\u0000${n}`;
+const dropMemVec = (doc: string, from = 0) => {
+  for (const k of [...memVec.keys()]) {
+    const [d, n] = k.split('\u0000');
+    if (d === doc && Number(n) >= from) memVec.delete(k);
+  }
+};
+/** Told whenever documents are added, changed or removed here (the meaning index catches up). */
+const watchers = new Set<() => void>();
+export function onLibraryChange(fn: () => void): () => void {
+  watchers.add(fn);
+  return () => watchers.delete(fn);
+}
+const changed = () => watchers.forEach((fn) => fn());
 let opening: Promise<IDBDatabase | null> | null = null;
 
 function idb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
   opening ??= new Promise((resolve) => {
     try {
-      const r = indexedDB.open(DB, 2);
+      // Version 3 adds the meaning vectors ("vec").
+      const r = indexedDB.open(DB, 3);
       r.onupgradeneeded = (ev) => {
         const db = r.result;
         if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('pass')) db.createObjectStore('pass', { keyPath: ['doc', 'n'] });
+        if (!db.objectStoreNames.contains('vec')) db.createObjectStore('vec', { keyPath: ['doc', 'n'] });
         // Version 1 kept each document's passages inside it: move them out.
         if (ev.oldVersion === 1) {
           const tx = r.transaction!;
@@ -138,17 +169,24 @@ async function put(d: LocalDoc, passages?: LocalPassage[]): Promise<void> {
   docs.set(d.id, meta);
   const db = await idb();
   if (!db) {
-    if (passages) memPass.set(d.id, passages);
+    if (passages) {
+      memPass.set(d.id, passages);
+      dropMemVec(d.id);
+    }
+    changed();
     return;
   }
-  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  const tx = db.transaction(['docs', 'pass', 'vec'], 'readwrite');
   tx.objectStore('docs').put(meta);
   if (passages) {
     const pass = tx.objectStore('pass');
     pass.delete(docRange(d.id));
+    // New text: its old vectors go with it, in the same step (the index works the new ones out).
+    tx.objectStore('vec').delete(docRange(d.id));
     passages.forEach((p, n) => pass.put({ ...p, doc: d.id, n }));
   }
   await done(tx);
+  changed();
 }
 
 /** Add passages to the end of a document already here (a notebook that grew): its details are updated. */
@@ -159,13 +197,17 @@ async function append(d: LocalDoc, from: number, passages: LocalPassage[]): Prom
   const db = await idb();
   if (!db) {
     memPass.set(d.id, [...(memPass.get(d.id) ?? []).slice(0, from), ...passages]);
+    dropMemVec(d.id, from);
+    changed();
     return;
   }
-  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  const tx = db.transaction(['docs', 'pass', 'vec'], 'readwrite');
   tx.objectStore('docs').put(meta);
   const pass = tx.objectStore('pass');
+  tx.objectStore('vec').delete(IDBKeyRange.bound([d.id, from], [d.id, Number.MAX_SAFE_INTEGER]));
   passages.forEach((p, i) => pass.put({ ...p, doc: d.id, n: from + i }));
   await done(tx);
+  changed();
 }
 
 async function drop(id: string): Promise<void> {
@@ -173,12 +215,16 @@ async function drop(id: string): Promise<void> {
   const db = await idb();
   if (!db) {
     memPass.delete(id);
+    dropMemVec(id);
+    changed();
     return;
   }
-  const tx = db.transaction(['docs', 'pass'], 'readwrite');
+  const tx = db.transaction(['docs', 'pass', 'vec'], 'readwrite');
   tx.objectStore('docs').delete(id);
   tx.objectStore('pass').delete(docRange(id));
+  tx.objectStore('vec').delete(docRange(id));
   await done(tx);
+  changed();
 }
 
 /** One document's passages, in order. */
@@ -192,19 +238,38 @@ export async function passagesOf(id: string): Promise<LocalPassage[]> {
   });
 }
 
-/** Every passage, a batch at a time (pausing between batches so the screen never freezes). */
-async function eachBatch(fn: (batch: StoredPassage[]) => void): Promise<void> {
+/**
+ * Every passage, a batch at a time (pausing between batches so the screen never freezes); with `vectors`, each
+ * with its meaning vector when it has one (read from "vec" over the same keys, in the same step).
+ */
+async function eachBatch(fn: (batch: (StoredPassage & { v?: KeptVector })[]) => void, vectors = false): Promise<void> {
   const db = await idb();
   if (!db) {
-    for (const [doc, list] of memPass) fn(list.map((p, n) => ({ ...p, doc, n })));
+    for (const [doc, list] of memPass) fn(list.map((p, n) => ({ ...p, doc, n, ...(vectors && memVec.has(vk(doc, n)) ? { v: memVec.get(vk(doc, n)) } : {}) })));
     return;
   }
   let after: IDBValidKey | null = null;
   for (;;) {
-    const batch = await new Promise<StoredPassage[]>((resolve) => {
-      const r = db.transaction('pass', 'readonly').objectStore('pass').getAll(after === null ? undefined : IDBKeyRange.lowerBound(after, true), 1500);
-      r.onsuccess = () => resolve(r.result as StoredPassage[]);
+    const batch = await new Promise<(StoredPassage & { v?: KeptVector })[]>((resolve) => {
+      const tx = db.transaction(vectors ? ['pass', 'vec'] : ['pass'], 'readonly');
+      const r = tx.objectStore('pass').getAll(after === null ? undefined : IDBKeyRange.lowerBound(after, true), 1500);
       r.onerror = () => resolve([]);
+      r.onsuccess = () => {
+        const list = r.result as (StoredPassage & { v?: KeptVector })[];
+        if (!vectors || !list.length) return resolve(list);
+        const first = list[0]!;
+        const last = list[list.length - 1]!;
+        const rv = tx.objectStore('vec').getAll(IDBKeyRange.bound([first.doc, first.n], [last.doc, last.n]));
+        rv.onerror = () => resolve(list);
+        rv.onsuccess = () => {
+          const byKey = new Map((rv.result as StoredVector[]).map((x) => [vk(x.doc, x.n), x]));
+          for (const p of list) {
+            const v = byKey.get(vk(p.doc, p.n));
+            if (v) p.v = v;
+          }
+          resolve(list);
+        };
+      };
     });
     if (!batch.length) return;
     fn(batch);
@@ -271,53 +336,268 @@ export async function removeDoc(id: string, brainLater = false): Promise<void> {
   } else if (d) await drop(d.id);
 }
 
-function score(q: string): ((low: string) => number) | null {
-  const terms = [...new Set((q.toLowerCase().match(/[a-z0-9][a-z0-9_+#.-]*[a-z0-9+#]|[a-z0-9]/g) ?? []).filter((t) => t.length > 2 && !STOP.has(t)))].slice(0, 12);
-  if (!terms.length) return null;
-  const stems = terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
-  const need = terms.length >= 3 ? 0.5 : 0.99;
-  return (low) => {
-    const s = stems.filter((x) => low.includes(x)).length / stems.length;
-    return s >= need ? s : 0;
-  };
+/**
+ * Asked for a question's meaning vector (library/meaning.ts sets it once SEARCH BY MEANING is on this phone):
+ * null when there is none — the model is not here, or not in memory and `load` is false. `ready` says whether a
+ * search by meaning could run at all (the model is here and every passage has its vector), cheaply, without it.
+ */
+type QueryEmbedder = { vector(q: string, load: boolean): Promise<ArrayLike<number> | null>; ready(): boolean };
+let embedder: QueryEmbedder | null = null;
+export function setQueryEmbedder(e: QueryEmbedder | null): void {
+  embedder = e;
 }
-const STOP = new Set('the and are for from has have how its not our that their them then there these they this was were what when where which who why will with would you your about also any just like more most only other some such very use using want need make get show tell give please ghosty does did can could'.split(' '));
+/** A search by meaning could run now (the model is on this phone and every passage has its vector). */
+export const meaningPossible = (): boolean => !!embedder?.ready();
+
+export interface LocalSearch {
+  hits: LibraryHit[];
+  /** How they were ranked: by meaning when the question had a vector and nearly every passage (MEANING_SHARE) had one. */
+  how: SearchHow;
+  /** By meaning: how many passages (the newest, not indexed yet) could only be found by their words. */
+  unindexed: number;
+}
 
 /**
- * Search documents kept here, reading passages from storage a batch at a time (only the best
- * few are kept). `onlyPending`: just the ones the brain doesn't have yet.
+ * Search documents kept here, reading passages from storage a batch at a time (only the best few are kept).
+ * `onlyPending`: just the ones the brain doesn't have yet. With a vector for the question (`load`: the model
+ * may be brought into memory for it), every passage is scored by meaning blended with its wording — the newest
+ * few still waiting for their vectors by their wording alone (`unindexed` says how many); if more than a few
+ * (MEANING_SHARE) have no vector yet, the ranking is by keywords alone, as it always was, and says so.
  */
-export async function searchLocal(q: string, k = 8, onlyPending = false): Promise<LibraryHit[]> {
-  const f = score(q);
-  if (!f) return [];
+export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts: { load?: boolean } = {}): Promise<LocalSearch> {
+  const words = wordMatcher(q);
+  const qv = embedder ? await embedder.vector(q, opts.load ?? true).catch(() => null) : null;
+  if (!words && !qv) return { hits: [], how: 'keywords', unindexed: 0 };
   const docs = await all();
-  let out: LibraryHit[] = [];
+  type Cand = LibraryHit & Signals;
+  let byWords: Cand[] = [];
+  // By meaning: a pool of candidates (the nearest, the best worded, the exactly named), ranked at the end against
+  // how this question's cosines spread over every passage (gathered as it reads).
+  let pool: Cand[] = [];
+  const POOL = Math.max(40, k * 4);
+  let missing = 0;
+  let seen = 0;
+  let n = 0;
+  let sum = 0;
+  let sumSq = 0;
+  const consider = (d: LocalDoc, p: LocalPassage & { v?: KeptVector }, doc: string) => {
+    seen++;
+    const w = words ? words(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase()) : { words: 0, matched: false };
+    let cos: number | null = null;
+    if (qv) {
+      if (p.v) {
+        cos = cosine(qv, p.v.q);
+        n++;
+        sum += cos;
+        sumSq += cos * cos;
+      } else missing++;
+    }
+    const exact = exactTitle(q, d.title, p.heading ?? '');
+    const c: Cand = { doc, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: 0, relevant: true, ...w, exact, cos };
+    if (w.matched) byWords.push(c);
+    if (qv) pool.push(c);
+  };
+  const prune = () => {
+    if (byWords.length > k * 4) byWords = rank(byWords, k, 'keywords');
+    pool = prunePool(pool, POOL);
+  };
   if (onlyPending) {
     // Just the few documents the brain doesn't have yet: read those, not the whole copy.
     for (const d of docs.values()) {
       if (d.brainId || d.removed) continue;
-      for (const p of await passagesOf(d.id)) {
-        const s = f(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase());
-        if (s) out.push({ doc: d.id, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: s, relevant: true });
+      const vs = qv ? await vectorsOf(d.id) : new Map<number, KeptVector>();
+      (await passagesOf(d.id)).forEach((p, n) => consider(d, { ...p, v: vs.get(n) }, d.id));
+      prune();
+    }
+  } else {
+    await eachBatch((batch) => {
+      for (const p of batch) {
+        const d = docs.get(p.doc);
+        if (!d || d.removed) continue;
+        consider(d, p, d.brainId ?? d.id);
       }
-    }
-    return out.sort((a, b) => b.score - a.score).slice(0, k);
+      prune();
+    }, !!qv);
   }
-  await eachBatch((batch) => {
-    for (const p of batch) {
-      const d = docs.get(p.doc);
-      if (!d || d.removed) continue;
-      const s = f(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase());
-      if (s) out.push({ doc: d.brainId ?? d.id, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: s, relevant: true });
-    }
-    if (out.length > k * 4) out = out.sort((a, b) => b.score - a.score).slice(0, k);
-  });
-  return out.sort((a, b) => b.score - a.score).slice(0, k);
+  const how: SearchHow = qv && meaningCovers(seen - missing, seen) ? 'meaning' : 'keywords';
+  const ranked = how === 'meaning' ? rank(pool, k * 2, how, spreadOf(n, sum, sumSq)) : rank(byWords, k * 2, how);
+  // The same passage twice (two copies of one document) is shown once.
+  const once = new Set<string>();
+  const hits = ranked
+    .filter((h) => !once.has(`${h.doc}|${h.text}`) && !!once.add(`${h.doc}|${h.text}`))
+    .slice(0, k)
+    .map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
+  return { hits, how, unindexed: how === 'meaning' ? missing : 0 };
 }
 
-/** Passages for Ghosty in chat while its database is paused (small: they go with the message). */
-export async function passagesFor(q: string): Promise<{ title: string; heading: string; page: number | null; text: string }[]> {
-  return (await searchLocal(q, 6)).map((h) => ({ title: h.title, heading: h.heading, page: h.page, text: h.text.slice(0, 1500) }));
+/** The best passages kept here for a question (searchLocalHow without the how). */
+export async function searchLocal(q: string, k = 8, onlyPending = false, opts: { load?: boolean } = {}): Promise<LibraryHit[]> {
+  return (await searchLocalHow(q, k, onlyPending, opts)).hits;
+}
+
+/**
+ * Passages for Ghosty in chat while its database is paused (small: they go with the message). By meaning when
+ * the model is already in memory; it is not loaded for this (every message asks, and the reply must not wait).
+ */
+export async function passagesFor(q: string, opts: { load?: boolean } = {}): Promise<{ title: string; heading: string; page: number | null; text: string }[]> {
+  return (await searchLocal(q, 6, false, { load: opts.load ?? false })).map((h) => ({ title: h.title, heading: h.heading, page: h.page, text: h.text.slice(0, 1500) }));
+}
+
+// ---------------------------------------------------------------------------------------
+// The meaning index: one vector per passage, worked out on this phone (library/meaning.ts)
+// ---------------------------------------------------------------------------------------
+
+/** One document's vectors, by passage number. */
+async function vectorsOf(id: string): Promise<Map<number, KeptVector>> {
+  const out = new Map<number, KeptVector>();
+  const db = await idb();
+  if (!db) {
+    (memPass.get(id) ?? []).forEach((_, n) => memVec.has(vk(id, n)) && out.set(n, memVec.get(vk(id, n))!));
+    return out;
+  }
+  return new Promise((resolve) => {
+    const r = db.transaction('vec', 'readonly').objectStore('vec').getAll(docRange(id));
+    r.onsuccess = () => {
+      for (const v of r.result as StoredVector[]) out.set(v.n, { q: v.q, s: v.s });
+      resolve(out);
+    };
+    r.onerror = () => resolve(out);
+  });
+}
+
+export type PassageKey = [string, number];
+/** A passage still to be given a vector: its key, and the text the model reads (title and heading first). */
+export interface ToIndex {
+  key: PassageKey;
+  text: string;
+  /** The passage's own text, to check it did not change before its vector is kept. */
+  raw: string;
+}
+const indexText = (d: LocalDoc, p: LocalPassage) => `${d.title}${p.heading && p.heading !== d.title ? ` — ${p.heading}` : ''}\n${p.text}`;
+const before = (a: PassageKey, b: PassageKey) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]);
+
+/**
+ * Up to `n` passages with no vector yet, in storage order after `after` (null: from the start), and the last key
+ * looked at. Only the keys are read to find them; a passage's text is read only when it needs a vector.
+ */
+export async function unindexed(after: PassageKey | null, n: number): Promise<{ items: ToIndex[]; last: PassageKey | null }> {
+  const docs = await all();
+  const live = (doc: string) => {
+    const d = docs.get(doc);
+    return d && !d.removed ? d : null;
+  };
+  const db = await idb();
+  if (!db) {
+    const keys = [...memPass].flatMap(([doc, list]) => list.map((_, i): PassageKey => [doc, i])).sort(before).filter((x) => !after || before(x, after) > 0);
+    const items: ToIndex[] = [];
+    let last: PassageKey | null = after;
+    for (const key of keys) {
+      if (items.length >= n) break;
+      last = key;
+      const d = live(key[0]);
+      if (!d || memVec.has(vk(key[0], key[1]))) continue;
+      const p = memPass.get(key[0])![key[1]]!;
+      items.push({ key, text: indexText(d, p), raw: p.text });
+    }
+    return { items, last };
+  }
+  const items: ToIndex[] = [];
+  let last: PassageKey | null = after;
+  for (let guard = 0; guard < 400 && items.length < n; guard++) {
+    const step = await new Promise<{ keys: PassageKey[]; got: (StoredPassage | undefined)[] } | null>((resolve) => {
+      const tx = db.transaction(['pass', 'vec'], 'readonly');
+      const range = last ? IDBKeyRange.lowerBound(last, true) : undefined;
+      const rk = tx.objectStore('pass').getAllKeys(range, 400);
+      rk.onerror = () => resolve(null);
+      rk.onsuccess = () => {
+        const keys = rk.result as PassageKey[];
+        if (!keys.length) return resolve({ keys, got: [] });
+        const rv = tx.objectStore('vec').getAllKeys(IDBKeyRange.bound(keys[0]!, keys[keys.length - 1]!));
+        rv.onerror = () => resolve(null);
+        rv.onsuccess = () => {
+          const have = new Set((rv.result as PassageKey[]).map((x) => vk(x[0], x[1])));
+          // Take passages with no vector until there are enough; the keys looked at end there (the next call carries on).
+          const want: PassageKey[] = [];
+          let upTo = -1;
+          for (let i = 0; i < keys.length && want.length < n - items.length; i++) {
+            upTo = i;
+            if (!have.has(vk(keys[i]![0], keys[i]![1])) && live(keys[i]![0])) want.push(keys[i]!);
+          }
+          const got: (StoredPassage | undefined)[] = [];
+          if (!want.length) return resolve({ keys: keys.slice(0, upTo + 1), got });
+          const pass = tx.objectStore('pass');
+          want.forEach((key, i) => {
+            const r = pass.get(key);
+            r.onsuccess = () => {
+              got[i] = r.result as StoredPassage | undefined;
+              if (i === want.length - 1) resolve({ keys: keys.slice(0, upTo + 1), got });
+            };
+            r.onerror = () => i === want.length - 1 && resolve({ keys: keys.slice(0, upTo + 1), got });
+          });
+        };
+      };
+    });
+    if (!step || !step.keys.length) break;
+    last = step.keys[step.keys.length - 1]!;
+    for (const p of step.got) {
+      const d = p && live(p.doc);
+      if (p && d) items.push({ key: [p.doc, p.n], text: indexText(d, p), raw: p.text });
+    }
+  }
+  return { items, last };
+}
+
+/**
+ * Keep passages' vectors (each scaled to length 1, then int8). A passage whose text changed or went away since it
+ * was read is skipped, checked in the same step as the write, so a vector never sits beside the wrong text.
+ * Returns how many were kept.
+ */
+export async function saveVectors(items: ToIndex[], vectors: ArrayLike<number>[]): Promise<number> {
+  const docs = await all();
+  const rows = items.map((it, i) => ({ it, v: vectors[i] })).filter((x) => x.v && x.v.length);
+  const db = await idb();
+  if (!db) {
+    let kept = 0;
+    for (const { it, v } of rows) {
+      const [doc, n] = it.key;
+      if (!docs.get(doc) || docs.get(doc)!.removed) continue;
+      if (memPass.get(doc)?.[n]?.text !== it.raw) continue;
+      memVec.set(vk(doc, n), quantise(v!));
+      kept++;
+    }
+    return kept;
+  }
+  let kept = 0;
+  const tx = db.transaction(['pass', 'vec'], 'readwrite');
+  const pass = tx.objectStore('pass');
+  const vec = tx.objectStore('vec');
+  for (const { it, v } of rows) {
+    const [doc, n] = it.key;
+    if (!docs.get(doc) || docs.get(doc)!.removed) continue;
+    const r = pass.get([doc, n]);
+    r.onsuccess = () => {
+      if ((r.result as StoredPassage | undefined)?.text !== it.raw) return;
+      vec.put({ doc, n, ...quantise(v!) } satisfies StoredVector);
+      kept++;
+    };
+  }
+  await done(tx);
+  return kept;
+}
+
+/** How many passages here have their vector, of how many (documents removed here not counted). */
+export async function indexCounts(): Promise<{ indexed: number; total: number }> {
+  const docs = await all();
+  const live = new Set([...docs.values()].filter((d) => !d.removed).map((d) => d.id));
+  const total = [...docs.values()].filter((d) => !d.removed).reduce((n, d) => n + d.count, 0);
+  const db = await idb();
+  if (!db) return { indexed: [...memVec.keys()].filter((k) => live.has(k.split('\u0000')[0]!)).length, total };
+  const keys = await new Promise<PassageKey[]>((resolve) => {
+    const r = db.transaction('vec', 'readonly').objectStore('vec').getAllKeys();
+    r.onsuccess = () => resolve(r.result as PassageKey[]);
+    r.onerror = () => resolve([]);
+  });
+  return { indexed: keys.filter((x) => live.has(x[0])).length, total };
 }
 
 /**
@@ -393,7 +673,9 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
     let spent = 0;
     for (const d of todo) {
       if (spent >= budget) break;
-      const prev = have.get(d.id);
+      // A document saved here meanwhile (its upload finished while this run was going) already holds the brain's
+      // id: carry on with that copy, never a second one beside it.
+      const prev = have.get(d.id) ?? [...(await all()).values()].find((x) => x.brainId === d.id && !x.removed);
       // A notebook that only grew (Ghosty's study log, its notes): copy the new passages, not the
       // whole document again. The brain pages by its own row ids (shared by every document), so
       // the copy carries on from the last row id it has, never from a count.
@@ -465,4 +747,7 @@ export function keepForever(quietly: boolean): void {
 export function _reset(): void {
   cache = null;
   memPass = new Map();
+  memVec = new Map();
+  embedder = null;
+  watchers.clear();
 }

@@ -9,11 +9,12 @@ import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
-import { extraTools, schoolTools, videoTools } from './extra';
+import { extraTools, placesTools, schoolTools, spendingTools, videoTools } from './extra'; // [places] placesTools, spendingTools
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
 import { homePlanTools, HOMEPLAN_ABOUT, HOMEPLAN_WHEN } from './homeplan'; // [homeplan]
+import { photoTools, PHOTO_ABOUT, PHOTO_WHEN } from './photo'; // [photo]
 import { designTools } from './design';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
@@ -43,7 +44,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools]; // [photo] [places]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -230,7 +231,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'lens',
     tools: lensTools,
-    when: /\b(reverse image|image search|search by image|where is this (?:picture|photo|image) from|picture link|photo link|google lens|tineye|yandex)\b|https?:\/\/\S+\.(?:jpe?g|png|webp|gif)\b/i,
+    when: /\b(reverse image|image search|search by image|where is this (?:picture|photo|image) from|picture link|photo link|google lens|tineye|yandex)\b|https?:\/\/\S+\.(?:jpe?g|png|webp|gif)\b|\bidentify_plant\b/i, // [lens] identify_plant: the Lens's NAME IT names the tool in its question
     about: 'You can give reverse image search links for a picture at a public web address (reverse_image_links: Google Lens, Bing Visual Search, Yandex Images and TinEye, each named plainly; never to find who a person is).',
   },
   // SCAN (integrations/lookup.ts): barcode numbers and translation, when the words are about them or a barcode-sized number comes up.
@@ -250,6 +251,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
   },
   // [homeplan] A home or a room from the owner's words (tools/homeplan.ts): the planner's floor plan, and 3-D through the studio.
   { name: 'homeplan', tools: homePlanTools, when: HOMEPLAN_WHEN, about: HOMEPLAN_ABOUT },
+  // [photo] Photo jobs on free Spaces (tools/photo.ts): background removed, sharper, a thing erased; never faces.
+  { name: 'photo', tools: photoTools, when: PHOTO_WHEN, about: PHOTO_ABOUT },
+  // [places] Saved places (tools/places.ts) and spending from statements (tools/spending.ts): no tracking, no bank access.
+  { name: 'places', tools: placesTools, when: /\b(address|postcode|my places?|saved places?|(?:home|work|office|school|gym)(?: address)? is\b|forget (?:my |the )?(?:home|work|office|school|gym|place))/i,
+    about: "You can save the owner's places (remember_place: look up, show, keep only after his yes; forget_place) — plan_journey and get_directions read them; never a reminder by where he is: no tracking." },
+  { name: 'spending', tools: spendingTools, when: /\b(spend|spent|spending|budgets?|subscriptions?|statements?|money|bank|bills?|£\s?\d|pounds|how much did i)\b/i,
+    about: 'You can report spending from statements the owner added in Agenda → SPENDING (spending_summary: month, year, changes, subscriptions) and set budgets in his words (set_budget); no bank access, ever.' },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',
@@ -261,7 +269,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'gadgets',
     tools: gadgetTools,
-    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
+    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part|manuals?|instructions? (?:book|for use)|rating plate|model number|fault codes?|error codes?|dishwashers?|washing machines?|tumble dryers?|fridges?|freezers?|ovens?|boilers?)\b|\b[EF]\s?:?\s?\d{1,3}\b/i, // [manuals] manuals, rating plates, fault codes and appliances turn the group on (gadget_manual)
     about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
   },
   // 3D STUDIO (model3d.ts, features/studio): pictures into 3-D models, and the studio itself.

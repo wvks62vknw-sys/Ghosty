@@ -4,6 +4,7 @@
 // bot key block in SYSTEM → KEYS. Phone and desktop sizes.
 //   node tests/telegram.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -16,8 +17,8 @@ const NONE = { linked: false, bot: null, paired: false, name: null, token: false
 const WAITING = { linked: true, bot: 'GhostyTestBot', paired: false, name: null, code: '482913', codeUntil: Date.now() + 14 * 60_000, token: true };
 const PAIRED = { linked: true, bot: 'GhostyTestBot', paired: true, name: 'Sam', token: true };
 
-for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   page.on('dialog', (d) => d.accept());
@@ -102,8 +103,10 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
   await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'TEST')?.click());
   await page.waitForFunction(() => /Sent to your Telegram/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] TEST showed no confirmation`));
   if (!asked.some((p) => p.endsWith('/telegram/test'))) problems.push(`[${name}] TEST did not call the brain`);
-  // UNPAIR (the confirm dialog is accepted above) → back to waiting with the new code
+  // UNPAIR (confirmed in its one-tap sheet) → back to waiting with the new code
   await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn button')].find((b) => b.textContent === 'UNPAIR')?.click());
+  // (it asks first, in a one-tap confirm)
+  await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push(`[${name}] UNPAIR did not ask first`));
   await page.waitForFunction(() => document.querySelector('#pg-links .tgcode')?.textContent === '770011', null, { timeout: 5000 }).catch(() => problems.push(`[${name}] UNPAIR did not show the fresh pairing code`));
   if (!asked.some((p) => p.endsWith('/telegram/unpair'))) problems.push(`[${name}] UNPAIR did not call the brain`);
   await shot(`${name}-telegram-unpaired.png`);

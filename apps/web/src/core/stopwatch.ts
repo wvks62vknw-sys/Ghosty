@@ -233,11 +233,21 @@ if (typeof document !== 'undefined') {
   });
 }
 
+/** Who wants to know when something new is timed (the SPEED card). */
+const watchers = new Set<() => void>();
+
 function add(s: Sample): void {
   samples = keep(samples, s);
   dirty = true;
   expose();
   void flush();
+  for (const fn of [...watchers]) {
+    try {
+      fn();
+    } catch (e) {
+      console.error(e);
+    }
+  }
 }
 
 function expose(): void {
@@ -297,6 +307,12 @@ export const stopwatch = {
   async summary(): Promise<PhoneSpeed> {
     await load();
     return summarise(samples);
+  },
+
+  /** Call `fn` each time something new is timed (the SPEED card repaints); returns the way to stop. */
+  onChange(fn: () => void): () => void {
+    watchers.add(fn);
+    return () => watchers.delete(fn);
   },
 
   /** performance.now(), for the hooks' start times. */

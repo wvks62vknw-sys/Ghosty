@@ -9,6 +9,7 @@
 // "Powered by Spline"; SHOT gives a PNG; asking Ghosty "open the studio with the chair" opens it on
 // the chair. The security policy blocks nothing and nothing sticks out sideways.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -18,7 +19,8 @@ const truck = readFileSync(new URL('../apps/web/public/models/CesiumMilkTruck.gl
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,

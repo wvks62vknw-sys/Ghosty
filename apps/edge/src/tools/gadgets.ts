@@ -3,9 +3,13 @@
  * reviewers, sources named) and a replacement part in UK shops (find_part: prices read off the
  * shops' pages, ranked by fit then price). Both look things up and change nothing; neither ever
  * fills a gap with a guess. A photo of the gadget or the part is identified by the model first
- * (the "gadgets and parts" playbook says how to chain it).
+ * (the "gadgets and parts" playbook says how to chain it). gadget_manual (integrations/manuals.ts): the maker's own
+ * manual found and kept on the library's GADGETS shelf, questions answered from its pages ("from the manual, page n",
+ * else "from the web, not the manual"), and parts as a plain search with no shop favoured.
  */
 import { gadgetSettings, type Use } from '../integrations/gadgets';
+import { askManual, findManual, partLinks } from '../integrations/manuals';
+import { Library } from '../library/store';
 import { findParts } from '../integrations/parts';
 import { asData } from '../kernel/permissions';
 import { arg, clip, type Tool } from './types';
@@ -54,6 +58,33 @@ export const gadgetTools: Tool[] = [
       const q = { description: arg.str(a, 'description').slice(0, 120), partNumber: arg.str(a, 'part_number', false).slice(0, 40) || undefined, device: arg.str(a, 'device', false).slice(0, 80) || undefined };
       const r = await findParts(q, { search: (s) => search(s, ctx), progress: ctx.progress });
       return r.listings.length ? asData('UK shop pages', clip(r.text, 6000)) : r.text;
+    },
+  },
+  {
+    name: 'gadget_manual',
+    description: "A gadget's manual. find: the maker's own PDF, kept in the library (GADGETS). ask: a fault code or problem answered from its pages (say the page), else the web (say so). parts: links for the exact part name (never buy).",
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['find', 'ask', 'parts'] },
+        device: { type: 'string', description: 'make, what it is and model number (e.g. "Bosch dishwasher SMS24AW01G"), or the rating plate text' },
+        question: { type: 'string', description: 'ask: the owner\'s words ("it shows E24")' },
+        part: { type: 'string', description: 'parts: the exact part name as the manual prints it' },
+      },
+      required: ['action'],
+    },
+    risk: 'auto',
+    async run(a, ctx) {
+      const l = new Library(ctx.storage, ctx.env);
+      const deps = { storage: ctx.storage, library: l.available ? l : null, search: (q: string) => search(q, ctx), progress: ctx.progress };
+      const action = arg.str(a, 'action', false).toLowerCase();
+      const device = arg.str(a, 'device', false).slice(0, 200);
+      if (action === 'parts') return asData('web search', (await partLinks(deps, { part: arg.str(a, 'part', false) || arg.str(a, 'question', false), device })).text);
+      if (action === 'ask') {
+        const r = await askManual(deps, `${device} ${arg.str(a, 'question', false)}`.trim().slice(0, 400));
+        return r.from === 'none' ? r.text : asData(r.from === 'manual' ? 'the manual' : 'web search', clip(r.text, 5000));
+      }
+      return (await findManual(deps, device || arg.str(a, 'question', false))).text;
     },
   },
 ];

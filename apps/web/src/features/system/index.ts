@@ -5,13 +5,16 @@ import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
-import { button, panel, row, toast } from '../../ui/components';
+import { button, confirmSheet, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { loopsPanel } from './loops';
 import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
+import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
+import { speedCard } from './speed';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -32,8 +35,12 @@ export const systemTab: TabDef = {
     const rp = panel('AI ROOM', { grow: false, cls: 'airoom' });
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
+    // Every loop he practises in, on one card: what it practised, what improved, what was rejected (loops.ts).
+    const lp = loopsPanel();
     const tp = trainingPanel();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, tp.el);
+    // NIGHT SCHOOL (night.ts): the phone works through the night, plugged in and open on Ghosty.
+    const np = nightPanel();
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, lp.el, tp.el, np.el);
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
@@ -79,7 +86,9 @@ export const systemTab: TabDef = {
             b.disabled = false;
           }
         });
+        // A key is never shown again once saved, so a removal cannot be undone: said plainly first.
         const remove = k.set ? button('REMOVE', async () => {
+          if (!(await confirmSheet(`Remove the ${k.label} key?`, `It is wiped from Ghosty, not kept anywhere: what needs it stops working until you paste the key again (${k.link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]} shows it).`, 'REMOVE'))) return;
           await brain.setKey(k.name, '');
           void load();
         }, 'warn') : null;
@@ -184,10 +193,13 @@ export const systemTab: TabDef = {
     };
     // route C: the three dials head the Status card (free AI today, the database today, the offline brain)
     const dials = statusDials();
+    // SPEED (speed.ts) under the dials: how long Ghosty takes, from this phone's stopwatch and the brain's
+    const speed = speedCard();
     const paintStatus = () => {
       clear(sp.body);
-      sp.body.append(dials.el);
+      sp.body.append(dials.el, speed.el);
       void dials.paint(status);
+      speed.paint(status);
       // What the owner needs at a glance; the engineering details fold away under Advanced.
       const ver = `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`;
       sp.body.append(
@@ -207,7 +219,12 @@ export const systemTab: TabDef = {
       linksBtn.dataset.label = 'Email, Spotify and phone';
       sp.body.append(h('div.keyrow', linksBtn));
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
-      if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
+      if (ownerKey.get())
+        sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', async () => {
+          if (!(await confirmSheet('Forget the owner key here?', 'This phone stops being able to talk to Ghosty’s brain until you type the owner key again. Nothing on the brain changes.', 'FORGET IT'))) return;
+          ownerKey.set('');
+          location.reload();
+        }, 'warn'));
     };
 
     // ---- keeping data on this phone (storage.ts)
@@ -329,6 +346,7 @@ export const systemTab: TabDef = {
         void load();
         void checkVersion();
         tp.refresh();
+        lp.refresh();
       },
       describe: () => `System: ${P.big.textContent} · ${P.sub.textContent}`,
     };

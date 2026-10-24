@@ -22,7 +22,9 @@
  */
 import type { Project, ProjectStep } from '../../../packages/shared/src/protocol';
 import { assemble, type Assembled } from '../../../packages/shared/src/sitekit/assemble';
-import { briefFrom, emailOf, missing } from '../../../packages/shared/src/sitekit/brief';
+import { briefFrom, emailOf, missing, PLACELESS } from '../../../packages/shared/src/sitekit/brief';
+import type { Hours, Service } from '../../../packages/shared/src/sitekit/types';
+import { formTarget } from '../../../packages/shared/src/sitekit/blocks/formkit';
 import { whatsappOf } from '../../../packages/shared/src/sitekit/blocks/hero';
 import { formatGates, runGates, type GateReport } from '../../../packages/shared/src/sitekit/gates';
 import { addressLine } from '../../../packages/shared/src/sitekit/html';
@@ -53,8 +55,13 @@ export const SITE_STEPS = [
   { title: 'Publish and look', instruction: 'Publish the site, take screenshots on a phone and a laptop, and critique them like a designer.' },
   { title: 'Polish and report', instruction: 'Apply the fixes, check again, republish, and report with the live link.' },
 ];
-/** Steps follow each other quickly: the slow part is waiting for free model room, which the quota engine handles. */
-export const SITE_STEP_MS = 15_000;
+/**
+ * Steps follow each other quickly: the slow part is waiting for free model room, which the quota engine handles.
+ * (Was 15 s between steps — 75 s of a two-minute build spent waiting on nothing; measured in BRIEF-WEBSITES-LIFT.)
+ */
+export const SITE_STEP_MS = 2_000;
+/** How many pages the writer asks for at once (free models allow a few calls side by side). */
+const WRITE_AT_ONCE = 3;
 /** How often each step waits for a model before it carries on without one. */
 const MAX_WAITS = 1;
 // (Openverse asks callers to say who they are and how to reach them: the public repository, never the owner's address)
@@ -94,6 +101,10 @@ export interface SiteJob {
   critique?: { how: 'screenshots' | 'layout'; verdict: string; applied: string[]; skipped: string[]; shots: string[] };
   pictures?: string;
   geocoded?: boolean;
+  /** How long each step's own work took (ms, by step number): the report says the total. */
+  timings?: Record<string, number>;
+  /** The plan's key when it was built and checked (a step run again with the same plan is not built twice). */
+  builtKey?: string;
 }
 const JOB = (id: string) => `sitejob:${id}`;
 /** A site built and waiting for the owner to confirm it (finding 10): its title and project, by link name. */
@@ -130,11 +141,13 @@ export function briefOf(a: Record<string, unknown>): Brief {
     ...(s('extras') ? { extras: s('extras') } : {}),
     ...(s('tagline') ? { tagline: s('tagline') } : {}),
     ...(s('booking_url') && /^https:\/\//.test(s('booking_url')!) ? { bookingUrl: s('booking_url') } : {}),
+    ...(formTarget(s('form_endpoint')) ? { formEndpoint: formTarget(s('form_endpoint'))!.action } : {}),
     ...(s('date') ? { date: s('date') } : {}),
     ...(s('venue') ? { venue: s('venue') } : {}),
     ...(reviews.length ? { reviews } : {}),
     ...(list(a.accreditations).length ? { accreditations: list(a.accreditations).slice(0, 8) } : {}),
     ...(list(a.areas).length ? { areas: list(a.areas).slice(0, 24) } : {}),
+    ...(experienceOf(a.experience).length ? { experience: experienceOf(a.experience) } : {}),
     ...(typeof a.instagram === 'string' && a.instagram.trim() ? { socials: { instagram: a.instagram.trim() } } : {}),
     ...(Number.isInteger(Number(a.established)) && Number(a.established) > 1800 && Number(a.established) <= new Date().getFullYear() ? { established: Number(a.established) } : {}),
   };
@@ -142,6 +155,15 @@ export function briefOf(a: Record<string, unknown>): Brief {
   if (kind && kind in TEMPLATES) b.kind = kind as Brief['kind'];
   return b;
 }
+
+/** A CV's jobs as the owner gave them: when, what, and a line (anything else is dropped). */
+const experienceOf = (v: unknown): NonNullable<Brief['experience']> =>
+  Array.isArray(v)
+    ? (v as Record<string, unknown>[])
+        .filter((e) => e && typeof e.when === 'string' && typeof e.title === 'string' && e.when.trim() && e.title.trim())
+        .slice(0, 12)
+        .map((e) => ({ when: String(e.when).trim().slice(0, 24), title: String(e.title).trim().slice(0, 60), ...(typeof e.text === 'string' && e.text.trim() ? { text: e.text.trim().slice(0, 200) } : {}) }))
+    : [];
 
 /** A short, stable tag from words: the same name always gives the same link, two names almost never one. */
 const tagOf = (s: string) => ([...s].reduce((h, c) => (Math.imul(h, 31) + c.codePointAt(0)!) | 0, 7) >>> 0).toString(36).slice(-4);
@@ -185,7 +207,7 @@ export async function siteNameFor(a: Record<string, unknown>, b: Brief, ctx: Pic
 export function publicDetails(b: Brief): string {
   const shown = [b.phone && `phone ${b.phone}`, b.email && `email ${b.email}`, addressLine(b) && `address ${addressLine(b)}`].filter(Boolean);
   const wa = whatsappOf(b);
-  const forms = [wa && `WhatsApp ${wa}`, b.email && `email ${b.email}`].filter(Boolean);
+  const forms = [formTarget(b.formEndpoint) && 'your Formspree form', wa && `WhatsApp ${wa}`, b.email && `email ${b.email}`].filter(Boolean);
   return `${shown.length ? ` Public on the page: ${shown.join(', ')}.` : ''}${forms.length ? ` Its forms send to ${forms.join(' or ')}.` : ''}`;
 }
 
@@ -290,31 +312,19 @@ export async function findPictures(kind: Brief['kind'], want: number, keys: { un
       if (!from.includes(src)) from.push(src);
     }
   };
-  for (const q of KIND_QUERIES[kind]) {
-    if (out.length >= want) break;
+  // Every search at once (each provider for each query), then taken in the old order of preference — the owner's
+  // own keys first, then Openverse, then Commons, query by query — so a slow service costs one wait, not nine.
+  const json = <T>(url: string, init: RequestInit): Promise<T | null> => fetch(url, init).then((r) => (r.ok ? (r.json() as Promise<T>) : null)).catch(() => null);
+  const searches = KIND_QUERIES[kind].map((q) => {
     const alt = q[0]!.toUpperCase() + q.slice(1);
-    if (keys.unsplash) {
-      const r = await fetch(`https://api.unsplash.com/search/photos?per_page=6&orientation=landscape&query=${encodeURIComponent(q)}`, { headers: { Authorization: `Client-ID ${keys.unsplash}`, 'Accept-Version': 'v1' } }).catch(() => null);
-      const j = r?.ok ? ((await r.json().catch(() => null)) as { results?: Parameters<typeof fromUnsplash>[0][] } | null) : null;
-      for (const p of j?.results ?? []) push(fromUnsplash(p, alt), 'Unsplash');
-    }
-    if (keys.pexels && out.length < want) {
-      const r = await fetch(`https://api.pexels.com/v1/search?per_page=6&orientation=landscape&query=${encodeURIComponent(q)}`, { headers: { Authorization: keys.pexels } }).catch(() => null);
-      const j = r?.ok ? ((await r.json().catch(() => null)) as { photos?: Parameters<typeof fromPexels>[0][] } | null) : null;
-      for (const p of j?.photos ?? []) push(fromPexels(p, alt), 'Pexels');
-    }
-    if (out.length < want) {
-      const r = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&license_type=commercial&category=photograph&size=large&mature=false&page_size=12`, { headers: UA }).catch(() => null);
-      const j = r?.ok ? ((await r.json().catch(() => null)) as { results?: OpenverseHit[] } | null) : null;
-      for (const h of j?.results ?? []) push(fromOpenverse(h, alt), 'Openverse');
-    }
-    if (out.length < want) {
-      const u = `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap`)}&prop=imageinfo&iiprop=url|size|mime|extmetadata`;
-      const r = await fetch(u, { headers: UA }).catch(() => null);
-      const j = r?.ok ? ((await r.json().catch(() => null)) as { query?: { pages?: Record<string, Parameters<typeof fromCommons>[0]> } } | null) : null;
-      for (const p of Object.values(j?.query?.pages ?? {})) push(fromCommons(p, alt), 'Wikimedia Commons');
-    }
-  }
+    return Promise.all([
+      keys.unsplash ? json<{ results?: Parameters<typeof fromUnsplash>[0][] }>(`https://api.unsplash.com/search/photos?per_page=6&orientation=landscape&query=${encodeURIComponent(q)}`, { headers: { Authorization: `Client-ID ${keys.unsplash}`, 'Accept-Version': 'v1' } }).then((j) => (j?.results ?? []).map((p) => [fromUnsplash(p, alt), 'Unsplash'] as const)) : [],
+      keys.pexels ? json<{ photos?: Parameters<typeof fromPexels>[0][] }>(`https://api.pexels.com/v1/search?per_page=6&orientation=landscape&query=${encodeURIComponent(q)}`, { headers: { Authorization: keys.pexels } }).then((j) => (j?.photos ?? []).map((p) => [fromPexels(p, alt), 'Pexels'] as const)) : [],
+      json<{ results?: OpenverseHit[] }>(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&license_type=commercial&category=photograph&size=large&mature=false&page_size=12`, { headers: UA }).then((j) => (j?.results ?? []).map((h) => [fromOpenverse(h, alt), 'Openverse'] as const)),
+      json<{ query?: { pages?: Record<string, Parameters<typeof fromCommons>[0]> } }>(`https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(`${q} filetype:bitmap`)}&prop=imageinfo&iiprop=url|size|mime|extmetadata`, { headers: UA }).then((j) => Object.values(j?.query?.pages ?? {}).map((p) => [fromCommons(p, alt), 'Wikimedia Commons'] as const)),
+    ]);
+  });
+  for (const found of await Promise.all(searches)) for (const hits of found) for (const [i, src] of hits) push(i, src);
   return { images: out, from };
 }
 
@@ -359,31 +369,47 @@ const PICTURE_PROMPT: Record<Brief['kind'], string> = {
   event: 'Photograph of a concert crowd with colourful stage lights and confetti, from behind, no text',
   charity: 'Photograph of community volunteers\' hands sorting food donations into boxes, warm light, no faces, no text',
   saas: 'Abstract soft gradient 3D shapes in indigo and cyan, clean product background, no text',
+  tradesperson: 'Editorial photograph of a tidy toolbox, spirit level and drill on a workbench in a bright home, no text, no faces',
+  takeaway: 'Editorial photograph of a hot takeaway meal on a wooden counter, steam, warm light, no text',
+  cv: 'Minimal editorial photograph of a tidy desk with a notebook and a cup of coffee by a window, no text',
+  invite: 'Photograph of a garden party table with flowers and string lights at golden hour, no people, no text',
+  club: 'Photograph of a friendly community hall set up for a club evening, chairs and tables, warm light, no people, no text',
+  launch: 'Minimal product photograph of an unbranded box on a soft gradient background, studio light, no text',
 };
 
 /** Step 1: the facts, the map, the pictures. */
 async function stepBrief(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const b = job.brief;
-  const notes: string[] = [];
-  if (b.lat === undefined && (b.address || b.postcode || b.town) && b.kind !== 'saas' && b.kind !== 'portfolio') {
-    const q = [b.address, b.postcode, b.town, 'UK'].filter(Boolean).join(', ');
-    const g = await geocode(q).catch(() => null);
-    if (g) {
-      b.lat = Math.round(g.lat * 1e5) / 1e5;
-      b.lon = Math.round(g.lon * 1e5) / 1e5;
-      if (job.facts) Object.assign(job.facts, { lat: b.lat, lon: b.lon });
-      job.geocoded = true;
-      notes.push(`found it on the map (${b.lat}, ${b.lon})`);
-    } else notes.push('could not place the address on the map — the map shows an "open the map" button instead');
-  }
-  const stock = stockFor(b.kind);
-  const own = STOCK[b.kind];
-  if (own) {
-    job.stock = own;
-    job.pictures = `${1 + own.story.length + own.gallery.length} vetted free photos for a ${b.kind} (Wikimedia Commons, credited)`;
-  } else {
-    const keys = { unsplash: await deps.tctx.vault.get('unsplash').catch(() => null), pexels: await deps.tctx.vault.get('pexels').catch(() => null) };
-    const found = await findPictures(b.kind, 9, keys).catch(() => ({ images: [] as ImageRef[], from: [] as string[] }));
+  // The map, the form address and the pictures do not wait for each other: all three at once.
+  const place = async (): Promise<string> => {
+    if (b.lat !== undefined || !(b.address || b.postcode || b.town || b.venue) || PLACELESS.includes(b.kind)) return '';
+    const g = await geocode([b.venue, b.address, b.postcode, b.town, 'UK'].filter(Boolean).join(', ')).catch(() => null);
+    if (!g) return 'could not place the address on the map — the map shows an "open the map" button instead';
+    b.lat = Math.round(g.lat * 1e5) / 1e5;
+    b.lon = Math.round(g.lon * 1e5) / 1e5;
+    if (job.facts) Object.assign(job.facts, { lat: b.lat, lon: b.lon });
+    job.geocoded = true;
+    return `found it on the map (${b.lat}, ${b.lon})`;
+  };
+  // The owner's free form address from the keys (form_endpoint), when the request did not give one.
+  const form = async (): Promise<string> => {
+    if (b.formEndpoint) return '';
+    const given = await deps.tctx.vault.get('form_endpoint').catch(() => null);
+    const t = formTarget(given);
+    if (!t) return given ? 'the form address in the keys is not a Formspree form (https://formspree.io/f/…), so the forms open WhatsApp or email' : '';
+    b.formEndpoint = t.action;
+    if (job.facts) job.facts.formEndpoint = t.action;
+    return 'forms send to your Formspree form';
+  };
+  const pictures = async (): Promise<string> => {
+    const stock = stockFor(b.kind);
+    const own = STOCK[b.kind];
+    if (own) {
+      job.stock = own;
+      return (job.pictures = `${1 + own.story.length + own.gallery.length} vetted free photos for a ${b.kind} (Wikimedia Commons, credited)`);
+    }
+    const [unsplash, pexels] = await Promise.all([deps.tctx.vault.get('unsplash').catch(() => null), deps.tctx.vault.get('pexels').catch(() => null)]);
+    const found = await findPictures(b.kind, 9, { unsplash, pexels }).catch(() => ({ images: [] as ImageRef[], from: [] as string[] }));
     let images = found.images;
     if (images.length < 3) {
       const made = await makePicture(deps.tctx, PICTURE_PROMPT[b.kind]);
@@ -393,13 +419,15 @@ async function stepBrief(deps: ProjectDeps, job: SiteJob): Promise<string> {
       const hero = images.find((i) => (i.width ?? 0) >= (i.height ?? 0)) ?? images[0]!;
       const rest = images.filter((i) => i !== hero);
       job.stock = { hero, story: rest.slice(0, 2), gallery: rest.slice(2).length ? rest.slice(2) : rest };
-      job.pictures = `${images.length} free photos (${found.from.join(', ') || 'made with the picture model'}), every one credited`;
-    } else if (stock) {
+      return (job.pictures = `${images.length} free photos (${found.from.join(', ') || 'made with the picture model'}), every one credited`);
+    }
+    if (stock) {
       job.stock = stock;
-      job.pictures = 'vetted photos from a neighbouring trade (nothing better found)';
-    } else job.pictures = 'no photos found — the design works without them';
-  }
-  notes.push(job.pictures);
+      return (job.pictures = 'vetted photos from a neighbouring trade (nothing better found)');
+    }
+    return (job.pictures = 'no photos found — the design works without them');
+  };
+  const notes = (await Promise.all([place(), form(), pictures()])).filter(Boolean);
   await saveJob(deps, job);
   return `Brief for ${b.name || b.kind}: ${b.kind}${b.town ? ` in ${b.town}` : ''}; ${notes.join('; ')}.`;
 }
@@ -420,33 +448,92 @@ async function stepPlan(deps: ProjectDeps, job: SiteJob): Promise<string> {
   return `Plan: ${plan.pages.map((p) => `${p.label} (${p.sections.length} sections)`).join(', ')}; look ${plan.theme.palette} / ${plan.theme.fonts} / ${plan.theme.scheme}; voice "${plan.tone}".${notes.length ? ` Planner: ${notes.join(', ')}.` : reply === null ? ' (No model free: the template\'s own look.)' : ''}`;
 }
 
-/** Step 3: the words, page by page (a page already written is not asked again when the step resumes). */
+/**
+ * Step 3: the words, a few pages side by side (a page already written is not asked again when the step resumes).
+ * The first page of each batch is asked alone first, so the step's one model wait works as before; the others go
+ * at the same time, and any that fails is simply asked again (alone) in the next batch.
+ */
 async function stepWords(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const plan = job.plan!;
   let changed = 0;
   let refused = 0;
   let asked = 0;
-  for (let i = job.wrote ?? 0; i < plan.pages.length; i++) {
-    const w = writePrompt(plan, factsOf(job), i);
-    if (!w.pieces.length) continue;
-    const reply = await ask(deps, job, 'words', w.system, w.user, { tier: 'big' });
+  // A page asked alongside: its answer, or the error when no model was free for it (then it waits like the first one).
+  const quiet = (w: ReturnType<typeof writePrompt>): Promise<string | { wait: unknown } | null> =>
+    deps
+      .complete([{ role: 'system', content: w.system }, { role: 'user', content: w.user }], [], { priority: 'background', tier: 'big' })
+      .then((r) => textOf(r.message.content))
+      .catch((e: unknown) => (modelUnavailable(String((e as Error)?.message ?? e)) || (e as { waitMs?: number })?.waitMs !== undefined ? { wait: e } : null));
+  const todo: number[] = [];
+  for (let k = job.wrote ?? 0; k < plan.pages.length; k++) todo.push(k);
+  while (todo.length) {
+    const batch = todo.splice(0, WRITE_AT_ONCE).map((k) => ({ k, w: writePrompt(plan, factsOf(job), k) }));
+    const live = batch.filter((x) => x.w.pieces.length);
+    if (!live.length) {
+      job.wrote = batch[batch.length - 1]!.k + 1;
+      continue;
+    }
+    const [first, ...rest] = live;
+    const others = Promise.all(rest.map((x) => quiet(x.w)));
+    const reply = await ask(deps, job, 'words', first!.w.system, first!.w.user, { tier: 'big' });
     if (reply === null) {
       job.plain.push('words');
       await saveJob(deps, job);
       break;
     }
-    asked++;
-    const r = applyWrites(plan, w.pieces, jsonIn(reply), factsOf(job));
-    changed += r.changed;
-    refused += r.refused.length;
-    job.wrote = i + 1;
+    const replies = [reply, ...(await others)];
+    for (let n = 0; n < live.length; n++) {
+      const r = replies[n];
+      if (r && typeof r === 'object') {
+        // No model free for this page: the step's one wait, as if it had been asked alone (the pages before it are kept).
+        job.waited ??= {};
+        if ((job.waited.words ?? 0) < MAX_WAITS) {
+          job.waited.words = (job.waited.words ?? 0) + 1;
+          job.waits++;
+          await saveJob(deps, job);
+          throw r.wait;
+        }
+      }
+      if (r == null || typeof r === 'object') {
+        todo.unshift(...live.slice(n).map((x) => x.k)); // asked again, alone first, in the next batch
+        break;
+      }
+      asked++;
+      const w = applyWrites(plan, live[n]!.w.pieces, jsonIn(r), factsOf(job));
+      changed += w.changed;
+      refused += w.refused.length;
+      job.wrote = live[n]!.k + 1;
+    }
     await saveJob(deps, job);
   }
   return asked ? `Words: ${changed} pieces rewritten across ${asked} pages${refused ? `; ${refused} rewrites refused (too long, new numbers or stock phrases)` : ''}.` : "Words: the template's own copy (no model was free).";
 }
 
 /** Assemble and check: the kit's gates and the publish gate (check_html). */
+/** The last few builds, by what went in: steps 4, 5 and 6 (and a confirm) build the same plan again and again. */
+const BUILT = new Map<string, { a: Assembled; gates: GateReport; publishErrors: string[] }>();
+/** A short key for a plan and its facts (the same input always gives the same key). */
+export const buildKey = (plan: Plan, brief: Brief, facts: Brief = brief): string => {
+  const s = JSON.stringify([plan, brief, facts]);
+  let h = 7;
+  let g = 11;
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+    g = (Math.imul(g, 37) + s.charCodeAt(i)) | 0;
+  }
+  return `${s.length.toString(36)}-${(h >>> 0).toString(36)}-${(g >>> 0).toString(36)}`;
+};
+
 export function buildAndCheck(plan: Plan, brief: Brief, facts: Brief = brief): { a: Assembled; gates: GateReport; publishErrors: string[] } {
+  const key = buildKey(plan, brief, facts);
+  const had = BUILT.get(key);
+  if (had) return structuredClone(had);
+  const out = buildOnce(plan, brief, facts);
+  if (BUILT.size >= 4) BUILT.delete(BUILT.keys().next().value!);
+  BUILT.set(key, structuredClone(out));
+  return out;
+}
+function buildOnce(plan: Plan, brief: Brief, facts: Brief): { a: Assembled; gates: GateReport; publishErrors: string[] } {
   const a = assemble(plan, brief);
   const gates = runGates(a.html, plan, brief, facts);
   // Every picture credited, unless it is the owner's own or made by Ghosty.
@@ -458,8 +545,9 @@ export function buildAndCheck(plan: Plan, brief: Brief, facts: Brief = brief): {
   }
   let publishErrors: string[] = [];
   try {
-    const prepared = prepareSite(a.html, '');
-    publishErrors = checkHtml(prepared.html).errors;
+    const formAction = formTarget(facts.formEndpoint)?.action;
+    const prepared = prepareSite(a.html, '', { formAction });
+    publishErrors = checkHtml(prepared.html, { formAction }).errors;
   } catch (e) {
     publishErrors = [String((e as Error)?.message ?? e)];
   }
@@ -472,8 +560,13 @@ export const blocking = (g: GateReport): string[] => g.findings.filter((f) => f.
 /** Step 4. */
 async function stepBuild(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const { a, gates, publishErrors } = buildAndCheck(job.plan!, job.brief, factsOf(job));
-  job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
-  await saveJob(deps, job);
+  const key = buildKey(job.plan!, job.brief, factsOf(job));
+  // Run again with the same plan (a retry after a hiccup): the checks are already saved, nothing to save again.
+  if (job.builtKey !== key || !job.gates) {
+    job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
+    job.builtKey = key;
+    await saveJob(deps, job);
+  }
   if (publishErrors.length) throw new Error(`the page failed the publish check: ${publishErrors.slice(0, 3).join(' | ')}`);
   return `Built ${Math.round(a.html.length / 1024)} KB from ${a.blocks.length} blocks${a.dropped.length ? ` (left out: ${a.dropped.join('; ')})` : ''}. ${formatGates(gates).split('\n').slice(0, 6).join('\n')}`;
 }
@@ -481,11 +574,12 @@ async function stepBuild(deps: ProjectDeps, job: SiteJob): Promise<string> {
 /** Publish (or update) the site. */
 async function publish(s: Store & { origin?: string }, job: SiteJob, html: string): Promise<string> {
   if (!job.confirmed) throw new Error('not published — the owner has not confirmed what was assumed');
-  const { html: ready } = prepareSite(html, '');
-  const errors = checkHtml(ready).errors;
+  const formAction = formTarget(factsOf(job).formEndpoint)?.action;
+  const { html: ready } = prepareSite(html, '', { formAction });
+  const errors = checkHtml(ready, { formAction }).errors;
   if (errors.length) throw new Error(`not published — ${errors.slice(0, 3).join(' | ')}`);
   const title = job.plan!.pages[0]!.title || job.brief.name;
-  await siteStore(s.env, s.storage).put({ name: job.name, title, html: ready, source: '', at: Date.now() });
+  await siteStore(s.env, s.storage).put({ name: job.name, title, html: ready, source: '', at: Date.now(), ...(formAction ? { formAction } : {}) });
   job.link = siteLink(s.origin, s.env, job.name);
   job.live = true;
   return job.link;
@@ -562,11 +656,9 @@ async function stepLook(deps: ProjectDeps, job: SiteJob): Promise<string> {
     const kept = await durableGet<{ sizes: string[]; images: string[] }>(deps.env, deps.storage, SHOTS).catch(() => undefined);
     if (kept) sizes.push(...kept.sizes), images.push(...kept.images);
   } else if (job.live && /^https:\/\//.test(link)) {
-    for (const [w, h] of [
-      [390, 844],
-      [1280, 900],
-    ] as const) {
-      const shot = await screenshot(link, w, h).catch(() => null);
+    // The phone and the laptop at once (each free service can take several seconds).
+    const shots = await Promise.all(([[390, 844], [1280, 900]] as const).map(([w, h]) => screenshot(link, w, h).catch(() => null).then((shot) => ({ w, shot }))));
+    for (const { w, shot } of shots) {
       if (shot) {
         sizes.push(String(w));
         images.push(shot);
@@ -601,7 +693,8 @@ async function stepPolish(deps: ProjectDeps, job: SiteJob): Promise<string> {
   const before = buildAndCheck(job.plan!, job.brief, factsOf(job));
   const trial = structuredClone(job.plan!);
   const fx = applyFixes(trial, factsOf(job), answer && Object.keys(answer).length ? answer : null);
-  const after = buildAndCheck(trial, job.brief, factsOf(job));
+  // Nothing applied: the trial is the plan itself, so it is not built a second time.
+  const after = fx.applied.length ? buildAndCheck(trial, job.brief, factsOf(job)) : before;
   let kept = false;
   if (fx.applied.length && !after.publishErrors.length && after.gates.errors <= before.gates.errors) {
     job.plan = trial;
@@ -635,9 +728,97 @@ export function siteReport(job: SiteJob): string {
     job.pictures ? `Pictures: ${job.pictures}.` : '',
     plan.confirm.length ? `Please confirm: ${plan.confirm.join('; ')}.` : '',
     job.plain.length ? `Done without an AI model (none was free): ${[...new Set(job.plain)].join(', ')} — the template's own words and look were used.` : '',
-    'Forms open the visitor\'s WhatsApp or email with the message filled in (published pages cannot store anything).',
+    formTarget(factsOf(job).formEndpoint)
+      ? 'Forms send straight to your Formspree form (its free plan: 50 messages a month) and can also open WhatsApp or email; the page may send to that one address and nowhere else.'
+      : 'Forms open the visitor\'s WhatsApp or email with the message filled in (published pages cannot store anything). For a form that really sends, put a free Formspree form address (https://formspree.io/f/…) in SYSTEM → KEYS as form_endpoint.',
   ];
   return lines.filter(Boolean).join('\n');
+}
+
+// ── the DRAFT card (Workshop): the page as a phone and a laptop, CHANGE in words, then PUBLISH ─────
+
+/** What the DRAFT card shows: the page itself (to draw in two locked frames), its state and what to confirm. */
+export interface DraftView {
+  name: string;
+  title: string;
+  html: string;
+  live: boolean;
+  link: string;
+  confirm: string[];
+  /** The words the card's PUBLISH sends to the chat (the owner then approves, naming the list: confirmSite). */
+  publish: string;
+}
+export async function draftView(s: Store & { origin?: string }, id: string): Promise<DraftView | null> {
+  const job = await loadSiteJob(s, id).catch(() => undefined);
+  if (!job?.plan) return null;
+  const { a } = buildAndCheck(job.plan, job.brief, factsOf(job));
+  const link = job.link ?? siteLink(s.origin, s.env, job.name);
+  return { name: job.name, title: job.plan.pages[0]!.title || job.brief.name, html: a.html, live: !!job.live, link, confirm: job.plan.confirm, publish: `Publish my draft website at ${link} — those are right, publish it` };
+}
+
+/**
+ * The owner's change, in his words, folded into his facts: whatever can be read for sure (a phone, an email, a
+ * postcode, hours, prices, a date, "name: …", "town: …", "about: …") replaces what was there; the rest is kept
+ * word for word with his other notes and said back, never guessed at.
+ */
+export function changeFacts(facts: Brief, words: string): { facts: Brief; changed: string[]; kept: string } {
+  const out: Brief = structuredClone(facts);
+  const found = briefFrom(words, { kind: facts.kind });
+  const changed: string[] = [];
+  const set = <K extends keyof Brief>(k: K, v: Brief[K] | undefined, label: string) => {
+    if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) return;
+    (out as unknown as Record<string, unknown>)[k] = v;
+    changed.push(label);
+  };
+  set('phone', found.phone, 'phone');
+  if (found.email && emailOf(found.email) === found.email) set('email', found.email, 'email');
+  set('postcode', found.postcode, 'postcode');
+  set('hours', found.hours as Hours[] | undefined, 'opening hours');
+  set('services', found.services as Service[] | undefined, 'prices');
+  set('date', found.date, 'date');
+  if (formTarget(found.formEndpoint)) set('formEndpoint', formTarget(found.formEndpoint)!.action, 'form address');
+  const label = (re: RegExp) => words.match(re)?.[1]?.trim().slice(0, 120);
+  set('name', label(/\b(?:name|called)\s*[:=-]?\s*([^\n,;.]+)/i), 'name');
+  set('town', label(/\b(?:town|area)\s*[:=-]\s*([^\n,;.]+)/i), 'town');
+  set('address', label(/\baddress\s*[:=-]\s*([^\n;]+)/i), 'address');
+  set('tagline', label(/\b(?:tagline|slogan)\s*[:=-]\s*([^\n;]+)/i), 'tagline');
+  set('about', label(/\babout\s*[:=-]\s*([^\n]+)/i), 'about');
+  const kept = changed.length ? '' : words.trim().slice(0, 400);
+  if (kept) out.extras = [out.extras, kept].filter(Boolean).join('\n').slice(0, 1200);
+  return { facts: out, changed, kept };
+}
+
+/** CHANGE on the DRAFT card: the facts changed, the draft drawn again from them (still a draft, not public). */
+export async function changeDraft(s: Store & { origin?: string }, id: string, words: string): Promise<{ view: DraftView; said: string }> {
+  const job = await loadSiteJob(s, id);
+  if (!job?.plan) throw new Error('no draft website for this project');
+  if (job.live) throw new Error('this website is already public — ask Ghosty in the chat to change it');
+  const w = words.trim().slice(0, 600);
+  if (!w) throw new Error('say what to change');
+  const { facts, changed, kept } = changeFacts(factsOf(job), w);
+  const url = siteLink(s.origin, s.env, job.name);
+  const { plan, brief } = planFrom(facts, { url: /^https:/.test(url) ? url : undefined, stock: () => job.stock });
+  plan.theme = job.plan.theme; // the look the planner chose stays
+  job.facts = facts;
+  job.brief = brief;
+  job.plan = plan;
+  delete job.builtKey;
+  const { gates } = buildAndCheck(plan, brief, facts);
+  job.blocked = blocking(gates);
+  job.gates = { score: gates.score, errors: gates.errors, warnings: gates.warnings, text: formatGates(gates).slice(0, 3000) };
+  await saveJob(s, job);
+  const said = changed.length
+    ? `Changed: ${changed.join(', ')}. The draft is drawn again from your facts (the wording is the template's own again); still not public.`
+    : `I could not read that as a fact I can change by myself, so I kept it with your notes: "${kept.slice(0, 120)}". Tell Ghosty in the chat and it will rebuild with it.`;
+  return { view: (await draftView(s, id))!, said };
+}
+
+/** "Built in 9.4 s of work (pictures 1.3 s, plan 1.2 s, words 2.4 s, checks 0.1 s, publish and look 1.3 s, polish 0.1 s)." */
+export function buildTime(t: Record<string, number> = {}): string {
+  const s = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+  const names = ['pictures', 'plan', 'words', 'checks', 'publish and look', 'polish'];
+  const total = Object.values(t).reduce((a, b) => a + b, 0);
+  return `Built in ${s(total)} of work (${names.map((x, i) => (t[i + 1] !== undefined ? `${x} ${s(t[i + 1]!)}` : '')).filter(Boolean).join(', ')}), plus ${SITE_STEP_MS / 1000} s between steps and any wait for free AI room.`;
 }
 
 /** One step of a site project (projects.ts runs it from the alarm and files the result). */
@@ -646,6 +827,16 @@ export async function runSiteStep(deps: ProjectDeps, p: Project, step: ProjectSt
   if (!job) throw new Error('the website project lost its brief — start it again');
   const n = step.n;
   if (n > 1 && !job.plan && n !== 2) throw new Error('the plan is missing — run the earlier steps again');
-  const text = n === 1 ? await stepBrief(deps, job) : n === 2 ? await stepPlan(deps, job) : n === 3 ? await stepWords(deps, job) : n === 4 ? await stepBuild(deps, job) : n === 5 ? await stepLook(deps, job) : await stepPolish(deps, job);
+  const t0 = Date.now();
+  let text = n === 1 ? await stepBrief(deps, job) : n === 2 ? await stepPlan(deps, job) : n === 3 ? await stepWords(deps, job) : n === 4 ? await stepBuild(deps, job) : n === 5 ? await stepLook(deps, job) : await stepPolish(deps, job);
+  // The stopwatch: each step's own work, kept in the job; the report ends with the total.
+  job.timings = { ...job.timings, [n]: Date.now() - t0 };
+  await saveJob(deps, job);
+  if (n === SITE_STEPS.length) {
+    // (after the link, the pages and the checks: the report is kept to 1,200 characters, so not at the very end)
+    const lines = text.split('\n');
+    lines.splice(3, 0, buildTime(job.timings));
+    text = lines.join('\n');
+  }
   return { text, sources: job.link ? [job.link] : [] };
 }

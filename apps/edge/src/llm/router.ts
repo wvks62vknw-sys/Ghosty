@@ -346,6 +346,22 @@ export class Router {
     if (Object.keys(kept).length) await this.sput(H_KEY, kept);
   }
 
+  /** The scripted mock (tests and the preview), timed like a real call so the SPEED card has something to show there. */
+  private async mockTimed(messages: Msg[], tools: ToolSpec[], signal: AbortSignal | undefined, lane: Priority): Promise<{ message: Msg; model: string }> {
+    this.speed.callStart(signal);
+    const t0 = Date.now();
+    try {
+      const r = await mockComplete(messages, tools);
+      const ms = Date.now() - t0;
+      this.speed.model({ provider: 'Mock', model: 'scripted', first: ms, ms, wait: 0, ok: true, chat: lane === 'chat' });
+      this.speed.callEnd(signal, { wait: 0, model: ms, tools: (r.message.tool_calls ?? []).map((c) => c.function.name) });
+      return r;
+    } catch (e) {
+      this.speed.fail(signal);
+      throw e;
+    }
+  }
+
   /**
    * One completion. Returns the assistant message and which model wrote it.
    * `code`: this turn writes code — try strong models before small ones (across every
@@ -353,7 +369,7 @@ export class Router {
    * temperature and room for longer replies.
    */
   async complete(messages: Msg[], tools: ToolSpec[], signal?: AbortSignal, opts: CallOptions = {}): Promise<{ message: Msg; model: string }> {
-    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await mockComplete(messages, tools));
+    if (this.env.MOCK_LLM === '1') return inCharacter(messages, await this.mockTimed(messages, tools, signal, opts.priority ?? 'chat'));
     await this.quota.load();
     const lane: Priority = opts.priority ?? 'chat';
     const small = opts.tier ? opts.tier === 'small' : !!opts.cheap;

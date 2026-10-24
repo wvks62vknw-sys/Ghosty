@@ -5,13 +5,14 @@
 // none gaps in a different way, so this spec runs WebKit on purpose. (A wheel stands in for the finger:
 // Playwright's WebKit has no touch swipe, and the wheel follows the same scroll chain.)
 import { webkit } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await webkit.launch();
 const problems = [];
 const TABS = ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
-const viewport = { width: 390, height: 664 }; // an iPhone 13 in Safari, with its bars
-const ctx = await browser.newContext({ viewport });
+const viewport = { width: PHONE.width, height: PHONE.height - 193 }; // the iPhone 18 Pro Max in Safari, with its bars (an iPhone 15 Pro Max loses 193 px of its 932 to them)
+const ctx = await browser.newContext({ viewport, ...UK });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => /ResizeObserver loop/.test(e.message) || problems.push(`pageerror: ${e.message}`)); // (Safari's ResizeObserver notice is harmless)
 await page.goto(base);
@@ -19,10 +20,16 @@ await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 
+// A toast (a fixed notice over the page, pointer-events: none, gone in seconds) is outside the page's scroll
+// chain in WebKit's layer hit test: a wheel that starts over one moves nothing, though elementFromPoint looks
+// straight through it. Toasts are cleared before a page is measured and before every swipe.
+const clearToasts = () => page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+
 let checked = 0;
 for (const tab of TABS) {
   await page.evaluate((t) => (location.hash = t), tab);
   await page.waitForTimeout(1500);
+  await clearToasts();
   await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
   for (const side of ['main', 'alt']) {
     if (side === 'alt') {
@@ -74,6 +81,7 @@ for (const tab of TABS) {
       }
       // the page itself, or a list inside it that still had room to move, must have taken the swipe
       const swipe = async () => {
+        await clearToasts();
         await page.evaluate((i) => (document.querySelector(`[data-scroller="${i}"]`).scrollTop = 0), s.i);
         await page.mouse.move(s.x, s.y);
         await page.mouse.wheel(0, 240);
@@ -101,5 +109,5 @@ for (const tab of TABS) {
 }
 await browser.close();
 if (!checked) problems.push('no page had anything to scroll: the spec checked nothing');
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in WebKit on an iPhone 13 screen: ${checked} swipes across every tab moved the page.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in WebKit on an iPhone 18 Pro Max screen: ${checked} swipes across every tab moved the page.`);
 process.exit(problems.length ? 1 : 0);

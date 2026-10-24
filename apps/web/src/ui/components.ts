@@ -5,6 +5,7 @@
  *   pager()  fills a panel with rows and pages instead of scrolling
  *   row()    one line: label · value · number
  *   spark(), bar(), dial(), button(), toast(), modal(), empty()
+ *   undoBar(), undo(), confirmSheet()  UNDO after a change (12 s), or a one-tap confirm for what cannot come back
  */
 import { clear, h, icon, svgEl } from '../core/dom';
 
@@ -88,19 +89,56 @@ export function empty(status: string, next?: string, title?: string): HTMLElemen
 }
 
 /**
- * UNDO after something was removed: one bar with what changed and an UNDO button; it goes by itself after
- * `ms`. `fn` puts it back (and says so); the bar hides as soon as it is tapped.
+ * UNDO after something was removed or changed: one bar with what changed and an UNDO button; it goes by itself
+ * after `ms` (12 s). `fn` puts it back (and says so); the bar hides as soon as it is tapped.
+ * `commit`: for what nothing keeps a copy of (the brain cannot put it back), the change itself waits for the
+ * bar: it is only made when the bar goes, when the next change takes the bar, when a message is sent, or when
+ * Ghosty is closed or put away (`flushUndo`). UNDO before then means it never happened.
  */
-export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: () => Promise<unknown>): void } {
+export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: () => Promise<unknown> | unknown, commit?: () => Promise<unknown> | unknown): void } {
   const el = h('div.undo.rcundo', { role: 'status', hidden: true });
   let timer = 0;
+  // the change still waiting for this bar (made now if another takes the bar)
+  let waitingHere: (() => Promise<void>) | null = null;
   return {
     el,
-    show(text, fn) {
+    show(text, fn, commit) {
       clearTimeout(timer);
+      void waitingHere?.();
+      let settled = false;
+      const make = commit
+        ? async () => {
+            if (settled) return;
+            settled = true;
+            waiting.delete(make!);
+            // made before its time (a message sent, Ghosty put away): the bar's UNDO could no longer put it back
+            if (waitingHere === make) {
+              waitingHere = null;
+              clearTimeout(timer);
+              el.hidden = true;
+            }
+            try {
+              await commit();
+            } catch (e) {
+              toast(`Could not finish it: ${(e as Error).message}`, 'bad');
+            }
+          }
+        : null;
+      waitingHere = make;
+      if (make) {
+        waiting.add(make);
+        armFlush();
+      }
       clear(el, h('span', text), button('UNDO', async (b) => {
         b.disabled = true;
         el.hidden = true;
+        clearTimeout(timer);
+        if (make) {
+          // never made: nothing to put back on the brain, only on the screen
+          settled = true;
+          waiting.delete(make);
+          waitingHere = null;
+        }
         try {
           await fn();
         } catch (e) {
@@ -108,9 +146,56 @@ export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: 
         }
       }, 'on'));
       el.hidden = false;
-      timer = window.setTimeout(() => (el.hidden = true), ms);
+      timer = window.setTimeout(() => {
+        el.hidden = true;
+        void make?.();
+      }, ms);
     },
   };
+}
+
+/** Changes waiting for their UNDO bar to go (undoBar's `commit`). */
+const waiting = new Set<() => Promise<void>>();
+let flushArmed = false;
+/** Make every change still waiting for its UNDO bar now (a message is about to be sent, or Ghosty is closing). */
+export function flushUndo(): Promise<void> {
+  const all = [...waiting];
+  waiting.clear();
+  return Promise.all(all.map((f) => f())).then(() => undefined);
+}
+function armFlush(): void {
+  if (flushArmed || typeof document === 'undefined') return;
+  flushArmed = true;
+  addEventListener('pagehide', () => void flushUndo());
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && void flushUndo());
+}
+
+let floating: ReturnType<typeof undoBar> | null = null;
+/**
+ * The UNDO bar for a screen without one of its own: it floats above the tab bar, where the toasts sit (they move
+ * up while it shows), over any sheet. Same arguments as undoBar's `show`.
+ */
+export function undo(text: string, fn: () => Promise<unknown> | unknown, commit?: () => Promise<unknown> | unknown): void {
+  if (!floating) {
+    floating = undoBar();
+    floating.el.classList.add('undofloat');
+    document.body.append(floating.el);
+  }
+  floating.show(text, fn, commit);
+}
+
+/**
+ * A one-tap confirm for what cannot be put back: what happens, in plain words, and two buttons — KEEP IT, and the
+ * action named on its own button (`yes`, e.g. "TAKE IT DOWN"). True only when that button is tapped.
+ */
+export function confirmSheet(title: string, words: string, yes: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let answer = false;
+    const m = modal(title, h('div.confirm.sure', h('p.note', words), h('div.row', button('KEEP IT', () => m.close()), button(yes, () => {
+      answer = true;
+      m.close();
+    }, 'warn sureyes'))), () => resolve(answer));
+  });
 }
 
 /** Paged list: no scrolling. Re-fits the number of rows to the panel height. */

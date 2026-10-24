@@ -11,7 +11,7 @@
 //   BASE=http://localhost:8875 node tests/selftrain.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { engine, launch, webkitNoise } from './browser.mjs';
-import { openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -21,7 +21,7 @@ const problems = [];
 const check = (ok, what) => void (ok || problems.push(what));
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('dialog', (d) => void d.accept());
@@ -145,6 +145,8 @@ await page.screenshot({ path: `${out}/selftrain-${engine}-report.png`, fullPage:
 const roll = page.locator('#pg-system .selftrain button', { hasText: 'ROLLBACK' });
 check(!(await roll.isDisabled()), 'ROLLBACK is on with an older brain to go back to');
 await roll.click();
+// (it asks first: the newest brain is dropped for good)
+await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push('ROLLBACK did not ask first'));
 await page.waitForFunction((a) => document.querySelector(`#pg-system .selftrain .rw[data-model="${a}"] .n`)?.textContent === 'RECOMMENDED', c('a'), { timeout: 5000 }).catch(() => problems.push('ROLLBACK did not make week 1 the recommended brain'));
 await page.waitForTimeout(600); // (stores save a moment after they change)
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.offlinebrain') ?? '{}'));

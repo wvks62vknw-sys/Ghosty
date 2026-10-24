@@ -92,6 +92,12 @@ export interface Learner {
   watch(seed: number, secret?: string): Frame[];
   /** His move in a position the owner is playing (PLAY HIM on a board), or -1. */
   move?(state: number[]): number;
+  /**
+   * A puzzle at the edge of what he can do (gym/stretch.ts): made from `seed` at difficulty `x` (his level plus the
+   * share of the way to the next level's puzzles), with his answer to it; he practises on it as he tries it. The
+   * worker checks the answer with the game's own check(), never his say-so. null when no puzzle could be made.
+   */
+  stretch?(x: number, seed: number): { problem: Problem; answer: string } | null;
 }
 
 /** A whole game: its page-side facts (meta.ts) plus the engine, the problem maker and the learner. */

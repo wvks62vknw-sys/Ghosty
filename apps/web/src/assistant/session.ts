@@ -8,10 +8,10 @@ import { citedBody, looksCited, spokenOf } from '../cited/text';
 import { AuthError, brain, unreachable } from '../api/brain';
 import { enqueue } from '../api/offline';
 import { offlineAnswer } from '../library/local';
-import { answerOffline, offlineReady, stopOffline } from '../offline/brain';
+import { answerOffline, offlineReady, stopOffline, translateOffline } from '../offline/brain';
 import { recheckThink, stopThinking, thinkHere } from '../offline/harder';
 import { offlineSiteReply, offlineSiteTurn } from '../offline/site';
-import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
+import { cleanReply, cleanTranslation, noModelError, shouldFallBack, translateAsk } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
@@ -19,7 +19,7 @@ import { stopwatch } from '../core/stopwatch';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
-import { toast } from '../ui/components';
+import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 
 /**
@@ -40,8 +40,9 @@ export type Entry =
   /** `offline`: answered by the small model on the phone itself (offline/brain.ts); `once`: it gave a vehicle record, shown and never kept on this device. */
   /** `cited`: a cited answer's sources and claim checks (chips, the SOURCES list, the check line). `think`: a THINK HARDER answer. */
   /** `cut`: the owner interrupted while it was being read out (a tap, or talking over it): the rest was never said.
-   *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH. */
-  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number } }
+   *  `site`: a website built on this phone (offline/site.ts), kept under `key` for PREVIEW / SAVE / PUBLISH.
+   *  `tr`: a translation made on the phone with no signal (rough): `text` is the translation, `to` its language's code. */
+  | { kind: 'assistant'; text: string; at: number; model?: string; offline?: boolean; once?: boolean; cited?: CitedInfo; think?: ThinkInfo; cut?: boolean; site?: { key: string; title: string; pages: string[]; score: number }; tr?: { to: string } }
   /** A tool at work; `progress` is what it is doing right now, replaced as it reports and gone once it finishes. */
   | { kind: 'activity'; id: string; label: string; state: 'running' | 'ok' | 'fail'; detail?: string; progress?: Progress }
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
@@ -304,27 +305,36 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
   const at = stamp();
   const mine = (e: Entry) => e.kind === 'assistant' && e.at === at && !!e.offline;
   const show = (text: string) => patch(mine, (e) => ({ ...(e as Extract<Entry, { kind: 'assistant' }>), text }));
-  push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true });
-  ui.set({ status: 'thinking on your phone…' });
+  // "Translate this into Spanish" with no signal: the same small model, asked only to translate (roughly; the card says so).
+  const tr = translateAsk(t, [...recent].reverse().find((x) => x.role === 'assistant')?.text ?? '');
+  push({ kind: 'assistant', text: '', at, model: OFFLINE_MODEL, offline: true, ...(tr ? { tr: { to: tr.to } } : {}) });
+  ui.set({ status: tr ? 'translating on your phone…' : 'thinking on your phone…' });
   let raw = '';
   let painted = 0;
   try {
-    const r = await answerOffline(t, recent, (piece) => {
+    const r = await (tr ? translateOffline(tr.text, tr.to, (piece) => {
+      raw += piece;
+      if (Date.now() - painted > 120) {
+        painted = Date.now();
+        show(cleanTranslation(raw, tr.to));
+      }
+    }) : answerOffline(t, recent, (piece) => {
       raw += piece;
       // A repaint per word redraws the whole log: a few times a second is smooth enough.
       if (Date.now() - painted > 120) {
         painted = Date.now();
         show(cleanReply(raw));
       }
-    });
+    }));
     if (!r.text) throw new Error('no reply');
     show(r.text);
     chat.set({ live: r.text });
-    if (speakReplies && settings.get().speak) void speak(r.text, { owner: String(at) });
+    // (a translation is read aloud in its own language's voice by its READ ALOUD button, not in Ghosty's English one)
+    if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at) });
     return true;
   } catch (e) {
     // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
-    const said = cleanReply(raw).trim();
+    const said = (tr ? cleanTranslation(raw, tr.to) : cleanReply(raw)).trim();
     if ((e as Error)?.name === 'AbortError' && said) {
       show(said);
       return true;
@@ -419,6 +429,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     if (ui.get().busy) await brain.stop().catch(() => undefined);
     return;
   }
+  // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
+  await flushUndo();
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const recent = chat
@@ -557,9 +569,24 @@ export async function loadHistory(): Promise<void> {
   }
 }
 
-export async function clearConversation(): Promise<void> {
-  await brain.clearHistory();
-  // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
-  await brain.clearPatterns().catch(() => undefined);
+/**
+ * CLEAR CONVERSATION: off the screen at once, with UNDO for 12 s; the brain forgets it when the bar goes (or as
+ * soon as a new message is sent, so the new one never meets the old conversation). UNDO puts every message back.
+ */
+export function clearConversation(): void {
+  const was = chat.get().entries;
   chat.set({ entries: [], live: '' });
+  undo(
+    'Conversation cleared',
+    () => {
+      // anything said since stays after the old conversation
+      chat.set((s) => ({ entries: [...was, ...s.entries] }));
+      toast('The conversation is back', 'ok');
+    },
+    async () => {
+      await brain.clearHistory();
+      // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
+      await brain.clearPatterns().catch(() => undefined);
+    },
+  );
 }

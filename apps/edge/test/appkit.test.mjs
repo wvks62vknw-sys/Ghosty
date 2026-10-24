@@ -3,7 +3,9 @@
 // clear-done, a timer's pause and catch-up, the bill split to the penny, conversions, a counter's leader, habit
 // streaks, notes, spaced repetition, the game's merges); the gates; the page, its hash-pinned policy, the
 // manifest, icon and service worker routes (and a plain site still framed); build_app's approval, its steps
-// with the mocked store, resuming after a failed publish, and refusing honestly. Run from sites.test.mjs.
+// with the mocked store, resuming after a failed publish, and refusing honestly; the build as a Workshop project
+// (its five steps moved on one by one, the report with the link, RESUME / RUN NEXT NOW carrying a stopped build on
+// from its record). Run from sites.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -15,6 +17,7 @@ await build({
   stdin: {
     contents: `export * from '../../packages/shared/src/appkit/index.ts';
 export * as AB from './src/appbuild.ts';
+export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
 export { siteTools, siteStore, siteResponse, siteFrameResponse, PAGE_CSP } from './src/tools/sites.ts';
 export { default as worker } from './src/index.ts';`,
@@ -503,4 +506,104 @@ test('build_app resumes: a publish cut short carries on from where it stopped, w
   const site = await K.siteStore(ctx.env, storage).get('plank-timer');
   assert.equal(site.app.icon, icon, 'the icon drawn before the blip was kept');
   assert.deepEqual(site.app.config.timer, { steps: [{ name: 'Plank', secs: 60 }, { name: 'Rest', secs: 30 }], rounds: 3 });
+});
+
+// ── build_app as a Workshop project (projects.ts, kind 'app') ─────────────────────
+
+const MARK = { todo: '.', doing: '>', done: '+', failed: 'x' };
+/** What the PROJECTS panel would have shown at every save of a project record. */
+const watchProjects = (storage) => {
+  const seen = [];
+  const put = storage.put.bind(storage);
+  storage.put = async (k, v) => {
+    await put(k, v);
+    if (/^project:[a-z0-9]{10}$/.test(k)) seen.push(`${v.steps.map((s) => MARK[s.status]).join('')} ${v.status}`);
+  };
+  return seen;
+};
+const projectDeps = (ctx, notes = []) => ({ env: ctx.env, storage: ctx.storage, tctx: { origin: ctx.origin }, library: { available: false }, notify: async (n) => notes.push(n), busy: { get: () => false, set: () => undefined }, tools: [], system: async () => '', complete: async () => { throw new Error('no model in an app build'); } });
+const withAlarm = (storage) => Object.assign(storage, { getAlarm: async () => null, setAlarm: async () => undefined });
+
+test('build_app is a Workshop project like a website: its five steps move on one by one, and it ends with the report and the link', async () => {
+  const storage = new MemStorage();
+  const seen = watchProjects(storage);
+  const ctx = ctxOf(storage);
+  const t = tool();
+  const ap = await t.approval({ request: 'a tip calculator for the group', shape: 'calc', calc: 'tip', title: 'Tip & split' }, ctx);
+  const report = await t.run(ap.args, ctx);
+  // the chat is as it was: the model's report and the link card
+  assert.match(report, /^Published the mini-app "Tip & split" — live at https:\/\/ghosty\.example\/s\/tip-split\/ \./);
+  assert.deepEqual(ctx.shown.map((e) => e.name), ['show_link']);
+  // the project, saved at every step: the step running, then done, then the next
+  assert.deepEqual(seen, ['..... active', '>.... active', '+.... active', '+>... active', '++... active', '++>.. active', '+++.. active', '+++>. active', '++++. active', '++++> active', '+++++ done']);
+  const list = await K.PJ.listProjects(ctx);
+  assert.equal(list.length, 1);
+  const p = list[0];
+  assert.equal(p.kind, 'app');
+  assert.equal(p.title, 'App: Tip & split');
+  assert.equal(p.status, 'done');
+  assert.deepEqual(p.steps.map((s) => s.title), ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report']);
+  assert.equal(p.link, 'https://ghosty.example/s/tip-split/');
+  assert.match(p.steps[0].result, /^"Tip & split": /);
+  assert.match(p.steps[2].result, /^Page check clean; kit gates \d+\/100/);
+  assert.equal(p.steps[3].result, 'Live at https://ghosty.example/s/tip-split/');
+  const r = p.steps[4].result;
+  assert.match(r, /^"Tip & split" is live at https:\/\/ghosty\.example\/s\/tip-split\/\n/);
+  assert.match(r, /\nINSTALL: on the iPhone, open the link in Safari, tap Share, then Add to Home Screen/);
+  assert.match(r, /\nUNDO: say "take down tip-split"/);
+  assert.doesNotMatch(r, /Give the owner/, 'the Workshop report is for the owner, not the model');
+  // the Workshop's route lists it; no alarm job was set for it (its steps ran in the call)
+  const res = await K.PJ.projectsRoute(new Request('https://x/projects'), '/projects', 'GET', projectDeps(ctx));
+  assert.equal((await res.json()).projects[0].id, p.id);
+  assert.equal(storage.m.get('jobs'), undefined);
+  // the same app asked for again is a new build: a new project
+  await t.run(ap.args, ctx);
+  assert.equal((await K.PJ.listProjects(ctx)).length, 2);
+});
+
+test('a mini-app build that failed or was cut short carries on from its record when tapped in the Workshop, at the right step', async () => {
+  const storage = withAlarm(new MemStorage());
+  const ctx = ctxOf(storage);
+  const t = tool();
+  const notes = [];
+  const deps = projectDeps(ctx, notes);
+  // 1. failed: the publish hit a storage blip — paused at step 4 with the reason; RESUME, then the alarm, finish it
+  const ap = await t.approval({ request: 'scoreboard for darts with me and Sam', shape: 'counter', title: 'Darts', items: ['Me', 'Sam'] }, ctx);
+  storage.fail = 1;
+  await assert.rejects(t.run(ap.args, ctx), /did not finish/);
+  let [p] = await K.PJ.listProjects(ctx);
+  assert.equal(p.status, 'paused');
+  assert.deepEqual(p.steps.map((s) => s.status), ['done', 'done', 'done', 'failed', 'todo']);
+  assert.equal(p.note, 'step 4 "Publish" stopped: publishing "Darts" did not finish (storage blip). RESUME carries on from here.');
+  const icon = (await K.AB.loadAppJob(ctx, 'darts')).icon;
+  const seen = watchProjects(storage);
+  const resumed = await (await K.PJ.projectsRoute(new Request('https://x'), `/projects/${p.id}/resume`, 'POST', deps)).json();
+  assert.equal(resumed.project.status, 'active');
+  const job = storage.m.get('jobs').find((j) => j.kind === 'project' && j.text === p.id);
+  assert.ok(job, 'RESUME set the alarm for it');
+  const r = await K.PJ.runProjectStep(deps, job);
+  assert.equal(r.did, 'done');
+  assert.deepEqual(seen, ['+++.. active', '+++>. active', '++++. active', '++++> active', '+++++ done'], 'it carried on from step 4: steps 1–3 were not run again');
+  assert.equal(r.project.link, 'https://ghosty.example/s/darts/');
+  assert.equal((await K.siteStore(ctx.env, storage).get('darts')).app.icon, icon, 'the icon drawn before the blip was kept');
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].title, 'App: Darts · done');
+  assert.match(notes[0].text, /^"Darts" is live at https:\/\/ghosty\.example\/s\/darts\/\n[\s\S]*INSTALL:[\s\S]*UNDO:/);
+  assert.equal(storage.m.get('jobs').length, 0, 'nothing left to run');
+  // 2. cut short: the call never came back while publishing — the project is left on step 4; RUN NEXT NOW finishes it
+  const ap2 = await t.approval({ request: 'notes app for my ideas', shape: 'notes', title: 'Ideas' }, ctx);
+  let release;
+  const put = storage.put;
+  storage.put = (k, v) => (k === 'site:ideas' && !release ? new Promise((ok) => (release = () => ok(put.call(storage, k, v)))) : put.call(storage, k, v));
+  void t.run(ap2.args, ctx);
+  for (let i = 0; i < 200 && !release; i++) await new Promise((ok) => setTimeout(ok, 10));
+  assert.ok(release, 'the build reached the publish');
+  storage.put = put;
+  [p] = (await K.PJ.listProjects(ctx)).filter((x) => x.title === 'App: Ideas');
+  assert.deepEqual([p.status, p.steps.map((s) => s.status)], ['active', ['done', 'done', 'done', 'doing', 'todo']]);
+  const ran = await (await K.PJ.projectsRoute(new Request('https://x'), `/projects/${p.id}/run`, 'POST', deps)).json();
+  assert.equal(ran.did, 'done');
+  assert.deepEqual(ran.project.steps.map((s) => s.status), ['done', 'done', 'done', 'done', 'done']);
+  assert.match(ran.project.steps[4].result, /^"Ideas" is live at https:\/\/ghosty\.example\/s\/ideas\//);
+  assert.equal((await K.siteStore(ctx.env, storage).get('ideas')).title, 'Ideas');
 });

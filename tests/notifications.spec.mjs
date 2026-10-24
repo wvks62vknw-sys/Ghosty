@@ -6,7 +6,7 @@
 //   BASE=http://localhost:8852 node tests/notifications.spec.mjs [outDir]
 //   (the iPhone part runs in WebKit when PLAYWRIGHT_BROWSERS_PATH has it: /tmp/claude-0/wk/browsers)
 import { chromium, webkit } from 'playwright';
-import { openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -18,7 +18,7 @@ const problems = [];
 const check = (ok, what) => void (ok || problems.push(what));
 
 async function open(browser, opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...opts });
+  const ctx = await browser.newContext({ viewport: PHONE, ...UK, ...opts });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
@@ -67,7 +67,7 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
 // ---- paints that overlap: Ghosty starts on LINKS, so the tab paints while the phone's notification state is
 // still being found out (each change paints again) and the brain answers slowly — each switch is drawn once.
 {
-  const ctx = await chrome.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await chrome.newContext({ viewport: PHONE, ...UK });
   await ctx.addInitScript((key) => localStorage.setItem('ghosty.ownerKey', key), KEY);
   await ctx.route('**/api/push/prefs', async (r) => {
     if (r.request().method() !== 'GET') return r.continue();
@@ -87,7 +87,7 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
 
 // ---- a kind switched off: no toast or voice in the app (the brain marks its inbox item quiet)
 {
-  const ctx = await chrome.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await chrome.newContext({ viewport: PHONE, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
   const now = Date.now();
@@ -119,9 +119,9 @@ const chrome = await chromium.launch({ executablePath: process.env.CHROMIUM ?? u
 // arrive at once: at most two are on screen, each cut at three lines, the same one twice shows once, they keep
 // off the chat bar and the tab bar (the composer stays usable), a tap on a long one opens all of its words, and
 // the box still announces them (aria-live). At the specs' 390 × 844 and the owner's 440 × 956.
-for (const [w, hgt] of [[390, 844], [440, 956]]) {
+for (const [w, hgt] of [[390, 844], [PHONE.width, PHONE.height]]) {
   const tag = `[toasts ${w}]`;
-  const ctx = await chrome.newContext({ viewport: { width: w, height: hgt } });
+  const ctx = await chrome.newContext({ viewport: { width: w, height: hgt }, ...UK });
   await ctx.addInitScript((key) => {
     localStorage.setItem('ghosty.ownerKey', key);
     // every toast ever put up (seen as it is added, before any is taken away), and the most on screen at once

@@ -12,7 +12,7 @@
 //   BASE=http://localhost:8852 node tests/backup.spec.mjs [outDir]
 //   ENGINE=webkit PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers … (Safari's engine)
 import { chromium, webkit } from 'playwright';
-import { openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -25,7 +25,7 @@ const check = (ok, what) => void (ok || problems.push(what));
 
 const browser = await engine.launch(process.env.ENGINE === 'webkit' ? {} : { executablePath: process.env.CHROMIUM ?? undefined });
 // No service worker: in WebKit, requests from a page it controls would slip past page.route below.
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, serviceWorkers: 'block' });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => problems.push(`pageerror: ${e.message}`));
 let dialogs = [];
@@ -105,11 +105,14 @@ await page.evaluate(async () => {
   localStorage.setItem('ghosty.radio.favs', JSON.stringify([{ name: 'Marker FM', url: 'https://radio.example/marker' }]));
   // A document kept only on this phone (the brain has not got it yet).
   await new Promise((ok, bad) => {
-    const r = indexedDB.open('ghosty-library', 2);
+    // No version: the interface owns the database's version (library/local.ts; 3 since search by meaning) and has
+    // opened it by now. Asking for an older number throws VersionError. The stores below only matter if it has not.
+    const r = indexedDB.open('ghosty-library');
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('pass')) db.createObjectStore('pass', { keyPath: ['doc', 'n'] });
+      if (!db.objectStoreNames.contains('vec')) db.createObjectStore('vec', { keyPath: ['doc', 'n'] });
     };
     r.onsuccess = () => {
       const db = r.result;
@@ -254,7 +257,7 @@ for (const [ua, wantAsk] of [
   ['Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0', false],
   [undefined, true],
 ]) {
-  const c = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', ...(ua ? { userAgent: ua } : {}) });
+  const c = await browser.newContext({ viewport: PHONE, ...UK, serviceWorkers: 'block', ...(ua ? { userAgent: ua } : {}) });
   await c.addInitScript(() => {
     window.__persistAsked = 0;
     if (navigator.storage) {

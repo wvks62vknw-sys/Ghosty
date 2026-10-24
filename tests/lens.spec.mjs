@@ -3,10 +3,11 @@
 // frame, READ reads a drawn line of text on the phone and files it in the library and still works
 // after the tab was left mid-read, a tap on the Lens tile opens the camera again, HANDS loads the
 // gesture recogniser, ASK sends a still to the brain and shows its reply (the mock model answers
-// "I can see a picture"), and the security policy lets the vendored WebAssembly run.
+// "I can see a picture"), NAME's LIVING THING and ASK's WHAT'S IN IT? make their cards (the mock model's
+// robin and plate of fish and chips; PLANT with no Pl@ntNet key), and the security policy lets the vendored WebAssembly run.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -17,7 +18,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
@@ -171,6 +173,63 @@ const chatHasTurn = await page.evaluate(() => {
 });
 if (!chatHasTurn) problems.push('the photo question was not mirrored into the chat history');
 
+// ---- NAME IT: LIVING THING → BIRD sends the photo to the brain's seeing model (the mock answers a robin, "fairly
+// confident"); the card shows the name, how sure in plain words, the tell-tale, Wikipedia and SAVE, and SAVE keeps
+// "seen: …" in Memory. PLANT with no Pl@ntNet key says what is missing. WHAT'S IN IT? in ASK lists the foods (the
+// mock: fish in batter, chips, mushy peas) with the rough total and its honesty line. ----
+const card = () => page.evaluate(() => window.__ghosty?.lens?.card ?? null);
+const cardEl = '#pg-lens .livingcard';
+await page.evaluate(() => window.__ghosty.lens.setMode('name'));
+await page.waitForTimeout(500);
+await pickPhoto(await drawn('A BIRD ON A BRANCH', 'red breast'));
+await page.locator('#pg-lens button', { hasText: 'LIVING THING' }).click();
+const remembered = async () => (await (await page.request.get(`${base}/api/memory`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).catch(() => null))?.json().catch(() => ({})))?.facts ?? [];
+const factsBefore = (await remembered()).length;
+const birdReq = page.waitForRequest((r) => r.url().includes('/api/chat') && r.method() === 'POST', { timeout: 20000 }).catch(() => null);
+await page.locator('#pg-lens .livingkinds button', { hasText: 'BIRD' }).click();
+await until(() => window.__ghosty?.lens?.card?.what === 'living', 60000, `LIVING THING → BIRD showed no card: ${JSON.stringify(await card())}`);
+const birdBody = (await birdReq)?.postDataJSON();
+if (!/^data:image\/jpeg;base64,/.test(birdBody?.images?.[0] ?? '')) problems.push('BIRD did not send the photo to the brain');
+if (!/^LENS NAME IT \(bird\)/.test(birdBody?.message ?? '')) problems.push(`BIRD asked "${(birdBody?.message ?? '').slice(0, 60)}"`);
+const bird = (await card())?.text ?? '';
+for (const want of ['European robin', 'Erithacus rubecula', 'Probably a European robin.', 'probably — the model said “fairly confident”', 'Tell-tale: the orange-red breast and face']) if (!bird.includes(want)) problems.push(`the bird card lacks "${want}": ${bird}`);
+if (!(await page.locator(`${cardEl} a[href="https://en.wikipedia.org/wiki/Erithacus_rubecula"]`).count())) problems.push('the bird card has no Wikipedia link');
+if (!(await page.locator(`${cardEl} button`, { hasText: 'SAVE' }).isVisible())) problems.push('the bird card has no SAVE');
+const chatShown = await page.evaluate(() => { try { return localStorage.getItem('ghosty.chat') ?? ''; } catch { return ''; } });
+if (/LENS NAME IT/.test(chatShown)) problems.push('the NAME IT question was put in the chat on screen');
+if ((await remembered()).length !== factsBefore) problems.push('something was kept in Memory before SAVE');
+const history = await (await page.request.get(`${base}/api/history`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).catch(() => null))?.json().catch(() => ({}));
+if (/LENS NAME IT|European robin/.test(JSON.stringify(history?.turns ?? []))) problems.push('the brain kept the NAME IT exchange in its history');
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${out}/lens-living-bird.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the bird card: ${e.message.split('\n')[0]}`));
+const memSaved = page.waitForResponse((r) => r.url().endsWith('/api/memory') && r.request().method() === 'POST', { timeout: 20000 }).catch(() => null);
+await page.locator(`${cardEl} button`, { hasText: 'SAVE' }).click();
+const memRes = await memSaved;
+const savedText = memRes ? JSON.parse(memRes.request().postData() ?? '{}').text : '';
+if (!/^seen: a European robin, \d{1,2} [A-Z][a-z]{2}$/.test(savedText ?? '')) problems.push(`SAVE kept "${savedText}"`);
+if (!(await remembered()).some((f) => /^seen: a European robin/.test(f.text))) problems.push('SAVE did not reach Memory');
+
+await page.locator('#pg-lens button', { hasText: 'LIVING THING' }).click();
+await page.locator('#pg-lens .livingkinds button', { hasText: 'PLANT' }).click();
+await until(() => window.__ghosty?.lens?.card?.what === 'missing', 60000, `PLANT with no key showed no missing-key card: ${JSON.stringify(await card())}`);
+const nokey = (await card())?.text ?? '';
+for (const want of ['PL@NTNET NEEDS ITS FREE KEY', 'SYSTEM → KEYS → Pl@ntNet', 'my.plantnet.org', '500 plants a day']) if (!nokey.includes(want)) problems.push(`the no-key card lacks "${want}": ${nokey}`);
+if (!(await page.locator(`${cardEl} button`, { hasText: 'ASK GHOSTY INSTEAD' }).isVisible())) problems.push('the no-key card offers no other way');
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${out}/lens-living-nokey.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the no-key card: ${e.message.split('\n')[0]}`));
+
+await page.evaluate(() => window.__ghosty.lens.setMode('ask'));
+await page.waitForTimeout(500);
+await page.locator('#pg-lens button', { hasText: "WHAT'S IN IT?" }).click();
+await until(() => window.__ghosty?.lens?.card?.what === 'meal', 60000, `WHAT'S IN IT? showed no meal card: ${JSON.stringify(await card())}`);
+const meal = (await card())?.text ?? '';
+for (const want of ['fish in batter, about 150 g: about 350 kcal', 'chips, about 150 g: about 470 kcal', 'mushy peas, about 80 g: about 60 kcal', 'about 880 kcal', 'rough: portions are guessed from a photo', 'USDA FoodData Central']) if (!meal.includes(want)) problems.push(`the meal card lacks "${want}": ${meal}`);
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
+await page.screenshot({ path: `${out}/lens-meal.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the meal card: ${e.message.split('\n')[0]}`));
+
 // ---- the security policy: WebAssembly and the camera were allowed, nothing was blocked ----
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
@@ -179,5 +238,5 @@ const wide = await page.evaluate(() => document.documentElement.scrollWidth > wi
 if (wide) problems.push('the Lens is wider than the phone screen');
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, and the security policy blocked nothing.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Lens run clean on an iPhone 13: open_lens left the camera off, START opened it, SEE ran the detector, UNFREEZE cleared the held frame in READ, READ read a drawn note on the phone, filed it as SCANNED and read again after the tab was left mid-read, a tap on the Lens tile opened the camera again, HANDS ran the gesture recogniser, ASK sent a JPEG still to the brain and showed its reply, LIVING THING named a bird with how sure and saved it on SAVE only, PLANT without a key said what to do, WHAT\'S IN IT? gave the foods and a rough total, and the security policy blocked nothing.');
 process.exit(problems.length ? 1 : 0);

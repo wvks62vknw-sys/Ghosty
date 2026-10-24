@@ -10,7 +10,9 @@ import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
 import { syncTrained } from './offline/trained';
+import { startMeaning } from './library/meaning';
 import { finishSpotifyLink } from './assistant/spotify';
+import { startNight } from './night';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
 import { gfx } from './engine/gfx';
@@ -142,6 +144,8 @@ async function boot(): Promise<void> {
     // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
     void mirrorLibraryNow();
     window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
+    // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
+    startMeaning();
     window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
     // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
     void syncTrained();
@@ -156,6 +160,8 @@ async function boot(): Promise<void> {
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …
   (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run };
+  // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
+  if (ui.get().connected) startNight();
   bootEl.classList.add('out');
   setTimeout(() => bootEl.remove(), 700);
   gfx.post.flash = 0.6;

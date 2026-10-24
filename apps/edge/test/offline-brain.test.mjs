@@ -122,6 +122,65 @@ test("the offline brain is the same character (the owner's dials too), and its r
   assert.equal(P.cleanReply('<think>\n</think>\nCertainly! Descale it with citric acid. I hope this helps!<|im_end|>'), 'Descale it with citric acid.');
 });
 
+test('search by meaning: the small embedding model is pinned like the brains, its code is vendored, and the WebLLM here can embed', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const e = M.EMBED_MODEL;
+  assert.equal(e.id, 'snowflake-arctic-embed-s-q0f32-MLC-b4');
+  assert.match(e.rev, /^[0-9a-f]{40}$/, 'pinned to one commit');
+  assert.equal(M.modelBase(e), `https://huggingface.co/mlc-ai/snowflake-arctic-embed-s-q0f32-MLC/resolve/${e.rev}/`);
+  assert.ok(!M.MODELS.some((m) => m.id === e.id), 'never offered as a brain');
+  assert.equal(e.mb, 70);
+  assert.equal(M.EMBED_DIMS, 384);
+  assert.match(M.QUERY_PREFIX, /^Represent this sentence for searching relevant passages: $/);
+  // Its compiled code is served from this site, and the vendored WebLLM lists the model and can embed.
+  assert.ok(statSync(new URL(`../../web/public/vendor/webllm/libs/${e.lib}`, import.meta.url)).size > 3_000_000);
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  assert.match(src, /model_id: "snowflake-arctic-embed-s-q0f32-MLC-b4"/);
+  assert.match(src, new RegExp(`/${e.lib.replace(/\./g, '\\.')}"`));
+  assert.match(src, /class Embeddings \{[\s\S]*?create\(request\) \{\s*return this\.engine\.embedding\(request\);/);
+  // The worker answers 'embed', and its revision moved with it (a phone fetches the new worker).
+  const worker = readFileSync(new URL('../../web/public/vendor/webllm/worker.mjs', import.meta.url), 'utf8');
+  assert.match(worker, /m\.op === 'embed'[\s\S]*engine\.embeddings\.create\(\{ input: m\.input, model: loaded \}\)/);
+  assert.match(worker, new RegExp(`^// worker revision: ${M.WORKER_REV} `));
+  // The brain's clean-ups leave the meaning model's files alone.
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.match(brain, /!r\.url\.startsWith\(keep\) && !isEmbedFile\(r\.url\)/);
+});
+
+// Translation with no signal (BRIEF-UNDO-OFFLINE B): a request to translate is recognised in plain words, the
+// small model is asked only to translate, and its answer is cleaned of labels and quotes.
+test('offline translation: the request, the prompt and the clean answer', () => {
+  const cases = [
+    ['translate good morning into Spanish', { text: 'good morning', to: 'es' }],
+    ['Translate "where is the station?" to French.', { text: 'where is the station?', to: 'fr' }],
+    ['translate into German: thank you very much', { text: 'thank you very much', to: 'de' }],
+    ['How do I say thank you in Italian?', { text: 'thank you', to: 'it' }],
+    ["what's cheers in Portuguese", { text: 'cheers', to: 'pt' }],
+    ['can you translate I love you into Polish please', { text: 'I love you', to: 'pl' }],
+    ['say good night in Arabic', { text: 'good night', to: 'ar' }],
+    ['translate where is the hospital into Urdu', { text: 'where is the hospital', to: 'ur' }],
+    ['what does merci mean in English', { text: 'merci', to: 'en' }],
+  ];
+  for (const [ask, want] of cases) assert.deepEqual(P.translateAsk(ask), want, ask);
+  // "this" is the last reply; without one, or in a language it does not know, it is not a translation.
+  assert.deepEqual(P.translateAsk('translate this to Spanish', 'See you at six.'), { text: 'See you at six.', to: 'es' });
+  assert.equal(P.translateAsk('translate this to Spanish'), null);
+  assert.equal(P.translateAsk('translate hello into Klingon'), null);
+  assert.equal(P.translateAsk('what is the weather in London'), null);
+  assert.equal(P.translateAsk('what should I cook tonight'), null);
+  // The prompt: translate into the language, the translation only, the text as the user's turn.
+  const msgs = P.translatePrompt('good morning', 'es');
+  assert.equal(msgs.length, 2);
+  assert.match(msgs[0].content, /Translate the user's message into Spanish\. Reply with the Spanish translation only/);
+  assert.deepEqual(msgs[1], { role: 'user', content: 'good morning' });
+  // The answer: no thinking block, no label, no wrapping quotes.
+  assert.equal(P.cleanTranslation('<think>\n\n</think>\n\nSpanish: "Buenos días"', 'es'), 'Buenos días');
+  assert.equal(P.cleanTranslation('Translation (French): Bonjour<|im_end|>', 'fr'), 'Bonjour');
+  assert.equal(P.cleanTranslation('صبح بخیر', 'ur'), 'صبح بخیر');
+  assert.equal(P.OFFLINE_TRANSLATION_NOTE, 'Offline translation: check the important bits');
+});
+
 // THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
 // because this one is in the test list (package.json is protected).
 await import('./thinkharder.test.mjs');

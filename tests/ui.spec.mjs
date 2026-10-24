@@ -1,6 +1,7 @@
 // Drives the built interface in Chromium against the preview server and saves screenshots.
 //   node tests/ui.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -10,7 +11,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 const problems = [];
 
 async function run(name, viewport) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   const page = await ctx.newPage();
   page.on('console', (m) => {
     if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) problems.push(`[${name}] console: ${m.text()}`);
@@ -99,13 +100,13 @@ async function run(name, viewport) {
   return fps;
 }
 
-// fixes A2, at the specs' 390 × 844 and the owner's iPhone 18 Pro Max (440 × 956):
+// fixes A2, at a narrow 390 × 844 phone and the owner's iPhone 18 Pro Max (440 × 956):
 // - the God's eye chip (Home's suggestions) and God's Eye's own bar and LOOK chips start inside the screen;
 // - System opens on its Status card, before the Brain group;
 // - grouped lists (Settings, System, Links): no row's name or value is cut ("Unsupport", "Offline brain report…").
 async function fixesA2(viewport) {
   const name = `a2 ${viewport.width}`;
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   await ctx.addInitScript((k) => localStorage.setItem('ghosty.ownerKey', k), 'preview-owner-key-0123456789');
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
@@ -168,7 +169,7 @@ async function fixesA2(viewport) {
 // MOMENTS as links that open the video at that second (features/core/ytcard.ts). The brain's stream is faked.
 async function videoCard() {
   const name = 'video card';
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
   await ctx.addInitScript((k) => localStorage.setItem('ghosty.ownerKey', k), 'preview-owner-key-0123456789');
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
@@ -206,10 +207,10 @@ async function videoCard() {
 }
 
 await videoCard();
-await run('desktop', { width: 1440, height: 900 });
-await run('phone', { width: 390, height: 844 });
+await run('desktop', DESKTOP);
+await run('phone', PHONE);
 await fixesA2({ width: 390, height: 844 });
-await fixesA2({ width: 440, height: 956 });
+await fixesA2(PHONE);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'UI run clean: no page errors.');
 process.exit(problems.length ? 1 : 0);

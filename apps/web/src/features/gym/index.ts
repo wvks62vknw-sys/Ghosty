@@ -21,11 +21,14 @@ import { onFrame } from '../../engine/scheduler';
 import { canPlay, frameOf as c4Frame, play as c4Play, posFromBoard, winnerOf } from '../../gym/c4board';
 import type { Frame } from '../../gym/core';
 import { type GameMeta, META as GAMES, metaById as gameById } from '../../gym/meta';
+import { kb, leagueKept, ratingLine, weekChange } from '../../gym/rating';
 import { ALL_BUDGET, allLine, current, type GymRecord, joinLevels, type LevelNote, levelText, newAllRun, nextForAll, statusLine } from '../../gym/session';
+import { edgeLine, edgeRate } from '../../gym/stretch';
+import { addStar } from '../../offline/starbox';
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, niceCase, panel, sparkline, toast } from '../../ui/components';
+import { button, niceCase, panel, sparkline, toast, undo } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
 import { page } from '../../ui/page';
@@ -58,7 +61,29 @@ export const gymState = {
   awake: { on: false, can: false, held: false, requests: 0 },
   /** The GYM toasts shown, newest last. */
   toasts: [] as string[],
+  /** League play per board game: his rating, its line, the versions kept and their bytes, the last decision. */
+  league: {} as Record<string, { rating: number; line: string; versions: number; bytes: number; last: string; kept: boolean | null }>,
+  /** Puzzles at his edge per game: the difficulty, its line, his rate over the last tries, tries in all. */
+  edge: {} as Record<string, { x: number; line: string; rate: number; n: number }>,
+  /** Solved puzzles at his edge handed to the offline brain's training records (checked by the game's checker). */
+  stars: 0,
 };
+
+/**
+ * NIGHT SCHOOL's handle on TRAIN ALL (apps/web/src/night): set once the GYM is built (`ensureMounted('gym')` builds it
+ * off screen), null before. It starts and stops TRAIN ALL as the button does, and reads each game's level.
+ */
+export let gymControl: {
+  /** Settles once the saved games are read. */
+  ready: Promise<unknown>;
+  startAll(): void;
+  stopAll(): void;
+  allOn(): boolean;
+  /** Each game's level and whether it is mastered (games not started are at Level 1). */
+  levels(): Record<string, { level: number; mastered: boolean }>;
+  /** The game TRAIN ALL is on, in words: "maze level 4" ('' when it is not running). */
+  now(): string;
+} | null = null;
 
 /** One GYM toast on screen at a time: a new one takes the place of the last. */
 function gymToast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
@@ -308,6 +333,11 @@ export const gymTab: TabDef = {
         replies.delete(m.req);
         return;
       }
+      if (m.gym === 'star') {
+        // A puzzle at his edge he solved (the game's checker passed it): a lesson for the offline brain's next week.
+        if (current(epochs, m.id, m.epoch) && addStar(m.record)) gymState.stars++;
+        return;
+      }
       // Anything about a game from before its RESET is stale.
       if (!current(epochs, m.gym === 'error' ? m.id : m.rec.id, m.epoch)) return;
       if (m.gym === 'error') {
@@ -324,15 +354,20 @@ export const gymTab: TabDef = {
       }
       const rec = m.rec;
       const prev = recs.get(rec.id);
-      // Progress carries no learner state: keep the last saved one.
-      recs.set(rec.id, m.gym === 'save' ? rec : { ...rec, saved: prev?.saved ?? null });
+      // Progress carries no learner state (nor his kept selves' knowledge): keep the last saved.
+      recs.set(rec.id, m.gym === 'save' ? rec : { ...rec, saved: prev?.saved ?? null, league: leagueKept(rec.league, prev?.league) });
       if (m.gym === 'save') {
         gymState.saves++;
         void store.put(rec);
       } else {
         gymState.progress++;
         views.set(rec.id, m.view);
-        if (m.event) {
+        if (m.event === 'league') {
+          // The league's decision on his new version (the first one only starts it: no toast).
+          const v = m.verdict;
+          if (v?.games) gymToast(`${gameById(rec.id)?.title}: ${v.kept ? `new version kept · rating ${v.rating.toLocaleString('en-GB')} (+${v.rating - v.before})` : `new version thrown away · it rated ${v.rating.toLocaleString('en-GB')}, not above ${v.before.toLocaleString('en-GB')}`}`, v.kept ? 'ok' : 'warn');
+          note(`league ${rec.id} ${v?.kept ? 'kept' : 'thrown away'}`);
+        } else if (m.event) {
           // A run of level-ups close together is one toast ("Levels 4–6 passed"), the one GYM toast on screen.
           levelNote = joinLevels(levelNote, rec.id, m.event === 'mastered' ? rec.level : rec.level - 1, Date.now(), m.event === 'mastered');
           gymToast(`${gameById(rec.id)?.title}: ${levelText(levelNote, carryNow())}`, 'ok');
@@ -352,22 +387,24 @@ export const gymTab: TabDef = {
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
     cardsP.body.append(cards);
-    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string; ring: ReturnType<typeof ring>; lvl: HTMLElement }>();
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string; ring: ReturnType<typeof ring>; lvl: HTMLElement }>();
     for (const g of GAMES) {
       const small = h('small');
       const sp = h('span.gymspark');
       const st = h('i.gymst');
       const rg = ring(46, 'gymring');
       const lvl = h('b.gymlvl');
+      // League play (board games): his rating against his past selves, under the name.
+      const rate = h('span.gymrate');
       const [tint, glyph] = glyphOf(g.id);
-      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymhead', h('span.sq.gymglyph', { style: `--tint:${tint}` }, icon(glyph)), h('span.gymtop', rg.el, lvl)), h('span.gymname', g.title), small, sp, st);
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymhead', h('span.sq.gymglyph', { style: `--tint:${tint}` }, icon(glyph)), h('span.gymtop', rg.el, lvl)), h('span.gymname', g.title), rate, small, sp, st);
       b.addEventListener('click', () => {
         select(g.id);
         // on a phone the game is its own screen, "‹ Gym" back
         if (pushes()) pushGame();
       });
       cards.append(b);
-      cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '', ring: rg, lvl });
+      cardParts.set(g.id, { b, small, rate, spark: sp, st, sparkKey: '', ring: rg, lvl });
     }
     // What he is doing now, at the top of the list: the game in training, or the one trained last.
     const nowRing = ring(44, 'gymring');
@@ -468,12 +505,14 @@ export const gymTab: TabDef = {
     const xTo = h('span');
     const chart = h('section.gymchart', h('div.gymcharthead', h('b', 'Progress'), legend), h('div.gymplot', h('div.gymaxis', axisTop, axisMid, h('span', '0%')), graphBox, h('i'), h('div.gymxaxis', xFrom, xTo)));
     const detail = h('div.note.gymdetail');
+    // GYM ideas: his rating in the league of his past selves (board games), and puzzles at his edge (maze, Sokoban, Sudoku).
+    const ideas = h('section.gymideas');
     const board = h('div.gymboard');
     const secretIn = h('input', { placeholder: '', 'aria-label': 'Your secret', maxlength: '8', autocomplete: 'off', autocapitalize: 'off', spellcheck: false });
     const secretGo = button('GO', () => void watch(secretIn.value.trim()), 'on');
     const secretRow = h('div.keyrow.gymsecret', secretIn, secretGo);
     secretRow.hidden = true;
-    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, chart, detail, secretRow, board);
+    gameP.body.append(hero, learns, status, h('div.gymactions', trainBtn, watchBtn, playBtn, more, menu), carrySw.el, ideas, chart, detail, secretRow, board);
     P.left.append(cardsP.el);
     P.right.append(gameP.el);
 
@@ -504,6 +543,12 @@ export const gymTab: TabDef = {
         // the ring is his mastery, the tick the pass mark of his level; the words say the same numbers
         c.ring.set(r?.mastered ? 1 : r?.mastery ?? 0, r && !r.mastered ? g.bar(r.level) : 0);
         c.lvl.textContent = String(r?.level ?? 1);
+        // "Rating 1,240 · up 35" (the whole line on the game's page)
+        const lg = r?.league;
+        const d = weekChange(lg, Date.now());
+        c.rate.textContent = lg?.versions.length ? `Rating ${lg.rating.toLocaleString('en-GB')} · ${d > 0 ? `up ${d}` : d < 0 ? `down ${-d}` : 'no change'}` : '';
+        c.rate.hidden = !lg?.versions.length;
+        c.b.classList.toggle('rated', !!lg?.versions.length);
         // nothing has happened yet: an empty ring and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
         c.b.classList.toggle('mastered', !!r?.mastered);
@@ -569,9 +614,27 @@ export const gymTab: TabDef = {
       playBtn.hidden = !open.play;
       clear(graphBox, graph(r, open));
       detail.textContent = r?.detail ? `${r.detail} Level ${r.level} needs ${Math.round(open.bar(r.level) * 100)}%.` : `Mastery is checked against ground truth, never his own say-so. Level 1 needs ${Math.round(open.bar(1) * 100)}%.`;
+      paintIdeas(r);
       secretRow.hidden = open.play !== 'secret' || gymState.play.game !== open.id;
       // The board shows what he knows — unless a WATCH is playing or just finished, or the owner is playing him.
       if (!gymState.watching && held !== open.id && gymState.play.game !== open.id) clear(board, renderFrame(views.get(open.id) ?? null));
+    };
+    /** The game's LEAGUE (his rating, the versions kept and what they take, the last decision) and AT HIS EDGE lines. */
+    const paintIdeas = (r: GymRecord | null) => {
+      const parts: HTMLElement[] = [];
+      const lg = r?.league;
+      if (lg?.versions.length) {
+        const bytes = lg.versions.reduce((t, v) => t + v.bytes, 0);
+        const last = lg.verdicts.at(-1);
+        parts.push(
+          h('div.gymidea.league', h('b', 'League of his past selves'), h('span.gymrateline', ratingLine(lg, Date.now())), h('small', `${lg.versions.length} of 8 versions kept on this phone · ${kb(bytes)}`), last ? h(`small.verdict${last.kept ? '.kept' : '.thrown'}` as 'small', `Level ${last.level}’s version ${last.kept ? 'kept' : 'thrown away'}: ${last.why}.`) : null),
+        );
+      }
+      const e = r?.edge;
+      const line = edgeLine(e);
+      if (line) parts.push(h('div.gymidea.edge', h('b', 'Puzzles at his edge'), h('span.gymedgeline', line), h('small', 'He makes his own puzzles where he solves about half, and practises on them. The levels above are still the exam.')));
+      clear(ideas, ...parts);
+      ideas.hidden = !parts.length;
     };
     const paintAll = () => {
       const run = prefs.all;
@@ -608,7 +671,14 @@ export const gymTab: TabDef = {
       gymState.training = training ?? '';
       gymState.watchOn = watchOn;
       gymState.carry = prefs.carry;
-      for (const [id, r] of recs) gymState.recs[id] = { level: r.level, mastery: r.mastery, units: r.units, mastered: r.mastered };
+      for (const [id, r] of recs) {
+        gymState.recs[id] = { level: r.level, mastery: r.mastery, units: r.units, mastered: r.mastered };
+        if (r.league?.versions.length) {
+          const last = r.league.verdicts.at(-1);
+          gymState.league[id] = { rating: r.league.rating, line: ratingLine(r.league, Date.now()), versions: r.league.versions.length, bytes: r.league.versions.reduce((t, v) => t + v.bytes, 0), last: last?.why ?? '', kept: last ? last.kept : null };
+        }
+        if (r.edge?.tries.length) gymState.edge[id] = { x: r.edge.x, line: edgeLine(r.edge), rate: edgeRate(r.edge), n: r.edge.n };
+      }
       paintHero();
       paintCards();
       paintGame();
@@ -761,8 +831,11 @@ export const gymTab: TabDef = {
       paint();
     };
     const reset = () => {
-      // the menu was the confirmation
+      // the menu was the confirmation; UNDO (12 s) puts back what he had learned, as last saved
       menu.classList.remove('open');
+      const id = open.id;
+      const title = open.title;
+      const kept = { rec: recs.get(id), view: views.get(id), seen: gymState.recs[id] };
       gymState.log.push(`reset ${open.id}`);
       if (training === open.id) {
         stopAll(false);
@@ -778,9 +851,29 @@ export const gymTab: TabDef = {
       recs.delete(open.id);
       views.delete(open.id);
       delete gymState.recs[open.id];
+      delete gymState.league[open.id];
+      delete gymState.edge[open.id];
       void store.remove(open.id);
       gymToast(`${open.title}: back to the start`, 'warn');
       paint();
+      if (kept.rec)
+        undo(`${title}: reset`, () => {
+          gymState.log.push(`undo reset ${id}`);
+          if (training === id) {
+            stopAll(false);
+            training = null;
+          }
+          // Whatever the worker made of the fresh start is dropped; the kept record is handed to it again.
+          epochs[id] = (epochs[id] ?? 0) + 1;
+          send({ gym: 'reset', id, epoch: epochs[id] });
+          handed.delete(id);
+          recs.set(id, kept.rec!);
+          void store.put(kept.rec!);
+          if (kept.view) views.set(id, kept.view);
+          if (kept.seen) gymState.recs[id] = kept.seen;
+          gymToast(`${title}: back where he was`, 'ok');
+          paint();
+        });
     };
 
     /** On a phone the board is below the buttons: bring it into view. */
@@ -1043,6 +1136,20 @@ export const gymTab: TabDef = {
     addEventListener('pagehide', () => training && send({ gym: 'pause' }));
 
     opener = (id) => id && select(id);
+    gymControl = {
+      get ready() {
+        return ready;
+      },
+      startAll: () => void (allOn || startAll()),
+      stopAll: () => stopAll(true),
+      allOn: () => allOn,
+      levels: () => Object.fromEntries(GAMES.map((g) => [g.id, { level: recs.get(g.id)?.level ?? 1, mastered: !!recs.get(g.id)?.mastered }])),
+      now: () => {
+        const id = allOn ? prefs.all?.current : '';
+        const g = id ? gameById(id) : undefined;
+        return g ? `${niceCase(g.title).toLowerCase()} level ${recs.get(g.id)?.level ?? 1}` : '';
+      },
+    };
     gymState.open = open.id;
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)

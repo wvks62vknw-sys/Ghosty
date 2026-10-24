@@ -132,6 +132,12 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
     if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
+    // After gadget_manual: what it found, as a person would pass it on (its own words, the data wrapper off).
+    const lastCall = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length)?.tool_calls?.[0]?.function;
+    if (lastCall?.name === 'gadget_manual') {
+      const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
+      return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
+    }
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
     const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
     const tc = prev?.tool_calls?.[0]?.function;
@@ -147,6 +153,26 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
   }
   // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived (the owner's words only, not the phone's data note).
+  // The Lens's NAME IT and WHAT'S IN IT (packages/shared/src/living.ts): a plant goes to identify_plant by its picture id;
+  // a bird, an insect, anything else and a meal come back as the JSON asked for (a robin "fairly confident", a ladybird
+  // "certain", "can't tell" for anything else; fish, chips and mushy peas).
+  const lensAsk = last.role === 'user' ? ownerWords(textOf(last.content)).trim() : '';
+  const plantId = lensAsk.match(/^LENS NAME IT \(plant\): run identify_plant with picture "([^"]+)"/)?.[1];
+  if (plantId && offered('identify_plant')) return { message: call('identify_plant', { picture: plantId }), model };
+  if (/^LENS NAME IT \(/.test(lensAsk) && imagesIn(last.content)) {
+    const what = lensAsk.match(/^LENS NAME IT \(([^)]+)\)/)?.[1] ?? '';
+    const reply =
+      what === 'bird'
+        ? { kind: 'bird', species: 'Erithacus rubecula', common: 'European robin', sure: 'fairly confident', tell: 'the orange-red breast and face' }
+        : what === 'insect'
+          ? { kind: 'insect', species: 'Coccinella septempunctata', common: 'Seven-spot ladybird', sure: 'certain', tell: 'seven black spots on red wing cases' }
+          : { kind: 'none', species: '', common: '', sure: "can't tell", tell: '' };
+    return { message: { role: 'assistant', content: '```json\n' + JSON.stringify(reply) + '\n```' }, model };
+  }
+  if (/^LENS WHAT'S IN IT/.test(lensAsk) && imagesIn(last.content)) {
+    const meal = { foods: [{ name: 'fish in batter', grams: 150, packaged: false }, { name: 'chips', grams: 150, packaged: false }, { name: 'mushy peas', grams: 80, packaged: false }], sure: 'fairly sure' };
+    return { message: { role: 'assistant', content: JSON.stringify(meal) }, model };
+  }
   if (last.role === 'user' && imagesIn(last.content)) return { message: { role: 'assistant', content: `I can see a picture. ${ownerWords(textOf(last.content))}`.trim() }, model };
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);
@@ -192,6 +218,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^publish my draft website at \S*\/s\/([a-z0-9-]+)/i)) && has('build_website')) return { message: call('build_website', { request: text, link_name: m[1]!, confirm: true }), model };
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
@@ -219,25 +246,56 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
-  // The tutor (tutor.ts): a course plan, a lesson with its check question, a quiz and a marked short answer, as each asks.
+  // MARK MY WORK (school/markwork.ts): full marks when the answer shares a long word with the mark scheme, else none and what was missed.
+  if (/^WORK MARKER:/.test(String(messages[0]?.content ?? ''))) {
+    const said = textOf(last.content);
+    const scheme = said.match(/^Mark scheme: (.+)$/m)?.[1] ?? '';
+    const most = Number(said.match(/^Most marks possible: (\d+)/m)?.[1] ?? 1);
+    const given = (said.split('<learner_answer>\n')[1] ?? '').toLowerCase();
+    const keys = /^none given/.test(scheme) ? [] : scheme.toLowerCase().match(/[a-z]{5,}/g) ?? [];
+    const ok = !keys.length || keys.some((k) => given.includes(k));
+    return { message: { role: 'assistant', content: ok ? `MARKS: ${most} | correct` : `MARKS: 0 | Missed the key point: ${scheme.slice(0, 80)}` }, model };
+  }
+  // The tutor (tutor.ts): a course plan (two units), a lesson under its headings with its check question, a quiz, exam questions and a marked short answer, as each asks.
   const tutorAsk = String(messages[0]?.content ?? '');
-  if (/^(COURSE PLAN|LESSON|QUIZ|GRADE ANSWER):/.test(tutorAsk)) {
+  if (/^(COURSE PLAN|LESSON|QUIZ|EXAM QUESTIONS|GRADE ANSWER):/.test(tutorAsk)) {
     const said = textOf(last.content);
     const topic = said.match(/^Topic: (.+)$/m)?.[1]?.trim() ?? 'the topic';
     if (tutorAsk.startsWith('COURSE PLAN:')) {
-      const lessons = ['What it is', 'The key ideas', 'How it works', 'A worked example', 'Common mistakes'].map((t) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}` }));
-      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic}.`, lessons })}\n\`\`\`` }, model };
+      const L = (t: string, needs: number[]) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}`, needs });
+      const units = [
+        { title: 'The basics', lessons: [L('What it is', []), L('The key ideas', [1]), L('How it works', [2])] },
+        { title: 'Going further', lessons: [L('A worked example', [3]), L('Common mistakes', [3])] },
+      ];
+      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic} in two units.`, prereqs: ['what a plant cell is'], units })}\n\`\`\`` }, model };
     }
     if (tutorAsk.startsWith('LESSON:')) {
       const title = said.match(/^Lesson \d+: (.+)$/m)?.[1] ?? 'this lesson';
-      return { message: { role: 'assistant', content: `This matters because everything else builds on it.\n\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nWorked example: a leaf in sunlight takes in carbon dioxide and gives out oxygen.\n\nRemember:\n- light in, sugar out\n- oxygen is given off\n\nCHECK: What gas do leaves give off in sunlight?\nA) Nitrogen\nB) Oxygen\nC) Helium\nD) Neon\nANSWER: B\nWHY: Splitting water releases oxygen.` }, model };
+      const n = Number(said.match(/^Lesson (\d+):/m)?.[1] ?? 1);
+      const checks = [
+        ['What gas do leaves give off in sunlight?', ['Nitrogen', 'Oxygen', 'Helium', 'Neon'], 'Splitting water releases oxygen.'],
+        ['What do plants make from light, water and carbon dioxide?', ['Salt', 'Sugar', 'Iron', 'Plastic'], 'The sugar is glucose.'],
+        ['Which part of a leaf cell holds the chlorophyll?', ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], 'Chloroplasts are full of it.'],
+        ['What colour of light do leaves reflect most?', ['Red', 'Green', 'Blue', 'Violet'], 'They absorb red and blue.'],
+        ['Which of these speeds photosynthesis up?', ['Darkness', 'More light', 'Less water', 'Cold'], 'Light is the energy it runs on.'],
+      ] as const;
+      const [q, ch, why] = checks[(n - 1) % checks.length]!;
+      const cq = n > checks.length ? `${q.slice(0, -1)} (lesson ${n})?` : q;
+      return { message: { role: 'assistant', content: `WHY IT MATTERS: everything else in this course builds on it.\n\nTHE IDEA:\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nEXAMPLE 1: a leaf in sunlight\n1. Light falls on the leaf.\n2. The leaf takes in carbon dioxide.\n3. It gives out oxygen [1].\n\nEXAMPLE 2: a pondweed in a jar\n1. Put the jar in bright light.\n2. Count the bubbles of oxygen.\n3. Move it into shade: fewer bubbles.\n\nCOMMON MISTAKES:\n- Thinking plants get their food from the soil.\n- Forgetting that oxygen is given off.\n\nIN ONE LINE: plants turn light, water and carbon dioxide into sugar and oxygen.\n\nCHECK: ${cq}\nA) ${ch[0]}\nB) ${ch[1]}\nC) ${ch[2]}\nD) ${ch[3]}\nANSWER: B\nWHY: ${why}` }, model };
+    }
+    // The lessons a quiz or an exam is about ("Lessons (number: title): 1: …; 2: …").
+    const listed = [...(said.match(/^Lessons \(number: title\): (.+)$/m)?.[1] ?? '').matchAll(/(\d+): ([^;]+)/g)].map((x) => ({ n: Number(x[1]), title: x[2]!.trim() }));
+    if (tutorAsk.startsWith('EXAM QUESTIONS:')) {
+      const qs = listed.map((l) => ({ type: 'mc', q: `About "${l.title}": which of these is true?`, choices: ['Plants make sugar from light', 'Plants eat soil', 'Leaves make light', 'Roots make oxygen'], answer: 0, why: 'Light, water and carbon dioxide make sugar.', lesson: l.n }));
+      return { message: { role: 'assistant', content: JSON.stringify({ questions: qs }) }, model };
     }
     if (tutorAsk.startsWith('QUIZ:')) {
       const spoken = /read aloud/.test(tutorAsk);
+      const lesson = listed.at(-1)?.n;
       const qs = [
-        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1 },
-        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1 },
-        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1 }]),
+        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1, lesson },
+        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1, lesson },
+        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1, lesson }]),
       ];
       return { message: { role: 'assistant', content: `Sure! \`\`\`json\n${JSON.stringify({ questions: qs })}\n\`\`\` Good luck.` }, model };
     }
@@ -252,6 +310,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^quiz me(?: on (.+?))?( out loud)?$/)) && has('tutor')) return { message: call('tutor', { action: 'quiz', ...(m[1] ? { topic: m[1] } : {}), ...(m[2] ? { spoken: true } : {}) }), model };
   if (/^(revise|revise my flashcards)$/.test(text) && has('tutor')) return { message: call('tutor', { action: 'revise' }), model };
   if (text === 'my courses' && has('tutor')) return { message: call('tutor', { action: 'courses' }), model };
+  // GADGET MANUALS (tools/gadgets.ts gadget_manual): "find the manual for my bosch dishwasher sms24aw01g", "my dishwasher shows e24",
+  // "replacement drain pump for my dishwasher". Called by name: the gadgets group's keywords do not name manuals (a kernel line).
+  if ((m = text.match(/^find the manual for (?:my |the )?(.+?)\??$/))) return { message: call('gadget_manual', { action: 'find', device: m[1] }), model };
+  if (/^my .+ (?:shows|says|is showing|flashes) .+$/.test(text)) return { message: call('gadget_manual', { action: 'ask', question: text }), model };
+  if ((m = text.match(/^replacement (.+?) for (?:my |the )?(.+?)\??$/))) return { message: call('gadget_manual', { action: 'parts', part: m[1], device: m[2] }), model };
   // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
   if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };

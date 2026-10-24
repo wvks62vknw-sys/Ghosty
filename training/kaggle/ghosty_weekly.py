@@ -19,6 +19,13 @@
 #      tensor-cache.json as the template, so the phone's compiled model library fits unchanged) to the owner's
 #      PRIVATE model repo, branch `candidates`; the brain checks the report and only then promotes it;
 #   7. reports back to the brain (the hook), which shows it in SYSTEM → OFFLINE BRAIN TRAINING.
+# THE MONTHLY RETRAIN ("from_scratch": true, once a month): the new LoRA is trained on the STOCK model ("train_from")
+# instead of on the brain in use, on every week kept (every allowed week's file, all of its rows: `replay_weeks_for`,
+# `replay_count`), so drift from stacked weekly adapters is reset. The gate is unchanged: the brain in use ("current",
+# its whole chain) is built apart, scored as it ships, and let go (`exam_before`); the new one must beat it. It stays
+# inside Kaggle's 12-hour limit as every run does: the brain asks Kaggle for a 10-hour session and budgets 9 hours
+# (`budget_hours`); each phase asks its Deadline for a share of what is left and stops there (SFT counts the rows it
+# did not reach as left out), DPO is skipped under 1.5 hours left, and the exam after training keeps its reserve.
 # SCHOOL practice (`school` records: his weak spots at school, never a paper's item) is trained like the puzzles: an
 # exact one is sampled and only attempts SCHOOL's own marking passes are kept (`school_star`); a written one is learned
 # from the stronger model's worked answer.
@@ -177,7 +184,7 @@ def schema_problem(call, tools):
 
 
 # ---- the dataset's records (packages/shared/src/selftrain.ts recordProblem) -----------------------------------
-TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school']
+TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'star']
 
 
 def _msgs_ok(m):
@@ -237,6 +244,8 @@ def record_problem(r):
         return ''
     if not last or last['role'] != 'assistant' or not last['content'].strip():
         return 'needs messages ending with the answer to learn'
+    if kind == 'star' and not (isinstance(r.get('checked'), str) and r['checked'].strip()):
+        return 'a star record needs the check that passed it'
     if kind == 'library' and not (isinstance(r.get('source'), str) and r['source']):
         return 'a library answer must name its passage'
     if kind == 'tool' and not (isinstance(r.get('tools'), list) and r['tools']):
@@ -954,6 +963,9 @@ class Run:
         self.week = int(cfg['week'])
         self.deadline = Deadline(float(cfg.get('budget_hours', 9)))
         self.report = {'week': self.week, 'startedAt': int(time.time() * 1000), 'finishedAt': 0, 'base': cfg['current']['label'], 'before': {}, 'after': {}, 'items': {}, 'gate': {'pass': False, 'why': 'not finished'}, 'trained': {}, 'rejected': [], 'phases': [], 'failures': []}
+        if from_scratch(cfg):
+            # the monthly retrain: trained on the stock model, tested against the brain in use (`base`) like every week
+            self.report['scratch'] = True
         self.state = {'done': []}
         self.wip = f"wip/week-{self.week:04d}"
         self.token = None
@@ -1059,7 +1071,7 @@ class Run:
         # earlier weeks, for the replay mix: only the weeks the brain allows (with MY LIBRARY & CHATS off, none
         # that held the owner's text), their text records and the STaR answers they kept
         self.replay = []
-        allowed = [int(w) for w in c.get('replay_weeks', [])][-8:]
+        allowed = replay_weeks_for(c)
         for f in [f'{d}/week-{w:04d}.jsonl' for w in allowed for d in ('weeks', 'star') if w != self.week]:
             try:
                 with open(hf_hub_download(c['data_repo'], f, repo_type='dataset', token=self.token, local_dir=f'{WORK}/data')) as fh:
@@ -1106,19 +1118,26 @@ class Run:
         self.replay = [r for r in self.replay if not too_close(ask_of(r), texts) and not near_report_card(ask_of(r), card)]
         self.reject('replayed rows too close to an exam (or report card) question', before - len(self.replay))
 
-    def load_model(self):
+    def merged_base(self, chain):
+        """The stock model plus these published weeks' LoRAs merged in, each at the scale it was published with."""
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        from peft import LoraConfig, PeftModel, get_peft_model
-        self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
-        model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
+        from transformers import AutoModelForCausalLM
+        from peft import PeftModel
         from huggingface_hub import snapshot_download
-        # the current Ghosty: the stock model plus every published week's LoRA, each at the scale it was published with
-        for link in self.cfg['current'].get('chain', []):
+        model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(self.dev)
+        for link in chain:
             p = retry(lambda: snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain'), f"downloading {link['adapter']}")
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
             set_lora_scale(pm, float(link.get('scale', 1.0)))
             model = pm.merge_and_unload()
+        return model
+
+    def load_model(self):
+        from transformers import AutoTokenizer
+        from peft import LoraConfig, get_peft_model
+        self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
+        # the model the new LoRA trains on: the current Ghosty (weekly), or the stock model (the monthly retrain)
+        model = self.merged_base(training_chain(self.cfg))
         self.lora_cfg = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, target_modules=['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj'], task_type='CAUSAL_LM')
         self.model = get_peft_model(model, self.lora_cfg)
         if os.path.exists(f'{WORK}/wip/adapter/adapter_config.json'):
@@ -1359,16 +1378,16 @@ class Run:
         for name in ('star.jsonl', 'critique.jsonl', 'school_star.jsonl'):
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
         for r in self.records:
-            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill') or (r['kind'] == 'school' and 'answer' not in r):
-                # (the weekly style set is distillation too, counted apart: "voice")
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else r['kind']))
+            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill', 'star') or (r['kind'] == 'school' and 'answer' not in r):
+                # (the weekly style set is distillation too, counted apart: "voice"; the phone's checked work is "checked")
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else 'checked' if r['kind'] == 'star' else r['kind']))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
                 ex.append((chat_prompt(r['messages']), r['answer'], 'failure'))
         rnd = random.Random(self.week)
         # no forgetting: a fixed share of earlier weeks, and general chat data under a licence that allows it
-        replay = rnd.sample(self.replay, min(len(self.replay), max(100, len(ex) // 3)))
+        replay = rnd.sample(self.replay, replay_count(self.cfg, len(self.replay), len(ex)))
         ex += [replay_pair(r) + ('replay',) for r in replay]
         ex += [(chat_prompt([{'role': 'user', 'content': q}]), a, 'general') for q, a in self.general_data(400)]
         counts = {}
@@ -1518,9 +1537,19 @@ class Run:
 
     # -- after
     def exam_before(self):
-        """The current brain as it ships (quantised): the new one must beat THIS."""
-        with self.model.disable_adapter():
-            before, core = self.score('current, quantised', quantised=True)
+        """The current brain as it ships (quantised): the new one must beat THIS. The monthly retrain trains on the stock
+        model, so the brain in use (its whole chain) is built apart for this test, then let go."""
+        if from_scratch(self.cfg):
+            training = self.model
+            self.model = self.merged_base(self.cfg['current'].get('chain', []))
+            try:
+                before, core = self.score('current, quantised', quantised=True)
+            finally:
+                self.model = training
+                free_memory()
+        else:
+            with self.model.disable_adapter():
+                before, core = self.score('current, quantised', quantised=True)
         self.report['before'] = before
         self.report['core'] = {'before': core, 'after': {}}
 
@@ -1672,9 +1701,44 @@ def replay_pair(r):
         return None
     if isinstance(r.get('prompt'), str) and isinstance(r.get('answer'), str) and r['answer'].strip():
         return (r['prompt'], r['answer'])
-    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
+    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school', 'star') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
         return (chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'])
     return None
+
+
+def from_scratch(cfg):
+    """The monthly retrain: trained on the stock model, not on the brain in use."""
+    return bool(cfg.get('from_scratch'))
+
+
+def training_chain(cfg):
+    """The LoRA chain the new adapter is trained on top of: the brain in use (weekly), or none (the monthly retrain)."""
+    if from_scratch(cfg):
+        return list((cfg.get('train_from') or {}).get('chain') or [])
+    return list(cfg['current'].get('chain', []))
+
+
+def replay_weeks_for(cfg):
+    """The earlier weeks replayed: the last eight the brain allows (weekly), or every one of them (the monthly retrain)."""
+    allowed = [int(w) for w in cfg.get('replay_weeks', [])]
+    return allowed if from_scratch(cfg) else allowed[-8:]
+
+
+def replay_count(cfg, n_replay, n_new):
+    """How many replayed rows go into SFT: a share (weekly: a third of the new examples, at least 100), or all of them
+    (the monthly retrain, which learns every kept week again; the SFT time budget cuts what does not fit)."""
+    return n_replay if from_scratch(cfg) else min(n_replay, max(100, n_new // 3))
+
+
+def free_memory():
+    """Give back what a model let go of holds (the GPU's cache too, where there is one)."""
+    import gc
+    gc.collect()
+    try:
+        import torch
+        torch.cuda.empty_cache()
+    except Exception:
+        pass
 
 
 def set_lora_scale(model, factor):

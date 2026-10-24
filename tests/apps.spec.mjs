@@ -8,11 +8,15 @@
 //     the connection off (context.setOffline) the app still opens, still shows them, and still saves.
 //  3. UNDO on a delete; the day rolls over at midnight (clock); the timer's pause holds; the list reorders.
 //  4. Every kind opens with no errors, takes a tap, and keeps it after a reload (screenshots of each).
-// The build and the serving run in this process (the scripted chat model has no phrase for build_app);
-// BASE only picks the port (BASE's port + 1000, else a free one).
+//  5. From the chat, on the preview server at BASE (the scripted phrase "make me an app …"): the build is a
+//     project in Workshop → PROJECTS with its five steps all done, the link, INSTALL and UNDO; a build whose
+//     publish failed part-way shows paused at step 4 and finishes from its record when RESUME is tapped.
+// Parts 1–4 build and serve in this process (BASE's port + 1000, else a free one); part 5 needs the preview
+// server running at BASE (default http://localhost:8788).
 //   node tests/apps.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync } from 'node:fs';
@@ -123,7 +127,7 @@ if (w) {
 
 log('const browser = await launch()');
 const browser = await launch();
-const phone = { ...devices['iPhone 13'] };
+const phone = { ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK };
 async function open(name, context) {
   const page = await context.newPage();
   const errs = [];
@@ -203,7 +207,9 @@ log('// ── 3a:');
 if (w) {
   const context = await browser.newContext(phone);
   const page = await context.newPage();
-  await page.clock.install({ time: new Date(2026, 9, 24, 23, 58, 0) });
+  // 23:58 on the owner's phone, which keeps London time (BST, +01:00, until the clocks go back on the 25th): the day turns
+  // over three minutes later whatever zone this machine is in (new Date(2026, 9, 24, 23, 58) is 23:58 in the machine's own)
+  await page.clock.install({ time: new Date('2026-10-24T23:58:00+01:00') });
   await page.goto(`${origin}/s/water/`);
   await page.waitForSelector('.hero .big');
   await page.getByRole('button', { name: '+1 GLASS' }).click();
@@ -322,10 +328,142 @@ if (w) {
   if (gone.status !== 404) fail(`after unpublish the app answers ${gone.status}`);
 }
 
+log('// ── 5. from the chat: Workshop → PROJECTS');
+// ── 5. from the chat: the build is a project in Workshop → PROJECTS ──
+{
+  const base = process.env.BASE ?? 'http://localhost:8788';
+  const context = await browser.newContext(phone);
+  const ui = await context.newPage();
+  ui.on('pageerror', (er) => webkitNoise(er) || fail(`chat: pageerror: ${er.message}`));
+  await ui.goto(base, { waitUntil: 'domcontentloaded' });
+  await ui.waitForSelector('#pair input', { timeout: 15000 });
+  await ui.fill('#pair input', 'preview-owner-key-0123456789');
+  await ui.click('#pair button.on');
+  await ui.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await ui.waitForTimeout(800);
+  if (await ui.$('.logbtn')) await ui.click('.logbtn');
+  /** Ask for an app in the chat; the approval names the link. `before` runs between reading it and tapping approve. */
+  const ask = async (words, before) => {
+    await ui.evaluate(() => (location.hash = 'core'));
+    await ui.waitForTimeout(500);
+    if (!(await ui.locator('#cin').isVisible())) await ui.click('.logbtn').catch(() => undefined);
+    await ui.fill('#cin', words);
+    await ui.keyboard.press('Enter');
+    const ok = await ui.waitForSelector('.approval button.on', { timeout: 20000 }).catch(() => null);
+    if (!ok) return fail(`chat: no approval for "${words}"`);
+    const reason = (await ok.evaluate((b) => b.closest('.approval')?.textContent ?? '')) ?? '';
+    const name = reason.match(/\/s\/([a-z0-9-]+)\/\?/)?.[1];
+    if (!name) return fail(`chat: the approval names no link: ${reason.slice(0, 160)}`);
+    await before?.(name);
+    await ok.tap();
+    return name;
+  };
+  // The preview brain keeps earlier runs' projects: a card is the newest with that title in a state (the panel lists
+  // running ones first, then paused, then the rest, newest first within each), counted before the build.
+  const cards = (title, state = '') => ui.locator(`#pg-workshop .change.project${state}`, { hasText: title });
+  const card = (title, state = '') => cards(title, state).first();
+  const workshop = async () => {
+    await ui.evaluate(() => (location.hash = 'workshop'));
+    await ui.waitForTimeout(600);
+  };
+  /** Wait for a number of cards with that title in that state (the panel is opened again every 5 s). */
+  const count = async (title, state, n, ms) => {
+    const end = Date.now() + ms;
+    for (let i = 1; Date.now() < end; i++) {
+      if ((await cards(title, state).count()) >= n) return true;
+      await ui.waitForTimeout(1000);
+      if (i % 5 === 0) {
+        await ui.evaluate(() => (location.hash = 'core'));
+        await ui.waitForTimeout(300);
+        await workshop();
+      }
+    }
+    return false;
+  };
+  const before = async (title, state) => {
+    await workshop();
+    await ui.waitForTimeout(1500);
+    return cards(title, state).count();
+  };
+  /**
+   * Wait for the card's text to match. The panel looks again every 15 s while a project runs (once a minute
+   * otherwise), so with `reopen` the Workshop is left and opened again every 5 s, which looks at once.
+   */
+  const until = async (title, re, ms, reopen = true) => {
+    const end = Date.now() + ms;
+    for (let i = 1; Date.now() < end; i++) {
+      if (re.test((await card(title).textContent({ timeout: 1000 }).catch(() => '')) ?? '')) return true;
+      await ui.waitForTimeout(1000);
+      if (reopen && i % 5 === 0) {
+        await ui.evaluate(() => (location.hash = 'core'));
+        await ui.waitForTimeout(300);
+        await workshop();
+      }
+    }
+    return false;
+  };
+  const STEPS = ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report'];
+  // a. one message, one approval: the project is there with all five steps done, the link, INSTALL and UNDO
+  const doneBefore = await before('App: Water', '.passed');
+  const water = await ask('make me an app that tracks my water intake');
+  if (water) {
+    // the chat keeps its link card
+    await ui.waitForSelector(`#pg-core a.sitelink[href$="/s/${water}/"]`, { state: 'attached', timeout: 20000 }).catch(() => fail('chat: no link card after the build'));
+    await workshop();
+    if (!(await count('App: Water', '.passed', doneBefore + 1, 20000))) fail('PROJECTS: no finished "App: Water" project');
+    else {
+      const c = card('App: Water', '.passed');
+      if (!(await c.evaluate((e) => e.classList.contains('passed')))) fail('PROJECTS: the app project is not marked done');
+      const text = (await c.textContent()) ?? '';
+      if (!/5\/5/.test(text)) fail(`PROJECTS: not 5/5: ${text.slice(0, 160)}`);
+      for (const s of STEPS) if (!text.includes(s)) fail(`PROJECTS: no step "${s}"`);
+      if (await c.locator('.rw:not(.st-done)').count()) fail('PROJECTS: a step is not done');
+      const report = (await c.locator('.preport').textContent().catch(() => '')) ?? '';
+      if (!new RegExp(`"Water" is live at ${base.replace(/[.]/g, '\\.')}/s/${water}/`).test(report)) fail(`PROJECTS: the report has no link: ${report.slice(0, 160)}`);
+      if (!/INSTALL: on the iPhone/.test(report) || !/UNDO: say "take down/.test(report)) fail('PROJECTS: the report has no INSTALL or UNDO');
+      for (const b of ['OPEN', 'UNDO']) if (!(await c.locator(`button:has-text("${b}")`).count())) fail(`PROJECTS: no ${b} button`);
+      const live = await context.request.get(`${base}/s/${water}/`);
+      if (live.status() !== 200) fail(`the app's link answers ${live.status()}`);
+      await c.evaluate((e) => e.scrollIntoView({ block: 'start' }));
+      await ui.waitForTimeout(300);
+      await ui.screenshot({ path: `${out}/apps-project-done.png` });
+    }
+  }
+  // b. the publish fails part-way (one database blip): paused at step 4 with the reason; RESUME finishes it from its record
+  const pausedBefore = await before('App: Darts', '.failed');
+  const dartsDone = await cards('App: Darts', '.passed').count();
+  const darts = await ask('make me an app that keeps score at darts for me and sam', (name) => context.request.get(`${base}/__test/blip?key=site:${name}`));
+  if (darts) {
+    await workshop();
+    if (!(await count('App: Darts', '.failed', pausedBefore + 1, 20000))) fail('PROJECTS: the failed build is not shown paused');
+    else {
+      const c = card('App: Darts', '.failed');
+      const text = (await c.textContent()) ?? '';
+      if (!/3\/5/.test(text) || !/step 4 "Publish" stopped: .*storage blip.*RESUME carries on from here/.test(text)) fail(`PROJECTS: the stopped build: ${text.slice(0, 240)}`);
+      await c.scrollIntoViewIfNeeded();
+      await ui.screenshot({ path: `${out}/apps-project-paused.png` });
+      await c.locator('button:has-text("RESUME")').click();
+      if (!(await until('App: Darts', /ACTIVE[\s\S]*NOW: step 4 · Publish/, 4000, false))) fail('PROJECTS: after RESUME the card does not show the step it runs now');
+      else await ui.screenshot({ path: `${out}/apps-project-resumed.png` });
+      if (!(await count('App: Darts', '.passed', dartsDone + 1, 45000))) fail('PROJECTS: the resumed build did not finish');
+      else {
+        const done = card('App: Darts', '.passed');
+        if (!/5\/5/.test((await done.textContent()) ?? '')) fail('PROJECTS: the resumed build is not 5/5');
+        const report = (await done.locator('.preport').textContent().catch(() => '')) ?? '';
+        if (!report.includes(`/s/${darts}/`)) fail(`PROJECTS: the resumed build's report has no link: ${report.slice(0, 120)}`);
+        await done.evaluate((e) => e.scrollIntoView({ block: 'start' }));
+        await ui.waitForTimeout(300);
+        await ui.screenshot({ path: `${out}/apps-project-resumed-done.png` });
+      }
+    }
+  }
+  await context.close();
+}
+
 await browser.close();
 server.close();
 if (problems.length) {
   console.error(`apps spec: ${problems.length} problem(s)\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`apps spec: OK — 9 kinds made by build_app and served by the Worker; install, saved state, offline, UNDO, midnight, timer pause and list reorder all checked (screenshots in ${out})`);
+console.log(`apps spec: OK — 9 kinds made by build_app and served by the Worker; install, saved state, offline, UNDO, midnight, timer pause and list reorder all checked; from the chat the build is a Workshop project (five steps done, the link, INSTALL, UNDO) and a build stopped at its publish finishes from RESUME (screenshots in ${out})`);

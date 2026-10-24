@@ -11,7 +11,9 @@
  *    a question on a paper he has sat (or of an item in his stage's question banks or an official paper, which may
  *    yet be set) is dropped. Kept under `school:practice:<stage>:<topic>`, never in the library.
  *  - INTO THE WEEK (`practiceRecords`): the factory hands at most `WEEKLY_SCHOOL` of them to the week's data as
- *    `school` records (packages/shared/src/selftrain.ts), checked against the papers again with `tooClose`.
+ *    `school` records (packages/shared/src/selftrain.ts), checked against the papers again with `tooClose`; the ones
+ *    he got wrong at NIGHT SCHOOL (`missed`, school/night.ts) first in each topic.
+ *  - NIGHT SCHOOL: inside its window the writing goes on with a night allowance (`perDay`), even while the week gathers.
  * Nothing the online model wrote when it SAT a paper (school/remote.ts, the gap) is ever used here.
  */
 import { examMessages, markExact, stageById, SUBJECT_LABEL, weakSpots, type ItemType, type PaperItem, type StageId } from '../../../../packages/shared/src/school';
@@ -43,6 +45,8 @@ export interface PracticeItem {
   answer: string;
   /** The worked solution, ending with "Answer: …". */
   worked: string;
+  /** Times the offline brain got it wrong at NIGHT SCHOOL (school/night.ts): a missed one goes first into the week's data. */
+  missed?: number;
 }
 
 export interface PracticeTopic {
@@ -142,7 +146,8 @@ const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
  * the weakest topics below `PER_TOPIC`; at most `CALLS_PER_STEP` model calls (and `CALLS_PER_DAY` a day). Every call's
  * result is saved at once, so a step cut short loses nothing. Never throws. `more`: there is still work to do.
  */
-export async function practiceTick(d: { storage: DurableObjectStorage; ask?: Ask; now?: () => number }): Promise<{ calls: number; more: boolean; noModel: boolean; note: string }> {
+export async function practiceTick(d: { storage: DurableObjectStorage; ask?: Ask; now?: () => number }, o: { perDay?: number } = {}): Promise<{ calls: number; more: boolean; noModel: boolean; note: string }> {
+  const perDay = o.perDay ?? CALLS_PER_DAY;
   const now = (d.now ?? Date.now)();
   const s = d.storage;
   const st = await loadState({ storage: s });
@@ -153,7 +158,7 @@ export async function practiceTick(d: { storage: DurableObjectStorage; ask?: Ask
   let calls = 0;
   let noModel = false;
   let held: string[] | null = null;
-  const room = () => !noModel && calls < CALLS_PER_STEP && prog.calls < CALLS_PER_DAY;
+  const room = () => !noModel && calls < CALLS_PER_STEP && prog.calls < perDay;
   const call = async (system: string, user: string): Promise<string | null> => {
     calls++;
     prog.calls++;
@@ -204,7 +209,7 @@ export async function practiceTick(d: { storage: DurableObjectStorage; ask?: Ask
     if (t.checking.length || (t.items.length < PER_TOPIC && t.asked < MAX_WRITES)) more = true;
   }
   await s.put(PROGRESS_KEY, prog);
-  return { calls, more: more && prog.calls < CALLS_PER_DAY, noModel, note: noModel ? 'practice: no online model free right now' : `practice: ${calls} questions to the online AIs` };
+  return { calls, more: more && prog.calls < perDay, noModel, note: noModel ? 'practice: no online model free right now' : `practice: ${calls} questions to the online AIs` };
 }
 
 /** Every practice topic kept for a stage. */
@@ -228,7 +233,8 @@ export function practiceRecord(t: Pick<PracticeTopic, 'stage' | 'subject' | 'top
 export function practiceRecords(topics: PracticeTopic[], held: string[], max = WEEKLY_SCHOOL): { recs: TrainRecord[]; near: number } {
   const recs: TrainRecord[] = [];
   let near = 0;
-  const queues = topics.map((t) => t.items.map((it) => [t, it] as const));
+  // (in each topic, the ones he got wrong at Night School first: what he misses is what he trains on first)
+  const queues = topics.map((t) => t.items.map((it) => [t, it] as const).sort((a, b) => (b[1].missed ?? 0) - (a[1].missed ?? 0)));
   for (let i = 0; recs.length < max && queues.some((q) => i < q.length); i++) {
     for (const q of queues) {
       if (recs.length >= max) break;

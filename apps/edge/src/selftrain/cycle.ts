@@ -34,6 +34,13 @@
  * on Kaggle; its answers come back through the same hook with their own one-time ticket), the online model sitting
  * the same papers (the honest gap) and practice for his weak spots, a few model calls a step each; that practice goes
  * into the week's data as `school` records, and the GYM puzzles follow his school stage. None of it touches the gate.
+ * ONCE A MONTH (the first run from the month's first Friday, UK time, or TRAIN FROM SCRATCH) the run is the monthly
+ * retrain: the new LoRA is trained on the STOCK model, not added to the brain in use, on every week kept (the replay is
+ * every allowed week, not the last eight, and all of it, not a share), so drift from stacked weekly adapters is reset.
+ * The gate is the same exam against the brain in use, the rollback the same; a kept one's chain is that one adapter.
+ * It fits Kaggle's 12-hour limit the way every run does: the push asks for 10 hours, the notebook budgets 9
+ * (`budget_hours`), every phase asks its Deadline for a share of what is left and stops there (SFT counts the rows it
+ * did not reach as "left out"), and the exam after training keeps its reserve.
  * With MY LIBRARY & CHATS off, a week's data has none of the owner's text, earlier private weeks are left out of
  * the replay, and the week trains on the newest kept brain whose whole chain had no private data (else stock).
  *
@@ -43,11 +50,13 @@
 import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
-import { heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
+import { NIGHT_CALLS, nightStep } from '../school/night';
+import { CALLS_PER_DAY, heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
 import { acceptRemoteReport, EXAM_GPU_HOURS, EXAM_LIMIT, gapTick, loadRemote, paperLines, paperName, saveRemote, stepSaveRemote, type RemoteState } from '../school/remote';
 import { loadPaper, loadState as loadSchool, STATE_KEY as SCHOOL_STATE } from '../school/state';
 import type { Library } from '../library/store';
 import { addJob, loadJobs, rearm, removeJob, setNext } from '../schedule';
+import { fromZoned, zoned } from '../time';
 import { GYM_SEEDS, NOTEBOOK_PY, REPORT_CARD_TEXTS, TASKS_FILE, TASKS_JS } from './assets';
 import { buildExam, EXAM_VERSION, examTexts, libraryCase, type Exam } from './exam';
 import {
@@ -100,6 +109,7 @@ import {
   type RewriteItem,
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
+import { brainLoops, drainStars, noteDays, takeStars } from './loops';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -127,8 +137,8 @@ const REPORT_GRACE = 45 * 60_000;
 /** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
 const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
 
-/** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs). */
-const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite'];
+/** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs; `star`: the phone's checked work). */
+const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite', 'star'];
 /** The voice's model calls per job step (its own, besides CALLS_PER_TICK), and how many go in one writer, rewriter or judge call. */
 const VOICE_PER_TICK = 4;
 const VOICE_BATCH = 8;
@@ -175,6 +185,13 @@ export interface State {
   hfUser?: string;
   /** The chain this week trains on (so the report adds to the right one). */
   base?: { label: string; chain: KeptModel['chain'] };
+  /** This run is the monthly retrain from scratch (runKind), and why it is the kind it is. */
+  scratch?: boolean;
+  kindWhy?: string;
+  /** TRAIN FROM SCRATCH was pressed: the next run is the monthly retrain whatever the date. */
+  force?: boolean;
+  /** When the last retrain from scratch started. */
+  scratchAt?: number;
 }
 
 /** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
@@ -252,6 +269,35 @@ async function keysOf(d: CycleDeps): Promise<{ kaggle: ReturnType<typeof parseKa
   return { kaggle: k ? parseKaggleKey(k) : null, hf: (h ?? '').trim() };
 }
 
+/** The stock model, as a base to train on. */
+const STOCK = { label: 'stock Qwen3 0.6B', chain: [] as KeptModel['chain'] };
+/** The monthly retrain's first Friday is a UK Friday. */
+const MONTH_TZ = 'Europe/London';
+
+/** 00:00 (UK time) on the first Friday of the month `at` falls in, `ahead` months on, as UTC ms. */
+export function firstFriday(at: number, ahead = 0): number {
+  const z = zoned(at, MONTH_TZ);
+  const first = new Date(Date.UTC(z.y, z.m - 1 + ahead, 1));
+  const day = 1 + ((5 - first.getUTCDay() + 7) % 7);
+  return fromZoned(first.getUTCFullYear(), first.getUTCMonth() + 1, day, 0, 0, MONTH_TZ);
+}
+const dayWords = (t: number) => new Intl.DateTimeFormat('en-GB', { timeZone: MONTH_TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(t);
+
+/**
+ * The kind of run that starts at `at`, and why in plain words: the monthly retrain from scratch when TRAIN FROM SCRATCH
+ * was pressed, or for the first run from this month's first Friday (UK time) when none has started since it; otherwise
+ * a weekly run, which adds the week to the brain in use. `earlier`: there is a kept week to retrain on.
+ */
+export function runKind(at: number, st: Pick<State, 'force' | 'scratchAt'>, earlier: boolean): { scratch: boolean; why: string } {
+  if (st.force) return { scratch: true, why: 'You pressed TRAIN FROM SCRATCH: he is retrained from the stock model on every week kept.' };
+  if (!earlier) return { scratch: false, why: 'The first run trains on the stock model anyway; the monthly retrain from scratch starts once there are weeks kept.' };
+  const ff = firstFriday(at);
+  if (at >= ff && (st.scratchAt ?? 0) < ff) return { scratch: true, why: `The first run from ${dayWords(ff)}: once a month he is retrained from the stock model on every week kept, so the weekly add-ons cannot drift.` };
+  return { scratch: false, why: `A weekly run adds this week's lessons to the brain in use. The monthly retrain from scratch is the first run from ${dayWords(at >= ff ? firstFriday(at, 1) : ff)}.` };
+}
+
+const keptWeeks = async (s: DurableObjectStorage) => Object.keys((await s.get<Record<string, boolean>>(K.weeks)) ?? {}).length > 0;
+
 const missingNote = (k: { kaggle: unknown; hf: string }) =>
   !k.kaggle && !k.hf ? 'Waiting for two keys: Kaggle and a Hugging Face write token (SYSTEM → KEYS).' : !k.kaggle ? 'Waiting for the Kaggle key (SYSTEM → KEYS).' : 'Waiting for the Hugging Face write token (SYSTEM → KEYS).';
 
@@ -269,11 +315,19 @@ export async function ensureTrainJob(storage: DurableObjectStorage): Promise<voi
   }
 }
 
-/** One step of the week, then SCHOOL's (schoolStep). Never throws; returns when the job should run again (ms from now) and a line for the job list. */
+/**
+ * One step of the week, then SCHOOL's (schoolStep), with NIGHT SCHOOL's part on the brain (school/night.ts: inside its
+ * window practice goes on with a night allowance and the study job is kept due; outside it the job wakes at its start).
+ * Never throws; returns when the job should run again (ms from now) and a line for the job list.
+ */
 export async function trainTick(d: CycleDeps): Promise<{ next: number; note: string }> {
+  // (the LOOPS card's day point of the study counters: cheap, once a day)
+  await noteDays(d.storage, nowOf(d)).catch(() => undefined);
   const r = await weekTick(d);
-  const more = await schoolStep(d);
-  return more === null ? r : { next: Math.max(1000, Math.min(r.next, more)), note: r.note };
+  const night = await nightStep(d);
+  const more = await schoolStep(d, !!night?.inside);
+  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity);
+  return next === r.next ? r : { next: Math.max(1000, next), note: r.note };
 }
 
 async function weekTick(d: CycleDeps): Promise<{ next: number; note: string }> {
@@ -328,6 +382,12 @@ async function step(d: CycleDeps, st: State): Promise<{ next: number; note: stri
     st.failures = 0;
     st.statusErrors = 0;
     st.private = await privateOn(d.storage);
+    // Weekly, or the monthly retrain from scratch (decided as the run starts; TRAIN FROM SCRATCH is used up by it).
+    const kind = runKind(now, st, await keptWeeks(d.storage));
+    st.scratch = kind.scratch;
+    st.kindWhy = kind.why;
+    if (kind.scratch) st.scratchAt = now;
+    delete st.force;
     delete st.ticket;
     delete st.tokenGiven;
     await clearRecords(d.storage, KINDS);
@@ -419,6 +479,15 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
     const { recs, near } = practiceRecords(await loadPractice(d.storage, stage), await heldQuestions(d.storage, stage), WEEKLY.school);
     await noteRejected(d.storage, 'school practice too close to a question on a paper', near);
     await addRecords(d.storage, 'school', far(recs));
+  },
+  async (d, st, far) => {
+    // The phone's checked work (THINK HARDER's checked answers, GYM puzzles his checker passed: loops.ts), waiting since
+    // last week: through the same near-exam filter as the rest. THINK HARDER's are the owner's own questions: none
+    // with MY LIBRARY & CHATS off (the GYM's puzzles are his own).
+    const all = await drainStars(d.storage);
+    const ok = st.private === false ? all.filter((r) => /^gym /.test(r.from ?? '')) : all;
+    await noteRejected(d.storage, "THINK HARDER's answers left out: MY LIBRARY & CHATS is off", all.length - ok.length);
+    await addRecords(d.storage, 'star', far(ok));
   },
 ];
 
@@ -766,9 +835,12 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     return { next: wait, note: no };
   }
   st.gpu = { left: q.left, total: q.total };
-  st.base = await trainingBase(d.storage, st.private !== false);
+  // The brain to beat is the one in use (the same gate); a weekly run trains on it, the monthly retrain on the stock model.
+  const current = await trainingBase(d.storage, st.private !== false);
+  st.base = st.scratch ? STOCK : current;
   const weeks = (await d.storage.get<Record<string, boolean>>(K.weeks)) ?? {};
-  // Earlier weeks for the replay mix: all of them, or only those without private text when it is off.
+  // Earlier weeks for the replay mix: all of them, or only those without private text when it is off (a weekly run
+  // replays a share of the last eight; the retrain from scratch every row of all of them).
   const replay = Object.entries(weeks).filter(([w, p]) => Number(w) < st.week && (st.private !== false || !p)).map(([w]) => Number(w)).sort((a, b) => a - b);
   st.ticket = randomTicket();
   st.ticketUntil = now + RUN_LIMIT + 3600_000;
@@ -784,11 +856,12 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
     data_rev: st.dataCommit,
     base_model: BASE_MODEL,
     stock_mlc: STOCK_MLC,
-    current: st.base,
+    current,
     replay_weeks: replay,
     private: st.private !== false,
     budget_hours: BUDGET_HOURS,
     samples: 16,
+    ...(st.scratch ? { from_scratch: true, train_from: STOCK } : {}),
   };
   const r = await pushKernel(fetchOf(d), kaggle, notebookSource(config));
   st.kernelUrl = r.url;
@@ -797,7 +870,7 @@ async function push(d: CycleDeps, st: State, kaggle: NonNullable<ReturnType<type
   st.statusErrors = 0;
   delete st.completeAt;
   st.phase = 'running';
-  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version}). It takes a few hours; ${gpuNote(st.gpu)}.` };
+  return { next: 30 * 60_000, note: `Training on Kaggle (run ${r.version})${st.scratch ? ': the monthly retrain from scratch, on every week kept' : ''}. It takes a few hours; ${gpuNote(st.gpu)}.` };
 }
 
 const randomTicket = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -863,9 +936,9 @@ export function examQuotaProblem(q: GpuQuota): string {
 /**
  * SCHOOL's part of a job step, after the week's: the exam run (examStep), then the online model's sitting of a paper
  * (the gap) or practice for his weak spots, a few model calls each (none while the week is gathering: its own calls
- * come first). Never throws; returns when it wants the job back (ms), or null with nothing to do.
+ * come first — except inside NIGHT SCHOOL's window, `night`, when practice has a night allowance of its own). Never throws; returns when it wants the job back (ms), or null with nothing to do.
  */
-async function schoolStep(d: CycleDeps): Promise<number | null> {
+async function schoolStep(d: CycleDeps, night = false): Promise<number | null> {
   let next: number | null = null;
   const want = (ms: number) => (next = next === null ? ms : Math.min(next, ms));
   try {
@@ -874,14 +947,15 @@ async function schoolStep(d: CycleDeps): Promise<number | null> {
   } catch {
     /* examStep keeps its own errors */
   }
-  if ((await loadState(d.storage)).phase === 'collect') return next;
+  // (Night School's window: practice goes on beside the week's gathering, with the night's own allowance on top.)
+  if ((await loadState(d.storage)).phase === 'collect' && !night) return next;
   const sd = { storage: d.storage, ask: d.ask, now: d.now };
   try {
     const g = await gapTick(sd);
     if (g.more) want(g.noModel ? 20 * 60_000 : 5 * 60_000);
     if (g.calls || g.noModel) return next;
-    const p = await practiceTick(sd);
-    if (p.more) want(p.noModel ? 20 * 60_000 : 10 * 60_000);
+    const p = await practiceTick(sd, night ? { perDay: CALLS_PER_DAY + NIGHT_CALLS } : {});
+    if (p.more) want(p.noModel ? 20 * 60_000 : night ? 5 * 60_000 : 10 * 60_000);
   } catch {
     /* a model or storage blip: tried again at the next step */
   }
@@ -1098,6 +1172,7 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     },
     rejected: [...((await d.storage.get<{ why: string; n: number }[]>(K.rejected)) ?? []), ...(Array.isArray(r.rejected) ? r.rejected : [])].slice(0, 40),
     failures: (r.failures ?? []).slice(0, 120),
+    ...(st.scratch ? { scratch: true } : {}),
   };
   let note: string;
   const expected = `${st.hfUser}/${MODEL_REPO}`;
@@ -1106,7 +1181,8 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
   if (claimed && !pub) report.rejected.push({ why: `the new brain was uploaded somewhere else (${String(claimed.repo).slice(0, 80)}), not to ${expected}: not used`, n: 1 });
   if (report.gate.pass && pub) {
     const models = await loadModels(d.storage);
-    const base = st.base ?? { label: 'stock Qwen3 0.6B', chain: [] };
+    // (the monthly retrain's base is the stock model: its chain is this one adapter, and the drift is gone)
+    const base = st.base ?? STOCK;
     const chain = [...base.chain, { adapter: `adapters/week-${wk(st.week)}`, scale: typeof r.scale === 'number' ? r.scale : 1, private: st.private !== false }];
     const kept: KeptModel = { week: st.week, label: `Ghosty (week ${st.week})`, repo: pub.repo, commit: pub.commit, at: nowOf(d), scores: r.after, private: chain.some((c) => c.private), chain };
     await d.storage.put(K.models, [kept, ...models.filter((m) => m.commit !== kept.commit)].slice(0, 3));
@@ -1114,12 +1190,13 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     // Promotion: a tag on the private model repo (the list above is what the phone's address serves; a failed tag changes nothing).
     const token = ((await d.vault.get('hf_write')) ?? '').trim();
     if (token) await hfTag(fetchOf(d), token, pub.repo, pub.commit, `week-${wk(st.week)}`).catch(() => undefined);
-    note = `Ghosty (week ${st.week}) passed its exam and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
+    note = `Ghosty (week ${st.week})${st.scratch ? ', retrained from scratch,' : ''} passed its exam and is ready: download it in SETTINGS → OFFLINE BRAIN.`;
   } else {
     // Not offered to the phone, whatever the notebook did.
     if (pub) report.rejected.push({ why: err ? `the new brain was uploaded (${pub.commit.slice(0, 7)}) but the run reported a problem: not offered to the phone` : `the new brain was uploaded (${pub.commit.slice(0, 7)}) but failed the exam check here: not offered to the phone`, n: 1 });
     delete report.published;
-    note = r.error ? `This week's training did not finish: ${String(r.error).slice(0, 160)}` : `This week's training did not beat the current brain (${report.gate.why}); nothing changed.`;
+    const which = st.scratch ? "This month's retrain from scratch" : "This week's training";
+    note = r.error ? `${which} did not finish: ${String(r.error).slice(0, 160)}` : `${which} did not beat the current brain (${report.gate.why}); nothing changed.`;
   }
   // Only the ratings this week's data really held are used up; the others wait for the next week.
   const used = new Set(st.ratingIds ?? []);
@@ -1165,6 +1242,8 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
     ratings: { up: ratings.filter((r) => r.up).length, down: ratings.filter((r) => !r.up).length },
     weights: models.length ? `/api/w/${await weightsCap(s)}/` : null,
     ...(school ? { school } : {}),
+    // this run's kind while one is under way; else the next run's, as it would be decided when it starts
+    kind: st.phase === 'idle' ? { ...runKind(Math.max(nowOf(d), st.nextRun || 0), st, await keptWeeks(s)), now: false } : { scratch: !!st.scratch, why: st.kindWhy ?? '', now: true },
   };
 }
 
@@ -1189,6 +1268,14 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     await s.put(K.gym, levels);
     return json({ ok: true });
   }
+  if (path === '/training/star' && method === 'POST') {
+    // Checked work from the phone (GYM ideas, part 3): each record checked again, at most the day's cap.
+    return json(await takeStars(s, body.records, nowOf(d)));
+  }
+  if (path === '/training/loops' && method === 'GET') {
+    // The REPORT CARD's LOOPS card (GYM ideas, part 4): this week's numbers for the brain's loops.
+    return json(await brainLoops(s, await trainStatus(d), nowOf(d)));
+  }
   if (path === '/training/private' && method === 'POST') {
     await s.put(K.privateData, !!body.on);
     return json(await trainStatus(d));
@@ -1198,15 +1285,18 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     await revokeCap(s);
     return json(await trainStatus(d));
   }
-  if (path === '/training/now' && method === 'POST') {
+  if ((path === '/training/now' || path === '/training/scratch') && method === 'POST') {
     const st = await loadState(s);
     const keys = await keysOf(d);
     if (!keys.kaggle || !keys.hf) return json({ error: missingNote(keys) }, 400);
+    // TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain whatever the date.
+    const scratch = path === '/training/scratch';
+    if (scratch) st.force = true;
     if (st.phase === 'idle') {
       st.nextRun = 0;
-      st.note = 'Starting now.';
-      await saveState(s, st);
+      st.note = scratch ? 'Starting now: the retrain from scratch.' : 'Starting now.';
     }
+    if (scratch || st.phase === 'idle') await saveState(s, st);
     await ensureTrainJob(s);
     const j = (await loadJobs(s)).find((x) => x.kind === 'train');
     if (j) {

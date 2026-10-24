@@ -1,14 +1,15 @@
 /**
  * SETTINGS → OFFLINE BRAIN: whether this phone can run the small model (offline/brain.ts),
  * DOWNLOAD it (≈352 MB, once, best on Wi-Fi) with a progress bar, DELETE it, when to use it
- * (only when needed / always / off), a TEST that shows a reply and its speed, and how long THINK HARDER
- * may take on one question (offline/think.ts; 55 s unless changed).
+ * (only when needed / always / off), a TEST that shows a reply and its speed, how long THINK HARDER
+ * may take on one question (offline/think.ts; 55 s unless changed), and SEARCH BY MEANING (./meaning.ts).
  */
 import { clear, h } from '../../core/dom';
 import { deleteOffline, downloadOffline, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, withModel } from '../../offline/brain';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { settings } from '../../state/app';
-import { bar, button, panel, toast, type Panel } from '../../ui/components';
+import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
+import { meaningBlock } from './meaning';
 
 export function offlinePanel(): Panel & { refresh(): void } {
   const p = panel('OFFLINE BRAIN', { grow: false, cls: 'offbrain' });
@@ -22,9 +23,18 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('option', { value: 'off' }, 'Use it: off'),
   );
   mode.value = settings.get().offlineBrain;
+  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'off' } as const;
   mode.addEventListener('change', () => {
+    const was = settings.get().offlineBrain;
     const v = mode.value === 'always' || mode.value === 'off' ? mode.value : 'auto';
     settings.set({ offlineBrain: v });
+    // Off (no answers with no signal) or always (never the cloud brain) changes every reply: UNDO for 12 s.
+    if (v !== was && (v === 'off' || v === 'always'))
+      undo(`Offline brain: ${MODE_WORDS[v]}`, () => {
+        settings.set({ offlineBrain: was });
+        mode.value = was;
+        toast(`Offline brain: ${MODE_WORDS[was]} again`, 'ok');
+      });
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
     if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
     else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
@@ -48,9 +58,17 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const news = h('div.note.obnew');
   which.addEventListener('change', () => {
     if (offlineBrain.get().busy || which.value === offlineBrain.get().model) return;
+    // The brain on the phone stops being ready until the new one is downloaded: UNDO goes back to the one that was
+    // (its files are still here until another download finishes).
+    const was = { model: offlineBrain.get().model, downloaded: offlineBrain.get().downloaded, label: currentModel().label };
     offlineBrain.set({ model: which.value, downloaded: false, loaded: false });
     toast(`${currentModel().label}: press DOWNLOAD (about ${currentModel().mb} MB, on Wi-Fi)`, 'ok');
     refresh();
+    undo(`Offline brain: ${currentModel().label}`, () => {
+      offlineBrain.set({ model: was.model, downloaded: was.downloaded, loaded: false });
+      toast(`Back to ${was.label}`, 'ok');
+      refresh();
+    });
   });
   const out = h('div.note.obtest');
   let ok = false;
@@ -64,8 +82,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
       .finally(refresh);
     refresh();
   }, 'on');
-  const del = button('DELETE', () => {
-    if (!confirm('Remove the offline brain from this phone? (You can download it again any time.)')) return;
+  // 352 MB cannot be put back without downloading it again: a one-tap confirm that says so.
+  const del = button('DELETE', async () => {
+    if (!(await confirmSheet('Delete the offline brain?', `${currentModel().label} comes off this phone: with no signal Ghosty cannot answer until you download it again (about ${currentModel().mb} MB, best on Wi-Fi).`, 'DELETE'))) return;
     void deleteOffline().then(() => toast('Offline brain removed', 'ok')).finally(refresh);
   }, 'warn');
   const test = button('TEST', () => {
@@ -147,6 +166,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     think,
     out,
     h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
+    // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
+    meaningBlock(),
   );
   offlineBrain.subscribe(paint);
   settings.subscribe((s, prev) => {

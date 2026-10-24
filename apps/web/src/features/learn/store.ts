@@ -1,11 +1,13 @@
 /**
  * The LEARN tab's copy of the tutor on this phone (localStorage `ghosty.learn`): the courses, every
- * flashcard, the lessons already opened, the last quizzes and the streak — so revision, reading
- * and the streak work with no connection. Revisions made here are queued (`pending`) and sent to
- * the brain (POST /api/learn/review) when it is reachable; the brain replays them with the same
- * SM-2 (packages/shared/src/sm2.ts), so both copies agree.
+ * flashcard, the lessons already opened, the last quizzes, the exam under way and the streak — so
+ * revision, reading, the exam's clock and the streak work with no connection. Revisions made here
+ * are queued (`pending`) and sent to the brain (POST /api/learn/review) when it is reachable; the
+ * brain replays them with the same SM-2 (packages/shared/src/sm2.ts), so both copies agree. An
+ * exam's answers stay here until its end (no feedback before); one finished with the brain out of
+ * reach waits (`finishing`) and is marked when it is back.
  */
-import type { AnswerResult, Card, Course, CourseLesson, CourseSummary, LearnLevel, LearnState, Quiz, Review } from '../../../../../packages/shared/src/learn';
+import type { AnswerResult, Card, Confidence, Course, CourseLesson, CourseSummary, Exam, ExamAnswer, ExamMarked, LearnLevel, LearnState, Quiz, Review } from '../../../../../packages/shared/src/learn';
 import { dayKey, emptyStreak, markDay, mergeStreaks, rate, type Rating, type Streak } from '../../../../../packages/shared/src/sm2';
 import { headers } from '../../api/brain';
 import { createStore } from '../../core/store';
@@ -22,6 +24,20 @@ export interface Mirror {
   streak: Streak;
   /** When the brain last answered (0 never). */
   synced: number;
+  /** The exam under way (one at a time), with this phone's answers and its deadline on this phone's clock. */
+  exam?: OpenExam | null;
+}
+
+export interface OpenExam {
+  exam: Exam;
+  answers: ExamAnswer[];
+  /** The question showing. */
+  i: number;
+  /** When time is up, on this phone's clock (the brain's deadline less the brain's now, from when it was fetched). */
+  endsAt: number;
+  /** Ended here, waiting to be marked by the brain (and when it ended, on this phone's clock). */
+  finishing?: boolean;
+  finishedAt?: number;
 }
 
 export interface Done {
@@ -30,7 +46,7 @@ export interface Done {
   at: number;
 }
 
-export const learn = createStore<Mirror>({ courses: [], cards: [], full: {}, quizzes: [], pending: [], pendingDone: [], streak: emptyStreak(), synced: 0 }, { persist: 'ghosty.learn' });
+export const learn = createStore<Mirror>({ courses: [], cards: [], full: {}, quizzes: [], pending: [], pendingDone: [], streak: emptyStreak(), synced: 0, exam: null }, { persist: 'ghosty.learn' });
 
 /** One request to the brain's /api/learn routes; its error text when it refuses. */
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -45,7 +61,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return j;
 }
 
-export const today = () => dayKey(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+/** This phone's time zone (the owner's: the course's pace and the streak count its days). */
+export const tz = () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const today = () => dayKey(Date.now(), tz());
 
 /** Today counts for the streak on this phone too (the brain counts it on its side). */
 export function touchDay(): void {
@@ -83,6 +101,8 @@ export async function flush(): Promise<boolean> {
       break;
     }
   }
+  // An exam ended while the brain was out of reach: marked now.
+  if (learn.get().exam?.finishing) await finishExam().catch(() => (sent = false));
   const pending = learn.get().pending;
   if (!pending.length) return sent;
   try {
@@ -98,7 +118,9 @@ export async function flush(): Promise<boolean> {
 export async function sync(): Promise<boolean> {
   await flush();
   try {
-    const st = await call<LearnState>('GET', '');
+    const got = await call<LearnState>('GET', '');
+    // (a course on its way out, its UNDO bar still up, stays out)
+    const st = { ...got, courses: got.courses.filter((c) => !leaving.has(c.id)), cards: got.cards.filter((c) => !leaving.has(c.course)) };
     learn.set((s) => {
       const ids = new Set(st.courses.map((c) => c.id));
       const full = Object.fromEntries(Object.entries(s.full).filter(([id]) => ids.has(id)).map(([id, c]) => [id, withDone(c, s.pendingDone ?? [])]));
@@ -144,8 +166,8 @@ export async function lesson(courseId: string, n: number): Promise<CourseLesson>
   if (have?.text) return have;
   const { lesson: l } = await call<{ lesson: CourseLesson }>('POST', '/lesson', { course: courseId, n });
   const c = learn.get().full[courseId];
-  // Only a written lesson is kept (one that comes back as bare passages has no check question and is tried again later).
-  if (c && l.check) keepCourse({ ...c, lessons: c.lessons.map((x) => (x.n === l.n ? l : x)) });
+  // Only a written lesson is kept (one that comes back as bare passages has no parts or check question and is tried again later).
+  if (c && (l.check || l.parts)) keepCourse({ ...c, lessons: c.lessons.map((x) => (x.n === l.n ? l : x)) });
   return l;
 }
 
@@ -157,15 +179,66 @@ export async function finishLesson(courseId: string, n: number): Promise<void> {
   learn.set((s) => ({ courses: s.courses.map((x) => (x.id === courseId ? progressed(x, c) : x)) }));
   // The brain's own count wins when it answers (it also knows lessons finished elsewhere);
   // unreachable, the lesson waits in pendingDone and goes with the next flush.
-  const r = await call<{ course: CourseSummary | null }>('POST', '/done', { course: courseId, n }).catch(() => undefined);
+  const r = await call<{ course: CourseSummary | null; card?: Card }>('POST', '/done', { course: courseId, n }).catch(() => undefined);
   if (r === undefined) learn.set((s) => ({ pendingDone: [...(s.pendingDone ?? []).filter((d) => d.course !== courseId || d.n !== n), { course: courseId, n, at: Date.now() }].slice(-100) }));
-  else if (r.course) learn.set((s) => ({ courses: s.courses.map((x) => (x.id === courseId ? { ...x, ...r.course } : x)) }));
+  else {
+    if (r.course) learn.set((s) => ({ courses: s.courses.map((x) => (x.id === courseId ? { ...x, ...r.course } : x)) }));
+    // The lesson's one line, now a card (back tomorrow).
+    if (r.card) keepCards([r.card]);
+  }
+}
+
+function keepCards(cards: Card[]): void {
+  learn.set((s) => ({ cards: [...s.cards, ...cards.filter((c) => !s.cards.some((x) => x.id === c.id))] }));
 }
 
 function progressed(x: CourseSummary, c: Course | undefined): CourseSummary {
   if (!c) return x;
   const next = c.lessons.find((l) => !l.done);
   return { ...x, done: c.lessons.filter((l) => l.done).length, next: next?.n ?? 0, nextTitle: next?.title ?? '' };
+}
+
+/** Courses REMOVEd with the UNDO bar still up: gone from this phone's list, not yet from the brain. */
+const leaving = new Set<string>();
+
+/**
+ * REMOVE with UNDO: the course, its cards and its lessons leave this phone's lists now, and the brain is told only
+ * when the bar goes (`commit`); `undo` before then puts each back exactly where it was.
+ */
+export function removeCourseLater(id: string): { undo(): void; commit(): Promise<void> } {
+  const was = learn.get();
+  const at = was.courses.findIndex((c) => c.id === id);
+  const course = was.courses[at];
+  const cards = was.cards.filter((c) => c.course === id);
+  const full = was.full[id];
+  const done = (was.pendingDone ?? []).filter((d) => d.course === id);
+  leaving.add(id);
+  dropHere(id);
+  return {
+    undo() {
+      leaving.delete(id);
+      learn.set((s) => {
+        const courses = s.courses.filter((c) => c.id !== id);
+        if (course) courses.splice(Math.max(0, Math.min(at, courses.length)), 0, course);
+        return { courses, cards: [...s.cards, ...cards.filter((c) => !s.cards.some((x) => x.id === c.id))], full: full ? { ...s.full, [id]: full } : s.full, pendingDone: [...(s.pendingDone ?? []), ...done] };
+      });
+    },
+    async commit() {
+      try {
+        await call('DELETE', `/course/${encodeURIComponent(id)}`);
+      } finally {
+        leaving.delete(id);
+      }
+    },
+  };
+}
+
+function dropHere(id: string): void {
+  learn.set((s) => {
+    const full = { ...s.full };
+    delete full[id];
+    return { courses: s.courses.filter((c) => c.id !== id), cards: s.cards.filter((c) => c.course !== id), full, pendingDone: (s.pendingDone ?? []).filter((d) => d.course !== id) };
+  });
 }
 
 export async function removeCourse(id: string): Promise<void> {
@@ -177,7 +250,7 @@ export async function removeCourse(id: string): Promise<void> {
   });
 }
 
-export async function quiz(a: { course?: string; topic?: string; n?: number }): Promise<Quiz> {
+export async function quiz(a: { course?: string; topic?: string; n?: number; lesson?: number }): Promise<Quiz> {
   const { quiz: q } = await call<{ quiz: Quiz }>('POST', '/quiz', a);
   learn.set((s) => ({ quizzes: [q, ...s.quizzes.filter((x) => x.id !== q.id)].slice(0, 6) }));
   return q;
@@ -196,11 +269,60 @@ export async function quizById(id: string): Promise<Quiz | null> {
   }
 }
 
-/** Mark an answer on the brain (it keeps the score and makes a card of a wrong one). */
-export async function answer(a: { quiz?: string; q?: string; course?: string; lesson?: number; answer: unknown }): Promise<AnswerResult> {
+/** Mark an answer on the brain (it keeps the score, the confidence, and makes a card of a wrong or guessed one). */
+export async function answer(a: { quiz?: string; q?: string; course?: string; lesson?: number; answer: unknown; conf?: Confidence }): Promise<AnswerResult> {
   const r = await call<AnswerResult>('POST', '/answer', a);
   touchDay();
-  if (r.card) learn.set((s) => ({ cards: s.cards.some((c) => c.id === r.card!.id) ? s.cards : [...s.cards, r.card!] }));
+  if (r.card) keepCards([r.card]);
+  return r;
+}
+
+/**
+ * The course's exam: the one under way on this phone (resumed, its clock still running), else the
+ * brain's (a new one, or one started elsewhere with the time it has left).
+ */
+export async function startExam(courseId: string): Promise<OpenExam> {
+  const have = learn.get().exam;
+  if (have && have.exam.course === courseId) return have;
+  if (have && !have.finishing) throw new Error(`finish the exam on "${have.exam.title}" first`);
+  const { exam, now } = await call<{ exam: Exam; now: number }>('POST', '/exam', { course: courseId });
+  const open: OpenExam = { exam, answers: [], i: 0, endsAt: Date.now() + Math.max(0, exam.ends - (now || exam.started)) };
+  learn.set({ exam: open });
+  return open;
+}
+
+/** One answer kept here (no feedback until the end), and the next question. */
+export function answerExam(q: string, given: ExamAnswer['answer'], conf?: Confidence): OpenExam | null {
+  const e = learn.get().exam;
+  if (!e || e.finishing) return e ?? null;
+  // Time is up: nothing more counts.
+  if (Date.now() > e.endsAt) return e;
+  const answers = [...e.answers.filter((a) => a.q !== q), { q, answer: given, ...(conf ? { conf } : {}), at: Date.now() }];
+  const next: OpenExam = { ...e, answers, i: Math.min(e.exam.questions.length, e.exam.questions.findIndex((x) => x.id === q) + 1) };
+  learn.set({ exam: next });
+  return next;
+}
+
+/** The end: the brain marks every answer; out of reach, the exam waits (`finishing`) and goes with the next flush. */
+export async function finishExam(): Promise<ExamMarked | null> {
+  const e = learn.get().exam;
+  if (!e) return null;
+  if (!e.finishing) learn.set({ exam: { ...e, finishing: true, finishedAt: Date.now() } });
+  let r: ExamMarked;
+  try {
+    // The time taken, as this phone's clock counted it (the clock that was shown).
+    const used = Math.round(e.exam.seconds - Math.max(0, (e.endsAt - (e.finishedAt ?? Date.now())) / 1000));
+    r = await call<ExamMarked>('POST', '/exam/finish', { exam: e.exam.id, answers: e.answers, used });
+  } catch (err) {
+    // Gone from the brain (marked elsewhere, or the course removed): nothing to wait for.
+    if (/no longer open/.test((err as Error).message)) learn.set({ exam: null });
+    throw err;
+  }
+  learn.set({ exam: null });
+  keepCards(r.cards);
+  const c = learn.get().full[e.exam.course];
+  if (c) keepCourse({ ...c, exams: [...(c.exams ?? []).filter((x) => x.id !== r.result.id), r.result].slice(-5) });
+  touchDay();
   return r;
 }
 
@@ -219,5 +341,9 @@ export function review(card: Card, rating: Rating): Card {
   return next;
 }
 
-/** The cards due now, the most overdue first. */
-export const dueCards = (now = Date.now()) => learn.get().cards.filter((c) => c.due <= now).sort((a, b) => a.due - b.due);
+/** The cards due now, the most overdue first (one course's, when named). */
+export const dueCards = (now = Date.now(), course?: string) => learn.get().cards.filter((c) => c.due <= now && (!course || c.course === course)).sort((a, b) => a.due - b.due);
+
+/** A weak lesson's cards to revise now: its due ones first, then the rest (revising early is allowed). */
+export const lessonCards = (course: string, lesson: number, now = Date.now()) =>
+  learn.get().cards.filter((c) => c.course === course && c.lesson === lesson).sort((a, b) => Number(b.due <= now) - Number(a.due <= now) || a.due - b.due);

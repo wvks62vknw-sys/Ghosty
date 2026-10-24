@@ -4,6 +4,7 @@
 // as usual. Runs against the preview server (node tests/preview-server.mjs <port>).
 //   BASE=http://localhost:8802 node tests/direct.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -11,7 +12,7 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 
@@ -43,7 +44,9 @@ await page.screenshot({ path: `${out}/direct-time.png` });
 
 // 3. memory, with no model: the list_memory tool runs and its raw text is the answer
 await ask('no model: what do you remember about me');
-if (!(await seen(/The raw answer:\n[^\n]*my dog is Rex/i))) problems.push('memory was not listed without a model');
+// (other specs on the same preview may have remembered things first — the Lens's SAVE, for one — so Rex is in the
+//  list, not necessarily on its first line)
+if (!(await seen(/The raw answer:\n[\s\S]{0,600}?my dog is Rex/i))) problems.push('memory was not listed without a model');
 if (!(await seen(/Recalling memory/, 5000))) problems.push('the tool that answered (list_memory, "Recalling memory") is not shown in the log');
 
 // 4. anything else: the exact time the first model is back, and the one tip

@@ -65,8 +65,8 @@ export interface LookupResult {
   /** Nutri-Score and Green-Score, a–e (absent when unknown). */
   nutriscore?: string;
   ecoscore?: string;
-  /** Per 100 g: energy (kcal), fat, saturated fat, sugars, salt, protein (g). */
-  nutrition?: Partial<Record<'kcal' | 'fat' | 'saturates' | 'sugars' | 'salt' | 'protein', number>>;
+  /** Per 100 g: energy (kcal), fat, saturated fat, sugars, salt, protein, carbohydrate (g). */
+  nutrition?: Partial<Record<'kcal' | 'fat' | 'saturates' | 'sugars' | 'salt' | 'protein' | 'carbs', number>>;
   ingredients?: string;
   allergens?: string[];
   categories?: string;

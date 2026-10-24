@@ -194,21 +194,41 @@ class MazeLearner implements Learner {
     this.r = rng(this.seed * 31 + this.episodes);
   }
   train(n: number) {
-    const { m, q, r } = this;
-    const cap = m.w * m.h * 4;
-    for (let e = 0; e < n; e++) {
-      let c = this.starts[Math.floor(r() * this.starts.length)]!;
-      for (let t = 0; t < cap; t++) {
-        const d = r() < 0.1 ? Math.floor(r() * 4) : argmax(q, c * 4, 4);
-        const s = stepMaze(m, c, d);
-        const target = s.done ? s.reward : s.reward + q[s.to * 4 + argmax(q, s.to * 4, 4)]!;
-        q[c * 4 + d]! += 0.5 * (target - q[c * 4 + d]!);
-        c = s.to;
-        if (s.done) break;
-      }
-    }
+    for (let e = 0; e < n; e++) this.episode(this.starts[Math.floor(this.r() * this.starts.length)]!);
     this.episodes += n;
     return n;
+  }
+  /** One run of Q-learning from `start` to the gold (or the step cap). */
+  private episode(start: number) {
+    const { m, q, r } = this;
+    const cap = m.w * m.h * 4;
+    let c = start;
+    for (let t = 0; t < cap; t++) {
+      const d = r() < 0.1 ? Math.floor(r() * 4) : argmax(q, c * 4, 4);
+      const s = stepMaze(m, c, d);
+      const target = s.done ? s.reward : s.reward + q[s.to * 4 + argmax(q, s.to * 4, 4)]!;
+      q[c * 4 + d]! += 0.5 * (target - q[c * 4 + d]!);
+      c = s.to;
+      if (s.done) break;
+    }
+  }
+  /**
+   * A puzzle at his edge: his own maze from a start cell as far from the gold as `x` says (the start cells in
+   * order of their cheapest cost, his level's start at the nearest, the next level's at the farthest), his
+   * greedy route as the answer; then a few runs from there (practice where he is still learning).
+   */
+  stretch(x: number, seed: number) {
+    const f = Math.max(0, Math.min(0.999, x - this.level));
+    const order = this.starts.slice().sort((a, b) => this.opt[a]! - this.opt[b]! || a - b);
+    const r = rng(seed);
+    const at = Math.max(0, Math.min(order.length - 1, Math.floor((f + 0.12 * (r() - 0.5)) * order.length)));
+    const start = order[at]!;
+    const { path } = greedyCost(this.m, this.q, start);
+    const answer = path.slice(1).map((c, i) => DIRS[[0, 1, 2, 3].find((d) => move(this.m.w, this.m.h, path[i]!, d) === c) ?? 0]).join('');
+    const problem = problemAt(this.m, this.level, this.seed, start);
+    for (let k = 0; k < 4; k++) this.episode(start);
+    this.episodes += 4;
+    return { problem, answer };
   }
   measure() {
     let good = 0;
@@ -252,7 +272,11 @@ class MazeLearner implements Learner {
 function generate(level: number, seed: number): Problem {
   const m = makeMaze(level, seed);
   const s = startCells(m);
-  const start = s[Math.floor(rng(seed + 1)() * s.length)]!;
+  return problemAt(m, level, seed, s[Math.floor(rng(seed + 1)() * s.length)]!);
+}
+
+/** The maze made for (level, seed), from `start`, as a question. */
+function problemAt(m: Maze, level: number, seed: number, start: number): Problem {
   const opt = cheapest(m)[start]!;
   const text = `A maze (${LEGEND}). Each step costs 1, stepping into mud costs 3, walls cannot be crossed. Give the cheapest route from S to G as a string of the letters N, E, S, W.\n${rows(m, start).join('\n')}`;
   return { game: 'maze', level: lvl(level), seed, text, data: { level: lvl(level), seed, start, opt } };

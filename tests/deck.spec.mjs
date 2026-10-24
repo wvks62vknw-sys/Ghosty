@@ -12,7 +12,7 @@
 //  - the Me sheet still opens and its rows still go where they say.
 //   BASE=http://localhost:8788 node tests/deck.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -21,7 +21,7 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const KEY = 'preview-owner-key-0123456789';
 const problems = [];
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
-const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true, locale: 'en-GB', timezoneId: 'Europe/London' });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
 await ctx.addInitScript(([k]) => {
   localStorage.setItem('ghosty.ownerKey', k);
   if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));

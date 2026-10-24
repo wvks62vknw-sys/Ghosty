@@ -7,6 +7,7 @@
 // own worker, ended on leaving NAME (the only way to give its WebAssembly memory back). The real
 // model runs here: no WebGPU needed, one thread.
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -18,7 +19,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
@@ -97,7 +99,7 @@ await until(() => !/more names/.test(window.__ghosty?.lens?.status ?? '') && win
 
 // ---- a tap on a name: SEARCH THE WEB sends words only ----
 await page.locator('#pg-lens .lensnames button').first().click();
-if (!(await page.locator('#pg-lens .lenssel').isVisible())) problems.push('a tap on a name did not offer ASK GHOSTY / SEARCH THE WEB');
+if (!(await page.locator('#pg-lens .lenssel:not(.livingcard)').isVisible())) problems.push('a tap on a name did not offer ASK GHOSTY / SEARCH THE WEB');
 const searchReq = page.waitForRequest((r) => r.url().includes('/api/chat') && r.method() === 'POST', { timeout: 20000 }).catch(() => null);
 await page.locator('#pg-lens button', { hasText: 'SEARCH THE WEB' }).click();
 const sreq = await searchReq;
@@ -113,7 +115,7 @@ await until(() => (window.__ghosty?.lens?.reply ?? '').length > 0, 30000, `SEARC
 
 // ---- ASK GHOSTY: the picture goes with the question, the names ride along as the phone's guesses ----
 const askReq = page.waitForRequest((r) => r.url().includes('/api/chat') && r.method() === 'POST', { timeout: 20000 }).catch(() => null);
-await page.locator('#pg-lens .lenssel button', { hasText: 'ASK GHOSTY' }).click();
+await page.locator('#pg-lens .lenssel:not(.livingcard) button', { hasText: 'ASK GHOSTY' }).click();
 const areq = await askReq;
 if (!areq) problems.push('ASK GHOSTY from NAME sent nothing to the brain');
 else {

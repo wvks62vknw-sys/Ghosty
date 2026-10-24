@@ -94,7 +94,7 @@ export const route = (slug: string) => `#/${slug}`;
 
 /** The main call to action of the whole site: book, call, order, donate… picked from what the owner gave. */
 export function primaryAction(b: Brief, plan: Plan): Link {
-  const contact = ['book', 'quote', 'valuation', 'join', 'contact', 'visit'].map((slug) => plan.pages.find((p) => p.slug === slug)).find(Boolean);
+  const contact = ['book', 'quote', 'valuation', 'join', 'order', 'rsvp', 'notify', 'contact', 'visit'].map((slug) => plan.pages.find((p) => p.slug === slug)).find(Boolean);
   if (b.bookingUrl) return { label: b.kind === 'restaurant' || b.kind === 'cafe' ? 'Book a table' : 'Book online', href: b.bookingUrl };
   if (b.kind === 'charity' && b.donateUrl) return { label: 'Donate', href: b.donateUrl };
   if (b.kind === 'shop' && b.shopUrl) return { label: 'Shop online', href: b.shopUrl };
@@ -117,6 +117,12 @@ const ACTION_WORD: Partial<Record<Brief['kind'], string>> = {
   charity: 'Get involved',
   saas: 'Get started',
   shop: 'Visit the shop',
+  tradesperson: 'Ask for a price',
+  takeaway: 'How to order',
+  cv: 'Get in touch',
+  invite: 'RSVP',
+  club: 'Join us',
+  launch: 'Tell me when',
 };
 
 /** The pages that appear in the navigation (home first). */

@@ -157,3 +157,44 @@ Add to it any time; tick items off only when he agrees they are fixed.
     ready to be merged just merge it yourself, don't wait for me to do it, and then stay continuing with everything else
     too" (reaffirms 31: merge when CI is green and the batch is complete and reviewed; never stop for his merge).
 
+35. **PR #32 merged (24 Oct 10:12 UK), by this session as authorised:** the whole Week 1 batch, with the deck and one look
+    included. Told the owner what is live, how to press TRAIN NOW, three self-edit trial jobs to paste into Workshop,
+    and the theme extras to pick from. Running: A3 (specs at 440 × 956, en-GB). Next: the SPEED card after a day of
+    numbers, courses (item 6), `build_app` as a Workshop project, the extras once picked.
+
+36. **Usage and the pace (24 Oct ~12:30 UK):** all models weekly 30 %, Fable 19 %. "Remember to do every single thing we
+    talked about; do every single one of them that you can, because it seems like we have a lot of space right now and
+    don't have to do things in weeks like we thought; do every single little thing you can whilst still maximising
+    credits and maximising output, and if we have anything left we can get it done a different way or next week." So:
+    the whole plan (weeks 2 and 3 and the ideas) is queued now, built in parallel by cheaper builders with the same
+    review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
+    his pick waits for him; whatever is left at the week's end goes to next week.
+
+37. **What only he can do, as of 24 Oct ~13:15 UK (after the next pull request lands):** (a) SYSTEM → KEYS → Pl@ntNet:
+    make a free account at my.plantnet.org, copy the API key, paste it in; then Lens → NAME → LIVING THING → PLANT names
+    plants (500 a day, free). Without it, PLANT offers "ASK GHOSTY INSTEAD" (the seeing model). (b) Settings → Offline
+    brain → Search by meaning → ADD · 70 MB, on Wi-Fi: the library on the phone then finds passages by what they mean;
+    the index fills in the background ("x of y passages indexed"). (c) Try "teach me algebra" in the chat: the course
+    map, a lesson in six parts, the confidence taps, the exam. (d) Still open from before: TRAIN NOW (SYSTEM → OFFLINE
+    BRAIN TRAINING), the theme extras pick (item 28), the self-edit trial results, whether the 18 Pro Max has arrived,
+    the voice fixture blind check.
+    (e) SYSTEM → NIGHT SCHOOL: switch it on, leave the phone plugged in and open on Ghosty overnight (the screen stays
+    on, dimmed); the morning report lands in the inbox. (f) SYSTEM → OFFLINE BRAIN TRAINING: TRAIN FROM SCRATCH when
+    he wants the monthly reset early; otherwise it happens by itself from the first Friday of each month.
+    (g) Lens → hold a frame or pick a photo → PHOTO TOOLS: BACKGROUND, SHARPER or ERASE (draw over the thing with a
+    finger, then ERASE); or just say "remove the background" in ASK. The Spaces are free and shared: the first job of
+    the day can take a minute while one wakes, and the sheet says so.
+    (h) GYM: after a game passes a level, watch for the league toast ("kept" or "thrown away", with the rating); on the
+    game's page, LEAGUE OF HIS PAST SELVES; for the maze, Sokoban and Sudoku, the "Level 7½: puzzles he only just fails"
+    line. SYSTEM → LOOPS shows the week's practice, improvements and rejections for every loop.
+    (i) SYSTEM → KEYS → Website form (Formspree): a free Formspree account, one form, paste its address; from then on the
+    contact form on every website Ghosty builds really sends to your email (50 a month free). Without it the forms open
+    WhatsApp or email. Then "make me a website for …" and look at the DRAFT card in the Workshop: CHANGE in words,
+    PUBLISH when it is right.
+    (j) Say "my home is <address>" and "my work is <address>" in the chat (he shows the place and keeps it only when you
+    say yes); then "take me home" and "how long to work?". Agenda → SPENDING → ADD A STATEMENT with a CSV from your
+    bank's app (Monzo, Barclays, Lloyds, Nationwide, HSBC and the like): the month sorted on the phone, budgets in your
+    words. Nothing connects to the bank.
+    (k) Remove anything (a memory, a library document, a course, a widget): an UNDO bar sits above the tab bar for 12
+    seconds and puts it back exactly. With no signal, "translate dinner into Spanish": the phone's own brain answers,
+    marked rough, with READ ALOUD.

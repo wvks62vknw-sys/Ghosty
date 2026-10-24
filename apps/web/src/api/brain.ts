@@ -7,11 +7,25 @@ import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
-import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
+import { keepForever, meaningPossible, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocalHow, shelf, syncLocalDocs } from '../library/local';
+import { interleave, type SearchHow } from '../../../../packages/shared/src/meaning';
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
+import type { BrainLoops } from '../../../../packages/shared/src/loops';
+import type { PlaceCandidate, SavedPlace } from '../../../../packages/shared/src/places';
+import type { Category, ImportResult, SpendingSummary } from '../../../../packages/shared/src/spending';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
+/** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
+export interface SiteDraft {
+  name: string;
+  title: string;
+  html: string;
+  live: boolean;
+  link: string;
+  confirm: string[];
+  publish: string;
+}
 /** One of the phones' daily backups as the brain lists it (apps/edge/src/backup.ts). */
 export interface BackupInfo {
   /** Its name: `<device>:<day>`, or `<day>` for a copy kept in the older format. */
@@ -169,13 +183,24 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
 }
 
+/** The page is being closed or reloaded (set before the UNDO bars' waiting changes are made: ui/components.ts flushUndo). */
+let leaving = false;
+if (typeof addEventListener === 'function') {
+  addEventListener('pagehide', () => (leaving = true));
+  addEventListener('pageshow', () => (leaving = false));
+}
+
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const t0 = stopwatch.now();
+  const json = body !== undefined ? JSON.stringify(body) : undefined;
   const r = await fetch(`/api${path}`, {
     method,
-    headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}),
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: headers(json !== undefined ? { 'content-type': 'application/json' } : {}),
+    body: json,
     credentials: 'same-origin',
+    // A small change sent while Ghosty is being closed or put away (an UNDO bar's change made then:
+    // ui/components.ts flushUndo) still reaches the brain after the page has gone.
+    keepalive: method !== 'GET' && (leaving || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) && (json?.length ?? 0) < 32_000,
   });
   const text = await r.text();
   // The brain's round trip, as this phone sees it (core/stopwatch.ts).
@@ -305,18 +330,41 @@ export const brain = {
   /** SETTINGS → CHARACTER (profile.ts): how dry, how brief, how warm Ghosty talks, and the words that makes. */
   persona: () => req<{ persona: PersonaSettings; character: string }>('GET', '/profile/persona'),
   setPersona: (p: PersonaSettings) => req<{ persona: PersonaSettings; character: string }>('POST', '/profile/persona', p),
+  /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
+  places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
+  placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
+  placeKeep: (found: PlaceCandidate) => req<{ places: SavedPlace[] }>('POST', '/profile/places', { found }),
+  placeForget: (id: string) => req<{ places: SavedPlace[]; removed: boolean }>('DELETE', `/profile/places?id=${encodeURIComponent(id)}`),
+  /** The Brief's commute: the drive between two points now (live traffic with the TomTom key). */
+  commute: (from: { lat: number; lon: number }, to: { lat: number; lon: number }) =>
+    req<{ minutes: number; km: number; delayMin: number; live: boolean; line: string }>('GET', `/traffic/commute/${from.lat.toFixed(5)},${from.lon.toFixed(5)}/${to.lat.toFixed(5)},${to.lon.toFixed(5)}`),
+  /** Agenda → SPENDING (spending.ts): the statements he added, by month; no bank access of any kind. */
+  spending: (month?: string) => req<SpendingSummary>('GET', `/profile/spending${month ? `?month=${encodeURIComponent(month)}` : ''}`),
+  spendingImport: (csv: string) => req<SpendingSummary & { result: ImportResult }>('POST', '/profile/spending/import', { csv }),
+  spendingFile: (k: string, c: Category, month: string) => req<SpendingSummary & { filed: number }>('POST', '/profile/spending/file', { k, c, month }),
+  spendingBudget: (words: string, month: string) => req<SpendingSummary & { set: { category: Category; monthly: number } }>('POST', '/profile/spending/budget', { words, month }),
+  spendingForget: () => req<SpendingSummary>('DELETE', '/profile/spending'),
+  /** EXPORT AS CSV: every kept row (Date, Description, Amount, Category). */
+  spendingCsv: async () => {
+    const r = await fetch('/api/profile/spending/export', { headers: headers(), credentials: 'same-origin' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.text();
+  },
   /** DIGEST NOW: today's fresh knowledge gathered into the library, right away (library/digest.ts). */
   digestNow: () => req<DigestInfo>('POST', '/library/digest', {}),
   /** Projects that run for days (projects.ts): the Workshop tab's PROJECTS panel. */
   projects: () => req<{ projects: Project[] }>('GET', '/projects'),
   projectAction: (id: string, action: 'pause' | 'resume' | 'cancel' | 'run') => req<{ project: Project; did?: string }>('POST', `/projects/${encodeURIComponent(id)}/${action}`, {}),
+  /** A website project's DRAFT card (sitebuild.ts draftView): the page, its state and what to confirm; CHANGE in words. */
+  siteDraft: (id: string) => req<{ draft: SiteDraft }>('GET', `/projects/${encodeURIComponent(id)}/draft`),
+  siteChange: (id: string, words: string) => req<{ draft: SiteDraft; said: string }>('POST', `/projects/${encodeURIComponent(id)}/change`, { words }),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
   training: () => req<{ exercises: { id: string; title: string; level: number; topic: string }[]; records: Record<string, { solved: boolean; attempts: number; at: number; model?: string; firstSolve?: number }> }>('GET', '/train'),
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
   library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
-  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
+  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow; unindexed?: number }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
@@ -402,6 +450,8 @@ export const brain = {
   selftrain: {
     status: () => req<TrainStatus>('GET', '/training'),
     now: () => req<TrainStatus>('POST', '/training/now', {}),
+    /** TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain from the stock model on every week kept. */
+    scratch: () => req<TrainStatus>('POST', '/training/scratch', {}),
     rollback: () => req<TrainStatus>('POST', '/training/rollback', {}),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
     privateData: (on: boolean) => req<TrainStatus>('POST', '/training/private', { on }),
@@ -409,6 +459,10 @@ export const brain = {
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
     gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
+    /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */
+    star: (records: unknown[]) => req<{ kept: number; refused: { why: string; n: number }[]; waiting: number }>('POST', '/training/star', { records }),
+    /** This week's numbers for the brain's loops (the REPORT CARD's LOOPS card). */
+    loops: () => req<BrainLoops>('GET', '/training/loops'),
   },
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });
@@ -526,14 +580,26 @@ export function mirrorLibraryNow(): Promise<void> {
   })();
   return mirrorRun;
 }
+/**
+ * ASK THE LIBRARY: the brain's search with the phone's copy. `how` is what the small print says: "meaning" only
+ * when the phone ranked by meaning (SEARCH BY MEANING here and its index whole, library/meaning.ts), else
+ * "keywords" (the brain's own search finds passages by their words too).
+ */
 brain.librarySearch = async (q, k = 8) => {
   try {
     const r = await raw.librarySearch(q, k);
+    const paused = !!(r as { paused?: boolean }).paused;
+    // By meaning: the phone searches its whole copy, and takes turns with the brain's results (which also hold
+    // what the phone does not keep, such as Ghosty's reading notebooks).
+    if (meaningPossible()) {
+      const mine = await searchLocalHow(q, k);
+      if (mine.how === 'meaning') return { hits: interleave(mine.hits, paused ? [] : r.hits, k), how: mine.how, unindexed: mine.unindexed };
+    }
     // The brain has every document it was sent; add the ones only this device has (all of them while paused).
-    const local = await searchLocal(q, k, !(r as { paused?: boolean }).paused);
-    return { hits: [...local, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k) };
+    const local = await searchLocalHow(q, k, !paused);
+    return { hits: [...local.hits, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k), how: 'keywords' as SearchHow, unindexed: 0 };
   } catch (e) {
-    if (unreachable(e)) return { hits: await searchLocal(q, k) };
+    if (unreachable(e)) return searchLocalHow(q, k);
     throw e;
   }
 };

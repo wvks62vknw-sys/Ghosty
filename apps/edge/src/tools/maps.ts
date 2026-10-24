@@ -8,7 +8,7 @@
  */
 import { asData } from '../kernel/permissions';
 import { knownPlace } from '../integrations/traffic';
-import { geocode, ownerPlace } from './travel';
+import { ownerPlace, placeFor } from './travel';
 import { arg, clip, type Tool, type ToolContext } from './types';
 
 const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/json', 'Accept-Language': 'en' };
@@ -34,7 +34,11 @@ async function where(a: Record<string, unknown>, ctx: ToolContext, key = 'place'
   if (m) return { name: place, lat: Number(m[1]), lon: Number(m[2]) };
   const known = knownPlace(place);
   if (known) return { ...known, name: /[A-Z]/.test(place) && place.length <= 40 ? place : known.name };
-  const g = await geocode(place, await ownerPlace(ctx).catch(() => null)).catch(() => null);
+  // A place he saved ("home", "work": places.ts) is that place; "home" not saved yet says how to save it.
+  const g = await placeFor(place, ctx, await ownerPlace(ctx).catch(() => null)).catch((e: Error) => {
+    if (/I don't know where/.test(e.message)) throw e;
+    return null;
+  });
   if (!g) throw new Error(`I couldn't find "${place}" on the map`);
   return g;
 }

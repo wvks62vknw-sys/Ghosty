@@ -1,4 +1,5 @@
 /** BRIEF tab: weather in detail, headlines by section, and a spoken briefing on request. */
+import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { GEO } from '../../engine/geo';
@@ -20,7 +21,27 @@ export const briefTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stack: true });
     const wp = panel('WEATHER', { cls: 'wx' });
-    P.left.append(wp.el);
+    // THE COMMUTE: one line, home to work with the live traffic, only when both are saved (Memory → ME → PLACES).
+    const commute = panel('COMMUTE', { cls: 'commute', grow: false });
+    commute.el.hidden = true;
+    P.left.append(wp.el, commute.el);
+    const paintCommute = async () => {
+      try {
+        const places = (await brain.places()).places ?? [];
+        const home = places.find((p) => p.id === 'home');
+        const work = places.find((p) => p.id === 'work');
+        if (!home || !work) return void (commute.el.hidden = true);
+        commute.el.hidden = false;
+        commute.setStatus('…', 'mid');
+        const c = await brain.commute(home, work);
+        commute.setStatus(c.live ? 'LIVE' : 'NO LIVE TRAFFIC', c.live ? 'ok' : 'mid');
+        clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }));
+      } catch (e) {
+        if (commute.el.hidden) return;
+        commute.setStatus('OFFLINE', 'off');
+        clear(commute.body, row('HOME → WORK', `Could not time it now: ${(e as Error).message}`, null, { wrap: true }));
+      }
+    };
     const np = panel('HEADLINES', { footer: true, status: 'BBC', cls: 'news' });
     const sections = h('div.tabs', ...Object.entries(NEWS_FEEDS).map(([id, [label]]) => button(label, (b) => {
       setNewsFeed(id);
@@ -80,6 +101,7 @@ export const briefTab: TabDef = {
     paintNews();
     return {
       enter() {
+        void paintCommute();
         weather.start();
         air.start();
         news.start();

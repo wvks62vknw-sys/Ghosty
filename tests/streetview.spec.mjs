@@ -6,6 +6,7 @@
 // pages load. Works without the internet (the frames' contents are not needed).
 //   node tests/streetview.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -14,7 +15,7 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+const page = await browser.newPage({ viewport: PHONE, ...UK, hasTouch: true, isMobile: true });
 // Uncaught errors inside the Google and Waze frames surface here too (their own scripts talking to
 // their own servers, e.g. Waze's '{"message":"Missing user and visitor id"…}'); only Ghosty's count.
 page.on('pageerror', (e) => webkitNoise(e) || !/^\{"message"/.test(e.message) && problems.push(`pageerror: ${e.message}`));

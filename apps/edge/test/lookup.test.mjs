@@ -281,3 +281,122 @@ test('GET /api/lookup/barcode and POST /api/translate through the worker, owner 
   assert.ok(mj.text.length > 0);
   await Promise.allSettled(pending);
 });
+
+// ---- WHAT'S IN IT (integrations/foods.ts, packages/shared/src/living.ts): the model's food list checked, each food
+// matched to the built-in table or Open Food Facts by name, the rough total's rounding, the card's words, the route.
+const LV = JSON.parse(readFileSync(new URL('./living.fixture.json', import.meta.url), 'utf8'));
+
+test('the built-in table: ~150+ common UK foods per 100 g, and the matcher picks the longest name that fits, never a guess', () => {
+  assert.ok(LK.FOODS.length >= 150, String(LK.FOODS.length));
+  for (const f of LK.FOODS) {
+    const { kcal, protein, carbs, fat } = f.per100;
+    assert.ok([kcal, protein, carbs, fat].every((n) => Number.isFinite(n) && n >= 0), f.name);
+    // energy from the three (4/4/9 kcal a gram) is never far from the stated energy: a typo would show here
+    const made = protein * 4 + carbs * 4 + fat * 9;
+    if (f.name === 'beer' || f.name === 'wine') continue; // most of their energy is the alcohol (7 kcal a gram)
+    assert.ok(Math.abs(made - kcal) <= Math.max(30, kcal * 0.2), `${f.name}: ${kcal} kcal stated, ${Math.round(made)} from its figures`);
+  }
+  const m = (n) => LK.matchFood(n)?.name ?? null;
+  assert.equal(m('chips'), 'chips');
+  assert.equal(m('Chunky Chips'), 'chips');
+  assert.equal(m('diet coke'), 'diet cola', 'diet coke, not coke');
+  assert.equal(m('coke'), 'cola');
+  assert.equal(m('fried egg'), 'fried egg');
+  assert.equal(m('egg fried rice'), 'fried rice', 'not a fried egg');
+  assert.equal(m('Sausages'), 'sausage');
+  assert.equal(m('a slice of pizza'), 'pizza');
+  assert.equal(m('pepperoni pizza'), 'pepperoni pizza');
+  assert.equal(m('fish in batter'), 'fish in batter');
+  assert.equal(m('mushy peas'), 'peas');
+  assert.equal(m('chicken tikka masala'), 'chicken curry');
+  assert.equal(m("shepherd's pie"), "shepherd's pie");
+  assert.equal(m('side salad'), 'salad');
+  assert.equal(m('moon rock'), null);
+  assert.equal(m(''), null);
+});
+
+test("the model's WHAT'S IN IT JSON is checked: at most 12 foods, plain names, 1–2,000 g, can't tell", () => {
+  const ok = LK.checkMeal('```json\n{"foods":[{"name":"Fish in batter","grams":150},{"name":"chips","grams":"150 g"},{"name":"Heinz baked beans","grams":200,"packaged":true},{"name":"","grams":5},{"name":"see https://x.example","grams":10},{"name":"plate","grams":-4},{"name":"cake","grams":99999}],"sure":"fairly sure"}\n```');
+  assert.deepEqual(ok.foods, [{ name: 'fish in batter', grams: 150 }, { name: 'chips', grams: 150 }, { name: 'heinz baked beans', grams: 200, packaged: true }, { name: 'cake', grams: 2000 }]);
+  assert.equal(ok.level, 'probably');
+  assert.equal(ok.said, 'fairly sure');
+  assert.equal(LK.checkMeal('{"foods":' + JSON.stringify(Array.from({ length: 20 }, (_, i) => ({ name: `food ${i}`, grams: 10 }))) + '}').foods.length, 12);
+  const none = LK.checkMeal('{"foods":[],"sure":"can\'t tell"}');
+  assert.deepEqual(none.foods, []);
+  assert.equal(none.level, 'cant');
+  assert.equal(LK.checkMeal('Fish and chips, about 900 kcal.'), null, 'not JSON: no list made up');
+  assert.equal(LK.checkMeal('{"foods":"chips"}'), null);
+});
+
+test('the totals: kcal to the nearest 10 (50 from 1,000), grams whole, unmatched foods said and not counted', () => {
+  assert.deepEqual([0, -5, 3, 14, 15, 647, 653, 995, 1003, 1130, 1124, NaN].map(LK.roughKcal), [0, 0, 10, 10, 20, 650, 650, 1000, 1000, 1150, 1100, 0]);
+  const t = LK.mealTotals([
+    { name: 'a', grams: 100, match: 'a', from: 'table', macros: { kcal: 333.3, protein: 10.4, carbs: 20.5, fat: 5.2 } },
+    { name: 'b', grams: 50, match: 'b', from: 'table', macros: { kcal: 314.1, protein: 0.4, carbs: 30.2, fat: 15.4 } },
+    { name: 'dragon egg', grams: 80, match: '', from: 'none' },
+  ]);
+  assert.deepEqual(t.total, { kcal: 650, protein: 11, carbs: 51, fat: 21 });
+  assert.equal(t.counted, 2);
+  assert.equal(t.line, 'about 650 kcal');
+  assert.equal(t.honesty, 'rough: portions are guessed from a photo; 1 of 3 not counted (no match)');
+  const nothing = LK.mealTotals([{ name: 'dragon egg', grams: 80, match: '', from: 'none' }]);
+  assert.equal(nothing.line, 'no total: none of the foods matched');
+});
+
+test("the meal: the table for plain food, Open Food Facts by name for a packet, the card's words with the honesty line", async () => {
+  const calls = network({
+    'cgi/search.pl': (url) => (/heinz/i.test(new URL(url).searchParams.get('search_terms')) ? jsonRes(LV.offSearch) : jsonRes(LV.offEmpty)),
+  });
+  const m = await LK.lookupMeal([
+    { name: 'fish in batter', grams: 150 },
+    { name: 'chips', grams: 150 },
+    { name: 'mushy peas', grams: 80 },
+    { name: 'heinz baked beans', grams: 200, packaged: true },
+    { name: 'moon rock', grams: 30 },
+  ]);
+  assert.deepEqual(m.items.map((i) => [i.from, i.match]), [['table', 'fish in batter'], ['table', 'chips'], ['table', 'peas'], ['Open Food Facts', 'Baked Beans in Tomato Sauce, Heinz'], ['none', '']]);
+  assert.equal(Math.round(m.items[3].macros.kcal), 156, '78 kcal per 100 g × 200 g');
+  // 345 + 468 + 64.8 + 156 = 1033.8 → 1,050 (nearest 50 from 1,000)
+  assert.equal(m.line, 'about 1,050 kcal');
+  assert.equal(m.credit, 'Packaged foods: Open Food Facts (ODbL)');
+  const offCalls = calls.filter((c) => c.url.includes('cgi/search.pl'));
+  assert.equal(offCalls.length, 2, 'the packet, and the food the table does not know');
+  assert.ok(offCalls.every((c) => /^Ghosty\/2\.0/.test(c.ua)));
+  assert.deepEqual(LK.mealCardLines(m), [
+    'fish in batter, about 150 g: about 350 kcal',
+    'chips, about 150 g: about 470 kcal',
+    'mushy peas, about 80 g: about 60 kcal',
+    'heinz baked beans, about 200 g: about 160 kcal (Open Food Facts)',
+    'moon rock, about 30 g: not matched, not counted',
+    'About 1,050 kcal; 41 g protein, 118 g carbs, 41 g fat (rough: portions are guessed from a photo; 1 of 5 not counted (no match)).',
+  ]);
+  for (const line of LK.mealCardLines(m)) assert.ok(!/healthy|unhealthy|diet|lose weight|calorie deficit|you should/i.test(line), 'never a health claim');
+  // the table answers on its own when Open Food Facts is down
+  network({ 'cgi/search.pl': () => jsonRes({}, 503) });
+  const down = await LK.lookupMeal([{ name: 'chips', grams: 100 }, { name: 'tesco crisps', grams: 25, packaged: true }]);
+  assert.deepEqual(down.items.map((i) => i.from), ['table', 'table']);
+  assert.equal(down.credit, undefined);
+});
+
+test('POST /api/lookup/barcode {meal}: the foods matched through the worker (owner only), nothing kept', async () => {
+  const OWNER_KEY = 'test-owner-key-0123456789abcdef';
+  const pending = [];
+  const state = { storage: new MemStorage(), waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const env = { OWNER_KEY, VAULT_KEY: Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64'), MOCK_LLM: '1' };
+  let agent;
+  env.AGENT = { idFromName: (n) => ({ toString: () => n }), get: () => ({ fetch: (r) => (agent ??= new GhostyAgent(state, env)).fetch(r) }) };
+  const ctx = { waitUntil: (p) => pending.push(p), passThroughOnException() {} };
+  const call = (path, init = {}, key = OWNER_KEY) => worker.fetch(new Request(`https://ghosty.test${path}`, { ...init, headers: { 'x-ghosty': '1', 'content-type': 'application/json', ...(key ? { 'x-ghosty-key': key } : {}) } }), env, ctx);
+  network({ 'cgi/search.pl': () => jsonRes(LV.offEmpty) });
+  const meal = [{ name: 'fish in batter', grams: 150 }, { name: 'chips', grams: 150 }, { name: 'mushy peas', grams: 80 }];
+  const r = await call('/api/lookup/barcode', { method: 'POST', body: JSON.stringify({ meal }) });
+  assert.equal(r.status, 200, await r.clone().text());
+  const j = await r.json();
+  assert.equal(j.line, 'about 880 kcal');
+  assert.deepEqual(j.total, { kcal: 880, protein: 32, carbs: 96, fat: 40 });
+  assert.equal(j.honesty, 'rough: portions are guessed from a photo');
+  assert.equal((await call('/api/lookup/barcode', { method: 'POST', body: JSON.stringify({ meal: [] }) })).status, 400);
+  assert.equal((await call('/api/lookup/barcode', { method: 'POST', body: JSON.stringify({ meal }) }, null)).status, 401, 'owner only');
+  await Promise.allSettled(pending);
+  assert.ok(!JSON.stringify([...state.storage.m.entries()]).includes('fish in batter'), 'nothing stored');
+});

@@ -1,7 +1,9 @@
 /**
  * LIBRARY tab: Ghosty's offline brain. Add books, PDFs, Word files, e-books, notes, web
  * pages, arXiv papers, CVEs and GitHub repositories; Ghosty keeps them forever and looks
- * things up in them before answering. Searching here uses no AI at all. SELF-STUDY shows
+ * things up in them before answering. ASK THE LIBRARY searches by keywords, or by meaning once
+ * SEARCH BY MEANING is on this phone and its index is whole (library/meaning.ts) — its small print
+ * says which, every time. SELF-STUDY shows
  * what Ghosty is learning on its own, one field at a time (the field he is reading, how far, the
  * time left at his pace, the fields after it), STUDY for a field picked from the list, the STUDY
  * ALL switch (go on to the next field by himself), what he learned today, the notes he wrote and
@@ -12,11 +14,13 @@
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
 import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
+import { meaningComplete, meaningIndex } from '../../library/meaning';
+import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
-import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
+import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
@@ -34,8 +38,9 @@ const GLYPH: Record<string, string> = {
   scan: '<path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M4 12h16"/>',
   recon: '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
   project: '<path d="M3.5 7a1.5 1.5 0 011.5-1.5h4.2l2 2.2H19a1.5 1.5 0 011.5 1.5v8.3A1.5 1.5 0 0119 19H5a1.5 1.5 0 01-1.5-1.5z"/>',
+  manual: '<path d="M14.5 6.5a4 4 0 00-5.3 5.3L4 17v3h3l5.2-5.2a4 4 0 005.3-5.3l-2.3 2.3-2.6-.4-.4-2.6z"/>',
 };
-const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT' };
+const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT', manual: 'MANUAL' };
 /** A field in the brain's study summary (library/study.ts `studySummary`), with what STUDY at scale adds. */
 interface FieldRow {
   id: string;
@@ -78,8 +83,10 @@ export const libraryTab: TabDef = {
   blurb: 'ask the offline brain · add books & PDFs',
   now: () => (lastSeen.get().passages != null ? `${fmt.n(lastSeen.get().passages)} passages` : ''),
   mount(root) {
-    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
+    const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched on this phone too', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
     let docs: LibraryDoc[] = [];
+    /** Removed with the UNDO bar still up: off the shelf, not yet off the brain. */
+    const leaving = new Set<string>();
 
     // ---- add knowledge
     const ap = panel('ADD KNOWLEDGE', { grow: false, cls: 'libadd' });
@@ -203,17 +210,37 @@ export const libraryTab: TabDef = {
     );
 
     // ---- ask (no AI): the whole first column, results scroll
-    const sp = panel('ASK THE LIBRARY', { status: 'no AI used', cls: 'ask' });
+    // The small print says how the results were found: "by meaning" or "by keywords", honestly (library/meaning.ts).
+    const byWhat = () => (meaningComplete() ? 'by meaning' : 'by keywords');
+    const sp = panel('ASK THE LIBRARY', { status: byWhat(), cls: 'ask' });
     const q = h('input.askq', { type: 'search', placeholder: 'Ask anything Ghosty has read…', enterKeyHint: 'search', 'aria-label': 'Search the library' });
     const hitRow = (x: LibraryHit) => {
       const where = [x.title, x.heading && x.heading !== x.title ? x.heading : '', x.page ? `p. ${x.page}` : ''].filter(Boolean).join(' · ');
       return h('div.rw.wrap.hit', h('span.k', where), h('span.v', x.text.length > 700 ? `${x.text.slice(0, 700)}…` : x.text));
     };
     const TRY = ['how attention works in transformers', 'binary search edge cases', 'how Ghosty works', 'SQL injection', 'big-O of sorting'];
-    const idle = () => clear(sp.body, h('div.note', 'Search every book, PDF, paper, note and line of code in the library — instantly, offline, no AI or API key used.'), h('div.lab', 'TRY'), h('div.tabs.trychips', ...TRY.map((t) => button(t, () => {
-      q.value = t;
-      void search();
-    }))));
+    /** What a search will be ranked by, in a line: by meaning (and that it stays on the phone), or by keywords and why. */
+    const howLine = () => {
+      const ix = meaningIndex.get();
+      if (meaningComplete()) return `Searched by meaning: a small model on this phone finds passages by what they mean, not only their words (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed; nothing is sent anywhere).`;
+      if (embedState.get().downloaded && ix.total) return `Searched by keywords for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed by meaning so far.`;
+      return 'Searched by keywords. Add SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean.';
+    };
+    const idle = () => {
+      clear(sp.body, h('div.note', 'Search every book, PDF, paper, note and line of code in the library — instantly, offline, no API key used.'), h('div.note.askhow', howLine()), h('div.lab', 'TRY'), h('div.tabs.trychips', ...TRY.map((t) => button(t, () => {
+        q.value = t;
+        void search();
+      }))));
+      sp.setStatus(byWhat(), 'ok');
+    };
+    // The line before any search keeps up with the index as it fills.
+    meaningIndex.subscribe(() => {
+      const line = sp.body.querySelector('.askhow');
+      if (line) {
+        line.textContent = howLine();
+        sp.setStatus(byWhat(), 'ok');
+      }
+    });
     const search = async () => {
       const t = q.value.trim();
       if (!t) return idle();
@@ -222,7 +249,8 @@ export const libraryTab: TabDef = {
         const r = await brain.librarySearch(t, 20);
         clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
         sp.body.scrollTop = 0;
-        sp.setStatus(`${r.hits.length} passages · no AI used`, 'ok');
+        // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
+        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');
@@ -244,6 +272,29 @@ export const libraryTab: TabDef = {
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
     }, () => 'SYNC', 'Add a book or a file above, or import a page from the web: it is on the shelf in seconds.');
+    // ---- GADGETS: the manuals the brain found for his gadgets (gadget_manual), each with where it came from and its licence
+    const gadgets = panel('GADGETS', { grow: false, cls: 'gadgets' });
+    const paintGadgets = (list: LibraryDoc[]) => {
+      const manuals = list.filter((d) => d.kind === 'manual');
+      gadgets.setStatus(manuals.length ? `${manuals.length} MANUAL${manuals.length === 1 ? '' : 'S'}` : 'NONE YET', manuals.length ? 'ok' : 'off');
+      clear(gadgets.body, ...(manuals.length
+        ? manuals.map((d) => {
+          const [url = '', licence = ''] = d.source.split(' · ');
+          let host = url;
+          try {
+            host = new URL(url).hostname.replace(/^www\./, '');
+          } catch {
+            /* not an address: shown as it is */
+          }
+          const r = row(`from ${host}${licence ? ` · ${licence}` : ''}`, d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
+          r.classList.add('gadgetrow');
+          // where it came from and its licence, as written (no sentence case: "© Bosch")
+          (r.querySelector('.k') as HTMLElement | null)?.setAttribute('data-case', 'keep');
+          r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH.manual!)));
+          return r;
+        })
+        : [h('div.note', 'Ask in the chat: "find the manual for my Bosch dishwasher SMS24AW01G" (the model number is on the rating plate; Lens READ can read it). Ghosty looks on the maker\'s own site first, keeps the manual here, and answers fault codes from its pages.')]));
+    };
     // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
     const openDoc = (d: LibraryDoc) => {
       const body = h('div.reader');
@@ -277,15 +328,25 @@ export const libraryTab: TabDef = {
         h('span.chip', { dataset: { case: 'keep' } }, /[a-z]/.test(kind) ? kind : kind.charAt(0) + kind.slice(1).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase())),
         h('span.chip.src', { dataset: { case: 'keep' } }, d.source || 'no source'),
         h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`));
-      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', async (b) => {
-        if (!confirm(`Remove "${d.title}" from Ghosty's library?`)) return;
-        b.disabled = true;
-        await brain.libraryRemove(d.id).then(() => {
-          toast(`Removed "${d.title}"`, 'ok');
-          m.close();
-        }, () => toast('Could not remove it', 'bad'));
-        b.disabled = false;
-        void refresh();
+      // Off the shelf at once with UNDO; removed from the brain and this phone only when the bar goes, so UNDO
+      // brings it back exactly as it was (its passages, its meaning index, where it came from).
+      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {
+        m.close();
+        leaving.add(d.id);
+        shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+        undo(
+          `Removed: “${d.title}”`,
+          () => {
+            leaving.delete(d.id);
+            shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+            toast(`Back in the library: ${d.title}`, 'ok');
+          },
+          async () => {
+            await brain.libraryRemove(d.id).catch(() => toast(`Could not remove “${d.title}”`, 'bad'));
+            leaving.delete(d.id);
+            void refresh();
+          },
+        );
       }, 'warn readrm');
       const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
       void load();
@@ -464,7 +525,7 @@ export const libraryTab: TabDef = {
       void paintFresh();
       void refresh();
     }, 'on'));
-    P.right.append(fresh.el, study.el, ap.el, shelf.el);
+    P.right.append(fresh.el, study.el, ap.el, gadgets.el, shelf.el);
 
     let vectors = false;
     let starterReady = true;
@@ -474,7 +535,10 @@ export const libraryTab: TabDef = {
         docs = r.docs;
         vectors = r.vectors;
         starterReady = r.starterReady;
-        shelfList.set(docs);
+        // (a document whose REMOVE is waiting on its UNDO bar is already off the shelf and off the gadgets)
+        const shown = docs.filter((x) => !leaving.has(x.id));
+        shelfList.set(shown);
+        paintGadgets(shown);
         shelf.setStatus(`${r.stats.docs} DOCS`, 'ok');
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
         P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;

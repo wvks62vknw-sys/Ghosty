@@ -2,6 +2,7 @@
 // buoys and cables. Every upstream feed is replaced with a small fixture so the run is
 // deterministic; the brain's own /api/ships answer is faked too.
 import { launch, webkitNoise } from './browser.mjs';
+import { UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
@@ -81,7 +82,7 @@ const IMG = png(64, 48, [40, 200, 160, 255]);
 const RADAR = png(256, 256, [60, 120, 255, 150]);
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...UK });
 const asked = new Set();
 await ctx.route('**/api/proxy?**', (route) => {
   const target = new URL(route.request().url()).searchParams.get('url') ?? '';

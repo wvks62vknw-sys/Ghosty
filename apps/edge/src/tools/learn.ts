@@ -13,11 +13,11 @@ export const learnTools: Tool[] = [
   {
     name: 'tutor',
     description:
-      "Teach the owner anything at their level, with spaced repetition. action start: plan a course (topic, level beginner|intermediate|advanced — ask if unsure, minutes_per_day); lesson: the next lesson (or course's lesson n) to give them as written, sources [n] included, then ask its CHECK question; quiz: 3–8 questions on a course or topic (spoken: true in a voice chat — ask one at a time, wait, say right or wrong and why); revise: cards due; courses: the list. Opens the LEARN tab.",
+      "Teach the owner anything at their level, with spaced repetition. action start: plan a course (topic, level beginner|intermediate|advanced — ask if unsure, minutes_per_day); lesson: the next lesson (or course's lesson n) to give them as written, sources [n] included, then ask its CHECK question; quiz: 3–8 questions on a course or topic (spoken: true in a voice chat — ask one at a time, wait, say right or wrong and why); exam: the course's timed exam in LEARN; revise: cards due; courses: the list. Opens the LEARN tab.",
     parameters: {
       type: 'object',
       properties: {
-        action: { type: 'string', enum: ['start', 'lesson', 'quiz', 'revise', 'courses'] },
+        action: { type: 'string', enum: ['start', 'lesson', 'quiz', 'exam', 'revise', 'courses'] },
         topic: { type: 'string' },
         level: { type: 'string', enum: ['beginner', 'intermediate', 'advanced'] },
         minutes_per_day: { type: 'number' },
@@ -36,7 +36,12 @@ export const learnTools: Tool[] = [
         ctx.progress('planning the course…');
         const c = await startCourse(deps, { topic: arg.str(a, 'topic'), level: isLevel(a.level) ? a.level : undefined, minutes: a.minutes_per_day });
         open({ course: c.id });
-        return `Course "${c.title}" (${c.level}, ${c.lessons.length} lessons of about ${c.minutes} minutes; from ${c.basis}) is in the LEARN tab:\n${c.lessons.map((l) => `${l.n}. ${l.title}${l.done ? ' (done)' : ''}`).join('\n')}\n${c.summary}\nOffer the first lesson now (tutor action lesson).`;
+        const units = c.units ?? [{ n: 1, title: 'The course' }];
+        const syllabus = units
+          .map((u) => `${units.length > 1 ? `Unit ${u.n}: ${u.title}\n` : ''}${c.lessons.filter((l) => (l.unit ?? 1) === u.n).map((l) => `${l.n}. ${l.title}${l.done ? ' (done)' : ''}`).join('\n')}`)
+          .join('\n');
+        const shape = `${c.level}, ${units.length > 1 ? `${units.length} units, ` : ''}${c.lessons.length} lessons${c.pace ? `; ${c.pace.text} at ${c.minutes} minutes a day` : ''}; ${c.basis.startsWith('outline') ? c.basis : `planned from ${c.basis}`}`;
+        return `Course "${c.title}" (${shape}) is in the LEARN tab:\n${syllabus}${c.prereqs?.length ? `\nBefore you start: ${c.prereqs.join('; ')}.` : ''}\n${c.summary}\nOffer the first lesson now (tutor action lesson).`;
       }
       if (action === 'lesson') {
         const e = await pickCourse(ctx.storage, arg.str(a, 'course', false) || arg.str(a, 'topic', false));
@@ -63,6 +68,12 @@ export const learnTools: Tool[] = [
         const key = q.questions.map((x, i) => `${i + 1}: ${x.kind === 'mc' ? LETTERS[Number(x.answer)] : x.answer}`).join('; ');
         return `${spoken ? 'Quiz' : 'Quiz open in LEARN (they can tap their answers there)'} on "${q.topic}", ${q.questions.length} questions. ${spoken ? 'Ask ONE question at a time, short, wait for the answer, then say right or wrong and why.' : 'If they want it here instead, ask one at a time.'}\n${lines.join('\n')}\n[answers, never show before they answer: ${key}]`;
       }
+      if (action === 'exam') {
+        const e = await pickCourse(ctx.storage, arg.str(a, 'course', false) || arg.str(a, 'topic', false));
+        if (!e) return 'There is no course yet: start one (tutor action start with a topic).';
+        open({ course: e.id, view: 'exam' });
+        return `The EXAM for "${e.title}" is ready in LEARN: 10–20 questions from the lessons opened so far, timed by the level, marked at the end with the grade and the weak lessons. The owner taps EXAM to start it; do not ask the questions here.`;
+      }
       if (action === 'revise') {
         const st = await learnState(deps);
         const now = Date.now();
@@ -76,7 +87,7 @@ export const learnTools: Tool[] = [
         if (!st.courses.length) return 'No courses yet. Say "teach me <anything>" to start one.';
         return st.courses.map((c) => `${c.title} [${c.id}] — ${c.level}, ${c.done}/${c.lessons} lessons${c.next ? `, next: ${c.nextTitle}` : ', finished'}; quizzes ${c.right}/${c.asked}; cards due ${c.due}`).join('\n');
       }
-      throw new Error('action must be start, lesson, quiz, revise or courses');
+      throw new Error('action must be start, lesson, quiz, exam, revise or courses');
     },
   },
 ];

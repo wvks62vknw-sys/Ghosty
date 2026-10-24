@@ -3,6 +3,7 @@
 // Needs the internet (TfL's open camera feed); skips cleanly if the feed can't be reached.
 //   node tests/cameras.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -17,9 +18,9 @@ if (!reachable) {
 }
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+for (const viewport of [DESKTOP, PHONE]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
-  const page = await browser.newPage({ viewport });
+  const page = await browser.newPage({ viewport, ...UK });
   // Errors thrown by Waze's own scripts inside the live-traffic frame (opened for a city with no
   // public cameras) surface here too; only Ghosty's own errors count.
   page.on('pageerror', (e) => webkitNoise(e) || !/^\{"message"/.test(e.message) && problems.push(`[${name}] pageerror: ${e.message}`));

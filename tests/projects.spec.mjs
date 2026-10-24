@@ -4,6 +4,7 @@
 // brain's alarm with the scripted model.
 //   node tests/projects.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -33,7 +34,7 @@ const projects = () => [
 ];
 
 async function run(name, viewport) {
-  const ctx = await browser.newContext({ viewport });
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   const state = { list: projects(), actions: [] };
@@ -90,8 +91,9 @@ async function run(name, viewport) {
   await page.waitForFunction(() => /ACTIVE · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RUN NEXT NOW")').click();
   await page.waitForFunction(() => /2\/4/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RUN NEXT NOW did not advance the bar to 2/4`));
-  page.once('dialog', (d) => d.accept());
+  // CANCEL asks first in a one-tap confirm (a cancelled project cannot be started again)
   await jp.locator('.change.project').nth(1).locator('button:has-text("CANCEL")').click();
+  await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push(`[${name}] CANCEL did not ask first`));
   await page.waitForFunction(() => /CANCELLED/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] CANCEL did not change the card`));
   const expected = ['aaaa111111:pause', 'aaaa111111:resume', 'aaaa111111:run', 'bbbb222222:cancel'];
   if (JSON.stringify(state.actions) !== JSON.stringify(expected)) problems.push(`[${name}] the brain saw ${JSON.stringify(state.actions)}, expected ${JSON.stringify(expected)}`);
@@ -132,8 +134,8 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
-await run('desktop', { width: 1440, height: 900 });
-await run('phone', { width: 390, height: 844 });
+await run('desktop', DESKTOP);
+await run('phone', PHONE);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Projects run clean: the PROJECTS panel and a real project work.');
 process.exit(problems.length ? 1 : 0);

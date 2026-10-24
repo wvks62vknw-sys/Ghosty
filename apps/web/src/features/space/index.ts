@@ -20,7 +20,7 @@ import { headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { bothText, cmText, describeMeasurements, parseLength, rangeText } from '../../measure/geom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { roomToPlan, planToRoom } from '../../space/roomjson';
 import { CATALOGUE, clashes, describePlan, footprint, GRID, largestOpen, layoutOf, makeSpace, readPlan, roomsOf, snapItem, tightGaps, WALKWAY, willItFit, type Arrangement, type Item, type Plan, type Rect } from '../../space/plan';
@@ -406,6 +406,13 @@ export const spaceTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'SPACE PLANNER', sub: 'your room in real sizes · kept on this phone', leftLabel: 'PLAN', rightLabel: 'TOOLS', stack: true });
     let selected = '';
+    /** UNDO for a removal or a replaced plan: the whole plan as it was (12 s). */
+    const putBackLater = (text: string, before: Plan) =>
+      undo(text, () => {
+        selected = '';
+        space.setPlan(before);
+        toast('Put back', 'ok');
+      });
     let lastHome: string | null = null;
     let undoItems: Item[] | null = null;
     let preview: Rect | null = null;
@@ -521,10 +528,13 @@ export const spaceTab: TabDef = {
         space.setPlan(got.plan);
         pickRoom(got.id);
       }), button('REMOVE ROOM', () => {
-        const next = removeRoom(space.get().plan, selRoom().id);
+        const before = space.get().plan;
+        const name = selRoom().name;
+        const next = removeRoom(before, selRoom().id);
         if (!next) return void toast('The plan needs at least one room', 'warn');
         selected = '';
         space.setPlan(next);
+        putBackLater(`Removed: ${name}`, before);
       })),
       h('div.keyrow.spacewalls', h('span.lab', 'WALLS'), wallIn, h('span.lab', 'CEILING'), ceilIn, button('SET', () => setArch())),
       h('div.row.wrap', northBtn),
@@ -731,7 +741,15 @@ export const spaceTab: TabDef = {
     msp.body.append(mList, h('div.row.wrap', button('MEASURE A WALL', async () => {
       const { openLens } = await import('../lens');
       openLens('measure', undefined, true);
-    }, 'on'), button('CLEAR', () => space.clearMeasurements())));
+    }, 'on'), button('CLEAR', () => {
+      const was = space.get().measures;
+      if (!was.length) return;
+      space.clearMeasurements();
+      undo(`Cleared ${was.length} measurement${was.length === 1 ? '' : 's'}`, () => {
+        space.setMeasurements(was);
+        toast('The measurements are back', 'ok');
+      });
+    })));
 
     // ======================= EXPORT
     const xp = panel('EXPORT', { cls: 'spaceexport' });
@@ -746,8 +764,10 @@ export const spaceTab: TabDef = {
         if (!plan) throw new Error('That file is not a room plan');
         resetMake();
         selected = '';
+        const before = space.get().plan;
         space.setPlan(plan);
-        toast('Plan imported', 'ok');
+        // the plan it replaced comes back with UNDO
+        putBackLater('Plan imported: it replaced the one you had', before);
       } catch (e) {
         toast(String((e as Error)?.message ?? e), 'bad');
       }
@@ -887,8 +907,10 @@ export const spaceTab: TabDef = {
           h('div.keyrow.spaceopsize', h('span.lab', 'W'), wIn2, ...(op.type === 'window' ? [h('span.lab', 'SILL'), sIn] : []), button('SET', () => setSize())),
           ...(op.type === 'door' ? [button('FLIP HINGE', () => change({ hinge: op.hinge === 'start' ? 'end' : 'start' })), button(op.swing === 'in' ? 'SWING: IN' : 'SWING: OUT', () => change({ swing: op.swing === 'in' ? 'out' : 'in' }))] : []),
           button('REMOVE', () => {
+            const before = space.get().plan;
             selected = '';
-            space.setPlan(removeOpening(space.get().plan, op.id));
+            space.setPlan(removeOpening(before, op.id));
+            putBackLater(`Removed: ${op.type === 'door' ? 'door' : 'window'} ${op.id.toUpperCase()}`, before);
           }),
         );
         archRow.hidden = false;
@@ -1115,8 +1137,11 @@ export const spaceTab: TabDef = {
       space.setItems(next);
     };
     const removeSel = () => {
-      space.setItems(space.get().plan.items.filter((i) => i.id !== selected));
+      const before = space.get().plan;
+      const it = before.items.find((i) => i.id === selected);
+      space.setItems(before.items.filter((i) => i.id !== selected));
       selected = '';
+      if (it) putBackLater(`Removed: ${it.label}`, before);
     };
 
     space.subscribe(paint);

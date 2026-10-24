@@ -13,8 +13,9 @@ import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
-import { button, empty, modal, pager, panel, row, toast } from '../../ui/components';
+import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
+import { placesBlock } from './places';
 import { lineId, patternsPanel, timelinePanel } from './timeline';
 
 export const memoryTab: TabDef = {
@@ -42,6 +43,15 @@ export const memoryTab: TabDef = {
       await tl.refresh();
       pats.set(tl.patterns);
     };
+    const clip = (t: string) => (t.length > 70 ? `${t.slice(0, 70)}…` : t);
+    /** UNDO for a ✕ here: the timeline's restore brings the memory back as it was (locked still, if it was). */
+    const putBack = async (id: string) => {
+      await brain.memoryChange(id, 'restore');
+      toast('Back in my memory', 'ok');
+      void refresh();
+      void refreshLessons();
+      void refreshProfile();
+    };
     const fp = panel('WHAT I REMEMBER', { footer: true });
     let facts: MemoryFact[] = [];
     const refresh = async () => {
@@ -65,10 +75,11 @@ export const memoryTab: TabDef = {
       x.classList.add('del');
       x.title = 'Forget this';
       x.addEventListener('click', async () => {
-        // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
-        await brain.memoryChange(`f:${f.id}`, 'forget').catch((e) => toast(`Could not forget it: ${(e as Error).message}`, 'bad'));
+        // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, and UNDO right here.
+        const ok = await brain.memoryChange(`f:${f.id}`, 'forget').then(() => true, (e) => (toast(`Could not forget it: ${(e as Error).message}`, 'bad'), false));
         void refresh();
         void refreshTimeline();
+        if (ok) undo(`Forgotten: “${clip(f.text)}”`, () => putBack(`f:${f.id}`));
       });
       return r;
     }, () => 'NONE YET', 'Say “remember …” in a chat, or tap Add a memory: what he keeps shows here.');
@@ -113,10 +124,11 @@ export const memoryTab: TabDef = {
           x.classList.add('del');
           x.title = 'Remove this line';
           x.addEventListener('click', async () => {
-            // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, with UNDO.
+            // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, and UNDO right here.
             try {
               await brain.memoryChange(lineId(text), 'forget');
               profile = (await brain.profile()).profile;
+              undo(`Removed: “${clip(text)}”`, () => putBack(lineId(text)));
             } catch (e) {
               toast(`Could not remove it: ${(e as Error).message}`, 'bad');
             }
@@ -145,6 +157,9 @@ export const memoryTab: TabDef = {
     const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
     mp.el.insertBefore(meForm, mp.body);
     paintMe();
+    // PLACES under ME (places.ts): home, work and the rest, each found on the map and kept only after his yes.
+    const pl = placesBlock();
+    mp.el.append(pl.el);
     // One "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
     // (a row also swipes left to delete).
     let sheet: { close(): void } | null = null;
@@ -212,9 +227,11 @@ export const memoryTab: TabDef = {
       x.title = 'Forget this lesson';
       x.addEventListener('click', async () => {
         // Through the timeline's FORGET, so a locked lesson goes too when the owner asks (forget_lesson keeps it).
-        await brain.memoryChange(`l:${l.id}`, 'forget').catch(() => brain.forgetLesson(l.id));
+        const back = await brain.memoryChange(`l:${l.id}`, 'forget').then(() => true, () => brain.forgetLesson(l.id).then(() => false));
         void refreshLessons();
         void refreshTimeline();
+        // (forget_lesson, the older way, keeps nothing to bring back: then there is no UNDO)
+        if (back) undo(`Forgotten: “${clip(l.text)}”`, () => putBack(`l:${l.id}`));
       });
       return r;
     }, () => 'NONE YET', 'When he gets something wrong and you put him right, the lesson shows here.');
@@ -230,14 +247,9 @@ export const memoryTab: TabDef = {
     P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask him anything from Home.');
-    const clearNow = async () => {
-      await clearConversation();
-      toast('Conversation cleared');
-    };
-    cp.foot!.prepend(button('CLEAR CONVERSATION', () => {
-      // a destructive action is confirmed first
-      const m = modal('Clear the conversation?', h('div.confirm', h('p.note', 'What was said is removed from this phone and the brain. What he remembers about you stays.'), h('div.row', button('CANCEL', () => m.close()), button('CLEAR', () => void clearNow().then(() => m.close()), 'warn'))));
-    }, 'warn'));
+    // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
+    // UNDO puts every message back. What he remembers about you stays either way.
+    cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
     P.right.append(dp.el, cp.el);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
@@ -252,6 +264,7 @@ export const memoryTab: TabDef = {
         void refresh();
         void refreshLessons();
         void refreshProfile();
+        void pl.refresh();
       },
       describe: () => `Memory: ${facts.length} facts stored, ${lessons.length} lessons learned${profile ? `, a profile of ${PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0)} lines` : ''}, ${diary.length} diary entries.`,
     };

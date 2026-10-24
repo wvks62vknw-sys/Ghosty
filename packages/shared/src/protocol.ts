@@ -89,6 +89,7 @@ export const CLIENT_COMMANDS = [
   'open_learn',
   'design_changes',
   'home_plan',
+  'open_photo_tools',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
@@ -304,8 +305,14 @@ export interface Project {
   docId: string;
   /** The last thing worth knowing: waiting for a free model, why a step failed. */
   note?: string;
-  /** 'site': a website built on Ghosty's own (sitebuild.ts runs its fixed steps); absent: steps run by the model with tools. */
-  kind?: 'site';
+  /**
+   * 'site': a website built on Ghosty's own (sitebuild.ts runs its fixed steps); 'app': a mini-app (appbuild.ts: its
+   * five steps run inside the build_app call, and a build cut short carries on from its record when resumed);
+   * absent: steps run by the model with tools.
+   */
+  kind?: 'site' | 'app';
+  /** The published link a mini-app build produced (the Workshop's OPEN and UNDO). */
+  link?: string;
 }
 
 export interface Widget {

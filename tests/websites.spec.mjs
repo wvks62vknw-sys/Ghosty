@@ -6,9 +6,14 @@
 //     booking form, the map, photo credits, phone-width.
 //  2. With no connection to the brain: the phone asks a few questions, builds the site from the website
 //     kit itself, and PREVIEW shows it in a locked frame.
+//  3. The lift, at 440 × 956: a new kind (a club) with the owner's Formspree address → the Workshop's DRAFT card
+//     shows it as a laptop and a phone (two frames) → CHANGE in words redraws it (still not public) → PUBLISH goes
+//     through the approval → the live page's policy lets forms go to that one address → a visitor's form really
+//     POSTs to it (the service is mocked here).
 //   node tests/websites.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -32,7 +37,7 @@ async function pair(ctx) {
 
 // ── 1. chat → published site ─────────────────────────────────────────────────────
 {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
   const ui = await pair(ctx);
   await ui.fill('#cin', "build a website for my friend's barber shop in walsall");
   await ui.keyboard.press('Enter');
@@ -109,7 +114,7 @@ async function pair(ctx) {
         if (r.map !== 'yes') problems.push('no map section');
         if (r.credits < 3) problems.push(`photo credits missing (${r.credits})`);
         if (r.wide) problems.push('the site scrolls sideways on the phone');
-        if (r.w !== 390) problems.push(`not phone width: ${r.w}`);
+        if (r.w !== PHONE.width) problems.push(`not phone width: ${r.w}`);
         if (!r.ld.includes('HairSalon')) problems.push(`no business data for search engines: ${r.ld}`);
         await site.screenshot({ path: `${out}/websites-live-home.png` });
         // The menu button opens the pages; tapping one routes to it.
@@ -140,7 +145,7 @@ async function pair(ctx) {
 
 // ── 2. no connection: built on the phone ─────────────────────────────────────────
 {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
   const ui = await pair(ctx);
   // The brain is unreachable from here on (the connection drops: fetch fails as it would offline).
   await ui.route('**/api/chat**', (r) => r.abort('internetdisconnected'));
@@ -173,6 +178,119 @@ async function pair(ctx) {
   await ctx.close();
 }
 
+// ── 3. the lift, at 440 × 956: a new kind, its DRAFT card as a phone and a laptop, CHANGE, PUBLISH, a real form ──
+{
+  const BIG = { width: 440, height: 956 };
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: BIG, screen: BIG, ...UK });
+  // The owner's free form service, stood in for here: whatever the published page POSTs to it is kept.
+  const posted = [];
+  await ctx.route('https://formspree.io/**', async (r) => {
+    posted.push({ method: r.request().method(), url: r.request().url(), body: r.request().postData() ?? '' });
+    await r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Thanks</title><p>Thanks — your message was sent.</p>' });
+  });
+  const ui = await pair(ctx);
+  await ui.fill('#cin', 'build a website for our running club, form https://formspree.io/f/strider42, in stourbridge');
+  await ui.keyboard.press('Enter');
+  const approve = await ui.waitForSelector('.approval button.on', { timeout: 20000 }).catch(() => null);
+  if (!approve) problems.push('lift: no approval for the club website');
+  else {
+    const reason = (await ui.$eval('.approval b', (b) => b.textContent)) ?? '';
+    if (!/\/s\/stourbridge-club/.test(reason)) problems.push(`lift: approval says ${reason}`);
+    if (!/your Formspree form/.test(reason)) problems.push(`lift: the approval does not say the forms go to the Formspree form: ${reason}`);
+    await approve.tap();
+    // (the Workshop also lists part 1's barber site: everything here is inside the club's project)
+    const P = '#pg-workshop .project:has-text("Website: stourbridge")';
+    let card = null;
+    for (let i = 0; i < 60 && !card; i++) {
+      await ui.evaluate(() => (location.hash = 'workshop'));
+      await ui.waitForTimeout(2000);
+      card = await ui.$(`${P} .draftcard .dframes`);
+    }
+    if (!card) problems.push('lift: no DRAFT card in the Workshop');
+    else {
+      await ui.waitForTimeout(1500);
+      const v = await ui.evaluate(() => {
+        const c = [...document.querySelectorAll('#pg-workshop .project')].find((p) => /Website: stourbridge/i.test(p.textContent ?? ''))?.querySelector('.draftcard');
+        const frames = [...c.querySelectorAll('iframe.draftframe')].map((f) => ({ w: f.style.width, shown: Math.round(f.parentElement.getBoundingClientRect().width), tall: Math.round(f.parentElement.getBoundingClientRect().height) }));
+        return { pill: c.querySelector('.rcpill')?.textContent ?? '', frames, labels: [...c.querySelectorAll('.dscreen small')].map((s) => s.textContent), confirm: c.querySelector('.dconfirm')?.textContent ?? '', wide: document.documentElement.scrollWidth > innerWidth + 1 };
+      });
+      if (!/DRAFT · NOT PUBLIC/.test(v.pill)) problems.push(`lift: the card does not say it is a draft (${v.pill})`);
+      if (v.frames.length !== 2 || v.frames[0].w !== '1280px' || v.frames[1].w !== '390px') problems.push(`lift: not a laptop and a phone frame: ${JSON.stringify(v.frames)}`);
+      if (v.frames.some((f) => f.shown < 120 || f.tall < 80)) problems.push(`lift: a frame is too small to see: ${JSON.stringify(v.frames)}`);
+      if (v.labels.join() !== 'LAPTOP,PHONE') problems.push(`lift: frame labels ${v.labels}`);
+      if (!/when and where you meet/.test(v.confirm)) problems.push(`lift: the card does not list what to confirm: ${v.confirm.slice(0, 120)}`);
+      if (v.wide) problems.push('lift: the Workshop scrolls sideways with the DRAFT card');
+      // The page inside the phone frame is the club's site.
+      // Both frames draw the club's own page (the locked widget frame the phone's PREVIEW uses).
+      const heads = await Promise.all((await ui.$$(`${P} iframe.draftframe`)).map(async (el) => (await el.contentFrame())?.evaluate(() => document.querySelector('.page.on h1')?.textContent ?? '').catch(() => '')));
+      if (heads.filter((t) => /join us|favourite|good fun/i.test(t)).length < 2) problems.push(`lift: the two frames do not show the club's page: ${JSON.stringify(heads)}`);
+      await card.scrollIntoViewIfNeeded();
+      await ui.screenshot({ path: `${out}/websites-lift-draft.png` });
+      // CHANGE: what to change, in words; the draft is drawn again from it.
+      await ui.click(`${P} .draftcard .dactions button:has-text("CHANGE")`);
+      await ui.fill(`${P} .draftcard textarea.dwords`, 'we meet Tue 7pm-9pm, Thu 7pm-9pm');
+      await ui.screenshot({ path: `${out}/websites-lift-change.png` });
+      await ui.click(`${P} .draftcard button:has-text("SEND CHANGE")`);
+      const said = await ui.waitForSelector(`${P} .draftcard .dsaid:has-text("Changed: opening hours")`, { timeout: 15000 }).catch(() => null);
+      if (!said) problems.push('lift: CHANGE did not change the draft');
+      const still = (await ui.$eval(`${P} .draftcard`, (c) => c.querySelector('.dconfirm')?.textContent ?? '').catch(() => '')) ?? '';
+      if (/when and where you meet/.test(still)) problems.push('lift: after CHANGE the card still asks when they meet');
+      const early = await ctx.request.get(`${base}/s/stourbridge-club`, { headers: { 'cache-control': 'no-cache' } });
+      if (early.status() === 200) problems.push('lift: CHANGE made the site public');
+      // PUBLISH: through the chat, with the approval naming what is confirmed.
+      await ui.click(`${P} .draftcard button:has-text("PUBLISH")`);
+      const ok = await ui.waitForSelector('.approval button.on', { timeout: 20000 }).catch(() => null);
+      if (!ok) problems.push('lift: PUBLISH did not ask for approval');
+      else {
+        const why = (await ui.$$eval('.approval b', (bs) => bs.map((b) => b.textContent).join(' | '))) ?? '';
+        if (!/Publish the website .*\/s\/stourbridge-club\? You are confirming what I assumed/.test(why)) problems.push(`lift: publish approval says ${why}`);
+        await ok.tap();
+        let live = null;
+        for (let i = 0; i < 20 && !live; i++) {
+          await ui.waitForTimeout(1000);
+          const r = await ctx.request.get(`${base}/s/stourbridge-club/page`, { headers: { 'sec-fetch-dest': 'iframe' } });
+          if (r.status() === 200) live = r;
+        }
+        if (!live) problems.push('lift: the club site never went live');
+        else {
+          const csp = live.headers()['content-security-policy'] ?? '';
+          if (!/form-action https:\/\/formspree\.io;/.test(csp) || !/allow-forms/.test(csp)) problems.push(`lift: the page policy does not allow its one form address: ${csp}`);
+          if (/form-action[^;]*(\*|https:(?!\/\/formspree\.io))/.test(csp)) problems.push(`lift: the page policy allows more than the one address: ${csp}`);
+          // A visitor fills in the Join form and presses SEND: a real POST to the (mocked) form service.
+          const site = await ctx.newPage();
+          site.on('pageerror', (er) => webkitNoise(er) || problems.push(`lift site pageerror: ${er.message}`));
+          await site.goto(`${base}/s/stourbridge-club`, { waitUntil: 'domcontentloaded' });
+          const frame = await site.waitForSelector('iframe').then((f) => f.contentFrame()).catch(() => null);
+          if (!frame) problems.push('lift: the club site is not in its frame');
+          else {
+            await frame.waitForSelector('h1', { timeout: 15000 }).catch(() => problems.push('lift: no h1 on the club site'));
+            const hours = await frame.evaluate(() => document.querySelector('.b-hours')?.textContent ?? '');
+            if (!/19:00–21:00/.test(hours)) problems.push(`lift: the changed sessions are not on the live site: ${hours.slice(0, 80)}`);
+            await site.screenshot({ path: `${out}/websites-lift-live.png` });
+            await frame.evaluate(() => (location.hash = '#/join'));
+            await site.waitForTimeout(600);
+            await frame.fill('.page.on form.ghost-form input[name="Name"]', 'Jo Runner');
+            await frame.fill('.page.on form.ghost-form input[name="Phone"]', '07700 900111');
+            await frame.fill('.page.on form.ghost-form textarea[name="Message"]', 'Can I come on Tuesday?');
+            const pop = site.context().waitForEvent('page', { timeout: 10000 }).catch(() => null);
+            await frame.click('.page.on form.ghost-form button[type="submit"]');
+            const thanks = await pop;
+            await site.waitForTimeout(1500);
+            if (!posted.length) problems.push('lift: the form sent nothing to the form service');
+            else {
+              const p0 = posted[0];
+              if (p0.method !== 'POST' || p0.url !== 'https://formspree.io/f/strider42' || !/Name=Jo\+Runner/.test(p0.body) || !/Message=Can\+I\+come/.test(p0.body)) problems.push(`lift: the form posted ${JSON.stringify(p0).slice(0, 200)}`);
+            }
+            if (thanks) await thanks.close().catch(() => {});
+          }
+          await site.close();
+        }
+      }
+    }
+  }
+  await ctx.close();
+}
+
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Websites run clean: from one chat message to a multi-page site (approval naming the link, six steps in the Workshop, a draft kept off the web until the owner confirmed what was assumed, then published; routing, the writer\'s words, form, map, credits, phone width, business data); with no connection the phone asked its questions, built the site itself and previewed it.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Websites run clean: from one chat message to a multi-page site (approval naming the link, six steps in the Workshop, a draft kept off the web until the owner confirmed what was assumed, then published; routing, the writer\'s words, form, map, credits, phone width, business data); with no connection the phone asked its questions, built the site itself and previewed it; a club site showed as a laptop and a phone on its DRAFT card, changed in words, published through the approval, and its form really posted to the one allowed address.');
 process.exit(problems.length ? 1 : 0);

@@ -3,10 +3,15 @@
  * pages are sandboxed: no server, no fetch): the visitor fills it in, and the page's script opens their
  * WhatsApp or email app with the message written out and addressed to the business. The line under the
  * form says so. A phone call is always offered beside it.
+ *
+ * When the owner has a free Formspree form (its address, https://formspree.io/f/…, in the brief), the form
+ * also really sends: a plain HTML POST to that one address, no script needed. The published page's policy
+ * allows a form to go there and nowhere else (tools/sites.ts pagePolicy), and only for a page built with it.
  */
 import { a, esc, icon, str } from '../html';
 import type { BlockDef, RenderCtx } from '../types';
 import { HEAD, OT, head, sec } from './common';
+import { formOpen, formTarget } from './formkit';
 import { bookingForm, FORM_CSS, formNote, whatsappOf } from './hero';
 import { CLIST_CSS, contactList } from './media';
 
@@ -40,8 +45,14 @@ ${CLIST_CSS}
       const wa = whatsappOf(b);
       const send = wa ? `${icon('whatsapp')}Send by WhatsApp` : b.email ? `${icon('send')}Send by email` : `${icon('phone')}Call us`;
       const alt = wa && b.email ? `<button class="btn btn-ghost btn-sm" type="button" data-via="email">${icon('mail')}Or send by email</button>` : '';
-      const form = b.email || wa
-        ? `<form class="ghost-form" data-kind="${kind}" data-to-wa="${esc(wa)}" data-to-mail="${esc(b.email ?? '')}" data-subject="${esc(`${kind === 'quote' ? 'Quote request' : 'Enquiry'} — ${b.name}`)}" novalidate>${contactFields(x, id, kind)}<div class="alt"><button class="btn btn-primary" type="button" data-via="${wa ? 'whatsapp' : 'email'}">${send}</button>${alt}</div><p class="form-note" role="status" aria-live="polite">${formNote(x)}</p></form>`
+      const post = formTarget(b.formEndpoint);
+      const subject = `${kind === 'quote' ? 'Quote request' : 'Enquiry'} — ${b.name}`;
+      // With the owner's form address: SEND really sends; WhatsApp and email stay beside it.
+      const buttons = post
+        ? `<button class="btn btn-primary" type="submit">${icon('send')}Send</button>${wa ? `<button class="btn btn-ghost btn-sm" type="button" data-via="whatsapp">${icon('whatsapp')}Or WhatsApp</button>` : ''}${b.email ? `<button class="btn btn-ghost btn-sm" type="button" data-via="email">${icon('mail')}Or email</button>` : ''}`
+        : `<button class="btn btn-primary" type="button" data-via="${wa ? 'whatsapp' : 'email'}">${send}</button>${alt}`;
+      const form = b.email || wa || post
+        ? `${formOpen(x, kind, subject, wa)}${contactFields(x, id, kind)}<div class="alt">${buttons}</div><p class="form-note" role="status" aria-live="polite">${formNote(x)}</p></form>`
         : `<p>${b.phone ? a(`tel:${b.phone.replace(/[^\d+]/g, '')}`, `${icon('phone')}Call ${esc(b.phone)}`, 'btn btn-primary') : ''}</p>`;
       return sec('contact-form', x, `<div class="wrap"><div class="side">${head(d)}${contactList(b)}</div><div class="formcard reveal"><h3>${esc(str(d, 'formTitle') || (kind === 'quote' ? 'Get a free quote' : 'Send us a message'))}</h3>${form}</div></div>`, { anchor: 'contact' });
     },
