@@ -250,7 +250,7 @@ Everywhere else:
   left half-done when it runs out.
 - Official exam papers: personal, non-commercial, free, kept private, never redistributed, source and licence noted.
 
-## 8. After 14 November (draft; the full guide comes in week 3)
+## 8. After 14 November (the full guide is AFTER-14-NOVEMBER.md, written 24 Oct; this is its short form)
 
 Ghosty keeps running on the free providers; the weekly training keeps running on Kaggle; the school loop, Night
 School, the digest and the reflections keep running from the brain's own alarms. You may need to: renew a free token

@@ -126,6 +126,8 @@ folder that no longer exists; ignore those paths).
   node_modules, .git, dist, .build, .wrangler-dry) and flags a 48,000-line bundle as a file of Ghosty's that fails the
   checker. The same test also fails while a merge is half done (conflict markers unbalance the brackets): finish the
   merge before judging the suite.
+- 24 Oct ~14:25 UK: the plain-words guide for life after 14 November exists (AFTER-14-NOVEMBER.md; PLAN section 8 points
+  at it). Written from the code as it stands; a line to add whenever a merge changes what runs on its own.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
