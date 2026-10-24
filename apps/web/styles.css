@@ -2194,6 +2194,8 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .offbrain .obbrain .keyrow { margin-top: 8px; }
 .offbrain .obfell { color: var(--amber, #ffb340); }
 .offbrain .obcost { margin-top: 8px; }
+.offbrain .obtest { margin: 2px 0 8px; }
+.offbrain .obtest:empty { display: none; }
 
 /* SYSTEM → NIGHT SCHOOL (features/system/night.ts) and its dark layer while the plan runs (night/layer.ts) */
 .nightsch .keyrow { margin-top: 8px; }

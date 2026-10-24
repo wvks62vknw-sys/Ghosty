@@ -165,7 +165,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         // Then the report card's QUICK CHECK on the same brain: the 20 fixed questions, as in chat.
         const m = currentModel();
         const quick = h('span.obquick', `QUICK CHECK on ${m.label}: getting the questions ready…`);
-        clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} tokens · ${r.perSecond.toFixed(1)} tokens a second`, h('br'), quick);
+        clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} token${r.tokens === 1 ? '' : 's'} · ${r.perSecond.toFixed(1)} tokens a second`, h('br'), quick);
         const off = reportCard.subscribe((c) => {
           if (c.total) quick.textContent = `QUICK CHECK on ${m.label}: ${c.done} of ${c.total}…`;
         });
@@ -388,9 +388,10 @@ export function offlinePanel(): Panel & { refresh(): void } {
     which,
     prog,
     h('div.keyrow', download, test, del),
+    // TEST's reply, speed and QUICK CHECK right under TEST (it was under the two choices below, out of sight)
+    out,
     mode,
     think,
-    out,
     // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
     // free brains; this one is for no signal. No size here: the brain in use says its own above.
     h('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),

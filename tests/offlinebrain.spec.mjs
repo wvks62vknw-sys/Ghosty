@@ -127,6 +127,9 @@ async function run(name, viewport) {
   await page.waitForFunction(() => /Hello from your phone\.[\s\S]*tokens a second/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] TEST did not show the reply and its speed`));
   // then the report card's QUICK CHECK on the same brain (tests/bigbrain.spec.mjs checks it in full)
   await page.waitForFunction(() => /QUICK CHECK on Qwen3 0\.6B: \d+ of 20 right as in chat/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] TEST did not run the quick check`));
+  // the result sits right under TEST (not under the two choices below it), and one token is "1 token"
+  const placed = await page.evaluate(() => { const o = document.querySelector('#pg-settings .pn.offbrain .obtest'); const prev = o?.previousElementSibling; return { prev: prev?.className ?? '', test: [...(prev?.querySelectorAll('button') ?? [])].some((b) => b.textContent === 'TEST'), text: o?.textContent ?? '' }; });
+  if (!placed.test || /\b1 tokens\b/.test(placed.text)) problems.push(`[${name}] TEST's result is not under TEST, or says "1 tokens": ${JSON.stringify(placed).slice(0, 200)}`);
   // After a reply, too, it leaves memory once idle (idleMs here; two minutes on the phone).
   await page.waitForFunction((k) => window.__ghostyOfflineEngine.unloads > k, unloaded, { timeout: 5000 }).catch(() => problems.push(`[${name}] the model stayed in memory after TEST`));
   await pn.scrollIntoViewIfNeeded();
