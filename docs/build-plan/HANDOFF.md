@@ -180,6 +180,9 @@ folder that no longer exists; ignore those paths).
   the same crowded preview. Fixed in the spec: a plant question damps the cooking concept in the stand-in (as the real
   model would), and the checks accept any photosynthesis passage in the first three hits and in the offline prompt,
   with the added passage required somewhere in the list. The other 59 specs, the four new ones included, passed.
+- 24 Oct ~17:55 UK: pushed to PR #33 (head 23f9356): UNDO everywhere and offline translation, the meaning spec mended, the
+  docs. Its CI run is the gate for the merge; a check-in at 19:16 UK merges if green. Builders still out: the bigger-brain
+  reconciliation, and the upgrade passes on God's Eye, Threats and the Lens.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
