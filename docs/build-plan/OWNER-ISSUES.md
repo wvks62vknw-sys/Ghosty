@@ -204,3 +204,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
 
 38. **Owner's decision, 24 Oct 19:40 UK:** Telegram needs no upgrade pass ("I don't mind that not getting one"). Its pass was
     stopped; the other passes go on.
+
+39. **Merging, said again (24 Oct ~19:55 UK):** "everytime you think the pull request should be merged on github etc just
+    merge it dont wait for me to do it." Standing: every green pull request is merged by this session at once. He also
+    asked for the whole picture: STATUS.md (done, going up, running, next, left from his list, my ideas).
