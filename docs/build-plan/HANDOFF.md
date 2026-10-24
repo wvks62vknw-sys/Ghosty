@@ -220,9 +220,10 @@ folder that no longer exists; ignore those paths).
   call for the owner); READ shows a picked photo cropped (the viewfinder's frame-to-screen mapping, used by every mode);
   ASK's jargon note; the PHOTO TOOLS chip pushes the layout down 58 px; SOUND's empty black viewfinder before a
   recording. A refused camera cannot be reproduced in headless Chromium (NotSupportedError, not iOS's "not allowed").
-- 24 Oct ~19:40 UK: upgrade passes out now: Telegram (worktree `telegram`, port 8883) and voice (worktree `voice`, port
-  8882). Done and merged: God's Eye, Threats, the Lens. Still to run, one or two at a time: Brief, Markets, Radio,
-  Reverse, Memory, Agenda, Workshop, System, Settings, Library.
+- 24 Oct ~19:40 UK: upgrade passes out now: voice (worktree `voice`, port 8882). Done and merged: God's Eye, Threats,
+  the Lens. The owner (19:40 UK): "Telegram don't really need an upgrade": its pass was stopped while still measuring
+  and its worktree removed; Telegram is off the list. Still to run, one or two at a time: Reverse, Workshop, Brief,
+  Markets, Radio, Memory, Agenda, Library, Settings, System.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

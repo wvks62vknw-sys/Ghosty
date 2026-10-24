@@ -201,3 +201,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (l) SETTINGS → OFFLINE BRAIN → WHICH BRAIN, on Wi-Fi: GET on Qwen3.5 2B (about 1.1 GB), then TEST and read the speed
     and quick-check line; try the 4B (about 2.4 GB, rated "tight") if you like — if the phone cannot hold it Ghosty
     goes back to the 0.6B and says so, and REMOVE frees the space. The weekly training then follows the brain in use.
+
+38. **Owner's decision, 24 Oct 19:40 UK:** Telegram needs no upgrade pass ("I don't mind that not getting one"). Its pass was
+    stopped; the other passes go on.
