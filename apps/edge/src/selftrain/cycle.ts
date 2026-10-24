@@ -50,7 +50,8 @@
 import { gateVerdict, recordProblem, toJsonl, type AreaScores, type PublishedModel, type TrainPhase, type TrainRecord, type TrainReport, type TrainStatus } from '../../../../packages/shared/src/selftrain';
 import { stageById } from '../../../../packages/shared/src/school';
 import type { ToolSpec } from '../../../../packages/shared/src/toolcall';
-import { heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
+import { NIGHT_CALLS, nightStep } from '../school/night';
+import { CALLS_PER_DAY, heldQuestions, loadPractice, practiceRecords, practiceSummary, practiceTick } from '../school/practice';
 import { acceptRemoteReport, EXAM_GPU_HOURS, EXAM_LIMIT, gapTick, loadRemote, paperLines, paperName, saveRemote, stepSaveRemote, type RemoteState } from '../school/remote';
 import { loadPaper, loadState as loadSchool, STATE_KEY as SCHOOL_STATE } from '../school/state';
 import type { Library } from '../library/store';
@@ -313,11 +314,17 @@ export async function ensureTrainJob(storage: DurableObjectStorage): Promise<voi
   }
 }
 
-/** One step of the week, then SCHOOL's (schoolStep). Never throws; returns when the job should run again (ms from now) and a line for the job list. */
+/**
+ * One step of the week, then SCHOOL's (schoolStep), with NIGHT SCHOOL's part on the brain (school/night.ts: inside its
+ * window practice goes on with a night allowance and the study job is kept due; outside it the job wakes at its start).
+ * Never throws; returns when the job should run again (ms from now) and a line for the job list.
+ */
 export async function trainTick(d: CycleDeps): Promise<{ next: number; note: string }> {
   const r = await weekTick(d);
-  const more = await schoolStep(d);
-  return more === null ? r : { next: Math.max(1000, Math.min(r.next, more)), note: r.note };
+  const night = await nightStep(d);
+  const more = await schoolStep(d, !!night?.inside);
+  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity);
+  return next === r.next ? r : { next: Math.max(1000, next), note: r.note };
 }
 
 async function weekTick(d: CycleDeps): Promise<{ next: number; note: string }> {
@@ -917,9 +924,9 @@ export function examQuotaProblem(q: GpuQuota): string {
 /**
  * SCHOOL's part of a job step, after the week's: the exam run (examStep), then the online model's sitting of a paper
  * (the gap) or practice for his weak spots, a few model calls each (none while the week is gathering: its own calls
- * come first). Never throws; returns when it wants the job back (ms), or null with nothing to do.
+ * come first — except inside NIGHT SCHOOL's window, `night`, when practice has a night allowance of its own). Never throws; returns when it wants the job back (ms), or null with nothing to do.
  */
-async function schoolStep(d: CycleDeps): Promise<number | null> {
+async function schoolStep(d: CycleDeps, night = false): Promise<number | null> {
   let next: number | null = null;
   const want = (ms: number) => (next = next === null ? ms : Math.min(next, ms));
   try {
@@ -928,14 +935,15 @@ async function schoolStep(d: CycleDeps): Promise<number | null> {
   } catch {
     /* examStep keeps its own errors */
   }
-  if ((await loadState(d.storage)).phase === 'collect') return next;
+  // (Night School's window: practice goes on beside the week's gathering, with the night's own allowance on top.)
+  if ((await loadState(d.storage)).phase === 'collect' && !night) return next;
   const sd = { storage: d.storage, ask: d.ask, now: d.now };
   try {
     const g = await gapTick(sd);
     if (g.more) want(g.noModel ? 20 * 60_000 : 5 * 60_000);
     if (g.calls || g.noModel) return next;
-    const p = await practiceTick(sd);
-    if (p.more) want(p.noModel ? 20 * 60_000 : 10 * 60_000);
+    const p = await practiceTick(sd, night ? { perDay: CALLS_PER_DAY + NIGHT_CALLS } : {});
+    if (p.more) want(p.noModel ? 20 * 60_000 : night ? 5 * 60_000 : 10 * 60_000);
   } catch {
     /* a model or storage blip: tried again at the next step */
   }

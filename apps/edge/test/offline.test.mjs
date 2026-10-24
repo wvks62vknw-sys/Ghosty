@@ -227,3 +227,6 @@ await import('./gym2a.test.mjs');
 // The offline brain's weekly self-training on Kaggle (apps/edge/src/selftrain): its tests live in
 // selftrain.test.mjs (run from here for the same reason).
 await import('./selftrain.test.mjs');
+
+// NIGHT SCHOOL (packages/shared/src/night.ts, apps/edge/src/school/night.ts): its tests live in night.test.mjs.
+await import('./night.test.mjs');

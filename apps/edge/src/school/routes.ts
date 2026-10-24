@@ -427,6 +427,9 @@ export async function handleSchool(req: Request, path: string, method: string, d
   if (path === '/school/sit-remote' && method === 'POST') return sitRemote(d, body, (stage, subject) => handleSchool(new Request(req.url, { method: 'POST', body: JSON.stringify({ stage, subject }) }), '/school/sit', 'POST', d), (fn) => serial(d, fn));
   if (path === '/school/remote' && method === 'GET') return remoteStatus(d, (fn) => serial(d, fn));
 
+  // ---- NIGHT SCHOOL (school/night.ts): the switch and window, tonight's practice and its marks, the morning report ----
+  if (path === '/school/night' || path.startsWith('/school/night/')) return (await import('./night')).nightRoute(path, method, body, d, serial);
+
   // ---- part 3: the reading library (school/reading.ts): the shelves, READ, the reading check and BORROW ----
   if (path === '/school/reading' || path.startsWith('/school/reading/')) {
     const r = await (await import('./reading')).readingRoute(path, method, body, d);
@@ -450,6 +453,8 @@ export async function dailyReport(d: SchoolDeps): Promise<{ sent: boolean; text:
     const w = await workTick(d).catch(() => null);
     if (!w?.busy || !w.calls) break;
   }
+  // NIGHT SCHOOL: when the phone sent no morning report for a night that is over, the brain files its own part's.
+  await (await import('./night')).nightMorning(d, serial).catch(() => null);
   return serial(d, async () => {
     const now = (d.now ?? Date.now)();
     const st = await loadState(d);
