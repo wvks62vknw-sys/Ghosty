@@ -230,17 +230,19 @@ export function offlinePanel(): Panel & { refresh(): void } {
     });
   };
   /** GET (or CONTINUE): a brain's files onto this phone, asked first with the size, never on mobile data; nothing is loaded. */
-  const get = (m: ModelDef) => {
+  const get = async (m: ModelDef) => {
     if (offlineBrain.get().busy) return;
     if (onMobileData()) {
-      toast(`You are on mobile data: ${m.label} is about ${sizeText(m.mb)}. Join Wi-Fi, then press GET again.`, 'warn');
+      toast(`You are on mobile data: ${m.label} is about ${sizeText(m.mb)}. Join Wi-Fi, then press Get again.`, 'warn');
       return;
     }
+    // Asked in Ghosty's own sheet, as every other question here (the browser's confirm() is a system alert headed by
+    // the site's address on an iPhone).
     const resume = readLog()?.model === m.id;
-    const q = resume
-      ? `Carry on getting ${m.label}? The pieces already on this phone are kept; the rest of about ${sizeText(m.mb)} comes now, so only on Wi-Fi.`
-      : `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`;
-    if (!confirm(q)) return;
+    const yes = resume
+      ? await confirmSheet('Carry on downloading?', `Carry on getting ${m.label}? The pieces already on this phone are kept; the rest of about ${sizeText(m.mb)} comes now, so only on Wi-Fi.`, 'CARRY ON')
+      : await confirmSheet('Download this brain?', `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`, 'DOWNLOAD');
+    if (!yes || offlineBrain.get().busy) return;
     void getBrain(m.id, (frac, text) => paintProgress(frac, text))
       .then(() => toast(`${m.label} is on this phone: tap USE to load it`, 'ok'))
       .catch((e) => toast(`Download stopped: ${String((e as Error)?.message ?? e).slice(0, 200)}`, 'bad'))
@@ -289,7 +291,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         const btns: HTMLButtonElement[] = [];
         if (!using && onPhone) btns.push(button('USE', () => void use(m), 'on'));
         if (!using && !onPhone) {
-          const g = button(partial ? 'CONTINUE' : 'GET', () => get(m));
+          const g = button(partial ? 'CONTINUE' : 'GET', () => void get(m));
           g.setAttribute('aria-label', partial ? `Carry on getting ${m.label}: about ${sizeText(m.mb)} in all, on Wi-Fi` : `Get ${m.label}: about ${sizeText(m.mb)}, on Wi-Fi`);
           btns.push(g);
         }

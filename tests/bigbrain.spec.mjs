@@ -179,6 +179,15 @@ const text = (page, sel) => page.locator(`#pg-settings .offbrain ${sel}`).first(
 const gpu = (page) => page.evaluate(() => window.__gpu);
 const engine = (page) => page.evaluate(() => ({ loads: window.__ghostyOfflineEngine.loads, unloads: window.__ghostyOfflineEngine.unloads }));
 const sheet = (page) => page.locator('.modal .confirm.sure');
+/** GET and CONTINUE ask in Ghosty's own sheet (never the browser's confirm()): its words, then KEEP IT or its yes. */
+const answerSheet = async (page, yes) => {
+  const shown = await sheet(page).waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false);
+  if (!shown) return '';
+  const words = (await sheet(page).locator('p.note').textContent().catch(() => '')) ?? '';
+  await sheet(page).locator(yes ? 'button.sureyes' : 'button:not(.sureyes)').first().click();
+  await page.waitForTimeout(200);
+  return words;
+};
 const cached = (page, model) =>
   page.evaluate(async (model) => {
     const out = {};
@@ -229,19 +238,19 @@ await page.evaluate(() => (window.__net = 'cellular'));
 await press(page, ID.two, 'GET');
 await page.waitForTimeout(400);
 check(/You are on mobile data: Qwen3\.5 2B is about 1\.1 GB\. Join Wi-Fi/.test(await toasts(page)), `mobile data refused: "${await toasts(page)}"`);
-check(dialogs.length === 0, 'no question on mobile data');
+check(dialogs.length === 0 && !(await sheet(page).isVisible().catch(() => false)), 'no question on mobile data');
 await page.evaluate(() => (window.__net = 'wifi'));
-answer = 'dismiss';
 const hitsBefore = net.hits.length;
 await press(page, ID.two, 'GET');
-await page.waitForTimeout(400);
-check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it \(it needs about 2\.2 GB of memory when running; if your phone cannot give it that, Qwen3 0\.6B takes over\)\.$/.test(dialogs[0] ?? ''), `the question: "${dialogs[0]}"`);
+const asked2B = await answerSheet(page, false);
+check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it \(it needs about 2\.2 GB of memory when running; if your phone cannot give it that, Qwen3 0\.6B takes over\)\.$/.test(asked2B), `the question, in Ghosty's own sheet: "${asked2B}"`);
+check(dialogs.length === 0, `GET asks in Ghosty's sheet, not the browser's: ${JSON.stringify(dialogs)}`);
 check((await stored(page)).model === ID.small && net.hits.length === hitsBefore, 'saying no changes nothing and fetches nothing');
-answer = 'accept';
 const unloadsBefore = (await engine(page)).unloads;
 await page.evaluate(() => ((window.__logs = []), (window.__lines = [])));
 net.most = 0;
 await press(page, ID.two, 'GET');
+await answerSheet(page, true);
 check(await tagIs(page, ID.two, 'ON THIS PHONE', 20000), 'the 2B is not ON THIS PHONE after GET');
 const got = await cached(page, ID.two);
 check(got['webllm/model'].length === SHARDS + 2 && got['webllm/config'].length === 1 && got['webllm/wasm'].length === 1, `the 2B's pieces in WebLLM's own stores and keys: ${JSON.stringify(got)}`);
@@ -266,6 +275,7 @@ await shot(page, 'got-2b');
 // ---- 3. iOS closes Ghosty half-way through GET (the 4B): the next open says where it stopped; CONTINUE carries on
 net.hang.add('params_shard_2.bin');
 await press(page, ID.four, 'GET');
+await answerSheet(page, true);
 await page.waitForFunction(() => window.__logs.at(-1)?.piece === 6 && window.__logs.at(-1)?.model === 'Qwen3.5-4B-q4f16_1-MLC', null, { timeout: 10000 }).catch(() => problems.push('GET of the 4B never reached piece 6'));
 await page.waitForTimeout(200);
 await killAndReopen(page);
@@ -280,8 +290,9 @@ net.hang.clear();
 dialogs = [];
 const before4 = net.hits.length;
 await press(page, ID.four, 'CONTINUE');
+const askedOn = await answerSheet(page, true);
 check(await tagIs(page, ID.four, 'ON THIS PHONE', 20000), 'CONTINUE did not finish the 4B');
-check(/^Carry on getting Qwen3\.5 4B\? The pieces already on this phone are kept/.test(dialogs[0] ?? ''), `CONTINUE asks first: "${dialogs[0]}"`);
+check(/^Carry on getting Qwen3\.5 4B\? The pieces already on this phone are kept/.test(askedOn) && dialogs.length === 0, `CONTINUE asks first, in Ghosty's sheet: "${askedOn}" ${JSON.stringify(dialogs)}`);
 const fetched = net.hits.slice(before4).map((u) => u.split('/').pop());
 check(JSON.stringify(fetched) === JSON.stringify(['params_shard_2.bin', 'params_shard_3.bin']), `CONTINUE fetched only what was missing: ${JSON.stringify(fetched)}`);
 check((await text(page, '.obgetting')) === '' && (await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.getting'))) === null, 'the carry-on line and the log are gone');
@@ -431,6 +442,7 @@ sp.on('request', (r) => {
 sp.on('dialog', (d) => void d.accept());
 check(/^What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 0\.6B, 0\.8B\./.test(await text(sp, '.obhold')), `the can-hold line with Safari's limits: "${await text(sp, '.obhold')}"`);
 await press(sp, ID.two, 'GET');
+await answerSheet(sp, true);
 check(await tagIs(sp, ID.two, 'ON THIS PHONE', 20000), 'GET of the 2B did not finish (Safari limits)');
 await press(sp, ID.two, 'USE');
 await sp.waitForTimeout(800);
@@ -442,6 +454,7 @@ check((await stored(sp)).held?.['qwen3.5-2b']?.s === 'refused' && /could not sta
 check((await row(sp, ID.two))?.facts === '1.1 GB download · about 2.2 GB of memory when running · cannot run on this phone', `the refused 2B's line: "${(await row(sp, ID.two))?.facts}"`);
 await shot(sp, 'refused-2b');
 await press(sp, ID.mid, 'GET');
+await answerSheet(sp, true);
 check(await tagIs(sp, ID.mid, 'ON THIS PHONE', 20000), 'GET of the 0.8B did not finish');
 await press(sp, ID.mid, 'USE');
 const midWarn = await sheet(sp).waitFor({ state: 'visible', timeout: 4000 }).then(() => sp.locator('.modal').last().textContent(), () => '');
