@@ -56,3 +56,17 @@ export function sentences(t: string, max = 300): string[] {
   }
   return out;
 }
+
+/** What a long reply's spoken part ends with: the rest is on the screen, not lost. */
+export const REST_ON_SCREEN = 'The rest is on screen.';
+
+/**
+ * A reply read out by itself (not asked for with LISTEN) stops after about half a minute of speech
+ * (`max` characters, whole sentences, the first always) and says the rest is on screen.
+ */
+export function brief(parts: string[], max = 480): string[] {
+  let n = 0;
+  let used = 0;
+  while (n < parts.length && (n === 0 || used + parts[n]!.length <= max)) used += parts[n++]!.length + 1;
+  return n < parts.length ? [...parts.slice(0, n), REST_ON_SCREEN] : parts;
+}

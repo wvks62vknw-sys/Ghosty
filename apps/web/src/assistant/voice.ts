@@ -17,7 +17,7 @@ import { brain, speechCaps } from '../api/brain';
 import { brainVoice, naturalBritish, phoneVoiceScore } from '../../../../packages/shared/src/voices';
 import { settings, ui } from '../state/app';
 import { BargeDetector } from './barge';
-import { clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
+import { brief, clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 
 let voices: SpeechSynthesisVoice[] = [];
@@ -131,14 +131,16 @@ let progress = { parts: [] as string[], i: 0, owner: undefined as string | undef
 
 /**
  * Read `text` aloud. `owner`: which chat entry this is (session.ts passes the reply's own tag), so
- * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE).
+ * an interruption marks that reply and no other; `choice`: a voice other than the saved one (SAMPLE);
+ * `brief`: a reply read out by itself — a long one stops after about half a minute, "The rest is on
+ * screen." (LISTEN reads the whole of it).
  */
-export function speak(text: string, opts: { choice?: Choice; owner?: string } = {}): Promise<void> {
+export function speak(text: string, opts: { choice?: Choice; owner?: string; brief?: boolean } = {}): Promise<void> {
   const choice = opts.choice ?? chosen();
   const t = clean(text);
   if (!t) return Promise.resolve();
   const token = ++speakToken;
-  const parts = sentences(t);
+  const parts = opts.brief ? brief(sentences(t)) : sentences(t);
   progress = { parts, i: 0, owner: opts.owner };
   // A clip still playing from the last reply stops now, so its handlers never touch the next clip.
   stopClip?.();

@@ -392,3 +392,16 @@ test('read aloud: a cited answer is said without its [n] markers, its SOURCES li
   // an ordinary reply that happens to mention sources is left alone
   assert.deepEqual(said('Two sources agree on it.'), ['Two sources agree on it.']);
 });
+
+test('read aloud by itself: a long reply stops after about half a minute and says the rest is on screen; a short one is said whole', () => {
+  const long = said(`Here's Saturday:\n\n1. Leave by 8.30am.\n2. Fuel is £1.42 a litre.\n\n${'The forecast is dry with a light breeze from the west and highs of 14.5°C, so a jacket is enough. '.repeat(12)}`);
+  const out = SP.brief(long);
+  assert.equal(out.at(-1), 'The rest is on screen.');
+  const chars = out.join(' ').length;
+  assert.ok(chars <= 520 && chars >= 300, `about half a minute of speech: ${chars} characters`);
+  assert.deepEqual(out.slice(0, -1), long.slice(0, out.length - 1), 'whole sentences, from the start');
+  const short = said('It is 14.5°C. Bring a coat!');
+  assert.deepEqual(SP.brief(short), short);
+  // one very long first sentence is still said (cut into clips as usual), never nothing
+  assert.equal(SP.brief(['x'.repeat(600), 'and more.'])[0], 'x'.repeat(600));
+});
