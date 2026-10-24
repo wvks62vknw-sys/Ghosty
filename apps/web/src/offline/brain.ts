@@ -19,7 +19,8 @@ import { createStore } from '../core/store';
 import { searchLocalHow } from '../library/local';
 import { embedState, freeEmbedder, isEmbedFile } from './embed';
 import { settings } from '../state/app';
-import { allModels, downloadFailure, MODELS, modelBase, WORKER_REV, type ModelDef, type TrainedModel } from './models';
+import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
+import { brainModels, brainOf, downloadFailure, MODELS, modelBase, PICKER, sizeText, stockOf, WORKER_REV, type ModelDef, type TrainedModel } from './models';
 import { withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, type OfflineMsg } from './prompt';
 
@@ -34,15 +35,33 @@ const IDLE_UNLOAD_MS = 2 * 60_000;
 /**
  * What the settings panel shows. `model` and `downloaded` are kept on this device, and so are `trained` (the
  * models the weekly self-training published, from the brain) and `active` (the one the brain recommends), so
- * a trained model still loads with no connection.
+ * a trained model still loads with no connection. `have`: the brains whose download finished here (the picker's
+ * ON THIS PHONE; each is checked against the cache before it is trusted); `fellBack`: what to tell the owner when a
+ * bigger brain could not get the memory it needed and the 0.6B took over; `trainBase`: the base the weekly training
+ * last said it follows, and `pendingBase` one chosen here that has not reached the brain yet (offline/trained.ts).
  */
 export const offlineBrain = createStore(
-  { model: MODELS[0]!.id, downloaded: false, loaded: false, busy: '' as '' | 'download' | 'load' | 'reply', progress: 0, text: '', trained: [] as TrainedModel[], active: null as string | null, weights: null as string | null, thinkSecs: 55 },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs'] },
+  {
+    model: MODELS[0]!.id,
+    downloaded: false,
+    loaded: false,
+    busy: '' as '' | 'download' | 'load' | 'reply',
+    progress: 0,
+    text: '',
+    trained: [] as TrainedModel[],
+    active: null as string | null,
+    weights: null as string | null,
+    thinkSecs: 55,
+    have: [] as string[],
+    fellBack: '',
+    trainBase: DEFAULT_BASE as BaseId,
+    pendingBase: null as BaseId | null,
+  },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase'] },
 );
 
-/** Every model this phone can use: the trained ones, then the stock Qwen3 and Qwen2.5 (offline/models.ts). */
-export const offlineModels = (): ModelDef[] => allModels(offlineBrain.get().trained ?? [], globalThis.location?.origin ?? '', offlineBrain.get().weights ?? null);
+/** Every model this phone can use: the trained ones, the stock Qwen3 and Qwen2.5, and the bigger brains (offline/models.ts). */
+export const offlineModels = (): ModelDef[] => brainModels(offlineBrain.get().trained ?? [], globalThis.location?.origin ?? '', offlineBrain.get().weights ?? null);
 
 /**
  * The brain's list of trained brains, the recommended one (`active`) and this phone's weight address. Nothing is
@@ -50,15 +69,16 @@ export const offlineModels = (): ModelDef[] => allModels(offlineBrain.get().trai
  * use was dropped), the phone follows: to the new choice, or back to the stock Qwen3 — and says so (the returned
  * line, for a toast; '' when nothing changed). A phone on the stock model is only offered a new week (SETTINGS).
  */
-export function setTrainedModels(trained: TrainedModel[], active: string | null, weights: string | null = offlineBrain.get().weights): string {
+export function setTrainedModels(trained: TrainedModel[], active: string | null, weights: string | null = offlineBrain.get().weights, base?: BaseId): string {
   const was = offlineBrain.get();
-  offlineBrain.set({ trained: trained.map(({ week, label, repo, commit }) => ({ week, label, repo, commit })), active, weights });
+  offlineBrain.set({ trained: trained.map(({ week, label, repo, commit, base: b }) => ({ week, label, repo, commit, ...(b ? { base: b } : {}) })), active, weights, ...(base ? { trainBase: base } : {}) });
   const list = offlineModels();
-  const usingTrained = !MODELS.some((m) => m.id === was.model);
+  const usingTrained = !PICKER.concat(MODELS).some((m) => m.id === was.model);
   if (!usingTrained) return '';
   const stillThere = list.some((m) => m.id === was.model);
   if (stillThere && was.active === active) return '';
-  const to = (active && list.find((m) => m.rev === active)) || MODELS[0]!;
+  // (the brain's choice, or the stock build of the base it trains: a ROLLBACK past a base switch goes back to the old one)
+  const to = (active && list.find((m) => m.rev === active)) || stockOf(base ?? brainOf(currentModel()));
   if (to.id === was.model) return '';
   offlineBrain.set({ model: to.id, downloaded: false, loaded: false });
   checkedAt = 0;
@@ -68,8 +88,8 @@ export function setTrainedModels(trained: TrainedModel[], active: string | null,
 /** The test engine, when a browser test put one there. */
 interface TestEngine {
   ready?: boolean;
-  /** Stands in for loading the model into memory (a reply waits for it). */
-  load?(): Promise<unknown> | unknown;
+  /** Stands in for loading the model into memory (a reply waits for it); told which model (a throw like the phone's "out of memory" tests the fallback). */
+  load?(model?: string): Promise<unknown> | unknown;
   /** Told when the model leaves memory. */
   unload?(): void;
   /** How long after the last use the model leaves memory (instead of two minutes). */
@@ -115,21 +135,45 @@ export async function offlineReady(): Promise<boolean> {
   if (t) return t.ready !== false;
   if (!offlineBrain.get().downloaded || typeof caches === 'undefined') return false;
   if (Date.now() - checkedAt < 10 * 60_000) return true;
+  const m = currentModel();
+  const ok = await cachedWhole(m);
+  if (!ok) offlineBrain.set({ downloaded: false });
+  // (a brain downloaded before the picker existed counts as on this phone too, so a bigger download never prunes it)
+  else if (!(offlineBrain.get().have ?? []).includes(m.id)) offlineBrain.set({ have: [...(offlineBrain.get().have ?? []), m.id] });
+  checkedAt = ok ? Date.now() : 0;
+  return ok;
+}
+
+/** Every file of this model is in the browser's cache: WebLLM's own check, done here without loading WebLLM (the weight list and every shard it names). */
+async function cachedWhole(m: ModelDef): Promise<boolean> {
+  if (typeof caches === 'undefined') return false;
   try {
-    // WebLLM's own check, done here without loading WebLLM: the weight list and every shard it names.
-    const base = modelBase(currentModel());
+    const base = modelBase(m);
     const cache = await caches.open('webllm/model');
     const list = await cache.match(new Request(`${base}tensor-cache.json`));
     if (!list) return false;
     const records = ((await list.json()) as { records?: { dataPath: string }[] }).records ?? [];
     const keys = new Set((await cache.keys()).map((r) => r.url));
-    const ok = records.length > 0 && records.every((r) => keys.has(new URL(r.dataPath, base).href));
-    if (!ok) offlineBrain.set({ downloaded: false });
-    checkedAt = ok ? Date.now() : 0;
-    return ok;
+    return records.length > 0 && records.every((r) => keys.has(new URL(r.dataPath, base).href));
   } catch {
     return false;
   }
+}
+
+/**
+ * The picker's brains on this phone (their download finished, and their files are still all in the cache). With the
+ * test engine, the ones DOWNLOAD finished for. A brain whose files went (the phone cleared them) is dropped from `have`.
+ */
+export async function brainsHere(): Promise<string[]> {
+  const have = offlineBrain.get().have ?? [];
+  if (testEngine()) return have;
+  const here: string[] = [];
+  for (const id of have) {
+    const m = offlineModels().find((x) => x.id === id);
+    if (m && (await cachedWhole(m))) here.push(id);
+  }
+  if (here.length !== have.length) offlineBrain.set({ have: here });
+  return here;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -194,8 +238,9 @@ const appConfig = () => ({
     vram_required_MB: m.vram,
     low_resource_required: true,
     required_features: ['shader-f16'],
-    // A shorter memory than the model allows: our prompts are short and a phone's memory is tight.
-    overrides: { context_window_size: 2048 },
+    // A shorter memory than the model allows: our prompts are short and a phone's memory is tight. The Qwen3.5 brains
+    // as WebLLM's own list runs them (offline/models.ts BIGGER): 4,096 tokens and one running state.
+    overrides: { context_window_size: m.ctx ?? 2048, ...(m.history ? { max_history_size: m.history } : {}) },
   })),
 });
 
@@ -229,7 +274,50 @@ function load(onProgress?: (frac: number, text: string) => void, download = fals
       loading = null;
     }
   })();
-  return loading;
+  // A bigger brain the phone could not give the memory to: the 0.6B takes over, at once when it is on this phone.
+  // Only when no download was asked for (DOWNLOAD says so itself); a reply then waits for the 0.6B instead.
+  return download ? loading : loading.catch(async (e) => {
+    if (!(await fallBack(e))) throw e;
+    return load(onProgress);
+  });
+}
+
+/** A bigger brain (not the 0.6B or its Qwen2.5 stand-in) that may be too big for the phone's memory. */
+const isBigger = (m: ModelDef): boolean => brainOf(m) !== DEFAULT_BASE;
+
+/**
+ * After a failure: when the brain in use is a bigger one and the phone ran out of memory (or lost its graphics) loading
+ * it, the 0.6B becomes the brain in use and the owner is told in plain words (`fellBack`, shown in SETTINGS). Its files
+ * stay: closing other apps and choosing it again may be enough. True when it fell back.
+ */
+async function fallBack(e: unknown): Promise<boolean> {
+  const m = currentModel();
+  if (!isBigger(m) || !tooBig(e)) return false;
+  freeModel();
+  const small = MODELS[0]!;
+  const have = offlineBrain.get().have ?? [];
+  const here = have.includes(small.id);
+  // (its files stay, and count as on this phone when they are whole: REMOVE is then offered for them)
+  const whole = testEngine() ? true : await cachedWhole(m);
+  offlineBrain.set({
+    have: whole ? [...new Set([...have, m.id])] : have,
+    model: small.id,
+    downloaded: here,
+    loaded: false,
+    fellBack: `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${small.label} instead${here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)'}. ${m.label} stays on this phone: close other apps and choose it again to try once more, or REMOVE it to free ${sizeText(m.mb)}.`,
+  });
+  checkedAt = 0;
+  return true;
+}
+
+/** The test engine's load, told which model, with the same fallback when it throws "out of memory" for a bigger brain. */
+async function testLoad(t: TestEngine): Promise<void> {
+  try {
+    await t.load?.(currentModel().id);
+  } catch (e) {
+    if (!(await fallBack(e))) throw e;
+    await t.load?.(currentModel().id);
+  }
 }
 
 /** The phone ran out of memory or lost its graphics device: worth trying the smaller model. */
@@ -239,8 +327,16 @@ const tooBig = (e: unknown) => /memory|device (?:was )?lost|allocat|exceed|out o
 export async function downloadOffline(onProgress?: (frac: number, text: string) => void): Promise<void> {
   const t = testEngine();
   if (t) {
+    // (the test engine's "download" loads it once, as WebLLM does after fetching, so a bigger brain can fail for memory)
+    const m = currentModel();
+    try {
+      await t.load?.(m.id);
+    } catch (e) {
+      if (await fallBack(e)) throw new Error(offlineBrain.get().fellBack);
+      throw e;
+    }
     t.ready = true;
-    offlineBrain.set({ downloaded: true, loaded: true });
+    offlineBrain.set({ downloaded: true, loaded: true, fellBack: '', have: [...new Set([...(offlineBrain.get().have ?? []), m.id])] });
     onProgress?.(1, 'done');
     freeModel();
     return;
@@ -251,7 +347,7 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
     await load(onProgress, true);
   } catch (e) {
     const kind = downloadFailure(e);
-    const trained = !MODELS.some((m) => m.id === currentModel().id);
+    const trained = !PICKER.concat(MODELS).some((m) => m.id === currentModel().id);
     if (kind === 'network') {
       // The connection dropped: nothing is removed (the stock model's files, nor what this download already
       // fetched — WebLLM keeps each finished file), so DOWNLOAD carries on from where it stopped.
@@ -259,42 +355,70 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
       throw new Error('The download was interrupted (the connection dropped?). Press DOWNLOAD again on Wi-Fi: it carries on from where it stopped.');
     }
     if (trained && kind === 'broken') {
-      // A trained brain whose files are really wrong or gone: only ITS files go, and the phone goes back to the stock one.
+      // A trained brain whose files are really wrong or gone: only ITS files go, and the phone goes back to its base's stock one.
       const m = currentModel();
+      const stock = stockOf(brainOf(m));
       dropWorker();
       await removeFilesOf(modelBase(m));
-      offlineBrain.set({ model: MODELS[0]!.id, downloaded: false });
+      offlineBrain.set({ model: stock.id, downloaded: false });
       checkedAt = 0;
-      throw new Error(`${m.label} would not load (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock Qwen3: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
+      throw new Error(`${m.label} would not load (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
     }
+    // A bigger brain the phone could not hold: its files stay (closing other apps may be enough), the 0.6B takes over.
+    if (await fallBack(e)) throw new Error(offlineBrain.get().fellBack);
     if (currentModel().id !== MODELS[1]!.id && tooBig(e)) {
       dropWorker();
       await clearCaches();
-      offlineBrain.set({ model: MODELS[1]!.id, downloaded: false });
+      offlineBrain.set({ model: MODELS[1]!.id, downloaded: false, have: [] });
       onProgress?.(0, 'Too big for this phone: getting the smaller model instead');
       await load(onProgress, true);
     } else throw e;
   }
+  offlineBrain.set({ fellBack: '', have: [...new Set([...(offlineBrain.get().have ?? []), currentModel().id])] });
   // Downloaded is all that was asked: the model leaves memory until it is needed (the camera, the
   // namer and the reader need the room), and files from an older pinned revision go.
   freeModel();
   await pruneOtherRevisions();
 }
 
+/**
+ * Make one of the picker's brains (or a kept week) the one in use. Nothing is downloaded here: a brain already on this
+ * phone is ready at once, another one waits for DOWNLOAD (the picker asks first, with its size). The old one leaves memory.
+ */
+export function chooseBrain(id: string): ModelDef | null {
+  const m = offlineModels().find((x) => x.id === id);
+  if (!m || offlineBrain.get().busy) return null;
+  freeModel();
+  offlineBrain.set({ model: m.id, downloaded: (offlineBrain.get().have ?? []).includes(m.id), loaded: false, fellBack: '' });
+  checkedAt = 0;
+  return m;
+}
+
+/** Remove one brain's files from this phone (a bigger one he tried); the one in use goes back to the 0.6B. */
+export async function removeBrain(id: string): Promise<void> {
+  const m = offlineModels().find((x) => x.id === id);
+  if (!m) return;
+  if (currentModel().id === id) chooseBrain(MODELS[0]!.id);
+  await removeFilesOf(modelBase(m));
+  offlineBrain.set({ have: (offlineBrain.get().have ?? []).filter((x) => x !== id) });
+}
+
 /** A model's weights and config kept by WebLLM: from Hugging Face, or a trained week's from Ghosty's weight address. */
 const isModelFile = (url: string) => url.startsWith('https://huggingface.co/') || new URL(url).pathname.startsWith('/api/w/');
 
 /**
- * Remove cached model files that are not the current model's (an older download, another model) — only after a
- * download finished. SEARCH BY MEANING's model (offline/embed.ts) shares these stores and is always kept.
+ * Remove cached model files that are not the current model's (an older download, another trained week) — only after a
+ * download finished. The picker's stock brains that are on this phone stay (switching back needs no new download, and
+ * the 0.6B is the fallback), and so does SEARCH BY MEANING's model (offline/embed.ts), which shares these stores.
  */
 async function pruneOtherRevisions(): Promise<void> {
   if (typeof caches === 'undefined') return;
-  const keep = modelBase(currentModel());
+  const have = offlineBrain.get().have ?? [];
+  const keep = [modelBase(currentModel()), ...PICKER.concat(MODELS).filter((m) => have.includes(m.id)).map(modelBase)];
   for (const name of ['webllm/model', 'webllm/config']) {
     try {
       const c = await caches.open(name);
-      for (const r of await c.keys()) if (isModelFile(r.url) && !r.url.startsWith(keep) && !isEmbedFile(r.url)) await c.delete(r);
+      for (const r of await c.keys()) if (isModelFile(r.url) && !keep.some((k) => r.url.startsWith(k)) && !isEmbedFile(r.url)) await c.delete(r);
     } catch {
       /* no cache storage */
     }
@@ -366,7 +490,7 @@ export async function deleteOffline(): Promise<void> {
   } catch {
     /* no cache storage */
   }
-  offlineBrain.set({ downloaded: false, loaded: false, model: MODELS[0]!.id, progress: 0, text: '' });
+  offlineBrain.set({ downloaded: false, loaded: false, model: MODELS[0]!.id, progress: 0, text: '', have: [], fellBack: '' });
 }
 
 /** How one reply is written: how adventurous (temperature, 0–1.5) and how long at most (tokens). */
@@ -393,7 +517,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   const t = testEngine();
   if (t) {
     if (t.ready === false) throw notHere();
-    await t.load?.();
+    await testLoad(t);
   } else await load();
   // A "stop" while the model was loading: an abort that already happened never fires again for a
   // listener added now, so it is checked here, and no reply is written at all.
@@ -463,7 +587,7 @@ export async function loadOffline(): Promise<void> {
   const t = testEngine();
   if (t) {
     if (t.ready === false) throw notHere();
-    await t.load?.();
+    await testLoad(t);
     return;
   }
   await load();

@@ -110,7 +110,9 @@ test('the models are pinned to one Hugging Face commit each, and the vendored We
   const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
   assert.doesNotMatch(brain, /resolve\/main|huggingface\.co\/mlc-ai/);
   assert.match(brain, /model: modelBase\(m\)/);
-  assert.match(brain, /const base = modelBase\(currentModel\(\)\)/);
+  // (the check that a download is whole reads the model in use's base: offlineReady → cachedWhole(currentModel()))
+  assert.match(brain, /const m = currentModel\(\);\s*const ok = await cachedWhole\(m\);/);
+  assert.match(brain, /async function cachedWhole\(m: ModelDef\)[\s\S]*?const base = modelBase\(m\);/);
 });
 
 test("the offline brain is the same character (the owner's dials too), and its replies are polished like the brain's", () => {
@@ -145,9 +147,44 @@ test('search by meaning: the small embedding model is pinned like the brains, it
   assert.match(worker, new RegExp(`^// worker revision: ${M.WORKER_REV} `));
   // The brain's clean-ups leave the meaning model's files alone.
   const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
-  assert.match(brain, /!r\.url\.startsWith\(keep\) && !isEmbedFile\(r\.url\)/);
+  assert.match(brain, /!keep\.some\(\(k\) => r\.url\.startsWith\(k\)\) && !isEmbedFile\(r\.url\)/);
 });
 
 // THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
 // because this one is in the test list (package.json is protected).
 await import('./thinkharder.test.mjs');
+
+test('a bigger brain: Qwen3.5 2B and 4B pinned exactly as the vendored WebLLM 0.2.85 lists them, their compiled code vendored, and the fit line worked out from memory', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  assert.deepEqual(M.PICKER.map((m) => m.label), ['Qwen3 0.6B', 'Qwen3.5 2B', 'Qwen3.5 4B']);
+  for (const m of M.BIGGER) {
+    assert.match(m.rev, /^[0-9a-f]{40}$/, `${m.id} is pinned to a commit`);
+    assert.equal(M.modelBase(m), `https://huggingface.co/${m.repo}/resolve/${m.rev}/`);
+    // the prebuilt entry for this id in the very runtime the phone runs: same repo, library, memory and overrides
+    const entry = src.match(new RegExp(`model: "https://huggingface\\.co/${m.repo.replace(/[.]/g, '\\.')}",\\s*model_id: "${m.id.replace(/[.]/g, '\\.')}",[\\s\\S]*?\\n        \\}`))?.[0];
+    assert.ok(entry, `${m.id} is in WebLLM 0.2.85's own list`);
+    assert.match(entry, new RegExp(`"/${m.lib.replace(/[.]/g, '\\.')}"`));
+    assert.match(entry, new RegExp(`vram_required_MB: ${m.vram},`));
+    assert.match(entry, new RegExp(`context_window_size: ${m.ctx},\\s*max_history_size: ${m.history},`));
+    const lib = new URL(`../../web/public/vendor/webllm/libs/${m.lib}`, import.meta.url);
+    assert.ok(statSync(lib).size > 6_000_000, `${m.lib} is vendored`);
+    assert.deepEqual([...readFileSync(lib).subarray(0, 4)], [0, 0x61, 0x73, 0x6d], 'a WebAssembly file');
+  }
+  assert.equal(src.match(/const modelVersion = "([^"]+)"/)?.[1], 'v0_2_84/base', 'the libraries are from the set this runtime names');
+  // the fit line: within a quarter of the memory is "yes", up to 40 % "tight", beyond it "no"
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 12)), ['yes', 'yes', 'tight'], 'an 18 Pro Max (12 GB)');
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 8)), ['yes', 'tight', 'no']);
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 4)), ['tight', 'no', 'no']);
+  assert.equal(M.fitOf(1024, 4), 'yes', 'exactly a quarter');
+  assert.equal(M.fitOf(4096 * 0.4, 4), 'tight', 'exactly 40 %');
+  assert.equal(M.fitOf(2000, 0), 'no');
+  assert.equal(M.fitLine(M.BIGGER[1]), 'fits an 18 Pro Max: tight', "Safari says nothing: the phone's known 12 GB");
+  assert.equal(M.fitLine(M.BIGGER[0], 8), 'fits this device (8 GB): tight', 'the browser says how much it has');
+  assert.equal(M.fitLine(M.MODELS[0], null), 'fits an 18 Pro Max: yes');
+  assert.deepEqual(M.PICKER.map((m) => [M.sizeText(m.mb), M.memText(m.vram)]), [['352 MB', '1.4 GB'], ['1.1 GB', '2.2 GB'], ['2.4 GB', '3.8 GB']]);
+  // the page gives WebLLM each model's own context and history (brain.ts appConfig)
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.match(brain, /overrides: \{ context_window_size: m\.ctx \?\? 2048, \.\.\.\(m\.history \? \{ max_history_size: m\.history \} : \{\}\) \}/);
+});

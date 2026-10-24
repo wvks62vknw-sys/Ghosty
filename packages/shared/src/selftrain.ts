@@ -77,6 +77,65 @@ export function gateVerdict(before: AreaScores, after: AreaScores, items: Partia
   return { pass: true, why: `${pts(gain)} better on average, and no area fell further than it may`, drops };
 }
 
+// ---- the brain's base model --------------------------------------------------------------------------------
+
+/** The base models the offline brain can be (SETTINGS → OFFLINE BRAIN chooses; the weekly training follows it). */
+export type BaseId = 'qwen3-0.6b' | 'qwen3.5-2b' | 'qwen3.5-4b';
+
+export interface BrainBase {
+  id: BaseId;
+  label: string;
+  /** How the notebook reads, trains and writes it: Qwen3 (attention only), or Qwen3.5 (linear attention in three layers of four). */
+  family: 'qwen3' | 'qwen3_5';
+  /** The original weights the weekly LoRA trains on (Hugging Face, one commit). */
+  hf: { repo: string; rev: string };
+  /** mlc-ai's phone build of the same model, whose files' layout the notebook writes a trained week into. */
+  mlc: { repo: string; rev: string; quant: 'q4f16_1' };
+  /** The context window the phone gives it (tokens): the exam's prompts are cut to fit it (examBudgets). */
+  context: number;
+  /**
+   * Whether Kaggle's free GPU (one T4, 15 GB) can train it: the notebook trains in full precision (fp32: no bf16 on a
+   * T4, no fp16 for Qwen's activations), so the text weights alone take 4 bytes a parameter. `why` when it cannot.
+   */
+  trainable: boolean;
+  why?: string;
+}
+
+/**
+ * Each pinned to one commit, checked on 24 Oct 2026: the mlc-ai builds are the ones WebLLM 0.2.85's own list names
+ * (the runtime vendored on the phone), the originals are the Qwen repos they were converted from (Apache-2.0).
+ * Qwen3.5-2B: 1.88 billion text parameters = 7.5 GB in fp32; Qwen3.5-4B: 4.21 billion = 16.8 GB, more than the T4 has.
+ */
+export const BRAIN_BASES: BrainBase[] = [
+  { id: 'qwen3-0.6b', label: 'Qwen3 0.6B', family: 'qwen3', hf: { repo: 'Qwen/Qwen3-0.6B', rev: 'c1899de289a04d12100db370d81485cdf75e47ca' }, mlc: { repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19', quant: 'q4f16_1' }, context: 2048, trainable: true },
+  { id: 'qwen3.5-2b', label: 'Qwen3.5 2B', family: 'qwen3_5', hf: { repo: 'Qwen/Qwen3.5-2B', rev: '15852e8c16360a2fea060d615a32b45270f8a8fc' }, mlc: { repo: 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC', rev: 'dd74e9c8a20c4546df85c844103bff87b6dcacad', quant: 'q4f16_1' }, context: 4096, trainable: true },
+  {
+    id: 'qwen3.5-4b',
+    label: 'Qwen3.5 4B',
+    family: 'qwen3_5',
+    hf: { repo: 'Qwen/Qwen3.5-4B', rev: '851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a' },
+    mlc: { repo: 'mlc-ai/Qwen3.5-4B-q4f16_1-MLC', rev: '44b42469f9e192814bfd90440e3b377d89ba7a13', quant: 'q4f16_1' },
+    context: 4096,
+    trainable: false,
+    why: "it is too big to train on Kaggle's free GPU (about 17 GB in full precision; the free card has 15 GB)",
+  },
+];
+
+/** The brain the phone had before there was a choice (and a kept week with no base named was trained on). */
+export const DEFAULT_BASE: BaseId = 'qwen3-0.6b';
+
+/** A base by its id; an unknown or missing one is the default (older records name none). */
+export const baseById = (id: unknown): BrainBase => BRAIN_BASES.find((b) => b.id === id) ?? BRAIN_BASES[0]!;
+
+/**
+ * The exam's token budgets for a base, as the notebook uses them: a prompt keeps at most `prompt` tokens (the base's
+ * context on the phone: 2,048 for Qwen3 0.6B, 4,096 for Qwen3.5), and a generation batch holds rows up to `gen`
+ * tokens in all (prompt + answer), scaled with the context so the longest prompts still go eight at a time.
+ */
+export function examBudgets(b: BrainBase): { prompt: number; gen: number } {
+  return { prompt: b.context, gen: Math.round((20_000 * b.context) / 2048) };
+}
+
 // ---- the dataset -----------------------------------------------------------------------------------------
 
 /**
@@ -197,6 +256,8 @@ export interface TrainReport {
   finishedAt: number;
   /** The model it started from: 'stock' or a published week. */
   base: string;
+  /** The base model it trained on (BRAIN_BASES), as the notebook read it from its settings. */
+  baseId?: BaseId;
   /** The exam, as the brains ship (both quantised to q4f16_1): the current one, and the new one. */
   before: AreaScores;
   after: AreaScores;
@@ -231,6 +292,8 @@ export interface PublishedModel {
   scores: AreaScores;
   /** It learned from the owner's library, chats or ratings (this week or an earlier week in its chain). */
   private?: boolean;
+  /** The base it was trained on (absent: Qwen3 0.6B, the only one there was). */
+  base?: BaseId;
 }
 
 export type TrainPhase = 'idle' | 'collect' | 'upload' | 'push' | 'running' | 'failed';
@@ -251,8 +314,14 @@ export interface TrainStatus {
   previous: TrainReport | null;
   /** The last good models, newest first (at most 3). */
   models: PublishedModel[];
-  /** The model the phone should use: a commit from `models`, or null for the stock Qwen3. */
+  /** The model the phone should use: a commit from `models`, or null for the stock build of `base`. */
   active: string | null;
+  /**
+   * The base the weekly training follows (chosen in SETTINGS → OFFLINE BRAIN), and the base it followed before the last
+   * switch: a switch starts a fresh chain from the new base's stock build, the old chain is kept (ROLLBACK goes back to it).
+   */
+  base?: BaseId;
+  switchedFrom?: BaseId;
   /** Private data in training (library passages, chats, 👍/👎): on unless the owner turned it off. */
   privateData: boolean;
   /** Ratings waiting for this week's run. */

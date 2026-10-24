@@ -5,7 +5,8 @@
 // brain unreachable (the chat request aborted) or out of models ("no model:" in the mock) the reply
 // comes from the phone with its OFFLINE chip, but not once a tool already ran in the turn; the model
 // leaves memory after DOWNLOAD and soon after a reply; "always" never asks the brain at all, never
-// starts a download when the model isn't here, and "stop" while the model loads writes nothing.
+// starts a download when the model isn't here, and "stop" while the model loads writes nothing. TEST ends with the
+// report card's QUICK CHECK on the same brain.
 //   node tests/offlinebrain.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
@@ -107,6 +108,8 @@ async function run(name, viewport) {
   const unloaded = await page.evaluate(() => window.__ghostyOfflineEngine.unloads);
   await pn.locator('button:has-text("TEST")').click();
   await page.waitForFunction(() => /Hello from your phone\.[\s\S]*tokens a second/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] TEST did not show the reply and its speed`));
+  // …then the report card's QUICK CHECK on the same brain (tests/bigbrain.spec.mjs checks it in full)
+  await page.waitForFunction(() => /QUICK CHECK on Qwen3 0\.6B: \d+ of 20 right as in chat/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] TEST did not run the quick check`));
   // After a reply, too, it leaves memory once idle (idleMs here; two minutes on the phone).
   await page.waitForFunction((k) => window.__ghostyOfflineEngine.unloads > k, unloaded, { timeout: 5000 }).catch(() => problems.push(`[${name}] the model stayed in memory after TEST`));
   await pn.scrollIntoViewIfNeeded();

@@ -2167,6 +2167,16 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .selftrain .note.small { opacity: .8; }
 .selftrain .trainkeys ol.steps { margin: 6px 0 0 18px; padding: 0; }
 .selftrain .trainkeys li { margin-bottom: 6px; line-height: 1.45; }
+/* SETTINGS → OFFLINE BRAIN → WHICH BRAIN (features/settings/offline.ts): one quiet card a brain, the one in use outlined */
+.offbrain .obpick { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.offbrain .obbrain { padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--hair, rgba(255,255,255,.08)); }
+.offbrain .obbrain.on { box-shadow: inset 0 0 0 1px rgba(var(--cr), .55); background: rgba(var(--cr), .07); }
+.offbrain .obname { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.offbrain .obname b { font-weight: 600; white-space: nowrap; }
+.offbrain .obtag { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11px/13px var(--sf, inherit); letter-spacing: .09em; text-transform: uppercase; color: var(--c); }
+.offbrain .obfacts { margin-top: 2px; }
+.offbrain .obbrain .keyrow { margin-top: 8px; }
+.offbrain .obfell { color: var(--amber, #ffb340); }
 
 /* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
 .msg .siterow { flex-wrap: wrap; }

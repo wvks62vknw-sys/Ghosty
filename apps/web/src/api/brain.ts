@@ -405,6 +405,8 @@ export const brain = {
     now: () => req<TrainStatus>('POST', '/training/now', {}),
     rollback: () => req<TrainStatus>('POST', '/training/rollback', {}),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
+    /** The base the weekly training follows (SETTINGS → OFFLINE BRAIN's picker): a new one starts a fresh chain. */
+    base: (base: string) => req<TrainStatus>('POST', '/training/base', { base }),
     privateData: (on: boolean) => req<TrainStatus>('POST', '/training/private', { on }),
     /** The owner's 👍/👎 on a reply (`up: null` takes it back); the next week's run learns from them. */
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
