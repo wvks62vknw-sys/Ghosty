@@ -115,10 +115,13 @@ async function run(name, viewport) {
   const rows = dp.locator('.rw');
   await rows.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined);
   const first = (await rows.first().textContent()) ?? '';
-  if (!/2026-10-17/.test(first)) problems.push(`[${name}] the diary is not newest first: "${first.slice(0, 60)}"`);
+  // newest first, its day as he would say it (never "2026-10-17")
+  if (!/Saturday 17 October/.test(first) || /2026-10-17/.test(first)) problems.push(`[${name}] the diary's first row is not "Saturday 17 October", newest first: "${first.slice(0, 80)}"`);
   await rows.first().click();
   const modalText = await page.locator('.modal .mbody').textContent({ timeout: 5000 }).catch(() => '');
   if (!/We decided to train on Tuesdays/.test(modalText ?? '')) problems.push(`[${name}] the diary entry did not open in a modal`);
+  const modalTitle = (await page.locator('.modal').first().textContent().catch(() => '')) ?? '';
+  if (!/Diary · Saturday 17 October/.test(modalTitle)) problems.push(`[${name}] the diary page's title reads "${modalTitle.slice(0, 60)}"`);
   await page.screenshot({ path: `${out}/${name}-memory-diary.png` });
   await page.keyboard.press('Escape');
   await dp.locator('button:has-text("REFLECT NOW")').click();

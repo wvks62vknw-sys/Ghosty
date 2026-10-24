@@ -16,7 +16,7 @@ import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { placesBlock } from './places';
-import { lineId, patternsPanel, timelinePanel } from './timeline';
+import { diaryDay, lineId, patternsPanel, timelinePanel } from './timeline';
 
 /** "today", "yesterday", else "Sat 17 Oct" (when ME was last updated). */
 function dayWord(t: number): string {
@@ -211,7 +211,7 @@ export const memoryTab: TabDef = {
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
-    const dg = pager(dp, 46, (e: DiaryEntry) => row(e.heading, e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${e.heading}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night he writes a page about your day. Tap Reflect now for today’s.');
+    const dg = pager(dp, 46, (e: DiaryEntry) => row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night he writes a page about your day. Tap Reflect now for today’s.');
     const paintDiary = () => {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);

@@ -27,6 +27,15 @@ const KINDS: [string, string][] = [
 const when = (at: number) => new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
+/** A diary day as he would say it: "2026-10-17 (later)" → "Saturday 17 October (later)" (the year only when it is not this one). */
+export function diaryDay(heading: string): string {
+  const m = heading.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
+  if (!m) return heading;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const year = d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' as const };
+  return `${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', ...year })}${m[4] ?? ''}`;
+}
+
 function tag(m: MemoryItem): string {
   if (m.kind === 'profile') return `ABOUT YOU · ${(m.section ?? 'other').toUpperCase()}`;
   return m.kind === 'fact' ? 'SAVED FACT' : m.kind === 'diary' ? 'DIARY' : 'LESSON';
@@ -151,7 +160,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       return el;
     }
     const text = h('div.mit', m.kind === 'diary' && m.text.length > 220 ? `${m.text.slice(0, 220)}…` : m.text);
-    if (m.kind === 'diary') text.addEventListener('click', () => modal(`Diary · ${m.id.slice(2)}`, h('div.readwrap', h('div.reader', ...m.text.split(/\n+/).map((x) => h('p', x))))));
+    if (m.kind === 'diary') text.addEventListener('click', () => modal(`Diary · ${diaryDay(m.id.slice(2))}`, h('div.readwrap', h('div.reader', ...m.text.split(/\n+/).map((x) => h('p', x))))));
     const edit = button('EDIT', () => {
       editing = m.id;
       paint();
