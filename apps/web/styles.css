@@ -2681,7 +2681,8 @@ html[data-look="pro"] .rcof { display: flex; flex-direction: column; min-width: 
 html[data-look="pro"] .rcof b { font: 600 15px/19px var(--sf); letter-spacing: -.1px; color: var(--ink); white-space: nowrap; }
 html[data-look="pro"] .rcof span { font: 400 13px/17px var(--sf); color: var(--ink2); }
 /* the three quick-action chips: neutral glass, one row (the glyphs give way on a narrow phone) */
-html[data-look="pro"] .hud.core #suggest { display: flex; flex-wrap: nowrap; justify-content: stretch; gap: 8px; width: auto; max-width: none; margin: auto 0 0; padding: 12px 0 0; overflow: visible; }
+/* (sticky like the ask bar below it: on a shorter phone the column scrolls, and the chips stay in reach above the bar instead of under it) */
+html[data-look="pro"] .hud.core #suggest { position: sticky; bottom: 62px; z-index: 5; display: flex; flex-wrap: nowrap; justify-content: stretch; gap: 8px; width: auto; max-width: none; margin: auto 0 0; padding: 12px 0 0; overflow: visible; }
 html[data-look="pro"] .hud.core #suggest > button { position: relative; flex: 1 1 auto; justify-content: center; gap: 6px; height: 40px; min-height: 40px !important; padding: 0 13px 0 11px; border-radius: 18px; font: 500 14px var(--sf) !important; letter-spacing: -.1px; color: var(--ink); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); -webkit-backdrop-filter: none; backdrop-filter: none; white-space: nowrap; }
 html[data-look="pro"] .hud.core #suggest > button::after { content: ''; position: absolute; inset: -4px 0; }
 html[data-look="pro"] .hud.core #suggest .sugg .ic { width: 17px; height: 17px; stroke: var(--ink2); stroke-width: 1.8; }
