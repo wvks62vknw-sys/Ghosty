@@ -3,7 +3,9 @@
  * LESS / DEFAULT / MORE. The brain keeps them (POST /api/profile/persona, profile.ts) and puts
  * them into the character every prompt carries (packages/shared/src/persona.ts), so the app,
  * the voice, Telegram and notifications all change together. The phone keeps a copy in its
- * settings for the offline brain. Shown under the dials: the exact words Ghosty is given.
+ * settings for the offline brain. Under the dials: how he sounds now, in plain words ("Now: dry, warm, short answers,
+ * as he comes."), and the exact words Ghosty is given one tap away (they read like an instruction to a machine, which
+ * is what they are; a wall of them was the panel's main text).
  */
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
@@ -11,10 +13,18 @@ import { settings } from '../../state/app';
 import { button, panel, toast, type Panel } from '../../ui/components';
 import { character, DEFAULT_PERSONA, PERSONA_DIALS, readPersona, type PersonaSettings } from '../../../../../packages/shared/src/persona';
 
+/** "Now: dry, warm, short answers, as he comes." — the dials in plain words (the steps' own names, in small letters). */
+export function nowLine(p: PersonaSettings): string {
+  const step = (k: keyof PersonaSettings) => PERSONA_DIALS.find((d) => d.key === k)!.steps[p[k]].toLowerCase();
+  const same = p.dry === DEFAULT_PERSONA.dry && p.brief === DEFAULT_PERSONA.brief && p.warm === DEFAULT_PERSONA.warm;
+  return `Now: ${step('dry')}, ${step('warm')}, ${step('brief')} answers${same ? ', as he comes' : ''}. The app, the voice, Telegram and notifications all sound like this.`;
+}
+
 export function characterPanel(): Panel & { refresh(): void } {
   const p = panel('CHARACTER', { grow: false, cls: 'character' });
   const dials = h('div.chardials');
   const said = h('div.note.charsays');
+  const now = h('p.note.charnow');
   const state = h('div.note.charstate');
   let cur: PersonaSettings = readPersona(settings.get().persona);
 
@@ -35,6 +45,7 @@ export function characterPanel(): Panel & { refresh(): void } {
       ),
     );
     said.textContent = character(cur);
+    now.textContent = nowLine(cur);
   };
 
   const save = async (next: PersonaSettings) => {
@@ -46,7 +57,7 @@ export function characterPanel(): Panel & { refresh(): void } {
       const r = await brain.setPersona(cur);
       cur = readPersona(r.persona);
       settings.set({ persona: cur });
-      state.textContent = 'Saved. The app, the voice, Telegram and notifications all use it.';
+      state.textContent = 'Saved.';
       paint();
     } catch (e) {
       cur = was;
@@ -57,7 +68,13 @@ export function characterPanel(): Panel & { refresh(): void } {
   };
 
   const reset = button('DEFAULT', () => void save(DEFAULT_PERSONA));
-  p.body.append(dials, h('div.row.charreset', reset), state, h('div.lab', 'WHAT GHOSTY IS TOLD'), said);
+  p.body.append(
+    now,
+    dials,
+    h('div.row.charreset', reset),
+    state,
+    h('details.charwords', h('summary', { dataset: { case: 'keep' } }, 'The exact words Ghosty is given'), said),
+  );
 
   const refresh = () => {
     void brain
