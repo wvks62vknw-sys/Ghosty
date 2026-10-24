@@ -607,13 +607,17 @@ async function listenWhisper(): Promise<string> {
   const c = carry;
   carry = null;
   const r = c && c.rec.state === 'recording' ? c : record(m);
+  // `speech`: a voice was heard (the end of it ends the recording); `voiced`: ms of anything louder than the room, so a
+  // soft voice that never reached `speech` is still sent, and a recording of only the room is not.
+  let speech = !!c;
+  let voiced = 0;
   const done = new Promise<void>((resolve) => {
     let floor = 0.008;
-    let speech = !!c;
     let speechAt = 0;
     let lastLoud = c ? performance.now() : 0;
     let calib = c ? 20 : 0;
     const t0 = performance.now();
+    let last = t0;
     let stopped = false;
     abortListen = () => {
       stopped = true;
@@ -625,6 +629,8 @@ async function listenWhisper(): Promise<string> {
       micLevel.spectrum = m.freq;
       if (!speech) floor = ++calib < 20 ? Math.max(floor * 0.9 + rms * 0.1, 0.003) : floor * 0.995 + Math.min(rms, floor * 1.5) * 0.005;
       const thr = Math.max(0.018, floor * 3.2);
+      if (rms > Math.max(0.008, floor * 2)) voiced += Math.min(100, now - last);
+      last = now;
       if (rms > thr) {
         lastLoud = now;
         if (!speech) {
@@ -654,6 +660,11 @@ async function listenWhisper(): Promise<string> {
   if (!keepMic && mic === m) {
     mic = null;
     m.stream.getTracks().forEach((t) => t.stop());
+  }
+  // Only the room was heard (12 s and no voice): nothing goes to the brain (Whisper "hears" words in silence, and each try counts).
+  if (!speech && voiced < 250) {
+    if (mic !== m) void m.ctx.close().catch(() => undefined);
+    return '';
   }
   const blob = new Blob(r.chunks, { type: r.rec.mimeType || r.mime }); // iPhones record audio/mp4, others webm
   // Sent as WAV when the recording decodes; as recorded otherwise (a Groq key reads most formats). A barge-in

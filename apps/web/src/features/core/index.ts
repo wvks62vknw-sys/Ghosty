@@ -34,6 +34,8 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/** Listens in a row that heard nothing: after two (about 25 s of quiet) the conversation ends and the microphone goes off. */
+let quiet = 0;
 
 async function voiceTurn(): Promise<void> {
   if (!voiceSupport.mic && !voiceSupport.browserStt) {
@@ -48,9 +50,15 @@ async function voiceTurn(): Promise<void> {
     const text = await listen(whisper || speechCaps.get().stt, (t) => chat.set({ live: t }));
     if (!conversation) return;
     if (!text) {
+      if (++quiet >= 2) {
+        endConversation();
+        toast("I've stopped listening. Tap the mic when you want me.");
+        return;
+      }
       if (conversation) setTimeout(() => void voiceTurn(), 300);
       return;
     }
+    quiet = 0;
     await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true });
     // wait for speech to finish, then listen again
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
@@ -324,6 +332,7 @@ export const coreTab: TabDef = {
         return;
       }
       conversation = true;
+      quiet = 0;
       mic.classList.add('on');
       void voiceTurn().finally(() => mic.classList.toggle('on', conversation));
     });

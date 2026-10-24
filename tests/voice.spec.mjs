@@ -179,10 +179,8 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
 // The microphone: an oscillator through a gain the test turns up and down (a stand-in for the owner's voice; WebKit has
 // no fake microphone of its own, and this works in both engines). The phone's voices: a few, as an iPhone lists them,
 // with speech that "plays" for a moment and records what it was asked to say and in which voice.
-{
-  const name = 'barge';
-  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
-  await ctx.addInitScript(() => {
+/** The made-up microphone and phone voices (run in the page before it loads). */
+const fakePhone = () => {
     // Two sounds reach the made-up microphone: the owner (`set`, turned up and down by the test) and Ghosty's own voice
     // leaking back (`echo`: a level heard only while the voice element is playing, with a louder syllable every 0.7 s),
     // as a phone's echo cancellation leaves a little of it.
@@ -269,7 +267,11 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
     };
     synth.cancel = () => undefined;
     synth.resume = () => undefined;
-  });
+};
+{
+  const name = 'barge';
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx.addInitScript(fakePhone);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   const ttsBodies = [];
@@ -475,6 +477,117 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   const hidden = await page.evaluate(() => ({ voice: window.__ghosty.ui.get().voice, on: document.querySelector('#mic').classList.contains('on'), live: window.__mic.stream?.getTracks().some((t) => t.readyState === 'live') }));
   if (hidden.voice === 'listening' || hidden.on || hidden.live) problems.push(`[${name}] hidden, the microphone is still held: ${JSON.stringify(hidden)}`);
   await ctx.close();
+}
+// ---- The microphone's other moments, on the phone: what the screen says while the words are worked out, a quiet room,
+// no connection, and a phone recogniser that fails ----
+async function micPage(name, { stt }) {
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx.addInitScript(fakePhone);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await ctx.route('**/api/status', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    j.speech = { stt, tts: true };
+    page.statusSeen = (page.statusSeen ?? 0) + 1;
+    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+  });
+  await ctx.route('**/api/tts', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'audio/wav' }, body: wav() }));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#pair input', { timeout: 15000 });
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  // the brain's status (which says it can hear) has come back
+  for (let i = 0; i < 50 && !page.statusSeen; i++) await page.waitForTimeout(100);
+  await page.waitForTimeout(800);
+  return { ctx, page };
+}
+const toastSays = (page, re, ms = 6000) => page.waitForFunction((src) => new RegExp(src).test(document.querySelector('#toasts')?.textContent ?? ''), re.source, { timeout: ms }).then(() => true, () => false);
+{
+  const name = 'mic';
+  const { ctx, page } = await micPage(name, { stt: true });
+  let stt = 0;
+  let during = null;
+  let sttMode = 'slow';
+  await ctx.route('**/api/stt', async (route) => {
+    stt++;
+    if (sttMode === 'offline') return route.abort('internetdisconnected');
+    // the brain takes a moment to write the words down: what does the screen say meanwhile?
+    await new Promise((r) => setTimeout(r, 900));
+    during = await page.evaluate(() => document.querySelector('#cstate')?.textContent ?? '');
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ text: 'what time is it' }) });
+  });
+  // 1. while the words are worked out the screen does not still say LISTENING
+  await page.click('#mic');
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__mic.set(0.3));
+  await page.waitForTimeout(700);
+  await page.evaluate(() => window.__mic.set(0));
+  await page.waitForFunction(() => document.body.innerText.includes('Mock reply to: what time is it'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] what was said was not answered (stt calls ${stt})`));
+  if (during === null || /LISTENING/.test(during) || !/WRITING DOWN WHAT YOU SAID/i.test(during)) problems.push(`[${name}] while the words were worked out the screen said "${during}"`);
+  // 2. a quiet room: after the reply the conversation listens; nothing is said for ~25 s: no recording of the room goes to
+  // the brain, and the conversation ends by itself with the microphone off, saying so
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 15000 }).catch(() => undefined);
+  const heardBefore = stt;
+  const ended = await toastSays(page, /stopped listening/i, 30000);
+  if (!ended) problems.push(`[${name}] ~30 s of quiet and the conversation is still listening`);
+  if (stt !== heardBefore) problems.push(`[${name}] ${stt - heardBefore} recordings of a quiet room were sent to be written down`);
+  const after = await page.evaluate(() => ({ on: document.querySelector('#mic').classList.contains('on'), live: window.__mic.stream?.getTracks().some((t) => t.readyState === 'live'), state: document.querySelector('#cstate')?.textContent }));
+  if (after.on || after.live || after.state === 'READY') problems.push(`[${name}] after the quiet the microphone is still held: ${JSON.stringify(after)}`);
+  await page.screenshot({ path: `${out}/phone-mic-quiet.png` });
+  // 3. no connection when the recording is sent: plain words, not "Failed to fetch"
+  sttMode = 'offline';
+  await page.click('#mic');
+  await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'listening', null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(400);
+  await page.evaluate(() => window.__mic.set(0.3));
+  await page.waitForTimeout(700);
+  await page.evaluate(() => window.__mic.set(0));
+  if (!(await toastSays(page, /No connection, so I can't hear you/, 8000))) problems.push(`[${name}] with no connection the owner was told "${await page.evaluate(() => document.querySelector('#toasts')?.textContent ?? '')}"`);
+  await page.screenshot({ path: `${out}/phone-mic-offline.png` });
+  await ctx.close();
+}
+{
+  // 4. the brain cannot hear and the phone's own recogniser fails (no connection): said once, in plain words, not tried
+  // again and again with the microphone on
+  const name = 'mic-phone';
+  const ctx2 = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
+  await ctx2.addInitScript(fakePhone);
+  await ctx2.addInitScript(() => {
+    window.__rec = 0;
+    window.SpeechRecognition = window.webkitSpeechRecognition = class {
+      start() {
+        window.__rec++;
+        setTimeout(() => {
+          this.onerror?.({ error: 'network' });
+          this.onend?.();
+        }, 50);
+      }
+      abort() {}
+    };
+  });
+  const page2 = await ctx2.newPage();
+  page2.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  await ctx2.route('**/api/status', async (route) => {
+    const r = await route.fetch();
+    const j = await r.json();
+    j.speech = { stt: false, tts: false };
+    await route.fulfill({ response: r, headers: { ...r.headers(), 'content-type': 'application/json' }, body: JSON.stringify(j) });
+  });
+  await page2.goto(base, { waitUntil: 'domcontentloaded' });
+  await page2.waitForSelector('#pair input', { timeout: 15000 });
+  await page2.fill('#pair input', 'preview-owner-key-0123456789');
+  await page2.click('#pair button.on');
+  await page2.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  await page2.waitForTimeout(800);
+  await page2.click('#mic');
+  const told = await toastSays(page2, /No connection, so I can't hear you/, 4000);
+  await page2.waitForTimeout(1500);
+  const r = await page2.evaluate(() => ({ starts: window.__rec, on: document.querySelector('#mic').classList.contains('on') }));
+  if (!told || r.starts > 1 || r.on) problems.push(`[${name}] the phone's recogniser failing: told ${told}, started ${r.starts} times, mic ${r.on ? 'still on' : 'off'}`);
+  await ctx2.close();
 }
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : "Voice run clean: Ghosty's voice, the engine switch, the picture card, the voice picker and barge-in.");
