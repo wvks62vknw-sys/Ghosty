@@ -18,6 +18,7 @@ const problems = [];
 const FOUND = {
   '12 acacia avenue, b13': { id: 'home', label: 'Home', query: '12 Acacia Avenue, B13', address: '12, Acacia Avenue, Kings Heath, Birmingham, B13 9XX', lat: 52.4351, lon: -1.8912 },
   'b15 2tt': { id: 'work', label: 'Work', query: 'B15 2TT', address: 'B15 2TT, Edgbaston, Birmingham', lat: 52.4531, lon: -1.9416 },
+  '1 new road, b14': { id: 'home', label: 'Home', query: '1 New Road, B14', address: '1, New Road, Kings Norton, Birmingham, B14 1AA', lat: 52.41, lon: -1.93 },
 };
 const brain = { places: [], kept: 0, finds: [], commute: 0 };
 
@@ -35,7 +36,15 @@ await page.route(/\/api\/profile\/places/, async (r) => {
     return f ? json({ found: { ...f, id: b.label || f.id, label: b.label === 'work' ? 'Work' : b.label === 'home' ? 'Home' : f.label } }) : json({ error: `I couldn't find "${b.query}" on the map: try the street and the postcode` }, 400);
   }
   if (req.method() === 'POST') {
-    const f = req.postDataJSON().found;
+    const b = req.postDataJSON();
+    const f = b.found;
+    // as the brain does (places.ts): a new one goes at the end with today's date; an UNDO ({ at, index }) back exactly
+    if (typeof b.at === 'number') {
+      const list = brain.places.filter((p) => p.id !== f.id);
+      list.splice(b.index, 0, { ...f, at: b.at });
+      brain.places = list;
+      return json({ places: brain.places });
+    }
     brain.kept++;
     brain.places = [...brain.places.filter((p) => p.id !== f.id), { ...f, at: Date.now() }];
     return json({ places: brain.places });
@@ -73,7 +82,7 @@ const block = page.locator('#pg-memory .pn.me .places');
 await block.waitFor({ state: 'attached', timeout: 10000 });
 await block.scrollIntoViewIfNeeded();
 const said = (await block.textContent()) ?? '';
-if (!/Kept in his memory like everything here, and nowhere else/.test(said)) problems.push(`PLACES does not say where places are kept: ${said.slice(0, 160)}`);
+if (!/Kept in my memory like everything here, and nowhere else/.test(said)) problems.push(`PLACES does not say where places are kept: ${said.slice(0, 160)}`);
 if (!/No places yet/.test(said)) problems.push('PLACES with none saved does not say what to do');
 // A place that cannot be found is said plainly.
 await block.locator('select').selectOption('home');
@@ -115,11 +124,26 @@ await block.scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/places-memory.png` });
 await sideways('Memory → PLACES');
-// FORGET, then UNDO.
-await block.locator('.placerow[data-id="work"] button:has-text("FORGET")').click();
-await page.waitForFunction(() => !document.querySelector('#pg-memory .placerow[data-id="work"]'), null, { timeout: 5000 }).catch(() => problems.push('FORGET did not take work away'));
+// FORGET, then UNDO: back exactly as it was — first in the list again, with the date it was saved.
+const savedBefore = JSON.stringify(brain.places);
+await block.locator('.placerow[data-id="home"] button:has-text("FORGET")').click();
+await page.waitForFunction(() => !document.querySelector('#pg-memory .placerow[data-id="home"]'), null, { timeout: 5000 }).catch(() => problems.push('FORGET did not take home away'));
 await block.locator('.undo button:has-text("UNDO")').click().catch(() => problems.push('no UNDO after FORGET'));
-await page.waitForSelector('#pg-memory .placerow[data-id="work"]', { timeout: 5000 }).catch(() => problems.push('UNDO did not bring work back'));
+await page.waitForSelector('#pg-memory .placerow[data-id="home"]', { timeout: 5000 }).catch(() => problems.push('UNDO did not bring home back'));
+const rowsNow = await page.$$eval('#pg-memory .placerow', (r) => r.map((x) => x.dataset.id).join(','));
+if (rowsNow !== 'home,work' || JSON.stringify(brain.places) !== savedBefore) problems.push(`UNDO did not put home back exactly: the list reads ${rowsNow}, ${JSON.stringify(brain.places.map((p) => [p.id, p.at]))}`);
+// KEEP IT over the old home: UNDO puts the old home back.
+await block.locator('select').selectOption('home');
+await block.locator('input[aria-label="Address or postcode"]').fill('1 New Road, B14');
+await block.locator('.placeadd button:has-text("FIND")').click();
+await page.waitForFunction(() => /IS THIS HOME\?/.test(document.querySelector('#pg-memory .placefound')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push('FIND for a new home did not answer'));
+await found.locator('button:has-text("KEEP IT")').click();
+await page.waitForFunction(() => /New Road/.test(document.querySelector('#pg-memory .placerow[data-id="home"]')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push('the new home was not kept'));
+const changed = block.locator('.undo:not([hidden])');
+if (!/Home changed to 1, New Road/.test((await changed.textContent().catch(() => '')) ?? '')) problems.push('no UNDO after a new home replaced the old one');
+await changed.locator('button:has-text("UNDO")').click().catch(() => undefined);
+await page.waitForFunction(() => /Acacia Avenue/.test(document.querySelector('#pg-memory .placerow[data-id="home"]')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => problems.push('UNDO did not bring the old home back'));
+if (JSON.stringify(brain.places) !== savedBefore) problems.push(`after UNDO the places are not as they were: ${JSON.stringify(brain.places)}`);
 
 // ---- The Brief: the commute, one line with the live traffic.
 await page.evaluate(() => (location.hash = 'brief'));
@@ -159,4 +183,4 @@ if (problems.length) {
   console.log(`PROBLEMS:\n${problems.join('\n')}`);
   process.exit(1);
 }
-console.log(`Places run clean (${brain.finds.length} finds, ${brain.kept} kept, ${brain.commute} commute asks): PLACES says where they are kept, FIND shows the map's answer and keeps nothing until KEEP IT, a postcode works, EDIT and FORGET with UNDO work, the Brief shows the commute with live traffic, God's Eye's chips and search fly to the saved places, no errors, nothing blocked, no sideways scroll.`);
+console.log(`Places run clean (${brain.finds.length} finds, ${brain.kept} kept, ${brain.commute} commute asks): PLACES says where they are kept, FIND shows the map's answer and keeps nothing until KEEP IT, a postcode works, EDIT works, FORGET and a replaced home come back exactly with UNDO, the Brief shows the commute with live traffic, God's Eye's chips and search fly to the saved places, no errors, nothing blocked, no sideways scroll.`);

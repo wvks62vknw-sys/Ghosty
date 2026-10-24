@@ -105,7 +105,7 @@ if (await tlItem.waitFor({ state: 'attached', timeout: 10000 }).then(() => true,
   await tl.locator('textarea').fill('Undo test: likes lemon curd on toast');
   await clickJs(tl.locator('button', { hasText: 'SAVE' }));
   await until(() => [...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((m) => /lemon curd/.test(m.textContent ?? '')), 8000, 'timeline: EDIT did not save the new words');
-  const tlBar = tl.locator('.undo');
+  const tlBar = page.locator('.undo.undofloat'); // the timeline's UNDO floats above the tab bar (on screen wherever the row was)
   if (!(await tlBar.isVisible().catch(() => false)) || !/Changed/.test((await tlBar.textContent()) ?? '')) problems.push('timeline: no UNDO bar after EDIT');
   await tlBar.scrollIntoViewIfNeeded().catch(() => undefined);
   await snap('memory-edited');

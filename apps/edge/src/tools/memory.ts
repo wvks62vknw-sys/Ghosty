@@ -1,6 +1,6 @@
 /** Long-term memory about the owner. Facts are added to every conversation. */
 import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/protocol';
-import { clearPatterns, stashFacts } from '../memories';
+import { clearPatterns, stashFacts, stashForgottenFacts } from '../memories';
 import { loadPlaces } from '../places';
 import { arg, type Tool } from './types';
 
@@ -50,14 +50,19 @@ export const memoryTools: Tool[] = [
     parameters: { type: 'object', properties: { id_or_text: { type: 'string' } }, required: ['id_or_text'] },
     risk: 'auto',
     async run(a, ctx) {
-      const q = arg.str(a, 'id_or_text').toLowerCase();
+      const q = arg.str(a, 'id_or_text').trim().toLowerCase();
       const facts = await loadMemory(ctx.storage);
-      const match = (f: MemoryFact) => f.id === q || f.text.toLowerCase().includes(q);
+      const byId = facts.some((f) => f.id === q);
+      // A word or two letters would match most of what he told me: ask for more of the words instead.
+      if (!byId && q.length < 3) return 'Nothing removed: say more of the words of the memory to forget (or its id), so only that one goes.';
+      const match = (f: MemoryFact) => (byId ? f.id === q : f.text.toLowerCase().includes(q));
       // A locked memory is only forgotten by the owner's own FORGET in the Memory tab.
       const locked = facts.filter((f) => match(f) && f.locked).length;
-      const keep = facts.filter((f) => !match(f) || f.locked);
-      await ctx.storage.put(MEMORY_KEY, keep);
-      return `Removed ${facts.length - keep.length} fact(s).${locked ? ` ${locked} locked one(s) kept: the owner can forget a locked memory in the Memory tab.` : ''}`;
+      const gone = facts.filter((f) => match(f) && !f.locked);
+      // Kept a day for UNDO, like every other way of forgetting (Memory → RECENTLY FORGOTTEN).
+      await stashForgottenFacts(ctx.storage, gone, q);
+      await ctx.storage.put(MEMORY_KEY, facts.filter((f) => !gone.includes(f)));
+      return `Removed ${gone.length} fact(s).${locked ? ` ${locked} locked one(s) kept: the owner can forget a locked memory in the Memory tab.` : ''}${gone.length ? ' For a day, Memory → RECENTLY FORGOTTEN can bring it back.' : ''}`;
     },
   },
   {

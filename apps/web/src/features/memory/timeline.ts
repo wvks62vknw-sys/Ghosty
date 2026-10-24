@@ -13,7 +13,7 @@ import { brain } from '../../api/brain';
 import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
-import { button, empty, modal, panel, toast, undoBar, type Panel } from '../../ui/components';
+import { button, empty, modal, panel, toast, undo, undoBar, type Panel } from '../../ui/components';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -26,6 +26,20 @@ const KINDS: [string, string][] = [
 
 const when = (at: number) => new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/** No connection: fetch's own TypeError, or the phone says it is offline. */
+export const offlineNow = (e?: unknown): boolean => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
+/** Why a change did not happen, in his words: no connection said plainly (never "Failed to fetch"). */
+export const why = (e: unknown): string => (offlineNow(e) ? 'you’re offline, so nothing changed. Try again when you’re back online' : String((e as Error)?.message ?? e));
+
+/** A diary day as he would say it: "2026-10-17 (later)" → "Saturday 17 October (later)" (the year only when it is not this one). */
+export function diaryDay(heading: string): string {
+  const m = heading.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
+  if (!m) return heading;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const year = d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' as const };
+  return `${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', ...year })}${m[4] ?? ''}`;
+}
 
 function tag(m: MemoryItem): string {
   if (m.kind === 'profile') return `ABOUT YOU · ${(m.section ?? 'other').toUpperCase()}`;
@@ -84,10 +98,11 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   const p: Panel = panel('TIMELINE', { cls: 'tl', status: '' });
   const kindSel = h('select', { 'aria-label': 'Show which memories' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
   const find = h('input', { type: 'search', placeholder: 'Find a memory…', 'aria-label': 'Find a memory' });
-  // UNDO after a FORGET or an EDIT (12 s; a forgotten one stays under RECENTLY FORGOTTEN for a day after)
-  const bar = undoBar();
+  // UNDO after a FORGET or an EDIT (12 s; a forgotten one stays under RECENTLY FORGOTTEN for a day after): the bar
+  // that floats above the tab bar, so it is on screen wherever the row was (the panel's own sat at its top, off screen
+  // for a row further down)
+  const bar = { show: undo };
   p.el.insertBefore(h('div.keyrow.wrapit', kindSel, find), p.body);
-  p.el.insertBefore(bar.el, p.body);
   // RECENTLY FORGOTTEN: everything forgotten in the last day (here, under ME, in WHAT I REMEMBER, or FORGET EVERYTHING), each with UNDO.
   const forgotBox = h('details.forgot', { hidden: true });
   p.el.insertBefore(forgotBox, p.body);
@@ -109,7 +124,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       if (op === 'forget' || op === 'restore') void refresh();
       return true;
     } catch (e) {
-      toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${(e as Error).message}`, 'bad');
+      toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${why(e)}`, 'bad');
       return false;
     }
   };
@@ -150,7 +165,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       return el;
     }
     const text = h('div.mit', m.kind === 'diary' && m.text.length > 220 ? `${m.text.slice(0, 220)}…` : m.text);
-    if (m.kind === 'diary') text.addEventListener('click', () => modal(`Diary · ${m.id.slice(2)}`, h('div.readwrap', h('div.reader', ...m.text.split(/\n+/).map((x) => h('p', x))))));
+    if (m.kind === 'diary') text.addEventListener('click', () => modal(`Diary · ${diaryDay(m.id.slice(2))}`, h('div.readwrap', h('div.reader', ...m.text.split(/\n+/).map((x) => h('p', x))))));
     const edit = button('EDIT', () => {
       editing = m.id;
       paint();
@@ -160,12 +175,14 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     const lock = button(m.locked ? 'UNLOCK' : 'LOCK', async (b) => {
       b.disabled = true;
       if (await change(m, m.locked ? 'unlock' : 'lock')) toast(m.locked ? 'Unlocked: the nightly reflection may update it again' : 'Locked: the nightly reflection will never change or drop it', 'ok');
+      else b.disabled = false;
     }, m.locked ? 'on' : '');
     lock.dataset.label = m.locked ? 'Unlock' : 'Lock';
     lock.title = m.locked ? 'Let the nightly reflection update it again' : 'Keep it exactly as it is';
     const forget = button('FORGET', async (b) => {
       b.disabled = true;
       if (await change(m, 'forget')) showUndo(m);
+      else b.disabled = false; // (not forgotten: it can be tried again)
     }, 'warn');
     forget.dataset.label = 'Forget';
     el.append(head, text, sourceLine(m), h('div.mia', edit, lock, forget));
@@ -195,7 +212,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
               toast('Back in my memory', 'ok');
               onChange();
             } catch (e) {
-              toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+              toast(`Could not undo it: ${why(e)}`, 'bad');
             }
             void refresh();
           }, 'on'),

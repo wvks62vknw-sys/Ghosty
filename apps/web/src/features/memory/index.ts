@@ -16,7 +16,28 @@ import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { placesBlock } from './places';
-import { lineId, patternsPanel, timelinePanel } from './timeline';
+import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
+
+/** "today", "yesterday", else "Sat 17 Oct" (when ME was last updated). */
+function dayWord(t: number): string {
+  const d = new Date(t);
+  const today = new Date();
+  const days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** ME's sections, headed in his words (the brain keeps them as about, likes, dislikes …). */
+const HEADINGS: Record<ProfileSection, string> = {
+  about: 'Who you are',
+  likes: 'What you like',
+  dislikes: 'What you don’t like',
+  people: 'Your people',
+  places: 'Places in your life',
+  routines: 'Your routines',
+  goals: 'What you’re working towards',
+  work: 'Your work',
+  other: 'Also',
+};
 
 export const memoryTab: TabDef = {
   id: 'memory',
@@ -30,7 +51,8 @@ export const memoryTab: TabDef = {
     return n == null ? '' : n === 1 ? '1 thing remembered' : `${fmt.n(n)} things remembered`;
   },
   mount(root) {
-    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
+    // Phones: YOU (who he is first, then what was noticed, then the timeline) and DIARY & CHAT (the diary first).
+    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'DIARY & CHAT', leftLabel: 'YOU' });
     root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards
     // A change in the TIMELINE shows in the panels below it, and theirs in it.
     const tl = timelinePanel(() => {
@@ -67,8 +89,23 @@ export const memoryTab: TabDef = {
     };
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
-    const paintSub = () =>
-      (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`);
+    // (the facts and the lines about him: the same count as the TIMELINE's, less the diary and lessons)
+    // With no connection, one line says so: what shows is what I knew before.
+    const paintSub = () => {
+      const n = facts.length + (profile ? PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0) : 0);
+      P.sub.textContent = offlineNow() ? 'You’re offline: this is what I knew before. It updates by itself when you’re back.' : `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
+      P.sub.classList.toggle('off', offlineNow());
+    };
+    addEventListener('offline', () => paintSub());
+    addEventListener('online', () => {
+      paintSub();
+      if (root.isConnected && root.offsetParent) {
+        void refresh();
+        void refreshLessons();
+        void refreshProfile();
+        void pl.refresh();
+      }
+    });
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -76,13 +113,13 @@ export const memoryTab: TabDef = {
       x.title = 'Forget this';
       x.addEventListener('click', async () => {
         // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, and UNDO right here.
-        const ok = await brain.memoryChange(`f:${f.id}`, 'forget').then(() => true, (e) => (toast(`Could not forget it: ${(e as Error).message}`, 'bad'), false));
+        const ok = await brain.memoryChange(`f:${f.id}`, 'forget').then(() => true, (e) => (toast(`Could not forget it: ${why(e)}`, 'bad'), false));
         void refresh();
         void refreshTimeline();
         if (ok) undo(`Forgotten: “${clip(f.text)}”`, () => putBack(`f:${f.id}`));
       });
       return r;
-    }, () => 'NONE YET', 'Say “remember …” in a chat, or tap Add a memory: what he keeps shows here.');
+    }, () => 'NONE YET', 'Say “remember …” in a chat and I keep it here.');
     const input = h('input', { placeholder: 'Tell me something to remember…', 'aria-label': 'New fact' });
     const add = async () => {
       const t = input.value.trim();
@@ -113,11 +150,13 @@ export const memoryTab: TabDef = {
       }
       const n = PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0);
       mp.setStatus(n ? `${n} LINES` : 'EMPTY', n ? 'ok' : 'mid');
-      mp.body.append(h('div.note.summary', profile.summary || 'Each night Ghosty keeps what you told him about yourself — never what he read online, never a password.'));
+      // who he is, in a line written to him; then where it came from and when, honestly
+      mp.body.append(h('div.mesum', profile.summary || 'Tell me about yourself and each night I’ll write down what you said — never what I read online, never a password.'));
+      if (profile.updatedAt) mp.body.append(h('div.note.mewhen', `From your own words · updated ${dayWord(profile.updatedAt)}`));
       for (const s of PROFILE_SECTIONS) {
         const lines = profile.sections[s];
         if (!lines.length) continue;
-        mp.body.append(h('div.lab', s));
+        mp.body.append(h('div.lab', { dataset: { section: s } }, HEADINGS[s]));
         lines.forEach((text) => {
           const r = row(null, text, '✕', { wrap: true });
           const x = r.lastChild as HTMLElement;
@@ -130,7 +169,7 @@ export const memoryTab: TabDef = {
               profile = (await brain.profile()).profile;
               undo(`Removed: “${clip(text)}”`, () => putBack(lineId(text)));
             } catch (e) {
-              toast(`Could not remove it: ${(e as Error).message}`, 'bad');
+              toast(`Could not remove it: ${why(e)}`, 'bad');
             }
             paintMe();
             void refreshTimeline();
@@ -148,7 +187,7 @@ export const memoryTab: TabDef = {
         lineIn.value = '';
         if (!r.added) toast('Already there', 'warn');
       } catch (e) {
-        toast(`Could not save it: ${(e as Error).message}`, 'bad');
+        toast(`Could not save it: ${why(e)}`, 'bad');
       }
       paintMe();
       void refreshTimeline();
@@ -165,7 +204,7 @@ export const memoryTab: TabDef = {
     let sheet: { close(): void } | null = null;
     const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
     addRow.addEventListener('click', () => {
-      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. He keeps it in your profile.'), meForm), () => {
+      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. I keep it under ME.'), meForm), () => {
         mp.el.insertBefore(meForm, mp.body);
         sheet = null;
       });
@@ -179,12 +218,17 @@ export const memoryTab: TabDef = {
     });
     P.sub.after(editBtn);
     swipeToDelete(root);
-    P.left.append(addRow, tl.el, pats.el, mp.el);
-    P.right.append(fp.el);
+    // ME (who he is) first: it was 6,500 points down, under thirty timeline rows.
+    P.left.append(addRow, mp.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
-    const dg = pager(dp, 46, (e: DiaryEntry) => row(e.heading, e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${e.heading}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night he writes a page about your day. Tap Reflect now for today’s.');
+    const dg = pager(dp, 46, (e: DiaryEntry) => {
+      const r = row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) });
+      // "Saturday 17 October" keeps its capitals (row keys are shown in sentence case)
+      r.querySelector('.k')?.setAttribute('data-case', 'keep');
+      return r;
+    }, () => 'NONE YET', 'Each night I write a page about your day. Tap Reflect now for today’s.');
     const paintDiary = () => {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);
@@ -201,6 +245,7 @@ export const memoryTab: TabDef = {
       }
       paintMe();
       paintDiary();
+      paintSub();
     };
     dp.foot!.prepend(button('REFLECT NOW', async (b) => {
       b.disabled = true;
@@ -210,7 +255,7 @@ export const memoryTab: TabDef = {
         if (r.skipped) toast(`Nothing reflected: ${r.skipped}`, 'warn');
         else toast(`Reflected: ${r.facts.length} new fact${r.facts.length === 1 ? '' : 's'}, ${r.lines.length} line${r.lines.length === 1 ? '' : 's'} about you${r.diary ? ', diary written' : ''}`, 'ok');
       } catch (e) {
-        toast(`Could not reflect: ${(e as Error).message}`, 'bad');
+        toast(`Could not reflect: ${why(e)}`, 'bad');
       }
       b.disabled = false;
       b.textContent = 'REFLECT NOW';
@@ -234,7 +279,7 @@ export const memoryTab: TabDef = {
         if (back) undo(`Forgotten: “${clip(l.text)}”`, () => putBack(`l:${l.id}`));
       });
       return r;
-    }, () => 'NONE YET', 'When he gets something wrong and you put him right, the lesson shows here.');
+    }, () => 'NONE YET', 'When I get something wrong and you put me right, the lesson shows here.');
     const refreshLessons = async () => {
       try {
         lessons = (await brain.lessons()).lessons;
@@ -244,13 +289,12 @@ export const memoryTab: TabDef = {
       }
       lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
     };
-    P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
-    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask him anything from Home.');
+    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask me anything from Home.');
     // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
-    P.right.append(dp.el, cp.el);
+    P.right.append(dp.el, fp.el, lp.el, cp.el);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
       cg.set(list.map((e) => ({ who: e.kind === 'user' ? 'YOU' : 'GHOSTY', text: e.text })).reverse());
