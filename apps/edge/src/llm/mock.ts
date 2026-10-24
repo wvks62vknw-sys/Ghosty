@@ -193,6 +193,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
+  // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
+  if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };
   if ((m = text.match(/^unpublish site ([a-z0-9-]+)$/)) && has('unpublish_site')) return { message: call('unpublish_site', { name: m[1] }), model };
   if ((m = text.match(/^draft site ([a-z0-9-]+) part (\d)$/)) && has('draft_site')) {
     const parts = ['<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>In parts</title></head>', '<body><h1>Part two</h1>', '<p>Part three</p></body></html>'];
