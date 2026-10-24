@@ -1091,8 +1091,10 @@ button.markchip { border-color: var(--ok); font-weight: 600; }
   .studiopanel { overflow: visible; }
 }
 
-/* ---- Recon card (features/threats/recon.ts): small while idle, most of the column once a report is in ---- */
-.col > .pn.recon.open { flex: 3 1 0; min-height: 320px; }
+/* ---- Recon card (features/threats/recon.ts): small while idle; once a report is in it takes its full height and
+   flows with the page (phone) or its scrolling column (laptop): never a box scrolling inside the page ---- */
+.col > .pn.recon.open, .two.stack > .col > .pn.recon.open { flex: none; min-height: 0; }
+.pn.recon.open > .bd { max-height: none; overflow: visible; }
 .pn.recon .reconstatus { letter-spacing: .02em; }
 .pn.recon .reconstatus.live { color: var(--c); }
 .pn.recon .reconout { display: flex; flex-direction: column; gap: 3px; }
@@ -3558,9 +3560,12 @@ html #pg-threats .pn.near .rw { display: flex; flex-direction: column; align-ite
 html #pg-threats .pn.near .rw .k { --lfs: 11px; min-width: 0; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase !important; color: var(--ink3); }
 html #pg-threats .pn.near .rw .k[data-label]::before { letter-spacing: .09em; text-transform: uppercase; font-weight: 600; }
 html #pg-threats .pn.near .rw .v { max-width: 100%; font: 500 15px/20px var(--sf); color: var(--ink); white-space: normal; }
+html #pg-threats .pn.near .rw.link { margin: 0; padding: 10px 12px; border-radius: 14px; cursor: pointer; }
+html #pg-threats .pn.near .rw.link:active { background: rgba(255,255,255,.09); }
+html #pg-threats .pn.near .nearfrom { grid-column: 1 / -1; margin: 2px 2px 0; font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-threats .pn.spacewx .bar { margin-bottom: 8px; }
 html #pg-threats .pn.launches .rw.link { margin: 0; padding: 10px 0; border-radius: 0; }
-html #pg-threats .pn.launches .rw .k { --lfs: 11px; font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase !important; color: var(--ink3); min-width: 56px; }
+html #pg-threats .pn.launches .rw .k { --lfs: 11px; font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase !important; color: var(--ink3); min-width: 96px; width: 96px; white-space: normal; }
 html #pg-threats .pn.launches .rw .v { font: 500 16px/21px var(--sf); color: var(--ink); }
 html #pg-threats .pn.launches .rw .n { font: 400 13px var(--sf); color: var(--ink2); }
 /* RECON: the target field and RUN, a status line, the report as sections with their source */
@@ -3577,6 +3582,10 @@ html .pn.recon .reconout .lab small { font: 400 12px var(--sf); letter-spacing: 
 html .pn.recon .reconout .rw .k { --lfs: 13px; font: 600 13px/18px var(--sf); color: var(--ink2); min-width: 72px; letter-spacing: 0; }
 html .pn.recon .reconout .rw .v { font: 400 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .pn.recon .reconout .rw .n.bad { color: var(--amber); }
+html #pg-threats .pn.recon .reconout .rw .k[data-case="keep"], html #pg-threats .pn.recon .reconout .rw .k[data-case="keep"]::first-letter { text-transform: none; }
+html .pn.recon .reconout .rw.plain { align-items: baseline; }
+html .pn.recon .reconout .rw.plain .k { min-width: 16px; font-weight: 700; color: var(--ink3); }
+html .pn.recon .reconout .rw.plain.bad .k { color: var(--amber); } html .pn.recon .reconout .rw.plain.up .k { color: var(--c); }
 html .pn.recon > .ft { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--hair); }
 html .pn.recon > .ft button { height: 44px; min-height: 44px !important; padding: 0 16px; }
 html .pn.recon > .ft button.warn:not(:disabled) { color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; }
