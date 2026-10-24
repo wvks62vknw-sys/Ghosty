@@ -162,3 +162,11 @@ Add to it any time; tick items off only when he agrees they are fixed.
     and the theme extras to pick from. Running: A3 (specs at 440 × 956, en-GB). Next: the SPEED card after a day of
     numbers, courses (item 6), `build_app` as a Workshop project, the extras once picked.
 
+36. **Usage and the pace (24 Oct ~12:30 UK):** all models weekly 30 %, Fable 19 %. "Remember to do every single thing we
+    talked about; do every single one of them that you can, because it seems like we have a lot of space right now and
+    don't have to do things in weeks like we thought; do every single little thing you can whilst still maximising
+    credits and maximising output, and if we have anything left we can get it done a different way or next week." So:
+    the whole plan (weeks 2 and 3 and the ideas) is queued now, built in parallel by cheaper builders with the same
+    review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
+    his pick waits for him; whatever is left at the week's end goes to next week.
+
