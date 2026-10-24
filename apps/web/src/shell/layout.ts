@@ -89,6 +89,9 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
       back.hidden = !!pushed.ownBack;
       navTitle.textContent = pushed.label || niceCase(pushed.title.split(' · ')[0]!);
       navTitle.dataset.case = 'keep';
+      // route C: a long name steps down a size rather than being cut ("Phone · App & Notifications")
+      const n = navTitle.textContent.length;
+      navTitle.dataset.len = n > 24 ? 'xl' : n > 17 ? 'l' : '';
       return;
     }
     pushed = null;
@@ -102,6 +105,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     // the reactor's greeting keeps the name as typed
     navTitle.textContent = tab === 'core' ? n?.title ?? '' : niceCase(n?.title ?? '');
     navTitle.dataset.case = 'keep';
+    navTitle.dataset.len = '';
   };
   // the greeting follows the clock
   setInterval(() => ui.get().tab === 'core' && !pushed && paintNav(), 60_000);

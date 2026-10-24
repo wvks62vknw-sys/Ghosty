@@ -3790,4 +3790,54 @@ html[data-look="pro"] #pg-space .spacewrap, html[data-look="pro"] #pg-space canv
 /* Reverse: the help under the form quieter, the jobs as rows */
 html[data-look="pro"] #pg-reverse .pn .note { font-size: 14px; line-height: 20px; color: var(--ink3); }
 html[data-look="pro"] #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }
+/* ---------- System and Links: a pushed panel shows its contents under the large title (its row is not repeated) ---------- */
+html[data-look="pro"] .listmode .pn.pushed[data-row] > h3 { display: none; }
+html[data-look="pro"] body[data-depth="inner"]:not(.ownback) #top .navtitle[data-len="l"] { font-size: 28px; line-height: 34px; letter-spacing: -.3px; }
+html[data-look="pro"] body[data-depth="inner"]:not(.ownback) #top .navtitle[data-len="xl"] { font-size: 24px; line-height: 30px; letter-spacing: -.25px; }
+html[data-look="pro"] .listmode .pn.pushed > .bd { padding-top: 12px; }
+html[data-look="pro"] .listmode .pn.pushed > .bd > .note:first-child { font-size: 15px; line-height: 21px; color: var(--ink2); }
+html[data-look="pro"] .listmode .pn.pushed ol { padding-left: 20px; font: 400 14px/20px var(--sf); color: var(--ink2); }
+html[data-look="pro"] .listmode .pn.pushed ol li { margin: 0 0 8px; }
+html[data-look="pro"] .listmode .pn.pushed .lab { margin: 18px 0 8px; }
+html[data-look="pro"] .listmode .pn.pushed :is(.keyrow, .row) > button { height: 44px; min-height: 44px !important; }
+html[data-look="pro"] .listmode .pn.pushed .keyblock { margin: 0 0 10px; padding: 14px; border: 0; border-radius: 18px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .listmode .pn.pushed .keyblock .keyrow { gap: 8px; margin-top: 10px; }
+html[data-look="pro"] .listmode .pn.pushed .keyblock .note { font-size: 15px; line-height: 20px; }
+/* ---------- SCHOOL (features/school; restyled through its classes only): the ladder as a line of stops, this stage, results, papers ---------- */
+html[data-look="pro"] .pn.school .schrungs { position: relative; gap: 4px; }
+html[data-look="pro"] .pn.school .schrung { position: relative; min-height: 50px; padding: 6px 10px; }
+html[data-look="pro"] .pn.school .schrung:not(:last-child)::before { content: ''; position: absolute; left: 22px; top: 38px; bottom: -16px; width: 2px; border-radius: 1px; background: var(--hair2); }
+html[data-look="pro"] .pn.school .schrung.s-done:not(:last-child)::before, html[data-look="pro"] .pn.school .schrung:has(.schmark.ok):not(:last-child)::before { background: rgba(235,240,245,.4); }
+html[data-look="pro"] .pn.school .schmark { position: relative; z-index: 1; background: #121518; border: 0; box-shadow: inset 0 0 0 1.5px var(--ink4); }
+html[data-look="pro"] .pn.school .schmark.now { background: #0c1418; box-shadow: inset 0 0 0 2px var(--c), 0 0 10px rgba(var(--cr), .45); }
+html[data-look="pro"] .pn.school .schmark.ok { color: #050607; background: rgba(235,240,245,.85); box-shadow: none; }
+html[data-look="pro"] .pn.school .schmark.lock { color: var(--ink3); }
+html[data-look="pro"] .pn.school .schrung.s-locked { opacity: .6; }
+html[data-look="pro"] .pn.school .schrung.s-now { background: rgba(var(--cr), .1); box-shadow: inset 0 0 0 1px rgba(var(--cr), .25); }
+html[data-look="pro"] .pn.school .schstate.now { font-weight: 600; color: var(--c); }
+html[data-look="pro"] .pn.school .schhead b { font: 700 28px/34px var(--sfd); letter-spacing: -.4px; }
+html[data-look="pro"] .pn.school .schsub { min-height: 64px; gap: 12px; border-bottom: 1px solid var(--hair); }
+html[data-look="pro"] .pn.school .schsubname b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; }
+html[data-look="pro"] .pn.school .schsub button { height: 44px; min-height: 44px !important; min-width: 64px; padding: 0 16px; }
+html[data-look="pro"] .pn.school .schtop { font: 600 15px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
+html[data-look="pro"] .pn.school .schbtns > button { height: 50px; min-height: 50px !important; border-radius: 25px; font: 600 17px var(--sf) !important; }
+html[data-look="pro"] .pn.school .schbtns > button.on:not(:disabled) { color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
+html[data-look="pro"] .pn.school .schlive { padding: 14px; border-radius: 18px; background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .22); }
+html[data-look="pro"] .pn.school .schresult { padding: 16px; border-radius: 20px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .pn.school .schresult.top { box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .55), 0 0 24px rgba(var(--cr), .12); }
+html[data-look="pro"] .pn.school .schgrade b { font: 200 44px/48px var(--sfd); letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+html[data-look="pro"] .pn.school .schresult.top .schgrade b { color: var(--c); }
+html[data-look="pro"] .pn.school button.schrow { min-height: 60px; border-radius: 16px; background: rgba(255,255,255,.05) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] .pn.school .schq { padding: 12px 14px; border-left: 0; border-radius: 14px; background: rgba(255,255,255,.05); box-shadow: inset 3px 0 0 var(--ink4); }
+html[data-look="pro"] .pn.school .schq.ok { box-shadow: inset 3px 0 0 #30d158; } html[data-look="pro"] .pn.school .schq.part { box-shadow: inset 3px 0 0 var(--amber); } html[data-look="pro"] .pn.school .schq.no { box-shadow: inset 3px 0 0 #ff6961; }
+html[data-look="pro"] .pn.school .schoffgrp { border-top: 1px solid var(--hair); }
+html[data-look="pro"] .pn.school .schoffgrp > summary { min-height: 52px; font: 600 17px var(--sf); }
+html[data-look="pro"] .pn.school .schoff.st-ready .schoffline { color: var(--c); }
+html[data-look="pro"] .pn.school .schoff.st-failed .schoffline { color: var(--amber); }
+/* the nightly report: an iOS switch row */
+html[data-look="pro"] .pn.school button.schnightly { position: relative; display: flex; align-items: center; width: 100%; height: 52px; min-height: 52px !important; padding: 0 70px 0 16px; border-radius: 16px; font-size: 0 !important; color: var(--ink) !important; background: rgba(255,255,255,.055) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; text-align: left; }
+html[data-look="pro"] .pn.school button.schnightly::before { content: 'Nightly report'; text-transform: none; font: 500 17px/22px var(--sf); letter-spacing: -.25px; }
+html[data-look="pro"] .pn.school button.schnightly::after { content: ''; position: absolute; right: 12px; top: 50%; width: 51px; height: 31px; margin-top: -15.5px; border-radius: 16px; background: rgba(120,120,128,.32) radial-gradient(circle at 15.5px 50%, #fff 0 13.5px, transparent 14px); transition: background .3s var(--spring); }
+html[data-look="pro"] .pn.school button.schnightly[aria-checked="true"]::after { background: var(--c) radial-gradient(circle at 35.5px 50%, #fff 0 13.5px, transparent 14px); }
+html[data-look="pro"] .pn.school button.schnightly:active { transform: none; }
 /* end route C part 2 */
