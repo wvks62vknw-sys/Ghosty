@@ -1432,8 +1432,8 @@ function layoutStorey(spec: HomeSpec, st: number): Placed[] {
       put(r, x, hw, r.w!, r.d!);
       x += r.w!;
     }
-    for (const r of left) put(r, -r.w!, hw / 2 - r.d! / 2, r.w!, r.d!);
-    for (const r of right) put(r, L, hw / 2 - r.d! / 2, r.w!, r.d!);
+    for (const r of left) put(r, -r.w!, hw / 2 - r.d! * 0.5, r.w!, r.d!);
+    for (const r of right) put(r, L, hw / 2 - r.d! * 0.5, r.w!, r.d!);
   }
   // everything else, the most connected first
   const rest = () => mine.filter((r) => !placed.some((p) => p.spec === r));
@@ -2060,14 +2060,14 @@ function placeFurniture(spec: HomeSpec, nStoreys: number, placed: Placed[], room
       }
       // the usual places, when the words don't say
       if (place === 'wall' || place === 'run' || place === 'corner' || place === 'window' || place === 'fire') score += sp.wall !== undefined ? 40 : -200;
-      if (/^sofa/.test(q.kind.kind) && sp.wall !== undefined) score += (lens[sp.wall]! >= longest - 5 ? 30 : 0) - Math.abs(edgeAlong(room, sp) - lens[sp.wall]! / 2) / 20 - (doorWalls.has(sp.wall) ? 20 : 0);
+      if (/^sofa/.test(q.kind.kind) && sp.wall !== undefined) score += (lens[sp.wall]! >= longest - 5 ? 30 : 0) - Math.abs(edgeAlong(room, sp) - lens[sp.wall]! * 0.5) / 20 - (doorWalls.has(sp.wall) ? 20 : 0);
       if (BEDS.has(q.kind.kind) && q.kind.kind !== 'cot' && sp.wall !== undefined) {
-        score -= Math.abs(edgeAlong(room, sp) - lens[sp.wall]! / 2) / 10;
+        score -= Math.abs(edgeAlong(room, sp) - lens[sp.wall]! * 0.5) / 10;
         score -= doorWalls.has(sp.wall) ? 15 : 0;
         const sides = [rectSide(sp.r, sp.rot, -60), rectSide(sp.r, sp.rot, 60)].filter((r) => rectInPoly(r, room.poly) && !inRoom.some((o) => rectOverlap(o._rect, r, 0.5))).length;
         score += sides * 25;
       }
-      if (place === 'fire' && sp.wall !== undefined) score -= Math.abs(edgeAlong(room, sp) - lens[sp.wall]! / 2) / 5;
+      if (place === 'fire' && sp.wall !== undefined) score -= Math.abs(edgeAlong(room, sp) - lens[sp.wall]! * 0.5) / 5;
       if (place === 'window' && !hint.wall) {
         const w = wins.map((o) => openingSpan(room, o).mid).sort((a, b) => dist(a, c) - dist(b, c))[0];
         if (w) score += 80 - dist(w, c) / 4;
