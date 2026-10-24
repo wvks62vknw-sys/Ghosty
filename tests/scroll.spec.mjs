@@ -20,10 +20,16 @@ await page.fill('#pair input', 'preview-owner-key-0123456789');
 await page.click('#pair button.on');
 await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 
+// A toast (a fixed notice over the page, pointer-events: none, gone in seconds) is outside the page's scroll
+// chain in WebKit's layer hit test: a wheel that starts over one moves nothing, though elementFromPoint looks
+// straight through it. Toasts are cleared before a page is measured and before every swipe.
+const clearToasts = () => page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+
 let checked = 0;
 for (const tab of TABS) {
   await page.evaluate((t) => (location.hash = t), tab);
   await page.waitForTimeout(1500);
+  await clearToasts();
   await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
   for (const side of ['main', 'alt']) {
     if (side === 'alt') {
@@ -75,6 +81,7 @@ for (const tab of TABS) {
       }
       // the page itself, or a list inside it that still had room to move, must have taken the swipe
       const swipe = async () => {
+        await clearToasts();
         await page.evaluate((i) => (document.querySelector(`[data-scroller="${i}"]`).scrollTop = 0), s.i);
         await page.mouse.move(s.x, s.y);
         await page.mouse.wheel(0, 240);
