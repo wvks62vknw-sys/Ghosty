@@ -18,7 +18,7 @@ import { meaningComplete, meaningIndex } from '../../library/meaning';
 import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
-import { addFile, addText } from '../../library/upload';
+import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -94,8 +94,8 @@ export const libraryTab: TabDef = {
     // (route C words it for a phone, where nothing is dropped: the tile is tapped)
     const drop = h('div.drop', { tabIndex: 0, role: 'button', 'aria-label': 'Add files to the library' },
       h('i.dropic', icon('<path d="M12 15.5V4.5M7.5 9L12 4.5 16.5 9"/><path d="M4.5 14.5v3a2 2 0 002 2h11a2 2 0 002-2v-3"/>')),
-      h('b', { dataset: { label: 'Add books, PDFs and files' } }, 'DROP BOOKS, PDFS & FILES HERE'),
-      h('span', { dataset: { label: 'Tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV, JSON, code' } }, 'or tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV/JSON, code'));
+      h('b', { dataset: { label: 'Add a PDF, a photo of a page or a file' } }, 'DROP PDFS, PHOTOS OF PAGES & FILES HERE'),
+      h('span', { dataset: { label: 'Tap to choose · photos are read on this phone · PDF, Word, EPUB, web pages, text, CSV, code' } }, 'or tap to choose · photos are read on this phone · PDF, Word, EPUB, web pages, text, CSV/JSON, code'));
     const log = h('div.liblog');
     const busy = { n: 0 };
     const note = (text: string, kind: '' | 'ok' | 'bad' = '') => {
@@ -104,12 +104,18 @@ export const libraryTab: TabDef = {
       while (log.children.length > 6) log.lastChild!.remove();
       return r;
     };
-    const ingest = async (files: File[]) => {
-      for (const f of files) {
+    const ingest = async (picked: File[]) => {
+      // Photos of pages picked together are one document (a page per photo); every other file is its own.
+      const photos = picked.filter(isPhoto);
+      const jobs: { name: string; add: (p: (t: string) => void) => Promise<{ doc: LibraryDoc; warning?: string }> }[] = [
+        ...(photos.length ? [{ name: photos.length === 1 ? photos[0]!.name : `${photos.length} photos`, add: (p: (t: string) => void) => addPhotos(photos, p) }] : []),
+        ...picked.filter((f) => !isPhoto(f)).map((f) => ({ name: f.name, add: (p: (t: string) => void) => addFile(f, p) })),
+      ];
+      for (const f of jobs) {
         const line = note(`${f.name}: reading…`);
         busy.n++;
         try {
-          const { doc, warning } = await addFile(f, (t) => (line.textContent = `${f.name}: ${t}`));
+          const { doc, warning } = await f.add((t) => (line.textContent = `${f.name}: ${t}`));
           const here = doc.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back; searchable now)' : '';
           line.textContent = `✓ ${doc.title} — ${doc.passages} passage${doc.passages === 1 ? '' : 's'} saved${here}${warning ? ` (${warning})` : ''}`;
           line.className = 'note ok';

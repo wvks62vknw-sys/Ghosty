@@ -22,7 +22,7 @@ export interface Extracted {
 const CODE_EXT = /\.(js|mjs|cjs|ts|tsx|jsx|py|rs|go|c|h|cc|cpp|hpp|java|kt|swift|rb|php|cs|scala|lua|sh|bash|sql|r|m|dart|zig|ex|exs|hs|ml|clj|vue|svelte)$/i;
 const TEXT_EXT = /\.(txt|md|markdown|mdx|rst|csv|tsv|json|jsonl|yaml|yml|toml|ini|log|xml|tex|org|adoc)$/i;
 
-export const ACCEPT = '.pdf,.docx,.epub,.html,.htm,.txt,.md,.markdown,.mdx,.rst,.csv,.tsv,.json,.jsonl,.yaml,.yml,.toml,.xml,.tex,.log,.ini,.org,.adoc,.js,.mjs,.ts,.tsx,.jsx,.py,.rs,.go,.c,.h,.cc,.cpp,.hpp,.java,.kt,.swift,.rb,.php,.cs,.scala,.lua,.sh,.sql,.r,.dart,.zig,.vue,.svelte';
+export const ACCEPT = 'image/*,.heic,.pdf,.docx,.epub,.html,.htm,.txt,.md,.markdown,.mdx,.rst,.csv,.tsv,.json,.jsonl,.yaml,.yml,.toml,.xml,.tex,.log,.ini,.org,.adoc,.js,.mjs,.ts,.tsx,.jsx,.py,.rs,.go,.c,.h,.cc,.cpp,.hpp,.java,.kt,.swift,.rb,.php,.cs,.scala,.lua,.sh,.sql,.r,.dart,.zig,.vue,.svelte';
 
 const stem = (name: string) => name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || name;
 

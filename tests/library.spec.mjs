@@ -80,6 +80,10 @@ await printer.setContent(`<html><body style="font-family: Georgia, serif">
   <p style="font-family: Arial">Emergency frequency is 156.8 MHz — call the station on channel 16.</p>
 </body></html>`);
 const pdf = await printer.pdf({ format: 'A4' });
+// A photo of a page (printed words on white), for the Library's own reading of photos.
+await printer.setViewportSize({ width: 900, height: 700 });
+await printer.setContent('<html><body style="background:#fff;margin:48px;font:28px Georgia"><h1>Quillwort revision card</h1><p>Osmosis is the movement of water across a partially permeable membrane.</p></body></html>');
+const photo = await printer.screenshot({ type: 'jpeg', quality: 90 });
 await printer.close();
 if (press !== browser) await press.close();
 
@@ -261,6 +265,29 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     // back on, as it was
     await ui.click(sw);
     await ui.waitForFunction((s) => document.querySelector(s)?.getAttribute('aria-checked') === 'true', sw, { timeout: 15000 }).catch(() => problems.push(`[${name}] STUDY ALL did not switch back on`));
+  }
+  if (name === 'phone') {
+    // ---- a photo of a page: the picker offers photos, the phone reads the words itself, it is kept and found by them
+    const accept = (await ui.getAttribute('#pg-library input[type=file]', 'accept')) ?? '';
+    if (!/image\/\*/.test(accept)) problems.push(`[${name}] the Library's picker does not offer photos (accept "${accept.slice(0, 60)}…")`);
+    await ui.setInputFiles('#pg-library input[type=file]', [{ name: 'IMG_4471.jpg', mimeType: 'image/jpeg', buffer: photo }]);
+    const photoLine = () => ui.evaluate(() => [...document.querySelectorAll('#pg-library .liblog .note')].map((n) => n.textContent ?? '').find((t) => /IMG_4471|Quillwort/i.test(t)) ?? '');
+    await ui.waitForFunction(() => [...document.querySelectorAll('#pg-library .liblog .note')].some((n) => /IMG_4471|Quillwort/i.test(n.textContent ?? '') && /^[✓✕]/.test(n.textContent ?? '')), null, { timeout: 150000 }).catch(() => undefined);
+    const said = await photoLine();
+    if (!/^✓ .*Quillwort/i.test(said)) problems.push(`[${name}] a photo of a page was not read into the library: "${said}"`);
+    else {
+      await ui.fill('#pg-library input[aria-label="Search the library"]', 'quillwort osmosis membrane');
+      await ui.keyboard.press('Enter');
+      await searched(ui);
+      const found = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent ?? ''));
+      if (!found.some((t) => /Quillwort/i.test(t) && /membrane/i.test(t))) problems.push(`[${name}] the photo's words are not found by a search: ${found.slice(0, 2).join(' || ') || 'nothing'}`);
+    }
+    // leave the preview as it was: the photo's document goes again
+    await ui.evaluate(async () => {
+      const H = { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' };
+      const lib = await (await fetch('/api/library', { headers: H })).json().catch(() => ({ docs: [] }));
+      for (const d of lib.docs ?? []) if (/Quillwort/i.test(d.title)) await fetch(`/api/library/docs/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: H });
+    });
   }
   // any document on the shelf opens in the reader
   const shelfRow = await ui.$('#pg-library .pn .rw.link .v');
