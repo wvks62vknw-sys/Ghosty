@@ -3924,6 +3924,9 @@ html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px 
 html body.kb :is(#app, .modal, #deck, #mesheet) { top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100%); }
 html body.kb :is(#dock, #rcoffline) { display: none !important; }
 html body.kb .hud.core:not(.logopen) { padding-bottom: 10px; }
+/* God's eye's LOOK menu: as tall as the room above the bar (features/eye/index.ts sets the cap), its rows scroll inside it */
+html .lookmenu { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+html .lookmenu > * { flex: none; }
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */

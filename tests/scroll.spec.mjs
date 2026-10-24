@@ -252,6 +252,23 @@ for (const tab of ENDS) {
   if (e.bar > e.line - 4) problems.push(`[offline · eye] God's eye's bar (to ${e.bar}) is under the offline line (from ${e.line})`);
   felt++;
 }
+// 4. God's eye's LOOK menu (map tiles, sensor, globe) opens above the bar at the bottom. It grew upwards past the
+//    search bar and off the top of the screen, where nothing could scroll it back [its top at -26, under the back
+//    button: the MAP TILES row could not be reached]. It now stops under the search bar and scrolls on its own.
+{
+  await show(feel, 'eye', 2500);
+  await feel.locator('#pg-eye button', { hasText: /^look$/i }).first().click();
+  await feel.waitForTimeout(500);
+  const m = await feel.evaluate(() => {
+    const menu = document.querySelector('#pg-eye .lookmenu');
+    const r = menu.getBoundingClientRect();
+    return { top: Math.round(r.top), under: Math.round(document.querySelector('#pg-eye .eyetop').getBoundingClientRect().bottom), sh: menu.scrollHeight, h: menu.clientHeight, oy: getComputedStyle(menu).overflowY };
+  });
+  if (m.top < m.under - 1) problems.push(`[eye] the LOOK menu starts at ${m.top}, above the bottom of the search bar (${m.under}): its first rows cannot be reached`);
+  if (m.sh > m.h + 1 && !/(auto|scroll)/.test(m.oy)) problems.push(`[eye] the LOOK menu holds ${m.sh} px in ${m.h} and cannot scroll`);
+  await feel.locator('#pg-eye button', { hasText: /^look$/i }).first().click();
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
