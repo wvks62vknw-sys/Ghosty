@@ -648,9 +648,11 @@ BASES = {b['id']: b for b in FIX['bases']}
 LAYOUT = json.load(open(os.path.join(HERE, 'qwen35_2b_layout.json')))
 
 
-class BaseModels(PreFlight):
+class BaseModels(unittest.TestCase):
     """The base model chosen on the phone (Qwen3 0.6B, Qwen3.5 2B or 4B): the brain's settings for it (the shared cases
     in fixtures.json, which apps/edge/test/selftrain.test.mjs holds cycle.ts's baseConfig to) are what the run reads."""
+
+    run_setup = PreFlight.run_setup
 
     def cfg(self, base_id):
         return BASES[base_id]['config']
