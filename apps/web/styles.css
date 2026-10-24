@@ -935,6 +935,26 @@ button.gymswitch { min-height: 56px; padding: 10px 14px; border-radius: 14px; ba
 .vclinks .lab { margin: 0; width: 100%; }
 .vcchips { margin: 2px 0; }
 button.vcchip { border-color: #b08a00; font-weight: 600; }
+/* MARK MY WORK (Lens → READ → MARK, features/lens/mark.ts): his answers, the marks per question, the honest band */
+button.markchip { border-color: var(--ok); font-weight: 600; }
+.markview .marktitle { flex: 1; font: 600 12px var(--d); letter-spacing: .16em; align-self: center; }
+.markview .markwarn { color: var(--a); }
+.markview input.marksubj { width: 100%; min-height: 44px; box-sizing: border-box; }
+.marklevels button { min-width: 0; }
+.markhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.markhead .marktotal { font: 600 26px var(--d); letter-spacing: .04em; }
+.markhead .markgrade { font: 600 11px var(--d); letter-spacing: .12em; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--line); }
+.markhonest { font-size: 12px; line-height: 1.45; }
+.marklist { display: flex; flex-direction: column; gap: 6px; }
+.markq { border-left: 3px solid var(--line); padding: 4px 0 4px 10px; min-width: 0; }
+.markq.ok { border-left-color: var(--ok); } .markq.miss { border-left-color: var(--r); } .markq.wait { border-left-color: var(--a); }
+.markqhead { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 13px; }
+.markqhead .markqmark { font: 500 12px var(--m); }
+.markqhead .markqhow { font-size: 11px; color: var(--mute); }
+.markqgiven { font: 400 12px/1.4 var(--m); color: var(--fg); overflow-wrap: anywhere; white-space: pre-wrap; }
+.markqmiss { font-size: 12px; line-height: 1.4; color: var(--a); overflow-wrap: anywhere; }
+.markwrong { display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.markwrong b { font: 500 9px var(--d); letter-spacing: .16em; color: var(--mute); }
 .scangrade { font: 600 10px var(--d); letter-spacing: .12em; padding: 4px 8px; border-radius: 3px; color: #02070d; background: var(--mute); }
 .scangrade.ga { background: #038141; color: #fff; } .scangrade.gb { background: #85bb2f; } .scangrade.gc { background: #fecb02; } .scangrade.gd { background: #ee8100; } .scangrade.ge { background: #e63e11; color: #fff; }
 .scannut { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; font-size: 12px; }
@@ -3049,16 +3069,16 @@ html #pg-library .trychips button::after { content: ''; position: absolute; inse
 html #pg-library .trychips button::first-letter { text-transform: uppercase; }
 html #pg-library .rw.hit .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
 /* the shelf: a glass tile with the kind's glyph, the title with its kind under it, the passages, a chevron */
-html #pg-library .pn.shelf .rw.link { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 14px; grid-template-rows: auto auto; grid-template-areas: "t v n c" "t k n c"; column-gap: 12px; row-gap: 1px; align-items: center; min-height: 60px !important; margin: 0; padding: 9px 0; border-radius: 0; border-bottom: 1px solid var(--hair); }
-html #pg-library .pn.shelf .rw.link:last-child { border-bottom: 0; }
-html #pg-library .pn.shelf .rw.link:active { background: rgba(255,255,255,.04); }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 14px; grid-template-rows: auto auto; grid-template-areas: "t v n c" "t k n c"; column-gap: 12px; row-gap: 1px; align-items: center; min-height: 60px !important; margin: 0; padding: 9px 0; border-radius: 0; border-bottom: 1px solid var(--hair); }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link:last-child { border-bottom: 0; }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link:active { background: rgba(255,255,255,.04); }
 html #pg-library .libtile { grid-area: t; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--hair); color: var(--ink); }
 html #pg-library .libtile .ic { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-html #pg-library .pn.shelf .rw .v { grid-area: v; align-self: end; font: 500 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); -webkit-line-clamp: 2; }
-html #pg-library .pn.shelf .rw .k { grid-area: k; align-self: start; min-width: 0; font: 400 13px/17px var(--sf); letter-spacing: -.04px; color: var(--ink3); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html #pg-library .pn.shelf .rw .k[data-label]::before { --lfs: 13px; }
-html #pg-library .pn.shelf .rw .n { grid-area: n; font: 400 15px var(--sf); color: var(--ink3); }
-html #pg-library .pn.shelf .rw.link::after { content: ''; grid-area: c; width: 14px; height: 14px; background: var(--ink4); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw .v { grid-area: v; align-self: end; font: 500 16px/21px var(--sf); letter-spacing: -.2px; color: var(--ink); -webkit-line-clamp: 2; }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw .k { grid-area: k; align-self: start; min-width: 0; font: 400 13px/17px var(--sf); letter-spacing: -.04px; color: var(--ink3); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw .k[data-label]::before { --lfs: 13px; }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw .n { grid-area: n; font: 400 15px var(--sf); color: var(--ink3); }
+html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link::after { content: ''; grid-area: c; width: 14px; height: 14px; background: var(--ink4); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat; }
 /* a list's pages: ‹ 1–8 / 24 › as round glass buttons */
 html .pn > .ft:has(.pg-label) { display: flex; align-items: center; gap: 8px; padding: 4px 12px 12px; border-top: 1px solid var(--hair); }
 html .pn > .ft .pg-label { flex: 1; text-align: center; font: 400 13px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
