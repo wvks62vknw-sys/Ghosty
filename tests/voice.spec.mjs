@@ -324,6 +324,9 @@ const fakePhone = () => {
   await engineSel.selectOption('ghosty');
   const brainOpts = await page.locator('select[aria-label="Voice"] option').allTextContents();
   for (const v of ['Draco', 'Pandora', 'Helios', 'Athena', 'Melo']) if (!brainOpts.some((o) => o.startsWith(v))) problems.push(`[${name}] the brain's voices are missing ${v}: ${brainOpts.join(' | ')}`);
+  // plain words: the picker never names the models behind the voices
+  const pickerWords = `${brainOpts.join(' ')} ${await page.locator('.note.vnow').textContent()}`;
+  if (/Aura|MeloTTS|Deepgram|neuron/i.test(pickerWords)) problems.push(`[${name}] the voice picker speaks in model names: ${pickerWords}`);
   await page.selectOption('select[aria-label="Voice"]', 'pandora');
   // SAMPLE is STOP while a sample is still being said: a click then would only stop it, so wait for the last one to end.
   const sampleNow = async () => {
@@ -348,12 +351,14 @@ const fakePhone = () => {
   if (sample?.voice !== 'Serena (Premium)') problems.push(`[${name}] the phone sample spoke in ${JSON.stringify(sample)}`);
   // back to automatic: a passing Aura error is not "used up": the plain clip the brain sent plays, the phone stays quiet
   await engineSel.selectOption('auto');
-  ttsAnswer = { voice: 'melo', note: 'the natural voice did not answer', reason: 'error', status: 200, seconds: 0.1 };
+  ttsAnswer = { voice: 'melo', note: 'the natural voice did not answer (3040: capacity temporarily exceeded): the plain voice spoke instead', reason: 'error', status: 200, seconds: 0.1 };
   // (only the sample line counts: anything else the phone may still be finishing is not this sample)
   const quiet = await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length);
   const asked = ttsBodies.length;
   await sampleNow();
   await page.waitForFunction(() => /Just spoke: Melo/.test(document.querySelector('.note.vlast')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] after an Aura error the plain clip was not played`));
+  const lastLine = (await page.locator('.note.vlast').textContent()) ?? '';
+  if (/3040|capacity/.test(lastLine)) problems.push(`[${name}] the brain's error code reached the owner: "${lastLine}"`);
   if ((await page.evaluate(() => window.__said.filter((x) => /how I'll sound/.test(x.text)).length)) !== quiet) problems.push(`[${name}] one Aura error sent the voice to the phone`);
   if (ttsBodies.length === asked) problems.push(`[${name}] after an Aura error the brain was not asked`);
   // when the natural voice's share is used up for today, the phone's natural voice takes over
