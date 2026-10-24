@@ -134,6 +134,53 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
+// ── The rest of the Workshop on the owner's phone (the upgrade pass, 24 Oct): honest states, words, targets ──
+async function pairOn(viewport) {
+  const ctx = await browser.newContext({ viewport, ...UK, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[workshop] pageerror: ${e.message}`));
+  // the browser's own boxes are never used: every confirm is the in-app sheet
+  page.on('dialog', (d) => {
+    problems.push(`[workshop] the browser's own ${d.type()} box came up: ${d.message().slice(0, 80)}`);
+    void d.dismiss();
+  });
+  await page.goto(base);
+  await page.fill('#pair input', 'preview-owner-key-0123456789');
+  await page.click('#pair button.on');
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 15000 });
+  return { ctx, page };
+}
+const panelOf = (page, title) => page.locator('#pg-workshop .pn', { has: page.locator(`h3:has-text("${title}")`) });
+/** What a panel says, its route C words (data-label) included. */
+const words = (loc) => loc.evaluate((e) => `${e.textContent} ${[...e.querySelectorAll('[data-label]')].map((x) => x.dataset.label).join(' ')}`).catch(() => '');
+
+async function workshop() {
+  const { ctx, page } = await pairOn(PHONE);
+  // 1. Self-edit not set up, and the change list on its way: the headline never says "Offline" and nothing says GITHUB_REPO
+  let notReady = null;
+  await page.route('**/api/changes', async (r) => {
+    await new Promise((ok) => (notReady = ok));
+    await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: false, changes: [], versions: [] }) });
+  });
+  await page.evaluate(() => (location.hash = 'workshop'));
+  await panelOf(page, 'PROPOSED CHANGES').waitFor({ state: 'attached', timeout: 10000 });
+  await page.waitForTimeout(400);
+  const big = () => page.$eval('#pg-workshop .bigv', (e) => e.textContent ?? '');
+  const waiting = await words(panelOf(page, 'PROPOSED CHANGES'));
+  if (/Offline/.test(await big())) problems.push(`[workshop 1] while the change list loads the headline says "${await big()}"`);
+  if (/NOT CONNECTED|GITHUB_REPO|SETUP\.md/.test(waiting)) problems.push(`[workshop 1] while loading the changes panel says it is not connected: ${waiting.slice(0, 120)}`);
+  notReady?.();
+  await page.waitForFunction(() => !/Checking/.test(document.querySelector('#pg-workshop .bigv')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+  const off = await words(panelOf(page, 'PROPOSED CHANGES'));
+  if (/Offline/.test(await big())) problems.push(`[workshop 1] with self-edit not set up the headline says "${await big()}" (Ghosty is online)`);
+  if (/GITHUB_REPO|SETUP\.md|token/.test(off)) problems.push(`[workshop 1] the self-edit panel speaks jargon: ${off.slice(0, 160)}`);
+  if (!/Self-editing is off/.test(off) || !(await panelOf(page, 'PROPOSED CHANGES').locator('button:has-text("SET IT UP")').count())) problems.push(`[workshop 1] the self-edit panel does not say it is off with a way to set it up: ${off.slice(0, 160)}`);
+  await page.screenshot({ path: `${out}/workshop-selfedit-off.png` });
+  await page.unroute('**/api/changes');
+  await ctx.close();
+}
+
+await workshop();
 await run('desktop', DESKTOP);
 await run('phone', PHONE);
 await browser.close();

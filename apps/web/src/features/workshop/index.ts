@@ -445,14 +445,19 @@ export const workshopTab: TabDef = {
         pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
       }
     };
-    let ready = false;
+    /** Self-editing set up on the brain (GitHub): null until the change list first answers. */
+    let ready: boolean | null = null;
     let kernelUntil = 0;
 
     const paint = () => {
       clear(cp.body);
-      if (!ready) {
-        cp.setStatus('NOT CONNECTED', 'off');
-        cp.body.append(h('div.note.rcwarn', 'Self-editing needs GITHUB_REPO on the brain and a GitHub token in the System tab. See SETUP.md.'));
+      if (ready === null) {
+        cp.setStatus('', 'off');
+        cp.body.append(empty('LOADING'));
+      } else if (!ready) {
+        // not set up: said plainly, with the one place to set it up (LINKS → GITHUB · SELF-EDIT takes the key)
+        cp.setStatus('OFF', 'mid');
+        cp.body.append(h('div.note.rcwarn', 'Self-editing is off, so Ghosty can’t change its own code yet. Projects, apps, widgets and pages all work without it.'), h('div.row', button('SET IT UP', () => go('links'), 'on')));
       } else {
         cp.setStatus(`${changes.length} OPEN`, changes.length ? 'mid' : 'ok');
         if (!changes.length) cp.body.append(empty('NONE', 'Ask Ghosty to build something: what he changes waits here for you to SHIP IT.', 'No open changes'));
@@ -554,7 +559,7 @@ export const workshopTab: TabDef = {
       );
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';
-      P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
+      P.big.textContent = ready === null ? 'Checking…' : ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Code edits off';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],
