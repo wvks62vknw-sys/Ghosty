@@ -205,6 +205,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     account that uses its five free GPU minutes a day for checked practice; it is refused if the account could ever pay.
     Safer still: make a read-only Hugging Face token for it by hand (Settings → Access Tokens → Read) and paste it in
     SYSTEM → KEYS as the training token's read-only twin when that slot exists.
+    (n) BRIEF in the morning: YOUR DAY, the sentence, READ IT TO ME (he reads it in his voice with no model needed) and
+    BRIEF ME on the first screen; with home and work saved, the drive time is there each morning.
 
 38. **Owner's decision, 24 Oct 19:40 UK:** Telegram needs no upgrade pass ("I don't mind that not getting one"). Its pass was
     stopped; the other passes go on.

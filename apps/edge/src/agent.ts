@@ -1537,7 +1537,8 @@ export class GhostyAgent {
     // The reflection at 03:20 in the owner's time zone (their day is over); the digest at 06:10 UTC (the morning feeds are out).
     const tz = safeTz(((await this.storage.get<ClientContext>('owner:ctx')) ?? {}).tz);
     await ensureJob(this.storage, { kind: 'reflect', title: 'Nightly reflection', text: "Look back over the day's conversation: what the owner said about themselves, and a diary entry.", hour: 3, minute: 20, tz, repeat: 'daily' });
-    await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 6, minute: 10, tz: 'UTC', repeat: 'daily' });
+    // [brief] 05:40 UK time, before the Brief is read (06:10 UTC fell after his morning in summer); ensureJob re-times the standing job.
+    await ensureJob(this.storage, { kind: 'digest', title: 'Fresh knowledge', text: "The day's news, papers and events, filed in the library.", hour: 5, minute: 40, tz: 'Europe/London', repeat: 'daily' });
     await ensureJob(this.storage, UPGRADE_JOB);
     await ensureTrainJob(this.storage); // [selftrain]
   }
