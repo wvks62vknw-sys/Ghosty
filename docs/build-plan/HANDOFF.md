@@ -103,6 +103,12 @@ folder that no longer exists; ignore those paths).
   spends one of the day's 30 picture shares and holds the photo for seconds; the tool reads any held picture id, so a
   mis-call by the model would forget that picture (low risk: the question names the id). The owner must add the
   Pl@ntNet key (SYSTEM → KEYS, free) before PLANT works; BIRD / INSECT / OTHER and meals work with the Gemini key.
+- 24 Oct ~13:35 UK: merged after review: MARK MY WORK and GADGET MANUALS (BRIEF-MARK-MANUALS.md). Kernel line, marked
+  `[manuals]`: the gadgets group's words (manuals, rating plates, fault codes, the appliances). The library's PDF reader
+  moved to `packages/shared/src/pdf.ts` so the brain can read a manual itself (capped at 20 MB and 240 pages, tested
+  only with a 12-page stand-in): the free plan's CPU on a big real manual is unmeasured; if it fails, the phone should
+  read the PDF the way SCHOOL's official papers are read (an upgrade-pass item). Both builders this hour paid for a new
+  tool name by trimming prompt.ts (TODAY's line; a chain example): the combined budget is checked by prompt.test.mjs.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
