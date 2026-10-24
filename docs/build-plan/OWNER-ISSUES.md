@@ -157,3 +157,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     ready to be merged just merge it yourself, don't wait for me to do it, and then stay continuing with everything else
     too" (reaffirms 31: merge when CI is green and the batch is complete and reviewed; never stop for his merge).
 
+35. **PR #32 merged (24 Oct 10:12 UK), by this session as authorised:** the whole Week 1 batch, with the deck and one look
+    included. Told the owner what is live, how to press TRAIN NOW, three self-edit trial jobs to paste into Workshop,
+    and the theme extras to pick from. Running: A3 (specs at 440 × 956, en-GB). Next: the SPEED card after a day of
+    numbers, courses (item 6), `build_app` as a Workshop project, the extras once picked.
+
