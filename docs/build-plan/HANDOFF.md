@@ -173,6 +173,13 @@ folder that no longer exists; ignore those paths).
   Saved places and spending rules landed in the same hour and have no UNDO yet (an upgrade-pass item for Memory and
   Agenda). READ ALOUD with a real iPhone voice is untried (headless Chromium has none). The bigger-brain merge builder
   was told to merge the branch again so its picker goes through the same `confirmSheet` / `undoBar`.
+- 24 Oct ~17:50 UK: run 225 (head 20e7eeb) came back with one red spec of 60: `meaning`. Not the product: the spec's
+  stand-in embedder (CI has no WebGPU) scores a text by a few word "concepts", and on the shared preview the library by
+  then holds the LEARN spec's "Course notes: photosynthesis" and long study notes full of "food" and "plant" (the
+  factory kind), which it ranked above the spec's own passage for "how do plants make food". Reproduced here against
+  the same crowded preview. Fixed in the spec: a plant question damps the cooking concept in the stand-in (as the real
+  model would), and the checks accept any photosynthesis passage in the first three hits and in the offline prompt,
+  with the added passage required somewhere in the list. The other 59 specs, the four new ones included, passed.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
