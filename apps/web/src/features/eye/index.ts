@@ -168,7 +168,10 @@ export const eyeTab: TabDef = {
       if (sat) return select({ kind: 'sat', ref: sat, w: sat.w }, true);
       const ship = ships.find(s);
       if (ship) return select({ kind: 'ship', ref: ship, w: shipLayer.world(ship, Date.now()) }, true);
-      if (!(await flyTo({ place: s, range_km: 300 }))) toast(`Nothing found for ${s}`, 'warn');
+      // Offline, a place that is not one of the globe's own cities cannot be looked up: say that, not "couldn't find".
+      if (!navigator.onLine && !World.find(s) && !(s.length <= 4 && World.findAirport(s))) return void toast(`You're offline, so I can't look up ${s}. The globe's cities and your saved places still work.`, 'warn');
+      // flyTo says it once when the place is not found.
+      await flyTo({ place: s, range_km: 300 });
     };
     q.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void search();
