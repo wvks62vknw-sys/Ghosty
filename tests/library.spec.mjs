@@ -167,6 +167,33 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   await searched(ui);
   const res = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
   if (!res.length || !/Volcano/i.test(res[0])) problems.push(`[${name}] search found: ${res.slice(0, 2).join(' || ') || 'nothing'}`);
+  // a result shows the words searched for, marked, in a few lines; a tap opens its document in the reader at that passage
+  const hit0 = await ui.evaluate(() => {
+    const r = document.querySelector('#pg-library .rw.hit');
+    return r ? { marks: [...r.querySelectorAll('mark')].map((m) => m.textContent?.toLowerCase()), len: (r.querySelector('.v')?.textContent ?? '').length } : null;
+  });
+  if (!hit0?.marks.some((m) => /^sulphur/.test(m ?? ''))) problems.push(`[${name}] the searched words are not marked in the result: ${JSON.stringify(hit0)}`);
+  if (hit0 && hit0.len > 320) problems.push(`[${name}] a result is a wall of text (${hit0.len} characters)`);
+  if (hit0) {
+    await ui.click('#pg-library .rw.hit');
+    await ui.waitForSelector('.modal .reader p.here', { timeout: 10000 }).catch(() => problems.push(`[${name}] tapping a result did not open its document at that passage`));
+    const at = await ui.evaluate(() => {
+      const p = document.querySelector('.modal .reader p.here');
+      const box = document.querySelector('.modal .readwrap')?.getBoundingClientRect();
+      const r = p?.getBoundingClientRect();
+      return { title: document.querySelector('.modal .mhead b')?.textContent ?? '', text: p?.textContent ?? '', inView: !!(r && box && r.top < box.bottom && r.bottom > box.top) };
+    });
+    if (!/volcano/i.test(at.title) || !/sulphur dioxide/.test(at.text) || !at.inView) problems.push(`[${name}] the result opened ${JSON.stringify(at).slice(0, 200)}`);
+    if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-result-opened.png` });
+    await ui.click('.modal .mhead button').catch(() => undefined);
+    await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => undefined);
+  }
+  // words the library has never seen: no passages that merely share a common word, and it says so
+  await ui.fill('#pg-library input[aria-label="Search the library"]', 'zzqxv nothing here');
+  await ui.keyboard.press('Enter');
+  await searched(ui);
+  const junk = await ui.evaluate(() => ({ hits: document.querySelectorAll('#pg-library .rw.hit').length, said: document.querySelector('#pg-library .nohits')?.textContent ?? '' }));
+  if (junk.hits || !/Nothing in the library mentions/.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
   if (name === 'desktop') {
     // The whole library is copied to this device and answers with no connection at all.
     await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] the library was never copied to the device: ${'' }`));

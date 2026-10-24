@@ -15,6 +15,7 @@ import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/
 import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { meaningComplete, meaningIndex } from '../../library/meaning';
+import { queryTerms } from '../../../../../packages/shared/src/meaning';
 import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
@@ -73,6 +74,42 @@ const ALL_OFF = 'study-all-off';
 interface FreshItem {
   heading: string;
   text: string;
+}
+
+/** The searched words' stems (their first five letters at most, three at least: "plants" finds "plant"). */
+const stemsOf = (terms: string[]) => terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
+const esc = (s: string) => s.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+/** Every searched word starts a word somewhere in the text. */
+function hasAll(text: string, terms: string[]): boolean {
+  const low = text.toLowerCase();
+  return !!terms.length && stemsOf(terms).every((s) => new RegExp(`(^|[^a-z0-9])${esc(s)}`).test(low));
+}
+/** About `max` characters of a passage around the first searched word (on one line, cut at spaces, … where cut). */
+function around(text: string, terms: string[], max = 280): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  const low = flat.toLowerCase();
+  const first = Math.min(...stemsOf(terms).map((s) => low.search(new RegExp(`(^|[^a-z0-9])${esc(s)}`))).filter((i) => i >= 0), Infinity);
+  let start = Number.isFinite(first) ? Math.max(0, first - 90) : 0;
+  if (start > 0) start = flat.indexOf(' ', start) + 1 || start;
+  let end = Math.min(flat.length, start + max);
+  if (end < flat.length) end = Math.max(flat.lastIndexOf(' ', end), start + Math.round(max / 2));
+  return `${start > 0 ? '…' : ''}${flat.slice(start, end).trim()}${end < flat.length ? '…' : ''}`;
+}
+/** The text with every word that starts with a searched word in a <mark> (text nodes only, never HTML). */
+function marked(text: string, terms: string[]): Node[] {
+  const stems = stemsOf(terms);
+  if (!stems.length) return [document.createTextNode(text)];
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${stems.map(esc).join('|')})[\\p{L}\\p{N}]*`, 'giu');
+  const out: Node[] = [];
+  let at = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > at) out.push(document.createTextNode(text.slice(at, m.index)));
+    out.push(h('mark', m[0]));
+    at = m.index! + m[0].length;
+  }
+  if (at < text.length) out.push(document.createTextNode(text.slice(at)));
+  return out;
 }
 
 export const libraryTab: TabDef = {
@@ -220,9 +257,14 @@ export const libraryTab: TabDef = {
     const byWhat = () => (meaningComplete() ? 'by meaning' : 'by keywords');
     const sp = panel('ASK THE LIBRARY', { status: byWhat(), cls: 'ask' });
     const q = h('input.askq', { type: 'search', placeholder: 'Ask anything Ghosty has read…', enterKeyHint: 'search', 'aria-label': 'Search the library' });
-    const hitRow = (x: LibraryHit) => {
+    /** A result: where it is, the words around the first one searched for with the searched words marked; a tap opens it in the reader there. */
+    const hitRow = (x: LibraryHit, terms: string[]) => {
       const where = [x.title, x.heading && x.heading !== x.title ? x.heading : '', x.page ? `p. ${x.page}` : ''].filter(Boolean).join(' · ');
-      return h('div.rw.wrap.hit', h('span.k', where), h('span.v', x.text.length > 700 ? `${x.text.slice(0, 700)}…` : x.text));
+      const r = h('div.rw.wrap.hit', { tabIndex: 0, role: 'button', 'aria-label': `Open ${x.title} here` }, h('span.k', where), h('span.v', ...marked(around(x.text, terms), terms)));
+      const open = () => openDoc(docs.find((d) => d.id === x.doc) ?? { id: x.doc, title: x.title, source: '', kind: '', pages: 0, passages: 0, chars: 0, status: 'ready', builtin: false, at: 0 }, { text: x.text, terms });
+      r.addEventListener('click', open);
+      r.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && open());
+      return r;
     };
     const TRY = ['how attention works in transformers', 'binary search edge cases', 'how Ghosty works', 'SQL injection', 'big-O of sorting'];
     /** What a search will be ranked by, in a line: by meaning (and that it stays on the phone), or by keywords and why. */
@@ -253,10 +295,14 @@ export const libraryTab: TabDef = {
       sp.setStatus('searching…', 'mid');
       try {
         const r = await brain.librarySearch(t, 20);
-        clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
+        const terms = queryTerms(t);
+        // Only what really matches: the brain's own verdict, or every searched word there (one short word, "ATP",
+        // is enough when he typed it himself). Passages sharing one common word with the question are left out.
+        const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, terms));
+        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
-        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
+        sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');
@@ -302,11 +348,13 @@ export const libraryTab: TabDef = {
         : [h('div.note', 'Ask in the chat: "find the manual for my Bosch dishwasher SMS24AW01G" (the model number is on the rating plate; Lens READ can read it). Ghosty looks on the maker\'s own site first, keeps the manual here, and answers fault codes from its pages.')]));
     };
     // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
-    const openDoc = (d: LibraryDoc) => {
+    // (`at`: a search result: the reader reads on until it reaches that passage, shows it marked, and scrolls to it)
+    const openDoc = (d: LibraryDoc, at?: { text: string; terms: string[] }) => {
       const body = h('div.reader');
       const more = button('MORE', () => void load(), 'on');
       let after = 0;
       let last = '';
+      let found: HTMLElement | null = null;
       const load = async () => {
         more.disabled = true;
         try {
@@ -316,16 +364,24 @@ export const libraryTab: TabDef = {
               body.append(h('h4', p.heading));
               last = p.heading;
             }
-            body.append(h('p', p.text));
+            const para = h('p', p.text);
+            if (at && !found && (p.text === at.text || p.text.slice(0, 80) === at.text.slice(0, 80))) {
+              found = para;
+              para.className = 'here';
+              clear(para, ...marked(p.text, at.terms));
+            }
+            body.append(para);
           }
           if (r.next === null) more.remove();
           else {
             after = r.next;
             more.disabled = false;
           }
+          return r.next !== null;
         } catch (e) {
           body.append(h('div.note.bad', `Could not read it: ${(e as Error).message}`));
           more.remove();
+          return false;
         }
       };
       // what it is as chips (kind, where from, how many passages), then the passages to read; REMOVE for his own
@@ -355,7 +411,11 @@ export const libraryTab: TabDef = {
         );
       }, 'warn readrm');
       const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
-      void load();
+      void (async () => {
+        // a search result far into a long book: read on to it (up to 3,000 passages), then bring it into view
+        for (let round = 0; round < 10 && (await load()) && at && !found; round++);
+        if (found) (found as HTMLElement).scrollIntoView({ block: 'center' });
+      })();
     };
 
     // ---- self-study: Ghosty studies on its own, around the clock, within the free plan — one field at a time

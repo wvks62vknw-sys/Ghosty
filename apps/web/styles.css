@@ -3156,6 +3156,10 @@ html #pg-library .trychips button { height: 40px; min-height: 40px !important; p
 html #pg-library .trychips button::after { content: ''; position: absolute; inset: -4px 0; }
 html #pg-library .trychips button::first-letter { text-transform: uppercase; }
 html #pg-library .rw.hit .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+html #pg-library .rw.hit { cursor: pointer; }
+html #pg-library .rw.hit:active { background: rgba(255,255,255,.04); }
+html #pg-library .rw.hit mark, html .reader mark { padding: 0 1px; border-radius: 3px; color: inherit; background: rgba(var(--cr), .22); }
+html #pg-library .nohits { padding: 4px 0; color: var(--ink2); }
 /* the shelf: a glass tile with the kind's glyph, the title with its kind under it, the passages, a chevron */
 html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 14px; grid-template-rows: auto auto; grid-template-areas: "t v n c" "t k n c"; column-gap: 12px; row-gap: 1px; align-items: center; min-height: 60px !important; margin: 0; padding: 9px 0; border-radius: 0; border-bottom: 1px solid var(--hair); }
 html #pg-library :is(.pn.shelf, .pn.gadgets) .rw.link:last-child { border-bottom: 0; }
@@ -3234,6 +3238,7 @@ html .readmeta .chip.src { max-width: 220px; }
 html .reader { max-width: 620px; }
 html .reader h4 { margin: 18px 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
 html .reader p { margin: 0 0 14px; font: 400 17px/27px var(--sf); letter-spacing: -.2px; color: rgba(244,246,248,.9); }
+html .reader p.here { padding-left: 12px; box-shadow: inset 2px 0 0 var(--c); }
 html .readwrap > .keyrow { gap: 8px; padding-top: 4px; }
 html .readwrap > .keyrow button { height: 44px; min-height: 44px !important; }
 /* ---------- Memory (features/memory): TIMELINE, PATTERNS, ME, DIARY, LESSONS LEARNED ---------- */
