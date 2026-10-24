@@ -1004,6 +1004,23 @@ export const eyeTab: TabDef = {
       }
     });
 
+    // ---------- the readout's live counts, in words ----------
+    /** "2,117 planes · 4,433 cameras · 867 satellites · 68 quakes · rain radar 2m ago"; nothing said of what is not there; offline, said so. */
+    const counted = () => {
+      const n = (x: number, one: string, many: string) => (x > 0 ? `${fmt.n(x)} ${x === 1 ? one : many}` : '');
+      const line = [
+        n(air.list.size, 'plane', 'planes'),
+        n(ships.list.size, 'ship', 'ships'),
+        n(cams.list.length, 'camera', 'cameras'),
+        n(transit.list.size, 'bus or tram', 'buses and trams'),
+        n(incidents.list.size, 'road incident', 'road incidents'),
+        n(sats.list.length, 'satellite', 'satellites'),
+        n(quakes.data?.length ?? 0, 'quake', 'quakes'),
+        radar.shownAt ? `rain radar ${fmt.ago(radar.shownAt)}` : '',
+      ].filter(Boolean).join(' · ');
+      return navigator.onLine ? line : `Offline · last seen: ${line || 'nothing yet'}`;
+    };
+
     // ---------- per-frame + periodic UI ----------
     const pool: HTMLElement[] = [];
     const paintLabels = () => {
@@ -1121,7 +1138,7 @@ export const eyeTab: TabDef = {
       const lines = [
         '',
         `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
-        `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM${transit.list.size ? ` · ${transit.list.size} BUS` : ''}${incidents.list.size ? ` · ${incidents.list.size} INC` : ''} · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
+        counted(),
         imagery.credit,
       ];
       rLines.forEach((el, i) => i && el.textContent !== lines[i] && (el.textContent = lines[i]!));
