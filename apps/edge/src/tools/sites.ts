@@ -12,6 +12,8 @@
  * It is not indexed by search engines, and password fields are refused before publishing, so it
  * can't pass for a real login or payment page.
  */
+import { APP_SW, appBase, appCsp, appManifest, renderApp, type AppConfig } from '../../../../packages/shared/src/appkit/index';
+import { appApproval, buildApp } from '../appbuild';
 import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { durableDelete, durableGet, durablePut } from '../kv';
@@ -33,6 +35,11 @@ export interface Site {
   html: string;
   source: string;
   at: number;
+  /**
+   * A mini-app made by build_app (appbuild.ts): its config and Home Screen icon (a PNG, base64). It is served
+   * as a page of its own, drawn from the config by the running kit, never framed (see appResponse).
+   */
+  app?: { config: AppConfig; icon: string };
 }
 /** One line of the list of published pages. */
 export interface SiteEntry {
@@ -41,6 +48,7 @@ export interface SiteEntry {
   source: string;
   at: number;
   bytes: number;
+  app?: boolean;
 }
 /** A page sent in parts (draft_site) before it is published. */
 interface Draft {
@@ -78,7 +86,7 @@ export function siteStore(env: Pick<Env, 'SITES'> | undefined, storage?: Durable
       // The page is live now; the list is for finding it again, so a hiccup here is not a failure.
       try {
         const entries = (await list()).filter((e) => e.name !== site.name);
-        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.html.length });
+        entries.unshift({ name: site.name, title: site.title, source: site.source, at: site.at, bytes: site.html.length, ...(site.app ? { app: true } : {}) });
         await saveList(entries);
       } catch {
         /* listed next time */
@@ -355,6 +363,7 @@ export function previewTags(html: string): string {
 
 export function siteResponse(site: Site | undefined): Response {
   if (!site) return notFound();
+  if (site.app) return appResponse(site, site.app);
   const host = hostOf(site.source);
   const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
   const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>${previewTags(site.html)}
@@ -380,10 +389,62 @@ export const PAGE_CSP =
   `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org/export/embed.html; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
+  if (site.app) return appAsset(site, site.app, dest);
   // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
   if (dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
   // Never reused for a direct visit: the answer depends on how it is loaded.
   return new Response(site.html, { headers: { ...common, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PAGE_CSP } });
+}
+
+// ---------------------------------------------------------------------------------------
+// Mini-apps (build_app): a page of their own, so they can be installed, keep what is saved and work offline
+// ---------------------------------------------------------------------------------------
+
+/**
+ * A mini-app at /s/<name> (and /s/<name>/): its page itself, on Ghosty's own address and never in a frame —
+ * the only way a web app can be added to an iPhone's Home Screen with its own icon, keep its saved state
+ * (a framed, sandboxed page has no storage at all) and register the service worker that lets it open
+ * offline. What makes that safe is its own policy: the page may run ONLY the kit's script, pinned by its
+ * hash (worked out from the kit that is running, never from what is stored — so nothing written into an
+ * app's words or config can ever run, and no inline handler or eval either), it can make no network
+ * requests at all (connect-src 'none': not even to Ghosty's /api), submit no form, frame nothing and be
+ * framed by nothing; its words are only ever set as text. The kit's script reads and writes nothing but
+ * its own key in the phone's storage (ghosty-app:<name>:<shape>).
+ */
+export function appResponse(site: Site, app: NonNullable<Site['app']>): Response {
+  const cfg: AppConfig = { ...app.config, id: site.name };
+  return new Response(renderApp(cfg), {
+    headers: {
+      ...common,
+      'cache-control': 'no-cache',
+      'content-type': 'text/html; charset=utf-8',
+      'content-security-policy': appCsp(cfg.shape),
+      'cross-origin-opener-policy': 'same-origin',
+      'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    },
+  });
+}
+
+/**
+ * What else an app needs, at /s/<name>/page (the one other address the Worker gives a published page,
+ * told apart by what the browser says it is loading — Sec-Fetch-Dest): its service worker, its web app
+ * manifest, and its Home Screen icon (for an image or anything not a page: iOS fetches the touch icon
+ * itself). Opened as a page, it goes to the app.
+ */
+export function appAsset(site: Site, app: NonNullable<Site['app']>, dest: string | null): Response {
+  const cfg: AppConfig = { ...app.config, id: site.name };
+  const base = appBase(site.name);
+  const vary = { vary: 'Sec-Fetch-Dest', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex, nofollow' };
+  if (dest === 'serviceworker') return new Response(APP_SW, { headers: { ...vary, 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'none'; connect-src 'self'" } });
+  if (dest === 'manifest') return new Response(JSON.stringify(appManifest(cfg)), { headers: { ...vary, 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'no-cache' } });
+  if (dest === 'document' || dest === 'iframe' || dest === 'frame' || dest === 'embed' || dest === 'object') return new Response(null, { status: 302, headers: { location: base, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
+  let png: Uint8Array<ArrayBuffer>;
+  try {
+    png = Uint8Array.from(atob(app.icon), (ch) => ch.charCodeAt(0));
+  } catch {
+    return notFound();
+  }
+  return new Response(png, { headers: { ...vary, 'content-type': 'image/png', 'cache-control': 'public, max-age=3600', 'content-security-policy': "default-src 'none'" } });
 }
 
 const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -423,6 +484,38 @@ export const siteTools: Tool[] = [
     risk: 'confirm', // it ends on the public internet: the owner approves the whole build once
     approval: (a, ctx) => siteApproval(a, ctx),
     run: (a, ctx) => startSiteBuild(a, ctx),
+  },
+  {
+    name: 'build_app',
+    description:
+      "Make the owner a mini-app ON YOUR OWN from one request and publish it at a link that installs to the Home Screen (Share → Add to Home Screen), keeps what is saved on the phone and works offline: a tracker, list, timer or routine, calculator or converter, counter or scoreboard, habit grid, notes pad, flash cards or a simple game. Use it whenever the owner asks for an app; never write one by hand. The kit writes all the logic: pass the owner's words as request, choose the shape, and give only words and options. It cannot fetch live data, sync between phones, log in or send reminders — say so and offer the nearest app. UNDO: unpublish_site.",
+    parameters: {
+      type: 'object',
+      properties: {
+        request: { type: 'string', description: "the owner's request, in their words" },
+        shape: { type: 'string', enum: ['tracker', 'list', 'timer', 'calc', 'counter', 'habits', 'notes', 'cards', 'game'] },
+        title: { type: 'string', description: 'short name, e.g. "Water"' },
+        tagline: { type: 'string', description: 'one plain line under the title' },
+        items: { type: 'array', items: { type: 'string' }, description: 'list items, habit names or player names' },
+        goal: { type: 'number' },
+        unit: { type: 'string', description: 'tracker unit, e.g. "glasses", "ml", "£"' },
+        period: { type: 'string', enum: ['day', 'week'] },
+        direction: { type: 'string', enum: ['reach', 'limit'], description: 'reach: at least the goal; limit: at most' },
+        mode: { type: 'string', enum: ['sum', 'last'], description: 'sum: entries add up; last: one reading (weight)' },
+        amounts: { type: 'array', items: { type: 'number' }, description: 'quick-add buttons' },
+        steps: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, secs: { type: 'number' } } }, description: 'timer steps' },
+        rounds: { type: 'number' },
+        calc: { type: 'string', enum: ['tip', 'units', 'fuel', 'vat', 'loan', 'percent'] },
+        topic: { type: 'string', description: 'flash-card topic' },
+        cards: { type: 'array', items: { type: 'object', properties: { q: { type: 'string' }, a: { type: 'string' } } } },
+        accent: { type: 'string', enum: ['cyan', 'blue', 'teal', 'mint', 'green', 'yellow', 'orange', 'red', 'pink', 'purple', 'indigo'] },
+        link_name: { type: 'string', description: 'short name for the link …/s/<name>/' },
+      },
+      required: ['request'],
+    },
+    risk: 'confirm', // it ends on the public internet: the owner approves the app in plain words first
+    approval: (a, ctx) => appApproval(a, ctx),
+    run: (a, ctx) => buildApp(a, ctx),
   },
   {
     name: 'study_site',
@@ -550,7 +643,7 @@ export const siteTools: Tool[] = [
     async run(_a, ctx) {
       const entries = await siteStore(ctx.env, ctx.storage).list();
       if (!entries.length) return 'Nothing is published yet.';
-      return `${entries.length} published page${entries.length === 1 ? '' : 's'}:\n${entries.map((e) => `- ${siteLink(ctx.origin, ctx.env, e.name)} — "${e.title}"${e.source ? ` (from ${hostOf(e.source)})` : ''}, ${when(e.at)} UTC, ${kb(e.bytes)}`).join('\n')}`;
+      return `${entries.length} published page${entries.length === 1 ? '' : 's'}:\n${entries.map((e) => `- ${siteLink(ctx.origin, ctx.env, e.name)}${e.app ? '/' : ''} — "${e.title}"${e.app ? ' (mini-app)' : ''}${e.source ? ` (from ${hostOf(e.source)})` : ''}, ${when(e.at)} UTC, ${kb(e.bytes)}`).join('\n')}`;
     },
   },
   {
