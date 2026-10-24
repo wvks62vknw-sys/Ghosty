@@ -170,7 +170,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
     his pick waits for him; whatever is left at the week's end goes to next week.
 
-37. **What only he can do, as of 24 Oct 19:12 UK (PR #33 is merged: (a)–(k) are live; (l) comes with PR #34):** (a) SYSTEM → KEYS → Pl@ntNet:
+37. **What only he can do, as of 24 Oct 21:10 UK (PR #33 and #34 are merged: (a)–(l) are live):** (a) SYSTEM → KEYS → Pl@ntNet:
     make a free account at my.plantnet.org, copy the API key, paste it in; then Lens → NAME → LIVING THING → PLANT names
     plants (500 a day, free). Without it, PLANT offers "ASK GHOSTY INSTEAD" (the seeing model). (b) Settings → Offline
     brain → Search by meaning → ADD · 70 MB, on Wi-Fi: the library on the phone then finds passages by what they mean;
@@ -201,6 +201,15 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (l) SETTINGS → OFFLINE BRAIN → WHICH BRAIN, on Wi-Fi: GET on Qwen3.5 2B (about 1.1 GB), then TEST and read the speed
     and quick-check line; try the 4B (about 2.4 GB, rated "tight") if you like — if the phone cannot hold it Ghosty
     goes back to the 0.6B and says so, and REMOVE frees the space. The weekly training then follows the brain in use.
+    (m) SYSTEM → OFFLINE BRAIN TRAINING → the DAILY GPU offer: ALLOW makes one small private Space on your Hugging Face
+    account that uses its five free GPU minutes a day for checked practice; it is refused if the account could ever pay.
+    Safer still: make a read-only Hugging Face token for it by hand (Settings → Access Tokens → Read) and paste it in
+    SYSTEM → KEYS as the training token's read-only twin when that slot exists.
+    (n) BRIEF in the morning: YOUR DAY, the sentence, READ IT TO ME (he reads it in his voice with no model needed) and
+    BRIEF ME on the first screen; with home and work saved, the drive time is there each morning.
+    (o) After the update that carries the crash fix: SETTINGS → OFFLINE BRAIN → WHICH BRAIN: GET and USE Qwen3.5 0.8B,
+    then USE Qwen3.5 2B, and send the "What this phone can hold" line. GET never loads a brain any more; USE and TEST do,
+    after a check and a warning, and a load that closes Ghosty is remembered.
 
 38. **Owner's decision, 24 Oct 19:40 UK:** Telegram needs no upgrade pass ("I don't mind that not getting one"). Its pass was
     stopped; the other passes go on.
@@ -208,3 +217,62 @@ Add to it any time; tick items off only when he agrees they are fixed.
 39. **Merging, said again (24 Oct ~19:55 UK):** "everytime you think the pull request should be merged on github etc just
     merge it dont wait for me to do it." Standing: every green pull request is merged by this session at once. He also
     asked for the whole picture: STATUS.md (done, going up, running, next, left from his list, my ideas).
+
+40. **The iPhone 18 Pro Max has arrived (24 Oct ~20:05 UK): he is on it now.** Asked of him: the OFFLINE BRAIN TEST line on
+    the 0.6B, GET + TEST on Qwen3.5 2B (does it load in iOS Safari; its speed), and how GYM → TRAIN ALL feels. Those unlock
+    the default-brain choice and the WebGPU training work. His direction for the next phase, in his words: "push it even
+    further"; "i don't want it to just have to rely on free gpu's for school because what about when it runs out of hours";
+    "i want the gym to be much much better like a lot more and a lot more things we can brainstorm on". A GYM menu of
+    twelve ideas was put to him for picks; a research builder is checking free GPU sources that need no card and have an
+    API (report: scratchpad/gpu-fallbacks/REPORT.md, then here).
+
+41. **The look, on the real phone (24 Oct 20:00 UK, screenshot mockups/owner-see-tab-24oct.png):** "i still think it could
+    use some work in a lot of ways like small details i don't like the little tabs like these you have to click on they
+    could be way better on every tab and the gym pics could be better and there's a few scroll issues which could be fixed
+    and also i like the iphone look but i don't want it like too much like an iphone like i still wanna feel like Iron Man
+    this is nothing like that". Answer: three Iron-Man-inside-route-C directions as mock-ups for his pick
+    (BRIEF-IRONMAN.md), a scroll audit on his phone size with fixes (BRIEF-SCROLL-AUDIT.md), the GYM pictures in the
+    mock-ups. Asked of him: which screens scroll badly, and which feel most "iPhone".
+
+42. **His questions, 24 Oct ~20:20 UK:** "couldn't we just use the offline brain for him to go to school? when the gpu
+    hours run out" (answered: practice yes, the weekly weight update no; IDEAS-24-OCT.md) and "what things do you suggest
+    we add, in the UI, the HUD … or features … to make it even more advanced" (the list in IDEAS-24-OCT.md, for his picks).
+
+43. **The look, his direction after the mock-ups (24 Oct ~20:45 UK):** "i want a cinematic when he's booted up because the
+    current one is terrible, and yeah i like this but i feel like there's too much things in one tab so you have to scroll
+    loads but there should be different like tabs for all of it but not overstimulating, and easy to navigate too and
+    really good looking and a massive iron man feel to it whilst being sleek and clean but still making you feel exactly
+    like Iron Man and super powerful and it shouldn't feel like it's made by an AI, if anybody else seen it they should
+    feel like i've made every single part of it like it's literally integrated within my soul (metaphorical)".
+    Read as: the Iron Man direction is a yes (A's instruments with C's restraint unless he says a letter); the hubs must
+    not scroll for ever (each tool its own screen, the hub a compact instrument grid); a boot cinematic; nothing generic.
+    Briefs: BRIEF-IRON-BUILD.md (the look, shared work first), BRIEF-NAV-BOOT.md (navigation + boot cinematic mock-ups
+    for his yes).
+
+44. **Bug on the 18 Pro Max (24 Oct ~21:30 UK):** "whenever i go to download one of the big brains Ghosty just crashes and
+    closes" (SETTINGS → OFFLINE BRAIN → WHICH BRAIN → GET on Qwen3.5 2B or 4B). Most likely iOS killing the tab for
+    memory when GET loads the model into graphics memory after the download, or during it. Fix in flight: GET fills the
+    cache only; USE/TEST load, after a limits check and a warning; a crash-safe progress log that reports on the next
+    open. His answer: "at first it fully downloaded then crashed but then when i opened and tried again it just crashed
+    before downloaded": the download completes; the kill is the load into graphics memory (2,245 MB for the 2B), and the
+    second try hit it at once because the files were already cached. The fix builder was told: load only on USE/TEST
+    after a limits pre-check and a warning, a crash record that stops blind retries, a smaller context window, and a
+    middle-sized brain (Qwen3 1.7B if it needs well under 2 GB) so he has a step between the 0.6B and the 2B.
+    Fixed (24 Oct, merged ~23:55 UK): GET only stores the files (one piece at a time, into WebLLM's own stores); USE and
+    TEST load after the phone's graphics limits are checked and a warning; a load that closes Ghosty is remembered and
+    the 0.6B is back on the next open; his phone's state (the 2B "in use", never loaded) is put right once; a middle
+    brain, Qwen3.5 0.8B (1.6 GB of graphics memory; a smaller context window does not help the 2B: 2,101 MB at
+    1,024 tokens). To ask him after the update: GET and USE the 0.8B, then USE the 2B, and what the "What this
+    phone can hold" line says.
+
+45. **Navigation and boot, his word (24 Oct ~21:50 UK):** "I am happy with pretty much all of that but i feel the intro could be
+    a little more cinematic, forget giving facts, like it could be really cinematic and cool and remember it's not an arc
+    reactor anymore either so". Read as: yes to the navigation (every tool its own screen, hubs on one screen, the long
+    press); yes to a boot cinematic, but no status readouts, more cinematic, and built around MIND (the hologram of his
+    mind, item 27), not a reactor core. The theme name Reactor is only a colour's name; nothing on screen is a reactor.
+
+46. **His question (25 Oct ~00:00 UK):** "is there not a way to have the big brain without having it straining my phones
+    memory? or like a way around this". Answered: online he already has far bigger free brains (the phone brain is for no
+    signal only); a middle brain that fits (0.8B now; Qwen2.5 1.5B possible at the same memory); his own computer at home
+    running a big brain reached through a free Cloudflare tunnel (asked whether he has one); a trimmed 2B compiled on
+    Kaggle's free GPU with a smaller working chunk, only if his test shows the 2B is just over the line.

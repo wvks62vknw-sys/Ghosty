@@ -1,5 +1,6 @@
 /**
- * Ghosty interface — boot sequence.
+ * Ghosty interface — boot sequence. The boot cinematic (shell/boot.ts: MIND waking up) plays over all of this from the
+ * first frame and never holds it up; it lands on Home once both are done.
  *  1. theme + 3D engine + Earth data
  *  2. connect to the brain (Cloudflare Access, or pair this device with the owner key)
  *  3. build the shell, open the first tab, start the single frame loop
@@ -21,14 +22,12 @@ import { World } from './engine/world';
 import { TABS } from './features';
 import { autoBackup } from './features/system/backup';
 import { checkStorage, persistAsksQuietly } from './features/system/storage';
+import { bootFault, bootReady, bootState, startBoot } from './shell/boot';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
 import { applyTheme, settleTheme } from './state/theme';
 import { button, toast } from './ui/components';
-
-const bootEl = document.getElementById('boot')!;
-const bootLog = (text: string, ok = 'OK') => bootEl.querySelector('.log')!.append(h('div', h('span', text), h('b', ok)));
 
 /**
  * Ask for the owner key on this device (only needed when Cloudflare Access isn't set up). A real
@@ -75,25 +74,21 @@ async function connect(): Promise<void> {
   const health = await brain.health();
   if (!health) {
     ui.set({ connected: false });
-    bootLog('BRAIN', 'UNREACHABLE');
     return;
   }
   if (health.preview) {
     // A preview of a proposed change: unreviewed code, so it must never see the password.
-    bootLog('PREVIEW', 'VIEW ONLY');
     ui.set({ connected: false });
     document.body.append(h('div#previewbar', 'PREVIEW OF A PROPOSED CHANGE · view only · previews never ask for your password — if this one does, do not type it'));
     return;
   }
   if (!health.secured) {
-    bootLog('BRAIN', 'NOT SECURED');
     await pair('The brain is running but not secured yet: set OWNER_KEY_HASH, OWNER_KEY or Cloudflare Access (see SETUP.md). Until then it refuses every request.');
     return;
   }
   try {
-    const st = await brain.status();
+    await brain.status();
     ui.set({ connected: true });
-    bootLog('BRAIN', st.paused ? 'MEMORY PAUSED' : 'LINKED');
   } catch (e) {
     if (e instanceof AuthError) {
       await pair(ownerKey.get() ? 'The saved key was not accepted.' : 'Sign-in needed.');
@@ -120,10 +115,12 @@ onLocalReminder((title, text) => {
 
 async function boot(): Promise<void> {
   applyTheme(settleTheme());
+  // the cinematic starts at once (in the theme's colour) and plays while everything below gets ready
+  startBoot();
   const cv = document.getElementById('gl') as HTMLCanvasElement;
-  bootLog('RENDER CORE', gfx.init(cv) ? 'WEBGL2' : 'NO WEBGL2');
+  gfx.init(cv);
   addEventListener('resize', () => gfx.resize());
-  bootLog('EARTH DATA', (await World.load()) ? `${World.cities.length} CITIES` : 'MISSING');
+  await World.load();
   await connect();
   const layout = buildLayout();
   registerTabs(TABS, layout.stage);
@@ -159,15 +156,15 @@ async function boot(): Promise<void> {
   addEventListener('hashchange', () => go(location.hash.slice(1)));
   startLoop();
   // Debug handle for the browser console: __ghosty.globe.cam, __ghosty.ui.get(), …
-  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run };
+  (window as unknown as { __ghosty: unknown }).__ghosty = { gfx, globe: (await import('./engine/globe')).globe, ui, settings, stats: (await import('./engine/scheduler')).stats, run: (await import('./commands/registry')).run, boot: bootState };
   // NIGHT SCHOOL (night/index.ts): its clock starts here; it does nothing until it is switched on in SYSTEM.
   if (ui.get().connected) startNight();
-  bootEl.classList.add('out');
-  setTimeout(() => bootEl.remove(), 700);
+  // the app is up underneath: the cinematic may land (or, on a plain open, the black simply goes)
+  bootReady();
   gfx.post.flash = 0.6;
 }
 
 boot().catch((e) => {
   console.error(e);
-  bootLog('BOOT FAULT', String((e as Error)?.message ?? e).slice(0, 60));
+  bootFault();
 });

@@ -207,7 +207,7 @@ function handle(ev: ChatEvent): void {
       // A cited answer: the caption leaves out the source list, and the voice the [n] markers too.
       const cited = looksCited(ev.text);
       chat.set({ live: cited ? citedBody(ev.text) : ev.text });
-      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at) });
+      if (speakReplies && settings.get().speak) void speak(cited ? spokenOf(ev.text) : ev.text, { owner: String(at), brief: true });
       break;
     }
     case 'cited': {
@@ -269,7 +269,7 @@ async function stream(fn: (cb: (e: ChatEvent) => void) => Promise<void>, offline
         const at = stamp();
         push({ kind: 'assistant', text: answer, at, model: 'Library on this device · offline' });
         chat.set({ live: answer });
-        if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer, { owner: String(at) });
+        if (speakReplies && settings.get().speak) void speak(answer.split('\n\n')[1] ?? answer, { owner: String(at), brief: true });
       } else {
         const msg = String((e as Error)?.message ?? e);
         push({ kind: 'error', text: msg });
@@ -330,7 +330,7 @@ async function answerHere(t: string, recent: { role: 'user' | 'assistant'; text:
     show(r.text);
     chat.set({ live: r.text });
     // (a translation is read aloud in its own language's voice by its READ ALOUD button, not in Ghosty's English one)
-    if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at) });
+    if (speakReplies && settings.get().speak && !tr) void speak(r.text, { owner: String(at), brief: true });
     return true;
   } catch (e) {
     // Stopped by the owner: what was written so far stays, nothing is spoken, and no error shows.
@@ -427,6 +427,11 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     stopOffline();
     stopThinking();
     if (ui.get().busy) await brain.stop().catch(() => undefined);
+    return;
+  }
+  // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
+  if (/^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i.test(t)) {
+    await import('../shell/boot').then((b) => b.reboot());
     return;
   }
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.

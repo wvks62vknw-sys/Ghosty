@@ -167,8 +167,9 @@ test('in the brain: DIGEST NOW files the day with the mock model, the alarm job 
   const jobs = await S.loadJobs(storage);
   const job = jobs.find((j) => j.kind === 'digest');
   assert.ok(job, 'the digest job exists');
-  assert.equal(job.tz, 'UTC');
-  assert.equal(new Date(job.next).toISOString().slice(11, 16), '06:10');
+  // 05:40 UK time (before the Brief is read, summer or winter), whatever the clocks are doing
+  assert.equal(job.tz, 'Europe/London');
+  assert.equal(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(job.next)), '05:40');
   job.next = Date.now() - 1000;
   await storage.put('jobs', jobs);
   await agent.alarm();

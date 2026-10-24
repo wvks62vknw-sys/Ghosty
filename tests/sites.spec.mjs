@@ -84,7 +84,7 @@ else {
   // The Workshop lists every published page, with COPY LINK and UNPUBLISH.
   await ui.evaluate(() => (location.hash = 'workshop'));
   await ui.waitForTimeout(800);
-  // On the phone the Workshop shows one column at a time: PUBLISHED PAGES is in the WIDGETS & VERSIONS column.
+  // On the phone the Workshop shows one column at a time: PUBLISHED PAGES is in the PAGES & WIDGETS column.
   const swap = await ui.$('#pg-workshop button.swap');
   if (swap && !(await ui.$eval('#pg-workshop .site', (el) => el.getBoundingClientRect().height > 0).catch(() => false))) await swap.tap();
   // Its own page by its link: a shared preview may list pages other specs published (the websites spec's), before or after this one.

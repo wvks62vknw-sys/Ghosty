@@ -25,25 +25,41 @@ export interface ModelDef {
   /** The context window the phone gives it (tokens; 2,048 when absent) and WebLLM's max_history_size, for the Qwen3.5 builds. */
   ctx?: number;
   history?: number;
+  /**
+   * The biggest single piece of its weights (bytes, from its tensor-cache.json): it must sit in the graphics chip in one
+   * buffer, so a phone whose WebGPU hands out smaller buffers cannot run it at all (limitsProblem).
+   */
+  largest?: number;
+  /**
+   * WebLLM's memory figure without the cache (MB of 1,048,576 bytes): the weights plus the compiled library's largest
+   * working space (its `memory_usage` metadata). `vram` is this plus the cache for 4,096 tokens (memAt).
+   */
+  work?: number;
+  /** Not trained by the weekly training (its own picker slot; choosing it leaves the training's base as it was). */
+  alone?: true;
 }
 
 /** The Qwen3 model first; the smaller Qwen2.5 one when a phone can't hold it. Both Apache-2.0. */
 export const MODELS: ModelDef[] = [
-  { id: 'Qwen3-0.6B-q4f16_1-MLC', label: 'Qwen3 0.6B', repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm', mb: 352, vram: 1403.34 },
-  { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label: 'Qwen2.5 0.5B', repo: 'mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', rev: '32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad', lib: 'Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 290, vram: 944.62 },
+  { id: 'Qwen3-0.6B-q4f16_1-MLC', label: 'Qwen3 0.6B', repo: 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', rev: '8c14ce481d4c692769976ad52afea453a102df19', lib: 'Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm', mb: 352, vram: 1403.34, largest: 77_791_232, work: 955.34 },
+  { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', label: 'Qwen2.5 0.5B', repo: 'mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC', rev: '32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad', lib: 'Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm', mb: 290, vram: 944.62, largest: 68_067_328 },
 ];
 
 /**
- * The bigger brains he can try (SETTINGS → OFFLINE BRAIN): Qwen3.5 2B and 4B (Apache-2.0), exactly as WebLLM 0.2.85's
- * own list names them (model id, compiled library from binary-mlc-llm-libs `web-llm-models/v0_2_84/base`, memory
- * needed, and its overrides for these models: a 4,096-token context and `max_history_size` 1, since three layers in
- * four keep a running state rather than a cache), each pinned to the one commit their repos have had since they were
+ * The bigger brains he can try (SETTINGS → OFFLINE BRAIN): Qwen3.5 0.8B, 2B and 4B (Apache-2.0), exactly as WebLLM
+ * 0.2.85's own list names them (model id, compiled library from binary-mlc-llm-libs `web-llm-models/v0_2_84/base`,
+ * memory needed, and its overrides for these models: a 4,096-token context and `max_history_size` 1, since three layers
+ * in four keep a running state rather than a cache), each pinned to the one commit their repos have had since they were
  * uploaded (checked 24 Oct 2026). `mb` is what the phone fetches: every weight shard, the tokenizer and the config
- * (1,082,390,739 and 2,390,258,276 bytes); `vram` is WebLLM's own figure for the memory it needs when running.
+ * (447,008,243, 1,082,390,739 and 2,390,258,276 bytes); `vram` is WebLLM's own figure for the memory it needs when
+ * running. The 0.8B is the step between the 0.6B and the 2B (24 Oct, after the 2B closed Ghosty on the 18 Pro Max):
+ * WebLLM's list has no Qwen3 1.7B under 1,800 MB (it needs 2,036.66), so it is the smallest Qwen above the 0.6B, at
+ * 1,629.49 MB. The weekly training does not train it (`alone`).
  */
 export const BIGGER: ModelDef[] = [
-  { id: 'Qwen3.5-2B-q4f16_1-MLC', label: 'Qwen3.5 2B', repo: 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC', rev: 'dd74e9c8a20c4546df85c844103bff87b6dcacad', lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm', mb: 1082, vram: 2245.44, brain: 'qwen3.5-2b', ctx: 4096, history: 1 },
-  { id: 'Qwen3.5-4B-q4f16_1-MLC', label: 'Qwen3.5 4B', repo: 'mlc-ai/Qwen3.5-4B-q4f16_1-MLC', rev: '44b42469f9e192814bfd90440e3b377d89ba7a13', lib: 'Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm', mb: 2390, vram: 3867.82, brain: 'qwen3.5-4b', ctx: 4096, history: 1 },
+  { id: 'Qwen3.5-0.8B-q4f16_1-MLC', label: 'Qwen3.5 0.8B', repo: 'mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC', rev: '0ec138972555613c1d7812a821778ad0398c8790', lib: 'Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm', mb: 447, vram: 1629.49, ctx: 4096, history: 1, largest: 127_139_840, work: 1437.49, alone: true },
+  { id: 'Qwen3.5-2B-q4f16_1-MLC', label: 'Qwen3.5 2B', repo: 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC', rev: 'dd74e9c8a20c4546df85c844103bff87b6dcacad', lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm', mb: 1082, vram: 2245.44, brain: 'qwen3.5-2b', ctx: 4096, history: 1, largest: 254_279_680, work: 2053.44 },
+  { id: 'Qwen3.5-4B-q4f16_1-MLC', label: 'Qwen3.5 4B', repo: 'mlc-ai/Qwen3.5-4B-q4f16_1-MLC', rev: '44b42469f9e192814bfd90440e3b377d89ba7a13', lib: 'Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm', mb: 2390, vram: 3867.82, brain: 'qwen3.5-4b', ctx: 4096, history: 1, largest: 317_849_600, work: 3355.82 },
 ];
 
 /** The brains the picker offers, smallest first: today's Qwen3 0.6B (also the fallback), then the bigger ones. */
@@ -51,6 +67,23 @@ export const PICKER: ModelDef[] = [MODELS[0]!, ...BIGGER];
 
 /** Which base a model is (a stock one, a bigger one, or a trained week of either); the Qwen2.5 stand-in counts as the 0.6B. */
 export const brainOf = (m: Pick<ModelDef, 'brain'>): BaseId => m.brain ?? DEFAULT_BASE;
+/** Its row in the picker: its base, or its own id for a brain the training does not follow (the 0.8B). */
+export const slotOf = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): string => (m.alone ? m.id : brainOf(m));
+/** A brain bigger than the 0.6B (or its Qwen2.5 stand-in): one that may be too big for the phone's graphics memory. */
+export const isBigger = (m: Pick<ModelDef, 'brain' | 'alone' | 'id'>): boolean => slotOf(m) !== DEFAULT_BASE;
+/** "2B": the short name the owner reads in a warning ("Qwen3.5 2B" → "2B"). */
+export const shortName = (m: Pick<ModelDef, 'label'>): string => m.label.split(' ').at(-1) ?? m.label;
+
+/**
+ * WebLLM's own memory figure at another context window: the weights and the library's largest working space are fixed,
+ * the cache grows with the context (112 KB a token for Qwen3 0.6B, 48 KB for Qwen3.5 as WebLLM counts it). So a shorter
+ * context barely helps the 2B: 2,245 MB at 4,096 tokens, 2,149 at 2,048, 2,101 at 1,024 (its weights are 1,010 and the
+ * working space 1,043 of it).
+ */
+export function memAt(m: Pick<ModelDef, 'vram' | 'work'>, ctx: number): number {
+  if (!m.work || !(ctx > 0)) return m.vram;
+  return Math.round((m.work + ((m.vram - m.work) * ctx) / 4096) * 100) / 100;
+}
 
 /** The stock phone build of a base (Qwen3 0.6B for an unknown one). */
 export const stockOf = (id: BaseId | undefined): ModelDef => PICKER.find((m) => brainOf(m) === id) ?? MODELS[0]!;
@@ -75,6 +108,87 @@ export function fitLine(m: Pick<ModelDef, 'vram'>, deviceGB?: number | null): st
   const known = typeof deviceGB === 'number' && deviceGB > 0;
   const fit = fitOf(m.vram, known ? deviceGB : PHONE_GB);
   return known ? `fits this device (${deviceGB} GB): ${fit}` : `fits an 18 Pro Max: ${fit}`;
+}
+
+/**
+ * What WebGPU gives a web page, from the adapter (SETTINGS checks before loading a brain: limitsProblem). Safari's
+ * defaults are 256 MB buffers and 128 MB bindings; the phone's real ones are read from its adapter.
+ */
+export interface GpuLimits {
+  maxBufferSize: number;
+  maxStorageBufferBindingSize: number;
+  maxComputeWorkgroupStorageSize: number;
+  maxStorageBuffersPerShaderStage: number;
+  maxComputeInvocationsPerWorkgroup: number;
+}
+const MiB = 1 << 20;
+/**
+ * What the vendored WebLLM 0.2.85 asks the adapter for (detectGPUDevice, web-llm.mjs): buffers and bindings of 1 GB when
+ * the chip allows them, else 256 MB buffers and 128 MB bindings; 32 KB of workgroup memory, 10 storage buffers per
+ * shader stage and 256 or more invocations per workgroup, or it will not start. `why` says which one the chip lacks.
+ */
+export function webllmAsks(l: GpuLimits): { buffer: number; binding: number; why: string } {
+  const buffer = l.maxBufferSize >= 1 << 30 ? 1 << 30 : 1 << 28;
+  const binding = l.maxStorageBufferBindingSize >= 1 << 30 ? 1 << 30 : 1 << 27;
+  const why =
+    l.maxBufferSize < buffer ? `buffers of ${Math.round(buffer / MiB)} MB (it gives ${Math.floor(l.maxBufferSize / MiB)} MB)`
+    : l.maxStorageBufferBindingSize < binding ? `bindings of ${Math.round(binding / MiB)} MB (it gives ${Math.floor(l.maxStorageBufferBindingSize / MiB)} MB)`
+    : l.maxComputeWorkgroupStorageSize < 32 << 10 ? `32 KB of workgroup memory (it gives ${Math.floor(l.maxComputeWorkgroupStorageSize / 1024)} KB)`
+    : l.maxStorageBuffersPerShaderStage < 10 ? `10 storage buffers per shader (it gives ${l.maxStorageBuffersPerShaderStage})`
+    : l.maxComputeInvocationsPerWorkgroup < 256 ? `256 threads per workgroup (it gives ${l.maxComputeInvocationsPerWorkgroup})`
+    : '';
+  return { buffer, binding, why };
+}
+
+/** The biggest piece the phone's graphics chip takes from a web page, as WebLLM will ask for it (bytes). */
+export const pieceLimit = (l: GpuLimits): number => {
+  const a = webllmAsks(l);
+  return Math.min(a.buffer, a.binding);
+};
+
+/**
+ * Why this phone cannot run a brain, in plain words ('' when its graphics chip gives what the brain needs): the 16-bit
+ * maths, what WebLLM asks for at start, and the brain's biggest piece against the biggest buffer it may bind.
+ */
+export function limitsProblem(m: Pick<ModelDef, 'label' | 'largest'>, l: GpuLimits, f16: boolean): string {
+  if (!f16) return `This phone's graphics chip lacks the 16-bit maths (shader-f16) every brain needs, so ${m.label} cannot run here.`;
+  const a = webllmAsks(l);
+  if (a.why) return `This phone's graphics chip does not give a web page what the offline brain needs to start: ${a.why}. ${m.label} cannot run here.`;
+  const most = Math.min(a.buffer, a.binding);
+  if ((m.largest ?? 0) > most) return `${m.label} has one piece of ${Math.round((m.largest ?? 0) / MiB)} MB that must sit in the graphics chip in one go, and this phone gives a web page pieces of at most ${Math.round(most / MiB)} MB. It cannot run here, so Ghosty does not try.`;
+  return '';
+}
+
+/** What happened when a brain was loaded on this phone (kept per picker row, `slotOf`). */
+export interface Held {
+  s: 'loaded' | 'closed' | 'failed' | 'refused';
+  at: number;
+}
+
+const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+/**
+ * "What this phone can hold", in plain words: the biggest piece its graphics chip takes (from the adapter, when known)
+ * and what has loaded, closed Ghosty, run out of memory or been refused here before (remembered per brain).
+ */
+export function holdLine(limits: GpuLimits | null, held: Record<string, Held>, models: ModelDef[] = PICKER): string {
+  const parts: string[] = [];
+  if (limits) {
+    const most = pieceLimit(limits);
+    const fit = models.filter((m) => (m.largest ?? 0) <= most && !webllmAsks(limits).why).map(shortName);
+    parts.push(`its graphics chip takes pieces of up to ${Math.round(most / MiB).toLocaleString('en-GB')} MB, enough for ${fit.length === models.length ? 'every brain here' : fit.length ? `the ${fit.join(', ')}` : 'none of the brains'}`);
+  }
+  const named = (s: Held['s']) => models.filter((m) => held[slotOf(m)]?.s === s).map((m) => `${m.label} (${day(held[slotOf(m)]!.at)})`);
+  const ran = named('loaded');
+  const closed = named('closed');
+  const short = named('failed');
+  const refused = named('refused');
+  if (ran.length) parts.push(`has run ${ran.join(', ')}`);
+  if (closed.length) parts.push(`closed Ghosty loading ${closed.join(', ')}`);
+  if (short.length) parts.push(`ran out of memory loading ${short.join(', ')}`);
+  if (refused.length) parts.push(`could not start ${refused.join(', ')}`);
+  const untried = models.filter((m) => !held[slotOf(m)]).map((m) => m.label);
+  if (untried.length && untried.length < models.length) parts.push(`not tried yet: ${untried.join(', ')}`);
+  return `What this phone can hold: ${parts.length ? parts.join('; ') : 'nothing tried yet'}. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.`;
 }
 
 /** A size for the owner: "352 MB" under a gigabyte, else "1.1 GB" (MB as the files are counted: 1,000,000 bytes). */
@@ -131,7 +245,7 @@ export function trainedModels(list: TrainedModel[], origin = '', weights: string
     .filter((m) => /^[\w.-]+\/[\w.-]+$/.test(m.repo) && /^[0-9a-f]{40}$/.test(m.commit) && Number.isInteger(m.week))
     .map((m) => {
       const stock = stockOf(m.base && baseById(m.base).id === m.base ? m.base : DEFAULT_BASE);
-      const def: ModelDef = { id: `Ghosty-week-${m.week}-${m.commit.slice(0, 7)}`, label: `Ghosty (week ${m.week})`, repo: m.repo, rev: m.commit, base: weightsBase(origin, weights, m.commit), lib: stock.lib, mb: stock.mb, vram: stock.vram };
+      const def: ModelDef = { id: `Ghosty-week-${m.week}-${m.commit.slice(0, 7)}`, label: `Ghosty (week ${m.week})`, repo: m.repo, rev: m.commit, base: weightsBase(origin, weights, m.commit), lib: stock.lib, mb: stock.mb, vram: stock.vram, ...(stock.largest ? { largest: stock.largest } : {}), ...(stock.work ? { work: stock.work } : {}) };
       // (a week of a bigger base runs on that base's library, context and history; one of the 0.6B is as it always was)
       return stock.brain ? { ...def, brain: stock.brain, ...(stock.ctx ? { ctx: stock.ctx } : {}), ...(stock.history ? { history: stock.history } : {}) } : def;
     });

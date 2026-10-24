@@ -292,6 +292,15 @@ export interface TrainReport {
   error?: string;
   /** The monthly retrain: trained from the stock model on every week kept (not added to the brain in use); the gate is the same. */
   scratch?: boolean;
+  /** Where it ran (the notebook's host: 'kaggle'), and in how many sessions (a run saves its place and carries on). */
+  host?: string;
+  sessions?: number;
+  /** The GPUs it had: with two, the sampling ran on the second beside the training (`saved_minutes`: what that saved). */
+  cards?: { count: number; train: string; sample: string; names?: string[]; saved_minutes?: number };
+  /** The run's plan this week (the brain's): a full run, or a smaller one when Kaggle's hours were short, and why. */
+  plan?: { mode: 'full' | 'economy'; why: string };
+  /** Checked samples the daily GPU (Hugging Face) added to this week's data. */
+  daily?: number;
 }
 
 export interface PublishedModel {
@@ -350,6 +359,19 @@ export interface TrainStatus {
    * from the stock model on every week kept, so stacked weekly add-ons cannot drift. Absent from an older brain.
    */
   kind?: { scratch: boolean; why: string; now: boolean };
+  /**
+   * Kaggle's free GPU hours as last read (`at`), when they come back, what the next run needs and which mode it will be:
+   * a full run, a smaller one (economy: fewer earlier weeks replayed, fewer STaR samples, SCHOOL papers on the phone) or
+   * waiting; `line` says it in plain words. Absent before the brain has read them.
+   */
+  gpu?: { left: number; total: number; refreshAt: number | null; at: number; needs: number; mode: 'full' | 'economy' | 'wait'; line: string };
+  /** The run under way: full or smaller (economy), and why. */
+  plan?: { mode: 'full' | 'economy'; why: string };
+  /**
+   * The daily GPU (a Space on his Hugging Face account, ZeroGPU's free minutes: apps/edge/src/selftrain/pool.ts): its
+   * state in a line, whether to ask him (once), the checked samples it added this week and those waiting for the next.
+   */
+  pool?: { phase: 'off' | 'setup' | 'ready' | 'failed'; note: string; offer: boolean; week: number; waiting: number; space?: string; private?: boolean };
 }
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */

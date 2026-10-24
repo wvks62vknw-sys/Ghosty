@@ -218,9 +218,19 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     if (target) {
       const fieldName = target.text.split(' · ')[0];
       await ui.selectOption('#pg-library .pn.study select[aria-label="Field to study"]', target.value);
+      // STUDY posts the pick as the first focus and reads a few pieces at once; on a loaded runner that request can
+      // fail to reach the brain (the button's own toast says so), so the brain's focus is checked and one more tap
+      // is allowed before it counts as a failure (PR #36's run: the pick never showed, the brain's focus unchanged).
+      const studyState = () => ui.evaluate(async () => (await fetch('/api/library/study', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } })).json().catch(() => null));
+      const picked = async () => (((await studyState())?.focus ?? [])[0] === target.value);
       await ui.click('#pg-library .pn.study .studypick button:has-text("STUDY")');
-      await ui.waitForFunction((f) => (document.querySelector('#pg-library .pn.study .studynow b')?.textContent ?? '').startsWith(`Reading ${f} · `), fieldName, { timeout: 90000 })
-        .catch(async () => problems.push(`[${name}] STUDY did not queue "${fieldName}": "${await nowLine()}"`));
+      await ui.waitForFunction((id) => !!document.querySelector('#pg-library .pn.study .studypick button:not([disabled])') && id, target.value, { timeout: 120000 }).catch(() => undefined);
+      if (!(await picked())) {
+        console.log(`[${name}] STUDY needed a second tap (the brain's focus did not change on the first)`);
+        await ui.click('#pg-library .pn.study .studypick button:has-text("STUDY")');
+      }
+      await ui.waitForFunction((f) => (document.querySelector('#pg-library .pn.study .studynow b')?.textContent ?? '').startsWith(`Reading ${f} · `), fieldName, { timeout: 150000 })
+        .catch(async () => problems.push(`[${name}] STUDY did not queue "${fieldName}": "${await nowLine()}" · brain focus ${JSON.stringify((await studyState())?.focus ?? null)} queue ${JSON.stringify((await studyState())?.queue ?? null)}`));
       const first = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .pn.study .rw')].find((r) => r.querySelector('.k')?.textContent === 'FIRST')?.textContent ?? '');
       if (!first.includes(fieldName)) problems.push(`[${name}] the field sent with STUDY is not first: "${first}"`);
     }

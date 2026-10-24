@@ -23,7 +23,54 @@ import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 import { draftCard } from './draftcard';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
-const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
+/** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
+const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
+/** Why something did not happen, in plain words (never "Failed to fetch"). */
+const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : String((e as Error)?.message ?? e));
+/** A project and its steps in plain words (the brain's own names are active / todo / doing / failed). */
+const PROJECT_WORD: Record<Project['status'], string> = { active: 'RUNNING', paused: 'PAUSED', done: 'FINISHED', cancelled: 'CANCELLED' };
+const STEP_WORD: Record<ProjectStep['status'], string> = { done: 'DONE', doing: 'NOW', todo: 'TO DO', failed: 'DIDN’T WORK' };
+/** Why a step went wrong, said plainly when it is a common one. */
+const plainWhy = (m: string) => (/\b429\b|rate.?limit|quota|too many requests/i.test(m) ? 'the free AI was busy' : /time(d)? ?out|took too long/i.test(m) ? 'it took too long' : m);
+/** The brain's note on a project (projects.ts), in plain words: what happened, what happens next, then why. */
+function projectNote(p: Pick<Project, 'note' | 'status'>): string {
+  const n = p.note ?? '';
+  const failed = n.match(/^step (\d+) failed \((\d+) of (\d+)\): ([\s\S]*)$/);
+  if (failed) return p.status === 'paused' ? `Step ${failed[1]} didn’t work ${failed[3]} times, so Ghosty paused it. RESUME tries it again. Why: ${plainWhy(failed[4]!)}` : `Step ${failed[1]} didn’t work (try ${failed[2]} of ${failed[3]}): Ghosty tries again by itself in a few minutes. Why: ${plainWhy(failed[4]!)}`;
+  if (/^waiting for a free model/.test(n)) return 'Waiting for a free AI: Ghosty carries on by itself as soon as one is free.';
+  return n;
+}
+/** What RUN NEXT NOW did, in plain words. */
+const RUN_SAID: Record<string, string> = {
+  step: 'Step done',
+  done: 'Step done: the project is finished',
+  waiting: 'Waiting: no AI is free right now (or Ghosty is busy); it tries again by itself',
+  retry: 'That step didn’t work: Ghosty tries it again by itself in a few minutes',
+  paused: 'That step didn’t work again, so the project is paused: RESUME tries again',
+  nothing: 'Nothing to run: this project isn’t running',
+};
+/**
+ * A version's line in plain words: GitHub's "Merge pull request #40 from owner/ghosty/brief-icons" is
+ * "Brief icons · change #40"; a roll-back says so; anything else as it was written.
+ */
+function versionWords(m: string): string {
+  const merge = m.match(/^Merge pull request #(\d+) from \S*?([^/\s]+)$/);
+  if (merge) {
+    const what = merge[2]!.replace(/[-_]+/g, ' ').trim();
+    return `${what.charAt(0).toUpperCase()}${what.slice(1)} · change #${merge[1]}`;
+  }
+  const back = m.match(/^Restore Ghosty to [0-9a-f]{7,} \((.*)\)$/);
+  return back ? `Rolled back to: ${versionWords(back[1]!)}` : m;
+}
+const SUB = 'Ghosty changes its own code. You decide what goes live.';
+const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview didn’t build', pending: 'preview on its way', none: 'no preview yet' };
+/** What a change's checks mean, and what to do next, in one plain sentence. */
+const CHECK_SAYS: Record<ChangeSummary['checks'], string> = {
+  passed: 'Checks passed: Ghosty built it and its tests all pass. Ready to ship.',
+  failed: 'A check failed: something in it doesn’t work yet. Tap Ask to fix and Ghosty mends it.',
+  pending: 'Ghosty is checking it: building it and running its tests, a few minutes.',
+  none: 'Not checked yet: the checks start in a minute or two.',
+};
 
 export const workshopTab: TabDef = {
   id: 'workshop',
@@ -37,7 +84,7 @@ export const workshopTab: TabDef = {
   },
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: 'Ghosty changes its own code. You decide what goes live.', rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });
+    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'PAGES & WIDGETS', leftLabel: 'BUILD' });
 
     // ask box
     const ask = panel('TELL GHOSTY WHAT TO BUILD', { grow: false });
@@ -115,8 +162,12 @@ export const workshopTab: TabDef = {
     // projects that run for days (projects.ts): one step every few minutes on Ghosty's own schedule
     const jp = panel('PROJECTS', { status: '' });
     let projects: Project[] = [];
+    /** The list has answered at least once (until then the panel says Loading, not "Nothing running"). */
+    let projectsKnown = false;
     /** Each website's DRAFT card, kept between repaints (the list repaints every 15 s while a project runs). */
     const draftCards = new Map<string, HTMLElement>();
+    /** Finished projects whose steps the owner opened (a finished one shows folded: what it made first, then SHOW STEPS). */
+    const unfolded = new Set<string>();
     const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
     const PROJECT_LIGHT: Record<Project['status'], Light> = { active: 'ok', paused: 'mid', done: 'ok', cancelled: 'off' };
     const act = (id: string, action: 'pause' | 'resume' | 'cancel' | 'run', ask?: string) => async (b: HTMLButtonElement) => {
@@ -125,9 +176,9 @@ export const workshopTab: TabDef = {
       try {
         const r = await brain.projectAction(id, action);
         projects = projects.map((p) => (p.id === id ? r.project : p));
-        if (action === 'run') toast(r.did === 'step' || r.did === 'done' ? 'Step done' : r.did === 'waiting' ? 'Waiting: no model is free right now (or Ghosty is busy); it tries again on its own' : `Step not finished (${r.did})`, r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
+        if (action === 'run') toast((r.did && RUN_SAID[r.did]) || 'Step not finished: Ghosty tries again by itself', r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
       } catch (e) {
-        toast(`Could not ${action}: ${String((e as Error).message)}`, 'bad');
+        toast(`Could not ${action}: ${why(e)}`, 'bad');
       }
       paintProjects();
       void loadProjects();
@@ -137,18 +188,20 @@ export const workshopTab: TabDef = {
       const running = projects.filter((p) => p.status === 'active').length;
       jp.setStatus(projects.length ? (running ? `${running} RUNNING` : `${projects.length}`) : '', running ? 'ok' : projects.some((p) => p.status === 'paused') ? 'mid' : 'ok');
       if (!projects.length) {
-        jp.body.append(empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running'));
+        jp.body.append(projectsKnown ? empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running') : empty('LOADING'));
         return;
       }
       for (const p of projects) {
         const done = p.steps.filter((s) => s.status === 'done').length;
         // a mini-app (build_app) runs its five steps in one go; anything else at its pace
         const pace = p.kind === 'app' ? 'a mini-app, built in one go' : p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min';
-        const ct = h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${pace} · ${fmt.ago(p.updated)}`));
+        const ct = h('div.ct', h('b', p.title), h('small', `${PROJECT_WORD[p.status]} · ${pace} · ${fmt.ago(p.updated)}`));
         // the live step: the one running, else the next one
         const now = p.status === 'active' ? (p.steps.find((s) => s.status === 'doing') ?? p.steps.find((s) => s.status === 'todo')) : undefined;
         if (now) ct.append(h('small.pnow', `NOW: step ${now.n} · ${now.title}`));
-        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', ct);
+        const finished = p.status === 'done' || p.status === 'cancelled';
+        // paused is waiting for the owner, not broken: its own amber edge
+        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.paused' : ''}` as 'div', ct);
         // route C: a progress ring with the steps done, beside the title
         const ring = progressRing(46);
         ring.set(done / Math.max(1, p.steps.length), 0, `${done}/${p.steps.length}`, p.status === 'done');
@@ -156,7 +209,7 @@ export const workshopTab: TabDef = {
         card.prepend(ring.el);
         card.append(bar('STEPS', done / Math.max(1, p.steps.length), `${done}/${p.steps.length}`, p.status === 'paused' ? '#ffd24d' : undefined));
         for (const s of p.steps) {
-          const r = row(`${s.n}`, s.title, s.status.toUpperCase(), { wrap: true, tone: PSTEP_TONE[s.status] });
+          const r = row(`${s.n}`, s.title, STEP_WORD[s.status], { wrap: true, tone: PSTEP_TONE[s.status] });
           r.classList.add(`st-${s.status}`);
           if (s.result) {
             // a done step opens what it produced (its own class, not .link: the widgets list is the tab's .rw.link)
@@ -168,10 +221,12 @@ export const workshopTab: TabDef = {
           }
           card.append(r);
         }
-        if (p.note) card.append(h('small.note', p.note));
-        // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself
-        const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result : undefined;
-        if (report) card.append(h('div.preport', ...report.split(/\n+/).map((line) => h('p', line))));
+        if (p.note) card.append(h('small.note', projectNote(p)));
+        // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself — the
+        // link and how to install it first, the rest (and the steps) behind SHOW DETAILS; tool names left out
+        const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result?.replace(/\s*\((?:[a-z0-9]+_)+[a-z0-9]+\)/g, '') : undefined;
+        const lines = report?.split(/\n+/) ?? [];
+        if (report) card.append(h('div.preport', ...lines.map((line) => h('p', line))));
         // A website that reached its draft (or went live): the DRAFT card, as a phone and a laptop, with CHANGE.
         if (p.kind === 'site' && p.steps.some((s) => s.n >= 5 && s.status === 'done')) card.append(draftCards.get(p.id) ?? draftCards.set(p.id, draftCard(p.id)).get(p.id)!);
         const actions = h('div.row.wrap');
@@ -179,6 +234,14 @@ export const workshopTab: TabDef = {
         if (report && link) {
           actions.append(
             button('OPEN', () => void window.open(link, '_blank', 'noopener'), 'on'),
+            button('COPY LINK', async () => {
+              try {
+                await navigator.clipboard.writeText(link);
+                toast('Link copied: paste it into Safari to install', 'ok');
+              } catch {
+                toast(link, 'ok');
+              }
+            }),
             button('UNDO', async (b) => {
               if (!(await confirmSheet('Take it down?', `“${p.title.replace(/^App: /, '')}” comes off the web: its link stops working for everyone, for good. Ghosty can build it again, at a new link.`, 'TAKE IT DOWN'))) return;
               b.disabled = true;
@@ -188,21 +251,34 @@ export const workshopTab: TabDef = {
                 void load();
               } catch (e) {
                 b.disabled = false;
-                toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+                toast(`Could not take it down: ${why(e)}`, 'warn');
               }
             }, 'warn'),
           );
         }
+        if (finished) {
+          const open = unfolded.has(p.id);
+          card.classList.toggle('folded', !open);
+          actions.append(button(open ? 'HIDE DETAILS' : report ? 'SHOW DETAILS' : `SHOW ${p.steps.length} STEPS`, () => {
+            if (!unfolded.delete(p.id)) unfolded.add(p.id);
+            paintProjects();
+          }, 'fold'));
+          // what it made, then the buttons, before the steps: the link and how to install it, not five DONE rows
+          const lead = h('div.plead', ...lines.filter((l, i) => i === 0 || /^INSTALL:/.test(l)).map((line) => h('p', line)));
+          if (lead.childElementCount) ct.after(lead);
+          (lead.childElementCount ? lead : ct).after(actions);
+        }
         if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
         if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
         if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `“${p.title}” stops for good: it cannot be started again (ask Ghosty for it afresh). What it already produced stays in the library.`), 'warn'));
-        if (actions.childElementCount) card.append(actions);
+        if (actions.childElementCount && !finished) card.append(actions);
         jp.body.append(card);
       }
     };
     const loadProjects = async () => {
       try {
         projects = (await brain.projects()).projects;
+        projectsKnown = true;
       } catch {
         /* paused or offline: the last list stays */
       }
@@ -244,7 +320,7 @@ export const workshopTab: TabDef = {
                   await brain.dismissUpgrade(i.id);
                   ideas = ideas.filter((x) => x.id !== i.id);
                 } catch (e) {
-                  if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
+                  if (!isPaused(e)) toast(`Could not dismiss it: ${why(e)}`, 'warn');
                 }
                 ideasGoing.delete(i.id);
                 paintIdeas();
@@ -265,7 +341,7 @@ export const workshopTab: TabDef = {
           paintIdeas();
           toast(r.added ? `${r.added} new upgrade idea${r.added === 1 ? '' : 's'}` : r.note, r.added ? 'ok' : '');
         } catch (e) {
-          if (!isPaused(e)) toast(`Could not think about upgrades: ${String((e as Error).message)}`, 'warn');
+          if (!isPaused(e)) toast(`Could not think about upgrades: ${why(e)}`, 'warn');
         } finally {
           b.disabled = false;
           b.textContent = 'THINK NOW';
@@ -405,19 +481,23 @@ export const workshopTab: TabDef = {
     }, 'on');
     tp.body.append(tStats, tNow, tLog);
     tp.foot!.append(tLevel, startBtn);
-    P.right.append(tp.el, pp.el, wp.el, vp.el, kp.el);
+    // what he made first (his pages and apps, his widgets), then the versions; the coding practice and the lock last
+    P.right.append(pp.el, wp.el, vp.el, tp.el, kp.el);
 
     let changes: ChangeSummary[] = [];
     let versions: VersionSummary[] = [];
     let widgets: Widget[] = [];
     let sites: PublishedSite[] = [];
+    /** Each list has answered at least once: until then it says Loading, never "nothing yet". */
+    let sitesKnown = false;
+    let widgetsKnown = false;
     let siteOrigin = '';
     const siteUrl = (name: string) => `${siteOrigin || location.origin}/s/${name}`;
     const paintSites = () => {
       clear(pp.body);
       pp.setStatus(sites.length ? `${sites.length} LIVE` : '', 'ok');
       if (!sites.length) {
-        pp.body.append(empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
+        pp.body.append(!sitesKnown ? empty('LOADING') : empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
         return;
       }
       for (const s of sites) {
@@ -439,20 +519,29 @@ export const workshopTab: TabDef = {
             toast(`${s.title} taken down`, 'ok');
             paintSites();
           } catch (e) {
-            toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+            toast(`Could not take it down: ${why(e)}`, 'warn');
           }
         }, 'warn');
         pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
       }
     };
-    let ready = false;
+    /** Self-editing set up on the brain (GitHub): null until the change list first answers. */
+    let ready: boolean | null = null;
     let kernelUntil = 0;
+    /** The last look found no connection: the lists are what was here before, and the hero says so (no toasts). */
+    let offline = false;
+    /** The last problem told in a toast: the same one is not told again every 20 s. */
+    let toldErr = '';
 
     const paint = () => {
       clear(cp.body);
-      if (!ready) {
-        cp.setStatus('NOT CONNECTED', 'off');
-        cp.body.append(h('div.note.rcwarn', 'Self-editing needs GITHUB_REPO on the brain and a GitHub token in the System tab. See SETUP.md.'));
+      if (ready === null) {
+        cp.setStatus('', 'off');
+        cp.body.append(empty('LOADING'));
+      } else if (!ready) {
+        // not set up: said plainly, with the one place to set it up (LINKS → GITHUB · SELF-EDIT takes the key)
+        cp.setStatus('OFF', 'mid');
+        cp.body.append(h('div.note.rcwarn', 'Self-editing is off, so Ghosty can’t change its own code yet. Projects, apps, widgets and pages all work without it.'), h('div.row', button('SET IT UP', () => go('links'), 'on')));
       } else {
         cp.setStatus(`${changes.length} OPEN`, changes.length ? 'mid' : 'ok');
         if (!changes.length) cp.body.append(empty('NONE', 'Ask Ghosty to build something: what he changes waits here for you to SHIP IT.', 'No open changes'));
@@ -461,28 +550,30 @@ export const workshopTab: TabDef = {
           // route C: the checks as a pill, the rest of the line in words
           meta.dataset.label = `${PREVIEW_LABEL[c.preview ?? 'none'].replace(/^./, (x) => x.toUpperCase())} · ${fmt.ago(Date.parse(c.createdAt))}`;
           const checks = pill(c.checks === 'passed' ? 'Checks passed' : c.checks === 'failed' ? 'Checks failed' : c.checks === 'pending' ? 'Checking' : 'No checks yet', c.checks === 'passed' ? 'live' : c.checks === 'failed' ? 'warn' : 'idle', 'chk');
-          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), checks, meta));
+          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), checks, meta), h('small.chksays', CHECK_SAYS[c.checks]));
           const actions = h('div.row.wrap');
           if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener'), 'prev'), h('small.note.prevnote', 'view only — previews never ask for your password'));
           actions.append(
             button('SHIP IT', async (b) => {
-              if (c.checks === 'failed' && !confirm(`The code checks FAILED for #${c.number}: shipping it could break Ghosty.\n\nAsk Ghosty to "fix change #${c.number}" instead.\n\nShip anyway?`)) return;
-              if ((c.checks === 'pending' || c.checks === 'none') && !confirm('The checks have not finished yet. Ship without waiting?')) return;
+              // SHIP IT's own confirm, before checks have passed: the in-app sheet, in plain words
+              if (c.checks === 'failed' && !(await confirmSheet('Ship it with failed checks?', `Ghosty’s own checks found a problem in change #${c.number}, so shipping it could break Ghosty. Ask to fix lets Ghosty mend it first.`, 'SHIP ANYWAY'))) return;
+              if ((c.checks === 'pending' || c.checks === 'none') && !(await confirmSheet('Ship before the checks finish?', `Ghosty is still checking change #${c.number}. Shipping now goes live without knowing whether it works.`, 'SHIP NOW'))) return;
               b.disabled = true;
               try {
                 toast((await brain.ship(c.number, c.sha)).result, 'ok');
               } catch (e) {
-                toast(String((e as Error).message), 'bad');
+                toast(`Not shipped: ${why(e)}`, 'bad');
               }
               void load();
             }, 'on ship'),
+            // a failed check: mending it is the one big button, SHIP IT steps back
             button('ASK TO FIX', () => {
               go('core');
               void send(`Check change #${c.number} with change_status and fix anything that failed.`);
-            }, 'quiet'),
+            }, c.checks === 'failed' ? 'on fixit' : 'quiet'),
             button('DISCARD', async () => {
               if (!(await confirmSheet('Discard this change?', `Change #${c.number} “${c.title}” is closed and never shipped. To have it again, ask Ghosty to build it afresh.`, 'DISCARD'))) return;
-              await brain.discard(c.number).catch((e) => toast(String(e.message), 'bad'));
+              await brain.discard(c.number).catch((e) => toast(`Not discarded: ${why(e)}`, 'bad'));
               void load();
             }, 'warn quiet'),
             button('GITHUB ↗', () => window.open(c.url, '_blank', 'noopener'), 'quiet'),
@@ -494,20 +585,21 @@ export const workshopTab: TabDef = {
       clear(vp.body);
       vp.setStatus(versions.length ? `${versions.length}` : '', 'ok');
       versions.slice(0, 10).forEach((v, i) => {
-        const r = row(v.sha.slice(0, 7), v.message, i === 0 ? 'LIVE' : '↶', { wrap: true });
+        const said = versionWords(v.message);
+        const r = row(v.sha.slice(0, 7), said, i === 0 ? 'LIVE' : '↶', { wrap: true });
         (r.querySelector('.k') as HTMLElement).dataset.case = 'keep';
         r.classList.add(i === 0 ? 'live' : 'old');
-        if (i > 0) (r.lastChild as HTMLElement).setAttribute('aria-label', `Restore "${v.message}"`);
+        if (i > 0) (r.lastChild as HTMLElement).setAttribute('aria-label', `Restore "${said}"`);
         if (i > 0) {
           const back = r.lastChild as HTMLElement;
           back.classList.add('del');
           back.title = 'Restore this version';
           back.addEventListener('click', async () => {
-            if (!(await confirmSheet('Roll Ghosty back?', `Ghosty goes back to “${v.message}”. It becomes a new version, so you can roll forward again the same way.`, 'ROLL BACK'))) return;
+            if (!(await confirmSheet('Roll Ghosty back?', `Ghosty goes back to “${said}”. It becomes a new version, so you can roll forward again the same way.`, 'ROLL BACK'))) return;
             try {
               toast((await brain.restore(v.sha)).result, 'ok');
             } catch (e) {
-              toast(String((e as Error).message), 'bad');
+              toast(`Not rolled back: ${why(e)}`, 'bad');
             }
             void load();
           });
@@ -516,7 +608,7 @@ export const workshopTab: TabDef = {
       });
       clear(wp.body);
       wp.setStatus(`${widgets.length}`, 'ok');
-      if (!widgets.length) wp.body.append(empty('NONE', 'Try “make me a pomodoro timer widget”: it installs here at once.', 'No widgets yet'));
+      if (!widgets.length) wp.body.append(!widgetsKnown ? empty('LOADING') : empty('NONE', 'Try “make me a pomodoro timer widget”: it installs here at once.', 'No widgets yet'));
       for (const w of widgets) {
         const r = row(fmt.ago(w.at), w.title, '✕');
         r.classList.add('link');
@@ -530,7 +622,7 @@ export const workshopTab: TabDef = {
           } catch (e) {
             // Paused: delete here now and in the brain when it's back. Anything else: say so.
             forgetWidget(w.name, isPaused(e));
-            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${String((e as Error).message)}`, 'warn');
+            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${why(e)}`, 'warn');
           }
           widgets = widgets.filter((x) => x.name !== w.name);
           paint();
@@ -550,11 +642,14 @@ export const workshopTab: TabDef = {
       kp.setStatus(open ? 'UNLOCKED' : 'LOCKED', open ? 'off' : 'ok');
       kp.body.append(
         h('div.note', open ? `Ghosty may edit its own security and self-edit code until ${fmt.time(new Date(kernelUntil))}.` : 'Ghosty cannot change its login lock, permission rules or self-edit pipeline. Only you can unlock this, for a short time.'),
-        open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', () => confirm('Let Ghosty edit its protected kernel for 15 minutes?') && void setKernel(15), 'warn'),
+        open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', async () => {
+          if (await confirmSheet('Unlock for 15 minutes?', 'For 15 minutes Ghosty may change its own login lock, permission rules and self-edit pipeline. It locks again by itself after that, or when you tap LOCK NOW.', 'UNLOCK')) void setKernel(15);
+        }, 'warn'),
       );
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';
-      P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
+      P.sub.textContent = offline ? 'You’re offline: this is what was here before. It updates by itself when you’re back.' : SUB;
+      P.big.textContent = offline ? 'Offline' : ready === null ? 'Checking…' : ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Code edits off';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],
@@ -565,37 +660,50 @@ export const workshopTab: TabDef = {
       paint();
     };
     const load = async () => {
-      try {
-        // Each part on its own: one failing (e.g. the database paused) doesn't blank the others.
-        const [c, w, s, p] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status(), brain.sites()]);
-        if (p.status === 'fulfilled') {
-          sites = p.value.sites;
-          siteOrigin = p.value.origin;
-          paintSites();
-        }
-        if (c.status === 'fulfilled') {
-          ready = c.value.ready;
-          changes = c.value.changes;
-          versions = c.value.versions;
-        }
-        if (w.status === 'fulfilled') {
-          const { saved, removed } = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
+      // Each part on its own, painted as soon as it answers: the change list (GitHub: several requests in a row)
+      // no longer holds up the widgets, the published pages and the lock, and one failing (e.g. the database
+      // paused) doesn't blank the others.
+      const parts = await Promise.allSettled([
+        brain.changes().then((c) => {
+          ready = c.ready;
+          changes = c.changes;
+          versions = c.versions;
+          paint();
+        }),
+        brain.widgets().then(async (w) => {
+          const { saved, removed } = await syncLocalWidgets(w.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
           // The list fetched above is out of date if anything was saved or deleted just now.
-          widgets = saved || removed ? (await brain.widgets()).widgets : w.value.widgets;
+          widgets = saved || removed ? (await brain.widgets()).widgets : w.widgets;
+          widgetsKnown = true;
           if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
-        }
-        if (s.status === 'fulfilled') kernelUntil = s.value.kernelUnlockedUntil;
-        const failed = [c, w, s].find((r): r is PromiseRejectedResult => r.status === 'rejected');
-        if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
-      } catch (e) {
-        if (!isPaused(e)) toast(`Workshop: ${String((e as Error).message)}`, 'warn');
-      }
-      // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
-      // too; deletions not yet carried out in the brain are hidden.
-      widgets = mergeWidgets(widgets);
-      paint();
+        }).finally(() => {
+          // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
+          // too; deletions not yet carried out in the brain are hidden.
+          widgets = mergeWidgets(widgets);
+          paint();
+        }),
+        brain.status().then((st) => {
+          kernelUntil = st.kernelUnlockedUntil;
+          paint();
+        }),
+        brain.sites().then((p) => {
+          sites = p.sites;
+          siteOrigin = p.origin;
+          sitesKnown = true;
+          paintSites();
+        }),
+      ]);
+      const failed = parts.slice(0, 3).find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      // No connection: said once, on the page itself; anything else in a toast, once until it changes.
+      const wasOffline = offline;
+      offline = !!failed && unreachable(failed.reason);
+      if (offline !== wasOffline) paint();
+      const err = failed && !offline && !isPaused(failed.reason) ? String((failed.reason as Error)?.message ?? failed.reason) : '';
+      if (err && err !== toldErr) toast(`Workshop: ${err}`, 'warn');
+      toldErr = err;
     };
     paint();
+    paintSites();
     let timer = 0;
     let ptimer = 0;
     return {
