@@ -616,7 +616,8 @@ export const coreTab: TabDef = {
       const sky = w ? WMO(w.current.weather_code).slice(0, 14) : '';
       note({ id: 'env', label: home().name.toUpperCase().slice(0, 18), value: `${fmt.time(new Date())}${w ? ` · ${temp(w.current.temperature_2m)} ${sky.toUpperCase()}` : ''}`, glance: w ? `${fmt.time(new Date())} · ${temp(w.current.temperature_2m)} ${sky}` : undefined });
       const lv = threatLevel(signals());
-      note({ id: 'threat', label: 'THREAT', value: lv.label, tone: lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
+      // (CHECKING / CAN'T CHECK, when the feeds cannot be read, is not a green all-clear)
+      note({ id: 'threat', label: 'THREAT', value: lv.label, tone: !lv.known ? 'warn' : lv.n >= 2 ? 'bad' : lv.n === 1 ? 'warn' : 'ok' });
       const bat = await (navigator as Navigator & { getBattery?: () => Promise<{ level: number; charging: boolean }> }).getBattery?.().catch(() => null);
       stark.set({ id: 'power', label: 'POWER', value: bat ? `${Math.round(bat.level * 100)}%${bat.charging ? ' · CHARGING' : ''}` : 'ARC · 3 GW', tone: bat && bat.level < 0.15 && !bat.charging ? 'warn' : 'ok' });
       // The library size changes slowly: ask every 5 minutes, not on every 15-second repaint (each ask is database reads).

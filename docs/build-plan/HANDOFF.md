@@ -193,6 +193,13 @@ folder that no longer exists; ignore those paths).
   for the 0.6B); the retrain right after a base switch replays only that base's kept weeks, so it may lose at the gate
   (a one-line change in `push` makes both kinds replay every week). An earlier merge had interleaved two MAP.md rows
   letter by letter (MARK MY WORK and NIGHT SCHOOL on the brain): restored from their parents.
+- 24 Oct ~18:40 UK: merged after review: the THREATS upgrade pass (10 fixes, two of them dead feeds nobody had noticed:
+  NOAA's Kp file and the launch list). Kernel line, marked `[threats]`: the spec in the CI loop after `notifications`.
+  One line in Home (core) by me: the THREAT note is amber when the level is not a reading. Leftovers the builder ranked:
+  no UK threats yet (Environment Agency flood warnings and Met Office warnings near home, a street-crime tile from
+  `crime_near`: a new feature, the biggest gap for a UK owner); the hero level is worldwide (should say "nothing near
+  you within 500 km" or the reverse); no filter on the signals list; desktop hero dials far from the text (shared
+  `ui/page.ts`); launch dates without a time. The safari and scroll specs could not run here (no WebKit): CI runs them.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
