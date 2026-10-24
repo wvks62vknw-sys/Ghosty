@@ -232,6 +232,15 @@ folder that no longer exists; ignore those paths).
   from his real numbers (asked for). Next phase he wants: training that survives Kaggle's hours running out (resumable
   runs, an economy mode, a second free pool, an emergency CPU run, the phone's GPU measured) and a much bigger GYM
   (his picks from the menu pending).
+- 24 Oct ~20:40 UK: the IRON MAN mock-ups (BRIEF-IRONMAN.md) are in `mockups/iron/{a,b,c}/contact.png` (+ laptop) and
+  were sent to the owner for his pick. The critic (feels Iron Man / calm / readable / no icons / honest): A Reactor HUD
+  8/6/7/9/7 (JARVIS at once, but busy: brackets on every card, scan texture, 9 px labels); B Stark workshop 7/7/7/7/7
+  (warm metal, a luxury watch more than a hologram; amber everywhere breaks the warn-colour rule; two invented dials);
+  C Hologram minimal 5/9/9/10/9 (calm and honest, but close to what he called "nothing like Iron Man"). My view: A's
+  instruments with C's restraint (keep the rings, readouts and scan line; drop the corner brackets and the grid; labels
+  11 px or more). Build cost: shared work about 13 h (`ui/instruments.ts`, hub cards wired to real state in
+  `shell/areas.ts` + `TabDef`, `features/gym/art.ts` for all 22 games (6 drawn), the reply's meta line, live-dot wiring,
+  `tests/hubcards.spec.mjs`), then A about 2.5 h more, B about 5 h (and a new warm theme), C about 1.5 h. Waiting on him.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
