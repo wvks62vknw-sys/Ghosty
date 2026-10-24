@@ -15,9 +15,9 @@ import { brain, isPaused, lastSeen } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { bar, button, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, type Light } from '../../ui/components';
+import { bar, button, confirmSheet, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, undo, type Light } from '../../ui/components';
 import { page } from '../../ui/page';
-import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
+import { forgetWidget, keepWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 
@@ -54,6 +54,8 @@ export const workshopTab: TabDef = {
     const STEP_TONE: Record<RoadmapStep['status'], 'up' | 'dn' | 'bad' | undefined> = { done: 'up', doing: undefined, todo: undefined, blocked: 'bad' };
     const rp = panel('UPGRADE ROADMAP', { footer: true, status: '' });
     let roadmap: Roadmap | null = null;
+    /** CLEARed with the UNDO bar still up: not shown, not yet dropped by the brain. */
+    let roadmapGoing = false;
     const paintRoadmap = () => {
       clear(rp.body);
       clear(rp.foot!);
@@ -77,15 +79,31 @@ export const workshopTab: TabDef = {
           void send('Carry on with the upgrade roadmap: build the next step.');
         }, 'on'));
       }
-      rp.foot!.append(button('CLEAR', async () => {
-        await brain.clearRoadmap().catch(() => toast('Could not clear the roadmap', 'bad'));
+      // CLEAR: off the screen with UNDO; the brain drops the roadmap only when the bar goes
+      rp.foot!.append(button('CLEAR', () => {
+        const was = roadmap;
+        roadmapGoing = true;
         roadmap = null;
         paintRoadmap();
+        undo(
+          'Roadmap cleared',
+          () => {
+            roadmapGoing = false;
+            roadmap = was;
+            paintRoadmap();
+          },
+          async () => {
+            await brain.clearRoadmap().catch(() => toast('Could not clear the roadmap', 'bad'));
+            roadmapGoing = false;
+            void loadRoadmap();
+          },
+        );
       }));
     };
     const loadRoadmap = async () => {
       try {
-        roadmap = (await brain.roadmap()).roadmap;
+        const r = (await brain.roadmap()).roadmap;
+        if (!roadmapGoing) roadmap = r;
       } catch {
         /* the rest of the Workshop reports connection problems */
       }
@@ -99,7 +117,7 @@ export const workshopTab: TabDef = {
     const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
     const PROJECT_LIGHT: Record<Project['status'], Light> = { active: 'ok', paused: 'mid', done: 'ok', cancelled: 'off' };
     const act = (id: string, action: 'pause' | 'resume' | 'cancel' | 'run', ask?: string) => async (b: HTMLButtonElement) => {
-      if (ask && !confirm(ask)) return;
+      if (ask && !(await confirmSheet('Cancel this project?', ask, 'CANCEL IT'))) return;
       b.disabled = true;
       try {
         const r = await brain.projectAction(id, action);
@@ -157,7 +175,7 @@ export const workshopTab: TabDef = {
           actions.append(
             button('OPEN', () => void window.open(link, '_blank', 'noopener'), 'on'),
             button('UNDO', async (b) => {
-              if (!confirm(`Take "${p.title.replace(/^App: /, '')}" down? Its link stops working.`)) return;
+              if (!(await confirmSheet('Take it down?', `“${p.title.replace(/^App: /, '')}” comes off the web: its link stops working for everyone, for good. Ghosty can build it again, at a new link.`, 'TAKE IT DOWN'))) return;
               b.disabled = true;
               try {
                 await brain.unpublishSite(link.replace(/\/$/, '').split('/').pop()!);
@@ -172,7 +190,7 @@ export const workshopTab: TabDef = {
         }
         if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
         if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
-        if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `Cancel "${p.title}"? What it already produced stays in the library.`), 'warn'));
+        if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `“${p.title}” stops for good: it cannot be started again (ask Ghosty for it afresh). What it already produced stays in the library.`), 'warn'));
         if (actions.childElementCount) card.append(actions);
         jp.body.append(card);
       }
@@ -189,6 +207,8 @@ export const workshopTab: TabDef = {
     // upgrade ideas (the brain's upgrades.ts): proposed every morning; BUILD hands one to the chat, DISMISS drops it
     const ip = panel('UPGRADE IDEAS', { footer: true, status: '' });
     let ideas: UpgradeIdea[] = [];
+    /** Dismissed with the UNDO bar still up. */
+    const ideasGoing = new Set<string>();
     let ideasNext: number | null = null;
     const nextNote = h('span.note', '');
     const buildIdea = (i: UpgradeIdea) => {
@@ -196,21 +216,35 @@ export const workshopTab: TabDef = {
       void send(`Build this upgrade: ${i.title}. ${i.why ? `${i.why.replace(/[.\s]+$/, '')}. ` : ''}Steps: ${i.steps.map((s, n) => `${n + 1}. ${s.replace(/[.\s]+$/, '')}`).join('. ')}.`);
     };
     const paintIdeas = () => {
+      const shown = ideas.filter((x) => !ideasGoing.has(x.id));
       clear(ip.body);
-      ip.setStatus(ideas.length ? `${ideas.length}` : 'NONE YET', ideas.length ? 'ok' : 'off');
+      ip.setStatus(shown.length ? `${shown.length}` : 'NONE YET', shown.length ? 'ok' : 'off');
       nextNote.textContent = ideasNext ? `next look ${new Date(ideasNext).toLocaleDateString([], { weekday: 'short' })} ${fmt.time(new Date(ideasNext))}` : 'every morning';
-      if (!ideas.length) ip.body.append(empty('NONE', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. THINK NOW asks him now.', 'No ideas yet'));
-      for (const i of ideas) {
+      if (!shown.length) ip.body.append(empty('NONE', 'Every morning Ghosty looks at what you asked, what it could not answer and what went wrong, and proposes upgrades it can build for itself. THINK NOW asks him now.', 'No ideas yet'));
+      for (const i of shown) {
         const card = h('div.idea', h('b', i.title), i.why ? h('div.note', i.why) : null, h('ol', ...i.steps.map((s) => h('li', s))));
         card.append(
-          h('div.row', button('BUILD', () => buildIdea(i), 'on'), button('DISMISS', async () => {
-            try {
-              await brain.dismissUpgrade(i.id);
-              ideas = ideas.filter((x) => x.id !== i.id);
-              paintIdeas();
-            } catch (e) {
-              if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
-            }
+          // DISMISS: off the list with UNDO; the brain drops it only when the bar goes
+          h('div.row', button('BUILD', () => buildIdea(i), 'on'), button('DISMISS', () => {
+            ideasGoing.add(i.id);
+            paintIdeas();
+            undo(
+              `Dismissed: ${i.title}`,
+              () => {
+                ideasGoing.delete(i.id);
+                paintIdeas();
+              },
+              async () => {
+                try {
+                  await brain.dismissUpgrade(i.id);
+                  ideas = ideas.filter((x) => x.id !== i.id);
+                } catch (e) {
+                  if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
+                }
+                ideasGoing.delete(i.id);
+                paintIdeas();
+              },
+            );
           }), h('small.note', fmt.ago(i.at))),
         );
         ip.body.append(card);
@@ -391,8 +425,9 @@ export const workshopTab: TabDef = {
             toast(siteUrl(s.name), 'ok');
           }
         });
+        // Cannot be put back (the page is gone from the web): a one-tap confirm that says so.
         const down = button('UNPUBLISH', async () => {
-          if (!confirm(`Take "${s.title}" down? Its link stops working.`)) return;
+          if (!(await confirmSheet('Take this page down?', `“${s.title}” comes off the web: ${siteUrl(s.name).replace(/^https?:\/\//, '')} stops working for everyone, for good. Ghosty can publish it again, but anyone with the old link will find nothing.`, 'TAKE IT DOWN'))) return;
           try {
             await brain.unpublishSite(s.name);
             sites = sites.filter((x) => x.name !== s.name);
@@ -441,6 +476,7 @@ export const workshopTab: TabDef = {
               void send(`Check change #${c.number} with change_status and fix anything that failed.`);
             }, 'quiet'),
             button('DISCARD', async () => {
+              if (!(await confirmSheet('Discard this change?', `Change #${c.number} “${c.title}” is closed and never shipped. To have it again, ask Ghosty to build it afresh.`, 'DISCARD'))) return;
               await brain.discard(c.number).catch((e) => toast(String(e.message), 'bad'));
               void load();
             }, 'warn quiet'),
@@ -462,7 +498,7 @@ export const workshopTab: TabDef = {
           back.classList.add('del');
           back.title = 'Restore this version';
           back.addEventListener('click', async () => {
-            if (!confirm(`Roll Ghosty back to "${v.message}"? This becomes a new version, so you can undo it too.`)) return;
+            if (!(await confirmSheet('Roll Ghosty back?', `Ghosty goes back to “${v.message}”. It becomes a new version, so you can roll forward again the same way.`, 'ROLL BACK'))) return;
             try {
               toast((await brain.restore(v.sha)).result, 'ok');
             } catch (e) {
@@ -493,6 +529,14 @@ export const workshopTab: TabDef = {
           }
           widgets = widgets.filter((x) => x.name !== w.name);
           paint();
+          // UNDO saves the very same widget back (kept on this phone too, sent to the brain later if it is paused)
+          undo(`Deleted: ${w.title}`, async () => {
+            const saved = await brain.saveWidget(w).then(() => true, () => false);
+            keepWidget(w, saved);
+            widgets = mergeWidgets([w, ...widgets.filter((x) => x.name !== w.name)]);
+            paint();
+            toast(`Back: ${w.title}`, 'ok');
+          });
         });
         wp.body.append(r);
       }

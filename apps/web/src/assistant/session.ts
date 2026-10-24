@@ -19,7 +19,7 @@ import { stopwatch } from '../core/stopwatch';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
-import { toast } from '../ui/components';
+import { flushUndo, toast, undo } from '../ui/components';
 import { onCutOff, speak, stopListening, stopSpeaking } from './voice';
 
 /**
@@ -419,6 +419,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     if (ui.get().busy) await brain.stop().catch(() => undefined);
     return;
   }
+  // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
+  await flushUndo();
   speakReplies = opts.speak ?? true;
   spokenTurn = opts.voice === true;
   const recent = chat
@@ -557,9 +559,24 @@ export async function loadHistory(): Promise<void> {
   }
 }
 
-export async function clearConversation(): Promise<void> {
-  await brain.clearHistory();
-  // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
-  await brain.clearPatterns().catch(() => undefined);
+/**
+ * CLEAR CONVERSATION: off the screen at once, with UNDO for 12 s; the brain forgets it when the bar goes (or as
+ * soon as a new message is sent, so the new one never meets the old conversation). UNDO puts every message back.
+ */
+export function clearConversation(): void {
+  const was = chat.get().entries;
   chat.set({ entries: [], live: '' });
+  undo(
+    'Conversation cleared',
+    () => {
+      // anything said since stays after the old conversation
+      chat.set((s) => ({ entries: [...was, ...s.entries] }));
+      toast('The conversation is back', 'ok');
+    },
+    async () => {
+      await brain.clearHistory();
+      // What Ghosty noticed from the conversation (the patterns' day log) goes with it.
+      await brain.clearPatterns().catch(() => undefined);
+    },
+  );
 }

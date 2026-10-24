@@ -5,7 +5,7 @@ import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
 import { BUILD } from '../../state/build';
-import { button, panel, row, toast } from '../../ui/components';
+import { button, confirmSheet, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
@@ -80,7 +80,9 @@ export const systemTab: TabDef = {
             b.disabled = false;
           }
         });
+        // A key is never shown again once saved, so a removal cannot be undone: said plainly first.
         const remove = k.set ? button('REMOVE', async () => {
+          if (!(await confirmSheet(`Remove the ${k.label} key?`, `It is wiped from Ghosty, not kept anywhere: what needs it stops working until you paste the key again (${k.link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]} shows it).`, 'REMOVE'))) return;
           await brain.setKey(k.name, '');
           void load();
         }, 'warn') : null;
@@ -211,7 +213,12 @@ export const systemTab: TabDef = {
       linksBtn.dataset.label = 'Email, Spotify and phone';
       sp.body.append(h('div.keyrow', linksBtn));
       if (newer) sp.body.append(button('RELOAD TO GET THE NEW VERSION', () => location.reload(), 'on'));
-      if (ownerKey.get()) sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', () => { ownerKey.set(''); location.reload(); }, 'warn'));
+      if (ownerKey.get())
+        sp.body.append(button('FORGET OWNER KEY ON THIS DEVICE', async () => {
+          if (!(await confirmSheet('Forget the owner key here?', 'This phone stops being able to talk to Ghosty’s brain until you type the owner key again. Nothing on the brain changes.', 'FORGET IT'))) return;
+          ownerKey.set('');
+          location.reload();
+        }, 'warn'));
     };
 
     // ---- keeping data on this phone (storage.ts)

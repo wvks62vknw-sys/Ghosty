@@ -20,7 +20,7 @@
 import { headers } from '../../api/brain';
 import { run } from '../../commands/registry';
 import { clear, h } from '../../core/dom';
-import { bar, button, toast } from '../../ui/components';
+import { bar, button, toast, undo } from '../../ui/components';
 import { drawScaled, loadImageFile } from '../../vision/camera';
 import { cleanOcr, titleFrom } from '../../vision/ocrtext';
 import { LANGUAGES, langName, type LookupResult } from '../../../../../packages/shared/src/scan';
@@ -518,8 +518,13 @@ export function createScanMode(L: LensContext): Mode {
     S.pages = pages.length;
     pagesLabel.textContent = pages.length ? `${pages.length} PAGE${pages.length === 1 ? '' : 'S'}` : 'NO PAGES YET';
     clear(strip, ...pages.map((p, i) => h('div.scanthumb', h('img', { src: p.thumb, alt: `Page ${i + 1}` }), h('span', String(i + 1)), button('×', () => {
-      pages.splice(i, 1);
+      const [gone] = pages.splice(i, 1);
       renderPages();
+      if (gone)
+        undo(`Page ${i + 1} removed`, () => {
+          pages.splice(Math.min(i, pages.length), 0, gone);
+          renderPages();
+        });
     }))));
   };
   const keepPage = async () => {
@@ -586,12 +591,23 @@ export function createScanMode(L: LensContext): Mode {
     }
   };
   const clearPages = () => {
+    const was = { pages: pages.slice(), pdf: S.pdf, text: docText.value, textHidden: docText.hidden, saveHidden: docSave.hidden };
     pages.length = 0;
     S.pdf = null;
     docText.value = '';
     docText.hidden = true;
     docSave.hidden = true;
     renderPages();
+    // UNDO: every page back, and what READ ALL read from them
+    if (was.pages.length || was.text)
+      undo(`Cleared ${was.pages.length} page${was.pages.length === 1 ? '' : 's'}`, () => {
+        pages.splice(0, pages.length, ...was.pages);
+        S.pdf = was.pdf;
+        docText.value = was.text;
+        docText.hidden = was.textHidden;
+        docSave.hidden = was.saveHidden;
+        renderPages();
+      });
   };
 
   // ======================= TRANSLATE

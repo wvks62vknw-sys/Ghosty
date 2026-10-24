@@ -25,7 +25,7 @@ import { ALL_BUDGET, allLine, current, type GymRecord, joinLevels, type LevelNot
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, niceCase, panel, sparkline, toast } from '../../ui/components';
+import { button, niceCase, panel, sparkline, toast, undo } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
 import { page } from '../../ui/page';
@@ -761,8 +761,11 @@ export const gymTab: TabDef = {
       paint();
     };
     const reset = () => {
-      // the menu was the confirmation
+      // the menu was the confirmation; UNDO (12 s) puts back what he had learned, as last saved
       menu.classList.remove('open');
+      const id = open.id;
+      const title = open.title;
+      const kept = { rec: recs.get(id), view: views.get(id), seen: gymState.recs[id] };
       gymState.log.push(`reset ${open.id}`);
       if (training === open.id) {
         stopAll(false);
@@ -781,6 +784,24 @@ export const gymTab: TabDef = {
       void store.remove(open.id);
       gymToast(`${open.title}: back to the start`, 'warn');
       paint();
+      if (kept.rec)
+        undo(`${title}: reset`, () => {
+          gymState.log.push(`undo reset ${id}`);
+          if (training === id) {
+            stopAll(false);
+            training = null;
+          }
+          // Whatever the worker made of the fresh start is dropped; the kept record is handed to it again.
+          epochs[id] = (epochs[id] ?? 0) + 1;
+          send({ gym: 'reset', id, epoch: epochs[id] });
+          handed.delete(id);
+          recs.set(id, kept.rec!);
+          void store.put(kept.rec!);
+          if (kept.view) views.set(id, kept.view);
+          if (kept.seen) gymState.recs[id] = kept.seen;
+          gymToast(`${title}: back where he was`, 'ok');
+          paint();
+        });
     };
 
     /** On a phone the board is below the buttons: bring it into view. */

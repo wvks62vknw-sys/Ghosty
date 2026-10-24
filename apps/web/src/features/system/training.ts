@@ -10,7 +10,7 @@ import { AREA_LABEL, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type
 import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
-import { button, panel, row, toast, type Panel } from '../../ui/components';
+import { button, confirmSheet, panel, row, toast, type Panel } from '../../ui/components';
 import { loadAll } from '../gym/store';
 
 const KIND: Record<string, string> = {
@@ -48,9 +48,11 @@ export function trainingPanel(): Panel & { refresh(): void } {
   let st: TrainStatus | null = null;
   let busy = false;
 
-  const act = (label: string, fn: () => Promise<TrainStatus>, done: (s: TrainStatus) => string, cls = '') =>
+  /** `ask`: what cannot be undone, said first in a one-tap confirm ([title, words]). */
+  const act = (label: string, fn: () => Promise<TrainStatus>, done: (s: TrainStatus) => string, cls = '', ask?: [string, string]) =>
     button(label, async (b) => {
       if (busy) return;
+      if (ask && !(await confirmSheet(ask[0], ask[1], label))) return;
       busy = true;
       b.disabled = true;
       try {
@@ -155,7 +157,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
     p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? 'the stock Qwen3 0.6B'}. This phone is set to: ${onPhone}. A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.`));
     const now = act('TRAIN NOW', () => brain.selftrain.now(), () => "Training started: gathering this week's lessons first", 'on');
     now.disabled = !keysOk || s.phase !== 'idle';
-    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? 'the stock Qwen3'}`, 'warn');
+    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? 'the stock Qwen3'}`, 'warn', ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good (never offered again); the one before it, or the stock Qwen3, takes its place. A new week can train a better one.`]);
     back.disabled = s.active === null;
     const priv = act(`MY LIBRARY & CHATS: ${s.privateData ? 'ON' : 'OFF'}`, () => brain.selftrain.privateData(!s.privateData), (x) => (x.privateData ? 'Training learns from your library, chats and ratings (kept private)' : 'Training uses only puzzles, quizzes and general examples'));
     p.body.append(h('div.keyrow', now, back, priv));

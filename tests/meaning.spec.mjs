@@ -190,6 +190,7 @@ await page.click('.logbtn').catch(() => undefined);
 await page.evaluate(() => (location.hash = 'settings'));
 await openPanel(page, 'settings', 'OFFLINE');
 await blk.locator('button:has-text("REMOVE")').click();
+await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push('REMOVE did not ask first'));
 await page.waitForFunction(() => /about 70 MB, once, on Wi-Fi/.test(document.querySelector('#pg-settings .mnblock .mnline')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('REMOVE did not take the model off'));
 r = await ask('how do plants make food');
 if (!/^\d+ passages? · by keywords$/.test(r.status)) problems.push(`with the model off, the small print says "${r.status}"`);
