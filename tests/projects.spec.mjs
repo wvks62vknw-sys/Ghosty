@@ -365,6 +365,30 @@ async function workshop() {
     if (!/Step 2 didn’t work \(try 1 of 3\): Ghosty tries again by itself/.test(note) || !/the free AI was busy/.test(note)) problems.push(`[workshop 7] the retry note is not in plain words: ${note}`);
     await ctx.close();
   }
+
+  // 8. Every button in both columns, every card filled in, is at least 44 pt tall
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const at = new Date().toISOString();
+    const fill = (url, body) => page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));
+    await fill('**/api/changes', { ready: true, changes: [{ number: 951, title: 'Spec change', branch: 'b', sha: 'a'.repeat(40), url: 'https://github.com/x/y/pull/951', previewUrl: 'https://p.example', checks: 'passed', preview: 'ok', createdAt: at }, { number: 952, title: 'Spec failed change', branch: 'c', sha: 'b'.repeat(40), url: 'https://github.com/x/y/pull/952', previewUrl: null, checks: 'failed', preview: 'none', createdAt: at }], versions: [{ sha: 'c'.repeat(40), message: 'Now', date: at }, { sha: 'd'.repeat(40), message: 'Before', date: at }] });
+    await fill('**/api/projects', { projects: [...projects(), { ...projects()[0], id: 'ffff666666', kind: 'app', title: 'App: Spec Notes', status: 'done', link: 'https://ghosty.example/s/spec-notes/', steps: ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report'].map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: i === 4 ? '"Spec Notes" is live at https://ghosty.example/s/spec-notes/\nINSTALL: tap Share.' : 'ok' })) }] });
+    await fill('**/api/upgrades', { ideas: [{ id: 'i1', title: 'Spec idea', why: 'Because.', steps: ['One', 'Two'], at: Date.now() }], next: null, last: null });
+    await fill('**/api/roadmap', { roadmap: { goal: 'Spec roadmap', steps: [{ id: 1, title: 'First', status: 'todo' }] } });
+    await fill('**/api/sites', { sites: [{ name: 'spec-cafe', title: 'Spec Cafe', source: '', at: Date.now(), bytes: 2048 }], origin: '' });
+    await fill('**/api/widgets', { widgets: [{ name: 'spec-dice', title: 'Spec dice', html: '<p>4</p>', at: Date.now() }] });
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForFunction(() => /Spec failed change/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Cafe/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('[workshop 8] the filled-in Workshop did not show'));
+    await page.waitForTimeout(600);
+    const short = () => page.$$eval('#pg-workshop button', (bs) => bs.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden').map((b) => ({ t: (b.dataset.label || b.textContent || '').trim().slice(0, 24), h: Math.round(b.getBoundingClientRect().height) })).filter((b) => b.h < 44));
+    const left = await short();
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(500);
+    const right = await short();
+    const small = [...left, ...right];
+    if (small.length) problems.push(`[workshop 8] buttons under 44 pt: ${[...new Set(small.map((b) => `${b.t} ${b.h}px`))].join(', ')}`);
+    await ctx.close();
+  }
 }
 
 await workshop();
