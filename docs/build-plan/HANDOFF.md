@@ -71,6 +71,22 @@ folder that no longer exists; ignore those paths).
   Told the owner: what is live, TRAIN NOW (SYSTEM → OFFLINE BRAIN TRAINING → TRAIN NOW) for the first real weekly
   run, and the theme extras to pick from (OWNER-ISSUES 28). Next: A3 (specs at 440 × 956, en-GB), the SPEED card
   once a day of numbers exists, courses (item 6), the self-edit trial jobs (F1), `build_app` as a Workshop project.
+- 24 Oct 11:00–12:30 UK: **PR #33** opened at 11:04 (A3: the specs at 440 × 956, en-GB). Its first run's only failure
+  was WebKit's scroll spec on the Lens page: at the 18 Pro Max height the "No camera on this device" toast sits on the
+  lower-middle probe point, and a wheel that starts over a toast moves nothing in WebKit's layer hit test (though
+  elementFromPoint looks straight through it: toasts are pointer-events: none). Fixed in the spec: toasts are cleared
+  before a page is measured and before every swipe (359a7df). Merged into the branch after review and pushed with it:
+  `build_app` as a Workshop project (projects.ts kind `app`, five steps, pause with the reason, RESUME, UNDO; the
+  preview server's `/__test/blip` hook) and the SPEED card (SYSTEM → STATUS, `features/system/speed.ts`,
+  `Router.mockTimed` under MOCK_LLM=1, tests/speed.spec.mjs in the CI loop). Owner at ~12:30 UK: usage all models
+  30 %, Fable 19 %; "do every single thing we talked about… now" (OWNER-ISSUES 36): nine builders run in parallel on
+  the Week 2–3 list (courses, Library by meaning, Lens names living things and meals, the photo tools, the website
+  builder's lift, saved places and spending, marking handwritten work and gadget manuals, Night School and monthly
+  retraining, the GYM's next level), each in its own worktree on its own preview port; queued behind the machine
+  (4 cores, load 8: the limit is the machine, not credits): a bigger brain (BRIEF-BIGGER-BRAIN.md), undo everywhere and
+  offline translation (BRIEF-UNDO-OFFLINE.md), then the per-feature upgrade pass (BRIEF-UPGRADE-PASS.md). Each merge
+  is reviewed here first; kernel lines the builders need (keys, tool-group words, FEED_HOSTS, the CI loop's spec
+  names) are added here, marked. Lesson: a check-in on a long CI run is armed for after the run's usual length.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
@@ -312,6 +328,9 @@ are never raised.
   hangs: on 19 Oct it was a Sokoban problem generator looping for ever (fixed, with a test that every game makes every
   level's problem quickly). Speed the gym climbs up if CI keeps growing.
 - Specs run late in the smoke loop see a slow, loaded runner: give replies generous waits (cited.spec waits 60 s).
+- WebKit (the scroll and safari specs, CI only): a toast over a probe point swallows the swipe even though it is
+  pointer-events: none; both specs now clear or ignore `#toasts`. Anything that pops up over the page (toasts, a
+  leftover modal) is cleared before measuring. The owner's height (956 − 193 bars = 763) moves where things land.
 
 ## The plan and where it stands (as of 18 Oct 2026, end of day)
 
