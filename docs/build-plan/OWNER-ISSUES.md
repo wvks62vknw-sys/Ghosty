@@ -198,3 +198,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (k) Remove anything (a memory, a library document, a course, a widget): an UNDO bar sits above the tab bar for 12
     seconds and puts it back exactly. With no signal, "translate dinner into Spanish": the phone's own brain answers,
     marked rough, with READ ALOUD.
+    (l) SETTINGS → OFFLINE BRAIN → WHICH BRAIN, on Wi-Fi: GET on Qwen3.5 2B (about 1.1 GB), then TEST and read the speed
+    and quick-check line; try the 4B (about 2.4 GB, rated "tight") if you like — if the phone cannot hold it Ghosty
+    goes back to the 0.6B and says so, and REMOVE frees the space. The weekly training then follows the brain in use.
