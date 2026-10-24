@@ -37,7 +37,8 @@ export interface PromptGroups {
 
 /** Not tools the model calls, but things it should know: replies may be heard, and the library holds today's world. */
 const HEARING = 'You can hear (voice notes and the mic are transcribed) and speak in your own voice.';
-const TODAY = 'Your library\'s "Fresh knowledge" notebook holds today\'s news and papers: library_search it for today.';
+// (Trimmed to make room for the Lens's identify_plant in the tool names every turn lists: the plain prompt stays within 5,500.)
+const TODAY = 'The library\'s "Fresh knowledge" notebook has today\'s news and papers (library_search).';
 /** The owner is on Telegram (telegram.ts): no screen there. */
 export const TELEGRAM = 'Channel: Telegram: plain text, no tables; screen actions do not show there, so describe them.';
 
