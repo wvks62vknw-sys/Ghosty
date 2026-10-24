@@ -9,6 +9,7 @@ import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undoBar } from '../../ui/components';
 import { page } from '../../ui/page';
+import { spendingPanel } from './spending';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -67,7 +68,9 @@ export const agendaTab: TabDef = {
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY' });
     const ep = panel('DIARY · NEXT 14 DAYS', { cls: 'scroll' });
     const cp = panel('CALENDARS', { grow: false, cls: 'scroll.feeds' });
-    P.left.append(ep.el, cp.el);
+    // SPENDING (spending.ts): the statements he adds himself, under his diary — the month's money is part of its plan.
+    const sp = spendingPanel();
+    P.left.append(ep.el, cp.el, sp.el);
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
@@ -337,6 +340,7 @@ export const agendaTab: TabDef = {
     return {
       enter() {
         void load();
+        void sp.refresh();
         void pollInbox();
         timer = window.setInterval(() => void load(), 60_000);
       },

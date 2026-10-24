@@ -3848,15 +3848,32 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
 /* saved places and spending (BRIEF-PLACES-SPENDING): Memory → ME → PLACES, Agenda → SPENDING, the Brief's
    commute, God's Eye's place chips. One look, the route C tokens; every target at least 44 px. */
 .pn.me .places { padding: 10px 18px 14px; border-top: 1px solid rgba(255,255,255,.08); }
+.places .privacy, .spend .privacy { font-size: 12px; opacity: .72; margin: 4px 0 8px; }
 .placerow { display: grid; grid-template-columns: 74px 1fr; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .placerow .k { font-weight: 700; }
 .placerow .v { min-width: 0; overflow-wrap: anywhere; }
 .placerow .acts { grid-column: 2; display: flex; gap: 8px; }
+.placerow button, .placeadd button, .placefound button, .spend button { min-height: 44px; }
 .placeadd { flex-wrap: wrap; margin-top: 8px; }
 .placeadd input, .placeadd select { flex: 1 1 140px; min-height: 44px; min-width: 0; }
 .placefound { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.05); }
 .placefound .addr { font-weight: 600; margin: 4px 0; overflow-wrap: anywhere; }
 .placefound .row { display: flex; gap: 8px; margin-top: 8px; }
+.spend .spendtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.spend .spendnav { justify-content: space-between; }
+.spend .spendnav .mname { flex: 1; text-align: center; }
+.spend .spendtot { font-size: 17px; margin: 6px 0 10px; }
+.spend .bar { margin: 6px 0; }
+.spend .bar span { width: 104px; }
+.spend .bar b { flex: none; min-width: 64px; text-align: right; }
+.spend .budget.over b { color: #ff4d6a; }
+.spend .budgetadd { flex-wrap: wrap; margin: 8px 0; }
+.spend .budgetadd input { flex: 1 1 180px; min-height: 44px; min-width: 0; }
+.spend .txn { min-height: 44px; }
+.spend .txn .cat { opacity: .7; }
+.spend .txn .cat[data-by="none"] { color: #ffd24d; opacity: 1; }
+.spend .change { margin: 6px 0; }
+.pn.spend > input[type=file] { display: none; }
 .pn.commute .rw .v { white-space: normal; }
 .myplaces { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; pointer-events: auto; }
 .myplaces .lchip { min-height: 44px; }

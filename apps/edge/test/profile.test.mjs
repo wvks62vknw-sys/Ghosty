@@ -627,6 +627,202 @@ function withFetch(answer) {
   return { asked, restore: () => (globalThis.fetch = real) };
 }
 
+test('the CSV shapes: five UK banks\' statements are read — one signed amount, paid out / paid in, a preamble, no header', () => {
+  const S = P.spend;
+  const monzo = S.readStatement(fixture('monzo'));
+  assert.equal(monzo.shape, 'amount');
+  assert.equal(monzo.bank, 'Monzo');
+  assert.equal(monzo.rows.length, 18);
+  assert.deepEqual(monzo.rows[1], { d: '2026-08-03', t: 'Tesco', a: -23.45 });
+  assert.equal(monzo.rows[0].a, 2100, 'money in is positive');
+
+  const barclays = S.readStatement(fixture('barclays'));
+  assert.equal(barclays.bank, 'Barclays');
+  assert.equal(barclays.rows.length, 9);
+  assert.match(barclays.rows[0].t, /^SAINSBURYS S\/MKTS/);
+  assert.equal(barclays.rows[0].d, '2026-09-02');
+
+  const lloyds = S.readStatement(fixture('lloyds'));
+  assert.equal(lloyds.shape, 'paid out / paid in');
+  assert.equal(lloyds.rows.length, 6);
+  assert.deepEqual(lloyds.rows[0], { d: '2025-01-15', t: 'AMAZON PRIME*2K4LM1', a: -95, b: 1205 });
+  assert.equal(lloyds.rows[1].a, 1800, 'a credit amount is money in');
+
+  const nationwide = S.readStatement(fixture('nationwide'));
+  assert.equal(nationwide.shape, 'paid out / paid in');
+  assert.equal(nationwide.bank, 'Nationwide');
+  assert.equal(nationwide.rows.length, 7, 'the account name and balance above the header are not rows');
+  assert.deepEqual(nationwide.rows[0], { d: '2026-10-01', t: 'Salary ACME WIDGETS', a: 2100, b: 2350 });
+  assert.equal(nationwide.rows[1].a, -18.2, '"£18.20" paid out');
+
+  const hsbc = S.readStatement(fixture('hsbc'));
+  assert.equal(hsbc.shape, 'no header');
+  assert.equal(hsbc.rows.length, 5);
+  assert.equal(hsbc.rows[2].a, 1250, '"1,250.00" in quotes');
+
+  // Dates and money as UK banks write them.
+  assert.equal(S.parseDate('3 Oct 2026'), '2026-10-03');
+  assert.equal(S.parseDate('03-Oct-26'), '2026-10-03');
+  assert.equal(S.parseDate('2026-10-03T10:00:00Z'), '2026-10-03');
+  assert.equal(S.parseDate('13/01/26'), '2026-01-13');
+  assert.equal(S.parseMoney('(12.30)'), -12.3);
+  assert.equal(S.parseMoney('12.30 DR'), -12.3);
+  assert.equal(S.parseMoney('£1,234.56'), 1234.56);
+  assert.ok(Number.isNaN(S.parseMoney('')));
+  assert.throws(() => S.readStatement('name,colour\nann,red\n'), /doesn't look like a bank statement/);
+});
+
+test('the rules: UK shops and words file a row; his own rule wins; only unknown names are left for the model', () => {
+  const S = P.spend;
+  const { rows, unplaced } = S.categorise(S.readStatement(fixture('monzo')).rows);
+  const cat = (t) => rows.find((r) => r.t === t).c;
+  assert.equal(cat('Tesco'), 'groceries');
+  assert.equal(cat('Tesco Mobile'), 'bills', 'TESCO MOBILE is a bill before TESCO is groceries');
+  assert.equal(cat('Uber Eats'), 'eating out', 'UBER EATS is eating out before UBER is transport');
+  assert.equal(cat('Uber'), 'transport');
+  assert.equal(cat('Netflix'), 'subscriptions');
+  assert.equal(cat('ATM'), 'cash');
+  assert.equal(cat('ACME WIDGETS LTD'), 'income', 'money in that nothing names is income');
+  assert.deepEqual(unplaced, ["BOB'S BARBER"], 'the one name no rule knows');
+  const hsbc = S.categorise(S.readStatement(fixture('hsbc')).rows);
+  assert.equal(hsbc.rows.find((r) => /MCDONALDS/.test(r.t)).c, 'eating out');
+  assert.equal(hsbc.rows.find((r) => /PUREGYM/.test(r.t)).c, 'subscriptions');
+  assert.deepEqual(hsbc.unplaced, ['PAYPAL']);
+  // The merchant key stays the same month to month.
+  assert.equal(S.merchantKey('CARD PAYMENT TO TESCO STORES 2041 ON 03 OCT'), 'TESCO STORES');
+  assert.equal(S.merchantKey('TESCO STORES 3155'), 'TESCO STORES');
+  // His rule beats the built-in one.
+  const mine = S.categorise([{ d: '2026-10-01', t: 'TESCO STORES 3155', a: -5 }], { 'TESCO STORES': 'shopping' });
+  assert.equal(mine.rows[0].c, 'shopping');
+  assert.equal(mine.rows[0].by, 'you');
+  // The model is asked about names only, and its answer only counts for names it was asked about.
+  const ask = S.modelAsk(["BOB'S BARBER", 'PAYPAL']);
+  assert.equal(ask.user, "BOB'S BARBER\nPAYPAL");
+  assert.deepEqual(S.readModelAnswer('Sure: {"BOB\'S BARBER": "shopping", "NETFLIX": "bills", "PAYPAL": "income"}', ask.names), { "BOB'S BARBER": 'shopping' });
+});
+
+test('the subscription finder: monthly, yearly, a price change, two amounts to one name — and the yearly total', () => {
+  const S = P.spend;
+  const subs = (name) => S.findSubscriptions(S.categorise(S.readStatement(fixture(name)).rows).rows);
+  const monzo = subs('monzo');
+  const netflix = monzo.find((s) => s.k === 'NETFLIX');
+  assert.equal(netflix.cadence, 'monthly');
+  assert.equal(netflix.amount, 12.99);
+  assert.equal(netflix.was, 10.99, 'the price change is said');
+  assert.equal(netflix.changed, '2026-10-05');
+  assert.equal(netflix.yearly, 155.88);
+  assert.equal(netflix.next, '2026-11-05');
+  const spotify = monzo.find((s) => s.k === 'SPOTIFY');
+  assert.equal(spotify.yearly, 143.88);
+  assert.equal(spotify.was, undefined);
+  assert.ok(!monzo.some((s) => /TESCO|BOB|ACME|CASH/.test(s.k)), `not subscriptions: ${monzo.map((s) => s.k)}`);
+  const prime = subs('lloyds').find((s) => s.k === 'AMAZON PRIME');
+  assert.equal(prime.cadence, 'yearly');
+  assert.equal(prime.yearly, 95);
+  assert.equal(prime.next, '2027-01-15');
+  const apple = subs('barclays').filter((s) => s.k.startsWith('APPLE'));
+  assert.deepEqual(apple.map((s) => s.amount).sort(), [0.99, 2.99], 'two Apple subscriptions on their own schedules');
+  // A one-off and an irregular shop are not subscriptions.
+  assert.deepEqual(S.findSubscriptions(S.categorise([{ d: '2026-08-01', t: 'GYM CO', a: -20 }, { d: '2026-08-12', t: 'GYM CO', a: -20 }]).rows), []);
+});
+
+test("the budgets' maths: plain words, a week and a year as a month, \"£38 left this month\", over, refunds", () => {
+  const S = P.spend;
+  assert.deepEqual(S.parseBudget('£200 a month on eating out'), { category: 'eating out', monthly: 200 });
+  assert.deepEqual(S.parseBudget('50 pounds a week for petrol'), { category: 'transport', monthly: 216.67 });
+  assert.deepEqual(S.parseBudget('groceries £1,200 a year'), { category: 'groceries', monthly: 100 });
+  assert.equal(S.parseBudget('£200 a month'), null, 'no category');
+  assert.equal(S.parseBudget('a month on takeaways'), null, 'no amount');
+  const rows = S.categorise([
+    { d: '2026-10-02', t: 'NANDOS', a: -100 },
+    { d: '2026-10-09', t: 'PRET A MANGER', a: -62 },
+    { d: '2026-09-30', t: 'COSTA', a: -500 },
+  ]).rows;
+  const b = S.budgetStatus('eating out', 200, rows, '2026-10');
+  assert.equal(b.spent, 162);
+  assert.equal(b.left, 38);
+  assert.equal(b.line, '£38 left this month');
+  assert.equal(S.budgetStatus('eating out', 150, rows, '2026-10').line, '£12 over this month');
+  // A refund comes off what was spent.
+  const nw = S.categorise(S.readStatement(fixture('nationwide')).rows).rows;
+  assert.equal(S.spentIn(nw, 'shopping', '2026-10'), 0);
+  // The month, the year, and what changed since last month.
+  const monzo = S.categorise(S.readStatement(fixture('monzo')).rows).rows;
+  const oct = S.monthView(monzo, '2026-10');
+  assert.equal(oct.in, 2100);
+  assert.deepEqual(oct.categories.map((c) => c.c), ['eating out', 'subscriptions', 'other', 'bills']);
+  assert.equal(oct.out, 83.18);
+  const year = S.yearView(monzo, '2026');
+  assert.deepEqual(year.months.map((m) => m.month), ['2026-08', '2026-09', '2026-10']);
+  const ch = S.changes(monzo, '2026-10');
+  assert.match(ch.lines[0], /less than September in all/);
+  assert.ok(ch.lines.some((l) => /^Cash: £40 less/.test(l)), ch.lines.join(' | '));
+  assert.match(S.changes(monzo, '2026-08').lines[0], /Nothing from July/);
+  // Out as CSV, safe in a spreadsheet.
+  assert.equal(S.toCsv([{ d: '2026-10-01', t: '=HYPERLINK("x")', a: -1, c: 'other', k: 'X', by: 'none' }]), 'Date,Description,Amount,Category\r\n2026-10-01,"\'=HYPERLINK(""x"")",-1.00,other\r\n');
+});
+
+test('an import: the rules first, ONE model call with only the names they could not place, no row twice, a tap re-files and is remembered', async () => {
+  const st = new MemStorage();
+  const calls = [];
+  const deps = { storage: st, library: new Library(st, {}), ai: async (system, user) => (calls.push({ system, user }), JSON.stringify({ "BOB'S BARBER": 'shopping' })) };
+  // Before the first import: the words say what goes where.
+  const empty0 = await (await route('/profile/spending', 'GET', undefined, deps)).json();
+  assert.equal(empty0.kept, 0);
+  assert.match(empty0.privacy, /No bank access, ever/);
+  assert.match(empty0.privacy, /only the shop names they can't place — never dates, amounts or your balance — go to a free online AI/);
+  const r = await (await route('/profile/spending/import', 'POST', { csv: fixture('monzo') }, deps)).json();
+  assert.equal(r.result.added, 18);
+  assert.equal(calls.length, 1, 'one model call for the import');
+  assert.equal(calls[0].user, "BOB'S BARBER", 'only the name: no date, amount or balance');
+  assert.ok(!/\d/.test(calls[0].user));
+  assert.equal(r.result.asked, 1);
+  assert.equal(r.result.placed, 2, 'both barber rows placed by the answer');
+  assert.equal(r.month, '2026-10');
+  assert.equal(r.rows.find((x) => x.k === "BOB'S BARBER").by, 'model');
+  // The same statement again: nothing kept twice, and no model call (the rows are known).
+  const again = await (await route('/profile/spending/import', 'POST', { csv: fixture('monzo') }, deps)).json();
+  assert.equal(again.result.added, 0);
+  assert.equal(again.result.duplicates, 18);
+  assert.equal(again.kept, 18);
+  assert.equal(calls.length, 1, 'rows already kept are not asked about again');
+  // A tap re-files Nando's as groceries: every row with that name, and the rule is remembered for the next statement.
+  const filed = await (await route('/profile/spending/file', 'POST', { k: 'NANDO\'S', c: 'groceries' }, deps)).json();
+  assert.equal(filed.filed, 1);
+  assert.equal(filed.rows.find((x) => x.k === "NANDO'S").c, 'groceries');
+  assert.deepEqual(st.m.get('spend').rules, { "NANDO'S": 'groceries' });
+  // A budget in plain words, with its bar's numbers.
+  const bud = await (await route('/profile/spending/budget', 'POST', { words: '£60 a month on eating out' }, deps)).json();
+  assert.deepEqual(bud.set, { category: 'eating out', monthly: 60 });
+  assert.equal(bud.budgets[0].line, '£60 left this month', "Nando's is groceries now: nothing eaten out in October");
+  // No model free: the import still works, the unknown rows wait for him.
+  const st2 = new MemStorage();
+  const down = await (await route('/profile/spending/import', 'POST', { csv: fixture('hsbc') }, { storage: st2, library: new Library(st2, {}), ai: async () => { throw new Error('no model'); } })).json();
+  assert.equal(down.result.added, 5);
+  assert.equal(down.result.unplaced, 1);
+  // Export and forget.
+  const csv = await (await route('/profile/spending/export', 'GET', undefined, deps)).text();
+  assert.equal(csv.split('\r\n').length, 20);
+  await route('/profile/spending', 'DELETE', undefined, deps);
+  assert.equal([...st.m.keys()].filter((k) => k.startsWith('spend')).length, 0);
+});
+
+test('the rows kept are capped: over the cap, the oldest go first', async () => {
+  const st = new MemStorage();
+  const lines = ['Date,Description,Amount'];
+  for (let i = 0; i < P.spending.MAX_ROWS + 40; i++) {
+    const d = new Date(Date.UTC(2023, 0, 1) + Math.floor(i / 4) * 86400_000);
+    lines.push(`${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()},TESCO STORES ${i},-${(1 + (i % 50)).toFixed(2)}`);
+  }
+  const r = await P.spending.importStatement({ storage: st, ai: async () => '{}' }, lines.join('\n'));
+  assert.equal(r.kept, P.spending.MAX_ROWS);
+  assert.equal(r.dropped, 40);
+  const idx = st.m.get('spend');
+  assert.equal(idx.rows, P.spending.MAX_ROWS);
+  const first = st.m.get(`spend:m:${idx.months[0]}`);
+  assert.equal(first[0].d, '2023-01-11', 'the oldest ten days are gone');
+});
+
 test('saved places: an address is looked up and shown for a yes before it is kept; a postcode goes to postcodes.io; FORGET', async () => {
   const st = new MemStorage();
   const deps = { storage: st, library: new Library(st, {}), ai: async () => '' };

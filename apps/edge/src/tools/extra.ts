@@ -137,3 +137,4 @@ export const videoTools: Tool[] = [summarise_video];
  * Without them, "take me home" still works: plan_journey and get_directions read the saved places themselves.
  */
 export { placesTools } from './places';
+export { spendingTools } from './spending';

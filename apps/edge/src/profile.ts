@@ -23,6 +23,7 @@ import { bestTurn, changeMemory, DIARY_LOCKS_KEY, lineKey, loadLineMeta, lockedL
 import { fmtLocal, safeTz, zoned } from './time';
 import { addFact, loadMemory, MEMORY_KEY } from './tools/memory';
 import { placesRoute } from './places';
+import { spendingRoute } from './spending';
 
 export const PROFILE_KEY = 'profile';
 /**
@@ -332,6 +333,7 @@ export async function profileRoute(req: Request, path: string, method: string, u
   const { storage, library } = deps;
   // Memory → ME → PLACES (places.ts) and the Agenda tab's SPENDING card (spending.ts): both kept in his memory here.
   if (path === '/profile/places' || path.startsWith('/profile/places/')) return placesRoute(req, path, method, url, storage);
+  if (path === '/profile/spending' || path.startsWith('/profile/spending/')) return spendingRoute(req, path, method, url, deps);
   if (path === '/profile' && method === 'GET') {
     return json({ profile: await loadProfile(storage), diary: diaryEntries(library), lastReflect: (await storage.get<number>(REFLECT_KEY)) ?? null });
   }
@@ -377,5 +379,8 @@ export { bestTurn, changeMemory, findPatterns, lineKey, moodsIn, noteDays, patte
 
 // Saved places and spending (places.ts, spending.ts, their tools and the shared pure parts), exported here for the tests.
 export * as places from './places';
+export * as spending from './spending';
+export * as spend from '../../../packages/shared/src/spending';
 export * as placeWords from '../../../packages/shared/src/places';
 export { placesTools } from './tools/places';
+export { spendingTools } from './tools/spending';
