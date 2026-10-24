@@ -3844,3 +3844,27 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
   #deck .dkcard:active { transform: none; }
 }
 /* end the deck and the icon language */
+
+/* PHOTO TOOLS (features/lens/photo.ts): the job chips, BEFORE/AFTER on one stage with a slider, ink for ERASE */
+.lensbar { flex-wrap: wrap; }
+.lensbar .lensphoto { flex: 1 0 100%; order: -1; }
+.ptsheet { gap: 10px; }
+.ptjobs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ptjobs button { flex: 1 1 auto; min-width: 0; white-space: nowrap; }
+.ptstage { width: 100%; display: flex; justify-content: center; }
+.ptframe { position: relative; flex: none; border-radius: 12px; overflow: hidden; }
+.ptframe canvas, .ptframe img { display: block; }
+.ptafter { position: absolute; left: 0; top: 0; object-fit: fill; background-color: #d9dde3; background-image: linear-gradient(45deg, #b8bec7 25%, transparent 25%, transparent 75%, #b8bec7 75%), linear-gradient(45deg, #b8bec7 25%, transparent 25%, transparent 75%, #b8bec7 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+.ptdivider { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 6px rgba(0,0,0,.6); pointer-events: none; }
+.ptink { position: absolute; left: 0; top: 0; touch-action: none; pointer-events: none; }
+.ptink.on { pointer-events: auto; cursor: crosshair; }
+.ptsliderrow { display: flex; align-items: center; gap: 10px; }
+.ptsliderrow small { font: 600 11px var(--sf); letter-spacing: .08em; color: var(--l2); }
+.ptslider { flex: 1 1 auto; min-width: 0; min-height: 32px; accent-color: var(--c); }
+.pterase { align-items: center; gap: 6px; }
+.pterase:empty { display: none; }
+.pterase small { font: 600 11px var(--sf); letter-spacing: .08em; color: var(--l2); }
+.ptstatus:empty, .ptcredit:empty, .ptlink:empty { display: none; }
+.ptstatus.bad, .ptwho.bad { color: var(--a); }
+.ptlink { word-break: break-all; font: 400 12px var(--m); }
+.ptprivacy { font-size: 12px; }

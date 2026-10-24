@@ -10,7 +10,7 @@ export const PHOTO_JOBS: readonly PhotoJob[] = ['background', 'sharper', 'erase'
 
 /** Each job as a button and as a verb ("REMOVE THE BACKGROUND", "removing the background"). */
 export const PHOTO_JOB_WORDS: Record<PhotoJob, { chip: string; run: string; doing: string }> = {
-  background: { chip: 'REMOVE BACKGROUND', run: 'REMOVE THE BACKGROUND', doing: 'removing the background' },
+  background: { chip: 'BACKGROUND', run: 'REMOVE THE BACKGROUND', doing: 'removing the background' },
   sharper: { chip: 'SHARPER', run: 'MAKE IT SHARPER', doing: 'making it sharper' },
   erase: { chip: 'ERASE', run: 'ERASE IT', doing: 'erasing it' },
 };
