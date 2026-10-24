@@ -1,4 +1,4 @@
-// Renders the deck mock-ups (a copy of ../tools/render.mjs that also treats contact2 as a sheet).
+// Renders the deck mock-ups (a copy of ../tools/render.mjs that also treats contact2 and contact3 as sheets).
 //   node docs/build-plan/mockups/deck/render.mjs <page ...>
 // The language card and the contact sheet render at their own size (the body's), also at 2x.
 // After each screen it checks for text that is cut off or anything poking out of the screen, and says so.
@@ -17,7 +17,7 @@ const pages = process.argv.slice(2).length ? process.argv.slice(2) : [...SCREENS
 const browser = await chromium.launch();
 try {
   for (const name of pages) {
-    const screen = !['language', 'contact', 'contact2'].includes(name);
+    const screen = !['language', 'contact', 'contact2', 'contact3'].includes(name);
     let ctx = await browser.newContext({
       viewport: { width: 440, height: 956 },
       deviceScaleFactor: 2,
