@@ -2122,17 +2122,6 @@ html[data-look="pro"], html[data-look="pro"] body { font: 400 16px/1.4 var(--b);
 [data-look="pro"] .toast.warn .tglyph { --c: #ffb340; } [data-look="pro"] .toast.bad .tglyph { --c: #ff6961; } [data-look="pro"] .toast.ok .tglyph { --c: #30d158; }
 [data-look="pro"] .toast span[data-label] { --lfs: 15px; }
 
-/* ---------- one icon language: tinted-glass squircles, coloured glyphs ---------- */
-[data-look="pro"] :is(.sq, .rowic, #palette .gic) { display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--tint, #8e8e93) 24%, rgba(30,30,32,.7)) !important; box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--tint, #8e8e93) 50%, transparent), inset 0 .5px 0 rgba(255,255,255,.16) !important; }
-[data-look="pro"] :is(.sq, .rowic, #palette .gic) .ic { fill: none; stroke: color-mix(in srgb, var(--tint, #8e8e93) 82%, #fff) !important; stroke-linecap: round; stroke-linejoin: round; }
-[data-look="pro"] .dtile .ic { background: color-mix(in srgb, var(--tint) 24%, rgba(30,30,32,.7)) !important; box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--tint) 50%, transparent), inset 0 .5px 0 rgba(255,255,255,.16) !important; stroke: color-mix(in srgb, var(--tint) 82%, #fff) !important; }
-[data-look="pro"] :is(.rowic, #palette .gic, .merow .sq) { width: 30px; height: 30px; border-radius: 8px; }
-[data-look="pro"] :is(.rowic, #palette .gic, .merow .sq) .ic { width: 18px; height: 18px; stroke-width: 1.9; }
-[data-look="pro"] .hubtile .sq, [data-look="pro"] .hubhero .sq { width: 44px; height: 44px; border-radius: 12px; margin: 0 0 10px; }
-[data-look="pro"] .hubtile .sq .ic, [data-look="pro"] .hubhero .sq .ic { width: 25px; height: 25px; stroke-width: 1.8; }
-[data-look="pro"] .recent .sq { width: 60px; height: 60px; border-radius: 16px; }
-[data-look="pro"] .recent .sq .ic { width: 30px; height: 30px; stroke-width: 1.7; }
-
 /* ---------- the "Me" sheet ---------- */
 #mesheet { position: fixed; inset: 0; z-index: 62; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.42); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: mefade .3s ease both; font-family: var(--sf); }
 #mesheet.out { animation: mefade .26s ease reverse both; }
@@ -3914,3 +3903,22 @@ html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
   html[data-look="pro"] #pg-radio .npart .eq i { transform: scaleY(.6); }
 }
 /* end route C part 2 */
+
+/* =====================================================================
+   the deck and the icon language (docs/build-plan/BRIEF-DECK-BUILD.md; OWNER-ISSUES 32–34). One section,
+   written for the one look (no [data-look] prefix), so it merges cleanly with the job that removes the
+   classic looks. Everything up to "end the deck and the icon language" is this section.
+   ===================================================================== */
+/* ---------- one icon language: bare thin glyphs in the secondary ink, never a tile behind them ("like app
+   icons", OWNER-ISSUES 32); 22 pt in rows and cards; the accent only for the live or selected one ---------- */
+:is(.sq, .rowic, .gic, .rctile) { display: grid; place-items: center; flex: none; background: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; }
+:is(.sq, .rowic, .gic, .rctile) .ic { width: 22px !important; height: 22px !important; padding: 0 !important; fill: none; stroke: var(--l2) !important; stroke-width: 1.7 !important; stroke-linecap: round; stroke-linejoin: round; background: none !important; box-shadow: none !important; }
+:is(.rowic, .gic, .rctile, .merow .sq, .addrow .sq) { width: 28px !important; height: 28px !important; }
+:is(.hubtile, .hubhero) .sq { width: 28px !important; height: 28px !important; justify-items: start; }
+.recent .sq { width: 40px !important; height: 40px !important; }
+.recent .sq .ic { width: 28px !important; height: 28px !important; stroke-width: 1.6 !important; }
+:root #pg-gym .gymcard .sq.gymglyph { width: 28px; height: 28px; background: none !important; box-shadow: none !important; }
+:root #pg-gym .gymcard .sq.gymglyph .ic { stroke: var(--l2) !important; }
+:root #pg-memory .addrow .sq.sq { background: none !important; }
+:root #pg-memory .addrow .sq.sq .ic, :root #palette .it.sel .gic .ic { stroke: var(--acc) !important; }
+/* end the deck and the icon language */
