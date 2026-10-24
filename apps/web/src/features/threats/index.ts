@@ -58,7 +58,8 @@ export const threatsTab: TabDef = {
       const k = kp.data && Number.isFinite(kp.data.v) ? kp.data : null;
       if (k) {
         space.body.append(bar('KP INDEX', k.v / 9, k.v.toFixed(1), k.v >= 5 ? '#ff4d6a' : k.v >= 4 ? '#ffd24d' : undefined));
-        space.body.append(h('div.note', k.v >= 5 ? 'Geomagnetic storm: aurora likely at high latitudes, GPS may wobble.' : k.v >= 4 ? 'Active conditions. Aurora possible far north.' : 'Quiet. No disturbance expected.'));
+        const at = Date.parse(/Z$|[+-]\d\d:\d\d$/.test(k.t) ? k.t : `${k.t}Z`); // (NOAA's times are UTC, written without the Z)
+        space.body.append(h('div.note', `${k.v >= 5 ? 'Geomagnetic storm: aurora likely at high latitudes, GPS may wobble.' : k.v >= 4 ? 'Active conditions. Aurora possible far north.' : 'Quiet. No disturbance expected.'}${Number.isFinite(at) ? ` Measured ${fmt.time(new Date(at))} (every 3 hours).` : ''}`));
       } else space.body.append(empty(kp.status === 'NO FEED' || kp.data ? 'NO FEED' : 'LOADING')); // (a reading that is not a number is no reading)
       lg.set(launches.data ?? []);
       P.dials([

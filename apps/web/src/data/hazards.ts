@@ -95,9 +95,14 @@ export const launches = new Feed<Launch[]>(
 export const kp = new Feed<{ v: number; t: string }>(
   'kp',
   async () => {
-    const j = await fetchJson<string[][]>('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', 600);
-    const r = j[j.length - 1]!;
-    return { v: parseFloat(r[1]!), t: r[0]! };
+    // NOAA serves this file as objects now ({ time_tag, Kp }, newest last); it used to be rows of strings with a
+    // header row (["time_tag", "Kp", …]). Read either; a reading that is not a number is no reading (NO FEED).
+    const j = await fetchJson<(string[] | { time_tag?: string; Kp?: number | string })[]>('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', 600);
+    const r = j[j.length - 1];
+    const v = Array.isArray(r) ? parseFloat(r[1] ?? '') : Number(r?.Kp);
+    const t = Array.isArray(r) ? r[0] ?? '' : r?.time_tag ?? '';
+    if (!Number.isFinite(v)) throw new Error('no Kp reading in NOAA’s file');
+    return { v, t };
   },
   600_000,
 );
