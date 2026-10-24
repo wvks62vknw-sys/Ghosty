@@ -144,6 +144,13 @@ folder that no longer exists; ignore those paths).
   og:image for kinds without photos (cv, invite, club, launch); a request with no business name gets a title like
   "Website: stourbridge-club"; the What's New line. The builder could not reach Wikimedia (HTTP 429 here), so its
   template screenshots show tinted placeholders where photos go.
+- 24 Oct ~15:20 UK: merged after review: SAVED PLACES and SPENDING (BRIEF-PLACES-SPENDING). Kernel lines, marked `[places]`,
+  in tools/index.ts (import, CORE, two groups). The prompt budget needed 81 characters: the chain example, TIMES' example,
+  BUILDING THINGS' list and "in your own voice" came out of prompt.ts (its comment lists them); worst case now about 5,470
+  of 5,500, so the next always-on tool name needs another trim. Not done, by the builder's account: statements through
+  the Library's ADD (the Agenda card is the one route); no WebKit run of the two new specs. The builder's full suite had
+  two timing misses under load in untouched tests (design 1,019 ms of 1 s; the 15-puzzle 204.7 ms of 200), both passing
+  on a re-run.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

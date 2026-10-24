@@ -191,3 +191,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     contact form on every website Ghosty builds really sends to your email (50 a month free). Without it the forms open
     WhatsApp or email. Then "make me a website for …" and look at the DRAFT card in the Workshop: CHANGE in words,
     PUBLISH when it is right.
+    (j) Say "my home is <address>" and "my work is <address>" in the chat (he shows the place and keeps it only when you
+    say yes); then "take me home" and "how long to work?". Agenda → SPENDING → ADD A STATEMENT with a CSV from your
+    bank's app (Monzo, Barclays, Lloyds, Nationwide, HSBC and the like): the month sorted on the phone, budgets in your
+    words. Nothing connects to the bank.
