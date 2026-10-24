@@ -70,11 +70,15 @@ async function run(name, viewport) {
   const text = (await jp.textContent()) ?? '';
   if (!/1 RUNNING/.test(text)) problems.push(`[${name}] status should say 1 RUNNING: ${text.slice(0, 80)}`);
   if (!/1\/4/.test(text) || !/1\/3/.test(text)) problems.push(`[${name}] progress bars missing (1/4 and 1/3): ${text.slice(0, 300)}`);
-  if (!/ACTIVE · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing`);
-  if (!/step 2 failed \(3 of 3\): boom/.test(text)) problems.push(`[${name}] the project's note is not shown`);
+  if (!/RUNNING · a step every 20 min/.test(text) || !/PAUSED · a step every 3 min/.test(text)) problems.push(`[${name}] status and pace lines missing (in plain words: RUNNING, PAUSED)`);
+  // the note in plain words: what happened, what happens next, and why
+  if (!/Step 2 didn’t work 3 times, so Ghosty paused it\. RESUME tries it again\. Why: boom/.test(text)) problems.push(`[${name}] the project's note is not shown in plain words: ${text.slice(-220)}`);
+  if (/\b(ACTIVE|TODO|DOING)\b|failed \(3 of 3\)/.test(text)) problems.push(`[${name}] the projects speak jargon (ACTIVE / TODO / DOING / "failed (3 of 3)")`);
+  for (const [label, re] of [['NOW', /Design the pages\s*NOW/], ['TO DO', /Build the site\s*TO DO/], ['DIDN’T WORK', /Compare running costs\s*DIDN’T WORK/]]) if (!re.test(text)) problems.push(`[${name}] a step does not say ${label}`);
   const cards = jp.locator('.change.project');
   if ((await cards.count()) !== 2) problems.push(`[${name}] expected 2 project cards, got ${await cards.count()}`);
   const first = cards.first();
+  if (await cards.nth(1).evaluate((c) => c.classList.contains('failed'))) problems.push(`[${name}] a paused project is drawn as a failure`);
   for (const label of ['PAUSE', 'RUN NEXT NOW', 'CANCEL']) if (!(await first.locator(`button:has-text("${label}")`).count())) problems.push(`[${name}] the running project has no ${label} button`);
   if (!(await cards.nth(1).locator('button:has-text("RESUME")').count())) problems.push(`[${name}] the paused project has no RESUME button`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
@@ -88,7 +92,7 @@ async function run(name, viewport) {
   await first.locator('button:has-text("PAUSE")').click();
   await page.waitForFunction(() => /PAUSED · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] PAUSE did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RESUME")').click();
-  await page.waitForFunction(() => /ACTIVE · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
+  await page.waitForFunction(() => /RUNNING · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RUN NEXT NOW")').click();
   await page.waitForFunction(() => /2\/4/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RUN NEXT NOW did not advance the bar to 2/4`));
   // CANCEL asks first in a one-tap confirm (a cancelled project cannot be started again)
@@ -334,6 +338,31 @@ async function workshop() {
     await cp.locator('.change', { hasText: 'Spec bigger clock' }).evaluate((e) => e.scrollIntoView({ block: 'center' }));
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${out}/workshop-changes.png` });
+    await ctx.close();
+  }
+
+  // 7. RUN NEXT NOW on a step that did not work: said in plain words, not "Step not finished (retry)"
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const p = { ...projects()[0], id: 'eeee555555', title: 'Spec retry project' };
+    await page.route('**/api/projects**', (r) => {
+      if (r.request().method() !== 'POST') return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [p] }) });
+      p.note = 'step 2 failed (1 of 3): HTTP 429 Too Many Requests';
+      return r.fulfill({ contentType: 'application/json', body: JSON.stringify({ project: p, did: 'retry' }) });
+    });
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const card = page.locator('#pg-workshop .change.project', { hasText: 'Spec retry project' });
+    await card.waitFor({ timeout: 10000 });
+    await page.evaluate(() => {
+      window.__toasts = [];
+      new MutationObserver(() => document.querySelectorAll('#toasts > *').forEach((t) => window.__toasts.includes(t.textContent) || window.__toasts.push(t.textContent))).observe(document.body, { childList: true, subtree: true });
+    });
+    await card.locator('button:has-text("RUN NEXT NOW")').click();
+    await page.waitForTimeout(800);
+    const said = (await page.evaluate(() => window.__toasts)).join(' | ');
+    if (!/didn’t work/.test(said) || /\(retry\)/.test(said)) problems.push(`[workshop 7] RUN NEXT NOW on a step that did not work says: ${said}`);
+    const note = (await card.locator('small.note').textContent().catch(() => '')) ?? '';
+    if (!/Step 2 didn’t work \(try 1 of 3\): Ghosty tries again by itself/.test(note) || !/the free AI was busy/.test(note)) problems.push(`[workshop 7] the retry note is not in plain words: ${note}`);
     await ctx.close();
   }
 }

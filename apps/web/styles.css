@@ -3369,6 +3369,7 @@ html #pg-workshop .change.project > .rw.st-doing .n { color: var(--c); }
 html #pg-workshop .change.project > .rw.open::after { content: ''; position: absolute; right: -4px; top: 50%; width: 0; height: 0; }
 html #pg-workshop .change.project > small.note { margin-top: 6px; font-size: 13px; color: var(--ink3); }
 html #pg-workshop .change.project > .row.wrap { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+html #pg-workshop .change.project.paused { box-shadow: inset 3px 0 0 var(--amber), inset 0 0 0 1px var(--hair); }
 html #pg-workshop .change.project > .row.wrap button { height: 40px; min-height: 40px !important; padding: 0 16px; }
 /* a finished project, folded: what it made (the link, how to install it) and its buttons; the steps and the whole report behind SHOW DETAILS */
 html #pg-workshop .change.project.folded > :is(.rw, .preport) { display: none; }

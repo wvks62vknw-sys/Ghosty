@@ -430,20 +430,20 @@ log('// ── 5. from the chat: Workshop → PROJECTS');
     }
   }
   // b. the publish fails part-way (one database blip): paused at step 4 with the reason; RESUME finishes it from its record
-  const pausedBefore = await before('App: Darts', '.failed');
+  const pausedBefore = await before('App: Darts', '.paused');
   const dartsDone = await cards('App: Darts', '.passed').count();
   const darts = await ask('make me an app that keeps score at darts for me and sam', (name) => context.request.get(`${base}/__test/blip?key=site:${name}`));
   if (darts) {
     await workshop();
-    if (!(await count('App: Darts', '.failed', pausedBefore + 1, 20000))) fail('PROJECTS: the failed build is not shown paused');
+    if (!(await count('App: Darts', '.paused', pausedBefore + 1, 20000))) fail('PROJECTS: the failed build is not shown paused');
     else {
-      const c = card('App: Darts', '.failed');
+      const c = card('App: Darts', '.paused');
       const text = (await c.textContent()) ?? '';
       if (!/3\/5/.test(text) || !/step 4 "Publish" stopped: .*storage blip.*RESUME carries on from here/.test(text)) fail(`PROJECTS: the stopped build: ${text.slice(0, 240)}`);
       await c.scrollIntoViewIfNeeded();
       await ui.screenshot({ path: `${out}/apps-project-paused.png` });
       await c.locator('button:has-text("RESUME")').click();
-      if (!(await until('App: Darts', /ACTIVE[\s\S]*NOW: step 4 · Publish/, 4000, false))) fail('PROJECTS: after RESUME the card does not show the step it runs now');
+      if (!(await until('App: Darts', /RUNNING[\s\S]*NOW: step 4 · Publish/, 4000, false))) fail('PROJECTS: after RESUME the card does not show the step it runs now');
       else await ui.screenshot({ path: `${out}/apps-project-resumed.png` });
       if (!(await count('App: Darts', '.passed', dartsDone + 1, 45000))) fail('PROJECTS: the resumed build did not finish');
       else {

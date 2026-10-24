@@ -27,6 +27,28 @@ const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS O
 const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
 /** Why something did not happen, in plain words (never "Failed to fetch"). */
 const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : String((e as Error)?.message ?? e));
+/** A project and its steps in plain words (the brain's own names are active / todo / doing / failed). */
+const PROJECT_WORD: Record<Project['status'], string> = { active: 'RUNNING', paused: 'PAUSED', done: 'FINISHED', cancelled: 'CANCELLED' };
+const STEP_WORD: Record<ProjectStep['status'], string> = { done: 'DONE', doing: 'NOW', todo: 'TO DO', failed: 'DIDN’T WORK' };
+/** Why a step went wrong, said plainly when it is a common one. */
+const plainWhy = (m: string) => (/\b429\b|rate.?limit|quota|too many requests/i.test(m) ? 'the free AI was busy' : /time(d)? ?out|took too long/i.test(m) ? 'it took too long' : m);
+/** The brain's note on a project (projects.ts), in plain words: what happened, what happens next, then why. */
+function projectNote(p: Pick<Project, 'note' | 'status'>): string {
+  const n = p.note ?? '';
+  const failed = n.match(/^step (\d+) failed \((\d+) of (\d+)\): ([\s\S]*)$/);
+  if (failed) return p.status === 'paused' ? `Step ${failed[1]} didn’t work ${failed[3]} times, so Ghosty paused it. RESUME tries it again. Why: ${plainWhy(failed[4]!)}` : `Step ${failed[1]} didn’t work (try ${failed[2]} of ${failed[3]}): Ghosty tries again by itself in a few minutes. Why: ${plainWhy(failed[4]!)}`;
+  if (/^waiting for a free model/.test(n)) return 'Waiting for a free AI: Ghosty carries on by itself as soon as one is free.';
+  return n;
+}
+/** What RUN NEXT NOW did, in plain words. */
+const RUN_SAID: Record<string, string> = {
+  step: 'Step done',
+  done: 'Step done: the project is finished',
+  waiting: 'Waiting: no AI is free right now (or Ghosty is busy); it tries again by itself',
+  retry: 'That step didn’t work: Ghosty tries it again by itself in a few minutes',
+  paused: 'That step didn’t work again, so the project is paused: RESUME tries again',
+  nothing: 'Nothing to run: this project isn’t running',
+};
 const SUB = 'Ghosty changes its own code. You decide what goes live.';
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview didn’t build', pending: 'preview on its way', none: 'no preview yet' };
 /** What a change's checks mean, and what to do next, in one plain sentence. */
@@ -141,7 +163,7 @@ export const workshopTab: TabDef = {
       try {
         const r = await brain.projectAction(id, action);
         projects = projects.map((p) => (p.id === id ? r.project : p));
-        if (action === 'run') toast(r.did === 'step' || r.did === 'done' ? 'Step done' : r.did === 'waiting' ? 'Waiting: no model is free right now (or Ghosty is busy); it tries again on its own' : `Step not finished (${r.did})`, r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
+        if (action === 'run') toast(RUN_SAID[r.did] ?? 'Step not finished: Ghosty tries again by itself', r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
       } catch (e) {
         toast(`Could not ${action}: ${why(e)}`, 'bad');
       }
@@ -160,12 +182,13 @@ export const workshopTab: TabDef = {
         const done = p.steps.filter((s) => s.status === 'done').length;
         // a mini-app (build_app) runs its five steps in one go; anything else at its pace
         const pace = p.kind === 'app' ? 'a mini-app, built in one go' : p.pace === 'fast' ? 'a step every 3 min' : 'a step every 20 min';
-        const ct = h('div.ct', h('b', p.title), h('small', `${p.status.toUpperCase()} · ${pace} · ${fmt.ago(p.updated)}`));
+        const ct = h('div.ct', h('b', p.title), h('small', `${PROJECT_WORD[p.status]} · ${pace} · ${fmt.ago(p.updated)}`));
         // the live step: the one running, else the next one
         const now = p.status === 'active' ? (p.steps.find((s) => s.status === 'doing') ?? p.steps.find((s) => s.status === 'todo')) : undefined;
         if (now) ct.append(h('small.pnow', `NOW: step ${now.n} · ${now.title}`));
         const finished = p.status === 'done' || p.status === 'cancelled';
-        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', ct);
+        // paused is waiting for the owner, not broken: its own amber edge
+        const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.paused' : ''}` as 'div', ct);
         // route C: a progress ring with the steps done, beside the title
         const ring = progressRing(46);
         ring.set(done / Math.max(1, p.steps.length), 0, `${done}/${p.steps.length}`, p.status === 'done');
@@ -173,7 +196,7 @@ export const workshopTab: TabDef = {
         card.prepend(ring.el);
         card.append(bar('STEPS', done / Math.max(1, p.steps.length), `${done}/${p.steps.length}`, p.status === 'paused' ? '#ffd24d' : undefined));
         for (const s of p.steps) {
-          const r = row(`${s.n}`, s.title, s.status.toUpperCase(), { wrap: true, tone: PSTEP_TONE[s.status] });
+          const r = row(`${s.n}`, s.title, STEP_WORD[s.status], { wrap: true, tone: PSTEP_TONE[s.status] });
           r.classList.add(`st-${s.status}`);
           if (s.result) {
             // a done step opens what it produced (its own class, not .link: the widgets list is the tab's .rw.link)
@@ -185,7 +208,7 @@ export const workshopTab: TabDef = {
           }
           card.append(r);
         }
-        if (p.note) card.append(h('small.note', p.note));
+        if (p.note) card.append(h('small.note', projectNote(p)));
         // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself — the
         // link and how to install it first, the rest (and the steps) behind SHOW DETAILS; tool names left out
         const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result?.replace(/\s*\((?:[a-z0-9]+_)+[a-z0-9]+\)/g, '') : undefined;
