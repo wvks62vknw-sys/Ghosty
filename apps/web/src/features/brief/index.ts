@@ -119,7 +119,8 @@ export const briefTab: TabDef = {
       paintSay();
     };
     const wp = panel('WEATHER', { cls: 'wx' });
-    // THE COMMUTE: one line, home to work with the live traffic, only when both are saved (Memory → ME → PLACES).
+    // THE COMMUTE: one line, home to work with the live traffic, when both are saved (Memory → ME → PLACES; until
+    // then one line saying where to save them).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
     commute.el.hidden = true;
     P.left.append(dp.el, commute.el, wp.el);
@@ -128,8 +129,13 @@ export const briefTab: TabDef = {
         const places = (await brain.places()).places ?? [];
         const home = places.find((p) => p.id === 'home');
         const work = places.find((p) => p.id === 'work');
-        if (!home || !work) return void (commute.el.hidden = true);
         commute.el.hidden = false;
+        // Not saved yet: one quiet line on where to save them (he would never find the commute otherwise).
+        if (!home || !work) {
+          commuteWords = '';
+          commute.setStatus('');
+          return void clear(commute.body, row(null, `Save ${!home && !work ? 'home and work' : !home ? 'home' : 'work'} in Memory → Me → Places and the drive to work shows here each morning.`, '›', { wrap: true, onClick: () => go('memory') }));
+        }
         // Offline the phone would answer with the last drive it was told (kept for every read): an old "LIVE"
         // time is not this morning's, so say it plainly instead.
         if (navigator.onLine === false) {

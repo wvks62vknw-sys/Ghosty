@@ -3492,6 +3492,8 @@ html #pg-brief .two > .hero .bract button { height: 44px; min-height: 44px !impo
 html #pg-brief .pn.commute .rw.wrap { flex-wrap: wrap; row-gap: 4px; }
 html #pg-brief .pn.commute .rw.wrap .v { order: 3; flex: 1 1 100%; display: block; -webkit-line-clamp: unset; overflow: visible; }
 html #pg-brief .pn.commute .rw .v::first-letter { text-transform: uppercase; }
+html #pg-brief .pn.commute .rw.link { min-height: 44px; align-items: center; }
+html #pg-brief .pn.commute .rw.link .v { font: 400 15px/21px var(--sf); color: var(--ink2); }
 /* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
 html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
 html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
