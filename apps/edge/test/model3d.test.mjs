@@ -741,3 +741,6 @@ test("drawing the object first stays inside the shared Workers AI ledger: with n
   assert.match(by, /Hugging Face/, 'once the day is used up, the free Space draws it');
   assert.ok(runs < 100, `Workers AI stopped at the image reserve (${runs} pictures, ~80 neurons each, 2,500 left over)`);
 });
+
+// PHOTO TOOLS (photo.ts, tools/photo.ts): the same free Spaces path for photos; its own file, run from here.
+await import('./photo.test.mjs');

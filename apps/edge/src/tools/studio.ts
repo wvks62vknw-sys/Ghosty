@@ -24,8 +24,8 @@ export function pictureIdOf(ref: string): string | null {
   return ref.match(/\/i\/([A-Za-z0-9_-]{16})(?![A-Za-z0-9_-])/)?.[1] ?? (isImageId(ref.trim()) ? ref.trim() : null);
 }
 
-/** A picture Ghosty made or the owner shared (/i/<id> link or bare id), or a public picture address. */
-async function pictureBytes(ref: string, kv: NonNullable<Parameters<Tool['run']>[1]['env']['SITES']>): Promise<ArrayBuffer> {
+/** A picture Ghosty made or the owner shared (/i/<id> link or bare id), or a public picture address (also photo_tool's). */
+export async function pictureBytes(ref: string, kv: NonNullable<Parameters<Tool['run']>[1]['env']['SITES']>): Promise<ArrayBuffer> {
   const id = pictureIdOf(ref);
   if (id) {
     const r = await imageResponse(kv, id);

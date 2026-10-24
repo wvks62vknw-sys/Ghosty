@@ -89,6 +89,7 @@ export const CLIENT_COMMANDS = [
   'open_learn',
   'design_changes',
   'home_plan',
+  'open_photo_tools',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 
