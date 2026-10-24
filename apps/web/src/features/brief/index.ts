@@ -122,7 +122,7 @@ export const briefTab: TabDef = {
     // THE COMMUTE: one line, home to work with the live traffic, only when both are saved (Memory → ME → PLACES).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
     commute.el.hidden = true;
-    P.left.append(dp.el, wp.el, commute.el);
+    P.left.append(dp.el, commute.el, wp.el);
     const paintCommute = async () => {
       try {
         const places = (await brain.places()).places ?? [];
@@ -130,6 +130,13 @@ export const briefTab: TabDef = {
         const work = places.find((p) => p.id === 'work');
         if (!home || !work) return void (commute.el.hidden = true);
         commute.el.hidden = false;
+        // Offline the phone would answer with the last drive it was told (kept for every read): an old "LIVE"
+        // time is not this morning's, so say it plainly instead.
+        if (navigator.onLine === false) {
+          commuteWords = '';
+          commute.setStatus('OFFLINE', 'off');
+          return void clear(commute.body, row('HOME → WORK', 'You’re offline: the drive time comes back with the connection.', null, { wrap: true }));
+        }
         commute.setStatus('…', 'mid');
         const c = await brain.commute(home, work);
         commuteWords = `${c.minutes} min to work${c.live && c.delayMin >= 5 ? `, ${c.delayMin} min of it traffic` : ''}`;
@@ -138,8 +145,11 @@ export const briefTab: TabDef = {
         clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }));
       } catch (e) {
         if (commute.el.hidden) return;
-        commute.setStatus('OFFLINE', 'off');
-        clear(commute.body, row('HOME → WORK', `Could not time it now: ${(e as Error).message}`, null, { wrap: true }));
+        commuteWords = '';
+        paintSay();
+        const msg = (e as Error).message;
+        commute.setStatus('CAN’T TIME IT', 'mid');
+        clear(commute.body, row('HOME → WORK', /no road route/i.test(msg) ? 'There’s no road route between home and work: check the two places in Memory → Me → Places.' : 'The drive can’t be timed right now. It tries again when you next open the Brief.', null, { wrap: true }));
       }
     };
     const np = panel('HEADLINES', { footer: true, status: 'BBC', cls: 'news' });

@@ -3488,6 +3488,10 @@ html #pg-brief .two > .hero .brsay { margin: 10px 0 0; max-width: 36em; font: 40
 html #pg-brief .two > .hero .brsay:empty { display: none; }
 html #pg-brief .two > .hero .bract { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
 html #pg-brief .two > .hero .bract button { height: 44px; min-height: 44px !important; padding: 0 20px; border-radius: 22px; }
+/* The commute: the whole line under its label (it was cut off after three lines in a narrow middle column). */
+html #pg-brief .pn.commute .rw.wrap { flex-wrap: wrap; row-gap: 4px; }
+html #pg-brief .pn.commute .rw.wrap .v { order: 3; flex: 1 1 100%; display: block; -webkit-line-clamp: unset; overflow: visible; }
+html #pg-brief .pn.commute .rw .v::first-letter { text-transform: uppercase; }
 /* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
 html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
 html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
