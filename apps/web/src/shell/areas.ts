@@ -15,7 +15,10 @@ import { THEMES } from '../state/theme';
 import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
-import { CARDS } from './hubcards';
+import { CARDS, hubFacts } from './hubcards';
+import { gymControl, gymState } from '../features/gym/index';
+import { schoolState } from '../features/school/index';
+import { offlineBrain } from '../offline/brain';
 
 export interface Area {
   id: string;
@@ -318,7 +321,9 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   const cap = h('div.tabcap', { role: 'tablist' });
   for (const a of AREAS.slice(0, 5)) {
     // data-id is the area's main tab, so hooks that look for #dock button[data-id="core"] or the agenda badge still find it.
-    const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, icon(a.icon), h('span', a.title));
+    // The glyph sits in a small reactor ring (lit on the tab he is in, flared on touch), with a live dot when
+    // something runs in that area right now (liveIn below).
+    const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, h('i.gi', h('i.halo'), icon(a.icon), h('i.live')), h('span', a.title));
     b.addEventListener('click', () => tap(a));
     cap.append(b);
   }
@@ -350,12 +355,45 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   };
   const paint = () => {
     const a = areaOf(ui.get().tab);
-    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) b.classList.toggle('on', b.dataset.area === a?.id);
+    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
+      b.classList.toggle('on', b.dataset.area === a?.id);
+      b.setAttribute('aria-selected', String(b.dataset.area === a?.id));
+    }
     you.classList.toggle('on', a?.id === 'me');
     (you.firstChild as HTMLElement).textContent = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
+    paintLive();
   };
+  // The live dots: what is running now, on the area it belongs to (read from the same state the hubs read).
+  const paintLive = () => {
+    const now = liveIn();
+    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
+      const why = now[b.dataset.area ?? ''] ?? '';
+      b.classList.toggle('live', !!why);
+      const area = AREAS.find((x) => x.id === b.dataset.area);
+      b.title = why ? `${area?.title ?? ''} · ${why}` : area?.title ?? '';
+    }
+    you.classList.toggle('live', !!now.me);
+    you.title = now.me ? `Me · ${now.me}` : 'Me';
+  };
+  ui.subscribe(paintLive);
+  offlineBrain.subscribe(paintLive);
+  setInterval(() => !document.hidden && paintLive(), 1500);
   paint();
   return paint;
+}
+
+/**
+ * What runs right now, by area (the tab bar's live dots): a reply being worked out (Ask), the GYM training or a paper
+ * being sat (Learn), a reverse report running (Make), the offline brain downloading (Me, on the avatar).
+ */
+export function liveIn(): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (ui.get().busy) out.ask = 'Ghosty is working on an answer';
+  if (gymState.training || gymControl?.allOn()) out.learn = 'the GYM is training';
+  else if (schoolState.sitting) out.learn = 'he is sitting a paper';
+  if (hubFacts.reverse?.some((j) => j.status === 'running')) out.make = 'a reverse report is running';
+  if (offlineBrain.get().busy === 'download') out.me = 'the offline brain is downloading';
+  return out;
 }
 
 /** "Good evening, Boss": the reactor screen's large title. */
