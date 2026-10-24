@@ -1,7 +1,7 @@
 /**
  * GOD'S EYE tab: the live globe. Search, sensor modes, layer toggles, target card,
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
- * to watch it, and a grid shows the four cameras nearest the view.
+ * to watch it, and while no card is open a grid shows the four cameras nearest the view.
  */
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -613,7 +613,8 @@ export const eyeTab: TabDef = {
     const paintGrid = () => {
       // where the view is going (not where a fly-to animation happens to be right now)
       const T = globe.cam.target;
-      const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && selected?.kind !== 'cam';
+      // Only while no card is open: on a phone the grid and a card share the same corner (the card's ASK GHOSTY and ✕ went under it).
+      const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && !selected;
       const near = show ? nearestCameras(T.lat, T.lon, 4, Math.max(30, T.range)) : [];
       grid.el.hidden = !near.length;
       const key = near.map((c) => c.id).join();
