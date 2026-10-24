@@ -90,7 +90,7 @@ export function describe(cfg: AppConfig): { does: string; saves: string } {
       const unit = o.money ? 'money' : o.unit;
       const goal = o.goal > 0 ? (o.money ? `£${fmt(o.goal)}` : `${fmt(o.goal)} ${o.unit}`) : '';
       const aim = !goal ? (o.mode === 'last' ? '' : ` ${o.period === 'week' ? 'each week' : 'each day'}`) : o.mode === 'last' ? ` against a target of ${goal}` : o.dir === 'limit' ? ` and keeps you under ${goal} ${per}` : ` towards ${goal} ${per}`;
-      return { does: `${o.mode === 'last' ? `Keeps a ${o.period === 'week' ? 'weekly' : 'daily'} reading of ${unit}` : `Adds up ${unit} ${per}`}${aim}, with ${o.period === 'week' ? 'this week' : 'today'}’s entries, the last 7 ${o.period === 'week' ? 'weeks' : 'days'} and a streak.${o.period === 'day' ? ' A new day starts at midnight.' : ''}`, saves: `Your entries, ${here}.` };
+      return { does: `${o.mode === 'last' ? `Keeps a ${o.period === 'week' ? 'weekly' : 'daily'} reading of ${unit}` : `Adds up ${unit}`}${aim}, with ${o.period === 'week' ? 'this week' : 'today'}’s entries, the last 7 ${o.period === 'week' ? 'weeks' : 'days'} and a streak.${o.period === 'day' ? ' A new day starts at midnight.' : ''}`, saves: `Your entries, ${here}.` };
     }
     case 'list': {
       const o = cfg.list!;

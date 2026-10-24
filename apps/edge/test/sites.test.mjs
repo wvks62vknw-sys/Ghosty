@@ -417,3 +417,6 @@ test('publishing through the agent: the reply always carries the link, the histo
 
 // The website kit and the website project (sitekit, sitebuild.ts).
 await import('./sitekit.test.mjs');
+
+// Mini-apps: the app kit and build_app (appkit, appbuild.ts), and how an app page is served.
+await import('./appkit.test.mjs');

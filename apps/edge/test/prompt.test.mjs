@@ -44,7 +44,7 @@ test('the prompt describes the groups a message turns on and names the rest, so 
   assert.match(sys, /show_cameras: the West Midlands motorways/, 'the traffic group is on: its about line is there');
   assert.match(sys, /say so plainly and show the nearest motorway camera/);
   assert.match(sys, /ALSO \(call by name; described next turn\):\n/);
-  assert.match(sys, /^sites: build_website, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
+  assert.match(sys, /^sites: build_website, build_app, study_site, publish_site, draft_site, list_sites, unpublish_site$/m, 'the sites group is off: named with its tools');
   assert.ok(!/DO IT, never reply/.test(sys), 'the website rule comes only with the sites group');
   assert.ok(!/TOOLS: only the tools that look relevant/.test(sys) && !/WHAT YOU CAN DO:/.test(sys), 'the old paragraph and name list are gone');
   const site = P.systemPrompt(client, [], false, [], { groups: T.selectGroups('make me a website for my bakery', new Set(), false) });
