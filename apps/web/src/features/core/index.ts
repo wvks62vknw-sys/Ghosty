@@ -19,6 +19,7 @@ import { navTo } from '../../shell/areas';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
+import { mindGlyph } from '../../ui/instruments';
 import { citedReply } from './cited';
 import { homeAfterReply, homeCard } from './homecard';
 import { routeCHome } from './home';
@@ -92,16 +93,33 @@ function replyActs(text: string): HTMLElement {
 
 const TICK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 /**
- * Route C's line over a reply: Ghosty's glyph, his name and the model that answered (as the brain named it),
- * and CITED when the answer is sourced.
+ * Route C's line over a reply: Ghosty's glyph (MIND in small, ui/instruments.ts), his name and the model that
+ * answered (as the brain named it), and CITED when the answer is sourced.
  */
 function whoLine(model: string | undefined, cited: boolean, where = ''): HTMLElement {
-  return h('div.rcwho', { dataset: { case: 'keep' } }, h('i.dot'), h('b', 'Ghosty'), model || where ? h('em', ` · ${model || where}`) : null,
+  return h('div.rcwho', { dataset: { case: 'keep' } }, mindGlyph(), h('b', 'Ghosty'), model || where ? h('em', ` · ${model || where}`) : null,
     cited ? h('span.rccited', icon(TICK), 'CITED') : null);
 }
 
+/**
+ * The reply's meta line (BRIEF-IRON-BUILD step 4), only what is known: how long the answer took (from the question's
+ * time to the reply's, both stamped on this phone or by the brain), and for a cited answer how many sources were
+ * really looked up and how many claims were checked. Nothing when none of it is known.
+ */
+function metaLine(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number): HTMLElement | null {
+  const took = askedAt && e.at > askedAt && e.at - askedAt < 600_000 ? (e.at - askedAt) / 1000 : null;
+  const parts: HTMLElement[] = [];
+  if (took != null) parts.push(h('span', h('b', took < 10 ? took.toFixed(1) : String(Math.round(took))), ' s'));
+  if (e.cited) {
+    const found = e.cited.citations.filter((c) => !c.missing).length;
+    parts.push(h('span', h('b', String(found)), found === 1 ? ' source' : ' sources'));
+    if (e.cited.checks.length) parts.push(h('span', h('b', String(e.cited.checks.length)), e.cited.checks.length === 1 ? ' claim' : ' claims'));
+  }
+  return parts.length ? h('div.rcmeta', { dataset: { case: 'keep' } }, ...parts) : null;
+}
+
 /** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
-function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+function plainReply(e: Extract<Entry, { kind: 'assistant' }>, askedAt?: number): HTMLElement {
   // A translation made on the phone with no signal: the language and "rough, offline", the translation, READ ALOUD in
   // that language's voice when the phone has one, and the honest note.
   if (e.offline && e.tr) {
@@ -114,9 +132,9 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   // Answered by the small model on the phone itself: one quiet chip says so.
   if (e.offline) return h('div.msg.off', whoLine(undefined, false, 'on your phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
-  if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
+  if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), metaLine(e, askedAt), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
 }
 
 /**
@@ -172,15 +190,15 @@ function renderThink(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   return box;
 }
 
-/** `q`: the question this reply answers, when it is the latest answer (it gets THINK HARDER). */
-function renderEntry(e: Entry, q?: string): HTMLElement {
+/** `q`: the question this reply answers, when it is the latest answer (it gets THINK HARDER); `askedAt`: when it was asked. */
+function renderEntry(e: Entry, q?: string, askedAt?: number): HTMLElement {
   switch (e.kind) {
     case 'user':
       // data-at: the Memory tab's "from your chat" opens the conversation here.
       return h('div.msg.me', { 'data-at': String(e.at) }, h('small', settings.get().name.toUpperCase()), h('span', e.text));
     case 'assistant': {
       if (e.think) return renderThink(e);
-      const el = plainReply(e);
+      const el = plainReply(e, askedAt);
       // A website built on the phone: PREVIEW / SAVE FILE / PUBLISH (sitecard.ts).
       if (e.site) el.append(siteRow(e.site));
       // Route C: the reply card's one row — 👍 / 👎, copy, listen, then THINK HARDER on the right.
@@ -502,8 +520,11 @@ export const coreTab: TabDef = {
         if (run) els.push(stepsLine(run.acts, run.rows, openSteps));
         run = null;
       };
+      // when the question a reply answers was asked (its meta line's time)
+      let askedAt = 0;
       shown.forEach((e, i) => {
         const at = 'at' in e ? e.at : 0;
+        if (e.kind === 'user') askedAt = e.at;
         if (at) {
           const d = new Date(at);
           const k = d.toDateString();
@@ -522,7 +543,8 @@ export const coreTab: TabDef = {
           return;
         }
         flush();
-        els.push(renderEntry(e, i === last ? q : undefined));
+        els.push(renderEntry(e, i === last ? q : undefined, e.kind === 'assistant' ? askedAt || undefined : undefined));
+        if (e.kind === 'assistant') askedAt = 0;
       });
       flush();
       clear(log, ...els);
