@@ -174,7 +174,7 @@ export const DECK: Record<string, DeckScreen> = {
     promise: 'Everything he has read, searchable offline',
     can: [
       { text: 'Add books and PDFs for him to read', act: { open: 'library', panel: 'ADD KNOWLEDGE' } },
-      { text: 'Search it: answers with no AI used', act: { open: 'library', panel: 'ASK THE LIBRARY' } },
+      { text: 'Search it by meaning or by keywords', act: { open: 'library', panel: 'ASK THE LIBRARY' } },
       { text: 'Fresh today: the news and papers he gathered', act: { open: 'library', panel: 'FRESH TODAY' } },
       { text: 'See what he is studying by himself', act: { open: 'library', panel: 'SELF-STUDY' } },
     ],

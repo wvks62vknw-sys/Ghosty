@@ -7,7 +7,8 @@ import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
-import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
+import { keepForever, meaningPossible, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocalHow, shelf, syncLocalDocs } from '../library/local';
+import { interleave, type SearchHow } from '../../../../packages/shared/src/meaning';
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
@@ -316,7 +317,7 @@ export const brain = {
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
   library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
-  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[] }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
+  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
@@ -526,14 +527,26 @@ export function mirrorLibraryNow(): Promise<void> {
   })();
   return mirrorRun;
 }
+/**
+ * ASK THE LIBRARY: the brain's search with the phone's copy. `how` is what the small print says: "meaning" only
+ * when the phone ranked by meaning (SEARCH BY MEANING here and its index whole, library/meaning.ts), else
+ * "keywords" (the brain's own search finds passages by their words too).
+ */
 brain.librarySearch = async (q, k = 8) => {
   try {
     const r = await raw.librarySearch(q, k);
+    const paused = !!(r as { paused?: boolean }).paused;
+    // By meaning: the phone searches its whole copy, and takes turns with the brain's results (which also hold
+    // what the phone does not keep, such as Ghosty's reading notebooks).
+    if (meaningPossible()) {
+      const mine = await searchLocalHow(q, k);
+      if (mine.how === 'meaning') return { hits: interleave(mine.hits, paused ? [] : r.hits, k), how: mine.how };
+    }
     // The brain has every document it was sent; add the ones only this device has (all of them while paused).
-    const local = await searchLocal(q, k, !(r as { paused?: boolean }).paused);
-    return { hits: [...local, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k) };
+    const local = await searchLocalHow(q, k, !paused);
+    return { hits: [...local.hits, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k), how: 'keywords' as SearchHow };
   } catch (e) {
-    if (unreachable(e)) return { hits: await searchLocal(q, k) };
+    if (unreachable(e)) return searchLocalHow(q, k);
     throw e;
   }
 };
