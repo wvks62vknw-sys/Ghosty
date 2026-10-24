@@ -88,6 +88,21 @@ export async function keepPlace(storage: DurableObjectStorage, c: PlaceCandidate
   return list;
 }
 
+/**
+ * UNDO (Memory → ME → PLACES): a place put back exactly as it was — its date and its place in the list — after a
+ * FORGET, or the old one back after KEEP IT replaced it.
+ */
+export async function restorePlace(storage: DurableObjectStorage, p: SavedPlace, index: number): Promise<SavedPlace[]> {
+  if (!okCandidate(p) || !Number.isFinite(p.at)) throw new Error('that place has no position on the map');
+  const l = placeLabel(p.label || p.id)!;
+  const place: SavedPlace = { id: l.id, label: l.label, query: String(p.query ?? '').slice(0, 200), address: p.address.slice(0, 200), lat: Math.round(p.lat * 1e6) / 1e6, lon: Math.round(p.lon * 1e6) / 1e6, at: Math.min(p.at, Date.now()) };
+  const list = (await loadPlaces(storage)).filter((x) => x.id !== place.id);
+  if (list.length >= MAX_PLACES) throw new Error(`that's ${MAX_PLACES} places already: forget one first`);
+  list.splice(Math.max(0, Math.min(Number.isInteger(index) ? index : list.length, list.length)), 0, place);
+  await storage.put(PLACES_KEY, list);
+  return list;
+}
+
 export async function forgetPlace(storage: DurableObjectStorage, words: string): Promise<SavedPlace | null> {
   const list = await loadPlaces(storage);
   const gone = matchPlace(words, list) ?? list.find((p) => p.id === words.trim().toLowerCase()) ?? null;
@@ -109,7 +124,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
 
 /**
  * Memory → ME → PLACES: GET /profile/places → { places }; POST /profile/places/find { label, query } → { found }
- * (nothing kept yet); POST /profile/places { found } → { places } (kept: his yes); DELETE /profile/places?id= → { places }.
+ * (nothing kept yet); POST /profile/places { found } → { places } (kept: his yes; with `at` and `index`, an UNDO: back exactly as it was); DELETE /profile/places?id= → { places }.
  */
 export async function placesRoute(req: Request, path: string, method: string, url: URL, storage: DurableObjectStorage): Promise<Response> {
   if (path === '/profile/places' && method === 'GET') return json({ places: await loadPlaces(storage) });
@@ -123,9 +138,11 @@ export async function placesRoute(req: Request, path: string, method: string, ur
     }
   }
   if (path === '/profile/places' && method === 'POST') {
-    const b = (await req.json().catch(() => ({}))) as { found?: PlaceCandidate };
+    const b = (await req.json().catch(() => ({}))) as { found?: PlaceCandidate; at?: number; index?: number };
     if (!okCandidate(b.found)) return json({ error: 'find the place on the map first' }, 400);
     try {
+      // UNDO: { found, at, index } puts a place back exactly as it was
+      if (typeof b.at === 'number') return json({ places: await restorePlace(storage, { ...b.found, at: b.at }, Number(b.index)) });
       return json({ places: await keepPlace(storage, b.found) });
     } catch (e) {
       return json({ error: (e as Error).message }, 400);

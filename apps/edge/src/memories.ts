@@ -162,7 +162,8 @@ export async function timeline(deps: Pick<ProfileDeps, 'storage' | 'library'>): 
 interface Forgotten {
   id: string;
   gone: number;
-  profile?: { section: ProfileSection; text: string; meta?: LineMeta };
+  /** `i`: where it stood in its section, so UNDO puts it back in its place. */
+  profile?: { section: ProfileSection; text: string; i?: number; meta?: LineMeta };
   fact?: MemoryFact;
   /** FORGET EVERYTHING, or a chat's "forget …" that matched several: the facts that went at once (the locked ones stay). */
   facts?: MemoryFact[];
@@ -231,7 +232,7 @@ export async function changeMemory(deps: Pick<ProfileDeps, 'storage' | 'library'
     const old = profile.sections[at.section][at.i]!;
     const m: LineMeta = meta[key] ?? { at: profile.updatedAt || now, src: { kind: 'unknown', at: profile.updatedAt || now } };
     if (op === 'forget') {
-      await stash(storage, { id, gone: now, profile: { section: at.section, text: old, ...(meta[key] ? { meta: meta[key] } : {}) } });
+      await stash(storage, { id, gone: now, profile: { section: at.section, text: old, i: at.i, ...(meta[key] ? { meta: meta[key] } : {}) } });
       profile.sections[at.section].splice(at.i, 1);
       delete meta[key];
     } else if (op === 'edit') {
@@ -356,7 +357,9 @@ async function restore(deps: Pick<ProfileDeps, 'storage' | 'library'>, id: strin
   if (f.profile) {
     const profile = await loadProfile(storage);
     const meta = await loadLineMeta(storage);
-    if (!findLine(profile, lineKey(f.profile.text))) profile.sections[f.profile.section].push(f.profile.text);
+    // back in its place in its section (an older copy without one goes at the end)
+    const list = profile.sections[f.profile.section];
+    if (!findLine(profile, lineKey(f.profile.text))) list.splice(Math.min(f.profile.i ?? list.length, list.length), 0, f.profile.text);
     if (f.profile.meta) meta[lineKey(f.profile.text)] = f.profile.meta;
     await saveProfile(storage, profile);
     await saveLineMeta(storage, meta, PROFILE_SECTIONS.flatMap((s) => profile.sections[s]));

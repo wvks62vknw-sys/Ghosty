@@ -333,7 +333,8 @@ export const brain = {
   /** Memory → ME → PLACES (places.ts): his saved places; FIND shows what the map found, KEEP is his yes. */
   places: () => req<{ places: SavedPlace[] }>('GET', '/profile/places'),
   placeFind: (label: string, query: string) => req<{ found: PlaceCandidate }>('POST', '/profile/places/find', { label, query }),
-  placeKeep: (found: PlaceCandidate) => req<{ places: SavedPlace[] }>('POST', '/profile/places', { found }),
+  /** `back` (UNDO): the place put back exactly — its date and its place in the list. */
+  placeKeep: (found: PlaceCandidate, back?: { at: number; index: number }) => req<{ places: SavedPlace[] }>('POST', '/profile/places', { found, ...back }),
   placeForget: (id: string) => req<{ places: SavedPlace[]; removed: boolean }>('DELETE', `/profile/places?id=${encodeURIComponent(id)}`),
   /** The Brief's commute: the drive between two points now (live traffic with the TomTom key). */
   commute: (from: { lat: number; lon: number }, to: { lat: number; lon: number }) =>

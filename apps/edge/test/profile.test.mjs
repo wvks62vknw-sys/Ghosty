@@ -916,3 +916,28 @@ test('the chat\'s forget keeps what it removed a day for UNDO (one fact as itsel
   await P.changeMemory({ storage, library: lib }, gone[0].id, 'restore');
   assert.deepEqual(await storage.get('memory'), before, 'every fact back exactly as it was');
 });
+
+test('UNDO puts things back exactly: a line in its place in its section; a place with its date and in its place in the list', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  const deps = { storage: st, library: lib, ai: async () => '' };
+  for (const text of ['tea', 'rain on the window', 'jazz on Sundays']) await route('/profile', 'POST', { section: 'likes', text }, deps);
+  const before = (await P.loadProfile(st)).sections.likes;
+  await P.changeMemory(deps, 'p:rain on the window', 'forget');
+  assert.deepEqual((await P.loadProfile(st)).sections.likes, ['tea', 'jazz on Sundays']);
+  await P.changeMemory(deps, 'p:rain on the window', 'restore');
+  assert.deepEqual((await P.loadProfile(st)).sections.likes, before, 'back in the middle, where it was');
+  // places: FORGET then UNDO, and KEEP IT over an old home then UNDO
+  const home = { id: 'home', label: 'Home', query: '12 Acacia Avenue', address: '12, Acacia Avenue, B13 9XX', lat: 52.4351, lon: -1.8912 };
+  const work = { id: 'work', label: 'Work', query: 'B15 2TT', address: 'B15 2TT, Edgbaston', lat: 52.4531, lon: -1.9416 };
+  await route('/profile/places', 'POST', { found: home }, deps);
+  await route('/profile/places', 'POST', { found: work }, deps);
+  const saved = await P.places.loadPlaces(st);
+  const old = saved[0];
+  await route('/profile/places?id=home', 'DELETE', undefined, deps);
+  const back = await (await route('/profile/places', 'POST', { found: old, at: old.at, index: 0 }, deps)).json();
+  assert.deepEqual(back.places, saved, 'home first again, with the date it was saved');
+  await route('/profile/places', 'POST', { found: { ...home, address: '1 New Road', lat: 52.1, lon: -1.8 } }, deps);
+  const undone = await (await route('/profile/places', 'POST', { found: old, at: old.at, index: 0 }, deps)).json();
+  assert.deepEqual(undone.places, saved, 'the old home back exactly after a new one replaced it');
+});
