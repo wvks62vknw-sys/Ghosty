@@ -3192,8 +3192,8 @@ html[data-look="pro"] .empty b[data-label]::before { font-weight: 600; line-heig
 html[data-look="pro"] .empty span { --lfs: 15px; display: block; max-width: 300px; font: 400 15px/20px var(--sf); color: var(--ink3); }
 html[data-look="pro"] .empty span[data-label]::before { line-height: 20px; }
 html[data-look="pro"] .empty.bad b { color: var(--amber); }
-html[data-look="pro"] .empty.wait b::after { content: ''; display: block; width: 44px; height: 3px; margin: 10px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(var(--cr), .8), transparent) 0 0 / 200% 100%; animation: rcload 1.2s linear infinite; }
-@keyframes rcload { to { background-position: -200% 0; } }
+html[data-look="pro"] .empty.wait b::after { content: ''; display: block; width: 44px; height: 3px; margin: 10px auto 0; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(var(--cr), .85), transparent); animation: rcload 1.2s ease-in-out infinite; }
+@keyframes rcload { 0%, 100% { opacity: .25; transform: scaleX(.6); } 50% { opacity: 1; transform: scaleX(1); } }
 
 /* ---------- offline: one quiet amber line above the tab bar (Home has its own pill) ---------- */
 html[data-look="pro"] body.offline:not([data-tab="core"]) #rcoffline { display: flex; align-items: center; gap: 8px; position: fixed; z-index: 40; left: 50%; bottom: calc(64px + 24px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))); transform: translateX(-50%); max-width: calc(100% - 32px); width: max-content; min-height: 36px; padding: 8px 14px; border-radius: 18px; font: 400 13px/18px var(--sf); color: var(--ink2); background: rgba(30,27,22,.82); box-shadow: inset 0 0 0 1px rgba(var(--amberr), .28), 0 12px 30px rgba(0,0,0,.45); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); pointer-events: none; animation: rcrise var(--rcsp) var(--spring) both; }
@@ -3241,7 +3241,7 @@ html[data-look="pro"] .pn .bar, html[data-look="pro"] .modal .bar { display: gri
 html[data-look="pro"] .pn .bar > span, html[data-look="pro"] .modal .bar > span { --lfs: 15px; grid-column: 1; grid-row: 1; width: auto; color: var(--ink); text-transform: none; letter-spacing: -.12px; }
 html[data-look="pro"] .pn .bar > b, html[data-look="pro"] .modal .bar > b { grid-column: 2; grid-row: 1; width: auto; font: 400 13px/18px var(--sf); color: var(--ink3); text-align: right; font-variant-numeric: tabular-nums; }
 html[data-look="pro"] .pn .bar > .gauge, html[data-look="pro"] .modal .bar > .gauge { grid-column: 1 / -1; grid-row: 2; height: 4px; border-radius: 2px; background: rgba(255,255,255,.09); overflow: hidden; }
-html[data-look="pro"] .pn .bar > .gauge i, html[data-look="pro"] .modal .bar > .gauge i { border-radius: 2px; background: rgba(235,240,245,.62) !important; transition: width .6s var(--spring); }
+html[data-look="pro"] .pn .bar > .gauge i, html[data-look="pro"] .modal .bar > .gauge i { border-radius: 2px; background: rgba(235,240,245,.62) !important; }
 /* a button that is a switch (role=switch, aria-checked): its words, then an iOS knob */
 html[data-look="pro"] button[role="switch"].rcswitch { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 52px; min-height: 52px !important; padding: 0 70px 0 16px; border-radius: 16px; color: var(--ink) !important; background: rgba(255,255,255,.055) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; text-align: left; }
 html[data-look="pro"] button[role="switch"].rcswitch[data-label]::before { --lfs: 17px; font-weight: 500; letter-spacing: -.25px; }
@@ -3840,4 +3840,42 @@ html[data-look="pro"] .pn.school button.schnightly::before { content: 'Nightly r
 html[data-look="pro"] .pn.school button.schnightly::after { content: ''; position: absolute; right: 12px; top: 50%; width: 51px; height: 31px; margin-top: -15.5px; border-radius: 16px; background: rgba(120,120,128,.32) radial-gradient(circle at 15.5px 50%, #fff 0 13.5px, transparent 14px); transition: background .3s var(--spring); }
 html[data-look="pro"] .pn.school button.schnightly[aria-checked="true"]::after { background: var(--c) radial-gradient(circle at 35.5px 50%, #fff 0 13.5px, transparent 14px); }
 html[data-look="pro"] .pn.school button.schnightly:active { transform: none; }
+/* ---------- the "Every screen" deck (shell/launcher.ts): tinted-glass tiles with their names, grouped by area ---------- */
+html[data-look="pro"] #deck .dtile { background: none !important; box-shadow: none !important; outline: 0; -webkit-tap-highlight-color: transparent; }
+html[data-look="pro"] #deck .dtile:focus-visible .ic { outline: 2px solid var(--c); outline-offset: 3px; }
+html[data-look="pro"] #deck .dtitle { display: flex; flex-direction: column; gap: 2px; }
+html[data-look="pro"] #deck .dtitle::before { content: 'Every screen'; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
+html[data-look="pro"] #deck .dtitle span { font: 700 30px/36px var(--sfd); letter-spacing: -.4px; color: var(--ink); }
+html[data-look="pro"] #deck .dclose { border-radius: 22px; background: rgba(255,255,255,.075) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #deck .dsec { margin: 14px 4px -2px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
+html[data-look="pro"] #deck .dsec:first-child { margin-top: 0; }
+html[data-look="pro"] #deck .dtiles { gap: 16px 8px; }
+html[data-look="pro"] #deck .dtile .ic { width: 60px; height: 60px; padding: 15px; border-radius: 18px; stroke: color-mix(in srgb, var(--tint) 55%, #fff); background: linear-gradient(160deg, color-mix(in srgb, var(--tint) 30%, rgba(255,255,255,.07)), color-mix(in srgb, var(--tint) 12%, rgba(10,12,14,.6))) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 34%, transparent), inset 0 1px 0 rgba(255,255,255,.14), 0 10px 24px -12px color-mix(in srgb, var(--tint) 70%, transparent) !important; transition: transform var(--rcsp) var(--spring); }
+html[data-look="pro"] #deck .dtile.on .ic { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 34%, transparent), 0 0 0 2.5px #050607, 0 0 0 4px rgba(235,240,245,.8) !important; }
+html[data-look="pro"] #deck .dtile b { margin-top: 1px; font: 500 12px/15px var(--sf); color: var(--ink); }
+html[data-look="pro"] #deck .dtile b[data-label]::before { --lfs: 12px; font-weight: 500; }
+/* ---------- motion: springs for pushes and sheets (response 0.35–0.5 s, damping 0.85), transform and opacity only so
+   the phone draws them at 120 Hz; the breathing glow stays on Home alone; reduced motion cross-fades instead ---------- */
+html[data-look="pro"][data-nav="push"] .pg.on { animation: rcpush .5s var(--spring) backwards; }
+html[data-look="pro"][data-nav="pop"] .pg.on { animation: rcpop .45s var(--spring) backwards; }
+@keyframes rcpush { from { opacity: .4; transform: translate3d(28%, 0, 0); } }
+@keyframes rcpop { from { opacity: .4; transform: translate3d(-18%, 0, 0); } }
+html[data-look="pro"] .listmode .pn.pushed { animation: rcpush .45s var(--spring) both; }
+html[data-look="pro"] #mesheet { animation: rcfade .3s ease-out both; }
+html[data-look="pro"] #mesheet .mebox { animation: rcsheet .5s var(--spring) both; }
+html[data-look="pro"] .modal { animation: rcfade .25s ease-out both; }
+html[data-look="pro"] .modal .mbox { animation: rcsheet2 .45s var(--spring) both; }
+@keyframes rcsheet { from { transform: translate3d(0, 100%, 0); } }
+@keyframes rcsheet2 { from { opacity: 0; transform: translate3d(0, 48px, 0) scale(.98); } }
+@keyframes rcfade { from { opacity: 0; } }
+/* a tap presses what it lands on, a little */
+html[data-look="pro"] :is(#pg-library .pn.shelf .rw.link, #pg-library .studyfields .bar, #pg-learn button.learncourse, #pg-learn button.learnbig, #pg-learn button.learnlesson, #pg-radio .rw.station, #pg-brief .pn.news .rw.link, #pg-threats .pn.signals .rw.link, #pg-markets .pn.coins .rw.link, #pg-workshop .change.project > .rw.open, #deck .dtile) { transition: transform var(--rcsp) var(--spring); }
+html[data-look="pro"] :is(#pg-library .pn.shelf .rw.link, #pg-library .studyfields .bar, #pg-learn button.learncourse, #pg-learn button.learnbig, #pg-radio .rw.station, #pg-brief .pn.news .rw.link, #pg-threats .pn.signals .rw.link, #pg-markets .pn.coins .rw.link):active { transform: scale(.985); }
+/* the only breathing thing is Home's glow */
+html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  html[data-look="pro"] :is(.pg.on, .listmode .pn.pushed, #mesheet .mebox, .modal .mbox) { animation: rcfade .2s ease-out both !important; }
+  html[data-look="pro"] :is(#pg-library .pn.shelf .rw.link, #pg-library .studyfields .bar, #pg-learn button.learncourse, #pg-learn button.learnbig, #pg-radio .rw.station, #pg-brief .pn.news .rw.link, #pg-threats .pn.signals .rw.link, #pg-markets .pn.coins .rw.link):active { transform: none; }
+  html[data-look="pro"] #pg-radio .npart .eq i { transform: scaleY(.6); }
+}
 /* end route C part 2 */
