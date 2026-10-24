@@ -326,4 +326,14 @@ export const stopwatch = {
     }
     return null;
   },
+
+  /** The newest `n` round trips timed on this phone, oldest first, in ms (the Ask hub's uplink trace). */
+  trips(n = 12): number[] {
+    const out: number[] = [];
+    for (let i = samples.length - 1; i >= 0 && out.length < n; i--) {
+      const s = samples[i]!;
+      if (s.k === 'trip') out.push(s.ms);
+    }
+    return out.reverse();
+  },
 };
