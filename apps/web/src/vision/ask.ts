@@ -33,9 +33,11 @@ export const NO_VISION = /can'?t see pictures|no vision model|cannot see (the |t
 export interface AskExtras {
   seen?: string;
   scan?: string;
+  /** Not shown in the chat on screen (the Lens's NAME IT and WHAT'S IN IT: their answer is JSON, made into a card). */
+  quiet?: boolean;
 }
 
-const push = (e: Entry) => chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
+const pushAll = (e: Entry) => chat.set((s) => ({ entries: [...s.entries, e].slice(-120) }));
 
 function context(): Record<string, unknown> {
   const now = new Date();
@@ -60,6 +62,9 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
   if (!question) return { ...out, error: 'Ask something first' };
   const seen = (extras.seen ?? '').trim().slice(0, 1500);
   const scan = (extras.scan ?? '').trim().slice(0, 6000);
+  const push = (e: Entry) => {
+    if (!extras.quiet) pushAll(e);
+  };
   const recent = chat
     .get()
     .entries.filter((e): e is Extract<Entry, { kind: 'user' | 'assistant' }> => e.kind === 'user' || e.kind === 'assistant')
@@ -77,7 +82,7 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
       case 'text':
         texts.push(ev.text);
         push({ kind: 'assistant', text: ev.text, at: Date.now() });
-        chat.set({ live: ev.text });
+        if (!extras.quiet) chat.set({ live: ev.text });
         break;
       case 'client':
         void run(ev.name, ev.args);
@@ -91,7 +96,7 @@ export async function askWithImage(text: string, dataUrl: string | null, onEvent
         break;
       case 'done':
         out.model = ev.model;
-        chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && !e.model ? { ...e, model: ev.model } : e)) }));
+        if (!extras.quiet) chat.set((s) => ({ entries: s.entries.map((e) => (e.kind === 'assistant' && !e.model ? { ...e, model: ev.model } : e)) }));
         break;
     }
   };

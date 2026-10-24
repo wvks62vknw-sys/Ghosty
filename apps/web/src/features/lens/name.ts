@@ -7,6 +7,10 @@
  * SEARCH THE WEB (words only). The namer loads on the first use of this mode and is freed on
  * leaving it (vision/clip.ts). These are guesses — the closest names, not facts — and people are
  * only ever "person", "man", "woman", "child": nobody is identified.
+ *
+ * LIVING THING (living.ts) names a plant, a bird, an insect or another living thing properly: a
+ * plant by Pl@ntNet, the rest by Ghosty's model that can see, on a tap (lit up when the closest
+ * names are unsure). Nothing is kept unless SAVE is pressed on its card.
  */
 import { clear, h } from '../../core/dom';
 import { bar, button, toast } from '../../ui/components';
@@ -15,10 +19,15 @@ import { cropCanvas, loadImageFile } from '../../vision/camera';
 import { EXTENDED_SIZE, NAMER_SIZE, namer } from '../../vision/clip';
 import { namesLine, tapSquare, type NameGuess } from '../../vision/clipmath';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { createLiving } from './living';
+import { ASKED_KINDS, type AskedKind } from '../../../../../packages/shared/src/living';
 
 /** How often the live picture is named, at most (the encoder takes ~0.3–1 s on a phone). */
 const EVERY_MS = 700;
 const MORE_KEY = 'ghosty.lens.morenames';
+/** Under this share the closest name is unsure: LIVING THING lights up. */
+const UNSURE = 0.35;
+const KIND_LABEL: Record<AskedKind, string> = { plant: 'PLANT', bird: 'BIRD', insect: 'INSECT', other: 'OTHER' };
 
 const morePref = (): boolean => {
   try {
@@ -80,9 +89,32 @@ export function createNameMode(L: LensContext): Mode {
   whole.hidden = true;
   const more = button('MORE NAMES', () => void toggleMore());
   more.setAttribute('aria-label', `More names: 28,000 extra, ${EXTENDED_SIZE} once`);
+  const living = createLiving(L);
+  const kinds = h('div.row.wrap.livingkinds', h('small.livinghead', 'IS IT A'));
+  kinds.hidden = true;
+  for (const k of ASKED_KINDS) {
+    kinds.append(
+      button(KIND_LABEL[k], () => {
+        const pic = pictureNow();
+        if (!pic) return void toast('No picture: START the camera or PICK PHOTO', 'warn');
+        kinds.hidden = true;
+        void living.nameIt(k, pic);
+      }, k === 'plant' ? 'warn' : ''),
+    );
+  }
+  const livingBtn = button('LIVING THING', () => {
+    kinds.hidden = !kinds.hidden;
+    if (!kinds.hidden) kinds.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  });
+  livingBtn.setAttribute('aria-label', 'Living thing: name a plant, bird or insect properly');
+  const unsure = h('div.note', "Not sure? LIVING THING names a plant (Pl@ntNet) or a bird or an insect (Ghosty's model).");
+  unsure.hidden = true;
   const hint = h('div.note', `Names what is in view from 4,624 everyday things (about 33,000 with MORE NAMES), on the phone. Tap the picture to name just that part; tap a name to ask Ghosty or search the web. These are the closest names, not certainties. The first use loads the namer (${NAMER_SIZE}, once).`);
   const root = h('div.stackf',
-    h('div.row.wrap', button('PICK PHOTO', () => file.click()), live, whole, more),
+    h('div.row.wrap', button('PICK PHOTO', () => file.click()), live, whole, more, livingBtn),
+    kinds,
+    living.el,
+    unsure,
     progress,
     list,
     card,
@@ -100,6 +132,9 @@ export function createNameMode(L: LensContext): Mode {
   /** The names and the tapped square over the picture; the names in the state a test (and describe()) reads. */
   const paint = () => {
     S.names = names;
+    const doubt = names.length > 0 && (names[0]?.p ?? 0) < UNSURE;
+    livingBtn.classList.toggle('on', doubt);
+    unsure.hidden = !doubt || !living.el.hidden;
     L.lines(namesLine(names, 2), focus ? 'tapped part' : '');
     if (!L.overlay()) return;
     if (focus) L.drawBox(focus, names[0] ? `${names[0].label} ${Math.round(names[0].p * 100)}%` : '', { on: true });
@@ -308,6 +343,9 @@ export function createNameMode(L: LensContext): Mode {
       chosen = '';
       card.hidden = true;
       reply.hidden = true;
+      kinds.hidden = true;
+      unsure.hidden = true;
+      living.clear();
       live.hidden = true;
       whole.hidden = true;
       progress.hidden = true;

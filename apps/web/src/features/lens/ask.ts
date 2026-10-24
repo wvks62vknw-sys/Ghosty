@@ -6,6 +6,8 @@
  * can mark them as data about the picture rather than the owner's words. If no model that sees
  * pictures is reachable, Ghosty can still answer from the note — and the Lens offers DESCRIBE
  * WITH WHAT I CAN SEE HERE, which sends only words.
+ *
+ * WHAT'S IN IT? (living.ts): the foods on a plate with a rough total — guessed portions, said so.
  */
 import { clear, h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
@@ -15,6 +17,7 @@ import { toJpegDataUrl } from '../../vision/camera';
 import { namesSeen, type NameGuess } from '../../vision/clipmath';
 import { classifier, nextStamp } from '../../vision/models';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { createLiving } from './living';
 
 const EXAMPLES = ['What is this?', 'Is this edible?', 'Translate this sign'];
 
@@ -29,7 +32,16 @@ export function createAskMode(L: LensContext): Mode {
   let busy = false;
 
   const q = h('textarea.lensq', { rows: 2, placeholder: 'What is this? / Is this edible? / Translate this sign', 'aria-label': 'Your question about the picture' });
-  const chips = h('div.lenschips', ...EXAMPLES.map((e) => button(e, () => (q.value = e))));
+  const living = createLiving(L);
+  const food = button("WHAT'S IN IT?", () => {
+    const still = pendingStill ?? lastStill ?? L.still(1024);
+    if (!still) return void toast('No picture: START the camera first', 'warn');
+    lastStill = still;
+    L.showStill(still);
+    void living.whatsInIt(still);
+  }, 'on');
+  food.setAttribute('aria-label', "What's in it: the foods in the picture and a rough total");
+  const chips = h('div.lenschips', ...EXAMPLES.map((e) => button(e, () => (q.value = e))), food);
   const askBtn = button('ASK GHOSTY', () => void ask(), 'warn');
   const replyModel = h('small');
   const replyText = h('div');
@@ -40,7 +52,7 @@ export function createAskMode(L: LensContext): Mode {
   const fallbackNote = h('div.note', "Ghosty's brain could not look at the picture: none of the models it can reach sees pictures right now (a free Gemini key in the System tab fixes that). This sends only words: the labels, scene and text the phone itself found.");
   fallbackNote.hidden = true;
   const note = h('div.note', "ASK GHOSTY sends one picture (a JPEG of at most 1024 px) and your question to Ghosty's brain, which needs a model that can see pictures: your Gemini key or Workers AI on your Cloudflare account — never an open endpoint. What the phone itself saw goes along as a separate note. Nothing is sent before you press it.");
-  const root = h('div.stackf', q, chips, h('div.row', askBtn), note, reply, fallback, fallbackNote);
+  const root = h('div.stackf', q, chips, h('div.row', askBtn), living.el, note, reply, fallback, fallbackNote);
 
   const showReply = (text: string, model: string) => {
     reply.hidden = false;
@@ -144,6 +156,8 @@ export function createAskMode(L: LensContext): Mode {
       else if (S.camera === 'on') L.status('type a question, then ASK GHOSTY', 'ok');
     },
     leave() {
+      living.clear();
+      lastStill = null;
       L.showStill(null);
       pendingStill = null;
       pendingText = '';

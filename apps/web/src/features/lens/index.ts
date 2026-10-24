@@ -28,6 +28,7 @@ import { createAimMode } from './aim';
 import { createAskMode } from './ask';
 import { openCrop } from './crop';
 import { createHandsMode } from './hands';
+import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import { createReadMode } from './read';
@@ -59,6 +60,8 @@ export interface LensState {
   hand: string;
   lastAction: string;
   reply: string;
+  /** NAME IT's or WHAT'S IN IT's card (living.ts): what it is and its words. */
+  card: LensCard;
   error: string;
   setMode?: (m: LensMode) => void;
 }
@@ -157,6 +160,7 @@ export const lensState: LensState = {
   hand: '',
   lastAction: '',
   reply: '',
+  card: { what: '', text: '' },
   error: '',
 };
 
@@ -528,6 +532,7 @@ export const lensTab: TabDef = {
         if (S.scene.length) bits.push(`scene: ${sceneLine(S.scene)}`);
         if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
         if (S.gesture) bits.push(`gesture: ${S.gesture}`);
+        if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, 200)}`);
         return `${bits.join('; ')}.`;
       },
     };
