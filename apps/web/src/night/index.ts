@@ -197,10 +197,17 @@ async function studyGo(now: number): Promise<void> {
   }
 }
 
-/** Stop what runs on the phone (the brain's part goes on by itself). */
+/** TRAIN ALL was started by Night School (the owner's own TRAIN ALL by day is never stopped by it). */
+let gymOurs = false;
+const gymStop = () => {
+  if (gymOurs && gymControl?.allOn()) gymControl.stopAll();
+  gymOurs = false;
+};
+
+/** Stop what Night School runs on the phone (the brain's part goes on by itself). */
 function stopParts(): void {
   schoolEnd();
-  if (gymControl?.allOn()) gymControl.stopAll();
+  gymStop();
 }
 
 // ---- the clock -----------------------------------------------------------------------------------------------------
@@ -270,9 +277,12 @@ export async function tick(): Promise<void> {
     if (Object.keys(from).length) run = { ...run, gym: { ...run.gym, to: Object.fromEntries(Object.keys(from).map((id) => [id, levels[id]?.level ?? from[id]!])), mastered: Object.keys(from).filter((id) => levels[id]?.mastered) } };
     night.set({ run, state: run.part === 'done' ? 'done' : 'running', why: schoolHold && run.part === 'school' ? schoolHold : '' });
     if (run.part !== 'school') schoolEnd();
-    if (run.part !== 'gym' && gymControl?.allOn()) gymControl.stopAll();
+    if (run.part !== 'gym') gymStop();
     if (run.part === 'school') void schoolGo();
-    if (run.part === 'gym') gymControl?.startAll();
+    if (run.part === 'gym' && gymControl && !gymControl.allOn()) {
+      gymControl.startAll();
+      gymOurs = true;
+    }
     if (run.part === 'study') await studyGo(now);
     // the screen held on, dimmed, while there is work; tonight's plan finished: let go
     holdScreen(run.part !== 'done');
