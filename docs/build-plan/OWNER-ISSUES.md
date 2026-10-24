@@ -270,3 +270,9 @@ Add to it any time; tick items off only when he agrees they are fixed.
     reactor anymore either so". Read as: yes to the navigation (every tool its own screen, hubs on one screen, the long
     press); yes to a boot cinematic, but no status readouts, more cinematic, and built around MIND (the hologram of his
     mind, item 27), not a reactor core. The theme name Reactor is only a colour's name; nothing on screen is a reactor.
+
+46. **His question (25 Oct ~00:00 UK):** "is there not a way to have the big brain without having it straining my phones
+    memory? or like a way around this". Answered: online he already has far bigger free brains (the phone brain is for no
+    signal only); a middle brain that fits (0.8B now; Qwen2.5 1.5B possible at the same memory); his own computer at home
+    running a big brain reached through a free Cloudflare tunnel (asked whether he has one); a trimmed 2B compiled on
+    Kaggle's free GPU with a smaller working chunk, only if his test shows the 2B is just over the line.
