@@ -35,6 +35,9 @@ page.on('console', (m) => {
   if (m.type() === 'error' && !/favicon|net::ERR|404|Failed to load resource|^[WI]\d{4} |^INFO:/.test(t)) problems.push(`console: ${t.slice(0, 200)}`);
 });
 await page.addInitScript(() => {
+  // the camera takes a moment to open, as on the phone (the fake one is instant): the button must say so meanwhile
+  const gum = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+  if (gum) navigator.mediaDevices.getUserMedia = (c) => new Promise((ok) => setTimeout(ok, 1500)).then(() => gum(c));
   window.__csp = [];
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
@@ -71,6 +74,9 @@ if (startLabel !== 'START') problems.push(`the camera button reads "${startLabel
 
 // ---- SEE: START (a tap) opens the camera and the detector runs on the live picture ----
 await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
+// while the camera opens the button reads STOP: a START there invited a second tap, which stopped it
+const opening = await page.evaluate(() => ({ camera: window.__ghosty.lens.camera, label: document.querySelector('#pg-lens .lensbar button')?.textContent }));
+if (opening.camera === 'starting' && opening.label !== 'STOP') problems.push(`the camera button reads "${opening.label}" while the camera opens`);
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open from START: ${JSON.stringify(await lens())}`);
 // swiftshader runs the detector slowly; one run is enough to show it loaded and works
 await until(() => window.__ghosty?.lens?.fps > 0 || window.__ghosty?.lens?.scene?.length > 0, 90000, `SEE never ran the detector: ${JSON.stringify(await lens())}`);

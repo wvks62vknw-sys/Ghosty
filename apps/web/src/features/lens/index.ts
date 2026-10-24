@@ -403,6 +403,8 @@ export const lensTab: TabDef = {
         }
         S.camera = 'starting';
         const gen = ++cameraGen;
+        // STOP from the first moment: a second tap on a START still showing while the camera opens used to stop it
+        startBtn.textContent = 'STOP';
         L.status('opening the camera…', 'mid');
         try {
           await camera.start(S.facing);
