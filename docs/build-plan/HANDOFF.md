@@ -160,6 +160,13 @@ folder that no longer exists; ignore those paths).
   Radio, Reverse; then Memory, Agenda, Workshop, System, Settings and Library once the undo and bigger-brain builders
   are merged (they are in those files now). Each builder gets its own scratch folder (`scratchpad/<name>/`): two
   builders overwrote each other's files in the shared one today.
+- 24 Oct ~16:40 UK: the BIGGER BRAIN (BRIEF-BIGGER-BRAIN: Qwen3 0.6B / Qwen3.5 2B / Qwen3.5 4B to choose in SETTINGS →
+  OFFLINE BRAIN, the weekly training following the chosen base) reported done on `worktree-bigbrain`, but it conflicts
+  with Night School's monthly retrain in cycle.ts, the notebook and their tests (three builders changed the same
+  functions). A merge builder is reconciling it inside that worktree (the merged rule: a weekly run trains on the brain in
+  use of the chosen base; the monthly retrain on the chosen base's stock model over its kept weeks; a base switch starts
+  a fresh chain; the 4B waits for both kinds). It is merged into the branch only when every test of both sides passes.
+  Kernel line it will need: `bigbrain` in the CI loop after `meaning`.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
