@@ -158,7 +158,7 @@ await shot(page, 'tested-2b');
 await page.locator('#pg-settings .offbrain .obtest').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/bigbrain-${browserName}-test-line.png` });
 
-// ---- 4. too big for the phone's memory: on GET (the 4B) …
+// ---- 4. too big for the phone's memory: on GET (the 4B), then at a reply's load (below)
 await page.evaluate((id) => (window.__ghostyOfflineEngine.failFor = id), ID.four);
 await press(page, ID.four, 'GET');
 await page.waitForFunction(() => !!document.querySelector('#pg-settings .offbrain .obfell:not([hidden])'), null, { timeout: 10000 }).catch(() => problems.push('no words when the 4B did not fit'));
@@ -172,7 +172,7 @@ check(based.join() === 'qwen3.5-2b', `a fallback does not move the training: ${J
 check(/READY/.test((await page.locator('#pg-settings .pn.offbrain h3').textContent()) ?? ''), 'the 0.6B is ready at once (it was on the phone)');
 await shot(page, 'fallback-4b');
 
-// … and when a reply loads a brain that no longer fits (the 2B, chosen again: on the phone, so no question)
+// and when a reply loads a brain that no longer fits (the 2B, chosen again: on the phone, so no question)
 dialogs = [];
 await page.evaluate(() => (window.__ghostyOfflineEngine.failFor = ''));
 await press(page, ID.two, 'USE');

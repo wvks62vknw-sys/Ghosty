@@ -108,7 +108,7 @@ async function run(name, viewport) {
   const unloaded = await page.evaluate(() => window.__ghostyOfflineEngine.unloads);
   await pn.locator('button:has-text("TEST")').click();
   await page.waitForFunction(() => /Hello from your phone\.[\s\S]*tokens a second/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] TEST did not show the reply and its speed`));
-  // …then the report card's QUICK CHECK on the same brain (tests/bigbrain.spec.mjs checks it in full)
+  // then the report card's QUICK CHECK on the same brain (tests/bigbrain.spec.mjs checks it in full)
   await page.waitForFunction(() => /QUICK CHECK on Qwen3 0\.6B: \d+ of 20 right as in chat/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] TEST did not run the quick check`));
   // After a reply, too, it leaves memory once idle (idleMs here; two minutes on the phone).
   await page.waitForFunction((k) => window.__ghostyOfflineEngine.unloads > k, unloaded, { timeout: 5000 }).catch(() => problems.push(`[${name}] the model stayed in memory after TEST`));
