@@ -60,11 +60,12 @@ if (!isWebKit) {
 // The systems deck (the logo, or the avatar's Me sheet in the calm looks) lists every screen; LINKS holds email, Spotify and notifications.
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open'));
-const tiles = await page.$$eval('#deck .dtile b', (n) => n.map((x) => x.textContent));
-if (tiles.length < 12 || !tiles.includes('LINKS') || !tiles.includes('LIBRARY')) problems.push(`systems deck tiles: ${tiles.join(', ')}`);
+const tiles = await page.$$eval('#deck .dkcard .dkhd b', (n) => n.map((x) => x.textContent));
+if (tiles.length < 12 || !tiles.includes('Links') || !tiles.includes('Library')) problems.push(`systems deck tiles: ${tiles.join(', ')}`);
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/phone-deck.png` });
-await page.click('#deck .dtile[data-id="links"]');
+await page.click('#deck .dkcard[data-id="links"]');
+await page.click('#deck .dkx[data-id="links"] .dkopen');
 await page.waitForTimeout(1500);
 if (await page.$('#deck.on')) problems.push('systems deck did not close after choosing a screen');
 const panelText = await page.evaluate(() => [...document.querySelectorAll('#pg-links .pn')].map((p) => p.textContent).join(' '));

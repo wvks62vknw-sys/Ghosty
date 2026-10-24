@@ -313,7 +313,8 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   for (const [url, body] of Object.entries(EMPTY)) await page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));
   for (const [tab, want] of SCREENS) {
     await openDeck(page);
-    await page.click(`#deck .dtile[data-id="${tab}"]`);
+    await page.click(`#deck .dkcard[data-id="${tab}"]`);
+    await page.click(`#deck .dkx[data-id="${tab}"] .dkopen`);
     await page.waitForTimeout(tab === 'studio' || tab === 'lens' ? 2500 : 1600);
     const now = await page.evaluate(() => document.body.dataset.tab);
     if (now !== tab) { problems.push(`[${W}] the deck's ${tab} tile opened "${now}"`); continue; }

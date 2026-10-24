@@ -8,6 +8,7 @@
 import type { DiaryEntry, Lesson, MemoryFact, Profile, ProfileSection } from '../../../../../packages/shared/src/protocol';
 import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
+import { offline } from '../../api/offline';
 import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { proLook } from '../../state/theme';
@@ -23,6 +24,11 @@ export const memoryTab: TabDef = {
   icon: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7l8 1M7 8l2 8M17 10l-6 7"/>',
   scene: 'backdrop',
   blurb: 'what Ghosty knows about you',
+  // the facts this phone was last given (api/offline.ts keeps a copy)
+  now() {
+    const n = offline.get().memory?.length;
+    return n == null ? '' : n === 1 ? '1 thing remembered' : `${fmt.n(n)} things remembered`;
+  },
   mount(root) {
     const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
     root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards

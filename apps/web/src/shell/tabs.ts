@@ -33,6 +33,12 @@ export interface TabDef {
   hub?: boolean;
   /** Shown in the dock on phones (the rest are one tap away in the systems deck). */
   primary?: boolean;
+  /**
+   * One live line for the Every screen deck ("8°C · partly cloudy"), read from what this phone already holds
+   * (a feed, a store, the last answer it had); '' when it holds nothing yet. Never fetches. A line ending
+   * "in N min" is due within the hour and lights in the accent.
+   */
+  now?(): string;
   mount(root: HTMLElement): TabInstance;
 }
 

@@ -73,6 +73,8 @@ export interface ModeOpts {
   text?: string;
   /** Send straight away. */
   send?: boolean;
+  /** SCAN's part to open on: CODE, DOCUMENT or TRANSLATE (the deck's "Translate a sign or a menu"). */
+  sub?: 'code' | 'document' | 'translate';
 }
 
 export interface Mode {
@@ -187,8 +189,11 @@ const recentTap = (): boolean => !!navigator.userActivation?.isActive;
  * never does, so a command in a model reply switches the screen but cannot switch the camera on.
  */
 export function openLens(mode?: string, question?: string, start = false): void {
-  const m = LENS_MODES.find((x) => x === String(mode ?? '').toLowerCase()) ?? (question ? 'ask' : 'see');
-  const opts = question ? { question } : undefined;
+  const want = String(mode ?? '').toLowerCase();
+  // SCAN's three parts may be named on their own ("translate" opens SCAN on TRANSLATE).
+  const sub = want === 'translate' || want === 'document' || want === 'code' ? want : undefined;
+  const m = sub ? 'scan' : LENS_MODES.find((x) => x === want) ?? (question ? 'ask' : 'see');
+  const opts: ModeOpts | undefined = question ? { question } : sub ? { sub } : undefined;
   wanted = { mode: m, opts, start };
   go('lens');
   if (wanted) {

@@ -96,11 +96,12 @@ async function signIn(ready) {
 const { ctx, page } = await signIn(true);
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('the systems deck did not open'));
-if (!(await page.locator('#deck .dtile[data-id="school"]').count())) {
+if (!(await page.locator('#deck .dkcard[data-id="school"]').count())) {
   problems.push('SCHOOL is not in the systems deck');
   await bail();
 }
-await page.click('#deck .dtile[data-id="school"]');
+await page.click('#deck .dkcard[data-id="school"]');
+await page.click('#deck .dkx[data-id="school"] .dkopen');
 if (!(await page.waitForFunction(() => document.querySelectorAll('#pg-school .schrung').length === 9, null, { timeout: 15000 }).then(() => true, () => false))) {
   problems.push('the ladder did not show nine stages');
   await bail();

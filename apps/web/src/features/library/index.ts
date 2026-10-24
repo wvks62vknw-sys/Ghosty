@@ -10,7 +10,7 @@
  * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
@@ -76,6 +76,7 @@ export const libraryTab: TabDef = {
   icon: '<path d="M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z"/>',
   scene: 'backdrop',
   blurb: 'ask the offline brain · add books & PDFs',
+  now: () => (lastSeen.get().passages != null ? `${fmt.n(lastSeen.get().passages)} passages` : ''),
   mount(root) {
     const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched without AI', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
     let docs: LibraryDoc[] = [];

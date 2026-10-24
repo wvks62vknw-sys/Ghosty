@@ -15,6 +15,7 @@ export const briefTab: TabDef = {
   icon: '<rect x="3" y="4" width="18" height="14" rx="1"/><path d="M7 9h10M7 13h6M8 21h8"/>',
   scene: 'backdrop',
   blurb: 'news · weather · your day at a glance',
+  now: () => (weather.data ? `${temp(weather.data.current.temperature_2m)} · ${WMO(weather.data.current.weather_code).toLowerCase()}` : ''),
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stackInPro: true });

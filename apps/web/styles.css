@@ -2144,17 +2144,6 @@ html[data-look="pro"], html[data-look="pro"] body { font: 400 16px/1.4 var(--b);
 [data-look="pro"] .toast.warn .tglyph { --c: #ffb340; } [data-look="pro"] .toast.bad .tglyph { --c: #ff6961; } [data-look="pro"] .toast.ok .tglyph { --c: #30d158; }
 [data-look="pro"] .toast span[data-label] { --lfs: 15px; }
 
-/* ---------- one icon language: tinted-glass squircles, coloured glyphs ---------- */
-[data-look="pro"] :is(.sq, .rowic, #palette .gic) { display: grid; place-items: center; flex: none; background: color-mix(in srgb, var(--tint, #8e8e93) 24%, rgba(30,30,32,.7)) !important; box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--tint, #8e8e93) 50%, transparent), inset 0 .5px 0 rgba(255,255,255,.16) !important; }
-[data-look="pro"] :is(.sq, .rowic, #palette .gic) .ic { fill: none; stroke: color-mix(in srgb, var(--tint, #8e8e93) 82%, #fff) !important; stroke-linecap: round; stroke-linejoin: round; }
-[data-look="pro"] .dtile .ic { background: color-mix(in srgb, var(--tint) 24%, rgba(30,30,32,.7)) !important; box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--tint) 50%, transparent), inset 0 .5px 0 rgba(255,255,255,.16) !important; stroke: color-mix(in srgb, var(--tint) 82%, #fff) !important; }
-[data-look="pro"] :is(.rowic, #palette .gic, .merow .sq) { width: 30px; height: 30px; border-radius: 8px; }
-[data-look="pro"] :is(.rowic, #palette .gic, .merow .sq) .ic { width: 18px; height: 18px; stroke-width: 1.9; }
-[data-look="pro"] .hubtile .sq, [data-look="pro"] .hubhero .sq { width: 44px; height: 44px; border-radius: 12px; margin: 0 0 10px; }
-[data-look="pro"] .hubtile .sq .ic, [data-look="pro"] .hubhero .sq .ic { width: 25px; height: 25px; stroke-width: 1.8; }
-[data-look="pro"] .recent .sq { width: 60px; height: 60px; border-radius: 16px; }
-[data-look="pro"] .recent .sq .ic { width: 30px; height: 30px; stroke-width: 1.7; }
-
 /* ---------- the "Me" sheet ---------- */
 #mesheet { position: fixed; inset: 0; z-index: 62; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.42); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: mefade .3s ease both; font-family: var(--sf); }
 #mesheet.out { animation: mefade .26s ease reverse both; }
@@ -3960,3 +3949,135 @@ html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */
 html[data-look="pro"] .hud.core .ccenter.replying #suggest { display: none !important; }
+
+/* =====================================================================
+   the deck and the icon language (docs/build-plan/BRIEF-DECK-BUILD.md; OWNER-ISSUES 32–34). One section,
+   written for the one look (no [data-look] prefix), so it merges cleanly with the job that removes the
+   classic looks. Everything up to "end the deck and the icon language" is this section.
+   ===================================================================== */
+/* ---------- one icon language: bare thin glyphs in the secondary ink, never a tile behind them ("like app
+   icons", OWNER-ISSUES 32); 22 pt in rows and cards; the accent only for the live or selected one ---------- */
+:is(.sq, .rowic, .gic, .rctile) { display: grid; place-items: center; flex: none; background: none !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; }
+:is(.sq, .rowic, .gic, .rctile) .ic { width: 22px !important; height: 22px !important; padding: 0 !important; fill: none; stroke: var(--l2, var(--mute)) !important; stroke-width: 1.7 !important; stroke-linecap: round; stroke-linejoin: round; background: none !important; box-shadow: none !important; }
+:is(.rowic, .gic, .rctile, .merow .sq, .addrow .sq) { width: 28px !important; height: 28px !important; }
+:is(.hubtile, .hubhero) .sq { width: 28px !important; height: 28px !important; justify-items: start; }
+.recent .sq { width: 40px !important; height: 40px !important; }
+.recent .sq .ic { width: 28px !important; height: 28px !important; stroke-width: 1.6 !important; }
+:root #pg-gym .gymcard .sq.gymglyph { width: 28px; height: 28px; background: none !important; box-shadow: none !important; }
+:root #pg-gym .gymcard .sq.gymglyph .ic { stroke: var(--l2, var(--mute)) !important; }
+:root #pg-memory .addrow .sq.sq { background: none !important; }
+:root #app .listmode .pn[data-row] > h3 > .rowic.rowic { width: 28px; height: 28px; background: none !important; box-shadow: none !important; border-radius: 0; }
+:root #app .listmode .pn[data-row] > h3 > .rowic.rowic .ic { stroke: var(--l2, var(--mute)) !important; }
+:root #pg-memory .addrow .sq.sq .ic, :root #palette .it.sel .gic .ic { stroke: var(--acc, var(--c)) !important; }
+/* ---------- Every screen (shell/launcher.ts): H's tap-to-find-out cards, F's miniatures, G's YOU CAN rows and picks,
+   the "Go to, or ask…" pill. Calm glass, one accent light (the reactor's colour) for "you are here", what is due and
+   OPEN. Its own tokens, so it reads the same in every look. ---------- */
+:root #deck {
+  --dk1: var(--ink, #f4f6f8); --dk2: var(--ink2, rgba(235,240,245,.64)); --dk3: var(--ink3, rgba(235,240,245,.4)); --dk4: var(--ink4, rgba(235,240,245,.2));
+  --dkhair: var(--hair, rgba(255,255,255,.08)); --dkhair2: var(--hair2, rgba(255,255,255,.13)); --dkacc: var(--acc, var(--c));
+  --dkf: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, 'Helvetica Neue', sans-serif;
+  --dkfd: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, 'Helvetica Neue', sans-serif;
+  --dkspring: cubic-bezier(.32,.72,0,1);
+  display: none; padding: 0; align-items: stretch; justify-content: center; color: var(--dk1); font-family: var(--dkf);
+  background: #050607; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+:root #deck.on { display: block; animation: dkfade .3s ease-out both; }
+@keyframes dkfade { from { opacity: 0; } }
+#deck::before { content: ''; position: absolute; left: -200px; top: -170px; width: 760px; height: 600px; pointer-events: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--dkacc) 10%, transparent), color-mix(in srgb, var(--dkacc) 3.5%, transparent) 50%, transparent); }
+#deck::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(120px + env(safe-area-inset-bottom, 0px)); pointer-events: none; background: linear-gradient(180deg, rgba(5,6,7,0), rgba(5,6,7,.86) 62%, rgba(5,6,7,.97)); }
+#deck :is(button, button *, input) { text-transform: none; letter-spacing: normal; font-family: var(--dkf); }
+#deck button { -webkit-tap-highlight-color: transparent; }
+#deck .dk { position: absolute; inset: 0; z-index: 1; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; outline: 0; scroll-padding: 12px 0 calc(env(safe-area-inset-bottom, 0px) + 84px);
+  padding: calc(env(safe-area-inset-top, 0px) + 18px) max(16px, calc((100% - 600px) / 2)) calc(env(safe-area-inset-bottom, 0px) + 112px); }
+#deck .dk::-webkit-scrollbar { display: none; }
+#deck .dkk { display: block; font: 600 11px/13px var(--dkf); letter-spacing: .09em; text-transform: uppercase; color: var(--dk3); }
+/* header: EVERY SCREEN, "At your service, {name}", one line */
+#deck .dkhead { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 0 4px; }
+#deck .dkht { flex: 1; min-width: 0; }
+#deck .dktitle { margin: 5px 0 0; font: 700 34px/41px var(--dkfd); letter-spacing: -.4px; color: var(--dk1); overflow-wrap: anywhere; }
+#deck .dksub { margin: 4px 0 0; font: 400 15px/20px var(--dkf); letter-spacing: -.12px; color: var(--dk2); }
+#deck .dkclose { flex: none; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; margin-top: -2px; border-radius: 22px; border: 0; background: rgba(255,255,255,.075); box-shadow: inset 0 0 0 1px var(--dkhair); color: var(--dk1); }
+#deck .dkclose .ic, #deck .dkless .ic, #deck .dkmic .ic, #deck .dksearch { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+/* TRY THIS NOW: three small glass cards, sideways */
+#deck .dktry { margin-top: 24px; }
+#deck .dkkrow { display: flex; align-items: baseline; justify-content: space-between; margin: 0 4px 10px; }
+#deck .dkkrow em { font: 500 13px/16px var(--dkf); font-style: normal; color: var(--dk3); }
+#deck .dktrys { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; scroll-padding: 0 16px; }
+#deck .dktrys::-webkit-scrollbar { display: none; }
+#deck .dkpick { flex: none; scroll-snap-align: start; display: flex; flex-direction: column; align-items: flex-start; gap: 0; width: 236px; min-height: 44px; padding: 12px 14px 12px; border-radius: 20px; text-align: left; white-space: normal; color: var(--dk1);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--dkacc) 7%, transparent), rgba(255,255,255,.03) 60%); border: 1px solid rgba(255,255,255,.1); box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 40px rgba(0,0,0,.42); }
+#deck .dkpick small { display: flex; align-items: center; gap: 6px; font: 600 11px/13px var(--dkf); letter-spacing: .08em; text-transform: uppercase; color: var(--dk3); }
+#deck .dkpick small .dkg .ic { width: 14px; height: 14px; stroke-width: 2; }
+#deck .dkpick .dkwords { margin-top: 7px; font: 600 17px/22px var(--dkf); letter-spacing: -.3px; color: var(--dk1); }
+#deck .dkpick .dkdo { margin-top: auto; padding-top: 9px; font: 600 13px/16px var(--dkf); color: var(--dkacc); }
+/* the groups: kickers, cards two to a row */
+#deck .dksec { margin: 26px 4px 10px; font: 600 11px/13px var(--dkf); letter-spacing: .09em; text-transform: uppercase; color: var(--dk3); }
+#deck .dkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+#deck .dkcard { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; min-height: 104px; padding: 12px 13px 11px; border-radius: 20px; text-align: left; white-space: normal; color: var(--dk1); border: 1px solid var(--dkhair);
+  background: linear-gradient(180deg, rgba(255,255,255,.072), rgba(255,255,255,.034)); box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 40px rgba(0,0,0,.42); transition: background .3s, border-color .3s, transform .35s var(--dkspring); }
+#deck .dkhd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#deck .dkg { display: grid; place-items: center; flex: none; background: none; }
+#deck .dkg .ic { width: 22px; height: 22px; fill: none; stroke: var(--dk2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#deck .dkcard .dkhd b { flex: 1; min-width: 0; font: 600 15px/19px var(--dkf); letter-spacing: -.15px; color: var(--dk1); overflow-wrap: anywhere; }
+#deck .dkmore { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--dk4); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .35s var(--dkspring); }
+#deck .dkpr { display: block; margin-top: 6px; font: 400 13px/17px var(--dkf); letter-spacing: -.04px; color: var(--dk2); overflow-wrap: break-word; }
+#deck .dklive { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 7px; min-width: 0; font: 400 11px/14px var(--dkf); font-feature-settings: 'tnum', 'cv05'; color: var(--dk3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#deck .dklive i { flex: none; width: 5px; height: 5px; border-radius: 3px; background: var(--dk3); }
+#deck .dklive.hot { color: var(--dkacc); }
+#deck .dklive.hot i { background: var(--dkacc); box-shadow: 0 0 6px var(--dkacc); animation: dkpulse 2.4s ease-in-out infinite; }
+@keyframes dkpulse { 50% { opacity: .35; } }
+#deck .dkcard:is(.here, .hot) .dkhd .dkg .ic { stroke: var(--dkacc); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--dkacc) 45%, transparent)); }
+#deck .dkcard.sel { border-color: rgba(255,255,255,.24); background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05)); }
+#deck .dkcard.sel .dkmore { transform: rotate(180deg); }
+#deck .dkcard:active { transform: scale(.975); }
+/* the card opened in place: the miniature, the promise, YOU CAN, DID YOU KNOW, OPEN */
+#deck .dkx { grid-column: 1 / -1; display: flex; gap: 14px; min-width: 0; padding: 14px; border-radius: 22px; border: 1px solid var(--dkhair2); transform-origin: 50% 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.045)); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 40px rgba(0,0,0,.42); animation: dkopen .5s var(--dkspring) both; }
+@keyframes dkopen { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(.97); } }
+#deck .dkmini { position: relative; flex: none; align-self: flex-start; width: 100px; height: 217px; border-radius: 14px; overflow: hidden; background: #000; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 0 0 3px rgba(0,0,0,.35), 0 10px 24px rgba(0,0,0,.5); }
+#deck .dkmini img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+#deck .dkmini::after { content: ''; position: absolute; inset: 0; border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.12); background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0) 40%); }
+#deck .dkmini.none { display: none; }
+#deck .dkrt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#deck .dkrt > .dkhd b { font: 600 13px/16px var(--dkf); letter-spacing: .06em; text-transform: uppercase; color: var(--dk2); }
+#deck .dkrt > .dkhd .dkg .ic { width: 18px; height: 18px; stroke-width: 1.8; }
+#deck .dkpromise { margin: 6px 0 0; font: 600 17px/22px var(--dkf); letter-spacing: -.3px; color: var(--dk1); }
+#deck .dkcan { margin-top: 10px; }
+#deck .dkcan > .dkk { margin-bottom: 2px; }
+#deck .dkrow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 0; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; white-space: normal; color: var(--dk1); }
+#deck .dkrow + .dkrow { box-shadow: inset 0 1px 0 var(--dkhair); }
+#deck .dkrow > span:not(.dkg) { flex: 1; min-width: 0; font: 400 14px/18px var(--dkf); letter-spacing: -.08px; color: var(--dk1); }
+#deck .dkchev { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--dk4); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+#deck .dkask { flex: none; padding: 2px 8px; border-radius: 10px; font: 600 11px/14px var(--dkf); color: var(--dkacc); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dkacc) 40%, transparent); }
+#deck .dkdyk { margin-top: 10px; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--dkhair); background: rgba(0,0,0,.18); }
+#deck .dkdyk b { display: block; font: 700 10px/12px var(--dkf); letter-spacing: .1em; text-transform: uppercase; color: var(--dk3); }
+#deck .dkdyk span { display: block; margin-top: 3px; font: 400 12.5px/16.5px var(--dkf); color: var(--dk2); }
+#deck .dkacts { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; }
+#deck .dkopen { flex: 1; min-width: 0; height: 44px; min-height: 44px; padding: 0 14px; border-radius: 22px; border: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #03141b;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dkacc) 62%, #fff), color-mix(in srgb, var(--dkacc) 88%, #000)); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 22px color-mix(in srgb, var(--dkacc) 22%, transparent); }
+#deck .dkless { flex: none; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 22px; border: 0; background: none; box-shadow: inset 0 0 0 1px var(--dkhair2); color: var(--dk2); }
+#deck .dkless .ic { transform: rotate(180deg); }
+/* typing: the YOU CAN lines that match, then the cards that do */
+#deck .dkhits { margin-top: 22px; }
+#deck .dkhits > .dkk { margin: 0 4px 10px; }
+#deck .dkhitrows { border-radius: 20px; border: 1px solid var(--dkhair); background: linear-gradient(180deg, rgba(255,255,255,.072), rgba(255,255,255,.034)); overflow: hidden; }
+#deck .dkhit { gap: 12px; padding: 8px 14px; min-height: 54px; }
+#deck .dkhit > span small { display: block; margin-top: 1px; font: 400 13px/17px var(--dkf); color: var(--dk3); }
+#deck .dknone { margin: 28px 4px 0; font: 400 15px/20px var(--dkf); color: var(--dk3); }
+#deck .dkgroup:first-child .dksec { margin-top: 24px; }
+/* the pill: "Go to, or ask…" above the home indicator */
+#deck .dkgo { position: absolute; z-index: 2; left: max(16px, calc((100% - 600px) / 2)); right: max(16px, calc((100% - 600px) / 2)); bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); display: flex; align-items: center; gap: 10px; height: 52px; margin: 0; padding: 0 6px 0 17px; border-radius: 26px;
+  background: rgba(24,27,31,.9); border: 1px solid rgba(255,255,255,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 18px 40px rgba(0,0,0,.55); -webkit-backdrop-filter: blur(30px) saturate(1.8); backdrop-filter: blur(30px) saturate(1.8); }
+#deck .dksearch { flex: none; color: var(--dk2); stroke: var(--dk2); }
+#deck .dkin { flex: 1; min-width: 0; height: 44px; padding: 0; border: 0; outline: 0; background: none; box-shadow: none !important; font: 400 17px/22px var(--dkf); letter-spacing: -.25px; color: var(--dk1); -webkit-appearance: none; appearance: none; }
+#deck .dkin::placeholder { color: var(--dk3); }
+#deck .dkin::-webkit-search-cancel-button { -webkit-appearance: none; }
+#deck .dkmic { flex: none; display: grid; place-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 20px; border: 0; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px var(--dkhair2); color: var(--dk1); }
+#deck .dkmic.on { color: var(--dkacc); box-shadow: inset 0 0 0 1px var(--dkacc), 0 0 14px color-mix(in srgb, var(--dkacc) 40%, transparent); }
+@media (hover: hover) { #deck .dkcard:hover { border-color: rgba(255,255,255,.18); } #deck .dkrow:hover > span { color: var(--dkacc); } }
+@media (prefers-reduced-motion: reduce) {
+  :root #deck.on, #deck .dkx { animation: dkfade .2s ease-out both; }
+  #deck .dklive.hot i { animation: none; }
+  #deck .dkcard:active { transform: none; }
+}
+/* end the deck and the icon language */
