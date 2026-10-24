@@ -88,7 +88,7 @@ await page.screenshot({ path: `${out}/selftrain-${engine}-rate.png` });
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.locator('.logbtn:visible').first().waitFor({ timeout: 20000 });
 await page.locator('.logbtn:visible').first().click();
-await page.waitForSelector('.log .msg .rate', { state: 'visible', timeout: 20000 });
+await page.locator('.log .msg .rate').last().waitFor({ state: 'visible', timeout: 20000 });
 check(await page.evaluate(() => [...document.querySelectorAll('.log .msg button[aria-label="Good reply"]')].some((b) => b.getAttribute('aria-pressed') === 'true')), 'the 👍 shows again after a reload');
 await page.locator('.log .msg button[aria-label="Good reply"][aria-pressed="true"]').last().click();
 await page.waitForTimeout(600);

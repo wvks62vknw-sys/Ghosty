@@ -357,6 +357,16 @@ export function registerBuiltins(): void {
       },
     },
     {
+      // A home drawn from the owner's words (design_home): kept, put in SPACE's planner, its card in the chat.
+      id: 'home_plan',
+      title: 'Home plan',
+      hidden: true,
+      run: async (a) => {
+        const { receiveHomePlan } = await import('../features/space/home');
+        receiveHomePlan(a);
+      },
+    },
+    {
       // The 3D STUDIO: a sample, a model made from a picture (make_3d), words to make (catalogue first), a catalogue model, a room in cm, or a Spline link.
       id: 'open_studio',
       title: 'Open the 3D Studio',

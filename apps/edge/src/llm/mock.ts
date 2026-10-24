@@ -257,6 +257,8 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };
   // DESIGN REVIEW (tools/design.ts): what SPACE's REVIEW button sends, "design review of my room plan — goal: make it feel bigger".
   if ((m = text.match(/^design review(?: of my room plan)?(?:\s*[—:-]+\s*(?:goal:\s*)?(.+))?$/)) && has('design_review')) return { message: call('design_review', { goal: m[1]?.trim() || 'make it work better' }), model };
+  // DESIGN MY HOME (tools/homeplan.ts): what SPACE's DESIGN sends, "Design my home (sizes in metres): a flat with …" (the owner's own words and capitals).
+  if ((m = ownerWords(textOf(last.content)).match(/^design my (?:home|house|flat)(?: \((?:show )?sizes in (metres|feet)[^)]*\))?[:,.]?\s+([\s\S]+)$/i)) && has('design_home')) return { message: call('design_home', { description: m[2]!.trim(), ...(m[1] ? { unit: /^feet$/i.test(m[1]) ? 'imperial' : 'metric' } : {}) }), model };
   if ((m = text.match(/^mot check (.+)$/)) && has('vehicle_check')) return { message: call('vehicle_check', { plate: m[1] }), model };
   if ((m = text.match(/^open the (?:3d )?studio(?: with (?:the )?(toycar|chair|sofa|truck|reactor))?$/)) && has('make_3d')) return { message: call('make_3d', m[1] ? { sample: m[1] } : {}), model };
   if ((m = text.match(/^make a 3d model of (?:a |an )?(.+)$/)) && has('make_3d')) return { message: call('make_3d', { prompt: m[1], title: m[1] }), model };

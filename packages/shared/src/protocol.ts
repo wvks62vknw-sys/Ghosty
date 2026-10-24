@@ -43,6 +43,21 @@ export interface CitedInfo {
   checks: ClaimCheck[];
 }
 
+/**
+ * A home drawn from the owner's words (the brain's design_home → the `home_plan` command): every storey's
+ * whole plan as Room JSON v2 (packages/shared/src/design.ts; never cut, it does not go to the model), the
+ * words it was drawn from and everything that was assumed or could not be done. The phone keeps the last one
+ * (SPACE → DESIGN MY HOME and the plan card in the chat).
+ */
+export interface HomePlanEvent {
+  words: string;
+  unit: 'metric' | 'imperial';
+  /** Ground floor first. */
+  storeys: { name: string; plan: Record<string, unknown> }[];
+  assumed: string[];
+  cannot: string[];
+}
+
 /** Commands the brain may ask the interface to run (tools with `side: 'client'`). */
 export const CLIENT_COMMANDS = [
   'open_tab',
@@ -73,6 +88,7 @@ export const CLIENT_COMMANDS = [
   'open_studio',
   'open_learn',
   'design_changes',
+  'home_plan',
 ] as const;
 export type ClientCommand = (typeof CLIENT_COMMANDS)[number];
 

@@ -20,6 +20,7 @@ import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { citedReply } from './cited';
+import { homeAfterReply, homeCard } from './homecard';
 import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
@@ -184,6 +185,9 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
       if (acts !== el && acts.childElementCount) el.append(acts);
       return el;
     }
+    case 'home':
+      // a plan drawn from the owner's words: OPEN IN SPACE / SEE IN 3-D (homecard.ts)
+      return homeCard(e);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -438,7 +442,7 @@ export const coreTab: TabDef = {
     themeEvents.on('change', placeChat);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
-    hud.append(rc.glow, left, center, right);
+    hud.append(rc.glowBox, left, center, right);
     root.append(hud);
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
@@ -484,7 +488,8 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      const shown = chat.get().entries.slice(-40);
+      // a plan card goes under the reply it came with (homecard.ts)
+      const shown = homeAfterReply(chat.get().entries.slice(-40));
       // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
       const last = shown.findLastIndex((x) => x.kind === 'assistant');
       const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;

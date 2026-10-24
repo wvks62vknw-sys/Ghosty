@@ -51,7 +51,7 @@ export async function pollInbox(): Promise<void> {
 function announce(it: InboxEntry): void {
   const head = it.kind === 'reminder' ? '⏰ REMINDER' : it.kind === 'task' ? `✦ ${it.title.toUpperCase()}` : `⚠ ${it.title.toUpperCase()}`;
   // The pop-up shows the start (three lines at most); a tap opens the whole notification.
-  toast(`${head}: ${it.text.slice(0, 220)}`, it.kind === 'error' ? 'warn' : 'ok', { title: it.kind === 'reminder' ? 'REMINDER' : it.title.toUpperCase(), full: `${head}: ${it.text}`, again: true });
+  toast(`${head}: ${it.text.slice(0, 220)}`, it.kind === 'error' ? 'warn' : 'ok', { title: it.kind === 'reminder' ? 'REMINDER' : it.title.toUpperCase(), full: `${head}: ${it.text}` });
   if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(it.kind === 'reminder' ? 'Ghosty reminder' : `Ghosty · ${it.title}`, { body: it.text.slice(0, 300), tag: it.id, icon: '/icon-192.png' });

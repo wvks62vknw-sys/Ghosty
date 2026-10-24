@@ -10,13 +10,16 @@
  * the rooms off it; doors on the shared walls; windows on outside walls; furniture against the
  * walls the words name, kept out of door swings and doorways, gaps under the 70 cm walkway
  * flagged). The reply says in plain words what was drawn, every size that was assumed and what
- * could not be done, then the plan itself; the model only puts that into words. A question about
- * a plan the owner already has goes to design_review instead.
+ * could not be done, then the plan itself; the model only puts that into words. The whole plan, every
+ * storey at full precision, also goes straight to the phone as the `home_plan` client event (part 2:
+ * SPACE → DESIGN MY HOME and the plan card in the chat), so nothing the model's budget cuts is lost
+ * there. A question about a plan the owner already has goes to design_review instead.
  *
  * Measurements are kept exact in cm (10 ft 6 in is 320.04 cm) and shown in the owner's unit.
  * Nothing here says a plan meets planning or building rules.
  */
 import { DEFAULTS, LIMITS, areaText, bounds, doorSwing, edgeOf, inSwing, lPoly, openingProblem, openingSpan, outsideWalls, polyArea, polysOverlap, rectInPoly, rectPoly, sharedWalls, type Opening, type PlanItem, type Pt, type Rect, type RoomShape, type WallSpan } from '../../../../packages/shared/src/design';
+import type { HomePlanEvent } from '../../../../packages/shared/src/protocol';
 import { resultBudget } from '../context';
 import { designTools } from './design';
 import { arg, type Tool } from './types';
@@ -2276,14 +2279,14 @@ export function homeReply(p: HomePlan, budget = REPLY_MAX, floor?: number): stri
       list('COULD NOT DO', p.cannot, detail < 2 ? 20 : 8);
       list('TIGHT WALKWAYS', p.walkways, detail < 2 ? 12 : 4);
     }
-    lines.push(`TO OPEN IT: save the plan below as a file ending .json, then SPACE → IMPORT and choose it${only.length > 1 ? ' (one floor at a time)' : ''}; in SPACE, SEE IN 3-D walks round it in the 3D STUDIO.`);
+    lines.push(`TO OPEN IT: the whole plan is already on the owner's phone: the card under your reply has OPEN IN SPACE and SEE IN 3-D (SPACE → DESIGN MY HOME shows it too). On Telegram, or for a copy: save a plan below as a .json file, then SPACE → IMPORT${only.length > 1 ? ' (one floor at a time)' : ''}.`);
     only.forEach((s, i) => {
       const at = p.storeys.indexOf(s);
       if (i < carry) lines.push(`PLAN${p.storeys.length > 1 ? ` (${s.name})` : ''}: ${JSON.stringify(storeyJson(s, level))}`);
       else lines.push(`PLAN (${s.name}): too long to send with the rest — call design_home again with the same description and floor: ${at} for it.`);
     });
     if (level >= 4) lines.push('(The furniture was left out of the plan text to fit; the summary above still lists it.)');
-    lines.push("SAY: tell the owner the plan in a few plain lines in their units, what you assumed and what could not be done, and how to open it. Don't change any number. It is a sketch to plan with, not a survey: it says nothing about planning permission or building regulations.");
+    lines.push("SAY: tell the owner the plan in a few plain lines in their units, what you assumed and what could not be done, and that OPEN IN SPACE and SEE IN 3-D are on the card. Don't change any number. It is a sketch to plan with, not a survey: it says nothing about planning permission or building regulations.");
     return lines.join('\n');
   };
   let last = '';
@@ -2307,6 +2310,15 @@ export function homeReply(p: HomePlan, budget = REPLY_MAX, floor?: number): stri
     if (last.length <= budget) return last;
   }
   return last;
+}
+
+/**
+ * The plan for the phone (the `home_plan` client event): every storey whole at full precision, as the
+ * planner's IMPORT and the 3D STUDIO take it, with the words and everything assumed. Never cut: it does
+ * not go to the model, so the reply's budget does not apply.
+ */
+export function homeEvent(p: HomePlan, words: string): HomePlanEvent {
+  return { words: String(words ?? '').slice(0, 4000), unit: p.unit, storeys: p.storeys.map((s) => ({ name: s.name, plan: storeyJson(s, 0) })), assumed: [...p.assumed], cannot: [...p.cannot] };
 }
 
 // ------------------------------------------------------------------ the tool
@@ -2351,6 +2363,8 @@ export const homePlanTools: Tool[] = [
       const plan = designHome(text, unit);
       if (!plan.storeys.length) throw new Error("I couldn't find any rooms in that: describe them, e.g. \"a living room 4 by 3.5 m with the kitchen off it to the right, a bathroom and a bedroom off the hall\"");
       const floor = typeof a.floor === 'number' && Number.isInteger(a.floor) && a.floor >= 0 && a.floor < plan.storeys.length ? a.floor : undefined;
+      // the whole home to the phone (every floor, even when the model asked for one): the card and SPACE draw it
+      ctx.emit?.({ t: 'client', name: 'home_plan', args: homeEvent(plan, text) as unknown as Record<string, unknown> });
       return homeReply(plan, REPLY_MAX, floor);
     },
   },
