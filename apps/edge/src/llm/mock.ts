@@ -219,25 +219,46 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
-  // The tutor (tutor.ts): a course plan, a lesson with its check question, a quiz and a marked short answer, as each asks.
+  // The tutor (tutor.ts): a course plan (two units), a lesson under its headings with its check question, a quiz, exam questions and a marked short answer, as each asks.
   const tutorAsk = String(messages[0]?.content ?? '');
-  if (/^(COURSE PLAN|LESSON|QUIZ|GRADE ANSWER):/.test(tutorAsk)) {
+  if (/^(COURSE PLAN|LESSON|QUIZ|EXAM QUESTIONS|GRADE ANSWER):/.test(tutorAsk)) {
     const said = textOf(last.content);
     const topic = said.match(/^Topic: (.+)$/m)?.[1]?.trim() ?? 'the topic';
     if (tutorAsk.startsWith('COURSE PLAN:')) {
-      const lessons = ['What it is', 'The key ideas', 'How it works', 'A worked example', 'Common mistakes'].map((t) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}` }));
-      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic}.`, lessons })}\n\`\`\`` }, model };
+      const L = (t: string, needs: number[]) => ({ title: `${t}: ${topic}`, goal: `You will understand ${t.toLowerCase()} of ${topic}.`, query: `${topic} ${t}`, needs });
+      const units = [
+        { title: 'The basics', lessons: [L('What it is', []), L('The key ideas', [1]), L('How it works', [2])] },
+        { title: 'Going further', lessons: [L('A worked example', [3]), L('Common mistakes', [3])] },
+      ];
+      return { message: { role: 'assistant', content: `Here is the plan:\n\`\`\`json\n${JSON.stringify({ title: `${topic.charAt(0).toUpperCase()}${topic.slice(1)} from scratch`, summary: `Five short lessons on ${topic} in two units.`, prereqs: ['what a plant cell is'], units })}\n\`\`\`` }, model };
     }
     if (tutorAsk.startsWith('LESSON:')) {
       const title = said.match(/^Lesson \d+: (.+)$/m)?.[1] ?? 'this lesson';
-      return { message: { role: 'assistant', content: `This matters because everything else builds on it.\n\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nWorked example: a leaf in sunlight takes in carbon dioxide and gives out oxygen.\n\nRemember:\n- light in, sugar out\n- oxygen is given off\n\nCHECK: What gas do leaves give off in sunlight?\nA) Nitrogen\nB) Oxygen\nC) Helium\nD) Neon\nANSWER: B\nWHY: Splitting water releases oxygen.` }, model };
+      const n = Number(said.match(/^Lesson (\d+):/m)?.[1] ?? 1);
+      const checks = [
+        ['What gas do leaves give off in sunlight?', ['Nitrogen', 'Oxygen', 'Helium', 'Neon'], 'Splitting water releases oxygen.'],
+        ['What do plants make from light, water and carbon dioxide?', ['Salt', 'Sugar', 'Iron', 'Plastic'], 'The sugar is glucose.'],
+        ['Which part of a leaf cell holds the chlorophyll?', ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], 'Chloroplasts are full of it.'],
+        ['What colour of light do leaves reflect most?', ['Red', 'Green', 'Blue', 'Violet'], 'They absorb red and blue.'],
+        ['Which of these speeds photosynthesis up?', ['Darkness', 'More light', 'Less water', 'Cold'], 'Light is the energy it runs on.'],
+      ] as const;
+      const [q, ch, why] = checks[(n - 1) % checks.length]!;
+      const cq = n > checks.length ? `${q.slice(0, -1)} (lesson ${n})?` : q;
+      return { message: { role: 'assistant', content: `WHY IT MATTERS: everything else in this course builds on it.\n\nTHE IDEA:\n${title} is explained here in plain words, the mock way [1]. Plants use light to make sugar from water and carbon dioxide [1].\n\nEXAMPLE 1: a leaf in sunlight\n1. Light falls on the leaf.\n2. The leaf takes in carbon dioxide.\n3. It gives out oxygen [1].\n\nEXAMPLE 2: a pondweed in a jar\n1. Put the jar in bright light.\n2. Count the bubbles of oxygen.\n3. Move it into shade: fewer bubbles.\n\nCOMMON MISTAKES:\n- Thinking plants get their food from the soil.\n- Forgetting that oxygen is given off.\n\nIN ONE LINE: plants turn light, water and carbon dioxide into sugar and oxygen.\n\nCHECK: ${cq}\nA) ${ch[0]}\nB) ${ch[1]}\nC) ${ch[2]}\nD) ${ch[3]}\nANSWER: B\nWHY: ${why}` }, model };
+    }
+    // The lessons a quiz or an exam is about ("Lessons (number: title): 1: …; 2: …").
+    const listed = [...(said.match(/^Lessons \(number: title\): (.+)$/m)?.[1] ?? '').matchAll(/(\d+): ([^;]+)/g)].map((x) => ({ n: Number(x[1]), title: x[2]!.trim() }));
+    if (tutorAsk.startsWith('EXAM QUESTIONS:')) {
+      const qs = listed.map((l) => ({ type: 'mc', q: `About "${l.title}": which of these is true?`, choices: ['Plants make sugar from light', 'Plants eat soil', 'Leaves make light', 'Roots make oxygen'], answer: 0, why: 'Light, water and carbon dioxide make sugar.', lesson: l.n }));
+      return { message: { role: 'assistant', content: JSON.stringify({ questions: qs }) }, model };
     }
     if (tutorAsk.startsWith('QUIZ:')) {
       const spoken = /read aloud/.test(tutorAsk);
+      const lesson = listed.at(-1)?.n;
       const qs = [
-        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1 },
-        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1 },
-        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1 }]),
+        { type: 'mc', q: `Which gas do plants take in for ${topic}?`, choices: ['Carbon dioxide', 'Oxygen', 'Helium', 'Argon'], answer: 0, why: 'Carbon dioxide is the carbon source.', source: 1, lesson },
+        { type: 'mc', q: 'Where in the cell does it happen?', choices: ['Nucleus', 'Chloroplast', 'Ribosome', 'Cell wall'], answer: 'B', why: 'Chloroplasts hold chlorophyll.', source: 1, lesson },
+        ...(spoken ? [] : [{ type: 'short', q: 'What green pigment captures the light?', answer: 'chlorophyll', rubric: 'chlorophyll', source: 1, lesson }]),
       ];
       return { message: { role: 'assistant', content: `Sure! \`\`\`json\n${JSON.stringify({ questions: qs })}\n\`\`\` Good luck.` }, model };
     }
