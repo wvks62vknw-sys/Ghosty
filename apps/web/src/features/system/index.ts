@@ -12,6 +12,7 @@ import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAn
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
 import { statusDials } from '../../ui/statusdials';
+import { speedCard } from './speed';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -184,10 +185,13 @@ export const systemTab: TabDef = {
     };
     // route C: the three dials head the Status card (free AI today, the database today, the offline brain)
     const dials = statusDials();
+    // SPEED (speed.ts) under the dials: how long Ghosty takes, from this phone's stopwatch and the brain's
+    const speed = speedCard();
     const paintStatus = () => {
       clear(sp.body);
-      sp.body.append(dials.el);
+      sp.body.append(dials.el, speed.el);
       void dials.paint(status);
+      speed.paint(status);
       // What the owner needs at a glance; the engineering details fold away under Advanced.
       const ver = `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`;
       sp.body.append(

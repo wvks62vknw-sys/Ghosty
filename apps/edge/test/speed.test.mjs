@@ -174,3 +174,19 @@ test("stopwatch (phone): medians per screen, for replies, the start and the roun
   assert.equal(list.filter((x) => x.k === 'trip').length, 100, 'trips only ever 150, and the oldest go first');
   assert.equal(list.at(-1).ms, 399);
 });
+
+test('speed: the scripted mock (the tests and the preview) is timed like a real model, as provider Mock', async () => {
+  const storage = new MemStorage();
+  const r = new R.Router(storage, { get: async () => null, has: async () => false }, { MOCK_LLM: '1' });
+  const turn = new AbortController();
+  const out = await r.complete([{ role: 'user', content: 'hello' }], [], turn.signal);
+  assert.ok(out.message.content, 'the mock answered');
+  const s = await R.speedSummary(storage);
+  const call = s.recent.find((x) => x.k === 'm');
+  assert.ok(call, 'the mock call was timed');
+  assert.equal(call.p, 'Mock');
+  assert.ok(!call.bad && !call.bg, 'an answered call for the owner');
+  assert.ok(s.recent.some((x) => x.k === 'r' && x.calls === 1), 'and its turn');
+  assert.equal(s.today.firstToken?.n, 1);
+  assert.match(s.lines[0], /^First word in /);
+});
