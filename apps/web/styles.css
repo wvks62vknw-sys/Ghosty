@@ -3464,7 +3464,7 @@ html #pg-brief .pn.wx .rw .k[data-label]::before { letter-spacing: .09em; text-t
 html #pg-brief .pn.wx .rw .v { flex: none; max-width: 100%; font: 500 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); white-space: normal; font-variant-numeric: tabular-nums; }
 html #pg-brief .pn.wx .rw .n { font: 400 12px/16px var(--sf); color: var(--ink3); }
 html #pg-brief .pn.wx .rw .n.bad { color: var(--amber); }
-html #pg-brief .pn.wx .rw:nth-child(4) { grid-column: 1 / -1; }
+html #pg-brief .pn.wx .rw.full { grid-column: 1 / -1; }
 html #pg-brief .pn.wx .lab { margin: 10px 0 0; }
 html #pg-brief .wxspark { position: relative; padding: 0 0 18px; }
 html #pg-brief .wxspark svg.spark { display: block; width: 100%; height: 44px; overflow: visible; }
@@ -3482,6 +3482,29 @@ html #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(
 html #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
 html #pg-brief .pn.news .rw .v { font: 500 16px/22px var(--sf); letter-spacing: -.2px; color: var(--ink); }
 html #pg-brief .pn.news .rw .n { padding-top: 2px; font: 400 13px var(--sf); color: var(--ink3); }
+/* The hero's greeting and date, and the day in one plain sentence (the upgrade pass). */
+html #pg-brief .two > .hero .brdate { font: 500 15px/20px var(--sf); color: var(--ink2); margin: 0 0 2px; }
+html #pg-brief .two > .hero .brsay { margin: 10px 0 0; max-width: 36em; font: 400 17px/24px var(--sf); letter-spacing: -.2px; color: var(--ink); text-wrap: pretty; }
+html #pg-brief .two > .hero .brsay:empty { display: none; }
+html #pg-brief .two > .hero .bract { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+html #pg-brief .two > .hero .bract button { height: 44px; min-height: 44px !important; padding: 0 20px; border-radius: 22px; }
+/* The commute: the whole line under its label (it was cut off after three lines in a narrow middle column). */
+html #pg-brief .pn.commute .rw.wrap { flex-wrap: wrap; row-gap: 4px; }
+html #pg-brief .pn.commute .rw.wrap .v { order: 3; flex: 1 1 100%; display: block; -webkit-line-clamp: unset; overflow: visible; }
+html #pg-brief .pn.commute .rw .v::first-letter { text-transform: uppercase; }
+html #pg-brief .pn.commute .rw.link { min-height: 44px; align-items: center; flex-wrap: nowrap; }
+html #pg-brief .pn.commute .rw.link .v { order: 0; flex: 1 1 auto; }
+html #pg-brief .pn.commute .rw.link .v { font: 400 15px/21px var(--sf); color: var(--ink2); }
+/* The digest's "Today in one line" above the headlines' sections. */
+html #pg-brief .pn.news .brone { display: flex; flex-direction: column; gap: 4px; margin: 0 16px 10px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); }
+html #pg-brief .pn.news .brone[hidden] { display: none; }
+html #pg-brief .pn.news .brone b { font: 600 12px/14px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+html #pg-brief .pn.news .brone span { font: 400 16px/22px var(--sf); color: var(--ink); }
+/* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
+html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
+html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
+html #pg-brief .pn.brday .rw .v { font: 500 16px/22px var(--sf); }
+html #pg-brief .pn.brday .rw .n { font: 400 13px/18px var(--sf); color: var(--ink3); }
 html #pg-brief .pn.news > .ft > button.warn { height: 48px; min-height: 48px !important; padding: 0 26px; border-radius: 24px; font: 600 17px var(--sf) !important; color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 24px rgba(var(--cr), .25) !important; }
 
 /* ---------- Markets (features/markets): risk in a word, coins with their line and change, indices, currencies ---------- */
