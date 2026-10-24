@@ -57,6 +57,9 @@ check(d.warm?.label === 'HOW WARM' && d.warm.steps.join('|') === 'COOL|WARM|WARM
 check(/^CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\./.test((await told()) ?? ''), `default words: ${await told()}`);
 await page.locator('#pg-settings .character').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/character-${engine}-default.png` });
+// every dial step and DEFAULT is a 44 pt target (the owner's rule; they were 40)
+const small = await page.$$eval('#pg-settings .character button', (bs) => bs.filter((b) => b.offsetParent).map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent, w: Math.round(r.width), h: Math.round(r.height) }; }).filter((x) => x.h < 44 || x.w < 44));
+check(small.length === 0, `CHARACTER targets under 44 pt: ${JSON.stringify(small)}`);
 
 // ---- 2. VERY DRY and TERSE: saved by the brain, the words follow
 await page.locator('#pg-settings .character [data-dial="dry"] button', { hasText: 'VERY DRY' }).click();

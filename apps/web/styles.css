@@ -3921,6 +3921,8 @@ html #pg-settings .swtick { width: 26px; height: 26px; border-radius: 50%; box-s
 html #pg-settings .swatch.on .swtick { background: var(--sw) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2303070a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 15px no-repeat; box-shadow: none; }
 html #pg-settings .swnote { margin: 12px 2px 2px; }
 @media (prefers-reduced-motion: reduce) { html #pg-settings .swatch { transition: none; } html #pg-settings .swatch:active { transform: none; } }
+/* Settings → CHARACTER (features/settings/character.ts): every dial step and DEFAULT a full 44 pt target (they were 40) */
+html #pg-settings .character .chardials button, html #pg-settings .character .charreset button { height: 44px; min-height: 44px !important; }
 /* UNDO for every screen (ui/components.ts undo()): the bar floats above the tab bar, over any sheet; the toasts move up while it shows */
 html .rcundo.undofloat { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabh) + 74px + env(safe-area-inset-bottom, 0px)); z-index: 160; max-width: 440px; margin: 0 auto; background: rgba(28,28,30,.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px var(--hair2), 0 8px 24px rgba(0,0,0,.45); }
 @media (min-width: 900px) { html .rcundo.undofloat { bottom: 96px; } }

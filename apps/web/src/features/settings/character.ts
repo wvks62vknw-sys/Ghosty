@@ -57,7 +57,7 @@ export function characterPanel(): Panel & { refresh(): void } {
   };
 
   const reset = button('DEFAULT', () => void save(DEFAULT_PERSONA));
-  p.body.append(dials, h('div.row', reset), state, h('div.lab', 'WHAT GHOSTY IS TOLD'), said);
+  p.body.append(dials, h('div.row.charreset', reset), state, h('div.lab', 'WHAT GHOSTY IS TOLD'), said);
 
   const refresh = () => {
     void brain
