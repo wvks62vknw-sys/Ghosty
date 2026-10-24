@@ -111,6 +111,11 @@ async function run(name, viewport) {
   await openPanel(page, 'settings', 'OFFLINE');
   await page.waitForFunction(() => /NOT DOWNLOADED/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel does not say NOT DOWNLOADED`));
   if (!/About 352 MB, once: use Wi-Fi/.test((await pn.textContent()) ?? '')) problems.push(`[${name}] no size and Wi-Fi advice`);
+  // What it is for (OWNER-ISSUES 46): online the far bigger free brains answer; this one is for no signal. No stale size.
+  const what = (await pn.locator('.obwhat').textContent().catch(() => '')) ?? '';
+  if (!/^For when there is no signal\. Online, Ghosty answers with far bigger brains, free/.test(what) || /352 MB/.test(what)) problems.push(`[${name}] the panel does not say what the phone brain is for: "${what}"`);
+  const modes = await pn.locator('select[aria-label="Offline brain mode"] option').allTextContents();
+  if (modes.join(' | ') !== 'Answer on this phone: only when needed (no signal) | Answer on this phone: always (never online) | Answer on this phone: never') problems.push(`[${name}] the mode reads: ${modes.join(' | ')}`);
   if (!(await pn.locator('button:has-text("TEST")').isDisabled())) problems.push(`[${name}] TEST is enabled before a download`);
   await pn.locator('button:has-text("DOWNLOAD")').click();
   await page.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel did not turn READY after DOWNLOAD`));

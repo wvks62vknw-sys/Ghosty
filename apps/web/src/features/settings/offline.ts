@@ -58,12 +58,12 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const mode = h(
     'select',
     { 'aria-label': 'Offline brain mode' },
-    h('option', { value: 'auto' }, 'Use it: only when needed'),
-    h('option', { value: 'always' }, 'Use it: always (never the cloud brain)'),
-    h('option', { value: 'off' }, 'Use it: off'),
+    h('option', { value: 'auto' }, 'Answer on this phone: only when needed (no signal)'),
+    h('option', { value: 'always' }, 'Answer on this phone: always (never online)'),
+    h('option', { value: 'off' }, 'Answer on this phone: never'),
   );
   mode.value = settings.get().offlineBrain;
-  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'off' } as const;
+  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'never on this phone' } as const;
   mode.addEventListener('change', () => {
     const was = settings.get().offlineBrain;
     const v = mode.value === 'always' || mode.value === 'off' ? mode.value : 'auto';
@@ -77,7 +77,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
       });
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
     if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
-    else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
+    else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when there’s no signal', 'ok');
   });
   // THINK HARDER's time on one question: longer is better on hard ones, and warmer on the phone.
   const think = h(
@@ -381,10 +381,12 @@ export function offlinePanel(): Panel & { refresh(): void } {
     mode,
     think,
     out,
-    h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
+    // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
+    // free brains; this one is for no signal. No size here: the brain in use says its own above.
+    h('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),
     pick,
     // What a bigger brain costs and gains, in one line, and where the truth is found.
-    h('div.note.obcost', 'A bigger brain answers better, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
+    h('div.note.obcost', 'A bigger brain here answers better with no signal, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
     // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
     meaningBlock(),
   );
