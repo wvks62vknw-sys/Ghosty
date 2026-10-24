@@ -280,6 +280,12 @@ folder that no longer exists; ignore those paths).
   widget rows do not show that the title opens the widget; the training ground's wording; the desktop hero mostly empty;
   real GitHub timings and the Safari install flow need the real thing. The ui spec opens whichever widget is listed
   first, so after the undo spec on the same preview it can fail (a spec assumption, not a bug).
+- 24 Oct ~23:00 UK: merged after review: THE BOOT CINEMATIC (BRIEF-BOOT). No kernel line (`index.html` and `main.ts` are
+  not kernel). Only the real phone can prove: 120 Hz smoothness, whether the app's own boot work stalls frames (here up
+  to 2.7 s under software WebGL, which made it skip ahead), the 16 ms draw test's threshold, speech on a cold open
+  (iOS stays silent until the first tap, then the greeting is spoken), the hum on silent mode, the landing at hardware
+  speed. Under automation the cinematic plays only when a spec asks (`__ghostyBoot`), like MIND. The frame strip:
+  scratchpad `boot/boot-frames-strip.png` (sent to the owner).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
