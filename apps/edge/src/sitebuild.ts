@@ -57,7 +57,8 @@ export const SITE_STEPS = [
 export const SITE_STEP_MS = 15_000;
 /** How often each step waits for a model before it carries on without one. */
 const MAX_WAITS = 1;
-const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; website builder)' };
+// (Openverse asks callers to say who they are and how to reach them: the public repository, never the owner's address)
+const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; website builder; +https://github.com/wvks62vknw-sys/Ghosty)' };
 
 /** Everything a site project carries between its steps (kept in the database AND KV, like the project). */
 export interface SiteJob {

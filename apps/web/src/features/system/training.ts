@@ -29,6 +29,8 @@ const KIND: Record<string, string> = {
   general: 'everyday conversation examples (OpenAssistant)',
   gym: 'GYM puzzles set',
   drill: 'quick quiz questions set',
+  school: 'school practice questions (each answer checked twice)',
+  voice: 'his replies rewritten to sound like a person',
 };
 
 /** The parts of a Kaggle run, in plain words. */
