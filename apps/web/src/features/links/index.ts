@@ -10,7 +10,7 @@ import { redirectUri, savedClientId, startSpotifyLink } from '../../assistant/sp
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { ui } from '../../state/app';
-import { button, panel, row, toast } from '../../ui/components';
+import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
 
@@ -118,7 +118,8 @@ export const linksTab: TabDef = {
             editing = true;
             void paintEmail();
           }), button('UNLINK', async () => {
-            if (!confirm('Unlink this email account from Ghosty?')) return;
+            // The app password is not kept on this phone, so this cannot be undone: said plainly first.
+            if (!(await confirmSheet('Unlink your email?', `Ghosty stops reading and sending email as ${st.address ?? 'this account'}. The app password is wiped, not kept anywhere: to link it again you paste a new one.`, 'UNLINK'))) return;
             await brain.setKey('email', '').catch(() => undefined);
             toast('Email unlinked', 'ok');
             void paintEmail();
@@ -222,6 +223,7 @@ export const linksTab: TabDef = {
             ? 'Linked. Ghosty can see what is playing and your playlists; controlling playback (play, pause, skip, volume) needs Spotify Premium.'
             : 'Linked. Ask Ghosty "what\'s playing?", "play some jazz on Spotify", "skip", "turn it down".'),
           h('div.keyrow', button('UNLINK', async () => {
+            if (!(await confirmSheet('Unlink Spotify?', 'Ghosty stops seeing and playing your Spotify. To link it again you go through Spotify’s sign-in once more.', 'UNLINK'))) return;
             await brain.spotifyUnlink().catch(() => undefined);
             toast('Spotify unlinked', 'ok');
             void paintSpotify();
@@ -331,7 +333,7 @@ export const linksTab: TabDef = {
           toast(r.sent ? 'Sent to your Telegram' : `Could not send: ${r.error ?? 'unknown'}`, r.sent ? 'ok' : 'warn');
           b.disabled = false;
         }, 'on'), button('UNPAIR', async () => {
-          if (!confirm('Unpair this Telegram chat? You can pair again with a new code.')) return;
+          if (!(await confirmSheet('Unpair Telegram?', 'Ghosty stops answering in your Telegram chat and sends nothing there. To pair again, send the bot a new code.', 'UNPAIR'))) return;
           await brain.telegramUnpair().catch(() => undefined);
           toast('Telegram unpaired', 'ok');
           void paintTelegram();
@@ -340,6 +342,8 @@ export const linksTab: TabDef = {
     };
 
     // ---- this phone: install + push notifications
+    /** Devices taken off with the UNDO bar still up. */
+    const pushGoing = new Set<string>();
     const paintApp = async () => {
       const st = pushState.get();
       online.phone = st.status === 'on';
@@ -373,13 +377,29 @@ export const linksTab: TabDef = {
         const { devices } = await brain.pushDevices();
         if (devices.length) ap.body.append(h('div.lab', 'DEVICES THAT GET NOTIFICATIONS'));
         for (const d of devices) {
+          if (pushGoing.has(d.id)) continue;
           const r = row(fmt.ago(d.at), d.label, '✕');
           const x = r.lastChild as HTMLElement;
           x.classList.add('del');
           x.title = 'Stop notifying this device';
-          x.addEventListener('click', async () => {
-            await brain.pushRemove(d.id);
-            void paintApp();
+          x.setAttribute('aria-label', `Stop notifying ${d.label}`);
+          // Off the list with UNDO; the brain stops notifying it only when the bar goes (its subscription
+          // lives on that device, so it could not be put back from here).
+          x.addEventListener('click', () => {
+            pushGoing.add(d.id);
+            r.remove();
+            undo(
+              `No more notifications to ${d.label}`,
+              () => {
+                pushGoing.delete(d.id);
+                void paintApp();
+              },
+              async () => {
+                await brain.pushRemove(d.id).catch((e) => toast(`Could not remove it: ${(e as Error).message}`, 'bad'));
+                pushGoing.delete(d.id);
+                void paintApp();
+              },
+            );
           });
           ap.body.append(r);
         }

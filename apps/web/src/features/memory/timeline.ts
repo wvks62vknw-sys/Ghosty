@@ -3,17 +3,17 @@
  * TIMELINE: everything Ghosty remembers about the owner, newest first — lines about them,
  * saved facts, diary days, lessons — filtered by kind or by words. Each shows where it came
  * from ("You added it", "From your chat on Sat 17 Oct, 14:03 ›" opening that chat, "From the
- * nightly reflection") and can be EDITed, FORGOTten (UNDO for a while after) or LOCKed so the
+ * nightly reflection") and can be EDITed (UNDO puts the old words back), FORGOTten (UNDO) or LOCKed so the
  * nightly reflection never rewrites or drops it.
  * PATTERNS: things Ghosty noticed by counting what is stored, each with what backs it up;
- * ✕ dismisses one for good.
+ * ✕ dismisses one for good (UNDO for 12 s: the brain is told once the bar goes).
  */
 import type { ForgottenItem, MemoryItem, MemoryPattern } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
-import { button, empty, modal, panel, toast, type Panel } from '../../ui/components';
+import { button, empty, modal, panel, toast, undoBar, type Panel } from '../../ui/components';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -84,9 +84,10 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   const p: Panel = panel('TIMELINE', { cls: 'tl', status: '' });
   const kindSel = h('select', { 'aria-label': 'Show which memories' }, ...KINDS.map(([v, l]) => h('option', { value: v }, l)));
   const find = h('input', { type: 'search', placeholder: 'Find a memory…', 'aria-label': 'Find a memory' });
-  const undoBar = h('div.undo', { role: 'status', hidden: true });
+  // UNDO after a FORGET or an EDIT (12 s; a forgotten one stays under RECENTLY FORGOTTEN for a day after)
+  const bar = undoBar();
   p.el.insertBefore(h('div.keyrow.wrapit', kindSel, find), p.body);
-  p.el.insertBefore(undoBar, p.body);
+  p.el.insertBefore(bar.el, p.body);
   // RECENTLY FORGOTTEN: everything forgotten in the last day (here, under ME, in WHAT I REMEMBER, or FORGET EVERYTHING), each with UNDO.
   const forgotBox = h('details.forgot', { hidden: true });
   p.el.insertBefore(forgotBox, p.body);
@@ -94,7 +95,6 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
   let items: MemoryItem[] = [];
   let shown = 30;
   let editing = '';
-  let undoTimer = 0;
   const state = { el: p.el, refresh, patterns: [] as MemoryPattern[] };
 
   const change = async (m: MemoryItem, op: 'edit' | 'forget' | 'restore' | 'lock' | 'unlock', text?: string): Promise<boolean> => {
@@ -114,21 +114,12 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     }
   };
 
-  const showUndo = (m: MemoryItem) => {
-    clearTimeout(undoTimer);
-    clear(
-      undoBar,
-      h('span', `Forgotten: “${m.text.length > 70 ? `${m.text.slice(0, 70)}…` : m.text}”`),
-      button('UNDO', async (b) => {
-        b.disabled = true;
-        if (await change(m, 'restore')) toast('Back in my memory', 'ok');
-        undoBar.hidden = true;
-      }, 'on'),
-    );
-    undoBar.hidden = false;
-    // The brain keeps a forgotten memory a day for UNDO; the button stays a while.
-    undoTimer = window.setTimeout(() => (undoBar.hidden = true), 15_000);
-  };
+  const short = (t: string) => (t.length > 70 ? `${t.slice(0, 70)}…` : t);
+  // The brain keeps a forgotten memory a day for UNDO (RECENTLY FORGOTTEN); the bar is the quick way back.
+  const showUndo = (m: MemoryItem) =>
+    bar.show(`Forgotten: “${short(m.text)}”`, async () => {
+      if (await change(m, 'restore')) toast('Back in my memory', 'ok');
+    });
 
   const row = (m: MemoryItem): HTMLElement => {
     const el = h(`div.mi${m.locked ? '.locked' : ''}` as 'div', { 'data-id': m.id });
@@ -138,10 +129,16 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       box.value = m.text;
       const save = button('SAVE', async (b) => {
         b.disabled = true;
+        const was = m.text;
         if (await change(m, 'edit', box.value)) {
           editing = '';
           paint();
-          toast('Saved', 'ok');
+          // UNDO puts the old words back (the lock, the source and the date never changed)
+          if (box.value.trim() !== was.trim())
+            bar.show(`Changed: “${short(box.value.trim())}”`, async () => {
+              const now = items.find((x) => x.id === m.id) ?? m;
+              if (await change(now, 'edit', was)) toast('The old words are back', 'ok');
+            });
         } else b.disabled = false;
       }, 'on');
       const cancel = button('CANCEL', () => {
@@ -263,8 +260,49 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
 
 export function patternsPanel(): { el: HTMLElement; set(list: MemoryPattern[]): void } {
   const p = panel('PATTERNS', { cls: 'pats', grow: false, status: 'noticed over time' });
+  // ✕ hides one at once; the brain is only told when its UNDO bar goes (nothing keeps a dismissed one to bring back)
+  const bar = undoBar();
+  p.el.insertBefore(bar.el, p.body);
+  // Waiting for the bar (`going`), made but not yet confirmed by the brain (`owed`: kept on the phone, so Ghosty closed
+  // or reloaded just after a ✕ sends it again at the next refresh), and confirmed (`sent`) — all three stay hidden.
+  const KEPT = 'ghosty.patterns.going';
+  const going = new Set<string>();
+  const owed = new Set<string>();
+  const sent = new Set<string>();
+  const trying = new Set<string>();
+  const keep = () => {
+    try {
+      localStorage.setItem(KEPT, JSON.stringify([...going, ...owed]));
+    } catch {
+      /* this visit only */
+    }
+  };
+  try {
+    for (const id of JSON.parse(localStorage.getItem(KEPT) ?? '[]') as string[]) owed.add(id);
+  } catch {
+    /* nothing kept */
+  }
+  const send = async (id: string) => {
+    going.delete(id);
+    owed.add(id);
+    keep();
+    if (trying.has(id)) return;
+    trying.add(id);
+    try {
+      all = (await brain.dismissPattern(id)).patterns;
+      owed.delete(id);
+      sent.add(id);
+      keep();
+    } catch {
+      /* still owed: tried again at the next refresh */
+    }
+    trying.delete(id);
+    paint();
+  };
+  let all: MemoryPattern[] = [];
   let list: MemoryPattern[] = [];
   const paint = () => {
+    list = all.filter((x) => !going.has(x.id) && !owed.has(x.id) && !sent.has(x.id));
     clear(p.body);
     p.setStatus(list.length ? `${list.length}` : 'NONE YET', list.length ? 'ok' : 'mid');
     if (!list.length) {
@@ -273,14 +311,19 @@ export function patternsPanel(): { el: HTMLElement; set(list: MemoryPattern[]): 
     }
     for (const pat of list) {
       const x = h('button.del', { type: 'button', title: 'Not useful: hide it', 'aria-label': 'Dismiss this pattern' }, '✕');
-      x.addEventListener('click', async () => {
-        try {
-          list = (await brain.dismissPattern(pat.id)).patterns;
-          paint();
-          toast('Hidden: I will not point that out again', 'ok');
-        } catch (e) {
-          toast(`Could not hide it: ${(e as Error).message}`, 'bad');
-        }
+      x.addEventListener('click', () => {
+        going.add(pat.id);
+        keep();
+        paint();
+        bar.show(
+          'Hidden: I will not point that out again',
+          () => {
+            going.delete(pat.id);
+            keep();
+            paint();
+          },
+          () => send(pat.id),
+        );
       });
       p.body.append(h('div.pat', { 'data-id': pat.id }, h('span.pt', pat.text), h('span.pe', `${pat.evidence} ${pat.unit}`), x));
     }
@@ -289,7 +332,8 @@ export function patternsPanel(): { el: HTMLElement; set(list: MemoryPattern[]): 
   return {
     el: p.el,
     set(l) {
-      list = l;
+      all = l;
+      for (const id of owed) void send(id);
       paint();
     },
   };

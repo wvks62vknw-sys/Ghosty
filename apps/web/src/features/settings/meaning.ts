@@ -9,7 +9,7 @@ import { meaningIndex } from '../../library/meaning';
 import { deleteEmbedder, downloadEmbedder, embedReady, embedState, embedSupport } from '../../offline/embed';
 import { EMBED_MODEL } from '../../offline/models';
 import { progressLabel } from '../../offline/prompt';
-import { bar, button, toast } from '../../ui/components';
+import { bar, button, confirmSheet, toast } from '../../ui/components';
 import { meaningCovers } from '../../../../../packages/shared/src/meaning';
 
 export function meaningBlock(): HTMLElement {
@@ -28,8 +28,8 @@ export function meaningBlock(): HTMLElement {
     paint();
   }, 'on');
   add.setAttribute('aria-label', `Add search by meaning (about ${EMBED_MODEL.mb} MB, on Wi-Fi)`);
-  const remove = button('REMOVE', () => {
-    if (!confirm('Remove search by meaning from this phone? Searches go back to keywords; the index is kept, and catches up if you add it again.')) return;
+  const remove = button('REMOVE', async () => {
+    if (!(await confirmSheet('Remove search by meaning?', `Searches go back to keywords. Its model (about ${EMBED_MODEL.mb} MB) comes off this phone and must be downloaded again to come back; the index is kept, and catches up if you add it again.`, 'REMOVE'))) return;
     void deleteEmbedder().then(() => toast('Search by meaning removed: searches use keywords', 'ok')).finally(refresh);
   }, 'warn');
   remove.setAttribute('aria-label', 'Remove search by meaning');

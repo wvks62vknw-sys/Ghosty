@@ -20,7 +20,7 @@ import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
 import { addFile, addText } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
-import { bar, button, modal, pager, panel, row, toast } from '../../ui/components';
+import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 
 /** Each kind's glyph on the shelf (route C: a neutral glass tile per row). */
@@ -85,6 +85,8 @@ export const libraryTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'LIBRARY // OFFLINE BRAIN', sub: 'everything Ghosty has read — searched on this phone too', leftLabel: 'ASK', rightLabel: 'ADD & SHELF', stack: true });
     let docs: LibraryDoc[] = [];
+    /** Removed with the UNDO bar still up: off the shelf, not yet off the brain. */
+    const leaving = new Set<string>();
 
     // ---- add knowledge
     const ap = panel('ADD KNOWLEDGE', { grow: false, cls: 'libadd' });
@@ -326,15 +328,25 @@ export const libraryTab: TabDef = {
         h('span.chip', { dataset: { case: 'keep' } }, /[a-z]/.test(kind) ? kind : kind.charAt(0) + kind.slice(1).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase())),
         h('span.chip.src', { dataset: { case: 'keep' } }, d.source || 'no source'),
         h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`));
-      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', async (b) => {
-        if (!confirm(`Remove "${d.title}" from Ghosty's library?`)) return;
-        b.disabled = true;
-        await brain.libraryRemove(d.id).then(() => {
-          toast(`Removed "${d.title}"`, 'ok');
-          m.close();
-        }, () => toast('Could not remove it', 'bad'));
-        b.disabled = false;
-        void refresh();
+      // Off the shelf at once with UNDO; removed from the brain and this phone only when the bar goes, so UNDO
+      // brings it back exactly as it was (its passages, its meaning index, where it came from).
+      const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {
+        m.close();
+        leaving.add(d.id);
+        shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+        undo(
+          `Removed: “${d.title}”`,
+          () => {
+            leaving.delete(d.id);
+            shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+            toast(`Back in the library: ${d.title}`, 'ok');
+          },
+          async () => {
+            await brain.libraryRemove(d.id).catch(() => toast(`Could not remove “${d.title}”`, 'bad'));
+            leaving.delete(d.id);
+            void refresh();
+          },
+        );
       }, 'warn readrm');
       const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
       void load();
@@ -523,8 +535,10 @@ export const libraryTab: TabDef = {
         docs = r.docs;
         vectors = r.vectors;
         starterReady = r.starterReady;
-        shelfList.set(docs);
-        paintGadgets(docs);
+        // (a document whose REMOVE is waiting on its UNDO bar is already off the shelf and off the gadgets)
+        const shown = docs.filter((x) => !leaving.has(x.id));
+        shelfList.set(shown);
+        paintGadgets(shown);
         shelf.setStatus(`${r.stats.docs} DOCS`, 'ok');
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
         P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;

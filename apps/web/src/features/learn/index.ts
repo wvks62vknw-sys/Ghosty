@@ -22,7 +22,7 @@ import { dayKey, nextText, streakOf, type Rating } from '../../../../../packages
 import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, h, svgEl } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, empty, panel, toast } from '../../ui/components';
+import { button, empty, panel, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import * as L from './store';
 
@@ -359,20 +359,26 @@ export const learnTab: TabDef = {
       sp.body.append(facts, h('div.note', c.summary));
       const next = c.lessons.find((l) => !l.done);
       const open = s.exam && s.exam.exam.course === c.id ? s.exam : null;
-      let sure = false;
-      const del = button('REMOVE', async (btn) => {
-        if (!sure) {
-          sure = true;
-          btn.textContent = 'TAP AGAIN TO REMOVE';
-          return;
-        }
-        try {
-          await L.removeCourse(c.id);
-          toast('Course removed', 'ok');
-          showHome();
-        } catch (e) {
-          toast(`Could not remove it: ${(e as Error).message}`, 'bad');
-        }
+      // REMOVE: gone at once with UNDO (12 s) — its lessons, cards and progress come back exactly; the brain
+      // forgets the course only when the bar goes.
+      const del = button('REMOVE', () => {
+        const going = L.removeCourseLater(c.id);
+        showHome();
+        undo(
+          `Course removed: ${c.title}`,
+          () => {
+            going.undo();
+            toast(`Back: ${c.title}`, 'ok');
+            if (learnState.view === 'home') showHome();
+          },
+          () =>
+            going.commit().catch((e) => {
+              // the brain could not be told: it stays, and shows again
+              going.undo();
+              toast(`Could not remove it: ${(e as Error).message}`, 'bad');
+              if (learnState.view === 'home') showHome();
+            }),
+        );
       }, 'warn');
       sp.body.append(
         h(

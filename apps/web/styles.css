@@ -3863,6 +3863,20 @@ html #pg-settings .swtick { width: 26px; height: 26px; border-radius: 50%; box-s
 html #pg-settings .swatch.on .swtick { background: var(--sw) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2303070a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 15px no-repeat; box-shadow: none; }
 html #pg-settings .swnote { margin: 12px 2px 2px; }
 @media (prefers-reduced-motion: reduce) { html #pg-settings .swatch { transition: none; } html #pg-settings .swatch:active { transform: none; } }
+/* UNDO for every screen (ui/components.ts undo()): the bar floats above the tab bar, over any sheet; the toasts move up while it shows */
+html .rcundo.undofloat { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabh) + 74px + env(safe-area-inset-bottom, 0px)); z-index: 160; max-width: 440px; margin: 0 auto; background: rgba(28,28,30,.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px var(--hair2), 0 8px 24px rgba(0,0,0,.45); }
+@media (min-width: 900px) { html .rcundo.undofloat { bottom: 96px; } }
+body:has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--tabh) + 136px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 900px) { body:has(> .undofloat:not([hidden])) #toasts { bottom: 158px; } }
+/* a one-tap confirm (confirmSheet): what happens in plain words, KEEP IT beside the action */
+html .confirm.sure { flex: 1; padding: 6px 18px 18px; }
+html .confirm.sure .note { font: 400 16px/22px var(--sf); color: var(--ink); }
+/* a translation made on the phone with no signal (core/index.ts plainReply): the language, the words big, READ ALOUD, the honest note */
+html .msg.tr .trhead { display: block; margin: 2px 0 4px; font: 500 13px/18px var(--sf); color: var(--ink2); }
+html .msg.tr .trtext { font: 400 19px/26px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html .msg.tr .tracts { margin-top: 8px; }
+html .msg.tr .novoice { color: var(--ink3); }
+html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px var(--sf); color: var(--ink2); }
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */
