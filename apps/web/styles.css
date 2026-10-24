@@ -3492,7 +3492,8 @@ html #pg-brief .two > .hero .bract button { height: 44px; min-height: 44px !impo
 html #pg-brief .pn.commute .rw.wrap { flex-wrap: wrap; row-gap: 4px; }
 html #pg-brief .pn.commute .rw.wrap .v { order: 3; flex: 1 1 100%; display: block; -webkit-line-clamp: unset; overflow: visible; }
 html #pg-brief .pn.commute .rw .v::first-letter { text-transform: uppercase; }
-html #pg-brief .pn.commute .rw.link { min-height: 44px; align-items: center; }
+html #pg-brief .pn.commute .rw.link { min-height: 44px; align-items: center; flex-wrap: nowrap; }
+html #pg-brief .pn.commute .rw.link .v { order: 0; flex: 1 1 auto; }
 html #pg-brief .pn.commute .rw.link .v { font: 400 15px/21px var(--sf); color: var(--ink2); }
 /* The digest's "Today in one line" above the headlines' sections. */
 html #pg-brief .pn.news .brone { display: flex; flex-direction: column; gap: 4px; margin: 0 16px 10px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--cr), .07); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); }

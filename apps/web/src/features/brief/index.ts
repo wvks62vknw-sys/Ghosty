@@ -251,19 +251,23 @@ export const briefTab: TabDef = {
     news.onChange(paintNews);
     paintWeather();
     paintNews();
+    // What Ghosty is told is on screen (cut at 400 characters by the brain): the day's facts first, so "what's my
+    // day like?" asked here is answered from them.
+    const describe = () => `Brief, ${dateEl.textContent}: ${[P.big.textContent, P.sub.textContent].filter(Boolean).join(' ')}. ${say.textContent} Diary: ${dayItems ? (dayItems.length ? dayItems.slice(0, 4).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing more today') : 'not known'}. Top headline: ${topHeadlines()[0] ?? 'none'}`;
     return {
       enter() {
         paintSay();
         loadDigest();
+        // (readable by the spec at window.__ghosty.brief, as the vehicle check does)
+        const g = (window as unknown as { __ghosty?: Record<string, unknown> }).__ghosty;
+        if (g) g.brief = { describe };
         void paintDay();
         void paintCommute();
         weather.start();
         air.start();
         news.start();
       },
-      // What Ghosty is told is on screen (cut at 400 characters by the brain): the day's facts first, so "what's my
-      // day like?" asked here is answered from them.
-      describe: () => `Brief, ${dateEl.textContent}: ${[P.big.textContent, P.sub.textContent].filter(Boolean).join(' ')}. ${say.textContent} Diary: ${dayItems ? (dayItems.length ? dayItems.slice(0, 4).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing more today') : 'not known'}. Top headline: ${topHeadlines()[0] ?? 'none'}`,
+      describe,
     };
   },
 };
