@@ -21,6 +21,7 @@ import { chunkText, joinPassages, type Passage } from '../../../../packages/shar
 export { chunkText, joinPassages } from '../../../../packages/shared/src/chunk';
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
 import { STARTER, type StarterDoc } from './starter';
+import { rareTerms } from '../../../../packages/shared/src/meaning';
 import { cost, neurons } from '../neurons';
 
 export type { LibraryDoc, LibraryHit };
@@ -266,16 +267,21 @@ export class Library {
     }
     const titles = new Map(this.list().map((d) => [d.id, d.title]));
     // a term "covers" a passage when a word in it starts with the term's stem (whole words, so "hi" ≠ "this")
-    const stems = terms.map((t) => new RegExp(`(^|[^a-z0-9])${t.slice(0, Math.max(3, Math.min(t.length, 5))).replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}`));
+    const stemOf = (t: string) => new RegExp(`(^|[^a-z0-9])${t.slice(0, Math.max(3, Math.min(t.length, 5))).replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}`);
+    const stems = terms.map(stemOf);
+    // what makes a passage a match: the words that say what is asked ("mitosis" in "what happens during mitosis"),
+    // not the everyday ones a passage on anything may share with the question (shared/meaning.ts COMMON)
+    const rare = rareTerms(terms).map(stemOf);
     const enough = terms.length >= 2 || terms[0]!.length >= 5; // one short word is never enough to bring a passage up by itself
     const hits = rows.map((r) => {
       const low = `${r.heading} ${r.text}`.toLowerCase();
       const cover = stems.filter((s) => s.test(low)).length / stems.length;
+      const rareCover = rare.filter((s) => s.test(low)).length / rare.length;
       const kw = Number(r.score) / best; // 1 for the best keyword match
       const v = qv ? vecs.get(Number(r.rowid)) : undefined;
       const sem = v && qv ? cosine(qv, v) : null;
       const score = sem === null ? 0.7 * kw + 0.3 * cover : 0.35 * kw + 0.2 * cover + 0.45 * Math.max(0, (sem - 0.5) * 2);
-      const relevant = enough && (cover >= (terms.length >= 3 ? 0.6 : 0.99) || (sem !== null && sem >= 0.72));
+      const relevant = enough && (rareCover >= (rare.length >= 3 ? 0.6 : 0.99) || (sem !== null && sem >= 0.72));
       return { doc: r.doc, title: titles.get(r.doc) ?? r.doc, heading: r.heading || '', page: r.page === null || r.page === undefined ? null : Number(r.page), text: r.text, score: Math.round(score * 1000) / 1000, relevant };
     });
     hits.sort((a, b) => b.score - a.score);

@@ -65,6 +65,25 @@ test('the library keeps passages and finds the right one without AI', async () =
   assert.deepEqual(await lib.search('swallows'), []);
 });
 
+test('a passage is a match for what the question is about, not for the everyday words it shares with it', async () => {
+  const lib = new Library(new MemStorage(), {});
+  const doc = lib.createDoc({ title: 'Revision notes', source: 'notes.pdf', kind: 'pdf' });
+  await lib.addPassages(doc.id, [
+    { text: 'Nothing much happens here during the night shift; the station is quiet until the morning.', heading: 'Night shift', page: 1 },
+    { text: 'Osmosis is the movement of water across a partially permeable membrane, from a dilute solution to a concentrated one.', heading: 'Cells', page: 2 },
+    { text: 'The French Revolution began in 1789 with the storming of the Bastille in Paris.', heading: 'History', page: 3 },
+  ]);
+  lib.finish(doc.id);
+  // "happens" and "during" are in the night-shift passage, "mitosis" is nowhere: nothing is a match
+  assert.ok((await lib.search('what happens during mitosis')).every((h) => !h.relevant), 'two everyday words of three are not a match');
+  assert.ok((await lib.search('zzqxv nothing here')).every((h) => !h.relevant), 'a made-up word with two everyday ones is not a match');
+  // the word that says what is asked is enough, whatever the question's everyday words
+  const osmosis = await lib.search('explain osmosis');
+  assert.equal(osmosis[0]?.heading, 'Cells');
+  assert.equal(osmosis[0]?.relevant, true, '"explain" is not needed in the passage');
+  assert.equal((await lib.search('storming of the Bastille')).find((h) => h.relevant)?.page, 3);
+});
+
 test('a section read back is its text once: the overlap each passage carries from the one before is dropped, and the end is kept', async () => {
   const { chunkText, joinPassages } = await import('./.build/library/store.mjs');
   const lib = new Library(new MemStorage(), {});

@@ -399,8 +399,9 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.click('.modal .mhead button');
     await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
   }
-  const askH = await ui.$eval('#pg-library .pn.ask > .bd', (el) => el.clientHeight);
-  if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
+  // squeezed: results hidden in a short scrolling box (a short list of real results is simply short)
+  const ask = await ui.$eval('#pg-library .pn.ask > .bd', (el) => ({ h: el.clientHeight, all: el.scrollHeight }));
+  if (ask.h < 260 && ask.all > ask.h + 1) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${ask.h}px tall, ${ask.all}px of results)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
   if (name === 'phone') {
     // One scrolling page on phones: scroll down to the shelf.

@@ -15,7 +15,7 @@ import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/
 import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { meaningComplete, meaningIndex } from '../../library/meaning';
-import { queryTerms } from '../../../../../packages/shared/src/meaning';
+import { queryTerms, rareTerms } from '../../../../../packages/shared/src/meaning';
 import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
@@ -312,9 +312,9 @@ export const libraryTab: TabDef = {
       try {
         const r = await brain.librarySearch(t, 20);
         const terms = queryTerms(t);
-        // Only what really matches: the brain's own verdict, or every searched word there (one short word, "ATP",
-        // is enough when he typed it himself). Passages sharing one common word with the question are left out.
-        const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, terms));
+        // Only what really matches: the brain's own verdict, or every word that says what is asked there (one short
+        // word, "ATP", is enough when he typed it himself). Passages sharing only everyday words are left out.
+        const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, rareTerms(terms)));
         clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
