@@ -135,7 +135,8 @@ await page.click('#pg-eye .eyebot button:has-text("LOOK")');
 await page.waitForFunction(() => /NO FEED|NOT REACHABLE/.test(document.querySelector('#pg-eye .eyelay')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => undefined);
 await page.click('#pg-eye .eyelay > h3');
 await page.waitForTimeout(600);
-const sheet = (await page.textContent('#pg-eye .eyelay')).replace(/\s+/g, ' ');
+// each tile's line and the sheet's own status, one by one (the sheet's whole text runs words together)
+const sheet = (await page.$$eval('#pg-eye .eyelay .ltile, #pg-eye .eyelay > h3', (els) => els.map((e) => [...e.children].map((c) => c.textContent.trim()).join(' ')))).join(' | ');
 if (JARGON.test(sheet)) problems.push(`the layers sheet speaks in feed states: ${sheet.match(new RegExp(`.{0,40}${JARGON.source}.{0,10}`, 'i'))?.[0]}`);
 await page.screenshot({ path: `${out}/eye-layers.png` });
 const tile = page.locator('#pg-eye .eyelay .ltile', { hasText: 'LIVE TRAFFIC' });
