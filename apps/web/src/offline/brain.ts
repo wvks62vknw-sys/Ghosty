@@ -16,7 +16,8 @@
  */
 import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
-import { searchLocal } from '../library/local';
+import { searchLocalHow } from '../library/local';
+import { embedState, freeEmbedder, isEmbedFile } from './embed';
 import { settings } from '../state/app';
 import { allModels, downloadFailure, MODELS, modelBase, WORKER_REV, type ModelDef, type TrainedModel } from './models';
 import { withModel } from './lock';
@@ -283,14 +284,17 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
 /** A model's weights and config kept by WebLLM: from Hugging Face, or a trained week's from Ghosty's weight address. */
 const isModelFile = (url: string) => url.startsWith('https://huggingface.co/') || new URL(url).pathname.startsWith('/api/w/');
 
-/** Remove cached model files that are not the current model's (an older download, another model) — only after a download finished. */
+/**
+ * Remove cached model files that are not the current model's (an older download, another model) — only after a
+ * download finished. SEARCH BY MEANING's model (offline/embed.ts) shares these stores and is always kept.
+ */
 async function pruneOtherRevisions(): Promise<void> {
   if (typeof caches === 'undefined') return;
   const keep = modelBase(currentModel());
   for (const name of ['webllm/model', 'webllm/config']) {
     try {
       const c = await caches.open(name);
-      for (const r of await c.keys()) if (isModelFile(r.url) && !r.url.startsWith(keep)) await c.delete(r);
+      for (const r of await c.keys()) if (isModelFile(r.url) && !r.url.startsWith(keep) && !isEmbedFile(r.url)) await c.delete(r);
     } catch {
       /* no cache storage */
     }
@@ -326,9 +330,21 @@ function armIdle(): void {
   idle = setTimeout(() => (offlineBrain.get().busy ? armIdle() : freeModel()), t?.idleMs ?? IDLE_UNLOAD_MS);
 }
 
+/** The brain's files out of WebLLM's stores; SEARCH BY MEANING's model, when it is here, stays (offline/embed.ts). */
 async function clearCaches(): Promise<void> {
   if (typeof caches === 'undefined') return;
-  await Promise.all(WEBLLM_CACHES.map((c) => caches.delete(c).catch(() => false)));
+  if (!embedState.get().downloaded) {
+    await Promise.all(WEBLLM_CACHES.map((c) => caches.delete(c).catch(() => false)));
+    return;
+  }
+  for (const name of WEBLLM_CACHES) {
+    try {
+      const c = await caches.open(name);
+      for (const r of await c.keys()) if (!isEmbedFile(r.url)) await c.delete(r);
+    } catch {
+      /* no cache storage */
+    }
+  }
 }
 
 /** Remove the model from this phone (and the runtime's copy kept by the app's own cache). */
@@ -339,9 +355,14 @@ export async function deleteOffline(): Promise<void> {
   dropWorker();
   await clearCaches();
   try {
-    // The service worker keeps vendored files; WebLLM's ~16 MB is only worth keeping with a model.
+    // The service worker keeps vendored files; WebLLM's ~16 MB is only worth keeping with a model (search by
+    // meaning runs on it too: then only the brain's own compiled code goes).
     const c = await caches.open('ghosty-vendor-v1');
-    for (const r of await c.keys()) if (new URL(r.url).pathname.startsWith(`${VENDOR}/`)) await c.delete(r);
+    const keepRuntime = embedState.get().downloaded;
+    for (const r of await c.keys()) {
+      const path = new URL(r.url).pathname;
+      if (path.startsWith(`${VENDOR}/`) && !(keepRuntime && (!path.startsWith(`${VENDOR}/libs/`) || isEmbedFile(r.url)))) await c.delete(r);
+    }
   } catch {
     /* no cache storage */
   }
@@ -468,9 +489,13 @@ export async function answerOffline(question: string, recent: { role: 'user' | '
  * turns); THINK HARDER uses it too, with a smaller `budget` (its prompts are asked several times).
  */
 export async function offlinePrompt(question: string, recent: { role: 'user' | 'assistant'; text: string }[], budget?: number): Promise<OfflineMsg[]> {
-  const hits = await searchLocal(question, 3).catch(() => []);
+  // The library's best three by meaning when SEARCH BY MEANING is here and the index is whole, else by keywords.
+  // The meaning model leaves memory straight away: the brain is about to load, and a phone holds one comfortably.
+  const found = await searchLocalHow(question, 3).catch(() => ({ hits: [], how: 'keywords' as const }));
+  freeEmbedder();
+  const hits = found.hits;
   const now = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  return buildOfflinePrompt(
+  const msgs = buildOfflinePrompt(
     {
       name: settings.get().name,
       now,
@@ -483,7 +508,13 @@ export async function offlinePrompt(question: string, recent: { role: 'user' | '
     },
     budget,
   );
+  // What the small model was given, for a test (window.__ghosty.meaning) and the console: it stays on this phone.
+  lastPrompt.set({ how: found.how, titles: hits.map((h) => h.title), system: msgs[0]?.content ?? '' });
+  return msgs;
 }
+
+/** The last prompt the offline brain was given: how its passages were found, their titles, the system message. */
+export const lastPrompt = createStore({ how: '' as '' | 'meaning' | 'keywords', titles: [] as string[], system: '' });
 
 /** The size of the model being used, for the settings panel. */
 export const offlineSize = (): number => currentModel().mb;
