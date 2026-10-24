@@ -47,7 +47,19 @@ async function open(viewport, opts = {}) {
   await page.route('**/api/highways/events', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(INCIDENT) }));
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
-  return { ctx, page };
+  // A fresh preview brain is still seeding its starter library during the first boot: wait for it to settle, then
+  // open Home again so the gauges read the settled count (the app itself looks again after 15 s in that case).
+  let libAtBoot = null;
+  for (let i = 0; i < 30; i++) {
+    const l = await brainGet('/library').catch(() => null);
+    if (l?.starterReady && libAtBoot && l.stats.passages === libAtBoot.stats.passages) break;
+    libAtBoot = l;
+    await page.waitForTimeout(1000);
+  }
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  libAtBoot = await brainGet('/library').catch(() => libAtBoot);
+  return { ctx, page, libAtBoot };
 }
 
 /** Elements (visible, not inside something that clips them) that run past the screen's sides. */
@@ -78,7 +90,7 @@ const target44 = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.ge
 
 for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   const W = vp.width;
-  const { ctx, page } = await open(vp);
+  const { ctx, page, libAtBoot } = await open(vp);
   if ((await page.evaluate(() => document.documentElement.dataset.look)) !== 'pro') problems.push(`[${W}] not in a calm look (Graphite is the default)`);
   // ---- Home: the four instruments read the mock brain
   await page.waitForFunction(() => /\d/.test(document.querySelector('.rcco.bl .v')?.textContent ?? '') && /ms/.test(document.querySelector('.rcco.br .v')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
@@ -87,6 +99,8 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   const st = await brainGet('/status');
   const lib = await brainGet('/library');
   const study = await brainGet('/library/study');
+  // STUDY at scale reads pages every few seconds in the preview too, so the gauge (fetched when Home opened) may lag the
+  // count read now: accept either the count at boot or the count now.
   const chat = (st?.capacity?.providers ?? []).filter((p) => !p.smallOnly);
   const capped = chat.filter((p) => p.perDay);
   const wantAi = !chat.length ? 'None' : capped.length ? `${Math.round((capped.reduce((t, p) => t + Math.max(0, p.perDay - p.usedToday), 0) / capped.reduce((t, p) => t + p.perDay, 0)) * 100)}%` : chat.some((p) => p.state === 'ready' || p.state === 'busy') ? 'Open' : 'Full';
@@ -95,7 +109,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   //  seconds old at most)
   const num = (t) => Number(String(t ?? '').replace(/[^\d]/g, ''));
   const near = (a, b) => b > 0 ? Math.abs(a - b) / b < 0.06 : a === 0;
-  if (!lib || !near(num(co.bl?.v), lib.stats.passages)) problems.push(`[${W}] LIBRARY reads "${co.bl?.v}", the library has ${lib?.stats?.passages} passages`);
+  if (!lib || !(near(num(co.bl?.v), lib.stats.passages) || (libAtBoot && near(num(co.bl?.v), libAtBoot.stats.passages)))) problems.push(`[${W}] LIBRARY reads "${co.bl?.v}", the library has ${lib?.stats?.passages} passages (${libAtBoot?.stats?.passages} at boot)`);
   if (study && (!/^[\d,]+ studied$/.test(co.bl?.s ?? '') || !near(num(co.bl?.s), study.summary.read))) problems.push(`[${W}] LIBRARY's line reads "${co.bl?.s}", the study summary says ${study.summary.read} read`);
   if (!/^\d+ms$/.test(co.br?.v ?? '') || !/Secure/.test(co.br?.s ?? '')) problems.push(`[${W}] UPLINK reads "${co.br?.v}" "${co.br?.s}"`);
   const school = await brainGet('/school');
@@ -126,7 +140,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   // the breathing glow
   const breath = await page.$eval('.rcglow', (e) => getComputedStyle(e).animationName);
   if (breath !== 'rcbreath') problems.push(`[${W}] the glow behind the reactor does not breathe (${breath})`);
-  await page.screenshot({ path: `${out}/routec-${W}-home.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-home.png`, timeout: 90000 });
 
   // ---- every tab of the pill reaches its screen
   const AREA = { ask: 'core', see: 'area-see', make: 'area-make', learn: 'area-learn', plan: 'area-plan' };
@@ -166,7 +180,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   for (const want of ['plusbtn', 'cin', 'citedbtn', 'mic']) if (!chatState.composer.some((c) => c.includes(want))) problems.push(`[${W} chat] the composer has no ${want}: ${chatState.composer.join(', ')}`);
   for (const s of await sideways(page, '#pg-core *, #top *')) problems.push(`[${W} chat] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#cbar .plusbtn, #cbar #mic, #cbar .citedbtn, #top .logbtn, #top .you, .convo .msg.latest .rcacts button')) problems.push(`[${W} chat] under a 44 pt target: ${t}`);
-  await page.screenshot({ path: `${out}/routec-${W}-chat.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-chat.png`, timeout: 90000 });
   await page.click('#top .logbtn');
   await page.waitForTimeout(500);
 
@@ -196,7 +210,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
       const head = await page.textContent('#pg-gym .gymlvhd');
       if (!/Levels by game · \d+ of \d+ mastered/i.test(head ?? '')) problems.push(`[${W} gym] the levels heading reads "${head}"`);
     }
-    await page.screenshot({ path: `${out}/routec-${W}-${tab}.png` });
+    await page.screenshot({ path: `${out}/routec-${W}-${tab}.png`, timeout: 90000 });
   }
 
   // ---- the Me sheet: Status first, three dials with real readings
@@ -221,7 +235,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   if (me.rows.join(',') !== 'memory,settings,system,links,deck') problems.push(`[${W} me] the rows are ${me.rows.join(', ')}`);
   for (const s of await sideways(page, '#mesheet *')) problems.push(`[${W} me] sticks out sideways: ${s}`);
   for (const t of await target44(page, '#mesheet .merow, #mesheet .meclose')) problems.push(`[${W} me] under a 44 pt target: ${t}`);
-  await page.screenshot({ path: `${out}/routec-${W}-me.png` });
+  await page.screenshot({ path: `${out}/routec-${W}-me.png`, timeout: 90000 });
   await ctx.close();
 }
 

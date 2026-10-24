@@ -4,7 +4,9 @@
  *
  *   GET  /school                → the record, the ladder (passed / now / locked), the latest result in each subject
  *                                 of the current stage, weak spots and papers still waiting for marks (a few are
- *                                 marked again on every read)
+ *                                 marked again on every read); and, so the tab needs no second call on open, the
+ *                                 paper on the free GPU (`remote`: a finished one is filed first), the honest gap
+ *                                 per subject (`gap`) and what is being practised (`practice`)
  *   POST /school/sit            { stage, subject } → a paper to sit: questions, types, choices, marks and passages —
  *                                 NEVER the answers or the mark schemes. Any stage may be sat (a placement test).
  *                                 An unfinished paper of the same subject from the last day is handed back to carry on.
@@ -29,6 +31,8 @@ import { boundaryLine, scorePaper, stageById, STAGE_IDS, SUBJECT_LABEL, weakSpot
 import { durableDelete } from '../kv';
 import { BANK_STAGES, bankItems, bankKey, bankName, bankPaper, bankReady, bankRow, bankTick, isBankStage, loadBank, shapeOf, type BankMeta } from './banks';
 import { keepGiven, markPaper, retryPending, type Ask } from './mark';
+import { practiceView } from './practice';
+import { fileRemote, gapBySubject, loadRemote, remoteStatus, remoteView, sitRemote } from './remote';
 import { fileResponse, loadAllOfficial, loadOfficial, officialById, officialKey, officialName, officialRow, officialTick, OFFICIAL, OFFICIAL_HOSTS, saveText, type OfficialRecord } from './official';
 import { hasPapers, makePaper, paperId, PAPER_SEED_FLOOR, PAPER_STAGES, stageName, type SchoolPaper } from './papers';
 import { addNews, applyResult, ladder, latestFor, loadPaper, loadState, newsFor, nextUp, PAPER_PREFIX, reportLine, saveState, savePaper, type PaperRecord, type SchoolState, type Store } from './state';
@@ -239,12 +243,15 @@ async function retrySome(d: SchoolDeps, st: SchoolState, limit: number): Promise
 }
 
 /** What GET /school (and the settings) answer with. */
-async function view(d: Store, st: SchoolState) {
+async function view(d: SchoolDeps, st: SchoolState) {
   const stage = stageById(st.stage)!;
   const latest = latestFor(st.results, st.stage);
   const src = await sourcesFor(d, st);
   const can = sittable(src);
   const w = await loadWork(d);
+  const now = (d.now ?? Date.now)();
+  // The free GPU's run and the practice live in the database only: while it is paused, SCHOOL still shows his record.
+  const [remote, practice] = await Promise.all([loadRemote(d.storage).then((r) => remoteView(r, now)).catch(() => null), practiceView(d.storage, st.stage, now).catch(() => null)]);
   return {
     state: { stage: st.stage, passed: st.passed, results: st.results, nightly: st.nightly, open: st.open },
     stages: ladder(st, can),
@@ -257,12 +264,17 @@ async function view(d: Store, st: SchoolState) {
     pending: st.results.filter((r) => r.marked.pending > 0).map((r) => ({ paperId: r.paperId, title: r.title, items: r.marked.pending })),
     next: nextUp(st),
     papersFor: PAPER_STAGES,
+    remote,
+    gap: gapBySubject(st),
+    practice,
   };
 }
 
 export async function handleSchool(req: Request, path: string, method: string, d: SchoolDeps): Promise<Response> {
   const now = (d.now ?? Date.now)();
   if (path === '/school' && method === 'GET') {
+    // A paper sat on the free GPU (or the online model's marks) waiting to be filed: into the record first.
+    await fileRemote(d, (fn) => serial(d, fn)).catch(() => 0);
     const st = await serial(d, async () => {
       const st = await loadState(d);
       if (await retrySome(d, st, RETRY_ON_READ)) await saveState(d, st);
@@ -408,6 +420,17 @@ export async function handleSchool(req: Request, path: string, method: string, d
       return st;
     });
     return json(await view(d, st));
+  }
+
+  // [school 2b] A paper sat on Kaggle's free GPU by the same weights (school/remote.ts; selftrain/cycle.ts runs it): set
+  // through POST /school/sit above, so it is the paper the phone would get; then its status, and the gap per subject.
+  if (path === '/school/sit-remote' && method === 'POST') return sitRemote(d, body, (stage, subject) => handleSchool(new Request(req.url, { method: 'POST', body: JSON.stringify({ stage, subject }) }), '/school/sit', 'POST', d), (fn) => serial(d, fn));
+  if (path === '/school/remote' && method === 'GET') return remoteStatus(d, (fn) => serial(d, fn));
+
+  // ---- part 3: the reading library (school/reading.ts): the shelves, READ, the reading check and BORROW ----
+  if (path === '/school/reading' || path.startsWith('/school/reading/')) {
+    const r = await (await import('./reading')).readingRoute(path, method, body, d);
+    if (r) return r;
   }
 
   return bad('not found', 404);

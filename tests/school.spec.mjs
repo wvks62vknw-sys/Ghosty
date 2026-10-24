@@ -9,6 +9,9 @@
 // source and licence, and FETCH reads one on the phone (the file is a stand-in PDF served here, never the real
 // site) and the mock brain makes it into a paper ("Ready", the diagram question left out); WRITE THE PAPERS for
 // Key Stage 3 writes its banks through the mock brain until the stage can be sat.
+// Part 3: READING lists his stage's shelf with each book's source and licence; READ runs through the mock brain until
+// the book is read (the preview brain fetches the small real Gutenberg text); the reading check is sat on the stand-in
+// model with the book's words and its score kept; BORROW shows the rule and why a higher book cannot be borrowed yet.
 //   BASE=http://localhost:8803 node tests/school.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
@@ -123,7 +126,7 @@ await noSideways(page, 'the SCHOOL tab');
 await smallTargets(page, 'the SCHOOL tab');
 
 // ---- SIT one subject on the stand-in model: "Question x of y", then the result card with a grade -------------------
-await page.locator('#pg-school .schsub').nth(2).locator('button').click(); // Numbers
+await page.locator('#pg-school .schsub').nth(2).locator('button').first().click(); // Numbers (its SIT; FREE GPU is beside it)
 await page.waitForFunction(() => /^Question \d+ of \d+$/.test(document.querySelector('#pg-school .schliveh b')?.textContent ?? ''), null, { timeout: 15000 }).catch(async () => problems.push(`no "Question x of y" while he sits it: "${await page.locator('#pg-school .schliveh b').textContent().catch(() => '')}"`));
 if (!(await page.locator('#pg-school .schbtns button.warn:not([hidden])').count())) problems.push('no STOP while he sits');
 await smallTargets(page, 'sitting');
@@ -239,6 +242,156 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: `${out}/school-ks3-ready.png` });
 await noSideways(page, 'Key Stage 3 written');
 await ctx.close();
+
+// ---- READING (part 3): the shelf with source and licence, READ through the mock brain, the reading check, BORROW's rule ----
+{
+  const { ctx, page } = await signIn(true);
+  await page.evaluate(() => (location.hash = 'school'));
+  await page.waitForFunction(() => document.querySelectorAll('#pg-school .schreading .schbook').length >= 6, null, { timeout: 20000 }).catch(() => problems.push('READING does not list his shelf'));
+  const rows = await page.$$eval('#pg-school .schreading .schbook', (n) => n.map((x) => ({ id: x.dataset.id, text: x.textContent })));
+  const shelf = (await page.evaluate(() => window.__ghosty?.school?.reading?.shelf)) ?? [];
+  if (!shelf.some((r) => r.id === 'pg-14838') || shelf.length < 6) problems.push(`READING: the nursery shelf: ${JSON.stringify(shelf)}`);
+  for (const r of rows.filter((x) => shelf.some((s) => s.id === x.id))) if (!/Project Gutenberg #\d+ · Public domain in the UK: .* died .* before 1955/.test(r.text)) problems.push(`READING: ${r.id} has no source and licence line`);
+  const readTxt = (await page.locator('#pg-school .schreading').textContent().catch(() => '')) ?? '';
+  if (!/SIT THE READING CHECK/.test(readTxt) || !/80% passes/.test(readTxt)) problems.push('READING does not offer the reading check with its pass mark');
+  await page.locator('#pg-school .schreading').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-reading.png` });
+  await noSideways(page, 'READING');
+  await smallTargets(page, 'READING');
+  // READ: the brain imports the book through the library's importers, a part at a time, until it is read.
+  const peter = page.locator('#pg-school .schreading .schbook[data-id="pg-14838"]');
+  if ((await peter.locator('button', { hasText: /^(READ|CARRY ON READING)$/ }).count())) await peter.locator('button', { hasText: /^(READ|CARRY ON READING)$/ }).click();
+  await page.waitForFunction(() => (window.__ghosty?.school?.reading?.shelf ?? []).find((r) => r.id === 'pg-14838')?.status === 'read', null, { timeout: 90000 }).catch(async () => problems.push(`READ did not finish The Tale of Peter Rabbit: ${await peter.textContent().catch(() => '')}`));
+  await page.waitForFunction(() => /Read ✓/.test(document.querySelector('#pg-school .schreading .schbook[data-id="pg-14838"] .schbookst')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('a book he has read is not listed as read with the day'));
+  // The reading check, sat on the stand-in model like a paper: "Question x of 10", then the score with the book.
+  const jemima = page.locator('#pg-school .schreading .schbook[data-id="pg-14814"]');
+  const before = (await page.evaluate(() => window.__ghostyOfflineEngine.calls.length)) ?? 0;
+  if ((await jemima.locator('button', { hasText: 'SIT THE READING CHECK' }).count())) {
+    await jemima.locator('button', { hasText: 'SIT THE READING CHECK' }).click();
+    await page.waitForFunction(() => /^Question \d+ of 10$/.test(window.__ghosty?.school?.reading?.live ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`no "Question x of 10" while he sits the reading check: "${await page.evaluate(() => window.__ghosty?.school?.reading?.live)}"`));
+    await page.locator('#pg-school .schreading .schcheck').evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => undefined);
+    await page.screenshot({ path: `${out}/school-reading-check.png` });
+    await smallTargets(page, 'the reading check');
+    await page.waitForFunction(() => /\d+\/10 \(\d+%\) — (passed|not passed) \(80% passes\)/.test(window.__ghosty?.school?.reading?.last ?? ''), null, { timeout: 60000 }).catch(async () => problems.push(`the reading check was not marked: "${await page.evaluate(() => window.__ghosty?.school?.reading?.last)}"`));
+    const asked = await page.evaluate((n) => window.__ghostyOfflineEngine.calls.slice(n).map((c) => c.messages.at(-1).content), before);
+    if (asked.length !== 10 || !asked.every((q) => /^Read this: "/.test(q))) problems.push(`the check's questions did not reach the model with the book's words: ${asked.length} asked`);
+  }
+  await page.waitForFunction(() => /^\d+\/10$/.test((window.__ghosty?.school?.reading?.shelf ?? []).find((r) => r.id === 'pg-14814')?.check ?? ''), null, { timeout: 15000 }).catch(() => problems.push('the check’s score is not kept with the book'));
+  // BORROW: the rule in one line; without top grades in his reading, every higher book says why and cannot be borrowed.
+  const rule = (await page.locator('#pg-school .schreading .schrule').textContent().catch(() => '')) ?? '';
+  if (!/two stages above/.test(rule) || !/80%/.test(rule) || !/never count towards passing a stage/.test(rule)) problems.push(`BORROW's rule: "${rule}"`);
+  const borrowLine = (await page.locator('#pg-school .schreading .schborrowline').textContent().catch(() => '')) ?? '';
+  if (!/must be at top grades/.test(borrowLine)) problems.push(`BORROW does not say it is not earned yet: "${borrowLine}"`);
+  const aheads = await page.$$eval('#pg-school .schreading details.schahead', (n) => n.map((x) => x.dataset.stage));
+  if (aheads.join(',') !== 'reception,ks1') problems.push(`the higher shelves: ${aheads.join(',')}`);
+  await page.locator('#pg-school .schreading details.schahead[data-stage="reception"] > summary').click();
+  const bunny = page.locator('#pg-school .schreading details.schahead[data-stage="reception"] .schbook[data-id="pg-14407"]');
+  if (!(await bunny.locator('button', { hasText: 'BORROW' }).isDisabled().catch(() => false))) problems.push('BORROW is open before it is earned');
+  if (!/top grades/.test((await bunny.locator('.schborrowwhy').textContent().catch(() => '')) ?? '')) problems.push('a higher book does not say why it cannot be borrowed');
+  const locks = (await page.locator('#pg-school .schreading .schlocks').textContent().catch(() => '')) ?? '';
+  if (!/locked until GCSE/.test(locks)) problems.push(`WHAT IS LOCKED: "${locks}"`);
+  await bunny.scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.waitForFunction(() => !document.querySelector('.toast'), null, { timeout: 8000 }).catch(() => undefined);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-reading-borrow.png` });
+  await page.locator('#pg-school .schreading .schbook[data-id="pg-14814"]').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${out}/school-reading-done.png` });
+  await noSideways(page, 'READING after a check');
+  await smallTargets(page, 'READING after a check');
+  await ctx.close();
+}
+
+// ---- the free GPU, the gap and the practice (wired): FREE GPU posts /school/sit-remote and shows the run's note,
+// asks /school/remote every 20 s, a 409 shows the run already going; the gap line per
+// subject and the practice line come with GET /school (real time: the 20 s are waited for); without the Kaggle key the buttons are hidden, with one line why.
+{
+  /** The training status with these keys (the preview brain's own, else a bare one). */
+  const keysAre = (page, k) => page.route('**/api/training', async (route) => {
+    const real = await route.fetch().then((r) => r.json()).catch(() => ({}));
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...real, keys: k }) });
+  });
+  // without the Kaggle key
+  {
+    const { ctx, page } = await signIn(true);
+    await keysAre(page, { kaggle: false, hf: true });
+    await page.evaluate(() => (location.hash = 'school'));
+    await page.waitForFunction(() => /needs the Kaggle key/.test(window.__ghosty?.school?.gpu?.why ?? ''), null, { timeout: 15000 }).catch(() => problems.push('[no Kaggle key] no line saying why there is no free GPU button'));
+    if (await page.locator('#pg-school button.schgpu:visible, #pg-school button.schgpuall:visible').count()) problems.push('[no Kaggle key] the free GPU buttons are shown');
+    const why = (await page.locator('#pg-school .schgpuwhy').textContent().catch(() => '')) ?? '';
+    if (!/^SIT ON THE FREE GPU .* needs the Kaggle key: save it in SYSTEM → KEYS\.$/.test(why)) problems.push(`[no Kaggle key] the line: "${why}"`);
+    await page.locator('#pg-school .schstage').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${out}/school-gpu-nokey.png` });
+    await ctx.close();
+  }
+  // with the keys
+  const { ctx, page } = await signIn(true);
+  await keysAre(page, { kaggle: true, hf: true });
+  const GAP = 'offline 14/40 · online 36/40';
+  const PRACTICE = 'practising: 3 weak spots · 24 items checked this week';
+  await page.route('**/api/school', async (route) => {
+    const v = await route.fetch().then((r) => r.json());
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...v, remote: lastRemote ?? v.remote, gap: { numbers: { stage: 'nursery', subject: 'numbers', line: GAP, paperId: 'x', at: Date.now() } }, practice: { spots: 3, checked: 24, line: PRACTICE } }) });
+  });
+  const posted = [];
+  let polls = 0;
+  /** The run as the stand-in brain last said it (GET /school carries the same). */
+  let lastRemote = null;
+  let done = false;
+  const run = (o) => ({ phase: 'running', note: '', paperId: 'gpu-1', stage: 'nursery', subject: 'numbers', title: 'Nursery numbers', startedAt: Date.now(), last: null, ...o });
+  await page.route('**/api/school/sit-remote', (route) => {
+    posted.push(route.request().postDataJSON());
+    if (posted.length === 1) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ remote: (lastRemote = run({ phase: 'queued', note: 'Starting Nursery numbers on the free GPU…' })) }) });
+    route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'Already sitting Key Stage 3 maths on the free GPU: one paper at a time.', remote: (lastRemote = run({ stage: 'ks3', subject: 'maths', note: 'Sitting Key Stage 3 maths on the free GPU · started 3 min ago · about 20 minutes' })) }) });
+  });
+  await page.route('**/api/school/remote', (route) => {
+    polls++;
+    const remote = done ? run({ phase: 'idle', note: 'Sat Nursery numbers on the free GPU: 8/10 (Top band).', last: { paperId: 'gpu-1', title: 'Nursery numbers', at: Date.now(), raw: 8, max: 10, grade: 'Top band' } }) : run({ note: 'Sitting Nursery numbers on the free GPU · started 1 min ago · about 10 minutes' });
+    lastRemote = remote;
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ remote, gap: {}, gaps: [] }) });
+  });
+  await page.evaluate(() => (location.hash = 'school'));
+  await page.waitForFunction(() => window.__ghosty?.school?.gpu?.shown === true, null, { timeout: 15000 }).catch(() => problems.push('[free GPU] the buttons are not shown with the keys saved'));
+  const row = page.locator('#pg-school .schsub[data-subject="numbers"]');
+  if ((await page.locator('#pg-school button.schgpu:visible').count()) !== 4) problems.push(`[free GPU] not one FREE GPU per subject: ${await page.locator('#pg-school button.schgpu:visible').count()}`);
+  if (!(await page.locator('#pg-school button.schgpuall:visible').count())) problems.push('[free GPU] no SIT ON THE FREE GPU beside SIT THE EXAM');
+  if (!/about 10 minutes a paper, no phone time/.test((await page.locator('#pg-school .schstage .schgpunote').textContent().catch(() => '')) ?? '')) problems.push('[free GPU] no plain words on what it does');
+  if ((await row.locator('.schgap').textContent().catch(() => '')) !== GAP) problems.push(`[gap] the numbers row has no gap line: "${await row.textContent().catch(() => '')}"`);
+  if ((await page.locator('#pg-school .schweak .schpractice').textContent().catch(() => '')) !== PRACTICE) problems.push('[practice] WEAK SPOTS does not say what is being practised');
+  await page.locator('#pg-school .schstage').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-gpu.png` });
+  await noSideways(page, 'the free GPU buttons');
+  await smallTargets(page, 'the free GPU buttons');
+  // FREE GPU for Numbers: posted, the run's note in its row, every free GPU button off while it runs
+  if (!(await row.locator('button.schgpu').click({ timeout: 5000 }).then(() => true, () => false))) {
+    problems.push('[free GPU] no FREE GPU to press for Numbers');
+    await bail();
+  }
+  await page.waitForFunction(() => /^Starting Nursery numbers on the free GPU…/.test(document.querySelector('#pg-school .schsub[data-subject="numbers"] .schgpunote')?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => problems.push(`[free GPU] the run's note is not shown: "${await row.textContent().catch(() => '')}"`));
+  if (JSON.stringify(posted[0]) !== JSON.stringify({ stage: 'nursery', subject: 'numbers' })) problems.push(`[free GPU] posted ${JSON.stringify(posted)}`);
+  if (!(await page.locator('#pg-school button.schgpuall').isDisabled())) problems.push('[free GPU] SIT ON THE FREE GPU stays on while a paper is being sat');
+  // 20 s on: asked how it is going, and the note follows
+  const t0 = Date.now();
+  await page.waitForFunction(() => /started 1 min ago · about 10 minutes/.test(document.querySelector('#pg-school .schsub[data-subject="numbers"] .schgpunote')?.textContent ?? ''), null, { timeout: 26000 }).catch(() => problems.push(`[free GPU] not asked again after 20 s (${polls} asks)`));
+  if (polls !== 1 || Date.now() - t0 < 15000) problems.push(`[free GPU] /school/remote asked ${polls} times in ${Math.round((Date.now() - t0) / 1000)} s (once every 20 s)`);
+  await row.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-gpu-running.png` });
+  await noSideways(page, 'a paper on the free GPU');
+  // finished: the last run's outcome, and the buttons back
+  done = true;
+  await page.waitForFunction(() => /^Last on the free GPU: Sat Nursery numbers on the free GPU: 8\/10/.test(document.querySelector('#pg-school .schstage div.schgpunote')?.textContent ?? ''), null, { timeout: 30000 }).catch(async () => problems.push(`[free GPU] the finished run is not shown: "${await page.locator('#pg-school .schstage div.schgpunote').textContent().catch(() => '')}"`));
+  // one at a time: a 409 shows the run already going
+  await page.locator('#pg-school button.schgpuall').click({ timeout: 5000 }).catch(() => problems.push('[free GPU] SIT ON THE FREE GPU is not back after the run'));
+  await page.waitForFunction(() => /^Sitting Key Stage 3 maths on the free GPU · started 3 min ago/.test(document.querySelector('#pg-school .schstage div.schgpunote')?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => problems.push(`[free GPU] a 409 does not show the run already going: "${await page.locator('#pg-school .schstage div.schgpunote').textContent().catch(() => '')}"`));
+  if (JSON.stringify(posted[1]) !== JSON.stringify({ stage: 'nursery', subject: 'talk' })) problems.push(`[free GPU] SIT ON THE FREE GPU posted ${JSON.stringify(posted[1])}`);
+  await page.locator('#pg-school .schstage .schbtns').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/school-gpu-409.png` });
+  await ctx.close();
+}
 
 // ---- not downloaded: it says so and offers DOWNLOAD IT IN SETTINGS ----------------------------------------------
 {

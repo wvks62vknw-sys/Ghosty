@@ -10,13 +10,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -41,6 +41,11 @@ const O = await load('apps/edge/src/school/official');
 const MOCK = await load('apps/edge/src/school/mock');
 const LIB = await load('apps/edge/src/library/store');
 const F = await load('apps/edge/src/selftrain/factory');
+const RD = await load('apps/edge/src/school/reading');
+const STUDY = await load('apps/edge/src/library/study');
+const PR = await load('apps/edge/src/school/practice');
+const RM = await load('apps/edge/src/school/remote');
+const SCH = await load('apps/edge/src/schedule');
 
 class MemStorage {
   m = new Map();
@@ -828,4 +833,555 @@ test('through the brain with the scripted model: WRITE THE PAPERS for one subjec
   const g = (await call('/school')).body;
   assert.equal(g.sources.ks3.computing.source, 'bank');
   assert.equal(g.sources.ks3.maths.source, null);
+});
+
+// ================================================================================================================
+// Part 3: the reading library (school/reading.ts): the shelves, READ through the importers, the reading check, the
+// owner's rule for reading ahead, and the library's locks for self-study (library/study.ts).
+// ================================================================================================================
+
+const VOCAB = ['apple', 'badger', 'candle', 'dragon', 'engine', 'forest', 'garden', 'harbour', 'island', 'jacket', 'kettle', 'lantern', 'meadow', 'needle', 'orchard', 'pebble', 'quarry', 'river', 'saddle', 'thimble', 'umbrella', 'velvet', 'window', 'yellow'];
+/** A Project Gutenberg plain-text edition, as the site serves it: three chapters of `size` characters each. */
+const gutenbergBook = (n, size = 3000) => {
+  const para = (c) => Array.from({ length: Math.ceil(size / 70) }, (_, i) => `The ${VOCAB[(i + c) % 24]} sat beside the ${VOCAB[(i * 7 + 3 + c) % 24]} while a ${VOCAB[(i * 5 + 1) % 24]} watched.`).join(' ').replace(/(.{600}[^.]*\.) /g, '$1\n\n');
+  return `Title: Book ${n}\nAuthor: An Author\n\n*** START OF THE PROJECT GUTENBERG EBOOK BOOK ${n} ***\n\n${['I', 'II', 'III'].map((r, c) => `CHAPTER ${r}\n\n${para(c)}`).join('\n\n')}\n\n*** END OF THE PROJECT GUTENBERG EBOOK BOOK ${n} ***\n\nThe licence.`;
+};
+const lorem = (title) => `${title} is explained here in detail. ${Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1} about ${title}: it matters for a builder because of what it lets you do, with examples, pitfalls and the words people use for it.`).join(' ')}`;
+/** The web for these tests: Gutenberg books (big ones in several parts) and every source self-study reads. */
+async function withWeb(fn, { big = [] } = {}) {
+  const before = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === 'string' ? input : input.url);
+    asked.push(url.href);
+    const html = (t, b) => new Response(`<html><head><title>${t}</title></head><body><p>${b}</p></body></html>`, { headers: { 'content-type': 'text/html' } });
+    if (url.hostname === 'www.gutenberg.org') {
+      const n = Number(url.pathname.match(/pg(\d+)\.txt$/)?.[1] ?? 0);
+      return new Response(gutenbergBook(n, big.includes(n) ? 50_000 : 3000), { headers: { 'content-type': 'text/plain' } });
+    }
+    const q = url.searchParams.get('q') ?? url.searchParams.get('srsearch') ?? '';
+    if (url.hostname === 'developer.mozilla.org' && url.pathname === '/api/v1/search') return new Response(JSON.stringify({ documents: [{ mdn_url: `/en-US/docs/Web/${encodeURIComponent(q.replace(/\s+/g, '_'))}` }] }), { headers: { 'content-type': 'application/json' } });
+    if (/wiki(pedia|books|versity)\.org$/.test(url.hostname) && url.pathname === '/w/api.php') return new Response(JSON.stringify({ query: { search: [{ title: q }] } }), { headers: { 'content-type': 'application/json' } });
+    const t = decodeURIComponent(url.pathname.split('/').pop() ?? '').replace(/_/g, ' ');
+    return html(t, lorem(t));
+  };
+  try {
+    return await fn(asked);
+  } finally {
+    globalThis.fetch = before;
+  }
+}
+/** The stand-in writer, counting its calls (the check is written by a stronger model: never the one sitting it). */
+const countingWriter = (extra = () => []) => {
+  const w = async (system, user) => {
+    w.calls++;
+    // (A real writer words each new check afresh: so does this one, so a check after moving up is new too.)
+    return JSON.stringify([...extra(user), ...JSON.parse(await RD.readingMock(system, user)).map((x) => ({ ...x, q: `${x.q} [check ${w.calls}]` }))]);
+  };
+  w.calls = 0;
+  return w;
+};
+const checkRec = (h, id) => h.storage.get(`school:readcheck:${id}`);
+/** Hand in a check: the first `right` answers right, the rest wrong. */
+async function handIn(h, id, right) {
+  const c = await checkRec(h, id);
+  const answers = c.items.map((it, i) => ({ id: it.id, given: i < right ? rightReply(it) : wrongReply(it) }));
+  return route(h, '/school/reading/answers', 'POST', { id, checkId: c.id, answers });
+}
+
+test('the reading shelves: a shelf for every stage, each book with a source, a licence and a stage; Gutenberg by number; public domain in the UK only (died before 1955); © and AI-barred texts linked, never imported', () => {
+  assert.ok(Array.isArray(RD.SHELVES) && RD.SHELVES.length >= 60, 'the curated shelves exist');
+  const ids = new Set();
+  for (const e of RD.SHELVES) {
+    assert.ok(!ids.has(e.id), `${e.id} twice`);
+    ids.add(e.id);
+    assert.ok(e.source && e.licence && e.title && e.author, `${e.id}: a source and a licence`);
+    assert.ok(S.STAGE_IDS.includes(e.stage) && e.stage !== 'library', `${e.id}: a stage`);
+    assert.match(e.url, /^https:\/\//);
+    if (e.gutenberg) {
+      assert.equal(e.id, `pg-${e.gutenberg}`);
+      assert.equal(e.url, `https://www.gutenberg.org/ebooks/${e.gutenberg}`);
+      assert.ok(Number.isInteger(e.gutenberg) && e.gutenberg > 0);
+      assert.ok(e.died < S.PUBLIC_DOMAIN_BEFORE && e.died < 1955, `${e.title}: its makers died before 1955 (${e.died})`);
+      assert.ok(e.ingest && /^Public domain in the UK/.test(e.licence), e.licence);
+    }
+    if (e.ingest) assert.match(e.licence, /Public domain|\(CC BY\)|Open Government Licence/, `${e.id}: imported only with an open licence`);
+    else assert.ok(/^Linked only/.test(e.why ?? '') && !e.gutenberg, `${e.id}: linked only, and says why`);
+  }
+  assert.equal(new Set(RD.SHELVES.filter((e) => e.gutenberg).map((e) => e.gutenberg)).size, RD.SHELVES.filter((e) => e.gutenberg).length);
+  for (const st of S.STAGE_IDS.filter((x) => x !== 'library')) assert.ok(RD.shelfFor(st).filter((e) => e.kind === 'book').length >= 6, `${st}: at least six books`);
+  // Nobody who died in 1955 or later (Milne, Tolkien, C. S. Lewis, Einstein, Russell), no Peter Pan, no Della Chiesa's Pinocchio.
+  assert.ok(!RD.SHELVES.some((e) => /Milne|Tolkien|C\. S\. Lewis|Einstein|Russell|Peter Pan|Pinocchio/.test(`${e.title} ${e.author}`)));
+  // © (BBC Bitesize) and OpenStax (its licence now bars feeding it to an AI): linked only.
+  assert.ok(RD.SHELVES.filter((e) => /^(bbc|os)-/.test(e.id)).every((e) => !e.ingest) && RD.SHELVES.some((e) => e.id.startsWith('os-')));
+  // Textbooks are tagged by year and subject.
+  for (const e of RD.SHELVES.filter((x) => x.kind === 'textbook')) assert.ok(e.years && e.subject, `${e.id}: years and subject`);
+});
+
+test('READ: a book on his shelf goes into the library through the importers, chapter by chapter, tagged school:reading:<docId> with its stage, and is listed as read with the day; a book above his stage or a linked one is refused', async () => {
+  const h = host({ now: () => 1_800_000_000_000 });
+  await withWeb(async (asked) => {
+    const v = await route(h, '/school/reading', 'GET');
+    assert.equal(v.status, 200);
+    assert.equal(v.body.stage, 'nursery');
+    assert.ok(v.body.shelf.length >= 6 && v.body.shelf.every((r) => r.open && r.status === 'none' && r.licence && r.source));
+    assert.deepEqual(v.body.ahead.map((a) => a.stage), ['reception', 'ks1']);
+    let r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14838' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.book.status, 'reading');
+    assert.equal(r.body.book.part, 1);
+    assert.ok(r.body.book.parts >= 2, 'a long book comes in parts');
+    for (let i = 0; i < 6 && !r.body.done; i++) r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14838' });
+    assert.equal(r.body.book.status, 'read');
+    assert.equal(r.body.book.readAt, 1_800_000_000_000);
+    assert.ok(asked.every((u) => u === 'https://www.gutenberg.org/cache/epub/14838/pg14838.txt'), 'the importer’s own address');
+    const lib = new LIB.Library(h.storage, {});
+    const docs = lib.list().filter((d) => d.source === 'https://www.gutenberg.org/ebooks/14838');
+    assert.equal(docs.length, 1, 'one document, every part added to it');
+    assert.ok(docs[0].passages > 10);
+    const t = await h.storage.get(`school:reading:${docs[0].id}`);
+    assert.equal(t.stage, 'nursery');
+    assert.equal(t.entry, 'pg-14838');
+    assert.equal(t.borrowed, false);
+    const v2 = (await route(h, '/school/reading', 'GET')).body;
+    assert.deepEqual(v2.read.map((x) => [x.id, x.readAt]), [['pg-14838', 1_800_000_000_000]]);
+    // Above his stage: only by borrowing. Linked only: never copied in.
+    const up = await route(h, '/school/reading/read', 'POST', { id: 'pg-11' });
+    assert.equal(up.status, 403);
+    assert.match(up.body.error, /BORROWING/);
+    const bbc = await route(h, '/school/reading/read', 'POST', { id: 'bbc-ks1' });
+    assert.equal(bbc.status, 403);
+    assert.match(bbc.body.error, /linked only/);
+    assert.equal(await h.storage.get('school:state'), undefined, 'reading never writes his school record');
+  }, { big: [14838] });
+});
+
+test('the reading check: written once from the book’s own words and cached per book, never an exam item, marked exactly, and 80% passes (kept with the book, never with his exam results)', async () => {
+  let examQ = '';
+  const writer = countingWriter((user) => {
+    // An exam question slipped in, with real words from extract A: it must never be kept.
+    const a = S.normaliseText(user.match(/<extract id="A"[^>]*>\n([\s\S]*?)\n<\/extract>/)[1]).split(' ').filter((w) => /^[a-z]+$/.test(w));
+    return [{ passage: 'A', type: 'exact', q: examQ, answer: a[1], evidence: a.slice(0, 3).join(' ') }];
+  });
+  const h = host({ write: writer });
+  await withWeb(async () => {
+    await sit(h, 'nursery', 'talk');
+    const st = await ST.loadState({ storage: h.storage });
+    examQ = (await ST.loadPaper({ storage: h.storage }, st.results[0].paperId)).paper.items[0].q;
+    const c1 = await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' });
+    assert.equal(c1.status, 200, JSON.stringify(c1.body));
+    assert.equal(c1.body.paper.items.length, 10);
+    assert.ok(c1.body.paper.items.every((it) => (it.type === 'mcq' || it.type === 'exact') && it.passage && it.answer === undefined), 'no answers handed out');
+    assert.equal(c1.body.paper.passages.length, 3, 'the three extracts, to read with the questions');
+    assert.ok(!c1.body.paper.items.some((it) => S.normaliseText(it.q) === S.normaliseText(examQ)), 'never an exam item');
+    const calls = writer.calls;
+    const c2 = await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' });
+    assert.equal(c2.body.paper.id, c1.body.paper.id, 'cached per book');
+    assert.equal(writer.calls, calls, 'not written again');
+    const rec = await checkRec(h, 'pg-14838');
+    assert.ok(rec.rejected >= 1, 'the exam item was counted as not kept');
+    for (const it of rec.items.filter((x) => x.type === 'exact')) assert.ok(` ${S.normaliseText(rec.passages.find((p) => p.id === it.passage).text)} `.includes(` ${S.normaliseText(it.answer)} `), 'an exact answer is in the book’s own words');
+    // 8 of 10 right: passed (80%).
+    const r = await handIn(h, 'pg-14838', 8);
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.deepEqual([r.body.result.raw, r.body.result.max, r.body.result.pct, r.body.result.passed], [8, 10, 80, true]);
+    assert.ok(r.body.result.answers.every((a) => a.how === 'exact'), 'marked exactly by the code');
+    assert.equal((await route(h, '/school/reading/answers', 'POST', { id: 'pg-14838', checkId: rec.id, answers: [] })).status, 409);
+    // 7 of 10: not passed.
+    await route(h, '/school/reading/check', 'POST', { id: 'pg-14837' });
+    const r7 = await handIn(h, 'pg-14837', 7);
+    assert.deepEqual([r7.body.result.raw, r7.body.result.passed], [7, false]);
+    assert.match(r7.body.line, /not passed \(80% passes\)/);
+    const v = (await route(h, '/school/reading', 'GET')).body;
+    assert.deepEqual([v.shelf.find((x) => x.id === 'pg-14838').check.passed, v.shelf.find((x) => x.id === 'pg-14837').check.passed], [true, false]);
+    const after = await ST.loadState({ storage: h.storage });
+    assert.equal(after.results.length, 1, 'checks never join his exam results');
+    assert.equal(await route(h, '/school/reading/check', 'POST', { id: 'pg-14838' }).then((x) => x.status), 409, 'one sitting per book at a stage');
+  });
+});
+
+test('BORROW is earned: refused without top grades in his reading, beyond two stages, for his own shelf and the library, after a failed check (until he moves up); allowed when earned; borrowed reading never passes a stage', async () => {
+  // The rule itself.
+  assert.equal(S.borrowVerdict('university', 'library', true, false).ok, false);
+  assert.equal(S.borrowVerdict('alevel', 'library', true, false).ok, false);
+  assert.equal(S.borrowVerdict('ks1', 'ks2', true, false).ok, true);
+  assert.equal(S.borrowVerdict('ks1', 'gcse', true, false).ok, false);
+  const h = host({ write: countingWriter() });
+  await withWeb(async () => {
+    let b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14407' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /reading at Nursery must be at top grades/);
+    await sit(h, 'nursery', 'talk'); // his reading at nursery (talking and listening) at top grades
+    const v = (await route(h, '/school/reading', 'GET')).body;
+    assert.equal(v.borrow.top, true);
+    assert.equal(v.ahead.find((a) => a.stage === 'reception').books.find((x) => x.id === 'pg-14407').borrow.ok, true);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-11' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /at most two stages ahead/);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14838' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /own shelf/);
+    // Key Stage 1 (two ahead): its check failed → locked until he moves up.
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.equal(b.body.purpose, 'borrow');
+    const failed = await handIn(h, 'pg-2781', 6);
+    assert.equal(failed.body.borrowed, false);
+    assert.match(failed.body.line, /stays locked until he moves up from Nursery/);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 403);
+    assert.match(b.body.error, /did not pass/);
+    assert.equal((await route(h, '/school/reading/read', 'POST', { id: 'pg-2781' })).status, 403);
+    // Reception (one ahead): earned with 9 of 10.
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-14407' });
+    assert.equal(b.status, 200);
+    const ok = await handIn(h, 'pg-14407', 9);
+    assert.equal(ok.body.borrowed, true);
+    assert.match(ok.body.line, /never counts towards passing a stage/);
+    const r = await route(h, '/school/reading/read', 'POST', { id: 'pg-14407' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.book.borrowed, true);
+    const doc = new LIB.Library(h.storage, {}).list().find((d) => d.source === 'https://www.gutenberg.org/ebooks/14407');
+    assert.equal((await h.storage.get(`school:reading:${doc.id}`)).borrowed, true);
+    // Borrowed reading never counts: still nursery, nothing passed, only the one paper in his record.
+    const st = await ST.loadState({ storage: h.storage });
+    assert.equal(st.stage, 'nursery');
+    assert.deepEqual(st.passed, {});
+    assert.equal(st.results.length, 1);
+    // Moved up (and top grades in reading there): the book he failed may be tried again, with a new check.
+    const before = (await checkRec(h, 'pg-2781')).id;
+    st.stage = 'reception';
+    st.results = [{ ...st.results[0], paperId: 'reception-reading-x', stage: 'reception', subject: 'reading', top: true }, ...st.results];
+    await ST.saveState({ storage: h.storage }, st);
+    b = await route(h, '/school/reading/borrow', 'POST', { id: 'pg-2781' });
+    assert.equal(b.status, 200, JSON.stringify(b.body));
+    assert.notEqual(b.body.paper.id, before);
+  });
+});
+
+test('the library’s locks: self-study holds back topics above his school stage (read once their level opens, never lost), says what is locked and why, keeps a typed FOCUS and the chat’s questions', async () => {
+  const d = STUDY.DOMAINS.find((x) => x.id === 'foundations');
+  assert.deepEqual(d.topics.slice(4, 9).map((t) => t.l), [1, 2, 2, 2, 1], 'the field mixes levels');
+  await withWeb(async () => {
+    // At GCSE only level 1 is open: topics 5–7 (level 2) are held, 4 and 8 read.
+    const storage = new MemStorage();
+    const lib = new LIB.Library(storage, {});
+    await ST.saveState({ storage }, { ...ST.freshState(), stage: 'gcse' });
+    await storage.put('study:state', { queue: [d.id], all: false, focus: [], asked: [], cursor: { [d.id]: 4 } });
+    const r = await STUDY.studySession(storage, lib, { reads: 2 });
+    assert.equal(r.did.reads, 2);
+    assert.equal(r.state.last.topic, d.topics[8].t);
+    assert.deepEqual(r.state.held[d.id], [[5, 2], [6, 2], [7, 2]]);
+    assert.equal(r.state.cursor[d.id], 9);
+    const sum = STUDY.studySummary(r.state);
+    assert.match(sum.status, /Level 2 topics unlock at A-level/);
+    assert.equal(sum.domains.find((x) => x.id === d.id).read, 6, 'held topics are not counted as read');
+    // The owner types FOCUS on that field: it is read whole, held topics first.
+    r.state.focus = [d.id];
+    await storage.put('study:state', r.state);
+    const f = await STUDY.studySession(storage, lib, { reads: 1 });
+    assert.equal(f.state.last.topic, d.topics[5].t);
+    assert.deepEqual(f.state.held[d.id], [[6, 2], [7, 2]]);
+    // At nursery nothing in the curriculum is open: nothing is read but the chat's question; it says why.
+    const s2 = new MemStorage();
+    await ST.saveState({ storage: s2 }, ST.freshState());
+    await s2.put('study:state', { queue: [d.id], all: true, focus: [], asked: [], gaps: ['what is a badger?'] });
+    const n = await STUDY.studySession(s2, new LIB.Library(s2, {}), { reads: 3 });
+    assert.equal(n.did.reads, 1);
+    assert.equal(n.state.last.topic, 'what is a badger?');
+    assert.equal(n.state.cursor[d.id] ?? 0, 0, 'nothing passed over, nothing lost');
+    assert.match(STUDY.studySummary(n.state).status, /locked until GCSE/);
+    // No SCHOOL yet (no record): self-study reads as it always did.
+    const s3 = new MemStorage();
+    await s3.put('study:state', { queue: [d.id], all: false, focus: [], asked: [], cursor: { [d.id]: 4 } });
+    const o = await STUDY.studySession(s3, new LIB.Library(s3, {}), { reads: 2 });
+    assert.equal(o.state.last.topic, d.topics[5].t);
+  });
+});
+
+// ---- part 2b: practice for weak spots, the honest gap, a paper on the free GPU ---------------------------------
+
+/** A paper sat with every exact answer wrong, so its topics are weak spots (written ones marked fairly). */
+async function weakAt(h, stage, subject) {
+  const r = await sit(h, stage, subject, wrongReply);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  return r.body.result;
+}
+
+/** A stronger model writing practice (PRACTICE_SYSTEM), and answering a question alone (the exam prompt). */
+function practiceModel(paperQ) {
+  const m = { calls: 0, busy: false, k: 0, writes: 0, checks: [] };
+  m.ask = async (system, user) => {
+    if (m.busy) throw new Error('every model is busy');
+    m.calls++;
+    if (system === PR.PRACTICE_SYSTEM) {
+      m.writes++;
+      const k = (m.k += 10);
+      const topic = user.match(/Topic: (.+)/)[1];
+      return JSON.stringify({ items: [
+        { type: 'number', q: `Practice ${k} on ${topic}: a jar holds ${k} sweets and ${k + 3} more are added. How many sweets now?`, answer: String(2 * k + 3), worked: `${k} + ${k + 3} = ${2 * k + 3}\nAnswer: ${2 * k + 3}` },
+        { type: 'number', q: `Practice ${k + 1} on ${topic}: a train has ${k} seats and ${k + 5} people board it; how many stand?`, answer: '999', worked: 'Answer: 999' },
+        { type: 'mcq', q: `Practice ${k + 2} on ${topic}: which colour is the sky on a clear day at noon?`, options: ['green', 'blue', 'red', 'black'], answer: 'B', worked: 'The sky looks blue.\nAnswer: B' },
+        { type: 'written', q: `Practice ${k + 3} on ${topic}: explain why the ${k}th kite flew higher in the wind.`, answer: 'More wind lifts it.', worked: 'Stronger wind pushes more air under the kite.\nAnswer: more wind lifts it' },
+        { type: 'number', q: paperQ, answer: '1', worked: 'Answer: 1' },
+        { type: 'mcq', q: 'broken', options: ['a'], answer: 'Z', worked: 'x' },
+      ] });
+    }
+    if (system === S.EXAM_SYSTEM) {
+      m.checks.push(user);
+      if (/a jar holds (\d+) sweets and (\d+) more/.test(user)) {
+        const [, a, b] = user.match(/a jar holds (\d+) sweets and (\d+) more/);
+        return `Adding them up.\nAnswer: ${Number(a) + Number(b)}`;
+      }
+      if (/train has (\d+) seats and (\d+) people/.test(user)) return 'Answer: 5'; // disagrees with the writer's 999
+      if (/which colour is the sky/.test(user)) return 'Answer: B';
+      return 'Answer: no idea';
+    }
+    return fairMarker(system, user);
+  };
+  return m;
+}
+
+test('practice for weak spots: only checked items are kept (a second call must agree), written ones as distillation, never a sat paper\'s item, a few calls a step, and it resumes', async () => {
+  const h = host();
+  await weakAt(h, 'nursery', 'numbers');
+  const sat = await h.storage.list({ prefix: 'school:paper:' });
+  const paperQ = [...sat.values()][0].paper.items[0].q;
+  assert.ok((await PR.heldQuestions(h.storage, 'nursery')).includes(paperQ), 'every sat question is held back');
+  const model = practiceModel(paperQ);
+  const d = { storage: h.storage, ask: model.ask, now: () => Date.UTC(2026, 9, 20, 9) };
+  // a busy model in the middle of a step: what was done is kept, and the next step carries on (resumable)
+  let r = await PR.practiceTick(d);
+  assert.ok(r.calls <= PR.CALLS_PER_STEP, `${r.calls} calls in one step`);
+  assert.equal(r.more, true);
+  const writes = model.writes;
+  model.busy = true;
+  r = await PR.practiceTick(d);
+  assert.equal(r.noModel, true);
+  model.busy = false;
+  for (let i = 0; i < 40 && r.more; i++) {
+    const before = model.calls;
+    r = await PR.practiceTick(d);
+    assert.ok(model.calls - before <= PR.CALLS_PER_STEP);
+  }
+  const topics = await PR.loadPractice(h.storage, 'nursery');
+  assert.ok(topics.length >= 1);
+  const all = topics.flatMap((t) => t.items);
+  assert.ok(all.length > 0);
+  for (const it of all) {
+    assert.notEqual(it.q, paperQ, 'never a sat paper\'s item');
+    assert.ok(!F.tooClose(it.q, [paperQ]));
+    if (it.type !== 'short') assert.ok(PR.agrees(it, `Answer: ${it.answer}`) && !/train has/.test(it.q), `${it.q}: kept only when the second answer agreed`);
+  }
+  assert.ok(all.some((it) => it.type === 'short'), 'written ones kept as distillation');
+  assert.ok(all.some((it) => it.type === 'mcq') && all.some((it) => it.type === 'number'));
+  const t0 = topics[0];
+  assert.ok(t0.rejected.disagree > 0 && t0.rejected.nearPaper > 0 && t0.rejected.malformed > 0, JSON.stringify(t0.rejected));
+  assert.ok(t0.items.length + t0.checking.length <= PR.PER_TOPIC + 3);
+  assert.ok(model.writes > writes, 'carried on after the busy step');
+  // the second call is asked as the exam asks: the question alone, never the writer's answer or working
+  assert.ok(model.checks.every((u) => !/Answer: \d/.test(u) && !/worked/.test(u)));
+  // into the week: school records, at most the cap, every one checked against the papers again
+  const held = [paperQ, all[0].q];
+  const { recs, near } = PR.practiceRecords(topics, held, 5);
+  assert.equal(recs.length, 5);
+  assert.ok(near >= 1, 'an item the papers now hold (and any rewording of it) is dropped here too');
+  assert.ok(recs.every((x) => !F.tooClose(x.messages.find((m) => m.role === 'user').content.split('\n\n')[0], held)));
+  assert.ok(recs.every((x) => x.kind === 'school' && x.messages[0].content.startsWith(S.EXAM_SYSTEM)));
+  const every = PR.practiceRecords(topics, [paperQ]).recs;
+  assert.ok(every.length <= PR.WEEKLY_SCHOOL && every.length === all.length, 'every kept item, within the weekly cap');
+  assert.ok(every.some((x) => x.answer && x.check) && every.some((x) => x.messages.at(-1).role === 'assistant'), 'exact ones with their answer and check, written ones with the worked answer');
+  // and the daily cap: no more calls once the day's are used
+  await h.storage.put('school:practice', { day: '2026-10-20', calls: PR.CALLS_PER_DAY });
+  const c = model.calls;
+  await PR.practiceTick(d);
+  assert.equal(model.calls, c);
+});
+
+test('the honest gap: the online model sits the same paper once (cached), a few calls a step, asked as the exam asks, marked the same way; filed on the result; its answers are never practice', async () => {
+  const h = host();
+  const res = await weakAt(h, 'ks1', 'maths');
+  const rec = await ST.loadPaper({ storage: h.storage }, res.paperId);
+  const asked = [];
+  const online = async (system, user) => {
+    if (system === MK.MARKER_SYSTEM) return fairMarker(system, user);
+    asked.push({ system, user });
+    const it = rec.paper.items.find((x) => user.includes(x.q));
+    return `ONLINE-REPLY ${it ? rightReply(it) : 'Answer: ?'}`;
+  };
+  const d = { storage: h.storage, ask: online, now: () => Date.UTC(2026, 9, 20, 9) };
+  let steps = 0;
+  for (let r = { more: true }; r.more && steps < 60; steps++) {
+    const before = asked.length;
+    r = await RM.gapTick(d);
+    assert.ok(r.calls <= RM.GAP_PER_STEP, `${r.calls} calls`);
+    assert.ok(asked.length - before <= RM.GAP_PER_STEP);
+  }
+  assert.ok(steps > 1, 'spread over steps');
+  assert.equal(asked.length, rec.paper.items.length, 'each question once');
+  const it0 = rec.paper.items[0];
+  assert.deepEqual([asked[0].system, asked[0].user], S.examMessages(it0, it0.passage ? rec.paper.passages.find((p) => p.id === it0.passage) : undefined).map((m) => m.content), 'asked exactly as the exam asks');
+  // filed on the paper's result by SCHOOL (with its KV mirror), and shown as the gap per subject
+  const g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.status, 200);
+  const st = await ST.loadState({ storage: h.storage });
+  const filed = st.results.find((x) => x.paperId === res.paperId);
+  assert.equal(filed.online.raw, rec.result.max, 'the online model got every mark here');
+  assert.equal(filed.online.model, RM.ONLINE_LABEL);
+  assert.equal(S.gapLine(filed), `offline ${filed.raw}/${filed.max} · online ${filed.max}/${filed.max}`);
+  assert.equal(g.body.gaps[0].line, S.gapLine(filed));
+  assert.equal((await ST.loadPaper({ storage: h.storage }, res.paperId)).result.online.raw, filed.online.raw);
+  assert.equal((await route(h, '/school', 'GET')).body.state.results[0].online.raw, filed.online.raw, 'GET /school has it on the result');
+  // cached: never asked again
+  for (let i = 0; i < 3; i++) await RM.gapTick(d);
+  assert.equal(asked.length, rec.paper.items.length);
+  // its answers are not kept once its marks are filed, and nothing of them reaches practice or the week's data
+  const kept = await h.storage.list({ prefix: RM.ONLINE_PREFIX });
+  assert.ok([...kept.values()].every((v) => !JSON.stringify(v).includes('ONLINE-REPLY')));
+  const { recs } = PR.practiceRecords(await PR.loadPractice(h.storage, 'ks1'), await PR.heldQuestions(h.storage, 'ks1'));
+  assert.ok(recs.every((x) => !JSON.stringify(x).includes('ONLINE-REPLY')));
+  // bounded by the day too
+  const h2 = host();
+  await weakAt(h2, 'ks1', 'maths');
+  await h2.storage.put('school:gap-day', { day: '2026-10-20', calls: RM.GAP_PER_DAY });
+  const n = asked.length;
+  const r2 = await RM.gapTick({ storage: h2.storage, ask: online, now: () => Date.UTC(2026, 9, 20, 9) });
+  assert.equal(r2.calls, 0);
+  assert.equal(asked.length, n);
+});
+
+test('the two routes: POST /school/sit-remote sets the paper through /school/sit (a bank paper where the stage has one), asks for one run at a time and wakes the training job; GET /school/remote says how it is going', async () => {
+  const model = bankModel();
+  const h = host({ write: model.ask, now: () => Date.UTC(2026, 9, 20, 9) });
+  await SCH.addJob(h.storage, { kind: 'train', title: 'Offline brain training', text: 'x', next: Date.UTC(2026, 9, 21), repeat: 'hourly', tz: 'UTC' });
+  // validation is /school/sit's own
+  assert.equal((await route(h, '/school/sit-remote', 'POST', { stage: 'nowhere', subject: 'maths' })).status, 400);
+  assert.match((await route(h, '/school/sit-remote', 'POST', { stage: 'ks3', subject: 'maths' })).body.error, /not written yet/);
+  // a stage with a finished bank: the paper is drawn from it, as on the phone
+  let w = await route(h, '/school/bank/write', 'POST', { stage: 'ks3', subject: 'maths' });
+  for (let i = 0; i < 200 && w.body.busy; i++) w = await route(h, '/school/work', 'POST');
+  const r = await route(h, '/school/sit-remote', 'POST', { stage: 'ks3', subject: 'maths' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.remote.phase, 'queued');
+  assert.match(r.body.remote.note, /^Starting Key Stage 3 maths on the free GPU/);
+  const rec = await ST.loadPaper({ storage: h.storage }, r.body.remote.paperId);
+  assert.equal(rec.from, 'bank', 'the same paper the phone would get');
+  assert.ok(!('answer' in r.body.remote) && !JSON.stringify(r.body).includes('"rubric"'));
+  const job = (await SCH.loadJobs(h.storage)).find((j) => j.kind === 'train');
+  assert.ok(job.next <= Date.now() + 2000, 'the training job (which runs it) is woken now');
+  // one at a time
+  const again = await route(h, '/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  assert.equal(again.status, 409);
+  assert.match(again.body.error, /^Already sitting Key Stage 3 maths on the free GPU: one paper at a time\.$/);
+  // the status, and a running one's note worked out when asked
+  let g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.body.remote.phase, 'queued');
+  assert.equal(g.body.remote.paperId, rec.paper.id);
+  const st = await RM.loadRemote(h.storage);
+  await RM.saveRemote(h.storage, { ...st, phase: 'running', pushedAt: Date.UTC(2026, 9, 20, 9) - 2 * 60_000, note: 'Sitting Key Stage 3 maths on the free GPU' });
+  g = await route(h, '/school/remote', 'GET');
+  assert.equal(g.body.remote.note, `Sitting Key Stage 3 maths on the free GPU · started 2 min ago · about ${RM.aboutMinutes(rec.paper.items.length)} minutes`);
+  assert.deepEqual(g.body.gap, {});
+});
+
+test('GET /school carries the paper on the free GPU, files a finished one on its own (no second call), and shows the gap per subject and what is being practised', async () => {
+  const now = Date.UTC(2026, 9, 20, 9);
+  const h = host({ now: () => now });
+  let v = await route(h, '/school', 'GET');
+  assert.equal(v.status, 200);
+  assert.equal(v.body.remote?.phase, 'idle', 'the run is on the page from the start');
+  assert.deepEqual(v.body.gap, {});
+  assert.equal(v.body.practice, null, 'nothing practised yet');
+  const r = await route(h, '/school/sit-remote', 'POST', { stage: 'nursery', subject: 'talk' });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.remote.phase, 'queued');
+  assert.match(v.body.remote.note, /^Starting Nursery talking and listening on the free GPU/);
+  // the notebook reports (the hook): marked there, waiting to be filed; only GET /school is asked afterwards
+  const rec = await ST.loadPaper({ storage: h.storage }, r.body.remote.paperId);
+  const answers = rec.paper.items.map((it) => ({ id: it.id, given: rightReply(it) }));
+  assert.deepEqual(await RM.acceptRemoteReport({ storage: h.storage, ask: fairMarker, now: () => now }, await RM.loadRemote(h.storage), { paperId: rec.paper.id, answers }), { ok: true });
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.remote.phase, 'idle');
+  assert.match(v.body.remote.note, /^Sat Nursery talking and listening on the free GPU: \d+\/\d+/);
+  assert.equal(v.body.remote.last.paperId, rec.paper.id);
+  const filed = v.body.state.results.find((x) => x.paperId === rec.paper.id);
+  assert.ok(filed, 'filed into the record by GET /school itself');
+  assert.equal(filed.where, 'kaggle');
+  assert.equal(v.body.current.subjects.find((s) => s.id === 'talk').latest.paperId, rec.paper.id);
+  assert.equal((await RM.loadRemote(h.storage)).unfiled, undefined, 'filed once');
+  // the honest gap: the online model sits it; GET /school files its marks and shows the line per subject
+  const online = async (system, user) => (system === MK.MARKER_SYSTEM ? fairMarker(system, user) : 'Answer: zzzz');
+  for (let i = 0, g = { more: true }; g.more && i < 60; i++) g = await RM.gapTick({ storage: h.storage, ask: online, now: () => now });
+  v = await route(h, '/school', 'GET');
+  const res = v.body.state.results.find((x) => x.paperId === rec.paper.id);
+  assert.ok(res.online, 'the online model\'s marks are filed');
+  assert.equal(v.body.gap.talk.line, S.gapLine(res));
+  assert.match(v.body.gap.talk.line, /^offline \d+\/\d+ · online \d+\/\d+$/);
+  // what is being practised, from the practice the brain keeps
+  const item = { type: 'number', q: 'What is 2 + 2?', answer: '4', worked: 'Answer: 4' };
+  await h.storage.put(PR.practiceKey('nursery', 'numbers', 'counting'), { stage: 'nursery', subject: 'numbers', topic: 'counting', items: [item, item, item], checking: [], asked: 1, rejected: { disagree: 0, malformed: 0, nearPaper: 0 }, updatedAt: now - 3600_000 });
+  await h.storage.put(PR.practiceKey('nursery', 'letters', 'sounds'), { stage: 'nursery', subject: 'letters', topic: 'sounds', items: [item], checking: [], asked: 1, rejected: { disagree: 0, malformed: 0, nearPaper: 0 }, updatedAt: now - 10 * 86_400_000 });
+  v = await route(h, '/school', 'GET');
+  assert.equal(v.body.practice.line, 'practising: 2 weak spots · 3 items checked this week');
+});
+
+test('the tools know the banks and official papers: school_status says where each paper comes from and the gap, never "not written yet" for a stage that can be sat; sit_exam names the free GPU', async () => {
+  const model = bankModel();
+  const h = host({ write: model.ask, now: () => Date.UTC(2026, 9, 20, 9) });
+  const [status, sitExam] = X.schoolTools;
+  const ctx = { storage: h.storage, env: {} };
+  // Key Stage 3 maths from its finished bank: sittable; the other Key Stage 3 subjects are not written yet
+  assert.match(await sitExam.run({ stage: 'ks3', subject: 'maths' }, ctx), /not written yet: on the SCHOOL tab, WRITE THE PAPERS/);
+  let w = await route(h, '/school/bank/write', 'POST', { stage: 'ks3', subject: 'maths' });
+  for (let i = 0; i < 200 && w.body.busy; i++) w = await route(h, '/school/work', 'POST');
+  const one = await sitExam.run({ stage: 'ks3', subject: 'maths' }, ctx);
+  assert.doesNotMatch(one, /not written yet/);
+  assert.match(one, /SIT next to Maths for Key Stage 3/);
+  assert.match(one, /SIT ON THE FREE GPU.*Kaggle's free GPU in about 10 minutes, with no phone time/);
+  assert.match(await sitExam.run({ stage: 'ks3' }, ctx), /Not written yet: english, science/);
+  assert.match(await sitExam.run({ stage: 'nursery' }, ctx), /SIT ON THE FREE GPU/);
+  // his stage is Key Stage 3 now, with a maths paper sat and the online model's marks on it
+  const sat = await sit(h, 'ks3', 'maths', wrongReply);
+  assert.equal(sat.status, 200);
+  const st = await ST.loadState({ storage: h.storage });
+  st.stage = 'ks3';
+  st.results[0].online = { raw: st.results[0].max - 1, grade: 'x', model: RM.ONLINE_LABEL, at: Date.UTC(2026, 9, 20, 9) };
+  await ST.saveState({ storage: h.storage }, st);
+  const text = await status.run({}, ctx);
+  assert.doesNotMatch(text, /Papers for this stage are not written yet/);
+  assert.match(text, /Not written yet: english, science/);
+  assert.match(text, new RegExp(`The gap with the strongest free online model on the same paper: Maths offline ${st.results[0].raw}/${st.results[0].max} · online ${st.results[0].max - 1}/${st.results[0].max}\\.`));
+  // every subject from somewhere: each one's source, and nothing "not written yet"
+  const h2 = host();
+  const text2 = await status.run({}, { storage: h2.storage, env: {} });
+  assert.match(text2, /Papers: every subject written by Ghosty\./);
+  assert.doesNotMatch(text2, /not written yet/);
+});
+
+test('the exam prompt: the shared one (sent to Kaggle and to the online model) is the phone\'s own, word for word', async () => {
+  // sit.ts with its browser-only imports stubbed: only examPrompt is used
+  await build({
+    entryPoints: [at('../../web/src/school/sit.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/school/sit.mjs'), logLevel: 'warning',
+    plugins: [{ name: 'stub', setup(b) {
+      b.onResolve({ filter: /\/(api\/brain|core\/store|offline\/brain|offline\/harder)$/ }, (a) => ({ path: a.path, namespace: 'stub' }));
+      b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({ contents: 'export const headers=()=>({}),createStore=(x)=>({get:()=>x,set(){},sub(){}}),loadOffline=0,offlineReady=0,offlineReply=0,withModel=0,modelKey=()=>"";' }));
+    } }],
+  });
+  const SIT = await import('./.build/school/sit.mjs');
+  const FIXT = JSON.parse(readFileSync(at('../../../training/kaggle/fixtures.json'), 'utf8'));
+  assert.ok(FIXT.examPrompts.length >= 5);
+  for (const c of FIXT.examPrompts) {
+    const passages = c.item.passage ? [{ id: 'p1', ...c.item.passage, source: '' }] : [];
+    const item = { id: 'x', ...c.item, passage: c.item.passage ? 'p1' : undefined };
+    assert.deepEqual(SIT.examPrompt(item, passages), c.messages, c.item.q);
+    assert.deepEqual(S.examMessages(c.item, c.item.passage), c.messages, c.item.q);
+  }
+  assert.equal(S.EXAM_SYSTEM, SIT.EXAM_SYSTEM);
+  assert.deepEqual(S.EXAM_TOKENS, SIT.TOKENS);
+  // and every item of real papers
+  for (const stage of FOUR) for (const subject of subjectsOf(stage)) {
+    const p = P.makePaper(stage, subject, P.PAPER_SEED_FLOOR + 7);
+    for (const it of p.items) assert.deepEqual(S.examMessages(it, it.passage ? p.passages.find((x) => x.id === it.passage) : undefined), SIT.examPrompt(it, p.passages ?? []));
+  }
 });

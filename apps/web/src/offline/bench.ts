@@ -9,10 +9,13 @@
  * The logic and fact questions come from the GYM's worker (gym/bench.ts) and are judged there; the rest
  * are here with their own scorers. On the report card THINK HARDER may use only checks that do not
  * already know the answer (a Countdown sum is worked out; a fact or a VALID/INVALID verdict is not used
- * to pick), so its score is the model's own. Pure: the model and the judge are passed in
+ * to pick), so its score is the model's own. Each plain answer is also read by the AI-sounding detector
+ * (packages/shared/src/voice.ts): the run keeps whether it sounds like a person, for the panel's "sounds like a
+ * person: 13 of 16" (tool calls are not talk, so they are not counted). Pure: the model and the judge are passed in
  * (apps/edge/test/thinkharder.test.mjs drives it with a fake model).
  */
 import { readToolCalls } from '../../../../packages/shared/src/toolcall';
+import { human } from '../../../../packages/shared/src/voice';
 import { answerOf, calcExact, numberMatches } from './exact';
 import type { OfflineMsg } from './prompt';
 import { thinkHarder, type Budget, type Checker, type Generate } from './think';
@@ -201,6 +204,8 @@ export interface ItemResult {
   /** null: not asked with THINK HARDER this run. */
   think: boolean | null;
   thinkMs: number;
+  /** Its plain answer sounds like a person, not an AI (packages/shared/src/voice.ts); absent when it gave none (or a tool call). */
+  human?: boolean;
 }
 
 export interface Run {
@@ -264,6 +269,8 @@ export async function runBench(d: BenchDeps): Promise<Run> {
       reply = '';
     }
     const r: ItemResult = { id: it.id, cat: it.cat, plain: await score(it, reply), plainMs: now() - a, think: null, thinkMs: 0 };
+    const sounds = voiceOf(it, reply);
+    if (sounds !== null) r.human = sounds;
     run.items.push(r);
     done++;
     if (d.withThink && !d.signal?.aborted) {
@@ -348,6 +355,25 @@ export function summarise(run: Run): string {
   if (hurt.length) out.push(`It did worse with THINK HARDER on ${list(hurt)}.`);
   if (!run.complete) out.push('(Stopped before the end: these are partial.)');
   return out.join(' ');
+}
+
+/** Whether a plain answer sounds like a person (null: nothing to judge: no answer, or a tool call, which is not talk). */
+export function voiceOf(it: BenchItem, reply: string): boolean | null {
+  const said = words(reply);
+  if (!/[a-z0-9]/i.test(said) || it.cat === 'tools') return null;
+  return human(said, it.text);
+}
+
+/** How many of the run's own answers sound like a person: [human, judged] ([0, 0] for a run from before it was measured). */
+export function voiceCount(run: Run): [number, number] {
+  const judged = run.items.filter((x) => typeof x.human === 'boolean');
+  return [judged.filter((x) => x.human).length, judged.length];
+}
+
+/** The line for the panel: "sounds like a person: 17 of 20" ('' when none were judged). */
+export function voiceLine(run: Run): string {
+  const [n, of] = voiceCount(run);
+  return of ? `sounds like a person: ${n} of ${of}` : '';
 }
 
 /** Right answers as a share of those asked: [plain, think or null]. */

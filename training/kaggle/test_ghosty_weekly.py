@@ -5,6 +5,8 @@
 - the pure helpers: the exam gate, tool-call reading and schema checks, the dataset record checker — on the
   cases in fixtures.json, which the TypeScript side (apps/edge/test/selftrain.test.mjs) must also pass, word
   for word; scoring, STaR selection, the time budget, q4f16_1 packing, the MLC layout and config checks;
+- the AI-sounding detector (voice_check, score_voice) on the shared cases in voice_cases.json, which the
+  TypeScript (packages/shared/src/voice.ts) must also give, point for point, and its exam area in the gate;
 - the GYM's node program (tasks.mjs, built from the repo) answering the notebook's requests;
 - with torch, transformers and peft installed: a tiny CPU smoke run of the notebook's own code paths —
   generation, STaR with the real checkers, SFT and DPO steps on a LoRA, LoRA scaling, the exam scorer, and the
@@ -28,6 +30,8 @@ sys.path.insert(0, HERE)
 import ghosty_weekly as G  # noqa: E402
 
 FIX = json.load(open(os.path.join(HERE, 'fixtures.json')))
+# The AI-sounding detector's shared cases (packages/shared/src/voice.ts gives them the same points and reasons).
+VOX = json.load(open(os.path.join(HERE, 'voice_cases.json')))
 
 
 def have(*mods):
@@ -59,6 +63,17 @@ class SharedRules(unittest.TestCase):
     def test_records(self):
         for c in FIX['records']:
             self.assertEqual(G.record_problem(c['record']), c['problem'], c['record'])
+
+    def test_school_marking_is_schools_own(self):
+        # SCHOOL's exact marking (school.ts markExact), as the notebook checks an attempt at a `school` record
+        self.assertGreater(len(FIX['schoolMarks']), 10)
+        for c in FIX['schoolMarks']:
+            self.assertEqual(G.mark_exact(c['item'], c['given']), c['got'], c)
+
+    def test_exam_prompt_is_the_phones(self):
+        # the phone's exam prompt (sit.ts examPrompt = school.ts examMessages): a paper on Kaggle is asked the same way
+        for c in FIX['examPrompts']:
+            self.assertEqual(G.exam_prompt(c['item']), c['messages'], c['item']['q'])
 
     def test_tools_block_is_the_same_text(self):
         self.assertEqual(G.tools_block(FIX['tools']), FIX['toolsBlock'])
@@ -156,6 +171,64 @@ class Helpers(unittest.TestCase):
         self.assertEqual(G.replay_pair({'prompt': 'P', 'answer': 'A'}), ('P', 'A'))
         self.assertEqual(G.replay_pair({'kind': 'evol', 'messages': [{'role': 'user', 'content': 'Q'}, {'role': 'assistant', 'content': 'A'}]}), ('<|im_start|>user\nQ<|im_end|>\n<|im_start|>assistant\n', 'A'))
         self.assertIsNone(G.replay_pair({'kind': 'gym', 'task': {'game': 'maze', 'level': 1, 'seed': 1}}))
+
+
+class Voice(unittest.TestCase):
+    """Does a reply sound like a person? The same patterns, points, reasons and verdicts as the TypeScript
+    (packages/shared/src/voice.ts), on the shared cases; and the exam's SOUNDS LIKE A PERSON area in the gate."""
+
+    def test_the_patterns_are_the_typescript_ones_word_for_word(self):
+        self.assertEqual(G.VOICE_RULES, VOX['rules'])
+        self.assertEqual(G.HUMAN_BELOW, VOX['humanBelow'])
+
+    def test_same_points_reasons_and_verdict_on_every_case_and_probe(self):
+        for c in VOX['cases'] + VOX['probes']:
+            v = G.voice_check(c['reply'], c['ask'])
+            self.assertEqual((v['points'], v['hits']), (c['points'], c['hits']), c['reply'])
+            self.assertEqual(G.voice_human(c['reply'], c['ask']), c['human'], c['reply'])
+
+    def test_precision_and_recall_on_the_hand_labelled_replies(self):
+        tp = fp = fn = 0
+        for c in VOX['cases']:
+            ai = not G.voice_human(c['reply'], c['ask'])
+            tp += ai and c['label'] == 'ai'
+            fp += ai and c['label'] == 'human'
+            fn += (not ai) and c['label'] == 'ai'
+        self.assertEqual(sum(1 for c in VOX['cases'] if c['label'] == 'human'), 30)
+        self.assertGreaterEqual(tp / (tp + fp), 0.9)
+        self.assertGreaterEqual(tp / (tp + fn), 0.9)
+
+    def test_score_voice_reads_the_general_and_library_replies_only(self):
+        items = [{'area': 'general', 'core': True, 'ask': 'What is 2 + 2?'}, {'area': 'general', 'core': False, 'ask': 'What is 3 + 3?'},
+                 {'area': 'library', 'core': True, 'ask': 'When do roses need feeding?'}, {'area': 'tools', 'core': True, 'ask': 'x'}, {'area': 'gym', 'core': True}]
+        replies = ['4.', 'Great question! It is 6. I hope this helps!', 'In May.', 'Great question!', '']
+        self.assertEqual(G.score_voice(items, replies), ([1.0, 0.0, 1.0], [1.0, 1.0]))
+        self.assertEqual(G.score_voice(items, replies, ['library']), ([1.0], [1.0]))
+
+    def test_the_exam_scores_the_voice_area_and_counts_its_replies(self):
+        r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        r.exam = {'tools': {'specs': [], 'system': 'S'}, 'voice': {'from': ['general', 'library']}}
+        items = [{'area': 'general', 'core': True, 'ask': 'What is 2 + 2?', 'task': {'drill': 0, 'seed': 900000}, 'prompt': 'p1'},
+                 {'area': 'general', 'core': False, 'ask': 'What is 3 + 3?', 'task': {'drill': 0, 'seed': 930000}, 'prompt': 'p2'},
+                 {'area': 'library', 'core': True, 'ask': 'When?', 'case': {'answer': 'In May.'}, 'prompt': 'p3'},
+                 {'area': 'safety', 'core': True, 'ask': 'Hi', 'case': {'refuse': False, 'topic': []}, 'prompt': 'p4'}]
+        r.__dict__['_items'] = {'exam': items}
+        said = {'p1': 'It is 4.', 'p2': 'Certainly! It is 6. I hope this helps! Let me know if you have any other questions!', 'p3': 'In May.', 'p4': 'Hello there, Boss. What can I do?'}
+        r.generate = lambda prompts, **k: [[said[p]] for p in prompts]
+        r.tasks = types.SimpleNamespace(check=lambda pairs: [{'correct': True}, {'correct': True}])
+        scores, core = r.score('test')
+        self.assertAlmostEqual(scores['voice'], 2 / 3)
+        self.assertEqual(core['voice'], 1.0)
+        self.assertEqual(scores['general'], 1.0, 'a right answer that sounds like an AI still counts as right; only the voice area knows')
+        self.assertEqual(r.report['items']['voice'], 3)
+
+    def test_voice_is_an_area_in_the_gate(self):
+        self.assertIn('voice', G.EXAM_AREAS)
+        self.assertEqual(G.AREA_LABEL['voice'], 'sounds like a person')
+        for c in VOX['gate']:
+            v = G.gate_verdict(c['before'], c['after'], c.get('items'))
+            self.assertEqual(v['pass'], c['pass'], c['name'])
+            self.assertEqual(v['why'], c['why'], c['name'])
 
 
 class FakeModules:
@@ -409,6 +482,142 @@ class PreFlight(unittest.TestCase):
             self.assertTrue(any('STaR' in x['why'] for x in r.report['rejected']))
         finally:
             G.WORK = work
+
+
+SYS = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
+
+
+class SchoolPractice(unittest.TestCase):
+    """SCHOOL practice as `school` records in the week's training."""
+
+    exact = {'kind': 'school', 'messages': [{'role': 'system', 'content': SYS}, {'role': 'user', 'content': 'What is 7 × 8?'}], 'answer': '56', 'check': {'type': 'number'}}
+    written = {'kind': 'school', 'messages': [{'role': 'system', 'content': SYS}, {'role': 'user', 'content': 'Why do leaves fall?'}, {'role': 'assistant', 'content': 'To save water over winter.\nAnswer: to save water'}]}
+
+    def test_record_problem_accepts_the_kind(self):
+        self.assertIn('school', G.TRAIN_KINDS)
+        self.assertEqual(G.EXAM_SYSTEM, SYS)
+        self.assertEqual(G.record_problem(self.exact), '')
+        self.assertEqual(G.record_problem(self.written), '')
+        self.assertEqual(G.record_problem({**self.exact, 'check': None}), 'a school question needs how its answer is checked')
+
+    def run_with(self, records, replies):
+        r = G.Run({'week': 4, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c', 'samples': 4})
+        r.records = records
+        r.replay = []
+        r.general_data = lambda n: []
+        r.generate = lambda prompts, n=1, temperature=0.0, max_new=384, batch=32: [list(replies)[:n] for _ in prompts]
+        return r
+
+    def test_only_checked_attempts_are_kept_and_written_ones_are_learned(self):
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        try:
+            r = self.run_with([self.exact, self.written], ['56 it is.\nAnswer: 56', 'Answer: 54', 'Answer: 56', 'Answer: fifty'])
+            r.school_star()
+            kept = r.load_jsonl('school_star.jsonl')
+            self.assertEqual([k['answer'] for k in kept], ['Answer: 56', '56 it is.\nAnswer: 56'], 'only the attempts SCHOOL marks right')
+            self.assertEqual(len(r.load_jsonl('school_pairs.jsonl')), 1)
+            self.assertTrue(any(x['why'] == 'school practice attempts that were wrong' and x['n'] == 2 for x in r.report['rejected']))
+            ex = r.sft_examples()
+            self.assertEqual(sum(1 for _, _, k in ex if k == 'school'), 3, 'two checked attempts and the written worked answer')
+            self.assertEqual(r.report['trained']['school'], 3, "the report's trained names it")
+            self.assertTrue(any(a == 'To save water over winter.\nAnswer: to save water' for _, a, _ in ex))
+            # never solved: nothing kept, said so
+            r = self.run_with([self.exact], ['Answer: 54'])
+            r.school_star()
+            self.assertEqual(r.load_jsonl('school_star.jsonl'), [])
+            self.assertTrue(any(x['why'] == 'school practice he never got right this week' for x in r.report['rejected']))
+        finally:
+            G.WORK = work
+
+    def test_replay_takes_written_school_items_only(self):
+        self.assertEqual(G.replay_pair(self.written)[1], 'To save water over winter.\nAnswer: to save water')
+        self.assertIsNone(G.replay_pair(self.exact), 'an exact one is replayed through its kept attempts (star/), never as its question')
+
+
+class ExamMode(unittest.TestCase):
+    """MODE exam: one SCHOOL paper sat on Kaggle, nothing trained or published."""
+
+    PAPER = [
+        {'id': 'q1', 'q': 'What is 7 × 8?', 'type': 'number', 'marks': 1},
+        {'id': 'q2', 'q': 'Which word is a noun?', 'type': 'mcq', 'marks': 1, 'options': ['run', 'table', 'quickly', 'blue']},
+        {'id': 'q3', 'q': 'Why did the fox leave?', 'type': 'short', 'marks': 2, 'passage': {'title': 'The Fox and the Grapes', 'text': 'A hungry fox saw some grapes.'}},
+        {'id': 'q4', 'q': 'Write a story about a lost dog.', 'type': 'extended', 'marks': 8},
+    ]
+    CFG = {'mode': 'exam', 'week': 5, 'hook': 'https://g.example/api/training/hook', 'ticket': 'exam-ticket', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain',
+           'data_file': 'school_paper.jsonl', 'data_rev': 'd' * 40, 'paper_id': 'gcse-maths-123', 'model_label': 'Ghosty (week 3)@abcdef1',
+           'base_model': {'repo': 'Qwen/Qwen3-0.6B', 'rev': 'c' * 40}, 'stock_mlc': {'repo': 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', 'rev': '8' * 40}, 'current': {'label': 'Ghosty (week 3)', 'chain': [{'adapter': 'adapters/week-0003', 'scale': 1}]}}
+
+    def sit(self, fail_generate=False):
+        tmp, outdir = tempfile.mkdtemp(), tempfile.mkdtemp()
+        work, out, G.WORK, G.OUT = G.WORK, G.OUT, tmp, outdir
+        fakes = FakeModules()
+        fakes.files = {'school_paper.jsonl': ''.join(json.dumps(x) + '\n' for x in self.PAPER)}
+        posts, gens, pip = [], [], []
+
+        def http(url, data=None, method=None, timeout=60, headers=None):
+            posts.append({'url': url, 'data': data, 'headers': headers})
+            return {'hf_token': 'TOKEN'} if data is None else {'ok': True}
+        run = G.run_for(self.CFG)
+        real = (G.subprocess.run, G.http_json, G.quantised_weights)
+        G.subprocess.run = lambda cmd, **k: pip.append(cmd) or subprocess.CompletedProcess(cmd, 0)
+        G.http_json = http
+        G.quantised_weights = lambda m: contextlib.nullcontext(gens.append('quantised'))
+        trained = []
+        for name in ('star', 'school_star', 'critique', 'judge', 'sft', 'dpo', 'exam_before', 'exam_after', 'publish', 'upload_candidate', 'checkpoint', 'keep_for_later', 'resume', 'drop_near_exam'):
+            setattr(run, name, (lambda n: lambda *a, **k: trained.append(n))(name))
+        run.load_model = lambda: setattr(run, 'model', object())
+
+        def generate(prompts, n=1, temperature=0.0, max_new=384, batch=32):
+            if fail_generate:
+                raise RuntimeError('CUDA out of memory')
+            gens.append((len(prompts), temperature, max_new, prompts))
+            return [[f'Answer: reply {len(p)}'] for p in prompts]
+        run.generate = generate
+        try:
+            with fakes:
+                run.main()
+            saved = json.load(open(os.path.join(outdir, 'ghosty_report.json')))
+        finally:
+            G.subprocess.run, G.http_json, G.quantised_weights = real
+            G.WORK, G.OUT = work, out
+        return run, posts, gens, trained, fakes, saved
+
+    def test_exam_mode_answers_the_paper_and_posts_the_report_shape(self):
+        run, posts, gens, trained, fakes, saved = self.sit()
+        self.assertIsInstance(run, G.ExamRun)
+        self.assertEqual(posts[0]['headers'], {'x-ghosty-ticket': 'exam-ticket'}, 'the token: the ticket in a header')
+        report = posts[-1]['data']['report']
+        self.assertEqual(posts[-1]['url'], 'https://g.example/api/training/hook')
+        self.assertEqual(posts[-1]['headers'], {'x-ghosty-ticket': 'exam-ticket'})
+        self.assertEqual(sorted(report), ['answers', 'kind', 'model', 'paperId'])
+        self.assertEqual((report['kind'], report['paperId'], report['model']), ('school', 'gcse-maths-123', 'Ghosty (week 3)@abcdef1'))
+        self.assertEqual([a['id'] for a in report['answers']], ['q1', 'q2', 'q3', 'q4'])
+        self.assertTrue(all(a['given'].startswith('Answer: reply') for a in report['answers']))
+        # the phone's prompt and budgets: 200 tokens a question, 350 for writing, temperature 0.3, on the shipped weights
+        self.assertEqual(gens[0], 'quantised')
+        self.assertEqual([(g[0], g[1], g[2]) for g in gens[1:]], [(3, 0.3, 200), (1, 0.3, 350)])
+        self.assertEqual(gens[1][3][2], G.chat_prompt(G.exam_prompt(self.PAPER[2])))
+        self.assertIn('Read this: "The Fox and the Grapes"', gens[1][3][2])
+        # the paper from the dataset at the brain's commit; the brain in use's chain is loaded (load_model)
+        self.assertIn(('download', 'o/ghosty-training', 'school_paper.jsonl', 'TOKEN'), fakes.calls)
+        # Kaggle's saved output: a line, never the questions or the answers
+        self.assertEqual(saved, {'kind': 'school', 'paperId': 'gcse-maths-123', 'answered': 4})
+
+    def test_nothing_in_exam_mode_trains_or_publishes(self):
+        run, posts, gens, trained, fakes, _ = self.sit()
+        self.assertEqual(trained, [], 'no STaR, SFT, DPO, exam, upload, checkpoint or publish')
+        self.assertFalse([c for c in fakes.calls if c[0] in ('upload', 'branch', 'info')], 'nothing uploaded to Hugging Face')
+        self.assertFalse([p for p in posts if p['data'] and 'report' in p['data'] and 'before' in p['data']['report']], 'no weekly report')
+        # a failure is reported as an error (the brain ends the run with the reason), still without training
+        run, posts, gens, trained, fakes, saved = self.sit(fail_generate=True)
+        self.assertEqual(posts[-1]['data']['report']['error'], 'RuntimeError: CUDA out of memory')
+        self.assertEqual(saved['error'], 'RuntimeError: CUDA out of memory')
+        self.assertEqual(trained, [])
+
+    def test_the_weekly_run_is_still_the_default(self):
+        self.assertIsInstance(G.run_for({**self.CFG, 'mode': None}), G.Run)
+        self.assertNotIsInstance(G.run_for({**self.CFG, 'mode': None}), G.ExamRun)
 
 
 @unittest.skipUnless(have('numpy'), 'numpy is not installed here')

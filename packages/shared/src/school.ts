@@ -151,6 +151,20 @@ export interface PaperResult {
   answers: ItemResult[];
   /** The boundary he reached and the next one up, in words (`boundaryLine`; part 2). */
   boundary?: string;
+  /**
+   * The honest gap: the strongest free online model sat the same items once, marked the same way (asked by the
+   * brain afterwards, cached per paper; never the exam gate, never trained on). Absent until it has.
+   */
+  online?: OnlineMark;
+}
+
+/** How the online model did on the same paper. */
+export interface OnlineMark {
+  raw: number;
+  grade: string;
+  /** Which model sat it, as the brain knows it. */
+  model: string;
+  at: number;
 }
 
 /** The default bands for a self-written paper: a plain percentage scale where the top band starts at 85%. */
@@ -342,4 +356,82 @@ export function boundaryLine(paper: Pick<Paper, 'bands' | 'maxMarks'>, raw: numb
   // Bands that start at the same mark (after scaling) are one step: the next one up starts higher.
   const up = bands.slice(0, i).reverse().find((x) => x.from > b.from);
   return `${name(b.grade, true)} from ${b.from}/${paper.maxMarks}${up ? ` · ${name(up.grade, false)} from ${up.from}` : ' · the highest there is'}`;
+}
+
+// ---- reading: the library for each stage, and reading ahead (part 3) --------------------------------------------
+
+/**
+ * The subjects that stand for his reading at each stage (the owner's rule for reading ahead: top grades in these
+ * first). Nursery has no reading paper: listening to a story is part of talking and listening there.
+ */
+export const READING_SUBJECTS: Record<StageId, string[]> = {
+  nursery: ['talk'], reception: ['reading'], ks1: ['reading'], ks2: ['reading'], ks3: ['english'],
+  gcse: ['english-language', 'english-literature'], alevel: ['english-literature'], university: ['uni-humanities'], library: ['everything'],
+};
+/** The reading check's pass mark (the owner's rule: a high one, so borrowing is earned). */
+export const READ_PASS = 0.8;
+/** UK public domain for the books on the shelves: the author (and any translator or illustrator) died before this year. */
+export const PUBLIC_DOMAIN_BEFORE = 1955;
+/** The rule for reading ahead, in one line. */
+export const BORROW_RULE = 'He may borrow a book from up to two stages above his own once his reading at his own stage is at top grades, and only by passing that book’s reading check with 80% or more. Borrowed books never count towards passing a stage.';
+
+/** Whether his reading at a stage stands at top grades (the latest result in each of its reading subjects). */
+export function readingTop(stage: StageId, latest: Record<string, PaperResult | undefined>): boolean {
+  return READING_SUBJECTS[stage].every((s) => !!latest[s]?.top);
+}
+
+/**
+ * Whether he may try to borrow a book from stage `from` (the reading check comes next and decides), and why not in
+ * plain words. `failedHere`: he failed this book's check at his current stage (locked until he moves up).
+ */
+export function borrowVerdict(current: StageId, from: StageId, top: boolean, failedHere: boolean): { ok: boolean; why: string } {
+  const name = (id: StageId) => stageById(id)?.label.replace(/\s*\(.*\)$/, '') ?? id;
+  if (from === 'library') return { ok: false, why: 'The whole library is not a class to borrow from: it opens once university is passed.' };
+  if (stageIndex(from) <= stageIndex(current)) return { ok: false, why: `${name(from)} books are on his own shelf already: no need to borrow them.` };
+  if (!canBorrowFrom(current, from)) return { ok: false, why: `${name(from)} is more than two stages above ${name(current)}: he may borrow at most two stages ahead.` };
+  if (!top) return { ok: false, why: `Not yet: his reading at ${name(current)} must be at top grades first.` };
+  if (failedHere) return { ok: false, why: `He did not pass this book’s reading check, so it stays locked until he moves up from ${name(current)}.` };
+  return { ok: true, why: `He may borrow it if he passes its reading check with 80% or more.` };
+}
+
+/** The first stage that opens a self-study curriculum level (level 1 at GCSE, 2 at A-level, 3 at university). */
+export const levelOpensAt = (level: 1 | 2 | 3): StageId | null => STAGES.find((s) => s.curriculum.includes(level))?.id ?? null;
+
+/** What self-study may not read at a stage, in one line: "Level 2 topics unlock at A-level, level 3 at university." */
+export function lockLine(current: StageId): string {
+  const name = (id: StageId | null) => (id ? (stageById(id)?.label.replace(/\s*\(.*\)$/, '') ?? id) : 'later');
+  const shut = ([1, 2, 3] as const).filter((l) => !topicUnlocked(current, l));
+  if (!shut.length) return 'Nothing in the curriculum is locked at this stage.';
+  if (shut.length === 3) return `The curriculum is locked until GCSE: level 1 topics unlock at ${name(levelOpensAt(1))}, level 2 at ${name(levelOpensAt(2))}, level 3 at ${name(levelOpensAt(3))}.`;
+  return shut.map((l, i) => `${i ? 'level' : 'Level'} ${l} topics unlock at ${name(levelOpensAt(l))}`).join(', ') + '.';
+}
+
+// ---- the exam prompt, and the gap ------------------------------------------------------------------------------
+
+/**
+ * The exam prompt the phone sits a paper with (apps/web/src/school/sit.ts `examPrompt` gives these same messages),
+ * so a paper sat on Kaggle's free GPU by the same weights, and the online model's sitting of it, are asked exactly
+ * the same way. The notebook's Python copy (`exam_prompt`) is held to it on shared cases (training/kaggle/fixtures.json).
+ */
+export const EXAM_SYSTEM = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'";
+/** Tokens a question may take: about 200, a piece of writing about 350. */
+export const EXAM_TOKENS = { item: 200, writing: 350 } as const;
+
+export function examMessages(item: Pick<PaperItem, 'q' | 'type' | 'marks' | 'options'>, passage?: { title: string; text: string }): { role: 'system' | 'user'; content: string }[] {
+  const parts: string[] = [];
+  if (passage) parts.push(`Read this: "${passage.title}"\n\n${passage.text}`);
+  parts.push(item.q);
+  if (item.type === 'mcq' && item.options) parts.push(`${item.options.map((o, i) => `${'ABCD'[i]}) ${o}`).join('\n')}\nAnswer with the letter.`);
+  if (item.type === 'short') parts.push(`(${item.marks} mark${item.marks === 1 ? '' : 's'}: explain briefly.)`);
+  if (item.type === 'extended') parts.push(`(${item.marks} marks: write it out in full.)`);
+  const system = item.type === 'extended' ? `${EXAM_SYSTEM}. For a piece of writing, write the whole piece, then finish with 'Answer: done'.` : EXAM_SYSTEM;
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: parts.join('\n\n') },
+  ];
+}
+
+/** The gap on one paper in plain words: "offline 14/40 · online 36/40" (null until the online model has sat it). */
+export function gapLine(r: Pick<PaperResult, 'raw' | 'max' | 'online'>): string | null {
+  return r.online ? `offline ${r.raw}/${r.max} · online ${r.online.raw}/${r.max}` : null;
 }

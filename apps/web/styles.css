@@ -3137,6 +3137,41 @@ button.schnightly[aria-checked="false"] { color: var(--mute); }
 [data-look="pro"] .schbound { font-size: 15px; font-weight: 600; color: var(--fg); }
 [data-look="pro"] .schbanklines { border-radius: 14px; background: var(--thin); }
 [data-look="pro"] .schoffgrp > summary { font-size: 16px; font-weight: 600; }
+.schbooks { display: flex; flex-direction: column; }
+.schbook { display: flex; flex-direction: column; gap: 3px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); min-width: 0; }
+.schbook:last-child { border-bottom: 0; }
+.schbook .keyrow { flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.schbook .keyrow > button, .schbook .keyrow > a.schlink { flex: 1 1 150px; }
+.schbookst { font-size: 12.5px; color: var(--c); overflow-wrap: anywhere; }
+.schbook.read .schbookst { color: var(--ok); }
+.schbookck { font-size: 12.5px; overflow-wrap: anywhere; }
+.schbookck.ok { color: var(--ok); }
+.schbookck.no { color: var(--r); }
+.schlast { margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: rgba(var(--cr), .05); }
+.schborrowwhy { font-size: 11.5px; color: var(--mute); overflow-wrap: anywhere; }
+a.schlink { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); color: var(--c); font: 500 12px var(--m); letter-spacing: .08em; text-decoration: none; }
+.schrule { line-height: 1.5; }
+.schborrowline { font-weight: 600; }
+.schborrowline.ok { color: var(--ok); }
+.schlocks { color: var(--c); }
+.schreadlist { display: flex; flex-direction: column; gap: 2px; }
+.schreadlist small { font-size: 12px; color: var(--mute); overflow-wrap: anywhere; }
+.schreading .lab { margin-top: 12px; }
+[data-look="pro"] .schbookst, [data-look="pro"] .schbookck { font-size: 14px; }
+[data-look="pro"] .schborrowwhy, [data-look="pro"] .schreadlist small { font-size: 12.5px; color: var(--l2); }
+[data-look="pro"] a.schlink { border-radius: 14px; font: 600 15px var(--sf); letter-spacing: -.01em; text-transform: none; color: var(--acc); }
+[data-look="pro"] .schlast { border-radius: 14px; background: var(--thin); }
+/* the free GPU (FREE GPU / SIT ON THE FREE GPU), the honest gap, the practice line */
+.schsubbtns { flex: 0 0 auto; display: flex; gap: 6px; }
+.schsubbtns button[hidden] { display: none; }
+.schgap { font-size: 11.5px; color: var(--c); overflow-wrap: anywhere; }
+.schgpunote { font-size: 12px; overflow-wrap: anywhere; }
+small.schgpunote { color: var(--c); }
+.schgpunote.live { color: var(--c); }
+.schgpuwhy { margin-top: 6px; }
+.schpractice { margin: 6px 0 2px; font: 500 13px var(--b); color: var(--c); overflow-wrap: anywhere; }
+[data-look="pro"] .schgap, [data-look="pro"] small.schgpunote { font-size: 12.5px; color: var(--acc); }
+[data-look="pro"] .schpractice { font-size: 15px; font-weight: 600; color: var(--fg); }
 /* end SCHOOL */
 
 /* hero: mind — Home's 3-D centrepiece in the calm looks (features/core/mind.ts). Its WebGL canvas lies exactly over

@@ -12,8 +12,10 @@
  * Every session (a background job, a "tick"; a bounded handful of page reads and model calls):
  *   1. READ — the next pieces of the field being read (the questions the library couldn't
  *      answer before anything), each fetched from a free source (Wikipedia, Wikibooks,
- *      Wikiversity, MDN, arXiv, the Swift book, OpenStax) and filed, without any AI, in that
- *      field's reading notebook (one document per field, one heading per piece).
+ *      Wikiversity, MDN, arXiv, the Swift book) and filed, without any AI, in that field's reading
+ *      notebook (one document per field, one heading per piece). OpenStax pages are link-only now
+ *      (its licence forbids ingestion into AI models): passed over, never counted as failures, the
+ *      reason logged once and the number skipped in the status line (`OPENSTAX_REASON`).
  *   2. DIGEST — with a model (the cheap tier: keyless or small), a study note on what it just
  *      read: summary, key facts, a worked example or pitfall, self-test questions. Filed in
  *      the domain's digest notebook — the part that also goes to the owner's phone.
@@ -36,6 +38,8 @@ import { OUTLINES } from './curriculum/outlines';
 import { grade, makeDrill, SKILLS, type Drill } from './drills';
 import type { Library } from './store';
 import { loadJobs, setNext } from '../schedule';
+import { topicUnlocked } from '../../../../packages/shared/src/school';
+import { lockOpen, studyLock, type StudyLock } from '../school/reading';
 
 export interface StudyState {
   on: boolean;
@@ -78,8 +82,21 @@ export interface StudyState {
   pending: [string, string, string][];
   /** Per unanswered question: how many sessions it failed in (given up after three). */
   gapFails: Record<string, number>;
+  /**
+   * [school] The library's locks (school/reading.ts `studyLock`, read once a session): the school stage he is at;
+   * absent until SCHOOL is first opened. A topic above his stage is passed over and kept in `held` ([index, level])
+   * — read first once its level opens, never lost; a field with only held topics left waits, unfinished.
+   */
+  lock?: StudyLock | null;
+  held?: Record<string, [number, 1 | 2 | 3][]>;
+  /** Per field: topics passed over because their source's licence forbids feeding it to an AI (OpenStax); when the reason was logged. */
+  licence?: { skipped: Record<string, number>; notedAt?: number };
 }
+/** Why OpenStax pages are not read any more (logged once in the study log; the LEARN tab links them instead). */
+export const OPENSTAX_REASON = 'OpenStax: licence allows reading, not ingestion; linked in LEARN';
 const MAX_GAP_FAILS = 3;
+/** Link-only topics passed over in one session without using up its reads (a field's whole run of them, at most). */
+const MAX_SKIPS = 400;
 
 export const STUDY_KEY = 'study:state';
 const UA = 'Ghosty/2.0 (personal assistant; https://github.com/wvks62vknw-sys/Ghosty)';
@@ -166,11 +183,12 @@ export async function loadStudy(storage: DurableObjectStorage): Promise<StudySta
  * never stay queued. Pure and repeatable, so every reader of the state sees the same queue.
  */
 function planQueue(st: StudyState): void {
-  const open = (id: string) => !!domainById(id) && !st.finished[id];
+  const open = (id: string) => !!domainById(id) && !st.finished[id] && !waits(st, id);
   for (const id of st.focus) {
     if (domainById(id) && !st.asked.includes(id) && st.finished[id]) {
       delete st.finished[id];
       st.cursor[id] = 0;
+      if (st.licence?.skipped[id]) delete st.licence.skipped[id]; // passed over again as it is read again
     }
   }
   st.asked = st.focus.filter((id) => !!domainById(id));
@@ -179,6 +197,14 @@ function planQueue(st: StudyState): void {
     const next = DOMAINS.find((d) => open(d.id));
     if (next) st.queue = [next.id];
   }
+}
+
+/** [school] A field that has only topics above his school stage left (held): it waits for his stage, unfinished. */
+function waits(st: StudyState, id: string): boolean {
+  const held = st.held?.[id];
+  if (!st.lock || !held?.length || st.focus.includes(id)) return false;
+  const total = (domainById(id)?.topics.length ?? 0) + (st.grown[id]?.n ?? 0);
+  return (st.cursor[id] ?? 0) >= total && !held.some(([, l]) => topicUnlocked(st.lock!.stage, l));
 }
 
 /** The topics a field's Wikipedia outline added (growField), in the order they are read. */
@@ -213,7 +239,8 @@ export async function findSource(topic: string, kind: SourceKind): Promise<strin
   if (kind === 'swift') return `https://docs.swift.org/swift-book/documentation/the-swift-programming-language/${swiftSlug(topic)}/`;
   // a classic text: "2680 Meditations" — the number is the book's Project Gutenberg id
   if (kind === 'gutenberg') return /^\d{1,6}\b/.test(topic.trim()) ? gutenbergTextUrl(Number(topic.trim().match(/^\d{1,6}/)![0])) : null;
-  if (kind === 'openstax') return `https://openstax.org${topic.startsWith('/') ? topic : `/${topic}`}`;
+  // OpenStax's licence now forbids ingestion into AI models: link-only (studySession passes these over, OPENSTAX_REASON).
+  if (kind === 'openstax') return null;
   // an exact article title (from a field's outline): read straight away, no search needed
   if (kind === 'wikipage') return `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(topic.replace(/ /g, '_'))}`;
   const host = WIKI_HOSTS[kind] ?? 'en.wikipedia.org';
@@ -329,7 +356,7 @@ function growDue(st: StudyState, domain: string, now: number): boolean {
  * curriculum first, then what its outline added). A field read to the end is finished and the next
  * one starts — unless its weekly outline look is due, which comes first (`null`: the next session).
  */
-async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: number, more: Map<string, Topic[]>): Promise<{ domain: string; topic: Topic; index: number } | null> {
+async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: number, more: Map<string, Topic[]>): Promise<{ domain: string; topic: Topic; index: number; held?: boolean } | null> {
   while (st.queue.length) {
     const id = st.queue[0]!;
     const d = domainById(id);
@@ -340,7 +367,27 @@ async function nextPiece(storage: DurableObjectStorage, st: StudyState, now: num
     if (!more.has(id)) more.set(id, await grownTopics(storage, id));
     const extra = more.get(id)!;
     const i = st.cursor[id] ?? 0;
-    if (i < d.topics.length + extra.length) return { domain: id, topic: i < d.topics.length ? d.topics[i]! : extra[i - d.topics.length]!, index: i };
+    // [school] The library's locks: only the levels his school stage has unlocked (and the books on his open
+    // shelves); a FOCUS the owner typed is read whole. Topics passed over are held, read once their level opens.
+    const at = (k: number) => (k < d.topics.length ? d.topics[k]! : extra[k - d.topics.length]!);
+    const total = d.topics.length + extra.length;
+    const free = (k: number) => !st.lock || st.focus.includes(id) || lockOpen(st.lock, at(k));
+    const held = st.held?.[id] ?? [];
+    const back = held.find(([k]) => k < total && free(k));
+    if (back) return { domain: id, topic: at(back[0]), index: back[0], held: true };
+    if (st.lock && !st.focus.includes(id)) {
+      if (![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !(i < total && free(i))) return null; // nothing open at his stage: the queue waits
+      let j = i;
+      for (; j < total && !free(j); j++) held.push([j, at(j).l]);
+      if (j > i) ((st.held ??= {})[id] = held), (st.cursor[id] = j);
+      if (j < total) return { domain: id, topic: at(j), index: j };
+      if (held.length) {
+        st.queue.shift();
+        planQueue(st);
+        continue;
+      }
+    }
+    if (i < total) return { domain: id, topic: at(i), index: i };
     if (growDue(st, id, now)) return null;
     st.finished[id] = now;
     st.today.finished++;
@@ -523,6 +570,9 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     return { state: st, did, next: Math.max(HOUR, untilMidnight(now) + 5 * 60_000) };
   }
   st.sessions++;
+  // [school] His school stage, once a session: what the curriculum may read now (null: SCHOOL never opened).
+  st.lock = await studyLock(storage).catch(() => st.lock ?? null);
+  planQueue(st);
   let aiLeft = caps.ai;
   const useAi = async (system: string, user: string): Promise<string | null> => {
     if (!opts.ai || aiLeft <= 0 || st.today.ai >= caps.dailyAi) return null;
@@ -562,6 +612,7 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
   // the curriculum still moves), and given up after a few sessions.
   const retry: string[] = [];
   const more = new Map<string, Topic[]>();
+  let skips = 0;
   for (let n = 0; n < caps.reads && st.today.reads < caps.dailyReads; n++) {
     const gap = st.gaps.shift();
     const pickd = gap ? null : await nextPiece(storage, st, now, more);
@@ -569,7 +620,20 @@ export async function studySession(storage: DurableObjectStorage, lib: Library, 
     const topic = gap ?? pickd!.topic.t;
     const kind: SourceKind = gap ? (/\b(js|javascript|css|html|dom|browser|web api|canvas|webgl)\b/i.test(gap) ? 'mdn' : 'wiki') : pickd!.topic.k;
     const domain = gap ? 'questions' : pickd!.domain;
-    if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
+    if (pickd?.held) st.held![pickd.domain] = st.held![pickd.domain]!.filter(([k]) => k !== pickd.index);
+    else if (pickd) st.cursor[pickd.domain] = pickd.index + 1;
+    if (pickd && kind === 'openstax') {
+      // Link-only (its licence forbids ingestion): passed over like a piece already read, never a failure, and it
+      // does not use up one of the session's reads. The reason goes in the study log once.
+      const lic = (st.licence ??= { skipped: {} });
+      lic.skipped[pickd.domain] = (lic.skipped[pickd.domain] ?? 0) + 1;
+      if (!lic.notedAt) {
+        lic.notedAt = now;
+        await lib.note(LOG_DOC, "Ghosty's study log", 'notes', { heading: 'Skipped for licence: OpenStax', text: `${new Date(now).toISOString().slice(0, 16).replace('T', ' ')} — ${OPENSTAX_REASON}. Its pages in the curriculum are passed over.` }).catch(() => undefined);
+      }
+      if (skips++ < MAX_SKIPS) n--;
+      continue;
+    }
     try {
       let title = topic;
       let url = '';
@@ -765,11 +829,13 @@ export function studySummary(st: StudyState, now = Date.now()): {
   finished: number;
   /** Topics the fields' Wikipedia outlines added, in all and in their latest looks. */
   grown: { topics: number; latest: number };
+  /** Link-only topics passed over for their licence (OpenStax). */
+  licenceSkipped: number;
 } {
   const domains: FieldRow[] = DOMAINS.map((d) => {
     const grown = st.grown[d.id]?.n ?? 0;
     const topics = d.topics.length + grown;
-    return { id: d.id, name: d.name, topics, read: Math.min(topics, st.cursor[d.id] ?? 0), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
+    return { id: d.id, name: d.name, topics, read: Math.max(0, Math.min(topics, st.cursor[d.id] ?? 0) - (st.held?.[d.id]?.length ?? 0) - (st.licence?.skipped[d.id] ?? 0)), digested: st.domains[d.id]?.digested ?? 0, focus: st.focus.includes(d.id), finished: !!st.finished[d.id], grown };
   });
   const levels = LEVELS.map((level) => ({ level, topics: 0, read: 0 }));
   for (const d of DOMAINS) {
@@ -777,7 +843,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
     for (let i = 0; i < d.topics.length; i++) {
       const row = levels[LEVELS.indexOf(topicLevel(i, d.topics.length))]!;
       row.topics++;
-      if (i < read) row.read++;
+      // (an OpenStax page passed over is link-only: not counted as read)
+      if (i < read && d.topics[i]!.k !== 'openstax' && !st.held?.[d.id]?.some(([k]) => k === i)) row.read++;
     }
   }
   const skills = Object.entries(st.skills)
@@ -797,6 +864,10 @@ export function studySummary(st: StudyState, now = Date.now()): {
         : st.all
           ? 'Choosing the next field'
           : 'Nothing queued · pick a field and press STUDY';
+  // [school] What is locked and why ("Level 2 topics unlock at A-level"), whenever SCHOOL keeps him to his stage.
+  const lockNote = st.on && st.lock ? st.lock.line : '';
+  const skipped = Object.values(st.licence?.skipped ?? {}).reduce((a, n) => a + n, 0);
+  const licenceNote = skipped ? `${skipped} OpenStax page${skipped === 1 ? '' : 's'} skipped for licence (linked in LEARN)` : '';
   const grownAll = domains.reduce((n, d) => n + d.grown, 0);
   return {
     topics: TOPIC_COUNT + grownAll,
@@ -809,7 +880,8 @@ export function studySummary(st: StudyState, now = Date.now()): {
     pending: st.pending.length,
     queue: queue.slice(0, 8),
     current,
-    status,
+    status: [!lockNote ? status : (st.lock && ![1, 2, 3].some((l) => topicUnlocked(st.lock!.stage, l as 1 | 2 | 3)) && !head?.focus) || !current ? lockNote : `${status} · ${lockNote}`, licenceNote].filter(Boolean).join(' · '),
+    licenceSkipped: skipped,
     all: st.all,
     finished,
     grown: { topics: grownAll, latest: Object.values(st.grown).reduce((n, g) => n + (g.added ?? 0), 0) },

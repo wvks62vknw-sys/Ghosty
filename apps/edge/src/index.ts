@@ -56,6 +56,7 @@ const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];
 const allowedFeed = (u: URL) => FEED_HOSTS.has(u.hostname) || FEED_PREFIXES.some((p) => `${u.hostname}${u.pathname}`.startsWith(p));
 
 const FEED_HOSTS = new Set([
+  'i.ytimg.com', // [video] a YouTube thumbnail for the reply's video card (features/core/ytcard.ts)
   ...CAMERA_HOSTS,
   ...INTEL_HOSTS,
   'api.adsb.lol',

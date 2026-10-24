@@ -10,13 +10,16 @@
  */
 import type { ToolSpec } from './toolcall';
 
-/** What the exam measures. `general` = drills (maths, facts, computing) with exact checkers. */
-export const EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety'] as const;
+/**
+ * What the exam measures. `general` = drills (maths, facts, computing) with exact checkers; `voice` = the share of
+ * the GENERAL and LIBRARY replies that sound like a person, not an AI (voice.ts `human`, exact, no model).
+ */
+export const EXAM_AREAS = ['gym', 'general', 'library', 'tools', 'safety', 'voice'] as const;
 export type ExamArea = (typeof EXAM_AREAS)[number];
 /** Each area's score, 0–1 (the share of its exam items passed, partial credit where the checker gives it). */
 export type AreaScores = Partial<Record<ExamArea, number>>;
 
-export const AREA_LABEL: Record<ExamArea, string> = { gym: 'GYM PUZZLES', general: 'GENERAL', library: 'YOUR LIBRARY', tools: 'TOOLS', safety: 'SAFETY' };
+export const AREA_LABEL: Record<ExamArea, string> = { gym: 'GYM PUZZLES', general: 'GENERAL', library: 'YOUR LIBRARY', tools: 'TOOLS', safety: 'SAFETY', voice: 'SOUNDS LIKE A PERSON' };
 
 /** A new model must beat the current one by this much on average… */
 export const GATE_MIN_GAIN = 0.01;
@@ -82,8 +85,8 @@ export function gateVerdict(before: AreaScores, after: AreaScores, items: Partia
  */
 export const EXAM_SEED_FLOOR = 900_000;
 
-export type TrainKind = 'gym' | 'drill' | 'evol' | 'library' | 'tool' | 'pref' | 'failure' | 'redteam' | 'distill';
-export const TRAIN_KINDS: TrainKind[] = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill'];
+export type TrainKind = 'gym' | 'drill' | 'evol' | 'library' | 'tool' | 'pref' | 'failure' | 'redteam' | 'distill' | 'school';
+export const TRAIN_KINDS: TrainKind[] = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school'];
 
 export type ChatMsg = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -96,7 +99,11 @@ export type TaskRef = { game: string; level: number; seed: number } | { drill: n
  * - evol / distill / library / redteam / tool: `messages` ending with the assistant turn to learn
  *   (`source` names the library passage for library; `tools` the specs offered for tool);
  * - pref: `messages` without the answer, then `chosen` and (if known) `rejected` — the owner's 👍/👎;
- * - failure: something he got wrong, replayed: a `task`, or `messages` + the right `answer`.
+ * - failure: something he got wrong, replayed: a `task`, or `messages` + the right `answer`;
+ * - school: SCHOOL practice for his weak spots (apps/edge/src/school/practice.ts; never a paper's item): an exact
+ *   one is `messages` (the question, asked as the exam asks it) + the exact `answer` + `check` (how the notebook
+ *   checks an attempt: it samples several and keeps the ones that pass, like STaR); a written one is `messages`
+ *   ending with the stronger model's worked answer (distillation).
  */
 export interface TrainRecord {
   kind: TrainKind;
@@ -109,6 +116,16 @@ export interface TrainRecord {
   tools?: ToolSpec[];
   /** Where it came from, in a few words ("evolved from drill 12", "chat 2026-10-12"). */
   from?: string;
+  /** school (exact): how an attempt is marked, as SCHOOL marks a paper (school.ts markExact; the notebook's mark_exact). */
+  check?: SchoolCheck;
+}
+
+export interface SchoolCheck {
+  type: 'exact' | 'number' | 'mcq';
+  also?: string[];
+  tolerance?: number;
+  unit?: string;
+  options?: string[];
 }
 
 const isMsgs = (m: unknown): m is ChatMsg[] =>
@@ -142,6 +159,15 @@ export function recordProblem(r: unknown): string {
     case 'failure':
       if (o.task !== undefined) return taskOk(o.task) ? '' : 'bad task (or an exam seed)';
       if (!isMsgs(o.messages) || last!.role !== 'user' || typeof o.answer !== 'string' || !o.answer.trim()) return 'a failure needs a task, or the question and the right answer';
+      return '';
+    case 'school':
+      if (o.answer === undefined) {
+        if (!isMsgs(o.messages) || last!.role !== 'assistant' || !last!.content.trim()) return 'a school item needs its exact answer, or a worked answer to learn';
+        return '';
+      }
+      if (!isMsgs(o.messages) || last!.role !== 'user' || typeof o.answer !== 'string' || !o.answer.trim()) return 'a school question needs the question and its exact answer';
+      if (!o.check || !['exact', 'number', 'mcq'].includes(o.check.type)) return 'a school question needs how its answer is checked';
+      if (o.check.type === 'mcq' && !/^[a-d]$/i.test(o.answer.trim())) return 'a multiple-choice answer must be a letter A–D';
       return '';
     default:
       if (!isMsgs(o.messages) || last!.role !== 'assistant' || !last!.content.trim()) return 'needs messages ending with the answer to learn';
@@ -236,6 +262,8 @@ export interface TrainStatus {
    * is private; the brain fetches it with the owner's token: apps/edge/src/selftrain/weights.ts). Null with no models.
    */
   weights: string | null;
+  /** SCHOOL practice for his weak spots waiting for the next week ("school practice: 96"); absent before there is any. */
+  school?: { practice: number; note: string };
 }
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */

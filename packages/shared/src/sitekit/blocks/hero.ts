@@ -39,7 +39,7 @@ export const heroBlocks: BlockDef[] = [
     id: 'hero-split',
     group: 'hero',
     about: 'Headline and actions on the left, a tall photo on the right with a small floating card (hours, a promise). Warm and clear; suits almost anything local.',
-    slots: { ...HERO_SLOTS, image: IMG('a tall photo of the place, the work or the people'), card: OT(60, 'the floating card: a short promise or "Open today"'), points: TEXTS(3, 40, 'up to three short reassurances, e.g. "Walk-ins welcome"') },
+    slots: { ...HERO_SLOTS, image: IMG('a tall photo of the place, the work or the people'), card: OT(60, 'the floating card: a short promise or "Open today"'), points: TEXTS(3, 40, 'up to three short reassurances the owner can stand behind, e.g. "Book in a minute"') },
     css: `.b-hero-split{padding-block:var(--space-xl) var(--space-2xl)}
 .b-hero-split .wrap{display:grid;gap:var(--space-xl);align-items:center}
 .b-hero-split h1{max-width:13ch}
@@ -146,7 +146,7 @@ export const heroBlocks: BlockDef[] = [
     id: 'hero-app',
     group: 'hero',
     about: 'A product landing hero: badge, headline, actions, a small note, and a product window drawn in CSS (or a real screenshot). For apps and online services.',
-    slots: { ...HERO_SLOTS, note: OT(80, 'small print under the buttons: "Free for 14 days · no card"'), shot: IMG('a real screenshot (optional)', true) },
+    slots: { ...HERO_SLOTS, note: OT(80, 'small print under the buttons, only what the owner said'), shot: IMG('a real screenshot (optional)', true) },
     css: `.b-hero-app{padding-block:var(--space-2xl) 0;text-align:center;overflow:hidden;background:radial-gradient(60% 50% at 50% 0%,rgb(var(--rgb-primary) / .16),transparent 70%)}
 .b-hero-app .copy{display:grid;justify-items:center}
 .b-hero-app .eyebrow{padding:.4em .9em;border:1px solid var(--border);border-radius:999px;background:var(--surface);letter-spacing:.04em;text-transform:none;color:var(--text)}

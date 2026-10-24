@@ -9,7 +9,7 @@ import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
-import { extraTools, schoolTools } from './extra';
+import { extraTools, schoolTools, videoTools } from './extra';
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
@@ -42,7 +42,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -90,14 +90,15 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i,
     about: 'You can install instant widgets (create_widget: one HTML document on the GK kit — games, tools, trackers; list_widgets, delete_widget); a tool for the owner alone is a widget, not a published page.',
   },
+  { name: 'video', tools: videoTools, when: /\b(youtube|youtu\.be|videos?|transcripts?)\b/i, about: 'You can summarise a YouTube video with timestamped moments that link back to it, and make 5 LEARN quiz cards from it (summarise_video).' },
   { name: 'school', tools: schoolTools, when: /\b(school|exams?|sats|placement test|key stage|gcses?|a-levels?)\b/i, about: "You can report the offline brain's school journey: stage, grades, weak spots (school_status), and tell the owner how to start an exam on the phone (sit_exam)." },
-  { name: 'extra', tools: extras, when: 'always', about: 'You can also use the extras (tools/extra.ts).' },
+  { name: 'extra', tools: extras, when: 'always', about: 'You can use the extras.' },
   {
     name: 'sites',
     tools: siteTools,
     when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i,
     // The rule the owner cares about most, so it stays forceful: a page is delivered by its link.
-    about: "You can PUBLISH websites: any site, page, portfolio, CV, shop or invitation the owner asks for, or a site to clone or rebuild — DO IT, never reply that you can't host or publish: study_site a link first, write ONE complete HTML document, publish_site, and ALWAYS give the exact live link.",
+    about: "You can PUBLISH websites: any site — DO IT, never reply that you can't host or publish: study_site, ONE HTML document, publish_site, and ALWAYS give the exact live link. Business, event, charity or app sites: build_website (never by hand), a DRAFT until the owner confirms (confirm: true).",
   },
   // The quality gate: also on for every coding turn (selectTools), since every page, app and widget goes through it.
   {

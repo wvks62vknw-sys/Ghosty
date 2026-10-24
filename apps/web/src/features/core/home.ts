@@ -257,6 +257,8 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     const topics = st?.summary?.topics ?? 0;
     setCo(lib, fmt.n(l.stats.passages), '', read == null ? 'passages' : `${fmt.n(read)} studied`, l.stats.passages ? 'live' : 'idle');
     setArc(mid, topics && read != null ? read / topics : null);
+    // A brain still seeding its starter library (a fresh deploy or preview): look again soon, not in five minutes.
+    if (!l.starterReady) libAt = Date.now() - 300_000 + 15_000;
   };
   // SCHOOL: hidden until there is a school to report on
   let schoolAt = 0;
