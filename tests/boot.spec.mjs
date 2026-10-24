@@ -146,7 +146,7 @@ const onHero = (page) => page.evaluate(() => {
   await page.waitForTimeout(200);
   const s2 = await state(page);
   if (s2?.spoken !== 'tap') problems.push(`full: the first tap did not speak the greeting ("${s2?.spoken}")`);
-  timings.push(`full (real time, software WebGL): first frame ${s.firstFrame} ms after the page started; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; app ready underneath at ${s.appReady} ms; held ${s.held} ms for Home's hero; one MIND draw ${s.drawMs} ms; ended at ${s.ended} ms (the boot layer gone ${s.firstFrame + s.ended} ms after the page started); ${s.frames} frames, worst gap ${s.worstGap} ms; ${wall} ms of test time from goto to Home`);
+  if (s) timings.push(`full (real time, software WebGL): first frame ${s.firstFrame} ms after the page started; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; app ready underneath at ${s.appReady} ms; held ${s.held} ms for Home's hero; one MIND draw ${s.drawMs} ms; ended at ${s.ended} ms (the boot layer gone ${s.firstFrame + s.ended} ms after the page started); ${s.frames} frames, worst gap ${s.worstGap} ms; ${wall} ms of test time from goto to Home`);
   await page.screenshot({ path: `${out}/boot-landed.png` });
   await ctx.close();
 }
@@ -166,7 +166,7 @@ const onHero = (page) => page.evaluate(() => {
   if (s?.spoken === 'now' || s?.spoken === 'tap') problems.push(`skip: the greeting was spoken after a skip (${s.spoken})`);
   const hp = await onHero(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`skip: Mind did not end up in the hero (${JSON.stringify(hp)})`);
-  timings.push(`skip: the tap at ${Math.round(at - s.firstFrame)} ms after the first frame; ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; ended ${Math.round(gone)} ms after the tap (held ${s.held} ms for the app and Home's hero) (app ready at ${s.appReady} ms; ${s.frames} frames, worst gap ${s.worstGap} ms)`);
+  if (s) timings.push(`skip: the tap at ${Math.round(at - s.firstFrame)} ms after the first frame; ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; ended ${Math.round(gone)} ms after the tap (held ${s.held} ms for the app and Home's hero) (app ready at ${s.appReady} ms; ${s.frames} frames, worst gap ${s.worstGap} ms)`);
 
   // ---- 3. a warm return: the same day again, no cinematic, Mind's light breathes once
   await page.reload();
@@ -177,7 +177,7 @@ const onHero = (page) => page.evaluate(() => {
   if (wv.texts.length) problems.push(`warm: words on a warm return: ${wv.texts.join(' | ')}`);
   await until(page, () => (window.__bootState?.warm ?? 0) >= 1, 30000, 'warm: Mind did not breathe on the warm return');
   // coming back to the app (it was away more than a few seconds): another breath, still no cinematic
-  const before = (await state(page)).warm;
+  const before = (await state(page))?.warm ?? 0;
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -187,7 +187,7 @@ const onHero = (page) => page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await until(page, (n) => window.__bootState.warm > n, 5000, 'warm: coming back to the app did not breathe', before);
+  await until(page, (n) => (window.__bootState?.warm ?? 0) > n, 5000, 'warm: coming back to the app did not breathe', before);
   if (await page.$('#boot')) problems.push('warm: coming back to the app showed the boot layer');
   await ctx.close();
 }
@@ -204,10 +204,10 @@ const onHero = (page) => page.evaluate(() => {
   const want = await greetingFor(page);
   if (!v.texts.join(' | ').includes(want)) problems.push(`reduce motion: no greeting (saw: ${v.texts.join(' | ')})`);
   // its own part, without the wait for the app underneath and Home's hero (measured as s.held)
-  const own = s.kind === 'still' ? (s.marks.land ?? 0) - (s.marks.gather ?? 0) - s.held : 0;
+  const own = s?.kind === 'still' ? (s.marks.land ?? 0) - (s.marks.gather ?? 0) - s.held : 0;
   // (software WebGL draws a frame in up to a second or more here: a phase can only be seen to start on a drawn frame)
-  if (s.kind === 'still' && own > 800 + 2 * s.worstGap) problems.push(`reduce motion: ${own} ms from Mind to the landing (want 800, worst frame gap ${s.worstGap} ms)`);
-  timings.push(`reduce motion: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms (the point holds until MIND is drawing: ${s.marks.gather} ms here; then held ${s.held} ms for the app and Home's hero; app ready at ${s.appReady} ms; worst frame gap ${s.worstGap} ms)`);
+  if (s?.kind === 'still' && own > 800 + 2 * s.worstGap) problems.push(`reduce motion: ${own} ms from Mind to the landing (want 800, worst frame gap ${s.worstGap} ms)`);
+  if (s) timings.push(`reduce motion: ${s.kind}; ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms (the point holds until MIND is drawing: ${s.marks.gather} ms here; then held ${s.held} ms for the app and Home's hero; app ready at ${s.appReady} ms; worst frame gap ${s.worstGap} ms)`);
   const hp = await onHero(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`reduce motion: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   await ctx.close();
@@ -227,15 +227,15 @@ const onHero = (page) => page.evaluate(() => {
   await until(page, () => window.__ghosty.ui.get().tab === 'core', 8000, 'reboot: it did not go to Home');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 30000 }).catch(() => problems.push('reboot: it never ended'));
   const s = await state(page);
-  if (!s.mind || !s.landed?.hero?.length || s.landed.flight.some((x, i) => Math.abs(x - s.landed.hero[i]) > 1.5)) problems.push(`reboot: it did not land on the hero: ${JSON.stringify(s.landed)}`);
-  if (ORDER.some((p) => typeof s.marks[p] !== 'number')) problems.push(`reboot: frames missing: ${JSON.stringify(s.marks)}`);
+  if (!s?.mind || !s.landed?.hero?.length || s.landed.flight.some((x, i) => Math.abs(x - s.landed.hero[i]) > 1.5)) problems.push(`reboot: it did not land on the hero: ${JSON.stringify(s?.landed)}`);
+  if (ORDER.some((p) => typeof s?.marks?.[p] !== 'number')) problems.push(`reboot: frames missing: ${JSON.stringify(s?.marks)}`);
   const hp = await onHero(page);
   if (hp.count !== 1 || !hp.inHero) problems.push(`reboot: Mind did not end up in the hero (${JSON.stringify(hp)})`);
   if (three.length !== 1) problems.push(`reboot: three.js was requested ${three.length} times`);
   // a reboot comes from a tap: the greeting is spoken at once (the voice is on)
-  if (s.spoken !== 'now') problems.push(`reboot: the greeting was "${s.spoken}" (want spoken at once after a tap)`);
-  if (!s.sound) problems.push('reboot: the hum did not play (the voice is on and he had tapped)');
-  timings.push(`reboot: ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; hum ${s.sound ? 'played' : 'not played'}`);
+  if (s?.spoken !== 'now') problems.push(`reboot: the greeting was "${s?.spoken}" (want spoken at once after a tap)`);
+  if (!s?.sound) problems.push('reboot: the hum did not play (the voice is on and he had tapped)');
+  if (s) timings.push(`reboot: ${ORDER.map((p) => `${p} ${s.marks[p]}`).join(' · ')} ms; hum ${s.sound ? 'played' : 'not played'}`);
   await ctx.close();
 }
 
@@ -265,9 +265,9 @@ const onHero = (page) => page.evaluate(() => {
   }, KEY);
   await stubLibrary(p2);
   await p2.goto(base);
-  await until(p2, () => window.__ghosty?.hero?.mode === 'mind' && !!document.querySelector('canvas.reactor.mindon') && window.__bootState.appReady >= 0, 60000, 'strip: MIND and Home never got ready');
+  const ready = await until(p2, () => window.__ghosty?.hero?.mode === 'mind' && !!document.querySelector('canvas.reactor.mindon') && window.__bootState?.appReady >= 0, 60000, 'strip: MIND and Home never got ready under the cinematic');
   const frames = [[200, 'point'], [700, 'gather'], [1150, 'sweep'], [1800, 'sphere'], [2450, 'name'], [3000, 'greeting'], [3340, 'land'], [3500, 'home']];
-  for (const [ms, name] of frames) {
+  for (const [ms, name] of ready ? frames : []) {
     await p2.evaluate((t) => window.__bootSeek(t), ms);
     await p2.waitForTimeout(ms >= 3500 ? 900 : 350);
     await p2.screenshot({ path: `${out}/boot-frame-${String(ms).padStart(4, '0')}-${name}.png` });
