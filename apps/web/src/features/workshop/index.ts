@@ -115,6 +115,8 @@ export const workshopTab: TabDef = {
     // projects that run for days (projects.ts): one step every few minutes on Ghosty's own schedule
     const jp = panel('PROJECTS', { status: '' });
     let projects: Project[] = [];
+    /** The list has answered at least once (until then the panel says Loading, not "Nothing running"). */
+    let projectsKnown = false;
     /** Each website's DRAFT card, kept between repaints (the list repaints every 15 s while a project runs). */
     const draftCards = new Map<string, HTMLElement>();
     const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
@@ -137,7 +139,7 @@ export const workshopTab: TabDef = {
       const running = projects.filter((p) => p.status === 'active').length;
       jp.setStatus(projects.length ? (running ? `${running} RUNNING` : `${projects.length}`) : '', running ? 'ok' : projects.some((p) => p.status === 'paused') ? 'mid' : 'ok');
       if (!projects.length) {
-        jp.body.append(empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running'));
+        jp.body.append(projectsKnown ? empty('NONE', 'Ask Ghosty for something that takes days — “research the options over the next few days, then build it” — and it works through a plan step by step on its own, a step every few minutes, without burning through a day’s free models.', 'Nothing running') : empty('LOADING'));
         return;
       }
       for (const p of projects) {
@@ -203,6 +205,7 @@ export const workshopTab: TabDef = {
     const loadProjects = async () => {
       try {
         projects = (await brain.projects()).projects;
+        projectsKnown = true;
       } catch {
         /* paused or offline: the last list stays */
       }
@@ -411,13 +414,16 @@ export const workshopTab: TabDef = {
     let versions: VersionSummary[] = [];
     let widgets: Widget[] = [];
     let sites: PublishedSite[] = [];
+    /** Each list has answered at least once: until then it says Loading, never "nothing yet". */
+    let sitesKnown = false;
+    let widgetsKnown = false;
     let siteOrigin = '';
     const siteUrl = (name: string) => `${siteOrigin || location.origin}/s/${name}`;
     const paintSites = () => {
       clear(pp.body);
       pp.setStatus(sites.length ? `${sites.length} LIVE` : '', 'ok');
       if (!sites.length) {
-        pp.body.append(empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
+        pp.body.append(!sitesKnown ? empty('LOADING') : empty('NONE', 'Ask Ghosty to “make me a website for…” or to rebuild one from a link: it goes live at a public link here.', 'Nothing published yet'));
         return;
       }
       for (const s of sites) {
@@ -521,7 +527,7 @@ export const workshopTab: TabDef = {
       });
       clear(wp.body);
       wp.setStatus(`${widgets.length}`, 'ok');
-      if (!widgets.length) wp.body.append(empty('NONE', 'Try “make me a pomodoro timer widget”: it installs here at once.', 'No widgets yet'));
+      if (!widgets.length) wp.body.append(!widgetsKnown ? empty('LOADING') : empty('NONE', 'Try “make me a pomodoro timer widget”: it installs here at once.', 'No widgets yet'));
       for (const w of widgets) {
         const r = row(fmt.ago(w.at), w.title, '✕');
         r.classList.add('link');
@@ -570,37 +576,44 @@ export const workshopTab: TabDef = {
       paint();
     };
     const load = async () => {
-      try {
-        // Each part on its own: one failing (e.g. the database paused) doesn't blank the others.
-        const [c, w, s, p] = await Promise.allSettled([brain.changes(), brain.widgets(), brain.status(), brain.sites()]);
-        if (p.status === 'fulfilled') {
-          sites = p.value.sites;
-          siteOrigin = p.value.origin;
-          paintSites();
-        }
-        if (c.status === 'fulfilled') {
-          ready = c.value.ready;
-          changes = c.value.changes;
-          versions = c.value.versions;
-        }
-        if (w.status === 'fulfilled') {
-          const { saved, removed } = await syncLocalWidgets(w.value.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
+      // Each part on its own, painted as soon as it answers: the change list (GitHub: several requests in a row)
+      // no longer holds up the widgets, the published pages and the lock, and one failing (e.g. the database
+      // paused) doesn't blank the others.
+      const parts = await Promise.allSettled([
+        brain.changes().then((c) => {
+          ready = c.ready;
+          changes = c.changes;
+          versions = c.versions;
+          paint();
+        }),
+        brain.widgets().then(async (w) => {
+          const { saved, removed } = await syncLocalWidgets(w.widgets, { save: (x) => brain.saveWidget(x), remove: (n) => brain.deleteWidget(n) });
           // The list fetched above is out of date if anything was saved or deleted just now.
-          widgets = saved || removed ? (await brain.widgets()).widgets : w.value.widgets;
+          widgets = saved || removed ? (await brain.widgets()).widgets : w.widgets;
+          widgetsKnown = true;
           if (saved) toast(`Saved ${saved} widget${saved === 1 ? '' : 's'} kept on this device to Ghosty`, 'ok');
-        }
-        if (s.status === 'fulfilled') kernelUntil = s.value.kernelUnlockedUntil;
-        const failed = [c, w, s].find((r): r is PromiseRejectedResult => r.status === 'rejected');
-        if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
-      } catch (e) {
-        if (!isPaused(e)) toast(`Workshop: ${String((e as Error).message)}`, 'warn');
-      }
-      // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
-      // too; deletions not yet carried out in the brain are hidden.
-      widgets = mergeWidgets(widgets);
-      paint();
+        }).finally(() => {
+          // Widgets kept on this device that the brain doesn't have yet (or a newer version of) show
+          // too; deletions not yet carried out in the brain are hidden.
+          widgets = mergeWidgets(widgets);
+          paint();
+        }),
+        brain.status().then((st) => {
+          kernelUntil = st.kernelUnlockedUntil;
+          paint();
+        }),
+        brain.sites().then((p) => {
+          sites = p.sites;
+          siteOrigin = p.origin;
+          sitesKnown = true;
+          paintSites();
+        }),
+      ]);
+      const failed = parts.slice(0, 3).find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
     };
     paint();
+    paintSites();
     let timer = 0;
     let ptimer = 0;
     return {

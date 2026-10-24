@@ -178,6 +178,43 @@ async function workshop() {
   await page.screenshot({ path: `${out}/workshop-selfedit-off.png` });
   await page.unroute('**/api/changes');
   await ctx.close();
+
+  // 2. The change list held back (GitHub answers in several requests in a row): the widgets and the published
+  //    pages come up without waiting for it, and no list says "nothing yet" before it has answered
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const W = { name: 'spec-egg-timer', title: 'Spec egg timer', html: '<p>egg</p>', at: Date.now() };
+    let release = null;
+    await page.route('**/api/changes', async (r) => {
+      await new Promise((ok) => (release = ok));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: true, changes: [], versions: [] }) });
+    });
+    await page.route('**/api/widgets', async (r) => {
+      if (r.request().method() !== 'GET') return r.continue();
+      await new Promise((ok) => setTimeout(ok, 700));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ widgets: [W] }) });
+    });
+    await page.route('**/api/sites', async (r) => {
+      await new Promise((ok) => setTimeout(ok, 700));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ sites: [{ name: 'spec-bakery', title: 'Spec Bakery', source: '', at: Date.now(), bytes: 4096 }], origin: '' }) });
+    });
+    await page.route('**/api/projects', async (r) => {
+      await new Promise((ok) => setTimeout(ok, 700));
+      await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [] }) });
+    });
+    const t0 = Date.now();
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await panelOf(page, 'WIDGETS').waitFor({ state: 'attached', timeout: 10000 });
+    await page.waitForTimeout(250);
+    const early = { widgets: await words(panelOf(page, 'WIDGETS')), pages: await words(panelOf(page, 'PUBLISHED PAGES')), projects: await words(panelOf(page, 'PROJECTS')) };
+    if (/No widgets yet/.test(early.widgets)) problems.push('[workshop 2] WIDGETS says "No widgets yet" before the list has answered');
+    if (/Nothing published yet/.test(early.pages)) problems.push('[workshop 2] PUBLISHED PAGES says "Nothing published yet" before the list has answered');
+    if (/Nothing running/.test(early.projects)) problems.push('[workshop 2] PROJECTS says "Nothing running" before the list has answered');
+    const shown = await page.waitForFunction(() => /Spec egg timer/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Bakery/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 2500 }).then(() => Date.now() - t0, () => null);
+    if (shown == null) problems.push('[workshop 2] the widgets and published pages waited for the change list (not shown 2.5 s in while it was held)');
+    release?.();
+    await ctx.close();
+  }
 }
 
 await workshop();
