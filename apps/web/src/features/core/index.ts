@@ -587,19 +587,9 @@ export const coreTab: TabDef = {
     recheckThink();
     ratings.subscribe(paintLog);
     paintLog();
-    // power-up sequence: the HUD draws itself in, then reports
-    const bootMsgs = ['POWERING UP', 'ARC OUTPUT NOMINAL', 'NEURAL LINK ESTABLISHED', 'ALL SYSTEMS ONLINE'];
-    let booting = true;
-    bootMsgs.forEach((m, i) => setTimeout(() => {
-      stateLabel.textContent = m;
-      if (i === bootMsgs.length - 1) setTimeout(() => {
-        booting = false;
-        paintState();
-      }, 1400);
-    }, i * 650));
+    // (the power-up readouts that ran here are gone: the boot cinematic, shell/boot.ts, shows no status lines)
     const paintState = () => {
       if (!ui.get().busy) stark.task(null); // nothing to show between turns (a tool left running by a broken turn is marked stopped in session.ts, so paintLog never picks it up again)
-      if (booting) return;
       const s = ui.get();
       reactor.state = s.busy && s.voice !== 'speaking' ? 'thinking' : s.voice;
       stateLabel.textContent = s.voice === 'speaking' ? 'SPEAKING' : s.voice === 'listening' ? 'LISTENING' : s.busy ? (s.status || 'PROCESSING').toUpperCase().slice(0, 48) : s.connected === false ? 'OFFLINE' : conversation ? 'READY' : 'ONLINE';

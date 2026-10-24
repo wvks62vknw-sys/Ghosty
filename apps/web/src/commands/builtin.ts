@@ -107,6 +107,8 @@ export function registerBuiltins(): void {
   register(
     { id: 'open_tab', title: 'Open tab', hidden: true, run: (a) => void (go(String(a?.tab ?? 'core')) || toast(`No tab called ${a?.tab}`, 'warn')) },
     { id: 'fly_to', title: 'Fly to', hidden: true, run: (a) => void flyTo(a ?? {}) },
+    // the boot cinematic again (shell/boot.ts): "reboot" in the palette, as said or typed to him, or SYSTEM → REBOOT HIM
+    { id: 'reboot', title: 'Reboot him', group: 'SYSTEM', run: () => import('../shell/boot').then((b) => b.reboot()) },
     {
       id: 'show_cameras',
       title: 'Show live cameras',
