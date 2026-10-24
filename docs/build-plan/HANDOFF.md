@@ -41,6 +41,18 @@ folder that no longer exists; ignore those paths).
   (BRIEF-HOME-DESIGN.md), ONE LOOK (route C as the only design, Reactor and Graphite as colour themes; the extras wait
   for the owner's picks). Next after those: A3 (specs at 440 × 956, en-GB), the SPEED card in SYSTEM once a day of
   numbers exists, the home designer's SPACE button (part 2), courses (item 6), the small follow-ups above.
+- 24 Oct 02:00–03:00 UK, the owner awake: the Every screen deck is his one design complaint ("like app icons"; then
+  "no reason to tap and find out all the crazy things"): three rounds of mock-ups (docs/build-plan/mockups/deck/,
+  OWNER-ISSUES 32–34), his pick "H with F's pictures and G's information and prompts", now being built
+  (BRIEF-DECK-BUILD.md: tap-to-find-out cards, miniatures of the real screens, capability rows and example prompts,
+  TRY THIS NOW, the "Go to, or ask…" pill; the icon language without app icons everywhere). He reaffirmed: merge the
+  pull request myself when it is ready, never wait for him, and keep going. Merged into the branch after review:
+  the home designer's brain side (`design_home`, the `homeplan` group) and APPS (the app kit, `build_app`, the apps
+  spec in CI). CI failures on PR #32 fixed at the cause (self-check, notebook checks, cited spec, reminder toast).
+  Running: ONE LOOK (route C only, themes), the deck build. Next: the home designer's part 2 (a SPACE → DESIGN MY HOME
+  button and a client event carrying the plan: only ~280 characters of a tool result reach the interface), A3 (specs
+  at 440 × 956, BRIEF-A3.md, after the deck and one-look builds land), the SPEED card, courses (item 6), `build_app`
+  as a Workshop project (projects.ts/protocol.ts), a `mock.ts` phrase so a chat-flow spec can call build_app.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
