@@ -192,3 +192,7 @@ test("Ghosty's reading notebooks (kind 'study') stay off the device; its own stu
   assert.ok(!sh.docs.some((d) => d.id === 'read_physics'));
   assert.equal((await L.searchLocal('forces change motion')).length, 1);
 });
+
+// SEARCH BY MEANING on the phone (the blended ranking, int8 vectors, the background indexer, the index beside
+// this copy): its own file, run from here because this one is in the test list (package.json is protected).
+await import('./meaning.test.mjs');

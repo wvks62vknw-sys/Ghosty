@@ -1,14 +1,15 @@
 /**
  * SETTINGS → OFFLINE BRAIN: whether this phone can run the small model (offline/brain.ts),
  * DOWNLOAD it (≈352 MB, once, best on Wi-Fi) with a progress bar, DELETE it, when to use it
- * (only when needed / always / off), a TEST that shows a reply and its speed, and how long THINK HARDER
- * may take on one question (offline/think.ts; 55 s unless changed).
+ * (only when needed / always / off), a TEST that shows a reply and its speed, how long THINK HARDER
+ * may take on one question (offline/think.ts; 55 s unless changed), and SEARCH BY MEANING (./meaning.ts).
  */
 import { clear, h } from '../../core/dom';
 import { deleteOffline, downloadOffline, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, withModel } from '../../offline/brain';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { settings } from '../../state/app';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
+import { meaningBlock } from './meaning';
 
 export function offlinePanel(): Panel & { refresh(): void } {
   const p = panel('OFFLINE BRAIN', { grow: false, cls: 'offbrain' });
@@ -147,6 +148,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     think,
     out,
     h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
+    // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
+    meaningBlock(),
   );
   offlineBrain.subscribe(paint);
   settings.subscribe((s, prev) => {
