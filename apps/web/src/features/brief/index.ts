@@ -1,4 +1,4 @@
-/** BRIEF tab: weather in detail, headlines by section, and a spoken briefing on request. */
+/** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
@@ -6,6 +6,7 @@ import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
+import { hhmm, nextAfterToday, todayItems, type DayItem } from './day';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -20,11 +21,38 @@ export const briefTab: TabDef = {
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stack: true });
+    // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
+    // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
+    const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
+    let dayItems: DayItem[] | null = null;
+    const paintDay = async () => {
+      if (dayItems === null) clear(dp.body, row(null, 'Checking your diary…', null));
+      const [ag, inbox] = await Promise.all([brain.agenda(2).catch(() => null), brain.inbox().catch(() => null)]);
+      const now = Date.now();
+      if (!ag) {
+        dp.setStatus('CAN’T CHECK', 'mid');
+        clear(dp.body, row(null, 'Your diary can’t be reached right now. It tries again when you next open the Brief.', null, { wrap: true }));
+        return;
+      }
+      dayItems = todayItems(ag.events, ag.jobs, now);
+      const open = () => go('agenda');
+      const rows = dayItems.slice(0, 5).map((x) => row(x.when, x.title, x.where ?? null, { wrap: true, onClick: open }));
+      if (dayItems.length > 5) rows.push(row(null, `${dayItems.length - 5} more today`, '›', { onClick: open }));
+      if (!dayItems.length) {
+        rows.push(row(null, 'Nothing in your diary for the rest of today', null, { wrap: true, onClick: open }));
+        const next = nextAfterToday(ag.events, now);
+        if (next) rows.push(row('NEXT', next.title, next.allDay ? new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' }) : `${new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' })} ${hhmm(next.start)}`, { wrap: true, onClick: open }));
+      }
+      const unread = inbox?.unread ?? 0;
+      if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { onClick: open }));
+      dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
+      clear(dp.body, ...rows);
+    };
     const wp = panel('WEATHER', { cls: 'wx' });
     // THE COMMUTE: one line, home to work with the live traffic, only when both are saved (Memory → ME → PLACES).
     const commute = panel('COMMUTE', { cls: 'commute', grow: false });
     commute.el.hidden = true;
-    P.left.append(wp.el, commute.el);
+    P.left.append(dp.el, wp.el, commute.el);
     const paintCommute = async () => {
       try {
         const places = (await brain.places()).places ?? [];
@@ -101,6 +129,7 @@ export const briefTab: TabDef = {
     paintNews();
     return {
       enter() {
+        void paintDay();
         void paintCommute();
         weather.start();
         air.start();
