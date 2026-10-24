@@ -246,7 +246,7 @@ export const libraryTab: TabDef = {
         const r = await brain.librarySearch(t, 20);
         clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
         sp.body.scrollTop = 0;
-        sp.setStatus(`${r.hits.length} passages · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}`, 'ok');
+        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');

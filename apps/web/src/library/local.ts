@@ -417,8 +417,13 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
     }, !!qv);
   }
   const how: SearchHow = qv && !missing && seen > 0 ? 'meaning' : 'keywords';
-  const ranked = how === 'meaning' ? rank(pool, k, how, spreadOf(n, sum, sumSq)) : rank(byWords, k, how);
-  const hits = ranked.map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
+  const ranked = how === 'meaning' ? rank(pool, k * 2, how, spreadOf(n, sum, sumSq)) : rank(byWords, k * 2, how);
+  // The same passage twice (two copies of one document) is shown once.
+  const once = new Set<string>();
+  const hits = ranked
+    .filter((h) => !once.has(`${h.doc}|${h.text}`) && !!once.add(`${h.doc}|${h.text}`))
+    .slice(0, k)
+    .map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
   return { hits, how };
 }
 
@@ -665,7 +670,9 @@ export async function mirrorLibrary(api: MirrorApi, budget = 6000): Promise<{ co
     let spent = 0;
     for (const d of todo) {
       if (spent >= budget) break;
-      const prev = have.get(d.id);
+      // A document saved here meanwhile (its upload finished while this run was going) already holds the brain's
+      // id: carry on with that copy, never a second one beside it.
+      const prev = have.get(d.id) ?? [...(await all()).values()].find((x) => x.brainId === d.id && !x.removed);
       // A notebook that only grew (Ghosty's study log, its notes): copy the new passages, not the
       // whole document again. The brain pages by its own row ids (shared by every document), so
       // the copy carries on from the last row id it has, never from a count.

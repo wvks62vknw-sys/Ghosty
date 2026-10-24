@@ -284,3 +284,24 @@ test('the index beside the library copy: a new passage needs its vector, a remov
   assert.equal((await L.unindexed(null, 5)).items.length, 0);
   assert.ok(c.id);
 });
+
+test('a document saved here while the library copy is being made is not copied a second time (each passage once in a search)', async () => {
+  L._reset();
+  const mine = await L.keepDoc({ title: 'Leaf chemistry', source: 'typed in', kind: 'notes', pages: 0 }, [{ text: 'Photosynthesis turns sunlight into glucose.' }]);
+  const brainDocs = [
+    { id: 'b-a', title: 'Kettles', source: 'x', kind: 'notes', pages: 0, passages: 1, chars: 10, status: 'ready', builtin: false, at: 1 },
+    { id: 'b-leaf', title: 'Leaf chemistry', source: 'typed in', kind: 'notes', pages: 0, passages: 1, chars: 43, status: 'ready', builtin: false, at: 2 },
+  ];
+  const text = { 'b-a': 'Descale a kettle with citric acid.', 'b-leaf': 'Photosynthesis turns sunlight into glucose.' };
+  await L.mirrorLibrary({
+    docs: async () => brainDocs,
+    passages: async (id) => {
+      // The upload of "Leaf chemistry" finishes while the copy is under way.
+      if (id === 'b-a') await L.markSynced(mine.id, 'b-leaf');
+      return { passages: [{ rid: id === 'b-a' ? 1 : 2, text: text[id], heading: '', page: null }], next: null };
+    },
+  });
+  const shelf = await L.shelf();
+  assert.deepEqual(shelf.docs.map((d) => d.title).sort(), ['Kettles', 'Leaf chemistry'], 'one copy of each');
+  assert.equal((await L.searchLocal('photosynthesis glucose')).length, 1);
+});
