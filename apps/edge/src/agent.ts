@@ -16,6 +16,7 @@ import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions'
 import { Vault } from './kernel/vault';
 import { storageError } from './kv';
 import { Meter } from './meter';
+import { speedSummary } from './speed'; // [speed]
 export { storageError } from './kv';
 import { parseEmailKey } from './integrations/mail';
 import { spotifyRoute } from './integrations/spotify';
@@ -566,6 +567,7 @@ export class GhostyAgent {
       lastModel,
       waiting: await this.vault.waiting(),
       meter: this.meter.snapshot(),
+      speed: await speedSummary(this.store).catch(() => undefined), // [speed] the stopwatch, for the SPEED card
       // Hearing: a Groq key or Workers AI; Ghosty's own voice: Workers AI (speech.ts).
       speech: { stt: keys.find((k) => k.name === 'groq')?.set === true || !!this.env.AI, tts: !!this.env.AI },
       ...(paused ? { paused: `${paused} Meanwhile nearly everything keeps working: chat and every tool with your keys (this device keeps an encrypted copy; Cloudflare secrets work too), and your memory, agenda, reminders, widgets and documents from the copy on this device. Changes made meanwhile are saved to the brain after the reset.` } : {}),
