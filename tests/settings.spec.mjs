@@ -5,6 +5,8 @@
 //    one back as it found it);
 //  - HOME says where home is now in full ("Home: London"; it was only in a placeholder cut off at 440), SET HOME with
 //    an empty box says what to do, and USE GPS says it is looking and, when location is refused, how to allow it;
+//  - HELP and ABOUT in today's words: no "reactor screen" (nothing on screen is a reactor now) and no "look" (one
+//    look); ABOUT does not repeat the theme row;
 //   BASE=http://localhost:8879 node tests/settings.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openPanel } from './nav.mjs';
@@ -75,9 +77,19 @@ check(/Finding where you are|isn’t allowed your location|Couldn’t find where
 check(/Settings › Privacy & Security › Location Services|Couldn’t find where you are/.test(gpsSaid), `USE GPS refused does not say how to allow it: "${gpsSaid}"`);
 check((await page.evaluate(() => window.__ghosty.settings.get().home?.name ?? 'London')) === homeName, 'home changed although nothing was chosen');
 
+// ---- 3. HELP and ABOUT in today's words
+await openPanel(page, 'settings', 'HELP');
+await page.waitForTimeout(300);
+const help = (await page.locator('#pg-settings .pn.pushed').textContent()) ?? '';
+check(!/reactor/i.test(help) && !/\blook\b/i.test(help) && /Tap Ask at the bottom/.test(help), `HELP's words: "${help.slice(0, 300)}"`);
+await openPanel(page, 'settings', 'ABOUT');
+await page.waitForTimeout(300);
+const about = (await page.locator('#pg-settings .pn.pushed').textContent()) ?? '';
+check(!/colours of the one design/.test(about), `ABOUT repeats the theme row: "${about.slice(0, 300)}"`);
+
 await browser.close();
 if (problems.length) {
   console.error(`FAIL settings (${engine}):\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`ok (${engine}): SETTINGS — switches for on/off settings, the home line and what SET HOME / USE GPS say`);
+console.log(`ok (${engine}): SETTINGS — switches for on/off settings, the home line and what SET HOME / USE GPS say, HELP and ABOUT`);

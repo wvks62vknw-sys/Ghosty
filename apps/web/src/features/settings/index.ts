@@ -41,7 +41,6 @@ export const settingsTab: TabDef = {
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
       row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`),
-      row('THEMES', `${Object.values(THEMES).map((t) => t.label).join(' and ')}: colours of the one design`, null, { wrap: true }),
     );
     const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
     privacy.body.append(
@@ -50,8 +49,9 @@ export const settingsTab: TabDef = {
     );
     const help = panel('HELP', { grow: false, status: 'Tips' });
     help.body.append(
-      row('ASK', 'Type or tap the microphone on the reactor screen. Tap the reactor to wake it.', null, { wrap: true }),
-      row('SEARCH', 'The magnifier at the top finds any screen, place or look, or asks Ghosty.', null, { wrap: true }),
+      // (nothing on screen is a reactor any more, and there is one look: OWNER-ISSUES 45, BRIEF-ONE-LOOK)
+      row('ASK', 'Tap Ask at the bottom, then type, or tap the microphone and talk.', null, { wrap: true }),
+      row('SEARCH', 'The magnifier at the top finds any screen or place, or asks Ghosty.', null, { wrap: true }),
       row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
