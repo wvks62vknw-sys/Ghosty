@@ -120,7 +120,7 @@ if (!checked && !process.env.FEEL_ONLY) problems.push('no page had anything to s
 // Each check below failed on the interface before its fix (the numbers in brackets are what was measured then, at 440 × 763).
 const pair = async (p) => {
   p.on('pageerror', (e) => /ResizeObserver loop|due to access control checks/.test(e.message) || problems.push(`pageerror: ${e.message}`));
-  await p.goto(base);
+  await p.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 }); // (the pairing box is the app's own; a slow web font or a busy runner need not hold it up)
   await p.fill('#pair input', 'preview-owner-key-0123456789');
   await p.click('#pair button.on');
   await p.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
@@ -268,6 +268,8 @@ for (const tab of ENDS) {
   if (m.top < m.under - 1) problems.push(`[eye] the LOOK menu starts at ${m.top}, above the bottom of the search bar (${m.under}): its first rows cannot be reached`);
   if (m.sh > m.h + 1 && !/(auto|scroll)/.test(m.oy)) problems.push(`[eye] the LOOK menu holds ${m.sh} px in ${m.h} and cannot scroll`);
   await feel.locator('#pg-eye button', { hasText: /^look$/i }).first().click();
+  // off God's eye: its globe draws every frame (software GL on a test runner) and slows the pages opened next
+  await show(feel, 'settings', 300);
   felt++;
 }
 // 5. Reading back up the conversation while a reply comes in: the chat stays where the owner is reading. Every update

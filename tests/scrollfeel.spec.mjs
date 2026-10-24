@@ -22,7 +22,7 @@ async function phone({ safe = false } = {}) {
   // the Home Screen app: env(safe-area-inset-*) as the iPhone reports them
   if (safe) await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 62, topMax: 62, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } });
   page.on('pageerror', (e) => /ResizeObserver loop/.test(e.message) || problems.push(`pageerror: ${e.message}`));
-  await page.goto(base);
+  await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 }); // (the pairing box is the app's own; a slow web font or a busy runner need not hold it up)
   await page.fill('#pair input', 'preview-owner-key-0123456789');
   await page.click('#pair button.on');
   await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
