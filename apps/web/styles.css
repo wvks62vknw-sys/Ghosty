@@ -121,10 +121,11 @@ select { appearance: none; -webkit-appearance: none; }
 .keyblock { display: flex; flex-direction: column; flex: none; }
 /* LINKS → TELEGRAM: the pairing code, big enough to copy into the Telegram app */
 .tgcode { color: var(--c); text-align: center; padding: 10px 0 4px; }
+.tabs { display: flex; }
 .spark { width: 100%; height: 34px; display: block; }
 .empty { flex: 1; color: var(--mute); }
 @keyframes blink { 50% { opacity: .35; } }
-.bar { flex: none; }
+.bar { display: flex; flex: none; }
 .bar span { flex: none; }
 .bar .gauge { flex: 1; position: relative; }
 .bar .gauge i { position: absolute; left: 0; top: 0; bottom: 0; }
@@ -155,8 +156,8 @@ select { appearance: none; -webkit-appearance: none; }
 @media (min-width: 900px) and (min-height: 560px) { .dials { display: flex; } }
 
 /* ---------- dock ---------- */
-#dock { flex: none; justify-content: center; -webkit-backdrop-filter: blur(16px); }
-#dock button { border: 0; }
+#dock { flex: none; display: flex; justify-content: center; -webkit-backdrop-filter: blur(16px); }
+#dock button { display: flex; border: 0; }
 #dock button .ic { stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 #dock button:hover { background: none; color: var(--fg); }
 #dock button.on .ic { filter: drop-shadow(0 0 6px rgba(var(--cr), .6)); }
@@ -197,7 +198,6 @@ select { appearance: none; -webkit-appearance: none; }
 .modal { position: fixed; inset: 0; z-index: 130; display: flex; align-items: center; justify-content: center; }
 .mbox { width: min(900px, 100%); height: min(720px, 100%); display: flex; flex-direction: column; overflow: hidden; }
 .mhead { display: flex; align-items: center; justify-content: space-between; }
-.mhead b { text-transform: uppercase; }
 .mbody { flex: 1; min-height: 0; display: flex; }
 /* ---------- street view / satellite / live traffic: Google's and Waze's pages in a locked frame (ui/mapsheet.ts) ---------- */
 .mapsheet { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px 10px; }
@@ -314,10 +314,11 @@ canvas.reactor { display: block; }
 #ccap { overflow-y: auto; pointer-events: auto; cursor: pointer; }
 #ccap:empty, #ccap span:empty { display: none; }
 #ccap.fade { opacity: 0; transform: translateY(-6px); }
+#ccap span { display: block; }
 #cbar #cin { border-color: transparent; }
 #cbar #cin:focus { border-color: transparent; background: rgba(var(--cr), .04); }
 #cbar button { font-size: 9.5px; } #cbar button:where(:not(#mic)) { padding: 8px 10px; }
-#mic, #lensbtn { flex: none; place-items: center; }
+#mic, #lensbtn { flex: none; display: grid; place-items: center; }
 #mic .ic, #lensbtn .ic { stroke: #fff; fill: none; stroke-linecap: round; }
 #mic.on { border-color: var(--ok); }
 @keyframes micon { 50% { box-shadow: 0 0 0 9px rgba(79,227,168,.04); } }
@@ -326,7 +327,6 @@ canvas.reactor { display: block; }
 .cside { display: none; flex-direction: column; gap: 8px; min-height: 0; }
 .convo .log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; scrollbar-width: thin; scrollbar-color: rgba(var(--cr), .25) transparent; }
 .msg { white-space: pre-wrap; word-break: break-word; }
-.msg.me { border-left-color: var(--a); }
 .msg.err { border-left-color: var(--r); }
 .msg .offchip { display: inline-block; margin-top: 4px; border-radius: 9px; color: var(--c); white-space: nowrap; }
 .msg small { display: block; }
@@ -344,7 +344,7 @@ canvas.reactor { display: block; }
 .msg.think .thinkwork summary { cursor: pointer; font: 500 8.5px var(--d); letter-spacing: .16em; color: var(--mute); }
 .msg.think .row { margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; }
 .act { display: flex; align-items: center; gap: 8px; }
-.act i { border-radius: 50%; background: var(--c); flex: none; }
+.act i { flex: none; }
 .act.running i { animation: blink .8s infinite; } .act.fail i { background: var(--r); }
 .act em { font-style: normal; color: #ff9aa6; flex-basis: 100%; padding-left: 14px; white-space: pre-wrap; }
 .act.fail { flex-wrap: wrap; }
@@ -355,6 +355,7 @@ canvas.reactor { display: block; }
 .act .prog .pbar { width: min(220px, 100%); background: rgba(var(--cr), .18); overflow: hidden; }
 .act .prog .pbar b { display: block; height: 100%; background: var(--c); transition: width .3s ease; }
 .hudtask { position: absolute; transform: translate(-50%, -50%); max-width: 72%; color: var(--c); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hudtask[hidden] { display: none; }
 .msg a { text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
 /* cited answers (features/core/cited.ts): [n] chips, the SOURCES list, the claim-check line */
 .msg .cite { display: inline-grid; place-items: center; min-width: 24px; height: 22px; margin: 0 2px; padding: 0 6px; vertical-align: 1px; border-radius: 10px; color: var(--c); letter-spacing: 0; text-decoration: none; word-break: normal; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -384,6 +385,7 @@ canvas.reactor { display: block; }
 .msg .piccard:active img { transform: scale(.985); }
 .approval { display: flex; flex-direction: column; }
 .approval small { color: var(--a); text-transform: uppercase; }
+.logbtn { display: inline-block; }
 @media (max-width: 1239px) {
   .cside.l { display: flex; position: absolute; inset: 0 0 84px; z-index: 10; pointer-events: none; }
   .cside.l > .pn:not(.convo) { display: none; }
@@ -409,6 +411,7 @@ canvas.reactor { display: block; }
 .eyetop .search { display: flex; gap: 6px; }
 .eyetop .search input { border-color: transparent; }
 .eyetop .search input:focus { border-color: transparent; }
+.modes { display: flex; }
 .eyemid { position: relative; }
 .labels { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
 .labels .lb { position: absolute; left: 0; top: 0; margin: -6px 0 0 8px; font: 400 9.5px var(--m); letter-spacing: .02em; text-shadow: 0 0 4px #000, 0 0 8px #000; white-space: nowrap; will-change: transform; }
@@ -427,6 +430,7 @@ canvas.reactor { display: block; }
   /* phone: a sheet along the bottom of the globe, half the height at most, scrolling */
   .eyelay { max-height: 58%; }
   /* closed: a small LAYERS pill in the corner that opens the sheet */
+  .eyelay.min > h3 small { display: none; }
   .eyelay.min > h3::after { color: var(--c); }
   .eyelay:not(.min) > h3::after { content: '▾'; font-size: 9px; color: var(--c); }
   .eyelay:not(.min) ~ .zoomrail { opacity: 0; pointer-events: none; }
@@ -444,14 +448,15 @@ canvas.reactor { display: block; }
 .eyebot .readout { overflow: hidden; }
 .eyebot .btns { flex-wrap: wrap; align-items: flex-end; pointer-events: auto; }
 /* two groups: what to open about the spot under the crosshair, and how to move or draw the view */
-.bgroup { align-items: center; flex-wrap: wrap; }
+.bgroup { display: flex; align-items: center; flex-wrap: wrap; }
 .bcap { white-space: nowrap; }
 /* the LOOK menu: tiles, sensor looks, sun and spin — above the bar, closed by LOOK, a tap on the globe or Escape */
-.lookmenu { position: absolute; right: 0; bottom: 100%; margin-bottom: 6px; width: min(380px, 100%); flex-direction: column; gap: 5px; padding: 8px 10px 10px; z-index: 6; pointer-events: auto; }
+.lookmenu { position: absolute; right: 0; bottom: 100%; margin-bottom: 6px; width: min(380px, 100%); display: flex; flex-direction: column; gap: 5px; padding: 8px 10px 10px; z-index: 6; pointer-events: auto; }
+.lookmenu[hidden] { display: none; }
 .lookmenu .chips { display: flex; gap: 3px; flex-wrap: wrap; }
-.lookmenu .chips button, .modes button { background: rgba(var(--bgr), .5); }
 .lookmenu .hint { font: 400 10px/1.4 var(--b); color: var(--mute); }
 .eyebot .readout span { display: block; }
+.eyebot .readout span:empty { display: none; }
 @media (max-width: 600px) {
   .eyebot { flex-direction: column; align-items: stretch; }
   .eyebot .readout { max-width: 100%; }
@@ -523,13 +528,14 @@ body:not([data-scene="globe"]) #gl { touch-action: pan-x pan-y pinch-zoom; }
 .reader { flex: 1; min-height: 0; overflow: auto; padding-right: 4px; -webkit-overflow-scrolling: touch; }
 .study .bar b { min-width: 36px; white-space: nowrap; }
 /* STUDY at scale */
-.study .studynow { margin: 2px 0 6px; border: 1px solid rgba(var(--cr), .35); }
+.study .studynow { display: flex; margin: 2px 0 6px; border: 1px solid rgba(var(--cr), .35); }
 .study .studynow > b { overflow-wrap: anywhere; }
 .study .studypick, .study .studyallrow { margin: 6px 0; flex-wrap: wrap; }
 .study .studypick select { max-width: 100%; text-overflow: ellipsis; }
 .study .studyallrow .note { min-width: 0; }
 .study button.studyall { min-width: 150px; }
 .study button.studyall[aria-checked="false"] { color: var(--mute); }
+.study .studyfields { display: flex; }
 .study .keyrow.wrapit > button { flex: 0 1 auto; }
 /* end STUDY at scale */
 .reader p { white-space: pre-wrap; word-break: break-word; }
@@ -544,10 +550,11 @@ body:not([data-scene="globe"]) #gl { touch-action: pan-x pan-y pinch-zoom; }
 .hudlayer { position: absolute; inset: 0; pointer-events: none !important; z-index: 0; overflow: hidden; }
 .ccenter > :not(.hudlayer) { position: relative; z-index: 1; }
 canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
-.callout { position: absolute; transform: translate(0, -50%); flex-direction: column; gap: 2px; min-width: 110px; max-width: 190px; white-space: nowrap; }
+.callout { position: absolute; transform: translate(0, -50%); display: flex; flex-direction: column; gap: 2px; min-width: 110px; max-width: 190px; white-space: nowrap; }
 .callout.l { transform: translate(-100%, -50%); text-align: right; }
 .callout small { color: var(--mute); text-transform: uppercase; }
 .callout b { letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; }
+.callout[hidden] { display: none; }
 
 /* God's Eye CCTV */
 .camview { position: relative; background: #000; overflow: hidden; aspect-ratio: 16 / 10; }
@@ -573,6 +580,7 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 .camgrid .bd { display: grid; grid-template-columns: 1fr 1fr; }
 .camgrid .camview { cursor: pointer; }
 .camgrid .camview:hover { border-color: var(--c); }
+.camgrid[hidden] { display: none; }
 .eyeinfo .camview.big { margin-bottom: 6px; }
 @media (max-width: 700px) { .camgrid { width: 62vw; } }
 
@@ -605,7 +613,7 @@ canvas.starkhud { position: absolute; inset: 0; width: 100%; height: 100%; }
 @keyframes deckin { from { opacity: 0; } }
 .deckin { position: relative; width: min(920px, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; scrollbar-width: none; }
 .dhead { display: flex; gap: 12px; }
-.dtitle { min-width: 0; }
+.dtitle { display: flex; min-width: 0; }
 .dtitle small { font: 400 10px var(--d); letter-spacing: .32em; color: rgba(var(--cr), .85); text-transform: uppercase; }
 .dclock { flex-direction: column; align-items: flex-end; gap: 2px; }
 .dclock b { font: 200 34px/1 var(--d); color: #fff; letter-spacing: .02em; }
@@ -775,18 +783,19 @@ button.learnrate { min-height: 48px; padding: 4px 2px; } .learnrate > span { dis
 button.learnrate.again b { color: var(--r); } button.learnrate.hard b { color: var(--a); } button.learnrate.good b { color: var(--ok); } button.learnrate.easy b { color: var(--c); }
 /* GYM tab (features/gym): game cards, the game's buttons, the mastery graph, a game's picture (grid / bars / lines) */
 .gymcards { display: grid; }
-button.gymcard { min-width: 0; white-space: normal; }
+button.gymcard { display: flex; min-width: 0; white-space: normal; }
 .gymcard .gymname { overflow-wrap: anywhere; }
 .gymcard small { letter-spacing: .04em; text-transform: none; }
 .gymcard .gymspark { width: 100%; } .gymcard .spark { height: 18px; }
 .gymlearns { overflow-wrap: anywhere; }
 .gymstatus { margin: 0 0 8px; overflow-wrap: anywhere; } /* three lines kept free: a status that grows must not push the buttons under a finger */
 .gymactions { display: grid; margin: 0 0 8px; }
+.gymactions button[hidden] { display: none; }
 .gymgraph { width: 100%; display: block; }
 .gymline { fill: none; } .gymgoal { vector-effect: non-scaling-stroke; }
 .gymlevel { stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; } .gymgrid100 { vector-effect: non-scaling-stroke; }
 .gymdetail { margin: 6px 0 8px; overflow-wrap: anywhere; }
-.gymsecret input { flex: 1 1 auto; min-width: 0; } .gymsecret { margin: 0 0 8px; }
+.gymsecret[hidden] { display: none; } .gymsecret input { flex: 1 1 auto; min-width: 0; } .gymsecret { margin: 0 0 8px; }
 .gymframe { min-width: 0; }
 .gymgrid { display: grid; max-width: 360px; margin: 0 auto; }
 .gymcell { aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; display: grid; place-items: center; letter-spacing: 0; color: #fff; overflow: hidden; text-transform: none; white-space: nowrap; }
@@ -814,7 +823,7 @@ button.gymcell { min-height: 0; padding: 0; }
 .gymcell.ownb, .gymcell.ownw { background-image: linear-gradient(var(--own), var(--own)); background-size: 32% 32%; background-repeat: no-repeat; background-position: center; }
 .gymcell.ownb { --own: #000; } .gymcell.ownw { --own: #f2f2f2; }
 /* GYM part 3: TRAIN ALL with KEEP AWAKE beside it and its status line; the on/off switches (KEEP AWAKE, CONTINUE BY HIMSELF) */
-.gymall { flex-direction: column; min-width: 0; }
+.gymall { display: flex; flex-direction: column; min-width: 0; }
 button.gymallbtn { width: 100%; }
 #pg-gym button.gymswitch { min-height: 44px !important; } /* (a phone-wide rule holds buttons at 40 px) */
 .gymallst { overflow-wrap: anywhere; }
@@ -835,6 +844,7 @@ button.gymswitch { min-height: 56px; padding: 10px 14px; border-radius: 14px; ba
 #pg-gym button.gymallbtn { min-height: 54px !important; }
 .gymallst { font: 500 15px/1.4 var(--sf); color: var(--l2); min-height: 0; }
 /* SPACE: rooms, walls, doors and windows; DESIGN REVIEW with BEFORE / AFTER */
+.spacearch[hidden] { display: none; }
 .spacearch button { min-height: 40px; }
 .spaceopsize { flex: 1 1 100%; flex-wrap: wrap; gap: 6px; } .spaceopsize input { flex: 1 1 56px; min-width: 0; max-width: 90px; } .spaceopsize .lab { margin: 0; }
 .spaceroomchips button { text-transform: none; }
@@ -980,6 +990,7 @@ button.vcchip { border-color: #b08a00; font-weight: 600; }
 .studiotitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .studiostat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .studiomeasure { position: absolute; right: 8px; bottom: 22px; z-index: 2; pointer-events: none; padding: 3px 8px; border: 1px solid rgba(255, 210, 77, .6); border-radius: 3px; background: rgba(var(--bgr), .8); font: 500 11px var(--m); color: #ffd24d; }
+.studiomeasure[hidden] { display: none; }
 .studiocredit { position: absolute; left: 8px; right: 8px; bottom: 5px; z-index: 2; pointer-events: none; font: 400 8.5px var(--m); color: rgba(207, 233, 243, .7); text-shadow: 0 0 3px #000; }
 .studiobar { grid-area: bar; display: flex; align-items: center; min-width: 0; flex-wrap: wrap; }
 .studiobar .studioapart { flex: 0 0 auto; min-width: 118px; }
@@ -1008,9 +1019,11 @@ button.vcchip { border-color: #b08a00; font-weight: 600; }
 .studiopane textarea { width: 100%; min-width: 0; font: 400 11px var(--m); }
 .studiosplinebox { display: flex; flex-direction: column; gap: 4px; }
 /* ROOM view modes on the scene (ORBIT / WALK / AERIAL) and WALK's thumb joystick */
-.studiomodes { position: absolute; right: 8px; top: 34px; z-index: 3; gap: 4px; }
+.studiomodes { position: absolute; right: 8px; top: 34px; z-index: 3; display: flex; gap: 4px; }
+.studiomodes[hidden] { display: none; }
 .studiomodes button { min-width: 0; }
 .studiostick { position: absolute; left: 14px; bottom: 26px; z-index: 3; width: 104px; height: 104px; border-radius: 50%; border: 1px solid rgba(var(--cr), .55); background: radial-gradient(circle, rgba(var(--cr), .14), rgba(var(--bgr), .55) 70%); box-shadow: 0 0 14px rgba(var(--cr), .2); touch-action: none; }
+.studiostick[hidden] { display: none; }
 .studioknob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(var(--cr), .35); border: 1px solid var(--c); box-shadow: 0 0 10px rgba(var(--cr), .6); pointer-events: none; }
 .studiospline { position: relative; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background: #000; }
 .studiospline iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
@@ -1922,13 +1935,14 @@ body.ownback #top .cmd { visibility: hidden; }
 #mesheet { position: fixed; inset: 0; z-index: 62; display: flex; justify-content: center; font-family: var(--sf); }
 #mesheet.out { animation: mefade .26s ease reverse both; }
 @keyframes mefade { from { opacity: 0; } }
+.mehead { display: flex; }
 .meav { flex: none; border-radius: 50%; display: grid; place-items: center; }
 .mertxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; }
 .mertxt b { color: var(--fg); text-transform: none; }
 .mertxt small { letter-spacing: -.01em; }
 .meclose { flex: none; display: grid; place-items: center; }
 .meclose .ic { fill: none; stroke: var(--l2); stroke-linecap: round; }
-.merow { border-radius: 0 !important; }
+.merow { display: flex; border-radius: 0 !important; }
 .merow:active { background: var(--thin) !important; }
 #mesheet :is(button, button *) { text-transform: none !important; }
 #mesheet .mertxt b::first-letter, #mesheet .mertxt small::first-letter { text-transform: none; }
@@ -2073,7 +2087,7 @@ button.gymcard.fresh .gymtop { visibility: visible; }
 .pn.tl .mih .k, .pn.tl .mik, .pn.tl .milock { font: 500 9.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
 .pn.tl .mit { white-space: pre-wrap; overflow-wrap: anywhere; }
 .pn.tl .mi textarea { width: 100%; }
-button.srclink { padding: 0; border: 0; background: none; color: var(--c); font: inherit; text-transform: none; letter-spacing: 0; text-align: left; cursor: pointer; }
+button.srclink { border: 0; text-align: left; cursor: pointer; }
 .pn.tl .mia { flex-wrap: wrap; }
 .pn.tl details.forgot { font-size: 12px; color: var(--mute); }
 .pn.tl details.forgot summary { cursor: pointer; }
@@ -2086,7 +2100,6 @@ button.srclink { padding: 0; border: 0; background: none; color: var(--c); font:
 .msg .cutchip { display: inline-block; margin-left: 6px; padding: 1px 7px; border: 1px solid rgba(var(--ar), .5); border-radius: 9px; font: 500 8.5px var(--d); letter-spacing: .14em; text-transform: uppercase; color: var(--a); white-space: nowrap; }
 .msg.me.found { background: rgba(var(--ar), .14); transition: background .4s; }
 .note.vnow, .note.vlast { margin: 4px 0; }
-@media (hover: none) { button.srclink { min-height: 40px !important; } }
 
 /* ---- 3D STUDIO: the CATALOGUE grid and MAKE · PHOTO (features/studio/index.ts + catalog.ts) — its own block ---- */
 .studiogrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; min-width: 0; }
@@ -2096,7 +2109,7 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .studiocardname { letter-spacing: .04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studiocardby { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studiopane > select { width: 100%; min-width: 0; }
-.studiocredits { flex-direction: column; gap: 2px; min-width: 0; }
+.studiocredits { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .studiocredits:empty { display: none; }
 .studiosource { align-self: flex-start; font: 500 10px var(--d); letter-spacing: .12em; color: var(--c); text-decoration: none; }
 .studiopics { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
@@ -2125,12 +2138,12 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .reportcard .rclegend .k::before { content: ''; display: inline-block; width: 12px; height: 2px; margin-right: 4px; vertical-align: middle; background: var(--c); }
 .reportcard .rclegend .k.think::before { background: var(--ok); }
 /* 👍 / 👎 under a reply (features/core/rate.ts): quiet until tapped */
-.msg .rate { display: flex; gap: 6px; margin-top: 4px; white-space: normal; }
-.msg .rateb { min-width: 44px; min-height: 32px; padding: 0 8px; border: 1px solid rgba(var(--cr), .28); border-radius: 16px; background: transparent; font-size: 14px; line-height: 1; opacity: .55; cursor: pointer; -webkit-tap-highlight-color: transparent; filter: grayscale(.6); }
+.msg .rate { display: flex; white-space: normal; }
+.msg .rateb { min-width: 44px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .msg .rateb[aria-pressed="true"] { opacity: 1; filter: none; border-color: var(--c); background: rgba(var(--cr), .14); }
 .msg .rateb:active { transform: scale(.94); }
 #ccap .rate { display: flex; gap: 6px; margin-top: 6px; }
-#ccap .rateb { min-width: 44px; min-height: 34px; padding: 0 8px; border: 1px solid rgba(var(--cr), .35); border-radius: 17px; background: rgba(0,0,0,.25); font-size: 15px; line-height: 1; opacity: .7; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#ccap .rateb { min-width: 44px; padding: 0 8px; border: 1px solid rgba(var(--cr), .35); border-radius: 17px; background: rgba(0,0,0,.25); line-height: 1; opacity: .7; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #ccap .rateb[aria-pressed="true"] { opacity: 1; border-color: var(--c); background: rgba(var(--cr), .18); }
 /* SYSTEM → OFFLINE BRAIN TRAINING (features/system/training.ts) */
 .selftrain .keyrow { margin-top: 8px; }
@@ -2590,6 +2603,7 @@ html .mebox .megroup .merow + .merow::before { left: 62px; height: 1px; backgrou
 html .mebuild { margin: 22px 0 0; text-align: center; font: 400 12px/16px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
 
 /* ---------- God's Eye bar (features/eye/index.ts; mockups/c/eye.png). The globe itself is untouched. ---------- */
+.eyechips, .bic, .bplace { display: none; }
 /* the navigation bar steps aside: the back button sits beside the search field over the globe */
 html body[data-tab="eye"] #top { position: absolute; z-index: 12; left: 0; top: env(safe-area-inset-top, 0px); padding: 8px 0 0 16px; min-height: 0; }
 html body[data-tab="eye"] #top :is(.navtitle, .cmd, .you, .sp) { display: none !important; }
@@ -2663,6 +2677,7 @@ html .eyebot .bgroup + .bgroup button.on { background: rgba(var(--cr), .14) !imp
 @media (max-width: 400px) { html .eyebot .bgroup + .bgroup .bcap { display: none; } html .eyebot .bgroup:first-child button[data-label]::before { --lfs: 10px; } }
 
 /* ---------- GYM (features/gym/index.ts; mockups/c/gym.png) ---------- */
+.gymlvhd, .gymlvls, .gymsec, .gymswitch .bic { display: none; }
 html #pg-gym .two > .hero .bigv { display: none; }
 html #pg-gym .two > .hero .sub { margin-top: 2px; font: 400 17px/24px var(--sf); letter-spacing: -.25px; color: var(--ink2); }
 html #pg-gym .gymnow { display: none; }
@@ -2780,7 +2795,7 @@ html .whatsnew .wnrow span { font: 400 15px/20px var(--sf); letter-spacing: -.12
 .schbtns > button { flex: 1 1 140px; }
 .schwhy { margin-top: 6px; }
 .schresult:empty { display: none; }
-.schresult { margin-top: 10px; flex-direction: column; gap: 6px; }
+.schresult { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .schresult.top { border-color: var(--ok); }
 .schgrade { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .schresult.top .schgrade b { color: var(--ok); }
@@ -2887,6 +2902,7 @@ a.schlink { border-radius: 14px; font: 600 15px var(--sf); letter-spacing: -.01e
 .schlast { border-radius: 14px; background: var(--thin); }
 /* the free GPU (FREE GPU / SIT ON THE FREE GPU), the honest gap, the practice line */
 .schsubbtns { flex: 0 0 auto; display: flex; gap: 6px; }
+.schsubbtns button[hidden] { display: none; }
 .schgap { overflow-wrap: anywhere; }
 .schgpunote { font-size: 12px; overflow-wrap: anywhere; }
 .schgpunote.live { color: var(--c); }
@@ -2911,6 +2927,7 @@ canvas.reactor.mindon { opacity: 0; }
    Everything up to "end route C part 2" is this layer.
    ===================================================================== */
 #rcoffline { display: none; }
+.gymlvnone, .wnall { display: none; }
 
 /* ---------- a screen's head: the large title in the bar, then the state as a title and one line ---------- */
 html .two > .hero { align-items: flex-start; text-align: left; gap: 0; padding: 0 2px 2px; }
@@ -2989,6 +3006,7 @@ html .hud.core:not(.logopen) #cbar .logbtn::before { width: 19px; height: 19px; 
 html .hud.core:not(.logopen) #cbar .logbtn:active { transform: scale(.92); }
 html .hud.core:not(.logopen) #cbar #cin { padding-left: 6px; }
 /* ---------- shared: kickers, chips, progress lines, a switch row (used by the screens below) ---------- */
+.dropic, .libtile, .studytoday { display: none; }
 html .pn .lab { --lfs: 11px; margin: 16px 0 8px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase !important; color: var(--ink3); }
 html .pn .lab::first-letter { text-transform: uppercase; }
 html .pn .chip, html .modal .chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font: 500 13px/1 var(--sf); letter-spacing: -.04px; color: var(--ink2); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -3228,7 +3246,7 @@ html #pg-workshop .pn:has(> .bd > button.warn) > .bd > button.warn { align-self:
 html #pg-workshop .site { gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--hair); }
 html #pg-workshop .site .keyrow button { height: 40px; min-height: 40px !important; }
 /* ---------- UNDO bars (ui/components.ts undoBar) ---------- */
-.rcundo { align-items: center; }
+.rcundo { display: flex; align-items: center; }
 .rcundo span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 html .rcundo { gap: 12px; margin: 8px 16px 2px; padding: 8px 8px 8px 14px; border-radius: 16px; font: 400 15px/20px var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair2); animation: rcrise2 var(--rcsp) var(--spring) both; }
 html .rcundo[hidden] { display: none; }
@@ -3342,6 +3360,7 @@ html #pg-markets .pn:not(.coins) .rw .n:not(.up, .dn) { min-width: 0; padding: 0
 html #pg-markets .pn > .ft > button:first-child:not(:has(+ .pg-label)) { height: 40px; min-height: 40px !important; padding: 0 16px; }
 
 /* ---------- Radio (features/radio): now playing as a hero card, then favourites and the stations ---------- */
+.nphero { display: none; }
 @media (max-width: 899px) {
   html #pg-radio .two.stack { display: flex; flex-direction: column; }
   html #pg-radio .two.stack > * { flex: none; }
