@@ -4,7 +4,8 @@
 import { brain } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
-import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, stopListening, voiceSupport } from '../../assistant/voice';
+import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
+import { languageName, OFFLINE_TRANSLATION_NOTE } from '../../offline/prompt';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { coins, CURRENCY_SYMBOL, indices } from '../../data/markets';
 import { signals, threatLevel, quakes, events } from '../../data/hazards';
@@ -101,6 +102,15 @@ function whoLine(model: string | undefined, cited: boolean, where = ''): HTMLEle
 
 /** An ordinary reply: from the phone (a quiet chip says so), cited, or plain. */
 function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
+  // A translation made on the phone with no signal: the language and "rough, offline", the translation, READ ALOUD in
+  // that language's voice when the phone has one, and the honest note.
+  if (e.offline && e.tr) {
+    const to = e.tr.to;
+    const name = languageName(to);
+    const text = e.text;
+    const read = voiceIn(to) ? button('READ ALOUD', () => void speakIn(text, to), 'readaloud') : h('span.note.novoice', { dataset: { case: 'keep' } }, `No ${name} voice on this phone to read it aloud`);
+    return h('div.msg.off.tr', whoLine(undefined, false, 'on your phone'), h('small', `GHOSTY · ${name.toUpperCase()}`), h('b.trhead', `${name} · rough, offline`), h('div.trtext', { lang: to, dir: to === 'ar' || to === 'ur' || to === 'fa' ? 'rtl' : 'auto' }, text || '…'), text ? h('div.row.wrap.tracts', read) : null, h('span.offchip', OFFLINE_TRANSLATION_NOTE));
+  }
   // Answered by the small model on the phone itself: one quiet chip says so.
   if (e.offline) return h('div.msg.off', whoLine(undefined, false, 'on your phone'), h('small', 'GHOSTY'), linked(e.text || '…'), h('span.offchip', 'Answered on your phone (offline)'));
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.

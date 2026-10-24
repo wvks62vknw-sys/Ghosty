@@ -21,7 +21,7 @@ import { embedState, freeEmbedder, isEmbedFile } from './embed';
 import { settings } from '../state/app';
 import { allModels, downloadFailure, MODELS, modelBase, WORKER_REV, type ModelDef, type TrainedModel } from './models';
 import { withModel } from './lock';
-import { buildOfflinePrompt, cleanReply, type OfflineMsg } from './prompt';
+import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
 export type { OfflineMsg } from './prompt';
 export { modelJob, withModel, type ModelJob } from './lock';
@@ -478,6 +478,28 @@ export async function answerOffline(question: string, recent: { role: 'user' | '
     return await withModel('chat', async () => {
       if (ctl.signal.aborted) throw stopped();
       return offlineReply(await offlinePrompt(question, recent), onToken, ctl.signal);
+    });
+  } finally {
+    if (replying === ctl) replying = null;
+  }
+}
+
+/**
+ * Translate on this phone (no signal, or the offline brain set to "always"): the small model asked only to
+ * translate `text` into language `to` (a code), cool and short. Rough — the words with it say so. `onToken` gets
+ * the raw pieces; the result's `text` is the clean translation. "Stop" stops it like any offline reply.
+ */
+export async function translateOffline(text: string, to: string, onToken: (t: string) => void = () => undefined): Promise<{ text: string; tokens: number; perSecond: number }> {
+  const ctl = new AbortController();
+  replying = ctl;
+  try {
+    return await withModel('chat', async () => {
+      if (ctl.signal.aborted) throw stopped();
+      // About three tokens a word in most of these languages, with room for Arabic and Urdu script.
+      // (cleaned from the raw pieces: an ordinary reply's polish is for Ghosty's own English, not a translation)
+      let raw = '';
+      const r = await offlineReply(translatePrompt(text, to), (t) => ((raw += t), onToken(t)), ctl.signal, { temperature: 0.2, max: Math.min(800, 40 + Math.ceil(text.length * 1.2)) });
+      return { ...r, text: cleanTranslation(raw || r.text, to) };
     });
   } finally {
     if (replying === ctl) replying = null;

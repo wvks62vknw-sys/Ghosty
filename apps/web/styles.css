@@ -3812,6 +3812,12 @@ body:has(> .undofloat:not([hidden])) #toasts { bottom: calc(var(--tabh) + 136px 
 /* a one-tap confirm (confirmSheet): what happens in plain words, KEEP IT beside the action */
 html .confirm.sure { flex: 1; padding: 6px 18px 18px; }
 html .confirm.sure .note { font: 400 16px/22px var(--sf); color: var(--ink); }
+/* a translation made on the phone with no signal (core/index.ts plainReply): the language, the words big, READ ALOUD, the honest note */
+html .msg.tr .trhead { display: block; margin: 2px 0 4px; font: 500 13px/18px var(--sf); color: var(--ink2); }
+html .msg.tr .trtext { font: 400 19px/26px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html .msg.tr .tracts { margin-top: 8px; }
+html .msg.tr .novoice { color: var(--ink3); }
+html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px var(--sf); color: var(--ink2); }
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */

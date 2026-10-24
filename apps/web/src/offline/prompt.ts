@@ -5,6 +5,7 @@
  */
 
 import { character, polish, type PersonaSettings } from '../../../../packages/shared/src/persona';
+import { LANGUAGES } from '../../../../packages/shared/src/scan';
 
 export type OfflineMsg = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -131,3 +132,67 @@ export function progressLabel(frac: number, totalMb: number): string {
   const f = Math.min(1, Math.max(0, Number.isFinite(frac) ? frac : 0));
   return `${Math.round(f * totalMb)} MB of ${totalMb} MB · ${Math.round(f * 100)}%`;
 }
+
+// ---------------------------------------------------------------------------------------
+// Translation with no signal: the same small model, asked only to translate (roughly)
+// ---------------------------------------------------------------------------------------
+
+/** A language named in words ("Spanish", "in french") → its code ("es"); '' when it is not one the translator knows. */
+export function languageNamed(word: string): string {
+  const w = word.trim().toLowerCase().replace(/[^a-z]/g, '');
+  return LANGUAGES.find((l) => l.name.toLowerCase() === w)?.code ?? '';
+}
+
+/** A language's name from its code ("es" → "Spanish"). */
+export const languageName = (code: string): string => LANGUAGES.find((l) => l.code === code)?.name ?? code;
+
+const QUOTED = /^["“‘'](.*)["”’']$/s;
+const unquote = (t: string) => t.trim().replace(QUOTED, '$1').trim();
+
+/**
+ * A request to translate, in the owner's words: the text and the language code — "translate good morning into
+ * Spanish", "translate into French: where is the station?", "how do I say thank you in Urdu", "what's 'cheers' in
+ * German". "Translate this/that/it into Polish" means the last reply (`last`, when there is one). Null when it is
+ * not one (or the language is not one the translator knows), so the message is answered as usual.
+ */
+export function translateAsk(message: string, last = ''): { text: string; to: string } | null {
+  const m0 = message.trim().replace(/[.!?\s]+$/, '');
+  const pick = (text: string, lang: string) => {
+    const to = languageNamed(lang);
+    let t = unquote(text);
+    if (/^(this|that|it)$/i.test(t)) t = last.trim();
+    return to && t ? { text: t.slice(0, 1500), to } : null;
+  };
+  let m = m0.match(/^(?:please\s+)?(?:(?:can|could|would) you\s+)?translate\s+(?:this|that|it)?\s*(?:in)?to\s+([a-z]+)\s*[:,\-–]\s*(.+)$/is);
+  if (m) return pick(m[2]!, m[1]!);
+  m = m0.match(/^(?:please\s+)?(?:(?:can|could|would) you\s+)?translate\s*:?\s+(.+?)\s+(?:in)?to\s+([a-z]+)(?:\s+please)?$/is);
+  if (m) return pick(m[1]!, m[2]!);
+  m = m0.match(/^(?:how\s+(?:do|would|can)\s+(?:i|you|we)\s+say|say|what(?:'s|’s|\s+is))\s+(.+?)\s+in\s+([a-z]+)(?:\s+please)?$/is) ?? m0.match(/^what\s+does\s+(.+?)\s+mean\s+in\s+([a-z]+)$/is);
+  if (m) return pick(m[1]!, m[2]!);
+  return null;
+}
+
+/** What the small model is told for a translation: translate, nothing else (short — a 0.6B keeps to it better). */
+export function translatePrompt(text: string, to: string): OfflineMsg[] {
+  const name = languageName(to);
+  return [
+    { role: 'system', content: `You are a translator. Translate the user's message into ${name}. Reply with the ${name} translation only: no notes, no quotes, no explanation.` },
+    { role: 'user', content: clip(text, 1500) },
+  ];
+}
+
+/** The translation as it should be shown: no thinking block or end marks, no "Translation:" label or wrapping quotes. */
+export function cleanTranslation(raw: string, to: string): string {
+  const name = languageName(to);
+  return unquote(
+    raw
+      .replace(/<think>[\s\S]*?<\/think>\s*/g, '')
+      .replace(/^<think>[\s\S]*$/, '')
+      .replace(/<\|im_end\|>|<\|endoftext\|>/g, '')
+      .trim()
+      .replace(new RegExp(`^(?:translation|${name})(?:\\s*\\([^)]*\\))?\\s*:\\s*`, 'i'), ''),
+  );
+}
+
+/** The honest words under every translation made on the phone. */
+export const OFFLINE_TRANSLATION_NOTE = 'Offline translation: check the important bits';
