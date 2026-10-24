@@ -7,7 +7,8 @@ import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather, type WeatherData } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
-import { dayName, diarySentence, greeting, hhmm, isoDay, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
+import { dayName, diarySentence, digestDay, greeting, hhmm, isoDay, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
+import { onLibraryChange, passagesOf } from '../../library/local';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -72,7 +73,7 @@ export const briefTab: TabDef = {
     };
     // READ IT TO ME says the Brief aloud at once (no model: the greeting, the sentence, the top three headlines);
     // BRIEF ME asks Ghosty for a spoken briefing in the chat, handed the same facts so it needs no look-ups.
-    const topHeadlines = () => (news.data ?? []).slice(0, 6).map((x) => x.title);
+    const topHeadlines = () => (news.data?.length ? news.data : (digest?.headlines ?? [])).slice(0, 6).map((x) => x.title);
     let reading = false;
     const readBtn = button('READ IT TO ME', (b) => {
       if (reading) return void stopSpeaking();
@@ -165,7 +166,22 @@ export const briefTab: TabDef = {
     }, id === currentNewsFeed() ? 'on' : '')));
     np.el.insertBefore(sections, np.body);
     const ng = pager(np, 62, (x: Headline) => row(null, x.title, x.at ? fmt.ago(x.at) : '', { wrap: true, onClick: () => { go('core'); void send(`Explain this headline in plain terms and why it matters: "${x.title}". ${x.desc}`); } }), () => news.status, 'Headlines come in by themselves; pick another section above meanwhile.');
+    // The morning digest (the library's "Fresh knowledge", gathered by the brain at 06:10 UTC), read from the
+    // phone's own copy of the library: "Today in one line" when a model wrote the day in three levels, and the
+    // BBC's headlines from it when the live feed can't be reached (offline too).
+    const oneLine = h('p.brone', { hidden: true });
+    np.el.insertBefore(oneLine, sections);
     P.right.append(np.el);
+    let digest: ReturnType<typeof digestDay> = null;
+    let digestTimer = 0;
+    const loadDigest = () => {
+      clearTimeout(digestTimer);
+      digestTimer = window.setTimeout(() => void passagesOf('m-notes_daily').then((p) => {
+        digest = digestDay(p);
+        paintNews();
+      }).catch(() => undefined), 300);
+    };
+    onLibraryChange(loadDigest);
 
     const paintWeather = () => {
       keep();
@@ -217,6 +233,14 @@ export const briefTab: TabDef = {
       ]);
     };
     const paintNews = () => {
+      const today = digest?.day === isoDay(new Date());
+      oneLine.hidden = !(today && digest?.oneLine);
+      clear(oneLine, h('b', 'Today in one line'), h('span', digest?.oneLine ?? ''));
+      const fallback = !news.data?.length && news.status === 'NO FEED' && !!digest?.headlines.length;
+      if (fallback) {
+        ng.set(digest!.headlines.map((x) => ({ title: x.title, desc: x.desc, url: '', at: 0 })));
+        return np.setStatus(today ? 'FROM THIS MORNING’S DIGEST' : `FROM THE ${digest!.day.slice(8)}/${digest!.day.slice(5, 7)} DIGEST`, 'mid');
+      }
       ng.set(news.data ?? []);
       np.setStatus(news.status, news.status === 'LIVE' ? 'ok' : 'off');
     };
@@ -229,6 +253,7 @@ export const briefTab: TabDef = {
     paintNews();
     return {
       enter() {
+        loadDigest();
         void paintDay();
         void paintCommute();
         weather.start();
