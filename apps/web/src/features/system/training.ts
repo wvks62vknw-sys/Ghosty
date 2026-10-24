@@ -2,7 +2,8 @@
  * SYSTEM → OFFLINE BRAIN TRAINING: the honest report card of the offline brain's weekly self-training
  * (apps/edge/src/selftrain on the brain, the notebook on Kaggle's free GPUs). What is happening now; this
  * week's exam score against last week's, area by area; what he trained on; how long it took; what was thrown
- * away and why; the last good models; TRAIN NOW and ROLLBACK. With a key missing it says which, and where to
+ * away and why; the last good models; TRAIN NOW, TRAIN FROM SCRATCH and ROLLBACK; which kind the next run is (weekly, or
+ * the monthly retrain from the stock model on every week kept) and why. With a key missing it says which, and where to
  * get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
  * made at and just beyond them) and gives the offline brain the list of trained models to choose from.
  */
@@ -10,11 +11,13 @@ import { AREA_LABEL, baseById, EXAM_AREAS, examMean, type ExamArea, type TrainRe
 import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
+import { flushStars } from '../../offline/starbox';
 import { button, panel, row, toast, type Panel } from '../../ui/components';
 import { loadAll } from '../gym/store';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
+  checked: 'answers THINK HARDER and the GYM worked out on your phone (each passed an exact check)',
   critique: 'puzzles he got right after being told why he was wrong',
   judged: 'library answers he picked as better (and the book agreed)',
   evol: 'harder questions written by the online AIs',
@@ -130,13 +133,19 @@ export function trainingPanel(): Panel & { refresh(): void } {
     p.setStatus(!keysOk ? `NEEDS ${Number(!s.keys.kaggle) + Number(!s.keys.hf)} KEY${!s.keys.kaggle && !s.keys.hf ? 'S' : ''}` : PHASE[s.phase], !keysOk ? 'mid' : s.phase === 'idle' ? 'ok' : 'mid');
     p.body.append(h('div.note.trainnote', s.note));
     if (!keysOk) p.body.append(keySteps(s));
-    if (keysOk && s.phase === 'idle' && s.next) p.body.append(row('NEXT RUN', when(s.next)));
+    if (keysOk && s.phase === 'idle' && s.next) p.body.append(row('NEXT RUN', `${when(s.next)}${s.kind ? ` · ${s.kind.scratch ? 'retrain from scratch' : 'weekly'}` : ''}`, null, { wrap: true }));
+    // Weekly (adds the week to the brain in use) or the monthly retrain from scratch, and why: the brain decides as a run starts.
+    if (keysOk && s.kind?.why) {
+      const k = row(s.kind.now ? 'THIS RUN' : 'NEXT KIND', s.kind.scratch ? `Retrain from scratch: the stock ${baseById(s.base).label}, every week kept` : 'Weekly: adds this week to the brain in use', null, { wrap: true });
+      k.dataset.kind = s.kind.scratch ? 'scratch' : 'weekly';
+      p.body.append(k, h('div.note.small.trainkind', `${s.kind.why} Either way the new brain must pass the same test, and ROLLBACK works the same.`));
+    }
     const gathered = Object.entries(s.gathered ?? {}).filter(([, n]) => n > 0);
     if (gathered.length) p.body.append(row('GATHERED', gathered.map(([k, n]) => `${n} ${k}`).join(' · '), null, { wrap: true }));
     if (s.ratings.up + s.ratings.down) p.body.append(row('YOUR RATINGS', `${s.ratings.up} 👍 · ${s.ratings.down} 👎 waiting for the next run`, null, { wrap: true }));
     const r = s.report;
     if (r) {
-      p.body.append(h('div.lab.trainweek', `WEEK ${r.week}${r.finishedAt ? ` · ${when(r.finishedAt)}` : ''}`));
+      p.body.append(h('div.lab.trainweek', `WEEK ${r.week}${r.scratch ? ' · RETRAINED FROM SCRATCH' : ''}${r.finishedAt ? ` · ${when(r.finishedAt)}` : ''}`));
       if (Object.keys(r.before ?? {}).length) p.body.append(scores(r, s.previous));
       p.body.append(details(r));
     } else if (keysOk) p.body.append(h('div.note', 'No training run yet. The first one starts on its own, or press TRAIN NOW.'));
@@ -161,10 +170,13 @@ export function trainingPanel(): Panel & { refresh(): void } {
     p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? `the stock ${base.label}`}. This phone is set to: ${onPhone}. A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.`));
     const now = act('TRAIN NOW', () => brain.selftrain.now(), () => "Training started: gathering this week's lessons first", 'on');
     now.disabled = !keysOk || s.phase !== 'idle';
+    // the monthly retrain whenever he wants it (with a run under way: the next run is one)
+    const scratch = act('TRAIN FROM SCRATCH', () => brain.selftrain.scratch(), (x) => (x.phase === 'idle' ? 'Retraining from scratch: it starts in a moment' : 'This run carries on; the next one retrains from scratch'));
+    scratch.disabled = !keysOk;
     const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => (x.base !== s.base ? `Back to your ${baseById(x.base).label} brains: ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}` : `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}`), 'warn');
     back.disabled = s.active === null && !(s.switchedFrom && s.switchedFrom !== base.id);
     const priv = act(`MY LIBRARY & CHATS: ${s.privateData ? 'ON' : 'OFF'}`, () => brain.selftrain.privateData(!s.privateData), (x) => (x.privateData ? 'Training learns from your library, chats and ratings (kept private)' : 'Training uses only puzzles, quizzes and general examples'));
-    p.body.append(h('div.keyrow', now, back, priv));
+    p.body.append(h('div.keyrow', now, scratch, back, priv));
     p.body.append(
       h(
         'div.note.small.privacy',
@@ -184,6 +196,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
       st = null;
     }
     paint();
+    // Checked work waiting on this phone goes to the brain for next week's run (quietly; it waits otherwise).
+    void flushStars();
     // The GYM levels on this phone, for the week's puzzles (quietly; an old brain without the route is fine).
     try {
       const levels: Record<string, number> = {};

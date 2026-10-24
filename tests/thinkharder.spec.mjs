@@ -8,7 +8,8 @@
 // step that does ask the brain (even in "always"); without the download it says so. SYSTEM → REPORT CARD:
 // RUN CHECK scores the five kinds as in chat and with THINK HARDER, with times and a verdict; a second check
 // draws the graph; STOP keeps a partial run out of the graph; a new model shows as NEW MODEL. No sideways
-// scrolling on a phone.
+// scrolling on a phone. GYM ideas: the checked answer becomes one training record (a voted or stopped one none),
+// and SYSTEM → LOOPS lists every loop with what it practised, improved and rejected (the lesson sent is counted).
 //   node tests/thinkharder.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
@@ -101,6 +102,15 @@ async function run(name, viewport) {
   await page.locator('.log .msg.think').last().scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${out}/${name}-think-done.png` });
   if (narrow) await noSideways(page, name, 'chat with a THINK HARDER answer');
+  // The search teaches the brain: the checked answer (the working that passed the calculator) became one lesson for
+  // next week's brain, sent to the brain (or waiting on the phone); `starsBefore` counts it before the voted answers below.
+  await page.waitForFunction(() => /think harder/.test(localStorage.getItem('ghosty.star') ?? ''), null, { timeout: 5000 }).catch(() => problems.push(`[${name}] the checked THINK HARDER answer left no training record`));
+  const starsOf = () => page.evaluate(() => {
+    const b = JSON.parse(localStorage.getItem('ghosty.star') ?? '{}');
+    return [...(b.queue ?? []).map((r) => r.from), ...(b.sent ?? []).flatMap((x) => x.from)].filter((f) => f === 'think harder').length;
+  });
+  const starsBefore = await starsOf();
+  if (starsBefore !== 1) problems.push(`[${name}] ${starsBefore} THINK HARDER records after one checked answer (want 1)`);
 
   // ---- ASK THE BIG BRAIN: a separate step that does ask the brain ------------------------------------------
   const big = page.locator('.log .msg.think .bigbrain').last();
@@ -149,6 +159,10 @@ async function run(name, viewport) {
   await page.locator('.log .msg.think button:has-text("STOP")').last().dispatchEvent('click');
   await page.waitForFunction(() => /^(?:only 1 attempt: not enough to compare|[1-5] of [1-5] attempts agree.*) \(stopped early by you: best so far\) · \d+ s$/.test([...document.querySelectorAll('.log .msg.think .thinkconf')].at(-1)?.textContent ?? ''), null, { timeout: 5000 }).catch(async () => problems.push(`[${name}] STOP did not keep the best so far: "${await page.locator('.log .msg.think .thinkconf').last().textContent().catch(() => '')}"`));
   if ((await page.locator('.log .msg.think .thinkline').count()) !== 0) problems.push(`[${name}] a THINK HARDER answer still shows as running after STOP`);
+
+  // Agreement alone ("is 91 prime") and a stopped search are not checked: no lessons from them.
+  await page.waitForTimeout(500);
+  if ((await starsOf()) !== starsBefore) problems.push(`[${name}] an unchecked THINK HARDER answer became a training record`);
 
   // ---- not downloaded: it says so, and nothing is asked --------------------------------------------------------
   await page.evaluate(() => {
@@ -228,6 +242,24 @@ async function run(name, viewport) {
   if (narrow) await noSideways(page, name, 'SYSTEM with the report card');
   const pw = await pn.evaluate((el) => el.scrollWidth - el.clientWidth);
   if (pw > 1) problems.push(`[${name}] the report card is ${pw}px wider than its panel`);
+
+  // ---- LOOPS, beside the report card: every loop with what it practised, what improved and what was rejected ----
+  await openPanel(page, 'system', 'LOOPS');
+  const lp = page.locator('#pg-system .pn.loops');
+  await page.waitForFunction(() => (window.__ghosty?.loops?.loads ?? 0) >= 1 && document.querySelectorAll('#pg-system .pn.loops .loop').length === 7, null, { timeout: 15000 }).catch(() => problems.push(`[${name}] the LOOPS card did not show its seven loops`));
+  const loopNames = await lp.locator('.loopname').allTextContents();
+  if (loopNames.join('|') !== 'GYM|DRILLS|SCHOOL PRACTICE|SELF-STUDY|THE WEEKLY RUN|THE VOICE|LESSONS FROM CHECKED WORK') problems.push(`[${name}] the LOOPS card's loops: ${loopNames.join('|')}`);
+  const lines = await lp.locator('.loop').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('.loopline .k')].map((k) => k.textContent).join(',')));
+  if (!lines.every((l) => l === 'Practised,Improved,Rejected')) problems.push(`[${name}] a loop without its three lines: ${lines.join(' | ')}`);
+  const lesson = (await lp.locator('.loop[data-loop="star"]').innerText()).replace(/\s+/g, ' ');
+  if (!/Practised [1-9]\d* records? sent \([1-9]\d* from THINK HARDER, \d+ from the GYM\)/.test(lesson) || !/Improved (?:[1-9]\d* records? taken for the next week's run|0 records taken for the next week's run \([1-9]\d* waiting\))/.test(lesson)) problems.push(`[${name}] the lessons loop reads: ${lesson}`);
+  if (!/^This week, since /.test((await lp.locator('.loopshead').textContent()) ?? '')) problems.push(`[${name}] the LOOPS card does not say which week`);
+  // the stock brain is in use: nothing to roll back
+  if (await lp.locator('button.loopback').count()) problems.push(`[${name}] ROLLBACK offered with no trained brain in use`);
+  await lp.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/${name}-loops.png` });
+  if (narrow) await noSideways(page, name, 'SYSTEM with the LOOPS card');
+  await openPanel(page, 'system', 'OFFLINE BRAIN REPORT CARD');
 
   // Stage 2's weekly self-training: the phone syncs the trained weeks (/api/training) and switches to one.
   // The report card was CHECKED for the stock model; the switch alone (no reload) makes it offer a re-check.

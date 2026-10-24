@@ -1,0 +1,57 @@
+{
+  "_note": "Pl@ntNet /v2/identify/all and Open Food Facts /cgi/search.pl replies in their documented shapes (my.plantnet.org/doc/api/identify, openfoodfacts.github.io), trimmed to the fields Ghosty reads plus a few it ignores. Written for the tests: the network is faked.",
+  "plantnet": {
+    "query": { "project": "all", "images": ["c1f0a7b2"], "organs": ["auto"], "includeRelatedImages": false, "noReject": false },
+    "predictedOrgans": [{ "image": "c1f0a7b2", "filename": "plant.jpg", "organ": "flower", "score": 0.93 }],
+    "language": "en",
+    "preferedReferential": "k-world-flora",
+    "bestMatch": "Bellis perennis L.",
+    "results": [
+      {
+        "score": 0.72311,
+        "species": {
+          "scientificNameWithoutAuthor": "Bellis perennis",
+          "scientificNameAuthorship": "L.",
+          "genus": { "scientificNameWithoutAuthor": "Bellis", "scientificNameAuthorship": "", "scientificName": "Bellis" },
+          "family": { "scientificNameWithoutAuthor": "Asteraceae", "scientificNameAuthorship": "", "scientificName": "Asteraceae" },
+          "commonNames": ["Common daisy", "Lawn daisy", "English daisy"],
+          "scientificName": "Bellis perennis L."
+        },
+        "gbif": { "id": "3117424" },
+        "powo": { "id": "30000476-2" }
+      },
+      {
+        "score": 0.12904,
+        "species": {
+          "scientificNameWithoutAuthor": "Leucanthemum vulgare",
+          "scientificNameAuthorship": "Lam.",
+          "genus": { "scientificNameWithoutAuthor": "Leucanthemum" },
+          "family": { "scientificNameWithoutAuthor": "Asteraceae" },
+          "commonNames": ["Oxeye daisy", "Marguerite"],
+          "scientificName": "Leucanthemum vulgare Lam."
+        }
+      },
+      {
+        "score": 0.03117,
+        "species": {
+          "scientificNameWithoutAuthor": "Tripleurospermum inodorum",
+          "genus": { "scientificNameWithoutAuthor": "Tripleurospermum" },
+          "family": { "scientificNameWithoutAuthor": "Asteraceae" },
+          "commonNames": ["Scentless mayweed"]
+        }
+      }
+    ],
+    "version": "2025-01-17 (7.3)",
+    "remainingIdentificationRequests": 487
+  },
+  "offSearch": {
+    "count": 2,
+    "page": 1,
+    "page_size": 5,
+    "products": [
+      { "product_name": "Baked Beans in Tomato Sauce", "brands": "Heinz", "nutriments": { "energy-kcal_100g": 78, "proteins_100g": 4.7, "carbohydrates_100g": 10.9, "fat_100g": 0.2, "salt_100g": 0.6 } },
+      { "product_name": "Baked Beans Reduced Sugar", "brands": "Heinz", "nutriments": { "energy-kcal_100g": 70, "proteins_100g": 4.9, "carbohydrates_100g": 9.1, "fat_100g": 0.2 } }
+    ]
+  },
+  "offEmpty": { "count": 0, "page": 1, "page_size": 5, "products": [] }
+}

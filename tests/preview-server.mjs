@@ -8,6 +8,7 @@ import { extname, join, normalize } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { sqlStorage } from './sqlite-storage.mjs';
+import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -39,14 +40,53 @@ class MemStorage {
 // Test only: the cited-answers spec's web (tests/cited.spec.mjs). A DuckDuckGo search about the speed
 // of light and pages on *.example.test hosts come from tests/fixtures/cited.json; everything else is the real fetch.
 const citedWeb = JSON.parse(await readFile(join(root, 'tests/fixtures/cited.json'), 'utf8'));
+// Test only: the gadget-manuals spec's web (tests/manuals.spec.mjs). A search naming the Bosch SMS24AW01G finds a
+// ManualsLib page (forbidden: skipped), Bosch's own PDF and a blog; the PDF (12 pages, the fault codes on page 12) and
+// Bosch's robots.txt are served here, never fetched from Bosch.
+const MANUAL_PDF = 'https://media3.bosch-home.com/Documents/specsheet/en-GB/SMS24AW01G.pdf';
+function manualPdf() {
+  const pages = Array.from({ length: 12 }, (_, i) =>
+    i === 0 ? ['Bosch Dishwasher SMS24AW01G', 'User manual'] : i === 11 ? ['Troubleshooting: fault codes', 'E24 The waste water cannot drain away.', '1. Switch off the appliance and unplug it.', '2. Clean the filters and the waste water pump.', '3. Check that the drain hose is not kinked or blocked.'] : [`Page ${i + 1}: loading, programmes and care.`, 'Use dishwasher salt and rinse aid. Clean the filters regularly.']);
+  const esc = (t) => t.replace(/[\\()]/g, (c) => `\\${c}`);
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${pages.map((_, i) => `${4 + i * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
+  pages.forEach((lines, i) => {
+    const content = `BT /F1 11 Tf 50 800 Td ${lines.map((l, j) => `${j ? '0 -16 Td ' : ''}(${esc(l)}) Tj`).join(' ')} ET`;
+    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+  let out = '%PDF-1.4\n';
+  const offs = [];
+  objs.forEach((o, i) => {
+    offs.push(out.length);
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const x = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}
+const ddg = (results) => `<html><body>${results.map(([url, title]) => `<div class="result"><a rel="nofollow" class="result__a" href="${url}">${title}</a><a class="result__snippet" href="${url}">${title}</a></div>`).join('')}</body></html>`;
+function manualsWeb(u) {
+  const q = u.hostname === 'html.duckduckgo.com' ? u.searchParams.get('q') ?? '' : '';
+  if (/SMS24AW01G/i.test(q) && /E99/i.test(q)) return ddg([['https://www.fixit-forum.example/bosch-e99?utm_source=feed', 'Bosch dishwasher E99 error explained'], ['https://www.appliance-help.example/e99', 'What E99 means on a Bosch'], ['https://www.repair-notes.example/bosch', 'Bosch error codes list']]);
+  if (/drain pump/i.test(q)) return ddg([['https://www.espares.co.uk/product/bosch-drain-pump?tag=someone-21&id=1', 'Bosch drain pump - eSpares'], ['https://www.amazon.co.uk/dp/B000123/ref=sr_1_1?tag=someone-21', 'Drain pump for Bosch dishwashers'], ['https://www.partmaster.co.uk/bosch-drain-pump', 'Bosch drain pump - Partmaster']]);
+  if (/SMS24AW01G/i.test(q)) return ddg([['https://www.manualslib.com/manual/1234/Bosch-Sms24aw01g.html', 'Bosch SMS24AW01G manual - ManualsLib'], [MANUAL_PDF, 'Instructions for use SMS24AW01G'], ['https://some-appliance-blog.example/bosch-manual.pdf', 'Bosch manual mirror']]);
+  return null;
+}
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+  const manualSearch = manualsWeb(u);
+  if (manualSearch) return new Response(manualSearch, { headers: { 'content-type': 'text/html' } });
+  if (u.href === 'https://media3.bosch-home.com/robots.txt') return new Response('', { headers: { 'content-type': 'text/plain' } });
+  if (u.href === MANUAL_PDF) return new Response(manualPdf(), { headers: { 'content-type': 'application/pdf' } });
+  if (u.hostname.endsWith('manualslib.com')) return new Response('the manuals spec must never fetch ManualsLib', { status: 418 });
   if (u.hostname === 'html.duckduckgo.com' && /speed of light/i.test(u.searchParams.get('q') ?? '')) return new Response(citedWeb.search, { headers: { 'content-type': 'text/html' } });
   if (u.hostname.endsWith('.example.test')) {
     const page = citedWeb.pages[u.href];
     return page ? new Response(page, { headers: { 'content-type': 'text/html' } }) : new Response('not found', { status: 404 });
   }
+  // Test only: the PHOTO TOOLS Spaces (tests/photo.spec.mjs), from their real answers.
+  const photo = await photoSpaces(u, init);
+  if (photo) return photo;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -121,6 +161,12 @@ createServer(async (req, res) => {
       state.storage.blips.add(url.searchParams.get('key') ?? '');
       res.writeHead(204);
       res.end();
+      return;
+    }
+    // Test only: put a PHOTO TOOLS Space to sleep or over its limit (tests/fixtures/photo-spaces.mjs).
+    if (url.pathname === '/__test/photo-mode') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(setPhotoMode(url.searchParams)));
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

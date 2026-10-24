@@ -559,6 +559,84 @@ class SchoolPractice(unittest.TestCase):
         self.assertIsNone(G.replay_pair(self.exact), 'an exact one is replayed through its kept attempts (star/), never as its question')
 
 
+class MonthlyRetrain(unittest.TestCase):
+    """The monthly retrain ("from_scratch"): trained on the stock model on every kept week; the same gate against the brain in use."""
+
+    chain = [{'adapter': 'adapters/week-0009', 'scale': 1.0}, {'adapter': 'adapters/week-0010', 'scale': 0.5}]
+
+    def cfg(self, scratch, weeks=range(1, 11)):
+        c = {'week': 11, 'current': {'label': 'Ghosty (week 10)', 'chain': self.chain}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain',
+             'data_file': 'weeks/week-0011.jsonl', 'data_rev': 'd' * 40, 'base_model': {'repo': 'Qwen/Qwen3-0.6B', 'rev': 'c' * 40}, 'stock_mlc': {'repo': 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', 'rev': '8' * 40}, 'replay_weeks': list(weeks)}
+        if scratch:
+            c.update(from_scratch=True, train_from={'label': 'stock Qwen3 0.6B', 'chain': []})
+        return c
+
+    def test_what_it_trains_on_and_replays(self):
+        weekly, scratch = self.cfg(False), self.cfg(True)
+        self.assertEqual(G.training_chain(weekly), self.chain, 'a weekly run adds to the brain in use')
+        self.assertEqual(G.training_chain(scratch), [], 'the monthly retrain starts from the stock model')
+        self.assertEqual(G.replay_weeks_for(weekly), [3, 4, 5, 6, 7, 8, 9, 10], 'weekly: the last eight')
+        self.assertEqual(G.replay_weeks_for(scratch), list(range(1, 11)), 'monthly: every kept week')
+        self.assertEqual(G.replay_count(weekly, 5000, 600), 200, 'weekly: a third of the new examples')
+        self.assertEqual(G.replay_count(weekly, 50, 600), 50)
+        self.assertEqual(G.replay_count(scratch, 5000, 600), 5000, 'monthly: all of it (the SFT time budget cuts what does not fit)')
+        self.assertTrue(G.Run(scratch).report['scratch'])
+        self.assertNotIn('scratch', G.Run(weekly).report)
+
+    def setup_downloads(self, cfg):
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        fakes = FakeModules()
+        fakes.files = {'exam.json': '{}', 'weeks/week-0011.jsonl': ''}
+        real = (G.subprocess.run, G.http_json, G.config_problem, G.time.sleep)
+        G.subprocess.run = lambda cmd, **k: subprocess.CompletedProcess(cmd, 0)
+        G.http_json = lambda url, data=None, method=None, timeout=60, headers=None: {'hf_token': 'TOKEN'}
+        G.config_problem = lambda a, b: ''
+        G.time.sleep = lambda s: None
+        r = G.Run(cfg)
+        r.resume = lambda: None
+        r.load_model = lambda: None
+        r.drop_near_exam = lambda: None
+        try:
+            with fakes:
+                r.setup()
+        finally:
+            G.subprocess.run, G.http_json, G.config_problem, G.time.sleep = real
+            G.WORK = work
+        return sorted({int(c[2][-10:-6]) for c in fakes.calls if c[0] == 'download' and c[2].startswith('weeks/week-') and c[2] != 'weeks/week-0011.jsonl'})
+
+    def test_setup_fetches_every_kept_week_for_the_retrain(self):
+        self.assertEqual(self.setup_downloads(self.cfg(False)), [3, 4, 5, 6, 7, 8, 9, 10])
+        self.assertEqual(self.setup_downloads(self.cfg(True)), list(range(1, 11)))
+
+    def test_the_same_gate_against_the_brain_in_use(self):
+        """exam_before scores the brain in use as it ships: weekly with the new LoRA switched off; monthly by building the
+        current chain apart (the model being trained is the stock one), then going back to the training model."""
+        built, scored = [], []
+
+        class Peft:
+            def __init__(self):
+                self.off = False
+
+            @contextlib.contextmanager
+            def disable_adapter(self):
+                self.off = True
+                yield
+                self.off = False
+
+        for scratch in (False, True):
+            r = G.Run(self.cfg(scratch))
+            training = Peft()
+            r.model = training
+            r.merged_base = lambda chain: built.append(chain) or 'the brain in use'
+            r.score = lambda label, split='exam', quantised=False: scored.append((r.model if isinstance(r.model, str) else ('training', r.model.off), quantised)) or ({'gym': 0.5}, {'gym': 0.5})
+            r.exam_before()
+            self.assertIs(r.model, training, 'back on the model being trained')
+            self.assertEqual(r.report['before'], {'gym': 0.5})
+        self.assertEqual(scored, [(('training', True), True), ('the brain in use', True)])
+        self.assertEqual(built, [self.chain], 'only the monthly retrain builds the current chain apart')
+
+
 class ExamMode(unittest.TestCase):
     """MODE exam: one SCHOOL paper sat on Kaggle, nothing trained or published."""
 
@@ -1130,6 +1208,107 @@ class MatchesMlcAi(unittest.TestCase):
                         a, b = mine[r['byteOffset']:r['byteOffset'] + r['nbytes']], theirs[r['byteOffset']:r['byteOffset'] + r['nbytes']]
                         self.assertEqual(a, b, r['name'])
                 self.assertTrue(same, shard['dataPath'])
+
+
+class ScratchOnTheChosenBase(unittest.TestCase):
+    """The monthly retrain on the base chosen on the phone: trained on THAT base's stock model (Qwen3.5: its text model,
+    loaded as the family needs), with that family's LoRA targets; the report names both the base and the retrain."""
+
+    chain = [{'adapter': 'adapters/week-0009', 'scale': 1.0}, {'adapter': 'adapters/week-0010', 'scale': 0.5}]
+
+    def cfg(self, base_id, scratch):
+        b = BASES[base_id]['config']
+        c = {'week': 11, 'current': {'label': 'Ghosty (week 10)', 'chain': self.chain}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain',
+             'data_file': 'weeks/week-0011.jsonl', 'data_rev': 'd' * 40, 'replay_weeks': [9, 10], **b}
+        if scratch:
+            c.update(from_scratch=True, train_from={'label': f"stock {b['base']['label']}", 'chain': []})
+        return c
+
+    def load(self, cfg):
+        """Run.load_model() with stand-ins for transformers and peft; returns (run, what was loaded, merged, LoRA targets)."""
+        loaded, merged, targets = [], [], []
+
+        class Model:
+            config = types.SimpleNamespace(use_cache=False)
+
+            def to(self, dev):
+                return self
+
+        class AutoModelForCausalLM:
+            @staticmethod
+            def from_pretrained(path, torch_dtype=None):
+                loaded.append(('auto', torch_dtype))
+                return Model()
+
+        class Qwen3_5ForCausalLM:
+            @staticmethod
+            def from_pretrained(path, config=None, dtype=None):
+                loaded.append(('qwen3_5', config, dtype))
+                return Model()
+
+        class AutoConfig:
+            @staticmethod
+            def from_pretrained(path):
+                return types.SimpleNamespace(get_text_config=lambda: 'the text config')
+
+        class PeftModel:
+            @staticmethod
+            def from_pretrained(model, path):
+                merged.append(os.path.basename(path))
+                return types.SimpleNamespace(merge_and_unload=lambda: model)
+
+        def LoraConfig(target_modules=None, **k):
+            targets.extend(target_modules)
+            return 'lora'
+        transformers = types.SimpleNamespace(AutoModelForCausalLM=AutoModelForCausalLM, Qwen3_5ForCausalLM=Qwen3_5ForCausalLM, AutoConfig=AutoConfig, AutoTokenizer=types.SimpleNamespace(from_pretrained=lambda p: 'tok'))
+        peft = types.SimpleNamespace(PeftModel=PeftModel, LoraConfig=LoraConfig, get_peft_model=lambda model, c: model)
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        real = (G.prepare_tokenizer, G.set_lora_scale)
+        G.prepare_tokenizer = lambda t: t
+        G.set_lora_scale = lambda m, f: None
+        saved = {m: sys.modules.get(m) for m in ('transformers', 'peft')}
+        sys.modules['transformers'], sys.modules['peft'] = transformers, peft
+        r = G.Run(cfg)
+        r.base_dir = os.path.join(tmp, 'base')
+        try:
+            with FakeModules():
+                r.load_model()
+        finally:
+            for m, v in saved.items():
+                if v is None:
+                    sys.modules.pop(m, None)
+                else:
+                    sys.modules[m] = v
+            G.prepare_tokenizer, G.set_lora_scale = real
+            G.WORK = work
+        return r, loaded, merged, targets
+
+    def test_the_retrain_on_qwen35_2b_starts_from_the_stock_2b(self):
+        r, loaded, merged, targets = self.load(self.cfg('qwen3.5-2b', True))
+        self.assertEqual(loaded, [('qwen3_5', 'the text config', 'fp32')], "the 2B's text model, from its own settings")
+        self.assertEqual(merged, [], 'no adapter merged: the stock model')
+        self.assertEqual(targets, G.FAMILIES['qwen3_5']['lora'], "the 2B's LoRA targets (the linear-attention layers too)")
+        self.assertEqual((r.report['baseId'], r.report['scratch']), ('qwen3.5-2b', True), 'the report names the base and the retrain')
+        self.assertEqual(G.training_chain(r.cfg), [])
+        self.assertEqual(G.replay_weeks_for(r.cfg), [9, 10], 'every week the brain sent (the kept weeks of the 2B)')
+
+    def test_a_weekly_run_merges_the_brain_in_use_on_its_base(self):
+        r, loaded, merged, targets = self.load(self.cfg('qwen3.5-2b', False))
+        self.assertEqual(loaded, [('qwen3_5', 'the text config', 'fp32')])
+        self.assertEqual(merged, ['week-0009', 'week-0010'], 'the 2B chain in use, merged in order')
+        self.assertNotIn('scratch', r.report)
+        r, loaded, merged, targets = self.load(self.cfg('qwen3-0.6b', True))
+        self.assertEqual(loaded, [('auto', 'fp32')], 'the 0.6B as it always was')
+        self.assertEqual(merged, [])
+        self.assertEqual(targets, G.FAMILIES['qwen3']['lora'])
+        self.assertEqual((r.report['baseId'], r.report['scratch']), ('qwen3-0.6b', True))
+
+    def test_setup_downloads_the_chosen_bases_stock_for_the_retrain(self):
+        r, fakes, pip, _ = PreFlight.run_setup(self, cfg=self.cfg('qwen3.5-2b', True))
+        got = {c[1] for c in fakes.calls if c[0] in ('snapshot', 'download') and c[1].startswith(('Qwen/', 'mlc-ai/'))}
+        self.assertEqual(got, {'Qwen/Qwen3.5-2B', 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC'})
+        self.assertTrue(any('transformers==5.5.4' in c for c in pip if 'install' in c))
 
 
 if __name__ == '__main__':

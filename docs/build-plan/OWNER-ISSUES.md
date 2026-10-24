@@ -170,3 +170,28 @@ Add to it any time; tick items off only when he agrees they are fixed.
     review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
     his pick waits for him; whatever is left at the week's end goes to next week.
 
+37. **What only he can do, as of 24 Oct ~13:15 UK (after the next pull request lands):** (a) SYSTEM → KEYS → Pl@ntNet:
+    make a free account at my.plantnet.org, copy the API key, paste it in; then Lens → NAME → LIVING THING → PLANT names
+    plants (500 a day, free). Without it, PLANT offers "ASK GHOSTY INSTEAD" (the seeing model). (b) Settings → Offline
+    brain → Search by meaning → ADD · 70 MB, on Wi-Fi: the library on the phone then finds passages by what they mean;
+    the index fills in the background ("x of y passages indexed"). (c) Try "teach me algebra" in the chat: the course
+    map, a lesson in six parts, the confidence taps, the exam. (d) Still open from before: TRAIN NOW (SYSTEM → OFFLINE
+    BRAIN TRAINING), the theme extras pick (item 28), the self-edit trial results, whether the 18 Pro Max has arrived,
+    the voice fixture blind check.
+    (e) SYSTEM → NIGHT SCHOOL: switch it on, leave the phone plugged in and open on Ghosty overnight (the screen stays
+    on, dimmed); the morning report lands in the inbox. (f) SYSTEM → OFFLINE BRAIN TRAINING: TRAIN FROM SCRATCH when
+    he wants the monthly reset early; otherwise it happens by itself from the first Friday of each month.
+    (g) Lens → hold a frame or pick a photo → PHOTO TOOLS: BACKGROUND, SHARPER or ERASE (draw over the thing with a
+    finger, then ERASE); or just say "remove the background" in ASK. The Spaces are free and shared: the first job of
+    the day can take a minute while one wakes, and the sheet says so.
+    (h) GYM: after a game passes a level, watch for the league toast ("kept" or "thrown away", with the rating); on the
+    game's page, LEAGUE OF HIS PAST SELVES; for the maze, Sokoban and Sudoku, the "Level 7½: puzzles he only just fails"
+    line. SYSTEM → LOOPS shows the week's practice, improvements and rejections for every loop.
+    (i) SYSTEM → KEYS → Website form (Formspree): a free Formspree account, one form, paste its address; from then on the
+    contact form on every website Ghosty builds really sends to your email (50 a month free). Without it the forms open
+    WhatsApp or email. Then "make me a website for …" and look at the DRAFT card in the Workshop: CHANGE in words,
+    PUBLISH when it is right.
+    (j) Say "my home is <address>" and "my work is <address>" in the chat (he shows the place and keeps it only when you
+    say yes); then "take me home" and "how long to work?". Agenda → SPENDING → ADD A STATEMENT with a CSV from your
+    bank's app (Monzo, Barclays, Lloyds, Nationwide, HSBC and the like): the month sorted on the phone, budgets in your
+    words. Nothing connects to the bank.

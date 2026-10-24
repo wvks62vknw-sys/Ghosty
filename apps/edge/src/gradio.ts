@@ -219,8 +219,12 @@ export class GradioApp {
       }
     }
     const r = await this.get(`${this.root}/config`);
-    if (!r.ok) throw new Model3dError(503, `${this.label} is not running right now (${r.status}) — it sleeps when nobody uses it; try again in a few minutes`, 'busy');
-    this.config = await r.json();
+    const asleep = () => new Model3dError(503, `${this.label} is not running right now (${r.status}) — it sleeps when nobody uses it; try again in a few minutes`, 'busy');
+    if (!r.ok) throw asleep();
+    // A Space that is asleep or waking answers 206 with Hugging Face's "Preparing Space" page, not its config.
+    this.config = await r.json().catch(() => {
+      throw asleep();
+    });
     const prefix = (this.config as { api_prefix?: unknown })?.api_prefix;
     this.base = this.root + (typeof prefix === 'string' && /^\/[\w/-]*$/.test(prefix) ? prefix.replace(/\/$/, '') : '');
     for (const n of needs) if (!findFn(this.config, n)) throw new Model3dError(502, `${this.label} has changed and no longer offers "${n}"`);

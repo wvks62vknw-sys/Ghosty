@@ -38,11 +38,16 @@ export interface SchoolHost {
 const routerAsk = (router: Pick<Router, 'complete'>, tier: 'small' | 'big' = 'small'): Ask => async (system, user) =>
   textOf((await router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { tier, priority: 'background', maxWaitMs: 0 })).message.content);
 
+/** MARK MY WORK's marker: the owner is waiting on it, so the cheap tier in the chat's lane, waiting at most 8 s for room. */
+const routerAskNow = (router: Pick<Router, 'complete'>): Ask => async (system, user) =>
+  textOf((await router.complete([{ role: 'system', content: system }, { role: 'user', content: user }], [], undefined, { tier: 'small', maxWaitMs: 8000 })).message.content);
+
 export function schoolDeps(h: SchoolHost): SchoolDeps {
   return {
     storage: h.storage,
     env: h.env,
     ask: h.ask ?? (h.router ? routerAsk(h.router) : undefined),
+    askNow: h.ask ?? (h.router ? routerAskNow(h.router) : undefined),
     // Writing and checking banks, and reading official papers: the best model there is room for (the 'big' tier),
     // background lane, never waiting. With the scripted test model, SCHOOL's own stand-in (mock.ts).
     write: h.write ?? (h.env?.MOCK_LLM === '1' ? schoolMock : h.router ? routerAsk(h.router, 'big') : undefined),

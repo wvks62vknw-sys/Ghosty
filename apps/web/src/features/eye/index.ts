@@ -22,6 +22,7 @@ import { openMapSheet } from '../../ui/mapsheet';
 import { openStreetView } from '../../ui/streetview';
 import { reverseAddress, whatIs } from '../../data/places';
 import { spotLayer, type Spot } from '../../engine/layers/spot';
+import { myPlaces } from './places';
 import { home, settings, ui } from '../../state/app';
 import { button, panel, row, toast } from '../../ui/components';
 import { routeLayer, type RouteInfo } from '../../engine/layers/route';
@@ -148,9 +149,19 @@ export const eyeTab: TabDef = {
 
     // ---------- top: search + sensor modes ----------
     const q = h('input', { placeholder: 'Search place, flight, ship, satellite…', autocomplete: 'off', enterKeyHint: 'search', 'aria-label': 'Search the globe' });
+    // His saved places (places.ts): chips to fly to, and names the search knows ("home").
+    const flyToPlace = (p: { lat: number; lon: number; label: string; address: string }) => {
+      const sp: Spot = { lat: p.lat, lon: p.lon, name: p.label, address: p.address };
+      spotLayer.set(sp);
+      select({ kind: 'spot', ref: sp, w: GEO.ecef(sp.lat, sp.lon, 0.06) });
+      globe.cam.flyTo({ lat: p.lat, lon: p.lon, range: 1.2, tilt: 45 });
+    };
+    const mine = myPlaces(flyToPlace);
     const search = async () => {
       const s = q.value.trim();
       if (!s) return;
+      const saved = mine.find(s);
+      if (saved) return flyToPlace(saved);
       const a = air.find(s);
       if (a) return select({ kind: 'air', ref: a, w: air.world(a, Date.now()) }, true);
       const sat = sats.list.find((x) => x.name.toLowerCase().includes(s.toLowerCase()));
@@ -836,7 +847,7 @@ export const eyeTab: TabDef = {
     const eyeChips = h('div.eyechips', layBtn, ...quick.map((x) => x.b));
 
     const labels = h('div.labels');
-    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips);
+    const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips, mine.el);
     root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
 
     // ---------- gestures on the 3D canvas ----------
@@ -1100,6 +1111,7 @@ export const eyeTab: TabDef = {
 
     return {
       enter() {
+        void mine.refresh();
         // Live traffic tiles need the TomTom key in the brain (it may have been added since).
         void brain.trafficStatus().then((r) => (trafficState.ready = r.ready)).catch(() => undefined);
         quakes.start();

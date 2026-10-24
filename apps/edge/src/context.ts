@@ -6,6 +6,7 @@
  * is what used a free model's allowance in a few steps.
  */
 import { forgetVehicleChecks } from './integrations/vehicle';
+import { dropLensExchanges } from '../../../packages/shared/src/living';
 import { stripImages, textOf } from './llm/content';
 import type { Msg } from './llm/router';
 import { clip } from './tools/types';
@@ -54,7 +55,8 @@ function chars(m: Msg): number {
  * message up to the next one), so an assistant's tool calls always keep their results.
  */
 export function trimContext(msgs: Msg[], budget = CONTEXT_CHARS): Msg[] {
-  let out = forgetVehicleChecks(stripImages(msgs)).slice(-CONTEXT_MESSAGES);
+  // nor the Lens's NAME IT / WHAT'S IN IT exchanges: the phone's card was the answer (packages/shared/src/living.ts)
+  let out = dropLensExchanges(forgetVehicleChecks(stripImages(msgs)), (m) => m.role === 'user', (m) => textOf(m.content)).slice(-CONTEXT_MESSAGES);
   while (out.length && out[0]!.role !== 'user') out = out.slice(1);
   out = out.map((m, i) => (m.role === 'tool' && i < out.length - 8 && typeof m.content === 'string' && m.content.length > 600 ? { ...m, content: `${m.content.slice(0, 600)}…[older tool output trimmed]` } : m));
   let total = out.reduce((n, m) => n + chars(m), 0);

@@ -12,3 +12,4 @@ export { BLOCKS, BLOCK_LIST } from './blocks';
 export * from './gates';
 export * from './images';
 export * from './write';
+export { formTarget, FORM_ORIGIN } from './blocks/formkit';

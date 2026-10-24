@@ -17,6 +17,11 @@ import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import type { Msg } from '../llm/router';
 import { cost, neurons } from '../neurons';
+import { lookupMeal, mealFromBody } from './foods';
+
+// WHAT'S IN IT (the Lens): the meal's foods matched to the table or Open Food Facts; here for the route and the tests.
+export { FOODS, foodWords, lookupMeal, matchFood, mealFromBody, searchOff } from './foods';
+export { checkMeal, mealCardLines, mealTotals, roughKcal } from '../../../../packages/shared/src/living';
 
 const UA = 'Ghosty/2.0 (personal assistant; single user)';
 const HEADERS = { Accept: 'application/json', 'User-Agent': UA };
@@ -87,7 +92,7 @@ async function productFrom(db: (typeof DATABASES)[number], code: string): Promis
   const n = p.nutriments ?? {};
   const num = (k: string): number | undefined => (typeof n[k] === 'number' && Number.isFinite(n[k]) ? Math.round((n[k] as number) * 10) / 10 : undefined);
   const nutrition: LookupResult['nutrition'] = {};
-  for (const [k, key] of [['kcal', 'energy-kcal_100g'], ['fat', 'fat_100g'], ['saturates', 'saturated-fat_100g'], ['sugars', 'sugars_100g'], ['salt', 'salt_100g'], ['protein', 'proteins_100g']] as const) {
+  for (const [k, key] of [['kcal', 'energy-kcal_100g'], ['fat', 'fat_100g'], ['saturates', 'saturated-fat_100g'], ['sugars', 'sugars_100g'], ['salt', 'salt_100g'], ['protein', 'proteins_100g'], ['carbs', 'carbohydrates_100g']] as const) {
     const v = num(key);
     if (v !== undefined) nutrition[k] = v;
   }
@@ -386,6 +391,13 @@ export interface ScanDeps {
 export async function scanRoute(req: Request, path: string, method: string, url: URL, deps: ScanDeps): Promise<Response> {
   try {
     if (path === '/lookup/barcode' && method === 'GET') return json(await lookupBarcode(url.searchParams.get('code') ?? '', { search: deps.search }));
+    // WHAT'S IN IT: the foods the Lens's model saw ({ meal: [{ name, grams, packaged }] }) → each matched, and the rough total.
+    if (path === '/lookup/barcode' && method === 'POST') {
+      const body = (await req.json().catch(() => ({}))) as { meal?: unknown };
+      const foods = mealFromBody(body.meal);
+      if (!foods.length) throw new LookupError('no foods to look up: send meal as [{ name, grams }]');
+      return json(await lookupMeal(foods));
+    }
     if (path === '/translate' && method === 'POST') {
       const body = (await req.json().catch(() => ({}))) as { text?: unknown; to?: unknown; from?: unknown };
       return json(await translate(String(body.text ?? ''), String(body.to ?? 'en'), { ai: deps.ai, complete: deps.complete, from: String(body.from ?? '') }));

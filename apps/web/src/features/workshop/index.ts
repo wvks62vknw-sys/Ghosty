@@ -20,6 +20,7 @@ import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
 import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
+import { draftCard } from './draftcard';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
@@ -96,6 +97,8 @@ export const workshopTab: TabDef = {
     // projects that run for days (projects.ts): one step every few minutes on Ghosty's own schedule
     const jp = panel('PROJECTS', { status: '' });
     let projects: Project[] = [];
+    /** Each website's DRAFT card, kept between repaints (the list repaints every 15 s while a project runs). */
+    const draftCards = new Map<string, HTMLElement>();
     const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
     const PROJECT_LIGHT: Record<Project['status'], Light> = { active: 'ok', paused: 'mid', done: 'ok', cancelled: 'off' };
     const act = (id: string, action: 'pause' | 'resume' | 'cancel' | 'run', ask?: string) => async (b: HTMLButtonElement) => {
@@ -151,6 +154,8 @@ export const workshopTab: TabDef = {
         // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself
         const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result : undefined;
         if (report) card.append(h('div.preport', ...report.split(/\n+/).map((line) => h('p', line))));
+        // A website that reached its draft (or went live): the DRAFT card, as a phone and a laptop, with CHANGE.
+        if (p.kind === 'site' && p.steps.some((s) => s.n >= 5 && s.status === 'done')) card.append(draftCards.get(p.id) ?? draftCards.set(p.id, draftCard(p.id)).get(p.id)!);
         const actions = h('div.row.wrap');
         const link = p.link;
         if (report && link) {

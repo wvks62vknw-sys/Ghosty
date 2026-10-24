@@ -8,6 +8,10 @@
  */
 import type { Env } from './env';
 
+// NAME IT (tools/lens.ts identify_plant, the phone's features/lens/living.ts): Pl@ntNet and the checks shared with the phone, here for the tests too.
+export * from './integrations/plantnet';
+export * from '../../../packages/shared/src/living';
+
 /** How long a shared picture stays reachable (seconds). */
 export const IMAGE_TTL_S = 86_400;
 /** The largest picture accepted (the Lens sends a downscaled JPEG well under this). */
@@ -137,6 +141,14 @@ export async function imageResponse(kv: ImageKv, id: string, head = false): Prom
       'content-disposition': `inline; filename="ghosty-lens.${type.slice(6)}"`,
     },
   });
+}
+
+/** A shared picture's bytes and real type (NAME IT reads the Lens's picture by id for Pl@ntNet), or null when it is gone. */
+export async function imageBytes(kv: ImageKv, id: string): Promise<{ bytes: ArrayBuffer; type: ImageType } | null> {
+  if (!isImageId(id)) return null;
+  const bytes = await kv.get(PREFIX + id, 'arrayBuffer').catch(() => null);
+  const type = bytes ? sniffImage(bytes) : null;
+  return bytes && type ? { bytes, type } : null;
 }
 
 /** FORGET NOW: remove a shared picture before its day is up. True if there was one. */

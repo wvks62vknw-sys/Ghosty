@@ -44,7 +44,9 @@ await page.screenshot({ path: `${out}/direct-time.png` });
 
 // 3. memory, with no model: the list_memory tool runs and its raw text is the answer
 await ask('no model: what do you remember about me');
-if (!(await seen(/The raw answer:\n[^\n]*my dog is Rex/i))) problems.push('memory was not listed without a model');
+// (other specs on the same preview may have remembered things first — the Lens's SAVE, for one — so Rex is in the
+//  list, not necessarily on its first line)
+if (!(await seen(/The raw answer:\n[\s\S]{0,600}?my dog is Rex/i))) problems.push('memory was not listed without a model');
 if (!(await seen(/Recalling memory/, 5000))) problems.push('the tool that answered (list_memory, "Recalling memory") is not shown in the log');
 
 // 4. anything else: the exact time the first model is back, and the one tip

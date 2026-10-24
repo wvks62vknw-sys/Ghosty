@@ -128,3 +128,13 @@ export const schoolTools: Tool[] = [school_status, sit_exam];
  * `{ name: 'video', tools: videoTools, when: /\b(youtube|youtu\.be|videos?|transcripts?)\b/i, about: … }`.
  */
 export const videoTools: Tool[] = [summarise_video];
+
+/**
+ * Saved places (tools/places.ts: remember_place, forget_place) and spending (tools/spending.ts: spending_summary,
+ * set_budget), kept out of `extraTools` for the same budget. They go live as two keyword-gated groups in
+ * tools/index.ts (protected): `import { placesTools, spendingTools } from './extra';`, `...placesTools,
+ * ...spendingTools` in CORE, and the `places` and `spending` groups (the words are in the builder's report).
+ * Without them, "take me home" still works: plan_journey and get_directions read the saved places themselves.
+ */
+export { placesTools } from './places';
+export { spendingTools } from './spending';

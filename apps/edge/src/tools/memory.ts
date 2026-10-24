@@ -1,6 +1,7 @@
 /** Long-term memory about the owner. Facts are added to every conversation. */
 import type { MemoryFact, MemorySource } from '../../../../packages/shared/src/protocol';
 import { clearPatterns, stashFacts } from '../memories';
+import { loadPlaces } from '../places';
 import { arg, type Tool } from './types';
 
 export const MEMORY_KEY = 'memory';
@@ -84,7 +85,10 @@ export const memoryTools: Tool[] = [
     pure: true,
     async run(_a, ctx) {
       const facts = await loadMemory(ctx.storage);
-      return facts.length ? facts.map((f) => `${f.id}: ${f.text}`).join('\n') : 'Nothing remembered yet.';
+      // His saved places (places.ts) are memories too: listed with the facts.
+      const places = await loadPlaces(ctx.storage).catch(() => []);
+      const lines = [...facts.map((f) => `${f.id}: ${f.text}`), ...places.map((p) => `place ${p.label}: ${p.address}`)];
+      return lines.length ? lines.join('\n') : 'Nothing remembered yet.';
     },
   },
 ];

@@ -16,6 +16,7 @@ import { SOKO_SETS } from './sokosets';
 import { finalLine, readMoves, type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
 import { sliceMs, trainMs } from './match';
 import { SOKOBAN } from './meta';
+import { between } from './stretch';
 
 /** A puzzle: width, height, walls, goals, boxes (cell indices), the player's cell. */
 export interface Soko {
@@ -605,30 +606,57 @@ class SokoLearner implements Learner {
       const L = 1 + Math.floor(this.r() * this.level);
       const m = makePuzzle(L, this.r);
       if (!m) continue;
-      const p = m.p;
-      // Dead ends: where, in this puzzle, a box could never be pulled from a goal (worked out by playing backwards).
-      const live = liveSquares(p);
-      for (let c = 0; c < live.length; c++) {
-        if (p.wall[c]) continue;
-        const s = shapeAt(p, c);
-        if (live[c]) this.brain.live[s]!++;
-        else this.brain.dead[s]!++;
-      }
-      // The backward play is a route: its positions are at most the rest of it away from solved.
-      const dist = pushDistances(p);
-      // (Loops in the backward play — a box pulled away and back — are cut out first.)
-      const route = cutLoops(m.route);
-      const samples = route.map((bx, i) => ({ f: features(p, dist, bx, p.player), g: route.length - 1 - i }));
-      // His own search, with some room: the positions on the route he finds teach the guess too.
-      const found = search(this.brain, p, Math.min(400, budgetFor(L, m.route.length)), this.level);
-      if (found) samples.push(...found.states);
-      // They tune the guess for the level he is practising for.
-      for (let rep = 0; rep < 3; rep++) this.fit(samples, this.level);
-      this.brain.fits[lvl(this.level) - 1]!++;
+      this.practise(m, L);
     }
     this.puzzles += k;
     this.rand = (this.rand + k * 2654435761) >>> 0;
     return k;
+  }
+  /** Learn from one practice puzzle (made at level L by playing backwards): its dead ends, and the pushes really left on its route. */
+  private practise(m: { p: Soko; route: number[][] }, L: number) {
+    const p = m.p;
+    // Dead ends: where, in this puzzle, a box could never be pulled from a goal (worked out by playing backwards).
+    const live = liveSquares(p);
+    for (let c = 0; c < live.length; c++) {
+      if (p.wall[c]) continue;
+      const s = shapeAt(p, c);
+      if (live[c]) this.brain.live[s]!++;
+      else this.brain.dead[s]!++;
+    }
+    // The backward play is a route: its positions are at most the rest of it away from solved.
+    const dist = pushDistances(p);
+    // (Loops in the backward play — a box pulled away and back — are cut out first.)
+    const route = cutLoops(m.route);
+    const samples = route.map((bx, i) => ({ f: features(p, dist, bx, p.player), g: route.length - 1 - i }));
+    // His own search, with some room: the positions on the route he finds teach the guess too.
+    const found = search(this.brain, p, Math.min(400, budgetFor(L, m.route.length)), this.level);
+    if (found) samples.push(...found.states);
+    // They tune the guess for the level he is practising for.
+    for (let rep = 0; rep < 3; rep++) this.fit(samples, this.level);
+    this.brain.fits[lvl(this.level) - 1]!++;
+  }
+  /**
+   * A puzzle at his edge: made like a practice puzzle, as hard as Level `x`'s (the room and boxes of the nearest
+   * level, the backward pulls and the node budget part of the way to the next; past Level 10 they go on growing),
+   * solved exactly for its fewest pushes; his answer is what his search finds within that budget (none: no answer).
+   * Then he practises on it.
+   */
+  stretch(x: number, seed: number) {
+    const L = lvl(this.level);
+    const near = spec(Math.min(10, Math.max(1, Math.round(x))));
+    const S: LevelSpec = { w: near.w, h: near.h, boxes: near.boxes, pulls: Math.round(between(x, (l) => spec(l).pulls)), minPush: 0, budget: between(x, (l) => spec(l).budget) };
+    const r = rng(seed);
+    for (let tries = 0; tries < 4; tries++) {
+      const m = makePuzzle(L, r, S);
+      // (the exact solver with a cap: a puzzle too big to solve exactly here is passed over)
+      const o = m && optimal(m.p, 20_000);
+      if (!m || !o || !o.pushes) continue;
+      const found = search(this.brain, m.p, Math.ceil(S.budget * o.pushes), L);
+      this.practise(m, L);
+      this.puzzles++;
+      return { problem: problemOf(m.p, o, L, seed), answer: found ? spell(m.p, found.route) : '' };
+    }
+    return null;
   }
   /** A pass over the held-out puzzles under way (played a slice at a time, like the board games' matches), and the last finished one. */
   private pass: { i: number; brain: Brain; budget: number; score: number; solved: number; his: number; best: number } | null = null;
@@ -791,7 +819,11 @@ function generate(level: number, seed: number): Problem {
     const o = m && optimal(m.p, 150_000);
     if (m && o && (!best || o.pushes > best.o.pushes)) best = { p: m.p, o };
   }
-  const { p, o } = best;
+  return problemOf(best.p, best.o, L, seed);
+}
+
+/** A puzzle and its fewest pushes as a question. */
+function problemOf(p: Soko, o: { pushes: number; route: Push[] }, L: number, seed: number): Problem {
   const text = `Sokoban. Map (# wall, $ box, . goal, * box already on a goal, @ you, + you standing on a goal, rows top to bottom):\n${mapText(p)}\nYou walk up, down, left or right; walking into a box pushes it one square if the square beyond is free. Boxes cannot be pulled. Get every box onto a goal using as few pushes as you can. Answer with your moves as letters U D L R (walking included), e.g. "LLUR".`;
   return { game: 'sokoban', level: L, seed, text, data: { map: encode(p, o.pushes), opt: o.pushes, moves: spell(p, o.route) } };
 }

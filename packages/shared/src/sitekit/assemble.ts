@@ -53,6 +53,12 @@ const SCHEMA_TYPE: Record<Brief['kind'], string> = {
   event: 'Event',
   charity: 'NGO',
   saas: 'SoftwareApplication',
+  tradesperson: 'HomeAndConstructionBusiness',
+  takeaway: 'Restaurant',
+  cv: 'Person',
+  invite: 'Event',
+  club: 'Organization',
+  launch: 'Product',
 };
 const DAY_CODE = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -62,6 +68,9 @@ export function jsonLd(plan: Plan, b: Brief, image?: string): Record<string, unk
   const base: Record<string, unknown> = { '@context': 'https://schema.org', '@type': type, name: plan.name, ...(plan.url ? { url: plan.url } : {}), ...(image ? { image } : {}), ...(b.tagline || plan.pages[0]?.description ? { description: b.tagline || plan.pages[0]!.description } : {}) };
   if (type === 'Event') return { ...base, ...(b.date ? { startDate: b.date } : {}), location: { '@type': 'Place', name: b.venue || b.town || plan.name, address: [b.address, b.town, b.postcode].filter(Boolean).join(', ') } };
   if (type === 'SoftwareApplication') return { ...base, applicationCategory: 'BusinessApplication', operatingSystem: 'Web' };
+  // A person and a product have no opening hours or shop address.
+  if (type === 'Person') return { ...base, ...(b.tagline ? { jobTitle: b.tagline } : {}), ...(b.email ? { email: b.email } : {}), ...(b.town ? { address: { '@type': 'PostalAddress', addressLocality: b.town, addressCountry: 'GB' } } : {}) };
+  if (type === 'Product') return base;
   const addr = b.address || b.town || b.postcode ? { address: { '@type': 'PostalAddress', ...(b.address ? { streetAddress: b.address } : {}), ...(b.town ? { addressLocality: b.town } : {}), ...(b.postcode ? { postalCode: b.postcode } : {}), addressCountry: 'GB' } } : {};
   const geo = b.lat !== undefined && b.lon !== undefined ? { geo: { '@type': 'GeoCoordinates', latitude: b.lat, longitude: b.lon } } : {};
   const hours = (b.hours ?? []).filter((h) => !h.closed && h.days?.length && h.open && h.close).map((h) => `${h.days!.map((d) => DAY_CODE[d]).join(',')} ${to24(h.open!)}-${to24(h.close!)}`);
@@ -257,14 +266,17 @@ var box=t.closest('section,footer');var flag=box&&box.querySelector('[data-open-
 if(open===false){flag.textContent='Closed today';return}
 flag.classList.toggle('yes',open.yes);flag.textContent=open.yes?'Open now · until '+open.until:open.later?'Opens today at '+open.from:'Closed now'})})();`,
   // form: the send buttons are type=button with data-via — a published page's sandbox has no allow-forms, and there the browser
-  // drops a form submission before any submit event fires, so a submit handler alone would never run.
+  // drops a form submission before any submit event fires, so a submit handler alone would never run. A form with the owner's
+  // Formspree address (data-post) has a real submit button: its page is allowed to send there, so once filled in it submits.
   form: `(function(){var d=document;
 function wa(n){n=String(n).replace(/[^\\d+]/g,'');if(n.indexOf('00')===0)n='+'+n.slice(2);if(n.charAt(0)==='0')n='+44'+n.slice(1);return n.replace('+','')}
 [].forEach.call(d.querySelectorAll('form.ghost-form'),function(f){var note=f.querySelector('.form-note'),idle=note?note.innerHTML:'';
 var day=f.querySelector('input[type=date]');if(day){var t=new Date();day.min=t.toISOString().slice(0,10)}
-function go(viaAsked){var bad=null,lines=[];
-[].forEach.call(f.querySelectorAll('input,select,textarea'),function(el){var v=String(el.value||'').trim();var miss=el.required&&!v;var wrong=el.type==='email'&&v&&!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(v);el.setAttribute('aria-invalid',miss||wrong?'true':'false');if((miss||wrong)&&!bad)bad=el;if(v&&el.name)lines.push(el.name+': '+v)});
-if(bad){bad.focus();if(note){note.className='form-note bad';note.textContent='Please fill in '+((bad.labels&&bad.labels[0]&&bad.labels[0].textContent)||'the highlighted field').replace(/\\(optional\\)/,'').trim()+'.'}return}
+var lines=[];
+function check(){var bad=null;lines=[];
+[].forEach.call(f.querySelectorAll('input,select,textarea'),function(el){if(el.type==='hidden')return;var v=String(el.value||'').trim();var miss=el.required&&!v;var wrong=el.type==='email'&&v&&!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(v);el.setAttribute('aria-invalid',miss||wrong?'true':'false');if((miss||wrong)&&!bad)bad=el;if(v&&el.name)lines.push(el.name+': '+v)});
+if(bad){bad.focus();if(note){note.className='form-note bad';note.textContent='Please fill in '+((bad.labels&&bad.labels[0]&&bad.labels[0].textContent)||'the highlighted field').replace(/\\(optional\\)/,'').trim()+'.'}return false}return true}
+function go(viaAsked){if(!check())return;
 var via=viaAsked||(f.getAttribute('data-to-wa')?'whatsapp':'email'),subject=f.getAttribute('data-subject')||'Enquiry',text=subject+'\\n\\n'+lines.join('\\n');
 var waTo=f.getAttribute('data-to-wa'),mailTo=f.getAttribute('data-to-mail')||'',url='';if(!/^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$/.test(mailTo))mailTo='';
 if(via==='whatsapp'&&waTo)url='https://wa.me/'+wa(waTo)+'?text='+encodeURIComponent(text);
@@ -273,6 +285,6 @@ if(!url){if(note){note.className='form-note bad';note.textContent='This form can
 var a=d.createElement('a');a.href=url;a.rel='noopener';a.target=url.indexOf('mailto:')===0?'_top':'_blank';d.body.appendChild(a);a.click();a.remove();
 if(note){note.className='form-note ok';note.textContent=(url.indexOf('mailto:')===0?'Your email app should open with the message ready — press send.':'WhatsApp should open with the message ready — press send.')+(mailTo?' Nothing opened? Email '+mailTo+'.':'');setTimeout(function(){note.className='form-note';note.innerHTML=idle},20000)}}
 [].forEach.call(f.querySelectorAll('button[data-via]'),function(b){b.addEventListener('click',function(){go(b.getAttribute('data-via'))})});
-f.addEventListener('submit',function(e){e.preventDefault();go('')})})})();`,
+f.addEventListener('submit',function(e){if(f.hasAttribute('data-post')&&check()){if(note){note.className='form-note ok';note.textContent='Sending… a page opens to say it went.'}return}e.preventDefault();if(!f.hasAttribute('data-post'))go('')})})})();`,
   nav: '',
 };

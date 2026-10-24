@@ -22,6 +22,7 @@
 import { distinctivePlates, formatPlate, isPlate, normalisePlate, OFFICIAL_CHECKS, PLATE_MARK, plateFormat, redactPlates, type MileageDrop, type MotDefect, type MotTest, type VehicleAnswer, type VehicleReport } from '../../../../packages/shared/src/plates';
 import type { ChatTurn } from '../../../../packages/shared/src/protocol';
 import type { Msg } from '../llm/router';
+import { dropLensExchanges } from '../../../../packages/shared/src/living';
 
 export { PLATE_MARK, redactPlates };
 
@@ -259,7 +260,9 @@ export function forgetVehicleTurns(turns: ChatTurn[]): ChatTurn[] {
     }
     return t;
   });
-  return changed ? out : turns;
+  // The Lens's NAME IT / WHAT'S IN IT exchanges are not kept either (this is the one hook on every history save):
+  // the phone's card was the answer and only its SAVE keeps anything (packages/shared/src/living.ts).
+  return dropLensExchanges(changed ? out : turns, (t) => t.role === 'user', (t) => t.text);
 }
 
 // ---------- the lookups ----------

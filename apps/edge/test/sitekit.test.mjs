@@ -15,7 +15,7 @@ export { BEHAVIOURS } from '../../packages/shared/src/sitekit/assemble.ts';
 export * as SB from './src/sitebuild.ts';
 export * as PJ from './src/projects.ts';
 export { checkHtml } from './src/tools/check.ts';
-export { siteTools, siteStore, PAGE_CSP, siteResponse, previewTags } from './src/tools/sites.ts';
+export { siteTools, siteStore, PAGE_CSP, siteResponse, previewTags, pagePolicy, prepareSite, siteFrameResponse } from './src/tools/sites.ts';
 export { siteMessage } from '../web/src/offline/sitework.ts';
 export { neurons, cost, FREE_NEURONS } from './src/neurons.ts';`,
     resolveDir: at('..'),
@@ -811,7 +811,8 @@ test('review 13: each step may wait for a model once (a wait in the plan does no
   const job = await SB.loadSiteJob(ctx, p0.id);
   assert.deepEqual(job.waited, { plan: 1, words: 1 });
   assert.equal(job.wrote, job.plan.pages.length, 'every page written');
-  assert.equal(seen.words, job.plan.pages.length + 1, 'page 1 was not asked twice after the wait');
+  // (pages are asked a few at a time: after the wait, at most the one asked beside the failed page is asked again)
+  assert.ok(seen.words <= job.plan.pages.length + 2, `${seen.words} writer calls for ${job.plan.pages.length} pages`);
   assert.ok(!job.plain.includes('words'), 'the writer was not skipped');
 });
 
@@ -874,4 +875,213 @@ test('review 17: the map sends no referrer and only the embed may be framed; "op
   const tag = K.img({ src: 'https://x.example/a.jpg', alt: 'A', width: '100" onerror="alert(1)', height: 50 });
   assert.ok(!/onerror/.test(tag), tag);
   assert.match(K.img({ src: 'https://x.example/a.jpg', alt: 'A', width: 800, height: 600 }), / width="800" height="600"/);
+});
+
+// ── the lift (BRIEF-WEBSITES-LIFT) ──────────────────────────────────────────────────
+
+/** The six kinds the owner asks for, each from the words he would use. */
+const LIFT = {
+  tradesperson: "build a website for me, I'm a handyman in Kidderminster called Dan Fixes It, 07700 900123",
+  takeaway: 'build a website for my pizza takeaway in Oldbury called Napoli Nights, 0121 000 7777',
+  cv: 'make me a cv website for Priya Shah, priya@shah.example',
+  invite: 'build a website for our wedding day called Sam & Alex, Saturday 12th September 2026 in Ludlow',
+  club: 'build a website for our running club in Stourbridge called Stourbridge Striders, 07700 900888',
+  launch: 'make a launch page for my new product called Brewbox, pre-orders open soon',
+};
+
+test('the lift: six new kinds — a tradesperson, a takeaway with its menu, a CV, an occasion with directions, a club, a launch — read from plain words and pass every gate', () => {
+  for (const [kind, request] of Object.entries(LIFT)) {
+    const brief = K.briefFrom(request);
+    assert.equal(brief.kind, kind, `"${request}" reads as ${brief.kind}`);
+    const { plan, brief: b } = K.planFrom(brief, { url: `https://ghosty.example/s/${kind}` });
+    assert.ok(plan.pages.length >= 3, `${kind}: ${plan.pages.length} pages`);
+    const a = K.assemble(plan, b);
+    assert.deepEqual(a.dropped, [], `${kind}: nothing dropped`);
+    assert.deepEqual(K.checkHtml(a.html).errors, [], `${kind} publish check`);
+    const g = K.runGates(a.html, plan, b, brief);
+    assert.deepEqual(g.findings.filter((f) => f.level === 'error').map((f) => f.text), [], `${kind} gates`);
+    assert.ok(g.score >= 90, `${kind} score ${g.score}: ${g.findings.map((f) => f.text).join(' | ')}`);
+    assert.doesNotMatch(a.html.replace(/<script[\s\S]*?<\/script>/g, ''), /insur|guarantee|registered|award|rated|refund|\+24%|6\.5 h/i, `${kind}: no claim or made-up number`);
+    for (const confirm of plan.confirm) assert.ok(confirm.length > 8, `${kind}: ${confirm}`);
+  }
+  // What makes each one what it is.
+  const site = (k, extra = {}) => {
+    const { plan, brief } = K.planFrom({ ...K.briefFrom(LIFT[k]), ...extra });
+    return { plan, html: K.assemble(plan, brief).html };
+  };
+  const take = site('takeaway');
+  assert.equal(take.plan.pages[0].sections[1].block, 'menu', 'the takeaway\'s menu is on its front page');
+  assert.match(take.html, /Margherita/);
+  assert.ok(take.plan.confirm.some((c) => /sample menu/.test(c)), 'a sample menu is listed to confirm');
+  const own = site('takeaway', { services: [{ name: 'Nonna’s special', price: '£13', group: 'Pizzas' }] });
+  assert.match(own.html, /Nonna’s special/);
+  assert.doesNotMatch(own.html, /Margherita/, 'the owner\'s own menu replaces the sample');
+  const inv = site('invite');
+  assert.match(inv.html, /Saturday 12 September 2026/);
+  assert.match(inv.html, /href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=[^"]*Ludlow/, 'a directions link');
+  assert.ok(inv.plan.pages.some((p) => p.slug === 'rsvp'), 'an RSVP page');
+  const cv = site('cv');
+  assert.match(cv.html, /<h1>Priya Shah<\/h1>/);
+  assert.doesNotMatch(cv.html, /class="b-timeline/, 'no jobs on a CV until the owner gives them');
+  const cv2 = site('cv', { experience: [{ when: '2021–now', title: 'Sous chef, The Larder' }] });
+  assert.match(cv2.html, /Sous chef, The Larder/);
+  assert.ok(cv2.plan.pages.some((p) => p.slug === 'experience'));
+  const launch = site('launch');
+  assert.match(launch.html, /class="launchcard"/, 'a launch card, not a made-up app dashboard');
+  assert.doesNotMatch(launch.html, /This week|Saved|<svg class="chart"/);
+  const club = site('club');
+  assert.ok(club.plan.confirm.some((c) => /when and where you meet/.test(c)), 'meeting times are never made up');
+  assert.doesNotMatch(club.html, /class="b-hours/, 'no sessions shown until the owner gives them');
+  const solo = site('tradesperson');
+  assert.match(solo.html, /I’m a local handyman in Kidderminster/);
+  assert.match(solo.html, /href="https:\/\/wa\.me\/447700900123"/, 'a mobile number becomes a WhatsApp link');
+});
+
+test('the lift: a first screen without a photo shows the real details; the footer\'s details are each a tap away; a phone gets a call bar', () => {
+  const { plan, brief } = K.planFrom(K.briefFrom('build a website for our charity in Walsall called Walsall Food Share, 01922 000555'));
+  const html = K.assemble(plan, brief).html;
+  assert.match(html, /class="sec b-hero-centered bare"/);
+  assert.match(html, /<ul class="inline"><li>[\s\S]*Walsall[\s\S]*tel:\+441922000555/);
+  assert.doesNotMatch(html, /<p class="blurb">Walsall Food Share in Walsall\.<\/p>/, 'the footer line never just repeats the name');
+  assert.match(html, /<div class="callbar no-print"><a href="tel:\+441922000555"/);
+  const cv = K.planFrom(K.briefFrom(LIFT.cv));
+  const cvHtml = K.assemble(cv.plan, cv.brief).html;
+  assert.match(cvHtml, /<div class="art plain"><ul class="facts">[\s\S]*mailto:priya@shah\.example/);
+  assert.doesNotMatch(cvHtml, /class="callbar/, 'no call bar without a phone');
+  assert.match(K.themeCss(plan.theme), /@media \(max-width:479px\)\{section\[class\*="b-hero"\] \.btns \.btn/, 'hero buttons fill a narrow phone');
+  assert.equal(K.themeCss(plan.theme), K.themeCss({ ...plan.theme }), 'the same look is worked out once');
+  assert.deepEqual(K.contrastProblems({ palette: 'paprika', fonts: 'condensed', shape: 'soft', scheme: 'auto' }), []);
+});
+
+test('the lift: a real form only to the owner\'s Formspree address — the policy lets exactly that origin in, a wrong address is refused', () => {
+  const ok = 'https://formspree.io/f/xyzABC12';
+  assert.deepEqual(K.formTarget(ok), { action: ok, origin: 'https://formspree.io', service: 'Formspree' });
+  for (const bad of ['https://evil.example/f/xyzABC12', 'http://formspree.io/f/xyzABC12', 'https://formspree.io.evil.example/f/xyzABC12', 'https://formspree.io/f/xyzABC12?next=https://evil.example', 'https://formspree.io/f/../x', 'https://formspree.io/forms/xyz', '6f2b1c3a-1111-2222-3333-444455556666', '', null, 42]) assert.equal(K.formTarget(bad), null, String(bad));
+  // The page's policy: identical but for the sandbox's allow-forms and form-action, and only for the exact origin.
+  assert.equal(K.pagePolicy(undefined), K.PAGE_CSP);
+  assert.equal(K.pagePolicy({}), K.PAGE_CSP);
+  assert.equal(K.pagePolicy({ formAction: 'https://evil.example/f/xyzABC12' }), K.PAGE_CSP, 'a wrong address gets the locked policy');
+  const open = K.pagePolicy({ formAction: ok });
+  assert.match(open, /; form-action https:\/\/formspree\.io;/);
+  assert.match(open, /^sandbox [^;]* allow-forms;/);
+  assert.equal(open.replace(' allow-forms', '').replace('form-action https://formspree.io', "form-action 'none'"), K.PAGE_CSP, 'nothing else changes');
+  assert.match(K.PAGE_CSP, /form-action 'none'/);
+  assert.doesNotMatch(K.PAGE_CSP, /allow-forms/);
+  // The frame around it follows the same rule.
+  const outer = (site) => K.siteResponse(site).text();
+  return Promise.all([outer({ name: 'a', title: 'A', html: '<html><body>x</body></html>', source: '', at: 1, formAction: ok }), outer({ name: 'b', title: 'B', html: '<html><body>x</body></html>', source: '', at: 1 }), outer({ name: 'c', title: 'C', html: '<html><body>x</body></html>', source: '', at: 1, formAction: 'https://evil.example/f/xyzABC12' })]).then(([a, b, c]) => {
+    assert.match(a, /sandbox="[^"]*allow-forms"/);
+    assert.doesNotMatch(b, /allow-forms/);
+    assert.doesNotMatch(c, /allow-forms/);
+    const r = K.siteFrameResponse({ name: 'a', title: 'A', html: '<html><body>x</body></html>', source: '', at: 1, formAction: ok }, 'iframe');
+    assert.equal(r.headers.get('content-security-policy'), open);
+  });
+});
+
+test('the lift: with a Formspree address the forms really POST there (no script needed); the publish check keeps that one target and strips any other', () => {
+  const ok = 'https://formspree.io/f/xyzABC12';
+  const brief = K.briefFrom(`build a website for my barber shop in Walsall called Fade & Co, 07700 900461, our form is ${ok}`);
+  assert.equal(brief.formEndpoint, ok, 'the address is read from the words');
+  const { plan, brief: b } = K.planFrom(brief);
+  const html = K.assemble(plan, b).html;
+  assert.match(html, /<form class="ghost-form" data-kind="booking" data-post method="post" action="https:\/\/formspree\.io\/f\/xyzABC12" target="_blank"/);
+  assert.match(html, /<button class="btn btn-primary" type="submit">/);
+  assert.match(html, /through Formspree, a free form service/);
+  assert.deepEqual(K.runGates(html, plan, b).findings.filter((f) => f.level === 'error'), []);
+  // Published: kept for exactly that address; any other target on the page is removed; the check agrees.
+  const evil = html.replace('</body>', '<form action="https://evil.example/steal"><input name="x" aria-label="x"></form></body>');
+  const kept = K.prepareSite(evil, '', { formAction: ok }).html;
+  assert.match(kept, /action="https:\/\/formspree\.io\/f\/xyzABC12"/);
+  assert.doesNotMatch(kept, /evil\.example/);
+  assert.deepEqual(K.checkHtml(kept, { formAction: ok }).errors, []);
+  assert.ok(K.checkHtml(kept).errors.some((e) => /form action/.test(e)), 'without the owner\'s address the check still refuses a form target');
+  assert.doesNotMatch(K.prepareSite(html, '').html, /formspree\.io\/f/, 'a page published without the address keeps no target');
+  // Without an address: the WhatsApp / email forms, as before.
+  const { plan: p2, brief: b2 } = K.planFrom(K.briefFrom('build a website for my barber shop in Walsall called Fade & Co, 07700 900461'));
+  const plain = K.assemble(p2, b2).html.replace(/<script[\s\S]*?<\/script>/g, '');
+  assert.doesNotMatch(plain, /data-post|method="post"|type="submit"/);
+  // The page script lets a filled-in form go and stops an empty one.
+  assert.match(K.BEHAVIOURS.form, /f\.hasAttribute\('data-post'\)&&check\(\)/);
+  assert.doesNotThrow(() => new Function(K.BEHAVIOURS.form));
+});
+
+test('the lift: faster builds — side-by-side picture searches, pages written a few at a time, short gaps, and the stopwatch in the report', async () => {
+  assert.ok(SB.SITE_STEP_MS <= 3000, `steps ${SB.SITE_STEP_MS} ms apart`);
+  const real = globalThis.fetch;
+  let open = 0;
+  let most = 0;
+  globalThis.fetch = async () => {
+    open++;
+    most = Math.max(most, open);
+    await new Promise((r) => setTimeout(r, 120));
+    open--;
+    return new Response(JSON.stringify({ results: [] }), { headers: { 'content-type': 'application/json' } });
+  };
+  try {
+    const t = Date.now();
+    await SB.findPictures('clinic', 9);
+    assert.ok(most >= 6, `${most} searches at once`);
+    assert.ok(Date.now() - t < 700, `${Date.now() - t} ms for six searches of 120 ms`);
+  } finally {
+    globalThis.fetch = real;
+  }
+  const st = new MemStorage();
+  let live = 0;
+  let peak = 0;
+  const d = deps(st, async (messages) => {
+    const sys = messages[0].content;
+    live++;
+    peak = Math.max(peak, live);
+    await new Promise((r) => setTimeout(r, 40));
+    live--;
+    if (/^SITE PLANNER/.test(sys)) return { message: { role: 'assistant', content: '{"drop":[]}' } };
+    if (/^SITE WRITER/.test(sys)) return { message: { role: 'assistant', content: '{}' } };
+    return { message: { role: 'assistant', content: '{"verdict":"Fine.","fixes":[]}' } };
+  });
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: 'a website for a cafe in Bilston called Little Fern' }, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  const p = await runAll(d, p0.id);
+  assert.equal(p.status, 'done', p.note);
+  assert.ok(peak >= 2, `the writer asked ${peak} at once`);
+  const job = await SB.loadSiteJob(ctx, p0.id);
+  assert.deepEqual(Object.keys(job.timings).sort(), ['1', '2', '3', '4', '5', '6']);
+  assert.ok(Object.values(job.timings).every((ms) => Number.isFinite(ms) && ms >= 0));
+  assert.match(p.steps[5].result, /Built in \d+\.\d s of work \(pictures [\d.]+ s, plan [\d.]+ s, words [\d.]+ s, checks [\d.]+ s, publish and look [\d.]+ s, polish [\d.]+ s\)/);
+  // The same plan is not assembled and checked again when nothing changed.
+  const a1 = SB.buildAndCheck(job.plan, job.brief, job.facts);
+  const a2 = SB.buildAndCheck(job.plan, job.brief, job.facts);
+  assert.equal(a1.a.html, a2.a.html);
+  assert.equal(SB.buildKey(job.plan, job.brief, job.facts), SB.buildKey(structuredClone(job.plan), job.brief, job.facts));
+});
+
+test('the lift: the DRAFT card — the draft to show, CHANGE in words folds the facts in (still a draft), PUBLISH words find it', async () => {
+  const st = new MemStorage();
+  const d = deps(st, async () => { throw new Error('model not available'); });
+  const ctx = { env: d.env, storage: st, origin: 'https://ghosty.example' };
+  await SB.startSiteBuild({ request: 'build a website for our running club in Stourbridge called Stourbridge Striders, 07700 900888' }, ctx);
+  const [p0] = await PJ.listProjects(ctx);
+  await runAll(d, p0.id);
+  const r = await PJ.projectsRoute(new Request('https://x/projects'), `/projects/${p0.id}/draft`, 'GET', d);
+  const { draft } = await r.json();
+  assert.equal(draft.live, false);
+  assert.match(draft.html, /<h1>/);
+  assert.ok(draft.confirm.some((c) => /when and where you meet/.test(c)));
+  assert.match(draft.publish, /^Publish my draft website at https:\/\/ghosty\.example\/s\/stourbridge-striders — those are right, publish it$/);
+  // CHANGE: the hours said in words become the sessions; the list no longer asks for them; nothing goes public.
+  const c = await PJ.projectsRoute(new Request('https://x', { method: 'POST', body: JSON.stringify({ words: 'we meet Tue 7pm-9pm, Thu 7pm-9pm' }) }), `/projects/${p0.id}/change`, 'POST', d);
+  const changed = await c.json();
+  assert.match(changed.said, /^Changed: opening hours\./);
+  assert.match(changed.draft.html, /class="sec b-hours/);
+  assert.ok(!changed.draft.confirm.some((c2) => /when and where you meet/.test(c2)), changed.draft.confirm.join('; '));
+  assert.equal(await K.siteStore(undefined, st).get('stourbridge-striders'), undefined, 'still not public');
+  // Words it cannot read for sure are kept with the owner's notes and said back, never guessed into the page.
+  const u = await SB.changeDraft(ctx, p0.id, 'make it feel more friendly');
+  assert.match(u.said, /kept it with your notes: "make it feel more friendly"/);
+  assert.match((await SB.loadSiteJob(ctx, p0.id)).facts.extras, /make it feel more friendly/);
+  assert.deepEqual(SB.changeFacts({ kind: 'club', name: 'X', request: '' }, 'name: Stourbridge Striders RC, email hello@striders.example').changed, ['email', 'name']);
+  // PUBLISH: the card's words (with the link) reach the waiting draft; the approval names the list.
+  const tool = K.siteTools.find((t) => t.name === 'build_website');
+  const ap = await tool.approval({ request: draft.publish.toLowerCase(), link_name: 'stourbridge-striders', confirm: true }, ctx);
+  assert.match(ap.reason, /^Publish the website .* at https:\/\/ghosty\.example\/s\/stourbridge-striders\? You are confirming what I assumed/);
 });

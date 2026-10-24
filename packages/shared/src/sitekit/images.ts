@@ -24,6 +24,12 @@ export const KIND_QUERIES: Record<KindId, string[]> = {
   event: ['concert crowd lights', 'festival stage', 'people dancing party'],
   charity: ['volunteers community', 'community garden volunteers', 'food bank volunteers'],
   saas: ['laptop on desk', 'team working office', 'person using laptop'],
+  tradesperson: ['handyman tools', 'carpenter at work', 'drill workbench'],
+  takeaway: ['pizza oven', 'fish and chips', 'curry dish'],
+  cv: ['desk notebook', 'office workspace', 'coffee laptop desk'],
+  invite: ['garden party table', 'celebration table flowers', 'string lights party'],
+  club: ['community sports club', 'people playing chess', 'choir singing'],
+  launch: ['product on table', 'gift box', 'minimal product photography'],
 };
 
 const OK_LICENSE = /^(cc0|pdm|by|by-sa)$/i;
