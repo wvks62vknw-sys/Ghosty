@@ -231,12 +231,13 @@ const toastSeen = new Map<string, number>();
  * lines (styles.css, fixes A2); a longer one can be tapped to read all of it (`full`: the whole text when
  * `msg` is already shortened, `title` for the sheet). They sit above the tab bar and the chat bar.
  */
-export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = '', opts: { title?: string; full?: string } = {}): void {
+/** `again`: shown even when the same words were shown a moment ago (a reminder or a notification must never be swallowed as a repeat). */
+export function toast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = '', opts: { title?: string; full?: string; again?: boolean } = {}): void {
   // The paused database has one quiet tag in the top bar; no pop-ups about it.
   if (/memory paused until|free daily allowance/i.test(msg)) return;
   const now = Date.now();
   for (const [m, at] of toastSeen) if (now - at >= 60_000) toastSeen.delete(m);
-  if (toastSeen.has(msg)) return;
+  if (toastSeen.has(msg) && !opts.again) return;
   toastSeen.set(msg, now);
   if (!toastBox) {
     toastBox = h('div#toasts', { role: 'status', 'aria-live': 'polite' });
