@@ -155,6 +155,11 @@ folder that no longer exists; ignore those paths).
   the websites, sites, studiomake, places, spending, journey, agenda, memory, photo, name, backup, direct, THINK HARDER and
   meaning specs clean against a fresh preview; the GYM and night specs earlier on the same code. Run 224 (the previous
   head) failed name, direct, backup and meaning: all mended in the specs (above). CI's smoke loop now has 60 specs.
+- 24 Oct ~16:30 UK: the UPGRADE PASS (BRIEF-UPGRADE-PASS.md) started with God's Eye (worktree `godseye`, port 8886). Order
+  for the rest, one or two at a time as the machine allows (4 cores): Threats, Lens, Telegram, voice, Brief, Markets,
+  Radio, Reverse; then Memory, Agenda, Workshop, System, Settings and Library once the undo and bigger-brain builders
+  are merged (they are in those files now). Each builder gets its own scratch folder (`scratchpad/<name>/`): two
+  builders overwrote each other's files in the shared one today.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
