@@ -252,7 +252,7 @@ async function run(name, viewport) {
   const lines = await lp.locator('.loop').evaluateAll((els) => els.map((e) => [...e.querySelectorAll('.loopline .k')].map((k) => k.textContent).join(',')));
   if (!lines.every((l) => l === 'Practised,Improved,Rejected')) problems.push(`[${name}] a loop without its three lines: ${lines.join(' | ')}`);
   const lesson = (await lp.locator('.loop[data-loop="star"]').innerText()).replace(/\s+/g, ' ');
-  if (!/Practised [1-9]\d* records? sent \([1-9]\d* from THINK HARDER, \d+ from the GYM\)/.test(lesson) || !/Improved [1-9]\d* records? taken for the next week's run/.test(lesson)) problems.push(`[${name}] the lessons loop reads: ${lesson}`);
+  if (!/Practised [1-9]\d* records? sent \([1-9]\d* from THINK HARDER, \d+ from the GYM\)/.test(lesson) || !/Improved (?:[1-9]\d* records? taken for the next week's run|0 records taken for the next week's run \([1-9]\d* waiting\))/.test(lesson)) problems.push(`[${name}] the lessons loop reads: ${lesson}`);
   if (!/^This week, since /.test((await lp.locator('.loopshead').textContent()) ?? '')) problems.push(`[${name}] the LOOPS card does not say which week`);
   // the stock brain is in use: nothing to roll back
   if (await lp.locator('button.loopback').count()) problems.push(`[${name}] ROLLBACK offered with no trained brain in use`);

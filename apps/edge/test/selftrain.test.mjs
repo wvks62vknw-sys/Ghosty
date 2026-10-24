@@ -1512,6 +1512,8 @@ test('the notebook config: a weekly run trains on the brain in use; the monthly 
   assert.deepEqual(st.models.map((m) => m.week), [3]);
   assert.ok(d.notes.some((n) => /^This month's retrain from scratch did not beat the current brain/.test(n.text)));
 
+});
+
 // ---- GYM ideas: checked work from the phone as training records (part 3), the brain's loops for the LOOPS card (part 4)
 
 const starRec = (q, extra = {}) => ({ kind: 'star', messages: [{ role: 'user', content: q }, { role: 'assistant', content: '17 × 23 = 391\nANSWER: 391' }], checked: 'a calculator', from: 'think harder', ...extra });
