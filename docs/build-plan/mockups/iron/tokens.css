@@ -1,0 +1,35 @@
+/* The app's own tokens, copied from apps/web/styles.css so a pick becomes CSS on the same names.
+   :root block = styles.css lines 9-16 (the theme: Reactor, the default; state/theme.ts writes these on <html>).
+   html block  = styles.css lines 2297-2313 (route C's layer).
+   Graphite = state/theme.ts THEMES.graphite. Nothing here is new; the directions add their own layer on top. */
+:root {
+  --c: #64d2ff; --cr: 100,210,255; --c2: #bff0ff;
+  --halo1: rgba(100,210,255,.17); --halo2: rgba(100,210,255,.06); --room: rgba(100,210,255,.09); --room2: rgba(100,210,255,.16);
+  --a: #ffb340; --ar: 255,179,64; --r: #ff6961;
+  --bg: #050607; --bgr: 5,6,7;
+  --ok: #30d158;
+  color-scheme: dark;
+}
+:root[data-theme="graphite"] { --c: #9db7cc; --cr: 157,183,204; --c2: #dbe6ef; }
+html {
+  /* On the iPhone these are SF Pro (-apple-system); Inter stands in for it in the mock-ups (../../fonts.css). */
+  --sf: 'Inter Mock', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --sfd: 'Inter Mock', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+  /* An instrument face: SF Mono on the iPhone (ui-monospace); Inter with tabular, slashed-zero figures here. */
+  --mono: ui-monospace, 'SF Mono', 'Inter Mock', monospace;
+  --ink: #f4f6f8; --ink2: rgba(235,240,245,.64); --ink3: rgba(235,240,245,.4); --ink4: rgba(235,240,245,.2);
+  --hair: rgba(255,255,255,.08); --hair2: rgba(255,255,255,.13);
+  --amber: #ffb340; --amberr: 255,179,64;
+  --rcglass: linear-gradient(180deg, rgba(255,255,255,.072), rgba(255,255,255,.034));
+  --rcshadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 40px rgba(0,0,0,.42);
+  --rcpill: rgba(30,33,37,.58);
+  --fg: var(--ink); --l2: var(--ink2); --l3: var(--ink3); --mute: var(--ink2);
+  --line: var(--hair); --line2: rgba(255,255,255,.06);
+  --thin: rgba(255,255,255,.06); --thin2: rgba(255,255,255,.11);
+  --regular: rgba(24,26,29,.62); --thick: rgba(30,33,37,.62);
+  --edge: inset 0 0 0 1px var(--hair), inset 0 1px 0 rgba(255,255,255,.055);
+  --lift: 0 18px 40px rgba(0,0,0,.42);
+  --card: 20px; --rad: 12px;
+  --spring: cubic-bezier(.32,.72,0,1); --rcsp: .35s;
+  --t1: 700 34px/41px var(--sfd); --t2: 600 17px/22px var(--sf); --t3: 400 17px/24px var(--sf); --t4: 400 15px/20px var(--sf); --t5: 400 13px/18px var(--sf);
+}
