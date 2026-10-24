@@ -385,3 +385,10 @@ test('read aloud: a price, a time, a decimal and "e.g." are never split; list ma
   // links and code are not read out
   assert.equal(SP.clean('See https://example.org/x for it.\n```js\nlet a = 1;\n```\nDone'), 'See link for it. Done');
 });
+
+test('read aloud: a cited answer is said without its [n] markers, its SOURCES list or its check line', () => {
+  const cited = 'The Thames is 215 miles long [1], the longest river wholly in England [2].\n\nSOURCES\n[1] River Thames - Wikipedia https://en.wikipedia.org/wiki/River_Thames\n[2] Rivers of England https://example.org/rivers\n\n✓ 2 of 2 claims found in the sources';
+  assert.deepEqual(said(cited), ['The Thames is 215 miles long, the longest river wholly in England.']);
+  // an ordinary reply that happens to mention sources is left alone
+  assert.deepEqual(said('Two sources agree on it.'), ['Two sources agree on it.']);
+});

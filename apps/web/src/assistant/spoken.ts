@@ -6,12 +6,17 @@
  * "one" … pause … "forty-two".
  */
 
+import { looksCited, spokenOf } from '../cited/text';
+
 /** Short forms that end in a full stop but never end a sentence. */
 const SHORT = /(?:^|\s)(?:e\.g|i\.e|etc|vs|approx|Mr|Mrs|Ms|Dr|St|Prof|No|Nos|Fig|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|[A-Z])\.$/;
 
-/** What the voice reads: no code, links, markdown or list markers; a line break becomes a full stop. */
-export function clean(t: string): string {
-  return t
+/**
+ * What the voice reads: no code, links, markdown or list markers; a line break becomes a full stop. A
+ * cited answer is read without its [n] markers, SOURCES list and check line (whoever asks: a reply, LISTEN).
+ */
+export function clean(text: string): string {
+  return (looksCited(text) ? spokenOf(text) : text)
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/https?:\/\/\S+/g, 'link')
     // A list item's marker ("- ", "• ", "1. ", "2) ") at the start of a line is not said.
