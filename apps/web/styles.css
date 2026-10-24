@@ -2731,7 +2731,7 @@ html[data-look="pro"] .hud.core #cbar:has(#cin:not(:placeholder-shown)) .logbtn 
   html[data-look="pro"] body.tabbar .hud.core { padding-bottom: calc(64px + 20px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))); }
 }
 @media (min-width: 900px) {
-  html[data-look="pro"] .hud.core > .ccenter > :is(.rcwx, .rcbelow, #suggest, #cbar, #ccap, .rcbottom) { width: 100%; max-width: 440px; align-self: center; }
+  html[data-look="pro"] .hud.core > .ccenter > :is(.rcwx, .rcbelow, #suggest, #cbar, #ccap) { width: 100%; max-width: 440px; align-self: center; }
 }
 
 @media (max-width: 409px) { html[data-look="pro"] .rcgrow { gap: 10px; } html[data-look="pro"] .rcgrow .rcsegr { width: 50px !important; height: 50px !important; } html[data-look="pro"] .rcgrow .rcsegr svg { width: 50px; height: 50px; } html[data-look="pro"] .rcof b { font-size: 14px; } html[data-look="pro"] .rcsegr b { font-size: 19px; } }
@@ -2748,7 +2748,7 @@ html[data-look="pro"] body.ownback #top .navtitle { order: 1; flex: 1 1 0; margi
 html[data-look="pro"] body.ownback #top .you { order: 2; margin-left: 0; }
 html[data-look="pro"] body.tabbar .hud.core.logopen { padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px)); }
 html[data-look="pro"] .hud.core.logopen > .ccenter { pointer-events: none; overflow: visible; padding: 0 12px; }
-html[data-look="pro"] .hud.core.logopen > .ccenter > :not(#cbar, .rcbottom) { display: none !important; }
+html[data-look="pro"] .hud.core.logopen > .ccenter > :not(#cbar) { display: none !important; }
 html[data-look="pro"] .hud.core.logopen .cside.l { inset: 0 0 calc(76px + max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px))) 0; padding: 0; }
 html[data-look="pro"] .hud.core .convo .bd { padding: 0 20px; }
 html[data-look="pro"] .hud.core .convo .log { gap: 0; padding: 8px 0 18px; }
@@ -3958,13 +3958,5 @@ html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
 }
 /* end route C part 2 */
 
-/* ---------- the bottom block of Home: the quick chips and the ask bar stay together, always in reach ---------- */
-/* (the classic looks keep their layout: the block is only a grouping there) */
-.rcbottom { display: contents; }
-html[data-look="pro"] .hud.core .rcbottom { display: flex; flex-direction: column; position: sticky; bottom: 0; z-index: 6; margin-top: auto; padding-top: 6px; background: linear-gradient(to bottom, rgba(var(--bgr), 0), rgb(var(--bgr)) 26px); }
-html[data-look="pro"] .hud.core .rcbottom #suggest { margin: 0; }
-html[data-look="pro"] .hud.core .rcbottom #cbar { position: static; }
-/* (what scrolls into view stops above the block, so a button near the end of the column is never left under it) */
-html[data-look="pro"] .hud.core > .ccenter { scroll-padding-bottom: 132px; }
-/* while a reply shows, its own actions ("Continue in chat") take the chips' place, as the calm looks always meant */
+/* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */
 html[data-look="pro"] .hud.core .ccenter.replying #suggest { display: none !important; }

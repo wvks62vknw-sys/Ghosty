@@ -136,7 +136,11 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   if (chips.join('|') !== 'Brief me|What’s on today|God’s eye') problems.push(`[${W}] the quick chips are ${chips.join(', ')}`);
   for (const s of await sideways(page, '#pg-core *')) problems.push(`[${W} home] sticks out sideways: ${s}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} home] the page scrolls sideways`);
+  // (on a shorter phone the column scrolls and the chips sit under the sticky ask bar until scrolled to: measure them where they are tapped)
+  await page.evaluate(() => document.querySelector('.hud.core > .ccenter')?.scrollTo(0, 1e6));
+  await page.waitForTimeout(300);
   for (const t of await target44(page, '#suggest > button, #dock .tabcap button, #top .cmd, #top .you, #cbar #mic, #cbar .logbtn')) problems.push(`[${W} home] under a 44 pt target: ${t}`);
+  await page.evaluate(() => document.querySelector('.hud.core > .ccenter')?.scrollTo(0, 0));
   // the breathing glow
   const breath = await page.$eval('.rcglow', (e) => getComputedStyle(e).animationName);
   if (breath !== 'rcbreath') problems.push(`[${W}] the glow behind the reactor does not breathe (${breath})`);
