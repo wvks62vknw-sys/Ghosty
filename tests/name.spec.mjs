@@ -86,7 +86,9 @@ else if (!(top.p > 0.3)) problems.push(`"lemon" is only ${Math.round(top.p * 100
 if ((named?.names?.length ?? 0) !== 5) problems.push(`NAME shows ${named?.names?.length} names, not 5`);
 const shown = await page.locator('#pg-lens .lensnames button').count();
 if (shown !== 5) problems.push(`${shown} name buttons on screen, not 5`);
-const lookMs = Number((named?.status ?? '').match(/(\d+) ms a look/)?.[1] ?? NaN);
+const lookMs = await page.evaluate(() => window.__ghosty?.lens?.lookMs ?? NaN);
+// the status says what NAME is doing in words; the look's time is kept in the state, not shown (it said "466 ms a look")
+if (!/named|naming/.test(named?.status ?? '') || /ms a look/.test(named?.status ?? '')) problems.push(`NAME's status is "${named?.status}"`);
 await page.screenshot({ path: `${out}/name-photo.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot: ${e.message.split('\n')[0]}`));
 
 // ---- MORE NAMES: the extended bank (28,223 more names) loads and the photo is named again from both ----
@@ -137,7 +139,8 @@ await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open: ${JSON.stringify(await lens())}`);
 await page.evaluate(() => (window.__ghosty.lens.names = []));
 await page.locator('#pg-lens .lensmodes button', { hasText: 'NAME' }).click();
-await until(() => (window.__ghosty?.lens?.names?.length ?? 0) === 5 && /ms a look/.test(window.__ghosty?.lens?.status ?? ''), 180000, `the live picture was never named: ${JSON.stringify(await lens())}`);
+await page.evaluate(() => (window.__ghosty.lens.lookMs = 0));
+await until(() => (window.__ghosty?.lens?.names?.length ?? 0) === 5 && window.__ghosty?.lens?.lookMs > 0, 180000, `the live picture was never named: ${JSON.stringify(await lens())}`);
 // a tap on the viewfinder names just that part
 // (the NAME tile sits low on a phone: bring the viewfinder back into view first, as a thumb would)
 await page.locator('#pg-lens .lensview').evaluate((v) => v.scrollIntoView({ block: 'center' }));

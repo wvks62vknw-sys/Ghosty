@@ -55,6 +55,8 @@ export interface LensState {
   scene: Category[];
   /** NAME's closest names for the picture (share 0–1), best first. */
   names: NameGuess[];
+  /** How long NAME's last look took, in ms (kept off the status line, which says what it is doing in words). */
+  lookMs?: number;
   counts: string;
   selected: number;
   ocrText: string;

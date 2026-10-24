@@ -9,7 +9,7 @@ import { clear, h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
 import { countLine, cropRect, fromClassifier, fromMediaPipe, hitBox, iou, pct, sceneLine, type Category, type Detection } from '../../vision/boxes';
 import { cropCanvas } from '../../vision/camera';
-import { FrameBudget, fpsText } from '../../vision/frame';
+import { FrameBudget } from '../../vision/frame';
 import { classifier, detector, nextStamp, type ImageClassifierLike, type ObjectDetectorLike } from '../../vision/models';
 import type { LensContext, Mode } from './index';
 
@@ -115,7 +115,7 @@ export function createSeeMode(L: LensContext): Mode {
         if (v !== visit) return;
         det = d;
         cls = c;
-        if (S.mode === 'see') L.status(S.camera === 'on' ? 'looking…' : 'models ready · START the camera', 'ok');
+        if (S.mode === 'see') L.status(S.camera === 'on' ? 'looking…' : 'ready · START the camera', 'ok');
       } catch (e) {
         if (v !== visit) return;
         loading = null;
@@ -192,7 +192,8 @@ export function createSeeMode(L: LensContext): Mode {
         S.fps = budget.rate(now);
         if (now - lastStatus > 500) {
           lastStatus = now;
-          L.status(`${fpsText(S.fps)} · ${Math.round(budget.ms)} ms a look`, 'ok');
+          // plain words: what is in view and what to do (the rate stays in S.fps for the curious and the specs)
+          L.status(dets.length ? `${dets.length === 1 ? '1 thing' : `${dets.length} things`} in view · tap a box` : 'looking · nothing it can name yet', 'ok');
         }
       }
       if (cls && now - lastScene > 1000) {

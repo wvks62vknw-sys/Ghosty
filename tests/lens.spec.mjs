@@ -82,10 +82,11 @@ await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camer
 await until(() => window.__ghosty?.lens?.fps > 0 || window.__ghosty?.lens?.scene?.length > 0, 90000, `SEE never ran the detector: ${JSON.stringify(await lens())}`);
 const see = await lens();
 if (see?.error) problems.push(`SEE error: ${see.error}`);
-// the status line settles from "loading … / starting …" to "live", "frozen" or the rate ("1.0 fps · 2697 ms a look")
+// the status line settles from "loading … / starting …" to plain words: "looking · nothing it can name yet", "2 things in view · tap a box"
+// (it had said "1.0 fps · 5181 ms a look")
 await until(() => !/loading|starting|opening/i.test(window.__ghosty?.lens?.status ?? ''), 60000, `SEE status never settled: "${(await lens())?.status}"`);
 const seeStatus = (await lens())?.status ?? '';
-if (!/live|frozen|fps/.test(seeStatus)) problems.push(`SEE status is "${seeStatus}"`);
+if (!/live|frozen|looking|in view/.test(seeStatus) || /fps|ms a look/.test(seeStatus)) problems.push(`SEE status is "${seeStatus}"`);
 
 // ---- READ: a drawn line of text, picked as a photo, is read on the phone and filed in the library ----
 // (switching away stops the detector loop, which under software rendering hogs the main thread)
@@ -164,8 +165,10 @@ await until(() => /LENS READS AGAIN/i.test(window.__ghosty?.lens?.ocrText ?? '')
 // ---- HANDS: the gesture recogniser loads and runs (the fake camera shows no hand) ----
 await page.evaluate(() => window.__ghosty.lens.setMode('hands'));
 await until(() => window.__ghosty?.lens?.mode === 'hands' && window.__ghosty?.lens?.fps > 0, 90000, `HANDS never ran the recogniser: ${JSON.stringify(await lens())}`);
+await page.waitForTimeout(1200);
 const hands = await lens();
 if (hands?.error) problems.push(`HANDS error: ${hands.error}`);
+if (!/hand|gesture|let go/.test(hands?.status ?? '') || /fps/.test(hands?.status ?? '')) problems.push(`HANDS status is "${hands?.status}"`);
 
 // ---- ASK: a question with the still reaches the brain; the mock model says it can see a picture ----
 await page.evaluate(() => window.__ghosty.lens.setMode('ask'));

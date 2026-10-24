@@ -234,7 +234,8 @@ export function createNameMode(L: LensContext): Mode {
       names = r.names;
       showNames();
       paint();
-      if (S.mode === 'name') L.status(`${Math.round(r.ms)} ms a look${namer.extended ? ' · more names' : ''}`, 'ok');
+      S.lookMs = Math.round(r.ms);
+      if (S.mode === 'name') L.status(`${focus ? 'naming the part you tapped' : photo || S.frozen ? 'named · tap a name' : 'naming what is in view'}${namer.extended ? ' · more names' : ''}`, 'ok');
     } catch (e) {
       if (v !== visit) return;
       S.error = `The namer failed: ${String((e as Error)?.message ?? e)}`;

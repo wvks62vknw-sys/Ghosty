@@ -24,7 +24,7 @@ import { bar, button, toast } from '../../ui/components';
 import { drawScaled, loadImageFile } from '../../vision/camera';
 import { cleanOcr, titleFrom } from '../../vision/ocrtext';
 import { LANGUAGES, langName, type LookupResult } from '../../../../../packages/shared/src/scan';
-import { freeBarcodes, readCodes, readerName, warmBarcodes, type FoundCode } from '../../scan/barcode';
+import { freeBarcodes, readCodes, warmBarcodes, type FoundCode } from '../../scan/barcode';
 import { classifyCode, describeCode, type CodeInfo } from '../../scan/codes';
 import { defaultQuad, findPageIn, straighten, type Quad } from '../../scan/page';
 import { makePdf, type PdfPage } from '../../scan/pdf';
@@ -685,7 +685,7 @@ export function createScanMode(L: LensContext): Mode {
     if (s === 'code') {
       clear(body, codeBody);
       void warmBarcodes()
-        .then(async () => S.sub === 'code' && L.state.mode === 'scan' && !held && status(`code reader ready (${await readerName()}) · ${L.state.camera === 'on' ? 'point at a code' : 'START, or PICK PHOTO'}`, 'ok'))
+        .then(() => S.sub === 'code' && L.state.mode === 'scan' && !held && status(`ready · ${L.state.camera === 'on' ? 'point at a barcode or QR code' : 'START, or PICK PHOTO'}`, 'ok'))
         .catch((e: unknown) => status(`The code reader could not load: ${errText(e)}`, 'off'));
     } else if (s === 'document') {
       clear(body, docBody);
