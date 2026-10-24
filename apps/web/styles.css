@@ -400,7 +400,10 @@ canvas.reactor { display: block; }
 @media (min-width: 1240px) {
   .hud.core { grid-template-columns: 330px minmax(0, 1fr) 330px; gap: 14px; }
   .cside { display: flex; pointer-events: none; }
-  .cside > .pn { flex: 1 1 0; }
+  /* Each side panel keeps room to read (a body of about 150 px: the pager fits two or three rows, a wrapped line is
+     not squeezed); on a short window the column scrolls instead of starving its panels. */
+  .cside > .pn { flex: 1 1 auto; min-height: 250px; }
+  .cside.r { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .logbtn { display: none; }
 }
 @media (max-width: 520px) { #cbar { flex-wrap: wrap; } #cbar button:not(#mic):not(#lensbtn) { flex: 1; } }
@@ -3973,3 +3976,10 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
 .livingcard .livinglist { display: flex; flex-direction: column; gap: 3px; font-size: 14px; line-height: 20px; }
 .livingcard .lnk { align-self: center; padding: 0 6px; }
 html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter-spacing: 0; color: var(--ink); }
+
+/* The rail (#dock.areas: the tab bar standing up on the left from 900 px) keeps its room. Route C's Home had reset the
+   hud's padding to 0, so the rail sat over the conversation, the weather card and Home's left edge on a laptop. */
+@media (min-width: 900px) { html .hud.core { padding-left: 92px; padding-right: 92px; } }
+@media (min-width: 1240px) { html .hud.core { padding-right: 12px; } }
+/* Between 900 and 1239 px the conversation column lies over Home: it keeps the same room beside the rail. */
+@media (min-width: 900px) and (max-width: 1239px) { html .hud.core .cside.l, html .hud.core.logopen .cside.l { left: 92px; right: 92px; } }
