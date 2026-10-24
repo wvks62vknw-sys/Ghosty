@@ -114,7 +114,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   const dock = h('nav#dock', { 'aria-label': 'Tabs' });
   const deck = buildLauncher();
   // Route C: offline, every screen but Home (its own pill says so) shows one quiet line above the tab bar.
-  const offline = h('div#rcoffline', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } }, h('i'), h('b', 'Offline'), h('span', ' · showing what this phone has saved; it updates when the brain is back'));
+  const offline = h('div#rcoffline', { role: 'status', 'aria-live': 'polite', dataset: { case: 'keep' } }, h('i'), h('b', 'Offline'), h('span', ' · showing what’s saved on this phone'));
   document.getElementById('app')!.append(top, stage, dock, offline);
 
   let paintTabBar: (() => void) | null = null;
