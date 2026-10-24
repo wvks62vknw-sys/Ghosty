@@ -6,6 +6,7 @@
 //   node tests/library.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { deflateRawSync, crc32 } from 'node:zlib';
@@ -83,7 +84,7 @@ await printer.close();
 if (press !== browser) await press.close();
 
 // ---------- 1. the reader ----------
-const page = await browser.newPage();
+const page = await browser.newPage({ ...UK });
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`reader pageerror: ${e.message}`));
 await page.setContent('<html><body></body></html>');
 await page.addScriptTag({ content: reader });
@@ -129,9 +130,9 @@ const searched = (ui) =>
     .waitForFunction(() => !/searching/.test(document.querySelector('#pg-library .pn.ask h3 small')?.textContent ?? 'searching'), null, { timeout: 10000 })
     .catch(() => undefined);
 
-for (const viewport of [{ width: 1280, height: 860 }, { width: 440, height: 956 }]) {
+for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   const name = viewport.width < 600 ? 'phone' : 'desktop';
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   const ui = await ctx.newPage();
   ui.on('pageerror', (er) => webkitNoise(er) || problems.push(`[${name}] pageerror: ${er.message}`));
   ui.on('console', (m) => {

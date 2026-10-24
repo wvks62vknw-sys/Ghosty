@@ -9,6 +9,7 @@
 //     response.
 // The camera stays off in SOUND, the security policy blocks nothing and nothing sticks out sideways.
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -71,7 +72,8 @@ async function session(file, name, fn) {
     args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', `--use-file-for-fake-audio-capture=${file}%noloop`, '--autoplay-policy=no-user-gesture-required'],
   });
   const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 },
+    viewport: PHONE,
+    ...UK,
     deviceScaleFactor: 2,
     isMobile: true,
     hasTouch: true,

@@ -4,6 +4,7 @@
 //   node tests/sites.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -12,7 +13,7 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 
 const browser = await launch();
-const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
 const ui = await ctx.newPage();
 ui.on('pageerror', (er) => webkitNoise(er) || problems.push(`pageerror: ${er.message}`));
 await ui.goto(base, { waitUntil: 'domcontentloaded' });
@@ -58,7 +59,7 @@ else {
     if (r.storage !== 'blocked') problems.push(`the published page could reach Ghosty's storage (${r.storage})`);
     if (r.net !== 'blocked') problems.push(`the published page could send data out (${r.net})`);
     if (r.wide) problems.push('the published page scrolls sideways on the phone');
-    if (r.w !== 390) problems.push(`not phone width: ${r.w}`);
+    if (r.w !== PHONE.width) problems.push(`not phone width: ${r.w}`);
   }
   const outer = await site.evaluate(() => ({ wide: document.documentElement.scrollWidth > innerWidth + 1 }));
   if (outer.wide) problems.push('the page with the bar scrolls sideways');

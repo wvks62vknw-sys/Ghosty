@@ -8,6 +8,7 @@
 // each state.
 //   BASE=http://localhost:8806 node tests/hero.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -44,7 +45,7 @@ function expected() {
 }
 
 async function open({ reducedMotion = 'no-preference', noWebGL = false } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion });
+  const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {

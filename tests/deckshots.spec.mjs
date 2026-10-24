@@ -6,6 +6,7 @@
 //   node tests/preview-server.mjs 8850 &
 //   BASE=http://localhost:8850 node tests/deckshots.spec.mjs
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +24,7 @@ for (const gl of [false, true]) {
   const ids = SCREENS.filter((id) => GL.has(id) === gl);
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: gl ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
   for (const id of ids) {
-    const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 0.5, hasTouch: true, isMobile: true, locale: 'en-GB', timezoneId: 'Europe/London' });
+    const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 0.5, hasTouch: true, isMobile: true });
     await ctx.addInitScript(([k]) => {
       localStorage.setItem('ghosty.ownerKey', k);
       if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ name: 'Boss', home: { name: 'Birmingham', lat: 52.4862, lon: -1.8904 }, units: 'metric' }));

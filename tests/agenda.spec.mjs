@@ -2,6 +2,7 @@
 // by chat, and check the notification pops up when the (emulated) alarm fires.
 //   node tests/agenda.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -11,7 +12,7 @@ const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined
 const problems = [];
 
 async function run(name, viewport) {
-  const ctx = await browser.newContext({ viewport, timezoneId: 'Europe/London' });
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);
@@ -47,8 +48,8 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
-await run('desktop', { width: 1440, height: 900 });
-await run('phone', { width: 390, height: 844 });
+await run('desktop', DESKTOP);
+await run('phone', PHONE);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Agenda run clean.');
 process.exit(problems.length ? 1 : 0);

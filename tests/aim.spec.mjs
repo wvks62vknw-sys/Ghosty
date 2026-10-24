@@ -1,4 +1,4 @@
-// Lens AIM on an iPhone-sized screen (390×844): with location granted and the compass faked
+// Lens AIM on the owner's iPhone 18 Pro Max (440×956): with location granted and the compass faked
 // (deviceorientation events, absolute, phone held upright), a place due east shows in the middle
 // when facing east, right of the middle when facing a little left of it, and as an edge arrow when
 // facing west; a tap on it opens its card with Wikipedia's lines; WHAT'S THAT? asks the brain with
@@ -6,6 +6,7 @@
 // falls back to drag-to-pan with a heading slider. The data routes are stubbed; nothing breaks the
 // security policy and nothing sticks out sideways.
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -21,7 +22,8 @@ const placesAsked = [];
 
 async function phone({ compass }) {
   const ctx = await browser.newContext({
-    viewport: { width: 390, height: 844 },
+    viewport: PHONE,
+    ...UK,
     deviceScaleFactor: 2,
     isMobile: true,
     hasTouch: true,
@@ -167,7 +169,7 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
 
   // nothing sticks out sideways; the policy held
   const wide = await page.evaluate(() => document.documentElement.scrollWidth);
-  if (wide > 390) problems.push(`the page is ${wide} px wide`);
+  if (wide > PHONE.width) problems.push(`the page is ${wide} px wide`);
   await page.screenshot({ path: `${out}/aim-card.png`, fullPage: false });
   const csp = await page.evaluate(() => window.__csp);
   if (csp.length) problems.push(`CSP: ${csp.join(' | ')}`);

@@ -8,7 +8,7 @@
 // Afterwards nothing in localStorage or IndexedDB holds a plate or the record, nothing sticks out
 // sideways and the security policy blocked nothing.
 import { chromium } from 'playwright';
-import { openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -20,7 +20,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,

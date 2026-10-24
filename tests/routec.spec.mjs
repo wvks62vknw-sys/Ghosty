@@ -15,7 +15,7 @@
 //    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { openDeck, openPanel } from './nav.mjs';
+import { PHONE, UK, openDeck, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -39,7 +39,7 @@ const made = await fetch(`${base}/api/agenda/events`, { method: 'POST', headers:
 if (!made?.event?.id) problems.push(`could not add the diary event: ${JSON.stringify(made)}`);
 
 async function open(viewport, opts = {}) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, isMobile: true, ...opts });
+  const ctx = await browser.newContext({ viewport, ...UK, deviceScaleFactor: 2, hasTouch: true, isMobile: true, ...opts });
   await ctx.addInitScript(([k, home]) => {
     localStorage.setItem('ghosty.ownerKey', k);
     if (!localStorage.getItem('ghosty.settings')) localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric' }));
@@ -90,7 +90,7 @@ const target44 = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.ge
   return hits.every(Boolean) ? '' : `"${(e.dataset.label || e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24)}" ${Math.round(r.width)}×${Math.round(r.height)} (${hits.map(Number).join('')})`;
 }).filter(Boolean));
 
-for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
+for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const W = vp.width;
   const { ctx, page, libAtBoot } = await open(vp);
   if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== 'reactor') problems.push(`[${W}] not on Reactor (the default theme)`);
@@ -261,7 +261,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
   // a computed colour as "rgb(r, g, b)" (a colour that has just been transitioned reads "rgba(r, g, b, 1)")
   const solid = (c) => { const n = String(c).match(/[\d.]+/g) ?? []; return n.length === 3 || (n.length === 4 && Number(n[3]) === 1) ? `rgb(${n.slice(0, 3).join(', ')})` : String(c); };
-  const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
   await ctx.addInitScript(([k, home]) => {
     localStorage.setItem('ghosty.ownerKey', k);
     if (!sessionStorage.getItem('seeded')) {
@@ -345,7 +345,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
 }
 // an old classic look's name on a phone (from before route C) starts on Reactor, with no toast about looks
 {
-  const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
   await ctx.addInitScript((k) => {
     localStorage.setItem('ghosty.ownerKey', k);
     localStorage.setItem('ghosty.settings', JSON.stringify({ theme: 'stark' }));
@@ -379,7 +379,7 @@ const SCREENS = [
   ['threats', null], ['lens', null], ['learn', null], ['studio', null], ['space', null], ['reverse', null], ['school', null],
   ['gym', /No levels yet · Train all starts with \S/],
 ];
-for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
+for (const vp of [PHONE, { width: 390, height: 844 }]) {
   const W = vp.width;
   const { ctx, page } = await open(vp);
   for (const [url, body] of Object.entries(EMPTY)) await page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));

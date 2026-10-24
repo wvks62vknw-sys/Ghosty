@@ -1,4 +1,4 @@
-// The GYM tab on an iPhone 13. The tab opens with a card for each of the twenty-two games; tic-tac-toe opens and
+// The GYM tab on the owner's iPhone 18 Pro Max (440 × 956). The tab opens with a card for each of the twenty-two games; tic-tac-toe opens and
 // TRAIN runs in the Web Worker while a timer on the page keeps ticking (no frozen screen); progress is
 // measured, saved to IndexedDB, survives a reload and training carries on from it; PLAY HIM works on the
 // tic-tac-toe and Connect 4 boards (he answers each move), and on the checkers, chess and Go boards with taps
@@ -8,15 +8,16 @@
 // WATCH stays on the board; an armed RESET does not carry over to another game; a game RESET while it
 // trains does not come back (in the page or after a reload). The six reasoning games of part 2 open, have no
 // PLAY HIM, and WATCH shows his reasoning as text; the network lab (the heaviest) trains without freezing
-// the page. Nothing sticks out sideways at 390 px; the security policy blocks nothing (the worker is the
+// the page. Nothing sticks out sideways at 440 px (nor, at the end, at a narrow 390 px); the security policy blocks nothing (the worker is the
 // app's own bundled worker file).
-// Part 3, on the iPhone 18 Pro Max (440 × 956): WATCH on the maze at Level 1 reaches Level 2 by itself and
+// Part 3: WATCH on the maze at Level 1 reaches Level 2 by itself and
 // goes on watching, with one GYM toast on screen; STOP ends it; TRAIN ALL starts with the least learned game
 // and its line names it; KEEP AWAKE (a mocked wake lock) is asked for, asked for again after the app is
 // hidden and shown, and let go on STOP; a reload shows where TRAIN ALL got to; nothing sticks out at 440 px.
 //   BASE=http://localhost:8872 node tests/gym.spec.mjs /tmp/gym-shots          (Chromium)
 //   PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers BROWSER=webkit BASE=… node tests/gym.spec.mjs …   (WebKit)
 import { launch, webkitNoise, engine } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -25,7 +26,8 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: engine !== 'webkit' ? true : undefined,
   hasTouch: true,
@@ -420,7 +422,7 @@ await page.addInitScript(() => {
     document.dispatchEvent(new Event('visibilitychange'));
   };
 });
-await page.setViewportSize({ width: 440, height: 956 });
+await page.setViewportSize(PHONE);
 await boot();
 await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'part 3: the GYM did not open at 440 px', CARDS);
 await closeLog();
@@ -505,6 +507,12 @@ const toList = async () => {
   await tap('tictactoe');
   await wideCheck('part 3: a game at 440 px');
   await page.screenshot({ path: `${out}/gym3-game.png`, fullPage: true });
+  // a narrow phone (390 × 844) still fits (the rest of the spec runs on the owner's phone, 440 × 956)
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(500);
+  await wideCheck('part 3: a game at 390 px');
+  await toList();
+  await wideCheck('part 3: the game cards at 390 px');
 }
 
 const csp = await page.evaluate(() => window.__csp);

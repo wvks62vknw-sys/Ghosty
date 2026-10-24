@@ -13,6 +13,7 @@
 //   node tests/apps.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync } from 'node:fs';
@@ -123,7 +124,7 @@ if (w) {
 
 log('const browser = await launch()');
 const browser = await launch();
-const phone = { ...devices['iPhone 13'] };
+const phone = { ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK };
 async function open(name, context) {
   const page = await context.newPage();
   const errs = [];

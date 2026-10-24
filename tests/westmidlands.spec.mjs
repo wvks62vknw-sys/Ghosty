@@ -1,10 +1,11 @@
-// The West Midlands on God's Eye, on an iPhone 13 (390×844), with every feed faked:
+// The West Midlands on God's Eye, on the owner's iPhone 18 Pro Max (440×956), with every feed faked:
 //   National Highways motorway cameras (vendored index, public stills) open from chat and in the grid,
 //   live road incidents appear at their junctions, live buses and trams draw as a layer,
 //   West Midlands Police safety-camera sites load over Birmingham,
 //   and ROAD AHEAD follows the phone's own GPS with what lies ahead.
 //   node tests/westmidlands.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
@@ -68,7 +69,7 @@ const EVENTS = { events: [
 ], at: now, credit: 'Contains public sector information licensed under the Open Government Licence v3.0 (National Highways)' };
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, geolocation: { latitude: 52.505, longitude: -1.9, accuracy: 15 }, permissions: ['geolocation'] });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 1, geolocation: { latitude: 52.505, longitude: -1.9, accuracy: 15 }, permissions: ['geolocation'] });
 const asked = new Set();
 await ctx.route('**/api/proxy?**', (route) => {
   const target = new URL(route.request().url()).searchParams.get('url') ?? '';

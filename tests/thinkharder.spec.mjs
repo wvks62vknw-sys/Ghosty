@@ -12,7 +12,7 @@
 //   node tests/thinkharder.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
-import { openPanel } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -62,7 +62,7 @@ const noSideways = async (page, name, where) => {
 };
 
 async function run(name, viewport) {
-  const ctx = await browser.newContext({ viewport });
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.addInitScript(engine);
@@ -261,7 +261,7 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
-for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   await run(name, viewport).catch((e) => problems.push(`[${name}] stopped: ${String(e?.message ?? e).split('\n').slice(0, 12).join(' / ')}`));
 }
 await browser.close();

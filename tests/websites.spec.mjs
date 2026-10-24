@@ -9,6 +9,7 @@
 //   node tests/websites.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -32,7 +33,7 @@ async function pair(ctx) {
 
 // ── 1. chat → published site ─────────────────────────────────────────────────────
 {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
   const ui = await pair(ctx);
   await ui.fill('#cin', "build a website for my friend's barber shop in walsall");
   await ui.keyboard.press('Enter');
@@ -109,7 +110,7 @@ async function pair(ctx) {
         if (r.map !== 'yes') problems.push('no map section');
         if (r.credits < 3) problems.push(`photo credits missing (${r.credits})`);
         if (r.wide) problems.push('the site scrolls sideways on the phone');
-        if (r.w !== 390) problems.push(`not phone width: ${r.w}`);
+        if (r.w !== PHONE.width) problems.push(`not phone width: ${r.w}`);
         if (!r.ld.includes('HairSalon')) problems.push(`no business data for search engines: ${r.ld}`);
         await site.screenshot({ path: `${out}/websites-live-home.png` });
         // The menu button opens the pages; tapping one routes to it.
@@ -140,7 +141,7 @@ async function pair(ctx) {
 
 // ── 2. no connection: built on the phone ─────────────────────────────────────────
 {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'] });
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK });
   const ui = await pair(ctx);
   // The brain is unreachable from here on (the connection drops: fetch fails as it would offline).
   await ui.route('**/api/chat**', (r) => r.abort('internetdisconnected'));

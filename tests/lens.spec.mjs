@@ -6,7 +6,7 @@
 // "I can see a picture"), and the security policy lets the vendored WebAssembly run.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
-import { openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -17,7 +17,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,

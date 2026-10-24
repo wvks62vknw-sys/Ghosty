@@ -7,8 +7,9 @@
 // when the generators are busy a stand-in built from shapes shows at once with the reason in words and
 // TRY AGAIN; when nothing can draw the object ASK GHOSTY is offered; UNDO goes back to the model before.
 // PHOTO → TEXTURED 3D shows the cut-out the brain sends and opens the textured model. The security policy
-// blocks nothing and nothing sticks out sideways at 390 px.
+// blocks nothing and nothing sticks out sideways at 440 px.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -35,7 +36,8 @@ const pngData = `data:image/png;base64,${PNG.toString('base64')}`;
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: !isWebKit,
   hasTouch: true,

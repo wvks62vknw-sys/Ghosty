@@ -9,6 +9,7 @@
 // and nothing sticks out sideways. Fixtures: tests/fixtures/qr-url.png and ean13.png (made with
 // zxing-wasm's writer).
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -21,7 +22,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,
