@@ -3,9 +3,10 @@
  * right place. Six layouts — split, full-bleed photo, centred with a collage, editorial, product, and
  * one with a booking card — each with the page's one h1, the main action, and the picture loaded first.
  */
-import { a, btn, esc, icon, img, imgOf, isImage, linkOf, list, primaryAction, rich, str, texts } from '../html';
+import { a, addressLine, btn, esc, icon, img, imgOf, isImage, linkOf, list, mailHref, primaryAction, rich, str, telHref, texts } from '../html';
 import type { BlockDef, ImageRef, RenderCtx } from '../types';
-import { IMG, LINK, LIST, OT, sec, T, TEXTS } from './common';
+import { IMG, initials, LINK, LIST, OT, sec, T, TEXTS } from './common';
+import { formOpen, formTarget } from './formkit';
 
 /** Form fields, notes and errors, shared by every form on a page (hero booking card, booking and contact forms). */
 export const FORM_CSS = `.ghost-form{display:grid;gap:var(--space-s)}
@@ -54,12 +55,28 @@ export const heroBlocks: BlockDef[] = [
 .b-hero-split .float{position:absolute;left:-2%;bottom:7%;display:flex;align-items:center;gap:.75em;max-width:78%;padding:.85em 1.1em;border-radius:var(--r2);background:var(--surface);color:var(--text);box-shadow:var(--shadow-3);font-weight:600;font-size:var(--step--1);line-height:1.35}
 .b-hero-split .float .dot{width:10px;height:10px;border-radius:50%;background:#22a05a;box-shadow:0 0 0 4px rgb(34 160 90 / .18);flex:none}
 @media (min-width:900px){.b-hero-split .wrap{grid-template-columns:1.05fr .95fr;gap:var(--space-2xl)}.b-hero-split{padding-block:var(--space-2xl) var(--space-3xl)}.b-hero-split .float{left:-10%}}
-@media (max-width:599px){.b-hero-split .media{aspect-ratio:4/4.4}}`,
+@media (max-width:599px){.b-hero-split{padding-top:var(--space-l)}.b-hero-split .media{aspect-ratio:5/4}.b-hero-split .float{left:3%;bottom:5%}}
+.b-hero-split .art.plain::before{display:none}
+.b-hero-split .facts{list-style:none;display:grid;gap:0;padding:var(--space-xs) var(--space-l);border-radius:var(--r3);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-3);position:relative}
+.b-hero-split .facts li{display:flex;gap:.9em;align-items:flex-start;padding:var(--space-s) 0;border-bottom:1px solid var(--border)}
+.b-hero-split .facts li:last-child{border-bottom:0}
+.b-hero-split .facts .ic{color:var(--primary);margin-top:.1em}
+.b-hero-split .facts small{display:block;font-size:var(--step--1);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.b-hero-split .facts b{font-weight:600;overflow-wrap:anywhere}
+.b-hero-split .facts a{text-decoration:none}`,
     render(d, x) {
       const image = imgOf(d, 'image');
       const card = str(d, 'card');
       const pts = texts(d, 'points').slice(0, 3);
-      const inner = `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}${pts.length ? `<ul class="points">${pts.map((p) => `<li>${icon('check')}${esc(p)}</li>`).join('')}</ul>` : ''}</div>${image ? `<div class="art"><div class="media">${img(image, { eager: true, sizes: '(min-width:900px) 560px, 100vw' })}</div>${card ? `<p class="float"><span class="dot" aria-hidden="true"></span>${esc(card)}</p>` : ''}</div>` : ''}</div>`;
+      // No photo: the real details in a card where the photo would be (when, where, how to reach them), so the
+      // first screen still has weight and says something useful at a glance.
+      const facts = image ? [] : heroFacts(x.brief);
+      const art = image
+        ? `<div class="art"><div class="media">${img(image, { eager: true, sizes: '(min-width:900px) 560px, 100vw' })}</div>${card ? `<p class="float"><span class="dot" aria-hidden="true"></span>${esc(card)}</p>` : ''}</div>`
+        : facts.length
+          ? `<div class="art plain"><ul class="facts">${facts.map((f) => `<li>${icon(f.icon)}<span><small>${esc(f.label)}</small><b>${f.html}</b></span></li>`).join('')}</ul></div>`
+          : '';
+      const inner = `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}${pts.length ? `<ul class="points">${pts.map((p) => `<li>${icon('check')}${esc(p)}</li>`).join('')}</ul>` : ''}</div>${art}</div>`;
       return sec('hero-split', x, inner);
     },
   },
@@ -113,6 +130,11 @@ export const heroBlocks: BlockDef[] = [
 .b-hero-centered .collage{display:grid;grid-template-columns:1fr 2.2fr 1fr;gap:var(--space-s);align-items:end;margin-top:var(--space-xl)}
 .b-hero-centered .collage .media:nth-child(2){aspect-ratio:16/11;box-shadow:var(--shadow-3)}
 .b-hero-centered .collage .media:nth-child(1),.b-hero-centered .collage .media:nth-child(3){aspect-ratio:3/4;transform:translateY(-12%)}
+.b-hero-centered.bare{background:radial-gradient(80% 70% at 50% 35%,rgb(var(--rgb-primary) / .08),transparent 70%)}
+.b-hero-centered .inline{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:.6em 1.6em;margin-top:var(--space-l);color:var(--muted);font-size:var(--step--1);font-weight:500}
+.b-hero-centered .inline li{display:inline-flex;align-items:center;gap:.45em}
+.b-hero-centered .inline .ic{width:18px;height:18px;color:var(--primary)}
+.b-hero-centered .inline a{text-decoration:none}
 .b-hero-centered .collage.one{grid-template-columns:1fr}
 .b-hero-centered .collage.one .media{aspect-ratio:21/9;transform:none}
 @media (max-width:599px){.b-hero-centered .collage{grid-template-columns:1fr 1fr;}.b-hero-centered .collage .media:nth-child(2){grid-column:1/-1;grid-row:1}.b-hero-centered .collage .media:nth-child(1),.b-hero-centered .collage .media:nth-child(3){transform:none;aspect-ratio:1}.b-hero-centered .collage.one .media{aspect-ratio:4/3}}`,
@@ -120,7 +142,9 @@ export const heroBlocks: BlockDef[] = [
       const imgs = list<Record<string, unknown>>(d, 'images').map((i) => (isImage(i) ? (i as unknown as ImageRef) : imgOf(i, 'image'))).filter((i): i is ImageRef => !!i).slice(0, 3);
       const order = imgs.length === 3 ? [imgs[1]!, imgs[0]!, imgs[2]!] : imgs;
       const collage = order.length ? `<div class="collage${order.length === 1 ? ' one' : ''}">${order.map((m, i) => `<div class="media">${img(m, { eager: i === 1 || order.length === 1, sizes: order.length === 1 || i === 1 ? '(min-width:1200px) 640px, 100vw' : '(min-width:900px) 300px, 50vw' })}</div>`).join('')}</div>` : '';
-      return sec('hero-centered', x, `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}</div>${collage}</div>`);
+      const facts = collage ? [] : heroFacts(x.brief);
+      const inline = facts.length ? `<ul class="inline">${facts.map((f) => `<li>${icon(f.icon)}<span>${f.html}</span></li>`).join('')}</ul>` : '';
+      return sec('hero-centered', x, `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}${inline}</div>${collage}</div>`, { cls: collage ? '' : 'bare' });
     },
   },
   {
@@ -146,7 +170,7 @@ export const heroBlocks: BlockDef[] = [
     id: 'hero-app',
     group: 'hero',
     about: 'A product landing hero: badge, headline, actions, a small note, and a product window drawn in CSS (or a real screenshot). For apps and online services.',
-    slots: { ...HERO_SLOTS, note: OT(80, 'small print under the buttons, only what the owner said'), shot: IMG('a real screenshot (optional)', true) },
+    slots: { ...HERO_SLOTS, note: OT(80, 'small print under the buttons, only what the owner said'), shot: IMG('a real screenshot (optional)', true), window: { t: 'bool', optional: true, hint: 'false: no app window (a product that is not an app): a launch card with the name and the date instead' } },
     css: `.b-hero-app{padding-block:var(--space-2xl) 0;text-align:center;overflow:hidden;background:radial-gradient(60% 50% at 50% 0%,rgb(var(--rgb-primary) / .16),transparent 70%)}
 .b-hero-app .copy{display:grid;justify-items:center}
 .b-hero-app .eyebrow{padding:.4em .9em;border:1px solid var(--border);border-radius:999px;background:var(--surface);letter-spacing:.04em;text-transform:none;color:var(--text)}
@@ -167,13 +191,23 @@ export const heroBlocks: BlockDef[] = [
 .b-hero-app .ui svg.chart{width:100%;height:120px;color:var(--primary)}
 .b-hero-app .ui .line{height:10px;border-radius:6px;background:var(--surface-2);margin:10px 0}
 @media (min-width:900px){.b-hero-app .ui{grid-template-columns:200px 1fr;padding:22px}.b-hero-app .ui .side{display:block}}
-@media (max-width:599px){.b-hero-app .ui .row{grid-template-columns:1fr 1fr}.b-hero-app .ui .row .tile:nth-child(3){display:none}}`,
+@media (max-width:599px){.b-hero-app .ui .row{grid-template-columns:1fr 1fr}.b-hero-app .ui .row .tile:nth-child(3){display:none}}
+.b-hero-app.launch{padding-bottom:var(--space-2xl)}
+.b-hero-app .launchcard{display:grid;justify-items:center;gap:var(--space-xs);margin:var(--space-xl) auto 0;max-width:520px;padding:var(--space-l) var(--space-m);border-radius:var(--r3);border:1px solid var(--border);background:linear-gradient(160deg,var(--surface),var(--surface-2));box-shadow:var(--shadow-3)}
+.b-hero-app .launchcard .mark{display:grid;place-items:center;width:72px;height:72px;border-radius:var(--r3);background:var(--primary);color:var(--on-primary);font:700 1.6rem/1 var(--font-display)}
+.b-hero-app .launchcard b{font:var(--display-weight) var(--step-3)/1.1 var(--font-display);letter-spacing:var(--display-tracking)}
+.b-hero-app .launchcard small{color:var(--muted);letter-spacing:.12em;text-transform:uppercase;font-size:var(--step--1)}`,
     render(d, x) {
       const shot = imgOf(d, 'shot');
       const ui = shot
         ? img(shot, { eager: true, sizes: '(min-width:1100px) 1040px, 100vw' })
         : `<div class="ui" aria-hidden="true"><div class="side"><div class="line" style="width:70%"></div><div class="line"></div><div class="line" style="width:85%"></div><div class="line" style="width:60%"></div><div class="line" style="width:75%"></div></div><div><div class="row"><div class="tile"><small>This week</small><b>+24%</b></div><div class="tile"><small>Saved</small><b>6.5 h</b></div><div class="tile"><small>Done</small><b>142</b></div></div><div class="tile" style="margin-top:14px"><svg class="chart" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0 100 C50 90 70 60 120 66 S200 30 250 42 330 10 400 18" fill="none" stroke="currentColor" stroke-width="3"/><path d="M0 100 C50 90 70 60 120 66 S200 30 250 42 330 10 400 18 V120 H0Z" fill="currentColor" opacity=".12"/></svg></div></div></div>`;
       const note = str(d, 'note');
+      if (d.window === false && !shot) {
+        // Not an app: no made-up dashboard numbers — the name and the day it arrives.
+        const card = `<div class="launchcard"><span class="mark" aria-hidden="true">${esc(initials(x.plan.name))}</span><b>${esc(x.plan.name)}</b><small>${esc(x.brief.date ? `Launching ${x.brief.date}` : 'Coming soon')}</small></div>`;
+        return sec('hero-app', x, `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}${note ? `<p class="note">${esc(note)}</p>` : ''}</div>${card}</div>`, { cls: 'launch' });
+      }
       return sec('hero-app', x, `<div class="wrap"><div class="copy">${words(d)}${actions(d, x)}${note ? `<p class="note">${esc(note)}</p>` : ''}</div><div class="window"><div class="chrome" aria-hidden="true"><i></i><i></i><i></i></div>${ui}</div></div>`);
     },
   },
@@ -210,13 +244,30 @@ export const heroBlocks: BlockDef[] = [
   },
 ];
 
+/**
+ * The business's real details for a first screen without a photo: the date and place of an event, today's
+ * opening hours (the first row), where it is and how to reach it — only what the owner gave, never filled in.
+ */
+export function heroFacts(b: RenderCtx['brief']): { icon: string; label: string; html: string }[] {
+  const out: { icon: string; label: string; html: string }[] = [];
+  if (b.date) out.push({ icon: 'calendar', label: 'When', html: esc(b.date) });
+  const where = [b.venue, addressLine(b) || b.town].filter(Boolean).join(', ');
+  if (where) out.push({ icon: 'pin', label: b.date ? 'Where' : 'Find us', html: esc(where) });
+  const h = b.hours?.[0];
+  if (h && !b.date) out.push({ icon: 'clock', label: 'Open', html: esc(`${h.label} ${h.closed ? 'closed' : `${h.open ?? ''}–${h.close ?? ''}`}`) });
+  if (b.phone) out.push({ icon: 'phone', label: 'Call', html: a(telHref(b.phone), esc(b.phone)) });
+  else if (b.email) out.push({ icon: 'mail', label: 'Email', html: a(mailHref(b.email), esc(b.email)) });
+  return out.slice(0, 3);
+}
+
 /** The booking fields (shared with the booking-form block): sent by the page's script as WhatsApp or email. */
 export function bookingForm(x: RenderCtx, id: string, extra = false): string {
   const b = x.brief;
   const services = (b.services ?? []).map((s) => s.name).slice(0, 14);
   const svc = services.length ? `<div class="field"><label for="${id}-svc">Service</label><select id="${id}-svc" name="Service">${services.map((s) => `<option>${esc(s)}</option>`).join('')}<option>Not sure yet</option></select></div>` : '';
   const wa = whatsappOf(b);
-  return `<form class="ghost-form" data-kind="booking" data-to-wa="${esc(wa)}" data-to-mail="${esc(b.email ?? '')}" data-to-tel="${esc(b.phone ?? '')}" data-subject="${esc(`Booking request — ${b.name}`)}" novalidate>${svc}<div class="two"><div class="field"><label for="${id}-day">Day</label><input id="${id}-day" name="Day" type="date" required></div><div class="field"><label for="${id}-time">Time</label><select id="${id}-time" name="Time"><option>Morning</option><option>Lunchtime</option><option>Afternoon</option><option>Evening</option><option>Any time</option></select></div></div><div class="field"><label for="${id}-name">Your name</label><input id="${id}-name" name="Name" autocomplete="name" required></div><div class="field"><label for="${id}-phone">Phone</label><input id="${id}-phone" name="Phone" type="tel" autocomplete="tel" inputmode="tel" required></div>${extra ? `<div class="field"><label for="${id}-note">Anything we should know?</label><textarea id="${id}-note" name="Notes" rows="3"></textarea></div>` : ''}<button class="btn btn-primary" type="button" data-via="${wa ? 'whatsapp' : 'email'}">${wa ? `${icon('whatsapp')}Send by WhatsApp` : `${icon('send')}Send request`}</button><p class="form-note" role="status" aria-live="polite">${formNote(x)}</p></form>`;
+  const post = formTarget(b.formEndpoint);
+  return `${formOpen(x, 'booking', `Booking request — ${b.name}`, wa)}${svc}<div class="two"><div class="field"><label for="${id}-day">Day</label><input id="${id}-day" name="Day" type="date" required></div><div class="field"><label for="${id}-time">Time</label><select id="${id}-time" name="Time"><option>Morning</option><option>Lunchtime</option><option>Afternoon</option><option>Evening</option><option>Any time</option></select></div></div><div class="field"><label for="${id}-name">Your name</label><input id="${id}-name" name="Name" autocomplete="name" required></div><div class="field"><label for="${id}-phone">Phone</label><input id="${id}-phone" name="Phone" type="tel" autocomplete="tel" inputmode="tel" required></div>${extra ? `<div class="field"><label for="${id}-note">Anything we should know?</label><textarea id="${id}-note" name="Notes" rows="3"></textarea></div>` : ''}${post ? `<button class="btn btn-primary" type="submit">${icon('send')}Send request</button>${wa ? `<button class="btn btn-ghost btn-sm" type="button" data-via="whatsapp">${icon('whatsapp')}Or WhatsApp</button>` : ''}` : `<button class="btn btn-primary" type="button" data-via="${wa ? 'whatsapp' : 'email'}">${wa ? `${icon('whatsapp')}Send by WhatsApp` : `${icon('send')}Send request`}</button>`}<p class="form-note" role="status" aria-live="polite">${formNote(x)}</p></form>`;
 }
 
 /** Where a form's WhatsApp message goes: the WhatsApp number, else the phone when it is a UK mobile. */
@@ -225,6 +276,7 @@ export const whatsappOf = (b: RenderCtx['brief']): string => b.whatsapp || (b.ph
 /** The honest line under every form: where the message goes. */
 export function formNote(x: RenderCtx): string {
   const b = x.brief;
+  if (formTarget(b.formEndpoint)) return `Sends your message straight to ${esc(b.name)} (through Formspree, a free form service) — a page opens to say it went.${whatsappOf(b) || b.email ? ' Or use WhatsApp or email.' : ''}${b.phone ? ` Or call ${esc(b.phone)}.` : ''}`;
   const ways = [whatsappOf(b) ? 'WhatsApp' : '', b.email ? 'your email app' : ''].filter(Boolean);
   return ways.length ? `Opens ${ways.join(' or ')} with your request filled in — nothing is stored on this site.${b.phone ? ` Or call ${esc(b.phone)}.` : ''}` : b.phone ? `Or call us on ${esc(b.phone)}.` : '';
 }

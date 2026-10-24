@@ -14,20 +14,26 @@ export interface KindInfo {
 }
 
 export const KINDS: KindInfo[] = [
+  { id: 'cv', label: 'Personal CV', words: /\b(cv|c\.v\.|curriculum vitae|r[eé]sum[eé]|my (?:career|work history)|job (?:hunting|seeking|applications?))\b/i },
   { id: 'barber', label: 'Barber', words: /\b(barber|barbers|barbershop|barber'?s|fade|fades|beard trim|men'?s (?:hair|grooming))\b/i },
   { id: 'salon', label: 'Hair and beauty salon', words: /\b(salon|hairdress\w*|hair stylist|beauty|beautician|nails?|nail bar|lashes|brows|aesthetics|spa|massage|tanning)\b/i },
+  { id: 'takeaway', label: 'Takeaway or restaurant with its menu', words: /\b(takeaway|take-away|take away|curry house|pizzeria|pizza|kebab|chippy|chip shop|fish (?:and|&) chips|burger (?:bar|joint|van)|food (?:truck|van)|street food|(?:restaurant|caf[eé]|diner) with (?:a |the |our |its |my )?menu|menu (?:site|website|page)|online menu)\b/i },
   { id: 'restaurant', label: 'Restaurant', words: /\b(restaurant|bistro|takeaway|take-away|curry house|pizzeria|pizza|grill|steakhouse|kitchen|diner|eatery|tapas|sushi|balti|gastropub|pub|bar and grill)\b/i },
   { id: 'cafe', label: 'Café', words: /\b(caf[eé]s?|coffee|tea ?room|bakery|bakers?|patisserie|brunch|sandwich bar|deli|cake shop|ice cream)\b/i },
+  { id: 'tradesperson', label: 'Tradesperson (one person)', words: /\b(handy ?man|handy ?person|odd[- ]jobs?|man (?:and|&|with) (?:a )?van|sole trader|one-man band|tradesman|tradesperson|tradeswoman|self-employed)\b/i },
   { id: 'trades', label: 'Trades', words: /\b(plumb\w*|heating|boiler|gas safe|electric\w*|builder|building|construction|roof\w*|joiner\w*|carpent\w*|decorat\w*|painter|plaster\w*|tiler|tiling|locksmith|landscap\w*|gardener|gardening|handyman|cleaning|cleaner|removals?|driveways?|kitchen fitter|bathroom fitter|scaffold\w*|trades?(?:man|person|people)?|mechanic|garage|mot centre)\b/i },
+  { id: 'club', label: 'Local club or society', words: /\b(club|society|choir|orchestra|chess|book group|reading group|running group|walking group|allotments?|bowls|cricket|football|rugby|netball|hockey|tennis|badminton|cycling group|youth group|juniors|league)\b/i },
   { id: 'gym', label: 'Gym or coach', words: /\b(gym|fitness|personal trainer|pt studio|coach(?:ing)?|crossfit|boxing|martial arts|karate|jiu ?jitsu|yoga|pilates|bootcamp|strength|spin)\b/i },
   { id: 'photographer', label: 'Photographer', words: /\b(photograph\w*|videograph\w*|wedding photo\w*|portraits?|headshots?)\b/i },
   { id: 'clinic', label: 'Clinic', words: /\b(dentist|dental|clinic|physio\w*|osteopath\w*|chiropract\w*|optician|podiatr\w*|therapist|therapy|counsell\w*|vet|veterinary|doctor|gp surgery|pharmacy|chemist)\b/i },
   { id: 'estate', label: 'Estate agent', words: /\b(estate agent|estate agency|lettings?|letting agent|property|properties|realtor|landlords?)\b/i },
-  { id: 'event', label: 'Event', words: /\b(event|festival|gig|concert|conference|wedding (?:day|website)|party|launch night|fundraiser night|open day|meet-?up|fair)\b/i },
+  { id: 'invite', label: 'Occasion with directions (wedding, party, open day)', words: /\b(wedding(?: day| website| invitation)?|birthday|christening|naming day|baby shower|engagement party|anniversary|reunion|garden party|f[eê]te|open day|leaving do|retirement (?:do|party)|memorial|save the date|rsvp|invitation|party)\b/i },
+  { id: 'launch', label: 'Product launch', words: /\b(product launch|launch(?:ing)? (?:my|our|a|the|an) (?:new )?(?:product|book|album|range|collection|game|brand|gadget|campaign)|launch page|pre-?orders?|coming soon|kickstarter|crowdfund\w*|waiting list|wait-?list)\b/i },
+  { id: 'event', label: 'Event', words: /\b(event|festival|gig|concert|conference|wedding (?:day|website)|launch night|fundraiser night|open day|meet-?up|fair)\b/i },
   { id: 'charity', label: 'Charity or community group', words: /\b(charity|charities|non-?profit|community (?:group|centre|project)|foundation|food ?bank|volunteer\w*|mosque|church|temple|gurdwara|scouts|club for)\b/i },
-  { id: 'saas', label: 'App or online product', words: /\b(app|saas|software|startup|platform|tool for|landing page for (?:my|an|a) (?:app|product)|product launch)\b/i },
+  { id: 'saas', label: 'App or online product', words: /\b(app|saas|software|startup|platform|tool for|landing page for (?:my|an|a) (?:app|product))\b/i },
   { id: 'shop', label: 'Shop', words: /\b(shop|store|boutique|florist|flowers|gift shop|clothing|fashion|jewell\w*|candles?|crafts?|etsy|retail|grocer\w*|off licence|butcher\w*)\b/i },
-  { id: 'portfolio', label: 'Portfolio', words: /\b(portfolio|freelanc\w*|designer|illustrat\w*|artist|developer|consultant|cv|resume|personal (?:site|website))\b/i },
+  { id: 'portfolio', label: 'Portfolio', words: /\b(portfolio|freelanc\w*|designer|illustrat\w*|artist|developer|consultant|personal (?:site|website))\b/i },
 ];
 
 export const kindLabel = (k: KindId) => KINDS.find((x) => x.id === k)?.label ?? k;
@@ -57,6 +63,23 @@ export function nameOf(text: string): string | undefined {
   const m = text.match(/\b(?:called|named|name is|business is)\s+([A-Z0-9][\w&'’.-]*(?:\s+(?:&|and|of|the|[A-Z0-9][\w&'’.-]*)){0,5})/);
   return m?.[1]?.replace(/\s+(?:in|on|at|for|and)$/i, '').trim();
 }
+
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+/** "Saturday 12th July 2026", "12 Jul", "July 12" → "Saturday 12 July 2026" (as said, tidied); undefined when no date is said. */
+export function dateOf(text: string): string | undefined {
+  const mon = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+  const wd = '(?:(mon|tues|wednes|thurs|fri|satur|sun)day,?\\s+)?';
+  const a = text.match(new RegExp(`\\b${wd}(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${mon}\\b,?(?:\\s+(20\\d\\d))?`, 'i'));
+  const b = a ? null : text.match(new RegExp(`\\b${wd}${mon}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b,?(?:\\s+(20\\d\\d))?`, 'i'));
+  const m = a ? { w: a[1], d: a[2]!, mo: a[3]!, y: a[4] } : b ? { w: b[1], d: b[3]!, mo: b[2]!, y: b[4] } : null;
+  if (!m || Number(m.d) < 1 || Number(m.d) > 31) return undefined;
+  const month = MONTHS.find((x) => x.startsWith(m.mo.toLowerCase().slice(0, 3)))!;
+  const cap = (x: string) => x[0]!.toUpperCase() + x.slice(1);
+  return [m.w ? `${cap(m.w.toLowerCase())}day` : '', String(Number(m.d)), cap(month), m.y ?? ''].filter(Boolean).join(' ');
+}
+
+/** A person's name for a CV: "a cv website for Priya Shah" (two or three capitalised words after "for" or "I'm"). */
+export const personOf = (text: string): string | undefined => text.match(/\b(?:for|I'?m|I am|my name is)\s+([A-Z][a-z'’-]+(?:\s+[A-Z][a-z'’-]+){1,2})\b/)?.[1];
 
 export const phoneOf = (text: string): string | undefined => text.match(/(?:\+44\s?\(?0?\)?\s?|\b0)(?:\d[\s-]?){9,10}\b/)?.[0]?.replace(/\s+$/, '').trim();
 export const emailOf = (text: string): string | undefined => text.match(/\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/)?.[0];
@@ -110,22 +133,29 @@ export function briefFrom(text: string, base: Partial<Brief> = {}): Brief {
   const b: Brief = {
     request: text.slice(0, 2000),
     kind,
-    name: base.name || nameOf(text) || '',
-    ...pick({ town: townOf(text), phone: phoneOf(text), email: emailOf(text), postcode: postcodeOf(text), hours: hoursOf(text), services: servicesOf(text) }),
+    name: base.name || nameOf(text) || (kind === 'cv' ? personOf(text) : undefined) || '',
+    ...pick({ town: townOf(text), phone: phoneOf(text), email: emailOf(text), postcode: postcodeOf(text), hours: hoursOf(text), services: servicesOf(text), date: DATED.includes(kind) ? dateOf(text) : undefined, formEndpoint: formEndpointOf(text) }),
     ...pick(base as Record<string, unknown>),
   } as Brief;
   return b;
 }
+/** The kinds with a day of their own (an event, an occasion, a launch): a date in the words is theirs. */
+const DATED: KindId[] = ['event', 'invite', 'launch'];
+/** Kinds with no shop door: no town or street address is asked for, and no map is drawn. */
+export const PLACELESS: KindId[] = ['saas', 'portfolio', 'cv', 'launch'];
+/** The owner's free form address said in passing: a Formspree form (https://formspree.io/f/…) only — a Web3Forms key is given in the keys. */
+export const formEndpointOf = (text: string): string | undefined => text.match(/https:\/\/formspree\.io\/f\/[A-Za-z0-9]{4,20}\b/)?.[0];
 const pick = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)));
 
 /** The facts worth asking for before building, most useful first (the phone asks; the brain fills sensible defaults and lists them). */
 export function missing(b: Brief): { key: keyof Brief; ask: string }[] {
   const out: { key: keyof Brief; ask: string }[] = [];
   if (!b.name) out.push({ key: 'name', ask: "What's the business called?" });
-  if (!b.town && b.kind !== 'saas' && b.kind !== 'portfolio') out.push({ key: 'town', ask: 'Which town or area is it in?' });
+  if (!b.town && !PLACELESS.includes(b.kind)) out.push({ key: 'town', ask: 'Which town or area is it in?' });
+  if (!b.date && (b.kind === 'invite' || b.kind === 'event')) out.push({ key: 'date', ask: 'When is it? (e.g. Saturday 12 July 2026)' });
   if (!b.phone && !b.email && !b.whatsapp) out.push({ key: 'phone', ask: 'A phone number or email for customers?' });
-  if (!b.hours && ['cafe', 'restaurant', 'barber', 'salon', 'gym', 'shop', 'clinic'].includes(b.kind)) out.push({ key: 'hours', ask: 'Opening hours? (e.g. Mon–Fri 9–6, Sat 9–4, Sun closed)' });
-  if (!b.services?.length && ['barber', 'salon', 'trades', 'clinic', 'gym', 'photographer'].includes(b.kind)) out.push({ key: 'services', ask: 'The main services and prices? (e.g. skin fade £20, beard trim £10)' });
+  if (!b.hours && ['cafe', 'restaurant', 'takeaway', 'barber', 'salon', 'gym', 'shop', 'clinic'].includes(b.kind)) out.push({ key: 'hours', ask: 'Opening hours? (e.g. Mon–Fri 9–6, Sat 9–4, Sun closed)' });
+  if (!b.services?.length && ['barber', 'salon', 'trades', 'tradesperson', 'clinic', 'gym', 'photographer'].includes(b.kind)) out.push({ key: 'services', ask: 'The main services and prices? (e.g. skin fade £20, beard trim £10)' });
   if (!b.about) out.push({ key: 'about', ask: 'Anything that makes it special — how long it has been going, who runs it, what people love about it?' });
   return out;
 }

@@ -2,9 +2,10 @@
  * Footers and the reading pages: the full footer (brand, pages, contact, hours, social links and the
  * photo credits the licences ask for), a one-line footer, a list of posts, and an article.
  */
-import { a, addressLine, esc, icon, img, imgOf, list, mailHref, navPages, route, str, telHref, texts } from '../html';
+import { a, addressLine, directionsHref, esc, icon, img, imgOf, list, mailHref, navPages, route, str, telHref, texts, waHref } from '../html';
 import type { BlockDef, ImageRef, RenderCtx } from '../types';
 import { HEAD, IMG, LIST, OT, T, TEXTS, head, initials, sec } from './common';
+import { whatsappOf } from './hero';
 import { prose } from './content';
 import { HOURS_CSS, hoursTable } from './media';
 
@@ -64,14 +65,35 @@ ${HOURS_CSS}
 .b-footer-columns .blurb{margin-top:var(--space-s);color:var(--muted);max-width:36ch}
 .b-footer-columns .hours th,.b-footer-columns .hours td{padding:.35em 0;border-color:var(--border);font-size:var(--step--1)}
 .foot .hours tr.today th,.foot .hours tr.today td{color:inherit}
-.b-footer-columns address{font-style:normal;display:grid;gap:.4em}
+.b-footer-columns address{font-style:normal;display:grid;gap:.15em}
+.b-footer-columns address a,.b-footer-columns address span{display:inline-flex;align-items:center;gap:.55em;min-height:40px}
+.b-footer-columns address .ic{width:18px;height:18px;opacity:.8;flex:none}
+.callbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;gap:8px;padding:10px var(--gutter) calc(10px + env(safe-area-inset-bottom));background:rgb(var(--rgb-bg) / .94);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);border-top:1px solid var(--border)}
+.callbar .btn{flex:1 1 0;min-height:48px;padding-inline:.8em}
+body:has(.callbar){padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+@media (min-width:900px){.callbar{display:none}body:has(.callbar){padding-bottom:0}}
+@media print{.callbar{display:none}}
 @media (min-width:700px){.b-footer-columns .cols{grid-template-columns:1.4fr 1fr 1fr}}
 @media (min-width:1000px){.b-footer-columns .cols{grid-template-columns:1.5fr .8fr 1fr 1.1fr}}`,
     render(d, x) {
       const b = x.brief;
       const pages = navPages(x.plan).map((p) => `<li><a href="${route(p.slug)}">${esc(p.label)}</a></li>`).join('');
-      const contact = [addressLine(b) ? `<span>${esc(addressLine(b))}</span>` : '', b.phone ? a(telHref(b.phone), esc(b.phone)) : '', b.email ? a(mailHref(b.email), esc(b.email)) : ''].filter(Boolean).join('');
-      return `<footer class="foot b-footer-columns"><div class="wrap"><div class="cols"><div><p class="brandline"><span class="mark" aria-hidden="true">${esc(initials(x.plan.name))}</span>${esc(x.plan.name)}</p>${str(d, 'blurb') ? `<p class="blurb">${esc(str(d, 'blurb'))}</p>` : ''}${socialLinks(x)}</div><nav aria-label="Footer"><h2>Pages</h2><ul>${pages}</ul></nav>${contact ? `<div><h2>Contact</h2><address>${contact}</address></div>` : ''}${b.hours?.length ? `<div><h2>Opening hours</h2>${hoursTable(b.hours)}</div>` : ''}</div><div class="bottom"><span>© <span data-year>${new Date().getFullYear()}</span> ${esc(x.plan.name)}${b.town ? ` · ${esc(b.town)}` : ''}</span><a href="#top">Back to top ↑</a>${creditsList(x.credits)}</div></div></footer>`;
+      const wa = whatsappOf(b);
+      const where = addressLine(b) || b.venue || '';
+      // The real details, each one a tap away: the address opens directions, the phone rings, WhatsApp and email open.
+      const contact = [
+        where ? a(directionsHref(b), `${icon('pin')}${esc(where)}`) : b.town ? `<span>${icon('pin')}${esc(b.town)}</span>` : '',
+        b.phone ? a(telHref(b.phone), `${icon('phone')}${esc(b.phone)}`) : '',
+        wa ? a(waHref(wa), `${icon('whatsapp')}WhatsApp`) : '',
+        b.email ? a(mailHref(b.email), `${icon('mail')}${esc(b.email)}`) : '',
+      ].filter(Boolean).join('');
+      // The blurb never just repeats the name ("Walsall Food Share in Walsall.").
+      const name = x.plan.name.toLowerCase();
+      const raw = str(d, 'blurb');
+      const blurb = raw.toLowerCase().replace(/\.$/, '').split(/\s+in\s+/)[0]!.trim() === name ? '' : raw;
+      // On a phone, the two things a visitor most often wants stay at the bottom of the screen.
+      const bar = b.phone ? `<div class="callbar no-print">${a(telHref(b.phone), `${icon('phone')}Call`, 'btn btn-primary')}${wa ? a(waHref(wa), `${icon('whatsapp')}WhatsApp`, 'btn btn-outline') : b.email ? a(mailHref(b.email), `${icon('mail')}Email`, 'btn btn-outline') : ''}</div>` : '';
+      return `<footer class="foot b-footer-columns"><div class="wrap"><div class="cols"><div><p class="brandline"><span class="mark" aria-hidden="true">${esc(initials(x.plan.name))}</span>${esc(x.plan.name)}</p>${blurb ? `<p class="blurb">${esc(blurb)}</p>` : ''}${socialLinks(x)}</div><nav aria-label="Footer"><h2>Pages</h2><ul>${pages}</ul></nav>${contact ? `<div><h2>Contact</h2><address>${contact}</address></div>` : ''}${b.hours?.length ? `<div><h2>Opening hours</h2>${hoursTable(b.hours)}</div>` : ''}</div><div class="bottom"><span>© <span data-year>${new Date().getFullYear()}</span> ${esc(x.plan.name)}${b.town ? ` · ${esc(b.town)}` : ''}</span><a href="#top">Back to top ↑</a>${creditsList(x.credits)}</div></div></footer>${bar}`;
     },
   },
   {
