@@ -253,6 +253,7 @@ export const briefTab: TabDef = {
     paintNews();
     return {
       enter() {
+        paintSay();
         loadDigest();
         void paintDay();
         void paintCommute();
@@ -260,7 +261,9 @@ export const briefTab: TabDef = {
         air.start();
         news.start();
       },
-      describe: () => `Brief: ${P.big.textContent} ${P.sub.textContent}. Top headline: ${news.data?.[0]?.title ?? 'none'}`,
+      // What Ghosty is told is on screen (cut at 400 characters by the brain): the day's facts first, so "what's my
+      // day like?" asked here is answered from them.
+      describe: () => `Brief, ${dateEl.textContent}: ${[P.big.textContent, P.sub.textContent].filter(Boolean).join(' ')}. ${say.textContent} Diary: ${dayItems ? (dayItems.length ? dayItems.slice(0, 4).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing more today') : 'not known'}. Top headline: ${topHeadlines()[0] ?? 'none'}`,
     };
   },
 };
