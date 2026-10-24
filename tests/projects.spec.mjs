@@ -215,6 +215,29 @@ async function workshop() {
     release?.();
     await ctx.close();
   }
+
+  // 3. No connection: said once on the page (the lists kept, the hero says Offline), never a "Failed to fetch" toast
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForFunction(() => !/Checking/.test(document.querySelector('#pg-workshop .bigv')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+    await page.evaluate(() => {
+      window.__toasts = [];
+      new MutationObserver(() => document.querySelectorAll('#toasts > *').forEach((t) => window.__toasts.includes(t.textContent) || window.__toasts.push(t.textContent))).observe(document.body, { childList: true, subtree: true });
+    });
+    await ctx.setOffline(true);
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => (location.hash = 'workshop'));
+    await page.waitForTimeout(3000);
+    const toasts = await page.evaluate(() => window.__toasts);
+    if (toasts.some((t) => /fetch|Workshop:/i.test(t))) problems.push(`[workshop 3] offline, a toast says: ${toasts.join(' | ')}`);
+    const hero = await page.$eval('#pg-workshop .hero', (e) => e.textContent ?? '');
+    if (!/Offline/.test(hero) || !/what was here before/.test(hero)) problems.push(`[workshop 3] offline, the hero does not say so: ${hero.slice(0, 160)}`);
+    await page.screenshot({ path: `${out}/workshop-offline.png` });
+    await ctx.setOffline(false);
+    await ctx.close();
+  }
 }
 
 await workshop();

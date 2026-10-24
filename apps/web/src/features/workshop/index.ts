@@ -23,6 +23,11 @@ import { WHATS_NEW, whatsNewDue, whatsNewSeen } from '../../state/whatsnew';
 import { draftCard } from './draftcard';
 
 const CHECK_LABEL: Record<ChangeSummary['checks'], string> = { passed: 'CHECKS OK', failed: 'CHECKS FAILED', pending: 'CHECKING…', none: 'WAITING FOR CHECKS' };
+/** No connection (the phone offline, or the brain out of reach): fetch's own TypeError, or the phone says so. */
+const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
+/** Why something did not happen, in plain words (never "Failed to fetch"). */
+const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : String((e as Error)?.message ?? e));
+const SUB = 'Ghosty changes its own code. You decide what goes live.';
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
 
 export const workshopTab: TabDef = {
@@ -37,7 +42,7 @@ export const workshopTab: TabDef = {
   },
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: 'Ghosty changes its own code. You decide what goes live.', rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });
+    const P = page(root, { tag: 'WORKSHOP // SELF-EVOLUTION', sub: SUB, rightLabel: 'WIDGETS & VERSIONS', leftLabel: 'CHANGES' });
 
     // ask box
     const ask = panel('TELL GHOSTY WHAT TO BUILD', { grow: false });
@@ -129,7 +134,7 @@ export const workshopTab: TabDef = {
         projects = projects.map((p) => (p.id === id ? r.project : p));
         if (action === 'run') toast(r.did === 'step' || r.did === 'done' ? 'Step done' : r.did === 'waiting' ? 'Waiting: no model is free right now (or Ghosty is busy); it tries again on its own' : `Step not finished (${r.did})`, r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
       } catch (e) {
-        toast(`Could not ${action}: ${String((e as Error).message)}`, 'bad');
+        toast(`Could not ${action}: ${why(e)}`, 'bad');
       }
       paintProjects();
       void loadProjects();
@@ -190,7 +195,7 @@ export const workshopTab: TabDef = {
                 void load();
               } catch (e) {
                 b.disabled = false;
-                toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+                toast(`Could not take it down: ${why(e)}`, 'warn');
               }
             }, 'warn'),
           );
@@ -247,7 +252,7 @@ export const workshopTab: TabDef = {
                   await brain.dismissUpgrade(i.id);
                   ideas = ideas.filter((x) => x.id !== i.id);
                 } catch (e) {
-                  if (!isPaused(e)) toast(`Could not dismiss it: ${String((e as Error).message)}`, 'warn');
+                  if (!isPaused(e)) toast(`Could not dismiss it: ${why(e)}`, 'warn');
                 }
                 ideasGoing.delete(i.id);
                 paintIdeas();
@@ -268,7 +273,7 @@ export const workshopTab: TabDef = {
           paintIdeas();
           toast(r.added ? `${r.added} new upgrade idea${r.added === 1 ? '' : 's'}` : r.note, r.added ? 'ok' : '');
         } catch (e) {
-          if (!isPaused(e)) toast(`Could not think about upgrades: ${String((e as Error).message)}`, 'warn');
+          if (!isPaused(e)) toast(`Could not think about upgrades: ${why(e)}`, 'warn');
         } finally {
           b.disabled = false;
           b.textContent = 'THINK NOW';
@@ -445,7 +450,7 @@ export const workshopTab: TabDef = {
             toast(`${s.title} taken down`, 'ok');
             paintSites();
           } catch (e) {
-            toast(`Could not take it down: ${String((e as Error).message)}`, 'warn');
+            toast(`Could not take it down: ${why(e)}`, 'warn');
           }
         }, 'warn');
         pp.body.append(h('div.site', open, h('div.keyrow', copy, down)));
@@ -454,6 +459,10 @@ export const workshopTab: TabDef = {
     /** Self-editing set up on the brain (GitHub): null until the change list first answers. */
     let ready: boolean | null = null;
     let kernelUntil = 0;
+    /** The last look found no connection: the lists are what was here before, and the hero says so (no toasts). */
+    let offline = false;
+    /** The last problem told in a toast: the same one is not told again every 20 s. */
+    let toldErr = '';
 
     const paint = () => {
       clear(cp.body);
@@ -483,7 +492,7 @@ export const workshopTab: TabDef = {
               try {
                 toast((await brain.ship(c.number, c.sha)).result, 'ok');
               } catch (e) {
-                toast(String((e as Error).message), 'bad');
+                toast(`Not shipped: ${why(e)}`, 'bad');
               }
               void load();
             }, 'on ship'),
@@ -493,7 +502,7 @@ export const workshopTab: TabDef = {
             }, 'quiet'),
             button('DISCARD', async () => {
               if (!(await confirmSheet('Discard this change?', `Change #${c.number} “${c.title}” is closed and never shipped. To have it again, ask Ghosty to build it afresh.`, 'DISCARD'))) return;
-              await brain.discard(c.number).catch((e) => toast(String(e.message), 'bad'));
+              await brain.discard(c.number).catch((e) => toast(`Not discarded: ${why(e)}`, 'bad'));
               void load();
             }, 'warn quiet'),
             button('GITHUB ↗', () => window.open(c.url, '_blank', 'noopener'), 'quiet'),
@@ -518,7 +527,7 @@ export const workshopTab: TabDef = {
             try {
               toast((await brain.restore(v.sha)).result, 'ok');
             } catch (e) {
-              toast(String((e as Error).message), 'bad');
+              toast(`Not rolled back: ${why(e)}`, 'bad');
             }
             void load();
           });
@@ -541,7 +550,7 @@ export const workshopTab: TabDef = {
           } catch (e) {
             // Paused: delete here now and in the brain when it's back. Anything else: say so.
             forgetWidget(w.name, isPaused(e));
-            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${String((e as Error).message)}`, 'warn');
+            if (!isPaused(e)) toast(`Could not delete it from Ghosty: ${why(e)}`, 'warn');
           }
           widgets = widgets.filter((x) => x.name !== w.name);
           paint();
@@ -565,7 +574,8 @@ export const workshopTab: TabDef = {
       );
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';
-      P.big.textContent = ready === null ? 'Checking…' : ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Code edits off';
+      P.sub.textContent = offline ? 'You’re offline: this is what was here before. It updates by itself when you’re back.' : SUB;
+      P.big.textContent = offline ? 'Offline' : ready === null ? 'Checking…' : ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Code edits off';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],
@@ -610,7 +620,13 @@ export const workshopTab: TabDef = {
         }),
       ]);
       const failed = parts.slice(0, 3).find((r): r is PromiseRejectedResult => r.status === 'rejected');
-      if (failed && !isPaused(failed.reason)) toast(`Workshop: ${String((failed.reason as Error)?.message ?? failed.reason)}`, 'warn');
+      // No connection: said once, on the page itself; anything else in a toast, once until it changes.
+      const wasOffline = offline;
+      offline = !!failed && unreachable(failed.reason);
+      if (offline !== wasOffline) paint();
+      const err = failed && !offline && !isPaused(failed.reason) ? String((failed.reason as Error)?.message ?? failed.reason) : '';
+      if (err && err !== toldErr) toast(`Workshop: ${err}`, 'warn');
+      toldErr = err;
     };
     paint();
     paintSites();
