@@ -255,3 +255,9 @@ Add to it any time; tick items off only when he agrees they are fixed.
     second try hit it at once because the files were already cached. The fix builder was told: load only on USE/TEST
     after a limits pre-check and a warning, a crash record that stops blind retries, a smaller context window, and a
     middle-sized brain (Qwen3 1.7B if it needs well under 2 GB) so he has a step between the 0.6B and the 2B.
+
+45. **Navigation and boot, his word (24 Oct ~21:50 UK):** "I am happy with pretty much all of that but i feel the intro could be
+    a little more cinematic, forget giving facts, like it could be really cinematic and cool and remember it's not an arc
+    reactor anymore either so". Read as: yes to the navigation (every tool its own screen, hubs on one screen, the long
+    press); yes to a boot cinematic, but no status readouts, more cinematic, and built around MIND (the hologram of his
+    mind, item 27), not a reactor core. The theme name Reactor is only a colour's name; nothing on screen is a reactor.
