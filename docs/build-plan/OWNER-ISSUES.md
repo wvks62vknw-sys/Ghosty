@@ -248,4 +248,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
     closes" (SETTINGS → OFFLINE BRAIN → WHICH BRAIN → GET on Qwen3.5 2B or 4B). Most likely iOS killing the tab for
     memory when GET loads the model into graphics memory after the download, or during it. Fix in flight: GET fills the
     cache only; USE/TEST load, after a limits check and a warning; a crash-safe progress log that reports on the next
-    open. Asked of him: does it close at once on GET, or after the count has moved?
+    open. His answer: "at first it fully downloaded then crashed but then when i opened and tried again it just crashed
+    before downloaded": the download completes; the kill is the load into graphics memory (2,245 MB for the 2B), and the
+    second try hit it at once because the files were already cached. The fix builder was told: load only on USE/TEST
+    after a limits pre-check and a warning, a crash record that stops blind retries, a smaller context window, and a
+    middle-sized brain (Qwen3 1.7B if it needs well under 2 GB) so he has a step between the 0.6B and the 2B.
