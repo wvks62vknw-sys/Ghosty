@@ -232,6 +232,34 @@ export const eyeTab: TabDef = {
       ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
       ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
     ];
+    // His layer choices are kept on this phone (only the switches in LAYERS; nothing else): Radar turned off stays off.
+    const LAYER_KEY = 'ghosty.eye.layers';
+    try {
+      const kept = JSON.parse(localStorage.getItem(LAYER_KEY) ?? 'null') as Record<string, unknown> | null;
+      if (kept) {
+        const vis = { ...globe.vis };
+        for (const [k] of LAYERS) {
+          const v = kept[k];
+          if (typeof v === 'boolean') vis[k] = v;
+        }
+        globe.vis = vis;
+        sats.showOrbit = vis.orbits;
+      }
+    } catch {
+      /* private browsing or a bad value: the defaults */
+    }
+    const layerJson = () => JSON.stringify(Object.fromEntries(LAYERS.map(([k]) => [k, globe.vis[k]])));
+    let keptVis = layerJson();
+    const keepLayers = () => {
+      const now = layerJson();
+      if (now === keptVis) return;
+      keptVis = now;
+      try {
+        localStorage.setItem(LAYER_KEY, now);
+      } catch {
+        /* not kept: nothing else changes */
+      }
+    };
     const counts: HTMLElement[] = [];
     const boxes: HTMLButtonElement[] = [];
     const tileFor = new Map<keyof LayerVisibility, number>();
@@ -245,6 +273,7 @@ export const eyeTab: TabDef = {
         sats.showOrbit = globe.vis.orbits;
         b.classList.toggle('on', globe.vis[k]);
         b.setAttribute('aria-pressed', String(globe.vis[k]));
+        keepLayers();
       });
       counts.push(em);
       boxes.push(b);
@@ -1098,6 +1127,7 @@ export const eyeTab: TabDef = {
           boxes[i]!.setAttribute('aria-pressed', String(globe.vis[k]));
         }
       });
+      keepLayers();
       lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
       paintModes();
       if (selected?.kind === 'air' || selected?.kind === 'ship' || selected?.kind === 'transit') paintInfo();
@@ -1134,6 +1164,7 @@ export const eyeTab: TabDef = {
         paintModes();
       },
       leave() {
+        keepLayers();
         closeLook();
         clearInterval(airTimer);
         clearInterval(shipTimer);
