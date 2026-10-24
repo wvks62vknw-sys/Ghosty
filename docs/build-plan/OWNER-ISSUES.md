@@ -249,3 +249,9 @@ Add to it any time; tick items off only when he agrees they are fixed.
     memory when GET loads the model into graphics memory after the download, or during it. Fix in flight: GET fills the
     cache only; USE/TEST load, after a limits check and a warning; a crash-safe progress log that reports on the next
     open. Asked of him: does it close at once on GET, or after the count has moved?
+    His answer: "at first it fully downloaded then crashed but then when i opened and tried again it just crashed before
+    downloaded" — so the load into graphics memory closed it, and the second GET found the files cached and went straight
+    to that load. Fixed (branch worktree-bigfix, 24 Oct): GET only stores the files; USE/TEST load after the limits check
+    and a warning; a load that closes Ghosty is remembered and the 0.6B is back on the next open; his phone's current state
+    (the 2B "in use", never loaded) is put right once on opening; a middle brain, Qwen3.5 0.8B. To ask him after he
+    tries: what the "What this phone can hold" line says once he has tried USE on the 0.8B and then the 2B.
