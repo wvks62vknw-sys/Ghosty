@@ -263,7 +263,7 @@ export const stopwatch = {
       afterPaint(() => {
         if (!visible()) return; // put away meanwhile: the frame waited for the owner, not for Ghosty
         const now = clock();
-        add({ k: 'tab', at: Date.now(), id, title, ms: now - t0, ...(first ? { first: 1 as const } : {}) });
+        add({ k: 'tab', at: Date.now(), id, title, ms: Math.round(now - t0), ...(first ? { first: 1 as const } : {}) });
         if (cold) {
           const fcp = performance.getEntriesByType?.('paint').find((e) => e.name === 'first-contentful-paint') ?? performance.getEntriesByType?.('paint')[0];
           add({ k: 'start', at: Date.now(), paint: fcp ? Math.round(fcp.startTime) : null, screen: Math.round(now) });
@@ -283,7 +283,7 @@ export const stopwatch = {
       },
       end() {
         // Only a reply with words counts (an approval asked, or an error, is not a reply).
-        if (first) add({ k: 'reply', at: Date.now(), first, done: done || clock() - t0 });
+        if (first) add({ k: 'reply', at: Date.now(), first: Math.round(first), done: Math.round(done || clock() - t0) });
       },
     };
   },
