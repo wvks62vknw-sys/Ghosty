@@ -5,9 +5,15 @@
 // a page that will not open listed without a price (never a guessed one), pages that match nothing
 // dropped, nothing found said plainly; best settings from a real RTINGS settings page (its text
 // sits in the page's data), the "nothing published" answer; the tools and their keyword group.
+// GADGET MANUALS (integrations/manuals.ts, built here with esbuild's API): the source chosen (the maker's
+// own PDF first, a forbidden site skipped with its reason, any other site not used, robots.txt obeyed),
+// the manual read and kept on the GADGETS shelf with its record, a fault code answered from the manual's
+// own page, the web said to be the web when the manual is silent, and part links with no shop favoured.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { build } from 'esbuild';
+import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const B = './.build';
 const P = await import(`${B}/integrations/parts.mjs`);
@@ -224,4 +230,183 @@ test('find_part through the tool: the keyless search (faked DuckDuckGo page) →
   } finally {
     globalThis.fetch = saved;
   }
+});
+
+// ---- GADGET MANUALS ----------------------------------------------------------------------------------------------
+
+const at = (p) => new URL(p, import.meta.url).pathname;
+// (only the files that exist: on code without manuals.ts the manual tests then fail one by one, not the whole file)
+await build({ entryPoints: [at('../src/integrations/manuals.ts'), at('../src/library/store.ts')].filter((f) => existsSync(f)), bundle: true, format: 'esm', platform: 'neutral', external: ['cloudflare:sockets'], outdir: at('./.build/manuals'), outbase: at('../src'), outExtension: { '.js': '.mjs' }, logLevel: 'warning' }).catch(() => undefined);
+const M = await import('./.build/manuals/integrations/manuals.mjs').catch(() => ({}));
+const L = await import('./.build/manuals/library/store.mjs');
+
+class MemStorage {
+  m = new Map();
+  sql = sqlStorage();
+  async get(k) { return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
+  async put(k, v) { this.m.set(k, structuredClone(v)); }
+  async delete(k) { return this.m.delete(k); }
+  async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([k]) => k.startsWith(prefix))); }
+}
+
+/** A PDF with these pages of text (Helvetica), as a maker's manual's stand-in. */
+function makePdf(pages) {
+  const esc = (t) => t.replace(/[\\()]/g, (c) => `\\${c}`);
+  const n = pages.length;
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${pages.map((_, i) => `${4 + i * 2} 0 R`).join(' ')}] /Count ${n} >>`, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
+  pages.forEach((lines, i) => {
+    const content = `BT /F1 11 Tf 50 800 Td ${lines.map((l, j) => `${j ? '0 -16 Td ' : ''}(${esc(l)}) Tj`).join(' ')} ET`;
+    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+  let out = '%PDF-1.4\n';
+  const offs = [];
+  objs.forEach((o, i) => {
+    offs.push(out.length);
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const x = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+/** Bosch's SMS24AW01G manual, 12 pages: the fault codes on page 12. */
+const MANUAL_PAGES = Array.from({ length: 12 }, (_, i) =>
+  i === 0 ? ['Bosch Dishwasher SMS24AW01G', 'User manual', 'Read this manual before using the appliance.', 'Keep it for later use and pass it on to the next owner.']
+  : i === 11 ? ['Troubleshooting: fault codes', 'E24 The waste water cannot drain away.', '1. Switch off the appliance and unplug it.', '2. Clean the filters and the waste water pump.', '3. Check that the drain hose is not kinked or blocked.', 'E15 Water protection system has responded. Contact customer service.']
+  : [`Page ${i + 1}: loading the dishwasher, programmes and care.`, 'Use dishwasher salt and rinse aid. Clean the filters regularly so water can drain.', 'Programme Eco 50 is the most efficient for normally soiled dishes.']);
+const BOSCH_PDF = 'https://media3.bosch-home.com/Documents/specsheet/en-GB/SMS24AW01G.pdf';
+const ddgPage = (results) => `<html><body>${results.map(([url, title]) => `<div class="result"><a class="result__a" href="${url}">${title}</a><a class="result__snippet">${title} manual</a></div>`).join('')}</body></html>`;
+const searchFor = (results) => async () => results.map(([url, title], i) => `${i + 1}. ${title}\n${url}\n${title} manual`).join('\n\n');
+const fetchOf = (routes, seen) => async (input) => {
+  const url = typeof input === 'string' ? input : input.url;
+  seen.push(url);
+  for (const [prefix, res] of routes) if (url.startsWith(prefix)) return typeof res === 'function' ? res() : res;
+  return new Response('not found', { status: 404 });
+};
+const pdfResponse = () => new Response(makePdf(MANUAL_PAGES), { headers: { 'content-type': 'application/pdf' } });
+
+test("the manual finder's source choice: the maker's own PDF first, a forbidden archive skipped with its reason, any other site not used", () => {
+  const d = M.parseDevice('find the manual for my bosch dishwasher SMS24AW01G');
+  assert.deepEqual(d, { make: 'Bosch', maker: 'bosch', model: 'SMS24AW01G', kind: 'dishwasher' });
+  // a rating plate read in Lens READ: the variant after the slash is not part of the model searched
+  assert.equal(M.parseDevice('BOSCH  E-Nr. SMS24AW01G/29  FD 9907  Type S9KT1B').model, 'SMS24AW01G');
+  const hits = [
+    { url: 'https://www.manualslib.com/manual/1234/Bosch-Sms24aw01g.html', title: 'Bosch SMS24AW01G manual - ManualsLib' },
+    { url: 'https://some-appliance-blog.example/bosch-manual.pdf', title: 'Bosch manual mirror' },
+    { url: 'https://archive.org/details/bosch-sms24', title: 'Bosch dishwasher manual : Internet Archive' },
+    { url: 'https://www.bosch-home.co.uk/productslist/SMS24AW01G', title: 'SMS24AW01G | Bosch' },
+    { url: BOSCH_PDF, title: 'Instructions for use SMS24AW01G' },
+  ];
+  const { picks, skipped } = M.pickManual(hits, d);
+  assert.deepEqual(picks.map((p) => [p.url, p.source.from]), [[BOSCH_PDF, 'maker'], ['https://www.bosch-home.co.uk/productslist/SMS24AW01G', 'maker'], ['https://archive.org/details/bosch-sms24', 'archive']]);
+  assert.match(picks[0].source.licence, /© Bosch.*kept privately for the owner's own use/);
+  assert.deepEqual(skipped.map((s) => s.url), [hits[0].url, hits[1].url]);
+  assert.match(skipped[0].why, /ManualsLib's robots\.txt shuts robots out of its downloads/);
+  assert.match(skipped[1].why, /neither Bosch's own site nor an archive known to allow it/);
+  // robots.txt: Bosch's own UK site keeps robots out of /manual/; content signals saying no to AI input forbid it too
+  const boschRobots = 'User-agent: *\nDisallow: /*orderCode*\nDisallow: /manual/\nDisallow: /*/manual/\n';
+  assert.equal(M.robotsAllows(boschRobots, '/manual/SMS24AW01G.pdf'), false);
+  assert.equal(M.robotsAllows(boschRobots, '/productslist/SMS24AW01G'), true);
+  assert.equal(M.robotsAllows('User-agent: *\nDisallow: /files/\nAllow: /files/manuals/\n', '/files/manuals/a.pdf'), true);
+  assert.equal(M.robotsAllows('User-agent: Googlebot\nDisallow: /\n', '/a.pdf'), true, "another robot's rules are not ours");
+  assert.equal(M.robotsAllows('Content-Signal: search=yes, ai-input=no\nUser-agent: *\nAllow: /\n', '/a.pdf'), false);
+  assert.equal(M.robotsAllows('', '/a.pdf'), true);
+});
+
+test('FIND THE MANUAL: the PDF is read and kept on the GADGETS shelf with the gadget\'s record (model, source, licence, pages); the forbidden site is never fetched', async () => {
+  const storage = new MemStorage();
+  const lib = new L.Library(storage, {});
+  const seen = [];
+  const deps = {
+    storage, library: lib,
+    search: searchFor([['https://www.manualslib.com/manual/1234/Bosch-Sms24aw01g.html', 'Bosch SMS24AW01G - ManualsLib'], [BOSCH_PDF, 'Instructions for use SMS24AW01G']]),
+    fetch: fetchOf([['https://media3.bosch-home.com/robots.txt', () => new Response('')], [BOSCH_PDF, pdfResponse]], seen),
+    now: () => 1_800_000_000_000,
+  };
+  const r = await M.findManual(deps, 'Bosch dishwasher SMS24AW01G');
+  assert.ok(r.record, r.text);
+  assert.match(r.text, /^Found the manual for the Bosch dishwasher SMS24AW01G from Bosch's own site \(media3\.bosch-home\.com\) and kept it in the library on the GADGETS shelf: "Bosch dishwasher SMS24AW01G — manual", 12 pages\./);
+  assert.match(r.text, /Licence: © Bosch/);
+  assert.match(r.text, /Not used: manualslib\.com \(ManualsLib's robots\.txt/);
+  assert.ok(!seen.some((u) => u.includes('manualslib')), seen.join());
+  const kept = await storage.get(M.GADGETS_KEY);
+  assert.equal(kept.length, 1);
+  assert.deepEqual({ ...kept[0], doc: '…' }, { id: 'sms24aw01g', name: 'Bosch dishwasher SMS24AW01G', make: 'Bosch', model: 'SMS24AW01G', kind: 'dishwasher', doc: '…', url: BOSCH_PDF, host: 'media3.bosch-home.com', from: 'maker', source: "from Bosch's own site (media3.bosch-home.com)", licence: "© Bosch: the maker's own manual, free on its site; kept privately for the owner's own use, never shared or published", pages: 12, modelSeen: true, at: 1_800_000_000_000 });
+  const doc = lib.doc(kept[0].doc);
+  assert.equal(doc.kind, 'manual');
+  assert.equal(doc.title, 'Bosch dishwasher SMS24AW01G — manual');
+  assert.match(doc.source, /^https:\/\/media3\.bosch-home\.com\/.* · © Bosch/);
+  const passages = lib.passagesOf(doc.id).passages;
+  assert.equal(passages.find((p) => /E24 The waste water/.test(p.text))?.page, 12, 'each passage keeps its page');
+  // asked again: already on the shelf, nothing fetched
+  const before = seen.length;
+  assert.match((await M.findManual(deps, 'bosch SMS24AW01G')).text, /already on the GADGETS shelf/);
+  assert.equal(seen.length, before);
+});
+
+test('only forbidden or unknown sites, or a host whose robots.txt says no: nothing is fetched from them and nothing is kept, said plainly', async () => {
+  const storage = new MemStorage();
+  const seen = [];
+  const deps = {
+    storage, library: new L.Library(storage, {}),
+    search: searchFor([['https://www.manualslib.com/download/1234/Bosch.html', 'ManualsLib'], ['https://www.manualzz.com/doc/1/bosch', 'Manualzz'], [BOSCH_PDF, 'Bosch PDF']]),
+    fetch: fetchOf([['https://media3.bosch-home.com/robots.txt', () => new Response('User-agent: *\nDisallow: /Documents/\n')], [BOSCH_PDF, pdfResponse]], seen),
+  };
+  const r = await M.findManual(deps, 'Bosch dishwasher SMS24AW01G');
+  assert.equal(r.record, undefined);
+  assert.match(r.text, /^I could not find a manual for the Bosch dishwasher SMS24AW01G that I may use/);
+  assert.match(r.text, /media3\.bosch-home\.com \(media3\.bosch-home\.com's robots\.txt does not allow robots to read it\)/);
+  assert.match(r.text, /Manualzz's robots\.txt/);
+  assert.ok(!seen.some((u) => u === BOSCH_PDF || /manualslib|manualzz/.test(u)), seen.join());
+  assert.equal(await storage.get(M.GADGETS_KEY), undefined);
+  // no model number: asked for, not guessed
+  assert.match((await M.findManual(deps, 'my bosch dishwasher')).text, /^I need the model number/);
+});
+
+test('"my dishwasher shows E24" is answered from the manual\'s own page 12 with its steps; a code the manual does not have is "from the web, not the manual"; part links favour no shop and carry no affiliate tag', async () => {
+  const storage = new MemStorage();
+  const lib = new L.Library(storage, {});
+  const queries = [];
+  const deps = {
+    storage, library: lib,
+    search: async (q) => {
+      queries.push(q);
+      if (/manual pdf/.test(q)) return `1. Instructions for use\n${BOSCH_PDF}\nBosch`;
+      if (/E99/.test(q)) return '1. Bosch dishwasher E99 error explained\nhttps://www.fixit-forum.example/bosch-e99?utm_source=x&ref=abc\nA forum thread';
+      return '1. Bosch drain pump 00620774 - eSpares\nhttps://www.espares.co.uk/product/bosch-drain-pump?tag=ghosty-21&utm_medium=aff&id=1\nDrain pump\n\n2. Drain pump for Bosch dishwashers | Amazon.co.uk\nhttps://www.amazon.co.uk/dp/B000123/ref=sr_1_1?tag=someone-21&keywords=x\nPump';
+    },
+    fetch: fetchOf([['https://media3.bosch-home.com/robots.txt', () => new Response('')], [BOSCH_PDF, pdfResponse]], []),
+  };
+  await M.findManual(deps, 'Bosch dishwasher SMS24AW01G');
+  assert.deepEqual(M.faultCodes('my dishwasher shows E24'), ['E24']);
+  assert.deepEqual(M.faultCodes('it says E:15 and error 24'), ['E15', '24']);
+  const e24 = await M.askManual(deps, 'my dishwasher shows E24');
+  assert.equal(e24.from, 'manual');
+  assert.deepEqual(e24.pages, [12]);
+  assert.match(e24.text, /^From the manual, page 12 \(Bosch dishwasher SMS24AW01G, from Bosch's own site/);
+  assert.match(e24.text, /1\. Switch off the appliance and unplug it\.[\s\S]*2\. Clean the filters and the waste water pump\.[\s\S]*3\. Check that the drain hose/);
+  const searched = queries.length;
+  // a code the manual does not have: a web search, said to be the web
+  const e99 = await M.askManual(deps, 'my dishwasher shows E99');
+  assert.equal(e99.from, 'web');
+  assert.match(e99.text, /^The manual for the Bosch dishwasher SMS24AW01G does not mention E99 \(all 12 pages looked through\)\. From the web, not the manual/);
+  assert.equal(queries.length, searched + 1);
+  assert.match(queries.at(-1), /^Bosch SMS24AW01G E99 dishwasher error code$/);
+  assert.match(e99.text, /https:\/\/www\.fixit-forum\.example\/bosch-e99\n/, 'tracking parameters taken off');
+  // replacement parts: the exact part name, plain links in the search's order, no affiliate tags, never a purchase
+  const parts = await M.partLinks(deps, { part: 'drain pump' });
+  assert.match(queries.at(-1), /^"drain pump" Bosch SMS24AW01G replacement part$/);
+  assert.deepEqual(parts.links, ['https://www.espares.co.uk/product/bosch-drain-pump?id=1', 'https://www.amazon.co.uk/dp/B000123']);
+  assert.match(parts.text, /No shop is favoured, no link carries an affiliate tag, and Ghosty never buys anything/);
+  assert.doesNotMatch(parts.text, /tag=|utm_|ref=/);
+  // nothing kept yet: says how to start
+  assert.match((await M.askManual({ ...deps, storage: new MemStorage() }, 'my oven shows F2')).text, /^No manual is kept yet/);
+});
+
+test('gadget_manual is a gadgets tool (find, ask, parts), read-and-file only, with no purchase in it', () => {
+  const g = T.TOOL_GROUPS.find((x) => x.name === 'gadgets');
+  const t = g.tools.find((x) => x.name === 'gadget_manual');
+  assert.ok(t, 'gadget_manual is in the gadgets group');
+  assert.deepEqual(t.parameters.properties.action.enum, ['find', 'ask', 'parts']);
+  assert.match(t.description, /never buy/);
+  assert.ok(t.description.length <= 240, `${t.description.length} characters`);
 });

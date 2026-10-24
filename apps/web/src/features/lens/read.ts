@@ -7,13 +7,20 @@
  *
  * A UK number plate in the text brings up a CHECK THIS VEHICLE? chip: only a tap on it sends that
  * one plate to the brain (ui/vehiclecheck.ts: the official MOT record, shown once, not saved).
+ *
+ * MARK (the chip beside the actions) opens MARK MY WORK on the text read (mark.ts): his answers, corrected by him,
+ * marked by the brain. A rating plate in the text (a make and a model number) brings up FIND THE MANUAL?, which asks
+ * Ghosty in the chat for that gadget's manual (the brain's gadget_manual): only on a tap.
  */
 import { findPlates, formatPlate } from '../../../../../packages/shared/src/plates';
+import { ratingPlate } from '../../../../../packages/shared/src/rating';
 import { clear, h } from '../../core/dom';
 import { bar, button, toast } from '../../ui/components';
+import { go } from '../../shell/tabs';
 import { loadImageFile } from '../../vision/camera';
 import { cleanOcr, ocrSummary, titleFrom, wordRegions, type Region } from '../../vision/ocrtext';
 import type { LensContext, Mode, ModeOpts } from './index';
+import { openMark } from './mark';
 
 export function createReadMode(L: LensContext): Mode {
   const S = L.state;
@@ -72,9 +79,24 @@ export function createReadMode(L: LensContext): Mode {
   plateChip.hidden = true;
   const offerPlates = () => {
     const plates = findPlates(text.value).slice(0, 2);
-    plateChip.hidden = !plates.length;
-    clear(plateChip, ...plates.map((p) => button(`CHECK THIS VEHICLE? ${formatPlate(p)}`, () => void import('../../ui/vehiclecheck').then((m) => m.openVehicleCheck(p, true)), 'vcchip')));
+    // a gadget's rating plate (a known make and a model number): FIND THE MANUAL? asks Ghosty, only on a tap
+    const gadget = ratingPlate(text.value);
+    plateChip.hidden = !plates.length && !gadget;
+    clear(plateChip,
+      ...plates.map((p) => button(`CHECK THIS VEHICLE? ${formatPlate(p)}`, () => void import('../../ui/vehiclecheck').then((m) => m.openVehicleCheck(p, true)), 'vcchip')),
+      gadget ? button(`FIND THE MANUAL? ${gadget}`, () => {
+        go('core');
+        void import('../../assistant/session').then((m) => m.send(`Find the manual for my ${gadget}`));
+      }, 'vcchip manualchip') : null);
   };
+  const markChip = button('MARK', () => {
+    S.lastAction = 'mark my work';
+    openMark(L, text.value.trim(), () => {
+      clear(L.panel);
+      L.panel.append(root, file);
+    });
+  }, 'markchip');
+  markChip.title = 'Mark my work: these answers, marked by Ghosty';
   const root = h('div.stackf',
     h('div.row', capture, pick, live),
     h('div.note', 'Reads English text on the phone (Tesseract). Best with the text filling the frame, flat and well lit. Nothing is sent anywhere.'),
@@ -82,7 +104,7 @@ export function createReadMode(L: LensContext): Mode {
     plateChip,
     text,
     sure,
-    h('div.row.wrap', save, copy, ask, wordsBtn),
+    h('div.row.wrap', save, copy, ask, wordsBtn, markChip),
   );
   file.addEventListener('change', async () => {
     const f = file.files?.[0];

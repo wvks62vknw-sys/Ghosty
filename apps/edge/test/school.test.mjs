@@ -16,7 +16,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/school/markwork.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -46,6 +46,7 @@ const STUDY = await load('apps/edge/src/library/study');
 const PR = await load('apps/edge/src/school/practice');
 const RM = await load('apps/edge/src/school/remote');
 const SCH = await load('apps/edge/src/schedule');
+const MW = await load('apps/edge/src/school/markwork');
 
 class MemStorage {
   m = new Map();
@@ -1384,4 +1385,77 @@ test('the exam prompt: the shared one (sent to Kaggle and to the online model) i
     const p = P.makePaper(stage, subject, P.PAPER_SEED_FLOOR + 7);
     for (const it of p.items) assert.deepEqual(S.examMessages(it, it.passage ? p.passages.find((x) => x.id === it.passage) : undefined), SIT.examPrompt(it, p.passages ?? []));
   }
+});
+
+// ---- MARK MY WORK (school/markwork.ts): the owner's own page, read in the Lens, corrected by him, marked once ----
+
+/** A stand-in for the cheap model: Q2's answer about plants misses chlorophyll (1 of 2), anything else is right. */
+const workMarker = (calls) => async (system, user) => {
+  calls.push(user);
+  assert.match(system, /^WORK MARKER:/);
+  assert.match(user, /<learner_answer>/);
+  const max = Number(user.match(/Most marks possible: (\d+)/)[1]);
+  return /plants make food/i.test(user) ? 'MARKS: 1 | Missed that it happens in the chlorophyll and makes glucose.' : `MARKS: ${max} | correct`;
+};
+
+test('MARK MY WORK, a photographed maths page: every sum worked out by the code (no model), Q2 wrong with what was missed, the band and the honesty line', async () => {
+  // what Lens READ gives for a handwritten page, after the owner corrected it (numbers, ×/x, ÷, a minus sign)
+  const page = '1) 7 + 5 = 12\n2) 9 x 6 = 56\n3) 15 − 8 = 7\n4) 144 ÷ 12 = 12';
+  const calls = [];
+  const r = await MW.markWork({ subject: 'maths', level: 'gcse', answers: page }, workMarker(calls));
+  assert.deepEqual(r.marks.map((m) => [m.n, m.got, m.max, m.how]), [['1', 1, 1, 'exact'], ['2', 0, 1, 'exact'], ['3', 1, 1, 'exact'], ['4', 1, 1, 'exact']]);
+  assert.equal(calls.length, 0, 'sums are marked by the code, never the model');
+  assert.equal(r.raw, 3);
+  assert.equal(r.max, 4);
+  assert.equal(r.grade, '8', 'GCSE bands from SCHOOL: 75% is an 8');
+  assert.deepEqual(r.wrong, ['Q2: 9 x 6 is 54, not 56.']);
+  assert.match(r.honest, /^As this marking scheme sees it: 8 on GCSE's bands \(3 of 4, 75%\)\. Not a real exam grade/);
+  assert.match(r.honest, /No mark scheme was given/);
+  // the miss as a LEARN card: the question and what he wrote on the front, the right answer and the miss on the back
+  const cards = MW.workCards(r);
+  assert.equal(cards.length, 1);
+  assert.match(cards[0].front, /^Maths · question 2\nYou wrote: 9 x 6 = 56/);
+  assert.match(cards[0].back, /^Answer: 54\n9 x 6 is 54, not 56\.$/);
+  // a sum's own minus is not a question number, and "1.5 + 2" is not question 1
+  assert.deepEqual(MW.splitNumbered('7 - 3 = 4\n1.5 + 2 = 3.5').map((l) => [l.n, l.text]), [['1', '7 - 3 = 4'], ['2', '1.5 + 2 = 3.5']]);
+  assert.equal(MW.evalSum('2 * (3 + 4) / 7'), 2);
+  assert.equal(MW.evalSum('alert(1)'), null);
+});
+
+test('MARK MY WORK, a short-answer page with a typed mark scheme: exact where it can, the model with the scheme where it cannot, an unanswered question, per-question marks', async () => {
+  const answers = '1. paris\n2. Plants make food from sunlight\n3. 1066';
+  const scheme = '1. Paris [1]\n2. Photosynthesis: light energy makes glucose in the chlorophyll [2 marks]\n3. 1066 (1 mark)\n4. Mitochondria [1]';
+  const calls = [];
+  const r = await MW.markWork({ subject: 'science', level: 'ks3', answers, scheme }, workMarker(calls));
+  assert.deepEqual(r.marks.map((m) => [m.n, m.got, m.max, m.how]), [['1', 1, 1, 'exact'], ['2', 1, 2, 'model'], ['3', 1, 1, 'exact'], ['4', 0, 1, 'unanswered']]);
+  assert.equal(calls.length, 1, 'only the written answer went to the model');
+  assert.match(calls[0], /Mark scheme: Photosynthesis: light energy makes glucose in the chlorophyll/);
+  assert.match(calls[0], /Most marks possible: 2/);
+  assert.equal(`${r.raw}/${r.max}`, '3/5');
+  assert.equal(r.grade, 'Expected', 'Key Stage 3 bands from SCHOOL: 60% is Expected');
+  assert.deepEqual(r.wrong, ['Q2: Missed that it happens in the chlorophyll and makes glucose.', 'Q4: No answer was written.']);
+  assert.ok(r.scheme);
+  assert.doesNotMatch(r.honest, /No mark scheme/);
+  assert.match(r.honest, /Not a real exam grade/);
+  assert.equal(MW.workCards(r).length, 2);
+  // no model free: the written answer waits and is left out of the total, said plainly; a short miss falls back to the exact mark
+  const w = await MW.markWork({ subject: 'science', level: 'ks3', answers: '1. london\n2. Plants make food from sunlight', scheme });
+  assert.deepEqual(w.marks.map((m) => [m.n, m.how]), [['1', 'exact'], ['2', 'pending'], ['3', 'unanswered'], ['4', 'unanswered']]);
+  assert.equal(w.max, 3, 'the pending answer is left out of the total');
+  assert.match(w.honest, /1 answer is waiting for a marker/);
+  assert.match(w.wrong[0], /^Q1: The mark scheme's answer is "Paris"/);
+});
+
+test('MARK MY WORK through the SCHOOL route: marked once and never kept as a school record, cards handed back; nothing to mark is a plain 400', async () => {
+  const h = host({ ask: workMarker([]) });
+  const r = await route(h, '/school/markwork', 'POST', { subject: 'maths', level: 'gcse', answers: '1) 9 x 6 = 54\n2) 10 / 4 = 2.5' });
+  assert.equal(r.status, 200);
+  assert.equal(`${r.body.raw}/${r.body.max}`, '2/2');
+  assert.deepEqual(r.body.cards, []);
+  assert.match(r.body.honest, /As this marking scheme sees it/);
+  assert.equal((await ST.loadState({ storage: h.storage })).results.length, 0, 'his own work is not a school result');
+  assert.ok(![...h.storage.m.keys()].some((k) => /work/i.test(k)), [...h.storage.m.keys()].join());
+  const none = await route(h, '/school/markwork', 'POST', { subject: 'maths', answers: '   ' });
+  assert.equal(none.status, 400);
+  assert.match(none.body.error, /no answers to mark/);
 });

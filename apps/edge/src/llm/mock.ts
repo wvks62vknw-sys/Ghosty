@@ -132,6 +132,12 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     // "… quietly": a reply that forgets to repeat what the tool said (the agent must add a published link itself)
     const asked = textOf([...messages].reverse().find((x) => x.role === 'user')?.content);
     if (/ quietly$/i.test(asked)) return { message: { role: 'assistant', content: 'Done.' }, model };
+    // After gadget_manual: what it found, as a person would pass it on (its own words, the data wrapper off).
+    const lastCall = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length)?.tool_calls?.[0]?.function;
+    if (lastCall?.name === 'gadget_manual') {
+      const said = textOf(last.content).replace(/^<<external content[^\n]*>>\n/, '').replace(/\n<<end external content>>$/, '').replace(/\. Give the owner these steps[^:]*:/, ':').replace(/ say exactly that[^.]*\./, '.');
+      return { message: { role: 'assistant', content: said.slice(0, 1500) }, model };
+    }
     // After remember: say it as a person would, not the tool's record ("Saved (id …)").
     const prev = [...messages].reverse().find((x) => x.role === 'assistant' && x.tool_calls?.length);
     const tc = prev?.tool_calls?.[0]?.function;
@@ -239,6 +245,16 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/^UPGRADE IDEAS/.test(String(messages[0]?.content ?? ''))) {
     return { message: { role: 'assistant', content: '```json\n{"ideas":[{"title":"A rain radar panel on the Brief tab","why":"You ask about rain most mornings; a radar panel answers before you ask.","steps":["Add data/radar.ts reading RainViewer tiles through /api/proxy","Add a RADAR panel to features/brief/index.ts","Add the host to FEED_HOSTS if missing"]},{"title":"One-tap commute summary","why":"Your commute questions repeat every weekday.","steps":["Add a commute_summary tool in tools/extra.ts that combines traffic_now and transit_now","Register it in TOOL_GROUPS"]}]}\n```' }, model };
   }
+  // MARK MY WORK (school/markwork.ts): full marks when the answer shares a long word with the mark scheme, else none and what was missed.
+  if (/^WORK MARKER:/.test(String(messages[0]?.content ?? ''))) {
+    const said = textOf(last.content);
+    const scheme = said.match(/^Mark scheme: (.+)$/m)?.[1] ?? '';
+    const most = Number(said.match(/^Most marks possible: (\d+)/m)?.[1] ?? 1);
+    const given = (said.split('<learner_answer>\n')[1] ?? '').toLowerCase();
+    const keys = /^none given/.test(scheme) ? [] : scheme.toLowerCase().match(/[a-z]{5,}/g) ?? [];
+    const ok = !keys.length || keys.some((k) => given.includes(k));
+    return { message: { role: 'assistant', content: ok ? `MARKS: ${most} | correct` : `MARKS: 0 | Missed the key point: ${scheme.slice(0, 80)}` }, model };
+  }
   // The tutor (tutor.ts): a course plan (two units), a lesson under its headings with its check question, a quiz, exam questions and a marked short answer, as each asks.
   const tutorAsk = String(messages[0]?.content ?? '');
   if (/^(COURSE PLAN|LESSON|QUIZ|EXAM QUESTIONS|GRADE ANSWER):/.test(tutorAsk)) {
@@ -293,6 +309,11 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^quiz me(?: on (.+?))?( out loud)?$/)) && has('tutor')) return { message: call('tutor', { action: 'quiz', ...(m[1] ? { topic: m[1] } : {}), ...(m[2] ? { spoken: true } : {}) }), model };
   if (/^(revise|revise my flashcards)$/.test(text) && has('tutor')) return { message: call('tutor', { action: 'revise' }), model };
   if (text === 'my courses' && has('tutor')) return { message: call('tutor', { action: 'courses' }), model };
+  // GADGET MANUALS (tools/gadgets.ts gadget_manual): "find the manual for my bosch dishwasher sms24aw01g", "my dishwasher shows e24",
+  // "replacement drain pump for my dishwasher". Called by name: the gadgets group's keywords do not name manuals (a kernel line).
+  if ((m = text.match(/^find the manual for (?:my |the )?(.+?)\??$/))) return { message: call('gadget_manual', { action: 'find', device: m[1] }), model };
+  if (/^my .+ (?:shows|says|is showing|flashes) .+$/.test(text)) return { message: call('gadget_manual', { action: 'ask', question: text }), model };
+  if ((m = text.match(/^replacement (.+?) for (?:my |the )?(.+?)\??$/))) return { message: call('gadget_manual', { action: 'parts', part: m[1], device: m[2] }), model };
   // FIT FINDER and the SPACE PLANNER (tools/home.ts): "find a 3 seater sofa under 220 cm", "open the space planner 420 by 360".
   if ((m = text.match(/^find (?:a |an |me a )?(.+?) under (\d+) ?cm(?: for £?(\d+))?$/)) && has('find_furniture')) return { message: call('find_furniture', { item: m[1], max_width_cm: Number(m[2]), ...(m[3] ? { budget_gbp: Number(m[3]) } : {}) }), model };
   if ((m = text.match(/^open the space planner(?: (\d+) by (\d+))?$/)) && has('open_space')) return { message: call('open_space', m[1] ? { width_cm: Number(m[1]), depth_cm: Number(m[2]) } : {}), model };

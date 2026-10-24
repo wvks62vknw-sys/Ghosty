@@ -38,8 +38,9 @@ const GLYPH: Record<string, string> = {
   scan: '<path d="M4 8V5.5A1.5 1.5 0 015.5 4H8M16 4h2.5A1.5 1.5 0 0120 5.5V8M20 16v2.5a1.5 1.5 0 01-1.5 1.5H16M8 20H5.5A1.5 1.5 0 014 18.5V16M4 12h16"/>',
   recon: '<circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
   project: '<path d="M3.5 7a1.5 1.5 0 011.5-1.5h4.2l2 2.2H19a1.5 1.5 0 011.5 1.5v8.3A1.5 1.5 0 0119 19H5a1.5 1.5 0 01-1.5-1.5z"/>',
+  manual: '<path d="M14.5 6.5a4 4 0 00-5.3 5.3L4 17v3h3l5.2-5.2a4 4 0 005.3-5.3l-2.3 2.3-2.6-.4-.4-2.6z"/>',
 };
-const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT' };
+const KIND: Record<string, string> = { pdf: 'PDF', book: 'BOOK', document: 'DOC', notes: 'NOTES', text: 'TEXT', web: 'WEB', paper: 'PAPER', cve: 'CVE', code: 'CODE', starter: 'BUILT-IN', study: 'READ BY GHOSTY', digest: 'GHOSTY NOTES', scan: 'SCANNED', recon: 'RECON', note: 'NOTE', project: 'PROJECT', manual: 'MANUAL' };
 /** A field in the brain's study summary (library/study.ts `studySummary`), with what STUDY at scale adds. */
 interface FieldRow {
   id: string;
@@ -269,6 +270,29 @@ export const libraryTab: TabDef = {
       (r.lastChild as HTMLElement).title = `${d.passages} passage${d.passages === 1 ? '' : 's'}`;
       return r;
     }, () => 'SYNC', 'Add a book or a file above, or import a page from the web: it is on the shelf in seconds.');
+    // ---- GADGETS: the manuals the brain found for his gadgets (gadget_manual), each with where it came from and its licence
+    const gadgets = panel('GADGETS', { grow: false, cls: 'gadgets' });
+    const paintGadgets = (list: LibraryDoc[]) => {
+      const manuals = list.filter((d) => d.kind === 'manual');
+      gadgets.setStatus(manuals.length ? `${manuals.length} MANUAL${manuals.length === 1 ? '' : 'S'}` : 'NONE YET', manuals.length ? 'ok' : 'off');
+      clear(gadgets.body, ...(manuals.length
+        ? manuals.map((d) => {
+          const [url = '', licence = ''] = d.source.split(' · ');
+          let host = url;
+          try {
+            host = new URL(url).hostname.replace(/^www\./, '');
+          } catch {
+            /* not an address: shown as it is */
+          }
+          const r = row(`from ${host}${licence ? ` · ${licence}` : ''}`, d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
+          r.classList.add('gadgetrow');
+          // where it came from and its licence, as written (no sentence case: "© Bosch")
+          (r.querySelector('.k') as HTMLElement | null)?.setAttribute('data-case', 'keep');
+          r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH.manual!)));
+          return r;
+        })
+        : [h('div.note', 'Ask in the chat: "find the manual for my Bosch dishwasher SMS24AW01G" (the model number is on the rating plate; Lens READ can read it). Ghosty looks on the maker\'s own site first, keeps the manual here, and answers fault codes from its pages.')]));
+    };
     // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
     const openDoc = (d: LibraryDoc) => {
       const body = h('div.reader');
@@ -489,7 +513,7 @@ export const libraryTab: TabDef = {
       void paintFresh();
       void refresh();
     }, 'on'));
-    P.right.append(fresh.el, study.el, ap.el, shelf.el);
+    P.right.append(fresh.el, study.el, ap.el, gadgets.el, shelf.el);
 
     let vectors = false;
     let starterReady = true;
@@ -500,6 +524,7 @@ export const libraryTab: TabDef = {
         vectors = r.vectors;
         starterReady = r.starterReady;
         shelfList.set(docs);
+        paintGadgets(docs);
         shelf.setStatus(`${r.stats.docs} DOCS`, 'ok');
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
         P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;

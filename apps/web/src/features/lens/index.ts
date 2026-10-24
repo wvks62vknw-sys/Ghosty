@@ -31,6 +31,7 @@ import { createHandsMode } from './hands';
 import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
+import type { MarkState } from './mark';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
@@ -63,6 +64,8 @@ export interface LensState {
   /** NAME IT's or WHAT'S IN IT's card (living.ts): what it is and its words. */
   card: LensCard;
   error: string;
+  /** MARK MY WORK (READ's MARK chip): what it is doing and the last result (mark.ts). */
+  mark?: MarkState;
   setMode?: (m: LensMode) => void;
 }
 
