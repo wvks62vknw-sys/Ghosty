@@ -71,6 +71,10 @@ async function run(name, viewport) {
   if (!/LIKES/i.test(text) || !/rain on the window/.test(text) || !/Ann is my sister/.test(text)) problems.push(`[${name}] ME is missing section lines: ${text.slice(0, 200)}`);
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
+  // ME (who he is) comes first on his side, above PATTERNS and the TIMELINE, and starts on the first screen
+  const order = await page.evaluate(() => ['me', 'pats', 'tl'].map((c) => document.querySelector(`#pg-memory .pn.${c}`)?.getBoundingClientRect().top ?? -1));
+  if (!(order[0] < order[1] && order[1] < order[2])) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order (tops ${order.join(', ')})`);
+  if (order[0] > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order[0])} points down, below the first screen`);
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
   // add a line under ROUTINES (the "Add a memory…" row opens the form in a sheet)
   const addRow = page.locator('#pg-memory .addrow');
@@ -95,6 +99,10 @@ async function run(name, viewport) {
   if (narrow) await page.click('#pg-memory .swap');
   const dp = page.locator('#pg-memory .pn', { has: page.locator('h3:has-text("DIARY")') });
   await dp.waitFor({ state: 'visible', timeout: 8000 });
+  // the other side opens on the DIARY (the switch says so: "Diary & chat")
+  const firstRight = await page.evaluate(() => document.querySelector('#pg-memory .col.cR > .pn h3')?.textContent ?? '');
+  if (!/DIARY/i.test(firstRight)) problems.push(`[${name}] the other side opens on "${firstRight}", not the DIARY`);
+  if (narrow && !/Diary/.test((await page.locator('#pg-memory .swap').getAttribute('data-right')) ?? '')) problems.push(`[${name}] the switch does not name the diary`);
   const rows = dp.locator('.rw');
   await rows.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined);
   const first = (await rows.first().textContent()) ?? '';

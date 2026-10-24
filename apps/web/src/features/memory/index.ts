@@ -30,7 +30,8 @@ export const memoryTab: TabDef = {
     return n == null ? '' : n === 1 ? '1 thing remembered' : `${fmt.n(n)} things remembered`;
   },
   mount(root) {
-    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
+    // Phones: YOU (who he is first, then what was noticed, then the timeline) and DIARY & CHAT (the diary first).
+    const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'DIARY & CHAT', leftLabel: 'YOU' });
     root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards
     // A change in the TIMELINE shows in the panels below it, and theirs in it.
     const tl = timelinePanel(() => {
@@ -179,8 +180,8 @@ export const memoryTab: TabDef = {
     });
     P.sub.after(editBtn);
     swipeToDelete(root);
-    P.left.append(addRow, tl.el, pats.el, mp.el);
-    P.right.append(fp.el);
+    // ME (who he is) first: it was 6,500 points down, under thirty timeline rows.
+    P.left.append(addRow, mp.el, pats.el, tl.el);
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
@@ -244,13 +245,12 @@ export const memoryTab: TabDef = {
       }
       lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
     };
-    P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
     const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask him anything from Home.');
     // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));
-    P.right.append(dp.el, cp.el);
+    P.right.append(dp.el, fp.el, lp.el, cp.el);
     const paintChat = () => {
       const list = chat.get().entries.filter((e) => e.kind === 'user' || e.kind === 'assistant') as { kind: 'user' | 'assistant'; text: string }[];
       cg.set(list.map((e) => ({ who: e.kind === 'user' ? 'YOU' : 'GHOSTY', text: e.text })).reverse());
