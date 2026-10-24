@@ -1,7 +1,7 @@
 /**
  * GOD'S EYE tab: the live globe. Search, sensor modes, layer toggles, target card,
  * floating labels, touch/mouse gestures, the zoom rail, and live public CCTV: tap a camera
- * to watch it, and a grid shows the four cameras nearest the view.
+ * to watch it, and while no card is open a grid shows the four cameras nearest the view.
  */
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
@@ -132,6 +132,10 @@ function describe(sel: Pickable): string {
   }
 }
 
+/** The sensor looks' names on screen (the engine and the brain keep the short ones: NVG, FLIR, CRT…). */
+const LOOK_NAMES: Record<string, string> = { HOLO: 'HOLOGRAM', CRT: 'OLD SCREEN', NVG: 'NIGHT VISION', FLIR: 'THERMAL', NOIR: 'FILM NOIR' };
+const lookName = (n: string) => LOOK_NAMES[n] ?? n;
+
 export const eyeTab: TabDef = {
   id: 'eye',
   title: "GOD'S EYE",
@@ -168,13 +172,16 @@ export const eyeTab: TabDef = {
       if (sat) return select({ kind: 'sat', ref: sat, w: sat.w }, true);
       const ship = ships.find(s);
       if (ship) return select({ kind: 'ship', ref: ship, w: shipLayer.world(ship, Date.now()) }, true);
-      if (!(await flyTo({ place: s, range_km: 300 }))) toast(`Nothing found for ${s}`, 'warn');
+      // Offline, a place that is not one of the globe's own cities cannot be looked up: say that, not "couldn't find".
+      if (!navigator.onLine && !World.find(s) && !(s.length <= 4 && World.findAirport(s))) return void toast(`You're offline, so I can't look up ${s}. The globe's cities and your saved places still work.`, 'warn');
+      // flyTo says it once when the place is not found.
+      await flyTo({ place: s, range_km: 300 });
     };
     q.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void search();
     });
-    // Sensor looks (night vision, thermal…) are a look, not a tool: they live in the LOOK menu below.
-    const modes = h('div.modes.chips', ...SENSOR_MODES.map(([n], i) => button(n, () => {
+    // Sensor looks (night vision, thermal…) are a look, not a tool: they live in the LOOK menu below, named in plain words.
+    const modes = h('div.modes.chips', ...SENSOR_MODES.map(([n], i) => button(lookName(n), () => {
       globe.mode = i;
       ui.set({});
     })));
@@ -183,39 +190,45 @@ export const eyeTab: TabDef = {
     // ---------- layers ----------
     const lay = panel('LAYERS', { grow: false });
     lay.el.classList.add('eyelay');
+    /** A feed's state in plain words (SYNC, STALE, NO FEED and IDLE are the code's own). */
+    const said = (st: string) => (st === 'SYNC' ? 'LOADING' : st === 'STALE' ? 'NOT UPDATING' : st === 'NO FEED' ? 'NOT REACHABLE' : st === 'IDLE' ? '' : st);
     const LAYERS: [keyof LayerVisibility, string, () => string][] = [
       ['imagery', 'MAP TILES', () => (imagery.credit ? `${imagery.source.toUpperCase()} Z${imagery.level}` : imagery.source.toUpperCase())],
-      ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : buildings.status || (buildings.count ? String(buildings.count) : ''))],
-      ['air', 'AIRCRAFT', () => `${air.list.size} ${air.status}`],
-      ['sats', 'SATELLITES', () => String(sats.list.length)],
-      ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
-      ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
+      ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : said(buildings.status) || (buildings.count ? fmt.n(buildings.count) : ''))],
+      ['air', 'AIRCRAFT', () => (air.list.size ? `${fmt.n(air.list.size)}${air.status === 'STALE' ? ' · NOT UPDATING' : ''}` : said(air.status) || 'LOADING')],
+      ['sats', 'SATELLITES', () => fmt.n(sats.list.length)],
+      ['quakes', 'QUAKES', () => fmt.n(quakes.data?.length ?? 0)],
+      ['events', 'EVENTS', () => fmt.n((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
       ['enforce', 'ANPR / SPEED', () => {
         if (globe.cam.range > 250 && !enforce.list.size) return 'ZOOM IN';
         const c = enforce.counts();
-        return enforce.status === 'SYNC' && !enforce.list.size ? 'SYNC' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
+        return enforce.status === 'SYNC' && !enforce.list.size ? 'LOADING' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
       }],
       ['crime', 'STREET CRIME', () => {
-        if (!crime.list.size) return crime.status === 'SYNC' ? 'SYNC' : crime.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 45 ? 'ZOOM IN · UK' : 'UK ONLY';
+        if (!crime.list.size) return crime.status === 'SYNC' || crime.status === 'NO FEED' ? said(crime.status) : globe.cam.range > 45 ? 'ZOOM IN · UK' : 'UK ONLY';
         const c = crime.counts();
-        return `${c.total} · ${crime.month}`;
+        return `${fmt.n(c.total)} · ${crime.month}`;
       }],
-      ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['ships', 'SHIPS (AIS)', () => {
+        if (ships.list.size) return `${fmt.n(ships.list.size)}${ships.status === 'STALE' ? ' · NOT UPDATING' : ''}`;
+        // nothing asked for out here (no free AIS key, outside the Baltic, zoomed out), the key missing, or nothing in view
+        return ships.status === 'IDLE' ? 'ZOOM IN' : /AISstream key/.test(ships.note) ? 'NEEDS FREE KEY' : ships.status === 'NO FEED' ? 'NONE FOUND' : '0';
+      }],
       ['transit', 'BUSES & TRAMS', () => {
-        if (!transit.list.size) return transit.status === 'SYNC' ? 'SYNC' : transit.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 120 ? 'ZOOM IN' : '';
+        if (!transit.list.size) return transit.status === 'SYNC' || transit.status === 'NO FEED' ? said(transit.status) : globe.cam.range > 120 ? 'ZOOM IN' : '';
         const c = transit.counts();
         return `${c.bus} BUS · ${c.tram} TRAM`;
       }],
-      ['incidents', 'ROAD INCIDENTS', () => (incidents.list.size ? String(incidents.list.size) : incidents.status === 'SYNC' ? 'SYNC' : incidents.status === 'NO FEED' ? 'NO FEED' : 'MOTORWAYS')],
-      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'KEY NEEDED')],
-      ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
-      ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
-      ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
-      ['aurora', 'AURORA', () => (aurora.data ? `${Math.max(0, ...aurora.data.cells.map((c) => c[2]))}%` : aurora.status)],
-      ['dispatch', '911 SEATTLE', () => String(dispatch.data?.length ?? dispatch.status)],
+      ['incidents', 'ROAD INCIDENTS', () => (incidents.list.size ? fmt.n(incidents.list.size) : incidents.status === 'SYNC' || incidents.status === 'NO FEED' ? said(incidents.status) : 'MOTORWAYS')],
+      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'NEEDS FREE KEY')],
+      ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : said(radarFrames.status))],
+      ['alerts', 'WEATHER ALERTS', () => (alerts.data ? fmt.n(alerts.data.length) : said(alerts.status))],
+      ['disasters', 'DISASTERS', () => (disasters.data ? fmt.n(disasters.data.length) : said(disasters.status))],
+      ['aurora', 'AURORA', () => (aurora.data ? `${Math.max(0, ...aurora.data.cells.map((c) => c[2]))}%` : said(aurora.status))],
+      ['dispatch', '911 SEATTLE', () => (dispatch.data ? fmt.n(dispatch.data.length) : said(dispatch.status))],
       ['buoys', 'OCEAN BUOYS', () => (buoys.data ? String(buoys.data.length) : '')],
       ['cables', 'UNDERSEA CABLES', () => (cables.data ? String(cables.data.length) : '')],
-      ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'SYNC' : String(cams.list.length))],
+      ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'LOADING' : fmt.n(cams.list.length))],
       ['borders', 'BORDERS', () => ''],
       ['adm1', 'REGIONS', () => ''],
       ['cities', 'CITIES', () => ''],
@@ -232,6 +245,34 @@ export const eyeTab: TabDef = {
       ['WEATHER & HAZARDS', ['radar', 'alerts', 'quakes', 'events', 'disasters', 'aurora', 'buoys']],
       ['MAP', ['imagery', 'buildings', 'borders', 'adm1', 'cities', 'airports', 'clouds', 'grid', 'cables']],
     ];
+    // His layer choices are kept on this phone (only the switches in LAYERS; nothing else): Radar turned off stays off.
+    const LAYER_KEY = 'ghosty.eye.layers';
+    try {
+      const kept = JSON.parse(localStorage.getItem(LAYER_KEY) ?? 'null') as Record<string, unknown> | null;
+      if (kept) {
+        const vis = { ...globe.vis };
+        for (const [k] of LAYERS) {
+          const v = kept[k];
+          if (typeof v === 'boolean') vis[k] = v;
+        }
+        globe.vis = vis;
+        sats.showOrbit = vis.orbits;
+      }
+    } catch {
+      /* private browsing or a bad value: the defaults */
+    }
+    const layerJson = () => JSON.stringify(Object.fromEntries(LAYERS.map(([k]) => [k, globe.vis[k]])));
+    let keptVis = layerJson();
+    const keepLayers = () => {
+      const now = layerJson();
+      if (now === keptVis) return;
+      keptVis = now;
+      try {
+        localStorage.setItem(LAYER_KEY, now);
+      } catch {
+        /* not kept: nothing else changes */
+      }
+    };
     const counts: HTMLElement[] = [];
     const boxes: HTMLButtonElement[] = [];
     const tileFor = new Map<keyof LayerVisibility, number>();
@@ -245,6 +286,9 @@ export const eyeTab: TabDef = {
         sats.showOrbit = globe.vis.orbits;
         b.classList.toggle('on', globe.vis[k]);
         b.setAttribute('aria-pressed', String(globe.vis[k]));
+        keepLayers();
+        // Switched on with nothing to draw: say what it needs and what works without it.
+        if (k === 'traffic' && globe.vis.traffic && !trafficState.ready) toast('Live traffic on the globe needs the free TomTom key: SYSTEM → KEYS → TomTom traffic. Without it, TRAFFIC under THIS SPOT opens the Waze live map.', 'warn');
       });
       counts.push(em);
       boxes.push(b);
@@ -548,6 +592,7 @@ export const eyeTab: TabDef = {
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
       paintInfo();
+      measureSky();
     }
 
     // ---------- live camera views ----------
@@ -613,7 +658,8 @@ export const eyeTab: TabDef = {
     const paintGrid = () => {
       // where the view is going (not where a fly-to animation happens to be right now)
       const T = globe.cam.target;
-      const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && selected?.kind !== 'cam';
+      // Only while no card is open: on a phone the grid and a card share the same corner (the card's ASK GHOSTY and ✕ went under it).
+      const show = globe.vis.cams && T.range < 1500 && cams.list.length > 0 && !selected;
       const near = show ? nearestCameras(T.lat, T.lon, 4, Math.max(30, T.range)) : [];
       grid.el.hidden = !near.length;
       const key = near.map((c) => c.id).join();
@@ -725,7 +771,7 @@ export const eyeTab: TabDef = {
       h('div.hint', 'Satellite photos, streets, a dark map, contours or Sentinel imagery drawn onto the globe — or off for the plain globe.'),
       h('div.lgroup', 'SENSOR'),
       modes,
-      h('div.hint', 'A look for the whole view: hologram, old screen, night vision, thermal, film noir.'),
+      h('div.hint', 'How the whole view is drawn, from the normal globe to night vision and thermal.'),
       h('div.lgroup', 'GLOBE'),
       h('div.chips', sunBtn, spinBtn),
       h('div.hint', 'SUN lights the globe as the real sun does right now. SPIN turns it slowly on its own.'),
@@ -848,7 +894,8 @@ export const eyeTab: TabDef = {
 
     const labels = h('div.labels');
     const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips, mine.el);
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
+    const bot = h('div.eyebot', look, readout, btns);
+    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), bot));
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -970,16 +1017,46 @@ export const eyeTab: TabDef = {
       }
     });
 
+    // ---------- the readout's live counts, in words ----------
+    /** "2,117 planes · 4,433 cameras · 867 satellites · 68 quakes · rain radar 2m ago"; nothing said of what is not there; offline, said so. */
+    const counted = () => {
+      const n = (x: number, one: string, many: string) => (x > 0 ? `${fmt.n(x)} ${x === 1 ? one : many}` : '');
+      const line = [
+        n(air.list.size, 'plane', 'planes'),
+        n(ships.list.size, 'ship', 'ships'),
+        n(cams.list.length, 'camera', 'cameras'),
+        n(transit.list.size, 'bus or tram', 'buses and trams'),
+        n(incidents.list.size, 'road incident', 'road incidents'),
+        n(sats.list.length, 'satellite', 'satellites'),
+        n(quakes.data?.length ?? 0, 'quake', 'quakes'),
+        radar.shownAt ? `rain radar ${fmt.ago(radar.shownAt)}` : '',
+      ].filter(Boolean).join(' · ');
+      return navigator.onLine ? line : `Offline · last seen: ${line || 'nothing yet'}`;
+    };
+
     // ---------- per-frame + periodic UI ----------
     const pool: HTMLElement[] = [];
+    // Names only where the globe is open to view: below the search and its chips, above the bar (the tab bar is
+    // under it), and off any card or menu that is open — never drawn through the glass. Measured once a second
+    // (the slow loop below), not with every label paint.
+    let sky = { top: 0, bottom: innerHeight, covers: [] as DOMRect[] };
+    const measureSky = () => {
+      sky = {
+        top: top.getBoundingClientRect().bottom,
+        bottom: bot.getBoundingClientRect().top,
+        covers: [info.el, grid.el, ra.el, lay.el, look, rail].filter((el) => !el.hidden && el.offsetParent).map((el) => el.getBoundingClientRect()),
+      };
+    };
     const paintLabels = () => {
       const c = globe.cam;
       const cs = c.cs;
       if (!cs) return;
       const items: [number, number, string, string][] = [];
+      const { top: skyTop, bottom: skyBottom, covers } = sky;
       const add = (w: [number, number, number], txt: string, col: string) => {
         const p = c.project(w);
-        if (!p || !c.visible(w) || p[0] < -20 || p[1] < -20 || p[0] > innerWidth + 20 || p[1] > innerHeight + 20) return;
+        if (!p || !c.visible(w) || p[0] < -20 || p[0] > innerWidth + 20 || p[1] < skyTop || p[1] > skyBottom) return;
+        if (covers.some((r) => p[0] >= r.left - 4 && p[0] <= r.right + 4 && p[1] >= r.top - 4 && p[1] <= r.bottom + 4)) return;
         items.push([p[0], p[1], txt, col]);
       };
       const alt = cs.alt;
@@ -1080,8 +1157,8 @@ export const eyeTab: TabDef = {
       paintChips();
       const lines = [
         '',
-        `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
-        `${air.list.size} AC · ${ships.list.size} SHIP · ${cams.list.length} CAM${transit.list.size ? ` · ${transit.list.size} BUS` : ''}${incidents.list.size ? ` · ${incidents.list.size} INC` : ''} · ${sats.list.length} SAT · ${quakes.data?.length ?? 0} EQ${radar.shownAt ? ` · RADAR ${fmt.ago(radar.shownAt)}` : ''}`,
+        `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${lookName(SENSOR_MODES[globe.mode]![0])}` : ''}`,
+        counted(),
         imagery.credit,
       ];
       rLines.forEach((el, i) => i && el.textContent !== lines[i] && (el.textContent = lines[i]!));
@@ -1097,7 +1174,9 @@ export const eyeTab: TabDef = {
           boxes[i]!.setAttribute('aria-pressed', String(globe.vis[k]));
         }
       });
-      lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
+      keepLayers();
+      // the sheet's own line: how many layers are on (it used to be the aircraft feed's state alone)
+      lay.setStatus(`${LAYERS.filter(([k]) => globe.vis[k]).length} ON`, 'ok');
       paintModes();
       if (selected?.kind === 'air' || selected?.kind === 'ship' || selected?.kind === 'transit') paintInfo();
       if (ra.on) ra.paint();
@@ -1107,6 +1186,7 @@ export const eyeTab: TabDef = {
       }
       if (globe.vis.enforce && globe.cam.range < 400 && inWestMidlands(g.lat, g.lon)) void loadWmSafety();
       paintGrid();
+      measureSky();
     }, 1);
 
     return {
@@ -1133,6 +1213,7 @@ export const eyeTab: TabDef = {
         paintModes();
       },
       leave() {
+        keepLayers();
         closeLook();
         clearInterval(airTimer);
         clearInterval(shipTimer);

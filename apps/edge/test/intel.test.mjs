@@ -157,3 +157,13 @@ test('West Midlands Police safety-camera sites: kinds mapped, dates converted, b
   assert.deepEqual(I.parseWmSafety({ not: 'an array' }), []);
   assert.deepEqual(I.parseWmSafety(null), []);
 });
+
+test('Aurora: a low chance stays a faint glow from far away, not a white ring; a strong night and a close look still show', () => {
+  // From 16,000 km each glow dot overlaps about 16 neighbours, drawn as light that adds up.
+  const far = I.auroraDot(10, 16000);
+  const summed = far.rgba[3] * 16;
+  assert.ok(summed < 0.3, `16 overlapping 10 % dots add up to ${summed.toFixed(2)} (the old fixed 0.19 each summed to 3)`);
+  assert.ok(I.auroraDot(60, 16000).rgba[3] > far.rgba[3] * 3, 'a strong aurora is clearly brighter than a weak one');
+  assert.ok(I.auroraDot(10, 3000).rgba[3] >= 0.1, 'zoomed in (few overlaps), a 10 % chance is still visible');
+  assert.ok(I.auroraDot(100, 100).rgba[3] <= 0.55 && I.auroraDot(0, 16000).rgba[3] > 0, 'alpha stays in range');
+});
