@@ -95,6 +95,8 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 // ---- a passage that means the question without its words, saved from the LIBRARY tab (kept on the phone at once)
 await page.evaluate(() => (location.hash = 'library'));
 await page.waitForFunction(() => /PASSAGES/.test(document.querySelector('#pg-library .bigv')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => problems.push('the library tab never loaded'));
+// pasted text waits behind MORE WAYS TO ADD (the tile is the one thing on show)
+if (!(await page.isVisible('#pg-library textarea[aria-label="Text to save"]'))) await page.click('#pg-library button:has-text("MORE WAYS TO ADD")');
 await page.fill('#pg-library input[aria-label="Title of the text"]', TITLE);
 await page.fill('#pg-library textarea[aria-label="Text to save"]', PHOTO);
 await page.click('#pg-library button:has-text("SAVE TEXT")');

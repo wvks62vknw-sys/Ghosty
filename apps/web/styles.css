@@ -3221,6 +3221,8 @@ html #pg-library .drop span[data-label]::before { line-height: 18px; }
 html #pg-library .pn.libadd .keyrow { gap: 8px; margin-top: 8px; }
 html #pg-library .pn.libadd .keyrow button { height: 44px; min-height: 44px !important; flex: none; }
 html #pg-library .pn.libadd .keyrow .note { font-size: 13px; line-height: 18px; color: var(--ink3); }
+html #pg-library .pn.libadd .liblog:empty { display: none; }
+html #pg-library .pn.libadd .libmore[hidden] { display: none; }
 html #pg-library .pn.libadd > .bd > :is(input, textarea) { width: 100%; margin-top: 8px; }
 html #pg-library .liblog .note { margin-top: 8px; font-size: 13px; line-height: 18px; }
 html #pg-library .liblog .note.ok { color: var(--ink2); }

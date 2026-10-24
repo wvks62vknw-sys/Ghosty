@@ -185,7 +185,7 @@ export const libraryTab: TabDef = {
       void ingest([...(e.dataTransfer?.files ?? [])]);
     });
 
-    const src = h('input', { placeholder: 'https://… · arXiv 1706.03762 · CVE-2021-44228 · owner/repo', 'aria-label': 'Import from the web' });
+    const src = h('input', { placeholder: 'A web address: a page, a paper, a book', 'aria-label': 'Import from the web' });
     const doImport = async () => {
       const s = src.value.trim();
       if (!s) return;
@@ -241,18 +241,23 @@ export const libraryTab: TabDef = {
       }
       void refresh();
     };
-    ap.body.append(
-      fileInput,
-      drop,
+    // One thing to do here (the tile); a web address, pasted text and Ghosty's own code wait behind MORE WAYS TO ADD.
+    const moreWays = h('div.libmore', { hidden: true },
       h('div.lab', 'IMPORT FROM THE WEB'),
       h('div.keyrow', src, button('IMPORT', () => void doImport())),
-      h('div.keyrow', button('READ MY OWN CODE', () => void readSelf()), h('span.note', 'Ghosty reads its own source and architecture.')),
       h('div.lab', 'OR PASTE TEXT'),
       tTitle,
       tBody,
       h('div.keyrow', button('SAVE TEXT', () => void saveText())),
-      log,
+      h('div.keyrow', button('READ MY OWN CODE', () => void readSelf()), h('span.note', 'Ghosty reads its own source and architecture.')),
     );
+    const moreBtn = button('MORE WAYS TO ADD', (b) => {
+      moreWays.hidden = !moreWays.hidden;
+      b.textContent = moreWays.hidden ? 'MORE WAYS TO ADD' : 'FEWER WAYS';
+      b.setAttribute('aria-expanded', String(!moreWays.hidden));
+    }, 'libmorebtn');
+    moreBtn.setAttribute('aria-expanded', 'false');
+    ap.body.append(fileInput, drop, log, h('div.keyrow', moreBtn, h('span.note', 'a web address or pasted text')), moreWays);
 
     // ---- ask (no AI): the whole first column, results scroll
     // The small print says how the results were found: "by meaning" or "by keywords", honestly (library/meaning.ts).

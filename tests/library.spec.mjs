@@ -294,6 +294,13 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.waitForFunction((s) => document.querySelector(s)?.getAttribute('aria-checked') === 'true', sw, { timeout: 15000 }).catch(() => problems.push(`[${name}] STUDY ALL did not switch back on`));
   }
   if (name === 'phone') {
+    // ---- ADD: one thing on show (the tile, its progress under it); a web address and pasted text behind MORE WAYS TO ADD
+    const add = await ui.evaluate(() => {
+      const pn = document.querySelector('#pg-library .pn.libadd');
+      const shown = (sel) => [...(pn?.querySelectorAll(sel) ?? [])].filter((el) => el.getBoundingClientRect().height > 0).length;
+      return { h: Math.round(pn?.getBoundingClientRect().height ?? 0), fields: shown('input:not([type=file]), textarea'), more: shown('button[aria-expanded]') };
+    });
+    if (add.fields || add.h > 420 || !add.more) problems.push(`[${name}] ADD is a wall of forms: ${JSON.stringify(add)}`);
     // ---- a photo of a page: the picker offers photos, the phone reads the words itself, it is kept and found by them
     const accept = (await ui.getAttribute('#pg-library input[type=file]', 'accept')) ?? '';
     if (!/image\/\*/.test(accept)) problems.push(`[${name}] the Library's picker does not offer photos (accept "${accept.slice(0, 60)}…")`);
