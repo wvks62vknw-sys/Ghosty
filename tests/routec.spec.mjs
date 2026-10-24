@@ -6,9 +6,14 @@
 //  - every tab of the glass pill reaches its screen; the Chat screen has the reply card and the composer;
 //  - the Me sheet opens on its Status card, with three dials that read real values;
 //  - nothing sticks out sideways; the quick chips, the pill's tabs and the round buttons take a 44 pt finger;
-//  - the breathing glow behind the reactor stops when the phone asks for reduced motion.
+//  - the breathing glow behind the reactor stops when the phone asks for reduced motion;
+//  - part 2 (BRIEF-DESIGN-BUILD-2): every other screen opens through the Every screen deck (tests/nav.mjs), nothing on
+//    it sticks out sideways, and every empty list on it says what it is with one sentence on what to do next — with
+//    the lists made empty on purpose for Workshop, Memory, Agenda, Radio's favourites and GYM's levels; System and
+//    Links open their inner panels the same way; offline, a quiet line says so.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { openDeck, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -279,7 +284,81 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   await ctx.close();
 }
 
+// ---- part 2: every other screen through the deck; nothing sideways; every empty list says what to do next
+const EMPTY = {
+  '**/api/changes': { ready: true, changes: [], versions: [] },
+  '**/api/projects': { projects: [] },
+  '**/api/upgrades': { ideas: [], next: null, last: null },
+  '**/api/widgets': { widgets: [] },
+  '**/api/sites': { sites: [], origin: '' },
+  '**/api/profile/timeline': { items: [], patterns: [], forgotten: [] },
+  '**/api/lessons': { lessons: [] },
+  '**/api/memory': { facts: [] },
+  '**/api/agenda?**': { tz: 'UTC', events: [], errors: [], jobs: [], feeds: [] },
+};
+// the screens, and the empty sentence each must show when its lists are empty (null: whatever is there must be worded)
+const SCREENS = [
+  ['library', null], ['memory', /Nothing remembered yet[\s\S]*Tell me about yourself/], ['workshop', /No open changes[\s\S]*Ask Ghosty to build something/],
+  ['agenda', /Nothing in the next two weeks[\s\S]*Add an event above/], ['brief', null], ['markets', null], ['radio', /No favourites yet[\s\S]*Tap ☆/],
+  ['threats', null], ['lens', null], ['learn', null], ['studio', null], ['space', null], ['reverse', null], ['school', null],
+  ['gym', /No levels yet · Train all starts with \S/],
+];
+for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
+  const W = vp.width;
+  const { ctx, page } = await open(vp);
+  for (const [url, body] of Object.entries(EMPTY)) await page.route(url, (r) => (r.request().method() === 'GET' ? r.fulfill({ contentType: 'application/json', body: JSON.stringify(body) }) : r.continue()));
+  for (const [tab, want] of SCREENS) {
+    await openDeck(page);
+    await page.click(`#deck .dtile[data-id="${tab}"]`);
+    await page.waitForTimeout(tab === 'studio' || tab === 'lens' ? 2500 : 1600);
+    const now = await page.evaluate(() => document.body.dataset.tab);
+    if (now !== tab) { problems.push(`[${W}] the deck's ${tab} tile opened "${now}"`); continue; }
+    for (const s of await sideways(page, `#pg-${tab} :is(button, .pn, .rw, .chip, input, select, .empty, .rccard), #top :is(button, h1)`)) problems.push(`[${W} ${tab}] sticks out sideways: ${s}`);
+    if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${W} ${tab}] the page scrolls sideways`);
+    // every empty state on the screen is worded: what it is, and a sentence (the route C words are its data-labels)
+    const empties = await page.$$eval(`#pg-${tab} .empty`, (els) => els.filter((e) => e.getClientRects().length).map((e) => { const w = (x) => (x?.dataset.label ?? x?.textContent ?? '').trim(); return `${w(e.querySelector('b'))} | ${w(e.querySelector('span'))}`; }));
+    for (const e of empties) if (!/\S \| .{12,}[.!”]$/.test(e)) problems.push(`[${W} ${tab}] an empty state is not worded: "${e}"`);
+    if (want) {
+      const words = await page.evaluate((t) => {
+        const root = document.getElementById(`pg-${t}`);
+        const own = [...root.querySelectorAll('.empty')].map((e) => [e.querySelector('b'), e.querySelector('span')].map((x) => x?.dataset.label ?? x?.textContent ?? '').join(' ')).join(' / ');
+        return `${own} / ${root.querySelector('.gymlvnone')?.textContent ?? ''}`;
+      }, tab);
+      if (!want.test(words)) problems.push(`[${W} ${tab}] the empty state does not say what to do next: "${words.slice(0, 160)}"`);
+    }
+    if (W === 440) await page.screenshot({ path: `${out}/routec-${W}-p2-${tab}.png` });
+  }
+  // System and Links: their inner panels, as pushed screens
+  for (const [tab, title] of [['system', 'KEYS'], ['system', 'AI ROOM'], ['links', 'EMAIL'], ['links', 'PHONE']]) {
+    await page.evaluate((t) => (location.hash = t), tab);
+    await page.waitForTimeout(900);
+    await openPanel(page, tab, title);
+    const pushed = await page.evaluate((t) => !!document.querySelector(`#pg-${t} .pn.pushed`), tab);
+    if (!pushed) problems.push(`[${W}] ${tab} → ${title} did not open`);
+    const head = await page.evaluate((t) => { const h = document.querySelector(`#pg-${t} .pn.pushed > h3`); return h ? getComputedStyle(h).display : 'none'; }, tab);
+    if (head !== 'none') problems.push(`[${W}] ${tab} → ${title} repeats its own row under the title`);
+    const tw = await page.evaluate(() => { const t = document.querySelector('#top .navtitle'); return t.scrollWidth - t.clientWidth; });
+    if (tw > 1) problems.push(`[${W}] ${tab} → ${title}: the large title is cut (${tw}px)`);
+    for (const s of await sideways(page, `#pg-${tab} .pn.pushed :is(button, input, select, .rw, .keyblock), #top :is(button, h1)`)) problems.push(`[${W} ${tab} ${title}] sticks out sideways: ${s}`);
+    if (W === 440) await page.screenshot({ path: `${out}/routec-${W}-p2-${tab}-${title.split(' ')[0].toLowerCase()}.png` });
+    await page.click('#top .navback');
+    await page.waitForTimeout(500);
+  }
+  // offline: one quiet line, not on Home
+  await page.evaluate(() => { location.hash = 'library'; });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.__ghosty.ui.set({ connected: false }));
+  await page.waitForTimeout(400);
+  const off = await page.evaluate(() => { const e = document.getElementById('rcoffline'); const r = e.getBoundingClientRect(); return { shown: getComputedStyle(e).display !== 'none', text: e.textContent, left: r.left, right: r.right }; });
+  if (!off.shown || !/^Offline · /.test(off.text) || off.left < 0 || off.right > W) problems.push(`[${W}] offline line: ${JSON.stringify(off)}`);
+  await page.evaluate(() => { location.hash = 'core'; });
+  await page.waitForTimeout(600);
+  if (await page.evaluate(() => getComputedStyle(document.getElementById('rcoffline')).display !== 'none')) problems.push(`[${W}] the offline line shows on Home (its own pill says so)`);
+  await page.evaluate(() => window.__ghosty.ui.set({ connected: true }));
+  await ctx.close();
+}
+
 if (made?.event?.id) await fetch(`${base}/api/agenda/events/${made.event.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).catch(() => undefined);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion, and a classic phone moves to Graphite once with the way back.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion, and a classic phone moves to Graphite once with the way back; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
 process.exit(problems.length ? 1 : 0);

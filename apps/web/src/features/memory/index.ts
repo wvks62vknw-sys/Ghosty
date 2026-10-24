@@ -13,7 +13,7 @@ import { clear, fmt, h, icon } from '../../core/dom';
 import { proLook } from '../../state/theme';
 import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
-import { button, modal, pager, panel, row, toast } from '../../ui/components';
+import { button, empty, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { lineId, patternsPanel, timelinePanel } from './timeline';
 
@@ -25,6 +25,7 @@ export const memoryTab: TabDef = {
   blurb: 'what Ghosty knows about you',
   mount(root) {
     const P = page(root, { tag: 'NEURAL MEMORY', sub: 'stored in your private brain, synced across your devices', rightLabel: 'CONVERSATION', leftLabel: 'FACTS' });
+    root.querySelector('.hud')?.classList.add('rcflow'); // route C: each side scrolls as one list of cards
     // A change in the TIMELINE shows in the panels below it, and theirs in it.
     const tl = timelinePanel(() => {
       void refresh();
@@ -67,7 +68,7 @@ export const memoryTab: TabDef = {
         void refreshTimeline();
       });
       return r;
-    });
+    }, () => 'NONE YET', 'Say “remember …” in a chat, or tap Add a memory: what he keeps shows here.');
     const input = h('input', { placeholder: 'Tell me something to remember…', 'aria-label': 'New fact' });
     const add = async () => {
       const t = input.value.trim();
@@ -93,7 +94,7 @@ export const memoryTab: TabDef = {
       clear(mp.body);
       if (!profile) {
         mp.setStatus('OFFLINE', 'off');
-        mp.body.append(h('div.note', 'Not reachable right now.'));
+        mp.body.append(empty('OFFLINE'));
         return;
       }
       const n = PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0);
@@ -165,7 +166,7 @@ export const memoryTab: TabDef = {
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
-    const dg = pager(dp, 46, (e: DiaryEntry) => row(e.heading, e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${e.heading}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET');
+    const dg = pager(dp, 46, (e: DiaryEntry) => row(e.heading, e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${e.heading}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night he writes a page about your day. Tap Reflect now for today’s.');
     const paintDiary = () => {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);
@@ -213,7 +214,7 @@ export const memoryTab: TabDef = {
         void refreshTimeline();
       });
       return r;
-    }, () => 'NONE YET');
+    }, () => 'NONE YET', 'When he gets something wrong and you put him right, the lesson shows here.');
     const refreshLessons = async () => {
       try {
         lessons = (await brain.lessons()).lessons;
@@ -225,7 +226,7 @@ export const memoryTab: TabDef = {
     };
     P.right.append(lp.el);
     const cp = panel('CONVERSATION', { footer: true });
-    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }));
+    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask him anything from Home.');
     const clearNow = async () => {
       await clearConversation();
       toast('Conversation cleared');

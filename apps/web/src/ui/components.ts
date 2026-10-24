@@ -71,15 +71,51 @@ export function row(k: string | null, v: string | Node, n?: string | null, opts:
 
 export const SEV_COLORS = ['#52f2b5', '#ffd24d', '#ff9a3c', '#ff4d6a'];
 
-export function empty(status: string): HTMLElement {
+/**
+ * An empty list's state. The classic looks keep their words (NO SIGNAL, ACQUIRING, STANDING BY); route C says
+ * it plainly with one sentence on what to do next (`next`, the screen's own; a fitting default otherwise).
+ */
+export function empty(status: string, next?: string, title?: string): HTMLElement {
   const s = status.toUpperCase();
   const bad = /NO FEED|ERROR|UNAVAIL|OFFLINE/.test(s);
-  const wait = /SYNC|LOAD|IDLE/.test(s) || !s;
-  return h(`div.empty${bad ? '.bad' : ''}` as 'div', h('b', bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'), h('span', bad ? 'feed unreachable right now' : wait ? 'establishing link…' : 'nothing to show yet'));
+  // (a list that has its own sentence is really empty when idle, not still on its way)
+  const wait = /SYNC|LOAD/.test(s) || (!next && (/IDLE/.test(s) || !s));
+  const off = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const head = off ? 'You’re offline' : bad ? 'Can’t reach this feed' : wait ? 'Loading' : title ?? 'Nothing here yet';
+  const line = off ? 'It fills in again when the phone is back online.' : bad ? 'It tries again by itself in a minute.' : wait ? 'One moment, it’s on its way.' : next ?? 'It fills in by itself as things happen.';
+  return h(`div.empty${bad || off ? '.bad' : wait ? '.wait' : ''}` as 'div', { dataset: { case: 'keep' } },
+    h('b', { dataset: { label: head } }, bad ? 'NO SIGNAL' : wait ? 'ACQUIRING' : 'STANDING BY'),
+    h('span', { dataset: { label: line } }, bad ? 'feed unreachable right now' : wait ? 'establishing link…' : next ?? 'nothing to show yet'));
+}
+
+/**
+ * UNDO after something was removed: one bar with what changed and an UNDO button; it goes by itself after
+ * `ms`. `fn` puts it back (and says so); the bar hides as soon as it is tapped.
+ */
+export function undoBar(ms = 12_000): { el: HTMLElement; show(text: string, fn: () => Promise<unknown>): void } {
+  const el = h('div.undo.rcundo', { role: 'status', hidden: true });
+  let timer = 0;
+  return {
+    el,
+    show(text, fn) {
+      clearTimeout(timer);
+      clear(el, h('span', text), button('UNDO', async (b) => {
+        b.disabled = true;
+        el.hidden = true;
+        try {
+          await fn();
+        } catch (e) {
+          toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+        }
+      }, 'on'));
+      el.hidden = false;
+      timer = window.setTimeout(() => (el.hidden = true), ms);
+    },
+  };
 }
 
 /** Paged list: no scrolling. Re-fits the number of rows to the panel height. */
-export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE'): { set(items: T[]): void } {
+export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLElement, emptyText = () => 'IDLE', emptyNext?: string): { set(items: T[]): void } {
   let items: T[] = [];
   let page = 0;
   const prev = button('‹', () => {
@@ -95,12 +131,13 @@ export function pager<T>(p: Panel, rowHeight: number, render: (item: T) => HTMLE
   const draw = () => {
     // In a one-scrolling-page layout (phones, page({ stack: true })) the panel grows with its
     // rows, so measuring its height would feed back on itself: show a fixed page instead.
-    const stacked = !!p.el.closest('.two.stack') && matchMedia('(max-width: 899px)').matches;
+    // (route C lets some two-sided pages flow the same way: .rcflow, styles.css)
+    const stacked = !!p.el.closest(document.documentElement.dataset.look === 'pro' ? '.two.stack, .two.rcflow' : '.two.stack') && matchMedia('(max-width: 899px)').matches;
     const per = stacked ? 8 : Math.max(1, Math.floor((p.body.clientHeight - 12) / rowHeight) || 6);
     const pages = Math.max(1, Math.ceil(items.length / per));
     page = Math.max(0, Math.min(page, pages - 1));
     clear(p.body);
-    if (!items.length) p.body.append(empty(emptyText()));
+    if (!items.length) p.body.append(empty(emptyText(), emptyNext));
     for (const it of items.slice(page * per, page * per + per)) {
       const r = render(it);
       r.style.minHeight = `${rowHeight - 4}px`;
@@ -167,7 +204,8 @@ export function spark(values: number[], w = 70, hgt = 22): SVGSVGElement {
 
 export function bar(label: string, frac: number, text: string, color?: string): HTMLElement {
   const i = h('i', { style: { width: `${Math.round(Math.max(0, Math.min(1, frac)) * 100)}%`, ...(color ? { background: color } : {}) } });
-  return h('div.bar', h('span', label), h('div.gauge', i), h('b', text));
+  // the calm looks show a label in capitals in sentence case ("READ" → "Read"), abbreviations kept
+  return h('div.bar', h('span', /[a-z]/.test(label) ? {} : { dataset: { label: niceCase(label) } }, label), h('div.gauge', i), h('b', text));
 }
 
 export function dial(label: string, frac: number, text: string, color = 'var(--c)'): HTMLElement {

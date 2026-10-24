@@ -5,6 +5,7 @@
  */
 import { clear, h } from '../core/dom';
 import { button, dial, niceCase } from './components';
+import { proLook, themeEvents } from '../state/theme';
 
 export interface Page {
   root: HTMLElement;
@@ -16,7 +17,8 @@ export interface Page {
   dials(list: [label: string, frac: number, text: string, color?: string][]): void;
 }
 
-export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftLabel?: string; rightLabel?: string; stack?: boolean }): Page {
+/** `stackInPro`: route C shows both sides in one scrolling page (the day in one look), the classic looks keep the swap. */
+export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftLabel?: string; rightLabel?: string; stack?: boolean; stackInPro?: boolean }): Page {
   const tag = h('div.tag', opts.tag);
   const big = h('div.bigv', '');
   const sub = h('div.sub', opts.sub ?? '');
@@ -34,6 +36,11 @@ export function page(root: HTMLElement, opts: { tag: string; sub?: string; leftL
   const right = h('div.col.cR');
   hud.append(hero, left, right);
   root.append(hud);
+  if (opts.stackInPro) {
+    const fit = () => hud.classList.toggle('stack', proLook());
+    fit();
+    themeEvents.on('change', fit);
+  }
   return {
     root,
     tag,

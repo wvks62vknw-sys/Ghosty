@@ -6,7 +6,8 @@ import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
-import { button, panel, row, toast } from '../../ui/components';
+import { button, empty, panel, row, toast, undoBar } from '../../ui/components';
+import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -23,6 +24,14 @@ const dayLabel = (ms: number) => {
   if (dayKey(ms) === dayKey(today.getTime())) return 'TODAY';
   if (dayKey(ms) === dayKey(tmw.getTime())) return 'TOMORROW';
   return `${DAY[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+};
+/** How long until `ms`, for a countdown: "in 25 min", "in 2 h 14 min", "in 5 h"; '' once it has started. */
+const until = (ms: number) => {
+  const m = Math.round((ms - Date.now()) / 60_000);
+  if (m <= 0) return '';
+  if (m < 60) return `in ${m} min`;
+  const hrs = Math.floor(m / 60);
+  return hrs < 3 && m % 60 ? `in ${hrs} h ${m % 60} min` : `in ${Math.round(m / 60)} h`;
 };
 const when = (ms: number) => `${dayLabel(ms) === 'TODAY' ? '' : `${dayLabel(ms)} `}${hm(ms)}`;
 /** Value for <input type="datetime-local"> in local time. */
@@ -54,6 +63,9 @@ export const agendaTab: TabDef = {
     const jp = panel('REMINDERS & TASKS', { cls: 'scroll' });
     const ip = panel('NOTIFICATIONS', { cls: 'scroll', footer: true });
     P.right.append(jp.el, ip.el);
+    // UNDO after an event or a reminder is deleted (route C: one bar at the top of its card)
+    const evUndo = undoBar();
+    const jobUndo = undoBar();
 
     let events: AgendaEventInfo[] = [];
     let jobs: JobInfo[] = [];
@@ -79,7 +91,8 @@ export const agendaTab: TabDef = {
       }
     };
     evTitle.addEventListener('keydown', (e) => e.key === 'Enter' && void addEvent());
-    ep.el.insertBefore(h('div.keyrow.wrapit', evTitle, evAt, evRemind, button('ADD', () => void addEvent())), ep.body);
+    ep.el.insertBefore(h('div.keyrow.wrapit.addev', evTitle, evAt, evRemind, button('ADD', () => void addEvent())), ep.body);
+    ep.el.insertBefore(evUndo.el, ep.body);
 
     // ── add reminder ─────────────────────────────────────────────────────
     const rText = h('input', { placeholder: 'Remind me to…', 'aria-label': 'Reminder text' });
@@ -99,13 +112,14 @@ export const agendaTab: TabDef = {
       }
     };
     rText.addEventListener('keydown', (e) => e.key === 'Enter' && void addReminder());
-    jp.el.insertBefore(h('div.keyrow.wrapit', rText, rAt, rRep, button('SET', () => void addReminder())), jp.body);
+    jp.el.insertBefore(h('div.keyrow.wrapit.addev', rText, rAt, rRep, button('SET', () => void addReminder())), jp.body);
+    jp.el.insertBefore(jobUndo.el, jp.body);
 
     const paintEvents = () => {
       clear(ep.body);
       if (errors.length) ep.body.append(h('div.note.bad', `Calendar problem: ${errors.join(' · ')}`));
       if (!events.length) {
-        ep.body.append(h('div.note', 'Nothing in the next two weeks. Add an event above, connect a calendar below, or just tell Ghosty: "add dinner with Sam on Friday at 7".'));
+        ep.body.append(empty('NONE', 'Add an event above, connect a calendar below, or just tell Ghosty: “add dinner with Sam on Friday at 7”.', 'Nothing in the next two weeks'));
         return;
       }
       let lastDay = '';
@@ -116,14 +130,26 @@ export const agendaTab: TabDef = {
           ep.body.append(h('div.lab.daylab', dayLabel(e.start)));
         }
         const t = e.allDay ? 'ALL DAY' : `${hm(e.start)}${e.end ? `–${hm(e.end)}` : ''}`;
-        const r = row(t, `${e.title}${e.location ? ` · ${e.location}` : ''}`, e.source === 'mine' ? '✕' : e.source, { wrap: true });
+        // the title, where (route C puts it on its own line), and a countdown for what is still to come today
+        const soon = dayKey(e.start) === dayKey(Date.now()) && !e.allDay ? until(e.start) : '';
+        const r = row(t, h('span', h('b.evt', e.title), e.location ? h('small.evloc', h('i.evsep', ' · '), e.location) : null, soon ? h('em.evin', soon) : null), e.source === 'mine' ? '✕' : e.source, { wrap: true });
+        r.classList.add('ev');
+        if (soon) r.classList.add('soon');
         if (e.source === 'mine') {
           const x = r.lastChild as HTMLElement;
           x.classList.add('del');
           x.title = 'Delete this event';
+          x.setAttribute('aria-label', `Delete ${e.title}`);
           x.addEventListener('click', async () => {
+            // its reminder, so UNDO brings both back
+            const rem = jobs.find((j) => j.eventId === e.id);
             await brain.deleteEvent(e.id);
             void load();
+            evUndo.show(`Deleted: ${e.title}`, async () => {
+              await brain.addEvent({ title: e.title, start: e.start, end: e.end, allDay: e.allDay, location: e.location, remindMin: rem ? Math.max(0, Math.round((e.start - rem.next) / 60_000)) : null });
+              toast(`Back: ${e.title}`, 'ok');
+              void load();
+            });
           });
         }
         ep.body.append(r);
@@ -134,7 +160,7 @@ export const agendaTab: TabDef = {
       clear(jp.body);
       if (!jobs.length) {
         jp.body.append(
-          h('div.note', 'No reminders or tasks. Set one above, or ask Ghosty, e.g. "remind me at 6 to call mum" or "every weekday at 7:30 brief me on the weather, my day and the news".'),
+          empty('NONE', 'Set one above, or ask Ghosty: “remind me at 6 to call mum”, or “every weekday at 7:30 brief me on the weather, my day and the news”.', 'No reminders or tasks'),
         );
         return;
       }
@@ -145,9 +171,17 @@ export const agendaTab: TabDef = {
         const x = r.lastChild as HTMLElement;
         x.classList.add('del');
         x.title = 'Cancel';
+        x.setAttribute('aria-label', `Cancel ${j.title}`);
         x.addEventListener('click', async () => {
           await brain.deleteJob(j.id);
           void load();
+          if (j.kind === 'reminder' || j.kind === 'task') {
+            jobUndo.show(`Cancelled: ${j.title}`, async () => {
+              await brain.addJob({ kind: j.kind as 'reminder' | 'task', title: j.title, text: j.text, at: j.next, repeat: j.repeat });
+              toast(`Back: ${j.title}`, 'ok');
+              void load();
+            });
+          }
         });
         jp.body.append(r);
         if (j.kind === 'task') {
@@ -174,7 +208,7 @@ export const agendaTab: TabDef = {
       clear(ip.body);
       ip.setStatus(inbox.get().unread ? `${inbox.get().unread} NEW` : '', inbox.get().unread ? 'ok' : 'off');
       if (!items.length) {
-        ip.body.append(h('div.note', 'Reminders and the results of Ghosty\'s scheduled tasks appear here and pop up on screen.'));
+        ip.body.append(empty('NONE', 'Reminders and the results of Ghosty’s scheduled tasks appear here and pop up on screen.', 'No notifications'));
         return;
       }
       for (const it of items.slice(0, 40)) {
@@ -252,6 +286,16 @@ export const agendaTab: TabDef = {
       const today = events.filter((e) => dayKey(e.start) === dayKey(now)).length;
       P.big.textContent = next ? `${dayLabel(next.start) === 'TODAY' ? '' : `${dayLabel(next.start)} `}${hm(next.start)}` : 'CLEAR';
       P.sub.textContent = next ? `next: ${next.title} · ${today} today · ${jobs.length} reminders & tasks` : `${today} events today · ${jobs.length} reminders & tasks`;
+      // route C: what is next as the title, when and how long until under it
+      if (proLook()) {
+        const day = next ? dayLabel(next.start) : '';
+        const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
+        P.big.dataset.case = 'keep';
+        P.big.textContent = next ? next.title : 'All clear';
+        P.sub.textContent = next
+          ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
+          : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
+      } else delete P.big.dataset.case;
     };
 
     const load = async () => {
@@ -265,6 +309,10 @@ export const agendaTab: TabDef = {
         jp.setStatus(`${jobs.length}`, 'ok');
       } catch {
         ep.setStatus('OFFLINE', 'off');
+        if (!events.length) {
+          paintFeeds();
+          return void clear(ep.body, empty('OFFLINE'));
+        }
       }
       paintEvents();
       paintJobs();
