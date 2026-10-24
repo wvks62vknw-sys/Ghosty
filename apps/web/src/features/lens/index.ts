@@ -471,6 +471,8 @@ export const lensTab: TabDef = {
         if (shown) L.showStill(null);
         S.mode = m;
         S.selected = -1;
+        // SOUND switches the camera off and listens: the camera's START / FLIP / FREEZE mean nothing there (START reopened it)
+        bar.hidden = m === 'sound';
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
       }
