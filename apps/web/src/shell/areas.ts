@@ -1,10 +1,9 @@
 /**
- * The areas of the calm looks (Graphite, Reactor): ASK · SEE · MAKE · LEARN · PLAN, and ME.
+ * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
  * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
  * its hub: a large title, a hero "continue" card, its tools and the recent screens.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
- * The classic looks keep the old dock and never see any of this.
  */
 import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
 import { clear, fmt, h, icon } from '../core/dom';
@@ -266,7 +265,7 @@ export function openMe(openDeck: () => void): void {
   })();
 }
 
-/** The calm looks' tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
+/** The tab bar: five areas in a frosted capsule; the avatar ("Me") sits at the top right of the navigation bar. */
 export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void {
   const cap = h('div.tabcap', { role: 'tablist' });
   for (const a of AREAS.slice(0, 5)) {
@@ -319,7 +318,7 @@ export function greeting(d = new Date()): string {
 }
 
 /**
- * The calm looks' navigation bar for a tab. Roots (the reactor, the hubs, Memory and Settings
+ * The navigation bar for a tab. Roots (the reactor, the hubs, Memory and Settings
  * from the Me sheet) have a large title and no back button; every other screen has
  * "‹ <where it came from>" and its name.
  */

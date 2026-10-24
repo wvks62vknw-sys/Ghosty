@@ -1,8 +1,6 @@
-// Ways around the interface that differ between the looks, for the specs.
-// The classic looks open the systems deck (every screen) from the GHOSTY logo in the top bar; the calm
-// looks (Graphite, Reactor — the default) from the avatar's "Me" sheet, row "Every screen".
+// Ways around the interface, for the specs.
+// The systems deck (every screen) opens from the avatar's "Me" sheet, row "Every screen".
 export async function openDeck(page) {
-  if (await page.locator('#top .logo').isVisible().catch(() => false)) return page.click('#top .logo');
   // the avatar sits on the roots' navigation bar: go to the reactor screen if this one has none
   if (!(await page.locator('#top .you').isVisible().catch(() => false))) {
     await page.evaluate(() => (location.hash = 'core'));
@@ -12,13 +10,13 @@ export async function openDeck(page) {
   await page.click('#mesheet .merow[data-id="deck"]');
 }
 
-// Settings, System and Links are grouped lists in the calm looks: a panel shows its contents once its row
-// is tapped (it is pushed in as its own screen; "‹ back" pops it). Open the panel whose title starts with
-// `title` (a pushed one is popped first). The classic looks show every panel already: nothing to do.
+// Settings, System and Links are grouped lists: a panel shows its contents once its row is tapped (it is
+// pushed in as its own screen; "‹ back" pops it). Open the panel whose title starts with `title` (a pushed
+// one is popped first).
 export async function openPanel(page, tab, title) {
   await page.waitForSelector(`#pg-${tab} .pn`, { state: 'attached', timeout: 15000 }).catch(() => undefined);
-  // in a calm look, wait until the page has become a list and the row is there (a slow machine draws it late)
-  await page.waitForFunction(({ tab, src }) => document.documentElement.dataset.look !== 'pro' || [...(document.getElementById(`pg-${tab}`)?.querySelectorAll('.pn[data-row]') ?? [])].some((p) => new RegExp(src).test(p.querySelector('.ptitle')?.textContent ?? '')), { tab, src: `^${title}` }, { timeout: 10000 }).catch(() => undefined);
+  // wait until the page has become a list and the row is there (a slow machine draws it late)
+  await page.waitForFunction(({ tab, src }) => [...(document.getElementById(`pg-${tab}`)?.querySelectorAll('.pn[data-row]') ?? [])].some((p) => new RegExp(src).test(p.querySelector('.ptitle')?.textContent ?? '')), { tab, src: `^${title}` }, { timeout: 10000 }).catch(() => undefined);
   const done = await page.evaluate(({ tab, src }) => {
     const re = new RegExp(src);
     const root = document.getElementById(`pg-${tab}`);

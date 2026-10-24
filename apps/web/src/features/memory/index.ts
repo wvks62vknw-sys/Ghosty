@@ -10,7 +10,6 @@ import { PROFILE_SECTIONS } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
 import { chat, clearConversation } from '../../assistant/session';
 import { clear, fmt, h, icon } from '../../core/dom';
-import { proLook } from '../../state/theme';
 import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast } from '../../ui/components';
@@ -53,9 +52,7 @@ export const memoryTab: TabDef = {
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
     const paintSub = () =>
-      (P.sub.textContent = proLook()
-        ? `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`
-        : `${facts.length} ${facts.length === 1 ? 'fact' : 'facts'} remembered · ${messages} ${messages === 1 ? 'message' : 'messages'} in this conversation`);
+      (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`);
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -142,8 +139,8 @@ export const memoryTab: TabDef = {
     const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
     mp.el.insertBefore(meForm, mp.body);
     paintMe();
-    // The calm looks: one "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
-    // (a row also swipes left to delete). The classic looks keep the form in the panel.
+    // One "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
+    // (a row also swipes left to delete).
     let sheet: { close(): void } | null = null;
     const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
     addRow.addEventListener('click', () => {
@@ -232,8 +229,7 @@ export const memoryTab: TabDef = {
       toast('Conversation cleared');
     };
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => {
-      // the calm looks confirm a destructive action first
-      if (!proLook()) return void clearNow();
+      // a destructive action is confirmed first
       const m = modal('Clear the conversation?', h('div.confirm', h('p.note', 'What was said is removed from this phone and the brain. What he remembers about you stays.'), h('div.row', button('CANCEL', () => m.close()), button('CLEAR', () => void clearNow().then(() => m.close()), 'warn'))));
     }, 'warn'));
     P.right.append(dp.el, cp.el);

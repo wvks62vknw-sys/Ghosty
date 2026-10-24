@@ -1,9 +1,8 @@
 /**
- * Swipe to delete (the calm looks): a list row with a delete button (.n.del) slides left under the
+ * Swipe to delete: a list row with a delete button (.n.del) slides left under the
  * finger and shows a red "Delete"; a tap on it deletes, a tap anywhere else closes it. Vertical
- * swipes still scroll. The classic looks keep their ✕.
+ * swipes still scroll. A mouse keeps the ✕.
  */
-import { proLook } from '../state/theme';
 
 export function swipeToDelete(root: HTMLElement): void {
   let row: HTMLElement | null = null;
@@ -17,7 +16,7 @@ export function swipeToDelete(root: HTMLElement): void {
   root.addEventListener('pointerdown', (e) => {
     const t = e.target as HTMLElement;
     if (!t.closest('.rw.swiped .del')) close(t.closest('.rw'));
-    if (!proLook() || e.pointerType === 'mouse') return;
+    if (e.pointerType === 'mouse') return;
     const r = t.closest<HTMLElement>('.rw');
     if (!r?.querySelector(':scope > .del')) return;
     row = r;

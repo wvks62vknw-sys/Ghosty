@@ -41,7 +41,7 @@ export const radioTab: TabDef = {
   scene: 'backdrop',
   blurb: 'internet radio stations',
   mount(root) {
-    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS', stackInPro: true });
+    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS', stack: true });
     const sp = panel('STATIONS', { cls: 'scroll.stations' });
     P.left.append(sp.el);
     const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });

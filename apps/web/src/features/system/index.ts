@@ -12,7 +12,6 @@ import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAn
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
 import { statusDials } from '../../ui/statusdials';
-import { proLook } from '../../state/theme';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -183,10 +182,8 @@ export const systemTab: TabDef = {
     const dials = statusDials();
     const paintStatus = () => {
       clear(sp.body);
-      if (proLook()) {
-        sp.body.append(dials.el);
-        void dials.paint(status);
-      }
+      sp.body.append(dials.el);
+      void dials.paint(status);
       // What the owner needs at a glance; the engineering details fold away under Advanced.
       const ver = `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`;
       sp.body.append(

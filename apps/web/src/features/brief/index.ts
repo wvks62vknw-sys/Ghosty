@@ -17,7 +17,7 @@ export const briefTab: TabDef = {
   blurb: 'news · weather · your day at a glance',
   primary: true,
   mount(root) {
-    const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stackInPro: true });
+    const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stack: true });
     const wp = panel('WEATHER', { cls: 'wx' });
     P.left.append(wp.el);
     const np = panel('HEADLINES', { footer: true, status: 'BBC', cls: 'news' });

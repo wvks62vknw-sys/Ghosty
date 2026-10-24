@@ -11,14 +11,13 @@ import { go, tabs } from './tabs';
 import { ACRONYM, niceCase } from '../ui/components';
 import { areaOf, tintOf } from './areas';
 
-/** The calm looks' home screen: four sections that fill whole rows of four (Learn and Plan share one). */
+/** The deck's home screen: four sections that fill whole rows of four (Learn and Plan share one). */
 const SECTIONS: [string, string[]][] = [
   ['Ask and see', ['core', 'brief', 'eye', 'lens']],
   ['Make', ['studio', 'workshop', 'reverse', 'space']],
   ['Learn and plan', ['learn', 'gym', 'school', 'library', 'agenda', 'markets', 'threats', 'radio']],
   ['Me', ['memory', 'settings', 'system', 'links']],
 ];
-import { proLook } from '../state/theme';
 import type { TabDef } from './tabs';
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -68,14 +67,11 @@ export function buildLauncher(): Launcher {
       },
     }, icon(t.icon), h('b', { dataset: ACRONYM.test(t.title) ? { label: niceCase(t.title) } : {} }, t.title), h('small', t.blurb ?? ''));
     const all = tabs().filter((t) => !t.hub);
-    // The calm looks group the screens by area under small headings (a home screen with folders' names);
-    // the classic looks keep the plain list.
-    if (proLook()) {
-      let i = 0;
-      clear(tiles, ...SECTIONS.flatMap(([name, ids]) => [h('h4.dsec', name), ...ids.map((id) => all.find((t) => t.id === id)).filter((t): t is TabDef => !!t).map((t) => tile(t, i++))]));
-    } else clear(tiles, ...all.map(tile));
+    // The screens grouped by area under small headings (a home screen with folders' names).
+    let i = 0;
+    clear(tiles, ...SECTIONS.flatMap(([name, ids]) => [h('h4.dsec', name), ...ids.map((id) => all.find((t) => t.id === id)).filter((t): t is TabDef => !!t).map((t) => tile(t, i++))]));
     quick.hidden = true;
-    clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed (the classic look shows it in capitals)
+    clear(box.querySelector('.dtitle span')!, 'AT YOUR SERVICE, ', h('i.dname', settings.get().name)); // the name as typed
   };
 
   const esc = (e: KeyboardEvent) => e.key === 'Escape' && close();

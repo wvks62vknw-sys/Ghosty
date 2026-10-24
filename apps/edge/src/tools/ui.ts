@@ -25,7 +25,7 @@ export const uiTools: Tool[] = [
     { place: { type: 'string' }, lat: { type: 'number' }, lon: { type: 'number' }, range_km: { type: 'number', description: 'camera distance, default 500' } },
   ),
   client('set_layer', 'Show or hide a God\'s Eye globe layer: satellite, buildings (3D), air, sats, quakes, events, cams (live public CCTV), traffic (live road speeds, TomTom key), ships, radar (rain), alerts (US weather), disasters (GDACS), aurora, dispatch (Seattle 911), buoys, cables, enforce (mapped ANPR, speed, red-light and bus-lane camera sites — locations only), transit (live buses and trams), incidents (motorway incidents), borders, cities, grid, clouds.', { layer: { type: 'string' }, on: { type: 'boolean' } }, ['layer', 'on']),
-  client('set_theme', 'Change the interface colour theme: stark (JARVIS blue), arc (white arc core), mark3 (red and gold), nano (nanotech gold), warmachine (gunmetal), friday (green), ultron (violet), stealth (indigo).', { theme: { type: 'string' } }, ['theme']),
+  client('set_theme', 'Change the interface colour theme: reactor (cyan, the default) or graphite (cool steel, quieter).', { theme: { type: 'string' } }, ['theme']),
   client('set_sensor_mode', 'Change the globe sensor mode: normal, nvg, flir, crt, noir.', { mode: { type: 'string' } }, ['mode']),
   client('notify', 'Show a short notice on screen.', { text: { type: 'string' } }, ['text']),
   client(

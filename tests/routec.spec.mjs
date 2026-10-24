@@ -11,6 +11,8 @@
 //    it sticks out sideways, and every empty list on it says what it is with one sentence on what to do next — with
 //    the lists made empty on purpose for Workshop, Memory, Agenda, Radio's favourites and GYM's levels; System and
 //    Links open their inner panels the same way; offline, a quiet line says so.
+//  - one look (BRIEF-ONE-LOOK): route C is the only design; Settings → Theme applies each theme's accent at once
+//    (and only the accent: Home's boxes do not move), this phone keeps it, and no classic look is left anywhere.
 //   BASE=http://localhost:8788 node tests/routec.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
 import { openDeck, openPanel } from './nav.mjs';
@@ -91,7 +93,7 @@ const target44 = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => e.ge
 for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   const W = vp.width;
   const { ctx, page, libAtBoot } = await open(vp);
-  if ((await page.evaluate(() => document.documentElement.dataset.look)) !== 'pro') problems.push(`[${W}] not in a calm look (Graphite is the default)`);
+  if ((await page.evaluate(() => document.documentElement.dataset.theme)) !== 'reactor') problems.push(`[${W}] not on Reactor (the default theme)`);
   // ---- Home: the four instruments read the mock brain
   await page.waitForFunction(() => /\d/.test(document.querySelector('.rcco.bl .v')?.textContent ?? '') && /ms/.test(document.querySelector('.rcco.br .v')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => undefined);
   await page.waitForTimeout(1500);
@@ -248,39 +250,103 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   await ctx.close();
 }
 
-// ---- a phone on a classic look moves to Graphite once, with the way back in Settings → Look
+// ---- one look, themes as colours (BRIEF-ONE-LOOK): Settings → Theme applies a theme at once and this phone keeps it;
+//      a theme changes the accent only (the same layout to the pixel); nothing of the classic looks is left
+{
+  const THEMES = { reactor: '#64d2ff', graphite: '#9db7cc' };
+  const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+  // a computed colour as "rgb(r, g, b)" (a colour that has just been transitioned reads "rgba(r, g, b, 1)")
+  const solid = (c) => { const n = String(c).match(/[\d.]+/g) ?? []; return n.length === 3 || (n.length === 4 && Number(n[3]) === 1) ? `rgb(${n.slice(0, 3).join(', ')})` : String(c); };
+  const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+  await ctx.addInitScript(([k, home]) => {
+    localStorage.setItem('ghosty.ownerKey', k);
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      // a phone from before the one look: on the old default (Graphite, which was cyan), never settled
+      localStorage.setItem('ghosty.settings', JSON.stringify({ home, units: 'metric', theme: 'graphite' }));
+      localStorage.removeItem('ghosty.themes1');
+    }
+  }, [KEY, HOME]);
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => problems.push(`[themes] pageerror: ${e.message}`));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  await page.waitForTimeout(1500);
+  const look = () => page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const tab = document.querySelector('#dock .tabcap button.on');
+    const pill = document.querySelector('#cstate');
+    return {
+      theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme,
+      c: cs.getPropertyValue('--c').trim(), acc: cs.getPropertyValue('--acc').trim(), c2: cs.getPropertyValue('--c2').trim(),
+      tab: tab ? getComputedStyle(tab).color : '', dot: pill ? getComputedStyle(pill, '::before').backgroundColor : '',
+      look: document.documentElement.hasAttribute('data-look'), finish: document.documentElement.hasAttribute('data-finish'),
+    };
+  });
+  const first = await look();
+  // the cyan this phone had (old Graphite) is Reactor now: it stays cyan
+  if (first.theme !== 'reactor' || first.saved !== 'reactor' || first.c !== THEMES.reactor) problems.push(`[themes] a phone on the old default did not settle on Reactor's cyan: ${JSON.stringify(first)}`);
+  if (first.look || first.finish) problems.push(`[themes] <html> still carries a classic look's switch: ${JSON.stringify(first)}`);
+  // the stylesheet holds nothing for the classic looks
+  const css = await page.evaluate(async () => (await fetch('/styles.css')).text());
+  for (const gone of ['data-look', 'data-finish', '.tcard', '.lookback', '.morestyles']) if (css.includes(gone)) problems.push(`[themes] styles.css still has "${gone}"`);
+  // Home's layout in each theme: every element's box (they must be the same)
+  const homeBoxes = {};
+  // (the glow behind the hero breathes, so its box is left out)
+  const boxes = () => page.$$eval('#pg-core *, #top *, #dock *', (els) => els.filter((e) => e.getClientRects().length && !e.classList.contains('rcglow')).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${e.className.baseVal ?? e.className}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`; }));
+  for (const [name, hex] of Object.entries(THEMES).reverse()) {
+    await page.evaluate(() => (location.hash = 'settings'));
+    await page.waitForTimeout(1000);
+    await openPanel(page, 'settings', 'THEME');
+    const sw = await page.$$eval('#pg-settings .swatch', (bs) => bs.map((b) => ({ id: b.dataset.theme, name: b.querySelector('b')?.textContent, on: b.getAttribute('aria-checked'), sw: b.style.getPropertyValue('--sw') })));
+    if (sw.map((x) => x.name).join(',') !== 'Reactor,Graphite' || sw.some((x) => !x.sw)) problems.push(`[themes] Settings → Theme shows ${JSON.stringify(sw)}`);
+    for (const t of await target44(page, '#pg-settings .swatch')) problems.push(`[themes] a swatch is under a 44 pt target: ${t}`);
+    for (const x of await sideways(page, '#pg-settings .swatch, #pg-settings .swatch *')) problems.push(`[themes] sticks out sideways: ${x}`);
+    await page.click(`#pg-settings .swatch[data-theme="${name}"]`);
+    await page.waitForTimeout(400);
+    const on = await page.$eval(`#pg-settings .swatch[data-theme="${name}"]`, (b) => b.getAttribute('aria-checked'));
+    const now = await look();
+    // applied at once: the accent token, the derived one, and what the screen draws with them
+    if (on !== 'true' || now.theme !== name || now.saved !== name || now.c !== hex || now.acc !== hex) problems.push(`[themes] ${name} did not apply at once: ${JSON.stringify({ on, ...now })}`);
+    await page.screenshot({ path: `${out}/routec-theme-${name}.png` });
+    await page.click('#top .navback');
+    await page.evaluate(() => (location.hash = 'core'));
+    await page.waitForTimeout(900);
+    const home = await look();
+    if (solid(home.tab) !== rgb(hex) || solid(home.dot) !== rgb(hex)) problems.push(`[themes] ${name}: the lit tab is ${home.tab} and the live dot ${home.dot}, not the accent ${rgb(hex)}`);
+    homeBoxes[name] = await boxes();
+  }
+  {
+    const [g, r] = [homeBoxes.graphite, homeBoxes.reactor];
+    const moved = g.map((x, i) => (x === r[i] ? '' : `${r[i]} → ${x}`)).filter(Boolean);
+    if (g.length !== r.length || moved.length) problems.push(`[themes] Graphite moved things on Home: ${moved.slice(0, 4).join(' | ')} (${g.length} vs ${r.length} boxes)`);
+  }
+  // remembered: after a restart the last one tapped (Reactor) is still on; then Graphite, and it stays after a restart too
+  await page.evaluate(() => window.__ghosty.run('set_theme', { theme: 'Graphite' }));
+  await page.waitForTimeout(300);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
+  const kept = await look();
+  if (kept.theme !== 'graphite' || kept.c !== THEMES.graphite) problems.push(`[themes] Graphite was not kept after a restart: ${JSON.stringify(kept)}`);
+  // no element on any screen still carries a classic look's class
+  const classic = await page.$$eval('.tcard, .tprev, .lookback, .morestyles, .themes, [data-finish]', (els) => els.map((e) => e.className));
+  if (classic.length) problems.push(`[themes] classic-look elements are still made: ${classic.join(', ')}`);
+  await ctx.close();
+}
+// an old classic look's name on a phone (from before route C) starts on Reactor, with no toast about looks
 {
   const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 1 });
   await ctx.addInitScript((k) => {
     localStorage.setItem('ghosty.ownerKey', k);
-    if (!sessionStorage.getItem('seeded')) {
-      sessionStorage.setItem('seeded', '1');
-      localStorage.setItem('ghosty.settings', JSON.stringify({ theme: 'stark' }));
-      localStorage.removeItem('ghosty.lookC');
-    }
+    localStorage.setItem('ghosty.settings', JSON.stringify({ theme: 'stark' }));
   }, KEY);
   const page = await ctx.newPage();
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
-  const first = await page.evaluate(() => ({ look: document.documentElement.dataset.look, theme: window.__ghosty.settings.get().theme }));
-  if (first.theme !== 'graphite' || first.look !== 'pro') problems.push(`a classic phone was not moved to Graphite: ${JSON.stringify(first)}`);
-  await page.waitForFunction(() => /new look: Graphite/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push('no toast says the look changed'));
-  await page.evaluate(() => (location.hash = 'settings'));
-  await page.waitForTimeout(1200);
-  await page.locator('#pg-settings .pn[data-row] > h3').filter({ hasText: /^Look|LOOK/ }).first().click().catch(() => undefined);
-  await page.waitForTimeout(600);
-  const back = page.locator('#pg-settings .lookback button');
-  if (!(await back.count())) problems.push('Settings → Look offers no way back');
-  else {
-    await back.click();
-    await page.waitForTimeout(500);
-    const now = await page.evaluate(() => window.__ghosty.settings.get().theme);
-    if (now !== 'stark') problems.push(`the way back went to ${now}`);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#boot', { state: 'detached', timeout: 25000 });
-    const again = await page.evaluate(() => window.__ghosty.settings.get().theme);
-    if (again !== 'stark') problems.push(`after going back, the next start switched again (${again})`);
-  }
+  await page.waitForTimeout(4500);
+  const st = await page.evaluate(() => ({ theme: document.documentElement.dataset.theme, saved: window.__ghosty.settings.get().theme, toasts: document.querySelector('#toasts')?.textContent ?? '' }));
+  if (st.theme !== 'reactor' || st.saved !== 'reactor') problems.push(`[themes] a classic look's name did not start on Reactor: ${JSON.stringify(st)}`);
+  if (/look/i.test(st.toasts)) problems.push(`[themes] a toast still talks about looks: "${st.toasts}"`);
   await ctx.close();
 }
 
@@ -360,5 +426,5 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
 
 if (made?.event?.id) await fetch(`${base}/api/agenda/events/${made.event.id}`, { method: 'DELETE', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY } }).catch(() => undefined);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion, and a classic phone moves to Graphite once with the way back; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Route C run clean: Home reads the brain (free AI, library, uplink; no school gauge without a school), Today and the tiles show the agenda, the incident and the games, every tab reaches its screen, Chat has the reply card and the composer, the Me sheet opens on Status with three real dials, nothing sticks out sideways at 440 or 390, the targets take a finger, the glow stops for reduced motion; one look: Settings → Theme applies Reactor or Graphite at once (the accent token, the lit tab and the live dot follow, Home’s layout does not move) and keeps it after a restart, a phone on the old default settles on Reactor’s cyan, a classic look’s name starts on Reactor, and nothing of the classic looks is left in the page or the stylesheet; part 2: every other screen opens through the deck with nothing sideways and its empty lists worded (Workshop, Memory, Agenda, Radio, GYM made empty on purpose), System and Links open their inner panels without repeating them, and offline shows one quiet line off Home.');
 process.exit(problems.length ? 1 : 0);

@@ -389,8 +389,8 @@ export function registerBuiltins(): void {
       title: 'Set theme',
       hidden: true,
       run: (a) => {
-        // accept a key ("mark3") or a label ("Mark III", "war machine")
-        const want = String(a?.theme ?? 'stark').toLowerCase().replace(/[^a-z0-9]/g, '');
+        // accept a key ("graphite") or a label ("Reactor"); any other name (an old look's) gives Reactor
+        const want = String(a?.theme ?? 'reactor').toLowerCase().replace(/[^a-z0-9]/g, '');
         const hit = Object.entries(THEMES).find(([k, t]) => k === want || t.label.toLowerCase().replace(/[^a-z0-9]/g, '') === want);
         applyTheme(hit ? hit[0] : want);
       },

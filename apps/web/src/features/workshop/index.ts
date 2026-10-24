@@ -16,7 +16,6 @@ import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { bar, button, empty, modal, panel, pill, progressRing, row, sandboxFrame, toast, type Light } from '../../ui/components';
-import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 import { forgetWidget, mergeWidgets, syncLocalWidgets } from '../../state/widgets';
 import { failureReport, runTests } from '../../training/runner';
@@ -473,10 +472,9 @@ export const workshopTab: TabDef = {
         h('div.note', open ? `Ghosty may edit its own security and self-edit code until ${fmt.time(new Date(kernelUntil))}.` : 'Ghosty cannot change its login lock, permission rules or self-edit pipeline. Only you can unlock this, for a short time.'),
         open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', () => confirm('Let Ghosty edit its protected kernel for 15 minutes?') && void setKernel(15), 'warn'),
       );
-      P.big.textContent = ready ? `v${versions.length ? versions[0]!.sha.slice(0, 7) : '—'}` : 'OFFLINE';
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';
-      if (proLook()) P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
+      P.big.textContent = ready ? (versions.length ? `Live · ${versions[0]!.sha.slice(0, 7)}` : 'Live') : 'Offline';
       P.dials([
         ['CHANGES', changes.length / 5, String(changes.length), '#ffd24d'],
         ['WIDGETS', widgets.length / 10, String(widgets.length), '#52f2b5'],

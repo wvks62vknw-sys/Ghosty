@@ -14,7 +14,7 @@ export const marketsTab: TabDef = {
   scene: 'backdrop',
   blurb: 'stocks · crypto · currencies',
   mount(root) {
-    const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · indices · commodities · currencies', rightLabel: 'INDICES / FX', leftLabel: 'CRYPTO', stackInPro: true });
+    const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · indices · commodities · currencies', rightLabel: 'INDICES / FX', leftLabel: 'CRYPTO', stack: true });
     const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO', cls: 'coins' });
     const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const cg = pager(cp, 52, (c: Coin) => {

@@ -1,8 +1,9 @@
-// MIND, Home's 3-D centrepiece in the calm looks (features/core/mind.ts), on the iPhone 18 Pro Max's 440 × 956 with
+// MIND, Home's 3-D centrepiece (features/core/mind.ts), on the iPhone 18 Pro Max's 440 × 956 with
 // software WebGL (SwiftShader, as tests/studio.spec.mjs runs it). Home shows the Mind canvas once three.js has loaded
 // from this site (/vendor/three, nothing from the network); its node count follows the brain's library counts (one
 // node per 20 passages, shared across the fields by their topics, lit by what is read); listening and thinking change
-// what is drawn (the exported state, and a pixel difference); with "reduce motion" it draws one frame and runs no
+// what is drawn (the exported state, and a pixel difference); it is drawn in the theme's accent and takes another
+// theme's at once (Reactor's cyan, Graphite's steel); with "reduce motion" it draws one frame and runs no
 // loop; with WebGL unavailable today's 2-D reactor stays. It also reports the frame time at idle and saves Home in
 // each state.
 //   BASE=http://localhost:8806 node tests/hero.spec.mjs [outDir]
@@ -112,6 +113,17 @@ const diff = (a, b) => a !== b;
   await page.screenshot({ path: `${out}/hero-idle.png` });
   const a = await shot(page);
 
+  // ---- 1b. the theme's accent (BRIEF-ONE-LOOK): Mind is drawn in Reactor's cyan, takes Graphite's steel at once, and back
+  if (idle.accent !== '#64d2ff') problems.push(`Mind is drawn in "${idle.accent}", not Reactor's #64d2ff`);
+  await page.evaluate(() => window.__ghosty.run('set_theme', { theme: 'graphite' }));
+  await until(page, () => window.__ghosty.hero.accent === '#9db7cc', 8000, 'Mind did not take Graphite\'s accent');
+  await page.waitForTimeout(1200);
+  if (!diff(a, await shot(page))) problems.push('Mind looks the same in Graphite as in Reactor');
+  await page.screenshot({ path: `${out}/hero-graphite.png` });
+  await page.evaluate(() => window.__ghosty.run('set_theme', { theme: 'reactor' }));
+  await until(page, () => window.__ghosty.hero.accent === '#64d2ff', 8000, 'Mind did not go back to Reactor\'s accent');
+  await page.waitForTimeout(1200);
+
   // ---- 2. listening: the sphere opens, the rim brightens, the ear ring follows the mic
   await page.evaluate(() => window.__ghosty.ui.set({ voice: 'listening' }));
   await until(page, () => window.__ghosty.hero.state === 'listening', 8000, 'the hero never went to listening');
@@ -179,5 +191,5 @@ const diff = (a, b) => a !== b;
 }
 
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `MIND run clean at 440 × 956: three.js loaded from this site once Home showed, ${expected().nodes} nodes (${expected().lit} lit) in ${expected().fields} field clusters from the library's counts, listening and thinking changed the picture, offline went grey, nothing drawn while hidden, reduce motion drew one still per change with no loop, and with no WebGL the 2-D reactor stayed.`);
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `MIND run clean at 440 × 956: three.js loaded from this site once Home showed, ${expected().nodes} nodes (${expected().lit} lit) in ${expected().fields} field clusters from the library's counts, it took Graphite's accent and went back to Reactor's, listening and thinking changed the picture, offline went grey, nothing drawn while hidden, reduce motion drew one still per change with no loop, and with no WebGL the 2-D reactor stayed.`);
 process.exit(problems.length ? 1 : 0);

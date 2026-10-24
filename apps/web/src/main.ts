@@ -22,8 +22,7 @@ import { checkStorage, persistAsksQuietly } from './features/system/storage';
 import { buildLayout } from './shell/layout';
 import { go, registerTabs } from './shell/tabs';
 import { settings, ui } from './state/app';
-import { applyTheme } from './state/theme';
-import { lookOnce } from './state/lookonce';
+import { applyTheme, settleTheme } from './state/theme';
 import { button, toast } from './ui/components';
 
 const bootEl = document.getElementById('boot')!;
@@ -118,10 +117,7 @@ onLocalReminder((title, text) => {
 });
 
 async function boot(): Promise<void> {
-  applyTheme(settings.get().theme);
-  // Route C: a phone on a classic look moves to Graphite once (Settings → Look has the way back).
-  const replaced = lookOnce();
-  if (replaced) setTimeout(() => toast(`Ghosty has a new look: Graphite. Settings → Look takes you back to ${replaced}.`, 'ok'), 4000);
+  applyTheme(settleTheme());
   const cv = document.getElementById('gl') as HTMLCanvasElement;
   bootLog('RENDER CORE', gfx.init(cv) ? 'WEBGL2' : 'NO WEBGL2');
   addEventListener('resize', () => gfx.resize());

@@ -158,7 +158,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       editing = m.id;
       paint();
     });
-    // route C: the words in sentence case beside their glyphs (the button's own text stays for the classic looks)
+    // route C: the words in sentence case beside their glyphs
     edit.dataset.label = 'Edit';
     const lock = button(m.locked ? 'UNLOCK' : 'LOCK', async (b) => {
       b.disabled = true;

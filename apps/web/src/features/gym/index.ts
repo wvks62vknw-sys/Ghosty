@@ -25,10 +25,9 @@ import { ALL_BUDGET, allLine, current, type GymRecord, joinLevels, type LevelNot
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, niceCase, panel, spark, sparkline, toast } from '../../ui/components';
+import { button, niceCase, panel, sparkline, toast } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
-import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
@@ -74,7 +73,7 @@ function gymToast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
 /** An on/off switch: its label and a line saying what it does, the knob on the right. */
 function toggle(label: string, hint: string, onChange: (on: boolean) => void): { el: HTMLButtonElement; set(on: boolean, can?: boolean, why?: string): void } {
   const say = h('small', hint);
-  // (the calm looks show the label in sentence case: "Keep awake")
+  // (the label shows in sentence case: "Keep awake")
   const el = h('button.gymswitch', { type: 'button', role: 'switch', 'aria-checked': 'false' }, h('span.gymswtxt', h('b', { dataset: { label: niceCase(label) } }, label), say), h('i.knob', { 'aria-hidden': 'true' }));
   el.addEventListener('click', () => onChange(el.getAttribute('aria-checked') !== 'true'));
   return {
@@ -142,9 +141,8 @@ export function renderFrame(f: Frame | null, onCell?: (i: number) => void): HTML
   return box;
 }
 
-/** The chart's top: the pass mark or the best reading, with a little headroom, to the next 10% (the calm looks scale it). */
+/** The chart's top: the pass mark or the best reading, with a little headroom, to the next 10%. */
 export function chartTop(rec: GymRecord | null, game: GameMeta): number {
-  if (!proLook()) return 1;
   const hi = Math.max(game.bar(rec?.level ?? 1), ...(rec?.history ?? []).map((p) => p.m));
   return Math.min(1, Math.ceil((hi + 0.06) * 10) / 10);
 }
@@ -171,7 +169,7 @@ function graph(rec: GymRecord | null, game: GameMeta): SVGSVGElement {
 }
 
 /**
- * An Activity-style ring (the calm looks): his mastery, 0–100%, with a tick at the pass mark of his
+ * An Activity-style ring: his mastery, 0–100%, with a tick at the pass mark of his
  * level — the number in or beside it is the same mastery, so the ring and the words always agree.
  */
 function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number, goal?: number): void } {
@@ -189,7 +187,7 @@ function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number,
   } };
 }
 
-/** Each game's glyph and colour (the calm looks' cards): what kind of game it is, at a glance. */
+/** Each game's glyph and colour (on its card): what kind of game it is, at a glance. */
 const GLYPH: Record<string, [string, string]> = {
   maze: ['#30d158', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8.5 4v8h4M15.5 8.5V20M8.5 16h3.5"/>'],
   codebreaker: ['#ff9f0a', '<circle cx="5.5" cy="12" r="2"/><circle cx="10.2" cy="12" r="2"/><circle cx="14.8" cy="12" r="2"/><circle cx="19.5" cy="12" r="2"/><path d="M5.5 17.5h14"/>'],
@@ -360,14 +358,13 @@ export const gymTab: TabDef = {
       const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymhead', h('span.sq.gymglyph', { style: `--tint:${tint}` }, icon(glyph)), h('span.gymtop', rg.el, lvl)), h('span.gymname', g.title), small, sp, st);
       b.addEventListener('click', () => {
         select(g.id);
-        // the calm looks on a phone: the game is its own screen, "‹ Gym" back; the classic looks scroll to it
+        // on a phone the game is its own screen, "‹ Gym" back
         if (pushes()) pushGame();
-        else if (matchMedia('(max-width: 899px)').matches) gameP.el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       cards.append(b);
       cardParts.set(g.id, { b, small, spark: sp, st, sparkKey: '', ring: rg, lvl });
     }
-    // What he is doing now, at the top of the list (the calm looks): the game in training, or the one trained last.
+    // What he is doing now, at the top of the list: the game in training, or the one trained last.
     const nowRing = ring(44, 'gymring');
     const nowTitle = h('b');
     const nowSub = h('small');
@@ -397,8 +394,8 @@ export const gymTab: TabDef = {
     nowCard.after(h('div.gymall', lvlHead, lvlBars, allBtn, awakeSw.el, allStatus));
     const gamesHead = h('div.gymsec', { dataset: { case: 'keep' } }, h('b', 'Games'), h('span'));
     cards.before(gamesHead);
-    // ======================= the game as a pushed screen (calm looks, phones)
-    const pushes = () => proLook() && matchMedia('(max-width: 899px)').matches;
+    // ======================= the game as a pushed screen (phones)
+    const pushes = () => matchMedia('(max-width: 899px)').matches;
     let pushedGame = false;
     let shownLabel = '';
     const pushGame = () => {
@@ -434,10 +431,9 @@ export const gymTab: TabDef = {
       paint();
     });
     const playBtn = button('PLAY HIM', () => startPlay());
-    playBtn.dataset.label = 'Play Ghosty'; // the calm looks' wording
-    let resetArmed = 0;
+    playBtn.dataset.label = 'Play Ghosty';
     const resetBtn = button('RESET', () => reset(), 'warn');
-    // The calm looks: RESET lives in a "…" menu that is its own confirmation (iOS's destructive action in a menu).
+    // RESET lives in a "…" menu that is its own confirmation (iOS's destructive action in a menu).
     const menuNote = h('p.gymmenunote');
     const menu = h('div.gymmenu', { role: 'menu' }, menuNote, resetBtn);
     const more = h('button.gymmore', { type: 'button', 'aria-label': 'More: reset this game', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, icon('<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>'));
@@ -453,7 +449,7 @@ export const gymTab: TabDef = {
       }
     });
     const graphBox = h('div.gymgraphbox');
-    // The open game at a glance (the calm looks): a big ring to the level's bar, the level, one word.
+    // The open game at a glance: a big ring to the level's bar, the level, one word.
     const bigRing = ring(132, 'gymbigring');
     const heroLvl = h('b');
     const heroPct = h('span.gympct');
@@ -484,7 +480,7 @@ export const gymTab: TabDef = {
       const levels = all.reduce((t, r) => t + (r ? r.level - 1 + (r.mastered ? 1 : 0) : 0), 0);
       P.big.textContent = `${mastered} OF ${GAMES.length} MASTERED`;
       // A fixed line: text that changes length here would shift every button below it mid-tap.
-      P.sub.textContent = proLook() ? 'Ghosty teaches himself by playing, on this phone.' : 'Ghosty teaches himself by playing · on this phone';
+      P.sub.textContent = 'Ghosty teaches himself by playing, on this phone.';
       P.dials([
         ['MASTERY', avg, `${Math.round(avg * 100)}%`],
         ['LEVELS', levels / (GAMES.length * 10), `${levels}`],
@@ -501,21 +497,20 @@ export const gymTab: TabDef = {
         c.b.setAttribute('aria-pressed', String(g.id === open.id));
         c.small.textContent = r?.mastered ? 'ALL 10 LEVELS' : r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
         // the ring is his mastery, the tick the pass mark of his level; the words say the same numbers
-        const pct = r ? Math.floor(r.mastery * 100) : 0;
         c.ring.set(r?.mastered ? 1 : r?.mastery ?? 0, r && !r.mastered ? g.bar(r.level) : 0);
         c.lvl.textContent = String(r?.level ?? 1);
         // nothing has happened yet: an empty ring and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
         c.b.classList.toggle('mastered', !!r?.mastered);
         // route C: the pill says the state in one word (the level line above says the numbers)
-        c.st.dataset.label = proLook() ? (st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered' : st === 'TRAINING' ? 'Training' : 'Paused') : st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered · all 10 levels' : `${st === 'TRAINING' ? 'Learning' : 'Paused'} · Level ${r?.level ?? 1} · ${pct}%`;
+        c.st.dataset.label = st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered' : st === 'TRAINING' ? 'Training' : 'Paused';
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
         const pts = r?.history.map((p) => p.m) ?? [];
-        const key = `${proLook()}${st}${pts.join(',')}`;
+        const key = `${st}${pts.join(',')}`;
         if (key !== c.sparkKey) {
           c.sparkKey = key;
-          clear(c.spark, proLook() ? sparkline(pts, 140, 26, st === 'MASTERED' || st === 'TRAINING') : spark(pts, 70, 18));
+          clear(c.spark, sparkline(pts, 140, 26, st === 'MASTERED' || st === 'TRAINING'));
         }
       }
       gymState.cards = GAMES.length;
@@ -733,7 +728,6 @@ export const gymTab: TabDef = {
       if (!g) return;
       stopWatch();
       held = '';
-      disarmReset();
       menu.classList.remove('open');
       more.setAttribute('aria-expanded', 'false');
       if (gymState.play.game && gymState.play.game !== id) gymState.play = { game: '', board: [], over: '', thinking: false };
@@ -761,23 +755,9 @@ export const gymTab: TabDef = {
       }
       paint();
     };
-    let disarmTimer = 0;
-    const disarmReset = () => {
-      resetArmed = 0;
-      clearTimeout(disarmTimer);
-      resetBtn.textContent = 'RESET';
-    };
     const reset = () => {
-      // the calm looks' menu was the confirmation; the classic looks ask with a second tap
+      // the menu was the confirmation
       menu.classList.remove('open');
-      if (!proLook() && Date.now() - resetArmed > 3000) {
-        resetArmed = Date.now();
-        resetBtn.textContent = 'SURE? TAP AGAIN';
-        clearTimeout(disarmTimer);
-        disarmTimer = window.setTimeout(disarmReset, 3000);
-        return;
-      }
-      disarmReset();
       gymState.log.push(`reset ${open.id}`);
       if (training === open.id) {
         stopAll(false);
