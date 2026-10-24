@@ -30,6 +30,7 @@ import { openCrop } from './crop';
 import { createHandsMode } from './hands';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
+import type { MarkState } from './mark';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
@@ -60,6 +61,8 @@ export interface LensState {
   lastAction: string;
   reply: string;
   error: string;
+  /** MARK MY WORK (READ's MARK chip): what it is doing and the last result (mark.ts). */
+  mark?: MarkState;
   setMode?: (m: LensMode) => void;
 }
 
