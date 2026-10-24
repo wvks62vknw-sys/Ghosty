@@ -1,12 +1,13 @@
 /** BRIEF tab: what he reads first in the morning — the day's diary, the drive to work, the weather in detail, headlines by section, and a spoken briefing on request. */
 import { brain } from '../../api/brain';
 import { send } from '../../assistant/session';
+import { speak, stopSpeaking } from '../../assistant/voice';
 import { clear, fmt, h } from '../../core/dom';
 import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
-import { dayName, diarySentence, greeting, hhmm, nextAfterToday, rainClause, rainWhen, summary, todayItems, type DayItem, type Facts } from './day';
+import { dayName, diarySentence, greeting, hhmm, nextAfterToday, rainClause, rainWhen, spoken, summary, todayItems, type DayItem, type Facts } from './day';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -46,6 +47,26 @@ export const briefTab: TabDef = {
       dateEl.textContent = `${greeting(d)} · ${dayName(d)}`;
       say.textContent = summary(facts());
     };
+    // READ IT TO ME says the Brief aloud at once (no model: the greeting, the sentence, the top three headlines);
+    // BRIEF ME asks Ghosty for a spoken briefing in the chat, handed the same facts so it needs no look-ups.
+    const topHeadlines = () => (news.data ?? []).slice(0, 6).map((x) => x.title);
+    let reading = false;
+    const readBtn = button('READ IT TO ME', (b) => {
+      if (reading) return void stopSpeaking();
+      reading = true;
+      b.textContent = 'STOP';
+      void speak(spoken(new Date(), summary(facts(true)), topHeadlines())).finally(() => {
+        reading = false;
+        b.textContent = 'READ IT TO ME';
+      });
+    }, 'brread on');
+    const briefBtn = button('BRIEF ME', () => {
+      const d = new Date();
+      const diary = dayItems ? (dayItems.length ? dayItems.slice(0, 6).map((x) => `${x.when} ${x.title}`).join('; ') : 'nothing') : 'not known';
+      go('core');
+      void send(`Give me a sharp spoken briefing in about 90 words from these facts (no need to look anything up), flagging anything that needs my attention. ${greeting(d)}, ${dayName(d)}. WEATHER: ${summary({ ...facts(true), diary: undefined, commute: undefined }) || 'not known'} DIARY TODAY: ${diary}. ${commuteWords ? `COMMUTE: ${commuteWords}. ` : ''}HEADLINES: ${topHeadlines().join(' | ') || 'none yet'}`);
+    }, 'brme');
+    say.after(h('div.bract', readBtn, briefBtn));
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
     // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
@@ -105,10 +126,6 @@ export const briefTab: TabDef = {
     }, id === currentNewsFeed() ? 'on' : '')));
     np.el.insertBefore(sections, np.body);
     const ng = pager(np, 62, (x: Headline) => row(null, x.title, x.at ? fmt.ago(x.at) : '', { wrap: true, onClick: () => { go('core'); void send(`Explain this headline in plain terms and why it matters: "${x.title}". ${x.desc}`); } }), () => news.status, 'Headlines come in by themselves; pick another section above meanwhile.');
-    np.foot!.prepend(button('BRIEF ME', () => {
-      go('core');
-      void send(`Give me a sharp spoken briefing in about 90 words: weather, then the most important headlines, flagging anything that needs my attention. HEADLINES: ${(news.data ?? []).slice(0, 6).map((x) => x.title).join(' | ')}`);
-    }, 'warn'));
     P.right.append(np.el);
 
     const paintWeather = () => {
