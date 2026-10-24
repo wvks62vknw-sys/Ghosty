@@ -228,3 +228,14 @@ Add to it any time; tick items off only when he agrees they are fixed.
 42. **His questions, 24 Oct ~20:20 UK:** "couldn't we just use the offline brain for him to go to school? when the gpu
     hours run out" (answered: practice yes, the weekly weight update no; IDEAS-24-OCT.md) and "what things do you suggest
     we add, in the UI, the HUD … or features … to make it even more advanced" (the list in IDEAS-24-OCT.md, for his picks).
+
+43. **The look, his direction after the mock-ups (24 Oct ~20:45 UK):** "i want a cinematic when he's booted up because the
+    current one is terrible, and yeah i like this but i feel like there's too much things in one tab so you have to scroll
+    loads but there should be different like tabs for all of it but not overstimulating, and easy to navigate too and
+    really good looking and a massive iron man feel to it whilst being sleek and clean but still making you feel exactly
+    like Iron Man and super powerful and it shouldn't feel like it's made by an AI, if anybody else seen it they should
+    feel like i've made every single part of it like it's literally integrated within my soul (metaphorical)".
+    Read as: the Iron Man direction is a yes (A's instruments with C's restraint unless he says a letter); the hubs must
+    not scroll for ever (each tool its own screen, the hub a compact instrument grid); a boot cinematic; nothing generic.
+    Briefs: BRIEF-IRON-BUILD.md (the look, shared work first), BRIEF-NAV-BOOT.md (navigation + boot cinematic mock-ups
+    for his yes).
