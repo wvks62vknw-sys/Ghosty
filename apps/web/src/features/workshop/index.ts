@@ -176,7 +176,7 @@ export const workshopTab: TabDef = {
       try {
         const r = await brain.projectAction(id, action);
         projects = projects.map((p) => (p.id === id ? r.project : p));
-        if (action === 'run') toast(RUN_SAID[r.did] ?? 'Step not finished: Ghosty tries again by itself', r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
+        if (action === 'run') toast((r.did && RUN_SAID[r.did]) || 'Step not finished: Ghosty tries again by itself', r.did === 'step' || r.did === 'done' ? 'ok' : 'warn');
       } catch (e) {
         toast(`Could not ${action}: ${why(e)}`, 'bad');
       }
