@@ -24,6 +24,7 @@ import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
 import { rateable, rateRow, ratings } from './rate';
 import { siteRow } from './sitecard';
+import { videoBody } from './ytcard';
 import { Reactor } from './reactor';
 
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
@@ -104,7 +105,7 @@ function plainReply(e: Extract<Entry, { kind: 'assistant' }>): HTMLElement {
   // A cited answer: chips for its sources, the list under it, and how many claims the sources back.
   if (e.cited) return h('div.msg.cited', whoLine(e.model, true), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...citedReply(e.text, e.cited, linked));
   // Cut off: the owner interrupted while it was read out.
-  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), linked(e.text), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
+  return h('div.msg', whoLine(e.model, false), h('small', `GHOSTY${e.model ? ` · ${e.model}` : ''}`), ...videoBody(e.text, linked), e.cut ? h('span.cutchip', 'Cut off — you interrupted') : null);
 }
 
 /**

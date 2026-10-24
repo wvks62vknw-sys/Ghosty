@@ -591,7 +591,14 @@ export const gymTab: TabDef = {
         return { id: x.id, lv: !r?.units ? 0 : r.mastered ? 10 : Math.max(1, r.level - 1 + r.mastery), done: !!r?.mastered };
       }).sort((a, b) => b.lv - a.lv);
       clear(lvlHead.firstChild as HTMLElement, 'Levels by game · ', h('b', `${mastered} of ${GAMES.length}`), ' mastered');
-      clear(lvlBars, h('i.g', { style: { bottom: '50%' } }), ...levels.map((x) => h(`i.b${x.done ? '.m' : x.lv ? '' : '.z'}` as 'i', { style: { height: `${Math.max(8, (x.lv / 10) * 100)}%` }, dataset: { game: x.id } })));
+      // Nothing trained yet: faint placeholder bars and one line on what TRAIN ALL does first (the game it would pick).
+      const none = levels.every((x) => !x.lv);
+      const first = none ? gameById(nextForAll(GAMES.map((x) => x.id), recs, {})?.id ?? '') : undefined;
+      lvlBars.classList.toggle('none', none);
+      if (none) lvlBars.removeAttribute('aria-hidden');
+      else lvlBars.setAttribute('aria-hidden', 'true');
+      clear(lvlBars, h('i.g', { style: { bottom: '50%' } }), ...levels.map((x, i) => h(`i.b${x.done ? '.m' : x.lv ? '' : '.z'}` as 'i', { style: { height: none ? `${Math.round(88 - (i / Math.max(1, levels.length - 1)) * 70)}%` : `${Math.max(8, (x.lv / 10) * 100)}%` }, dataset: { game: x.id } })),
+        none ? h('span.gymlvnone', { dataset: { case: 'keep' } }, h('b', 'No levels yet'), ` · Train all starts with ${first ? niceCase(first.title) : 'the first game'}`) : null);
       const fresh = GAMES.filter((x) => !recs.get(x.id)?.units).length;
       (gamesHead.lastChild as HTMLElement).textContent = `${GAMES.length} games${fresh ? ` · ${fresh} not started` : ''}`;
       gymState.awake.on = prefs.awake;

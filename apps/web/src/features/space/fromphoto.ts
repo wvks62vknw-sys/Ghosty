@@ -107,6 +107,7 @@ export function createFromPhotoPanel(onApplied: () => void): { el: HTMLElement }
       kind = k;
       paint();
     });
+    b.dataset.label = label.charAt(0) + label.slice(1).toLowerCase(); // route C: sentence case
     kindBtns.set(k, b);
     kinds.append(b);
   }

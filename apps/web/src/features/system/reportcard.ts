@@ -7,7 +7,7 @@
  * (offline/harder.ts `needsCheck`, `onNewModel`).
  */
 import { clear, h, svgEl } from '../../core/dom';
-import { catScores, CATS, overall, summarise, trend, type Run } from '../../offline/bench';
+import { catScores, CATS, overall, summarise, trend, voiceLine, type Run } from '../../offline/bench';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { modelKey, needsCheck, reportCard, runReportCard, stopThinking, thinking } from '../../offline/harder';
 import { go } from '../../shell/tabs';
@@ -73,6 +73,8 @@ export function reportCardPanel(): Panel & { refresh(): void } {
       h('div.rcrow.rchd', h('span.rccat', 'KIND'), h('b.rcplain', 'AS IN CHAT'), h('b.rcthink', 'THINK HARDER'), h('span.rctime', 'TIME')),
       ...rows,
       h('div.rcrow.rctot', h('span.rccat', 'ALL'), h('b.rcplain', r.items.length ? pct(pl) : '—'), h('b.rcthink', th == null ? '—' : pct(th)), h('span.rctime', secs(r.ms))),
+      // how many of the replies the AI-sounding detector called human (bench.ts voiceLine; '' when none were judged)
+      voiceLine(r) ? h('div.note.rcvoice', voiceLine(r)) : null,
       live ? null : h('div.note.rcsum', summarise(r)),
     );
   };

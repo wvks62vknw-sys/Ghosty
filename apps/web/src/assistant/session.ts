@@ -15,6 +15,7 @@ import { cleanReply, noModelError, shouldFallBack } from '../offline/prompt';
 import { thinkAsk, type ThinkResult } from '../offline/think';
 import { run } from '../commands/registry';
 import { createStore } from '../core/store';
+import { stopwatch } from '../core/stopwatch';
 import { progressOf, type Progress } from '../features/core/progress';
 import { currentTab } from '../shell/tabs';
 import { home, settings, timeZone, ui } from '../state/app';
@@ -420,6 +421,8 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     .map((e) => ({ role: e.kind, text: e.text.slice(0, 1500) }));
   push({ kind: 'user', text: t, at: Date.now() });
   chat.set({ live: t });
+  // The stopwatch (core/stopwatch.ts): a reply from the brain, from here to its first words and its end, as the owner sees them.
+  const lap = stopwatch.reply();
   // "think harder" (alone: the last question; or with one): the phone's model, with more effort.
   // Never with the offline brain switched off: then it is an ordinary message for the brain.
   const harder = opts.cloud || settings.get().offlineBrain === 'off' ? null : thinkAsk(t);
@@ -451,6 +454,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
   await stream(
     async (cb) => {
       await brain.chat(t, context(), (ev) => {
+        lap.saw(ev.t);
         if (ev.t === 'text' || ev.t === 'tool' || ev.t === 'tool_result' || ev.t === 'progress' || ev.t === 'approval' || ev.t === 'client') acted = true;
         // "No model is free" before anything happened: held back, answered on the phone instead (shown as usual if that fails).
         if (here && !acted && ev.t === 'error' && noModelError(ev.message)) {
@@ -464,6 +468,7 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     () => (offlineSiteTurn(t) ? siteHere(t).then(() => HANDLED) : offlineAnswer(t)),
     rescue,
   );
+  lap.end();
   // A reminder Ghosty just set may already be due ("in 1 minute"): check soon.
   setTimeout(() => void import('./notices').then((n) => n.pollInbox()), 2500);
 }

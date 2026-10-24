@@ -138,3 +138,8 @@ Add to it any time; tick items off only when he agrees they are fixed.
 31. **Merging (24 Oct ~00:30 UK):** "don't ask me to merge when it's ready, just do it." Fable merges a batch into main
     itself when CI is green on it, every piece in it is complete and it has been reviewed; after each coherent step
     rather than one big merge at the end (his question; the reasons are in the chat of 24 Oct).
+
+32. **No "app icons" (24 Oct ~01:45 UK):** "The only thing I don't like about the whole design is the way the things are
+    designed, like they're like app icons, but I don't want it to be like that." The tinted-glass squircle icon tiles
+    (the Every screen deck, the Me sheet, hub tiles, recents, row icons, Search) go. He picks the replacement from three
+    mock-ups (BRIEF-DECK-MOCKUPS.md: the index list, the command deck, instruments), then it is built across the app.

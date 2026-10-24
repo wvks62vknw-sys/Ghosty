@@ -13,7 +13,7 @@ import { brain } from '../../api/brain';
 import { chat } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
-import { button, modal, panel, toast, type Panel } from '../../ui/components';
+import { button, empty, modal, panel, toast, type Panel } from '../../ui/components';
 
 const KINDS: [string, string][] = [
   ['all', 'Everything'],
@@ -158,15 +158,19 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       editing = m.id;
       paint();
     });
+    // route C: the words in sentence case beside their glyphs (the button's own text stays for the classic looks)
+    edit.dataset.label = 'Edit';
     const lock = button(m.locked ? 'UNLOCK' : 'LOCK', async (b) => {
       b.disabled = true;
       if (await change(m, m.locked ? 'unlock' : 'lock')) toast(m.locked ? 'Unlocked: the nightly reflection may update it again' : 'Locked: the nightly reflection will never change or drop it', 'ok');
     }, m.locked ? 'on' : '');
+    lock.dataset.label = m.locked ? 'Unlock' : 'Lock';
     lock.title = m.locked ? 'Let the nightly reflection update it again' : 'Keep it exactly as it is';
     const forget = button('FORGET', async (b) => {
       b.disabled = true;
       if (await change(m, 'forget')) showUndo(m);
     }, 'warn');
+    forget.dataset.label = 'Forget';
     el.append(head, text, sourceLine(m), h('div.mia', edit, lock, forget));
     return el;
   };
@@ -216,7 +220,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     const locked = items.filter((m) => m.locked).length;
     p.setStatus(items.length ? `${items.length} THINGS${locked ? ` · ${locked} LOCKED` : ''}` : 'EMPTY', items.length ? 'ok' : 'mid');
     if (!list.length) {
-      p.body.append(h('div.note', items.length ? 'Nothing matches.' : 'Nothing remembered yet. Tell me about yourself in a chat, or add a line under ME.'));
+      p.body.append(items.length ? empty('NONE', 'Try other words, or show Everything.', 'Nothing matches') : empty('NONE', 'Tell me about yourself in a chat, or add a line under ME.', 'Nothing remembered yet'));
       return;
     }
     for (const m of list.slice(0, shown)) p.body.append(row(m));
@@ -247,6 +251,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       forgotten = Array.isArray(r.forgotten) ? r.forgotten : [];
     } catch {
       p.setStatus('OFFLINE', 'off');
+      if (!items.length) clear(p.body, empty('OFFLINE'));
       return;
     }
     paintForgotten();

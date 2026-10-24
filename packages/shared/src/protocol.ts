@@ -3,6 +3,7 @@
  * Both sides import this file, so a change here must be made on both sides.
  */
 import type { PersonaSettings } from './persona';
+import type { SpeedSummary } from './speed';
 
 /** Events streamed (one JSON object per line) from POST /api/chat and POST /api/approve. */
 export type ChatEvent =
@@ -350,6 +351,8 @@ export interface BrainStatus {
   speech?: { stt: boolean; tts: boolean };
   /** How much free AI room each provider has (apps/edge/src/llm/quota.ts): the SYSTEM tab's gauge. */
   capacity?: AiCapacity;
+  /** The brain's stopwatch (apps/edge/src/speed.ts): today's and last week's medians, in numbers and plain words, for the SPEED card. */
+  speed?: SpeedSummary;
 }
 
 /** One provider's free allowance right now. */

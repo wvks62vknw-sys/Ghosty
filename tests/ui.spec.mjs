@@ -57,6 +57,14 @@ async function run(name, viewport) {
     await page.waitForTimeout(tab === 'eye' ? 4000 : 900);
     await page.screenshot({ path: `${out}/${name}-${tab}.png` });
   }
+  // the stopwatch (core/stopwatch.ts) has the replies above and the tabs just opened, in plain words
+  const speed = await page.evaluate(() => window.__ghosty?.stopwatch?.summary()).catch((e) => ({ error: String(e) }));
+  const screens = new Set((speed?.screens ?? []).map((s) => s.id));
+  // (today's, or last week's when the run crossed midnight)
+  const timed = (k) => (speed?.replies?.today?.[k]?.n ?? 0) + (speed?.replies?.week?.[k]?.n ?? 0);
+  if (!timed('first') || !timed('done')) problems.push(`[${name}] the stopwatch has no reply timed: ${String(JSON.stringify(speed)).slice(0, 300)}`);
+  else if (!screens.has('eye') || !screens.has('brief')) problems.push(`[${name}] the stopwatch has no tab times for God's Eye and Brief: ${[...screens].join(', ')}`);
+  else if (!speed.lines.some((l) => /^Replies: (first word in |none timed yet today · last week )/.test(l)) || !speed.lines.some((l) => /^Screens: /.test(l)) || !speed.lines.some((l) => /^Brain round trip /.test(l))) problems.push(`[${name}] the stopwatch's lines are missing: ${speed.lines.join(' | ')}`);
   // open the widget from the workshop
   await page.evaluate(() => (location.hash = 'workshop'));
   await page.waitForTimeout(800);
@@ -156,6 +164,48 @@ async function fixesA2(viewport) {
   await ctx.close();
 }
 
+// A YouTube summary (the brain's summarise_video): the reply shows a video card (title, channel, length) and its
+// MOMENTS as links that open the video at that second (features/core/ytcard.ts). The brain's stream is faked.
+async function videoCard() {
+  const name = 'video card';
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript((k) => localStorage.setItem('ghosty.ownerKey', k), 'preview-owner-key-0123456789');
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
+  const reply = '▶ Home batteries explained · The Energy Shed · 18:32\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\nTwo small home batteries can beat one big one.\n\nMoments:\n[0:15] what a home battery does — https://youtu.be/dQw4w9WgXcQ?t=15\n[12:40] why the second battery matters — https://youtu.be/dQw4w9WgXcQ?t=760\n[18:00] the advice — https://youtu.be/dQw4w9WgXcQ?t=1080';
+  const body = [
+    { t: 'tool', id: 'v1', name: 'summarise_video', args: { url: 'https://youtu.be/dQw4w9WgXcQ' } },
+    { t: 'tool_result', id: 'v1', name: 'summarise_video', ok: true, summary: 'Home batteries explained' },
+    { t: 'text', text: reply },
+    { t: 'done', model: 'Mock · scripted' },
+  ].map((e) => JSON.stringify(e)).join('\n') + '\n';
+  await page.route('**/api/chat', (r) => r.continue({ url: `${base}/__test/stream?lines=${encodeURIComponent(Buffer.from(body).toString('base64'))}` }));
+  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(900);
+  await page.fill('#cin', 'summarise https://youtu.be/dQw4w9WgXcQ');
+  await page.keyboard.press('Enter');
+  const shown = await page.waitForSelector('.msg .ytcard', { state: 'attached', timeout: 10000 }).then(() => true, () => false);
+  if (!shown) problems.push(`[${name}] the reply has no video card`);
+  else {
+    const card = await page.$eval('.msg .ytcard .ytlink', (a) => ({ href: a.getAttribute('href'), text: a.textContent }));
+    if (card.href !== 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' || !/Home batteries explained/.test(card.text) || !/18:32/.test(card.text)) problems.push(`[${name}] the card reads ${JSON.stringify(card)}`);
+    const moments = await page.$$eval('.msg .ytmoments a.ytmoment', (as) => as.map((a) => `${a.querySelector('em')?.textContent} ${a.querySelector('span')?.textContent} ${a.getAttribute('href')}`));
+    const want = ['0:15 what a home battery does https://youtu.be/dQw4w9WgXcQ?t=15', '12:40 why the second battery matters https://youtu.be/dQw4w9WgXcQ?t=760', '18:00 the advice https://youtu.be/dQw4w9WgXcQ?t=1080'];
+    if (JSON.stringify(moments) !== JSON.stringify(want)) problems.push(`[${name}] the moments are ${JSON.stringify(moments)}`);
+    const words = await page.$eval('.msg:has(.ytcard)', (m) => m.textContent);
+    if (!/Two small home batteries can beat one big one/.test(words)) problems.push(`[${name}] the summary is missing`);
+    if (/▶ Home batteries|Moments:/.test(words)) problems.push(`[${name}] the card line or the Moments heading is still in the words`);
+    await page.locator('.logbtn').first().click().catch(() => undefined);
+    await page.waitForTimeout(500);
+    await page.locator('.msg .ytcard').scrollIntoViewIfNeeded().catch(() => undefined);
+    await page.screenshot({ path: `${out}/video-card.png` });
+  }
+  await ctx.close();
+}
+
+await videoCard();
 await run('desktop', { width: 1440, height: 900 });
 await run('phone', { width: 390, height: 844 });
 await fixesA2({ width: 390, height: 844 });

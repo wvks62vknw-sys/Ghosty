@@ -1,9 +1,9 @@
 /** RADIO tab: search internet radio by name, genre or country; favourites; now playing. */
 import { fetchJson } from '../../api/feed';
 import { favourites, player, playStation, setVolume, stopAudio, type NowPlaying } from '../../assistant/media';
-import { clear, h } from '../../core/dom';
+import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
-import { button, panel, row, toast } from '../../ui/components';
+import { button, empty, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 
 interface RawStation {
@@ -41,11 +41,11 @@ export const radioTab: TabDef = {
   scene: 'backdrop',
   blurb: 'internet radio stations',
   mount(root) {
-    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS' });
-    const sp = panel('STATIONS', { cls: 'scroll' });
+    const P = page(root, { tag: 'RADIO', rightLabel: 'FAVOURITES', leftLabel: 'STATIONS', stackInPro: true });
+    const sp = panel('STATIONS', { cls: 'scroll.stations' });
     P.left.append(sp.el);
-    const np = panel('NOW PLAYING', { grow: false });
-    const fp = panel('FAVOURITES', { cls: 'scroll' });
+    const np = panel('NOW PLAYING', { grow: false, cls: 'nowp' });
+    const fp = panel('FAVOURITES', { cls: 'scroll.favs' });
     P.right.append(np.el, fp.el);
 
     const q = h('input', { placeholder: 'Station, genre or country…', 'aria-label': 'Search radio' });
@@ -78,7 +78,12 @@ export const radioTab: TabDef = {
     const stationRow = (s: NowPlaying) => {
       const fav = favourites.has(s.url);
       const r = row(fav ? '★' : '☆', h('span', h('b', s.name), s.info ? h('br') : null, s.info ? h('small.note', s.info) : null), '▶', { wrap: true, onClick: () => void play(s) });
+      r.classList.add('station');
+      if (player.get().now?.url === s.url) r.classList.add('playing');
+      (r.lastChild as HTMLElement).setAttribute('aria-label', `Play ${s.name}`);
       const star = r.firstChild as HTMLElement;
+      star.setAttribute('role', 'button');
+      star.setAttribute('aria-label', fav ? `Remove ${s.name} from favourites` : `Keep ${s.name} in favourites`);
       star.title = fav ? 'Remove from favourites' : 'Add to favourites';
       star.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -93,7 +98,7 @@ export const radioTab: TabDef = {
       lastLabel = label;
       clear(sp.body);
       if (!results.length) {
-        sp.body.append(h('div.note', label ? `Nothing playable found for "${label}".` : 'Search above or pick a genre. You can also just say "play BBC Radio 4" or "play some jazz".'));
+        sp.body.append(label ? empty('NONE', 'Try another name, a genre chip above, or a country.', `Nothing playable for “${label}”`) : empty('NONE', 'Search above or pick a genre. You can also just say “play BBC Radio 4” or “play some jazz”.', 'Find a station'));
         return;
       }
       for (const s of results) sp.body.append(stationRow(s));
@@ -101,7 +106,7 @@ export const radioTab: TabDef = {
     const paintFavs = () => {
       clear(fp.body);
       const l = favourites.list();
-      if (!l.length) fp.body.append(h('div.note', 'Tap ☆ next to a station to keep it here.'));
+      if (!l.length) fp.body.append(empty('NONE', 'Tap ☆ next to a station to keep it here.', 'No favourites yet'));
       for (const s of l) fp.body.append(stationRow(s));
     };
 
@@ -113,6 +118,12 @@ export const radioTab: TabDef = {
       np.setStatus(state === 'playing' ? 'ON AIR' : state === 'loading' ? 'TUNING' : state === 'error' ? 'NO SIGNAL' : 'OFF', state === 'playing' ? 'ok' : state === 'error' ? 'off' : 'mid');
       P.big.textContent = now ? (state === 'error' ? 'NO SIGNAL' : 'ON AIR') : 'OFF AIR';
       P.sub.textContent = now ? now.name : 'pick a station';
+      // route C: now playing as a hero card — the station's tile (bars that move while it plays), its name and line
+      const RADIO = '<rect x="3" y="8" width="18" height="12" rx="2.5"/><path d="M7 8l10-5"/><circle cx="15.5" cy="14" r="3"/><path d="M6.5 12.5h4M6.5 15.5h4"/>';
+      np.el.dataset.state = now ? state : 'off';
+      np.body.append(h('div.nphero', { dataset: { case: 'keep' } },
+        h('div.npart', icon(RADIO), h('span.eq', { 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'))),
+        h('div.nptx', h('small', now ? (state === 'playing' ? 'On air' : state === 'loading' ? 'Tuning…' : state === 'error' ? 'No signal' : 'Stopped') : 'Off air'), h('b', now ? now.name : 'Nothing playing'), h('span', now ? now.info || '' : 'Pick a station below, or say “play some jazz”.'))));
       if (!now) {
         np.body.append(h('div.note', 'Nothing playing.'));
         return;
@@ -128,6 +139,14 @@ export const radioTab: TabDef = {
       if (!(await playStation(s)) && player.get().state === 'error') toast(`Couldn't start ${s.name}`, 'warn');
     };
     player.subscribe(paintNow);
+    // the playing station is marked in the lists
+    let shownUrl = player.get().now?.url ?? '';
+    player.subscribe((p) => {
+      if ((p.now?.url ?? '') === shownUrl) return;
+      shownUrl = p.now?.url ?? '';
+      paintResults();
+      paintFavs();
+    });
     paintNow();
     paintFavs();
     paintResults();
