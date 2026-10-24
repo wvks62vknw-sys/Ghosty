@@ -4,13 +4,20 @@
 // Safari honours overscroll-behavior: contain on a box with nothing to scroll, and ignores pointer-events:
 // none gaps in a different way, so this spec runs WebKit on purpose. (A wheel stands in for the finger:
 // Playwright's WebKit has no touch swipe, and the wheel follows the same scroll chain.)
-import { webkit } from 'playwright';
+// Part 2 checks how scrolling feels on the owner's phone (BRIEF-SCROLL-AUDIT): panels that scrolled inside the page,
+// the end of a page under the tab bar or the offline line, the keyboard, the chat, sheets and lists.
+//   PLAYWRIGHT_BROWSERS_PATH=… BASE=http://localhost:8788 node tests/scroll.spec.mjs
+//   CHROMIUM_ONLY=1 runs the same checks in Chromium (a machine without WebKit); FEEL_ONLY=1 runs part 2 alone.
+// Chromium with a real touch screen and the Home Screen's safe areas: tests/scrollfeel.spec.mjs.
+import { chromium, webkit } from 'playwright';
 import { PHONE, UK } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
-const browser = await webkit.launch();
+const chromiumOnly = !!process.env.CHROMIUM_ONLY;
+const engineName = chromiumOnly ? 'Chromium' : 'WebKit';
+const browser = chromiumOnly ? await chromium.launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }) : await webkit.launch();
 const problems = [];
-const TABS = ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
+const TABS = process.env.FEEL_ONLY ? [] : ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
 const viewport = { width: PHONE.width, height: PHONE.height - 193 }; // the iPhone 18 Pro Max in Safari, with its bars (an iPhone 15 Pro Max loses 193 px of its 932 to them)
 const ctx = await browser.newContext({ viewport, ...UK });
 const page = await ctx.newPage();
@@ -107,7 +114,57 @@ for (const tab of TABS) {
     await page.evaluate(() => document.querySelectorAll('[data-scroller]').forEach((e) => delete e.dataset.scroller));
   }
 }
+if (!checked && !process.env.FEEL_ONLY) problems.push('no page had anything to scroll: the spec checked nothing');
+
+// ---------- Part 2: how scrolling feels on the owner's phone (BRIEF-SCROLL-AUDIT, 24 Oct) ----------
+// Each check below failed on the interface before its fix (the numbers in brackets are what was measured then, at 440 × 763).
+const pair = async (p) => {
+  p.on('pageerror', (e) => /ResizeObserver loop|due to access control checks/.test(e.message) || problems.push(`pageerror: ${e.message}`));
+  await p.goto(base);
+  await p.fill('#pair input', 'preview-owner-key-0123456789');
+  await p.click('#pair button.on');
+  await p.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
+};
+const show = async (p, tab, wait = 1500) => {
+  await p.evaluate((t) => (location.hash = t), tab);
+  await p.waitForTimeout(wait);
+  await p.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
+};
+const feelCtx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+const feel = await feelCtx.newPage();
+await pair(feel);
+let felt = 0;
+// 1. A page that scrolls as one has no panel that scrolls on its own inside it. A panel's body stopped at 70 % of the
+//    screen and scrolled there: a swipe on Markets' crypto list moved the list 5 px and the page not at all; System's
+//    STATUS card took 235 px of every swipe; Library, School and Threats had lists in a slit (and momentum stopped
+//    dead at their ends). The wheel over the STATUS card must move the page itself.
+for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief', 'radio', 'gym', 'space', 'learn', 'reverse', 'settings', 'links', 'memory']) {
+  await show(feel, tab);
+  const inner = await feel.evaluate((t) => [...document.querySelectorAll(`#pg-${t} :is(.two.stack, .two.rcflow) .col > .pn > .bd`)]
+    .filter((b) => b.getBoundingClientRect().height && /(auto|scroll)/.test(getComputedStyle(b).overflowY) && b.scrollHeight > b.clientHeight + 2)
+    .map((b) => `"${b.parentElement.querySelector('.ptitle')?.textContent ?? '?'}" (${b.scrollHeight} px shown in ${b.clientHeight})`), tab);
+  for (const s of inner) problems.push(`[${tab}] the panel ${s} scrolls on its own inside the page: a swipe that starts on it stops there`);
+}
+{
+  await show(feel, 'system');
+  const at = await feel.evaluate(() => {
+    const s = document.querySelector('#pg-system .hud');
+    s.scrollTop = 0;
+    const r = document.querySelector('#pg-system .pn.keepcard > .bd')?.getBoundingClientRect();
+    return r && { x: r.left + r.width / 2, y: Math.min(r.top + 120, innerHeight - 140) };
+  });
+  if (!at) problems.push('[system] no STATUS card to swipe on');
+  else {
+    await feel.mouse.move(at.x, at.y);
+    await feel.mouse.wheel(0, 240);
+    await feel.waitForTimeout(400);
+    const moved = await feel.evaluate(() => document.querySelector('#pg-system .hud').scrollTop);
+    if (moved < 100) problems.push(`[system] a swipe on the STATUS card moved the page ${Math.round(moved)} px, not the 240 asked (the card took it)`);
+  }
+  felt++;
+}
+// ---------- end of part 2 ----------
 await browser.close();
-if (!checked) problems.push('no page had anything to scroll: the spec checked nothing');
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in WebKit on an iPhone 18 Pro Max screen: ${checked} swipes across every tab moved the page.`);
+const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in ${engineName} on an iPhone 18 Pro Max screen: ${summary}.`);
 process.exit(problems.length ? 1 : 0);

@@ -3907,6 +3907,12 @@ html .msg.tr .trtext { font: 400 19px/26px var(--sf); color: var(--ink); overflo
 html .msg.tr .tracts { margin-top: 8px; }
 html .msg.tr .novoice { color: var(--ink3); }
 html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px var(--sf); color: var(--ink2); }
+/* ---------- scrolling on the phone (BRIEF-SCROLL-AUDIT; spec tests/scroll.spec.mjs part 2, tests/scrollfeel.spec.mjs) ---------- */
+@media (max-width: 899px) {
+  /* a page that scrolls as one has no panel that scrolls on its own: a body capped at 70 % of the screen took the swipe,
+     moved a few pixels and stopped, and the page under it did not move (ui/components.ts pager shows 8 rows there) */
+  html :is(.two.stack, .two.rcflow) .col > .pn > .bd { max-height: none; }
+}
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */
