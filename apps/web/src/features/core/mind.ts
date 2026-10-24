@@ -792,8 +792,9 @@ export class Mind {
     P.sweep.visible = Number.isFinite(b.sweep) && Math.abs(b.sweep) < 1;
     if (P.sweep.visible) {
       P.sweep.position.y = b.sweep;
-      P.sweep.scale.setScalar(Math.sqrt(1 - b.sweep * b.sweep) * 0.98);
-      P.sweep.material.opacity = 0.9 * (1 - Math.abs(b.sweep));
+      // as wide as the constellation it passes through (it has not settled yet), brightest through the middle
+      P.sweep.scale.setScalar(Math.sqrt(1 - b.sweep * b.sweep) * (0.45 + 0.4 * b.gather));
+      P.sweep.material.opacity = 0.7 * (1 - Math.abs(b.sweep));
       P.sweep.material.color.copy(tint(C.pale));
     }
     P.rimCrisp.material.uniforms.uColor.value.copy(tint(C.pale));

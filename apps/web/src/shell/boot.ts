@@ -547,7 +547,7 @@ function play(el: HTMLElement, first: Kind, rebooting: boolean): void {
           scale: seg(tl.sphere + 300, tl.name),
           core: 1,
           turn: -0.35 * (1 - easeInOut(seg(tl.sphere, tl.name))),
-          push: 1 + 0.9 * (1 - easeInOut(seg(tl.gather, tl.name))),
+          push: 1 + 0.4 * (1 - easeInOut(seg(tl.gather, tl.name))),
           sweep: T >= tl.gather + 400 && T <= tl.gather + 900 ? 1.1 - 2.2 * seg(tl.gather + 400, tl.gather + 900) : NaN,
         };
         fade = seg(tl.gather, tl.gather + 120);
