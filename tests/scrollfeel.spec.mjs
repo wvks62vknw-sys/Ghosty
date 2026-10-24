@@ -107,6 +107,29 @@ const pageEnd = (page, tab) =>
   checks++;
   await ctx.close();
 }
+
+// 3. The Library's reader in the Home Screen app: the sheet uses the phone's height below the Dynamic Island (it stayed
+//    720 px tall, the words in a 534 px window with 118 px empty above and below). On the sheet modal() builds round it.
+{
+  const { ctx, page } = await phone({ safe: true });
+  await show(page, 'library', 800);
+  const r = await page.evaluate(() => {
+    const m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = '<div class="mbox" role="dialog"><div class="mhead"><b>A long document</b><button>CLOSE</button></div><div class="mbody"><div class="readwrap"><div class="readmeta">a pdf · 40 passages</div><div class="reader"></div><div class="keyrow"><button>MORE</button></div></div></div></div>';
+    m.querySelector('.reader').textContent = 'A paragraph of the document, read on the phone. '.repeat(300);
+    document.body.append(m);
+    m.querySelectorAll('*').forEach((e) => e.getAnimations().forEach((a) => a.finish()));
+    const box = m.querySelector('.mbox').getBoundingClientRect();
+    return { top: Math.round(box.top), bottom: Math.round(box.bottom), reader: m.querySelector('.reader').clientHeight };
+  });
+  await page.screenshot({ path: `${out}/scrollfeel-reader.png` });
+  if (r.top < 62) problems.push(`[reader] the reader's sheet starts at ${r.top}, under the Dynamic Island (62)`);
+  if (r.bottom > 956 - 34) problems.push(`[reader] the reader's sheet runs to ${r.bottom}, over the home indicator`);
+  if (r.reader < 630) problems.push(`[reader] the reader shows its words in ${r.reader} px of a 956 px screen`);
+  checks++;
+  await ctx.close();
+}
 // ---------- end of checks ----------
 
 await browser.close();

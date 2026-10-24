@@ -367,6 +367,26 @@ for (const tab of ENDS) {
   if (e.bar - e.lowest < 16) problems.push(`[${tab}] the end of the page (${e.what} at ${e.lowest}) is ${e.bar - e.lowest} px from the tab bar (from ${e.bar}): under its blur`);
 }
 felt++;
+// 9. The Library's reader uses the phone's height. Its sheet stayed 720 px tall on any phone [on the 18 Pro Max in
+//    the Home Screen app the words read in a 534 px window with 118 px empty above and below it]. Checked on the
+//    sheet modal() builds around the reader (ui/components.ts, features/library/index.ts), with a long document.
+{
+  await show(feel, 'library', 800);
+  const r = await feel.evaluate(() => {
+    const m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = '<div class="mbox" role="dialog"><div class="mhead"><b>A long document</b><button>CLOSE</button></div><div class="mbody"><div class="readwrap"><div class="readmeta">a pdf · 40 passages</div><div class="reader"></div><div class="keyrow"><button>MORE</button></div></div></div></div>';
+    m.querySelector('.reader').textContent = 'A paragraph of the document, read on the phone. '.repeat(300);
+    document.body.append(m);
+    m.querySelectorAll('*').forEach((e) => e.getAnimations().forEach((a) => a.finish()));
+    const box = m.querySelector('.mbox').getBoundingClientRect();
+    const res = { top: Math.round(box.top), bottom: Math.round(box.bottom), reader: m.querySelector('.reader').clientHeight, screen: innerHeight };
+    m.remove();
+    return res;
+  });
+  if (r.bottom - r.top < r.screen - 24) problems.push(`[library] the reader's sheet is ${r.bottom - r.top} px tall on a ${r.screen} px screen (its words in ${r.reader} px)`);
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
