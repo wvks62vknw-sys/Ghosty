@@ -120,7 +120,7 @@ if (!/Search by meaning: about 70 MB, once, on Wi-Fi/.test(line0)) problems.push
 if ((await page.evaluate(() => window.__ghostyEmbedder.passages + window.__ghostyEmbedder.loads)) !== 0) problems.push('the meaning model was used before ADD');
 if (!/on this phone only: nothing is sent anywhere[\s\S]*builds it again after Ghosty is reinstalled[\s\S]*English best/.test((await blk.textContent()) ?? '')) problems.push('the honest limits are not said');
 await blk.locator('button:has-text("ADD")').click();
-// The count shows while it fills ...
+// The count shows while it fills,
 const partial = await page
   .waitForFunction(() => {
     const t = document.querySelector('#pg-settings .mnblock .mncount')?.textContent ?? '';
@@ -132,7 +132,7 @@ const partial = await page
 if (!partial) problems.push('the count was never seen part way ("x of N passages indexed")');
 await blk.scrollIntoViewIfNeeded().catch(() => undefined);
 await page.screenshot({ path: `${out}/phone-meaning-indexing.png` });
-// ... until every passage has its vector.
+// Then on until every passage has its vector.
 const full = await page
   .waitForFunction(() => {
     const t = document.querySelector('#pg-settings .mnblock .mncount')?.textContent ?? '';
