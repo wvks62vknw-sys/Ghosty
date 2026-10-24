@@ -5,8 +5,8 @@ import { events, kp, launches, launchStatus, liveEvents, quakes, signals, threat
 import { GEO } from '../../engine/geo';
 import { air } from '../../engine/layers/air';
 import { sats } from '../../engine/layers/sats';
-import type { TabDef } from '../../shell/tabs';
-import { home } from '../../state/app';
+import { go, type TabDef } from '../../shell/tabs';
+import { home, settings } from '../../state/app';
 import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
 import { reconPanel } from './recon';
@@ -51,13 +51,17 @@ export const threatsTab: TabDef = {
       const nq = (quakes.data ?? []).map((q) => ({ q, d: GEO.hav(L.lat, L.lon, q.lat, q.lon) })).sort((a, b) => a.d - b.d)[0];
       // (no feed is not "none": say which it is)
       const unknown = (f: typeof quakes | typeof events) => (f.status === 'NO FEED' ? 'can’t reach the feed' : 'checking…');
-      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} · ${km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes)));
+      // every tile is a tap: the nearest quake or event on the globe, or God's Eye itself
+      const eye = { onClick: () => go('eye') };
+      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} · ${km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes), null, nq ? { onClick: () => void flyTo({ lat: nq.q.lat, lon: nq.q.lon, range_km: 1200 }) } : eye));
       const ne = liveEvents().map((e) => ({ e, d: GEO.hav(L.lat, L.lon, e.lat, e.lon) })).sort((a, b) => a.d - b.d)[0];
-      near.body.append(row('EVENT', ne ? `${ne.e.catName} · ${km(ne.d)} away` : events.data ? 'none in the last 2 weeks' : unknown(events)));
-      near.body.append(row('AIR', air.list.size ? `${air.nearby(L.lat, L.lon, 60).length} aircraft within 60 km` : "open God's Eye to scan"));
+      near.body.append(row('EVENT', ne ? `${ne.e.catName} · ${km(ne.d)} away` : events.data ? 'none in the last 2 weeks' : unknown(events), null, ne ? { onClick: () => void flyTo({ lat: ne.e.lat, lon: ne.e.lon, range_km: 1200 }) } : eye));
+      near.body.append(row('AIR', air.list.size ? `${air.nearby(L.lat, L.lon, 60).length} aircraft within 60 km` : 'tap to scan in God’s Eye', null, eye));
       const iss = sats.list.find((s) => /ISS \(ZARYA\)/.test(s.name));
       const pass = iss ? sats.nextPass(iss, L.lat, L.lon) : null;
-      near.body.append(row('ISS', pass ? `rises ${fmt.time(new Date(pass.rise))} · max ${Math.round(pass.max)}°` : iss ? 'no pass in 24h' : 'open God\'s Eye once'));
+      near.body.append(row('ISS', pass ? `rises ${fmt.time(new Date(pass.rise))} · max ${Math.round(pass.max)}°` : iss ? 'no pass in 24h' : 'tap to find it in God’s Eye', null, eye));
+      // where "near" is measured from: his home, or a guess from the phone's time zone until he sets one
+      near.body.append(h('div.note.nearfrom', settings.get().home ? `Measured from ${L.name}.` : `Measured from ${L.name}, a guess from the phone’s time zone: set your home city in Settings.`));
       clear(space.body);
       const k = kp.data && Number.isFinite(kp.data.v) ? kp.data : null;
       if (k) {
