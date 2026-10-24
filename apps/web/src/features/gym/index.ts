@@ -1,5 +1,6 @@
 /**
- * GYM tab — Ghosty teaches himself by playing. GAMES: a card per game (level, mastery, a sparkline,
+ * GYM tab — Ghosty teaches himself by playing. GAMES: a card per game (its picture, art.ts; level, the mastery meter
+ * with the pass mark, his rating or the next level's mark,
  * TRAINING / PAUSED / MASTERED). Tapping a card opens it in the GAME panel: what he is learning, the
  * status line, TRAIN (or PAUSE), WATCH (he plays, step by step), PLAY HIM (tic-tac-toe, Connect 4, and —
  * through play.ts — checkers, chess and Go on the board; Code Breaker and Word Guess: you pick what he must
@@ -28,10 +29,11 @@ import { addStar } from '../../offline/starbox';
 import { frameOf as tttFrame, winner as tttWinner } from '../../gym/tttboard';
 import type { GymOut } from '../../gym/worker';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, niceCase, panel, sparkline, toast, undo } from '../../ui/components';
+import { button, niceCase, panel, toast, undo } from '../../ui/components';
 import { popScreen, pushScreen } from '../../ui/listmode';
 import { ui } from '../../state/app';
 import { page } from '../../ui/page';
+import { gameArt } from './art';
 import { BOARDS, type Sel } from './play';
 import * as store from './store';
 
@@ -212,26 +214,6 @@ function ring(size: number, cls: string): { el: SVGSVGElement; set(frac: number,
   } };
 }
 
-/** Each game's glyph and colour (on its card): what kind of game it is, at a glance. */
-const GLYPH: Record<string, [string, string]> = {
-  maze: ['#30d158', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8.5 4v8h4M15.5 8.5V20M8.5 16h3.5"/>'],
-  codebreaker: ['#ff9f0a', '<circle cx="5.5" cy="12" r="2"/><circle cx="10.2" cy="12" r="2"/><circle cx="14.8" cy="12" r="2"/><circle cx="19.5" cy="12" r="2"/><path d="M5.5 17.5h14"/>'],
-  colony: ['#a2845e', '<path d="M12 3.5l7.4 4.25v8.5L12 20.5l-7.4-4.25v-8.5z"/><circle cx="12" cy="12" r="2.4"/>'],
-  trust: ['#5e5ce6', '<path d="M4 9h12.5l-3-3M20 15H7.5l3 3"/>'],
-  tictactoe: ['#0a84ff', '<path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/>'],
-  connect4: ['#ff453a', '<rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="8" cy="10" r="1.6"/><circle cx="12" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/><circle cx="8" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/><circle cx="16" cy="14.5" r="1.6"/>'],
-  tiles: ['#ffd60a', '<rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/>'],
-  sudoku: ['#64d2ff', '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/><path d="M6 6.6h1.4" />'],
-  countdown: ['#ff375f', '<circle cx="12" cy="13.5" r="7"/><path d="M12 13.5V9.5M10 3h4M12 3v3.5"/>'],
-  words: ['#30d158', '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16l3.5-8 3.5 8M9.8 13.2h4.4"/>'],
-  logic: ['#bf5af2', '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7.2 7.6l3.8 8.6M16.8 7.6L13 16.2"/>'],
-  brain: ['#ff6482', '<circle cx="5" cy="7" r="1.8"/><circle cx="5" cy="17" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="7" r="1.8"/><circle cx="19" cy="17" r="1.8"/><path d="M6.6 8l3.8 3M6.6 16l3.8-3M13.6 11l3.8-3M13.6 13l3.8 3"/>'],
-  bughunt: ['#00c7be', '<ellipse cx="12" cy="13.5" rx="4.5" ry="6"/><path d="M12 8v11.5M7.5 11H4M7.5 15.5H4M16.5 11H20M16.5 15.5H20M9.6 6.2L8 4M14.4 6.2L16 4"/>'],
-  escape: ['#ac8e68', '<path d="M6 20.5V4h10v16.5"/><path d="M16 5.5l3 1v13l-3 1"/><circle cx="13" cy="12.5" r=".9"/>'],
-  factcheck: ['#40c8e0', '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M7.8 10.6l1.9 1.9 3.5-3.6"/>'],
-  debate: ['#ff9f0a', '<path d="M3.5 5h10v7.5H8l-3 2.5v-2.5H3.5z"/><path d="M16.5 9h4v7.5H19V19l-3-2.5h-4.5v-1"/>'],
-};
-const glyphOf = (id: string) => GLYPH[id] ?? ['#8e8e93', '<circle cx="12" cy="12" r="7"/>'];
 
 let opener: ((id?: string) => void) | null = null;
 let waiting: string | null | undefined;
@@ -387,24 +369,27 @@ export const gymTab: TabDef = {
     const cardsP = panel('GAMES', { cls: 'gymgames' });
     const cards = h('div.gymcards');
     cardsP.body.append(cards);
-    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; spark: HTMLElement; st: HTMLElement; sparkKey: string; ring: ReturnType<typeof ring>; lvl: HTMLElement }>();
+    // Each card (BRIEF-IRON-BUILD step 3): the game's picture as line-art (art.ts), its status word, the name and level,
+    // the mastery meter with the pass mark's tick, and under it his rating (board games' league) or the next level's mark.
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; st: HTMLElement; lvl: HTMLElement; fill: HTMLElement; tick: HTMLElement; pct: HTMLElement; meter: HTMLElement }>();
     for (const g of GAMES) {
-      const small = h('small');
-      const sp = h('span.gymspark');
+      const small = h('small.gymnext');
       const st = h('i.gymst');
-      const rg = ring(46, 'gymring');
       const lvl = h('b.gymlvl');
-      // League play (board games): his rating against his past selves, under the name.
+      const fill = h('i');
+      const tick = h('u');
+      const meter = h('span.meter', { role: 'img' }, fill, tick);
+      const pct = h('b.gympct');
+      // League play (board games): his rating against his past selves, under the meter.
       const rate = h('span.gymrate');
-      const [tint, glyph] = glyphOf(g.id);
-      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, h('span.gymhead', h('span.sq.gymglyph', { style: `--tint:${tint}` }, icon(glyph)), h('span.gymtop', rg.el, lvl)), h('span.gymname', g.title), rate, small, sp, st);
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, gameArt(g.id), st, h('span.gymnm', h('span.gymname', g.title), lvl), meter, h('span.gymrl', rate, small, pct));
       b.addEventListener('click', () => {
         select(g.id);
         // on a phone the game is its own screen, "‹ Gym" back
         if (pushes()) pushGame();
       });
       cards.append(b);
-      cardParts.set(g.id, { b, small, rate, spark: sp, st, sparkKey: '', ring: rg, lvl });
+      cardParts.set(g.id, { b, small, rate, st, lvl, fill, tick, pct, meter });
     }
     // What he is doing now, at the top of the list: the game in training, or the one trained last.
     const nowRing = ring(44, 'gymring');
@@ -539,29 +524,33 @@ export const gymTab: TabDef = {
         const st = stateOf(g, r);
         c.b.classList.toggle('on', g.id === open.id);
         c.b.setAttribute('aria-pressed', String(g.id === open.id));
-        c.small.textContent = r?.mastered ? 'ALL 10 LEVELS' : r ? `LEVEL ${r.level} · ${Math.round(r.mastery * 100)}%` : 'LEVEL 1 · --';
-        // the ring is his mastery, the tick the pass mark of his level; the words say the same numbers
-        c.ring.set(r?.mastered ? 1 : r?.mastery ?? 0, r && !r.mastered ? g.bar(r.level) : 0);
-        c.lvl.textContent = String(r?.level ?? 1);
+        // the meter is his mastery at this level, the tick the mark he needs to pass it; the words say the same numbers
+        const m = r?.mastered ? 1 : r?.mastery ?? 0;
+        const mark = r?.mastered ? null : g.bar(r?.level ?? 1);
+        c.lvl.textContent = r?.mastered ? 'ALL 10' : `LV ${r?.level ?? 1}`;
+        c.fill.style.width = `${Math.round(m * 100)}%`;
+        c.tick.style.left = mark == null ? '' : `${Math.round(mark * 100)}%`;
+        c.tick.hidden = mark == null;
+        c.meter.setAttribute('aria-label', r?.mastered ? 'Mastered: all 10 levels' : `Level ${r?.level ?? 1}: ${Math.floor(m * 100)}%, passes at ${Math.round((mark ?? 0) * 100)}%`);
+        c.pct.textContent = r?.units || r?.mastered ? `${Math.floor(m * 100)}%` : '';
         // "Rating 1,240 · up 35" (the whole line on the game's page)
         const lg = r?.league;
         const d = weekChange(lg, Date.now());
         c.rate.textContent = lg?.versions.length ? `Rating ${lg.rating.toLocaleString('en-GB')} · ${d > 0 ? `up ${d}` : d < 0 ? `down ${-d}` : 'no change'}` : '';
         c.rate.hidden = !lg?.versions.length;
         c.b.classList.toggle('rated', !!lg?.versions.length);
-        // nothing has happened yet: an empty ring and "Not started"
+        // the next level and the mark that reaches it (or the level he is on, at the top)
+        const lv = r?.level ?? 1;
+        c.small.textContent = r?.mastered ? 'Every level passed' : lv >= 10 ? `Lv 10 passes at ${Math.round(g.bar(10) * 100)}%` : `Lv ${lv + 1} at ${Math.round(g.bar(lv) * 100)}%`;
+        c.small.hidden = !!lg?.versions.length;
+        // nothing has happened yet: an empty meter and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
         c.b.classList.toggle('mastered', !!r?.mastered);
-        // route C: the pill says the state in one word (the level line above says the numbers)
+        c.b.classList.toggle('training', st === 'TRAINING');
+        // route C: the state in one word over the picture (the level line says the numbers)
         c.st.dataset.label = st === 'NEW' ? 'Not started' : st === 'MASTERED' ? 'Mastered' : st === 'TRAINING' ? 'Training' : 'Paused';
         c.st.textContent = st;
         c.st.className = `gymst ${st.toLowerCase()}`;
-        const pts = r?.history.map((p) => p.m) ?? [];
-        const key = `${st}${pts.join(',')}`;
-        if (key !== c.sparkKey) {
-          c.sparkKey = key;
-          clear(c.spark, sparkline(pts, 140, 26, st === 'MASTERED' || st === 'TRAINING'));
-        }
       }
       gymState.cards = GAMES.length;
       // "Training now" (or the game trained last), the same numbers as its card
