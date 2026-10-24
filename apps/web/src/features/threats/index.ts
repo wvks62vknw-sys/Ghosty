@@ -38,16 +38,18 @@ export const threatsTab: TabDef = {
       const list = signals();
       const lv = threatLevel(list);
       P.big.textContent = lv.label;
-      P.big.style.color = SEV_COLORS[lv.n]!;
-      P.sub.textContent = `${list.length} live signals · ${lv.why}`;
+      P.big.style.color = lv.known ? SEV_COLORS[lv.n]! : lv.label === 'CHECKING' ? '' : 'var(--amber)';
+      P.sub.textContent = lv.known ? `${list.length} live signals · ${lv.why}` : `${lv.why.charAt(0).toUpperCase()}${lv.why.slice(1)}`;
       sp.setStatus(quakes.status, quakes.status === 'LIVE' ? 'ok' : 'off');
       sg.set(list);
       const L = home();
       clear(near.body);
       const nq = (quakes.data ?? []).map((q) => ({ q, d: GEO.hav(L.lat, L.lon, q.lat, q.lon) })).sort((a, b) => a.d - b.d)[0];
-      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} ${fmt.km(nq.d)} away` : 'none in 48h'));
+      // (no feed is not "none": say which it is)
+      const unknown = (f: typeof quakes | typeof events) => (f.status === 'NO FEED' ? 'can’t reach the feed' : 'checking…');
+      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} ${fmt.km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes)));
       const ne = (events.data ?? []).map((e) => ({ e, d: GEO.hav(L.lat, L.lon, e.lat, e.lon) })).sort((a, b) => a.d - b.d)[0];
-      near.body.append(row('EVENT', ne ? `${ne.e.catName} ${fmt.km(ne.d)}` : 'none'));
+      near.body.append(row('EVENT', ne ? `${ne.e.catName} ${fmt.km(ne.d)}` : events.data ? 'none' : unknown(events)));
       near.body.append(row('AIR', air.list.size ? `${air.nearby(L.lat, L.lon, 60).length} aircraft within 60 km` : "open God's Eye to scan"));
       const iss = sats.list.find((s) => /ISS \(ZARYA\)/.test(s.name));
       const pass = iss ? sats.nextPass(iss, L.lat, L.lon) : null;

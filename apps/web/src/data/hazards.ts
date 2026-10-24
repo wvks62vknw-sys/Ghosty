@@ -124,8 +124,17 @@ export function signals(extra: Signal[] = []): Signal[] {
   return out.sort((a, b) => b.sev - a.sev || b.at - a.at);
 }
 
-export function threatLevel(list = signals()): { n: 0 | 1 | 2 | 3; label: string; why: string } {
+/**
+ * The level and why. With neither the quake nor the event feed in hand it is never CLEAR: an empty list then means
+ * "not checked", so the label says CHECKING (still on its way) or CAN’T CHECK (both unreachable), `known` is false.
+ */
+export function threatLevel(list = signals()): { n: 0 | 1 | 2 | 3; label: string; why: string; known: boolean } {
+  if (!quakes.data && !events.data) {
+    const down = quakes.status === 'NO FEED' && events.status === 'NO FEED';
+    return { n: 0, label: down ? 'CAN’T CHECK' : 'CHECKING', why: down ? 'can’t reach the quake and storm feeds right now, so this is not an all-clear.' : 'fetching quakes and storms…', known: false };
+  }
   const n = list.reduce<number>((m, x) => Math.max(m, x.sev), 0) as 0 | 1 | 2 | 3;
   const major = list.filter((x) => x.sev >= 2).length;
-  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: major ? `${major} major signals` : `${list.length} signals` };
+  const gap = !quakes.data ? 'the quake feed' : !events.data ? 'the storm and fire feed' : '';
+  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: `${major ? `${major} major signals` : `${list.length} signals`}${gap ? ` · can’t reach ${gap}` : ''}`, known: true };
 }
