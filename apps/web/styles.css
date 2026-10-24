@@ -3621,7 +3621,7 @@ html[data-look="pro"] #pg-brief .wxspark::before { content: 'Now · low ' attr(d
 html[data-look="pro"] #pg-brief .wxspark::after { content: 'high ' attr(data-hi) ' · 24 h'; right: 0; }
 html[data-look="pro"] #pg-brief .pn.news .tabs { display: flex; gap: 8px; padding: 2px 16px 6px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
 html[data-look="pro"] #pg-brief .pn.news .tabs::-webkit-scrollbar { display: none; }
-html[data-look="pro"] #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 34px; min-height: 34px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html[data-look="pro"] #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 40px; min-height: 40px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 html[data-look="pro"] #pg-brief .pn.news .tabs button::after { content: ''; position: absolute; inset: -5px 0; }
 html[data-look="pro"] #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
 html[data-look="pro"] #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
@@ -3964,5 +3964,3 @@ html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
 html[data-look="pro"] .hud.core .rcbottom { display: flex; flex-direction: column; position: sticky; bottom: 0; z-index: 6; margin-top: auto; padding-top: 6px; background: linear-gradient(to bottom, rgba(var(--bgr), 0), rgb(var(--bgr)) 26px); }
 html[data-look="pro"] .hud.core .rcbottom #suggest { margin: 0; }
 html[data-look="pro"] .hud.core .rcbottom #cbar { position: static; }
-/* Brief's section chips: 40 px on screen (Safari's finger check), as Home's chips */
-html[data-look="pro"] #pg-brief .tabs button { min-height: 40px !important; height: 40px; }
