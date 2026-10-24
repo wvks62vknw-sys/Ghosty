@@ -13,6 +13,7 @@ import { extraTools, schoolTools, videoTools } from './extra';
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
+import { homePlanTools, HOMEPLAN_ABOUT, HOMEPLAN_WHEN } from './homeplan'; // [homeplan]
 import { designTools } from './design';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
@@ -42,7 +43,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools];
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -88,7 +89,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
     name: 'widgets',
     tools: widgetTools,
     when: /\b(widget|game|play|app|tool|timer|calculator|converter|tracker|counter|quiz|puzzle|make me|build me|create)/i,
-    about: 'You can install instant widgets (create_widget: one HTML document on the GK kit — games, tools, trackers; list_widgets, delete_widget); a tool for the owner alone is a widget, not a published page.',
+    about: 'You can install instant widgets in the chat (create_widget: one HTML document on the GK kit — games, tools; list_widgets, delete_widget); an app for the Home Screen (tracker, list, timer…) is build_app.',
   },
   { name: 'video', tools: videoTools, when: /\b(youtube|youtu\.be|videos?|transcripts?)\b/i, about: 'You can summarise a YouTube video with timestamped moments that link back to it, and make 5 LEARN quiz cards from it (summarise_video).' },
   { name: 'school', tools: schoolTools, when: /\b(school|exams?|sats|placement test|key stage|gcses?|a-levels?)\b/i, about: "You can report the offline brain's school journey: stage, grades, weak spots (school_status), and tell the owner how to start an exam on the phone (sit_exam)." },
@@ -96,9 +97,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'sites',
     tools: siteTools,
-    when: /\b(websites?|site|sites|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i,
+    when: /\b(websites?|site|sites|apps?|mini[- ]?apps?|home ?screen|install|web ?pages?|landing page|home ?page|portfolio|blog|shop|store|storefront|online (?:shop|store|cv|menu)|cv|resume|résumé|invitation|invite|poster|menu page|a page (?:for|about)|put .{0,30}online|url|clone|rebuild|recreate|remake|redesign|copy (this|that|the)|deploy|publish|published|unpublish|take (it|that|.{0,20}) down|host(ing)?|live link|link again)\b|https?:\/\/|\bwww\.|\.(com|co\.uk|io|org|net|dev|app)\b/i,
     // The rule the owner cares about most, so it stays forceful: a page is delivered by its link.
-    about: "You can PUBLISH websites: any site — DO IT, never reply that you can't host or publish: study_site, ONE HTML document, publish_site, and ALWAYS give the exact live link. Business, event, charity or app sites: build_website (never by hand), a DRAFT until the owner confirms (confirm: true).",
+    about: "You can PUBLISH websites: any site — DO IT, never reply that you can't host or publish: study_site, ONE HTML document, publish_site, and ALWAYS give the exact live link. Business, event or charity sites: build_website (never by hand), a DRAFT until confirmed. Apps for his Home Screen: build_app.",
   },
   // The quality gate: also on for every coding turn (selectTools), since every page, app and widget goes through it.
   {
@@ -247,6 +248,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
     when: /\b(furniture|sofas?|couch(?:es)?|settees?|armchairs?|wardrobes?|beds?|desks?|tables?|bookcases?|tv units?|sideboards?|chests? of drawers|fit|fits|fitting|measure|measured|measurements?|space planner|make space|more space|room layout|floor ?plan|rearrange|design review|review (?:my|the|this) (?:room|plan|design|layout)|interior design|architect\w*|building reg\w*|approved documents?|building control|home office|feel bigger|extension|loft conversion|knock(?:ing)? through|load[- ]bearing)\b/i,
     about: "You can find furniture that fits at UK shops (find_furniture: shops' own prices and sizes; links), lay out a room (open_space) and review a room design against UK guidance (design_review: advice, never approval).",
   },
+  // [homeplan] A home or a room from the owner's words (tools/homeplan.ts): the planner's floor plan, and 3-D through the studio.
+  { name: 'homeplan', tools: homePlanTools, when: HOMEPLAN_WHEN, about: HOMEPLAN_ABOUT },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',

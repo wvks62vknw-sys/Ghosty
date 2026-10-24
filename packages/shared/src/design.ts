@@ -292,6 +292,73 @@ export function triangulate(poly: Pt[]): number[] {
   return out;
 }
 
+// ------------------------------------------------------------------ rooms side by side
+
+/**
+ * Do two rooms share floor (not just a wall)? Tested where walls cross and at the middle of every
+ * cell of the grid their corners make (the same test as the planner's space/rooms.ts roomsOverlap).
+ */
+export function polysOverlap(a: Pt[], b: Pt[]): boolean {
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) if (segmentsCross(a[i]!, a[(i + 1) % a.length]!, b[j]!, b[(j + 1) % b.length]!)) return true;
+  const xs = [...new Set([...a, ...b].map((q) => q[0]))].sort((x, y) => x - y);
+  const ys = [...new Set([...a, ...b].map((q) => q[1]))].sort((x, y) => x - y);
+  for (let j = 0; j + 1 < ys.length; j++) {
+    for (let i = 0; i + 1 < xs.length; i++) {
+      const c: Pt = [(xs[i]! + xs[i + 1]!) / 2, (ys[j]! + ys[j + 1]!) / 2];
+      if (pointInPoly(c, a, 0) && pointInPoly(c, b, 0)) return true;
+    }
+  }
+  return false;
+}
+
+/** A stretch of one wall of a room: wall number `wall`, from `from` to `to` cm along it from its first corner. */
+export interface WallSpan {
+  wall: number;
+  from: number;
+  to: number;
+}
+
+/**
+ * Where room `a` shares a wall with room `b`: for each of a's walls, the stretch that lies along
+ * one of b's walls on the same line, the two rooms on either side of it (where a door between
+ * them can go). Empty when they only touch at a corner or not at all.
+ */
+export function sharedWalls(a: Pt[], b: Pt[], eps = 0.5): WallSpan[] {
+  const out: WallSpan[] = [];
+  for (let i = 0; i < a.length; i++) {
+    const e = edgeOf(a, i);
+    for (let j = 0; j < b.length; j++) {
+      const f = edgeOf(b, j);
+      // facing each other: the outsides point opposite ways, and b's wall lies on a's line
+      if (Math.abs(e.nx + f.nx) > 1e-6 || Math.abs(e.ny + f.ny) > 1e-6) continue;
+      const off = (p: Pt) => (p[0] - e.a[0]) * e.nx + (p[1] - e.a[1]) * e.ny;
+      if (Math.abs(off(f.a)) > eps || Math.abs(off(f.b)) > eps) continue;
+      const along = (p: Pt) => (p[0] - e.a[0]) * e.ux + (p[1] - e.a[1]) * e.uy;
+      const s0 = Math.max(0, Math.min(along(f.a), along(f.b)));
+      const s1 = Math.min(e.len, Math.max(along(f.a), along(f.b)));
+      if (s1 - s0 > eps) out.push({ wall: i, from: s0, to: s1 });
+    }
+  }
+  return out;
+}
+
+/** The outside walls of a room among others: each stretch of its walls that no other room is on the far side of (for windows and outside doors). */
+export function outsideWalls(room: RoomShape, rooms: RoomShape[]): WallSpan[] {
+  const shared = rooms.filter((r) => r.id !== room.id).flatMap((r) => sharedWalls(room.poly, r.poly));
+  const out: WallSpan[] = [];
+  for (let i = 0; i < room.poly.length; i++) {
+    const len = edgeOf(room.poly, i).len;
+    const cuts = shared.filter((s) => s.wall === i).sort((x, y) => x.from - y.from);
+    let at = 0;
+    for (const c of cuts) {
+      if (c.from - at > 0.5) out.push({ wall: i, from: at, to: c.from });
+      at = Math.max(at, c.to);
+    }
+    if (len - at > 0.5) out.push({ wall: i, from: at, to: len });
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------ openings
 
 /** Where an opening is on the plan: its two ends along the wall (start, end), its middle, and the wall. */
