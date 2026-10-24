@@ -301,6 +301,42 @@ for (const tab of ENDS) {
   await cctx.close();
   felt++;
 }
+// 6. A sheet whose words are longer than the sheet scrolls to its end. The whole text of a notification (a tap on its
+//    toast), a confirm and the add-a-memory sheet sat in a box that clipped them [a long task report: 1780 px of
+//    words shown in 655, the rest unreachable]. Here: a long task result from the brain's inbox, its toast tapped.
+{
+  const nctx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+  const np = await nctx.newPage();
+  const text = 'The weekly check found these things, each worth a look when there is time. '.repeat(40) + 'THE LAST LINE.';
+  const item = { id: 'n1', at: Date.now(), kind: 'task', title: 'Weekly check', text };
+  await np.route('**/api/inbox', (r) => (r.request().method() !== 'GET' ? r.continue() : r.fulfill({ contentType: 'application/json', body: JSON.stringify({ unread: 1, items: [item] }) })));
+  await pair(np);
+  // its toast tapped as soon as it shows (it lives 7 s: a slow machine's click could miss it)
+  const tapped = await np.waitForFunction(() => {
+    document.querySelector('#toasts .toast.more')?.click();
+    return !!document.querySelector('.modal .toastfull');
+  }, null, { timeout: 20000, polling: 200 }).then(() => true).catch(() => false);
+  if (!tapped) problems.push('[sheet] the long notification never showed as a toast to tap');
+  else {
+    await np.waitForTimeout(600);
+    await np.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined))));
+    const s = await np.evaluate(() => {
+      const box = document.querySelector('.modal .mbox');
+      const words = document.querySelector('.modal .toastfull');
+      if (!box || !words) return null;
+      for (const e of [words, ...box.querySelectorAll('*'), box]) if (/(auto|scroll)/.test(getComputedStyle(e).overflowY)) e.scrollTop = e.scrollHeight;
+      // the bottom of the last line of words
+      const range = document.createRange();
+      range.selectNodeContents(words);
+      const lines = range.getClientRects();
+      return { end: Math.round(lines[lines.length - 1].bottom), box: Math.round(box.getBoundingClientRect().bottom), h: words.scrollHeight };
+    });
+    if (!s) problems.push('[sheet] tapping the toast opened no sheet with the whole text');
+    else if (s.end > s.box + 1) problems.push(`[sheet] the notification's whole text (${s.h} px) cannot be scrolled to its end: its last line stays at ${s.end}, below the sheet's edge at ${s.box}`);
+  }
+  await nctx.close();
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
