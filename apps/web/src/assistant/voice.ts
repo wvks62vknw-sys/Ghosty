@@ -159,9 +159,10 @@ export function speakSample(choice: Choice): Promise<void> {
   return speak("Evening. This is how I'll sound. Say the word and I'll stop.", { choice });
 }
 
-// Choosing a voice again in SETTINGS ends any wait on the phone's voice.
+// Choosing a voice again in SETTINGS ends any wait on the phone's voice; VOICE OFF also silences what is being said now.
 settings.subscribe((s, prev) => {
   if (s.voiceEngine !== prev.voiceEngine || s.brainVoice !== prev.brainVoice) phoneUntil = 0;
+  if (prev.speak && !s.speak) stopSpeaking();
 });
 
 function speakPhone(parts: string[], token: number, choice: Choice, offset = 0): Promise<void> {

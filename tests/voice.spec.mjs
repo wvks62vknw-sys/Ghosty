@@ -136,6 +136,42 @@ for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
   }
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${out}/${name}-voice-picture.png` });
+
+  // 4. (on the phone) a long reply read out by itself stops after about half a minute and says the rest is on screen,
+  // with prices and times said whole; LISTEN under it reads it and, tapped while Ghosty speaks, stops it; VOICE OFF
+  // silences what is being said
+  if (name === 'phone') {
+    const long = `Here's Saturday:\n\n1. Leave by 8.30am.\n2. Fuel is £1.42 a litre.\n\n${'The forecast is dry with a light breeze from the west and highs of 14.5°C, so a jacket is enough. '.repeat(12)}`;
+    const longLines = `${JSON.stringify({ t: 'text', text: long })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`;
+    await ctx.route('**/api/chat', (route) => route.fulfill({ status: 200, headers: { 'content-type': 'application/x-ndjson', 'cache-control': 'no-store' }, body: longLines }));
+    const from = said.length;
+    await ask('plan saturday', 'The forecast is dry');
+    await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'speaking', null, { timeout: 8000 }).catch(() => undefined);
+    await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 30000 }).catch(() => undefined);
+    const spoken = said.slice(from);
+    const chars = spoken.join(' ').length;
+    if (chars > 560 || spoken.at(-1) !== 'The rest is on screen.') problems.push(`[${name}] a ${long.length}-character reply was read out as ${spoken.length} clips, ${chars} characters, ending "${spoken.at(-1)}"`);
+    const split = spoken.filter((x) => /^\d+\.$|£1\.$|8\.$/.test(x));
+    if (split.length) problems.push(`[${name}] a number or a list marker was said on its own: ${JSON.stringify(split)}`);
+    const listen = page.locator('#pg-core .log .msg button[aria-label="Read the reply aloud"]').last();
+    await listen.click();
+    const reading = await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'speaking', null, { timeout: 8000 }).then(() => true, () => false);
+    if (!reading) problems.push(`[${name}] LISTEN did not read the reply`);
+    const stopLabel = await page.locator('#pg-core .log .msg button.msgact.on').last().getAttribute('aria-label').catch(() => null);
+    if (stopLabel !== 'Stop reading aloud') problems.push(`[${name}] while it reads, LISTEN is labelled ${JSON.stringify(stopLabel)}`);
+    await page.locator('#pg-core .log .msg button.msgact.on').last().click().catch(() => listen.click());
+    const stopped = await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 1500 }).then(() => true, () => false);
+    if (!stopped) problems.push(`[${name}] LISTEN tapped while Ghosty reads did not stop it`);
+    await page.waitForTimeout(800);
+    if (await page.evaluate(() => !document.querySelector('audio#gvoice')?.paused)) problems.push(`[${name}] the voice still plays after LISTEN stopped it`);
+    // VOICE OFF while it speaks: silent at once
+    await listen.click();
+    await page.waitForFunction(() => window.__ghosty.ui.get().voice === 'speaking', null, { timeout: 8000 }).catch(() => undefined);
+    await page.evaluate(() => window.__ghosty.settings.set({ speak: false }));
+    const off = await page.waitForFunction(() => window.__ghosty.ui.get().voice !== 'speaking', null, { timeout: 1500 }).then(() => true, () => false);
+    if (!off) problems.push(`[${name}] VOICE OFF did not stop the voice that was speaking`);
+    await page.evaluate(() => window.__ghosty.settings.set({ speak: true }));
+  }
   await ctx.close();
 }
 
