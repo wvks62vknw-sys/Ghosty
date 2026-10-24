@@ -105,11 +105,14 @@ await page.evaluate(async () => {
   localStorage.setItem('ghosty.radio.favs', JSON.stringify([{ name: 'Marker FM', url: 'https://radio.example/marker' }]));
   // A document kept only on this phone (the brain has not got it yet).
   await new Promise((ok, bad) => {
-    const r = indexedDB.open('ghosty-library', 2);
+    // No version: the interface owns the database's version (library/local.ts; 3 since search by meaning) and has
+    // opened it by now. Asking for an older number throws VersionError. The stores below only matter if it has not.
+    const r = indexedDB.open('ghosty-library');
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('pass')) db.createObjectStore('pass', { keyPath: ['doc', 'n'] });
+      if (!db.objectStoreNames.contains('vec')) db.createObjectStore('vec', { keyPath: ['doc', 'n'] });
     };
     r.onsuccess = () => {
       const db = r.result;
