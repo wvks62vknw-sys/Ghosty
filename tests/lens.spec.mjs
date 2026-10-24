@@ -253,6 +253,17 @@ await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({
 await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/lens-meal.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the meal card: ${e.message.split('\n')[0]}`));
 
+// ---- SOUND, the last tile: the mode in use is in sight in the tile row, not off its right edge ----
+await page.evaluate(() => window.__ghosty.lens.setMode('sound'));
+await page.waitForTimeout(1200);
+const tile = await page.evaluate(() => {
+  const row = document.querySelector('#pg-lens .lensmodes').getBoundingClientRect();
+  const on = document.querySelector('#pg-lens .lensmodes button.on');
+  const r = on?.getBoundingClientRect();
+  return { label: on?.textContent ?? '', inSight: !!r && r.left >= row.left - 1 && r.right <= row.right - 27 };
+});
+if (!/^SOUND/.test(tile.label) || !tile.inSight) problems.push(`in SOUND the lit tile is ${tile.inSight ? '' : 'off screen '}("${tile.label}")`);
+
 // ---- the security policy: WebAssembly and the camera were allowed, nothing was blocked ----
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);

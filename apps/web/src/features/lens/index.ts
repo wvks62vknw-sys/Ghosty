@@ -472,8 +472,19 @@ export const lensTab: TabDef = {
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
       }
+      showTile(m);
       mode.enter(opts);
     };
+    /** The mode in use stays in sight: the row scrolls sideways, and AIM, MEASURE and SOUND start past its right edge (under its fade). */
+    const showTile = (m: LensMode) =>
+      requestAnimationFrame(() => {
+        const b = tileBtns.get(m);
+        if (!b) return;
+        const r = b.getBoundingClientRect();
+        const row = tiles.getBoundingClientRect();
+        if (!row.width || (r.left >= row.left && r.right <= row.right - 28)) return;
+        tiles.scrollTo({ left: tiles.scrollLeft + r.left - row.left - (row.width - r.width) / 2, behavior: 'smooth' });
+      });
     S.setMode = (m) => setMode(m);
 
     // ---- bottom bar: thumb-reachable, 44 px targets
