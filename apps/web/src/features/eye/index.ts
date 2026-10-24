@@ -878,7 +878,8 @@ export const eyeTab: TabDef = {
 
     const labels = h('div.labels');
     const top = h('div.eyetop', h('div.search', q, button('GO', () => void search())), eyeChips, mine.el);
-    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), h('div.eyebot', look, readout, btns)));
+    const bot = h('div.eyebot', look, readout, btns);
+    root.append(h('div.hud.eye', top, h('div.eyemid', labels, info.el, grid.el, ra.el, lay.el, rail), bot));
 
     // ---------- gestures on the 3D canvas ----------
     const cv = gfx.cv;
@@ -1007,9 +1008,15 @@ export const eyeTab: TabDef = {
       const cs = c.cs;
       if (!cs) return;
       const items: [number, number, string, string][] = [];
+      // Names only where the globe is open to view: below the search and its chips, above the bar (the tab bar is
+      // under it), and off any card or menu that is open — never drawn through the glass.
+      const skyTop = top.getBoundingClientRect().bottom;
+      const skyBottom = bot.getBoundingClientRect().top;
+      const covers = [info.el, grid.el, ra.el, lay.el, look, rail].filter((el) => !el.hidden && el.offsetParent).map((el) => el.getBoundingClientRect());
       const add = (w: [number, number, number], txt: string, col: string) => {
         const p = c.project(w);
-        if (!p || !c.visible(w) || p[0] < -20 || p[1] < -20 || p[0] > innerWidth + 20 || p[1] > innerHeight + 20) return;
+        if (!p || !c.visible(w) || p[0] < -20 || p[0] > innerWidth + 20 || p[1] < skyTop || p[1] > skyBottom) return;
+        if (covers.some((r) => p[0] >= r.left - 4 && p[0] <= r.right + 4 && p[1] >= r.top - 4 && p[1] <= r.bottom + 4)) return;
         items.push([p[0], p[1], txt, col]);
       };
       const alt = cs.alt;
