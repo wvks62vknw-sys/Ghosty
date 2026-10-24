@@ -481,6 +481,18 @@ export function parseAurora(payload: unknown, min = 8): AuroraGrid {
   return { at: p['Forecast Time'] ?? '', cells };
 }
 
+/**
+ * One aurora forecast cell as the globe draws it: colour with its alpha last, and the dot's size in px. The cells sit a
+ * degree apart and the dots are light that adds up, so from far away each overlaps a dozen or more neighbours: drawn at
+ * a fixed 12 % or more, a 10 % chance turned into a white ring over the north. The alpha now shrinks with that overlap
+ * (`altKm`, how high the camera is) and grows with the chance, so the oval stays a green glow and a strong night shows.
+ */
+export function auroraDot(v: number, altKm: number): { rgba: [number, number, number, number]; size: number } {
+  const k = Math.min(1, Math.max(0, v / 60));
+  const overlap = Math.max(1, (altKm / 4000) ** 2);
+  return { rgba: [0.25 + k * 0.4, 1, 0.45 + k * 0.2, Math.min(0.55, (0.1 + 0.45 * k) / overlap)], size: 22 + k * 20 };
+}
+
 export const aurora = new Feed<AuroraGrid>('aurora', async () => parseAurora(await fetchJson('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', 600, 30000)), 900_000);
 
 export function parseCables(payload: unknown): Cable[] {
