@@ -296,6 +296,13 @@ folder that no longer exists; ignore those paths).
   focus and queue when it fails, so the next failure says why.
 - 24 Oct 23:40 UK: pushed to PR #36 (its CI run is the gate): the voice, Workshop and boot work, the night spec's
   cleanup, the hardened library spec, the docs. A check-in at 01:05 UK merges if green.
+- 24 Oct ~23:55 UK: merged after review: THE BIG-BRAIN CRASH FIX (OWNER-ISSUES 44). The fix relies on WebLLM 0.2.85's
+  cache layout (store names `webllm/config|model|wasm`, full-address keys), pinned by the vendored file; an edge test
+  checks the limits it asks for against the runtime's own code; recheck both if WebLLM is ever upgraded. Only the real
+  phone can prove whether Safari gives the 0.8B (1.6 GB) or the 2B (2.2 GB) enough graphics memory, what buffer limits it
+  reports (under 1 GB bindings → WebLLM asks for 128 MB and the 2B is refused before any load), whether WebKit holds a
+  whole piece in memory while storing it, and that the crash record survives a kill. The weekly training does not
+  train the 0.8B. The full edge suite did not finish in the builder's window (load); run here before the push.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
