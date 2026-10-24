@@ -224,6 +224,9 @@ folder that no longer exists; ignore those paths).
   the Lens. The owner (19:40 UK): "Telegram don't really need an upgrade": its pass was stopped while still measuring
   and its worktree removed; Telegram is off the list. Still to run, one or two at a time: Reverse, Workshop, Brief,
   Markets, Radio, Memory, Agenda, Library, Settings, System.
+- 24 Oct 19:42 UK: pushed and opened **PR #34** (head 92f14ea): the bigger brain, the Threats, God's Eye and Lens passes,
+  the mended checks, STATUS.md. Gate: its CI run (63 specs); a check-in at 21:09 UK merges if green. Out now: the voice
+  and Workshop passes.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
