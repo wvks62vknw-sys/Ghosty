@@ -563,7 +563,7 @@ export const lensTab: TabDef = {
       describe: () => {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         if (S.counts) bits.push(`in view: ${S.counts}`);
-        if (S.scene.length) bits.push(`scene: ${sceneLine(S.scene)}`);
+        if (sceneLine(S.scene)) bits.push(`scene: ${sceneLine(S.scene)}`);
         if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
         if (S.gesture) bits.push(`gesture: ${S.gesture}`);
         if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, 200)}`);

@@ -96,7 +96,7 @@ export function createSeeMode(L: LensContext): Mode {
           `Seen by the Lens on ${when.toLocaleString('en-GB')}.`,
           `Picked: ${d.label} (${pct(d.score)} sure).`,
           `In view: ${dets.map((x) => `${x.label} ${pct(x.score)}`).join(', ')}.`,
-          scene.length ? `Scene: ${sceneLine(scene)}.` : '',
+          sceneLine(scene) ? `Scene: ${sceneLine(scene)}.` : '',
         ].filter(Boolean).join('\n');
         await L.saveNote(title, body, 'note');
       }),

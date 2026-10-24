@@ -81,7 +81,7 @@ export function createHandsMode(L: LensContext): Mode {
     const body = [
       `Captured by the Lens with a thumbs-up on ${when.toLocaleString('en-GB')}.`,
       dets.length ? `In view: ${dets.map((x) => `${x.label} ${pct(x.score)}`).join(', ')}.` : d ? 'In view: nothing the detector knows by name.' : 'In view: the detector was not loaded yet, so no labels.',
-      S.scene.length ? `Scene: ${sceneLine(S.scene)}.` : '',
+      sceneLine(S.scene) ? `Scene: ${sceneLine(S.scene)}.` : '',
     ].filter(Boolean).join('\n');
     await L.saveNote(title, body, 'note');
   };

@@ -81,7 +81,10 @@ test('boxes: counts, plurals, the scene line and the on-device summary read as p
   assert.equal(B.plural('teddy bear', 2), 'teddy bears');
   assert.equal(B.plural('sandwich', 2), 'sandwiches');
   assert.equal(B.pct(0.456), '46%');
-  assert.equal(B.sceneLine([{ label: 'desk', score: 0.2 }, { label: 'laptop', score: 0.62 }, { label: 'monitor', score: 0.09 }, { label: 'mouse', score: 0.01 }]), 'laptop 62% · desk 20% · monitor 9%');
+  assert.equal(B.sceneLine([{ label: 'desk', score: 0.2 }, { label: 'laptop', score: 0.62 }, { label: 'monitor', score: 0.09 }, { label: 'mouse', score: 0.01 }]), 'laptop 62% · desk 20%');
+  // guesses under 15% are noise, not a scene: the Lens showed "pick 10% · envelope 4% · toilet seat 3%" over a green card
+  assert.equal(B.sceneLine([{ label: 'pick', score: 0.1 }, { label: 'envelope', score: 0.04 }, { label: 'toilet seat', score: 0.03 }]), '');
+  assert.equal(B.onDeviceSummary([], [{ label: 'pick', score: 0.1 }], ''), '', 'nothing worth saying is sent as nothing');
   const s = B.onDeviceSummary(dets.slice(0, 2), [{ label: 'street', score: 0.6 }], 'STOP\n  here ');
   assert.equal(s, '[on-device: labels car, person; scene street 60%; text "STOP here"]');
   assert.equal(B.onDeviceSummary([], [], ''), '');
