@@ -9,6 +9,7 @@ import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { characterPanel } from './character';
 import { offlinePanel } from './offline';
+import { switchRow } from './switch';
 import { voiceControls } from './voice';
 
 export const settingsTab: TabDef = {
@@ -98,12 +99,9 @@ export const settingsTab: TabDef = {
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.
     const vc = voiceControls();
-    const sfx = h('select', { 'aria-label': 'Interface sounds' }, h('option', { value: 'on' }, 'Interface sounds: on'), h('option', { value: 'off' }, 'Interface sounds: off'));
-    sfx.value = settings.get().sounds ? 'on' : 'off';
-    sfx.addEventListener('change', () => settings.set({ sounds: sfx.value === 'on' }));
-    const motion = h('select', { 'aria-label': 'Tilt to look around' }, h('option', { value: 'off' }, 'Tilt phone to look around: off'), h('option', { value: 'on' }, 'Tilt phone to look around: on'));
-    motion.value = settings.get().motion ? 'on' : 'off';
-    motion.addEventListener('change', () => settings.set({ motion: motion.value === 'on' }));
+    // On/off settings are switches (switch.ts), not drop-downs.
+    const sfx = switchRow('Interface sounds', 'Soft clicks when you tap', () => settings.get().sounds, (on) => settings.set({ sounds: on }));
+    const motion = switchRow('Tilt phone to look around', 'The 3D scenes follow the phone', () => settings.get().motion, (on) => settings.set({ motion: on }));
     const homeIn = h('input', { placeholder: `Home city (now ${home().name})`, 'aria-label': 'Home city' });
     const setHome = button('SET HOME', () => {
       const c = World.find(homeIn.value);
@@ -123,7 +121,7 @@ export const settingsTab: TabDef = {
         { timeout: 8000 },
       ),
     );
-    vp.body.append(...vc.nodes, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
+    vp.body.append(...vc.nodes, sfx.el, motion.el, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
@@ -131,6 +129,8 @@ export const settingsTab: TabDef = {
     settings.subscribe((s, p) => {
       if (s.theme !== p.theme || s.name !== p.name || s.units !== p.units) paintHead();
       if (s.theme !== p.theme) paintThemes();
+      if (s.sounds !== p.sounds) sfx.paint();
+      if (s.motion !== p.motion) motion.paint();
     });
     return {
       enter() {
