@@ -34,8 +34,8 @@
 # brain in use (stock, or the trained week the brain names), sits one SCHOOL paper (school_paper.jsonl: the questions,
 # never the answers) with the phone's exam prompt on the weights as they ship, and posts the answers to the hook as
 # {kind: 'school', paperId, model, answers}; the brain marks them (`ExamRun`).
-# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5) and P100 (6.0)
-# everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
+# Precision: bf16 only on GPUs built for it (compute capability 8 and up); on Kaggle's T4 (7.5; Kaggle retired the P100
+# on 15 Sep 2026, and its free GPU is now two T4s) everything runs in fp32. (torch.cuda.is_bf16_supported() says True on a T4 too, but there bf16 is emulated and
 # about 4x slower.) Never fp16: the training loops have no loss scaling and Qwen3's activations can overflow it.
 # The Hugging Face token is asked for once, with a one-time ticket in a header. Everything the run keeps is under
 # /tmp/ghosty_work (not /kaggle/working, which Kaggle saves as the notebook's output), deleted at the end;
@@ -700,7 +700,7 @@ def retry(fn, what='', tries=4, pause=20, sleep=None):
 
 def amp_for(capability):
     """'bf16' where the GPU has it natively (compute capability 8.0 and up: A100, L4, H100); None (fp32) below it,
-    as on Kaggle's T4 (7.5) and P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
+    as on Kaggle's T4 (7.5) and the retired P100 (6.0), whatever torch.cuda.is_bf16_supported() says (it counts emulation)."""
     return 'bf16' if capability and capability[0] >= 8 else None
 
 

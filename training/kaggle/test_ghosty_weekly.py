@@ -355,6 +355,15 @@ class PreFlight(unittest.TestCase):
         self.assertIsNone(self.run_setup((7, 5))[0].amp)
         self.assertEqual(self.run_setup((8, 6))[0].amp, 'bf16')
 
+    def test_no_text_calls_the_retired_p100_a_kaggle_gpu(self):
+        # Kaggle retired the P100 on 15 Sep 2026 (docs/build-plan/RESEARCH-FREE-GPU.md): its free GPU is two T4s
+        src = open(G.__file__).read()
+        self.assertNotRegex(src, r"Kaggle's T4 \(7\.5\) and P100")
+        root = os.path.dirname(os.path.dirname(HERE))
+        for doc in ('docs/build-plan/PLAN.md', 'docs/build-plan/BRIEF-S2.md'):
+            text = open(os.path.join(root, doc)).read()
+            self.assertNotRegex(text, r'T4 or P100|T4/P100', doc)
+
     def test_generation_batches_group_by_length_and_fit_the_t4(self):
         lens = [2048, 120, 1990, 300, 2040, 90] + [1500] * 20 + [200] * 70
         groups = G.length_batches(lens, 384)
