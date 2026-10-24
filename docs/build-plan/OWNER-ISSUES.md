@@ -150,3 +150,10 @@ Add to it any time; tick items off only when he agrees they are fixed.
     shows it (BRIEF-DECK-MOCKUPS-3.md: the showcase, superpowers by verb, tap to find out). Live readings stay where
     one exists, second to the purpose.
 
+34. **The deck pick, and merging (24 Oct ~02:30 UK):** "I want H with F's pictures and G's information and like prompts
+    but other than that pretty good, could just be a little bit better." Built as BRIEF-DECK-BUILD.md (H's tap-to-find-
+    out cards, F's miniatures of the real screens, G's capability lines and example prompts, the TRY THIS NOW picks, the
+    "Go to, or ask…" pill; the icon language without app icons everywhere). And: "whenever the pull request on GitHub is
+    ready to be merged just merge it yourself, don't wait for me to do it, and then stay continuing with everything else
+    too" (reaffirms 31: merge when CI is green and the batch is complete and reviewed; never stop for his merge).
+
