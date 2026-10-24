@@ -81,12 +81,28 @@ function linked(text: string): HTMLElement {
 const COPY = '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5a2 2 0 002 2h2.5"/>';
 const LISTEN = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>';
 
+/**
+ * LISTEN: the reply read aloud, all of it; tapped while Ghosty is speaking (this reply or any other), it stops
+ * instead — the one way to stop the voice from the chat, where a tap on the reactor cannot reach.
+ */
+function listenTap(b: HTMLElement, text: () => string): void {
+  if (interrupt('tap')) return;
+  b.classList.add('on');
+  b.setAttribute('aria-label', 'Stop reading aloud');
+  void speak(text())
+    .catch(() => undefined)
+    .finally(() => {
+      b.classList.remove('on');
+      b.setAttribute('aria-label', 'Read the reply aloud');
+    });
+}
+
 /** Under a reply: copy it, or hear it read aloud. */
 function replyActs(text: string): HTMLElement {
   const copy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
   copy.addEventListener('click', () => void navigator.clipboard?.writeText(text).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
   const hear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
-  hear.addEventListener('click', () => void speak(text).catch(() => undefined));
+  hear.addEventListener('click', () => listenTap(hear, () => text));
   return h('div.msgacts', copy, hear);
 }
 
@@ -459,7 +475,7 @@ export const coreTab: TabDef = {
     const capCopy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
     capCopy.addEventListener('click', () => void navigator.clipboard?.writeText(chat.get().live).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
     const capHear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
-    capHear.addEventListener('click', () => void speak(chat.get().live).catch(() => undefined));
+    capHear.addEventListener('click', () => listenTap(capHear, () => chat.get().live));
     capActs.append(capCopy, capHear);
     // Ghosty's words appear as he says them: the caption types itself in (fast — a whole
     // reply within about a second), instead of landing all at once.
