@@ -206,6 +206,14 @@ folder that no longer exists; ignore those paths).
   and the monthly retrain, PHOTO TOOLS, GYM ideas, the websites lift, saved places and spending, UNDO everywhere,
   offline translation, the laptop fix, the after-14-November guide. Next pull request (#34, same branch): the bigger
   brain, the Threats pass, and the God's Eye and Lens passes when they land.
+- 24 Oct ~19:25 UK: merged after review: the GOD'S EYE upgrade pass (10 fixes; no brain code changed). Kernel line, marked
+  `[eye]`: the spec in the CI loop after `westmidlands`. Leftovers the builder ranked: the rain radar at 80 % opacity washes
+  out the map in heavy rain (a taste call); Seattle 911 and US weather alerts on by default for a UK owner (now a
+  one-time switch-off, since layers are kept); no feedback while a place is looked up (1–3 s); the readout's third line
+  can be cut at 440 px; the spot card has CLEAR and ✕ and its 8 buttons wrap to 3 rows; on desktop LAYERS opens by
+  default and is long. The Street View spec times out on this loaded machine on the base build as well (Google's
+  panorama frame screenshot); CI runs it on a quieter runner. Measured: a tab open here is about 1 s under software
+  graphics (not a phone number); first aircraft 12–14 s (adsb.lol often answers "too many requests").
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
