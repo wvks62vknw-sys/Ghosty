@@ -223,7 +223,12 @@ export const memoryTab: TabDef = {
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
-    const dg = pager(dp, 46, (e: DiaryEntry) => row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night I write a page about your day. Tap Reflect now for today’s.');
+    const dg = pager(dp, 46, (e: DiaryEntry) => {
+      const r = row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) });
+      // "Saturday 17 October" keeps its capitals (row keys are shown in sentence case)
+      r.querySelector('.k')?.setAttribute('data-case', 'keep');
+      return r;
+    }, () => 'NONE YET', 'Each night I write a page about your day. Tap Reflect now for today’s.');
     const paintDiary = () => {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);

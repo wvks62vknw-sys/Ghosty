@@ -128,7 +128,7 @@ async function run(name, viewport) {
   if (narrow && !/Diary/.test((await page.locator('#pg-memory .swap').getAttribute('data-right')) ?? '')) problems.push(`[${name}] the switch does not name the diary`);
   const rows = dp.locator('.rw');
   await rows.first().waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined);
-  const first = (await rows.first().textContent()) ?? '';
+  const first = (await rows.first().innerText()) ?? ''; // (as shown: its capitals too)
   // newest first, its day as he would say it (never "2026-10-17")
   if (!/Saturday 17 October/.test(first) || /2026-10-17/.test(first)) problems.push(`[${name}] the diary's first row is not "Saturday 17 October", newest first: "${first.slice(0, 80)}"`);
   await rows.first().click();
