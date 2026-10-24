@@ -227,6 +227,11 @@ folder that no longer exists; ignore those paths).
 - 24 Oct 19:42 UK: pushed and opened **PR #34** (head 92f14ea): the bigger brain, the Threats, God's Eye and Lens passes,
   the mended checks, STATUS.md. Gate: its CI run (63 specs); a check-in at 21:09 UK merges if green. Out now: the voice
   and Workshop passes.
+- 24 Oct ~20:05 UK: THE 18 PRO MAX IS HERE (OWNER-ISSUES 40). The phone-only items of week 3 are unlocked: 120 Hz motion,
+  the GYM on WebGPU, larger vision and depth models, the offline brain's speed and memory on the device — each starts
+  from his real numbers (asked for). Next phase he wants: training that survives Kaggle's hours running out (resumable
+  runs, an economy mode, a second free pool, an emergency CPU run, the phone's GPU measured) and a much bigger GYM
+  (his picks from the menu pending).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

@@ -208,3 +208,11 @@ Add to it any time; tick items off only when he agrees they are fixed.
 39. **Merging, said again (24 Oct ~19:55 UK):** "everytime you think the pull request should be merged on github etc just
     merge it dont wait for me to do it." Standing: every green pull request is merged by this session at once. He also
     asked for the whole picture: STATUS.md (done, going up, running, next, left from his list, my ideas).
+
+40. **The iPhone 18 Pro Max has arrived (24 Oct ~20:05 UK): he is on it now.** Asked of him: the OFFLINE BRAIN TEST line on
+    the 0.6B, GET + TEST on Qwen3.5 2B (does it load in iOS Safari; its speed), and how GYM → TRAIN ALL feels. Those unlock
+    the default-brain choice and the WebGPU training work. His direction for the next phase, in his words: "push it even
+    further"; "i don't want it to just have to rely on free gpu's for school because what about when it runs out of hours";
+    "i want the gym to be much much better like a lot more and a lot more things we can brainstorm on". A GYM menu of
+    twelve ideas was put to him for picks; a research builder is checking free GPU sources that need no card and have an
+    API (report: scratchpad/gpu-fallbacks/REPORT.md, then here).
