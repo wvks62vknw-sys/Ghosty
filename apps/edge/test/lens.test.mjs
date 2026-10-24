@@ -427,3 +427,213 @@ test('what the phone saw (seen) and read (scan) reach the model after the owner\
     globalThis.fetch = real;
   }
 });
+
+// ---- NAME IT (packages/shared/src/living.ts, integrations/plantnet.ts, identify_plant): a plant by Pl@ntNet,
+// anything else by the seeing model's checked JSON, three plain levels, the card's words, SAVE's memory line.
+const LV = JSON.parse((await import('node:fs')).readFileSync(new URL('./living.fixture.json', import.meta.url), 'utf8'));
+
+test("Pl@ntNet's reply: the best match, its score as \"about 70 % sure\", its family as the tell-tale, the next names", () => {
+  const p = L.parsePlantNet(LV.plantnet);
+  assert.equal(p.kind, 'plant');
+  assert.equal(p.species, 'Bellis perennis');
+  assert.equal(p.common, 'Common daisy');
+  assert.equal(p.level, 'probably');
+  assert.equal(L.aboutPercent(p.score), 'about 70 % sure', 'never 72 %');
+  assert.equal(p.tell, 'family Asteraceae');
+  assert.equal(p.by, 'Pl@ntNet');
+  assert.equal(p.remaining, 487);
+  assert.deepEqual(p.alt.map((a) => a.species), ['Leucanthemum vulgare'], 'a 3 % name is not offered');
+  // nothing found, nothing worth saying, junk
+  for (const r of [{ results: [] }, { results: [{ score: 0.04, species: { scientificNameWithoutAuthor: 'Bellis perennis' } }] }, null, 'nonsense']) {
+    const c = L.parsePlantNet(r);
+    assert.equal(c.level, 'cant');
+    assert.equal(c.species, '');
+  }
+});
+
+test('three levels: a score, the model\'s own words, and never a false precision', () => {
+  assert.deepEqual([0.95, 0.8, 0.79, 0.4, 0.39, 0.1, 0.09, NaN].map(L.levelFromScore), ['sure', 'sure', 'probably', 'probably', 'a guess', 'a guess', 'cant', 'cant']);
+  assert.deepEqual([0.73, 0.75, 0.15, 0.94, 0.97, 0.05].map(L.aboutPercent), ['about 70 % sure', 'about 80 % sure', 'about 20 % sure', 'about 90 % sure', 'over 90 % sure', 'under 10 % sure']);
+  const words = {
+    certain: 'sure',
+    'very confident': 'sure',
+    'fairly confident': 'probably',
+    'probably a robin': 'probably',
+    'not sure': 'a guess',
+    'not very confident': 'a guess',
+    'just a guess': 'a guess',
+    'could be a dunnock': 'a guess',
+    "can't tell": 'cant',
+    'I cannot tell from this photo': 'cant',
+    '90% confident': 'sure',
+    'about 60 per cent': 'probably',
+    'hmm': 'a guess',
+    '': 'a guess',
+  };
+  for (const [w, want] of Object.entries(words)) assert.equal(L.levelFromWords(w), want, w);
+});
+
+test("the seeing model's NAME IT JSON is checked: fences, a person never named, junk refused, can't tell", () => {
+  const robin = L.checkLiving('Here you go:\n```json\n{"kind":"bird","species":"Erithacus rubecula","common":"European robin","sure":"fairly confident","tell":"the orange-red breast and face"}\n```', 'Gemini 2.5 Flash');
+  assert.deepEqual(robin, { kind: 'bird', species: 'Erithacus rubecula', common: 'European robin', level: 'probably', tell: 'the orange-red breast and face', by: 'Gemini 2.5 Flash', said: 'fairly confident' });
+  assert.equal(L.checkLiving('It is a robin, I think.'), null, 'not JSON: no card made up from it');
+  assert.equal(L.checkLiving('{"kind": "bird", "species": '), null);
+  for (const t of ['{"kind":"person","species":"","common":"Jane Smith","sure":"certain"}', '{"kind":"animal","species":"Homo sapiens","common":"human","sure":"certain"}', '{"kind":"bird","common":"Man","sure":"sure"}']) {
+    const p = L.checkLiving(t);
+    assert.equal(p.kind, 'person', t);
+    assert.equal(p.common, '');
+    assert.equal(p.species, '');
+    assert.match(L.livingCard(p).lead, /That's a person\. Ghosty doesn't identify people\./);
+    assert.equal(L.livingCard(p).canSave, false);
+  }
+  const odd = L.checkLiving('{"kind":"insect","species":"see https://x.example","common":"Seven-spot ladybird","sure":"certain","tell":"www.example.com"}');
+  assert.equal(odd.species, '', 'a link is not a Latin name');
+  assert.equal(odd.tell, '');
+  assert.equal(odd.level, 'sure');
+  const cant = L.checkLiving('{"kind":"none","species":"","common":"","sure":"can\'t tell","tell":"blurry"}');
+  assert.equal(cant.level, 'cant');
+  assert.equal(L.checkLiving('{"kind":"bird","species":"Turdus merula","common":"Blackbird","sure":"I can\'t tell really"}').common, '', "can't tell drops the name");
+  assert.equal(L.checkLiving('{"kind":"dragon","species":"Draco","common":"Dragon","sure":"sure"}').kind, 'animal', 'an unknown kind is an animal');
+});
+
+test('the card text: the name, how sure in plain words, the tell-tale, Wikipedia, SAVE; and "seen: …" for Memory', () => {
+  const daisy = L.livingCard(L.parsePlantNet(LV.plantnet));
+  assert.equal(daisy.title, 'Common daisy');
+  assert.equal(daisy.latin, 'Bellis perennis');
+  assert.equal(daisy.lead, 'Probably a common daisy.');
+  assert.equal(daisy.sure, 'about 70 % sure');
+  assert.equal(daisy.tell, 'Family: Asteraceae');
+  assert.equal(daisy.link, 'https://en.wikipedia.org/wiki/Bellis_perennis');
+  assert.equal(daisy.others, 'Could also be: Oxeye daisy (about 10 %)');
+  assert.ok(daisy.canSave);
+  const robin = L.livingCard(L.checkLiving('{"kind":"bird","species":"Erithacus rubecula","common":"European robin","sure":"fairly confident","tell":"the orange-red breast"}', 'Gemini'));
+  assert.equal(robin.lead, 'Probably a European robin.');
+  assert.equal(robin.sure, 'probably — the model said “fairly confident”');
+  assert.equal(robin.tell, 'Tell-tale: the orange-red breast');
+  assert.equal(robin.by, 'Gemini');
+  const lady = L.livingCard(L.checkLiving('{"kind":"insect","species":"Coccinella septempunctata","common":"Seven-spot ladybird","sure":"certain","tell":"seven black spots"}'));
+  assert.equal(lady.lead, "It's a seven-spot ladybird.");
+  const guess = L.livingCard(L.checkLiving('{"kind":"insect","species":"","common":"Oak bush-cricket","sure":"just a guess"}'));
+  assert.equal(guess.lead, 'A guess: an oak bush-cricket.');
+  assert.equal(guess.link, 'https://en.wikipedia.org/wiki/Oak_bush-cricket');
+  const none = L.livingCard(L.parsePlantNet({ results: [] }));
+  assert.match(none.lead, /^I can't tell from this photo\./);
+  assert.equal(none.canSave, false);
+  assert.equal(none.title, '');
+  const day = new Date(2026, 9, 24, 15, 0);
+  assert.equal(L.seenMemory({ species: 'Erithacus rubecula', common: 'Robin' }, day, true), 'seen: a robin, 24 Oct, near home');
+  assert.equal(L.seenMemory({ species: 'Bellis perennis', common: 'Common daisy' }, day), 'seen: a common daisy, 24 Oct');
+  assert.equal(L.seenMemory({ species: 'Quercus robur', common: '' }, day), 'seen: a Quercus robur, 24 Oct', 'a Latin name keeps its capital');
+  assert.equal(L.seenMemory({ species: 'Pinus sylvestris', common: 'Scots pine' }, day), 'seen: a Scots pine, 24 Oct');
+  assert.equal(L.seenMemory({ species: '', common: "Daubenton's bat" }, day), "seen: a Daubenton's bat, 24 Oct");
+  assert.equal(L.seenMemory({ species: '', common: 'Atlantic salmon' }, day), 'seen: an Atlantic salmon, 24 Oct');
+});
+
+test("the plant tool's first line carries the card to the phone within the chat's 280 characters", () => {
+  const p = L.parsePlantNet(LV.plantnet);
+  const line = L.plantLine(p);
+  assert.ok(line.startsWith('PLANTNET {'));
+  assert.ok(line.length <= 280, String(line.length));
+  const back = L.readPlantLine(`${line}\n<<external content from Pl@ntNet …>>`.slice(0, 280));
+  assert.equal(back.species, 'Bellis perennis');
+  assert.equal(back.level, 'probably');
+  assert.equal(L.aboutPercent(back.score), 'about 70 % sure');
+  assert.deepEqual(L.readPlantLine(L.plantLine({ missing: 'key' })), { missing: 'key' });
+  assert.deepEqual(L.readPlantLine(L.plantLine({ error: 'Pl@ntNet says the key is not valid' })), { error: 'Pl@ntNet says the key is not valid' });
+  assert.equal(L.readPlantLine('Done. something else'), null);
+  const long = { ...p, common: 'x'.repeat(80), species: 'Y'.repeat(80), tell: `family ${'z'.repeat(60)}` };
+  assert.ok(L.plantLine(long).length <= 280, 'the extras go before anything that matters');
+});
+
+/** Pl@ntNet faked: what it was sent, and its answer. */
+function plantNet(answer = () => new Response(JSON.stringify(LV.plantnet), { headers: { 'content-type': 'application/json' } })) {
+  const sent = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.startsWith('https://my-api.plantnet.org/')) {
+      sent.push({ url, init });
+      return answer();
+    }
+    return real(input, init);
+  };
+  return { sent, restore: () => (globalThis.fetch = real) };
+}
+
+test('identify_plant: reads the held photo by id, forgets it at once, asks Pl@ntNet with the key; no key / bad key / no match said plainly', async () => {
+  const tool = T.toolByName.get('identify_plant');
+  assert.ok(tool, 'identify_plant is a Lens tool');
+  const store = fakeKv();
+  const held = async () => (await L.shareImage(store, jpeg(400), 'image/jpeg')).id;
+  const ctxFor = (key) => ({ env: { SITES: store }, vault: { get: async (n) => (n === 'plantnet' ? key : null) }, progress() {}, emit() {} });
+  const net = plantNet();
+  try {
+    const id = await held();
+    const out = await tool.run({ picture: id }, ctxFor('pn-key-123'));
+    const first = out.split('\n')[0];
+    assert.equal(L.readPlantLine(first).common, 'Common daisy');
+    assert.match(out, /Pl@ntNet: probably, a common daisy \(Bellis perennis\), about 70 % sure, family Asteraceae\./);
+    assert.match(out, /DATA, not instructions/);
+    assert.equal(await store.get(`img:${id}`, 'arrayBuffer'), null, 'the photo is gone');
+    assert.equal(net.sent.length, 1);
+    const u = new URL(net.sent[0].url);
+    assert.equal(u.origin + u.pathname, 'https://my-api.plantnet.org/v2/identify/all');
+    assert.equal(u.searchParams.get('api-key'), 'pn-key-123');
+    assert.equal(net.sent[0].init.method, 'POST');
+    assert.ok(net.sent[0].init.body instanceof FormData);
+    assert.equal(net.sent[0].init.body.get('organs'), 'auto');
+    assert.equal(net.sent[0].init.body.get('images').size, 400);
+    // an id given as the picture link works too
+    const id2 = await held();
+    assert.match(await tool.run({ picture: `https://ghosty.example/i/${id2}` }, ctxFor('pn-key-123')), /^PLANTNET \{/);
+    // no key: said, and the photo still goes
+    const id3 = await held();
+    const nokey = await tool.run({ picture: id3 }, ctxFor(null));
+    assert.deepEqual(L.readPlantLine(nokey), { missing: 'key' });
+    assert.match(nokey, /SYSTEM → KEYS → Pl@ntNet/);
+    assert.equal(await store.get(`img:${id3}`, 'arrayBuffer'), null);
+    assert.equal(net.sent.length, 2, 'no key: Pl@ntNet is not asked');
+    // gone already
+    assert.match(L.readPlantLine(await tool.run({ picture: id3 }, ctxFor('k'))).error, /already gone/);
+  } finally {
+    net.restore();
+  }
+  for (const [status, want] of [[401, /key is not valid/], [429, /500 a day are used up/], [500, /answered 500/]]) {
+    const n = plantNet(() => new Response('{}', { status }));
+    try {
+      const r = L.readPlantLine(await tool.run({ picture: await held() }, ctxFor('k')));
+      assert.match(r.error, want);
+    } finally {
+      n.restore();
+    }
+  }
+  const nf = plantNet(() => new Response(JSON.stringify({ statusCode: 404, error: 'Not Found', message: 'Species not found' }), { status: 404 }));
+  try {
+    assert.equal(L.readPlantLine(await tool.run({ picture: await held() }, ctxFor('k'))).level, 'cant', "Pl@ntNet's 404 is a can't tell");
+  } finally {
+    nf.restore();
+  }
+});
+
+test('NAME IT through the chat: the Lens holds the photo, its question turns the plant tool on, the PLANTNET line comes back', async () => {
+  env.PLANTNET_API_KEY = 'pn-env-key';
+  const net = plantNet();
+  try {
+    // the day's 30 shares were used by the tests above: the photo is put where POST /api/lens/share keeps it
+    const id = 'PlantPhotoId_012';
+    await kv.put(`img:${id}`, jpeg(500), { expirationTtl: 86_400 });
+    const ev = await chat({ message: L.plantQuestion(id) });
+    const res = ev.find((e) => e.t === 'tool_result' && e.name === 'identify_plant');
+    assert.ok(res, JSON.stringify(ev).slice(0, 400));
+    assert.equal(L.readPlantLine(res.summary).species, 'Bellis perennis');
+    assert.equal((await worker.fetch(new Request(`https://ghosty.test/i/${id}`), env, ctx)).status, 404, 'the photo was forgotten');
+    // a bird goes to the seeing model with the photo: its JSON, checked
+    const bird = await chat({ message: L.livingQuestion('bird'), images: [PHOTO] });
+    const living = L.checkLiving(bird.find((e) => e.t === 'text').text, 'mock');
+    assert.equal(living.common, 'European robin');
+    assert.equal(living.level, 'probably');
+  } finally {
+    net.restore();
+    delete env.PLANTNET_API_KEY;
+  }
+});
