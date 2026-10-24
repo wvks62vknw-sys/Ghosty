@@ -241,6 +241,9 @@ folder that no longer exists; ignore those paths).
   11 px or more). Build cost: shared work about 13 h (`ui/instruments.ts`, hub cards wired to real state in
   `shell/areas.ts` + `TabDef`, `features/gym/art.ts` for all 22 games (6 drawn), the reply's meta line, live-dot wiring,
   `tests/hubcards.spec.mjs`), then A about 2.5 h more, B about 5 h (and a new warm theme), C about 1.5 h. Waiting on him.
+- 24 Oct 21:10 UK: **PR #34 MERGED into main** (merge commit d705514; CI green on 92f14ea, 63 specs). Live: the bigger
+  brain (Qwen3.5 2B / 4B to choose), the Threats, God's Eye and Lens passes. Next batch, same branch: the voice, Workshop
+  and Brief passes, the scroll fixes, training resilience, the Iron Man build, as they land and pass.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
