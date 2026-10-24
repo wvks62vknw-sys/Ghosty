@@ -99,6 +99,8 @@ export interface Home {
   below: HTMLElement;
   /** The soft glow behind the reactor: it sits behind the whole screen (never cut by the scrolling column). */
   glow: HTMLElement;
+  /** The glow's full-width clip: mount this one. */
+  glowBox: HTMLElement;
   /** Every few seconds while the reactor screen is on (the date, the weather line, the countdowns). */
   tick(): void;
   /** On entering the reactor screen: fetch what is stale. */
@@ -182,6 +184,8 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
   inn.track.style.display = 'none';
   // the one soft glow behind the reactor; it breathes (a 4 s cycle, ±6 %) unless the phone asks for less motion
   const glow = h('div.rcglow', { 'aria-hidden': 'true' });
+  // (in a full-width clip, so the glow's soft edges never count as something sticking out past the screen)
+  const glowBox = h('div.rcglowbox', { 'aria-hidden': 'true' }, glow);
   const ai = callout('tl', 'Free AI');
   const school = callout('tr', 'School');
   const lib = callout('bl', 'Library');
@@ -388,6 +392,7 @@ export function routeCHome(reactorWrap: HTMLElement): Home {
     hero,
     below,
     glow,
+    glowBox,
     tick() {
       paintDate();
       paintToday();

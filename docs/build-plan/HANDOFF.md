@@ -26,13 +26,33 @@ folder that no longer exists; ignore those paths).
   WHAT'S NEW), the stopwatch (B3), the human voice (D6), the first real training run (E1) after the merge to main.
 - Owner, 24 Oct ~00:30 UK: usage all models 14 %, Fable 9 %; route C becomes the ONLY look with colour themes
   (BRIEF-ONE-LOOK.md, after route C part 2 lands); a GitHub token is set (the self-edit trial can run after the merge
-  to main); the new look reaches his phone only when PR #32 merges: ask for his "merge" as soon as CI is green.
+  to main); the new look reaches his phone only when PR #32 merges. Later that night (OWNER-ISSUES 31) he said: "don't ask me to merge when it's ready, just do it": a batch is merged into main by this session once CI is green and every piece in it is complete and reviewed.
 - Merged 24 Oct early: SCHOOL 2b (exams on the free GPU, practice into training, the gap), SCHOOL 3 (reading), the
   website builder's 17 fixes (sites wait as a DRAFT until the owner confirms), the human voice. Small follow-ups still
   open: the training panel's KIND label for "voice" and the report card's `voiceLine(run)` (features/system, after the
   route C part 2 restyle lands); the Commons/Openverse user-agent contact address; cancel-after-publish and the 10-year
   /i/ pictures; the 60-reply voice fixture wants the owner's own blind check. Running: route C part 2 (every other
   screen), the school wiring (free-GPU button, the gap on the tab, OpenStax out of self-study).
+- 24 Oct ~01:00 UK: merged into the branch after review: the stopwatch (SPEED part 1: `apps/edge/src/speed.ts`,
+  `apps/web/src/core/stopwatch.ts`; `/status` now carries `speed`, a marked three-line kernel edit, shapes in
+  `packages/shared/src/speed.ts`) and route C part 2 (every other screen, the Every screen deck, motion). CI on PR #32 at
+  660d2c6: brain 1 of 1,015 tests failed (the browser run is killed by the same `npm test` before any spec runs); being
+  found and fixed before the next push. Running: APPS (the app kit), the home designer's brain side
+  (BRIEF-HOME-DESIGN.md), ONE LOOK (route C as the only design, Reactor and Graphite as colour themes; the extras wait
+  for the owner's picks). Next after those: A3 (specs at 440 × 956, en-GB), the SPEED card in SYSTEM once a day of
+  numbers exists, the home designer's SPACE button (part 2), courses (item 6), the small follow-ups above.
+- 24 Oct 02:00–03:00 UK, the owner awake: the Every screen deck is his one design complaint ("like app icons"; then
+  "no reason to tap and find out all the crazy things"): three rounds of mock-ups (docs/build-plan/mockups/deck/,
+  OWNER-ISSUES 32–34), his pick "H with F's pictures and G's information and prompts", now being built
+  (BRIEF-DECK-BUILD.md: tap-to-find-out cards, miniatures of the real screens, capability rows and example prompts,
+  TRY THIS NOW, the "Go to, or ask…" pill; the icon language without app icons everywhere). He reaffirmed: merge the
+  pull request myself when it is ready, never wait for him, and keep going. Merged into the branch after review:
+  the home designer's brain side (`design_home`, the `homeplan` group) and APPS (the app kit, `build_app`, the apps
+  spec in CI). CI failures on PR #32 fixed at the cause (self-check, notebook checks, cited spec, reminder toast).
+  Running: ONE LOOK (route C only, themes), the deck build. Next: the home designer's part 2 (a SPACE → DESIGN MY HOME
+  button and a client event carrying the plan: only ~280 characters of a tool result reach the interface), A3 (specs
+  at 440 × 956, BRIEF-A3.md, after the deck and one-look builds land), the SPEED card, courses (item 6), `build_app`
+  as a Workshop project (projects.ts/protocol.ts), a `mock.ts` phrase so a chat-flow spec can call build_app.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

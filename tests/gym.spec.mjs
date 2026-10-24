@@ -82,27 +82,21 @@ const wideCheck = async (where) => {
   if (wide.page || wide.over.length) problems.push(`${where}: something sticks out sideways (${wide.over.join(', ') || 'page'})`);
 };
 const card = (id) => G(`.gymcard[data-game="${id}"]`);
-// The calm looks on a phone open a game as its own screen ("‹ Gym" back to the cards); the classic looks show both.
+// On a phone a game opens as its own screen ("‹ Gym" back to the cards).
 const tap = async (id) => {
   if (await page.locator('#pg-gym.gympush').count()) await page.click('#top .navback');
   await card(id).click();
 };
-// The game's actions as the owner can reach them: the buttons shown, and RESET (in the calm looks, in the "…" menu).
+// The game's actions as the owner can reach them: the buttons shown, and RESET in the "…" menu.
 const actions = async () => {
   const l = await G('.gymactions > button:visible').allInnerTexts();
-  if (await G('.gymmore').isVisible().catch(() => false)) l.push(...(await G('.gymmenu button.warn').allTextContents()));
-  else l.push(...(await G('.gymactions button.warn:visible').allInnerTexts()));
+  l.push(...(await G('.gymmenu button.warn').allTextContents()));
   return [...new Set(l.map((b) => b.trim().toUpperCase()))];
 };
-/** RESET the open game: the calm looks' "…" menu is its own confirmation; the classic looks ask for a second tap. */
+/** RESET the open game: the "…" menu is its own confirmation. */
 const resetGame = async () => {
-  if (await G('.gymmore').isVisible().catch(() => false)) {
-    await G('.gymmore').click();
-    await G('.gymmenu button.warn').click();
-  } else {
-    await G('.gymactions button.warn').click();
-    await G('.gymactions button.warn').click();
-  }
+  await G('.gymmore').click();
+  await G('.gymmenu button.warn').click();
 };
 // Part 1's ten games, then part 2's six reasoning games.
 const NAMES = ['MAZE', 'CODE BREAKER', 'COLONY', 'TRUST TOURNAMENT', 'TIC-TAC-TOE', 'CONNECT 4', 'SLIDING TILES', 'SUDOKU', 'COUNTDOWN', 'WORD GUESS', 'LOGIC SANDBOX', 'MINI-BRAIN LAB', 'BUG HUNT', 'TEXT ESCAPE ROOMS', 'FACT-CHECK DUEL', 'DEBATE ARENA', 'CHECKERS', 'CHESS', 'GO 9×9', 'SIMPLE POKER', 'SOKOBAN', 'BALANCE & LANDER'];
@@ -127,7 +121,7 @@ await page.screenshot({ path: `${out}/gym-cards.png` });
 // ---- tic-tac-toe: TRAIN in the worker while the page keeps ticking ----
 await tap('tictactoe');
 await until(() => window.__ghosty?.gym?.open === 'tictactoe', 5000, 'tapping the tic-tac-toe card did not open it');
-const btns = await actions(); // compared without case: the calm looks show labels in sentence case
+const btns = await actions(); // compared without case: labels show in sentence case
 for (const want of ['TRAIN', 'WATCH', 'PLAY HIM', 'RESET']) if (!btns.some((b) => b.trim() === want)) problems.push(`tic-tac-toe has no ${want} button (has ${btns.join(', ')})`);
 const small = await page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymactions > button')].filter((b) => b.offsetParent && b.getBoundingClientRect().height < 40).length);
 if (small) problems.push(`${small} GYM buttons are shorter than 40 px`);
@@ -326,21 +320,13 @@ if (capNow !== lastCap) problems.push(`the finished WATCH was replaced by a repa
 if ((await st()).training) await G('button.gymtrain').dispatchEvent('click');
 await until(() => window.__ghosty?.gym?.training === '', 5000, 'PAUSE did not stop (second time)');
 
-// ---- RESET: asks first (the calm looks: a "…" menu that says what will go; the classic looks: "SURE?"), and
-// an open question does not carry over to another game ----
+// ---- RESET: asks first (a "…" menu that says what will go), and an open question does not carry over to another game ----
 await tap('codebreaker');
-if (await G('.gymmore').isVisible().catch(() => false)) {
-  await G('.gymmore').click();
-  if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? He forgets/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
-  await tap('maze');
-  if (await G('.gymmenu').isVisible()) problems.push('the RESET menu carried over to another game');
-  if (!/maze/i.test(await G('.gymmenu .gymmenunote').textContent())) problems.push('the RESET menu does not name the open game');
-} else {
-  await G('button', { hasText: 'RESET' }).click();
-  if (!/SURE/i.test(await G('.gymactions button.warn').innerText())) problems.push('one tap on RESET did not ask "SURE?"');
-  await tap('maze');
-  if ((await G('.gymactions button.warn').innerText()).trim().toUpperCase() !== 'RESET') problems.push('the armed RESET carried over to another game');
-}
+await G('.gymmore').click().catch(() => problems.push('the game has no … menu'));
+if (!(await G('.gymmenu').isVisible()) || !/Reset Code breaker\? He forgets/i.test(await G('.gymmenu').innerText())) problems.push('the … menu did not ask before RESET');
+await tap('maze');
+if (await G('.gymmenu').isVisible()) problems.push('the RESET menu carried over to another game');
+if (!/maze/i.test(await G('.gymmenu .gymmenunote').textContent())) problems.push('the RESET menu does not name the open game');
 
 // ---- RESET while training: the wiped game does not come back (messages in flight are dropped) ----
 await G('button.gymtrain').click();

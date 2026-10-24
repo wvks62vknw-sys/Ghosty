@@ -33,8 +33,8 @@ async function brainGet(path) {
   return r.ok ? r.json() : null;
 }
 
-// a diary event an hour from now, so "Today" has something to show
-const at = Date.now() + 60 * 60_000;
+// a diary event a few minutes from now, so "Today" shows it first whatever other checks left in the brain
+const at = Date.now() + 7 * 60_000;
 const made = await fetch(`${base}/api/agenda/events`, { method: 'POST', headers: { 'x-ghosty': '1', 'x-ghosty-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Call Mum', start: at, tz: 'UTC' }) }).then((r) => r.json()).catch(() => null);
 if (!made?.event?.id) problems.push(`could not add the diary event: ${JSON.stringify(made)}`);
 

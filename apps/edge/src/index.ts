@@ -56,7 +56,6 @@ const FEED_PREFIXES = ['s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/'];
 const allowedFeed = (u: URL) => FEED_HOSTS.has(u.hostname) || FEED_PREFIXES.some((p) => `${u.hostname}${u.pathname}`.startsWith(p));
 
 const FEED_HOSTS = new Set([
-  'i.ytimg.com', // [video] a YouTube thumbnail for the reply's video card (features/core/ytcard.ts)
   ...CAMERA_HOSTS,
   ...INTEL_HOSTS,
   'api.adsb.lol',
@@ -81,7 +80,8 @@ const FEED_HOSTS = new Set([
   'router.project-osrm.org',
   'en.wikipedia.org',
   'api.postcodes.io',
-]);
+  'i.ytimg.com',
+]); // [video] i.ytimg.com: a YouTube thumbnail for the reply's video card (features/core/ytcard.ts)
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 

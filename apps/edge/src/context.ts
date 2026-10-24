@@ -15,6 +15,8 @@ const RESULT_BUDGET: Record<string, number> = {
   web_fetch: 6000,
   library_search: 5000,
   study_site: 8000,
+  // A whole home's floor plan (tools/homeplan.ts): a two-storey house fits in one reply.
+  design_home: 9000,
   recon_domain: 6000,
   // Self-edits quote exact snippets of files up to ~37 KB: these keep the cap self-edit worked under.
   repo_read: 30000,

@@ -1380,9 +1380,11 @@ class Run:
 
     def general_data(self, n):
         try:
-            import pandas as pd
             from huggingface_hub import hf_hub_download
-            df = pd.read_parquet(hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], token=self.token, local_dir=f'{WORK}/general'))
+            # (the signed-in download first, the parser after it: the checks run where pandas is not installed)
+            path = hf_hub_download(GENERAL_DATA['repo'], GENERAL_DATA['file'], repo_type='dataset', revision=GENERAL_DATA['rev'], token=self.token, local_dir=f'{WORK}/general')
+            import pandas as pd
+            df = pd.read_parquet(path)
             df = df[df['lang'] == 'en']
             prompts = df[(df['role'] == 'prompter') & (df['parent_id'].isna())].set_index('message_id')['text']
             best = df[(df['role'] == 'assistant') & (df['rank'] == 0) & (df['parent_id'].isin(prompts.index))]

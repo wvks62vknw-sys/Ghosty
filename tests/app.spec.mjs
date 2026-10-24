@@ -57,7 +57,7 @@ if (!isWebKit) {
   }
 }
 
-// The systems deck (the logo, or the avatar's Me sheet in the calm looks) lists every screen; LINKS holds email, Spotify and notifications.
+// The systems deck (from the avatar's Me sheet) lists every screen; LINKS holds email, Spotify and notifications.
 await openDeck(page);
 await page.waitForSelector('#deck.on', { timeout: 3000 }).catch(() => problems.push('systems deck did not open'));
 const tiles = await page.$$eval('#deck .dtile b', (n) => n.map((x) => x.textContent));
