@@ -53,6 +53,17 @@ folder that no longer exists; ignore those paths).
   button and a client event carrying the plan: only ~280 characters of a tool result reach the interface), A3 (specs
   at 440 × 956, BRIEF-A3.md, after the deck and one-look builds land), the SPEED card, courses (item 6), `build_app`
   as a Workshop project (projects.ts/protocol.ts), a `mock.ts` phrase so a chat-flow spec can call build_app.
+- 24 Oct 03:00–07:00 UK: the night's CI loop on PR #32: every failure found on the quiet runner fixed at the cause
+  (the self-check's false alarms, the notebook checks without numpy/pandas, cited on route C, the reminder toast, the
+  selftrain and route C checks, the clock-change day in the daily-job test, 40 px buttons, Home's chips on a shorter
+  phone, the chat bar in the conversation view). Finished and reviewed, waiting to go up as the NEXT pull request
+  once #32 merges: the deck (worktree-deckbuild) and ONE LOOK (worktree-onelook), being merged together with their
+  conflicts resolved in worktree-merge33 (a merge builder; every spec re-run there). Lessons: a builder's preview
+  server port must be unique (a spec run hit the one-look server on 8830 and reported that build's state); each
+  push restarts CI (about 65 minutes for the browser run now), so pushes are batched after a local run of the specs
+  a change touches. Next: PR #33 (deck + one look), A3 (BRIEF-A3.md), the SPEED card, courses (item 6), the extras
+  for one look once the owner picks (OWNER-ISSUES 28), `build_app` as a Workshop project, Library's "on this phone"
+  live line on the deck, a real-device iOS check of the mini-apps' install and offline.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
