@@ -11,11 +11,13 @@ import { AREA_LABEL, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type
 import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
+import { flushStars } from '../../offline/starbox';
 import { button, panel, row, toast, type Panel } from '../../ui/components';
 import { loadAll } from '../gym/store';
 
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
+  checked: 'answers THINK HARDER and the GYM worked out on your phone (each passed an exact check)',
   critique: 'puzzles he got right after being told why he was wrong',
   judged: 'library answers he picked as better (and the book agreed)',
   evol: 'harder questions written by the online AIs',
@@ -188,6 +190,8 @@ export function trainingPanel(): Panel & { refresh(): void } {
       st = null;
     }
     paint();
+    // Checked work waiting on this phone goes to the brain for next week's run (quietly; it waits otherwise).
+    void flushStars();
     // The GYM levels on this phone, for the week's puzzles (quietly; an old brain without the route is fine).
     try {
       const levels: Record<string, number> = {};

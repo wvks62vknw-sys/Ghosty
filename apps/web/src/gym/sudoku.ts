@@ -13,6 +13,7 @@
  */
 import { type Cell, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, shuffle, type Verdict } from './core';
 import { SUDOKU } from './meta';
+import { between } from './stretch';
 
 export const UNITS: number[][] = (() => {
   const u: number[][] = [];
@@ -94,7 +95,7 @@ export function countSolutions(vals: ArrayLike<number>, limit = 2): number {
 }
 
 /** A full random grid, then clues taken out while the solution stays unique. */
-export function makeSudoku(level: number, seed: number): { puzzle: number[]; solution: number[] } {
+export function makeSudoku(level: number, seed: number, target = cluesFor(level)): { puzzle: number[]; solution: number[] } {
   const r = rng(seed * 7 + lvl(level));
   const fill = (g: Grid): Grid | null => {
     let best = -1;
@@ -118,7 +119,6 @@ export function makeSudoku(level: number, seed: number): { puzzle: number[]; sol
   };
   const solution = Array.from(fill(fromValues(new Array(81).fill(0))!)!.v);
   const puzzle = solution.slice();
-  const target = cluesFor(level);
   let clues = 81;
   for (const i of shuffle(r, [...Array(81).keys()])) {
     if (clues <= target) break;
@@ -403,6 +403,18 @@ class SudokuLearner implements Learner {
   save(): SudokuSave {
     return { game: 'sudoku', pol: this.pol, steps: this.steps, level: this.level, puzzles: this.puzzles, rand: this.rand };
   }
+  /**
+   * A puzzle at his edge: as many clues as Level `x`'s (part of the way to the next level's count; fewer still past
+   * Level 10), the step budget likewise; his answer is the grid his rules reach within it. (Solving it is the
+   * practice: what he learns, the order of his rules, is judged on his practice set.)
+   */
+  stretch(x: number, seed: number) {
+    const clues = Math.round(between(x, cluesFor));
+    const { puzzle, solution } = makeSudoku(this.level, seed, clues);
+    const res = solveWith(puzzle, this.pol, Math.round(between(x, budgetFor)));
+    this.puzzles++;
+    return { problem: sudokuProblem(this.level, seed, puzzle, solution), answer: gridText(res.values) };
+  }
   view(): Frame {
     return {
       lines: [...this.pol.order.map((r, i) => `${i + 1}. ${RULES[r]}`), `Stuck: guess the cell with the ${GUESSES[this.pol.guess]}`],
@@ -519,8 +531,7 @@ function generate(level: number, seed: number): Problem {
   const L = lvl(level);
   if (seed % 2 === 0) {
     const { puzzle, solution } = makeSudoku(L, seed);
-    const text = `Solve this sudoku (. = empty; every row, column and 3×3 box holds 1–9 once). Answer with the 81 digits, row by row.\n${gridText(puzzle)}`;
-    return { game: 'sudoku', level: L, seed, text, data: { kind: 'sudoku', puzzle, solution } };
+    return sudokuProblem(L, seed, puzzle, solution);
   }
   const g = makeLogicGrid(L, seed);
   const people = PEOPLE.slice(0, g.n);
@@ -530,6 +541,11 @@ function generate(level: number, seed: number): Problem {
     .join(', ')}".`;
   const answer = people.map((_, pi) => g.answer.map((perm, ci) => CATS[ci]![1][perm[pi]!]!));
   return { game: 'sudoku', level: L, seed, text, data: { kind: 'grid', people, answer } };
+}
+
+function sudokuProblem(L: number, seed: number, puzzle: number[], solution: number[]): Problem {
+  const text = `Solve this sudoku (. = empty; every row, column and 3×3 box holds 1–9 once). Answer with the 81 digits, row by row.\n${gridText(puzzle)}`;
+  return { game: 'sudoku', level: L, seed, text, data: { kind: 'sudoku', puzzle, solution } };
 }
 
 function check(p: Problem, ans: string): Verdict {

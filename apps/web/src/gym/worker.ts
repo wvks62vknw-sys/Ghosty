@@ -17,14 +17,19 @@
  *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board? }
  *      { gym: 'bench', req } (the report card's gym questions) · { gym: 'judge', req, id, reply } (one judged)
  *      { gym: 'exact', req, question, reply? } (the exact check THINK HARDER can use for a chat question; with a reply, its verdict)
- * Out: { gym: 'progress', rec, view, training, epoch } (rec without the learner's state)
+ * Out: { gym: 'progress', rec, view, training, epoch, event?, verdict? } (rec without the learner's state; event 'league' with the league's verdict)
+ *      { gym: 'star', id, record, epoch } (a puzzle at his edge he solved, checked: a training record for the offline brain)
  *      { gym: 'save', rec, epoch } (with it) · { gym: 'reply', req, frames | move | view | items | verdict | exact | error }
  *      { gym: 'error', id, message, epoch } (training itself failed and stopped)
  */
+import { starFromGym, type StarRecord } from '../offline/star';
 import { benchItems, gymCheck, gymCheckable, judgeItem, type BenchItem } from './bench';
 import type { Frame, Verdict } from './core';
 import { gameById } from './index';
-import { type GymRecord, Session } from './session';
+import { hasLeague, LeagueRun } from './league';
+import { admit, bytesOf, type Frozen, type LeagueVerdict, newLeague } from './rating';
+import { type GymRecord, recMeta, Session } from './session';
+import { edgeLabel } from './stretch';
 
 export type GymIn =
   | { gym: 'train'; id: string; rec?: GymRecord | null; epoch?: number; carry?: boolean }
@@ -37,7 +42,8 @@ export type GymIn =
   | { gym: 'exact'; req: number; question: string; reply?: string };
 
 export type GymOut =
-  | { gym: 'progress'; rec: GymRecord; view: Frame; training: boolean; epoch: number; event?: 'level' | 'mastered' | null }
+  | { gym: 'progress'; rec: GymRecord; view: Frame; training: boolean; epoch: number; event?: 'level' | 'mastered' | 'league' | null; verdict?: LeagueVerdict }
+  | { gym: 'star'; id: string; record: StarRecord; epoch: number }
   | { gym: 'save'; rec: GymRecord; epoch: number }
   | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
   | { gym: 'error'; id: string; message: string; epoch: number };
@@ -45,6 +51,8 @@ export type GymOut =
 interface Live {
   s: Session;
   epoch: number;
+  /** League games under way after a level-up (board games): the new version against his kept past selves. */
+  league?: { run: LeagueRun; cand: Omit<Frozen, 'rating'>; stop: boolean } | null;
 }
 
 const sessions = new Map<string, Live>();
@@ -72,10 +80,62 @@ function live(id: string, rec: GymRecord | null | undefined, epoch = 0): Live {
   return l;
 }
 
-const meta = (s: Session): GymRecord => ({ ...s.rec, saved: null });
+const meta = (s: Session): GymRecord => recMeta(s.rec);
 
-function progress(post: (m: GymOut) => void, l: Live, event: 'level' | 'mastered' | null = null) {
-  post({ gym: 'progress', rec: meta(l.s), view: l.s.learner.view(), training: active === l.s.game.id, epoch: l.epoch, event });
+function progress(post: (m: GymOut) => void, l: Live, event: 'level' | 'mastered' | 'league' | null = null, verdict?: LeagueVerdict) {
+  post({ gym: 'progress', rec: meta(l.s), view: l.s.learner.view(), training: active === l.s.game.id, epoch: l.epoch, event, ...(verdict ? { verdict } : {}) });
+}
+
+// ======================= GYM ideas: league play after a level-up, puzzles at his edge between training slices
+
+/** Time a league slice may take. */
+const LEAGUE_SLICE = 40;
+/** At least this long between puzzles at his edge (longer when one takes a while: at most a tenth of his time). */
+let edgeGap = 4000;
+let lastEdge = 0;
+
+/**
+ * A level passed in a board game: the version that passed it is the candidate. The first one starts the league;
+ * a later one plays his kept past selves first (in slices, instead of training) and is kept only if it beats them.
+ */
+function startLeague(post: (m: GymOut) => void, l: Live, passed: number, stop: boolean): boolean {
+  if (!hasLeague(l.s.game.id)) return false;
+  const saved = structuredClone(l.s.learner.save());
+  const cand = { level: passed, at: Date.now(), bytes: bytesOf(saved), saved };
+  const lg = l.s.rec.league ?? newLeague();
+  if (!lg.versions.length) {
+    const { league, verdict } = admit(lg, cand, [], cand.at);
+    l.s.rec.league = league;
+    progress(post, l, 'league', verdict);
+    return false;
+  }
+  l.league = { run: new LeagueRun(l.s.game, l.s.learner, lg.versions, l.s.rec.level, l.s.rec.seed), cand, stop };
+  return true;
+}
+
+/** The league's games are over: keep the new version (it beat his past selves) or throw it away and go back to the kept one. */
+function finishLeague(post: (m: GymOut) => void, l: Live) {
+  const g = l.league!;
+  l.league = null;
+  const lg = l.s.rec.league ?? newLeague();
+  const { league, verdict } = admit(lg, g.cand, g.run.results(), Date.now());
+  l.s.rec.league = league;
+  if (!verdict.kept && lg.versions.length) l.s.revert(lg.versions.at(-1)!.saved);
+  if (g.stop) active = null;
+  lastSave = now();
+  progress(post, l, 'league', verdict);
+  post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
+}
+
+/** One puzzle at his edge; a solved one (the checker passed it) becomes a training record for the offline brain. */
+function stretch(post: (m: GymOut) => void, l: Live) {
+  const t = now();
+  const r = l.s.stretchTry();
+  edgeGap = Math.max(4000, 10 * (now() - t));
+  lastEdge = now();
+  if (!r) return;
+  const record = starFromGym(r.problem, r.answer, r.verdict, edgeLabel(r.x));
+  if (record) post({ gym: 'star', id: l.s.game.id, record, epoch: l.epoch });
 }
 
 /** Measure, and space the next measurement by how long this one took. */
@@ -97,6 +157,16 @@ function tick(post: (m: GymOut) => void) {
   const l = sessions.get(active);
   if (!l) return;
   try {
+    // League games after a level-up are played before he trains on.
+    if (l.league) {
+      if (l.league.run.step(LEAGUE_SLICE, now)) finishLeague(post, l);
+      else if (now() - lastProgress > 1500) {
+        lastProgress = now();
+        progress(post, l);
+      }
+      if (active) timer = setTimeout(() => tick(post), 8);
+      return;
+    }
     const t0 = now();
     while (now() - t0 < 50) {
       const n = Math.max(1, Math.min(100_000, Math.round(15 / perUnit)));
@@ -108,7 +178,10 @@ function tick(post: (m: GymOut) => void) {
     if (now() - lastMeasure > measureGap) {
       const ev = measure(l);
       if (ev) perUnit = 1;
-      if (l.s.rec.mastered || (ev === 'level' && !carry)) active = null;
+      const stop = l.s.rec.mastered || (ev === 'level' && !carry);
+      // A level passed in a board game: his new version meets his past selves first (he stops after, if he stops).
+      const playing = !!ev && startLeague(post, l, ev === 'mastered' ? l.s.rec.level : l.s.rec.level - 1, stop);
+      if (stop && !playing) active = null;
       // (Slices of a match come quickly: the page hears about them every 1½ s.)
       if (ev || !l.s.pending || now() - lastProgress > 1500 || !active) {
         lastProgress = now();
@@ -123,6 +196,7 @@ function tick(post: (m: GymOut) => void) {
       lastSave = now();
       post({ gym: 'save', rec: l.s.snapshot(), epoch: l.epoch });
     }
+    if (active && !l.league && l.s.stretches && now() - lastEdge > edgeGap) stretch(post, l);
   } catch (e) {
     post({ gym: 'error', id: active ?? '', message: String((e as Error)?.message ?? e), epoch: l.epoch });
     active = null;
@@ -170,12 +244,15 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       const prev = sessions.get(active);
       if (prev) post({ gym: 'save', rec: prev.s.snapshot(), epoch: prev.epoch });
     }
-    active = l.s.rec.mastered ? null : m.id;
+    // (a mastered game still finishes the league games its last level started)
+    active = l.s.rec.mastered && !l.league ? null : m.id;
     if (m.carry != null) carry = m.carry;
     perUnit = 1;
     lastMeasure = now();
     measureGap = 1500;
     lastSave = now();
+    // (his first puzzle at the edge comes straight away, then every few seconds)
+    lastEdge = now() - edgeGap - 1;
     progress(post, l);
     if (active && !timer) timer = setTimeout(() => tick(post), 0);
   } else if (m.gym === 'pause') {

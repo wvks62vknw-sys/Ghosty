@@ -14,6 +14,8 @@
 // goes on watching, with one GYM toast on screen; STOP ends it; TRAIN ALL starts with the least learned game
 // and its line names it; KEEP AWAKE (a mocked wake lock) is asked for, asked for again after the app is
 // hidden and shown, and let go on STOP; a reload shows where TRAIN ALL got to; nothing sticks out at 440 px.
+// GYM ideas: a maze whose puzzles at his edge stand at Level 7½ says so, and TRAIN makes him try one more there;
+// tic-tac-toe's new versions meet his past selves and his rating shows on the card and the game's page.
 //   BASE=http://localhost:8872 node tests/gym.spec.mjs /tmp/gym-shots          (Chromium)
 //   PLAYWRIGHT_BROWSERS_PATH=/tmp/claude-0/wk/browsers BROWSER=webkit BASE=… node tests/gym.spec.mjs …   (WebKit)
 import { launch, webkitNoise, engine } from './browser.mjs';
@@ -515,9 +517,78 @@ const toList = async () => {
   await wideCheck('part 3: the game cards at 390 px');
 }
 
+// GYM ideas (440 × 956): a puzzle at his edge — a maze kept at Level 7 whose edge stands at 7½ (solved 10 of his last
+// 20) says so on its page; TRAIN makes him try one more there at once (checked by the maze's own checker), the line
+// still at Level 7-and-a-bit. League play: tic-tac-toe trained afresh passes levels; each passed version meets his
+// past selves, and his rating shows on the card ("Rating 1,0xx · up …") and the game's page ("… this week"), with the
+// versions kept, the bytes they take and the last decision.
+{
+  await page.setViewportSize({ width: 440, height: 956 });
+  await toList();
+  const seed = 'maze'.split('').reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const edge = { x: 7.5, level: 7, tries: Array.from({ length: 20 }, (_, i) => i % 2), n: 20, solved: 10, span: 1 };
+  await page.evaluate(
+    (rec) =>
+      new Promise((ok) => {
+        const r = indexedDB.open('ghosty-gym', 1);
+        r.onsuccess = () => {
+          const tx = r.result.transaction('games', 'readwrite');
+          tx.objectStore('games').put(rec);
+          tx.oncomplete = () => (r.result.close(), ok());
+        };
+      }),
+    { id: 'maze', level: 7, units: 1, mastery: 0, start: 0, detail: '', history: [], mastered: false, seed, saved: null, updated: Date.now(), edge },
+  );
+  await boot();
+  await until((c) => window.__ghosty?.gym?.cards === c, 15000, 'ideas: the GYM did not come back after a reload', CARDS);
+  await closeLog();
+  await tap('maze');
+  await until(() => window.__ghosty.gym.open === 'maze', 5000, 'ideas: the maze did not open');
+  const edgeLine = async () => ((await G('.gymidea.edge .gymedgeline').textContent().catch(() => '')) ?? '').trim();
+  if ((await edgeLine()) !== 'Level 7½: puzzles he only just fails · solved 10 of his last 20') problems.push(`ideas: the maze's edge reads "${await edgeLine()}"`);
+  // (the block is drawn afresh on every repaint: scroll its section, which stays)
+  await G('section.gymideas').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.screenshot({ path: `${out}/gym-ideas-edge.png` });
+  await G('button.gymtrain').click();
+  if (await until(() => (window.__ghosty.gym.edge.maze?.n ?? 0) >= 21, 15000, 'ideas: TRAIN did not make him try a puzzle at his edge')) {
+    const e = (await st()).edge.maze;
+    // one try from 7½ moves it a twentieth of a level: still a Level 7-and-a-bit puzzle
+    if (Math.abs(e.x - 7.5) > 0.11 || !/^Level 7(¼|½|¾)?: .+ · solved \d+ of his last 20$/.test(e.line)) problems.push(`ideas: after one more try the edge is ${e.x} ("${e.line}")`);
+  }
+  await G('button.gymtrain').click(); // PAUSE
+  await wideCheck('ideas: the maze with its edge at 440 px');
+  // League play: tic-tac-toe from the start, trained until a new version has met his past selves.
+  await tap('tictactoe');
+  await until(() => window.__ghosty.gym.open === 'tictactoe', 5000, 'ideas: tic-tac-toe did not open');
+  if (await G('button.gymtrain').isDisabled()) {
+    await resetGame();
+    await page.waitForTimeout(300);
+  }
+  await G('button.gymtrain').click();
+  if (await until(() => /^it scored/.test(window.__ghosty.gym.league.tictactoe?.last ?? ''), 60000, 'ideas: no league decision on tic-tac-toe within a minute of training')) {
+    const lg = (await st()).league.tictactoe;
+    const onCard = ((await card('tictactoe').locator('.gymrate').textContent()) ?? '').trim();
+    if (!/^Rating \d[\d,]* · (up \d+|down \d+|no change)$/.test(onCard)) problems.push(`ideas: the tic-tac-toe card's rating reads "${onCard}"`);
+    const line = ((await G('.gymidea.league .gymrateline').textContent()) ?? '').trim();
+    if (line !== lg.line || !/^Rating \d[\d,]* · (up \d+|down \d+|no change) this week$/.test(line)) problems.push(`ideas: the league line reads "${line}"`);
+    const kept = ((await G('.gymidea.league small').first().textContent()) ?? '').trim();
+    if (!/^\d of 8 versions kept on this phone · \d+ KB$/.test(kept)) problems.push(`ideas: the versions line reads "${kept}"`);
+    const verdict = ((await G('.gymidea.league small.verdict').textContent()) ?? '').trim();
+    if (!/^Level \d+’s version (kept|thrown away): it scored [\d.]+ of \d+ against his/.test(verdict)) problems.push(`ideas: the decision reads "${verdict}"`);
+  }
+  if ((await st()).training === 'tictactoe') await G('button.gymtrain').click(); // PAUSE
+  await G('section.gymideas').scrollIntoViewIfNeeded().catch(() => undefined);
+  await page.screenshot({ path: `${out}/gym-ideas-league.png` });
+  await wideCheck('ideas: tic-tac-toe with its league at 440 px');
+  await toList();
+  await card('tictactoe').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/gym-ideas-cards.png` });
+  await wideCheck('ideas: the cards with a rating at 440 px');
+}
+
 const csp = await page.evaluate(() => window.__csp);
 if (csp.length) problems.push(`security policy blocked: ${csp.join(' | ')}`);
 await page.evaluate(() => clearInterval(window.__tick));
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${CARDS} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; WATCH as text for the six reasoning games and the network lab trained without a freeze (longest pause ${gap2.worst} ms); card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset; part 3 at 440 px: WATCH went on to Level 2 by itself with one toast, TRAIN ALL started on the least learned game, KEEP AWAKE asked, asked again after hide/show and let go on STOP, and a reload shows where TRAIN ALL got to.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `GYM run clean in ${engine}: ${CARDS} cards, training in the worker (longest page pause ${gap.worst} ms), saved and carried on after a reload, PLAY HIM on tic-tac-toe, Connect 4, checkers, chess and Go (legal squares lit), WATCH (maze, the drawn balance run), a code cracked; WATCH as text for the six reasoning games and the network lab trained without a freeze (longest pause ${gap2.worst} ms); card taps and a finished WATCH survive progress repaints, RESET does not carry over and a reset game stays reset; part 3 at 440 px: WATCH went on to Level 2 by itself with one toast, TRAIN ALL started on the least learned game, KEEP AWAKE asked, asked again after hide/show and let go on STOP, and a reload shows where TRAIN ALL got to; GYM ideas: a puzzle at his edge at Level 7½, and tic-tac-toe's league rating on the card and the page.`);
 process.exit(problems.length ? 1 : 0);

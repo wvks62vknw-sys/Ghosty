@@ -2207,6 +2207,15 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 #nightdim .nightdimline { max-width: 26em; font-size: 17px; line-height: 1.45; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 #nightdim .nightdimhint { max-width: 26em; font-size: 12px; opacity: .7; }
 
+/* SYSTEM → LOOPS (features/system/loops.ts): a block per loop — its name, then practised / improved / rejected, ROLLBACK on the weekly run */
+.loops .loopsrows { display: flex; flex-direction: column; gap: 10px; margin: 6px 0; }
+.loops .loop { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.04); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.loops .loopname { display: block; margin-bottom: 4px; font: 600 15px/1.3 var(--sf); letter-spacing: -.01em; color: var(--fg); }
+.loops .loopline { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 8px; padding: 2px 0; font: 400 14px/1.4 var(--sf); }
+.loops .loopline .k { color: var(--l2); }
+.loops .loopline .v { color: var(--fg); overflow-wrap: anywhere; }
+.loops button.loopback { margin-top: 8px; min-height: 44px; }
+
 /* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
 .msg .siterow { flex-wrap: wrap; }
 .sitepreview-wrap { display: flex; width: min(92vw, 430px); height: min(76dvh, 860px); }
@@ -2835,6 +2844,17 @@ html #pg-gym .gymcard .gymst::after { content: ''; order: -1; width: 6px; height
 html #pg-gym .gymcard .gymst[data-label]::before { --lfs: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 13px; }
 html #pg-gym .gymcard .gymst.mastered, html #pg-gym .gymcard .gymst.training { color: color-mix(in srgb, var(--c) 60%, #fff); }
 html #pg-gym .gymcard .gymst.mastered::after, html #pg-gym .gymcard .gymst.training::after { background: var(--c); }
+/* GYM ideas (features/gym/index.ts): his league rating on a board game's card; on the game, the league of his past selves and puzzles at his edge */
+html #pg-gym .gymcard .gymrate { display: block; margin-top: 2px; font: 400 13px/17px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #pg-gym .gymcard.rated .gymspark { display: none; } /* the rating takes the sparkline's place */
+html #pg-gym .gymcard .gymrate[hidden] { display: none; }
+.gymideas { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 14px; }
+.gymideas[hidden] { display: none; }
+.gymidea { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow-wrap: anywhere; }
+.gymidea b { font: 600 15px/1.3 var(--sf); color: var(--fg); }
+.gymidea .gymrateline, .gymidea .gymedgeline { font: 500 16px/1.35 var(--sf); color: var(--fg); }
+.gymidea small { font: 400 13px/1.4 var(--sf); color: var(--l2); }
+.gymidea small.thrown { color: #ff9f0a; }
 
 /* ---------- Settings, System and Links (ui/listmode.ts): grouped glass rows — a neutral icon tile, the name,
    its line under it, a chevron ---------- */

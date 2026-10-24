@@ -85,8 +85,8 @@ export function gateVerdict(before: AreaScores, after: AreaScores, items: Partia
  */
 export const EXAM_SEED_FLOOR = 900_000;
 
-export type TrainKind = 'gym' | 'drill' | 'evol' | 'library' | 'tool' | 'pref' | 'failure' | 'redteam' | 'distill' | 'school';
-export const TRAIN_KINDS: TrainKind[] = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school'];
+export type TrainKind = 'gym' | 'drill' | 'evol' | 'library' | 'tool' | 'pref' | 'failure' | 'redteam' | 'distill' | 'school' | 'star';
+export const TRAIN_KINDS: TrainKind[] = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'star'];
 
 export type ChatMsg = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -103,7 +103,10 @@ export type TaskRef = { game: string; level: number; seed: number } | { drill: n
  * - school: SCHOOL practice for his weak spots (apps/edge/src/school/practice.ts; never a paper's item): an exact
  *   one is `messages` (the question, asked as the exam asks it) + the exact `answer` + `check` (how the notebook
  *   checks an attempt: it samples several and keeps the ones that pass, like STaR); a written one is `messages`
- *   ending with the stronger model's worked answer (distillation).
+ *   ending with the stronger model's worked answer (distillation);
+ * - star: checked work from the phone (GYM ideas, part 3: apps/web/src/offline/star.ts): THINK HARDER's working for a
+ *   question an exact check passed, or a GYM puzzle with the moves the GYM's own checker passed — `messages` ending
+ *   with that answer, and `checked` naming the check (never from an unchecked chain: without it the record is refused).
  */
 export interface TrainRecord {
   kind: TrainKind;
@@ -118,6 +121,8 @@ export interface TrainRecord {
   from?: string;
   /** school (exact): how an attempt is marked, as SCHOOL marks a paper (school.ts markExact; the notebook's mark_exact). */
   check?: SchoolCheck;
+  /** star: the exact check that passed the answer ("a calculator", "the GYM's own checker: …"). */
+  checked?: string;
 }
 
 export interface SchoolCheck {
@@ -168,6 +173,10 @@ export function recordProblem(r: unknown): string {
       if (!isMsgs(o.messages) || last!.role !== 'user' || typeof o.answer !== 'string' || !o.answer.trim()) return 'a school question needs the question and its exact answer';
       if (!o.check || !['exact', 'number', 'mcq'].includes(o.check.type)) return 'a school question needs how its answer is checked';
       if (o.check.type === 'mcq' && !/^[a-d]$/i.test(o.answer.trim())) return 'a multiple-choice answer must be a letter A–D';
+      return '';
+    case 'star':
+      if (!isMsgs(o.messages) || last!.role !== 'assistant' || !last!.content.trim()) return 'needs messages ending with the answer to learn';
+      if (typeof o.checked !== 'string' || !o.checked.trim()) return 'a star record needs the check that passed it';
       return '';
     default:
       if (!isMsgs(o.messages) || last!.role !== 'assistant' || !last!.content.trim()) return 'needs messages ending with the answer to learn';

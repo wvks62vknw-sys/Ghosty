@@ -17,7 +17,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
+  entryPoints: ['src/selftrain/cycle.ts', 'src/selftrain/factory.ts', 'src/selftrain/exam.ts', 'src/selftrain/remote.ts', 'src/selftrain/weights.ts', 'src/selftrain/loops.ts', '../../packages/shared/src/selftrain.ts', '../../packages/shared/src/toolcall.ts', '../web/src/offline/models.ts', '../web/src/features/core/ratelist.ts', 'src/school/index.ts', 'src/school/state.ts', 'src/school/practice.ts', 'src/school/remote.ts', '../../packages/shared/src/school.ts', '../../packages/shared/src/voice.ts'].map((f) => at(`../${f}`)).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -37,6 +37,7 @@ const R = await load('apps/edge/src/selftrain/remote');
 const S = await load('packages/shared/src/selftrain');
 const T = await load('packages/shared/src/toolcall');
 const W = await load('apps/edge/src/selftrain/weights');
+const LO = await load('apps/edge/src/selftrain/loops');
 const M = await load('apps/web/src/offline/models');
 const RL = await load('apps/web/src/features/core/ratelist');
 const SIX = await load('apps/edge/src/school/index');
@@ -1510,4 +1511,73 @@ test('the notebook config: a weekly run trains on the brain in use; the monthly 
   assert.equal(st.active, m3.commit);
   assert.deepEqual(st.models.map((m) => m.week), [3]);
   assert.ok(d.notes.some((n) => /^This month's retrain from scratch did not beat the current brain/.test(n.text)));
+
+// ---- GYM ideas: checked work from the phone as training records (part 3), the brain's loops for the LOOPS card (part 4)
+
+const starRec = (q, extra = {}) => ({ kind: 'star', messages: [{ role: 'user', content: q }, { role: 'assistant', content: '17 × 23 = 391\nANSWER: 391' }], checked: 'a calculator', from: 'think harder', ...extra });
+const route = (d, path, method = 'GET', body) => C.trainingRoute(new Request(`https://ghosty.example/api${path}`, { method, ...(body ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } } : {}) }), path, method, d.deps).then((r) => r.json());
+
+test('star records: the brain checks each again — one without the check that passed it, another kind or one already waiting is refused — keeps at most 20 a day, and the next week gathers them (after the near-exam filter) into its data', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  const recs = [starRec('What is 17 × 23?'), starRec('What is 17 × 24?', { checked: '' }), { kind: 'evol', messages: [{ role: 'user', content: 'Q' }, { role: 'assistant', content: 'A' }] }, starRec('What is 17 × 23?'), starRec('What is 18 × 23?', { extra: 'x'.repeat(10) })];
+  const r = await route(d, '/training/star', 'POST', { records: recs });
+  assert.equal(r.kept, 2);
+  assert.deepEqual(r.refused.map((x) => x.why).sort(), ['a star record needs the check that passed it', 'already waiting', 'only star records come this way'].sort());
+  // the day's cap: 20 (and the brain never stores anything else the phone sent along)
+  const many = Array.from({ length: 30 }, (_, i) => starRec(`What is ${i + 30} × 7?`));
+  const r2 = await route(d, '/training/star', 'POST', { records: many });
+  assert.equal(r2.kept, LO.STAR_DAY - 2);
+  assert.ok(r2.refused.some((x) => x.why === "over the day's 20" && x.n === 12));
+  assert.ok(!('extra' in (await s.get('loops:star')).list[1]));
+  // a week gathers: they go into its data ("What is 17 × 23?" is on the REPORT CARD: left out like any other record)
+  const st = await s.get('loops:star');
+  st.list.push({ ...starRec('What is 15% of 80?'), messages: [{ role: 'user', content: 'What is 15% of 80?' }, { role: 'assistant', content: 'ANSWER: 12' }] });
+  await s.put('loops:star', st);
+  await stepUntil(d, 'upload');
+  const kept = await F.loadRecords(s, 'star');
+  assert.equal(kept.length, LO.STAR_DAY, 'every waiting record but the report card question');
+  assert.ok(kept.every((x) => x.kind === 'star' && S.recordProblem(x) === ''));
+  assert.equal((await s.get('loops:star')).list.length, 0, 'no longer waiting');
+  assert.equal((await C.trainStatus(d.deps)).gathered.star, LO.STAR_DAY);
+  await stepUntil(d, 'running');
+  const lines = d.svc.state.commits[0].lines;
+  const jsonl = unb64(lines.find((l) => l.value.path === 'weeks/week-0001.jsonl').value.content).trim().split('\n').map((l) => JSON.parse(l));
+  assert.equal(jsonl.filter((x) => x.kind === 'star').length, LO.STAR_DAY);
+});
+
+test('LOOPS: the brain\'s loops this week — drills and reading counted from the day\'s point a week ago, the weekly run\'s test and what it threw out, the voice, the star records — through /api/training/loops', async () => {
+  const s = new MemStorage();
+  const t0 = Date.UTC(2026, 9, 10, 9);
+  const d = cycleDeps(s, { now: t0 });
+  await s.put('study:state', { drills: 100, right: 60, domains: { physics: { read: 40, digested: 10, failed: 1 } }, finished: {} });
+  // the hourly job keeps a point a day
+  await C.trainTick(d.deps);
+  assert.equal((await s.get('loops:days')).length, 1);
+  d.tick(8 * 86_400_000);
+  await s.put('study:state', { drills: 150, right: 100, domains: { physics: { read: 70, digested: 16, failed: 3 } }, finished: { physics: t0 + 7 * 86_400_000 } });
+  await s.put('train:report', { week: 4, startedAt: 0, finishedAt: t0, base: 'stock', before: { gym: 0.5, general: 0.5, voice: 0.6 }, after: { gym: 0.6, general: 0.5, voice: 0.7 }, items: {}, gate: { pass: false, why: 'GYM PUZZLES fell' }, trained: { voice: 80, checked: 9 }, rejected: [{ why: 'records too close to an exam question', n: 7 }, { why: 'voice: replies the blind judge took for an AI', n: 5 }], phases: [] });
+  await s.put('loops:star', { day: '', today: 0, list: [starRec('q')], taken: [{ at: t0 + 7 * 86_400_000, n: 6 }, { at: t0 - 86_400_000, n: 50 }], refused: [{ at: t0 + 7 * 86_400_000, why: "over the day's 20", n: 2 }] });
+  const b = await route(d, '/training/loops');
+  assert.deepEqual(b.drills, { asked: 50, right: 40, before: { asked: 100, right: 60 } });
+  assert.deepEqual(b.study, { reads: 30, digests: 6, finished: ['physics'], failed: 2 });
+  assert.equal(b.week.kept, false);
+  assert.equal(b.week.why, 'GYM PUZZLES fell');
+  assert.deepEqual(b.week.rejected, [{ why: 'records too close to an exam question', n: 7 }]);
+  assert.equal(b.week.active, null, 'no trained brain in use: nothing to roll back');
+  assert.deepEqual(b.voice, { trained: 80, before: 0.6, after: 0.7, rejected: [{ why: 'replies the blind judge took for an AI', n: 5 }] });
+  assert.deepEqual(b.star, { taken: 6, waiting: 1, refused: [{ why: "over the day's 20", n: 2 }] });
+  assert.equal(b.since, d.deps.now() - 7 * 86_400_000);
+});
+
+test('star records with MY LIBRARY & CHATS off: THINK HARDER\'s (the owner\'s own questions) are left out and counted; the GYM\'s puzzles still go in', async () => {
+  const s = new MemStorage();
+  const d = cycleDeps(s);
+  await route(d, '/training/private', 'POST', { on: false });
+  const r = await route(d, '/training/star', 'POST', { records: [starRec('How far is it from Leeds to York by train?'), starRec('A maze (# wall). Route from S to G?', { from: 'gym maze level 3' })] });
+  assert.equal(r.kept, 2);
+  await stepUntil(d, 'upload');
+  const kept = await F.loadRecords(s, 'star');
+  assert.deepEqual(kept.map((x) => x.from), ['gym maze level 3']);
+  assert.ok((await s.get('train:rejected')).some((x) => x.why === "THINK HARDER's answers left out: MY LIBRARY & CHATS is off" && x.n === 1));
 });

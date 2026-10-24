@@ -13,6 +13,8 @@ import type { GymOut } from '../gym/worker';
 import { addRun, CATS, LOCAL_ITEMS, runBench, type BenchItem, type Run } from './bench';
 import { currentModel, loadOffline, offlineBrain, offlinePrompt, offlineReady, offlineReply, withModel } from './brain';
 import { asksForCode, codeOf, codeTests, sumCheck } from './exact';
+import { starFromThink } from './star';
+import { addStar } from './starbox';
 import { PHONE_BUDGET, stepStructured, thinkHarder, type Checker, type Generate, type ThinkProgress, type ThinkResult } from './think';
 
 type Reply = Extract<GymOut, { gym: 'reply' }>;
@@ -147,7 +149,7 @@ export async function thinkHere(question: string, recent: { role: 'user' | 'assi
         const [checker, msgs] = await Promise.all([exactFor(question).catch(() => null), offlinePrompt(question, recent, CONTEXT_BUDGET), loadOffline()]);
         if (mine.signal.aborted) throw Object.assign(new Error('stopped'), { name: 'AbortError' });
         const secs = Math.max(10, Math.min(300, offlineBrain.get().thinkSecs || 55));
-        return await thinkHarder(question, {
+        const result = await thinkHarder(question, {
           gen,
           checker,
           steps: stepStructured(question),
@@ -156,6 +158,10 @@ export async function thinkHere(question: string, recent: { role: 'user' | 'assi
           signal: mine.signal,
           context: { system: msgs[0]?.content, recent: msgs.slice(1, -1) },
         });
+        // The search teaches the brain: an answer an exact check passed becomes a lesson for next week's brain
+        // (offline/star.ts: never an unchecked or voted one; at most a few a day).
+        addStar(starFromThink(question, result));
+        return result;
       } finally {
         if (ctl === mine) ctl = null;
         thinking.set({ busy: '' });
