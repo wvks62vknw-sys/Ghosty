@@ -941,3 +941,19 @@ test('UNDO puts things back exactly: a line in its place in its section; a place
   const undone = await (await route('/profile/places', 'POST', { found: old, at: old.at, index: 0 }, deps)).json();
   assert.deepEqual(undone.places, saved, 'the old home back exactly after a new one replaced it');
 });
+
+test('patterns are true and useful: what he asks Ghosty to do is never a topic; words said together are one topic, dismissed whole', async () => {
+  const tz = 'Europe/London';
+  const msgs = [];
+  for (let d = 0; d < 5; d++) msgs.push([d, 18, 'how is the allotment doing'], [d, 18, 'remind me about the allotment shed']);
+  const pats = P.findPatterns(P.tallyDays(said(msgs), tz), ['likes tea', 'likes jazz', 'likes rain']);
+  const topics = pats.filter((p) => p.kind === 'topic');
+  assert.deepEqual(topics.map((p) => [p.id, p.text]), [['topic:allotment+shed', 'You keep coming back to “allotment” and “shed” — on 5 different days.']]);
+  assert.ok(!pats.some((p) => /remind|likes/.test(p.text)), JSON.stringify(pats));
+  // dismissed: both words leave the day log
+  const st = new MemStorage();
+  await st.put('owner:ctx', { tz });
+  await st.put('patterns:days', P.tallyDays(said(msgs), tz));
+  await P.profileRoute(new Request('https://x/api/profile/patterns/dismiss', { method: 'POST', body: JSON.stringify({ id: 'topic:allotment+shed' }) }), '/profile/patterns/dismiss', 'POST', new URL('https://x/api/profile/patterns/dismiss'), { storage: st, library: new Library(st, {}), ai: async () => '' });
+  assert.ok((await st.get('patterns:days')).every((d) => !d.t.allotment && !d.t.shed));
+});
