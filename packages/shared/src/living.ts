@@ -190,15 +190,18 @@ export type PlantLine = { missing: 'key' } | { error: string } | Living;
 export const PLANT_TAG = 'PLANTNET ';
 
 export function plantLine(p: PlantLine): string {
-  let o: Record<string, unknown> = { ...p };
+  if ('missing' in p) return `${PLANT_TAG}{"m":"key"}`;
+  if ('error' in p) return PLANT_TAG + JSON.stringify({ e: p.error.slice(0, 200) });
+  // short keys: the phone reads at most 280 characters, and the names come first
+  const o: Record<string, unknown> = { s: p.species, c: p.common, l: p.level, ...(p.score != null ? { p: Math.round(p.score * 1000) / 1000 } : {}), t: p.tell };
+  if (p.alt?.length) o.a = p.alt.map((x) => [x.species, x.common, Math.round(x.score * 1000) / 1000]);
   let s = PLANT_TAG + JSON.stringify(o);
-  // the phone reads at most 280 characters: drop the extras before anything that matters
-  if (s.length > 270 && 'alt' in o) {
-    delete o.alt;
+  if (s.length > 270) {
+    delete o.a;
     s = PLANT_TAG + JSON.stringify(o);
   }
   if (s.length > 270) {
-    o = { ...o, tell: '' };
+    o.t = '';
     s = PLANT_TAG + JSON.stringify(o);
   }
   return s;
@@ -211,20 +214,17 @@ export function readPlantLine(summary: string): PlantLine | null {
   if (i < 0) return null;
   const o = firstJson(s.slice(i + PLANT_TAG.length));
   if (!o) return null;
-  if (o.missing === 'key') return { missing: 'key' };
-  if (typeof o.error === 'string') return { error: clean(o.error, 200) };
-  const level = (['sure', 'probably', 'a guess', 'cant'] as const).find((l) => l === o.level) ?? 'cant';
-  const score = typeof o.score === 'number' ? o.score : undefined;
-  return {
-    kind: 'plant',
-    species: clean(o.species, 80),
-    common: clean(o.common, 80),
-    level,
-    ...(score != null ? { score } : {}),
-    tell: clean(o.tell, 160),
-    by: 'Pl@ntNet',
-    ...(Array.isArray(o.alt) ? { alt: (o.alt as Living['alt'])!.slice(0, 2) } : {}),
-  };
+  if (o.m === 'key') return { missing: 'key' };
+  if (typeof o.e === 'string') return { error: clean(o.e, 200) };
+  const level = (['sure', 'probably', 'a guess', 'cant'] as const).find((l) => l === o.l) ?? 'cant';
+  const score = typeof o.p === 'number' ? o.p : undefined;
+  const alt = Array.isArray(o.a)
+    ? (o.a as unknown[])
+        .filter((x): x is unknown[] => Array.isArray(x))
+        .slice(0, 2)
+        .map((x) => ({ species: clean(x[0], 80), common: clean(x[1], 80), score: typeof x[2] === 'number' ? x[2] : 0 }))
+    : undefined;
+  return { kind: 'plant', species: clean(o.s, 80), common: clean(o.c, 80), level, ...(score != null ? { score } : {}), tell: clean(o.t, 160), by: 'Pl@ntNet', ...(alt?.length ? { alt } : {}) };
 }
 
 /** A Wikipedia page for the name (the Latin name first: it is the one Wikipedia redirects reliably). */
@@ -233,12 +233,16 @@ export function wikiLink(l: Pick<Living, 'species' | 'common'>): string {
   return name ? `https://en.wikipedia.org/wiki/${encodeURIComponent(name.trim().replace(/\s+/g, '_'))}` : '';
 }
 
-/** "Common daisy" → "common daisy"; keeps names that are proper nouns inside ("Daubenton's bat"). */
-const lowerFirst = (s: string): string => (/^[A-Z][a-z]/.test(s) && !/^[A-Z][a-z]+'s\b/.test(s) ? s[0]!.toLowerCase() + s.slice(1) : s);
+/**
+ * "Common daisy" → "common daisy", "Robin" → "robin" for a sentence; a first word that is a place or a
+ * person ("European robin", "Scots pine", "Daubenton's bat", "Atlantic salmon") keeps its capital.
+ */
+const PROPER_FIRST = /^(?:[A-Z][a-z]+(?:an|ese|ish|ic|'s|s')|Scots|Welsh|Canada|Brent|Sandwich|Dartford|Kentish|Cetti's|Montagu's|Leach's|Wilson's|Sabine's|Bewick's|Lapland|Mediterranean|Iceland|Siberian|Norway|Sitka|Douglas|Lombardy|Persian|Swiss|Turkey|Himalayan|Japanese|Chinese)\b/;
+const lowerFirst = (s: string): string => (/^[A-Z][a-z]/.test(s) && !PROPER_FIRST.test(s) ? s[0]!.toLowerCase() + s.slice(1) : s);
 const article = (s: string): string => (/^[aeiou]/i.test(s) && !/^(?:eu|uni|one)/i.test(s) ? 'an' : 'a');
 /** "a robin", "an oak", the plain name for saying. */
 export function aName(l: Pick<Living, 'species' | 'common'>): string {
-  const n = lowerFirst(l.common || l.species);
+  const n = l.common ? lowerFirst(l.common) : l.species;
   return n ? `${article(n)} ${n}` : '';
 }
 
