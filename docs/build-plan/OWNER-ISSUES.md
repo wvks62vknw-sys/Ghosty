@@ -224,3 +224,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     this is nothing like that". Answer: three Iron-Man-inside-route-C directions as mock-ups for his pick
     (BRIEF-IRONMAN.md), a scroll audit on his phone size with fixes (BRIEF-SCROLL-AUDIT.md), the GYM pictures in the
     mock-ups. Asked of him: which screens scroll badly, and which feel most "iPhone".
+
+42. **His questions, 24 Oct ~20:20 UK:** "couldn't we just use the offline brain for him to go to school? when the gpu
+    hours run out" (answered: practice yes, the weekly weight update no; IDEAS-24-OCT.md) and "what things do you suggest
+    we add, in the UI, the HUD … or features … to make it even more advanced" (the list in IDEAS-24-OCT.md, for his picks).
