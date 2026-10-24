@@ -266,7 +266,7 @@ folder that no longer exists; ignore those paths).
   chat's explain, not the article; rain timing assumes UK time; safari and scroll untested here (no WebKit).
 - 24 Oct 22:05 UK: pushed as PR #36: training resilience, the Brief pass, the digest at 05:40 UK, the mock-ups, the
   research and briefs (brain suite 1,173 of 1,174 with the one red being the digest test's old time, fixed and green
-  alone). The crash fix (OWNER-ISSUES 44) follows in its own pull request as soon as it lands.
+  alone). The crash fix (OWNER-ISSUES 44) rode PR #36 in the end (23:48 UK below).
 - 24 Oct ~22:15 UK: merged after review: the VOICE upgrade pass (10 fixes; no kernel line; LEARN's READ ALOUD already
   stopped). Leftovers the builder ranked: end of speech to the first sound is about 1.3 s, 1.0 s of it the "has he
   finished" wait (700–800 ms would do, but only real voice timings should decide); a voice lap in the stopwatch (System's
@@ -303,6 +303,12 @@ folder that no longer exists; ignore those paths).
   reports (under 1 GB bindings → WebLLM asks for 128 MB and the 2B is refused before any load), whether WebKit holds a
   whole piece in memory while storing it, and that the crash record survives a kill. The weekly training does not
   train the 0.8B. The full edge suite did not finish in the builder's window (load); run here before the push.
+- 24 Oct 23:48 UK: pushed to PR #36 (head 61ce7db): the big-brain crash fix and its docs. The verification chain on the
+  merged tree showed the offline-brain file 40 of 42: both reds were a stale `test/.build/offline-models.mjs` from before
+  the merge (the file is only rebuilt by `npm test`), 42 of 42 once rebuilt; the bigbrain and offlinebrain specs passed
+  on a fresh preview. The pull request's title and body now carry the fix. The 01:05 UK check-in was cancelled and a new
+  one armed for 01:14 UK: it merges if green. Lesson: a targeted `node --test` run reads whatever is in `.build`; rebuild
+  the bundles a test imports after a merge, or run the file through `npm test`.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
