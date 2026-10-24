@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=440, initial-scale=1">
+<title>Every screen · B · the command deck</title>
+<link rel="stylesheet" href="../fonts.css"><link rel="stylesheet" href="style.css">
+
+</head>
+<body class="">
+<style>
+/* iPhone 18 Pro Max frame: 440 x 956 pt, Dynamic Island 126 x 37 at 11 pt, home indicator 139 x 5 at 8 pt up. */
+.sb { position: absolute; z-index: 50; top: 0; left: 0; right: 0; height: 54px; pointer-events: none; }
+.sb-time { position: absolute; left: 0; width: 157px; top: 18px; text-align: center; font: 600 17px/22px var(--f, 'Inter Mock'); letter-spacing: -0.2px; font-feature-settings: 'tnum'; padding-left: 14px; }
+.island { position: absolute; left: 157px; top: 11px; width: 126px; height: 37px; border-radius: 19px; background: #000; }
+.sb-right { position: absolute; right: 0; width: 157px; top: 22px; display: flex; gap: 6px; justify-content: center; align-items: center; padding-right: 12px; }
+.sb-right svg { fill: currentColor; display: block; }
+.hi { position: absolute; z-index: 60; left: 150.5px; bottom: 8px; width: 139px; height: 5px; border-radius: 3px; background: currentColor; }
+
+.deck .glow { position: absolute; left: -200px; top: -170px; width: 760px; height: 600px; background: radial-gradient(closest-side, rgba(100, 210, 255, 0.10), rgba(100, 210, 255, 0.035) 50%, rgba(100, 210, 255, 0) 100%); pointer-events: none; }
+svg.g { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; color: var(--ink); }
+.on svg.g, svg.g.on { color: var(--cyan); filter: drop-shadow(0 0 6px rgba(100, 210, 255, 0.45)); }
+.dhd { position: absolute; left: 20px; right: 20px; top: 62px; }
+.dhd .t-kick { color: var(--ink3); }
+.dhd .t-large { margin-top: 5px; }
+.dclose { position: absolute; right: 16px; top: 60px; }
+.fadebot2 { position: absolute; z-index: 30; left: 0; right: 0; bottom: 0; height: 120px; pointer-events: none; background: linear-gradient(180deg, rgba(5, 6, 7, 0), rgba(5, 6, 7, 0.86) 62%, rgba(5, 6, 7, 0.97)); }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); margin-right: 6px; vertical-align: 1px; }
+.amb { color: var(--amber); }
+
+.dhd .t-large { font-size: 30px; line-height: 36px; }
+.cmd { position: absolute; left: 16px; right: 16px; top: 126px; border-radius: 24px; background: var(--glass); border: 1px solid var(--hair2); box-shadow: var(--glass-shadow), 0 0 0 4px rgba(100, 210, 255, 0.05); overflow: hidden; }
+.field { height: 54px; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--hair); }
+.field svg.g { color: var(--ink2); width: 21px; height: 21px; stroke-width: 1.9; }
+.field .typed { flex: 1; font-size: 20px; line-height: 26px; letter-spacing: -0.3px; color: var(--ink); display: flex; align-items: center; }
+.field .typed i { width: 2px; height: 24px; border-radius: 1px; background: var(--cyan); margin-left: 1px; box-shadow: 0 0 6px rgba(100, 210, 255, 0.7); }
+.field .typed em { font-style: normal; color: var(--ink3); margin-left: 2px; }
+.field .mic { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; border: 1px solid var(--hair2); }
+.field .mic svg.g { color: var(--ink); width: 20px; height: 20px; }
+.hit { height: 50px; display: flex; align-items: center; gap: 14px; padding: 0 14px 0 18px; }
+.hit + .hit { border-top: 1px solid var(--hair); }
+.hit .tx { flex: 1; min-width: 0; }
+.hit .tx b { display: block; font-size: 17px; line-height: 21px; font-weight: 600; letter-spacing: -0.25px; }
+.hit .tx b u { text-decoration: none; color: var(--cyan-ink); }
+.hit .tx span { display: block; font-size: 13px; line-height: 17px; color: var(--ink2); font-feature-settings: 'tnum', 'cv05'; }
+.hit .ret { height: 26px; padding: 0 9px; border-radius: 13px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink2); border: 1px solid var(--hair2); }
+.hit .ret svg.g { width: 14px; height: 14px; stroke-width: 2; color: var(--ink2); }
+.hit.askrow svg.g { color: var(--ink2); }
+.groups { position: absolute; left: 20px; right: 20px; top: 294px; }
+.groups .t-kick { color: var(--ink3); margin: 12px 0 8px; display: flex; justify-content: space-between; }
+.groups .t-kick:first-child { margin-top: 0; }
+.groups .t-kick em { font-style: normal; letter-spacing: 0.02em; text-transform: none; font-weight: 500; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { height: 32px; padding: 0 13px; border-radius: 16px; display: inline-flex; align-items: center; gap: 7px; font-size: 15px; font-weight: 500; letter-spacing: -0.15px; color: var(--ink); background: rgba(255, 255, 255, 0.045); border: 1px solid var(--hair); white-space: nowrap; }
+.pill small { font-size: 13px; font-weight: 500; color: var(--ink3); font-feature-settings: 'tnum', 'cv05'; }
+.pill svg.g { width: 15px; height: 15px; stroke-width: 1.9; color: var(--ink2); }
+.pill.rec { padding: 0 11px 0 10px; gap: 6px; font-size: 14px; background: transparent; }
+.pills.one { gap: 6px; flex-wrap: nowrap; }
+.pill.match { border-color: rgba(100, 210, 255, 0.45); color: var(--cyan-ink); box-shadow: 0 0 0 3px rgba(100, 210, 255, 0.07); }
+.pill.match small { color: var(--cyan-ink); opacity: 0.7; }
+.pill.cur { color: var(--ink); }
+.pill.cur::before { content: ''; width: 6px; height: 6px; border-radius: 3px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); margin-left: -3px; }
+/* the keyboard (faked: iOS dark, 440 pt wide) */
+.kb { position: absolute; z-index: 55; left: 0; right: 0; bottom: 0; height: 302px; background: rgba(38, 39, 42, 0.94); backdrop-filter: blur(30px); border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.kb .sug { height: 44px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; text-align: center; font-size: 16px; color: var(--ink); }
+.kb .sug span + span { border-left: 1px solid rgba(255, 255, 255, 0.12); }
+.kb .sug .q { color: var(--ink2); }
+.kr { position: absolute; left: 3px; right: 3px; height: 44px; display: flex; gap: 6px; justify-content: center; }
+.k { width: 37.4px; height: 44px; border-radius: 6px; display: grid; place-items: center; font-size: 23px; font-weight: 400; color: #fff; background: rgba(110, 112, 118, 0.62); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45); }
+.k.f { background: rgba(70, 72, 76, 0.9); font-size: 16px; }
+.k svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.kb .bot { position: absolute; left: 0; right: 0; bottom: 0; height: 46px; }
+.kb .bot svg { position: absolute; top: 4px; width: 25px; height: 25px; fill: none; stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style><div class="screen deck "><div class="glow" data-bleed></div><div class="sb" aria-hidden="true">
+  <span class="sb-time">23:06</span>
+  <span class="island"></span>
+  <span class="sb-right">
+    <svg viewBox="0 0 18 12" width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+    <svg viewBox="0 0 17 12" width="17" height="12"><path d="M8.5 2.2c2.5 0 4.8 1 6.5 2.6l1.2-1.3A11 11 0 008.5.4 11 11 0 00.8 3.5L2 4.8a9.3 9.3 0 016.5-2.6zM8.5 5.8c1.5 0 2.9.6 4 1.6l1.2-1.3a7.4 7.4 0 00-10.4 0l1.2 1.3c1.1-1 2.5-1.6 4-1.6zM8.5 9.2c.6 0 1.1.2 1.5.6L8.5 11.5 7 9.8c.4-.4.9-.6 1.5-.6z"/></svg>
+    <svg viewBox="0 0 28 13" width="28" height="13"><rect x=".5" y=".5" width="24" height="12" rx="3.6" fill="none" stroke="currentColor" stroke-opacity=".38"/><rect x="2" y="2" width="17.5" height="9" rx="2.2"/><path d="M26 4.5v4c.8-.3 1.4-1.1 1.4-2s-.6-1.7-1.4-2z" fill-opacity=".45"/></svg>
+  </span>
+</div><div class="dhd"><div class="t-kick">Every screen</div><div class="t-large">At your service, Boss</div></div><span class="gbtn dclose"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></span><div class="cmd">
+  <div class="field"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><span class="typed">ag<i></i></span><span class="mic"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span></div>
+  <div class="hit on"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h3M13.5 13h3M7.5 16.5h3"/></svg><span class="tx"><b><u>Ag</u>enda</b><span>Next: Dentist, 01:00 · 4 reminders</span></span><span class="ret"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6v5a3 3 0 01-3 3H6"/><path d="M9.5 10.5L6 14l3.5 3.5"/></svg>go</span></div>
+  <div class="hit askrow"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l1.8 5.2 5.2 1.8-5.2 1.8L12 17.5l-1.8-5.2L5 10.5l5.2-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg><span class="tx"><b>Ask Ghosty “ag…”</b><span>Finish the thought and he answers</span></span></div>
+</div><div class="groups"><div class="t-kick">Recent</div><div class="pills one"><span class="pill rec"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6a3 3 0 013 3v13a2 2 0 00-2-2H4z"/><path d="M20 4h-6a3 3 0 00-3 3v13a2 2 0 012-2h7z"/></svg>Library</span><span class="pill rec"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2"/><path d="M12 14v6.5"/></svg>School</span><span class="pill rec"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16v-5M11 16V7M16 16v-8M21 16V4"/></svg>Markets</span><span class="pill rec"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9v6M5 7v10M19 7v10M22 9v6"/><path d="M5 12h14"/></svg>Gym</span></div><div class="t-kick">Ask and see</div><div class="pills"><span class="pill cur">Core</span><span class="pill">Brief</span><span class="pill">God’s eye</span><span class="pill">Lens</span></div><div class="t-kick">Make</div><div class="pills"><span class="pill">3D studio</span><span class="pill">Workshop</span><span class="pill">Reverse</span><span class="pill">Space</span></div><div class="t-kick">Learn and plan</div><div class="pills"><span class="pill">Learn</span><span class="pill">Gym<small>0/22</small></span><span class="pill">School</span><span class="pill">Library<small>8,556</small></span><span class="pill match">Agenda<small>4</small></span><span class="pill">Markets</span><span class="pill">Threats<small>170</small></span><span class="pill">Radio</span></div><div class="t-kick">Me</div><div class="pills"><span class="pill">Memory<small>7</small></span><span class="pill">Settings</span><span class="pill">System</span><span class="pill">Links</span></div></div><div class="kb"><div class="sug"><span class="q">“ag”</span><span>Agenda</span><span>again</span></div><div class="kr" style="top:50px;padding:0 0px"><span class="k">q</span><span class="k">w</span><span class="k">e</span><span class="k">r</span><span class="k">t</span><span class="k">y</span><span class="k">u</span><span class="k">i</span><span class="k">o</span><span class="k">p</span></div><div class="kr" style="top:106px;padding:0 20px"><span class="k">a</span><span class="k">s</span><span class="k">d</span><span class="k">f</span><span class="k">g</span><span class="k">h</span><span class="k">j</span><span class="k">k</span><span class="k">l</span></div><div class="kr" style="top:162px;padding:0 0px"><span class="k f" style="width:46px"><svg viewBox="0 0 24 24"><path d="M12 4l7.5 8H15v7H9v-7H4.5z"/></svg></span><span style="width:7px"></span><span class="k">z</span><span class="k">x</span><span class="k">c</span><span class="k">v</span><span class="k">b</span><span class="k">n</span><span class="k">m</span><span style="width:7px"></span><span class="k f" style="width:46px"><svg viewBox="0 0 24 24"><path d="M8.5 6H20a1 1 0 011 1v10a1 1 0 01-1 1H8.5L3 12z"/><path d="M11.5 9.5l5 5M16.5 9.5l-5 5"/></svg></span></div><div class="kr" style="top:218px;padding:0 0px"><span class="k f" style="width:92px">123</span><span class="k" style="flex:1;font-size:16px">space</span><span class="k f" style="width:92px">go</span></div><div class="bot"><svg viewBox="0 0 24 24" style="left:26px"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.8 5.2 3.8 8.5S14.6 18.1 12 20.5M12 3.5C9.4 5.9 8.2 8.7 8.2 12s1.2 6.1 3.8 8.5"/></svg><svg viewBox="0 0 24 24" style="right:26px"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></div></div><div class="hi" aria-hidden="true"></div></div>
+</body>
+</html>
