@@ -107,7 +107,7 @@ export const memoryTab: TabDef = {
         if (ok) undo(`Forgotten: “${clip(f.text)}”`, () => putBack(`f:${f.id}`));
       });
       return r;
-    }, () => 'NONE YET', 'Say “remember …” in a chat, or tap Add a memory: what he keeps shows here.');
+    }, () => 'NONE YET', 'Say “remember …” in a chat and I keep it here.');
     const input = h('input', { placeholder: 'Tell me something to remember…', 'aria-label': 'New fact' });
     const add = async () => {
       const t = input.value.trim();
@@ -192,7 +192,7 @@ export const memoryTab: TabDef = {
     let sheet: { close(): void } | null = null;
     const addRow = h('button.addrow', { type: 'button' }, h('span.sq', { style: '--tint:#5ac8fa' }, icon('<path d="M12 5v14M5 12h14"/>')), h('span', 'Add a memory…'));
     addRow.addEventListener('click', () => {
-      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. He keeps it in your profile.'), meForm), () => {
+      sheet = modal('Add a memory', h('div.memadd', h('p.note', 'Something about you, in your own words. I keep it under ME.'), meForm), () => {
         mp.el.insertBefore(meForm, mp.body);
         sheet = null;
       });
@@ -211,7 +211,7 @@ export const memoryTab: TabDef = {
 
     // ---- DIARY: one entry a day, written by the nightly reflection; REFLECT NOW writes today's.
     const dp = panel('DIARY', { footer: true, status: '' });
-    const dg = pager(dp, 46, (e: DiaryEntry) => row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night he writes a page about your day. Tap Reflect now for today’s.');
+    const dg = pager(dp, 46, (e: DiaryEntry) => row(diaryDay(e.heading), e.text, '›', { wrap: true, onClick: () => modal(`Diary · ${diaryDay(e.heading)}`, h('div.readwrap', h('div.reader', ...e.text.split(/\n+/).map((p) => h('p', p))))) }), () => 'NONE YET', 'Each night I write a page about your day. Tap Reflect now for today’s.');
     const paintDiary = () => {
       dp.setStatus(lastReflect ? `last reflected ${fmt.ago(lastReflect)}` : diary.length ? `${diary.length}` : 'nothing yet', diary.length ? 'ok' : 'mid');
       dg.set(diary);
@@ -262,7 +262,7 @@ export const memoryTab: TabDef = {
         if (back) undo(`Forgotten: “${clip(l.text)}”`, () => putBack(`l:${l.id}`));
       });
       return r;
-    }, () => 'NONE YET', 'When he gets something wrong and you put him right, the lesson shows here.');
+    }, () => 'NONE YET', 'When I get something wrong and you put me right, the lesson shows here.');
     const refreshLessons = async () => {
       try {
         lessons = (await brain.lessons()).lessons;
@@ -273,7 +273,7 @@ export const memoryTab: TabDef = {
       lg.set([...lessons].sort((a, b) => b.hits - a.hits || b.at - a.at));
     };
     const cp = panel('CONVERSATION', { footer: true });
-    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask him anything from Home.');
+    const cg = pager(cp, 52, (e: { who: string; text: string }) => row(e.who, e.text, null, { wrap: true }), () => 'NONE YET', 'Nothing said yet. Ask me anything from Home.');
     // CLEAR CONVERSATION: gone from the screen at once, from the brain when the UNDO bar goes (session.ts);
     // UNDO puts every message back. What he remembers about you stays either way.
     cp.foot!.prepend(button('CLEAR CONVERSATION', () => clearConversation(), 'warn'));

@@ -85,6 +85,9 @@ async function run(name, viewport) {
   if (!(order[0] < order[1] && order[1] < order[2])) problems.push(`[${name}] ME, PATTERNS and the TIMELINE are not in that order (tops ${order.join(', ')})`);
   if (order[0] > viewport.height - 200) problems.push(`[${name}] ME starts ${Math.round(order[0])} points down, below the first screen`);
   await page.screenshot({ path: `${out}/${name}-memory-me.png` });
+  // one voice: Memory's own sentences speak as Ghosty ("I"), never of him in the third person ("he keeps it", "his memory")
+  const voice = await page.$$eval('#pg-memory :is(.note, .empty, .placelist p)', (els) => els.map((e) => e.textContent ?? '').filter((t) => /\b(he|him|his)\b/i.test(t)));
+  if (voice.length) problems.push(`[${name}] Memory speaks of Ghosty as "he": ${voice.join(' / ').slice(0, 300)}`);
   // add a line under ROUTINES (the "Add a memory…" row opens the form in a sheet)
   const addRow = page.locator('#pg-memory .addrow');
   const sheet = (await addRow.isVisible().catch(() => false)) ? (await addRow.click(), page.locator('.modal .memadd')) : me;

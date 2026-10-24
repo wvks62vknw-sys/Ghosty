@@ -97,7 +97,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
   const paint = () => {
     clear(list);
     if (!places.length) {
-      list.append(h('p.note', 'No places yet. Add home and work and he can take you home, time the drive to work, and show your commute in the Brief.'));
+      list.append(h('p.note', 'No places yet. Add home and work and I can take you home, time the drive to work, and show your commute in the Brief.'));
       return;
     }
     for (const [i, p] of places.entries()) {
@@ -127,7 +127,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
   const el = h(
     'div.places',
     h('div.lab', 'PLACES'),
-    h('p.note.privacy', 'Kept in his memory like everything here, and nowhere else. Only the map points go to the free route service when he works out a journey.'),
+    h('p.note.privacy', 'Kept in my memory like everything here, and nowhere else. Only the map points go to the free route service when I work out a journey.'),
     undo.el,
     list,
     h('div.keyrow.wrapit.placeadd', kind, name, where, button('FIND', (b) => void find(b))),

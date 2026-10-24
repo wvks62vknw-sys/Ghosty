@@ -82,7 +82,7 @@ const block = page.locator('#pg-memory .pn.me .places');
 await block.waitFor({ state: 'attached', timeout: 10000 });
 await block.scrollIntoViewIfNeeded();
 const said = (await block.textContent()) ?? '';
-if (!/Kept in his memory like everything here, and nowhere else/.test(said)) problems.push(`PLACES does not say where places are kept: ${said.slice(0, 160)}`);
+if (!/Kept in my memory like everything here, and nowhere else/.test(said)) problems.push(`PLACES does not say where places are kept: ${said.slice(0, 160)}`);
 if (!/No places yet/.test(said)) problems.push('PLACES with none saved does not say what to do');
 // A place that cannot be found is said plainly.
 await block.locator('select').selectOption('home');
