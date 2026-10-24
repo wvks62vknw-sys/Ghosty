@@ -50,14 +50,15 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 3. Happening right now
 
 - PR #36 is under CI with the big-brain crash fix on it (head 61ce7db): I merge it the moment it is green, and that update reaches your phone.
-- Being built, each in its own worktree, each finishing its checks: the scroll audit at 440 × 956 (12 fixes), the Iron Man look (instruments, hub cards, the GYM's holographic pictures, the lit tab bar, one screen per hub), the Memory upgrade pass (11 fixes).
+- Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
+- Being built, each in its own worktree, each finishing its checks: the scroll audit at 440 × 956 (12 fixes), the Iron Man look (instruments, hub cards, the GYM's holographic pictures, the lit tab bar, one screen per hub).
 - Upgrade passes started at 23:58 UK: Settings and the Library (each measuring first, then the top ten fixes).
 - After the Iron Man look merges: the navigation build (tool screens, GYM pages of six, the long-press switcher).
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-1. Upgrade passes still to run: Reverse, Markets, Radio, Agenda, Library, Settings, System (Threats, God's Eye, Lens, voice, Workshop and Brief are merged; Memory is being built).
+1. Upgrade passes still to run: Reverse, Markets, Radio, Agenda, Library, Settings, System (Threats, God's Eye, Lens, voice, Workshop, Brief and Memory are merged; Settings and the Library are being built).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
 3. UK threats near home: Environment Agency flood warnings, Met Office warnings, a street-crime tile (the Threats pass's biggest leftover).
 4. ASK gets PICK PHOTO (ask about a picture with no camera); the red primary buttons (a design call for you); READ's picked photo shown whole.
@@ -70,7 +71,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 
 - Done: 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
-- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: six merged, Memory running, seven to go), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
+- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: seven merged, Settings and the Library running, five to go), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
 - Waiting on you: 21/29 the self-edit trial's results, 23 the phone's arrival, 37 (a)–(l) the taps only you can do, the voice blind check.
 
 ## 6. My own ideas (PLAN section 6) and where each stands

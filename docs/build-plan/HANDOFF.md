@@ -318,6 +318,19 @@ folder that no longer exists; ignore those paths).
   `features/core/index.ts` (scroll audit and Iron Man). Merge order when they report: scroll audit, Iron Man, Memory.
   Their push waits until PR #36 has merged (the owner is waiting on the crash fix in it; a push would restart its CI),
   then goes up as the next pull request. Passes left after these: Reverse, Markets, Radio, Agenda, System.
+- 25 Oct 00:20 UK: merged after review: the MEMORY upgrade pass (14 commits, 10 fixes; merge 2875b8f, clean; no kernel
+  line; the builder's edge suite 1,181 of 1,181). Design note: the chat's `forget` now keeps what it removed for a day
+  under RECENTLY FORGOTTEN like every other forget (UNDO everywhere, the owner's pick 12); the Lens crop's FORGET NOW
+  still deletes at once on purpose (a privacy take-down; `DELETE /memory/:id` in agent.ts keeps no copy; if he ever
+  wants UNDO there, agent.ts line 343 becomes `await changeMemory(this.dailyDeps(), \`f:${id}\`, 'forget').catch(() => null)`
+  with `changeMemory` imported from `./memories`). Leftovers the builder ranked: a brain unreachable while the phone is
+  online still shows the cached copy silently (`api/brain.ts` `req()` would need to report its fallback: a shell-level
+  change for every tab, not Memory's); timeline rows are 173 pt (folding EDIT / LOCK / FORGET behind a tap would halve
+  them); the desktop shows an empty middle column and the phone's switch (`ui/page.ts`); theme patterns pick up filler
+  words ("long", "note"); two add forms and the section picker still says About / Likes; the diary prompt still says
+  "the owner". Verification on the merged tree: web check, tsc and the memory, places, undo and backup specs on a fresh
+  preview (chain bvwbxx25c); the full edge suite runs once after the scroll audit and the Iron Man look merge, before
+  the push.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
