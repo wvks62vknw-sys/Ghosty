@@ -151,6 +151,10 @@ folder that no longer exists; ignore those paths).
   the Library's ADD (the Agenda card is the one route); no WebKit run of the two new specs. The builder's full suite had
   two timing misses under load in untouched tests (design 1,019 ms of 1 s; the 15-puzzle 204.7 ms of 200), both passing
   on a re-run.
+- 24 Oct ~16:20 UK: pushed to PR #33 as one batch after the final checks on this exact tree: the brain suite 1,152 of 1,152;
+  the websites, sites, studiomake, places, spending, journey, agenda, memory, photo, name, backup, direct, THINK HARDER and
+  meaning specs clean against a fresh preview; the GYM and night specs earlier on the same code. Run 224 (the previous
+  head) failed name, direct, backup and meaning: all mended in the specs (above). CI's smoke loop now has 60 specs.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
