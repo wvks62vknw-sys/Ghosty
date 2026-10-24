@@ -261,7 +261,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'gadgets',
     tools: gadgetTools,
-    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part)\b/i,
+    when: /\b(speakers?|amp|amps|amplifiers?|soundbars?|settings|eq|equali[sz]er|distort\w*|tv settings|best settings|replacements?|spare parts?|spares|part numbers?|find (?:a |the )?part|manuals?|instructions? (?:book|for use)|rating plate|model number|fault codes?|error codes?|dishwashers?|washing machines?|tumble dryers?|fridges?|freezers?|ovens?|boilers?)\b|\b[EF]\s?:?\s?\d{1,3}\b/i, // [manuals] manuals, rating plates, fault codes and appliances turn the group on (gadget_manual)
     about: "You can get a gadget's best settings from manuals and reviewers (gadget_settings) and a spare part from UK shops with prices (find_part); identify make/model/part number first (study 'gadgets and parts'); never guess.",
   },
   // 3D STUDIO (model3d.ts, features/studio): pictures into 3-D models, and the studio itself.
