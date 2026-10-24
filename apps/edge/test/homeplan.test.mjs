@@ -2,8 +2,11 @@
 // SPACE PLANNER imports and the 3D STUDIO builds. Sizes in any unit, rooms and how they sit, doors on
 // shared walls, windows on outside walls, furniture inside its room and out of door swings, tight
 // walkways flagged, every assumption said, the reply within the model's budget, and the plan
-// round-tripping through the planner's own readers. Run by design.test.mjs (one import line), so the
-// protected package.json test list is unchanged; it builds what it needs itself.
+// round-tripping through the planner's own readers. Part 2: the whole plan goes to the phone as the
+// `home_plan` client event (never cut), the phone reads it whole (space/homeplan.ts), the scripted model
+// turns "Design my home …" into the tool, and the brain streams the event through a real chat turn.
+// Run by design.test.mjs (one import line), so the protected package.json test list is unchanged; it
+// builds what it needs itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -17,6 +20,10 @@ await build({ ...opts, entryPoints: [here('../../web/src/studio/room.ts')], outf
 await build({ ...opts, entryPoints: [here('../src/prompt.ts')], outfile: here('./.build/homeplan/prompt.mjs') });
 await build({ ...opts, entryPoints: [here('../src/tools/index.ts')], outfile: here('./.build/homeplan/tools.mjs') });
 await build({ ...opts, entryPoints: [here('../src/context.ts')], outfile: here('./.build/homeplan/context.mjs') });
+await build({ ...opts, entryPoints: [here('../../../packages/shared/src/protocol.ts')], outfile: here('./.build/homeplan/protocol.mjs') });
+await build({ ...opts, entryPoints: [here('../src/llm/mock.ts')], outfile: here('./.build/homeplan/mock.mjs') });
+await build({ ...opts, entryPoints: [here('../../web/src/space/homeplan.ts')], outfile: here('./.build/homeplan/webhome.mjs') });
+await build({ ...opts, entryPoints: [here('../src/index.ts')], outfile: here('./.build/homeplan/brain.mjs') });
 const H = await import('./.build/homeplan/homeplan.mjs');
 const D = await import('./.build/homeplan/design.mjs');
 const RJ = await import('./.build/homeplan/roomjson.mjs');
@@ -24,6 +31,9 @@ const R = await import('./.build/homeplan/room.mjs');
 const P = await import('./.build/homeplan/prompt.mjs');
 const T = await import('./.build/homeplan/tools.mjs');
 const C = await import('./.build/homeplan/context.mjs');
+const PR = await import('./.build/homeplan/protocol.mjs');
+const M = await import('./.build/homeplan/mock.mjs');
+const W = await import('./.build/homeplan/webhome.mjs');
 
 const near = (a, b, eps = 0.01) => Math.abs(a - b) <= eps;
 const roomOf = (s, name) => s.rooms.find((r) => r.name === name);
@@ -488,4 +498,159 @@ test('registration: the group line follows the prompt rules, the words turn it o
   // the name is free, or it is this very tool (the bundles differ, so compare the specs, not the objects)
   const reg = T.TOOLS.find((t) => t.name === 'design_home');
   assert.ok(!reg || JSON.stringify(T.toolSpecs([reg])) === JSON.stringify(T.toolSpecs([H.homePlanTools[0]])), 'design_home is registered with this spec');
+});
+
+// ------------------------------------------------------------------ part 2: the hand-off to the phone
+
+const SEMI = 'A three-bed semi. Downstairs: a hall, a living room 4.5 by 3.6 m with a sofa against the long wall, and a kitchen diner 5 by 3 m at the back with a table for 4. Upstairs: a main bedroom 3.8 by 3.2 m with a double bed, a second bedroom 3 by 2.8 m, a small third bedroom and a bathroom.';
+
+/** design_home run as the brain runs it, with the events it sends to the phone. */
+async function runTool(args) {
+  const events = [];
+  const ctx = { storage: {}, env: {}, emit: (e) => events.push(e), progress: () => undefined, vault: { get: async () => null } };
+  const text = await H.homePlanTools[0].run(args, ctx);
+  return { text, events, sent: events.filter((e) => e.t === 'client' && e.name === 'home_plan') };
+}
+
+test('the hand-off: design_home sends the whole plan to the phone as one client event — every floor at full precision, never cut — while the reply stays within budget', async () => {
+  assert.ok(PR.CLIENT_COMMANDS.includes('home_plan'), 'home_plan is a command the interface runs');
+  for (const [text, floors] of [[SAMPLES[0], 1], [SAMPLES[3], 1], [SEMI, 2], [SAMPLES[2], 2], [BIG, 2]]) {
+    const p = plan(text);
+    assert.equal(p.storeys.length, floors, text.slice(0, 30));
+    const { text: reply, sent } = await runTool({ description: text });
+    assert.ok(reply.length <= H.REPLY_MAX, `${text.slice(0, 30)}: the reply is ${reply.length} characters`);
+    assert.equal(sent.length, 1, 'one plan event per call');
+    const ev = sent[0].args;
+    assert.deepEqual(ev, JSON.parse(JSON.stringify(ev)), 'the event is plain JSON');
+    assert.equal(ev.words, text);
+    assert.equal(ev.unit, p.unit);
+    assert.deepEqual(ev.assumed, p.assumed);
+    assert.deepEqual(ev.cannot, p.cannot);
+    assert.equal(ev.storeys.length, floors, 'every floor');
+    ev.storeys.forEach((st, i) => {
+      const s = p.storeys[i];
+      assert.equal(st.name, s.name);
+      // the plan exactly as the planner's own export would write it at full precision: nothing rounded, nothing left out
+      assert.deepEqual(st.plan, JSON.parse(JSON.stringify(H.storeyJson(s, 0))));
+      assert.equal(st.plan.rooms.length, s.rooms.length);
+      assert.equal(st.plan.openings.length, s.openings.length);
+      assert.equal(st.plan.items.length, s.items.length, 'every piece of furniture, even when the reply had to leave them out');
+      assert.ok(st.plan.items.every((it) => it.id && it.kind && it.h), 'the pieces keep their ids, kinds and heights');
+      assert.deepEqual(D.readLayout(st.plan).dropped, []);
+    });
+  }
+  // the big house: the reply had to cut (a floor per call, or less precision) — the event did not
+  const big = plan(BIG);
+  const { text: bigReply, sent: bigSent } = await runTool({ description: BIG });
+  assert.ok(JSON.stringify(bigSent[0].args).length > H.REPLY_MAX, 'the event is bigger than the model may be given');
+  assert.ok(bigReply.split('\n').some((l) => /^PLAN \(.*\): too long to send/.test(l)) || bigReply.split('\n').filter((l) => l.startsWith('PLAN') && l.includes('{')).some((l) => JSON.parse(l.slice(l.indexOf('{'))).items.length === 0 || !('id' in JSON.parse(l.slice(l.indexOf('{'))).openings[0])), 'the reply cut something');
+  assert.deepEqual(bigSent[0].args.storeys.map((s) => s.plan.rooms.length), big.storeys.map((s) => s.rooms.length));
+  // one floor asked for: the reply has that floor, the phone still gets the whole house
+  const { sent: one } = await runTool({ description: BIG, floor: 1 });
+  assert.equal(one[0].args.storeys.length, 2);
+  // the reply tells the model the plan is on the phone already, with the buttons it has; still no rules claimed
+  assert.match(bigReply, /already on the owner's phone: the card under your reply has OPEN IN SPACE and SEE IN 3-D/);
+  assert.match(bigReply, /says nothing about planning permission or building regulations/);
+  // a question about a plan the owner already has sends no plan
+  const q = await runTool({ description: 'What do you think of my layout?' }).catch((e) => e);
+  assert.ok(q instanceof Error);
+  const none = [];
+  await H.homePlanTools[0].run({ description: 'What do you think of my layout?' }, { storage: {}, env: {}, emit: (e) => none.push(e), progress: () => undefined, vault: { get: async () => null } }).catch(() => undefined);
+  assert.ok(!none.some((e) => e.name === 'home_plan'));
+});
+
+test('the phone reads the plan whole: every floor into the planner with every room, door, window and piece; a damaged plan is refused; the lines it shows', async () => {
+  for (const text of [SAMPLES[0], SEMI, BIG]) {
+    const { sent } = await runTool({ description: text });
+    const p = plan(text);
+    const kept = W.readHomePlan(sent[0].args, 1700000000000);
+    assert.ok(kept, text.slice(0, 30));
+    assert.equal(kept.id, '1700000000000');
+    assert.equal(kept.storeys.length, p.storeys.length);
+    assert.equal(kept.rooms, p.storeys.reduce((n, s) => n + s.rooms.length, 0));
+    const m2 = p.storeys.reduce((n, s) => n + s.rooms.reduce((a, r) => a + D.polyArea(r.poly), 0), 0) / 10000;
+    assert.ok(near(kept.m2, m2, 0.11), `${kept.m2} m² vs ${m2}`);
+    kept.storeys.forEach((st, i) => {
+      const planner = RJ.roomToPlan(st.plan);
+      assert.equal(planner.rooms.length, p.storeys[i].rooms.length);
+      assert.equal(planner.openings.length, p.storeys[i].openings.length);
+      assert.equal(planner.items.length, p.storeys[i].items.length);
+      assert.ok(W.holdsStorey(planner, st), 'the planner holds the floor it was given');
+      assert.ok(!W.holdsStorey(planner, kept.storeys[(i + 1) % kept.storeys.length]) || kept.storeys.length === 1, 'and not another floor');
+    });
+    assert.deepEqual(kept.assumed, p.assumed);
+  }
+  // the lines: "Drawn from your words · 6 rooms · 55.8 m²", a house's floors, the owner's unit
+  const flat = W.readHomePlan((await runTool({ description: SAMPLES[0] })).sent[0].args);
+  assert.match(W.homeLine(flat, 'metric'), /^Drawn from your words · 6 rooms · \d+\.\d m²$/);
+  assert.match(W.homeLine(flat, 'imperial'), /^Drawn from your words · 6 rooms · \d+ ft²$/);
+  const semi = W.readHomePlan((await runTool({ description: SEMI })).sent[0].args);
+  assert.match(W.homeLine(semi, 'metric'), /^Drawn from your words · 2 floors · 8 rooms · \d+\.\d m²$/);
+  assert.equal(W.cardLine(6, 55.8, 'metric'), 'Your plan: 6 rooms, 55.8 m²');
+  assert.equal(W.cardLine(1, 25.2, 'imperial'), 'Your plan: 1 room, 271 ft²');
+  // damaged or empty: refused whole, never shown with parts missing
+  const args = (await runTool({ description: SAMPLES[0] })).sent[0].args;
+  const broken = structuredClone(args);
+  broken.storeys[0].plan.openings[0].wall = 99;
+  assert.equal(W.readHomePlan(broken), null, 'a door on a wall that is not there');
+  const noRooms = structuredClone(args);
+  noRooms.storeys[0].plan.rooms = [];
+  assert.equal(W.readHomePlan(noRooms), null);
+  assert.equal(W.readHomePlan({}), null);
+  assert.equal(W.readHomePlan(null), null);
+  assert.equal(W.readHomePlan({ storeys: [1, 2, 3, 4].map(() => args.storeys[0]) }), null, 'four floors is not a home Ghosty draws');
+  // the chat card goes under the reply it came with, not above it
+  const log = [{ kind: 'user' }, { kind: 'activity' }, { kind: 'home', id: 'a' }, { kind: 'activity' }, { kind: 'assistant' }, { kind: 'user' }, { kind: 'home', id: 'b' }];
+  assert.deepEqual(W.homeAfterReply(log).map((e) => e.id ?? e.kind), ['user', 'activity', 'activity', 'assistant', 'a', 'user', 'b']);
+});
+
+test('the scripted model (MOCK_LLM): "Design my home …" → design_home with the owner\'s words, the unit said', async () => {
+  const tools = [{ type: 'function', function: { name: 'design_home', description: '', parameters: { type: 'object', properties: {} } } }];
+  const ask = async (content) => (await M.mockComplete([{ role: 'system', content: 'x' }, { role: 'user', content }], tools)).message.tool_calls?.[0]?.function;
+  const a = await ask('Design my home (sizes in metres): A bedroom 3 by 3 m with a double bed.');
+  assert.equal(a.name, 'design_home');
+  assert.deepEqual(JSON.parse(a.arguments), { description: 'A bedroom 3 by 3 m with a double bed.', unit: 'metric' });
+  const b = await ask('Design my home (sizes in feet and inches): A lounge 15 by 12 feet.\nA kitchen off it.');
+  assert.deepEqual(JSON.parse(b.arguments), { description: 'A lounge 15 by 12 feet.\nA kitchen off it.', unit: 'imperial' });
+  const c = await ask('design my flat: a kitchen and a bedroom');
+  assert.deepEqual(JSON.parse(c.arguments), { description: 'a kitchen and a bedroom' });
+  // the words turn the group on, so the real brain offers the tool for that message
+  assert.ok(H.HOMEPLAN_WHEN.test('Design my home (sizes in metres): A bedroom 3 by 3 m'));
+});
+
+test('a real chat turn: the brain streams the plan to the phone as the home_plan event, between the tool and its result, every floor whole', async () => {
+  const mod = await import('./.build/homeplan/brain.mjs');
+  class Mem {
+    m = new Map();
+    async get(k) { return Array.isArray(k) ? new Map(k.filter((x) => this.m.has(x)).map((x) => [x, structuredClone(this.m.get(x))])) : this.m.has(k) ? structuredClone(this.m.get(k)) : undefined; }
+    async put(k, v) { if (typeof k === 'object') for (const [a, b] of Object.entries(k)) this.m.set(a, structuredClone(b)); else this.m.set(k, structuredClone(v)); }
+    async delete(k) { return Array.isArray(k) ? k.filter((x) => this.m.delete(x)).length : this.m.delete(k); }
+    async list({ prefix = '' } = {}) { return new Map([...this.m].filter(([k]) => k.startsWith(prefix)).sort().map(([k, v]) => [k, structuredClone(v)])); }
+    async setAlarm() {}
+    async getAlarm() { return null; }
+  }
+  const { webcrypto } = await import('node:crypto');
+  const OWNER_KEY = 'test-owner-key-0123456789abcdef';
+  const pending = [];
+  const state = { storage: new Mem(), waitUntil: (p) => pending.push(p), blockConcurrencyWhile: (f) => f() };
+  const env = { OWNER_KEY, VAULT_KEY: Buffer.from(webcrypto.getRandomValues(new Uint8Array(32))).toString('base64'), MOCK_LLM: '1' };
+  let agent;
+  env.AGENT = { idFromName: (n) => ({ toString: () => n }), get: () => ({ fetch: (r) => (agent ??= new mod.GhostyAgent(state, env)).fetch(r) }) };
+  const wctx = { waitUntil: (p) => pending.push(p), passThroughOnException() {} };
+  const r = await mod.default.fetch(new Request('https://ghosty.test/api/chat', { method: 'POST', body: JSON.stringify({ message: `Design my home (sizes in metres): ${SEMI}` }), headers: { 'content-type': 'application/json', 'x-ghosty': '1', 'x-ghosty-key': OWNER_KEY } }), env, wctx);
+  assert.equal(r.status, 200);
+  const events = (await r.text()).trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  await Promise.allSettled(pending.splice(0));
+  const tool = events.findIndex((e) => e.t === 'tool' && e.name === 'design_home');
+  const client = events.findIndex((e) => e.t === 'client' && e.name === 'home_plan');
+  const result = events.findIndex((e) => e.t === 'tool_result' && e.name === 'design_home');
+  assert.ok(tool >= 0 && client > tool && result > client, JSON.stringify(events.map((e) => `${e.t}:${e.name ?? ''}`)));
+  assert.equal(events[result].ok, true);
+  const ev = events[client].args;
+  const p = plan(SEMI, 'metric');
+  assert.equal(ev.unit, 'metric');
+  assert.deepEqual(ev.storeys.map((s) => s.plan.rooms.length), p.storeys.map((s) => s.rooms.length));
+  assert.deepEqual(ev.storeys[1].plan, JSON.parse(JSON.stringify(H.storeyJson(p.storeys[1], 0))), 'the upstairs whole, as the tool drew it');
+  assert.ok(W.readHomePlan(ev), 'and the phone takes it');
+  assert.ok(events.some((e) => e.t === 'text'), 'and the chat gets its reply');
 });
