@@ -214,6 +214,12 @@ folder that no longer exists; ignore those paths).
   default and is long. The Street View spec times out on this loaded machine on the base build as well (Google's
   panorama frame screenshot); CI runs it on a quieter runner. Measured: a tab open here is about 1 s under software
   graphics (not a phone number); first aircraft 12–14 s (adsb.lol often answers "too many requests").
+- 24 Oct ~19:35 UK: merged after review: the LENS upgrade pass (10 fixes; no brain code changed; no kernel line). Leftovers
+  the builder ranked: ASK has no PICK PHOTO (the biggest gap: with no camera it cannot ask about a picture; a new control
+  and flow); red primary buttons (ASK GHOSTY, What's that?, RECORD, SAVE come from the shared `warn` style: a design-language
+  call for the owner); READ shows a picked photo cropped (the viewfinder's frame-to-screen mapping, used by every mode);
+  ASK's jargon note; the PHOTO TOOLS chip pushes the layout down 58 px; SOUND's empty black viewfinder before a
+  recording. A refused camera cannot be reproduced in headless Chromium (NotSupportedError, not iOS's "not allowed").
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
