@@ -337,6 +337,27 @@ for (const tab of ENDS) {
   await nctx.close();
   felt++;
 }
+// 7. Settings, System and Links keep their place. Scrolled down the list, a row opened, then another tab and back:
+//    the list came back at its top [120 → 0] (the open row is closed on leaving, and its list's place was put back
+//    while the page was hidden, which a browser ignores).
+{
+  await show(feel, 'settings');
+  const set = await feel.evaluate(() => {
+    const s = document.querySelector('#pg-settings .hud');
+    s.scrollTop = 120;
+    return Math.round(s.scrollTop);
+  });
+  // tapped where it is (a Playwright click would first scroll the list to bring the row into view)
+  await feel.locator('#pg-settings .pn[data-row] > h3').filter({ hasText: /about/i }).first().evaluate((h) => h.click());
+  await feel.waitForTimeout(500);
+  const opened = await feel.evaluate(() => !!document.querySelector('#pg-settings .pn.pushed'));
+  await show(feel, 'brief', 800);
+  await show(feel, 'settings', 800);
+  const back = await feel.evaluate(() => Math.round(document.querySelector('#pg-settings .hud').scrollTop));
+  if (!opened) problems.push('[settings] the ABOUT row did not open');
+  else if (Math.abs(back - set) > 4) problems.push(`[settings] scrolled to ${set}, a row opened, away and back: the list is at ${back}`);
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
