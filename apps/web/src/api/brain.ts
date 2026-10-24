@@ -317,7 +317,7 @@ export const brain = {
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
   library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
-  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
+  librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow; unindexed?: number }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
   libraryDone: (id: string) => req<{ doc: LibraryDoc }>('POST', `/library/docs/${encodeURIComponent(id)}/done`, {}),
@@ -540,11 +540,11 @@ brain.librarySearch = async (q, k = 8) => {
     // what the phone does not keep, such as Ghosty's reading notebooks).
     if (meaningPossible()) {
       const mine = await searchLocalHow(q, k);
-      if (mine.how === 'meaning') return { hits: interleave(mine.hits, paused ? [] : r.hits, k), how: mine.how };
+      if (mine.how === 'meaning') return { hits: interleave(mine.hits, paused ? [] : r.hits, k), how: mine.how, unindexed: mine.unindexed };
     }
     // The brain has every document it was sent; add the ones only this device has (all of them while paused).
     const local = await searchLocalHow(q, k, !paused);
-    return { hits: [...local.hits, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k), how: 'keywords' as SearchHow };
+    return { hits: [...local.hits, ...r.hits].sort((a, b) => b.score - a.score).slice(0, k), how: 'keywords' as SearchHow, unindexed: 0 };
   } catch (e) {
     if (unreachable(e)) return searchLocalHow(q, k);
     throw e;

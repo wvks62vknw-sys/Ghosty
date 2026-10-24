@@ -159,7 +159,7 @@ await page.screenshot({ path: `${out}/phone-meaning-settings.png` });
 
 // ---- ASK THE LIBRARY, by meaning: the photosynthesis passage first, and the small print says so.
 r = await ask('how do plants make food');
-if (!/^\d+ passages? · by meaning$/.test(r.status)) problems.push(`with the index whole, the small print says "${r.status}"`);
+if (!/^\d+ passages? · by meaning( · [\d,]+ newest by keywords)?$/.test(r.status)) problems.push(`with the index whole, the small print says "${r.status}"`);
 if (!r.hits[0]?.startsWith('Leaf chemistry') || !r.hits[0]?.includes('Photosynthesis') || !r.hits.some((h) => h.includes(TITLE))) problems.push(`by meaning, the first hit is not the photosynthesis passage: ${r.hits.slice(0, 2).join(' || ').slice(0, 300)}`);
 if (new Set(r.hits).size !== r.hits.length) problems.push('a passage is shown twice');
 const queried = await page.evaluate(() => window.__ghostyEmbedder.queries.at(-1) ?? '');

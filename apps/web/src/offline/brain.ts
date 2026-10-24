@@ -489,9 +489,9 @@ export async function answerOffline(question: string, recent: { role: 'user' | '
  * turns); THINK HARDER uses it too, with a smaller `budget` (its prompts are asked several times).
  */
 export async function offlinePrompt(question: string, recent: { role: 'user' | 'assistant'; text: string }[], budget?: number): Promise<OfflineMsg[]> {
-  // The library's best three by meaning when SEARCH BY MEANING is here and the index is whole, else by keywords.
+  // The library's best three by meaning when SEARCH BY MEANING is here and the index covers the library, else by keywords.
   // The meaning model leaves memory straight away: the brain is about to load, and a phone holds one comfortably.
-  const found = await searchLocalHow(question, 3).catch(() => ({ hits: [], how: 'keywords' as const }));
+  const found = await searchLocalHow(question, 3).catch(() => ({ hits: [], how: 'keywords' as const, unindexed: 0 }));
   freeEmbedder();
   const hits = found.hits;
   const now = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });

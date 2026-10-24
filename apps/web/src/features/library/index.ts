@@ -219,7 +219,7 @@ export const libraryTab: TabDef = {
     /** What a search will be ranked by, in a line: by meaning (and that it stays on the phone), or by keywords and why. */
     const howLine = () => {
       const ix = meaningIndex.get();
-      if (meaningComplete()) return `Searched by meaning: a small model on this phone finds passages by what they mean, not only their words (${fmt.n(ix.total)} passages indexed; nothing is sent anywhere).`;
+      if (meaningComplete()) return `Searched by meaning: a small model on this phone finds passages by what they mean, not only their words (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed; nothing is sent anywhere).`;
       if (embedState.get().downloaded && ix.total) return `Searched by keywords for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed by meaning so far.`;
       return 'Searched by keywords. Add SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean.';
     };
@@ -246,7 +246,8 @@ export const libraryTab: TabDef = {
         const r = await brain.librarySearch(t, 20);
         clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
         sp.body.scrollTop = 0;
-        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}`, 'ok');
+        // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
+        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');

@@ -305,3 +305,25 @@ test('a document saved here while the library copy is being made is not copied a
   assert.deepEqual(shelf.docs.map((d) => d.title).sort(), ['Kettles', 'Leaf chemistry'], 'one copy of each');
   assert.equal((await L.searchLocal('photosynthesis glucose')).length, 1);
 });
+
+test('new passages still waiting for their vectors: by meaning with the newest few by their words (and said), keywords once more are waiting', async () => {
+  assert.equal(M.meaningCovers(98, 100), true);
+  assert.equal(M.meaningCovers(97, 100), false);
+  assert.equal(M.meaningCovers(0, 0), false);
+  L._reset();
+  L.setQueryEmbedder({ ready: () => true, vector: async (q) => M.normalise(fakeVec(q)) });
+  await L.keepDoc({ title: 'Leaf chemistry', source: 'x', kind: 'notes', pages: 0 }, [{ text: 'Photosynthesis: green leaves turn sunlight into glucose.' }]);
+  await L.keepDoc({ title: 'Big notebook', source: 'x', kind: 'notes', pages: 0 }, Array.from({ length: 58 }, (_, i) => ({ text: `Note ${i} on the history of the railways in the Midlands.` })));
+  await indexAll();
+  // A notebook grows by a passage that the index has not reached: 59 of 60.
+  await L.keepDoc({ title: 'Fresh note', source: 'x', kind: 'notes', pages: 0 }, [{ text: 'Plant food for tomatoes: a liquid feed every week.' }]);
+  let r = await L.searchLocalHow('how do plants make food');
+  assert.deepEqual([r.how, r.unindexed], ['meaning', 1]);
+  assert.match(r.hits.map((h) => h.title).join(','), /Leaf chemistry/);
+  assert.ok(r.hits.some((h) => h.title === 'Fresh note'), 'the unindexed passage still competes by its words');
+  // Two more arrive: 59 of 62 is under 98 %: keywords for everything, and it says so.
+  await L.keepDoc({ title: 'More', source: 'x', kind: 'notes', pages: 0 }, [{ text: 'One.' }, { text: 'Two.' }]);
+  r = await L.searchLocalHow('how do plants make food');
+  assert.deepEqual([r.how, r.unindexed], ['keywords', 0]);
+  assert.ok(!r.hits.some((h) => h.title === 'Leaf chemistry'));
+});

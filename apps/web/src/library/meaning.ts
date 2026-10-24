@@ -6,24 +6,26 @@
  * and kept beside the passage. New passages are done as they arrive; a removed document's go with it. The count
  * shows in SETTINGS and the LIBRARY tab ("4,120 of 8,556 passages indexed").
  *
- * Searches (local.ts searchLocalHow) then rank by meaning blended with the wording, but only once every passage
- * has its vector: until then, and whenever the model is not here, by keywords — and the small print says which.
+ * Searches (local.ts searchLocalHow) then rank by meaning blended with the wording, once nearly every passage has
+ * its vector (the newest few, still waiting, are found by their words meanwhile): until then, and whenever the
+ * model is not here, by keywords — and the small print says which, and how many are still waiting.
  * Nothing is sent anywhere. The index belongs to this phone: another phone, or this one after Ghosty is
  * reinstalled (or its website data cleared), builds its own. The model reads English best.
  */
 import { createStore } from '../core/store';
 import { lastPrompt, offlineBrain, modelJob } from '../offline/brain';
 import { embedReady, embedState, embedTexts, embedderWarm } from '../offline/embed';
+import { meaningCovers } from '../../../../packages/shared/src/meaning';
 import { runIndex } from './idle';
 import { indexCounts, onLibraryChange, saveVectors, setQueryEmbedder, unindexed, type PassageKey } from './local';
 
 /** The index's state: `indexed` of `total` passages have their vector; `how` the last search's ranking. */
 export const meaningIndex = createStore({ indexed: 0, total: 0, running: false, waiting: false, error: '', how: '' as '' | 'meaning' | 'keywords' });
 
-/** The index is whole and the model is here: a search would be by meaning. */
+/** The model is here and the index covers the library (all but the newest few): a search would be by meaning. */
 export const meaningComplete = (): boolean => {
   const s = meaningIndex.get();
-  return embedState.get().downloaded && s.total > 0 && s.indexed >= s.total;
+  return embedState.get().downloaded && meaningCovers(s.indexed, s.total);
 };
 
 /** The model is needed elsewhere, or Ghosty is out of sight: the index waits. */

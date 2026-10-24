@@ -11,7 +11,7 @@
  * are worked out on this phone and never leave it.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
-import { cosine, exactTitle, prunePool, quantise, rank, spreadOf, wordMatcher, type SearchHow, type Signals } from '../../../../packages/shared/src/meaning';
+import { cosine, exactTitle, meaningCovers, prunePool, quantise, rank, spreadOf, wordMatcher, type SearchHow, type Signals } from '../../../../packages/shared/src/meaning';
 
 export interface LocalPassage {
   text: string;
@@ -351,20 +351,23 @@ export const meaningPossible = (): boolean => !!embedder?.ready();
 
 export interface LocalSearch {
   hits: LibraryHit[];
-  /** How they were ranked: by meaning only when the question had a vector and every passage searched had one. */
+  /** How they were ranked: by meaning when the question had a vector and nearly every passage (MEANING_SHARE) had one. */
   how: SearchHow;
+  /** By meaning: how many passages (the newest, not indexed yet) could only be found by their words. */
+  unindexed: number;
 }
 
 /**
  * Search documents kept here, reading passages from storage a batch at a time (only the best few are kept).
  * `onlyPending`: just the ones the brain doesn't have yet. With a vector for the question (`load`: the model
- * may be brought into memory for it), every passage is scored by meaning blended with its wording; if any
- * passage searched has no vector yet, the ranking is by keywords alone, as it always was, and says so.
+ * may be brought into memory for it), every passage is scored by meaning blended with its wording — the newest
+ * few still waiting for their vectors by their wording alone (`unindexed` says how many); if more than a few
+ * (MEANING_SHARE) have no vector yet, the ranking is by keywords alone, as it always was, and says so.
  */
 export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts: { load?: boolean } = {}): Promise<LocalSearch> {
   const words = wordMatcher(q);
   const qv = embedder ? await embedder.vector(q, opts.load ?? true).catch(() => null) : null;
-  if (!words && !qv) return { hits: [], how: 'keywords' };
+  if (!words && !qv) return { hits: [], how: 'keywords', unindexed: 0 };
   const docs = await all();
   type Cand = LibraryHit & Signals;
   let byWords: Cand[] = [];
@@ -392,11 +395,11 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
     const exact = exactTitle(q, d.title, p.heading ?? '');
     const c: Cand = { doc, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: 0, relevant: true, ...w, exact, cos };
     if (w.matched) byWords.push(c);
-    if (qv && !missing) pool.push(c);
+    if (qv) pool.push(c);
   };
   const prune = () => {
     if (byWords.length > k * 4) byWords = rank(byWords, k, 'keywords');
-    pool = missing ? [] : prunePool(pool, POOL);
+    pool = prunePool(pool, POOL);
   };
   if (onlyPending) {
     // Just the few documents the brain doesn't have yet: read those, not the whole copy.
@@ -416,7 +419,7 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
       prune();
     }, !!qv);
   }
-  const how: SearchHow = qv && !missing && seen > 0 ? 'meaning' : 'keywords';
+  const how: SearchHow = qv && meaningCovers(seen - missing, seen) ? 'meaning' : 'keywords';
   const ranked = how === 'meaning' ? rank(pool, k * 2, how, spreadOf(n, sum, sumSq)) : rank(byWords, k * 2, how);
   // The same passage twice (two copies of one document) is shown once.
   const once = new Set<string>();
@@ -424,7 +427,7 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
     .filter((h) => !once.has(`${h.doc}|${h.text}`) && !!once.add(`${h.doc}|${h.text}`))
     .slice(0, k)
     .map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
-  return { hits, how };
+  return { hits, how, unindexed: how === 'meaning' ? missing : 0 };
 }
 
 /** The best passages kept here for a question (searchLocalHow without the how). */

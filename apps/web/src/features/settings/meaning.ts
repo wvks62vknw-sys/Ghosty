@@ -10,6 +10,7 @@ import { deleteEmbedder, downloadEmbedder, embedReady, embedState, embedSupport 
 import { EMBED_MODEL } from '../../offline/models';
 import { progressLabel } from '../../offline/prompt';
 import { bar, button, toast } from '../../ui/components';
+import { meaningCovers } from '../../../../../packages/shared/src/meaning';
 
 export function meaningBlock(): HTMLElement {
   const line = h('div.note.mnline', 'Checking this phone…');
@@ -43,7 +44,7 @@ export function meaningBlock(): HTMLElement {
     } else if (s.busy === 'download') line.textContent = `Downloading search by meaning (about ${EMBED_MODEL.mb} MB)… keep Ghosty open, on Wi-Fi.`;
     else if (ready) line.textContent = `Search by meaning: ${EMBED_MODEL.mb} MB, on this phone. The library and the offline brain find passages by what they mean, not only by their words.`;
     else line.textContent = `Search by meaning: about ${EMBED_MODEL.mb} MB, once, on Wi-Fi. Until then the library on this phone is searched by keywords.`;
-    const whole = ix.total > 0 && ix.indexed >= ix.total;
+    const whole = meaningCovers(ix.indexed, ix.total);
     count.textContent = ready && ix.total
       ? `${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed${whole ? ' · searches go by meaning' : ix.waiting ? ' · waiting while Ghosty is in the background or the offline brain is busy' : ix.running ? ' · indexing now' : ''}${ix.error ? ` · stopped: ${ix.error}` : ''}`
       : '';

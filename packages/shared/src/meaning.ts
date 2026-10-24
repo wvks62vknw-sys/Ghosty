@@ -159,6 +159,16 @@ export function blendScore(s: Signals, sp: Spread = PRIOR): number | null {
 export type SearchHow = 'meaning' | 'keywords';
 
 /**
+ * How much of the library must have its vectors for a search to go by meaning. New passages arrive all day (the
+ * copy is refreshed at start-up and every half hour, and Ghosty studies around the clock), and the index catches
+ * them up in the background: meanwhile the newest few are found by their words alone, and the small print says
+ * how many. Below this share it is keywords for everything.
+ */
+export const MEANING_SHARE = 0.98;
+/** Whether `indexed` of `total` passages is enough to search by meaning. */
+export const meaningCovers = (indexed: number, total: number): boolean => total > 0 && indexed >= total * MEANING_SHARE;
+
+/**
  * The best `k` passages, highest first, each with its score: by meaning (blended, against the question's spread)
  * or by keywords alone.
  */
