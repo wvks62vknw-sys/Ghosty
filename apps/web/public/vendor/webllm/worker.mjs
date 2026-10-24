@@ -1,10 +1,13 @@
-// worker revision: 2 (src/offline/models.ts WORKER_REV: bump both when this file changes)
+// worker revision: 3 (src/offline/models.ts WORKER_REV: bump both when this file changes)
 // Ghosty's offline brain: the small language model runs here, in its own thread, so the 6 MB
 // WebLLM runtime and the model's GPU memory never touch the page. The page (src/offline/brain.ts)
 // talks to it with a few plain messages:
 //   { id, op: 'load', model, appConfig }   download (first time) and load the model; 'progress' events
 //   { id, op: 'chat', messages, max, temperature? }  stream a reply: 'token' events, then 'done' with usage
 //                                          (temperature: THINK HARDER varies it between attempts; 0.7 otherwise)
+//   { id, op: 'embed', input }             SEARCH BY MEANING: a list of texts → 'done' with their vectors (one
+//                                          list of numbers each, in order); the page loads the embedding model
+//                                          in a worker of its own with 'load', so the brain is never disturbed
 //   { id, op: 'stop' }                     stop the reply being written
 //   { id, op: 'unload' }                   free the model's memory (the download stays cached)
 // Every answer carries the request's id; failures come back as { id, t: 'error', message }.
@@ -46,6 +49,10 @@ self.onmessage = async (ev) => {
         if (c.usage) usage = { tokens: c.usage.completion_tokens, perSecond: c.usage.extra && c.usage.extra.decode_tokens_per_s };
       }
       post({ id: m.id, t: 'done', usage });
+    } else if (m.op === 'embed') {
+      if (!engine || !loaded) throw new Error('the meaning model is not loaded');
+      const r = await engine.embeddings.create({ input: m.input, model: loaded });
+      post({ id: m.id, t: 'done', vectors: r.data.map((d) => d.embedding) });
     } else if (m.op === 'stop') {
       if (engine) await engine.interruptGenerate();
       post({ id: m.id, t: 'done' });

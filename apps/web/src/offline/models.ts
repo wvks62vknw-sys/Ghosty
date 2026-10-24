@@ -29,6 +29,23 @@ export const MODELS: ModelDef[] = [
 ];
 
 /**
+ * SEARCH BY MEANING (offline/embed.ts, library/meaning.ts): a small model that turns a passage or a question into a
+ * list of 384 numbers, so passages that mean the same thing sit close together even when their words differ.
+ * snowflake-arctic-embed-s (Apache-2.0, English-first), the "-b4" build from WebLLM 0.2.85's own list (four texts
+ * at a time, the least memory: about 240 MB of graphics memory). 32-bit maths, so it needs WebGPU but not the
+ * 16-bit shaders the brain needs. Its files: 67 MB of weights and tokenizer from Hugging Face at this commit, plus
+ * its 3.7 MB compiled code served from this site; "about 70 MB" to the owner.
+ */
+export const EMBED_MODEL: ModelDef = { id: 'snowflake-arctic-embed-s-q0f32-MLC-b4', label: 'Search by meaning', repo: 'mlc-ai/snowflake-arctic-embed-s-q0f32-MLC', rev: '1b36afd513686bb633823b39a73fd685cebe4b0c', lib: 'snowflake-arctic-embed-s-q0f32-ctx512_cs512_batch4-webgpu.wasm', mb: 70, vram: 238.71 };
+/** How long its vectors are. */
+export const EMBED_DIMS = 384;
+/**
+ * The arctic-embed models are trained with this before a question (never before a passage): without it a question
+ * lands nearer to other questions than to the passages that answer it.
+ */
+export const QUERY_PREFIX = 'Represent this sentence for searching relevant passages: ';
+
+/**
  * Where a model's files are, at its pinned commit, ending in "/". WebLLM keeps a URL that already
  * names `/resolve/<x>/` as it is (it adds `resolve/main/` only to a bare repository URL), and it
  * stores each file in its cache under this base, so the check that the download is whole uses it too.
@@ -79,4 +96,4 @@ export const allModels = (trained: TrainedModel[], origin = '', weights: string 
  * The revision of our own worker (public/vendor/webllm/worker.mjs, whose first line says the same): part of
  * its address, so a phone whose service worker kept an older copy fetches the new one. Bump both together.
  */
-export const WORKER_REV = '2';
+export const WORKER_REV = '3';
