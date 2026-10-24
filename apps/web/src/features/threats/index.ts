@@ -11,12 +11,15 @@ import { bar, empty, pager, panel, row, SEV_COLORS } from '../../ui/components';
 import { page } from '../../ui/page';
 import { reconPanel } from './recon';
 
+/** A distance in plain kilometres: "340 km", "5,410 km" (not "5.4k km"). */
+const km = (x: number): string => `${Math.round(x >= 1000 ? Math.round(x / 10) * 10 : x).toLocaleString('en-GB')} km`;
+
 export const threatsTab: TabDef = {
   id: 'threats',
   title: 'THREATS',
   icon: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
   scene: 'backdrop',
-  blurb: 'quakes · storms · cyber alerts',
+  blurb: 'quakes · storms · space weather',
   now() {
     if (!quakes.data && !events.data) return '';
     const list = signals();
@@ -26,7 +29,8 @@ export const threatsTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stack: true });
     const sp = panel('ACTIVE SIGNALS', { footer: true, cls: 'signals' });
-    const sg = pager(sp, 50, (s: Signal) => row(s.kind, s.text, s.tag || fmt.ago(s.at), { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) }), () => quakes.status);
+    // every row says when (a quake's magnitude is already in its text)
+    const sg = pager(sp, 50, (s: Signal) => row(s.kind, s.text, fmt.ago(s.at), { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) }), () => quakes.status);
     P.left.append(sp.el);
     const near = panel('NEAR YOU', { grow: false, cls: 'near' });
     const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
@@ -47,9 +51,9 @@ export const threatsTab: TabDef = {
       const nq = (quakes.data ?? []).map((q) => ({ q, d: GEO.hav(L.lat, L.lon, q.lat, q.lon) })).sort((a, b) => a.d - b.d)[0];
       // (no feed is not "none": say which it is)
       const unknown = (f: typeof quakes | typeof events) => (f.status === 'NO FEED' ? 'can’t reach the feed' : 'checking…');
-      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} ${fmt.km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes)));
+      near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} · ${km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes)));
       const ne = liveEvents().map((e) => ({ e, d: GEO.hav(L.lat, L.lon, e.lat, e.lon) })).sort((a, b) => a.d - b.d)[0];
-      near.body.append(row('EVENT', ne ? `${ne.e.catName} ${fmt.km(ne.d)}` : events.data ? 'none in the last 2 weeks' : unknown(events)));
+      near.body.append(row('EVENT', ne ? `${ne.e.catName} · ${km(ne.d)} away` : events.data ? 'none in the last 2 weeks' : unknown(events)));
       near.body.append(row('AIR', air.list.size ? `${air.nearby(L.lat, L.lon, 60).length} aircraft within 60 km` : "open God's Eye to scan"));
       const iss = sats.list.find((s) => /ISS \(ZARYA\)/.test(s.name));
       const pass = iss ? sats.nextPass(iss, L.lat, L.lon) : null;

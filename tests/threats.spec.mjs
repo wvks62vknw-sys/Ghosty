@@ -67,6 +67,10 @@ async function open(viewport, { feeds }) {
   return { ctx, page };
 }
 
+// The tab's one-line blurb (the Plan area's tiles, the deck's search) promises only what the tab shows: it has no cyber feed.
+const tabSource = readFileSync(new URL('../apps/web/src/features/threats/index.ts', import.meta.url), 'utf8');
+if (/blurb: '[^']*cyber/i.test(tabSource)) problems.push('the tab\'s blurb promises "cyber alerts", which the tab does not show');
+
 const text = (page, sel) => page.locator(sel).first().innerText().catch(() => '');
 
 // ---- 1. every feed down from the start: not an all-clear ----
@@ -94,7 +98,7 @@ const text = (page, sel) => page.locator(sel).first().innerText().catch(() => ''
   const list = await text(page, '#pg-threats .pn.signals');
   if (/Old Fire Last Seen/.test(list)) problems.push('[440] a wildfire last updated 60 days ago is listed as a live signal');
   const tags = await page.$$eval('#pg-threats .pn.signals .rw .n', (els) => els.map((e) => e.textContent.trim()));
-  if (!tags.length || tags.some((t) => !/ago$|^just now$/i.test(t))) problems.push(`[440] every signal should say when (quakes said their magnitude twice): ${tags.join(' | ')}`);
+  if (!tags.length || tags.some((t) => !/ago$|^now$/i.test(t))) problems.push(`[440] every signal should say when (quakes said their magnitude twice): ${tags.join(' | ')}`);
   // space weather: NOAA's Kp file as served now
   const sw = await text(page, '#pg-threats .pn.spacewx');
   if (!/3\.3/.test(sw) || (await page.locator('#pg-threats .pn.spacewx .empty').count())) problems.push(`[440] Space weather did not read the Kp file: ${sw.replace(/\s+/g, ' ')}`);
