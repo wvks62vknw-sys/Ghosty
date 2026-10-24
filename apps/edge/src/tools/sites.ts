@@ -18,6 +18,7 @@ import type { Env } from '../env';
 import { asData } from '../kernel/permissions';
 import { durableDelete, durableGet, durablePut } from '../kv';
 import { siteApproval, startSiteBuild } from '../sitebuild';
+import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
 import { checkHtml, refusal } from './check';
 import { arg, clip, type Tool } from './types';
 import { readCapped, UA } from './web';
@@ -40,6 +41,11 @@ export interface Site {
    * as a page of its own, drawn from the config by the running kit, never framed (see appResponse).
    */
   app?: { config: AppConfig; icon: string };
+  /**
+   * A website built with the owner's free Formspree form (build_website): the one address its forms may send to.
+   * Only that exact origin is ever let into the page's policy (pagePolicy), checked again when it is served.
+   */
+  formAction?: string;
 }
 /** One line of the list of published pages. */
 export interface SiteEntry {
@@ -297,7 +303,7 @@ const decodeRefs = (s: string) =>
  * a mobile viewport, lazy images, not indexed. (These are tidy-ups: what the page can actually
  * do is enforced by the browser — see siteFrameResponse.)
  */
-export function prepareSite(htmlIn: string, source: string): { html: string; notes: string[] } {
+export function prepareSite(htmlIn: string, source: string, opts: { formAction?: string } = {}): { html: string; notes: string[] } {
   let html = htmlIn.trim();
   const notes: string[] = [];
   if (html.length > MAX_HTML) throw new Error(`the page is too large (${Math.round(html.length / 1024)} KB; 400 KB max) — use image URLs instead of embedded images and keep it lean`);
@@ -311,11 +317,12 @@ export function prepareSite(htmlIn: string, source: string): { html: string; not
   }
   if (/type\s*=\s*["']?\s*password|["'`]password["'`]/i.test(decodeRefs(html))) throw new Error("rebuilt pages can't contain password fields (they could pass for a real login page). Leave sign-in out, or show it as a plain button");
   // (attributes inside form, button and input tags only: never text or script code like `action = …`)
+  // (a website built with the owner's Formspree form keeps exactly that target on its forms; every other one goes)
+  const keep = formTarget(opts.formAction)?.action;
   const targets = /(<(?:form|button|input)\b[^>]*?)\s(?:form)?action\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
-  if (targets.test(html)) {
-    html = html.replace(targets, '$1');
-    notes.push('form targets removed (forms on rebuilt pages are visual only)');
-  }
+  let dropped = 0;
+  html = html.replace(targets, (all, before: string, value: string) => (keep && /^<form\b/i.test(before) && /\saction\s*=/.test(all.slice(before.length)) && value === `"${keep}"` ? all : (dropped++, before)));
+  if (dropped) notes.push('form targets removed (forms on rebuilt pages are visual only)');
   // Links to other sites leave Ghosty's frame when tapped (inside it, other sites can't load).
   html = html.replace(/<a\b(?![^>]*\starget\s*=)([^>]*\shref\s*=\s*["']?https?:)/gi, '<a target="_top"$1');
   if (!/<meta\b[^>]*name\s*=\s*["']?viewport/i.test(html)) {
@@ -337,6 +344,14 @@ const common = { 'x-robots-tag': 'noindex, nofollow', 'referrer-policy': 'no-ref
 
 /** What the rebuilt page may do: run its own scripts, open links in new tabs, leave the frame when tapped. Not: forms, Ghosty's origin. */
 const FRAME_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation';
+/**
+ * The one loosening a page can have: a website built with the owner's free Formspree form may submit a form —
+ * only to that one origin (form-action https://formspree.io; every other address is still refused by the
+ * browser), with no new script, network or frame rights. Anything stored that is not exactly that origin gets
+ * the locked policy.
+ */
+export const formOriginOf = (site: Pick<Site, 'formAction'> | undefined): string => (site?.formAction && formTarget(site.formAction)?.origin) || '';
+const sandboxFor = (site: Pick<Site, 'formAction'> | undefined) => (formOriginOf(site) ? `${FRAME_SANDBOX} allow-forms` : FRAME_SANDBOX);
 
 /**
  * What a visitor opens (/s/<name>): a page Ghosty writes, with a bar the rebuilt page can't
@@ -368,7 +383,7 @@ export function siteResponse(site: Site | undefined): Response {
   const label = host ? `Rebuilt by Ghosty from ${esc(host)} · not the official site` : 'Built by Ghosty';
   const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#02070d"><title>${esc(site.title)}</title>${previewTags(site.html)}
 <style>html,body{margin:0;height:100%;background:#02070d;overflow:hidden}#bar{position:fixed;top:0;left:0;right:0;z-index:2;box-sizing:border-box;height:calc(28px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;display:flex;align-items:center;justify-content:center;gap:6px;font:600 11px/1 -apple-system,system-ui,sans-serif;letter-spacing:.02em;color:#cfefff;background:#02070d;border-bottom:1px solid rgba(92,225,255,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#bar i{width:6px;height:6px;border-radius:50%;background:#5ce1ff;flex:none}iframe{position:fixed;left:0;right:0;bottom:0;top:calc(28px + env(safe-area-inset-top));width:100%;height:calc(100% - 28px - env(safe-area-inset-top));border:0;background:#fff}</style></head>
-<body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="${FRAME_SANDBOX}"></iframe></body></html>`;
+<body><div id="bar" role="note"><i></i>${label}</div><iframe src="/s/${esc(site.name)}/page" title="${esc(site.title)}" sandbox="${sandboxFor(site)}"></iframe></body></html>`;
   return new Response(page, {
     headers: {
       ...common,
@@ -387,13 +402,18 @@ export function siteResponse(site: Site | undefined): Response {
  */
 export const PAGE_CSP =
   `sandbox ${FRAME_SANDBOX}; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src https: data: blob:; media-src https: data: blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://player.vimeo.com https://www.openstreetmap.org/export/embed.html; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`;
+/** The page's policy: PAGE_CSP, or for a page built with the owner's Formspree form, the same with forms allowed to that one origin. */
+export function pagePolicy(site: Pick<Site, 'formAction'> | undefined): string {
+  const origin = formOriginOf(site);
+  return origin ? PAGE_CSP.replace(`sandbox ${FRAME_SANDBOX};`, `sandbox ${FRAME_SANDBOX} allow-forms;`).replace("form-action 'none'", `form-action ${origin}`) : PAGE_CSP;
+}
 export function siteFrameResponse(site: Site | undefined, dest: string | null): Response {
   if (!site) return notFound();
   if (site.app) return appAsset(site, site.app, dest);
   // Anything but a load into Ghosty's frame (including browsers that don't say): go to the page with the bar.
   if (dest !== 'iframe') return new Response(null, { status: 302, headers: { location: `/s/${site.name}`, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest' } });
   // Never reused for a direct visit: the answer depends on how it is loaded.
-  return new Response(site.html, { headers: { ...common, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': PAGE_CSP } });
+  return new Response(site.html, { headers: { ...common, 'cache-control': 'no-store', vary: 'Sec-Fetch-Dest', 'content-type': 'text/html; charset=utf-8', 'content-security-policy': pagePolicy(site) } });
 }
 
 // ---------------------------------------------------------------------------------------
@@ -460,7 +480,7 @@ export const siteTools: Tool[] = [
       properties: {
         request: { type: 'string', description: "the owner's request, in their words" },
         name: { type: 'string', description: 'the business name, if given' },
-        kind: { type: 'string', enum: ['cafe', 'restaurant', 'barber', 'salon', 'trades', 'gym', 'photographer', 'shop', 'clinic', 'estate', 'portfolio', 'event', 'charity', 'saas'] },
+        kind: { type: 'string', enum: ['cafe', 'restaurant', 'barber', 'salon', 'trades', 'gym', 'photographer', 'shop', 'clinic', 'estate', 'portfolio', 'event', 'charity', 'saas', 'tradesperson', 'takeaway', 'cv', 'invite', 'club', 'launch'] },
         town: { type: 'string' },
         address: { type: 'string' },
         postcode: { type: 'string' },
@@ -476,6 +496,8 @@ export const siteTools: Tool[] = [
         instagram: { type: 'string' },
         established: { type: 'number', description: 'year founded' },
         booking_url: { type: 'string', description: 'an existing online booking page' },
+        form_endpoint: { type: 'string', description: 'the owner\'s free Formspree form address (https://formspree.io/f/…), if given' },
+        experience: { type: 'array', description: 'a CV: the jobs the owner gave, only', items: { type: 'object', properties: { when: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' } }, required: ['when', 'title'] } },
         link_name: { type: 'string', description: 'short name for the link …/s/<name>' },
         confirm: { type: 'boolean', description: 'true only to publish the draft waiting at link_name once the owner confirmed its list' },
       },
