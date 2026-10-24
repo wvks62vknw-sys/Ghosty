@@ -4,6 +4,7 @@
 // model), the daily jobs (exactly one of each), and the Memory tab's routes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 
 const P = await import('./.build/profile.mjs');
@@ -606,4 +607,81 @@ test('a locked "(later)" diary heading is never rewritten either: the next refle
   assert.equal(days['2026-10-17'], 'Morning.');
   assert.equal(days['2026-10-17 (later)'], 'Afternoon.', 'the locked later entry is untouched');
   assert.equal(days['2026-10-17 (later 2)'], 'Evening.');
+});
+
+// ---- SAVED PLACES and SPENDING (BRIEF-PLACES-SPENDING): places in his memory, statements he adds himself.
+
+const fixture = (name) => readFileSync(new URL(`./spending/${name}.csv`, import.meta.url), 'utf8');
+const route = (path, method = 'GET', body, deps) => P.profileRoute(new Request(`https://x/api${path}`, { method, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) }), path.split('?')[0], method, new URL(`https://x/api${path}`), deps);
+/** The network for a test: `answer(url)` → a Response, anything else fails; every address asked is kept. */
+function withFetch(answer) {
+  const real = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (input) => {
+    const u = typeof input === 'string' ? input : input.url;
+    asked.push(u);
+    const r = await answer(u);
+    if (!r) throw new TypeError(`no network in tests (${u})`);
+    return r;
+  };
+  return { asked, restore: () => (globalThis.fetch = real) };
+}
+
+test('saved places: an address is looked up and shown for a yes before it is kept; a postcode goes to postcodes.io; FORGET', async () => {
+  const st = new MemStorage();
+  const deps = { storage: st, library: new Library(st, {}), ai: async () => '' };
+  const net = withFetch((u) => {
+    if (u.startsWith('https://nominatim.openstreetmap.org/search')) return Response.json([{ lat: '52.4351', lon: '-1.8912', display_name: '12, Acacia Avenue, Kings Heath, Birmingham, West Midlands, England, B13 9XX, United Kingdom' }]);
+    if (u === 'https://api.postcodes.io/postcodes/B152TT') return Response.json({ result: { postcode: 'B15 2TT', latitude: 52.4531, longitude: -1.9416, admin_ward: 'Edgbaston', admin_district: 'Birmingham' } });
+    return null;
+  });
+  try {
+    const found = await (await route('/profile/places/find', 'POST', { label: 'home', query: '12 Acacia Avenue, B13' }, deps)).json();
+    assert.equal(found.found.id, 'home');
+    assert.equal(found.found.address, '12, Acacia Avenue, Kings Heath, Birmingham, B13 9XX');
+    assert.equal(st.m.get('places'), undefined, 'nothing is kept before his yes');
+    const kept = await (await route('/profile/places', 'POST', { found: found.found }, deps)).json();
+    assert.deepEqual(kept.places.map((p) => [p.id, p.label, p.lat]), [['home', 'Home', 52.4351]]);
+    const work = await (await route('/profile/places/find', 'POST', { label: 'the office', query: 'b15 2tt' }, deps)).json();
+    assert.deepEqual([work.found.id, work.found.address, work.found.lat], ['work', 'B15 2TT, Edgbaston, Birmingham', 52.4531]);
+    assert.ok(net.asked.includes('https://api.postcodes.io/postcodes/B152TT'));
+    await route('/profile/places', 'POST', { found: work.found }, deps);
+    // A new home replaces the old one; FORGET takes one away.
+    const moved = await (await route('/profile/places', 'POST', { found: { ...found.found, address: '1 New Road', lat: 52.1, lon: -1.8 } }, deps)).json();
+    assert.deepEqual(moved.places.map((p) => [p.id, p.address]), [['work', 'B15 2TT, Edgbaston, Birmingham'], ['home', '1 New Road']]);
+    const gone = await (await route('/profile/places?id=work', 'DELETE', undefined, deps)).json();
+    assert.deepEqual(gone.places.map((p) => p.id), ['home']);
+    assert.equal((await route('/profile/places', 'POST', { found: { id: 'gym', address: 'x' } }, deps)).status, 400, 'nothing kept without a position');
+    // In a chat: remember_place finds it and waits; the yes keeps it.
+    const emitted = [];
+    const ctx = { storage: st, emit: (e) => emitted.push(e) };
+    const tool = P.placesTools.find((t) => t.name === 'remember_place');
+    const said = await tool.run({ name: "mum and dad's", address: 'b15 2tt' }, ctx);
+    assert.match(said, /Found for Parents': B15 2TT, Edgbaston, Birmingham .* NOT kept yet/);
+    assert.equal(emitted[0].name, 'show_map');
+    assert.ok(!(await P.places.loadPlaces(st)).some((p) => p.id === 'parents'), 'not kept before the yes');
+    assert.match(await tool.run({ confirm: true }, ctx), /^Kept Parents': B15 2TT/);
+    assert.ok((await P.places.loadPlaces(st)).some((p) => p.id === 'parents'));
+    assert.match(await tool.run({ confirm: true }, ctx), /Nothing is waiting for a yes/);
+  } finally {
+    net.restore();
+  }
+  // The words for places.
+  const W = P.placeWords;
+  assert.deepEqual(W.placeLabel('the office'), { id: 'work', label: 'Work' });
+  assert.deepEqual(W.placeLabel("Nan's"), { id: "nan's", label: "Nan's" });
+  assert.equal(W.matchPlace('my home', await P.places.loadPlaces(st)).id, 'home');
+  assert.equal(W.matchPlace('Selly Oak', await P.places.loadPlaces(st)), null, 'an address is not a saved place');
+});
+
+test('"remind me when I\'m near Tesco": no location tracking, said plainly; a reminder at a time still works', async () => {
+  const W = P.placeWords;
+  assert.ok(W.NEAR_ASK.test("remind me when I'm near Tesco to buy milk"));
+  assert.ok(W.NEAR_ASK.test('when I get home remind me to call Ann'));
+  assert.ok(!W.NEAR_ASK.test('remind me at 6 to call mum'));
+  const T = await import('./.build/tools/index.mjs');
+  const st = new MemStorage();
+  await st.put('owner:ctx', { tz: 'Europe/London' });
+  await assert.rejects(T.toolByName.get('set_reminder').run({ text: "buy milk when I'm near Tesco" }, { storage: st }), /never tracks your location/);
+  assert.match(await T.toolByName.get('set_reminder').run({ text: 'call mum', in_minutes: 30 }, { storage: st }), /Reminder set/);
 });

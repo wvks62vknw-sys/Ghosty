@@ -22,6 +22,7 @@ import type { Library } from './library/store';
 import { bestTurn, changeMemory, DIARY_LOCKS_KEY, lineKey, loadLineMeta, lockedLines, memoryRoute, noteDays, pruneForgotten, saveLineMeta } from './memories';
 import { fmtLocal, safeTz, zoned } from './time';
 import { addFact, loadMemory, MEMORY_KEY } from './tools/memory';
+import { placesRoute } from './places';
 
 export const PROFILE_KEY = 'profile';
 /**
@@ -329,6 +330,8 @@ export function diaryEntries(library: Library, n = 14): DiaryEntry[] {
  */
 export async function profileRoute(req: Request, path: string, method: string, url: URL, deps: ProfileDeps): Promise<Response> {
   const { storage, library } = deps;
+  // Memory → ME → PLACES (places.ts) and the Agenda tab's SPENDING card (spending.ts): both kept in his memory here.
+  if (path === '/profile/places' || path.startsWith('/profile/places/')) return placesRoute(req, path, method, url, storage);
   if (path === '/profile' && method === 'GET') {
     return json({ profile: await loadProfile(storage), diary: diaryEntries(library), lastReflect: (await storage.get<number>(REFLECT_KEY)) ?? null });
   }
@@ -371,3 +374,8 @@ export async function profileRoute(req: Request, path: string, method: string, u
 
 // The TIMELINE, its edits and PATTERNS live in memories.ts; exported here too for the tests.
 export { bestTurn, changeMemory, findPatterns, lineKey, moodsIn, noteDays, patterns, recentlyForgotten, tallyDays, timeline } from './memories';
+
+// Saved places and spending (places.ts, spending.ts, their tools and the shared pure parts), exported here for the tests.
+export * as places from './places';
+export * as placeWords from '../../../packages/shared/src/places';
+export { placesTools } from './tools/places';

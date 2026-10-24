@@ -123,9 +123,57 @@ export async function incidentsNear(key: string, lat: number, lon: number, radiu
     .sort((a, b) => b.severity - a.severity || b.delaySec - a.delaySec);
 }
 
-/** /traffic/status and /traffic/tile/z/x/y (TomTom flow tiles, key added here). */
+export interface Commute {
+  minutes: number;
+  km: number;
+  /** Minutes of it that are traffic, from TomTom's live feed (live only). */
+  delayMin: number;
+  live: boolean;
+  /** One plain line for the Brief: "24 min by car now, 5 min of it traffic (TomTom live)". */
+  line: string;
+}
+
+/**
+ * The drive between two points now (the Brief's commute from the saved home to the saved work): with the TomTom
+ * key, its route with live traffic; without it (or when TomTom fails), the free OpenStreetMap route's time with
+ * clear roads, said so. Only the two points go to the route service, never the places' names.
+ */
+export async function commute(key: string | null | undefined, from: { lat: number; lon: number }, to: { lat: number; lon: number }): Promise<Commute> {
+  const ll = (p: { lat: number; lon: number }) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
+  if (key) {
+    try {
+      type R = { routes?: { summary: { lengthInMeters: number; travelTimeInSeconds: number; trafficDelayInSeconds?: number } }[] };
+      const j = await tt<R>(`${TT}/routing/1/calculateRoute/${ll(from)}:${ll(to)}/json?traffic=true&travelMode=car&routeType=fastest&key=${encodeURIComponent(key)}`);
+      const s = j.routes?.[0]?.summary;
+      if (s) {
+        const minutes = Math.max(1, Math.round(s.travelTimeInSeconds / 60));
+        const delayMin = Math.round((s.trafficDelayInSeconds ?? 0) / 60);
+        return { minutes, km: Math.round(s.lengthInMeters / 100) / 10, delayMin, live: true, line: `${minutes} min by car now${delayMin >= 1 ? `, ${delayMin} min of it traffic` : ', roads clear'} (TomTom live)` };
+      }
+    } catch {
+      /* TomTom refused or is down: the free route below, said plainly */
+    }
+  }
+  const r = await fetch(`https://routing.openstreetmap.de/routed-car/route/v1/driving/${from.lon.toFixed(5)},${from.lat.toFixed(5)};${to.lon.toFixed(5)},${to.lat.toFixed(5)}?overview=false`, { headers: { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/json' } });
+  if (!r.ok) throw new TrafficError(`the route service answered ${r.status}`);
+  const j = (await r.json()) as { routes?: { duration: number; distance: number }[] };
+  const route = j.routes?.[0];
+  if (!route) throw new TrafficError('no road route between home and work');
+  const minutes = Math.max(1, Math.round(route.duration / 60));
+  return { minutes, km: Math.round(route.distance / 100) / 10, delayMin: 0, live: false, line: `about ${minutes} min by car with clear roads (no live traffic: ${key ? 'TomTom did not answer' : 'add the free TomTom key in System for it'})` };
+}
+
+/** /traffic/status, /traffic/tile/z/x/y (TomTom flow tiles, key added here) and /traffic/commute/lat,lon/lat,lon. */
 export async function trafficRoute(path: string, method: string, vault: Vault): Promise<Response> {
   const key = await vault.lookup('tomtom');
+  const c = path.match(/^\/traffic\/commute\/(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)\/(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)$/);
+  if (c && method === 'GET') {
+    try {
+      return Response.json(await commute(key, { lat: +c[1]!, lon: +c[2]! }, { lat: +c[3]!, lon: +c[4]! }));
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 502 });
+    }
+  }
   // unknown: the database is paused and no copy of the key is reachable (not the same as "no key").
   if (path === '/traffic/status' && method === 'GET') return Response.json(key === undefined ? { ready: false, unknown: true } : { ready: !!key });
   const m = path.match(/^\/traffic\/tile\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})$/);
