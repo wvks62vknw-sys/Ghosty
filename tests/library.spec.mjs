@@ -121,6 +121,9 @@ const classic = Buffer.from(['%PDF-1.4',
   'endstream', 'endobj',
   '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [31 /fi] >> >> endobj',
   'trailer << /Root 1 0 R >>', '%%EOF'].join('\n'), 'latin1');
+// A scanned PDF as the phone sees one: a page with no text on it.
+const blankPdf = Buffer.from(['%PDF-1.4', '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj', '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+  '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj', '4 0 obj << /Length 0 >>', 'stream', '', 'endstream', 'endobj', 'trailer << /Root 1 0 R >>', '%%EOF'].join('\n'), 'latin1');
 const c = await read('extractPdf', classic, 'classic');
 if (c.pages[0] !== 'Hello World\nSecond line (ok) to find café.') problems.push(`classic PDF: got ${JSON.stringify(c.pages[0])}`);
 
@@ -320,12 +323,26 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     const said = await photoLine();
     if (!/^✓ .*Quillwort/i.test(said)) problems.push(`[${name}] a photo of a page was not read into the library: "${said}"`);
     else {
+      // what it says when done: what is on the shelf, and OPEN reads it at once
+      const openIt = ui.locator('#pg-library .liblog .note', { hasText: /Quillwort/i }).locator('button', { hasText: /open/i });
+      if (!(await openIt.count())) problems.push(`[${name}] the finished import offers no way to open it: "${said}"`);
+      else {
+        await openIt.first().click();
+        await ui.waitForFunction(() => /Quillwort/i.test(document.querySelector('.modal .mhead b')?.textContent ?? '') && /membrane/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
+          .catch(() => problems.push(`[${name}] OPEN on the finished import did not open it`));
+        await ui.click('.modal .mhead button').catch(() => undefined);
+      }
       await ui.fill('#pg-library input[aria-label="Search the library"]', 'quillwort osmosis membrane');
       await ui.keyboard.press('Enter');
       await searched(ui);
       const found = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent ?? ''));
       if (!found.some((t) => /Quillwort/i.test(t) && /membrane/i.test(t))) problems.push(`[${name}] the photo's words are not found by a search: ${found.slice(0, 2).join(' || ') || 'nothing'}`);
     }
+    // a scan with no words in it (and no converter on the preview): said plainly, with what works instead
+    await ui.setInputFiles('#pg-library input[type=file]', [{ name: 'scanned-worksheet.pdf', mimeType: 'application/pdf', buffer: blankPdf }]);
+    await ui.waitForFunction(() => [...document.querySelectorAll('#pg-library .liblog .note')].some((n) => /scanned-worksheet/.test(n.textContent ?? '') && /^[✓✕]/.test(n.textContent ?? '')), null, { timeout: 30000 }).catch(() => undefined);
+    const scan = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .liblog .note')].map((n) => n.textContent ?? '').find((t) => /scanned-worksheet/.test(t)) ?? '');
+    if (!/^✕ .*photos of the pages/i.test(scan) || /Workers AI/.test(scan)) problems.push(`[${name}] a scan that cannot be read says: "${scan}"`);
     // leave the preview as it was: the photo's document goes again
     await ui.evaluate(async () => {
       const H = { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' };

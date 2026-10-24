@@ -152,6 +152,19 @@ export const libraryTab: TabDef = {
       while (log.children.length > 6) log.lastChild!.remove();
       return r;
     };
+    /** What a finished import leaves: what is on the shelf now and how big, where it is kept, anything to know, and OPEN. */
+    const saved = (line: HTMLElement, doc: LibraryDoc, extra = '') => {
+      const size = doc.pages > 1 ? `${fmt.n(doc.pages)} pages` : `${fmt.n(doc.passages)} passage${doc.passages === 1 ? '' : 's'}`;
+      const here = doc.id.startsWith('local-') ? '; kept on this phone and searchable now, sent to Ghosty when he can be reached' : '';
+      clear(line, h('span', `✓ ${doc.title} saved on the shelf (${size})${here}${extra ? `. ${extra}` : ''}`), button('OPEN', () => openDoc(doc), 'libopen'));
+      line.className = 'note ok done';
+    };
+    /** What went wrong, in his words: a scan with no converter says what works instead (photos are read here). */
+    const failed = (line: HTMLElement, name: string, e: unknown) => {
+      const m = String((e as Error)?.message ?? e);
+      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : m}`;
+      line.className = 'note bad';
+    };
     const ingest = async (picked: File[]) => {
       // Photos of pages picked together are one document (a page per photo); every other file is its own.
       const photos = picked.filter(isPhoto);
@@ -164,12 +177,9 @@ export const libraryTab: TabDef = {
         busy.n++;
         try {
           const { doc, warning } = await f.add((t) => (line.textContent = `${f.name}: ${t}`));
-          const here = doc.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back; searchable now)' : '';
-          line.textContent = `✓ ${doc.title} — ${doc.passages} passage${doc.passages === 1 ? '' : 's'} saved${here}${warning ? ` (${warning})` : ''}`;
-          line.className = 'note ok';
+          saved(line, doc, warning ? warning.charAt(0).toUpperCase() + warning.slice(1) : '');
         } catch (e) {
-          line.textContent = `✕ ${f.name}: ${(e as Error).message}`;
-          line.className = 'note bad';
+          failed(line, f.name, e);
         } finally {
           busy.n--;
         }
@@ -202,11 +212,9 @@ export const libraryTab: TabDef = {
       const line = note(`${s}: importing…`);
       try {
         const r = await brain.libraryImport(s);
-        line.textContent = `✓ ${r.doc.title} — ${r.passages} passages saved. ${r.note}`.trim();
-        line.className = 'note ok';
+        saved(line, r.doc, r.note);
       } catch (e) {
-        line.textContent = `✕ ${s}: ${(e as Error).message}`;
-        line.className = 'note bad';
+        failed(line, s, e);
       }
       void refresh();
     };
@@ -242,11 +250,9 @@ export const libraryTab: TabDef = {
         const d = await addText(tTitle.value, t, () => undefined);
         tBody.value = '';
         tTitle.value = '';
-        line.textContent = `✓ ${d.title} — ${d.passages} passage${d.passages === 1 ? '' : 's'} saved${d.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back)' : ''}`;
-        line.className = 'note ok';
+        saved(line, d);
       } catch (e) {
-        line.textContent = `✕ ${(e as Error).message}`;
-        line.className = 'note bad';
+        failed(line, 'Text', e);
       }
       void refresh();
     };

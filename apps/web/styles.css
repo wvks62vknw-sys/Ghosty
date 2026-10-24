@@ -3228,6 +3228,9 @@ html #pg-library .pn.libadd > .bd > :is(input, textarea) { width: 100%; margin-t
 html #pg-library .liblog .note { margin-top: 8px; font-size: 13px; line-height: 18px; }
 html #pg-library .liblog .note.ok { color: var(--ink2); }
 html #pg-library .liblog .note.bad { color: var(--amber); }
+html #pg-library .liblog .note.done { display: flex; align-items: center; gap: 10px; }
+html #pg-library .liblog .note.done > span { flex: 1; min-width: 0; }
+html #pg-library .liblog .note.done > button { flex: none; height: 44px; min-height: 44px !important; padding: 0 16px; }
 /* FRESH TODAY: the day's sources as rows; DIGEST NOW in the footer */
 html #pg-library .pn.fresh .rw.link { margin: 0; padding: 10px 0; border-radius: 0; }
 html #pg-library .pn.fresh .rw .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); min-width: 72px; }
