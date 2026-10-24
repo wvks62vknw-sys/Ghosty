@@ -6,7 +6,7 @@ import { GEO } from '../../engine/geo';
 import { currentNewsFeed, NEWS_FEEDS, news, setNewsFeed, type Headline } from '../../data/news';
 import { air, airBand, speed, temp, WMO, weather } from '../../data/weather';
 import { go, type TabDef } from '../../shell/tabs';
-import { hhmm, nextAfterToday, todayItems, type DayItem } from './day';
+import { dayName, diarySentence, greeting, hhmm, nextAfterToday, rainClause, rainWhen, summary, todayItems, type DayItem, type Facts } from './day';
 import { home } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -21,6 +21,31 @@ export const briefTab: TabDef = {
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'DAILY BRIEFING', rightLabel: 'HEADLINES', leftLabel: 'WEATHER', stack: true });
+    // The hero: "Good morning · Monday 26 October", the temperature, and one plain sentence of the day (the rest of
+    // today's weather, the diary, the drive to work) from what the phone already holds: the first useful line.
+    const dateEl = h('div.brdate', { dataset: { case: 'keep' } });
+    const say = h('p.brsay', { dataset: { case: 'keep' } });
+    P.big.before(dateEl);
+    P.sub.after(say);
+    let commuteWords = '';
+    const facts = (spokenToo = false): Facts => {
+      const w = weather.data;
+      const f: Facts = {};
+      if (w) {
+        const d = w.daily;
+        if (spokenToo) f.now = `${WMO(w.current.weather_code)}, ${temp(w.current.temperature_2m)}`;
+        if (d.temperature_2m_min.length) f.range = `${temp(d.temperature_2m_min[0]!).replace(/°[CF]$/, '')} to ${temp(d.temperature_2m_max[0]!)}`;
+        f.rain = rainClause(rainWhen(w.hourly.precipitation_probability, new Date().getHours()).line);
+      }
+      if (dayItems) f.diary = diarySentence(dayItems);
+      if (commuteWords) f.commute = commuteWords;
+      return f;
+    };
+    const paintSay = () => {
+      const d = new Date();
+      dateEl.textContent = `${greeting(d)} · ${dayName(d)}`;
+      say.textContent = summary(facts());
+    };
     // YOUR DAY: what is left of today in the diary, the reminders still to go off and anything new in the inbox,
     // first on the page (read from the Agenda's own routes; a tap opens the Agenda).
     const dp = panel('YOUR DAY', { cls: 'brday', grow: false });
@@ -47,6 +72,7 @@ export const briefTab: TabDef = {
       if (unread) rows.push(row('INBOX', `${unread} new message${unread === 1 ? '' : 's'} from Ghosty`, '›', { onClick: open }));
       dp.setStatus(dayItems.length ? `${dayItems.length} LEFT` : 'CLEAR', 'ok');
       clear(dp.body, ...rows);
+      paintSay();
     };
     const wp = panel('WEATHER', { cls: 'wx' });
     // THE COMMUTE: one line, home to work with the live traffic, only when both are saved (Memory → ME → PLACES).
@@ -62,6 +88,8 @@ export const briefTab: TabDef = {
         commute.el.hidden = false;
         commute.setStatus('…', 'mid');
         const c = await brain.commute(home, work);
+        commuteWords = `${c.minutes} min to work${c.live && c.delayMin >= 5 ? `, ${c.delayMin} min of it traffic` : ''}`;
+        paintSay();
         commute.setStatus(c.live ? 'LIVE' : 'NO LIVE TRAFFIC', c.live ? 'ok' : 'mid');
         clear(commute.body, row('HOME → WORK', c.line, `${c.km} km`, { wrap: true, tone: c.delayMin >= 10 ? 'bad' : undefined }));
       } catch (e) {
@@ -84,6 +112,7 @@ export const briefTab: TabDef = {
     P.right.append(np.el);
 
     const paintWeather = () => {
+      paintSay();
       const w = weather.data;
       wp.title.textContent = `WEATHER · ${home().name.toUpperCase()}`;
       clear(wp.body);

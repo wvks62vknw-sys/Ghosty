@@ -31,7 +31,7 @@ export function rainWhen(probs: number[], hour: number): { line: string; wet: bo
   const LIKELY = 50;
   if (rest[0]! >= LIKELY) {
     const dry = rest.findIndex((p) => p < LIKELY);
-    return { line: dry < 0 ? 'Likely all day' : `Likely now, easing by ${pad(hour + dry)}:00`, wet: true };
+    return { line: dry < 0 ? 'Likely for the rest of today' : `Likely now, easing by ${pad(hour + dry)}:00`, wet: true };
   }
   const wet = rest.findIndex((p) => p >= LIKELY);
   if (wet > 0) return { line: `Likely from ${pad(hour + wet)}:00 · ${rest[wet]}%`, wet: true };
@@ -75,11 +75,20 @@ export function diarySentence(items: DayItem[]): string {
   return items.length === 1 ? `One thing today: ${first.title}${at}` : `${items.length} things today, first ${first.title}${at}`;
 }
 
+/** The same as a clause for the hero's sentence: "rain likely from 09:00", "dry for the rest of today". */
+export function rainClause(line: string): string {
+  if (/^Likely/.test(line)) return `rain ${line.replace(/ · \d+%$/, '').replace(/^Likely/, 'likely')}`;
+  if (/^Small chance/.test(line)) return 'a small chance of rain later';
+  if (/^Dry/.test(line)) return 'dry for the rest of today';
+  return '';
+}
+
 export interface Facts {
-  /** "Drizzle, 15°C" (the sky and the temperature now). */
+  /** "Drizzle, 15°C" (the sky and the temperature now): said aloud, not shown (the hero shows it already). */
   now?: string;
   /** "7 to 16°C". */
   range?: string;
+  /** rainClause's words. */
   rain?: string;
   diary?: string;
   /** "24 min to work". */
@@ -88,10 +97,9 @@ export interface Facts {
 
 /** The hero's one plain sentence, short enough to read at a glance and to say aloud. */
 export function summary(f: Facts): string {
-  const wx = [f.now, f.range ? `${f.range} today` : '', f.rain ? `rain ${f.rain.replace(/ · \d+%$/, '').replace(/^Likely/, 'likely').replace(/^Dry/, 'dry').replace(/^Small/, 'small')}` : '']
-    .filter(Boolean)
-    .join(', ');
-  return [wx, f.diary, f.commute].filter(Boolean).map((s) => s!.replace(/\.$/, '')).join('. ') + (wx || f.diary || f.commute ? '.' : '');
+  const wx = [f.now, f.range ? `${f.range} today` : '', f.rain].filter(Boolean).join(', ');
+  const parts = [wx, f.diary, f.commute].filter((x): x is string => !!x).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+  return parts.length ? `${parts.join('. ')}.` : '';
 }
 
 /** What READ IT TO ME says: the greeting, the day, the sentence, and the top headlines. No symbols to stumble on. */

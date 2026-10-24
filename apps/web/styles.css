@@ -3482,6 +3482,10 @@ html #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(
 html #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
 html #pg-brief .pn.news .rw .v { font: 500 16px/22px var(--sf); letter-spacing: -.2px; color: var(--ink); }
 html #pg-brief .pn.news .rw .n { padding-top: 2px; font: 400 13px var(--sf); color: var(--ink3); }
+/* The hero's greeting and date, and the day in one plain sentence (the upgrade pass). */
+html #pg-brief .two > .hero .brdate { font: 500 15px/20px var(--sf); color: var(--ink2); margin: 0 0 2px; }
+html #pg-brief .two > .hero .brsay { margin: 10px 0 0; max-width: 36em; font: 400 17px/24px var(--sf); letter-spacing: -.2px; color: var(--ink); text-wrap: pretty; }
+html #pg-brief .two > .hero .brsay:empty { display: none; }
 /* YOUR DAY (the upgrade pass): the diary's rows are taps that open the Agenda, 44 pt each. */
 html #pg-brief .pn.brday .rw { min-height: 44px; align-items: center; gap: 12px; }
 html #pg-brief .pn.brday .rw .k { flex: none; min-width: 52px; font: 600 15px/20px var(--sf); letter-spacing: 0; text-transform: none; color: var(--c); font-variant-numeric: tabular-nums; }
