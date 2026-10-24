@@ -2,7 +2,8 @@
  * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
  * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
- * its hub: a large title, its tools as instrument cards (shell/hubcards.ts) and the recent screens.
+ * its hub: a large title and its tools as instrument cards (shell/hubcards.ts), on one screen with nothing to scroll
+ * (six at most; any more in a More row); the recent screens are in Search.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
  */
 import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
@@ -98,14 +99,6 @@ export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 /** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */
 export const squircle = (_id: string, glyph: string, cls = 'sq') => h(`span.${cls}` as 'span', icon(glyph));
 
-/** A recent screen: its bare glyph and its name (the Recent row under the tools). */
-function tile(t: TabDef, cls = 'recent'): HTMLElement {
-  return h(`button.${cls}` as 'button', { type: 'button', dataset: { id: t.id }, onclick: () => navTo(t.id, 'push') },
-    squircle(t.id, t.icon),
-    h('b', toolName(t)),
-  );
-}
-
 const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
 /** ASK's third tool: talk by voice — the reactor screen, listening. */
 const voiceTap = () => {
@@ -114,23 +107,22 @@ const voiceTap = () => {
 };
 
 /**
- * A tool's card on its hub (BRIEF-IRON-BUILD step 2): the kicker (bare glyph, name, live dot and status word), what it
- * does for him, its instrument and its readouts, from shell/hubcards.ts (or the tab's own TabDef.instrument /
- * readouts / status). One button: a tap anywhere opens the tool. `paint()` redraws it from the state in place, so a
- * tap is never lost to a repaint.
+ * A tool's card on its hub (BRIEF-IRON-BUILD step 2; the navigation sheet the owner said yes to, mockups/nav): its
+ * instrument, the kicker (bare glyph, name, live dot and status word), one line on what it does for him and two
+ * readouts, from shell/hubcards.ts (or the tab's own TabDef.instrument / readouts / status). One button: a tap
+ * anywhere opens the tool. `paint()` redraws it from the state in place, so a tap is never lost to a repaint.
  */
-function toolCard(id: string, name: string, glyph: string, t: TabDef | null, size: 'wide' | 'half', onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
+function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
   const c = CARDS[id];
   const word = h('em.st');
   const ins = h('span.ins');
   const title = h('span.t');
-  const sub = size === 'wide' && c?.sub ? h('span.s', c.sub) : null;
   const reads = h('span.reads');
   const why = h('span.why');
-  const el = h(`button.hubtile.inst.${size}` as 'button', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
+  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
     ins,
     h('span.kick', icon(glyph), h('span.nm', name), word),
-    title, sub, reads, why,
+    title, reads, why,
   );
   let insKey: Element | null = null;
   const paint = () => {
@@ -146,7 +138,7 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, siz
       clear(ins, drawn);
       insKey = drawn.cloneNode(true) as Element;
     }
-    const rs = (t?.readouts ?? c.readouts)();
+    const rs = (t?.readouts ?? c.readouts)().slice(0, 2);
     clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}` as 'span',
       h('em', r.label),
       h('b.tnum', r.value ?? r.none ?? 'Not yet', r.value != null && r.unit ? h('small', r.unit) : null))));
@@ -156,6 +148,25 @@ function toolCard(id: string, name: string, glyph: string, t: TabDef | null, siz
   };
   return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
+
+/** A tool past the sixth: a small instrument, its name and its first reading, in the hub's More row. */
+function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
+  const c = CARDS[id];
+  const ins = h('span.mins');
+  const line = h('small');
+  const el = h('button.hubmini', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap }, ins, h('span.mtx', h('b', name), line), icon('<path d="M9 5l7 7-7 7"/>'));
+  const paint = () => {
+    if (!c) return;
+    const drawn = (t?.instrument ?? c.instrument)?.() ?? null;
+    clear(ins, drawn);
+    const r = (t?.readouts ?? c.readouts)()[0];
+    line.textContent = r ? `${r.label}: ${r.value ?? r.none ?? 'Not yet'}${r.value != null && r.unit ? ` ${r.unit}` : ''}` : '';
+  };
+  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
+}
+
+/** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
+export const HUB_MAX = 6;
 
 function hubTab(a: Area): TabDef {
   return {
@@ -167,27 +178,25 @@ function hubTab(a: Area): TabDef {
     hub: true,
     mount(root) {
       ensureDefs();
-      const recentRow = h('div.hubrecent');
-      const recentBox = h('section.hubsec', h('h2', 'Recent'), recentRow);
       const grid = h('div.hubgrid');
-      const count = h('small');
+      const moreRow = h('div.hubmore');
       const wrap = h('div.hub',
         h('p.hubsub', a.sub),
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
-        h('section.hubsec.tools', h('h2', 'Tools', count), grid),
-        recentBox,
+        grid,
+        moreRow,
       );
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
-      const list = a.tabs.map(def).filter((t): t is TabDef => !!t);
-      const n = list.length + (a.id === 'ask' ? 1 : 0);
-      // Two tools: each a wide card with a big instrument; an odd number: the first wide, the rest in pairs.
-      const sizeOf = (i: number): 'wide' | 'half' => (n <= 2 || (n % 2 === 1 && i === 0) ? 'wide' : 'half');
-      const cards = list.map((t, i) => toolCard(t.id, toolName(t), t.icon, t, sizeOf(i), () => navTo(t.id, 'push')));
-      if (a.id === 'ask') cards.push(toolCard('voice', 'Voice', MIC, null, sizeOf(list.length), voiceTap));
-      grid.classList.toggle('two', n === 2);
+      // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
+      const tools: [string, string, string, TabDef | null, () => void][] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
+      if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+      const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
+      const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
       clear(grid, ...cards.map((c) => c.el));
-      count.textContent = `${n} · tap to open`;
+      clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
+      moreRow.hidden = !minis.length;
+      cards.push(...minis);
       const paintAll = () => {
         for (const c of cards) c.paint();
       };
@@ -197,10 +206,6 @@ function hubTab(a: Area): TabDef {
         void Promise.all(cards.map((c) => c.load())).then(paintAll);
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
-        // recent screens of this area: shown once there are a few
-        const rec = recents.filter((id) => a.tabs.includes(id)).map(def).filter((t): t is TabDef => !!t).slice(0, 6);
-        recentBox.hidden = rec.length < 3;
-        clear(recentRow, ...rec.map((t) => tile(t, 'recent')));
       };
       return { enter: paint, leave: () => clearInterval(timer), describe: () => `${a.title}: ${a.tabs.join(', ')}` };
     },
@@ -321,7 +326,7 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   const cap = h('div.tabcap', { role: 'tablist' });
   for (const a of AREAS.slice(0, 5)) {
     // data-id is the area's main tab, so hooks that look for #dock button[data-id="core"] or the agenda badge still find it.
-    // The glyph sits in a small reactor ring (lit on the tab he is in, flared on touch), with a live dot when
+    // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
     // something runs in that area right now (liveIn below).
     const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, h('i.gi', h('i.halo'), icon(a.icon), h('i.live')), h('span', a.title));
     b.addEventListener('click', () => tap(a));

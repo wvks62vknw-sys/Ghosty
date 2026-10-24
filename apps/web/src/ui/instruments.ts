@@ -1,5 +1,5 @@
 /**
- * The Iron Man instruments (BRIEF-IRON-BUILD step 1; the owner's pick, OWNER-ISSUES 41 and 43: A's reactor
+ * The Iron Man instruments (BRIEF-IRON-BUILD step 1; the owner's pick, OWNER-ISSUES 41 and 43: A's
  * instruments with C's restraint). Ported from the hand-drawn mock-ups (docs/build-plan/mockups/iron/build.mjs),
  * built here with svgEl / h() (never markup strings), each one taking real state and drawing nothing it does not
  * know: a count it has not got is left out, never made up.
@@ -15,6 +15,7 @@
  *   levelInst       a level out of a few (the threat level): its segments lit
  *   sparkInst       a price's last week as a trace (Markets)
  *   dayArcInst      the Brief's day: sunrise to sunset, the sun where it is now
+ *   voiceInst, dialInst   Voice's waveform and Radio's tuning dial (lit while listening or playing)
  *   cubeInst, draftInst, layersInst, planInst   MAKE's tools as drawings (pictures of what they do, no readings)
  *   claimsInst      a cited reply's claims found in the sources
  *   mindGlyph       Ghosty's glyph in a reply's who-line (MIND in small)
@@ -338,6 +339,29 @@ export function dayArcInst(rise: number | null, set: number | null, now = Date.n
   if (t > 0) g.append(p('lit', `M${cx - R} ${cy}A${R} ${R} 0 0 1 ${f(cx + R * Math.cos(a))} ${f(cy - R * Math.sin(a))}`));
   g.append(circ(now > rise && now < set ? 'fl' : 'ln', cx + R * Math.cos(a), cy - R * Math.sin(a), 2.6));
   return g;
+}
+
+/** Voice: his words as a waveform round the microphone; lit while he is listening or speaking (`on`). */
+export function voiceInst(on: boolean): SVGSVGElement {
+  const g = root(160, 92, 'i-art', s('rect', { class: 'ln', x: 74, y: 22, width: 12, height: 30, rx: 6 }), p('ln2', 'M66 44a14 14 0 0028 0M80 58v10M72 68h16'));
+  const bars = [6, 11, 17, 9, 14, 20, 12, 7];
+  let d = '';
+  bars.forEach((hh, i) => {
+    const x = 18 + i * 5.5, x2 = 142 - i * 5.5;
+    d += `M${f(x)} ${46 - hh / 2}v${hh}M${f(x2)} ${46 - hh / 2}v${hh}`;
+  });
+  g.append(p(on ? 'lit' : 'ln2', d));
+  return g;
+}
+/** Radio: the tuning scale and its needle; the needle and the signal lit while a station is playing. */
+export function dialInst(playing: boolean): SVGSVGElement {
+  let ticks = '';
+  for (let k = 0; k <= 24; k++) ticks += `M${f(28 + k * 4.33)} ${k % 4 ? 52 : 48}V56`;
+  return root(160, 92, 'i-art',
+    s('rect', { class: 'ln', x: 22, y: 36, width: 116, height: 28, rx: 5, fill: 'none' }), p('ln2', ticks),
+    p(playing ? 'lit' : 'ln', 'M92 40V60'),
+    p(playing ? 'lit' : 'ln2', 'M68 22a17 17 0 0124 0M73 27a10 10 0 0114 0'), circ(playing ? 'fl' : 'ln2', 80, 31, 1.6),
+  );
 }
 
 /* ------------------------------------------------------------------ MAKE's pictures (drawings, not readings) */

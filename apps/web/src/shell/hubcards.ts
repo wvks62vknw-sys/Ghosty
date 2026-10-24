@@ -1,7 +1,7 @@
 /**
  * The hub cards (BRIEF-IRON-BUILD step 2; OWNER-ISSUES 32, 41, 43): every tool on a hub is an instrument card —
- * a small kicker (its bare glyph, its name, the live dot and one status word: LIVE, READY, TRAINING or OFF), what it
- * does for him, its instrument (ui/instruments.ts) and two or four readouts. Tappable as a whole; never an app icon.
+ * a small kicker (its bare glyph, its name, the live dot and one status word: LIVE, READY, TRAINING or OFF), one line
+ * on what it does for him, its instrument (ui/instruments.ts) and two readouts (the navigation sheet, mockups/nav). Tappable as a whole; never an app icon.
  *
  * Every readout is read from what this phone already holds (the same stores the deck's `now()` lines read: the feeds,
  * the GYM's records, the learn mirror, `lastSeen`, the agenda) or from the few light reads a hub makes when it is
@@ -35,7 +35,7 @@ import { schoolState } from '../features/school/index';
 import { homePlan } from '../features/space/home';
 import { SAMPLES } from '../features/studio/index';
 import { listKept } from '../features/studio/catalog';
-import { countdownInst, courseSegs, cubeInst, dayArcInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst } from '../ui/instruments';
+import { countdownInst, courseSegs, cubeInst, dayArcInst, dialInst, draftInst, globeInst, gymRingInst, layersInst, levelInst, mindInst, planInst, schoolRingInst, sparkInst, traceInst, viewfinderInst, voiceInst } from '../ui/instruments';
 import { niceCase } from '../ui/components';
 
 export type StatusWord = 'LIVE' | 'READY' | 'TRAINING' | 'OFF';
@@ -52,8 +52,6 @@ export interface Readout {
 export interface HubCard {
   /** What it does for him, in a few words (purpose first, OWNER-ISSUES 33); worked out when drawn (his city). */
   title: string | (() => string);
-  /** One more line, on a wide card only. */
-  sub?: string;
   status(): StatusWord;
   /** The instrument, drawn from real state (null: none). An element with `.ctr` overlay may wrap it. */
   instrument?(): Element | null;
@@ -121,7 +119,7 @@ const gymRecs = (): Map<string, GymRecord> => {
   // the GYM's page, when built, has newer numbers than the store
   for (const [id, r] of Object.entries(gymState.recs)) {
     const old = m.get(id);
-    if (old) m.set(id, { ...old, level: r.level, mastery: r.mastery, units: r.units, mastered: r.mastered });
+    m.set(id, { ...(old ?? { id, start: -1, detail: '', history: [], seed: 0, saved: null, updated: Date.now() }), level: r.level, mastery: r.mastery, units: r.units, mastered: r.mastered });
   }
   return m;
 };
@@ -140,7 +138,6 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
 export const CARDS: Record<string, HubCard> = {
   core: {
     title: 'Talk to him',
-    sub: 'Ask anything: he looks it up, does it, and checks his sources',
     status: () => (ui.get().connected == null ? 'READY' : ui.get().connected ? 'LIVE' : 'OFF'),
     instrument: () => traceInst(stopwatch.trips(12)),
     readouts: () => {
@@ -148,13 +145,13 @@ export const CARDS: Record<string, HubCard> = {
       const replies = chat.get().entries.filter((e) => e.kind === 'assistant' && e.at >= since).length;
       return [
         { label: 'Uplink', value: n(stopwatch.lastTrip()), unit: 'ms', live: !!ui.get().connected },
-        { label: 'Replies today', value: String(replies) },
+        { label: 'Today', value: String(replies), unit: replies === 1 ? 'reply' : 'replies' },
       ];
     },
     why: () => (ui.get().connected === false ? 'Offline: he answers on the phone until the signal is back' : ''),
   },
   brief: {
-    title: () => `Your day in ${city()}`,
+    title: () => `${city()} today`,
     status: () => (weather.data ? 'LIVE' : weather.status === 'NO FEED' ? 'OFF' : 'READY'),
     instrument: () => {
       const d = weather.data?.daily;
@@ -172,7 +169,8 @@ export const CARDS: Record<string, HubCard> = {
   },
   voice: {
     title: 'Say it out loud',
-    status: () => 'READY',
+    status: () => (ui.get().voice === 'listening' || ui.get().voice === 'speaking' ? 'LIVE' : 'READY'),
+    instrument: () => voiceInst(ui.get().voice === 'listening' || ui.get().voice === 'speaking'),
     readouts: () => {
       const sp = lastSeen.get().status?.speech;
       return [
@@ -184,26 +182,22 @@ export const CARDS: Record<string, HubCard> = {
   },
   eye: {
     title: 'The planet, live',
-    sub: 'Every plane, ship and satellite, and the cameras',
     status: () => (air.list.size || sats.list.length ? 'LIVE' : 'READY'),
     instrument: () => globeInst({ home: home(), planes: [...air.list.values()].map((a) => [a.lat, a.lon] as [number, number]), sats: sats.list.length }),
     readouts: () => [
       { label: 'Aircraft', value: air.list.size ? fmt.n(air.list.size) : null, live: air.list.size > 0 },
-      { label: 'Satellites', value: sats.list.length ? fmt.n(sats.list.length) : null, live: sats.list.length > 0 },
-      { label: 'Quakes · 24 h', value: n(quakesToday()), live: quakesToday() != null },
-      { label: 'You', value: city() },
+      { label: 'Quakes 24 h', value: n(quakesToday()), live: quakesToday() != null },
     ],
-    why: () => (air.list.size ? '' : 'Planes and satellites load when you open it'),
+    why: () => (air.list.size ? '' : `Planes over ${city()} load when you open it`),
     load: () => quakes.refresh(),
   },
   lens: {
     title: 'Point it at anything',
-    sub: 'and he tells you what it is, reads it or measures it',
     status: () => 'READY',
     instrument: () => h('span.lensvf', viewfinderInst(), h('span.vfcap', 'Camera off')),
     readouts: () => [
-      { label: 'Names', value: '4,624', unit: 'on phone' },
-      { label: 'Ways to look', value: String(LENS_MODES.length) },
+      { label: 'Names', value: '4,624' },
+      { label: 'Modes', value: String(LENS_MODES.length) },
     ],
   },
   studio: {
@@ -290,7 +284,7 @@ export const CARDS: Record<string, HubCard> = {
         rated
           ? { label: 'Rating', value: rated.league!.rating.toLocaleString('en-GB'), unit: d ? `${d > 0 ? '↑' : '↓'}${Math.abs(d)}` : '', live: !!t }
           : { label: 'Levels', value: hubFacts.gym || Object.keys(gymState.recs).length ? String(recs.reduce((s, r) => s + (r.mastered ? 10 : r.level - 1), 0)) : null },
-        { label: t ? 'Now' : 'Last', value: last ? `${niceCase(GAMES.find((g) => g.id === last.id)?.title ?? last.id)} ${last.mastered ? '✓' : `Lv ${last.level}`}` : null, none: 'None yet', live: !!t },
+        { label: t ? 'Now' : 'Last', value: last ? `${niceCase(GAMES.find((g) => g.id === last.id)?.title ?? last.id)} ${last.mastered ? '✓' : `Lv ${last.level}`}` : t ? `${niceCase(GAMES.find((g) => g.id === t)?.title ?? t)} Lv 1` : null, none: 'None yet', live: !!t },
       ];
     },
     load: loadGym,
@@ -322,7 +316,7 @@ export const CARDS: Record<string, HubCard> = {
     },
     readouts: () => [
       { label: 'Passages', value: n(lastSeen.get().passages) },
-      { label: 'Studied', value: n(hubFacts.study?.summary.read), unit: hubFacts.study ? 'topics' : '' },
+      { label: 'Studied', value: n(hubFacts.study?.summary.read) },
     ],
     load: loadLib,
   },
@@ -384,6 +378,7 @@ export const CARDS: Record<string, HubCard> = {
   radio: {
     title: 'Radio from everywhere',
     status: () => (player.get().state === 'playing' ? 'LIVE' : 'OFF'),
+    instrument: () => dialInst(player.get().state === 'playing'),
     readouts: () => {
       const p = player.get();
       return [

@@ -1,6 +1,6 @@
 /**
  * The GYM's pictures (BRIEF-IRON-BUILD step 3; OWNER-ISSUES 41 "the gym pics could be better"): every one of the 22
- * games as holographic line-art, 160 × 84, in the reactor's light. Chess, the maze, Sudoku, Connect 4, Go and Sokoban
+ * games as holographic line-art, 160 × 84, in MIND's light (the theme's colour). Chess, the maze, Sudoku, Connect 4, Go and Sokoban
  * are ported from the hand-drawn mock-ups (docs/build-plan/mockups/iron/build.mjs); the other sixteen are drawn here
  * in the same hand: thin lines, the move or the answer lit, his pieces filled, the other side outlined.
  *
