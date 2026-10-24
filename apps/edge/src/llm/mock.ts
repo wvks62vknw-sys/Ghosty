@@ -147,6 +147,26 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
     return { message: { role: 'assistant', content: `Done. ${textOf(last.content).slice(0, 160)}` }, model };
   }
   // A picture came with the message (content parts): say so, so the interface's tests can tell it arrived (the owner's words only, not the phone's data note).
+  // The Lens's NAME IT and WHAT'S IN IT (packages/shared/src/living.ts): a plant goes to identify_plant by its picture id;
+  // a bird, an insect, anything else and a meal come back as the JSON asked for (a robin "fairly confident", a ladybird
+  // "certain", "can't tell" for anything else; fish, chips and mushy peas).
+  const lensAsk = last.role === 'user' ? ownerWords(textOf(last.content)).trim() : '';
+  const plantId = lensAsk.match(/^LENS NAME IT \(plant\): run identify_plant with picture "([^"]+)"/)?.[1];
+  if (plantId && offered('identify_plant')) return { message: call('identify_plant', { picture: plantId }), model };
+  if (/^LENS NAME IT \(/.test(lensAsk) && imagesIn(last.content)) {
+    const what = lensAsk.match(/^LENS NAME IT \(([^)]+)\)/)?.[1] ?? '';
+    const reply =
+      what === 'bird'
+        ? { kind: 'bird', species: 'Erithacus rubecula', common: 'European robin', sure: 'fairly confident', tell: 'the orange-red breast and face' }
+        : what === 'insect'
+          ? { kind: 'insect', species: 'Coccinella septempunctata', common: 'Seven-spot ladybird', sure: 'certain', tell: 'seven black spots on red wing cases' }
+          : { kind: 'none', species: '', common: '', sure: "can't tell", tell: '' };
+    return { message: { role: 'assistant', content: '```json\n' + JSON.stringify(reply) + '\n```' }, model };
+  }
+  if (/^LENS WHAT'S IN IT/.test(lensAsk) && imagesIn(last.content)) {
+    const meal = { foods: [{ name: 'fish in batter', grams: 150, packaged: false }, { name: 'chips', grams: 150, packaged: false }, { name: 'mushy peas', grams: 80, packaged: false }], sure: 'fairly sure' };
+    return { message: { role: 'assistant', content: JSON.stringify(meal) }, model };
+  }
   if (last.role === 'user' && imagesIn(last.content)) return { message: { role: 'assistant', content: `I can see a picture. ${ownerWords(textOf(last.content))}`.trim() }, model };
   const text = textOf(last.content).toLowerCase().replace(/^scheduled task "[^"]*": /, '');
   const has = (name: string) => tools.some((t) => t.function.name === name);

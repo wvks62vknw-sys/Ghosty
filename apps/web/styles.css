@@ -3940,3 +3940,16 @@ html .hud.core .ccenter.replying #suggest { display: none !important; }
   #deck .dkcard:active { transform: none; }
 }
 /* end the deck and the icon language */
+
+/* LENS NAME IT / WHAT'S IN IT cards (features/lens/living.ts) */
+.livingcard { gap: 6px; }
+.livingcard .livinghead, .livingkinds .livinghead { font: 600 11px/13px var(--sf, var(--d)); letter-spacing: .09em; color: var(--ink3, var(--mute)); text-transform: uppercase; }
+.livingkinds { align-items: center; }
+.livingcard .livingname { font: 600 22px/27px var(--sf, var(--b)); letter-spacing: 0; color: var(--ink, inherit); text-transform: none; word-break: break-word; }
+.livingcard .livinglatin { font-size: 14px; color: var(--ink2, var(--mute)); }
+.livingcard .livinglead { font-size: 16px; line-height: 22px; }
+.livingcard .livingsure { font: 500 14px/19px var(--sf, var(--m)); color: var(--c); }
+.livingcard .livingtell { font-size: 14px; line-height: 20px; }
+.livingcard .livinglist { display: flex; flex-direction: column; gap: 3px; font-size: 14px; line-height: 20px; }
+.livingcard .lnk { align-self: center; padding: 0 6px; }
+html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter-spacing: 0; color: var(--ink); }
