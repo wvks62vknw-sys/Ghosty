@@ -15,7 +15,8 @@ const problems = [];
 let checks = 0;
 
 async function phone({ safe = false } = {}) {
-  const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block' });
+  // (reduced motion: the columns' parallax drift follows the finger and would move where a page ends between runs)
+  const ctx = await browser.newContext({ viewport: PHONE, ...UK, deviceScaleFactor: 2, isMobile: true, hasTouch: true, serviceWorkers: 'block', reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   const cdp = await ctx.newCDPSession(page);
   // the Home Screen app: env(safe-area-inset-*) as the iPhone reports them
@@ -63,7 +64,7 @@ const pageEnd = (page, tab) =>
       low = Math.max(low, b);
     }
     const bar = document.querySelector('#dock .tabcap').getBoundingClientRect().top;
-    return { lowest: Math.round(low), bar: Math.round(bar), stageBottom: Math.round(document.getElementById('stage').getBoundingClientRect().bottom), screen: innerHeight };
+    return { scrolls: sc !== root, lowest: Math.round(low), bar: Math.round(bar), stageBottom: Math.round(document.getElementById('stage').getBoundingClientRect().bottom), screen: innerHeight };
   }, tab);
 
 // 1. A finger on a tall card (System's STATUS) moves the page, not the card (the card took 160 px of it and the page 0).
@@ -92,7 +93,8 @@ const pageEnd = (page, tab) =>
     await show(page, tab);
     const e = await pageEnd(page, tab);
     if (e.stageBottom < e.screen - 1) problems.push(`[safe area · ${tab}] the page stops ${e.screen - e.stageBottom} px above the bottom of the screen instead of running on under the tab bar`);
-    if (e.bar - e.lowest > 50) problems.push(`[safe area · ${tab}] the page ends ${e.bar - e.lowest} px above the tab bar (the safe area counted twice)`);
+    // (a page shorter than the screen just ends where it ends)
+    if (e.scrolls && e.bar - e.lowest > 50) problems.push(`[safe area · ${tab}] the page ends ${e.bar - e.lowest} px above the tab bar (the safe area counted twice)`);
     if (e.bar - e.lowest < 16) problems.push(`[safe area · ${tab}] the end of the page is ${e.bar - e.lowest} px from the tab bar, under it`);
     if (tab === 'brief') await page.screenshot({ path: `${out}/scrollfeel-safe-brief-end.png` });
   }

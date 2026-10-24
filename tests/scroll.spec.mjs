@@ -130,7 +130,8 @@ const show = async (p, tab, wait = 1500) => {
   await p.waitForTimeout(wait);
   await p.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
 };
-const feelCtx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+// (reduced motion: the columns' parallax drift follows the pointer and would move where a page ends between runs)
+const feelCtx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block', reducedMotion: 'reduce' });
 const feel = await feelCtx.newPage();
 await pair(feel);
 let felt = 0;
