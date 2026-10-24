@@ -1391,7 +1391,7 @@ test('the phone: a trained week is the stock Qwen3 build fetched through Ghosty\
   const t = M.trainedModels(list, 'https://ghosty.example', weights);
   assert.equal(t.length, 1);
   const stock = M.MODELS[0];
-  assert.deepEqual({ ...t[0] }, { id: 'Ghosty-week-3-ccccccc', label: 'Ghosty (week 3)', repo: 'owner/ghosty-offline-brain', rev: 'c'.repeat(40), base: `https://ghosty.example/api/w/${'e'.repeat(48)}/resolve/${'c'.repeat(40)}/`, lib: stock.lib, mb: stock.mb, vram: stock.vram });
+  assert.deepEqual({ ...t[0] }, { id: 'Ghosty-week-3-ccccccc', label: 'Ghosty (week 3)', repo: 'owner/ghosty-offline-brain', rev: 'c'.repeat(40), base: `https://ghosty.example/api/w/${'e'.repeat(48)}/resolve/${'c'.repeat(40)}/`, lib: stock.lib, mb: stock.mb, vram: stock.vram, largest: stock.largest, work: stock.work });
   assert.equal(M.modelBase(t[0]), t[0].base, 'WebLLM keeps an address that names /resolve/<commit>/');
   assert.equal(M.modelBase(stock), `https://huggingface.co/${stock.repo}/resolve/${stock.rev}/`);
   assert.deepEqual(M.trainedModels(list, 'https://g', null), []);
@@ -1705,7 +1705,8 @@ test('the phone: a trained week of a bigger base runs on that base\'s library, c
   const weights = `/api/w/${'e'.repeat(48)}/`;
   const [t] = M.trainedModels([{ week: 9, label: 'x', repo: 'owner/ghosty-offline-brain', commit: 'c'.repeat(40), base: 'qwen3.5-2b' }], 'https://g', weights);
   assert.deepEqual({ lib: t.lib, mb: t.mb, vram: t.vram, brain: t.brain, ctx: t.ctx, history: t.history }, { lib: 'Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm', mb: 1082, vram: 2245.44, brain: 'qwen3.5-2b', ctx: 4096, history: 1 });
-  assert.equal(M.brainModels([], 'https://g', weights).map((m) => m.id).join(), 'Qwen3-0.6B-q4f16_1-MLC,Qwen2.5-0.5B-Instruct-q4f16_1-MLC,Qwen3.5-2B-q4f16_1-MLC,Qwen3.5-4B-q4f16_1-MLC');
+  assert.equal(M.brainModels([], 'https://g', weights).map((m) => m.id).join(), 'Qwen3-0.6B-q4f16_1-MLC,Qwen2.5-0.5B-Instruct-q4f16_1-MLC,Qwen3.5-0.8B-q4f16_1-MLC,Qwen3.5-2B-q4f16_1-MLC,Qwen3.5-4B-q4f16_1-MLC');
+  assert.equal(M.stockOf('qwen3-0.6b').id, 'Qwen3-0.6B-q4f16_1-MLC', 'the 0.8B (not trained) is never a base\'s stock build');
   assert.equal(M.stockOf('qwen3.5-4b').id, 'Qwen3.5-4B-q4f16_1-MLC');
   assert.equal(M.stockOf(undefined).id, 'Qwen3-0.6B-q4f16_1-MLC');
 });

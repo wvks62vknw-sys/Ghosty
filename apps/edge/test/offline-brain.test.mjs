@@ -187,11 +187,11 @@ test('offline translation: the request, the prompt and the clean answer', () => 
 // because this one is in the test list (package.json is protected).
 await import('./thinkharder.test.mjs');
 
-test('a bigger brain: Qwen3.5 2B and 4B pinned exactly as the vendored WebLLM 0.2.85 lists them, their compiled code vendored, and the fit line worked out from memory', async () => {
+test('a bigger brain: Qwen3.5 0.8B, 2B and 4B pinned exactly as the vendored WebLLM 0.2.85 lists them, their compiled code vendored, and the fit line worked out from memory', async () => {
   const { readFileSync, statSync } = await import('node:fs');
   const M = await import(`${B}/offline-models.mjs`);
   const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
-  assert.deepEqual(M.PICKER.map((m) => m.label), ['Qwen3 0.6B', 'Qwen3.5 2B', 'Qwen3.5 4B']);
+  assert.deepEqual(M.PICKER.map((m) => m.label), ['Qwen3 0.6B', 'Qwen3.5 0.8B', 'Qwen3.5 2B', 'Qwen3.5 4B']);
   for (const m of M.BIGGER) {
     assert.match(m.rev, /^[0-9a-f]{40}$/, `${m.id} is pinned to a commit`);
     assert.equal(M.modelBase(m), `https://huggingface.co/${m.repo}/resolve/${m.rev}/`);
@@ -207,17 +207,74 @@ test('a bigger brain: Qwen3.5 2B and 4B pinned exactly as the vendored WebLLM 0.
   }
   assert.equal(src.match(/const modelVersion = "([^"]+)"/)?.[1], 'v0_2_84/base', 'the libraries are from the set this runtime names');
   // the fit line: within a quarter of the memory is "yes", up to 40 % "tight", beyond it "no"
-  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 12)), ['yes', 'yes', 'tight'], 'an 18 Pro Max (12 GB)');
-  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 8)), ['yes', 'tight', 'no']);
-  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 4)), ['tight', 'no', 'no']);
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 12)), ['yes', 'yes', 'yes', 'tight'], 'an 18 Pro Max (12 GB)');
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 8)), ['yes', 'yes', 'tight', 'no']);
+  assert.deepEqual(M.PICKER.map((m) => M.fitOf(m.vram, 4)), ['tight', 'tight', 'no', 'no']);
   assert.equal(M.fitOf(1024, 4), 'yes', 'exactly a quarter');
   assert.equal(M.fitOf(4096 * 0.4, 4), 'tight', 'exactly 40 %');
   assert.equal(M.fitOf(2000, 0), 'no');
-  assert.equal(M.fitLine(M.BIGGER[1]), 'fits an 18 Pro Max: tight', "Safari says nothing: the phone's known 12 GB");
-  assert.equal(M.fitLine(M.BIGGER[0], 8), 'fits this device (8 GB): tight', 'the browser says how much it has');
+  const by = (id) => M.PICKER.find((m) => m.id === id);
+  assert.equal(M.fitLine(by('Qwen3.5-4B-q4f16_1-MLC')), 'fits an 18 Pro Max: tight', "Safari says nothing: the phone's known 12 GB");
+  assert.equal(M.fitLine(by('Qwen3.5-2B-q4f16_1-MLC'), 8), 'fits this device (8 GB): tight', 'the browser says how much it has');
   assert.equal(M.fitLine(M.MODELS[0], null), 'fits an 18 Pro Max: yes');
-  assert.deepEqual(M.PICKER.map((m) => [M.sizeText(m.mb), M.memText(m.vram)]), [['352 MB', '1.4 GB'], ['1.1 GB', '2.2 GB'], ['2.4 GB', '3.8 GB']]);
+  assert.deepEqual(M.PICKER.map((m) => [M.sizeText(m.mb), M.memText(m.vram)]), [['352 MB', '1.4 GB'], ['447 MB', '1.6 GB'], ['1.1 GB', '2.2 GB'], ['2.4 GB', '3.8 GB']]);
+  // the step between the 0.6B and the 2B: the list's Qwen3 1.7B needs more than about 1,800 MB, so the smallest Qwen above
+  // the 0.6B that needs well under 2 GB, and the weekly training does not train it
+  assert.match(src, /model_id: "Qwen3-1\.7B-q4f16_1-MLC",[\s\S]*?vram_required_MB: 2036\.66,/);
+  const mid = by('Qwen3.5-0.8B-q4f16_1-MLC');
+  assert.ok(mid.vram < 1800 && mid.alone === true && !mid.brain);
+  assert.equal(M.slotOf(mid), mid.id);
+  assert.ok(M.isBigger(mid) && M.isBigger(by('Qwen3.5-2B-q4f16_1-MLC')) && !M.isBigger(M.MODELS[0]) && !M.isBigger(M.MODELS[1]));
   // the page gives WebLLM each model's own context and history (brain.ts appConfig)
   const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
   assert.match(brain, /overrides: \{ context_window_size: m\.ctx \?\? 2048, \.\.\.\(m\.history \? \{ max_history_size: m\.history \} : \{\}\) \}/);
+});
+
+test('the 2B that closed Ghosty (24 Oct): WebLLM\'s memory figure taken apart, the WebGPU limits checked before a load, and what this phone can hold', async () => {
+  const { readFileSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const by = (id) => M.PICKER.find((m) => m.id === id);
+  const small = M.MODELS[0];
+  const mid = by('Qwen3.5-0.8B-q4f16_1-MLC');
+  const two = by('Qwen3.5-2B-q4f16_1-MLC');
+  const four = by('Qwen3.5-4B-q4f16_1-MLC');
+  // each library's own memory plan (its metadata) gives WebLLM's figure exactly: weights + largest working space + cache
+  // (the weights in MB of 1,048,576 bytes, summed from each model's tensor-cache.json at its pinned commit)
+  const weights = new Map([[small, 319.84], [mid, 404.3], [two, 1010.24], [four, 2257.46]]);
+  for (const [m, w] of weights) {
+    const wasm = readFileSync(new URL(`../../web/public/vendor/webllm/libs/${m.lib}`, import.meta.url)).toString('latin1');
+    const plan = JSON.parse(`{${wasm.match(/"memory_usage": \{[^}]*\}/)[0]}}`).memory_usage;
+    const work = Math.max(...Object.values(plan)) / 2 ** 20;
+    assert.ok(Math.abs(m.work - work - w) < 0.02, `${m.id}: weights ${w} MB + working space ${work.toFixed(2)} MB = ${m.work}`);
+  }
+  assert.equal(M.memAt(two, 4096), 2245.44);
+  assert.equal(M.memAt(two, 2048), 2149.44, 'half the context saves 96 MB');
+  assert.equal(M.memAt(two, 1024), 2101.44);
+  assert.equal(M.memAt(small, 2048), 1179.34, 'the 0.6B as the phone runs it (2,048 tokens)');
+  assert.equal(M.memAt(mid, 4096), 1629.49);
+  assert.equal(M.memAt({ vram: 944.62 }, 2048), 944.62, 'no breakdown: the figure as listed');
+  // the biggest piece of each brain (from its tensor-cache.json): the embedding table
+  assert.deepEqual([small, mid, two, four].map((m) => m.largest), [77_791_232, 127_139_840, 254_279_680, 317_849_600]);
+  // what WebLLM 0.2.85 asks the adapter for, read from the vendored runtime itself
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  assert.match(src, /let requiredMaxBufferSize = 1 << 30; \/\/ 1GB[\s\S]*?const backupRequiredMaxBufferSize = 1 << 28; \/\/ 256MB[\s\S]*?let requiredMaxStorageBufferBindingSize = 1 << 30; \/\/ 1GB[\s\S]*?const backupRequiredMaxStorageBufferBindingSize = 1 << 27; \/\/ 128MB[\s\S]*?const requiredMaxComputeWorkgroupStorageSize = 32 << 10;[\s\S]*?const requiredMaxStorageBuffersPerShaderStage = 10;[\s\S]*?const candidates = \[1024, 512, 256\];/);
+  const big = { maxBufferSize: 4 * 2 ** 30, maxStorageBufferBindingSize: 4 * 2 ** 30, maxComputeWorkgroupStorageSize: 32768, maxStorageBuffersPerShaderStage: 10, maxComputeInvocationsPerWorkgroup: 1024 };
+  const safari = { ...big, maxBufferSize: 256 * 2 ** 20, maxStorageBufferBindingSize: 128 * 2 ** 20 };
+  assert.deepEqual(M.webllmAsks(big), { buffer: 2 ** 30, binding: 2 ** 30, why: '' });
+  assert.deepEqual(M.webllmAsks(safari), { buffer: 2 ** 28, binding: 2 ** 27, why: '' });
+  assert.equal(M.pieceLimit(safari), 128 * 2 ** 20);
+  for (const m of [small, mid, two, four]) assert.equal(M.limitsProblem(m, big, true), '', `${m.id} runs on a chip that gives 1 GB pieces`);
+  assert.equal(M.limitsProblem(small, safari, true), '');
+  assert.equal(M.limitsProblem(mid, safari, true), '', 'the 0.8B\'s 121 MB piece fits Safari\'s default 128 MB');
+  assert.equal(M.limitsProblem(two, safari, true), 'Qwen3.5 2B has one piece of 243 MB that must sit in the graphics chip in one go, and this phone gives a web page pieces of at most 128 MB. It cannot run here, so Ghosty does not try.');
+  assert.match(M.limitsProblem(four, { ...big, maxStorageBufferBindingSize: 512 * 2 ** 20 }, true), /Qwen3\.5 4B has one piece of 303 MB[\s\S]*at most 128 MB/, 'under 1 GB WebLLM asks for only 128 MB');
+  assert.equal(M.limitsProblem(two, { ...big, maxBufferSize: 200 * 2 ** 20 }, true), 'This phone\'s graphics chip does not give a web page what the offline brain needs to start: buffers of 256 MB (it gives 200 MB). Qwen3.5 2B cannot run here.');
+  assert.match(M.limitsProblem(two, { ...big, maxStorageBuffersPerShaderStage: 8 }, true), /10 storage buffers per shader \(it gives 8\)/);
+  assert.match(M.limitsProblem(two, big, false), /lacks the 16-bit maths \(shader-f16\)/);
+  // the "can hold" line: the chip's limit and what happened here before, per picker row
+  const at = Date.UTC(2026, 9, 24, 20);
+  assert.equal(M.holdLine(safari, {}), 'What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 0.6B, 0.8B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
+  assert.equal(M.holdLine(big, { 'qwen3-0.6b': { s: 'loaded', at }, 'qwen3.5-2b': { s: 'closed', at } }), 'What this phone can hold: its graphics chip takes pieces of up to 1,024 MB, enough for every brain here; has run Qwen3 0.6B (24 Oct); closed Ghosty loading Qwen3.5 2B (24 Oct); not tried yet: Qwen3.5 0.8B, Qwen3.5 4B. How much graphics memory a page may use is only known by trying: iOS closes a page that asks for too much.');
+  assert.match(M.holdLine(null, { 'Qwen3.5-0.8B-q4f16_1-MLC': { s: 'failed', at }, 'qwen3.5-4b': { s: 'refused', at } }), /^What this phone can hold: ran out of memory loading Qwen3\.5 0\.8B \(24 Oct\); could not start Qwen3\.5 4B \(24 Oct\); not tried yet: Qwen3 0\.6B, Qwen3\.5 2B\./);
+  assert.equal(M.shortName(two), '2B');
 });

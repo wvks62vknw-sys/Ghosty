@@ -255,6 +255,12 @@ Add to it any time; tick items off only when he agrees they are fixed.
     second try hit it at once because the files were already cached. The fix builder was told: load only on USE/TEST
     after a limits pre-check and a warning, a crash record that stops blind retries, a smaller context window, and a
     middle-sized brain (Qwen3 1.7B if it needs well under 2 GB) so he has a step between the 0.6B and the 2B.
+    Fixed (24 Oct, merged ~23:55 UK): GET only stores the files (one piece at a time, into WebLLM's own stores); USE and
+    TEST load after the phone's graphics limits are checked and a warning; a load that closes Ghosty is remembered and
+    the 0.6B is back on the next open; his phone's state (the 2B "in use", never loaded) is put right once; a middle
+    brain, Qwen3.5 0.8B (1.6 GB of graphics memory; a smaller context window does not help the 2B: 2,101 MB at
+    1,024 tokens). To ask him after the update: GET and USE the 0.8B, then USE the 2B, and what the "What this
+    phone can hold" line says.
 
 45. **Navigation and boot, his word (24 Oct ~21:50 UK):** "I am happy with pretty much all of that but i feel the intro could be
     a little more cinematic, forget giving facts, like it could be really cinematic and cool and remember it's not an arc

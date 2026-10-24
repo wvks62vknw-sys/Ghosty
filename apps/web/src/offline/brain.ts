@@ -3,25 +3,34 @@
  * so Ghosty can still talk when the brain can't be reached, when every free model is busy, or
  * whenever the owner switches it to "always". Free and private: nothing leaves the phone.
  *
- * Nothing is downloaded until the owner presses DOWNLOAD (SETTINGS → OFFLINE BRAIN): a chat
+ * Nothing is downloaded until the owner presses DOWNLOAD or GET (SETTINGS → OFFLINE BRAIN): a chat
  * message never starts the ~352 MB download (it may be on mobile data). The runtime and the model
  * live in a Web Worker (public/vendor/webllm/worker.mjs), so the page never parses the 6 MB
  * runtime; the weights come from Hugging Face once, at the commit pinned in offline/models.ts, and
  * stay in the browser's Cache API; the model's compiled code is served from this site
- * (vendor/webllm/libs). Phone memory is tight: the model leaves memory (the worker ends) as soon as
- * a download finishes and two minutes after it last answered; the download stays.
+ * (vendor/webllm/libs). Phone memory is tight: the model leaves memory (the worker ends) two minutes
+ * after it last answered; the download stays.
+ *
+ * Downloading and loading are two steps (24 Oct, after the Qwen3.5 2B closed Ghosty on the owner's 18 Pro Max): GET and
+ * DOWNLOAD only put the files into WebLLM's cache, one piece at a time, with nothing in graphics memory (offline/fill.ts);
+ * a brain goes into graphics memory only when it is used (USE, TEST, a reply). Before a bigger brain loads, the phone's
+ * WebGPU limits are checked against it (models.ts limitsProblem), the brain and the meaning model leave memory, and
+ * `{ loading, at }` goes to localStorage; if iOS closes Ghosty during the load, the next open finds it, marks that brain
+ * "closed Ghosty on this phone", goes back to the 0.6B, and never loads it again without the owner's yes (USE asks).
  *
  * Tests (no WebGPU in CI) set `window.__ghostyOfflineEngine = { chat(messages, onToken) }`, with
- * optional `load()` (stands in for loading the model), `unload()` and `idleMs`.
+ * optional `load()` (stands in for loading the model), `unload()`, `idleMs` and `files` (true: GET and DOWNLOAD
+ * really fill the Cache API, from the spec's stand-in files).
  */
 import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
 import { searchLocalHow } from '../library/local';
 import { embedState, freeEmbedder, isEmbedFile } from './embed';
+import { clearLog, fill, filled, pieceLine, readLog, writeLog } from './fill';
 import { settings } from '../state/app';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
-import { brainModels, brainOf, downloadFailure, MODELS, modelBase, PICKER, sizeText, stockOf, WORKER_REV, type ModelDef, type TrainedModel } from './models';
-import { withModel } from './lock';
+import { BIGGER, brainModels, brainOf, downloadFailure, isBigger, limitsProblem, MODELS, modelBase, PICKER, sizeText, slotOf, stockOf, WORKER_REV, type GpuLimits, type Held, type ModelDef, type TrainedModel } from './models';
+import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
 export type { OfflineMsg } from './prompt';
@@ -56,8 +65,14 @@ export const offlineBrain = createStore(
     fellBack: '',
     trainBase: DEFAULT_BASE as BaseId,
     pendingBase: null as BaseId | null,
+    /** What happened when each brain was loaded on this phone (models.ts Held, by picker row): the "can hold" line. */
+    held: {} as Record<string, Held>,
+    /** The brain whose files GET is fetching now ('' when none). */
+    getting: '',
+    /** The legacy check below has run once on this phone. */
+    guarded: false,
   },
-  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase'] },
+  { persist: 'ghosty.offlinebrain', keys: ['model', 'downloaded', 'trained', 'active', 'weights', 'thinkSecs', 'have', 'fellBack', 'trainBase', 'pendingBase', 'held', 'guarded'] },
 );
 
 /** Every model this phone can use: the trained ones, the stock Qwen3 and Qwen2.5, and the bigger brains (offline/models.ts). */
@@ -94,6 +109,8 @@ interface TestEngine {
   unload?(): void;
   /** How long after the last use the model leaves memory (instead of two minutes). */
   idleMs?: number;
+  /** GET and DOWNLOAD really fill the Cache API (the spec serves stand-in files); else they only pretend. */
+  files?: boolean;
   /** `opts`: THINK HARDER's temperature and length for this reply (absent: the chat's own). */
   chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts?: ReplyOpts): Promise<unknown> | unknown;
 }
@@ -127,12 +144,39 @@ export function offlineSupport(): Promise<{ ok: boolean; reason: string }> {
   return support;
 }
 
+type GpuAdapterL = GpuAdapter & { limits?: Partial<Record<keyof GpuLimits, number>> };
+let limitsAsked: Promise<{ limits: GpuLimits; f16: boolean } | null> | null = null;
+/**
+ * The phone's WebGPU limits, read from its adapter (no device is asked for, so nothing is allocated): null when there is
+ * no WebGPU. What a page may use of the graphics memory itself is not among them: only loading tells.
+ */
+export function gpuLimits(): Promise<{ limits: GpuLimits; f16: boolean } | null> {
+  limitsAsked ??= (async () => {
+    const gpu = (navigator as unknown as { gpu?: { requestAdapter(o?: { powerPreference?: string }): Promise<GpuAdapterL | null> } }).gpu;
+    const a = gpu ? await gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null) : null;
+    if (!a?.limits) return null;
+    const n = (k: keyof GpuLimits) => Number(a.limits?.[k] ?? 0);
+    return {
+      limits: { maxBufferSize: n('maxBufferSize'), maxStorageBufferBindingSize: n('maxStorageBufferBindingSize'), maxComputeWorkgroupStorageSize: n('maxComputeWorkgroupStorageSize'), maxStorageBuffersPerShaderStage: n('maxStorageBuffersPerShaderStage'), maxComputeInvocationsPerWorkgroup: n('maxComputeInvocationsPerWorkgroup') },
+      f16: a.features.has('shader-f16'),
+    };
+  })();
+  return limitsAsked;
+}
+
+/** Why this phone cannot run this brain, in plain words ('' when its graphics chip gives what it needs, or cannot be asked). */
+export async function precheck(m: ModelDef): Promise<string> {
+  const g = await gpuLimits();
+  return g ? limitsProblem(m, g.limits, g.f16) : '';
+}
+
 /** When the cache was last seen whole: every chat message asks, and reading the weight list each time is waste. */
 let checkedAt = 0;
 /** The model is on this phone (all of its files are in the browser's cache). */
 export async function offlineReady(): Promise<boolean> {
   const t = testEngine();
-  if (t) return t.ready !== false;
+  // (a test engine with real files is ready when they are, as on the phone)
+  if (t && !t.files) return t.ready !== false;
   if (!offlineBrain.get().downloaded || typeof caches === 'undefined') return false;
   if (Date.now() - checkedAt < 10 * 60_000) return true;
   const m = currentModel();
@@ -146,6 +190,8 @@ export async function offlineReady(): Promise<boolean> {
 
 /** Every file of this model is in the browser's cache: WebLLM's own check, done here without loading WebLLM (the weight list and every shard it names). */
 async function cachedWhole(m: ModelDef): Promise<boolean> {
+  const t = testEngine();
+  if (t && !t.files) return true;
   if (typeof caches === 'undefined') return false;
   try {
     const base = modelBase(m);
@@ -166,7 +212,8 @@ async function cachedWhole(m: ModelDef): Promise<boolean> {
  */
 export async function brainsHere(): Promise<string[]> {
   const have = offlineBrain.get().have ?? [];
-  if (testEngine()) return have;
+  const t = testEngine();
+  if (t && !t.files) return have;
   const here: string[] = [];
   for (const id of have) {
     const m = offlineModels().find((x) => x.id === id);
@@ -249,21 +296,29 @@ const stopped = () => Object.assign(new Error('stopped'), { name: 'AbortError' }
 
 let loading: Promise<void> | null = null;
 /**
- * Load the model into memory; `onProgress` gets 0–1 and WebLLM's own words. Only DOWNLOAD
- * (`download` true) may fetch it from the internet: otherwise every file must already be here.
+ * Load the model into memory (every file must already be on this phone: GET and DOWNLOAD fetch them); `onProgress`
+ * gets 0–1 and WebLLM's own words. A bigger brain first passes `mayLoad` and is loaded under the crash record
+ * (`guarded`). When it fails for memory, the 0.6B becomes the brain in use (fallBack); `retry` then loads the 0.6B
+ * for the reply that asked, else the failure is thrown in plain words (USE).
  */
-function load(onProgress?: (frac: number, text: string) => void, download = false): Promise<void> {
+function load(onProgress?: (frac: number, text: string) => void, retry = true): Promise<void> {
   if (offlineBrain.get().loaded && worker) return Promise.resolve();
   loading ??= (async () => {
-    if (!download && !(await offlineReady())) throw notHere();
+    if (!(await offlineReady())) throw notHere();
     const model = currentModel();
-    offlineBrain.set({ busy: offlineBrain.get().downloaded ? 'load' : 'download', progress: 0, text: '' });
+    await mayLoad(model);
+    offlineBrain.set({ busy: 'load', progress: 0, text: '' });
     try {
-      await call('load', { model: model.id, appConfig: appConfig() }, (e) => {
-        const frac = Math.max(0, Math.min(1, e.progress ?? 0));
-        offlineBrain.set({ progress: frac, text: e.text ?? '' });
-        onProgress?.(frac, e.text ?? '');
-      });
+      // Never two models in graphics memory: the meaning model leaves, and a worker holding anything else ends.
+      freeEmbedder();
+      if (worker && isBigger(model)) dropWorker();
+      await guarded(model, () =>
+        call('load', { model: model.id, appConfig: appConfig() }, (e) => {
+          const frac = Math.max(0, Math.min(1, e.progress ?? 0));
+          offlineBrain.set({ progress: frac, text: e.text ?? '' });
+          onProgress?.(frac, e.text ?? '');
+        }),
+      );
       offlineBrain.set({ downloaded: true, loaded: true });
       armIdle();
     } catch (e) {
@@ -275,47 +330,122 @@ function load(onProgress?: (frac: number, text: string) => void, download = fals
     }
   })();
   // A bigger brain the phone could not give the memory to: the 0.6B takes over, at once when it is on this phone.
-  // Only when no download was asked for (DOWNLOAD says so itself); a reply then waits for the 0.6B instead.
-  return download ? loading : loading.catch(async (e) => {
+  return loading.catch(async (e) => {
     if (!(await fallBack(e))) throw e;
+    if (!retry) throw new Error(offlineBrain.get().fellBack);
     return load(onProgress);
   });
 }
 
-/** A bigger brain (not the 0.6B or its Qwen2.5 stand-in) that may be too big for the phone's memory. */
-const isBigger = (m: ModelDef): boolean => brainOf(m) !== DEFAULT_BASE;
+/** The crash record: a bigger brain being loaded right now (localStorage, written synchronously before the load). */
+const LOADING_KEY = 'ghosty.offlinebrain.loading';
+const readLoading = (): { loading: string; at: number } | null => {
+  try {
+    const v = JSON.parse(localStorage.getItem(LOADING_KEY) ?? 'null') as { loading?: unknown; at?: unknown } | null;
+    return v && typeof v.loading === 'string' ? { loading: v.loading, at: Number(v.at) || 0 } : null;
+  } catch {
+    return null;
+  }
+};
+const setLoading = (v: { loading: string; at: number } | null) => {
+  try {
+    if (v) localStorage.setItem(LOADING_KEY, JSON.stringify(v));
+    else localStorage.removeItem(LOADING_KEY);
+  } catch {
+    /* blocked storage: the load still runs */
+  }
+};
+
+/** Remember what a load of this brain did on this phone (the picker's "can hold" line, and whether USE asks first). */
+function setHeld(m: ModelDef, s: Held['s'], at = Date.now()): void {
+  offlineBrain.set({ held: { ...(offlineBrain.get().held ?? {}), [slotOf(m)]: { s, at } } });
+}
+export const heldOf = (m: ModelDef): Held | undefined => (offlineBrain.get().held ?? {})[slotOf(m)];
+
+/** The bigger brains the owner said yes to loading in this session (USE's question): only these may load after a close. */
+const approved = new Set<string>();
+/** The owner said yes to loading this brain (USE's or TEST's question). */
+export const approveLoad = (m: ModelDef): void => void approved.add(slotOf(m));
+/** Whether this phone can run it (models.ts limitsProblem), remembered as "could not start" when not: '' when fine. */
+export async function checkBrain(m: ModelDef): Promise<string> {
+  const why = await precheck(m);
+  if (why && isBigger(m)) setHeld(m, 'refused');
+  return why;
+}
+
+/** A failure that sends Ghosty back to the 0.6B, with its own plain words. */
+const refusal = (msg: string) => Object.assign(new Error(msg), { refuse: true });
+
+/**
+ * May this brain go into graphics memory? A bigger one that closed Ghosty before needs the owner's yes again (USE asks),
+ * and one whose pieces are bigger than this phone's WebGPU gives a page is never tried.
+ */
+async function mayLoad(m: ModelDef): Promise<void> {
+  if (!isBigger(m)) return;
+  if (heldOf(m)?.s === 'closed' && !approved.has(slotOf(m))) throw refusal(`${m.label} closed Ghosty the last time it loaded on this phone, so it is not loaded again until you say so (SETTINGS → OFFLINE BRAIN → USE).`);
+  const why = await precheck(m);
+  if (why) {
+    setHeld(m, 'refused');
+    throw refusal(why);
+  }
+}
+
+/** Load a bigger brain under the crash record: set before, cleared after, and what happened remembered. */
+async function guarded<T>(m: ModelDef, fn: () => Promise<T> | T): Promise<T> {
+  if (!isBigger(m)) return fn();
+  setLoading({ loading: m.id, at: Date.now() });
+  try {
+    const r = await fn();
+    setHeld(m, 'loaded');
+    return r;
+  } catch (e) {
+    if (tooBig(e)) setHeld(m, 'failed');
+    throw e;
+  } finally {
+    setLoading(null);
+  }
+}
 
 /**
  * After a failure: when the brain in use is a bigger one and the phone ran out of memory (or lost its graphics) loading
- * it, the 0.6B becomes the brain in use and the owner is told in plain words (`fellBack`, shown in SETTINGS). Its files
- * stay: closing other apps and choosing it again may be enough. True when it fell back.
+ * it, or it may not load here (mayLoad), the 0.6B becomes the brain in use and the owner is told in plain words
+ * (`fellBack`, shown in SETTINGS). Its files stay: closing other apps and choosing it again may be enough. True when it
+ * fell back.
  */
 async function fallBack(e: unknown): Promise<boolean> {
   const m = currentModel();
-  if (!isBigger(m) || !tooBig(e)) return false;
+  const refused = !!(e as { refuse?: boolean })?.refuse;
+  if (!isBigger(m) || !(refused || tooBig(e))) return false;
   freeModel();
   const small = MODELS[0]!;
   const have = offlineBrain.get().have ?? [];
   const here = have.includes(small.id);
   // (its files stay, and count as on this phone when they are whole: REMOVE is then offered for them)
-  const whole = testEngine() ? true : await cachedWhole(m);
+  const whole = await cachedWhole(m);
+  const get = here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)';
   offlineBrain.set({
     have: whole ? [...new Set([...have, m.id])] : have,
     model: small.id,
     downloaded: here,
     loaded: false,
-    fellBack: `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${small.label} instead${here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)'}. ${m.label} stays on this phone: close other apps and choose it again to try once more, or REMOVE it to free ${sizeText(m.mb)}.`,
+    fellBack: refused
+      ? `${(e as Error).message} Ghosty is using ${small.label}${get}.`
+      : `${m.label} needed more memory than this phone could give it just now, so Ghosty is using ${small.label} instead${get}. ${m.label} stays on this phone: close other apps and choose it again to try once more, or REMOVE it to free ${sizeText(m.mb)}.`,
   });
   checkedAt = 0;
   return true;
 }
 
-/** The test engine's load, told which model, with the same fallback when it throws "out of memory" for a bigger brain. */
-async function testLoad(t: TestEngine): Promise<void> {
+/** The test engine's load, told which model, with the same checks, crash record and fallback as the real one. */
+async function testLoad(t: TestEngine, retry = true): Promise<void> {
   try {
-    await t.load?.(currentModel().id);
+    const m = currentModel();
+    await mayLoad(m);
+    freeEmbedder();
+    await guarded(m, () => t.load?.(m.id));
   } catch (e) {
     if (!(await fallBack(e))) throw e;
+    if (!retry) throw new Error(offlineBrain.get().fellBack);
     await t.load?.(currentModel().id);
   }
 }
@@ -323,62 +453,151 @@ async function testLoad(t: TestEngine): Promise<void> {
 /** The phone ran out of memory or lost its graphics device: worth trying the smaller model. */
 const tooBig = (e: unknown) => /memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(String((e as Error)?.message ?? e));
 
-/** Download the model for use with no connection (≈352 MB, once). Falls back to the smaller model if the phone can't hold the first. */
-export async function downloadOffline(onProgress?: (frac: number, text: string) => void): Promise<void> {
+/**
+ * A brain's files into WebLLM's cache (GET and DOWNLOAD): the brain in use and the meaning model leave memory first, one
+ * piece at a time, the progress line "piece 37 of 120 · 412 MB of 1,082 MB", and nothing loaded into graphics memory.
+ */
+async function getFiles(m: ModelDef, onProgress?: (frac: number, text: string) => void): Promise<void> {
+  if (offlineBrain.get().busy || modelJob.get().job) throw new Error('The offline brain is busy right now: try again in a moment.');
   const t = testEngine();
-  if (t) {
-    // (the test engine's "download" loads it once, as WebLLM does after fetching, so a bigger brain can fail for memory)
-    const m = currentModel();
-    try {
-      await t.load?.(m.id);
-    } catch (e) {
-      if (await fallBack(e)) throw new Error(offlineBrain.get().fellBack);
-      throw e;
-    }
-    t.ready = true;
-    offlineBrain.set({ downloaded: true, loaded: true, fellBack: '', have: [...new Set([...(offlineBrain.get().have ?? []), m.id])] });
-    onProgress?.(1, 'done');
-    freeModel();
-    return;
+  if (!t) {
+    const s = await offlineSupport();
+    if (!s.ok) throw new Error(s.reason);
   }
-  const s = await offlineSupport();
-  if (!s.ok) throw new Error(s.reason);
+  freeModel();
+  freeEmbedder();
+  offlineBrain.set({ busy: 'download', getting: m.id, progress: 0, text: '' });
   try {
-    await load(onProgress, true);
+    if (t && !t.files) onProgress?.(1, 'done');
+    else
+      await fill(m, location.origin, (p) => {
+        const frac = p.total ? Math.min(1, p.bytes / p.total) : 0;
+        const text = pieceLine(p.piece, p.of, p.bytes, p.total);
+        offlineBrain.set({ progress: frac, text });
+        onProgress?.(frac, text);
+      });
   } catch (e) {
-    const kind = downloadFailure(e);
-    const trained = !PICKER.concat(MODELS).some((m) => m.id === currentModel().id);
-    if (kind === 'network') {
-      // The connection dropped: nothing is removed (the stock model's files, nor what this download already
-      // fetched — WebLLM keeps each finished file), so DOWNLOAD carries on from where it stopped.
-      dropWorker();
-      throw new Error('The download was interrupted (the connection dropped?). Press DOWNLOAD again on Wi-Fi: it carries on from where it stopped.');
-    }
-    if (trained && kind === 'broken') {
+    const name = (e as Error)?.name ?? '';
+    const kind = name === 'QuotaExceededError' ? 'full' : downloadFailure(e);
+    if (kind === 'full') throw new Error(`This phone has no room left for ${m.label} (about ${sizeText(m.mb)}): free some space, then tap GET again. What is stored so far stays.`);
+    if (kind === 'network' || kind === 'too-big') throw Object.assign(new Error(`Getting ${m.label} was interrupted (the connection dropped?). Tap GET again on Wi-Fi: it carries on from where it stopped.`), { network: true });
+    throw e;
+  } finally {
+    offlineBrain.set({ busy: '', getting: '' });
+  }
+  offlineBrain.set({ have: [...new Set([...(offlineBrain.get().have ?? []), m.id])] });
+  if (m.id === currentModel().id) offlineBrain.set({ downloaded: true });
+  checkedAt = 0;
+}
+
+/**
+ * Download the brain in use for use with no connection (≈352 MB, once): its files only, nothing loaded (TEST or the
+ * first reply loads it). A trained brain whose files are gone or wrong goes back to its base's stock build.
+ */
+export async function downloadOffline(onProgress?: (frac: number, text: string) => void): Promise<void> {
+  const m = currentModel();
+  try {
+    await getFiles(m, onProgress);
+  } catch (e) {
+    const trained = !PICKER.concat(MODELS).some((x) => x.id === m.id);
+    if ((e as { network?: boolean }).network) throw new Error('The download was interrupted (the connection dropped?). Press DOWNLOAD again on Wi-Fi: it carries on from where it stopped.');
+    if (trained && downloadFailure(e) === 'broken') {
       // A trained brain whose files are really wrong or gone: only ITS files go, and the phone goes back to its base's stock one.
-      const m = currentModel();
       const stock = stockOf(brainOf(m));
       dropWorker();
       await removeFilesOf(modelBase(m));
+      clearLog(m.id);
       offlineBrain.set({ model: stock.id, downloaded: false });
       checkedAt = 0;
-      throw new Error(`${m.label} would not load (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
+      throw new Error(`${m.label} would not download (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
     }
-    // A bigger brain the phone could not hold: its files stay (closing other apps may be enough), the 0.6B takes over.
-    if (await fallBack(e)) throw new Error(offlineBrain.get().fellBack);
-    if (currentModel().id !== MODELS[1]!.id && tooBig(e)) {
-      dropWorker();
-      await clearCaches();
-      offlineBrain.set({ model: MODELS[1]!.id, downloaded: false, have: [] });
-      onProgress?.(0, 'Too big for this phone: getting the smaller model instead');
-      await load(onProgress, true);
-    } else throw e;
+    throw e;
   }
-  offlineBrain.set({ fellBack: '', have: [...new Set([...(offlineBrain.get().have ?? []), currentModel().id])] });
-  // Downloaded is all that was asked: the model leaves memory until it is needed (the camera, the
-  // namer and the reader need the room), and files from an older pinned revision go.
-  freeModel();
+  const t = testEngine();
+  if (t) t.ready = true;
+  offlineBrain.set({ downloaded: true, fellBack: '' });
+  // Files from an older pinned revision go.
   await pruneOtherRevisions();
+}
+
+/**
+ * GET in the picker: one of its brains onto this phone (its files only). The brain in use stays the one in use, and
+ * nothing goes into graphics memory: USE loads it, after the checks.
+ */
+export async function getBrain(id: string, onProgress?: (frac: number, text: string) => void): Promise<ModelDef> {
+  const m = offlineModels().find((x) => x.id === id);
+  if (!m) throw new Error('That brain is not offered here.');
+  await getFiles(m, onProgress);
+  await pruneOtherRevisions();
+  return m;
+}
+
+/**
+ * USE: make a brain on this phone the one in use and load it now, so a phone that cannot hold it finds out here (with
+ * the owner watching, after USE's warning) and not in the middle of a reply. Asking for this is the owner's yes after a
+ * close. When it fails, the 0.6B is the brain in use again and the error says so in plain words.
+ */
+export async function useBrain(id: string): Promise<ModelDef> {
+  const m = offlineModels().find((x) => x.id === id);
+  if (!m) throw new Error('That brain is not offered here.');
+  if (modelJob.get().job) throw new Error('The offline brain is busy right now: try again in a moment.');
+  if (isBigger(m)) approved.add(slotOf(m));
+  if (!chooseBrain(id)) throw new Error('The offline brain is busy right now: try again in a moment.');
+  const t = testEngine();
+  if (t) await testLoad(t, false);
+  else await load(undefined, false);
+  return m;
+}
+
+/**
+ * On opening: what happened while Ghosty was closed. A load still recorded means iOS closed Ghosty during it: that brain
+ * is marked "closed Ghosty on this phone", its download stays, and the 0.6B is the brain in use again. A download log
+ * left means GET did not finish (the picker offers CONTINUE; nothing restarts by itself). Once, for a phone that tried a
+ * bigger brain before this check existed: one in use that never finished loading goes back to the 0.6B in the same way.
+ */
+let closedWhileGetting = false;
+/** The download in the log was cut short by Ghosty closing (it was there when Ghosty opened). */
+export const wasClosedWhileGetting = (): boolean => closedWhileGetting && !!readLog();
+
+function closedWords(m: ModelDef, at: number | null, here: boolean): string {
+  const when = at ? ` (${new Date(at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})` : ' the last time it was tried';
+  return `Loading ${m.label} closed Ghosty${when}: the phone could not hold it. Ghosty is back on ${MODELS[0]!.label}${here ? '' : ' (press DOWNLOAD for it: about 352 MB, on Wi-Fi)'}. ${m.label}'s download stays on this phone, and USE asks before it tries again.`;
+}
+
+function backToSmall(m: ModelDef, at: number | null): void {
+  const have = offlineBrain.get().have ?? [];
+  const small = MODELS[0]!;
+  const here = have.includes(small.id);
+  setHeld(m, 'closed', at || Date.now());
+  offlineBrain.set({ have: [...new Set([...have, m.id])], ...(isBigger(currentModel()) ? { model: small.id, downloaded: here, loaded: false } : {}), fellBack: closedWords(m, at, here) });
+  checkedAt = 0;
+}
+
+export function recoverFromClose(): void {
+  if (typeof localStorage === 'undefined') return;
+  const mark = readLoading();
+  if (mark) {
+    setLoading(null);
+    const m = offlineModels().find((x) => x.id === mark.loading) ?? PICKER.find((x) => x.id === mark.loading);
+    if (m) backToSmall(m, mark.at);
+  }
+  closedWhileGetting = !!readLog();
+  if (offlineBrain.get().guarded) return;
+  offlineBrain.set({ guarded: true });
+  // Before this check, GET downloaded and loaded in one go, and a bigger brain stayed "in use" when iOS closed Ghosty.
+  const cur = currentModel();
+  if (mark || !BIGGER.some((x) => x.id === cur.id) || offlineBrain.get().downloaded || heldOf(cur)) return;
+  void (async () => {
+    const t = testEngine();
+    const whole = t && !t.files ? (offlineBrain.get().have ?? []).includes(cur.id) : await filled(cur);
+    if (whole) backToSmall(cur, null);
+    else {
+      const have = offlineBrain.get().have ?? [];
+      offlineBrain.set({ model: MODELS[0]!.id, downloaded: have.includes(MODELS[0]!.id), loaded: false });
+      if (!readLog()) writeLog({ model: cur.id, piece: 0, of: 0, bytes: 0, at: Date.now() });
+    }
+    checkedAt = 0;
+  })();
 }
 
 /**
@@ -400,6 +619,7 @@ export async function removeBrain(id: string): Promise<void> {
   if (!m) return;
   if (currentModel().id === id) chooseBrain(MODELS[0]!.id);
   await removeFilesOf(modelBase(m));
+  clearLog(id);
   offlineBrain.set({ have: (offlineBrain.get().have ?? []).filter((x) => x !== id) });
 }
 
@@ -477,6 +697,7 @@ export async function deleteOffline(): Promise<void> {
   const t = testEngine();
   if (t) t.ready = false;
   dropWorker();
+  clearLog();
   await clearCaches();
   try {
     // The service worker keeps vendored files; WebLLM's ~16 MB is only worth keeping with a model (search by
@@ -516,7 +737,7 @@ export async function offlineReply(messages: OfflineMsg[], onToken: (t: string) 
   };
   const t = testEngine();
   if (t) {
-    if (t.ready === false) throw notHere();
+    if (!(await offlineReady())) throw notHere();
     await testLoad(t);
   } else await load();
   // A "stop" while the model was loading: an abort that already happened never fires again for a
@@ -586,7 +807,7 @@ function agendaLines(now = Date.now()): string[] {
 export async function loadOffline(): Promise<void> {
   const t = testEngine();
   if (t) {
-    if (t.ready === false) throw notHere();
+    if (!(await offlineReady())) throw notHere();
     await testLoad(t);
     return;
   }
@@ -664,3 +885,6 @@ export const lastPrompt = createStore({ how: '' as '' | 'meaning' | 'keywords', 
 
 /** The size of the model being used, for the settings panel. */
 export const offlineSize = (): number => currentModel().mb;
+
+// What happened while Ghosty was closed (a load iOS cut short, a download left half-way), as soon as the app opens.
+recoverFromClose();
