@@ -57,9 +57,9 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'Core',
     promise: 'Talk or type, and he gets it done',
     can: [
-      { text: 'Ask with sources: every claim gets its link', act: { ask: 'How much sleep do adults need? With sources.' } },
+      { text: 'Ask with sources, each claim checked', act: { ask: 'How much sleep do adults need? With sources.' } },
       { text: 'Paste a YouTube link: the gist, with times', act: { chat: true } },
-      { text: 'Have a website built from one sentence', act: { ask: 'Build me a one-page website for a café' } },
+      { text: 'Have a website built from a few words', act: { ask: 'Build me a one-page website for a café' } },
     ],
     dyk: 'Home’s Mind is his library as a hologram: a point for about every 20 passages, lit once he has read them.',
   },
@@ -76,7 +76,7 @@ export const DECK: Record<string, DeckScreen> = {
     name: 'God’s eye',
     promise: 'The planet live: planes, ships, satellites',
     can: [
-      { text: 'Watch the public traffic cameras near home', act: camerasNearHome },
+      { text: 'See the traffic cameras nearest home', act: camerasNearHome },
       { text: 'Tap any spot for Street View, 3-D and traffic', act: { open: 'eye' } },
       { text: 'Plan a bus, tram or train journey', act: { run: 'journey_planner' } },
     ],
@@ -273,7 +273,7 @@ export const TRY_DAYS: TryPick[][] = [
     { id: 'space', words: 'Will a three-seater sofa fit? Try it on a plan', act: { open: 'space', panel: 'WILL IT FIT' } },
   ],
   [
-    { id: 'eye', words: 'Watch the traffic cameras nearest home', act: camerasNearHome },
+    { id: 'eye', words: 'See the traffic cameras nearest home', act: camerasNearHome },
     { id: 'radio', words: 'Play some jazz', act: { ask: 'Play some jazz' } },
     { id: 'school', words: 'See how Ghosty did in his last exam', act: { open: 'school', panel: 'RESULTS' } },
   ],
