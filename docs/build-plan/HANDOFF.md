@@ -264,7 +264,7 @@ folder that no longer exists; ignore those paths).
   out of date (`deckshots` rewrites all 20); the offline diary is not marked last-known; the TomTom nag every morning
   and "to work" on weekends (`integrations/traffic.ts`); no markets line or reflection on the Brief; headlines open the
   chat's explain, not the article; rain timing assumes UK time; safari and scroll untested here (no WebKit).
-- 24 Oct 22:05 UK: pushed as PR #35: training resilience, the Brief pass, the digest at 05:40 UK, the mock-ups, the
+- 24 Oct 22:05 UK: pushed as PR #36: training resilience, the Brief pass, the digest at 05:40 UK, the mock-ups, the
   research and briefs (brain suite 1,173 of 1,174 with the one red being the digest test's old time, fixed and green
   alone). The crash fix (OWNER-ISSUES 44) follows in its own pull request as soon as it lands.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
