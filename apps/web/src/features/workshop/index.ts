@@ -49,6 +49,19 @@ const RUN_SAID: Record<string, string> = {
   paused: 'That step didn’t work again, so the project is paused: RESUME tries again',
   nothing: 'Nothing to run: this project isn’t running',
 };
+/**
+ * A version's line in plain words: GitHub's "Merge pull request #40 from owner/ghosty/brief-icons" is
+ * "Brief icons · change #40"; a roll-back says so; anything else as it was written.
+ */
+function versionWords(m: string): string {
+  const merge = m.match(/^Merge pull request #(\d+) from \S*?([^/\s]+)$/);
+  if (merge) {
+    const what = merge[2]!.replace(/[-_]+/g, ' ').trim();
+    return `${what.charAt(0).toUpperCase()}${what.slice(1)} · change #${merge[1]}`;
+  }
+  const back = m.match(/^Restore Ghosty to [0-9a-f]{7,} \((.*)\)$/);
+  return back ? `Rolled back to: ${versionWords(back[1]!)}` : m;
+}
 const SUB = 'Ghosty changes its own code. You decide what goes live.';
 const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview didn’t build', pending: 'preview on its way', none: 'no preview yet' };
 /** What a change's checks mean, and what to do next, in one plain sentence. */
@@ -571,16 +584,17 @@ export const workshopTab: TabDef = {
       clear(vp.body);
       vp.setStatus(versions.length ? `${versions.length}` : '', 'ok');
       versions.slice(0, 10).forEach((v, i) => {
-        const r = row(v.sha.slice(0, 7), v.message, i === 0 ? 'LIVE' : '↶', { wrap: true });
+        const said = versionWords(v.message);
+        const r = row(v.sha.slice(0, 7), said, i === 0 ? 'LIVE' : '↶', { wrap: true });
         (r.querySelector('.k') as HTMLElement).dataset.case = 'keep';
         r.classList.add(i === 0 ? 'live' : 'old');
-        if (i > 0) (r.lastChild as HTMLElement).setAttribute('aria-label', `Restore "${v.message}"`);
+        if (i > 0) (r.lastChild as HTMLElement).setAttribute('aria-label', `Restore "${said}"`);
         if (i > 0) {
           const back = r.lastChild as HTMLElement;
           back.classList.add('del');
           back.title = 'Restore this version';
           back.addEventListener('click', async () => {
-            if (!(await confirmSheet('Roll Ghosty back?', `Ghosty goes back to “${v.message}”. It becomes a new version, so you can roll forward again the same way.`, 'ROLL BACK'))) return;
+            if (!(await confirmSheet('Roll Ghosty back?', `Ghosty goes back to “${said}”. It becomes a new version, so you can roll forward again the same way.`, 'ROLL BACK'))) return;
             try {
               toast((await brain.restore(v.sha)).result, 'ok');
             } catch (e) {

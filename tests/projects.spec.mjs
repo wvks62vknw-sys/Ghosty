@@ -202,8 +202,10 @@ async function workshop() {
       await new Promise((ok) => setTimeout(ok, 700));
       await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ sites: [{ name: 'spec-bakery', title: 'Spec Bakery', source: '', at: Date.now(), bytes: 4096 }], origin: '' }) });
     });
+    // (the project list is held until the first look: it is empty, and only then may it say "Nothing running")
+    let releaseProjects = null;
     await page.route('**/api/projects', async (r) => {
-      await new Promise((ok) => setTimeout(ok, 700));
+      await new Promise((ok) => (releaseProjects = ok));
       await r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: [] }) });
     });
     const t0 = Date.now();
@@ -214,6 +216,7 @@ async function workshop() {
     if (/No widgets yet/.test(early.widgets)) problems.push('[workshop 2] WIDGETS says "No widgets yet" before the list has answered');
     if (/Nothing published yet/.test(early.pages)) problems.push('[workshop 2] PUBLISHED PAGES says "Nothing published yet" before the list has answered');
     if (/Nothing running/.test(early.projects)) problems.push('[workshop 2] PROJECTS says "Nothing running" before the list has answered');
+    releaseProjects?.();
     const shown = await page.waitForFunction(() => /Spec egg timer/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Bakery/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 6000 }).then(() => Date.now() - t0, () => null);
     // (the change list is held until after this look: waiting for it, they would never show)
     if (shown == null) problems.push('[workshop 2] the widgets and published pages waited for the change list (not shown 6 s in while it was held)');
@@ -338,6 +341,9 @@ async function workshop() {
     await cp.locator('.change', { hasText: 'Spec bigger clock' }).evaluate((e) => e.scrollIntoView({ block: 'center' }));
     await page.waitForTimeout(300);
     await page.screenshot({ path: `${out}/workshop-changes.png` });
+    // 9. VERSIONS in plain words: GitHub's merge line is the change's name and number
+    const versions = await words(panelOf(page, 'VERSIONS'));
+    if (/Merge pull request/.test(versions) || !/Brief icons · change #940/.test(versions)) problems.push(`[workshop 9] VERSIONS reads: ${versions.slice(0, 160)}`);
     await ctx.close();
   }
 
@@ -380,7 +386,7 @@ async function workshop() {
     await page.evaluate(() => (location.hash = 'workshop'));
     await page.waitForFunction(() => /Spec failed change/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Cafe/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => problems.push('[workshop 8] the filled-in Workshop did not show'));
     await page.waitForTimeout(600);
-    const short = () => page.$$eval('#pg-workshop button', (bs) => bs.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden').map((b) => ({ t: (b.dataset.label || b.textContent || '').trim().slice(0, 24), h: Math.round(b.getBoundingClientRect().height) })).filter((b) => b.h < 44));
+    const short = () => page.$$eval('#pg-workshop button', (bs) => bs.filter((b) => b.getClientRects().length && getComputedStyle(b).visibility !== 'hidden').map((b) => ({ t: (b.dataset.label || b.textContent || '').trim().slice(0, 24), h: b.offsetHeight })).filter((b) => b.h < 44)); // (layout size: a pane sliding in is scaled for a moment)
     const left = await short();
     await page.click('#pg-workshop button.swap');
     await page.waitForTimeout(500);
