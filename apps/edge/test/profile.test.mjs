@@ -891,3 +891,28 @@ test('the reflection asks for the summary written to him ("You\'re …"), never 
   assert.match(system, /"summary": [^\n]*second person[^\n]*"You're [^\n]*never "the owner"/);
   assert.equal((await P.loadProfile(st)).summary, "You're a bridge engineer in Kings Heath.");
 });
+
+test('the chat\'s forget keeps what it removed a day for UNDO (one fact as itself, several as one group); two letters remove nothing', async () => {
+  const storage = new MemStorage();
+  const lib = new Library(storage, {});
+  const forget = P.memoryTools.find((t) => t.name === 'forget');
+  const ctx = { storage };
+  await storage.put('memory', ['my bike is green', 'my bike shed is blue', 'my kettle is red', 'Ann is my sister'].map((text, i) => ({ id: `id${i}`, text, at: T0 + i * 1000, src: { kind: 'chat', at: T0 + i * 1000 } })));
+  const before = structuredClone(await storage.get('memory'));
+  // "a" would match all four: refused, nothing removed
+  assert.match(await forget.run({ id_or_text: 'a' }, ctx), /Nothing removed/);
+  assert.equal((await storage.get('memory')).length, 4);
+  // one fact: back exactly as it was (its id, words, date and source)
+  const kettle = before.find((f) => f.text === 'my kettle is red');
+  assert.match(await forget.run({ id_or_text: 'kettle' }, ctx), /Removed 1 fact\(s\)\. For a day, Memory → RECENTLY FORGOTTEN can bring it back/);
+  let gone = await P.recentlyForgotten(storage);
+  assert.deepEqual(gone.map((f) => [f.id, f.text]), [[`f:${kettle.id}`, 'my kettle is red']]);
+  await P.changeMemory({ storage, library: lib }, `f:${kettle.id}`, 'restore');
+  // several: one group, all back together
+  assert.match(await forget.run({ id_or_text: 'bike' }, ctx), /Removed 2 fact\(s\)/);
+  gone = await P.recentlyForgotten(storage);
+  assert.equal(gone[0].text, '2 facts matching “bike”');
+  assert.equal(gone[0].count, 2);
+  await P.changeMemory({ storage, library: lib }, gone[0].id, 'restore');
+  assert.deepEqual(await storage.get('memory'), before, 'every fact back exactly as it was');
+});

@@ -164,8 +164,10 @@ interface Forgotten {
   gone: number;
   profile?: { section: ProfileSection; text: string; meta?: LineMeta };
   fact?: MemoryFact;
-  /** FORGET EVERYTHING: the facts that went at once (the locked ones stay). */
+  /** FORGET EVERYTHING, or a chat's "forget …" that matched several: the facts that went at once (the locked ones stay). */
   facts?: MemoryFact[];
+  /** How RECENTLY FORGOTTEN names a group of facts (FORGET EVERYTHING's is the default). */
+  label?: string;
   lesson?: Lesson;
   diary?: { heading: string; text: string; locked: boolean };
 }
@@ -320,6 +322,16 @@ export async function stashFacts(storage: DurableObjectStorage, facts: MemoryFac
   return id;
 }
 
+/**
+ * The chat's `forget` (tools/memory.ts): what it removed, kept a day for UNDO like every other way of forgetting —
+ * one fact as itself, several as one group ("3 facts matching “bike”") that UNDO brings back together.
+ */
+export async function stashForgottenFacts(storage: DurableObjectStorage, facts: MemoryFact[], words: string, now = Date.now()): Promise<void> {
+  if (!facts.length) return;
+  if (facts.length === 1) return stash(storage, { id: `f:${facts[0]!.id}`, gone: now, fact: { ...facts[0]! } });
+  await stash(storage, { id: `f:*some*${now}`, gone: now, facts: facts.map((f) => ({ ...f })), label: `${facts.length} facts matching “${words.slice(0, 40)}”` });
+}
+
 const kindOf = (f: Forgotten): MemoryKind => (f.profile ? 'profile' : f.fact || f.facts ? 'fact' : f.lesson ? 'lesson' : 'diary');
 
 /** RECENTLY FORGOTTEN: what UNDO can still bring back, newest first. */
@@ -328,7 +340,7 @@ export async function recentlyForgotten(storage: DurableObjectStorage, now = Dat
     .map((f): ForgottenItem => ({
       id: f.id,
       kind: kindOf(f),
-      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
+      text: f.profile?.text ?? f.fact?.text ?? f.lesson?.text ?? f.diary?.text ?? f.label ?? (f.facts ? `Everything I remembered (${f.facts.length} facts)` : ''),
       gone: f.gone,
       ...(f.facts ? { count: f.facts.length } : {}),
     }))

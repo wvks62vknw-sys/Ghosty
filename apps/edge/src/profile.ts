@@ -383,4 +383,5 @@ export * as spending from './spending';
 export * as spend from '../../../packages/shared/src/spending';
 export * as placeWords from '../../../packages/shared/src/places';
 export { placesTools } from './tools/places';
+export { memoryTools } from './tools/memory';
 export { spendingTools } from './tools/spending';
