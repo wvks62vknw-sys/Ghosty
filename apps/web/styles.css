@@ -3912,6 +3912,9 @@ html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px 
   /* a page that scrolls as one has no panel that scrolls on its own: a body capped at 70 % of the screen took the swipe,
      moved a few pixels and stopped, and the page under it did not move (ui/components.ts pager shows 8 rows there) */
   html :is(.two.stack, .two.rcflow) .col > .pn > .bd { max-height: none; }
+  /* the Home Screen app: the safe area over the home indicator is counted once, by the tab bar and the pages' ends
+     (#app padded by it too, so pages ended 78 px above the bar instead of 26 and stopped 34 px above the bottom) */
+  html body.tabbar #app { padding-bottom: 0; }
 }
 /* end route C part 2 */
 
