@@ -115,6 +115,8 @@ export interface LensContext {
   /** The overlay's drawing context in CSS pixels, cleared first. */
   overlay(): CanvasRenderingContext2D | null;
   clearOverlay(): void;
+  /** Bring a result the owner just asked for into view (on a phone the Lens scrolls as one page, and the tab bar covers its foot). */
+  reveal(el: HTMLElement): void;
   /** Frame pixels → viewfinder pixels (mirrored for the front camera). */
   viewBox(b: Box): Box;
   viewPoint(x: number, y: number): { x: number; y: number };
@@ -290,6 +292,9 @@ export const lensTab: TabDef = {
         fresh.height = ov.height;
         ov.replaceWith(fresh);
         ov = fresh;
+      },
+      reveal(el) {
+        requestAnimationFrame(() => el.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
       },
       viewBox(b) {
         const { t, size } = L.view();

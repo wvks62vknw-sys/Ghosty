@@ -97,6 +97,7 @@ export function createReadMode(L: LensContext): Mode {
     });
   }, 'markchip');
   markChip.title = 'Mark my work: these answers, marked by Ghosty';
+  const actions = h('div.row.wrap', save, copy, ask, wordsBtn, markChip);
   const root = h('div.stackf',
     h('div.row', capture, pick, live),
     h('div.note', 'Reads English text on the phone (Tesseract). Best with the text filling the frame, flat and well lit. Nothing is sent anywhere.'),
@@ -104,7 +105,7 @@ export function createReadMode(L: LensContext): Mode {
     plateChip,
     text,
     sure,
-    h('div.row.wrap', save, copy, ask, wordsBtn, markChip),
+    actions,
   );
   file.addEventListener('change', async () => {
     const f = file.files?.[0];
@@ -157,6 +158,8 @@ export function createReadMode(L: LensContext): Mode {
       L.status(summary, t ? 'ok' : 'mid');
       progress.hidden = true;
       paintWords();
+      // the text and SAVE / COPY / ASK sit below the viewfinder: bring them up above the tab bar
+      if (L.active()) L.reveal(actions);
     } catch (e) {
       progress.hidden = true;
       const msg = String((e as Error)?.message ?? e);

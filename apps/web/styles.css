@@ -1028,6 +1028,8 @@ button.markchip { border-color: var(--ok); font-weight: 600; }
 @media (max-width: 899px) {
   .hud.lens { grid-template-areas: 'view' 'modes' 'bar' 'panel' 'privacy'; grid-template-rows: repeat(5, max-content); align-content: start; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   .lenspanel { overflow: visible; }
+  /* a result scrolled into view (READ's text, ASK's reply, NAME IT's card) stops above the tab bar, not under it */
+  body.tabbar .hud.lens { scroll-padding-bottom: calc(var(--tabh) + 16px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---- 3D STUDIO (features/studio): the lab bench first, controls under the thumb, 44 px targets ---- */

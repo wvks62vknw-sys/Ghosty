@@ -62,6 +62,7 @@ export function createAskMode(L: LensContext): Mode {
     replyModel.textContent = model || 'GHOSTY';
     replyText.textContent = text;
     S.reply = text;
+    L.reveal(reply);
   };
 
   /** The question to the brain, with the picture and the phone's own findings beside it (as data), the status line following the brain's tools. */

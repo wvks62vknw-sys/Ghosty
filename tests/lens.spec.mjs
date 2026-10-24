@@ -48,6 +48,14 @@ const lens = () => page.evaluate(() => {
   const s = window.__ghosty?.lens;
   return s ? { mode: s.mode, status: s.status, camera: s.camera, fps: s.fps, detections: s.detections.length, scene: s.scene.length, ocrText: s.ocrText, ocrConfidence: s.ocrConfidence, gesture: s.gesture, reply: s.reply, error: s.error } : null;
 });
+/** Where a thing sits against the tab bar: on screen and wholly above it (the Lens scrolls as one page on a phone). */
+const clearOfDock = (sel, text) => page.evaluate(([sel, text]) => {
+  const el = [...document.querySelectorAll(sel)].find((e) => e.offsetParent && (!text || e.textContent.trim().toUpperCase() === text));
+  const dock = document.querySelector('#dock')?.getBoundingClientRect().top ?? innerHeight;
+  if (!el) return 'not shown';
+  const r = el.getBoundingClientRect();
+  return r.top >= 0 && r.bottom <= dock + 1 ? '' : `at ${Math.round(r.top)}–${Math.round(r.bottom)} px, the tab bar starts at ${Math.round(dock)} px`;
+}, [sel, text]);
 const until = (fn, ms, what) => page.waitForFunction(fn, null, { timeout: ms }).then(() => true).catch(() => { problems.push(what); return false; });
 
 // ---- open_lens (the brain's auto-approved command) opens the LENS tab but leaves the camera off ----
@@ -112,6 +120,12 @@ await until(() => /GHOSTY READS THIS/i.test(window.__ghosty?.lens?.ocrText ?? ''
 const read = await lens();
 if (read && read.ocrConfidence < 60) problems.push(`READ confidence is low: ${read.ocrConfidence}`);
 if (read && !/second line/i.test(read.ocrText)) problems.push(`READ missed the second line: ${JSON.stringify(read.ocrText)}`);
+// the text read and its SAVE TO LIBRARY come up above the tab bar by themselves (they had landed under it)
+await page.waitForTimeout(1200);
+for (const [sel, text] of [['#pg-lens textarea.lensocr'], ['#pg-lens .lenspanel button', 'SAVE TO LIBRARY']]) {
+  const where = await clearOfDock(sel, text);
+  if (where) problems.push(`READ's ${text ?? 'text'} is not in view once read: ${where}`);
+}
 const saved = page.waitForResponse((r) => r.url().includes('/api/library/text'), { timeout: 20000 }).catch(() => null);
 await page.locator('#pg-lens button', { hasText: 'SAVE TO LIBRARY' }).first().click();
 const saveRes = await saved;
@@ -162,6 +176,9 @@ else {
   if ((body.images?.[0]?.length ?? 0) > 1_500_000 * 1.4) problems.push('the still sent is bigger than 1.5 MB');
 }
 await until(() => /I can see a picture/.test(window.__ghosty?.lens?.reply ?? ''), 30000, `ASK got no reply from the brain: ${JSON.stringify(await lens())}`);
+await page.waitForTimeout(1200);
+const replyWhere = await clearOfDock('#pg-lens .lensreply');
+if (replyWhere) problems.push(`ASK's reply is not in view once it came: ${replyWhere}`);
 await page.screenshot({ path: `${out}/lens-ask.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot after ASK: ${e.message.split('\n')[0]}`));
 // the question also shows in the chat history, marked as a photo turn
 const chatHasTurn = await page.evaluate(() => {
