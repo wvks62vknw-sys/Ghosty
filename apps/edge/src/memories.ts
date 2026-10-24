@@ -593,6 +593,9 @@ export async function patterns(deps: Pick<ProfileDeps, 'storage'>, now = Date.no
   const profile = await loadProfile(storage);
   const memories = [...PROFILE_SECTIONS.flatMap((s) => profile.sections[s]), ...(await loadMemory(storage)).map((f) => f.text)];
   const dismissed = new Set((await storage.get<string[]>(DISMISSED_KEY)) ?? []);
+  // A dismissed topic's words never count again, alone or said with others (a topic's id names its words: "topic:allotment+shed").
+  const gone = new Set([...dismissed].filter((id) => id.startsWith('topic:')).flatMap((id) => id.slice(6).split('+')));
+  for (const d of days.values()) for (const w of gone) delete d.t[w];
   return findPatterns([...days.values()].sort((a, b) => a.d.localeCompare(b.d)), memories).filter((p) => !dismissed.has(p.id));
 }
 

@@ -956,4 +956,9 @@ test('patterns are true and useful: what he asks Ghosty to do is never a topic; 
   await st.put('patterns:days', P.tallyDays(said(msgs), tz));
   await P.profileRoute(new Request('https://x/api/profile/patterns/dismiss', { method: 'POST', body: JSON.stringify({ id: 'topic:allotment+shed' }) }), '/profile/patterns/dismiss', 'POST', new URL('https://x/api/profile/patterns/dismiss'), { storage: st, library: new Library(st, {}), ai: async () => '' });
   assert.ok((await st.get('patterns:days')).every((d) => !d.t.allotment && !d.t.shed));
+  // still in the chat history (not yet filed), and said again with another word on the same days: never back
+  await st.put('turns', said(msgs.map(([d, h, t]) => [d, h, `${t} and the greenhouse`])).map((t, i) => ({ ...t, at: t.at + i })));
+  const again = await P.patterns({ storage: st }, Date.UTC(2026, 8, 30));
+  assert.ok(!again.some((p) => /allotment|shed/.test(p.text)), JSON.stringify(again));
+  assert.ok(again.some((p) => p.id === 'topic:greenhouse'), JSON.stringify(again));
 });

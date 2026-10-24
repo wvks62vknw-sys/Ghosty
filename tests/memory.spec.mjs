@@ -91,6 +91,11 @@ async function run(name, viewport) {
   // add a line under ROUTINES (the "Add a memory…" row opens the form in a sheet)
   const addRow = page.locator('#pg-memory .addrow');
   const sheet = (await addRow.isVisible().catch(() => false)) ? (await addRow.click(), page.locator('.modal .memadd')) : me;
+  if (await page.locator('.modal .memadd').count()) {
+    // the sheet's fields sit inside its margins (they touched its edges)
+    const gap = await page.evaluate(() => document.querySelector('.modal .memadd input').getBoundingClientRect().left - document.querySelector('.modal').getBoundingClientRect().left);
+    if (gap < 16) problems.push(`[${name}] the Add a memory sheet's field is ${Math.round(gap)} points from the sheet's edge`);
+  }
   await sheet.locator('select').selectOption('routines');
   await sheet.locator('input').fill('I run on Tuesdays');
   await sheet.locator('button:has-text("ADD")').click();
@@ -106,6 +111,9 @@ async function run(name, viewport) {
   await added.locator('.del').click();
   await page.waitForFunction(() => !document.querySelector('#pg-memory .pn.me')?.textContent?.includes('I run on Tuesdays'), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the removed line is still there`));
   if (editing) await edit.click(); // Done
+  // every target he taps is at least 44 pt (CSS points: the page's own zoom aside)
+  const small = async () => page.$$eval('#pg-memory :is(button, select, input, summary)', (els) => els.filter((e) => e.offsetParent && e.getClientRects().length && parseFloat(getComputedStyle(e).height) < 44 && getComputedStyle(e).height !== 'auto').map((e) => `${(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24)} (${getComputedStyle(e).height})`));
+  const tiny = await small();
   // the DIARY (other column on phones): newest first, opens in a modal; REFLECT NOW toasts what changed
   const narrow = viewport.width < 900;
   if (narrow) await page.click('#pg-memory .swap');
@@ -127,6 +135,8 @@ async function run(name, viewport) {
   if (!/Diary · Saturday 17 October/.test(modalTitle)) problems.push(`[${name}] the diary page's title reads "${modalTitle.slice(0, 60)}"`);
   await page.screenshot({ path: `${out}/${name}-memory-diary.png` });
   await page.keyboard.press('Escape');
+  tiny.push(...(await small()));
+  if (tiny.length) problems.push(`[${name}] targets under 44 pt: ${[...new Set(tiny)].join(', ')}`);
   await dp.locator('button:has-text("REFLECT NOW")').click();
   await page.waitForFunction(() => /Reflected: 1 new fact, 1 line about you/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] no toast after REFLECT NOW`));
   if (state.reflected !== 1) problems.push(`[${name}] REFLECT NOW called the brain ${state.reflected} times`);
@@ -181,9 +191,13 @@ async function run(name, viewport) {
   const src = (await item(thing).first().locator('.misrc').textContent().catch(() => '')) ?? '';
   if (!/From your chat on/.test(src)) problems.push(`[${name}] the chat fact's source reads "${src}"`);
   // everything is there: what reflection kept, newest first
-  const kinds = await tlp.locator('.mik').allTextContents();
-  if (!kinds.some((k) => /ABOUT YOU/.test(k)) || !kinds.some((k) => /SAVED FACT/.test(k))) problems.push(`[${name}] the timeline is missing kinds: ${kinds.join(', ')}`);
-  if (!kinds.some((k) => /DIARY/.test(k))) problems.push(`[${name}] the diary is not in the timeline`);
+  // (each kind through the filter: on a preview other runs have filled, the first page may be all facts)
+  for (const [kind, label] of [['profile', /ABOUT YOU/], ['fact', /SAVED FACT/], ['diary', /DIARY/]]) {
+    await tlp.locator('select[aria-label="Show which memories"]').selectOption(kind);
+    const kinds = await tlp.locator('.mik').allTextContents();
+    if (!kinds.length || kinds.some((k) => !label.test(k))) problems.push(`[${name}] the timeline's ${kind} rows read: ${kinds.slice(0, 5).join(', ') || 'none'}`);
+  }
+  await tlp.locator('select[aria-label="Show which memories"]').selectOption('all');
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${out}/${name}-memory-timeline.png` });
   // the source opens that chat (the CORE log, the message picked out), or what was said when the phone no longer has it
