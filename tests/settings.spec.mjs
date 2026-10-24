@@ -7,6 +7,7 @@
 //    an empty box says what to do, and USE GPS says it is looking and, when location is refused, how to allow it;
 //  - HELP and ABOUT in today's words: no "reactor screen" (nothing on screen is a reactor now) and no "look" (one
 //    look); ABOUT does not repeat the theme row;
+//  - at 1280 × 800 the profile card is a card of its own height, not an empty block the height of the screen;
 //   BASE=http://localhost:8879 node tests/settings.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { PHONE, UK, openPanel } from './nav.mjs';
@@ -87,9 +88,25 @@ await page.waitForTimeout(300);
 const about = (await page.locator('#pg-settings .pn.pushed').textContent()) ?? '';
 check(!/colours of the one design/.test(about), `ABOUT repeats the theme row: "${about.slice(0, 300)}"`);
 
+// ---- 4. a wide screen: the profile card keeps its own height
+const wide = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...UK });
+const wp = await wide.newPage();
+await wp.goto(base, { waitUntil: 'domcontentloaded' });
+await wp.waitForSelector('#pair input', { timeout: 20000 });
+await wp.fill('#pair input', KEY);
+await wp.click('#pair button.on');
+await wp.waitForSelector('#boot', { state: 'detached', timeout: 30000 });
+await wp.evaluate(() => (location.hash = 'settings'));
+await wp.waitForSelector('#pg-settings .two > .hero', { state: 'visible', timeout: 10000 }).catch(() => undefined);
+await wp.waitForTimeout(800);
+const hero = await wp.locator('#pg-settings .two > .hero').boundingBox();
+check(hero && hero.height < 160, `the profile card at 1280 × 800 is ${hero ? Math.round(hero.height) : '?'} px tall`);
+await wp.screenshot({ path: `${out}/settings-${engine}-wide.png` });
+await wide.close();
+
 await browser.close();
 if (problems.length) {
   console.error(`FAIL settings (${engine}):\n- ${problems.join('\n- ')}`);
   process.exit(1);
 }
-console.log(`ok (${engine}): SETTINGS — switches for on/off settings, the home line and what SET HOME / USE GPS say, HELP and ABOUT`);
+console.log(`ok (${engine}): SETTINGS — switches for on/off settings, the home line and what SET HOME / USE GPS say, HELP and ABOUT, the profile card on a wide screen`);

@@ -3939,6 +3939,9 @@ html #pg-settings .setknob::after { content: ''; position: absolute; top: 2px; l
 html #pg-settings .setsw[aria-checked="true"] .setknob { background: var(--c); }
 html #pg-settings .setsw[aria-checked="true"] .setknob::after { transform: translateX(20px); }
 html #pg-settings .homenow { margin: 2px 0 8px; color: var(--ink, var(--fg)); }
+/* Settings on a wide screen: the profile card is a card of its own height at the top of the middle column (it was
+   stretched to the column's full height, an empty 440 × 700 block with the avatar floating at its edge) */
+@media (min-width: 900px) { html #pg-settings .two > .hero { align-self: start; height: auto; } }
 /* UNDO for every screen (ui/components.ts undo()): the bar floats above the tab bar, over any sheet; the toasts move up while it shows */
 html .rcundo.undofloat { position: fixed; left: 16px; right: 16px; bottom: calc(var(--tabh) + 74px + env(safe-area-inset-bottom, 0px)); z-index: 160; max-width: 440px; margin: 0 auto; background: rgba(28,28,30,.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: inset 0 0 0 1px var(--hair2), 0 8px 24px rgba(0,0,0,.45); }
 @media (min-width: 900px) { html .rcundo.undofloat { bottom: 96px; } }
