@@ -78,6 +78,9 @@ const untouched = await lens();
 if (untouched?.camera !== 'off') problems.push(`open_lens switched the camera on by itself: ${JSON.stringify(untouched)}`);
 const startLabel = (await page.locator('#pg-lens .lensbar button').first().textContent()) ?? '';
 if (startLabel !== 'START') problems.push(`the camera button reads "${startLabel}" while the camera is off`);
+// FLIP and FREEZE need the camera: dimmed while it is off (FLIP did nothing at all when tapped)
+const deadBtns = await page.evaluate(() => [...document.querySelectorAll('#pg-lens .lensbar button')].filter((b) => /^(FLIP|FREEZE)$/.test(b.textContent) && !b.disabled).map((b) => b.textContent));
+if (deadBtns.length) problems.push(`with the camera off ${deadBtns.join(' and ')} can still be tapped`);
 
 // ---- SEE: START (a tap) opens the camera and the detector runs on the live picture ----
 await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();

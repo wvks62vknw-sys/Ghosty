@@ -349,6 +349,7 @@ export const lensTab: TabDef = {
           L.showStill(c);
           freezeBtn.textContent = 'UNFREEZE';
           freezeBtn.classList.add('on');
+          syncBar();
           mode?.froze?.(c);
           L.status('frozen · tap a box or an action', 'mid');
         } else {
@@ -359,6 +360,7 @@ export const lensTab: TabDef = {
           if (held) L.showStill(null);
           freezeBtn.textContent = 'FREEZE';
           freezeBtn.classList.remove('on');
+          syncBar();
           mode?.unfroze?.();
           L.status(camera.on ? 'live' : S.status, camera.on ? 'ok' : undefined);
         }
@@ -401,12 +403,14 @@ export const lensTab: TabDef = {
           S.camera = 'error';
           S.error = 'This browser cannot open the camera';
           L.status(`${S.error} · READ can still pick a photo`, 'off');
+          syncBar();
           return;
         }
         S.camera = 'starting';
         const gen = ++cameraGen;
         // STOP from the first moment: a second tap on a START still showing while the camera opens used to stop it
         startBtn.textContent = 'STOP';
+        syncBar();
         L.status('opening the camera…', 'mid');
         try {
           await camera.start(S.facing);
@@ -417,12 +421,14 @@ export const lensTab: TabDef = {
           video.classList.toggle('mirror', mirror());
           torchBtn.hidden = !camera.torchAvailable;
           startBtn.textContent = 'STOP';
+          syncBar();
           L.status('live', 'ok');
         } catch (e) {
           if (gen !== cameraGen) return;
           S.camera = 'error';
           S.error = cameraMessage(e);
           startBtn.textContent = 'START';
+          syncBar();
           L.status(S.error, 'off');
           toast(S.error, 'warn');
         }
@@ -434,6 +440,7 @@ export const lensTab: TabDef = {
         S.camera = 'off';
         S.fps = 0;
         startBtn.textContent = 'START';
+        syncBar();
         torchBtn.hidden = true;
         torchBtn.classList.remove('on');
         L.clearOverlay();
@@ -501,6 +508,12 @@ export const lensTab: TabDef = {
       else toast('No torch on this camera', 'warn');
     });
     torchBtn.hidden = true;
+    /** FLIP and FREEZE need a live camera: dimmed until it is on (FLIP with the camera off did nothing at all), FREEZE kept while a frame is held. */
+    const syncBar = () => {
+      flipBtn.disabled = S.camera !== 'on';
+      freezeBtn.disabled = S.camera !== 'on' && !S.frozen;
+    };
+    syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {
       if (!shown) return void toast('Take or pick a photo first', 'warn');
       S.lastAction = 'photo tools';
