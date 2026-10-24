@@ -184,3 +184,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (g) Lens → hold a frame or pick a photo → PHOTO TOOLS: BACKGROUND, SHARPER or ERASE (draw over the thing with a
     finger, then ERASE); or just say "remove the background" in ASK. The Spaces are free and shared: the first job of
     the day can take a minute while one wakes, and the sheet says so.
+    (h) GYM: after a game passes a level, watch for the league toast ("kept" or "thrown away", with the rating); on the
+    game's page, LEAGUE OF HIS PAST SELVES; for the maze, Sokoban and Sudoku, the "Level 7½: puzzles he only just fails"
+    line. SYSTEM → LOOPS shows the week's practice, improvements and rejections for every loop.

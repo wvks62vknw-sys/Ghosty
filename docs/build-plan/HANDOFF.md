@@ -128,6 +128,15 @@ folder that no longer exists; ignore those paths).
   merge before judging the suite.
 - 24 Oct ~14:25 UK: the plain-words guide for life after 14 November exists (AFTER-14-NOVEMBER.md; PLAN section 8 points
   at it). Written from the code as it stands; a line to add whenever a merge changes what runs on its own.
+- 24 Oct ~14:50 UK: merged after review: GYM IDEAS (BRIEF-GYM-IDEAS: league, edge puzzles, `star` records, LOOPS). No
+  kernel line. The training assets (`selftrain/assets.ts`) were regenerated from the merged notebook with
+  `node training/kaggle/build.mjs` (never edited by hand); the notebook's tests pass (54, 9 skipped without torch). Not
+  built, by the builder's own account: league play for poker and trust; edge puzzles for logic, tiles and countdown;
+  no measurement yet that edge practice speeds learning. Also found while the suite ran: run 223 failed three specs
+  beyond the laptop check (NAME's `.lenssel` locator met the Lens's hidden living card; the backup spec named an old
+  database version; the direct spec wanted Rex on the first memory line while the Lens's SAVE had remembered a robin
+  first): all three mended in the specs, each passing against the merged preview. Lesson: a shared preview carries
+  state from spec to spec; a spec must not assume it is first.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
