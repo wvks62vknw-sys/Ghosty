@@ -218,6 +218,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if ((m = text.match(/^play (.+) radio$/)) && has('play_radio')) return { message: call('play_radio', { genre: m[1] }), model };
   if (text === 'show agenda' && has('list_agenda')) return { message: call('list_agenda', { days: 30 }), model };
   if (text === 'list sites' && has('list_sites')) return { message: call('list_sites', {}), model };
+  if ((m = text.match(/^publish my draft website at \S*\/s\/([a-z0-9-]+)/i)) && has('build_website')) return { message: call('build_website', { request: text, link_name: m[1]!, confirm: true }), model };
   if ((m = text.match(/^build (?:me )?a website (.+)$/)) && has('build_website')) return { message: call('build_website', { request: m[0], ...(/barber/.test(m[1]!) ? { kind: 'barber', name: 'Fade & Co. Barbers', phone: '07700 900461' } : {}) }), model };
   // A mini-app for the Home Screen (tools/sites.ts build_app), so a chat-flow spec can ask for one without a model.
   if ((m = text.match(/^make me an app (.+)$/)) && has('build_app')) return { message: call('build_app', { request: m[0] }), model };

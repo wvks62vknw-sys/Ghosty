@@ -5,7 +5,10 @@
  */
 
 /** The kinds of business the templates cover. */
-export type KindId = 'cafe' | 'restaurant' | 'barber' | 'salon' | 'trades' | 'gym' | 'photographer' | 'shop' | 'clinic' | 'estate' | 'portfolio' | 'event' | 'charity' | 'saas';
+export type KindId = 'cafe' | 'restaurant' | 'barber' | 'salon' | 'trades' | 'gym' | 'photographer' | 'shop' | 'clinic' | 'estate' | 'portfolio' | 'event' | 'charity' | 'saas'
+  // the lift (BRIEF-WEBSITES-LIFT): a one-person trade, a takeaway or restaurant whose menu is the site, a personal CV,
+  // a one-day occasion with the way there, a local club, and a product launch
+  | 'tradesperson' | 'takeaway' | 'cv' | 'invite' | 'club' | 'launch';
 
 export interface Service {
   name: string;
@@ -80,6 +83,14 @@ export interface Brief {
   accreditations?: string[];
   /** Towns or areas covered (trades). */
   areas?: string[];
+  /** A CV's jobs and courses, as the owner gave them (never invented): "2019–now", "Head chef, The Larder". */
+  experience?: { when: string; title: string; text?: string }[];
+  /**
+   * The owner's free form address (a Formspree form or a Web3Forms access key, both free tiers): when set, the
+   * page's forms really send to it (and the page's policy allows that one address only); else they open WhatsApp
+   * or email. See formTarget in forms.ts.
+   */
+  formEndpoint?: string;
 }
 
 /** A picture on the page, with what the law and good manners need to show it. */
@@ -98,7 +109,7 @@ export interface ImageRef {
   focus?: string;
 }
 
-export type PaletteId = 'espresso' | 'barber' | 'trades' | 'gym' | 'clinic' | 'estate' | 'mono' | 'charity' | 'saas' | 'sage' | 'neon' | 'blush';
+export type PaletteId = 'espresso' | 'barber' | 'trades' | 'gym' | 'clinic' | 'estate' | 'mono' | 'charity' | 'saas' | 'sage' | 'neon' | 'blush' | 'paprika';
 export type FontsId = 'editorial' | 'classic' | 'condensed' | 'refined' | 'tech' | 'friendly' | 'luxe' | 'geometric' | 'system';
 export type ShapeId = 'sharp' | 'soft' | 'round';
 /** light / dark: always that; auto: the visitor's phone decides (light first). */

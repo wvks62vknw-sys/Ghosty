@@ -353,6 +353,15 @@ export function keyDefs(repo?: string): KeyDef[] {
       ],
     },
     // [lens] Pl@ntNet names plants for the Lens's NAME IT (tools/lens.ts identify_plant): free, 500 a day, optional.
+    { // [sites] the one address a built website's forms may send to (packages/shared/src/sitekit/blocks/formkit.ts formTarget)
+      name: 'form_endpoint',
+      label: 'Website form (Formspree)',
+      hint: 'https://formspree.io/f/…',
+      link: 'https://formspree.io/register',
+      need: 'optional',
+      why: "Lets the contact forms on websites Ghosty builds really send to your email (free plan: 50 messages a month). Without it they open WhatsApp or email instead. Only this one address is ever allowed on the page.",
+      steps: ['Open the link and make a free Formspree account (confirm the email they send).', 'Press "+ New form", give it a name (e.g. My website) and copy its address — it looks like https://formspree.io/f/abcd1234.', 'Paste it below and press SAVE. The next website Ghosty builds will use it.'],
+    },
     {
       name: 'plantnet',
       label: 'Pl@ntNet (plants)',

@@ -105,6 +105,14 @@ export function stockFor(kind: KindId): StockSet | undefined {
     event: ['restaurant'],
     charity: [],
     saas: ['portfolio'],
+    // the lift's kinds: a one-person trade looks like a trade, a takeaway's food like a restaurant's; a CV, an
+    // occasion, a club and a launch get no stranger's photos (their pages are designed to work without)
+    tradesperson: ['trades'],
+    takeaway: ['restaurant'],
+    cv: [],
+    invite: [],
+    club: [],
+    launch: [],
   };
   return STOCK[kind] ?? near[kind].map((k) => STOCK[k]).find(Boolean);
 }

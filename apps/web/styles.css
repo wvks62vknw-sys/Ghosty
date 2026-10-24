@@ -4043,3 +4043,21 @@ html .lenspanel .livingcard b.livingname { font: 600 22px/27px var(--sf); letter
 .ptstatus.bad, .ptwho.bad { color: var(--a); }
 .ptlink { word-break: break-all; font: 400 12px var(--m); }
 .ptprivacy { font-size: 12px; }
+
+/* the DRAFT card (features/workshop/draftcard.ts): a website as a phone and a laptop, CHANGE in words */
+.draftcard { display: grid; gap: 12px; margin-top: 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); }
+.draftcard .dhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.draftcard .dframes { display: grid; gap: 14px; justify-items: center; }
+.draftcard .dframes.side { grid-template-columns: 1fr auto; align-items: start; justify-items: stretch; }
+.draftcard .dscreen { display: grid; gap: 6px; justify-items: center; }
+.draftcard .dscreen small { font: 600 11px var(--sf, system-ui); letter-spacing: .12em; opacity: .7; }
+.draftcard .dvp { position: relative; overflow: hidden; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.18), 0 10px 30px rgba(0,0,0,.35); }
+.draftcard .dscreen.phone .dvp { border-radius: 18px; box-shadow: 0 0 0 4px #10161d, 0 0 0 5px rgba(255,255,255,.22), 0 10px 30px rgba(0,0,0,.35); }
+.draftcard iframe.draftframe { position: absolute; left: 0; top: 0; border: 0; background: #fff; transform-origin: 0 0; pointer-events: auto; }
+.draftcard .dconfirm ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.draftcard .dconfirm small { font: 600 11px var(--sf, system-ui); letter-spacing: .12em; opacity: .7; }
+.draftcard .dsaid { margin: 0; font-size: 14px; }
+.draftcard .dchange { display: grid; gap: 8px; }
+.draftcard .dchange[hidden] { display: none; }
+.draftcard .dwords { width: 100%; box-sizing: border-box; min-height: 84px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.25); color: inherit; font: 16px var(--sf, system-ui); resize: vertical; }
+/* end the DRAFT card */

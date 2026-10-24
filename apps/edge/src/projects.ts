@@ -18,7 +18,7 @@ import { textOf } from './llm/content';
 import type { Msg, ToolSpec } from './llm/router';
 import { addJob, deferJob, loadJobs, removeJob, setNext, type InboxItem, type Job } from './schedule';
 import { resumeAppBuild } from './appbuild';
-import { runSiteStep, SITE_STEP_MS } from './sitebuild';
+import { changeDraft, draftView, runSiteStep, SITE_STEP_MS } from './sitebuild';
 import { arg, clip, type Tool, type ToolContext } from './tools/types';
 
 const PREFIX = 'project:';
@@ -443,8 +443,25 @@ async function finish(deps: ProjectDeps, job: Job, p: Project): Promise<{ did: '
 
 /** GET /projects; POST /projects/<id>/pause|resume|cancel|run (run = the next step now). */
 export async function projectsRoute(req: Request, path: string, method: string, deps: ProjectDeps): Promise<Response> {
-  void req;
   if (path === '/projects' && method === 'GET') return json({ projects: await listProjects(deps) });
+  // A website's DRAFT card (sitebuild.ts): the page to show as a phone and a laptop, and CHANGE in words.
+  const d = path.match(/^\/projects\/([a-z0-9]+)\/(draft|change)$/);
+  if (d) {
+    const store = { env: deps.env, storage: deps.storage, origin: deps.tctx.origin };
+    try {
+      if (d[2] === 'draft' && method === 'GET') {
+        const view = await draftView(store, d[1]!);
+        return view ? json({ draft: view }) : json({ error: 'no website draft for this project' }, 404);
+      }
+      if (d[2] === 'change' && method === 'POST') {
+        const body = (await req.json().catch(() => ({}))) as { words?: unknown };
+        const r = await changeDraft(store, d[1]!, typeof body.words === 'string' ? body.words : '');
+        return json({ draft: r.view, said: r.said });
+      }
+    } catch (e) {
+      return json({ error: String((e as Error)?.message ?? e) }, 400);
+    }
+  }
   const m = path.match(/^\/projects\/([a-z0-9]+)\/(pause|resume|cancel|run)$/);
   if (m && method === 'POST') {
     const p = await loadProject(deps, m[1]!);

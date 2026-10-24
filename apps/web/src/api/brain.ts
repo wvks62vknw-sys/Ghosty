@@ -14,6 +14,16 @@ import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
+/** A website waiting for the owner (or already live): what the Workshop's DRAFT card draws. */
+export interface SiteDraft {
+  name: string;
+  title: string;
+  html: string;
+  live: boolean;
+  link: string;
+  confirm: string[];
+  publish: string;
+}
 /** One of the phones' daily backups as the brain lists it (apps/edge/src/backup.ts). */
 export interface BackupInfo {
   /** Its name: `<device>:<day>`, or `<day>` for a copy kept in the older format. */
@@ -312,6 +322,9 @@ export const brain = {
   /** Projects that run for days (projects.ts): the Workshop tab's PROJECTS panel. */
   projects: () => req<{ projects: Project[] }>('GET', '/projects'),
   projectAction: (id: string, action: 'pause' | 'resume' | 'cancel' | 'run') => req<{ project: Project; did?: string }>('POST', `/projects/${encodeURIComponent(id)}/${action}`, {}),
+  /** A website project's DRAFT card (sitebuild.ts draftView): the page, its state and what to confirm; CHANGE in words. */
+  siteDraft: (id: string) => req<{ draft: SiteDraft }>('GET', `/projects/${encodeURIComponent(id)}/draft`),
+  siteChange: (id: string, words: string) => req<{ draft: SiteDraft; said: string }>('POST', `/projects/${encodeURIComponent(id)}/change`, { words }),
   roadmap: () => req<{ roadmap: Roadmap | null }>('GET', '/roadmap'),
   training: () => req<{ exercises: { id: string; title: string; level: number; topic: string }[]; records: Record<string, { solved: boolean; attempts: number; at: number; model?: string; firstSolve?: number }> }>('GET', '/train'),
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),

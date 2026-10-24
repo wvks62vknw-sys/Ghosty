@@ -13,6 +13,7 @@
  * broken (a widget may use the network, so those are warnings for it); check_html is the same
  * report on demand.
  */
+import { formTarget } from '../../../../packages/shared/src/sitekit/blocks/formkit';
 import { bracketProblem, codeOnly } from '../selfcheck';
 import { storageError } from '../kv';
 import { siteStore } from './sites';
@@ -122,7 +123,7 @@ const bare = (code: string) => codeOnly(code).replace(/"(?:[^"\\\n]|\\.)*"|'(?:[
  * from elsewhere but images, Google Fonts and video embeds, no network — and 'widget' as an
  * instant widget (its own sandbox allows the network, so those become warnings).
  */
-export function checkHtml(html: string, opts: { kind?: CheckKind } = {}): CheckReport {
+export function checkHtml(html: string, opts: { kind?: CheckKind; formAction?: string } = {}): CheckReport {
   const kind = opts.kind ?? 'page';
   const page = kind === 'page';
   const findings: Finding[] = [];
@@ -322,7 +323,9 @@ export function checkHtml(html: string, opts: { kind?: CheckKind } = {}): CheckR
         if (src) checkSrc(tagLine, '<iframe src>', src, { frame: true });
       } else if (name === 'form' || name === 'button' || name === 'input') {
         const action = attr(attrs, name === 'form' ? 'action' : 'formaction');
-        if (action !== null) resource(tagLine, 'error', `<${name} ${name === 'form' ? 'action' : 'formaction'}="${action.slice(0, 60)}"> — the sandbox blocks form submission, so this form can never send anything; remove the target and handle the submit in script (e.preventDefault()), or keep the form visual`);
+        // (a website built with the owner's Formspree form may send there, and only there: tools/sites.ts pagePolicy)
+        const allowed = name === 'form' && action !== null && !!opts.formAction && formTarget(opts.formAction)?.action === action;
+        if (action !== null && !allowed) resource(tagLine, 'error', `<${name} ${name === 'form' ? 'action' : 'formaction'}="${action.slice(0, 60)}"> — the sandbox blocks form submission, so this form can never send anything; remove the target and handle the submit in script (e.preventDefault()), or keep the form visual`);
         if (name === 'input' && /^password$/i.test(decodeRefs(attr(attrs, 'type') ?? ''))) add(tagLine, page ? 'error' : 'warning', 'blocked', page ? '<input type="password"> — publishing refuses it because the page could pass for a real login page; leave sign-in out or show it as a plain button' : '<input type="password"> in a widget: nothing it collects can be sent anywhere; leave sign-in out');
       } else if (name === 'base') {
         if (page) resource(tagLine, 'error', '<base> is ignored on a published page (base-uri none) — remove it and use full addresses');

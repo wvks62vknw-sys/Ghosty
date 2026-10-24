@@ -99,6 +99,12 @@ export const PALETTES: Record<PaletteId, Palette> = {
     light: { bg: '#fcf7f5', surface: '#ffffff', surface2: '#f6e9e5', text: '#2b1a1d', muted: '#6d575b', border: '#eedcd7', primary: '#7a3e48', onPrimary: '#ffffff', accent: '#a3564d', onAccent: '#ffffff' },
     dark: { bg: '#1a1214', surface: '#24191c', surface2: '#2f2125', text: '#f8eeee', muted: '#c9b3b5', border: '#3d2b2f', primary: '#f2b8b5', onPrimary: '#2b1316', accent: '#f2b8b5', onAccent: '#2b1316' },
   },
+  paprika: {
+    id: 'paprika',
+    label: 'Paprika: warm paper, chilli red, toasted amber',
+    light: { bg: '#fffaf4', surface: '#ffffff', surface2: '#f8ebdd', text: '#24170f', muted: '#67564a', border: '#eddccb', primary: '#a8321b', onPrimary: '#ffffff', accent: '#7a4a06', onAccent: '#ffffff' },
+    dark: { bg: '#16100c', surface: '#211813', surface2: '#2b2019', text: '#f8efe6', muted: '#c6b4a5', border: '#3b2d23', primary: '#ff9472', onPrimary: '#1d0c06', accent: '#ffc56e', onAccent: '#1d1306' },
+  },
 };
 
 export interface FontPair {
@@ -183,8 +189,24 @@ export function textPairs(c: Colours): { what: string; fg: string; bg: string; m
   ];
 }
 
+/** Worked out once per look and kept (a build draws and checks the same theme several times). */
+const memo = <T>(cache: Map<string, T>, key: string, make: () => T): T => {
+  const had = cache.get(key);
+  if (had !== undefined) return had;
+  const v = make();
+  if (cache.size > 64) cache.clear();
+  cache.set(key, v);
+  return v;
+};
+const themeKey = (t: Theme) => `${t.palette}|${t.fonts}|${t.shape}|${t.scheme}`;
+const CONTRAST = new Map<string, string[]>();
+const CSS = new Map<string, string>();
+
 /** The pairs of a theme below their minimum, in plain words ("button text 3.2:1, needs 4.5:1"). */
 export function contrastProblems(theme: Theme): string[] {
+  return [...memo(CONTRAST, themeKey(theme), () => contrastOf(theme))];
+}
+function contrastOf(theme: Theme): string[] {
   const p = PALETTES[theme.palette];
   const sets: [string, Colours][] = theme.scheme === 'light' ? [['light', p.light]] : theme.scheme === 'dark' ? [['dark', p.dark]] : [['light', p.light], ['dark', p.dark]];
   const out: string[] = [];
@@ -210,6 +232,9 @@ export function fontsHref(f: FontsId): string {
 
 /** The theme's tokens and base styles. Section tones (alt, inverse) and dark mode are variables, so blocks never hard-code a colour. */
 export function themeCss(theme: Theme): string {
+  return memo(CSS, themeKey(theme), () => themeCssOf(theme));
+}
+function themeCssOf(theme: Theme): string {
   const p = PALETTES[theme.palette];
   const f = FONTS[theme.fonts];
   const s = SHAPES[theme.shape];
@@ -276,6 +301,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn-ghost:hover{box-shadow:none;text-decoration:underline}
 .btn .ic{width:1.15em;height:1.15em}
 .btn-sm{min-height:44px;padding:.55em 1.1em;font-size:var(--step--1)}
+@media (max-width:479px){section[class*="b-hero"] .btns .btn,.b-cta-banner .btns .btn{flex:1 1 100%}}
 .ic{width:24px;height:24px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:var(--space-m)}
 .grid{display:grid;gap:var(--space-m)}
