@@ -12,6 +12,8 @@ browser keeps them in WebLLM's Cache API stores (`webllm/model`, `webllm/config`
 | `worker.mjs` | ours: the Web Worker that holds `MLCEngine` and speaks a few plain messages to the page | — | as Ghosty | 3 KB |
 | `libs/Qwen3-0.6B-q4f16_1_cs1k-webgpu.wasm` | the compiled model code for Qwen3-0.6B (q4f16_1) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` (the version 0.2.85's prebuilt config names) | Apache-2.0 | 5.5 MB |
 | `libs/Qwen2-0.5B-Instruct-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen2.5-0.5B-Instruct (the fallback when a phone can't hold Qwen3) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` | Apache-2.0 | 4.9 MB |
+| `libs/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm` | the compiled model code for Qwen3.5-2B (q4f16_1), a bigger brain he can choose | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` (the version 0.2.85's prebuilt config names), fetched 2026-10-24, sha256 `b0f951d4…98df912` | Apache-2.0 | 6.2 MB |
+| `libs/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm` | the same for Qwen3.5-4B (q4f16_1) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base`, fetched 2026-10-24, sha256 `7e8f9895…0bdc904712` | Apache-2.0 | 6.5 MB |
 | `libs/snowflake-arctic-embed-s-q0f32-ctx512_cs512_batch4-webgpu.wasm` | the compiled code for SEARCH BY MEANING's model, snowflake-arctic-embed-s (q0f32, at most 4 texts a step, 512 word-pieces each) | binary-mlc-llm-libs `web-llm-models/v0_2_84/base` (the version 0.2.85's prebuilt config names), fetched 2026-10-24, sha256 `d5aa59dd…9907df5` | Apache-2.0 | 3.7 MB |
 
 Weights (not vendored): `mlc-ai/Qwen3-0.6B-q4f16_1-MLC` (≈352 MB) and `mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC`
@@ -23,6 +25,8 @@ with, never whatever the repository's main branch holds that day:
 | --- | --- |
 | `mlc-ai/Qwen3-0.6B-q4f16_1-MLC` | `8c14ce481d4c692769976ad52afea453a102df19` |
 | `mlc-ai/Qwen2.5-0.5B-Instruct-q4f16_1-MLC` | `32ff081fe7e4dfe4ffb167b94c66fdf11e02b8ad` |
+| `mlc-ai/Qwen3.5-2B-q4f16_1-MLC` (1,082 MB fetched: 31 shards, tokenizer, config; the repo's only upload, checked 2026-10-24) | `dd74e9c8a20c4546df85c844103bff87b6dcacad` |
+| `mlc-ai/Qwen3.5-4B-q4f16_1-MLC` (2,390 MB fetched: 78 shards, tokenizer, config; the repo's only upload, checked 2026-10-24) | `44b42469f9e192814bfd90440e3b377d89ba7a13` |
 | `mlc-ai/snowflake-arctic-embed-s-q0f32-MLC` (search by meaning, 67 MB: two 33 MB shards, tokenizer, config; checked 2026-10-24) | `1b36afd513686bb633823b39a73fd685cebe4b0c` |
 
 The page passes `https://huggingface.co/<repo>/resolve/<commit>/` as the model's address; WebLLM's
@@ -54,3 +58,16 @@ snowflake-arctic-embed-s (Apache-2.0, English-first, 384 numbers a text), in a s
 but not `shader-f16`. Downloaded only when the owner presses ADD in SETTINGS → OFFLINE BRAIN (about 70 MB, on Wi-Fi),
 kept in the same `webllm/*` stores; the brain's own clean-ups (`pruneOtherRevisions`, DELETE, the too-big fallback)
 leave its files alone, and REMOVE there removes only its files.
+
+BIGGER BRAINS (`src/offline/models.ts` `BIGGER`, SETTINGS → OFFLINE BRAIN's picker): Qwen3.5-2B and Qwen3.5-4B, exactly as
+WebLLM 0.2.85's own prebuilt list has them (checked in this vendored `web-llm.mjs`, which is byte for byte npm's
+`@mlc-ai/web-llm@0.2.85` `lib/index.js` without its source-map line, integrity `sha512-CwUiSAvD…L9rw==`): model ids
+`Qwen3.5-2B-q4f16_1-MLC` / `Qwen3.5-4B-q4f16_1-MLC`, `vram_required_MB` 2245.44 / 3867.82, and its overrides
+`context_window_size: 4096, max_history_size: 1` (Qwen3.5 keeps a running state in three layers of four). Both
+libraries above were fetched from the address that list names (`raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/
+web-llm-models/v0_2_84/base/`); the Qwen3-0.6B one fetched the same way on the same day is identical to the one vendored
+here (sha256 `4db800b2…498df912`). Each picker brain is downloaded only when the owner asks (with its size, on Wi-Fi)
+and stays in the `webllm/*` stores, so he can switch back without a new download; the 0.6B stays as the fallback when
+a bigger one cannot get the memory it needs. The full hashes: Qwen3.5-2B
+`b0f951d411e4fd59fe2af76be9328905ae30549e570a192a841c958b293ecd53`, Qwen3.5-4B
+`7e8f9895daa710a83952efac4d5c6f36e9f89dc684b25022746d881bdc904712`.

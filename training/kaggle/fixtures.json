@@ -1147,5 +1147,89 @@
    ]
   }
  ],
- "note2": "schoolMarks and examPrompts: SCHOOL marking (school.ts markExact / the notebook mark_exact) and the exam prompt (school.ts examMessages, apps/web/src/school/sit.ts examPrompt / the notebook exam_prompt), computed from the TypeScript side."
+ "note2": "schoolMarks and examPrompts: SCHOOL marking (school.ts markExact / the notebook mark_exact) and the exam prompt (school.ts examMessages, apps/web/src/school/sit.ts examPrompt / the notebook exam_prompt), computed from the TypeScript side.",
+ "bases": [
+  {
+   "id": "qwen3-0.6b",
+   "textParams": 751632384,
+   "config": {
+    "base": {
+     "id": "qwen3-0.6b",
+     "label": "Qwen3 0.6B",
+     "family": "qwen3",
+     "context": 2048
+    },
+    "base_model": {
+     "repo": "Qwen/Qwen3-0.6B",
+     "rev": "c1899de289a04d12100db370d81485cdf75e47ca"
+    },
+    "stock_mlc": {
+     "repo": "mlc-ai/Qwen3-0.6B-q4f16_1-MLC",
+     "rev": "8c14ce481d4c692769976ad52afea453a102df19",
+     "quant": "q4f16_1"
+    },
+    "budgets": {
+     "prompt": 2048,
+     "gen": 20000
+    }
+   },
+   "pins": "transformers==4.51.3",
+   "trainsOnT4": true
+  },
+  {
+   "id": "qwen3.5-2b",
+   "textParams": 1881825088,
+   "config": {
+    "base": {
+     "id": "qwen3.5-2b",
+     "label": "Qwen3.5 2B",
+     "family": "qwen3_5",
+     "context": 4096
+    },
+    "base_model": {
+     "repo": "Qwen/Qwen3.5-2B",
+     "rev": "15852e8c16360a2fea060d615a32b45270f8a8fc"
+    },
+    "stock_mlc": {
+     "repo": "mlc-ai/Qwen3.5-2B-q4f16_1-MLC",
+     "rev": "dd74e9c8a20c4546df85c844103bff87b6dcacad",
+     "quant": "q4f16_1"
+    },
+    "budgets": {
+     "prompt": 4096,
+     "gen": 40000
+    }
+   },
+   "pins": "transformers==5.5.4",
+   "trainsOnT4": true
+  },
+  {
+   "id": "qwen3.5-4b",
+   "textParams": 4205751296,
+   "config": {
+    "base": {
+     "id": "qwen3.5-4b",
+     "label": "Qwen3.5 4B",
+     "family": "qwen3_5",
+     "context": 4096
+    },
+    "base_model": {
+     "repo": "Qwen/Qwen3.5-4B",
+     "rev": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+    },
+    "stock_mlc": {
+     "repo": "mlc-ai/Qwen3.5-4B-q4f16_1-MLC",
+     "rev": "44b42469f9e192814bfd90440e3b377d89ba7a13",
+     "quant": "q4f16_1"
+    },
+    "budgets": {
+     "prompt": 4096,
+     "gen": 40000
+    }
+   },
+   "pins": "transformers==5.5.4",
+   "trainsOnT4": false
+  }
+ ],
+ "note3": "bases: the settings the brain writes into CONFIG_JSON for each base model the phone can choose (cycle.ts baseConfig must give exactly these; the notebook reads them with base_of and budgets_for), its text parameters (every tensor in the safetensors headers but the vision tower and the multi-token head; checked on Hugging Face 24 Oct 2026) and whether its full-precision weights train on Kaggle's 15 GB T4."
 }
