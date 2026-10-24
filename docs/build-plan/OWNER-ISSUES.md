@@ -170,7 +170,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
     his pick waits for him; whatever is left at the week's end goes to next week.
 
-37. **What only he can do, as of 24 Oct ~13:15 UK (after the next pull request lands):** (a) SYSTEM → KEYS → Pl@ntNet:
+37. **What only he can do, as of 24 Oct 19:12 UK (PR #33 is merged: (a)–(k) are live; (l) comes with PR #34):** (a) SYSTEM → KEYS → Pl@ntNet:
     make a free account at my.plantnet.org, copy the API key, paste it in; then Lens → NAME → LIVING THING → PLANT names
     plants (500 a day, free). Without it, PLANT offers "ASK GHOSTY INSTEAD" (the seeing model). (b) Settings → Offline
     brain → Search by meaning → ADD · 70 MB, on Wi-Fi: the library on the phone then finds passages by what they mean;

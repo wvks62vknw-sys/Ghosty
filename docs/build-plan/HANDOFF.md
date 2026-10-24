@@ -200,6 +200,12 @@ folder that no longer exists; ignore those paths).
   `crime_near`: a new feature, the biggest gap for a UK owner); the hero level is worldwide (should say "nothing near
   you within 500 km" or the reverse); no filter on the signals list; desktop hero dials far from the text (shared
   `ui/page.ts`); launch dates without a time. The safari and scroll specs could not run here (no WebKit): CI runs them.
+- 24 Oct 19:12 UK: **PR #33 MERGED into main** (merge commit 910a831; CI run 226 green on 23f9356: brain, interface,
+  deploy-build, Workers Builds, the 61-spec browser run). Live for the owner: A3, the Workshop app project, the SPEED
+  card, full courses, search by meaning, the Lens's NAME IT / WHAT'S IN IT, MARK MY WORK and GADGET MANUALS, Night School
+  and the monthly retrain, PHOTO TOOLS, GYM ideas, the websites lift, saved places and spending, UNDO everywhere,
+  offline translation, the laptop fix, the after-14-November guide. Next pull request (#34, same branch): the bigger
+  brain, the Threats pass, and the God's Eye and Lens passes when they land.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
