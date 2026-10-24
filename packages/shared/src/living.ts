@@ -410,3 +410,36 @@ export function mealCardLines(m: MealTotal): string[] {
   const rows = m.items.map((it) => (it.macros ? `${it.name}, about ${Math.round(it.grams)} g: about ${roughKcal(it.macros.kcal)} kcal${it.from === 'Open Food Facts' ? ' (Open Food Facts)' : ''}` : `${it.name}, about ${Math.round(it.grams)} g: not matched, not counted`));
   return [...rows, `${m.line[0]!.toUpperCase()}${m.line.slice(1)}; ${m.total.protein} g protein, ${m.total.carbs} g carbs, ${m.total.fat} g fat (${m.honesty}).`];
 }
+
+// ---- nothing kept: the Lens's NAME IT and WHAT'S IN IT exchanges leave no trace in the conversation --------
+
+/** A Lens NAME IT or WHAT'S IN IT question (the words the phone sends; " [photo]" may follow). */
+export const isLensAsk = (text: string): boolean => /^LENS (?:NAME IT \(|WHAT'S IN IT)/.test(String(text ?? '').trimStart());
+
+/** A reply to one (the model's JSON, or a reply that carries the plant tool's line): known by its shape. */
+export function isLensReply(text: string): boolean {
+  const t = String(text ?? '');
+  if (t.length > 3000) return false;
+  if (t.includes(PLANT_TAG + '{')) return true;
+  const o = firstJson(t);
+  return !!o && (('kind' in o && 'species' in o && 'sure' in o) || (Array.isArray(o.foods) && 'sure' in o));
+}
+
+/**
+ * The conversation without the Lens's NAME IT and WHAT'S IN IT exchanges (the question, the tool
+ * calls and the reply, up to the next message of the owner's): the card on the phone is the answer,
+ * and only SAVE keeps anything. Works on the saved history (turns, where the question is saved
+ * before its reply, so a reply is known by its shape too) and the model's context (messages).
+ * Returns the same list when there is nothing to drop.
+ */
+export function dropLensExchanges<T>(items: T[], isUser: (t: T) => boolean, text: (t: T) => string): T[] {
+  let dropping = false;
+  let changed = false;
+  const out = items.filter((t) => {
+    if (isUser(t)) dropping = isLensAsk(text(t));
+    const drop = dropping || (!isUser(t) && isLensReply(text(t)));
+    if (drop) changed = true;
+    return !drop;
+  });
+  return changed ? out : items;
+}

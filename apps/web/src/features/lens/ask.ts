@@ -7,7 +7,7 @@
  * pictures is reachable, Ghosty can still answer from the note — and the Lens offers DESCRIBE
  * WITH WHAT I CAN SEE HERE, which sends only words.
  *
- * WHAT'S IN IT? (living.ts): the foods on a plate with a rough total — guessed portions, said so.
+ * What's in it? (living.ts): the foods on a plate with a rough total — guessed portions, said so.
  */
 import { clear, h } from '../../core/dom';
 import { button, toast } from '../../ui/components';
@@ -33,7 +33,7 @@ export function createAskMode(L: LensContext): Mode {
 
   const q = h('textarea.lensq', { rows: 2, placeholder: 'What is this? / Is this edible? / Translate this sign', 'aria-label': 'Your question about the picture' });
   const living = createLiving(L);
-  const food = button("WHAT'S IN IT?", () => {
+  const food = button("What's in it?", () => {
     const still = pendingStill ?? lastStill ?? L.still(1024);
     if (!still) return void toast('No picture: START the camera first', 'warn');
     lastStill = still;

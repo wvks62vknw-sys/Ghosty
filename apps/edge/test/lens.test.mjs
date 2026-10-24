@@ -632,8 +632,30 @@ test('NAME IT through the chat: the Lens holds the photo, its question turns the
     const living = L.checkLiving(bird.find((e) => e.t === 'text').text, 'mock');
     assert.equal(living.common, 'European robin');
     assert.equal(living.level, 'probably');
+    // nothing kept: the history and the model's context hold neither the questions nor the answers (only SAVE keeps anything)
+    const turns = (await (await call('/api/history')).json()).turns;
+    assert.ok(!turns.some((t) => /LENS NAME IT|European robin|PLANTNET|Bellis/.test(t.text)), JSON.stringify(turns.slice(-4)));
+    const kept = JSON.stringify(state.storage.m.get('ctx') ?? []);
+    assert.ok(!/LENS NAME IT|European robin|PLANTNET|Bellis/.test(kept), kept.slice(-600));
+    // the conversation before them is untouched, and the next message works as usual
+    assert.ok(turns.some((t) => t.text === 'What is this? [photo]'));
+    assert.equal((await chat({ message: 'remember my kite is red' })).find((e) => e.t === 'tool').name, 'remember');
   } finally {
     net.restore();
     delete env.PLANTNET_API_KEY;
   }
+});
+
+test('NAME IT and WHAT\'S IN IT exchanges are dropped from the saved conversation, by the question or by the reply\'s shape', () => {
+  const T2 = (role, text) => ({ role, text, at: 1 });
+  const turns = [T2('user', 'hello'), T2('assistant', 'Hi.'), T2('user', `${L.livingQuestion('bird')} [photo]`), T2('assistant', '{"kind":"bird","species":"Erithacus rubecula","common":"European robin","sure":"fairly confident","tell":"red breast"}'), T2('user', 'thanks'), T2('assistant', 'Any time.')];
+  const keep = (list) => L.dropLensExchanges(list, (t) => t.role === 'user', (t) => t.text);
+  assert.deepEqual(keep(turns).map((t) => t.text), ['hello', 'Hi.', 'thanks', 'Any time.']);
+  // the history is saved a turn at a time: the question first (dropped), then its reply on its own
+  const later = keep([...keep(turns.slice(0, 3)), turns[3]]);
+  assert.deepEqual(later.map((t) => t.text), ['hello', 'Hi.']);
+  assert.deepEqual(keep([T2('user', 'x'), T2('assistant', 'Done. PLANTNET {"s":"Bellis perennis"}')]).map((t) => t.text), ['x']);
+  assert.deepEqual(keep([T2('user', 'x'), T2('assistant', '{"foods":[{"name":"chips","grams":150}],"sure":"fairly sure"}')]).map((t) => t.text), ['x']);
+  const plain = [T2('user', 'what is {"kind":1}?'), T2('assistant', 'A JSON object with a kind.')];
+  assert.equal(keep(plain), plain, 'nothing to drop: the same list');
 });

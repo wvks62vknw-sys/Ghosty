@@ -183,8 +183,10 @@ await page.evaluate(() => window.__ghosty.lens.setMode('name'));
 await page.waitForTimeout(500);
 await pickPhoto(await drawn('A BIRD ON A BRANCH', 'red breast'));
 await page.locator('#pg-lens button', { hasText: 'LIVING THING' }).click();
-await page.locator('#pg-lens .livingkinds button', { hasText: 'BIRD' }).click();
+const remembered = async () => (await (await page.request.get(`${base}/api/memory`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).catch(() => null))?.json().catch(() => ({})))?.facts ?? [];
+const factsBefore = (await remembered()).length;
 const birdReq = page.waitForRequest((r) => r.url().includes('/api/chat') && r.method() === 'POST', { timeout: 20000 }).catch(() => null);
+await page.locator('#pg-lens .livingkinds button', { hasText: 'BIRD' }).click();
 await until(() => window.__ghosty?.lens?.card?.what === 'living', 60000, `LIVING THING → BIRD showed no card: ${JSON.stringify(await card())}`);
 const birdBody = (await birdReq)?.postDataJSON();
 if (!/^data:image\/jpeg;base64,/.test(birdBody?.images?.[0] ?? '')) problems.push('BIRD did not send the photo to the brain');
@@ -195,9 +197,11 @@ if (!(await page.locator(`${cardEl} a[href="https://en.wikipedia.org/wiki/Eritha
 if (!(await page.locator(`${cardEl} button`, { hasText: 'SAVE' }).isVisible())) problems.push('the bird card has no SAVE');
 const chatShown = await page.evaluate(() => { try { return localStorage.getItem('ghosty.chat') ?? ''; } catch { return ''; } });
 if (/LENS NAME IT/.test(chatShown)) problems.push('the NAME IT question was put in the chat on screen');
-const remembered = async () => (await (await page.request.get(`${base}/api/memory`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).catch(() => null))?.json().catch(() => ({})))?.facts ?? [];
-if ((await remembered()).some((f) => /seen: /.test(f.text))) problems.push('something was kept in Memory before SAVE');
-await page.locator(`${cardEl} button`, { hasText: 'SAVE' }).scrollIntoViewIfNeeded();
+if ((await remembered()).length !== factsBefore) problems.push('something was kept in Memory before SAVE');
+const history = await (await page.request.get(`${base}/api/history`, { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } }).catch(() => null))?.json().catch(() => ({}));
+if (/LENS NAME IT|European robin/.test(JSON.stringify(history?.turns ?? []))) problems.push('the brain kept the NAME IT exchange in its history');
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/lens-living-bird.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the bird card: ${e.message.split('\n')[0]}`));
 const memSaved = page.waitForResponse((r) => r.url().endsWith('/api/memory') && r.request().method() === 'POST', { timeout: 20000 }).catch(() => null);
 await page.locator(`${cardEl} button`, { hasText: 'SAVE' }).click();
@@ -212,7 +216,8 @@ await until(() => window.__ghosty?.lens?.card?.what === 'missing', 60000, `PLANT
 const nokey = (await card())?.text ?? '';
 for (const want of ['PL@NTNET NEEDS ITS FREE KEY', 'SYSTEM → KEYS → Pl@ntNet', 'my.plantnet.org', '500 plants a day']) if (!nokey.includes(want)) problems.push(`the no-key card lacks "${want}": ${nokey}`);
 if (!(await page.locator(`${cardEl} button`, { hasText: 'ASK GHOSTY INSTEAD' }).isVisible())) problems.push('the no-key card offers no other way');
-await page.locator(cardEl).scrollIntoViewIfNeeded();
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/lens-living-nokey.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the no-key card: ${e.message.split('\n')[0]}`));
 
 await page.evaluate(() => window.__ghosty.lens.setMode('ask'));
@@ -221,7 +226,8 @@ await page.locator('#pg-lens button', { hasText: "WHAT'S IN IT?" }).click();
 await until(() => window.__ghosty?.lens?.card?.what === 'meal', 60000, `WHAT'S IN IT? showed no meal card: ${JSON.stringify(await card())}`);
 const meal = (await card())?.text ?? '';
 for (const want of ['fish in batter, about 150 g: about 350 kcal', 'chips, about 150 g: about 470 kcal', 'mushy peas, about 80 g: about 60 kcal', 'about 880 kcal', 'rough: portions are guessed from a photo', 'USDA FoodData Central']) if (!meal.includes(want)) problems.push(`the meal card lacks "${want}": ${meal}`);
-await page.locator(cardEl).scrollIntoViewIfNeeded();
+await page.locator(`${cardEl} .row`).last().evaluate((el) => el.scrollIntoView({ block: 'center' }));
+await page.waitForTimeout(400);
 await page.screenshot({ path: `${out}/lens-meal.png`, timeout: 90000 }).catch((e) => problems.push(`screenshot of the meal card: ${e.message.split('\n')[0]}`));
 
 // ---- the security policy: WebAssembly and the camera were allowed, nothing was blocked ----

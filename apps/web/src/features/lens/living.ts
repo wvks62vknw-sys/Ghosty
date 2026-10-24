@@ -49,7 +49,7 @@ export interface LensCard {
   text: string;
 }
 
-const KEYS_HOW = 'SYSTEM → KEYS → Pl@ntNet: make a free account at my.plantnet.org, copy the key from "Your settings", paste it there. Free, 500 plants a day.';
+const KEYS_HOW = 'SYSTEM → KEYS → Pl@ntNet: make a free account at my.plantnet.org, copy your API key from your account there, paste it in. Free, 500 plants a day.';
 
 /** True when the phone already knows (without asking again) that it is within 1.5 km of home. */
 async function nearHome(): Promise<boolean> {
