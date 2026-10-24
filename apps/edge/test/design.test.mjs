@@ -422,3 +422,6 @@ test('resizing a room: a size that runs into another room is refused in words; a
   assert.equal(RM.roomsOverlap(D.rectPoly(0, 0, 400, 300), D.rectPoly(0, 0, 400, 300)), true, 'the same floor twice is');
   assert.equal(RM.roomsOverlap(D.lPoly(0, 0, 500, 400, 200, 150, 'tr'), D.rectPoly(300, 0, 200, 150)), false, 'a room in an L\'s notch');
 });
+
+// DESIGN MY HOME (tools/homeplan.ts): its tests run with these (package.json's test list is protected).
+await import('./homeplan.test.mjs');
