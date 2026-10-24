@@ -859,6 +859,27 @@ button.gymswitch { min-height: 56px; padding: 10px 14px; border-radius: 14px; ba
 .spacegoal > input { flex: 1 1 auto; min-width: 0; }
 .spacebeforeafter { gap: 6px; } .spacebeforeafter button { flex: 1 1 0; min-height: 44px; }
 .spacechanges button.spaceopt { display: block; width: 100%; text-align: left; text-transform: none; letter-spacing: 0; padding: 8px 10px; min-height: 44px; }
+/* DESIGN MY HOME (features/space/home.ts) and the plan card in the chat (features/core/homecard.ts) */
+.spacehomewords { width: 100%; min-width: 0; min-height: 88px; }
+.spacehomechips button { min-height: 44px; font-size: 11px; }
+.spacehomebar { margin-top: 6px; } .spacehomebar button.spacehomego { flex: 1 1 auto; }
+.spacehomestatus { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; } .spacehomestatus:empty { display: none; }
+.spacehomestatus button { min-height: 44px; }
+.spacehomelive { display: flex; gap: 8px; align-items: center; color: var(--c); }
+.spacehomelive i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c); animation: hpdraw 1.2s ease-in-out infinite; }
+@keyframes hpdraw { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .spacehomelive i { animation: none; } }
+.spacehomeresult { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line2); } .spacehomeresult:empty { display: none; }
+.spacehomeline { overflow-wrap: anywhere; }
+.spacehomefloors button { flex: 1 1 0; min-width: 0; }
+.spacehomeassumed summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+.spacehomeassumed ul { margin: 0 0 4px; padding-left: 18px; }
+.spacehomeassumed li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.spacehomeacts { gap: 8px; } .spacehomeacts button { min-height: 44px; }
+.homecard { display: flex; flex-direction: column; }
+.homecard small { color: var(--c); }
+.homecard b { overflow-wrap: anywhere; }
+.homecardacts { flex-wrap: wrap; gap: 8px; margin-top: 8px; } .homecardacts button { flex: 1 1 auto; }
 .scankv .row { gap: 8px; align-items: center; }
 .scanurl { font: 400 12px/1.4 var(--m); color: var(--mute); overflow-wrap: anywhere; }
 .scanurl b, .scansite b { color: #fff; font-weight: 600; }
@@ -2481,7 +2502,7 @@ html .hud.core #cbar:has(#cin:not(:placeholder-shown)) .logbtn { display: none !
   html body.tabbar .hud.core { padding-bottom: calc(64px + 20px + max(12px, calc(env(safe-area-inset-bottom, 0px) - 6px))); }
 }
 @media (min-width: 900px) {
-  html .hud.core > .ccenter > :is(.rcwx, .rcbelow, #suggest, #cbar, #ccap) { width: 100%; max-width: 440px; align-self: center; }
+  html .hud.core > .ccenter > :is(.rcwx, .rcbelow, #suggest, #cbar, #ccap, .rcbottom) { width: 100%; max-width: 440px; align-self: center; }
 }
 
 @media (max-width: 409px) { html .rcgrow { gap: 10px; } html .rcgrow .rcsegr { width: 50px !important; height: 50px !important; } html .rcgrow .rcsegr svg { width: 50px; height: 50px; } html .rcof b { font-size: 14px; } html .rcsegr b { font-size: 19px; } }
@@ -2497,7 +2518,7 @@ html body.ownback #top .navtitle { order: 1; flex: 1 1 0; margin: 0; text-align:
 html body.ownback #top .you { order: 2; margin-left: 0; }
 html body.tabbar .hud.core.logopen { padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px)); }
 html .hud.core.logopen > .ccenter { pointer-events: none; overflow: visible; padding: 0 12px; }
-html .hud.core.logopen > .ccenter > :not(#cbar) { display: none !important; }
+html .hud.core.logopen > .ccenter > :not(#cbar, .rcbottom) { display: none !important; }
 html .hud.core.logopen .cside.l { inset: 0 0 calc(76px + max(14px, calc(env(safe-area-inset-bottom, 0px) - 4px))) 0; padding: 0; }
 html .hud.core .convo .bd { padding: 0 20px; }
 html .hud.core .convo .log { gap: 0; padding: 8px 0 18px; }
@@ -3343,7 +3364,7 @@ html #pg-brief .wxspark::before { content: 'Now · low ' attr(data-lo); left: 0;
 html #pg-brief .wxspark::after { content: 'high ' attr(data-hi) ' · 24 h'; right: 0; }
 html #pg-brief .pn.news .tabs { display: flex; gap: 8px; padding: 2px 16px 6px; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
 html #pg-brief .pn.news .tabs::-webkit-scrollbar { display: none; }
-html #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 34px; min-height: 34px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
+html #pg-brief .pn.news .tabs button { flex: none; position: relative; height: 40px; min-height: 40px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 html #pg-brief .pn.news .tabs button::after { content: ''; position: absolute; inset: -5px 0; }
 html #pg-brief .pn.news .tabs button.on { color: var(--c); background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
 html #pg-brief .pn.news .rw.link { margin: 0; padding: 12px 0; border-radius: 0; align-items: flex-start; gap: 12px; }
@@ -3567,6 +3588,26 @@ html #pg-space .pn.spacefit button.warn { color: var(--c) !important; background
 html #pg-space .pn .note { font-size: 14px; line-height: 20px; }
 html #pg-space .pn .lab { margin: 0 2px 0 0; }
 html #pg-space .spacewrap, html #pg-space canvas.spacecanvas { border-radius: 16px; }
+/* DESIGN MY HOME: the words in a route C field, the examples as 44 pt pills, DESIGN the one filled action, the floors
+   as a segmented control; the plan card in the chat a glass reply card with two 44 pt pills (no app-icon tiles) */
+html #pg-space .spacehomechips button { height: 44px; min-height: 44px !important; }
+html #pg-space .spacehome textarea.spacehomewords { min-height: 112px; }
+html .spacehomebar button.spacehomego { --lfs: 17px; height: 50px; min-height: 50px !important; border-radius: 14px; }
+html .spacehomeline { font: 600 17px/22px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html .spacehomeresult { border-top-color: var(--hair); }
+html .spacehomelive { font: 400 15px/20px var(--sf); }
+html .spacehomeassumed summary { font: 400 15px/20px var(--sf); color: var(--c); }
+html .spacehomeassumed ul { font: 400 14px/20px var(--sf); color: var(--ink2); }
+html #pg-space .pn .note.spacehomehonest { font-size: 13px; line-height: 18px; color: var(--ink3); }
+html #pg-space .spacehomeacts button, html #pg-space .spacehomestatus button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; }
+html .spacehomefloors { padding: 4px; gap: 0; border-radius: 14px; background: rgba(255,255,255,.055); box-shadow: inset 0 0 0 1px var(--hair); }
+html .spacehomefloors button { height: 44px; min-height: 44px !important; border-radius: 10px; color: var(--ink2); background: transparent !important; box-shadow: none !important; }
+html .spacehomefloors button.on { color: var(--ink); background: rgba(255,255,255,.13) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07) !important; }
+html .homecard { gap: 4px; padding: 14px 16px; border: 0; border-radius: var(--card); background: var(--thin); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); }
+html .homecard small { font: 600 13px var(--sf); letter-spacing: -.005em; text-transform: none; }
+html .homecard b { font: 600 17px/22px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html .homecard span { font: 400 14px/19px var(--sf); color: var(--ink2); opacity: 1; }
+html .homecardacts button { --lfs: 15px; height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; }
 /* Reverse: the help under the form quieter, the jobs as rows */
 html #pg-reverse .pn .note { font-size: 14px; line-height: 20px; color: var(--ink3); }
 html #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }
@@ -3679,3 +3720,10 @@ html #pg-settings .swatch.on .swtick { background: var(--sw) url("data:image/svg
 html #pg-settings .swnote { margin: 12px 2px 2px; }
 @media (prefers-reduced-motion: reduce) { html #pg-settings .swatch { transition: none; } html #pg-settings .swatch:active { transform: none; } }
 /* end route C part 2 */
+
+/* ---------- the bottom block of Home: the quick chips and the ask bar stay together, always in reach ---------- */
+/* (a grouping only, until the rule below lays it out on Home) */
+.rcbottom { display: contents; }
+html .hud.core .rcbottom { display: flex; flex-direction: column; position: sticky; bottom: 0; z-index: 6; margin-top: auto; padding-top: 6px; background: linear-gradient(to bottom, rgba(var(--bgr), 0), rgb(var(--bgr)) 26px); }
+html .hud.core .rcbottom #suggest { margin: 0; }
+html .hud.core .rcbottom #cbar { position: static; }

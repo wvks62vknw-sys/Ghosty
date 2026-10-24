@@ -18,6 +18,7 @@ import { popScreen, pushScreen } from '../../ui/listmode';
 import { home, settings, ui } from '../../state/app';
 import { button, pager, panel, row, SEV_COLORS, spark, toast } from '../../ui/components';
 import { citedReply } from './cited';
+import { homeAfterReply, homeCard } from './homecard';
 import { routeCHome } from './home';
 import { StarkHud } from './hud';
 import { progressRatio, progressText } from './progress';
@@ -180,6 +181,9 @@ function renderEntry(e: Entry, q?: string): HTMLElement {
       if (acts.childElementCount) el.append(acts);
       return el;
     }
+    case 'home':
+      // a plan drawn from the owner's words: OPEN IN SPACE / SEE IN 3-D (homecard.ts)
+      return homeCard(e);
     case 'link':
       return h('a.sitelink', { href: e.url, target: '_blank', rel: 'noopener noreferrer' }, h('small', 'LIVE · TAP TO OPEN'), h('b', e.title), h('span', e.url.replace(/^https?:\/\//, '')));
     case 'activity': {
@@ -392,7 +396,7 @@ export const coreTab: TabDef = {
     // Today card and the two tiles.
     const rwrap = h('div.rwrap', reactor.el);
     const rc = routeCHome(rwrap);
-    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, mic));
+    const center = h('div.ccenter', stark.el, lock, rc.wx, rc.hero, lockLine, stateLabel, glance, caption, rc.below, h('div.rcbottom', suggest, h('div#cbar', plus, logBtn, input, button('SEND', submit, 'sendbtn'), plusMenu, citedBtn, mic)));
     // the date line sits in the navigation bar, beside search and the avatar (shown on the reactor screen only)
     setTimeout(() => document.querySelector('#top')?.prepend(rc.date), 0);
     caption.append(capActs);
@@ -464,7 +468,8 @@ export const coreTab: TabDef = {
       typing = requestAnimationFrame(step);
     };
     const paintLog = () => {
-      const shown = chat.get().entries.slice(-40);
+      // a plan card goes under the reply it came with (homecard.ts)
+      const shown = homeAfterReply(chat.get().entries.slice(-40));
       // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
       const last = shown.findLastIndex((x) => x.kind === 'assistant');
       const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
