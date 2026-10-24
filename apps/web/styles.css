@@ -2608,6 +2608,48 @@ html .megauge { display: flex; flex-direction: column; align-items: center; text
 html .megauge > b { margin-top: 4px; font: 600 12px/15px var(--sf); color: var(--ink); white-space: nowrap; }
 html .megauge > small { font: 400 11px/14px var(--sf); color: var(--ink3); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html .megauge .rcgauge b { font-size: 17px; }
+/* SPEED (features/system/speed.ts), under the Status dials: plain lines, small rows, one stacked bar, RECENT folded; every figure tabular */
+html .speed { padding: 12px 0; border-bottom: 1px solid var(--hair); font-variant-numeric: tabular-nums; font-feature-settings: 'tnum', 'cv05'; }
+html .spdhead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+html .spdhead .ic { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--ink2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+html .spdhead b { font: 600 17px/22px var(--sf); letter-spacing: -.25px; color: var(--ink); }
+html .spdhead small { min-width: 0; font: 400 13px/18px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .spdline { display: flex; flex-direction: column; margin: 10px 0 0; }
+html .spdline small { font: 600 11px/13px var(--sf); letter-spacing: .07em; text-transform: uppercase; color: var(--ink3); }
+html .spdline span { margin-top: 3px; font: 400 15px/20px var(--sf); letter-spacing: -.12px; color: var(--ink); overflow-wrap: anywhere; }
+html .spdline.none span { color: var(--ink2); }
+html .spdrows:not(:empty) { margin-top: 10px; }
+html .spdrow { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--hair); }
+html .spdrow .k { flex: none; font: 400 13px/18px var(--sf); color: var(--ink2); }
+html .spdrow .v { flex: 1; min-width: 0; text-align: right; font: 400 13px/18px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
+html .spdsplit:not(:empty) { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--hair); }
+html .spdsk { display: flex; justify-content: space-between; gap: 12px; font: 400 13px/18px var(--sf); color: var(--ink2); }
+html .spdsk .v { color: var(--ink); }
+html .spdbar { display: flex; height: 8px; margin: 8px 0 6px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,.06); }
+html .spdbar i { display: block; height: 100%; min-width: 0; }
+html .spdbar i + i { box-shadow: inset 1px 0 0 rgba(5,6,7,.7); }
+html :is(.spdbar, .spdkey) [data-part="model"] { --pt: var(--acc); }
+html :is(.spdbar, .spdkey) [data-part="tools"] { --pt: color-mix(in srgb, var(--acc) 55%, transparent); }
+html :is(.spdbar, .spdkey) [data-part="wait"] { --pt: var(--amber); }
+html :is(.spdbar, .spdkey) [data-part="rest"] { --pt: var(--ink3); }
+html .spdbar i { background: var(--pt); }
+html .spdkey { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; font: 400 13px/18px var(--sf); color: var(--ink2); }
+html .spdkey span { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+html .spdkey i { width: 8px; height: 8px; flex: none; border-radius: 2px; background: var(--pt); }
+html .spdkey b { font-weight: 500; color: var(--ink); }
+html .spdkey em { font-style: normal; color: var(--ink3); }
+html details.spdrecent { margin-top: 6px; }
+html details.spdrecent > summary { display: flex; align-items: center; min-height: 44px; font: 400 15px/20px var(--sf); color: var(--acc); cursor: pointer; list-style: none; }
+html details.spdrecent > summary::-webkit-details-marker { display: none; }
+html details.spdrecent > summary::after { content: ''; width: 6px; height: 6px; margin-left: 8px; border-right: 1.7px solid currentColor; border-bottom: 1.7px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .3s var(--spring); }
+html details.spdrecent[open] > summary::after { transform: rotate(-135deg) translateY(-1px); }
+html .spdlist { margin: 0; padding: 0; list-style: none; }
+html .spdlist li { display: grid; grid-template-columns: 82px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; padding: 6px 0; border-top: 1px solid var(--hair); font: 400 13px/18px var(--sf); color: var(--ink); }
+html .spdlist .kd { color: var(--ink2); }
+html .spdlist .who { min-width: 0; overflow-wrap: anywhere; }
+html .spdlist .tm { text-align: right; }
+html .spdlist small { grid-column: 3; text-align: right; font: 400 11px/14px var(--sf); color: var(--ink3); }
+html .spdlist li.bad .who, html .spdlist li.bad .tm { color: var(--amber); }
 html .merows { display: flex; flex-direction: column; }
 html .mer { display: flex; align-items: center; gap: 10px; min-height: 40px; font: 400 15px var(--sf); letter-spacing: -.12px; }
 html .mer + .mer { border-top: 1px solid var(--hair); }
