@@ -100,6 +100,7 @@ import {
   type RewriteItem,
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
+import { brainLoops, drainStars, noteDays, takeStars } from './loops';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -127,8 +128,8 @@ const REPORT_GRACE = 45 * 60_000;
 /** GPU hours a run may take (the push asks Kaggle for this much): no push with fewer left this week. */
 const RUN_GPU_HOURS = SESSION_TIMEOUT_S / 3600;
 
-/** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs). */
-const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite'];
+/** Where the week's records are kept, by kind (`voice`: the style set, `distill` records; `rewrite`: its `pref` pairs; `star`: the phone's checked work). */
+const KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'voice', 'rewrite', 'star'];
 /** The voice's model calls per job step (its own, besides CALLS_PER_TICK), and how many go in one writer, rewriter or judge call. */
 const VOICE_PER_TICK = 4;
 const VOICE_BATCH = 8;
@@ -271,6 +272,8 @@ export async function ensureTrainJob(storage: DurableObjectStorage): Promise<voi
 
 /** One step of the week, then SCHOOL's (schoolStep). Never throws; returns when the job should run again (ms from now) and a line for the job list. */
 export async function trainTick(d: CycleDeps): Promise<{ next: number; note: string }> {
+  // (the LOOPS card's day point of the study counters: cheap, once a day)
+  await noteDays(d.storage, nowOf(d)).catch(() => undefined);
   const r = await weekTick(d);
   const more = await schoolStep(d);
   return more === null ? r : { next: Math.max(1000, Math.min(r.next, more)), note: r.note };
@@ -419,6 +422,15 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
     const { recs, near } = practiceRecords(await loadPractice(d.storage, stage), await heldQuestions(d.storage, stage), WEEKLY.school);
     await noteRejected(d.storage, 'school practice too close to a question on a paper', near);
     await addRecords(d.storage, 'school', far(recs));
+  },
+  async (d, st, far) => {
+    // The phone's checked work (THINK HARDER's checked answers, GYM puzzles his checker passed: loops.ts), waiting since
+    // last week: through the same near-exam filter as the rest. THINK HARDER's are the owner's own questions: none
+    // with MY LIBRARY & CHATS off (the GYM's puzzles are his own).
+    const all = await drainStars(d.storage);
+    const ok = st.private === false ? all.filter((r) => /^gym /.test(r.from ?? '')) : all;
+    await noteRejected(d.storage, "THINK HARDER's answers left out: MY LIBRARY & CHATS is off", all.length - ok.length);
+    await addRecords(d.storage, 'star', far(ok));
   },
 ];
 
@@ -1188,6 +1200,14 @@ export async function trainingRoute(req: Request, path: string, method: string, 
     for (const [k, v] of Object.entries((body.levels ?? {}) as Record<string, unknown>)) if (/^[a-z0-9]{2,24}$/.test(k) && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 10) levels[k] = v as number;
     await s.put(K.gym, levels);
     return json({ ok: true });
+  }
+  if (path === '/training/star' && method === 'POST') {
+    // Checked work from the phone (GYM ideas, part 3): each record checked again, at most the day's cap.
+    return json(await takeStars(s, body.records, nowOf(d)));
+  }
+  if (path === '/training/loops' && method === 'GET') {
+    // The REPORT CARD's LOOPS card (GYM ideas, part 4): this week's numbers for the brain's loops.
+    return json(await brainLoops(s, await trainStatus(d), nowOf(d)));
   }
   if (path === '/training/private' && method === 'POST') {
     await s.put(K.privateData, !!body.on);

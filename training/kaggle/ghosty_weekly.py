@@ -177,7 +177,7 @@ def schema_problem(call, tools):
 
 
 # ---- the dataset's records (packages/shared/src/selftrain.ts recordProblem) -----------------------------------
-TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school']
+TRAIN_KINDS = ['gym', 'drill', 'evol', 'library', 'tool', 'pref', 'failure', 'redteam', 'distill', 'school', 'star']
 
 
 def _msgs_ok(m):
@@ -237,6 +237,8 @@ def record_problem(r):
         return ''
     if not last or last['role'] != 'assistant' or not last['content'].strip():
         return 'needs messages ending with the answer to learn'
+    if kind == 'star' and not (isinstance(r.get('checked'), str) and r['checked'].strip()):
+        return 'a star record needs the check that passed it'
     if kind == 'library' and not (isinstance(r.get('source'), str) and r['source']):
         return 'a library answer must name its passage'
     if kind == 'tool' and not (isinstance(r.get('tools'), list) and r['tools']):
@@ -1359,9 +1361,9 @@ class Run:
         for name in ('star.jsonl', 'critique.jsonl', 'school_star.jsonl'):
             ex += [(r['prompt'], r['answer'], r['from']) for r in self.load_jsonl(name)]
         for r in self.records:
-            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill') or (r['kind'] == 'school' and 'answer' not in r):
-                # (the weekly style set is distillation too, counted apart: "voice")
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else r['kind']))
+            if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill', 'star') or (r['kind'] == 'school' and 'answer' not in r):
+                # (the weekly style set is distillation too, counted apart: "voice"; the phone's checked work is "checked")
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else 'checked' if r['kind'] == 'star' else r['kind']))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
@@ -1672,7 +1674,7 @@ def replay_pair(r):
         return None
     if isinstance(r.get('prompt'), str) and isinstance(r.get('answer'), str) and r['answer'].strip():
         return (r['prompt'], r['answer'])
-    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
+    if r.get('kind') in ('evol', 'library', 'tool', 'redteam', 'distill', 'school', 'star') and not record_problem(r) and r['messages'][-1]['role'] == 'assistant':
         return (chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'])
     return None
 

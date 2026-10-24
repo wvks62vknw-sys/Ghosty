@@ -9,6 +9,7 @@ import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOut
 import { persistAsksQuietly } from '../features/system/storage';
 import { keepForever, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocal, shelf, syncLocalDocs } from '../library/local';
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
+import type { BrainLoops } from '../../../../packages/shared/src/loops';
 import type { TrainStatus } from '../../../../packages/shared/src/selftrain';
 import type { AgendaEventInfo, BrainStatus, ChangeSummary, ChatEvent, ChatTurn, DiaryEntry, DigestInfo, EmailStatus, FeedInfo, InboxEntry, JobInfo, JourneyAnswer, Lesson, LibraryDoc, LibraryHit, ForgottenItem, MemoryFact, MemoryItem, MemoryPattern, Profile, ProfileSection, Project, PublishedSite, ReflectInfo, Roadmap, SpotifyStatus, TelegramStatus, UpgradeIdea, VersionSummary, Widget } from '../../../../packages/shared/src/protocol';
 
@@ -409,6 +410,10 @@ export const brain = {
     rate: (r: { at: number; up: boolean | null; question: string; reply: string; offline?: boolean }) => req<{ ok: boolean }>('POST', '/training/feedback', r),
     /** The GYM levels reached on this phone: the week's puzzles are made at and just beyond them. */
     gym: (levels: Record<string, number>) => req<{ ok: boolean }>('POST', '/training/gym', { levels }),
+    /** Checked work as training records (THINK HARDER, the GYM: offline/star.ts); the brain checks each again and keeps a daily cap. */
+    star: (records: unknown[]) => req<{ kept: number; refused: { why: string; n: number }[]; waiting: number }>('POST', '/training/star', { records }),
+    /** This week's numbers for the brain's loops (the REPORT CARD's LOOPS card). */
+    loops: () => req<BrainLoops>('GET', '/training/loops'),
   },
   async stt(audio: Blob): Promise<string> {
     const r = await fetch('/api/stt', { method: 'POST', headers: headers({ 'content-type': audio.type || 'audio/webm' }), body: audio });

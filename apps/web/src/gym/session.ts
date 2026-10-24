@@ -4,8 +4,10 @@
  * learner can carry over). Pure — the Web Worker (worker.ts) drives it with a clock; tests drive it
  * directly. The record is what the phone keeps in IndexedDB (features/gym/store.ts).
  */
-import { type Game, type Learner, LEVELS, type Report } from './core';
+import { type Game, type Learner, LEVELS, type Problem, type Report, type Verdict } from './core';
 import type { GameMeta } from './meta';
+import { type League, leagueMeta } from './rating';
+import { EDGE_SPAN, edgeNext, type EdgeState, newEdge } from './stretch';
 
 export interface Point {
   /** Units trained so far (all levels). */
@@ -29,7 +31,62 @@ export interface GymRecord {
   /** The learner's own state (typed arrays allowed: IndexedDB keeps them as they are). */
   saved: unknown;
   updated: number;
+  /** League play (the board games): his kept past selves, his rating over time, the latest decisions (gym/rating.ts). */
+  league?: League;
+  /** Puzzles at the edge of what he can do (the maze, Sokoban, Sudoku: gym/stretch.ts). */
+  edge?: EdgeState;
+  /** One point a day (UTC day, units, level, mastery), the last DAYS: what he practised this week. */
+  days?: DayPoint[];
 }
+
+export interface DayPoint {
+  d: string;
+  u: number;
+  l: number;
+  m: number;
+  /** Puzzles tried and solved at his edge, in all (gym/stretch.ts). */
+  t?: number;
+  s?: number;
+}
+
+const DAYS = 15;
+
+/** Today's point on a record's days (one a day; today's is replaced). Pure. */
+export function noteDay(days: DayPoint[] | undefined, rec: Pick<GymRecord, 'units' | 'level' | 'mastery' | 'mastered' | 'edge'>, now: number): DayPoint[] {
+  const d = new Date(now).toISOString().slice(0, 10);
+  const p = { d, u: rec.units, l: rec.mastered ? 11 : rec.level, m: Math.round(rec.mastery * 1000) / 1000, t: rec.edge?.n ?? 0, s: rec.edge?.solved ?? 0 };
+  return [...(days ?? []).filter((x) => x.d !== d), p].slice(-DAYS);
+}
+
+/**
+ * A game's week for the REPORT CARD's LOOPS card: units played, levels passed, his rating a week ago and now,
+ * the league's decisions (kept, thrown away and why) and his tries at his edge since then. "A week ago" is the
+ * day's point at or before then, else the first point kept (a game first played this week counts from nothing).
+ */
+export function gymWeek(rec: GymRecord, name: string, now: number): { id: string; name: string; units: number; levels: number; rating?: [number, number]; kept: number; thrown: { level: number; why: string }[]; tries: number; solved: number } {
+  const since = now - 7 * 86_400_000;
+  const day = new Date(since).toISOString().slice(0, 10);
+  const days = rec.days ?? [];
+  const then = [...days].reverse().find((p) => p.d <= day);
+  const start = then ?? { d: '', u: 0, l: 1, m: 0, t: 0, s: 0 };
+  const lg = rec.league;
+  const week = (lg?.verdicts ?? []).filter((v) => v.at >= since && v.games > 0);
+  const ratingThen = lg?.history.length ? ([...lg.history].reverse().find((h) => h.at <= since) ?? lg.history[0]!).r : 0;
+  return {
+    id: rec.id,
+    name,
+    units: Math.max(0, rec.units - start.u),
+    levels: Math.max(0, (rec.mastered ? 11 : rec.level) - start.l),
+    ...(lg?.versions.length ? { rating: [ratingThen, lg.rating] as [number, number] } : {}),
+    kept: week.filter((v) => v.kept).length,
+    thrown: week.filter((v) => !v.kept).map((v) => ({ level: v.level, why: v.why })),
+    tries: Math.max(0, (rec.edge?.n ?? 0) - (start.t ?? 0)),
+    solved: Math.max(0, (rec.edge?.solved ?? 0) - (start.s ?? 0)),
+  };
+}
+
+/** The record as the page is sent it: without the learner's state or his kept selves' knowledge. */
+export const recMeta = (rec: GymRecord): GymRecord => ({ ...rec, saved: null, league: leagueMeta(rec.league) });
 
 const HISTORY = 120;
 
@@ -100,7 +157,37 @@ export class Session {
   }
   /** The record with the learner's state, to keep. */
   snapshot(): GymRecord {
-    return { ...this.rec, saved: this.learner.save(), updated: Date.now() };
+    const now = Date.now();
+    this.rec.days = noteDay(this.rec.days, this.rec, now);
+    return { ...this.rec, saved: this.learner.save(), updated: now };
+  }
+  /** Back to a kept version's knowledge (a new version the league threw away): a copy, at the level he is on. */
+  revert(saved: unknown): void {
+    this.learner = this.game.learner(this.rec.level, this.rec.seed, structuredClone(saved));
+  }
+  /** Puzzles at his edge are made in this game (and he is still climbing). */
+  get stretches(): boolean {
+    return !this.rec.mastered && typeof this.learner.stretch === 'function';
+  }
+  /**
+   * One puzzle at the edge of what he can do: made at his edge's difficulty, his answer checked by the game's own
+   * check() (never the learner's say-so), the edge moved by the result. null when no puzzle could be made.
+   */
+  stretchTry(): { problem: Problem; answer: string; verdict: Verdict; x: number } | null {
+    if (!this.stretches) return null;
+    const e = this.rec.edge?.level === this.rec.level ? this.rec.edge : { ...newEdge(this.rec.level), n: this.rec.edge?.n ?? 0, solved: this.rec.edge?.solved ?? 0 };
+    // Its own seeds (below the exam's, away from the ladder's test and practice sets).
+    const seed = 400_000 + ((this.rec.seed + 7919 * (e.n + 1)) % 400_000);
+    const t = this.learner.stretch!(e.x, seed);
+    if (!t) return null;
+    let verdict: Verdict;
+    try {
+      verdict = this.game.check(t.problem, t.answer);
+    } catch (err) {
+      verdict = { correct: false, score: 0, why: `the checker failed: ${String((err as Error)?.message ?? err).slice(0, 80)}` };
+    }
+    this.rec.edge = edgeNext(e, !!verdict.correct, this.rec.level, EDGE_SPAN[this.game.id] ?? 1);
+    return { ...t, verdict, x: e.x };
   }
 }
 
