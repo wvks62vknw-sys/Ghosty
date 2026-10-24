@@ -3313,6 +3313,9 @@ html .pn.pats .pat button.del { grid-column: 2; grid-row: 1 / 3; width: 44px; he
 /* ME: the summary first, the sections as kickers, a line each */
 html #pg-memory .pn.me .note.summary { order: -1; margin: 0 0 4px; font: 400 15px/20px var(--sf); color: var(--ink2); }
 html #pg-memory .pn.me .rw .v { font: 400 17px/23px var(--sf); letter-spacing: -.25px; }
+/* (upgrade pass) who he is in a line, written to him, then where it came from and when */
+html #pg-memory .pn.me .mesum { margin: 2px 0 2px; font: 500 20px/27px var(--sf); letter-spacing: -.35px; color: var(--ink); text-wrap: pretty; }
+html #pg-memory .pn.me .mewhen { margin: 0 0 6px; font: 400 13px/18px var(--sf); color: var(--ink3); }
 /* the two sides flow: each card as tall as what it holds, the side scrolls (a list shows a page of eight) */
 @media (max-width: 899px) {
   html .two.rcflow > .col { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 24px; }

@@ -18,6 +18,27 @@ import { page } from '../../ui/page';
 import { placesBlock } from './places';
 import { lineId, patternsPanel, timelinePanel } from './timeline';
 
+/** "today", "yesterday", else "Sat 17 Oct" (when ME was last updated). */
+function dayWord(t: number): string {
+  const d = new Date(t);
+  const today = new Date();
+  const days = Math.round((new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / 86_400_000);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+/** ME's sections, headed in his words (the brain keeps them as about, likes, dislikes …). */
+const HEADINGS: Record<ProfileSection, string> = {
+  about: 'Who you are',
+  likes: 'What you like',
+  dislikes: 'What you don’t like',
+  people: 'Your people',
+  places: 'Places in your life',
+  routines: 'Your routines',
+  goals: 'What you’re working towards',
+  work: 'Your work',
+  other: 'Also',
+};
+
 export const memoryTab: TabDef = {
   id: 'memory',
   title: 'MEMORY',
@@ -68,8 +89,11 @@ export const memoryTab: TabDef = {
     };
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
-    const paintSub = () =>
-      (P.sub.textContent = `${facts.length} ${facts.length === 1 ? 'thing' : 'things'} I know about you`);
+    // (the facts and the lines about him: the same count as the TIMELINE's, less the diary and lessons)
+    const paintSub = () => {
+      const n = facts.length + (profile ? PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0) : 0);
+      P.sub.textContent = `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
+    };
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -114,11 +138,13 @@ export const memoryTab: TabDef = {
       }
       const n = PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0);
       mp.setStatus(n ? `${n} LINES` : 'EMPTY', n ? 'ok' : 'mid');
-      mp.body.append(h('div.note.summary', profile.summary || 'Each night Ghosty keeps what you told him about yourself — never what he read online, never a password.'));
+      // who he is, in a line written to him; then where it came from and when, honestly
+      mp.body.append(h('div.mesum', profile.summary || 'Tell me about yourself and each night I’ll write down what you said — never what I read online, never a password.'));
+      if (profile.updatedAt) mp.body.append(h('div.note.mewhen', `From your own words · updated ${dayWord(profile.updatedAt)}`));
       for (const s of PROFILE_SECTIONS) {
         const lines = profile.sections[s];
         if (!lines.length) continue;
-        mp.body.append(h('div.lab', s));
+        mp.body.append(h('div.lab', { dataset: { section: s } }, HEADINGS[s]));
         lines.forEach((text) => {
           const r = row(null, text, '✕', { wrap: true });
           const x = r.lastChild as HTMLElement;
@@ -202,6 +228,7 @@ export const memoryTab: TabDef = {
       }
       paintMe();
       paintDiary();
+      paintSub();
     };
     dp.foot!.prepend(button('REFLECT NOW', async (b) => {
       b.disabled = true;

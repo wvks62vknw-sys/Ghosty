@@ -881,3 +881,13 @@ test('"remind me when I\'m near Tesco": no location tracking, said plainly; a re
   await assert.rejects(T.toolByName.get('set_reminder').run({ text: "buy milk when I'm near Tesco" }, { storage: st }), /never tracks your location/);
   assert.match(await T.toolByName.get('set_reminder').run({ text: 'call mum', in_minutes: 30 }, { storage: st }), /Reminder set/);
 });
+
+test('the reflection asks for the summary written to him ("You\'re …"), never "the owner"', async () => {
+  const st = new MemStorage();
+  const lib = new Library(st, {});
+  await st.put('turns', turns([['user', 'I build bridges for a living'], ['user', 'and I live in Kings Heath']]));
+  let system = '';
+  await P.reflect({ storage: st, library: lib, ai: async (sys) => ((system = sys), JSON.stringify({ summary: "You're a bridge engineer in Kings Heath.", facts: [], sections: {}, diary: '' })) }, T0 + 10 * 60_000);
+  assert.match(system, /"summary": [^\n]*second person[^\n]*"You're [^\n]*never "the owner"/);
+  assert.equal((await P.loadProfile(st)).summary, "You're a bridge engineer in Kings Heath.");
+});

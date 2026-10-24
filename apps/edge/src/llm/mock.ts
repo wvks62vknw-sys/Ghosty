@@ -43,7 +43,7 @@ export async function mockComplete(messages: Msg[], tools: ToolSpec[]): Promise<
   if (/Reply with ONLY a JSON object/.test(system) && /looking back at today/.test(system)) {
     const said = textOf(messages[messages.length - 1]?.content);
     const likes = [...new Set([...said.matchAll(/OWNER \([^)]*\): (?:remember )?i (?:like|love|prefer) ([^.\n<]+)/gi)].map((x) => x[1]!.trim()))];
-    return { message: { role: 'assistant', content: JSON.stringify({ summary: likes.length ? `Someone who likes ${likes.join(' and ')}.` : 'The owner, as far as the mock knows.', facts: likes.map((l) => `likes ${l}`), sections: { likes }, diary: `Today the owner and I talked${likes.length ? ` and they told me they like ${likes.join(' and ')}` : ''}. Nothing was decided. Nothing to follow up.` }) }, model };
+    return { message: { role: 'assistant', content: JSON.stringify({ summary: likes.length ? `You like ${likes.join(' and ')}.` : 'You have not told me much about yourself yet.', facts: likes.map((l) => `likes ${l}`), sections: { likes }, diary: `Today the owner and I talked${likes.length ? ` and they told me they like ${likes.join(' and ')}` : ''}. Nothing was decided. Nothing to follow up.` }) }, model };
   }
   // The morning digest's "in three levels" note (library/digest.ts).
   if (/"In one line:"/.test(system)) return { message: { role: 'assistant', content: 'In one line: the mock read the day\'s headlines.\n\nIn more detail: the mock gathered the news, technology and science of the day and found them interesting.\n\nFor an expert: the mock has no paper to single out.' }, model };

@@ -68,7 +68,16 @@ async function run(name, viewport) {
   await page.waitForFunction(() => document.querySelector('#pg-memory .pn.me')?.textContent?.includes('flat whites'), null, { timeout: 10000 }).catch(() => problems.push(`[${name}] the ME panel did not show the profile`));
   const text = (await me.textContent()) ?? '';
   if (!/A bridge engineer in Kings Heath/.test(text)) problems.push(`[${name}] no summary line in ME`);
-  if (!/LIKES/i.test(text) || !/rain on the window/.test(text) || !/Ann is my sister/.test(text)) problems.push(`[${name}] ME is missing section lines: ${text.slice(0, 200)}`);
+  if (!/rain on the window/.test(text) || !/Ann is my sister/.test(text)) problems.push(`[${name}] ME is missing section lines: ${text.slice(0, 200)}`);
+  // ME reads as his: the sections headed in his words (not "likes", "people"), where it came from and when
+  const heads = await me.locator('.lab[data-section]').allTextContents();
+  if (heads.join('|') !== 'Who you are|What you like|Your people|Places in your life|What you’re working towards') problems.push(`[${name}] ME's headings read: ${heads.join(' | ') || (await me.locator('.lab').allTextContents()).join(' | ')}`);
+  if (!/From your own words · updated today/.test(text)) problems.push(`[${name}] ME does not say where it came from and when: ${text.slice(0, 160)}`);
+  // the count under the title is everything known about him: his facts and the lines about him
+  const known = await page.evaluate(async () => (await (await fetch('/api/memory', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } })).json()).facts.length);
+  await page.waitForFunction((n) => document.querySelector('#pg-memory .sub')?.textContent?.startsWith(`${n} `), known + 6, { timeout: 5000 }).catch(() => undefined);
+  const sub = (await page.locator('#pg-memory .sub').first().textContent()) ?? '';
+  if (!sub.startsWith(`${known + 6} things I know about you`)) problems.push(`[${name}] the title says "${sub}", not ${known + 6} things (${known} facts and 6 lines)`);
   if (!/6 LINES/.test(text)) problems.push(`[${name}] ME status should count 6 lines: ${text.slice(0, 120)}`);
   await page.waitForTimeout(600); // the panes settle into place with a short animation
   // ME (who he is) comes first on his side, above PATTERNS and the TIMELINE, and starts on the first screen
