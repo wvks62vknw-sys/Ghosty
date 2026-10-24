@@ -47,7 +47,9 @@ export type Entry =
   /** `via`: answered on Telegram (its APPROVE / NOT NOW buttons), not here. */
   | { kind: 'approval'; id: string; name: string; reason: string; args: Record<string, unknown>; state: 'waiting' | 'approved' | 'declined'; via?: 'telegram' }
   | { kind: 'error'; text: string }
-  | { kind: 'link'; url: string; title: string };
+  | { kind: 'link'; url: string; title: string }
+  /** A plan design_home drew from the owner's words (features/core/homecard.ts): `id` is the kept plan's (features/space/home.ts). */
+  | { kind: 'home'; id: string; rooms: number; m2: number; storeys: number };
 
 /**
  * A vehicle check from the chat is shown once (integrations/vehicle.ts on the brain): the plates
@@ -123,6 +125,11 @@ onCutOff((c) => {
 /** A link Ghosty made (e.g. a site it published), shown as a big tappable card in the chat. */
 export function addLink(url: string, title: string): void {
   push({ kind: 'link', url, title });
+}
+
+/** A plan drawn from the owner's words: its card (rooms, floor area, OPEN IN SPACE, SEE IN 3-D) goes under the reply. */
+export function addHomeCard(card: Omit<Extract<Entry, { kind: 'home' }>, 'kind'>): void {
+  push({ kind: 'home', ...card });
 }
 
 function patch(match: (e: Entry) => boolean, change: (e: Entry) => Entry): void {
