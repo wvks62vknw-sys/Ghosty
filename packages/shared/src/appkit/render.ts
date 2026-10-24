@@ -28,7 +28,7 @@ const scripts = new Map<AppShape, { script: string; hash: string }>();
 export function appScript(shape: AppShape): { script: string; hash: string } {
   let s = scripts.get(shape);
   if (!s) {
-    const code = SHAPE_CODE[shape] ?? SHAPE_CODE.list;
+    const code = Object.prototype.hasOwnProperty.call(SHAPE_CODE, shape) ? SHAPE_CODE[shape] : SHAPE_CODE.list;
     const script = `\n(function () {\n${CORE_HEAD}\n${code.LOGIC}\n${code.VIEW}\n${CORE_BOOT}\n})();\n`;
     s = { script, hash: cspHash(script) };
     scripts.set(shape, s);

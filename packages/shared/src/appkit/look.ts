@@ -31,7 +31,7 @@ export const ACCENT_IDS = Object.keys(ACCENTS) as AccentId[];
 
 /** The colours one app uses: its accent, the ink for accent text, and whichever of black or white reads on the accent. */
 export function colours(id: AccentId): { acc: string; ink: string; on: string } {
-  const a = ACCENTS[id] ?? ACCENTS.cyan;
+  const a = Object.prototype.hasOwnProperty.call(ACCENTS, id) ? ACCENTS[id] : ACCENTS.cyan;
   const on = contrast(BG, a.acc) >= contrast('#ffffff', a.acc) ? BG : '#ffffff';
   return { acc: a.acc, ink: a.ink, on };
 }
@@ -85,15 +85,17 @@ export const GLYPHS = {
 } satisfies Record<string, Prim[]>;
 export type GlyphId = keyof typeof GLYPHS;
 export const GLYPH_IDS = Object.keys(GLYPHS) as GlyphId[];
+/** A glyph's shapes (a name that is not a glyph draws the star). */
+const prims = (id: GlyphId): Prim[] => (Object.prototype.hasOwnProperty.call(GLYPHS, id) ? GLYPHS[id] : GLYPHS.star);
 
 const n = (v: number) => String(Math.round(v * 100) / 100);
 
 /** The glyph as SVG, coloured by `fill` (default currentColor), with shapes cut away through a mask. */
 export function glyphSvg(id: GlyphId, o2: { fill?: string; size?: number; mask?: string; label?: string } = {}): string {
-  const prims = GLYPHS[id] ?? GLYPHS.star;
+  const shapes = prims(id);
   const mid = o2.mask ?? 'gm';
   const col = (p2: Prim) => (p2.cut ? '#000' : '#fff');
-  const parts = prims.map((q) => {
+  const parts = shapes.map((q) => {
     switch (q.k) {
       case 'c':
         return `<circle cx="${n(q.x)}" cy="${n(q.y)}" r="${n(q.r)}" fill="${col(q)}"/>`;
@@ -166,7 +168,7 @@ function dist(q: Prim, x: number, y: number): number {
 /** Signed distance to the whole glyph at (x, y) on its 24-unit grid (negative inside). */
 export function glyphDistance(id: GlyphId, x: number, y: number): number {
   let d = Infinity;
-  for (const q of GLYPHS[id] ?? GLYPHS.star) {
+  for (const q of prims(id)) {
     const e = dist(q, x, y);
     d = q.cut ? Math.max(d, -e) : Math.min(d, e);
   }

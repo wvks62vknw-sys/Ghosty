@@ -306,6 +306,10 @@ test('the gates stop a page that claims, carries placeholder words, a second scr
   assert.match(g(p.cfg, html.replace('"goal":8', '"goal":9')), /do not match its config/);
   assert.match(g({ ...p.cfg, tracker: { ...p.cfg.tracker, amounts: [1, 2, 3, 4, 5, 6, 7] } }), /up to six quick amounts/);
   assert.match(g({ ...p.cfg, shape: 'timer', timer: { steps: [], rounds: 1 } }), /1–20 steps/);
+  // a name that is not an accent, glyph or shape never reaches an object's prototype
+  assert.equal(K.colours('__proto__').acc, '#64d2ff');
+  assert.match(K.glyphSvg('constructor'), /<polygon/);
+  assert.equal(K.appScript('__proto__').script, K.appScript('list').script);
 });
 
 test('words cannot break out of the page: markup in the config is data, the script is pinned by its exact SHA-256', () => {

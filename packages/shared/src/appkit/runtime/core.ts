@@ -116,9 +116,16 @@ A.act = function (label, fn, undoable) {
   render();
   if (undoable) { undoSnap = before; toast(label, true); }
   else if (label) toast(label);
+  else if (undoSnap !== null) {
+    // anything changed after a delete: UNDO would take that back too, so it is no longer offered
+    undoSnap = null;
+    var u = TOAST.querySelector('.tundo');
+    if (u) u.remove();
+  }
   return r;
 };
 function toast(msg, withUndo) {
+  if (!withUndo) undoSnap = null;
   TOAST.replaceChildren(h('span.tmsg', { text: msg }));
   if (withUndo) TOAST.append(h('button.tundo', { type: 'button', text: 'UNDO', onclick: undo }));
   TOAST.classList.add('on');
