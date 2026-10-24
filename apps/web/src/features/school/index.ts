@@ -73,7 +73,7 @@ export const schoolTab: TabDef = {
   mount(root) {
     const P = page(root, { tag: 'SCHOOL', sub: 'the offline brain on this phone, from nursery up · top grades to move on', leftLabel: 'STAGE', rightLabel: 'REPORT', stack: true });
     expose();
-    // The stage's name as written ("Key Stage 2", "GCSE"), not re-cased by the calm looks.
+    // The stage's name as written ("Key Stage 2", "GCSE"), not re-cased by the stylesheet.
     P.big.dataset.case = 'keep';
     let view: WiredView | null = null;
     /** The phone can run the offline brain / has it downloaded (null: not looked yet). */
@@ -113,7 +113,7 @@ export const schoolTab: TabDef = {
     };
     const subjectName = (id: string) => SUBJECT_LABEL[id] ?? id;
     const stageLabel = (id: string) => short(view?.stages.find((s) => s.id === id)?.label ?? id);
-    /** A button whose words are a name ("Key Stage 2", "GCSE"): the calm looks show them as written, not re-cased. */
+    /** A button whose words are a name ("Key Stage 2", "GCSE"): shown as written, not re-cased. */
     const named = (b: HTMLButtonElement, words: string) => ((b.dataset.label = words), b);
     const isBankStage = (id: string) => !!view?.bankStages.includes(id as StageId);
 

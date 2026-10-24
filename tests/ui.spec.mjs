@@ -133,7 +133,7 @@ async function fixesA2(viewport) {
   await page.keyboard.press('Escape');
   // System: Status first
   await page.evaluate(() => (location.hash = 'system'));
-  await page.waitForFunction(() => document.querySelector('#pg-system.listmode .pn.keepcard') || (document.documentElement.dataset.look !== 'pro' && document.querySelector('#pg-system .pn')), null, { timeout: 15000 }).catch(() => undefined);
+  await page.waitForFunction(() => document.querySelector('#pg-system.listmode .pn.keepcard'), null, { timeout: 15000 }).catch(() => undefined);
   await page.waitForTimeout(1500);
   const order = await page.$$eval('#pg-system .pn', (ps) => ps.map((p) => ({ t: p.querySelector('.ptitle')?.textContent ?? '', top: p.getBoundingClientRect().top })));
   if (order[0]?.t !== 'STATUS') problems.push(`[${name}] System opens on ${order[0]?.t}, not STATUS (${order.map((o) => o.t).join(', ')})`);

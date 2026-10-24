@@ -297,7 +297,6 @@ export const libraryTab: TabDef = {
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
     const pick = h('select', { 'aria-label': 'Field to study' });
     pick.addEventListener('change', () => study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value)));
-    const learned = (r: HTMLElement) => (r.classList.add('learned'), r);
     const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
       if (!st) {
@@ -341,7 +340,7 @@ export const libraryTab: TabDef = {
         paintStudy(((await brain.studyStatus().catch(() => null)) as StudyNow | null) ?? null);
       }, `studyall${all ? ' on' : ''}`);
       allSwitch.setAttribute('role', 'switch');
-      allSwitch.dataset.label = 'Study all'; // route C: the words beside a switch (the classic looks keep STUDY ALL: ON)
+      allSwitch.dataset.label = 'Study all'; // route C: the words beside a switch
       allSwitch.setAttribute('aria-checked', String(all));
       const today = sum.today;
       study.body.append(
@@ -350,8 +349,7 @@ export const libraryTab: TabDef = {
         later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
         h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
         h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
-        learned(row('LEARNED TODAY', `${fmt.n(today.reads)} pieces read · ${today.finished ?? 0} topics finished · ${fmt.n(today.digests)} notes written`, null, { wrap: true })),
-        // route C: the same three numbers, large (the row above is the classic looks')
+        // what he learned today: three numbers, large
         h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
           h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
         bar('READ', sum.read / Math.max(1, sum.topics), `${fmt.n(sum.read)} / ${fmt.n(sum.topics)} topics`, '#5ce1ff'),

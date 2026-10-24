@@ -24,7 +24,7 @@ export const threatsTab: TabDef = {
     return `${lvl.charAt(0)}${lvl.slice(1).toLowerCase()} · ${fmt.n(list.length)} live signals`;
   },
   mount(root) {
-    const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stackInPro: true });
+    const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stack: true });
     const sp = panel('ACTIVE SIGNALS', { footer: true, cls: 'signals' });
     const sg = pager(sp, 50, (s: Signal) => row(s.kind, s.text, s.tag || fmt.ago(s.at), { sev: s.sev, wrap: true, onClick: () => void flyTo({ lat: s.lat, lon: s.lon, range_km: 1200 }) }), () => quakes.status);
     P.left.append(sp.el);

@@ -9,8 +9,8 @@
  * YOU CAN lines as you type; return opens the first match, or asks Ghosty when nothing matches; the microphone
  * dictates into it. The words are in shell/deckcopy.ts.
  *
- * Opens from the avatar's Me sheet ("Every screen"), a long press on the avatar, the GHOSTY logo (the classic
- * looks), the SYSTEMS button in their dock or the M key. Escape or ✕ closes it.
+ * Opens from the avatar's Me sheet ("Every screen"), a long press on the avatar, the GHOSTY logo or the M key.
+ * Escape or ✕ closes it.
  */
 import { register, run } from '../commands/registry';
 import { clear, h, icon } from '../core/dom';

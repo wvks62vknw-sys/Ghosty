@@ -228,8 +228,9 @@ export const DECK: Record<string, DeckScreen> = {
   },
   settings: {
     name: 'Settings',
-    promise: 'Make him yours: look, voice, manner',
+    promise: 'Make him yours: colour, voice, manner',
     can: [
+      { text: 'Pick his colour: Reactor or Graphite', act: { open: 'settings', panel: 'THEME' } },
       { text: 'Three dials: how dry, how brief, how warm', act: { open: 'settings', panel: 'CHARACTER' } },
       { text: 'Choose the voice he speaks in', act: { open: 'settings', panel: 'VOICE' } },
       { text: 'Download the offline brain', act: { open: 'settings', panel: 'OFFLINE BRAIN' } },

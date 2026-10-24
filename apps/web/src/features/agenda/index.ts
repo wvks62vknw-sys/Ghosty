@@ -8,7 +8,6 @@ import { send } from '../../assistant/session';
 import { clear, fmt, h, pad } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, panel, row, toast, undoBar } from '../../ui/components';
-import { proLook } from '../../state/theme';
 import { page } from '../../ui/page';
 
 const DAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -293,18 +292,14 @@ export const agendaTab: TabDef = {
       const now = Date.now();
       const next = events.find((e) => !e.allDay && (e.end ?? e.start) > now);
       const today = events.filter((e) => dayKey(e.start) === dayKey(now)).length;
-      P.big.textContent = next ? `${dayLabel(next.start) === 'TODAY' ? '' : `${dayLabel(next.start)} `}${hm(next.start)}` : 'CLEAR';
-      P.sub.textContent = next ? `next: ${next.title} · ${today} today · ${jobs.length} reminders & tasks` : `${today} events today · ${jobs.length} reminders & tasks`;
       // route C: what is next as the title, when and how long until under it
-      if (proLook()) {
-        const day = next ? dayLabel(next.start) : '';
-        const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
-        P.big.dataset.case = 'keep';
-        P.big.textContent = next ? next.title : 'All clear';
-        P.sub.textContent = next
-          ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
-          : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
-      } else delete P.big.dataset.case;
+      const day = next ? dayLabel(next.start) : '';
+      const dayWord = day === 'TODAY' ? 'Today' : day === 'TOMORROW' ? 'Tomorrow' : day.charAt(0) + day.slice(1).toLowerCase().replace(/ (\w)(\w+)$/, (_x, a: string, b: string) => ` ${a.toUpperCase()}${b}`);
+      P.big.dataset.case = 'keep';
+      P.big.textContent = next ? next.title : 'All clear';
+      P.sub.textContent = next
+        ? [`${dayWord} ${hm(next.start)}`, until(next.start), `${today} ${today === 1 ? 'event' : 'events'} today`, `${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`].filter(Boolean).join(' · ')
+        : `Nothing coming up · ${today} ${today === 1 ? 'event' : 'events'} today · ${jobs.length} ${jobs.length === 1 ? 'reminder' : 'reminders'}`;
     };
 
     const load = async () => {
