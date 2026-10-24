@@ -1,7 +1,7 @@
 /** THREATS tab: earthquakes, natural events, space weather and launches, worst first. */
 import { flyTo } from '../../commands/builtin';
 import { clear, fmt, h } from '../../core/dom';
-import { events, kp, launches, launchStatus, quakes, signals, threatLevel, type Launch, type Signal } from '../../data/hazards';
+import { events, kp, launches, launchStatus, liveEvents, quakes, signals, threatLevel, type Launch, type Signal } from '../../data/hazards';
 import { GEO } from '../../engine/geo';
 import { air } from '../../engine/layers/air';
 import { sats } from '../../engine/layers/sats';
@@ -48,8 +48,8 @@ export const threatsTab: TabDef = {
       // (no feed is not "none": say which it is)
       const unknown = (f: typeof quakes | typeof events) => (f.status === 'NO FEED' ? 'can’t reach the feed' : 'checking…');
       near.body.append(row('QUAKE', nq ? `M${nq.q.mag.toFixed(1)} ${fmt.km(nq.d)} away` : quakes.data ? 'none in 48h' : unknown(quakes)));
-      const ne = (events.data ?? []).map((e) => ({ e, d: GEO.hav(L.lat, L.lon, e.lat, e.lon) })).sort((a, b) => a.d - b.d)[0];
-      near.body.append(row('EVENT', ne ? `${ne.e.catName} ${fmt.km(ne.d)}` : events.data ? 'none' : unknown(events)));
+      const ne = liveEvents().map((e) => ({ e, d: GEO.hav(L.lat, L.lon, e.lat, e.lon) })).sort((a, b) => a.d - b.d)[0];
+      near.body.append(row('EVENT', ne ? `${ne.e.catName} ${fmt.km(ne.d)}` : events.data ? 'none in the last 2 weeks' : unknown(events)));
       near.body.append(row('AIR', air.list.size ? `${air.nearby(L.lat, L.lon, 60).length} aircraft within 60 km` : "open God's Eye to scan"));
       const iss = sats.list.find((s) => /ISS \(ZARYA\)/.test(s.name));
       const pass = iss ? sats.nextPass(iss, L.lat, L.lon) : null;

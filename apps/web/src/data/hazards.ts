@@ -124,6 +124,12 @@ export interface Signal {
   tag: string;
 }
 
+/** EONET keeps an event "open" long after its last report (wildfires 68 days on, 24 Oct): one not updated for this long is not live. */
+export const EVENT_LIVE_DAYS = 14;
+
+/** The natural events reported in the last EVENT_LIVE_DAYS days. */
+export const liveEvents = (now = Date.now()): NaturalEvent[] => (events.data ?? []).filter((e) => now - e.t <= EVENT_LIVE_DAYS * 86_400_000);
+
 /** One combined, severity-sorted list of everything that might matter. */
 export function signals(extra: Signal[] = []): Signal[] {
   const out: Signal[] = [...extra];
@@ -132,7 +138,7 @@ export function signals(extra: Signal[] = []): Signal[] {
     out.push({ kind: 'QUAKE', sev: q.mag >= 7 ? 3 : q.mag >= 6 ? 2 : q.mag >= 5 ? 1 : 0, text: `M${q.mag.toFixed(1)} · ${q.place}`, lat: q.lat, lon: q.lon, at: q.t, tag: `M${q.mag.toFixed(1)}` });
   }
   const evSev: Record<string, 0 | 1 | 2> = { volcanoes: 2, severeStorms: 2, wildfires: 1, floods: 1, tempExtremes: 1, landslides: 1 };
-  for (const e of events.data ?? []) out.push({ kind: (e.catName || 'EVENT').toUpperCase().slice(0, 12), sev: evSev[e.cat] ?? 0, text: e.title, lat: e.lat, lon: e.lon, at: e.t, tag: '' });
+  for (const e of liveEvents()) out.push({ kind: (e.catName || 'EVENT').toUpperCase().slice(0, 12), sev: evSev[e.cat] ?? 0, text: e.title, lat: e.lat, lon: e.lon, at: e.t, tag: '' });
   return out.sort((a, b) => b.sev - a.sev || b.at - a.at);
 }
 
