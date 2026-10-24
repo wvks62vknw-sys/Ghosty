@@ -11,7 +11,7 @@ export type BrainVoiceId = 'draco' | 'pandora' | 'helios' | 'athena' | 'melo';
 
 export interface BrainVoice {
   id: BrainVoiceId;
-  /** What the picker shows. */
+  /** What the picker shows (plain words: no model names). */
   label: string;
   /** Workers AI model and speaker. */
   model: string;
@@ -22,11 +22,11 @@ export interface BrainVoice {
 
 /** Most natural first: 'auto' means the first one, falling back down the list. */
 export const BRAIN_VOICES: BrainVoice[] = [
-  { id: 'draco', label: 'Draco — British man, most natural (Aura 2)', model: '@cf/deepgram/aura-2-en', speaker: 'draco', cost: 2 },
-  { id: 'pandora', label: 'Pandora — British woman, most natural (Aura 2)', model: '@cf/deepgram/aura-2-en', speaker: 'pandora', cost: 2 },
-  { id: 'helios', label: 'Helios — British man, natural (Aura 1, lasts twice as long)', model: '@cf/deepgram/aura-1', speaker: 'helios', cost: 1 },
-  { id: 'athena', label: 'Athena — British woman, natural (Aura 1, lasts twice as long)', model: '@cf/deepgram/aura-1', speaker: 'athena', cost: 1 },
-  { id: 'melo', label: 'Melo — plain voice, never runs out (MeloTTS)', model: '@cf/myshell-ai/melotts', cost: 0 },
+  { id: 'draco', label: 'Draco — British man, most natural', model: '@cf/deepgram/aura-2-en', speaker: 'draco', cost: 2 },
+  { id: 'pandora', label: 'Pandora — British woman, most natural', model: '@cf/deepgram/aura-2-en', speaker: 'pandora', cost: 2 },
+  { id: 'helios', label: 'Helios — British man, natural, lasts twice as long each day', model: '@cf/deepgram/aura-1', speaker: 'helios', cost: 1 },
+  { id: 'athena', label: 'Athena — British woman, natural, lasts twice as long each day', model: '@cf/deepgram/aura-1', speaker: 'athena', cost: 1 },
+  { id: 'melo', label: 'Melo — plain voice, never runs out', model: '@cf/myshell-ai/melotts', cost: 0 },
 ];
 
 export const AUTO_VOICE: BrainVoiceId = 'draco';

@@ -1,7 +1,7 @@
 /**
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
-import { brain } from '../../api/brain';
+import { brain, speechCaps } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
@@ -34,6 +34,8 @@ const CAM = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"
 
 let whisper = false;
 let conversation = false;
+/** Listens in a row that heard nothing: after two (about 25 s of quiet) the conversation ends and the microphone goes off. */
+let quiet = 0;
 
 async function voiceTurn(): Promise<void> {
   if (!voiceSupport.mic && !voiceSupport.browserStt) {
@@ -44,21 +46,35 @@ async function voiceTurn(): Promise<void> {
   // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
   holdMic(true);
   try {
-    const text = await listen(whisper, (t) => chat.set({ live: t }));
+    // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
+    const text = await listen(whisper || speechCaps.get().stt, (t) => chat.set({ live: t }));
     if (!conversation) return;
     if (!text) {
+      if (++quiet >= 2) {
+        endConversation();
+        toast("I've stopped listening. Tap the mic when you want me.");
+        return;
+      }
       if (conversation) setTimeout(() => void voiceTurn(), 300);
       return;
     }
+    quiet = 0;
     await send(text.replace(/^(hey |ok |okay )?(ghosty|ghost|jarvis)[,.!]?\s*/i, '') || text, { speak: true, voice: true });
     // wait for speech to finish, then listen again
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
     wait();
   } catch (e) {
-    conversation = false;
-    holdMic(false);
+    endConversation();
     toast(String((e as Error)?.message ?? e), 'bad');
   }
+}
+
+/** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */
+function endConversation(): void {
+  conversation = false;
+  holdMic(false);
+  document.querySelector('#mic')?.classList.remove('on');
+  ui.set({}); // repaints the state line: no longer READY
 }
 
 /** A link to one of Ghosty's own pictures (made, or shared from the Lens): shown as the picture itself. */
@@ -81,12 +97,28 @@ function linked(text: string): HTMLElement {
 const COPY = '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7.5a2 2 0 002 2h2.5"/>';
 const LISTEN = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>';
 
+/**
+ * LISTEN: the reply read aloud, all of it; tapped while Ghosty is speaking (this reply or any other), it stops
+ * instead — the one way to stop the voice from the chat, where a tap on the reactor cannot reach.
+ */
+function listenTap(b: HTMLElement, text: () => string): void {
+  if (interrupt('tap')) return;
+  b.classList.add('on');
+  b.setAttribute('aria-label', 'Stop reading aloud');
+  void speak(text())
+    .catch(() => undefined)
+    .finally(() => {
+      b.classList.remove('on');
+      b.setAttribute('aria-label', 'Read the reply aloud');
+    });
+}
+
 /** Under a reply: copy it, or hear it read aloud. */
 function replyActs(text: string): HTMLElement {
   const copy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
   copy.addEventListener('click', () => void navigator.clipboard?.writeText(text).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
   const hear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
-  hear.addEventListener('click', () => void speak(text).catch(() => undefined));
+  hear.addEventListener('click', () => listenTap(hear, () => text));
   return h('div.msgacts', copy, hear);
 }
 
@@ -300,6 +332,7 @@ export const coreTab: TabDef = {
         return;
       }
       conversation = true;
+      quiet = 0;
       mic.classList.add('on');
       void voiceTurn().finally(() => mic.classList.toggle('on', conversation));
     });
@@ -459,7 +492,7 @@ export const coreTab: TabDef = {
     const capCopy = h('button.msgact', { type: 'button', 'aria-label': 'Copy the reply', title: 'Copy' }, icon(COPY));
     capCopy.addEventListener('click', () => void navigator.clipboard?.writeText(chat.get().live).then(() => toast('Copied', 'ok'), () => toast('Could not copy', 'warn')));
     const capHear = h('button.msgact', { type: 'button', 'aria-label': 'Read the reply aloud', title: 'Listen' }, icon(LISTEN));
-    capHear.addEventListener('click', () => void speak(chat.get().live).catch(() => undefined));
+    capHear.addEventListener('click', () => listenTap(capHear, () => chat.get().live));
     capActs.append(capCopy, capHear);
     // Ghosty's words appear as he says them: the caption types itself in (fast — a whole
     // reply within about a second), instead of landing all at once.

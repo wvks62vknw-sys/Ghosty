@@ -1463,6 +1463,8 @@ body.busy #cstate, body.speaking #cstate { background-image: radial-gradient(cir
 .msgact { width: 40px; height: 40px; min-height: 40px !important; padding: 0; display: grid; place-items: center; border-radius: 50%; background: none; box-shadow: none; }
 .msgact .ic { width: 19px; height: 19px; fill: none; stroke: var(--l2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .msgact:active { background: var(--thin); }
+.msgact.on { background: var(--thin); }
+.msgact.on .ic { stroke: var(--c); }
 .act { align-self: center; margin-top: 6px; font: 500 13px var(--sf); color: var(--l2); padding: 2px 10px; }
 .act i { width: 6px; height: 6px; }
 .act .prog { font: 500 13px var(--sf); }

@@ -29,7 +29,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     now.textContent = '';
     await speakSample({ engine: engine.value as 'auto' | 'ghosty' | 'phone', brainVoice: engine.value === 'ghosty' ? voice.value : 'auto', phoneVoice: engine.value === 'phone' ? voice.value : settings.get().voice });
     b.textContent = 'SAMPLE';
-    if (voiceNow.name) now.textContent = `Just spoke: ${voiceNow.name}${voiceNow.engine === 'phone' ? ' (on this phone)' : " (Ghosty's own)"}${voiceNow.note ? ` — ${voiceNow.note}` : ''}`;
+    if (voiceNow.name) now.textContent = `Just spoke: ${voiceNow.name}${voiceNow.engine === 'phone' ? ' (on this phone)' : " (Ghosty's own)"}${voiceNow.note ? ` — ${voiceNow.note.replace(/ \([^)]*\)/g, '')}` : ''}`;
   }, 'on');
   sample.setAttribute('aria-label', 'Hear a sample of this voice');
   const barge = h('select', { 'aria-label': 'Interrupt by talking' }, h('option', { value: 'on' }, 'Talk over Ghosty to interrupt: on'), h('option', { value: 'off' }, 'Talk over Ghosty to interrupt: off (tap to interrupt)'));
@@ -55,7 +55,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
           ? `Ghosty's natural British voice (Draco) while today's free share lasts, then ${natural ? `${natural.name} on this phone` : 'the plain voice'}.${natural ? '' : ` ${IOS_TIP}`}`
           : `Your brain has no voice of its own here, so this phone speaks${natural ? `: ${natural.name}` : ''}.${natural ? '' : ` ${IOS_TIP}`}`
         : s.voiceEngine === 'ghosty'
-          ? `The same voice everywhere, made by your brain. The natural voices have a free share each day (Aura 2 about half as long as Aura 1); after it, the plain voice.${brainSpeaks ? '' : " Your brain can't speak right now, so this phone's voice fills in."}`
+          ? `The same voice everywhere, made by your brain. The natural voices have a free share each day (Helios and Athena last twice as long); after it, the plain voice.${brainSpeaks ? '' : " Your brain can't speak right now, so this phone's voice fills in."}`
           : natural
             ? 'Free, unlimited and works offline.'
             : `Free, unlimited and works offline. ${IOS_TIP}`;
