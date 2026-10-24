@@ -15,7 +15,7 @@ folder that no longer exists; ignore those paths).
   ~30 GPU-h/week, 12 h/run (user-reported; phone-verified account needed).
 - The ordered plan the owner asked for is `docs/build-plan/PLAN.md` (weeks 1–3, chunk sizes, what only he can do, my
   own ideas). The planning chat with him started on 23 Oct; nothing is built until he says yes to the Week 1 list.
-- The browser specs hardcode 390 × 844 (29 of them); making 440 × 956 the main viewport is chunk A3 of the plan.
+- The browser specs run at the owner's 440 × 956 in en-GB / Europe/London (`PHONE`, `UK` in tests/nav.mjs; A3, merged 24 Oct); specs that check a second size on purpose keep it.
 - Usage check-in, 23 Oct ~21:30 UK (the owner's numbers): session 31 %, all models weekly 9 %, Fable weekly 6 %. Plenty
   of room: the pipeline was widened to four builders. Every builder, designer and reviewer runs on Opus (high); Fable
   only plans, briefs, reviews and merges; Haiku is for the mechanical jobs (the first: the specs' viewport switch, A3).
