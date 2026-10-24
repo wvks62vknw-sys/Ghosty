@@ -12,8 +12,10 @@ import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, panel, row, toast } from '../../ui/components';
-import { askPrompt, failedCount, reconTitle, reportRows, runningText, standout, summaryLine, type ViewRow } from './reconview';
+import { askPrompt, failedCount, reconError, reconTitle, reportRows, runningText, standout, summaryLine, type ViewRow } from './reconview';
 
+/** An error already in plain words (the brain's answer, said by reconError). */
+class Said extends Error {}
 const RECORD = /^(A|AAAA|CNAME|MX|NS|TXT|CAA|PTR|HTTP|DNS)$/;
 const IDLE = 'Passive lookups of public records: DNS, registration, certificates, subdomains, the Wayback Machine, hosting and one page request. Infrastructure only — Ghosty refuses names and email addresses.';
 
@@ -77,10 +79,13 @@ export function reconPanel(): HTMLElement {
     // RUN again on a target whose last run had silent sources asks the sources again instead of showing the kept report.
     const same = (a: string, b: string) => a.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '') === b.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
     const fresh = !!current && same(current.report.target, target) && failedCount(current.report) > 0;
+    // (a run takes 5–15 s; after a minute with no answer it stops and says so instead of ticking for ever)
+    const ctl = new AbortController();
+    const limit = window.setTimeout(() => ctl.abort(), 60_000);
     try {
-      const r = await fetch(`/api/recon?target=${encodeURIComponent(target)}${fresh ? '&fresh=1' : ''}`, { headers: headers(), credentials: 'same-origin' });
+      const r = await fetch(`/api/recon?target=${encodeURIComponent(target)}${fresh ? '&fresh=1' : ''}`, { headers: headers(), credentials: 'same-origin', signal: ctl.signal });
       const j = (await r.json().catch(() => null)) as { report?: ReconReport; markdown?: string; error?: string } | null;
-      if (!r.ok || !j?.report || typeof j.markdown !== 'string') throw new Error(j?.error ?? `the brain answered ${r.status}`);
+      if (!r.ok || !j?.report || typeof j.markdown !== 'string') throw new Said(reconError(null, r.status, j?.error ?? ''));
       current = { report: j.report, markdown: j.markdown };
       paint(j.report);
       const failed = failedCount(j.report);
@@ -93,10 +98,11 @@ export function reconPanel(): HTMLElement {
     } catch (e) {
       clear(out);
       current = null;
-      status.textContent = String((e as Error).message ?? e);
+      status.textContent = e instanceof Said ? e.message : reconError(e);
       status.className = 'reconstatus bad';
       p.setStatus('FAILED', 'off');
     } finally {
+      clearTimeout(limit);
       clearInterval(timer);
       running = false;
       runBtn.disabled = false;
@@ -115,10 +121,10 @@ export function reconPanel(): HTMLElement {
         body: JSON.stringify({ title, text: current.markdown, kind: 'recon', source: `recon of ${current.report.target}` }),
       });
       const j = (await r.json().catch(() => null)) as { error?: string; title?: string } | null;
-      if (!r.ok) throw new Error(j?.error ?? `the brain answered ${r.status}`);
+      if (!r.ok) throw new Said(reconError(null, r.status, j?.error ?? ''));
       toast(`Saved to the library: ${j?.title ?? title}`, 'ok');
     } catch (e) {
-      toast(String((e as Error).message ?? e), 'bad');
+      toast(e instanceof Said ? e.message : reconError(e), 'bad');
     } finally {
       save.disabled = false;
     }

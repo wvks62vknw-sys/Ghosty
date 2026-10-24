@@ -206,6 +206,19 @@ export function standout(r: ReconReport, now = Date.now()): ViewRow[] {
   return [...bad, ...fact, ...good].slice(0, 8);
 }
 
+/**
+ * The card's error line in plain words: the brain out of reach (a network error), silent for a minute (aborted),
+ * failing (5xx), asking for the key again (401); the brain's own words for anything else it refused (they are plain).
+ */
+export function reconError(e: unknown, status = 0, said = ''): string {
+  if ((e as Error | null)?.name === 'AbortError') return 'No answer after a minute. RUN again: the sources that did answer are kept for ten minutes.';
+  if (e) return e instanceof TypeError || /fetch|network|load failed/i.test(String((e as Error).message ?? e)) ? 'Can’t reach Ghosty’s brain right now. Check the connection, then RUN again.' : String((e as Error).message ?? e);
+  if (status === 401) return 'Ghosty needs your owner key again: pair this phone in Settings, then RUN again.';
+  if (status >= 400 && status < 500 && said) return said;
+  if (status && status < 400) return 'Ghosty’s brain sent an answer this card can’t read. Try again in a minute.';
+  return `Ghosty’s brain had a problem with that (error ${status || 'unknown'}). Try again in a minute.`;
+}
+
 /** How many sources did not answer (sections skipped on purpose do not count). */
 export const failedCount = (r: ReconReport): number => [r.dns, r.registration, r.certificates, r.subdomains, r.history, r.hosting, r.http].filter((s) => !s.ok && !s.skipped).length;
 
