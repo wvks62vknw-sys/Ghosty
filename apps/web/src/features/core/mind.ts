@@ -124,6 +124,61 @@ const TARGET: Record<MindState, { open: number; rim: number; bright: number; spi
 };
 type Params = (typeof TARGET)['idle'];
 
+/**
+ * What the boot cinematic (shell/boot.ts) asks of the scene in one frame, each 0..1 unless said: MIND waking up.
+ * The cinematic borrows this one Mind before Home exists and hands it to Home's hero after (never a copy).
+ */
+export interface BootLook {
+  /** the particles drifting out of the point of light and settling into the constellation */
+  gather: number;
+  /** the links between them, lit as they settle */
+  links: number;
+  /** the sphere resolving round them: its rims, haze, meridians and the tilted ring */
+  sphere: number;
+  /** how much of the equator scale is lit, round from the front */
+  scale: number;
+  /** the nucleus and its light */
+  core: number;
+  /** extra turn of the constellation, in radians (ends at 0, so Home carries on from the same angle) */
+  turn: number;
+  /** the camera's distance as a multiple of Home's (1 = Home's framing) */
+  push: number;
+  /** the thin sweep of light passing down through it: its height in sphere radii, NaN when there is none */
+  sweep: number;
+}
+/** The whole of Mind, as Home draws it. */
+export const BOOT_DONE: BootLook = { gather: 1, links: 1, sphere: 1, scale: 1, core: 1, turn: 0, push: 1, sweep: NaN };
+
+/** The constellation he saw last (saved on this phone), so the boot draws what he knows before the brain answers. */
+const DATA_KEY = 'ghosty.mind.data';
+function savedData(): MindData | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_KEY) ?? 'null') as MindData | null;
+    return d && Number.isFinite(d.passages) && Array.isArray(d.fields) ? d : null;
+  } catch {
+    return null;
+  }
+}
+/** Before anything was ever saved (the very first open): one quiet cluster, nothing claimed as read. */
+const FIRST_LIGHT: MindData = { passages: 2400, fields: [] };
+
+/** A fixed pseudo-random number from a position, so a node's drift is the same in each of its layers. */
+const hash3 = (x: number, y: number, z: number) => {
+  const v = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+  return v - Math.floor(v);
+};
+const ease = (k: number) => (k <= 0 ? 0 : k >= 1 ? 1 : 1 - Math.pow(1 - k, 3));
+
+/** The one Mind on this phone. The boot cinematic may make it before Home exists; Home's hero adopts it. */
+let theMind: Mind | null = null;
+export const currentMind = (): Mind | null => theMind;
+/** The Mind, made once: `anchor` is the hero's 2-D canvas it lies over (null while the boot holds it). */
+export function mindFor(anchor: HTMLCanvasElement | null): Mind {
+  theMind ??= new Mind(anchor);
+  if (anchor) theMind.adopt(anchor);
+  return theMind;
+}
+
 /** Reactor's cyan and its pale tint: what Mind is drawn in until the theme's tokens are read. */
 const CYAN = 0x64d2ff;
 const PALE = 0xbff0ff;
@@ -164,17 +219,41 @@ export class Mind {
   private fetchedAt = 0;
   private kick = 0;
   private studyBusy = false;
+  private starting: Promise<boolean> | null = null;
+  /** Home's camera distance for this box (place / size), before the boot's push-in. */
+  private camZ = 5;
+  /** While the boot cinematic holds the scene: what it asks for this frame (null: Home draws it). */
+  private boot: BootLook | null = null;
+  /** Library numbers that arrived during the boot, drawn once it lands (the constellation never jumps mid-flight). */
+  private pending: MindData | null = null;
+  /** The warm return's breath: how fast the kick fades (per second). */
+  private kickRate = 1.5;
   /** The accent and the tints made from it (see colours()). */
   private col: Record<'c' | 'pale' | 'soft' | 'dimLink' | 'dimNode', Any> = {} as never;
   active = false;
 
-  constructor(private readonly anchor: HTMLCanvasElement) {
+  constructor(private anchor: HTMLCanvasElement | null) {
     this.canvas.className = 'mindhero';
     this.canvas.setAttribute('aria-hidden', 'true');
   }
 
-  /** Load three.js and build the scene. False when it cannot run here: the 2-D reactor stays. */
-  async start(): Promise<boolean> {
+  /** Home's hero takes this Mind: from now on it lies over that canvas (once the boot lets go of it). */
+  adopt(anchor: HTMLCanvasElement): void {
+    if (anchor === this.anchor) return;
+    this.anchor = anchor;
+    this.w = this.h = 0;
+    this.io?.disconnect();
+    this.io?.observe(anchor);
+    this.dirty = true;
+  }
+
+  /** Load three.js and build the scene, once (the boot and Home ask for the same one). False when it cannot run here. */
+  start(): Promise<boolean> {
+    this.starting ??= this.begin();
+    return this.starting;
+  }
+
+  private async begin(): Promise<boolean> {
     heroState.mode = 'loading';
     // Automated checks (Playwright) draw WebGL in software at a few frames a second, which would starve every other
     // check that passes through Home: there the 2-D reactor stands in unless a check asks for Mind (tests/hero.spec.mjs).
@@ -195,7 +274,7 @@ export class Mind {
       this.inView = es.some((e) => e.isIntersecting);
       if (this.inView) this.dirty = true;
     });
-    this.io.observe(this.anchor);
+    if (this.anchor) this.io.observe(this.anchor);
     // a new theme recolours the light at once (one still frame with reduce motion)
     themeEvents.on('change', () => {
       if (!this.T) return;
@@ -206,6 +285,9 @@ export class Mind {
     heroState.mode = 'mind';
     heroState.reason = '';
     heroState.loop = !reduced();
+    // what he saw last, at once; the brain's numbers replace it when they come
+    const saved = savedData();
+    if (saved) this.setData(saved);
     void this.refresh();
     return true;
   }
@@ -231,10 +313,20 @@ export class Mind {
 
   /** Draw the constellation for these numbers (rebuilt only when they change). */
   setData(d: MindData): void {
+    if (this.boot && this.dataKey) {
+      this.pending = d;
+      return;
+    }
     const pl = plan(d);
     const key = `${d.passages}|${pl.fields.map((f) => `${f.name}:${f.nodes}:${f.lit}`).join(',')}`;
     if (key === this.dataKey || !this.T) return;
     this.dataKey = key;
+    if (d !== FIRST_LIGHT)
+      try {
+        localStorage.setItem(DATA_KEY, JSON.stringify(d));
+      } catch {
+        /* storage full or blocked: the boot draws the first light instead */
+      }
     Object.assign(heroState, { passages: d.passages, perNode: pl.perNode, nodes: pl.nodes, lit: pl.lit, fields: pl.fields.length });
     this.buildStars(pl.fields);
     this.dirty = true;
@@ -243,7 +335,102 @@ export class Mind {
   /** The owner touched it: a quick brightening. */
   poke(): void {
     this.kick = 1;
+    this.kickRate = 1.5;
     this.dirty = true;
+  }
+
+  /** The warm return: its light breathes out once, over `sec` (400 ms; 150 ms with reduce motion, as one bright still frame). */
+  breathe(sec: number): void {
+    if (!this.active || this.boot) return;
+    this.kick = 1;
+    this.kickRate = 1 / sec;
+    this.dirty = true;
+    if (reduced())
+      setTimeout(() => {
+        this.kick = 0;
+        this.dirty = true;
+      }, sec * 1000);
+  }
+
+  // ---------------------------------------------------------------- the boot cinematic (shell/boot.ts)
+  /** The boot takes the scene: the canvas leaves the hero for the cinematic's layer, drawn at `w` × `h`. */
+  bootBegin(host: HTMLElement, w: number, h: number): void {
+    if (!this.active) return;
+    this.boot = { ...BOOT_DONE };
+    if (!this.dataKey) this.setData(savedData() ?? FIRST_LIGHT);
+    host.append(this.canvas);
+    this.canvas.style.display = '';
+    this.size(w, h);
+  }
+
+  /** One frame of the cinematic, `t` seconds into it. */
+  bootFrame(t: number, look: BootLook): void {
+    if (!this.active || !this.boot) return;
+    this.boot = look;
+    this.t = t;
+    this.draw(reduced() ? 12.5 : t);
+  }
+
+  /** The cinematic has landed on Home's hero: the canvas goes back over it, drawn at once at the hero's size. */
+  bootEnd(): void {
+    if (!this.boot) return;
+    this.boot = null;
+    this.gatherAt(1);
+    const P = this.parts;
+    P.tickGeo?.setDrawRange(0, Infinity);
+    if (P.sweep) P.sweep.visible = false;
+    for (const k of ['position', 'left', 'top', 'width', 'height', 'transform', 'transformOrigin', 'opacity', 'zIndex'] as const) this.canvas.style[k] = '';
+    this.w = this.h = 0;
+    if (this.pending) {
+      const d = this.pending;
+      this.pending = null;
+      this.setData(d);
+    }
+    // the first ask may have gone before this phone was signed in: ask again now
+    void this.refresh();
+    if (this.anchor?.isConnected) {
+      this.place();
+      this.draw(reduced() ? 12.5 : this.t);
+    }
+    this.dirty = true;
+  }
+
+  /** Home's hero canvas this Mind lies over, once Home has taken it (null before). */
+  get hero(): HTMLCanvasElement | null {
+    return this.anchor;
+  }
+
+  /** Whether the boot is holding the scene. */
+  get booting(): boolean {
+    return !!this.boot;
+  }
+
+  /** Every node's place between the point of light (0) and its home in the constellation (1). */
+  private gatherAt(g: number): void {
+    for (const key of ['dim', 'halo', 'lit', 'litCore']) {
+      const o = this.parts[key];
+      const pos = o?.geometry?.attributes?.position;
+      const home = o?.userData?.home as Float32Array | undefined;
+      if (!pos || !home) continue;
+      if (g >= 1 && o.userData.at === 1) continue;
+      o.userData.at = g >= 1 ? 1 : g;
+      const a = pos.array as Float32Array;
+      for (let i = 0; i < a.length; i += 3) {
+        const x = home[i]!;
+        const y = home[i + 1]!;
+        const z = home[i + 2]!;
+        // each node leaves a little later the further out it lives, and swirls on its way
+        const r = hash3(x, y, z);
+        const k = ease((g - 0.35 * r) / 0.65);
+        const sw = (1 - k) * (1.4 + r * 1.6);
+        const c = Math.cos(sw);
+        const s = Math.sin(sw);
+        a[i] = (x * c - z * s) * k;
+        a[i + 1] = y * k + (1 - k) * (r - 0.5) * 0.12 * Math.sin(k * Math.PI);
+        a[i + 2] = (x * s + z * c) * k;
+      }
+      pos.needsUpdate = true;
+    }
   }
 
   /** How bright the core is (0..1.5): Home tints its glass with it (--glow). */
@@ -257,6 +444,11 @@ export class Mind {
    */
   frame(dt: number, voice: VoiceState, level: number): void {
     if (!this.active) return;
+    if (this.boot) {
+      // the cinematic draws it (shell/boot.ts); the hero's 2-D canvas stays clear underneath
+      this.anchor?.classList.add('mindon');
+      return;
+    }
     this.place();
     const st: MindState = ui.get().connected === false ? 'offline' : voice === 'idle' && (this.studyBusy || !!gymState.training) ? 'busy' : voice;
     if (st !== this.st) {
@@ -281,7 +473,7 @@ export class Mind {
       const k = Math.min(1, this.acc * 3);
       const tg = TARGET[this.st];
       for (const key of Object.keys(tg) as (keyof Params)[]) this.p[key] += (tg[key] - this.p[key]) * k;
-      this.kick = Math.max(0, this.kick - this.acc * 1.5);
+      this.kick = Math.max(0, this.kick - this.acc * this.kickRate);
       this.acc = 0;
     }
     this.dirty = false;
@@ -291,7 +483,7 @@ export class Mind {
   /** Keep the WebGL canvas exactly over the 2-D one (Home lays out and sizes that one). */
   private place(): void {
     const a = this.anchor;
-    if (!a.isConnected) return;
+    if (!a?.isConnected || this.boot) return;
     if (this.canvas.parentElement !== a.parentElement) a.after(this.canvas);
     this.canvas.style.display = '';
     a.classList.add('mindon');
@@ -300,6 +492,13 @@ export class Mind {
     this.canvas.style.left = `${a.offsetLeft}px`;
     this.canvas.style.top = `${a.offsetTop}px`;
     if (w === this.w && h === this.h) return;
+    this.w = w;
+    this.h = h;
+    this.size(w, h);
+  }
+
+  /** Draw at `w` × `h` CSS pixels (the hero's box, or the boot's larger one of the same shape). */
+  private size(w: number, h: number): void {
     this.w = w;
     this.h = h;
     this.canvas.style.width = `${w}px`;
@@ -311,7 +510,8 @@ export class Mind {
     const aspect = w / h;
     const fill = 0.74;
     this.camera.aspect = aspect;
-    this.camera.position.set(0, 0, 1 / (Math.tan((15 * Math.PI) / 180) * fill * Math.min(1, aspect)));
+    this.camZ = 1 / (Math.tan((15 * Math.PI) / 180) * fill * Math.min(1, aspect));
+    this.camera.position.set(0, 0, this.camZ);
     this.camera.updateProjectionMatrix();
     this.dirty = true;
   }
@@ -375,7 +575,9 @@ export class Mind {
       tp.push(new T.Vector3(Math.cos(a) * 1.06, Math.sin(a) * 1.06, 0), new T.Vector3(Math.cos(a) * (1.06 + l), Math.sin(a) * (1.06 + l), 0));
     }
     P.tickMat = new T.LineBasicMaterial({ color: 0x9fe4ff, transparent: true, opacity: 0.5, blending: T.AdditiveBlending, depthWrite: false });
-    eq.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(tp), P.tickMat));
+    // the ticks in order round the ring from the front, so the boot can light them in turn (setDrawRange)
+    P.tickGeo = new T.BufferGeometry().setFromPoints(tp);
+    eq.add(new T.LineSegments(P.tickGeo, P.tickMat));
     eq.rotation.x = Math.PI / 2 - 0.42;
     this.root.add(eq);
     P.eq = eq;
@@ -385,6 +587,11 @@ export class Mind {
     // listening: a soft ring that grows with his voice
     P.ear = new T.Mesh(new T.TorusGeometry(1.0, 0.006, 8, 200), new T.MeshBasicMaterial({ color: PALE, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
     this.root.add(P.ear);
+    // the boot's thin sweep of light, passing once down through the constellation (hidden otherwise)
+    P.sweep = new T.Mesh(new T.TorusGeometry(1, 0.005, 6, 160), new T.MeshBasicMaterial({ color: PALE, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false }));
+    P.sweep.rotation.x = Math.PI / 2;
+    P.sweep.visible = false;
+    this.spin.add(P.sweep);
 
     // the nucleus and its light
     P.nucleus = new T.Mesh(new T.SphereGeometry(0.06, 32, 16), new T.MeshBasicMaterial({ color: 0xffffff }));
@@ -502,6 +709,9 @@ export class Mind {
     const pts = (list: { p: Any }[], size: number, color: number, opacity: number) => {
       const m = new T.PointsMaterial({ map: this.glowTexture(), color, size, sizeAttenuation: true, transparent: true, opacity, blending: T.AdditiveBlending, depthWrite: false });
       const o = new T.Points(new T.BufferGeometry().setFromPoints(list.map((x) => x.p)), m);
+      // where each node lives, kept for the boot's drift in from the point of light
+      o.userData.home = Float32Array.from(o.geometry.attributes.position.array as Float32Array);
+      o.userData.at = 1;
       g.add(o);
       return o;
     };
@@ -556,18 +766,36 @@ export class Mind {
     const P = this.parts;
     const p = this.p;
     const breath = 1 + 0.06 * Math.sin(t * 1.6) + 0.25 * this.kick;
+    // the boot cinematic's look for this frame (Home's whole Mind otherwise)
+    const b = this.boot ?? BOOT_DONE;
+    if (this.boot) this.gatherAt(b.gather);
+    this.camera.position.z = this.camZ * b.push;
     // offline: everything drifts to grey
     const C = this.col;
     const tint = (c: Any) => (typeof c === 'number' ? new T.Color(c) : c.clone()).lerp(new T.Color(GREY), p.grey);
-    this.spin.rotation.y = t * p.spin;
+    this.spin.rotation.y = t * p.spin + b.turn;
     this.spin.rotation.x = 0.28;
     this.root.rotation.z = 0.08;
     P.eq.rotation.z = -t * 0.04;
     P.tilt.rotation.z = t * 0.03;
     this.spin.scale.setScalar(1 + 0.08 * p.open);
-    P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath;
+    P.rimSoft.material.uniforms.uStrength.value = 0.5 * p.rim * breath * b.sphere;
     P.rimSoft.material.uniforms.uColor.value.copy(tint(C.c));
-    P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim);
+    P.rimCrisp.material.uniforms.uStrength.value = 0.9 * Math.min(1.4, p.rim) * b.sphere;
+    P.haze.material.uniforms.uStrength.value = 0.07 * b.sphere;
+    P.lineMat.opacity = 0.05 * b.sphere;
+    P.tilt.material.opacity = 0.32 * b.sphere;
+    // the equator scale lights round from the front; its ring follows the first ticks
+    P.eqMat.opacity = 0.7 * Math.min(1, b.scale * 2);
+    if (this.boot) P.tickGeo.setDrawRange(0, 2 * Math.round(120 * b.scale));
+    // the sweep: a thin ring of light at its height through the sphere
+    P.sweep.visible = Number.isFinite(b.sweep) && Math.abs(b.sweep) < 1;
+    if (P.sweep.visible) {
+      P.sweep.position.y = b.sweep;
+      P.sweep.scale.setScalar(Math.sqrt(1 - b.sweep * b.sweep) * 0.98);
+      P.sweep.material.opacity = 0.9 * (1 - Math.abs(b.sweep));
+      P.sweep.material.color.copy(tint(C.pale));
+    }
     P.rimCrisp.material.uniforms.uColor.value.copy(tint(C.pale));
     P.haze.material.uniforms.uColor.value.copy(tint(C.c));
     P.eqMat.color.copy(tint(C.soft));
@@ -585,26 +813,34 @@ export class Mind {
     P.h1.material.color.copy(tint(0xffffff));
     P.h2.material.color.copy(tint(C.c));
     P.h3.material.color.copy(tint(C.c));
-    P.h2.material.opacity = 0.45 * p.bright;
-    P.h3.material.opacity = 0.12 * p.bright;
+    P.h1.material.opacity = 0.85 * b.core;
+    P.h2.material.opacity = 0.45 * p.bright * b.core;
+    P.h3.material.opacity = 0.12 * p.bright * Math.max(b.sphere, 0.4 * b.core);
+    P.nucleus.visible = b.core > 0.02;
     P.nucleus.material.color.copy(tint(0xffffff));
     // nodes: lit ones brighter; studying or training, a steady slow pulse
     const beat = p.busy ? 1 + 0.35 * p.busy * Math.sin(t * 2.2) : 1;
+    // the particles show from the moment they leave the point; the links as they settle
+    const seen = Math.min(1, b.gather * 4);
     if (P.lit) {
       P.lit.material.size = 0.15 * (1 + 0.2 * p.open) * beat;
-      P.lit.material.opacity = Math.min(1, 0.85 * p.bright);
+      P.lit.material.opacity = Math.min(1, 0.85 * p.bright) * seen;
       P.lit.material.color.copy(tint(C.c));
-      P.halo.material.opacity = 0.16 * p.bright * beat;
+      P.litCore.material.opacity = seen;
+      P.halo.material.opacity = 0.16 * p.bright * beat * seen;
       P.halo.material.color.copy(tint(C.c));
-      P.linkLit.opacity = 0.34 * p.bright;
+      P.linkLit.opacity = 0.34 * p.bright * b.links;
       P.linkLit.color.copy(tint(C.c));
-      P.dim.material.opacity = 0.5 * (1 - 0.3 * p.grey);
+      P.dim.material.opacity = 0.5 * (1 - 0.3 * p.grey) * seen;
       P.dim.material.color.copy(tint(C.dimNode));
-      P.linkDim?.color.copy(tint(C.dimLink));
+      if (P.linkDim) {
+        P.linkDim.color.copy(tint(C.dimLink));
+        P.linkDim.opacity = 0.12 * b.links;
+      }
     }
     for (const c of this.stars?.children ?? []) {
       if (c.isSprite && c.userData.base !== undefined) {
-        c.material.opacity = c.userData.base * (c.userData.lit ? p.bright * beat : 1);
+        c.material.opacity = c.userData.base * (c.userData.lit ? p.bright * beat : 1) * b.links;
         c.material.color.copy(tint(c.userData.lit ? C.c : C.dimNode));
       }
     }
@@ -613,7 +849,7 @@ export class Mind {
     this.pulses.forEach((q, i) => {
       const f = (q.off + t * q.sp * p.pace) % 1;
       q.s.position.copy(q.link[0]).lerp(q.link[1], f);
-      q.s.material.opacity = i < shown ? Math.sin(f * Math.PI) * (1 - p.grey) : 0;
+      q.s.material.opacity = i < shown ? Math.sin(f * Math.PI) * (1 - p.grey) * b.links : 0;
       q.s.material.color.copy(tint(C.pale));
     });
     const t0 = performance.now();
@@ -627,7 +863,7 @@ export class Mind {
     this.active = false;
     this.io?.disconnect();
     this.canvas.remove();
-    this.anchor.classList.remove('mindon');
+    this.anchor?.classList.remove('mindon');
     try {
       this.renderer?.dispose();
       this.renderer?.forceContextLoss?.();

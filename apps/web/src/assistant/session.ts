@@ -429,6 +429,11 @@ export async function send(text: string, opts: { speak?: boolean; voice?: boolea
     if (ui.get().busy) await brain.stop().catch(() => undefined);
     return;
   }
+  // "reboot": the boot cinematic again, here on the phone (shell/boot.ts); the brain is not asked
+  if (/^(reboot|reboot (him|yourself|ghosty)|restart yourself)[.!]?$/i.test(t)) {
+    await import('../shell/boot').then((b) => b.reboot());
+    return;
+  }
   // A change still waiting for its UNDO bar (a cleared conversation) is made before the brain hears the new message.
   await flushUndo();
   speakReplies = opts.speak ?? true;
