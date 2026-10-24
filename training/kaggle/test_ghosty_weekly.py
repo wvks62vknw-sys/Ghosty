@@ -373,6 +373,28 @@ class PreFlight(unittest.TestCase):
             def to(self, dev):
                 return self
 
+        class Arr:
+            """A tiny stand-in for a 2-D tensor (the checks run where numpy is not installed): rows of ints, .shape, [:, a:] and iteration."""
+
+            def __init__(self, rows):
+                self.rows = [list(r) for r in rows]
+
+            @property
+            def shape(self):
+                return (len(self.rows), len(self.rows[0]) if self.rows else 0)
+
+            def __getitem__(self, key):
+                if isinstance(key, tuple):
+                    r, c = key
+                    return Arr([row[c] for row in self.rows[r]])
+                return self.rows[key]
+
+            def __iter__(self):
+                return iter(self.rows)
+
+            def __len__(self):
+                return len(self.rows)
+
         class Tok:
             pad_token_id = 0
             eos_token_id = 1
@@ -382,8 +404,7 @@ class PreFlight(unittest.TestCase):
                 if return_tensors:
                     seen.append((max_length, len(texts)))
                     L = max(len(x) for x in ids)
-                    import numpy as np
-                    return Enc(input_ids=np.array([[0] * (L - len(x)) + x for x in ids]))
+                    return Enc(input_ids=Arr([[0] * (L - len(x)) + x for x in ids]))
                 return {'input_ids': ids}
 
             def convert_tokens_to_ids(self, t):
@@ -397,10 +418,9 @@ class PreFlight(unittest.TestCase):
                 pass
 
             def generate(self, input_ids=None, max_new_tokens=None, **k):
-                import numpy as np
                 # the answer: the prompt's length, so each answer says which prompt it was for
-                ans = np.array([[ord(c) for c in f'n{int((row != 0).sum()):05d}'] for row in input_ids])
-                return np.concatenate([input_ids, ans], axis=1)
+                ans = [[ord(c) for c in f'n{sum(1 for v in row if v != 0):05d}'] for row in input_ids]
+                return Arr([list(row) + a for row, a in zip(input_ids, ans)])
         r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
         r.tok, r.model = Tok(), Model()
         prompts = ['x' * 1900, 'y' * 50, 'v' * 2100, 'z' * 2000, 'w' * 60, 'u' * 1950, 't' * 1980, 's' * 70]
