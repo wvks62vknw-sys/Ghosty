@@ -343,6 +343,20 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     if (!shelf || shelf.h < 220 || shelf.bottom > shelf.dock + 2) problems.push(`[${name}] shelf not reachable on the phone: ${JSON.stringify(shelf)}`);
     await ui.waitForTimeout(400);
     await ui.screenshot({ path: `${out}/${name}-library-shelf.png` });
+    // his own things come first: the shelf before what Ghosty reads by himself, his documents before the built-in ones
+    const order = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .pn')].map((p) => p.className.match(/\b(ask|libadd|shelf|gadgets|study|fresh)\b/)?.[1] ?? ''));
+    if (!(order.indexOf('shelf') < order.indexOf('study') && order.indexOf('shelf') < order.indexOf('fresh'))) problems.push(`[${name}] the shelf comes after what Ghosty reads by himself: ${order.join(', ')}`);
+    const firstKind = await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf .rw .k')?.textContent ?? '');
+    if (/built-in|read by ghosty|ghosty notes/i.test(firstKind)) problems.push(`[${name}] the shelf starts with "${firstKind}", not one of his own documents`);
+    // FIND on the shelf: a crowded shelf narrows to the document named
+    const findBox = '#pg-library input[aria-label="Find on the shelf"]';
+    if (!(await ui.isVisible(findBox).catch(() => false))) problems.push(`[${name}] no way to find a document on a shelf of ${await ui.evaluate(() => document.querySelectorAll('#pg-library .pn.shelf .rw').length)}+`);
+    else {
+      await ui.fill(findBox, 'volcano');
+      const titles = await ui.$$eval('#pg-library .pn.shelf .rw .v', (n) => n.map((x) => x.textContent ?? ''));
+      if (!titles.length || !titles.every((t) => /volcano/i.test(t))) problems.push(`[${name}] FIND "volcano" shows: ${titles.join(' | ') || 'nothing'}`);
+      await ui.fill(findBox, '');
+    }
   }
   await ctx.close();
 }

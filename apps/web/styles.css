@@ -3157,6 +3157,8 @@ html #pg-library .trychips button::after { content: ''; position: absolute; inse
 html #pg-library .trychips button::first-letter { text-transform: uppercase; }
 html #pg-library .rw.hit .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
 html #pg-library .rw.hit { cursor: pointer; }
+html #pg-library .shelffindrow { padding: 2px 16px 6px; }
+html #pg-library .shelffindrow input { flex: 1; min-width: 0; height: 44px; }
 html #pg-library .rw.hit:active { background: rgba(255,255,255,.04); }
 html #pg-library .rw.hit mark, html .reader mark { padding: 0 1px; border-radius: 3px; color: inherit; background: rgba(var(--cr), .22); }
 html #pg-library .nohits { padding: 4px 0; color: var(--ink2); }

@@ -76,6 +76,8 @@ interface FreshItem {
   text: string;
 }
 
+/** Ghosty's own notebooks (what he read, his notes, the day's digest, projects, courses, his own code): after the owner's documents on the shelf. */
+const GHOSTYS = /^(read_|digest_|study_|notes_|project_|learn_|self_|yt_)/;
 /** The searched words' stems (their first five letters at most, three at least: "plants" finds "plant"). */
 const stemsOf = (terms: string[]) => terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
 const esc = (s: string) => s.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
@@ -318,6 +320,21 @@ export const libraryTab: TabDef = {
     const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
     // A row each: the kind's glyph on a glass tile, the title with its kind under it, how many passages, a chevron.
     // (Removing a document is in its reader: REMOVE FROM LIBRARY.)
+    // His own documents first (newest first), then Ghosty's notebooks, then the built-in ones; FIND narrows by name.
+    const find = h('input.shelffind', { type: 'search', placeholder: 'Find on the shelf', enterKeyHint: 'search', 'aria-label': 'Find on the shelf' });
+    const findRow = h('div.keyrow.shelffindrow', find);
+    shelf.el.insertBefore(findRow, shelf.body);
+    const whose = (d: LibraryDoc) => (d.builtin ? 2 : GHOSTYS.test(d.id) || d.kind === 'study' || d.kind === 'digest' ? 1 : 0);
+    const paintShelf = () => {
+      const words = find.value.trim().toLowerCase();
+      const here = docs.filter((x) => !leaving.has(x.id));
+      const shown = here.filter((d) => !words || `${d.title} ${d.source} ${KIND[d.kind] ?? d.kind}`.toLowerCase().includes(words)).sort((a, b) => whose(a) - whose(b) || b.at - a.at);
+      shelfList.set(shown);
+      findRow.hidden = here.length <= 8 && !words;
+      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : `${here.length} DOCS`, 'ok');
+      if (words && !shown.length) clear(shelf.body, h('div.note', `Nothing on the shelf is called “${find.value.trim()}”.`));
+    };
+    find.addEventListener('input', paintShelf);
     const shelfList = pager(shelf, 46, (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
@@ -395,12 +412,12 @@ export const libraryTab: TabDef = {
       const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {
         m.close();
         leaving.add(d.id);
-        shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+        paintShelf();
         undo(
           `Removed: “${d.title}”`,
           () => {
             leaving.delete(d.id);
-            shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+            paintShelf();
             toast(`Back in the library: ${d.title}`, 'ok');
           },
           async () => {
@@ -591,7 +608,8 @@ export const libraryTab: TabDef = {
       void paintFresh();
       void refresh();
     }, 'on'));
-    P.right.append(fresh.el, study.el, ap.el, gadgets.el, shelf.el);
+    // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
+    P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
 
     let vectors = false;
     let starterReady = true;
@@ -602,10 +620,8 @@ export const libraryTab: TabDef = {
         vectors = r.vectors;
         starterReady = r.starterReady;
         // (a document whose REMOVE is waiting on its UNDO bar is already off the shelf and off the gadgets)
-        const shown = docs.filter((x) => !leaving.has(x.id));
-        shelfList.set(shown);
-        paintGadgets(shown);
-        shelf.setStatus(`${r.stats.docs} DOCS`, 'ok');
+        paintShelf();
+        paintGadgets(docs.filter((x) => !leaving.has(x.id)));
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
         P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;
         P.dials([
