@@ -195,6 +195,12 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   await searched(ui);
   const junk = await ui.evaluate(() => ({ hits: document.querySelectorAll('#pg-library .rw.hit').length, said: document.querySelector('#pg-library .nohits')?.textContent ?? '' }));
   if (junk.hits || !/Nothing in the library mentions/.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
+  // before a search: his own recent searches (the one that found something, not the one that found nothing), in plain words
+  await ui.fill('#pg-library input[aria-label="Search the library"]', '');
+  await ui.dispatchEvent('#pg-library input[aria-label="Search the library"]', 'search');
+  const before = await ui.evaluate(() => ({ lab: document.querySelector('#pg-library .pn.ask .lab')?.textContent ?? '', chips: [...document.querySelectorAll('#pg-library .pn.ask .trychips button')].map((b) => b.textContent ?? ''), words: document.querySelector('#pg-library .pn.ask .bd')?.textContent ?? '' }));
+  if (!/recent/i.test(before.lab) || before.chips[0]?.toLowerCase() !== 'sulphur dioxide gas mask' || before.chips.some((c) => /zzqxv/.test(c))) problems.push(`[${name}] the last searches are not offered again: ${JSON.stringify(before.chips)}`);
+  if (/API key|Workers AI|keywords/i.test(before.words)) problems.push(`[${name}] jargon before a search: "${before.words.slice(0, 160)}"`);
   await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
   await ui.keyboard.press('Enter');
   await searched(ui);

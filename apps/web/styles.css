@@ -3155,6 +3155,7 @@ html #pg-library .trychips { display: flex; flex-wrap: wrap; gap: 8px; }
 html #pg-library .trychips button { height: 40px; min-height: 40px !important; position: relative; padding: 0 14px; border-radius: 18px; font: 500 15px var(--sf) !important; letter-spacing: -.12px; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; text-transform: none; }
 html #pg-library .trychips button::after { content: ''; position: absolute; inset: -4px 0; }
 html #pg-library .trychips button::first-letter { text-transform: uppercase; }
+html #pg-library .trychips button.clear { color: var(--ink3); background: transparent !important; }
 html #pg-library .rw.hit .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
 html #pg-library .rw.hit { cursor: pointer; }
 html #pg-library .shelffindrow { padding: 2px 16px 6px; }

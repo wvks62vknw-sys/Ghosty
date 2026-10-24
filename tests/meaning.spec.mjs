@@ -213,7 +213,7 @@ await page.screenshot({ path: `${out}/phone-meaning-keywords.png` });
 await page.fill('#pg-library input[aria-label="Search the library"]', '');
 await page.dispatchEvent('#pg-library input[aria-label="Search the library"]', 'search');
 const idleLine = await page.evaluate(() => document.querySelector('#pg-library .pn.ask .askhow')?.textContent ?? '');
-if (!/Searched by keywords/.test(idleLine)) problems.push(`the line before a search reads "${idleLine}"`);
+if (!/Found by their words/.test(idleLine)) problems.push(`the line before a search reads "${idleLine}"`);
 
 await ctx.close();
 await browser.close();

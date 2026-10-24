@@ -282,19 +282,45 @@ export const libraryTab: TabDef = {
       r.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && open());
       return r;
     };
-    const TRY = ['how attention works in transformers', 'binary search edge cases', 'how Ghosty works', 'SQL injection', 'big-O of sorting'];
+    // Before a search: his own last searches (kept on this phone only), or a few the built-in books answer.
+    const TRY = ['Binary search', 'Famous security bugs', 'Reinforcement learning'];
+    const RECENT = 'ghosty.library.recent';
+    const recent = (): string[] => {
+      try {
+        const v: unknown = JSON.parse(localStorage.getItem(RECENT) ?? '[]');
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 5) : [];
+      } catch {
+        return [];
+      }
+    };
+    const keepRecent = (list: string[]) => {
+      try {
+        if (list.length) localStorage.setItem(RECENT, JSON.stringify(list.slice(0, 5)));
+        else localStorage.removeItem(RECENT);
+      } catch {
+        /* private browsing: nothing kept */
+      }
+    };
     /** What a search will be ranked by, in a line: by meaning (and that it stays on the phone), or by keywords and why. */
     const howLine = () => {
       const ix = meaningIndex.get();
-      if (meaningComplete()) return `Searched by meaning: a small model on this phone finds passages by what they mean, not only their words (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed; nothing is sent anywhere).`;
-      if (embedState.get().downloaded && ix.total) return `Searched by keywords for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed by meaning so far.`;
-      return 'Searched by keywords. Add SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean.';
+      if (meaningComplete()) return `Found by what they mean, not only their words: a small model on this phone does it, and nothing is sent anywhere (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages ready).`;
+      if (embedState.get().downloaded && ix.total) return `Found by their words for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages are ready to be found by meaning.`;
+      return 'Found by their words. Turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean too.';
     };
     const idle = () => {
-      clear(sp.body, h('div.note', 'Search every book, PDF, paper, note and line of code in the library — instantly, offline, no API key used.'), h('div.note.askhow', howLine()), h('div.lab', 'TRY'), h('div.tabs.trychips', ...TRY.map((t) => button(t, () => {
+      const mine = recent();
+      const chip = (t: string) => button(t, () => {
         q.value = t;
         void search();
-      }))));
+      });
+      const clearAll = button('Clear', () => {
+        keepRecent([]);
+        idle();
+      }, 'clear');
+      clearAll.setAttribute('aria-label', 'Clear recent searches');
+      clear(sp.body, h('div.note', 'Everything on the shelf, searched in a moment. It works on this phone with no connection too.'), h('div.note.askhow', howLine()),
+        h('div.lab', mine.length ? 'RECENT' : 'TRY'), h('div.tabs.trychips', ...(mine.length ? mine : TRY).map(chip), mine.length ? clearAll : ''));
       sp.setStatus(byWhat(), 'ok');
     };
     // The line before any search keeps up with the index as it fills.
@@ -315,6 +341,8 @@ export const libraryTab: TabDef = {
         // Only what really matches: the brain's own verdict, or every word that says what is asked there (one short
         // word, "ATP", is enough when he typed it himself). Passages sharing only everyday words are left out.
         const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, rareTerms(terms)));
+        // a search that found something is kept for next time (RECENT), on this phone only
+        if (good.length) keepRecent([t, ...recent().filter((x) => x.toLowerCase() !== t.toLowerCase())]);
         clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
@@ -663,7 +691,7 @@ export const libraryTab: TabDef = {
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
         P.sub.textContent = r.offline
           ? `You’re offline: this is the copy on this phone (${fmt.n(r.stats.docs)} documents). It updates by itself when you’re back.`
-          : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;
+          : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'searched by meaning and words' : 'searched by words'}${starterReady ? '' : ' · setting up starter library…'}`;
         P.dials([
           ['YOURS', Math.min(1, docs.filter((d) => !d.builtin).length / 50), `${docs.filter((d) => !d.builtin).length}`, '#5ce1ff'],
           ['BUILT-IN', 1, `${docs.filter((d) => d.builtin).length}`, '#52f2b5'],
