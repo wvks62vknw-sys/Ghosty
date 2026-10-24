@@ -511,8 +511,9 @@ export const workshopTab: TabDef = {
           if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener'), 'prev'), h('small.note.prevnote', 'view only — previews never ask for your password'));
           actions.append(
             button('SHIP IT', async (b) => {
-              if (c.checks === 'failed' && !confirm(`The code checks FAILED for #${c.number}: shipping it could break Ghosty.\n\nAsk Ghosty to "fix change #${c.number}" instead.\n\nShip anyway?`)) return;
-              if ((c.checks === 'pending' || c.checks === 'none') && !confirm('The checks have not finished yet. Ship without waiting?')) return;
+              // SHIP IT's own confirm, before checks have passed: the in-app sheet, in plain words
+              if (c.checks === 'failed' && !(await confirmSheet('Ship it with failed checks?', `Ghosty’s own checks found a problem in change #${c.number}, so shipping it could break Ghosty. ASK TO FIX lets Ghosty mend it first.`, 'SHIP ANYWAY'))) return;
+              if ((c.checks === 'pending' || c.checks === 'none') && !(await confirmSheet('Ship before the checks finish?', `Ghosty is still checking change #${c.number}. Shipping now goes live without knowing whether it works.`, 'SHIP NOW'))) return;
               b.disabled = true;
               try {
                 toast((await brain.ship(c.number, c.sha)).result, 'ok');
@@ -595,7 +596,9 @@ export const workshopTab: TabDef = {
       kp.setStatus(open ? 'UNLOCKED' : 'LOCKED', open ? 'off' : 'ok');
       kp.body.append(
         h('div.note', open ? `Ghosty may edit its own security and self-edit code until ${fmt.time(new Date(kernelUntil))}.` : 'Ghosty cannot change its login lock, permission rules or self-edit pipeline. Only you can unlock this, for a short time.'),
-        open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', () => confirm('Let Ghosty edit its protected kernel for 15 minutes?') && void setKernel(15), 'warn'),
+        open ? button('LOCK NOW', () => void setKernel(0), 'on') : button('UNLOCK FOR 15 MIN', async () => {
+          if (await confirmSheet('Unlock for 15 minutes?', 'For 15 minutes Ghosty may change its own login lock, permission rules and self-edit pipeline. It locks again by itself after that, or when you tap LOCK NOW.', 'UNLOCK')) void setKernel(15);
+        }, 'warn'),
       );
       // route C: the version that is live, its id kept as it is
       P.big.dataset.case = 'keep';

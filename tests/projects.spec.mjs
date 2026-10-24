@@ -275,6 +275,51 @@ async function workshop() {
     if (!(await research.locator('button:has-text("SHOW 3 STEPS")').count())) problems.push('[workshop 4] a finished project has no SHOW 3 STEPS');
     await ctx.close();
   }
+
+  // 5 and 6. The self-edit view: a change whose checks passed, one that failed, one still being checked
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const at = new Date(Date.now() - 600_000).toISOString();
+    const change = (number, title, checks, preview, previewUrl = null) => ({ number, title, branch: `ghosty/spec-${number}`, sha: `${number}`.repeat(10).slice(0, 40), url: `https://github.com/x/y/pull/${number}`, previewUrl, checks, preview, createdAt: at });
+    const shipped = [];
+    const kernel = [];
+    await page.route('**/api/changes', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ready: true, changes: [change(941, 'Spec rain radar on the Brief', 'passed', 'ok', 'https://spec-941.ghosty.pages.dev'), change(942, 'Spec bigger clock', 'failed', 'failed'), change(943, 'Spec pomodoro', 'pending', 'pending')], versions: [{ sha: 'f00dfacecafe0000', message: 'Merge pull request #940 from owner/ghosty/brief-icons', date: at }, { sha: 'beadfeed12340000', message: 'Brief: bigger icons', date: at }] }) }));
+    await page.route('**/api/changes/*/ship', (r) => (shipped.push(r.request().url().match(/changes\/(\d+)/)[1]), r.fulfill({ contentType: 'application/json', body: JSON.stringify({ result: 'Shipped' }) })));
+    await page.route('**/api/kernel', (r) => (kernel.push(r.request().postData()), r.fulfill({ contentType: 'application/json', body: JSON.stringify({ kernelUnlockedUntil: 0 }) })));
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const cp = panelOf(page, 'PROPOSED CHANGES');
+    await cp.locator('.change', { hasText: 'Spec bigger clock' }).waitFor({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    const sheet = page.locator('.modal .confirm.sure');
+    // 5. SHIP IT before the checks pass asks in the in-app sheet: KEEP IT ships nothing, SHIP ANYWAY ships
+    const failed = cp.locator('.change', { hasText: 'Spec bigger clock' });
+    await failed.locator('button:has-text("SHIP IT")').click();
+    if (!(await sheet.waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('[workshop 5] SHIP IT on a failed change did not ask in the in-app sheet');
+    else {
+      if (!/could break Ghosty/.test((await sheet.textContent()) ?? '')) problems.push('[workshop 5] the failed-checks sheet does not say what could happen');
+      await sheet.locator('button:has-text("KEEP IT")').click();
+      await page.waitForTimeout(400);
+      if (shipped.length) problems.push('[workshop 5] KEEP IT still shipped the failed change');
+      await failed.locator('button:has-text("SHIP IT")').click();
+      await sheet.locator('button.sureyes').click({ timeout: 3000 }).catch(() => undefined);
+      await page.waitForTimeout(600);
+      if (shipped.join() !== '942') problems.push(`[workshop 5] SHIP ANYWAY shipped ${JSON.stringify(shipped)}`);
+    }
+    await page.keyboard.press('Escape');
+    // UNLOCK FOR 15 MIN asks in the sheet too (the lock is in the second column on the phone)
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(500);
+    await panelOf(page, 'KERNEL LOCK').locator('button:has-text("UNLOCK")').click();
+    if (!(await sheet.waitFor({ timeout: 3000 }).then(() => true, () => false))) problems.push('[workshop 5] UNLOCK FOR 15 MIN did not ask in the in-app sheet');
+    else {
+      await sheet.locator('button:has-text("KEEP IT")').click();
+      await page.waitForTimeout(300);
+      if (kernel.length) problems.push('[workshop 5] KEEP IT still unlocked the kernel');
+    }
+    await page.click('#pg-workshop button.swap');
+    await page.waitForTimeout(400);
+    await ctx.close();
+  }
 }
 
 await workshop();
