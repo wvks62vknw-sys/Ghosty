@@ -283,6 +283,8 @@ export const eyeTab: TabDef = {
         b.classList.toggle('on', globe.vis[k]);
         b.setAttribute('aria-pressed', String(globe.vis[k]));
         keepLayers();
+        // Switched on with nothing to draw: say what it needs and what works without it.
+        if (k === 'traffic' && globe.vis.traffic && !trafficState.ready) toast('Live traffic on the globe needs the free TomTom key: SYSTEM → KEYS → TomTom traffic. Without it, TRAFFIC under THIS SPOT opens the Waze live map.', 'warn');
       });
       counts.push(em);
       boxes.push(b);
