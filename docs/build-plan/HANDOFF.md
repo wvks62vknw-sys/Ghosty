@@ -109,6 +109,10 @@ folder that no longer exists; ignore those paths).
   only with a 12-page stand-in): the free plan's CPU on a big real manual is unmeasured; if it fails, the phone should
   read the PDF the way SCHOOL's official papers are read (an upgrade-pass item). Both builders this hour paid for a new
   tool name by trimming prompt.ts (TODAY's line; a chain example): the combined budget is checked by prompt.test.mjs.
+- 24 Oct ~14:10 UK: merged after review: NIGHT SCHOOL and the monthly retrain (BRIEF-NIGHT-SCHOOL.md). No kernel line.
+  The first real monthly retrain can only be judged on Kaggle (the first Friday of November, or TRAIN FROM SCRATCH);
+  Night School's wake lock and charging state need the real iPhone (iOS has no battery API: the card says so).
+  Also merged this afternoon: the laptop layout fix (Home from 900 px) that run 220's layout check caught.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

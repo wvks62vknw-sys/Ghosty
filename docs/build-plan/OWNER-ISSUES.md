@@ -178,3 +178,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     map, a lesson in six parts, the confidence taps, the exam. (d) Still open from before: TRAIN NOW (SYSTEM → OFFLINE
     BRAIN TRAINING), the theme extras pick (item 28), the self-edit trial results, whether the 18 Pro Max has arrived,
     the voice fixture blind check.
+    (e) SYSTEM → NIGHT SCHOOL: switch it on, leave the phone plugged in and open on Ghosty overnight (the screen stays
+    on, dimmed); the morning report lands in the inbox. (f) SYSTEM → OFFLINE BRAIN TRAINING: TRAIN FROM SCRATCH when
+    he wants the monthly reset early; otherwise it happens by itself from the first Friday of each month.
