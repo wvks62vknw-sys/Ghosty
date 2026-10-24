@@ -143,3 +143,10 @@ Add to it any time; tick items off only when he agrees they are fixed.
     designed, like they're like app icons, but I don't want it to be like that." The tinted-glass squircle icon tiles
     (the Every screen deck, the Me sheet, hub tiles, recents, row icons, Search) go. He picks the replacement from three
     mock-ups (BRIEF-DECK-MOCKUPS.md: the index list, the command deck, instruments), then it is built across the app.
+
+33. **The deck must invite discovery (24 Oct ~02:15 UK):** on the instrument mock-ups: "like this you can't tell what the
+    purpose of each thing is, like you don't have a reason to click on things and find out all the crazy things Ghosty
+    has to offer." Purpose first: every screen says what it does for him, in words that make him want to open it, and
+    shows it (BRIEF-DECK-MOCKUPS-3.md: the showcase, superpowers by verb, tap to find out). Live readings stay where
+    one exists, second to the purpose.
+
