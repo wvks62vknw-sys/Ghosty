@@ -10,6 +10,7 @@ import { startNotices } from './assistant/notices';
 import { initApp } from './assistant/push';
 import { loadHistory } from './assistant/session';
 import { syncTrained } from './offline/trained';
+import { startMeaning } from './library/meaning';
 import { finishSpotifyLink } from './assistant/spotify';
 import { registerBuiltins } from './commands/builtin';
 import { h } from './core/dom';
@@ -142,6 +143,8 @@ async function boot(): Promise<void> {
     // Ghosty's whole library is copied to this device, so it can be searched with no database or connection.
     void mirrorLibraryNow();
     window.setInterval(() => void (navigator.onLine && mirrorLibraryNow()), 30 * 60_000);
+    // Searched by meaning once that model is on the phone: the index keeps up with the copy (library/meaning.ts).
+    startMeaning();
     window.setInterval(() => void (navigator.onLine && sendQueued()), 120_000);
     // The offline brain follows the weekly self-training's kept brains (a new week, a ROLLBACK) without opening its panel.
     void syncTrained();

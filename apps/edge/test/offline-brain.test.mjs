@@ -122,6 +122,32 @@ test("the offline brain is the same character (the owner's dials too), and its r
   assert.equal(P.cleanReply('<think>\n</think>\nCertainly! Descale it with citric acid. I hope this helps!<|im_end|>'), 'Descale it with citric acid.');
 });
 
+test('search by meaning: the small embedding model is pinned like the brains, its code is vendored, and the WebLLM here can embed', async () => {
+  const { readFileSync, statSync } = await import('node:fs');
+  const M = await import(`${B}/offline-models.mjs`);
+  const e = M.EMBED_MODEL;
+  assert.equal(e.id, 'snowflake-arctic-embed-s-q0f32-MLC-b4');
+  assert.match(e.rev, /^[0-9a-f]{40}$/, 'pinned to one commit');
+  assert.equal(M.modelBase(e), `https://huggingface.co/mlc-ai/snowflake-arctic-embed-s-q0f32-MLC/resolve/${e.rev}/`);
+  assert.ok(!M.MODELS.some((m) => m.id === e.id), 'never offered as a brain');
+  assert.equal(e.mb, 70);
+  assert.equal(M.EMBED_DIMS, 384);
+  assert.match(M.QUERY_PREFIX, /^Represent this sentence for searching relevant passages: $/);
+  // Its compiled code is served from this site, and the vendored WebLLM lists the model and can embed.
+  assert.ok(statSync(new URL(`../../web/public/vendor/webllm/libs/${e.lib}`, import.meta.url)).size > 3_000_000);
+  const src = readFileSync(new URL('../../web/public/vendor/webllm/web-llm.mjs', import.meta.url), 'utf8');
+  assert.match(src, /model_id: "snowflake-arctic-embed-s-q0f32-MLC-b4"/);
+  assert.match(src, new RegExp(`/${e.lib.replace(/\./g, '\\.')}"`));
+  assert.match(src, /class Embeddings \{[\s\S]*?create\(request\) \{\s*return this\.engine\.embedding\(request\);/);
+  // The worker answers 'embed', and its revision moved with it (a phone fetches the new worker).
+  const worker = readFileSync(new URL('../../web/public/vendor/webllm/worker.mjs', import.meta.url), 'utf8');
+  assert.match(worker, /m\.op === 'embed'[\s\S]*engine\.embeddings\.create\(\{ input: m\.input, model: loaded \}\)/);
+  assert.match(worker, new RegExp(`^// worker revision: ${M.WORKER_REV} `));
+  // The brain's clean-ups leave the meaning model's files alone.
+  const brain = readFileSync(new URL('../../web/src/offline/brain.ts', import.meta.url), 'utf8');
+  assert.match(brain, /!r\.url\.startsWith\(keep\) && !isEmbedFile\(r\.url\)/);
+});
+
 // THINK HARDER and the REPORT CARD (offline/think.ts, exact.ts, bench.ts, gym/bench.ts): their own file, run from here
 // because this one is in the test list (package.json is protected).
 await import('./thinkharder.test.mjs');
