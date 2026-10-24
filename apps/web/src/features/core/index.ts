@@ -1,7 +1,7 @@
 /**
  * CORE tab: the arc reactor, Ghosty's voice/text conversation, and at-a-glance panels.
  */
-import { brain } from '../../api/brain';
+import { brain, speechCaps } from '../../api/brain';
 import { answerApproval, askBigBrain, chat, send, thinkHarderAbout, type Entry } from '../../assistant/session';
 import { canThink, recheckThink, stopThinking } from '../../offline/harder';
 import { holdMic, interrupt, listen, micLevel, onMicReleased, speak, speakIn, stopListening, voiceIn, voiceSupport } from '../../assistant/voice';
@@ -44,7 +44,8 @@ async function voiceTurn(): Promise<void> {
   // A voice conversation keeps the microphone open between turns, so talking over Ghosty cuts in (barge-in).
   holdMic(true);
   try {
-    const text = await listen(whisper, (t) => chat.set({ live: t }));
+    // The brain hears when its status says so (any status call since the app opened, not only CORE's own).
+    const text = await listen(whisper || speechCaps.get().stt, (t) => chat.set({ live: t }));
     if (!conversation) return;
     if (!text) {
       if (conversation) setTimeout(() => void voiceTurn(), 300);

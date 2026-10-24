@@ -662,6 +662,9 @@ async function listenWhisper(): Promise<string> {
   const wav = blob.size >= 4000 ? await toWav(m.ctx, blob, skip).catch(() => null) : null;
   if (mic !== m) void m.ctx.close().catch(() => undefined);
   if (blob.size < 4000) return '';
+  // The recording is done: the screen stops saying LISTENING while the words are worked out.
+  writing = true;
+  ui.set({ voice: 'thinking', ...(ui.get().busy ? {} : { busy: true, status: 'writing down what you said…' }) });
   const text = (
     await brain.stt(wav ?? blob).catch((e: unknown) => {
       throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
@@ -669,6 +672,9 @@ async function listenWhisper(): Promise<string> {
   ).trim();
   return /^(thank you|thanks for watching|you|bye)\.?$/i.test(text) ? '' : text;
 }
+
+/** The recording is with the brain and its words are being worked out (listen shows "writing down what you said…"). */
+let writing = false;
 
 /**
  * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
@@ -678,12 +684,17 @@ export async function listen(useWhisper: boolean, onInterim: (t: string) => void
   stopSpeaking();
   const offline = navigator.onLine === false;
   if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
+  const wasBusy = ui.get().busy;
   ui.set({ voice: 'listening' });
   try {
     return useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
   } finally {
     abortListen = null;
     if (ui.get().voice === 'listening') ui.set({ voice: 'idle' });
+    if (writing) {
+      writing = false;
+      ui.set({ ...(ui.get().voice === 'thinking' ? { voice: 'idle' as const } : {}), ...(wasBusy ? {} : { busy: false, status: '' }) });
+    }
   }
 }
 
