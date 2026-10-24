@@ -1,10 +1,13 @@
 // The Memory tab's ME and DIARY panels: the profile drawn from the brain (stubbed first, exact
-// values), a line added and removed, a diary entry opened, REFLECT NOW's toast — then, through
+// values) — ME first on his side, headed in his words, where it came from and when, the title's
+// count —, a line added and removed, a diary entry opened (its day in words), REFLECT NOW's toast,
+// Memory's sentences in one voice, every target 44 pt — then, through
 // the preview brain's scripted model, a real reflection over two things the owner said. Then the
 // TIMELINE over the real brain: a fact said in chat shows with that chat as its source (which
 // opens it), EDIT, LOCK (and the "Locked only" filter), FORGET and UNDO (back still locked), the
 // kind filter and search; and PATTERNS: four evenings on one topic show with their evidence, and
-// ✕ hides the pattern for good (still hidden after a reload).
+// ✕ hides the pattern for good (still hidden after a reload); a row 26 deep forgotten with its UNDO
+// on screen; offline: the title line says so and a FORGET says why nothing changed.
 //   node tests/memory.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { DESKTOP, PHONE, UK } from './nav.mjs';
@@ -327,5 +330,5 @@ async function run(name, viewport) {
 await run('desktop', DESKTOP);
 await run('phone', PHONE);
 await browser.close();
-console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME, DIARY, REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo, filters) and PATTERNS work.');
+console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Memory run clean: ME first and in his words, DIARY (its days in words), REFLECT NOW, the TIMELINE (source, edit, lock, forget, undo on screen however deep, filters), PATTERNS, one voice, offline said plainly, every target 44 pt.');
 process.exit(problems.length ? 1 : 0);
