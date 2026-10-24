@@ -172,12 +172,17 @@ export const briefTab: TabDef = {
       wp.setStatus(asOf ? `${offline ? 'OFFLINE' : 'NOT UPDATING'} · ${hhmm(asOf)}` : 'LIVE', asOf ? 'mid' : 'ok');
       P.big.textContent = temp(c.temperature_2m);
       P.sub.textContent = `${WMO(c.weather_code)} · feels ${temp(c.apparent_temperature)}${when}`;
+      // Today's range and when it will rain first (from the hour now: rain before he woke is not today's news),
+      // then the rest; the air pressure in hPa is left out (a number he never asked for).
+      const rain = rainWhen(w.hourly.precipitation_probability, new Date().getHours());
+      const full = (r: HTMLElement) => (r.classList.add('full'), r);
+      const uv = d.uv_index_max[0] ?? 0;
       wp.body.append(
+        full(row('TODAY', `${temp(d.temperature_2m_min[0]!)} → ${temp(d.temperature_2m_max[0]!)}`)),
+        full(row('RAIN', rain.line)),
         row('WIND', `${speed(c.wind_speed_10m)} ${GEO.card(c.wind_direction_10m)}`),
         row('HUMIDITY', `${c.relative_humidity_2m}%`),
-        row('PRESSURE', `${Math.round(c.pressure_msl)} hPa`),
-        row('TODAY', `${temp(d.temperature_2m_min[0]!)} → ${temp(d.temperature_2m_max[0]!)} · rain ${d.precipitation_probability_max[0]}%`),
-        row('UV', (d.uv_index_max[0] ?? 0).toFixed(1)),
+        row('UV', `${uv.toFixed(0)} · ${uv < 3 ? 'low' : uv < 6 ? 'moderate' : uv < 8 ? 'high' : uv < 11 ? 'very high' : 'extreme'}`),
         row('SUN', `↑ ${d.sunrise[0]!.slice(11, 16)}   ↓ ${d.sunset[0]!.slice(11, 16)}`),
       );
       const q = air.data?.current;
