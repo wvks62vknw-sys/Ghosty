@@ -5,6 +5,7 @@
 import { addEvent, addFeed, addJob, agenda, loadFeeds, loadJobs, removeEvent, removeFeed, removeJob, type Job } from '../schedule';
 import { fmtLocal, isoLocal, parseWhen, REPEATS, safeTz, startOfDay, type Repeat } from '../time';
 import { asData } from '../kernel/permissions';
+import { NEAR_ASK, NO_TRACKING } from '../../../../packages/shared/src/places';
 import { arg, type Tool, type ToolContext } from './types';
 
 export async function ownerTz(ctx: Pick<ToolContext, 'storage'>): Promise<string> {
@@ -50,6 +51,9 @@ export const agendaTools: Tool[] = [
     async run(a, ctx) {
       const tz = await ownerTz(ctx);
       const text = arg.str(a, 'text');
+      // "Remind me when I'm near Tesco": no. Ghosty never tracks where he is (places.ts keeps addresses, not him).
+      // A time in his own words ("at 6, when I get home") is a reminder at a time; a place alone is not one Ghosty can keep.
+      if (NEAR_ASK.test(text) && !/\b(at \d|\d{1,2}[:.]\d{2}|\d ?(am|pm)|tomorrow|tonight|in \d+ ?(min|hour))/i.test(text)) throw new Error(NO_TRACKING);
       const j = await addJob(ctx.storage, { kind: 'reminder', title: text.slice(0, 120), text, next: whenArg(a, tz), repeat: repeatArg(a), tz });
       return `Reminder set for ${fmtLocal(j.next, tz)}${j.repeat !== 'none' ? `, repeating ${j.repeat}` : ''} (id ${j.id}).`;
     },

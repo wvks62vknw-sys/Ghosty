@@ -504,3 +504,59 @@ test('/api/journey needs the owner, and answers the GO panel through the Worker'
   assert.equal(bad.status, 400);
   assert.match((await bad.json()).error, /I couldn't find "zzz"/);
 });
+
+// ---- "Take me home" (BRIEF-PLACES-SPENDING): the saved home (places.ts), never where the phone is.
+const SAVED = [
+  { id: 'home', label: 'Home', query: '12 Acacia Avenue, B13', address: '12, Acacia Avenue, Kings Heath, Birmingham, B13 9XX', lat: 52.4351, lon: -1.8912, at: 1 },
+  { id: 'work', label: 'Work', query: 'QE hospital', address: 'Queen Elizabeth Hospital, Mindelsohn Way, Birmingham', lat: 52.4532, lon: -1.9418, at: 1 },
+];
+const savedCtx = (places = SAVED) => {
+  const events = [];
+  const data = { 'owner:ctx': { tz: TZ, location: HOME }, places };
+  return { events, ctx: { storage: { get: async (k) => data[k] }, vault: { get: async () => null }, emit: (e) => events.push(e), progress: () => undefined } };
+};
+
+test('"take me home": plan_journey and resolvePlace go to the saved home and work; "home" not saved yet says how', async () => {
+  reset();
+  const { ctx, events } = savedCtx();
+  assert.deepEqual(await X.resolvePlace('home', ctx), { type: 'PLACE', area: '', name: 'Home', lat: 52.4351, lon: -1.8912 });
+  assert.equal((await X.resolvePlace('my home', ctx)).lat, 52.4351);
+  assert.equal((await X.resolvePlace('the office', ctx)).name, 'Work');
+  assert.equal((await X.resolvePlace('here', ctx)).name, 'Birmingham', '"here" is still where he is');
+  assert.equal(calls.length, 0, 'a saved place is not looked up');
+  await assert.rejects(X.resolvePlace('home', savedCtx([]).ctx), /I don't know where home is yet: tell me \("remember home is …"/);
+  await assert.rejects(X.resolvePlace('work', savedCtx([]).ctx), /Memory → ME → PLACES/);
+  // "take me home" from work, by bus.
+  const out = await T.toolByName.get('plan_journey').run({ to: 'home', from: 'work' }, ctx);
+  const plan = calls.find((c) => c.url.pathname === '/api/v1/plan').url;
+  assert.match(plan.searchParams.get('toPlace'), /^52\.4351/);
+  assert.match(plan.searchParams.get('fromPlace'), /^52\.4532/);
+  assert.match(out, /Journeys from Work to Home/);
+  assert.equal(events[0].args.to.name, 'Home');
+  // The stops near home.
+  reset();
+  await T.toolByName.get('next_departures').run({ stop: 'home' }, ctx);
+  assert.match(last().url.searchParams.get('center') ?? last().url.search, /52\.4351/);
+});
+
+test('"how long to work?": get_directions drives to the saved work, from the saved home, without the map search', async () => {
+  const real = globalThis.fetch;
+  const asked = [];
+  globalThis.fetch = async (input) => {
+    const u = typeof input === 'string' ? input : input.url;
+    asked.push(u);
+    if (u.startsWith('https://routing.openstreetmap.de/routed-car/')) return Response.json({ code: 'Ok', routes: [{ distance: 4800, duration: 900, geometry: { coordinates: [[-1.8912, 52.4351], [-1.9418, 52.4532]] }, legs: [{ steps: [] }] }] });
+    return new Response('not faked', { status: 599 });
+  };
+  try {
+    const { ctx, events } = savedCtx();
+    const out = await T.toolByName.get('get_directions').run({ to: 'work', from: 'home' }, ctx);
+    assert.match(out, /^Driving from Home to Work: 4\.8 km \(3\.0 mi\), about 15 min/);
+    assert.ok(asked[0].includes('/-1.8912,52.4351;-1.9418,52.4532?'), asked[0]);
+    assert.ok(!asked.some((u) => u.includes('nominatim')), 'no map search for a saved place');
+    assert.equal(events[0].args.to, 'Work');
+    await assert.rejects(T.toolByName.get('get_directions').run({ to: 'home' }, savedCtx([]).ctx), /I don't know where home is yet/);
+  } finally {
+    globalThis.fetch = real;
+  }
+});

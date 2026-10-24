@@ -3,6 +3,7 @@
  * Free services, no keys. Routes are also drawn on the globe (client command show_route).
  */
 import { asData } from '../kernel/permissions';
+import { notSavedYet, savedPlace } from '../places';
 import { arg, type Tool, type ToolContext } from './types';
 
 const UA = { 'User-Agent': 'Ghosty/2.0 (personal assistant; single user)', Accept: 'application/json', 'Accept-Language': 'en' };
@@ -35,6 +36,18 @@ export async function geocode(q: string, near?: Spot | null): Promise<Spot | nul
   const j = (await r.json()) as { lat: string; lon: string; display_name: string; name?: string }[];
   const g = j[0];
   return g ? { name: g.name || g.display_name.split(',').slice(0, 2).join(','), lat: +g.lat, lon: +g.lon } : null;
+}
+
+/**
+ * A place in the owner's words: one he saved ("home", "work", "Nan's": places.ts) is that place — "take me home"
+ * goes to the saved home, never to where the phone is —; anything else is looked up on the map.
+ */
+export async function placeFor(q: string, ctx: Pick<ToolContext, 'storage'>, near?: Spot | null): Promise<Spot | null> {
+  const mine = await savedPlace(ctx.storage, q);
+  if (mine) return { name: mine.label, lat: mine.lat, lon: mine.lon };
+  const unsaved = notSavedYet(q);
+  if (unsaved) throw new Error(unsaved);
+  return geocode(q, near);
 }
 
 const fmtDist = (m: number) => `${m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`} (${(m / 1609.34).toFixed(m >= 16093 ? 0 : 1)} mi)`;
@@ -101,9 +114,9 @@ export const travelTools: Tool[] = [
     async run(a, ctx) {
       const home = await ownerPlace(ctx);
       const fromQ = arg.str(a, 'from', false);
-      const from = fromQ ? await geocode(fromQ, home) : home;
+      const from = fromQ ? await placeFor(fromQ, ctx, home) : home;
       if (!from) throw new Error('I need a starting point: the owner\'s location is not known yet, so give "from".');
-      const to = await geocode(arg.str(a, 'to'), from);
+      const to = await placeFor(arg.str(a, 'to'), ctx, from);
       if (!to) throw new Error(`I could not find "${a.to}"`);
       const mode = String(a.mode ?? 'driving');
       const profile = mode === 'walking' ? 'routed-foot' : mode === 'cycling' ? 'routed-bike' : 'routed-car';
@@ -129,7 +142,7 @@ export const travelTools: Tool[] = [
     async run(a, ctx) {
       const home = await ownerPlace(ctx);
       const nearQ = arg.str(a, 'near', false);
-      const near = nearQ ? await geocode(nearQ, home) : home;
+      const near = nearQ ? await placeFor(nearQ, ctx, home) : home;
       if (!near) throw new Error('I need a place to search near: give "near".');
       const d = 0.06;
       const u = new URL('https://nominatim.openstreetmap.org/search');

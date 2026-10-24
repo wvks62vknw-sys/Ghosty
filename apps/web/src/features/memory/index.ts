@@ -15,6 +15,7 @@ import { swipeToDelete } from '../../ui/swipe';
 import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
+import { placesBlock } from './places';
 import { lineId, patternsPanel, timelinePanel } from './timeline';
 
 export const memoryTab: TabDef = {
@@ -145,6 +146,9 @@ export const memoryTab: TabDef = {
     const meForm = h('div.keyrow.wrapit', sectionSel, lineIn, button('ADD', () => void addLine().then(() => sheet?.close())));
     mp.el.insertBefore(meForm, mp.body);
     paintMe();
+    // PLACES under ME (places.ts): home, work and the rest, each found on the map and kept only after his yes.
+    const pl = placesBlock();
+    mp.el.append(pl.el);
     // One "Add a memory…" row opens a sheet with the form; Edit shows the delete buttons
     // (a row also swipes left to delete).
     let sheet: { close(): void } | null = null;
@@ -252,6 +256,7 @@ export const memoryTab: TabDef = {
         void refresh();
         void refreshLessons();
         void refreshProfile();
+        void pl.refresh();
       },
       describe: () => `Memory: ${facts.length} facts stored, ${lessons.length} lessons learned${profile ? `, a profile of ${PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0)} lines` : ''}, ${diary.length} diary entries.`,
     };

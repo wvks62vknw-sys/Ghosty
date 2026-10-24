@@ -9,7 +9,7 @@ import { checkTools } from './check';
 import { dataTools } from './data';
 import { emailTools } from './email';
 import { evolveTools } from './evolve';
-import { extraTools, schoolTools, videoTools } from './extra';
+import { extraTools, placesTools, schoolTools, spendingTools, videoTools } from './extra'; // [places] placesTools, spendingTools
 import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
@@ -44,7 +44,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools]; // [photo]
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools, ...placesTools, ...spendingTools]; // [photo] [places]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -253,6 +253,11 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { name: 'homeplan', tools: homePlanTools, when: HOMEPLAN_WHEN, about: HOMEPLAN_ABOUT },
   // [photo] Photo jobs on free Spaces (tools/photo.ts): background removed, sharper, a thing erased; never faces.
   { name: 'photo', tools: photoTools, when: PHOTO_WHEN, about: PHOTO_ABOUT },
+  // [places] Saved places (tools/places.ts) and spending from statements (tools/spending.ts): no tracking, no bank access.
+  { name: 'places', tools: placesTools, when: /\b(address|postcode|my places?|saved places?|(?:home|work|office|school|gym)(?: address)? is\b|forget (?:my |the )?(?:home|work|office|school|gym|place))/i,
+    about: "You can save the owner's places (remember_place: look up, show, keep only after his yes; forget_place) — plan_journey and get_directions read them; never a reminder by where he is: no tracking." },
+  { name: 'spending', tools: spendingTools, when: /\b(spend|spent|spending|budgets?|subscriptions?|statements?|money|bank|bills?|£\s?\d|pounds|how much did i)\b/i,
+    about: 'You can report spending from statements the owner added in Agenda → SPENDING (spending_summary: month, year, changes, subscriptions) and set budgets in his words (set_budget); no bank access, ever.' },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',

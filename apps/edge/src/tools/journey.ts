@@ -7,6 +7,7 @@
 import type { JourneyAnswer } from '../../../../packages/shared/src/protocol';
 import { asData } from '../kernel/permissions';
 import { CREDIT, departures, format, formatDepartures, geocode, KINDS, plan, resolvePlace, whenToTime } from '../integrations/transitous';
+import { savedPlace } from '../places';
 import { fmtLocal, safeTz } from '../time';
 import { ownerPlace } from './travel';
 import { arg, clip, type Tool, type ToolContext } from './types';
@@ -19,7 +20,7 @@ async function ownerTz(ctx: Pick<ToolContext, 'storage'>): Promise<string> {
   return safeTz(c?.tz);
 }
 
-const HERE = /^(here|my (?:location|position|place)|where i am|current location|home|my home)$/i;
+const HERE = /^(here|my (?:location|position)|where i am|current location)$/i;
 const normLine = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 export const journeyTools: Tool[] = [
@@ -82,8 +83,10 @@ export const journeyTools: Tool[] = [
       let title: string;
       let found: Awaited<ReturnType<typeof departures>>;
       const coords = stop.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
-      if (!stop || HERE.test(stop) || coords) {
-        const at = coords ? { name: `${Number(coords[1]).toFixed(4)}, ${Number(coords[2]).toFixed(4)}`, lat: Number(coords[1]), lon: Number(coords[2]) } : await ownerPlace(ctx);
+      // "the stops near home": a saved place (places.ts) counts as a spot, like "here".
+      const mine = await savedPlace(ctx.storage, stop);
+      if (!stop || HERE.test(stop) || coords || mine) {
+        const at = mine ? { name: mine.label, lat: mine.lat, lon: mine.lon } : coords ? { name: `${Number(coords[1]).toFixed(4)}, ${Number(coords[2]).toFixed(4)}`, lat: Number(coords[1]), lon: Number(coords[2]) } : await ownerPlace(ctx);
         if (!at) throw new Error("I don't know where you are yet: open God's Eye once so I know where you are, or name the stop.");
         // Every stop within 400 m, more when asked for more departures than ten stops' worth would give.
         found = await departures({ lat: at.lat, lon: at.lon }, n * 2, { time, radiusM: 400 });

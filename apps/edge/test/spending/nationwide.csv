@@ -1,0 +1,12 @@
+"Account Name:","FlexDirect ****12345"
+"Account Balance:","£1,234.56"
+"Available Balance: ","£1,234.56"
+
+"Date","Transaction type","Description","Paid out","Paid in","Balance"
+"01 Oct 2026","Bank credit","Salary ACME WIDGETS","","£2,100.00","£2,350.00"
+"03 Oct 2026","Visa purchase","LIDL GB BIRMINGHAM","£18.20","","£2,331.80"
+"04 Oct 2026","Direct debit","SEVERN TRENT WATER","£34.00","","£2,297.80"
+"06 Oct 2026","Visa purchase","TFL TRAVEL CH","£7.80","","£2,290.00"
+"09 Oct 2026","Contactless payment","GREGGS 1123","£3.65","","£2,286.35"
+"10 Oct 2026","Visa purchase","AMAZON.CO.UK*1A2B3C","£15.49","","£2,270.86"
+"11 Oct 2026","Visa credit","AMAZON.CO.UK REFUND","","£15.49","£2,286.35"
