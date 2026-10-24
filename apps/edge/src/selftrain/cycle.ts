@@ -19,9 +19,10 @@
  *  - push: first Kaggle's GPU quota (`runPlan`: a full run with 10 hours left; with fewer, but at least 4, a smaller
  *    run — ECONOMY: the notebook's budget fitted to the hours left, the last 4 weeks replayed not 8, 8 STaR samples
  *    not 16, SCHOOL papers sat on the phone, not on Kaggle — instead of waiting; under 4, or none at all with
- *    pay-to-scale on, it waits, saying why), then the notebook (training/kaggle/ghosty_weekly.py) to the owner's Kaggle account with
- *    GPU and internet on, its settings written in, including a one-time ticket: the notebook trades it ONCE for
- *    the Hugging Face token at the hook (in a header, never in an address) and posts its report back with it;
+ *    pay-to-scale on, it waits, saying why), then the notebook (training/kaggle/ghosty_weekly.py) to the owner's
+ *    Kaggle account with GPU and internet on, its settings written in, including a one-time ticket: the notebook
+ *    trades it ONCE for the Hugging Face token at the hook (in a header, never in an address) and posts its report
+ *    back with it;
  *  - running: the hook brings the report; meanwhile Kaggle's status is read every half hour (a failed status read
  *    is counted on its own: a few in a row do not end the week). A run that stopped, or that reported an error
  *    before its exam, is pushed again (it resumes from its checkpoint, inside the phase it was in) twice at most. A
