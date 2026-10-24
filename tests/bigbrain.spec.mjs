@@ -303,6 +303,9 @@ check((await engine(page)).loads.at(-1) === ID.two, `USE loaded the 2B: ${JSON.s
 check((await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.loading'))) === null, 'the load record is cleared after the load');
 let st = await stored(page);
 check(st.held?.['qwen3.5-2b']?.s === 'loaded', `the 2B is remembered as having run here: ${JSON.stringify(st.held)}`);
+// (its row says so too: what happened here, not the guess from the memory figure)
+await page.waitForFunction((id) => /runs on this phone$/.test(document.querySelector(`#pg-settings .offbrain .obbrain[data-model="${id}"] .obfacts`)?.textContent ?? ''), ID.two, { timeout: 5000 }).catch(() => undefined);
+check((await row(page, ID.two))?.facts === '1.1 GB download · about 2.2 GB of memory when running · runs on this phone', `the 2B's line once it has run here: "${(await row(page, ID.two))?.facts}"`);
 await page.waitForTimeout(500);
 check(based.join() === 'qwen3.5-2b', `the weekly training was told the new base: ${JSON.stringify(based)}`);
 check(/Ready on this phone: Qwen3\.5 2B \(1\.1 GB\)/.test(await text(page, '.obstate')), 'the state line names the 2B');
@@ -345,6 +348,7 @@ check((await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.loadi
 const closedLine = await text(page, '.obfell');
 check(/^Loading Qwen3\.5 4B closed Ghosty \(\d+ \w+, \d\d:\d\d\): the phone could not hold it\. Ghosty is back on Qwen3 0\.6B\. Qwen3\.5 4B's download stays on this phone, and USE asks before it tries again\.$/.test(closedLine), `the words after the close: "${closedLine}"`);
 const r4 = await row(page, ID.four);
+check(r4?.facts === '2.4 GB download · about 3.8 GB of memory when running · did not fit this phone', `the 4B's line after it closed Ghosty does not say it fits: "${r4?.facts}"`);
 check(r4?.tag === 'ON THIS PHONE' && r4?.buttons.join() === 'USE,REMOVE' && /^closed Ghosty on this phone \(\d+ \w+\): USE asks before trying again$/.test(r4?.closed ?? ''), `the 4B after the close: ${JSON.stringify(r4)}`);
 check((await engine(page)).loads.length === 0, `nothing loaded on opening: ${JSON.stringify((await engine(page)).loads)}`);
 check(/closed Ghosty loading Qwen3\.5 4B/.test(await text(page, '.obhold')) && /has run Qwen3\.5 2B/.test(await text(page, '.obhold')), `the can-hold line remembers: "${await text(page, '.obhold')}"`);
@@ -435,6 +439,7 @@ check(refused === 'Qwen3.5 2B has one piece of 243 MB that must sit in the graph
 check(!(await sheet(sp).isVisible().catch(() => false)), 'no warning for a brain that cannot run');
 check((await engine(sp)).loads.length === 0 && (await stored(sp)).model === ID.small, 'nothing loaded, the 0.6B still in use');
 check((await stored(sp)).held?.['qwen3.5-2b']?.s === 'refused' && /could not start Qwen3\.5 2B/.test(await text(sp, '.obhold')), `remembered as could not start: "${await text(sp, '.obhold')}"`);
+check((await row(sp, ID.two))?.facts === '1.1 GB download · about 2.2 GB of memory when running · cannot run on this phone', `the refused 2B's line: "${(await row(sp, ID.two))?.facts}"`);
 await shot(sp, 'refused-2b');
 await press(sp, ID.mid, 'GET');
 check(await tagIs(sp, ID.mid, 'ON THIS PHONE', 20000), 'GET of the 0.8B did not finish');

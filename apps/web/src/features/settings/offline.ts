@@ -23,7 +23,7 @@ import { overall, voiceLine } from '../../offline/bench';
 import { approveLoad, brainsHere, checkBrain, chooseBrain, deleteOffline, downloadOffline, getBrain, gpuLimits, heldOf, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, removeBrain, useBrain, wasClosedWhileGetting, withModel } from '../../offline/brain';
 import { readLog } from '../../offline/fill';
 import { reportCard, runReportCard } from '../../offline/harder';
-import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type ModelDef } from '../../offline/models';
+import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
 import { settings } from '../../state/app';
@@ -35,6 +35,16 @@ const deviceGB = (): number | null => {
   const v = (navigator as unknown as { deviceMemory?: unknown }).deviceMemory;
   return typeof v === 'number' && v > 0 ? v : null;
 };
+/**
+ * Whether a brain fits, said from what really happened on this phone when it has been tried (a guess from the memory
+ * figure cannot stand next to "closed Ghosty on this phone"), else the rule-of-thumb guess (fitLine).
+ */
+const fitHere = (m: ModelDef, s: Held['s'] | undefined): string =>
+  s === 'loaded' ? 'runs on this phone'
+  : s === 'closed' ? 'did not fit this phone'
+  : s === 'failed' ? 'ran out of memory on this phone'
+  : s === 'refused' ? 'cannot run on this phone'
+  : fitLine(m, deviceGB());
 /** On mobile data, as far as the browser can tell (Safari cannot: the confirm asks him to be on Wi-Fi). */
 const onMobileData = (): boolean => {
   const c = (navigator as unknown as { connection?: { type?: string; saveData?: boolean } }).connection;
@@ -290,7 +300,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
           `div.obbrain${using ? '.on' : ''}` as 'div',
           { dataset: { model: m.id } },
           h('div.obname', h('b', m.label), tag ? h('span.obtag', tag) : null),
-          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitLine(m, deviceGB())}${m === MODELS[0] ? ' · the fallback' : ''}`),
+          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : ''}`),
           held?.s === 'closed' ? h('div.note.obclosed', `closed Ghosty on this phone (${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}): USE asks before trying again`) : null,
           btns.length ? h('div.keyrow', ...btns) : null,
         );
