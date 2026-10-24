@@ -130,6 +130,7 @@ export const DECK: Record<string, DeckScreen> = {
     promise: 'Plan a room to scale: will the sofa fit?',
     can: [
       { text: 'Will it fit? Try a piece before you buy it', act: { open: 'space', panel: 'WILL IT FIT' } },
+      { text: 'Describe your home and he draws the plan', act: { open: 'space', panel: 'DESIGN MY HOME' } },
       { text: 'Make space: up to three better layouts', act: { open: 'space', panel: 'MAKE SPACE' } },
       { text: 'A design review against UK guidance', act: { open: 'space', panel: 'DESIGN REVIEW' } },
       { text: 'Doors, windows and L-shaped rooms', act: { open: 'space', panel: 'ROOMS' } },
