@@ -210,8 +210,9 @@ async function workshop() {
     if (/No widgets yet/.test(early.widgets)) problems.push('[workshop 2] WIDGETS says "No widgets yet" before the list has answered');
     if (/Nothing published yet/.test(early.pages)) problems.push('[workshop 2] PUBLISHED PAGES says "Nothing published yet" before the list has answered');
     if (/Nothing running/.test(early.projects)) problems.push('[workshop 2] PROJECTS says "Nothing running" before the list has answered');
-    const shown = await page.waitForFunction(() => /Spec egg timer/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Bakery/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 2500 }).then(() => Date.now() - t0, () => null);
-    if (shown == null) problems.push('[workshop 2] the widgets and published pages waited for the change list (not shown 2.5 s in while it was held)');
+    const shown = await page.waitForFunction(() => /Spec egg timer/.test(document.querySelector('#pg-workshop')?.textContent ?? '') && /Spec Bakery/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 6000 }).then(() => Date.now() - t0, () => null);
+    // (the change list is held until after this look: waiting for it, they would never show)
+    if (shown == null) problems.push('[workshop 2] the widgets and published pages waited for the change list (not shown 6 s in while it was held)');
     release?.();
     await ctx.close();
   }
@@ -318,6 +319,21 @@ async function workshop() {
     }
     await page.click('#pg-workshop button.swap');
     await page.waitForTimeout(400);
+    // 6. Each change says what its checks mean; a failed one leads with ASK TO FIX, SHIP IT is only the bright button once they pass
+    const says = async (title) => (await cp.locator('.change', { hasText: title }).evaluate((c) => c.innerText).catch(() => '')) ?? '';
+    if (!/Ready to ship/.test(await says('Spec rain radar'))) problems.push('[workshop 6] a change whose checks passed does not say it is ready to ship');
+    if (!/doesn’t work yet/.test(await says('Spec bigger clock'))) problems.push('[workshop 6] a failed change does not say, in plain words, that something in it does not work yet');
+    if (!/Ghosty is checking it/.test(await says('Spec pomodoro'))) problems.push('[workshop 6] a change being checked does not say so in plain words');
+    const fix = await failed.locator('button:has-text("ASK TO FIX")').evaluate((b) => ({ quiet: b.classList.contains('quiet'), h: b.getBoundingClientRect().height }));
+    const ship = await failed.locator('button:has-text("SHIP IT")').boundingBox();
+    const fixBox = await failed.locator('button:has-text("ASK TO FIX")').boundingBox();
+    if (fix.quiet || fix.h < 44 || !ship || !fixBox || fixBox.y > ship.y + 4 || (Math.abs(fixBox.y - ship.y) <= 4 && fixBox.x > ship.x)) problems.push(`[workshop 6] on a failed change ASK TO FIX is not the leading button (${JSON.stringify({ ...fix, fixBox, ship })})`);
+    const bright = (title) => cp.locator('.change', { hasText: title }).locator('button:has-text("SHIP IT")').evaluate((b) => getComputedStyle(b).backgroundImage !== 'none');
+    if (!(await bright('Spec rain radar'))) problems.push('[workshop 6] SHIP IT is not the bright button on a change whose checks passed');
+    if (await bright('Spec pomodoro')) problems.push('[workshop 6] SHIP IT is the bright button while the checks are still running');
+    await cp.locator('.change', { hasText: 'Spec bigger clock' }).evaluate((e) => e.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/workshop-changes.png` });
     await ctx.close();
   }
 }

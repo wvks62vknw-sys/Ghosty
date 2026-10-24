@@ -28,7 +28,14 @@ const unreachable = (e: unknown) => e instanceof TypeError || (typeof navigator 
 /** Why something did not happen, in plain words (never "Failed to fetch"). */
 const why = (e: unknown) => (unreachable(e) ? 'you’re offline, or Ghosty can’t be reached. Try again when you’re back online' : String((e as Error)?.message ?? e));
 const SUB = 'Ghosty changes its own code. You decide what goes live.';
-const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview build failed', pending: 'preview building…', none: 'no preview yet' };
+const PREVIEW_LABEL: Record<ChangeSummary['preview'], string> = { ok: 'preview ready', failed: 'preview didn’t build', pending: 'preview on its way', none: 'no preview yet' };
+/** What a change's checks mean, and what to do next, in one plain sentence. */
+const CHECK_SAYS: Record<ChangeSummary['checks'], string> = {
+  passed: 'Checks passed: Ghosty built it and its tests all pass. Ready to ship.',
+  failed: 'A check failed: something in it doesn’t work yet. Tap Ask to fix and Ghosty mends it.',
+  pending: 'Ghosty is checking it: building it and running its tests, a few minutes.',
+  none: 'Not checked yet: the checks start in a minute or two.',
+};
 
 export const workshopTab: TabDef = {
   id: 'workshop',
@@ -506,13 +513,13 @@ export const workshopTab: TabDef = {
           // route C: the checks as a pill, the rest of the line in words
           meta.dataset.label = `${PREVIEW_LABEL[c.preview ?? 'none'].replace(/^./, (x) => x.toUpperCase())} · ${fmt.ago(Date.parse(c.createdAt))}`;
           const checks = pill(c.checks === 'passed' ? 'Checks passed' : c.checks === 'failed' ? 'Checks failed' : c.checks === 'pending' ? 'Checking' : 'No checks yet', c.checks === 'passed' ? 'live' : c.checks === 'failed' ? 'warn' : 'idle', 'chk');
-          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), checks, meta));
+          const card = h(`div.change.${c.checks}` as 'div', h('div.ct', h('b', `#${c.number} ${c.title}`), checks, meta), h('small.chksays', CHECK_SAYS[c.checks]));
           const actions = h('div.row.wrap');
           if (c.previewUrl) actions.append(button('PREVIEW ↗', () => window.open(c.previewUrl!, '_blank', 'noopener'), 'prev'), h('small.note.prevnote', 'view only — previews never ask for your password'));
           actions.append(
             button('SHIP IT', async (b) => {
               // SHIP IT's own confirm, before checks have passed: the in-app sheet, in plain words
-              if (c.checks === 'failed' && !(await confirmSheet('Ship it with failed checks?', `Ghosty’s own checks found a problem in change #${c.number}, so shipping it could break Ghosty. ASK TO FIX lets Ghosty mend it first.`, 'SHIP ANYWAY'))) return;
+              if (c.checks === 'failed' && !(await confirmSheet('Ship it with failed checks?', `Ghosty’s own checks found a problem in change #${c.number}, so shipping it could break Ghosty. Ask to fix lets Ghosty mend it first.`, 'SHIP ANYWAY'))) return;
               if ((c.checks === 'pending' || c.checks === 'none') && !(await confirmSheet('Ship before the checks finish?', `Ghosty is still checking change #${c.number}. Shipping now goes live without knowing whether it works.`, 'SHIP NOW'))) return;
               b.disabled = true;
               try {
@@ -522,10 +529,11 @@ export const workshopTab: TabDef = {
               }
               void load();
             }, 'on ship'),
+            // a failed check: mending it is the one big button, SHIP IT steps back
             button('ASK TO FIX', () => {
               go('core');
               void send(`Check change #${c.number} with change_status and fix anything that failed.`);
-            }, 'quiet'),
+            }, c.checks === 'failed' ? 'on fixit' : 'quiet'),
             button('DISCARD', async () => {
               if (!(await confirmSheet('Discard this change?', `Change #${c.number} “${c.title}” is closed and never shipped. To have it again, ask Ghosty to build it afresh.`, 'DISCARD'))) return;
               await brain.discard(c.number).catch((e) => toast(`Not discarded: ${why(e)}`, 'bad'));
