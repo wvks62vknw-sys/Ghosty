@@ -16,10 +16,12 @@ import { fileFrom as fileOn, isGlb, Model3dError, spaceToken } from './gradio';
 import { imageId, isImageId, sniffImage } from './lens';
 import { polyHavenFile, polyHavenList, thumbResponse } from './catalog3d';
 import { drawObject, fastModel, trellisModel, type Made, type PictureAi } from './gen3d';
+import { photoRoute } from './photo';
 
 export { failureText, findFn, GradioApp, isGlb, MAX_MODEL_BYTES, Model3dError, parseSse, retryIn, spaceToken, type GradioEvent } from './gradio';
 export * from './catalog3d';
 export * from './gen3d';
+export * from './photo';
 
 /**
  * The Hunyuan3D-2 Space, whose real answers the Gradio protocol fixtures were captured from
@@ -221,6 +223,8 @@ function lines(run: (send: (o: Record<string, unknown>) => void) => Promise<void
  * GET /catalog: Poly Haven's model list as it sent it; GET /phfile?u=: one Poly Haven model file;
  * GET /thumb?u=: a catalogue thumbnail; POST /generate {prompt, title}: words → a picture → a
  * model, as lines. Nothing here parses the catalogue or packs a model (the phone does).
+ * POST /photo: PHOTO TOOLS (photo.ts) — the same free Hugging Face Spaces path, a photo in and a
+ * picture kept at /i/<id> out, as lines.
  */
 export async function model3dRoute(req: Request, path: string, method: string, deps: Model3dRouteDeps): Promise<Response> {
   const kv = deps.kv;
@@ -237,6 +241,7 @@ export async function model3dRoute(req: Request, path: string, method: string, d
     }
     if (path === '/m3d/phfile' && method === 'GET') return await polyHavenFile(new URL(req.url).searchParams.get('u') ?? '', f);
     if (path === '/m3d/thumb' && method === 'GET') return await thumbResponse(new URL(req.url).searchParams.get('u') ?? '', f);
+    if (path === '/m3d/photo' && method === 'POST') return await photoRoute(req, { kv, token: deps.token, fetch: f });
     if (path === '/m3d' && method === 'POST') {
       const bytes = await req.arrayBuffer();
       const title = decodeURIComponent(req.headers.get('x-title') ?? '').slice(0, 80) || 'From a picture';

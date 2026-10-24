@@ -8,6 +8,7 @@ import { extname, join, normalize } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { sqlStorage } from './sqlite-storage.mjs';
+import { photoSpaces, setPhotoMode } from './fixtures/photo-spaces.mjs';
 
 const root = new URL('..', import.meta.url).pathname;
 const dist = join(root, 'apps/web/dist');
@@ -83,6 +84,9 @@ globalThis.fetch = async (input, init) => {
     const page = citedWeb.pages[u.href];
     return page ? new Response(page, { headers: { 'content-type': 'text/html' } }) : new Response('not found', { status: 404 });
   }
+  // Test only: the PHOTO TOOLS Spaces (tests/photo.spec.mjs), from their real answers.
+  const photo = await photoSpaces(u, init);
+  if (photo) return photo;
   return realFetch(input, init);
 };
 globalThis.caches = { default: { match: async () => undefined, put: async () => undefined } };
@@ -157,6 +161,12 @@ createServer(async (req, res) => {
       state.storage.blips.add(url.searchParams.get('key') ?? '');
       res.writeHead(204);
       res.end();
+      return;
+    }
+    // Test only: put a PHOTO TOOLS Space to sleep or over its limit (tests/fixtures/photo-spaces.mjs).
+    if (url.pathname === '/__test/photo-mode') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(setPhotoMode(url.searchParams)));
       return;
     }
     // Like run_worker_first in wrangler.jsonc: the API, published pages (/s/…) and shared pictures (/i/…) go to the Worker.

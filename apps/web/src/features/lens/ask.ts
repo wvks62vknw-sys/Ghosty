@@ -5,7 +5,8 @@
  * its own `seen` field, and text READ scanned as `scan` — never inside the question, so the brain
  * can mark them as data about the picture rather than the owner's words. If no model that sees
  * pictures is reachable, Ghosty can still answer from the note — and the Lens offers DESCRIBE
- * WITH WHAT I CAN SEE HERE, which sends only words.
+ * WITH WHAT I CAN SEE HERE, which sends only words. A question that asks for a photo job ("remove the
+ * background", "make it sharper", "erase the bin") opens PHOTO TOOLS on the picture instead (photo.ts).
  *
  * What's in it? (living.ts): the foods on a plate with a rough total — guessed portions, said so.
  */
@@ -18,6 +19,8 @@ import { namesSeen, type NameGuess } from '../../vision/clipmath';
 import { classifier, nextStamp } from '../../vision/models';
 import type { LensContext, Mode, ModeOpts } from './index';
 import { createLiving } from './living';
+import { openPhotoTools } from './photo';
+import { photoJobFor } from '../../../../../packages/shared/src/photo';
 
 const EXAMPLES = ['What is this?', 'Is this edible?', 'Translate this sign'];
 
@@ -90,6 +93,15 @@ export function createAskMode(L: LensContext): Mode {
       } else {
         const still = pendingStill ?? L.still(1024);
         if (!still) return void toast('No picture: START the camera first', 'warn');
+        // A photo job, not a question: the PHOTO TOOLS sheet on this picture, on that job.
+        const job = photoJobFor(question);
+        if (job) {
+          L.showStill(still);
+          S.lastAction = `photo tools: ${job}`;
+          openPhotoTools({ still, job });
+          L.status('opened PHOTO TOOLS', 'ok');
+          return;
+        }
         lastStill = still;
         L.showStill(still);
         dataUrl = toJpegDataUrl(still, 1024, 0.8);

@@ -5,7 +5,8 @@
  * owner presses ASK GHOSTY or shares a crop for a picture search. No face recognition; a number
  * plate is looked up only from READ's chip, on a tap (ui/vehiclecheck.ts): Ghosty does not identify people.
  *
- * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet.
+ * The modes live in see.ts, read.ts, hands.ts and ask.ts; crop.ts is the picture-search sheet;
+ * photo.ts is PHOTO TOOLS (background, sharper, erase), the bar's chip once a photo is on screen.
  * This file owns the viewfinder (video + overlay canvas), the mode tiles, the bottom bar, the
  * frame loop and the state a test can read at window.__ghosty.lens. The camera opens from the
  * owner's own tap (the START button, a tap that brought the tab up), never on its own: not on a
@@ -32,6 +33,7 @@ import type { LensCard } from './living';
 import { createMeasureMode } from './measure';
 import { createNameMode } from './name';
 import type { MarkState } from './mark';
+import { openPhotoTools } from './photo';
 import { createReadMode } from './read';
 import { createSeeMode } from './see';
 import { createScanMode } from './scan';
@@ -327,6 +329,8 @@ export const lensTab: TabDef = {
           still.getContext('2d')?.drawImage(pic, 0, 0);
           still.hidden = false;
         } else still.hidden = true;
+        // PHOTO TOOLS is offered once there is a photo on screen: a held frame, a picked photo, ASK's still
+        photoBtn.hidden = !pic;
         video.classList.toggle('mirror', mirror());
       },
       freeze(on) {
@@ -475,7 +479,14 @@ export const lensTab: TabDef = {
       else toast('No torch on this camera', 'warn');
     });
     torchBtn.hidden = true;
-    const bar = h('div.lensbar', startBtn, flipBtn, freezeBtn, torchBtn);
+    const photoBtn = button('PHOTO TOOLS', () => {
+      if (!shown) return void toast('Take or pick a photo first', 'warn');
+      S.lastAction = 'photo tools';
+      openPhotoTools({ still: shown });
+    }, 'on');
+    photoBtn.hidden = true;
+    photoBtn.classList.add('lensphoto');
+    const bar = h('div.lensbar', startBtn, flipBtn, freezeBtn, torchBtn, photoBtn);
 
     // ---- a tap on the viewfinder (not a drag)
     let down: { x: number; y: number } | null = null;
