@@ -183,13 +183,24 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   }
 }
 
+/** The page is being closed or reloaded (set before the UNDO bars' waiting changes are made: ui/components.ts flushUndo). */
+let leaving = false;
+if (typeof addEventListener === 'function') {
+  addEventListener('pagehide', () => (leaving = true));
+  addEventListener('pageshow', () => (leaving = false));
+}
+
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const t0 = stopwatch.now();
+  const json = body !== undefined ? JSON.stringify(body) : undefined;
   const r = await fetch(`/api${path}`, {
     method,
-    headers: headers(body !== undefined ? { 'content-type': 'application/json' } : {}),
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers: headers(json !== undefined ? { 'content-type': 'application/json' } : {}),
+    body: json,
     credentials: 'same-origin',
+    // A small change sent while Ghosty is being closed or put away (an UNDO bar's change made then:
+    // ui/components.ts flushUndo) still reaches the brain after the page has gone.
+    keepalive: method !== 'GET' && (leaving || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) && (json?.length ?? 0) < 32_000,
   });
   const text = await r.text();
   // The brain's round trip, as this phone sees it (core/stopwatch.ts).

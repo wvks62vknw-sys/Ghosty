@@ -145,6 +145,8 @@ await page.screenshot({ path: `${out}/selftrain-${engine}-report.png`, fullPage:
 const roll = page.locator('#pg-system .selftrain button', { hasText: 'ROLLBACK' });
 check(!(await roll.isDisabled()), 'ROLLBACK is on with an older brain to go back to');
 await roll.click();
+// (it asks first: the newest brain is dropped for good)
+await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push('ROLLBACK did not ask first'));
 await page.waitForFunction((a) => document.querySelector(`#pg-system .selftrain .rw[data-model="${a}"] .n`)?.textContent === 'RECOMMENDED', c('a'), { timeout: 5000 }).catch(() => problems.push('ROLLBACK did not make week 1 the recommended brain'));
 await page.waitForTimeout(600); // (stores save a moment after they change)
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('ghosty.offlinebrain') ?? '{}'));

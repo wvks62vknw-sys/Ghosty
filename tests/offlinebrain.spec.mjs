@@ -4,7 +4,8 @@
 // the weights come from Hugging Face; the panel shows its state, DOWNLOAD and TEST work; with the
 // brain unreachable (the chat request aborted) or out of models ("no model:" in the mock) the reply
 // comes from the phone with its OFFLINE chip, but not once a tool already ran in the turn; the model
-// leaves memory after DOWNLOAD and soon after a reply; "always" never asks the brain at all, never
+// leaves memory after DOWNLOAD and soon after a reply; "translate … into Spanish" with no signal (chat and Lens
+// TRANSLATE) is translated by the phone's model and says "rough, offline" and "check the important bits"; "always" never asks the brain at all, never
 // starts a download when the model isn't here, and "stop" while the model loads writes nothing. TEST ends with the
 // report card's QUICK CHECK on the same brain.
 //   node tests/offlinebrain.spec.mjs [outDir]
@@ -51,7 +52,9 @@ const engine = () => {
     },
     async chat(messages, onToken) {
       this.calls.push(messages);
-      for (const w of ['<think>\n\n</think>\n\n', 'Hello ', 'from ', 'your ', 'phone.']) {
+      // Asked to translate (offline/prompt.ts translatePrompt): a translation, labelled the way a small model might.
+      const words = /You are a translator/.test(messages[0]?.content ?? '') ? ['<think>\n\n</think>\n\n', 'Spanish: ', '"Buenos ', 'días"'] : ['<think>\n\n</think>\n\n', 'Hello ', 'from ', 'your ', 'phone.'];
+      for (const w of words) {
         await new Promise((r) => setTimeout(r, 30));
         onToken(w);
       }
@@ -64,6 +67,15 @@ async function run(name, viewport) {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.addInitScript(engine);
+  // A phone with a Spanish voice (headless Chromium has none): what READ ALOUD says, and in which voice, is recorded.
+  await page.addInitScript(() => {
+    const es = { name: 'Mónica', lang: 'es-ES', localService: true, default: false, voiceURI: 'Mónica' };
+    const en = { name: 'Daniel', lang: 'en-GB', localService: true, default: true, voiceURI: 'Daniel' };
+    window.__spoken = [];
+    window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    speechSynthesis.getVoices = () => [en, es];
+    speechSynthesis.speak = (u) => { window.__spoken.push({ text: u.text, lang: u.lang, voice: u.voice?.name }); setTimeout(() => u.onend?.(), 10); };
+  });
   let chats = 0;
   page.on('request', (r) => {
     if (new URL(r.url()).pathname === '/api/chat') chats++;
@@ -131,6 +143,47 @@ async function run(name, viewport) {
   await page.unroute('**/api/chat');
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${out}/${name}-offline-unreachable.png` });
+
+  // "Translate … into Spanish" with no signal: the phone's model is asked only to translate; the card says
+  // which language, "rough, offline", and "Offline translation: check the important bits".
+  await page.route('**/api/chat', (route) => route.abort('internetdisconnected'));
+  await page.fill('#cin', 'translate good morning into Spanish');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => [...document.querySelectorAll('.msg.off.tr')].some((m) => /Buenos días/.test(m.textContent ?? '') && /Spanish · rough, offline/.test(m.textContent ?? '') && /Offline translation: check the important bits/.test(m.textContent ?? '')), null, { timeout: 10000 }).catch(async () => problems.push(`[${name}] no rough offline translation shown: ${(await page.locator('.msg').allTextContents()).slice(-2).join(' | ').slice(0, 300)}`));
+  const trCall = await page.evaluate(() => window.__ghostyOfflineEngine.calls.at(-1));
+  if (!/Translate the user's message into Spanish/.test(trCall?.[0]?.content ?? '') || trCall?.at(-1)?.content !== 'good morning') problems.push(`[${name}] the small model was not asked to translate: ${JSON.stringify(trCall).slice(0, 200)}`);
+  // the translation itself, cleaned of its label and quotes
+  const trText = await page.locator('.msg.off.tr .trtext').last().textContent().catch(() => '');
+  if (trText !== 'Buenos días') problems.push(`[${name}] the translation reads "${trText}"`);
+  // READ ALOUD in the translation's own language, with the phone's Spanish voice
+  await page.locator('.msg.off.tr button', { hasText: 'READ ALOUD' }).last().click().catch(() => problems.push(`[${name}] no READ ALOUD on the offline translation`));
+  await page.waitForTimeout(200);
+  const said = await page.evaluate(() => window.__spoken.at(-1));
+  if (said?.text !== 'Buenos días' || said?.lang !== 'es-ES' || said?.voice !== 'Mónica') problems.push(`[${name}] READ ALOUD did not use the Spanish voice: ${JSON.stringify(said)}`);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${out}/${name}-offline-translation.png` });
+  await page.unroute('**/api/chat');
+
+  // Lens TRANSLATE with no signal falls back to the phone's model too, with the same honest words.
+  if (narrow) await page.click('.logbtn').catch(() => undefined);
+  await page.route('**/api/translate', (route) => route.abort('internetdisconnected'));
+  await page.evaluate(() => window.__ghosty.run('open_lens', { mode: 'translate' }));
+  const scanTr = page.locator('#pg-lens textarea.lensocr');
+  if (await scanTr.waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false)) {
+    await page.locator('#pg-lens select.scanlang').selectOption('es');
+    await scanTr.fill('good morning');
+    await page.locator('#pg-lens button.warn', { hasText: /^TRANSLATE$/ }).click();
+    await page.waitForFunction(() => window.__ghosty?.scan?.translation === 'Buenos días' && window.__ghosty?.scan?.engine === 'offline', null, { timeout: 10000 }).catch(async () => problems.push(`[${name}] Lens TRANSLATE did not fall back to the phone: ${JSON.stringify(await page.evaluate(() => window.__ghosty?.scan ?? null)).slice(0, 300)}`));
+    const reply = (await page.locator('#pg-lens .lensreply').textContent().catch(() => '')) ?? '';
+    if (!/rough, offline/.test(reply) || !/Offline translation: check the important bits/.test(reply)) problems.push(`[${name}] the Lens translation does not say it is rough and offline: ${reply.slice(0, 200)}`);
+    await page.locator('#pg-lens .lensreply').scrollIntoViewIfNeeded().catch(() => undefined);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/${name}-lens-offline-translation.png` });
+  } else problems.push(`[${name}] Lens TRANSLATE did not open`);
+  await page.unroute('**/api/translate');
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(400);
+  if (narrow && !(await page.locator('#cin').isVisible().catch(() => false))) await page.click('.logbtn');
 
   // Every model busy (the mock's "no model:"): the brain's error is held back and the phone answers.
   const before = await page.locator('.msg.off').count();

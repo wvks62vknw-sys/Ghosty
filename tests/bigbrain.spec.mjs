@@ -12,8 +12,9 @@
 //  3. TEST on the chosen brain: the speed line, then the report card's QUICK CHECK, every question asked of the 2B,
 //     filed in the report card under the 2B and its commit;
 //  4. a bigger brain the phone cannot give the memory to: on GET (the 4B) and when a reply loads it (the 2B), the 0.6B
-//     takes over and the panel says so in plain words; the training's base is not changed by a fallback; REMOVE frees
-//     the 4B;
+//     takes over and the panel says so in plain words; the training's base is not changed by a fallback; USE shows a
+//     12 s UNDO bar that goes back to the brain that was and its training base; REMOVE asks first in a one-tap
+//     confirm (KEEP IT changes nothing), then frees the 4B;
 //  5. nothing scrolls sideways.
 //   BASE=http://localhost:8892 node tests/bigbrain.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
@@ -172,9 +173,20 @@ check(based.join() === 'qwen3.5-2b', `a fallback does not move the training: ${J
 check(/READY/.test((await page.locator('#pg-settings .pn.offbrain h3').textContent()) ?? ''), 'the 0.6B is ready at once (it was on the phone)');
 await shot(page, 'fallback-4b');
 
-// and when a reply loads a brain that no longer fits (the 2B, chosen again: on the phone, so no question)
+// USE is a big change (every reply, and the training's base): 12 s to UNDO it, back to the brain that was
 dialogs = [];
 await page.evaluate(() => (window.__ghostyOfflineEngine.failFor = ''));
+const undoBar = page.locator('.rcundo.undofloat');
+await press(page, ID.two, 'USE');
+await undoBar.waitFor({ state: 'visible', timeout: 4000 }).catch(() => problems.push('USE showed no UNDO bar'));
+check(/Offline brain: Qwen3\.5 2B/.test((await undoBar.textContent().catch(() => '')) ?? ''), `the UNDO bar says what changed: "${await undoBar.textContent().catch(() => '')}"`);
+await page.screenshot({ path: `${out}/bigbrain-${browserName}-use-undo.png` });
+await undoBar.locator('button', { hasText: 'UNDO' }).click();
+await page.waitForFunction((id) => document.querySelector(`#pg-settings .offbrain .obbrain[data-model="${id}"] .obtag`)?.textContent === 'IN USE', ID.small, { timeout: 5000 }).catch(() => problems.push('UNDO did not go back to the 0.6B'));
+check((await stored(page)).model === ID.small && (await stored(page)).trainBase === 'qwen3-0.6b', `UNDO put back the 0.6B and its training base: ${JSON.stringify(await stored(page))}`);
+check(based.slice(-2).join() === 'qwen3.5-2b,qwen3-0.6b', `the training followed USE, then UNDO: ${JSON.stringify(based)}`);
+
+// and when a reply loads a brain that no longer fits (the 2B, chosen again: on the phone, so no question)
 await press(page, ID.two, 'USE');
 await page.waitForFunction((id) => document.querySelector(`#pg-settings .offbrain .obbrain[data-model="${id}"] .obtag`)?.textContent === 'IN USE', ID.two, { timeout: 5000 }).catch(() => problems.push('USE did not switch to the 2B'));
 check(dialogs.length === 0, 'a brain on the phone is switched to without a question');
@@ -190,11 +202,21 @@ check(/^Qwen3\.5 2B needed more memory than this phone could give it just now, s
 const asked2 = await page.evaluate(() => window.__ghostyOfflineEngine.calls);
 check(asked2.length > 0 && asked2.every((c) => c.model === 'Qwen3-0.6B-q4f16_1-MLC'), `the answers came from the 0.6B: ${[...new Set(asked2.map((c) => c.model))]}`);
 
-// REMOVE frees the 4B (asked first)
+// REMOVE frees the 4B (asked first, in a one-tap confirm: it can only come back by downloading again); KEEP IT changes nothing
 await page.evaluate(() => (window.__ghostyOfflineEngine.failFor = ''));
+const sheet = page.locator('.modal .confirm.sure');
 await press(page, ID.four, 'REMOVE');
+await sheet.waitFor({ state: 'visible', timeout: 4000 }).catch(() => problems.push('REMOVE did not ask first'));
+const asks = `${(await page.locator('.modal').last().textContent().catch(() => '')) ?? ''}`;
+check(/Remove this brain\?/i.test(asks) && /Qwen3\.5 4B comes off this phone and frees about 2\.4 GB\. To use it again it must be downloaded again \(about 2\.4 GB, best on Wi-Fi\)\./.test(asks), `REMOVE asks: "${asks}"`);
+await page.screenshot({ path: `${out}/bigbrain-${browserName}-remove-confirm.png` });
+await sheet.locator('button', { hasText: 'KEEP IT' }).click();
+await page.waitForTimeout(400);
+check((await stored(page)).have.includes(ID.four), 'KEEP IT leaves the 4B on the phone');
+await press(page, ID.four, 'REMOVE');
+await sheet.locator('button.sureyes').click().catch(() => problems.push('no REMOVE in the confirm'));
 await page.waitForFunction((id) => [...(document.querySelector(`#pg-settings .offbrain .obbrain[data-model="${id}"]`)?.querySelectorAll('button') ?? [])].some((b) => b.textContent === 'GET'), ID.four, { timeout: 5000 }).catch(() => problems.push('REMOVE did not take the 4B off the phone'));
-check(/^Remove Qwen3\.5 4B from this phone\? It frees about 2\.4 GB/.test(dialogs.at(-1) ?? ''), `REMOVE asks: "${dialogs.at(-1)}"`);
+check(dialogs.length === 0, `no browser dialog for USE or REMOVE: ${JSON.stringify(dialogs)}`);
 check(!(await stored(page)).have.includes(ID.four), 'the 4B is no longer listed as on the phone');
 
 // ---- 5. iPhone width: nothing sideways

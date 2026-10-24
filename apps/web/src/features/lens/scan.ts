@@ -18,9 +18,13 @@
  * unless SAVE is pressed. The state a test reads is at window.__ghosty.scan.
  */
 import { headers } from '../../api/brain';
+import { speakIn, voiceIn } from '../../assistant/voice';
+import { offlineReady, translateOffline } from '../../offline/brain';
+import { OFFLINE_TRANSLATION_NOTE, shouldFallBack } from '../../offline/prompt';
+import { settings } from '../../state/app';
 import { run } from '../../commands/registry';
 import { clear, h } from '../../core/dom';
-import { bar, button, toast } from '../../ui/components';
+import { bar, button, toast, undo } from '../../ui/components';
 import { drawScaled, loadImageFile } from '../../vision/camera';
 import { cleanOcr, titleFrom } from '../../vision/ocrtext';
 import { LANGUAGES, langName, type LookupResult } from '../../../../../packages/shared/src/scan';
@@ -47,6 +51,9 @@ export interface ScanState {
   pdf: { bytes: number; head: string; pages: number; via: 'share' | 'download' } | null;
   original: string;
   translation: string;
+  /** The language the translation is in (a code). */
+  to?: string;
+  /** 'offline': the brain could not be reached and the phone's own model translated (roughly). */
   engine: string;
   error: string;
 }
@@ -518,8 +525,13 @@ export function createScanMode(L: LensContext): Mode {
     S.pages = pages.length;
     pagesLabel.textContent = pages.length ? `${pages.length} PAGE${pages.length === 1 ? '' : 'S'}` : 'NO PAGES YET';
     clear(strip, ...pages.map((p, i) => h('div.scanthumb', h('img', { src: p.thumb, alt: `Page ${i + 1}` }), h('span', String(i + 1)), button('×', () => {
-      pages.splice(i, 1);
+      const [gone] = pages.splice(i, 1);
       renderPages();
+      if (gone)
+        undo(`Page ${i + 1} removed`, () => {
+          pages.splice(Math.min(i, pages.length), 0, gone);
+          renderPages();
+        });
     }))));
   };
   const keepPage = async () => {
@@ -586,12 +598,23 @@ export function createScanMode(L: LensContext): Mode {
     }
   };
   const clearPages = () => {
+    const was = { pages: pages.slice(), pdf: S.pdf, text: docText.value, textHidden: docText.hidden, saveHidden: docSave.hidden };
     pages.length = 0;
     S.pdf = null;
     docText.value = '';
     docText.hidden = true;
     docSave.hidden = true;
     renderPages();
+    // UNDO: every page back, and what READ ALL read from them
+    if (was.pages.length || was.text)
+      undo(`Cleared ${was.pages.length} page${was.pages.length === 1 ? '' : 's'}`, () => {
+        pages.splice(0, pages.length, ...was.pages);
+        S.pdf = was.pdf;
+        docText.value = was.text;
+        docText.hidden = was.textHidden;
+        docSave.hidden = was.saveHidden;
+        renderPages();
+      });
   };
 
   // ======================= TRANSLATE
@@ -612,9 +635,18 @@ export function createScanMode(L: LensContext): Mode {
   original.addEventListener('input', () => (S.original = original.value));
   const outModel = h('small');
   const outText = h('div');
-  const out = h('div.lensreply', outModel, outText);
+  // with no signal the phone translates by itself, roughly, and this says so
+  const outNote = h('small.offnote', OFFLINE_TRANSLATION_NOTE);
+  outNote.hidden = true;
+  const out = h('div.lensreply', outModel, outText, outNote);
   out.hidden = true;
+  // READ ALOUD in the translation's own language, with the phone's voice for it (works with no signal); hidden
+  // when the phone has none, and the line says so.
+  const readBtn = button('READ ALOUD', () => {
+    if (!speakIn(outText.textContent ?? '', S.to || lang.value)) toast(`No ${langName(S.to || lang.value)} voice on this phone to read it aloud`, 'warn');
+  });
   const outActions = h('div.row.wrap',
+    readBtn,
     button('COPY', () => void copyText(outText.textContent ?? '')),
     button('SAVE', () => void L.saveNote(titleFrom(original.value, 'Translation'), `${original.value.trim()}\n\n${langName(lang.value)}:\n${outText.textContent ?? ''}`, 'note')),
     button('ASK GHOSTY', () => L.setMode('ask', { text: `${original.value.trim()}\n\nTranslation (${langName(lang.value)}): ${outText.textContent ?? ''}`, question: 'I translated this. What does it mean for me, and is anything unclear?', send: true }), 'warn'),
@@ -628,18 +660,35 @@ export function createScanMode(L: LensContext): Mode {
     translating = true;
     status(`translating into ${langName(lang.value)}…`, 'mid');
     try {
-      const r = await fetch('/api/translate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text, to: lang.value }), credentials: 'same-origin' });
-      const j = (await r.json().catch(() => ({}))) as { text?: string; from?: string; to?: string; engine?: string; error?: string };
-      if (!r.ok || typeof j.text !== 'string') throw new Error(j.error ?? `HTTP ${r.status}`);
-      S.translation = j.text;
+      const to = lang.value;
+      // The brain's free translator; with no signal (or the brain down) the offline brain on this phone, if it is here.
+      let j: { text?: string; from?: string; to?: string; engine?: string; error?: string };
+      try {
+        const r = await fetch('/api/translate', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ text, to }), credentials: 'same-origin' });
+        j = (await r.json().catch(() => ({}))) as typeof j;
+        if (!r.ok || typeof j.text !== 'string') throw Object.assign(new Error(j.error ?? `HTTP ${r.status}`), { status: r.status });
+      } catch (e) {
+        if (!shouldFallBack(e) || settings.get().offlineBrain === 'off') throw e;
+        if (!(await offlineReady().catch(() => false))) throw new Error('no signal, and the offline brain isn’t on this phone (Settings → Offline brain → DOWNLOAD, on Wi-Fi) to translate without it');
+        status(`no signal: translating into ${langName(to)} on your phone…`, 'mid');
+        const r = await translateOffline(text, to);
+        if (!r.text) throw new Error('the offline brain gave no translation');
+        j = { text: r.text, to, engine: 'offline' };
+      }
+      const t = j.text ?? '';
+      S.translation = t;
       S.engine = j.engine ?? '';
-      outText.textContent = j.text;
+      S.to = j.to ?? to;
+      outText.textContent = t;
+      outText.lang = S.to;
       const from = j.from ? `${langName(j.from)} → ` : '';
-      outModel.textContent = `${from}${langName(j.to ?? lang.value)} · ${j.engine === 'workers-ai' ? 'free translator' : j.engine === 'model' ? 'chat model' : 'already in that language'}`;
+      outModel.textContent = `${from}${langName(S.to)} · ${j.engine === 'offline' ? 'on your phone · rough, offline' : j.engine === 'workers-ai' ? 'free translator' : j.engine === 'model' ? 'chat model' : 'already in that language'}`;
+      outNote.hidden = j.engine !== 'offline';
+      readBtn.hidden = !voiceIn(S.to);
       out.hidden = false;
       outActions.hidden = false;
       reveal(out);
-      status('translated', 'ok');
+      status(j.engine === 'offline' ? 'translated on your phone (rough, offline)' : 'translated', 'ok');
     } catch (e) {
       S.error = errText(e);
       status(`Could not translate: ${S.error}`, 'off');
@@ -669,7 +718,7 @@ export function createScanMode(L: LensContext): Mode {
     original,
     out,
     outActions,
-    h('div.note', 'The phone reads letters of the Latin alphabet (English, French, Spanish, Polish…); for other scripts, type or paste the text. Translation is done by Ghosty\'s brain (Workers AI\'s free translator).'),
+    h('div.note', 'The phone reads letters of the Latin alphabet (English, French, Spanish, Polish…); for other scripts, type or paste the text. Translation is done by Ghosty\'s brain (Workers AI\'s free translator); with no signal, the offline brain on this phone does it roughly, if it is downloaded.'),
   );
 
   // ======================= switching

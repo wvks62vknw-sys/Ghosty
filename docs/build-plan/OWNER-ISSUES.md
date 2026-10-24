@@ -195,3 +195,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     say yes); then "take me home" and "how long to work?". Agenda → SPENDING → ADD A STATEMENT with a CSV from your
     bank's app (Monzo, Barclays, Lloyds, Nationwide, HSBC and the like): the month sorted on the phone, budgets in your
     words. Nothing connects to the bank.
+    (k) Remove anything (a memory, a library document, a course, a widget): an UNDO bar sits above the tab bar for 12
+    seconds and puts it back exactly. With no signal, "translate dinner into Spanish": the phone's own brain answers,
+    marked rough, with READ ALOUD.

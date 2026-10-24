@@ -332,6 +332,44 @@ function playClip(el: HTMLAudioElement, blob: Blob): Promise<boolean> {
   });
 }
 
+/**
+ * The phone's own voice for a language (`lang` a code such as "es"), the most natural first; null when the phone
+ * has none — then a translation is not read aloud in a wrong accent.
+ */
+export function voiceIn(lang: string): SpeechSynthesisVoice | null {
+  if (!voices.length) loadVoices();
+  const want = lang.toLowerCase();
+  const all = voices.filter((v) => v.lang.toLowerCase().replace('_', '-').split('-')[0] === want);
+  return all.sort((a, b) => phoneVoiceScore(b) - phoneVoiceScore(a) || Number(b.localService) - Number(a.localService))[0] ?? null;
+}
+
+/**
+ * READ ALOUD a translation in its own language's voice on this phone (works with no signal). False, and nothing
+ * said, when the phone has no voice for that language.
+ */
+export function speakIn(text: string, lang: string): boolean {
+  const v = voiceIn(lang);
+  if (!v || !('speechSynthesis' in window)) return false;
+  stopSpeaking();
+  const token = speakToken;
+  const u = new SpeechSynthesisUtterance(text.trim());
+  u.voice = v;
+  u.lang = v.lang;
+  u.rate = 0.95;
+  Object.assign(voiceNow, { engine: 'phone', name: v.name });
+  u.onend = u.onerror = () => {
+    if (token === speakToken && ui.get().voice === 'speaking') ui.set({ voice: 'idle' });
+  };
+  ui.set({ voice: 'speaking' });
+  try {
+    speechSynthesis.resume();
+  } catch {
+    /* ignore */
+  }
+  speechSynthesis.speak(u);
+  return true;
+}
+
 export function stopSpeaking(): void {
   speakToken++;
   try {

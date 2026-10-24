@@ -91,8 +91,9 @@ async function run(name, viewport) {
   await page.waitForFunction(() => /ACTIVE · a step every 20 min/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RESUME did not change the card`));
   await jp.locator('.change.project').first().locator('button:has-text("RUN NEXT NOW")').click();
   await page.waitForFunction(() => /2\/4/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] RUN NEXT NOW did not advance the bar to 2/4`));
-  page.once('dialog', (d) => d.accept());
+  // CANCEL asks first in a one-tap confirm (a cancelled project cannot be started again)
   await jp.locator('.change.project').nth(1).locator('button:has-text("CANCEL")').click();
+  await page.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push(`[${name}] CANCEL did not ask first`));
   await page.waitForFunction(() => /CANCELLED/.test(document.querySelector('#pg-workshop')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] CANCEL did not change the card`));
   const expected = ['aaaa111111:pause', 'aaaa111111:resume', 'aaaa111111:run', 'bbbb222222:cancel'];
   if (JSON.stringify(state.actions) !== JSON.stringify(expected)) problems.push(`[${name}] the brain saw ${JSON.stringify(state.actions)}, expected ${JSON.stringify(expected)}`);

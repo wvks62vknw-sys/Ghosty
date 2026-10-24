@@ -119,4 +119,9 @@ export const space = {
     load().measures = [];
     save();
   },
+  /** CLEAR's UNDO: the measurements as they were. */
+  setMeasurements(list: SpaceData['measures']): void {
+    load().measures = list;
+    save();
+  },
 };

@@ -16,7 +16,7 @@ import { headers } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, row, toast } from '../../ui/components';
+import { button, row, toast, undo as offerUndo } from '../../ui/components';
 import { planToRoom } from '../../space/roomjson';
 import { space } from '../../space/store';
 import { parseRoom, type RoomPlan } from '../../studio/room';
@@ -234,6 +234,8 @@ export const studioTab: TabDef = {
     const modelsPane = h('div.studiopane');
     const fileIn = h('input', { type: 'file', accept: '.glb,.gltf,model/gltf-binary,model/gltf+json', hidden: true, 'aria-label': 'Open a 3-D model file' });
     const made: MadeModel[] = [];
+    /** Forgotten with the UNDO bar still up: off the list, still on the brain. */
+    const madeGoing = new Set<string>();
     const madeBox = h('div.studiolist');
     const keptBox = h('div.studiolist');
     let keptList: Kept[] = [];
@@ -363,10 +365,18 @@ export const studioTab: TabDef = {
               const x = r.lastChild as HTMLElement;
               x.classList.add('del');
               x.title = 'Remove it from this phone';
+              // UNDO keeps the very same model again (its file is read before it goes)
               x.addEventListener('click', async (e) => {
                 e.stopPropagation();
+                const file = await keptFile(k.id);
                 await forget(k.id);
                 void refreshKept();
+                if (file)
+                  offerUndo(`Removed from this phone: ${k.title}`, async () => {
+                    await keep(k, file);
+                    void refreshKept();
+                    toast(`Back on this phone: ${k.title}`, 'ok');
+                  });
               });
               return r;
             })
@@ -381,10 +391,23 @@ export const studioTab: TabDef = {
       const x = r.lastChild as HTMLElement;
       x.classList.add('del');
       x.title = 'Forget this model';
-      x.addEventListener('click', async (e) => {
+      // Off the list with UNDO; the brain forgets it only when the bar goes (it keeps no copy to bring back).
+      x.addEventListener('click', (e) => {
         e.stopPropagation();
-        await fetch(`/api/m3d/${encodeURIComponent(m.id)}`, { method: 'DELETE', headers: headers(), credentials: 'same-origin' }).catch(() => null);
-        void refreshMade();
+        madeGoing.add(m.id);
+        r.remove();
+        offerUndo(
+          `Forgotten: ${m.title}`,
+          () => {
+            madeGoing.delete(m.id);
+            void refreshMade();
+          },
+          async () => {
+            await fetch(`/api/m3d/${encodeURIComponent(m.id)}`, { method: 'DELETE', headers: headers(), credentials: 'same-origin', keepalive: true }).catch(() => null);
+            madeGoing.delete(m.id);
+            void refreshMade();
+          },
+        );
       });
       return r;
     };
@@ -392,7 +415,7 @@ export const studioTab: TabDef = {
       try {
         const r = await fetch('/api/m3d', { headers: headers(), credentials: 'same-origin' });
         const j = (await r.json()) as { models?: MadeModel[] };
-        made.splice(0, made.length, ...(j.models ?? []));
+        made.splice(0, made.length, ...(j.models ?? []).filter((x) => !madeGoing.has(x.id)));
       } catch {
         // offline: the samples still work
       }

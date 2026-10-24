@@ -118,7 +118,9 @@ export async function flush(): Promise<boolean> {
 export async function sync(): Promise<boolean> {
   await flush();
   try {
-    const st = await call<LearnState>('GET', '');
+    const got = await call<LearnState>('GET', '');
+    // (a course on its way out, its UNDO bar still up, stays out)
+    const st = { ...got, courses: got.courses.filter((c) => !leaving.has(c.id)), cards: got.cards.filter((c) => !leaving.has(c.course)) };
     learn.set((s) => {
       const ids = new Set(st.courses.map((c) => c.id));
       const full = Object.fromEntries(Object.entries(s.full).filter(([id]) => ids.has(id)).map(([id, c]) => [id, withDone(c, s.pendingDone ?? [])]));
@@ -194,6 +196,49 @@ function progressed(x: CourseSummary, c: Course | undefined): CourseSummary {
   if (!c) return x;
   const next = c.lessons.find((l) => !l.done);
   return { ...x, done: c.lessons.filter((l) => l.done).length, next: next?.n ?? 0, nextTitle: next?.title ?? '' };
+}
+
+/** Courses REMOVEd with the UNDO bar still up: gone from this phone's list, not yet from the brain. */
+const leaving = new Set<string>();
+
+/**
+ * REMOVE with UNDO: the course, its cards and its lessons leave this phone's lists now, and the brain is told only
+ * when the bar goes (`commit`); `undo` before then puts each back exactly where it was.
+ */
+export function removeCourseLater(id: string): { undo(): void; commit(): Promise<void> } {
+  const was = learn.get();
+  const at = was.courses.findIndex((c) => c.id === id);
+  const course = was.courses[at];
+  const cards = was.cards.filter((c) => c.course === id);
+  const full = was.full[id];
+  const done = (was.pendingDone ?? []).filter((d) => d.course === id);
+  leaving.add(id);
+  dropHere(id);
+  return {
+    undo() {
+      leaving.delete(id);
+      learn.set((s) => {
+        const courses = s.courses.filter((c) => c.id !== id);
+        if (course) courses.splice(Math.max(0, Math.min(at, courses.length)), 0, course);
+        return { courses, cards: [...s.cards, ...cards.filter((c) => !s.cards.some((x) => x.id === c.id))], full: full ? { ...s.full, [id]: full } : s.full, pendingDone: [...(s.pendingDone ?? []), ...done] };
+      });
+    },
+    async commit() {
+      try {
+        await call('DELETE', `/course/${encodeURIComponent(id)}`);
+      } finally {
+        leaving.delete(id);
+      }
+    },
+  };
+}
+
+function dropHere(id: string): void {
+  learn.set((s) => {
+    const full = { ...s.full };
+    delete full[id];
+    return { courses: s.courses.filter((c) => c.id !== id), cards: s.cards.filter((c) => c.course !== id), full, pendingDone: (s.pendingDone ?? []).filter((d) => d.course !== id) };
+  });
 }
 
 export async function removeCourse(id: string): Promise<void> {

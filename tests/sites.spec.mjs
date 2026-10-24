@@ -99,8 +99,8 @@ else {
     for (const want of ['COPY LINK', 'UNPUBLISH']) if (!btns.includes(want)) problems.push(`the listed page has no ${want} button (${btns.join(', ')})`);
     await ui.screenshot({ path: `${out}/iphone-published-pages.png` });
     // UNPUBLISH asks, then the link stops working.
-    ui.once('dialog', (d) => void d.accept());
     await ui.click(`${own} button:has-text("UNPUBLISH")`);
+    await ui.locator('.modal .confirm.sure button.sureyes').click({ timeout: 5000 }).catch(() => problems.push('UNPUBLISH did not ask first'));
     await ui.waitForSelector(`${own} a.sitelink`, { state: 'detached', timeout: 10000 }).catch(() => problems.push('the page is still listed after UNPUBLISH'));
     // (asked outside the browser's cache: the page was opened a moment ago and is cacheable for a minute)
     const r = await ctx.request.get(`${base}/s/acme-bakery`, { headers: { 'cache-control': 'no-cache' } });

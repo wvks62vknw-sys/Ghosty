@@ -7,7 +7,8 @@
  * WHICH BRAIN (the picker): today's Qwen3 0.6B and the bigger Qwen3.5 2B and 4B (offline/models.ts PICKER), each with
  * its download, the memory it needs when running and whether it fits (fitLine: the browser's memory figure, else the
  * owner's 12 GB 18 Pro Max), the one in use marked; GET asks first with the size (never on mobile data), a brain on the
- * phone is switched to at once (USE), a bigger one can be removed. The weekly training follows the brain chosen here
+ * phone is switched to at once (USE, with 12 s to UNDO it), a bigger one can be removed (REMOVE asks first in a one-tap
+ * confirm, as DELETE does: neither can be put back without downloading again). The weekly training follows the brain chosen here
  * (offline/trained.ts followBase). If a bigger one cannot get the memory, the 0.6B takes over and the panel says so.
  */
 import { clear, h } from '../../core/dom';
@@ -18,7 +19,7 @@ import { BIGGER, brainOf, fitLine, memText, MODELS, PICKER, sizeText, stockOf, t
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
 import { settings } from '../../state/app';
-import { bar, button, panel, toast, type Panel } from '../../ui/components';
+import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
 import { meaningBlock } from './meaning';
 
 /** The device's memory when the browser says it (Chrome, at most 8); Safari does not, and the picker uses the 18 Pro Max's 12 GB. */
@@ -44,9 +45,18 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('option', { value: 'off' }, 'Use it: off'),
   );
   mode.value = settings.get().offlineBrain;
+  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'off' } as const;
   mode.addEventListener('change', () => {
+    const was = settings.get().offlineBrain;
     const v = mode.value === 'always' || mode.value === 'off' ? mode.value : 'auto';
     settings.set({ offlineBrain: v });
+    // Off (no answers with no signal) or always (never the cloud brain) changes every reply: UNDO for 12 s.
+    if (v !== was && (v === 'off' || v === 'always'))
+      undo(`Offline brain: ${MODE_WORDS[v]}`, () => {
+        settings.set({ offlineBrain: was });
+        mode.value = was;
+        toast(`Offline brain: ${MODE_WORDS[was]} again`, 'ok');
+      });
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
     if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
     else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
@@ -70,11 +80,21 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const news = h('div.note.obnew');
   which.addEventListener('change', () => {
     if (offlineBrain.get().busy || which.value === offlineBrain.get().model) return;
+    // The brain on the phone stops being ready until the new one is downloaded: UNDO goes back to the one that was
+    // (its files are still here until another download finishes).
+    const was = { model: offlineBrain.get().model, downloaded: offlineBrain.get().downloaded, label: currentModel().label };
     offlineBrain.set({ model: which.value, downloaded: false, loaded: false });
     // (a kept week of another base: the training follows it; a week of the same base changes nothing there)
     if (brainOf(currentModel()) !== offlineBrain.get().trainBase) void followBase(brainOf(currentModel()));
     toast(`${currentModel().label}: press DOWNLOAD (about ${sizeText(currentModel().mb)}, on Wi-Fi)`, 'ok');
     refresh();
+    undo(`Offline brain: ${currentModel().label}`, () => {
+      offlineBrain.set({ model: was.model, downloaded: was.downloaded, loaded: false });
+      // (and the training follows the brain put back, when its base is another)
+      if (brainOf(currentModel()) !== offlineBrain.get().trainBase) void followBase(brainOf(currentModel()));
+      toast(`Back to ${was.label}`, 'ok');
+      refresh();
+    });
   });
   const out = h('div.note.obtest');
   let ok = false;
@@ -88,8 +108,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
       .finally(refresh);
     refresh();
   }, 'on');
-  const del = button('DELETE', () => {
-    if (!confirm('Remove the offline brain from this phone, every size of it? (You can download it again any time.)')) return;
+  // Every size on this phone cannot be put back without downloading it again: a one-tap confirm that says so.
+  const del = button('DELETE', async () => {
+    if (!(await confirmSheet('Delete the offline brain?', `${currentModel().label} and every other size of it on this phone come off it: with no signal Ghosty cannot answer until you download it again (about ${sizeText(currentModel().mb)}, best on Wi-Fi).`, 'DELETE'))) return;
     void deleteOffline().then(() => toast('Offline brain removed', 'ok')).finally(refresh);
   }, 'warn');
   const test = button('TEST', () => {
@@ -140,12 +161,22 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const fell = h('div.note.obfell');
   let here: string[] = [];
 
-  /** Start using a brain that is on this phone (the training follows it). */
+  /**
+   * Start using a brain that is on this phone (the training follows it). Every reply changes, and the training starts
+   * a fresh chain: UNDO for 12 s goes back to the brain that was (still on this phone) and its base.
+   */
   const use = (m: ModelDef) => {
+    const was = currentModel();
     if (!chooseBrain(m.id)) return;
     void followBase(brainOf(m));
     toast(`${m.label} is the offline brain now: tap TEST to try it on this phone`, 'ok');
     refresh();
+    undo(`Offline brain: ${m.label}`, () => {
+      if (!chooseBrain(was.id)) return;
+      void followBase(brainOf(was));
+      toast(`Back to ${was.label}`, 'ok');
+      refresh();
+    });
   };
   /** Download a brain: asked first, with its size, and never on mobile data. */
   const get = (m: ModelDef) => {
@@ -165,8 +196,11 @@ export function offlinePanel(): Panel & { refresh(): void } {
       .finally(refresh);
     refresh();
   };
-  const remove = (m: ModelDef) => {
-    if (offlineBrain.get().busy || !confirm(`Remove ${m.label} from this phone? It frees about ${sizeText(m.mb)}; you can get it again any time.`)) return;
+  /** Remove a bigger brain's files: they cannot be put back without downloading them again, so a one-tap confirm says so. */
+  const remove = async (m: ModelDef) => {
+    if (offlineBrain.get().busy) return;
+    if (!(await confirmSheet('Remove this brain?', `${m.label} comes off this phone and frees about ${sizeText(m.mb)}. To use it again it must be downloaded again (about ${sizeText(m.mb)}, best on Wi-Fi).`, 'REMOVE'))) return;
+    if (offlineBrain.get().busy) return;
     void removeBrain(m.id).then(() => toast(`${m.label} removed from this phone`, 'ok')).finally(refresh);
   };
 
@@ -190,7 +224,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
           g.setAttribute('aria-label', `Get ${m.label}: about ${sizeText(m.mb)}, on Wi-Fi`);
           btns.push(g);
         }
-        if (!using && onPhone && BIGGER.includes(m)) btns.push(button('REMOVE', () => remove(m), 'warn'));
+        if (!using && onPhone && BIGGER.includes(m)) btns.push(button('REMOVE', () => void remove(m), 'warn'));
         for (const b of btns) b.disabled = !ok || !!s.busy;
         return h(
           `div.obbrain${using ? '.on' : ''}` as 'div',
