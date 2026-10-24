@@ -4,7 +4,7 @@
 // loads, and "runs out of memory" for the one named in `failFor`. The browser is made to say what Safari says: no
 // memory figure, no connection type (unless the spec sets one). Checked, at the owner's iPhone 18 Pro Max size:
 //  1. the picker lists Qwen3 0.6B (in use, the fallback), Qwen3.5 2B and 4B with download, memory when running and
-//     "fits an 18 Pro Max: yes / yes / tight"; a browser that gives its memory (8 GB)
+//     "fits an 18 Pro Max: yes / yes / tight"; the one line on cost and gain; a browser that gives its memory (8 GB)
 //     gets "fits this device (8 GB)";
 //  2. GET on mobile data is refused with the size, no question asked; on Wi-Fi it asks first, with the size; saying no
 //     changes nothing; yes downloads it (the engine loads that very model), marks it IN USE, keeps the 0.6B ON THIS
@@ -114,6 +114,8 @@ check(list[2]?.facts === '2.4 GB download · about 3.8 GB of memory when running
 check(list[0]?.tag === 'IN USE' && !list[1]?.tag && !list[2]?.tag, `only the 0.6B is marked in use: ${JSON.stringify(list.map((r) => r.tag))}`);
 check(list[1]?.buttons.join() === 'GET' && list[2]?.buttons.join() === 'GET', `GET for the brains not on the phone: ${JSON.stringify(list.map((r) => r.buttons))}`);
 check((await page.locator(`#pg-settings .offbrain .obbrain[data-model="${ID.two}"] button`).getAttribute('aria-label')) === 'Get Qwen3.5 2B: about 1.1 GB, on Wi-Fi', 'GET says the size to VoiceOver');
+const cost = await page.locator('#pg-settings .offbrain .obcost').textContent();
+check(/bigger download, more of the phone’s memory and a slower first word/.test(cost ?? '') && /answers better/.test(cost ?? '') && /tap TEST after it loads/.test(cost ?? ''), `the cost and gain line: "${cost}"`);
 await shot(page, 'picker');
 
 // the 0.6B on the phone first (the fallback), as the owner has it today

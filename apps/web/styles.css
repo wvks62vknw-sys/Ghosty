@@ -2177,6 +2177,7 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .offbrain .obfacts { margin-top: 2px; }
 .offbrain .obbrain .keyrow { margin-top: 8px; }
 .offbrain .obfell { color: var(--amber, #ffb340); }
+.offbrain .obcost { margin-top: 8px; }
 
 /* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
 .msg .siterow { flex-wrap: wrap; }

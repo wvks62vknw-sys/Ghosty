@@ -266,6 +266,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     out,
     h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
     pick,
+    // What a bigger brain costs and gains, in one line, and where the truth is found.
+    h('div.note.obcost', 'A bigger brain answers better, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
     // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
     meaningBlock(),
   );
