@@ -238,6 +238,12 @@ export async function passagesOf(id: string): Promise<LocalPassage[]> {
   });
 }
 
+/** A document's passages from this phone's copy, by the brain's id or this phone's own (null: not kept here). */
+export async function passagesHere(id: string): Promise<LocalPassage[] | null> {
+  const d = [...(await all()).values()].find((x) => !x.removed && (x.id === id || x.brainId === id));
+  return d ? passagesOf(d.id) : null;
+}
+
 /**
  * Every passage, a batch at a time (pausing between batches so the screen never freezes); with `vectors`, each
  * with its meaning vector when it has one (read from "vec" over the same keys, in the same step).

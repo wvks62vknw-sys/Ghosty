@@ -12,7 +12,7 @@
  * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { meaningComplete, meaningIndex } from '../../library/meaning';
 import { queryTerms } from '../../../../../packages/shared/src/meaning';
@@ -309,7 +309,7 @@ export const libraryTab: TabDef = {
         clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
-        sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
+        sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}${isOffline() ? ' · on this phone' : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');
@@ -446,16 +446,22 @@ export const libraryTab: TabDef = {
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
     const pick = h('select', { 'aria-label': 'Field to study' });
     pick.addEventListener('change', () => study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value)));
+    /** The last study state shown (painted again when the phone goes offline or comes back). */
+    let lastStudy: StudyNow | null = null;
     const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
+      lastStudy = st;
       if (!st) {
         study.setStatus('OFFLINE', 'off');
+        study.body.append(h('div.note', 'Ghosty can’t be reached right now, so his self-study can’t be shown. It comes back by itself.'));
         return;
       }
+      // No connection: what he was reading when last seen, said so, and nothing to press that cannot work now.
+      const off = isOffline();
       const sum = st.summary;
       const doms = sum.domains as FieldRow[];
       const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
-      study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
+      study.setStatus(off ? 'OFFLINE' : st.on ? 'LEARNING' : 'OFF', off ? 'off' : st.on ? 'ok' : 'mid');
       const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
       const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
       const fields = [...doms].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
@@ -494,10 +500,10 @@ export const libraryTab: TabDef = {
       const today = sum.today;
       study.body.append(
         // what he is reading now, honestly: "Reading Algebra · 212 of 480 · about 40 minutes left at this pace"
-        h('div.studynow', h('b', sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
+        h('div.studynow', h('b', off ? `You’re offline. When Ghosty was last reached: ${sum.status ?? (st.on ? 'learning' : 'switched off')}. He keeps reading on his side; this updates when you’re back.` : sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
         later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
-        h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
-        h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
+        off ? '' : h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
+        off ? '' : h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
         // what he learned today: three numbers, large
         h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
           h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
@@ -534,7 +540,7 @@ export const libraryTab: TabDef = {
           }))
           : '',
         focusNames.length ? row('FIRST', focusNames.join(', '), '★', { wrap: true }) : '',
-        h('div.keyrow', focusIn, button('FOCUS', async () => {
+        off ? '' : h('div.keyrow', focusIn, button('FOCUS', async () => {
           const words = focusIn.value.trim();
           if (!words) return;
           focusIn.value = '';
@@ -542,7 +548,7 @@ export const libraryTab: TabDef = {
           if (r && !r.focus.length && !/^(none|off|clear|-)$/i.test(words)) toast('No field by that name — the FIELDS list has them all', 'warn');
           paintStudy(r ? ((await brain.studyStatus().catch(() => r)) as StudyNow) : null);
         })),
-        h('div.keyrow.wrapit',
+        off ? '' : h('div.keyrow.wrapit',
           button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy((await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)) as StudyNow | null), st.on ? 'warn' : 'on'),
           button('EXPORT TO GITHUB', async (b) => {
             // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
@@ -598,7 +604,7 @@ export const libraryTab: TabDef = {
         fresh.setStatus('OFFLINE', 'off');
       }
     };
-    fresh.foot!.prepend(button('DIGEST NOW', async (b) => {
+    const digestBtn = button('DIGEST NOW', async (b) => {
       b.disabled = true;
       b.textContent = 'GATHERING…';
       try {
@@ -612,15 +618,27 @@ export const libraryTab: TabDef = {
       b.textContent = 'DIGEST NOW';
       void paintFresh();
       void refresh();
-    }, 'on'));
+    }, 'on');
+    fresh.foot!.prepend(digestBtn);
     // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
     P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
 
     let vectors = false;
     let starterReady = true;
+    /** The brain could not be reached the last time the shelf was asked for (the phone's copy is shown). */
+    let unreached = false;
+    const isOffline = () => unreached || (typeof navigator !== 'undefined' && navigator.onLine === false);
+    /** What depends on a connection, set to match it (DIGEST NOW; self-study's controls). */
+    const showReach = () => {
+      digestBtn.disabled = isOffline();
+      if (lastStudy) paintStudy(lastStudy);
+    };
     const refresh = async (): Promise<void> => {
       try {
         const r = await brain.library();
+        const was = unreached;
+        unreached = !!r.offline;
+        if (was !== unreached) showReach();
         docs = r.docs;
         vectors = r.vectors;
         starterReady = r.starterReady;
@@ -628,7 +646,9 @@ export const libraryTab: TabDef = {
         paintShelf();
         paintGadgets(docs.filter((x) => !leaving.has(x.id)));
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
-        P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;
+        P.sub.textContent = r.offline
+          ? `You’re offline: this is the copy on this phone (${fmt.n(r.stats.docs)} documents). It updates by itself when you’re back.`
+          : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;
         P.dials([
           ['YOURS', Math.min(1, docs.filter((d) => !d.builtin).length / 50), `${docs.filter((d) => !d.builtin).length}`, '#5ce1ff'],
           ['BUILT-IN', 1, `${docs.filter((d) => d.builtin).length}`, '#52f2b5'],
@@ -636,6 +656,7 @@ export const libraryTab: TabDef = {
         ]);
         if (!starterReady && !busy.n) setTimeout(() => void refresh(), 1500); // keep filling the starter library
         // Keep this device's copy current (it answers when the brain can't), and say how much is here.
+        if (r.offline) return;
         const sub = P.sub.textContent;
         void mirrorLibraryNow()
           .then(() => deviceShelf())
@@ -643,16 +664,31 @@ export const libraryTab: TabDef = {
             if (P.sub.textContent === sub) P.sub.textContent = `${sub} · ${fmt.n(x.stats.passages)} passages on this device (works offline)`;
           });
       } catch (e) {
+        if (unreachable(e) && !unreached) {
+          unreached = true;
+          showReach();
+        }
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);
         shelf.body.append(h('div.note', `The library is not reachable: ${(e as Error).message}`));
       }
     };
 
+    addEventListener('online', () => {
+      if (!root.isConnected || !root.getClientRects().length) return;
+      unreached = false;
+      void refresh();
+      void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
+      void paintFresh();
+    });
+    addEventListener('offline', () => root.isConnected && showReach());
     return {
       enter() {
-        void refresh();
-        void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
+        // (self-study is painted once the shelf has said whether Ghosty can be reached)
+        void Promise.all([refresh(), brain.studyStatus().catch(() => null)]).then(([, s]) => {
+          paintStudy(s as StudyNow | null);
+          showReach();
+        });
         void paintFresh();
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,

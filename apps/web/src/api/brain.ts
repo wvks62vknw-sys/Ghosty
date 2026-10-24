@@ -7,7 +7,7 @@ import { createStore } from '../core/store';
 import { stopwatch } from '../core/stopwatch';
 import { agendaWithOutbox, armBrainReminders, enqueue, factsWithOutbox, flushOutbox, offline, offlineContext } from './offline';
 import { persistAsksQuietly } from '../features/system/storage';
-import { keepForever, meaningPossible, mirrorLibrary, passagesFor, pendingDocs, removeDoc, removedHere, searchLocalHow, shelf, syncLocalDocs } from '../library/local';
+import { keepForever, meaningPossible, mirrorLibrary, passagesFor, passagesHere, pendingDocs, removeDoc, removedHere, searchLocalHow, shelf, syncLocalDocs } from '../library/local';
 import { interleave, type SearchHow } from '../../../../packages/shared/src/meaning';
 import type { PersonaSettings } from '../../../../packages/shared/src/persona';
 import type { BrainLoops } from '../../../../packages/shared/src/loops';
@@ -363,7 +363,7 @@ export const brain = {
   trainingExercise: (id: string) => req<{ id: string; title: string; level: number; topic: string; prompt: string; entry: string; tests: { args: unknown[]; expect: unknown; note?: string }[] }>('GET', `/train/exercise/${encodeURIComponent(id)}`),
   trainingAttempt: (id: string, history: { code: string; report: string }[]) => req<{ code: string; model: string }>('POST', '/train/attempt', { id, history }),
   trainingResult: (r: { id: string; solved: boolean; attempts: number; code: string; model: string; firstReport?: string }) => req<{ lesson: string }>('POST', '/train/result', r),
-  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean }>('GET', '/library'),
+  library: () => req<{ docs: LibraryDoc[]; stats: { docs: number; passages: number; chars: number; bytes: number; vectors: number }; starterReady: boolean; vectors: boolean; spare?: boolean; offline?: boolean }>('GET', '/library'),
   librarySearch: (q: string, k = 8) => req<{ hits: LibraryHit[]; how?: SearchHow; unindexed?: number }>('GET', `/library/search?k=${k}&q=${encodeURIComponent(q)}`),
   libraryCreate: (doc: { title: string; source: string; kind: string; pages: number }) => req<{ doc: LibraryDoc }>('POST', '/library/docs', doc),
   libraryAdd: (id: string, passages: { text: string; heading?: string; page?: number }[]) => req<{ added: number }>('POST', `/library/docs/${encodeURIComponent(id)}/passages`, { passages }),
@@ -504,7 +504,7 @@ function keepForLater(e: unknown): boolean {
   return unreachable(e) || e instanceof AuthError || typeof status !== 'number' || status >= 500 || status === 408 || status === 429;
 }
 
-const raw = { addTurns: brain.addTurns, library: brain.library, librarySearch: brain.librarySearch, libraryRemove: brain.libraryRemove, memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
+const raw = { addTurns: brain.addTurns, library: brain.library, librarySearch: brain.librarySearch, libraryRemove: brain.libraryRemove, libraryPassages: brain.libraryPassages, memory: brain.memory, addMemory: brain.addMemory, forget: brain.forget, agenda: brain.agenda, addEvent: brain.addEvent, deleteEvent: brain.deleteEvent, addJob: brain.addJob, deleteJob: brain.deleteJob, inbox: brain.inbox };
 
 brain.memory = async () => {
   try {
@@ -550,7 +550,8 @@ brain.library = async () => {
     // Paused or offline: the shelf from this device's copy of the library.
     const here = await shelf();
     if (!here.docs.length) throw e;
-    return { ...here, starterReady: true, vectors: false };
+    // (`offline`: the Library tab says this is the phone's copy)
+    return { ...here, starterReady: true, vectors: false, offline: true };
   }
   lastSeen.set({ passages: r.stats.passages });
   const [mine, gone] = await Promise.all([pendingDocs(), removedHere()]);
@@ -572,7 +573,7 @@ export function mirrorLibraryNow(): Promise<void> {
         const lib = await raw.library();
         // The brain says the day's database allowance is running low: copying can wait for tomorrow.
         if (lib.spare === false) break;
-        const r = await mirrorLibrary({ docs: async () => lib.docs, passages: (id, after) => brain.libraryPassages(id, after) });
+        const r = await mirrorLibrary({ docs: async () => lib.docs, passages: (id, after) => raw.libraryPassages(id, after) });
         if (!r.left) break;
         await new Promise((ok) => setTimeout(ok, 1500));
       }
@@ -606,6 +607,22 @@ brain.librarySearch = async (q, k = 8) => {
     if (unreachable(e)) return searchLocalHow(q, k);
     throw e;
   }
+};
+/**
+ * A document's passages for the reader: from the brain, or, when it can't be reached (or the document is only on
+ * this phone), from the phone's own copy, 300 at a time, so his library reads with no connection at all.
+ */
+brain.libraryPassages = async (id, after = 0) => {
+  if (!isLocal(id)) {
+    try {
+      return await raw.libraryPassages(id, after);
+    } catch (e) {
+      if (!unreachable(e)) throw e;
+    }
+  }
+  const mine = await passagesHere(id);
+  if (!mine) throw new Error('it is not on this phone yet, so it opens when Ghosty can be reached');
+  return { passages: mine.slice(after, after + 300).map((p, i) => ({ rid: after + i, text: p.text, heading: p.heading ?? '', page: p.page ?? null })), next: after + 300 < mine.length ? after + 300 : null };
 };
 brain.libraryRemove = async (id: string) => {
   if (isLocal(id)) return removeDoc(id);

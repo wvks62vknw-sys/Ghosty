@@ -194,6 +194,9 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   await searched(ui);
   const junk = await ui.evaluate(() => ({ hits: document.querySelectorAll('#pg-library .rw.hit').length, said: document.querySelector('#pg-library .nohits')?.textContent ?? '' }));
   if (junk.hits || !/Nothing in the library mentions/.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
+  await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+  await ui.keyboard.press('Enter');
+  await searched(ui);
   if (name === 'desktop') {
     // The whole library is copied to this device and answers with no connection at all.
     await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] the library was never copied to the device: ${'' }`));
@@ -322,6 +325,46 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
       const lib = await (await fetch('/api/library', { headers: H })).json().catch(() => ({ docs: [] }));
       for (const d of lib.docs ?? []) if (/Quillwort/i.test(d.title)) await fetch(`/api/library/docs/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: H });
     });
+    // ---- no connection: self-study says so and offers nothing that cannot work now, DIGEST NOW waits, and a
+    // document on the shelf still reads, from the phone's own copy
+    await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] the library was never copied to the phone`));
+    await ctx.setOffline(true);
+    await ui.evaluate(() => (location.hash = 'core'));
+    await ui.waitForTimeout(300);
+    await ui.evaluate(() => (location.hash = 'library'));
+    await ui.waitForFunction(() => /offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    const offStudy = await ui.evaluate(() => {
+      const pn = document.querySelector('#pg-library .pn.study');
+      return {
+        status: pn?.querySelector('h3 small')?.textContent ?? '',
+        line: pn?.querySelector('.studynow b')?.textContent ?? '',
+        buttons: [...(pn?.querySelectorAll('button') ?? [])].filter((b) => !b.disabled && b.getClientRects().length).map((b) => b.textContent?.trim() ?? ''),
+        digest: document.querySelector('#pg-library .pn.fresh .ft button')?.disabled ?? null,
+        sub: document.querySelector('#pg-library .sub')?.textContent ?? '',
+      };
+    });
+    if (!/offline/i.test(offStudy.status) || !/offline/i.test(offStudy.line)) problems.push(`[${name}] with no connection SELF-STUDY says "${offStudy.status}": "${offStudy.line.slice(0, 120)}"`);
+    const dead = offStudy.buttons.filter((b) => /^(STUDY|FOCUS|TURN OFF|TURN ON|EXPORT TO GITHUB|STUDY ALL.*)$/i.test(b));
+    if (dead.length) problems.push(`[${name}] with no connection SELF-STUDY still offers ${dead.join(', ')}`);
+    if (offStudy.digest !== true) problems.push(`[${name}] with no connection DIGEST NOW is still offered`);
+    if (!/offline/i.test(offStudy.sub)) problems.push(`[${name}] with no connection the Library does not say so: "${offStudy.sub}"`);
+    await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
+    const vrow = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
+    if (await vrow.count()) {
+      await vrow.click();
+      await ui.waitForFunction(() => /sulphur dioxide/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
+        .catch(async () => problems.push(`[${name}] with no connection a document on the shelf does not read: "${(await ui.evaluate(() => document.querySelector('.modal .reader')?.textContent ?? 'no reader')).slice(0, 120)}"`));
+      if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-offline-reader.png` });
+      await ui.click('.modal .mhead button').catch(() => undefined);
+    } else problems.push(`[${name}] with no connection the volcano notes are not on the shelf`);
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', '').catch(() => undefined);
+    await ctx.setOffline(false);
+    await ui.waitForFunction(() => !/offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? 'offline'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] SELF-STUDY did not come back with the connection`));
+    // the results as the checks below expect them
+    await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+    await ui.keyboard.press('Enter');
+    await searched(ui);
   }
   // any document on the shelf opens in the reader
   const shelfRow = await ui.$('#pg-library .pn .rw.link .v');

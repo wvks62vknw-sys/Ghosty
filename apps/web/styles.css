@@ -3231,7 +3231,7 @@ html #pg-library .liblog .note.bad { color: var(--amber); }
 html #pg-library .pn.fresh .rw.link { margin: 0; padding: 10px 0; border-radius: 0; }
 html #pg-library .pn.fresh .rw .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); min-width: 72px; }
 html #pg-library .pn.fresh > .ft { padding: 10px 16px 14px; border-top: 1px solid var(--hair); }
-html #pg-library .pn.fresh > .ft > button:first-child { height: 40px; min-height: 40px !important; padding: 0 16px; }
+html #pg-library .pn.fresh > .ft > button:first-child { height: 44px; min-height: 44px !important; padding: 0 16px; }
 /* the reader: a sheet — the title large, what it is as chips, the passages at a comfortable 17 pt */
 html .modal:has(.readwrap) .mhead { align-items: flex-start; gap: 12px; padding: 20px 16px 10px 20px; border-bottom: 0; }
 html .modal:has(.readwrap) .mhead b { font: 700 28px/34px var(--sfd); letter-spacing: -.4px; color: var(--ink); text-transform: none; }
