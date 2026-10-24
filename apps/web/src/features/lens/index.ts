@@ -488,6 +488,8 @@ export const lensTab: TabDef = {
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
         syncEmpty();
+        // the last mode's line ("8 words · 95% sure", "LISTEN: …") does not belong here: the camera's own, until this mode says more
+        cameraLine();
       }
       showTile(m);
       mode.enter(opts);
@@ -519,6 +521,13 @@ export const lensTab: TabDef = {
       flipBtn.disabled = S.camera !== 'on';
       freezeBtn.disabled = S.camera !== 'on' && !S.frozen;
       syncEmpty();
+    };
+    /** The status line for the camera alone: what a mode shows until it has something of its own to say. */
+    const cameraLine = () => {
+      if (S.camera === 'on') L.status(S.frozen ? 'frozen · tap a box or an action' : 'live', S.frozen ? 'mid' : 'ok');
+      else if (S.camera === 'starting') L.status('opening the camera…', 'mid');
+      else if (S.camera === 'error') L.status(S.error, 'off');
+      else L.status('camera off · START to open it', undefined);
     };
     /** No live picture and no still: say so in the viewfinder (AIM and SOUND draw their own there). */
     const syncEmpty = () => {

@@ -281,6 +281,11 @@ const tile = await page.evaluate(() => {
   return { label: on?.textContent ?? '', inSight: !!r && r.left >= row.left - 1 && r.right <= row.right - 27 };
 });
 if (!/^SOUND/.test(tile.label) || !tile.inSight) problems.push(`in SOUND the lit tile is ${tile.inSight ? '' : 'off screen '}("${tile.label}")`);
+// SOUND switched the camera off; ASK next says so instead of keeping SOUND's line ("LISTEN: play your music, then RECORD")
+await page.evaluate(() => window.__ghosty.lens.setMode('ask'));
+await page.waitForTimeout(400);
+const askLine = (await lens())?.status ?? '';
+if (!/camera off/.test(askLine)) problems.push(`ASK after SOUND says "${askLine}"`);
 
 // ---- the security policy: WebAssembly and the camera were allowed, nothing was blocked ----
 const csp = await page.evaluate(() => window.__csp);
