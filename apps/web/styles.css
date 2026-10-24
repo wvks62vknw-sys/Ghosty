@@ -3050,11 +3050,11 @@ html #dock .tabcap::before { content: ''; position: absolute; left: 30px; right:
 html body #dock .tabcap button { font: 600 11px/13px var(--sf) !important; color: rgba(235,240,245,.6); }
 html #dock .tabcap button.on { color: var(--c); background: none; box-shadow: none; }
 html #dock .tabcap .gi { position: relative; display: grid; place-items: center; width: 30px; height: 28px; font-style: normal; }
-html #dock .tabcap .gi .halo { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%; opacity: 0; transform: scale(.8); transition: opacity .3s, transform var(--rcsp) var(--spring); }
+html #dock .tabcap .gi .halo { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%; opacity: 0; transform: scale(.8); }
 html #dock .tabcap button.on .gi .halo { opacity: 1; transform: none; background: radial-gradient(circle, rgba(var(--cr), .28), transparent 62%); box-shadow: inset 0 0 0 1px rgba(var(--cr), .35), 0 0 0 4px rgba(var(--cr), .05), 0 0 0 5px rgba(var(--cr), .18); }
 html #dock .tabcap button.on .ic { filter: drop-shadow(0 0 5px rgba(var(--cr), .9)); }
 html #dock .tabcap button.on .gi::before { content: ''; position: absolute; top: -11px; left: 50%; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); box-shadow: 0 0 8px var(--c); }
-html #dock .tabcap button:active .gi .halo { opacity: 1; transform: scale(1.08); background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); }
+html #dock .tabcap button:active .gi .halo { opacity: 1; transform: scale(1.08); transition: transform var(--rcsp) var(--spring); background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); }
 html #dock .tabcap button:active { color: #fff; }
 html #dock .tabcap .gi .live { position: absolute; top: 1px; right: 0; width: 8px; height: 8px; border-radius: 4px; display: none; background: var(--c); box-shadow: 0 0 0 2.5px rgba(7,11,14,1), 0 0 0 3.5px rgba(var(--cr), .5), 0 0 10px var(--c); }
 html #dock .tabcap button.live .gi .live { display: block; animation: ironbreathe 2.4s ease-in-out infinite; }
