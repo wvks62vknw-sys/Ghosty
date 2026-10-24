@@ -592,6 +592,7 @@ export const eyeTab: TabDef = {
       stopCamViews(p?.kind === 'cam' ? (p.ref as Camera).id : null);
       gridKey = '';
       paintInfo();
+      measureSky();
     }
 
     // ---------- live camera views ----------
@@ -1035,16 +1036,23 @@ export const eyeTab: TabDef = {
 
     // ---------- per-frame + periodic UI ----------
     const pool: HTMLElement[] = [];
+    // Names only where the globe is open to view: below the search and its chips, above the bar (the tab bar is
+    // under it), and off any card or menu that is open — never drawn through the glass. Measured once a second
+    // (the slow loop below), not with every label paint.
+    let sky = { top: 0, bottom: innerHeight, covers: [] as DOMRect[] };
+    const measureSky = () => {
+      sky = {
+        top: top.getBoundingClientRect().bottom,
+        bottom: bot.getBoundingClientRect().top,
+        covers: [info.el, grid.el, ra.el, lay.el, look, rail].filter((el) => !el.hidden && el.offsetParent).map((el) => el.getBoundingClientRect()),
+      };
+    };
     const paintLabels = () => {
       const c = globe.cam;
       const cs = c.cs;
       if (!cs) return;
       const items: [number, number, string, string][] = [];
-      // Names only where the globe is open to view: below the search and its chips, above the bar (the tab bar is
-      // under it), and off any card or menu that is open — never drawn through the glass.
-      const skyTop = top.getBoundingClientRect().bottom;
-      const skyBottom = bot.getBoundingClientRect().top;
-      const covers = [info.el, grid.el, ra.el, lay.el, look, rail].filter((el) => !el.hidden && el.offsetParent).map((el) => el.getBoundingClientRect());
+      const { top: skyTop, bottom: skyBottom, covers } = sky;
       const add = (w: [number, number, number], txt: string, col: string) => {
         const p = c.project(w);
         if (!p || !c.visible(w) || p[0] < -20 || p[0] > innerWidth + 20 || p[1] < skyTop || p[1] > skyBottom) return;
@@ -1178,6 +1186,7 @@ export const eyeTab: TabDef = {
       }
       if (globe.vis.enforce && globe.cam.range < 400 && inWestMidlands(g.lat, g.lon)) void loadWmSafety();
       paintGrid();
+      measureSky();
     }, 1);
 
     return {
