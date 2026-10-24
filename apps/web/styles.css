@@ -2618,6 +2618,7 @@ html[data-look="pro"] .hud.core .rchero .rwrap { position: absolute; left: 50%; 
 html[data-look="pro"] .hud.core .rchero canvas.reactor { width: 100%; height: 100%; max-width: none; }
 html[data-look="pro"] .hud.core .ccenter.replying .rchero .rwrap { transform: translate(-50%, -50%); filter: none; opacity: 1; }
 /* the one soft glow, breathing: a 4 s cycle, ±6 % */
+html[data-look="pro"] .rcglowbox { position: absolute; inset: 0; z-index: 0; overflow: clip; pointer-events: none; }
 html[data-look="pro"] .rcglow { display: block; position: absolute; z-index: 0; left: 50%; top: calc(36px + min(100vw, 480px) * .3318); width: min(172.7vw, 830px); aspect-ratio: 760 / 640; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(var(--cr), .17), rgba(var(--cr), .06) 45%, rgba(var(--cr), 0) 100%); pointer-events: none; animation: rcbreath 4s ease-in-out infinite; }
 html[data-look="pro"] .hud.core.logopen .rcglow, html[data-look="pro"] .hud.core:has(.ccenter.replying) .rcglow { opacity: .5; }
 html[data-look="pro"] .hud.core.logopen .rcglow { display: none; }
@@ -2681,7 +2682,7 @@ html[data-look="pro"] .rcof b { font: 600 15px/19px var(--sf); letter-spacing: -
 html[data-look="pro"] .rcof span { font: 400 13px/17px var(--sf); color: var(--ink2); }
 /* the three quick-action chips: neutral glass, one row (the glyphs give way on a narrow phone) */
 html[data-look="pro"] .hud.core #suggest { display: flex; flex-wrap: nowrap; justify-content: stretch; gap: 8px; width: auto; max-width: none; margin: auto 0 0; padding: 12px 0 0; overflow: visible; }
-html[data-look="pro"] .hud.core #suggest > button { position: relative; flex: 1 1 auto; justify-content: center; gap: 6px; height: 36px; min-height: 36px !important; padding: 0 13px 0 11px; border-radius: 18px; font: 500 14px var(--sf) !important; letter-spacing: -.1px; color: var(--ink); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); -webkit-backdrop-filter: none; backdrop-filter: none; white-space: nowrap; }
+html[data-look="pro"] .hud.core #suggest > button { position: relative; flex: 1 1 auto; justify-content: center; gap: 6px; height: 40px; min-height: 40px !important; padding: 0 13px 0 11px; border-radius: 18px; font: 500 14px var(--sf) !important; letter-spacing: -.1px; color: var(--ink); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); -webkit-backdrop-filter: none; backdrop-filter: none; white-space: nowrap; }
 html[data-look="pro"] .hud.core #suggest > button::after { content: ''; position: absolute; inset: -4px 0; }
 html[data-look="pro"] .hud.core #suggest .sugg .ic { width: 17px; height: 17px; stroke: var(--ink2); stroke-width: 1.8; }
 @media (max-width: 409px) { html[data-look="pro"] .hud.core #suggest .sugg .ic { display: none; } html[data-look="pro"] .hud.core #suggest > button { padding: 0 10px; } }
@@ -2902,7 +2903,7 @@ html[data-look="pro"] .eyebot .bgroup:first-child button[data-label]::before { -
 html[data-look="pro"] .eyebot .bic .ic { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 html[data-look="pro"] .eyebot .bgroup + .bgroup { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--hair); }
 html[data-look="pro"] .eyebot .bgroup + .bgroup .bcap { flex: none; width: 54px; padding: 0 6px; }
-html[data-look="pro"] .eyebot .bgroup + .bgroup button { position: relative; flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; height: 32px; min-height: 32px !important; padding: 0 6px; border-radius: 16px; background: rgba(255,255,255,.06) !important; box-shadow: none !important; color: var(--ink); }
+html[data-look="pro"] .eyebot .bgroup + .bgroup button { position: relative; flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; height: 40px; min-height: 40px !important; padding: 0 6px; border-radius: 16px; background: rgba(255,255,255,.06) !important; box-shadow: none !important; color: var(--ink); }
 html[data-look="pro"] .eyebot .bgroup + .bgroup button::after { content: ''; position: absolute; inset: -6px 0; }
 html[data-look="pro"] .eyebot .bgroup + .bgroup button .bic { display: block; order: -1; line-height: 0; }
 html[data-look="pro"] .eyebot .bgroup + .bgroup button .bic .ic { width: 15px; height: 15px; color: var(--ink2); }
@@ -3248,7 +3249,7 @@ html[data-look="pro"] #pg-gym .gymlvls .gymlvnone b { font-weight: 600; color: v
 /* WHAT'S NEW: a card — the newest three, Show all for the rest, GOT IT as a small pill in its corner */
 html[data-look="pro"] .pn.whatsnew > h3 { align-items: center; }
 html[data-look="pro"] .pn.whatsnew > h3 small { margin-left: 8px; }
-html[data-look="pro"] .pn.whatsnew .wngot { position: relative; flex: none; height: 30px; min-height: 30px !important; margin-left: 12px; padding: 0 14px; border-radius: 15px; color: var(--c) !important; background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
+html[data-look="pro"] .pn.whatsnew .wngot { position: relative; flex: none; height: 40px; min-height: 40px !important; margin-left: 12px; padding: 0 14px; border-radius: 15px; color: var(--c) !important; background: rgba(var(--cr), .13) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
 html[data-look="pro"] .pn.whatsnew .wngot::after { content: ''; position: absolute; inset: -7px -4px; }
 html[data-look="pro"] .pn.whatsnew .wngot[data-label]::before { --lfs: 13px; font-weight: 600; letter-spacing: -.04px; }
 html[data-look="pro"] .whatsnew .wnrow { position: relative; padding: 11px 0 11px 18px; border-bottom: 1px solid var(--hair); }
@@ -3288,7 +3289,7 @@ html[data-look="pro"] button[role="switch"].rcswitch:active { transform: none; }
 html[data-look="pro"] #pg-library .askrow { gap: 8px; padding: 2px 16px 0; }
 html[data-look="pro"] #pg-library .askrow button { height: 44px; min-height: 44px !important; padding: 0 18px; }
 html[data-look="pro"] #pg-library .trychips { display: flex; flex-wrap: wrap; gap: 8px; }
-html[data-look="pro"] #pg-library .trychips button { height: 36px; min-height: 36px !important; position: relative; padding: 0 14px; border-radius: 18px; font: 500 15px var(--sf) !important; letter-spacing: -.12px; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; text-transform: none; }
+html[data-look="pro"] #pg-library .trychips button { height: 40px; min-height: 40px !important; position: relative; padding: 0 14px; border-radius: 18px; font: 500 15px var(--sf) !important; letter-spacing: -.12px; color: var(--ink); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; text-transform: none; }
 html[data-look="pro"] #pg-library .trychips button::after { content: ''; position: absolute; inset: -4px 0; }
 html[data-look="pro"] #pg-library .trychips button::first-letter { text-transform: uppercase; }
 html[data-look="pro"] #pg-library .rw.hit .k { font: 600 11px/13px var(--sf); letter-spacing: .06em; text-transform: uppercase; color: var(--c); }

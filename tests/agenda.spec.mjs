@@ -35,7 +35,7 @@ async function run(name, viewport) {
   await page.screenshot({ path: `${out}/${name}-agenda-right.png` });
   await page.evaluate(() => (location.hash = 'core'));
   if (narrow) await page.click('.logbtn');
-  await page.fill('#cin', 'remind me in 0 minutes to stretch');
+  await page.fill('#cin', `remind me in 0 minutes to stretch ${name}`); // (its own words: the same words within a minute pop up once, by design)
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => /REMINDER: stretch/.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => problems.push(`[${name}] reminder toast never appeared`));
   await page.screenshot({ path: `${out}/${name}-reminder-toast.png` });

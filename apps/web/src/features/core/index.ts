@@ -432,7 +432,7 @@ export const coreTab: TabDef = {
     themeEvents.on('change', placeChat);
     // Touch the reactor: it answers with a pulse.
     reactor.el.addEventListener('pointerdown', (e) => proLook() && reactor.poke(e));
-    hud.append(rc.glow, left, center, right);
+    hud.append(rc.glowBox, left, center, right);
     root.append(hud);
 
     // The caption shows the latest exchange, then fades 25 s after Ghosty has finished (it stays
