@@ -290,10 +290,16 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   // the stylesheet holds nothing for the classic looks
   const css = await page.evaluate(async () => (await fetch('/styles.css')).text());
   for (const gone of ['data-look', 'data-finish', '.tcard', '.lookback', '.morestyles']) if (css.includes(gone)) problems.push(`[themes] styles.css still has "${gone}"`);
-  // Home's layout in each theme: every element's box (they must be the same)
+  // Home's layout in each theme (they must be the same): the type and spacing of every element, and the boxes of
+  // the parts that do not change with the live numbers (the hero, the cards, the chips, the ask bar, the tabs)
   const homeBoxes = {};
-  // (the glow behind the hero breathes, so its box is left out)
-  const boxes = () => page.$$eval('#pg-core *, #top *, #dock *', (els) => els.filter((e) => e.getClientRects().length && !e.classList.contains('rcglow')).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${e.className.baseVal ?? e.className}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`; }));
+  const boxes = () => page.evaluate(() => {
+    const els = [...document.querySelectorAll('#pg-core *, #top *, #dock *')].filter((e) => e.getClientRects().length);
+    const P = ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'padding', 'margin', 'gap', 'border-radius', 'display', 'position'];
+    const type = els.map((e) => { const cs = getComputedStyle(e); return `${e.tagName}.${e.className.baseVal ?? e.className}:${P.map((p) => cs.getPropertyValue(p)).join('|')}`; });
+    const box = [...document.querySelectorAll('.rchero, .rwrap, .rctoday, .rcroad, .rcgym, #suggest > button, #cbar, #dock .tabcap button, #top .you, #top .cmd')].map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}.${e.className}:${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`; });
+    return [...type, ...box];
+  });
   for (const [name, hex] of Object.entries(THEMES).reverse()) {
     await page.evaluate(() => (location.hash = 'settings'));
     await page.waitForTimeout(1000);
@@ -319,7 +325,7 @@ for (const vp of [{ width: 440, height: 956 }, { width: 390, height: 844 }]) {
   {
     const [g, r] = [homeBoxes.graphite, homeBoxes.reactor];
     const moved = g.map((x, i) => (x === r[i] ? '' : `${r[i]} → ${x}`)).filter(Boolean);
-    if (g.length !== r.length || moved.length) problems.push(`[themes] Graphite moved things on Home: ${moved.slice(0, 4).join(' | ')} (${g.length} vs ${r.length} boxes)`);
+    if (g.length !== r.length || moved.length) problems.push(`[themes] Graphite changed Home's layout, type or spacing: ${moved.slice(0, 4).join(' | ')} (${g.length} vs ${r.length})`);
   }
   // remembered: after a restart the last one tapped (Reactor) is still on; then Graphite, and it stays after a restart too
   await page.evaluate(() => window.__ghosty.run('set_theme', { theme: 'Graphite' }));
