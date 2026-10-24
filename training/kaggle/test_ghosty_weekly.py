@@ -617,6 +617,7 @@ class MonthlyRetrain(unittest.TestCase):
         class Peft:
             def __init__(self):
                 self.off = False
+                self.moves = []
 
             @contextlib.contextmanager
             def disable_adapter(self):
@@ -624,17 +625,25 @@ class MonthlyRetrain(unittest.TestCase):
                 yield
                 self.off = False
 
+            def to(self, dev):
+                self.moves.append(dev)
+                return self
+
+        where = []
         for scratch in (False, True):
             r = G.Run(self.cfg(scratch))
             training = Peft()
             r.model = training
-            r.merged_base = lambda chain: built.append(chain) or 'the brain in use'
+            r.merged_base = lambda chain: built.append(chain) or where.append(list(training.moves)) or 'the brain in use'
             r.score = lambda label, split='exam', quantised=False: scored.append((r.model if isinstance(r.model, str) else ('training', r.model.off), quantised)) or ({'gym': 0.5}, {'gym': 0.5})
             r.exam_before()
             self.assertIs(r.model, training, 'back on the model being trained')
             self.assertEqual(r.report['before'], {'gym': 0.5})
+            # (two full-precision copies of the 2B do not fit a T4: the model being trained waits off the GPU meanwhile)
+            self.assertEqual(training.moves, ['cpu', 'cuda'] if scratch else [], 'and back on the GPU after')
         self.assertEqual(scored, [(('training', True), True), ('the brain in use', True)])
         self.assertEqual(built, [self.chain], 'only the monthly retrain builds the current chain apart')
+        self.assertEqual(where, [['cpu']], 'built while the model being trained is off the GPU')
 
 
 class ExamMode(unittest.TestCase):

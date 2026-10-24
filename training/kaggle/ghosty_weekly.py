@@ -1689,15 +1689,20 @@ class Run:
     # -- after
     def exam_before(self):
         """The current brain as it ships (quantised): the new one must beat THIS. The monthly retrain trains on the stock
-        model, so the brain in use (its whole chain) is built apart for this test, then let go."""
+        model, so the brain in use (its whole chain) is built apart for this test, then let go. Two full-precision copies
+        of a bigger base (Qwen3.5 2B: 7.5 GB each) do not fit a 15 GB GPU together, so the model being trained waits in
+        the machine's memory meanwhile, and goes back to the GPU after."""
         if from_scratch(self.cfg):
             training = self.model
+            training.to('cpu')
+            free_memory()
             self.model = self.merged_base(self.cfg['current'].get('chain', []))
             try:
                 before, core = self.score('current, quantised', quantised=True)
             finally:
                 self.model = training
                 free_memory()
+                training.to(self.dev)
         else:
             with self.model.disable_adapter():
                 before, core = self.score('current, quantised', quantised=True)
