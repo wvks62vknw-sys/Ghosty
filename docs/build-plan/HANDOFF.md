@@ -87,6 +87,9 @@ folder that no longer exists; ignore those paths).
   offline translation (BRIEF-UNDO-OFFLINE.md), then the per-feature upgrade pass (BRIEF-UPGRADE-PASS.md). Each merge
   is reviewed here first; kernel lines the builders need (keys, tool-group words, FEED_HOSTS, the CI loop's spec
   names) are added here, marked. Lesson: a check-in on a long CI run is armed for after the run's usual length.
+- 24 Oct ~13:00 UK: merged into the branch after review: FULL COURSES (item 6; BRIEF-COURSES.md; tutor.ts, the LEARN
+  tab, `packages/shared/src/learn.ts` pure helpers shared by both halves; 24 tutor tests, the learn spec). No kernel
+  line was needed. Goes up with the next pull request once PR #33 has merged.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
