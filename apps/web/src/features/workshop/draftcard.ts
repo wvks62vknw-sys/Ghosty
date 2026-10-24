@@ -8,6 +8,7 @@
 import { brain, type SiteDraft } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
+import { go } from '../../shell/tabs';
 import { button, pill, sandboxFrame, toast } from '../../ui/components';
 
 /** The two screens a draft is shown at: an iPhone and a laptop. */
@@ -88,7 +89,10 @@ export function draftCard(projectId: string): HTMLElement {
           if (!changeBox.hidden) words.focus();
         }),
         // Publishing goes through the chat, where the approval names what is being confirmed.
-        button('PUBLISH', () => void send(d.publish), 'on'),
+        button('PUBLISH', () => {
+          go('core');
+          void send(d.publish);
+        }, 'on'),
       );
     }
     card.append(actions, changeBox);
