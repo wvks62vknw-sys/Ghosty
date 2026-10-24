@@ -78,6 +78,9 @@ const untouched = await lens();
 if (untouched?.camera !== 'off') problems.push(`open_lens switched the camera on by itself: ${JSON.stringify(untouched)}`);
 const startLabel = (await page.locator('#pg-lens .lensbar button').first().textContent()) ?? '';
 if (startLabel !== 'START') problems.push(`the camera button reads "${startLabel}" while the camera is off`);
+// the empty viewfinder says the camera is off and what to do, not a black box with a small pill
+const emptyMsg = await page.evaluate(() => { const e = document.querySelector('#pg-lens .lensempty'); return e && !e.hidden && e.offsetParent ? e.textContent : ''; });
+if (!/Camera off/.test(emptyMsg) || !/START/.test(emptyMsg)) problems.push(`with the camera off the viewfinder says "${emptyMsg}"`);
 // FLIP and FREEZE need the camera: dimmed while it is off (FLIP did nothing at all when tapped)
 const deadBtns = await page.evaluate(() => [...document.querySelectorAll('#pg-lens .lensbar button')].filter((b) => /^(FLIP|FREEZE)$/.test(b.textContent) && !b.disabled).map((b) => b.textContent));
 if (deadBtns.length) problems.push(`with the camera off ${deadBtns.join(' and ')} can still be tapped`);
@@ -88,6 +91,7 @@ await page.locator('#pg-lens .lensbar button', { hasText: 'START' }).click();
 const opening = await page.evaluate(() => ({ camera: window.__ghosty.lens.camera, label: document.querySelector('#pg-lens .lensbar button')?.textContent }));
 if (opening.camera === 'starting' && opening.label !== 'STOP') problems.push(`the camera button reads "${opening.label}" while the camera opens`);
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open from START: ${JSON.stringify(await lens())}`);
+if (await page.evaluate(() => !!document.querySelector('#pg-lens .lensempty')?.offsetParent)) problems.push('the camera-off message stayed over the live picture');
 // swiftshader runs the detector slowly; one run is enough to show it loaded and works
 await until(() => window.__ghosty?.lens?.fps > 0, 90000, `SEE never ran the detector while the scene classifier was still downloading: ${JSON.stringify(await lens())}`);
 await page.evaluate(() => (window.__classifierFree = true));

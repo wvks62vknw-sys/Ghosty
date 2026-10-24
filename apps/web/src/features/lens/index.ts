@@ -234,7 +234,11 @@ export const lensTab: TabDef = {
     const statusEl = h('div.lensstatus', light, statusText);
     const sceneEl = h('div.lensscene');
     const countEl = h('div.lenscount');
-    const view = h('div.lensview', video, still, ov, statusEl, sceneEl, countEl);
+    // The viewfinder with no picture in it says why and what to do, in full (the status pill cuts a long reason short).
+    const emptyTitle = h('b');
+    const emptyText = h('span');
+    const empty = h('div.lensempty', emptyTitle, emptyText);
+    const view = h('div.lensview', video, still, ov, empty, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
     const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition; a number plate is looked up only when you tap CHECK, never who owns the car — Ghosty does not identify people.');
     const reader = new Reader();
@@ -338,6 +342,7 @@ export const lensTab: TabDef = {
         } else still.hidden = true;
         // PHOTO TOOLS is offered once there is a photo on screen: a held frame, a picked photo, ASK's still
         photoBtn.hidden = !pic;
+        syncEmpty();
         video.classList.toggle('mirror', mirror());
       },
       freeze(on) {
@@ -482,6 +487,7 @@ export const lensTab: TabDef = {
         bar.hidden = m === 'sound';
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
+        syncEmpty();
       }
       showTile(m);
       mode.enter(opts);
@@ -512,6 +518,16 @@ export const lensTab: TabDef = {
     const syncBar = () => {
       flipBtn.disabled = S.camera !== 'on';
       freezeBtn.disabled = S.camera !== 'on' && !S.frozen;
+      syncEmpty();
+    };
+    /** No live picture and no still: say so in the viewfinder (AIM and SOUND draw their own there). */
+    const syncEmpty = () => {
+      const blank = S.camera !== 'on' && !shown && S.mode !== 'aim' && S.mode !== 'sound';
+      empty.hidden = !blank;
+      if (!blank) return;
+      const photo = ['read', 'name', 'scan', 'measure'].includes(S.mode) ? ' Or PICK PHOTO below to use one from your phone.' : '';
+      emptyTitle.textContent = S.camera === 'starting' ? 'Opening the camera…' : S.camera === 'error' ? 'The camera did not open' : 'Camera off';
+      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : `Tap START to look through it.${photo}`;
     };
     syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {
