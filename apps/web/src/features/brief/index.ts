@@ -160,6 +160,8 @@ export const briefTab: TabDef = {
       const offline = navigator.onLine === false;
       if (!w) {
         const down = weather.status === 'NO FEED';
+        P.big.textContent = '';
+        P.sub.textContent = !down ? 'Getting the weather…' : offline ? 'You’re offline: the weather comes back with the connection' : 'The weather can’t be reached right now: it tries again by itself';
         wp.setStatus(down ? (offline ? 'OFFLINE' : 'CAN’T REACH') : '…', down ? 'off' : 'mid');
         wp.body.append(empty(down ? 'NO FEED' : 'LOADING'));
         return;
