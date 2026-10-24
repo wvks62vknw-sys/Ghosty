@@ -993,6 +993,28 @@ button.gymswitch { display: flex; align-items: center; justify-content: space-be
 .spacegoal > input { flex: 1 1 auto; min-width: 0; }
 .spacebeforeafter { gap: 6px; } .spacebeforeafter button { flex: 1 1 0; min-height: 44px; }
 .spacechanges button.spaceopt { display: block; width: 100%; text-align: left; text-transform: none; letter-spacing: 0; padding: 8px 10px; min-height: 44px; }
+/* DESIGN MY HOME (features/space/home.ts) and the plan card in the chat (features/core/homecard.ts) */
+.spacehomewords { width: 100%; min-width: 0; min-height: 88px; }
+.spacehomechips button { min-height: 44px; font-size: 11px; }
+.spacehomebar { margin-top: 6px; } .spacehomebar button.spacehomego { flex: 1 1 auto; min-height: 44px; }
+.spacehomestatus { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; } .spacehomestatus:empty { display: none; }
+.spacehomestatus button { min-height: 44px; }
+.spacehomelive { display: flex; gap: 8px; align-items: center; font-size: 12.5px; color: var(--c); }
+.spacehomelive i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c); animation: hpdraw 1.2s ease-in-out infinite; }
+@keyframes hpdraw { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .spacehomelive i { animation: none; } }
+.spacehomeresult { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line2); } .spacehomeresult:empty { display: none; }
+.spacehomeline { font-size: 14px; font-weight: 500; color: var(--c); overflow-wrap: anywhere; }
+.spacehomefloors { gap: 6px; } .spacehomefloors button { flex: 1 1 0; min-width: 0; min-height: 44px; }
+.spacehomeassumed summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 12px; color: var(--c); }
+.spacehomeassumed ul { margin: 0 0 4px; padding-left: 18px; font-size: 12px; line-height: 1.45; color: var(--mute); }
+.spacehomeassumed li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.spacehomeacts { gap: 8px; } .spacehomeacts button { min-height: 44px; }
+.homecard { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid rgba(var(--cr), .4); border-radius: 6px; background: rgba(var(--cr), .08); }
+.homecard small { font: 500 9px var(--d); letter-spacing: .2em; color: var(--c); text-transform: uppercase; }
+.homecard b { font-size: 15px; font-weight: 500; overflow-wrap: anywhere; }
+.homecard span { font-size: 12px; opacity: .75; }
+.homecardacts { flex-wrap: wrap; gap: 8px; margin-top: 8px; } .homecardacts button { flex: 1 1 auto; min-height: 44px; }
 .scankv .row { gap: 8px; align-items: center; }
 .scanurl { font: 400 12px/1.4 var(--m); color: var(--mute); overflow-wrap: anywhere; }
 .scanurl b, .scansite b { color: #fff; font-weight: 600; }
@@ -3822,6 +3844,26 @@ html[data-look="pro"] #pg-space .pn.spacefit button.warn { color: var(--c) !impo
 html[data-look="pro"] #pg-space .pn .note { font-size: 14px; line-height: 20px; }
 html[data-look="pro"] #pg-space .pn .lab { margin: 0 2px 0 0; }
 html[data-look="pro"] #pg-space .spacewrap, html[data-look="pro"] #pg-space canvas.spacecanvas { border-radius: 16px; }
+/* DESIGN MY HOME: the words in a route C field, the examples as 44 pt pills, DESIGN the one filled action, the floors
+   as a segmented control; the plan card in the chat a glass reply card with two 44 pt pills (no app-icon tiles) */
+html[data-look="pro"] #pg-space .spacehomechips button { height: 44px; min-height: 44px !important; }
+html[data-look="pro"] #pg-space .spacehome textarea.spacehomewords { min-height: 112px; }
+html[data-look="pro"] .spacehomebar button.spacehomego { --lfs: 17px; height: 50px; min-height: 50px !important; border-radius: 14px; }
+html[data-look="pro"] .spacehomeline { font: 600 17px/22px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html[data-look="pro"] .spacehomeresult { border-top-color: var(--hair); }
+html[data-look="pro"] .spacehomelive { font: 400 15px/20px var(--sf); }
+html[data-look="pro"] .spacehomeassumed summary { font: 400 15px/20px var(--sf); color: var(--c); }
+html[data-look="pro"] .spacehomeassumed ul { font: 400 14px/20px var(--sf); color: var(--ink2); }
+html[data-look="pro"] #pg-space .pn .note.spacehomehonest { font-size: 13px; line-height: 18px; color: var(--ink3); }
+html[data-look="pro"] #pg-space .spacehomeacts button, html[data-look="pro"] #pg-space .spacehomestatus button { height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; }
+html[data-look="pro"] .spacehomefloors { padding: 4px; gap: 0; border-radius: 14px; background: rgba(255,255,255,.055); box-shadow: inset 0 0 0 1px var(--hair); }
+html[data-look="pro"] .spacehomefloors button { height: 44px; min-height: 44px !important; border-radius: 10px; color: var(--ink2); background: transparent !important; box-shadow: none !important; }
+html[data-look="pro"] .spacehomefloors button.on { color: var(--ink); background: rgba(255,255,255,.13) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07) !important; }
+html[data-look="pro"] .homecard { gap: 4px; padding: 14px 16px; border: 0; border-radius: var(--card); background: var(--thin); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1); }
+html[data-look="pro"] .homecard small { font: 600 13px var(--sf); letter-spacing: -.005em; text-transform: none; }
+html[data-look="pro"] .homecard b { font: 600 17px/22px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html[data-look="pro"] .homecard span { font: 400 14px/19px var(--sf); color: var(--ink2); opacity: 1; }
+html[data-look="pro"] .homecardacts button { --lfs: 15px; height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; }
 /* Reverse: the help under the form quieter, the jobs as rows */
 html[data-look="pro"] #pg-reverse .pn .note { font-size: 14px; line-height: 20px; color: var(--ink3); }
 html[data-look="pro"] #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }

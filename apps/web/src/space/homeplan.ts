@@ -89,11 +89,15 @@ export function cardLine(rooms: number, m2: number, unit: 'metric' | 'imperial')
   return `Your plan: ${roomsText(rooms)}, ${areaIn(m2, unit)}`;
 }
 
-/** Whether the planner still holds this storey (the same rooms by id and name; sizes may have been changed there). */
+/**
+ * Whether the planner still holds this storey: most of its rooms are there by id (the owner may have renamed,
+ * resized, added or removed a room since). A drawn plan's ids are the rooms' kinds ("hall1", "bed2"), the
+ * planner's own "r1", "r2", so a plan the owner made or imported is never taken for it.
+ */
 export function holdsStorey(plan: Plan, storey: HomeStorey): boolean {
-  const want = ((storey.plan.rooms as { id?: unknown; name?: unknown }[]) ?? []).map((r) => `${String(r?.id)}|${String(r?.name)}`);
-  const have = (plan.rooms ?? []).map((r) => `${r.id}|${r.name}`);
-  return want.length === have.length && want.every((x, i) => x === have[i]);
+  const want = ((storey.plan.rooms as { id?: unknown }[]) ?? []).map((r) => String(r?.id));
+  const have = new Set((plan.rooms ?? []).map((r) => r.id));
+  return want.length > 0 && want.filter((id) => have.has(id)).length * 2 > want.length;
 }
 
 /**
