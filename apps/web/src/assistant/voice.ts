@@ -398,10 +398,15 @@ export const micLevel = { level: 0, spectrum: null as Uint8Array | null };
 
 let abortListen: (() => void) | null = null;
 
+/** What the owner is told when Ghosty cannot hear (plain words, never "Failed to fetch"). */
+const NO_SIGNAL = "No connection, so I can't hear you right now. Type it instead.";
+const MIC_BLOCKED = 'Microphone blocked. On iPhone: Settings › Safari › Microphone › Allow (or tap aA › Website Settings), then tap the mic again.';
+const NO_EARS = "I can't hear you in this browser: it has no speech recognition, and your brain can't hear until it runs on Cloudflare.";
+
 function listenBrowser(onInterim: (t: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!SRClass) {
-      reject(new Error('This browser has no speech recognition. Add a Groq key in System to use Whisper.'));
+      reject(new Error(NO_EARS));
       return;
     }
     const rc = new SRClass();
@@ -418,8 +423,11 @@ function listenBrowser(onInterim: (t: string) => void): Promise<string> {
       }
       onInterim((fin + interim).trim());
     };
+    // Nothing said, or stopped: an empty answer. Anything else is said in plain words (a conversation then ends,
+    // rather than starting the recogniser again and again with nothing on the screen).
     rc.onerror = (e) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') reject(new Error('Microphone blocked. Allow it in the browser address bar.'));
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      reject(new Error(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? MIC_BLOCKED : e.error === 'network' ? NO_SIGNAL : e.error === 'audio-capture' ? 'No microphone found on this device.' : "This phone couldn't turn what you said into words. Try again, or type it."));
     };
     rc.onend = () => resolve(fin.trim());
     abortListen = () => rc.abort();
@@ -461,7 +469,7 @@ async function openMic(): Promise<Mic> {
   } catch (e) {
     void ctx.close();
     const name = (e as Error)?.name;
-    if (name === 'NotAllowedError' || name === 'SecurityError') throw new Error('Microphone blocked. On iPhone: Settings › Safari › Microphone › Allow (or tap aA › Website Settings), then tap the mic again.');
+    if (name === 'NotAllowedError' || name === 'SecurityError') throw new Error(MIC_BLOCKED);
     if (name === 'NotFoundError') throw new Error('No microphone found on this device.');
     throw e;
   }

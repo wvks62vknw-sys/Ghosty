@@ -55,10 +55,17 @@ async function voiceTurn(): Promise<void> {
     const wait = () => (ui.get().voice === 'speaking' || ui.get().busy ? setTimeout(wait, 250) : conversation && setTimeout(() => void voiceTurn(), 250));
     wait();
   } catch (e) {
-    conversation = false;
-    holdMic(false);
+    endConversation();
     toast(String((e as Error)?.message ?? e), 'bad');
   }
+}
+
+/** The voice conversation is over (quiet, or something went wrong): the microphone off, its button and the state line say so. */
+function endConversation(): void {
+  conversation = false;
+  holdMic(false);
+  document.querySelector('#mic')?.classList.remove('on');
+  ui.set({}); // repaints the state line: no longer READY
 }
 
 /** A link to one of Ghosty's own pictures (made, or shared from the Lens): shown as the picture itself. */
