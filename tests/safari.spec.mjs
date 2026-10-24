@@ -1,8 +1,9 @@
-// Every tab as an iPhone 13 shows it in Safari — WebKit (Safari's engine) with a touch screen, the iPhone's
-// user agent and its screen with Safari's bars (390×664), and only what iOS Safari has: no
+// Every tab as the owner's iPhone 18 Pro Max shows it in Safari — WebKit (Safari's engine) with a touch screen, the iPhone's
+// user agent and its screen with Safari's bars (440×763), and only what iOS Safari has: no
 // SpeechRecognition, no requestIdleCallback, no navigator.vibrate, no Notification outside a Home Screen app.
 // On every tab (both sides where a phone swaps columns): no page errors; nothing sticks out sideways; every
-// button on the first screen is at least 40 px tall and a finger at its centre lands on it; every text box is
+// button on the first screen is at least 40 px tall (its tap area: a chip drawn smaller reaches out with an ::after) and a
+// finger at its centre lands on it; every text box is
 // at least 16 px (Safari zooms the whole page on focus otherwise); fixed and sticky bars stay on screen.
 // Also: the app shell fits the visible screen (no 100vh, which Safari measures with its bars hidden); no text
 // growing on rotation, selectable panel titles or buttons stuck in their hover look; date and time boxes
@@ -10,6 +11,7 @@
 // audio/mp4 and its level meter is made in the tap; SCAN's beep comes from a context made by a tap.
 //   PLAYWRIGHT_BROWSERS_PATH=… BASE=http://localhost:8788 node tests/safari.spec.mjs [outDir]
 import { webkit, devices } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -18,7 +20,9 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await webkit.launch();
 const problems = [];
 const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'learn', 'gym', 'studio', 'reverse', 'space', 'links', 'settings', 'system'];
-const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 664 } });
+// Safari's visible area on the owner's iPhone 18 Pro Max: the screen less the bars (an iPhone 15 Pro Max loses 193 px of its 932).
+const SAFARI = { width: PHONE.width, height: PHONE.height - 193 };
+const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: SAFARI, screen: PHONE, ...UK });
 // iOS Safari has none of these (and no Notification at all outside a Home Screen app): code must feature-detect.
 await ctx.addInitScript(() => {
   for (const k of ['SpeechRecognition', 'webkitSpeechRecognition', 'requestIdleCallback', 'cancelIdleCallback', 'Notification']) delete window[k];
@@ -149,7 +153,13 @@ for (const tab of TABS) for (const side of ['', ' (other side)']) {
       // on the first screen: shown whole, not clipped by a scrolling box or the screen
       if (r.width < 1 || v.left > r.left + 0.5 || v.right < r.right - 0.5 || v.top > r.top + 0.5 || v.bottom < r.bottom - 0.5 || r.top < 0 || r.bottom > H || r.left < 0 || r.right > W) continue;
       out.nButtons++;
-      if (r.height < 39.5) out.small.push(`${name(b)} is ${Math.round(r.height)} px tall`);
+      // (a button drawn smaller to the eye can take the finger with an invisible margin, an absolutely placed ::after reaching out
+      // past it as the chips' do: it is the tap area that must be finger-sized)
+      const reach = (side) => {
+        const after = getComputedStyle(b, '::after');
+        return after.display !== 'none' && after.position === 'absolute' && /^["']/.test(after.content) ? Math.max(0, -parseFloat(after[side]) || 0) : 0;
+      };
+      if (r.height + reach('top') + reach('bottom') < 39.5) out.small.push(`${name(b)} is ${Math.round(r.height)} px tall`);
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       // (a toast passing over a button is not a cover: it goes by itself in a few seconds; on a shared server an earlier check's notification can pop up at any moment)
       if (!hit || !(hit === b || b.contains(hit) || hit.closest('#toasts'))) out.covered.push(`${name(b)} is under ${hit ? name(hit) : 'nothing'}`);
@@ -219,7 +229,7 @@ if (/listening/.test(state)) problems.push('the mic stayed in listening after fa
 // audio/mp4. The level meter's AudioContext must be made in the tap itself, before that wait: Safari starts a
 // context made afterwards suspended, so the meter would hear only silence and never notice the speaker stop.
 // (no service worker here: WebKit's page.route() cannot see the requests of a page one controls)
-const vctx = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 664 }, serviceWorkers: 'block' });
+const vctx = await browser.newContext({ ...devices['iPhone 13'], viewport: SAFARI, screen: PHONE, ...UK, serviceWorkers: 'block' });
 await vctx.addInitScript(() => {
   const mic = (window.__mic = { meter: null, answered: false, mime: null, picked: false, beeps: [] });
   const Real = window.AudioContext;
@@ -307,5 +317,5 @@ await vctx.close();
 
 await browser.close();
 if (buttons < 40) problems.push(`only ${buttons} buttons were checked: the spec did not see the tabs`);
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Safari run clean on an iPhone 13 screen: ${TABS.length} tabs, ${buttons} buttons and ${inputs} text boxes checked.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Safari run clean on an iPhone 18 Pro Max screen: ${TABS.length} tabs, ${buttons} buttons and ${inputs} text boxes checked.`);
 process.exit(problems.length ? 1 : 0);
