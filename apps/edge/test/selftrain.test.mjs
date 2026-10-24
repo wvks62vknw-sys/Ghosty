@@ -1426,3 +1426,88 @@ test('a SCHOOL paper on the free GPU is refused, with a plain note, below 2 free
   assert.match((await SRM.loadRemote(s2)).note, /^Waiting: the weekly training is on the free GPU/);
   assert.equal(d2.svc.state.pushes.length, 1);
 });
+
+// ---- the monthly retrain (BRIEF-NIGHT-SCHOOL part B) -------------------------------------------------------------
+
+test('the monthly retrain: the first run from the month\'s first Friday (UK time), or TRAIN FROM SCRATCH; the status says which kind is next and why', () => {
+  // the first Friday of October 2026 is the 2nd: its midnight in London (BST) is 23:00 UTC on the 1st; November's is GMT
+  assert.equal(C.firstFriday(Date.UTC(2026, 9, 20)), Date.UTC(2026, 9, 1, 23));
+  assert.equal(C.firstFriday(Date.UTC(2026, 9, 20), 1), Date.UTC(2026, 10, 6));
+  assert.equal(C.firstFriday(Date.UTC(2026, 11, 31), 1), Date.UTC(2027, 0, 1), 'into a new year');
+  const k = (iso, st = {}, earlier = true) => C.runKind(Date.parse(iso), st, earlier);
+  assert.equal(k('2026-10-01T22:30:00Z').scratch, false, '23:30 on Thursday 1 October in London: not yet');
+  assert.match(k('2026-10-01T22:30:00Z').why, /the first run from Friday 2 October\.$/);
+  assert.deepEqual(k('2026-10-01T23:30:00Z'), { scratch: true, why: 'The first run from Friday 2 October: once a month he is retrained from the stock model on every week kept, so the weekly add-ons cannot drift.' });
+  assert.equal(k('2026-10-08T12:00:00Z').scratch, true, 'the first run from the first Friday, whatever day it falls on');
+  const done = { scratchAt: Date.parse('2026-10-03T09:00:00Z') };
+  assert.deepEqual(k('2026-10-20T12:00:00Z', done), { scratch: false, why: "A weekly run adds this week's lessons to the brain in use. The monthly retrain from scratch is the first run from Friday 6 November." });
+  assert.deepEqual(k('2026-10-20T12:00:00Z', { ...done, force: true }), { scratch: true, why: 'You pressed TRAIN FROM SCRATCH: he is retrained from the stock model on every week kept.' });
+  assert.equal(k('2026-10-08T12:00:00Z', {}, false).scratch, false, 'nothing kept to retrain on yet');
+});
+
+/** Three kept weeks; the brain in use is week 3, built from a chain of two adapters. */
+async function keptThree(extra = {}) {
+  const s = new MemStorage();
+  await s.put('train:weeks', { 1: true, 2: true, 3: true });
+  const chain = [{ adapter: 'adapters/week-0002', scale: 1, private: true }, { adapter: 'adapters/week-0003', scale: 0.5, private: true }];
+  const m3 = { week: 3, label: 'Ghosty (week 3)', repo: 'owner/ghosty-offline-brain', commit: '3'.repeat(40), at: 3, scores: { gym: 0.4 }, chain };
+  await s.put('train:models', [m3]);
+  await s.put('train:active', m3.commit);
+  await s.put('train:state', { phase: 'idle', week: 3, gen: 0, nextRun: 0, startedAt: 0, note: '', calls: 0, done: {}, ...extra });
+  return { s, chain, m3 };
+}
+
+test('the notebook config: a weekly run trains on the brain in use; the monthly retrain trains on the stock model on every kept week, against the same exam; a kept one\'s chain is its one adapter, and the rollback is the same', async () => {
+  const report = (pass) => ({ before: { gym: 0.4, safety: 0.9 }, after: { gym: pass ? 0.6 : 0.3, safety: 0.9 }, items: { gym: 96, safety: 17 }, gate: { pass, why: '' }, trained: { replay: 900 }, rejected: [], phases: [], published: pass ? { repo: 'owner/ghosty-offline-brain', commit: '4'.repeat(40) } : undefined, scale: 1 });
+  // weekly (after this month's retrain): on the brain in use, as before
+  let { s, chain, m3 } = await keptThree({ scratchAt: Date.parse('2026-10-03T09:00:00Z') });
+  let d = cycleDeps(s, { now: Date.parse('2026-10-20T12:00:00Z') });
+  assert.deepEqual((await C.trainStatus(d.deps)).kind, { scratch: false, why: "A weekly run adds this week's lessons to the brain in use. The monthly retrain from scratch is the first run from Friday 6 November.", now: false });
+  await stepUntil(d, 'running');
+  let cfg = configOf(d.svc.state.pushes[0]);
+  assert.equal(cfg.from_scratch, undefined);
+  assert.equal(cfg.train_from, undefined);
+  assert.deepEqual(cfg.current, { label: 'Ghosty (week 3)', chain });
+  assert.deepEqual(cfg.replay_weeks, [1, 2, 3]);
+  assert.equal(cfg.budget_hours, 9, 'inside the 10 h Kaggle session asked for (12 h is the limit)');
+
+  // TRAIN FROM SCRATCH, the same day: the monthly retrain whatever the date
+  ({ s, chain, m3 } = await keptThree({ scratchAt: Date.parse('2026-10-03T09:00:00Z') }));
+  d = cycleDeps(s, { now: Date.parse('2026-10-20T12:00:00Z') });
+  const post = (path) => C.trainingRoute(new Request('https://x/api' + path, { method: 'POST', body: '{}' }), path, 'POST', d.deps).then((r) => r.json());
+  let st = await post('/training/scratch');
+  assert.deepEqual(st.kind, { scratch: true, why: 'You pressed TRAIN FROM SCRATCH: he is retrained from the stock model on every week kept.', now: false });
+  await stepUntil(d, 'running');
+  cfg = configOf(d.svc.state.pushes[0]);
+  assert.equal(cfg.from_scratch, true);
+  assert.deepEqual(cfg.train_from, { label: 'stock Qwen3 0.6B', chain: [] }, 'trained on the stock model');
+  assert.deepEqual(cfg.current, { label: 'Ghosty (week 3)', chain }, 'and tested against the brain in use: the same gate');
+  assert.deepEqual(cfg.replay_weeks, [1, 2, 3], 'every kept week');
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.kind.now, true);
+  assert.equal(st.kind.scratch, true);
+  assert.match(st.note, /the monthly retrain from scratch, on every week kept/);
+  assert.equal((await s.get('train:state')).force, undefined, 'TRAIN FROM SCRATCH is used up by the run it started');
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: report(true) }) });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.active, '4'.repeat(40));
+  assert.equal(st.report.scratch, true);
+  assert.deepEqual((await C.loadModels(s))[0].chain, [{ adapter: 'adapters/week-0004', scale: 1, private: true }], 'its chain is its one adapter: the stacked ones are gone');
+  assert.ok(d.notes.some((n) => /Ghosty \(week 4\), retrained from scratch, passed its exam/.test(n.text)));
+  assert.equal(st.kind.scratch, false, 'the next run is weekly again');
+  st = await post('/training/rollback');
+  assert.equal(st.active, m3.commit, 'ROLLBACK goes back to the brain it replaced');
+
+  // the first run from the first Friday, on its own; a retrain that does not beat the brain in use changes nothing
+  ({ s, chain, m3 } = await keptThree({ scratchAt: Date.parse('2026-09-05T09:00:00Z') }));
+  d = cycleDeps(s, { now: Date.parse('2026-10-08T12:00:00Z') });
+  assert.equal((await C.trainStatus(d.deps)).kind.scratch, true);
+  await stepUntil(d, 'running');
+  cfg = configOf(d.svc.state.pushes[0]);
+  assert.equal(cfg.from_scratch, true);
+  await hookReq(d, cfg.ticket, { method: 'POST', body: JSON.stringify({ report: report(false) }) });
+  st = await C.trainStatus(d.deps);
+  assert.equal(st.active, m3.commit);
+  assert.deepEqual(st.models.map((m) => m.week), [3]);
+  assert.ok(d.notes.some((n) => /^This month's retrain from scratch did not beat the current brain/.test(n.text)));
+});

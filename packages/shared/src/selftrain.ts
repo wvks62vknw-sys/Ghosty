@@ -220,6 +220,8 @@ export interface TrainReport {
   /** Exam and STaR items he still gets wrong (replayed next week). */
   failures?: { prompt: string; answer?: string; task?: TaskRef; why: string }[];
   error?: string;
+  /** The monthly retrain: trained from the stock model on every week kept (not added to the brain in use); the gate is the same. */
+  scratch?: boolean;
 }
 
 export interface PublishedModel {
@@ -264,6 +266,12 @@ export interface TrainStatus {
   weights: string | null;
   /** SCHOOL practice for his weak spots waiting for the next week ("school practice: 96"); absent before there is any. */
   school?: { practice: number; note: string };
+  /**
+   * Which kind of run this is (`now`: the one under way) or the next one will be, and why: a weekly run adds the week to
+   * the brain in use; once a month (the first run from the month's first Friday, or TRAIN FROM SCRATCH) he is retrained
+   * from the stock model on every week kept, so stacked weekly add-ons cannot drift. Absent from an older brain.
+   */
+  kind?: { scratch: boolean; why: string; now: boolean };
 }
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */
