@@ -350,6 +350,11 @@ are never raised.
   hangs: on 19 Oct it was a Sokoban problem generator looping for ever (fixed, with a test that every game makes every
   level's problem quickly). Speed the gym climbs up if CI keeps growing.
 - Specs run late in the smoke loop see a slow, loaded runner: give replies generous waits (cited.spec waits 60 s).
+- The preview server (`tests/preview-server.mjs`) serves the BRAIN from `apps/edge/test/.build/brain.mjs`, which only the
+  brain suite's esbuild step (the start of `npm test`) rebuilds. After merging brain-side code, rebuild that bundle
+  BEFORE restarting the preview (`cd apps/edge && npx esbuild src/index.ts --bundle --format=esm --platform=neutral
+  --external:cloudflare:sockets --outfile=test/.build/brain.mjs`), or every new route answers 404 and a spec "fails"
+  on code that is fine (24 Oct: the mark spec against a stale brain).
 - WebKit (the scroll and safari specs, CI only): a toast over a probe point swallows the swipe even though it is
   pointer-events: none; both specs now clear or ignore `#toasts`. Anything that pops up over the page (toasts, a
   leftover modal) is cleared before measuring. The owner's height (956 − 193 bars = 763) moves where things land.
