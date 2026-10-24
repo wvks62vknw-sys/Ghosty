@@ -12,6 +12,13 @@ export async function openDeck(page) {
   await page.click('#mesheet .merow[data-id="deck"]');
 }
 
+// The Every screen deck (shell/launcher.ts) opens a card in place; its OPEN button goes to the screen.
+export async function openScreen(page, id) {
+  await openDeck(page);
+  await page.click(`#deck .dkcard[data-id="${id}"]`);
+  await page.click(`#deck .dkx[data-id="${id}"] .dkopen`);
+}
+
 // Settings, System and Links are grouped lists in the calm looks: a panel shows its contents once its row
 // is tapped (it is pushed in as its own screen; "‹ back" pops it). Open the panel whose title starts with
 // `title` (a pushed one is popped first). The classic looks show every panel already: nothing to do.

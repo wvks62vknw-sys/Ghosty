@@ -13,6 +13,10 @@ export const marketsTab: TabDef = {
   icon: '<path d="M3 20h18M6 16v-5M11 16V7M16 16v-8M21 16V4"/>',
   scene: 'backdrop',
   blurb: 'stocks · crypto · currencies',
+  now() {
+    const btc = coins.data?.find((c) => c.sym === 'BTC');
+    return btc ? `BTC ${btc.change >= 0 ? '+' : '−'}${Math.abs(btc.change).toFixed(2)}% today` : '';
+  },
   mount(root) {
     const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · indices · commodities · currencies', rightLabel: 'INDICES / FX', leftLabel: 'CRYPTO', stackInPro: true });
     const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO', cls: 'coins' });

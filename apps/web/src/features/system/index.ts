@@ -1,6 +1,6 @@
 /** SYSTEM tab: keys, AI models, connection status, keeping data on the phone and its daily backup. (Theme, voice and home are in SETTINGS; email, Spotify and phone notifications in LINKS.) */
 import type { BrainStatus, KeyStatus, ProviderRoom } from '../../../../../packages/shared/src/protocol';
-import { brain, ownerKey, pauseEndsText } from '../../api/brain';
+import { brain, lastSeen, ownerKey, pauseEndsText } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { stats } from '../../engine/scheduler';
 import { go, type TabDef } from '../../shell/tabs';
@@ -20,6 +20,10 @@ export const systemTab: TabDef = {
   icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/>',
   scene: 'backdrop',
   blurb: 'AI keys · models · status',
+  now() {
+    const m = lastSeen.get().status?.meter;
+    return m ? `Database ${Math.min(100, Math.round(Math.max(0, m.level) * 100))}% used today` : '';
+  },
   mount(root) {
     const P = page(root, { tag: 'SYSTEM CORE', rightLabel: 'DATA', leftLabel: 'STATUS & KEYS', stack: true });
     // Status first (online, Ghosty connected, self-edit, this phone, version), then the brain's keys and models.

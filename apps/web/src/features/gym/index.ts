@@ -226,6 +226,11 @@ export const gymTab: TabDef = {
   icon: '<path d="M2 9v6M5 7v10M19 7v10M22 9v6"/><path d="M5 12h14"/>',
   scene: 'backdrop',
   blurb: `he teaches himself · ${GAMES.length} games`,
+  // the games' records the tab has read (IndexedDB, store.ts): "3 of 22 mastered"
+  now() {
+    const recs = Object.values(gymState.recs);
+    return recs.length ? `${recs.filter((r) => r.mastered).length} of ${GAMES.length} mastered` : '';
+  },
   mount(root) {
     const P = page(root, { tag: 'GYM', sub: 'Ghosty teaches himself by playing · on this phone', leftLabel: 'GAMES', rightLabel: 'GAME', stack: true });
     expose();

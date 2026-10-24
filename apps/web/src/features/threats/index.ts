@@ -17,6 +17,12 @@ export const threatsTab: TabDef = {
   icon: '<path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/>',
   scene: 'backdrop',
   blurb: 'quakes · storms · cyber alerts',
+  now() {
+    if (!quakes.data && !events.data) return '';
+    const list = signals();
+    const lvl = threatLevel(list).label;
+    return `${lvl.charAt(0)}${lvl.slice(1).toLowerCase()} · ${fmt.n(list.length)} live signals`;
+  },
   mount(root) {
     const P = page(root, { tag: 'THREAT ASSESSMENT', sub: 'quakes · natural events · space weather', rightLabel: 'NEAR YOU', leftLabel: 'ALERTS', stackInPro: true });
     const sp = panel('ACTIVE SIGNALS', { footer: true, cls: 'signals' });

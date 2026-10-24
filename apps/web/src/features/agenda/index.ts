@@ -1,6 +1,7 @@
 /** AGENDA tab: your diary, connected calendars, reminders, Ghosty's scheduled tasks and its notifications. */
 import type { AgendaEventInfo, FeedInfo, InboxEntry, JobInfo } from '../../../../../packages/shared/src/protocol';
 import { brain } from '../../api/brain';
+import { offline } from '../../api/offline';
 import { inbox, pollInbox } from '../../assistant/notices';
 import { enablePush, pushState } from '../../assistant/push';
 import { send } from '../../assistant/session';
@@ -54,6 +55,14 @@ export const agendaTab: TabDef = {
   icon: '<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4M7.5 13h3M13.5 13h3M7.5 16.5h3"/>',
   scene: 'backdrop',
   blurb: 'calendar · reminders · scheduled tasks',
+  // the next timed event this phone was last given (api/offline.ts keeps it): "Dentist · in 54 min"
+  now() {
+    const t = Date.now();
+    const next = offline.get().agenda?.events.filter((e) => !e.allDay && e.start > t).sort((a, b) => a.start - b.start)[0];
+    if (!next) return '';
+    const day = dayLabel(next.start);
+    return `${next.title} · ${next.start - t < 12 * 3600_000 ? until(next.start) : `${day === 'TOMORROW' ? 'tomorrow' : new Date(next.start).toLocaleDateString('en-GB', { weekday: 'short' })} ${hm(next.start)}`}`;
+  },
   primary: true,
   mount(root) {
     const P = page(root, { tag: 'AGENDA', rightLabel: 'REMINDERS & INBOX', leftLabel: 'DIARY' });

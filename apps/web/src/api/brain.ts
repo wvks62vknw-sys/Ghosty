@@ -258,12 +258,16 @@ export async function streamEvents(path: string, body: unknown, onEvent: (e: Cha
 /** What the brain can do with sound (from its status): hear a recording, speak with its own voice. assistant/voice.ts reads it. */
 export const speechCaps = createStore({ stt: false, tts: false });
 
+/** The last status and library counts this phone was given (kept from the calls Home and the Me sheet make anyway): the deck's live lines read them, never fetch. */
+export const lastSeen = createStore({ status: null as BrainStatus | null, passages: null as number | null });
+
 export const brain = {
   health: () => fetch('/api/health').then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; secured: boolean; access: boolean; preview?: boolean }>) : null)).catch(() => null),
   status: () =>
     req<BrainStatus>('GET', '/status').then((s) => {
       memoryPaused.set({ on: !!s.paused, since: s.paused ? memoryPaused.get().since || Date.now() : 0 });
       speechCaps.set({ stt: !!s.speech?.stt, tts: !!s.speech?.tts });
+      lastSeen.set({ status: s });
       return s;
     }),
   /** Keys that are public by design (a Mapbox "pk." token goes in the map's tile addresses); nothing else ever comes this way. */
@@ -490,6 +494,7 @@ brain.library = async () => {
     if (!here.docs.length) throw e;
     return { ...here, starterReady: true, vectors: false };
   }
+  lastSeen.set({ passages: r.stats.passages });
   const [mine, gone] = await Promise.all([pendingDocs(), removedHere()]);
   return { ...r, docs: [...mine, ...r.docs.filter((d) => !gone.has(d.id))] };
 };
