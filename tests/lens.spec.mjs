@@ -38,6 +38,13 @@ await page.addInitScript(() => {
   // the camera takes a moment to open, as on the phone (the fake one is instant): the button must say so meanwhile
   const gum = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
   if (gum) navigator.mediaDevices.getUserMedia = (c) => new Promise((ok) => setTimeout(ok, 1500)).then(() => gum(c));
+  // SEE's scene classifier is held back until SEE has drawn: the boxes must not wait for its 5.4 MB (they did)
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : input?.url ?? String(input);
+    if (!/efficientnet_lite0\.tflite/.test(url) || window.__classifierFree) return realFetch(input, init);
+    return new Promise((ok) => { const t = setInterval(() => { if (window.__classifierFree) { clearInterval(t); ok(realFetch(input, init)); } }, 100); });
+  };
   window.__csp = [];
   document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
 });
@@ -79,7 +86,8 @@ const opening = await page.evaluate(() => ({ camera: window.__ghosty.lens.camera
 if (opening.camera === 'starting' && opening.label !== 'STOP') problems.push(`the camera button reads "${opening.label}" while the camera opens`);
 await until(() => window.__ghosty?.lens?.camera === 'on', 20000, `the fake camera did not open from START: ${JSON.stringify(await lens())}`);
 // swiftshader runs the detector slowly; one run is enough to show it loaded and works
-await until(() => window.__ghosty?.lens?.fps > 0 || window.__ghosty?.lens?.scene?.length > 0, 90000, `SEE never ran the detector: ${JSON.stringify(await lens())}`);
+await until(() => window.__ghosty?.lens?.fps > 0, 90000, `SEE never ran the detector while the scene classifier was still downloading: ${JSON.stringify(await lens())}`);
+await page.evaluate(() => (window.__classifierFree = true));
 const see = await lens();
 if (see?.error) problems.push(`SEE error: ${see.error}`);
 // the status line settles from "loading … / starting …" to plain words: "looking · nothing it can name yet", "2 things in view · tap a box"

@@ -110,12 +110,14 @@ export function createSeeMode(L: LensContext): Mode {
       const v = visit;
       try {
         const d = await detector.get(progress);
-        const c = await classifier.get(progress);
         // left meanwhile (leave() dropped the tasks, the Lens closed them): the next enter loads again
         if (v !== visit) return;
         det = d;
-        cls = c;
         if (S.mode === 'see') L.status(S.camera === 'on' ? 'looking…' : 'ready · START the camera', 'ok');
+        // The scene line's classifier (5.4 MB) comes second: the boxes no longer wait for it. Without it there is no scene line, nothing worse.
+        void classifier.get(() => undefined).then((c) => {
+          if (v === visit) cls = c;
+        }).catch(() => undefined);
       } catch (e) {
         if (v !== visit) return;
         loading = null;
