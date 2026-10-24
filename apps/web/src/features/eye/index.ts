@@ -186,39 +186,45 @@ export const eyeTab: TabDef = {
     // ---------- layers ----------
     const lay = panel('LAYERS', { grow: false });
     lay.el.classList.add('eyelay');
+    /** A feed's state in plain words (SYNC, STALE, NO FEED and IDLE are the code's own). */
+    const said = (st: string) => (st === 'SYNC' ? 'LOADING' : st === 'STALE' ? 'NOT UPDATING' : st === 'NO FEED' ? 'NOT REACHABLE' : st === 'IDLE' ? '' : st);
     const LAYERS: [keyof LayerVisibility, string, () => string][] = [
       ['imagery', 'MAP TILES', () => (imagery.credit ? `${imagery.source.toUpperCase()} Z${imagery.level}` : imagery.source.toUpperCase())],
-      ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : buildings.status || (buildings.count ? String(buildings.count) : ''))],
-      ['air', 'AIRCRAFT', () => `${air.list.size} ${air.status}`],
-      ['sats', 'SATELLITES', () => String(sats.list.length)],
-      ['quakes', 'QUAKES', () => String(quakes.data?.length ?? 0)],
-      ['events', 'EVENTS', () => String((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
+      ['buildings', '3D BUILDINGS', () => (globe.cam.range > 6 ? 'ZOOM IN · <6 KM' : said(buildings.status) || (buildings.count ? fmt.n(buildings.count) : ''))],
+      ['air', 'AIRCRAFT', () => (air.list.size ? `${fmt.n(air.list.size)}${air.status === 'STALE' ? ' · NOT UPDATING' : ''}` : said(air.status) || 'LOADING')],
+      ['sats', 'SATELLITES', () => fmt.n(sats.list.length)],
+      ['quakes', 'QUAKES', () => fmt.n(quakes.data?.length ?? 0)],
+      ['events', 'EVENTS', () => fmt.n((events.data?.length ?? 0) + (launches.data?.length ?? 0))],
       ['enforce', 'ANPR / SPEED', () => {
         if (globe.cam.range > 250 && !enforce.list.size) return 'ZOOM IN';
         const c = enforce.counts();
-        return enforce.status === 'SYNC' && !enforce.list.size ? 'SYNC' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
+        return enforce.status === 'SYNC' && !enforce.list.size ? 'LOADING' : `${c.anpr} ANPR · ${c.speed + c.average + c.redlight + c.buslane}`;
       }],
       ['crime', 'STREET CRIME', () => {
-        if (!crime.list.size) return crime.status === 'SYNC' ? 'SYNC' : crime.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 45 ? 'ZOOM IN · UK' : 'UK ONLY';
+        if (!crime.list.size) return crime.status === 'SYNC' || crime.status === 'NO FEED' ? said(crime.status) : globe.cam.range > 45 ? 'ZOOM IN · UK' : 'UK ONLY';
         const c = crime.counts();
-        return `${c.total} · ${crime.month}`;
+        return `${fmt.n(c.total)} · ${crime.month}`;
       }],
-      ['ships', 'SHIPS (AIS)', () => `${ships.list.size} ${ships.status}`],
+      ['ships', 'SHIPS (AIS)', () => {
+        if (ships.list.size) return `${fmt.n(ships.list.size)}${ships.status === 'STALE' ? ' · NOT UPDATING' : ''}`;
+        // nothing asked for out here (no free AIS key, outside the Baltic, zoomed out), the key missing, or nothing in view
+        return ships.status === 'IDLE' ? 'ZOOM IN' : /AISstream key/.test(ships.note) ? 'NEEDS FREE KEY' : ships.status === 'NO FEED' ? 'NONE FOUND' : '0';
+      }],
       ['transit', 'BUSES & TRAMS', () => {
-        if (!transit.list.size) return transit.status === 'SYNC' ? 'SYNC' : transit.status === 'NO FEED' ? 'NO FEED' : globe.cam.range > 120 ? 'ZOOM IN' : '';
+        if (!transit.list.size) return transit.status === 'SYNC' || transit.status === 'NO FEED' ? said(transit.status) : globe.cam.range > 120 ? 'ZOOM IN' : '';
         const c = transit.counts();
         return `${c.bus} BUS · ${c.tram} TRAM`;
       }],
-      ['incidents', 'ROAD INCIDENTS', () => (incidents.list.size ? String(incidents.list.size) : incidents.status === 'SYNC' ? 'SYNC' : incidents.status === 'NO FEED' ? 'NO FEED' : 'MOTORWAYS')],
-      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'KEY NEEDED')],
-      ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : radarFrames.status)],
-      ['alerts', 'WEATHER ALERTS', () => String(alerts.data?.length ?? alerts.status)],
-      ['disasters', 'DISASTERS', () => String(disasters.data?.length ?? disasters.status)],
-      ['aurora', 'AURORA', () => (aurora.data ? `${Math.max(0, ...aurora.data.cells.map((c) => c[2]))}%` : aurora.status)],
-      ['dispatch', '911 SEATTLE', () => String(dispatch.data?.length ?? dispatch.status)],
+      ['incidents', 'ROAD INCIDENTS', () => (incidents.list.size ? fmt.n(incidents.list.size) : incidents.status === 'SYNC' || incidents.status === 'NO FEED' ? said(incidents.status) : 'MOTORWAYS')],
+      ['traffic', 'LIVE TRAFFIC', () => (trafficState.ready ? 'TOMTOM' : 'NEEDS FREE KEY')],
+      ['radar', 'RAIN RADAR', () => (radarFrames.data ? fmt.ago(radarFrames.data.time) : said(radarFrames.status))],
+      ['alerts', 'WEATHER ALERTS', () => (alerts.data ? fmt.n(alerts.data.length) : said(alerts.status))],
+      ['disasters', 'DISASTERS', () => (disasters.data ? fmt.n(disasters.data.length) : said(disasters.status))],
+      ['aurora', 'AURORA', () => (aurora.data ? `${Math.max(0, ...aurora.data.cells.map((c) => c[2]))}%` : said(aurora.status))],
+      ['dispatch', '911 SEATTLE', () => (dispatch.data ? fmt.n(dispatch.data.length) : said(dispatch.status))],
       ['buoys', 'OCEAN BUOYS', () => (buoys.data ? String(buoys.data.length) : '')],
       ['cables', 'UNDERSEA CABLES', () => (cables.data ? String(cables.data.length) : '')],
-      ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'SYNC' : String(cams.list.length))],
+      ['cams', 'CCTV CAMERAS', () => (cams.status === 'SYNC' && !cams.list.length ? 'LOADING' : fmt.n(cams.list.length))],
       ['borders', 'BORDERS', () => ''],
       ['adm1', 'REGIONS', () => ''],
       ['cities', 'CITIES', () => ''],
@@ -1155,7 +1161,8 @@ export const eyeTab: TabDef = {
         }
       });
       keepLayers();
-      lay.setStatus(air.status, air.status === 'LIVE' ? 'ok' : air.status === 'STALE' ? 'mid' : 'off');
+      // the sheet's own line: how many layers are on (it used to be the aircraft feed's state alone)
+      lay.setStatus(`${LAYERS.filter(([k]) => globe.vis[k]).length} ON`, 'ok');
       paintModes();
       if (selected?.kind === 'air' || selected?.kind === 'ship' || selected?.kind === 'transit') paintInfo();
       if (ra.on) ra.paint();
