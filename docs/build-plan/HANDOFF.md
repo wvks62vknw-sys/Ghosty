@@ -286,6 +286,12 @@ folder that no longer exists; ignore those paths).
   (iOS stays silent until the first tap, then the greeting is spoken), the hum on silent mode, the landing at hardware
   speed. Under automation the cinematic plays only when a spec asks (`__ghostyBoot`), like MIND. The frame strip:
   scratchpad `boot/boot-frames-strip.png` (sent to the owner).
+- 24 Oct 23:35 UK: PR #36's browser run (21:04–22:21 UTC) failed three specs. Two (photo, places) were blocked by Night
+  School's dark layer: the night spec leaves the switch ON with its 23:00–06:00 window, and this run crossed 23:00 UK, so
+  every page after it was dimmed (earlier runs happened in the afternoon). Fixed: the night spec switches it off at the
+  end and checks the layer is gone (a shared preview is left as found). The third (library, phone part): STUDY on a
+  picked field did not come first ("Reading Accounting and business basics · 5 of 256 · working out the pace"), being
+  reproduced; see the next line for the cause.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
