@@ -132,6 +132,10 @@ function describe(sel: Pickable): string {
   }
 }
 
+/** The sensor looks' names on screen (the engine and the brain keep the short ones: NVG, FLIR, CRT…). */
+const LOOK_NAMES: Record<string, string> = { HOLO: 'HOLOGRAM', CRT: 'OLD SCREEN', NVG: 'NIGHT VISION', FLIR: 'THERMAL', NOIR: 'FILM NOIR' };
+const lookName = (n: string) => LOOK_NAMES[n] ?? n;
+
 export const eyeTab: TabDef = {
   id: 'eye',
   title: "GOD'S EYE",
@@ -176,8 +180,8 @@ export const eyeTab: TabDef = {
     q.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') void search();
     });
-    // Sensor looks (night vision, thermal…) are a look, not a tool: they live in the LOOK menu below.
-    const modes = h('div.modes.chips', ...SENSOR_MODES.map(([n], i) => button(n, () => {
+    // Sensor looks (night vision, thermal…) are a look, not a tool: they live in the LOOK menu below, named in plain words.
+    const modes = h('div.modes.chips', ...SENSOR_MODES.map(([n], i) => button(lookName(n), () => {
       globe.mode = i;
       ui.set({});
     })));
@@ -766,7 +770,7 @@ export const eyeTab: TabDef = {
       h('div.hint', 'Satellite photos, streets, a dark map, contours or Sentinel imagery drawn onto the globe — or off for the plain globe.'),
       h('div.lgroup', 'SENSOR'),
       modes,
-      h('div.hint', 'A look for the whole view: hologram, old screen, night vision, thermal, film noir.'),
+      h('div.hint', 'How the whole view is drawn, from the normal globe to night vision and thermal.'),
       h('div.lgroup', 'GLOBE'),
       h('div.chips', sunBtn, spinBtn),
       h('div.hint', 'SUN lights the globe as the real sun does right now. SPIN turns it slowly on its own.'),
@@ -1145,7 +1149,7 @@ export const eyeTab: TabDef = {
       paintChips();
       const lines = [
         '',
-        `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${SENSOR_MODES[globe.mode]![0]}` : ''}`,
+        `ALT ${mk(alt)} · TILT ${Math.round(c.tilt)}° · HDG ${Math.round(((c.hd % 360) + 360) % 360)}°${globe.mode ? ` · ${lookName(SENSOR_MODES[globe.mode]![0])}` : ''}`,
         counted(),
         imagery.credit,
       ];
