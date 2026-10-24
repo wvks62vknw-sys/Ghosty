@@ -96,6 +96,13 @@ folder that no longer exists; ignore those paths).
   meaning from 98 % indexed (the newest few by their words, said in the small print) because a strict fallback flipped
   nearly every search to keywords while study notes kept arriving. Kernel line: `meaning` in the CI loop. Unmeasured:
   indexing speed and memory on the real iPhone (about 240 MB of graphics memory beside the brain, freed before it loads).
+- 24 Oct ~13:15 UK: merged after review: Lens NAME IT and WHAT'S IN IT (BRIEF-LENS-NAME.md). Kernel lines added, marked
+  `[lens]`: the `plantnet` key (optional; tested against Pl@ntNet's daily quota endpoint) and `identify_plant` in the
+  lens group's words. The prompt budget was met by trimming the "Fresh knowledge" line in prompt.ts (worst case 5,496 of
+  5,500: four characters left, so the next always-on words must come out of something else). Known edges: a PLANT ask
+  spends one of the day's 30 picture shares and holds the photo for seconds; the tool reads any held picture id, so a
+  mis-call by the model would forget that picture (low risk: the question names the id). The owner must add the
+  Pl@ntNet key (SYSTEM → KEYS, free) before PLANT works; BIRD / INSECT / OTHER and meals work with the Gemini key.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
