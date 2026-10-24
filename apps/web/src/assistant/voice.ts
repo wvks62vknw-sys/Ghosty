@@ -17,6 +17,7 @@ import { brain, speechCaps } from '../api/brain';
 import { brainVoice, naturalBritish, phoneVoiceScore } from '../../../../packages/shared/src/voices';
 import { settings, ui } from '../state/app';
 import { BargeDetector } from './barge';
+import { clean, sentences } from './spoken'; // what is read aloud, in which pieces (pure, tested in Node)
 import { encodeWav, toMono16k } from './wav';
 
 let voices: SpeechSynthesisVoice[] = [];
@@ -105,34 +106,6 @@ export function bestVoice(): SpeechSynthesisVoice | null {
 
 /** A natural British voice installed on this phone ("Serena (Premium)", "Daniel (Enhanced)"), or null. */
 export const naturalPhoneVoice = (): SpeechSynthesisVoice | null => listVoices().find(naturalBritish) ?? null;
-
-const clean = (t: string) =>
-  t
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/https?:\/\/\S+/g, 'link')
-    .replace(/[*_#`>~|]+/g, ' ')
-    .replace(/\s*\n+\s*/g, '. ')
-    .replace(/\bkm\b/g, 'kilometres')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-/** The sentences of a reply, none longer than `max` characters (a long one is cut at a comma, else a space). */
-export function sentences(t: string, max = 300): string[] {
-  const out: string[] = [];
-  for (const raw of t.match(/[^.!?]+[.!?]*\s*/g) ?? [t]) {
-    let s = raw.trim();
-    while (s.length > max) {
-      const slice = s.slice(0, max);
-      let cut = Math.max(slice.lastIndexOf(', '), slice.lastIndexOf('; '), slice.lastIndexOf(': ')) + 1;
-      if (cut < max / 3) cut = slice.lastIndexOf(' ');
-      if (cut < max / 3) cut = max;
-      out.push(s.slice(0, cut).trim());
-      s = s.slice(cut).trim();
-    }
-    if (s) out.push(s);
-  }
-  return out;
-}
 
 let speakToken = 0;
 /** After a natural-voice error, ask for the plain voice until this time (a short break, not the rest of the day). */

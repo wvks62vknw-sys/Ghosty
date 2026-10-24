@@ -352,3 +352,36 @@ test("barge-in: echo with gaps between words and sentences (0.03, 0.05, 0.08 RMS
   for (t = 3000; t < 4000; t += 20) assert.equal(d.feed(t < 3040 ? 0.06 : 0.05, t), false, 'the next clip begins');
   assert.ok(d.floor >= d.learned && d.learned > 0.04, `floor ${d.floor}, learned ${d.learned}`);
 });
+
+// ---------- what is read aloud (apps/web/src/assistant/spoken.ts): numbers, times, lists and short forms in one breath ----------
+
+const SPOKEN_TS = new URL('../../web/src/assistant/spoken.ts', import.meta.url).pathname;
+async function bundle(path) {
+  const { build } = await import('esbuild');
+  const out = await build({ entryPoints: [path], bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent' });
+  return import(`data:text/javascript;base64,${Buffer.from(out.outputFiles[0].text).toString('base64')}`);
+}
+const SP = await bundle(process.env.SPOKEN_TS ?? SPOKEN_TS);
+const said = (reply) => SP.sentences(SP.clean(reply));
+
+test('read aloud: a price, a time, a decimal and "e.g." are never split; list markers are not said; no doubled stops', () => {
+  const plan = "Here's the plan for Saturday:\n\n1. **Leave by 8.30am** — the M25 has 12.5 miles of roadworks.\n2. Fuel is about £1.42 a litre.\n3. Lunch at the Red Lion, e.g. the pie.\n- Dr. Patel is at St. Mary's until 5.";
+  const parts = said(plan);
+  assert.deepEqual(parts, [
+    "Here's the plan for Saturday.",
+    'Leave by 8.30am — the M25 has 12.5 miles of roadworks.',
+    'Fuel is about £1.42 a litre.',
+    'Lunch at the Red Lion, e.g. the pie.',
+    "Dr. Patel is at St. Mary's until 5.",
+  ]);
+  // every piece ends a sentence the way it was written: no "roadworks.." or "Saturday:."
+  for (const p of parts) assert.doesNotMatch(p, /[.!?:;,]\.$/, p);
+  // ordinary sentences still split where they end, questions and exclamations too
+  assert.deepEqual(said('It is 14.5°C. Bring a coat! Want the week ahead?'), ['It is 14.5°C.', 'Bring a coat!', 'Want the week ahead?']);
+  // a sentence too long for one clip is cut at a comma, and nothing is lost
+  const long = `${'word '.repeat(40)}and then, ${'more '.repeat(60)}end.`;
+  const cut = SP.sentences(long, 300);
+  assert.ok(cut.every((p) => p.length <= 300) && cut.join(' ').replace(/\s+/g, ' ') === long.replace(/\s+/g, ' ').trim(), JSON.stringify(cut));
+  // links and code are not read out
+  assert.equal(SP.clean('See https://example.org/x for it.\n```js\nlet a = 1;\n```\nDone'), 'See link for it. Done');
+});
