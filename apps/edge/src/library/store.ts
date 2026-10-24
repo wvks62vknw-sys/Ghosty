@@ -285,11 +285,12 @@ export class Library {
       return { doc: r.doc, title: titles.get(r.doc) ?? r.doc, heading: r.heading || '', page: r.page === null || r.page === undefined ? null : Number(r.page), text: r.text, score: Math.round(score * 1000) / 1000, relevant };
     });
     hits.sort((a, b) => b.score - a.score);
-    // at most two passages from the same document section, for variety
+    // at most two passages from the same document section, for variety (a book with no headings, a PDF of pages, has
+    // a section a page: its every page that matches can come up, not two passages of the whole book)
     const out: LibraryHit[] = [];
     const per = new Map<string, number>();
     for (const h of hits) {
-      const key = `${h.doc}|${h.heading}`;
+      const key = `${h.doc}|${h.heading || `page ${h.page ?? ''}`}`;
       if ((per.get(key) ?? 0) >= 2) continue;
       per.set(key, (per.get(key) ?? 0) + 1);
       out.push(h);

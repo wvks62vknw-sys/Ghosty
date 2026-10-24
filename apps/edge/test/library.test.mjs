@@ -84,6 +84,20 @@ test('a passage is a match for what the question is about, not for the everyday 
   assert.equal((await lib.search('storming of the Bastille')).find((h) => h.relevant)?.page, 3);
 });
 
+test('a book of pages with no headings shows every page that matches, not two passages of the whole book', async () => {
+  const lib = new Library(new MemStorage(), {});
+  const doc = lib.createDoc({ title: 'History revision guide', source: 'history.pdf', kind: 'pdf', pages: 12 });
+  await lib.addPassages(doc.id, Array.from({ length: 12 }, (_, i) => ({ text: i % 2 ? `Page ${i + 1}: the storming of the Bastille in July 1789 began the French Revolution.` : `Page ${i + 1}: the Tudors ruled England from 1485 to 1603.`, heading: '', page: i + 1 })));
+  lib.finish(doc.id);
+  const hits = (await lib.search('storming of the Bastille', 20)).filter((h) => h.relevant);
+  assert.deepEqual(hits.map((h) => h.page).sort((a, b) => a - b), [2, 4, 6, 8, 10, 12]);
+  // a section with a heading is still at most two passages, for variety
+  const notes = lib.createDoc({ title: 'Notes', source: 'typed', kind: 'notes' });
+  await lib.addPassages(notes.id, Array.from({ length: 5 }, (_, i) => ({ text: `Kestrels hover over verges, note ${i}.`, heading: 'Birds' })));
+  lib.finish(notes.id);
+  assert.equal((await lib.search('kestrels hover verges', 20)).filter((h) => h.doc === notes.id).length, 2);
+});
+
 test('a section read back is its text once: the overlap each passage carries from the one before is dropped, and the end is kept', async () => {
   const { chunkText, joinPassages } = await import('./.build/library/store.mjs');
   const lib = new Library(new MemStorage(), {});
