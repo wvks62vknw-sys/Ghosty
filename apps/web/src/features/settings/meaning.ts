@@ -19,6 +19,7 @@ export function meaningBlock(): HTMLElement {
   let ok = false;
   let ready = false;
 
+  // Shown "Add · 70 MB" (a label in capitals shows in sentence case: it read "Add · 70 mb"), as "Use GPS" is.
   const add = button(`ADD · ${EMBED_MODEL.mb} MB`, () => {
     if (embedState.get().busy) return;
     void downloadEmbedder((frac) => paintProgress(frac))
@@ -27,6 +28,7 @@ export function meaningBlock(): HTMLElement {
       .finally(refresh);
     paint();
   }, 'on');
+  add.dataset.label = `Add · ${EMBED_MODEL.mb} MB`;
   add.setAttribute('aria-label', `Add search by meaning (about ${EMBED_MODEL.mb} MB, on Wi-Fi)`);
   const remove = button('REMOVE', async () => {
     if (!(await confirmSheet('Remove search by meaning?', `Searches go back to keywords. Its model (about ${EMBED_MODEL.mb} MB) comes off this phone and must be downloaded again to come back; the index is kept, and catches up if you add it again.`, 'REMOVE'))) return;

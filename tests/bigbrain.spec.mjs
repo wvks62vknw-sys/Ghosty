@@ -268,7 +268,7 @@ check(!(await engine(page)).loads.includes(ID.two), 'GET loaded nothing');
 check((await engine(page)).unloads > unloadsBefore, 'the brain in use left memory before the download');
 list = await rows(page);
 check(list[0]?.tag === 'IN USE' && list[2]?.buttons.join() === 'USE,REMOVE', `the 0.6B stays in use, the 2B waits for USE: ${JSON.stringify(list.map((r) => [r.tag, r.buttons]))}`);
-check(/Qwen3\.5 2B is on this phone: tap USE to load it/.test(await toasts(page)), `GET's toast: "${await toasts(page)}"`);
+check(/Qwen3\.5 2B is on this phone: tap Use to load it/.test(await toasts(page)), `GET's toast (the button named as it shows, not lower-cased): "${await toasts(page)}"`);
 check(based.length === 0, `GET does not move the training: ${JSON.stringify(based)}`);
 await shot(page, 'got-2b');
 
@@ -302,6 +302,9 @@ check((await gpu(page)).devices === 0, 'still no graphics device');
 await press(page, ID.two, 'USE');
 await sheet(page).waitFor({ state: 'visible', timeout: 4000 }).catch(() => problems.push('USE of the 2B gave no warning'));
 const warn = (await page.locator('.modal').last().textContent().catch(() => '')) ?? '';
+// the title names the brain as it is written (sentence case had made it "Load qwen3.5 2b?")
+const warnTitle = await page.locator('.modal .mhead b').last().evaluate((b) => ({ t: b.textContent, tt: getComputedStyle(b).textTransform })).catch(() => null);
+check(warnTitle?.t === 'Load Qwen3.5 2B?' && warnTitle.tt === 'none', `the warning's title as shown: ${JSON.stringify(warnTitle)}`);
 check(/Load Qwen3\.5 2B\?/.test(warn) && /Loading the 2B takes about 2\.2 GB of graphics memory\. If the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(warn), `the warning: "${warn}"`);
 await page.screenshot({ path: `${out}/bigbrain-${browserName}-warning.png` });
 await sheet(page).locator('button', { hasText: 'KEEP IT' }).click();

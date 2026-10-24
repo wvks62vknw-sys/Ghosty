@@ -45,6 +45,14 @@ const fitHere = (m: ModelDef, s: Held['s'] | undefined): string =>
   : s === 'failed' ? 'ran out of memory on this phone'
   : s === 'refused' ? 'cannot run on this phone'
   : fitLine(m, deviceGB());
+/**
+ * The sheet just opened keeps its title as written: titles show in sentence case, which turned "Load Qwen3.5 2B?"
+ * into "Load qwen3.5 2b?" (confirmSheet opens its sheet at once, so it is the last one on the page).
+ */
+const keepTitle = (): void => {
+  const t = [...document.querySelectorAll<HTMLElement>('.modal .mhead b')].at(-1);
+  if (t) t.dataset.case = 'keep';
+};
 /** On mobile data, as far as the browser can tell (Safari cannot: the confirm asks him to be on Wi-Fi). */
 const onMobileData = (): boolean => {
   const c = (navigator as unknown as { connection?: { type?: string; saveData?: boolean } }).connection;
@@ -76,7 +84,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         toast(`Offline brain: ${MODE_WORDS[was]} again`, 'ok');
       });
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
-    if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
+    if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you tap Download (on Wi-Fi)', 'warn');
     else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when there’s no signal', 'ok');
   });
   // THINK HARDER's time on one question: longer is better on hard ones, and warmer on the phone.
@@ -104,7 +112,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     offlineBrain.set({ model: which.value, downloaded: false, loaded: false });
     // (a kept week of another base: the training follows it; a week of the same base changes nothing there)
     if (brainOf(currentModel()) !== offlineBrain.get().trainBase) void followBase(brainOf(currentModel()));
-    toast(`${currentModel().label}: press DOWNLOAD (about ${sizeText(currentModel().mb)}, on Wi-Fi)`, 'ok');
+    toast(`${currentModel().label}: tap Download (about ${sizeText(currentModel().mb)}, on Wi-Fi)`, 'ok');
     refresh();
     undo(`Offline brain: ${currentModel().label}`, () => {
       offlineBrain.set({ model: was.model, downloaded: was.downloaded, loaded: false });
@@ -197,7 +205,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
     const held = heldOf(m);
     if (!isBigger(m) || held?.s === 'loaded') return true;
     const before = held?.s === 'closed' ? `It closed Ghosty on this phone on ${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. ` : '';
-    const yes = await confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back on the ${shortName(MODELS[0]!)}.`, 'LOAD IT');
+    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back on the ${shortName(MODELS[0]!)}.`, 'LOAD IT');
+    keepTitle();
+    const yes = await asking;
     if (yes) approveLoad(m);
     return yes;
   };
@@ -220,7 +230,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     }
     // (the 0.8B is not trained: the training stays on its base)
     if (!m.alone) void followBase(brainOf(m));
-    toast(`${m.label} is loaded and is the offline brain now: tap TEST to try it on this phone`, 'ok');
+    toast(`${m.label} is loaded and is the offline brain now: tap Test to try it on this phone`, 'ok');
     refresh();
     undo(`Offline brain: ${m.label}`, () => {
       if (!chooseBrain(was.id)) return;
@@ -244,7 +254,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
       : await confirmSheet('Download this brain?', `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`, 'DOWNLOAD');
     if (!yes || offlineBrain.get().busy) return;
     void getBrain(m.id, (frac, text) => paintProgress(frac, text))
-      .then(() => toast(`${m.label} is on this phone: tap USE to load it`, 'ok'))
+      .then(() => toast(`${m.label} is on this phone: tap Use to load it`, 'ok'))
       .catch((e) => toast(`Download stopped: ${String((e as Error)?.message ?? e).slice(0, 200)}`, 'bad'))
       .finally(refresh);
     refresh();
