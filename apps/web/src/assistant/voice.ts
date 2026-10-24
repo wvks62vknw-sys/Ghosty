@@ -662,16 +662,25 @@ async function listenWhisper(): Promise<string> {
   const wav = blob.size >= 4000 ? await toWav(m.ctx, blob, skip).catch(() => null) : null;
   if (mic !== m) void m.ctx.close().catch(() => undefined);
   if (blob.size < 4000) return '';
-  const text = (await brain.stt(wav ?? blob)).trim();
+  const text = (
+    await brain.stt(wav ?? blob).catch((e: unknown) => {
+      throw e instanceof TypeError ? new Error(NO_SIGNAL) : e;
+    })
+  ).trim();
   return /^(thank you|thanks for watching|you|bye)\.?$/i.test(text) ? '' : text;
 }
 
-/** Listen for one utterance. */
+/**
+ * Listen for one utterance. With no connection the brain cannot hear: the phone's own recogniser tries
+ * instead when there is one, else the owner is told so before saying a word.
+ */
 export async function listen(useWhisper: boolean, onInterim: (t: string) => void = () => undefined): Promise<string> {
   stopSpeaking();
+  const offline = navigator.onLine === false;
+  if (offline && useWhisper && !SRClass) throw new Error(NO_SIGNAL);
   ui.set({ voice: 'listening' });
   try {
-    return useWhisper && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
+    return useWhisper && !offline && voiceSupport.mic && typeof MediaRecorder !== 'undefined' ? await listenWhisper() : await listenBrowser(onInterim);
   } finally {
     abortListen = null;
     if (ui.get().voice === 'listening') ui.set({ voice: 'idle' });
