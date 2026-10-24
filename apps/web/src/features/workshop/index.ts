@@ -124,6 +124,8 @@ export const workshopTab: TabDef = {
     let projectsKnown = false;
     /** Each website's DRAFT card, kept between repaints (the list repaints every 15 s while a project runs). */
     const draftCards = new Map<string, HTMLElement>();
+    /** Finished projects whose steps the owner opened (a finished one shows folded: what it made first, then SHOW STEPS). */
+    const unfolded = new Set<string>();
     const PSTEP_TONE: Record<ProjectStep['status'], 'up' | 'bad' | undefined> = { done: 'up', failed: 'bad', doing: undefined, todo: undefined };
     const PROJECT_LIGHT: Record<Project['status'], Light> = { active: 'ok', paused: 'mid', done: 'ok', cancelled: 'off' };
     const act = (id: string, action: 'pause' | 'resume' | 'cancel' | 'run', ask?: string) => async (b: HTMLButtonElement) => {
@@ -155,6 +157,7 @@ export const workshopTab: TabDef = {
         // the live step: the one running, else the next one
         const now = p.status === 'active' ? (p.steps.find((s) => s.status === 'doing') ?? p.steps.find((s) => s.status === 'todo')) : undefined;
         if (now) ct.append(h('small.pnow', `NOW: step ${now.n} · ${now.title}`));
+        const finished = p.status === 'done' || p.status === 'cancelled';
         const card = h(`div.change.project${p.status === 'done' ? '.passed' : p.status === 'paused' ? '.failed' : ''}` as 'div', ct);
         // route C: a progress ring with the steps done, beside the title
         const ring = progressRing(46);
@@ -176,9 +179,11 @@ export const workshopTab: TabDef = {
           card.append(r);
         }
         if (p.note) card.append(h('small.note', p.note));
-        // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself
-        const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result : undefined;
-        if (report) card.append(h('div.preport', ...report.split(/\n+/).map((line) => h('p', line))));
+        // a finished mini-app: its report (the link, what it does and saves, INSTALL, UNDO) on the card itself — the
+        // link and how to install it first, the rest (and the steps) behind SHOW DETAILS; tool names left out
+        const report = p.kind === 'app' && p.status === 'done' ? p.steps[p.steps.length - 1]?.result?.replace(/\s*\((?:[a-z0-9]+_)+[a-z0-9]+\)/g, '') : undefined;
+        const lines = report?.split(/\n+/) ?? [];
+        if (report) card.append(h('div.preport', ...lines.map((line) => h('p', line))));
         // A website that reached its draft (or went live): the DRAFT card, as a phone and a laptop, with CHANGE.
         if (p.kind === 'site' && p.steps.some((s) => s.n >= 5 && s.status === 'done')) card.append(draftCards.get(p.id) ?? draftCards.set(p.id, draftCard(p.id)).get(p.id)!);
         const actions = h('div.row.wrap');
@@ -186,6 +191,14 @@ export const workshopTab: TabDef = {
         if (report && link) {
           actions.append(
             button('OPEN', () => void window.open(link, '_blank', 'noopener'), 'on'),
+            button('COPY LINK', async () => {
+              try {
+                await navigator.clipboard.writeText(link);
+                toast('Link copied: paste it into Safari to install', 'ok');
+              } catch {
+                toast(link, 'ok');
+              }
+            }),
             button('UNDO', async (b) => {
               if (!(await confirmSheet('Take it down?', `“${p.title.replace(/^App: /, '')}” comes off the web: its link stops working for everyone, for good. Ghosty can build it again, at a new link.`, 'TAKE IT DOWN'))) return;
               b.disabled = true;
@@ -200,10 +213,22 @@ export const workshopTab: TabDef = {
             }, 'warn'),
           );
         }
+        if (finished) {
+          const open = unfolded.has(p.id);
+          card.classList.toggle('folded', !open);
+          actions.append(button(open ? 'HIDE DETAILS' : report ? 'SHOW DETAILS' : `SHOW ${p.steps.length} STEPS`, () => {
+            if (!unfolded.delete(p.id)) unfolded.add(p.id);
+            paintProjects();
+          }, 'fold'));
+          // what it made, then the buttons, before the steps: the link and how to install it, not five DONE rows
+          const lead = h('div.plead', ...lines.filter((l, i) => i === 0 || /^INSTALL:/.test(l)).map((line) => h('p', line)));
+          if (lead.childElementCount) ct.after(lead);
+          (lead.childElementCount ? lead : ct).after(actions);
+        }
         if (p.status === 'active') actions.append(button('PAUSE', act(p.id, 'pause')), button('RUN NEXT NOW', act(p.id, 'run'), 'on'));
         if (p.status === 'paused') actions.append(button('RESUME', act(p.id, 'resume'), 'on'), button('RUN NEXT NOW', act(p.id, 'run')));
         if (p.status === 'active' || p.status === 'paused') actions.append(button('CANCEL', act(p.id, 'cancel', `“${p.title}” stops for good: it cannot be started again (ask Ghosty for it afresh). What it already produced stays in the library.`), 'warn'));
-        if (actions.childElementCount) card.append(actions);
+        if (actions.childElementCount && !finished) card.append(actions);
         jp.body.append(card);
       }
     };

@@ -238,6 +238,43 @@ async function workshop() {
     await ctx.setOffline(false);
     await ctx.close();
   }
+
+  // 4. A finished mini-app: its link and how to install it, then OPEN / COPY LINK / UNDO, at the top of a short card;
+  //    the five steps and the rest of the report behind SHOW DETAILS (no tool names); a finished project folds too
+  {
+    const { ctx, page } = await pairOn(PHONE);
+    const STEPS = ['Brief and plan', 'Build and icon', 'Check', 'Publish', 'Report'];
+    const report = ['"Spec Water" is live at https://ghosty.example/s/spec-water/', 'WHAT IT DOES: Adds up glasses towards 8 glasses a day, with today’s entries, the last 7 days and a streak. A new day starts at midnight.', 'WHAT IT SAVES: Your entries, on this phone only; nothing is sent anywhere. Anyone else who opens the link gets their own empty copy.', 'INSTALL: on the iPhone, open the link in Safari, tap Share, then Add to Home Screen, then Add. It opens full screen from its own icon and works with no connection once it has been opened.', 'GOOD TO KNOW: a web app on your Ghosty, not an App Store app — no notifications, and nothing runs while it is closed.', 'CHECKS: page check clean; kit gates 100/100.', 'UNDO: say "take down spec-water" (unpublish_site) and the link stops working.'].join('\n');
+    const list = [
+      { id: 'cccc333333', kind: 'app', title: 'App: Spec Water', goal: 'x', status: 'done', pace: 'fast', created: Date.now() - 60_000, updated: Date.now() - 30_000, fails: 0, docId: 'p', link: 'https://ghosty.example/s/spec-water/', steps: STEPS.map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: i === 4 ? report : 'ok', at: Date.now() })) },
+      { id: 'dddd444444', title: 'Spec holiday research', goal: 'x', status: 'done', pace: 'steady', created: Date.now() - 86400_000, updated: Date.now() - 3600_000, fails: 0, docId: 'p', steps: ['Look', 'Compare', 'Write it up'].map((t, i) => ({ n: i + 1, title: t, instruction: 'x', status: 'done', result: `${t} done.`, at: Date.now() })) },
+    ];
+    await page.route('**/api/projects', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ projects: list }) }));
+    await page.evaluate(() => (location.hash = 'workshop'));
+    const app = page.locator('#pg-workshop .change.project', { hasText: 'App: Spec Water' });
+    await app.waitFor({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    const box = await app.boundingBox();
+    const open = await app.locator('button:has-text("OPEN")').boundingBox();
+    if (!box || box.height > 460) problems.push(`[workshop 4] the finished app's card is ${Math.round(box?.height ?? 0)} px tall (a screen of steps and report)`);
+    if (!open || !box || open.y - box.y > 300) problems.push(`[workshop 4] OPEN sits ${Math.round((open?.y ?? 0) - (box?.y ?? 0))} px down the finished app's card`);
+    if (!(await app.locator('button:has-text("COPY LINK")').count())) problems.push('[workshop 4] the finished app has no COPY LINK');
+    const seen = await app.evaluate((c) => c.innerText);
+    if (!/is live at https:\/\/ghosty\.example\/s\/spec-water\//.test(seen) || !/INSTALL: on the iPhone/.test(seen)) problems.push(`[workshop 4] the folded app card does not show its link and how to install it: ${seen.slice(0, 200)}`);
+    if (/Build and icon/.test(seen)) problems.push('[workshop 4] the finished app shows its five steps before SHOW DETAILS');
+    await app.evaluate((e) => e.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${out}/workshop-app-folded.png` });
+    await app.locator('button:has-text("SHOW DETAILS")').click().catch(() => problems.push('[workshop 4] no SHOW DETAILS on the finished app'));
+    await page.waitForTimeout(300);
+    const all = await app.evaluate((c) => c.innerText);
+    if (!STEPS.every((t) => all.includes(t)) || !/WHAT IT SAVES/.test(all)) problems.push(`[workshop 4] SHOW DETAILS does not show the steps and the report: ${all.slice(0, 200)}`);
+    if (/unpublish_site/.test(all)) problems.push('[workshop 4] the report shows a tool name (unpublish_site)');
+    const research = page.locator('#pg-workshop .change.project', { hasText: 'Spec holiday research' });
+    if (/Compare/.test(await research.evaluate((c) => c.innerText).catch(() => ''))) problems.push('[workshop 4] a finished project keeps its steps open');
+    if (!(await research.locator('button:has-text("SHOW 3 STEPS")').count())) problems.push('[workshop 4] a finished project has no SHOW 3 STEPS');
+    await ctx.close();
+  }
 }
 
 await workshop();
