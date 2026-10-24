@@ -358,6 +358,15 @@ for (const tab of ENDS) {
   else if (Math.abs(back - set) > 4) problems.push(`[settings] scrolled to ${set}, a row opened, away and back: the list is at ${back}`);
   felt++;
 }
+// 8. Every page scrolled to its end stops clear of the floating tab bar, 16 px or more above it and out of its blur,
+//    as the stacked pages always did (26 px). The Lens and the 3D Studio stopped 10 px from it [their last line and
+//    panel under the bar's blur].
+for (const tab of ENDS) {
+  await show(feel, tab);
+  const e = await endOf(feel, tab);
+  if (e.bar - e.lowest < 16) problems.push(`[${tab}] the end of the page (${e.what} at ${e.lowest}) is ${e.bar - e.lowest} px from the tab bar (from ${e.bar}): under its blur`);
+}
+felt++;
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
