@@ -113,6 +113,19 @@ folder that no longer exists; ignore those paths).
   The first real monthly retrain can only be judged on Kaggle (the first Friday of November, or TRAIN FROM SCRATCH);
   Night School's wake lock and charging state need the real iPhone (iOS has no battery API: the card says so).
   Also merged this afternoon: the laptop layout fix (Home from 900 px) that run 220's layout check caught.
+- 24 Oct ~14:30 UK: merged after review: PHOTO TOOLS (BRIEF-PHOTO-TOOLS.md; wave D's last Lens item). Kernel lines,
+  marked `[photo]`, in tools/index.ts: the import, `...photoTools` in CORE and the `photo` group. The new always-on
+  name `photo_tool` cost 15 characters over the 5,500 plain-turn budget (worst case: a Telegram voice note); paid for by
+  trimming the PICTURES line by 37 characters (prompt.ts says so in a comment), never by raising the limit. Free Spaces
+  only (BRIA RMBG-1.4, Real-ESRGAN, LaMa), a token only to ZeroGPU Spaces; no face recognition and no face editing; the
+  Gradio fix for sleeping Spaces also mends the 3D studio. Merge conflicts with the Lens (living cards, MARK) and the
+  manuals stand-ins were resolved by keeping both sides. Unmeasured: real Space queue times at a busy hour (the sheet
+  shows the queue place and says "try again in a minute" when one is asleep or over its limit).
+- 24 Oct: a lesson for anyone running specs here: build a side brain bundle OUTSIDE the repo (the scratchpad), never
+  under `apps/edge/test/`: the brain suite's self-check test walks apps/, packages/ and tests/ (skipping only
+  node_modules, .git, dist, .build, .wrangler-dry) and flags a 48,000-line bundle as a file of Ghosty's that fails the
+  checker. The same test also fails while a merge is half done (conflict markers unbalance the brackets): finish the
+  merge before judging the suite.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
@@ -358,7 +371,9 @@ are never raised.
   brain suite's esbuild step (the start of `npm test`) rebuilds. After merging brain-side code, rebuild that bundle
   BEFORE restarting the preview (`cd apps/edge && npx esbuild src/index.ts --bundle --format=esm --platform=neutral
   --external:cloudflare:sockets --outfile=test/.build/brain.mjs`), or every new route answers 404 and a spec "fails"
-  on code that is fine (24 Oct: the mark spec against a stale brain).
+  on code that is fine (24 Oct: the mark spec against a stale brain). A side bundle for a preview (`BRAIN_BUNDLE=… node
+  tests/preview-server.mjs 8899`) belongs outside the repo: the self-check test scans everything under apps/, packages/
+  and tests/ except .build and dist.
 - WebKit (the scroll and safari specs, CI only): a toast over a probe point swallows the swipe even though it is
   pointer-events: none; both specs now clear or ignore `#toasts`. Anything that pops up over the page (toasts, a
   leftover modal) is cleared before measuring. The owner's height (956 − 193 bars = 763) moves where things land.

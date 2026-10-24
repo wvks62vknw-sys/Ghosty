@@ -14,6 +14,7 @@ import { gadgetTools } from './gadgets';
 import { highwaysTools } from './highways';
 import { homeTools } from './home';
 import { homePlanTools, HOMEPLAN_ABOUT, HOMEPLAN_WHEN } from './homeplan'; // [homeplan]
+import { photoTools, PHOTO_ABOUT, PHOTO_WHEN } from './photo'; // [photo]
 import { designTools } from './design';
 import { journeyTools } from './journey';
 import { knowledgeTools } from './knowledge';
@@ -43,7 +44,7 @@ import { vehicleTools } from './vehicle';
 import { webTools } from './web';
 import { widgetTools } from './widgets';
 
-const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools];
+const CORE: Tool[] = [...memoryTools, ...agendaTools, ...webTools, ...dataTools, ...travelTools, ...journeyTools, ...trafficTools, ...highwaysTools, ...transitTools, ...mapTools, ...crimeTools, ...mediaTools, ...emailTools, ...spotifyTools, ...notifyTools, ...picturesTools, ...uiTools, ...lensTools, ...widgetTools, ...siteTools, ...checkTools, ...knowledgeTools, ...libraryTools, ...evolveTools, ...repoTools, ...reverseTools, ...reconTools, ...projectTools, ...scanTools, ...homeTools, ...vehicleTools, ...gadgetTools, ...studioTools, ...learnTools, ...designTools, ...schoolTools, ...videoTools, ...homePlanTools, ...photoTools]; // [photo]
 const coreNames = new Set(CORE.map((t) => t.name));
 
 export const TOOLS: Tool[] = [...CORE, ...extraTools.filter((t) => t && typeof t.name === 'string' && /^[a-z][a-z0-9_]{1,63}$/.test(t.name) && !coreNames.has(t.name))];
@@ -250,6 +251,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   },
   // [homeplan] A home or a room from the owner's words (tools/homeplan.ts): the planner's floor plan, and 3-D through the studio.
   { name: 'homeplan', tools: homePlanTools, when: HOMEPLAN_WHEN, about: HOMEPLAN_ABOUT },
+  // [photo] Photo jobs on free Spaces (tools/photo.ts): background removed, sharper, a thing erased; never faces.
+  { name: 'photo', tools: photoTools, when: PHOTO_WHEN, about: PHOTO_ABOUT },
   // Vehicle check (integrations/vehicle.ts): one car's public MOT record, when its words or a current-style plate come up.
   {
     name: 'vehicle',

@@ -181,3 +181,6 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (e) SYSTEM → NIGHT SCHOOL: switch it on, leave the phone plugged in and open on Ghosty overnight (the screen stays
     on, dimmed); the morning report lands in the inbox. (f) SYSTEM → OFFLINE BRAIN TRAINING: TRAIN FROM SCRATCH when
     he wants the monthly reset early; otherwise it happens by itself from the first Friday of each month.
+    (g) Lens → hold a frame or pick a photo → PHOTO TOOLS: BACKGROUND, SHARPER or ERASE (draw over the thing with a
+    finger, then ERASE); or just say "remove the background" in ASK. The Spaces are free and shared: the first job of
+    the day can take a minute while one wakes, and the sheet says so.
