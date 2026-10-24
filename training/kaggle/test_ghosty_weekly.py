@@ -252,6 +252,10 @@ class FakeModules:
             @staticmethod
             def get_device_capability(dev=None):
                 return capability
+
+            @staticmethod
+            def get_device_properties(dev=None):
+                return types.SimpleNamespace(total_memory=15_095_365_632)  # a T4
         self.torch = types.SimpleNamespace(cuda=Cuda, bfloat16='bf16', float16='fp16', float32='fp32', no_grad=contextlib.nullcontext, autocast=lambda *a, **k: contextlib.nullcontext())
 
         def flaky(name):
@@ -317,7 +321,7 @@ class PreFlight(unittest.TestCase):
     """The fixes from the pre-flight review of 23 Oct, on the notebook's own code with stand-ins for the GPU,
     pip and Hugging Face (nothing is installed or downloaded)."""
 
-    def run_setup(self, capability=(7, 5), fail=None):
+    def run_setup(self, capability=(7, 5), fail=None, cfg=None):
         """Run.setup() as on Kaggle, every outside thing faked; returns (run, fakes, pip commands, pauses)."""
         tmp = tempfile.mkdtemp()
         work, G.WORK = G.WORK, tmp
@@ -330,7 +334,7 @@ class PreFlight(unittest.TestCase):
         G.config_problem = lambda a, b: ''
         G.time.sleep = pauses.append
         r = G.Run({'week': 3, 'current': {'label': 'stock', 'chain': []}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain', 'data_file': 'weeks/week-0003.jsonl', 'data_rev': 'd' * 40,
-                   'base_model': {'repo': 'Qwen/Qwen3-0.6B', 'rev': 'c' * 40}, 'stock_mlc': {'repo': 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', 'rev': '8' * 40}})
+                   'base_model': {'repo': 'Qwen/Qwen3-0.6B', 'rev': 'c' * 40}, 'stock_mlc': {'repo': 'mlc-ai/Qwen3-0.6B-q4f16_1-MLC', 'rev': '8' * 40}, **(cfg or {})})
         r.resume = lambda: None
         r.load_model = lambda: None
         r.drop_near_exam = lambda: None
@@ -613,6 +617,7 @@ class MonthlyRetrain(unittest.TestCase):
         class Peft:
             def __init__(self):
                 self.off = False
+                self.moves = []
 
             @contextlib.contextmanager
             def disable_adapter(self):
@@ -620,17 +625,25 @@ class MonthlyRetrain(unittest.TestCase):
                 yield
                 self.off = False
 
+            def to(self, dev):
+                self.moves.append(dev)
+                return self
+
+        where = []
         for scratch in (False, True):
             r = G.Run(self.cfg(scratch))
             training = Peft()
             r.model = training
-            r.merged_base = lambda chain: built.append(chain) or 'the brain in use'
+            r.merged_base = lambda chain: built.append(chain) or where.append(list(training.moves)) or 'the brain in use'
             r.score = lambda label, split='exam', quantised=False: scored.append((r.model if isinstance(r.model, str) else ('training', r.model.off), quantised)) or ({'gym': 0.5}, {'gym': 0.5})
             r.exam_before()
             self.assertIs(r.model, training, 'back on the model being trained')
             self.assertEqual(r.report['before'], {'gym': 0.5})
+            # (two full-precision copies of the 2B do not fit a T4: the model being trained waits off the GPU meanwhile)
+            self.assertEqual(training.moves, ['cpu', 'cuda'] if scratch else [], 'and back on the GPU after')
         self.assertEqual(scored, [(('training', True), True), ('the brain in use', True)])
         self.assertEqual(built, [self.chain], 'only the monthly retrain builds the current chain apart')
+        self.assertEqual(where, [['cpu']], 'built while the model being trained is off the GPU')
 
 
 class ExamMode(unittest.TestCase):
@@ -716,6 +729,181 @@ class ExamMode(unittest.TestCase):
     def test_the_weekly_run_is_still_the_default(self):
         self.assertIsInstance(G.run_for({**self.CFG, 'mode': None}), G.Run)
         self.assertNotIsInstance(G.run_for({**self.CFG, 'mode': None}), G.ExamRun)
+
+
+BASES = {b['id']: b for b in FIX['bases']}
+LAYOUT = json.load(open(os.path.join(HERE, 'qwen35_2b_layout.json')))
+
+
+class BaseModels(unittest.TestCase):
+    """The base model chosen on the phone (Qwen3 0.6B, Qwen3.5 2B or 4B): the brain's settings for it (the shared cases
+    in fixtures.json, which apps/edge/test/selftrain.test.mjs holds cycle.ts's baseConfig to) are what the run reads."""
+
+    run_setup = PreFlight.run_setup
+
+    def cfg(self, base_id):
+        return BASES[base_id]['config']
+
+    def test_the_settings_name_the_base_and_the_notebook_reads_it(self):
+        for b in FIX['bases']:
+            r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c', **b['config']})
+            self.assertEqual((r.base['id'], r.base['family'], r.base['context']), (b['id'], b['config']['base']['family'], b['config']['base']['context']), b['id'])
+            self.assertEqual((r.base['hf'], r.base['mlc']), (b['config']['base_model'], b['config']['stock_mlc']))
+            self.assertEqual((r.prompt_tokens, r.gen_tokens), (b['config']['budgets']['prompt'], b['config']['budgets']['gen']), 'the exam budgets follow the base')
+            self.assertEqual(r.report['baseId'], b['id'], 'the report says which base it trained')
+            self.assertIn(b['pins'], G.FAMILIES[r.base['family']]['pins'])
+            self.assertEqual(G.train_fits(b['textParams'], 15_095_365_632) == '', b['trainsOnT4'], b['id'])
+        # settings from before there was a choice: Qwen3 0.6B as it always was
+        old = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        self.assertEqual((old.base['id'], old.base['family'], old.prompt_tokens, old.gen_tokens), ('qwen3-0.6b', 'qwen3', 2048, 20000))
+        with self.assertRaises(ValueError):
+            G.base_of({'base': {'family': 'llama'}})
+        self.assertIn('16.8 GB', G.train_fits(BASES['qwen3.5-4b']['textParams'], 15_095_365_632))
+
+    def test_setup_installs_and_downloads_the_chosen_base(self):
+        r, fakes, pip, _ = self.run_setup(cfg=self.cfg('qwen3.5-2b'))
+        installs = [c for c in pip if 'install' in c]
+        self.assertTrue(any('transformers==5.5.4' in c and 'huggingface_hub==1.10.1' in c for c in installs), 'transformers 5 for Qwen3.5')
+        self.assertFalse(any('uninstall' in c for c in pip), 'hf_xet stays: huggingface_hub 1.x needs it')
+        got = [c[1] for c in fakes.calls if c[0] in ('snapshot', 'download') and c[1].startswith(('Qwen/', 'mlc-ai/'))]
+        self.assertEqual(set(got), {'Qwen/Qwen3.5-2B', 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC'})
+        self.assertEqual(G.FAMILIES[r.base['family']]['lora'], G.FAMILIES['qwen3_5']['lora'], 'the LoRA reaches the linear-attention layers too')
+        self.assertIn('in_proj_qkv', G.FAMILIES['qwen3_5']['lora'])
+        # the 0.6B as before: transformers 4.51.3, then hf_xet out
+        _, fakes, pip, _ = self.run_setup(cfg=self.cfg('qwen3-0.6b'))
+        self.assertTrue(any('transformers==4.51.3' in c for c in pip))
+        self.assertTrue(any(c[-4:] == ['pip', 'uninstall', '-y', 'hf_xet'] for c in pip))
+
+    def test_a_base_too_big_for_the_gpu_is_refused_before_it_is_loaded(self):
+        real = G.safetensors_headers
+        loaded = []
+        G.safetensors_headers = lambda d: {'model.language_model.embed_tokens.weight': {'shape': [248320, 2560]}, 'model.language_model.layers.0.mlp.up_proj.weight': {'shape': [4_000_000_000 // 2560, 2560]}, 'model.visual.blocks.0.attn.qkv.weight': {'shape': [10 ** 9, 1]}}
+        try:
+            with self.assertRaises(RuntimeError) as e:
+                r, *_ = self.run_setup(cfg=self.cfg('qwen3.5-4b'))
+        finally:
+            G.safetensors_headers = real
+        self.assertIn('Qwen3.5 4B: the base model needs', str(e.exception))
+        self.assertEqual(G.text_params({'model.visual.x': {'shape': [9, 9]}, 'mtp.fc.weight': {'shape': [4, 4]}, 'model.language_model.norm.weight': {'shape': [8]}, '__metadata__': {}}), 8, 'the vision tower and the extra head do not count')
+        with tempfile.TemporaryDirectory() as d:
+            hdr = json.dumps({'a': {'dtype': 'BF16', 'shape': [2, 3], 'data_offsets': [0, 12]}}).encode()
+            with open(os.path.join(d, 'model.safetensors'), 'wb') as f:
+                f.write(len(hdr).to_bytes(8, 'little') + hdr + bytes(12))
+            self.assertEqual(G.text_params(G.safetensors_headers(d)), 6, 'read from the files\' first bytes')
+
+    def test_prompts_are_cut_at_the_base_context(self):
+        seen = []
+
+        class Enc(dict):
+            def to(self, dev):
+                return self
+
+        class Rows(list):
+            shape = property(lambda self: (len(self), len(self[0]) if self else 0))
+
+            def __getitem__(self, key):
+                if isinstance(key, tuple):
+                    return Rows(row[key[1]] for row in list.__getitem__(self, key[0]))
+                return list.__getitem__(self, key)
+
+        class Tok:
+            pad_token_id, eos_token_id = 0, 1
+
+            def __call__(self, texts, return_tensors=None, padding=False, truncation=False, max_length=None, add_special_tokens=True):
+                ids = [[ord(c) for c in t][-max_length:] for t in texts]
+                if return_tensors:
+                    seen.append((max_length, len(texts)))
+                    L = max(len(x) for x in ids)
+                    return Enc(input_ids=Rows([0] * (L - len(x)) + x for x in ids))
+                return {'input_ids': ids}
+
+            def convert_tokens_to_ids(self, t):
+                return 2
+
+            def decode(self, row, skip_special_tokens=False):
+                return ''.join(chr(int(c)) for c in row)
+
+        class Model:
+            def eval(self):
+                pass
+
+            def generate(self, input_ids=None, **k):
+                return Rows(list(row) + [ord(c) for c in f'n{sum(1 for v in row if v):05d}'] for row in input_ids)
+        prompts = ['v' * 5000, 'x' * 3900, 'y' * 3800] + ['z' * 60] * 3
+        for base, cut, rows in (('qwen3.5-2b', 4096, 8), ('qwen3-0.6b', 2048, 8)):
+            seen.clear()
+            r = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c', **self.cfg(base)})
+            r.tok, r.model = Tok(), Model()
+            with FakeModules():
+                out = r.generate(prompts * 3)
+            self.assertTrue(all(m == cut for m, _ in seen), (base, seen))
+            self.assertEqual(out[0][0], f'n{cut:05d}', f'{base}: a prompt is cut to its context, from the left')
+            self.assertEqual(out[1][0], f'n{min(cut, 3900 + len(G.THINK_OFF)):05d}')
+            self.assertEqual(len(G.length_batches([cut] * 20, 384, budget=r.gen_tokens)[0]), rows, f'{base}: the longest prompts still go {rows} at a time')
+
+
+@unittest.skipUnless(have('numpy'), 'numpy is not installed here')
+class Qwen35Layout(unittest.TestCase):
+    """Qwen3.5 in MLC's files, checked against mlc-ai's real Qwen3.5-2B build (qwen35_2b_layout.json: its tensor list,
+    the original's tensor shapes and a few tensors' bytes from both, fetched 24 Oct 2026)."""
+
+    def test_the_plan_is_mlc_ais_own_layout_record_for_record(self):
+        tc = G.text_config(LAYOUT['hf_config'])
+        self.assertEqual(G.config_problem(LAYOUT['mlc_chat_config'], LAYOUT['hf_config']), '', 'the original fits the phone build')
+        self.assertIn('partial_rotary_factor', G.config_problem(LAYOUT['mlc_chat_config'], {**LAYOUT['hf_config'], 'text_config': {**LAYOUT['hf_config']['text_config'], 'rope_parameters': {'rope_theta': 10000000, 'partial_rotary_factor': 0.5}}}))
+        plan = G.mlc_plan(tc['num_hidden_layers'], 'qwen3_5', tc['layer_types'])
+        want = {}
+        for name, how, srcs in plan:
+            shapes = [LAYOUT['hf_text_shapes'][x] for x in srcs]
+            if how == 'quant':
+                out, k = sum(s[0] for s in shapes), shapes[0][1]
+                want[name + '.q_weight'] = ([out, k // 8], 'uint32')
+                want[name + '.q_scale'] = ([out, k // 32], 'float16')
+            else:
+                want[name] = (shapes[0], 'float32' if how == 'f32' else 'float16')
+        got = {r['name']: (r['shape'], r['dtype']) for r in LAYOUT['records']}
+        self.assertEqual(len(got), 435)
+        self.assertEqual(want, got)
+        for r in LAYOUT['records']:
+            self.assertEqual(r['nbytes'], int(__import__('numpy').prod(r['shape'])) * (2 if G.packed_f32(r) else {'uint32': 4, 'float16': 2, 'float32': 4}[r['dtype']]), r['name'])
+        self.assertEqual(sum(1 for r in LAYOUT['records'] if G.packed_f32(r)), 36, 'A_log and dt_bias of the 18 linear-attention layers')
+        self.assertEqual([n for n, _, _ in plan if n.endswith('.self_attn.c_attn')], [f'model.layers.{i}.self_attn.c_attn' for i in (3, 7, 11, 15, 19, 23)])
+
+    def test_norms_conv_and_float32_records_are_mlc_ais_bit_for_bit(self):
+        import base64
+        import numpy as np
+        hows = {n: how for n, how, _ in G.mlc_plan(24, 'qwen3_5', G.text_config(LAYOUT['hf_config'])['layer_types'])}
+        for src, smp in LAYOUT['samples'].items():
+            raw = base64.b64decode(smp['hf'])
+            a = (np.frombuffer(raw, dtype=np.uint16).astype(np.uint32) << 16).view(np.float32) if smp['hf_dtype'] == 'BF16' else np.frombuffer(raw, dtype=np.float32)
+            if 'conv1d' in src:
+                a = a.reshape(64, 1, 4)
+            how = hows[smp['mlc_name']]
+            arr = G.mlc_entry(how, [a])['']
+            rec = next(r for r in LAYOUT['records'] if r['name'] == smp['mlc_name'])
+            mine = G.to_bf16_bytes(arr) if G.packed_f32(rec) else arr.tobytes()
+            self.assertEqual(mine, base64.b64decode(smp['mlc']), f'{src} ({how})')
+        self.assertEqual(hows['model.layers.3.self_attn.q_norm.weight'], 'f16+1', "Qwen3.5's norms are stored as 1 + weight")
+        self.assertEqual(hows['model.layers.0.linear_attn.norm.weight'], 'f16', 'the gated norm as it is')
+
+    def test_float32_records_are_written_as_bfloat16_and_empty_groups_as_zero(self):
+        import numpy as np
+        cache = {'records': [{'dataPath': 'params_shard_0.bin', 'format': 'raw-shard', 'nbytes': 8, 'records': [
+            {'name': 'x.A_log', 'shape': [4], 'dtype': 'float32', 'format': 'f32-to-bf16', 'nbytes': 8, 'byteOffset': 0}]}]}
+        a = np.array([1.0, -0.5, 3.0000002, 1.00390625], dtype=np.float32)
+        self.assertEqual(G.layout_problem({'x.A_log': a}, cache), '')
+        unpacked = json.loads(json.dumps(cache))
+        unpacked['records'][0]['records'][0]['nbytes'] = 16
+        self.assertIn('as bfloat16', G.layout_problem({'x.A_log': a}, unpacked))
+        self.assertIn('expects float32', G.layout_problem({'x.A_log': a.astype(np.float16)}, cache))
+        with tempfile.TemporaryDirectory() as d:
+            G.write_mlc({'x.A_log': a}, cache, d)
+            got = np.frombuffer(open(os.path.join(d, 'params_shard_0.bin'), 'rb').read(), dtype=np.uint16)
+        self.assertEqual(list(got), [0x3F80, 0xBF00, 0x4040, 0x3F80], 'rounded to nearest even')
+        z = np.zeros((1, 32), dtype=np.float16)
+        self.assertEqual(int(G.q4f16_1(z)[0][0, 0]), 0x77777777, "Qwen3's build: an empty group as 7s")
+        self.assertEqual(int(G.q4f16_1(z, 0)[0][0, 0]), 0, "Qwen3.5's build: as 0s")
+        self.assertEqual(G.mlc_plan(2)[1][0], 'model.layers.0.self_attn.c_attn', 'Qwen3 unchanged')
 
 
 @unittest.skipUnless(have('numpy'), 'numpy is not installed here')
@@ -1029,6 +1217,107 @@ class MatchesMlcAi(unittest.TestCase):
                         a, b = mine[r['byteOffset']:r['byteOffset'] + r['nbytes']], theirs[r['byteOffset']:r['byteOffset'] + r['nbytes']]
                         self.assertEqual(a, b, r['name'])
                 self.assertTrue(same, shard['dataPath'])
+
+
+class ScratchOnTheChosenBase(unittest.TestCase):
+    """The monthly retrain on the base chosen on the phone: trained on THAT base's stock model (Qwen3.5: its text model,
+    loaded as the family needs), with that family's LoRA targets; the report names both the base and the retrain."""
+
+    chain = [{'adapter': 'adapters/week-0009', 'scale': 1.0}, {'adapter': 'adapters/week-0010', 'scale': 0.5}]
+
+    def cfg(self, base_id, scratch):
+        b = BASES[base_id]['config']
+        c = {'week': 11, 'current': {'label': 'Ghosty (week 10)', 'chain': self.chain}, 'hook': 'https://g.example/hook', 'ticket': 't', 'data_repo': 'o/ghosty-training', 'model_repo': 'o/ghosty-offline-brain',
+             'data_file': 'weeks/week-0011.jsonl', 'data_rev': 'd' * 40, 'replay_weeks': [9, 10], **b}
+        if scratch:
+            c.update(from_scratch=True, train_from={'label': f"stock {b['base']['label']}", 'chain': []})
+        return c
+
+    def load(self, cfg):
+        """Run.load_model() with stand-ins for transformers and peft; returns (run, what was loaded, merged, LoRA targets)."""
+        loaded, merged, targets = [], [], []
+
+        class Model:
+            config = types.SimpleNamespace(use_cache=False)
+
+            def to(self, dev):
+                return self
+
+        class AutoModelForCausalLM:
+            @staticmethod
+            def from_pretrained(path, torch_dtype=None):
+                loaded.append(('auto', torch_dtype))
+                return Model()
+
+        class Qwen3_5ForCausalLM:
+            @staticmethod
+            def from_pretrained(path, config=None, dtype=None):
+                loaded.append(('qwen3_5', config, dtype))
+                return Model()
+
+        class AutoConfig:
+            @staticmethod
+            def from_pretrained(path):
+                return types.SimpleNamespace(get_text_config=lambda: 'the text config')
+
+        class PeftModel:
+            @staticmethod
+            def from_pretrained(model, path):
+                merged.append(os.path.basename(path))
+                return types.SimpleNamespace(merge_and_unload=lambda: model)
+
+        def LoraConfig(target_modules=None, **k):
+            targets.extend(target_modules)
+            return 'lora'
+        transformers = types.SimpleNamespace(AutoModelForCausalLM=AutoModelForCausalLM, Qwen3_5ForCausalLM=Qwen3_5ForCausalLM, AutoConfig=AutoConfig, AutoTokenizer=types.SimpleNamespace(from_pretrained=lambda p: 'tok'))
+        peft = types.SimpleNamespace(PeftModel=PeftModel, LoraConfig=LoraConfig, get_peft_model=lambda model, c: model)
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        real = (G.prepare_tokenizer, G.set_lora_scale)
+        G.prepare_tokenizer = lambda t: t
+        G.set_lora_scale = lambda m, f: None
+        saved = {m: sys.modules.get(m) for m in ('transformers', 'peft')}
+        sys.modules['transformers'], sys.modules['peft'] = transformers, peft
+        r = G.Run(cfg)
+        r.base_dir = os.path.join(tmp, 'base')
+        try:
+            with FakeModules():
+                r.load_model()
+        finally:
+            for m, v in saved.items():
+                if v is None:
+                    sys.modules.pop(m, None)
+                else:
+                    sys.modules[m] = v
+            G.prepare_tokenizer, G.set_lora_scale = real
+            G.WORK = work
+        return r, loaded, merged, targets
+
+    def test_the_retrain_on_qwen35_2b_starts_from_the_stock_2b(self):
+        r, loaded, merged, targets = self.load(self.cfg('qwen3.5-2b', True))
+        self.assertEqual(loaded, [('qwen3_5', 'the text config', 'fp32')], "the 2B's text model, from its own settings")
+        self.assertEqual(merged, [], 'no adapter merged: the stock model')
+        self.assertEqual(targets, G.FAMILIES['qwen3_5']['lora'], "the 2B's LoRA targets (the linear-attention layers too)")
+        self.assertEqual((r.report['baseId'], r.report['scratch']), ('qwen3.5-2b', True), 'the report names the base and the retrain')
+        self.assertEqual(G.training_chain(r.cfg), [])
+        self.assertEqual(G.replay_weeks_for(r.cfg), [9, 10], 'every week the brain sent (the kept weeks of the 2B)')
+
+    def test_a_weekly_run_merges_the_brain_in_use_on_its_base(self):
+        r, loaded, merged, targets = self.load(self.cfg('qwen3.5-2b', False))
+        self.assertEqual(loaded, [('qwen3_5', 'the text config', 'fp32')])
+        self.assertEqual(merged, ['week-0009', 'week-0010'], 'the 2B chain in use, merged in order')
+        self.assertNotIn('scratch', r.report)
+        r, loaded, merged, targets = self.load(self.cfg('qwen3-0.6b', True))
+        self.assertEqual(loaded, [('auto', 'fp32')], 'the 0.6B as it always was')
+        self.assertEqual(merged, [])
+        self.assertEqual(targets, G.FAMILIES['qwen3']['lora'])
+        self.assertEqual((r.report['baseId'], r.report['scratch']), ('qwen3-0.6b', True))
+
+    def test_setup_downloads_the_chosen_bases_stock_for_the_retrain(self):
+        r, fakes, pip, _ = PreFlight.run_setup(self, cfg=self.cfg('qwen3.5-2b', True))
+        got = {c[1] for c in fakes.calls if c[0] in ('snapshot', 'download') and c[1].startswith(('Qwen/', 'mlc-ai/'))}
+        self.assertEqual(got, {'Qwen/Qwen3.5-2B', 'mlc-ai/Qwen3.5-2B-q4f16_1-MLC'})
+        self.assertTrue(any('transformers==5.5.4' in c for c in pip if 'install' in c))
 
 
 if __name__ == '__main__':

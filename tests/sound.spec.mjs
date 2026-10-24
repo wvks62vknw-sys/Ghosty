@@ -101,7 +101,18 @@ async function session(file, name, fn) {
   await tile.click();
   const ok = await page.waitForFunction(() => window.__ghosty?.lens?.mode === 'sound' && window.__ghosty?.sound, null, { timeout: 10000 }).then(() => true).catch(() => false);
   if (!ok) problems.push(`${name}: SOUND did not open`);
-  else await fn(page);
+  else {
+    // the camera is off in SOUND: no camera buttons, and SOUND's own RECORD sits above the tab bar without a scroll
+    const look = await page.evaluate(() => {
+      document.querySelector('#pg-lens .hud.lens').scrollTop = 0;
+      const bar = document.querySelector('#pg-lens .lensbar');
+      const rec = [...document.querySelectorAll('#pg-lens .lenspanel button')].find((b) => b.offsetParent && /^RECORD/i.test(b.textContent.trim()));
+      return { bar: !!bar?.offsetParent, rec: rec ? Math.round(rec.getBoundingClientRect().bottom) : null, dock: Math.round(document.querySelector('#dock')?.getBoundingClientRect().top ?? innerHeight) };
+    });
+    if (look.bar) problems.push(`${name}: the camera's START / FLIP / FREEZE show in SOUND`);
+    if (look.rec == null || look.rec > look.dock) problems.push(`${name}: RECORD is under the tab bar (bottom ${look.rec} px, the bar at ${look.dock} px)`);
+    await fn(page);
+  }
   const csp = await page.evaluate(() => window.__csp);
   if (csp.length) problems.push(`${name}: security policy blocked: ${csp.join(' | ')}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) problems.push(`${name}: wider than the phone screen`);

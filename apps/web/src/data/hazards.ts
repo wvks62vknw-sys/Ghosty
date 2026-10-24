@@ -82,7 +82,8 @@ export const launches = new Feed<Launch[]>(
   'launches',
   async () => {
     const j = await fetchJson<{ results: { id: string; name: string; net: string; status?: { abbrev: string }; pad?: { name: string; latitude: string; longitude: string }; launch_service_provider?: { name: string } }[] }>(
-      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8&mode=list',
+      // (the full answer, about 37 KB for 8: the lighter mode=list has no pad coordinates, and every launch was dropped)
+      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8',
       1800,
     );
     return j.results
@@ -92,12 +93,23 @@ export const launches = new Feed<Launch[]>(
   1_800_000,
 );
 
+/** A launch's status in plain words (Launch Library's abbreviations: Go, TBD, TBC, Success, Hold…). */
+export function launchStatus(abbrev: string): string {
+  const m: Record<string, string> = { go: 'GO', tbd: 'DATE NOT SET', tbc: 'TO CONFIRM', success: 'LAUNCHED', failure: 'FAILED', 'partial failure': 'PART FAILED', hold: 'ON HOLD', 'in flight': 'IN FLIGHT' };
+  return m[abbrev.trim().toLowerCase()] ?? (abbrev.trim().toUpperCase() || 'PLANNED');
+}
+
 export const kp = new Feed<{ v: number; t: string }>(
   'kp',
   async () => {
-    const j = await fetchJson<string[][]>('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', 600);
-    const r = j[j.length - 1]!;
-    return { v: parseFloat(r[1]!), t: r[0]! };
+    // NOAA serves this file as objects now ({ time_tag, Kp }, newest last); it used to be rows of strings with a
+    // header row (["time_tag", "Kp", …]). Read either; a reading that is not a number is no reading (NO FEED).
+    const j = await fetchJson<(string[] | { time_tag?: string; Kp?: number | string })[]>('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', 600);
+    const r = j[j.length - 1];
+    const v = Array.isArray(r) ? parseFloat(r[1] ?? '') : Number(r?.Kp);
+    const t = Array.isArray(r) ? r[0] ?? '' : r?.time_tag ?? '';
+    if (!Number.isFinite(v)) throw new Error('no Kp reading in NOAA’s file');
+    return { v, t };
   },
   600_000,
 );
@@ -112,6 +124,12 @@ export interface Signal {
   tag: string;
 }
 
+/** EONET keeps an event "open" long after its last report (wildfires 68 days on, 24 Oct): one not updated for this long is not live. */
+export const EVENT_LIVE_DAYS = 14;
+
+/** The natural events reported in the last EVENT_LIVE_DAYS days. */
+export const liveEvents = (now = Date.now()): NaturalEvent[] => (events.data ?? []).filter((e) => now - e.t <= EVENT_LIVE_DAYS * 86_400_000);
+
 /** One combined, severity-sorted list of everything that might matter. */
 export function signals(extra: Signal[] = []): Signal[] {
   const out: Signal[] = [...extra];
@@ -120,12 +138,21 @@ export function signals(extra: Signal[] = []): Signal[] {
     out.push({ kind: 'QUAKE', sev: q.mag >= 7 ? 3 : q.mag >= 6 ? 2 : q.mag >= 5 ? 1 : 0, text: `M${q.mag.toFixed(1)} · ${q.place}`, lat: q.lat, lon: q.lon, at: q.t, tag: `M${q.mag.toFixed(1)}` });
   }
   const evSev: Record<string, 0 | 1 | 2> = { volcanoes: 2, severeStorms: 2, wildfires: 1, floods: 1, tempExtremes: 1, landslides: 1 };
-  for (const e of events.data ?? []) out.push({ kind: (e.catName || 'EVENT').toUpperCase().slice(0, 12), sev: evSev[e.cat] ?? 0, text: e.title, lat: e.lat, lon: e.lon, at: e.t, tag: '' });
+  for (const e of liveEvents()) out.push({ kind: (e.catName || 'EVENT').toUpperCase().slice(0, 12), sev: evSev[e.cat] ?? 0, text: e.title, lat: e.lat, lon: e.lon, at: e.t, tag: '' });
   return out.sort((a, b) => b.sev - a.sev || b.at - a.at);
 }
 
-export function threatLevel(list = signals()): { n: 0 | 1 | 2 | 3; label: string; why: string } {
+/**
+ * The level and why. With neither the quake nor the event feed in hand it is never CLEAR: an empty list then means
+ * "not checked", so the label says CHECKING (still on its way) or CAN’T CHECK (both unreachable), `known` is false.
+ */
+export function threatLevel(list = signals()): { n: 0 | 1 | 2 | 3; label: string; why: string; known: boolean } {
+  if (!quakes.data && !events.data) {
+    const down = quakes.status === 'NO FEED' && events.status === 'NO FEED';
+    return { n: 0, label: down ? 'CAN’T CHECK' : 'CHECKING', why: down ? 'can’t reach the quake and storm feeds right now, so this is not an all-clear.' : 'fetching quakes and storms…', known: false };
+  }
   const n = list.reduce<number>((m, x) => Math.max(m, x.sev), 0) as 0 | 1 | 2 | 3;
   const major = list.filter((x) => x.sev >= 2).length;
-  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: major ? `${major} major signals` : `${list.length} signals` };
+  const gap = !quakes.data ? 'the quake feed' : !events.data ? 'the storm and fire feed' : '';
+  return { n, label: ['CLEAR', 'WATCH', 'ELEVATED', 'SEVERE'][n]!, why: `${major ? `${major} major signals` : `${list.length} signals`}${gap ? ` · can’t reach ${gap}` : ''}`, known: true };
 }

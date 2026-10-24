@@ -7,7 +7,7 @@
  * get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
  * made at and just beyond them) and gives the offline brain the list of trained models to choose from.
  */
-import { AREA_LABEL, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type TrainStatus } from '../../../../../packages/shared/src/selftrain';
+import { AREA_LABEL, baseById, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type TrainStatus } from '../../../../../packages/shared/src/selftrain';
 import { brain } from '../../api/brain';
 import { clear, fmt, h } from '../../core/dom';
 import { currentModel, setTrainedModels } from '../../offline/brain';
@@ -138,7 +138,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
     if (keysOk && s.phase === 'idle' && s.next) p.body.append(row('NEXT RUN', `${when(s.next)}${s.kind ? ` · ${s.kind.scratch ? 'retrain from scratch' : 'weekly'}` : ''}`, null, { wrap: true }));
     // Weekly (adds the week to the brain in use) or the monthly retrain from scratch, and why: the brain decides as a run starts.
     if (keysOk && s.kind?.why) {
-      const k = row(s.kind.now ? 'THIS RUN' : 'NEXT KIND', s.kind.scratch ? 'Retrain from scratch: the stock model, every week kept' : 'Weekly: adds this week to the brain in use', null, { wrap: true });
+      const k = row(s.kind.now ? 'THIS RUN' : 'NEXT KIND', s.kind.scratch ? `Retrain from scratch: the stock ${baseById(s.base).label}, every week kept` : 'Weekly: adds this week to the brain in use', null, { wrap: true });
       k.dataset.kind = s.kind.scratch ? 'scratch' : 'weekly';
       p.body.append(k, h('div.note.small.trainkind', `${s.kind.why} Either way the new brain must pass the same test, and ROLLBACK works the same.`));
     }
@@ -153,24 +153,33 @@ export function trainingPanel(): Panel & { refresh(): void } {
     } else if (keysOk) p.body.append(h('div.note', 'No training run yet. The first one starts on its own, or press TRAIN NOW.'));
     // Honest: until a run has come back, none of this has worked for real.
     if (!r || (!r.published && !Object.keys(r.after ?? {}).length)) p.body.append(h('div.note.small.untried', 'Not tried for real yet: no week has finished on Kaggle. The first run may stop with a problem; if it does, it says so here.'));
-    // the last good brains
+    // the last good brains (of every base: after a switch the old chain stays, for ROLLBACK)
+    const base = baseById(s.base);
+    const several = s.models.some((m) => baseById(m.base).id !== base.id);
     const recommended = s.models.find((m) => m.commit === s.active);
+    if (s.switchedFrom && s.switchedFrom !== base.id) {
+      // A base switch (SETTINGS → OFFLINE BRAIN): the training starts again from the new base, and says so.
+      p.body.append(h('div.note.trainbase', `Training now follows ${base.label}, the brain chosen in SETTINGS → OFFLINE BRAIN: a fresh start from the stock ${base.label}, tested against that same brain. Your ${baseById(s.switchedFrom).label} brains are kept: ROLLBACK goes back to them.`));
+    } else if (base.id !== 'qwen3-0.6b') p.body.append(h('div.note.trainbase', `Training follows ${base.label}, the brain chosen in SETTINGS → OFFLINE BRAIN.`));
     p.body.append(h('div.lab', 'BRAINS KEPT'));
     for (const m of s.models) {
-      const rr = row(m.label, `${pct(examMean(m.scores))} in its test · ${m.commit.slice(0, 7)}`, m.commit === s.active ? 'RECOMMENDED' : null, { tone: m.commit === s.active ? 'up' : undefined, wrap: true });
+      const rr = row(m.label, `${pct(examMean(m.scores))} in its test · ${m.commit.slice(0, 7)}${several ? ` · ${baseById(m.base).label}` : ''}`, m.commit === s.active ? 'RECOMMENDED' : null, { tone: m.commit === s.active ? 'up' : undefined, wrap: true });
       rr.dataset.model = m.commit;
       p.body.append(rr);
     }
-    p.body.append(row('STOCK', 'Qwen3 0.6B as it came (always there to go back to)', s.active === null ? 'RECOMMENDED' : null, { tone: s.active === null ? 'up' : undefined, wrap: true }));
+    p.body.append(row('STOCK', `${base.label} as it came (always there to go back to)`, s.active === null ? 'RECOMMENDED' : null, { tone: s.active === null ? 'up' : undefined, wrap: true }));
     const onPhone = currentModel().label;
-    p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? 'the stock Qwen3 0.6B'}. This phone is set to: ${onPhone}. A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.`));
+    p.body.append(h('div.note.phoneuses', `Recommended: ${recommended?.label ?? `the stock ${base.label}`}. This phone is set to: ${onPhone}. A new brain is only downloaded when you press DOWNLOAD in SETTINGS → OFFLINE BRAIN.`));
     const now = act('TRAIN NOW', () => brain.selftrain.now(), () => "Training started: gathering this week's lessons first", 'on');
     now.disabled = !keysOk || s.phase !== 'idle';
     // the monthly retrain whenever he wants it (with a run under way: the next run is one)
     const scratch = act('TRAIN FROM SCRATCH', () => brain.selftrain.scratch(), (x) => (x.phase === 'idle' ? 'Retraining from scratch: it starts in a moment' : 'This run carries on; the next one retrains from scratch'));
     scratch.disabled = !keysOk;
-    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? 'the stock Qwen3'}`, 'warn', ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good (never offered again); the one before it, or the stock Qwen3, takes its place. A new week can train a better one.`]);
-    back.disabled = s.active === null;
+    // ROLLBACK drops the brain in use for good: a one-tap confirm says so first. Back from a new base's stock build to
+    // the old chain drops nothing (choosing the base again in SETTINGS → OFFLINE BRAIN undoes it): no question.
+    const dropping = s.active !== null;
+    const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => (x.base !== s.base ? `Back to your ${baseById(x.base).label} brains: ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}` : `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}`), 'warn', dropping ? ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good (never offered again); the one before it, or the stock ${base.label}, takes its place. A new week can train a better one.`] : undefined);
+    back.disabled = s.active === null && !(s.switchedFrom && s.switchedFrom !== base.id);
     const priv = act(`MY LIBRARY & CHATS: ${s.privateData ? 'ON' : 'OFF'}`, () => brain.selftrain.privateData(!s.privateData), (x) => (x.privateData ? 'Training learns from your library, chats and ratings (kept private)' : 'Training uses only puzzles, quizzes and general examples'));
     p.body.append(h('div.keyrow', now, scratch, back, priv));
     p.body.append(
@@ -181,7 +190,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
           : 'MY LIBRARY & CHATS is off: new weeks learn only from puzzles, quizzes and general examples, earlier weeks that held your text are left out, and training starts from the newest brain that never saw it (or the stock one).',
       ),
     );
-    const note = setTrainedModels(s.models, s.active, s.weights);
+    const note = setTrainedModels(s.models, s.active, s.weights, s.base);
     if (note) toast(note, 'warn');
   }
 

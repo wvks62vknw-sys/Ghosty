@@ -86,6 +86,10 @@ await page.waitForTimeout(800);
 if (!(await page.locator('#pg-lens .lensmodes button', { hasText: 'SCAN' }).isVisible())) problems.push('no SCAN tile in the Lens');
 await page.locator('#pg-lens .lensmodes button', { hasText: 'SCAN' }).click();
 await until(() => window.__ghosty?.lens?.mode === 'scan' && window.__ghosty?.scan?.sub === 'code', 10000, `SCAN did not open in CODE: ${JSON.stringify(await scan())}`);
+// ready in plain words (it said "code reader ready (ZXing (on the phone)) · point at a code")
+await until(() => /ready/.test(window.__ghosty?.lens?.status ?? ''), 60000, `the code reader never said it was ready: "${await page.evaluate(() => window.__ghosty?.lens?.status)}"`);
+const readyLine = await page.evaluate(() => window.__ghosty?.lens?.status ?? '');
+if (/ZXing|\(/.test(readyLine)) problems.push(`SCAN's ready line is "${readyLine}"`);
 
 // ---- CODE: a QR code photo → a web address, the real site picked out, a warning, never opened ----
 await pick('qr.png', fixture('qr-url.png'));

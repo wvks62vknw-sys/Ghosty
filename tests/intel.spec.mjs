@@ -180,7 +180,7 @@ await settle(1500);
 await page.screenshot({ path: `${out}/intel-ship.png` });
 
 const readout = await page.evaluate(() => document.querySelector('.readout')?.textContent ?? '');
-if (!/\d+ SHIP/.test(readout) || !new RegExp(`${4 + nhCount} CAM`).test(readout)) problems.push(`readout missing counts: ${readout}`);
+if (!/[\d,]+ ships?\b/i.test(readout) || !new RegExp(`${(4 + nhCount).toLocaleString('en-GB')} cameras`, 'i').test(readout)) problems.push(`readout missing counts: ${readout}`);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : `Intel layers run clean (${asked.size} feeds answered).`);
 process.exit(problems.length ? 1 : 0);

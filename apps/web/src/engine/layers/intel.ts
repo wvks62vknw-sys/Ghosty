@@ -4,7 +4,7 @@
  * Static geometry (cables, alert outlines, aurora, buoys) is rebuilt only when its
  * feed changes; moving things (ships) are dead-reckoned every frame.
  */
-import { ALERT_COLORS, alerts, aurora, buoys, cables, disasters, dispatch, shipKind, ships, SHIP_COLORS, type Ship } from '../../data/intel';
+import { ALERT_COLORS, alerts, aurora, auroraDot, buoys, cables, disasters, dispatch, shipKind, ships, SHIP_COLORS, type Ship } from '../../data/intel';
 import { enforce, ENFORCE_COLORS, type EnforceCam } from '../../data/enforce';
 import type { CamState } from '../camera';
 import { GEO } from '../geo';
@@ -150,16 +150,21 @@ export class AuroraLayer implements GlobeLayer {
   id = 'aurora' as const;
   private pts = new PointSet(12000);
   private builtAt = -1;
-  draw(_cs: CamState, rel: Mat4, oc: DrawOpts, sizeMul: number): void {
+  private builtBand = NaN;
+  draw(cs: CamState, rel: Mat4, oc: DrawOpts, sizeMul: number): void {
     const g = aurora.data;
     if (!g?.cells.length) return;
-    if (this.builtAt !== aurora.at) {
+    // rebuilt for new data, and when the camera's height moves by about a fifth (the dots' alpha follows it: data/intel.ts auroraDot)
+    const band = Math.round(Math.log2(Math.max(100, cs.alt)) * 4);
+    if (this.builtAt !== aurora.at || this.builtBand !== band) {
       const P = this.pts.clear();
+      const alt = 2 ** (band / 4);
       for (const [lat, lon, v] of g.cells) {
-        const k = Math.min(1, v / 60);
-        P.add(GEO.ecef(lat, lon, 110), [0.25 + k * 0.4, 1, 0.45 + k * 0.2, 0.12 + k * 0.4], 22 + k * 20, 0);
+        const d = auroraDot(v, alt);
+        P.add(GEO.ecef(lat, lon, 110), d.rgba, d.size, 0);
       }
       this.builtAt = aurora.at;
+      this.builtBand = band;
     }
     this.pts.draw(rel, { ...oc, px: 1, size: sizeMul });
   }

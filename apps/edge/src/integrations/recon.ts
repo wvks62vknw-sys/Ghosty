@@ -225,7 +225,9 @@ export function emailPosture(txt: string[], dmarcTxt: string[], mx: string[]): D
   const spf = txt.find((t) => /^v=spf1\b/i.test(t)) ?? null;
   const dmarc = dmarcTxt.find((t) => /^v=DMARC1\b/i.test(t)) ?? null;
   const policy = dmarc?.match(/(?:^|;)\s*p=([a-z]+)/i)?.[1]?.toLowerCase() ?? null;
-  return { spf, dmarc, dmarcPolicy: policy, mx: mx.map((m) => m.replace(/^\d+\s+/, '').replace(/\.$/, '')) };
+  // A null MX ("0 .", RFC 7505) is the domain saying it takes no email: not an exchanger with an empty name.
+  const hosts = mx.map((m) => m.trim().replace(/^\d+(?:\s+|$)/, '').replace(/\.$/, ''));
+  return { spf, dmarc, dmarcPolicy: policy, mx: hosts.filter(Boolean), noMail: hosts.length > 0 && hosts.every((h) => !h) };
 }
 
 /** All the usual records of a name (PTR for an address), plus the email posture. Throws only when dns.google answered nothing at all. */
@@ -776,7 +778,7 @@ export function renderDns(d: DnsInfo, src = 'dns.google'): string[] {
     const e = d.email;
     const spf = e.spf ? `SPF ${e.spf.replace(/^v=spf1\s*/i, '').trim() || 'present'}` : 'no SPF';
     const dmarc = d.failed.includes('DMARC') ? 'DMARC not answered' : e.dmarc ? `DMARC p=${e.dmarcPolicy ?? 'not set'}` : 'no DMARC';
-    out.push(line(`Email: ${e.mx.length ? `mail via ${join(e.mx, 4)}` : 'no mail exchangers'} · ${spf} · ${dmarc}`, src));
+    out.push(line(`Email: ${e.noMail ? 'takes no email (null MX)' : e.mx.length ? `mail via ${join(e.mx, 4)}` : 'no mail exchangers'} · ${spf} · ${dmarc}`, src));
   }
   return out;
 }

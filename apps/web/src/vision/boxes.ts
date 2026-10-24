@@ -166,9 +166,13 @@ export function countLine(dets: Detection[], max = 4): string {
 
 export const pct = (score: number): string => `${Math.round(Math.max(0, Math.min(1, score)) * 100)}%`;
 
-/** The classifier's top guesses as one line: "laptop 62% · desk 20% · monitor 9%". */
-export function sceneLine(cats: Category[], max = 3): string {
+/** Below this the classifier is guessing (the fake camera's green card came out as "pick 10% · envelope 4% · toilet seat 3%"): left out. */
+export const SCENE_MIN = 0.15;
+
+/** The classifier's top guesses worth saying as one line: "laptop 62% · desk 20%" ('' when it is only guessing). */
+export function sceneLine(cats: Category[], max = 3, min = SCENE_MIN): string {
   return [...cats]
+    .filter((c) => c.score >= min)
     .sort((a, b) => b.score - a.score)
     .slice(0, max)
     .map((c) => `${c.label} ${pct(c.score)}`)
@@ -184,7 +188,8 @@ export function onDeviceSeen(dets: Detection[], scene: Category[], text = ''): s
   const parts: string[] = [];
   const counts = countLabels(dets);
   if (counts.length) parts.push(`labels ${counts.map((c) => (c.n > 1 ? `${c.label} ×${c.n}` : c.label)).join(', ')}`);
-  if (scene.length) parts.push(`scene ${sceneLine(scene, 3)}`);
+  const sceneWords = sceneLine(scene, 3);
+  if (sceneWords) parts.push(`scene ${sceneWords}`);
   const t = text.replace(/\s+/g, ' ').trim();
   if (t) parts.push(`text "${t.slice(0, 600)}${t.length > 600 ? '…' : ''}"`);
   return parts.join('; ');

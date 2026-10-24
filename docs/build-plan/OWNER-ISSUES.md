@@ -170,7 +170,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     review and the same rails, in the order of value and of what does not need his phone; what needs his phone or
     his pick waits for him; whatever is left at the week's end goes to next week.
 
-37. **What only he can do, as of 24 Oct ~13:15 UK (after the next pull request lands):** (a) SYSTEM → KEYS → Pl@ntNet:
+37. **What only he can do, as of 24 Oct 19:12 UK (PR #33 is merged: (a)–(k) are live; (l) comes with PR #34):** (a) SYSTEM → KEYS → Pl@ntNet:
     make a free account at my.plantnet.org, copy the API key, paste it in; then Lens → NAME → LIVING THING → PLANT names
     plants (500 a day, free). Without it, PLANT offers "ASK GHOSTY INSTEAD" (the seeing model). (b) Settings → Offline
     brain → Search by meaning → ADD · 70 MB, on Wi-Fi: the library on the phone then finds passages by what they mean;
@@ -198,3 +198,13 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (k) Remove anything (a memory, a library document, a course, a widget): an UNDO bar sits above the tab bar for 12
     seconds and puts it back exactly. With no signal, "translate dinner into Spanish": the phone's own brain answers,
     marked rough, with READ ALOUD.
+    (l) SETTINGS → OFFLINE BRAIN → WHICH BRAIN, on Wi-Fi: GET on Qwen3.5 2B (about 1.1 GB), then TEST and read the speed
+    and quick-check line; try the 4B (about 2.4 GB, rated "tight") if you like — if the phone cannot hold it Ghosty
+    goes back to the 0.6B and says so, and REMOVE frees the space. The weekly training then follows the brain in use.
+
+38. **Owner's decision, 24 Oct 19:40 UK:** Telegram needs no upgrade pass ("I don't mind that not getting one"). Its pass was
+    stopped; the other passes go on.
+
+39. **Merging, said again (24 Oct ~19:55 UK):** "everytime you think the pull request should be merged on github etc just
+    merge it dont wait for me to do it." Standing: every green pull request is merged by this session at once. He also
+    asked for the whole picture: STATUS.md (done, going up, running, next, left from his list, my ideas).

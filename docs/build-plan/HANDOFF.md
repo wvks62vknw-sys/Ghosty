@@ -180,6 +180,50 @@ folder that no longer exists; ignore those paths).
   the same crowded preview. Fixed in the spec: a plant question damps the cooking concept in the stand-in (as the real
   model would), and the checks accept any photosynthesis passage in the first three hits and in the offline prompt,
   with the added passage required somewhere in the list. The other 59 specs, the four new ones included, passed.
+- 24 Oct ~17:55 UK: pushed to PR #33 (head 23f9356): UNDO everywhere and offline translation, the meaning spec mended, the
+  docs. Its CI run is the gate for the merge; a check-in at 19:16 UK merges if green. Builders still out: the bigger-brain
+  reconciliation, and the upgrade passes on God's Eye, Threats and the Lens.
+- 24 Oct ~18:20 UK: merged after review: THE BIGGER BRAIN (BRIEF-BIGGER-BRAIN), reconciled by a merge builder with Night
+  School's monthly retrain and UNDO everywhere (both sides' tests kept whole and extended; a follow-up fix moves the
+  model being trained to the CPU while the brain in use is scored, or two 7.5 GB copies of the 2B would not fit a T4).
+  Kernel line, marked `[bigbrain]`: the spec in the CI loop after `meaning`. Untested anywhere real: whether Qwen3.5 2B
+  and 4B load in iOS Safari on WebLLM 0.2.85 (only TEST on the phone proves it), Qwen3.5 training on a GPU (the
+  transformers 5.5.4 / peft 0.19.1 set; the first 2B week may fail and will say why). Known: the trained 2B's 4-bit
+  weights differ from mlc-ai's own rounding in about 0.09 % of values, always by one step (the bit-for-bit claim stays
+  for the 0.6B); the retrain right after a base switch replays only that base's kept weeks, so it may lose at the gate
+  (a one-line change in `push` makes both kinds replay every week). An earlier merge had interleaved two MAP.md rows
+  letter by letter (MARK MY WORK and NIGHT SCHOOL on the brain): restored from their parents.
+- 24 Oct ~18:40 UK: merged after review: the THREATS upgrade pass (10 fixes, two of them dead feeds nobody had noticed:
+  NOAA's Kp file and the launch list). Kernel line, marked `[threats]`: the spec in the CI loop after `notifications`.
+  One line in Home (core) by me: the THREAT note is amber when the level is not a reading. Leftovers the builder ranked:
+  no UK threats yet (Environment Agency flood warnings and Met Office warnings near home, a street-crime tile from
+  `crime_near`: a new feature, the biggest gap for a UK owner); the hero level is worldwide (should say "nothing near
+  you within 500 km" or the reverse); no filter on the signals list; desktop hero dials far from the text (shared
+  `ui/page.ts`); launch dates without a time. The safari and scroll specs could not run here (no WebKit): CI runs them.
+- 24 Oct 19:12 UK: **PR #33 MERGED into main** (merge commit 910a831; CI run 226 green on 23f9356: brain, interface,
+  deploy-build, Workers Builds, the 61-spec browser run). Live for the owner: A3, the Workshop app project, the SPEED
+  card, full courses, search by meaning, the Lens's NAME IT / WHAT'S IN IT, MARK MY WORK and GADGET MANUALS, Night School
+  and the monthly retrain, PHOTO TOOLS, GYM ideas, the websites lift, saved places and spending, UNDO everywhere,
+  offline translation, the laptop fix, the after-14-November guide. Next pull request (#34, same branch): the bigger
+  brain, the Threats pass, and the God's Eye and Lens passes when they land.
+- 24 Oct ~19:25 UK: merged after review: the GOD'S EYE upgrade pass (10 fixes; no brain code changed). Kernel line, marked
+  `[eye]`: the spec in the CI loop after `westmidlands`. Leftovers the builder ranked: the rain radar at 80 % opacity washes
+  out the map in heavy rain (a taste call); Seattle 911 and US weather alerts on by default for a UK owner (now a
+  one-time switch-off, since layers are kept); no feedback while a place is looked up (1–3 s); the readout's third line
+  can be cut at 440 px; the spot card has CLEAR and ✕ and its 8 buttons wrap to 3 rows; on desktop LAYERS opens by
+  default and is long. The Street View spec times out on this loaded machine on the base build as well (Google's
+  panorama frame screenshot); CI runs it on a quieter runner. Measured: a tab open here is about 1 s under software
+  graphics (not a phone number); first aircraft 12–14 s (adsb.lol often answers "too many requests").
+- 24 Oct ~19:35 UK: merged after review: the LENS upgrade pass (10 fixes; no brain code changed; no kernel line). Leftovers
+  the builder ranked: ASK has no PICK PHOTO (the biggest gap: with no camera it cannot ask about a picture; a new control
+  and flow); red primary buttons (ASK GHOSTY, What's that?, RECORD, SAVE come from the shared `warn` style: a design-language
+  call for the owner); READ shows a picked photo cropped (the viewfinder's frame-to-screen mapping, used by every mode);
+  ASK's jargon note; the PHOTO TOOLS chip pushes the layout down 58 px; SOUND's empty black viewfinder before a
+  recording. A refused camera cannot be reproduced in headless Chromium (NotSupportedError, not iOS's "not allowed").
+- 24 Oct ~19:40 UK: upgrade passes out now: voice (worktree `voice`, port 8882). Done and merged: God's Eye, Threats,
+  the Lens. The owner (19:40 UK): "Telegram don't really need an upgrade": its pass was stopped while still measuring
+  and its worktree removed; Telegram is off the list. Still to run, one or two at a time: Reverse, Workshop, Brief,
+  Markets, Radio, Memory, Agenda, Library, Settings, System.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

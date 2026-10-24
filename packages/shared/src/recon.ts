@@ -24,7 +24,8 @@ export interface DnsInfo {
   /** The A and AAAA addresses. */
   ips: string[];
   /** Email posture from the TXT records: the SPF record, the DMARC record at _dmarc.<name> and its policy. */
-  email: { spf: string | null; dmarc: string | null; dmarcPolicy: string | null; mx: string[] };
+  /** `noMail`: a null MX ("0 .", RFC 7505): the domain says it takes no email at all. */
+  email: { spf: string | null; dmarc: string | null; dmarcPolicy: string | null; mx: string[]; noMail?: boolean };
   /** Record types dns.google did not answer for. */
   failed: string[];
 }

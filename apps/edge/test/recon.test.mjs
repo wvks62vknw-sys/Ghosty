@@ -778,3 +778,58 @@ test('the RECON card: every section names its source, weak spots get a flag, a s
   assert.deepEqual(wb.dns.rows.find((x) => x.k === 'EMAIL').n, 'WEAK');
   assert.deepEqual(wb.registration.rows.find((x) => x.k === 'EXPIRES').n, '10 DAYS');
 });
+
+test('a null MX ("0 .", RFC 7505) is said as "takes no email": no empty mail exchanger in the posture, the Markdown or the card', async () => {
+  const e = R.emailPosture(['v=spf1 -all'], ['v=DMARC1; p=reject'], ['0 .']);
+  assert.deepEqual(e.mx, [], 'no empty exchanger');
+  assert.equal(e.noMail, true);
+  assert.equal(R.emailPosture([], [], ['10 mx.example.com.']).noMail, false);
+  R.clearReconCache();
+  network({ 'crt.sh': 'hang' });
+  const r = await R.recon('example.com', { now: Date.UTC(2026, 9, 16, 12, 0), timeouts: { certs: 40 } });
+  const nullMx = { ...r, dns: { ...r.dns, data: { ...r.dns.data, records: [...r.dns.data.records.filter((x) => x.type !== 'MX'), { type: 'MX', data: '0', ttl: 300 }], email: R.emailPosture([r.dns.data.email.spf], [r.dns.data.email.dmarc], ['0 .']) } } };
+  const md = R.renderReport(nullMx);
+  assert.match(md, /takes no email/);
+  assert.doesNotMatch(md, /mail via ·/);
+  const dns = Object.fromEntries(V.reportRows(nullMx).find((v) => v.key === 'dns').rows.map((x) => [x.k, x]));
+  assert.match(dns.MX.v, /none: it takes no email/);
+  assert.match(dns.EMAIL.v, /^takes no email · SPF present · DMARC p=reject$/);
+  assert.equal(dns.EMAIL.n, undefined);
+});
+
+test('the RECON card opens with WHAT STANDS OUT: a few plain lines on what matters, worst first, each with its tone', async () => {
+  R.clearReconCache();
+  network({ 'crt.sh': 'hang' });
+  const r = await R.recon('example.com', { now: Date.UTC(2026, 9, 16, 12, 0), timeouts: { certs: 40 } });
+  const lines = V.standout(r, Date.UTC(2026, 9, 16));
+  assert.ok(lines.length >= 4 && lines.length <= 8, `a handful of lines, not a dump (${lines.length})`);
+  const txt = lines.map((x) => x.v).join('\n');
+  // the fixture: 1 listed vulnerability, 4 safety headers missing, SPF + DMARC reject, registered 1995 to 2027, crt.sh silent
+  assert.match(txt, /1 known weakness listed for its software \(CVE-2024-0001\)/);
+  assert.match(txt, /4 of 6 browser safety headers are missing/);
+  assert.match(txt, /Email is protected against forgery/);
+  assert.match(txt, /Registered since 1995 · paid up to 13 Aug 2027/);
+  assert.match(txt, /1 source did not answer: RUN again to ask it/);
+  assert.equal(lines[0].tone, 'bad', 'the worst first');
+  assert.deepEqual(lines.find((x) => /weakness/.test(x.v)).tone, 'bad');
+  assert.deepEqual(lines.find((x) => /forgery/.test(x.v)).tone, 'up');
+  // every line is a plain sentence: no record-type jargon
+  for (const x of lines) assert.doesNotMatch(x.v, /\b(CDX|CPE|RDAP|AAAA|CNAME)\b/, x.v);
+  // a weak posture and a registration about to lapse are said, and a domain that takes no email is not "weak"
+  const soon = new Date(Date.UTC(2026, 9, 16) + 10 * 86_400_000).toISOString().slice(0, 10);
+  const weak = V.standout({ ...r, dns: { ...r.dns, data: { ...r.dns.data, email: { spf: null, dmarc: null, dmarcPolicy: null, mx: ['mail.example.com'], noMail: false } } }, registration: { ...r.registration, data: { ...r.registration.data, expires: soon } } }, Date.UTC(2026, 9, 16));
+  assert.ok(weak.some((x) => /Email could be faked in its name/.test(x.v) && x.tone === 'bad'));
+  assert.ok(weak.some((x) => /registration runs out in 10 days/.test(x.v) && x.tone === 'bad'));
+  const none = V.standout({ ...r, dns: { ...r.dns, data: { ...r.dns.data, email: { spf: 'v=spf1 -all', dmarc: 'v=DMARC1; p=reject', dmarcPolicy: 'reject', mx: [], noMail: true } } } });
+  assert.ok(none.some((x) => /Takes no email, and says so/.test(x.v) && x.tone === 'up'));
+});
+
+test('the RECON card says its errors plainly: the brain out of reach, failing, or silent for a minute', () => {
+  assert.equal(V.reconError(new TypeError('Failed to fetch')), 'Can’t reach Ghosty’s brain right now. Check the connection, then RUN again.');
+  assert.equal(V.reconError(new TypeError('Load failed')), 'Can’t reach Ghosty’s brain right now. Check the connection, then RUN again.');
+  assert.equal(V.reconError(Object.assign(new Error('aborted'), { name: 'AbortError' })), 'No answer after a minute. RUN again: the sources that did answer are kept for ten minutes.');
+  assert.equal(V.reconError(null, 500), 'Ghosty’s brain had a problem with that (error 500). Try again in a minute.');
+  assert.equal(V.reconError(null, 401), 'Ghosty needs your owner key again: pair this phone in Settings, then RUN again.');
+  // the brain's own words (a refusal, a bad target) are already plain: shown as they are
+  assert.equal(V.reconError(null, 400, 'that looks like a person’s name — recon is for domains'), 'that looks like a person’s name — recon is for domains');
+});
