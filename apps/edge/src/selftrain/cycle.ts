@@ -117,6 +117,7 @@ import {
 } from './factory';
 import { EXAM_SLUG, hfCommit, hfEnsurePrivateRepo, hfHasFile, hfTag, hfWhoami, kaggleQuota, kernelOutput, kernelStatus, parseKaggleKey, pushKernel, RemoteError, SESSION_TIMEOUT_S, type GpuQuota } from './remote';
 import { brainLoops, drainStars, noteDays, takeStars } from './loops';
+import { drainPool, loadPool, poolAnswer, poolReady, poolSit, poolStep, poolView, type PoolWeek } from './pool';
 import { revokeCap, weightsCap } from './weights';
 
 const DAY = 86_400_000;
@@ -217,6 +218,8 @@ export interface State {
   /** Sessions that ran out and saved their place ({paused}), and the week's hours the run said were left. */
   sessions?: number;
   resumeHours?: number;
+  /** Checked samples from the daily GPU that went into this week's data. */
+  daily?: number;
 }
 
 /** A candidate waiting for the blind judge: a style-set exchange, or a rewrite (`item`: the reply it says again). */
@@ -397,7 +400,9 @@ export async function trainTick(d: CycleDeps): Promise<{ next: number; note: str
   const r = await weekTick(d);
   const night = await nightStep(d);
   const more = await schoolStep(d, !!night?.inside);
-  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity);
+  // the daily GPU (pool.ts): set up after his yes, then once a day; never in the week's way
+  const pool = await poolStep(d, () => poolWeek(d)).catch(() => null);
+  const next = Math.min(r.next, more ?? Infinity, night?.next ?? Infinity, pool ?? Infinity);
   return next === r.next ? r : { next: Math.max(1000, next), note: r.note };
 }
 
@@ -458,6 +463,7 @@ async function step(d: CycleDeps, st: State): Promise<{ next: number; note: stri
     delete st.weekHours;
     delete st.sessions;
     delete st.resumeHours;
+    delete st.daily;
     st.private = await privateOn(d.storage);
     // Weekly, or the monthly retrain from scratch (decided as the run starts; TRAIN FROM SCRATCH is used up by it).
     const kind = runKind(now, st, await keptWeeks(d.storage));
@@ -565,6 +571,10 @@ const FREE_PARTS: ((d: CycleDeps, st: State, far: Far) => Promise<void>)[] = [
     const ok = st.private === false ? all.filter((r) => /^gym /.test(r.from ?? '')) : all;
     await noteRejected(d.storage, "THINK HARDER's answers left out: MY LIBRARY & CHATS is off", all.length - ok.length);
     await addRecords(d.storage, 'star', far(ok));
+    // The daily GPU's checked samples (pool.ts: GYM puzzles, none of his text), through the same filter; counted for the report.
+    const daily = far(await drainPool(d.storage));
+    await addRecords(d.storage, 'star', daily);
+    st.daily = (st.daily ?? 0) + daily.length;
   },
 ];
 
@@ -896,6 +906,13 @@ export function baseConfig(b: BrainBase): Record<string, unknown> {
   return { base: { id: b.id, label: b.label, family: b.family, context: b.context }, base_model: b.hf, stock_mlc: b.mlc, budgets: examBudgets(b) };
 }
 
+/** What the daily GPU practises on (pool.ts): the latest uploaded week's data, and the brain in use. */
+async function poolWeek(d: CycleDeps): Promise<PoolWeek | null> {
+  const st = await loadState(d.storage);
+  if (!st.dataFile || !st.dataCommit || !st.hfUser) return null;
+  return { dataRepo: `${st.hfUser}/${DATA_REPO}`, dataFile: st.dataFile, dataRev: st.dataCommit, config: { ...baseConfig(await loadBase(d.storage)), current: await trainingBase(d.storage, st.private !== false) } };
+}
+
 const hours = (h: number) => String(Math.floor(h * 10) / 10);
 const gpuNote = (g: State['gpu']) => (g ? `${hours(g.left)} of ${hours(g.total)} free GPU hours were left this week` : '');
 
@@ -1194,7 +1211,9 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       // (a run on Kaggle already waited above; one still being gathered or uploaded is to come)
       const toCome = week.phase === 'collect' || week.phase === 'upload';
       const no = examQuotaProblem(await noteQuota(s, await kaggleQuota(f, keys.kaggle), now), toCome);
-      if (no) return end(no);
+      // Kaggle's hours are short for it: the daily GPU sits it, when it is set up (else the phone, as the words say)
+      const pool = no ? await poolReady(s) : null;
+      if (no && !pool) return end(no);
       const rec = await loadPaper({ storage: s }, r.paperId ?? '');
       if (!rec) return end(`${name} could not be sat on the free GPU: the paper is not known any more.`);
       if (rec.result) return end(`${name} was handed in on the phone meanwhile; nothing was sat on the free GPU.`);
@@ -1209,6 +1228,16 @@ async function examStep(d: CycleDeps, now: number): Promise<number | null> {
       const base = await trainingBase(s, true);
       const active = await s.get<string | null>(K.active);
       r.model = `${base.label}${base.chain.length && active ? `@${active.slice(0, 7)}` : ''}`;
+      if (pool) {
+        try {
+          const answers = await poolSit(d, pool, { dataRepo: repo, paperFile: 'school_paper.jsonl', dataRev: commit, items: rec.paper.items.length, config: { ...baseConfig(chosen), current: base } });
+          // marked as a paper sat on Kaggle is (where: the free GPU), and filed by SCHOOL's routes
+          await acceptRemoteReport({ storage: s, ask: d.ask, now: d.now }, r, { paperId: r.paperId, answers });
+          return null;
+        } catch (e) {
+          return end(`${name} could not be sat on the daily GPU either (${e instanceof RemoteError ? e.message : String((e as Error)?.message ?? e).slice(0, 160)}). ${no}`);
+        }
+      }
       r.ticket = randomTicket();
       r.ticketUntil = now + EXAM_LIMIT + 3600_000;
       r.tokenGiven = false;
@@ -1392,6 +1421,7 @@ export async function acceptReport(d: CycleDeps, st: State, r: TrainReport): Pro
     ...(st.scratch ? { scratch: true } : {}),
     // (the brain's plan for the week: a smaller run when Kaggle's hours were short)
     ...(st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
+    ...(st.daily ? { daily: st.daily } : {}),
   };
   let note: string;
   const expected = `${st.hfUser}/${MODEL_REPO}`;
@@ -1477,6 +1507,7 @@ export async function trainStatus(d: CycleDeps): Promise<TrainStatus> {
       return gpu ? { gpu } : {};
     })()),
     ...(st.phase !== 'idle' && st.plan ? { plan: { mode: st.plan.mode, why: st.plan.why } } : {}),
+    pool: poolView(await loadPool(s), nowOf(d), !!keys.kaggle && !!keys.hf),
   };
 }
 
@@ -1508,6 +1539,21 @@ export async function trainingRoute(req: Request, path: string, method: string, 
   if (path === '/training/loops' && method === 'GET') {
     // The REPORT CARD's LOOPS card (GYM ideas, part 4): this week's numbers for the brain's loops.
     return json(await brainLoops(s, await trainStatus(d), nowOf(d)));
+  }
+  if (path === '/training/pool' && method === 'POST') {
+    // The daily GPU: his answer (asked once). Yes makes the Space on his Hugging Face account at the next step.
+    if (typeof body.allow !== 'boolean') return json({ error: 'allow must be true or false' }, 400);
+    if (body.allow && !(await keysOf(d)).hf) return json({ error: 'The daily GPU needs the Hugging Face token first (SYSTEM → KEYS).' }, 400);
+    await poolAnswer(s, body.allow, nowOf(d));
+    if (body.allow) {
+      await ensureTrainJob(s);
+      const j = (await loadJobs(s)).find((x) => x.kind === 'train');
+      if (j) {
+        await setNext(s, j.id, Date.now() + 1000);
+        await rearm(s);
+      }
+    }
+    return json(await trainStatus(d));
   }
   if (path === '/training/private' && method === 'POST') {
     await s.put(K.privateData, !!body.on);

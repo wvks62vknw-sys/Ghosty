@@ -1537,7 +1537,7 @@ class Run:
             from transformers import AutoConfig, Qwen3_5ForCausalLM
             model = Qwen3_5ForCausalLM.from_pretrained(self.base_dir, config=AutoConfig.from_pretrained(self.base_dir).get_text_config(), dtype=torch.float32).to(dev or self.dev)
         else:
-            model = AutoModelForCausalLM.from_pretrained(self.base_dir, torch_dtype=torch.float32).to(dev or self.dev)
+            model = AutoModelForCausalLM.from_pretrained(self.base_dir, **_dtype_kw(torch.float32)).to(dev or self.dev)
         for link in chain:
             p = retry(lambda: snapshot_download(self.cfg['data_repo'], repo_type='dataset', allow_patterns=[f"{link['adapter']}/*"], token=self.token, local_dir=f'{WORK}/chain'), f"downloading {link['adapter']}")
             pm = PeftModel.from_pretrained(model, os.path.join(p, link['adapter']))
@@ -1868,7 +1868,9 @@ class Run:
         for r in self.records:
             if r['kind'] in ('evol', 'library', 'tool', 'redteam', 'distill', 'star') or (r['kind'] == 'school' and 'answer' not in r):
                 # (the weekly style set is distillation too, counted apart: "voice"; the phone's checked work is "checked")
-                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], 'voice' if r.get('from') == 'voice' else 'checked' if r['kind'] == 'star' else r['kind']))
+                # ("daily": checked samples from the daily GPU, a Space on the owner's Hugging Face account)
+                kind = 'voice' if r.get('from') == 'voice' else ('daily' if str(r.get('from', '')).startswith('daily GPU') else 'checked') if r['kind'] == 'star' else r['kind']
+                ex.append((chat_prompt(r['messages'][:-1]), r['messages'][-1]['content'], kind))
             elif r['kind'] == 'pref':
                 ex.append((chat_prompt(r['messages']), r['chosen'], 'pref'))
             elif r['kind'] == 'failure' and 'answer' in r:
@@ -2347,6 +2349,17 @@ class Run:
         self.report['phases'].append({'name': 'setup', 'minutes': round((time.time() - t) / 60, 1)})
 
 
+def _dtype_kw(dtype):
+    """How from_pretrained is told the precision: `torch_dtype` in transformers 4 (Kaggle's pins for Qwen3), `dtype` from
+    transformers 5 on (the daily GPU's Space, Qwen3.5)."""
+    try:
+        import transformers
+        major = int(transformers.__version__.split('.')[0])
+    except Exception:
+        major = 4
+    return {'dtype': dtype} if major >= 5 else {'torch_dtype': dtype}
+
+
 def prepare_tokenizer(tok):
     """Batches padded on the left (generation), and a long prompt cut from the LEFT, so its end — the assistant tag
     the answer follows — always stays."""
@@ -2479,6 +2492,170 @@ class ExamRun(Run):
         log('done:', json.dumps({'answered': len(self.report['answers']), 'error': self.report.get('error')}))
         import shutil
         shutil.rmtree(WORK, ignore_errors=True)
+
+
+# ---- the daily GPU: Hugging Face ZeroGPU, in a Space on the owner's own account (training/space/app.py) -----------
+# A free Hugging Face account gets about 5 GPU-minutes a day (a big Blackwell card, lent per call) and cannot buy more:
+# the brain checks the account is free with no card before it makes the Space, and calls it once a day. It is extra,
+# never counted on: Kaggle stays where the week trains, and a day with no minutes is skipped and said. The Space runs
+# this very file (uploaded beside app.py), so its helpers are tested here.
+POOL_SECONDS = int(round(HOSTS['zerogpu']['budget_hours'] * 3600))
+POOL_PUZZLES = 24
+POOL_SAMPLES = 8
+
+
+def pool_allowed(given, key):
+    """Only the brain may use the Space (it holds the key as a secret, and the brain sends it): never an empty key."""
+    import hmac
+    return bool(key) and isinstance(given, str) and hmac.compare_digest(given.encode(), key.encode())
+
+
+def pool_seconds(asked):
+    """The GPU seconds one call may ask for: what the brain asked, from 30 to POOL_SECONDS (4.5 of the 5 minutes)."""
+    return max(30, min(POOL_SECONDS, int(asked))) if _num(asked) else POOL_SECONDS
+
+
+def pool_pick(records, n, day):
+    """Today's puzzles from the week's data: its checkable ones (GYM and drills, references the GYM's code makes and
+    checks), a different slice each day (`day`: days since 1970), so a week of days goes round them."""
+    ok = [r for r in records if r.get('kind') in ('gym', 'drill') and isinstance(r.get('task'), dict)]
+    if not ok or n <= 0:
+        return []
+    start = (int(day) * n) % len(ok)
+    return [ok[(start + i) % len(ok)] for i in range(min(n, len(ok)))]
+
+
+def pool_records(samples, verdicts, system):
+    """Checked samples as `star` records for the brain (the shape `record_problem` takes: the question, the answer that
+    passed, and the check that passed it): at most two different right answers a puzzle (star_select)."""
+    out, vi = [], iter(verdicts)
+    for smp in samples:
+        vs = [next(vi) for _ in smp['answers']]
+        good, _ = star_select(list(zip(smp['answers'], vs)))
+        t = smp['task']
+        what = f"gym {t['game']} level {t.get('level')}" if 'game' in t else f"drill {t.get('drill')}"
+        for a in good:
+            out.append({'kind': 'star', 'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': smp['ask']}, {'role': 'assistant', 'content': a}], 'checked': "the GYM's own checker", 'from': f'daily GPU · {what}'})
+    return out
+
+
+class DailyPool(Run):
+    """The Space's side of the daily GPU. It loads the brain in use (the chosen base and its chain, from the owner's
+    private repos with the token in the Space's secrets) and the week's data the brain names, and answers three calls,
+    each refused without the key the brain set as another secret:
+      sample — STaR candidates from the current brain on today's slice of the week's puzzles (on the GPU);
+      score  — the GYM's exact checkers on those samples (on the CPU: no GPU time), the right ones as star records;
+      exam   — a chunk of a SCHOOL paper's questions (never its answers) with the phone's exam prompt, on the weights as
+               they ship (on the GPU), when Kaggle's hours are short.
+    `gpu` is app.py's @spaces.GPU function, which calls `generate_now` with the GPU lent for those seconds."""
+
+    def __init__(self, token, key, clock=time.time):
+        super().__init__({'week': 0, 'current': {'label': 'stock', 'chain': []}, 'hook': '', 'ticket': '', 'data_repo': '', 'model_repo': '', 'host': 'zerogpu'})
+        self.token = token
+        self.key = key
+        self.clock = clock
+        self.loaded = None
+        self.data_at = None
+
+    def call(self, kind, args_json, gpu=None):
+        """One call from the brain: the arguments as JSON (with the key); an answer as a dict, or {'error': …}."""
+        try:
+            a = json.loads(args_json or '{}')
+        except ValueError:
+            return {'error': 'the arguments are not JSON'}
+        if not isinstance(a, dict) or not pool_allowed(a.get('key'), self.key):
+            return {'error': 'not allowed'}
+        if kind not in ('sample', 'score', 'exam'):
+            return {'error': f'no call {kind!r}'}
+        try:
+            return getattr(self, f'do_{kind}')(a, gpu)
+        except Exception as e:
+            return {'error': f'{type(e).__name__}: {str(e)[:300]}'.replace(self.token or '\0', 'hf_…')}
+
+    # -- loading (outside the GPU: ZeroGPU lends the card only inside each call)
+    def prepare_data(self, a):
+        """The week's data file, the exam (its system prompt) and the GYM's program, at the commit the brain names."""
+        from huggingface_hub import hf_hub_download
+        at = (a['data_repo'], a.get('data_file'), a.get('data_rev'))
+        if self.data_at == at:
+            return
+        self.cfg.update({'data_repo': a['data_repo'], 'data_file': a.get('data_file'), 'data_rev': a.get('data_rev')})
+        dl = lambda f: retry(lambda: hf_hub_download(a['data_repo'], f, repo_type='dataset', revision=a.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), f'downloading {f}')
+        self.tasks = Tasks(dl('tasks.mjs'), retry(node_cmd, 'installing node'))
+        self.report_card = self.tasks.reportcard()
+        if a.get('data_file'):
+            with open(dl('exam.json')) as f:
+                self.exam = json.load(f)
+            with open(dl(a['data_file'])) as f:
+                self.records = [r for r in (json.loads(l) for l in f if l.strip()) if not record_problem(r)]
+        self.data_at = at
+
+    def prepare_model(self, a):
+        """The brain in use (the chosen base and its chain), loaded once and kept while it stays the one in use."""
+        from huggingface_hub import snapshot_download
+        from transformers import AutoTokenizer
+        want = json.dumps([a.get('base'), a.get('base_model'), (a.get('current') or {}).get('chain')], sort_keys=True)
+        if self.loaded == want:
+            return
+        self.cfg.update({k: a[k] for k in ('base', 'base_model', 'stock_mlc', 'budgets', 'current') if k in a})
+        self.cfg['data_repo'] = a['data_repo']
+        self.base = base_of(self.cfg)
+        self.prompt_tokens, self.gen_tokens = budgets_for(self.cfg)
+        self.dev, self.amp = 'cuda', None
+        self.base_dir = retry(lambda: snapshot_download(a['base_model']['repo'], revision=a['base_model']['rev'], token=self.token, local_dir=f'{WORK}/base'), 'downloading the base model')
+        self.tok = prepare_tokenizer(AutoTokenizer.from_pretrained(self.base_dir))
+        self.model = self.merged_base(list((a.get('current') or {}).get('chain') or []))
+        self.model.config.use_cache = True
+        self.loaded = want
+
+    def generate_now(self, prompts, n, temperature, max_new, seconds, quantised=False):
+        """Inside the GPU call: batches of 8 until the lent seconds are nearly used (ZeroGPU stops a call that overruns);
+        None for the prompts not reached."""
+        stop = self.clock() + seconds * 0.85
+        out = [None] * len(prompts)
+        with (quantised_weights(self.model) if quantised else _null()):
+            for i in range(0, len(prompts), 8):
+                if self.clock() > stop:
+                    break
+                out[i:i + 8] = self.generate(prompts[i:i + 8], n=n, temperature=temperature, max_new=max_new)
+        return out
+
+    # -- the three calls
+    def do_sample(self, a, gpu):
+        self.prepare_data(a)
+        self.prepare_model(a)
+        picked = pool_pick(self.records, int(a.get('n') or POOL_PUZZLES), int(a.get('day') or 0))
+        raws = self.tasks.make([r['task'] for r in picked]) if picked else []
+        # (a puzzle on the phone's report card is never trained on, wherever it came from)
+        keep = [(r, raw) for r, raw in zip(picked, raws) if raw and not near_report_card(raw, self.report_card)]
+        system = self.exam['tools']['system']
+        prompts = [chat_prompt([{'role': 'system', 'content': system}, {'role': 'user', 'content': raw}]) for _, raw in keep]
+        t = self.clock()
+        outs = gpu(prompts, int(a.get('k') or POOL_SAMPLES), 0.8, 384, pool_seconds(a.get('seconds'))) if prompts else []
+        samples = [{'task': r['task'], 'ask': raw, 'answers': ans} for (r, raw), ans in zip(keep, outs) if ans]
+        return {'samples': samples, 'system': system, 'seconds': round(self.clock() - t, 1), 'asked': len(prompts)}
+
+    def do_score(self, a, gpu=None):
+        # (the GYM's program is already here after today's sample; a Space woken afresh fetches it)
+        if getattr(self, 'tasks', None) is None:
+            self.prepare_data({**a, 'data_file': None})
+        samples = [s for s in a.get('samples') or [] if isinstance(s, dict) and isinstance(s.get('task'), dict) and isinstance(s.get('answers'), list)]
+        verdicts = self.tasks.check([(s['task'], str(ans)) for s in samples for ans in s['answers']])
+        records = pool_records(samples, verdicts, str(a.get('system') or ''))
+        return {'records': records, 'checked': len(verdicts), 'right': sum(1 for v in verdicts if v.get('correct'))}
+
+    def do_exam(self, a, gpu):
+        from huggingface_hub import hf_hub_download
+        self.prepare_model(a)
+        path = retry(lambda: hf_hub_download(a['data_repo'], a['paper_file'], repo_type='dataset', revision=a.get('data_rev'), token=self.token, local_dir=f'{WORK}/data'), 'downloading the paper')
+        with open(path) as f:
+            items = [json.loads(l) for l in f if l.strip()]
+        lo, hi = (a.get('chunk') or [0, len(items)])[:2]
+        items = items[int(lo):int(hi)]
+        prompts = [chat_prompt(exam_prompt(it)) for it in items]
+        longest = EXAM_TOKENS['writing' if any(it.get('type') == 'extended' for it in items) else 'item']
+        outs = gpu(prompts, 1, 0.3, longest, pool_seconds(a.get('seconds')), True) if prompts else []
+        return {'answers': [{'id': it['id'], 'given': o[0]} for it, o in zip(items, outs) if o], 'asked': len(items)}
 
 
 def run_for(cfg):

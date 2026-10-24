@@ -989,6 +989,127 @@ class Resilience(unittest.TestCase):
             self.assertEqual(bool(done), cleaned, report)
 
 
+class DailyGpu(unittest.TestCase):
+    """The daily GPU (BRIEF-TRAINING-RESILIENCE part B): the Space on the owner's Hugging Face account runs this file's
+    DailyPool. No GPU and no Hugging Face here: the model, the checker and the GPU call are stand-ins."""
+
+    SPACE = os.path.join(os.path.dirname(HERE), 'space')
+
+    def pool(self, records=None, clock=None):
+        p = G.DailyPool('hf_secretTOKEN123', 'the-key', clock=clock or time.time)
+        p.records = records if records is not None else [{'kind': 'gym', 'task': {'game': 'maze', 'level': 2, 'seed': i}} for i in range(10)] + [{'kind': 'evol', 'messages': []}]
+        p.exam = {'tools': {'system': 'You are Ghosty.'}}
+        p.report_card = ['puzzle 3']
+
+        class Tasks:
+            def make(self, tasks):
+                return [f"puzzle {t['seed']}" for t in tasks]
+
+            def check(self, items):
+                return [{'correct': a.startswith('right'), 'score': 0} for _, a in items]
+        p.tasks = Tasks()
+        p.prepare_data = lambda a: None
+        p.prepare_model = lambda a: None
+        return p
+
+    def test_its_budget_is_inside_the_free_daily_minutes(self):
+        self.assertEqual(G.POOL_SECONDS, 270, "4.5 of a free account's 5 GPU-minutes a day")
+        self.assertEqual(G.pool_seconds(9999), 270)
+        self.assertEqual(G.pool_seconds(5), 30)
+        self.assertEqual(G.pool_seconds(None), 270)
+        self.assertEqual(G.pool_seconds(120), 120)
+
+    def test_only_the_brain_may_use_it(self):
+        p = self.pool()
+        for args in ('{}', json.dumps({'key': 'wrong'}), json.dumps({'key': ''}), 'not json', json.dumps(['the-key'])):
+            self.assertIn('error', p.call('sample', args, gpu=lambda *a: self.fail('no GPU time for a stranger')))
+        self.assertFalse(G.pool_allowed('', ''), 'an empty key never opens it')
+        self.assertEqual(p.call('train', json.dumps({'key': 'the-key'})), {'error': "no call 'train'"})
+        # a failure never shows the token
+        p.tasks = None  # (a Space woken afresh: it fetches the GYM's program first)
+        p.prepare_data = lambda a: (_ for _ in ()).throw(OSError('401 for hf_secretTOKEN123'))
+        self.assertEqual(p.call('score', json.dumps({'key': 'the-key'})), {'error': 'OSError: 401 for hf_…'})
+
+    def test_a_different_slice_of_the_weeks_puzzles_each_day(self):
+        recs = [{'kind': 'gym', 'task': {'game': 'maze', 'seed': i}} for i in range(10)] + [{'kind': 'library', 'messages': []}, {'kind': 'drill', 'task': {'drill': 1, 'seed': 99}}]
+        day1 = [r['task']['seed'] for r in G.pool_pick(recs, 4, 1)]
+        day2 = [r['task']['seed'] for r in G.pool_pick(recs, 4, 2)]
+        self.assertEqual(len(day1), 4)
+        self.assertFalse(set(day1) & set(day2), 'another slice the next day')
+        self.assertEqual(G.pool_pick([{'kind': 'evol', 'messages': []}], 4, 1), [], 'only puzzles the GYM can check')
+        self.assertEqual(len(G.pool_pick(recs[:3], 24, 5)), 3)
+
+    def test_sample_then_score_gives_checked_star_records(self):
+        p = self.pool()
+        lent = []
+
+        def gpu(prompts, n, temperature, max_new, seconds, quantised=False):
+            lent.append((len(prompts), n, seconds, quantised))
+            return [[f'right {i}', 'wrong', f'right {i}'] for i, _ in enumerate(prompts)]
+        out = p.call('sample', json.dumps({'key': 'the-key', 'n': 5, 'k': 3, 'day': 0, 'seconds': 200}), gpu)
+        self.assertEqual(lent, [(4, 3, 200, False)], "five picked, the one on the phone's report card left out")
+        self.assertEqual(out['asked'], 4)
+        self.assertNotIn('puzzle 3', [s['ask'] for s in out['samples']])
+        scored = p.call('score', json.dumps({'key': 'the-key', 'samples': out['samples'], 'system': out['system']}))
+        self.assertEqual((scored['checked'], scored['right']), (12, 8))
+        self.assertEqual(len(scored['records']), 4, 'one right answer a puzzle (the same answer twice counts once)')
+        for r in scored['records']:
+            self.assertEqual(G.record_problem(r), '', r)
+            self.assertEqual(r['messages'][0]['content'], 'You are Ghosty.')
+            self.assertTrue(r['from'].startswith('daily GPU · gym maze level 2'))
+        # trained as their own kind, so the report says what the daily GPU added
+        run = G.Run({'week': 1, 'current': {'label': 'stock', 'chain': []}, 'hook': 'x', 'ticket': 't', 'data_repo': 'a/b', 'model_repo': 'a/c'})
+        run.records = scored['records']
+        self.assertEqual({k for _, _, k in run.record_examples()}, {'daily'})
+
+    def test_it_stops_before_the_lent_seconds_run_out(self):
+        t = [0.0]
+        p = self.pool(clock=lambda: t[0])
+        p.generate = lambda prompts, n=1, temperature=0.0, max_new=384: (t.__setitem__(0, t[0] + 100), [['x'] * n for _ in prompts])[1]
+        out = p.generate_now([f'q{i}' for i in range(40)], 1, 0.8, 384, 270)
+        self.assertEqual(sum(1 for o in out if o), 24, 'three batches of 8 inside 85 % of 270 s; the rest not reached')
+        self.assertIsNone(out[-1])
+
+    def test_a_school_paper_chunk_is_sat_with_the_phones_exam_prompt_on_the_shipped_weights(self):
+        p = self.pool()
+        tmp = tempfile.mkdtemp()
+        work, G.WORK = G.WORK, tmp
+        paper = [{'id': 'q1', 'q': 'What is 7 × 8?', 'type': 'number', 'marks': 1}, {'id': 'q2', 'q': 'Write about a dog.', 'type': 'extended', 'marks': 8}, {'id': 'q3', 'q': 'What is 2 + 2?', 'type': 'number', 'marks': 1}]
+        f = FakeModules()
+        f.files = {'school_paper.jsonl': ''.join(json.dumps(x) + '\n' for x in paper)}
+        seen = []
+        try:
+            with f:
+                out = p.call('exam', json.dumps({'key': 'the-key', 'data_repo': 'o/ghosty-training', 'paper_file': 'school_paper.jsonl', 'data_rev': 'd' * 40, 'chunk': [0, 2], 'seconds': 90}),
+                             lambda prompts, n, temperature, max_new, seconds, quantised=False: seen.append((prompts, n, temperature, max_new, seconds, quantised)) or [[f'answer {i}'] for i in range(len(prompts))])
+        finally:
+            G.WORK = work
+        self.assertEqual(out, {'answers': [{'id': 'q1', 'given': 'answer 0'}, {'id': 'q2', 'given': 'answer 1'}], 'asked': 2})
+        prompts, n, temperature, max_new, seconds, quantised = seen[0]
+        self.assertEqual(prompts[0], G.chat_prompt(G.exam_prompt(paper[0])), "the phone's exam prompt")
+        self.assertEqual((n, temperature, max_new, seconds, quantised), (1, 0.3, 350, 90, True), 'as the phone sits it, on the weights as they ship')
+
+    def test_the_space_files(self):
+        req = open(os.path.join(self.SPACE, 'requirements.txt')).read()
+        pins = [l for l in req.splitlines() if l and not l.startswith('#')]
+        for pin in G.PIP_PINS_QWEN3_5:
+            if not pin.startswith('huggingface_hub'):
+                self.assertIn(pin, pins, "the Space runs the weekly notebook's Qwen3.5 stack")
+        self.assertIn('huggingface_hub==1.33.0', pins, 'Gradio 6.29.1 wants huggingface_hub 1.16 or later; transformers 5.5.4 below 2')
+        torch_pin = next(l for l in pins if l.startswith('torch=='))
+        self.assertTrue((2, 8) <= tuple(int(x) for x in torch_pin.split('==')[1].split('.')[:2]) <= (2, 13), "ZeroGPU's supported torch")
+        readme = open(os.path.join(self.SPACE, 'README.md')).read()
+        self.assertRegex(readme, r'(?m)^sdk: gradio$')
+        self.assertRegex(readme, r'(?m)^sdk_version: 6\.29\.1$')
+        self.assertEqual(open(os.path.join(self.SPACE, 'packages.txt')).read().split(), ['nodejs'], "node, for the GYM's own checker")
+        app = open(os.path.join(self.SPACE, 'app.py')).read()
+        for fn in ('sample', 'score', 'exam'):
+            self.assertIn(f"POOL.call('{fn}'", app)
+        self.assertIn('@spaces.GPU(duration=_seconds)', app)
+        self.assertNotIn("POOL.call('score', args, _generate)", app, 'the checker needs no GPU time')
+        self.assertIn('ghosty_weekly as G', app)
+
+
 SYS = "You are sitting an exam. Answer the question. Finish with 'Answer: <your answer>'"
 
 

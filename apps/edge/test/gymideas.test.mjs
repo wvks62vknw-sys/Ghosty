@@ -434,7 +434,7 @@ test('LOOPS: every loop on one card with what it practised, what improved (the r
   assert.equal(LP.loopRows({ ...brain, week: { ...brain.week, active: null } }, phone).find((r) => r.id === 'week').rollback, false);
 });
 
-test('LOOPS: a week that ran smaller because Kaggle\'s hours were short says so on the weekly run\'s row, in the brain\'s words', () => {
+test('LOOPS: a week that ran smaller because Kaggle\'s hours were short says so on the weekly run\'s row, in the brain\'s words, and so does what the daily GPU added', () => {
   const now = Date.UTC(2026, 9, 20);
   const week = { week: 7, phase: 'running', at: null, trained: {}, before: null, after: null, kept: null, why: '', rejected: [], active: null, activeLabel: 'the stock Qwen3' };
   const brain = { now, since: now - 7 * DAY, drills: { asked: 0, right: 0, before: { asked: 0, right: 0 } }, study: { reads: 0, digests: 0, finished: [], failed: 0 }, school: null, week, voice: null, star: { taken: 0, waiting: 0, refused: [] } };
@@ -442,6 +442,9 @@ test('LOOPS: a week that ran smaller because Kaggle\'s hours were short says so 
   const row = (w) => LP.loopRows({ ...brain, week: w }, phone).find((r) => r.id === 'week');
   assert.equal(row({ ...week, economy: 'Only 6 h left this week: a smaller run, the exam on the phone.' }).practised, 'week 7: running now · Only 6 h left this week: a smaller run, the exam on the phone.');
   assert.equal(row(week).practised, 'week 7: running now', 'a full run says nothing more');
+  // and what the daily GPU (Hugging Face) added this week
+  assert.equal(row({ ...week, daily: 312 }).practised, 'week 7: running now · 312 checked samples this week from the daily GPU');
+  assert.equal(row({ ...week, daily: 1 }).practised, 'week 7: running now · 1 checked sample this week from the daily GPU');
 });
 
 test('LOOPS: a game\'s week from the GYM record — units and levels since the day\'s point a week ago, the league\'s rating then and now, its decisions this week, his tries at the edge', () => {

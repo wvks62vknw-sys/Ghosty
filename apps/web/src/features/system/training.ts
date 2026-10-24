@@ -5,8 +5,9 @@
  * away and why; the last good models; TRAIN NOW, TRAIN FROM SCRATCH and ROLLBACK; which kind the next run is (weekly, or
  * the monthly retrain from the stock model on every week kept) and why; GPU HOURS: Kaggle's free hours left, when they
  * come back, what the next run needs and whether it will be a full run, a smaller one or a wait (the brain's words);
- * what ran on which of Kaggle's two cards, and in how many sessions. With a key missing it says which, and where to
- * get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
+ * what ran on which of Kaggle's two cards, and in how many sessions; THE DAILY GPU: asked once (ALLOW, after a confirm
+ * that says exactly what is made on his Hugging Face account and that nothing can cost money; NO THANKS), then its line
+ * (what it added this week) and TURN OFF. With a key missing it says which, and where to get it, in plain steps. Opening it also tells the brain the GYM levels on this phone (the week's puzzles are
  * made at and just beyond them) and gives the offline brain the list of trained models to choose from.
  */
 import { AREA_LABEL, baseById, EXAM_AREAS, examMean, type ExamArea, type TrainReport, type TrainStatus } from '../../../../../packages/shared/src/selftrain';
@@ -20,6 +21,7 @@ import { loadAll } from '../gym/store';
 const KIND: Record<string, string> = {
   star: 'puzzles he solved himself (each answer checked)',
   checked: 'answers THINK HARDER and the GYM worked out on your phone (each passed an exact check)',
+  daily: 'practice answers from the daily GPU on Hugging Face (each passed the checker)',
   critique: 'puzzles he got right after being told why he was wrong',
   judged: 'library answers he picked as better (and the book agreed)',
   evol: 'harder questions written by the online AIs',
@@ -195,6 +197,30 @@ export function trainingPanel(): Panel & { refresh(): void } {
     const dropping = s.active !== null;
     const back = act('ROLLBACK', () => brain.selftrain.rollback(), (x) => (x.base !== s.base ? `Back to your ${baseById(x.base).label} brains: ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}` : `The newest brain is gone; back to ${x.models.find((m) => m.commit === x.active)?.label ?? `the stock ${baseById(x.base).label}`}`), 'warn', dropping ? ['Roll back the offline brain?', `${recommended?.label ?? 'The recommended brain'} is dropped for good (never offered again); the one before it, or the stock ${base.label}, takes its place. A new week can train a better one.`] : undefined);
     back.disabled = s.active === null && !(s.switchedFrom && s.switchedFrom !== base.id);
+    // THE DAILY GPU: a second, small pool of free GPU minutes on his own Hugging Face account (asked once)
+    const pool = s.pool;
+    let poolBox: HTMLElement | null = null;
+    if (keysOk && pool) {
+      const box = h('div.trainpool');
+      box.append(h('div.lab', 'THE DAILY GPU (HUGGING FACE)'));
+      if (pool.offer) {
+        box.append(h('div.note', 'Hugging Face lends a free account about 5 minutes of a big GPU every day. Ghosty can use them to practise puzzles for next week\'s training, on top of Kaggle. It needs a small Space on your Hugging Face account.'));
+        const yes = act('ALLOW', () => brain.selftrain.pool(true), () => 'Setting up the daily GPU', 'on', [
+          'Make a Space on your Hugging Face account?',
+          'Ghosty makes one Space called ghosty-daily-gpu on your Hugging Face account (private if Hugging Face allows it; if not, it holds none of your data and only Ghosty can use it), puts its code and two secrets in it (your Hugging Face token, so it can read your private training data, and a key), and uses about 5 free GPU minutes a day. Nothing can cost money: a free account cannot buy GPU time, and Ghosty stops if your account is PRO or has a card on it.',
+        ]);
+        const no = act('NO THANKS', () => brain.selftrain.pool(false), () => 'The daily GPU is not used');
+        box.append(h('div.keyrow', yes, no));
+      } else {
+        const r = row(pool.phase === 'ready' ? 'IN USE' : pool.phase === 'setup' ? 'SETTING UP' : pool.phase === 'failed' ? 'STOPPED' : 'OFF', pool.note, pool.week ? `${fmt.n(pool.week)} THIS WEEK` : null, { wrap: true, tone: pool.phase === 'failed' ? 'dn' : undefined });
+        r.dataset.pool = pool.phase;
+        box.append(r);
+        if (pool.week) box.append(h('div.note.small.poolweek', `${fmt.n(pool.week)} checked samples this week from the daily GPU${pool.waiting ? ` (${fmt.n(pool.waiting)} waiting for the next run)` : ''}.`));
+        if (pool.phase === 'ready' || pool.phase === 'setup') box.append(h('div.keyrow', act('TURN OFF', () => brain.selftrain.pool(false), () => 'The daily GPU is off')));
+        else box.append(h('div.keyrow', act('ALLOW', () => brain.selftrain.pool(true), () => 'Setting up the daily GPU', 'on')));
+      }
+      poolBox = box;
+    }
     const priv = act(`MY LIBRARY & CHATS: ${s.privateData ? 'ON' : 'OFF'}`, () => brain.selftrain.privateData(!s.privateData), (x) => (x.privateData ? 'Training learns from your library, chats and ratings (kept private)' : 'Training uses only puzzles, quizzes and general examples'));
     p.body.append(h('div.keyrow', now, scratch, back, priv));
     p.body.append(
@@ -205,6 +231,7 @@ export function trainingPanel(): Panel & { refresh(): void } {
           : 'MY LIBRARY & CHATS is off: new weeks learn only from puzzles, quizzes and general examples, earlier weeks that held your text are left out, and training starts from the newest brain that never saw it (or the stock one).',
       ),
     );
+    if (poolBox) p.body.append(poolBox);
     const note = setTrainedModels(s.models, s.active, s.weights, s.base);
     if (note) toast(note, 'warn');
   }

@@ -367,6 +367,11 @@ export interface TrainStatus {
   gpu?: { left: number; total: number; refreshAt: number | null; at: number; needs: number; mode: 'full' | 'economy' | 'wait'; line: string };
   /** The run under way: full or smaller (economy), and why. */
   plan?: { mode: 'full' | 'economy'; why: string };
+  /**
+   * The daily GPU (a Space on his Hugging Face account, ZeroGPU's free minutes: apps/edge/src/selftrain/pool.ts): its
+   * state in a line, whether to ask him (once), the checked samples it added this week and those waiting for the next.
+   */
+  pool?: { phase: 'off' | 'setup' | 'ready' | 'failed'; note: string; offer: boolean; week: number; waiting: number; space?: string; private?: boolean };
 }
 
 /** The address of a trained week's files for WebLLM: `<origin>/api/w/<cap>/resolve/<commit>/` (pure; the phone adds its origin). */

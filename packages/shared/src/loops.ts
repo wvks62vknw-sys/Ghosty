@@ -34,6 +34,8 @@ export interface BrainLoops {
     activeLabel: string;
     /** A smaller run because Kaggle's hours were short, in the brain's words ("Only 6 h left this week: …"); absent or null otherwise. */
     economy?: string | null;
+    /** Checked samples the daily GPU (Hugging Face) made this week for the training. */
+    daily?: number;
   } | null;
   /** The voice (its own part of the weekly run). */
   voice: { trained: number; before: number | null; after: number | null; rejected: { why: string; n: number }[] } | null;
@@ -135,7 +137,7 @@ export function loopRows(b: BrainLoops | null, p: PhoneLoops): LoopRow[] {
     rows.push({
       id: 'week',
       name: 'THE WEEKLY RUN',
-      practised: `${w?.at ? `week ${w.week}: ${plural(total, 'example')} trained on` : w ? `week ${w.week}: ${w.phase === 'idle' ? 'no run finished yet' : `${w.phase} now`}` : 'no run yet'}${w?.economy ? ` · ${w.economy}` : ''}`,
+      practised: `${w?.at ? `week ${w.week}: ${plural(total, 'example')} trained on` : w ? `week ${w.week}: ${w.phase === 'idle' ? 'no run finished yet' : `${w.phase} now`}` : 'no run yet'}${w?.economy ? ` · ${w.economy}` : ''}${w?.daily ? ` · ${plural(w.daily, 'checked sample')} this week from the daily GPU` : ''}`,
       improved: w?.before != null && w.after != null ? `test ${pc(w.before)} → ${pc(w.after)}: ${w.kept ? 'KEPT' : 'NOT KEPT'}` : NOT,
       rejected: [w && w.kept === false ? `the new brain: ${w.why}` : '', w ? whys(w.rejected) : ''].filter(Boolean).join('; ') || 'nothing rejected',
       rollback: !!w?.active,
