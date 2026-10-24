@@ -251,6 +251,13 @@ folder that no longer exists; ignore those paths).
   Ghosty has); a read-only token would be safer and is his to make (OWNER-ISSUES 37 (m)). Unmeasured without a GPU: real
   two-card speed and memory, a real mid-SFT resume, the HF branch calls, the Space's stack. The quota test now expects a
   smaller run at 9 h left, not a wait (the brief's change).
+- 24 Oct ~21:45 UK: the NAVIGATION and BOOT mock-ups (BRIEF-NAV-BOOT.md) are in `mockups/nav/contact.png` and
+  `mockups/boot/contact.png`, sent to the owner for his yes. The builder's notes: Learn today has four tools (Revise,
+  Exams and Quizzes are views inside Courses; Videos is the chat's YouTube summary), so the eight-tool hub is a proposal;
+  iOS blocks speech on a cold open until a tap, so the boot's spoken greeting must fall back to silent or speak on the
+  first tap; his name starts with G (the avatar) and is read from Settings; 24 Oct 2026 is a Saturday. Build cost:
+  navigation 1–1.5 builder days after BRIEF-IRON-BUILD step 1; the boot half to one day (`shell/boot.ts`, first open of
+  the day + reboot, Reduce Motion). Waiting on him.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
