@@ -352,6 +352,20 @@ export function keyDefs(repo?: string): KeyDef[] {
         'Press "Create token", copy it (it starts with hf_), paste it below and press SAVE. Ghosty checks it can write to both, and that both are private.',
       ],
     },
+    // [lens] Pl@ntNet names plants for the Lens's NAME IT (tools/lens.ts identify_plant): free, 500 a day, optional.
+    {
+      name: 'plantnet',
+      label: 'Pl@ntNet (plants)',
+      hint: 'your private API key from my.plantnet.org',
+      link: 'https://my.plantnet.org/',
+      need: 'optional',
+      why: "Lets the Lens's NAME IT name plants from a photo with Pl@ntNet. Free: 500 plants a day, no card.",
+      steps: [
+        'Open the link and sign up (free, no card); confirm the email Pl@ntNet sends, then sign in.',
+        'Open your account page and copy your API key.',
+        'Paste it below and press SAVE. The Lens uses it only when you press LIVING THING → PLANT.',
+      ],
+    },
   ];
 }
 
@@ -485,6 +499,9 @@ export async function testKey(name: string, value: string, repo?: string): Promi
           return { ok: false, info: e instanceof RemoteError ? e.message : `could not reach Hugging Face (${String((e as Error)?.message ?? e).slice(0, 80)})` };
         }
       }
+      case 'plantnet': // [lens]
+        status = await check(`https://my-api.plantnet.org/v2/quota/daily?api-key=${encodeURIComponent(value)}`);
+        break;
       case 'mapbox':
         if (!value.startsWith('pk.')) return { ok: false, info: 'use the public token (it starts with pk.), never a secret sk. token' };
         status = await check(`https://api.mapbox.com/tokens/v2?access_token=${encodeURIComponent(value)}`);

@@ -230,7 +230,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     name: 'lens',
     tools: lensTools,
-    when: /\b(reverse image|image search|search by image|where is this (?:picture|photo|image) from|picture link|photo link|google lens|tineye|yandex)\b|https?:\/\/\S+\.(?:jpe?g|png|webp|gif)\b/i,
+    when: /\b(reverse image|image search|search by image|where is this (?:picture|photo|image) from|picture link|photo link|google lens|tineye|yandex)\b|https?:\/\/\S+\.(?:jpe?g|png|webp|gif)\b|\bidentify_plant\b/i, // [lens] identify_plant: the Lens's NAME IT names the tool in its question
     about: 'You can give reverse image search links for a picture at a public web address (reverse_image_links: Google Lens, Bing Visual Search, Yandex Images and TinEye, each named plainly; never to find who a person is).',
   },
   // SCAN (integrations/lookup.ts): barcode numbers and translation, when the words are about them or a barcode-sized number comes up.
