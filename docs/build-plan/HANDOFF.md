@@ -309,6 +309,15 @@ folder that no longer exists; ignore those paths).
   on a fresh preview. The pull request's title and body now carry the fix. The 01:05 UK check-in was cancelled and a new
   one armed for 01:14 UK: it merges if green. Lesson: a targeted `node --test` run reads whatever is in `.build`; rebuild
   the bundles a test imports after a merge, or run the file through `npm test`.
+- 24 Oct 23:58 UK: started two more upgrade passes on the branch head e938052, each in its own worktree: SETTINGS
+  (`.claude/worktrees/settings`, branch `worktree-settings`, preview 8879, scratch `scratchpad/settings/`) and the LIBRARY
+  (`.claude/worktrees/library`, `worktree-library`, preview 8880, scratch `scratchpad/library/`). Both were told the
+  Iron Man builder owns `shell/*`, `ui/instruments.ts`, `shell/hubcards.ts` and styles.css's route C layer, and that the
+  orchestrator merges. Still finishing: the scroll audit (8878, 12 commits), the Iron Man look (8877, 9 commits), Memory
+  (8874, 11 commits); none touches a protected file; their only shared files are `styles.css` (all three) and
+  `features/core/index.ts` (scroll audit and Iron Man). Merge order when they report: scroll audit, Iron Man, Memory.
+  Their push waits until PR #36 has merged (the owner is waiting on the crash fix in it; a push would restart its CI),
+  then goes up as the next pull request. Passes left after these: Reverse, Markets, Radio, Agenda, System.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

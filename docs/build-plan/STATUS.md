@@ -51,6 +51,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 - PR #36 is under CI with the big-brain crash fix on it (head 61ce7db): I merge it the moment it is green, and that update reaches your phone.
 - Being built, each in its own worktree, each finishing its checks: the scroll audit at 440 × 956 (12 fixes), the Iron Man look (instruments, hub cards, the GYM's holographic pictures, the lit tab bar, one screen per hub), the Memory upgrade pass (11 fixes).
+- Upgrade passes started at 23:58 UK: Settings and the Library (each measuring first, then the top ten fixes).
 - After the Iron Man look merges: the navigation build (tool screens, GYM pages of six, the long-press switcher).
 - Telegram's pass: dropped at your word.
 
