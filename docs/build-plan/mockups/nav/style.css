@@ -1,0 +1,152 @@
+/* Navigation mock-up, on A (../iron/a/style.css) with C's restraint (BRIEF-IRON-BUILD.md).
+   Part 1, the restraint layer (the boot sheet uses it too): A's light, rings and scan line stay; the corner brackets
+   on every card and the grid backdrop go; nothing is set under 11 px. Part 2: the compact hub, the GYM's pages,
+   the way between screens and the switcher. */
+
+/* ============ 1. A with C's restraint ============ */
+.dir-a .room {
+  background:
+    radial-gradient(ellipse 90% 34% at 50% -4%, rgba(var(--cr), .14), transparent 70%),
+    radial-gradient(ellipse 70% 30% at 50% 104%, rgba(var(--cr), .06), transparent 70%),
+    var(--bg);
+}
+.dir-a .inst::after { display: none; }
+.dir-a .inst::before { opacity: .45; }
+.dir-a .inst { border-radius: 18px; }
+.dir-a .kick { font-size: 11px; letter-spacing: .12em; }
+.dir-a .kick em { font-style: normal; }
+.dir-a .rd em { font-size: 11px; line-height: 13px; letter-spacing: .1em; }
+.dir-a .tabcap button { font-size: 11px; line-height: 13px; letter-spacing: .08em; }
+.dir-a .gymcard .rl { font-size: 11px; }
+.dir-a .gymsum .big small { font-size: 11px; letter-spacing: .1em; }
+.dir-a .round.av { font-family: var(--sf); font-weight: 600; }
+
+/* ============ 2a. the ribbon: the weather in his city and the next place, above every hub's title ============ */
+.ribbon { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 24px; margin: 2px 2px 0; font: 500 11px/14px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: rgba(var(--cr), .62); white-space: nowrap; }
+.ribbon > span { display: inline-flex; align-items: center; gap: 6px; }
+.ribbon .ic { width: 15px; height: 15px; stroke-width: 1.8; color: var(--c); }
+.ribbon b { font-weight: 600; color: var(--c2); }
+.hubp .top { height: 52px; padding-top: 0; }
+.hubp .hubsub { font-size: 15px; line-height: 20px; }
+.hubp .cmdbar { height: 46px; margin-top: 12px; }
+.hubp .cmdbar .mic { width: 36px; height: 36px; }
+
+/* ============ 2b. the compact instrument card: an instrument, the name and its state, one line, two readouts ============ */
+.ngrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.ncard { position: relative; display: flex; flex-direction: column; min-width: 0; height: 174px; padding: 10px 12px 10px; overflow: hidden; isolation: isolate; }
+.ncard > * { position: relative; z-index: 2; }
+.ncard .nins { position: relative; height: 62px; margin: 0 -4px 7px; display: grid; place-items: center; border-radius: 12px; background: radial-gradient(ellipse 60% 70% at 50% 50%, rgba(var(--cr), .12), transparent 70%); }
+.ncard .nins svg { height: 62px; width: 100%; }
+.ncard .nins .ctr { position: absolute; inset: 0; display: grid; place-items: center; }
+.ncard .nins .ctr b { font: 500 17px/18px var(--mono); color: #fff; text-shadow: 0 0 12px rgba(var(--cr), .7); }
+.ncard .nins .ctr .of { font-size: 11px; color: rgba(var(--cr), .7); }
+.ncard .coursemap { gap: 8px; }
+.ncard .coursemap .cm { font: 600 14px/17px var(--sf); color: #fff; }
+.ncard .segs { width: 132px; }
+.ncard .kick .ic { width: 15px; height: 15px; stroke-width: 1.9; }
+.ncard .t { margin-top: 4px; font: 600 15px/20px var(--sf); letter-spacing: -.2px; color: #fff; white-space: nowrap; }
+.ncard .reads { margin-top: auto; padding-top: 7px; gap: 0 8px; }
+.ncard .rd b { margin-top: 1px; font-size: 16px; line-height: 20px; }
+.ncard .rd b .up { font-size: 11px; }
+.dir-a .dueDot { fill: rgba(var(--cr), .55); }
+.dir-a .xmark { fill: none; stroke: var(--c2); stroke-width: 1.6; stroke-linecap: round; filter: url(#glow); }
+.dir-a .xmark.next { stroke: #fff; stroke-dasharray: 2 1.6; }
+
+/* the More row: the seventh and eighth tools as small instruments */
+.more { position: relative; display: flex; align-items: center; gap: 8px; height: 60px; margin-top: 10px; padding: 0 8px 0 14px; overflow: hidden; isolation: isolate; }
+.more > * { position: relative; z-index: 2; }
+.more .mk { display: flex; flex-direction: column; align-items: center; gap: 1px; font: 600 11px/13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: rgba(var(--cr), .62); }
+.more .mk small { font: 500 11px/13px var(--mono); color: var(--c2); letter-spacing: 0; }
+.more .mi { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 6px 0 4px; border-radius: 14px; background: rgba(var(--cr), .05); box-shadow: inset 0 0 0 1px rgba(var(--cr), .16); }
+.more .mi > svg:first-child { width: 38px; height: 38px; flex: none; }
+.more .mi > span { flex: 1; min-width: 0; }
+.more .mi b { display: block; font: 600 14px/17px var(--sf); color: #fff; }
+.more .mi small { display: block; font: 500 11px/14px var(--mono); color: rgba(var(--cr), .72); white-space: nowrap; }
+.more .mi > .ic { width: 13px; height: 13px; stroke-width: 2.2; color: rgba(var(--cr), .5); flex: none; }
+
+/* ============ 2c. the GYM, its own screen ============ */
+.backpill { display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 16px 0 8px; border-radius: 22px; font: 500 16px/1 var(--sf); color: var(--c2); background: rgba(var(--cr), .06); box-shadow: inset 0 0 0 1px var(--hud), inset 0 0 12px rgba(var(--cr), .08); }
+.backpill .ic { width: 22px; height: 22px; stroke-width: 2.1; }
+.gymp .top { height: 56px; padding-top: 2px; }
+.gymp .bigtitle { margin-top: 0; }
+.gymp .hubsub { font-size: 15px; line-height: 20px; }
+.gymp .gymsum { padding: 11px 14px 9px; }
+.gymp .gymsum .go { height: 38px; padding: 0 14px; }
+.pages { display: flex; gap: 6px; margin-top: 14px; }
+.pages span { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: rgba(var(--cr), .55); box-shadow: inset 0 0 0 1px rgba(var(--cr), .14); }
+.pages span small { font: 500 11px/1 var(--mono); letter-spacing: 0; color: rgba(var(--cr), .4); }
+.pages span.on { color: var(--c2); background: rgba(var(--cr), .12); box-shadow: inset 0 0 0 1px rgba(var(--cr), .5), 0 0 14px -4px rgba(var(--cr), .6); }
+.pages span.on small { color: var(--c); }
+.gymp .gymcards, .switch .gymcards { gap: 10px; margin-top: 12px; }
+.gymp .gymcard, .switch .gymcard { height: 140px; padding: 7px 11px 9px; }
+.gymcard .meter, .gymcard .rl, .gymcard .nm { flex: none; }
+.gymp .gymcard .gymdraw, .switch .gymcard .gymdraw { height: 64px; margin-bottom: 5px; flex: none; }
+.gymcard .nm b { font-size: 15px; }
+.gymcard .meter { margin-top: 6px; }
+.pdots { display: flex; align-items: center; justify-content: space-between; margin: 12px 4px 0; font: 400 13px/16px var(--sf); color: var(--ink3); }
+.pdots .dots { display: flex; gap: 7px; }
+.pdots .dots i { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--cr), .22); }
+.pdots .dots i.on { width: 20px; background: var(--c); box-shadow: 0 0 8px rgba(var(--cr), .8); }
+.pdots > span:last-child { display: inline-flex; align-items: center; gap: 4px; }
+.pdots b { color: var(--ink2); font-weight: 600; }
+.pdots .ic { width: 12px; height: 12px; stroke-width: 2.4; }
+
+/* ============ 2d. the way between them ============ */
+.panel { position: relative; width: 440px; padding: 18px 16px 22px; background: radial-gradient(ellipse 90% 30% at 50% 0%, rgba(var(--cr), .08), transparent 70%), var(--bg); }
+.pair { display: flex; align-items: center; justify-content: space-between; }
+.mini { position: relative; width: 176px; height: 382.4px; flex: none; }
+.mini .phone { zoom: .4; border-radius: 60px; box-shadow: 0 0 0 7px #121417, 0 0 0 8.5px #2a2d31; }
+.mini .tap { position: absolute; width: 26px; height: 26px; border-radius: 13px; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(var(--cr), .25) 60%, transparent 72%); box-shadow: 0 0 0 1px rgba(255,255,255,.5); }
+.arrow { display: flex; flex-direction: column; align-items: center; gap: 4px; font: 500 11px/13px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: rgba(var(--cr), .7); }
+.arrow svg { width: 40px; height: 16px; fill: none; stroke: var(--c); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: url(#glow); }
+.pcap { margin: 16px 2px 4px; font: 400 14px/20px var(--sf); color: var(--ink2); }
+.ways { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.ways li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; padding: 14px 14px 14px 12px; border-radius: 18px; background: linear-gradient(180deg, rgba(var(--cr), .06), rgba(var(--cr), .015)); box-shadow: inset 0 0 0 1px var(--hud2); }
+.ways .n { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 12px; font: 600 12px/1 var(--mono); color: var(--c2); box-shadow: inset 0 0 0 1px rgba(var(--cr), .5); }
+.ways b { font: 600 16px/22px var(--sf); color: #fff; }
+.ways small { display: block; margin-top: 8px; font: 400 14px/20px var(--sf); color: var(--ink2); }
+.ways small b { font-size: 14px; font-weight: 600; color: var(--ink); }
+.demo { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.demo .or { font: 400 13px/18px var(--sf); color: var(--ink3); }
+.demo.titles .tt { font: 700 28px/34px var(--sfd); letter-spacing: -.4px; color: #fff; }
+.demo.titles .ic.sm { width: 16px; height: 16px; color: rgba(var(--cr), .6); stroke-width: 2.2; }
+.demo.bar { position: relative; height: 64px; margin: 14px -2px 0; }
+.demo.bar .dock { position: absolute; inset: 0; padding: 0; }
+.demo.bar .tabblur { display: none; }
+
+/* ============ 2e. the quick switcher ============ */
+.switch .under { position: absolute; inset: 0; filter: blur(5px) brightness(.5) saturate(.8); transform: scale(.97); }
+.switch .under .dock { display: none; }
+.switch .veil { position: absolute; inset: 0; z-index: 5; background: radial-gradient(ellipse 80% 50% at 50% 82%, rgba(var(--cr), .12), rgba(2,4,6,.55) 70%); }
+.switch .fan { position: absolute; inset: 0; z-index: 6; width: 440px; height: 956px; pointer-events: none; }
+.switch .fan .guide { fill: none; stroke: rgba(var(--cr), .22); stroke-width: 1; stroke-dasharray: 2 5; }
+.switch .fan .guide2 { fill: none; stroke: rgba(var(--cr), .12); stroke-width: 1; }
+.switch .fan .drag { fill: none; stroke: var(--c2); stroke-width: 1.4; stroke-dasharray: 3 4; filter: url(#glow); opacity: .8; }
+.node { position: absolute; z-index: 7; width: 84px; margin-left: -42px; margin-top: -31px; display: flex; flex-direction: column; align-items: center; }
+.node .disc { position: relative; width: 62px; height: 62px; border-radius: 31px; display: grid; place-items: center; background: radial-gradient(circle, rgba(var(--cr), .16), rgba(8,12,15,.92) 70%); box-shadow: inset 0 0 0 1px var(--hud), 0 0 24px -8px rgba(var(--cr), .6), 0 10px 24px rgba(0,0,0,.6); }
+.node .disc svg { position: absolute; inset: 3px; width: 56px; height: 56px; }
+.node .disc b { position: relative; font: 500 15px/1 var(--mono); color: #fff; text-shadow: 0 0 10px rgba(var(--cr), .8); }
+.node .nk { margin-top: 6px; font: 600 11px/13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--c2); }
+.node .nl { margin-top: 2px; font: 500 11px/13px var(--mono); color: rgba(var(--cr), .6); white-space: nowrap; }
+.node.pick .disc { transform: scale(1.2); background: radial-gradient(circle, rgba(var(--cr), .32), rgba(8,12,15,.9) 72%); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 5px rgba(var(--cr), .1), 0 0 34px rgba(var(--cr), .55); }
+.node.pick .nk { margin-top: 12px; color: #fff; }
+.node.inner { margin-top: -25px; }
+.node.inner .disc { width: 50px; height: 50px; border-radius: 25px; }
+.node.inner .disc svg { inset: 2px; width: 46px; height: 46px; }
+.node.inner .disc b { font-size: 13px; }
+.hold { position: absolute; z-index: 7; left: 60px; right: 60px; top: 470px; text-align: center; }
+.hold .hk { display: block; font: 600 11px/14px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: rgba(var(--cr), .7); }
+.hold b { display: block; margin-top: 4px; font: 600 17px/22px var(--sf); color: #fff; }
+.hold small { display: block; margin-top: 4px; font: 400 13px/17px var(--sf); color: var(--ink2); }
+.switch .dock.up { z-index: 8; }
+.switch .dock.up .tabblur { display: none; }
+.finger { position: absolute; z-index: 9; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 22px; background: radial-gradient(circle, rgba(255,255,255,.35), rgba(var(--cr), .18) 55%, transparent 70%); box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+
+/* ============ 2f. the rule ============ */
+.rules .cap { padding-top: 26px; }
+.rulebox { margin: 0 16px; display: grid; gap: 10px; }
+.rule { padding: 13px 14px; border-radius: 16px; background: rgba(var(--cr), .04); box-shadow: inset 0 0 0 1px var(--hud2); }
+.rule .rk { font: 600 11px/14px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--c); }
+.rule p { margin: 4px 0 0; font: 400 14px/20px var(--sf); color: var(--ink2); }
+.rule p b { color: var(--ink); font-weight: 600; }
+.legend { margin-top: 18px; }
