@@ -476,7 +476,8 @@ test('registration: the group line follows the prompt rules, the words turn it o
   // the plain chat turn with the group named (as tools/index.ts will name it) is still within 5,500 characters
   const client = { name: 'boss', now: 'Fri 17 Oct 14:05', tz: 'Europe/London', tab: 'core', location: { name: 'Birmingham', lat: 52.48, lon: -1.9 } };
   const groups = T.selectGroups('hello', new Set(), false);
-  const withIt = { on: groups.on, off: [...groups.off, { name: 'homeplan', tools: H.homePlanTools, when: H.HOMEPLAN_WHEN, about: H.HOMEPLAN_ABOUT }] };
+  // (once the group is registered in tools/index.ts it is already in `off`; before that the test adds it)
+  const withIt = groups.off.some((g) => g.name === 'homeplan') ? groups : { on: groups.on, off: [...groups.off, { name: 'homeplan', tools: H.homePlanTools, when: H.HOMEPLAN_WHEN, about: H.HOMEPLAN_ABOUT }] };
   const plain = P.systemPrompt(client, [], true, [], { code: false, groups: withIt });
   assert.ok(plain.length <= 5500, `plain chat turn with homeplan: ${plain.length} characters`);
   assert.match(plain, /^homeplan: design_home$/m);
@@ -484,6 +485,7 @@ test('registration: the group line follows the prompt rules, the words turn it o
   const on = T.selectGroups(SAMPLES[0], new Set(), false).on.flatMap((g) => g.tools);
   const described = JSON.stringify(T.toolSpecs([...on, ...H.homePlanTools])).length;
   assert.ok(described < 14000, `${described} characters of tool descriptions`);
-  // the name is free
-  assert.ok(!T.TOOLS.some((t) => t.name === 'design_home') || T.TOOLS.find((t) => t.name === 'design_home') === H.homePlanTools[0]);
+  // the name is free, or it is this very tool (the bundles differ, so compare the specs, not the objects)
+  const reg = T.TOOLS.find((t) => t.name === 'design_home');
+  assert.ok(!reg || JSON.stringify(T.toolSpecs([reg])) === JSON.stringify(T.toolSpecs([H.homePlanTools[0]])), 'design_home is registered with this spec');
 });
