@@ -11,6 +11,7 @@ import { reportCardPanel } from './reportcard';
 import { backupName, backUpNow, lastBackup, listBackups, phoneTrusted, restoreAndReload, sizeText, takeRestoreReport } from './backup';
 import { checkStorage, storageLine, storageState } from './storage';
 import { trainingPanel } from './training';
+import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
 import { speedCard } from './speed';
 
@@ -34,7 +35,9 @@ export const systemTab: TabDef = {
     // What the offline brain on this phone can do, measured here (reportcard.ts), and its weekly self-training (training.ts).
     const rc = reportCardPanel();
     const tp = trainingPanel();
-    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, tp.el);
+    // NIGHT SCHOOL (night.ts): the phone works through the night, plugged in and open on Ghosty.
+    const np = nightPanel();
+    P.left.append(sp.el, kp.el, mp.el, rp.el, rc.el, tp.el, np.el);
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);

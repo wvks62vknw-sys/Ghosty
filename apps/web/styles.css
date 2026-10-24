@@ -2190,6 +2190,22 @@ button.studiocard { display: flex; flex-direction: column; align-items: stretch;
 .selftrain .note.small { opacity: .8; }
 .selftrain .trainkeys ol.steps { margin: 6px 0 0 18px; padding: 0; }
 .selftrain .trainkeys li { margin-bottom: 6px; line-height: 1.45; }
+/* SYSTEM → NIGHT SCHOOL (features/system/night.ts) and its dark layer while the plan runs (night/layer.ts) */
+.nightsch .keyrow { margin-top: 8px; }
+.nightsch .nightwin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 10px 0 4px; }
+.nightsch .nightwin label { display: flex; align-items: center; gap: 6px; font-size: 13px; letter-spacing: .04em; }
+.nightsch .nightwin input { min-width: 0; padding: 6px 8px; border: 1px solid rgba(var(--cr), .3); border-radius: 10px; background: rgba(0,0,0,.25); color: inherit; font: inherit; }
+.nightsch .nightwin small { opacity: .7; }
+.nightsch .nightline { margin: 8px 0 2px; font-variant-numeric: tabular-nums; line-height: 1.4; overflow-wrap: anywhere; }
+.nightsch .nightline:empty { display: none; }
+.nightsch ol.nightplan { margin: 8px 0 6px 18px; padding: 0; }
+.nightsch ol.nightplan li { margin-bottom: 6px; line-height: 1.45; }
+.nightsch ol.nightplan li.now b { color: var(--c); }
+.nightsch ol.nightplan li.ended { opacity: .6; }
+.nightsch .note.small { opacity: .85; margin-top: 6px; }
+#nightdim { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0)); background: rgba(0,0,0,.95); color: rgba(255,255,255,.6); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#nightdim .nightdimline { max-width: 26em; font-size: 17px; line-height: 1.45; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#nightdim .nightdimhint { max-width: 26em; font-size: 12px; opacity: .7; }
 
 /* ── Website built on the phone (features/core/sitecard.ts): its buttons and the preview frame. Kept apart. ── */
 .msg .siterow { flex-wrap: wrap; }

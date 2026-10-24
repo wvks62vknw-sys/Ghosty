@@ -403,6 +403,8 @@ export const brain = {
   selftrain: {
     status: () => req<TrainStatus>('GET', '/training'),
     now: () => req<TrainStatus>('POST', '/training/now', {}),
+    /** TRAIN FROM SCRATCH: the next run (now, when none is under way) is the monthly retrain from the stock model on every week kept. */
+    scratch: () => req<TrainStatus>('POST', '/training/scratch', {}),
     rollback: () => req<TrainStatus>('POST', '/training/rollback', {}),
     use: (commit: string | null) => req<TrainStatus>('POST', '/training/use', { commit }),
     privateData: (on: boolean) => req<TrainStatus>('POST', '/training/private', { on }),

@@ -60,6 +60,22 @@ export const gymState = {
   toasts: [] as string[],
 };
 
+/**
+ * NIGHT SCHOOL's handle on TRAIN ALL (apps/web/src/night): set once the GYM is built (`ensureMounted('gym')` builds it
+ * off screen), null before. It starts and stops TRAIN ALL as the button does, and reads each game's level.
+ */
+export let gymControl: {
+  /** Settles once the saved games are read. */
+  ready: Promise<unknown>;
+  startAll(): void;
+  stopAll(): void;
+  allOn(): boolean;
+  /** Each game's level and whether it is mastered (games not started are at Level 1). */
+  levels(): Record<string, { level: number; mastered: boolean }>;
+  /** The game TRAIN ALL is on, in words: "maze level 4" ('' when it is not running). */
+  now(): string;
+} | null = null;
+
 /** One GYM toast on screen at a time: a new one takes the place of the last. */
 function gymToast(msg: string, kind: '' | 'warn' | 'bad' | 'ok' = ''): void {
   for (const t of document.querySelectorAll('#toasts > .toast[data-gym]')) t.remove();
@@ -1043,6 +1059,20 @@ export const gymTab: TabDef = {
     addEventListener('pagehide', () => training && send({ gym: 'pause' }));
 
     opener = (id) => id && select(id);
+    gymControl = {
+      get ready() {
+        return ready;
+      },
+      startAll: () => void (allOn || startAll()),
+      stopAll: () => stopAll(true),
+      allOn: () => allOn,
+      levels: () => Object.fromEntries(GAMES.map((g) => [g.id, { level: recs.get(g.id)?.level ?? 1, mastered: !!recs.get(g.id)?.mastered }])),
+      now: () => {
+        const id = allOn ? prefs.all?.current : '';
+        const g = id ? gameById(id) : undefined;
+        return g ? `${niceCase(g.title).toLowerCase()} level ${recs.get(g.id)?.level ?? 1}` : '';
+      },
+    };
     gymState.open = open.id;
     paint();
     // (Switches touched before the settings are read keep the owner's choice.)

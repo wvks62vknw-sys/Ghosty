@@ -60,15 +60,8 @@ export function currentTab(): { def: TabDef; inst: TabInstance } | null {
   return def && m ? { def, inst: m.inst } : null;
 }
 
-export function go(id: string): boolean {
-  const def = defs.find((d) => d.id === id || d.title.toLowerCase() === id.toLowerCase());
-  if (!def) return false;
-  const prev = ui.get().tab;
-  if (prev === def.id && mounted.has(def.id)) return true;
-  const switching = mounted.has(prev);
-  // The stopwatch (core/stopwatch.ts): from here to the first paint after the tab is on screen.
-  const timed = stopwatch.tab(def.id, def.title, !mounted.has(def.id));
-  mounted.get(prev)?.inst.leave?.();
+/** Build a tab once (its page stays, hidden, while another is on screen). */
+function build(def: TabDef): { root: HTMLElement; inst: TabInstance } {
   let m = mounted.get(def.id);
   if (!m) {
     const root = h('div.pg', { id: `pg-${def.id}` });
@@ -83,6 +76,30 @@ export function go(id: string): boolean {
     m = { root, inst };
     mounted.set(def.id, m);
   }
+  return m;
+}
+
+/**
+ * Build a tab off screen without going to it (NIGHT SCHOOL runs the GYM's TRAIN ALL from any screen). Nothing changes
+ * on screen; false when there is no such tab or the tabs are not registered yet.
+ */
+export function ensureMounted(id: string): boolean {
+  const def = defs.find((d) => d.id === id);
+  if (!def || !stage) return false;
+  build(def).root.classList.toggle('on', ui.get().tab === def.id);
+  return true;
+}
+
+export function go(id: string): boolean {
+  const def = defs.find((d) => d.id === id || d.title.toLowerCase() === id.toLowerCase());
+  if (!def) return false;
+  const prev = ui.get().tab;
+  if (prev === def.id && mounted.has(def.id)) return true;
+  const switching = mounted.has(prev);
+  // The stopwatch (core/stopwatch.ts): from here to the first paint after the tab is on screen.
+  const timed = stopwatch.tab(def.id, def.title, !mounted.has(def.id));
+  mounted.get(prev)?.inst.leave?.();
+  const m = build(def);
   for (const [k, v] of mounted) v.root.classList.toggle('on', k === def.id);
   if (switching) sfx('tab');
   setScene(def.scene === 'globe' ? globe : backdrop);
