@@ -3964,3 +3964,7 @@ html[data-look="pro"] body:not([data-tab="core"]) .rcglow { animation: none; }
 html[data-look="pro"] .hud.core .rcbottom { display: flex; flex-direction: column; position: sticky; bottom: 0; z-index: 6; margin-top: auto; padding-top: 6px; background: linear-gradient(to bottom, rgba(var(--bgr), 0), rgb(var(--bgr)) 26px); }
 html[data-look="pro"] .hud.core .rcbottom #suggest { margin: 0; }
 html[data-look="pro"] .hud.core .rcbottom #cbar { position: static; }
+/* (what scrolls into view stops above the block, so a button near the end of the column is never left under it) */
+html[data-look="pro"] .hud.core > .ccenter { scroll-padding-bottom: 132px; }
+/* while a reply shows, its own actions ("Continue in chat") take the chips' place, as the calm looks always meant */
+html[data-look="pro"] .hud.core .ccenter.replying #suggest { display: none !important; }
