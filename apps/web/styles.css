@@ -3916,6 +3916,11 @@ html .lensreply .offnote { display: block; margin-top: 6px; font: 500 12px/16px 
      (#app padded by it too, so pages ended 78 px above the bar instead of 26 and stopped 34 px above the bottom) */
   html body.tabbar #app { padding-bottom: 0; }
 }
+/* the keyboard up (shell/layout.ts): the app, a sheet and the deck fit the part of the screen it leaves; the tab bar
+   steps aside and Home's ask bar comes down to the keyboard */
+html body.kb :is(#app, .modal, #deck, #mesheet) { top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100%); }
+html body.kb :is(#dock, #rcoffline) { display: none !important; }
+html body.kb .hud.core:not(.logopen) { padding-bottom: 10px; }
 /* end route C part 2 */
 
 /* ---------- Home's quick chips: while a reply shows, its own actions ("Continue in chat") take their place, as the calm looks always meant ---------- */

@@ -163,6 +163,45 @@ for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief',
   }
   felt++;
 }
+// 2. The keyboard. iPhone Safari does not make the page shorter when the keyboard comes up: only the visual viewport
+//    shrinks. Nothing followed it, so Home's ask bar stayed where the keyboard covers it and a page's last fields could
+//    not be scrolled above it [the ask bar's bottom at 665 under a keyboard from 427]. A stand-in visualViewport (a test
+//    cannot open a keyboard) says a 336 px keyboard is up: the ask bar and the page end above it; gone, all is back.
+{
+  const kctx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+  await kctx.addInitScript(() => {
+    const vv = new EventTarget();
+    let kb = 0;
+    for (const [k, get] of Object.entries({ height: () => innerHeight - kb, width: () => innerWidth, offsetTop: () => 0, offsetLeft: () => 0, pageTop: () => 0, pageLeft: () => 0, scale: () => 1 })) Object.defineProperty(vv, k, { get });
+    Object.defineProperty(window, 'visualViewport', { value: vv, configurable: true });
+    window.__keyboard = (px) => {
+      kb = px;
+      vv.dispatchEvent(new Event('resize'));
+    };
+  });
+  const kp = await kctx.newPage();
+  await pair(kp);
+  await show(kp, 'core');
+  const before = await kp.evaluate(() => Math.round(document.querySelector('#cbar').getBoundingClientRect().bottom));
+  await kp.focus('#cin');
+  await kp.evaluate(() => window.__keyboard(336));
+  await kp.waitForTimeout(400);
+  const up = await kp.evaluate(() => ({ cbar: Math.round(document.querySelector('#cbar').getBoundingClientRect().bottom), top: innerHeight - 336 }));
+  if (up.cbar > up.top + 1 || up.cbar < up.top - 80) problems.push(`[keyboard · Home] with the keyboard up (from ${up.top}) the ask bar's bottom is at ${up.cbar}: it should sit just above the keyboard`);
+  await kp.evaluate(() => document.activeElement.blur());
+  await kp.evaluate(() => window.__keyboard(0));
+  await kp.waitForTimeout(400);
+  const after = await kp.evaluate(() => Math.round(document.querySelector('#cbar').getBoundingClientRect().bottom));
+  if (Math.abs(after - before) > 2) problems.push(`[keyboard · Home] after the keyboard went the ask bar is at ${after}, not back at ${before}`);
+  await show(kp, 'library');
+  await kp.focus('#pg-library input.askq');
+  await kp.evaluate(() => window.__keyboard(336));
+  await kp.waitForTimeout(400);
+  const lib = await kp.evaluate(() => ({ page: Math.round(document.querySelector('#pg-library .hud').getBoundingClientRect().bottom), top: innerHeight - 336 }));
+  if (lib.page > lib.top + 1) problems.push(`[keyboard · Library] with the keyboard up (from ${lib.top}) the page reaches down to ${lib.page}: its end can never be scrolled above the keyboard`);
+  await kctx.close();
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;
