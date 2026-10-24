@@ -39,23 +39,38 @@ const fakeVec = (text) => {
 };
 
 test('the blended ranking: meaning beats a keyword miss; an exact title still wins; keywords alone are the old ranking', () => {
-  // "how do plants make food": the photosynthesis passage has none of its words but means it; the other shares one word.
-  const meaningOnly = { id: 'photo', words: 0, matched: false, exact: false, cos: 0.8 };
-  const oneWord = { id: 'fooddrive', words: 0.5, matched: false, exact: false, cos: 0.3 };
-  const bothWordsOffTopic = { id: 'menu', words: 1, matched: true, exact: false, cos: 0.3 };
-  let r = M.rank([oneWord, bothWordsOffTopic, meaningOnly], 3, 'meaning');
-  assert.equal(r[0].id, 'photo', 'meaning beats the passages that only share words');
-  assert.deepEqual(r.map((x) => x.id), ['photo', 'menu'], 'one shared word and far in meaning is not a hit');
+  // Cosines as the real model gives them: the question's background around 0.42 (sd 0.06), answers standing out.
+  const sp = { mean: 0.42, sd: 0.06 };
+  // "how do plants make food": the photosynthesis passage has none of its words but means it.
+  const meaningOnly = { id: 'photo', words: 0, matched: false, exact: false, cos: 0.62 };
+  const oneWord = { id: 'fooddrive', words: 0.5, matched: false, exact: false, cos: 0.45 };
+  const bothWordsOffTopic = { id: 'menu', words: 1, matched: true, exact: false, cos: 0.42 };
+  let r = M.rank([oneWord, bothWordsOffTopic, meaningOnly], 3, 'meaning', sp);
+  assert.deepEqual(r.map((x) => x.id), ['photo', 'menu'], 'meaning first; one shared word and nothing in meaning is not a hit');
   // By keywords alone the passage that means it is never found (what the phone did before).
-  r = M.rank([oneWord, bothWordsOffTopic, meaningOnly], 3, 'keywords');
+  r = M.rank([oneWord, bothWordsOffTopic, meaningOnly], 3, 'keywords', sp);
   assert.deepEqual(r.map((x) => x.id), ['menu']);
-  // A title named exactly wins over a passage closer in meaning; an exact name in the text beats a near neighbour.
+  assert.equal(r[0].score, 1, 'the keyword score is the old one');
+  // A title named exactly wins over a passage closer in meaning; a name in the text beats a near neighbour without it.
   const titled = { id: 'titled', words: 1, matched: true, exact: true, cos: 0.5 };
-  const closer = { id: 'closer', words: 0, matched: false, exact: false, cos: 0.9 };
-  assert.equal(M.rank([closer, titled], 2, 'meaning')[0].id, 'titled');
-  const named = { id: 'named', words: 1, matched: true, exact: false, cos: 0.45 };
-  const neighbour = { id: 'neighbour', words: 0, matched: false, exact: false, cos: 0.7 };
-  assert.equal(M.rank([neighbour, named], 2, 'meaning')[0].id, 'named');
+  const closer = { id: 'closer', words: 0, matched: false, exact: false, cos: 0.7 };
+  assert.equal(M.rank([closer, titled], 2, 'meaning', sp)[0].id, 'titled');
+  const named = { id: 'named', words: 1, matched: true, exact: false, cos: 0.6 };
+  const neighbour = { id: 'neighbour', words: 0, matched: false, exact: false, cos: 0.65 };
+  assert.equal(M.rank([neighbour, named], 2, 'meaning', sp)[0].id, 'named');
+  // Near in absolute terms but not standing out for this question (or the reverse) is not enough on its own.
+  assert.equal(M.blendScore({ words: 0, matched: false, exact: false, cos: 0.55 }, { mean: 0.5, sd: 0.06 }), null);
+  assert.equal(M.blendScore({ words: 0, matched: false, exact: false, cos: 0.3 }, { mean: 0.1, sd: 0.05 }), null);
+  // The spread: a small library leans on the measured prior, a big one on itself; never a zero spread.
+  const one = M.spreadOf(1, 0.9, 0.81);
+  assert.ok(one.mean < 0.45 && one.sd >= 0.06, JSON.stringify(one));
+  const many = M.spreadOf(8000, 8000 * 0.1, 8000 * (0.01 + 0.05 ** 2));
+  assert.ok(Math.abs(many.mean - 0.1) < 0.01 && Math.abs(many.sd - 0.05) < 0.01, JSON.stringify(many));
+  assert.ok(Math.abs(M.spreadOf(0, 0, 0).mean - M.PRIOR.mean) < 1e-9);
+  // The pool kept while reading holds whatever can end on top: the nearest, the best worded, the named.
+  const lots = Array.from({ length: 200 }, (_, i) => ({ id: i, words: i === 7 ? 1 : 0, matched: i === 7, exact: i === 9, cos: i === 3 ? 0.9 : 0.4 }));
+  const kept = M.prunePool(lots, 10).map((x) => x.id);
+  assert.ok(kept.length <= 21 && [3, 7, 9].every((i) => kept.includes(i)), kept.join(','));
   // The exact-title check: whole words, five letters or more.
   assert.equal(M.exactTitle('what is binary search?', 'Binary search'), true);
   assert.equal(M.exactTitle('binary searching', 'Binary search'), false);
@@ -70,6 +85,49 @@ test('the blended ranking: meaning beats a keyword miss; an exact title still wi
   const a = [{ doc: 'a', text: 'one' }, { doc: 'b', text: 'two' }];
   const b = [{ doc: 'b', text: 'two' }, { doc: 'c', text: 'three' }];
   assert.deepEqual(M.interleave(a, b, 5).map((x) => x.doc), ['a', 'b', 'c']);
+});
+
+// The real model's cosines (snowflake-arctic-embed-s, the query prefix, the pinned files, through this app's own
+// vendored worker on WebGPU in headless Chromium, 24 Oct 2026) for five questions over ten passages.
+const REAL_PASSAGES = [
+  "Leaf chemistry\nPhotosynthesis: green leaves catch sunlight with chlorophyll and turn carbon dioxide and water into glucose and oxygen.",
+  "Breakfast\nWhisk two eggs with 100 g flour and 300 ml milk; rest the batter for 20 minutes.",
+  "Binary search\nHalve a sorted array each step: compare the middle and keep the half that can hold the target.",
+  "Kettles\nDescale a kettle with citric acid: limescale builds up where the water is hard.",
+  "Rayleigh scattering\nShort wavelengths of sunlight scatter more off air molecules, so blue light reaches the eye from every direction.",
+  "Container orchestration\nKubernetes schedules containers across a cluster of machines and restarts them when they fail.",
+  "Garden centre\nPlant food from the garden centre: a liquid feed for tomatoes every week in summer.",
+  "Volcano Field Notes\nBasaltic lava flows faster than rhyolitic lava because it has less silica.",
+  "The French Revolution\nIn 1789 the Estates-General met at Versailles and the Third Estate declared itself the National Assembly.",
+  "Big-O of sorting\nMerge sort takes n log n comparisons in the worst case; insertion sort takes n squared.",
+];
+const REAL = {
+  "how do plants make food": {"Garden centre": 0.624, "Leaf chemistry": 0.599, "Container orchestration": 0.497, "Kettles": 0.476, "Breakfast": 0.447, "Rayleigh scattering": 0.427, "Binary search": 0.426, "Volcano Field Notes": 0.421, "The French Revolution": 0.358, "Big-O of sorting": 0.343},
+  "what is binary search": {"Binary search": 0.515, "Container orchestration": 0.46, "Leaf chemistry": 0.431, "Rayleigh scattering": 0.429, "Big-O of sorting": 0.422, "Garden centre": 0.418, "Kettles": 0.408, "Breakfast": 0.378, "Volcano Field Notes": 0.338, "The French Revolution": 0.335},
+  "how to stop a kettle furring up": {"Kettles": 0.553, "Binary search": 0.458, "Breakfast": 0.428, "Rayleigh scattering": 0.386, "Volcano Field Notes": 0.386, "Garden centre": 0.383, "Container orchestration": 0.356, "Big-O of sorting": 0.353, "Leaf chemistry": 0.337, "The French Revolution": 0.303},
+  "why is the sky blue": {"Rayleigh scattering": 0.536, "Container orchestration": 0.456, "Leaf chemistry": 0.451, "Kettles": 0.407, "Breakfast": 0.397, "Binary search": 0.397, "Volcano Field Notes": 0.395, "The French Revolution": 0.368, "Garden centre": 0.367, "Big-O of sorting": 0.294},
+  "Kubernetes": {"Container orchestration": 0.69, "Garden centre": 0.47, "Kettles": 0.461, "Volcano Field Notes": 0.454, "Binary search": 0.443, "Big-O of sorting": 0.438, "Breakfast": 0.406, "Leaf chemistry": 0.405, "Rayleigh scattering": 0.398, "The French Revolution": 0.379},
+};
+
+test('on the real model\'s numbers: meaning finds what keywords miss, a named title still wins, and nothing unrelated comes along', () => {
+  const ranked = (q, how) => {
+    const cos = Object.values(REAL[q]);
+    const sp = M.spreadOf(cos.length, cos.reduce((a, x) => a + x, 0), cos.reduce((a, x) => a + x * x, 0));
+    const w = M.wordMatcher(q);
+    const items = REAL_PASSAGES.map((t) => {
+      const title = t.split('\n')[0];
+      return { title, ...(w ? w(t.toLowerCase()) : { words: 0, matched: false }), exact: M.exactTitle(q, title), cos: REAL[q][title] };
+    });
+    return M.rank(items, 5, how, sp).map((x) => x.title);
+  };
+  assert.deepEqual(ranked('how do plants make food', 'keywords'), ['Garden centre']);
+  assert.deepEqual(ranked('how do plants make food', 'meaning'), ['Garden centre', 'Leaf chemistry'], 'photosynthesis found, Kubernetes (0.497) not');
+  assert.deepEqual(ranked('how to stop a kettle furring up', 'keywords'), []);
+  assert.deepEqual(ranked('how to stop a kettle furring up', 'meaning'), ['Kettles']);
+  assert.deepEqual(ranked('why is the sky blue', 'keywords'), []);
+  assert.deepEqual(ranked('why is the sky blue', 'meaning'), ['Rayleigh scattering']);
+  assert.deepEqual(ranked('what is binary search', 'meaning'), ['Binary search']);
+  assert.deepEqual(ranked('Kubernetes', 'meaning'), ['Container orchestration']);
 });
 
 test('vectors kept as int8 with a scale: 388 bytes a passage, and the cosine stays the same', () => {

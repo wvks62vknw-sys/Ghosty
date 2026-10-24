@@ -4,7 +4,7 @@
  * passagesFor) uses them, and apps/edge/test/meaning.test.mjs tests them.
  *
  * A vector is the small model's 384 numbers for a text (offline/embed.ts), scaled to length 1, so the cosine of
- * two vectors is their dot product: near 1 means "about the same thing", near 0 "unrelated".
+ * two vectors is their dot product: the higher, the closer in meaning (see Spread for what the real model gives).
  *
  * Kept as int8 with a scale: each number becomes a whole number from -127 to 127 (`q`) times one shared `s`, so
  * a passage costs 384 + 4 = 388 bytes instead of 1,536, and the cosine comes out the same to about 0.002.
@@ -98,12 +98,35 @@ export function cosine(query: ArrayLike<number>, q: ArrayLike<number>): number {
 }
 
 /**
- * The weights. A cosine at or under FLOOR counts as no meaning at all (unrelated English texts still share some);
- * a passage is brought up by meaning alone from MIN_COS; meaning outweighs the wording, but the question's own
- * words still count, and a document or section the question names exactly gets EXACT on top, so a name typed
- * exactly still wins. Checked against the real model (snowflake-arctic-embed-s, with the query prefix).
+ * How a question's cosines spread over the whole library: their mean and standard deviation. Measured on the real
+ * model (snowflake-arctic-embed-s with the query prefix, through this app's vendored worker, Oct 2026), unrelated
+ * English passages score 0.30–0.50 and the passages that answer 0.52–0.70, and the background level moves from one
+ * question to the next — so a passage is judged by how far it stands out from the rest for THIS question (`z`, in
+ * standard deviations), not by a fixed cosine. A few imaginary passages at PRIOR (that measurement) are counted in,
+ * so a library of a handful of passages still gets a sensible spread.
  */
-export const MEANING = { FLOOR: 0.2, MIN_COS: 0.35, W_MEANING: 0.7, W_WORDS: 0.3, EXACT: 0.5 } as const;
+export interface Spread {
+  mean: number;
+  sd: number;
+}
+export const PRIOR: Spread & { n: number } = { mean: 0.42, sd: 0.06, n: 20 };
+
+/** The spread from `n` cosines, their sum and the sum of their squares (gathered while the search reads). */
+export function spreadOf(n: number, sum: number, sumSq: number): Spread {
+  const N = n + PRIOR.n;
+  const mean = (sum + PRIOR.mean * PRIOR.n) / N;
+  const sq = (sumSq + PRIOR.n * (PRIOR.sd * PRIOR.sd + PRIOR.mean * PRIOR.mean)) / N;
+  return { mean, sd: Math.max(0.02, Math.sqrt(Math.max(0, sq - mean * mean))) };
+}
+
+/**
+ * The weights. Nearness is 0 up to Z_FLOOR standard deviations above the question's mean and 1 from Z_FULL; a
+ * passage is brought up by meaning alone from Z_HIT, and only with a cosine of at least COS_HIT (the real model's
+ * unrelated passages stay under it). Meaning outweighs the wording, but a passage with all the question's words
+ * and some meaning beats a neighbour without them, and a document or section the question names exactly gets
+ * EXACT on top — so exact names still win.
+ */
+export const MEANING = { Z_FLOOR: 1, Z_FULL: 4, Z_HIT: 1.5, COS_HIT: 0.5, W_MEANING: 0.65, W_WORDS: 0.35, EXACT: 0.5 } as const;
 
 /** What is known about one passage for one question. `cos` is null when the passage has no vector yet. */
 export interface Signals {
@@ -113,33 +136,52 @@ export interface Signals {
   cos: number | null;
 }
 
+/** How far a cosine stands out for this question, 0–1. */
+export function nearness(cos: number | null, sp: Spread = PRIOR): number {
+  if (cos === null) return 0;
+  const z = (cos - sp.mean) / sp.sd;
+  return Math.max(0, Math.min(1, (z - MEANING.Z_FLOOR) / (MEANING.Z_FULL - MEANING.Z_FLOOR)));
+}
+
 /** The keyword score, exactly as before search by meaning: the share of the question's words, when they match. */
 export const keywordScore = (s: Signals): number => (s.matched ? s.words : 0);
 
 /**
- * The blended score: meaning (the cosine above FLOOR, stretched to 0–1) and wording together, plus EXACT for a
- * named title. Null: not a hit at all (no keyword match, no named title and too far in meaning).
+ * The blended score: meaning (how far it stands out) and wording together, plus EXACT for a named title. Null: not
+ * a hit at all (no keyword match, no named title, and not near enough in meaning).
  */
-export function blendScore(s: Signals): number | null {
-  const near = s.cos === null ? 0 : Math.max(0, (s.cos - MEANING.FLOOR) / (1 - MEANING.FLOOR));
-  if (!s.matched && !s.exact && !(s.cos !== null && s.cos >= MEANING.MIN_COS)) return null;
-  return MEANING.W_MEANING * near + MEANING.W_WORDS * s.words + (s.exact ? MEANING.EXACT : 0);
+export function blendScore(s: Signals, sp: Spread = PRIOR): number | null {
+  const near = s.cos !== null && s.cos >= MEANING.COS_HIT && (s.cos - sp.mean) / sp.sd >= MEANING.Z_HIT;
+  if (!s.matched && !s.exact && !near) return null;
+  return MEANING.W_MEANING * nearness(s.cos, sp) + MEANING.W_WORDS * s.words + (s.exact ? MEANING.EXACT : 0);
 }
 
 export type SearchHow = 'meaning' | 'keywords';
 
 /**
- * The best `k` passages, highest first, each with its score: by meaning (blended) or by keywords alone. The
- * search reads its passages a batch at a time; `rank` is used on each batch's leftovers too, so only the best
- * few are ever held.
+ * The best `k` passages, highest first, each with its score: by meaning (blended, against the question's spread)
+ * or by keywords alone.
  */
-export function rank<T extends Signals>(items: T[], k: number, how: SearchHow): (T & { score: number })[] {
+export function rank<T extends Signals>(items: T[], k: number, how: SearchHow, sp: Spread = PRIOR): (T & { score: number })[] {
   const out: (T & { score: number })[] = [];
   for (const it of items) {
-    const score = how === 'meaning' ? blendScore(it) : keywordScore(it) || null;
+    const score = how === 'meaning' ? blendScore(it, sp) : keywordScore(it) || null;
     if (score !== null && score > 0) out.push({ ...it, score: Math.round(score * 1000) / 1000 });
   }
   return out.sort((a, b) => b.score - a.score).slice(0, k);
+}
+
+/**
+ * While a search reads the library a batch at a time, only a pool of candidates is kept: the `pool` nearest in
+ * meaning, the `pool` best by wording and every exactly named one. Every passage that can end in the top `k`
+ * (pool ≥ k) is among them, whatever the spread turns out to be.
+ */
+export function prunePool<T extends Signals>(items: T[], pool: number): T[] {
+  if (items.length <= pool * 2) return items;
+  const keep = new Set<T>(items.filter((x) => x.exact));
+  [...items].sort((a, b) => (b.cos ?? -2) - (a.cos ?? -2)).slice(0, pool).forEach((x) => keep.add(x));
+  [...items].sort((a, b) => b.words - a.words).slice(0, pool).forEach((x) => keep.add(x));
+  return items.filter((x) => keep.has(x));
 }
 
 /**

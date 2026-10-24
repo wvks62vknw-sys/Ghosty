@@ -11,7 +11,7 @@
  * are worked out on this phone and never leave it.
  */
 import type { LibraryDoc, LibraryHit } from '../../../../packages/shared/src/protocol';
-import { cosine, exactTitle, quantise, rank, wordMatcher, type SearchHow, type Signals } from '../../../../packages/shared/src/meaning';
+import { cosine, exactTitle, prunePool, quantise, rank, spreadOf, wordMatcher, type SearchHow, type Signals } from '../../../../packages/shared/src/meaning';
 
 export interface LocalPassage {
   text: string;
@@ -368,26 +368,35 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
   const docs = await all();
   type Cand = LibraryHit & Signals;
   let byWords: Cand[] = [];
-  let byMeaning: Cand[] = [];
+  // By meaning: a pool of candidates (the nearest, the best worded, the exactly named), ranked at the end against
+  // how this question's cosines spread over every passage (gathered as it reads).
+  let pool: Cand[] = [];
+  const POOL = Math.max(40, k * 4);
   let missing = 0;
   let seen = 0;
+  let n = 0;
+  let sum = 0;
+  let sumSq = 0;
   const consider = (d: LocalDoc, p: LocalPassage & { v?: KeptVector }, doc: string) => {
     seen++;
     const w = words ? words(`${d.title} ${p.heading ?? ''} ${p.text}`.toLowerCase()) : { words: 0, matched: false };
     let cos: number | null = null;
     if (qv) {
-      if (p.v) cos = cosine(qv, p.v.q);
-      else missing++;
+      if (p.v) {
+        cos = cosine(qv, p.v.q);
+        n++;
+        sum += cos;
+        sumSq += cos * cos;
+      } else missing++;
     }
     const exact = exactTitle(q, d.title, p.heading ?? '');
     const c: Cand = { doc, title: d.title, heading: p.heading ?? '', page: p.page ?? null, text: p.text, score: 0, relevant: true, ...w, exact, cos };
     if (w.matched) byWords.push(c);
-    if (qv && !missing) byMeaning.push(c);
+    if (qv && !missing) pool.push(c);
   };
   const prune = () => {
     if (byWords.length > k * 4) byWords = rank(byWords, k, 'keywords');
-    if (byMeaning.length > k * 4) byMeaning = rank(byMeaning, k, 'meaning');
-    if (missing) byMeaning = [];
+    pool = missing ? [] : prunePool(pool, POOL);
   };
   if (onlyPending) {
     // Just the few documents the brain doesn't have yet: read those, not the whole copy.
@@ -408,7 +417,8 @@ export async function searchLocalHow(q: string, k = 8, onlyPending = false, opts
     }, !!qv);
   }
   const how: SearchHow = qv && !missing && seen > 0 ? 'meaning' : 'keywords';
-  const hits = rank(how === 'meaning' ? byMeaning : byWords, k, how).map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
+  const ranked = how === 'meaning' ? rank(pool, k, how, spreadOf(n, sum, sumSq)) : rank(byWords, k, how);
+  const hits = ranked.map(({ words: _w, matched: _m, exact: _e, cos: _c, ...h }) => h as LibraryHit);
   return { hits, how };
 }
 
