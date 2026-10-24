@@ -137,6 +137,13 @@ folder that no longer exists; ignore those paths).
   database version; the direct spec wanted Rex on the first memory line while the Lens's SAVE had remembered a robin
   first): all three mended in the specs, each passing against the merged preview. Lesson: a shared preview carries
   state from spec to spec; a spec must not assume it is first.
+- 24 Oct ~15:10 UK: merged after review: THE WEBSITES LIFT (BRIEF-WEBSITES-LIFT). Kernel line, marked `[sites]`: the optional
+  `form_endpoint` key in keys.ts. Forms send for real only to `https://formspree.io/f/<id>` (checked by `formTarget`, again
+  on every serve; the page policy's `form-action` opens to that one origin only when the address is set; Web3Forms left out
+  because its post-send redirect would be blocked by a one-address policy). Not done, by the builder's account: an
+  og:image for kinds without photos (cv, invite, club, launch); a request with no business name gets a title like
+  "Website: stourbridge-club"; the What's New line. The builder could not reach Wikimedia (HTTP 429 here), so its
+  template screenshots show tinted placeholders where photos go.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

@@ -187,3 +187,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     (h) GYM: after a game passes a level, watch for the league toast ("kept" or "thrown away", with the rating); on the
     game's page, LEAGUE OF HIS PAST SELVES; for the maze, Sokoban and Sudoku, the "Level 7½: puzzles he only just fails"
     line. SYSTEM → LOOPS shows the week's practice, improvements and rejections for every loop.
+    (i) SYSTEM → KEYS → Website form (Formspree): a free Formspree account, one form, paste its address; from then on the
+    contact form on every website Ghosty builds really sends to your email (50 a month free). Without it the forms open
+    WhatsApp or email. Then "make me a website for …" and look at the DRAFT card in the Workshop: CHANGE in words,
+    PUBLISH when it is right.
