@@ -212,6 +212,9 @@ const face = (page, alpha) => page.evaluate((a) => (window.__orient.alpha = a), 
   await until(page, () => Math.abs((window.__ghosty?.aim?.heading ?? 0) - 90) <= 0.5, null, 5000, `the slider did not turn AIM to 90°: ${(await aim(page)).heading}`);
   await until(page, () => (window.__ghosty?.aim?.markers ?? []).some((m) => m.id === 'east' && m.on), null, 15000, 'slider at 90°: the tower is not on screen');
   // a drag to the left turns the view right (like moving a picture)
+  // (the slider sits low and filling it scrolls the Lens up, the picture with it: bring the picture back first, as a thumb would)
+  await page.locator('#pg-lens .lensview').evaluate((v) => v.scrollIntoView({ block: 'nearest' }));
+  await page.waitForTimeout(300);
   const box = await page.locator('#pg-lens .lensview').boundingBox();
   const before = (await aim(page)).heading;
   await page.mouse.move(box.x + box.width * 0.7, box.y + box.height / 2);

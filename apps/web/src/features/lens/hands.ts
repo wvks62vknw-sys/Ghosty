@@ -7,7 +7,7 @@
  */
 import { clear, h } from '../../core/dom';
 import { countLine, fromMediaPipe, pct, sceneLine, type Detection } from '../../vision/boxes';
-import { FrameBudget, fpsText } from '../../vision/frame';
+import { FrameBudget } from '../../vision/frame';
 import { GESTURE_HELP, GestureDebouncer, gestureWords, HAND_CONNECTIONS, handSide, type GestureEvent } from '../../vision/gestures';
 import { detector, gestures, nextStamp, type GestureRecognizerLike, type MPGestureResult } from '../../vision/models';
 import type { LensContext, Mode } from './index';
@@ -81,7 +81,7 @@ export function createHandsMode(L: LensContext): Mode {
     const body = [
       `Captured by the Lens with a thumbs-up on ${when.toLocaleString('en-GB')}.`,
       dets.length ? `In view: ${dets.map((x) => `${x.label} ${pct(x.score)}`).join(', ')}.` : d ? 'In view: nothing the detector knows by name.' : 'In view: the detector was not loaded yet, so no labels.',
-      S.scene.length ? `Scene: ${sceneLine(S.scene)}.` : '',
+      sceneLine(S.scene) ? `Scene: ${sceneLine(S.scene)}.` : '',
     ].filter(Boolean).join('\n');
     await L.saveNote(title, body, 'note');
   };
@@ -207,7 +207,7 @@ export function createHandsMode(L: LensContext): Mode {
       S.fps = budget.rate(now);
       if (now - lastStatus > 500 && S.camera === 'on' && !S.frozen) {
         lastStatus = now;
-        L.status(`${fpsText(S.fps)} · ${deb.coolingDown(now) ? 'done — let go' : hands ? 'hold a gesture' : 'show a hand'}`, 'ok');
+        L.status(deb.coolingDown(now) ? 'done · let go' : hands ? 'hold the gesture' : 'show a hand', 'ok');
       }
     },
   };

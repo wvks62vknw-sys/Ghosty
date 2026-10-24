@@ -55,6 +55,8 @@ export interface LensState {
   scene: Category[];
   /** NAME's closest names for the picture (share 0–1), best first. */
   names: NameGuess[];
+  /** How long NAME's last look took, in ms (kept off the status line, which says what it is doing in words). */
+  lookMs?: number;
   counts: string;
   selected: number;
   ocrText: string;
@@ -115,6 +117,8 @@ export interface LensContext {
   /** The overlay's drawing context in CSS pixels, cleared first. */
   overlay(): CanvasRenderingContext2D | null;
   clearOverlay(): void;
+  /** Bring a result the owner just asked for into view (on a phone the Lens scrolls as one page, and the tab bar covers its foot). */
+  reveal(el: HTMLElement): void;
   /** Frame pixels → viewfinder pixels (mirrored for the front camera). */
   viewBox(b: Box): Box;
   viewPoint(x: number, y: number): { x: number; y: number };
@@ -230,7 +234,11 @@ export const lensTab: TabDef = {
     const statusEl = h('div.lensstatus', light, statusText);
     const sceneEl = h('div.lensscene');
     const countEl = h('div.lenscount');
-    const view = h('div.lensview', video, still, ov, statusEl, sceneEl, countEl);
+    // The viewfinder with no picture in it says why and what to do, in full (the status pill cuts a long reason short).
+    const emptyTitle = h('b');
+    const emptyText = h('span');
+    const empty = h('div.lensempty', emptyTitle, emptyText);
+    const view = h('div.lensview', video, still, ov, empty, statusEl, sceneEl, countEl);
     const panel = h('div.lenspanel');
     const privacy = h('div.lensprivacy', 'Runs on your phone. No face recognition; a number plate is looked up only when you tap CHECK, never who owns the car — Ghosty does not identify people.');
     const reader = new Reader();
@@ -291,6 +299,9 @@ export const lensTab: TabDef = {
         ov.replaceWith(fresh);
         ov = fresh;
       },
+      reveal(el) {
+        requestAnimationFrame(() => el.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
+      },
       viewBox(b) {
         const { t, size } = L.view();
         const v = toView(b, t);
@@ -331,6 +342,7 @@ export const lensTab: TabDef = {
         } else still.hidden = true;
         // PHOTO TOOLS is offered once there is a photo on screen: a held frame, a picked photo, ASK's still
         photoBtn.hidden = !pic;
+        syncEmpty();
         video.classList.toggle('mirror', mirror());
       },
       freeze(on) {
@@ -342,6 +354,7 @@ export const lensTab: TabDef = {
           L.showStill(c);
           freezeBtn.textContent = 'UNFREEZE';
           freezeBtn.classList.add('on');
+          syncBar();
           mode?.froze?.(c);
           L.status('frozen · tap a box or an action', 'mid');
         } else {
@@ -352,6 +365,7 @@ export const lensTab: TabDef = {
           if (held) L.showStill(null);
           freezeBtn.textContent = 'FREEZE';
           freezeBtn.classList.remove('on');
+          syncBar();
           mode?.unfroze?.();
           L.status(camera.on ? 'live' : S.status, camera.on ? 'ok' : undefined);
         }
@@ -394,10 +408,14 @@ export const lensTab: TabDef = {
           S.camera = 'error';
           S.error = 'This browser cannot open the camera';
           L.status(`${S.error} · READ can still pick a photo`, 'off');
+          syncBar();
           return;
         }
         S.camera = 'starting';
         const gen = ++cameraGen;
+        // STOP from the first moment: a second tap on a START still showing while the camera opens used to stop it
+        startBtn.textContent = 'STOP';
+        syncBar();
         L.status('opening the camera…', 'mid');
         try {
           await camera.start(S.facing);
@@ -408,12 +426,14 @@ export const lensTab: TabDef = {
           video.classList.toggle('mirror', mirror());
           torchBtn.hidden = !camera.torchAvailable;
           startBtn.textContent = 'STOP';
+          syncBar();
           L.status('live', 'ok');
         } catch (e) {
           if (gen !== cameraGen) return;
           S.camera = 'error';
           S.error = cameraMessage(e);
           startBtn.textContent = 'START';
+          syncBar();
           L.status(S.error, 'off');
           toast(S.error, 'warn');
         }
@@ -425,6 +445,7 @@ export const lensTab: TabDef = {
         S.camera = 'off';
         S.fps = 0;
         startBtn.textContent = 'START';
+        syncBar();
         torchBtn.hidden = true;
         torchBtn.classList.remove('on');
         L.clearOverlay();
@@ -462,11 +483,27 @@ export const lensTab: TabDef = {
         if (shown) L.showStill(null);
         S.mode = m;
         S.selected = -1;
+        // SOUND switches the camera off and listens: the camera's START / FLIP / FREEZE mean nothing there (START reopened it)
+        bar.hidden = m === 'sound';
         for (const [id, b] of tileBtns) b.classList.toggle('on', id === m);
         mode = modes[m];
+        syncEmpty();
+        // the last mode's line ("8 words · 95% sure", "LISTEN: …") does not belong here: the camera's own, until this mode says more
+        cameraLine();
       }
+      showTile(m);
       mode.enter(opts);
     };
+    /** The mode in use stays in sight: the row scrolls sideways, and AIM, MEASURE and SOUND start past its right edge (under its fade). */
+    const showTile = (m: LensMode) =>
+      requestAnimationFrame(() => {
+        const b = tileBtns.get(m);
+        if (!b) return;
+        const r = b.getBoundingClientRect();
+        const row = tiles.getBoundingClientRect();
+        if (!row.width || (r.left >= row.left && r.right <= row.right - 28)) return;
+        tiles.scrollTo({ left: tiles.scrollLeft + r.left - row.left - (row.width - r.width) / 2, behavior: 'smooth' });
+      });
     S.setMode = (m) => setMode(m);
 
     // ---- bottom bar: thumb-reachable, 44 px targets
@@ -479,6 +516,29 @@ export const lensTab: TabDef = {
       else toast('No torch on this camera', 'warn');
     });
     torchBtn.hidden = true;
+    /** FLIP and FREEZE need a live camera: dimmed until it is on (FLIP with the camera off did nothing at all), FREEZE kept while a frame is held. */
+    const syncBar = () => {
+      flipBtn.disabled = S.camera !== 'on';
+      freezeBtn.disabled = S.camera !== 'on' && !S.frozen;
+      syncEmpty();
+    };
+    /** The status line for the camera alone: what a mode shows until it has something of its own to say. */
+    const cameraLine = () => {
+      if (S.camera === 'on') L.status(S.frozen ? 'frozen · tap a box or an action' : 'live', S.frozen ? 'mid' : 'ok');
+      else if (S.camera === 'starting') L.status('opening the camera…', 'mid');
+      else if (S.camera === 'error') L.status(S.error, 'off');
+      else L.status('camera off · START to open it', undefined);
+    };
+    /** No live picture and no still: say so in the viewfinder (AIM and SOUND draw their own there). */
+    const syncEmpty = () => {
+      const blank = S.camera !== 'on' && !shown && S.mode !== 'aim' && S.mode !== 'sound';
+      empty.hidden = !blank;
+      if (!blank) return;
+      const photo = ['read', 'name', 'scan', 'measure'].includes(S.mode) ? ' Or PICK PHOTO below to use one from your phone.' : '';
+      emptyTitle.textContent = S.camera === 'starting' ? 'Opening the camera…' : S.camera === 'error' ? 'The camera did not open' : 'Camera off';
+      emptyText.textContent = S.camera === 'starting' ? '' : S.camera === 'error' ? `${S.error}.${photo}` : `Tap START to look through it.${photo}`;
+    };
+    syncBar();
     const photoBtn = button('PHOTO TOOLS', () => {
       if (!shown) return void toast('Take or pick a photo first', 'warn');
       S.lastAction = 'photo tools';
@@ -543,7 +603,7 @@ export const lensTab: TabDef = {
       describe: () => {
         const bits = [`Lens tab in ${S.mode.toUpperCase()} mode, camera ${S.camera}${S.frozen ? ' (frozen)' : ''}`];
         if (S.counts) bits.push(`in view: ${S.counts}`);
-        if (S.scene.length) bits.push(`scene: ${sceneLine(S.scene)}`);
+        if (sceneLine(S.scene)) bits.push(`scene: ${sceneLine(S.scene)}`);
         if (S.mode === 'name' && S.names.length) bits.push(`closest names (phone guesses): ${namesLine(S.names)}`);
         if (S.gesture) bits.push(`gesture: ${S.gesture}`);
         if (S.card.what === 'living' || S.card.what === 'meal') bits.push(`card: ${S.card.text.slice(0, 200)}`);
