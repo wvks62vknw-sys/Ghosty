@@ -8,6 +8,7 @@ import type { PlaceCandidate, SavedPlace } from '../../../../../packages/shared/
 import { brain } from '../../api/brain';
 import { clear, h } from '../../core/dom';
 import { button, toast, undoBar } from '../../ui/components';
+import { offlineNow, why } from './timeline';
 
 const KINDS: [string, string][] = [
   ['home', 'Home'],
@@ -41,7 +42,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
     } catch (e) {
       found = null;
       check.hidden = false;
-      clear(check, h('p.note.bad', `Not found: ${(e as Error).message}`));
+      clear(check, h('p.note.bad', offlineNow(e) ? 'You’re offline: I can look it up when you’re back online.' : `Not found: ${(e as Error).message}`));
     }
     b.disabled = false;
     b.textContent = 'FIND';
@@ -75,7 +76,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
             paintFound();
             paint();
           } catch (e) {
-            toast(`Could not keep it: ${(e as Error).message}`, 'bad');
+            toast(`Could not keep it: ${why(e)}`, 'bad');
             b.disabled = false;
           }
         }, 'on'),
@@ -117,7 +118,7 @@ export function placesBlock(): { el: HTMLElement; refresh(): Promise<void> } {
           paint();
           undo.show(`Forgot ${p.label}`, () => putBack(p, i));
         } catch (e) {
-          toast(`Could not forget it: ${(e as Error).message}`, 'bad');
+          toast(`Could not forget it: ${why(e)}`, 'bad');
         }
       }, 'warn');
       list.append(h('div.placerow', { dataset: { id: p.id } }, h('span.k', p.label), h('span.v', p.address), h('span.acts', edit, forget)));

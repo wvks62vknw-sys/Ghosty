@@ -219,7 +219,7 @@ async function run(name, viewport) {
   await undo.click().catch(() => undefined);
   await page.waitForFunction((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi.locked')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => problems.push(`[${name}] UNDO did not bring it back locked`));
   // RECENTLY FORGOTTEN: forget it again, then a line under ME (its ✕): both stay undoable after the bar has gone
-  await item(edited).first().locator('button:has-text("FORGET")').click();
+  await item(edited).first().locator('button:has-text("FORGET")').click({ timeout: 8000 }).catch(() => problems.push(`[${name}] the memory to forget again is not there`));
   await page.waitForFunction((t) => ![...document.querySelectorAll('#pg-memory .pn.tl .mi')].some((x) => x.textContent.includes(t)), edited, { timeout: 8000 }).catch(() => undefined);
   const meLine = me.locator('.rw', { hasText: 'walks in Kings Heath' }).first();
   if (await meLine.count()) {
@@ -286,6 +286,27 @@ async function run(name, viewport) {
   await tlp.locator('.mi').first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => undefined);
   await page.waitForTimeout(800);
   if (await pp.locator('.pat', { hasText: topic }).count()) problems.push(`[${name}] the dismissed pattern came back after a reload`);
+  // OFFLINE: one line says what shows is what I knew before; a FORGET says so plainly (never "Failed to fetch") and keeps the memory
+  await ctx.setOffline(true);
+  await page.evaluate(() => (location.hash = 'core'));
+  await page.waitForTimeout(300);
+  await page.evaluate(() => (location.hash = 'memory'));
+  await page.waitForTimeout(1200);
+  const offSub = (await page.locator('#pg-memory .sub').first().textContent()) ?? '';
+  if (!/You’re offline: this is what I knew before/.test(offSub)) problems.push(`[${name}] offline, the title line reads "${offSub}"`);
+  const keep = tlp.locator('.mi').first();
+  const keepText = (await keep.locator('.mit').textContent().catch(() => '')) ?? '';
+  if (keepText) {
+    await page.evaluate(() => document.querySelector('#toasts')?.replaceChildren());
+    await keep.locator('button:has-text("FORGET")').click().catch(() => undefined);
+    await page.waitForFunction(() => /offline|Failed|Could not/i.test(document.querySelector('#toasts')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => undefined);
+    const said = (await page.locator('#toasts').textContent().catch(() => '')) ?? '';
+    if (!/you’re offline, so nothing changed/.test(said) || /Failed to fetch/.test(said)) problems.push(`[${name}] a FORGET with no connection says: "${said.slice(0, 120)}"`);
+    if (!(await page.evaluate((t) => [...document.querySelectorAll('#pg-memory .pn.tl .mi .mit')].some((x) => x.textContent === t), keepText))) problems.push(`[${name}] offline, the memory left the list though nothing was forgotten`);
+  }
+  await page.screenshot({ path: `${out}/${name}-memory-offline.png` });
+  await ctx.setOffline(false);
+  await page.waitForFunction(() => /things I know about you/.test(document.querySelector('#pg-memory .sub')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] back online, the title line still says offline`));
   await ctx.close();
 }
 

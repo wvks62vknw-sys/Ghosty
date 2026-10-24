@@ -27,6 +27,11 @@ const KINDS: [string, string][] = [
 const when = (at: number) => new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const day = (at: number) => new Date(at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
+/** No connection: fetch's own TypeError, or the phone says it is offline. */
+export const offlineNow = (e?: unknown): boolean => e instanceof TypeError || (typeof navigator !== 'undefined' && navigator.onLine === false);
+/** Why a change did not happen, in his words: no connection said plainly (never "Failed to fetch"). */
+export const why = (e: unknown): string => (offlineNow(e) ? 'you’re offline, so nothing changed. Try again when you’re back online' : String((e as Error)?.message ?? e));
+
 /** A diary day as he would say it: "2026-10-17 (later)" → "Saturday 17 October (later)" (the year only when it is not this one). */
 export function diaryDay(heading: string): string {
   const m = heading.match(/^(\d{4})-(\d{2})-(\d{2})(.*)$/);
@@ -119,7 +124,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
       if (op === 'forget' || op === 'restore') void refresh();
       return true;
     } catch (e) {
-      toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${(e as Error).message}`, 'bad');
+      toast(`Could not ${op === 'restore' ? 'undo' : op} it: ${why(e)}`, 'bad');
       return false;
     }
   };
@@ -170,12 +175,14 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
     const lock = button(m.locked ? 'UNLOCK' : 'LOCK', async (b) => {
       b.disabled = true;
       if (await change(m, m.locked ? 'unlock' : 'lock')) toast(m.locked ? 'Unlocked: the nightly reflection may update it again' : 'Locked: the nightly reflection will never change or drop it', 'ok');
+      else b.disabled = false;
     }, m.locked ? 'on' : '');
     lock.dataset.label = m.locked ? 'Unlock' : 'Lock';
     lock.title = m.locked ? 'Let the nightly reflection update it again' : 'Keep it exactly as it is';
     const forget = button('FORGET', async (b) => {
       b.disabled = true;
       if (await change(m, 'forget')) showUndo(m);
+      else b.disabled = false; // (not forgotten: it can be tried again)
     }, 'warn');
     forget.dataset.label = 'Forget';
     el.append(head, text, sourceLine(m), h('div.mia', edit, lock, forget));
@@ -205,7 +212,7 @@ export function timelinePanel(onChange: () => void): { el: HTMLElement; refresh(
               toast('Back in my memory', 'ok');
               onChange();
             } catch (e) {
-              toast(`Could not undo it: ${(e as Error).message}`, 'bad');
+              toast(`Could not undo it: ${why(e)}`, 'bad');
             }
             void refresh();
           }, 'on'),

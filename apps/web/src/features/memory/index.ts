@@ -16,7 +16,7 @@ import type { TabDef } from '../../shell/tabs';
 import { button, empty, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { placesBlock } from './places';
-import { diaryDay, lineId, patternsPanel, timelinePanel } from './timeline';
+import { diaryDay, lineId, offlineNow, patternsPanel, timelinePanel, why } from './timeline';
 
 /** "today", "yesterday", else "Sat 17 Oct" (when ME was last updated). */
 function dayWord(t: number): string {
@@ -90,10 +90,22 @@ export const memoryTab: TabDef = {
     let messages = 0;
     // one line under the title: what he knows, and how long this conversation is
     // (the facts and the lines about him: the same count as the TIMELINE's, less the diary and lessons)
+    // With no connection, one line says so: what shows is what I knew before.
     const paintSub = () => {
       const n = facts.length + (profile ? PROFILE_SECTIONS.reduce((k, s) => k + profile!.sections[s].length, 0) : 0);
-      P.sub.textContent = `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
+      P.sub.textContent = offlineNow() ? 'You’re offline: this is what I knew before. It updates by itself when you’re back.' : `${n} ${n === 1 ? 'thing' : 'things'} I know about you`;
+      P.sub.classList.toggle('off', offlineNow());
     };
+    addEventListener('offline', () => paintSub());
+    addEventListener('online', () => {
+      paintSub();
+      if (root.isConnected && root.offsetParent) {
+        void refresh();
+        void refreshLessons();
+        void refreshProfile();
+        void pl.refresh();
+      }
+    });
     const fg = pager(fp, 46, (f: MemoryFact) => {
       const r = row(fmt.ago(f.at), f.text, '✕', { wrap: true });
       const x = r.lastChild as HTMLElement;
@@ -101,7 +113,7 @@ export const memoryTab: TabDef = {
       x.title = 'Forget this';
       x.addEventListener('click', async () => {
         // Through the timeline's FORGET: kept a day under RECENTLY FORGOTTEN, and UNDO right here.
-        const ok = await brain.memoryChange(`f:${f.id}`, 'forget').then(() => true, (e) => (toast(`Could not forget it: ${(e as Error).message}`, 'bad'), false));
+        const ok = await brain.memoryChange(`f:${f.id}`, 'forget').then(() => true, (e) => (toast(`Could not forget it: ${why(e)}`, 'bad'), false));
         void refresh();
         void refreshTimeline();
         if (ok) undo(`Forgotten: “${clip(f.text)}”`, () => putBack(`f:${f.id}`));
@@ -157,7 +169,7 @@ export const memoryTab: TabDef = {
               profile = (await brain.profile()).profile;
               undo(`Removed: “${clip(text)}”`, () => putBack(lineId(text)));
             } catch (e) {
-              toast(`Could not remove it: ${(e as Error).message}`, 'bad');
+              toast(`Could not remove it: ${why(e)}`, 'bad');
             }
             paintMe();
             void refreshTimeline();
@@ -175,7 +187,7 @@ export const memoryTab: TabDef = {
         lineIn.value = '';
         if (!r.added) toast('Already there', 'warn');
       } catch (e) {
-        toast(`Could not save it: ${(e as Error).message}`, 'bad');
+        toast(`Could not save it: ${why(e)}`, 'bad');
       }
       paintMe();
       void refreshTimeline();
@@ -238,7 +250,7 @@ export const memoryTab: TabDef = {
         if (r.skipped) toast(`Nothing reflected: ${r.skipped}`, 'warn');
         else toast(`Reflected: ${r.facts.length} new fact${r.facts.length === 1 ? '' : 's'}, ${r.lines.length} line${r.lines.length === 1 ? '' : 's'} about you${r.diary ? ', diary written' : ''}`, 'ok');
       } catch (e) {
-        toast(`Could not reflect: ${(e as Error).message}`, 'bad');
+        toast(`Could not reflect: ${why(e)}`, 'bad');
       }
       b.disabled = false;
       b.textContent = 'REFLECT NOW';
