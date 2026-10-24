@@ -87,19 +87,21 @@ else {
   // On the phone the Workshop shows one column at a time: PUBLISHED PAGES is in the WIDGETS & VERSIONS column.
   const swap = await ui.$('#pg-workshop button.swap');
   if (swap && !(await ui.$eval('#pg-workshop .site', (el) => el.getBoundingClientRect().height > 0).catch(() => false))) await swap.tap();
-  const listed = await ui.waitForSelector('#pg-workshop .site a.sitelink', { timeout: 15000 }).catch(() => null);
+  // Its own page by its link: a shared preview may list pages other specs published (the websites spec's), before or after this one.
+  const own = '#pg-workshop .site:has(a.sitelink[href$="/s/acme-bakery"])';
+  const listed = await ui.waitForSelector(`${own} a.sitelink`, { timeout: 15000 }).catch(() => null);
   if (!listed) problems.push('the Workshop does not list the published page');
   else {
     const title = (await listed.textContent()) ?? '';
     if (!/Acme Bakery — rebuilt/.test(title)) problems.push(`the listed page reads: ${title}`);
     if (!/\/s\/acme-bakery$/.test((await listed.getAttribute('href')) ?? '')) problems.push('the listed page links elsewhere');
-    const btns = await ui.$$eval('#pg-workshop .site button', (b) => b.map((x) => x.textContent.trim()));
+    const btns = await ui.$$eval(`${own} button`, (b) => b.map((x) => x.textContent.trim()));
     for (const want of ['COPY LINK', 'UNPUBLISH']) if (!btns.includes(want)) problems.push(`the listed page has no ${want} button (${btns.join(', ')})`);
     await ui.screenshot({ path: `${out}/iphone-published-pages.png` });
     // UNPUBLISH asks, then the link stops working.
     ui.once('dialog', (d) => void d.accept());
-    await ui.click('#pg-workshop .site button:has-text("UNPUBLISH")');
-    await ui.waitForSelector('#pg-workshop .site a.sitelink', { state: 'detached', timeout: 10000 }).catch(() => problems.push('the page is still listed after UNPUBLISH'));
+    await ui.click(`${own} button:has-text("UNPUBLISH")`);
+    await ui.waitForSelector(`${own} a.sitelink`, { state: 'detached', timeout: 10000 }).catch(() => problems.push('the page is still listed after UNPUBLISH'));
     // (asked outside the browser's cache: the page was opened a moment ago and is cacheable for a minute)
     const r = await ctx.request.get(`${base}/s/acme-bakery`, { headers: { 'cache-control': 'no-cache' } });
     if (r.status() !== 404) problems.push(`the taken-down page still answers ${r.status()}`);
