@@ -7,6 +7,7 @@
 // own worker, ended on leaving NAME (the only way to give its WebAssembly memory back). The real
 // model runs here: no WebGPU needed, one thread.
 import { chromium } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -18,7 +19,8 @@ const browser = await chromium.launch({
 });
 const problems = [];
 const ctx = await browser.newContext({
-  viewport: { width: 390, height: 844 },
+  viewport: PHONE,
+  ...UK,
   deviceScaleFactor: 2,
   isMobile: true,
   hasTouch: true,

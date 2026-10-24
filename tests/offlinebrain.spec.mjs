@@ -8,7 +8,7 @@
 // starts a download when the model isn't here, and "stop" while the model loads writes nothing.
 //   node tests/offlinebrain.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
-import { openPanel } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -59,7 +59,7 @@ const engine = () => {
 };
 
 async function run(name, viewport) {
-  const ctx = await browser.newContext({ viewport });
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.addInitScript(engine);
@@ -200,8 +200,8 @@ async function run(name, viewport) {
   await ctx.close();
 }
 
-await run('desktop', { width: 1440, height: 900 });
-await run('phone', { width: 390, height: 844 });
+await run('desktop', DESKTOP);
+await run('phone', PHONE);
 await browser.close();
 console.log(problems.length ? `PROBLEMS:\n${problems.join('\n')}` : 'Offline brain run clean: vendored files served, panel, fallback and "always" work.');
 process.exit(problems.length ? 1 : 0);

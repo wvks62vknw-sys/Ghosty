@@ -2,7 +2,7 @@
 // browser's own push pipeline (Chrome DevTools Protocol) becomes a notification.
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
-import { openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -10,7 +10,7 @@ const base = process.env.BASE ?? 'http://localhost:8788';
 // The full browser (not the stripped-down headless shell), which supports notifications.
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, ...(process.env.CHROMIUM ? {} : { channel: 'chromium' }), args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' }); // (the default; WebKit runs block it otherwise)
+const ctx = await browser.newContext({ viewport: PHONE, ...UK, serviceWorkers: 'allow' }); // (the default; WebKit runs block it otherwise)
 await ctx.grantPermissions(['notifications'], { origin: base });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));

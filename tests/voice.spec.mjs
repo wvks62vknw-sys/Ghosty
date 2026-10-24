@@ -9,7 +9,7 @@
 // the reply is marked cut off, what they said is heard and answered, a tap cuts in too.
 //   node tests/voice.spec.mjs [outDir]
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
-import { openPanel } from './nav.mjs';
+import { DESKTOP, PHONE, UK, openPanel } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -28,8 +28,8 @@ function wav(samples = 1600, rate = 16_000) {
 }
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8z8DwnwEIGIEEADWvA/+VJyY+AAAAAElFTkSuQmCC', 'base64');
 
-for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   let tts = 0;
@@ -145,7 +145,7 @@ for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['pho
 // with speech that "plays" for a moment and records what it was asked to say and in which voice.
 {
   const name = 'barge';
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 1, ...UK });
   await ctx.addInitScript(() => {
     // Two sounds reach the made-up microphone: the owner (`set`, turned up and down by the test) and Ghosty's own voice
     // leaking back (`echo`: a level heard only while the voice element is playing, with a louder syllable every 0.7 s),

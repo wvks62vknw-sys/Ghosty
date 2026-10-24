@@ -1,4 +1,12 @@
 // Ways around the interface, for the specs.
+
+// The owner's phone is an iPhone 18 Pro Max: 440 × 956 CSS points. Every spec's main phone context is this size.
+export const PHONE = { width: 440, height: 956 };
+// The owner is in the UK: en-GB dates (24/10/2026) and the 24-hour clock, on London time. Spread into every newContext.
+export const UK = { locale: 'en-GB', timezoneId: 'Europe/London' };
+// The desktop size the specs check besides the phone.
+export const DESKTOP = { width: 1440, height: 900 };
+
 // The systems deck (every screen) opens from the avatar's "Me" sheet, row "Every screen".
 export async function openDeck(page) {
   // the avatar sits on the roots' navigation bar: go to the reactor screen if this one has none

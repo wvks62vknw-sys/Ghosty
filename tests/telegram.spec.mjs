@@ -4,6 +4,7 @@
 // bot key block in SYSTEM → KEYS. Phone and desktop sizes.
 //   node tests/telegram.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -16,8 +17,8 @@ const NONE = { linked: false, bot: null, paired: false, name: null, token: false
 const WAITING = { linked: true, bot: 'GhostyTestBot', paired: false, name: null, code: '482913', codeUntil: Date.now() + 14 * 60_000, token: true };
 const PAIRED = { linked: true, bot: 'GhostyTestBot', paired: true, name: 'Sam', token: true };
 
-for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   page.on('dialog', (d) => d.accept());

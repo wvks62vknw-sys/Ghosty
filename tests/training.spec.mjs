@@ -3,6 +3,7 @@
 // also survives code that never finishes.
 //   node tests/training.spec.mjs [outDir]
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -10,7 +11,7 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const problems = [];
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const page = await browser.newPage({ viewport: DESKTOP, ...UK });
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 await page.goto(base, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('#pair input', { timeout: 15000 });

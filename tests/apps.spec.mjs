@@ -13,6 +13,7 @@
 //   node tests/apps.spec.mjs [outDir]
 import { devices } from 'playwright';
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync } from 'node:fs';
@@ -123,7 +124,7 @@ if (w) {
 
 log('const browser = await launch()');
 const browser = await launch();
-const phone = { ...devices['iPhone 13'] };
+const phone = { ...devices['iPhone 13'], viewport: PHONE, screen: PHONE, ...UK };
 async function open(name, context) {
   const page = await context.newPage();
   const errs = [];
@@ -203,7 +204,9 @@ log('// ── 3a:');
 if (w) {
   const context = await browser.newContext(phone);
   const page = await context.newPage();
-  await page.clock.install({ time: new Date(2026, 9, 24, 23, 58, 0) });
+  // 23:58 on the owner's phone, which keeps London time (BST, +01:00, until the clocks go back on the 25th): the day turns
+  // over three minutes later whatever zone this machine is in (new Date(2026, 9, 24, 23, 58) is 23:58 in the machine's own)
+  await page.clock.install({ time: new Date('2026-10-24T23:58:00+01:00') });
   await page.goto(`${origin}/s/water/`);
   await page.waitForSelector('.hero .big');
   await page.getByRole('button', { name: '+1 GLASS' }).click();

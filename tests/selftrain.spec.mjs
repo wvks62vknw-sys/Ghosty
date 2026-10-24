@@ -11,7 +11,7 @@
 //   BASE=http://localhost:8875 node tests/selftrain.spec.mjs [outDir]
 import { mkdirSync } from 'node:fs';
 import { engine, launch, webkitNoise } from './browser.mjs';
-import { openPanel } from './nav.mjs';
+import { PHONE, UK, openPanel } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -21,7 +21,7 @@ const problems = [];
 const check = (ok, what) => void (ok || problems.push(what));
 
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined });
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const ctx = await browser.newContext({ viewport: PHONE, ...UK });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
 page.on('dialog', (d) => void d.accept());

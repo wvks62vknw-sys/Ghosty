@@ -5,13 +5,14 @@
 // none gaps in a different way, so this spec runs WebKit on purpose. (A wheel stands in for the finger:
 // Playwright's WebKit has no touch swipe, and the wheel follows the same scroll chain.)
 import { webkit } from 'playwright';
+import { PHONE, UK } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await webkit.launch();
 const problems = [];
 const TABS = ['lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
-const viewport = { width: 390, height: 664 }; // an iPhone 13 in Safari, with its bars
-const ctx = await browser.newContext({ viewport });
+const viewport = { width: PHONE.width, height: PHONE.height - 193 }; // the iPhone 18 Pro Max in Safari, with its bars (an iPhone 15 Pro Max loses 193 px of its 932 to them)
+const ctx = await browser.newContext({ viewport, ...UK });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => /ResizeObserver loop/.test(e.message) || problems.push(`pageerror: ${e.message}`)); // (Safari's ResizeObserver notice is harmless)
 await page.goto(base);
@@ -101,5 +102,5 @@ for (const tab of TABS) {
 }
 await browser.close();
 if (!checked) problems.push('no page had anything to scroll: the spec checked nothing');
-console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in WebKit on an iPhone 13 screen: ${checked} swipes across every tab moved the page.`);
+console.log(problems.length ? `PROBLEMS:\n${[...new Set(problems)].join('\n')}` : `Scroll run clean in WebKit on an iPhone 18 Pro Max screen: ${checked} swipes across every tab moved the page.`);
 process.exit(problems.length ? 1 : 0);

@@ -1,13 +1,14 @@
-// Every tab at phone, small-laptop and desktop sizes: nothing may be cut off without a way
+// Every tab at the owner's phone, a small phone (375), a small laptop and a desktop: nothing may be cut off without a way
 // to scroll to it, and nothing may stick out sideways off the screen.
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const problems = [];
 const TABS = ['core', 'eye', 'lens', 'brief', 'agenda', 'threats', 'markets', 'radio', 'memory', 'library', 'workshop', 'space', 'links', 'settings', 'system', 'studio', 'learn', 'gym'];
-for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', { width: 1440, height: 900 }]]) {
-  const ctx = await browser.newContext({ viewport });
+for (const [name, viewport] of [['phone', PHONE], ['phone 375', { width: 375, height: 667 }], ['laptop', { width: 1280, height: 640 }], ['desktop', DESKTOP]]) {
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);
@@ -69,7 +70,7 @@ for (const [name, viewport] of [['phone', { width: 375, height: 667 }], ['laptop
     }
     // Phones: the Library shelf and System status must get real room and scroll fully into view above the dock.
     const must = { library: 'SHELF', system: 'STATUS' }[tab];
-    if (name === 'phone' && must) {
+    if (/^phone/.test(name) && must) {
       // The panel fills in once its data arrives (slower on CI runners): measure when it has, or after 8 s.
       const measure = () => page.evaluate((m) => {
         const pn = [...document.querySelectorAll('.pg.on .pn')].find((x) => x.querySelector('h3')?.textContent?.trim().startsWith(m));

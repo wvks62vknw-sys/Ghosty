@@ -1,6 +1,7 @@
 // Route on the globe and the Radio tab (outside services are not reachable here, so the
 // brain's client commands are triggered directly).
 import { launch, webkitNoise } from './browser.mjs';
+import { DESKTOP, PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -8,8 +9,8 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
 const problems = [];
-for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
-  const ctx = await browser.newContext({ viewport });
+for (const [name, viewport] of [['desktop', DESKTOP], ['phone', PHONE]]) {
+  const ctx = await browser.newContext({ viewport, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`[${name}] pageerror: ${e.message}`));
   await page.goto(base);

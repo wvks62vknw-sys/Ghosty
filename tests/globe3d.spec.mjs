@@ -1,6 +1,7 @@
 // Satellite imagery and 3D buildings on the globe. The imagery and Overpass services are
 // replaced with test tiles (labelled z/x/y) and a few fake buildings near Trafalgar Square.
 import { launch, webkitNoise } from './browser.mjs';
+import { UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -8,7 +9,7 @@ mkdirSync(out, { recursive: true });
 const base = process.env.BASE ?? 'http://localhost:8788';
 const browser = await launch({ executablePath: process.env.CHROMIUM ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const problems = [];
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...UK });
 let tiles = 0;
 await ctx.route('https://server.arcgisonline.com/**', (route) => {
   tiles++;

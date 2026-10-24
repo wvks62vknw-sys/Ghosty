@@ -33,7 +33,7 @@ function makePdf(lines) {
 }
 const GPS_QUESTIONS = makePdf(['KEY STAGE 2 ENGLISH GRAMMAR, PUNCTUATION AND SPELLING PAPER 1', '1 What is 12 + 30? [1 mark]', '2 What is 7 + 8? [1 mark]', '3 Use the diagram to find angle x [2 marks]', '4 Explain why 9 is not a prime number [2 marks]']);
 const GPS_MARKS = makePdf(['MARK SCHEMES', '1 Answer: 42', '2 Answer: 15', '3 Answer: 40', '4 Answer: it has the factor 3']);
-import { openDeck } from './nav.mjs';
+import { PHONE, UK, openDeck } from './nav.mjs';
 
 const out = process.argv[2] ?? 'tests/.shots';
 mkdirSync(out, { recursive: true });
@@ -81,7 +81,7 @@ const smallTargets = async (page, where) => {
 };
 
 async function signIn(ready) {
-  const ctx = await browser.newContext({ viewport: { width: 440, height: 956 }, deviceScaleFactor: 2 });
+  const ctx = await browser.newContext({ viewport: PHONE, deviceScaleFactor: 2, ...UK });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => webkitNoise(e) || problems.push(`pageerror: ${e.message}`));
   await page.addInitScript(engine, ready);

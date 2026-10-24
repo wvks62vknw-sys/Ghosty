@@ -4,6 +4,7 @@
 //  - storage and alert work inside the sandbox; script errors are shown on screen, not a blank page
 //   node tests/widgets.spec.mjs [outDir]   (needs apps/edge `npm test` to have built the handbook)
 import { launch, webkitNoise } from './browser.mjs';
+import { PHONE, UK } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 
 const out = process.argv[2] ?? 'tests/.shots';
@@ -21,7 +22,7 @@ const csp = host.headers.get('content-security-policy') ?? '';
 if (!/sandbox allow-scripts/.test(csp) || /frame-ancestors 'none'/.test(csp)) problems.push(`/widget-host has the wrong security policy (widgets would be blank): ${csp.slice(0, 120)}`);
 
 async function widget(name, html, viewport, act) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 600 });
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 600, ...UK });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => webkitNoise(e) || errors.push(e.message));
@@ -36,7 +37,7 @@ async function widget(name, html, viewport, act) {
   return { errors, banner };
 }
 
-for (const viewport of [{ width: 390, height: 780 }, { width: 1200, height: 800 }]) {
+for (const viewport of [PHONE, { width: 1200, height: 800 }]) {
   // 2. the handbook's example game
   const g = await widget('game', NEON_DODGE, viewport, async (page) => {
     const canvas = await page.$('canvas');
