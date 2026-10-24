@@ -269,6 +269,38 @@ for (const tab of ENDS) {
   await feel.locator('#pg-eye button', { hasText: /^look$/i }).first().click();
   felt++;
 }
+// 5. Reading back up the conversation while a reply comes in: the chat stays where the owner is reading. Every update
+//    of the log (each part of a reply, the turn ending) pulled it to the end [scrolled up to 200, the reply's end put
+//    it back at 2519]. His own new message still takes him to the end.
+{
+  const cctx = await browser.newContext({ viewport, ...UK, serviceWorkers: 'block' });
+  const cp = await cctx.newPage();
+  let hold = 0;
+  const lines = Buffer.from(`${JSON.stringify({ t: 'text', text: 'A long answer, read slowly. '.repeat(60) })}\n${JSON.stringify({ t: 'done', model: 'Mock · scripted' })}\n`).toString('base64');
+  // the preview server's test-only stream: the reply's lines, held open `hold` ms (a turn still coming in)
+  await cp.route('**/api/chat', (r) => r.continue({ url: `${base}/__test/stream?lines=${encodeURIComponent(lines)}&hold=${hold}` }));
+  await pair(cp);
+  await show(cp, 'core', 800);
+  for (const q of ['first question', 'second question', 'third question']) {
+    await cp.fill('#cin', q);
+    await cp.keyboard.press('Enter');
+    await cp.waitForTimeout(1500);
+  }
+  await cp.locator('.logbtn').first().click();
+  await cp.waitForTimeout(600);
+  hold = 4000;
+  await cp.fill('#cin', 'one more');
+  await cp.keyboard.press('Enter');
+  await cp.waitForTimeout(1200);
+  const end = await cp.evaluate(() => { const l = document.querySelector('.convo .log'); return Math.round(l.scrollHeight - l.clientHeight - l.scrollTop); });
+  if (end > 80) problems.push(`[chat] his own new message left the conversation ${end} px above its end`);
+  await cp.evaluate(() => (document.querySelector('.convo .log').scrollTop = 200));
+  await cp.waitForTimeout(5000);
+  const at = await cp.evaluate(() => Math.round(document.querySelector('.convo .log').scrollTop));
+  if (Math.abs(at - 200) > 40) problems.push(`[chat] reading back at 200 px while a reply came in, the conversation moved to ${at}`);
+  await cctx.close();
+  felt++;
+}
 // ---------- end of part 2 ----------
 await browser.close();
 const summary = `${checked} swipes across every tab moved the page; ${felt} checks of how it feels passed`;

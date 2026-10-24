@@ -483,9 +483,15 @@ export const coreTab: TabDef = {
       };
       typing = requestAnimationFrame(step);
     };
+    let lastSent = -1;
     const paintLog = () => {
       // a plan card goes under the reply it came with (homecard.ts)
       const shown = homeAfterReply(chat.get().entries.slice(-40));
+      // Reading back up the conversation, a reply coming in leaves him where he is: the log follows its end only when
+      // he is already there, or when he has just sent a message of his own.
+      const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+      const mine = shown.findLast((x) => x.kind === 'user');
+      const sent = mine?.kind === 'user' ? mine.at : 0;
       // The latest reply to a question gets THINK HARDER (not one that is already a THINK HARDER answer).
       const last = shown.findLastIndex((x) => x.kind === 'assistant');
       const asked = last > 0 ? shown.slice(0, last).findLast((x) => x.kind === 'user') : undefined;
@@ -535,7 +541,8 @@ export const coreTab: TabDef = {
         if (n?.matches('.msg:not(.me)')) n.append(h('span.memchip', 'Remembered'));
       }
       placeChat();
-      log.scrollTop = log.scrollHeight;
+      if (atEnd || sent !== lastSent) log.scrollTop = log.scrollHeight;
+      lastSent = sent;
       reveal(chat.get().live);
       paintCapRate();
       armFade();
