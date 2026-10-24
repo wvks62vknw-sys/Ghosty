@@ -3568,6 +3568,9 @@ html .pn.recon .reconout .rw .k { --lfs: 13px; font: 600 13px/18px var(--sf); co
 html .pn.recon .reconout .rw .v { font: 400 15px/20px var(--sf); color: var(--ink); overflow-wrap: anywhere; }
 html .pn.recon .reconout .rw .n.bad { color: var(--amber); }
 html #pg-threats .pn.recon .reconout .rw .k[data-case="keep"], html #pg-threats .pn.recon .reconout .rw .k[data-case="keep"]::first-letter { text-transform: none; }
+html .pn.recon .reconout .rw.plain { align-items: baseline; }
+html .pn.recon .reconout .rw.plain .k { min-width: 16px; font-weight: 700; color: var(--ink3); }
+html .pn.recon .reconout .rw.plain.bad .k { color: var(--amber); } html .pn.recon .reconout .rw.plain.up .k { color: var(--c); }
 html .pn.recon > .ft { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--hair); }
 html .pn.recon > .ft button { height: 44px; min-height: 44px !important; padding: 0 16px; }
 html .pn.recon > .ft button.warn:not(:disabled) { color: #03141b !important; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 68%, #fff), color-mix(in srgb, var(--c) 92%, #000)) !important; }

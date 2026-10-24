@@ -801,10 +801,7 @@ test('the RECON card opens with WHAT STANDS OUT: a few plain lines on what matte
   R.clearReconCache();
   network({ 'crt.sh': 'hang' });
   const r = await R.recon('example.com', { now: Date.UTC(2026, 9, 16, 12, 0), timeouts: { certs: 40 } });
-  const views = V.reportRows(r);
-  assert.equal(views[0].key, 'standout');
-  assert.equal(views[0].title, 'What stands out');
-  const lines = views[0].rows;
+  const lines = V.standout(r, Date.UTC(2026, 9, 16));
   assert.ok(lines.length >= 4 && lines.length <= 8, `a handful of lines, not a dump (${lines.length})`);
   const txt = lines.map((x) => x.v).join('\n');
   // the fixture: 1 listed vulnerability, 4 safety headers missing, SPF + DMARC reject, registered 1995 to 2027, crt.sh silent

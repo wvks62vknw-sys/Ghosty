@@ -1,9 +1,9 @@
 /**
  * RECON card on the Threats tab: passive infrastructure recon of a domain, host, IP address or
  * web address through the brain (GET /api/recon: dns.google, rdap.org, crt.sh, archive.org,
- * ipwho.is, Shodan's InternetDB, hackertarget and one ordinary page request). The report
- * shows as sections with the source named; SAVE TO LIBRARY files its Markdown, ASK GHOSTY opens
- * the chat with a prepared question.
+ * ipwho.is, Shodan's InternetDB, hackertarget and one ordinary page request). The report opens
+ * with WHAT STANDS OUT (a few plain lines, worst first), then the sections with the source named;
+ * SAVE TO LIBRARY files its Markdown, ASK GHOSTY opens the chat with a prepared question.
  * Infrastructure only — the brain refuses a person's name or an email address and says why.
  */
 import type { ReconReport } from '../../../../../packages/shared/src/recon';
@@ -12,7 +12,7 @@ import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, panel, row, toast } from '../../ui/components';
-import { askPrompt, failedCount, reconTitle, reportRows, runningText, summaryLine, type ViewRow } from './reconview';
+import { askPrompt, failedCount, reconTitle, reportRows, runningText, standout, summaryLine, type ViewRow } from './reconview';
 
 const RECORD = /^(A|AAAA|CNAME|MX|NS|TXT|CAA|PTR|HTTP|DNS)$/;
 const IDLE = 'Passive lookups of public records: DNS, registration, certificates, subdomains, the Wayback Machine, hosting and one page request. Infrastructure only — Ghosty refuses names and email addresses.';
@@ -41,6 +41,16 @@ export function reconPanel(): HTMLElement {
   };
   const paint = (r: ReconReport) => {
     clear(out);
+    // first, the report in plain words; then every section with its source
+    const plain = standout(r);
+    if (plain.length) {
+      out.append(h('div.lab', 'What stands out', h('small', 'in plain words')));
+      for (const x of plain) {
+        const r = row(x.tone === 'bad' ? '!' : x.tone === 'up' ? '✓' : '·', x.v, null, { wrap: true });
+        r.classList.add('plain', ...(x.tone ? [x.tone] : []));
+        out.append(r);
+      }
+    }
     for (const s of reportRows(r)) {
       out.append(h('div.lab', s.title, h('small', s.source)));
       if (!s.ok) {
