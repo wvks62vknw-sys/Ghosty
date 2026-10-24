@@ -1,7 +1,7 @@
 /** THREATS tab: earthquakes, natural events, space weather and launches, worst first. */
 import { flyTo } from '../../commands/builtin';
 import { clear, fmt, h } from '../../core/dom';
-import { events, kp, launches, quakes, signals, threatLevel, type Launch, type Signal } from '../../data/hazards';
+import { events, kp, launches, launchStatus, quakes, signals, threatLevel, type Launch, type Signal } from '../../data/hazards';
 import { GEO } from '../../engine/geo';
 import { air } from '../../engine/layers/air';
 import { sats } from '../../engine/layers/sats';
@@ -30,8 +30,8 @@ export const threatsTab: TabDef = {
     P.left.append(sp.el);
     const near = panel('NEAR YOU', { grow: false, cls: 'near' });
     const space = panel('SPACE WEATHER', { grow: false, cls: 'spacewx' });
-    const lp = panel('LAUNCH WINDOW', { footer: true, status: 'LL2', cls: 'launches' });
-    const lg = pager(lp, 46, (l: Launch) => row(l.status || 'NET', l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
+    const lp = panel('LAUNCH WINDOW', { footer: true, cls: 'launches' });
+    const lg = pager(lp, 46, (l: Launch) => row(launchStatus(l.status), l.name, new Date(l.net).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), { onClick: () => void flyTo({ lat: l.lat, lon: l.lon, range_km: 600 }) }), () => launches.status, 'No launches listed for the coming days; it checks again by itself.');
     P.right.append(near.el, space.el, lp.el, reconPanel());
 
     const paint = () => {

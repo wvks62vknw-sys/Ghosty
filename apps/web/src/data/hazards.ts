@@ -82,7 +82,8 @@ export const launches = new Feed<Launch[]>(
   'launches',
   async () => {
     const j = await fetchJson<{ results: { id: string; name: string; net: string; status?: { abbrev: string }; pad?: { name: string; latitude: string; longitude: string }; launch_service_provider?: { name: string } }[] }>(
-      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8&mode=list',
+      // (the full answer, about 37 KB for 8: the lighter mode=list has no pad coordinates, and every launch was dropped)
+      'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=8',
       1800,
     );
     return j.results
@@ -91,6 +92,12 @@ export const launches = new Feed<Launch[]>(
   },
   1_800_000,
 );
+
+/** A launch's status in plain words (Launch Library's abbreviations: Go, TBD, TBC, Success, Hold…). */
+export function launchStatus(abbrev: string): string {
+  const m: Record<string, string> = { go: 'GO', tbd: 'DATE NOT SET', tbc: 'TO CONFIRM', success: 'LAUNCHED', failure: 'FAILED', 'partial failure': 'PART FAILED', hold: 'ON HOLD', 'in flight': 'IN FLIGHT' };
+  return m[abbrev.trim().toLowerCase()] ?? (abbrev.trim().toUpperCase() || 'PLANNED');
+}
 
 export const kp = new Feed<{ v: number; t: string }>(
   'kp',
