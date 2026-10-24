@@ -78,6 +78,7 @@ await printer.setContent(`<html><body style="font-family: Georgia, serif">
   <h2>Safety</h2>
   <p>Always carry a gas mask: sulphur dioxide levels rise without warning.</p>
   <p style="font-family: Arial">Emergency frequency is 156.8 MHz — call the station on channel 16.</p>
+  <p>Before a field day check the wind direction and the gas readings from the station and the path down from the crater rim, then walk with a partner and keep the radio switched on all the time.</p>
 </body></html>`);
 const pdf = await printer.pdf({ format: 'A4' });
 // A photo of a page (printed words on white), for the Library's own reading of photos.
@@ -325,6 +326,25 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
       const lib = await (await fetch('/api/library', { headers: H })).json().catch(() => ({ docs: [] }));
       for (const d of lib.docs ?? []) if (/Quillwort/i.test(d.title)) await fetch(`/api/library/docs/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: H });
     });
+    // ---- the reader: a PDF reads as running text (no line breaks where the page's edge was), with its page numbers
+    await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
+    const vdoc = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
+    if (await vdoc.count()) {
+      await vdoc.click();
+      await ui.waitForFunction(() => /all the time/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+      const rd = await ui.evaluate(() => ({
+        chips: [...document.querySelectorAll('.modal .readmeta .chip')].map((c) => c.textContent ?? ''),
+        marks: [...document.querySelectorAll('.modal .reader .pgmark')].map((c) => c.textContent ?? ''),
+        para: [...document.querySelectorAll('.modal .reader p')].map((p) => p.textContent ?? '').find((t) => /Before a field day/.test(t)) ?? '',
+      }));
+      if (!rd.chips.includes('PDF') || !rd.chips.includes('2 pages')) problems.push(`[${name}] the reader's chips read ${JSON.stringify(rd.chips)}`);
+      if (!rd.marks.includes('Page 2')) problems.push(`[${name}] the reader shows no page numbers: ${JSON.stringify(rd.marks)}`);
+      const wrapped = rd.para.slice(rd.para.indexOf('Before a field day'), rd.para.indexOf('all the time.') + 13);
+      if (!/^Before a field day.*all the time\.$/s.test(wrapped) || /\n/.test(wrapped)) problems.push(`[${name}] a PDF paragraph breaks where the page's edge was: ${JSON.stringify(wrapped || rd.para.slice(0, 220))}`);
+      await ui.screenshot({ path: `${out}/${name}-library-reader-pdf.png` });
+      await ui.click('.modal .mhead button').catch(() => undefined);
+    } else problems.push(`[${name}] the volcano notes are not on the shelf`);
     // ---- no connection: self-study says so and offers nothing that cannot work now, DIGEST NOW waits, and a
     // document on the shelf still reads, from the phone's own copy
     await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] the library was never copied to the phone`));

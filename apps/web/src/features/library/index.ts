@@ -98,6 +98,15 @@ function around(text: string, terms: string[], max = 280): string {
   if (end < flat.length) end = Math.max(flat.lastIndexOf(' ', end), start + Math.round(max / 2));
   return `${start > 0 ? '…' : ''}${flat.slice(start, end).trim()}${end < flat.length ? '…' : ''}`;
 }
+/**
+ * A passage as running text: a PDF's lines (and a photo's) break where the page's edge was, so a line that does not
+ * end a sentence joins the next when that one carries on in lower case ("worth\nreading twice" → "worth reading
+ * twice"), and a word split by a hyphen at a line end is whole again. Headings, lists and paragraphs stay as they are.
+ */
+function flowing(text: string): string {
+  return text.replace(/(\p{L}{2,})-\n(?=\p{Ll})/gu, '$1').replace(/([^\n.!?:;])[ \t]*\n(?=[ \t]*\p{Ll})/gu, '$1 ');
+}
+
 /** The text with every word that starts with a searched word in a <mark> (text nodes only, never HTML). */
 function marked(text: string, terms: string[]): Node[] {
   const stems = stemsOf(terms);
@@ -376,21 +385,27 @@ export const libraryTab: TabDef = {
       const more = button('MORE', () => void load(), 'on');
       let after = 0;
       let last = '';
+      let lastPage: number | null = null;
       let found: HTMLElement | null = null;
+      const prose = d.kind !== 'code';
       const load = async () => {
         more.disabled = true;
         try {
           const r = await brain.libraryPassages(d.id, after);
           for (const p of r.passages) {
+            // where a new page of the book starts, its number (a PDF knows each passage's page)
+            if (p.page && p.page !== lastPage && (d.pages > 1 || lastPage !== null)) body.append(h('div.pgmark', { dataset: { case: 'keep' } }, `Page ${p.page}`));
+            if (p.page) lastPage = p.page;
             if (p.heading && p.heading !== last) {
               body.append(h('h4', p.heading));
               last = p.heading;
             }
-            const para = h('p', p.text);
+            const text = prose ? flowing(p.text) : p.text;
+            const para = h('p', text);
             if (at && !found && (p.text === at.text || p.text.slice(0, 80) === at.text.slice(0, 80))) {
               found = para;
               para.className = 'here';
-              clear(para, ...marked(p.text, at.terms));
+              clear(para, ...marked(text, at.terms));
             }
             body.append(para);
           }
@@ -407,11 +422,11 @@ export const libraryTab: TabDef = {
         }
       };
       // what it is as chips (kind, where from, how many passages), then the passages to read; REMOVE for his own
-      const kind = KIND[d.kind] ?? d.kind.toUpperCase();
+      const kind = (KIND[d.kind] ?? d.kind).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase()).replace(/\bghosty\b/g, 'Ghosty');
       const meta = h('div.readmeta', { dataset: { case: 'keep' } },
-        h('span.chip', { dataset: { case: 'keep' } }, /[a-z]/.test(kind) ? kind : kind.charAt(0) + kind.slice(1).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase())),
-        h('span.chip.src', { dataset: { case: 'keep' } }, d.source || 'no source'),
-        h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`));
+        kind ? h('span.chip', { dataset: { case: 'keep' } }, kind.charAt(0).toUpperCase() + kind.slice(1)) : '',
+        d.source ? h('span.chip.src', { dataset: { case: 'keep' } }, d.source) : '',
+        d.pages > 1 ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.pages)} pages`) : d.passages ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`) : '');
       // Off the shelf at once with UNDO; removed from the brain and this phone only when the bar goes, so UNDO
       // brings it back exactly as it was (its passages, its meaning index, where it came from).
       const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {

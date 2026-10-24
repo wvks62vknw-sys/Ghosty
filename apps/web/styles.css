@@ -3243,6 +3243,8 @@ html .reader { max-width: 620px; }
 html .reader h4 { margin: 18px 0 6px; font: 600 11px/13px var(--sf); letter-spacing: .09em; text-transform: uppercase; color: var(--ink3); }
 html .reader p { margin: 0 0 14px; font: 400 17px/27px var(--sf); letter-spacing: -.2px; color: rgba(244,246,248,.9); }
 html .reader p.here { padding-left: 12px; box-shadow: inset 2px 0 0 var(--c); }
+html .reader .pgmark { display: flex; align-items: center; gap: 10px; margin: 20px 0 10px; font: 500 12px/16px var(--sf); color: var(--ink3); font-variant-numeric: tabular-nums; }
+html .reader .pgmark::before, html .reader .pgmark::after { content: ''; flex: 1; height: 1px; background: var(--hair); }
 html .readwrap > .keyrow { gap: 8px; padding-top: 4px; }
 html .readwrap > .keyrow button { height: 44px; min-height: 44px !important; }
 /* ---------- Memory (features/memory): TIMELINE, PATTERNS, ME, DIARY, LESSONS LEARNED ---------- */
