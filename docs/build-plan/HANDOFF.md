@@ -64,6 +64,13 @@ folder that no longer exists; ignore those paths).
   a change touches. Next: PR #33 (deck + one look), A3 (BRIEF-A3.md), the SPEED card, courses (item 6), the extras
   for one look once the owner picks (OWNER-ISSUES 28), `build_app` as a Workshop project, Library's "on this phone"
   live line on the deck, a real-device iOS check of the mini-apps' install and offline.
+- **24 Oct 09:12 UK: PR #32 MERGED into main** (merge commit 63a7842) once every check was green on 547c257, as the
+  owner authorised. It carried the whole Week 1 batch INCLUDING the deck and ONE LOOK (not a separate #33: they went
+  in together once their combined worktree passed every spec). Cloudflare deploys main by itself; the owner's phone
+  gets it on its next open. The branch continues from main; the next pull request opens with the next code chunk.
+  Told the owner: what is live, TRAIN NOW (SYSTEM → OFFLINE BRAIN TRAINING → TRAIN NOW) for the first real weekly
+  run, and the theme extras to pick from (OWNER-ISSUES 28). Next: A3 (specs at 440 × 956, en-GB), the SPEED card
+  once a day of numbers exists, courses (item 6), the self-edit trial jobs (F1), `build_app` as a Workshop project.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
