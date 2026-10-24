@@ -520,7 +520,7 @@ test('the pace from the minutes a day: whole lessons a week at the level\'s less
   assert.deepEqual(T.paceOf(12, 10, 'beginner', '2026-10-24'), { perWeek: 3, lessonMinutes: 20, finish: '2026-11-18', text: '3 lessons a week, done by 18 November' });
   assert.equal(T.paceOf(6, 5, 'advanced', '2026-10-24').text, '1 lesson a week, done by 28 November', 'never under one a week');
   assert.equal(T.paceOf(20, 60, 'beginner', '2026-12-20').text, '7 lessons a week, done by 8 January 2027', 'at most one a day');
-  assert.equal(T.paceDue({ perWeek: 3 }, '2026-10-24', '2026-10-31', 12), 4);
+  assert.deepEqual([0, 1, 3, 7].map((d) => T.paceDue({ perWeek: 3 }, '2026-10-24', `2026-10-${24 + d}`, 12)), [0, 1, 2, 3], 'lessons due before today: lessons 1, 2, 3 fall on days 0, 2 and 4');
   // 23:30 UTC on Saturday 24 October is 00:30 on Sunday 25 October in London (BST until the clocks go back that night).
   const late = Date.UTC(2026, 9, 24, 23, 30);
   const d = deps(() => UNITS_PLAN, { now: late });
@@ -818,8 +818,9 @@ test('through the agent: /learn/exam and /learn/exam/finish, /learn/done returns
     const exam = r.json.exam;
     assert.ok(exam.questions.length >= 3 && exam.ends > exam.started);
     assert.equal((await call('/learn/exam', { course: c.id })).json.exam.id, exam.id, 'resumed, not a new one');
-    r = await call('/learn/exam/finish', { exam: exam.id, answers: exam.questions.map((q) => ({ q: q.id, answer: q.answer, conf: 'sure' })) });
+    r = await call('/learn/exam/finish', { exam: exam.id, answers: exam.questions.map((q) => ({ q: q.id, answer: q.answer, conf: 'sure' })), used: 99_999 });
     assert.deepEqual([r.json.result.pct, r.json.result.grade, r.json.result.weak], [100, 'Top band', []]);
+    assert.equal(r.json.result.used, exam.seconds, 'the time the phone counted, never more than the time allowed');
     assert.equal((await call(`/learn/course/${c.id}`)).json.course.exams[0].pct, 100);
   } finally {
     globalThis.fetch = realFetch;

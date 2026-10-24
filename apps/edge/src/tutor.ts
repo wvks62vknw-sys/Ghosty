@@ -778,7 +778,7 @@ async function summaryCard(deps: TutorDeps, courseId: string, l: CourseLesson): 
   const summary = l.parts?.summary;
   if (!summary) return null;
   const now = deps.now ?? Date.now();
-  return addCard(deps, courseId, summaryFront(l), summary, { lesson: l.n, state: { ...freshCard(now), due: now + DAY_MS } }).catch(() => null);
+  return addCard(deps, courseId, summaryFront(l), summary, { lesson: l.n, state: { ...freshCard(now), due: now + DAY_MS }, at: now }).catch(() => null);
 }
 
 /**
@@ -973,7 +973,7 @@ export async function knownCourse(storage: DurableObjectStorage, id: unknown): P
  * back; a read lesson's one line. `state` is its SM-2 state to start from (a fresh card, due now,
  * when not given); `lesson` the lesson it is about.
  */
-export async function addCard(deps: TutorDeps, course: string, front: string, back: string, opts: { lesson?: number; state?: Sm2State } = {}): Promise<Card | null> {
+export async function addCard(deps: TutorDeps, course: string, front: string, back: string, opts: { lesson?: number; state?: Sm2State; at?: number } = {}): Promise<Card | null> {
   const lines = (v: string, max: number) => String(v ?? '').split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n').slice(0, max);
   const f = lines(front, 400);
   const b = lines(back, 300);
@@ -982,7 +982,7 @@ export async function addCard(deps: TutorDeps, course: string, front: string, ba
   const cards = await loadCards(deps.storage, course);
   const have = cards.find((c) => c.front.toLowerCase() === f.toLowerCase());
   if (have) return have;
-  const now = deps.now ?? Date.now();
+  const now = opts.at ?? deps.now ?? Date.now();
   const lesson = course !== GENERAL && Number.isInteger(opts.lesson) && opts.lesson! > 0 ? opts.lesson : undefined;
   const card: Card = { id: newId(), course, front: f, back: b, added: now, ...(opts.state ?? freshCard(now)), ...(lesson ? { lesson } : {}) };
   // Full: the card known best (longest interval) makes room.
@@ -997,10 +997,11 @@ const isConf = (v: unknown): v is Confidence => typeof v === 'string' && (CONFID
 
 /** The card a marked answer makes (by its confidence, sm2.ts answerCard): the question on the front, the answer on the back. */
 async function cardFor(deps: TutorDeps, course: string, q: QuizQuestion, correct: boolean, conf: Confidence | undefined, context: string): Promise<Card | null> {
-  const state = answerCard(correct, conf, deps.now ?? Date.now());
+  const at = deps.now ?? Date.now();
+  const state = answerCard(correct, conf, at);
   if (!state) return null;
   const expected = expectedOf(q);
-  return addCard(deps, course, `${q.q}${q.kind === 'mc' ? `\n${(q.choices ?? []).map((_, i) => choiceText(q, i)).join('\n')}` : ''}`, `${expected}${q.why ? ` — ${q.why}` : ''}${course === GENERAL && context ? ` (${context})` : ''}`, { lesson: q.lesson, state }).catch(() => null);
+  return addCard(deps, course, `${q.q}${q.kind === 'mc' ? `\n${(q.choices ?? []).map((_, i) => choiceText(q, i)).join('\n')}` : ''}`, `${expected}${q.why ? ` — ${q.why}` : ''}${course === GENERAL && context ? ` (${context})` : ''}`, { lesson: q.lesson, state, at }).catch(() => null);
 }
 
 /** One answer marked: multiple choice exactly; a short answer by its words, and by a cheap model (one call) when the words are not clear. */
@@ -1118,7 +1119,7 @@ export async function startExam(deps: TutorDeps, courseId: string): Promise<Exam
  * bands, the lessons under 80 % named; every answer counts for its lesson and its confidence, the
  * wrong (or guessed) ones become cards; the result is kept on the course (the last 5).
  */
-export async function finishExam(deps: TutorDeps, a: { exam: string; answers: ExamAnswer[] }): Promise<ExamMarked> {
+export async function finishExam(deps: TutorDeps, a: { exam: string; answers: ExamAnswer[]; used?: unknown }): Promise<ExamMarked> {
   const exams = await loadExams(deps.storage);
   const exam = exams.find((x) => x.id === a.exam);
   if (!exam) throw new Error('that exam is no longer open');
@@ -1138,7 +1139,9 @@ export async function finishExam(deps: TutorDeps, a: { exam: string; answers: Ex
   await bumpScores(deps.storage, exam.course, marks).catch(() => undefined);
   const course = await loadCourse(deps.storage, exam.course);
   const titles = Object.fromEntries((course?.lessons ?? []).map((l) => [l.n, l.title]));
-  const used = Math.max(0, Math.min(exam.seconds, Math.round((Math.min(now, exam.ends) - exam.started) / 1000)));
+  // The time taken as the phone's clock counted it (it holds the timer; the two clocks may differ), else this one's.
+  const told = Number(a.used);
+  const used = Math.max(0, Math.min(exam.seconds, Math.round(Number.isFinite(told) && a.used !== undefined && a.used !== null ? told : (Math.min(now, exam.ends) - exam.started) / 1000)));
   const result: ExamResult = { id: exam.id, at: now, ...examGrade(marks, titles), used, seconds: exam.seconds };
   if (course) {
     course.exams = [...(course.exams ?? []), result].slice(-5);
@@ -1252,8 +1255,9 @@ export async function learnRoute(req: Request, path: string, method: string, dep
     }
     if (path === '/learn/quiz') return json({ quiz: await makeQuiz(deps, { course: body.course ? String(body.course) : undefined, topic: body.topic ? String(body.topic) : undefined, n: body.n, lesson: body.lesson }) });
     if (path === '/learn/answer') return json(await answer(deps, { quiz: body.quiz ? String(body.quiz) : undefined, q: body.q ? String(body.q) : undefined, course: body.course ? String(body.course) : undefined, lesson: Number(body.lesson) || undefined, answer: body.answer, conf: body.conf }));
-    if (path === '/learn/exam') return json({ exam: await startExam(deps, String(body.course ?? '')) });
-    if (path === '/learn/exam/finish') return json(await finishExam(deps, { exam: String(body.exam ?? ''), answers: Array.isArray(body.answers) ? (body.answers as ExamAnswer[]).slice(0, 40) : [] }));
+    // With the brain's clock, so the phone counts down from what is really left (its own clock may differ).
+    if (path === '/learn/exam') return json({ exam: await startExam(deps, String(body.course ?? '')), now: deps.now ?? Date.now() });
+    if (path === '/learn/exam/finish') return json(await finishExam(deps, { exam: String(body.exam ?? ''), answers: Array.isArray(body.answers) ? (body.answers as ExamAnswer[]).slice(0, 40) : [], used: body.used }));
     if (path === '/learn/review') return json(await applyReviews(deps, Array.isArray(body.reviews) ? (body.reviews as Review[]) : []));
     if (path === '/learn/card') {
       const card = await addCard(deps, String(body.course ?? GENERAL) || GENERAL, String(body.front ?? ''), String(body.back ?? ''));

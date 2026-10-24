@@ -292,11 +292,12 @@ export function paceOf(lessons: number, minutesADay: number, level: LearnLevel, 
   return { perWeek, lessonMinutes, finish, text: `${perWeek} lesson${perWeek === 1 ? '' : 's'} a week, done by ${dayText(finish, startKey)}` };
 }
 
-/** How many lessons the pace expects done by `todayKey` (for "on track" / "behind"). */
+/** How many lessons the pace expected done before `todayKey` (today's own lesson is not late yet): for "on track" / "behind". */
 export function paceDue(pace: Pick<Pace, 'perWeek'>, startKey: string, todayKey: string, lessons: number): number {
   const days = keyDay(todayKey) - keyDay(startKey);
-  if (!Number.isFinite(days) || days < 0) return 0;
-  return Math.min(lessons, Math.floor((days * pace.perWeek) / 7) + 1);
+  if (!Number.isFinite(days) || days <= 0) return 0;
+  // Lesson k falls on day floor((k − 1) × 7 / perWeek): those before today.
+  return Math.min(lessons, Math.ceil((days * pace.perWeek) / 7));
 }
 
 /** The answers a lesson's quiz percent is measured on (the latest), and the fewest that count. */
