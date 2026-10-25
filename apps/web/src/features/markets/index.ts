@@ -1,11 +1,20 @@
 /** MARKETS tab: crypto, gold and silver, and currencies. */
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
-import { clock, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, money, ounce, pct, rate, rates, type Coin } from '../../data/markets';
+import { biggestMove, clock, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDay, money, moved, ounce, pct, rate, rates, type Coin } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
 import { settings } from '../../state/app';
 import { button, panel, row, spark } from '../../ui/components';
 import { page } from '../../ui/page';
+
+/** The day in a word, from the last 24 hours of the coins: a description, never advice. */
+export function dayWord(list: Coin[]): string {
+  const n = list.length;
+  if (!n) return '';
+  if (list.every((c) => Math.abs(c.change) < 1)) return 'Quiet day';
+  const up = list.filter((c) => c.change > 0).length;
+  return up >= (2 * n) / 3 ? 'Mostly up' : n - up >= (2 * n) / 3 ? 'Mostly down' : 'Mixed';
+}
 
 export const marketsTab: TabDef = {
   id: 'markets',
@@ -18,7 +27,10 @@ export const marketsTab: TabDef = {
     return btc ? `BTC ${btc.change >= 0 ? '+' : '−'}${Math.abs(btc.change).toFixed(2)}% today` : '';
   },
   mount(root) {
-    const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · gold · currencies', rightLabel: 'GOLD / FX', leftLabel: 'CRYPTO', stack: true });
+    const P = page(root, { tag: 'MARKETS', rightLabel: 'GOLD / FX', leftLabel: 'CRYPTO', stack: true });
+    // The top says what moved, in plain words, from the prices it holds: never a call to buy or sell.
+    const say = h('p.mksay', { dataset: { case: 'keep' } });
+    P.sub.after(say);
     const cp = panel('CRYPTO, LAST 24 HOURS', { footer: true, cls: 'coins' });
     const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const coinRow = (c: Coin) => {
@@ -78,14 +90,32 @@ export const marketsTab: TabDef = {
       const line = s.why ? 'The prices show again as soon as it answers.' : 'From CoinGecko, free.';
       return h(`div.empty${s.why ? '.bad' : '.wait'}` as 'div', h('b', { dataset: { case: 'keep' } }, head), h('span', line));
     };
+    // "Dogecoin moved most, up 5.20% to £0.1543. Bitcoin £60,411, up 0.20%. Gold £2,988 an ounce; £1 buys $1.34."
+    const sentence = (list: Coin[]) => {
+      const top = biggestMove(list);
+      const btc = list.find((c) => c.sym === 'BTC');
+      const out: string[] = [];
+      if (top) out.push(`${top.name} moved most, ${moved(top.change)} to ${money(top.price, top.cur)}.`);
+      if (btc && btc !== top) out.push(`Bitcoin ${money(btc.price, btc.cur)}, ${moved(btc.change)}.`);
+      const r = rates.data;
+      const cur = settings.get().currency;
+      if (r) {
+        const g = ounce(r, 'xau', cur);
+        const other = cur === 'gbp' ? 'usd' : 'gbp';
+        const x = rate(r, cur, other);
+        const bits = [g != null ? `Gold ${money(g, cur)} an ounce` : '', x != null ? `${CURRENCY_SYMBOL[cur]}1 buys ${CURRENCY_SYMBOL[other]}${x.toFixed(2)}` : ''].filter(Boolean);
+        if (bits.length) out.push(`${bits.join('; ')}.`);
+      }
+      return out.join(' ');
+    };
     const coinsAt = () => Math.max(0, ...(coins.data ?? []).map((c) => c.at));
     const paint = () => {
       const list = coins.data ?? [];
       const cs = state(coins, coinsAt());
-      const up = list.filter((c) => c.change > 0).length;
-      P.big.textContent = list.length ? (up > list.length / 2 ? 'RISK ON' : 'RISK OFF') : cs.why || 'Loading';
-      P.big.dataset.tone = !list.length ? '' : up > list.length / 2 ? 'up' : 'dn'; // route C colours it (amber when risk is off)
-      P.sub.textContent = list[0] ? `${cs.live ? '' : `${cs.why || 'Not updated since'} · `}as of ${cs.asOf} · ${list[0].sym} ${money(list[0].price, list[0].cur)}` : '';
+      P.big.textContent = !list.length ? cs.why || 'Loading' : cs.live ? dayWord(list) : 'Not up to date';
+      P.big.dataset.tone = cs.live && /up/.test(P.big.textContent) ? 'up' : cs.live && /down/.test(P.big.textContent) ? 'dn' : '';
+      P.sub.textContent = !list.length ? '' : cs.live ? `Last 24 hours · as of ${cs.asOf}` : `${cs.why || 'Not updated since'} · as of ${cs.asOf}`;
+      say.textContent = sentence(list);
       if (list.length) clear(cp.body, ...list.map(coinRow));
       else clear(cp.body, nothing(coins));
       paintRates();
@@ -93,13 +123,6 @@ export const marketsTab: TabDef = {
       const rs = state(rates, rates.at);
       stamp(mp, rs);
       stamp(fp, rs);
-      const best = list.length ? Math.max(...list.map((c) => c.change)) : 0;
-      const worst = list.length ? Math.min(...list.map((c) => c.change)) : 0;
-      P.dials([
-        ['UP', list.length ? up / list.length : 0, list.length ? `${Math.round((up / list.length) * 100)}%` : '--', '#52f2b5'],
-        ['BEST', best / 15, pct(best, 1), '#52f2b5'],
-        ['WORST', -worst / 15, pct(worst, 1), '#ff4d6a'],
-      ]);
     };
     for (const f of [coins, rates]) f.onChange(paint);
     // back on the screen after a while: the "as of" and the colour of the light are worked out again
@@ -116,7 +139,7 @@ export const marketsTab: TabDef = {
         void rates.refresh();
         paint();
       },
-      describe: () => `Markets: ${P.big.textContent}. ${(coins.data ?? []).slice(0, 3).map((c) => `${c.sym} ${c.change.toFixed(1)}%`).join(', ')}`,
+      describe: () => `Markets: ${P.big.textContent}. ${P.sub.textContent}. ${say.textContent}`,
     };
   },
 };
