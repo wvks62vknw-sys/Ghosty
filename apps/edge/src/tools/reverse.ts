@@ -45,6 +45,19 @@ async function saveJobs(env: Pick<Env, 'SITES'> | undefined, storage: DurableObj
   await durablePut(env, storage, KEY, jobs.slice(-MAX_JOBS));
 }
 
+/**
+ * Remove one report from the list (the Reverse tab's REMOVE, once the brain's route exists: agent.ts
+ * `DELETE /reverse/<id>`). The phone hides it at once and sends this only when its UNDO bar has gone,
+ * so UNDO never needs the brain. True when there was such a report.
+ */
+export async function removeReverse(env: Pick<Env, 'SITES'> | undefined, storage: DurableObjectStorage, id: string): Promise<boolean> {
+  const jobs = await loadReverseJobs(env, storage);
+  const left = jobs.filter((j) => j.id !== id);
+  if (left.length === jobs.length) return false;
+  await saveJobs(env, storage, left);
+  return true;
+}
+
 /** Start a run. Returns the job (status queued). */
 export async function startReverse(ctx: ToolContext, raw: string, kind = 'auto', question = ''): Promise<ReverseJob> {
   const g = await ctx.github();

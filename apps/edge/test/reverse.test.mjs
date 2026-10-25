@@ -98,3 +98,12 @@ test('the phone says what a typed target reads as, by the brain\'s own rules: a 
   assert.match(S.readsAs('a bicycle pump'), /ask Ghosty in the chat/);
   assert.match(S.readsAs('http://192.168.1.5/'), /Reverse opens a link/);
 });
+
+test('removing a report takes only that one out of the list; an unknown id changes nothing', async () => {
+  const storage = new MemStorage();
+  await storage.put('reverse.jobs', [{ id: 'ra', target: 'a.com', status: 'done' }, { id: 'rb', target: 'b.com', status: 'failed' }]);
+  assert.equal(await R.removeReverse({}, storage, 'rx'), false);
+  assert.equal((await storage.get('reverse.jobs')).length, 2);
+  assert.equal(await R.removeReverse({}, storage, 'ra'), true);
+  assert.deepEqual((await R.loadReverseJobs({}, storage)).map((j) => j.id), ['rb']);
+});
