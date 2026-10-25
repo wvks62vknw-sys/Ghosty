@@ -3,7 +3,7 @@ import { fetchJson } from '../../api/feed';
 import { favourites, player, playStation, setVolume, stopAudio, type NowPlaying } from '../../assistant/media';
 import { clear, h, icon } from '../../core/dom';
 import type { TabDef } from '../../shell/tabs';
-import { button, empty, panel, row, toast } from '../../ui/components';
+import { button, empty, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { tidyStations, type RawStation } from '../../../../../packages/shared/src/radio';
 
@@ -78,7 +78,14 @@ export const radioTab: TabDef = {
       star.title = fav ? 'Remove from favourites' : 'Add to favourites';
       star.addEventListener('click', (e) => {
         e.stopPropagation();
-        toast(favourites.toggle(s) ? `★ ${s.name} saved` : `Removed ${s.name}`);
+        const at = favourites.indexOf(s.url);
+        if (favourites.toggle(s)) toast(`★ ${s.name} saved`);
+        else
+          undo(`Removed ${s.name} from favourites`, () => {
+            favourites.put(s, at);
+            paintResults();
+            paintFavs();
+          });
         paintResults();
         paintFavs();
       });

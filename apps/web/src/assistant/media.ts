@@ -67,6 +67,13 @@ export function duck(on: boolean): void {
 }
 
 const FAV = 'ghosty.radio.favs';
+function saveFavs(l: NowPlaying[]): void {
+  try {
+    localStorage.setItem(FAV, JSON.stringify(l.slice(0, 40)));
+  } catch {
+    /* ignore */
+  }
+}
 export const favourites = {
   list(): NowPlaying[] {
     try {
@@ -80,13 +87,16 @@ export const favourites = {
     const i = l.findIndex((x) => x.url === s.url);
     if (i >= 0) l.splice(i, 1);
     else l.unshift({ name: s.name, url: s.url, info: s.info });
-    try {
-      localStorage.setItem(FAV, JSON.stringify(l.slice(0, 40)));
-    } catch {
-      /* ignore */
-    }
+    saveFavs(l);
     return i < 0;
   },
+  /** Put a station back where it was (UNDO of a removal). */
+  put(s: NowPlaying, at: number): void {
+    const l = favourites.list().filter((x) => x.url !== s.url);
+    l.splice(Math.max(0, Math.min(at, l.length)), 0, { name: s.name, url: s.url, info: s.info });
+    saveFavs(l);
+  },
+  indexOf: (url: string) => favourites.list().findIndex((x) => x.url === url),
   has: (url: string) => favourites.list().some((x) => x.url === url),
 };
 
