@@ -8,7 +8,7 @@ import { brain, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
-import { button, panel, toast } from '../../ui/components';
+import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 
 const CSS = `
@@ -22,6 +22,11 @@ const CSS = `
 .mdreport hr { border: 0; border-top: 1px solid rgba(var(--cr), .15); margin: 10px 0; }
 #pg-reverse .rw.link.on { box-shadow: inset 2px 0 0 var(--a); background: linear-gradient(90deg, rgba(var(--ar), .14), transparent); }
 `;
+
+/** 14:08, on this phone's clock. */
+const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+/** A button shown with its words as written ("GitHub", not the sentence case that would make it "Github"). */
+const asWritten = (b: HTMLButtonElement, words: string) => ((b.dataset.label = words), b);
 
 const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
 
@@ -94,8 +99,7 @@ export const reverseTab: TabDef = {
       say.hidden = !msg;
     };
     // Reverse runs on GitHub: without it nothing can start, so that is said before he types, with the way to fix it.
-    const connect = button('CONNECT GITHUB', () => go('system'), 'on');
-    connect.dataset.label = 'Connect GitHub';
+    const connect = asWritten(button('CONNECT GITHUB', () => go('system'), 'on'), 'Connect GitHub');
     const gh = h('div.revgh', { hidden: true }, h('p', 'GitHub is not connected yet, so a report cannot start. Reverse runs on GitHub’s free computers: add a free GitHub token once in System → Keys.'), connect);
     const start = async () => {
       const t = target.value.trim();
@@ -104,10 +108,11 @@ export const reverseTab: TabDef = {
       startBtn.disabled = true;
       try {
         const r = await brain.reverseStart({ target: t, kind: kind.value, question: question.value.trim() });
-        toast(`Started · ${r.job.kind} · takes 3–8 min`, 'ok');
         target.value = '';
         question.value = '';
         await refresh();
+        // the new report, waiting, in place: when to expect it and that he can go
+        void show(r.job.id, true);
       } catch (e) {
         const msg = String((e as Error).message ?? e);
         tell(msg);
@@ -133,7 +138,7 @@ export const reverseTab: TabDef = {
     jp.body.append(list);
     let jobs: ReverseJobInfo[] = [];
     let open: string | null = null;
-    const viewer = panel('REPORT', { status: '' });
+    const viewer = panel('REPORT', { status: '', cls: 'revview' });
     viewer.el.hidden = true;
     const paint = () => {
       clear(list);
@@ -186,7 +191,16 @@ export const reverseTab: TabDef = {
         } else if (job.status === 'failed') {
           viewer.body.append(h('div.note', job.error ?? 'failed'), job.runUrl ? button('SEE THE RUN ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : '');
         } else {
-          viewer.body.append(h('div.empty', h('b', job.status === 'queued' ? 'WAITING FOR GITHUB' : 'RUNNING ON GITHUB'), h('span', `started ${fmt.ago(job.at)} · usually 3–8 minutes`)), job.runUrl ? button('WATCH ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : '');
+          // A run takes 3–8 minutes; the brain looks again after six and sends what it found (tools/reverse.ts).
+          const late = Date.now() - job.at > 8 * 60_000;
+          viewer.body.append(
+            h('div.empty.revwait',
+              h('b', job.status === 'queued' ? 'Starting on GitHub…' : 'Taking it apart…'),
+              h('span', late ? `Started at ${clock(job.at)}. It is taking longer than usual; it keeps going for up to 15 minutes.` : `Started at ${clock(job.at)}, ready by about ${clock(job.at + 8 * 60_000)}.`),
+              h('span', 'You can leave this screen: Ghosty tells you when it is ready, and it will be here.'),
+            ),
+            job.runUrl ? asWritten(button('WATCH ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'Watch on GitHub ↗') : '',
+          );
         }
         const k = jobs.findIndex((x) => x.id === id);
         if (k >= 0) jobs[k] = { ...jobs[k]!, status: job.status, error: job.error, runUrl: job.runUrl };
