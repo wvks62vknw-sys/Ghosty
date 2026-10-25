@@ -636,6 +636,10 @@ folder that no longer exists; ignore those paths).
   RULE FROM HERE: no builder starts until the weekly reset (every model counts against the 95 %); the orchestrator spends
   almost nothing: merge PR #41 on green, answer the owner, write the first brief for the reset once he picks. Ask him
   when the window resets (the app shows it). A fresh session starts from HANDOFF, STATUS and OWNER-ISSUES 53.
+- 25 Oct 13:00 UK: his two bugs (OWNER-ISSUES 54) fixed by hand and pushed onto PR #41: assistant/session.ts (an
+  AbortError after a stop says nothing; the stop words widened) and agent.ts `[links]` (build_app's link treated like
+  publish_site's). Verified: web and edge typecheck, sites.test 81/81, voice, apps, direct specs. Spent as little as
+  possible (all models at 95 %).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
