@@ -45,6 +45,11 @@ async function run(name, viewport) {
   await page.waitForTimeout(800);
   const badge = await page.evaluate(() => document.querySelector('#dock button[data-id="agenda"]')?.dataset.badge);
   if (!badge) problems.push(`[${name}] no unread badge on the Agenda tab`);
+  // Leave the brain's agenda as found: this run's Dentist event goes (specs after this one read the agenda; a run that
+  // crossed midnight UK found it still ahead on Home's Today card an hour later).
+  const H = { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' };
+  const ag = await fetch(`${base}/api/agenda`, { headers: H }).then((r) => r.json()).catch(() => null);
+  for (const e of (ag?.events ?? []).filter((e) => e.title === `Dentist ${name}` && e.id)) await fetch(`${base}/api/agenda/events/${e.id}`, { method: 'DELETE', headers: H }).catch(() => undefined);
   await ctx.close();
 }
 
