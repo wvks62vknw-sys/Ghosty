@@ -556,6 +556,56 @@ folder that no longer exists; ignore those paths).
   ['Reminder time'] then ['Reminder time'] → 1; the new one ['Event start'] then ['Reminder time'] → 2; the phone's
   memory was `ghosty.sections.agenda = reminders`. Run 243 (head 23bd0e2) started 06:43; run 242 (1838a6d) will end red
   on the same safari check — superseded, ignore it.
+- 25 Oct 08:13 UK: PR #39 MERGED (cd44d71) after run 243 went green on 23bd0e2 (smoke 06:43–08:12; brain,
+  interface, deploy-build, Workers Builds green). Run 242's red (1838a6d) was only the safari date-box check fixed on
+  23bd0e2. The branch fast-forwarded to main; the held HANDOFF note committed (b5671c8).
+- 25 Oct 08:15 UK: gym2 (Opus) merged (d1dfd50) — PLAY HIM at full strength (gym/c4solve.ts exact bitboard solver with a
+  4,194,301-entry table kept for the worker's life; c4play.ts: four → block → the book (solved positions and lessons) →
+  the solver for 30 % of 1.5 s → a deepening look-ahead with threat-parity leaves → the net's tree search among equals
+  → the rest of the time proving the choice), lessons from the owner's games (c4study.ts; the journal under '~journal'
+  in the GYM's IndexedDB store, 300 games), one first-person voice (c4talk.ts, meta.ts, every measured line), the tactical
+  floor on tic-tac-toe (perfect), checkers (4-ply material with captures followed) and chess (mate in one taken, no move
+  allowing mate within two that starts with a check). Reviewed: worker only for the engines; idle solving only while the
+  GYM is on screen with nothing training, no study and no move pending; the test-only `gymState.limit` is never set by
+  the app; no forbidden patterns, no packages, no brain files. Verified on its merged tree: build, gym spec (longest page
+  pause 97 ms), hubcards, nav, gymvs + gym tests 49/49. Known: a study runs in one piece in the worker (after a long loss
+  a rematch's first move can wait a few seconds; the screen says "I'm studying it"); he never opens a game; no ready-made
+  opening book (it grows from his games); "lessons" counts every studied loss; the greeting's self-play count includes
+  tic-tac-toe's (very large numbers); the chess floor sees only mates in two that start with a check. Only the phone can
+  prove: how deep 1.5 s reaches, heat while he solves in idle time, IndexedDB under iOS eviction, Safari, whether HIS
+  trick is beaten (he never said the columns), how the voice feels.
+- 25 Oct 08:15 UK: boot2 (Opus) merged (80936c7) — every cold open; the 3.9 s cut; the frame budget and the short/lean
+  cuts; shader warm-up in mind.ts bootBegin (BootLook gains haze, mer, rim, trails, refract; one material per meridian;
+  Home's look unchanged). My addition on its branch (e177612): the frame loop is wrapped (`step` → `frame` in try/catch,
+  `bail()`): a throwing frame removes #boot and the booting/bootland/bootwait classes, hands Mind to the hero and Home
+  shows (before, tap-to-skip relied on the loop still running, so a dead loop would have left the black up on every open).
+  Verified on its merged tree: build; boot, layout, routec, ui clean (the builder's layout red was the sections-marker bug
+  already fixed on the branch). Only the phone can prove: rAF at 120 Hz (budget.hz), the 12/20 ms limits and the
+  6-of-24 lean rule, the GPU cost of the depths/trails/refraction, the hum in silent mode, whether the greeting speaks at
+  once or on the first tap, the HUD's beat at real speed.
+- 25 Oct 08:15 UK: CI's loop gains boot, hubcards, spending and undo (`[boot]`; written 24 Oct, never run by GitHub). 73 specs.
+- 25 Oct 08:32 UK: sections merged (a2cca29; the builder began on Sonnet and finished on Opus after a model switch):
+  10 commits, pills on Settings, the Library, Memory, School, the Workshop, Threats and Links (the table is in UPGRADES);
+  ui/sections.ts: pills sized to their names, `.dense` then `.scrolls` when they do not fit, `scroll-padding-top: 86px`
+  for deck links, the `applying` guard removed (it swallowed the first sort: an empty YOU heading on a first visit to
+  Settings, System and Links; safe: the observer watches childList only and apply() changes attributes only); Memory and
+  the Workshop lose their two-sided switch on the phone (`stack: true`); 17 specs open the section they test
+  (tests/nav.mjs `openSection` matches the name exactly and does nothing from 900 px). The builder copied my marker fix
+  (ea74662) byte for byte, so the merge kept one copy (checked). Left over: the Workshop's website draft frames throw
+  sandbox storage and service-worker errors and can show "Loading widget…" (public/widget-host.js, draftcard.ts; older
+  than the sections); System's report-card "DOWNLOAD IT IN SETTINGS" uses go('settings') (lands on the last pill; the
+  School's now uses goToPanel); the deck's pictures for these screens are stale (tests/deckshots.spec.mjs); long single
+  panels still scroll inside their section (Library Shelf and Self-study, School Ladder/This stage/Papers, Workshop
+  Build/Ideas, Threats Signals/Launches); CHARACTER sits under You (moving it needs shell/layout.ts's groups).
+- 25 Oct 08:30 UK: the full brain suite on the merged tree found two things the builders' own runs missed (gym2 did not
+  run `npm test`): (1) the self-check's "every file passes as if newly written" flagged gym/c4solve.ts — its regex-literal
+  guess took any word ending in "in" or "of" for the keyword ("min / 2" read as the start of a regex), fixed in both
+  scanners (whole-word keywords) with two test cases, and gym.spec's comment opening with an ellipsis (the placeholder
+  rule) reworded (bcc2961); (2) `assets.ts` was stale (the GYM task program follows the GYM's sources): regenerated with
+  `node training/kaggle/build.mjs` (d22d853), +38 KB, the brain 1.29 MB gzipped. Lesson: run the full `npm test` on the
+  merged tree before any push that brings in GYM or selftrain sources.
+- 25 Oct 08:40 UK: CI time per spec on run 243 (GitHub's runner): nav 248 s and routec 357 s against the loop's 480 s
+  kill; the sections roughly double nav here (200 → 383 s), so nav and routec get 720 s in the loop (`[sections]`).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
