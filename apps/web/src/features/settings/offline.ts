@@ -71,7 +71,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('option', { value: 'off' }, 'Never'),
   );
   mode.value = settings.get().offlineBrain;
-  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'never on this phone' } as const;
+  const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'off' } as const;
   mode.addEventListener('change', () => {
     const was = settings.get().offlineBrain;
     const v = mode.value === 'always' || mode.value === 'off' ? mode.value : 'auto';
