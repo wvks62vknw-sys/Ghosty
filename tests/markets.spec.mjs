@@ -142,7 +142,7 @@ const deckLine = async (page) => {
   if (!/24 hours/i.test(title ?? '')) problems.push(`[440] the crypto panel does not say its changes and traces are the last 24 hours: "${title}"`);
 
   // the currency switch: three 44 pt buttons, the one in use marked; $ refetches in dollars, gold follows
-  const cur = await page.$$eval('#pg-markets .mkcur button', (bs) => bs.map((b) => ({ t: b.textContent, on: b.getAttribute('aria-pressed'), w: b.getBoundingClientRect().width, h: b.getBoundingClientRect().height })));
+  const cur = await page.$$eval('#pg-markets .mkcur button', (bs) => bs.map((b) => ({ t: b.textContent, on: b.getAttribute('aria-pressed'), w: b.offsetWidth, h: b.offsetHeight })));
   if (cur.length !== 3 || cur.some((b) => b.w < 44 || b.h < 44) || cur.find((b) => b.on === 'true')?.t !== '£') problems.push(`[440] the currency switch is not three 44 pt buttons with £ marked: ${JSON.stringify(cur)}`);
   else {
     await page.click('#pg-markets .mkcur button:nth-child(2)');
@@ -181,8 +181,8 @@ const deckLine = async (page) => {
   await page.evaluate(() => (location.hash = 'markets'));
   await page.waitForTimeout(500);
 
-  // every button in the tab is at least 44 pt; nothing sideways
-  const small = await page.$$eval('#pg-markets button', (bs) => bs.filter((b) => b.offsetParent).map((b) => [b.textContent?.trim(), b.getBoundingClientRect()]).filter(([, r]) => r.width && (r.width < 44 || r.height < 44)).map(([t, r]) => `${t} ${Math.round(r.width)}×${Math.round(r.height)}`));
+  // every button in the tab is at least 44 pt (its laid-out size: the screen's entrance may still be scaling it); nothing sideways
+  const small = await page.$$eval('#pg-markets button', (bs) => bs.filter((b) => b.offsetParent).map((b) => [b.textContent?.trim(), { width: b.offsetWidth, height: b.offsetHeight }]).filter(([, r]) => r.width && (r.width < 44 || r.height < 44)).map(([t, r]) => `${t} ${r.width}×${r.height}`));
   if (small.length) problems.push(`[440] buttons under 44 pt: ${small.join(', ')}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push('[440] the page scrolls sideways');
 
@@ -241,7 +241,7 @@ for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
   if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) problems.push(`[${vp.width}] the page scrolls sideways`);
   const say = await page.locator('#pg-markets .mksay').first().isVisible().catch(() => false);
   if (!say) problems.push(`[${vp.width}] the sentence on what moved is not shown`);
-  const small = await page.$$eval('#pg-markets button', (bs) => bs.filter((b) => b.offsetParent).map((b) => [b.textContent?.trim(), b.getBoundingClientRect()]).filter(([, r]) => r.width && (r.width < 44 || r.height < 44)).map(([t, r]) => `${t} ${Math.round(r.width)}×${Math.round(r.height)}`));
+  const small = await page.$$eval('#pg-markets button', (bs) => bs.filter((b) => b.offsetParent).map((b) => [b.textContent?.trim(), { width: b.offsetWidth, height: b.offsetHeight }]).filter(([, r]) => r.width && (r.width < 44 || r.height < 44)).map(([t, r]) => `${t} ${r.width}×${r.height}`));
   if (small.length) problems.push(`[${vp.width}] buttons under 44 pt: ${small.join(', ')}`);
   await ctx.close();
 }

@@ -32,14 +32,13 @@ export const marketsTab: TabDef = {
     const say = h('p.mksay', { dataset: { case: 'keep' } });
     P.sub.after(say);
     const cp = panel('CRYPTO, LAST 24 HOURS', { footer: true, cls: 'coins' });
-    const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const coinRow = (c: Coin) => {
       // (in the currency the prices came in: a switch the source has not answered yet never relabels them)
       const r = row(c.sym, h('span', c.name, h('br'), h('small.mono', money(c.price, c.cur))), pct(c.change), {
         tone: c.change >= 0 ? 'up' : 'dn',
         onClick: () => {
           go('core');
-          void send(`Give me a quick take on ${c.name}. It is ${sym()}${c.price} and moved ${c.change.toFixed(1)}% in 24 hours.`);
+          void send(`Give me a quick take on ${c.name}. It is ${CURRENCY_SYMBOL[c.cur] ?? ''}${c.price} and moved ${c.change.toFixed(1)}% in 24 hours.`);
         },
       });
       // the trace is the same last 24 hours as the change beside it, in its colour (it was the week, coloured by the week)
@@ -48,11 +47,22 @@ export const marketsTab: TabDef = {
       r.insertBefore(tr, r.lastChild);
       return r;
     };
-    cp.foot!.prepend(button('£ / $ / €', () => {
-      const order = ['gbp', 'usd', 'eur'] as const;
-      settings.set({ currency: order[(order.indexOf(settings.get().currency) + 1) % 3]! });
-      void coins.refresh(true);
-    }));
+    // Prices in £, $ or €: three 44 pt buttons, the one in use marked (it was one "£ / $ / €" button that cycled).
+    const curBtns = (['gbp', 'usd', 'eur'] as const).map((c) => {
+      const b = button(CURRENCY_SYMBOL[c]!, () => {
+        if (settings.get().currency === c) return;
+        settings.set({ currency: c });
+        markCur();
+        paint();
+        void coins.refresh(true);
+      });
+      b.dataset.cur = c;
+      b.setAttribute('aria-label', `Prices in ${c === 'gbp' ? 'pounds' : c === 'usd' ? 'dollars' : 'euros'}`);
+      return b;
+    });
+    const markCur = () => curBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cur === settings.get().currency)));
+    markCur();
+    cp.foot!.append(h('span.mkcurl', 'Prices in'), h('div.mkcur', { role: 'group', 'aria-label': 'Currency' }, ...curBtns));
     P.left.append(cp.el);
     // GOLD & SILVER and CURRENCY: one free call (CoinGecko's exchange rates), worked out in his currency.
     const mp = panel('GOLD & SILVER', { cls: 'metals', grow: false });

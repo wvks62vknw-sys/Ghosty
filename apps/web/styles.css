@@ -3697,7 +3697,12 @@ html #pg-markets .rw .n.dn { color: #ff6961; background: rgba(255,105,97,.13); }
 html #pg-markets .pn:not(.coins) .rw { min-height: 48px; padding: 8px 0; }
 html #pg-markets .pn:not(.coins) .rw .v { font: 500 16px/21px var(--sf); color: var(--ink); }
 html #pg-markets .pn:not(.coins) .rw .n:not(.up, .dn) { min-width: 0; padding: 0; font: 400 15px var(--sf); color: var(--ink2); background: none; }
-html #pg-markets .pn > .ft > button:first-child:not(:has(+ .pg-label)) { height: 40px; min-height: 40px !important; padding: 0 16px; }
+/* Prices in £ $ €: a segmented control of three 44 pt buttons, the one in use lit. */
+html #pg-markets .pn.coins > .ft { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+html #pg-markets .pn.coins .mkcurl { font: 400 15px var(--sf); color: var(--ink2); }
+html #pg-markets .pn.coins .mkcur { display: flex; gap: 4px; padding: 3px; border-radius: 25px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px var(--hair); }
+html #pg-markets .pn.coins .mkcur button { min-width: 52px; height: 44px; min-height: 44px !important; padding: 0 12px; border-radius: 22px; font: 600 17px var(--sf) !important; color: var(--ink2); background: none !important; box-shadow: none !important; }
+html #pg-markets .pn.coins .mkcur button[aria-pressed="true"] { color: var(--c); background: rgba(var(--cr), .16) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .32) !important; }
 
 /* ---------- Radio (features/radio): now playing as a hero card, then favourites and the stations ---------- */
 .nphero { display: none; }
