@@ -12,6 +12,7 @@ import { backdrop } from '../engine/backdrop';
 import { globe } from '../engine/globe';
 import { setScene } from '../engine/scheduler';
 import { ui } from '../state/app';
+import type { Readout, StatusWord } from './hubcards';
 
 export interface TabInstance {
   enter?(): void;
@@ -39,6 +40,14 @@ export interface TabDef {
    * "in N min" is due within the hour and lights in the accent.
    */
   now?(): string;
+  /**
+   * Its card on its area's hub (shell/hubcards.ts has the default for every tool, so these are only for a tab that
+   * draws its own): the instrument drawn from real state (null: none), the readouts (a value the phone has not got
+   * is null, shown as "Not yet", never a sample) and one status word.
+   */
+  instrument?(): Element | null;
+  readouts?(): Readout[];
+  status?(): StatusWord;
   mount(root: HTMLElement): TabInstance;
 }
 
