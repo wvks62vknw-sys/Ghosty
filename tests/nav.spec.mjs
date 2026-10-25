@@ -420,6 +420,12 @@ LONG.push({ // WORKSHOP: one stacked page now, no BUILD / PAGES & WIDGETS switch
   panels: { Build: /^(TELL GHOSTY|PROJECTS|WHAT.S NEW)/, Ideas: /^UPGRADE/, Changes: /^(PROPOSED|VERSIONS|KERNEL)/, Made: /^(WIDGETS|PUBLISHED)/, Training: /^TRAINING/ },
   tap: 'Ideas', link: { row: /preview, then ship it/i, pill: 'Changes', panel: /^PROPOSED CHANGES/ },
 });
+LONG.push({ // THREATS
+  tab: 'threats',
+  pills: ['Signals', 'Near you', 'Space weather', 'Launches'],
+  panels: { Signals: /^ACTIVE SIGNALS/, 'Near you': /^NEAR YOU/, 'Space weather': /^SPACE WEATHER/, Launches: /^(LAUNCH|RECON)/ },
+  tap: 'Space weather', link: { row: /Recon/i, pill: 'Launches', panel: /^RECON/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;
