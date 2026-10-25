@@ -49,7 +49,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #36 is under CI with the big-brain crash fix on it (head 61ce7db): I merge it the moment it is green, and that update reaches your phone.
+- PR #36 merged at 03:08 UK on 25 Oct: the big-brain crash fix is live on your phone with the next open (with the Brief, voice, Workshop and Memory passes, the scroll audit and the boot cinematic). The next pull request, #37, carries the Iron Man look, the Library pass and the exam-paper guard; I merge it when its checks are green.
 - Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
 - Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
