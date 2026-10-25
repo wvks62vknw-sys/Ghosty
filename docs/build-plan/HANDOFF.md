@@ -444,8 +444,9 @@ folder that no longer exists; ignore those paths).
   sections land in them.
 - 25 Oct 04:32 UK: PR #37 MERGED into main (merge 5ac986c; every job green on 8561f0d, mergeable clean): the Iron Man
   look on every hub, the Library pass, the exam-paper guard and the spec fixes are live with the owner's next open.
-  Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38. Still running:
-  navigation (8881), Reverse (8883), Radio (8884).
+  Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38 (opened 04:32 UK
+  on head 9cf6399; a check-in at 05:58 UK merges if green). Still running: navigation (8881), Reverse (8883), Radio
+  (8884).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
