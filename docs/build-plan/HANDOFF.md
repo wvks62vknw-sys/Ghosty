@@ -413,7 +413,39 @@ folder that no longer exists; ignore those paths).
   Memory passes, the scroll audit, the boot cinematic and the library picker fix. He is asked for: GET and USE the 0.8B,
   USE the 2B, the "What this phone can hold" line. Then main was merged back into the branch and the next batch pushed as
   the NEXT pull request (#37): the Iron Man look, the Library pass, the exam-paper guard (`[papers]`), the scroll and
-  learn spec fixes, the docs. Still running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
+  learn spec fixes, the docs. PR #37 opened 03:09 UK on head 8561f0d; a check-in at 04:35 UK merges if green. Still
+  running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
+- 25 Oct 03:25 UK: merged after review: the MARKETS pass (9 commits, 10 fixes; merge 5514ff0, clean) and the SETTINGS pass
+  (15 commits, 11 fixes; merge 2c1554a, clean). Kernel lines: `markets` and `settings` in the CI spec loop (68 specs;
+  `[markets] [settings]`); four entries in keys.ts reworded for honesty (`[settings]`: GitHub "recommended", "Free …
+  Not needed to talk to him"; Groq "Free, no card"; Cerebras "Free tier"; OpenRouter "Free models only (':free')").
+  Design calls made: the FTSE and S&P are gone from Markets rather than spinning for ever (no free keyless source
+  is left; tell the owner, offer a key only if he asks); everything on Markets now rides CoinGecko's public limit
+  (one brief refusal seen in testing, named on screen and recovered); the optional second currency source needs
+  `'api.frankfurter.dev'` in FEED_HOSTS (index.ts) and a fetch of `/v1/latest?from=GBP` — not done. Markets leftovers
+  the builder ranked: no markets line on the Brief (exact change written in its report: features/brief/index.ts
+  paintSay with coins/rates from data/markets), no watchlist, gold and silver have no daily change, the default
+  Markets hub card in shell/hubcards.ts (lines ~342–358) is dead code now that the tab's own TabDef wins, deckcopy.ts's
+  Markets promise lines. Settings leftovers: CHARACTER has no group (shell/layout.ts: a 'Voice and home' group matching
+  /^(CHARACTER|VOICE|OFFLINE)/ and `cp` moved into P.right before `vp`); on a laptop a pushed panel stays in its 350 px
+  column and the big title sits over scrolled content (ui/listmode.ts, the shell's); the keys sheet in
+  features/system/index.ts still says "the two keys under NEEDED" (the System pass: "Only Gemini is needed to talk to
+  Ghosty; GitHub lets him change his own code. Every key here is free."); "Not tried yet: Qwen3 0.6B" because `held`
+  is only recorded on USE/TEST loads (offline/brain.ts); the picker still shows four greyed GET buttons without WebGPU;
+  Name saves only on blur with no "saved"; toasts lower-case capitals (ui/components.ts, every feature). Verification
+  on the merged tree, all green (03:53 UK): web check, tsc, the router and offline-brain tests (75 of 75), then markets,
+  settings, offlinebrain, bigbrain, character, meaning, hubcards, routec, layout, ui, undo, voice and deck on a fresh
+  preview. The markets and settings worktrees are removed.
+- 25 Oct 03:30 UK: started the REVERSE pass (`.claude/worktrees/reverse`, `worktree-reverse`, preview 8883, scratch
+  `scratchpad/reverse/`) and the RADIO pass (`.claude/worktrees/radio`, `worktree-radio`, preview 8884, scratch
+  `scratchpad/radio/`) on the branch head 8b5f9fa (Markets and Settings merged). Neither had a spec: each writes its own
+  (`tests/reverse.spec.mjs`, `tests/radio.spec.mjs`), the CI-loop lines are the orchestrator's. Builders now: navigation
+  (8881), Reverse (8883), Radio (8884). After these only Agenda and System remain, after the navigation build's
+  sections land in them.
+- 25 Oct 04:32 UK: PR #37 MERGED into main (merge 5ac986c; every job green on 8561f0d, mergeable clean): the Iron Man
+  look on every hub, the Library pass, the exam-paper guard and the spec fixes are live with the owner's next open.
+  Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38. Still running:
+  navigation (8881), Reverse (8883), Radio (8884).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

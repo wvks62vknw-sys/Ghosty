@@ -73,8 +73,8 @@ jobs:
           node tests/preview-server.mjs > preview.log 2>&1 &
           sleep 3
           fail=0
-          # [markman] [night] [photo] [bigbrain] [threats] [eye] [brief] [places] [scroll] mark, manuals, night, photo, bigbrain, threats, eye, brief and places joined the loop on 24 Oct (each has its own spec)
-          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands eye lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications threats airoom gym character selftrain thinkharder meaning bigbrain websites studiomake apps school hero routec homeplan deck speed mark manuals night photo brief places scrollfeel; do
+          # [markman] [night] [photo] [bigbrain] [threats] [eye] [brief] [places] [scroll] mark, manuals, night, photo, bigbrain, threats, eye, brief and places joined the loop on 24 Oct (each has its own spec) [markets] [settings]
+          for s in ui agenda media app layout widgets library sites streetview map map3d cameras training intel westmidlands eye lens scan name progress telegram voice direct journey memory projects upgrades aim offlinebrain measure space vehicle sound studio learn cited scroll safari backup notifications threats airoom gym character selftrain thinkharder meaning bigbrain websites studiomake apps school hero routec homeplan deck speed mark manuals night photo brief places scrollfeel markets settings; do
             # Street View's dives follow the frames, which software rendering draws slowly: give each run up to 8 minutes.
             if ! timeout 480 node tests/$s.spec.mjs tests/.shots > out-$s.txt 2>&1; then
               fail=1

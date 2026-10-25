@@ -276,3 +276,5 @@ Add to it any time; tick items off only when he agrees they are fixed.
     signal only); a middle brain that fits (0.8B now; Qwen2.5 1.5B possible at the same memory); his own computer at home
     running a big brain reached through a free Cloudflare tunnel (asked whether he has one); a trimmed 2B compiled on
     Kaggle's free GPU with a smaller working chunk, only if his test shows the 2B is just over the line.
+
+    The answer now sits on the panel itself (the Settings pass, 25 Oct): "For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains." The mode reads Only when needed (no signal) / Always (never online) / Never.

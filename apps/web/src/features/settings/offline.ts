@@ -23,7 +23,7 @@ import { overall, voiceLine } from '../../offline/bench';
 import { approveLoad, brainsHere, checkBrain, chooseBrain, deleteOffline, downloadOffline, getBrain, gpuLimits, heldOf, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, removeBrain, useBrain, wasClosedWhileGetting, withModel } from '../../offline/brain';
 import { readLog } from '../../offline/fill';
 import { reportCard, runReportCard } from '../../offline/harder';
-import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type ModelDef } from '../../offline/models';
+import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
 import { settings } from '../../state/app';
@@ -34,6 +34,24 @@ import { meaningBlock } from './meaning';
 const deviceGB = (): number | null => {
   const v = (navigator as unknown as { deviceMemory?: unknown }).deviceMemory;
   return typeof v === 'number' && v > 0 ? v : null;
+};
+/**
+ * Whether a brain fits, said from what really happened on this phone when it has been tried (a guess from the memory
+ * figure cannot stand next to "closed Ghosty on this phone"), else the rule-of-thumb guess (fitLine).
+ */
+const fitHere = (m: ModelDef, s: Held['s'] | undefined): string =>
+  s === 'loaded' ? 'runs on this phone'
+  : s === 'closed' ? 'did not fit this phone'
+  : s === 'failed' ? 'ran out of memory on this phone'
+  : s === 'refused' ? 'cannot run on this phone'
+  : fitLine(m, deviceGB());
+/**
+ * The sheet just opened keeps its title as written: titles show in sentence case, which turned "Load Qwen3.5 2B?"
+ * into "Load qwen3.5 2b?" (confirmSheet opens its sheet at once, so it is the last one on the page).
+ */
+const keepTitle = (): void => {
+  const t = [...document.querySelectorAll<HTMLElement>('.modal .mhead b')].at(-1);
+  if (t) t.dataset.case = 'keep';
 };
 /** On mobile data, as far as the browser can tell (Safari cannot: the confirm asks him to be on Wi-Fi). */
 const onMobileData = (): boolean => {
@@ -48,9 +66,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const mode = h(
     'select',
     { 'aria-label': 'Offline brain mode' },
-    h('option', { value: 'auto' }, 'Use it: only when needed'),
-    h('option', { value: 'always' }, 'Use it: always (never the cloud brain)'),
-    h('option', { value: 'off' }, 'Use it: off'),
+    h('option', { value: 'auto' }, 'Only when needed (no signal)'),
+    h('option', { value: 'always' }, 'Always (never online)'),
+    h('option', { value: 'off' }, 'Never'),
   );
   mode.value = settings.get().offlineBrain;
   const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'off' } as const;
@@ -66,8 +84,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
         toast(`Offline brain: ${MODE_WORDS[was]} again`, 'ok');
       });
     // "Always" never downloads by itself: until DOWNLOAD, each message only says it isn't here yet.
-    if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you DOWNLOAD it (on Wi-Fi)', 'warn');
-    else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when the brain can’t answer', 'ok');
+    if (v === 'always' && !ready) toast('Ghosty answers on this phone only, once you tap Download (on Wi-Fi)', 'warn');
+    else toast(v === 'always' ? 'Ghosty answers on this phone only' : v === 'off' ? 'Offline brain off' : 'Offline brain: only when there’s no signal', 'ok');
   });
   // THINK HARDER's time on one question: longer is better on hard ones, and warmer on the phone.
   const think = h(
@@ -94,7 +112,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     offlineBrain.set({ model: which.value, downloaded: false, loaded: false });
     // (a kept week of another base: the training follows it; a week of the same base changes nothing there)
     if (brainOf(currentModel()) !== offlineBrain.get().trainBase) void followBase(brainOf(currentModel()));
-    toast(`${currentModel().label}: press DOWNLOAD (about ${sizeText(currentModel().mb)}, on Wi-Fi)`, 'ok');
+    toast(`${currentModel().label}: tap Download (about ${sizeText(currentModel().mb)}, on Wi-Fi)`, 'ok');
     refresh();
     undo(`Offline brain: ${currentModel().label}`, () => {
       offlineBrain.set({ model: was.model, downloaded: was.downloaded, loaded: false });
@@ -147,7 +165,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         // Then the report card's QUICK CHECK on the same brain: the 20 fixed questions, as in chat.
         const m = currentModel();
         const quick = h('span.obquick', `QUICK CHECK on ${m.label}: getting the questions ready…`);
-        clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} tokens · ${r.perSecond.toFixed(1)} tokens a second`, h('br'), quick);
+        clear(out, h('b', r.text || '(no words)'), h('br'), `${r.tokens} token${r.tokens === 1 ? '' : 's'} · ${r.perSecond.toFixed(1)} tokens a second`, h('br'), quick);
         const off = reportCard.subscribe((c) => {
           if (c.total) quick.textContent = `QUICK CHECK on ${m.label}: ${c.done} of ${c.total}…`;
         });
@@ -187,7 +205,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
     const held = heldOf(m);
     if (!isBigger(m) || held?.s === 'loaded') return true;
     const before = held?.s === 'closed' ? `It closed Ghosty on this phone on ${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}. ` : '';
-    const yes = await confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back on the ${shortName(MODELS[0]!)}.`, 'LOAD IT');
+    const asking = confirmSheet(`Load ${m.label}?`, `${before}Loading the ${shortName(m)} takes about ${memText(m.vram)} of graphics memory. If the phone cannot hold it, Ghosty will close and come back on the ${shortName(MODELS[0]!)}.`, 'LOAD IT');
+    keepTitle();
+    const yes = await asking;
     if (yes) approveLoad(m);
     return yes;
   };
@@ -210,7 +230,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
     }
     // (the 0.8B is not trained: the training stays on its base)
     if (!m.alone) void followBase(brainOf(m));
-    toast(`${m.label} is loaded and is the offline brain now: tap TEST to try it on this phone`, 'ok');
+    toast(`${m.label} is loaded and is the offline brain now: tap Test to try it on this phone`, 'ok');
     refresh();
     undo(`Offline brain: ${m.label}`, () => {
       if (!chooseBrain(was.id)) return;
@@ -220,19 +240,21 @@ export function offlinePanel(): Panel & { refresh(): void } {
     });
   };
   /** GET (or CONTINUE): a brain's files onto this phone, asked first with the size, never on mobile data; nothing is loaded. */
-  const get = (m: ModelDef) => {
+  const get = async (m: ModelDef) => {
     if (offlineBrain.get().busy) return;
     if (onMobileData()) {
-      toast(`You are on mobile data: ${m.label} is about ${sizeText(m.mb)}. Join Wi-Fi, then press GET again.`, 'warn');
+      toast(`You are on mobile data: ${m.label} is about ${sizeText(m.mb)}. Join Wi-Fi, then press Get again.`, 'warn');
       return;
     }
+    // Asked in Ghosty's own sheet, as every other question here (the browser's confirm() is a system alert headed by
+    // the site's address on an iPhone).
     const resume = readLog()?.model === m.id;
-    const q = resume
-      ? `Carry on getting ${m.label}? The pieces already on this phone are kept; the rest of about ${sizeText(m.mb)} comes now, so only on Wi-Fi.`
-      : `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`;
-    if (!confirm(q)) return;
+    const yes = resume
+      ? await confirmSheet('Carry on downloading?', `Carry on getting ${m.label}? The pieces already on this phone are kept; the rest of about ${sizeText(m.mb)} comes now, so only on Wi-Fi.`, 'CARRY ON')
+      : await confirmSheet('Download this brain?', `Download ${m.label}? About ${sizeText(m.mb)}, once, so only on Wi-Fi. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it (it needs about ${memText(m.vram)} of memory when running; if your phone cannot give it that, ${MODELS[0]!.label} takes over).`, 'DOWNLOAD');
+    if (!yes || offlineBrain.get().busy) return;
     void getBrain(m.id, (frac, text) => paintProgress(frac, text))
-      .then(() => toast(`${m.label} is on this phone: tap USE to load it`, 'ok'))
+      .then(() => toast(`${m.label} is on this phone: tap Use to load it`, 'ok'))
       .catch((e) => toast(`Download stopped: ${String((e as Error)?.message ?? e).slice(0, 200)}`, 'bad'))
       .finally(refresh);
     refresh();
@@ -279,7 +301,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
         const btns: HTMLButtonElement[] = [];
         if (!using && onPhone) btns.push(button('USE', () => void use(m), 'on'));
         if (!using && !onPhone) {
-          const g = button(partial ? 'CONTINUE' : 'GET', () => get(m));
+          const g = button(partial ? 'CONTINUE' : 'GET', () => void get(m));
           g.setAttribute('aria-label', partial ? `Carry on getting ${m.label}: about ${sizeText(m.mb)} in all, on Wi-Fi` : `Get ${m.label}: about ${sizeText(m.mb)}, on Wi-Fi`);
           btns.push(g);
         }
@@ -290,7 +312,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
           `div.obbrain${using ? '.on' : ''}` as 'div',
           { dataset: { model: m.id } },
           h('div.obname', h('b', m.label), tag ? h('span.obtag', tag) : null),
-          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitLine(m, deviceGB())}${m === MODELS[0] ? ' · the fallback' : ''}`),
+          h('div.note.obfacts', `${sizeText(m.mb)} download · about ${memText(m.vram)} of memory when running · ${fitHere(m, held?.s)}${m === MODELS[0] ? ' · the fallback' : ''}`),
           held?.s === 'closed' ? h('div.note.obclosed', `closed Ghosty on this phone (${new Date(held.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}): USE asks before trying again`) : null,
           btns.length ? h('div.keyrow', ...btns) : null,
         );
@@ -366,13 +388,18 @@ export function offlinePanel(): Panel & { refresh(): void } {
     which,
     prog,
     h('div.keyrow', download, test, del),
+    // TEST's reply, speed and QUICK CHECK right under TEST (it was under the two choices below, out of sight)
+    out,
+    // the choice under its own name, so each one stays short enough to show whole in a phone's or a laptop's column
+    h('div.lab', 'WHEN THE PHONE ANSWERS'),
     mode,
     think,
-    out,
-    h('div.note', 'A small AI (Qwen, about 352 MB) that runs on the phone itself, free and private: no tools or live data, but it knows your memory, agenda and library copy. Needs iOS 26 or newer.'),
+    // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
+    // free brains; this one is for no signal. No size here: the brain in use says its own above.
+    h('div.note.obwhat', 'For when there is no signal. Online, Ghosty answers with far bigger brains, free, and nothing on this phone strains. This one runs on the phone itself, free and private: no tools or live news, but it knows your memory, your agenda and the library copy.'),
     pick,
     // What a bigger brain costs and gains, in one line, and where the truth is found.
-    h('div.note.obcost', 'A bigger brain answers better, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
+    h('div.note.obcost', 'A bigger brain here answers better with no signal, but costs a bigger download, more of the phone’s memory and a slower first word. Whether it really fits is only known on your phone: choose it, then tap TEST after it loads.'),
     // Search by meaning: the library on this phone found by what passages mean (its own small model, ~70 MB).
     meaningBlock(),
   );

@@ -124,6 +124,9 @@ const line0 = (await blk.locator('.mnline').textContent().catch(() => '')) ?? ''
 if (!/Search by meaning: about 70 MB, once, on Wi-Fi/.test(line0)) problems.push(`the line before ADD reads "${line0}"`);
 if ((await page.evaluate(() => window.__ghostyEmbedder.passages + window.__ghostyEmbedder.loads)) !== 0) problems.push('the meaning model was used before ADD');
 if (!/on this phone only: nothing is sent anywhere[\s\S]*builds it again after Ghosty is reinstalled[\s\S]*English best/.test((await blk.textContent()) ?? '')) problems.push('the honest limits are not said');
+// ADD shows its size as written ("Add · 70 MB": sentence case had made it "Add · 70 mb")
+const addShown = await blk.locator('button:has-text("ADD")').evaluate((b) => ({ shown: b.dataset.label ?? '', tt: getComputedStyle(b, '::before').textTransform, content: getComputedStyle(b, '::before').content })).catch(() => null);
+if (addShown?.shown !== 'Add · 70 MB' || addShown.tt !== 'none' || addShown.content !== '"Add · 70 MB"') problems.push(`ADD reads: ${JSON.stringify(addShown)}`);
 await blk.locator('button:has-text("ADD")').click();
 // The count shows while it fills,
 const partial = await page

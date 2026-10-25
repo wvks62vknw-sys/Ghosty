@@ -57,9 +57,9 @@ export function keyDefs(repo?: string): KeyDef[] {
       label: 'GitHub token',
       hint: 'starts with github_pat_…',
       link: ghLink,
-      need: 'needed',
+      need: 'recommended', // [settings] not needed to talk to him
       // (It no longer brings free GPT-4.1: GitHub retired GitHub Models on 30 July 2026.)
-      why: 'Lets Ghosty change its own code when you ask (new panels, features, fixes).',
+      why: 'Free. Lets Ghosty change its own code when you ask (new panels, features, fixes). Not needed to talk to him.', // [settings]
       steps: [
         'Open the link (sign in to GitHub if asked). The name, permissions and a 1-year expiry are already filled in.',
         `Under "Repository access" choose "Only select repositories" and pick ${repo ?? 'your Ghosty repository'}.`,
@@ -74,7 +74,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with gsk_…',
       link: 'https://console.groq.com/keys',
       need: 'recommended',
-      why: 'Very fast backup brain, and it lets Ghosty understand your voice (speech to text).',
+      why: 'Free, no card. A very fast backup brain, and it lets Ghosty understand your voice (speech to text).', // [settings]
       steps: [
         'Open the link and sign in (Google sign-in works).',
         'Press "Create API Key", type any name (e.g. Ghosty) and press Submit.',
@@ -115,7 +115,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with csk-…',
       link: 'https://cloud.cerebras.ai/',
       need: 'optional',
-      why: 'Extra backup brain for when the others hit their free limits.',
+      why: 'Free tier. An extra backup brain for when the others hit their free limits.', // [settings]
       steps: ['Open the link and sign up.', 'Go to "API Keys" in the left menu and create a key.', 'Copy it, paste it below and press SAVE.'],
     },
     {
@@ -124,7 +124,7 @@ export function keyDefs(repo?: string): KeyDef[] {
       hint: 'starts with sk-or-…',
       link: 'https://openrouter.ai/settings/keys',
       need: 'optional',
-      why: 'Access to many free models as extra backups.',
+      why: "Free models only (Ghosty uses only OpenRouter's ':free' ones): many extra backup brains.", // [settings]
       steps: ['Open the link and sign in.', 'Press "Create API Key", give it any name and create it.', 'Copy it, paste it below and press SAVE.'],
     },
     {
