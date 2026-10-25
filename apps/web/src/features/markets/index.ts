@@ -5,7 +5,10 @@ import { biggestMove, clock, coins, CURRENCY_SYMBOL, fresh, FX, fxAmount, lastDa
 import { go, type TabDef } from '../../shell/tabs';
 import { settings } from '../../state/app';
 import { button, modal, panel, row, spark } from '../../ui/components';
+import { sparkInst } from '../../ui/instruments';
 import { page } from '../../ui/page';
+
+const btc = () => coins.data?.find((c) => c.sym === 'BTC') ?? null;
 
 /** A coin's week as a chart: the line between its own high and low (labelled beside it, so the scale is plain). */
 function weekChart(c: Coin): HTMLElement {
@@ -64,9 +67,24 @@ export const marketsTab: TabDef = {
   icon: '<path d="M3 20h18M6 16v-5M11 16V7M16 16v-8M21 16V4"/>',
   scene: 'backdrop',
   blurb: 'crypto · gold · currencies',
+  // The deck's line and the Plan hub's card read the same prices as the tab: Bitcoin over the last 24 hours, and
+  // never called live (or given a change as now) once they are old or the source has stopped answering.
   now() {
-    const btc = coins.data?.find((c) => c.sym === 'BTC');
-    return btc ? `BTC ${btc.change >= 0 ? '+' : '−'}${Math.abs(btc.change).toFixed(2)}% today` : '';
+    const b = btc();
+    return b && fresh(coins) ? `Bitcoin ${pct(b.change)} · 24 h` : '';
+  },
+  status: () => (fresh(coins) ? 'LIVE' : coins.status === 'NO FEED' || coins.status === 'STALE' ? 'OFF' : 'READY'),
+  instrument: () => {
+    const b = btc();
+    return sparkInst(b ? lastDay(b) : [], (b?.change ?? 0) >= 0);
+  },
+  readouts: () => {
+    const b = btc();
+    const live = fresh(coins);
+    return [
+      { label: 'Bitcoin', value: b ? money(b.price, b.cur) : null, live },
+      live || !b ? { label: '24 h', value: b ? pct(b.change) : null } : { label: 'As of', value: clock(b.at) },
+    ];
   },
   mount(root) {
     const P = page(root, { tag: 'MARKETS', rightLabel: 'GOLD / FX', leftLabel: 'CRYPTO', stack: true });
