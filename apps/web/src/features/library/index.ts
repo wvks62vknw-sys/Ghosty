@@ -12,13 +12,14 @@
  * gathered this morning — DIGEST NOW gathers again).
  */
 import type { LibraryDoc, LibraryHit } from '../../../../../packages/shared/src/protocol';
-import { brain, lastSeen, mirrorLibraryNow, type StudyInfo } from '../../api/brain';
+import { brain, lastSeen, mirrorLibraryNow, unreachable, type StudyInfo } from '../../api/brain';
 import { shelf as deviceShelf } from '../../library/local';
 import { meaningComplete, meaningIndex } from '../../library/meaning';
+import { queryTerms, rareTerms } from '../../../../../packages/shared/src/meaning';
 import { embedState } from '../../offline/embed';
 import { clear, fmt, h, icon } from '../../core/dom';
 import { ACCEPT } from '../../library/extract';
-import { addFile, addText } from '../../library/upload';
+import { addFile, addPhotos, addText, isPhoto } from '../../library/upload';
 import type { TabDef } from '../../shell/tabs';
 import { bar, button, modal, pager, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -75,6 +76,53 @@ interface FreshItem {
   text: string;
 }
 
+/** Ghosty's own notebooks (what he read, his notes, the day's digest, projects, courses, his own code): after the owner's documents on the shelf. */
+const GHOSTYS = /^(read_|digest_|study_|notes_|project_|learn_|self_|yt_)/;
+/** The searched words' stems (their first five letters at most, three at least: "plants" finds "plant"). */
+const stemsOf = (terms: string[]) => terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
+const esc = (s: string) => s.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+/** Every searched word starts a word somewhere in the text. */
+function hasAll(text: string, terms: string[]): boolean {
+  const low = text.toLowerCase();
+  return !!terms.length && stemsOf(terms).every((s) => new RegExp(`(^|[^a-z0-9])${esc(s)}`).test(low));
+}
+/** About `max` characters of a passage around the first searched word (on one line, cut at spaces, … where cut). */
+function around(text: string, terms: string[], max = 280): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  const low = flat.toLowerCase();
+  const first = Math.min(...stemsOf(terms).map((s) => low.search(new RegExp(`(^|[^a-z0-9])${esc(s)}`))).filter((i) => i >= 0), Infinity);
+  let start = Number.isFinite(first) ? Math.max(0, first - 90) : 0;
+  if (start > 0) start = flat.indexOf(' ', start) + 1 || start;
+  let end = Math.min(flat.length, start + max);
+  if (end < flat.length) end = Math.max(flat.lastIndexOf(' ', end), start + Math.round(max / 2));
+  return `${start > 0 ? '…' : ''}${flat.slice(start, end).trim()}${end < flat.length ? '…' : ''}`;
+}
+/**
+ * A passage as running text: a PDF's lines (and a photo's) break where the page's edge was, so a line that does not
+ * end a sentence joins the next when that one carries on in lower case ("worth\nreading twice" → "worth reading
+ * twice"), and a word split by a hyphen at a line end is whole again. Headings, lists and paragraphs stay as they are.
+ */
+function flowing(text: string): string {
+  return text.replace(/(\p{L}{2,})-\n(?=\p{Ll})/gu, '$1').replace(/([^\n.!?:;])[ \t]*\n(?=[ \t]*\p{Ll})/gu, '$1 ');
+}
+
+/** The text with every word that starts with a searched word in a <mark> (text nodes only, never HTML). */
+function marked(text: string, terms: string[]): Node[] {
+  const stems = stemsOf(terms);
+  if (!stems.length) return [document.createTextNode(text)];
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${stems.map(esc).join('|')})[\\p{L}\\p{N}]*`, 'giu');
+  const out: Node[] = [];
+  let at = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > at) out.push(document.createTextNode(text.slice(at, m.index)));
+    out.push(h('mark', m[0]));
+    at = m.index! + m[0].length;
+  }
+  if (at < text.length) out.push(document.createTextNode(text.slice(at)));
+  return out;
+}
+
 export const libraryTab: TabDef = {
   id: 'library',
   title: 'LIBRARY',
@@ -94,8 +142,8 @@ export const libraryTab: TabDef = {
     // (route C words it for a phone, where nothing is dropped: the tile is tapped)
     const drop = h('div.drop', { tabIndex: 0, role: 'button', 'aria-label': 'Add files to the library' },
       h('i.dropic', icon('<path d="M12 15.5V4.5M7.5 9L12 4.5 16.5 9"/><path d="M4.5 14.5v3a2 2 0 002 2h11a2 2 0 002-2v-3"/>')),
-      h('b', { dataset: { label: 'Add books, PDFs and files' } }, 'DROP BOOKS, PDFS & FILES HERE'),
-      h('span', { dataset: { label: 'Tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV, JSON, code' } }, 'or tap to choose · PDF, Word, EPUB, web pages, text, Markdown, CSV/JSON, code'));
+      h('b', { dataset: { label: 'Add a PDF, a photo of a page or a file' } }, 'DROP PDFS, PHOTOS OF PAGES & FILES HERE'),
+      h('span', { dataset: { label: 'Tap to choose · photos are read on this phone · PDF, Word, EPUB, web pages, text, CSV, code' } }, 'or tap to choose · photos are read on this phone · PDF, Word, EPUB, web pages, text, CSV/JSON, code'));
     const log = h('div.liblog');
     const busy = { n: 0 };
     const note = (text: string, kind: '' | 'ok' | 'bad' = '') => {
@@ -104,18 +152,34 @@ export const libraryTab: TabDef = {
       while (log.children.length > 6) log.lastChild!.remove();
       return r;
     };
-    const ingest = async (files: File[]) => {
-      for (const f of files) {
+    /** What a finished import leaves: what is on the shelf now and how big, where it is kept, anything to know, and OPEN. */
+    const saved = (line: HTMLElement, doc: LibraryDoc, extra = '') => {
+      const size = doc.pages > 1 ? `${fmt.n(doc.pages)} pages` : `${fmt.n(doc.passages)} passage${doc.passages === 1 ? '' : 's'}`;
+      const here = doc.id.startsWith('local-') ? '; kept on this phone and searchable now, sent to Ghosty when he can be reached' : '';
+      clear(line, h('span', `✓ ${doc.title} saved on the shelf (${size})${here}${extra ? `. ${extra}` : ''}`), button('OPEN', () => openDoc(doc), 'libopen'));
+      line.className = 'note ok done';
+    };
+    /** What went wrong, in his words: a scan with no converter says what works instead (photos are read here). */
+    const failed = (line: HTMLElement, name: string, e: unknown) => {
+      const m = String((e as Error)?.message ?? e);
+      line.textContent = `✕ ${name}: ${/Workers AI/.test(m) ? 'it looks like pictures of pages (a scan), and there is no converter for scans set up. Take photos of the pages instead: the Library reads photos on this phone.' : m}`;
+      line.className = 'note bad';
+    };
+    const ingest = async (picked: File[]) => {
+      // Photos of pages picked together are one document (a page per photo); every other file is its own.
+      const photos = picked.filter(isPhoto);
+      const jobs: { name: string; add: (p: (t: string) => void) => Promise<{ doc: LibraryDoc; warning?: string }> }[] = [
+        ...(photos.length ? [{ name: photos.length === 1 ? photos[0]!.name : `${photos.length} photos`, add: (p: (t: string) => void) => addPhotos(photos, p) }] : []),
+        ...picked.filter((f) => !isPhoto(f)).map((f) => ({ name: f.name, add: (p: (t: string) => void) => addFile(f, p) })),
+      ];
+      for (const f of jobs) {
         const line = note(`${f.name}: reading…`);
         busy.n++;
         try {
-          const { doc, warning } = await addFile(f, (t) => (line.textContent = `${f.name}: ${t}`));
-          const here = doc.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back; searchable now)' : '';
-          line.textContent = `✓ ${doc.title} — ${doc.passages} passage${doc.passages === 1 ? '' : 's'} saved${here}${warning ? ` (${warning})` : ''}`;
-          line.className = 'note ok';
+          const { doc, warning } = await f.add((t) => (line.textContent = `${f.name}: ${t}`));
+          saved(line, doc, warning ? warning.charAt(0).toUpperCase() + warning.slice(1) : '');
         } catch (e) {
-          line.textContent = `✕ ${f.name}: ${(e as Error).message}`;
-          line.className = 'note bad';
+          failed(line, f.name, e);
         } finally {
           busy.n--;
         }
@@ -140,7 +204,7 @@ export const libraryTab: TabDef = {
       void ingest([...(e.dataTransfer?.files ?? [])]);
     });
 
-    const src = h('input', { placeholder: 'https://… · arXiv 1706.03762 · CVE-2021-44228 · owner/repo', 'aria-label': 'Import from the web' });
+    const src = h('input', { placeholder: 'A web address: a page, a paper, a book', 'aria-label': 'Import from the web' });
     const doImport = async () => {
       const s = src.value.trim();
       if (!s) return;
@@ -148,11 +212,9 @@ export const libraryTab: TabDef = {
       const line = note(`${s}: importing…`);
       try {
         const r = await brain.libraryImport(s);
-        line.textContent = `✓ ${r.doc.title} — ${r.passages} passages saved. ${r.note}`.trim();
-        line.className = 'note ok';
+        saved(line, r.doc, r.note);
       } catch (e) {
-        line.textContent = `✕ ${s}: ${(e as Error).message}`;
-        line.className = 'note bad';
+        failed(line, s, e);
       }
       void refresh();
     };
@@ -188,49 +250,83 @@ export const libraryTab: TabDef = {
         const d = await addText(tTitle.value, t, () => undefined);
         tBody.value = '';
         tTitle.value = '';
-        line.textContent = `✓ ${d.title} — ${d.passages} passage${d.passages === 1 ? '' : 's'} saved${d.id.startsWith('local-') ? ' on this device (sent to Ghosty when memory is back)' : ''}`;
-        line.className = 'note ok';
+        saved(line, d);
       } catch (e) {
-        line.textContent = `✕ ${(e as Error).message}`;
-        line.className = 'note bad';
+        failed(line, 'Text', e);
       }
       void refresh();
     };
-    ap.body.append(
-      fileInput,
-      drop,
+    // One thing to do here (the tile); a web address, pasted text and Ghosty's own code wait behind MORE WAYS TO ADD.
+    const moreWays = h('div.libmore', { hidden: true },
       h('div.lab', 'IMPORT FROM THE WEB'),
       h('div.keyrow', src, button('IMPORT', () => void doImport())),
-      h('div.keyrow', button('READ MY OWN CODE', () => void readSelf()), h('span.note', 'Ghosty reads its own source and architecture.')),
       h('div.lab', 'OR PASTE TEXT'),
       tTitle,
       tBody,
       h('div.keyrow', button('SAVE TEXT', () => void saveText())),
-      log,
+      h('div.keyrow', button('READ MY OWN CODE', () => void readSelf()), h('span.note', 'Ghosty reads its own source and architecture.')),
     );
+    const moreBtn = button('MORE WAYS TO ADD', (b) => {
+      moreWays.hidden = !moreWays.hidden;
+      b.textContent = moreWays.hidden ? 'MORE WAYS TO ADD' : 'FEWER WAYS';
+      b.setAttribute('aria-expanded', String(!moreWays.hidden));
+    }, 'libmorebtn');
+    moreBtn.setAttribute('aria-expanded', 'false');
+    ap.body.append(fileInput, drop, log, h('div.keyrow', moreBtn, h('span.note', 'a web address or pasted text')), moreWays);
 
     // ---- ask (no AI): the whole first column, results scroll
     // The small print says how the results were found: "by meaning" or "by keywords", honestly (library/meaning.ts).
     const byWhat = () => (meaningComplete() ? 'by meaning' : 'by keywords');
     const sp = panel('ASK THE LIBRARY', { status: byWhat(), cls: 'ask' });
     const q = h('input.askq', { type: 'search', placeholder: 'Ask anything Ghosty has read…', enterKeyHint: 'search', 'aria-label': 'Search the library' });
-    const hitRow = (x: LibraryHit) => {
+    /** A result: where it is, the words around the first one searched for with the searched words marked; a tap opens it in the reader there. */
+    const hitRow = (x: LibraryHit, terms: string[]) => {
       const where = [x.title, x.heading && x.heading !== x.title ? x.heading : '', x.page ? `p. ${x.page}` : ''].filter(Boolean).join(' · ');
-      return h('div.rw.wrap.hit', h('span.k', where), h('span.v', x.text.length > 700 ? `${x.text.slice(0, 700)}…` : x.text));
+      const r = h('div.rw.wrap.hit', { tabIndex: 0, role: 'button', 'aria-label': `Open ${x.title} here` }, h('span.k', where), h('span.v', ...marked(around(x.text, terms), terms)));
+      const open = () => openDoc(docs.find((d) => d.id === x.doc) ?? { id: x.doc, title: x.title, source: '', kind: '', pages: 0, passages: 0, chars: 0, status: 'ready', builtin: false, at: 0 }, { text: x.text, terms });
+      r.addEventListener('click', open);
+      r.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && open());
+      return r;
     };
-    const TRY = ['how attention works in transformers', 'binary search edge cases', 'how Ghosty works', 'SQL injection', 'big-O of sorting'];
+    // Before a search: his own last searches (kept on this phone only), or a few the built-in books answer.
+    const TRY = ['Binary search', 'Famous security bugs', 'Reinforcement learning'];
+    const RECENT = 'ghosty.library.recent';
+    const recent = (): string[] => {
+      try {
+        const v: unknown = JSON.parse(localStorage.getItem(RECENT) ?? '[]');
+        return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').slice(0, 5) : [];
+      } catch {
+        return [];
+      }
+    };
+    const keepRecent = (list: string[]) => {
+      try {
+        if (list.length) localStorage.setItem(RECENT, JSON.stringify(list.slice(0, 5)));
+        else localStorage.removeItem(RECENT);
+      } catch {
+        /* private browsing: nothing kept */
+      }
+    };
     /** What a search will be ranked by, in a line: by meaning (and that it stays on the phone), or by keywords and why. */
     const howLine = () => {
       const ix = meaningIndex.get();
-      if (meaningComplete()) return `Searched by meaning: a small model on this phone finds passages by what they mean, not only their words (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed; nothing is sent anywhere).`;
-      if (embedState.get().downloaded && ix.total) return `Searched by keywords for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages indexed by meaning so far.`;
-      return 'Searched by keywords. Add SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean.';
+      if (meaningComplete()) return `Found by what they mean, not only their words: a small model on this phone does it, and nothing is sent anywhere (${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages ready).`;
+      if (embedState.get().downloaded && ix.total) return `Found by their words for now: ${fmt.n(Math.min(ix.indexed, ix.total))} of ${fmt.n(ix.total)} passages are ready to be found by meaning.`;
+      return 'Found by their words. Turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean too.';
     };
     const idle = () => {
-      clear(sp.body, h('div.note', 'Search every book, PDF, paper, note and line of code in the library — instantly, offline, no API key used.'), h('div.note.askhow', howLine()), h('div.lab', 'TRY'), h('div.tabs.trychips', ...TRY.map((t) => button(t, () => {
+      const mine = recent();
+      const chip = (t: string) => button(t, () => {
         q.value = t;
         void search();
-      }))));
+      });
+      const clearAll = button('Clear', () => {
+        keepRecent([]);
+        idle();
+      }, 'clear');
+      clearAll.setAttribute('aria-label', 'Clear recent searches');
+      clear(sp.body, h('div.note', 'Everything on the shelf, searched in a moment. It works on this phone with no connection too.'), h('div.note.askhow', howLine()),
+        h('div.lab', mine.length ? 'RECENT' : 'TRY'), h('div.tabs.trychips', ...(mine.length ? mine : TRY).map(chip), mine.length ? clearAll : ''));
       sp.setStatus(byWhat(), 'ok');
     };
     // The line before any search keeps up with the index as it fills.
@@ -247,10 +343,16 @@ export const libraryTab: TabDef = {
       sp.setStatus('searching…', 'mid');
       try {
         const r = await brain.librarySearch(t, 20);
-        clear(sp.body, ...(r.hits.length ? r.hits.map(hitRow) : [h('div.note', 'Nothing matches that yet. Add a book or document on the other side, or try other words.')]));
+        const terms = queryTerms(t);
+        // Only what really matches: the brain's own verdict, or every word that says what is asked there (one short
+        // word, "ATP", is enough when he typed it himself). Passages sharing only everyday words are left out.
+        const good = r.hits.filter((x) => x.relevant || hasAll(`${x.title} ${x.heading} ${x.text}`, rareTerms(terms)));
+        // a search that found something is kept for next time (RECENT), on this phone only
+        if (good.length) keepRecent([t, ...recent().filter((x) => x.toLowerCase() !== t.toLowerCase())]);
+        clear(sp.body, ...(good.length ? good.map((x) => hitRow(x, terms)) : [h('div.note.nohits', `Nothing in the library mentions “${t}”. Try fewer or other words${meaningComplete() ? '' : ', or turn on SEARCH BY MEANING in Settings → Offline brain to find passages by what they mean'}.`)]));
         sp.body.scrollTop = 0;
         // By meaning with a few new passages not indexed yet: those were found by their words, and it says so.
-        sp.setStatus(`${r.hits.length} passage${r.hits.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}`, 'ok');
+        sp.setStatus(`${good.length} passage${good.length === 1 ? '' : 's'} · by ${r.how === 'meaning' ? 'meaning' : 'keywords'}${r.how === 'meaning' && r.unindexed ? ` · ${fmt.n(r.unindexed)} newest by keywords` : ''}${isOffline() ? ' · on this phone' : ''}`, 'ok');
       } catch (e) {
         sp.setStatus('OFFLINE', 'off');
         toast(`Library: ${(e as Error).message}`, 'warn');
@@ -266,6 +368,21 @@ export const libraryTab: TabDef = {
     const shelf = panel('SHELF', { footer: true, cls: 'shelf' });
     // A row each: the kind's glyph on a glass tile, the title with its kind under it, how many passages, a chevron.
     // (Removing a document is in its reader: REMOVE FROM LIBRARY.)
+    // His own documents first (newest first), then Ghosty's notebooks, then the built-in ones; FIND narrows by name.
+    const find = h('input.shelffind', { type: 'search', placeholder: 'Find on the shelf', enterKeyHint: 'search', 'aria-label': 'Find on the shelf' });
+    const findRow = h('div.keyrow.shelffindrow', find);
+    shelf.el.insertBefore(findRow, shelf.body);
+    const whose = (d: LibraryDoc) => (d.builtin ? 2 : GHOSTYS.test(d.id) || d.kind === 'study' || d.kind === 'digest' ? 1 : 0);
+    const paintShelf = () => {
+      const words = find.value.trim().toLowerCase();
+      const here = docs.filter((x) => !leaving.has(x.id));
+      const shown = here.filter((d) => !words || `${d.title} ${d.source} ${KIND[d.kind] ?? d.kind}`.toLowerCase().includes(words)).sort((a, b) => whose(a) - whose(b) || b.at - a.at);
+      shelfList.set(shown);
+      findRow.hidden = here.length <= 8 && !words;
+      shelf.setStatus(words ? `${shown.length} OF ${here.length}` : `${here.length} DOCS`, 'ok');
+      if (words && !shown.length) clear(shelf.body, h('div.note', `Nothing on the shelf is called “${find.value.trim()}”.`));
+    };
+    find.addEventListener('input', paintShelf);
     const shelfList = pager(shelf, 46, (d: LibraryDoc) => {
       const r = row(KIND[d.kind] ?? d.kind.toUpperCase(), d.title, fmt.n(d.passages), { wrap: true, onClick: () => openDoc(d) });
       r.prepend(h('span.libtile', { 'aria-hidden': 'true' }, icon(GLYPH[d.kind] ?? PAGE)));
@@ -296,49 +413,65 @@ export const libraryTab: TabDef = {
         : [h('div.note', 'Ask in the chat: "find the manual for my Bosch dishwasher SMS24AW01G" (the model number is on the rating plate; Lens READ can read it). Ghosty looks on the maker\'s own site first, keeps the manual here, and answers fault codes from its pages.')]));
     };
     // ---- the reader: any document on the shelf, passage by passage (Ghosty's notebooks included)
-    const openDoc = (d: LibraryDoc) => {
+    // (`at`: a search result: the reader reads on until it reaches that passage, shows it marked, and scrolls to it)
+    const openDoc = (d: LibraryDoc, at?: { text: string; terms: string[] }) => {
       const body = h('div.reader');
       const more = button('MORE', () => void load(), 'on');
       let after = 0;
       let last = '';
+      let lastPage: number | null = null;
+      let found: HTMLElement | null = null;
+      const prose = d.kind !== 'code';
       const load = async () => {
         more.disabled = true;
         try {
           const r = await brain.libraryPassages(d.id, after);
           for (const p of r.passages) {
+            // where a new page of the book starts, its number (a PDF knows each passage's page)
+            if (p.page && p.page !== lastPage && (d.pages > 1 || lastPage !== null)) body.append(h('div.pgmark', { dataset: { case: 'keep' } }, `Page ${p.page}`));
+            if (p.page) lastPage = p.page;
             if (p.heading && p.heading !== last) {
               body.append(h('h4', p.heading));
               last = p.heading;
             }
-            body.append(h('p', p.text));
+            const text = prose ? flowing(p.text) : p.text;
+            const para = h('p', text);
+            if (at && !found && (p.text === at.text || p.text.slice(0, 80) === at.text.slice(0, 80))) {
+              found = para;
+              para.className = 'here';
+              clear(para, ...marked(text, at.terms));
+            }
+            body.append(para);
           }
           if (r.next === null) more.remove();
           else {
             after = r.next;
             more.disabled = false;
           }
+          return r.next !== null;
         } catch (e) {
           body.append(h('div.note.bad', `Could not read it: ${(e as Error).message}`));
           more.remove();
+          return false;
         }
       };
       // what it is as chips (kind, where from, how many passages), then the passages to read; REMOVE for his own
-      const kind = KIND[d.kind] ?? d.kind.toUpperCase();
+      const kind = (KIND[d.kind] ?? d.kind).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase()).replace(/\bghosty\b/g, 'Ghosty');
       const meta = h('div.readmeta', { dataset: { case: 'keep' } },
-        h('span.chip', { dataset: { case: 'keep' } }, /[a-z]/.test(kind) ? kind : kind.charAt(0) + kind.slice(1).toLowerCase().replace(/\b(pdf|cve)\b/g, (x) => x.toUpperCase())),
-        h('span.chip.src', { dataset: { case: 'keep' } }, d.source || 'no source'),
-        h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`));
+        kind ? h('span.chip', { dataset: { case: 'keep' } }, kind.charAt(0).toUpperCase() + kind.slice(1)) : '',
+        d.source ? h('span.chip.src', { dataset: { case: 'keep' } }, d.source) : '',
+        d.pages > 1 ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.pages)} pages`) : d.passages ? h('span.chip', { dataset: { case: 'keep' } }, `${fmt.n(d.passages)} passage${d.passages === 1 ? '' : 's'}`) : '');
       // Off the shelf at once with UNDO; removed from the brain and this phone only when the bar goes, so UNDO
       // brings it back exactly as it was (its passages, its meaning index, where it came from).
       const remove = d.builtin ? null : button('REMOVE FROM LIBRARY', () => {
         m.close();
         leaving.add(d.id);
-        shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+        paintShelf();
         undo(
           `Removed: “${d.title}”`,
           () => {
             leaving.delete(d.id);
-            shelfList.set(docs.filter((x) => !leaving.has(x.id)));
+            paintShelf();
             toast(`Back in the library: ${d.title}`, 'ok');
           },
           async () => {
@@ -349,7 +482,11 @@ export const libraryTab: TabDef = {
         );
       }, 'warn readrm');
       const m = modal(d.title, h('div.readwrap', meta, body, h('div.keyrow', more, remove)));
-      void load();
+      void (async () => {
+        // a search result far into a long book: read on to it (up to 3,000 passages), then bring it into view
+        for (let round = 0; round < 10 && (await load()) && at && !found; round++);
+        if (found) (found as HTMLElement).scrollIntoView({ block: 'center' });
+      })();
     };
 
     // ---- self-study: Ghosty studies on its own, around the clock, within the free plan — one field at a time
@@ -364,16 +501,22 @@ export const libraryTab: TabDef = {
       ownPick = pick.value;
       study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value));
     });
+    /** The last study state shown (painted again when the phone goes offline or comes back). */
+    let lastStudy: StudyNow | null = null;
     const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
+      lastStudy = st;
       if (!st) {
         study.setStatus('OFFLINE', 'off');
+        study.body.append(h('div.note', 'Ghosty can’t be reached right now, so his self-study can’t be shown. It comes back by itself.'));
         return;
       }
+      // No connection: what he was reading when last seen, said so, and nothing to press that cannot work now.
+      const off = isOffline();
       const sum = st.summary;
       const doms = sum.domains as FieldRow[];
       const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
-      study.setStatus(st.on ? 'LEARNING' : 'OFF', st.on ? 'ok' : 'mid');
+      study.setStatus(off ? 'OFFLINE' : st.on ? 'LEARNING' : 'OFF', off ? 'off' : st.on ? 'ok' : 'mid');
       const weakest = sum.drills.skills.filter((k) => k.n >= 2).slice(0, 3).map((k) => `${k.skill} ${pct(k.right, k.n)}%`).join(' · ');
       const lastText = !st.last ? '' : st.last.error ? `${st.last.topic} — ${st.last.error}` : st.last.kind === 'drill' ? `${st.last.topic}: ${st.last.title ?? ''}` : st.last.kind === 'digest' ? `wrote notes on ${st.last.topic}` : `read ${st.last.topic}${st.last.passages ? ` (${st.last.passages} passages)` : ''}`;
       const fields = [...doms].sort((a, b) => Number(b.focus) - Number(a.focus) || b.read - a.read || a.name.localeCompare(b.name));
@@ -412,10 +555,10 @@ export const libraryTab: TabDef = {
       const today = sum.today;
       study.body.append(
         // what he is reading now, honestly: "Reading Algebra · 212 of 480 · about 40 minutes left at this pace"
-        h('div.studynow', h('b', sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
+        h('div.studynow', h('b', off ? `You’re offline. When Ghosty was last reached: ${sum.status ?? (st.on ? 'learning' : 'switched off')}. He keeps reading on his side; this updates when you’re back.` : sum.status ?? (st.on ? 'Learning' : 'Switched off')), cur ? bar('NOW', cur.read / Math.max(1, cur.topics), `${cur.read}/${cur.topics}`, '#ffd24d') : ''),
         later.length ? row('THEN', later.map((d) => `${d.name} ${d.read}/${d.topics}`).join(' · '), null, { wrap: true }) : '',
-        h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
-        h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
+        off ? '' : h('div.keyrow.studypick', pick, st.on ? button('STUDY', (b) => void studyNow(b), 'on') : ''),
+        off ? '' : h('div.keyrow.studyallrow', allSwitch, h('span.note', all ? 'When a field is done, he starts the next one by himself.' : 'He reads only the fields you send with STUDY.')),
         // what he learned today: three numbers, large
         h('div.studytoday', { dataset: { case: 'keep' } }, h('small', 'Learned today'),
           h('div', h('span', h('b', fmt.n(today.reads)), h('em', 'pieces read')), h('span', h('b', fmt.n(today.finished ?? 0)), h('em', 'topics finished')), h('span', h('b', fmt.n(today.digests)), h('em', 'notes written')))),
@@ -453,7 +596,7 @@ export const libraryTab: TabDef = {
           }))
           : '',
         focusNames.length ? row('FIRST', focusNames.join(', '), '★', { wrap: true }) : '',
-        h('div.keyrow', focusIn, button('FOCUS', async () => {
+        off ? '' : h('div.keyrow', focusIn, button('FOCUS', async () => {
           const words = focusIn.value.trim();
           if (!words) return;
           focusIn.value = '';
@@ -461,7 +604,7 @@ export const libraryTab: TabDef = {
           if (r && !r.focus.length && !/^(none|off|clear|-)$/i.test(words)) toast('No field by that name — the FIELDS list has them all', 'warn');
           paintStudy(r ? ((await brain.studyStatus().catch(() => r)) as StudyNow) : null);
         })),
-        h('div.keyrow.wrapit',
+        off ? '' : h('div.keyrow.wrapit',
           button(st.on ? 'TURN OFF' : 'TURN ON', async () => paintStudy((await brain.study({ on: !st.on }).then(() => brain.studyStatus()).catch(() => null)) as StudyNow | null), st.on ? 'warn' : 'on'),
           button('EXPORT TO GITHUB', async (b) => {
             // Every notebook as Markdown on the "library" branch of Ghosty's own repository: free, off the phone, readable anywhere.
@@ -517,7 +660,7 @@ export const libraryTab: TabDef = {
         fresh.setStatus('OFFLINE', 'off');
       }
     };
-    fresh.foot!.prepend(button('DIGEST NOW', async (b) => {
+    const digestBtn = button('DIGEST NOW', async (b) => {
       b.disabled = true;
       b.textContent = 'GATHERING…';
       try {
@@ -531,24 +674,37 @@ export const libraryTab: TabDef = {
       b.textContent = 'DIGEST NOW';
       void paintFresh();
       void refresh();
-    }, 'on'));
-    P.right.append(fresh.el, study.el, ap.el, gadgets.el, shelf.el);
+    }, 'on');
+    fresh.foot!.prepend(digestBtn);
+    // his own things first (add, his shelf, his gadgets' manuals), then what Ghosty reads by himself and the day's digest
+    P.right.append(ap.el, shelf.el, gadgets.el, study.el, fresh.el);
 
     let vectors = false;
     let starterReady = true;
+    /** The brain could not be reached the last time the shelf was asked for (the phone's copy is shown). */
+    let unreached = false;
+    const isOffline = () => unreached || (typeof navigator !== 'undefined' && navigator.onLine === false);
+    /** What depends on a connection, set to match it (DIGEST NOW; self-study's controls). */
+    const showReach = () => {
+      digestBtn.disabled = isOffline();
+      if (lastStudy) paintStudy(lastStudy);
+    };
     const refresh = async (): Promise<void> => {
       try {
         const r = await brain.library();
+        const was = unreached;
+        unreached = !!r.offline;
+        if (was !== unreached) showReach();
         docs = r.docs;
         vectors = r.vectors;
         starterReady = r.starterReady;
         // (a document whose REMOVE is waiting on its UNDO bar is already off the shelf and off the gadgets)
-        const shown = docs.filter((x) => !leaving.has(x.id));
-        shelfList.set(shown);
-        paintGadgets(shown);
-        shelf.setStatus(`${r.stats.docs} DOCS`, 'ok');
+        paintShelf();
+        paintGadgets(docs.filter((x) => !leaving.has(x.id)));
         P.big.textContent = `${fmt.n(r.stats.passages)} PASSAGES`;
-        P.sub.textContent = `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'meaning search on (Workers AI)' : 'keyword search'}${starterReady ? '' : ' · setting up starter library…'}`;
+        P.sub.textContent = r.offline
+          ? `You’re offline: this is the copy on this phone (${fmt.n(r.stats.docs)} documents). It updates by itself when you’re back.`
+          : `${r.stats.docs} documents · ${(r.stats.bytes / 1e6).toFixed(1)} MB · ${vectors ? 'searched by meaning and words' : 'searched by words'}${starterReady ? '' : ' · setting up starter library…'}`;
         P.dials([
           ['YOURS', Math.min(1, docs.filter((d) => !d.builtin).length / 50), `${docs.filter((d) => !d.builtin).length}`, '#5ce1ff'],
           ['BUILT-IN', 1, `${docs.filter((d) => d.builtin).length}`, '#52f2b5'],
@@ -556,6 +712,7 @@ export const libraryTab: TabDef = {
         ]);
         if (!starterReady && !busy.n) setTimeout(() => void refresh(), 1500); // keep filling the starter library
         // Keep this device's copy current (it answers when the brain can't), and say how much is here.
+        if (r.offline) return;
         const sub = P.sub.textContent;
         void mirrorLibraryNow()
           .then(() => deviceShelf())
@@ -563,16 +720,31 @@ export const libraryTab: TabDef = {
             if (P.sub.textContent === sub) P.sub.textContent = `${sub} · ${fmt.n(x.stats.passages)} passages on this device (works offline)`;
           });
       } catch (e) {
+        if (unreachable(e) && !unreached) {
+          unreached = true;
+          showReach();
+        }
         shelf.setStatus('OFFLINE', 'off');
         clear(shelf.body);
         shelf.body.append(h('div.note', `The library is not reachable: ${(e as Error).message}`));
       }
     };
 
+    addEventListener('online', () => {
+      if (!root.isConnected || !root.getClientRects().length) return;
+      unreached = false;
+      void refresh();
+      void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
+      void paintFresh();
+    });
+    addEventListener('offline', () => root.isConnected && showReach());
     return {
       enter() {
-        void refresh();
-        void brain.studyStatus().then((s) => paintStudy(s as StudyNow), () => paintStudy(null));
+        // (self-study is painted once the shelf has said whether Ghosty can be reached)
+        void Promise.all([refresh(), brain.studyStatus().catch(() => null)]).then(([, s]) => {
+          paintStudy(s as StudyNow | null);
+          digestBtn.disabled = isOffline();
+        });
         void paintFresh();
       },
       describe: () => `Library: ${docs.length} documents (${docs.filter((d) => !d.builtin).map((d) => d.title).slice(0, 8).join('; ')}).`,

@@ -8,6 +8,9 @@ import { keepDoc, markSynced, pendingDocs, removeDoc, uploading, type LocalPassa
 import type { LibraryDoc } from '../../../../packages/shared/src/protocol';
 import { chunkText } from '../../../../packages/shared/src/chunk';
 import { extractFile, type Extracted } from './extract';
+import { Reader } from '../vision/ocr';
+import { loadImageFile } from '../vision/camera';
+import { cleanOcr, titleFrom } from '../vision/ocrtext';
 
 export type Progress = (text: string, frac: number) => void;
 
@@ -78,6 +81,41 @@ export async function addFile(file: File, progress: Progress): Promise<{ doc: Li
     }
   }
   return { doc: await addExtracted(x, file.name, progress), warning };
+}
+
+/** A photo (of a page): a picture type, or a picture's name (iPhone photos can come with no type). */
+export const isPhoto = (f: File): boolean => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(f.name);
+
+/**
+ * Photos of pages: each read on this phone with the Lens's reader (nothing is sent anywhere to read it) and kept as
+ * ONE document, a page per photo in the order picked, so a chapter photographed page by page reads as one. The
+ * reader is let go when they are done. A photo with no words in it is left out (said in the warning).
+ */
+export async function addPhotos(files: File[], progress: Progress): Promise<{ doc: LibraryDoc; warning?: string }> {
+  const reader = new Reader();
+  const pages: string[] = [];
+  let unsure = 0;
+  let blank = 0;
+  try {
+    for (const [i, f] of files.entries()) {
+      const which = files.length > 1 ? `photo ${i + 1} of ${files.length}: ` : '';
+      progress(`${which}opening…`, i / files.length);
+      const r = await reader.read(await loadImageFile(f, 2048), (s, frac) => progress(`${which}${s}`, (i + (frac ?? 0)) / files.length));
+      const text = cleanOcr(r);
+      if (!text) blank++;
+      else {
+        pages.push(text);
+        if (r.confidence < 70) unsure++;
+      }
+    }
+  } finally {
+    reader.terminate();
+  }
+  const one = files.length === 1;
+  if (!pages.length) throw new Error(`no words found in ${one ? 'this photo' : 'these photos'}: try closer, flatter and with more light`);
+  const said = [unsure ? `read from ${one ? 'a photo' : 'photos'}: some words may be wrong, open it to check` : '', blank ? `${blank} photo${blank === 1 ? '' : 's'} had no words and ${blank === 1 ? 'was' : 'were'} left out` : ''].filter(Boolean).join('; ');
+  const doc = await addExtracted({ title: titleFrom(pages[0]!, 'Photo of a page'), pages, kind: 'scan' }, one ? files[0]!.name : `${pages.length} photos of pages`, progress);
+  return { doc, ...(said ? { warning: said } : {}) };
 }
 
 export async function addText(title: string, text: string, progress: Progress): Promise<LibraryDoc> {

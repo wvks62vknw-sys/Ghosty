@@ -78,8 +78,13 @@ await printer.setContent(`<html><body style="font-family: Georgia, serif">
   <h2>Safety</h2>
   <p>Always carry a gas mask: sulphur dioxide levels rise without warning.</p>
   <p style="font-family: Arial">Emergency frequency is 156.8 MHz — call the station on channel 16.</p>
+  <p>Before a field day check the wind direction and the gas readings from the station and the path down from the crater rim, then walk with a partner and keep the radio switched on all the time.</p>
 </body></html>`);
 const pdf = await printer.pdf({ format: 'A4' });
+// A photo of a page (printed words on white), for the Library's own reading of photos.
+await printer.setViewportSize({ width: 900, height: 700 });
+await printer.setContent('<html><body style="background:#fff;margin:48px;font:28px Georgia"><h1>Quillwort revision card</h1><p>Osmosis is the movement of water across a partially permeable membrane.</p></body></html>');
+const photo = await printer.screenshot({ type: 'jpeg', quality: 90 });
 await printer.close();
 if (press !== browser) await press.close();
 
@@ -116,6 +121,9 @@ const classic = Buffer.from(['%PDF-1.4',
   'endstream', 'endobj',
   '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [31 /fi] >> >> endobj',
   'trailer << /Root 1 0 R >>', '%%EOF'].join('\n'), 'latin1');
+// A scanned PDF as the phone sees one: a page with no text on it.
+const blankPdf = Buffer.from(['%PDF-1.4', '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj', '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
+  '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >> endobj', '4 0 obj << /Length 0 >>', 'stream', '', 'endstream', 'endobj', 'trailer << /Root 1 0 R >>', '%%EOF'].join('\n'), 'latin1');
 const c = await read('extractPdf', classic, 'classic');
 if (c.pages[0] !== 'Hello World\nSecond line (ok) to find café.') problems.push(`classic PDF: got ${JSON.stringify(c.pages[0])}`);
 
@@ -163,6 +171,42 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   await searched(ui);
   const res = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent));
   if (!res.length || !/Volcano/i.test(res[0])) problems.push(`[${name}] search found: ${res.slice(0, 2).join(' || ') || 'nothing'}`);
+  // a result shows the words searched for, marked, in a few lines; a tap opens its document in the reader at that passage
+  const hit0 = await ui.evaluate(() => {
+    const r = document.querySelector('#pg-library .rw.hit');
+    return r ? { marks: [...r.querySelectorAll('mark')].map((m) => m.textContent?.toLowerCase()), len: (r.querySelector('.v')?.textContent ?? '').length } : null;
+  });
+  if (!hit0?.marks.some((m) => /^sulphur/.test(m ?? ''))) problems.push(`[${name}] the searched words are not marked in the result: ${JSON.stringify(hit0)}`);
+  if (hit0 && hit0.len > 320) problems.push(`[${name}] a result is a wall of text (${hit0.len} characters)`);
+  if (hit0) {
+    await ui.click('#pg-library .rw.hit');
+    await ui.waitForSelector('.modal .reader p.here', { timeout: 10000 }).catch(() => problems.push(`[${name}] tapping a result did not open its document at that passage`));
+    const at = await ui.evaluate(() => {
+      const p = document.querySelector('.modal .reader p.here');
+      const box = document.querySelector('.modal .readwrap')?.getBoundingClientRect();
+      const r = p?.getBoundingClientRect();
+      return { title: document.querySelector('.modal .mhead b')?.textContent ?? '', text: p?.textContent ?? '', inView: !!(r && box && r.top < box.bottom && r.bottom > box.top) };
+    });
+    if (!/volcano/i.test(at.title) || !/sulphur dioxide/.test(at.text) || !at.inView) problems.push(`[${name}] the result opened ${JSON.stringify(at).slice(0, 200)}`);
+    if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-result-opened.png` });
+    await ui.click('.modal .mhead button').catch(() => undefined);
+    await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => undefined);
+  }
+  // words the library has never seen: no passages that merely share a common word, and it says so
+  await ui.fill('#pg-library input[aria-label="Search the library"]', 'zzqxv nothing here');
+  await ui.keyboard.press('Enter');
+  await searched(ui);
+  const junk = await ui.evaluate(() => ({ hits: document.querySelectorAll('#pg-library .rw.hit').length, said: document.querySelector('#pg-library .nohits')?.textContent ?? '' }));
+  if (junk.hits || !/Nothing in the library mentions/.test(junk.said)) problems.push(`[${name}] a search for words the library has never seen showed ${junk.hits} passages ("${junk.said}")`);
+  // before a search: his own recent searches (the one that found something, not the one that found nothing), in plain words
+  await ui.fill('#pg-library input[aria-label="Search the library"]', '');
+  await ui.dispatchEvent('#pg-library input[aria-label="Search the library"]', 'search');
+  const before = await ui.evaluate(() => ({ lab: document.querySelector('#pg-library .pn.ask .lab')?.textContent ?? '', chips: [...document.querySelectorAll('#pg-library .pn.ask .trychips button')].map((b) => b.textContent ?? ''), words: document.querySelector('#pg-library .pn.ask .bd')?.textContent ?? '' }));
+  if (!/recent/i.test(before.lab) || before.chips[0]?.toLowerCase() !== 'sulphur dioxide gas mask' || before.chips.some((c) => /zzqxv/.test(c))) problems.push(`[${name}] the last searches are not offered again: ${JSON.stringify(before.chips)}`);
+  if (/API key|Workers AI|keywords/i.test(before.words)) problems.push(`[${name}] jargon before a search: "${before.words.slice(0, 160)}"`);
+  await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+  await ui.keyboard.press('Enter');
+  await searched(ui);
   if (name === 'desktop') {
     // The whole library is copied to this device and answers with no connection at all.
     await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => problems.push(`[${name}] the library was never copied to the device: ${'' }`));
@@ -278,6 +322,109 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.click(sw);
     await ui.waitForFunction((s) => document.querySelector(s)?.getAttribute('aria-checked') === 'true', sw, { timeout: 15000 }).catch(() => problems.push(`[${name}] STUDY ALL did not switch back on`));
   }
+  if (name === 'phone') {
+    // ---- ADD: one thing on show (the tile, its progress under it); a web address and pasted text behind MORE WAYS TO ADD
+    const add = await ui.evaluate(() => {
+      const pn = document.querySelector('#pg-library .pn.libadd');
+      const shown = (sel) => [...(pn?.querySelectorAll(sel) ?? [])].filter((el) => el.getBoundingClientRect().height > 0).length;
+      return { h: Math.round(pn?.getBoundingClientRect().height ?? 0), fields: shown('input:not([type=file]), textarea'), more: shown('button[aria-expanded]') };
+    });
+    if (add.fields || add.h > 420 || !add.more) problems.push(`[${name}] ADD is a wall of forms: ${JSON.stringify(add)}`);
+    // ---- a photo of a page: the picker offers photos, the phone reads the words itself, it is kept and found by them
+    const accept = (await ui.getAttribute('#pg-library input[type=file]', 'accept')) ?? '';
+    if (!/image\/\*/.test(accept)) problems.push(`[${name}] the Library's picker does not offer photos (accept "${accept.slice(0, 60)}…")`);
+    await ui.setInputFiles('#pg-library input[type=file]', [{ name: 'IMG_4471.jpg', mimeType: 'image/jpeg', buffer: photo }]);
+    const photoLine = () => ui.evaluate(() => [...document.querySelectorAll('#pg-library .liblog .note')].map((n) => n.textContent ?? '').find((t) => /IMG_4471|Quillwort/i.test(t)) ?? '');
+    await ui.waitForFunction(() => [...document.querySelectorAll('#pg-library .liblog .note')].some((n) => /IMG_4471|Quillwort/i.test(n.textContent ?? '') && /^[✓✕]/.test(n.textContent ?? '')), null, { timeout: 150000 }).catch(() => undefined);
+    const said = await photoLine();
+    if (!/^✓ .*Quillwort/i.test(said)) problems.push(`[${name}] a photo of a page was not read into the library: "${said}"`);
+    else {
+      // what it says when done: what is on the shelf, and OPEN reads it at once
+      const openIt = ui.locator('#pg-library .liblog .note', { hasText: /Quillwort/i }).locator('button', { hasText: /open/i });
+      if (!(await openIt.count())) problems.push(`[${name}] the finished import offers no way to open it: "${said}"`);
+      else {
+        await openIt.first().click();
+        await ui.waitForFunction(() => /Quillwort/i.test(document.querySelector('.modal .mhead b')?.textContent ?? '') && /membrane/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
+          .catch(() => problems.push(`[${name}] OPEN on the finished import did not open it`));
+        await ui.click('.modal .mhead button').catch(() => undefined);
+      }
+      await ui.fill('#pg-library input[aria-label="Search the library"]', 'quillwort osmosis membrane');
+      await ui.keyboard.press('Enter');
+      await searched(ui);
+      const found = await ui.$$eval('#pg-library .rw.hit', (n) => n.map((x) => x.textContent ?? ''));
+      if (!found.some((t) => /Quillwort/i.test(t) && /membrane/i.test(t))) problems.push(`[${name}] the photo's words are not found by a search: ${found.slice(0, 2).join(' || ') || 'nothing'}`);
+    }
+    // a scan with no words in it (and no converter on the preview): said plainly, with what works instead
+    await ui.setInputFiles('#pg-library input[type=file]', [{ name: 'scanned-worksheet.pdf', mimeType: 'application/pdf', buffer: blankPdf }]);
+    await ui.waitForFunction(() => [...document.querySelectorAll('#pg-library .liblog .note')].some((n) => /scanned-worksheet/.test(n.textContent ?? '') && /^[✓✕]/.test(n.textContent ?? '')), null, { timeout: 30000 }).catch(() => undefined);
+    const scan = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .liblog .note')].map((n) => n.textContent ?? '').find((t) => /scanned-worksheet/.test(t)) ?? '');
+    if (!/^✕ .*photos of the pages/i.test(scan) || /Workers AI/.test(scan)) problems.push(`[${name}] a scan that cannot be read says: "${scan}"`);
+    // leave the preview as it was: the photo's document goes again
+    await ui.evaluate(async () => {
+      const H = { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' };
+      const lib = await (await fetch('/api/library', { headers: H })).json().catch(() => ({ docs: [] }));
+      for (const d of lib.docs ?? []) if (/Quillwort/i.test(d.title)) await fetch(`/api/library/docs/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: H });
+    });
+    // ---- the reader: a PDF reads as running text (no line breaks where the page's edge was), with its page numbers
+    await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
+    const vdoc = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
+    if (await vdoc.count()) {
+      await vdoc.click();
+      await ui.waitForFunction(() => /all the time/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
+      const rd = await ui.evaluate(() => ({
+        chips: [...document.querySelectorAll('.modal .readmeta .chip')].map((c) => c.textContent ?? ''),
+        marks: [...document.querySelectorAll('.modal .reader .pgmark')].map((c) => c.textContent ?? ''),
+        para: [...document.querySelectorAll('.modal .reader p')].map((p) => p.textContent ?? '').find((t) => /Before a field day/.test(t)) ?? '',
+      }));
+      if (!rd.chips.includes('PDF') || !rd.chips.includes('2 pages')) problems.push(`[${name}] the reader's chips read ${JSON.stringify(rd.chips)}`);
+      if (!rd.marks.includes('Page 2')) problems.push(`[${name}] the reader shows no page numbers: ${JSON.stringify(rd.marks)}`);
+      const wrapped = rd.para.slice(rd.para.indexOf('Before a field day'), rd.para.indexOf('all the time.') + 13);
+      if (!/^Before a field day.*all the time\.$/s.test(wrapped) || /\n/.test(wrapped)) problems.push(`[${name}] a PDF paragraph breaks where the page's edge was: ${JSON.stringify(wrapped || rd.para.slice(0, 220))}`);
+      await ui.screenshot({ path: `${out}/${name}-library-reader-pdf.png` });
+      await ui.click('.modal .mhead button').catch(() => undefined);
+    } else problems.push(`[${name}] the volcano notes are not on the shelf`);
+    // ---- no connection: self-study says so and offers nothing that cannot work now, DIGEST NOW waits, and a
+    // document on the shelf still reads, from the phone's own copy
+    await ui.waitForFunction(() => /on this device \(works offline\)/.test(document.querySelector('#pg-library .sub')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] the library was never copied to the phone`));
+    await ctx.setOffline(true);
+    await ui.evaluate(() => (location.hash = 'core'));
+    await ui.waitForTimeout(300);
+    await ui.evaluate(() => (location.hash = 'library'));
+    await ui.waitForFunction(() => /offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    const offStudy = await ui.evaluate(() => {
+      const pn = document.querySelector('#pg-library .pn.study');
+      return {
+        status: pn?.querySelector('h3 small')?.textContent ?? '',
+        line: pn?.querySelector('.studynow b')?.textContent ?? '',
+        buttons: [...(pn?.querySelectorAll('button') ?? [])].filter((b) => !b.disabled && b.getClientRects().length).map((b) => b.textContent?.trim() ?? ''),
+        digest: document.querySelector('#pg-library .pn.fresh .ft button')?.disabled ?? null,
+        sub: document.querySelector('#pg-library .sub')?.textContent ?? '',
+      };
+    });
+    if (!/offline/i.test(offStudy.status) || !/offline/i.test(offStudy.line)) problems.push(`[${name}] with no connection SELF-STUDY says "${offStudy.status}": "${offStudy.line.slice(0, 120)}"`);
+    const dead = offStudy.buttons.filter((b) => /^(STUDY|FOCUS|TURN OFF|TURN ON|EXPORT TO GITHUB|STUDY ALL.*)$/i.test(b));
+    if (dead.length) problems.push(`[${name}] with no connection SELF-STUDY still offers ${dead.join(', ')}`);
+    if (offStudy.digest !== true) problems.push(`[${name}] with no connection DIGEST NOW is still offered`);
+    if (!/offline/i.test(offStudy.sub)) problems.push(`[${name}] with no connection the Library does not say so: "${offStudy.sub}"`);
+    await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
+    const vrow = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
+    if (await vrow.count()) {
+      await vrow.click();
+      await ui.waitForFunction(() => /sulphur dioxide/.test(document.querySelector('.modal .reader')?.textContent ?? ''), null, { timeout: 10000 })
+        .catch(async () => problems.push(`[${name}] with no connection a document on the shelf does not read: "${(await ui.evaluate(() => document.querySelector('.modal .reader')?.textContent ?? 'no reader')).slice(0, 120)}"`));
+      if (name === 'phone') await ui.screenshot({ path: `${out}/${name}-library-offline-reader.png` });
+      await ui.click('.modal .mhead button').catch(() => undefined);
+    } else problems.push(`[${name}] with no connection the volcano notes are not on the shelf`);
+    await ui.fill('#pg-library input[aria-label="Find on the shelf"]', '').catch(() => undefined);
+    await ctx.setOffline(false);
+    await ui.waitForFunction(() => !/offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? 'offline'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] SELF-STUDY did not come back with the connection`));
+    // the results as the checks below expect them
+    await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
+    await ui.keyboard.press('Enter');
+    await searched(ui);
+  }
   // any document on the shelf opens in the reader
   const shelfRow = await ui.$('#pg-library .pn .rw.link .v');
   if (!shelfRow) problems.push(`[${name}] no readable document on the shelf`);
@@ -291,8 +438,9 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.click('.modal .mhead button');
     await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
   }
-  const askH = await ui.$eval('#pg-library .pn.ask > .bd', (el) => el.clientHeight);
-  if (askH < 260) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${askH}px tall)`);
+  // squeezed: results hidden in a short scrolling box (a short list of real results is simply short)
+  const ask = await ui.$eval('#pg-library .pn.ask > .bd', (el) => ({ h: el.clientHeight, all: el.scrollHeight }));
+  if (ask.h < 260 && ask.all > ask.h + 1) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${ask.h}px tall, ${ask.all}px of results)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
   if (name === 'phone') {
     // One scrolling page on phones: scroll down to the shelf.
@@ -305,6 +453,20 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     if (!shelf || shelf.h < 220 || shelf.bottom > shelf.dock + 2) problems.push(`[${name}] shelf not reachable on the phone: ${JSON.stringify(shelf)}`);
     await ui.waitForTimeout(400);
     await ui.screenshot({ path: `${out}/${name}-library-shelf.png` });
+    // his own things come first: the shelf before what Ghosty reads by himself, his documents before the built-in ones
+    const order = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .pn')].map((p) => p.className.match(/\b(ask|libadd|shelf|gadgets|study|fresh)\b/)?.[1] ?? ''));
+    if (!(order.indexOf('shelf') < order.indexOf('study') && order.indexOf('shelf') < order.indexOf('fresh'))) problems.push(`[${name}] the shelf comes after what Ghosty reads by himself: ${order.join(', ')}`);
+    const firstKind = await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf .rw .k')?.textContent ?? '');
+    if (/built-in|read by ghosty|ghosty notes/i.test(firstKind)) problems.push(`[${name}] the shelf starts with "${firstKind}", not one of his own documents`);
+    // FIND on the shelf: a crowded shelf narrows to the document named
+    const findBox = '#pg-library input[aria-label="Find on the shelf"]';
+    if (!(await ui.isVisible(findBox).catch(() => false))) problems.push(`[${name}] no way to find a document on a shelf of ${await ui.evaluate(() => document.querySelectorAll('#pg-library .pn.shelf .rw').length)}+`);
+    else {
+      await ui.fill(findBox, 'volcano');
+      const titles = await ui.$$eval('#pg-library .pn.shelf .rw .v', (n) => n.map((x) => x.textContent ?? ''));
+      if (!titles.length || !titles.every((t) => /volcano/i.test(t))) problems.push(`[${name}] FIND "volcano" shows: ${titles.join(' | ') || 'nothing'}`);
+      await ui.fill(findBox, '');
+    }
   }
   await ctx.close();
 }
