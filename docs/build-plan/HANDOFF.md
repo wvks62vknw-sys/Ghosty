@@ -541,6 +541,12 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 06:12 UK: brainkeep pushed onto PR #39 (its CI restarts on the new head): build, tsc, offline-brain 44 of 44,
   bigbrain, offlinebrain, settings, undo and apps green on the merged tree. A new check-in about 95 minutes out
   replaces the 07:05 one. Builders still running: sections (8886), gym2 (8887), boot2 (8888).
+- 25 Oct 06:25 UK: PR #39's smoke job went red nine minutes in, in ITS brain suite (the smoke job runs `npm test` before
+  the specs): one test of 1,190, selftrain.test.mjs "gathering: the free part … a few milliseconds of CPU each", which
+  asserted every step after the first under 25 ms of CPU; one step took 71 ms on GitHub's runner (a garbage
+  collection) while the brain job on the same commit passed the same test. The test now allows one step at or over 25
+  ms and none over 150 ms (61 of 61 here). Pushed onto PR #39 (CI restarts; a check-in about 95 minutes out replaces
+  the 07:47 one).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
