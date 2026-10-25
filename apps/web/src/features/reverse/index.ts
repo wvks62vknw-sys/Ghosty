@@ -4,6 +4,7 @@
  * project or a direct file link (.apk, .dll, .exe, .zip, .asar, .jar) — and the report
  * arrives here (and as a notification) a few minutes later. Lawful research only.
  */
+import { readsAs } from '../../../../../packages/shared/src/reverse';
 import { brain, headers, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
@@ -137,6 +138,7 @@ export const reverseTab: TabDef = {
         const r = await brain.reverseStart({ target: t, kind: kind.value, question: question.value.trim() });
         target.value = '';
         question.value = '';
+        reads.hidden = true;
         await refresh();
         // the new report, waiting, in place: when to expect it and that he can go
         void show(r.job.id, true);
@@ -149,9 +151,16 @@ export const reverseTab: TabDef = {
       }
     };
     target.addEventListener('keydown', (e) => e.key === 'Enter' && void start());
+    // what the box reads as, by the brain's own rules, while he types ("kettle" is a code package, not a kettle)
+    const reads = h('div.note.revreads', { 'aria-live': 'polite', hidden: true });
+    target.addEventListener('input', () => {
+      reads.textContent = readsAs(target.value);
+      reads.hidden = !reads.textContent;
+    });
     np.body.append(
       gh,
       target,
+      reads,
       h('div.row', kind, startBtn),
       say,
       question,

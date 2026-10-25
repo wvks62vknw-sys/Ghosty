@@ -11,7 +11,10 @@
 import type { Env } from '../env';
 import { durableGet, durablePut } from '../kv';
 import { addJob } from '../schedule';
+import { normaliseTarget } from '../../../../packages/shared/src/reverse';
 import { arg, type Tool, type ToolContext } from './types';
+
+export { normaliseTarget };
 
 export interface ReverseJob {
   id: string;
@@ -40,28 +43,6 @@ export async function loadReverseJobs(env: Pick<Env, 'SITES'> | undefined, stora
 
 async function saveJobs(env: Pick<Env, 'SITES'> | undefined, storage: DurableObjectStorage, jobs: ReverseJob[]): Promise<void> {
   await durablePut(env, storage, KEY, jobs.slice(-MAX_JOBS));
-}
-
-/** A target is a URL, an npm package name or owner/repo. */
-export function normaliseTarget(raw: string): { target: string; kind: string } | null {
-  const t = raw.trim();
-  if (!t || t.length > 400 || /\s/.test(t)) return null;
-  if (/^https?:\/\//i.test(t)) {
-    try {
-      const u = new URL(t);
-      if (/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(u.hostname) || !u.hostname.includes('.')) return null;
-      return { target: u.href, kind: 'auto' };
-    } catch {
-      return null;
-    }
-  }
-  if (/^[\w.-]+\/[\w.-]+$/.test(t)) return { target: t, kind: 'repo' };
-  // "example.com" or "shop.example.co.uk/path" → a website; "lodash.merge" → an npm package
-  if (/^[\w-]+(\.[\w-]+)*\.(com|net|org|io|co|uk|de|fr|es|it|nl|se|no|fi|dk|pl|ch|at|eu|app|dev|ai|me|info|xyz|gov|edu|ac|tv|cc|us|ca|au|nz|in|jp|kr|br|mx|ru|cn|hk|sg|ie|tech|site|online|store|cloud|page)(\/.*)?$/i.test(t)) {
-    return { target: `https://${t}`, kind: 'web' };
-  }
-  if (/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(t)) return { target: t, kind: 'npm' };
-  return null;
 }
 
 /** Start a run. Returns the job (status queued). */

@@ -3,6 +3,7 @@
 // answers what it can with nothing kept: the status (GitHub not connected on the preview), START without GitHub (it
 // refuses before anything is made) and SAVE TO LIBRARY (the document it files is removed again at the end).
 //  - the top says what Reverse is for in his words, the same words as the Make hub's card; no developer jargon;
+//  - what the box reads as is said while he types ("kettle" is a code package on npm; a real thing is for the chat);
 //  - GitHub not connected is said before he types, with the way to connect it; a refusal stays on screen in a sentence;
 //  - START shows the new report waiting in place: when it should be ready and that he can leave;
 //  - each report a row in plain words (Website, Ready, Didn't finish), 44 pt tall;
@@ -109,6 +110,13 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
   if (!all.includes('Only analyse software you own or are allowed to test.')) problems.push('[440] the line about only analysing software he owns or may test is gone or reworded');
   const ph = await page.getAttribute('#pg-reverse input[aria-label="What to look at"]', 'placeholder').catch(() => null);
   if (!ph || ph.length > 32) problems.push(`[440] the box for the link has no short example he can read whole: "${ph}"`);
+  // what the box reads as while he types, by the brain's own rules: a bare word is a code package, a real thing is not for Reverse
+  for (const [typed, want] of [['kettle', /code package on npm: “kettle”/], ['a bicycle pump', /ask Ghosty in the chat/], ['bbc.co.uk', /Reads as a website: bbc\.co\.uk/]]) {
+    await page.locator('#pg-reverse input').first().fill(typed);
+    const r = (await text(page, '#pg-reverse .revreads')).trim();
+    if (!want.test(r)) problems.push(`[440] typing "${typed}" does not say what it reads as (${want}): "${r}"`);
+  }
+  await page.locator('#pg-reverse input').first().fill('');
   // GitHub not connected: said up front, with the way to connect it
   const gh = await text(page, '#pg-reverse .revgh');
   if (!/GitHub/.test(gh) || !/connect/i.test(gh)) problems.push(`[440] GitHub not being connected is not said before he starts: "${gh}"`);
