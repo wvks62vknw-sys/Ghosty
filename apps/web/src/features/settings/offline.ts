@@ -17,15 +17,21 @@
  * one-tap confirm, as DELETE does: neither can be put back without downloading again). The weekly training follows the
  * brain chosen here (offline/trained.ts followBase; not the 0.8B, which it does not train). If a bigger one cannot get
  * the memory, the 0.6B takes over and the panel says so.
+ * What the phone really holds (25 Oct, "you have to download the offline brain every time"): under the brains, the pieces
+ * counted in the cache at opening ("On this phone: Qwen3 0.6B whole (352 MB) · Qwen3.5 2B 37 of 120 pieces"), a brain that
+ * lost pieces since its download finished said by name, whether the phone keeps Ghosty's storage for good, and on an
+ * iPhone that Safari and the Home Screen app each keep their own; GET is refused before anything is asked or downloaded
+ * when the space the phone gives Ghosty cannot hold it.
  */
 import { clear, h } from '../../core/dom';
 import { overall, voiceLine } from '../../offline/bench';
-import { approveLoad, brainsHere, checkBrain, chooseBrain, deleteOffline, downloadOffline, getBrain, gpuLimits, heldOf, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, removeBrain, useBrain, wasClosedWhileGetting, withModel } from '../../offline/brain';
+import { approveLoad, brainsHere, checkBrain, chooseBrain, deleteOffline, downloadOffline, getBrain, gpuLimits, heldOf, keptHere, noRoom, offlineBrain, offlineModels, offlineReady, offlineReply, offlineSize, offlineSupport, currentModel, removeBrain, useBrain, wasClosedWhileGetting, withModel } from '../../offline/brain';
 import { readLog } from '../../offline/fill';
 import { reportCard, runReportCard } from '../../offline/harder';
-import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
+import { BIGGER, brainOf, fitLine, holdLine, isBigger, memText, MODELS, onPhoneLine, PICKER, shortName, sizeText, slotOf, stockOf, type GpuLimits, type Held, type ModelDef } from '../../offline/models';
 import { cleanReply, progressLabel } from '../../offline/prompt';
 import { followBase } from '../../offline/trained';
+import { homeScreenApp } from '../system/storage';
 import { settings } from '../../state/app';
 import { bar, button, confirmSheet, panel, toast, undo, type Panel } from '../../ui/components';
 import { meaningBlock } from './meaning';
@@ -53,6 +59,7 @@ const keepTitle = (): void => {
   const t = [...document.querySelectorAll<HTMLElement>('.modal .mhead b')].at(-1);
   if (t) t.dataset.case = 'keep';
 };
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 /** On mobile data, as far as the browser can tell (Safari cannot: the confirm asks him to be on Wi-Fi). */
 const onMobileData = (): boolean => {
   const c = (navigator as unknown as { connection?: { type?: string; saveData?: boolean } }).connection;
@@ -246,6 +253,13 @@ export function offlinePanel(): Panel & { refresh(): void } {
       toast(`You are on mobile data: ${m.label} is about ${sizeText(m.mb)}. Join Wi-Fi, then press Get again.`, 'warn');
       return;
     }
+    // Not when the space this phone gives Ghosty cannot hold it: said before anything is asked or downloaded.
+    const room = await noRoom(m);
+    if (room) {
+      clear(out, room);
+      toast(room, 'warn');
+      return;
+    }
     // Asked in Ghosty's own sheet, as every other question here (the browser's confirm() is a system alert headed by
     // the site's address on an iPhone).
     const resume = readLog()?.model === m.id;
@@ -270,13 +284,16 @@ export function offlinePanel(): Panel & { refresh(): void } {
   /** A download that did not finish: where it stopped, and how to carry on (never by itself). */
   const getting = h('div.note.obgetting');
   const hold = h('div.note.obhold');
+  /** What this phone really holds (counted in the cache at opening), what went missing, and whether it is kept for good. */
+  const keep = h('div.note.obkeep');
+  let kept: Awaited<ReturnType<typeof keptHere>> = null;
   let limits: GpuLimits | null = null;
   function carryOnLine(): string {
     const log = readLog();
     if (!log || offlineBrain.get().busy === 'download') return '';
     const m = offlineModels().find((x) => x.id === log.model);
     if (!m) return '';
-    const at = log.of > 0 ? ` at piece ${log.piece} of ${log.of}` : '';
+    const at = log.of > 0 ? ` at piece ${log.piece} of ${log.of}${log.parts && log.parts > 1 && log.part ? `, part ${log.part} of ${log.parts}` : ''}` : '';
     // (a picker brain not in use has its CONTINUE; the brain in use, or a trained week, carries on with DOWNLOAD)
     const how = PICKER.some((x) => x.id === m.id) && slotOf(m) !== slotOf(currentModel()) ? 'Tap CONTINUE' : 'Press DOWNLOAD';
     return wasClosedWhileGetting() ? `Ghosty was closed while getting ${m.label}${at}. ${how} to carry on from there.` : `Getting ${m.label} stopped${at}. ${how} to carry on from there.`;
@@ -317,14 +334,37 @@ export function offlinePanel(): Panel & { refresh(): void } {
           btns.length ? h('div.keyrow', ...btns) : null,
         );
       }),
+      keep,
       hold,
     );
+    paintKeep();
     fell.textContent = s.fellBack ?? '';
     fell.hidden = !fell.textContent;
     getting.textContent = carryOnLine();
     getting.hidden = !getting.textContent;
     hold.textContent = ok ? holdLine(limits, s.held ?? {}) : '';
     hold.hidden = !hold.textContent;
+  }
+
+  /**
+   * The storage lines: the pieces on this phone per brain, any brain that lost pieces since its download finished (by
+   * name), whether the phone keeps Ghosty's storage for good, and, on an iPhone, that Safari and the Home Screen app each
+   * keep their own.
+   */
+  function paintKeep(): void {
+    if (!ok || !kept) {
+      clear(keep);
+      keep.hidden = true;
+      return;
+    }
+    const lines: string[] = [];
+    if (kept.cacheless) lines.push('This browser gives Ghosty no Cache storage, so a brain cannot be kept here: it would download every time.');
+    else lines.push(onPhoneLine(kept.kept), ...kept.gone);
+    if (kept.persisted === true) lines.push('Kept for good: yes. The phone will not clear Ghosty’s downloads to make space.');
+    else if (kept.persisted === false) lines.push('Kept for good: no. The phone may clear downloaded brains when it runs short of space.');
+    if (isIos()) lines.push(`This is ${homeScreenApp() ? 'the Home Screen app' : 'Safari'}: a brain stays where it was downloaded (Safari and the Home Screen app each keep their own), so use Ghosty from one of them.`);
+    clear(keep, ...lines.map((l, i) => h(`div${i === 0 ? '.obhere' : kept!.gone.includes(l) ? '.obgone' : ''}` as 'div', l)));
+    keep.hidden = false;
   }
 
   const paintProgress = (frac: number, text: string) => {
@@ -377,6 +417,7 @@ export function offlinePanel(): Panel & { refresh(): void } {
       if (!ok) state.textContent = `${sup.reason} Ghosty still answers from the cloud brain and your library.`;
       ready = ok && (await offlineReady());
       here = ok ? await brainsHere() : [];
+      kept = ok ? await keptHere().catch(() => null) : null;
       limits = ok ? ((await gpuLimits())?.limits ?? null) : null;
       paint();
     })();
