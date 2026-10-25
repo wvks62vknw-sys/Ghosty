@@ -526,7 +526,8 @@ folder that no longer exists; ignore those paths).
   routec, layout, ui, agenda, spending, speed, training, night, backup, undo, scrollfeel, markets, settings, radio,
   media, reverse, scroll (Chromium, 100 swipes). The scroll spec's swipe check now waits up to two seconds for the
   animated wheel scroll to land (at load 12 it read 0 px after 350 ms in a different place each run; clean at load 7).
-  The nav worktree is removed. Builders still running: brainkeep (8885), sections (8886), gym2 (8887), boot2 (8888).
+  PR #39 opened 05:35 UK on head 60dc3c2; a check-in at 07:05 UK merges if green. The nav worktree is removed. Builders
+  still running: brainkeep (8885), sections (8886), gym2 (8887), boot2 (8888).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
