@@ -3065,6 +3065,40 @@ html #pg-gym .gymdot i { width: 7px; height: 7px; border-radius: 4px; background
 html #pg-gym .gymdot.on i { width: 20px; background: var(--c); box-shadow: 0 0 10px rgba(var(--cr), .75); }
 html #pg-gym .gymdot.train::before { content: ''; position: absolute; left: 50%; top: 9px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 3px; background: var(--c2); box-shadow: 0 0 0 2px rgba(5,8,10,.9), 0 0 8px var(--c); animation: ironbreathe 2.4s ease-in-out infinite; }
 html #pg-gym .gympgw { font: 500 12px/14px var(--mono); letter-spacing: .04em; color: rgba(var(--cr), .6); white-space: nowrap; }
+/* the quick switcher (shell/switcher.ts): hold a tab, its tools fan out above the bar as a short arc of small
+   instruments in round faces, the one under the finger lit and named above them; the page dims behind */
+html #dock .tabcap button { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html #dock .tabcap button.held .gi .halo { opacity: 1; transform: scale(1.08); background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); }
+html #dock .tabcap button.held { color: var(--ink); }
+html #switcher { position: fixed; inset: 0; z-index: 8; pointer-events: auto; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html #switcher[hidden] { display: none; }
+html #switcher .swdim { position: absolute; inset: 0; background: radial-gradient(ellipse 120% 70% at 50% 100%, rgba(var(--cr), .1), transparent 60%), rgba(3,6,8,.72); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); opacity: 0; transition: opacity .22s ease-out; }
+html #switcher.in .swdim { opacity: 1; }
+html #switcher .swcap { position: absolute; left: 24px; right: 24px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s ease-out .05s; }
+html #switcher.in .swcap { opacity: 1; }
+html #switcher .swk { font: 600 12px/14px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: rgba(var(--cr), .8); }
+html #switcher .swt { font: 600 20px/25px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html #switcher .swh { font: 400 14px/18px var(--sf); color: var(--ink2); }
+html #switcher .switem { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px; min-height: 44px; margin: -36px 0 0 -50px; padding: 0; border-radius: 0; background: none !important; box-shadow: none !important; color: var(--ink); text-transform: none; opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.35); transition: transform .42s var(--spring) calc(var(--i) * 26ms), opacity .2s ease-out calc(var(--i) * 26ms); }
+html #switcher.in .switem { opacity: 1; transform: none; }
+html #switcher .swring { position: relative; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, rgba(var(--cr), .16), rgba(6,10,13,.92) 70%); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .4), 0 0 26px -10px rgba(var(--cr), .55), 0 12px 28px rgba(0,0,0,.55); transition: transform .3s var(--spring), box-shadow .3s; }
+html #switcher .swring > svg { width: 62px; height: 46px; }
+html #switcher .swring > :is(svg.i-ring, .insc) { position: absolute; left: 50%; top: 50%; width: 124px; height: 72px; margin: -36px 0 0 -62px; }
+html #switcher .swring > .insc { display: grid; place-items: center; }
+html #switcher .swring > .insc > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+html #switcher .swring .ctr { position: relative; text-align: center; }
+html #switcher .swring .ctr b { display: block; font: 500 16px/18px var(--mono); letter-spacing: -.3px; color: var(--ink); text-shadow: 0 0 10px rgba(var(--cr), .7); }
+html #switcher .swring .ctr .of { font-size: 10px; color: rgba(var(--cr), .7); text-shadow: none; }
+html #switcher .swring .ctr small { display: none; }
+html #switcher .swring > .segs { width: 46px; }
+html #switcher .swring > .ic { width: 26px; height: 26px; fill: none; stroke: var(--c2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html #switcher .swring > svg:is(.i-globe, .i-vf, .i-mind) { width: 60px; height: 60px; }
+html #switcher .swnm { margin-top: 6px; font: 600 11px/14px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(var(--cr), .85); white-space: nowrap; }
+html #switcher .swrd { max-width: 100%; font: 500 12px/15px var(--sf); color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #switcher .switem:is([data-status="live"], [data-status="training"]) .swring { box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), inset 0 1px 0 rgba(var(--cr), .6), 0 0 30px -6px rgba(var(--cr), .7), 0 12px 28px rgba(0,0,0,.55); }
+html #switcher .switem.on .swring { transform: scale(1.14); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 5px rgba(var(--cr), .12), 0 0 36px rgba(var(--cr), .65), 0 12px 28px rgba(0,0,0,.55); }
+html #switcher .switem.on .swnm { color: var(--ink); }
+
 /* end route C */
 
 /* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */

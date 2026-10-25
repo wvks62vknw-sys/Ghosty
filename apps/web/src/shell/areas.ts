@@ -17,6 +17,7 @@ import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
 import { CARDS, hubFacts } from './hubcards';
+import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
 import { offlineBrain } from '../offline/brain';
@@ -168,6 +169,14 @@ function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void)
 /** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
 export const HUB_MAX = 6;
 
+type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
+/** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
+function areaTools(a: Area): Tool[] {
+  const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
+  if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+  return tools;
+}
+
 function hubTab(a: Area): TabDef {
   return {
     id: hubId(a),
@@ -189,8 +198,7 @@ function hubTab(a: Area): TabDef {
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
       // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
-      const tools: [string, string, string, TabDef | null, () => void][] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
-      if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+      const tools = areaTools(a);
       const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
       const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
       clear(grid, ...cards.map((c) => c.el));
@@ -329,9 +337,68 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
     // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
     // something runs in that area right now (liveIn below).
     const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, h('i.gi', h('i.halo'), icon(a.icon), h('i.live')), h('span', a.title));
-    b.addEventListener('click', () => tap(a));
+    b.addEventListener('click', () => {
+      // the lift that ends a long press is not a tap
+      if (held) return void (held = false);
+      sw.close();
+      tap(a);
+    });
+    b.addEventListener('pointerdown', (e) => holdTab(e, a, b));
     cap.append(b);
   }
+  // ---- the quick switcher (shell/switcher.ts): hold a tab, its tools fan out above the bar; slide onto one and let go
+  const sw = buildSwitcher();
+  // under the tab bar (the held tab stays lit above the dimmed page), over everything else
+  dock.before(sw.el);
+  let hold = 0;
+  let held = false;
+  let at = { x: 0, y: 0, id: -1, t: 0 };
+  const holdTab = (e: PointerEvent, a: Area, b: HTMLElement) => {
+    if (e.button > 0) return;
+    held = false;
+    clearTimeout(hold);
+    sw.close();
+    at = { x: e.clientX, y: e.clientY, id: e.pointerId, t: e.timeStamp };
+    hold = window.setTimeout(() => {
+      hold = 0;
+      held = true;
+      sw.open(b, a.title, switchItems(a));
+    }, HOLD_MS);
+  };
+  addEventListener('pointermove', (e) => {
+    if (e.pointerId !== at.id) return;
+    // a finger that wanders off before the hold is not a long press
+    if (hold && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 14) {
+      clearTimeout(hold);
+      hold = 0;
+    }
+    if (held) sw.hover(e.clientX, e.clientY);
+  });
+  addEventListener('pointerup', (e) => {
+    if (e.pointerId !== at.id) return;
+    clearTimeout(hold);
+    hold = 0;
+    at.id = -1;
+    // lifted sooner than the hold by the finger's own clock (a busy phone can run the timer late): a tap after all
+    if (held && e.timeStamp - at.t < HOLD_MS) {
+      held = false;
+      sw.close();
+      return;
+    }
+    if (held) sw.release(e.clientX, e.clientY);
+    // (the click that follows, when the lift is on the tab itself, clears `held`)
+    if (held) setTimeout(() => (held = false), 0);
+  });
+  addEventListener('pointercancel', (e) => {
+    if (e.pointerId !== at.id) return;
+    clearTimeout(hold);
+    hold = 0;
+    at.id = -1;
+    held = false;
+    sw.close();
+  });
+  // (a long press is never the phone's own menu)
+  cap.addEventListener('contextmenu', (e) => e.preventDefault());
   const you = h('button.you', { type: 'button', dataset: { area: 'me' }, title: 'Me', 'aria-label': 'Me: memory, settings and system' }, h('span.av'));
   you.addEventListener('click', () => {
     if (press === -1) return void (press = 0);
@@ -385,6 +452,27 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   setInterval(() => !document.hidden && paintLive(), 1500);
   paint();
   return paint;
+}
+
+/** An area's tools for the switcher's arc: the lit ones (live or training now) first, then in the hub's order. */
+function switchItems(a: Area): SwitchItem[] {
+  const list = areaTools(a).map(([id, name, glyph, t, tap]) => {
+    const c = CARDS[id];
+    const status = t?.status?.() ?? c?.status() ?? 'READY';
+    const r = (t?.readouts ?? c?.readouts)?.()[0];
+    let drawn: Element | null = null;
+    try {
+      drawn = (t?.instrument ?? c?.instrument)?.() ?? null;
+    } catch {
+      drawn = null;
+    }
+    const line = c ? (typeof c.title === 'function' ? c.title() : c.title) : name;
+    // a bare number says what it counts ("19,489 passages", "0 levels"); words and units read as they are
+    const reading = !r ? '' : r.value == null ? r.none ?? 'Not yet' : r.unit ? `${r.value} ${r.unit}` : /^[\d,.]+$/.test(r.value) ? `${r.value} ${r.label.toLowerCase()}` : r.value;
+    return { id, name, glyph, status, instrument: drawn, reading, line, open: tap };
+  });
+  const lit = (x: SwitchItem) => x.status === 'LIVE' || x.status === 'TRAINING';
+  return [...list.filter(lit), ...list.filter((x) => !lit(x))];
 }
 
 /**
