@@ -140,6 +140,32 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
     dot.className = `conn ${s.connected === false ? 'off' : s.connected ? 'on' : ''}`;
     dot.title = s.connected === false ? 'Brain unreachable' : 'Brain connected';
   });
+  // The keyboard: iPhone Safari covers the bottom of the screen with it but leaves the page as tall as before (only
+  // the visual viewport shrinks). While it is up the app, a sheet and the deck fit the part still visible (body.kb,
+  // --vvh / --vvt in styles.css), so the ask bar and the field being typed in sit just above it and every page still
+  // scrolls to its end; the tab bar steps aside meanwhile. A pinch-zoom shrinks the viewport too: that is not a keyboard.
+  const vv = window.visualViewport;
+  if (vv) {
+    const rootEl = document.documentElement;
+    const fit = () => {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      const kb = typing && vv.scale < 1.05 && innerHeight - vv.height > 120;
+      document.body.classList.toggle('kb', kb);
+      if (kb) {
+        rootEl.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
+        rootEl.style.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`);
+      } else if (rootEl.style.getPropertyValue('--vvh')) {
+        rootEl.style.removeProperty('--vvh');
+        rootEl.style.removeProperty('--vvt');
+        if (scrollY) scrollTo(0, 0); // Safari can leave the page pushed up once the keyboard has gone
+      }
+    };
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    addEventListener('focusin', fit);
+    addEventListener('focusout', () => setTimeout(fit, 0));
+  }
   const tick = () => {
     const d = new Date();
     clock.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
