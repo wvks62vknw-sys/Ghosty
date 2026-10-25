@@ -343,6 +343,21 @@ folder that no longer exists; ignore those paths).
   focus for up to two minutes after one tap and reports the picker's value and the toasts if it did not take. Not run
   against the old interface here (the machine was at load 10–15 with four builders); the mechanism is in the code.
   The Library pass builder was told the exact change so its worktree merges cleanly.
+- 25 Oct 01:25 UK: merged after review: THE SCROLL AUDIT (13 commits, 10 fixes; merge 5a13d68, clean). Kernel line:
+  `scrollfeel` added to the CI spec loop in check.yml (`[scroll]`; 66 specs). Leftovers the builder ranked: long toasts
+  (`.toast.more`, 7 s in the thumb zone) take swipes; the 133 px fixed header on Agenda, Workshop and Memory does not
+  scroll; the Brief's headline chips run 33 px past the card ("Business" cut); the parallax (`--dx/--dy`) shifts where a
+  page ends by up to 27 px; coming back to the Library lands 20 px off; `-webkit-mask-image` on the page scrollers may
+  affect Safari's momentum. Only the phone can prove: momentum, rubber-banding, the real keyboard (the check uses a
+  stand-in visualViewport), the real Home Screen insets, whether toasts swallow swipes on iOS, that the keyboard fit does
+  not double-shift with Safari's own scroll-into-view; the WebKit runs of scroll.spec and safari.spec are CI's.
+- 25 Oct 01:20 UK: CI's smoke on PR #36's current head 61ce7db went red on a different single spec: Route C's Today
+  card (the run crossed midnight UK: the agenda spec's two "Dentist" events, made for an hour ahead at 00:05 UK, were
+  still ahead when Route C ran at 01:00 UK, so its own "Call Mum", seven minutes out, was third and off the two-row
+  card; on a run that ends before midnight the Dentists have passed by then, which is why 232 passed). Fixes: the Route
+  C check now reads the brain's agenda and requires the card's two rows, their order and its count to match the soonest
+  of what is left today, with Call Mum in that list; the agenda spec deletes its Dentist event at the end of each run
+  (leave the preview as found). The library spec passed on this run by timing luck; its picker fix (above) stands.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
