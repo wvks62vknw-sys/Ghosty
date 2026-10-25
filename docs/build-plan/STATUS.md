@@ -55,7 +55,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
 - Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
 - Merged at 03:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
-- Upgrade passes running since 03:30 UK: Reverse and Radio (each measures first, then fixes the top ten).
+- Merged at 05:50 UK: the Radio pass (10 fixes: the BBC and Global stations play, lock-screen controls, honest failures by name, one-tap stop, last played, favourites UNDO, plain station lines, 44 pt, offline said).
+- Upgrade pass running since 03:30 UK: Reverse.
 - Merged at 04:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
 - Telegram's pass: dropped at your word.
 
@@ -74,7 +75,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 
 - Done: 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
-- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: ten merged, four to go: Reverse, Radio, Agenda, System), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
+- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: eleven merged, three to go: Reverse (running), Agenda, System), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
 - Waiting on you: 21/29 the self-edit trial's results, 23 the phone's arrival, 37 (a)–(l) the taps only you can do, the voice blind check.
 
 ## 6. My own ideas (PLAN section 6) and where each stands

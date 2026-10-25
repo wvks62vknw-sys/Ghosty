@@ -474,6 +474,17 @@ folder that no longer exists; ignore those paths).
   games, the voice. Builders now: Reverse (8883), Radio (8884), brainkeep (8885), sections (8886, Sonnet), gym2 (8887).
   Boot 2 waits for the first of these to report. The allowance is the constraint (84 % all models): no further
   builders this week beyond boot 2 unless one of these finishes early.
+- 25 Oct 05:50 UK: merged after review: the RADIO pass (6 commits, 10 fixes; merge 812c8af, clean). Kernel line: `radio`
+  in the CI spec loop (70 specs; `[radio]`). The three lines the builder asked for in other files were made here: the
+  top-bar chip (shell/layout.ts: Connecting / didn't play / paused), the Plan hub's radio card (hubcards.ts: paused →
+  READY, "<name> · paused"), the chat's play_radio toast (commands/builtin.ts: honest words pointing at Radio).
+  Leftovers the builder ranked: play from chat or voice on the iPhone needs the audio element unlocked on the first tap
+  (only a real iPhone can prove it); ducking while Ghosty speaks does nothing on iOS (fixed volume; the voice pass's
+  area); programme or track names need a brain route; the BBC streams are HLS (native on iPhone; desktop Chrome may
+  refuse); noisy directory names remain; no sleep timer, no favourite reordering, no station artwork (the CSP's img-src,
+  and nothing sent somewhere new); only the de1 directory mirror (a fallback mirror needs `'de2.api.radio-browser.info',
+  'fi1.api.radio-browser.info',` in FEED_HOSTS, index.ts). Verification on the merged tree: web check, tsc, the full edge
+  suite (tools/media.ts changed), then radio, media, hubcards, routec, layout, ui on a fresh preview.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
