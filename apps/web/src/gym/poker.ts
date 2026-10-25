@@ -445,7 +445,7 @@ class PokerLearner implements Learner {
     const v0 = gameValue(this.cfr.t, s);
     return {
       mastery: masteryOf(e, spec.limit),
-      detail: `${spec.name}: a perfect opponent who knew his strategy would win ${(e * 1000).toFixed(1)} thousandths of a chip a hand from him (exact best response; 0 is unbeatable). This level needs ${(spec.limit * 1000).toFixed(0)} or less. Against himself the first player makes ${v0.toFixed(3)} a hand${this.variant === 'kuhn' ? ' (the true value is −1/18 = −0.056)' : ''}.`,
+      detail: `${spec.name}: a perfect opponent who knew my strategy would win ${(e * 1000).toFixed(1)} thousandths of a chip a hand from me (exact best response; 0 is unbeatable). This level needs ${(spec.limit * 1000).toFixed(0)} or less. Against myself the first player makes ${v0.toFixed(3)} a hand${this.variant === 'kuhn' ? ' (the true value is −1/18 = −0.056)' : ''}.`,
     };
   }
   save(): PokerSave {

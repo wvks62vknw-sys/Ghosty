@@ -2840,6 +2840,16 @@ html #pg-gym .gymcard .gymrate[hidden], html #pg-gym .gymcard .gymnext[hidden] {
 .gymidea .gymrateline, .gymidea .gymedgeline { font: 500 16px/1.35 var(--sf); color: var(--fg); }
 .gymidea small { font: 400 13px/1.4 var(--sf); color: var(--l2); }
 .gymidea small.thrown { color: #ff9f0a; }
+.gymsays { display: flex; flex-direction: column; gap: 4px; margin: 0 0 12px; overflow-wrap: anywhere; } /* Connect 4: what he says about your games (gym2) */
+.gymsays[hidden] { display: none; }
+.gymsays b { font: 500 17px/1.38 var(--sf); letter-spacing: -.01em; color: var(--fg); }
+.gymsays small { font: 400 14px/1.4 var(--sf); color: var(--l2); }
+.gymreview { display: flex; flex-direction: column; gap: 7px; max-width: 360px; margin: 12px auto 0; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); overflow-wrap: anywhere; }
+.gymreview > b { font: 600 13px/1.3 var(--sf); color: var(--l2); }
+.gymreview > div { display: flex; gap: 10px; font: 400 15px/1.4 var(--sf); color: var(--fg); }
+.gymreview > div span { flex: none; min-width: 62px; color: var(--l2); font-variant-numeric: tabular-nums; }
+.gymreview > div i { font-style: normal; min-width: 0; }
+html #pg-gym .gymcard .gymsay { display: block; margin-top: 5px; font: 500 12px/15px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* Connect 4: his line about your games */
 
 /* ---------- Settings, System and Links (ui/listmode.ts): grouped glass rows — a neutral icon tile, the name,
    its line under it, a chevron ---------- */

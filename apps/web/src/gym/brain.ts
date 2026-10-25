@@ -447,7 +447,7 @@ class BrainLearner implements Learner {
     const sp = specFor(this.level);
     return {
       mastery: g.ok / g.of,
-      detail: `${dataWords(sp)}: his pick (${shapeWords(this.best)}) scores ${Math.round(g.acc * 100)}% on held-out test data vs the baseline's ${Math.round(g.base * 100)}%; it matches the baseline on ${g.ok} of ${g.of} datasets${sp.energy ? (g.within ? ', within the energy budget' : ' — but it is over the energy budget') : ''}.`,
+      detail: `${dataWords(sp)}: my pick (${shapeWords(this.best)}) scores ${Math.round(g.acc * 100)}% on held-out test data vs the baseline's ${Math.round(g.base * 100)}%; it matches the baseline on ${g.ok} of ${g.of} datasets${sp.energy ? (g.within ? ', within the energy budget' : ' — but it is over the energy budget') : ''}.`,
     };
   }
   save(): BrainSave {

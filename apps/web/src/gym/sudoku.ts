@@ -397,7 +397,7 @@ class SudokuLearner implements Learner {
     const base = bases.reduce((a, b) => a + b, 0);
     return {
       mastery: ok / set.length,
-      detail: `${cluesFor(this.level)}-clue sudokus: he solves ${ok} of ${set.length} in no more steps than plain backtracking and within ${budget} (each checked against its one solution); ${Math.round(steps / set.length)} steps on average against ${Math.round(base / set.length)} for plain backtracking.`,
+      detail: `${cluesFor(this.level)}-clue sudokus: I solve ${ok} of ${set.length} in no more steps than plain backtracking and within ${budget} (each checked against its one solution); ${Math.round(steps / set.length)} steps on average against ${Math.round(base / set.length)} for plain backtracking.`,
     };
   }
   save(): SudokuSave {

@@ -323,7 +323,7 @@ class TrustLearner implements Learner {
     const nm = nameOf(c);
     return {
       mastery: Math.max(0, Math.min(1, (his - best.defect) / (best.score - best.defect))),
-      detail: `His champion (${nm}${tftLike(c) ? ', Tit-for-Tat-like' : ''}) scores ${his.toFixed(2)} a round against the held-out panel of classics; the best memory-1 strategy (${best.name}, found by trying all 32) scores ${best.score.toFixed(2)}, ALWAYS DEFECT ${best.defect.toFixed(2)} (0%).`,
+      detail: `My champion (${nm}${tftLike(c) ? ', Tit-for-Tat-like' : ''}) scores ${his.toFixed(2)} a round against the held-out panel of classics; the best memory-1 strategy (${best.name}, found by trying all 32) scores ${best.score.toFixed(2)}, ALWAYS DEFECT ${best.defect.toFixed(2)} (0%).`,
     };
   }
   save(): TrustSave {

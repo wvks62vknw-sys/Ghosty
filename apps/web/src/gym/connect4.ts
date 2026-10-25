@@ -12,7 +12,9 @@
  */
 import { COLS, canPlay, copyPos, LINES, legal, newPos, play, type Pos, ROWS, turn, undo, wonAt, winsNow, winnerOf, boardText, frameOf, posFromBoard } from './c4board';
 import { C4_SETS } from './c4sets';
-import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { fullMove, type Instinct } from './c4play';
+import { Ponder, study, type Study } from './c4study';
+import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict, type Versus } from './core';
 import { CONNECT4 } from './meta';
 
 export * from './c4board';
@@ -239,13 +241,14 @@ function expand(w: Float32Array, p: Pos, node: Node, temp: number): number {
  * proportion to how promising the network finds it and how well it has done in the search so far;
  * new positions are judged by the network instead of random play-outs. `sims` simulations.
  */
-export function mcts(w: Float32Array, p0: Pos, sims: number, allowed?: number[]): number {
+export function mcts(w: Float32Array, p0: Pos, sims: number, allowed?: number[], until = Infinity, visits?: number[]): number {
   const p = copyPos(p0);
   const moves = allowed ?? legal(p);
   for (const c of moves) if (winsNow(p, c)) return c;
   const root: Node = { n: 0, q: 0, kids: null, prior: null, done: null };
   expand(w, p, root, TEMP);
-  for (let i = 0; i < sims; i++) {
+  // (with a deadline: simulations until then, at least `sims`; the clock is read every 32)
+  for (let i = 0; i < sims || (until < Infinity && ((i & 31) !== 0 || performance.now() < until)); i++) {
     const path: [Node, number][] = [];
     let node = root;
     while (node.kids && node.done == null) {
@@ -279,7 +282,8 @@ export function mcts(w: Float32Array, p0: Pos, sims: number, allowed?: number[])
   let most = -1;
   for (const c of ORDER) {
     const k = root.kids?.[c];
-    if (k && k.n > most) (most = k.n), (best = c);
+    if (visits) visits[c] = k?.n ?? 0;
+    if (k && k.n > most && moves.includes(c)) (most = k.n), (best = c);
   }
   return best;
 }
@@ -341,7 +345,18 @@ interface C4Save {
   w: Float32Array;
   games: number;
   rand: number;
+  /**
+   * What he has proved about positions (c4play.ts `bookKey` → each column's result for the side to move, 'W' 'D' 'L'
+   * or '.', and a final '!' for a position the owner taught him by beating him from it). Grows from the owner's
+   * games and while the GYM is idle.
+   */
+  book?: Record<string, string>;
 }
+
+/** His instinct for c4play.ts: the network's tree search. */
+export const instinctOf = (w: Float32Array): Instinct => ({
+  mcts: (p, allowed, until, sims, visits) => mcts(w, p, sims, allowed, until || Infinity, visits),
+});
 
 const SIMS = 64;
 
@@ -350,6 +365,7 @@ class C4Learner implements Learner {
   games: number;
   rand: number;
   r: () => number;
+  book: Record<string, string>;
   constructor(
     private level: number,
     seed: number,
@@ -361,6 +377,7 @@ class C4Learner implements Learner {
     this.games = s?.games ?? 0;
     this.rand = s?.rand ?? seed;
     this.r = rng(this.rand);
+    this.book = { ...(s?.book ?? {}) };
   }
   train(n: number) {
     const { w, r } = this;
@@ -402,11 +419,11 @@ class C4Learner implements Learner {
     const base = searchAlone(this.level);
     return {
       mastery: Math.max(0, Math.min(1, (good - base) / Math.max(1, set.length - base))),
-      detail: `His move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver); the same search with an untrained network gets ${base} (0%), the solver ${set.length} (100%).`,
+      detail: `My move keeps the best result in ${good} of ${set.length} test positions with ${empties(this.level)} empty squares (checked by an exact solver); the same search with an untrained network gets ${base} (0%), the solver ${set.length} (100%).`,
     };
   }
   save(): C4Save {
-    return { game: 'connect4', w: this.w, games: this.games, rand: this.rand };
+    return { game: 'connect4', w: this.w, games: this.games, rand: this.rand, book: this.book };
   }
   view(): Frame {
     // How much each square is worth to the first player, summed over the lines through it.
@@ -429,7 +446,7 @@ class C4Learner implements Learner {
   }
   watch(seed: number): Frame[] {
     const p = newPos();
-    const frames: Frame[] = [frameOf(p, 'He plays himself.')];
+    const frames: Frame[] = [frameOf(p, 'I play myself.')];
     const r = rng(seed);
     play(p, Math.floor(r() * COLS));
     frames.push(frameOf(p, 'X opens.'));
@@ -444,6 +461,34 @@ class C4Learner implements Learner {
   move(state: number[]) {
     const p = posFromBoard(state);
     return winnerOf(p) ? -1 : mcts(this.w, p, SIMS * 2);
+  }
+  /** The owner beat him: the solver goes through the game, the network learns what it proved, the turning point becomes a lesson. */
+  study(moves: number[], ghosty: number, nodes = 3_000_000): Study {
+    const w = this.w;
+    return study(moves, ghosty, this.book, (q, z) => {
+      const v = evaluate(w, q);
+      learn(w, q, 0.01 * (z - v) * (1 - v * v));
+    }, nodes);
+  }
+  private pondering: Ponder | null = null;
+  ponder(games: number[][], nodes: number): string | null {
+    this.pondering ??= new Ponder(this.book);
+    return this.pondering.step(games, nodes);
+  }
+  known() {
+    const vals = Object.values(this.book);
+    return { book: vals.length, lessons: vals.filter((v) => v.endsWith('!')).length };
+  }
+  versus(state: number[], limit: { ms?: number; nodes?: number } = {}): Versus {
+    if (winnerOf(posFromBoard(state))) return { move: -1, reason: '' };
+    const book = this.book;
+    return fullMove(state, instinctOf(this.w), {
+      ...limit,
+      book: (k) => {
+        const v = book[k];
+        return v ? { values: v.slice(0, COLS), lesson: v.endsWith('!') } : null;
+      },
+    });
   }
 }
 

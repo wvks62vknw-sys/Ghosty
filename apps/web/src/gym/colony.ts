@@ -192,7 +192,7 @@ class ColonyLearner implements Learner {
     const his = run(this.R, startOf(this.R), this.greedy);
     return {
       mastery: best > 0 ? Math.max(0, his.total) / best : his.total >= best ? 1 : 0,
-      detail: `${this.R.days}-day run, upkeep ${this.R.upkeep}: his colony scores ${his.total} (lived ${his.lived} days); the best possible is ${best} (dynamic programming over every state).`,
+      detail: `${this.R.days}-day run, upkeep ${this.R.upkeep}: my colony scores ${his.total} (lived ${his.lived} days); the best possible is ${best} (dynamic programming over every state).`,
     };
   }
   save(): ColonySave {

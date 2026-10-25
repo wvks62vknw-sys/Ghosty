@@ -233,7 +233,7 @@ class MazeLearner implements Learner {
   measure() {
     let good = 0;
     for (const s of this.starts) if (greedyCost(this.m, this.q, s).cost === this.opt[s]) good++;
-    return { mastery: good / this.starts.length, detail: `His route is the cheapest from ${good} of ${this.starts.length} start cells (checked by breadth-first search).` };
+    return { mastery: good / this.starts.length, detail: `My route is the cheapest from ${good} of ${this.starts.length} start cells (checked by breadth-first search).` };
   }
   save(): MazeSave {
     return { game: 'maze', level: this.level, seed: this.seed, q: this.q, episodes: this.episodes };
