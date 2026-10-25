@@ -468,6 +468,12 @@ folder that no longer exists; ignore those paths).
   (`.claude/worktrees/sections`, preview 8886, Sonnet) putting `ui/sections.ts` on Settings, Library, Memory, School,
   Workshop, Threats and Links. Boot 2 (every cold open, cooler) starts when Reverse or Radio reports. Agenda and System
   passes wait for the allowance reset.
+- 25 Oct 05:40 UK: THE OWNER WROTE AGAIN (OWNER-ISSUES 52): the GYM "improved massively" (he beats Connect 4 every time in
+  five minutes); the Harold-and-the-Machine relationship as the feel. Started GYM2 (`.claude/worktrees/gym2`, created by
+  the builder itself from the branch head, preview 8887, Opus): PLAY HIM at full strength always, lessons from his
+  games, the voice. Builders now: Reverse (8883), Radio (8884), brainkeep (8885), sections (8886, Sonnet), gym2 (8887).
+  Boot 2 waits for the first of these to report. The allowance is the constraint (84 % all models): no further
+  builders this week beyond boot 2 unless one of these finishes early.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
