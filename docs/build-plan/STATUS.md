@@ -54,13 +54,13 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
 - Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
 - Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
-- Upgrade passes running: Settings (since 23:58 UK), Markets (since 02:30 UK); each measures first, then fixes the top ten.
+- Merged at 03:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
 - Being built since 02:20 UK: the navigation (the GYM in pages of six, the long-press switcher on the tab bar, sections on System and Agenda so a long screen shows one part at a time, personal hub lines).
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-1. Upgrade passes still to run: Reverse, Radio, Agenda, System (Threats, God's Eye, Lens, voice, Workshop, Brief, Memory and the Library are merged; Settings and Markets are being built; Agenda and System get their sections from the navigation build first).
+1. Upgrade passes still to run: Reverse, Radio, Agenda, System (Threats, God's Eye, Lens, voice, Workshop, Brief, Memory, the Library, Settings and Markets are merged; Agenda and System get their sections from the navigation build first).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
 3. UK threats near home: Environment Agency flood warnings, Met Office warnings, a street-crime tile (the Threats pass's biggest leftover).
 4. ASK gets PICK PHOTO (ask about a picture with no camera); the red primary buttons (a design call for you); READ's picked photo shown whole.
@@ -73,7 +73,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 ## 5. Left from your list (OWNER-ISSUES.md, by number)
 
 - Done: 1 design, 2 GYM WATCH, 3 library/study, 5 websites and apps, 6 courses, 7 design a home, 9 the library for the offline brain, 12 not talking like an AI, 13/14 raised from a baby with locks, 15 UI/HUD (route C everywhere), 16/18/25/26 the design picks, 17 exam papers (private, never trained on), 19 small chunks, 20 autonomous mode, 22 whole weekly usage, 27 MIND, 28 one look, 31/34 merging, 32 no app icons, 33 the deck, 35 PR #32, 36 everything at once.
-- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: seven merged, Settings and the Library running, five to go), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
+- Partly done: 4 speed (the stopwatch exists; the offenders wait for a day of real numbers), 8 "every little thing looked over" (the upgrade passes: ten merged, four to go: Reverse, Radio, Agenda, System), 10 the techniques (STaR and distillation are in the weekly run; league play; GRPO-style reinforcement waits for free GPU budget).
 - Waiting on you: 21/29 the self-edit trial's results, 23 the phone's arrival, 37 (a)–(l) the taps only you can do, the voice blind check.
 
 ## 6. My own ideas (PLAN section 6) and where each stands
