@@ -179,6 +179,15 @@ const text = (page, sel) => page.locator(`#pg-settings .offbrain ${sel}`).first(
 const gpu = (page) => page.evaluate(() => window.__gpu);
 const engine = (page) => page.evaluate(() => ({ loads: window.__ghostyOfflineEngine.loads, unloads: window.__ghostyOfflineEngine.unloads }));
 const sheet = (page) => page.locator('.modal .confirm.sure');
+/** GET and CONTINUE ask in Ghosty's own sheet (never the browser's confirm()): its words, then KEEP IT or its yes. */
+const answerSheet = async (page, yes) => {
+  const shown = await sheet(page).waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false);
+  if (!shown) return '';
+  const words = (await sheet(page).locator('p.note').textContent().catch(() => '')) ?? '';
+  await sheet(page).locator(yes ? 'button.sureyes' : 'button:not(.sureyes)').first().click();
+  await page.waitForTimeout(200);
+  return words;
+};
 const cached = (page, model) =>
   page.evaluate(async (model) => {
     const out = {};
@@ -229,19 +238,19 @@ await page.evaluate(() => (window.__net = 'cellular'));
 await press(page, ID.two, 'GET');
 await page.waitForTimeout(400);
 check(/You are on mobile data: Qwen3\.5 2B is about 1\.1 GB\. Join Wi-Fi/.test(await toasts(page)), `mobile data refused: "${await toasts(page)}"`);
-check(dialogs.length === 0, 'no question on mobile data');
+check(dialogs.length === 0 && !(await sheet(page).isVisible().catch(() => false)), 'no question on mobile data');
 await page.evaluate(() => (window.__net = 'wifi'));
-answer = 'dismiss';
 const hitsBefore = net.hits.length;
 await press(page, ID.two, 'GET');
-await page.waitForTimeout(400);
-check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it \(it needs about 2\.2 GB of memory when running; if your phone cannot give it that, Qwen3 0\.6B takes over\)\.$/.test(dialogs[0] ?? ''), `the question: "${dialogs[0]}"`);
+const asked2B = await answerSheet(page, false);
+check(/^Download Qwen3\.5 2B\? About 1\.1 GB, once, so only on Wi-Fi\. It is only stored: nothing is loaded until you tap USE, which first checks this phone can run it \(it needs about 2\.2 GB of memory when running; if your phone cannot give it that, Qwen3 0\.6B takes over\)\.$/.test(asked2B), `the question, in Ghosty's own sheet: "${asked2B}"`);
+check(dialogs.length === 0, `GET asks in Ghosty's sheet, not the browser's: ${JSON.stringify(dialogs)}`);
 check((await stored(page)).model === ID.small && net.hits.length === hitsBefore, 'saying no changes nothing and fetches nothing');
-answer = 'accept';
 const unloadsBefore = (await engine(page)).unloads;
 await page.evaluate(() => ((window.__logs = []), (window.__lines = [])));
 net.most = 0;
 await press(page, ID.two, 'GET');
+await answerSheet(page, true);
 check(await tagIs(page, ID.two, 'ON THIS PHONE', 20000), 'the 2B is not ON THIS PHONE after GET');
 const got = await cached(page, ID.two);
 check(got['webllm/model'].length === SHARDS + 2 && got['webllm/config'].length === 1 && got['webllm/wasm'].length === 1, `the 2B's pieces in WebLLM's own stores and keys: ${JSON.stringify(got)}`);
@@ -259,13 +268,14 @@ check(!(await engine(page)).loads.includes(ID.two), 'GET loaded nothing');
 check((await engine(page)).unloads > unloadsBefore, 'the brain in use left memory before the download');
 list = await rows(page);
 check(list[0]?.tag === 'IN USE' && list[2]?.buttons.join() === 'USE,REMOVE', `the 0.6B stays in use, the 2B waits for USE: ${JSON.stringify(list.map((r) => [r.tag, r.buttons]))}`);
-check(/Qwen3\.5 2B is on this phone: tap USE to load it/.test(await toasts(page)), `GET's toast: "${await toasts(page)}"`);
+check(/Qwen3\.5 2B is on this phone: tap Use to load it/.test(await toasts(page)), `GET's toast (the button named as it shows, not lower-cased): "${await toasts(page)}"`);
 check(based.length === 0, `GET does not move the training: ${JSON.stringify(based)}`);
 await shot(page, 'got-2b');
 
 // ---- 3. iOS closes Ghosty half-way through GET (the 4B): the next open says where it stopped; CONTINUE carries on
 net.hang.add('params_shard_2.bin');
 await press(page, ID.four, 'GET');
+await answerSheet(page, true);
 await page.waitForFunction(() => window.__logs.at(-1)?.piece === 6 && window.__logs.at(-1)?.model === 'Qwen3.5-4B-q4f16_1-MLC', null, { timeout: 10000 }).catch(() => problems.push('GET of the 4B never reached piece 6'));
 await page.waitForTimeout(200);
 await killAndReopen(page);
@@ -280,8 +290,9 @@ net.hang.clear();
 dialogs = [];
 const before4 = net.hits.length;
 await press(page, ID.four, 'CONTINUE');
+const askedOn = await answerSheet(page, true);
 check(await tagIs(page, ID.four, 'ON THIS PHONE', 20000), 'CONTINUE did not finish the 4B');
-check(/^Carry on getting Qwen3\.5 4B\? The pieces already on this phone are kept/.test(dialogs[0] ?? ''), `CONTINUE asks first: "${dialogs[0]}"`);
+check(/^Carry on getting Qwen3\.5 4B\? The pieces already on this phone are kept/.test(askedOn) && dialogs.length === 0, `CONTINUE asks first, in Ghosty's sheet: "${askedOn}" ${JSON.stringify(dialogs)}`);
 const fetched = net.hits.slice(before4).map((u) => u.split('/').pop());
 check(JSON.stringify(fetched) === JSON.stringify(['params_shard_2.bin', 'params_shard_3.bin']), `CONTINUE fetched only what was missing: ${JSON.stringify(fetched)}`);
 check((await text(page, '.obgetting')) === '' && (await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.getting'))) === null, 'the carry-on line and the log are gone');
@@ -291,6 +302,9 @@ check((await gpu(page)).devices === 0, 'still no graphics device');
 await press(page, ID.two, 'USE');
 await sheet(page).waitFor({ state: 'visible', timeout: 4000 }).catch(() => problems.push('USE of the 2B gave no warning'));
 const warn = (await page.locator('.modal').last().textContent().catch(() => '')) ?? '';
+// the title names the brain as it is written (sentence case had made it "Load qwen3.5 2b?")
+const warnTitle = await page.locator('.modal .mhead b').last().evaluate((b) => ({ t: b.textContent, tt: getComputedStyle(b).textTransform })).catch(() => null);
+check(warnTitle?.t === 'Load Qwen3.5 2B?' && warnTitle.tt === 'none', `the warning's title as shown: ${JSON.stringify(warnTitle)}`);
 check(/Load Qwen3\.5 2B\?/.test(warn) && /Loading the 2B takes about 2\.2 GB of graphics memory\. If the phone cannot hold it, Ghosty will close and come back on the 0\.6B\./.test(warn), `the warning: "${warn}"`);
 await page.screenshot({ path: `${out}/bigbrain-${browserName}-warning.png` });
 await sheet(page).locator('button', { hasText: 'KEEP IT' }).click();
@@ -303,6 +317,9 @@ check((await engine(page)).loads.at(-1) === ID.two, `USE loaded the 2B: ${JSON.s
 check((await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.loading'))) === null, 'the load record is cleared after the load');
 let st = await stored(page);
 check(st.held?.['qwen3.5-2b']?.s === 'loaded', `the 2B is remembered as having run here: ${JSON.stringify(st.held)}`);
+// (its row says so too: what happened here, not the guess from the memory figure)
+await page.waitForFunction((id) => /runs on this phone$/.test(document.querySelector(`#pg-settings .offbrain .obbrain[data-model="${id}"] .obfacts`)?.textContent ?? ''), ID.two, { timeout: 5000 }).catch(() => undefined);
+check((await row(page, ID.two))?.facts === '1.1 GB download · about 2.2 GB of memory when running · runs on this phone', `the 2B's line once it has run here: "${(await row(page, ID.two))?.facts}"`);
 await page.waitForTimeout(500);
 check(based.join() === 'qwen3.5-2b', `the weekly training was told the new base: ${JSON.stringify(based)}`);
 check(/Ready on this phone: Qwen3\.5 2B \(1\.1 GB\)/.test(await text(page, '.obstate')), 'the state line names the 2B');
@@ -345,6 +362,7 @@ check((await page.evaluate(() => localStorage.getItem('ghosty.offlinebrain.loadi
 const closedLine = await text(page, '.obfell');
 check(/^Loading Qwen3\.5 4B closed Ghosty \(\d+ \w+, \d\d:\d\d\): the phone could not hold it\. Ghosty is back on Qwen3 0\.6B\. Qwen3\.5 4B's download stays on this phone, and USE asks before it tries again\.$/.test(closedLine), `the words after the close: "${closedLine}"`);
 const r4 = await row(page, ID.four);
+check(r4?.facts === '2.4 GB download · about 3.8 GB of memory when running · did not fit this phone', `the 4B's line after it closed Ghosty does not say it fits: "${r4?.facts}"`);
 check(r4?.tag === 'ON THIS PHONE' && r4?.buttons.join() === 'USE,REMOVE' && /^closed Ghosty on this phone \(\d+ \w+\): USE asks before trying again$/.test(r4?.closed ?? ''), `the 4B after the close: ${JSON.stringify(r4)}`);
 check((await engine(page)).loads.length === 0, `nothing loaded on opening: ${JSON.stringify((await engine(page)).loads)}`);
 check(/closed Ghosty loading Qwen3\.5 4B/.test(await text(page, '.obhold')) && /has run Qwen3\.5 2B/.test(await text(page, '.obhold')), `the can-hold line remembers: "${await text(page, '.obhold')}"`);
@@ -427,6 +445,7 @@ sp.on('request', (r) => {
 sp.on('dialog', (d) => void d.accept());
 check(/^What this phone can hold: its graphics chip takes pieces of up to 128 MB, enough for the 0\.6B, 0\.8B\./.test(await text(sp, '.obhold')), `the can-hold line with Safari's limits: "${await text(sp, '.obhold')}"`);
 await press(sp, ID.two, 'GET');
+await answerSheet(sp, true);
 check(await tagIs(sp, ID.two, 'ON THIS PHONE', 20000), 'GET of the 2B did not finish (Safari limits)');
 await press(sp, ID.two, 'USE');
 await sp.waitForTimeout(800);
@@ -435,8 +454,10 @@ check(refused === 'Qwen3.5 2B has one piece of 243 MB that must sit in the graph
 check(!(await sheet(sp).isVisible().catch(() => false)), 'no warning for a brain that cannot run');
 check((await engine(sp)).loads.length === 0 && (await stored(sp)).model === ID.small, 'nothing loaded, the 0.6B still in use');
 check((await stored(sp)).held?.['qwen3.5-2b']?.s === 'refused' && /could not start Qwen3\.5 2B/.test(await text(sp, '.obhold')), `remembered as could not start: "${await text(sp, '.obhold')}"`);
+check((await row(sp, ID.two))?.facts === '1.1 GB download · about 2.2 GB of memory when running · cannot run on this phone', `the refused 2B's line: "${(await row(sp, ID.two))?.facts}"`);
 await shot(sp, 'refused-2b');
 await press(sp, ID.mid, 'GET');
+await answerSheet(sp, true);
 check(await tagIs(sp, ID.mid, 'ON THIS PHONE', 20000), 'GET of the 0.8B did not finish');
 await press(sp, ID.mid, 'USE');
 const midWarn = await sheet(sp).waitFor({ state: 'visible', timeout: 4000 }).then(() => sp.locator('.modal').last().textContent(), () => '');

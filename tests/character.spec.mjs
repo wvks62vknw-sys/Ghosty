@@ -55,8 +55,15 @@ check(d.dry?.label === 'HOW DRY' && d.dry.steps.join('|') === 'PLAIN|DRY|VERY DR
 check(d.brief?.label === 'HOW BRIEF' && d.brief.steps.join('|') === 'FULLER|SHORT|TERSE' && d.brief.on === 'SHORT', `brief dial: ${JSON.stringify(d.brief)}`);
 check(d.warm?.label === 'HOW WARM' && d.warm.steps.join('|') === 'COOL|WARM|WARMER' && d.warm.on === 'WARM', `warm dial: ${JSON.stringify(d.warm)}`);
 check(/^CHARACTER: sharp, dry, quietly confident, warm underneath\. Plain British English\./.test((await told()) ?? ''), `default words: ${await told()}`);
+// how he sounds, in plain words, first; the exact words he is given one tap away (not a wall of prompt text)
+const nowLine = () => page.locator('#pg-settings .character .charnow').textContent().catch(() => '');
+check((await nowLine()) === 'Now: dry, warm, short answers, as he comes. The app, the voice, Telegram and notifications all sound like this.', `the plain line: "${await nowLine()}"`);
+check(!(await page.locator('#pg-settings .character .charsays').isVisible()) && (await page.locator('#pg-settings .character details.charwords summary').textContent()) === 'The exact words Ghosty is given', 'the exact words are folded behind "The exact words Ghosty is given"');
 await page.locator('#pg-settings .character').scrollIntoViewIfNeeded();
 await page.screenshot({ path: `${out}/character-${engine}-default.png` });
+// every dial step and DEFAULT is a 44 pt target (the owner's rule; they were 40)
+const small = await page.$$eval('#pg-settings .character button', (bs) => bs.filter((b) => b.offsetParent).map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent, w: Math.round(r.width), h: Math.round(r.height) }; }).filter((x) => x.h < 44 || x.w < 44));
+check(small.length === 0, `CHARACTER targets under 44 pt: ${JSON.stringify(small)}`);
 
 // ---- 2. VERY DRY and TERSE: saved by the brain, the words follow
 await page.locator('#pg-settings .character [data-dial="dry"] button', { hasText: 'VERY DRY' }).click();
@@ -65,6 +72,7 @@ await page.locator('#pg-settings .character [data-dial="brief"] button', { hasTe
 await page.waitForFunction(() => /As short as it can be/.test(document.querySelector('#pg-settings .character .charsays')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => undefined);
 check(JSON.stringify(saves.at(-1)) === JSON.stringify({ dry: 2, brief: 2, warm: 1 }), `last save: ${JSON.stringify(saves.at(-1))}`);
 check(/very dry, deadpan/.test((await told()) ?? '') && /As short as it can be/.test((await told()) ?? ''), `tuned words: ${await told()}`);
+check(/^Now: very dry, warm, terse answers\. /.test((await nowLine()) ?? ''), `the plain line after VERY DRY and TERSE: "${await nowLine()}"`);
 
 // ---- 3. after a reload, with this phone's copy gone, the brain's copy rules
 await page.evaluate(() => {

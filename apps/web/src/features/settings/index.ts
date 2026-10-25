@@ -9,6 +9,7 @@ import { button, panel, row, toast } from '../../ui/components';
 import { page } from '../../ui/page';
 import { characterPanel } from './character';
 import { offlinePanel } from './offline';
+import { switchRow } from './switch';
 import { voiceControls } from './voice';
 
 export const settingsTab: TabDef = {
@@ -40,7 +41,6 @@ export const settingsTab: TabDef = {
     about.body.append(
       row('GHOSTY', 'Your own assistant: his brain runs in your Cloudflare account, his face on this phone.', null, { wrap: true }),
       row('VERSION', `${BUILD.sha.slice(0, 7)}${BUILD.at ? ` · built ${fmt.ago(Date.parse(BUILD.at))}` : ''}`),
-      row('THEMES', `${Object.values(THEMES).map((t) => t.label).join(' and ')}: colours of the one design`, null, { wrap: true }),
     );
     const privacy = panel('PRIVACY', { grow: false, status: 'Yours only' });
     privacy.body.append(
@@ -49,8 +49,9 @@ export const settingsTab: TabDef = {
     );
     const help = panel('HELP', { grow: false, status: 'Tips' });
     help.body.append(
-      row('ASK', 'Type or tap the microphone on the reactor screen. Tap the reactor to wake it.', null, { wrap: true }),
-      row('SEARCH', 'The magnifier at the top finds any screen, place or look, or asks Ghosty.', null, { wrap: true }),
+      // (nothing on screen is a reactor any more, and there is one look: OWNER-ISSUES 45, BRIEF-ONE-LOOK)
+      row('ASK', 'Tap Ask at the bottom, then type, or tap the microphone and talk.', null, { wrap: true }),
+      row('SEARCH', 'The magnifier at the top finds any screen or place, or asks Ghosty.', null, { wrap: true }),
       row('EVERY SCREEN', 'Tap your initial at the top right, then Every screen. A long press opens it at once.', null, { wrap: true }),
       row('REMEMBER', 'Say "remember …" and he keeps it; Memory shows what he knows and lets you remove it.', null, { wrap: true }),
     );
@@ -98,32 +99,43 @@ export const settingsTab: TabDef = {
 
     // Whose voice and which (the brain's natural British voices, or this phone's), a SAMPLE, and barge-in: voice.ts.
     const vc = voiceControls();
-    const sfx = h('select', { 'aria-label': 'Interface sounds' }, h('option', { value: 'on' }, 'Interface sounds: on'), h('option', { value: 'off' }, 'Interface sounds: off'));
-    sfx.value = settings.get().sounds ? 'on' : 'off';
-    sfx.addEventListener('change', () => settings.set({ sounds: sfx.value === 'on' }));
-    const motion = h('select', { 'aria-label': 'Tilt to look around' }, h('option', { value: 'off' }, 'Tilt phone to look around: off'), h('option', { value: 'on' }, 'Tilt phone to look around: on'));
-    motion.value = settings.get().motion ? 'on' : 'off';
-    motion.addEventListener('change', () => settings.set({ motion: motion.value === 'on' }));
-    const homeIn = h('input', { placeholder: `Home city (now ${home().name})`, 'aria-label': 'Home city' });
+    // On/off settings are switches (switch.ts), not drop-downs.
+    const sfx = switchRow('Interface sounds', 'Soft clicks when you tap', () => settings.get().sounds, (on) => settings.set({ sounds: on }));
+    const motion = switchRow('Tilt phone to look around', 'The 3D scenes follow the phone', () => settings.get().motion, (on) => settings.set({ motion: on }));
+    // HOME: where home is now, said in full (it was only in the box's placeholder, cut off at "Home city (now Lonc").
+    const homeNow = h('div.note.homenow');
+    const paintHome = () => (homeNow.textContent = `Home: ${home().name}`);
+    const homeIn = h('input', { placeholder: 'Another city', 'aria-label': 'Home city' });
     const setHome = button('SET HOME', () => {
-      const c = World.find(homeIn.value);
-      if (!c) return toast('City not in my atlas', 'warn');
+      const q = homeIn.value.trim();
+      if (!q) return toast('Type a city first, or tap Use GPS', 'warn');
+      const c = World.find(q);
+      if (!c) return toast(`I don’t know “${q.slice(0, 40)}” yet: try the nearest big town`, 'warn');
       settings.set({ home: { name: c.name, lat: c.lat, lon: c.lon } });
       toast(`Home set to ${c.name}`, 'ok');
       homeIn.value = '';
     });
-    const gps = button('USE GPS', () =>
-      navigator.geolocation?.getCurrentPosition(
+    // USE GPS says what it is doing, and why it could not (it did nothing at all where the browser has no location).
+    const gps = button('USE GPS', (b) => {
+      if (!navigator.geolocation) return toast('This browser can’t share where you are: type the city instead', 'warn');
+      b.disabled = true;
+      toast('Finding where you are…');
+      navigator.geolocation.getCurrentPosition(
         (p) => {
+          b.disabled = false;
           const n = World.near(p.coords.latitude, p.coords.longitude, 5e4);
           settings.set({ home: { name: n && n.km < 80 ? n.city.name : 'Current position', lat: p.coords.latitude, lon: p.coords.longitude } });
           toast(`Home set to ${settings.get().home!.name}`, 'ok');
         },
-        () => toast('Location unavailable', 'warn'),
+        (e) => {
+          b.disabled = false;
+          toast(e.code === 1 ? 'Ghosty isn’t allowed your location: on the iPhone, Settings › Privacy & Security › Location Services › Safari Websites. Or type the city.' : 'Couldn’t find where you are just now: try again outside, or type the city.', 'warn');
+        },
         { timeout: 8000 },
-      ),
-    );
-    vp.body.append(...vc.nodes, sfx, motion, h('div.lab', 'HOME'), h('div.keyrow', homeIn, setHome, gps));
+      );
+    });
+    paintHome();
+    vp.body.append(...vc.nodes, sfx.el, motion.el, h('div.lab', 'HOME'), homeNow, h('div.keyrow', homeIn, setHome, gps));
 
     paintHead();
     // The profile row follows every change, whether a swatch was tapped here, the name or units were edited,
@@ -131,6 +143,9 @@ export const settingsTab: TabDef = {
     settings.subscribe((s, p) => {
       if (s.theme !== p.theme || s.name !== p.name || s.units !== p.units) paintHead();
       if (s.theme !== p.theme) paintThemes();
+      if (s.home !== p.home) paintHome();
+      if (s.sounds !== p.sounds) sfx.paint();
+      if (s.motion !== p.motion) motion.paint();
     });
     return {
       enter() {

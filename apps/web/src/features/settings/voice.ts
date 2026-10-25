@@ -12,6 +12,7 @@ import { listVoices, naturalPhoneVoice, speakSample, stopSpeaking, voiceNow } fr
 import { clear, h } from '../../core/dom';
 import { settings, ui } from '../../state/app';
 import { button } from '../../ui/components';
+import { switchRow } from './switch';
 
 const IOS_TIP = 'Tip: an iPhone has free natural British voices — Settings › Accessibility › Spoken Content › Voices › English › Voice (UK): download Serena (Premium) or Daniel (Enhanced). Then pick it here.';
 
@@ -32,7 +33,8 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     if (voiceNow.name) now.textContent = `Just spoke: ${voiceNow.name}${voiceNow.engine === 'phone' ? ' (on this phone)' : " (Ghosty's own)"}${voiceNow.note ? ` — ${voiceNow.note.replace(/ \([^)]*\)/g, '')}` : ''}`;
   }, 'on');
   sample.setAttribute('aria-label', 'Hear a sample of this voice');
-  const barge = h('select', { 'aria-label': 'Interrupt by talking' }, h('option', { value: 'on' }, 'Talk over Ghosty to interrupt: on'), h('option', { value: 'off' }, 'Talk over Ghosty to interrupt: off (tap to interrupt)'));
+  // (a switch, not a drop-down: switch.ts)
+  const barge = switchRow('Talk over Ghosty to interrupt', 'When off, a tap stops him instead', () => settings.get().bargeIn, (on) => settings.set({ bargeIn: on }));
 
   const fill = () => {
     const s = settings.get();
@@ -59,7 +61,7 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
           : natural
             ? 'Free, unlimited and works offline.'
             : `Free, unlimited and works offline. ${IOS_TIP}`;
-    barge.value = s.bargeIn ? 'on' : 'off';
+    barge.paint();
   };
   engine.addEventListener('change', () => {
     settings.set({ voiceEngine: engine.value === 'phone' ? 'phone' : engine.value === 'ghosty' ? 'ghosty' : 'auto' });
@@ -69,7 +71,6 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     if (settings.get().voiceEngine === 'ghosty') settings.set({ brainVoice: voice.value });
     else settings.set({ voice: voice.value });
   });
-  barge.addEventListener('change', () => settings.set({ bargeIn: barge.value === 'on' }));
   fill();
   // The phone's voices arrive a moment after the page loads (and when one is downloaded).
   setTimeout(fill, 1000);
@@ -86,5 +87,5 @@ export function voiceControls(): { nodes: HTMLElement[]; refresh(): void } {
     /* no speech synthesis */
   }
   speechCaps.subscribe(fill);
-  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, now, barge], refresh: fill };
+  return { nodes: [h('div.lab', 'VOICE'), engine, h('div.keyrow.wrapit', voice, sample), note, now, barge.el], refresh: fill };
 }
