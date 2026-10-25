@@ -26,6 +26,8 @@ const CSS = `
 #pg-reverse .rw.link.on { box-shadow: inset 2px 0 0 var(--a); background: linear-gradient(90deg, rgba(var(--ar), .14), transparent); }
 `;
 
+/** The brain's words as a sentence: a capital at the start, a full stop at the end. */
+const sentence = (t: string) => (t ? `${t.charAt(0).toUpperCase()}${t.slice(1)}${/[.!?)]$/.test(t) ? '' : '.'}` : '');
 /** 14:08, on this phone's clock. */
 const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 /** A button shown with its words as written ("GitHub", not the sentence case that would make it "Github"). */
@@ -118,7 +120,7 @@ export const reverseTab: TabDef = {
     // What START did, kept on screen under it (a toast is gone before it is read); the brain's words, as a sentence.
     const say = h('div.note.revsay', { role: 'status', 'aria-live': 'polite', hidden: true });
     const tell = (msg: string) => {
-      say.textContent = msg ? `${msg.charAt(0).toUpperCase()}${msg.slice(1)}${/[.!?)]$/.test(msg) ? '' : '.'}` : '';
+      say.textContent = sentence(msg);
       say.hidden = !msg;
     };
     // Reverse runs on GitHub: without it nothing can start, so that is said before he types, with the way to fix it.
@@ -215,7 +217,25 @@ export const reverseTab: TabDef = {
             renderMd(job.report),
           );
         } else if (job.status === 'failed') {
-          viewer.body.append(h('div.note', job.error ?? 'failed'), job.runUrl ? button('SEE THE RUN ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : '');
+          // what happened, in words, and the same thing asked again with one tap
+          const why = h('div.note.revsay', { role: 'status', hidden: true });
+          const again = button('TRY AGAIN', async (b) => {
+            b.disabled = true;
+            try {
+              const r = await brain.reverseStart({ target: job.target, kind: job.kind, question: job.question });
+              await refresh();
+              void show(r.job.id, true);
+            } catch (e) {
+              why.textContent = sentence(String((e as Error).message ?? e));
+              why.hidden = false;
+              b.disabled = false;
+            }
+          }, 'on');
+          viewer.body.append(
+            h('div.empty.revwait', h('b', 'This one didn’t finish'), h('span', sentence(job.error ?? 'GitHub did not say why'))),
+            h('div.row.wrap', again, job.runUrl ? asWritten(button('SEE WHAT HAPPENED ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'See what happened on GitHub ↗') : null),
+            why,
+          );
         } else {
           // A run takes 3–8 minutes; the brain looks again after six and sends what it found (tools/reverse.ts).
           const late = Date.now() - job.at > 8 * 60_000;
