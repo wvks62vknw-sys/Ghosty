@@ -626,6 +626,12 @@ folder that no longer exists; ignore those paths).
   his next open: the GYM at full strength, the boot on every cold open, the little tabs on seven more screens, the four
   specs in CI's loop. Next pull request: #41, from whatever lands next (the Agenda and System passes wait for the
   allowance reset; the owner's answers wait: the four Offline Brain steps, the Harold/Machine picks, the usage numbers).
+- 25 Oct 12:20 UK: two leftovers of the sections rollout done by hand (no builder): System's report-card link opens the
+  Offline Brain panel (features/system/reportcard.ts: goToPanel instead of go), and the deck's twenty miniatures made
+  again on a fresh preview (tests/deckshots.spec.mjs; all twenty change bytes, the sectioned screens change looks).
+  Seen in the new pictures, for the Settings pass: the Appearance section holds one row (THEME), so the screen opens
+  nearly empty under its pills — Appearance and You may belong together, or You should come first (a design pick for
+  the owner, or the pass). Pushed as PR #41.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

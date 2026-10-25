@@ -10,7 +10,7 @@ import { clear, h, svgEl } from '../../core/dom';
 import { catScores, CATS, overall, summarise, trend, voiceLine, type Run } from '../../offline/bench';
 import { offlineBrain, offlineReady, offlineSupport } from '../../offline/brain';
 import { modelKey, needsCheck, reportCard, runReportCard, stopThinking, thinking } from '../../offline/harder';
-import { go } from '../../shell/tabs';
+import { goToPanel } from '../../ui/sections';
 import { bar, button, panel, toast, type Panel } from '../../ui/components';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -57,7 +57,8 @@ export function reportCardPanel(): Panel & { refresh(): void } {
   const quick = button('QUICK CHECK', () => start(false));
   quick.title = 'All 20 questions, as in chat only (a few minutes)';
   const stop = button('STOP', () => stopThinking(), 'warn');
-  const toSettings = button('DOWNLOAD IT IN SETTINGS', () => go('settings'));
+  // (the panel itself, not the Settings screen on whatever pill was last chosen: it sits under Voice & home)
+  const toSettings = button('DOWNLOAD IT IN SETTINGS', () => goToPanel('settings', 'OFFLINE BRAIN'));
 
   /** One run: a row per kind (as in chat · with THINK HARDER · time), then the verdict. */
   const paintRun = (r: Run, live: boolean) => {
