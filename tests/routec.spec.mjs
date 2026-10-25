@@ -189,7 +189,8 @@ for (const vp of [PHONE, { width: 390, height: 844 }]) {
     card: !!document.querySelector('.convo .msg.latest:not(.me) .rcwho') && getComputedStyle(document.querySelector('.convo .msg.latest:not(.me)')).borderRadius,
     acts: document.querySelectorAll('.convo .msg.latest .rcacts button').length,
     composer: [...document.querySelectorAll('#cbar > *')].filter((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden').map((e) => e.className || e.id),
-    day: document.querySelector('.convo .daysep')?.textContent,
+    // the newest day's line (an earlier spec on a shared preview may have left older days above it: the memory spec's four evenings)
+    day: [...document.querySelectorAll('.convo .daysep')].at(-1)?.textContent,
   }));
   if (chatState.title !== 'Chat') problems.push(`[${W} chat] the title reads "${chatState.title}"`);
   if (chatState.tabbar !== 'none') problems.push(`[${W} chat] the tab bar shows over the chat`);

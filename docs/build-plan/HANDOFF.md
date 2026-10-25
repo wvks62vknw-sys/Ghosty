@@ -606,6 +606,11 @@ folder that no longer exists; ignore those paths).
   merged tree before any push that brings in GYM or selftrain sources.
 - 25 Oct 08:40 UK: CI time per spec on run 243 (GitHub's runner): nav 248 s and routec 357 s against the loop's 480 s
   kill; the sections roughly double nav here (200 → 383 s), so nav and routec get 720 s in the loop (`[sections]`).
+- 25 Oct 09:16 UK: the final tree verified before the push: brain suite 1,204 of 1,204; on a fresh preview ui, layout,
+  library, memory, school, gym, settings, nav (400 s here: about 500 on the runner, so the 720 s limit is needed), boot,
+  hubcards, undo and spending clean; routec failed once on "the day line reads Yesterday 09:42": it read the FIRST day
+  line, and the memory spec seeds four turns dated one to four days back (08:42 UTC yesterday = 09:42 BST); CI's order
+  clears them before routec, a local chain did not. It now reads the newest day line; clean with those turns seeded.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
