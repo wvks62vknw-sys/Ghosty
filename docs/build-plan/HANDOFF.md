@@ -383,6 +383,11 @@ folder that no longer exists; ignore those paths).
   `ui/sections.ts` (pills under a long screen's title, one section shown at a time, remembered) applied to SYSTEM and
   AGENDA only (Settings and the Library have builders in them), personal hub subtitles from real state. Told: a new
   `tests/nav.spec.mjs` needs the CI-loop line from the orchestrator; no edge files; the orchestrator merges.
+- 25 Oct 02:30 UK: started the MARKETS upgrade pass on the branch head 5df68ba (`.claude/worktrees/markets`, branch
+  `worktree-markets`, preview 8882, scratch `scratchpad/markets/`). There was no markets spec: the builder writes
+  `tests/markets.spec.mjs`, and the CI-loop line is the orchestrator's. Told: Agenda and System are the navigation
+  builder's, Settings and the Library their passes'; prices only from free keyless sources, marked with their time;
+  never buy/sell advice. Builders now: Settings (8879), Library (8880), navigation (8881), Markets (8882).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
