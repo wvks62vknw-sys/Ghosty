@@ -3686,6 +3686,8 @@ html #pg-markets .pn.coins .rw .k { display: grid; place-items: center; width: 4
 html #pg-markets .pn.coins .rw .v { font: 600 16px/20px var(--sf); color: var(--ink); }
 html #pg-markets .pn.coins .rw .v .mono { font: 400 14px/18px var(--sf); color: var(--ink2); font-variant-numeric: tabular-nums; }
 html #pg-markets .rw svg.spark { width: 64px; height: 26px; }
+html #pg-markets .rw svg.spark[data-tone="up"] polyline { stroke: #30d158; }
+html #pg-markets .rw svg.spark[data-tone="dn"] polyline { stroke: #ff6961; }
 html #pg-markets .rw .n { justify-self: end; min-width: 68px; padding: 5px 8px; border-radius: 8px; text-align: center; font: 600 14px/1 var(--sf); font-variant-numeric: tabular-nums; }
 html #pg-markets .rw .n.up { color: #30d158; background: rgba(48,209,88,.13); }
 html #pg-markets .rw .n.dn { color: #ff6961; background: rgba(255,105,97,.13); }

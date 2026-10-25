@@ -1,7 +1,7 @@
 /** MARKETS tab: crypto, gold and silver, and currencies. */
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
-import { coins, CURRENCY_SYMBOL, FX, fxAmount, money, ounce, pct, rate, rates, type Coin } from '../../data/markets';
+import { coins, CURRENCY_SYMBOL, FX, fxAmount, lastDay, money, ounce, pct, rate, rates, type Coin } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
 import { settings } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
@@ -19,7 +19,7 @@ export const marketsTab: TabDef = {
   },
   mount(root) {
     const P = page(root, { tag: 'MARKET FIELD', sub: 'crypto · gold · currencies', rightLabel: 'GOLD / FX', leftLabel: 'CRYPTO', stack: true });
-    const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO', cls: 'coins' });
+    const cp = panel('CRYPTO, LAST 24 HOURS', { footer: true, status: 'COINGECKO', cls: 'coins' });
     const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const cg = pager(cp, 52, (c: Coin) => {
       // (in the currency the prices came in: a switch the source has not answered yet never relabels them)
@@ -30,7 +30,10 @@ export const marketsTab: TabDef = {
           void send(`Give me a quick take on ${c.name}. It is ${sym()}${c.price} and moved ${c.change.toFixed(1)}% in 24 hours.`);
         },
       });
-      r.insertBefore(spark(c.spark), r.lastChild);
+      // the trace is the same last 24 hours as the change beside it, in its colour (it was the week, coloured by the week)
+      const tr = spark(lastDay(c));
+      tr.dataset.tone = c.change >= 0 ? 'up' : 'dn';
+      r.insertBefore(tr, r.lastChild);
       return r;
     }, () => coins.status);
     cp.foot!.prepend(button('£ / $ / €', () => {
