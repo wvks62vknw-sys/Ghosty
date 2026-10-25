@@ -20,6 +20,20 @@ export const queryTerms = (q: string): string[] =>
   [...new Set((q.toLowerCase().match(/[a-z0-9][a-z0-9_+#.-]*[a-z0-9+#]|[a-z0-9]/g) ?? []).filter((t) => t.length > 2 && !STOP.has(t)))].slice(0, 12);
 
 /**
+ * Everyday words that are not STOP words but say little about WHAT is asked ("what happens during mitosis",
+ * "explain osmosis", "nothing here"): a passage that shares only these with a question is not a match for it. The
+ * brain's search (library/store.ts) and the phone's (wordMatcher) both judge a match by the other words.
+ */
+export const COMMON = new Set(
+  'here there nothing something anything everything thing things way ways work works working worked time times part parts kind kinds sort sorts lot lots good bad better best new old big small first last long great little own right left high low same different next early late young important few able back after before over under again still even much many well each every between during without within through upon around while because since until though although happen happens happened happening mean means meant say says said know knows knew think thinks thought look looks looking find finds found take takes took made makes making come comes came goes going went done doing see seen saw year years day days people person man men woman women world life place point number case fact question questions answer answers example examples problem problems group groups area areas end start starts help helps used uses called name named often usually always never sometimes really actually simply explain explains explained describe described difference differences definition define defined stop stops keep keeps let put set top main whole real true false yes ago today tomorrow yesterday thanks thank hello'.split(' '),
+);
+/** The question's words that say what it is about: those not in COMMON (all of them when every one is). */
+export function rareTerms(terms: string[]): string[] {
+  const rare = terms.filter((t) => !COMMON.has(t));
+  return rare.length ? rare : terms;
+}
+
+/**
  * How much of the question's wording a text has: `words` is the share of its search words found (by their first
  * few letters, so "plants" finds "plant"), and `matched` says whether that is enough to count as a keyword match
  * (half the words for a question of three words or more, every word otherwise). Null: the question has no
@@ -28,11 +42,14 @@ export const queryTerms = (q: string): string[] =>
 export function wordMatcher(q: string): ((low: string) => { words: number; matched: boolean }) | null {
   const terms = queryTerms(q);
   if (!terms.length) return null;
-  const stems = terms.map((t) => t.slice(0, Math.max(3, Math.min(t.length, 5))));
-  const need = terms.length >= 3 ? 0.5 : 0.99;
+  const stem = (t: string) => t.slice(0, Math.max(3, Math.min(t.length, 5)));
+  const stems = terms.map(stem);
+  // a match needs the words that say what is asked (half of them from three on, else all), not just everyday ones
+  const rare = rareTerms(terms).map(stem);
+  const need = rare.length >= 3 ? 0.5 : 0.99;
   return (low) => {
     const words = stems.filter((x) => low.includes(x)).length / stems.length;
-    return { words, matched: words >= need };
+    return { words, matched: rare.filter((x) => low.includes(x)).length / rare.length >= need };
   };
 }
 

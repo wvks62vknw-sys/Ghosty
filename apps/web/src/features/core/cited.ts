@@ -1,13 +1,15 @@
 /**
  * A cited answer in the chat log: its [n] markers as chips that open the source (the page, or
  * the library passage it came from), the SOURCES list under the reply, and the check line
- * ("✓ 5 of 6 claims found in the sources") with the claims no source backed marked in the reply.
+ * ("✓ 5 of 6 claims found in the sources", beside its readout: a segment per claim, the found ones lit) with the
+ * claims no source backed marked in the reply.
  */
 import type { Citation, CitedInfo } from '../../../../../packages/shared/src/protocol';
 import { citedBody, citedPieces } from '../../cited/text';
 import { h } from '../../core/dom';
 import { go } from '../../shell/tabs';
 import { button, modal, toast } from '../../ui/components';
+import { claimsInst } from '../../ui/instruments';
 
 /** A library source: the words that back the answer, and a way to the shelf. */
 function openDoc(c: Citation): void {
@@ -55,7 +57,9 @@ export function citedReply(text: string, info: CitedInfo, linked: (t: string) =>
   if (info.checks.length) {
     const ok = info.checks.filter((c) => c.status === 'supported').length;
     const all = ok === info.checks.length;
-    out.push(h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${ok ? '✓' : '✕'} ${ok} of ${info.checks.length} claim${info.checks.length === 1 ? '' : 's'} found in the sources`, all ? null : h('span', ' · the unconfirmed ones are marked')));
+    // the claims readout: one segment per claim, the ones found in the sources lit, beside the check line
+    out.push(h(`div.rcclaims.${all ? 'ok' : 'warn'}` as 'div', claimsInst(ok, info.checks.length),
+      h(`div.citecheck.${all ? 'ok' : 'warn'}` as 'div', `${ok ? '✓' : '✕'} ${ok} of ${info.checks.length} claim${info.checks.length === 1 ? '' : 's'} found in the sources`, all ? null : h('span', ' · the unconfirmed ones are marked'))));
   }
   return out;
 }

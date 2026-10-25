@@ -49,17 +49,18 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 
 ## 3. Happening right now
 
-- PR #36 is under CI with the big-brain crash fix on it (head 61ce7db): I merge it the moment it is green, and that update reaches your phone.
+- PR #36 merged at 03:08 UK on 25 Oct: the big-brain crash fix is live on your phone with the next open (with the Brief, voice, Workshop and Memory passes, the scroll audit and the boot cinematic). The next pull request, #37, carries the Iron Man look, the Library pass and the exam-paper guard; I merge it when its checks are green.
 - Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
-- Being built: the Iron Man look (instruments, hub cards, the GYM's holographic pictures, the lit tab bar, one screen per hub), finishing its checks.
-- Upgrade passes started at 23:58 UK: Settings and the Library (each measuring first, then the top ten fixes).
-- After the Iron Man look merges: the navigation build (tool screens, GYM pages of six, the long-press switcher).
+- Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
+- Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
+- Upgrade passes running: Settings (since 23:58 UK), Markets (since 02:30 UK); each measures first, then fixes the top ten.
+- Being built since 02:20 UK: the navigation (the GYM in pages of six, the long-press switcher on the tab bar, sections on System and Agenda so a long screen shows one part at a time, personal hub lines).
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
-1. Upgrade passes still to run: Reverse, Markets, Radio, Agenda, Library, Settings, System (Threats, God's Eye, Lens, voice, Workshop, Brief and Memory are merged; Settings and the Library are being built).
+1. Upgrade passes still to run: Reverse, Radio, Agenda, System (Threats, God's Eye, Lens, voice, Workshop, Brief, Memory and the Library are merged; Settings and Markets are being built; Agenda and System get their sections from the navigation build first).
 2. The five worst speed offenders, once the SPEED card has a day of real numbers from your phone.
 3. UK threats near home: Environment Agency flood warnings, Met Office warnings, a street-crime tile (the Threats pass's biggest leftover).
 4. ASK gets PICK PHOTO (ask about a picture with no camera); the red primary buttons (a design call for you); READ's picked photo shown whole.

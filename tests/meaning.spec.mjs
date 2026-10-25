@@ -95,6 +95,8 @@ await page.waitForSelector('#boot', { state: 'detached', timeout: 20000 });
 // ---- a passage that means the question without its words, saved from the LIBRARY tab (kept on the phone at once)
 await page.evaluate(() => (location.hash = 'library'));
 await page.waitForFunction(() => /PASSAGES/.test(document.querySelector('#pg-library .bigv')?.textContent ?? ''), null, { timeout: 20000 }).catch(() => problems.push('the library tab never loaded'));
+// pasted text waits behind MORE WAYS TO ADD (the tile is the one thing on show)
+if (!(await page.isVisible('#pg-library textarea[aria-label="Text to save"]'))) await page.click('#pg-library button:has-text("MORE WAYS TO ADD")');
 await page.fill('#pg-library input[aria-label="Title of the text"]', TITLE);
 await page.fill('#pg-library textarea[aria-label="Text to save"]', PHOTO);
 await page.click('#pg-library button:has-text("SAVE TEXT")');
@@ -211,7 +213,7 @@ await page.screenshot({ path: `${out}/phone-meaning-keywords.png` });
 await page.fill('#pg-library input[aria-label="Search the library"]', '');
 await page.dispatchEvent('#pg-library input[aria-label="Search the library"]', 'search');
 const idleLine = await page.evaluate(() => document.querySelector('#pg-library .pn.ask .askhow')?.textContent ?? '');
-if (!/Searched by keywords/.test(idleLine)) problems.push(`the line before a search reads "${idleLine}"`);
+if (!/Found by their words/.test(idleLine)) problems.push(`the line before a search reads "${idleLine}"`);
 
 await ctx.close();
 await browser.close();

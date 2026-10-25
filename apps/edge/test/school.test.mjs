@@ -16,7 +16,7 @@ import { sqlStorage } from '../../../tests/sqlite-storage.mjs';
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
   // (Only the files that exist: part 2's tests then fail one by one on part 1's code, rather than all at once.)
-  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/school/markwork.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts'].map(at).filter((f) => existsSync(f)),
+  entryPoints: ['../src/school/index.ts', '../src/school/papers.ts', '../src/school/state.ts', '../src/school/mark.ts', '../src/school/routes.ts', '../src/school/banks.ts', '../src/school/official.ts', '../src/school/mock.ts', '../src/school/practice.ts', '../src/school/remote.ts', '../src/schedule.ts', '../src/tools/extra.ts', '../src/library/store.ts', '../src/selftrain/factory.ts', '../src/school/reading.ts', '../src/school/markwork.ts', '../src/library/study.ts', '../../../packages/shared/src/school.ts', '../../../packages/shared/src/papers.ts'].map(at).filter((f) => existsSync(f)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -803,6 +803,21 @@ test('nothing banked or official ever reaches the library, or the owner\'s passa
   const passages = F.ownerPassages(again, 1, 999, new Set());
   assert.ok(passages.length > 0 && passages.every((p) => p.key.startsWith('d-owner#')));
   assert.ok(!JSON.stringify(passages).match(/Item \d+|Work out|prime number/), 'no bank or official question in what training reads');
+  // A past paper he adds to the Library himself (ADD, or a photo of its pages) is private too: it reads as an exam
+  // paper by its title or its opening words (packages/shared/src/papers.ts), and ownerPassages never opens it.
+  again.createDoc({ id: 'd-paper', title: 'AQA GCSE Mathematics 8300/1H June 2023 Question Paper', source: 'upload', kind: 'pdf' });
+  await again.addPassages('d-paper', [{ text: `Centre number. Candidate number. Surname. Time allowed: 1 hour 30 minutes. Answer all questions in the spaces provided. ${'Work out 3/8 of 72. '.repeat(20)}`, heading: '' }]);
+  again.finish('d-paper');
+  again.createDoc({ id: 'd-ms', title: 'scan 0412.pdf', source: 'upload', kind: 'pdf' });
+  await again.addPassages('d-ms', [{ text: `Mark Scheme. Paper 2 Higher Tier. June 2023. Total for this question: 4 marks. ${'Award M1 for a correct method. '.repeat(20)}`, heading: '' }]);
+  again.finish('d-ms');
+  again.createDoc({ id: 'd-book', title: 'Revision guide: GCSE Biology', source: 'upload', kind: 'pdf' });
+  await again.addPassages('d-book', [{ text: `Osmosis is the movement of water across a partially permeable membrane. ${'Water moves from a dilute solution to a concentrated one. '.repeat(20)}`, heading: 'Cells' }]);
+  again.finish('d-book');
+  const read = new Set(F.ownerPassages(again, 1, 999, new Set()).map((p) => p.key.split('#')[0]));
+  assert.deepEqual([...read].sort(), ['d-book', 'd-owner'], 'the paper and the mark scheme are never read; a revision guide that names GCSE once is');
+  const PAPERS = await load('packages/shared/src/papers');
+  assert.ok(PAPERS.looksLikeExamPaper('Edexcel GCSE (9-1) Physics Paper 1', '') && PAPERS.looksLikeExamPaper('', 'Candidate number ... Time allowed 1 hour') && !PAPERS.looksLikeExamPaper('Physics notes', 'the GCSE course covers forces') && !PAPERS.looksLikeExamPaper('A level playing field', 'football'));
   // Everything SCHOOL wrote is under its own keys (never KV here, never the library's tables).
   const school = [...storage.m.keys()].filter((k) => /bank|official/.test(k));
   assert.ok(school.length >= 3 && school.every((k) => k.startsWith('school:')), school.join(', '));

@@ -367,6 +367,53 @@ folder that no longer exists; ignore those paths).
   two paints, and a suggestion chip whose words follow the clock moved a centred row by one pixel, so boxes now match
   within a pixel while type and spacing still match to the letter. The 00:14 UTC check-in is superseded; a new one is
   armed about 85 minutes after this push.
+- 25 Oct 02:05 UK: merged after review: THE IRON MAN LOOK (10 commits; merge 6cd1dcd; MAP.md's one conflict was two rows
+  appended at the same place, both kept; `features/core/index.ts` and styles.css auto-merged over the scroll audit and
+  Memory). Reviewed from the after shots (hub-see, hub-learn, gym, reply): instruments and readouts, restrained, nothing
+  drawn or named as a reactor on screen (the "reactor" words left in areas.ts are old comments naming the Ask screen).
+  One nit fixed in the merge: the hub subtitle sat under the big title's descender (`.hubsub` margin −2 → 6 px). Builder's
+  honest limits: no card shows a sample (God's eye's aircraft stay "Not yet" until its feed has loaded; School's "Papers
+  sat" is "—" until the School tab has been built that session; the Lens's 4,624 is its name list's size, not live);
+  the More row could not be tested in a browser (no hub has more than six tools yet); the tool screens, the GYM's pages
+  of six and the long-press switcher from the navigation sheet are NOT built (the next build, BRIEF-NAV-BOOT's
+  navigation part). Verification on the merged tree: web check, then hubcards, routec, layout, ui, gym, deck, cited,
+  memory, boot, scrollfeel and scroll on a fresh preview, plus a screenshot of the See hub for the subtitle fix.
+- 25 Oct 02:20 UK: started THE NAVIGATION BUILD on the branch head ae5666f (`.claude/worktrees/nav`, branch `worktree-nav`,
+  preview 8881, scratch `scratchpad/nav/`): the GYM in pages of six, the long-press switcher on the tab bar, a reusable
+  `ui/sections.ts` (pills under a long screen's title, one section shown at a time, remembered) applied to SYSTEM and
+  AGENDA only (Settings and the Library have builders in them), personal hub subtitles from real state. Told: a new
+  `tests/nav.spec.mjs` needs the CI-loop line from the orchestrator; no edge files; the orchestrator merges.
+- 25 Oct 02:30 UK: started the MARKETS upgrade pass on the branch head 5df68ba (`.claude/worktrees/markets`, branch
+  `worktree-markets`, preview 8882, scratch `scratchpad/markets/`). There was no markets spec: the builder writes
+  `tests/markets.spec.mjs`, and the CI-loop line is the orchestrator's. Told: Agenda and System are the navigation
+  builder's, Settings and the Library their passes'; prices only from free keyless sources, marked with their time;
+  never buy/sell advice. Builders now: Settings (8879), Library (8880), navigation (8881), Markets (8882).
+- 25 Oct 02:55 UK: merged after review: the LIBRARY upgrade pass (11 commits, 10 fixes; merge 74d6e2f; one conflict in
+  features/library/index.ts where the builder had copied the picker fix line for line: both sides' additions kept).
+  The builder's leftover 1 was a real breach of OWNER-ISSUES 17 waiting to happen: a past paper added by hand through
+  ADD (or as photos) is an ordinary document, and `selftrain/factory.ts ownerPassages` would have read it into the
+  weekly training. Closed in the same hour: `packages/shared/src/papers.ts looksLikeExamPaper(title, openingText)`
+  (a board's name with a paper's markings, or two markings alone; conservative: a revision guide that names GCSE once
+  is not a paper) and `ownerPassages` skips such documents (`[papers]`; school.test.mjs covers it). Still to do, in the
+  next Library pass: the shelf says "kept private · never trained on" on such a document, and the GitHub export leaves
+  it out (check `library/export.ts`). Other leftovers the builder ranked: the study plan is a developer's curriculum
+  (`library/study.ts`), not his school subjects (big brain work); scanned PDFs still need the converter (the phone cannot
+  draw PDF pages); FRESH TODAY offline still says "Tap Digest now"; the three suggested searches are 40 px tall; the
+  shelf shows unlabelled numbers. Note: `rareTerms` also changes which passages the chat's automatic lookup counts as
+  relevant (stricter; the prompt and knowledge tests stayed green).
+- 25 Oct 02:40 UK: the Iron Man merge's scroll spec red was timing: the System wheel check read scrollTop 400 ms after
+  the wheel (0 px twice at load 10–13; 240 px at load 5 and in three direct traces of the same sequence); the check
+  now waits up to 3 s for the page to move. The ironbuild worktree is removed.
+- 25 Oct 02:55 UK: the learn spec's GOOD check assumed its card was the only one due; after the mark spec on the same
+  preview (MARK MY WORK keeps its misses in LEARN) it read "GOOD did not finish the card". It now counts only its own
+  card (the plant question) from the phone's mirror; proved by running mark then learn on one fresh preview. CI's loop
+  runs learn before mark, so CI never saw it; the Library builder and the Library merge's chain did.
+- 25 Oct 03:08 UK: PR #36 MERGED into main (merge 491e3fa; every job green on e9cd5b8, mergeable clean): the big-brain
+  crash fix is live on the owner's phone with the next open, with training resilience, the Brief, voice, Workshop and
+  Memory passes, the scroll audit, the boot cinematic and the library picker fix. He is asked for: GET and USE the 0.8B,
+  USE the 2B, the "What this phone can hold" line. Then main was merged back into the branch and the next batch pushed as
+  the NEXT pull request (#37): the Iron Man look, the Library pass, the exam-paper guard (`[papers]`), the scroll and
+  learn spec fixes, the docs. Still running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

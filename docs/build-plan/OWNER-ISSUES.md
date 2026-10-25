@@ -207,7 +207,7 @@ Add to it any time; tick items off only when he agrees they are fixed.
     SYSTEM → KEYS as the training token's read-only twin when that slot exists.
     (n) BRIEF in the morning: YOUR DAY, the sentence, READ IT TO ME (he reads it in his voice with no model needed) and
     BRIEF ME on the first screen; with home and work saved, the drive time is there each morning.
-    (o) After the update that carries the crash fix: SETTINGS → OFFLINE BRAIN → WHICH BRAIN: GET and USE Qwen3.5 0.8B,
+    (o) LIVE since 03:08 UK on 25 Oct (PR #36 merged). After the update: SETTINGS → OFFLINE BRAIN → WHICH BRAIN: GET and USE Qwen3.5 0.8B,
     then USE Qwen3.5 2B, and send the "What this phone can hold" line. GET never loads a brain any more; USE and TEST do,
     after a check and a warning, and a load that closes Ghosty is remembered.
 

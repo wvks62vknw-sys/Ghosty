@@ -2,7 +2,8 @@
  * The areas: ASK · SEE · MAKE · LEARN · PLAN, and ME.
  * Every tab belongs to one area. The tab bar shows the five; ME is the avatar at the top right,
  * which opens the "Me" sheet (Memory, Settings, System, Links, every screen). An area opens on
- * its hub: a large title, a hero "continue" card, its tools and the recent screens.
+ * its hub: a large title and its tools as instrument cards (shell/hubcards.ts), on one screen with nothing to scroll
+ * (six at most; any more in a More row); the recent screens are in Search.
  * Every tab keeps its own id and hash (#gym still opens the GYM); hubs are tabs too (#area-learn).
  */
 import { addPaletteDecor, togglePalette, type Command } from '../commands/registry';
@@ -14,6 +15,11 @@ import { settings, ui } from '../state/app';
 import { THEMES } from '../state/theme';
 import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
+import { ensureDefs } from '../ui/instruments';
+import { CARDS, hubFacts } from './hubcards';
+import { gymControl, gymState } from '../features/gym/index';
+import { schoolState } from '../features/school/index';
+import { offlineBrain } from '../offline/brain';
 
 export interface Area {
   id: string;
@@ -93,27 +99,74 @@ export const toolName = (t: TabDef) => ALIAS[t.id] ?? niceCase(t.title);
 /** A tool's glyph: a bare thin line, no tile behind it (the id is kept so callers need not change). */
 export const squircle = (_id: string, glyph: string, cls = 'sq') => h(`span.${cls}` as 'span', icon(glyph));
 
-/** A tool's tile: its glyph square, its name and what it is for. */
-function tile(t: TabDef, cls = 'hubtile', note = ''): HTMLElement {
-  return h(`button.${cls}` as 'button', { type: 'button', dataset: { id: t.id }, onclick: () => navTo(t.id, 'push') },
-    squircle(t.id, t.icon),
-    cls === 'hubhero' ? h('small.hubkick', note || 'Continue') : null,
-    h('b', toolName(t)),
-    cls !== 'recent' ? h('small', t.blurb ?? '') : null,
+const MIC = '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>';
+/** ASK's third tool: talk by voice — the reactor screen, listening. */
+const voiceTap = () => {
+  navTo('core', 'pop');
+  setTimeout(() => document.querySelector<HTMLButtonElement>('#mic')?.click(), 350);
+};
+
+/**
+ * A tool's card on its hub (BRIEF-IRON-BUILD step 2; the navigation sheet the owner said yes to, mockups/nav): its
+ * instrument, the kicker (bare glyph, name, live dot and status word), one line on what it does for him and two
+ * readouts, from shell/hubcards.ts (or the tab's own TabDef.instrument / readouts / status). One button: a tap
+ * anywhere opens the tool. `paint()` redraws it from the state in place, so a tap is never lost to a repaint.
+ */
+function toolCard(id: string, name: string, glyph: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
+  const c = CARDS[id];
+  const word = h('em.st');
+  const ins = h('span.ins');
+  const title = h('span.t');
+  const reads = h('span.reads');
+  const why = h('span.why');
+  const el = h('button.hubtile.inst', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap },
+    ins,
+    h('span.kick', icon(glyph), h('span.nm', name), word),
+    title, reads, why,
   );
+  let insKey: Element | null = null;
+  const paint = () => {
+    if (!c) return;
+    const st = t?.status?.() ?? c.status();
+    el.dataset.status = st.toLowerCase();
+    clear(word, st === 'LIVE' || st === 'TRAINING' ? h('i.dot.pulse') : h('i.dot'), st);
+    title.textContent = typeof c.title === 'function' ? c.title() : c.title;
+    const drawn = (t?.instrument ?? c.instrument)?.() ?? null;
+    if (!drawn) ins.hidden = true;
+    else if (!insKey || !drawn.isEqualNode(insKey)) {
+      ins.hidden = false;
+      clear(ins, drawn);
+      insKey = drawn.cloneNode(true) as Element;
+    }
+    const rs = (t?.readouts ?? c.readouts)().slice(0, 2);
+    clear(reads, ...rs.map((r) => h(`span.rd${r.live && r.value != null ? '.lv' : ''}${r.value == null ? '.none' : ''}` as 'span',
+      h('em', r.label),
+      h('b.tnum', r.value ?? r.none ?? 'Not yet', r.value != null && r.unit ? h('small', r.unit) : null))));
+    const w = rs.some((r) => r.value == null) ? c.why?.() ?? '' : '';
+    why.textContent = w;
+    why.hidden = !w;
+  };
+  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
 
-/** ASK's third tool: talk by voice — the reactor screen, listening. */
-function voiceTile(): HTMLElement {
-  return h('button.hubtile', { type: 'button', onclick: () => {
-    navTo('core', 'pop');
-    setTimeout(() => document.querySelector<HTMLButtonElement>('#mic')?.click(), 350);
-  } },
-    squircle('core', '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>'),
-    h('b', 'Voice'),
-    h('small', 'Talk, and he answers out loud'),
-  );
+/** A tool past the sixth: a small instrument, its name and its first reading, in the hub's More row. */
+function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void): { el: HTMLElement; paint(): void; load(): Promise<unknown> } {
+  const c = CARDS[id];
+  const ins = h('span.mins');
+  const line = h('small');
+  const el = h('button.hubmini', { type: 'button', dataset: { id, case: 'keep' }, onclick: onTap }, ins, h('span.mtx', h('b', name), line), icon('<path d="M9 5l7 7-7 7"/>'));
+  const paint = () => {
+    if (!c) return;
+    const drawn = (t?.instrument ?? c.instrument)?.() ?? null;
+    clear(ins, drawn);
+    const r = (t?.readouts ?? c.readouts)()[0];
+    line.textContent = r ? `${r.label}: ${r.value ?? r.none ?? 'Not yet'}${r.value != null && r.unit ? ` ${r.unit}` : ''}` : '';
+  };
+  return { el, paint, load: () => c?.load?.() ?? Promise.resolve() };
 }
+
+/** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
+export const HUB_MAX = 6;
 
 function hubTab(a: Area): TabDef {
   return {
@@ -124,35 +177,37 @@ function hubTab(a: Area): TabDef {
     blurb: a.sub,
     hub: true,
     mount(root) {
-      const recentRow = h('div.hubrecent');
-      const recentBox = h('section.hubsec', h('h2', 'Recent'), recentRow);
+      ensureDefs();
       const grid = h('div.hubgrid');
+      const moreRow = h('div.hubmore');
       const wrap = h('div.hub',
         h('p.hubsub', a.sub),
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
-        h('section.hubsec', h('h2', 'Tools'), grid),
-        recentBox,
+        grid,
+        moreRow,
       );
       root.append(wrap);
-      const paint = () => {
-        const list = a.tabs.map(def).filter((t): t is TabDef => !!t);
-        // An odd number of tools: the one used last (or the first) leads as a full-width "Continue" card.
-        const tiles: HTMLElement[] = list.map((t) => tile(t));
-        if (a.id === 'ask') tiles.push(voiceTile());
-        if (tiles.length % 2) {
-          const last = recents.find((id) => a.tabs.includes(id));
-          const lead = list.find((t) => t.id === last) ?? list[0]!;
-          const i = list.indexOf(lead);
-          tiles.splice(i, 1);
-          tiles.unshift(tile(lead, 'hubhero', last ? 'Continue' : 'Start here'));
-        }
-        clear(grid, ...tiles);
-        // recent screens of this area: shown once there are a few
-        const rec = recents.filter((id) => a.tabs.includes(id)).map(def).filter((t): t is TabDef => !!t).slice(0, 6);
-        recentBox.hidden = rec.length < 3;
-        clear(recentRow, ...rec.map((t) => tile(t, 'recent')));
+      // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
+      // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
+      const tools: [string, string, string, TabDef | null, () => void][] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
+      if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+      const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
+      const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
+      clear(grid, ...cards.map((c) => c.el));
+      clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
+      moreRow.hidden = !minis.length;
+      cards.push(...minis);
+      const paintAll = () => {
+        for (const c of cards) c.paint();
       };
-      return { enter: paint, describe: () => `${a.title}: ${a.tabs.join(', ')}` };
+      let timer = 0;
+      const paint = () => {
+        paintAll();
+        void Promise.all(cards.map((c) => c.load())).then(paintAll);
+        clearInterval(timer);
+        timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
+      };
+      return { enter: paint, leave: () => clearInterval(timer), describe: () => `${a.title}: ${a.tabs.join(', ')}` };
     },
   };
 }
@@ -271,7 +326,9 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   const cap = h('div.tabcap', { role: 'tablist' });
   for (const a of AREAS.slice(0, 5)) {
     // data-id is the area's main tab, so hooks that look for #dock button[data-id="core"] or the agenda badge still find it.
-    const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, icon(a.icon), h('span', a.title));
+    // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
+    // something runs in that area right now (liveIn below).
+    const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, h('i.gi', h('i.halo'), icon(a.icon), h('i.live')), h('span', a.title));
     b.addEventListener('click', () => tap(a));
     cap.append(b);
   }
@@ -303,12 +360,45 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   };
   const paint = () => {
     const a = areaOf(ui.get().tab);
-    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) b.classList.toggle('on', b.dataset.area === a?.id);
+    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
+      b.classList.toggle('on', b.dataset.area === a?.id);
+      b.setAttribute('aria-selected', String(b.dataset.area === a?.id));
+    }
     you.classList.toggle('on', a?.id === 'me');
     (you.firstChild as HTMLElement).textContent = (settings.get().name.trim()[0] ?? 'B').toUpperCase();
+    paintLive();
   };
+  // The live dots: what is running now, on the area it belongs to (read from the same state the hubs read).
+  const paintLive = () => {
+    const now = liveIn();
+    for (const b of dock.querySelectorAll<HTMLElement>('button[data-area]')) {
+      const why = now[b.dataset.area ?? ''] ?? '';
+      b.classList.toggle('live', !!why);
+      const area = AREAS.find((x) => x.id === b.dataset.area);
+      b.title = why ? `${area?.title ?? ''} · ${why}` : area?.title ?? '';
+    }
+    you.classList.toggle('live', !!now.me);
+    you.title = now.me ? `Me · ${now.me}` : 'Me';
+  };
+  ui.subscribe(paintLive);
+  offlineBrain.subscribe(paintLive);
+  setInterval(() => !document.hidden && paintLive(), 1500);
   paint();
   return paint;
+}
+
+/**
+ * What runs right now, by area (the tab bar's live dots): a reply being worked out (Ask), the GYM training or a paper
+ * being sat (Learn), a reverse report running (Make), the offline brain downloading (Me, on the avatar).
+ */
+export function liveIn(): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (ui.get().busy) out.ask = 'Ghosty is working on an answer';
+  if (gymState.training || gymControl?.allOn()) out.learn = 'the GYM is training';
+  else if (schoolState.sitting) out.learn = 'he is sitting a paper';
+  if (hubFacts.reverse?.some((j) => j.status === 'running')) out.make = 'a reverse report is running';
+  if (offlineBrain.get().busy === 'download') out.me = 'the offline brain is downloading';
+  return out;
 }
 
 /** "Good evening, Boss": the reactor screen's large title. */
