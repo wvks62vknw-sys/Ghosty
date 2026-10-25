@@ -396,6 +396,12 @@ LONG.push({ // SETTINGS: the list's own groups (shell/layout.ts); CHARACTER has 
   panels: { Appearance: /^THEME/, You: /^(NAME|CHARACTER)/, 'Voice & home': /^(VOICE|OFFLINE)/, Ghosty: /^(SYSTEM|LINKS)$/, About: /^(ABOUT|PRIVACY|HELP)$/ },
   tap: 'You', link: { row: /voice he speaks in/i, pill: 'Voice & home', panel: /^VOICE/ },
 });
+LONG.push({ // LIBRARY
+  tab: 'library',
+  pills: ['Ask', 'Shelf', 'Self-study', 'Fresh today', 'Add', 'Gadgets'],
+  panels: { Ask: /^ASK/, Shelf: /^SHELF/, 'Self-study': /^SELF-STUDY/, 'Fresh today': /^FRESH/, Add: /^ADD/, Gadgets: /^GADGETS/ },
+  tap: 'Shelf', link: { row: /Fresh today/i, pill: 'Fresh today', panel: /^FRESH/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;

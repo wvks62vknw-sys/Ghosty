@@ -6,7 +6,7 @@
 //   node tests/library.spec.mjs [outDir]
 import { chromium } from 'playwright';
 import { isWebKit, launch, webkitNoise } from './browser.mjs';
-import { PHONE, UK } from './nav.mjs';
+import { PHONE, UK, openSection } from './nav.mjs';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { deflateRawSync, crc32 } from 'node:zlib';
@@ -230,6 +230,8 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await searched(ui);
   }
   // ---- SELF-STUDY: what Ghosty learns on its own, with the owner's focus; and the reader
+  // (on the phone the Library is in sections, ui/sections.ts: each part is shown from its own pill)
+  await openSection(ui, 'library', 'Self-study');
   const study = await ui.evaluate(() => {
     const pn = document.querySelector('#pg-library .pn.study');
     if (!pn) return null;
@@ -324,6 +326,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
   }
   if (name === 'phone') {
     // ---- ADD: one thing on show (the tile, its progress under it); a web address and pasted text behind MORE WAYS TO ADD
+    await openSection(ui, 'library', 'Add');
     const add = await ui.evaluate(() => {
       const pn = document.querySelector('#pg-library .pn.libadd');
       const shown = (sel) => [...(pn?.querySelectorAll(sel) ?? [])].filter((el) => el.getBoundingClientRect().height > 0).length;
@@ -348,6 +351,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
           .catch(() => problems.push(`[${name}] OPEN on the finished import did not open it`));
         await ui.click('.modal .mhead button').catch(() => undefined);
       }
+      await openSection(ui, 'library', 'Ask');
       await ui.fill('#pg-library input[aria-label="Search the library"]', 'quillwort osmosis membrane');
       await ui.keyboard.press('Enter');
       await searched(ui);
@@ -366,6 +370,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
       for (const d of lib.docs ?? []) if (/Quillwort/i.test(d.title)) await fetch(`/api/library/docs/${encodeURIComponent(d.id)}`, { method: 'DELETE', headers: H });
     });
     // ---- the reader: a PDF reads as running text (no line breaks where the page's edge was), with its page numbers
+    await openSection(ui, 'library', 'Shelf');
     await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
     await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
     const vdoc = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
@@ -392,6 +397,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.waitForTimeout(300);
     await ui.evaluate(() => (location.hash = 'library'));
     await ui.waitForFunction(() => /offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => undefined);
+    await openSection(ui, 'library', 'Self-study');
     const offStudy = await ui.evaluate(() => {
       const pn = document.querySelector('#pg-library .pn.study');
       return {
@@ -407,6 +413,7 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     if (dead.length) problems.push(`[${name}] with no connection SELF-STUDY still offers ${dead.join(', ')}`);
     if (offStudy.digest !== true) problems.push(`[${name}] with no connection DIGEST NOW is still offered`);
     if (!/offline/i.test(offStudy.sub)) problems.push(`[${name}] with no connection the Library does not say so: "${offStudy.sub}"`);
+    await openSection(ui, 'library', 'Shelf');
     await ui.evaluate(() => document.querySelector('#pg-library .pn.shelf')?.scrollIntoView({ block: 'start' }));
     await ui.fill('#pg-library input[aria-label="Find on the shelf"]', 'volcano').catch(() => undefined);
     const vrow = ui.locator('#pg-library .pn.shelf .rw', { hasText: /volcano/i }).first();
@@ -421,11 +428,13 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ctx.setOffline(false);
     await ui.waitForFunction(() => !/offline/i.test(document.querySelector('#pg-library .pn.study h3 small')?.textContent ?? 'offline'), null, { timeout: 20000 }).catch(() => problems.push(`[${name}] SELF-STUDY did not come back with the connection`));
     // the results as the checks below expect them
+    await openSection(ui, 'library', 'Ask');
     await ui.fill('#pg-library input[aria-label="Search the library"]', 'sulphur dioxide gas mask');
     await ui.keyboard.press('Enter');
     await searched(ui);
   }
   // any document on the shelf opens in the reader
+  await openSection(ui, 'library', 'Shelf');
   const shelfRow = await ui.$('#pg-library .pn .rw.link .v');
   if (!shelfRow) problems.push(`[${name}] no readable document on the shelf`);
   else {
@@ -439,11 +448,13 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     await ui.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => problems.push(`[${name}] the reader did not close`));
   }
   // squeezed: results hidden in a short scrolling box (a short list of real results is simply short)
+  await openSection(ui, 'library', 'Ask');
   const ask = await ui.$eval('#pg-library .pn.ask > .bd', (el) => ({ h: el.clientHeight, all: el.scrollHeight }));
   if (ask.h < 260 && ask.all > ask.h + 1) problems.push(`[${name}] the ASK THE LIBRARY results area is squeezed (${ask.h}px tall, ${ask.all}px of results)`);
   await ui.screenshot({ path: `${out}/${name}-library.png` });
   if (name === 'phone') {
-    // One scrolling page on phones: scroll down to the shelf.
+    // One scrolling page on phones: scroll down to the shelf (its own section: the Shelf pill).
+    await openSection(ui, 'library', 'Shelf');
     const shelf = await ui.evaluate(() => {
       const pn = [...document.querySelectorAll('#pg-library .pn')].find((x) => x.querySelector('h3')?.textContent?.trim().startsWith('SHELF'));
       pn?.scrollIntoView({ block: 'end' });
