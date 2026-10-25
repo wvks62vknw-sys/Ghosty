@@ -378,6 +378,11 @@ folder that no longer exists; ignore those paths).
   of six and the long-press switcher from the navigation sheet are NOT built (the next build, BRIEF-NAV-BOOT's
   navigation part). Verification on the merged tree: web check, then hubcards, routec, layout, ui, gym, deck, cited,
   memory, boot, scrollfeel and scroll on a fresh preview, plus a screenshot of the See hub for the subtitle fix.
+- 25 Oct 02:20 UK: started THE NAVIGATION BUILD on the branch head ae5666f (`.claude/worktrees/nav`, branch `worktree-nav`,
+  preview 8881, scratch `scratchpad/nav/`): the GYM in pages of six, the long-press switcher on the tab bar, a reusable
+  `ui/sections.ts` (pills under a long screen's title, one section shown at a time, remembered) applied to SYSTEM and
+  AGENDA only (Settings and the Library have builders in them), personal hub subtitles from real state. Told: a new
+  `tests/nav.spec.mjs` needs the CI-loop line from the orchestrator; no edge files; the orchestrator merges.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

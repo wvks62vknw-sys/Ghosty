@@ -54,7 +54,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
 - Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
 - Upgrade passes started at 23:58 UK: Settings and the Library (each measuring first, then the top ten fixes).
-- Next build: the navigation (tool screens, GYM pages of six, the long-press switcher), briefed from BRIEF-NAV-BOOT.md.
+- Being built since 02:20 UK: the navigation (the GYM in pages of six, the long-press switcher on the tab bar, sections on System and Agenda so a long screen shows one part at a time, personal hub lines).
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
