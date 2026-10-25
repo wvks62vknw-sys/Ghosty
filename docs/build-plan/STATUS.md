@@ -52,9 +52,9 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - PR #36 is under CI with the big-brain crash fix on it (head 61ce7db): I merge it the moment it is green, and that update reaches your phone.
 - Merged at 00:20 UK: the Memory upgrade pass (10 fixes: ME first and written to you, exact UNDO, the chat's forget undoable for a day, true patterns, diary days in words, offline said plainly).
 - Merged at 01:25 UK: the scroll audit at 440 × 956 (10 fixes: no panel scrolling inside a page, the keyboard, the Home Screen app's safe area, offline line, LOOK menu, the chat staying put, long sheets, kept places, the reader's height).
-- Being built: the Iron Man look (instruments, hub cards, the GYM's holographic pictures, the lit tab bar, one screen per hub), finishing its checks.
+- Merged at 02:05 UK: the Iron Man look (instruments and readouts on every hub card, one screen per hub, the GYM's 22 line-art pictures, the reply card's glyph and meta line, the lit tab bar). It goes up in the next pull request after #36 merges.
 - Upgrade passes started at 23:58 UK: Settings and the Library (each measuring first, then the top ten fixes).
-- After the Iron Man look merges: the navigation build (tool screens, GYM pages of six, the long-press switcher).
+- Next build: the navigation (tool screens, GYM pages of six, the long-press switcher), briefed from BRIEF-NAV-BOOT.md.
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)

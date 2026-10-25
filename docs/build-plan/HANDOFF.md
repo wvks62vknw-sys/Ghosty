@@ -367,6 +367,17 @@ folder that no longer exists; ignore those paths).
   two paints, and a suggestion chip whose words follow the clock moved a centred row by one pixel, so boxes now match
   within a pixel while type and spacing still match to the letter. The 00:14 UTC check-in is superseded; a new one is
   armed about 85 minutes after this push.
+- 25 Oct 02:05 UK: merged after review: THE IRON MAN LOOK (10 commits; merge 6cd1dcd; MAP.md's one conflict was two rows
+  appended at the same place, both kept; `features/core/index.ts` and styles.css auto-merged over the scroll audit and
+  Memory). Reviewed from the after shots (hub-see, hub-learn, gym, reply): instruments and readouts, restrained, nothing
+  drawn or named as a reactor on screen (the "reactor" words left in areas.ts are old comments naming the Ask screen).
+  One nit fixed in the merge: the hub subtitle sat under the big title's descender (`.hubsub` margin −2 → 6 px). Builder's
+  honest limits: no card shows a sample (God's eye's aircraft stay "Not yet" until its feed has loaded; School's "Papers
+  sat" is "—" until the School tab has been built that session; the Lens's 4,624 is its name list's size, not live);
+  the More row could not be tested in a browser (no hub has more than six tools yet); the tool screens, the GYM's pages
+  of six and the long-press switcher from the navigation sheet are NOT built (the next build, BRIEF-NAV-BOOT's
+  navigation part). Verification on the merged tree: web check, then hubcards, routec, layout, ui, gym, deck, cited,
+  memory, boot, scrollfeel and scroll on a fresh preview, plus a screenshot of the See hub for the subtitle fix.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
