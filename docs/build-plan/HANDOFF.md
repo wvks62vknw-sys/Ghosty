@@ -538,6 +538,9 @@ folder that no longer exists; ignore those paths).
   are the quota check, smaller pieces (a re-converted model) and WebLLM's OPFS backend (not touched: it changes what
   the runtime looks up). The builder waited the full 25 minutes once at load 12–14 and went ahead; every later heavy
   step waited for 6 or below.
+- 25 Oct 06:12 UK: brainkeep pushed onto PR #39 (its CI restarts on the new head): build, tsc, offline-brain 44 of 44,
+  bigbrain, offlinebrain, settings, undo and apps green on the merged tree. A new check-in about 95 minutes out
+  replaces the 07:05 one. Builders still running: sections (8886), gym2 (8887), boot2 (8888).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
