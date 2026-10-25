@@ -88,8 +88,10 @@ async function open(viewport, { github = true } = {}) {
   return { ctx, page, st };
 }
 const text = (page, sel) => page.locator(sel).first().innerText().catch(() => '');
+// a tap that, when it cannot happen, is a problem to report rather than the end of the spec
+const tap = (loc, what) => loc.click({ timeout: 8000 }).then(() => true, () => (problems.push(`could not tap ${what}`), false));
 const row = (page, name) => page.locator('#pg-reverse .rw.link', { hasText: name }).first();
-const viewer = (page) => page.locator('#pg-reverse .pn.revview').first();
+const viewer = (page) => page.locator('#pg-reverse .cR .pn').first();
 const sideways = (page, tag) => page.evaluate(() => ({ doc: document.documentElement.scrollWidth, vw: innerWidth, wide: [...document.querySelectorAll('#pg-reverse *')].filter((e) => e.offsetParent && e.getBoundingClientRect().right > innerWidth + 1 && !e.closest('details:not([open])')).slice(0, 4).map((e) => `${e.tagName}.${e.className}`) }))
   .then((s) => { if (s.doc > s.vw || s.wide.length) problems.push(`[${tag}] something goes sideways: page ${s.doc} wide on a ${s.vw} screen; ${s.wide.join(', ')}`); });
 const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select, input, summary, .rw.link)', (els) => els.filter((e) => e.offsetParent && !e.closest('[hidden]')).map((e) => { const r = e.getBoundingClientRect(); return { t: (e.innerText || e.getAttribute('aria-label') || e.tagName).trim().replace(/\s+/g, ' ').slice(0, 30), w: Math.round(r.width), h: Math.round(r.height) }; }).filter((x) => x.h < 44 || x.w < 44))
@@ -112,8 +114,8 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
   if (!/GitHub/.test(gh) || !/connect/i.test(gh)) problems.push(`[440] GitHub not being connected is not said before he starts: "${gh}"`);
   if (!(await page.locator('#pg-reverse .revgh button').count())) problems.push('[440] no button to go and connect GitHub');
   // START anyway: the brain's refusal stays on screen, as a sentence
-  await page.fill('#pg-reverse input[aria-label="What to look at"]', 'bbc.co.uk');
-  await page.locator('#pg-reverse button', { hasText: /^start$/i }).first().click();
+  await page.locator('#pg-reverse input').first().fill('bbc.co.uk');
+  await tap(page.locator('#pg-reverse button', { hasText: /^start$/i }).first(), 'START');
   await page.waitForTimeout(5200);
   const said = (await text(page, '#pg-reverse .revsay')).trim();
   if (!/^[A-Z]/.test(said) || !/GitHub/.test(said)) problems.push(`[440] START without GitHub: the reason does not stay on screen as a sentence: "${said}"`);
@@ -136,57 +138,64 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
   if (/\bREPORT\b|\bFAILED\b/.test(rt)) problems.push(`[440] the rows still shout REPORT / FAILED: ${rt}`);
 
   // a tap on the finished one brings the report on screen
-  await row(page, 'example.com').click();
+  await tap(row(page, 'example.com'), 'the example.com report');
   await page.waitForTimeout(1200);
   const top = await viewer(page).evaluate((e) => e.getBoundingClientRect().top).catch(() => 9999);
   if (!(top >= 0 && top < PHONE.height / 2)) problems.push(`[440] tapping a report opens it out of sight (its top at ${Math.round(top)} px on a ${PHONE.height} px screen)`);
   await page.screenshot({ path: `${out}/reverse-report-440.png` });
-  const rep = await text(page, '#pg-reverse .pn.revview');
+  const rep = await text(page, '#pg-reverse .cR .pn');
   if (/\d{4}-\d\d-\d\dT\d\d:\d\d/.test(rep)) problems.push('[440] the report shows raw machine times (2026-10-25T01:00:00.000Z)');
   if (/(^|\s)_\S|\S_(\s|$)|\*\*/.test(rep)) problems.push('[440] the report shows raw markdown marks (_…_ or **)');
   if (/Ghosty baseline/i.test(rep)) problems.push('[440] the report says "(Ghosty baseline)"');
   if (!/example\.com/.test(rep)) problems.push(`[440] the report's name is not shown as written ("example.com"): ${rep.slice(0, 120)}`);
-  if (/Github/.test(rep) || !/GitHub/.test(rep)) problems.push('[440] "GitHub" is not written as GitHub in the report\'s buttons');
+  // a button shows its words from data-label when it has one (sentence case otherwise turns GitHub into "Github")
+  const shown = await page.$$eval('#pg-reverse .cR button', (bs) => bs.map((b) => b.dataset.label || b.innerText).join(' | '));
+  if (/github/i.test(shown) && (!/GitHub/.test(shown) || /Github|github/.test(shown))) problems.push(`[440] "GitHub" is not written as GitHub on the report's buttons: ${shown}`);
+  if (!/github/i.test(shown)) problems.push(`[440] the report has no way to see the run on GitHub: ${shown}`);
   if (!/25 Oct/.test(rep)) problems.push('[440] the report does not say when it was made in his words ("25 Oct …")');
-  const raw = await page.$eval('#pg-reverse .pn.revview .mdreport', (r) => {
+  const raw = await page.$eval('#pg-reverse .cR .mdreport', (r) => {
     const pre = r.querySelector('pre');
     return { pre: !!pre, folded: !!pre?.closest('details:not([open])'), summary: pre?.closest('details')?.querySelector('summary')?.textContent ?? '' };
   }).catch(() => ({ pre: false }));
   if (!raw.pre) problems.push('[440] the raw data is gone from the report (it should be folded, not dropped)');
   else if (!raw.folded) problems.push('[440] the raw JSON is open in the middle of the report (it should be folded away)');
-  const fs = await page.$eval('#pg-reverse .pn.revview .mdreport li', (e) => parseFloat(getComputedStyle(e).fontSize)).catch(() => 0);
+  const fs = await page.$eval('#pg-reverse .cR .mdreport li', (e) => parseFloat(getComputedStyle(e).fontSize)).catch(() => 0);
   if (fs < 15) problems.push(`[440] the report's text is ${fs} px: too small to read on the phone (15 at least)`);
   await smallTargets(page, '440 report');
   await sideways(page, '440');
 
   // SAVE TO LIBRARY: saved there and then, the tab kept, no chat
-  await viewer(page).locator('button', { hasText: /save to library/i }).first().click();
+  await tap(page.locator('#pg-reverse button', { hasText: /save to library/i }).first(), 'SAVE TO LIBRARY');
   await page.waitForTimeout(2500);
   const hash = await page.evaluate(() => location.hash);
-  if (hash !== '#reverse') problems.push(`[440] SAVE TO LIBRARY leaves the tab (${hash})`);
+  if (hash !== '#reverse') {
+    problems.push(`[440] SAVE TO LIBRARY leaves the tab (${hash})`);
+    await page.evaluate(() => (location.hash = 'reverse'));
+    await page.waitForTimeout(1200);
+  }
   if (st.chat) problems.push('[440] SAVE TO LIBRARY goes through the chat');
   if (!saved.some((b) => /example\.com/.test(b))) problems.push('[440] SAVE TO LIBRARY did not file the report in the Library');
   const conf = await text(page, '#pg-reverse .revsaved');
   if (!/Saved/i.test(conf)) problems.push(`[440] SAVE TO LIBRARY does not say it is saved: "${conf}"`);
 
   // the running one: when to expect it, and that he can leave
-  await row(page, 'bbc.co.uk').click();
+  await tap(row(page, 'bbc.co.uk'), 'the bbc.co.uk report');
   await page.waitForTimeout(1000);
-  const run = await text(page, '#pg-reverse .pn.revview');
+  const run = await text(page, '#pg-reverse .cR .pn');
   if (!/ready by about \d\d:\d\d/i.test(run)) problems.push(`[440] a running report does not say when it should be ready ("ready by about 14:08"): ${run.slice(0, 200)}`);
   if (!/leave/i.test(run)) problems.push('[440] a running report does not say he can leave the screen');
   await page.screenshot({ path: `${out}/reverse-running-440.png` });
 
   // the one that did not finish: in words, and TRY AGAIN asks for the same thing
-  await row(page, 'left-pad').click();
+  await tap(row(page, 'left-pad'), 'the left-pad report');
   await page.waitForTimeout(1000);
-  const failed = await text(page, '#pg-reverse .pn.revview');
+  const failed = await text(page, '#pg-reverse .cR .pn');
   if (!/didn.t finish/i.test(failed)) problems.push(`[440] a failed report does not say in words that it did not finish: ${failed.slice(0, 200)}`);
   if (!/\bThe run failure/.test(failed)) problems.push('[440] the reason a report failed does not start as a sentence');
   const again = viewer(page).locator('button', { hasText: /try again/i }).first();
   if (!(await again.count())) problems.push('[440] a failed report has no TRY AGAIN');
   else {
-    await again.click();
+    await tap(again, 'TRY AGAIN');
     await page.waitForTimeout(1500);
     const p = st.posts.at(-1);
     if (!p || p.target !== 'left-pad' || p.kind !== 'npm' || p.question !== 'is it safe') problems.push(`[440] TRY AGAIN did not ask for the same thing again: ${JSON.stringify(p)}`);
@@ -195,10 +204,10 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
 
   // START: the new report waits in place, with when and that he can leave
   await page.evaluate(() => document.querySelector('#pg-reverse input[aria-label="What to look at"]')?.scrollIntoView());
-  await page.fill('#pg-reverse input[aria-label="What to look at"]', 'kettle-shop.co.uk');
-  await page.locator('#pg-reverse button', { hasText: /^start$/i }).first().click();
+  await page.locator('#pg-reverse input').first().fill('kettle-shop.co.uk');
+  await tap(page.locator('#pg-reverse button', { hasText: /^start$/i }).first(), 'START');
   await page.waitForTimeout(1500);
-  const started = await text(page, '#pg-reverse .pn.revview');
+  const started = await text(page, '#pg-reverse .cR .pn');
   if (!/kettle-shop\.co\.uk/.test(started) || !/ready by about \d\d:\d\d/i.test(started)) problems.push(`[440] after START the new report is not shown waiting, with when to expect it: ${started.slice(0, 200)}`);
 
   // offline: said, and START does not pretend
@@ -212,8 +221,8 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
   if (!/offline|no connection/i.test(off)) problems.push('[440] offline is not said on the tab');
   const before = st.posts.length;
   await page.evaluate(() => document.querySelector('#pg-reverse input[aria-label="What to look at"]')?.scrollIntoView());
-  await page.fill('#pg-reverse input[aria-label="What to look at"]', 'example.org');
-  await page.locator('#pg-reverse button', { hasText: /^start$/i }).first().click();
+  await page.locator('#pg-reverse input').first().fill('example.org');
+  await tap(page.locator('#pg-reverse button', { hasText: /^start$/i }).first(), 'START');
   await page.waitForTimeout(800);
   const offSaid = await text(page, '#pg-reverse .revsay');
   if (!/offline|no connection/i.test(offSaid)) problems.push(`[440] START offline does not say why nothing started: "${offSaid}"`);
@@ -237,7 +246,7 @@ const smallTargets = (page, tag) => page.$$eval('#pg-reverse :is(button, select,
 for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
   const { ctx, page } = await open(vp);
   await page.waitForFunction(() => document.querySelectorAll('#pg-reverse .rw.link').length >= 3, null, { timeout: 10000 }).catch(() => undefined);
-  await row(page, 'example.com').click();
+  await tap(row(page, 'example.com'), 'the example.com report');
   await page.waitForTimeout(1200);
   const top = await viewer(page).evaluate((e) => e.getBoundingClientRect().top).catch(() => 9999);
   if (!(top >= 0 && top < vp.height / 2)) problems.push(`[${vp.width}] the report opened out of sight (top ${Math.round(top)})`);

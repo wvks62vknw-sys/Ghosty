@@ -12,13 +12,16 @@ import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
 
 const CSS = `
-.mdreport { font-size: 12.5px; line-height: 1.5; }
-.mdreport h2 { font: 500 11px var(--m); letter-spacing: .3em; color: var(--c); text-transform: uppercase; margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(var(--cr), .2); }
-.mdreport h3 { font: 500 9px var(--m); letter-spacing: .24em; color: var(--a); text-transform: uppercase; margin: 12px 0 4px; }
-.mdreport p { margin: 4px 0; } .mdreport ul { margin: 4px 0; padding-left: 16px; } .mdreport li { margin: 2px 0; word-break: break-word; }
-.mdreport code { font: 400 11px var(--m); color: var(--a); background: rgba(var(--ar), .08); padding: 0 3px; }
-.mdreport pre { font: 400 10.5px/1.4 var(--m); color: #cfe9f7; background: rgba(0,0,0,.45); padding: 8px 10px; overflow: auto; max-height: 50vh; white-space: pre; border-left: 2px solid rgba(var(--cr), .4); }
-.mdreport .warnnote { border-left: 2px solid var(--a); padding-left: 8px; }
+.mdreport { font-size: 15px; line-height: 22px; overflow-wrap: anywhere; }
+.mdreport h3 { font: 600 17px/22px var(--sf); color: var(--ink); margin: 18px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--hair); }
+.mdreport h4 { font: 600 15px/20px var(--sf); color: var(--ink2); margin: 14px 0 4px; }
+.mdreport p { margin: 6px 0; } .mdreport ul { margin: 6px 0; padding-left: 18px; } .mdreport li { margin: 3px 0; }
+.mdreport code { font: 400 13px var(--m); color: var(--a); background: rgba(var(--ar), .08); padding: 0 3px; border-radius: 4px; }
+.mdreport details { margin: 8px 0; } .mdreport summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--ink2); font: 500 15px var(--sf); }
+.mdreport pre { font: 400 12px/1.45 var(--m); color: var(--ink2); background: rgba(0,0,0,.35); padding: 10px 12px; margin: 4px 0 0; max-height: 60vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 10px; }
+.mdreport .warnnote { border-left: 2px solid var(--a); padding-left: 10px; }
+.mdreport .revfoot { color: var(--ink3); font-size: 13px; line-height: 18px; }
+.revhead { margin: 0 0 12px; } .revhead b { display: block; font: 600 22px/28px var(--sf); color: var(--ink); overflow-wrap: anywhere; } .revhead span { display: block; margin-top: 2px; font: 400 14px/19px var(--sf); color: var(--ink3); }
 .mdreport hr { border: 0; border-top: 1px solid rgba(var(--cr), .15); margin: 10px 0; }
 #pg-reverse .rw.link.on { box-shadow: inset 2px 0 0 var(--a); background: linear-gradient(90deg, rgba(var(--ar), .14), transparent); }
 `;
@@ -28,12 +31,23 @@ const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-
 /** A button shown with its words as written ("GitHub", not the sentence case that would make it "Github"). */
 const asWritten = (b: HTMLButtonElement, words: string) => ((b.dataset.label = words), b);
 
+/** What a report is about, in a word or two. */
+const KIND_WORD: Record<string, string> = { web: 'Website', npm: 'Code package', repo: 'GitHub project', artifact: 'App file', auto: 'Link' };
+
 const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
 
-/** Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code). */
+/** "2026-10-25T01:05:00.000Z" → "25 Oct 2026, 02:05" (this phone's time): the report's times in his words. */
+const day = (t: number | string) => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const plainTimes = (t: string) => t.replace(/\b\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?Z\b/g, (iso) => day(iso));
+
+/**
+ * Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code), made to read on a phone:
+ * times in his words, the title and the lines the header above already says left out, "(Ghosty baseline)" dropped
+ * from headings, and REA's raw data (a code block, often thousands of characters of JSON) folded away.
+ */
 function renderMd(md: string): HTMLElement {
   const out = h('div.mdreport');
-  const lines = md.split('\n');
+  const lines = plainTimes(md).split('\n').filter((l) => !/^# Reverse engineering report\s*$|^\*\*(Target|Kind|Started):\*\*/.test(l));
   let i = 0;
   const inline = (t: string): (string | Node)[] => {
     const parts: (string | Node)[] = [];
@@ -55,13 +69,13 @@ function renderMd(md: string): HTMLElement {
       i++;
       while (i < lines.length && !lines[i]!.startsWith('```')) buf.push(lines[i++]!);
       i++;
-      const pre = h('pre', buf.join('\n').slice(0, 40000));
-      out.append(pre);
+      const raw = buf.join('\n');
+      out.append(h('details', h('summary', `Show the raw data (${raw.length < 1024 ? `${raw.length} characters` : `${Math.round(raw.length / 1024)} KB`})`), h('pre', raw.slice(0, 40000))));
       continue;
     }
     if (/^#{1,3} /.test(l)) {
       const lvl = l.match(/^#+/)![0].length;
-      out.append(h(lvl === 1 ? 'h2' : 'h3', ...inline(l.replace(/^#+ /, ''))));
+      out.append(h(lvl <= 2 ? 'h3' : 'h4', ...inline(l.replace(/^#+ /, '').replace(/\s*\(Ghosty baseline\)/i, ''))));
     } else if (/^[-*] /.test(l)) {
       const ul = h('ul');
       while (i < lines.length && /^[-*] /.test(lines[i]!)) ul.append(h('li', ...inline(lines[i++]!.slice(2))));
@@ -69,6 +83,7 @@ function renderMd(md: string): HTMLElement {
       continue;
     } else if (/^> /.test(l)) out.append(h('div.note.warnnote', ...inline(l.slice(2))));
     else if (l.trim() === '---') out.append(h('hr'));
+    else if (/^_.+_$/.test(l.trim())) out.append(h('p.revfoot', l.trim().slice(1, -1)));
     else if (l.trim()) out.append(h('p', ...inline(l.replace(/ {2}$/, ''))));
     i++;
   }
@@ -167,24 +182,26 @@ export const reverseTab: TabDef = {
       clear(viewer.body);
       viewer.body.append(h('div.note', 'Loading…'));
       // On the phone the report sits under the form and the list: a tap brings it on screen (it opened out of sight).
-      if (bring) viewer.el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      // After it is drawn: "Loading…" alone is too short for the page to scroll that far.
+      const bringIn = () => bring && viewer.el.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
       try {
         const { job } = await brain.reverseJob(id);
         clear(viewer.body);
-        viewer.title.textContent = job.target.replace(/^https?:\/\//, '').slice(0, 40).toUpperCase();
         viewer.setStatus(job.status.toUpperCase(), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
+        // the name as written (example.com, not "Example.com"), what it is and when
+        viewer.body.append(h('div.revhead', h('b', job.target.replace(/^https?:\/\//, '').replace(/\/$/, '')), h('span', `${KIND_WORD[job.kind] ?? 'Link'} · ${job.status === 'done' && job.finishedAt ? `made ${day(job.finishedAt)}` : `asked for ${day(job.at)}`}${job.question ? ` · “${job.question}”` : ''}`)));
         if (job.status === 'done' && job.report) {
           viewer.body.append(
             h('div.row.wrap',
               button('ASK GHOSTY', () => {
                 go('core');
                 void send(`Read the reverse-engineering report for ${job.target} (job ${job.id}) with reverse_status and tell me the most useful findings${job.question ? `, especially: ${job.question}` : ''}.`);
-              }, 'warn'),
+              }, 'on'),
               button('SAVE TO LIBRARY', () => {
                 go('core');
                 void send(`Save the reverse-engineering report for ${job.target} (job ${job.id}) into the library so I can search it later: read it with reverse_status and library_import the text.`);
               }),
-              job.runUrl ? button('GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')) : null,
+              job.runUrl ? asWritten(button('SEE IT ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'See it on GitHub ↗') : null,
             ),
             renderMd(job.report),
           );
@@ -195,7 +212,7 @@ export const reverseTab: TabDef = {
           const late = Date.now() - job.at > 8 * 60_000;
           viewer.body.append(
             h('div.empty.revwait',
-              h('b', job.status === 'queued' ? 'Starting on GitHub…' : 'Taking it apart…'),
+              h('b', { dataset: { case: 'keep' } }, job.status === 'queued' ? 'Starting on GitHub…' : 'Taking it apart…'),
               h('span', late ? `Started at ${clock(job.at)}. It is taking longer than usual; it keeps going for up to 15 minutes.` : `Started at ${clock(job.at)}, ready by about ${clock(job.at + 8 * 60_000)}.`),
               h('span', 'You can leave this screen: Ghosty tells you when it is ready, and it will be here.'),
             ),
@@ -205,9 +222,11 @@ export const reverseTab: TabDef = {
         const k = jobs.findIndex((x) => x.id === id);
         if (k >= 0) jobs[k] = { ...jobs[k]!, status: job.status, error: job.error, runUrl: job.runUrl };
         paint();
+        bringIn();
       } catch (e) {
         clear(viewer.body);
         viewer.body.append(h('div.note', String((e as Error).message ?? e)));
+        bringIn();
       }
     };
     const refresh = async () => {
