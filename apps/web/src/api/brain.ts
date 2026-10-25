@@ -447,6 +447,8 @@ export const brain = {
   reverseJobs: () => req<{ jobs: ReverseJobInfo[] }>('GET', '/reverse'),
   reverseStart: (p: { target: string; kind: string; question: string }) => req<{ job: ReverseJobInfo }>('POST', '/reverse', p),
   reverseJob: (id: string) => req<{ job: ReverseJobInfo & { report?: string } }>('GET', `/reverse/${encodeURIComponent(id)}`),
+  /** REMOVE on the Reverse tab, sent when its UNDO bar closes (the Reverse pass; the brain's [reverse] route). */
+  reverseRemove: (id: string) => req<{ removed: boolean }>('DELETE', `/reverse/${encodeURIComponent(id)}`),
   /** The offline brain's weekly self-training (SYSTEM → OFFLINE BRAIN TRAINING; apps/edge/src/selftrain/cycle.ts). */
   selftrain: {
     status: () => req<TrainStatus>('GET', '/training'),

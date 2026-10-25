@@ -234,8 +234,8 @@ export const CARDS: Record<string, HubCard> = {
     load: loadStatus,
   },
   reverse: {
-    title: 'See how any app works',
-    status: () => (hubFacts.reverse?.some((j) => j.status === 'running' || j.status === 'queued') ? 'LIVE' : 'READY'),
+    title: 'See how apps work',
+    status: () => (lastSeen.get().status?.repoReady === false ? 'OFF' : hubFacts.reverse?.some((j) => j.status === 'running' || j.status === 'queued') ? 'LIVE' : 'READY'),
     instrument: layersInst,
     readouts: () => {
       const j = hubFacts.reverse;
@@ -387,12 +387,12 @@ export const CARDS: Record<string, HubCard> = {
   },
   radio: {
     title: 'Radio from everywhere',
-    status: () => (player.get().state === 'playing' ? 'LIVE' : 'OFF'),
+    status: () => (player.get().state === 'playing' ? 'LIVE' : player.get().state === 'paused' ? 'READY' : 'OFF'),
     instrument: () => dialInst(player.get().state === 'playing'),
     readouts: () => {
       const p = player.get();
       return [
-        { label: 'On air', value: p.state === 'playing' && p.now ? p.now.name : null, none: 'Off air', live: p.state === 'playing' },
+        { label: 'On air', value: p.state === 'playing' && p.now ? p.now.name : null, none: p.state === 'paused' && p.now ? `${p.now.name} · paused` : 'Off air', live: p.state === 'playing' },
         { label: 'Favourites', value: String(favourites.list().length) },
       ];
     },

@@ -28,6 +28,13 @@ globalThis.fetch = async (input) => {
       }],
     });
   }
+  if (url.includes('radio-browser.info') && url.includes('tag=speak')) {
+    // the BBC lists its stations with http:// addresses; the same streams are served on https
+    return j([
+      { name: 'BBC News HD (720P)', url_resolved: 'https://vs-hls-push-ww-live.akamaized.net/x=4/news.m3u8', country: 'UK', tags: 'news', codec: 'UNKNOWN', bitrate: 0, votes: 9 },
+      { name: 'BBC Radio 4 (128k)', url_resolved: 'http://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8', country: 'UK', tags: 'speak', codec: 'UNKNOWN', bitrate: 0, votes: 9 },
+    ]);
+  }
   if (url.includes('radio-browser.info')) {
     return j([
       { name: 'Insecure FM', url_resolved: 'http://insecure.example/stream', country: 'UK', tags: 'jazz', codec: 'MP3', bitrate: 128, votes: 1 },
@@ -70,6 +77,14 @@ test('directions: from the owner\'s location, summary, and the route sent to the
   assert.deepEqual(route.args.path[0], [51.5074, -0.1278]);
   assert.equal(route.args.path.length, 3);
   assert.ok(calls.some((u) => u.includes('routed-foot')), 'walking profile used');
+});
+
+test('radio: a station listed with http:// whose own https stream exists plays (BBC Radio 4); no TV channels', async () => {
+  const ev = await chat('play speak radio');
+  const play = ev.find((e) => e.t === 'client' && e.name === 'play_radio');
+  assert.ok(play, ev.find((e) => e.t === 'tool_result')?.summary);
+  assert.equal(play.args.url, 'https://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8');
+  assert.match(ev.find((e) => e.t === 'tool_result').summary, /Playing BBC Radio 4/);
 });
 
 test('radio: only secure streams are played', async () => {

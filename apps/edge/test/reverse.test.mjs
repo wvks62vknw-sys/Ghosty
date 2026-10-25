@@ -1,7 +1,12 @@
 // Reverse engineering (REA on GitHub runners): target parsing, dispatch, status + report.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { build } from 'esbuild';
 const R = await import('./.build/tools/reverse.mjs');
+// what the phone shows under the box while he types (packages/shared/src/reverse.ts, the brain's own rules)
+const at = (p) => new URL(p, import.meta.url).pathname;
+await build({ entryPoints: [at('../../../packages/shared/src/reverse.ts')], bundle: true, format: 'esm', platform: 'neutral', outfile: at('./.build/shared-reverse.mjs'), logLevel: 'warning' });
+const S = await import('./.build/shared-reverse.mjs');
 
 class MemStorage {
   m = new Map();
@@ -67,4 +72,38 @@ test('no GitHub token → clear error; run never starting → failed after 15 mi
   const j = await R.refreshReverse(ctx2, job.id);
   assert.equal(j.status, 'failed');
   assert.match(j.error, /never started/);
+});
+
+test('a job started from the Reverse tab (startReverse, no chat) still schedules the follow-up that tells the owner; the chat tool schedules it once', async () => {
+  const storage = new MemStorage();
+  const g = { async dispatchWorkflow() {}, async findRun() { return null; }, async read() { return null; } };
+  const ctx = { storage, github: async () => g, emit() {}, kernelUnlocked: async () => false, env: {}, vault: {} };
+  const tasks = () => [...storage.m.values()].flatMap((v) => (Array.isArray(v) ? v : [])).filter((j) => j && j.kind === 'task' && /reverse_status/.test(j.text ?? ''));
+  const job = await R.startReverse(ctx, 'example.com', 'auto', 'what does it talk to');
+  assert.equal(tasks().length, 1, 'the tab\'s START schedules the follow-up');
+  assert.match(tasks()[0].text, new RegExp(`job "${job.id}"`));
+  assert.match(tasks()[0].text, /what does it talk to/);
+  assert.ok(tasks()[0].next > Date.now() + 5 * 60_000, 'it looks again in about six minutes');
+  await R.reverseTools.find((t) => t.name === 'reverse_engineer').run({ target: 'lodash' }, ctx);
+  assert.equal(tasks().length, 2, 'the chat tool adds exactly one more, not two');
+});
+
+test('the phone says what a typed target reads as, by the brain\'s own rules: a bare word is a code package, a real thing is pointed to the chat', () => {
+  assert.deepEqual(S.normaliseTarget('example.com'), R.normaliseTarget('example.com'));
+  assert.equal(S.readsAs(''), '');
+  assert.equal(S.readsAs('bbc.co.uk'), 'Reads as a website: bbc.co.uk.');
+  assert.equal(S.readsAs('https://example.com/files/app.apk'), 'Reads as an app file: example.com/files/app.apk.');
+  assert.equal(S.readsAs('morluto/rea'), 'Reads as a GitHub project: morluto/rea.');
+  assert.match(S.readsAs('kettle'), /^Reads as a code package on npm: “kettle”\. To look at a website or an app, paste its link\.$/);
+  assert.match(S.readsAs('a bicycle pump'), /ask Ghosty in the chat/);
+  assert.match(S.readsAs('http://192.168.1.5/'), /Reverse opens a link/);
+});
+
+test('removing a report takes only that one out of the list; an unknown id changes nothing', async () => {
+  const storage = new MemStorage();
+  await storage.put('reverse.jobs', [{ id: 'ra', target: 'a.com', status: 'done' }, { id: 'rb', target: 'b.com', status: 'failed' }]);
+  assert.equal(await R.removeReverse({}, storage, 'rx'), false);
+  assert.equal((await storage.get('reverse.jobs')).length, 2);
+  assert.equal(await R.removeReverse({}, storage, 'ra'), true);
+  assert.deepEqual((await R.loadReverseJobs({}, storage)).map((j) => j.id), ['rb']);
 });
