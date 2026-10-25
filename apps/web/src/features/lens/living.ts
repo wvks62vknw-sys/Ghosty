@@ -16,7 +16,6 @@
  */
 import { brain, headers } from '../../api/brain';
 import { clear, h } from '../../core/dom';
-import { go } from '../../shell/tabs';
 import { home } from '../../state/app';
 import { button, toast } from '../../ui/components';
 import { askWithImage } from '../../vision/ask';
@@ -42,6 +41,7 @@ import {
   type PlantLine,
 } from '../../../../../packages/shared/src/living';
 import type { LensContext } from './index';
+import { goToPanel } from '../../ui/sections';
 
 /** What the card shows now, for a test (window.__ghosty.lens.card) and for describe(). */
 export interface LensCard {
@@ -154,7 +154,7 @@ export function createLiving(L: LensContext) {
         return missing(
           'PL@NTNET NEEDS ITS FREE KEY',
           `Plants are named by Pl@ntNet, which needs a free key. ${KEYS_HOW} Or let Ghosty's own model try.`,
-          button('ADD THE KEY', () => go('system'), 'warn'),
+          button('ADD THE KEY', () => goToPanel('system', 'KEYS'), 'warn'),
           button('ASK GHOSTY INSTEAD', () => void api.nameIt('plant', still, true)),
         );
       }
@@ -182,7 +182,7 @@ export function createLiving(L: LensContext) {
     missing(
       'NO MODEL THAT CAN SEE IS FREE',
       'Naming from a photo needs a model that can see pictures, and none Ghosty can reach is free right now. A free Gemini key (SYSTEM → KEYS → Gemini) fixes it; or try again in a minute.',
-      button('ADD A KEY', () => go('system'), 'warn'),
+      button('ADD A KEY', () => goToPanel('system', 'KEYS'), 'warn'),
     );
 
   const mealShow = (m: MealTotal & { credit?: string }, said: string, exact: LookupResult | null) => {

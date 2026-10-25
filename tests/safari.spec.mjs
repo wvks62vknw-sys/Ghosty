@@ -96,7 +96,9 @@ let inputs = 0;
 const settle = () => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
 /** On a phone a tab's two columns swap with its MORE button: the other side, or false when there is none. */
 const otherSide = async (tab) => {
-  const swap = page.locator(`#pg-${tab} .swap`);
+  // a screen in sections (ui/sections.ts: System, Agenda) shows its second section as its other side
+  const pill = page.locator(`#pg-${tab} .secpills .secpill`).nth(1);
+  const swap = (await pill.isVisible().catch(() => false)) ? pill : page.locator(`#pg-${tab} .swap`);
   if (!(await swap.count()) || !(await swap.isVisible())) return false;
   await swap.click();
   await page.waitForTimeout(500);
@@ -194,6 +196,13 @@ const dateBoxes = () =>
       return { label: i.getAttribute('aria-label'), type: i.type, value: i.value, w: Math.round(r.width), h: Math.round(r.height) };
     }),
   );
+// (A screen in sections remembers the one last chosen: the tabs loop above opened the Agenda's other side, so start
+//  from its first pill, the Diary, or the first count and the "other side" would both be the Reminders.)
+const firstPill = page.locator('#pg-agenda .secpills .secpill').nth(0);
+if (await firstPill.isVisible().catch(() => false)) {
+  await firstPill.click();
+  await page.waitForTimeout(500);
+}
 const dates = await dateBoxes();
 if (await otherSide('agenda')) dates.push(...(await dateBoxes()).filter((d) => !dates.some((x) => x.label === d.label)));
 if (dates.length < 2) problems.push(`AGENDA has ${dates.length} date and time boxes, expected the event's and the reminder's`);

@@ -367,7 +367,7 @@ folder that no longer exists; ignore those paths).
   two paints, and a suggestion chip whose words follow the clock moved a centred row by one pixel, so boxes now match
   within a pixel while type and spacing still match to the letter. The 00:14 UTC check-in is superseded; a new one is
   armed about 85 minutes after this push.
-- 25 Oct 02:05 UK: merged after review: THE IRON MAN LOOK (10 commits; merge 6cd1dcd; MAP.md's one conflict was two rows
+- 25 Oct 01:05 UK: merged after review: THE IRON MAN LOOK (10 commits; merge 6cd1dcd; MAP.md's one conflict was two rows
   appended at the same place, both kept; `features/core/index.ts` and styles.css auto-merged over the scroll audit and
   Memory). Reviewed from the after shots (hub-see, hub-learn, gym, reply): instruments and readouts, restrained, nothing
   drawn or named as a reactor on screen (the "reactor" words left in areas.ts are old comments naming the Ask screen).
@@ -378,17 +378,17 @@ folder that no longer exists; ignore those paths).
   of six and the long-press switcher from the navigation sheet are NOT built (the next build, BRIEF-NAV-BOOT's
   navigation part). Verification on the merged tree: web check, then hubcards, routec, layout, ui, gym, deck, cited,
   memory, boot, scrollfeel and scroll on a fresh preview, plus a screenshot of the See hub for the subtitle fix.
-- 25 Oct 02:20 UK: started THE NAVIGATION BUILD on the branch head ae5666f (`.claude/worktrees/nav`, branch `worktree-nav`,
+- 25 Oct 01:20 UK: started THE NAVIGATION BUILD on the branch head ae5666f (`.claude/worktrees/nav`, branch `worktree-nav`,
   preview 8881, scratch `scratchpad/nav/`): the GYM in pages of six, the long-press switcher on the tab bar, a reusable
   `ui/sections.ts` (pills under a long screen's title, one section shown at a time, remembered) applied to SYSTEM and
   AGENDA only (Settings and the Library have builders in them), personal hub subtitles from real state. Told: a new
   `tests/nav.spec.mjs` needs the CI-loop line from the orchestrator; no edge files; the orchestrator merges.
-- 25 Oct 02:30 UK: started the MARKETS upgrade pass on the branch head 5df68ba (`.claude/worktrees/markets`, branch
+- 25 Oct 01:30 UK: started the MARKETS upgrade pass on the branch head 5df68ba (`.claude/worktrees/markets`, branch
   `worktree-markets`, preview 8882, scratch `scratchpad/markets/`). There was no markets spec: the builder writes
   `tests/markets.spec.mjs`, and the CI-loop line is the orchestrator's. Told: Agenda and System are the navigation
   builder's, Settings and the Library their passes'; prices only from free keyless sources, marked with their time;
   never buy/sell advice. Builders now: Settings (8879), Library (8880), navigation (8881), Markets (8882).
-- 25 Oct 02:55 UK: merged after review: the LIBRARY upgrade pass (11 commits, 10 fixes; merge 74d6e2f; one conflict in
+- 25 Oct 01:55 UK: merged after review: the LIBRARY upgrade pass (11 commits, 10 fixes; merge 74d6e2f; one conflict in
   features/library/index.ts where the builder had copied the picker fix line for line: both sides' additions kept).
   The builder's leftover 1 was a real breach of OWNER-ISSUES 17 waiting to happen: a past paper added by hand through
   ADD (or as photos) is an ordinary document, and `selftrain/factory.ts ownerPassages` would have read it into the
@@ -401,21 +401,21 @@ folder that no longer exists; ignore those paths).
   draw PDF pages); FRESH TODAY offline still says "Tap Digest now"; the three suggested searches are 40 px tall; the
   shelf shows unlabelled numbers. Note: `rareTerms` also changes which passages the chat's automatic lookup counts as
   relevant (stricter; the prompt and knowledge tests stayed green).
-- 25 Oct 02:40 UK: the Iron Man merge's scroll spec red was timing: the System wheel check read scrollTop 400 ms after
+- 25 Oct 01:40 UK: the Iron Man merge's scroll spec red was timing: the System wheel check read scrollTop 400 ms after
   the wheel (0 px twice at load 10–13; 240 px at load 5 and in three direct traces of the same sequence); the check
   now waits up to 3 s for the page to move. The ironbuild worktree is removed.
-- 25 Oct 02:55 UK: the learn spec's GOOD check assumed its card was the only one due; after the mark spec on the same
+- 25 Oct 01:55 UK: the learn spec's GOOD check assumed its card was the only one due; after the mark spec on the same
   preview (MARK MY WORK keeps its misses in LEARN) it read "GOOD did not finish the card". It now counts only its own
   card (the plant question) from the phone's mirror; proved by running mark then learn on one fresh preview. CI's loop
   runs learn before mark, so CI never saw it; the Library builder and the Library merge's chain did.
-- 25 Oct 03:08 UK: PR #36 MERGED into main (merge 491e3fa; every job green on e9cd5b8, mergeable clean): the big-brain
+- 25 Oct 02:08 UK: PR #36 MERGED into main (merge 491e3fa; every job green on e9cd5b8, mergeable clean): the big-brain
   crash fix is live on the owner's phone with the next open, with training resilience, the Brief, voice, Workshop and
   Memory passes, the scroll audit, the boot cinematic and the library picker fix. He is asked for: GET and USE the 0.8B,
   USE the 2B, the "What this phone can hold" line. Then main was merged back into the branch and the next batch pushed as
   the NEXT pull request (#37): the Iron Man look, the Library pass, the exam-paper guard (`[papers]`), the scroll and
-  learn spec fixes, the docs. PR #37 opened 03:09 UK on head 8561f0d; a check-in at 04:35 UK merges if green. Still
+  learn spec fixes, the docs. PR #37 opened 02:09 UK on head 8561f0d; a check-in at 03:35 UK merges if green. Still
   running when it went up: Settings (8879), the navigation build (8881), Markets (8882).
-- 25 Oct 03:25 UK: merged after review: the MARKETS pass (9 commits, 10 fixes; merge 5514ff0, clean) and the SETTINGS pass
+- 25 Oct 02:25 UK: merged after review: the MARKETS pass (9 commits, 10 fixes; merge 5514ff0, clean) and the SETTINGS pass
   (15 commits, 11 fixes; merge 2c1554a, clean). Kernel lines: `markets` and `settings` in the CI spec loop (68 specs;
   `[markets] [settings]`); four entries in keys.ts reworded for honesty (`[settings]`: GitHub "recommended", "Free …
   Not needed to talk to him"; Groq "Free, no card"; Cerebras "Free tier"; OpenRouter "Free models only (':free')").
@@ -436,16 +436,122 @@ folder that no longer exists; ignore those paths).
   on the merged tree, all green (03:53 UK): web check, tsc, the router and offline-brain tests (75 of 75), then markets,
   settings, offlinebrain, bigbrain, character, meaning, hubcards, routec, layout, ui, undo, voice and deck on a fresh
   preview. The markets and settings worktrees are removed.
-- 25 Oct 03:30 UK: started the REVERSE pass (`.claude/worktrees/reverse`, `worktree-reverse`, preview 8883, scratch
+- 25 Oct 02:30 UK: started the REVERSE pass (`.claude/worktrees/reverse`, `worktree-reverse`, preview 8883, scratch
   `scratchpad/reverse/`) and the RADIO pass (`.claude/worktrees/radio`, `worktree-radio`, preview 8884, scratch
   `scratchpad/radio/`) on the branch head 8b5f9fa (Markets and Settings merged). Neither had a spec: each writes its own
   (`tests/reverse.spec.mjs`, `tests/radio.spec.mjs`), the CI-loop lines are the orchestrator's. Builders now: navigation
   (8881), Reverse (8883), Radio (8884). After these only Agenda and System remain, after the navigation build's
   sections land in them.
-- 25 Oct 04:32 UK: PR #37 MERGED into main (merge 5ac986c; every job green on 8561f0d, mergeable clean): the Iron Man
+- 25 Oct 03:32 UK: PR #37 MERGED into main (merge 5ac986c; every job green on 8561f0d, mergeable clean): the Iron Man
   look on every hub, the Library pass, the exam-paper guard and the spec fixes are live with the owner's next open.
-  Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38. Still running:
-  navigation (8881), Reverse (8883), Radio (8884).
+  Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38 (opened 03:32 UK
+  on head 9cf6399; a check-in at 04:58 UK merges if green). Still running: navigation (8881), Reverse (8883), Radio
+  (8884).
+- 25 Oct 03:45 UK: merged after review: THE NAVIGATION BUILD (5 commits; merge clean over the Library, Markets and
+  Settings passes). Kernel line: `nav` in the CI spec loop (69 specs; `[nav]`). Behaviour the owner will notice: on the
+  phone the Agenda is one page in sections (Diary / Reminders / Spending / Calendars) and its Diary / Reminders switch
+  is gone; System shows one of Status / Report card / Training / Backup at a time; a long press on a tab fans out its
+  tools; the GYM is pages of six. Unproven here: `tests/safari.spec.mjs`'s "other side" is now a screen's second pill
+  and only CI's WebKit runs it — if CI's safari job goes red, that is the first place to look. The builder's table of the
+  other long screens that would take `ui/sections.ts` (Settings: Appearance · You · Voice & home · Ghosty · About;
+  Library: Ask · Shelf · Self-study · Fresh today · Add · Gadgets; Memory: Me · Patterns · Timeline · Diary · Chat;
+  School: Ladder · This stage · Results · Weak spots · Papers · Placement; Workshop: Build · Ideas · Changes · Made ·
+  Training; Threats: Signals · Near you · Space weather · Launches; Links: Accounts · This phone · Services; the
+  Brief, Markets and Radio are too short) is the next design pick for the owner: each is `sections(root, id, defs)`
+  after the panels mount. Other screens (the deck, the GYM page text) still say "he" about Ghosty: a sweep for the
+  polish week. Verification on the merged tree: web check, then nav, gym, hubcards, routec, layout, ui, agenda,
+  spending, speed, training, night, backup, undo, scrollfeel, scroll (Chromium), markets and settings on a fresh preview.
+- 25 Oct 04:20 UK: THE OWNER WROTE (OWNER-ISSUES 47–51): the brain re-downloads every time and the biggest one still
+  closes Ghosty on download; little tabs inside every tab; the cinematic every boot and cooler; the UI "the tiniest bit";
+  the allowance at 84 % (all models) and 49 % (Fable). Started two builders on the branch head 63f1150 (the navigation
+  merged): BRAINKEEP (`.claude/worktrees/brainkeep`, preview 8885, Opus) on the two brain bugs, and SECTIONS
+  (`.claude/worktrees/sections`, preview 8886, Sonnet) putting `ui/sections.ts` on Settings, Library, Memory, School,
+  Workshop, Threats and Links. Boot 2 (every cold open, cooler) starts when Reverse or Radio reports. Agenda and System
+  passes wait for the allowance reset.
+- 25 Oct 04:40 UK: THE OWNER WROTE AGAIN (OWNER-ISSUES 52): the GYM "improved massively" (he beats Connect 4 every time in
+  five minutes); the Harold-and-the-Machine relationship as the feel. Started GYM2 (`.claude/worktrees/gym2`, created by
+  the builder itself from the branch head, preview 8887, Opus): PLAY HIM at full strength always, lessons from his
+  games, the voice. Builders now: Reverse (8883), Radio (8884), brainkeep (8885), sections (8886, Sonnet), gym2 (8887).
+  Boot 2 waits for the first of these to report. The allowance is the constraint (84 % all models): no further
+  builders this week beyond boot 2 unless one of these finishes early.
+- 25 Oct 04:50 UK: merged after review: the RADIO pass (6 commits, 10 fixes; merge 812c8af, clean). Kernel line: `radio`
+  in the CI spec loop (70 specs; `[radio]`). The three lines the builder asked for in other files were made here: the
+  top-bar chip (shell/layout.ts: Connecting / didn't play / paused), the Plan hub's radio card (hubcards.ts: paused →
+  READY, "<name> · paused"), the chat's play_radio toast (commands/builtin.ts: honest words pointing at Radio).
+  Leftovers the builder ranked: play from chat or voice on the iPhone needs the audio element unlocked on the first tap
+  (only a real iPhone can prove it); ducking while Ghosty speaks does nothing on iOS (fixed volume; the voice pass's
+  area); programme or track names need a brain route; the BBC streams are HLS (native on iPhone; desktop Chrome may
+  refuse); noisy directory names remain; no sleep timer, no favourite reordering, no station artwork (the CSP's img-src,
+  and nothing sent somewhere new); only the de1 directory mirror (a fallback mirror needs `'de2.api.radio-browser.info',
+  'fi1.api.radio-browser.info',` in FEED_HOSTS, index.ts). Verification on the merged tree: web check, tsc, the full edge
+  suite (tools/media.ts changed), then radio, media, hubcards, routec, layout, ui on a fresh preview.
+- 25 Oct 04:55 UK: started BOOT 2 (`.claude/worktrees/boot2`, preview 8888, Opus): every cold open, a richer cut of MIND
+  waking in 3.5–4.5 s, no facts, no reactor, frame-budgeted, the spec extended; the radio worktree removed. Builders
+  now: Reverse (8883), brainkeep (8885), sections (8886, Sonnet), gym2 (8887), boot2 (8888). That is the week's last
+  set unless the allowance resets.
+- CLOCKS: British Summer Time ended at 01:00 UTC on 25 Oct 2026, so from then UK time = UTC. The 25 Oct labels above
+  from the Iron Man merge onward were first written an hour ahead and have been corrected (05:20 UK → 04:20 UK, and so
+  on); CI timestamps are UTC. The owner's messages this morning came at 04:15 and 04:35 UK.
+- 25 Oct 04:50 UK: merged after review: the REVERSE pass (15 commits, 11 fixes; merge b78c8df, clean). My brief had
+  described a different feature (physical things taken apart); the builder read MAP.md and upgraded the real one
+  (software reverse engineering: REA on GitHub's runners) and left the shared integrations alone: the right call.
+  Kernel lines: `reverse` in the CI spec loop (71 specs; `[reverse]`); `agent.ts`: the import of `removeReverse` and a
+  `DELETE /reverse/:id` route (`[reverse]`). Made at the merge, mine: REMOVE on a finished or failed report's row (the
+  row goes at once, the floating bar's UNDO brings it back, the brain is told only when the bar closes; the page's
+  `reverseRemove` wrapper; a spec check), the Make hub card's title "See how apps work" and OFF without GitHub, the
+  live dot counting a queued report. Leftovers the builder ranked: no FIND among up to 40 reports; no plain-English
+  summary at the top of a report (ASK GHOSTY gives one through the chat); the laptop's empty middle column (ui/page.ts);
+  a run can wait 15 minutes before "didn't finish"; no live GitHub run could be tried (the preview has no token).
+- 25 Oct 04:55 UK: PR #38 MERGED into main (merge feccb84; every job green on 9cf6399, mergeable clean): the Settings
+  and Markets passes and the keys' honest words are live with the owner's next open. Main merged back into the branch.
+  The next push (the navigation build, the Radio and Reverse passes, the docs) waits for three things on the merged
+  tree: the Agenda spec's click on the Diary's ADD at desktop width (the button sits under the globe's canvas there;
+  a trace against main is running to tell a new fault from an old one), the scroll spec's one red on Memory's places
+  panel at load 12 (to rerun quiet), and the Radio and Reverse verifications with the full brain suite.
+- 25 Oct 05:15 UK: the Agenda at desktop width was broken by the navigation merge and is fixed: `ui/sections.ts` put its
+  sticky-pill row and a zero-height marker into the page's `.hud`; on a wide screen the pills are hidden but the marker
+  stayed a grid item of the three-column `.two` grid, so the columns shifted a cell, the Reminders column wrapped to a
+  second row of 725 px and the first row (minmax(0, 1fr)) collapsed to 0: the Diary column was clipped away, invisible
+  and untappable (the agenda spec's ADD at 1440 × 900 hit the globe's canvas behind the page). Fix: the marker is
+  hidden with the pills (`mark.hidden = !on`) and `html .secmark[hidden], html .secpills[hidden] { display: none
+  !important; }`. Proof: one grid row of 739 px, the Diary column back at the left, elementFromPoint at ADD's centre
+  returns the button; the agenda, nav and spending specs rerun on the rebuilt preview. Two lessons: (1) a check of
+  every screen with sections at 1440 × 900 belongs in nav.spec (the sections builder was told to look at each one);
+  (2) `tests/preview-server.mjs` serves the BUILT app: a source edit needs `cd apps/web && npm run check` (the build)
+  before a preview shows it; CSS is read from source. Every verification chain here starts with that check, but an
+  ad-hoc trace after a TypeScript edit does not, and cost twenty minutes of a wrong conclusion.
+- 25 Oct 05:35 UK: pushed as PR #39 (one CI run for the batch): the navigation build, the Radio and Reverse passes, the
+  sections marker fix, REMOVE on a Reverse report, the Radio pass's three shell lines, the CI loop at 71 specs (nav,
+  radio, reverse), the docs. Proofs on the merged tree: brain suite 1,188 of 1,188; web check; specs nav, gym, hubcards,
+  routec, layout, ui, agenda, spending, speed, training, night, backup, undo, scrollfeel, markets, settings, radio,
+  media, reverse, scroll (Chromium, 100 swipes). The scroll spec's swipe check now waits up to two seconds for the
+  animated wheel scroll to land (at load 12 it read 0 px after 350 ms in a different place each run; clean at load 7).
+  PR #39 opened 05:35 UK on head 60dc3c2; a check-in at 07:05 UK merges if green. The nav worktree is removed. Builders
+  still running: brainkeep (8885), sections (8886), gym2 (8887), boot2 (8888).
+- 25 Oct 05:45 UK: merged after review: BRAINKEEP (2 commits; merge 1d330dd, clean): the re-download's root cause was
+  `public/sw.js` wiping every cache but Ghosty's own on each new version (WebLLM's stores included), fixed; honest
+  storage lines; the quota check; Range parts of 32 MB with a per-part carry-on. Pushed onto PR #39 (its CI restarts:
+  the owner is waiting on this one most). What only his phone can prove, and the four steps he was given: the "This
+  is Safari / the Home Screen app" and "Kept for good" lines; GET the 2B, read "On this phone: Qwen3.5 2B whole (1.1
+  GB)"; close fully, reopen, read the line again and any "… have gone since" line; try the 4B GET and send either the
+  "This phone gives Ghosty … of space" refusal or the carry-on line. If the 4B still closes Ghosty, the levers left
+  are the quota check, smaller pieces (a re-converted model) and WebLLM's OPFS backend (not touched: it changes what
+  the runtime looks up). The builder waited the full 25 minutes once at load 12–14 and went ahead; every later heavy
+  step waited for 6 or below.
+- 25 Oct 06:12 UK: brainkeep pushed onto PR #39 (its CI restarts on the new head): build, tsc, offline-brain 44 of 44,
+  bigbrain, offlinebrain, settings, undo and apps green on the merged tree. A new check-in about 95 minutes out
+  replaces the 07:05 one. Builders still running: sections (8886), gym2 (8887), boot2 (8888).
+- 25 Oct 06:25 UK: PR #39's smoke job went red nine minutes in, in ITS brain suite (the smoke job runs `npm test` before
+  the specs): one test of 1,190, selftrain.test.mjs "gathering: the free part … a few milliseconds of CPU each", which
+  asserted every step after the first under 25 ms of CPU; one step took 71 ms on GitHub's runner (a garbage
+  collection) while the brain job on the same commit passed the same test. The test now allows one step at or over 25
+  ms and none over 150 ms (61 of 61 here). Pushed onto PR #39 (CI restarts; a check-in about 95 minutes out replaces
+  the 07:47 one).
+- 25 Oct 06:45 UK: the smoke run on PR #39's first head (60dc3c2) finished red on ONE spec, safari (WebKit, CI only):
+  "AGENDA has 1 date and time boxes, expected the event's and the reminder's". Cause: the Agenda in sections remembers
+  the section last chosen; the spec's tabs loop had opened the Agenda's "other side" (the second pill, Reminders)
+  earlier in the same page, so the date-box check opened on Reminders and its "other side" was Reminders again. The
+  spec now taps the first pill (Diary) before counting. WebKit cannot run here; CI proves it. Pushed onto PR #39.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

@@ -15,6 +15,7 @@ import { trainingPanel } from './training';
 import { nightPanel } from './night';
 import { statusDials } from '../../ui/statusdials';
 import { speedCard } from './speed';
+import { sections } from '../../ui/sections';
 
 export const systemTab: TabDef = {
   id: 'system',
@@ -44,6 +45,14 @@ export const systemTab: TabDef = {
     const stp = panel('STORAGE', { grow: false });
     const bkp = panel('BACKUP & RESTORE', { grow: false });
     P.right.append(stp.el, bkp.el);
+    // Sections (ui/sections.ts; the navigation sheet): a pill each for the status and the brain's keys (what he opens
+    // System for, so first), the offline brain's report card and loops, its training and Night School, and the backup.
+    sections(root, 'system', [
+      { id: 'status', label: 'Status', match: /^(STATUS|KEYS|AI MODELS|AI ROOM|GITHUB)/ },
+      { id: 'report', label: 'Report card', match: /^(OFFLINE BRAIN REPORT|LOOPS)/ },
+      { id: 'training', label: 'Training', match: /^(OFFLINE BRAIN TRAINING|NIGHT SCHOOL)/ },
+      { id: 'backup', label: 'Backup', match: /^(STORAGE|BACKUP)/ },
+    ]);
     let status: BrainStatus | null = null;
 
     let showOptional = false;

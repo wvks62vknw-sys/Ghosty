@@ -3051,6 +3051,72 @@ html #dock .tabcap .gi .live { position: absolute; top: 1px; right: 0; width: 8p
 html #dock .tabcap button.live .gi .live { display: block; animation: ironbreathe 2.4s ease-in-out infinite; }
 html #dock .tabcap button[data-badge]:not([data-badge=""])::after { top: 3px; right: calc(50% - 26px); left: auto; width: auto; min-width: 20px; height: 18px; margin: 0; padding: 0 5px; border-radius: 5px; font: 600 11px/18px var(--mono); color: #ffd9d6; background: rgba(255,105,97,.22); box-shadow: inset 0 0 0 1.5px var(--r), 0 0 10px rgba(255,105,97,.55); }
 html #top .you.live .av { box-shadow: inset 0 0 0 1px rgba(var(--cr), .6), 0 0 0 3px rgba(var(--cr), .14), 0 0 12px rgba(var(--cr), .6); }
+/* ---------- navigation (BRIEF-NAV-BOOT 1; the owner: "different like tabs for all of it but not overstimulating, and easy
+   to navigate"): the GYM's games in pages of six, the tab bar's long-press switcher, the section pills on the long tool
+   screens (ui/sections.ts). In the Iron Man look, every colour the theme's (--c, --cr, --c2), so Graphite gets the
+   same shapes in steel; Reduce Motion moves nothing (the rule above stops every animation and transition). ---------- */
+/* the GYM: a strip of pages, two columns and three rows each, one page a swipe; the dots under it */
+html #pg-gym .gymcards.paged { --cw: calc((100% - 12px) / 2); display: grid; grid-template-rows: repeat(3, auto); grid-auto-rows: auto; grid-auto-columns: var(--cw); gap: 12px; margin: 0 -16px; padding: 4px 16px 20px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+html #pg-gym .gymcards.paged::-webkit-scrollbar { display: none; }
+html #pg-gym .gymcards.paged > .gymcard { min-width: 0; scroll-snap-align: start; scroll-snap-stop: always; }
+html #pg-gym .gymcards.paged > .gymcard:nth-child(even) { scroll-snap-align: none; }
+html #pg-gym .gympager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -12px 0 4px; }
+html #pg-gym .gymdots { display: flex; align-items: center; margin-left: -12px; }
+html #pg-gym .gymdot { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px !important; padding: 0; border-radius: 0; background: none !important; box-shadow: none !important; }
+html #pg-gym .gymdot i { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--cr), .22); box-shadow: inset 0 0 0 1px rgba(var(--cr), .3); transition: width .3s var(--spring), background .3s; }
+html #pg-gym .gymdot.on i { width: 20px; background: var(--c); box-shadow: 0 0 10px rgba(var(--cr), .75); }
+html #pg-gym .gymdot.train::before { content: ''; position: absolute; left: 50%; top: 9px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 3px; background: var(--c2); box-shadow: 0 0 0 2px rgba(5,8,10,.9), 0 0 8px var(--c); animation: ironbreathe 2.4s ease-in-out infinite; }
+html #pg-gym .gympgw { font: 500 12px/14px var(--mono); letter-spacing: .04em; color: rgba(var(--cr), .6); white-space: nowrap; }
+/* the quick switcher (shell/switcher.ts): hold a tab, its tools fan out above the bar as a short arc of small
+   instruments in round faces, the one under the finger lit and named above them; the page dims behind */
+html #dock .tabcap button { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+html #dock .tabcap button.held .gi .halo { opacity: 1; transform: scale(1.08); background: radial-gradient(circle, rgba(var(--cr), .45), transparent 65%); box-shadow: inset 0 0 0 1.5px rgba(var(--cr), .7), 0 0 0 6px rgba(var(--cr), .08), 0 0 22px rgba(var(--cr), .5); }
+html #dock .tabcap button.held { color: var(--ink); }
+html #switcher { position: fixed; inset: 0; z-index: 8; pointer-events: auto; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html #switcher[hidden] { display: none; }
+html #switcher .swdim { position: absolute; inset: 0; background: radial-gradient(ellipse 120% 70% at 50% 100%, rgba(var(--cr), .1), transparent 60%), rgba(3,6,8,.72); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); opacity: 0; transition: opacity .22s ease-out; }
+html #switcher.in .swdim { opacity: 1; }
+html #switcher .swcap { position: absolute; left: 24px; right: 24px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s ease-out .05s; }
+html #switcher.in .swcap { opacity: 1; }
+html #switcher .swk { font: 600 12px/14px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: rgba(var(--cr), .8); }
+html #switcher .swt { font: 600 20px/25px var(--sf); letter-spacing: -.3px; color: var(--ink); }
+html #switcher .swh { font: 400 14px/18px var(--sf); color: var(--ink2); }
+html #switcher .switem { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100px; min-height: 44px; margin: -36px 0 0 -50px; padding: 0; border-radius: 0; background: none !important; box-shadow: none !important; color: var(--ink); text-transform: none; opacity: 0; transform: translate(var(--fx), var(--fy)) scale(.35); transition: transform .42s var(--spring) calc(var(--i) * 26ms), opacity .2s ease-out calc(var(--i) * 26ms); }
+html #switcher.in .switem { opacity: 1; transform: none; }
+html #switcher .swring { position: relative; display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, rgba(var(--cr), .16), rgba(6,10,13,.92) 70%); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .4), 0 0 26px -10px rgba(var(--cr), .55), 0 12px 28px rgba(0,0,0,.55); transition: transform .3s var(--spring), box-shadow .3s; }
+html #switcher .swring > svg { width: 62px; height: 46px; }
+html #switcher .swring > :is(svg.i-ring, .insc) { position: absolute; left: 50%; top: 50%; width: 124px; height: 72px; margin: -36px 0 0 -62px; }
+html #switcher .swring > .insc { display: grid; place-items: center; }
+html #switcher .swring > .insc > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+html #switcher .swring .ctr { position: relative; text-align: center; }
+html #switcher .swring .ctr b { display: block; font: 500 16px/18px var(--mono); letter-spacing: -.3px; color: var(--ink); text-shadow: 0 0 10px rgba(var(--cr), .7); }
+html #switcher .swring .ctr .of { font-size: 10px; color: rgba(var(--cr), .7); text-shadow: none; }
+html #switcher .swring .ctr small { display: none; }
+html #switcher .swring > .segs { width: 46px; }
+html #switcher .swring > .ic { width: 26px; height: 26px; fill: none; stroke: var(--c2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+html #switcher .swring > svg:is(.i-globe, .i-vf, .i-mind) { width: 60px; height: 60px; }
+html #switcher .swnm { margin-top: 6px; font: 600 11px/14px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(var(--cr), .85); white-space: nowrap; }
+html #switcher .swrd { max-width: 100%; font: 500 12px/15px var(--sf); color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html #switcher .switem:is([data-status="live"], [data-status="training"]) .swring { box-shadow: inset 0 0 0 1px rgba(var(--cr), .55), inset 0 1px 0 rgba(var(--cr), .6), 0 0 30px -6px rgba(var(--cr), .7), 0 12px 28px rgba(0,0,0,.55); }
+html #switcher .switem.on .swring { transform: scale(1.14); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 5px rgba(var(--cr), .12), 0 0 36px rgba(var(--cr), .65), 0 12px 28px rgba(0,0,0,.55); }
+html #switcher .switem.on .swnm { color: var(--ink); }
+
+/* the sections on a long tool screen (ui/sections.ts): a row of pills under the title, held under the navigation bar
+   as the page scrolls; the chosen one lit. Only on the phone: a wide screen shows every panel. */
+html .secpills { position: sticky; top: 12px; z-index: 6; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; margin: 10px 0 4px; padding: 4px; border-radius: 26px; background: rgba(7,11,14,.8); box-shadow: inset 0 0 0 1px var(--hud), inset 0 1px 0 rgba(var(--cr), .28), 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6); }
+html .secpills[hidden] { display: none; }
+html .secmark { display: block; height: 0; }
+html .secpills .secpill { min-width: 0; height: 44px; min-height: 44px !important; padding: 0 6px; border-radius: 22px; font: 600 14px/1 var(--sf) !important; letter-spacing: -.1px; color: var(--ink2); background: none !important; box-shadow: none !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; transition: color .2s, background .25s var(--spring); }
+html .secpills .secpill.on { color: var(--c2); background: rgba(var(--cr), .12) !important; box-shadow: inset 0 0 0 1px rgba(var(--cr), .45), 0 0 18px -6px rgba(var(--cr), .7) !important; text-shadow: 0 0 10px rgba(var(--cr), .45); }
+html .hud.secs [data-sec][hidden], html .hud.secs .secnone { display: none !important; }
+/* On a wide screen the sections are off (every panel shows) and their row and its marker must not be grid items of the
+   two-column page: the marker alone pushed the Diary's column into the middle cell with no height (clipped, untappable:
+   the Agenda spec's ADD at 1440 × 900 hit the globe's canvas behind the page). Hidden means gone here, whatever the
+   marker's own display rule says. */
+html .secmark[hidden], html .secpills[hidden] { display: none !important; }
+html .hud.secs .lcard > .pn[hidden] + .pn > h3::before { display: none; }
+/* a hub's line in his own words stays within two lines, so the hub still fits one screen */
+html .hubsub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 /* end route C */
 
 /* SCHOOL (features/school): the ladder, this stage's subjects, sitting, the result card, placement, weak spots, results */
@@ -3768,27 +3834,30 @@ html #pg-radio .nptx span { font: 400 13px/18px var(--sf); color: var(--ink2); d
 html #pg-radio .pn.nowp .bd > .rw, html #pg-radio .pn.nowp .bd > .note:not(.bad) { display: none; }
 html #pg-radio .pn.nowp .note.bad { margin-top: 12px; font-size: 13px; line-height: 18px; color: var(--amber); }
 html #pg-radio .pn.nowp .keyrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; margin-top: 16px; padding: 0; }
+html #pg-radio .pn.nowp .keyrow.novol { display: flex; flex-wrap: wrap; }
+html #pg-radio .pn.nowp .keyrow.novol button { flex: 1 1 0; }
 html #pg-radio .pn.nowp .keyrow .lab { margin: 0; }
 html #pg-radio .pn.nowp .keyrow input[type="range"] { width: 100%; accent-color: var(--c); }
-html #pg-radio .pn.nowp .keyrow button { height: 40px; min-height: 40px !important; padding: 0 14px; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
+html #pg-radio .pn.nowp .keyrow button { height: 44px; min-height: 44px !important; padding: 0 14px; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) { display: flex; flex-wrap: nowrap; gap: 8px; padding: 2px 16px 4px; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) input { flex: 1; min-width: 0; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) button { flex: none; height: 44px; min-height: 44px !important; }
 html #pg-radio .keyrow.chips { display: flex; flex-wrap: nowrap; gap: 8px; padding: 6px 16px 8px; overflow-x: auto; scrollbar-width: none; }
 html #pg-radio .keyrow.chips::-webkit-scrollbar { display: none; }
-html #pg-radio .keyrow.chips button { flex: none; position: relative; height: 34px; min-height: 34px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
-html #pg-radio .keyrow.chips button::after { content: ''; position: absolute; inset: -5px 0; }
+html #pg-radio .keyrow.chips button { flex: none; position: relative; height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 /* a station: its star, the name and line, a round play button; the one playing is lit */
-html #pg-radio .rw.station { display: grid; grid-template-columns: 32px minmax(0, 1fr) 40px; column-gap: 10px; align-items: center; min-height: 62px; margin: 0; padding: 8px 0; border-radius: 0; }
-html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 32px; height: 32px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
-html #pg-radio .rw.station .k::after { content: ''; position: absolute; inset: -6px -6px; }
+html #pg-radio .rw.station { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; column-gap: 8px; align-items: center; min-height: 62px; margin: 0; padding: 8px 0; border-radius: 0; }
+html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
 html #pg-radio .rw.station .v b { font: 600 16px/21px var(--sf); color: var(--ink); }
 html #pg-radio .rw.station .v br { display: none; }
 html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html #pg-radio .rw.station .n { display: grid; place-items: center; width: 40px; height: 40px; padding-left: 2px; border-radius: 20px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
+html #pg-radio .rw.station .n { display: grid; place-items: center; width: 44px; height: 44px; padding-left: 2px; border-radius: 22px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-radio .rw.station.playing .n { color: #03141b; background: var(--c); box-shadow: 0 0 12px rgba(var(--cr), .45); }
 html #pg-radio .rw.station.playing .v b { color: var(--c); }
 html #pg-radio .pn.favs .rw.station .k { color: var(--c); }
+html #pg-radio .rw.station.tuning .n { animation: rctune 1.2s ease-in-out infinite; }
+@keyframes rctune { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { html #pg-radio .rw.station.tuning .n { animation: none; } }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
@@ -4022,6 +4091,23 @@ html .homecardacts button { --lfs: 15px; height: 44px; min-height: 44px !importa
 /* Reverse: the help under the form quieter, the jobs as rows */
 html #pg-reverse .pn .note { font-size: 14px; line-height: 20px; color: var(--ink3); }
 html #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }
+/* Reverse: GitHub not connected, said before he types (with the way to connect it); what START did, kept under it */
+html #pg-reverse .revgh { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--ar), .08); box-shadow: inset 0 0 0 1px rgba(var(--ar), .25); }
+html #pg-reverse .revgh p { margin: 0 0 10px; font: 400 15px/21px var(--sf); color: var(--ink2); }
+html #pg-reverse :is(.revgh, .revsay, .revsaved, .revoff, .revreads)[hidden] { display: none; }
+html #pg-reverse .pn .note.revsaved { margin: 0 0 10px; font-size: 15px; line-height: 21px; color: var(--ink2); }
+html #pg-reverse .revsaved button { margin-left: 4px; }
+html #pg-reverse .pn .note.revoff { margin: 0 0 8px; font-size: 15px; line-height: 21px; color: var(--ink2); }
+html #pg-reverse .pn .note.revreads { margin: 6px 2px 8px; font-size: 14px; line-height: 19px; color: var(--ink2); }
+/* Reverse: every target a full 44 pt (START, REFRESH, the report's buttons were 40; the rows 40–41) */
+html #pg-reverse :is(button, select, input) { min-height: 44px !important; }
+html #pg-reverse .pn .rw.link { min-height: 48px; align-items: center; }
+/* Reverse: each report's name in full (a long one wraps, never cut, at 390 or in a laptop's narrow column), what it is under it */
+html #pg-reverse .rw .v.revname { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; padding: 6px 0; }
+html #pg-reverse .rw .v.revname small { display: block; margin-top: 1px; font: 400 13px/17px var(--sf); color: var(--ink3); }
+/* REMOVE on a finished or failed report: a 44 pt target at the row's end (UNDO through the floating bar) */
+html #pg-reverse .rw .revremove { min-height: 44px; margin-left: auto; flex: none; }
+html #pg-reverse .pn .note.revsay { margin: 8px 0; font-size: 15px; line-height: 21px; color: var(--ink); }
 /* ---------- System and Links: a pushed panel shows its contents under the large title (its row is not repeated) ---------- */
 html .listmode .pn.pushed[data-row] > h3 { display: none; }
 html body[data-depth="inner"]:not(.ownback) #top .navtitle[data-len="l"] { font-size: 28px; line-height: 34px; letter-spacing: -.3px; }

@@ -12,6 +12,7 @@
  * table below is the default for the twenty tools, so the feature files stay as they are.
  */
 import { brain, headers, lastSeen, type ReverseJobInfo, type StudyInfo } from '../api/brain';
+import type { Project } from '../../../../packages/shared/src/protocol';
 import { offline } from '../api/offline';
 import { favourites, player } from '../assistant/media';
 import { chat } from '../assistant/session';
@@ -81,6 +82,10 @@ export const hubFacts = {
   school: null as { stage: string; label: string; subjects: number; passed: number } | null | false,
   reverse: null as ReverseJobInfo[] | null,
   kept: null as number | null,
+  /** The newest model kept in the 3-D studio (its name and when). */
+  keptLast: null as { title: string; at: number } | null,
+  /** The Workshop's projects that run for days (null until read). */
+  projects: null as Project[] | null,
 };
 const loadGym = every(3_000, async () => (hubFacts.gym = await gymStore.loadAll()));
 const loadLib = every(300_000, async () => {
@@ -97,7 +102,12 @@ const loadSchool = every(600_000, async () => {
   hubFacts.school = { stage: st.stage, label: cur?.label ?? stages.find((x) => x.id === st.stage)?.label ?? niceCase(st.stage.replace(/[-_]/g, ' ')), subjects: subjects.length, passed: subjects.filter((x) => x.top).length };
 });
 const loadReverse = every(120_000, async () => (hubFacts.reverse = (await brain.reverseJobs()).jobs));
-const loadKept = every(30_000, async () => (hubFacts.kept = (await listKept()).length));
+const loadKept = every(30_000, async () => {
+  const k = await listKept();
+  hubFacts.kept = k.length;
+  hubFacts.keptLast = k[0] ? { title: k[0].title, at: k[0].at } : null;
+});
+const loadProjects = every(120_000, async () => (hubFacts.projects = (await brain.projects()).projects));
 const loadStatus = every(120_000, () => brain.status());
 
 /* ------------------------------------------------------------------ helpers */
@@ -137,7 +147,7 @@ const centred = (svg: Element, big: string, of: string, word: string) =>
 /* ------------------------------------------------------------------ the twenty tools */
 export const CARDS: Record<string, HubCard> = {
   core: {
-    title: 'Talk to him',
+    title: 'Talk to me',
     status: () => (ui.get().connected == null ? 'READY' : ui.get().connected ? 'LIVE' : 'OFF'),
     instrument: () => traceInst(stopwatch.trips(12)),
     readouts: () => {
@@ -148,7 +158,7 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Today', value: String(replies), unit: replies === 1 ? 'reply' : 'replies' },
       ];
     },
-    why: () => (ui.get().connected === false ? 'Offline: he answers on the phone until the signal is back' : ''),
+    why: () => (ui.get().connected === false ? 'Offline: I answer on the phone until the signal is back' : ''),
   },
   brief: {
     title: () => `${city()} today`,
@@ -164,7 +174,7 @@ export const CARDS: Record<string, HubCard> = {
         { label: 'Sky', value: w ? niceCase(WMO(w.weather_code)) : null },
       ];
     },
-    why: () => (weather.data ? '' : 'The weather comes in when he can reach it'),
+    why: () => (weather.data ? '' : 'The weather comes in when I can reach it'),
     load: () => weather.refresh(),
   },
   voice: {
@@ -174,7 +184,7 @@ export const CARDS: Record<string, HubCard> = {
     readouts: () => {
       const sp = lastSeen.get().status?.speech;
       return [
-        { label: 'He hears', value: sp ? (sp.stt ? 'Yes' : 'Phone') : null },
+        { label: 'I hear', value: sp ? (sp.stt ? 'Yes' : 'Phone') : null },
         { label: 'Own voice', value: sp ? (sp.tts ? 'Yes' : 'Phone') : null },
       ];
     },
@@ -211,7 +221,7 @@ export const CARDS: Record<string, HubCard> = {
     load: loadKept,
   },
   workshop: {
-    title: 'He edits his own code',
+    title: 'I edit my own code',
     status: () => (lastSeen.get().status ? (lastSeen.get().status!.repoReady ? 'READY' : 'OFF') : 'READY'),
     instrument: draftInst,
     readouts: () => {
@@ -224,8 +234,8 @@ export const CARDS: Record<string, HubCard> = {
     load: loadStatus,
   },
   reverse: {
-    title: 'See how any app works',
-    status: () => (hubFacts.reverse?.some((j) => j.status === 'running' || j.status === 'queued') ? 'LIVE' : 'READY'),
+    title: 'See how apps work',
+    status: () => (lastSeen.get().status?.repoReady === false ? 'OFF' : hubFacts.reverse?.some((j) => j.status === 'running' || j.status === 'queued') ? 'LIVE' : 'READY'),
     instrument: layersInst,
     readouts: () => {
       const j = hubFacts.reverse;
@@ -266,7 +276,7 @@ export const CARDS: Record<string, HubCard> = {
     },
   },
   gym: {
-    title: 'He teaches himself',
+    title: 'I teach myself',
     status: () => (gymTraining() ? 'TRAINING' : 'READY'),
     instrument: () => {
       const recs = gymRecs();
@@ -290,7 +300,7 @@ export const CARDS: Record<string, HubCard> = {
     load: loadGym,
   },
   school: {
-    title: 'He sits real papers',
+    title: 'I sit real papers',
     status: () => (schoolState.sitting ? 'LIVE' : hubFacts.school === false ? 'OFF' : 'READY'),
     instrument: () => {
       const s = hubFacts.school;
@@ -308,7 +318,7 @@ export const CARDS: Record<string, HubCard> = {
     load: loadSchool,
   },
   library: {
-    title: 'All he has read',
+    title: 'All I have read',
     status: () => 'READY',
     instrument: () => {
       const s = hubFacts.study?.summary;
@@ -377,14 +387,85 @@ export const CARDS: Record<string, HubCard> = {
   },
   radio: {
     title: 'Radio from everywhere',
-    status: () => (player.get().state === 'playing' ? 'LIVE' : 'OFF'),
+    status: () => (player.get().state === 'playing' ? 'LIVE' : player.get().state === 'paused' ? 'READY' : 'OFF'),
     instrument: () => dialInst(player.get().state === 'playing'),
     readouts: () => {
       const p = player.get();
       return [
-        { label: 'On air', value: p.state === 'playing' && p.now ? p.now.name : null, none: 'Off air', live: p.state === 'playing' },
+        { label: 'On air', value: p.state === 'playing' && p.now ? p.now.name : null, none: p.state === 'paused' && p.now ? `${p.now.name} · paused` : 'Off air', live: p.state === 'playing' },
         { label: 'Favourites', value: String(favourites.list().length) },
       ];
     },
   },
 };
+
+/* ------------------------------------------------------------------ the hubs' own words */
+/**
+ * The line under a hub's title, made his (the navigation sheet: "his city in the weather, his places by name, his
+ * school stage, his rating: nothing generic"), in Ghosty's one voice ("I", never "he"). Built only from readings the
+ * phone holds; '' when it holds none, and the hub shows its plain line (shell/areas.ts AREAS[].sub) — never a sample.
+ */
+export function hubWords(area: string): string {
+  if (area === 'learn') {
+    const s = hubFacts.school;
+    const stage = s ? schoolStage(s.stage, s.label) : '';
+    const best = [...gymRecs().values()].filter((r) => r.league?.versions.length).sort((a, b) => b.league!.rating - a.league!.rating)[0];
+    const rated = best ? `rated ${best.league!.rating.toLocaleString('en-GB')} at ${niceCase(GAMES.find((g) => g.id === best.id)?.title ?? best.id)}` : '';
+    if (stage && rated) return `${stage}, and ${rated}.`;
+    if (stage) return `${stage}; the courses here are for you.`;
+    if (rated) return `I’m ${rated}; the courses here are for you.`;
+    return '';
+  }
+  if (area === 'plan') {
+    const known = !!offline.get().agenda;
+    const e = nextEvent();
+    const next = e ? `Next: ${e.title} ${whenWords(e.start)}` : known ? 'Nothing booked' : '';
+    const w = weather.data?.current;
+    const sky = w ? `${temp(w.temperature_2m)}, ${WMO(w.weather_code).toLowerCase()} in ${weather.data!.place}` : '';
+    return [next, sky].filter(Boolean).join('. ') + (next || sky ? '.' : '');
+  }
+  if (area === 'see') {
+    const town = settings.get().home?.name;
+    return town ? `The world live from ${town}, and a camera that understands it.` : '';
+  }
+  if (area === 'make') {
+    type Made = { at: number; words: string };
+    const made: Made[] = [];
+    for (const p of hubFacts.projects ?? []) {
+      if (p.status === 'cancelled') continue;
+      made.push({ at: p.updated, words: p.status === 'active' ? `I’m building ${p.title} for you now.` : p.status === 'paused' ? `${p.title} is paused, waiting for you.` : `Last made: ${p.title}.` });
+    }
+    const k = hubFacts.keptLast;
+    if (k) made.push({ at: k.at, words: `Last kept: ${k.title}, a 3-D model.` });
+    for (const j of hubFacts.reverse ?? []) if (j.status === 'done' || j.status === 'running') made.push({ at: j.finishedAt ?? j.at, words: j.status === 'running' ? `I’m taking ${j.target} apart now.` : `Last taken apart: ${j.target}.` });
+    return made.sort((a, b) => b.at - a.at)[0]?.words ?? '';
+  }
+  return '';
+}
+
+/** The reads a hub's words need (throttled; the cards make most of them already). */
+export function loadHubWords(area: string): Promise<unknown> {
+  if (area === 'learn') return Promise.all([loadSchool(), loadGym()]);
+  if (area === 'plan') return weather.refresh().catch(() => undefined);
+  if (area === 'make') return Promise.all([loadProjects(), loadKept(), loadReverse()]);
+  return Promise.resolve();
+}
+
+/** His school stage as Ghosty would say it: "I’m in Nursery at school", "I’m doing my GCSEs". */
+function schoolStage(id: string, label: string): string {
+  const said: Record<string, string> = {
+    nursery: 'I’m in Nursery at school', reception: 'I’m in Reception at school', ks1: 'I’m in Key Stage 1 at school', ks2: 'I’m in Key Stage 2 at school',
+    ks3: 'I’m in Key Stage 3 at school', gcse: 'I’m doing my GCSEs', alevel: 'I’m doing my A-levels', university: 'I’m at university', library: 'I’m reading the whole library',
+  };
+  return said[id] ?? `I’m at the ${label} stage at school`;
+}
+
+/** When an event is, in a sentence: "in 25 min", "at 15:30", "tomorrow at 09:00", "on Mon at 09:00". */
+function whenWords(ms: number): string {
+  const u = until(ms);
+  if (/min$|h$/.test(u)) return `in ${u}`;
+  if (/^Tomorrow /.test(u)) return `tomorrow at ${u.slice(9)}`;
+  if (/^\d\d:\d\d$/.test(u)) return `at ${u}`;
+  const [d, t] = u.split(' ');
+  return `on ${d} at ${t}`;
+}

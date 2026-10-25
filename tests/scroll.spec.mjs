@@ -92,7 +92,13 @@ for (const tab of TABS) {
         await page.evaluate((i) => (document.querySelector(`[data-scroller="${i}"]`).scrollTop = 0), s.i);
         await page.mouse.move(s.x, s.y);
         await page.mouse.wheel(0, 240);
-        await page.waitForTimeout(350);
+        // the wheel's scroll is animated: on a loaded machine it lands late (350 ms was not enough at load 12, in a
+        // different place each run), so the page or a list under the finger is given up to two seconds to move
+        await page.waitForFunction(({ i, x, y }) => {
+          if ((document.querySelector(`[data-scroller="${i}"]`)?.scrollTop ?? 0) > 0) return true;
+          for (let e = document.elementFromPoint(x, y); e; e = e.parentElement) if (e.scrollTop > 0 && !e.dataset.scroller) return true;
+          return false;
+        }, { i: s.i, x: s.x, y: s.y }, { timeout: 2000 }).catch(() => undefined);
         const moved = await page.evaluate((i) => document.querySelector(`[data-scroller="${i}"]`)?.scrollTop ?? 0, s.i);
         const inner = await page.evaluate(({ x, y }) => {
           for (let e = document.elementFromPoint(x, y); e; e = e.parentElement) if (e.scrollTop > 0 && !e.dataset.scroller) return true;
@@ -148,6 +154,8 @@ for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief',
 }
 {
   await show(feel, 'system');
+  // (STATUS fills in from the brain: on a slow machine its section is too short to scroll until then)
+  await feel.waitForFunction(() => { const s = document.querySelector('#pg-system .hud'); return s && s.scrollHeight - s.clientHeight > 300; }, null, { timeout: 15000 }).catch(() => undefined);
   const at = await feel.evaluate(() => {
     const s = document.querySelector('#pg-system .hud');
     s.scrollTop = 0;

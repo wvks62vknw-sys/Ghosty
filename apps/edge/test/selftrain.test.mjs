@@ -1216,7 +1216,12 @@ test('gathering: the free part (no model) is spread over several job steps of a 
     if (st.done.free) break;
   }
   assert.ok(cpu.length >= 4, `the free part took ${cpu.length} steps`);
-  assert.ok(Math.max(...cpu.slice(1)) < 25, `CPU per step (ms): ${cpu.map((x) => x.toFixed(1)).join(', ')}`);
+  // CPU time per step, after the first: each a few milliseconds, with ONE step allowed to carry a garbage collection
+  // (on GitHub's runner one step of nine took 71 ms while the others took 0.5–15 ms, in a run whose brain job passed
+  // the same test) and none ever long enough to be real work (150 ms).
+  const later = cpu.slice(1);
+  const over = later.filter((x) => x >= 25).length;
+  assert.ok(over <= 1 && Math.max(...later) < 150, `CPU per step (ms): ${cpu.map((x) => x.toFixed(1)).join(', ')}`);
   for (const k of ['gym', 'drill', 'tool', 'redteam', 'distill']) assert.ok((await F.loadRecords(s, k)).length > 0, `has ${k}`);
   // the quicker near-copy checks give exactly the verdicts of the rule as written (similar() against every question)
   const { REPORT_CARD_TEXTS } = await import('./.build/selftrain/assets-check.mjs');

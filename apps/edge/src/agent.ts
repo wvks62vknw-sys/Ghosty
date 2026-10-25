@@ -10,7 +10,7 @@ import type { BrainStatus, ChatEvent, ChatTurn, KeyStatus } from '../../../packa
 import type { Env } from './env';
 import { GitHub } from './github';
 import { collectAis, type AisShip } from './ais';
-import { loadReverseJobs, refreshReverse, startReverse } from './tools/reverse';
+import { loadReverseJobs, refreshReverse, removeReverse, startReverse } from './tools/reverse'; // [reverse]
 import { KEYS, keyDefs, testKey } from './keys';
 import { asData, BACKGROUND_BLOCKED, needsApproval } from './kernel/permissions';
 import { Vault } from './kernel/vault';
@@ -241,6 +241,8 @@ export class GhostyAgent {
       const job = await refreshReverse(ctx, m[1]!);
       return job ? json({ job }) : json({ error: 'no such job' }, 404);
     }
+    // [reverse] REMOVE on the tab (sent when its UNDO bar closes): the report and its kept files go
+    if (m && method === 'DELETE') return json({ removed: await removeReverse(this.env, this.storage, m[1]!) });
     return json({ error: 'not found' }, 404);
   }
 

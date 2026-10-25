@@ -46,7 +46,7 @@ export function buildLayout(): { stage: HTMLElement; buildDock: () => void } {
   npStop.hidden = true;
   player.subscribe((p) => {
     np.hidden = npStop.hidden = !p.now;
-    np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'TUNING' : p.state === 'error' ? 'NO SIGNAL' : p.now.name}` : '';
+    np.textContent = p.now ? `♪ ${p.state === 'loading' ? 'Connecting' : p.state === 'error' ? `${p.now.name} didn't play` : p.state === 'paused' ? `${p.now.name} · paused` : p.now.name}` : ''; // (the Radio pass's words)
   });
   // Quiet tag while the database is paused (free daily allowance); tap for what still works.
   const pausedTag = h('button.pausedtag', {

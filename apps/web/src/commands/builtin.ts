@@ -492,7 +492,7 @@ export function registerBuiltins(): void {
         const url = String(a?.url ?? '');
         if (!/^https:\/\//i.test(url)) return;
         void playStation({ name: String(a?.name ?? 'Radio').slice(0, 80), url, info: a?.info ? String(a.info).slice(0, 120) : undefined }).then((ok) => {
-          if (!ok) toast('Tap anywhere, then say "play" again — the browser blocked the audio, or the stream is down.', 'warn');
+          if (!ok) toast('The phone needs a tap before it plays sound. Open Radio and tap PLAY: it says there why if it still won\'t.', 'warn'); // (the Radio pass: the hero says why by name)
         });
       },
     },
