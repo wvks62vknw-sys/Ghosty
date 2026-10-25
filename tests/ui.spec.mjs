@@ -77,7 +77,8 @@ async function run(name, viewport) {
   if (await w.count()) {
     await w.click();
     await page.waitForTimeout(1800);
-    const frame = page.frameLocator('iframe.sandbox');
+    // (the widget's own frame, in the sheet it opened: a website's draft in the Workshop has locked frames of the same kind)
+    const frame = page.frameLocator('.modal iframe.sandbox');
     const txt = await frame.locator('#t').textContent({ timeout: 5000 }).catch(() => '');
     if (!/\d/.test(txt ?? '')) problems.push(`[${name}] widget did not run its script (got "${txt}")`);
     await page.screenshot({ path: `${out}/${name}-widget.png` });
