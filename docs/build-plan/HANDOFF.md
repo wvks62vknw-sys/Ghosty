@@ -547,6 +547,11 @@ folder that no longer exists; ignore those paths).
   collection) while the brain job on the same commit passed the same test. The test now allows one step at or over 25
   ms and none over 150 ms (61 of 61 here). Pushed onto PR #39 (CI restarts; a check-in about 95 minutes out replaces
   the 07:47 one).
+- 25 Oct 06:45 UK: the smoke run on PR #39's first head (60dc3c2) finished red on ONE spec, safari (WebKit, CI only):
+  "AGENDA has 1 date and time boxes, expected the event's and the reminder's". Cause: the Agenda in sections remembers
+  the section last chosen; the spec's tabs loop had opened the Agenda's "other side" (the second pill, Reminders)
+  earlier in the same page, so the date-box check opened on Reminders and its "other side" was Reminders again. The
+  spec now taps the first pill (Diary) before counting. WebKit cannot run here; CI proves it. Pushed onto PR #39.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
