@@ -435,6 +435,12 @@ folder that no longer exists; ignore those paths).
   Name saves only on blur with no "saved"; toasts lower-case capitals (ui/components.ts, every feature). Verification
   on the merged tree: web check, tsc, the config and offline-brain tests, then markets, settings, offlinebrain,
   bigbrain, character, meaning, hubcards, routec, layout, ui, undo, voice and deck on a fresh preview.
+- 25 Oct 03:30 UK: started the REVERSE pass (`.claude/worktrees/reverse`, `worktree-reverse`, preview 8883, scratch
+  `scratchpad/reverse/`) and the RADIO pass (`.claude/worktrees/radio`, `worktree-radio`, preview 8884, scratch
+  `scratchpad/radio/`) on the branch head 8b5f9fa (Markets and Settings merged). Neither had a spec: each writes its own
+  (`tests/reverse.spec.mjs`, `tests/radio.spec.mjs`), the CI-loop lines are the orchestrator's. Builders now: navigation
+  (8881), Reverse (8883), Radio (8884). After these only Agenda and System remain, after the navigation build's
+  sections land in them.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
