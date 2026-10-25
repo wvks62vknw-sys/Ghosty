@@ -4,7 +4,7 @@
  * project or a direct file link (.apk, .dll, .exe, .zip, .asar, .jar) — and the report
  * arrives here (and as a notification) a few minutes later. Lawful research only.
  */
-import { brain, type ReverseJobInfo } from '../../api/brain';
+import { brain, headers, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
 import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
@@ -186,6 +186,24 @@ export const reverseTab: TabDef = {
         list.append(r);
       }
     };
+    // SAVE TO LIBRARY: the report filed there and then (the brain's /library/text, no AI), said in place.
+    const saveToLibrary = async (job: ReverseJobInfo & { report?: string }, name: string, b: HTMLButtonElement, savedLine: HTMLElement) => {
+      const title = `Reverse report: ${name}`;
+      b.disabled = true;
+      savedLine.hidden = false;
+      savedLine.textContent = 'Saving…';
+      // the words, not REA's raw data (thousands of characters of JSON that would only clutter a search)
+      const text = plainTimes(job.report ?? '').replace(/```[\s\S]*?```/g, '(raw data left out; it is in the report in Reverse)');
+      try {
+        const r = await fetch('/api/library/text', { method: 'POST', headers: headers({ 'content-type': 'application/json' }), body: JSON.stringify({ title, text, kind: 'note', source: `Reverse · ${job.target}` }), credentials: 'same-origin' });
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        if (!r.ok) throw new Error(j.error ?? `the brain answered ${r.status}`);
+        clear(savedLine, `Saved in the Library as “${title}”. `, button('OPEN LIBRARY', () => go('library')));
+      } catch (e) {
+        savedLine.textContent = navigator.onLine === false ? 'You’re offline, so it could not be saved. Try again when you’re back.' : `Could not save it: ${String((e as Error).message ?? e)}`;
+        b.disabled = false;
+      }
+    };
     const show = async (id: string, bring = false) => {
       open = id;
       paint();
@@ -200,20 +218,20 @@ export const reverseTab: TabDef = {
         clear(viewer.body);
         viewer.setStatus(STATE_WORD[job.status](job).replace(/ ·.*/, ''), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
         // the name as written (example.com, not "Example.com"), what it is and when
-        viewer.body.append(h('div.revhead', h('b', job.target.replace(/^https?:\/\//, '').replace(/\/$/, '')), h('span', `${KIND_WORD[job.kind] ?? 'Link'} · ${job.status === 'done' && job.finishedAt ? `made ${day(job.finishedAt)}` : `asked for ${day(job.at)}`}${job.question ? ` · “${job.question}”` : ''}`)));
+        const name = job.target.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        viewer.body.append(h('div.revhead', h('b', name), h('span', `${KIND_WORD[job.kind] ?? 'Link'} · ${job.status === 'done' && job.finishedAt ? `made ${day(job.finishedAt)}` : `asked for ${day(job.at)}`}${job.question ? ` · “${job.question}”` : ''}`)));
         if (job.status === 'done' && job.report) {
+          const savedLine = h('div.note.revsaved', { role: 'status', hidden: true });
           viewer.body.append(
             h('div.row.wrap',
               button('ASK GHOSTY', () => {
                 go('core');
                 void send(`Read the reverse-engineering report for ${job.target} (job ${job.id}) with reverse_status and tell me the most useful findings${job.question ? `, especially: ${job.question}` : ''}.`);
               }, 'on'),
-              button('SAVE TO LIBRARY', () => {
-                go('core');
-                void send(`Save the reverse-engineering report for ${job.target} (job ${job.id}) into the library so I can search it later: read it with reverse_status and library_import the text.`);
-              }),
+              button('SAVE TO LIBRARY', (b) => void saveToLibrary(job, name, b, savedLine)),
               job.runUrl ? asWritten(button('SEE IT ON GITHUB ↗', () => window.open(job.runUrl, '_blank', 'noopener')), 'See it on GitHub ↗') : null,
             ),
+            savedLine,
             renderMd(job.report),
           );
         } else if (job.status === 'failed') {
