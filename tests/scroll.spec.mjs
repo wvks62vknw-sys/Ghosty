@@ -158,7 +158,9 @@ for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief',
   else {
     await feel.mouse.move(at.x, at.y);
     await feel.mouse.wheel(0, 240);
-    await feel.waitForTimeout(400);
+    // the wheel's scroll is animated: on a loaded runner it had not landed 400 ms later (0 px, twice at load 10–13;
+    // 240 px at load 5), so the page is given up to three seconds to move before it counts as taken
+    await feel.waitForFunction(() => (document.querySelector('#pg-system .hud')?.scrollTop ?? 0) >= 100, null, { timeout: 3000 }).catch(() => undefined);
     const moved = await feel.evaluate(() => document.querySelector('#pg-system .hud').scrollTop);
     if (moved < 100) problems.push(`[system] a swipe on the STATUS card moved the page ${Math.round(moved)} px, not the 240 asked (the card took it)`);
   }
