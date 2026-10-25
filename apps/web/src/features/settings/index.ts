@@ -105,7 +105,7 @@ export const settingsTab: TabDef = {
     // HOME: where home is now, said in full (it was only in the box's placeholder, cut off at "Home city (now Lonc").
     const homeNow = h('div.note.homenow');
     const paintHome = () => (homeNow.textContent = `Home: ${home().name}`);
-    const homeIn = h('input', { placeholder: 'Another city, e.g. Birmingham', 'aria-label': 'Home city' });
+    const homeIn = h('input', { placeholder: 'Another city', 'aria-label': 'Home city' });
     const setHome = button('SET HOME', () => {
       const q = homeIn.value.trim();
       if (!q) return toast('Type a city first, or tap Use GPS', 'warn');

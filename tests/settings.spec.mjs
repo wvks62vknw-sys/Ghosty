@@ -66,6 +66,8 @@ const homeLine = (await vp.locator('.homenow').textContent().catch(() => '')) ??
 check(homeLine === `Home: ${homeName}`, `the home line: "${homeLine}" (home is ${homeName})`);
 const ph = (await vp.locator('input[aria-label="Home city"]').getAttribute('placeholder').catch(() => '')) ?? '';
 check(!/\(now /.test(ph), `home is still only in the placeholder: "${ph}"`);
+const phFits = await vp.locator('input[aria-label="Home city"]').evaluate((i) => { const c = document.createElement('canvas').getContext('2d'); const st = getComputedStyle(i); c.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`; return c.measureText(i.placeholder).width <= i.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight); });
+check(phFits, `the home box's placeholder is cut off: "${ph}"`);
 const homeBox = await vp.locator('.homenow').boundingBox();
 check(homeBox && homeBox.x + homeBox.width <= PHONE.width, `the home line runs off the screen: ${JSON.stringify(homeBox)}`);
 await vp.locator('button', { hasText: 'SET HOME' }).click();
