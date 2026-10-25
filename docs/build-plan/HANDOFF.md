@@ -404,6 +404,10 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 02:40 UK: the Iron Man merge's scroll spec red was timing: the System wheel check read scrollTop 400 ms after
   the wheel (0 px twice at load 10–13; 240 px at load 5 and in three direct traces of the same sequence); the check
   now waits up to 3 s for the page to move. The ironbuild worktree is removed.
+- 25 Oct 02:55 UK: the learn spec's GOOD check assumed its card was the only one due; after the mark spec on the same
+  preview (MARK MY WORK keeps its misses in LEARN) it read "GOOD did not finish the card". It now counts only its own
+  card (the plant question) from the phone's mirror; proved by running mark then learn on one fresh preview. CI's loop
+  runs learn before mark, so CI never saw it; the Library builder and the Library merge's chain did.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

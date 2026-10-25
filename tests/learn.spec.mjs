@@ -195,7 +195,8 @@ const front2 = await L('.learnfront').innerText();
 if (front2 !== front) problems.push(`after AGAIN the next card is "${front2.slice(0, 80)}", not the forgotten one`);
 await page.locator('#pg-learn button:has-text("SHOW ANSWER")').click();
 await L('button.learnrate.good').click();
-await until(() => window.__ghosty?.learn?.revise?.done === 2 && window.__ghosty?.learn?.due === 0, 5000, `GOOD did not finish the card (${JSON.stringify((await st())?.revise)})`);
+// (its own card: another spec's cards may be due on a shared preview — MARK MY WORK keeps its misses in LEARN)
+await until(() => window.__ghosty?.learn?.revise?.done === 2 && (() => { try { return JSON.parse(localStorage.getItem('ghosty.learn') ?? '{}').cards?.filter((c) => /Which gas do plants take in/.test(c.front ?? '') && c.due <= Date.now()).length === 0; } catch { return false; } })(), 5000, `GOOD did not finish the card (${JSON.stringify((await st())?.revise)})`);
 await page.waitForTimeout(400);
 // AGAIN then GOOD on the sure-but-wrong card (ease 1.96): the lapse counts (1.96 → 1.42, one lapse), then 1 day
 let m = await mirror();
