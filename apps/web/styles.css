@@ -3490,6 +3490,9 @@ html .readwrap > .keyrow button { height: 44px; min-height: 44px !important; }
 html #pg-memory .two > .hero { padding-right: 2px; }
 html #pg-memory .two .sub { max-width: calc(100% - 72px); }
 html #pg-memory .editbtn { top: -10px; min-width: 44px; height: 44px; min-height: 44px !important; font: 400 17px var(--sf) !important; color: var(--c) !important; }
+/* one stacked page in sections on the phone (no YOU / DIARY & CHAT switch in the hero to make it tall): the line keeps room
+   for Edit's 44 pt target, which hangs 10 pt above it, so nothing of it is outside the hero */
+@media (max-width: 899px) { html #pg-memory .two.stack > .hero { min-height: 34px; } }
 /* every list says it is empty, with what to do next (an empty one is no longer hidden) */
 html #pg-memory .pn:has(> .bd > .empty) { display: flex; }
 html #pg-memory .pn:has(> .bd > .empty) > .ft:has(.pg-label:empty) > button:not(:first-child) { display: none; }

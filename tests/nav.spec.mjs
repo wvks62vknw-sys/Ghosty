@@ -402,6 +402,12 @@ LONG.push({ // LIBRARY
   panels: { Ask: /^ASK/, Shelf: /^SHELF/, 'Self-study': /^SELF-STUDY/, 'Fresh today': /^FRESH/, Add: /^ADD/, Gadgets: /^GADGETS/ },
   tap: 'Shelf', link: { row: /Fresh today/i, pill: 'Fresh today', panel: /^FRESH/ },
 });
+LONG.push({ // MEMORY: one stacked page now, no YOU / DIARY & CHAT switch
+  tab: 'memory',
+  pills: ['Me', 'Patterns', 'Timeline', 'Diary', 'Chat'],
+  panels: { Me: /^ME$/, Patterns: /^PATTERNS/, Timeline: /^TIMELINE/, Diary: /^DIARY/, Chat: /^(WHAT I REMEMBER|LESSONS|CONVERSATION)/ },
+  tap: 'Timeline', link: { row: /diary he writes/i, pill: 'Diary', panel: /^DIARY/ },
+});
 
 for (const L of LONG) {
   const w = `[${L.tab}]`;
