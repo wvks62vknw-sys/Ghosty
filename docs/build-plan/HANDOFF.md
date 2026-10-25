@@ -659,6 +659,13 @@ folder that no longer exists; ignore those paths).
 - 25 Oct 15:55 UK: OWNER-ISSUES 57: the school sitting on the offline brain crashes the page on his phone (first fix
   after the reset: memory headroom while sitting, the smallest brain by default, resume after a crash); no mastery cap
   in the GYM; a working 3-D engine and car knowledge; the full Machine/Harold list put to him. Builders wait for the reset.
+- TOKEN BUDGET (owner, 25 Oct 18:00, OWNER-ISSUES 67): all-models hit 95 % in a day — too fast. From next reset: one
+  well-briefed builder at a time (batch related work, don't fan out several Opus builders at once); the cheapest model
+  that does the job (Sonnet mechanical, Opus only for hard design/architecture, Fable plan/review/merge); one CI run per
+  batch, validate locally first, small fixes by hand not a builder; spread work across the week, never burst; the
+  orchestrator reads minimally (grep not whole files, log tails not whole logs, no re-reads); watch BOTH the all-models
+  and Fable weekly totals, maximise output per token. The BRIEF-MACHINE vision is fully in OWNER-ISSUES 55–67; build next
+  (conversational pass first, per 64), stop expanding the spec.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
