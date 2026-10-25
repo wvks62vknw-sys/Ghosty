@@ -508,6 +508,18 @@ folder that no longer exists; ignore those paths).
   tree: the Agenda spec's click on the Diary's ADD at desktop width (the button sits under the globe's canvas there;
   a trace against main is running to tell a new fault from an old one), the scroll spec's one red on Memory's places
   panel at load 12 (to rerun quiet), and the Radio and Reverse verifications with the full brain suite.
+- 25 Oct 05:15 UK: the Agenda at desktop width was broken by the navigation merge and is fixed: `ui/sections.ts` put its
+  sticky-pill row and a zero-height marker into the page's `.hud`; on a wide screen the pills are hidden but the marker
+  stayed a grid item of the three-column `.two` grid, so the columns shifted a cell, the Reminders column wrapped to a
+  second row of 725 px and the first row (minmax(0, 1fr)) collapsed to 0: the Diary column was clipped away, invisible
+  and untappable (the agenda spec's ADD at 1440 × 900 hit the globe's canvas behind the page). Fix: the marker is
+  hidden with the pills (`mark.hidden = !on`) and `html .secmark[hidden], html .secpills[hidden] { display: none
+  !important; }`. Proof: one grid row of 739 px, the Diary column back at the left, elementFromPoint at ADD's centre
+  returns the button; the agenda, nav and spending specs rerun on the rebuilt preview. Two lessons: (1) a check of
+  every screen with sections at 1440 × 900 belongs in nav.spec (the sections builder was told to look at each one);
+  (2) `tests/preview-server.mjs` serves the BUILT app: a source edit needs `cd apps/web && npm run check` (the build)
+  before a preview shows it; CSS is read from source. Every verification chain here starts with that check, but an
+  ad-hoc trace after a TypeScript edit does not, and cost twenty minutes of a wrong conclusion.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
