@@ -1,8 +1,8 @@
 /**
  * The one audio player (internet radio). Ghosty starts it with play_radio; the top bar
  * shows what is playing with a stop button; the Radio tab browses stations.
- * Speech ducks the volume while Ghosty talks. A pause from outside (the lock screen,
- * AirPods taken out) shows as Paused here.
+ * Speech ducks the volume while Ghosty talks. The lock screen, Control Centre and AirPods
+ * see the station and work it (Media Session); a pause there shows as Paused here.
  */
 import { createStore } from '../core/store';
 import { ui } from '../state/app';
@@ -222,3 +222,31 @@ export const favourites = {
 ui.subscribe((s, p) => {
   if (s.voice !== p.voice) duck(s.voice === 'speaking' || s.voice === 'listening');
 });
+
+// The lock screen, Control Centre and AirPods: the station's name, and play / pause / stop that reach Ghosty.
+const session = typeof navigator !== 'undefined' && 'mediaSession' in navigator ? navigator.mediaSession : null;
+if (session) {
+  const on = (action: MediaSessionAction, fn: () => void) => {
+    try {
+      session.setActionHandler(action, fn);
+    } catch {
+      /* this action is not offered on this phone */
+    }
+  };
+  on('play', () => void resumeAudio());
+  on('pause', () => pauseAudio());
+  on('stop', () => stopAudio());
+  let shown = '';
+  player.subscribe((p) => {
+    const key = p.now ? `${p.now.url}|${p.now.name}` : '';
+    if (key !== shown) {
+      shown = key;
+      try {
+        session.metadata = p.now ? new MediaMetadata({ title: p.now.name, artist: p.now.info || 'Live radio', album: 'Ghosty radio', artwork: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] }) : null;
+      } catch {
+        /* no MediaMetadata here */
+      }
+    }
+    session.playbackState = p.state === 'playing' || p.state === 'loading' ? 'playing' : p.now ? 'paused' : 'none';
+  });
+}
