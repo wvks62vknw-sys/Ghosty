@@ -52,7 +52,9 @@ const show = async (page, tab, wait = 1200) => {
   await page.waitForTimeout(wait);
   await page.evaluate(() => document.querySelectorAll('#toasts .toast').forEach((t) => t.remove()));
 };
-const settle = (page) => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
+/** The arc is out (its class set on the frame after the hold) and has landed. */
+const arcIn = (page) => page.waitForFunction(() => document.getElementById('switcher')?.classList.contains('in'), null, { timeout: 4000 }).catch(() => undefined).then(() => settle(page));
+const settle = (page) => page.waitForTimeout(120).then(() => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined));
 /** Things that stick out past the screen's sides (a box that scrolls sideways on purpose holds its own). */
 const sideways = (page, sel) => page.$$eval(sel, (els) => els.filter((e) => {
   if (!e.getClientRects().length || getComputedStyle(e).visibility === 'hidden') return false;
@@ -80,16 +82,18 @@ const pageWide = (page) => page.evaluate(() => document.documentElement.scrollWi
 // ---- a finger on the touch screen (Chromium's DevTools touch: down, move every 16 ms, up)
 const fingerOf = async (ctx, page) => {
   const cdp = await ctx.newCDPSession(page);
-  const send = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y) }] });
+  // `t`: when the finger did it (seconds, as the phone's own clock stamps a touch), so a busy test machine that
+  // delivers the touch late does not turn a quick press into a long one
+  const send = (type, x, y, t) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y) }], ...(t ? { timestamp: t } : {}) });
   return {
-    down: (x, y) => send('touchStart', x, y),
+    down: (x, y, t) => send('touchStart', x, y, t),
     async move(from, to, steps = 10) {
       for (let i = 1; i <= steps; i++) {
         await send('touchMove', from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps);
         await page.waitForTimeout(16);
       }
     },
-    up: () => send('touchEnd'),
+    up: (t) => send('touchEnd', 0, 0, t),
     detach: () => cdp.detach(),
   };
 };
@@ -121,10 +125,11 @@ await page.touchscreen.tap(at.x, at.y);
 await page.waitForTimeout(700);
 let s = await sw(page);
 if (s.tab !== 'area-learn' || s.open) problems.push(`a tap on Learn from the GYM: tab ${s.tab}, switcher ${s.open ? 'open' : 'closed'} (want the Learn hub, no switcher)`);
-// a short press (down and straight up, by the held-finger route) is a tap too
+// a short press (120 ms by the finger's clock) is a tap too
 await show(page, 'gym', 900);
-await f.down(at.x, at.y);
-await f.up();
+const t0 = Date.now() / 1000;
+await f.down(at.x, at.y, t0);
+await f.up(t0 + 0.12);
 await page.waitForTimeout(700);
 s = await sw(page);
 if (s.tab !== 'area-learn' || s.open) problems.push(`a short press on Learn: tab ${s.tab}, switcher ${s.open ? 'open' : 'closed'}`);
@@ -133,7 +138,8 @@ if (s.aria !== 'true') problems.push(`the closed switcher is not aria-hidden (${
 await show(page, 'gym', 900);
 await f.down(at.x, at.y);
 await page.waitForTimeout(600);
-await until(page, () => !document.getElementById('switcher')?.hidden, null, 3000, 'a long press on Learn did not open the switcher');
+await until(page, () => document.getElementById('switcher')?.classList.contains('in'), null, 3000, 'a long press on Learn did not open the switcher');
+await page.waitForTimeout(150);
 const held = await page.evaluate(() => document.querySelector('#dock .tabcap button[data-area="learn"]')?.classList.contains('held'));
 if (!held) problems.push('the held tab does not keep its touch flare while the arc is open');
 await settle(page);
@@ -191,7 +197,7 @@ const plan = await tabAt(page, 'plan');
 await page.mouse.move(plan.x, plan.y);
 await page.mouse.down();
 await page.waitForTimeout(600);
-await settle(page);
+await arcIn(page);
 s = await sw(page);
 const mk = s.items.find((i) => i.id === 'markets');
 if (s.items.map((i) => i.id).sort().join(',') !== 'agenda,markets,radio,threats') problems.push(`the Plan arc holds ${s.items.map((i) => i.id).join(', ')}`);
@@ -417,7 +423,7 @@ const shapes = async (theme) => {
   const fg = await fingerOf(ctx, page);
   await fg.down(pt.x, pt.y);
   await page.waitForTimeout(700);
-  await settle(page);
+  await arcIn(page);
   r.arc = (await sw(page)).items.map((i) => `${i.id} ${i.at.x},${i.at.y} ${i.drawn}`);
   await page.screenshot({ path: `${out}/nav-switcher-${theme || 'reactor'}.png` });
   await fg.move(pt, { x: 220, y: 150 });
@@ -458,7 +464,7 @@ for (const viewport of [PHONE, { width: 390, height: 844 }]) {
     const pt = await tabAt(page, area);
     await fg.down(pt.x, pt.y);
     await page.waitForTimeout(650);
-    await settle(page);
+    await arcIn(page);
     const a = await sw(page);
     if (!a.open) problems.push(`[${W} ${area}] a long press did not open the switcher`);
     for (const i of a.items) if (i.box.l < 0 || i.box.r > W || i.box.b > a.bar + 1 || i.box.t < 0) problems.push(`[${W} ${area}] ${i.id} is off the screen or under the bar (${Math.round(i.box.l)}–${Math.round(i.box.r)}, ${Math.round(i.box.t)}–${Math.round(i.box.b)})`);

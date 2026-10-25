@@ -148,6 +148,8 @@ for (const tab of ['markets', 'threats', 'library', 'school', 'system', 'brief',
 }
 {
   await show(feel, 'system');
+  // (STATUS fills in from the brain: on a slow machine its section is too short to scroll until then)
+  await feel.waitForFunction(() => { const s = document.querySelector('#pg-system .hud'); return s && s.scrollHeight - s.clientHeight > 300; }, null, { timeout: 15000 }).catch(() => undefined);
   const at = await feel.evaluate(() => {
     const s = document.querySelector('#pg-system .hud');
     s.scrollTop = 0;
