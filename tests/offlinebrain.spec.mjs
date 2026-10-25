@@ -115,7 +115,10 @@ async function run(name, viewport) {
   const what = (await pn.locator('.obwhat').textContent().catch(() => '')) ?? '';
   if (!/^For when there is no signal\. Online, Ghosty answers with far bigger brains, free/.test(what) || /352 MB/.test(what)) problems.push(`[${name}] the panel does not say what the phone brain is for: "${what}"`);
   const modes = await pn.locator('select[aria-label="Offline brain mode"] option').allTextContents();
-  if (modes.join(' | ') !== 'Answer on this phone: only when needed (no signal) | Answer on this phone: always (never online) | Answer on this phone: never') problems.push(`[${name}] the mode reads: ${modes.join(' | ')}`);
+  if (modes.join(' | ') !== 'Only when needed (no signal) | Always (never online) | Never') problems.push(`[${name}] the mode reads: ${modes.join(' | ')}`);
+  // and each choice fits the box at 440 (a longer wording was cut off: "… only when needed (no s")
+  const cut = await pn.locator('select[aria-label="Offline brain mode"]').evaluate((sel) => { const c = document.createElement('canvas').getContext('2d'); const st = getComputedStyle(sel); c.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`; const room = sel.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight); return [...sel.options].filter((o) => c.measureText(o.textContent).width > room).map((o) => o.textContent); });
+  if (cut.length) problems.push(`[${name}] the mode choice is cut off: ${cut.join(' | ')}`);
   if (!(await pn.locator('button:has-text("TEST")').isDisabled())) problems.push(`[${name}] TEST is enabled before a download`);
   await pn.locator('button:has-text("DOWNLOAD")').click();
   await page.waitForFunction(() => /READY/.test(document.querySelector('#pg-settings .pn.offbrain h3')?.textContent ?? ''), null, { timeout: 8000 }).catch(() => problems.push(`[${name}] the panel did not turn READY after DOWNLOAD`));
@@ -129,7 +132,7 @@ async function run(name, viewport) {
   await page.waitForFunction(() => /QUICK CHECK on Qwen3 0\.6B: \d+ of 20 right as in chat/.test(document.querySelector('#pg-settings .pn.offbrain .obtest')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => problems.push(`[${name}] TEST did not run the quick check`));
   // the result sits right under TEST (not under the two choices below it), and one token is "1 token"
   const placed = await page.evaluate(() => { const o = document.querySelector('#pg-settings .pn.offbrain .obtest'); const prev = o?.previousElementSibling; return { prev: prev?.className ?? '', test: [...(prev?.querySelectorAll('button') ?? [])].some((b) => b.textContent === 'TEST'), text: o?.textContent ?? '' }; });
-  if (!placed.test || /\b1 tokens\b/.test(placed.text)) problems.push(`[${name}] TEST's result is not under TEST, or says "1 tokens": ${JSON.stringify(placed).slice(0, 200)}`);
+  if (!placed.test || /(^|[^\d.])1 tokens\b/.test(placed.text)) problems.push(`[${name}] TEST's result is not under TEST, or says "1 tokens": ${JSON.stringify(placed).slice(0, 200)}`);
   // After a reply, too, it leaves memory once idle (idleMs here; two minutes on the phone).
   await page.waitForFunction((k) => window.__ghostyOfflineEngine.unloads > k, unloaded, { timeout: 5000 }).catch(() => problems.push(`[${name}] the model stayed in memory after TEST`));
   await pn.scrollIntoViewIfNeeded();

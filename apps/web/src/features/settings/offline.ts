@@ -66,9 +66,9 @@ export function offlinePanel(): Panel & { refresh(): void } {
   const mode = h(
     'select',
     { 'aria-label': 'Offline brain mode' },
-    h('option', { value: 'auto' }, 'Answer on this phone: only when needed (no signal)'),
-    h('option', { value: 'always' }, 'Answer on this phone: always (never online)'),
-    h('option', { value: 'off' }, 'Answer on this phone: never'),
+    h('option', { value: 'auto' }, 'Only when needed (no signal)'),
+    h('option', { value: 'always' }, 'Always (never online)'),
+    h('option', { value: 'off' }, 'Never'),
   );
   mode.value = settings.get().offlineBrain;
   const MODE_WORDS = { auto: 'only when needed', always: 'always on this phone', off: 'never on this phone' } as const;
@@ -390,6 +390,8 @@ export function offlinePanel(): Panel & { refresh(): void } {
     h('div.keyrow', download, test, del),
     // TEST's reply, speed and QUICK CHECK right under TEST (it was under the two choices below, out of sight)
     out,
+    // the choice under its own name, so each one stays short enough to show whole in a phone's or a laptop's column
+    h('div.lab', 'WHEN THE PHONE ANSWERS'),
     mode,
     think,
     // What it is for (OWNER-ISSUES 46: "the big brain without straining my phone"): online he already has far bigger
