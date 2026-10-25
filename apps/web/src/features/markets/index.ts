@@ -1,7 +1,7 @@
 /** MARKETS tab: crypto, gold and silver, and currencies. */
 import { send } from '../../assistant/session';
 import { clear, fmt, h } from '../../core/dom';
-import { coins, CURRENCY_SYMBOL, FX, fxAmount, money, ounce, rate, rates, type Coin } from '../../data/markets';
+import { coins, CURRENCY_SYMBOL, FX, fxAmount, money, ounce, pct, rate, rates, type Coin } from '../../data/markets';
 import { go, type TabDef } from '../../shell/tabs';
 import { settings } from '../../state/app';
 import { button, empty, pager, panel, row, spark } from '../../ui/components';
@@ -22,7 +22,8 @@ export const marketsTab: TabDef = {
     const cp = panel('CRYPTO · 24H', { footer: true, status: 'COINGECKO', cls: 'coins' });
     const sym = () => CURRENCY_SYMBOL[settings.get().currency] ?? '';
     const cg = pager(cp, 52, (c: Coin) => {
-      const r = row(c.sym, h('span', c.name, h('br'), h('small.mono', `${sym()}${fmt.n(c.price, c.price < 10 ? 3 : 0)}`)), `${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)}%`, {
+      // (in the currency the prices came in: a switch the source has not answered yet never relabels them)
+      const r = row(c.sym, h('span', c.name, h('br'), h('small.mono', money(c.price, c.cur))), pct(c.change), {
         tone: c.change >= 0 ? 'up' : 'dn',
         onClick: () => {
           go('core');
@@ -40,7 +41,7 @@ export const marketsTab: TabDef = {
     P.left.append(cp.el);
     // GOLD & SILVER and CURRENCY: one free call (CoinGecko's exchange rates), worked out in his currency.
     const mp = panel('GOLD & SILVER', { cls: 'metals', grow: false });
-    const fp = panel('CURRENCY · WHAT 1 BUYS', { cls: 'fx', grow: false });
+    const fp = panel('WHAT £1 BUYS', { cls: 'fx', grow: false });
     const paintRates = () => {
       const r = rates.data;
       const cur = settings.get().currency;
@@ -55,7 +56,7 @@ export const marketsTab: TabDef = {
         const x = rate(r, cur, c);
         return row(null, name, x == null ? '—' : fxAmount(x, sign));
       }));
-      fp.title.textContent = `CURRENCY · WHAT ${mine[2].trim()}1 BUYS`;
+      fp.title.textContent = `WHAT ${mine[2].trim()}1 BUYS`;
     };
     P.right.append(mp.el, fp.el);
     const paint = () => {
@@ -64,7 +65,7 @@ export const marketsTab: TabDef = {
       P.big.textContent = list.length ? (up > list.length / 2 ? 'RISK ON' : 'RISK OFF') : '--';
       P.big.style.color = up > list.length / 2 ? '#52f2b5' : '#ff4d6a';
       P.big.dataset.tone = !list.length ? '' : up > list.length / 2 ? 'up' : 'dn'; // route C colours it (amber when risk is off)
-      P.sub.textContent = list[0] ? `${coins.status} · ${list[0].sym} ${sym()}${fmt.n(list[0].price)}` : coins.status;
+      P.sub.textContent = list[0] ? `${coins.status} · ${list[0].sym} ${money(list[0].price, list[0].cur)}` : coins.status;
       cg.set(list);
       paintRates();
       cp.setStatus(coins.status, coins.status === 'LIVE' ? 'ok' : 'off');
@@ -74,8 +75,8 @@ export const marketsTab: TabDef = {
       const worst = list.length ? Math.min(...list.map((c) => c.change)) : 0;
       P.dials([
         ['UP', list.length ? up / list.length : 0, list.length ? `${Math.round((up / list.length) * 100)}%` : '--', '#52f2b5'],
-        ['BEST', best / 15, best.toFixed(1), '#52f2b5'],
-        ['WORST', -worst / 15, worst.toFixed(1), '#ff4d6a'],
+        ['BEST', best / 15, pct(best, 1), '#52f2b5'],
+        ['WORST', -worst / 15, pct(worst, 1), '#ff4d6a'],
       ]);
     };
     for (const f of [coins, rates]) f.onChange(paint);
