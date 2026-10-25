@@ -3829,27 +3829,30 @@ html #pg-radio .nptx span { font: 400 13px/18px var(--sf); color: var(--ink2); d
 html #pg-radio .pn.nowp .bd > .rw, html #pg-radio .pn.nowp .bd > .note:not(.bad) { display: none; }
 html #pg-radio .pn.nowp .note.bad { margin-top: 12px; font-size: 13px; line-height: 18px; color: var(--amber); }
 html #pg-radio .pn.nowp .keyrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; margin-top: 16px; padding: 0; }
+html #pg-radio .pn.nowp .keyrow.novol { display: flex; flex-wrap: wrap; }
+html #pg-radio .pn.nowp .keyrow.novol button { flex: 1 1 0; }
 html #pg-radio .pn.nowp .keyrow .lab { margin: 0; }
 html #pg-radio .pn.nowp .keyrow input[type="range"] { width: 100%; accent-color: var(--c); }
-html #pg-radio .pn.nowp .keyrow button { height: 40px; min-height: 40px !important; padding: 0 14px; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
+html #pg-radio .pn.nowp .keyrow button { height: 44px; min-height: 44px !important; padding: 0 14px; color: var(--ink) !important; background: rgba(255,255,255,.07) !important; box-shadow: inset 0 0 0 1px var(--hair2) !important; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) { display: flex; flex-wrap: nowrap; gap: 8px; padding: 2px 16px 4px; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) input { flex: 1; min-width: 0; }
 html #pg-radio .pn.stations > .keyrow.wrapit:not(.chips) button { flex: none; height: 44px; min-height: 44px !important; }
 html #pg-radio .keyrow.chips { display: flex; flex-wrap: nowrap; gap: 8px; padding: 6px 16px 8px; overflow-x: auto; scrollbar-width: none; }
 html #pg-radio .keyrow.chips::-webkit-scrollbar { display: none; }
-html #pg-radio .keyrow.chips button { flex: none; position: relative; height: 34px; min-height: 34px !important; padding: 0 14px; border-radius: 17px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
-html #pg-radio .keyrow.chips button::after { content: ''; position: absolute; inset: -5px 0; }
+html #pg-radio .keyrow.chips button { flex: none; position: relative; height: 44px; min-height: 44px !important; padding: 0 16px; border-radius: 22px; font-weight: 500 !important; color: var(--ink2); background: rgba(255,255,255,.06) !important; box-shadow: inset 0 0 0 1px var(--hair) !important; }
 /* a station: its star, the name and line, a round play button; the one playing is lit */
-html #pg-radio .rw.station { display: grid; grid-template-columns: 32px minmax(0, 1fr) 40px; column-gap: 10px; align-items: center; min-height: 62px; margin: 0; padding: 8px 0; border-radius: 0; }
-html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 32px; height: 32px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
-html #pg-radio .rw.station .k::after { content: ''; position: absolute; inset: -6px -6px; }
+html #pg-radio .rw.station { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; column-gap: 8px; align-items: center; min-height: 62px; margin: 0; padding: 8px 0; border-radius: 0; }
+html #pg-radio .rw.station .k { position: relative; display: grid; place-items: center; width: 44px; height: 44px; min-width: 0; font: 400 19px/1 var(--sf); color: var(--ink3); letter-spacing: 0; cursor: pointer; }
 html #pg-radio .rw.station .v b { font: 600 16px/21px var(--sf); color: var(--ink); }
 html #pg-radio .rw.station .v br { display: none; }
 html #pg-radio .rw.station .v .note { display: block; font: 400 13px/17px var(--sf); color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html #pg-radio .rw.station .n { display: grid; place-items: center; width: 40px; height: 40px; padding-left: 2px; border-radius: 20px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
+html #pg-radio .rw.station .n { display: grid; place-items: center; width: 44px; height: 44px; padding-left: 2px; border-radius: 22px; font: 400 13px/1 var(--sf); color: var(--ink); background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px var(--hair); }
 html #pg-radio .rw.station.playing .n { color: #03141b; background: var(--c); box-shadow: 0 0 12px rgba(var(--cr), .45); }
 html #pg-radio .rw.station.playing .v b { color: var(--c); }
 html #pg-radio .pn.favs .rw.station .k { color: var(--c); }
+html #pg-radio .rw.station.tuning .n { animation: rctune 1.2s ease-in-out infinite; }
+@keyframes rctune { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { html #pg-radio .rw.station.tuning .n { animation: none; } }
 
 /* ---------- Threats (features/threats): the level, signals worst first, near you as tiles, space weather, launches, RECON ---------- */
 html #pg-threats .pn.signals .rw.link { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; min-height: 60px; margin: 0; padding: 10px 0; border-radius: 0; }
