@@ -14,7 +14,7 @@
  * `carry: false` he stops there instead, the new level made and waiting for the owner.
  *
  * In:  { gym: 'train', id, rec, epoch, carry? } · { gym: 'carry', on } · { gym: 'pause' } · { gym: 'reset', id, epoch }
- *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board? }
+ *      { gym: 'watch' | 'move' | 'view', id, rec, epoch, req, seed?, secret?, board?, limit? } ('move': PLAY HIM, his reply with `why`)
  *      { gym: 'bench', req } (the report card's gym questions) · { gym: 'judge', req, id, reply } (one judged)
  *      { gym: 'exact', req, question, reply? } (the exact check THINK HARDER can use for a chat question; with a reply, its verdict)
  * Out: { gym: 'progress', rec, view, training, epoch, event?, verdict? } (rec without the learner's state; event 'league' with the league's verdict)
@@ -24,7 +24,7 @@
  */
 import { starFromGym, type StarRecord } from '../offline/star';
 import { benchItems, gymCheck, gymCheckable, judgeItem, type BenchItem } from './bench';
-import type { Frame, Verdict } from './core';
+import type { Frame, Verdict, Versus } from './core';
 import { gameById } from './index';
 import { hasLeague, LeagueRun } from './league';
 import { admit, bytesOf, type Frozen, type LeagueVerdict, newLeague } from './rating';
@@ -36,7 +36,7 @@ export type GymIn =
   | { gym: 'carry'; on: boolean }
   | { gym: 'pause' }
   | { gym: 'reset'; id: string; epoch?: number }
-  | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[] }
+  | { gym: 'watch' | 'move' | 'view'; id: string; rec?: GymRecord | null; epoch?: number; req: number; seed?: number; secret?: string; board?: number[]; limit?: { ms?: number; nodes?: number } }
   | { gym: 'bench'; req: number }
   | { gym: 'judge'; req: number; id: string; reply: string }
   | { gym: 'exact'; req: number; question: string; reply?: string };
@@ -45,7 +45,7 @@ export type GymOut =
   | { gym: 'progress'; rec: GymRecord; view: Frame; training: boolean; epoch: number; event?: 'level' | 'mastered' | 'league' | null; verdict?: LeagueVerdict }
   | { gym: 'star'; id: string; record: StarRecord; epoch: number }
   | { gym: 'save'; rec: GymRecord; epoch: number }
-  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
+  | { gym: 'reply'; req: number; frames?: Frame[]; move?: number; why?: Versus; view?: Frame; items?: BenchItem[]; verdict?: Verdict | null; exact?: { label: string; kind: 'verifier' | 'key' } | null; error?: string }
   | { gym: 'error'; id: string; message: string; epoch: number };
 
 interface Live {
@@ -226,7 +226,11 @@ export function gymMessage(m: GymIn, post: (m: GymOut) => void): void {
       const l = live(m.id, m.rec, m.epoch);
       if (m.gym === 'view') post({ gym: 'reply', req: m.req, view: l.s.learner.view() });
       else if (m.gym === 'watch') post({ gym: 'reply', req: m.req, frames: l.s.learner.watch(m.seed ?? Date.now() % 100000, m.secret) });
-      else post({ gym: 'reply', req: m.req, move: l.s.learner.move?.(m.board ?? []) ?? -1 });
+      else if (l.s.learner.versus) {
+        // PLAY HIM: everything he has, whatever his level, and why (`ms`/`nodes`: a spec's or a test's own limit)
+        const why = l.s.learner.versus(m.board ?? [], m.limit);
+        post({ gym: 'reply', req: m.req, move: why.move, why });
+      } else post({ gym: 'reply', req: m.req, move: l.s.learner.move?.(m.board ?? []) ?? -1 });
     } catch (e) {
       post({ gym: 'reply', req: m.req, error: String((e as Error)?.message ?? e) });
     }

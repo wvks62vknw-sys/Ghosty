@@ -46,7 +46,7 @@ export const gymState = {
   progress: 0,
   watching: false,
   frames: 0,
-  play: { game: '', board: [] as number[], over: '', thinking: false } as { game: string; board: number[]; over: string; thinking: boolean; sel?: number[]; replies?: number },
+  play: { game: '', board: [] as number[], over: '', thinking: false } as { game: string; board: number[]; over: string; thinking: boolean; sel?: number[]; replies?: number; why?: string },
   recs: {} as Record<string, { level: number; mastery: number; units: number; mastered: boolean }>,
   error: '',
   /** The last few things the owner (or the app) did here, newest last — for specs reading what happened. */
@@ -1173,7 +1173,9 @@ export const gymTab: TabDef = {
         pl.board = Array.from(p.b);
       }
       pl.over = outcome();
-      paintPlay(pl.over || (open.id === 'tictactoe' ? `He took square ${m.move + 1}. Your move.` : `He dropped in column ${m.move + 1}. Your move.`));
+      // his reason for the move, in his words ("I had to stop column 4."), kept with the game
+      pl.why = m.why?.reason ?? '';
+      paintPlay(pl.over || (pl.why ? `${pl.why} Your move.` : open.id === 'tictactoe' ? `He took square ${m.move + 1}. Your move.` : `He dropped in column ${m.move + 1}. Your move.`));
     };
     secretIn.addEventListener('keydown', (e) => e.key === 'Enter' && void watch(secretIn.value.trim()));
 

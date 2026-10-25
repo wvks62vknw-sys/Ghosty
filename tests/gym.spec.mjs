@@ -300,6 +300,100 @@ if (cb[3 * 6] !== 1) problems.push('my Connect 4 stone did not drop to the botto
 await wideCheck('playing Connect 4');
 await page.screenshot({ path: `${out}/gym-c4.png` });
 
+// ---- PLAY HIM at full strength (gym2, OWNER-ISSUES 52): the trick sequences that beat the old PLAY HIM every time ----
+// The owner (X) plays these columns, taking a four whenever there is one; after the list, a plain player (block a four,
+// else the most central column that hands none over). Played against the engine in the worker, as PLAY HIM asks it, on a
+// fresh Connect 4 (no training at all: the old PLAY HIM lost every one of these by the 7th or 9th stone). Each must now
+// end without the owner winning, every move of his with a reason. (Fails on the old code: X wins all four.)
+const TRICKS = [[4, 2, 3, 5], [4, 3, 5, 2], [4, 5, 3, 2], [4, 5, 6, 3]];
+const trickRuns = await page.evaluate(async (tricks) => {
+  const w = new Worker('/textures.worker.js');
+  let req = 900000;
+  const waiting = new Map();
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m?.gym === 'reply') (waiting.get(m.req)?.(m), waiting.delete(m.req));
+  };
+  const ask = (board) => new Promise((ok) => {
+    const id = ++req;
+    waiting.set(id, ok);
+    w.postMessage({ gym: 'move', id: 'connect4', req: id, board, rec: null, epoch: 0 });
+  });
+  const LINES = [];
+  for (let c = 0; c < 7; c++) for (let r = 0; r < 6; r++) for (const [dc, dr] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
+    if (c + 3 * dc > 6 || r + 3 * dr < 0 || r + 3 * dr > 5) continue;
+    LINES.push([0, 1, 2, 3].map((k) => (c + k * dc) * 6 + r + k * dr));
+  }
+  const won = (b, who) => LINES.some((l) => l.every((s) => b[s] === who));
+  const height = (b, c) => { let r = 0; while (r < 6 && b[c * 6 + r]) r++; return r; };
+  const drop = (b, c, who) => { const q = b.slice(); q[c * 6 + height(b, c)] = who; return q; };
+  const legalCols = (b) => [3, 2, 4, 1, 5, 0, 6].filter((c) => height(b, c) < 6);
+  const out = [];
+  for (const xs of tricks) {
+    let b = new Array(42).fill(0);
+    const why = [];
+    let res = '';
+    let slowest = 0;
+    for (let i = 0; i < 21 && !res; i++) {
+      const ms = legalCols(b);
+      let c = ms.find((x) => won(drop(b, x, 1), 1));
+      if (c == null && i < xs.length && height(b, xs[i] - 1) < 6) c = xs[i] - 1;
+      if (c == null) c = ms.find((x) => won(drop(b, x, 2), 2));
+      if (c == null) c = ms.find((x) => !legalCols(drop(b, x, 1)).some((y) => won(drop(drop(b, x, 1), y, 2), 2))) ?? ms[0];
+      b = drop(b, c, 1);
+      if (won(b, 1)) { res = 'X'; break; }
+      if (b.every((x) => x)) { res = 'D'; break; }
+      const t = performance.now();
+      const m = await ask(b);
+      slowest = Math.max(slowest, performance.now() - t);
+      if (m.error || m.move == null || m.move < 0) { res = `error ${m.error ?? m.move}`; break; }
+      why.push(m.why?.reason ?? '');
+      b = drop(b, m.move, 2);
+      if (won(b, 2)) res = 'O';
+      else if (b.every((x) => x)) res = 'D';
+    }
+    out.push({ xs: xs.join(''), res, why, slowest: Math.round(slowest) });
+  }
+  w.terminate();
+  return out;
+}, TRICKS);
+for (const t of trickRuns) {
+  if (t.res === 'X') problems.push(`PLAY HIM lost to the trick ${t.xs} (the owner won): ${t.why.join(' | ')}`);
+  else if (t.res !== 'O' && t.res !== 'D') problems.push(`PLAY HIM did not finish the trick ${t.xs}: ${t.res}`);
+  if (t.why.some((w) => !w)) problems.push(`PLAY HIM gave a move without a reason in the trick ${t.xs}: ${t.why.join(' | ')}`);
+}
+console.log(`tricks against PLAY HIM in the worker: ${trickRuns.map((t) => `${t.xs} → ${t.res === 'O' ? 'he won' : t.res === 'D' ? 'a draw' : t.res} (slowest move ${t.slowest} ms)`).join('; ')}`);
+// The first trick by taps on the real board: no four for the owner, a reason under the board after each of his moves,
+// and the page never freezes while he thinks (the worker does the thinking).
+await G('button', { hasText: 'NEW GAME' }).click();
+await page.evaluate(() => {
+  window.__ticks = [];
+  clearInterval(window.__tick);
+  window.__tick = setInterval(() => window.__ticks.push(performance.now()), 50);
+});
+const captions = [];
+for (const c of TRICKS[0]) {
+  const s0 = await st();
+  if (s0.play.over) break;
+  const before = s0.play.board.filter((x) => x === 2).length;
+  // (a four first, as the owner would)
+  await G('.gymboard button.gymcell').nth(c - 1).click();
+  await until((n) => window.__ghosty.gym.play.board.filter((x) => x === 2).length > n || !!window.__ghosty.gym.play.over, 20000, `he did not answer my column ${c}`, before);
+  captions.push(await G('.gymboard .gymcap').innerText().catch(() => ''));
+}
+const c4gap = await page.evaluate(() => {
+  const t = window.__ticks;
+  let worst = 0;
+  for (let i = 1; i < t.length; i++) worst = Math.max(worst, t[i] - t[i - 1]);
+  clearInterval(window.__tick);
+  return { worst: Math.round(worst), n: t.length };
+});
+if (c4gap.worst > 500) problems.push(`the page froze while he thought: longest gap ${c4gap.worst} ms`);
+if ((await st()).play.over === 'You win!') problems.push(`the bottom-row trick still wins on the board: ${captions.join(' | ')}`);
+if (captions.some((t) => !/\. Your move\.$|wins|draw/i.test(t) || /^He dropped in column/.test(t))) problems.push(`his reasons on the board: ${captions.join(' | ')}`);
+console.log(`the bottom-row trick on the board: ${captions.join(' | ')} (longest page pause ${c4gap.worst} ms)`);
+await page.screenshot({ path: `${out}/gym-c4-reason.png` });
+
 // ---- PLAY HIM on the bigger boards: checkers, chess, Go (taps; legal squares light up) ----
 const cellAt = (i) => G('.gymboard button.gymcell').nth(i);
 const lit = () => page.evaluate(() => [...document.querySelectorAll('#pg-gym .gymboard .gymcell.tgt')].length);
