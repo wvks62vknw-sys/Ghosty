@@ -51,7 +51,7 @@ export const lastDay = (c: Coin): number[] => c.spark.slice(-25);
 
 /** Prices read in the last ten minutes, from a source that answered last time: the only ones called live. */
 export const FRESH_MS = 10 * 60_000;
-export const fresh = (f: Feed<unknown>): boolean => f.status === 'LIVE' && !!f.data && Date.now() - f.at < FRESH_MS;
+export const fresh = (f: { status: string; data: unknown; at: number }): boolean => f.status === 'LIVE' && !!f.data && Date.now() - f.at < FRESH_MS;
 
 export const coins = new Feed<Coin[]>(
   'coins',
