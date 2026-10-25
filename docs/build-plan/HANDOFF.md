@@ -520,6 +520,13 @@ folder that no longer exists; ignore those paths).
   (2) `tests/preview-server.mjs` serves the BUILT app: a source edit needs `cd apps/web && npm run check` (the build)
   before a preview shows it; CSS is read from source. Every verification chain here starts with that check, but an
   ad-hoc trace after a TypeScript edit does not, and cost twenty minutes of a wrong conclusion.
+- 25 Oct 05:35 UK: pushed as PR #39 (one CI run for the batch): the navigation build, the Radio and Reverse passes, the
+  sections marker fix, REMOVE on a Reverse report, the Radio pass's three shell lines, the CI loop at 71 specs (nav,
+  radio, reverse), the docs. Proofs on the merged tree: brain suite 1,188 of 1,188; web check; specs nav, gym, hubcards,
+  routec, layout, ui, agenda, spending, speed, training, night, backup, undo, scrollfeel, markets, settings, radio,
+  media, reverse, scroll (Chromium, 100 swipes). The scroll spec's swipe check now waits up to two seconds for the
+  animated wheel scroll to land (at load 12 it read 0 px after 350 ms in a different place each run; clean at load 7).
+  The nav worktree is removed. Builders still running: brainkeep (8885), sections (8886), gym2 (8887), boot2 (8888).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
