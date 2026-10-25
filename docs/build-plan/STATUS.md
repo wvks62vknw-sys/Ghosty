@@ -60,6 +60,8 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Merged at 04:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
 - Telegram's pass: dropped at your word.
 
+- Being built since 05:20–05:55 UK, from your messages this morning: the brain kept between opens and the biggest download's crash (first in line); little tabs inside every long screen (Settings, Library, Memory, School, Workshop, Threats, Links); the GYM's Connect 4 at full strength with lessons from your games and the Machine's voice; the boot on every cold open and cooler.
+
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)
 
 1. Upgrade passes still to run: Reverse, Radio, Agenda, System (Threats, God's Eye, Lens, voice, Workshop, Brief, Memory, the Library, Settings and Markets are merged; Agenda and System get their sections from the navigation build first).

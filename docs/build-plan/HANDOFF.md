@@ -485,6 +485,10 @@ folder that no longer exists; ignore those paths).
   and nothing sent somewhere new); only the de1 directory mirror (a fallback mirror needs `'de2.api.radio-browser.info',
   'fi1.api.radio-browser.info',` in FEED_HOSTS, index.ts). Verification on the merged tree: web check, tsc, the full edge
   suite (tools/media.ts changed), then radio, media, hubcards, routec, layout, ui on a fresh preview.
+- 25 Oct 05:55 UK: started BOOT 2 (`.claude/worktrees/boot2`, preview 8888, Opus): every cold open, a richer cut of MIND
+  waking in 3.5–4.5 s, no facts, no reactor, frame-budgeted, the spec extended; the radio worktree removed. Builders
+  now: Reverse (8883), brainkeep (8885), sections (8886, Sonnet), gym2 (8887), boot2 (8888). That is the week's last
+  set unless the allowance resets.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
