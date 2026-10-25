@@ -502,6 +502,12 @@ folder that no longer exists; ignore those paths).
   live dot counting a queued report. Leftovers the builder ranked: no FIND among up to 40 reports; no plain-English
   summary at the top of a report (ASK GHOSTY gives one through the chat); the laptop's empty middle column (ui/page.ts);
   a run can wait 15 minutes before "didn't finish"; no live GitHub run could be tried (the preview has no token).
+- 25 Oct 04:55 UK: PR #38 MERGED into main (merge feccb84; every job green on 9cf6399, mergeable clean): the Settings
+  and Markets passes and the keys' honest words are live with the owner's next open. Main merged back into the branch.
+  The next push (the navigation build, the Radio and Reverse passes, the docs) waits for three things on the merged
+  tree: the Agenda spec's click on the Diary's ADD at desktop width (the button sits under the globe's canvas there;
+  a trace against main is running to tell a new fault from an old one), the scroll spec's one red on Memory's places
+  panel at load 12 (to rerun quiet), and the Radio and Reverse verifications with the full brain suite.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
