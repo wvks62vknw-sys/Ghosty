@@ -28,6 +28,7 @@ const CSS = `
 
 /** The brain's words as a sentence: a capital at the start, a full stop at the end. */
 const sentence = (t: string) => (t ? `${t.charAt(0).toUpperCase()}${t.slice(1)}${/[.!?)]$/.test(t) ? '' : '.'}` : '');
+const offline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 /** 14:08, on this phone's clock. */
 const clock = (t: number) => new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 /** A button shown with its words as written ("GitHub", not the sentence case that would make it "Github"). */
@@ -129,6 +130,7 @@ export const reverseTab: TabDef = {
     const start = async () => {
       const t = target.value.trim();
       if (!t) return void tell('Paste a link first, like bbc.co.uk');
+      if (offline()) return void tell('You’re offline, so nothing can start. Try again when you’re back');
       tell('');
       startBtn.disabled = true;
       try {
@@ -160,7 +162,8 @@ export const reverseTab: TabDef = {
     // ---- jobs
     const jp = panel('YOUR REPORTS', { status: '', footer: true });
     const list = h('div.stackf');
-    jp.body.append(list);
+    const offNote = h('div.note.revoff', { role: 'status', hidden: true });
+    jp.body.append(offNote, list);
     let jobs: ReverseJobInfo[] = [];
     let open: string | null = null;
     const viewer = panel('REPORT', { status: '', cls: 'revview' });
@@ -238,6 +241,10 @@ export const reverseTab: TabDef = {
           // what happened, in words, and the same thing asked again with one tap
           const why = h('div.note.revsay', { role: 'status', hidden: true });
           const again = button('TRY AGAIN', async (b) => {
+            if (offline()) {
+              why.textContent = 'You’re offline, so nothing can start. Try again when you’re back.';
+              return void (why.hidden = false);
+            }
             b.disabled = true;
             try {
               const r = await brain.reverseStart({ target: job.target, kind: job.kind, question: job.question });
@@ -278,8 +285,12 @@ export const reverseTab: TabDef = {
     };
     const refresh = async () => {
       try {
+        // offline the brain's client answers with the list this phone last saw: said so, and nothing nudged
         jobs = (await brain.reverseJobs()).jobs;
+        offNote.hidden = !offline();
+        offNote.textContent = 'You’re offline: these are your reports as this phone last saw them. They update when you’re back.';
         paint();
+        if (offline()) return void jp.setStatus('Offline', 'off');
         // nudge running jobs so they update from GitHub
         const running = jobs.filter((j) => j.status === 'running' || j.status === 'queued').slice(0, 3);
         for (const j of running) {
@@ -290,7 +301,9 @@ export const reverseTab: TabDef = {
         }
         paint();
       } catch {
-        jp.setStatus('OFFLINE', 'off');
+        jp.setStatus(offline() ? 'Offline' : 'Not reached', 'off');
+        offNote.hidden = false;
+        offNote.textContent = offline() ? 'You’re offline. Your reports show here when you’re back.' : 'Ghosty’s brain could not be reached just now. REFRESH tries again.';
       }
     };
     jp.foot!.append(button('REFRESH', () => void refresh()));
@@ -299,14 +312,19 @@ export const reverseTab: TabDef = {
     P.right.append(viewer.el);
     P.big.textContent = 'See how any app works';
     let timer = 0;
+    const back = () => void refresh();
     return {
       enter() {
         void refresh();
+        addEventListener('online', back);
+        addEventListener('offline', back);
         void brain.status().then((st) => (gh.hidden = st.repoReady)).catch(() => undefined);
         timer = window.setInterval(() => jobs.some((j) => j.status === 'running' || j.status === 'queued') && void refresh(), 30000);
       },
       leave() {
         clearInterval(timer);
+        removeEventListener('online', back);
+        removeEventListener('offline', back);
       },
       describe: () => `Reverse tab: ${jobs.length} jobs (${jobs.filter((j) => j.status === 'done').length} reports)${open ? `, viewing ${open}` : ''}.`,
     };

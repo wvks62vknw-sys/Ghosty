@@ -4025,9 +4025,10 @@ html #pg-reverse .pn .note b { color: var(--ink2); font-weight: 600; }
 /* Reverse: GitHub not connected, said before he types (with the way to connect it); what START did, kept under it */
 html #pg-reverse .revgh { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--ar), .08); box-shadow: inset 0 0 0 1px rgba(var(--ar), .25); }
 html #pg-reverse .revgh p { margin: 0 0 10px; font: 400 15px/21px var(--sf); color: var(--ink2); }
-html #pg-reverse :is(.revgh, .revsay, .revsaved)[hidden] { display: none; }
+html #pg-reverse :is(.revgh, .revsay, .revsaved, .revoff)[hidden] { display: none; }
 html #pg-reverse .pn .note.revsaved { margin: 0 0 10px; font-size: 15px; line-height: 21px; color: var(--ink2); }
 html #pg-reverse .revsaved button { margin-left: 4px; }
+html #pg-reverse .pn .note.revoff { margin: 0 0 8px; font-size: 15px; line-height: 21px; color: var(--ink2); }
 html #pg-reverse .pn .note.revsay { margin: 8px 0; font-size: 15px; line-height: 21px; color: var(--ink); }
 /* ---------- System and Links: a pushed panel shows its contents under the large title (its row is not repeated) ---------- */
 html .listmode .pn.pushed[data-row] > h3 { display: none; }
