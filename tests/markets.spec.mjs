@@ -204,7 +204,8 @@ const deckLine = async (page) => {
   await page.waitForTimeout(1500);
   const hero = (await text(page, '#pg-markets .hero')).replace(/\s+/g, ' ');
   const status = await page.$eval('#pg-markets .pn.coins > h3 small', (e) => e.textContent).catch(() => '');
-  await page.screenshot({ path: `${out}/markets-440-stale.png` });
+  // (the faked clock can hold the frame a screenshot waits for: the picture is a nice-to-have here)
+  await page.screenshot({ path: `${out}/markets-440-stale.png`, timeout: 8000 }).catch(() => undefined);
   if (!/CoinGecko can.t be reached/i.test(hero) || !new RegExp(`as of ${hhmm(UPDATED)}`, 'i').test(hero)) problems.push(`[stale] the top does not say the prices are from ${hhmm(UPDATED)} and CoinGecko can't be reached: "${hero}"`);
   if (/live/i.test(status ?? '') || !/as of/i.test(status ?? '')) problems.push(`[stale] old prices are still called live: "${status}"`);
   if (/Mostly|Mixed|Quiet day/.test(await text(page, '#pg-markets .bigv'))) problems.push('[stale] the top still sums up the day from old prices as if they were now');

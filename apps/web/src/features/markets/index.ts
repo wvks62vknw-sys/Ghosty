@@ -91,6 +91,7 @@ export const marketsTab: TabDef = {
     // The top says what moved, in plain words, from the prices it holds: never a call to buy or sell.
     const say = h('p.mksay', { dataset: { case: 'keep' } });
     P.sub.after(say);
+    P.big.dataset.case = 'keep'; // (its words are written in sentence case already: "CoinGecko", not "Coingecko")
     const cp = panel('CRYPTO, LAST 24 HOURS', { footer: true, cls: 'coins' });
     const coinRow = (c: Coin) => {
       // (in the currency the prices came in: a switch the source has not answered yet never relabels them)
@@ -179,9 +180,9 @@ export const marketsTab: TabDef = {
     const paint = () => {
       const list = coins.data ?? [];
       const cs = state(coins, coinsAt());
-      P.big.textContent = !list.length ? cs.why || 'Loading' : cs.live ? dayWord(list) : 'Not up to date';
+      P.big.textContent = !list.length ? (cs.why ? 'No prices right now' : 'Loading the prices') : cs.live ? dayWord(list) : 'Not up to date';
       P.big.dataset.tone = cs.live && /up/.test(P.big.textContent) ? 'up' : cs.live && /down/.test(P.big.textContent) ? 'dn' : '';
-      P.sub.textContent = !list.length ? '' : cs.live ? `Last 24 hours · as of ${cs.asOf}` : `${cs.why || 'Not updated since'} · as of ${cs.asOf}`;
+      P.sub.textContent = !list.length ? (cs.why.startsWith('You') ? cs.why : cs.why ? `${cs.why}. It tries again every two minutes.` : '') : cs.live ? `Last 24 hours · as of ${cs.asOf}` : `${cs.why || 'Not updated since'} · as of ${cs.asOf}`;
       say.textContent = sentence(list);
       if (list.length) clear(cp.body, ...list.map(coinRow));
       else clear(cp.body, nothing(coins));
