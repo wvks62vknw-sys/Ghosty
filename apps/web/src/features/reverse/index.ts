@@ -6,7 +6,7 @@
  */
 import { brain, type ReverseJobInfo } from '../../api/brain';
 import { send } from '../../assistant/session';
-import { clear, fmt, h } from '../../core/dom';
+import { clear, h } from '../../core/dom';
 import { go, type TabDef } from '../../shell/tabs';
 import { button, panel } from '../../ui/components';
 import { page } from '../../ui/page';
@@ -33,6 +33,14 @@ const asWritten = (b: HTMLButtonElement, words: string) => ((b.dataset.label = w
 
 /** What a report is about, in a word or two. */
 const KIND_WORD: Record<string, string> = { web: 'Website', npm: 'Code package', repo: 'GitHub project', artifact: 'App file', auto: 'Link' };
+
+/** Where a report has got to, in his words: "Ready · 25 Oct", "Running · 3 min", "Didn't finish". */
+const STATE_WORD: Record<ReverseJobInfo['status'], (j: ReverseJobInfo) => string> = {
+  done: (j) => `Ready${j.finishedAt ? ` · ${new Date(j.finishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}`,
+  failed: () => 'Didn’t finish',
+  running: (j) => `Running · ${Math.max(1, Math.round((Date.now() - j.at) / 60_000))} min`,
+  queued: () => 'Starting',
+};
 
 const KINDS: [string, string][] = [['auto', 'Ghosty can tell what it is'], ['web', 'A website'], ['npm', 'A code package (npm)'], ['repo', 'A GitHub project'], ['artifact', 'An app file (.apk, .exe, .zip…)']];
 
@@ -148,7 +156,7 @@ export const reverseTab: TabDef = {
     );
 
     // ---- jobs
-    const jp = panel('JOBS', { status: '', footer: true });
+    const jp = panel('YOUR REPORTS', { status: '', footer: true });
     const list = h('div.stackf');
     jp.body.append(list);
     let jobs: ReverseJobInfo[] = [];
@@ -158,18 +166,19 @@ export const reverseTab: TabDef = {
     const paint = () => {
       clear(list);
       if (!jobs.length) {
-        list.append(h('div.empty', h('b', 'NO JOBS YET'), h('span', 'Paste something above to begin.')));
-        jp.setStatus('IDLE', 'off');
+        list.append(h('div.empty', h('b', 'No reports yet'), h('span', 'Paste a link above to begin.')));
+        jp.setStatus('None yet', 'off');
         return;
       }
-      jp.setStatus(`${jobs.filter((j) => j.status === 'running' || j.status === 'queued').length} RUNNING · ${jobs.length} TOTAL`, 'ok');
+      const busy = jobs.filter((j) => j.status === 'running' || j.status === 'queued').length;
+      jp.setStatus(`${jobs.length} ${jobs.length === 1 ? 'report' : 'reports'}${busy ? ` · ${busy} running` : ''}`, 'ok');
       for (const j of jobs) {
         const tone = j.status === 'done' ? 'up' : j.status === 'failed' ? 'bad' : '';
         const r = h('div.rw.link', { onclick: () => void show(j.id, true), tabIndex: 0, role: 'button', onkeydown: (e: KeyboardEvent) => e.key === 'Enter' && void show(j.id, true) },
           h('span.sev', { style: `color:${j.status === 'done' ? 'var(--ok)' : j.status === 'failed' ? 'var(--r)' : 'var(--a)'};background:currentColor` }),
-          h('span.k', j.kind),
-          h('span.v', j.target.replace(/^https?:\/\//, '')),
-          h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, j.status === 'done' ? 'REPORT' : j.status === 'failed' ? 'FAILED' : `${j.status.toUpperCase()} · ${fmt.ago(j.at)}`),
+          h('span.k', { dataset: { case: 'keep' } }, KIND_WORD[j.kind] ?? 'Link'),
+          h('span.v', j.target.replace(/^https?:\/\//, '').replace(/\/$/, '')),
+          h('span.n', { class: `n${tone ? ` ${tone}` : ''}` }, STATE_WORD[j.status](j)),
         );
         if (j.id === open) r.classList.add('on');
         list.append(r);
@@ -187,7 +196,7 @@ export const reverseTab: TabDef = {
       try {
         const { job } = await brain.reverseJob(id);
         clear(viewer.body);
-        viewer.setStatus(job.status.toUpperCase(), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
+        viewer.setStatus(STATE_WORD[job.status](job).replace(/ ·.*/, ''), job.status === 'done' ? 'ok' : job.status === 'failed' ? 'off' : 'mid');
         // the name as written (example.com, not "Example.com"), what it is and when
         viewer.body.append(h('div.revhead', h('b', job.target.replace(/^https?:\/\//, '').replace(/\/$/, '')), h('span', `${KIND_WORD[job.kind] ?? 'Link'} · ${job.status === 'done' && job.finishedAt ? `made ${day(job.finishedAt)}` : `asked for ${day(job.at)}`}${job.question ? ` · “${job.question}”` : ''}`)));
         if (job.status === 'done' && job.report) {
