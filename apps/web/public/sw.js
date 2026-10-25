@@ -11,9 +11,13 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
+// A new version of this worker clears only its own older caches (another ghosty-shell-… or ghosty-vendor-…). Every
+// other cache belongs to someone else and stays: the mini-apps' offline copies (ghosty-app:…), and the offline brain's
+// downloads in WebLLM's stores (webllm/model, webllm/config, webllm/wasm) and its parts (ghosty-brain-parts) — clearing
+// those made every new version of Ghosty throw away the brains the owner had downloaded (25 Oct).
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== VENDOR && !k.startsWith('ghosty-app:')).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => (k.startsWith('ghosty-shell-') && k !== CACHE) || (k.startsWith('ghosty-vendor-') && k !== VENDOR)).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   );
 });
 

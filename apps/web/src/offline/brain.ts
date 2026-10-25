@@ -26,10 +26,11 @@ import { agendaWithOutbox, factsWithOutbox, offline } from '../api/offline';
 import { createStore } from '../core/store';
 import { searchLocalHow } from '../library/local';
 import { embedState, freeEmbedder, isEmbedFile } from './embed';
-import { clearLog, fill, filled, pieceLine, readLog, writeLog } from './fill';
+import { clearLog, fill, filled, markStored, PARTS_STORE, pieceLine, presence, readLog, readStored, STORED_KEY, storedId, writeLog } from './fill';
 import { settings } from '../state/app';
+import { checkStorage, storageState } from '../features/system/storage';
 import { DEFAULT_BASE, type BaseId } from '../../../../packages/shared/src/selftrain';
-import { BIGGER, brainModels, brainOf, downloadFailure, isBigger, limitsProblem, MODELS, modelBase, PICKER, sizeText, slotOf, stockOf, WORKER_REV, type GpuLimits, type Held, type ModelDef, type TrainedModel } from './models';
+import { BIGGER, brainModels, brainOf, downloadFailure, goneLine, isBigger, limitsProblem, MODELS, modelBase, PART_BYTES, PICKER, roomProblem, sizeText, slotOf, stockOf, WORKER_REV, type GpuLimits, type Held, type Kept, type ModelDef, type TrainedModel } from './models';
 import { modelJob, withModel } from './lock';
 import { buildOfflinePrompt, cleanReply, cleanTranslation, translatePrompt, type OfflineMsg } from './prompt';
 
@@ -111,6 +112,8 @@ interface TestEngine {
   idleMs?: number;
   /** GET and DOWNLOAD really fill the Cache API (the spec serves stand-in files); else they only pretend. */
   files?: boolean;
+  /** The size of a part when a piece is fetched in parts (instead of about 32 MB), so a spec's small pieces have parts. */
+  part?: number;
   /** `opts`: THINK HARDER's temperature and length for this reply (absent: the chat's own). */
   chat(messages: OfflineMsg[], onToken: (t: string) => void, signal?: AbortSignal, opts?: ReplyOpts): Promise<unknown> | unknown;
 }
@@ -453,6 +456,47 @@ async function testLoad(t: TestEngine, retry = true): Promise<void> {
 /** The phone ran out of memory or lost its graphics device: worth trying the smaller model. */
 const tooBig = (e: unknown) => /memory|device (?:was )?lost|allocat|exceed|out of|OOM|buffer size/i.test(String((e as Error)?.message ?? e));
 
+/** navigator.storage.persist() is asked at most once each time Ghosty opens (at the first GET or DOWNLOAD). */
+let askedKeep = false;
+
+/**
+ * A GET this phone's space cannot hold, in plain words, before a byte is downloaded ('' when it fits or the browser
+ * will not say): navigator.storage.estimate() against what this brain still needs (models.ts roomProblem).
+ */
+export async function noRoom(m: ModelDef): Promise<string> {
+  const est = await (navigator.storage?.estimate?.() ?? Promise.resolve(null)).catch(() => null);
+  if (!est || !(Number(est.quota) > 0)) return '';
+  const here = (await presence([m], location.origin)).get(m.id);
+  return roomProblem(m, Number(est.quota), Number(est.usage) || 0, here?.bytes ?? 0);
+}
+
+/**
+ * What the picker says about storage (SETTINGS → OFFLINE BRAIN), all read from this phone at opening: each brain's pieces
+ * really in the cache (models.ts onPhoneLine), a brain that was whole here and has lost pieces since (goneLine), whether
+ * the phone keeps Ghosty's storage for good, and whether this browser can keep a download at all. `null` with a test
+ * engine that only pretends to download.
+ */
+export async function keptHere(): Promise<{ kept: Kept[]; gone: string[]; persisted: boolean | null; cacheless: boolean } | null> {
+  const t = testEngine();
+  if (t && !t.files) return null;
+  await checkStorage(false);
+  const persisted = storageState.get().supported ? storageState.get().persisted : null;
+  if (typeof caches === 'undefined') return { kept: [], gone: [], persisted, cacheless: true };
+  const cur = currentModel();
+  const models = PICKER.some((m) => m.id === cur.id) ? PICKER : [...PICKER, cur];
+  const counts = await presence(models, location.origin);
+  const was = readStored();
+  const kept: Kept[] = [];
+  const gone: string[] = [];
+  for (const m of models) {
+    const c = counts.get(m.id) ?? { have: 0, of: 0, bytes: 0 };
+    kept.push({ label: m.label, mb: m.mb, have: c.have, of: c.of });
+    const w = was[storedId(m)];
+    if (w && c.have < w.of && readLog()?.model !== m.id) gone.push(goneLine(m, w, c.have));
+  }
+  return { kept, gone, persisted, cacheless: false };
+}
+
 /**
  * A brain's files into WebLLM's cache (GET and DOWNLOAD): the brain in use and the meaning model leave memory first, one
  * piece at a time, the progress line "piece 37 of 120 · 412 MB of 1,082 MB", and nothing loaded into graphics memory.
@@ -464,18 +508,31 @@ async function getFiles(m: ModelDef, onProgress?: (frac: number, text: string) =
     const s = await offlineSupport();
     if (!s.ok) throw new Error(s.reason);
   }
+  // Before a byte comes: the phone keeps it for good if it will (asked once), and the space it gives Ghosty can hold it.
+  if (!askedKeep) {
+    askedKeep = true;
+    await checkStorage(true);
+  }
+  const room = await noRoom(m);
+  if (room) throw Object.assign(new Error(room), { room: true });
   freeModel();
   freeEmbedder();
   offlineBrain.set({ busy: 'download', getting: m.id, progress: 0, text: '' });
   try {
     if (t && !t.files) onProgress?.(1, 'done');
     else
-      await fill(m, location.origin, (p) => {
-        const frac = p.total ? Math.min(1, p.bytes / p.total) : 0;
-        const text = pieceLine(p.piece, p.of, p.bytes, p.total);
-        offlineBrain.set({ progress: frac, text });
-        onProgress?.(frac, text);
-      });
+      await fill(
+        m,
+        location.origin,
+        (p) => {
+          const frac = p.total ? Math.min(1, p.bytes / p.total) : 0;
+          const text = pieceLine(p.piece, p.of, p.bytes, p.total, p.part, p.parts);
+          offlineBrain.set({ progress: frac, text });
+          onProgress?.(frac, text);
+        },
+        undefined,
+        t?.part ?? PART_BYTES,
+      );
   } catch (e) {
     const name = (e as Error)?.name ?? '';
     const kind = name === 'QuotaExceededError' ? 'full' : downloadFailure(e);
@@ -500,6 +557,7 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
     await getFiles(m, onProgress);
   } catch (e) {
     const trained = !PICKER.concat(MODELS).some((x) => x.id === m.id);
+    if ((e as { room?: boolean }).room) throw e;
     if ((e as { network?: boolean }).network) throw new Error('The download was interrupted (the connection dropped?). Press DOWNLOAD again on Wi-Fi: it carries on from where it stopped.');
     if (trained && downloadFailure(e) === 'broken') {
       // A trained brain whose files are really wrong or gone: only ITS files go, and the phone goes back to its base's stock one.
@@ -507,6 +565,7 @@ export async function downloadOffline(onProgress?: (frac: number, text: string) 
       dropWorker();
       await removeFilesOf(modelBase(m));
       clearLog(m.id);
+      markStored(storedId(m), 0);
       offlineBrain.set({ model: stock.id, downloaded: false });
       checkedAt = 0;
       throw new Error(`${m.label} would not download (${String((e as Error)?.message ?? e).slice(0, 120)}). Back to the stock ${stock.label}: press DOWNLOAD (if it is still on this phone, it is ready at once).`);
@@ -620,6 +679,7 @@ export async function removeBrain(id: string): Promise<void> {
   if (currentModel().id === id) chooseBrain(MODELS[0]!.id);
   await removeFilesOf(modelBase(m));
   clearLog(id);
+  markStored(storedId(m), 0);
   offlineBrain.set({ have: (offlineBrain.get().have ?? []).filter((x) => x !== id) });
 }
 
@@ -648,7 +708,7 @@ async function pruneOtherRevisions(): Promise<void> {
 /** Remove one model's files only (everything else, the stock model's included, stays). */
 async function removeFilesOf(base: string): Promise<void> {
   if (typeof caches === 'undefined') return;
-  for (const name of ['webllm/model', 'webllm/config']) {
+  for (const name of ['webllm/model', 'webllm/config', PARTS_STORE]) {
     try {
       const c = await caches.open(name);
       for (const r of await c.keys()) if (r.url.startsWith(base)) await c.delete(r);
@@ -677,6 +737,7 @@ function armIdle(): void {
 /** The brain's files out of WebLLM's stores; SEARCH BY MEANING's model, when it is here, stays (offline/embed.ts). */
 async function clearCaches(): Promise<void> {
   if (typeof caches === 'undefined') return;
+  await caches.delete(PARTS_STORE).catch(() => false);
   if (!embedState.get().downloaded) {
     await Promise.all(WEBLLM_CACHES.map((c) => caches.delete(c).catch(() => false)));
     return;
@@ -698,6 +759,11 @@ export async function deleteOffline(): Promise<void> {
   if (t) t.ready = false;
   dropWorker();
   clearLog();
+  try {
+    localStorage.removeItem(STORED_KEY);
+  } catch {
+    /* blocked */
+  }
   await clearCaches();
   try {
     // The service worker keeps vendored files; WebLLM's ~16 MB is only worth keeping with a model (search by
