@@ -483,7 +483,7 @@ else {
   const c4 = (await st()).c4;
   if (!/^You beat me at move \d+( with (a double threat on columns [\d, and]+|two threats stacked in column \d|the (odd|even) threat on the \w+ row of column \d|your threat on the \w+ row of column \d: I played under it|four in a row through column \d))?\. I’ve studied it\. Play me again\.$/.test(c4.screen)) problems.push(`learning: the game screen says "${c4.screen}"`);
   if (!/^You’ve taught me \d+ lessons?\.$/.test(c4.card)) problems.push(`learning: the card says "${c4.card}"`);
-  const cardText = await G('.gymcard[data-game="connect4"] .gymnext').innerText().catch(() => '');
+  const cardText = await G('.gymcard[data-game="connect4"] .gymsay').innerText().catch(() => '');
   if (cardText !== c4.card) problems.push(`learning: the Connect 4 card shows "${cardText}", not "${c4.card}"`);
   if (!/^You’ve taught me \d+ lessons?; (I’ve won \d+ of (our \d+|the last 5)|you won our only game)\.$/.test(c4.count)) problems.push(`learning: the count says "${c4.count}"`);
   if (!c4.review.length || !c4.review.some((r) => /^Move \d+ · Your /.test(r))) problems.push(`learning: the review: ${JSON.stringify(c4.review)}`);

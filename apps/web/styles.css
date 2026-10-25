@@ -2849,7 +2849,7 @@ html #pg-gym .gymcard .gymrate[hidden], html #pg-gym .gymcard .gymnext[hidden] {
 .gymreview > div { display: flex; gap: 10px; font: 400 15px/1.4 var(--sf); color: var(--fg); }
 .gymreview > div span { flex: none; min-width: 62px; color: var(--l2); font-variant-numeric: tabular-nums; }
 .gymreview > div i { font-style: normal; min-width: 0; }
-html #pg-gym .gymcard.says .gymrl .gymnext { font: 500 12px/14px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); }
+html #pg-gym .gymcard .gymsay { display: block; margin-top: 5px; font: 500 12px/15px var(--sf); letter-spacing: 0; text-transform: none; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* Connect 4: his line about your games */
 
 /* ---------- Settings, System and Links (ui/listmode.ts): grouped glass rows — a neutral icon tile, the name,
    its line under it, a chevron ---------- */

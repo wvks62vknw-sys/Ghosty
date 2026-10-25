@@ -410,7 +410,7 @@ export const gymTab: TabDef = {
     cardsP.body.append(cards);
     // Each card (BRIEF-IRON-BUILD step 3): the game's picture as line-art (art.ts), its status word, the name and level,
     // the mastery meter with the pass mark's tick, and under it his rating (board games' league) or the next level's mark.
-    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; st: HTMLElement; lvl: HTMLElement; fill: HTMLElement; tick: HTMLElement; pct: HTMLElement; meter: HTMLElement }>();
+    const cardParts = new Map<string, { b: HTMLButtonElement; small: HTMLElement; rate: HTMLElement; st: HTMLElement; lvl: HTMLElement; fill: HTMLElement; tick: HTMLElement; pct: HTMLElement; meter: HTMLElement; say?: HTMLElement }>();
     for (const g of GAMES) {
       const small = h('small.gymnext');
       const st = h('i.gymst');
@@ -421,7 +421,9 @@ export const gymTab: TabDef = {
       const pct = h('b.gympct');
       // League play (board games): his rating against his past selves, under the meter.
       const rate = h('span.gymrate');
-      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, gameArt(g.id), st, h('span.gymnm', h('span.gymname', g.title), lvl), meter, h('span.gymrl', rate, small, pct));
+      // Connect 4 also carries his line about your games, on a row of its own (gym2)
+      const say = g.id === 'connect4' ? h('small.gymsay') : undefined;
+      const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, gameArt(g.id), st, h('span.gymnm', h('span.gymname', g.title), lvl), meter, h('span.gymrl', rate, small, pct), say);
       b.addEventListener('click', () => {
         played(g.id);
         select(g.id);
@@ -429,7 +431,7 @@ export const gymTab: TabDef = {
         if (pushes()) pushGame();
       });
       cards.append(b);
-      cardParts.set(g.id, { b, small, rate, st, lvl, fill, tick, pct, meter });
+      cardParts.set(g.id, { b, small, rate, st, lvl, fill, tick, pct, meter, say });
     }
     // ======================= the cards in pages of six (the navigation sheet, BRIEF-NAV-BOOT 1): two columns and three
     // rows a page, a swipe sideways from one page to the next (CSS scroll-snap: one page a swipe, no momentum past it),
@@ -646,13 +648,7 @@ export const gymTab: TabDef = {
         const lv = r?.level ?? 1;
         c.small.textContent = r?.mastered ? 'Every level passed' : lv >= 10 ? `Lv 10 passes at ${Math.round(g.bar(10) * 100)}%` : `Lv ${lv + 1} at ${Math.round(g.bar(lv) * 100)}%`;
         c.small.hidden = !!lg?.versions.length;
-        if (g.id === 'connect4') {
-          // Connect 4 carries his line about the games with the owner (his rating is on the game's page)
-          c.small.textContent = gymState.c4.card = cardLine(journal.c4);
-          c.small.hidden = false;
-          c.rate.hidden = true;
-          c.b.classList.add('says');
-        }
+        if (c.say) c.say.textContent = gymState.c4.card = cardLine(journal.c4);
         // nothing has happened yet: an empty meter and "Not started"
         c.b.classList.toggle('fresh', !r?.units);
         c.b.classList.toggle('mastered', !!r?.mastered);
