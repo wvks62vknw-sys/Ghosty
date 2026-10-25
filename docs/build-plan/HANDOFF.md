@@ -619,6 +619,13 @@ folder that no longer exists; ignore those paths).
   daily jobs) can hold the single thread when the question lands. The spec now waits 120 s, and when no cited reply
   comes it reports the last message's class and words and skips the chip, source and click checks (no throw), so a
   second red names the cause. Pushed as the next head; the spec is clean here.
+- 25 Oct 12:12 UK: PR #40 MERGED (f1d9cc6) after run 245 (4959c11) went green: brain 10:55–11:05, smoke 10:55–12:11,
+  interface, deploy-build and Workers Builds green; all 73 specs reported, cited in 15 s (run 244's red did not come
+  back: a one-off on the runner, and the hardened spec names the cause if it does), nav 299 s and routec 315 s on their
+  720 s. The branch fast-forwarded to main. Live on the owner's phone with
+  his next open: the GYM at full strength, the boot on every cold open, the little tabs on seven more screens, the four
+  specs in CI's loop. Next pull request: #41, from whatever lands next (the Agenda and System passes wait for the
+  allowance reset; the owner's answers wait: the four Offline Brain steps, the Harold/Machine picks, the usage numbers).
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
