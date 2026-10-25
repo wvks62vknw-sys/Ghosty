@@ -16,7 +16,8 @@ import { THEMES } from '../state/theme';
 import { go, tabs, type TabDef } from './tabs';
 import { listRow, niceCase } from '../ui/components';
 import { ensureDefs } from '../ui/instruments';
-import { CARDS, hubFacts } from './hubcards';
+import { CARDS, hubFacts, hubWords, loadHubWords } from './hubcards';
+import { buildSwitcher, HOLD_MS, type SwitchItem } from './switcher';
 import { gymControl, gymState } from '../features/gym/index';
 import { schoolState } from '../features/school/index';
 import { offlineBrain } from '../offline/brain';
@@ -24,7 +25,8 @@ import { offlineBrain } from '../offline/brain';
 export interface Area {
   id: string;
   title: string;
-  /** One line under the hub's title. */
+  /** One line under the hub's title, in Ghosty's voice ("I"): the plain line, for when the phone has no reading for
+   *  the personal one (shell/hubcards.ts hubWords: his school stage, his next event, his city, his latest project). */
   sub: string;
   icon: string;
   /** Its tabs, in order; the first is where the tab bar goes when the area has no hub (ASK → the reactor). */
@@ -34,12 +36,12 @@ export interface Area {
 }
 
 export const AREAS: Area[] = [
-  { id: 'ask', title: 'Ask', sub: 'Talk to Ghosty, or get the day in one look.', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/>', tabs: ['core', 'brief'], tint: '#3fc3ff' },
+  { id: 'ask', title: 'Ask', sub: 'Talk to me, or get the day in one look.', icon: '<path d="M4.5 5.5h15a1.5 1.5 0 011.5 1.5v8.5a1.5 1.5 0 01-1.5 1.5H10l-4.5 3.5V17H4.5A1.5 1.5 0 013 15.5V7a1.5 1.5 0 011.5-1.5z"/><path d="M12 8.5v5M9.5 11h5"/>', tabs: ['core', 'brief'], tint: '#3fc3ff' },
   { id: 'see', title: 'See', sub: 'The world live, and the camera that understands it.', icon: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/>', tabs: ['eye', 'lens'], tint: '#0a84ff' },
   { id: 'make', title: 'Make', sub: 'Build, take apart and plan real things.', icon: '<path d="M14.5 4.5l5 5L9 20H4v-5z"/><path d="M12.5 6.5l5 5"/>', tabs: ['studio', 'workshop', 'reverse', 'space'], tint: '#ff9f0a' },
-  { id: 'learn', title: 'Learn', sub: 'Courses for you, games and a library for him.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
+  { id: 'learn', title: 'Learn', sub: 'Courses for you; games, school and a library for me.', icon: '<path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.2c3 2.1 8 2.1 11 0v-4.2M21.5 9.5v5"/>', tabs: ['learn', 'gym', 'school', 'library'], tint: '#30d158' },
   { id: 'plan', title: 'Plan', sub: 'Your days, the markets, the world’s alerts and the radio.', icon: '<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>', tabs: ['agenda', 'markets', 'threats', 'radio'], tint: '#ff375f' },
-  { id: 'me', title: 'Me', sub: 'What Ghosty knows, how he looks and what he is linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links'], tint: '#8e8e93' },
+  { id: 'me', title: 'Me', sub: 'What I know, how I look and what I am linked to.', icon: '<circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-4 4-6 7.5-6s6.3 2 7.5 6"/>', tabs: ['memory', 'settings', 'system', 'links'], tint: '#8e8e93' },
 ];
 
 /**
@@ -168,6 +170,14 @@ function moreChip(id: string, name: string, t: TabDef | null, onTap: () => void)
 /** At most six cards fit one screen (two columns, three rows, nothing to scroll); the rest go in the More row. */
 export const HUB_MAX = 6;
 
+type Tool = [id: string, name: string, glyph: string, t: TabDef | null, tap: () => void];
+/** An area's tools in order (ASK adds Voice): its hub's cards and the switcher's arc. */
+function areaTools(a: Area): Tool[] {
+  const tools: Tool[] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
+  if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+  return tools;
+}
+
 function hubTab(a: Area): TabDef {
   return {
     id: hubId(a),
@@ -180,8 +190,9 @@ function hubTab(a: Area): TabDef {
       ensureDefs();
       const grid = h('div.hubgrid');
       const moreRow = h('div.hubmore');
+      const sub = h('p.hubsub', a.sub);
       const wrap = h('div.hub',
-        h('p.hubsub', a.sub),
+        sub,
         h('button.cmdbar', { type: 'button', onclick: togglePalette, 'aria-label': 'Ask or jump anywhere' }, icon('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/>'), h('span', 'Ask or jump anywhere')),
         grid,
         moreRow,
@@ -189,21 +200,28 @@ function hubTab(a: Area): TabDef {
       root.append(wrap);
       // The cards: made once, painted from the state on entering and every few seconds while the hub is on screen.
       // Six fit the screen as instrument cards in two columns; any beyond six are small instruments in the More row.
-      const tools: [string, string, string, TabDef | null, () => void][] = a.tabs.map(def).filter((t): t is TabDef => !!t).map((t) => [t.id, toolName(t), t.icon, t, () => navTo(t.id, 'push')]);
-      if (a.id === 'ask') tools.push(['voice', 'Voice', MIC, null, voiceTap]);
+      const tools = areaTools(a);
       const cards = tools.slice(0, HUB_MAX).map(([id, name, glyph, t, tap]) => toolCard(id, name, glyph, t, tap));
       const minis = tools.slice(HUB_MAX).map(([id, name, , t, tap]) => moreChip(id, name, t, tap));
       clear(grid, ...cards.map((c) => c.el));
       clear(moreRow, ...(minis.length ? [h('span.mk', h('b', 'More'), h('small', String(minis.length))), ...minis.map((m) => m.el)] : []));
       moreRow.hidden = !minis.length;
       cards.push(...minis);
+      // the line under the title: his own (his school stage and rating, his next event and his city's weather, his
+      // city, his latest project) where the phone has the reading, else the plain line; never a sample
+      const paintSub = () => {
+        const w = hubWords(a.id) || a.sub;
+        if (sub.textContent !== w) sub.textContent = w;
+        sub.dataset.personal = String(w !== a.sub);
+      };
       const paintAll = () => {
         for (const c of cards) c.paint();
+        paintSub();
       };
       let timer = 0;
       const paint = () => {
         paintAll();
-        void Promise.all(cards.map((c) => c.load())).then(paintAll);
+        void Promise.all([...cards.map((c) => c.load()), loadHubWords(a.id)]).then(paintAll);
         clearInterval(timer);
         timer = window.setInterval(() => (ui.get().tab === hubId(a) && !document.hidden ? paintAll() : clearInterval(timer)), 3000);
       };
@@ -329,9 +347,68 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
     // The glyph sits in a small ring of MIND's light (lit on the tab he is in, flared on touch), with a live dot when
     // something runs in that area right now (liveIn below).
     const b = h('button', { type: 'button', role: 'tab', dataset: { id: a.id === 'ask' ? 'core' : a.tabs[0]!, area: a.id }, title: a.title }, h('i.gi', h('i.halo'), icon(a.icon), h('i.live')), h('span', a.title));
-    b.addEventListener('click', () => tap(a));
+    b.addEventListener('click', () => {
+      // the lift that ends a long press is not a tap
+      if (held) return void (held = false);
+      sw.close();
+      tap(a);
+    });
+    b.addEventListener('pointerdown', (e) => holdTab(e, a, b));
     cap.append(b);
   }
+  // ---- the quick switcher (shell/switcher.ts): hold a tab, its tools fan out above the bar; slide onto one and let go
+  const sw = buildSwitcher();
+  // under the tab bar (the held tab stays lit above the dimmed page), over everything else
+  dock.before(sw.el);
+  let hold = 0;
+  let held = false;
+  let at = { x: 0, y: 0, id: -1, t: 0 };
+  const holdTab = (e: PointerEvent, a: Area, b: HTMLElement) => {
+    if (e.button > 0) return;
+    held = false;
+    clearTimeout(hold);
+    sw.close();
+    at = { x: e.clientX, y: e.clientY, id: e.pointerId, t: e.timeStamp };
+    hold = window.setTimeout(() => {
+      hold = 0;
+      held = true;
+      sw.open(b, a.title, switchItems(a));
+    }, HOLD_MS);
+  };
+  addEventListener('pointermove', (e) => {
+    if (e.pointerId !== at.id) return;
+    // a finger that wanders off before the hold is not a long press
+    if (hold && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 14) {
+      clearTimeout(hold);
+      hold = 0;
+    }
+    if (held) sw.hover(e.clientX, e.clientY);
+  });
+  addEventListener('pointerup', (e) => {
+    if (e.pointerId !== at.id) return;
+    clearTimeout(hold);
+    hold = 0;
+    at.id = -1;
+    // lifted sooner than the hold by the finger's own clock (a busy phone can run the timer late): a tap after all
+    if (held && e.timeStamp - at.t < HOLD_MS) {
+      held = false;
+      sw.close();
+      return;
+    }
+    if (held) sw.release(e.clientX, e.clientY);
+    // (the click that follows, when the lift is on the tab itself, clears `held`)
+    if (held) setTimeout(() => (held = false), 0);
+  });
+  addEventListener('pointercancel', (e) => {
+    if (e.pointerId !== at.id) return;
+    clearTimeout(hold);
+    hold = 0;
+    at.id = -1;
+    held = false;
+    sw.close();
+  });
+  // (a long press is never the phone's own menu)
+  cap.addEventListener('contextmenu', (e) => e.preventDefault());
   const you = h('button.you', { type: 'button', dataset: { area: 'me' }, title: 'Me', 'aria-label': 'Me: memory, settings and system' }, h('span.av'));
   you.addEventListener('click', () => {
     if (press === -1) return void (press = 0);
@@ -387,15 +464,36 @@ export function buildTabBar(dock: HTMLElement, openDeck: () => void): () => void
   return paint;
 }
 
+/** An area's tools for the switcher's arc: the lit ones (live or training now) first, then in the hub's order. */
+function switchItems(a: Area): SwitchItem[] {
+  const list = areaTools(a).map(([id, name, glyph, t, tap]) => {
+    const c = CARDS[id];
+    const status = t?.status?.() ?? c?.status() ?? 'READY';
+    const r = (t?.readouts ?? c?.readouts)?.()[0];
+    let drawn: Element | null = null;
+    try {
+      drawn = (t?.instrument ?? c?.instrument)?.() ?? null;
+    } catch {
+      drawn = null;
+    }
+    const line = c ? (typeof c.title === 'function' ? c.title() : c.title) : name;
+    // a bare number says what it counts ("19,489 passages", "0 levels"); words and units read as they are
+    const reading = !r ? '' : r.value == null ? r.none ?? 'Not yet' : r.unit ? `${r.value} ${r.unit}` : /^[\d,.]+$/.test(r.value) ? `${r.value} ${r.label.toLowerCase()}` : r.value;
+    return { id, name, glyph, status, instrument: drawn, reading, line, open: tap };
+  });
+  const lit = (x: SwitchItem) => x.status === 'LIVE' || x.status === 'TRAINING';
+  return [...list.filter(lit), ...list.filter((x) => !lit(x))];
+}
+
 /**
  * What runs right now, by area (the tab bar's live dots): a reply being worked out (Ask), the GYM training or a paper
  * being sat (Learn), a reverse report running (Make), the offline brain downloading (Me, on the avatar).
  */
 export function liveIn(): Record<string, string> {
   const out: Record<string, string> = {};
-  if (ui.get().busy) out.ask = 'Ghosty is working on an answer';
+  if (ui.get().busy) out.ask = 'I am working on an answer';
   if (gymState.training || gymControl?.allOn()) out.learn = 'the GYM is training';
-  else if (schoolState.sitting) out.learn = 'he is sitting a paper';
+  else if (schoolState.sitting) out.learn = 'I am sitting a paper';
   if (hubFacts.reverse?.some((j) => j.status === 'running')) out.make = 'a reverse report is running';
   if (offlineBrain.get().busy === 'download') out.me = 'the offline brain is downloading';
   return out;

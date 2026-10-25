@@ -37,6 +37,8 @@ export async function openPanel(page, tab, title) {
     const root = document.getElementById(`pg-${tab}`);
     if (!root?.classList.contains('listmode')) return true;
     const pn = [...root.querySelectorAll('.pn[data-row]')].find((p) => re.test(p.querySelector('.ptitle')?.textContent ?? ''));
+    // a screen in sections (ui/sections.ts) shows the section that holds the panel first, as a deep link does
+    pn?.dispatchEvent(new CustomEvent('ghosty:reveal', { bubbles: true }));
     return !pn || pn.classList.contains('pushed');
   }, { tab, src: `^${title}` });
   if (done) return;
@@ -46,4 +48,14 @@ export async function openPanel(page, tab, title) {
   }
   await page.locator(`#pg-${tab} .pn[data-row] > h3`).filter({ has: page.locator('.ptitle', { hasText: new RegExp(`^${title}`) }) }).first().click();
   await page.waitForTimeout(400);
+}
+
+// System and Agenda are in sections on a phone (ui/sections.ts): a row of pills under the title, one section shown at a
+// time. Tap the pill named `label` (nothing to do on a wide screen, where every panel shows).
+export async function openSection(page, tab, label) {
+  const pill = page.locator(`#pg-${tab} .secpills .secpill`, { hasText: label });
+  if (!(await pill.count()) || !(await pill.isVisible().catch(() => false))) return false;
+  await pill.click();
+  await page.waitForTimeout(250);
+  return true;
 }

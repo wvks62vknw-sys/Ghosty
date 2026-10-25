@@ -96,7 +96,9 @@ let inputs = 0;
 const settle = () => page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => undefined)))).catch(() => undefined);
 /** On a phone a tab's two columns swap with its MORE button: the other side, or false when there is none. */
 const otherSide = async (tab) => {
-  const swap = page.locator(`#pg-${tab} .swap`);
+  // a screen in sections (ui/sections.ts: System, Agenda) shows its second section as its other side
+  const pill = page.locator(`#pg-${tab} .secpills .secpill`).nth(1);
+  const swap = (await pill.isVisible().catch(() => false)) ? pill : page.locator(`#pg-${tab} .swap`);
   if (!(await swap.count()) || !(await swap.isVisible())) return false;
   await swap.click();
   await page.waitForTimeout(500);

@@ -69,6 +69,8 @@ export const gymState = {
   edge: {} as Record<string, { x: number; line: string; rate: number; n: number }>,
   /** Solved puzzles at his edge handed to the offline brain's training records (checked by the game's checker). */
   stars: 0,
+  /** The page of game cards on screen (six a page, from 0). */
+  page: 0,
 };
 
 /**
@@ -224,6 +226,19 @@ export function openGym(id?: string): void {
   if (opener) opener(id);
   else waiting = id ?? null;
 }
+
+/** Six games a page (two columns, three rows: one screen); the last page holds what is left. */
+const PER = 6;
+const PAGES = Math.ceil(GAMES.length / PER);
+/** The game he tapped last on this phone: the GYM opens on its page. */
+const LAST_KEY = 'ghosty.gym.last';
+const played = (id: string) => {
+  try {
+    localStorage.setItem(LAST_KEY, id);
+  } catch {
+    /* storage unavailable: the page follows the records instead */
+  }
+};
 
 export const gymTab: TabDef = {
   id: 'gym',
@@ -384,6 +399,7 @@ export const gymTab: TabDef = {
       const rate = h('span.gymrate');
       const b = h('button.gymcard', { type: 'button', dataset: { game: g.id } }, gameArt(g.id), st, h('span.gymnm', h('span.gymname', g.title), lvl), meter, h('span.gymrl', rate, small, pct));
       b.addEventListener('click', () => {
+        played(g.id);
         select(g.id);
         // on a phone the game is its own screen, "‹ Gym" back
         if (pushes()) pushGame();
@@ -391,6 +407,62 @@ export const gymTab: TabDef = {
       cards.append(b);
       cardParts.set(g.id, { b, small, rate, st, lvl, fill, tick, pct, meter });
     }
+    // ======================= the cards in pages of six (the navigation sheet, BRIEF-NAV-BOOT 1): two columns and three
+    // rows a page, a swipe sideways from one page to the next (CSS scroll-snap: one page a swipe, no momentum past it),
+    // the dots under them (each a tap target), and the page opens where the game he played last is. The page holding
+    // the game in training carries a small lit dot, so it is findable from any page.
+    const pageOf = (id: string) => Math.floor(Math.max(0, GAMES.findIndex((g) => g.id === id)) / PER);
+    cards.classList.add('paged');
+    // per page: two card columns and a narrow spacer, so a page is exactly the strip's width (padding included)
+    cards.style.gridTemplateColumns = `repeat(${PAGES}, var(--cw) var(--cw) 8px)`;
+    GAMES.forEach((g, i) => {
+      const b = cardParts.get(g.id)!.b;
+      const k = i % PER;
+      b.dataset.page = String(Math.floor(i / PER));
+      b.style.gridColumn = String(Math.floor(i / PER) * 3 + (k % 2) + 1);
+      b.style.gridRow = String(Math.floor(k / 2) + 1);
+    });
+    const dots = Array.from({ length: PAGES }, (_, p) => h('button.gymdot', { type: 'button', dataset: { page: String(p) }, onclick: () => showPage(p, true) }, h('i')));
+    const pageWord = h('span.gympgw', { dataset: { case: 'keep' } });
+    const pager = h('div.gympager', h('span.gymdots', ...dots), pageWord);
+    cards.after(pager);
+    let shownPage = -1;
+    const markPage = (p: number) => {
+      shownPage = p;
+      gymState.page = p;
+      dots.forEach((d, i) => {
+        d.classList.toggle('on', i === p);
+        d.setAttribute('aria-current', String(i === p));
+      });
+      pageWord.textContent = `Games ${p * PER + 1}–${Math.min(GAMES.length, (p + 1) * PER)} of ${GAMES.length}`;
+    };
+    /** Show page `p`: at once, or with a short glide for a tap on its dot (none under Reduce Motion). */
+    const showPage = (p: number, glide = false) => {
+      const to = Math.max(0, Math.min(PAGES - 1, p));
+      cards.scrollTo({ left: to * cards.clientWidth, behavior: glide && !calm() ? 'smooth' : 'auto' });
+      markPage(to);
+    };
+    /** He has moved between pages himself since the GYM opened (the records arriving late do not move him back). */
+    let moved = false;
+    cards.addEventListener('scroll', () => {
+      const p = Math.round(cards.scrollLeft / Math.max(1, cards.clientWidth));
+      if (p !== shownPage) markPage(Math.max(0, Math.min(PAGES - 1, p)));
+    }, { passive: true });
+    for (const ev of ['touchstart', 'wheel', 'pointerdown']) cards.addEventListener(ev, () => (moved = true), { passive: true });
+    pager.addEventListener('click', () => (moved = true));
+    /** The game to open on: the one he tapped last on this phone, else the one trained last, else the first page. */
+    const lastGame = () => {
+      let id = '';
+      try {
+        id = localStorage.getItem(LAST_KEY) ?? '';
+      } catch {
+        /* storage unavailable: by the records */
+      }
+      if (gameById(id)) return id;
+      return [...recs.values()].filter((r) => r.units).sort((a, b) => b.updated - a.updated)[0]?.id ?? training ?? '';
+    };
+    const openOnLast = () => showPage(pageOf(lastGame()));
+    markPage(0);
     // What he is doing now, at the top of the list: the game in training, or the one trained last.
     const nowRing = ring(44, 'gymring');
     const nowTitle = h('b');
@@ -400,6 +472,7 @@ export const gymTab: TabDef = {
     let nowId = '';
     nowCard.addEventListener('click', () => {
       if (!nowId) return;
+      played(nowId);
       select(nowId);
       if (pushes()) pushGame();
     });
@@ -439,7 +512,8 @@ export const gymTab: TabDef = {
       menu.classList.remove('open');
       root.classList.remove('gympush');
       popScreen();
-      cardParts.get(open.id)?.b.scrollIntoView({ block: 'center' });
+      showPage(pageOf(open.id));
+      cardParts.get(open.id)?.b.scrollIntoView({ block: 'center', inline: 'nearest' });
     };
     ui.subscribe((s, p) => s.tab !== p.tab && p.tab === 'gym' && popGame());
 
@@ -553,6 +627,14 @@ export const gymTab: TabDef = {
         c.st.className = `gymst ${st.toLowerCase()}`;
       }
       gymState.cards = GAMES.length;
+      // the page holding the game in training: a small lit dot on its page's dot
+      const tp = training ? pageOf(training) : -1;
+      dots.forEach((d, p) => {
+        d.classList.toggle('train', p === tp);
+        const first = p * PER + 1;
+        const last = Math.min(GAMES.length, (p + 1) * PER);
+        d.setAttribute('aria-label', `Games ${first} to ${last}${p === tp && training ? `, ${niceCase(gameById(training)?.title ?? '')} training` : ''}`);
+      });
       // "Training now" (or the game trained last), the same numbers as its card
       const last = [...recs.values()].filter((r) => r.units).sort((a, b) => b.updated - a.updated)[0];
       const g = training ? gameById(training) : last ? gameById(last.id) : undefined;
@@ -1148,6 +1230,8 @@ export const gymTab: TabDef = {
       // (A game RESET while this was loading stays reset.)
       for (const [id, r] of all) if (!recs.has(id) && !epochs[id]) recs.set(id, r);
       paint();
+      // the records are in: open on the page of the game played last (unless he has swiped since)
+      if (!moved) openOnLast();
       if (waiting !== undefined) {
         const w = waiting;
         waiting = undefined;
@@ -1156,6 +1240,11 @@ export const gymTab: TabDef = {
     });
 
     return {
+      // every time the GYM opens: on the page of the game he played last
+      enter: () => requestAnimationFrame(() => {
+        moved = false;
+        openOnLast();
+      }),
       describe() {
         const r = recs.get(open.id);
         return `GYM tab: ${open.title} open (${statusLine(r ?? null, open, training === open.id)}). ${allOn ? `${allStatus.textContent}.` : `${GAMES.filter((g) => recs.get(g.id)?.mastered).length} of ${GAMES.length} games mastered.`}`;

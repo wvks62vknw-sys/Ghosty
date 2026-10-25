@@ -13,6 +13,7 @@ import { ui } from '../../state/app';
 import { button, confirmSheet, panel, row, toast, undo } from '../../ui/components';
 import { page } from '../../ui/page';
 import { paintNotifications } from './notifications';
+import { goToPanel } from '../../ui/sections';
 
 const NOSPELL = { autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false' } as const;
 
@@ -290,7 +291,7 @@ export const linksTab: TabDef = {
           h('div.note', st.token
             ? 'The bot token is saved, but the bot is not connected yet (Ghosty could not reach Telegram, or has no https address). Open SYSTEM → KEYS → Telegram bot and press SAVE again.'
             : 'Talk to Ghosty from the Telegram app — text, voice notes and photos — and get its reminders and task results there. Paste the bot token in SYSTEM → KEYS → Telegram bot (HOW TO GET IT shows the two-minute setup).'),
-          h('div.keyrow', button('SYSTEM → KEYS', () => go('system'), 'on')),
+          h('div.keyrow', button('SYSTEM → KEYS', () => goToPanel('system', 'KEYS'), 'on')),
         );
         return;
       }
@@ -467,7 +468,7 @@ export const linksTab: TabDef = {
         st.lastModel ? row('LAST', st.lastModel) : '',
         h('div.note', ready.length ? 'Free AI keys power Ghosty’s thinking; when one runs out, the next takes over. The library answers even with none.' : 'Add a free AI key (Gemini or Groq) so Ghosty can think. It takes about a minute.'),
         h('div.note', 'Backup: save your AI keys as Cloudflare secrets too (GEMINI_KEY, GROQ_KEY… — SETUP.md "Keep Ghosty working when the database is paused") and Ghosty keeps chatting even if the free daily database allowance runs out.'),
-        h('div.keyrow', button('MANAGE AI KEYS', () => go('system'), missing.length ? 'on' : '')),
+        h('div.keyrow', button('MANAGE AI KEYS', () => goToPanel('system', 'KEYS'), missing.length ? 'on' : '')),
       );
       gp.setStatus(st.repoReady ? 'ON' : 'OFF', st.repoReady ? 'ok' : 'mid');
       const gh = st.keys.find((k) => k.name === 'github');

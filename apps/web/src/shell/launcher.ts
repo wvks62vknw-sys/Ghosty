@@ -20,6 +20,7 @@ import { listen, stopListening, voiceSupport } from '../assistant/voice';
 import { speechCaps } from '../api/brain';
 import { settings, ui } from '../state/app';
 import { niceCase, toast } from '../ui/components';
+import { revealPanel } from '../ui/sections';
 import { navTo } from './areas';
 import { DECK, DECK_GROUPS, picksFor, type DeckAct, type DeckLine, type DeckScreen, type TryPick } from './deckcopy';
 import { tabs, type TabDef } from './tabs';
@@ -57,6 +58,8 @@ function reveal(tab: string, title: string): void {
     const root = document.getElementById(`pg-${tab}`);
     const pn = root && [...root.querySelectorAll<HTMLElement>('.pn')].find((p) => (p.querySelector('.ptitle')?.textContent ?? '').toUpperCase().startsWith(title));
     if (!root || !pn) return void (++tries < 16 && setTimeout(look, 250));
+    // a screen in sections (ui/sections.ts) shows the section that holds it first
+    revealPanel(pn);
     if (pn.matches('.listmode .pn[data-row]')) {
       if (!pn.classList.contains('pushed')) pn.querySelector<HTMLElement>(':scope > h3')?.click();
       return;

@@ -77,9 +77,14 @@ const G = (sel, opts) => page.locator(`#pg-gym ${sel}`, opts);
 const wideCheck = async (where) => {
   const wide = await page.evaluate(() => {
     const W = window.innerWidth;
+    // (a card on another page of the games' sideways strip is off screen on purpose: the strip itself must fit)
+    const inStrip = (e) => {
+      for (let p = e.parentElement; p; p = p.parentElement) if (/(auto|scroll)/.test(getComputedStyle(p).overflowX) && p.getBoundingClientRect().right <= W + 1 && p.getBoundingClientRect().left >= -1 && p.matches('.gymcards')) return true;
+      return false;
+    };
     const over = [...document.querySelectorAll('#pg-gym *')].filter((e) => {
       const r = e.getBoundingClientRect();
-      return r.width && r.right > W + 1 && getComputedStyle(e).position !== 'fixed';
+      return r.width && r.right > W + 1 && getComputedStyle(e).position !== 'fixed' && !inStrip(e);
     });
     return { page: document.documentElement.scrollWidth > W + 1, over: over.slice(0, 3).map((e) => `${e.tagName}.${e.className}`) };
   });
@@ -122,6 +127,77 @@ for (const name of NAMES) {
 await wideCheck('the game cards');
 await page.screenshot({ path: `${out}/gym-cards.png` });
 
+// ---- the cards in pages of six (the navigation sheet, BRIEF-NAV-BOOT 1): two columns and three rows a page, one swipe a
+// page (scroll-snap), the dots under them as tap targets, and the GYM opens on the page of the game played last.
+// (Fails on the old GYM: 22 cards in one long column, no dots.)
+/** Which cards show on screen now, and how: two columns and three rows of the six of one page. */
+const onScreen = () => page.evaluate(() => {
+  const strip = document.querySelector('#pg-gym .gymcards');
+  const s = strip?.getBoundingClientRect();
+  if (!s) return null;
+  const cards = [...strip.querySelectorAll('.gymcard')].map((b) => ({ id: b.dataset.game, r: b.getBoundingClientRect() }))
+    .filter((c) => c.r.left >= s.left - 1 && c.r.right <= s.right + 1);
+  const xs = [...new Set(cards.map((c) => Math.round(c.r.left)))];
+  const ys = [...new Set(cards.map((c) => Math.round(c.r.top)))];
+  return { ids: cards.map((c) => c.id), cols: xs.length, rows: ys.length, page: window.__ghosty?.gym?.page, dots: [...document.querySelectorAll('#pg-gym .gymdot')].map((d) => ({ on: d.classList.contains('on'), w: Math.round(d.getBoundingClientRect().width), h: Math.round(d.getBoundingClientRect().height) })), word: document.querySelector('#pg-gym .gympgw')?.textContent ?? '' };
+});
+const IDS = await page.$$eval('#pg-gym .gymcard', (bs) => bs.map((b) => b.dataset.game));
+const wantPage = (p) => IDS.slice(p * 6, p * 6 + 6).join(',');
+let pg = await onScreen();
+if (!pg) problems.push('pages of six: no strip of game cards');
+else {
+  if (pg.ids.join(',') !== wantPage(0) || pg.cols !== 2 || pg.rows !== 3) problems.push(`pages of six: the first page shows ${pg.ids.length} cards in ${pg.cols} columns and ${pg.rows} rows (${pg.ids.join(', ')})`);
+  if (pg.dots.length !== Math.ceil(CARDS / 6)) problems.push(`pages of six: ${pg.dots.length} dots for ${CARDS} games`);
+  if (pg.dots.some((d) => d.w < 44 || d.h < 44)) problems.push(`pages of six: a dot's target is under 44 pt: ${JSON.stringify(pg.dots)}`);
+  if (!pg.dots[0]?.on || pg.word !== `Games 1–6 of ${CARDS}`) problems.push(`pages of six: the first page's dot and words: ${JSON.stringify(pg)}`);
+}
+// a tap on the third dot shows the third page
+await G('.gymdot').nth(2).click({ timeout: 5000 }).catch(() => problems.push('pages of six: no third dot to tap'));
+// (the strip glides there: give a busy machine time to finish the glide)
+await page.waitForFunction(() => { const c = document.querySelector('#pg-gym .gymcards'); return c && Math.abs(c.scrollLeft - 2 * c.clientWidth) < 2; }, null, { timeout: 4000 }).catch(() => undefined);
+await page.waitForTimeout(200);
+pg = await onScreen();
+if (pg?.ids.join(',') !== wantPage(2) || !pg.dots[2]?.on || pg.page !== 2) problems.push(`the third dot did not show games 13–18: ${JSON.stringify(pg)}`);
+await wideCheck('the third page of games');
+await page.screenshot({ path: `${out}/gym-page3.png` });
+// a finger swipe from right to left shows the next page, and only the next (Chromium's touch screen; WebKit has none)
+if (engine !== 'webkit') {
+  const box = await G('.gymcards').boundingBox();
+  const cdp = await ctx.newCDPSession(page);
+  const y = Math.round(box.y + 90);
+  const finger = async (from, to) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from, y }] });
+    for (let i = 1; i <= 10; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: Math.round(from + ((to - from) * i) / 10), y }] });
+      await page.waitForTimeout(16);
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(900);
+  };
+  await finger(Math.round(box.x + box.width - 40), Math.round(box.x + 60));
+  pg = await onScreen();
+  if (pg?.ids.join(',') !== wantPage(3) || !pg.dots[3]?.on) problems.push(`a swipe left from the third page did not land on the fourth: ${JSON.stringify(pg)}`);
+  await finger(Math.round(box.x + 60), Math.round(box.x + box.width - 40));
+  pg = await onScreen();
+  if (pg?.ids.join(',') !== wantPage(2)) problems.push(`a swipe right did not go back one page: ${JSON.stringify(pg)}`);
+  await cdp.detach();
+}
+// the GYM opens on the page of the game played last: Sokoban (page 4) tapped, then Home and back to the GYM
+await tap('sokoban');
+await until(() => window.__ghosty?.gym?.open === 'sokoban', 5000, 'tapping the Sokoban card did not open it');
+await page.click('#top .navback');
+await page.waitForTimeout(500);
+await G('.gymdot').first().click({ timeout: 5000 }).catch(() => undefined);
+await page.evaluate(() => (location.hash = 'core'));
+await page.waitForTimeout(600);
+await page.evaluate(() => (location.hash = 'gym'));
+await page.waitForTimeout(900);
+pg = await onScreen();
+const soko = Math.floor(IDS.indexOf('sokoban') / 6);
+if (pg?.page !== soko || !pg.ids.includes('sokoban')) problems.push(`the GYM did not open on the page of the game played last (Sokoban, page ${soko + 1}): ${JSON.stringify(pg)}`);
+await G('.gymdot').first().click({ timeout: 5000 }).catch(() => undefined);
+await page.waitForTimeout(700);
+
 // ---- tic-tac-toe: TRAIN in the worker while the page keeps ticking ----
 await tap('tictactoe');
 await until(() => window.__ghosty?.gym?.open === 'tictactoe', 5000, 'tapping the tic-tac-toe card did not open it');
@@ -147,6 +223,9 @@ if (gap.n < 20 || gap.worst > 500) problems.push(`the page froze while training:
 const status = await G('.gymstatus').innerText();
 if (!/^Learning… [\d,]+ games · Level \d+ · mastery \d+% → \d+%$/.test(status)) problems.push(`the status line reads "${status}"`);
 if (!(await G('.gymgraph polyline').count())) problems.push('no progress graph');
+// the page holding the game in training carries the small training dot (tic-tac-toe: the first page), and no other
+const trainDots = await page.$$eval('#pg-gym .gymdot.train', (ds) => ds.map((d) => `${d.dataset.page} ${d.getAttribute('aria-label')}`));
+if (trainDots.length !== 1 || !/^0 Games 1 to 6, Tic-tac-toe training$/.test(trainDots[0] ?? '')) problems.push(`the training dot: ${JSON.stringify(trainDots)} (want the first page's, naming Tic-tac-toe)`);
 await page.screenshot({ path: `${out}/gym-training.png` });
 // (He may master every level and stop by himself before PAUSE — then there is nothing to pause.)
 const saves = (await st()).saves;
