@@ -433,8 +433,9 @@ folder that no longer exists; ignore those paths).
   Ghosty; GitHub lets him change his own code. Every key here is free."); "Not tried yet: Qwen3 0.6B" because `held`
   is only recorded on USE/TEST loads (offline/brain.ts); the picker still shows four greyed GET buttons without WebGPU;
   Name saves only on blur with no "saved"; toasts lower-case capitals (ui/components.ts, every feature). Verification
-  on the merged tree: web check, tsc, the config and offline-brain tests, then markets, settings, offlinebrain,
-  bigbrain, character, meaning, hubcards, routec, layout, ui, undo, voice and deck on a fresh preview.
+  on the merged tree, all green (03:53 UK): web check, tsc, the router and offline-brain tests (75 of 75), then markets,
+  settings, offlinebrain, bigbrain, character, meaning, hubcards, routec, layout, ui, undo, voice and deck on a fresh
+  preview. The markets and settings worktrees are removed.
 - 25 Oct 03:30 UK: started the REVERSE pass (`.claude/worktrees/reverse`, `worktree-reverse`, preview 8883, scratch
   `scratchpad/reverse/`) and the RADIO pass (`.claude/worktrees/radio`, `worktree-radio`, preview 8884, scratch
   `scratchpad/radio/`) on the branch head 8b5f9fa (Markets and Settings merged). Neither had a spec: each writes its own
