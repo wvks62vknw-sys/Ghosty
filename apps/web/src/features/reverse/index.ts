@@ -53,12 +53,12 @@ const plainTimes = (t: string) => t.replace(/\b\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d
 
 /**
  * Tiny markdown → DOM for the report (headings, code blocks, lists, bold, inline code), made to read on a phone:
- * times in his words, the title and the lines the header above already says left out, "(Ghosty baseline)" dropped
+ * times in his words, the title and the lines the header above already says (target, kind, when, question) left out, "(Ghosty baseline)" dropped
  * from headings, and REA's raw data (a code block, often thousands of characters of JSON) folded away.
  */
 function renderMd(md: string): HTMLElement {
   const out = h('div.mdreport');
-  const lines = plainTimes(md).split('\n').filter((l) => !/^# Reverse engineering report\s*$|^\*\*(Target|Kind|Started):\*\*/.test(l));
+  const lines = plainTimes(md).split('\n').filter((l) => !/^# Reverse engineering report\s*$|^\*\*(Target|Kind|Started|Question):\*\*/.test(l));
   let i = 0;
   const inline = (t: string): (string | Node)[] => {
     const parts: (string | Node)[] = [];
