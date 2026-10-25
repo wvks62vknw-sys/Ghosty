@@ -218,17 +218,33 @@ for (const viewport of [{ width: 1280, height: 860 }, PHONE]) {
     if (target) {
       const fieldName = target.text.split(' · ')[0];
       await ui.selectOption('#pg-library .pn.study select[aria-label="Field to study"]', target.value);
-      // STUDY posts the pick as the first focus and reads a few pieces at once; on a loaded runner that request can
-      // fail to reach the brain (the button's own toast says so), so the brain's focus is checked and one more tap
-      // is allowed before it counts as a failure (PR #36's run: the pick never showed, the brain's focus unchanged).
+      // a repaint keeps the pick: ALL FIELDS repaints the whole panel (on the old code that put the picker back on the
+      // field being read, which is what a late status answer or the FOCUS reply did on CI's slow runner)
+      await ui.click('#pg-library .pn.study button:has-text("FIELDS")').catch(() => undefined);
+      await ui.waitForSelector('#pg-library .pn.study button:has-text("FEWER")', { timeout: 8000 }).catch(() => problems.push(`[${name}] ALL FIELDS did not repaint the panel`));
+      await ui.click('#pg-library .pn.study button:has-text("FEWER")').catch(() => undefined);
+      await ui.waitForSelector('#pg-library .pn.study button:has-text("FIELDS")', { timeout: 8000 }).catch(() => undefined);
+      // STUDY posts the pick as the first focus, which the brain saves before it reads a few pieces at once (the button
+      // stays disabled until that reading is done), so the brain's own focus says whether the tap took: it is polled for
+      // up to two minutes. (PR #36's runs: a repaint between the pick and the tap put the picker back on the field being
+      // read, so STUDY sent that field; the picker now keeps the owner's pick through every repaint, and a second tap
+      // would only have sent the same wrong field again.)
       const studyState = () => ui.evaluate(async () => (await fetch('/api/library/study', { headers: { 'x-ghosty': '1', 'x-ghosty-key': 'preview-owner-key-0123456789' } })).json().catch(() => null));
       const picked = async () => (((await studyState())?.focus ?? [])[0] === target.value);
+      const pickedNow = await ui.$eval('#pg-library .pn.study select[aria-label="Field to study"]', (s) => s.value);
+      if (pickedNow !== target.value) problems.push(`[${name}] the picker lost the pick before STUDY: "${pickedNow}" instead of "${target.value}"`);
       await ui.click('#pg-library .pn.study .studypick button:has-text("STUDY")');
-      await ui.waitForFunction((id) => !!document.querySelector('#pg-library .pn.study .studypick button:not([disabled])') && id, target.value, { timeout: 120000 }).catch(() => undefined);
-      if (!(await picked())) {
-        console.log(`[${name}] STUDY needed a second tap (the brain's focus did not change on the first)`);
-        await ui.click('#pg-library .pn.study .studypick button:has-text("STUDY")');
+      let took = false;
+      for (let i = 0; i < 60 && !took; i++) {
+        took = await picked();
+        if (!took) await new Promise((r) => setTimeout(r, 2000));
       }
+      if (!took) {
+        const st = await studyState();
+        const toasts = await ui.$$eval('.toast', (t) => t.map((x) => x.textContent ?? '')).catch(() => []);
+        problems.push(`[${name}] STUDY did not put "${fieldName}" first in the brain: focus ${JSON.stringify(st?.focus ?? null)} queue ${JSON.stringify(st?.queue ?? null)} · picker "${await ui.$eval('#pg-library .pn.study select[aria-label="Field to study"]', (s) => s.value).catch(() => '?')}" · toasts ${JSON.stringify(toasts)}`);
+      }
+      await ui.waitForFunction((id) => !!document.querySelector('#pg-library .pn.study .studypick button:not([disabled])') && id, target.value, { timeout: 120000 }).catch(() => undefined);
       await ui.waitForFunction((f) => (document.querySelector('#pg-library .pn.study .studynow b')?.textContent ?? '').startsWith(`Reading ${f} · `), fieldName, { timeout: 150000 })
         .catch(async () => problems.push(`[${name}] STUDY did not queue "${fieldName}": "${await nowLine()}" · brain focus ${JSON.stringify((await studyState())?.focus ?? null)} queue ${JSON.stringify((await studyState())?.queue ?? null)}`));
       const first = await ui.evaluate(() => [...document.querySelectorAll('#pg-library .pn.study .rw')].find((r) => r.querySelector('.k')?.textContent === 'FIRST')?.textContent ?? '');

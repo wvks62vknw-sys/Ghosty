@@ -331,6 +331,18 @@ folder that no longer exists; ignore those paths).
   "the owner". Verification on the merged tree: web check, tsc and the memory, places, undo and backup specs on a fresh
   preview (chain bvwbxx25c); the full edge suite runs once after the scroll audit and the Iron Man look merge, before
   the push.
+- 25 Oct 01:05 UK: CI's smoke job on PR #36's earlier head 9212e3c went red on ONE spec, the library's STUDY check
+  (every other spec after it passed). Root cause, in the interface, not the spec: `paintStudy` repainted the whole
+  SELF-STUDY panel and set the field picker back to the field being read (`pick.value = cur?.id`), so on CI's slow
+  runner a repaint between the spec's pick and its STUDY tap (the FOCUS reply, or a status answer landing late) made
+  STUDY send "Accounting and business basics" instead of "Algebra & number theory"; the spec's "one more tap"
+  hardening could never help, because STUDY's own repaint reset the picker again. The owner would have hit it too: pick
+  a field, wait a moment, tap STUDY, and the wrong field is read. Fix: the picker keeps the owner's pick through every
+  repaint (`ownPick`, set by the select's change and the field bars' tap). The spec now repaints with ALL FIELDS /
+  FEWER right after the pick and checks the picker kept it (red on the old code by construction), then polls the brain's
+  focus for up to two minutes after one tap and reports the picker's value and the toasts if it did not take. Not run
+  against the old interface here (the machine was at load 10–15 with four builders); the mechanism is in the code.
+  The Library pass builder was told the exact change so its worktree merges cleanly.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build

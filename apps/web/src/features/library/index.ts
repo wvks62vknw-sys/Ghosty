@@ -357,7 +357,13 @@ export const libraryTab: TabDef = {
     let allFields = false;
     const focusIn = h('input', { placeholder: 'Put first: e.g. physics, finance, Swift · "none" clears', 'aria-label': 'Fields to study first' });
     const pick = h('select', { 'aria-label': 'Field to study' });
-    pick.addEventListener('change', () => study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value)));
+    // The owner's pick outlives every repaint (the FOCUS reply, a status answer landing late, STUDY's own): a repaint
+    // used to put the picker back on the field being read, so a STUDY tapped after a pick could send that field instead.
+    let ownPick = '';
+    pick.addEventListener('change', () => {
+      ownPick = pick.value;
+      study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === pick.value));
+    });
     const paintStudy = (st: StudyNow | null) => {
       clear(study.body);
       if (!st) {
@@ -378,7 +384,7 @@ export const libraryTab: TabDef = {
       const later = (sum.queue ?? []).slice(1, 5);
       // the topic picker: every field in the curriculum's order, its progress, ✓ once read to the end
       clear(pick, ...doms.map((d) => h('option', { value: d.id }, `${d.name} · ${d.read} of ${d.topics}${d.finished ? ' ✓' : ''}`)));
-      pick.value = cur?.id ?? doms[0]?.id ?? '';
+      pick.value = (ownPick && doms.some((d) => d.id === ownPick) ? ownPick : null) ?? cur?.id ?? doms[0]?.id ?? '';
       const studyNow = async (b: HTMLButtonElement) => {
         const id = pick.value;
         const row = doms.find((d) => d.id === id);
@@ -433,6 +439,7 @@ export const libraryTab: TabDef = {
           b.classList.toggle('picked', d.id === pick.value);
           const choose = () => {
             pick.value = d.id;
+            ownPick = d.id;
             study.body.querySelectorAll('.studyfields .bar').forEach((x) => x.classList.toggle('picked', (x as HTMLElement).dataset.id === d.id));
           };
           b.addEventListener('click', choose);
