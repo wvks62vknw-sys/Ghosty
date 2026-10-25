@@ -1267,7 +1267,9 @@ export const gymTab: TabDef = {
       last = r.cells;
       pl.over = big.over(pl.board);
       gymState.play.replies = (gymState.play.replies ?? 0) + 1;
-      paintBig(pl.over ? `He played ${r.said}. ${pl.over}` : `He played ${r.said}. Your move.`);
+      // his reason, when the move had one (a trick seen, a forced capture, mate)
+      pl.why = m.why?.reason ?? '';
+      paintBig(pl.over ? `I played ${r.said}. ${pl.over}` : `I played ${r.said}.${pl.why ? ` ${pl.why}` : ''} Your move.`);
     };
     const paintPlay = (caption: string) => {
       if (BOARDS[open.id]) return paintBig(caption);

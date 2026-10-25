@@ -546,7 +546,7 @@ for (const [id, pick, to, label] of [
   if (!(await cellAt(to).evaluate((e) => e.classList.contains('tgt')))) problems.push(`${id}: the square I want is not lit as legal`);
   await page.evaluate(() => (window.__ghosty.gym.play.replies = 0));
   await cellAt(to).click();
-  await until(() => (window.__ghosty.gym.play.replies ?? 0) >= 1 || /He played/.test(document.querySelector('#pg-gym .gymboard .gymcap')?.textContent ?? ''), 30000, `he did not answer my ${id} move`);
+  await until(() => (window.__ghosty.gym.play.replies ?? 0) >= 1 || /I played/.test(document.querySelector('#pg-gym .gymboard .gymcap')?.textContent ?? ''), 30000, `he did not answer my ${id} move`);
   await wideCheck(`playing ${id}`);
   await page.screenshot({ path: `${out}/gym-${id}.png` });
 }

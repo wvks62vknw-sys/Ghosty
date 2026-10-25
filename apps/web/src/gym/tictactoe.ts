@@ -6,7 +6,7 @@
  * the choice matters (not every move equally good) in which his move is game-theoretically optimal. 100% is
  * reachable. Levels raise the bar (85% → 100%).
  */
-import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict } from './core';
+import { type Cell, finalLine, lastInt, type Env, type Frame, type Game, type Learner, lvl, type Problem, rng, savedFor, type Verdict, type Versus } from './core';
 import { TICTACTOE } from './meta';
 import { boardText, frameOf, keyOf, toMove, winner } from './tttboard';
 
@@ -182,6 +182,32 @@ class TttLearner implements Learner {
   }
   move(state: number[]) {
     return winner(state) ? -1 : this.choose(state.slice()).move;
+  }
+  /** Against the owner: always a perfect move (exhaustive minimax) — his own choice when it is one — and why. */
+  versus(state: number[]): Versus {
+    const b = state.slice();
+    if (winner(b)) return { move: -1, reason: '' };
+    const S = solve();
+    const best = S.best.get(keyOf(b)) ?? [];
+    const mine = this.choose(b.slice()).move;
+    const move = best.includes(mine) ? mine : best[0] ?? mine;
+    const me = toMove(b);
+    const sign = me === 1 ? 1 : -1;
+    // what the move does: three now, a square that had to be blocked, or what perfect play gives from here
+    b[move] = me;
+    const v = sign * (S.value.get(keyOf(b)) ?? 0);
+    const three = winner(b) === me;
+    b[move] = 0;
+    const opp = me === 1 ? 2 : 1;
+    const threats = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => {
+      if (b[i]) return false;
+      b[i] = opp;
+      const w = winner(b) === opp;
+      b[i] = 0;
+      return w;
+    });
+    const reason = three ? 'Three in a row.' : threats.includes(move) ? `I had to block square ${move + 1}.` : v > 0 ? 'Solved: this wins.' : v === 0 ? 'Solved: you can’t win from here.' : 'Solved: you can win now. I’ve made you find it.';
+    return { move, reason, kind: three ? 'win' : threats.includes(move) ? 'block' : 'solved', value: v };
   }
 }
 

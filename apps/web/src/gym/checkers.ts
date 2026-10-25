@@ -18,7 +18,7 @@
  * rung was checked by climbing (a passer of the level below, frozen, stays under the next bar).
  */
 import { type Ck, type CkMove, ckFrame, ckFrom, ckState, ckText, copyCk, legalCk, moveText, NB, playCk, resultCk, rowOf, colOf, sqAt, startCk } from './ckboard';
-import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict } from './core';
+import { finalLine, type Env, type Frame, type Game, type Learner, lvl, mentions, type Problem, rng, savedFor, type Verdict, type Versus } from './core';
 import { Match, type MatchResult, record, share, type Stepper, trainMs } from './match';
 import { CHECKERS } from './meta';
 
@@ -504,6 +504,51 @@ class CkLearner implements Learner {
     const m = bestMove(p, Math.max(4, rungFor(this.level).me), learnedEval(this.w), moves).move;
     return moves.indexOf(m);
   }
+  /** Against the owner: his own engine's move, unless the tactical floor shows a trick that wins material or the game within 4 moves. */
+  versus(state: number[]): Versus {
+    const p = ckFrom(state);
+    const moves = legalCk(p);
+    if (resultCk(p, moves)) return { move: -1, reason: '' };
+    const mine = bestMove(p, Math.max(4, rungFor(this.level).me), learnedEval(this.w), moves).move;
+    const f = ckFloor(p, moves);
+    const top = Math.max(...f);
+    let m = mine;
+    let reason = '';
+    let kind = 'learned';
+    const fm = f[moves.indexOf(mine)]!;
+    if (top >= WIN / 2 && fm < WIN / 2) {
+      m = moves[f.indexOf(top)]!;
+      reason = 'That wins.';
+      kind = 'win';
+    } else if (fm <= -50 && top > fm + 50) {
+      // his choice walks into a shot that wins material: the best of the moves that lose nothing (or the least)
+      const floor = Math.min(top, 0) - 49;
+      const safe = moves.filter((_, i) => f[i]! >= floor);
+      m = bestMove(p, Math.max(4, rungFor(this.level).me), learnedEval(this.w), safe).move;
+      reason = top <= -WIN / 2 ? 'You have a forced win. I’ll make you find it.' : top < 0 ? 'You win a piece whatever I do. This loses the least.' : 'Your trap would have won a piece. I kept clear.';
+      kind = 'floor';
+    } else if (moves.length === 1 && moves[0]!.caps.length) {
+      reason = 'I had to take.';
+      kind = 'forced';
+    }
+    return { move: moves.indexOf(m), reason, kind };
+  }
+}
+
+/** Material only (a man 100, a king 150), for the side to move. */
+const materialEval: CkEval = (p) => 100 * materialCk(p) * p.side;
+/**
+ * The tactical floor: each move's worth by material and wins alone, searched 4 moves ahead with every capture
+ * followed to the end — so a sacrifice that sets up a double jump, or a run to a win, is seen.
+ */
+export function ckFloor(p0: Ck, moves = legalCk(p0)): number[] {
+  const p = copyCk(p0);
+  return moves.map((m) => {
+    const u = make(p, m);
+    const v = -bestMove(p, 3, materialEval).value;
+    unmake(p, m, u);
+    return v;
+  });
 }
 
 // ---- problems: forced wins in small endgames (exact) ----------------------------------------------------------------

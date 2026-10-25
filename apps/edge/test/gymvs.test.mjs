@@ -11,7 +11,7 @@ import { build } from 'esbuild';
 
 const at = (p) => new URL(p, import.meta.url).pathname;
 await build({
-  entryPoints: ['connect4', 'c4solve', 'c4play', 'c4study', 'c4talk', 'worker'].map((f) => at(`../../web/src/gym/${f}.ts`)),
+  entryPoints: ['connect4', 'c4solve', 'c4play', 'c4study', 'c4talk', 'worker', 'tictactoe', 'checkers', 'ckboard', 'chess', 'chessboard'].map((f) => at(`../../web/src/gym/${f}.ts`)),
   bundle: true,
   format: 'esm',
   platform: 'neutral',
@@ -25,7 +25,11 @@ const SV = await load('c4solve');
 const ST = await load('c4study');
 const W = await load('worker');
 const T = await load('c4talk');
-
+const TT = await load('tictactoe');
+const CK = await load('checkers');
+const CB = await load('ckboard');
+const CH = await load('chess');
+const BD = await load('chessboard');
 
 /** The old PLAY HIM (still his own move, used for league games between his versions): the network's tree search, 128 simulations. */
 const oldEngine = (games) => {
@@ -328,3 +332,108 @@ test('his lines: none without games; the count; a win where he saw the trap; the
   assert.equal(T.greeting(seen, { ...seen.t, self: 12_040 }, t0 + 3 * day), 'Since Saturday: 40 games against myself.');
 });
 
+// ---------------------------------------------------------------------------------------------------------
+// The same floor on the other boards where it is cheap: tic-tac-toe perfect; checkers and chess keep their engines,
+// with a 4-ply check under them so a trick never wins in a move.
+
+/** Seeded random numbers for the scans below. */
+const lcg = (seed) => {
+  let a = seed;
+  return () => ((a = (a * 1103515245 + 12345) % 2147483648) / 2147483648);
+};
+
+test('tic-tac-toe: against the owner every move is perfect, untrained or not, with its reason', () => {
+  const S = TT.solve();
+  const l = TT.tictactoe.learner(1, 1);
+  let n = 0;
+  let oldWrong = 0;
+  for (const b of S.positions) {
+    if (TT.winner(b) || TT.toMove(b) !== 2) continue;
+    const v = l.versus(b.slice());
+    assert.ok(S.best.get(TT.keyOf(b)).includes(v.move), `${b.join('')}: square ${v.move + 1}`);
+    assert.ok(v.reason.length > 0);
+    if (!S.best.get(TT.keyOf(b)).includes(l.move(b.slice()))) oldWrong++;
+    n++;
+  }
+  assert.ok(n > 1000, `${n} positions`);
+  assert.ok(oldWrong > 0, 'the old PLAY HIM (his learned values, untrained) was not perfect');
+  // the owner (X) threatens 1-2-3: he blocks, and says so
+  assert.deepEqual(l.versus([1, 1, 0, 2, 0, 0, 0, 0, 0]), { move: 2, reason: 'I had to block square 3.', kind: 'block', value: -1 });
+});
+
+test('checkers: a move the old engine played into a shot (a piece lost within 4 moves) is never his move now', () => {
+  const L = CK.checkers.learner(1, 1);
+  const r = lcg(11);
+  let shots = 0;
+  for (let g = 0; g < 40; g++) {
+    const p = CB.startCk();
+    for (let ply = 0; ply < 60; ply++) {
+      const ms = CB.legalCk(p);
+      if (!ms.length) break;
+      if (ply > 4 && p.side === -1) {
+        const st = CB.ckState(p);
+        const f = CK.ckFloor(p, ms);
+        const top = Math.max(...f);
+        const old = L.move(st);
+        const v = L.versus(st);
+        // never a move that loses material by force when another loses less
+        assert.ok(f[v.move] >= Math.min(top, 0) - 49 || f[v.move] >= f[old], `${st.join(',')}: ${f[v.move]} of ${top}`);
+        if (f[old] <= -50 && top > f[old] + 50) {
+          shots++;
+          assert.ok(f[v.move] > f[old]);
+          assert.match(v.reason, /^(Your trap would have won a piece\. I kept clear\.|You win a piece whatever I do\. This loses the least\.)$/);
+        }
+      }
+      CB.playCk(p, ms[Math.floor(r() * ms.length)]);
+    }
+  }
+  assert.ok(shots >= 1, 'no position where the old engine walked into a shot');
+});
+
+test('chess: a mate in one is taken; a move that lets the owner mate within his next two moves is never played when another does not', () => {
+  const L = CH.chess.learner(1, 1);
+  // the fool's mate: 1.f3 e5 2.g4 — Black mates at once
+  const p0 = BD.fromFen(BD.START);
+  for (const u of ['f2f3', 'e7e5', 'g2g4']) BD.make(p0, BD.legal(p0).find((m) => BD.uci(m) === u));
+  const v0 = L.versus(BD.posState(p0));
+  assert.equal(BD.uci(BD.fromPageMove(p0, v0.move)), 'd8h4');
+  assert.equal(v0.reason, 'Checkmate.');
+  const r = lcg(5);
+  let caught = 0;
+  for (let g = 0; g < 60 && caught < 2; g++) {
+    const p = BD.fromFen(BD.START);
+    for (let ply = 0; ply < 50; ply++) {
+      const ms = BD.legal(p);
+      if (!ms.length || BD.status(p, ms)) break;
+      if (p.side < 0 && ply > 2 && r() < 0.5) {
+        const st = BD.posState(p);
+        const old = BD.fromPageMove(p, L.move(st));
+        if (CH.lets(p, old)) {
+          const v = L.versus(st);
+          const m = BD.fromPageMove(p, v.move);
+          if (ms.some((x) => !CH.lets(p, x))) {
+            assert.ok(!CH.lets(p, m), `${BD.san(p, m)} still lets a mate`);
+            assert.equal(v.reason, 'You had a mate there. I closed it.');
+            caught++;
+          }
+        }
+      }
+      BD.make(p, ms[Math.floor(r() * ms.length)]);
+    }
+  }
+  assert.ok(caught >= 1, 'no position where the old engine let a mate');
+});
+
+test('the worker answers PLAY HIM with a reason on tic-tac-toe, checkers and chess too', () => {
+  const out = [];
+  W.gymMessage({ gym: 'move', id: 'tictactoe', req: 21, board: [1, 1, 0, 2, 0, 0, 0, 0, 0] }, (m) => out.push(m));
+  assert.deepEqual([out.at(-1).move, out.at(-1).why.reason], [2, 'I had to block square 3.']);
+  const ck = CB.startCk();
+  CB.playCk(ck, CB.legalCk(ck)[0]);
+  W.gymMessage({ gym: 'move', id: 'checkers', req: 22, board: CB.ckState(ck) }, (m) => out.push(m));
+  assert.ok(out.at(-1).move >= 0 && typeof out.at(-1).why.reason === 'string');
+  const p0 = BD.fromFen(BD.START);
+  for (const u of ['f2f3', 'e7e5', 'g2g4']) BD.make(p0, BD.legal(p0).find((m) => BD.uci(m) === u));
+  W.gymMessage({ gym: 'move', id: 'chess', req: 23, board: BD.posState(p0) }, (m) => out.push(m));
+  assert.equal(out.at(-1).why.reason, 'Checkmate.');
+});
