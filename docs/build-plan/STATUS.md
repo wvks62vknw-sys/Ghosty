@@ -56,7 +56,7 @@ Plain words, one line a thing. UPGRADES.md has the detail of each (what changed,
 - Merged at 02:55 UK: the Library upgrade pass (10 fixes: photos of pages, results that open at the passage, your shelf first, one ADD tile, honest offline, a readable PDF reader, matching on the words that matter, recent searches, OPEN after an import, every matching page) and a guard so an exam paper you add by hand is never trained on.
 - Merged at 03:25 UK: the Settings pass (11 fixes: honest fit lines, Ghosty's own sheet for GET, what the phone brain is for, words as written, TEST's result in sight, 44 pt dials, CHARACTER in plain words, home said, switches, today's HELP) and the Markets pass (10 fixes: gold, silver and what £1 buys from a source that answers, every price timed, what moved in plain words, a coin's week in place, honest hub card; the FTSE and S&P are gone because no free keyless source is left).
 - Upgrade passes running since 03:30 UK: Reverse and Radio (each measures first, then fixes the top ten).
-- Being built since 02:20 UK: the navigation (the GYM in pages of six, the long-press switcher on the tab bar, sections on System and Agenda so a long screen shows one part at a time, personal hub lines).
+- Merged at 04:45 UK: the navigation build (the GYM in pages of six, a long press on a tab fans out its tools, System and Agenda show one section at a time behind pills, the hubs speak in your own readings). It goes up in the pull request after #38.
 - Telegram's pass: dropped at your word.
 
 ## 4. Next, in order (each the same way: measure, fix the top ten, prove it)

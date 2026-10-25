@@ -447,6 +447,20 @@ folder that no longer exists; ignore those paths).
   Main merged back into the branch; the Markets and Settings passes with their docs pushed as PR #38 (opened 04:32 UK
   on head 9cf6399; a check-in at 05:58 UK merges if green). Still running: navigation (8881), Reverse (8883), Radio
   (8884).
+- 25 Oct 04:45 UK: merged after review: THE NAVIGATION BUILD (5 commits; merge clean over the Library, Markets and
+  Settings passes). Kernel line: `nav` in the CI spec loop (69 specs; `[nav]`). Behaviour the owner will notice: on the
+  phone the Agenda is one page in sections (Diary / Reminders / Spending / Calendars) and its Diary / Reminders switch
+  is gone; System shows one of Status / Report card / Training / Backup at a time; a long press on a tab fans out its
+  tools; the GYM is pages of six. Unproven here: `tests/safari.spec.mjs`'s "other side" is now a screen's second pill
+  and only CI's WebKit runs it — if CI's safari job goes red, that is the first place to look. The builder's table of the
+  other long screens that would take `ui/sections.ts` (Settings: Appearance · You · Voice & home · Ghosty · About;
+  Library: Ask · Shelf · Self-study · Fresh today · Add · Gadgets; Memory: Me · Patterns · Timeline · Diary · Chat;
+  School: Ladder · This stage · Results · Weak spots · Papers · Placement; Workshop: Build · Ideas · Changes · Made ·
+  Training; Threats: Signals · Near you · Space weather · Launches; Links: Accounts · This phone · Services; the
+  Brief, Markets and Radio are too short) is the next design pick for the owner: each is `sections(root, id, defs)`
+  after the panels mount. Other screens (the deck, the GYM page text) still say "he" about Ghosty: a sweep for the
+  polish week. Verification on the merged tree: web check, then nav, gym, hubcards, routec, layout, ui, agenda,
+  spending, speed, training, night, backup, undo, scrollfeel, scroll (Chromium), markets and settings on a fresh preview.
 - The week's pull request is **#32** (claude/ghosty-ai-training-idwhp9 → main), opened 23 Oct; CI runs on every push to it.
   Merged into the branch on 23 Oct after review: STUDY at scale, GYM part 3, the training pre-flight fixes, the design
   mock-ups (routes A/B/C, then C2 which the owner is approving). Running: fixes A2, SCHOOL part 1. Next: the C2 build
